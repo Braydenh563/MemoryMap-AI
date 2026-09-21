@@ -517,6 +517,26 @@ select optgroup {
      set, does its damage nowhere near the code that caused it. */
   --keyboard-inset: 0px;
 
+  /* Everything that can sit under a strip at the bottom of a card, as one
+     length: the keyboard above, and the home indicator. Named because it was
+     spelled out three times and the third spelling was the one that lost.
+
+     `.doc-toolbar.is-collapsed` (05-sidebars-themes.css) sets `padding-block`
+     at (0,2,0) and beat the `.doc-toolbar` rule in 07 that carries this sum
+     at (0,1,0): specificity beats file order, so the formatting strip read
+     the keyboard inset while it was expanded and not while it was collapsed,
+     which is its default state since D1. Measured at 820 with the strip
+     shown and the covered strip stubbed at 336px: expanded, 6.4px to
+     342.4px; collapsed, 4px to 4px. Both of those bars are strips you type
+     at, and a keyboard covers a collapsed one exactly as thoroughly.
+
+     So each rule now states its own base term and adds this, and a fourth
+     bottom dock is one `calc` rather than a fourth chance to get the sum
+     wrong. `env(safe-area-inset-bottom, 0px)` keeps its fallback because it
+     is the platform's property, not a token this stylesheet declares, and
+     `test_style_scale.py`'s no-fallback rule is about the latter. */
+  --dock-bottom-inset: calc(var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+
   --radius: 14px;
   /* --- the corner scale (§35L) ---------------------------------------------
      Three tiers derived from --radius, which is the slider in Settings →
@@ -1503,6 +1523,18 @@ header#top-bar.tabs-wrapped #tab-bar {
 .extras-row .entry-actions {
   margin-left: auto;
   align-items: center;
+  /* INBOX 273: `flex: 0 0 auto` above never shrinks this column, and a row
+     whose title has shrunk to its own minimum (a long name plus the
+     "Installed" chip) can still leave a two-button Reinstall/Remove pair
+     with nowhere to go but past the frame's right edge -- measured on the
+     embedding-models row at 820px, `min-width: 0` lets the flex algorithm
+     shrink this item at all rather than holding it to its buttons' natural
+     width, and `wrap` gives the two buttons a second line instead of an
+     overflow when there truly is no room, the same trade `.entry-meta`
+     itself already makes at this width. */
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* The install-in-progress state: a step description over a progress bar,
@@ -2079,8 +2111,16 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 1;
 }
 
+/* `.menu-wrap.library-card-menu`, matching the rule above rather than the
+   short name, and that is the whole reason this comment exists: written as
+   `.library-card-menu` alone this override is one class against the compound
+   selector two rules up, so it lost every time and the ⋯ stayed at opacity 0
+   on every touch screen. Measured with `scratchpad/ui-sweeps/hoveronly.js`
+   at 390 with `hover: none` emulated: a 44x44 button at opacity 0 on a
+   Library card, still 0 after a real tap. A `hover: none` override has to be
+   written at the specificity of whatever set the value it is overriding. */
 @media (hover: none) {
-  .library-card-menu {
+  .menu-wrap.library-card-menu {
     opacity: 1;
   }
 }
@@ -3457,6 +3497,88 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex: 1 1 auto;
 }
 
+/* --- the bar's three zones ---------------------------------------------------
+   INBOX 307, the owner: "I feel like the navigation and undo/redo buttons keep
+   getting pushed further and further to the left on the bottom bar, is there a
+   better way to restructure the right side of the bottom bar??"
+
+   He is right, and it is drift rather than a placement mistake: the run after
+   the spacer was one flat list, so each control added to the bar was appended
+   at its right end and moved the pair before it along. Measured at 1440 before
+   this, reading right to left in the order they were added: Find (2026-09-20),
+   Guide, Ask the agent, Command palette, then redo 391px from the right edge
+   of the bar and the navigation group 467px.
+
+   Moving them back would last until the next feature, so the bar has zones
+   with one order and one owner for its right end (index.html carries the same
+   note, `tests/test_status_bar_grammar.py` holds it):
+
+     state    what the app is holding or doing. Takes the left end and is the
+              only zone that shrinks, because none of it is a control.
+     tools    the doorways. The only zone that grows.
+     control  back, forward, history, undo, redo. Fixed membership, and it
+              ends the bar.
+
+   A zone is the same flex run the bar itself was, with the bar's own gap, so
+   the spacing between two controls is the same whether or not a zone boundary
+   falls between them. */
+.status-zone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The state zone is the one that gives way: a long background-job label is the
+   server's text and can be any length, and shortening it costs nothing, while
+   a control that shrinks out of reach costs the press. */
+.status-zone[data-status-zone="state"] {
+  flex: 0 1 auto;
+  /* **It gives way, but not past what it is showing.** Measured at 390: this
+     zone reported 0.0px wide while the status dot inside it still drew at
+     28x28 and was hit-testable, because the zone shrank to nothing and its
+     children, which do not shrink, spilled out of it. They stayed on screen
+     only because the bar around them does not clip on that axis, so the
+     layout was one `overflow` change away from hiding the only thing in this
+     app that says what the local model is doing.
+
+     A zone whose reported box does not contain what it draws is also why an
+     earlier reading called the dot invisible on a phone: the number said 0
+     and the pixels said otherwise. `min-content` keeps the two honest, and
+     still lets a long background-job label shorten, which is what the rule
+     above is for. */
+  min-width: min-content;
+}
+
+.status-zone[data-status-zone="tools"],
+.status-zone[data-status-zone="control"] {
+  flex: 0 0 auto;
+}
+
+/* The seam that says the right end is a different kind of thing: everything
+   left of it opens something, everything right of it moves you or changes what
+   you already have. The same divider `.status-nav` uses one group further in,
+   and for the same reason. */
+.status-zone[data-status-zone="control"] {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
+}
+
+/* Below 400 the bar scrolls sideways rather than dropping a control (the block
+   further down this file), and on a scrolling bar "the right end" is not a
+   place anybody can see: it is the part you have to drag the bar to reach. So
+   on a phone the order flips and the controls come first, which keeps undo,
+   redo and Back visible without a drag, exactly the three that block says a
+   phone has no other route to. The seam goes with them, since the zone is no
+   longer the thing at the end. */
+@media (max-width: 400px) {
+  .status-zone[data-status-zone="control"] {
+    order: -1;
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
 .status-item {
   display: inline-flex;
   align-items: center;
@@ -4296,24 +4418,42 @@ summary.small.icon-button {
   overflow: hidden;
 }
 
+/* Full width, scaled down, rather than a growing width (INBOX 308, the
+   owner: animations should be "done the cheapest they can be"). A width
+   animation lays out on every frame of the 2.4s crawl; measured on this
+   bar with scratchpad/ui-sweeps/animcost.js, 121 layouts against a control
+   floor of 3. `transform` is composited, so the same crawl costs none.
+   Two things the conversion has to get right, both of them here:
+
+   - The rounded ends belong to the track above, not to this element: a
+     scaled box scales its own border-radius into an ellipse. The track is
+     `overflow: hidden` with the pill radius, so it clips this fill's left
+     end round for free. What that costs is the 2.4px rounding the leading
+     edge used to carry (999px clamped to half of a 0.3rem bar); a squared
+     leading edge inside a rounded track is what a progress bar normally
+     looks like, and it is the right side of the trade against a radius
+     that visibly distorts as the bar moves.
+   - The track keeps the geometry: 11rem wide and 0.3rem tall, painted, so
+     scaling this fill cannot change the size of the thing on screen. */
 .boot-splash-progress-fill {
   height: 100%;
-  width: 0%;
-  border-radius: inherit;
+  width: 100%;
   background: var(--accent);
-  transition: width 220ms ease-out;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 220ms ease-out;
   animation: boot-splash-progress-crawl 2.4s ease-out forwards;
 }
 
 @keyframes boot-splash-progress-crawl {
-  0% { width: 8%; }
-  50% { width: 55%; }
-  100% { width: 90%; }
+  0% { transform: scaleX(0.08); }
+  50% { transform: scaleX(0.55); }
+  100% { transform: scaleX(0.9); }
 }
 
 .boot-splash-progress-fill.done {
   animation: none;
-  width: 100%;
+  transform: scaleX(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4327,7 +4467,7 @@ summary.small.icon-button {
 
   .boot-splash-progress-fill {
     animation: none;
-    width: 90%;
+    transform: scaleX(0.9);
     transition: none;
   }
 }

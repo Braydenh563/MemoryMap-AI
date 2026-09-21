@@ -68,6 +68,7 @@
   #tab-bar button {
     min-height: var(--target-min);
   }
+
 }
 
 /* --- band 2 (820 to 1100): the tabs are icons, and the header is one row --
@@ -601,7 +602,16 @@ header#top-bar,
 .chord-guide {
   position: fixed;
   inset: 0;
-  z-index: 95;
+  /* **Above every surface it is meant to navigate out of** (the owner,
+     2026-09-21: "the 'm' navigation overlay doesnt show infront of
+     everything and goes behind the settings modal and possibly other popups
+     as well"). The handler already outranks the overlay guard on purpose, so
+     the chord works while Settings is open; at `z-index: 95` the guide it
+     draws was then painted underneath the modal it was letting you leave.
+     Modals sit at 1040 to 1050, the highest fixed layer in the app is 3000,
+     so this goes above both: it is momentary, it is a mode, and nothing is
+     meant to cover it. */
+  z-index: 3100;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -935,7 +945,19 @@ header#top-bar,
     border-top: 1px solid var(--glass-border);
     backdrop-filter: blur(var(--glass-blur)) saturate(150%);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-    /* Height, because that is the only thing that changes when it recedes.
+    /* Height, because that is the only thing that changes when it recedes,
+       and it is one of the three animations in this stylesheet that a
+       transform cannot replace (INBOX 308, the owner on doing animations as
+       cheaply as they can be done). It is not dead code: measured on a 390
+       viewport, setting `data-receded` walks the box from 57.59px to 44px
+       across twelve frames, and costs a median 15 layouts and 1.0ms of
+       layout time against a floor of 0, once per recede.
+       A transform would be cheaper and wrong. `translateY` pushes the bar
+       down, so the bottom of a 44px touch target leaves the screen instead
+       of the caption leaving the row; `scaleY` squashes the icons, and the
+       point of the receded state is that it is still a full row of 44px
+       targets. What shrinks here is a real box with real content in it, so
+       it is a real layout change.
        The reduced-motion block in this file turns every transition off. */
     transition: height var(--motion-slow) ease;
   }
@@ -1311,5 +1333,541 @@ header#top-bar,
   .extras-row .entry-actions {
     margin-left: 0;
     flex-wrap: wrap;
+  }
+}
+
+/* --- Phase 11 item 1: the phone top bar is three controls, not six ----------
+   Measured at 320 before (scratchpad/ui-sweeps/phonehead.js): the space
+   switcher, notifications, theme, settings, lock and quit, 44px each, the
+   last ending at 332 in a 320 window, so the page scrolled sideways by one
+   button. Below 600 the four everyday-and-session squares become the rows of
+   one menu (`#header-more`, `initPhoneHeaderMore` in app.js), so the bar is
+   where you are (the space), what came in (notifications) and one way to
+   the rest. Nothing is hidden that the desktop has; it is one press further.
+   The end cluster's own margin goes with the divider it drew: one control
+   does not need a group boundary on its left. */
+@media (max-width: 599.98px) {
+
+  #top-bar #theme-btn,
+  #top-bar #settings-btn,
+  #top-bar #lock-btn,
+  #top-bar #quit-btn {
+    display: none;
+  }
+
+  #top-bar #header-more {
+    display: inline-flex;
+  }
+
+  #top-bar .header-cluster-end {
+    margin-left: 0;
+  }
+}
+
+/* The two header controls that live inside a wrapper (`.notif-wrap` for the
+   bell's unread dot, `.menu-wrap` for the menu above) declare `min-height: 0`
+   in 06-timeline-dialogs.css so the desktop levels them with the tabs, and
+   that declaration outranks the touch band's 44px floor, which the cluster's
+   bare buttons take. Measured at 320: the space switcher 44, the bell 36, the
+   menu 36, three heights on one line. The floor, restated at the wrapper's
+   specificity, in the band where a finger is the pointer. */
+@media (max-width: 819.98px) {
+
+  #top-bar .header-cluster > .notif-wrap > button,
+  #top-bar .header-cluster > .menu-wrap > button {
+    min-height: var(--target-min);
+  }
+
+  /* A menu row is a hit target too. Every `kebabMenu` row measured 36px on
+     a phone (phonehead.js, the first menu the touch sweep ever opened),
+     under the floor the band gives every other control. `touch.js` walks
+     what is on screen and a menu is not until it is pressed, which is how
+     the one control type that only exists after a tap kept the desktop's
+     height. */
+  .action-menu .menu-item {
+    min-height: var(--target-min);
+  }
+
+  /* The empty chat's "Ask Atlas: ..." prompt is a text button on a line of
+     its own (`p.help-atlas`), 286x36 at 390 (`phone.js`, the one control on
+     the chat tab under the floor). Only that one: a `.linklike` inside a
+     help paragraph is inline text and takes the paragraph's line. */
+  .help-atlas > .linklike {
+    min-height: var(--target-min);
+  }
+
+  /* "Show more" under a clamped note is a text button 80x22 at 390
+     (`phone.js`, the first long note the sweep ever met); a row's own
+     control takes the row's floor. */
+  .entry-more {
+    min-height: var(--target-min);
+  }
+
+  /* The timeline table's column sorts (30.8px) meet a finger now that the
+     table is the phone's default view. */
+  .timeline-sort {
+    min-height: var(--target-min);
+  }
+}
+
+/* --- Phase 11 items 2 and 3: no rail on a phone, an opener in the head ------
+   See `mountPhoneSidebarOpeners` (app.js) for the measurement. Below 600 the
+   sidebar sheet parks fully off screen, the page beside it takes back the
+   52px the rail reserved, the sheet's own toggle shows only while the sheet
+   is open (it is the closer then, pinned to the sheet's edge), and the
+   `.dock-nav` opener in each dock's head appears. Above 600 the block is
+   inert and the tablet keeps its hinge. */
+.dock-nav {
+  display: none;
+}
+
+@media (max-width: 599.98px) {
+
+  .dock-nav {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .dock-nav > button {
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+  }
+
+  #sidebar:not(.sidebar-sheet-open),
+  #chat-sidebar:not(.sidebar-sheet-open),
+  #doc-sidebar:not(.sidebar-sheet-open) {
+    transform: translateX(-100%);
+  }
+
+  #sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle,
+  #chat-sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle,
+  #doc-sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle {
+    display: none;
+  }
+
+  .sidebar-panel ~ * {
+    padding-left: 0;
+  }
+
+  /* The opener shares the identity row rather than taking one of its own:
+     the identity zone's phone basis is 100% (the block above this file's
+     600 band), which pushed a 44px button onto a 44px row by itself and the
+     title onto the next. Measured on Notes at 390 before: dock 250px, four
+     rows (opener, title, search + Filter wrapped, actions). The find zone
+     had the same shape for a different reason: `min-width: min-content`
+     below 1100 (the spill rule) stops the search input shrinking, so the
+     Filter button wrapped under it. On a phone the input is the thing
+     that gives; the buttons beside it are fixed. */
+  .dock:has(.dock-find) .dock-nav + .dock-identity,
+  .dock:not(:has(.dock-find)) .dock-nav + .dock-identity {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .dock .dock-find {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  /* A dock with an opener and no find zone (Chat) put its actions on the
+     title's row and left the title 34px for 148px of text (`phone.js`:
+     "wider than its box with no scroller"). The actions take the next row,
+     kept to the right as everywhere. */
+  .dock > .dock-nav ~ .dock-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .dock .dock-find > input[type="search"],
+  .dock .dock-find > .library-search {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+  }
+}
+
+/* --- Phase 11 item 2: a row swiped, star right and bin left ------------------
+   `initRowSwipe` (app.js) writes `--swipe-x` on the row and the classes
+   below; this draws it. The row's children slide as one; the underlays are
+   the row's own pseudo-elements, sized to the gap the slide opens, so nothing
+   is added to the DOM per row and a row that is never swiped costs nothing.
+   The colours are the two soft tokens the app already uses for "this is a
+   favourite" and "this is destructive"; past the arm point they saturate.
+   Touch only in effect (the script never starts a swipe for a mouse), but
+   the rules are harmless on a desktop: with no `--swipe-x` set nothing
+   moves and both underlays are zero wide. */
+@media (max-width: 599.98px) {
+
+  .entry-list li {
+    --swipe-x: 0px;
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-y;
+  }
+
+  .entry-list li > * {
+    transform: translateX(var(--swipe-x));
+  }
+
+  .entry-list li.is-settling > * {
+    transition: transform var(--motion-base) ease;
+  }
+
+  .entry-list li::before,
+  .entry-list li::after {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .entry-list li::before {
+    content: attr(data-swipe-right);
+    left: 0;
+    justify-content: flex-start;
+    padding-left: var(--space-4);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .entry-list li::after {
+    content: attr(data-swipe-left);
+    right: 0;
+    justify-content: flex-end;
+    padding-right: var(--space-4);
+    background: var(--error-soft);
+    color: var(--error);
+  }
+
+  .entry-list li.swipe-right::before {
+    width: var(--swipe-x);
+  }
+
+  .entry-list li.swipe-left::after {
+    width: calc(-1 * var(--swipe-x));
+  }
+
+  .entry-list li.swipe-armed.swipe-right::before {
+    background: color-mix(in srgb, var(--accent) 32%, transparent);
+  }
+
+  .entry-list li.swipe-armed.swipe-left::after {
+    background: color-mix(in srgb, var(--error) 32%, transparent);
+  }
+}
+
+/* --- Phase 11 item 2: the note page, the sheet recipe's `page` variant -------
+   A full-height sheet with no cap and no rounded top: it is the screen.
+   The card inside is the list's own card, so the list's rules draw it; the
+   actions row it came with sits in a thumb bar at the foot (09-editor.css's
+   recipe, shown here because the page only exists below 600). */
+.sheet-card-page {
+  max-height: 100dvh;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+  padding-bottom: calc(var(--space-5) + var(--target-min) + var(--space-3) + env(safe-area-inset-bottom, 0px));
+}
+
+.sheet-card-page > .note-page-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sheet-card-page > .note-page-list > li {
+  border: 0;
+  padding-inline: 0;
+}
+
+.sheet-card-page > .note-page-list .entry-content {
+  max-height: none;
+}
+
+.sheet-card-page > .note-page-bar {
+  display: flex;
+}
+
+/* --- Phase 11 item 3: the chat composer on a phone ---------------------------
+   04-chat-dock-appearance.css's 820 band wraps the composer, with a reason
+   from when the row held four icon buttons and Send: squeezed beside them the
+   autogrow box went 26px wide and 295px tall. The row holds the box, the
+   microphone and Send now, and measured at 390 the wrap put the box on one
+   44px line and the two buttons on another, 100px of composer for one line
+   of text. One row: the box gives, the two buttons are fixed. The mode
+   segment comes first in the scrolling controls strip, because it is the
+   control that decides what the next message does and it was the one
+   parked off the right edge (x 309 to 457 in a 390 window). */
+@media (max-width: 599.98px) {
+
+  .chat-composer {
+    flex-wrap: nowrap;
+    align-items: flex-end;
+  }
+
+  .chat-composer #chat-input {
+    flex: 1 1 0;
+    order: 0;
+  }
+
+  .chat-dock-controls > .chat-tool-group-mode {
+    order: -1;
+  }
+
+  /* The attachments follow the mode (`dockChatAttachments`, app.js). */
+  .chat-dock-controls > .chat-tool-group-attach {
+    order: -1;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  /* The mode segment's shell was 30px around 44px buttons; the strip's one
+     height is the touch floor. */
+  .chat-dock-controls .seg {
+    min-height: var(--target-min);
+    align-items: stretch;
+  }
+}
+
+/* --- Phase 11 item 9: no hover-only affordance -----------------------------
+   The one control the phone sweep found at opacity 0 in a visible row: the x
+   that unlinks a link chip, revealed by the row's hover. A finger cannot
+   hover, so where there is no hover the x is simply there, at the strength
+   the hover would have given it. */
+@media (hover: none) {
+
+  #entry-list .chip.link .unlink {
+    opacity: 0.7;
+  }
+}
+
+
+/* --- Phase 11 item 4: the graph's controls are one sheet on a phone --------
+
+   Measured at 390x844 before this: the gear's floating panel opened at
+   (20,224) 350x288 over a map of 362x653, 42% of the map covered, with 795px
+   of content scrolling inside 286px of panel; the View menu's list drew
+   280x257 and the ⋯ menu's 256x311, both of them over the same map. Three
+   surfaces, each answering a question about the thing it hides.
+
+   `openGraphControlsSheet` (app.js) moves all three into one sheet and puts
+   them back on close, so what is inside here is the app's own markup rather
+   than a phone copy of it: the panel arrives as `.graph-options` with its
+   class, and each menu's rows arrive inside a holder wearing the menu list's
+   classes, so every rule written for those two containers still reaches them.
+
+   What this band has to undo is only the part of each that is about floating:
+   a menu list is absolutely positioned under its opener and carries a card's
+   own edge, ground and shadow, and inside a sheet that is a card drawn on a
+   card. The panel's cap goes the same way, because the sheet is the scroller
+   now. */
+.graph-controls-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.graph-controls-body .dock-menu-list,
+.graph-controls-body .graph-options {
+  position: static;
+  visibility: visible;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* A row in the sheet is a row a thumb lands on. The menus' own rows and the
+   panel's buttons are 36px at every other width, which is the desktop's
+   floor; `--target-min` is this band's. Tick boxes and radios keep their own
+   size, for the reason the dock's height rule gives: a stretched tick box is
+   an oval, and its label is the target.
+
+   `:is(...)` rather than a list of descendant selectors, and that is
+   arithmetic rather than taste: 08-consistency.css gives every menu row
+   `min-height: var(--control-h-lg)` at (0,2,0), so a plain
+   `.graph-controls-body button` at (0,1,1) loses and the rows measured 36px
+   inside the sheet. `:is()` takes the weight of its heaviest argument, which
+   puts this at (0,2,0) too, and this file is the last one in, which is the
+   tie-break the whole band relies on. */
+@media (max-width: 599.98px) {
+
+  .graph-controls-body :is(button, summary, .select-opener, .doc-dock-menu-item) {
+    min-height: var(--target-min);
+  }
+
+  /* One way in, and it is the gear. The two `<details>` keep their markup
+     (what is in them moves into the sheet and comes back), so they are
+     hidden rather than emptied: an opener whose menu is somewhere else
+     opens nothing. */
+  #graph-view-menu,
+  #graph-more-menu {
+    display: none;
+  }
+}
+
+/* --- Phase 11 item 7: the whiteboard and the mind map on a phone -----------
+
+   Measured at 390x844 on a fresh board before any of this: the tool rail is a
+   364x56 band under a 364x604 canvas, and inside it 835px of tools scroll
+   through a 358px window, so 16 of its 31 buttons are on screen and the
+   Shapes section shows one of its seven. The top bar above is 88px of two
+   rows holding eleven controls, every one of them 36px tall against this
+   band's 44px floor.
+
+   The rail becomes one button (`#wb-tools-opener`, whose label is the tool
+   in hand) opening the sheet that `wbOpenToolsSheet` fills with the rail's
+   own `#wb-tool-group`. Nothing is removed and nothing is rebuilt: the group
+   goes into the sheet and comes back, which is why a tool added to the rail
+   needs no second edit here. */
+.wb-tools-opener {
+  display: none;
+}
+
+@media (max-width: 599.98px) {
+
+  #wb-tools-panel > #wb-tool-group {
+    display: none;
+  }
+
+  .wb-tools-opener {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+  }
+
+  /* The sheet gives the sections room to be a palette rather than a strip:
+     they stack, and each section's row wraps instead of running off the
+     side. The 42-control inventory this rail started as is exactly what a
+     sheet is for. */
+  .wb-tools-palette #wb-tool-group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    overflow: visible;
+  }
+
+  .wb-tools-palette .wb-tool-section-row {
+    flex-wrap: wrap;
+  }
+
+  .wb-tools-palette :is(button, summary, .wb-shape-toggle) {
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+  }
+
+}
+
+/* --- the board's bar takes the floor of the whole touch band, not just 600 --
+   It was written in the 600 band with Phase 11 item 7, and the band above it
+   is the one whose own rule reads "below 820 the pointer is a finger"
+   (07-whiteboard-misc.css redeclares `--target-min` at 2.75rem there). The
+   bar was exempt from it by accident, exactly the way `#tab-bar` was:
+   measured on an open board at 768x1180, `--target-min` resolved to 2.75rem
+   and all thirteen of the bar's controls still came back **36px tall**,
+   because the bar declares its own control height and that wins over a token
+   nothing in the bar reads. The icon-only ones had taken the width (44) and
+   not the height, which is how it stayed invisible.
+
+   It costs one step of height for thirteen targets that can be hit, the same
+   trade item 7 made at 390 (88px to 104px there). */
+@media (max-width: 819.98px) {
+
+  #wb-topbar :is(button, summary, select) {
+    min-height: var(--target-min);
+  }
+
+  #wb-topbar .icon-button {
+    min-width: var(--target-min);
+  }
+}
+
+/* --- Phase 11 item 5: the Library reader as the page ------------------------
+   The reader (the OCR workspace) is a three-pane dialog sized to the window.
+   Measured at 390x844: a 342x776 card inset 24px with a 14px rounded top, its
+   toolbar scrolling 409px of tools sideways, the Regions checkbox label 36px
+   tall, a zoom segment button 35px wide and the two rail tabs 13x25.
+
+   `library.js`'s `ocrPhonePage` puts the sheet recipe's `page` classes on the
+   card below 600, so the geometry (the whole screen, no cap, no rounded top,
+   the padding that keeps the last row above the bar) is the same one the note
+   page gets rather than a second full-screen surface. What is the reader's own
+   is here: the panes stack into one column, and every control it owns takes
+   the band's touch floor. */
+@media (max-width: 599.98px) {
+
+  /* One column: the page, then what it says. The rail is already gone at
+     1100 (07-whiteboard-misc.css), where the empty column it left behind is
+     also dealt with. `auto` rows rather than a stretched grid, because the
+     card is the scroller here: a picture and a transcription are both as
+     long as they are. */
+  .sheet-card-page .ocr-panes {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto;
+    overflow-y: auto;
+    gap: var(--space-4);
+  }
+
+  /* The picture is allowed to be short; the reading needs somewhere to go.
+     Without this the transcription's own scroller sits inside a row sized to
+     its content and the card scrolls twice. */
+  .sheet-card-page .ocr-regions {
+    min-height: 0;
+    overflow: visible;
+  }
+
+  /* Every control in the head and the toolbar a finger lands on. The toolbar
+     still scrolls sideways, which is the same answer the app gives every
+     overflowing strip, but each stop on it can now be hit. */
+  .sheet-card-page :is(.ocr-head, .ocr-toolbar) :is(button, summary, select, .checkbox-label) {
+    min-height: var(--target-min);
+  }
+
+  .sheet-card-page :is(.ocr-head, .ocr-toolbar) .icon-only {
+    min-width: var(--target-min);
+  }
+
+  /* The segments declare their own compact height, so they are named rather
+     than swept up by the rule above: a `.seg-compact` button is the thing a
+     finger aims at, not the group around it. */
+  .sheet-card-page .ocr-toolbar .seg-compact > button {
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+  }
+
+  /* Find, over the reading: a 343x20 box at this width, the one control in
+     the reader that is neither in the head nor in the toolbar. */
+  .sheet-card-page .ocr-find-input {
+    min-height: var(--target-min);
+  }
+
+  /* The rail's own tabs, which are 13x25 at this width: they only appear when
+     the rail does, and the rail is hidden here, but the switch above it is
+     not, and a tab you cannot hit is a list you cannot change. */
+  .sheet-card-page .ocr-rail-tab {
+    min-height: var(--target-min);
+  }
+
+  /* The reading's actions are in the thumb bar now (`ocrPhonePage`), so the
+     empty row they left must not keep its gap. */
+  .sheet-card-page .ocr-regions-foot:empty {
+    display: none;
   }
 }

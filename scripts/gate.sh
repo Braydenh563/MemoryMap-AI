@@ -41,16 +41,68 @@ for arg in "$@"; do
   esac
 done
 ran=(); passed=(); failed=(); skipped=()
+# **pytest's exit 5 is "no tests were collected", and it is a failure here.**
+#
+# The reading that would make it a pass is that a change touching no tested
+# file legitimately runs nothing. That case never reaches pytest: `--changed`
+# checks `${#TARGETED[@]}` first and records `changed-tests (none matched)` as
+# *skipped*, with the base it compared against printed above it, so an empty
+# selection is already said out loud rather than shown as a green test run.
+#
+# What is left, by elimination, is pytest being handed test files that yield
+# no tests: a new test file with nothing in it yet, a file whose tests were all
+# renamed out from under the selection, a collection error swallowed into an
+# empty run. Every one of those is the selection and reality disagreeing, which
+# is the same silence an empty `--changed` used to print green, and the gate
+# that let two agents measure nothing was fixed tonight for exactly it.
+#
+# So it fails, and it says which failure it is: "no tests failed" and "no tests
+# ran" want different answers from whoever is reading the five lines, and a
+# bare red step name gives neither. Only pytest returns 5; `node --check`
+# returns 0 or 1 and ruff 0, 1 or 2, so nothing else can land here by accident.
+#
+# The five lines are the whole diagnosis, and that is not a stylistic
+# preference: `pytest -q` on an empty collection writes one byte to its log
+# (measured), so "logs: .gate/changed-tests.log" leads to a blank file and the
+# step name is all the reader gets.
 step() {  # name, command...
-  local name="$1"; shift
+  local name="$1" rc; shift
   ran+=("$name")
-  if "$@" > "$LOG/$name.log" 2>&1; then passed+=("$name"); else failed+=("$name"); fi
+  "$@" > "$LOG/$name.log" 2>&1
+  rc=$?
+  if [ "$rc" = 0 ]; then passed+=("$name")
+  elif [ "$rc" = 5 ]; then failed+=("$name (exit 5: no tests collected)")
+  else failed+=("$name"); fi
 }
 LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_braces.py
   tests/test_frontend_ids.py tests/test_frontend_handlers.py tests/test_dock_grammar.py
+  tests/test_status_bar_grammar.py
   tests/test_docs_layout.py tests/test_asset_cache_busting.py tests/test_no_em_dashes.py
   tests/test_no_innerhtml_interpolation.py tests/test_markdown_link_schemes.py
   tests/test_frontend_load_order.py tests/test_ui_recipes.py tests/test_perf_mode.py
+  # Which boot-loaded file may call into a lazy bundle, and on what terms.
+  # Here rather than left to the changed-test heuristic because it reads
+  # index.html, app.js's two loader tables and every frontend file at once,
+  # so a change to any one of them can break it without naming it.
+  tests/test_lazy_bundle_calls.py
+  # The command tables' row shape: it reads editor.js and documents.js
+  # together, so neither file's name selects it on its own.
+  tests/test_command_row_shape.py
+  # The documentation hygiene lint (standing order 10: plan sizes, the
+  # HANDOVER line cap, a "Fixed" item left in INBOX). Here because the
+  # changed-test heuristic cannot reach it: it opens `HANDOVER.md` and the
+  # plans through `ROADMAP / "..."`, a constructed path rather than a
+  # literal a diff can be matched against, so editing HANDOVER selects no
+  # test at all. 2026-09-21: two HANDOVER additions took it to 606 lines
+  # and `--changed` printed "changed-tests (none matched)" on the commit
+  # that did it; CI found it thirteen minutes later.
+  tests/test_plan_hygiene.py
+  # The privacy promise against the code that keeps it. Here rather than
+  # left to the changed-test heuristic because it reads five copy files
+  # and two config files at once, so a sentence edited in one of them
+  # selects nothing.
+  tests/test_offline_promise.py
+  tests/test_cheap_animations.py
   # The copy lint, here for the same reason `test_docs_site.py` is below: it
   # reads every string in `frontend/*.js` and every piece of markup outside a
   # comment, so the changed-test heuristic (a test naming a changed source
@@ -124,7 +176,29 @@ step ruff "$RUFF" check .
 # working tree. Not since origin/main: on a long branch that is the whole
 # suite again. It prints the list it picked so a miss is visible.
 changed_tests() {
-  local base; base="${GATE_BASE:-$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo HEAD~1)}"
+  # **A worktree has no upstream, and the old fallback was silent.** An agent
+  # branch cut with `git worktree add -b` tracks nothing, so this fell through
+  # to HEAD~1: on a fresh worktree that is the base commit itself, the diff is
+  # empty, no test file is selected, and the gate still prints green. Two
+  # agents ran a gate that measured nothing tonight and could not tell. So the
+  # fallback walks out to the branch this was cut from before it gives up, and
+  # whichever base is used is printed, because a gate that will not say what
+  # it compared against cannot be trusted by the person reading its five lines.
+  local base
+  base="${GATE_BASE:-$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)}"
+  if [ -z "$base" ]; then
+    for candidate in claude/open-sections-a-b origin/main main; do
+      if git rev-parse --verify --quiet "$candidate" >/dev/null &&
+         [ "$(git rev-parse HEAD)" != "$(git rev-parse "$candidate")" ]; then
+        base="$candidate"; break
+      fi
+    done
+  fi
+  [ -n "$base" ] || base="HEAD~1"
+  # To stderr, not stdout: this function *returns* the test list on stdout,
+  # so a friendly line printed here becomes a file name pytest then cannot
+  # find. Caught by the gate itself one minute after it was written.
+  echo "changed-base: $base" >&2
   { git diff --name-only "$base"; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u |
   while read -r f; do
     case "$f" in
@@ -175,7 +249,7 @@ if [ "$SWEEPS" = 1 ]; then
   # previewclash: the board and map thumbnails, whose faults (a caption over a
   # block, over another caption, or past the paper) are pure geometry and so
   # are a number, but a number no lint can reach without a browser.
-  for s in errors docks contrast touch leaks keyboard requests previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor refchips helpstream; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  for s in errors docks contrast touch leaks keyboard requests diskspace previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve wbtopbar dochighlight spinnershape tagoffer imagefold imagecardfoot featuremodels asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps btnrows slashicons answersupport uitrio animcost noteobject mapdoors maplayouts maptheme; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

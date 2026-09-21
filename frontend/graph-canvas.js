@@ -1250,6 +1250,20 @@ function gcWireInteraction(s = gcTab) {
       gcRequestDraw(s);
     })
     .on("zoom", (event) => {
+      //: **A touch lasso is refused here rather than in `.filter`.** The
+      //: filter runs once, at the start of the gesture, and a hold that arms
+      //: the lasso (`gcArmTouchLasso`) happens 500ms *inside* a gesture
+      //: d3-zoom has already claimed as a one-finger pan: by the time the
+      //: lasso exists there is nothing left to filter. So the pan is thrown
+      //: away while a lasso is being drawn, and d3's own stored transform is
+      //: pinned back to what is on screen so the refusal cannot accumulate:
+      //: every later move is measured from where the map actually is, and
+      //: lifting the finger leaves the camera exactly where the hold found
+      //: it. `__zoom` is the property `d3.zoomTransform` reads.
+      if (s.lasso) {
+        s.canvas.__zoom = s.transform;
+        return;
+      }
       // `sourceEvent` is set for a real gesture and null for a programmatic
       // transform, which is how "the user went to look at something" is told
       // apart from "the renderer framed the map".
@@ -1387,7 +1401,16 @@ function gcWireInteraction(s = gcTab) {
         }
         if (over && movedFar) {
           linkByDrop(node, over);
-        } else if (!movedFar) {
+        } else if (!movedFar && !s.holdFired) {
+          //: **A hold is not a tap that took a while.** In a force layout a
+          //: click on a node *is* a zero-distance drag, and this is where it
+          //: is turned into one, so a long press that opened the node's menu
+          //: ended here as well and opened that node's panel underneath it:
+          //: measured at 390, the menu was still on screen with the panel in
+          //: front of it holding the focus. `holdFired` is set by the hold
+          //: and cleared by the next press on the canvas
+          //: (`gcWireNodeMenu`), so it says "this gesture was a hold" and
+          //: nothing about the one after it.
           gcClickNode(event.sourceEvent, node, s);
         } else if (!node.isGroup && keep) {
           //: Only a real pin is written down. A placement that the simulation
@@ -1447,7 +1470,7 @@ function gcWireInteraction(s = gcTab) {
       //: no drag there is no `end` and nothing ever opened the popup.
       //: The click event is the only thing those three layouts get, so it
       //: is where their click lives.
-      if (s.layoutKind === "force") return;
+      if (s.layoutKind === "force" || s.holdFired) return;
       gcClickNode(event, hit, s);
       return;
     }
@@ -1522,6 +1545,32 @@ function gcPointInPolygon(x, y, points) {
     if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
   }
   return inside;
+}
+
+//: **The lasso on a phone** (Phase 11 item 4). Its desktop gesture is Shift
+//: and drag, and a finger has no Shift, so the hold `gcWireNodeMenu` wires
+//: arms it instead: hold on empty map, then drag the shape you want. Called
+//: from there rather than wiring a second hold here, so there is one hold on
+//: this canvas and one place that decides what is under it.
+//:
+//: The hint is said once a session, because the first hold on empty map is
+//: the only one that needs telling: after that the shape drawing under the
+//: finger says it.
+let gcLassoHintSaid = false;
+
+function gcArmTouchLasso(event, x, y, s = gcTab) {
+  if (s.lasso || s.size !== "full") return;
+  s.lasso = { points: [[x, y]] };
+  try {
+    s.canvas.setPointerCapture(event.pointerId);
+  } catch {
+    // A pointer already lifted cannot be captured; the lasso still draws.
+  }
+  gcRequestDraw(s);
+  if (!gcLassoHintSaid && typeof toast === "function") {
+    gcLassoHintSaid = true;
+    toast("Drag to select notes");
+  }
 }
 
 function gcWireLasso(s = gcTab) {
@@ -1680,11 +1729,9 @@ function gcWireSelectionDock(s = gcTab) {
   });
 }
 
-// --- Phase 4: the right-click menu ---------------------------------------------------
-let gcNodeMenuEl = null;
+// --- Phase 4: the right-click menu, and Phase 11's hold ------------------------------
 function gcCloseNodeMenu() {
-  if (gcNodeMenuEl) gcNodeMenuEl.remove();
-  gcNodeMenuEl = null;
+  closeActionMenus();
 }
 
 function gcWireNodeMenu(s = gcTab) {
@@ -1695,67 +1742,94 @@ function gcWireNodeMenu(s = gcTab) {
     event.preventDefault();
     gcShowNodeMenu(node, event.clientX, event.clientY, s);
   });
-  document.addEventListener(
-    "pointerdown",
-    (event) => {
-      if (gcNodeMenuEl && !gcNodeMenuEl.contains(event.target)) gcCloseNodeMenu();
-    },
-    true
-  );
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && gcNodeMenuEl) gcCloseNodeMenu();
+  //: **A finger has no second button** (UI_MODERNISATION_PLAN Phase 11 item
+  //: 4: "long-press for the node menu (no right click), lasso by long-press
+  //: then drag"). One hold, wired once, answering both: what is under the
+  //: press decides which. A node gets the same menu a right-click opens; the
+  //: empty map arms the lasso, which is the other thing this canvas has that
+  //: a phone could not reach at all, because its desktop gesture is Shift
+  //: and drag. `wireLongPress` (app.js) is the app's one hold: touch only,
+  //: 500ms, cancelled by a move, so the app answers a hold at one speed
+  //: everywhere. `tests/test_ui_recipes.py` counts this file's contextmenu
+  //: listeners against its `wireLongPress` calls.
+  //: Cleared at the start of every press and set by the hold below, so the
+  //: two places a tap on a node is turned into an open (d3-drag's `end` in a
+  //: force layout, the canvas `click` in the computed ones) can tell a hold
+  //: from a slow tap without a timer of their own.
+  s.canvas.addEventListener("pointerdown", () => {
+    s.holdFired = false;
+  });
+  wireLongPress(s.canvas, (event, point) => {
+    s.holdFired = true;
+    const [x, y] = gcWorldPoint(event, s);
+    const node = gcNodeAtWorld(x, y, s);
+    if (node && !node.isGroup) {
+      gcShowNodeMenu(node, point.x, point.y, s);
+      return;
+    }
+    gcArmTouchLasso(event, x, y, s);
   });
   window.addEventListener("wheel", gcCloseNodeMenu, { passive: true });
 }
 
+//: **The menu at the pointer is the app's own recipe** (DESIGN.md, "A menu at
+//: the pointer"). This was a hand-built `.action-menu` with its own rows, its
+//: own clamp against the window and its own three closers, written before
+//: `openMenuAtPoint` existed. It is the same object: `kebabMenu`'s rows on a
+//: one-pixel anchor parked where the press was, which brings the clamp that
+//: measures and corrects, the arrow keys, Escape, the outside press, and the
+//: 44px row the touch band gives every menu in the app, none of which the
+//: hand-built one had. The `graph-node-menu` class stays on the opened menu:
+//: it carries the 13rem minimum width that keeps "Remove from selection" on
+//: one line, and `scratchpad/ui-sweeps/graph4.js` reads the menu by it.
 function gcShowNodeMenu(node, clientX, clientY, s = gcTab) {
-  gcCloseNodeMenu();
-  const menu = document.createElement("div");
-  menu.className = "action-menu action-menu-escaped graph-node-menu";
-  menu.setAttribute("role", "menu");
-  const item = (icon, text, onPick) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "menu-item doc-dock-menu-item";
-    button.setAttribute("role", "menuitem");
-    setLabel(button, `${icon} ${text}`);
-    button.addEventListener("click", () => {
-      gcCloseNodeMenu();
-      onPick();
-    });
-    menu.appendChild(button);
-  };
   const isNote = node.type !== "entity" && node.type !== "document";
-  if (isNote) item("ph:arrow-square-out", "Open", () => flashEntry(node.id));
-  item(node.fx != null ? "ph:push-pin-slash" : "ph:push-pin", node.fx != null ? "Unpin" : "Pin in place", () => gcTogglePin(node, s));
+  const selected = s.selected.has(node.id);
+  const items = [];
   if (isNote) {
-    item("ph:crosshair", "Focus on this note", () => {
-      graphFocusModeId = node.id;
-      renderGraph();
+    items.push({
+      label: "ph:arrow-square-out Open",
+      title: "Open this note in the notes list",
+      run: () => flashEntry(node.id),
     });
   }
-  const selected = s.selected.has(node.id);
-  item(selected ? "ph:selection-slash" : "ph:selection-plus", selected ? "Remove from selection" : "Add to selection", () => {
-    if (s.selected.has(node.id)) s.selected.delete(node.id);
-    else s.selected.add(node.id);
-    gcSelectionChanged(s);
-    gcRequestDraw(s);
+  items.push({
+    label: node.fx != null ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin in place",
+    title: node.fx != null ? "Let the layout move this note again" : "Keep this note where it is",
+    run: () => gcTogglePin(node, s),
   });
-  item("ph:eye-slash", "Hide on this map", () => {
-    s.hiddenIds.add(node.id);
-    s.selected.delete(node.id);
-    gcSelectionChanged(s);
-    renderGraph();
+  if (isNote) {
+    items.push({
+      label: "ph:crosshair Focus on this note",
+      title: "Show only this note and what it connects to",
+      run: () => {
+        graphFocusModeId = node.id;
+        renderGraph();
+      },
+    });
+  }
+  items.push({
+    label: selected ? "ph:selection-slash Remove from selection" : "ph:selection-plus Add to selection",
+    title: "The selection bar acts on every note in it at once",
+    run: () => {
+      if (s.selected.has(node.id)) s.selected.delete(node.id);
+      else s.selected.add(node.id);
+      gcSelectionChanged(s);
+      gcRequestDraw(s);
+    },
   });
-  document.body.appendChild(menu);
-  gcNodeMenuEl = menu;
-  const rect = menu.getBoundingClientRect();
-  const left = Math.min(clientX, window.innerWidth - rect.width - 8);
-  const top = Math.min(clientY, window.innerHeight - rect.height - 8);
-  menu.style.position = "fixed";
-  menu.style.left = `${Math.max(8, left)}px`;
-  menu.style.top = `${Math.max(8, top)}px`;
-  menu.querySelector("button")?.focus();
+  items.push({
+    label: "ph:eye-slash Hide on this map",
+    title: "Take this note off the map for this visit",
+    run: () => {
+      s.hiddenIds.add(node.id);
+      s.selected.delete(node.id);
+      gcSelectionChanged(s);
+      renderGraph();
+    },
+  });
+  openMenuAtPoint(items, "Note actions", clientX, clientY);
+  document.querySelector(".action-menu:not(.hidden)")?.classList.add("graph-node-menu");
 }
 
 //: The word "entity" explains nothing on its own, and it is the label on a
@@ -1824,7 +1898,13 @@ function gcStop(s = gcTab) {
   gcPost({ type: "stop" }, s);
 }
 
-function gcStartWorker(nodes, edges, world, s = gcTab) {
+//: `viewSeed`, when the caller is restoring a saved view, is
+//: `{alpha, freezeIds}`: the alpha to hand the worker's `init` (0 to start at
+//: rest, the decision above) and which node ids to freeze right after init
+//: so they hold still while `alpha: 1` places the notes that have no saved
+//: spot. `null` (every other caller) is the unchanged "alpha 1, nothing
+//: frozen" behaviour.
+function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
   if (!s.worker) {
     // Version-stamped for the same reason index.html's script tags are
     // (tests/test_asset_cache_busting.py): a desktop wrapper with its own
@@ -1903,6 +1983,15 @@ function gcStartWorker(nodes, edges, world, s = gcTab) {
           gcSetAutoFitDone(s, true);
           fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
         }
+        // GRAPH_PLAN Phase 5: the settle a restored view's unplaced notes
+        // forced is over, so the notes it held still (`viewSeed.freezeIds`,
+        // below) are released the same way a drag's freeze is: `thaw`, no
+        // alpha change, so releasing them does not itself start another
+        // settle.
+        if (s._viewRestorePending) {
+          s._viewRestorePending = false;
+          gcPost({ type: "thaw" }, s);
+        }
       }
     };
     s.worker.onerror = () => {
@@ -1937,8 +2026,18 @@ function gcStartWorker(nodes, edges, world, s = gcTab) {
       spread: Number(localStorage.getItem("graph-spread") || 50),
     },
     world,
-    alpha: 1,
+    // GRAPH_PLAN Phase 5, "positions on a saved view": 0 starts the layout
+    // at rest instead of relaxing it (see the decision on `viewSeed` above),
+    // 1 is every other caller's unchanged behaviour.
+    alpha: viewSeed ? viewSeed.alpha : 1,
   }, s);
+  // Freeze the view's own notes *after* init, so the worker reads their
+  // current (just-seeded) x/y as the position to hold, exactly the "freeze
+  // holds where a note already is" contract `freeze` has for a drag.
+  if (viewSeed && viewSeed.freezeIds && viewSeed.freezeIds.length) {
+    gcPost({ type: "freeze", ids: viewSeed.freezeIds }, s);
+    s._viewRestorePending = true;
+  }
 }
 
 //: The world the simulation solves in, a square whose side grows with
@@ -2106,14 +2205,46 @@ async function renderGraphCanvas(s = gcTab) {
   // animation. Same inheritance the SVG renderer does, and for the same
   // reported reason.
   const prior = new Map((graphNodesRef || []).map((n) => [n.id, { x: n.x, y: n.y }]));
+  // GRAPH_PLAN Phase 5, "positions on a saved view" (INBOX 275's neighbour
+  // row). One-shot: consumed here so a second `renderGraphCanvas()` from the
+  // same `graphApplyView` call (it fires once per control it restores:
+  // layout, colour, physics, entities...) does not re-seed on top of a
+  // layout that has already moved on; every render after this one just
+  // inherits the result forward through `prior`, above, the same as any
+  // other re-render already does. Only meaningful for force: a tree/radial/
+  // arc layout is recomputed deterministically below and never reads this.
+  const viewPositions = graphPendingViewPositions;
+  graphPendingViewPositions = null;
+  // Decision made, 2026-09-21 (GRAPH_PLAN): a restored arrangement holds, it
+  // does not re-settle. A note the view captured gets exactly its saved
+  // spot; a note added *since* the view was saved has no saved spot, and is
+  // the only reason the simulation may reheat at all on this render (passed
+  // to `gcStartWorker` below).
+  const unplacedByView = viewPositions
+    ? visibleNodes.some((n) => !viewPositions[n.id])
+    : false;
+  // Ids seeded from a saved view but not genuinely pinned: frozen only for
+  // the length of the settle the unplaced notes above force, then released
+  // (`gcStartWorker`'s "end" handling, below) the same way a drag freezes
+  // every other note on the map and thaws it on release. A real pin
+  // (`graph_pin_x`/`graph_pin_y`, notebook content) is never in this list:
+  // its `fx`/`fy` below is permanent and owned by that block already.
+  const seededUnpinnedIds = [];
   const nodes = s.tree
     ? s.tree.nodes
     : visibleNodes.map((n) => {
         const was = prior.get(n.id);
         const built = was && Number.isFinite(was.x) ? { ...n, ...was } : { ...n };
+        const saved = viewPositions && viewPositions[n.id];
+        if (saved) {
+          built.x = saved.x;
+          built.y = saved.y;
+        }
         if (built.graph_pin_x != null && built.graph_pin_y != null) {
           built.fx = built.graph_pin_x;
           built.fy = built.graph_pin_y;
+        } else if (saved && unplacedByView) {
+          seededUnpinnedIds.push(built.id);
         }
         return built;
       });
@@ -2174,7 +2305,10 @@ async function renderGraphCanvas(s = gcTab) {
       frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial);
     }
   } else {
-    gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height), s);
+    gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height), s, {
+      alpha: viewPositions && !unplacedByView ? 0 : 1,
+      freezeIds: seededUnpinnedIds,
+    });
   }
 
   graphRenderStats(data, nodes, edges, colourMode, s.layoutKind);

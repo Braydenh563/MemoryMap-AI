@@ -48,6 +48,10 @@ const TABS = ['dashboard', 'notes', 'chat', 'library', 'timeline', 'reminders', 
   if (helper !== 'function') fail('focusSelect is not defined; nothing below is measured');
 
   let seen = 0;
+  // Selects the app has switched off. Counted and printed rather than passed
+  // over in silence: a sweep whose coverage quietly halves is worse than one
+  // that fails, and this is the number that would say so.
+  let skipped = 0;
   const direct = {};
   for (const tab of TABS) {
     await page.evaluate((t) => switchTab(t), tab);
@@ -60,48 +64,89 @@ const TABS = ['dashboard', 'notes', 'chat', 'library', 'timeline', 'reminders', 
       const page_ = document.querySelector('.tab-page:not(.hidden)');
       if (!page_) return;
       for (const d of page_.querySelectorAll('details')) d.open = true;
+      // The graph's display options are a popover behind a gear, not a
+      // `<details>`, and two of this app's selects live in it (the minimap's
+      // position and size). Whether it is open is a remembered preference
+      // mirrored to the server, so leaving it to chance made this sweep cover
+      // thirteen selects on one run and fifteen on the next.
+      const options = document.getElementById('graph-options');
+      if (options && options.classList.contains('hidden')) {
+        document.getElementById('graph-options-toggle')?.click();
+      }
     });
     await page.waitForTimeout(500);
     const rows = await page.evaluate(() => {
       const out = [];
       const page_ = document.querySelector('.tab-page:not(.hidden)');
       if (!page_) return out;
+      // `document.body.focus()` does nothing: <body> has no tabindex, so the
+      // focus stays exactly where the previous row left it. Every "landed on"
+      // below was therefore measured against the last select that *had* taken
+      // the focus, and a control that took none was reported as having landed
+      // on that one. Blur what holds it instead, which really does empty it.
+      const clearFocus = () => {
+        const a = document.activeElement;
+        if (a && a !== document.body && typeof a.blur === 'function') a.blur();
+      };
       for (const select of page_.querySelectorAll('select[data-enhanced-select]')) {
         const opener = select.closest('.select-shell')?.querySelector('.select-opener');
         // Off screen for a reason of its own (a collapsed panel, a dialog that
         // is not up): nothing here can be asserted about it.
         if (!opener || !opener.getClientRects().length) continue;
-        document.body.focus();
+        const row = {
+          id: select.id || String(select.className).slice(0, 24),
+          disabled: select.disabled,
+          openerMirrorsDisabled: opener.disabled === select.disabled,
+          nativeOutOfTabOrder: select.tabIndex === -1 && select.getAttribute('aria-hidden') === 'true',
+        };
+        // A control the app has switched off is not a focus bug. The graph's
+        // "Saved views" picker is disabled until there is a view to pick
+        // (`renderGraphViews`, graph.js), which is why this sweep passed on an
+        // empty notebook and failed on a used one: `renderGraphViews` only
+        // runs from the render path, so on an empty map the picker was never
+        // switched off and the assertion below never met one. What is worth
+        // asserting about a disabled select is that its opener says so too,
+        // which is the line above; the focus checks are skipped.
+        if (select.disabled) {
+          out.push(row);
+          continue;
+        }
+        clearFocus();
         focusSelect(select);
         const landed = document.activeElement;
-        out.push({
-          id: select.id || String(select.className).slice(0, 24),
-          nativeOutOfTabOrder: select.tabIndex === -1 && select.getAttribute('aria-hidden') === 'true',
-          openerTabbable: opener.tabIndex !== -1 && !opener.disabled,
-          landedOnOpener: landed === opener,
-          landedOn: landed ? landed.tagName + (landed.className ? '.' + String(landed.className).split(' ')[0] : '') : 'null',
-          directCallLandsOn: (() => {
-            document.body.focus();
-            select.focus();
-            const a = document.activeElement;
-            return a ? a.tagName : 'null';
-          })(),
-        });
+        row.openerTabbable = opener.tabIndex !== -1 && !opener.disabled;
+        row.landedOnOpener = landed === opener;
+        row.landedOn = landed ? landed.tagName + (landed.className ? '.' + String(landed.className).split(' ')[0] : '') : 'null';
+        row.directCallLandsOn = (() => {
+          clearFocus();
+          select.focus();
+          const a = document.activeElement;
+          return a && a !== document.body ? a.tagName : 'null';
+        })();
+        out.push(row);
       }
       return out;
     });
-    say(tab, rows.map((r) => r.id));
+    say(tab, rows.map((r) => (r.disabled ? r.id + ' (off)' : r.id)));
     for (const r of rows) {
-      seen += 1;
-      direct[r.directCallLandsOn] = (direct[r.directCallLandsOn] || 0) + 1;
       if (!r.nativeOutOfTabOrder) {
         console.log(`NOTE ${tab}/${r.id}: the native select is back in the tab order; re-read focusSelect`);
       }
+      if (!r.openerMirrorsDisabled) {
+        fail(`${tab}/${r.id}: the opener says disabled=${!r.disabled} while the select says ${r.disabled}`);
+      }
+      if (r.disabled) {
+        skipped += 1;
+        continue;
+      }
+      seen += 1;
+      direct[r.directCallLandsOn] = (direct[r.directCallLandsOn] || 0) + 1;
       if (!r.openerTabbable) fail(`${tab}/${r.id}: its opener cannot take focus`);
       if (!r.landedOnOpener) fail(`${tab}/${r.id}: focusSelect landed on ${r.landedOn}, not on its opener`);
     }
   }
   say('selects_checked', seen);
+  say('selects_disabled_and_skipped', skipped);
   // The point of the whole exercise, as one line: where a plain `.focus()`
   // would have put the focus instead. Neither answer is the opener.
   say('plain_focus_would_land_on', direct);

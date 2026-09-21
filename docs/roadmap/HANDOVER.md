@@ -359,214 +359,159 @@ this file's standing orders and Now line, INBOX, then `OPEN.md` and the
 plan for the surface in hand. Brief 33 in SESSION_BRIEFS is the next
 session's brief.
 
-**Now (2026-09-19 night, Opus alone, the owner asleep): PR #149 is open,
-CI running, and the whiteboard works again.** The owner's week of outside
-changes came in as one commit, `b387b17`. It ran a regex codemod over
-`whiteboard.js` (committed beside it as `fix_wb.js`, with a hardcoded
-`c:\Projects\...` path) and deleted **ten live functions** along with the
-two it meant to replace: `WB_KIND_INFO` (26 call sites), `wbItemTransform`
-(14, and it is what positions every card), `wbBeginTextEdit` (9),
-`wbStableDragContainer` (6), `wbAngleFromCenterDeg` (3) and five more. The
-board threw on its first render and drew nothing. Reverted whole; its three
-sound ideas re-applied properly.
+**Now (2026-09-21 late morning, Fable orchestrating, the owner at work): the
+app says true things about itself now, which it did not this morning.**
 
-Built tonight, each measured, each its own commit:
-the Windows console-window flag on every spawn plus a lint
-(`tests/test_subprocess_no_window.py`); the Tesseract registry and
-LOCALAPPDATA probe; **`tests/test_frontend_symbols.py`**, which catches a
-call to a function that does not exist and found three live ones nobody had
-seen (`loadAllNotes`, `loadChatHistory`, `openEntryEditor`); INBOX 238 in
-all three parts; INBOX 232's code fences and link chips; INBOX 226
-reproduced and named at last (the dashboard art widget at 59 fps, ignoring
-Reduce motion and Performance mode, now 0 fps under both); the note list's
-load on four thousand notes from 1.8 s to 0.9 s; the Docker probe cached;
-the settings search cached; Settings, Extras' sideways scroll; a group's
-selection box around rotated cards; and alignment guides for a group drag.
+The session's theme turned out to be the gap between what this app *does* and
+what it *says it does*. The behaviour was consistently better than the copy.
 
-**Later the same night, still alone.** A scan of all 319 routes against
-every path the frontend fetches (`scratchpad/probe_dead_routes.py`, new)
-found a whole plan item built and unreachable: WORLD_CLASS_PLAN **I9's
-backend had shipped on 2026-09-13 with no screen at all**, so
-`derived_facts` grew where nobody could read it. Built its Settings
-section, "What it learned", against what the backend actually ships (no
-bulk actions: there is no `POST /learned/bulk`), and wired three more dead
-routes while there: `POST /night/run` as "Read my notes now", `GET
-/search/stats` as the search-index row in About, and `POST /drafts/title`
-as "Suggest a title" in the Writing Room. `GET /tags` now feeds the tag
-autocomplete, which was built from the loaded pages and sorted
-alphabetically. One backend bug fell out of finally calling a route:
-`facts.listing` counted rows its own search had excluded.
+**The privacy promise was wrong in eight places.** Four said web search is
+"the ONE feature that goes online"; the update check is a second, calling
+`api.github.com`, and its own comment sat two lines below one of them.
+Settings, About said "Nothing ever leaves this computer", unqualified, in the
+panel offering both switches. The Ask panel said "nothing leaves this
+machine" flatly, on the surface where a person types what they would least
+like sent anywhere. `docs/PRIVACY.md` carried an explicitly exhaustive table,
+"Three things do touch the network", listing three, under a heading promising
+precision. And the one genuine route by which notes CAN leave, a
+user-configured remote provider, was documented nowhere at all. None of this
+was a leak: `llm_provider` defaults to `ollama`, the OpenAI-compatible client
+to `localhost:1234`, both network features default to `False`. The code was
+right and every sentence describing it was wrong, which for a privacy-first
+app is its own bug. All corrected, and held by
+`tests/test_offline_promise.py`, whose rule is "never say it without saying
+what it depends on" rather than "never say it": several of those sentences
+are true of one feature and those are what a cautious reader wants.
 
-INBOX 225 is closed, both halves: Settings, Models reads "Atlas, running
-qwen2.5:7b", and 68 strings plus 41 pieces of markup that said "the AI"
-now say Atlas, held by a lint with no allowance list
-(`tests/test_ai_name.py`). 256 closed (four test-only helpers deleted,
-their coverage moved onto the functions the app calls first). 259 closed:
-the minimap NaN reproduced, the stack named `graphMinimapFrame`, and the
-guard there had been half written.
+**CodeQL had never scanned this branch.** PR #150's base is PR #149's branch,
+so it is stacked, and `codeql.yml` filtered on `pull_request: branches:
+[main]`, which matches the *base*. 0 runs against several hundred commits,
+while `ci.yml`, carrying no such filter, ran on every push. Filter removed;
+first run green. **The merge order this implies matters: #150 lands on #149's
+branch, and #149 carries it to main.**
 
-Three sweeps are new and in the gate's `--sweeps` set: `keyboard.js`
-(where Tab actually lands), `requests.js` (a request that fails where
-nobody is told), and `leaks.js` from earlier. The app passes all three.
+**The first screen asked for a password in 26 words** that never said what
+the app is, never said it runs on this machine, never gave the four-character
+rule until after a failed attempt, and never mentioned that `/auth/setup`
+derives an encryption key from it on the spot. All four are on it now, before
+the field is filled. Measured on five fresh data directories.
 
-**Into the small hours, 2026-09-20.** INBOX 246 built, both halves: a note
-says what points at it (boards, maps, documents, notes, with "on it",
-"links to it" or "mentions it" beside each) and can be put on a board or a
-map from its own menu, which writes the same `WhiteboardNode` row the board
-would have written itself. 260 taken (Battery-efficient mode stops the two
-moving pictures, and says so). 257 closed without a change, because the
-scan behind it was reading template literals as dead code. 232's other half
-measured and closed. 220's last two pieces written, so `docs/ROADMAP.md`'s
-"How to proceed" is now about this PR.
-258 was built and taken back out, which is the entry worth reading: the pan
-measures clean and the half that stops a context menu opening at the end of
-a drag could not be measured here, so the code came out and the acceptance
-test stayed (`scratchpad/ui-sweeps/wbrightpan.js`, written first, failing).
+**The security audit otherwise came back clean** and that is worth recording
+so nobody re-runs it: no `shell=True`, no `os.system`, every `Popen` a fixed
+argument list, no interpolation into SQL, uploads keeping only an allowlisted
+suffix, bcrypt with a per-password salt, a 256-bit token looked up rather
+than compared, every router behind the unlock with two documented exceptions,
+bound to 127.0.0.1 with a global unlock throttle. The AI context story is
+sound too: ~900-token base prompts, a `ContextBudget` trimming notes and
+history to the measured window, the tool guide shrinking for small windows.
 
-**Morning, 2026-09-20: INBOX 262 and 263 are closed, all eleven parts.** Two
-mid-work drops arrived together and both are done.
+**Two traps for whoever is next.**
 
-From 262: the documents menu folds its five downloads into one submenu and
-clamps sideways (`5a61cb5`); the gutter collision was my own
-`cm-md-fence-quiet`, now off while the numbers are on, with the plugin
-rebuilding on the compartment reconfigure that was the missing half
-(`b0c8931`); the Live view **rendered lists as plain text and now renders
-them**, hanging indent, visible nesting, a bullet for the dash, and a task
-checkbox that no longer makes its line 34px in a 26px document (`557decf`);
-the group selection box travels with a drag and is rebuilt where the items
-land (`7f1d730`); and its handles were never missing, they were **under the
-card layer**, six of nine unpressable, measured with `elementFromPoint` and
-fixed by moving the chrome to the overlay (`fdd40ca`).
+*Conflict markers reached the branch again.* Merging `worktree-agent-mapux2`
+conflicted in `scripts/gate.sh` AND both changelogs; the resolver handled the
+first and `git add -A` staged the rest with markers in. Exactly the 2026-09-09
+failure the lint's own docstring records, committed by someone who had just
+read it. **Resolve every conflicted path, then grep for markers before
+committing.** The lint also had to be narrowed: it walked
+`.claude/worktrees/`, so with two agents running the real finding arrived
+buried under eleven lines about theirs.
 
-From 263: the "What it learned" switches are built from DESIGN's own
-`.setting-check` recipe (`a01d6e5`); **`bail_if_cancelled` was a line
-endings bug**, `.gitattributes` checking every `.bat` out LF-only while
-cmd.exe seeks a label by byte offset, so every cancel in the installer was
-silently ignored (`1ddd907`); ctrl+s in Preferences had never been
-implemented although the copy promised it, and the section now says twice
-that it is the only one that does not autosave (`6e39399`); the board and
-map previews went from 68 collisions to 0, with blocks trimmed to the paper
-and label widths measured rather than estimated (`e4c6039`); the packaged
-splash was **1,203ms of imports before `main()` could run**, now 30ms
-(`00efef3`); and seventeen typed glyphs standing in for icons became
-Phosphor, with a lint and a sweep (`52d0dc5`).
+*Do not pass `-c commit.gpgsign=false`.* Fifteen commits earlier in the
+session are unverified on GitHub because of it. Every agent's commits were
+signed; only the orchestrator's were not. Worth one clean re-sign once the
+agents have all merged.
 
-Three new guards in the gate: `tests/test_no_glyph_icons.py`, the
-`previewclash` sweep, and the CRLF lint in `test_launcher_scripts.py`.
-`test_windowed_streams.py` now reads its contract as a syntax tree, since
-the line-based version failed on a docstring without anything having moved.
 
-Open in INBOX, five: 213 and 228 (the owner's, the merge is the last act),
-253 (the one-click repair, a launcher task), 258 and 261. OPEN.md's row 232 was stale and is corrected in place: tables,
-callouts, task lists and images all already render in the Live view,
-measured, so nobody rebuilds them.
+**Now (2026-09-21, Opus orchestrating, the owner at work): the guided tour
+is fixed for the third time, and this time the probe can see it.** The owner:
+"the whole tour is completely and utterly broken", after two reports of an
+undimmed band at the right edge that two fixes had aimed at and missed.
 
-**Now (2026-09-14 midday, Fable orchestrating): PR #144 waits on the
-owner's go-ahead to merge; CI on the head is the last gate.** Every agent
-landed: docs, chrome, boot, backend2, mapux, chrome2 (`284f440`: 230, 231,
-233, 234, 236) and notes (`942fdc6`: 239, 240, 241, and the citation
-inventory fix). The owner's afternoon reports 242 to 253 are filed; all
-but 246 (boards and maps on notes) and 253 (one-click recovery, placed in
-WORLD_CLASS_PLAN H6) are fixed and in HISTORY. Open in INBOX: 213, 220,
-225 (frontend copy half), 226 (not reproduced), 228, 232, 238, 246, 253.
-**The release blocker found today:** the packaged Windows build has no
-console, uvicorn's formatter read `sys.stderr.isatty()` on None, and the
-app died at launch; `_ensure_std_streams` (`4ed7456`) is the fix and the
-next tag carries it. **After the merge:** tag `v0.3.0`, which builds the
-installers; the owner's brother needs that installer. **Next PR:**
-`docs/roadmap/agent-remaining/OPEN.md`, "What is left after PR 144", is
-the whole list in build order (the owner's reports, the plan tails, the
-horizon); `docs/ROADMAP.md`, "How to proceed after PR 149", is the method. Traps this session: a search-and-replace that
-rewrites a function's own body (`fetchDashStats` recursed), an early
-return above the branch meant to handle the case (`startBgArt`),
-`DOMContentLoaded` in a file that loads on demand (nine wirings never
-ran), a lazy bundle taking the note editor's focus listener with it (the
-graph popup opened raw), a `const` in a later script read at load
-(`AI_NAME`, the app did not boot; lint added), pytest's capture swapping
-`sys.stdout` back between a fixture and the body, Tesseract's OpenMP
-oversubscription (42 s to 0.28 s with one thread), and `tail -1 &&` or
-`grep &&` chains that commit on a failed gate (read the failed line;
-four times this session).
+Why it survived two fixes and a green suite: the dim was not what anyone was
+measuring. `.tour-spot` cast it as one `box-shadow` spread 100vmax, so its
+reach depended on the window's shape and on its own corner radius inflated by
+the spread; the four `.tour-block-panel` rectangles that `tourdim.js` checked,
+and that `test_ui_recipes.py` pinned, were transparent and existed only to
+swallow presses. Two green gates over a surface that was visibly broken. The
+dim now lives on those four panels, which already tile the window around the
+hole and are already sized from `max(clientWidth, innerWidth)`, so the sweep's
+arithmetic and the paint are the same thing; the sweep walks
+`elementsFromPoint` (14,328 points, 0 uncovered, 0 with the page in front) and
+fails against the old stylesheet. The recipe lint was re-pointed at the
+invariant rather than the mechanism, and is narrower than before.
 
-**Now (2026-09-14 early, Fable orchestrating): four more agents on the
-owner's night reports and the audit.** INBOX 195 to 199, 211 and the aurora
-half of 210 landed (`ea7b370`, `6437125`, `3440988`); chrome, mapux, backend2
-and boot run on the rest, each pushing to `origin/agent/wip-<name>` after
-every commit. **Their briefs and the resume recipe are in
-`agent-remaining/briefs-2026-09-13-night.md`** with `agent_common.md` beside
-it; the hourly routine merges each as it reports. Done when their lists are
-empty, the sweeps and `boottime.js` are re-run on the merged head, and the
-owner is told to merge.
+The second fault was in the same screenshots and nobody had named it: the step
+card was a translucent `.card`, so the dashboard clock read through the step's
+own text. It now uses the opaque-dialog recipe.
 
-**Now (2026-09-13 night, Fable orchestrating): PR #144 is ready to merge.**
-All six agents finished their lists and were merged with `--no-ff` (backend
-`e7bd26f`, chat `112aac1`, phone `4d4a632`, documents `303db81`, graph
-`c2b4f01`, mind map `28068cf`); CI is green on `0e88c93` on all seven checks
-(three Python suites, ruff, CodeQL, Analyze, E2E) and the PR is mergeable
-clean. Local on that head: `errors.js` 0 errors and 0 layout findings at
-1440/1024/820/390 in both themes, `contrast.js`, `docks.js` and `touch.js`
-clean in both themes. INBOX holds seven older batches with every sub-report
-marked; no Fixed items. What each agent could not verify or left is in its
-`agent-remaining` file (mindmap, ui-phase-11, documents-phases, graph,
-chat-timeline-skills, chat-popup-agent, backend-probe); the app.js split
-(gzip bound raised to 700 KB), the graph options panel's height, `.segmented-
-control` radii and F3/F7/F10 are the named leftovers, all placed. **After the
-merge: Brief 33** (SESSION_BRIEFS), in the owner's words. The `agent/wip-*`
-branches on origin are merged and can be deleted from the GitHub UI (the git
-proxy here refuses deletes).
+**A trap found the same morning, and it changes standing order 5a's
+arithmetic.** CI *is* running on this branch (`ci.yml`, 73 runs), and almost
+none of them finish. `ci.yml` sets `concurrency: cancel-in-progress: true`, so
+each push cancels the run the previous push started. Five consecutive pushes
+this morning produced five runs with conclusion `cancelled` and not one pass.
 
-**Now (2026-09-13 evening, Fable orchestrating, the owner at 97% usage: "when
-the agents cut off because of usage, make sure they all pick back up again
-after, and everything else continues. FINISH THE PR").** Six Opus agents run in
-their own worktrees and push after every commit to `origin/agent/wip-<name>`
-(mindmap, phone, documents, graph, chat, backend); the seventh (Sonnet, backend
-hygiene) is merged (`799066b`). Their briefs are the shared rules in the session
-scratchpad (`agent_common.md`: token rule, save rule, push rule) plus one list
-each, drawn from `agent-remaining/{mindmap,ui-phase-11,documents-phases,graph,
-chat-timeline-skills,backend-probe}.md` and INBOX 181 to 192 (each entry names
-its owner). **Resume recipe, for this session or a fresh one:** for each
-`agent/wip-<name>` on origin, read its `agent-remaining` file's last "done/next"
-lines, relaunch one Opus agent per branch in a worktree cut from that branch
-with the same rules and "continue from next"; when an agent reports, review
-against CLAUDE.md section 6, `git merge --no-ff`, `scripts/gate.sh --changed`,
-push the PR branch, delete the wip branch. Done when: every list empty or its
-leftovers recorded as not-verified, INBOX under twenty with no Fixed items, the
-merged head swept (`errors`, `contrast`, `docks`, `touch` at four widths, both
-themes) and full-suite green once, CI green, then tell the owner to merge.
-Brief 33 (SESSION_BRIEFS) is the PR after this one.
+**And the gap needed is bigger than it first looked.** This block first said
+a run takes about eight minutes, read off one run that had itself been
+cancelled at eight. Timed properly against run 1538: started 07:31:28,
+cancelled 07:49:43, still unfinished at eighteen minutes. So a push has to be
+followed by roughly twenty quiet minutes for CI to reach a conclusion, not
+eight, and the session that wrote this rule then broke it within the hour by
+pushing at the eighteen-minute mark. Which is the argument for the local
+full gate being the real one and CI the second opinion, rather than the other
+way round. Standing order 5a's rule for not
+running the suite locally ("CI runs it on every push") is therefore only true
+at a slow push cadence: at the cadence an agent session actually pushes, the
+only full run of the suite is the local one. Two things follow, neither of
+them a change to the order: run `scripts/gate.sh --full` before the last push
+of a batch rather than only at the end of a session, and leave a gap after
+that last push so the run survives to a conclusion. The alternative, taking
+`cancel-in-progress` off, is the owner's call and is not taken here: it would
+queue eight-minute runs behind every push instead, which is its own cost.
 
-**Now (2026-09-13 midday, Opus orchestrating, the owner's order: "Assign
-agents to finish all the rest of the plan and all the bug fixes regardless of
-the agent cap").** Five agents are running at once, which is the first time
-the two-agent rule has been lifted and it was lifted deliberately. Each was
-given an explicit list of files it owns, because five writers in one worktree
-is the stale-index hazard at five times the rate: mind map node styling
-(whiteboard.js, 07-whiteboard-misc.css, routes_whiteboard.py), UI Phase 11 the
-phone (10-responsive.css, 08-consistency.css), DOCUMENTS Phases 5 to 8
-(documents.js, 09-editor.css, routes_documents.py), GRAPH Phase 4's local pane
-(graph.js, graph-canvas.js, 02-chat-graph.css) and the remaining bug lists
-(ai/, core/, routes_timeline.py, tests/).
+**Fifteen commits on this branch are unsigned, and it was my doing.** The
+repo has `commit.gpgsign=true` with `gpg.format=ssh` and a key at
+`~/.ssh/commit_signing_key.pub`, and every commit I made this session used
+`git -c commit.gpgsign=false commit`, a habit carried in from a sandbox with
+no key. GitHub shows those fifteen as Unverified. Every agent's commits are
+signed; only the orchestrator's were not. **Do not pass that flag.** The five
+that had not been pushed yet were re-signed in place
+(`git rebase --exec "git commit --amend --no-edit --reset-author"`, content
+identical, verified with a `git diff` against the pre-rebase tip); the
+fifteen already on GitHub were deliberately left, because rewriting them
+means a force-push on a branch two agents have live worktrees cut from, and
+their merge bases would stop matching mid-flight. Worth one clean re-sign
+after both have merged, if the owner wants the green ticks; the content is
+not in question either way.
 
-**The git rule every one of them carries, and the reason:** a commit built
-from an index read earlier silently reverted another agent's work five times
-today. `git read-tree HEAD` freezes every path in that index, so a commit from
-it rewrites the frozen copy of anything not re-added. The protocol is now:
-read HEAD, stage your own hunks and commit in one shell command, then check
-`git show --stat HEAD` lists only paths you own, and if it does not, restore
-the other file and push the restore at once.
+**The other thing to know about this repo's CI**: `github-advanced-security`
+has been red on every SHA for days, including SHAs from before this session,
+with `CAPIError: 400 The requested model is not supported`. That is GitHub's
+own scanning agent failing to start a session; it is not this PR's, it has its
+stand-down comment, and it gets no further comments.
 
-**Landed by the orchestrator since the previous Now line**, each measured: the
-board preview's labels kept on the paper and board exports posted as direct
-uploads so they are described and read (INBOX 174); the picture card's tick
-fading in rather than sitting on every card at full strength; a connector no
-longer swallowing a drag-select, which was the cause of "I cant drag highlight
-to select shapes" (INBOX 180); a link tool on a map joining the tree rather
-than laying a decorative cross-link over a node that is still loose; a map's
-branches drawn as tapered ribbons; the radial ring naming the slot under the
-pointer; describing and reading a file shown as background processes (INBOX
-111); the suggested-links row given one control height (INBOX 110); and the
-minimap's size toggle with its fade when the whole graph already fits (GRAPH
-6b). The old Now block follows, for the traps in it.
+**The lesson worth keeping, because it is the third time this shape has cost a
+session:** a probe that passes against a broken surface is worse than no probe.
+When a report survives a fix, the first question is not "what else could cause
+it" but "what is my probe actually reading". Here the answer was: four
+rectangles that were not the dim.
+
+Merged this session: `worktree-agent-maprender` (the mind map drag freeze,
+worst frame 1,650 to 66.8ms at 500 topics) and `worktree-agent-anim` (the
+cheap-animation conversion and `tests/test_cheap_animations.py`, boot splash
+121 layouts to 0). Running: `worktree-agent-noteobj` (INBOX 309, a board or a
+map as an object in a note, and reminders linked to notes) and
+`worktree-agent-mapux2` (the owner's mind map report: the tools and utilities,
+the two kinds of connection, customisation, and the pan re-rasterisation).
+
+
+**Previously (2026-09-19 night):** moved to HISTORY.md, "Moved from HANDOVER, 2026-09-21 (third pass)".
+
+**Previously (2026-09-14 midday):** moved to HISTORY.md, "Moved from HANDOVER, 2026-09-21 (third pass)".
+
+**Previously (2026-09-14 early and 2026-09-13 night):** moved to HISTORY.md,
+"Moved from HANDOVER, 2026-09-21 (second pass)".
+
+**Previously (2026-09-13 evening and midday):** moved to HISTORY.md, "Moved from HANDOVER, 2026-09-21".
 
 **Previously (2026-09-13 morning to midday):** moved to HISTORY.md, "Moved from HANDOVER, 2026-09-13 night".
 

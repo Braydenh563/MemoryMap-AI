@@ -107,6 +107,25 @@ def test_windows_msi_filename_carries_name_version_platform_and_arch():
     assert msi_step.count(".msi") >= 1, "the built file is missing the .msi extension"
 
 
+def test_windows_exe_filename_carries_name_version_platform_and_arch():
+    # The .exe's own filename is set in installer.iss (OutputBaseFilename),
+    # not in release.yml, which only globs for it at upload time
+    # (MemoryMap-AI-Setup-*.exe): a glob that would still match a filename
+    # with the platform/arch dropped from it. This is the lint on the actual
+    # source of the name, matched to what installer.iss produces today,
+    # MemoryMap-AI-Setup-{#MyAppVersion}-windows-x86_64.exe, the same shape
+    # WORLD_CLASS_PLAN's H6 decisions section records.
+    text = INSTALLER_ISS
+    line = next(
+        (ln for ln in text.splitlines() if ln.strip().startswith("OutputBaseFilename=")),
+        "",
+    )
+    assert line, "installer.iss has no OutputBaseFilename= line"
+    assert "MemoryMap-AI-Setup-" in line, "the .exe filename is missing the app name"
+    assert "{#MyAppVersion}" in line, "the .exe filename is missing the version"
+    assert "windows-x86_64" in line, "the .exe filename is missing the platform/arch"
+
+
 def test_linux_zip_filename_carries_name_version_platform_and_arch():
     job = _job("build-linux-package")
     #: "Pack the build", not "Zip the build": the Linux job gained a tarball
@@ -164,3 +183,119 @@ def test_installer_wxs_is_per_machine_with_a_start_menu_shortcut_and_no_data_del
         "the MSI must never install into or reference an AppData standard directory: "
         "a clean uninstall removes only the program, never the user's data"
     )
+# --- INBOX 253: one-click recovery ------------------------------------------
+#
+# packaging/windows/installer.iss is the one Windows installer this branch
+# builds (a `.wxs`/MSI installer was started on a separate, unmerged agent
+# worktree and is not part of this checkout: see that worktree's own
+# history if it lands later, there is nothing here to extend for it yet).
+# No Windows runner exists in this sandbox to actually run the installer or
+# click the shortcut it creates, so this reads the .iss source as text
+# instead, the same approach TestOneLauncherTwoSpellings already takes for
+# start.bat, and separately proves `--reinstall` really does something on
+# a frozen build by importing __main__.py for real (still runnable here:
+# it is plain Python, not a PyInstaller build).
+
+INSTALLER_ISS = (ROOT / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
+MAIN_PY = ROOT / "src" / "memorymap" / "__main__.py"
+
+
+def test_a_repair_shortcut_exists_beside_the_ordinary_one():
+    """The gate: this shortcut cannot be dropped silently. Matched by
+    shape, not by exact text, so a copy-edit to the label does not fail
+    this test for the wrong reason, but there must still be exactly one,
+    it must run --reinstall, and it must sit in the same Start Menu group
+    ({autoprograms}\\{#MyAppName}\\...) as the ordinary shortcut, not
+    somewhere a person would never look after the ordinary one stops
+    opening."""
+    icons = INSTALLER_ISS[INSTALLER_ISS.index("[Icons]") :]
+    repair_lines = [
+        ln
+        for ln in icons.splitlines()
+        if ln.strip().startswith("Name:") and "--reinstall" in ln
+    ]
+    assert len(repair_lines) == 1, repair_lines
+    (line,) = repair_lines
+    assert '{autoprograms}\\{#MyAppName}\\' in line, line
+    assert 'Filename: "{app}\\{#MyAppExeName}"' in line, line
+    # --desktop too: a repair that lands in the bare server mode is not
+    # what the ordinary shortcut (also --desktop, see the line above it)
+    # promised, and confuses "did it work" with "did a window open".
+    assert '"--desktop --reinstall"' in line, line
+
+
+def test_the_repair_shortcut_is_not_the_ordinary_one_in_disguise():
+    """A regression that renamed the ordinary shortcut's own Parameters to
+    add --reinstall (fixing nothing: see the app-level test below for what
+    --reinstall must still do at every ordinary launch) would pass a looser
+    "the string --reinstall is in the file somewhere" check; this counts
+    shortcuts instead."""
+    icons = INSTALLER_ISS[INSTALLER_ISS.index("[Icons]") :]
+    names = [ln for ln in icons.splitlines() if ln.strip().startswith("Name:")]
+    assert len(names) == 3, names  # Start Menu, Desktop (optional task), Repair
+    without_reinstall = [ln for ln in names if "--reinstall" not in ln]
+    assert len(without_reinstall) == 2, without_reinstall
+
+
+def test_reinstall_is_wired_into_main_and_never_touches_notes():
+    """Imported for real, not just grepped: `--reinstall` has to actually
+    reach `_repair_install` from argparse, and that function's own
+    docstring is the record of the decision (INBOX 253) that a repair here
+    means "clear the cached window profile", not "rebuild a venv that does
+    not exist on a frozen build", read from the source directly, since
+    __main__.main() only runs to completion inside a real desktop/server
+    process this suite does not start."""
+    import ast
+
+    tree = ast.parse(MAIN_PY.read_text(encoding="utf-8"))
+    functions = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    assert "_repair_install" in functions, "no _repair_install() in __main__.py"
+    repair_fn = functions["_repair_install"]
+    # The CODE, not the docstring explaining what it deliberately does not
+    # touch: that sentence would otherwise fail this exact check for
+    # saying the right thing.
+    body = [stmt for stmt in repair_fn.body if not isinstance(stmt, ast.Expr)]
+    repair_code = "\n".join(ast.unparse(stmt) for stmt in body)
+    # Notes live in the database; preferences in preferences.json. Neither
+    # is reachable from here, because this function must never touch either.
+    for off_limits in ("preferences.json", "Entry", "database", "get_db", "get_config"):
+        assert off_limits not in repair_code, (off_limits, repair_code)
+    assert "webview" in repair_code  # the one thing it is allowed to clear
+
+    main_src = ast.get_source_segment(MAIN_PY.read_text(encoding="utf-8"), functions["main"])
+    assert "args.reinstall" in main_src
+    assert "_repair_install()" in main_src
+    # Falls through to the ordinary startup path: a repair that does not
+    # then open the app is not "one click" (INBOX 253's own phrase).
+    reinstall_at = main_src.index("args.reinstall")
+    desktop_at = main_src.index("args.desktop")
+    assert reinstall_at < desktop_at
+
+
+def test_the_msi_carries_the_same_repair_shortcut_as_the_exe_installer():
+    """The two installers promise the same Start Menu. The .exe installer's
+    Repair shortcut is gated above; this is the MSI's, matched by shape the
+    same way: exactly one shortcut running --reinstall, on the same exe
+    with --desktop, in the same component as the ordinary shortcut so the
+    two come and go together."""
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(WXS.read_text(encoding="utf-8"))
+    ns = {"w": root.tag[1:].split("}")[0]} if root.tag.startswith("{") else {}
+    prefix = "w:" if ns else ""
+    shortcuts = root.findall(f".//{prefix}Shortcut", ns)
+    repair = [s for s in shortcuts if "--reinstall" in (s.get("Arguments") or "")]
+    assert len(repair) == 1, [s.get("Id") for s in shortcuts]
+    (shortcut,) = repair
+    assert shortcut.get("Arguments") == "--desktop --reinstall"
+    ordinary = [s for s in shortcuts if "--reinstall" not in (s.get("Arguments") or "")]
+    assert len(ordinary) == 1, [s.get("Id") for s in shortcuts]
+    assert shortcut.get("Target") == ordinary[0].get("Target")
+    components = root.findall(f".//{prefix}Component", ns)
+    homes = [c for c in components if shortcut in list(c)]
+    assert homes and ordinary[0] in list(homes[0]), "the Repair shortcut is not beside the ordinary one"
+

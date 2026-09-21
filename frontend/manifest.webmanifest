@@ -1,7 +1,7 @@
 {
   "name": "MemoryMap AI",
   "short_name": "MemoryMap",
-  "description": "Your offline, self-filing AI notebook — everything stays on your machine.",
+  "description": "Your offline, self-filing AI notebook: everything stays on your machine.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1220",
@@ -31,5 +31,14 @@
       "type": "image/png",
       "purpose": "any"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "share_title",
+      "text": "share_text",
+      "url": "share_url"
+    }
+  }
 }

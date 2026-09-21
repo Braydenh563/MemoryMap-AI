@@ -48,6 +48,12 @@ const EDITOR_SURFACES = {
   //: (every chat product the user compared this to has one). Its commands are
   //: chat's own: attach, web, plan, skills, mode. See `chatCommands`.
   "chat-input": "chat",
+  //: The skill editor's steps box (DOCUMENTS_PLAN Phase 8c). The plan gives
+  //: it the "/" menu and nothing else: it is a list of instructions, not note
+  //: text, so it stays a plain textarea with no Live view and no engine, and
+  //: `tests/test_note_surface.py`'s `NOT_NOTE_TEXT` says so. Its own context,
+  //: because the note commands are all wrong here; see `skillCommands`.
+  "skill-steps": "skill",
 };
 
 //: **What context an editing surface is.**
@@ -76,31 +82,173 @@ function editorSurfaceKind(box) {
   return surface.id in EDITOR_SURFACES ? EDITOR_SURFACES[surface.id] : null;
 }
 
-//: Whatever this is, as a surface, or null. `asSurface` lives in
-//: documents.js beside the adapter itself; the guard is for the moment
-//: before that file has evaluated, which cannot happen in the browser (the
-//: script order is fixed) but does in any test that loads this file alone.
+//: Whatever this is, as a surface, or null. `asSurface` lives in documents.js
+//: beside the adapter itself.
+//:
+//: **That file is not always there, and the guard below used to say it always
+//: was.** Its own comment read "which cannot happen in the browser (the script
+//: order is fixed)", and that stopped being true the moment documents.js
+//: joined the Library's lazy bundle (`LAZY_MODULES`, app.js): index.html loads
+//: app.js, editor.js, dashboard.js, settings.js and tour.js, and nothing else
+//: until a tab asks for it. So on every fresh load, until the person happened
+//: to open Library or Documents, `asSurface` was undefined, this returned
+//: null, and `editorHandleInput` bailed on its first line. Measured on the
+//: branch head, 2026-09-21: typing "/" in the note capture box gave 0 menu
+//: rows and `editorMenuState.open === false`. The same for the note edit box,
+//: the chat composer and the skill steps box, which is four of the five
+//: surfaces the feature exists for. CLAUDE.md section 6's fourth shape, a
+//: policy silently refusing the work, with a comment asserting it could not.
+//:
+//: The fix is `editorEnsureSurfaceModule` below rather than a second copy of
+//: the adapter here: `textareaSurface` hangs off `docSurfaceCache`,
+//: `docReplaceRange` and `docMirrorPoint`, and a fork of it would drift.
 function editorSurfaceFor(box) {
   if (!box) return null;
   if (box.kind === "textarea" || box.kind === "codemirror") return box;
-  if (typeof asSurface !== "function") return null;
+  if (typeof asSurface !== "function") {
+    editorEnsureSurfaceModule(box);
+    return null;
+  }
   return asSurface(box);
 }
+
+//: Fetch the bundle that carries the surface adapters, once, and pick the
+//: interrupted work back up when it lands.
+//:
+//: `retry` is what makes a fast typist's first "/" still open a menu: the
+//: keystroke that found no adapter is replayed against the surface once there
+//: is one, so the menu opens a moment late rather than not at all. Without it
+//: the first "/" of a session would always be the one that did nothing, which
+//: is the worst possible one to lose: it is the keystroke somebody presses to
+//: find out whether the feature exists.
+let editorSurfaceModulePending = null;
+function editorEnsureSurfaceModule(box) {
+  if (typeof ensureModule !== "function") return;
+  const el = box && box.nodeType === 1 ? box : null;
+  if (!el || !(el.id in EDITOR_SURFACES)) return;
+  if (!editorSurfaceModulePending) {
+    editorSurfaceModulePending = ensureModule("library").catch(() => false);
+  }
+  editorSurfaceModulePending.then(() => {
+    if (typeof asSurface !== "function") return;
+    if (document.activeElement !== el) return;
+    editorHandleInput(editorSurfaceFor(el));
+  });
+}
+
+//: **The second route, and the affordance that says either exists.**
+//: DOCUMENTS_PLAN 18c: the owner asked for these commands to be "discoverable
+//: by the user", and until now the only way in was to already know that "/"
+//: did something. Section 18's decision 5 forbids adding to the chrome (a
+//: thirteenth button on a twelve-control toolbar teaches nothing), so this is
+//: two things that cost no chrome at all:
+//:
+//: * Ctrl+/ opens the menu with an empty query, from anywhere in one of these
+//:   surfaces. A route that is not "type a character into your own text" also
+//:   answers the person who wants the list without leaving a stray slash
+//:   behind if they change their mind.
+//: * Every one of these surfaces says so in its own placeholder, which is the
+//:   one piece of copy that is visible exactly while the box is empty and
+//:   gone the moment it is not. The capture box already taught `[[` there;
+//:   this is the same teaching in the same place.
+//:
+//: Recorded as a decision in DOCUMENTS_PLAN section 18 rather than taken
+//: quietly, because 18c's own gate asked for "the visible route" and the
+//: decision above rules out the obvious one.
+const EDITOR_MENU_HINT = "Press / for blocks and commands";
+
+//: The keystroke itself goes through `DEFAULT_SHORTCUTS`/`runShortcut`
+//: (app.js) rather than through a listener of this file's own, for two
+//: reasons. It is then rebindable like every other chord, and it appears in
+//: the shortcuts cheat sheet, which is the third of decision 3's three ways a
+//: command has to be findable. A second listener here would also fire
+//: alongside app.js's chorded dispatcher and insert two slashes.
+//:
+//: Answers false when there is no editing surface focused, so the dispatcher
+//: can fall through to whatever else wants the chord.
+function editorOpenMenuByShortcut() {
+  const surface = editorSurfaceFor(document.activeElement);
+  if (!surface || !editorSurfaceKind(surface)) return false;
+  //: The slash is written into the text, not faked: the menu filters on what
+  //: follows it and closes when it is deleted, so both routes have to leave
+  //: the surface in the same state, or Escape and Backspace would behave
+  //: differently depending on how the menu was opened.
+  surface.setRangeText("/", surface.selectionStart, surface.selectionEnd, "end");
+  surface.dispatchEvent(new InputEvent("input", { bubbles: true, data: "/" }));
+  return true;
+}
+
+//: The placeholder half. Applied from here rather than written into the
+//: markup because one of the four surfaces (`entry-edit-content`) is built in
+//: JS every time a note is opened, and a hint that three boxes carry and the
+//: fourth does not is worse than none: it teaches that the feature is
+//: per-box. Appended to whatever the box already says, once.
+function editorHintPlaceholder(box) {
+  if (!box || !(box.id in EDITOR_SURFACES)) return;
+  const current = box.getAttribute("placeholder") || "";
+  if (current.includes(EDITOR_MENU_HINT)) return;
+  //: **A second line only where there is a second line to spare** (the owner,
+  //: 2026-09-21: "the 'press / for blocks and commands' line in the empty chat
+  //: bar raises the chat bar height a bit"). A composer that grows to fit its
+  //: content measures the placeholder too, so a newline in it makes an empty
+  //: box one row taller than the message it is waiting for. The note editor
+  //: has the room and reads better with the hint under the prompt; the chat
+  //: bar is one row by design, and there the hint joins the sentence.
+  const tall = (Number(box.getAttribute("rows")) || 1) > 2;
+  const joined = tall
+    ? (current ? `${current}\n  ${EDITOR_MENU_HINT}.` : `${EDITOR_MENU_HINT}.`)
+    : (current ? `${current}  ${EDITOR_MENU_HINT}.` : `${EDITOR_MENU_HINT}.`);
+  box.setAttribute("placeholder", joined);
+}
+
+function editorHintAllPlaceholders() {
+  for (const id of Object.keys(EDITOR_SURFACES)) editorHintPlaceholder(document.getElementById(id));
+}
+
+//: Twice: once at boot for the surfaces the markup ships, and once whenever a
+//: surface takes focus, which covers the edit form built after boot.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", editorHintAllPlaceholders);
+} else {
+  editorHintAllPlaceholders();
+}
+document.addEventListener("focusin", (event) => editorHintPlaceholder(event.target), true);
+
+//: And warmed on focus, so the bundle is usually already there by the time
+//: anything is typed. Focusing an editing surface is the earliest honest
+//: signal that these commands are about to be wanted.
+document.addEventListener(
+  "focusin",
+  (event) => {
+    const el = event.target;
+    if (!el || el.nodeType !== 1 || !(el.id in EDITOR_SURFACES)) return;
+    if (typeof asSurface === "function") return;
+    editorEnsureSurfaceModule(el);
+  },
+  true
+);
 
 // The callout kinds, their icon and their accessible label. Kept as data
 // because three things read it: the "/" menu builds a command per kind, the
 // renderer maps a parsed kind onto an icon, and the CSS keys a colour off
 // `.callout-{kind}`. A kind added here needs a matching CSS block and nothing
 // else.
+//: **`ph:` tokens, not emoji, and this was the last place in the app drawing
+//: its own alphabet.** The eight kinds carried \u{1F4DD}, \u{1F4A1} and six
+//: more, which rendered at the system emoji face and size beside a menu whose
+//: every other row is Phosphor: two faces, two weights, one row. Both readers
+//: of this table take a token now (the "/" menu row through `setLabel`, the
+//: renderer through an `<i class="ph ...">`), and `tests/test_no_glyph_icons.py`
+//: carries the eight so they cannot come back.
 const CALLOUT_KINDS = {
-  note: { icon: "\u{1F4DD}", label: "Note" },
-  tip: { icon: "\u{1F4A1}", label: "Tip" },
-  info: { icon: "\u{2139}\u{FE0F}", label: "Info" },
-  warning: { icon: "\u{26A0}\u{FE0F}", label: "Warning" },
-  danger: { icon: "\u{1F6D1}", label: "Danger" },
-  question: { icon: "\u{2753}", label: "Question" },
-  quote: { icon: "\u{201C}", label: "Quote" },
-  todo: { icon: "\u{2705}", label: "To do" },
+  note: { icon: "ph:note", label: "Note" },
+  tip: { icon: "ph:lightbulb", label: "Tip" },
+  info: { icon: "ph:info", label: "Info" },
+  warning: { icon: "ph:warning", label: "Warning" },
+  danger: { icon: "ph:warning-octagon", label: "Danger" },
+  question: { icon: "ph:question", label: "Question" },
+  quote: { icon: "ph:quotes", label: "Quote" },
+  todo: { icon: "ph:check-square", label: "To do" },
 };
 
 // ---------------------------------------------------------------------------
@@ -234,6 +382,35 @@ function editorApplyNamed(textarea, kind) {
   editorApplyAction(textarea, (typeof MD_ACTIONS === "object" && MD_ACTIONS[kind]) || {});
 }
 
+//: **Put one block on a line of its own.**
+//:
+//: A board object is a block construct: `renderNoteText` and `renderMarkdown`
+//: both only recognise `![[...]]` when the line holds nothing else, so an
+//: object inserted mid-sentence renders as literal brackets, which is the
+//: silent-refusal shape this repo keeps meeting. The leading newlines are
+//: counted rather than always added, so inserting into an empty box does not
+//: start the note with two blank lines.
+function editorInsertBlock(textarea, markdown) {
+  const start = textarea.selectionStart;
+  const before = String(textarea.value || "").slice(0, start);
+  const lead = !before.length || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
+  editorSplice(textarea, start, textarea.selectionEnd, `${lead}${markdown}\n\n`, null);
+}
+
+//: The "/" menu's board object: choose the board, then write its reference.
+//:
+//: The chooser is `pickLibraryItemDialog`, the app's own one-thing picker,
+//: asked for its board source. A fifth chooser for a fifth kind is exactly
+//: the "the same object drawn five ways" failure this app already has a rule
+//: against, and the dialog hands the row back, so the reference can say
+//: whether it is a board or a map without a second request.
+async function editorInsertBoardObject(textarea) {
+  if (typeof pickLibraryItemDialog !== "function" || typeof boardEmbedMarkdown !== "function") return;
+  const chosen = await pickLibraryItemDialog("Which board or map?", { sources: ["board"] });
+  if (!chosen) return;
+  editorInsertBlock(textarea, boardEmbedMarkdown(chosen.row || { id: chosen.id, title: chosen.label }));
+}
+
 // A callout block, ready to type into.
 //
 // Every line of the body needs its own "> ", a blockquote ends at the first
@@ -266,28 +443,116 @@ function calloutTemplate(kind, fold = "") {
 //: `editorRunItem` before `run` is called, so the question is left clean.
 function chatCommands() {
   const press = (id) => () => document.getElementById(id)?.click();
+  //: **On the next frame, not in this one** (the owner, 2026-09-21: pressing
+  //: "A document" in the slash menu showed the picker "for a split second but
+  //: then disappears"). Both halves run inside the handler for the click that
+  //: chose the menu row, so the picker opened, installed its own
+  //: close-on-click-outside listener, and then that very click carried on
+  //: bubbling to the document and closed it again. Anything that opens a
+  //: surface from inside a click has to let the click finish first.
   const pick = (source) => () => {
-    if (typeof openNotePicker === "function") openNotePicker();
-    document.querySelector(`#note-picker-sources [data-picker-source="${source}"]`)?.click();
+    if (typeof openNotePicker !== "function") return;
+    requestAnimationFrame(() => {
+      openNotePicker();
+      //: And the source tab a frame after that: the picker renders its own
+      //: markup when it opens, so the button is not there to press yet.
+      requestAnimationFrame(() => {
+        document
+          .querySelector(`#note-picker-sources [data-picker-source="${source}"]`)
+          ?.click();
+      });
+    });
   };
   const mode = (name) => () =>
     document.querySelector(`#chat-mode-seg button[data-chat-mode="${name}"]`)?.click();
   return [
-    { id: "chat-attach-note", primary: true, group: "Attach", label: "\u{1F4DD} A note", hint: "as context", keywords: ["attach", "note", "reference", "context"], run: pick("notes") },
-    { id: "chat-attach-document", primary: true, group: "Attach", label: "\u{1F4C4} A document", hint: "from Documents", keywords: ["attach", "document", "doc"], run: pick("documents") },
-    { id: "chat-attach-file", primary: true, group: "Attach", label: "\u{1F4CE} A file", hint: "from the Library", keywords: ["attach", "file", "pdf", "spreadsheet"], run: pick("files") },
-    { id: "chat-attach-image", group: "Attach", label: "\u{1F5BC}\u{FE0F} An image", hint: "from the Library", keywords: ["attach", "image", "picture", "photo", "sketch"], run: pick("images") },
-    { id: "chat-upload", primary: true, group: "Attach", label: "\u{2B06}\u{FE0F} Upload something new", hint: "any file", keywords: ["upload", "new", "file", "attach"], run: press("attach-image") },
-    { id: "chat-web", primary: true, group: "This message", label: "\u{1F310} Web search", hint: "toggle", keywords: ["web", "search", "online", "internet"], run: press("web-search-toggle") },
-    { id: "chat-plan", primary: true, group: "This message", label: "\u{1F9ED} Plan first", hint: "toggle", keywords: ["plan", "steps", "think"], run: press("chat-plan") },
-    { id: "chat-skills", primary: true, group: "This message", label: "\u{26A1} Skills", hint: "run a saved skill", keywords: ["skill", "skills", "run", "workflow"], run: press("chat-skills-btn") },
-    { id: "chat-mode-agent", group: "Mode", label: "\u{1F916} Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
-    { id: "chat-mode-chat", group: "Mode", label: "\u{1F4AC} Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
+    { id: "chat-attach-note", primary: true, group: "Attach", icon: "ph:note", label: "A note", hint: "as context", keywords: ["attach", "note", "reference", "context"], run: pick("notes") },
+    { id: "chat-attach-document", primary: true, group: "Attach", icon: "ph:file-text", label: "A document", hint: "from Documents", keywords: ["attach", "document", "doc"], run: pick("documents") },
+    { id: "chat-attach-file", primary: true, group: "Attach", icon: "ph:paperclip", label: "A file", hint: "from the Library", keywords: ["attach", "file", "pdf", "spreadsheet"], run: pick("files") },
+    { id: "chat-attach-image", group: "Attach", icon: "ph:image", label: "An image", hint: "from the Library", keywords: ["attach", "image", "picture", "photo", "sketch"], run: pick("images") },
+    { id: "chat-upload", primary: true, group: "Attach", icon: "ph:upload-simple", label: "Upload something new", hint: "any file", keywords: ["upload", "new", "file", "attach"], run: press("attach-image") },
+    { id: "chat-web", primary: true, group: "This message", icon: "ph:globe", label: "Web search", hint: "toggle", keywords: ["web", "search", "online", "internet"], run: press("web-search-toggle") },
+    { id: "chat-plan", primary: true, group: "This message", icon: "ph:compass", label: "Plan first", hint: "toggle", keywords: ["plan", "steps", "think"], run: press("chat-plan") },
+    { id: "chat-skills", primary: true, group: "This message", icon: "ph:lightning", label: "Skills", hint: "run a saved skill", keywords: ["skill", "skills", "run", "workflow"], run: press("chat-skills-btn") },
+    { id: "chat-mode-agent", group: "Mode", icon: "ph:robot", label: "Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
+    { id: "chat-mode-chat", group: "Mode", icon: "ph:chat-circle", label: "Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
   ];
+}
+
+//: **What "/" offers in a skill's steps box** (DOCUMENTS_PLAN Phase 8c: "the
+//: skill editor's steps box gets the `/` menu only"). Not the note commands,
+//: for the reason `chatCommands` gives about the chat box and more sharply
+//: here: this box's own contract, printed on its label, is "one step per
+//: line, in order", so a callout, a table or a two-column fence pasted into
+//: it is not a step and nothing downstream renders it. `skills.normalise`
+//: reads these lines as instructions, not as markdown.
+//:
+//: What a steps box actually wants is the two vocabularies the rest of the
+//: editor beside it already holds, and cannot be typed correctly from memory:
+//: the placeholders the "Ask me for" box declares, whose braces are easy to
+//: get wrong, and the exact spelling of the tools this skill is allowed to
+//: use, which come from the server's catalogue and drift if guessed. Both are
+//: read off the form rather than listed here, the same way chat's commands
+//: press controls that already exist, so neither can go stale.
+function skillCommands() {
+  const insert = (text) => (surface) => {
+    const start = surface.selectionStart;
+    editorSplice(surface, start, surface.selectionEnd, text);
+  };
+  const commands = [];
+  //: `name` or `name: question`, one per line, which is what `textToInputs`
+  //: in app.js parses. Only the name goes in the braces.
+  const inputs = (document.getElementById("skill-inputs")?.value || "")
+    .split("\n")
+    .map((line) => line.split(":")[0].trim())
+    .filter(Boolean);
+  for (const name of inputs) {
+    commands.push({
+      id: `skill-input-${name}`,
+      primary: true,
+      group: "Answers you will be asked for",
+      //: The same rule as the board row above: an icon, not a typed glyph.
+      icon: "ph:chat-teardrop-text",
+      label: `{{${name}}}`,
+      hint: "the answer goes here",
+      keywords: ["input", "placeholder", "ask", "variable", name],
+      run: insert(`{{${name}}}`),
+    });
+  }
+  //: The checked tools, not the whole catalogue: a step naming a tool this
+  //: skill is not allowed to use is a step that cannot run.
+  const tools = [...document.querySelectorAll("#skill-tool-list input:checked")].map((box) => box.value);
+  for (const tool of tools) {
+    commands.push({
+      id: `skill-tool-${tool}`,
+      primary: true,
+      group: "Tools this skill may use",
+      label: `\u{1F527} ${tool}`,
+      hint: "name it in a step",
+      keywords: ["tool", "use", tool],
+      run: insert(tool),
+    });
+  }
+  //: An empty menu with no explanation reads as a broken menu. This row says
+  //: where the two lists come from, and pressing it does nothing rather than
+  //: writing a word nobody asked for.
+  if (!commands.length) {
+    commands.push({
+      id: "skill-nothing-yet",
+      primary: true,
+      group: "Nothing to offer yet",
+      icon: "ph:info", label: "Add an input or tick a tool",
+      hint: "then they appear here",
+      keywords: ["input", "tool", "help", "empty"],
+      run: () => {},
+    });
+  }
+  return commands;
 }
 
 function editorCommands(context) {
   if (context === "chat") return chatCommands();
+  if (context === "skill") return skillCommands();
   const commands = [];
 
   for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
@@ -298,7 +563,8 @@ function editorCommands(context) {
       // Links, AI and Templates below the fold, which is exactly what a live
       // browser check caught. Four show by default; typing finds the rest.
       primary: ["note", "tip", "warning", "danger"].includes(kind),
-      label: `${meta.icon} ${meta.label} box`,
+      icon: meta.icon,
+      label: `${meta.label} box`,
       hint: `> [!${kind}]`,
       keywords: ["callout", "box", "frame", "admonition", kind, meta.label],
       run: (textarea) => editorApplyAction(textarea, calloutTemplate(kind)),
@@ -319,7 +585,7 @@ function editorCommands(context) {
     id: "callout-fold",
     primary: true,
     group: "Blocks & frames",
-    label: "\u{1F4C1} Collapsible section",
+    icon: "ph:folder-open", label: "Collapsible section",
     hint: "> [!note]-: folded until clicked",
     keywords: ["fold", "collapse", "collapsible", "toggle", "details", "section", "hide"],
     run: (textarea) => editorApplyAction(textarea, calloutTemplate("note", "-")),
@@ -330,7 +596,7 @@ function editorCommands(context) {
       id: "table",
       primary: true,
       group: "Blocks & frames",
-      label: "\u{1F4CA} Table",
+      icon: "ph:table", label: "Table",
       hint: "3 columns",
       keywords: ["table", "grid", "columns"],
       //: `editorApplyNamed`, not `editorApplyAction`: the table is a `custom`
@@ -344,7 +610,7 @@ function editorCommands(context) {
       id: "codeblock",
       primary: true,
       group: "Blocks & frames",
-      label: "\u{1F4BB} Code block",
+      icon: "ph:code", label: "Code block",
       hint: "```",
       keywords: ["code", "fence", "snippet"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.codeblock),
@@ -353,7 +619,7 @@ function editorCommands(context) {
       id: "checklist",
       primary: true,
       group: "Blocks & frames",
-      label: "\u{2611}\u{FE0F} Checklist",
+      icon: "ph:check-square", label: "Checklist",
       hint: "- [ ]",
       keywords: ["task", "todo", "check", "list"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.task),
@@ -361,7 +627,7 @@ function editorCommands(context) {
     {
       id: "bullets",
       group: "Blocks & frames",
-      label: "\u{2022} Bullet list",
+      icon: "ph:list-bullets", label: "Bullet list",
       hint: "-",
       keywords: ["list", "bullet", "ul"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.ul),
@@ -369,7 +635,7 @@ function editorCommands(context) {
     {
       id: "math",
       group: "Blocks & frames",
-      label: "\u{1F9EE} Math",
+      icon: "ph:math-operations", label: "Math",
       hint: "$\u2026$, rendered where you write it",
       keywords: ["math", "formula", "equation", "latex", "tex", "mathml"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.math),
@@ -378,7 +644,7 @@ function editorCommands(context) {
       id: "divider",
       primary: true,
       group: "Blocks & frames",
-      label: "\u{2014} Divider",
+      icon: "ph:minus", label: "Divider",
       hint: "---",
       keywords: ["divider", "rule", "hr", "separator", "break"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.hr),
@@ -387,7 +653,7 @@ function editorCommands(context) {
       id: "heading",
       primary: true,
       group: "Blocks & frames",
-      label: "\u{1F516} Section heading",
+      icon: "ph:bookmark-simple", label: "Section heading",
       hint: "##, becomes a jump target",
       keywords: ["heading", "section", "anchor", "title", "h2"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h2),
@@ -401,7 +667,7 @@ function editorCommands(context) {
     {
       id: "h1",
       group: "Blocks & frames",
-      label: "\u{1F5DE}\u{FE0F} Title heading",
+      icon: "ph:text-h", label: "Title heading",
       hint: "#",
       keywords: ["h1", "title", "heading", "big"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h1),
@@ -409,7 +675,7 @@ function editorCommands(context) {
     {
       id: "h3",
       group: "Blocks & frames",
-      label: "\u{1F4D1} Sub-heading",
+      icon: "ph:text-h-two", label: "Sub-heading",
       hint: "###",
       keywords: ["h3", "sub", "heading", "small"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h3),
@@ -417,7 +683,7 @@ function editorCommands(context) {
     {
       id: "numbered",
       group: "Blocks & frames",
-      label: "\u{1F522} Numbered list",
+      icon: "ph:list-numbers", label: "Numbered list",
       hint: "1.",
       keywords: ["ordered", "numbered", "list", "ol", "steps"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.ol),
@@ -425,7 +691,7 @@ function editorCommands(context) {
     {
       id: "quote",
       group: "Blocks & frames",
-      label: "\u{201C} Quote",
+      icon: "ph:quotes", label: "Quote",
       hint: ">",
       keywords: ["quote", "blockquote", "cite"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.quote),
@@ -438,7 +704,7 @@ function editorCommands(context) {
       id: "wikilink",
       primary: true,
       group: "Links & references",
-      label: "\u{1F517} Link to a note",
+      icon: "ph:link", label: "Link to a note",
       hint: "[[…]]",
       keywords: ["link", "note", "wiki", "reference", "connect"],
       // Insert the opening brackets and hand straight over to the [[ menu,
@@ -452,7 +718,7 @@ function editorCommands(context) {
       id: "embed",
       primary: true,
       group: "Links & references",
-      label: "\u{1F4CE} Embed a note inline",
+      icon: "ph:paperclip", label: "Embed a note inline",
       hint: "![[…]], shows its text here",
       keywords: ["embed", "transclude", "include", "inline", "note"],
       run: (textarea) => {
@@ -461,9 +727,38 @@ function editorCommands(context) {
       },
     },
     {
+      //: **A board or a map as an object in the note** (INBOX 309, the owner:
+      //: "there is also no way to attach a whiteboard or mindmap to a note as
+      //: like an object in the notes"). Two doorways were asked for and this
+      //: is the one inside the writing: the other is "Add to a note" on the
+      //: board itself, and a feature with only one of them is a feature
+      //: nobody finds.
+      //:
+      //: Not the `[[` menu's route, which the two rows above take. That menu
+      //: inserts a *name*, and a name-addressed board breaks the moment it is
+      //: renamed (see `boardEmbedRef` in app.js on why this one is an id), so
+      //: this command picks the board itself and writes the reference.
+      id: "board-object",
+      primary: true,
+      group: "Links & references",
+      //: An icon, like every other row (the owner, 2026-09-21: "the boards or
+      //: maps option is the only one with a wrong emoji and not an icon"). It
+      //: was a typed U+1F5FA world map, which the system font drew in colour
+      //: beside a column of monochrome Phosphor glyphs, and which is not what
+      //: this app calls a map anyway. `ph:squares-four` is the board's own
+      //: mark everywhere else in the app (the card chip, the Library row, the
+      //: finder), and the row covers both kinds, so it takes the one a person
+      //: will already have seen.
+      icon: "ph:squares-four",
+      label: "Board or mind map",
+      hint: "a preview of it, here in the note",
+      keywords: ["board", "whiteboard", "map", "mindmap", "canvas", "object", "embed", "attach", "diagram"],
+      run: (textarea) => editorInsertBoardObject(textarea),
+    },
+    {
       id: "image",
       group: "Links & references",
-      label: "\u{1F5BC}\u{FE0F} Image",
+      icon: "ph:image", label: "Image",
       hint: "![alt](url): or paste a file into the editor",
       keywords: ["image", "picture", "photo", "figure", "screenshot"],
       run: (textarea) => editorApplyNamed(textarea, "image"),
@@ -471,7 +766,7 @@ function editorCommands(context) {
     {
       id: "footnote",
       group: "Links & references",
-      label: "\u{1F4CC} Footnote",
+      icon: "ph:push-pin", label: "Footnote",
       hint: "[^1]: with its text at the foot",
       keywords: ["footnote", "reference", "cite", "aside"],
       run: (textarea) => editorApplyNamed(textarea, "footnote"),
@@ -479,7 +774,7 @@ function editorCommands(context) {
     {
       id: "comment",
       group: "Links & references",
-      label: "\u{1F576}\u{FE0F} Private comment",
+      icon: "ph:eye-slash", label: "Private comment",
       hint: "%%…%%, kept in the file, never rendered",
       keywords: ["comment", "private", "hidden", "todo", "note to self"],
       run: (textarea) => editorApplyNamed(textarea, "comment"),
@@ -488,7 +783,7 @@ function editorCommands(context) {
       id: "weblink",
       primary: true,
       group: "Links & references",
-      label: "\u{1F310} Web link",
+      icon: "ph:globe", label: "Web link",
       hint: "[text](url)",
       keywords: ["url", "web", "href", "external"],
       run: (textarea) => {
@@ -512,7 +807,7 @@ function editorCommands(context) {
       id: "properties",
       primary: true,
       group: "Blocks & frames",
-      label: "\u{1F3F7}\u{FE0F} Properties",
+      icon: "ph:tag", label: "Properties",
       hint: "tags, status, dates",
       keywords: ["properties", "frontmatter", "metadata", "tags", "yaml", "status", "aliases"],
       run: (textarea) => editorApplyNamed(textarea, "properties"),
@@ -530,7 +825,7 @@ function editorCommands(context) {
     commands.push({
       id: "blockref",
       group: "Links & references",
-      label: "\u{1F517} Link to this block",
+      icon: "ph:link", label: "Link to this block",
       hint: "copies [[Title#^id]]",
       keywords: ["block", "reference", "anchor", "paragraph", "permalink", "copy link", "^"],
       run: (textarea) => editorApplyNamed(textarea, "blockref"),
@@ -539,7 +834,7 @@ function editorCommands(context) {
       id: "columns",
       primary: true,
       group: "Blocks & frames",
-      label: "\u{1F4D1} Two columns",
+      icon: "ph:columns", label: "Two columns",
       hint: ":::columns",
       keywords: ["columns", "column", "two", "side", "split", "grid", "layout"],
       run: (textarea) => editorApplyNamed(textarea, "columns"),
@@ -553,7 +848,7 @@ function editorCommands(context) {
     commands.push({
       id: "annotate",
       group: "Links & references",
-      label: "\u{1F4AC} Comment on this",
+      icon: "ph:chat-circle", label: "Comment on this",
       hint: "==words== %%remark%%, listed in the sidebar",
       keywords: ["comment", "annotate", "remark", "review", "note on", "feedback", "margin"],
       run: (textarea) => editorApplyNamed(textarea, "annotate"),
@@ -577,7 +872,7 @@ function editorCommands(context) {
         id: "ai-inline",
         primary: true,
         group: "AI",
-        label: "\u{2728} Ask Atlas to write here",
+        icon: "ph:sparkle", label: "Ask Atlas to write here",
         hint: "at the cursor \u{2014} Ctrl+J",
         keywords: ["ai", "write", "inline", "here", "cursor", "ask", "generate", "continue"],
         run: (textarea) => inlineAiOpen(textarea),
@@ -586,7 +881,7 @@ function editorCommands(context) {
         id: "ai-edit",
       primary: true,
         group: "AI",
-        label: "\u{2728} AI edit this selection",
+        icon: "ph:sparkle", label: "AI edit this selection",
         hint: "rewrite, expand, tighten",
         keywords: ["ai", "rewrite", "improve", "expand", "edit"],
         run: () => $("doc-ai")?.click(),
@@ -595,7 +890,7 @@ function editorCommands(context) {
         id: "ai-extract",
       primary: true,
         group: "AI",
-        label: "\u{2702}\u{FE0F} Extract notes from here",
+        icon: "ph:scissors", label: "Extract notes from here",
         hint: "split into linked notes",
         keywords: ["ai", "extract", "split", "notes"],
         run: () => $("doc-extract")?.click(),
@@ -610,7 +905,7 @@ function editorCommands(context) {
       id: "stamp-date",
       primary: true,
       group: "Templates",
-      label: "\u{1F4C5} Today's date",
+      icon: "ph:calendar", label: "Today's date",
       hint: now.toLocaleDateString(),
       keywords: ["date", "today", "stamp"],
       run: (textarea) => editorApplyAction(textarea, { insert: now.toLocaleDateString() }),
@@ -618,7 +913,7 @@ function editorCommands(context) {
     {
       id: "stamp-time",
       group: "Templates",
-      label: "\u{1F551} Time now",
+      icon: "ph:clock", label: "Time now",
       hint: now.toLocaleTimeString(),
       keywords: ["time", "now", "stamp", "clock"],
       run: (textarea) =>
@@ -637,7 +932,8 @@ function editorCommands(context) {
     commands.push({
       id: `template-${template.name}`,
       group: "Templates",
-      label: `\u{1F4C4} ${template.name}`,
+      icon: "ph:file-text",
+      label: `${template.name}`,
       hint: "template",
       keywords: ["template", template.name],
       run: (textarea) =>
@@ -913,7 +1209,15 @@ function editorRenderMenu() {
 
     const label = document.createElement("span");
     label.className = "editor-menu-label";
-    label.textContent = item.label;
+    //: `setLabel`, not `textContent`: a command row carries its icon as a
+    //: `ph:` token in its own `icon` field, and `textContent` would print the
+    //: token. Every other menu in the app builds its rows this way; this one
+    //: did not, which is why the eight callout commands were the only rows in
+    //: the app that could not carry a real icon and reached for emoji instead.
+    //: The two fields are joined here rather than stored joined, so the table
+    //: stays a table of objects (DOCUMENTS_PLAN 18a) and a row can be read for
+    //: its icon without parsing its label.
+    setLabel(label, item.icon ? `${item.icon} ${item.label}` : item.label);
     row.appendChild(label);
     if (item.hint) {
       const hint = document.createElement("span");
@@ -1491,6 +1795,18 @@ function editorChoiceDialog(message, choices) {
 async function offerToCreateWikiTarget(name) {
   const wanted = String(name || "").trim();
   if (!wanted) return;
+
+  //: **A board reference is not a name that can be created** (INBOX 309).
+  //: `[[board:12|House jobs]]` addresses one board by id, and the only
+  //: reason it fails to resolve is that the board has gone. Offering to
+  //: create "a note beginning board:12|House jobs" would make a note nobody
+  //: wants and still leave the link dead, which is the dead end this
+  //: function exists to remove, not a new one.
+  const ref = typeof boardEmbedRef === "function" ? boardEmbedRef(wanted) : null;
+  if (ref) {
+    toast(`\u201c${ref.title || "That board"}\u201d is no longer in your notebook.`);
+    return;
+  }
 
   const choice = await editorChoiceDialog(
     `Nothing called “${wanted}” exists yet.\n\nCreate it, and this link will resolve to it.`,

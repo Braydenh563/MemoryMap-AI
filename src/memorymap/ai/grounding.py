@@ -13,9 +13,15 @@ text, and every extra model round trip is latency on the one path where the
 answer is already sitting in front of someone waiting for it): scored by
 shared meaningful words between a sentence and each retrieved note, the same
 signal `search_manager._meaningful_terms` already uses to rank keyword
-matches. A ranking is either right or a little off; a claim ledger that's
-wrong is worse than none, so this only ever attaches a note when the overlap
-is real enough to trust, and says nothing rather than guessing at the rest.
+matches, and then, between the notes that clear that bar, by BM25 over the
+candidate set's passages (CHAT_PLAN decision 2). A ranking is either right or
+a little off; a claim ledger that's wrong is worse than none, so this only
+ever attaches a note when the overlap is real enough to trust, and says
+nothing rather than guessing at the rest.
+
+The set that says whether any of it works is
+`tests/fixtures/chat/grounding_cases.json`, scored by
+`tests/test_grounding_fixtures.py`.
 """
 
 from __future__ import annotations
@@ -67,6 +73,20 @@ PASSAGE_STRIDE = 20
 #: this (Brief 12's fixtures) needs to see them.
 BM25_K1 = 1.5
 BM25_B = 0.75
+
+#: **How close a second note has to be to earn its own mark** (CHAT_PLAN
+#: decision 2's open half, calibrated on `tests/fixtures/chat/grounding_cases.json`
+#: and measured in CHAT_PLAN Phase 1). A sentence that is genuinely about two
+#: notes scores nearly the same against both: on the fixture set the case that
+#: is about two (a dentist and a car service on the same day) scores 4.12 and
+#: 3.85, a ratio of 0.93, while the case where the second mark was wrong (a
+#: claim from the landlord's letter, also cited to a flat-hunting note that
+#: happens to contain "give notice" in another paragraph) scores 6.02 and 3.32,
+#: a ratio of 0.55. 0.75 sits between them with about 0.18 of margin either
+#: way. It is a *ratio* rather than an absolute score because the score itself
+#: moves with how many passages the candidate set has and how long the sentence
+#: is, so no fixed number would survive a different-sized answer.
+PASSAGE_SECOND_RATIO = 0.75
 
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 
@@ -138,28 +158,137 @@ def best_passage(sentence: str, content: str) -> tuple[int, int, float] | None:
     #: says. Applied as a tie-break-sized bonus rather than a filter, because a
     #: model paraphrasing "a couple of hundred" from "180" would otherwise be
     #: left unhighlighted.
-    figures = {term for term in _WORD.findall(sentence.lower()) if term.isdigit()}
+    figures = _figures(sentence)
 
     best: tuple[int, int, float] | None = None
     for start, end, words in passages:
-        counts = Counter(words)
-        length = len(words)
-        score = 0.0
-        for term in terms:
-            found = counts.get(term, 0)
-            if not found:
-                continue
-            #: The +1 inside the log keeps the idf positive for a term in every
-            #: passage: BM25's textbook idf goes negative there, which would
-            #: make a common word count *against* the passage holding it.
-            idf = math.log(1 + (total - frequency[term] + 0.5) / (frequency[term] + 0.5))
-            denominator = found + BM25_K1 * (1 - BM25_B + BM25_B * length / average_length)
-            score += idf * (found * (BM25_K1 + 1)) / denominator
+        score = _bm25(terms, Counter(words), len(words), frequency, total, average_length)
         if figures and figures & set(words):
             score += 0.5
         if score > 0 and (best is None or score > best[2]):
             best = (start, end, round(score, 3))
     return best
+
+
+def _figures(sentence: str) -> set[str]:
+    """The sentence's own numbers ("47 boxes", "the 14th").
+
+    Decision 2 asks for a second check on these: a passage that carries the
+    figure a claim quotes is the passage the claim came from, whatever the word
+    overlap says. Applied as a tie-break-sized bonus rather than a filter,
+    because a model paraphrasing "a couple of hundred" from "180" would
+    otherwise be left unhighlighted.
+    """
+    return {term for term in _WORD.findall(sentence.lower()) if term.isdigit()}
+
+
+def _bm25(
+    terms: list[str],
+    counts: Counter,
+    length: int,
+    frequency: Counter,
+    total: int,
+    average_length: float,
+) -> float:
+    """One passage's BM25 score against one sentence's terms.
+
+    The formula is here once because two callers need it over two different
+    populations: `best_passage` counts document frequency inside one note (which
+    paragraph of this note?) and `_note_passage_scores` counts it across every
+    candidate note (which note?). The population is the whole difference between
+    the two questions, so it is an argument rather than a second copy of this.
+
+    It takes a passage's word counts rather than its words because the counts do
+    not change between sentences and the sentences are a loop around this: see
+    `_pool_passages`.
+    """
+    score = 0.0
+    for term in terms:
+        found = counts.get(term, 0)
+        if not found:
+            continue
+        #: The +1 inside the log keeps the idf positive for a term in every
+        #: passage: BM25's textbook idf goes negative there, which would
+        #: make a common word count *against* the passage holding it.
+        idf = math.log(1 + (total - frequency[term] + 0.5) / (frequency[term] + 0.5))
+        denominator = found + BM25_K1 * (1 - BM25_B + BM25_B * length / average_length)
+        score += idf * (found * (BM25_K1 + 1)) / denominator
+    return score
+
+
+def _pool_passages(notes: list[dict]) -> tuple[list[tuple[int, Counter, int, set]], Counter, float]:
+    """Every candidate note's passages in one population, with its statistics.
+
+    Built once per answer rather than once per sentence: the passages, their
+    word counts and their document frequencies are all properties of the
+    candidate set, and an answer of twelve sentences over nine notes would
+    otherwise re-window and re-count the same notes twelve times.
+
+    Measured, twelve sentences, counting inside the sentence loop against
+    counting here: nine notes of 500 words, 23.3 ms an answer against 16.4;
+    nine of 2,000 words, 93.7 against 74.8; twenty of 500, 44.6 against 29.4.
+    The rest of the 2,000-word figure is `best_passage`, which re-windows one
+    note per mark and is left alone: it is the span rather than the note, it
+    runs once per mark rather than once per candidate per sentence, and this
+    whole pass happens after the last token has streamed rather than between
+    them.
+    """
+    pooled: list[tuple[int, Counter, int, set]] = []
+    for note in notes:
+        note_id = note.get("id")
+        if note_id is None:
+            continue
+        for _start, _end, words in _passages(note.get("content") or ""):
+            counts = Counter(words)
+            pooled.append((note_id, counts, len(words), set(counts)))
+    frequency: Counter = Counter()
+    for _note_id, _counts, _length, unique in pooled:
+        for term in unique:
+            frequency[term] += 1
+    average_length = (
+        sum(length for _n, _c, length, _u in pooled) / len(pooled) if pooled else 0.0
+    )
+    return pooled, frequency, average_length
+
+
+def _note_passage_scores(sentence: str, pool) -> dict[int, float]:
+    """Each candidate note's best passage, scored against this sentence.
+
+    **This is the "which note" half of CHAT_PLAN decision 2**, and it is a
+    different question from `best_passage`'s, which is why the document
+    frequency is counted over every candidate's passages rather than inside one
+    note: a word that appears in every candidate ("sourdough", when both notes
+    are about sourdough) cannot tell them apart and must not carry the choice,
+    while inside a single note that same word is exactly what tells its
+    paragraphs apart. Counting within the note and then comparing the numbers
+    across notes, which is the shape this replaced, compares scores computed
+    against different populations: a long note's idf is larger term for term,
+    so the longer note would win for being longer.
+    """
+    pooled, frequency, average_length = pool
+    terms = _meaningful_terms(sentence)
+    if not terms or not pooled:
+        return {}
+    total = len(pooled)
+    figures = _figures(sentence)
+    best: dict[int, float] = {}
+    for note_id, counts, length, unique in pooled:
+        score = _bm25(terms, counts, length, frequency, total, average_length)
+        if figures and figures & unique:
+            score += 0.5
+        if score > 0 and score > best.get(note_id, 0.0):
+            best[note_id] = round(score, 3)
+    return best
+
+
+def note_passage_scores(sentence: str, notes: list[dict]) -> dict[int, float]:
+    """`{note_id: score}` for one sentence against a candidate set.
+
+    The public form of `_note_passage_scores`, for the fixture harness
+    (`tests/test_grounding_fixtures.py`) and for anything that wants to see the
+    margin between the note that was cited and the one that was not.
+    """
+    return _note_passage_scores(sentence, _pool_passages(notes))
 
 
 
@@ -193,6 +322,16 @@ def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
     starter before you take the boots up Snowdon" is about both notes), never
     by vocabulary the two notes share, which is the case the single-best rule
     exists to keep honest.
+
+    **Which of the eligible notes is named, and whether a second one is,** is
+    decided by the passage score (`_note_passage_scores`), which is decision
+    2's open half. The word rules above decide *whether* a sentence is
+    supported at all and are unchanged: they were tuned against reported
+    answers, and on the fixture set they produce no false mark and miss nothing
+    a lexical scorer can reach, so there was nothing for a second support rule
+    to add. What they were measurably wrong about is a second mark earned by
+    two distinctive words scattered through a note that never says the thing,
+    which is exactly what no single passage of it can score.
     """
     if not answer or not notes:
         return []
@@ -210,6 +349,7 @@ def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
         else [set() for _ in note_words]
     )
 
+    pool = _pool_passages(notes)
     grounded: list[dict] = []
     for sentence in split_sentences(answer):
         sentence_words = _word_set(sentence)
@@ -225,27 +365,79 @@ def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
                 scored.append((ratio, hits, note_id))
         if not scored:
             continue
-        scored.sort(reverse=True)
-        grounded.append(_mark(sentence, scored[0][2], contents))
+        passage_scores = _note_passage_scores(sentence, pool)
+        #: Passage score first, the word ratio behind it: a note with no
+        #: passage score at all (nothing in it matched, which happens when the
+        #: word rules passed on distinctive terms alone) keeps its old place in
+        #: the order rather than being dropped.
+        scored.sort(key=lambda row: (passage_scores.get(row[2], 0.0), row[0], row[1]), reverse=True)
+        primary = scored[0][2]
+        grounded.append(_mark(sentence, primary, contents))
+        top = passage_scores.get(primary, 0.0)
         for _ratio, hits, note_id in scored[1:]:
-            if hits >= DISTINCTIVE_MIN_TERMS:
-                grounded.append(_mark(sentence, note_id, contents))
+            if hits < DISTINCTIVE_MIN_TERMS:
+                continue
+            if top and passage_scores.get(note_id, 0.0) < top * PASSAGE_SECOND_RATIO:
+                continue
+            grounded.append(_mark(sentence, note_id, contents))
     return grounded
+
+
+#: Below this, an answer is mostly the model talking rather than the notebook
+#: answering, and the app says so. Brief 12's number, kept: "the 'I don't know'
+#: copy is triggered when < 50% of sentences are supported".
+LOW_SUPPORT_RATIO = 0.5
+
+#: And under this many scoreable sentences there is no ratio worth reading. One
+#: sentence is either marked or not, and calling a single unmarked sentence "0%
+#: supported" would put a warning over every one-line answer, including the
+#: honest short ones ("You have no notes about that."), which teaches people to
+#: ignore the warning.
+LOW_SUPPORT_MIN_SENTENCES = 2
+
+
+def support(answer: str, grounded: list[dict]) -> dict:
+    """How much of this answer the notebook actually backs.
+
+    CHAT_PLAN Phase 1's fourth gate line. The marks have always said which
+    sentences are supported; nothing said how much of the answer that was, so
+    an answer with one cited sentence in six looked, at a glance, exactly like
+    one with six in six.
+
+    Counted from `split_sentences` and `MIN_SENTENCE_WORDS`, the same two rules
+    `ground_answer_sentences` uses to decide what it will even try to mark, so
+    the denominator can never disagree with the thing it is a denominator of. A
+    sentence too short to score is not evidence of anything either way and is
+    left out of both halves.
+
+    `grounded` may hold two rows for one sentence (a sentence about two notes),
+    so the numerator is over distinct sentences, not over rows.
+    """
+    eligible = [s for s in split_sentences(answer or "") if len(_word_set(s)) >= MIN_SENTENCE_WORDS]
+    marked = {row.get("sentence") for row in (grounded or []) if row.get("sentence")}
+    hit = sum(1 for sentence in eligible if sentence in marked)
+    total = len(eligible)
+    ratio = (hit / total) if total else 0.0
+    return {
+        "supported": hit,
+        "sentences": total,
+        "ratio": round(ratio, 3),
+        #: The judgement travels with the numbers, so the frontend and any
+        #: future caller cannot each pick their own threshold.
+        "low": total >= LOW_SUPPORT_MIN_SENTENCES and ratio < LOW_SUPPORT_RATIO,
+    }
 
 
 def _mark(sentence: str, note_id: int, contents: dict[int, str]) -> dict:
     """One grounding row, with the passage located inside its note.
 
-    **Which note grounds a sentence is unchanged here, deliberately.** The
-    overlap and distinctive-terms rules above were tuned against reported
-    answers and are covered by `tests/test_grounding.py`; CHAT_PLAN decision 2
-    asks for BM25 to pick the note as well as the passage, and the threshold
-    that would need is "calibrated on the eval fixtures (Brief 12)", which do
-    not exist yet. Re-deciding what counts as supported without the fixtures
-    that say whether it got better is the trade this project has learned not
-    to make. So this adds what can be added honestly today: the span, so a
-    mark can point at the sentence's source rather than at a whole note, which
-    is what the renderer and the hover highlight need.
+    **The note has already been chosen** by the caller (the word rules for
+    whether, `_note_passage_scores` for which); this locates the span inside
+    it, so a mark can point at the sentence's source rather than at a whole
+    note, which is what the renderer and the hover highlight need. The span
+    comes from `best_passage`, scored inside the note, for the reason its
+    docstring gives: between two paragraphs of one note, a word the whole
+    candidate set shares is still the word that tells them apart.
 
     `start`/`end` stay absent rather than null when there is no passage worth
     naming; the frontend already reads a missing span as "no highlight".

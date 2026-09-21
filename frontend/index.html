@@ -31,24 +31,24 @@
        every later file's var() calls depend on. See
        tests/test_style_scale.py's STYLE_FILES for the list the design-token
        lint reads instead of a single style.css path. -->
-  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.3.1">
-  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.3.1">
-  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.3.1">
-  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.3.1">
-  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.3.1">
-  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.3.1">
-  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.3.1">
-  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.3.1">
-  <link rel="stylesheet" href="/css/08-consistency.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/08-consistency.css?v=0.3.2">
   <!-- The documents editor's own layout, last so it is the final word on the
        panes it lays out. CodeMirror's *internals* are styled from the theme
        object in documents.js instead: adopted stylesheets sort after document
        stylesheets, so a rule here could not override one of its own. -->
-  <link rel="stylesheet" href="/css/09-editor.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/09-editor.css?v=0.3.2">
   <!-- Phases 9 and 10 of UI_MODERNISATION_PLAN: the tablet bands and the
        Liquid Glass adoptions. Last, so it wins ties on source order, and its
        own file so three agents can edit the stylesheets at once. -->
-  <link rel="stylesheet" href="/css/10-responsive.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/10-responsive.css?v=0.3.2">
   <!-- **Its own file, not an inline block, and that is the point.** The CSP
        allows inline scripts only by sha256 hash, and `create_app` computes
        those hashes from index.html **once at startup**. A server still
@@ -58,7 +58,7 @@
        the loading screen". A guard that exists to report a broken boot must
        not itself be the thing that breaks, and `script-src 'self'` covers a
        same-origin file unconditionally. -->
-  <script src="/boot-guard.js?v=0.3.1"></script>
+  <script src="/boot-guard.js?v=0.3.2"></script>
   <!-- **Its own file for the same reason boot-guard.js is**, and this one
        was reported: "[browser/csp] blocked script-src-elem: inline". The
        policy has no `'unsafe-inline'`, so an inline block has to be named by
@@ -74,7 +74,7 @@
        class rather than one more of its causes. It stays a plain synchronous
        script element in the head, so it still runs before first paint and the
        anti-flash guarantee is unchanged. -->
-  <script src="/theme-boot.js?v=0.3.1"></script>
+  <script src="/theme-boot.js?v=0.3.2"></script>
 </head>
 <body>
   <!-- The very first thing in <body>, on purpose: painted before any data
@@ -303,6 +303,19 @@
       <p id="lock-message" class="muted"></p>
       <input id="lock-password" type="password" placeholder="Password or PIN"
         aria-label="Password" autocomplete="current-password">
+      <!-- **What this password is for, said before it is chosen, not after.**
+           Measured on five fresh data directories, 2026-09-21: the first screen
+           a new person sees asked for a credential in 26 words that never said
+           what the app is, never said it runs on this machine, never stated the
+           four-character rule (that arrived only after a failed attempt) and
+           never mentioned that `vault.create` derives an encryption key from it
+           right there in `/auth/setup`. The good explanation of all of it
+           existed, nested inside Settings, Account and security, which is not
+           where somebody deciding whether to trust an app is looking.
+
+           Shown only while setting up, hidden on the ordinary unlock, where it
+           would be furniture. -->
+      <p id="lock-setup-note" class="muted lock-setup-note hidden"></p>
       <button id="lock-submit">Unlock</button>
       <p id="lock-error" class="status error" role="alert"></p>
     </div>
@@ -328,7 +341,7 @@
         <span class="atlas-mark" aria-hidden="true"><i class="ph ph-compass" aria-hidden="true"></i></span>
         <div class="atlas-intro-words">
           <p class="atlas-name">Atlas</p>
-          <p class="muted atlas-line">Explains the app, from your utility model, never from your notes.</p>
+          <p class="muted atlas-line">Explains the app, never your notes.</p>
         </div>
       </div>
       <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Atlas">
@@ -365,8 +378,8 @@
            second action and a labelled button for it is what made the old head
            row two buttons wide. -->
       <form id="help-chat-form" class="row help-chat-form atlas-composer">
-        <input type="text" id="help-chat-input" data-needs-model="Atlas answers with your utility model" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
-        <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="icon-only" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
+        <input type="text" id="help-chat-input" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
+        <button type="submit" id="help-chat-send" class="icon-only icon-primary" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
         <button type="button" class="icon-only ghost small graph-help-toggle"
           data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
           title="About this chat" aria-label="About this chat">
@@ -378,8 +391,10 @@
         <p>
           Atlas is named for a book of maps: it is the reference you open to
           find your way around this app. Quick "how do I…" answers about
-          MemoryMap itself, from your utility model, not your notes, and
-          nothing here is saved.
+          MemoryMap itself, not your notes, and nothing here is saved.
+          It answers on your utility model while smart model routing is on,
+          on the chat model while it is off, and Settings, Models can give
+          the guide a model of its own.
         </p>
       </div>
     </div>
@@ -683,7 +698,7 @@
     </p>
     <code id="doc-storage-path" class="storage-path">…</code>
     <p class="muted">
-      Nothing is ever uploaded. Use <strong>⬇ .md</strong> to keep a copy
+      Nothing is ever uploaded. Use <strong>Download as .md</strong> to keep a copy
       as an ordinary file anywhere you like, or Settings → Import &amp;
       export to back up or export everything at once.
     </p>
@@ -813,6 +828,15 @@
 
   <!-- ======================= DASHBOARD TAB ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
+    <!-- The page's head: the banner and the way in. A wrapper with
+         `display: contents` at Full and Compact, so those two lay out exactly
+         as they did when these were siblings, and a flex row at Focused, where
+         the two share one line (INBOX 296). It exists in the markup at every
+         density rather than being built by JS for one of them, for the same
+         reason the densities are keyed off `data-density` and not classes: a
+         render that replaces the hero must not be able to lose the structure
+         around it. -->
+    <div class="dash-head">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
          with a live clock on the right. -->
     <section class="dash-hero" id="dash-hero">
@@ -848,6 +872,7 @@
       <span class="dash-find-text">Search your notes, documents, files and the app</span>
       <span class="dash-find-keys" aria-hidden="true"></span>
     </button>
+    </div>
     <!-- One-tap shortcuts to the things people do most -->
     <div class="dash-quicklinks" id="dash-quicklinks" role="group"
       aria-label="Quick actions"></div>
@@ -945,7 +970,7 @@
           <button role="tab" data-section="capture" aria-selected="false"
             aria-controls="capture" tabindex="-1"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture</button>
           <button role="tab" data-section="writing-room" aria-selected="false"
-            aria-controls="writing-room" tabindex="-1"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Write with AI</button>
+            aria-controls="writing-room" tabindex="-1"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Write with Atlas</button>
           <button role="tab" data-section="ask" aria-selected="false"
             aria-controls="ask" tabindex="-1"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask</button>
         </div>
@@ -1224,29 +1249,94 @@
         <!-- Writing room: loose thoughts in, a real note out, revised until
              it's right. The draft lives in the browser until you save it. -->
         <section class="card" id="writing-room">
-          <div class="row space-between">
-            <h2>Write with Atlas</h2>
-            <!-- Same pattern as #graph-help-toggle: a circular icon button
-                 whose native title is a real, zero-JS hover tooltip, plus a
-                 click-to-open panel for reading the whole thing end to end.
-                 Replaces a paragraph that used to sit here permanently, on
-                 every visit, before anyone had asked what this tab does. -->
-            <button type="button" id="draft-help" class="icon-only ghost small graph-help-toggle"
-              aria-expanded="false" aria-controls="draft-intro"
-              title="Type whatever's in your head, half sentences are fine. Atlas turns it into a note. Edit the draft, add more thoughts, and it folds them in without undoing your changes. Your own words stay in the box: nothing here overwrites what you typed, and ↩ Undo steps back through every AI pass. This is the one part of the app that needs the local AI running, with it off, the Draft button is disabled and everything else on this tab still works."
-              aria-label="What is this?">
-              <i class="ph ph-question" aria-hidden="true"></i>
-            </button>
+          <!-- **A writing desk, not a form** (WORLD_CLASS_PLAN D16, INBOX 274:
+               "I want to improve the design, capabilities and features in the
+               write with ai subtab in notes because I think it is falling
+               behind"). Measured before this: ten controls in three heights, no
+               dock, two filled buttons on one card, no quick starts, no empty
+               state, and a draft that arrived 22.9 seconds later in one piece.
+
+               The head is a dock on the grammar now, so this sub-tab reads
+               like every other surface in the app: identity, then the one
+               thing it is for. "Draft" is the surface's single primary and the
+               rest of the desk is what it acts on. -->
+          <div class="dock" data-dock-name="writing-room" role="toolbar"
+            aria-label="Writing desk controls">
+            <div class="dock-identity">
+              <h2 id="writing-room-heading">Write with Atlas</h2>
+            </div>
+            <div class="dock-actions">
+              <button id="draft-compose" data-needs-model="Drafting needs a model connected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft</button>
+              <button id="draft-cancel" class="ghost hidden" type="button"
+                title="Stop Atlas: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
+              <button id="draft-undo" class="ghost small" type="button" disabled
+                title="Nothing to undo yet"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Undo</button>
+              <!-- The `data-help-for` recipe, markup only, replacing the
+                   hand-wired `initHelpToggle` pair this used to be: same
+                   round '?', same popover, one implementation. -->
+              <button type="button" id="draft-help" class="icon-only ghost small graph-help-toggle"
+                data-help-for="draft-help-body" aria-controls="draft-help-body"
+                aria-expanded="false" title="What is this?" aria-label="What is this?">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+              <details class="doc-dock-menu dock-menu dock-more" id="draft-more-menu">
+                <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+                <div class="doc-dock-menu-list dock-menu-list">
+                  <!-- `POST /drafts/title` names a finished draft, which is
+                       the one part of a long draft nobody writes. It was a
+                       button on the old card; the desk keeps the capability
+                       and moves it in here with the other things you do to a
+                       draft once it exists. -->
+                  <button id="draft-title" data-needs-model="Naming a draft needs a model connected"
+                    class="doc-dock-menu-item" type="button"
+                    title="Let Atlas name this draft, as its heading"><i class="ph ph-text-h ph-lead" aria-hidden="true"></i> Suggest a title</button>
+                  <button id="draft-extract" data-needs-model="Extracting notes needs the local AI"
+                    class="doc-dock-menu-item" type="button"
+                    title="Split this into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Split into notes</button>
+                  <!-- The one capability the desk could not reach: a note
+                       that already exists, carried on. It comes in as the
+                       draft, and what goes back out goes back to that note
+                       rather than to a second copy of it. -->
+                  <button id="draft-continue-note" class="doc-dock-menu-item" type="button"
+                    title="Bring a note you already have into the draft and carry on writing it"><i class="ph ph-pencil-line ph-lead" aria-hidden="true"></i> Carry on from a note</button>
+                  <!-- The desk's own model, changeable here rather than in
+                       Settings (decision 4: "easily altered" means not walking
+                       to Settings). The row opens the same sheet the Chat tab
+                       and the documents assistant open, against the same list,
+                       so the three surfaces cannot drift apart in wording. -->
+                  <button id="draft-model" class="doc-dock-menu-item" type="button"
+                    title="Pick the model this writing desk runs on"><i class="ph ph-cube ph-lead" aria-hidden="true"></i> Model for this feature</button>
+                  <button id="draft-discard" class="doc-dock-menu-item" type="button"
+                    title="Clear the desk: the thoughts, the draft and its earlier versions"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Discard this draft</button>
+                </div>
+              </details>
+            </div>
           </div>
-          <p class="muted graph-help-panel hidden" id="draft-intro" role="dialog" aria-label="What is this?">
-            Type whatever's in your head, half sentences are fine. Atlas turns
-            it into a note. Edit the draft, add more thoughts, and it folds them
-            in without undoing your changes. Your own words stay in the box:
-            nothing here overwrites what you typed, and ↩ Undo steps back
-            through every AI pass. This is the one part of the app that needs
-            the local AI running, with it off, the Draft button is disabled
-            and everything else on this tab still works.
-          </p>
+          <div class="help-body hidden" id="draft-help-body" role="dialog" aria-label="What is this?">
+            <p>Type whatever's in your head, half sentences are fine. Atlas
+              turns it into a draft as it writes it. Pick what to write, in
+              what voice and at what length, and hand it notes you already
+              have to write from.</p>
+            <p>Your own words stay in the box: nothing here overwrites what
+              you typed, Undo steps back through every pass, and every draft
+              Atlas produced is kept under the box so you can go back to one.
+              This is the one part of the app that needs a model connected,
+              with it off the Draft button is disabled and everything else on
+              this tab still works.</p>
+          </div>
+          <!-- Decision 11's link half, the shape Ask and the popup agent
+               already use: a sentence a reader can act on, with the one
+               button that fixes it, in the place they are looking. Before
+               this the only way out of "no model" on this tab was a title on
+               a button that could not be pressed. -->
+          <div id="draft-offline" class="ai-offline-note hidden"></div>
+          <!-- Quick starts, on the `.library-chip` recipe. A desk with nothing
+               on it is the hardest kind to start at, and the five asks below
+               are what the free-text instruction was being used for. Each sets
+               what to write and a first line of thoughts; nothing runs until
+               Draft is pressed. Built in app.js from one table so the chips and
+               what they do cannot drift apart. -->
+          <div class="draft-quickstarts" id="draft-quickstarts" role="group" aria-label="Quick starts"></div>
           <!-- **Four rows across two columns, and the same row means the same
                thing in both.** Measured before this at 1440x900: the two
                boxes were 189.2 and 330.3px tall (`rows="7"` against
@@ -1265,66 +1355,114 @@
                family each. -->
           <div class="draft-columns">
             <div class="draft-column">
-              <label for="draft-thoughts" class="muted">Your thoughts</label>
+              <div class="row space-between draft-column-head">
+                <label for="draft-thoughts" class="muted">Your thoughts</label>
+                <span id="draft-sources-count" class="muted"></span>
+              </div>
               <textarea id="draft-thoughts" rows="7"
                 placeholder="Just get it down, order doesn't matter…"></textarea>
-              <!-- The instruction and the button that acts on it are one
-                   surface, the `.ask-composer` recipe one panel down: a field
-                   you type into with its own action at the end, rather than a
-                   loose input wedged between two buttons that do not read it.
-                   Undo and Stop are the same family, what the AI pass did and
-                   how to stop or take it back. -->
-              <div class="row draft-controls draft-compose-row ask-composer">
-                <input id="draft-instruction" type="text" maxlength="300"
-                  placeholder="Optional: “make it shorter”, “add a summary”…"
-                  aria-label="An instruction for this revision">
-                <button id="draft-cancel" class="ghost hidden" type="button"
-                  title="Stop Atlas: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
-                <button id="draft-undo" class="ghost" type="button" disabled
-                  title="Nothing to undo yet"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Undo</button>
-                <button id="draft-compose" data-needs-model="Drafting needs the local AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft it</button>
+              <!-- **What to write, in what voice, at what length, from what.**
+                   Three selects and an adder, the same shapes the chat dock's
+                   own strip under its composer uses, rather than four controls
+                   invented here. Each of these used to be something you had to
+                   type into a free-text instruction and hope for. -->
+              <div class="row draft-controls draft-desk-controls">
+                <select id="draft-kind" class="small-select" aria-label="What to write"
+                  title="What Atlas does with what is in the box">
+                  <option value="note">Draft a note</option>
+                  <option value="continue">Continue the draft</option>
+                  <option value="rewrite">Rewrite the draft</option>
+                  <option value="expand">Bullets to prose</option>
+                  <option value="bullets">Prose to bullets</option>
+                </select>
+                <select id="draft-tone" class="small-select" aria-label="Tone"
+                  title="The voice to write in">
+                  <option value="mine">My voice</option>
+                  <option value="plain">Plain</option>
+                  <option value="friendly">Friendly</option>
+                  <option value="formal">Formal</option>
+                  <option value="punchy">Punchy</option>
+                </select>
+                <select id="draft-length" class="small-select" aria-label="Length"
+                  title="How long the draft should be">
+                  <option value="short">Short</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="long">Long</option>
+                </select>
+                <button id="draft-add-source" class="ghost small" type="button"
+                  title="Write from notes you already have, up to six of them"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Use notes</button>
               </div>
+              <!-- One chip per note handed to the drafter, each removable: a
+                   chip is a fact about this request, and the X is how you take
+                   the fact back. -->
+              <div class="row draft-sources hidden" id="draft-sources"
+                aria-label="Notes this draft is written from"></div>
               <p id="draft-status" class="status" role="status"></p>
             </div>
             <div class="draft-column">
               <div class="row space-between draft-column-head">
                 <label for="draft-text" class="muted">The draft</label>
-                <span id="draft-count" class="muted"></span>
+                <span class="row draft-head-facts">
+                  <!-- Which note this draft goes back to, when it came from
+                       one. A fact about the draft, so a chip. -->
+                  <span id="draft-target" class="chip hidden"></span>
+                  <span id="draft-count" class="muted"></span>
+                </span>
               </div>
-              <textarea id="draft-text" rows="14"
-                placeholder="Your draft will appear here. You can edit it directly."></textarea>
+              <!-- `rows="7"`, the same as the thoughts box opposite, and
+                   measured: at 390 the two boxes are stacked and their rows
+                   attribute is what decides their height, so `rows="14"` drew
+                   one box at 189.2px and the other at 330.3px on a phone. On
+                   a desktop neither number is what decides, the flex stretch
+                   inside a stretched column is. -->
+              <textarea id="draft-text" rows="7"
+                placeholder="Your draft will appear here as Atlas writes it. You can edit it directly."></textarea>
+              <!-- Open while a pass runs and closed once it lands: the
+                   thinking is worth watching and not worth keeping. -->
+              <details id="draft-thinking" class="hidden">
+                <summary class="muted">What Atlas was thinking</summary>
+                <pre id="draft-thinking-text" class="thinking-text"></pre>
+              </details>
+              <!-- Every draft this session produced, newest last, on the
+                   `.library-chip` recipe. Undo steps back one pass; these are
+                   the way back to any of them, which is what a desk full of
+                   crossed-out pages gives you and a single undo does not. -->
+              <div class="row draft-versions hidden" id="draft-versions"
+                aria-label="Earlier drafts"></div>
+              <!-- The refine field and the button that reads it are one
+                   surface, the `.ask-composer` recipe: a field you type into
+                   with its own action at the end, rather than a loose input
+                   wedged between buttons that do not read it. -->
+              <div class="row draft-controls draft-refine-row ask-composer">
+                <input id="draft-instruction" type="text" maxlength="300"
+                  placeholder="Refine: “make it shorter”, “add a summary”…"
+                  aria-label="An instruction for the next pass">
+                <button id="draft-refine" data-needs-model="Refining needs a model connected"
+                  class="ghost" type="button"
+                  title="Run this instruction over the draft"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Refine</button>
+              </div>
               <!-- Out of the action row and onto a labelled row of its own, so
                    the one field on this side of the panel stops being a fourth
                    weight in a line of buttons. The same `.ask-composer` surface
-                   as the instruction row opposite, and for the same two
-                   reasons: both rows are "one optional field", and a row that
-                   is the same recipe in both columns is the same height in
-                   both, which is what makes the two writing boxes above them
-                   end on one line. -->
+                   as the refine row above it, and for the same reason: both
+                   rows are "one optional field". -->
               <div class="row draft-controls draft-tags-row ask-composer">
                 <label for="draft-tags" class="muted draft-field-label">Tags</label>
                 <input id="draft-tags" type="text" maxlength="200"
                   placeholder="Optional, comma separated (e.g. joke, work)">
               </div>
+              <!-- One row, one family: what to do with the finished draft.
+                   Saving it is this panel's own primary, the way a dashboard
+                   widget has one; the desk's primary is Draft, in the dock. -->
               <div class="row draft-controls draft-actions-row">
-                <!-- `POST /drafts/title` shipped with the writing room and
-                     had no caller: the model could name a finished draft and
-                     nothing ever asked it to. A note's title in this app is
-                     its leading `# Heading`, which is the one part of a long
-                     draft nobody writes. -->
-                <button id="draft-title" data-needs-model="Naming a draft needs the local AI" class="ghost" type="button"
-                  title="Let Atlas name this draft, as its heading"><i class="ph ph-text-h ph-lead" aria-hidden="true"></i> Suggest a title</button>
-                <button id="draft-extract" data-needs-model="Extracting notes needs the local AI" class="ghost" type="button"
-                  title="Split this into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
-                <button id="draft-discard" class="ghost" type="button">Discard</button>
+                <button id="draft-copy" class="ghost" type="button"
+                  title="Copy the draft to the clipboard"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
+                <button id="draft-insert" class="ghost" type="button"
+                  title="Add this draft to the end of a note you already have"><i class="ph ph-arrow-line-down ph-lead" aria-hidden="true"></i> Insert into a note</button>
                 <button id="draft-save"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save as note</button>
               </div>
             </div>
           </div>
-          <details id="draft-thinking" class="hidden">
-            <summary class="muted">What the model was thinking</summary>
-            <pre id="draft-thinking-text" class="thinking-text"></pre>
-          </details>
         </section>
 
         <!-- Ask: conversational answer and raw records side by side -->
@@ -1422,8 +1560,9 @@
             <span class="empty-icon" aria-hidden="true"><i class="ph ph-sparkle ph-lead"></i></span>
             <p class="empty-title">Ask your own notes a question</p>
             <p class="muted">Answers come from your notebook and cite the notes they
-              came from: nothing leaves this machine. The matching notes appear
-              beside the answer so you can check it against the source.</p>
+              came from, and with a model on this machine nothing leaves it. The
+              matching notes appear beside the answer so you can check it against
+              the source.</p>
           </div>
           <div id="chat-results" class="chat-grid hidden">
             <div class="chat-half">
@@ -1576,6 +1715,16 @@
             </div>
             <div class="dock-actions">
               <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
+              <!-- The dock's one primary, which this dock never had: Capture is
+                   a sub-tab, so "new note" was a tab press away and looked
+                   like navigation rather than the thing the Notes tab is for.
+                   Filled, at the right, before the utilities, the grammar's
+                   own order; on a phone `FAB_IDS` floats it as the + above
+                   the tab bar (UI Phase 11 item 2), where it opens Capture
+                   with the box focused, and it hides while Capture is the
+                   section showing. -->
+              <button id="notes-new-note" class="small" type="button"
+                title="Start a new note (opens Capture)"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
               <button id="notes-refresh" class="ghost small icon-only" type="button"
                 title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
               <button id="search-help" class="icon-only ghost small graph-help-toggle" type="button"
@@ -1709,7 +1858,7 @@
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet, ask your notebook something.</p>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"
-          title="Search and sort everything you have ever asked"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Browse all in Library →</button>
+          title="Search and sort everything you have ever asked"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Browse all in Library <i class="ph ph-arrow-right ph-trail" aria-hidden="true"></i></button>
       </aside>
       <main>
         <section class="card" id="chat-main">
@@ -2558,8 +2707,8 @@
               <th scope="col"><button type="button" class="timeline-sort" data-sort="title">Title</button></th>
               <th scope="col" class="timeline-col-wide"><button type="button" class="timeline-sort" data-sort="kind">Kind</button></th>
               <th scope="col" class="timeline-col-wide"><button type="button" class="timeline-sort" data-sort="category">Category</button></th>
-              <th scope="col" class="timeline-col-wide"><button type="button" class="timeline-sort" data-sort="space">Space</button></th>
-              <th scope="col" class="timeline-col-wide"><button type="button" class="timeline-sort" data-sort="tags">Tags</button></th>
+              <th scope="col" class="timeline-col-wide timeline-col-space"><button type="button" class="timeline-sort" data-sort="space">Space</button></th>
+              <th scope="col" class="timeline-col-wide timeline-col-tags"><button type="button" class="timeline-sort" data-sort="tags">Tags</button></th>
               <th scope="col" class="timeline-col-wide timeline-col-number"><button type="button" class="timeline-sort" data-sort="words">Words</button></th>
               <th scope="col" class="timeline-col-wide timeline-col-number"><button type="button" class="timeline-sort" data-sort="links">Links</button></th>
             </tr>
@@ -2829,8 +2978,8 @@
                section there rather than leaving controls that silently do
                nothing; `#graph-physics` is the element it dims, which is why
                the id is on the section and not on a wrapper inside it. -->
-          <div class="dock-menu-section graph-physics" id="graph-physics"
-            role="group" aria-labelledby="graph-physics-label">
+          <details class="dock-menu-section settings-fold graph-options-fold graph-physics"
+            id="graph-physics">
             <!-- Unpin all rides the section's own header row now (graph.md
                  section 2: "the 'Pinned notes' row's label -- the button
                  could be the row"). It had its own row with a "Pinned notes"
@@ -2841,13 +2990,21 @@
                  (releasing what you pinned hands the layout back to Gravity
                  and Spread), just beside the section name instead of under
                  it. -->
-            <div class="dock-menu-section-head">
+            <!-- The section head is the fold's summary now, and "Unpin all"
+                 rides it the way it rode the head: a button inside a
+                 `<summary>` is phrasing content and therefore valid, and
+                 `graph-unpin-all`'s own handler calls preventDefault so
+                 pressing it releases the pins without also opening or
+                 closing the fold it sits on. The alternative was a row of
+                 its own inside the fold, which is the row this header
+                 replaced in the first place. -->
+            <summary>
               <span class="muted dock-menu-label" id="graph-physics-label">Physics</span>
               <button id="graph-unpin-all" class="ghost small" type="button"
                 title="Release every note you have pinned in place, so the layout can move freely again">
                 <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
               </button>
-            </div>
+            </summary>
             <div class="graph-option-row">
               <label for="graph-gravity">Gravity</label>
               <input id="graph-gravity" type="range" min="0" max="100" value="50"
@@ -2858,7 +3015,7 @@
               <input id="graph-spread" type="range" min="0" max="100" value="50"
                 title="How far apart linked notes sit">
             </div>
-          </div>
+          </details>
           <div class="dock-menu-section" id="graph-toggle-group"
             role="group" aria-labelledby="graph-show-label">
             <div class="dock-menu-section-head">
@@ -2969,8 +3126,15 @@
                thesis" stays one colour whatever the rest of the map is coloured
                by. Resolved through /entries?q= on each render, never stored as
                ids, so a note written tomorrow joins its group by itself. -->
-          <div class="dock-menu-section" id="graph-groups-section" role="group" aria-labelledby="graph-groups-label">
-            <span class="muted dock-menu-label" id="graph-groups-label">Groups</span>
+          <!-- Folded, on the app's own `details.settings-fold` recipe (DESIGN.md,
+               the recipe index). The panel had grown back past its own cap at
+               1440x900 (655px of list in a 488px box) and this section plus
+               Minimap below are the two that are set once and then left: a
+               group is made and then lives in the legend, a corner is chosen
+               and then stays chosen. Folded they cost a heading each instead
+               of a heading plus a search box plus an empty-state sentence. -->
+          <details class="dock-menu-section settings-fold graph-options-fold" id="graph-groups-section">
+            <summary><span class="muted dock-menu-label" id="graph-groups-label">Groups</span></summary>
             <!-- Not a `.graph-option-row`: that recipe is "one setting, one
                  row, what it is on the left and the control that changes it on
                  the right", and this row makes a group rather than changing
@@ -2985,10 +3149,10 @@
                 title="Paint every note matching these words one colour"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add</button>
             </div>
             <div id="graph-groups" class="graph-groups" role="list"></div>
-          </div>
-          <div class="dock-menu-section"
-            role="group" aria-labelledby="graph-minimap-label">
-            <span class="muted dock-menu-label" id="graph-minimap-label">Minimap</span>
+          </details>
+          <details class="dock-menu-section settings-fold graph-options-fold"
+            id="graph-minimap-section">
+            <summary><span class="muted dock-menu-label" id="graph-minimap-label">Minimap</span></summary>
             <div class="graph-option-row">
               <label for="graph-minimap-corner">Position</label>
               <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
@@ -3008,7 +3172,7 @@
                 <option value="lg">Large</option>
               </select>
             </div>
-          </div>
+          </details>
           <!-- One row, one button (graph.md section 2's other named
                candidate): the section held its own name plus a second row
                naming the one thing in it ("Similar notes") again before the
@@ -3129,7 +3293,7 @@
         <div id="graph-new" class="graph-popup hidden" role="dialog"
           aria-label="Add a note to the map">
           <div class="row space-between">
-            <strong id="graph-new-title">＋ New note</strong>
+            <strong id="graph-new-title"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</strong>
             <button id="graph-new-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <p class="muted" id="graph-new-hint"></p>
@@ -3145,9 +3309,9 @@
           </div>
         </div>
         <div id="graph-zoom" class="graph-zoom" role="group" aria-label="Zoom the map">
-          <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
-          <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>
-          <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
+          <button id="graph-zoom-in" class="icon-only graph-zoom-btn" title="Zoom in" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
+          <button id="graph-zoom-out" class="icon-only graph-zoom-btn" title="Zoom out" aria-label="Zoom out"><i class="ph ph-minus" aria-hidden="true"></i></button>
+          <button id="graph-zoom-fit" class="icon-only graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
           <button id="graph-fullscreen" class="icon-only graph-zoom-btn" title="Full screen" aria-label="Full screen" aria-pressed="false"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
@@ -3214,7 +3378,7 @@
           <ul id="doc-list" class="doc-list"></ul>
           <p id="doc-empty" class="muted hidden">No documents yet: start typing on the right, or press ＋ New.</p>
           <button id="doc-browse-all" class="ghost small conv-browse-all" type="button"
-            title="Search, sort and manage every document"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Browse all in Library →</button>
+            title="Search, sort and manage every document"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Browse all in Library <i class="ph ph-arrow-right ph-trail" aria-hidden="true"></i></button>
         </div>
 
         <div id="doc-sidebar-outline" class="doc-sidebar-section hidden">
@@ -3228,6 +3392,17 @@
                  first heading on the panel: "the empty state is a bare
                  heading with nothing under it". -->
             <p class="muted doc-outline-empty hidden" id="doc-outline-empty"></p>
+            <!-- **The filter box** (DOCUMENTS_PLAN Phase 4 item 3, and
+                 OPEN.md: "past two screens of headings it is how you use it at
+                 all"). Hidden until there are enough headings to hunt through,
+                 which documents.js decides: a filter over six rows is a
+                 control asking to be ignored. Not persisted, for the same
+                 reason the Library's property filter is not: a narrowing that
+                 survives a reload is an outline with most of the document
+                 missing and nothing saying why. -->
+            <input id="doc-outline-filter" type="search" class="doc-outline-filter hidden"
+              placeholder="Filter headings…" aria-label="Filter the outline"
+              autocomplete="off" spellcheck="false">
             <ul id="doc-outline" class="doc-outline"></ul>
           </div>
 
@@ -3461,6 +3636,12 @@
                      both are worth having. -->
                 <button id="doc-history" class="menu-item doc-dock-menu-item" type="button"
                   title="Every version this document has had, and a way back to any of them"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History</button>
+                <!-- The AI assistant's own model. In this menu rather than
+                     in the assistant's dialog head, because that head is two
+                     controls and a third would be new chrome; this is the
+                     menu the AI edit button already sits beside. -->
+                <button id="doc-ai-model" class="menu-item doc-dock-menu-item" type="button"
+                  title="Pick the model Atlas runs on in this document"><i class="ph ph-cube ph-lead" aria-hidden="true"></i> Model for this feature</button>
                 <button id="doc-extract" data-needs-model="Extracting notes needs the local AI" class="menu-item doc-dock-menu-item" type="button"
                   title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
@@ -4260,6 +4441,20 @@
               aria-label="Search documents by title or content">
           </div>
           <div class="dock-group dock-arrange">
+            <!-- **Filter by a property the document declares about itself**
+                 (DOCUMENTS_PLAN Phase 3 item 4's second clause). One select,
+                 not two: a key picker plus a value picker would be two
+                 controls saying one thing and would take this dock to the
+                 seven-control ceiling. The options are built from the list
+                 that is on screen (library.js, `libraryDocsPropertyOptions`),
+                 grouped by key with `<optgroup>` (INBOX 273) and each option
+                 reading "value (count)", so the control can only ever offer
+                 a property some document actually has. -->
+            <select id="library-docs-property"
+              aria-label="Filter documents by a property"
+              title="Show only documents whose front matter carries this property">
+              <option value="">Any property</option>
+            </select>
             <!-- The fourth Library sub-tab to get the sort control they were
                  reported as missing. One select, never a select and a segment
                  saying the same thing. -->
@@ -4756,8 +4951,6 @@
         <select id="wb-board-select" aria-label="Which board or map to show" title="Which board or map to show" class="ghost small">
           <option value="">Default board</option>
         </select>
-        <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board" aria-label="Rename this board"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
-        <button id="wb-new-board" class="ghost small icon-button" type="button" title="Create a new board" aria-label="Create a new board"><i class="ph ph-plus" aria-hidden="true"></i></button>
         <!-- The map controls (MINDMAP_PLAN.md §5 Phase 2). All three are
              `hidden` until `wbSyncMapChrome` finds the open board is a map,
              rather than disabled: a control that can never apply to an
@@ -4876,6 +5069,13 @@
                   <option value="notes">Behind a note</option>
                 </select>
               </div>
+              <!-- The map's own look (MINDMAP_PLAN.md §13e). One row in a
+                   menu that already exists, because §13's decision 5 says
+                   nothing is added to the canvas and §13b has just taken the
+                   topic strip from fourteen controls to five: a theme that
+                   arrived as a sixth control on the canvas would undo the
+                   half of this section that was already built. -->
+              <button type="button" class="wb-menu-item" id="wb-map-theme-item" hidden><i class="ph ph-palette ph-lead" aria-hidden="true"></i><span>How this map draws topics</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-expand-all" hidden><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Open every folded branch</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-stats-item" hidden><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i><span>What this map is made of</span></button>
             </div>
@@ -4902,6 +5102,21 @@
         <div class="wb-board-menu-wrap">
           <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="Export, clear, help" aria-haspopup="true" aria-expanded="false" aria-controls="wb-board-menu"><span class="wb-menu-label">Board</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
           <div id="wb-board-menu" class="wb-board-menu hidden" role="menu" aria-label="Board">
+            <!-- Rename and New used to be two icon buttons in the bar's
+                 identity zone, which is what took `#wb-topbar` to thirteen
+                 controls at 1440 against the dock grammar's ceiling of seven
+                 (measured, `scratchpad/ui-sweeps/wbtopbar.js`). Phase 8 names
+                 this bar as the menu-bar exception, so the five menu toggles
+                 are one zone rather than five controls; the rest of the bar
+                 answers to the ceiling, and these two are the two that had a
+                 menu to go to. Same ids, so every listener in whiteboard.js is
+                 unchanged, including the one that disables Rename on the
+                 default scratch board. -->
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Boards</span>
+              <button id="wb-rename-board" type="button" class="wb-menu-item" title="Rename this board"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i><span>Rename this board</span></button>
+              <button id="wb-new-board" type="button" class="wb-menu-item" title="Create a new board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span>New board</span></button>
+            </div>
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">This board</span>
               <div class="wb-menu-row">
@@ -4933,6 +5148,17 @@
                    as well as beside it. Clear takes the eraser icon here, so
                    the two are not one trash can each: Clear empties the board
                    and keeps it, Delete takes the board with it. -->
+              <!-- INBOX 309, the owner: "there is also no way to attach a
+                   whiteboard or mindmap to a note as like an object in the
+                   notes". Two doorways were asked for, and this is the one
+                   that starts from the board: the other is the "/" menu's
+                   own "Board or mind map" inside a note. A feature with only
+                   the editor's half is a feature you have to already know
+                   about, which is how the map chips stayed unused. -->
+              <div class="wb-menu-row">
+                <span>A note</span>
+                <button id="wb-add-to-note" class="ghost small" type="button" title="Put this board in a note as an object"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Add to a note…</button>
+              </div>
               <div class="wb-menu-row">
                 <span>This board itself</span>
                 <button id="wb-delete-board" class="ghost small wb-panel-danger" type="button" title="Delete this board and everything on it"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
@@ -5098,7 +5324,9 @@
         <span class="wb-tool-section-label" title="How the map arranges itself, and laying it out again">Layout</span>
         <div class="wb-tool-section-row">
         <select id="wb-map-layout" class="ghost small" aria-label="How this map is laid out" title="How this map is laid out" hidden>
-          <option value="tree-right">Tree, sideways</option>
+          <option value="tree-right">Tree, to the right</option>
+          <option value="tree-left">Tree, to the left</option>
+          <option value="tree-both">Tree, both sides</option>
           <option value="tree-down">Tree, downward</option>
           <option value="radial">Radial</option>
           <option value="free">Free</option>
@@ -5185,6 +5413,14 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
         </button>
         <input type="file" id="wb-image-file-input" aria-label="Choose an image to place on the board" title="Choose an image to place on the board" accept="image/*" class="hidden" aria-hidden="true">
+        <!-- The picture that goes *in* a map topic (MINDMAP_PLAN.md §12.1
+             item 2's fourth), as against the one above, which goes on the
+             board as an object of its own. In the markup rather than built in
+             whiteboard.js, which is this app's own way with file inputs (the
+             board background's is here too): a file input needs an accessible
+             name and a hidden class whichever way it is made, and one written
+             here is one the id/handler lints can see. -->
+        <input type="file" id="wb-map-picture-input" aria-label="Choose a picture for this topic" title="Choose a picture for this topic" accept="image/*" class="hidden" aria-hidden="true">
         </div>
       </div>
       <div class="wb-tool-section" role="group" aria-label="Connect">
@@ -5238,6 +5474,20 @@
         </div>
       </div>
       </div>
+      <!-- **The whole rail behind one button below 600** (Phase 11 item 7,
+           "creation tools in a sheet"). Measured at 390x844 before it: the
+           rail is a 364x56 band under a 364x604 canvas holding 835px of tools
+           scrolled through a 358px window, so 16 of its 31 buttons were on
+           screen and the Shapes section showed one of its seven. The sheet is
+           `openSheet`, and what it holds is `#wb-tool-group` itself, moved in
+           and put back on close: the delegated `[data-tool]` listener, every
+           section label and every key is the one that was already there.
+           Hidden above 600, where the rail is the rail. -->
+      <button type="button" id="wb-tools-opener" class="ghost small wb-tools-opener"
+        title="Tools" aria-haspopup="dialog" aria-expanded="false">
+        <i class="ph ph-toolbox ph-lead" aria-hidden="true"></i>
+        <span id="wb-tools-opener-label">Tools</span>
+      </button>
     </div>
 
     <!-- Zoom only. Search, overview, full screen and help moved up into the
@@ -5435,109 +5685,177 @@
       <span id="wb-stroke-width-badge" class="wb-stroke-width-badge hidden"></span>
     </div>
 
-    <!-- **The node edit strip** (MINDMAP_PLAN.md §12.1 item 2, Coggle's four:
-         text, link, image, icon). It stands in the selection bar's place on a
-         map node rather than beside it: two bars above one node is how they
-         come to overlap, and the board's bar offers duplicate, copy style and
-         the z-order pair, none of which a topic in a tree has any use for.
-         What a topic needs instead is how it reads and what it points at.
+    <!-- **The node edit strip** (MINDMAP_PLAN.md §12.1 item 2, §12.5, and
+         §13b). It stands in the selection bar's place on a map node rather
+         than beside it: two bars above one node is how they come to overlap,
+         and the board's bar offers duplicate, copy style and the z-order
+         pair, none of which a topic in a tree has any use for. What a topic
+         needs instead is how it reads and what its line looks like.
 
-         Same recipe as the bar it replaces: `.card.glass` over the canvas,
-         a run of `.ghost.small.icon-only` quieted by the panel rule in
-         07-whiteboard-misc.css, plain `<select>`s that `enhanceSelect`
-         restyles at boot, and the divider the bar already uses. Positioned by
-         `wbUpdateSelectionBar`, which owns both. -->
+         **Five controls, not fourteen** (§13b, the owner: the map's tools
+         "dont show themselves how id expect"). It carried all fourteen in one
+         flat run of glyphs, which measured 959.4px to describe a topic 95px
+         wide: 67% of a 1440 window, 94% of a 1024 one, and not one of the
+         fourteen drew a word. What a person met was a row of icons the width
+         of the screen. The fourteen are all still here and none of them moved
+         surface: they are behind three named doors, Text, Shape and Line,
+         each of which says in a word what is inside it and then labels every
+         control in the menu with its own word. The colour well and "back to
+         the branch" stay on the bar itself, the first because it is the one
+         control a mindmapper reaches for constantly (Coggle's branch colour)
+         and the second because it undoes everything the three doors do.
+
+         Recipes, not a fourth kind of popover: each door is the board menu
+         bar's own `.wb-board-menu-wrap` plus `[data-wb-menu-toggle]` and a
+         `.wb-board-menu` written in markup (DESIGN.md's recipe index, "a menu
+         bar over a canvas"), which is the recipe for a menu whose rows are
+         not all commands. `wbStampMenuRoles` stamps the ARIA and
+         `wireMenuKeyboard` gives it the arrows at boot, both by class, and
+         `escapeAndCapMenu` keeps it inside the window; every id below is the
+         id the control already had, so every listener in whiteboard.js is
+         untouched. Positioned by `wbUpdateSelectionBar`, which owns both. -->
     <div id="wb-map-strip" class="wb-map-strip card glass hidden" role="toolbar" aria-label="Topic">
-      <button type="button" id="wb-map-bold" class="ghost small icon-only" title="Bold" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
-      <button type="button" id="wb-map-italic" class="ghost small icon-only" title="Italic" aria-label="Italic" aria-pressed="false"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
-      <!-- **A core idea** (MINDMAP_PLAN.md item 177). Beside bold and italic
-           because it is the same kind of thing: how much this topic weighs
-           against the ones around it. Not a third node type, which §12.0
-           refused for good reasons; a mark the node wears, which the shape
-           picker beside it then has a wider set for. -->
-      <button type="button" id="wb-map-core" class="ghost small icon-only" title="Mark this topic as a core idea" aria-label="Mark this topic as a core idea" aria-pressed="false"><i class="ph ph-crown-simple" aria-hidden="true"></i></button>
-      <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
-        <option value="12">S</option>
-        <option value="">M</option>
-        <option value="19">L</option>
-        <option value="25">XL</option>
-      </select>
-      <select id="wb-map-align" class="ghost small" aria-label="Text alignment" title="Where the text sits in the topic">
-        <option value="">Auto</option>
-        <option value="left">Left</option>
-        <option value="center">Centre</option>
-        <option value="right">Right</option>
-      </select>
       <input type="color" id="wb-map-strip-color" class="wb-color-picker" aria-label="Topic colour" title="Topic colour">
-      <span class="wb-topbar-divider" aria-hidden="true"></span>
-      <select id="wb-map-strip-icon" class="ghost small" aria-label="Icon on this topic" title="Put an icon on this topic">
-        <option value="">No icon</option>
-        <option value="star">Star</option>
-        <option value="flag">Flag</option>
-        <option value="check-circle">Done</option>
-        <option value="warning">Warning</option>
-        <option value="question">Question</option>
-        <option value="lightbulb">Idea</option>
-        <option value="heart">Heart</option>
-        <option value="rocket">Rocket</option>
-        <option value="target">Target</option>
-        <option value="clock">Clock</option>
-        <option value="push-pin">Pin</option>
-      </select>
-      <select id="wb-map-shape" class="ghost small" aria-label="Topic shape" title="The shape this topic is drawn in">
-        <option value="">Rounded</option>
-        <option value="pill">Pill</option>
-        <option value="rect">Box</option>
-        <option value="ellipse">Ellipse</option>
-        <option value="none">Plain</option>
-      </select>
-      <!-- **The bar down the topic's edge** (MINDMAP_PLAN.md item 177,
-           "per-node left edge: solid, dashed or none"). Beside the shape
-           because it is the other half of how a topic is drawn: the shape is
-           the box, this is the one edge of it that carries the branch's
-           colour. A select rather than a toggle because there are three
-           values and a three-state button is a button nobody can read. -->
-      <select id="wb-map-spine" class="ghost small" aria-label="The bar on this topic's edge" title="The bar that carries the branch colour down this topic's edge">
-        <option value="">Solid bar</option>
-        <option value="dashed">Dashed bar</option>
-        <option value="none">No bar</option>
-      </select>
-      <!-- **The line into this topic** (MINDMAP_PLAN.md item 177,
-           "connection line styles: per-branch thickness, dash and arrowhead,
-           managed from the map strip rather than by one global rule"). A tree
-           edge has no row of its own, it *is* `parent_id`, so every control
-           here writes to the topic that is selected, which is the end of its
-           one incoming line. `data-wb-map-line` marks the group so a trunk,
-           which has no line above it, is shown none of it.
+      <div class="wb-board-menu-wrap">
+        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="How this topic reads: weight, size, alignment and its icon" aria-label="Text: how this topic reads" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-text-menu"><span class="wb-menu-label">Text</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+        <div id="wb-map-text-menu" class="wb-board-menu wb-map-strip-menu hidden" role="menu" aria-label="Text">
+          <div class="wb-menu-section">
+            <div class="wb-menu-row">
+              <span>Weight</span>
+              <span class="wb-menu-controls">
+                <button type="button" id="wb-map-bold" class="ghost small icon-only" title="Bold" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+                <button type="button" id="wb-map-italic" class="ghost small icon-only" title="Italic" aria-label="Italic" aria-pressed="false"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+              </span>
+            </div>
+            <!-- **M is no stored size at all**: see `wbSyncMapStrip`, which
+                 says why the default has to stay the default. -->
+            <div class="wb-menu-row">
+              <span>Size</span>
+              <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
+                <option value="12">S</option>
+                <option value="">M</option>
+                <option value="19">L</option>
+                <option value="25">XL</option>
+              </select>
+            </div>
+            <div class="wb-menu-row">
+              <span>Alignment</span>
+              <select id="wb-map-align" class="ghost small" aria-label="Text alignment" title="Where the text sits in the topic">
+                <option value="">Auto</option>
+                <option value="left">Left</option>
+                <option value="center">Centre</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div class="wb-menu-row">
+              <span>Icon</span>
+              <select id="wb-map-strip-icon" class="ghost small" aria-label="Icon on this topic" title="Put an icon on this topic">
+                <option value="">No icon</option>
+                <option value="star">Star</option>
+                <option value="flag">Flag</option>
+                <option value="check-circle">Done</option>
+                <option value="warning">Warning</option>
+                <option value="question">Question</option>
+                <option value="lightbulb">Idea</option>
+                <option value="heart">Heart</option>
+                <option value="rocket">Rocket</option>
+                <option value="target">Target</option>
+                <option value="clock">Clock</option>
+                <option value="push-pin">Pin</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wb-board-menu-wrap">
+        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="The box this topic is drawn in: how much it weighs, its shape and the bar down its edge" aria-label="Shape: the box this topic is drawn in" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-shape-menu"><span class="wb-menu-label">Shape</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+        <div id="wb-map-shape-menu" class="wb-board-menu wb-map-strip-menu hidden" role="menu" aria-label="Shape">
+          <div class="wb-menu-section">
+            <!-- **A core idea** (MINDMAP_PLAN.md item 177): not a third node
+                 type, which §12.0 refused for good reasons, but a mark the
+                 topic wears, which the shape picker beside it has a wider set
+                 for. -->
+            <div class="wb-menu-row">
+              <span>Core idea</span>
+              <span class="wb-menu-controls">
+                <button type="button" id="wb-map-core" class="ghost small icon-only" title="Mark this topic as a core idea" aria-label="Mark this topic as a core idea" aria-pressed="false"><i class="ph ph-crown-simple" aria-hidden="true"></i></button>
+              </span>
+            </div>
+            <div class="wb-menu-row">
+              <span>Box</span>
+              <select id="wb-map-shape" class="ghost small" aria-label="Topic shape" title="The shape this topic is drawn in">
+                <option value="">Rounded</option>
+                <option value="pill">Pill</option>
+                <option value="rect">Box</option>
+                <option value="ellipse">Ellipse</option>
+                <option value="none">Plain</option>
+              </select>
+            </div>
+            <!-- **The bar down the topic's edge** (MINDMAP_PLAN.md item 177).
+                 Beside the shape because it is the other half of how a topic
+                 is drawn: the shape is the box, this is the one edge of it
+                 that carries the branch's colour. -->
+            <div class="wb-menu-row">
+              <span>Edge bar</span>
+              <select id="wb-map-spine" class="ghost small" aria-label="The bar on this topic's edge" title="The bar that carries the branch colour down this topic's edge">
+                <option value="">Solid bar</option>
+                <option value="dashed">Dashed bar</option>
+                <option value="none">No bar</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- **The line into this topic** (MINDMAP_PLAN.md item 177 and §13c).
+           A tree edge has no row of its own, it *is* `parent_id`, so every
+           control here writes to the topic that is selected, which is the end
+           of its one incoming line. `data-wb-map-line` marks the door so a
+           trunk, which has no line above it, is shown none of it: the whole
+           door goes, not four rows inside an open menu.
 
-           The colour and the dash are on the link ring as well, and that is
-           deliberate rather than an oversight: the ring is a right-click
-           nobody finds by accident (the owner's words about the rings: "soooo
-           annoying and unintuitive to use"), and the strip is the surface
-           that is simply there when a topic is selected. -->
-      <span class="wb-topbar-divider" data-wb-map-line aria-hidden="true"></span>
-      <select id="wb-map-edge-width" class="ghost small" data-wb-map-line aria-label="How thick the line into this topic is" title="How thick the line into this topic is">
-        <option value="thin">Thin line</option>
-        <option value="">Line</option>
-        <option value="thick">Thick line</option>
-      </select>
-      <button type="button" id="wb-map-edge-dashed" class="ghost small icon-only" data-wb-map-line title="Dash the line into this topic" aria-label="Dash the line into this topic" aria-pressed="false"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
-      <button type="button" id="wb-map-edge-arrow" class="ghost small icon-only" data-wb-map-line title="Put an arrowhead on the line into this topic" aria-label="Put an arrowhead on the line into this topic" aria-pressed="false"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
-      <!-- **The shape of the line into this topic** (MINDMAP_PLAN §12.5). It
-           was three slots on the link ring, which is a right-click on a line
-           nobody finds; it is a look, and looks are the strip's. One select
-           rather than three buttons, for the same reason the spine is one:
-           three values with a current one to report is what a select is for. -->
-      <select id="wb-map-edge-shape" class="ghost small" data-wb-map-line aria-label="The shape of the line into this topic" title="The shape of the line into this topic">
-        <option value="">Curved line</option>
-        <option value="elbow">Elbow line</option>
-        <option value="straight">Straight line</option>
-      </select>
+           Named "Branch line", not "Line": §13c's decision is that the map
+           says which of its two kinds of connection it is talking about,
+           everywhere it talks about one. This is the branch. -->
+      <div class="wb-board-menu-wrap" data-wb-map-line>
+        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="The branch line into this topic: how thick it is, whether it is dashed, its arrowhead and its shape" aria-label="Branch line: the line into this topic" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-line-menu"><span class="wb-menu-label">Branch line</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+        <div id="wb-map-line-menu" class="wb-board-menu wb-map-strip-menu hidden" role="menu" aria-label="Branch line">
+          <div class="wb-menu-section">
+            <div class="wb-menu-row">
+              <span>Thickness</span>
+              <select id="wb-map-edge-width" class="ghost small" aria-label="How thick the line into this topic is" title="How thick the line into this topic is">
+                <option value="thin">Thin line</option>
+                <option value="">Line</option>
+                <option value="thick">Thick line</option>
+              </select>
+            </div>
+            <div class="wb-menu-row">
+              <span>Shape</span>
+              <select id="wb-map-edge-shape" class="ghost small" aria-label="The shape of the line into this topic" title="The shape of the line into this topic">
+                <option value="">Curved line</option>
+                <option value="elbow">Elbow line</option>
+                <option value="straight">Straight line</option>
+              </select>
+            </div>
+            <div class="wb-menu-row">
+              <span>Dashed</span>
+              <span class="wb-menu-controls">
+                <button type="button" id="wb-map-edge-dashed" class="ghost small icon-only" title="Dash the line into this topic" aria-label="Dash the line into this topic" aria-pressed="false"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+              </span>
+            </div>
+            <div class="wb-menu-row">
+              <span>Arrowhead</span>
+              <span class="wb-menu-controls">
+                <button type="button" id="wb-map-edge-arrow" class="ghost small icon-only" title="Put an arrowhead on the line into this topic" aria-label="Put an arrowhead on the line into this topic" aria-pressed="false"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
       <span class="wb-topbar-divider" aria-hidden="true"></span>
       <!-- **Back to the branch** (MINDMAP_PLAN §12.5). It was the eighth slot
            on the node ring, where it sat among five structural edits; what it
-           undoes is every choice made in this strip, so it belongs at the end
-           of the strip. -->
+           undoes is every choice made behind the three doors, so it stays on
+           the bar rather than inside one of them. -->
       <button type="button" id="wb-map-reset" class="ghost small icon-only" title="Back to the branch: drop this topic's own colour, size, weight, alignment, shape, icon, link and the look of the line into it" aria-label="Reset this topic to its branch"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
     </div>
 
@@ -5569,7 +5887,7 @@
       <button type="button" id="wb-radial-sibling" class="ghost small wb-map-radial-slot" title="Add a topic beside this one (Enter). Hold Alt to remove this topic and keep its branch" aria-label="Add a topic beside this one (Enter)"><i class="ph ph-arrow-down" aria-hidden="true"></i><span class="wb-map-radial-name">Add beside</span></button>
       <button type="button" id="wb-radial-collapse" class="ghost small wb-map-radial-slot" title="Fold this branch away (C)" aria-label="Fold this branch away (C)"><i class="ph ph-caret-circle-down" aria-hidden="true"></i><span class="wb-map-radial-name">Fold</span></button>
       <button type="button" id="wb-radial-delete" class="ghost small wb-map-radial-slot" title="Delete this topic and everything under it (Delete)" aria-label="Delete this topic and everything under it (Delete)"><i class="ph ph-trash" aria-hidden="true"></i><span class="wb-map-radial-name">Delete</span></button>
-      <button type="button" id="wb-radial-connect" class="ghost small wb-map-radial-slot" title="Draw a line from this topic to another (Shift+C)" aria-label="Draw a line from this topic to another (Shift+C)"><i class="ph ph-graph" aria-hidden="true"></i><span class="wb-map-radial-name">Connect</span></button>
+      <button type="button" id="wb-radial-connect" class="ghost small wb-map-radial-slot" title="Draw a cross-link from this topic to another (Shift+C): it joins two branches without changing the tree" aria-label="Draw a cross-link from this topic to another (Shift+C)"><i class="ph ph-graph" aria-hidden="true"></i><span class="wb-map-radial-name">Cross-link</span></button>
       <button type="button" id="wb-radial-more" class="ghost small wb-map-radial-slot" title="Everything else you can do with this topic (Shift+F10)" aria-label="Everything else you can do with this topic (Shift+F10)"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span class="wb-map-radial-name">More</span></button>
       <span class="wb-map-radial-caption" aria-hidden="true" data-rest="Tab adds a child, Enter one beside, C folds, Delete removes"></span>
     </div>
@@ -6034,103 +6352,139 @@
   </div>
 
   <footer id="status-bar" class="edge-fade">
-    <!-- The generated emblem, which followed the status dot down: it is an AI
-         presence marker and it belongs beside the thing that says what the AI
-         is doing, which is the reason it was next to it in the header. -->
-    <span id="ai-mark" class="emblem emblem-mark" data-status-slot="ai" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
-    <span class="ai-status-wrap" data-status-slot="ai">
-      <button id="ai-status" class="ai-status" type="button"
-        aria-expanded="false" aria-describedby="ai-status-popup">
-        <span class="ai-status-dot" aria-hidden="true"></span>
-        <span class="visually-hidden" id="ai-status-label">Checking what Atlas is doing</span>
-      </button>
-      <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
-        <strong id="ai-status-title"></strong>
-        <span id="ai-status-detail" class="ai-status-detail"></span>
+    <!-- **The bar has three named zones, in one order** (INBOX 307, the owner:
+         "I feel like the navigation and undo/redo buttons keep getting pushed
+         further and further to the left on the bottom bar, is there a better
+         way to restructure the right side of the bottom bar??").
+
+         He is describing a real drift and the history shows it: this run was
+         built as one flat list after the spacer, so every control added since
+         has been appended at the right end and pushed the pair before it left.
+         Measured at 1440 before this, in the order they were added: nav ended
+         467px from the right edge of the bar and redo 391px, behind Command
+         palette, Ask the agent, Guide and (added last, 2026-09-20) Find.
+
+         A nudge would put them back and the next feature would move them
+         again, so the answer is a rule with an owner, the same shape the
+         control docks already use (`tests/test_dock_grammar.py`):
+
+           state    what the app is holding or doing. Never pressed to get
+                    somewhere, so it takes the left end and shrinks first.
+           tools    the doorways: the palette hint, the agent, the guide,
+                    Find, the clock. **This is the only zone that grows.**
+           control  back, forward, history, undo, redo. Fixed membership,
+                    and it ends the bar.
+
+         `tests/test_status_bar_grammar.py` holds all three: the zones in that
+         order, no control loose in the bar, and nothing new allowed into
+         `control`. So a feature added tomorrow lands in `tools` and pushes
+         `tools` along; the pair at the end cannot move again. -->
+    <span class="status-zone" data-status-zone="state">
+      <!-- The generated emblem, which followed the status dot down: it is an AI
+           presence marker and it belongs beside the thing that says what the AI
+           is doing, which is the reason it was next to it in the header. -->
+      <span id="ai-mark" class="emblem emblem-mark" data-status-slot="ai" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
+      <span class="ai-status-wrap" data-status-slot="ai">
+        <button id="ai-status" class="ai-status" type="button"
+          aria-expanded="false" aria-describedby="ai-status-popup">
+          <span class="ai-status-dot" aria-hidden="true"></span>
+          <span class="visually-hidden" id="ai-status-label">Checking what Atlas is doing</span>
+        </button>
+        <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
+          <strong id="ai-status-title"></strong>
+          <span id="ai-status-detail" class="ai-status-detail"></span>
+        </span>
       </span>
+      <button id="status-notes" class="status-item" type="button" data-status-slot="notes"></button>
+      <button id="status-reminders" class="status-item" type="button" data-status-slot="reminders"></button>
+      <!-- Hidden until something is actually running. A slot that says "nothing
+           is happening" for hours is the decoration the caveat above warns
+           about; a slot that appears is a thing you notice. -->
+      <button id="status-task" class="status-item status-task hidden" type="button"></button>
+      <!-- The way back to the Agent Activity panel. It used to open itself on
+           every agent log line and there was no other way to reach it, so the
+           only two states were "in your face" and "gone for good". Log lines no
+           longer open it (app.js: `appendAgentLog`), so this slot is what makes
+           a finished run still reachable, and, like the job slot above, it
+           appears only once there is something to show. -->
+      <button id="status-activity" class="status-item hidden" type="button"></button>
+      <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On"><i class="ph ph-battery-full ph-lead" aria-hidden="true"></i> Saver On</span>
+      <!-- Offline badge. MemoryMap works offline by design, that is the whole
+           point of it: so this is not an error state and must not read as one.
+           What it tells you is narrower and genuinely useful: the two things
+           that DO need the network (web search, and any cloud model you have
+           configured) will not answer right now. Hence the neutral/warning
+           chip rather than the error colour.
+           `role="status"` so a screen reader hears it when it appears; the
+           markup for it was missing entirely while app.js already had the
+           online/offline listeners, so the feature could never show. -->
+      <span id="offline-indicator" class="chip warning hidden" role="status"
+        title="No internet connection: web search and any cloud model are unavailable. Your notes and local AI are unaffected."><i class="ph ph-wifi-slash ph-lead" aria-hidden="true"></i>Offline</span>
     </span>
-    <button id="status-notes" class="status-item" type="button" data-status-slot="notes"></button>
-    <button id="status-reminders" class="status-item" type="button" data-status-slot="reminders"></button>
-    <!-- Hidden until something is actually running. A slot that says "nothing
-         is happening" for hours is the decoration the caveat above warns
-         about; a slot that appears is a thing you notice. -->
-    <button id="status-task" class="status-item status-task hidden" type="button"></button>
-    <!-- The way back to the Agent Activity panel. It used to open itself on
-         every agent log line and there was no other way to reach it, so the
-         only two states were "in your face" and "gone for good". Log lines no
-         longer open it (app.js: `appendAgentLog`), so this slot is what makes
-         a finished run still reachable, and, like the job slot above, it
-         appears only once there is something to show. -->
-    <button id="status-activity" class="status-item hidden" type="button"></button>
-    <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On"><i class="ph ph-battery-full ph-lead" aria-hidden="true"></i> Saver On</span>
-    <!-- Offline badge. MemoryMap works offline by design, that is the whole
-         point of it: so this is not an error state and must not read as one.
-         What it tells you is narrower and genuinely useful: the two things
-         that DO need the network (web search, and any cloud model you have
-         configured) will not answer right now. Hence the neutral/warning
-         chip rather than the error colour.
-         `role="status"` so a screen reader hears it when it appears; the
-         markup for it was missing entirely while app.js already had the
-         online/offline listeners, so the feature could never show. -->
-    <span id="offline-indicator" class="chip warning hidden" role="status"
-      title="No internet connection: web search and any cloud model are unavailable. Your notes and local AI are unaffected."><i class="ph ph-wifi-slash ph-lead" aria-hidden="true"></i>Offline</span>
     <span class="status-spacer"></span>
-    <!-- Back/forward through the pages you have visited. Asked for directly,
-         then asked to live here rather than in the header, and specifically
-         to stay "distinct from the undo and redo buttons", which sit right
-         beside them. Two things do that work: caret icons against undo/redo's
-         u-turn arrows (a different shape, not just a different direction), and
-         the .status-nav rule's own divider marking them off as a separate
-         pair. They move you between pages; undo/redo change your notes. -->
-    <span class="status-nav" role="group" aria-label="Move between pages" data-status-slot="nav">
-      <button id="status-back" class="status-item icon-only" type="button" disabled></button>
-      <button id="status-forward" class="status-item icon-only" type="button" disabled></button>
-      <!-- Asked for directly: "if they are right clicked, a little popup
-           shows above with the navigation history to fast track back to a
-           place (or maybe it can be a little button next to it??)". Both:
-           right-clicking either Back or Forward opens the same popup this
-           button does. -->
-      <button id="status-nav-history" class="status-item icon-only" type="button"
-        aria-haspopup="menu" aria-expanded="false" aria-controls="status-nav-history-menu"
-        title="Navigation history" aria-label="Navigation history">
-        <i class="ph ph-caret-up ph-lead" aria-hidden="true"></i>
-      </button>
+    <span class="status-zone" data-status-zone="tools">
+      <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
+      <!-- Asked for directly: "make sure the user knows the popup agent exists
+           and can access it. through the tools and features popup, the command
+           pallate, settings, and maybe even the bottom status bar if toggled."
+           The palette entry and the Help topic covered the first two; this is
+           the bar. On by default rather than opt-in like the clock beside it,
+           because the whole point of the ask is discoverability, a control
+           nobody switches on advertises nothing, and it joins STATUS_SLOTS so
+           it can be hidden from Settings like every other slot here. -->
+      <button id="status-agent" class="status-item" type="button" data-status-slot="agent"></button>
+      <!-- The Guide, beside the agent, same shape (INBOX 207). The two are a
+           pair: one does things to your notes, the other explains the app, and
+           a person reaching for either is asking the same question, "who do I
+           ask". Splitting them across the header and the status bar was the
+           reason the Guide kept being reported as hard to find. Its own slot
+           key so it can be hidden on its own from Settings. -->
+      <button id="status-guide" class="status-item" type="button" data-status-slot="guide"></button>
+      <!-- Find anything, beside the pair above and for the same reason (INBOX
+           270). A search nobody can see is a search nobody uses, and this one
+           was worse than invisible: the engine behind it had no doorway at all.
+           Its own slot key so it can be hidden on its own from Settings. -->
+      <button id="status-find" class="status-item" type="button" data-status-slot="find"></button>
+      <!-- Off by default, unlike the STATUS_SLOTS group above (app.js): a
+           clock is not one of the bar's existing permanent landmarks, so it
+           does not appear for everyone the moment this shipped. Asked for
+           directly: "allow the user to choose to show the current time in the
+           bottom status bar." Was a <span> that "starts nothing", now a real
+           <button>, since a later ask gave it something to start: a detail
+           popover with seconds, the date and the timezone, none of which fit
+           a glanced-at HH:MM. -->
+      <button id="status-clock" type="button" class="status-item status-clock hidden"
+        aria-haspopup="dialog" aria-expanded="false" aria-controls="status-clock-detail"
+        aria-label="Current time: click or hover for the date, seconds and timezone"></button>
     </span>
-    <button id="status-undo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
-    <button id="status-redo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
-    <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
-    <!-- Asked for directly: "make sure the user knows the popup agent exists
-         and can access it. through the tools and features popup, the command
-         pallate, settings, and maybe even the bottom status bar if toggled."
-         The palette entry and the Help topic covered the first two; this is
-         the bar. On by default rather than opt-in like the clock beside it,
-         because the whole point of the ask is discoverability, a control
-         nobody switches on advertises nothing, and it joins STATUS_SLOTS so
-         it can be hidden from Settings like every other slot here. -->
-    <button id="status-agent" class="status-item" type="button" data-status-slot="agent"></button>
-    <!-- The Guide, beside the agent, same shape (INBOX 207). The two are a
-         pair: one does things to your notes, the other explains the app, and
-         a person reaching for either is asking the same question, "who do I
-         ask". Splitting them across the header and the status bar was the
-         reason the Guide kept being reported as hard to find. Its own slot
-         key so it can be hidden on its own from Settings. -->
-    <button id="status-guide" class="status-item" type="button" data-status-slot="guide"></button>
-    <!-- Find anything, beside the pair above and for the same reason (INBOX
-         270). A search nobody can see is a search nobody uses, and this one
-         was worse than invisible: the engine behind it had no doorway at all.
-         Its own slot key so it can be hidden on its own from Settings. -->
-    <button id="status-find" class="status-item" type="button" data-status-slot="find"></button>
-    <!-- Off by default, unlike the STATUS_SLOTS group above (app.js): a
-         clock is not one of the bar's existing permanent landmarks, so it
-         does not appear for everyone the moment this shipped. Asked for
-         directly: "allow the user to choose to show the current time in the
-         bottom status bar." Was a <span> that "starts nothing", now a real
-         <button>, since a later ask gave it something to start: a detail
-         popover with seconds, the date and the timezone, none of which fit
-         a glanced-at HH:MM. -->
-    <button id="status-clock" type="button" class="status-item status-clock hidden"
-      aria-haspopup="dialog" aria-expanded="false" aria-controls="status-clock-detail"
-      aria-label="Current time: click or hover for the date, seconds and timezone"></button>
+    <!-- The right end, and the only run in this bar with a fixed membership.
+         Nothing is added here: a new control is a doorway and belongs in
+         `tools` above, which is what keeps this pair where it is. -->
+    <span class="status-zone" data-status-zone="control">
+      <!-- Back/forward through the pages you have visited. Asked for directly,
+           then asked to live here rather than in the header, and specifically
+           to stay "distinct from the undo and redo buttons", which sit right
+           beside them. Two things do that work: caret icons against undo/redo's
+           u-turn arrows (a different shape, not just a different direction), and
+           the .status-nav rule's own divider marking them off as a separate
+           pair. They move you between pages; undo/redo change your notes. -->
+      <span class="status-nav" role="group" aria-label="Move between pages" data-status-slot="nav">
+        <button id="status-back" class="status-item icon-only" type="button" disabled></button>
+        <button id="status-forward" class="status-item icon-only" type="button" disabled></button>
+        <!-- Asked for directly: "if they are right clicked, a little popup
+             shows above with the navigation history to fast track back to a
+             place (or maybe it can be a little button next to it??)". Both:
+             right-clicking either Back or Forward opens the same popup this
+             button does. -->
+        <button id="status-nav-history" class="status-item icon-only" type="button"
+          aria-haspopup="menu" aria-expanded="false" aria-controls="status-nav-history-menu"
+          title="Navigation history" aria-label="Navigation history">
+          <i class="ph ph-caret-up ph-lead" aria-hidden="true"></i>
+        </button>
+      </span>
+      <button id="status-undo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
+      <button id="status-redo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
+    </span>
     <div id="status-clock-detail" class="status-clock-detail hidden" role="dialog" aria-label="Current date and time">
       <p id="status-clock-detail-date" class="status-clock-detail-date"></p>
       <p id="status-clock-detail-time" class="status-clock-detail-time"></p>
@@ -6439,8 +6793,13 @@
                  this image show". -->
             <button id="ocr-describe" class="ghost small hidden" type="button"
               title="Describe this image with the vision model (writes its caption)"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span id="ocr-describe-label">Describe</span></button>
-            <button id="ocr-copy-all" class="ghost small icon-only" type="button"
-              title="Copy everything read, in reading order" aria-label="Copy everything read"><i class="ph ph-copy" aria-hidden="true"></i></button>
+            <!-- Named, not just drawn. The control existed and the owner
+                 still asked for it (2026-09-21, "there should be a way to copy
+                 all extracted text in the ocr workspace and files subtab"): an
+                 icon-only button among labelled ones is a button nobody reads.
+                 Describe beside it carries its own word for the same reason. -->
+            <button id="ocr-copy-all" class="ghost small" type="button"
+              title="Copy everything read, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> <span>Copy all</span></button>
             <!-- The reading is only worth having if it can leave this window.
                  A transcription you have to re-read in a dialog is a dead end;
                  the two things anyone does with one are ask about it and keep
@@ -6890,6 +7249,52 @@
                   Packages.
                 </p>
               </div>
+
+              <!-- **A model per feature**, asked for directly: "allow the user
+                   to alter the model they use for that specific feature if they
+                   wish such as for the write with ai area, the chat tab and
+                   document ai assistant ... individually altered and reset and
+                   for there to be a mass reset".
+
+                   Here rather than only on each surface because this is where a
+                   mass reset makes sense: one list, every feature on it, and one
+                   button under it that says how many overrides it would clear.
+                   Each surface has the same picker in its own ⋯ as well, so
+                   changing one model never means walking to Settings.
+
+                   The rows are built in app.js from `/models/status`'s
+                   `feature_models`, which the server resolves, so a row can say
+                   "inherited" and name what it inherits without the frontend
+                   having to know which role each feature falls back to. -->
+              <div class="row help-head">
+                <h3>Model per feature</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="feature-models-help" aria-controls="feature-models-help" aria-expanded="false"
+                  title="About a model per feature" aria-label="About a model per feature">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Each of these runs on the model it inherits until you give it one of its own.</p>
+              <div id="feature-models-list" class="feature-models"></div>
+              <div class="row">
+                <button id="feature-models-reset" class="ghost small" type="button"
+                  title="Hand every feature back to the model it inherits"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset every feature to its default model</button>
+              </div>
+              <p id="feature-models-reset-note" class="muted"></p>
+              <div class="help-body hidden" id="feature-models-help" role="dialog" aria-label="About a model per feature">
+                <p>
+                  A feature left on “inherited” follows the chat model above, or
+                  the utility model where the feature is a background one, so
+                  changing your chat model changes it too. Give one a model of
+                  its own when the job is different: a bigger model for drafting,
+                  a small quick one for the Guide.
+                </p>
+                <p>
+                  Reset on a row hands that feature back to what it inherits.
+                  The button below does the same for every feature at once and
+                  says how many it will clear.
+                </p>
+              </div>
             </div>
 
             <!-- Deliberately OUTSIDE #models-config. It used to live inside,
@@ -6968,7 +7373,7 @@
                    `mark_index_stale` (core/deps.py). A standing "you should
                    rebuild" notice is one nobody reads; one that appears the
                    day you import a vault is one that means something. -->
-              <p id="reindex-stale" class="status reindex-stale hidden" role="status"></p>
+              <p id="reindex-stale" class="status notice notice-warn reindex-stale hidden" role="status"></p>
               <div class="row space-between reindex-action">
                 <p id="reindex-blurb" class="muted text-sm">Rebuilds what semantic search matches on.</p>
                 <button id="reindex-start" class="ghost small" type="button">Rebuild search index</button>
@@ -7055,7 +7460,7 @@
             <input id="persona-name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
             <textarea id="persona-prompt" rows="2" maxlength="2000"
               placeholder="System prompt, e.g. You are a cheerful pirate captain."></textarea>
-            <p class="muted text-sm" id="persona-placeholder-hint">Write <code>{ai_name}</code> where the assistant's name should go and it reads as the app's AI name (Atlas). Optional.</p>
+            <p class="muted text-sm" id="persona-placeholder-hint">Write <code>{ai_name}</code> where the name should go and it is replaced with Atlas. Optional.</p>
             <div class="row">
               <button id="persona-add" class="small">Add persona</button>
               <span id="persona-status" class="status"></span>
@@ -7124,6 +7529,56 @@
                 </p>
               </div>
               <div id="skill-tool-list" class="tool-picker"></div>
+            </details>
+            <!-- The postcondition (CHAT_PLAN decision 10b). The block has been
+                 readable and writable through `skills.normalise` since the
+                 harness landed and was offered nowhere, so only the built-in
+                 skills could declare one: a skill you wrote yourself ended
+                 with whatever the model said about it. Same fold recipe as the
+                 tools picker above it, one line of description, the longer
+                 answer behind the '?'. -->
+            <details class="settings-fold">
+              <summary>
+                <div class="row help-head">
+                  <span>Check it worked (optional)</span>
+                  <button type="button" class="icon-only ghost small graph-help-toggle"
+                    data-help-for="skill-verify-help" aria-controls="skill-verify-help" aria-expanded="false"
+                    title="About checking a skill" aria-label="About checking a skill">
+                    <i class="ph ph-question" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </summary>
+              <p class="muted">When the run ends, the app reads one number back out of your notebook and checks it.</p>
+              <div class="help-body hidden" id="skill-verify-help" role="dialog" aria-label="About checking a skill">
+                <p>
+                  A model can report having done something it did not do. This
+                  is the app's own answer: after the last step it runs a
+                  counting tool itself and compares the number, so "I tagged
+                  them" becomes "no note is left untagged". Pick a tool the
+                  skill is allowed to use, then what the count should be.
+                  Unchanged compares against the reading taken before the run
+                  started, which is what a skill that only reads should
+                  promise. A run that stopped early is never reported as
+                  checked.
+                </p>
+              </div>
+              <div class="row">
+                <label class="muted" for="skill-verify-tool">Read</label>
+                <select id="skill-verify-tool" aria-label="Which tool reads the number"></select>
+                <label class="muted" for="skill-verify-expect">and expect</label>
+                <select id="skill-verify-expect" aria-label="What that number should be">
+                  <option value="unchanged">unchanged</option>
+                  <option value="min">at least</option>
+                  <option value="max">at most</option>
+                  <option value="equals">exactly</option>
+                </select>
+                <input id="skill-verify-value" type="number" min="0" max="100000" step="1"
+                  value="0" aria-label="The number to compare against">
+              </div>
+              <label class="check-row" for="skill-verify-untagged">
+                <input id="skill-verify-untagged" type="checkbox">
+                <span>Count only the notes with no tags</span>
+              </label>
             </details>
             <!-- Measured live during a spacing audit: this row sat flush
                  against the </details> above it (0px gap), unlike the
@@ -8240,8 +8695,8 @@
               </div>
               <h3>Web search</h3>
               <p class="muted">
-                Web search is the one feature that goes online, so it has a
-                screen of its own, 
+                Web search is one of the two features that can go online, with
+                the update check, so it has a screen of its own, 
                 <button type="button" class="linklike" data-goto-section="websearch">open
                   Settings → Web search</button>.
               </p>
@@ -8793,6 +9248,15 @@
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </div>
+              <!-- How much room is left, said before a save is the thing
+                   that says it (INBOX 266, item 6). Filled by
+                   renderBackupRetention() from GET /storage and hidden
+                   unless the number is genuinely low; `.notice notice-warn`
+                   is DESIGN.md's recipe for one line the app says about
+                   what is beside it, and this sits in the one panel that
+                   already knows where the notebook lives and holds the two
+                   things worth deleting. -->
+              <p id="storage-space-notice" class="notice notice-warn hidden" role="note"></p>
               <div class="row">
                 <button id="backup-now" class="small">Back up now</button>
                 <span id="backup-status" class="status" role="status"></span>
@@ -9100,7 +9564,7 @@
               </details>
               <details>
                 <summary><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Asking &amp; chatting</summary>
-                <p>“Ask your notebook” (Notes tab) and the <strong>Chat</strong> tab both answer from your saved notes. Turn on <strong>Agent mode</strong> to let the assistant use its tools, searching and reading your notes, opening a web page, creating, tagging, linking and organising. Destructive actions always ask first. Save, rename, and switch between conversations in the sidebar.</p>
+                <p>“Ask your notebook” (Notes tab) and the <strong>Chat</strong> tab both answer from your saved notes. Turn on <strong>Agent mode</strong> to let Atlas use its tools, searching and reading your notes, opening a web page, creating, tagging, linking and organising. Destructive actions always ask first. Save, rename, and switch between conversations in the sidebar.</p>
                 <p>The same tool-using agent is also reachable from <strong>anywhere</strong> in the app, not just the Chat tab: press <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> to pop it open over whatever you're doing, ask it to do something, and it closes again when you're done: no tab switch needed.</p>
                 <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="chat">Chat tab</button> · <button type="button" class="linklike" data-goto-section="tools">Tools it can use</button> · <button type="button" class="linklike" data-goto-section="personas">Personas</button></p>
               </details>
@@ -9179,7 +9643,7 @@
                 </div>
                 <button type="button" id="atlas-open" class="ghost small"><i class="ph ph-chat-teardrop-text ph-lead" aria-hidden="true"></i> Open Atlas</button>
               </div>
-              <p class="muted">Atlas explains the app, from your utility model, never from your notes.</p>
+              <p class="muted">Atlas explains the app, never your notes.</p>
               <div class="help-body hidden" id="atlas-row-help" role="dialog" aria-label="About Atlas">
                 <p>
                   Atlas is named for a book of maps: the reference you open to
@@ -9647,6 +10111,16 @@
         <li><span class="shortcut-keys"><kbd>m</kbd> then <kbd>d</kbd>/<kbd>n</kbd>/<kbd>c</kbd>/<kbd>g</kbd>/<kbd>l</kbd>/<kbd>t</kbd>/<kbd>r</kbd></span><span>Jump to Dashboard / Notes / Chat / Graph / Library / Timeline / Reminders</span></li>
         <li><span class="shortcut-keys"><kbd>m</kbd> then <kbd>s</kbd>/<kbd>q</kbd>/<kbd>v</kbd></span><span>Open settings / a quick sketch / meeting notes</span></li>
       </ul>
+      <h3>In the documents editor</h3>
+      <p class="muted">These work while you are writing in a document.</p>
+      <!-- Built from `DOC_COMMANDS` in documents.js by `renderDocShortcutSheet`,
+           which is the same table the command palette's "This document" group
+           is built from, so the two cannot disagree about what a key does
+           (DOCUMENTS_PLAN Phase 4 item 4). -->
+      <ul class="shortcut-list" id="shortcut-list-documents"></ul>
+      <p class="muted hidden" id="shortcut-list-documents-note">
+        Open a document once and these appear here.
+      </p>
       <p class="muted">Tip: most actions also live in the command palette.</p>
     </div>
   </div>
@@ -9852,7 +10326,7 @@
         <p>
           A meeting, a lecture, or anything the mic button in the composer is
           too short for. Whisper does the transcription, the same engine behind
-          that button, and nothing leaves this machine.
+          that button, and your audio never leaves this machine.
         </p>
         <p>
           The transcript comes back for you to read and trim before anything is
@@ -9975,12 +10449,16 @@
 
        * `#tour-block` swallows presses so a step cannot be taken out from
          under its own card (a tab pressed mid-step leaves the card pointing
-         at a rectangle that has moved). It paints nothing at all.
+         at a rectangle that has moved). It paints nothing at all, and it is
+         four panels around the hole rather than one sheet across the window:
+         the described control has to stay pressable, or the tour says "press
+         Save" and then eats the press (the owner, 2026-09-20: "it doesnt let
+         the user click the highglighted items"). tour.js lays the four out
+         from the same rectangle the cut-out uses, on every reflow.
        * `#tour-spot` is the cut-out. It draws no background; the dim is its
          own `box-shadow` spread far past the window, so the hole in the dim
          IS this element's box and the control inside it is painted by the
-         page, untouched. An overlay with a hole punched in it by four
-         rectangles was the alternative and needs four boxes kept in step.
+         page, untouched. It never takes a press of its own.
        * `#tour-card` is the step itself, positioned in window coordinates by
          tour.js and corrected by a second measurement, never by the first
          (DESIGN.md: a `position: fixed` element takes its frame from the
@@ -9991,13 +10469,22 @@
        handler traps focus inside whatever `activeOverlay()` returns, which is
        the last visible `[role="dialog"][aria-modal="true"]`, so the card gets
        the app's own focus trap rather than a second implementation of one. -->
-  <div id="tour-block" class="tour-block hidden"></div>
+  <div id="tour-block" class="tour-block hidden" aria-hidden="true">
+    <div id="tour-block-top" class="tour-block-panel"></div>
+    <div id="tour-block-right" class="tour-block-panel"></div>
+    <div id="tour-block-bottom" class="tour-block-panel"></div>
+    <div id="tour-block-left" class="tour-block-panel"></div>
+  </div>
   <div id="tour-spot" class="tour-spot hidden" aria-hidden="true"></div>
   <div id="tour-card" class="card tour-card hidden" role="dialog" aria-modal="true"
     aria-labelledby="tour-title" aria-describedby="tour-text" tabindex="-1">
     <div class="tour-head">
       <span id="tour-section" class="chip tour-section-chip"></span>
-      <span id="tour-count" class="tour-count muted" aria-live="polite"></span>
+      <span class="tour-head-end">
+        <span id="tour-count" class="tour-count muted" aria-live="polite"></span>
+        <button id="tour-close" class="ghost small icon-only" type="button"
+          aria-label="Close the tour"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </span>
     </div>
     <h2 id="tour-title" class="tour-title"></h2>
     <p id="tour-text" class="tour-text muted"></p>
@@ -10041,7 +10528,7 @@
        read out of graph.js, documents.js and library.js could not be
        stood in for at all (a `const` in a classic script is a lexical
        global), so they moved into app.js. -->
-  <script src="/app.js?v=0.3.1"></script>
+  <script src="/app.js?v=0.3.2"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js, and it stays at boot: every cross-file call it
@@ -10052,7 +10539,7 @@
        arrived, and the two that could run sooner (`applyMarkdown`,
        `docEventFromCm`) are on app.js's stand-in list and its typeof-guard
        list respectively. -->
-  <script src="/editor.js?v=0.3.1"></script>
+  <script src="/editor.js?v=0.3.2"></script>
   <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
        of the app.js-split plan). Loaded after app.js and shares its global
        scope; every cross-file call happens at runtime (inside a function or
@@ -10064,7 +10551,7 @@
        closure) moved here along with the functions they call, the same fix
        documents.js made for `initDocSidebarTabs()`, see dashboard.js's own
        header for the full explanation. -->
-  <script src="/dashboard.js?v=0.3.1"></script>
+  <script src="/dashboard.js?v=0.3.2"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview): §88.3 of the app.js-split plan, the fourth and LAST file.
@@ -10084,12 +10571,12 @@
        event-listener closure: see this file's own header for the full
        account of what moved, what stayed in app.js and why, and the two
        hazards this ordering fixes. -->
-  <script src="/settings.js?v=0.3.1"></script>
+  <script src="/settings.js?v=0.3.2"></script>
   <!-- The guided tour (tour.js). Last, and its position is not load-bearing:
        every cross-file call it makes (switchTab, showNotesSection, toast) runs
        from a step or a listener, never while the file is being parsed. app.js
        reaches back the same way, behind a `typeof openTour === "function"`
        guard, so a page served without this file still boots. -->
-  <script src="/tour.js?v=0.3.1"></script>
+  <script src="/tour.js?v=0.3.2"></script>
 </body>
 </html>

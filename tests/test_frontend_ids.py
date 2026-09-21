@@ -250,8 +250,13 @@ def test_every_appearance_setting_has_a_default():
 MODEL_GATED_CONTROLS = {
     "improve-btn": "/entries/improve",
     "improve-retry": "/entries/improve",
-    "draft-compose": "/drafts/compose",
+    # The desk streams its draft, so the gate is the streaming route.
+    "draft-compose": "/drafts/compose/stream",
     "draft-title": "/drafts/title",
+    # The same pass with an instruction in hand, and the same route, so it is
+    # gated by the same rule: a Refine that looks available with no model
+    # would fail only once it had been pressed.
+    "draft-refine": "/drafts/compose/stream",
     "draft-extract": "/entries/extract/preview",
     "extract-commit": "/entries/extract/commit",
     "doc-ai": "/documents/<id>/ai-edit",
@@ -262,8 +267,15 @@ MODEL_GATED_CONTROLS = {
     "reminder-magic-add": "/reminders/parse",
     "chat-send": "/chat/stream",
     "chat-input": "/chat/stream",
-    "help-chat-send": "/help/ask",
-    "help-chat-input": "/help/ask",
+    #: **Atlas is not here, and that is this rule's own rule** (INBOX 304).
+    #: The guide's field and Send were gated with the rest of INBOX 203's
+    #: fifteen, and then `help_chat.offline_answer` was built precisely so the
+    #: guide does not need a model: with none running, `/help/ask` answers with
+    #: the app's own help text for what was asked, and says in its first line
+    #: that it is doing so. That is the paragraph two lines up, word for word,
+    #: so the two entries were removed rather than the paragraph amended.
+    #: Measured in a browser with no model: the composer was disabled, so the
+    #: one AI feature written to work without a model could not be typed into.
 }
 
 

@@ -604,10 +604,27 @@ if not exist "%VENV_PY%" (
   call :status !MM_STEP_PYTHON! "Python" "Using the existing environment" "done"
 )
 
+REM  A venv this broken (no working interpreter at all) gets the same
+REM  medicine --reinstall already gives by hand: burn it down and build a
+REM  fresh one, once, with no prompt. MM_AUTO_REPAIRED is the loop guard -
+REM  read by this check and by the dependency check further down too - one
+REM  automatic retry per launch, ever. INBOX 253: "automatically
+REM  recoverable ... with one click", not "silently stuck" and not "asks
+REM  again forever".
 if not exist "%VENV_PY%" (
-  set "MM_FAIL_MSG=The virtual environment looks incomplete."
-  set "MM_FAIL_FIX=Run start.bat --reinstall to rebuild it."
-  goto :fail
+  if defined MM_AUTO_REPAIRED (
+    call :status !MM_STEP_PYTHON! "Python" "Still broken after a rebuild" "failed"
+    set "MM_FAIL_MSG=The virtual environment is broken and rebuilding it did not fix it."
+    set "MM_FAIL_FIX=Run start.bat --doctor to see what is wrong, or read the log below."
+    goto :fail
+  )
+  echo  !ESC![1;33m[!]!ESC![0m The environment looks broken - rebuilding it automatically...
+  call :log "self-repair: .venv has no working interpreter, rebuilding"
+  rmdir /s /q ".venv" >nul 2>nul
+  set "MM_AUTO_REPAIRED=1"
+  call "!MM_SELF!" !MM_ARGS!
+  set "MM_RC=!errorlevel!"
+  endlocal & exit /b %MM_RC%
 )
 call :bail_if_cancelled
 if defined MM_CANCELLED goto :cancelled
@@ -710,6 +727,37 @@ if "!NEED_INSTALL!"=="1" (
 )
 call :bail_if_cancelled
 if defined MM_CANCELLED goto :cancelled
+
+REM --- 2b. Prove it, don't just infer it - repair once if it's wrong ---
+REM  The marker above only answers "did requirements.txt's timestamp
+REM  change?", nothing about right now: a package removed by hand (an
+REM  antivirus quarantine, a disk-cleanup tool) leaves NEED_INSTALL at 0
+REM  and this is the only place left that notices before the traceback
+REM  does, at step 4, with no repair and no explanation.
+REM
+REM  `import memorymap` alone is not enough - it is a five-line package
+REM  with no submodule imports of its own, so it stays importable no
+REM  matter which real dependency is gone. `memorymap.api.app` is the
+REM  actual entry point start.bat's own launch line loads, so importing it
+REM  here walks the real chain and catches a missing python-dotenv,
+REM  requests, cryptography or any other transitive dependency the shallow
+REM  check would have let straight through to a bare traceback.
+"%VENV_PY%" -c "import memorymap.api.app" >nul 2>nul
+if errorlevel 1 (
+  if defined MM_AUTO_REPAIRED (
+    call :status !MM_STEP_DEPS! "Dependencies" "Still broken after a repair" "failed"
+    set "MM_FAIL_MSG=The virtual environment is broken and reinstalling the dependencies did not fix it."
+    set "MM_FAIL_FIX=Run start.bat --reinstall to rebuild it from scratch, or read the log below."
+    goto :fail
+  )
+  echo  !ESC![1;33m[!]!ESC![0m The environment looks broken - reinstalling the dependencies automatically...
+  call :log "self-repair: the app fails to import, reinstalling dependencies"
+  del /q ".venv\.mm_installed" >nul 2>nul
+  set "MM_AUTO_REPAIRED=1"
+  call "!MM_SELF!" !MM_ARGS!
+  set "MM_RC=!errorlevel!"
+  endlocal & exit /b %MM_RC%
+)
 
 REM  pywebview is optional and only needed for the app window, so it is
 REM  installed on demand rather than for everyone. Cheap after the first
@@ -942,18 +990,23 @@ call :row x "Python" "!MM_PYVER! at !MM_PYPATH!" "This app is tested on 3.11 to 
 REM  2. The venv, asked the only question that matters: can it import the
 REM  things the server cannot start without. A .venv folder that exists and
 REM  a .venv that works are not the same thing after a move, a rename or a
-REM  half-finished pip.
+REM  half-finished pip. `memorymap.api.app` (not a bare `import memorymap`,
+REM  which is a five-line package with no imports of its own) is the
+REM  actual module start.bat's own launch line loads first, so this walks
+REM  the app's real import chain - the same check step 2b above uses to
+REM  decide whether to repair automatically, so the two never disagree
+REM  about what "broken" means.
 :doctor_venv
 if exist ".venv\Scripts\python.exe" goto :doctor_venv_present
 call :row warn ".venv" "not built yet" "Normal before the first run. start.bat builds it."
 goto :doctor_disk
 :doctor_venv_present
-".venv\Scripts\python.exe" -c "import fastapi, sqlalchemy, memorymap" >nul 2>nul
+".venv\Scripts\python.exe" -c "import memorymap.api.app" >nul 2>nul
 if errorlevel 1 goto :doctor_venv_broken
-call :row ok ".venv" "fastapi, sqlalchemy and memorymap all import"
+call :row ok ".venv" "the app imports cleanly"
 goto :doctor_disk
 :doctor_venv_broken
-call :row x ".venv" "cannot import fastapi, sqlalchemy or memorymap" "Run start.bat --reinstall to rebuild it."
+call :row x ".venv" "the app fails to import" "start.bat repairs this on its own now; run it, or start.bat --reinstall to rebuild from scratch."
 
 REM  3. Free disk on the drive the notes are on, not the drive the code is
 REM  on: they are often different, and the one that fills up first is the

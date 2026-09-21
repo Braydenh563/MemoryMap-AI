@@ -4,10 +4,20 @@ ROADMAP.md item 40's "mini AI chat half", deliberately its own path,
 separate from `librarian.converse`/`librarian.answer`, because those two
 answer from the user's notes or hold a general conversation, and this one
 must do neither: it only explains the app. Uses the utility model (not the
-main chat model), its own system prompt, and the existing `"quick"` preset
-(low temperature, no extended thinking, a 256-token cap) rather than a new
-one, since that preset already is the "speed and accuracy over creativity,
-tight budget" the spec asked for.
+main chat model), its own system prompt, and a preset that is Quick's shape
+(low temperature, a 256-token cap) with one difference: thinking is left to
+the model rather than turned off, because the panel draws the thinking while
+it happens and Quick's `think: False` made that box dead markup
+(`presets.GUIDE_MODE`, which is off the user-facing picker on purpose).
+
+**The model is the utility model, and it is the utility model's own
+fallbacks that decide what that means.** `ModelManager.utility_model()`
+answers the chat model in two cases: smart model routing turned off, and no
+utility model chosen. Both are the documented behaviour and neither is a bug
+here, but together they are why the Guide can be seen running the chat model
+while every line of copy around it says "your utility model", so
+`tests/test_help_chat.py` pins which model a real request takes in each of
+the three cases rather than leaving it to be read off this sentence.
 
 **Grounded, not just instructed.** A first version of this module told the
 model "don't invent a feature you're not sure exists" and gave it nothing
@@ -36,6 +46,7 @@ from collections.abc import Iterator
 
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
+from memorymap.ai import presets
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
 
@@ -97,7 +108,7 @@ OFFLINE_MESSAGE = (
 HELP_TOPICS: list[dict] = [
     {
         "id": "capture",
-        "keywords": ("capture", "note", "template", "dictate", "sketch", "improve", "proofread", "draft"),
+        "keywords": ("capture", "note", "template", "dictate", "sketch", "improve", "proofread", "draft", "tag", "category", "categorise", "write", "compose"),
         "body": (
             "Notes tab: type into \"Capture a thought\" and Save. A local AI files "
             "it into a category and suggests tags; you can re-file or edit anytime. "
@@ -146,7 +157,10 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "reminders",
-        "keywords": ("reminder", "due date", "snooze", "recur"),
+        #: "recurring" is spelt out rather than left to the inflection rule:
+        #: doubling the final consonant is exactly the kind of irregularity
+        #: that rule deliberately does not guess at.
+        "keywords": ("reminder", "due date", "snooze", "recur", "recurring"),
         "body": (
             "The Reminders tab groups items into Overdue / Today / Upcoming / "
             "Done. Set a priority, snooze, edit inline, or make one recurring. "
@@ -168,7 +182,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "library",
-        "keywords": ("library", "bookmark", "link shelf", "contents", "outline"),
+        "keywords": ("library", "bookmark", "link shelf", "contents", "outline", "search", "find", "filter", "look for", "browse"),
         "body": (
             "The Library is everything already made, in one searchable, "
             "filterable place: notes, documents, chats, files and tags, plus "
@@ -264,6 +278,26 @@ HELP_TOPICS: list[dict] = [
         "badge": {"label": "Appearance", "section": "appearance"},
     },
     {
+        #: **The strip along the bottom had no entry at all** (INBOX 304). The
+        #: app offers "What is the status bar telling me?" under the status
+        #: bar's own '?', and the guide had nothing to answer it from: a
+        #: suggestion the corpus cannot reach. Written from `STATUS_SLOTS` in
+        #: `frontend/app.js` and the copy in `#statusbar-help`, which are the
+        #: two places that decide what the bar actually shows.
+        "id": "statusbar",
+        "keywords": ("status bar", "statusbar", "bottom bar", "bottom strip", "the strip"),
+        "body": (
+            "The status bar is the strip along the bottom of every screen. It "
+            "shows what the local model is doing, your note count, open and due "
+            "reminders, back and forward, undo and redo, the Ctrl/Cmd+K hint, "
+            "Ask the agent, Atlas the guide, and Find anything. The offline "
+            "badge, the power-saver badge and the running-job slot appear only "
+            "when there is something to say. Settings -> Appearance -> Status "
+            "bar chooses which of the rest to show."
+        ),
+        "badge": {"label": "Appearance", "section": "appearance"},
+    },
+    {
         "id": "shortcuts",
         "keywords": ("shortcut", "keyboard", "hotkey", "command palette"),
         "body": (
@@ -289,7 +323,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "storage",
-        "keywords": ("backup", "storage", "data dir", "where is my", "export", "data folder"),
+        "keywords": ("backup", "storage", "data dir", "where is my", "export", "data folder", "import", "obsidian", "vault", "migrate", "restore"),
         "body": (
             "Everything lives in a data folder you control: the notebook "
             "database, uploads, and daily local backups. Settings -> Data shows "
@@ -300,7 +334,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "websearch",
-        "keywords": ("web search", "websearch", "internet search", "searxng"),
+        "keywords": ("web search", "websearch", "internet search", "searxng", "search the web", "search online", "look it up online"),
         "body": (
             "Web search is opt-in and off by default. When turned on in "
             "Settings -> Web search, only your search words are sent out, "
@@ -311,7 +345,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "privacy",
-        "keywords": ("private note", "encrypt", "password", "lock", "security"),
+        "keywords": ("private note", "encrypt", "password", "lock", "security", "offline", "online", "internet", "cloud", "telemetry", "tracking"),
         "body": (
             "Private notes are encrypted at rest with a key derived from your "
             "unlock password. The app binds to localhost, has no account or "
@@ -359,7 +393,15 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "autonomous",
-        "keywords": ("background librarian", "auto tag", "auto-tag", "auto link", "auto-link", "dedupe", "duplicate", "autonomous"),
+        #: The last three are the words a person uses for this rather than the
+        #: name the feature has: "what can it change on its own" is the
+        #: question, and it used to reach the entry about Atlas instead,
+        #: because it names Atlas and nothing else matched (INBOX 304).
+        "keywords": (
+            "background librarian", "auto tag", "auto-tag", "auto link",
+            "auto-link", "dedupe", "duplicate", "autonomous",
+            "on its own", "by itself", "without me",
+        ),
         "body": (
             "Turned on in Settings -> Preferences, the background librarian "
             "tags, links and flags duplicate notes on an interval you choose "
@@ -382,13 +424,21 @@ HELP_TOPICS: list[dict] = [
         "keywords": (
             "atlas", "guide", "who are you", "what are you", "your name",
             "yourself", "what can you do", "what do you do",
+            #: The exact words under this panel's own '?' (`ATLAS_PROMPTS`,
+            #: "help-chat-help"). A suggestion the corpus cannot answer is the
+            #: worst kind of dead end, which is why
+            #: `test_every_question_the_app_offers_to_ask_atlas_is_answerable`
+            #: now reads that table against this one (INBOX 304).
+            "what can you help", "help me with",
         ),
         "body": (
             "Atlas is this app's in-app guide, named for a book of maps. It "
             "answers how-to questions about MemoryMap itself from the app's "
             "own help: where a feature lives, what a setting does, which tab "
-            "to be on. It uses the utility model in Settings -> Models, not "
-            "the chat model, it cannot read your notes or documents (ask the "
+            "to be on. It answers on the utility model in Settings -> Models "
+            "while smart model routing is on, on the chat model while that is "
+            "off, and Settings -> Models can give the guide a model of its "
+            "own. It cannot read your notes or documents (ask the "
             "Chat or Ask tab for those), and nothing said to it is saved: the "
             "conversation is gone on reload, and \"New chat\" clears it now. "
             "It is reachable from the status bar on every tab, from the head "
@@ -579,22 +629,70 @@ MAX_TOPICS = 3
 # request, and re-compiling ~100 small regexes (18 topics x ~6 keywords)
 # on every one of them is wasted work an unbounded local model call already
 # dwarfs, but costs nothing to avoid.
+#
+# **Whole word, but not one single form of the word** (INBOX 304, the owner:
+# "the help bot is useless, or the suggested questions are bad or both"). He
+# asked "Where do reminders live?" and was told the guide was not sure, with
+# Notes and What it remembers named as its sources. The reminders entry was
+# in this table the whole time: the keyword is "reminder", the pattern was
+# `\breminder\b`, and the plural he typed does not match it. Nothing matched,
+# so the tab's own topics filled in, and a question about reminders was
+# answered from the notes and memory entries. Every plural in the app had the
+# same hole: "documents", "notes", "spaces", "backups". The keyword table is
+# written in the singular by anyone adding to it, and people ask in whichever
+# number reads naturally, so the number is handled here once rather than by
+# asking thirty entries to list both forms and catching the next one late.
+#
+# A fixed set of inflections, not a stemmer: "-s", "-es" and the possessive,
+# plus "-y" to "-ies" for a keyword like "library". Anything less regular
+# ("recur" to "recurring") is spelt out in the keyword tuple, where it can be
+# read, rather than guessed at by a rule loose enough to match it.
+
+
+def _keyword_pattern(keyword: str) -> re.Pattern[str]:
+    if len(keyword) > 3 and keyword.endswith("y") and keyword[-2] not in "aeiou":
+        stem = re.escape(keyword[:-1]) + "(?:y|ies)"
+    else:
+        stem = re.escape(keyword) + "(?:es|'s|s)?"
+    return re.compile(rf"\b{stem}\b")
+
+
 _KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
-    keyword: re.compile(rf"\b{re.escape(keyword)}\b")
+    keyword: _keyword_pattern(keyword)
     for topic in HELP_TOPICS
     for keyword in topic["keywords"]
 }
 
 
 def _matching_topics(question: str) -> list[dict]:
-    """Which `HELP_TOPICS` entries this question is actually about, ranked
-    by how many of a topic's keywords it mentions. Ties keep `HELP_TOPICS`
-    order, so the more commonly-asked-about features (listed first) win a
-    tie over a rarer one."""
+    """Which `HELP_TOPICS` entries this question is actually about, ranked by
+    how much of a topic's vocabulary it mentions. Ties keep `HELP_TOPICS`
+    order, so the more commonly-asked-about features (listed first) win a tie
+    over a rarer one.
+
+    **A phrase counts for its words, not for one.** This used to score one per
+    matching keyword, which makes "search" and "web search" equally strong
+    evidence, and the generic one always belongs to the more commonly-asked
+    topic that sits earlier in the list. Measured 2026-09-21, the moment
+    "search" was added to the Library's keywords so that "how do I search my
+    notes" would stop being answered by the capture box: "can it search the
+    web" started answering with the Library, and "how do I turn on web search"
+    put the Library first. Both were one-against-one ties broken by list
+    order.
+
+    Weighting a keyword by its own word count is the smallest rule that says
+    what is actually true: somebody who typed two particular words in a row
+    has told you more than somebody who typed one common one. "web search"
+    now scores 2 against "search"'s 1 and wins on the merits rather than on
+    where it happens to sit in the table."""
     lowered = question.lower()
     scored = [
         (
-            sum(1 for keyword in topic["keywords"] if _KEYWORD_PATTERNS[keyword].search(lowered)),
+            sum(
+                len(keyword.split())
+                for keyword in topic["keywords"]
+                if _KEYWORD_PATTERNS[keyword].search(lowered)
+            ),
             topic,
         )
         for topic in HELP_TOPICS
@@ -636,14 +734,24 @@ def badges_for(topics: list[dict]) -> list[dict]:
 def topics_for(question: str, tab: str | None = None) -> list[dict]:
     """The reference entries for one question, asked from one tab.
 
-    What the question names comes first, because a person who asks about
-    reminders from the Graph tab is asking about reminders. The tab's own
-    topics follow, and they are what makes "how does this work?" answerable at
-    all: with no keyword in it, that question matched nothing and the model was
-    told to say it was not sure.
+    What the question names wins outright. The tab's own topics are a
+    fallback for a question that names nothing, and they are what makes "how
+    does this work?" answerable at all: with no keyword in it, that question
+    matched nothing and the model was told to say it was not sure.
+
+    **A fallback, not a supplement** (INBOX 304). They used to be appended to
+    whatever the question matched, up to `MAX_TOPICS`, so a question asked
+    from the Notes tab was grounded in the notes and memory entries however
+    clearly it named its own subject, and the answer printed Notes and What it
+    remembers as its sources. Two thirds of the reference material was then
+    about something the person had not asked about, on a small local model
+    with a 256-token reply: the wrong entries do not sit there politely, they
+    are what the model answers from. The tab is still on the prompt as a line
+    of its own ("the person asking has the notes tab open"), which is the part
+    of the context that was worth having.
     """
     topics = _matching_topics(question)
-    if not tab:
+    if not tab or topics:
         return topics
     seen = {topic["id"] for topic in topics}
     by_id = {topic["id"]: topic for topic in HELP_TOPICS}
@@ -814,7 +922,13 @@ def answer_stream(
 
     messages, topics = _prompt_for(question, history, tab, context)
     pieces: list[str] = []
-    for piece in ollama.chat_stream(model_manager.utility_model(), messages, mode="quick"):
+    #: `GUIDE_MODE` rather than `"quick"`: same brevity, same temperature,
+    #: but thinking is not turned off, so the `thinking` events below are
+    #: events that can actually happen. Under `"quick"` this loop's
+    #: `thinking_delta` branch had never once run on a real backend.
+    for piece in ollama.chat_stream(
+        model_manager.utility_model(), messages, mode=presets.GUIDE_MODE
+    ):
         thinking = piece.get("thinking_delta")
         if thinking:
             yield {"type": "thinking", "text": thinking}
@@ -854,6 +968,10 @@ def answer(
         return offline_answer(question, tab, context)
 
     messages, topics = _prompt_for(question, history, tab, context)
+    #: Still `"quick"`, not `GUIDE_MODE`: this is the one-shot fallback, taken
+    #: only when a stream could not be opened, and it returns one object at the
+    #: end. There is nowhere for thinking to be shown on this path, so paying
+    #: a reasoning model to produce it would buy the reader nothing but a wait.
     reply = ollama.chat(model_manager.utility_model(), messages, mode="quick")
     content = reply["content"].strip()
     return {

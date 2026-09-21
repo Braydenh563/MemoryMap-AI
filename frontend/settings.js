@@ -3472,10 +3472,31 @@ function helpChatIsNearBottom() {
 //: index.html loads first; the backend's `AI_NAME` in ai/__init__.py is the
 //: same word. The guide is the same Atlas wearing its "about the app" hat.
 const GUIDE_NAME = AI_NAME;
+
+//: **What the panel calls itself.** The owner, 2026-09-20: "the atlas help
+//: panel needs a better title to make it evident that it is the guide". The
+//: head said "Atlas" and nothing else, which names the speaker and not the
+//: surface: a person who has not read the help does not know whether this is
+//: the chat that reads their notes or the one that does not. "Atlas guide"
+//: says which of the app's two assistants this is in the two words the head
+//: has room for, and it is still derived from the one name, so a rename
+//: still costs one edit. The sheet's accessible label is this same string
+//: rather than the bare name: a visible title and an accessible name that
+//: disagree is a screen reader describing a different panel.
+const GUIDE_TITLE = `${GUIDE_NAME} guide`;
+
+//: The line under it, and the reason it changed with the title: "About the
+//: app, never your notes" says what the guide will not do before it says what
+//: it does. DESIGN.md's rule is one line of description per section, so that
+//: one line is the whole budget, and it was spending it on a disclaimer that
+//: the '?' popover, the empty state and the composer's own hint all carry
+//: too. What it says instead is where the answers come from, which is the
+//: fact that makes the panel worth opening.
+const GUIDE_LINE = "How this app works, from its own help text";
 //: The persona hint's "(Atlas)" follows the name too.
 {
   const hint = document.getElementById("persona-placeholder-hint");
-  if (hint) hint.textContent = `Write {ai_name} where the assistant's name should go and it reads as the app's AI name (${AI_NAME}). Optional.`;
+  if (hint) hint.textContent = `Write {ai_name} where the name should go and it is replaced with ${AI_NAME}. Optional.`;
 }
 
 function helpChatAppendRow(row) {
@@ -3743,14 +3764,40 @@ async function helpChatStreamTurn({ pending, signal, body }) {
   pending.classList.remove("is-pending");
   pending.classList.add("is-streaming");
   pending.replaceChildren();
-  //: The thinking, live, in its own muted block above the answer. It is a
-  //: sign of life rather than a transcript, so it is clipped by CSS to the
-  //: last couple of lines and goes away when the turn is over: what stays is
-  //: the answer, which is the part worth reading twice.
-  const think = document.createElement("div");
-  think.className = "help-chat-think muted";
+  //: **The thinking, on the app's own streamed-reasoning recipe** (INBOX 287,
+  //: the owner: "the thinking box doesnt properly render in it either at
+  //: least while streaming").
+  //:
+  //: It used to be a bare `<div>` clipped by CSS to `max-height: 2.6em`.
+  //: Measured mid-stream on the running panel: 29px tall, holding 262px of
+  //: text, no label and no way to open it, so what was on screen was one and
+  //: a half lines from the middle of a sentence in grey. Nothing about that
+  //: said "this is the model reasoning", which is what "doesn't properly
+  //: render" is describing.
+  //:
+  //: `details.agent-step.step-thinking` holding a `.thinking` body is what
+  //: the chat transcript already uses for exactly this (app.js's
+  //: `startThinking`): a summary that says what it is, a caret, and a body
+  //: that scrolls rather than clips. It folds itself when the answer starts,
+  //: the same move `foldEarlierThinking` makes, so the reasoning is a step on
+  //: the way rather than a block the answer has to be read underneath.
+  const think = document.createElement("details");
+  think.className = "help-chat-think agent-step step-thinking";
+  think.open = true;
+  const thinkSummary = document.createElement("summary");
+  thinkSummary.textContent = "Thinking";
+  const thinkBody = document.createElement("div");
+  thinkBody.className = "thinking";
+  think.append(thinkSummary, thinkBody);
   think.hidden = true;
   const prose = document.createElement("div");
+  //: Named so the streaming caret can reach into it. The bubble's last child
+  //: is this wrapper, not the paragraph inside it, so the `::after` that draws
+  //: the caret landed on a line of its own under the answer (the owner,
+  //: 2026-09-21: "the writing caret in the atlas help panel is on the line
+  //: below not after the text being streamed"). The rule in
+  //: 01-forms-settings.css walks one level further for this class.
+  prose.className = "help-chat-prose";
   pending.append(think, prose);
   const list = $("help-chat-messages");
   const toBottom = () => { if (list) list.scrollTop = list.scrollHeight; };
@@ -3766,9 +3813,12 @@ async function helpChatStreamTurn({ pending, signal, body }) {
     try { event = JSON.parse(line); } catch { return; }
     if (event.type === "thinking") {
       think.hidden = false;
-      think.textContent += event.text || "";
-      think.scrollTop = think.scrollHeight;
+      thinkBody.textContent += event.text || "";
+      thinkBody.scrollTop = thinkBody.scrollHeight;
     } else if (event.type === "delta") {
+      //: Folded the moment there is an answer to read, not when the turn
+      //: ends: by then the reader has already had to scroll past it.
+      if (think.open && !text) think.open = false;
       text += event.text || "";
       renderMarkdown(prose, text);
     } else if (event.type === "done") {
@@ -3892,7 +3942,15 @@ function renderAtlasStarters() {
     const host = $(id);
     if (!host) continue;
     host.replaceChildren();
-    for (const question of typeof ATLAS_STARTERS === "object" ? ATLAS_STARTERS : []) {
+    //: The tab you are on decides which three (INBOX 304). Guarded the same
+    //: way the table itself was: settings.js runs whether or not app.js has.
+    const questions =
+      typeof atlasStartersFor === "function"
+        ? atlasStartersFor(typeof agentCurrentTab === "function" ? agentCurrentTab() : null)
+        : typeof ATLAS_STARTERS === "object"
+          ? ATLAS_STARTERS
+          : [];
+    for (const question of questions) {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "ghost small atlas-starter";
@@ -3971,7 +4029,7 @@ function openHelpChat() {
     ? { parent: helpToggle.parentNode, next: helpToggle.nextSibling }
     : null;
   const close = openSheet({
-    label: GUIDE_NAME,
+    label: GUIDE_TITLE,
     name: "guide",
     //: Anchored bottom right rather than across the foot of the window (INBOX
     //: 224): a chat is a column, and the full-width sheet gave Atlas 1356px
@@ -3994,10 +4052,10 @@ function openHelpChat() {
         words.className = "atlas-head-words";
         const name = document.createElement("span");
         name.className = "atlas-head-name";
-        name.textContent = GUIDE_NAME;
+        name.textContent = GUIDE_TITLE;
         const line = document.createElement("span");
         line.className = "muted atlas-head-line";
-        line.textContent = "About the app, never your notes";
+        line.textContent = GUIDE_LINE;
         words.append(name, line);
         title.replaceChildren(...(mark ? [mark] : []), words);
       }

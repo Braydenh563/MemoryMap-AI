@@ -1,0 +1,97 @@
+// Every step of every tour section, at a desktop width and a phone width.
+//
+// `tourdim.js` measures one step very closely: that the dim covers the window
+// and the card has a ground. This walks the whole surface shallowly instead,
+// because the owner's report was not about one step ("the whole tour is
+// completely and utterly broken", 2026-09-21), and the faults a tour actually
+// has are per-step: a card placed off the window at a width nobody tried, a
+// card that covers the very control it is describing, text that does not fit
+// so the card scrolls, a step whose target went off screen so there is nothing
+// lit. None of those is visible from one step at one size.
+//
+// Six checks per step, all from geometry rather than from a screenshot
+// (CLAUDE.md section 5: a screenshot you look at is not a measurement).
+const { boot } = require("./lib.js");
+
+let failures = 0;
+function ok(label, pass, detail) {
+  console.log(`${pass ? "PASS" : "FAIL"}  ${label}  — ${detail}`);
+  if (!pass) failures += 1;
+}
+
+(async () => {
+  let steps = 0;
+  const faults = [];
+  for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    const { page, browser } = await boot({ viewport: vp, isMobile: vp.width < 500 });
+    const sections = await page.evaluate(() => TOUR_SECTIONS.map((s) => s.id));
+    for (const sec of sections) {
+      const res = await page.evaluate(async (sec) => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+        openTour(sec);
+        await wait(700);
+        const out = [];
+        for (let i = 0; i < 40; i += 1) {
+          const spot = document.getElementById("tour-spot");
+          const card = document.getElementById("tour-card");
+          if (card.classList.contains("hidden")) break;
+          const s = spot.getBoundingClientRect();
+          const c = card.getBoundingClientRect();
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          let bare = 0;
+          for (let x = 3; x < w - 3; x += 23) {
+            for (let y = 3; y < h - 3; y += 23) {
+              const inSpot = x >= s.left - 6 && x <= s.right + 6 && y >= s.top - 6 && y <= s.bottom + 6;
+              const inCard = x >= c.left - 2 && x <= c.right + 2 && y >= c.top - 2 && y <= c.bottom + 2;
+              if (inSpot || inCard) continue;
+              if (!document.elementsFromPoint(x, y).some((e) => e.classList.contains("tour-block-panel"))) {
+                bare += 1;
+              }
+            }
+          }
+          out.push({
+            n: document.getElementById("tour-count").textContent,
+            title: document.getElementById("tour-title").textContent,
+            // A card outside the window is a step the person cannot read at
+            // all, and it is always a width thing: it passes at 1440 and
+            // fails at 390, which is why this probe takes two.
+            offscreen: c.left < -1 || c.top < -1 || c.right > w + 1 || c.bottom > h + 1,
+            collapsed: c.height < 40 || c.width < 40,
+            // The card over its own cut-out is the tour describing something
+            // it is covering, which is the surface's whole purpose inverted.
+            covers: !(c.right <= s.left || c.left >= s.right || c.bottom <= s.top || c.top >= s.bottom),
+            bare,
+            lit: !spot.classList.contains("hidden") && s.width > 0 && s.left < w && s.right > 0 && s.top < h && s.bottom > 0,
+            // A scrolling step card means the text was written for a width
+            // this is not: nobody scrolls a tooltip, they press Next.
+            scrolls: card.scrollHeight > card.clientHeight + 1,
+          });
+          const next = document.getElementById("tour-next");
+          if (!next) break;
+          next.click();
+          await wait(650);
+        }
+        return out;
+      }, sec);
+      for (const r of res) {
+        steps += 1;
+        const tag = `${vp.width} ${sec} "${r.title}" ${r.n}`;
+        if (r.offscreen) faults.push(`${tag}: card off the window`);
+        if (r.collapsed) faults.push(`${tag}: card collapsed`);
+        if (r.covers) faults.push(`${tag}: card covers its own cut-out`);
+        if (r.bare) faults.push(`${tag}: ${r.bare} undimmed points`);
+        if (!r.lit) faults.push(`${tag}: nothing lit`);
+        if (r.scrolls) faults.push(`${tag}: card scrolls, the text does not fit`);
+      }
+    }
+    await browser.close();
+  }
+  ok(
+    "every tour step reads correctly at 1440 and at 390",
+    steps > 20 && faults.length === 0,
+    `${steps} steps walked, ${faults.length} faults${faults.length ? ": " + faults.slice(0, 6).join("; ") : ""}`
+  );
+  console.log(failures ? `FAILURES: ${failures}` : "ALL PASS");
+  process.exit(failures ? 1 : 0);
+})();

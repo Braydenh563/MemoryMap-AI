@@ -61,6 +61,7 @@ KNOWN_GLOBALS = frozenset(
     Array ArrayBuffer AudioContext BigInt Blob Boolean BroadcastChannel CSS
     CSSStyleSheet CustomEvent DataView Date DOMParser Error EvalError Event
     EventSource File FileReader Float32Array Float64Array FormData Function
+    InputEvent
     Headers Image Infinity Int32Array Intl IntersectionObserver JSON Map Math
     MediaRecorder MutationObserver NaN Notification Number Object Option Path2D
     Performance PerformanceObserver Promise Proxy Range RangeError

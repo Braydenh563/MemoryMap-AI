@@ -154,3 +154,155 @@ def test_a_label_does_not_show_its_wiki_brackets(client):
     assert rows, "nothing referenced it, so this proves nothing"
     assert all("[[" not in row["label"] for row in rows), rows
     assert rows[0]["label"].startswith("The roof quote is the first thing"), rows[0]["label"]
+
+
+#: **The counts, for a page of cards at once** (INBOX 246's third gap). A card
+#: showed nothing until Connections was opened, so a note on two boards and in
+#: three documents looked exactly like a note nothing had touched. The chip
+#: row needs one number per kind for every card on screen, in one round trip.
+def _counts(client, ids: list[int]) -> dict:
+    joined = ",".join(str(i) for i in ids)
+    return client.get(f"/entries/reference-counts?ids={joined}").json()["counts"]
+
+
+def test_counts_come_back_per_note_per_kind_in_one_call(client):
+    quote = _note(client, "The roof quote")
+    other = _note(client, "Nothing points at this one")
+    board = _board(client, "The house")
+    a_map = _board(client, "Plans", board_type="map")
+    _place(client, board["id"], quote["id"])
+    _place(client, a_map["id"], quote["id"])
+    _note(client, "See [[The roof quote]] before Friday")
+
+    counts = _counts(client, [quote["id"], other["id"]])
+    assert counts[str(quote["id"])] == {"board": 1, "map": 1, "note": 1, "total": 3}
+    #: A note nothing points at is present with a zero total, not absent:
+    #: absent means "not asked" to the client, and a card must be able to
+    #: tell "nothing" from "unknown".
+    assert counts[str(other["id"])] == {"total": 0}
+
+
+def test_the_counts_agree_with_the_referenced_by_row(client):
+    """One reader: the chip and the row are the same numbers or the chip is a
+    lie about what pressing it will show."""
+    quote = _note(client, "The roof quote")
+    board = _board(client, "The house")
+    _place(client, board["id"], quote["id"])
+    _note(client, "Mentions The roof quote in passing")
+    rows = _refs(client, quote["id"])
+    counts = _counts(client, [quote["id"]])[str(quote["id"])]
+    assert counts["total"] == len(rows)
+    for kind in {r["kind"] for r in rows}:
+        assert counts[kind] == sum(1 for r in rows if r["kind"] == kind)
+
+
+def test_a_deleted_or_unknown_id_is_absent_rather_than_an_error(client):
+    quote = _note(client, "The roof quote")
+    gone = _note(client, "Soon deleted")
+    client.delete(f"/entries/{gone['id']}")
+    counts = _counts(client, [quote["id"], gone["id"], 999_999])
+    assert str(quote["id"]) in counts
+    assert str(gone["id"]) not in counts
+    assert "999999" not in counts
+
+
+def test_garbage_ids_are_ignored_and_an_empty_list_is_empty(client):
+    assert client.get("/entries/reference-counts?ids=").json() == {"counts": {}}
+    assert client.get("/entries/reference-counts?ids=a,,%20,-1").json() == {"counts": {}}
+
+
+def test_the_static_path_is_not_swallowed_by_the_entry_id_route(client):
+    """`/{entry_id}/references` is declared with an int id; a static path
+    declared after it would 422. This pins the order."""
+    response = client.get("/entries/reference-counts?ids=1")
+    assert response.status_code == 200
+
+
+# --- the map's own rows -----------------------------------------------------
+#
+# A mind map does not place a note as a `WhiteboardNode`; it holds a reference
+# node, a `WhiteboardObject` of kind "note" whose `data.ref_id` is the note
+# (routes_whiteboard `MAP_REFERENCE_KINDS`). INBOX 246's first gap: the
+# Referenced-by row and the Connections dialog read the legacy table only,
+# so a note on a map through its own node kind was invisible to both.
+
+
+def _map_node(client, board_id: int, entry_id: int) -> dict:
+    created = client.post(
+        f"/whiteboard/boards/{board_id}/nodes",
+        json={"kind": "note", "parent_id": None, "text": "", "ref_id": entry_id},
+    )
+    assert created.status_code == 201, created.text
+    return created.json()
+
+
+def test_a_map_reference_node_is_a_map_reference(client):
+    note = _note(client, "The roof quote")
+    the_map = _board(client, "The house", board_type="map")
+    _map_node(client, the_map["id"], note["id"])
+
+    rows = _refs(client, note["id"])
+    assert [(r["kind"], r["id"], r["how"]) for r in rows] == [("map", the_map["id"], "on it")]
+    assert "The house" in rows[0]["label"]
+
+
+def test_a_map_holding_the_note_both_ways_is_one_row(client):
+    """A legacy card row and a reference node on the same map is one map."""
+    note = _note(client, "The roof quote")
+    the_map = _board(client, "The house", board_type="map")
+    _place(client, the_map["id"], note["id"])
+    _map_node(client, the_map["id"], note["id"])
+
+    assert len(_refs(client, note["id"])) == 1
+
+
+def test_a_reference_node_for_a_document_with_the_same_id_is_not_a_note_reference(client):
+    """Ids are only meaningful with their table: document 1 is not note 1."""
+    note = _note(client, "The roof quote")
+    doc = client.post("/documents", json={"title": "Roof", "content": "x"}).json()
+    the_map = _board(client, "The house", board_type="map")
+    created = client.post(
+        f"/whiteboard/boards/{the_map['id']}/nodes",
+        json={"kind": "document", "parent_id": None, "text": "", "ref_id": doc["id"]},
+    )
+    assert created.status_code == 201, created.text
+    kinds = [r["kind"] for r in _refs(client, note["id"])]
+    assert "map" not in kinds
+
+
+def test_the_counts_see_a_map_reference_node(client):
+    note = _note(client, "The roof quote")
+    the_map = _board(client, "The house", board_type="map")
+    _map_node(client, the_map["id"], note["id"])
+    assert _counts(client, [note["id"]])[str(note["id"])] == {"map": 1, "total": 1}
+
+
+def test_connections_tell_a_map_from_a_board_and_see_reference_nodes(client):
+    note = _note(client, "The roof quote")
+    board = _board(client, "House jobs")
+    the_map = _board(client, "The house", board_type="map")
+    _place(client, board["id"], note["id"])
+    _map_node(client, the_map["id"], note["id"])
+
+    out = client.get(f"/entries/{note['id']}/connections").json()
+    got = sorted((b["kind"], b["title"]) for b in out["boards"])
+    assert got == [("board", "House jobs"), ("map", "The house")]
+    assert out["total"] == 2
+
+
+def test_connections_show_what_the_chip_counts(client):
+    """The chip on the card is built from `_reference_rows` and opens the
+    Connections dialog; a document that links to the note without the note
+    being attached, and a note that only mentions it, were counted on the
+    chip and missing from the dialog it opened."""
+    note = _note(client, "The roof quote")
+    client.post("/documents", json={"title": "House plan", "content": "See [[The roof quote]]."})
+    mention = _note(client, "Told mum about The roof quote over dinner")
+
+    out = client.get(f"/entries/{note['id']}/connections").json()
+    assert [d["title"] for d in out["documents"]] == ["House plan"]
+    assert [(r["id"], r["reason"]) for r in out["incoming"]] == [(mention["id"], "Mentions it")]
+    counts = _counts(client, [note["id"]])[str(note["id"])]
+    assert counts == {"document": 1, "note": 1, "total": 2}
+    assert out["total"] == counts["total"]
+

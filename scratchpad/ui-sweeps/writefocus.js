@@ -20,7 +20,7 @@ const { boot } = require("./lib.js");
 
   const shot = () => page.evaluate(() => {
     const rows = {};
-    for (const sel of [".draft-compose-row", ".draft-column-foot", ".draft-actions", ".draft-tags-row"]) {
+    for (const sel of [".draft-refine-row", ".draft-column-foot", ".draft-actions", ".draft-tags-row"]) {
       const row = document.querySelector(sel);
       if (!row) continue;
       const kids = [...row.children].filter((c) => c.getBoundingClientRect().height > 4);
@@ -61,7 +61,7 @@ const { boot } = require("./lib.js");
     }, s);
     await page.waitForTimeout(400);
     const r = await shot();
-    const c = r.rows[".draft-compose-row"] || {};
+    const c = r.rows[".draft-refine-row"] || {};
     const g = r.rows[".draft-tags-row"] || {};
     console.log(`  ${s.name.padEnd(15)} compose lines=${c.lines} h=${c.h}   tags lines=${g.lines} h=${g.h}`);
   }

@@ -176,9 +176,26 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
 
 
 # A query word this long or longer is also tried as a prefix when nothing
-# matched it whole. Three letters would turn "the" into "the*" and match
-# "theory", "thermal", "these", a prefix that short is noise, not intent.
-PREFIX_MIN_LEN = 4
+# matched it whole.
+#
+# **It was 4, and the reason given for that cannot happen.** The comment here
+# said three letters would turn "the" into "the*" and match "theory",
+# "thermal" and "these". But "the" is a stopword, and `query.search_terms`
+# drops stopwords before any of this runs: `search_terms("the")` returns an
+# empty list, so "the" never reaches the prefix stage to be starred. The
+# premise was already handled one layer down.
+#
+# What the threshold did instead was refuse the case people actually type.
+# The owner, 2026-09-21: the universal finder matches only whole words, so a
+# note called "test" appears for "test" and not for "tes". Three characters in
+# a find-as-you-type box is intent, not noise, and this is the only thing
+# standing between the two.
+#
+# Two is left alone deliberately. The FTS5 table is built without a `prefix=`
+# option, so a prefix query walks the term list rather than an index for it,
+# and a two-letter prefix on a large notebook is a different cost question
+# that wants the index option and a measurement, not a smaller number here.
+PREFIX_MIN_LEN = 3
 # Only words this long are ever "corrected": a three-letter word is one
 # edit from dozens of others, and difflib's ratio cannot tell them apart.
 CORRECT_MIN_LEN = 4

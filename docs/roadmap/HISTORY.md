@@ -7,6 +7,695 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-09-21
+
+### From WORLD_CLASS_PLAN.md section 21: every failure names its way out (INBOX 272 part 1)
+
+Two real gaps (rows 9-10 of section 21's survey table) and one doc gap (row
+11), all reached by grepping the running app rather than assumed from a
+feature list.
+
+**Agent mode's silent downgrade (rows 9-10).** `ai/provider.py` gained
+`tools_unsupported_message(model)`, the one place the remedy sentence is
+written; `ai/agent.py`'s `except ToolsUnsupportedError` now yields
+`{"type": "unsupported", "model": ..., "message": ...}` instead of a bare
+`{"type": "unsupported"}`. Every consumer of that event already existed
+(`routes_chat.py`'s direct-turn path, `skill_runner.py`'s two paths that
+forward `first` verbatim, and its third path that builds its own "step
+failed" event) so the fix is one write site read by four. `routes_chat.py`'s
+branch that used to be a bare `pass` now `yield`s the event before falling
+through to the plain-answer stream. `skill_runner.py`'s mid-run "step
+failed" reason now prefers `first["message"]` over its own generic
+sentence. The frontend's shared chat-stream reader (`frontend/app.js`
+~13548-13725) gained an `onUnsupported` callback and a dispatch case; the
+Chat tab (the only caller that can ever send `useTools: true`, the Ask box
+always sends `false`) captures the event during the stream and renders it
+once the stream ends, alongside the existing `groundingSentences` pattern
+for the same "the live markdown re-render would wipe a DOM node inserted
+mid-stream" reason. `renderToolsUnsupportedNotice()` uses the
+`.notice.notice-warn` recipe (DESIGN.md) plus one `smallButton` that opens
+Settings, Models on the chat model picker (`openSettingsModal("models",
+"chat-model-select")`, the same target the model-spec panel's own "Change
+the model" button already uses), so the fix is one click from the failure,
+never a different screen.
+
+**`requirements.txt` (row 11).** The "Optional extras" comment gained the
+three missing installable entries (`pypdfium2 Pillow`, `markitdown`,
+`python-docx`) with the same one-line-each shape the existing four use;
+`llama-cpp-python` was deliberately left out, `core/extras.py`'s own
+`unavailable` reason for that entry says installing it buys nothing yet
+(the supported route is `llama-server`, already reachable from Settings,
+Models' provider picker with no install at all), and naming it here would
+be exactly the "offering something the app cannot do" shape INBOX 272 part
+1 rules out.
+
+**The lint (standing order, "hold it with a test").**
+`tests/test_failure_remedies.py`: `test_every_named_remedy_still_names_its_fix`
+asserts each remedy phrase in the survey table (`nomic-embed-text`, `SearXNG`,
+`Settings, Extras`, `Settings, Models`) is still present in the file that
+raises it, so a rewrite that drops the fix while keeping the diagnosis goes
+red; `test_requirements_txt_lists_every_extras_package` holds row 11's fix
+in place by asserting every non-`unavailable` `core/extras.py` package
+appears in `requirements.txt`; `test_extras_registry_entries_are_actionable_or_say_why_not`
+requires every entry to have a size (the "say so before it starts" rule)
+and, when disabled, a real reason longer than a shrug;
+`test_ollama_client_forwards_a_message_not_a_bare_event` is the direct
+regression test for rows 9-10's fix. `tests/test_agent_tools_api.py`'s
+existing `test_model_without_tool_support_falls_back_to_plain_chat` was
+extended in place (it already exercised exactly this path) to assert the
+"unsupported" event now reaches the client with a model name and the
+remedy phrase, rather than adding a parallel test file for the same call.
+
+### From MINDMAP_PLAN.md section 13a-open: the render pass
+
+Built 2026-09-21. The gate 13a set was `renderWhiteboard` under 200ms and
+open-to-painted under 1s at 500 topics, and the row said plainly that caching
+would not get there: the render was a full d3 data-join over every node,
+sketch and object on the board for any change to it. It is keyed now, and both
+figures are met.
+
+**Where the time was.** A CPU profile of one 500-topic render, function by
+function: `renderWbObjects` 405.6ms of 527, `wbRenderMapEdges` 122.2ms,
+`wbMapNodeSize` 80.6ms across 5,988 calls, and the painting of the nodes
+themselves 32.1ms. So the painting was never the cost. Two things were.
+
+**One, a layout flush per node.** `renderWbObjects` read `offsetHeight` at the
+end of each node's own `.each`, immediately after writing that node's
+transform, width, height and z-index. A style write invalidates layout for the
+whole document, so every one of those reads flushed a fresh layout of the
+entire board: 500 nodes cost 500 full layouts, which is exactly the
+superlinearity 13.1 recorded (8.1x the nodes for 21x the render). The reads
+are one pass now, after the last write, and they fill the size cache that
+`wbRenderMapEdges` is about to ask for both ends of every edge from.
+
+The number that says this was the mechanism rather than a story about it is
+the ceiling: a render that repaints **every** topic, which does exactly the
+painting the old one did and differs only in doing its reading afterwards,
+is 540.2 to **149.1ms** at 500 topics. Same work, one layout instead of five
+hundred.
+
+**Two, everything repainted for any change.** `wbObjectPaintKey` is every
+input the paint reads as one string, including the five a map node takes from
+somewhere other than its own row: the branch colour, the child count, the
+count folded under it, which side its parent is on, and the map theme merged
+under its data. An object whose key is what it was last render is left alone;
+a fresh element has no key, so it always paints. The same rule for the lines:
+`wbRenderMapEdges` built four SVG elements per edge and `replaceChildren`'d
+the group, two thousand elements made and thrown away because one moved, and
+it now keys them by their two endpoints, writes the ones that changed in
+place, and removes the ones whose ends are no longer joined. The group keeps
+the tree's order, because SVG paints in document order and `mapstrip.js` pairs
+the first line with the first mid-line `+`: appending new lines at the end
+cost that sweep its insert check, which is the order saying out loud that it
+is load-bearing.
+
+**The open, separately.** `openWhiteboardBoard` queues a render and then
+renders synchronously, because the fit that follows has to measure nodes that
+are in the document. `renderWhiteboardNow` lowered the flag `wbScheduleRender`
+checks, which does not stop the frame already queued, so the whole board was
+rendered a second time one frame later. That frame is cancelled now. And the
+fit itself asked `wbItemBBox` about every item on the board, a document query
+and two layout reads each, for boxes the render had just measured: it reads
+the size cache first.
+
+**`wbLinkedSketchesFor` as well**, which the previous pass found and could not
+fix for want of a fixture: it walks every sketch on the board with a
+`JSON.parse` in the loop, and `wbCaptureBulkMoveOrigin` called it once per
+member of a branch pick-up. `wbLinkSketchIndex` parses the board once and
+files every link under both of its ends; the capture builds one and hands it
+to every member. The fixture that made it visible then found two more scans
+of the same shape on the same path, both per frame rather than per pick-up:
+`wbLinkItem` resolved a link end with a `.find` over the whole list, and
+`wbUpdateLinkedSketches` found the two paths it writes with three document
+queries per link. One branch drag at 500 topics over 300 link sketches:
+**1,000.0ms worst frame before, 116.7 after**, against 66.7ms for the same
+gesture with no links at either end of the pass.
+
+**The numbers** (`scratchpad/ui-sweeps/mapperf.js`, 1440x900 light, one run
+each, the before column taken from the merge head on a second server minutes
+earlier with the same probe):
+
+| Topics | Open to painted | Render, one topic moved | Render, every topic | Render, nothing changed |
+| --- | --- | --- | --- | --- |
+| 50 | 314.0 to **393.1ms** | 22.6 to **7.9ms** | 27.7 to **16.6ms** | 23.7 to **10.5ms** |
+| 200 | 757.0 to **537.2ms** | 122.6 to **19.8ms** | 138.5 to **53.5ms** | 112.2 to **19.4ms** |
+| 500 | 2022.3 to **965.6ms** | 534.7 to **47.8ms** | 540.2 to **149.1ms** | 509.4 to **45.3ms** |
+
+Pan and drag medians are 16.7ms at all three sizes, before and after. The
+50-topic open came out slower than its own baseline: at that size the open is
+the tab switch, the fetch and the fit rather than the render (7.9ms of it),
+and the spread between two runs of it is bigger than anything this pass
+changed.
+
+**The probe had to change to stay honest.** A differential render timed five
+times in a row against an unchanged board measures the skip, so `mapperf.js`
+now takes three render numbers: after one topic has moved (what a drag, a
+rename, an add or a collapse leaves behind), after every topic has moved (the
+ceiling, and the number comparable with the single figure it used to report),
+and with nothing changed at all (the floor). It also takes the two gate
+figures as checks rather than as a table nobody runs, measures a ctrl-wheel
+zoom for the first time, and drags a branch twice, before and after three
+hundred link sketches are put on the board, which is the fixture
+`wbLinkedSketchesFor` never had.
+
+`tests/test_map_render_cost.py` holds the ten shapes these numbers came from,
+the same way `tests/test_map_drag_cost.py` holds the drag's nine.
+
+### From MINDMAP_PLAN.md section 13d: a cross-link survives an export
+
+Built 2026-09-21. §13.2 measured a map's two kinds of connection having
+different export fates: the branch is the indent and survives all three
+formats, the cross-link survived none, because `export_board` walks objects
+and `parent_id` only and no exporter read `cross_links`.
+
+**FreeMind carries it natively.** Every `<node>` now has an `ID`, and the
+node a link starts at gets `<arrowlink DESTINATION="ID_x" ENDARROW="Default">`
+with the link's label as `MIDDLE_LABEL`. That is FreeMind's own element for
+exactly this, so a map exported here opens in FreeMind, Freeplane and Coggle
+with the cross-links drawn.
+
+**OPML carries it in the only place an outline has.** OPML is strictly a
+tree: there is no element for an edge that is not containment, and inventing
+one would make the file wrong for every other reader. So the same bargain
+`_kind` and `_ref` already struck: `_id` on every outline, `_links` on the
+one the link starts at, space separated.
+
+**Markdown carries it in neither, by decision 12.** That file's promise is an
+outline anybody can paste anywhere, it already drops everything a node wears,
+and `_parse_markdown_outline` reads indentation and nothing else, so a
+"Cross-links" section would come back in as topics.
+
+Both XML formats round-trip: the ids in a file are the file's, so
+`_restore_import_links` runs after every node is placed and pairs the parsed
+tree with the created objects by walking it in the same pre-order
+`_place_map_nodes` places in, dropping any link whose far end is not in the
+file rather than leaving half a line. A map with no cross-links exports the
+file it always did (asserted). `maptwokinds.js` 16 checks to **17/17**, with
+its export check inverted from "survives none of the three text exports" to
+"survives the two formats that have a place for it" plus "and the Markdown
+outline stays an outline". `tests/test_mindmap.py` gained seven cases.
+
+### From MINDMAP_PLAN.md section 13e: the map's own look
+
+Built 2026-09-21, the other half of 13e. The owner, INBOX 305: "the
+customisation features are lacking severely." §13.4 measured what that meant
+and it was not the topic: a topic had eleven fields, the map as a whole had
+none, so every one of the eleven was set one topic at a time and "Reset to
+branch" on a single node was the only bulk operation of any kind.
+
+**A map now has a theme of ten fields**, stored in `Entry.board_settings`
+beside the type and the layout (`MAP_THEME_FIELDS`, `_board_theme`,
+`_store_board_theme`), carried on `GET /boards/{id}/tree` and patched through
+`PUT /boards/{id}`. The ten are the ones that answer "how does this map draw
+topics": text size, alignment, bold, italic, the box, the bar on its edge,
+and the branch line's shape, thickness, dash and arrowhead. The six left out
+answer "which topic is this" (icon, core, picture, link, the line's label,
+the line's waypoint), and `color` is left out for a third reason, recorded as
+decision 8: it is a rule rather than a value, and its map-level answer is a
+branch palette drawn in two places.
+
+**It is resolved when a topic is painted, never written onto the topics**
+(`wbMapThemedData`, whiteboard.js; `_themed_style`, routes_whiteboard.py).
+A topic's own value always wins and an explicit `false` is a value, so a
+decorated topic cannot be changed by a map-wide setting; theming a 25-topic
+map measured **one request**, and would be one at 500. The three strip
+toggles that used to store "off" as no value at all are now three-state
+against the theme, which is the rule `edge_arrow` had already been following
+alone, and the whole strip now reads the effective look rather than the
+stored one (measured: the shape select reads "pill" over a topic storing
+`null`, and pressing bold off on a bold-themed map stores `false` and draws
+unbolded). Each select's blank row is named after the app's own default
+("Rounded", "Line", "M"), which on a themed map would be a row that visibly
+does nothing, so it reads "As the map draws (pill)" while the map themes that
+field and goes back the moment it stops.
+
+**The door is one row in the View menu's Map section**, "How this map draws
+topics", opening `wbInfoDialog`'s `.card.modal-card` with a plain `<select>`
+per dropdown and a `label.setting-check` per on/off, three groups under
+`h4.setting-subhead`. Nothing was added to the canvas: top bar 10, rail 0,
+strip 0 on a map with nothing selected, unchanged, which matters because
+§13b had just taken the strip from fourteen controls to five. The dialog is
+438px wide at 1440 and 304px at 390, no scroll at either, worst text
+contrast **6.81:1 in light and 7.9:1 in dark**.
+
+**"Bring every topic back to the map" is the ring's own reset at the map's
+scope**, not a second idea: `POST /boards/{id}/nodes/clear-style` drops the
+same list of fields from every topic in one request and one transaction
+(`move-many`'s reason), keeps a picture because a picture is content, and is
+idempotent. Measured: 3 topics cleared in 1 request, and they then drew the
+map's pill shape rather than the app's rounded default.
+
+`scratchpad/ui-sweeps/maptheme.js`, new, **24/24** in light at 1440, in dark
+at 1440 and at 390, registered in `scripts/gate.sh`'s sweep list. On the base
+branch the same file stops at its second check with `wbMapTheme is not
+defined`. `tests/test_mindmap.py` gained eleven cases, including the two the
+theme is worth nothing without and the three that hold the settings blob
+together (a theme write never clears the type or the layout, a layout change
+never clears the theme, a corrupt blob reads as no theme).
+
+### From MINDMAP_PLAN.md section 13e: the two layouts the plan promised
+
+Built 2026-09-21. §12.0's decision list named eight layouts, §13.4 measured
+four, and the two missing ones included **both sides**, which is the layout
+Coggle is known for. Added: `tree-left` and `tree-both`, in the picker, in
+`BOARD_LAYOUTS` and in the tidy.
+
+**Both sides is this layout twice, not a third algorithm.** The trunk's
+branches are split between a right-growing run and a left-growing one, both
+anchored on the same trunk (the tidy's closing shift keeps `roots[0]` where
+it already was, so the halves meet on it with no arithmetic), and the left
+run's positions are the sideways tree with the depth axis negated and the
+node's own width taken off it.
+
+**The split is greedy by weight, in branch order.** Alternating was the first
+version and it is wrong on any map that is not already balanced: measured on
+a 40-topic map whose four branches held 1, 1, 1 and 36 topics, alternating
+put 37 topics on one side and 2 on the other, because it counts branches and
+a person sees topics. Greedy by subtree size, keeping the branches in the
+order they were written: **5 left / 6 right at 12 topics, 93 / 106 at 200**.
+A trunk with one branch, or with one branch heavier than all the others put
+together, falls back to the sideways tree it would have been anyway.
+
+**The branch bar moves to the edge the parent is on.** It is the left edge in
+a map that grows right, the top edge in one that grows down (a class on the
+view), and the right edge for a topic whose parent is to its right, which is
+per node because a both-sides map has both kinds on it
+(`wb-map-node-mirrored`, four CSS rules mirroring the three the left edge
+already had). Measured: 4px on the right against a 1px hairline on the left,
+on 200 of 200 topics in tree-left and 93 of 200 in tree-both.
+
+`scratchpad/ui-sweeps/maplayouts.js` is new, **19/19**, five of them failing
+on the base branch, and registered in `scripts/gate.sh`'s sweep list. It lays
+every one of the five tidy layouts out at 12 and 200 topics and counts
+overlapping pairs in the board's own coordinates (**0 pairs everywhere**, the
+gate §13e set), asks whether each new layout survives the round trip through
+the server, and checks the bar. `tests/test_mindmap.py` gained the API half,
+written before the drawing: a layout the API refuses is a picker that lies.
+`maptidy.js` stays 5/5 at 1440 and at 390.
+
+The picker's first row was relabelled with it: "Tree, sideways" is no longer
+a distinct thing from "Tree, to the left", so the four read "to the right",
+"to the left", "both sides", "downward".
+
+
+### From MINDMAP_PLAN.md section 13: the two gestures a blank map did not answer
+
+Built 2026-09-21. §13.3 counted the doors into the map's tools and found them
+few and one-way; what it did not ask is what the canvas itself answers.
+Measured: a **right-click on empty map canvas opened nothing at all**, and a
+**double-click added no topic** (7 topics before, 7 after). Those are the
+first two things anybody tries on a blank part of a mind map, and on a map
+both were dead. The rail's "Add a top-level topic" was the only route to a
+second trunk, and it puts the trunk wherever the layout decides.
+
+- **Right-click** opens the map's own menu through `openMenuAtPoint`, the
+  app's pointer-menu recipe, with four rows in words: add a topic here, tidy
+  the map, open every folded branch (with the count when there are any), and
+  fit everything. A topic and a line stop the event before it gets here, so
+  each of the three subjects has exactly one menu.
+- **Double-click** makes a trunk where the pointer was, pinned and open for
+  typing. Pinned because the position is a decision made with the pointer,
+  which is the same bargain `wbMapPinOnDrag` strikes for a dragged node;
+  without it the next tidy would move the new trunk off the spot just chosen.
+  Measured: 0 and 21px from the press.
+
+Neither adds a resting affordance to the canvas, which §13's decision 5
+refuses.
+
+`scratchpad/ui-sweeps/mapdoors.js` is new, 7/7, **3/7 on the base branch**,
+and registered in `scripts/gate.sh`'s sweep list. It also carries the two
+counts §13.3 is written from, re-measured on this head: a map's top bar has 9
+controls on screen and 60 in its menus, the rail 13, the strip 4 (plus the
+three doors' contents), and every one of the 22 on the bar and the rail has
+both an `aria-label` and a `title`, which is DESIGN.md's icon-only rule.
+
+**§13.3's "two menus built into a map's top bar with no opener" is withdrawn
+as written.** Re-measured: `wbSyncMapChrome` sets `hidden` on the Insert and
+Arrange wraps on a map, and `hidden` takes the menu inside the wrap with it,
+so their 8 and 10 controls are neither drawn nor exposed to a screen reader.
+They are dead markup on a map, not a shut door, and `mapdoors.js` asks the
+question that matters instead: no menu in a map's top bar is exposed while
+its toggle is gone.
+
+
+### From MINDMAP_PLAN.md section 13c: one vocabulary for two connections
+
+Built 2026-09-21. Section 13.2 measured what the owner's "there are two types
+of connections" cost in practice: a branch (the child's own `parent_id`) and a
+cross-link (a link sketch naming both ends) sat beside each other, and a
+right-click on the first opened the map's ring while a right-click on the
+second opened the *board's* flat menu and its context bar, with a different
+vocabulary (ink, caps, stroke) for the same idea. Nothing anywhere said which
+kind a line was, and the rail's two Connect tools, the only controls on screen
+with the word Connect on them, both made the kind nobody had a word for.
+
+What changed, all of it in the controls, none of it in the data (§13's
+decision 2: "the data keeps two kinds of connection; the controls stop having
+two"):
+
+- **One ring for both.** `wbOpenMapCrossLinkRadial` opens the same three-slot
+  ring on a cross-link, through the one door every right-click and hold
+  already went through (`wbOpenContextMenuFor`). The ring names the kind it is
+  on, in its `aria-label` and in the caption under it, and two of its three
+  slots do the kind's own thing: Cut takes a branch off its parent and deletes
+  a cross-link outright, and the middle slot labels a branch and **turns a
+  cross-link into one**.
+- **"Make branch"**, the new slot, is the way back from the gesture that
+  decides for you: `wbMapJoinByLink` makes a branch when the far end is not
+  yet in the tree and a cross-link when it is, which is invisible at the time.
+  The far end moves under the near one, its own branch comes with it, and the
+  cross-link row goes.
+- **The board's context bar never appears for a cross-link on a map.**
+  `wbContextKindOf` returns null for one, so the second vocabulary is gone
+  rather than merely discouraged. A link between a topic and a card, and every
+  link on an ordinary board, still gets the bar.
+- **The rail says which kind it makes.** On a map the Connect section is
+  "Cross-link" and its two tools are "Straight cross-link (C)" and "Curved
+  cross-link (Shift+C)", each saying it joins two branches without changing
+  the tree and where a branch comes from instead. On a board the words are
+  untouched. The section's `aria-label` moves with the drawn word, because the
+  rail's section labels are 1x1 on screen and the label is what a screen
+  reader reads.
+- **A cross-link is drawn in the map's own ink**, `--muted`, dashed, whatever
+  colour the pen held. A link sketch carries the rail ink well's colour, which
+  on a map is meaningless (the branches are coloured by the palette), so a
+  cross-link drawn while the ink was red read as a red branch. Two kinds that
+  can be given each other's look are two kinds nobody can tell apart.
+- **And it is told it is one before it is drawn.** What marks a link sketch as
+  a cross-link is the board tree's `cross_links`, fetched with the map's
+  state, so a link drawn now and rendered now carried none of the map's
+  treatment until the board was next opened: solid, in the pen's colour, for
+  the whole of the session that drew it. `dragEndNode` now awaits
+  `wbRefreshMapState` before the render, and so do the cut and the promotion.
+- **The drawing gesture says what it made.** The branch half already toasted
+  ("Connected to ... as a branch"); the cross-link half now does too.
+
+Measured with `scratchpad/ui-sweeps/maptwokinds.js`, extended from 10 checks
+to 16 and **16/16**. Six of them fail on the base branch, which is what says
+the change is the change: the context row reads "link" there, the right-click
+opens no ring, the ring says "this line" on both kinds, the cross-link draws
+in `rgb(125, 211, 200)` (the pen) rather than `rgb(76, 85, 99)` (the map's
+ink), and the rail says "Connect: Straight link (C)". Two of the sweep's own
+checks were **inverted** by this work and say so in a comment, because they
+asserted the behaviour §13.2 measured and this pass removed.
+
+
+### From MINDMAP_PLAN.md section 13b: the topic strip is sized like a topic
+
+Built 2026-09-21. Section 13.5 measured the map's topic strip at **959.4 x 38**
+to describe a topic 95px wide: 10.1 times the width of its own subject, 67% of
+a 1440 window, and **94% of a 1024 one**, where it did not adapt at all (the
+same 959.4px at both widths, wrapping only in the phone band, to 348.4 x 150).
+Fourteen controls in one flat run, not one of which drew a word: bold, italic,
+core, text size, alignment, colour, icon, shape, spine, and the five of the
+line into the topic.
+
+The fourteen are all still there and none of them changed surface. They sit
+behind three named doors on the bar, **Text**, **Shape** and **Branch line**,
+each the board menu bar's own recipe (`.wb-board-menu-wrap` plus
+`[data-wb-menu-toggle]` and a `.wb-board-menu` written in markup, which is
+DESIGN.md's recipe for a menu whose rows are not all commands), so the ARIA
+stamping, the arrow keys, the outside click, Escape and `escapeAndCapMenu`'s
+clipping escape are all the wiring the top bar already has. Every id is the id
+the control had, so no listener in whiteboard.js moved. The colour well and
+"back to the branch" stay on the bar itself: the first is the control a
+mindmapper reaches for constantly (Coggle's branch colour) and the second
+undoes everything the three doors do.
+
+Measured with `scratchpad/ui-sweeps/mapstrip.js` (39/39) and the §13b probe:
+
+| Width | Strip before | Strip now | Fraction of the window |
+| --- | --- | --- | --- |
+| 1440 | 959.4 x 38 | **314 x 38** | 0.67 to **0.22** |
+| 1024 | 959.4 x 38 | **314 x 38** | 0.94 to **0.31** |
+| 820 | not read | **314 x 38** | **0.38** |
+| 390 | 348.4 x 150 | **314 x 54** | height 150 to **54** |
+
+Words on the bar: **0 of 14 before, 3 of 5 now**, and every control inside a
+door carries its own word in the row beside it (Weight, Size, Alignment, Icon;
+Core idea, Box, Edge bar; Thickness, Shape, Dashed, Arrowhead). The trade is
+one press: a look that was one press from a selected topic is now two, through
+a door that says what is behind it, which is §13's decision 3 ("a control
+surface for one topic does not take two thirds of the window") taken at its
+word.
+
+Three things the bar had to learn because it moves, none of which the top bar
+needs: the open door is re-placed with the bar on every pan and zoom frame
+(`wbTrackMapStripMenu`), every door is shut when the bar goes away
+(`wbCloseMapStripMenus` in `hideBoth`), and the doors are shut when the
+selection moves to another topic, so a menu about the topic just left is never
+left open over the topic just chosen.
+
+Two things measured on the way and left alone: `mapline.js` (13/13),
+`mapcore.js` (16/16) and `mapspine.js` (9/9) drive these controls by id and
+pass untouched, which is what says the listeners did not move; and
+`mapstyle.js`'s "radial slot" check fails on the base branch as well as on
+this one, so it is not this work's (recorded in `agent-remaining/mapux2.md`).
+
+### From MINDMAP_PLAN.md section 13a: the drag pick-up
+
+Built 2026-09-21. Section 13.1 measured that a map freezes the instant a topic
+is touched: `dragWorstAt` **0.03**, three per cent into the gesture, and a
+1,650ms worst frame at 500 topics. The plan read that as `renderWhiteboard`,
+which is the whole of the *opening* cost and none of this one. A CPU profile
+of `mapperf.js`'s own gesture (Chromium's `Profiler` around the real pointer
+drag) put `document.querySelector` and `wbMapNodeSize`'s `offsetWidth` /
+`offsetHeight` reads at the top of the self-time list by a wide margin, with
+every piece of the edge maths that calls them far below and `renderWhiteboard`
+at a twentieth of the total. Nothing on the drag path was a render.
+
+**What the first frame of a branch drag was doing**, all of it per member of
+the branch rather than per thing that moved:
+
+- `wbCaptureBulkMoveOrigin` scanned the whole object list once per member to
+  find it (`list.find(...)`), which is quadratic in the board.
+- It called `wbMapEdgesFor` per member, and that rebuilt the map index, read
+  the layout, and ran three document-wide attribute queries per edge to find
+  the edge's visible path, its invisible hit twin and its waypoint handle.
+- Every interior edge of the branch was collected twice, once from each end,
+  so it was recomputed and rewritten twice on every frame.
+- `wbApplyBulkMove` re-found every moved item's element by attribute selector
+  on every frame.
+- `wbMapNodeSize` ran a `querySelector` and a layout read for both ends of
+  every edge, on every frame. This was the largest single cost.
+- `objDragMove` called `raise()` per frame (the card drag stopped doing that
+  in INBOX 114 for the same reason), and a DOM move dirties layout, so the
+  drop-target test's `getBoundingClientRect` re-laid out the whole board once
+  a frame.
+
+**The fix, in four commits, none of them a debounce or a frame wrapper over a
+redraw.** A topic's measured box is cached between renders and dropped at the
+only three moments it can change (a render, the size grip, the end of a
+gesture). A capture builds one lookup table, one edge context (index, layout
+and one pass over the drawn edge elements) and one `querySelectorAll` over the
+topics, which also fills the box cache in a single layout flush, so the
+pick-up is linear in the branch instead of quadratic in the board. An edge is
+claimed by whichever end reaches it first. Elements are resolved once per
+gesture and re-looked-up only when the one held has left the document. The
+canvas box is measured once per gesture, because every frame writes SVG
+geometry before the drop-target test asks for it and an SVG attribute write
+dirties layout. And the object drag raises once per gesture.
+
+**Measured, `mapperf.js`, the gate in `scripts/gate.sh`'s sweep list**, same
+machine and Chromium, one run each way:
+
+| Topics | Worst drag frame | Open to painted | `renderWhiteboard` | `wbMapTidyPositions` |
+| --- | --- | --- | --- | --- |
+| 50 | 83.3 to **16.8ms** | 371.5 to 314.2ms | 60.5 to 23.3ms | 2.9 to 0.1ms |
+| 200 | 416.6 to **33.3ms** | 906.4 to 714.2ms | 281.4 to 123.2ms | 16.7 to 0.3ms |
+| 500 | 1,650.0 to **66.8ms** | 3,443.3 to 2,049.1ms | 1,279.2 to 543.0ms | 76.3 to 0.6ms |
+
+16.8ms is vsync, so at 50 topics the pick-up is now a frame. The pan medians
+are 16.7ms at all three sizes before and after, and nothing is worse at 50
+than it is at 500. The open and the render improved as a side effect, because
+the layout and the render read the same boxes this pass stopped re-measuring,
+but neither meets its own gate figure and neither will by caching: that is
+13a-open in MINDMAP_PLAN, and it is a different piece of work.
+
+The probe itself was flagged as the slowest thing in the sweep list, at about
+three minutes, and it is now 2.8 times cheaper without a line of it changing:
+timed back to back on the same warm machine, the same file took **89s against
+the base frontend and 32s against this branch**. Most of its wall clock was
+the stall it exists to report. The base was run twice, hours apart, at
+83.3 / 416.6 / 1,650.0ms and 100.1 / 483.3 / 1,916.6ms, which is the run
+variance here; the tables above quote the first run throughout rather than
+mixing them.
+
+`tests/test_map_drag_cost.py` holds the nine shapes the profile found, against
+the source, because the suite cannot open a board. It says so in its own
+docstring: the sweep is the measurement, the lint is the shape.
+`scratchpad/ui-sweeps/mapbranchdrag.js` is the correctness half, in the same
+sweep list, 6/6: a middle topic dragged for real, its branch arriving by the
+same delta, the line into a child redrawn mid-gesture, both positions saved,
+and a topic re-measuring once its own cache entry is dropped. Fifteen seconds,
+because a cache that goes stale is the one way this pass could be fast and
+wrong.
+
+### From WORLD_CLASS_PLAN.md section 20: a model per feature
+
+Built 2026-09-21, answering the owner's ask: *"allow the user to alter the
+model they use for that specific feature if they wish such as for the write
+with ai area, the chat tab and document ai assistant. allow these to be
+easily individually altered and reset and for there to be a mass reset for
+all individually altered ai model preferences."* The decisions stay in the
+plan; this is what was built.
+
+**The seam.** `ai/model_manager.py` grew one table, `FEATURES`, a row per
+feature naming the role it falls back to, and one view,
+`ModelManager.for_feature(key)`, whose `chat_model()` / `utility_model()`
+answer for that feature. Four routes pass the view down
+(`routes_chat.py`, `routes_drafts.py`, `routes_documents.py`,
+`routes_help.py`); nothing downstream, the agent loop, the drafter or the
+help chat, learns that features exist. Reading, setting, clearing, the mass
+reset, the Settings list and the inline picker are all generic over the
+table, so the next feature is a row.
+
+**The controls.** Settings, Models lists a row per feature: the model in
+use, whether that is its own choice or inherited, a select, and a reset that
+is live only while that row is overridden. Under the list, one reset for all
+of them that names the count and does nothing at zero. Each of the three
+surfaces reaches the same `openSheet` picker from the menu it already had,
+the Chat tab's `kebabMenu` and the writing desk's and documents editor's
+`details.dock-menu`, so no surface gained a control in its chrome.
+
+**Measured** at 1440 (`scratchpad/ui-sweeps/featuremodels.js`, now in the
+gate's sweep list): four rows at 44px with 273px selects; changing one row
+leaves the other three reading "Inherited: llama3.2"; each per-row reset is
+disabled until its own row is overridden; the inline picker in all three
+surfaces sets the value the Settings row then shows; the mass reset clears
+three overrides and goes quiet. At 390 the row folds to a name over a select
+and a reset, 268x96 with a 216px select and no overflow.
+`tests/test_feature_models.py` asserts the model that reached the provider
+for a chat turn, a draft, a document edit and a guide turn, not a setting
+that round-tripped.
+
+**The rename.** The Notes sub-tab button said "Write with AI" while the
+heading of the panel it opens already said "Write with Atlas". It is "Write
+with Atlas" in both places now, and nothing in `frontend/` says the old name.
+
+
+### From MINDMAP_PLAN.md §12.1 items 2 and 5: a picture in a topic, and a line that bends where you drag it
+
+Built 2026-09-21. The two items as the plan carried them:
+
+> - **An image in a node** (item 2's fourth). It needs the board's upload
+>   path and a node whose body is a picture rather than a label, which is a
+>   second node shape, not a fourth button on a strip.
+> - **The control points on a curve drag to reshape it** (item 5's third).
+>   A tree edge is derived from `parent_id` and has no row to store a
+>   control point on; it would be two more `data` fields on the child and a
+>   third hit target per line, and it now has to compose with the three
+>   line shapes item 4 added.
+
+**A picture in a topic.** `data.image` on the node, a `/media/upload` url and
+nothing else. There was no new route to write and that is the point: a board
+image, a picture pasted onto a board and a note's own attachment all already
+POST to `/media/upload`, which is what runs the captioning, the text
+extraction and what the Library's orphan sweep counts, so a second upload path
+for the same bytes would have been a second place for all three to be
+forgotten. The field is held to the same `MEDIA_URL_RE` allowlist an image
+object's `url` is, by a validator on the field rather than at the endpoint,
+because the two XML imports write into `data` through the same model: a
+`_image` attribute in a file somebody was sent is exactly the door an
+off-origin url would come through, and `/media/../../../etc/passwd` passes a
+`startswith` test.
+
+Drawn as a second node shape rather than a thumbnail beside a label:
+`data-body="picture"` turns the node body from a row into a column, the
+picture takes the card's full width inside its padding and the label becomes
+the caption under it. Measured (`scratchpad/ui-sweeps/mindmapimage.js`, 12 of
+12, light and dark): a 160x90 PNG uploaded through the file chooser the topic's own menu opens
+comes back at `natural 160x90`, draws at 182.2x102.5 inside a 200x137.8 card
+at the aspect it was sent at, the caption's top (441.7) is below the picture's
+bottom (437.7) where the label node's text is beside its icon, the sibling
+topic stays 44px tall, and taking the picture out returns the card to 44. The
+card is still dragged by its picture (x 560 to 630, with a real pointer): the
+press is deliberately *not* stopped there, since the picture is the body of a
+picture topic and the largest thing to take hold of, and what is refused
+instead is the browser's own image drag (`draggable="false"`), which would
+otherwise start an HTML5 file drag over a canvas that has a `drop` handler for
+exactly that.
+
+**One thing the feature broke on its way in, found by reading the path rather
+than by a report.** `media_gc`'s orphan pass asked for whiteboard objects
+`WHERE kind = 'image'`, which was every board object that could point at an
+upload on the day it was written and stopped being true the moment a topic
+could carry a picture: a picture topic's file listed as an orphan, and "clean
+up orphaned media" would have deleted it out from under a topic that is
+drawing it, while reporting that nothing used it. Both collectors now read
+every object's `data` blob, which is text and already parsed by
+`referenced_names`, so a kind added later is covered by having been added.
+`tests/test_media_gc.py` holds it.
+
+**And one the suite found.** The picker built its own `<input type="file">`
+in JavaScript, and `accept = "image/*"` put a `/*` in a string in
+whiteboard.js: `tests/test_feature_catalog.py`'s comment stripper read it as a
+block comment opening and lost ten function declarations after it. The stripper
+is right to be naive (its own docstring says why the order of its two passes
+matters), and the app already has the answer, which is that a file input is
+written in `index.html` with its accessible name and its hidden class, where
+the id and handler lints can see it: `#wb-map-picture-input`, beside the
+board's own two.
+
+Put in and taken out from the topic's own menu, not the strip, for the reason
+§12.5 gives about the link beside it: the strip is how a topic *looks*, a
+picture is what it is. Taking it out leaves the upload in the Library (see
+§12.0's decision), and `image` is in the list a copied branch carries but not
+in the list "back to the branch" clears.
+
+**A line that bends where you drag it.** `edge_bend` and `edge_slide` on the
+child, exactly the two fields the plan priced, written as fractions of the
+line's own length in the frame the line defines rather than as board
+coordinates: the frame is rebuilt from the anchors on every read, so the pair
+survives a tidy, a drag, a zoom, a layout switch and an export read back at
+another size.
+
+The waypoint composes with all three of item 4's line shapes. The curve passes
+through it, and the arithmetic is worth keeping: a cubic's own midpoint is
+`(p0 + 3c0 + 3c1 + p1) / 8`, so moving both control points by `d` moves that
+midpoint by `6d/8`, and the control points therefore move 4/3 as far as the
+pointer. That is what makes the handle sit *on* the curve at t = 0.5 rather
+than near it, which is a claim a probe can settle with a number. The straight
+line kinks at the waypoint, the elbow moves its turn to it (clamped between
+the anchors, so a right angle cannot double back), and the tapered ribbon the
+default curve is drawn as reads the same four points, so the control does
+something on the default line shape and not only on the three minority ones.
+
+Measured (`scratchpad/ui-sweeps/mindmapcurve.js`, 14 of 14, light and dark):
+the handle sits
+0.19 to 0.39 board units from the closest point on the path for all three
+shapes, a drag moves the centreline's middle 74 units and the ribbon's quarter
+point with it, an elbow's turn moves from x 485 to x 580, and the pair comes
+back off the server (`{"bend":-0.225,"slide":0.186}` and its neighbours)
+inside the bounds the schema holds it to. Double-clicking the handle puts the
+line back, and the topic's own menu says so in words while there is a bend to
+drop.
+
+**Two things the probe found rather than assumed**, both of the "invalid where
+it is used" shape CLAUDE.md warns about. The mid-line `+` sat on the same point
+as the handle, and being HTML above the SVG, invisible but still taking the
+pointer, it swallowed the drag outright: `elementFromPoint` at the handle's
+centre returned the button. It steps 26 units along the line now, down the
+line's own tangent, measured 0.26 units off the path. And the map strip opens
+44px above the selected topic and is several hundred pixels wide, so for a
+child laid out a little below its parent it lands exactly on the middle of the
+line into it: `elementFromPoint` there returned `DIV.wb-map-strip` and the drag
+never started. So the handle is revealed by pointing at the line (one `<g>` per
+edge, and the hover needs nothing selected and therefore no strip) as well as
+by selecting the topic at either end of it.
+
+Both fields ride out and back through both XML exports as private attributes
+(`_image`, `_edge_bend`, `_edge_slide`), alongside the rest of
+`MAP_STYLE_FIELDS`: FreeMind's `<edge>` has no waypoint of any kind, and its
+own way to put a picture in a node is a `<richcontent>` body of HTML whose
+`src` would resolve only on the install that holds the file. `tests/test_mindmap.py`'s
+`MAP_STYLE` fixture carries all three, so §12.1's gate
+("export/import round-trip of a map using every feature") covers them by
+construction, and three new tests hold the doors: an off-origin or traversing
+picture url is a 422 at the PUT, a bend past its own ends is a 422, and an
+imported `_image` or `_edge_bend` a file invented is dropped field by field
+while the attributes beside it are kept.
+
 ## Built, I9's Settings section (2026-09-19): "What it learned"
 
 WORLD_CLASS_PLAN I9's frontend, the half that had been open since the
@@ -7057,10 +7746,63 @@ noise. Both failures are written into the sweep so they are not repeated.
   (the plan's 600 KB for 5,000, in proportion; measured in the suite,
   `tests/test_graph_colour_rules.py`).
 
-Not built: positions stored on server-side views (views are still in
-localStorage; the local pane and multi-device views are the reason to move
-them, and neither exists yet) and the `?since=` cursor (nothing polls the
-graph, so nothing needs it).
+Not built (2026-09-09): positions stored on server-side views (views are
+still in localStorage; the local pane and multi-device views are the reason
+to move them, and neither exists yet) and the `?since=` cursor (nothing
+polls the graph, so nothing needs it). Re-read 2026-09-20: server-side
+positions are still nothing to build as written (the local pane exists now
+and does not read saved views; there is still no second device to sync to),
+but restoring where the *unpinned* notes sat on a saved view, entirely a
+frontend concern, was genuinely missing. The `?since=` cursor stays
+deferred.
+
+### Built, Phase 5 continued (positions on a saved view), 2026-09-21
+
+A saved view restored the layout, colour rule, filters, groups and zoom
+transform, but not where the unpinned notes sat, so reopening a
+force-layout view was a fresh solution of the same forces rather than the
+picture that was saved.
+
+`graphCaptureView` (`frontend/graph.js`) now stores every visible node's
+x/y (from `graphNodesRef`, the live array either renderer draws from)
+alongside the transform it already captures. `graphApplyView` stages them
+in a one-shot global, `graphPendingViewPositions`; `renderGraphCanvas`
+(`frontend/graph-canvas.js`, the default renderer) consumes and clears it,
+and passes the seeded positions and an `{alpha, freezeIds}` pair to
+`gcStartWorker`.
+
+**Decision made, 2026-09-21** (the question the original row left open,
+"whether a restored arrangement then holds or settles"): **it holds.** Every
+saved node seeds the worker's simulation at alpha 0, not 1: no reheat,
+nothing moves, because a saved picture is the thing that was asked for. The
+one case that must still reheat is a note added *since* the view was saved
+(no saved position at all): the worker gets alpha 1 and every saved node is
+frozen (`{type: "freeze", ids}`, the same message a drag already uses to
+hold the rest of the map still while one node moves) for exactly the length
+of that settle, released (`{type: "thaw"}`) the moment the worker posts
+`"end"`. A real pin (`graph_pin_x`/`graph_pin_y`, notebook content) is
+untouched by any of this: it is a permanent `fx`/`fy`, set and released by
+the code that already owned it.
+
+Measured with `scratchpad/ui-sweeps/graphviewpos.js` on a fresh data dir
+(8 linked notes, a saved view, the layout then disturbed by a physics-
+slider change and a manual node move): before the fix, applying the view
+left the notes 71px from their saved spots and still drifting 19px more
+two seconds later; after, drift is ~1px and does not continue. Adding a
+ninth note after the save and reapplying: the new note is placed (present
+in `graphNodesRef`) while the eight saved ones stay within 2px of where
+they were saved. A static shape test, `tests/test_graph_view_positions.py`,
+guards the code carrying this out (it cannot run the simulation itself;
+that is the sweep's job).
+
+Not verified: the legacy SVG renderer (`frontend/graph.js`'s
+`renderGraphSvg`, a dev-only fallback behind a manual `localStorage`
+override with no UI control, slated for deletion once the canvas renderer
+passes the gate) does not read the staged positions; left alone rather than
+duplicating the fix into code that is going away.
+
+**Files.** `frontend/graph.js`, `frontend/graph-canvas.js`,
+`tests/test_graph_view_positions.py`, `scratchpad/ui-sweeps/graphviewpos.js`.
 
 ### From GRAPH_PLAN.md
 
@@ -23603,6 +24345,20 @@ the behaviour that shipped before this.
 "searchable from the Library's filter" is not built: `library.js` was another
 agent's file. The properties are parsed and editable, and nothing filters on
 them. It is written up in `archive/agent-remaining/documents-phase4.md`.
+**Built 2026-09-20**: the Library's Documents sub-tab has one select beside
+its search box, `#library-docs-property`, whose options are the `key: value
+(count)` pairs the documents on screen actually carry. The narrowing is
+client-side (the list is read to the end already) and the properties ride on
+the row, parsed by `core/docmeta.py`, because `_summary()` sends a preview
+rather than a document's content and a browser-side scan would have found
+nothing at all. Measured by `scratchpad/ui-sweeps/libprops.js`, 7/7: the
+control is hidden until something has a property, the opener reads at 144x36,
+five documents narrow to two on "status: draft", and the empty state names
+both the search and the property when the two cannot both be true. Two things
+found on the way: the shared `enhanceSelect` opener walks `select.options` and
+never reads an `<optgroup>` label, so the grouping the first shape used was
+invisible and the key moved into each option's own words; and hiding a select
+hides nothing, because the reader sees its `.select-shell`.
 ## INBOX resolved, 2026-09-13
 
 162. **Mid-work drop, 2026-09-13, verbatim (the owner), the app as an
@@ -25102,6 +25858,463 @@ them. It is written up in `archive/agent-remaining/documents-phase4.md`.
     mode still flips, the suppression class is gone again a frame later, and
     the art canvas is rebuilt. **Not verified:** the desktop webview, which is
     the window the report came from; the numbers above are headless Chromium.
+## Moved from the plans, 2026-09-21
+
+### From WHITEBOARD_PLAN.md
+
+### Built: the board's top bar, six controls beside its menus, and menus a keyboard can drive, 2026-09-21
+
+Two things the plan's "Placed from INBOX" section held open, measured before
+and after at 1440, 1024, 820, 390 and 320 with a probe that is now gated
+(`scratchpad/ui-sweeps/wbtopbar.js`, in `scripts/gate.sh`'s sweep list).
+
+**The control count.** `#wb-topbar` carried **13** controls at 1440, 1024 and
+820, against the dock grammar's ceiling of seven and against every other dock
+in the app (notes 6, graph 6, library 5, chat 4, timeline 4, reminders 4).
+UI_MODERNISATION_PLAN Phase 8 names this bar as the menu-bar exception, with
+Insert, Edit, Arrange, View and Board as its zones, so the decision that was
+already made is that the five menu toggles are one zone; what was not decided
+is that the eight controls beside them may sit over the ceiling. Two of the
+eight had a menu to go to: **Rename this board** and **New board** are
+board-level actions and the Board menu is already where this board's own life
+is kept (export, kind, clear, delete, help). They moved into it as its first
+section, keeping their ids, so every listener in whiteboard.js is unchanged,
+including the one that disables Rename on the default scratch board, which for
+the first time has a rule saying what a disabled menu row looks like.
+
+After: **11** controls at 1440, 1024 and 820, **6** of them beside the five
+menus, and the bar is one row at all three widths as before.
+
+**The phone.** The bar ran **5px past its own content box at 390** and **75px
+at 320**, with `wb-add-note` 33.4px and `wb-fullscreen` 81.4px past the right
+edge at 320, which is to say unreachable. The plan's own entry ruled out the
+only fix that keeps all eleven (letting the halves wrap costs a row: 104px and
+two rows becomes 152px and three at 390 and 200px and four at 320, over a
+604px canvas) and asked instead for a bar that carries fewer things. Two leave
+below 600 and neither is lost:
+
+* **Full screen** is View, Zoom, Full screen, and on a phone there is no
+  browser chrome for it to hide.
+* **Arrange** is twelve alignment, distribution and order actions, every one
+  of which is on the context bar above a selection (decision 3, INBOX 12),
+  which is the only time any of them can act: the menu's own rows are labelled
+  "2+ selected" and "3+ selected".
+
+After: **7** controls at both phone widths, **0px** of overflow, nothing past
+the content box, and every control at or above the 44px touch floor (the probe
+resolves `--target-min` by laying an element out at it, because the token is
+declared in rem and reading the custom property gives 2.75).
+
+**The menus, found while gating them.** All five declared `role="menu"` and
+carried **nought** `role="menuitem"`: a screen reader was handed a menu of no
+items, and ArrowDown moved no focus in any of them. Tab stepped through the
+rows, because they are buttons, which is why driving the bar with a mouse
+never showed it. The roles now come from `wbStampMenuRoles` at boot rather
+than from 76 places in markup (`.wb-menu-item` as `menuitem`,
+`.wb-menu-section` as `group`, a row wrapping a native control as `none`,
+which is the honest answer for the View menu's colour well, grid select and
+four switches), and the keyboard from `wireMenuKeyboard`, the function every
+other menu in the app already used. Two fixes it needed to reach here: it can
+now see inside a `role="group"` as well as a `.menu-group`, and it skips an
+item with no box, which the View menu's two map rows are on an ordinary
+whiteboard. Escape now hands the focus back to the toggle that opened the
+menu, and only when the focus was in the menu or on that toggle, since Escape
+is also a board-wide key. A `.wb-menu-item` that owns its own listener now
+closes the menu too, which Rename, New board and the two map rows did not.
+
+After, at 1440 and at 320: five menus, 8/7/10/4/2 visible items, 0 buttons
+without a role, 0 children of `role="menu"` with a role ARIA does not allow,
+ArrowDown moving the focus in every one, Escape closing and returning the
+focus, an outside press closing. The recipe is in DESIGN.md's index with
+`tests/test_ui_recipes.py` as its ratchet.
+
+The board's own shortcuts were re-checked after the new keydown listener: V,
+H, R, O, A and T still pick their tools, Ctrl+F still opens the search bar and
+Shift+N the overview.
+
+## Moved from the plans, 2026-09-20
+
+### From AGENT_SKILLS_REFORM.md
+
+### Built, Phase D's gate: the recovery moves, judged by a real model, 2026-09-20
+
+Phase D's three recovery moves were built on 2026-09-13 and the block above
+this one says so. What they had never had is the one thing a fake transport
+cannot give them: a model that was not told what to say. OPEN.md had carried
+the row "Phase D verified against a real model, which needs WORLD_CLASS_PLAN
+section 9's dev-only runner first" since 2026-09-14, and the runner is now
+`scratchpad/llama-dev.sh`.
+
+**The gate is `tests/test_skills_evals.py`,** four tests marked `evals`. The
+module reads `MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL` at import and
+skips all four when they are unset, which only `scratchpad/llama-dev.sh serve`
+sets, so the ordinary suite and CI run none of them and nothing in `tests/`
+imports the script or shells out to it. A variable that is set with nothing
+answering behind it fails instead of skipping, and names the command that
+starts a server: setting it says "I have a model and I want it judged", and a
+skip there would report green for work nobody did.
+
+**A fifth test needs no model and is the reason the other four can be
+trusted.** The three hard rules (nothing in `tests/` reaches for the script, no
+mode of `scripts/gate.sh` calls it, the two variable names are the same on both
+sides of the seam) are easy to write down and easy to break later without
+noticing, so they are asserted rather than documented. It is also what keeps
+the file's exit code honest: the module's first shape skipped itself whole with
+`allow_module_level=True`, a module that collects nothing makes pytest exit 5,
+and `scripts/gate.sh --changed` selects exactly this file when it is the file
+that changed and reads that 5 as a failure. The gate found it, on a file that
+was behaving correctly.
+
+**What they assert is what the runner guarantees, whatever the model says:**
+no step ticked `done` without the tool its contract names appearing in that
+step's own tool events; a `notes_changed` step ticked only over a notebook
+that genuinely has tags in it, read back out of the database rather than out
+of the run's own ledger; a resume that marks every step before its start point
+`earlier` and runs the one it was pointed at; and a single reworded step that
+runs alone, opens with the wording the person typed, and reports as paused at
+the next step. What a small model *achieves* is deliberately not asserted:
+that is a number for a report, not a pass or a fail.
+
+**The run that judged them.** llama.cpp `llama-server` built from source on
+the sandbox's four cores, Qwen2.5-1.5B-Instruct Q4_K_M (about 1.1 GB) loaded
+with `--jinja` so the model's own template emits OpenAI tool calls, the app's
+own `OpenAICompatClient` pointed at it, every run driven through
+`/chat/stream` as the app drives one. Three passed and one skipped, with real
+inference throughout: dozens of completions, the longest around three seconds
+of generation each.
+
+**The skip is the finding.** `test_a_notes_changed_step_ticks_only_when_the_notebook_changed`
+could not judge step 4 because the run never reached it: on this model the
+five-step "Auto-tag my notes" stalled on **step 1**, whose contract is a
+single `list_tags` call, with `list_tags` the only tool offered and a worked
+example in the prompt, which is Phase B's small-model mode doing exactly what
+it was built to do. The runner did not tick it: it stalled it and said which
+contract had failed, which is the acceptance line word for word. What it says
+about the reform is that at 1.5B the remaining gap is the model rather than
+the scaffolding, and the same run at 3B and 4B is the next thing worth
+measuring.
+
+**Two of the four tests were wrong when first written, and the model found
+both.** One asserted that a run reached step 4, which is a claim about the
+model and not about the runner; it skips with the step that stopped it named
+instead. The other read the *last* step event for the reworded step and found
+the model's own re-planned wording there rather than the rewrite, and called
+that drift: a step that misses its contract is re-planned, the `replanned`
+event carries the revision, and what has to be true is that the step *opened*
+with the wording the person typed. Both are the shape CLAUDE.md section 4
+warns about, a claim that reads as a product bug and is a test asserting
+something it was never entitled to.
+
+**Not verified.** One model, one quantisation, one skill. Concurrent tool
+calls at index 1 and beyond, Ollama's native tool-call dialect, and every
+other claim in CLAUDE.md section 4 are exactly as unproven as they were.
+
+
+### UI_MODERNISATION_PLAN "Placed from INBOX" 279, the owner's four reports
+
+Built 2026-09-20, all four, each measured in Chromium before and after against
+a seeded notebook (48 back-dated notes, three pictures with a caption, a vision
+reading and two model names, two PDFs with fourteen stored page readings each:
+`scratchpad/ui-sweeps/seed-libtext.js` and `seed-libtext.py`, beside
+`seed-timeline.js` and `seed-timeline.py`). The owner's words are in the plan
+entry this replaces.
+
+**1. The dashboard's three densities** ("fix and refine the full compact and
+focused views on the dashboard as the hero section loses a lot and they can
+just be improved so much more"). `scratchpad/ui-sweeps/dashdensity.js`, new.
+
+Before, at 1440: chrome above the widget grid 593.6 / 456.6 / 282px, heroes
+157.2 / 76.3 / 133.2px. Two faults in those six numbers. The hero did not
+shrink with the level: Focused, the level that shows least, carried the second
+largest banner, because it dropped whole bands and never touched the one it
+kept. And Compact kept the clock at `--text-display` (58.3px tall) beside a
+greeting cut to `--text-lg` (22.1px, below body size) and deleted
+`#dash-submessage`, the one line that says anything about this notebook. The
+decoration outranked the identity, which is what "loses a lot" was.
+
+One rule now, the one the recommendation named: the greeting and the one number
+stay at every level, and what shrinks is the art and the secondary rows. The
+greeting steps down the scale (h1 / h2 / h3) rather than falling off it, the
+number holds at `--text-sm`, the emblem goes 46px to 30px before it goes at all
+(a p5 canvas is drawn at a size, so `DASH_EMBLEM_SIZE` in dashboard.js sizes it
+per density and `applyDashDensity` redraws it), the clock loses its date and
+then itself, and Compact's three band labels sit beside their rows rather than
+above them (78px of eyebrow over rows that already say what they are).
+
+After, at 1440: chrome 593.6 / 427.9 / 196, heroes 157.2 / 99.6 / 47.2. At 390:
+chrome 665.9 / 592.3 / 285.2, heroes 151.2 / 114.4 / 96. Compact at 390 is 30px
+taller than it was, which is the one number coming back and is the trade the
+recommendation asks for; every other figure is down and all three levels read in
+order at both widths.
+
+**2. The Timeline table** ("the timeline table view shrinks horizontally when
+opening a note row"). `scratchpad/ui-sweeps/timelinetablewidth.js`, new.
+
+Not the shape the report guessed at: the detail was already a `<tr>` of the
+table rather than a sibling pane, and the table's own width never moved. What
+shrank was the Title column, the one column with no width of its own: with the
+second row opened, 1032 to 516 at 1930, 702 to 351 at 1600, 542 to 271 at 1440.
+Exactly half, every time, with the other half drawn as empty space past the last
+header.
+
+An off-by-one in one line. The detail cell spanned `TIMELINE_COLUMNS.length + 1`,
+but the tick column is `.hidden` unless the selection mode is on, so the table
+draws eight columns and the cell asked for nine; `table-layout: fixed` answers a
+column it has no header for by giving it an equal share of what the sized
+columns leave, which is the free space the Title column had all of. The span
+comes from `timelineTableColumnCount()` now, and `syncTimelineDetailSpans()`
+runs from the paint that shows and hides that column as well as from the opener.
+After: 1032, 702 and 542 unchanged at all three widths.
+
+**3. The Files sub-tab's reading block** ("I want you to better redesign the
+content in the text extracted from this file dropdown in the files subtab").
+`scratchpad/ui-sweeps/libreadingfoot.js`, new.
+
+Before, at 1440 on a fourteen-page reading: opening the fold added 102.3px and
+drew four ranks inside it, the first sentence (18px), "14 pages read · 1,106
+words" (18px), a full-width "Show the whole reading" bar (32.8px) and an "Open
+reading" button (28px). Two of the four are controls and both answer the
+question the fold above them had just been asked. What was not in the list was
+the reading.
+
+After: "14 pages · 1,106 words" with Open reading at the end of the same line
+(`.library-file-reading-head`), and the reading itself under it, capped at three
+lines and scrolling. Two ranks, one control, the block 110.4px rather than
+120.8px, the row 251.9px open rather than 262.3px, and the text on screen rather
+than one more click away. At 390 the head wraps to two rows, the button is 44px
+and nothing clips.
+
+**4. The picture card's foot** ("I als want you to better design the bottom text
+for captions and ocr in the image cards in the library images subtab").
+
+At rest the foot was already two ranks, the description and one facts line.
+Asking for the text was the fault: measured at 1440, it took the card from
+240.7px to 416.3px and drew six rows under the thumbnail, a label, the text, a
+Show more, Tesseract's own labelled box and "Described by qwen3-vl:4b · read by
+GLM-OCR-GGUF:Q8_0" over two lines (47px of the 176px the fold added). A 180px
+tile has no in place to open into, and the grid gives every card in a row the
+tallest one's height, so one card's transcription resized its five neighbours.
+
+The reading is one `.library-chip` "Text" now, and it opens the lightbox at the
+reading: the same door the tile's own click and the Files row's Open reading
+use, where the picture, the caption, the whole text and both bylines already sit
+together. The card stays at 240.7px whether the text is asked for or not. The
+two model names are on the card's own `title`, which is where the recommendation
+put them.
+
+Nothing was lost with the fold. Correcting a reading by hand is still the card
+menu's "Type the text in this picture", which mounts the editable panel through
+`revealReading`, and `openRowReadings` carries that panel across the gallery's
+six-second poll. The probe drives that menu row and checks the box is there
+rather than assuming it.
+
+The chip's recipe is a row in DESIGN.md's index ("A fact on a facts line that is
+also the way in") with its lint in `tests/test_ui_recipes.py`:
+`.library-chip` on a button, what it opens is never the card it sits on, and its
+size comes from its own class because a rule led by a facts line's handle may
+not carry a `font-size`.
+
+**Not verified.** No human has looked at any of the four. Every number here is
+`getBoundingClientRect` or `getComputedStyle` in headless Chromium at the widths
+named. The seeded captions, readings and model names are written into the
+database rather than produced by a model, because there is none in the sandbox;
+what is under test is what the card draws from them. The two PDFs are hand-built
+one-page files whose page thumbnails 404 in this sandbox, which is a seeding
+artefact and not a code path this work touched.
+
+### DOCUMENTS_PLAN.md Phase 4 item 4, the editor's commands as one table
+
+The plan asked for a palette listing every editor action with its shortcut and
+a `?` sheet "generated from the same table so the two cannot disagree".
+
+**The decision the plan left open, taken because it had to be.** The plan
+names `Ctrl+K`, written before this app had a command palette of its own on
+exactly that chord: two palettes on one key is the collision the agent
+palette's own comment records being caught twice. So the editor contributes a
+"This document" group to the palette that exists, offered only while the
+Documents tab is showing with a document open, and the app's own commands
+gained a group name ("Everywhere") now that something can sit above them. A
+reader pressing Ctrl+K in a document finds the document's own actions at the
+top of a list they already know.
+
+**A row whose action already has a button runs the button**
+(`docRunControl`), not a copy of its handler: a copy is a second definition of
+what "Export as HTML" means and the two drift the first time one is edited.
+`tests/test_doc_commands.py` is the lint that division needs, and it fails on
+a command pressing a control that is not in `index.html`, on two commands
+claiming one chord, on a row with no label or icon, on a chord the editor
+binds that the table does not list, and on either door stopping reading the
+table.
+
+Measured by `scratchpad/ui-sweeps/doccommands.js`, 10/10: no editor group
+before a document is open, 31 commands after, 10 of them drawing a chord
+beside the words, the sheet's 13 rows byte-identical to the table's, and
+"Heading 2" run from the palette writing `## some words` into the document.
+
+### DOCUMENTS_PLAN.md Phase 5 item 4, reading typography and the print sheet
+
+Focus, typewriter and the serif option were built on 2026-09-13. What was left
+was the measure and the print stylesheet, and both turned out to be the same
+mistake in two places: a reading column written in pixels.
+
+**The serif face's measure.** Measured at 1440 with
+`scratchpad/ui-sweeps/docreadprint.js`: the reading column is capped at 46rem
+(736px), which is 76 characters of the app's own sans and inside the 45 to 90
+every typographic reference gives. The serif face is narrower, so the same
+736px held **93** characters on a line while nothing about the column had
+changed. The default column is left exactly where it is (a width the owner has
+commented on twice, "idk why the document rendered views are so thin??") and
+the serif takes a cap of its own in `ch`, beside the leading it already
+adjusts for the same reason: 82 characters at 606px after, and the width
+toggle still releases it.
+
+Also found and fixed on the way: `#doc-preview { max-width: 72ch }`, the
+"stricter measure for rendered prose", had never once applied. The rule above
+it is `#doc-preview:not(.doc-split-pane)` at (1,1,0) and a bare id is (1,0,0),
+so the looser 78ch cap won in exactly the case the tighter one was written
+for.
+
+**The print stylesheet.** The PDF export already printed the preview and
+nothing else, through `body.printing-doc`. A plain Ctrl+P did not: measured
+with `emulateMedia({ media: "print" })`, it put the tab bar (693x44), the
+sidebar (260x767), the dock (1082x78) and the status bar (1082x38) on the page
+around a 736px column. A `beforeprint` listener now sets the same class for
+any print of an open document, renders the preview and switches to Read view,
+and `afterprint` puts back what it changed; the `@media print` block in
+`09-editor.css` is what the page then looks like: black on white, a 2cm page
+margin, the measure kept, leading at 1.6, headings kept with the text they
+name, code blocks, quotations, tables and images not split across a break, an
+external link's URL printed after it, and the last of the chrome
+(`#doc-statusbar`, `#doc-crumbs`, the find bar, the writing panel, the phone
+bar) hidden, which the export's own older list predates. Deliberately not
+done: `docPrintComments` stays false, because a plain print did not ask for
+footnotes.
+
+Measured, 24/24, including the app coming back afterwards.
+
+**Not verified.** Chromium only. `emulateMedia` is not a printer: pagination,
+the real page size and what a driver does with `@page` were not tested, and no
+page was actually printed.
+
+### DOCUMENTS_PLAN.md Phase 4 item 3, the outline that navigates and reorders
+
+**Breadcrumbs and the sticky, current-section outline were already built**
+(the sidebar redesign, 2026-09-12: `renderDocCrumbs`, `markDocOutline`). What
+this pass added is the rest of the item, plus the two things
+`archive/agent-remaining/doc-sidebar.md` recorded as open beside it.
+
+**The scroll-spy follows the caret.** It read the top of the view alone, so
+typing in a section below the one at the top of the box marked the heading
+above it until the view scrolled. Measured before the change on a
+twelve-section document in a 512px editor: caret in Section 3 at scrollTop 0,
+outline marked Section 1. The decision the next step left open, which wins
+when the two disagree: the caret does, while it is visible, because a caret
+you can see is where you are writing; scroll it out of the box and the
+viewport takes over again, which also covers the Read pane, where there is no
+caret to see. The textarea fallback has no line-to-pixel map, so it keeps the
+viewport answer. `scratchpad/ui-sweeps/docspy.js`, 6/6.
+
+**Folding, per document, keyed by the heading rather than by its line.** A
+line number changes the moment anything is written above it, so a fold keyed
+that way unfolds itself or folds some other section in its place. The state is
+in `localStorage` because a fold is a per-viewer fact about how a panel is
+drawn; one written into the file would travel to everyone who opens the
+document and would show up in its diff. The control is a fixed 16px gutter at
+the row's left, a button where the heading has children and an empty slot
+where it does not: the row itself is already a button (a button inside a
+button is neither valid nor reachable), and a caret that appeared only on some
+rows would move those rows' text against their own level, which is the exact
+fault `.outline-link`'s own indent rules spend three paragraphs protecting.
+
+**The filter box**, from ten headings up. Filtering ignores folds outright: a
+search that hides its own matches inside a fold reports nothing and is right
+about nothing. The count reads "2 of 19" while it is running, because a bare
+"2" over a narrowed list reads as a document with two headings in it. Not
+persisted, for the same reason the Library's property filter is not. The spy
+marks the nearest row that is actually drawn, so a caret inside a folded
+section marks the fold rather than a row nobody can see.
+`scratchpad/ui-sweeps/outlinefold.js`, 14/14: gutter one width (16px) across
+19 rows, 7 foldable, h3 indent 30px against h2's 17px unchanged, filter box
+226x36.
+
+**Drag to reorder, and Alt with an arrow.** Dragging a row moves the section,
+the heading and everything under it down to the next heading at the same level
+or shallower. The lines are re-scanned at the moment of the drop
+(`docScanHeadings`, pulled out of `renderDocOutline` for this) and never taken
+from the outline's own rows: the outline is rebuilt on a pause in typing, so a
+row dragged a keystroke after an edit carries line numbers from the document as
+it was, and moving that run would cut the wrong paragraphs out of the middle of
+the text. The write goes through the surface's `text` setter, which diffs
+prefix and suffix, so a move is one undo step. A section dropped inside itself
+is refused rather than clamped: there is no place the reader could have meant.
+Rows are not draggable while a filter is running, because the rows on screen
+are then a search result and "between" two of them is not a position in the
+document. Alt with an arrow is the keyboard half, and the focus ring is
+restored by name across the second redraw the write schedules (measured before
+that: `document.activeElement` came back as `<body>`).
+`scratchpad/ui-sweeps/outlinedrag.js`, 12/12, including every body paragraph
+still present exactly once and no run of three blank lines left at a seam.
+
+**Not verified.** Chromium only, at 1440x900. The drag is driven by dispatched
+`DragEvent`s with a shared `DataTransfer` rather than by a real pointer drag,
+which is what this Chromium will do reliably; no touch drag was tested at all,
+and the fallback textarea path was not driven for any of it.
+Blocks the plans carried as open work and no longer do (CLAUDE.md standing
+order 10). Origin file named on each.
+
+### From GRAPH_PLAN.md
+
+### Built, the node panel's three evening rows, 2026-09-09 to 2026-09-14
+
+The owner's evening batch of 2026-09-09, read against the running app on
+2026-09-20 and found built, each one measured rather than taken on the word
+of the comment that claims it.
+
+- **"sometimes the x close button in the graph popup panels gets pushed out
+  of place by the note title, and the note title gets cut off with no
+  ellipse".** Built: `.graph-popup-ident > strong` is one ellipsised line
+  (`white-space: nowrap`, `min-width: 0`), the close button is `flex: none`
+  with `align-self: flex-start`, and `.card.graph-popup > .row.graph-popup-head`
+  restates `nowrap` at a weight that beats `.card > .row.space-between`.
+  Measured with a 88-character title (`scratchpad/ui-sweeps/graphnodehead.js`):
+  header 48px tall, title one line and ellipsised, the close button 14px in
+  from the panel's right edge and 14px down from its top, at both 1440 and
+  390. The reported failure was a 92px header with the button 56px down and
+  276px in from the right.
+- **"I want these buttons at the bottom of the graph node popup panels to be
+  centered or to feel properly integrated into the panel".** Built:
+  `.graph-popup-actions` is a footer band, `justify-content: center`, pulled
+  out to the panel's padding edges, on the chip fill, with the panel's own
+  bottom corners and one hairline above. Measured: the band starts 1px inside
+  the panel's left edge and ends 1px inside its right (the panel's border),
+  sits on the bottom edge, `justify-content: center`, `border-top: 1px`.
+- **"the graph suggested links panel is poorly designed and not consistent
+  with the rest of the app ui style".** Built over INBOX 110 and 111 and the
+  2026-09-14 pass: every measure on the app's own scale (`--space-*`,
+  `--text-*`) where four hand-typed rem values had been, one control height
+  down the row (the reason field, the score chip and both buttons all at
+  1.75rem where they had been 42, 23.2 and 28), the head split into a title
+  group and an actions group, the rows scrolling under a heading that stays,
+  and the panel given the same inset as every other surface in the graph's
+  floating column.
+
+### Built, Phase 6's own target, re-measured 2026-09-20
+
+`scratchpad/ui-sweeps/graphnode.js` at 1440, 1024 and 390, against the
+target in GRAPH_PLAN Phase 6: 448x357 at 1440 and at 1024, nine actions in
+one row, three hairline-separated groups, one filled button (Open, read off
+the computed background rather than the class list), the editor at 112px on
+a 108.8px floor, Save hidden at rest and shown on an edit and hidden again
+when the edit is undone, no control under 36px, nothing clipped, panel
+scrollHeight 355 against clientHeight 355 (it does not scroll), the page
+does not scroll, 0 console errors. At 390 it is the sheet: 362x468, the
+actions on three lines, and neither the panel nor the page scrolls (the
+2026-09-09 measurement had it at 362x442 with the panel scrolling inside,
+so it has since gained the room).
+
+Not verified: a real touch device, and the Trace, Link and Grow flows past
+the click that starts them.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing
@@ -30088,6 +31301,21 @@ told to open first.
     Found and fixed on the way: `plain_label` stripped markdown links and not
     wiki ones, so every note chip in the app whose first line linked to
     another note showed its brackets.
+    **The three gaps closed 2026-09-20** (OPEN.md's 246 row). A mind map
+    holds a note as its own reference node (`WhiteboardObject` kind "note",
+    `data.ref_id`), not a `WhiteboardNode`, so a note on a map through the
+    map's own node was invisible to the row, the dialog and the counts:
+    `_board_reference_rows` now reads both tables (kind first, then id, the
+    way routes_graph learnt to), once, for all three. The card carries one
+    muted chip, "In 1 document · on 1 board · on 1 map · linked by 1 note",
+    from `GET /entries/reference-counts?ids=` (one call per rendered chunk,
+    at most 60 ids, cache cleared per reload), opening Connections; measured
+    in Chromium (`scratchpad/ui-sweeps/refchips.js`): 24px like the chips
+    beside it, a button, and the dialog it opens lists the board with the
+    squares icon and the map with the tree. The dialog now lists what the
+    chip counts: a document that wiki-links the note without it being
+    attached, and a note that mentions it, were counted and not shown.
+    Twenty-two tests in `tests/test_entry_references.py`.
 
 220. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the docs
     and how to proceed.** "make sure all the other docs like architecture.md
@@ -30300,3 +31528,1585 @@ told to open first.
     typed glyphs standing in for icons, with a lint and a sweep; a scan for
     marketing copy found 0.
 
+264. **Mid-work drop, 2026-09-20, verbatim (the owner).** "can you also make
+    more sub-menus in the documents meatball button dropdown or smth because
+    it is still almost off the bottom of the screen."
+    A screenshot of the open menu, fourteen rows deep, its last row level
+    with the status bar.
+    **Fixed** (`4e93458`): two more groups, "Editor and layout" and "While
+    you write", taken from the groupings the markup's own comments already
+    argued for. 562px and 14 rows to 346px and 8, measured at four window
+    sizes; it had been running 32px past the bottom at 1024x720 and now
+    clears it by 184px. A live bug fell out of it: a row inside *any* of
+    these flyouts had stopped closing the menu since the downloads were
+    folded, because `buildMenuGroupButton` reparents the panel to `<body>`
+    and the click never bubbles through the group the listener was on.
+265. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also can you fix
+    the highlighter in the quick sketch?? it doesnt act as it should and
+    looks messy"
+    **Fixed** (`6abc459`). Third report on this tool; the first two fixes
+    treated the alpha and this one is the compositing. Each segment was its
+    own `stroke()` at 0.35, so consecutive segments overlapped at every joint
+    and each pixel was covered about three times: measured 0.801 coverage
+    where the tool asks for 0.35, 0.725 to 0.824 along the band, and a
+    self-crossing going 0.286 to 0.824. The stroke is now drawn whole on its
+    own layer at full opacity and composited once. After: 0.353 everywhere,
+    spread 0, junction 0.353.
+    **Superseded in two ways on the same day**, by WHITEBOARD_PLAN decision
+    7's other half (the pad and the whiteboard now read one
+    `HIGHLIGHTER_STYLE` table, which carries the plan's 0.4 rather than the
+    pad's own 0.35, so the numbers above are now 0.4 everywhere, spread 0,
+    junction 0.4), and by a fix to the layer this entry introduced: it scaled
+    the points by `canvas.width / rect.width`, but `sketchPointer` already
+    returns canvas pixels, so every highlighter stroke landed away from the
+    pointer by that ratio, measured at 15px left and 9px up in the middle of
+    the pad's 820px canvas inside an 850px box. The sweep this entry left
+    behind reads its alpha from the table now instead of a literal, and takes
+    its "same arm" sample inside the band rather than on its antialiased
+    edge.
+274. **Mid-work drop, 2026-09-20, verbatim (the owner).** "There are a lot of
+    codeql and ci errors, The guided tour is completely broken, it doesnt
+    automatically switch pages on different steps, it doesnt let the user
+    click the highglighted items, it has no visible way to exit or quit it
+    like a button or smth so I had to guess by pressing the escape button".
+    "the scrolling is off in the split document view because of the md
+    rendering. also the atlas help panel needs a better title to make it
+    evident that it is the guide, and in that panel, it doesnt use the
+    utility model and instead uses the chat model, also thinking boxes dont
+    render and the streaming is just off and needs fixing when generating a
+    response." "I want to improve the design, capabilities and features in
+    the write with ai subtab in notes because I think it is falling behind."
+    "text in the find anything popup window isnt centred vertically in the
+    text box". "I also feel like having the notes appear as sources below the
+    ai response in the notes tab ask subtab is uncnecessary when they are
+    shown already on the right next to the ai response??" (screenshot: the
+    Ask answer with numbered source cards on the left and the same notes as
+    cards on the right). Triage: CI is one test window and three CodeQL
+    asserts, fixed in this commit; the tour, the guide panel (title, model,
+    thinking, streaming), the split-view scroll, the finder input and the
+    Ask sources go to one Opus agent as bugs; the Write with AI redesign to
+    a second Opus agent with a design brief.
+    **The tour: fixed.** Three separate faults, each measured before and
+    after with `scratchpad/ui-sweeps/tour.js` and a probe of its own.
+    (1) `#tour-block` was one layer at `inset: 0`, so
+    `document.elementFromPoint` at the centre of all fifteen steps answered
+    `tour-block`: it is now four panels around the cut-out and the hole is
+    left to the page (15 of 15 steps now answer the target, and a real press
+    plus typing reaches `#entry-content` mid-step). (2) A step measured its
+    target two frames after `switchTab` resolved, before the tab had loaded
+    its content, and a target that was not up yet was spliced out of the run:
+    the steps that would have moved the tour were the ones that disappeared.
+    A step that navigates now waits up to 1.5s of frames for its target, and
+    the tab it is on is read from the pressed tab button rather than from
+    `localStorage`, which can disagree with the page. (3) The card's head
+    gained an icon-only close X, `aria-label` "Close the tour", beside the
+    counter; Skip and Escape still end the same run.
+    **The guide panel: fixed, with one part of it answered rather than
+    changed.** (a) The head reads "Atlas guide" over one muted line, "How this
+    app works, from its own help text", and the sheet's accessible name is
+    that same string (measured in Chromium: neither overflows its head at
+    1440 or at 390). (b) The model: `help_chat` did call `utility_model()`
+    all along, and `ModelManager.utility_model()` answers the **chat** model
+    in two cases, no utility model chosen and smart model routing turned off.
+    Both are the documented design, so nothing in the Guide was changed;
+    `tests/test_help_chat.py` now drives a real request through a real
+    `ModelManager` and pins which model each of the three cases takes, so the
+    panel's copy and the code can be held to each other. If the reader wants
+    a small model here, it is Settings that has to say so. (c) The thinking
+    box could not render: the streamed turn ran in the `quick` preset, whose
+    `think: False` is sent to any model that declares thinking, so
+    `chat_stream`'s `thinking_delta` branch had never fired on an Ollama
+    backend. The turn now runs in `presets.GUIDE_MODE`, Quick's cap and
+    temperature with `think` left unset, off the user-facing mode picker;
+    proven at the seam (`request_extras`) and in a real browser against a
+    stand-in model that reasons out loud (the thinking grew in four steps and
+    was visible during the turn). The streaming itself measured **correct**
+    on this head, over the wire and in the panel: one chunk per model piece
+    on its own 250ms beat, and the answer growing in four steps over 1920ms.
+    The report was real when it was made and was the missing `X-Auth-Token`
+    on the streaming fetch, already fixed on this branch.
+    **The split view's scroll: fixed.** The owner named the cause ("because of
+    the md rendering") and it was right: the sync was a scroll fraction, which
+    is exact at both ends and wrong in between wherever a block takes a
+    different amount of room in the two panes. Measured on a five-section
+    document with a picture, a table, a code fence and a list in each, the
+    preview sat 282, 292, 266, 404 and 550px from the heading the source pane
+    was showing, growing downwards because the error is cumulative. The map is
+    now line to block: `renderMarkdown` stamps each block with the source line
+    it came from, `docScrollAnchors` pairs the stamps with each pane's own
+    offsets and the sync interpolates between the nearest two. After: 0, 75,
+    0, 0, 0px, and the 75 is the probe's own scroll landing 21px short in
+    CodeMirror, not the map. Recipe and lint added in the same commit
+    (DESIGN.md, "Two panes showing one document").
+    **Retracted in part, 2026-09-20: the split view is re-reported as 278**
+    on a head that carries this fix ("the documents split view scrolling is
+    broken and misaligned"). The numbers above are real and were taken on a
+    synthetic document; they are not evidence about the document the owner
+    has open, and this entry is moved with that said rather than as a clean
+    close. The other four items stand.
+    **The finder's input: fixed.** Measured before: the field's box sat 1px
+    below the bar's top padding and 11px above the bottom, its centre 4.8px
+    above the bar's, with the glyph beside it at exactly 0. The cause was the
+    stacked-form `margin-bottom` every input in this app carries, which the
+    rule that turns off the field's border, ground, radius and padding inside
+    the band had not turned off: `align-items: center` centres a flex item
+    together with its margins. This is the failure DESIGN.md already names,
+    "And zero the margins, not just the heights", so the fix is that rule
+    rather than a number. After: 5px and 5px at 390, 1px and 1px at 1440,
+    centre offset 0 at both. The bar had been reaching the band's 44px touch
+    floor only through that phantom margin, so it now takes it deliberately
+    below 820 (44.0px measured at 390).
+    **The Ask sub-tab's duplicate sources: fixed, taking the decision named
+    in the brief.** Measured before: five `.chat-source-card`s under the
+    answer with note ids 6, 3, 5, 4, 2 and five rows in Matching records with
+    the same five ids in the same order, five duplicates out of five. After:
+    zero duplicate note cards, and one line reading "Sources: 5 notes, on the
+    right" which scrolls the column into view when pressed (measured: the
+    column's top moved from 299 to 208). A source the column does not hold,
+    a file or a web page, keeps its card **and its number**, since the
+    numbers on those cards are the numbers printed in the answer.
+    `showCitedPassage` was finding its target by `.chat-source-card`, so the
+    citation marks would have become decoration on this tab: it now lights
+    the records row for the note and shows the passage there. The Chat tab
+    keeps its panel whole (5 cards, 1 panel, measured after), because it has
+    no column beside it.
+
+274. **Mid-work drop, 2026-09-20, verbatim (the owner).** "There are a lot of
+    codeql and ci errors, The guided tour is completely broken, it doesnt
+    automatically switch pages on different steps, it doesnt let the user
+    click the highglighted items, it has no visible way to exit or quit it
+    like a button or smth so I had to guess by pressing the escape button".
+    "the scrolling is off in the split document view because of the md
+    rendering. also the atlas help panel needs a better title to make it
+    evident that it is the guide, and in that panel, it doesnt use the
+    utility model and instead uses the chat model, also thinking boxes dont
+    render and the streaming is just off and needs fixing when generating a
+    response." "I want to improve the design, capabilities and features in
+    the write with ai subtab in notes because I think it is falling behind."
+    "text in the find anything popup window isnt centred vertically in the
+    text box". "I also feel like having the notes appear as sources below the
+    ai response in the notes tab ask subtab is uncnecessary when they are
+    shown already on the right next to the ai response??" (screenshot: the
+    Ask answer with numbered source cards on the left and the same notes as
+    cards on the right). Triage: CI is one test window and three CodeQL
+    asserts, fixed in this commit; the tour, the guide panel (title, model,
+    thinking, streaming), the split-view scroll, the finder input and the
+    Ask sources go to one Opus agent as bugs; the Write with AI redesign to
+    a second Opus agent with a design brief.
+    **The tour: fixed.** Three separate faults, each measured before and
+    after with `scratchpad/ui-sweeps/tour.js` and a probe of its own.
+    (1) `#tour-block` was one layer at `inset: 0`, so
+    `document.elementFromPoint` at the centre of all fifteen steps answered
+    `tour-block`: it is now four panels around the cut-out and the hole is
+    left to the page (15 of 15 steps now answer the target, and a real press
+    plus typing reaches `#entry-content` mid-step). (2) A step measured its
+    target two frames after `switchTab` resolved, before the tab had loaded
+    its content, and a target that was not up yet was spliced out of the run:
+    the steps that would have moved the tour were the ones that disappeared.
+    A step that navigates now waits up to 1.5s of frames for its target, and
+    the tab it is on is read from the pressed tab button rather than from
+    `localStorage`, which can disagree with the page. (3) The card's head
+    gained an icon-only close X, `aria-label` "Close the tour", beside the
+    counter; Skip and Escape still end the same run.
+    **The guide panel: fixed, with one part of it answered rather than
+    changed.** (a) The head reads "Atlas guide" over one muted line, "How this
+    app works, from its own help text", and the sheet's accessible name is
+    that same string (measured in Chromium: neither overflows its head at
+    1440 or at 390). (b) The model: `help_chat` did call `utility_model()`
+    all along, and `ModelManager.utility_model()` answers the **chat** model
+    in two cases, no utility model chosen and smart model routing turned off.
+    Both are the documented design, so nothing in the Guide was changed;
+    `tests/test_help_chat.py` now drives a real request through a real
+    `ModelManager` and pins which model each of the three cases takes, so the
+    panel's copy and the code can be held to each other. If the reader wants
+    a small model here, it is Settings that has to say so. (c) The thinking
+    box could not render: the streamed turn ran in the `quick` preset, whose
+    `think: False` is sent to any model that declares thinking, so
+    `chat_stream`'s `thinking_delta` branch had never fired on an Ollama
+    backend. The turn now runs in `presets.GUIDE_MODE`, Quick's cap and
+    temperature with `think` left unset, off the user-facing mode picker;
+    proven at the seam (`request_extras`) and in a real browser against a
+    stand-in model that reasons out loud (the thinking grew in four steps and
+    was visible during the turn). The streaming itself measured **correct**
+    on this head, over the wire and in the panel: one chunk per model piece
+    on its own 250ms beat, and the answer growing in four steps over 1920ms.
+    The report was real when it was made and was the missing `X-Auth-Token`
+    on the streaming fetch, already fixed on this branch.
+    **The split view's scroll: fixed.** The owner named the cause ("because of
+    the md rendering") and it was right: the sync was a scroll fraction, which
+    is exact at both ends and wrong in between wherever a block takes a
+    different amount of room in the two panes. Measured on a five-section
+    document with a picture, a table, a code fence and a list in each, the
+    preview sat 282, 292, 266, 404 and 550px from the heading the source pane
+    was showing, growing downwards because the error is cumulative. The map is
+    now line to block: `renderMarkdown` stamps each block with the source line
+    it came from, `docScrollAnchors` pairs the stamps with each pane's own
+    offsets and the sync interpolates between the nearest two. After: 0, 75,
+    0, 0, 0px, and the 75 is the probe's own scroll landing 21px short in
+    CodeMirror, not the map. Recipe and lint added in the same commit
+    (DESIGN.md, "Two panes showing one document").
+    **The finder's input: fixed.** Measured before: the field's box sat 1px
+    below the bar's top padding and 11px above the bottom, its centre 4.8px
+    above the bar's, with the glyph beside it at exactly 0. The cause was the
+    stacked-form `margin-bottom` every input in this app carries, which the
+    rule that turns off the field's border, ground, radius and padding inside
+    the band had not turned off: `align-items: center` centres a flex item
+    together with its margins. This is the failure DESIGN.md already names,
+    "And zero the margins, not just the heights", so the fix is that rule
+    rather than a number. After: 5px and 5px at 390, 1px and 1px at 1440,
+    centre offset 0 at both. The bar had been reaching the band's 44px touch
+    floor only through that phantom margin, so it now takes it deliberately
+    below 820 (44.0px measured at 390).
+    **The Ask sub-tab's duplicate sources: fixed, taking the decision named
+    in the brief.** Measured before: five `.chat-source-card`s under the
+    answer with note ids 6, 3, 5, 4, 2 and five rows in Matching records with
+    the same five ids in the same order, five duplicates out of five. After:
+    zero duplicate note cards, and one line reading "Sources: 5 notes, on the
+    right" which scrolls the column into view when pressed (measured: the
+    column's top moved from 299 to 208). A source the column does not hold,
+    a file or a web page, keeps its card **and its number**, since the
+    numbers on those cards are the numbers printed in the answer.
+    `showCitedPassage` was finding its target by `.chat-source-card`, so the
+    citation marks would have become decoration on this tab: it now lights
+    the records row for the note and shows the passage there. The Chat tab
+    keeps its panel whole (5 cards, 1 panel, measured after), because it has
+    no column beside it.
+    **Fixed 2026-09-21.** The five bugs: the tour's dim is four panels, so the
+    target is clickable on 15 of 15 steps (it was 0 of 15), each step switches
+    to its own tab and waits for its target, and the card carries a visible
+    close; the guide panel says "Atlas guide" over its own line and runs on its
+    own preset, and its streaming and thinking measured correct on that head
+    (the report was the missing session token, already fixed); the split view's
+    panes are paired by source line (drift 282 to 550px, then 0 to 75); the
+    finder's field is centred (offset 0 at 390 and 1440); the Ask tab's
+    duplicate source cards became one line that scrolls the column into view.
+    The Write with AI sub-tab is WORLD_CLASS_PLAN dossier D16, rebuilt as a
+    writing desk: a dock on the grammar with one primary, five kinds, five
+    tones, three lengths, up to six notes as sources, quick starts, a draft
+    that streams (22.9s in one piece, then first text at 112ms in three
+    writes), version chips with a way back, and 11 controls under 44px at 390
+    now 0.
+
+280. **Mid-work drop, 2026-09-21, verbatim (the owner), one screenshot.**
+    "this happens when I press next on the welcome tour". Seen at about
+    2000x1140 on the Dashboard: after Next on the welcome tour's first step
+    the whole page is dimmed except a vertical strip about 100px wide at
+    the right edge (x about 1890 to 1990, the full height, the status bar
+    and header included), no tour card anywhere, nothing highlighted. The
+    shape of the new four-panel dim (INBOX 274's fix, `.tour-block-panel`)
+    drawn around a cut-out that sits off the page's right edge: the step's
+    target was not found or not on screen, so its rect was empty or at the
+    viewport's right, the panels closed over everything, and the card went
+    with the rect. Owner: frontend/tour.js (the welcome tour, the step
+    after the first, its target and tab switch), scratchpad/ui-sweeps/
+    tour.js. Recommendation: a step whose target is missing or off screen
+    after the wait never draws a cut-out; it either skips to the next step
+    with a target or draws the card centred with no dim, and the welcome
+    tour is driven end to end by the sweep at 2000x1140 as well as 1440 and
+    390, pressing Next on every step and asserting a visible card and a
+    cut-out inside the viewport each time. To the tour's own agent.
+    **Fixed.** The owner's exact trigger did not reproduce from a clean boot:
+    the welcome flow's hand-off (`onboardingNext` calls `openTour("basics")`
+    on its last Next) was driven end to end at 2000x1140, 1440x900 and
+    390x844, and every step had a visible card and an on-screen cut-out, with
+    112 pixel samples at the far edges confirming the dim covered them all,
+    with the background art on and off. So the mechanism was forced instead,
+    which settled it: with the step's control moved off the right edge, the
+    cut-out was placed at x 2994 carrying **the previous step's 708px width**.
+    `tourSpotlight` clamps `left` to the target and `right` to the window, so
+    `right - left` goes negative; `width: -994px` is invalid, the declaration
+    is dropped, and the element keeps the size it already had. That is
+    CLAUDE.md's invalid-value trap, and since the dim is the cut-out's own
+    `box-shadow`, a hole in the wrong place darkens the whole page and leaves
+    a band where the shadow's edge falls: the screenshot.
+    Two rules now, because neither shows up in the other's output: the clamped
+    box is checked before it is written, and a cut-out that cannot be drawn is
+    not drawn at all (the card is centred, nothing is dimmed); and a step
+    whose control is not really on screen after the wait is dropped so the
+    counter renumbers, in `tourShow` and again in `tourReflow` for a control
+    that leaves the window mid-step. Measured after, with the control forced
+    off the right edge, to a zero-width box and far below the fold: all three
+    skip to the next real step ("2 of 3"), cut-out and card on screen.
+    `scratchpad/ui-sweeps/tour.js` gained 2000x1140 and drives the welcome
+    hand-off, asserting a visible card and an on-screen-or-absent cut-out on
+    every step at all three sizes: all pass.
+281. **Mid-work drop, 2026-09-20, verbatim (the owner), on branch head
+    dce2449, after 274's split-view fix landed (filed as 278 in the agent's
+    worktree, renumbered here because the branch took 278 in parallel).** "the documents split view
+    scrolling is broken and misaligned". Triage: this is a second report of
+    274's third item against a head that already carries the fix, so the
+    measurement that closed it (0, 75, 0, 0, 0px on a synthetic five-section
+    document) is not evidence about the document the owner has open. Taken
+    back by the same agent, to be reproduced the way it is used rather than
+    the way it was probed: a real document (frontmatter, an H1 title, long
+    wrapped paragraphs, images, a table, a code fence, nested lists, a
+    callout, 200+ lines), both directions, three or more positions including
+    the bottom, while typing mid-document, across a Live to Split switch,
+    after a save, with the sidebar resized, at 1440 and 1024. If nothing
+    drifts, the next suspect is a stale asset rather than the mapping.
+    **Fixed, and the first fix's probe was the reason it survived.** The
+    mapping was right; the measurement of where a block sits in the preview
+    was not. `docScrollAnchors` read `block.offsetTop`, which is taken from
+    the nearest **positioned** ancestor and not from the pane: measured on a
+    real document, 218px past the truth at 1440, 230px at 1024, and 146px
+    once the sidebar is collapsed, because collapsing it puts a positioned
+    `#doc-layout` in between. A constant bias on every anchor is handed
+    straight through the interpolation, so the preview sat that far past the
+    line the source was showing at every position, with no pattern to it,
+    which is the report. It is the rule `setDocPage` already states in
+    app.js, and the first fix did not follow it.
+    The old probe read `offsetTop` as well, so the bias cancelled and it
+    reported 0px. `scratchpad/ui-sweeps/docsplit.js` replaces it: rects on
+    both sides, a document with frontmatter, an H1, wrapped paragraphs, real
+    images, a table, a code fence, nested lists, a callout and 220 lines,
+    both directions at six headings including the last, in five states
+    (baseline, after a mid-document edit, after Live to Split, after a save,
+    after the sidebar moves), at 1440 and 1024. Before: worst 444px and
+    453px. After: worst 1px in all ten passes. The anchor cache token gained
+    both panes' widths, since a pane that changes width rewraps every
+    paragraph in it without necessarily changing either scroll height.
+
+284. **Found while building Phase 11 item 7 (the session, not the owner):
+    `scratchpad/ui-sweeps/lib.js` silently drops `hasTouch` and `isMobile`.**
+    `boot(opts)` passes only `opts.viewport` to `newContext`, so a sweep that
+    asks for a touch context gets a desktop one at a phone's width, and every
+    rule behind `(pointer: coarse)` or `(hover: none)` is measured on the
+    wrong side. `phoneswipe.js` asks for both today and does not get them (its
+    swipes still work, because `initRowSwipe` reads `event.pointerType` rather
+    than a media query, so the finding is about what the next sweep will
+    measure rather than a wrong number already published). Two sweeps built
+    their own context to get around it (`graphtouch.js`, and this week
+    `graphphone.js` and `wbphone.js`). **Recommendation:** pass `hasTouch`,
+    `isMobile` and `deviceScaleFactor` through in `lib.js`, then re-run
+    `phoneswipe.js` and the phone sweeps and record any number that moves.
+    **Fixed** (2026-09-20). `boot` now passes a named list of context options
+    through (`CTX_OPTS`: `hasTouch`, `isMobile`, `deviceScaleFactor`, plus
+    `locale`, `timezoneId`, `colorScheme`, `reducedMotion`, `forcedColors`
+    and `userAgent`, so the next option a sweep wants is added once here
+    rather than worked around a fourth time). Every sweep that asks for touch
+    re-run against a real touch context at 390: phonehead, phonesidebar,
+    phonecapture, phoneswipe, phonenotepage, phonechat, phoneshare, phonedocs
+    and phonereminders, all 0 findings before and after, so no published
+    number moves; the finding was about what the next sweep would measure,
+    exactly as recorded. phone.js, touch.js, graphphone.js and wbphone.js
+    build their own contexts and were never affected: 0 findings each, still.
+
+## INBOX resolved, 2026-09-20
+
+253. **Mid-work drop, 2026-09-14, verbatim (the owner).** "the app needs
+    to work even if it cant update or isnt available to the internet, and it
+    needs to be automatically recoverable and revivable for the user with
+    one click". Placed in WORLD_CLASS_PLAN H6 (professional use) as its
+    first row: offline is already the design (no route needs the network;
+    the updater only checks when asked), so the work is (a) a launcher
+    that, when the app fails to start, repairs itself without a prompt
+    (`--doctor` and `--reinstall` exist but are flags, not a button), and
+    (b) a "Repair MemoryMap" shortcut installed beside the app that runs
+    them. Depends on 251's facts.
+    **Fixed.** (a) start.sh and start.bat now catch a venv with no working
+    interpreter and a venv that no longer imports the app (a broadened
+    `import memorymap.api.app` check, replacing a bare `import memorymap`
+    that stayed "healthy" no matter which real dependency was gone), and
+    repair each once, automatically, with no prompt, before falling
+    through to the same clear failure a second failure already gave;
+    `MM_AUTO_REPAIRED` stops it ever looping. Also fixed in the same pass:
+    every self-relaunch in start.sh, including the pre-existing self-update
+    one, was silently dropping every flag it was started with (`--no-
+    browser` included) because it re-read the flag loop's own already-
+    emptied `"$@"`. (b) A "Repair MemoryMap AI" Start Menu shortcut sits
+    beside the ordinary one in `packaging/windows/installer.iss`, running
+    the packaged build's own new `--reinstall` (`_repair_install` in
+    `__main__.py`): there is no venv on a frozen build, so it clears the
+    desktop window's cached profile instead (the one thing that build can
+    get stuck in) and opens the app normally; notes and preferences are
+    untouched. Only the Inno Setup installer exists on this branch (no
+    `.wxs`/MSI here yet); not verified on a real Windows machine, no
+    Windows runner in this sandbox.
+    `tests/test_launcher_scripts.py::TestSelfRepair` reproduces a
+    deliberately broken venv (a copy of a real `.venv` with python-dotenv
+    moved aside) failing on the pre-fix scripts, then repairing itself and
+    serving a real request on the fix; `tests/test_release_smoke_step.py`
+    gates the installer shortcut and `--reinstall`'s wiring.
+
+## Moved from the plans, 2026-09-20
+
+Blocks the plans carried as open work and no longer do (CLAUDE.md standing
+order 10). Origin file named on each.
+
+### From CHAT_PLAN.md
+
+### Built, Phase 1's open half: which note grounds a sentence, 2026-09-20
+
+The half that was blocked. OPEN.md recorded it as "blocked on Brief 12's eval
+fixtures", and that was right: decision 2 asks for BM25 over passages to pick
+the note as well as the span, at "a threshold calibrated on the eval fixtures
+(Brief 12)", and `ai/grounding.py::_mark` carried a comment saying it would
+not re-decide what counts as supported without the set that says whether it
+got better. So the set was written first.
+
+**The set.** `tests/fixtures/chat/grounding_cases.json`, sixteen cases (Brief
+12 asked for ten). Each is a question, the notes retrieval would have handed
+the answer, an answer written the way a model paraphrases rather than by
+copying a note's sentence, and the notes each of its sentences came from.
+Five sentences across three cases come from nothing and must carry no mark:
+two unanswerable questions, and one where the answer volunteers general
+knowledge (what to use instead of buttermilk) beside a fact from the recipe
+note. `passage_contains` names a substring the highlighted span has to hold,
+so the hover highlight is scored and not just the note id. The answers are
+hand written: no model produced them and none of this is a claim about a real
+model (CLAUDE.md section 4). What it scores is the attribution step, which is
+the part that is ours.
+
+**Measured, before.** 17 of 18 supported sentences cited to exactly the right
+note or notes (94.4%), under the plan's own 95% gate; 0 false marks on the 5
+unsupported sentences; 16 of 16 passage spans correct. The single miss is
+worth writing down because it is the shape the word-overlap rules get wrong:
+the claim "your rent rises to 1,150 in March, and you have until the eighth
+of February to give notice in writing" comes from the landlord's letter, and
+the distinctive-terms rule cited the flat-hunting note beside it as well,
+because "give" and "notice" occur in that note only, in a paragraph about
+what an agent said about notice periods. Two words scattered through a note
+that never says the thing.
+
+**What changed.** `_note_passage_scores` in `ai/grounding.py` scores every
+candidate note's best passage against the sentence with BM25 over **the
+candidate set's** passages pooled, rather than each note's own. That
+distinction is the whole of it: counting document frequency inside one note
+and then comparing the numbers across notes compares scores computed against
+different populations, so the longer note wins for being longer, and a word
+every candidate shares ("sourdough", when both notes are about sourdough)
+would carry the choice. `best_passage` still counts within the note, because
+between two paragraphs of one note that same shared word is exactly what
+tells them apart; the two now share one `_bm25` helper and differ only in the
+population they are handed. The passage score orders the notes that clear the
+word rules, and a second mark has to score at least `PASSAGE_SECOND_RATIO`
+(0.75) of the first.
+
+**Calibrated, not guessed.** The sentence that is genuinely about two notes (a
+dentist and a car service on the same day) scores 4.12 and 3.85, a ratio of
+0.93. The wrong second mark scores 6.02 and 3.32, a ratio of 0.55. 0.75 sits
+between them with about 0.18 either way, and it is a ratio rather than an
+absolute score because the score moves with the candidate set's size and the
+sentence's length. The absolute separation is recorded here for whoever tunes
+it next: on this set a correct mark scores 1.85 and up, a wrong one 1.07 and
+down.
+
+**Measured, after.** 18 of 18 (100%), 0 false marks, 16 of 16 spans.
+`tests/test_grounding.py`'s 18 unit cases and `test_ask_answer_object.py` are
+unchanged and green, so nothing the earlier rules were tuned for moved.
+
+**What the support rule deliberately did not become.** Decision 2's words are
+"a sentence is supported when its best score clears a threshold", which reads
+as replacing the word rules with a passage threshold. It was not done, and
+the reason is a measurement rather than a preference: on this set the word
+rules miss nothing a lexical scorer can reach and produce no false mark, so a
+second support rule had nothing to add, and 16 hand-written cases are not the
+population to re-decide "supported" on. What the passage score decides is
+which note, which is the open half OPEN.md named.
+
+**The one case out of reach, on purpose.** "The venue is reserved and the
+deposit is settled" is the booking note said twice over in different words,
+sharing no content word with it. No lexical scorer reaches that, and it is
+marked `reach: embeddings` in the fixture and asserted as silence rather than
+gated: decision 2's other half is cosine over the passage window, and every
+embedding backend in this sandbox is the four-dimensional fake, so gating on
+it would gate on nothing.
+
+**Files.** `src/memorymap/ai/grounding.py`,
+`tests/fixtures/chat/grounding_cases.json`,
+`tests/test_grounding_fixtures.py` (23 tests).
+
+### Built, Phase 4's harness items: a skill can say what "it worked" means, 2026-09-20
+
+Four of the five things `brief-13-harness.md` left open. The fifth (the
+`evals` marker) is still blocked on WORLD_CLASS_PLAN 9's dev model and is
+left in CHAT_PLAN Phase 4 with the reason.
+
+**`count_notes` takes the filters `list_notes` takes** (item 3). `untagged`
+and `since`, out of one `_scope_filters` helper both call, so a count and a
+list can never disagree about what "untagged" means: a postcondition that
+counted them differently from the tool that found them would pass runs that
+left work undone. The three shapes of "no tags" (`NULL`, `""`, `"[]"`) are
+the helper's, where they were already right, rather than a second copy.
+
+**A `verify` block may carry arguments** (CHAT_PLAN decision 10g). Decision
+10b's shape could only ask a tool its unfiltered question, so the skill that
+writes the most had the weakest check in the set. "Auto-tag my notes" now
+declares `count_notes(untagged) max 0`, the first postcondition on a shipped
+skill that writes. Scalars only, at most four (`MAX_VERIFY_ARGS`), validated
+at save time by `skills._verify_args`; the runner still refuses any tool in
+`WRITE_TOOLS`, so an argument can narrow a reading and can never change the
+notebook. The verification line says the scope it read
+(`count_notes(untagged).count came back 12`), because that and
+`count_notes came back 12` are different claims.
+
+**The two audit skills that had no check now have one** (item 3's other
+half). "Audit link reasons" and "Find where I disagreed with myself" declare
+`count_notes` and verify `unchanged`, the same pair the other three audit
+skills carry. That is a real widening of what those runs may call, which is
+why it had been left: one read-only counting tool on the wire, stated in
+`tests/test_skills.py`'s allowlist test rather than left to be rediscovered.
+
+**The editor offers it** (item 2). A fold under the tools picker in Settings
+→ Skills, on the same recipe: one line of description, the longer answer
+behind the '?'. A tool select (fed from the catalog's new `counts` flag, so
+the list is the server's and not a list typed into the frontend), a predicate
+select, a number that hides beside "unchanged" because a number that is being
+ignored reads as a setting that is broken, and a checkbox for "only the notes
+with no tags". `save_skill` gained the same four as flat arguments
+(`verify_tool`, `verify_expect`, `verify_value`, `verify_untagged`), flat
+because a 3B model writing a skill gets a three-field shape right far more
+often than a shape inside a shape.
+
+**A bug the browser found and no Python test could have.** A skill saved from
+Settings arrived at the server with its block and was stored without one:
+`SkillItem` in `routes_settings.py` did not declare the field, and pydantic
+drops what a model does not name. The save reported success. So "the editor
+round-trips it" was true of the stored shape and false of the wire, and the
+sweep is what said so. `tests/test_skills.py` now pins the round trip both
+ways (kept, and refused with the same sentence `save_skill` gives when the
+skill does not declare the tool it verifies with).
+
+**Measured.** `scratchpad/ui-sweeps/skillverify.js`, 12 of 12 checks: the
+three controls at 36px each, the row inside its section (0px past the edge),
+the tool list exactly `count_notes` and `list_notes`, the number hidden
+beside "unchanged" and shown beside "at most", the block whole in
+`/preferences` after a save, the same values painted back on edit, and the
+skill removed again so the gate's own notebook is unchanged. It is in
+`scripts/gate.sh`'s sweep list. `contrast.js` green on all seventeen
+settings panes, `errors.js` 0 errors at 1440, 1024 and 820.
+
+**The page cap** (item 4) is now CHAT_PLAN decision 10h: it stays at six
+pages of twenty-five, and the answer to a large notebook is a narrower read,
+which is what the filters above are for.
+
+**Files.** `src/memorymap/ai/tools/__init__.py`, `src/memorymap/ai/skills.py`,
+`src/memorymap/ai/skill_runner.py`, `src/memorymap/api/routes_settings.py`,
+`frontend/index.html`, `frontend/app.js`, `scripts/gate.sh`,
+`scratchpad/ui-sweeps/skillverify.js`, and the tests in
+`tests/test_harness_verifier.py`, `tests/test_agent_tools_api.py`,
+`tests/test_ai_reach.py`, `tests/test_skills.py`.
+
+### From TIMELINE_PLAN.md
+
+### Built, section 7's two measurements, and what they changed, 2026-09-20
+
+Both were "not verified until built" since the plan was written, and both
+turned out to be describing a bug rather than a question of taste. Measured
+over `seed-timeline-bulk.py`'s 2,000 notes across three years, in Chromium at
+DPR 1.
+
+**The density strip hid on the wrong variable.** It hid under 200 notes in
+range, a floor found on the 48-note seed.
+`scratchpad/ui-sweeps/timelinedensity.js` runs the app's own slotting over
+that seed sliced to every size from 25 notes up, in the two shapes a notebook
+comes in: newest-first (a young notebook, a narrow span) and spread across the
+years (an old, sparse one). The count admits what it should hide and hides
+what it should show:
+
+| notes | shape | days | slots used of 120 | peak | at an extreme |
+| --- | --- | --- | --- | --- | --- |
+| 48 | newest | 3 | 3 | 27 | 98% |
+| 150 | spread | 140 | 103 | 5 | 16% |
+| 200 | newest | 18 | 18 | 27 | 86% |
+| 200 | spread | 178 | 110 | 8 | 9% |
+| 500 | newest | 83 | 83 | 27 | 32% |
+
+200 notes over 18 days is a comb of 18 teeth in a strip of 120 slots, which is
+the same complaint the 48-note seed earned, at the size that passed. 150 notes
+over 300 days is a profile, and the count rule hid it. So the test is now on
+the shape the strip would draw: at least a fifth of the slots carry something
+(not a comb) and the peak is at least four (with a peak of one to three every
+bar is full, a third or two thirds, which is a bar code rather than a
+profile). `TIMELINE_SCRUBBER_MIN` is replaced by
+`TIMELINE_SCRUBBER_MIN_SLOTS` (24) and `TIMELINE_SCRUBBER_MIN_PEAK` (4), both
+read off the density of the whole range, so the strip still cannot appear
+halfway down a notebook that was always big enough. Asserted live in the
+probe: the seeded notebook draws (3,111 characters of path), a 200-over-18-day
+map hides, a 150-over-300-day map draws.
+
+**The table at 820 had no title column.** `timelinetable.js` measures 1440 and
+390, the wide columns hide below 600, and nobody had looked in between.
+`scratchpad/ui-sweeps/timelinetable820.js` measures five widths, and what it
+found is not a question of taste:
+
+| width | columns | title column | titles cut off | sideways scroll |
+| --- | --- | --- | --- | --- |
+| 1440 | 8 | 496px | 0 of 300 | 0px |
+| 1024 | 8 | 87px | 300 of 300 | 0px |
+| 820 | 7 | **0px** | n/a, it is not drawn | **112px** |
+| 700 | 7 | **0px** | n/a | **222px** |
+| 600 | 2 | 412px | 0 of 300 | 0px |
+
+The table is `table-layout: fixed` and every column but the title has a width
+in rems, so the title takes what is left, and between 600 and about 1000 there
+is nothing left: the row's own identity is the column that disappears, and the
+table overflows anyway. Three columns now give way between 600 and 1024 (the
+space, which is one space in most notebooks and is named in the header
+already, and the two numbers, which are what you sort by rather than read),
+and the tags as well below 820, the app's own band edge, because 528px of
+fixed columns in a 594px box leaves the title 66px, the same failure one
+column along. After: 375px at 1024, 176px at 820 (22 of 300 titles cut off),
+242px at 700, and no horizontal scroll at any of the five widths.
+`timelinetable.js` still passes whole at 1440 and 390, including its eight
+sort round-trips and the bulk action.
+
+Two classes were added to carry the rule (`timeline-col-space`,
+`timeline-col-tags` on the head cell, which had it on the body cell only:
+hiding one without the other is what made the first re-measurement report a
+row and head of different lengths).
+
+**Files.** `frontend/app.js`, `frontend/index.html`,
+`frontend/css/06-timeline-dialogs.css`,
+`scratchpad/ui-sweeps/timelinedensity.js`,
+`scratchpad/ui-sweeps/timelinetable820.js`.
+
+## INBOX resolved, 2026-09-21
+
+291. **Fixed.** The owner: "a text which should be highlighted a normal
+    yellow is still highlighted blue??" Two faults, both in the documents
+    live view, and neither in the saved view, which had been right all
+    along. The live view's default rule took `--accent-soft`, which is the
+    blue of the app's own named highlight set, so every plain highlight came
+    out blue and only one explicitly called blue looked correct. And the
+    live view's scan pattern had no colour half at all, where the saved
+    view's inline pattern carries the allowlist yellow, green, blue, pink,
+    purple, orange, red and grey, so `==blue|word==` drew the prefix as part
+    of the highlighted words.
+
+    Both views now read the same allowlist and take the same tokens, the
+    prefix is hidden as syntax rather than shown as text, and the colour
+    lands in a class name rather than an inline style, which this app's CSP
+    rejects outright. Measured on a live app by
+    `scratchpad/ui-sweeps/dochighlight.js`, 7 of 7: a plain highlight reads
+    `rgba(245, 189, 79, 0.25)` against blue's `rgba(79, 109, 245, 0.14)`,
+    green is its own `rgba(52, 199, 123, 0.2)`, each mark's text is
+    "highlighted" with no pipe in it, and no colour name survives anywhere
+    in the visible text.
+
+293. **Fixed 2026-09-21.** The owner: the spinning "re-evaluating" animation
+    in the note badge "isnt quite right". His word for it, an ellipse, was
+    the measurement. `.chip` is an inline-flex row, so the shared `.spinner`
+    inside one is a flex item and carried the default `flex-shrink: 1`: with
+    room it measured 10.8 by 10.8, and in a 70px row 9.45 by 10.8, a ratio of
+    0.875. A ring rotating inside a box that is not square wobbles, which is
+    what a spinning ellipse looks like.
+    The ring now declares `flex: none` so it is not squeezed, and
+    `aspect-ratio: 1` with the size on the block axis alone so its shape does
+    not depend on that and a future container cannot reintroduce the fault
+    from outside; two declared sides are two things that can disagree. The
+    rotation origin is stated rather than inherited.
+    `scratchpad/ui-sweeps/spinnershape.js` measures the shape at four row
+    widths, since a sweep cannot watch an animation: 5 of 5, ratio 1.000 at
+    400, 120, 70 and 48px, turning about its own centre at each.
+
+292. **Fixed 2026-09-21.** The owner: "half the time when there are no tags
+    on a note, i want the ai to generate them for me, so one of my most used
+    features is the re-evaluate feature, but i feel like it is more than just
+    re-evaluating, and it is hidden away."
+    He was right on both counts, and the route settles the first:
+    `POST /entries/{id}/reevaluate` re-files the note, refreshing its
+    confidence and its category unless the person filed it themselves, *and*
+    suggests tags and links for them to apply, with nothing applied without a
+    click. "Re-evaluate" named the smallest part of that, and tags, the part
+    it is actually reached for, were not in the name at all.
+    Two halves. The menu row is now "Tag and file with Atlas", and the four
+    user-facing strings around it follow ("Atlas is reading this note", the
+    badge, the result line and the failure). And the offer moved to where a
+    person is thinking about tags: a note with no tags already carried a "No
+    tags yet" chip (INBOX 162) that opens the edit form, and it now carries
+    "Tag with Atlas" beside it, which runs the action from the card.
+    Rendered rather than gated: a chip is a `<span role="button">` and
+    `syncModelGatedControls` closes controls by setting `disabled`, which does
+    nothing to a span, so with no model answering there is simply the flag and
+    the manual route rather than an offer that cannot be honoured.
+    `scratchpad/ui-sweeps/tagoffer.js` measures both states, 11 of 11: with no
+    model the row reads "No tags yet" and nothing else is offered; with one,
+    the offer is a real control (role button, tabindex 0) at 132.3 by 24,
+    titled "Atlas reads the note and suggests tags for you to approve", and
+    the menu carries "Tag and file with Atlas" with no row still called
+    re-evaluate.
+
+304. **The owner, 2026-09-21, verbatim, with a screenshot:** "the help bot
+    is useless, or the suggested questions are bad or both. also it didnt use
+    my utiliity model". The screenshot shows the Atlas guide answering "Where
+    do reminders live?" with "I'm not sure where reminders live. Please check
+    the Help topics above this chat", offering Notes and What it remembers as
+    its sources. Reminders are a surface of this app, so the guide failing on
+    that question is not a hard question failing, it is the guide failing at
+    its own job. Three things to separate before fixing anything: whether the
+    help corpus even contains reminders, whether retrieval found it and the
+    answer discarded it, and whether the suggested questions are drawn from
+    what the corpus can actually answer. The utility model half is INBOX 288,
+    which an agent addressed tonight; re-measure on the current head before
+    treating it as still open.
+
+    **Fixed, with the measurement** (`59985b9`, `322b7b9`, `b71f56b`,
+    `8e44c13`, `d22ed70`). All three causes separated before anything was
+    changed, and two of the three were real.
+
+    1. The corpus did contain reminders, and had all along.
+    2. Retrieval never reached it. The keyword is "reminder", the pattern was
+       `\breminder\b`, and the plural he typed does not match it. Nothing
+       matched, so the open tab's own topics filled in, which is exactly the
+       Notes and What it remembers in his screenshot. Every plural had the
+       same hole: documents, notes, spaces, backups. Keywords now take the
+       plural, the possessive and -y to -ies, and a tab's topics are a
+       fallback for a question that names nothing rather than padding for one
+       that names its subject.
+    3. The suggested questions were hand-written and checked against nothing.
+       "Where do reminders live?" was the first of the three. They are now
+       tab-aware (`ATLAS_TAB_STARTERS`, keyed as `AGENT_TAB_STARTERS` is) and
+       `test_every_question_the_app_offers_to_ask_atlas_is_answerable` reads
+       both tables in `frontend/app.js` against the corpus, so one that cannot
+       be answered fails the build. All thirty land on the topic they are
+       about.
+
+    Measured in a browser, port 8803, no model: "Where do reminders live?"
+    answers with the Reminders help text and names Reminders as its only
+    source. Two more found on the way: the composer carried
+    `data-needs-model`, so the one AI feature written to work without a model
+    could not be typed into with none running, and the corpus had no entry for
+    the status bar although the app offers "What is the status bar telling
+    me?" under the status bar's own '?'.
+
+    The utility model half re-measured on this head and is closed:
+    `tests/test_feature_models.py` drives a real guide turn through a real
+    `ModelManager` and reads back the model the provider was handed. With
+    smart model routing on it is the utility model, with it off the chat
+    model, and the guide's own feature row pins it over both. What was still
+    wrong was the copy, which promised the first of those three as if it were
+    the only one in three places, which is why the same report has now come in
+    three times (274, 288, 304). It says which model answers now.
+
+289. **The owner, 2026-09-21, verbatim:** "in the files subtab, I want the
+    expanded text box to be slightly taller as it is quite short
+    vertically". The extracted-text panel in Library, Files. Measure the
+    panel's current height and what it would need to show one more line or
+    two without pushing the row below the fold.
+
+    **Fixed** (`55daeb2`). Measured at 1440 with the fold open on a
+    fourteen-page reading: the box was 64px against an 18px line box, so 3.56
+    lines. The cap is now the old one plus exactly one line, written as that
+    rather than as a new round number so it stays one more line if the text
+    scale moves: 82px, 4.56 lines. One line and not two because the box sits
+    in a list of rows, and with it open the row below starts at 490.3px of a
+    950px window at 1440 and 806.3px of an 844px window at 390, so the phone
+    has one line to spare and not two. The part-line at the bottom edge is
+    kept: it is the only thing on screen saying there is more to scroll.
+    `scratchpad/ui-sweeps/uitrio.js` measures it.
+296. **The owner, 2026-09-21, verbatim:** "improve the ui of the hero
+    section in the dashboard when on focused mode." Placed into
+    UI_MODERNISATION_PLAN on the day, and built the same day.
+
+    **Fixed** (`e34fe42`). His second report about this switch. The first
+    (INBOX 279) was that the hero "loses a lot" across the densities, and it
+    was answered: the greeting and the one number stay at every level and the
+    art and the secondary rows are what shrink, so the three heroes measure
+    157.2 / 99.6 / 47.2px at 1440, smallest at the level that shows least.
+    That change is right and is untouched.
+
+    What it left is a level whose banner is correct and does nothing.
+    Measured at 1440 on that head: a 47.2px strip carrying the greeting and
+    the one number, and 16px below it a 37.2px search field carrying the only
+    thing a person on a stripped dashboard is reaching for. Two bands,
+    100.4px, to say who you are and offer one control. So focused is not less
+    of the hero, it is the one thing you came here for: the banner keeps its
+    width on the left and the search doorway takes the rest of the line and
+    the row's height. Head 47.2px, one row, and the chrome above the widget
+    grid falls from 196 to 158.8px. The two are stretched to one height and
+    share the banner's radius, or they read as a row and a leftover.
+
+    Full and compact are unchanged, measured: heroes 157.2 and 99.6px, chrome
+    593.6 and 427.9px, still two bands. The wrapper that makes it possible is
+    `display: contents` at those levels, so nothing moves in the DOM and the
+    tab order is the same at all three; at 390 the row wraps back into two
+    bands (head 140px). `scratchpad/ui-sweeps/uitrio.js` measures all of it.
+
+307. **The owner, 2026-09-21, verbatim:** "I feel like the navigation and
+    undo/redo buttons keep getting pushed further and further to the left on
+    the bottom bar, is there a better way to restructure the right side of
+    the bottom bar??" A drift complaint, which means the fix is a rule rather
+    than a nudge: something has to own the right end of that bar so the next
+    feature cannot push these along again. Related to INBOX 301, the app-wide
+    navigation and undo contracts, already placed in WORLD_CLASS_PLAN.
+
+    **Fixed** (`157e53c`). The drift is real and the history shows it: the run
+    after the spacer was a flat list, so every control the bar gained was
+    appended at its right end, and reading the run right to left gives the
+    order they were added (Find, 2026-09-20; Guide; Ask the agent; Command
+    palette). Measured at 1440 against the bar's content edge before: redo
+    ended 391px from it and the navigation group 467px.
+
+    So the bar has three zones with one order, as `data-status-zone` on a
+    direct child: `state` (what the app is holding or doing, left end, the
+    only zone that shrinks), `tools` (the doorways, and the only zone that
+    grows) and `control` (back, forward, history, undo, redo), which ends the
+    bar and has fixed membership. After, at 1440: redo flush with the content
+    edge (0px) and the navigation group 76px from it, and `tools` now grows
+    leftwards from `control`, so the next control cannot move the pair again.
+    Below 400 the bar scrolls sideways, where the right end is the part you
+    have to drag to reach, so `control` takes `order: -1` there: measured at
+    390, 587px of content in 390px with the control zone fully in view.
+    `tests/test_status_bar_grammar.py` holds the three rules and is in the
+    gate's lint set (checked against the fault it is for, a sixth button
+    appended after redo); the recipe is a row in `docs/DESIGN.md`'s index.
+
+308. **Fixed 2026-09-21.** All three layout animations dealt with and the
+    rule now has a lint (`tests/test_cheap_animations.py`) and a DESIGN.md
+    entry. The boot splash bar scales instead of growing: 121 layouts over
+    its 2.4s crawl became 0, measured by `scratchpad/ui-sweeps/animcost.js`,
+    which is now a gate sweep. The dashboard meter's width transition could
+    never fire and was deleted. The phone tab dock's height transition does
+    run (57.59px to 44px, 15 layouts once per recede) and stays, with the
+    reason written at the declaration, which is what the lint asks for.
+    box-shadow is deliberately not covered; the lint's docstring says why.
+    **The owner, 2026-09-21, verbatim:** "I also think we need to make sure
+    that all animations for things are done the cheapest they can be to
+    reduce cost in the browser and devices. like using transform etc etc."
+    **Measured before filing, and the answer is mostly reassuring.** Of 111
+    `transition:` declarations across `frontend/css/`, only three name a
+    layout property: `width` on the boot splash progress bar
+    (00-tokens-shell.css:4332, with `@keyframes boot-splash-progress-crawl`
+    animating `width` too), `width` on a dashboard widget
+    (03-dashboard-widgets.css:3621), and `height` in a responsive band
+    (10-responsive.css:941). Everything else already animates transform,
+    opacity or colour. Ten transitions name `box-shadow`, which repaints
+    rather than relayouts, and matters most on the glass surfaces.
+    Recommendation, two parts. Convert the three layout ones: a progress bar
+    is `transform: scaleX()` with `transform-origin: left`, which is the
+    textbook case, and a height transition to `auto` does not animate at all
+    in most browsers so that one may be dead code worth checking before
+    converting. Then add the lint, because this is a rule that only holds if
+    something enforces it: fail on a `transition` or `@keyframes` naming
+    width, height, top, left, margin or padding unless the declaration
+    carries a stated reason, the same shape as the other frontend lints.
+    Owner: a UI agent, after the current two land.
+
+310. **The owner, 2026-09-21, verbatim, on the guided tour:** "the whole tour
+  is completely and utterly broken", after "btw this is still broken" with
+  three screenshots and, before that, two reports of an undimmed band at the
+  right edge.
+
+  Fixed, and the fix is not what the first two attempts assumed. Measured at
+  1400x900: the dim was one `box-shadow` spread 100vmax out of the cut-out,
+  so its reach depended on the window's shape and on its own corner radius
+  inflated by the spread, and `scratchpad/ui-sweeps/tourdim.js` had been
+  measuring the four transparent press-swallowing panels, which were not the
+  dim at all. Two green sweeps and a green lint against a surface that was
+  visibly broken. The dim is now painted by those four panels, the lint is
+  re-pointed at the invariant instead of the mechanism, and the sweep walks
+  `elementsFromPoint` over the window (14,328 points, 0 uncovered, 0 with the
+  page in front). The second fault was in the same screenshots and nobody had
+  named it: the step card was a translucent `.card` and the dashboard clock
+  read through its text. It now uses the opaque-dialog recipe.
+
+306. **The owner, 2026-09-21, verbatim:** "isnt the quick liquid repo heavily
+    optimised?? and it has levels as well??" Against ANALYSIS.md's "leave it"
+    verdict for quickLiquid. He is right that it is heavily optimised and the
+    read says so; the verdict turned on the optimisation targeting a
+    different cost than the one this app measured. The "levels" half is not
+    answered anywhere and is the part worth checking: quickLiquid has a
+    Chromium-only refraction path with a frost fallback, which is a
+    capability tier, and this app has Performance mode and the
+    `data-glass="off"` list. **Measured and answered 2026-09-21.** The two
+    tier on different axes, and this app's axis is the more useful one:
+    `perfModeOn()` (settings.js) defaults to `auto` and turns Performance
+    mode on when `smallMachine()` (two cores or four gigabytes or fewer) or
+    `lessTransparencyWanted()` (the OS asking for less transparency) says so,
+    and `applyAppearance` then takes the glass, the motion and the background
+    art down together and tells the person why in the setting's own hint.
+    quickLiquid's tier is per effect and by renderer: refraction on Chromium,
+    frost elsewhere. Nothing in theirs is absent from this one.
+
+    **What the measurement did find is the axis this app has nothing on at
+    all: feature availability.** `grep` over `frontend/css/`: **0 `@supports`
+    blocks**, against 160 uses of `color-mix()`, 131 of `:has()`, 128
+    `backdrop-filter` declarations, 25 `aspect-ratio` and 26
+    `scrollbar-width`. Every one of those is a decision that the engine can do
+    it; on one that cannot, the surface degrades wherever the cascade happens
+    to leave it rather than to something drawn on purpose. In practice the
+    risk is small (WebView2 is Chromium, current WebKitGTK has all five) and
+    the cost of covering it is high, so **this is a question for the owner
+    rather than work to start**: which engines must this run on, and is a
+    designed fallback for `backdrop-filter` and `color-mix()` worth 128 and
+    160 fallback declarations. Listed with the other pending decisions in
+    HANDOVER rather than built. **Fixed** (the reading half; the decision is
+    the owner's).
+
+290. **The owner, 2026-09-21, verbatim:** "when I click on a header row in a
+    table on the live view in documents page, another row appears below it
+    until I click off, and I cant click the meatball button on the end of
+    the row". Screenshot shows a table titled "Example Table" with an empty
+    band between the header and the first data row, and the kebab at the
+    header's right edge. Two faults or one: a phantom row on focus, and a
+    control that cannot be pressed.
+
+    **One fault, 2026-09-21, measured rather than reasoned**
+    (`scratchpad/ui-sweeps/doctable290.js`, 10 of 10 after the fix). Clicking
+    the header row does not add a row: at 1440 in light the table drew three
+    rows with gaps of 0, 0 and 0 and was 0px taller focused than unfocused,
+    and the delimiter line stayed 0px high through a click at the top, the
+    middle and the bottom edge of the header and through an ArrowDown, which
+    steps over it. What the press did was this: `openActionMenu` shows the
+    popup, measures it and, when it would be clipped, moves it out to
+    `<body>`, and `DocTableMenuWidget` did not declare `ignoreMutation`, so
+    CodeMirror read all three as the document changing under it, rebuilt the
+    view and blurred the editor. Measured before the fix: after one press
+    `.cm-editor.cm-focused` was gone, the widget was unmounted, and the
+    200x402 menu was left standing at y=374 against a header whose bottom
+    edge is 370, with no opener. That is one bug wearing both of the
+    report's faces: an unanchored panel directly below the header row is the
+    band in the screenshot, and an opener that disappears on mousedown is the
+    button that cannot be pressed. Three changes, all in `documents.js`: the
+    widget claims its own mutations, it closes a menu it is being removed
+    with, and the decoration draws the kebab when the caret is in the table
+    **or** that table's own menu is open (`menuHeld`, read off the opener's
+    `aria-expanded`, which `openActionMenu` sets before anything it does can
+    move focus). `tests/test_table_menu_widget.py` holds all three shapes,
+    because none of them is visible to a test that cannot run a browser.
+    Not verified: the owner's own width, theme and table. The probe is one
+    3-column table at 1440 in light, and the earlier `mousedown`
+    preventDefault in `docTableMenu` (the first report of this button) is
+    left in place rather than removed, since it is what keeps the caret in
+    the row the commands act on.
+
+310. **Found by a read-only audit of the whole backend, 2026-09-21 (the
+    session, not the owner): four low findings, all confirmed against the
+    code before being written down.** The audit read WORLD_CLASS_PLAN
+    section 12 first and re-reports none of S1 to S11; it is thin because
+    the classes that matter are genuinely closed (CSP, the SSRF guard, the
+    XML bomb defence, path containment, bcrypt and scrypt plus AES-GCM,
+    WAL with a busy timeout, the size caps, the outbound opt-ins). What is
+    left, in order of how much it would cost to be wrong:
+    - `restore_backup` writes the live database in place
+      (`src/memorymap/core/backup.py:117`): `source.backup(target)` streams
+      pages straight into `memorymap.db` with no temp-file-then-`os.replace`.
+      It takes a pre-restore safety copy first, so the damage is recoverable,
+      but a crash on that window is the one operation in the app that can
+      half-write the primary database. Fix: back up into a temp file beside
+      `db_path`, `PRAGMA integrity_check`, then `os.replace`.
+    - `_run_directory_import` (`routes_settings.py`) reads each `.md` file
+      whole with `f.read_text()` and no ceiling, unlike every other import
+      path in the app. Fix: `stat()` and skip or cap before the read, at
+      `MAX_IMPORT_BYTES`.
+    - `_normalise_url` (`routes_bookmarks.py:38`) only prepends `https://`
+      when a URL has *no* scheme, so `javascript:` passes through and is
+      stored, and `library.js` assigns it to `link.href` without the scheme
+      check `safeHref()` applies to markdown links. Self-XSS only (no
+      import or AI tool path writes a bookmark from untrusted text) and the
+      CSP blocks it as a backstop. Fix: the same allowlist, at write and at
+      render.
+    - `_download` (`routes_update.py:182`) calls `requests.get` with the
+      default `allow_redirects=True`, so only the first hop's host is
+      checked against `ALLOWED_DOWNLOAD_HOSTS`. GitHub's own release
+      infrastructure is the sole trust anchor either way, so this is a gap
+      in the claim rather than a hole. Fix: re-validate each `Location`, or
+      check `response.url` before trusting the bytes.
+
+    One more, informational: `GET /debug/health` returns `data_dir` and
+    `db_path` as absolute paths. It is behind the unlock gate, so today it
+    tells the owner their own machine's paths back; it belongs in Brief 15
+    (LAN mode) beside S1, where it would hand a full server path to anyone
+    holding the session token. Recommendation: take all four fixes in one
+    pass, they are small and each one is named.
+
+    **Fixed, all four, as WORLD_CLASS_PLAN section 12's S12 to S15 (a
+    Sonnet build agent, `worktree-agent-sec`).** What each fix actually
+    was, and what was measured:
+    - **Backup restore (S12).** `restore_backup` now copies into
+      `<db_path>.restore-tmp` (a sibling of `memorymap.db`, so the final
+      `os.replace` is same-filesystem and atomic), runs `PRAGMA
+      integrity_check` on that temp file, and only swaps it in on a clean
+      result; the temp file and any stale `-wal`/`-shm` sidecars are
+      removed on every path, success or failure. Measured, not assumed: a
+      first version that skipped the sidecar cleanup passed the corruption
+      tests but broke the existing round-trip test
+      (`test_backup_restore_rolls_the_database_back`), an entry saved
+      *after* the backup came back after restoring *before* it, because
+      the live database's `-wal` file (WAL mode, `database.py`) survived
+      the swap under its old name and got replayed onto the replaced file
+      on the next connection. Fixed by clearing both files' `-wal`/`-shm`
+      pairs after the swap; the full existing suite for this file, plus
+      two new corruption tests, all pass. `tests/test_backups_api.py`.
+    - **Directory import size cap (S13).** `_run_directory_import` now
+      `stat()`s each `.md` file and skips anything over
+      `MAX_IMPORT_BYTES` (the same constant `import_markdown` already
+      used) before ever reading it. Because this importer is a background
+      task with no synchronous response, the skip has nowhere to surface
+      except the activity-log line it already wrote on success; that line
+      now fires on a skip-only run too (previously `imported == 0` meant
+      no log entry at all, so an all-oversize folder vanished with no
+      trace) and names the count and reason, e.g. `"markdown dir x1,
+      skipped 1 (1 over 1 MB)"`. `tests/test_vault_import.py`.
+    - **Bookmark scheme allowlist (S14).** `_normalise_url` now checks a
+      URL that carries a scheme against the same allowlist (http, https,
+      mailto, tel) `safeHref()` already applies to markdown links,
+      refusing anything else with a 422 that names the allowed schemes;
+      a bare host with no scheme is still prefixed `https://` exactly as
+      before. Render-time guard added alongside it: `library.js`'s
+      bookmark row now sets `link.href = safeHref(bookmark.url)` rather
+      than the raw URL, and the two `window.open(bookmark.url, ...)`
+      call sites (`documents.js`'s reference chip, `app.js`'s entry
+      reference chip) were changed the same way, so a bookmark already
+      stored with a bad scheme cannot become a live link from any of the
+      three places one is opened. `tests/test_bookmarks_api.py`,
+      `tests/test_markdown_link_schemes.py` (a new static assertion that
+      `library.js` uses `safeHref`, not the raw field).
+    - **Update-downloader redirect validation (S15).** `_download` now
+      calls `requests.get(..., allow_redirects=False)` in a loop capped at
+      `MAX_DOWNLOAD_REDIRECTS` (5), re-validating each `Location` against
+      `_download_url_is_allowed` before ever requesting it; a relative
+      `Location` is resolved against the URL that sent it. Chosen over
+      checking `response.url` after following redirects, because by the
+      time a response carries a final URL every host on the chain has
+      already been contacted. Measured against three shapes: the real
+      github.com-to-objects.githubusercontent.com hop still completes and
+      launches the installer exactly as before; a redirect to a host off
+      the allowlist is refused with the disallowed host never actually
+      fetched (asserted directly, not just "download failed"); a redirect
+      loop stops at the cap rather than hanging. `tests/test_update.py`,
+      including a fixture change (`_FakeResponse` gained `is_redirect`,
+      `is_permanent_redirect` and `close()`) needed for the existing
+      tests in that file to keep passing against the new call shape.
+    - **Not changed**, per the entry's own note: `GET /debug/health`'s
+      absolute paths. Brief 15's own paragraph in WORLD_CLASS_PLAN section
+      12 now names it alongside S1, so LAN mode cannot ship without it
+      being addressed there.
+    - **Gate**: `bash scripts/gate.sh --changed` and `--full` both run
+      before this entry moved, five-line results in the merge report.
+
+267. **Mid-work drop, 2026-09-20, verbatim (the owner), a screenshot of four
+    lines.** "Alignment bars don't appear for group selections
+    Double tap anchor resize nodes to auto size adjust
+    In-text referencing and grounding in the ask subtab doesn't stick, the
+    wrong numbers will be used and in the wrong spot, and the numbers wont
+    match the grounding.
+    Grounding and in-text referencing not working now?? Needs fix."
+    Four things, taken worst first: (1) grounding and in-text references in
+    Ask, which the owner wrote twice and which is the one that makes answers
+    untrustworthy, (2) alignment bars missing on a group selection, which a
+    previous session recorded as built (`5273bae`), so measure before
+    believing either, (3) double-tapping a resize anchor to fit the content.
+    (2) fixed: measured first, and the report was right for a reason nobody
+    had guessed. A group of *cards* has drawn its guides since
+    `wbBulkGroupBox` landed, verified at 1 guide line on a two-card group
+    dragged into line. The sketch drag handler never asked for guides at all,
+    solo or in a group, so a marquee that caught a sketch and was dragged by
+    it was the one selection on the board with none. `wbBulkGroupBox` now
+    takes the dragged item's own box, since a sketch is a path with no
+    x/y/width/height, and the sketch handler snaps and draws like the other
+    two. Probe: `scratchpad/ui-sweeps/wbgroupguides.js`, in the gate's sweep
+    set. (3) fixed: the gesture was already wired (a `dblclick` on
+    `.wb-resize-handle` calling `wbFitToText`) and measured as doing nothing.
+    Two causes, both real. The handles carried no title, so the gesture was
+    invisible and indistinguishable from missing, which is why it was
+    reported as missing. And `wbFitToText` measured the *card's* own
+    `scrollHeight`, which cannot answer the question: `.wb-card-content`
+    clips on purpose (INBOX 238), so the card's scroll height is the height
+    of a box that is already clipping. It measures the content, unclipped,
+    plus the card's chrome now. Measured: a 100px card holding fourteen
+    wrapped lines went 100px to 100px before and 100px to 748px after, with
+    nothing clipped. Probe: `scratchpad/ui-sweeps/wbfitanchor.js`.
+    (1) fixed, `0f5d46d`, and measured: `liveMarkdownRenderer` armed a paint
+    up to 66ms before the stream ended, which fired after the markers were
+    placed and repainted the box from raw markdown, removing all three. The
+    Ask tab was the one caller that never called the renderer's own `stop()`,
+    which has existed for this since INBOX 40. Probe:
+    `scratchpad/ui-sweeps/askgrounding.js` against
+    `scratchpad/fake_answer_server.py`, 0 markers before, 3 after, numbered
+    1/2/3 against chips 1/2/3 and Sources rows 1/2/3. The reported "wrong
+    numbers" could not be reproduced on a clean notebook: 1/3/5 came from a
+    scratch data dir holding duplicate notes from earlier probe runs, so the
+    sources list genuinely had five rows. (2) and (3) open.
+
+273. **Found by the Documents agent, 2026-09-20 (the session, not the
+    owner), two things it measured and did not own.** (1) `errors.js` at
+    820: "settings/extras section scrolls sideways 496>492", diagnosed with
+    `scratchpad/ui-sweeps/extraswide.js` to the embedding-models row's
+    `.entry-actions` (right edge 769 against a 765 frame), pre-existing.
+    Recommendation: the row's actions take `min-width: 0` and wrap, the
+    way the note card's own `.entry-meta` does at that width. (2) The
+    shared `enhanceSelect` opener builds its menu from `select.options`
+    and never reads an `<optgroup>` label, so grouping in any select is
+    invisible to the reader; the templates picker works around it by
+    putting the group in each option's words. Recommendation: the opener
+    draws a `.select-group-label` row per optgroup, the `.dock-menu-section`
+    shape, and the workaround comes out.
+    **(1) and (2) both fixed (Sonnet, hygiene worktree, 2026-09-21).**
+    (1): took the recommendation, `56bf0db`. `.extras-row .entry-actions`
+    now takes `min-width: 0` and `flex-wrap: wrap`. Measured before and
+    after with `scratchpad/ui-sweeps/extraswide2.js` (new): the
+    Search-by-meaning row's own `.entry-actions` right edge at 820px, on
+    two servers running this branch's code either side of the CSS change.
+    Both read 748 against a 765 frame, comfortably inside; `errors.js`
+    found no sideways scroll either side either. The specific 496>492 /
+    769>765 overflow could not be reproduced in this sandbox (font-metric
+    or scrollbar differences between environments are the likely reason
+    for a 4px gap); the fix went in anyway because it removes the actual
+    cause, an actions column that can never shrink beside a title that
+    can, so a tighter row than either sandbox happened to render still has
+    somewhere to go. (2): took the recommendation as written, `6e937c1`.
+    `enhanceSelect`'s `rebuild()` now walks `select.children` instead of
+    `select.options` and draws a `.select-group-label` row per `<optgroup>`
+    before its options; the row carries no `role`, so `syncValue`'s
+    `[role='option']` walk and the click handler both skip it. Measured
+    with `scratchpad/ui-sweeps/selectgrouplabels.js` (new): a synthetic
+    grouped select run through the real `enhanceSelect`/`openActionMenu`
+    draws 2 group-label rows in the right order, still exactly 4 real
+    `[role="option"]` rows (a hidden option correctly excluded), and
+    clicking a grouped option still sets the underlying select's value.
+    The Library's workaround came back out too, `ce69887`:
+    `renderLibraryDocsPropertyFilter` now groups its options into a real
+    `<optgroup>` per key instead of repeating the key in each option's
+    text. Measured with `scratchpad/ui-sweeps/libpropgroups.js` (new):
+    given synthetic `status`/`area` properties, the live function draws
+    two `<optgroup>`s in the real `<select>` and the same two as
+    `.select-group-label` rows in the opener's own menu, with plain
+    "value (count)" option text under each.
+
+314. **The owner, 2026-09-21, verbatim, a regression in the reading
+    workspace on a scanned PDF:** "on the ocr workspace, I have previously
+    used an ocr model to read this scanned pdf document and I could scroll
+    through the pages and the ocr extracted text would scroll and if I
+    clicked on a specific text setcion, it would go to that page scroll wise
+    on the pdf. but now I can only view the extracted text on a single page
+    and even when on scroll mode I cant scroll and the tesseract generates it
+    continuously not only the first time or when prompted by the iser".
+
+    Fixed, three faults, and they turned out to be two causes. Reproduced on
+    a real six page scan made for it (pages rasterised, no text layer,
+    `scratchpad/ui-sweeps/make-scan.py`), driven by
+    `scratchpad/ui-sweeps/ocrscroll.js`. Tesseract is not in this sandbox, so
+    a fake reader stands in for it at the one seam that needs it
+    (`scratchpad/ui-sweeps/fake_tesseract_app.py`): what was measured is the
+    plumbing either side of the reader, never what Tesseract reads off a real
+    scan.
+
+    (3) **Tesseract re-running on every page view was exactly as diagnosed.**
+    `_regions_for` called `ocr.extract_regions` unconditionally and stored
+    nothing, and the workspace asks that route again every time the current
+    page changes, which in scroll mode is every page you pass. Measured with
+    a fake reader counting its own calls: a scroll down and back up over the
+    six page scan ran it 13 times, and four looks at one image ran it 4
+    times. The regions of a page are now stored beside that page's reading
+    (`PageRead.regions`) and served from there: the same two runs are 6 and
+    1. Deliberately not filed as a *reading*: `PageRead.text` is a
+    transcription somebody asked for and feeds the Files row's "N pages read"
+    badge, and a look must not inflate that. A re-read of the page clears the
+    stored regions; deleting the reading takes the row with them.
+    `tests/test_ocr_region_cache.py` holds the counts.
+
+    (1) **"Only one page of extracted text" and (2) the panel no longer
+    following the pages or moving them were one cause, and nothing had been
+    removed.** The panel has been page-linked all along, through each row's
+    `data-page` (`ocrWireRegionJump` goes to that page, `ocrRevealRegionsForPage`
+    follows the page you scroll to). The *list* it worked on was built one of
+    two exclusive ways: the stored reading of every page, or the regions of
+    the page on screen whenever the reader returned any. Tesseract returns
+    some for every page, so with Tesseract as the reader the second always
+    won, every row belonged to the page already in front of you, there was
+    nothing to scroll and a click could only ask for the page it was already
+    on. Measured before: scrolled to page 4 of 6, the panel held 3 rows, all
+    of page 4. After: scrolled through all six pages, 8 rows over pages 1 to
+    6, the three rows of the page on screen marked current, the panel
+    scrolled to them, and clicking page 1's section moved the page pane from
+    scrollTop 1751 to 8 (`ocrDocumentReading`).
+
+    **Scroll mode itself was not broken**, and the check the entry asked for
+    came back the other way: on the six page scan the mode engages and
+    scrolls (a 654px pane over a 3892px stack of six stages, `overflow-y:
+    auto`, and scrolling to 1751 moved the page on screen from 1 to 4 with
+    the rail, the pager and the panel following). The owner's sentence reads
+    as the *reading panel* not scrolling, which is (1). The silent fallback
+    in `ocrSetViewMode` is real all the same and no longer silent: the
+    segment is lit for the mode you are in rather than the one you asked for,
+    except while the page count is still unknown, which is the one temporary
+    no; the two permanent ones say why.
+311. **The owner, 2026-09-21, verbatim, with a screenshot of the status bar
+    menu:** "when I load up the application, the bottom nav history dropdown
+    shows me being in the notes tab and having been to the notes tab even when
+    I havent moved from the dashboard". Fixed. Reproduced first
+    (`scratchpad/ui-sweeps/navhistory.js`): on a fresh load that never left
+    the Dashboard the stack was `["notes:browse", "dashboard",
+    "notes:browse"]` with the pin on the last entry, so the history said you
+    were in Notes while the Dashboard was drawn, and Back walked to a place
+    nobody had been. Two boot steps set the Notes tab's default section while
+    it was hidden (`initNotesSubtabs` selects whichever section was last open,
+    and the first `loadEntries` selects browse), and `showNotesSection`
+    recorded each as a visit. Setting a hidden tab's default section is not a
+    navigation, so the recording is now guarded by Notes being the tab on
+    screen. After: `["dashboard"]`, Back correctly dead, one move records one
+    step, one Back press returns. 10 of 10, and
+    `tests/test_nav_history_seed.py` holds both halves (the guard, and the
+    boot seed that must stay).
+
+313. **The owner, 2026-09-21, verbatim, with a screenshot of the Files
+    sub-tab:** "there should be a way to copy all extracted text in a
+    document in the ocr workspace and files subtab". Fixed, and it was half
+    built. The OCR workspace has had `#ocr-copy-all` ("Copy everything read,
+    in reading order") wired to `ocrAllText()` for some time, but it was
+    `icon-only` among labelled buttons, which is a control nobody reads; it
+    carries the words "Copy all" now, like Describe beside it. The Files
+    sub-tab had nothing at all: the reading box is capped and scrolls, so
+    copying a fourteen page reading meant dragging through a window. A "Copy
+    text" button now sits beside Open reading in the reading panel's head and
+    copies `mediaReading(image)` whole.
+
+315. **Fixed 2026-09-21.** **The owner, verbatim, with a screenshot:** "I pressed next
+    on the first thing of the guided tour and this happened, the guided tour
+    is still broken". The screenshot is the Reminders tab with no tour card
+    and no dim: the tour is gone, not stuck.
+
+    Read from the code, not yet reproduced. `tourShow` drops a step whose
+    target is not `tourVisible` and `tourOnScreen`, splices it out of the run
+    and continues; if every remaining step is dropped the loop falls through
+    to `tourClose(true)`, which ends the tour silently wherever the last
+    `tourNavigate` left you. That is exactly the screenshot: Next navigated
+    to a step's tab, the target was not judged on screen, and the rest of the
+    run was eaten one step at a time until the tour closed on Reminders.
+
+    The likely cause is the judging, not the steps: `tourWaitForTarget` waits
+    for the element to exist, but a tab that has just been switched to has
+    not necessarily laid out, so `tourOnScreen` can be asked before the
+    answer is meaningful. Two things to fix together: wait for layout (a
+    frame, or the element having a non-zero box) before judging, and **never
+    let the run empty itself in silence**: a tour that cannot find its next
+    step should say so and stay open on the step it has, because a tour that
+    vanishes mid-gesture is the third report of this surface being broken and
+    it reads as the whole feature failing.
+
+    **Both built.** A step is now judged after the scroll that brings it into
+    view rather than in the same task as it, because the box read before a
+    scroller moves is the box it had before the move, and one mistimed
+    measurement could eat the rest of the run a step at a time. And the run
+    can no longer empty itself: the last remaining step is kept and shown
+    centred, saying that the control is not on screen at this window size,
+    instead of the tour closing as though it were over.
+
+    Note against the earlier fix: today's tour work (the dim moved off
+    `.tour-spot` onto four panels, `toursteps.js` 24 of 24 across three
+    widths and both themes) measured the steps that survive. It never
+    measured a step being dropped, so the probe would pass with this bug
+    present. Whatever fixes this must add a gate for the drop path.
+
+316. **The owner, 2026-09-21, verbatim, with a screenshot of the documents
+    gutter:** "and make these dropdown arrows actually aligned and proper
+    icons". Fixed. CodeMirror's `foldGutter` draws a text triangle by
+    default, which rendered as a typed "v" in this app's font: the exact
+    shape `tests/test_no_glyph_icons.py` exists to keep out, and one that
+    could not line up with the numbers beside it because a glyph's box
+    belongs to its font rather than to the line. `markerDOM` hands the lane
+    the app's own `ph-caret-down`/`ph-caret-right` instead, and the lane gets
+    a box a line tall that centres what is in it. Measured with
+    `scratchpad/ui-sweeps/docfoldcaret.js`, 5 of 5: four markers, every one
+    an icon, none of them a character, and each arrow's centre 0.0px from the
+    centre of its own line number.
+
+309. **The owner, 2026-09-21, verbatim:** "there is also no way to attach a
+  whiteboard or mindmap to a note as like an object in the notes. or to link
+  reminders to notes"
+
+  The session's reading, from the code, not from the app: notes already carry
+  typed objects (`objects` on a note, the chip row on a card, INBOX 246's
+  "boards via objects" work), and a board or a map is a first-class row with
+  an id, so the missing piece is an object kind that points at one plus the
+  two doorways that make it reachable (a slash command in the note, and "add
+  to a note" from the board and map themselves). Reminders are the other
+  direction: a reminder has a row of its own and no column that names the
+  note it came out of, so a reminder made from a note loses the note, and a
+  note that caused three reminders cannot show them. Both are one shape,
+  "this note and that thing are the same piece of work", and they belong in
+  DOCUMENTS_PLAN beside the objects section rather than in a plan of their
+  own (standing order 8).
+
+## INBOX resolved, 2026-09-21
+
+286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the
+    atlas guide panel looks disabled". Screenshot shows the guide panel's
+    Overview with the composer's control at the top right reading as greyed
+    out. Next step: measure the button's computed colour, opacity and
+    `disabled` state at rest, mid-stream and after a reply, against the
+    dock's own enabled reading; a control that is live but reads as dead is
+    the same bug as one that is dead.
+
+    **Fixed** (`b94557c`). It was not disabled. Measured on the running panel
+    with a model connected: `disabled` false, opacity 1, background
+    `rgba(31, 36, 48, 0.12)`, the tonal fill that
+    `button.icon-only:not(...)` in 07-whiteboard-misc.css gives every
+    unclassed icon-only button, against the Chat tab's own Send at the accent
+    fill. `.icon-primary` is the general form of the exception that rule
+    already carried for one graph button. Both send buttons now measure
+    identical: accent fill, 0px border, 8.4px radius, the same glow.
+287. **The owner, 2026-09-21, verbatim:** "the thinking box doesnt properly
+    render in it either at least while streaming". The guide panel, while a
+    reply streams. Note that `_ThinkTagSplitter` gained four more tag
+    spellings and a stray-close-tag rule tonight (cb15a20), so reproduce on
+    the current head before theorising: the guide may be on a path that does
+    not use the splitter at all.
+
+    **Fixed** (`b94557c`). Reproduced on the current head with a scripted
+    stream. Measured mid-flight: a bare div clipped to 29px holding 262px of
+    text, unlabelled, with no way to open it, so what was on screen was a
+    line and a half from the middle of a sentence. Not the splitter: the
+    events arrived correctly, the box could not show them. It is
+    `details.agent-step.step-thinking` over a `.thinking` body now, the shape
+    the chat transcript already uses, and it folds itself when the first
+    answer delta lands: 152px while thinking, 34px after.
+288. **The owner, 2026-09-21, verbatim:** "also it doesnt use my utility
+    model as my utility model isnt a thinking model". The evidence is item
+    287's thinking box: if the guide is thinking, it is not on the utility
+    model. This was reported once before and recorded as fixed, so either it
+    regressed or the earlier fix covered a different call. Next step: assert
+    the model name that actually reached the provider for a guide turn, not
+    the setting.
+
+    **Answered, with the measurement** (`2340ce7`). Measured at the provider,
+    both guide routes: with smart model routing on, a guide turn reaches the
+    utility model, so the report does not reproduce in that configuration.
+    With smart model routing *off*, it reaches the chat model, which is the
+    one setting that produces exactly this symptom on a thinking chat model,
+    and it is the switch doing what its own label says ("for background
+    tasks"). The Guide is now a row in the per-feature model table, so it can
+    be pinned to a model whatever routing says.
+    `tests/test_feature_models.py` holds all three cases.
+275. **Found by an agent, 2026-09-20, the graph's full screen spends one
+    Escape on two things.** With the map in full screen, opening the
+    lightbox (the node panel's attachment, a document) and pressing Escape
+    closed the lightbox *and* left full screen, in one press. Measured with
+    `scratchpad/ui-sweeps/graphfslightbox.js`: lightbox gone true, still in
+    full screen false. The cause named in the app's own comments was one
+    word out of date: the full-screen listener (`app.js`, "Escape leaves
+    full screen") said it was "placed after the popover handlers above so a
+    help panel or a note popup open over the map takes the first Escape and
+    the map takes the second", but listener order does not stop an event.
+    The graph options panel's own handler calls `stopPropagation` and
+    therefore really does spend the key ("The Escape is spent here",
+    app.js); `openLightbox`'s `onKey` does not, and neither does anything
+    else that opens over the map.
+
+    **Fixed** (`b1365fd`). The full-screen handler now asks `activeOverlay()`
+    whether anything is open over the map before it acts, rather than every
+    overlay having to remember to stop the key; the lightbox's own
+    `role="dialog" aria-modal="true"` (set for keyboard-trapping) is what
+    puts it inside that reach. Measured before/after with
+    `scratchpad/ui-sweeps/graphfslightbox.js`: `stillFullscreen` false, then
+    true. `tests/test_frontend_handlers.py` guards the handler against
+    going back to relying on order.
+
+## Moved from HANDOVER, 2026-09-21
+
+**Now (2026-09-13 evening, Fable orchestrating, the owner at 97% usage: "when
+the agents cut off because of usage, make sure they all pick back up again
+after, and everything else continues. FINISH THE PR").** Six Opus agents run in
+their own worktrees and push after every commit to `origin/agent/wip-<name>`
+(mindmap, phone, documents, graph, chat, backend); the seventh (Sonnet, backend
+hygiene) is merged (`799066b`). Their briefs are the shared rules in the session
+scratchpad (`agent_common.md`: token rule, save rule, push rule) plus one list
+each, drawn from `agent-remaining/{mindmap,ui-phase-11,documents-phases,graph,
+chat-timeline-skills,backend-probe}.md` and INBOX 181 to 192 (each entry names
+its owner). **Resume recipe, for this session or a fresh one:** for each
+`agent/wip-<name>` on origin, read its `agent-remaining` file's last "done/next"
+lines, relaunch one Opus agent per branch in a worktree cut from that branch
+with the same rules and "continue from next"; when an agent reports, review
+against CLAUDE.md section 6, `git merge --no-ff`, `scripts/gate.sh --changed`,
+push the PR branch, delete the wip branch. Done when: every list empty or its
+leftovers recorded as not-verified, INBOX under twenty with no Fixed items, the
+merged head swept (`errors`, `contrast`, `docks`, `touch` at four widths, both
+themes) and full-suite green once, CI green, then tell the owner to merge.
+Brief 33 (SESSION_BRIEFS) is the PR after this one.
+
+**Now (2026-09-13 midday, Opus orchestrating, the owner's order: "Assign
+agents to finish all the rest of the plan and all the bug fixes regardless of
+the agent cap").** Five agents are running at once, which is the first time
+the two-agent rule has been lifted and it was lifted deliberately. Each was
+given an explicit list of files it owns, because five writers in one worktree
+is the stale-index hazard at five times the rate: mind map node styling
+(whiteboard.js, 07-whiteboard-misc.css, routes_whiteboard.py), UI Phase 11 the
+phone (10-responsive.css, 08-consistency.css), DOCUMENTS Phases 5 to 8
+(documents.js, 09-editor.css, routes_documents.py), GRAPH Phase 4's local pane
+(graph.js, graph-canvas.js, 02-chat-graph.css) and the remaining bug lists
+(ai/, core/, routes_timeline.py, tests/).
+
+**The git rule every one of them carries, and the reason:** a commit built
+from an index read earlier silently reverted another agent's work five times
+today. `git read-tree HEAD` freezes every path in that index, so a commit from
+it rewrites the frozen copy of anything not re-added. The protocol is now:
+read HEAD, stage your own hunks and commit in one shell command, then check
+`git show --stat HEAD` lists only paths you own, and if it does not, restore
+the other file and push the restore at once.
+
+**Landed by the orchestrator since the previous Now line**, each measured: the
+board preview's labels kept on the paper and board exports posted as direct
+uploads so they are described and read (INBOX 174); the picture card's tick
+fading in rather than sitting on every card at full strength; a connector no
+longer swallowing a drag-select, which was the cause of "I cant drag highlight
+to select shapes" (INBOX 180); a link tool on a map joining the tree rather
+than laying a decorative cross-link over a node that is still loose; a map's
+branches drawn as tapered ribbons; the radial ring naming the slot under the
+pointer; describing and reading a file shown as background processes (INBOX
+111); the suggested-links row given one control height (INBOX 110); and the
+minimap's size toggle with its fade when the whole graph already fits (GRAPH
+6b). The old Now block follows, for the traps in it.
+
+## Moved from HANDOVER, 2026-09-21 (second pass)
+
+**Now (2026-09-14 early, Fable orchestrating): four more agents on the
+owner's night reports and the audit.** INBOX 195 to 199, 211 and the aurora
+half of 210 landed (`ea7b370`, `6437125`, `3440988`); chrome, mapux, backend2
+and boot run on the rest, each pushing to `origin/agent/wip-<name>` after
+every commit. **Their briefs and the resume recipe are in
+`agent-remaining/briefs-2026-09-13-night.md`** with `agent_common.md` beside
+it; the hourly routine merges each as it reports. Done when their lists are
+empty, the sweeps and `boottime.js` are re-run on the merged head, and the
+owner is told to merge.
+
+**Now (2026-09-13 night, Fable orchestrating): PR #144 is ready to merge.**
+All six agents finished their lists and were merged with `--no-ff` (backend
+`e7bd26f`, chat `112aac1`, phone `4d4a632`, documents `303db81`, graph
+`c2b4f01`, mind map `28068cf`); CI is green on `0e88c93` on all seven checks
+(three Python suites, ruff, CodeQL, Analyze, E2E) and the PR is mergeable
+clean. Local on that head: `errors.js` 0 errors and 0 layout findings at
+1440/1024/820/390 in both themes, `contrast.js`, `docks.js` and `touch.js`
+clean in both themes. INBOX holds seven older batches with every sub-report
+marked; no Fixed items. What each agent could not verify or left is in its
+`agent-remaining` file (mindmap, ui-phase-11, documents-phases, graph,
+chat-timeline-skills, chat-popup-agent, backend-probe); the app.js split
+(gzip bound raised to 700 KB), the graph options panel's height, `.segmented-
+control` radii and F3/F7/F10 are the named leftovers, all placed. **After the
+merge: Brief 33** (SESSION_BRIEFS), in the owner's words. The `agent/wip-*`
+branches on origin are merged and can be deleted from the GitHub UI (the git
+proxy here refuses deletes).
+
+## Moved from HANDOVER, 2026-09-21 (third pass)
+
+**Now (2026-09-14 midday, Fable orchestrating): PR #144 waits on the
+owner's go-ahead to merge; CI on the head is the last gate.** Every agent
+landed: docs, chrome, boot, backend2, mapux, chrome2 (`284f440`: 230, 231,
+233, 234, 236) and notes (`942fdc6`: 239, 240, 241, and the citation
+inventory fix). The owner's afternoon reports 242 to 253 are filed; all
+but 246 (boards and maps on notes) and 253 (one-click recovery, placed in
+WORLD_CLASS_PLAN H6) are fixed and in HISTORY. Open in INBOX: 213, 220,
+225 (frontend copy half), 226 (not reproduced), 228, 232, 238, 246, 253.
+**The release blocker found today:** the packaged Windows build has no
+console, uvicorn's formatter read `sys.stderr.isatty()` on None, and the
+app died at launch; `_ensure_std_streams` (`4ed7456`) is the fix and the
+next tag carries it. **After the merge:** tag `v0.3.0`, which builds the
+installers; the owner's brother needs that installer. **Next PR:**
+`docs/roadmap/agent-remaining/OPEN.md`, "What is left after PR 144", is
+the whole list in build order (the owner's reports, the plan tails, the
+horizon); `docs/ROADMAP.md`, "How to proceed after PR 149", is the method. Traps this session: a search-and-replace that
+rewrites a function's own body (`fetchDashStats` recursed), an early
+return above the branch meant to handle the case (`startBgArt`),
+`DOMContentLoaded` in a file that loads on demand (nine wirings never
+ran), a lazy bundle taking the note editor's focus listener with it (the
+graph popup opened raw), a `const` in a later script read at load
+(`AI_NAME`, the app did not boot; lint added), pytest's capture swapping
+`sys.stdout` back between a fixture and the body, Tesseract's OpenMP
+oversubscription (42 s to 0.28 s with one thread), and `tail -1 &&` or
+`grep &&` chains that commit on a failed gate (read the failed line;
+four times this session).
+
+### Also moved, 2026-09-21 (third pass): the 2026-09-19 night block
+
+**Now (2026-09-19 night, Opus alone, the owner asleep): PR #149 is open,
+CI running, and the whiteboard works again.** The owner's week of outside
+changes came in as one commit, `b387b17`. It ran a regex codemod over
+`whiteboard.js` (committed beside it as `fix_wb.js`, with a hardcoded
+`c:\Projects\...` path) and deleted **ten live functions** along with the
+two it meant to replace: `WB_KIND_INFO` (26 call sites), `wbItemTransform`
+(14, and it is what positions every card), `wbBeginTextEdit` (9),
+`wbStableDragContainer` (6), `wbAngleFromCenterDeg` (3) and five more. The
+board threw on its first render and drew nothing. Reverted whole; its three
+sound ideas re-applied properly.
+
+Built tonight, each measured, each its own commit:
+the Windows console-window flag on every spawn plus a lint
+(`tests/test_subprocess_no_window.py`); the Tesseract registry and
+LOCALAPPDATA probe; **`tests/test_frontend_symbols.py`**, which catches a
+call to a function that does not exist and found three live ones nobody had
+seen (`loadAllNotes`, `loadChatHistory`, `openEntryEditor`); INBOX 238 in
+all three parts; INBOX 232's code fences and link chips; INBOX 226
+reproduced and named at last (the dashboard art widget at 59 fps, ignoring
+Reduce motion and Performance mode, now 0 fps under both); the note list's
+load on four thousand notes from 1.8 s to 0.9 s; the Docker probe cached;
+the settings search cached; Settings, Extras' sideways scroll; a group's
+selection box around rotated cards; and alignment guides for a group drag.
+
+**Later the same night, still alone.** A scan of all 319 routes against
+every path the frontend fetches (`scratchpad/probe_dead_routes.py`, new)
+found a whole plan item built and unreachable: WORLD_CLASS_PLAN **I9's
+backend had shipped on 2026-09-13 with no screen at all**, so
+`derived_facts` grew where nobody could read it. Built its Settings
+section, "What it learned", against what the backend actually ships (no
+bulk actions: there is no `POST /learned/bulk`), and wired three more dead
+routes while there: `POST /night/run` as "Read my notes now", `GET
+/search/stats` as the search-index row in About, and `POST /drafts/title`
+as "Suggest a title" in the Writing Room. `GET /tags` now feeds the tag
+autocomplete, which was built from the loaded pages and sorted
+alphabetically. One backend bug fell out of finally calling a route:
+`facts.listing` counted rows its own search had excluded.
+
+INBOX 225 is closed, both halves: Settings, Models reads "Atlas, running
+qwen2.5:7b", and 68 strings plus 41 pieces of markup that said "the AI"
+now say Atlas, held by a lint with no allowance list
+(`tests/test_ai_name.py`). 256 closed (four test-only helpers deleted,
+their coverage moved onto the functions the app calls first). 259 closed:
+the minimap NaN reproduced, the stack named `graphMinimapFrame`, and the
+guard there had been half written.
+
+Three sweeps are new and in the gate's `--sweeps` set: `keyboard.js`
+(where Tab actually lands), `requests.js` (a request that fails where
+nobody is told), and `leaks.js` from earlier. The app passes all three.
+
+**Into the small hours, 2026-09-20.** INBOX 246 built, both halves: a note
+says what points at it (boards, maps, documents, notes, with "on it",
+"links to it" or "mentions it" beside each) and can be put on a board or a
+map from its own menu, which writes the same `WhiteboardNode` row the board
+would have written itself. 260 taken (Battery-efficient mode stops the two
+moving pictures, and says so). 257 closed without a change, because the
+scan behind it was reading template literals as dead code. 232's other half
+measured and closed. 220's last two pieces written, so `docs/ROADMAP.md`'s
+"How to proceed" is now about this PR.
+258 was built and taken back out, which is the entry worth reading: the pan
+measures clean and the half that stops a context menu opening at the end of
+a drag could not be measured here, so the code came out and the acceptance
+test stayed (`scratchpad/ui-sweeps/wbrightpan.js`, written first, failing).
+
+**Morning, 2026-09-20: INBOX 262 and 263 are closed, all eleven parts.** Two
+mid-work drops arrived together and both are done.
+
+From 262: the documents menu folds its five downloads into one submenu and
+clamps sideways (`5a61cb5`); the gutter collision was my own
+`cm-md-fence-quiet`, now off while the numbers are on, with the plugin
+rebuilding on the compartment reconfigure that was the missing half
+(`b0c8931`); the Live view **rendered lists as plain text and now renders
+them**, hanging indent, visible nesting, a bullet for the dash, and a task
+checkbox that no longer makes its line 34px in a 26px document (`557decf`);
+the group selection box travels with a drag and is rebuilt where the items
+land (`7f1d730`); and its handles were never missing, they were **under the
+card layer**, six of nine unpressable, measured with `elementFromPoint` and
+fixed by moving the chrome to the overlay (`fdd40ca`).
+
+From 263: the "What it learned" switches are built from DESIGN's own
+`.setting-check` recipe (`a01d6e5`); **`bail_if_cancelled` was a line
+endings bug**, `.gitattributes` checking every `.bat` out LF-only while
+cmd.exe seeks a label by byte offset, so every cancel in the installer was
+silently ignored (`1ddd907`); ctrl+s in Preferences had never been
+implemented although the copy promised it, and the section now says twice
+that it is the only one that does not autosave (`6e39399`); the board and
+map previews went from 68 collisions to 0, with blocks trimmed to the paper
+and label widths measured rather than estimated (`e4c6039`); the packaged
+splash was **1,203ms of imports before `main()` could run**, now 30ms
+(`00efef3`); and seventeen typed glyphs standing in for icons became
+Phosphor, with a lint and a sweep (`52d0dc5`).
+
+Three new guards in the gate: `tests/test_no_glyph_icons.py`, the
+`previewclash` sweep, and the CRLF lint in `test_launcher_scripts.py`.
+`test_windowed_streams.py` now reads its contract as a syntax tree, since
+the line-based version failed on a docstring without anything having moved.
+
+Open in INBOX, five: 213 and 228 (the owner's, the merge is the last act),
+253 (the one-click repair, a launcher task), 258 and 261. OPEN.md's row 232 was stale and is corrected in place: tables,
+callouts, task lists and images all already render in the Live view,
+measured, so nobody rebuilds them.

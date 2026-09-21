@@ -598,3 +598,34 @@ def test_no_extra_can_uninstall_the_apps_own_base_dependencies(session):
     contain) the project's own requirements file."""
     for extra in extras.EXTRAS:
         assert "-r" not in extra.packages, f"{extra.id} installs from a requirements file"
+
+
+def test_the_word_exporter_is_an_installable_extra(client):
+    """A 501 that names a package is a dead end in a no-terminal app.
+
+    `GET /documents/{id}/export.docx` answers 501 when python-docx is missing,
+    and until this entry existed the message named the package and stopped
+    there: the reader was told what they lack and given nowhere to get it. The
+    allowlist is the only route to an install, so the button the message points
+    at has to exist here first.
+    """
+    body = client.get("/extras").json()
+    entry = next((e for e in body["extras"] if e["id"] == "docx"), None)
+    assert entry is not None, "no Word export extra in the catalogue"
+    assert extras.EXTRAS_BY_ID["docx"].packages == ("python-docx",)
+    assert extras.EXTRAS_BY_ID["docx"].module == "docx"
+    assert not extras.EXTRAS_BY_ID["docx"].unavailable, "the export button exists, so it is available"
+
+
+def test_the_word_export_501_points_at_the_settings_button(client):
+    """The message and the extra are checked together on purpose: a 501 that
+    names Settings while the catalogue has no such row would send somebody to
+    an empty screen."""
+    made = client.post("/documents", json={"title": "Word export", "content": "# Hi\n"})
+    document_id = made.json()["id"]
+    response = client.get(f"/documents/{document_id}/export.docx")
+    if response.status_code == 200:
+        pytest.skip("python-docx is installed here, so there is no 501 to read")
+    assert response.status_code == 501
+    detail = response.json()["detail"]
+    assert "Settings" in detail and "extras" in detail.lower(), detail

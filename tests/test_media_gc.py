@@ -55,6 +55,37 @@ def test_an_upload_referenced_by_a_whiteboard_image_object_is_not_orphaned(ai_cl
     assert not any(o["url"] == uploaded["url"] for o in listed["orphans"])
 
 
+def test_an_upload_a_map_topic_draws_is_not_orphaned(ai_client):
+    """A picture in a mind map topic (MINDMAP_PLAN.md §12.1 item 2's fourth)
+    is `data.image` on a `topic` object, not an `image` object of its own.
+
+    This pass used to ask only for objects whose kind was `image`, which was
+    every board object that could point at an upload on the day it was
+    written. A picture topic's file would have been listed as an orphan and
+    "clean up orphaned media" would have deleted it out from under a topic
+    that is drawing it, which is the worst shape this screen can have: it
+    destroys something while reporting that nothing uses it."""
+    uploaded = _upload(ai_client)
+    board = ai_client.post("/whiteboard/boards", json={"name": "Pictures", "type": "map"}).json()
+    made = ai_client.post(
+        "/whiteboard/objects",
+        json={
+            "kind": "topic",
+            "board_id": board["id"],
+            "data": {"content": "The photograph", "image": uploaded["url"]},
+        },
+    )
+    assert made.status_code == 201, made.text
+
+    listed = ai_client.get("/media/orphans").json()
+    assert not any(o["url"] == uploaded["url"] for o in listed["orphans"])
+
+    # And the Library says where it is used, rather than only that it is used.
+    used = ai_client.get("/media").json()
+    mine = next(row for row in used if row["url"] == uploaded["url"])
+    assert any(place["kind"] == "board" for place in mine.get("used_by") or [])
+
+
 def test_clean_deletes_only_orphans(ai_client):
     orphan = _upload(ai_client, "orphan.png")
     referenced = _upload(ai_client, "referenced.png")

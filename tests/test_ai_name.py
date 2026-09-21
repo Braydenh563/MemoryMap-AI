@@ -93,6 +93,18 @@ COPY_FILES = sorted(p for p in FRONTEND.glob("*.js")) + [FRONTEND / "index.html"
 #: were a line wrap, "reaches the\n    AI's instructions", which a literal
 #: space would have walked straight past in exactly the copy a person reads.
 THE_AI = re.compile(r"\b[Tt]he\s+AI\b")
+#: **The owner's report named three phrases and this lint only ever caught
+#: one.** INBOX 225 was "the AI", "the assistant" or "the guide", and the
+#: sweep and the rule above took the first. Eight pieces of copy still said
+#: "the assistant" a week later, five of them the Tools and features
+#: descriptions a person reads while learning what the app can do, which is
+#: the worst place to be vague about who is doing the work.
+#:
+#: "The guide" is deliberately not here. That one is a surface with a name,
+#: the Atlas guide, so a line about it is naming a thing rather than dodging
+#: a name, and a lint that fired on it would be teaching people to write
+#: around it.
+THE_ASSISTANT = re.compile(r"\b[Tt]he\s+assistant\b")
 
 
 def _js_string_bodies(source: str) -> list[tuple[int, str]]:
@@ -202,13 +214,14 @@ def test_the_interface_never_calls_it_the_ai():
             else _js_string_bodies(source)
         )
         for line, text in pieces:
-            for match in THE_AI.finditer(text):
-                offset = text.count("\n", 0, match.start())
-                hits.append(f"{path.name}:{line + offset}: {match.group(0)}")
+            for pattern in (THE_AI, THE_ASSISTANT):
+                for match in pattern.finditer(text):
+                    offset = text.count("\n", 0, match.start())
+                    hits.append(f"{path.name}:{line + offset}: {match.group(0)}")
     assert not hits, (
-        "copy that calls the app's AI \"the AI\" rather than by name; reword it "
-        "(say the name, or name the model or runtime if that is what is meant):\n"
-        + "\n".join(hits[:40])
+        "copy that calls the app's AI \"the AI\" or \"the assistant\" rather than "
+        "by name; reword it (say the name, or name the model or runtime if that "
+        "is what is meant):\n" + "\n".join(hits[:40])
     )
 
 

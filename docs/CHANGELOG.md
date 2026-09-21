@@ -5,10 +5,629 @@ based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows a "waves and phases" development history (see the milestones
 below). Versioning is `0.x` while the app stabilises.
 
-## [Unreleased]
+## [0.3.2] - 2026-09-21
+
+### Fixed
+
+- Answers arrive without their padding. A greeting, an announcement of what
+  the model is about to do, and a closing offer of further help are taken off
+  before anything else reads the answer, so the saved turn, the export and the
+  grounding marks all see the same text. Conservative on purpose: a qualifier
+  like "based on your notes" is part of the claim and stays, and a pleasantry
+  that is the whole answer stays too, since an empty answer says less than a
+  useless one.
+- Tesseract only reads a page when it is the reader you chose. Storing each
+  page's regions stopped the repeated reads, but a first look at a page still
+  ran Tesseract whether or not you had picked it, which is how a page meant
+  for the vision model came back transcribed by the other one, and how an
+  edited reading could be replaced by one nobody asked for. The workspace now
+  says whether an automatic read is wanted, and answers honestly with "use
+  Read this page" when it is not.
+- The chat header no longer draws a hairline to the left of its icon. The
+  dock's divider rule puts one before every zone after the first, and the
+  first zone there is the phone sidebar button, which is not drawn on a
+  desktop, so the line stood between nothing and the thread mark.
+- The Windows splash screen can be got out of the way. It is a borderless
+  window that sits above everything, so a first install that pulls a model
+  could hold the screen for minutes with no way to move it aside. There is a
+  Minimise button beside Cancel now, and it drops the always-on-top flag while
+  minimised so the window restores from the taskbar without jumping back in
+  front of what you moved to.
+- The guided tour is switched off while it is being fixed. Every door into it
+  is disabled and says why: the welcome's last panel offers "Get started"
+  instead of starting a tour, and the replay buttons in Settings, Help are
+  greyed. One flag in `tour.js` turns it back on.
+- The Ask tab's matching records read better: the reference number is a
+  square in the top right rather than a rectangle on the left, the badges and
+  the timestamp share their rows instead of the date taking one of its own,
+  and a note's connection labels are cut at 48 characters rather than 28, so
+  a wide card no longer stops two thirds of the way along a row with room to
+  spare.
+- Two more suggested models, Unsloth's quantisation-aware 4-bit copies of the
+  two Gemma MoE models, which are roughly half the download for close to the
+  same answers.
+- The Ask tab's "show the N notes used" button is gone. It counted the notes
+  the Matching records column is already showing and scrolled to the first one
+  cited, which is a second door to a list on screen beside the answer that
+  already carries the answer's own numbers on its rows. Sources the column
+  does not hold, a file or a web page, keep their cards.
+- The Ask tab's progress indicator is inside the answer, not above it. The
+  dots, "the model is thinking" and the rotating line were drawn above the AI
+  ANSWER heading while the bubble underneath held a second set of dots and
+  nothing else, so one answer had two indicators and neither was where the
+  text would appear. There is one now, in the bubble it is filling.
+- A matching record's reference number sits in the top right corner and no
+  longer moves the text. On the left it was paid for with padding, which
+  indented every line of the card to make room for a mark that only occupies
+  the first one.
+- The welcome's last panel names both answers. Its primary says "Start the
+  tour", and the button beside it, which has always closed the welcome and
+  counted as declining the tour, said only "Skip". It says "Skip the tour"
+  there, and its tooltip says the tour is still in Settings, Help whenever
+  you want it.
+- **What the notebook costs while nobody is touching it, measured and then
+  cut** (INBOX 266, item 7). With no browser attached the server is asleep:
+  0.04s of CPU across 23 threads in 30 seconds, 0.13% of one core, because
+  every background piece blocks rather than polls. The cost is the open tab,
+  and two things in it were being paid for nothing. Two HH:MM clocks ticked
+  once a second and wrote the string already on screen 59 times out of 60;
+  they are scheduled on the wall-clock minute now (`startMinuteTicker`),
+  which is cheaper *and* more correct, since the status bar's clock was a
+  30s interval and could show a minute that had already passed. The model
+  status poll asked twice a minute for as long as the app stayed open, and
+  every one of those asks reaches Ollama; it now doubles to a two-minute
+  ceiling while the answer is identical and drops back to 30s on any change,
+  on returning to the tab, on opening Settings or on starting a job.
+  Measured with `scratchpad/ui-sweeps/idle.js`, which now counts timer fires
+  as well as live intervals: **timer wakes in an idle visible minute 124 to
+  5, requests 4 to 2** (WORLD_CLASS_PLAN section 10's gate for this row),
+  and idle CPU **6.01% and 6.11% of one core to 5.50% and 5.59%**
+  (`scratchpad/ui-sweeps/idlecpu.js`, one server, one notebook, frontend
+  swapped). The honest reading is in `docs/ARCHITECTURE.md`: nearly all of
+  what is left is the Dashboard's emblem animating on purpose, which parking
+  the app on Notes prices at 2.09% against 5.55%.
+- **Why the notes live in SQLite, written down as a decision** rather than
+  re-argued (INBOX 266, item 7, and `docs/ARCHITECTURE.md`): one file to
+  back up, no server to install, transactions that are what "no silent
+  loss" is built on, FTS5 search in the same file and written in the same
+  transaction, and 1.8 KB per note measured at 50,000 notes. With where it
+  would stop being right (concurrent writers, multi-device sync, a vector
+  index past these sizes), and why "containers spun up as needed like
+  serverless" is the right instinct for a different machine.
+
+- **What happens when the disk fills up, measured on a real full filesystem
+  and then made honest** (INBOX 266, item 6). An 80 MB tmpfs was mounted as
+  the data dir and filled to 100%, and the app driven against it. Saving a
+  note already answered 507 with a sentence about disk space, and reading,
+  searching and exporting kept working throughout; three things were wrong.
+  **Unlocking answered 507**, so a full disk locked the person out of their
+  own notebook entirely, over the audit row written beside the unlock: the
+  unlock's two writes are now committed separately and an out-of-space
+  failure costs only itself. **A failed backup left a zero-byte file named
+  like a backup**, which listed as one, passed `PRAGMA integrity_check`
+  (an empty file is a valid empty database), and would have replaced the
+  whole notebook with nothing if restored: backups are now written to a
+  `.partial` sibling and renamed into place only once whole, empty files
+  are never listed or counted as the daily backup, and restoring one is
+  refused by name. **A failed upload or export left its half-written file
+  behind**, orphaned and taking up the space the person was short of: all
+  three streaming writes now clean up after themselves. A single ASGI
+  guard (`SpaceGuard`) refuses a write larger than the room left before a
+  byte of it is read, so the app can no longer fill the last megabyte and
+  lock itself out; the 507 now names the folder, how much is free and
+  roughly how much to free up, that sentence reaches every toast in the
+  app, and `GET /storage` reports `free_bytes` beside `data_dir_writable`,
+  which stayed `true` throughout on a disk that was 100% full. Settings →
+  Data carries a `.notice notice-warn` line when the room left is low.
+
+- The reading workspace stops re-reading a scanned page every time you look
+  at it, and its reading panel covers the whole document again (INBOX 314).
+  Three findings from one report. Where each block sits on a page is now
+  stored beside that page's reading and served from there, so an optical
+  reader runs once per page rather than once per look: a scroll down and back
+  up over a six page scan went from 13 reader calls to 6, and four looks at
+  one image from 4 to 1, measured with a fake reader counting its own calls.
+  The panel lists every page the app has something for, in page order, rather
+  than choosing between the stored reading of every page and the sections of
+  the page on screen: Tesseract returns sections for every page, so that
+  choice always came down on the second, which is why only one page of text
+  could be seen, why it did not follow the pages as they scrolled, and why
+  clicking a section could not move the document. Scroll mode itself measured
+  healthy on a six page scan and was left alone, except that it no longer
+  keeps its own button lit while quietly showing one page.
+- Agent mode silently downgraded to a plain answer when the active model
+  couldn't call tools, with nothing on screen to say so or how to fix it
+  (INBOX 272 part 1's survey). The turn now shows a notice naming the
+  model and one button to change it in Settings, Models; a skill run that
+  stops mid-way for the same reason names the same fix in its step card.
+  `requirements.txt`'s "Optional extras" comment had also drifted behind
+  `core/extras.py`'s own allowlist (three installable extras were never
+  named there); both are held in step now by `tests/test_failure_remedies.py`.
+- The guided tour can no longer close itself halfway through. A step whose
+  control it could not find was dropped from the run, and when that took the
+  last one the tour ended silently on whatever tab it had just opened, which
+  is what pressing Next looked like. Steps are judged after the scroll that
+  brings them into view rather than during it, so far fewer are dropped at
+  all, and the last one is never dropped: it stays on screen and says the
+  control is not visible at this window size.
+- The fold arrows in a document's gutter are the app's own icons and line up
+  with the numbers beside them. They were the editor's default text triangle,
+  which came out as a typed letter in this app's font and sat a little above
+  the line it folded, because a character's box belongs to the font rather
+  than to the row.
+- The bottom bar's history no longer says you have been somewhere you have
+  not. On a fresh load that never left the dashboard it listed two visits to
+  Notes, because two start-up steps set the Notes tab's default sub-tab while
+  that tab was hidden and each was recorded as an arrival. Setting a hidden
+  tab's default is not a navigation, so it is not recorded as one, and Back is
+  correctly dead until you actually go somewhere.
+- Everything read from a file can be copied in one press. The reading panel in
+  the Files sub-tab now has a Copy text button beside Open reading, because
+  the box it sits under is capped and scrolls, so copying a long reading meant
+  dragging through a window. The reading workspace already had the control and
+  now says so in words rather than only an icon.
+- Two things the Documents agent measured and left for later (INBOX 273).
+  The settings Extras row's action buttons (Reinstall/Remove) could push
+  past the panel's right edge at 820px because their column never shrank;
+  it now takes `min-width: 0` and wraps instead. The shared `enhanceSelect`
+  dropdown never read an `<optgroup>`'s label, so grouping set on any
+  `<select>` (the whiteboard/mind-map board picker, the Library's document
+  property filter) was invisible in the menu a reader actually opens; it
+  now draws a group label row per `<optgroup>`, and the Library's flat-text
+  workaround for the gap came back out.
+- Four low-severity findings from a release security audit (INBOX 310).
+  Restoring a backup now writes into a temp file beside the live database,
+  runs `PRAGMA integrity_check`, and only then swaps it in atomically,
+  instead of streaming pages straight into `memorymap.db`. Importing a
+  folder of markdown notes now caps each file at the same size the upload
+  importer already enforces, and reports a skip count when one is hit,
+  instead of reading every file whole with no ceiling. A bookmark's URL is
+  now checked against the same scheme allowlist (http, https, mailto, tel)
+  markdown links already use, rejected with a 422 naming the allowed
+  schemes if it isn't, and guarded again at render time so a bookmark saved
+  before this existed can't become a live link either. The update
+  downloader now re-validates every redirect hop against its host
+  allowlist instead of only the first one, keeping the real
+  github.com-to-objects.githubusercontent.com hop working.
+- The graph's full screen no longer spends one Escape on two things. Opening
+  the lightbox over a full-screen map and pressing Escape used to close the
+  lightbox *and* leave full screen in the same press, because the full-screen
+  handler relied on being placed after other Escape handlers rather than on
+  anything actually stopping the key. It now asks `activeOverlay()` whether
+  something is open over the map first (INBOX 275).
+- A saved graph view restores where the unpinned notes sat, not only the
+  layout, colour rule, filters, groups and zoom. Reopening a force-layout view
+  used to solve the same forces fresh rather than show the picture that was
+  saved; it now seeds the simulation with each note's saved spot and starts
+  at rest, reheating only for a note added since the view was saved, while
+  holding every saved note in place until that settles (GRAPH_PLAN Phase 5).
+
+### Added
+
+- A lint on the release artifact naming scheme (INBOX 266, item 4).
+  `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
+  `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses
+  its version, platform or architecture; the `.msi`, `.tar.gz` and `.zip`
+  were already linted the same way. The `.tar.gz` for Linux (item 2) and the
+  `.msi` for Windows (item 3) both already existed on this branch, verified
+  by reading `.github/workflows/release.yml`, `packaging/windows/
+  installer.iss` and `packaging/windows/installer.wxs`; nothing was rebuilt.
+  The naming scheme itself, `<name>-<version>-<platform>-<arch>.<ext>`
+  across all four artifacts, is recorded as a decision in
+  `WORLD_CLASS_PLAN.md`'s H6.
+- A cross-link on a mind map now survives an export. FreeMind files carry it
+  in their own arrow element, so a map opened in FreeMind, Freeplane or
+  Coggle is drawn with its cross-links; OPML files carry it as an attribute
+  other readers ignore and this one reads back. Both come back intact on
+  import. The Markdown outline stays an outline, which is what that file is
+  for.
+- A mind map can hold a look of its own, so a topic no longer has to be
+  dressed one at a time. Ten of the eleven things you can set on a topic, its
+  text size, weight, slant and alignment, its box and the bar down its edge,
+  and the thickness, shape, dash and arrowhead of the branch into it, can now
+  be set once for the whole map, and every topic that was never told otherwise
+  follows. A topic you did decorate by hand keeps exactly what you gave it: a
+  map-wide change can never overwrite a choice somebody made.
+- And one way to undo the lot: "bring every topic back to the map" drops the
+  colours, shapes and line styles that were set on topics one at a time, so
+  they all follow the map again. It is the ring's own "reset to branch" said
+  about the whole map rather than one topic, and it takes one request whatever
+  the map's size. Pictures stay, because a picture is content rather than a
+  look.
+- A whiteboard or a mind map can live inside a note as an object: a preview
+  card of the board itself, with its name and how much is on it, that opens
+  the board when pressed. It is written `![[board:12|House jobs]]`, by id, so
+  renaming the board does not break the note. A board that has been deleted
+  leaves a card saying what was there rather than taking a paragraph of the
+  note with it. An embedded board used to render as "Nothing called House
+  jobs yet", which was the one case the transclusion renderer never learnt.
+- The "/" menu in a note can insert one: "Board or mind map", which offers
+  your boards and maps and writes the object where the caret is.
+- The other way round as well: a board's own Board menu, and its card in the
+  Library, now offer "Add to a note", which asks which note and puts the
+  board in it.
+- A note now shows what it made you promise to do: a "2 reminders" chip on
+  the card opens the list of them, and each one presses through to the
+  Reminders tab. Reminders could already be attached to a note and say which
+  note they came from; the note end of that link had nothing on it.
+- A link to a board that has been deleted now says so, rather than offering
+  to create a note named after the board's address.
 
 ### Changed
 
+- A big mind map redraws only what changed. A change to one topic used to
+  rebuild every topic and every line on the board, which is why a large map
+  felt heavy to work on: at five hundred topics a redraw took just over half
+  a second of frozen tab, and opening such a map took two seconds. A redraw
+  after moving a topic is now 47.8ms, a redraw that changes every topic at
+  once is 149.1ms, and the same map opens in under a second. Picking up a
+  branch on a board that also holds hundreds of link lines went from a full
+  second of stall to a tenth of one.
+- The first screen tells you what you are agreeing to. It asked for a password
+  in 26 words that never said what the app is, never said it runs on your own
+  machine, never gave the length rule until you had already failed, and never
+  mentioned that the password becomes the key to anything you later mark
+  private. All four are on it now, before you type.
+- A mind map can be laid out to the left, and on both sides of its trunk,
+  which is the arrangement most mind-mapping tools are pictured in. The
+  branches are split so the two sides hold about the same number of topics
+  rather than the same number of branches, and a topic whose parent is to its
+  right carries its branch bar on that side.
+- A mind map now answers the two gestures anybody tries on a blank part of it.
+  A right-click on empty canvas opens a short menu of the things that apply to
+  the map itself: add a topic here, tidy it, open every folded branch, fit
+  everything. A double-click makes a new trunk where the pointer was, ready to
+  be typed, and it stays where it was put. Both did nothing at all before.
+- A mind map now says which of its two kinds of connection it is talking
+  about, everywhere it talks about one. A branch and a cross-link get the same
+  ring, which names the kind it is on and offers the right three things for
+  it, including turning a cross-link into a branch when the drawing gesture
+  guessed wrong; the tool rail says cross-link on a map and link on a board;
+  and a cross-link is drawn in the map's own ink, dashed, from the moment it
+  is drawn rather than from the next time the board is opened. It used to take
+  the pen's colour, so one drawn while the ink was red read as a branch.
+- The bar that appears over a selected topic on a mind map is a third of the
+  width it was. It carried fourteen icons in one run, 959px of controls to
+  describe a topic 95px wide, which at 1024 took 94% of the window and at no
+  width drew a single word; the same fourteen controls now sit behind three
+  named doors on it, Text, Shape and Branch line, each of which labels every
+  control inside it. The bar measures 314px at 1440, 1024 and 820, and 54px
+  tall instead of 150px on a phone.
+- The guide answers the question you asked. Three plain questions reached no
+  help topic at all ("Can I use this offline?", "How do I add a tag?", "Can I
+  import from Obsidian?"), so it answered them from whatever tab you happened
+  to be on. Twenty-six plainly worded questions now reach the right entry, and
+  a phrase like "web search" beats a bare "search" instead of losing to
+  whichever topic came first in the list.
+- The graph's zoom controls are drawn like the rest of the app. Zoom in, zoom
+  out and fit were typed characters sitting beside a full-screen button drawn
+  with a real icon; all four now match, 34px square with an 18.4px icon
+  centred in each.
+- An answer the notebook barely backs says so. Under half its sentences
+  coming from your notes, a line above the answer now says how many did and
+  that the rest is the model's own writing. The marks under each sentence have
+  always said which ones were grounded; nothing said how few.
+- Typing the first word of a "/" command now finds it first. Every command
+  label used to open with an emoji, so the menu's "starts with what you typed"
+  ranking could never match anything and every search fell through to keyword
+  guessing.
+- The "/" menu tells you it is there, and opens from the keyboard. Every
+  writing box now says "Press / for blocks and commands" while it is empty,
+  and Ctrl+/ opens the same menu without you having to know the trick. The
+  chord is rebindable and listed with the other shortcuts.
+- The "/" menu works again in the note box, the note edit form, the chat
+  composer and a skill's steps. It had stopped opening in all four: the file
+  that builds an editing surface moved into the Library's on-demand bundle,
+  and until you happened to open Library or Documents there was nothing for
+  the menu to attach to, so the slash did nothing and said nothing. Measured
+  on a fresh load: 0 menu rows before, 14 after. The bundle is now fetched the
+  moment you put the caret in one of those boxes, and the keystroke that found
+  it missing is replayed once it lands, so even the first "/" of a session
+  opens a menu.
+- Every row of the "/" menu draws the app's own icon instead of an emoji.
+  Thirty-eight of them were emoji, written as escapes, which is how they sat
+  through a lint that exists to catch exactly this; the eight callout kinds
+  were drawing theirs at the head of every callout in every note and document
+  as well. The Library's create menu, the chat attachment close, a note embed's
+  marker and two graph arrows went the same way. The lint now reads an escaped
+  character as the character it is, so the next one cannot hide the same way.
+- Buttons that share a row share a height, and a probe now holds it. The
+  greeting's "Add your name" was 29.2px beside its own 28px close button, the
+  last mixed row of seventy in the app. The one-line change that would have
+  ended the underlying 40-against-42px difference for good was measured
+  instead of taken: it moved eighteen buttons, put a half pixel into five
+  graph controls and turned a text link into a box, so it was not taken.
+- A mind map can be laid out to the left, and on both sides of its trunk,
+  which is the arrangement most mind-mapping tools are pictured in. The
+  branches are split so the two sides hold about the same number of topics
+  rather than the same number of branches, and a topic whose parent is to its
+  right carries its branch bar on that side.
+- A mind map now answers the two gestures anybody tries on a blank part of it.
+  A right-click on empty canvas opens a short menu of the things that apply to
+  the map itself: add a topic here, tidy it, open every folded branch, fit
+  everything. A double-click makes a new trunk where the pointer was, ready to
+  be typed, and it stays where it was put. Both did nothing at all before.
+- A mind map now says which of its two kinds of connection it is talking
+  about, everywhere it talks about one. A branch and a cross-link get the same
+  ring, which names the kind it is on and offers the right three things for
+  it, including turning a cross-link into a branch when the drawing gesture
+  guessed wrong; the tool rail says cross-link on a map and link on a board;
+  and a cross-link is drawn in the map's own ink, dashed, from the moment it
+  is drawn rather than from the next time the board is opened. It used to take
+  the pen's colour, so one drawn while the ink was red read as a branch.
+- The bar that appears over a selected topic on a mind map is a third of the
+  width it was. It carried fourteen icons in one run, 959px of controls to
+  describe a topic 95px wide, which at 1024 took 94% of the window and at no
+  width drew a single word; the same fourteen controls now sit behind three
+  named doors on it, Text, Shape and Branch line, each of which labels every
+  control inside it. The bar measures 314px at 1440, 1024 and 820, and 54px
+  tall instead of 150px on a phone.
+- The loading bar on the splash screen is cheaper to draw, so it stays smooth
+  on a slow machine, which is the only kind of machine that sees it for long.
+  It used to grow by changing its width, which made the browser lay the page
+  out again on every frame: 121 times over one 2.4 second load, against none
+  now that it scales instead. Every animation in the app is now held to that
+  by a lint, so the next one cannot quietly cost more.
+- A mind map no longer freezes when a topic is picked up. Dragging a topic
+  carries its branch, and the frame that took hold of it was doing the work
+  once per topic in the branch rather than once per thing that moved: a board
+  scan to find each one, three document-wide queries per line to find its
+  parts, and a fresh measurement of both ends of every line on every frame.
+  Measured on `scratchpad/ui-sweeps/mapperf.js`, the worst frame of a drag
+  falls from 83.3 to 16.8ms on a 50-topic map, 416.6 to 33.3ms at 200 and
+  1,650 to 66.8ms at 500. Opening a map and laying it out got faster with it,
+  from 3.4 to 2.0 seconds at 500 topics.
+- The app calls Atlas by name in eight more places. Five of them are the
+  Tools and features descriptions, which said "the assistant" while teaching
+  you what the app can do, and one was the persona hint explaining how to
+  write the name.
+- No phantom row under a table's header in the documents live view. Putting
+  the caret in a header row grew the line from 29.2px to 54.8px, because the
+  table is a grid whose rows were all implicit, so CodeMirror's own trailing
+  line break was auto-placed into a second one. The table's menu also no
+  longer moves the caret out of the table when it is pressed.
+- The guided tour is legible and the page behind it is genuinely dimmed.
+  Reported three times, the last as "the whole tour is completely and utterly
+  broken". The dim was one giant shadow cast by the cut-out, whose reach
+  depended on the window's shape and on a corner radius nothing could read;
+  it is now painted by the four panels that already tile the window around
+  the hole, so a lit strip is a failing test rather than a photograph. The
+  step card was see-through, and the dashboard clock read straight through
+  its text; it now has the same opaque ground as every other dialog.
+- The bottom status bar has three zones and its right end has an owner.
+  Reported: the navigation and undo buttons "keep getting pushed further and
+  further to the left". They were: the run after the spacer was one flat list,
+  so every control the bar gained was appended at its right end, and reading
+  it right to left gives the order they arrived in. Measured at 1440 against
+  the bar's content edge, redo ended 391px from it and the navigation group
+  467px. The bar now has state (what the app is holding or doing, left end,
+  and the only zone that shrinks), tools (the doorways, and the only zone that
+  grows) and control (back, forward, history, undo, redo), which ends the bar
+  and takes no new members. Redo is flush with the content edge and the
+  navigation group 76px from it, and a control added tomorrow lands in tools
+  and pushes tools along. On a phone, where the bar scrolls sideways, the
+  controls come first instead, so undo, redo and Back are reachable without
+  dragging the bar.
+
+- The dashboard's focused view puts the greeting and the search field on one
+  row. Focused had a 47.2px banner saying who you are and, 16px under it, the
+  37.2px field that is the only thing a stripped dashboard is reached for:
+  100.4px of head to say one thing and offer one control. The banner keeps its
+  width on the left and the field takes the rest of the line and the row's
+  height, so the head is 47.2px and the chrome above the widgets falls from
+  196 to 158.8px. Full and compact are unchanged, and a phone stacks the two
+  back up.
+
+- The text extracted from a file shows one more line. In Library, Files, the
+  box that opens under "Text extracted from this file" was 64px against an
+  18px line, so three and a half lines of a reading that can run to forty
+  pages. It is 82px, four and a half lines, which is as far as it can go
+  before the row below it leaves the screen on a phone.
+
+- Atlas answers about reminders, documents, notes, spaces and backups again.
+  The help corpus had an entry for each of them, and the keyword match was
+  written in the singular, so a question asked in the plural reached none of
+  them: "Where do reminders live?" was answered with "I'm not sure", from the
+  notes and memory entries the open tab supplied instead. Keywords now cover
+  the plural and the possessive, a tab's own topics fill in only for a
+  question that names nothing, and the corpus gained an entry for the status
+  bar, which nothing covered.
+- The questions Atlas suggests follow the tab you are on, and every one of
+  them is a question the help corpus can answer. The three fixed suggestions
+  included one it could not answer at all and two about turning features off.
+- Atlas can be typed into with no model running. It carried the attribute
+  that disables an AI control when no model is there, although it was built
+  to answer from the app's own help text without one.
+- The guide no longer promises the utility model outright. It answers on the
+  utility model while smart model routing is on, on the chat model while it
+  is off, and Settings, Models can give it a model of its own; the panel's
+  '?' says so.
+- The mind map has been measured against the six things it was reported for,
+  and the report that it is slow is true and is one bug. Panning holds 60fps
+  at 50, 200 and 500 topics and the layout maths is cheap; a full re-render is
+  not, and it runs when a topic is picked up, so a 500-topic map freezes for
+  over a second the instant a finger goes down on a node. The read, the
+  numbers and the phases that follow from them are MINDMAP_PLAN section 13;
+  two probes hold the figures, `mapperf.js` and `maptwokinds.js`.
+
+- Typing part of a word finds it again. The find anything box tried a word as
+  a prefix only from four letters, so a note called "test" appeared for "test"
+  and not for "tes". Three letters is enough now, and the finder and the note
+  search read one threshold instead of each keeping their own.
+- Atlas is shown the tags your notebook already uses before it suggests new
+  ones. It was told only which tags were on the note in front of it, so it had
+  no way to know the notebook already said "ml" and would happily suggest
+  "machine learning" beside it. Now it is asked to reuse an existing tag when
+  one fits.
+- A note with no tags offers to have them written. The action that reads a
+  note, suggests tags and links and refiles it was one row deep in the note's
+  menu under the name "Re-evaluate", which said the smallest part of what it
+  does. It is now "Tag and file with Atlas", and a note with no tags carries
+  the offer on the card, where the tags would be.
+- The spinner beside "Re-evaluating" on a note is a circle in a narrow row,
+  not just a wide one. It sat in a flex row and could be squeezed on the
+  width while its height held, so it turned as an ellipse; it now keeps its
+  shape whatever the row does.
+- A plain highlight in the documents live view is yellow again, and a
+  coloured one says its colour instead of showing it. The live view had one
+  highlight rule, taking the blue of the app's named set, so every plain
+  highlight was blue; and it never read the colour prefix, so `==blue|word==`
+  drew "blue|word". Both views now read the same eight colours and take the
+  same tokens in both themes.
+- The board's top bar carries six controls beside its five menus, down from
+  eight: Rename this board and New board moved into the Board menu, which is
+  already where this board's own life is kept. On a phone it carries seven in
+  all, down from eleven, and no longer runs past its own right edge (75px past
+  at 320, 5px at 390, both now 0): Full screen and Arrange leave the bar below
+  600, the first being in the View menu and the second being on the context
+  bar above a selection, which is the only time it can act. Its five menus
+  declared `role="menu"` with no `role="menuitem"` inside, so a screen reader
+  was told the menu was empty and the arrow keys moved nothing; they now take
+  their roles and their keyboard from the same two places every other menu in
+  the app does, and Escape hands the focus back to the toggle that opened them.
+
+- The Files sub-tab's "Text extracted from this file" block is the numbers, the
+  reading and one way in. Opening it used to draw four ranks and two controls,
+  the first sentence, "14 pages read · 808 words", a full-width "Show the whole
+  reading" bar and an "Open reading" button, and the one thing not in that list
+  was the reading. It is now "14 pages · 808 words" with Open reading at the end
+  of the same line and the reading itself under it, capped at three lines and
+  scrolling. Measured at 1440 on a fourteen-page reading: two ranks instead of
+  four, one control instead of two, the block 110.4px rather than 120.8px, and
+  the row 251.9px open rather than 262.3px with the text still one click away.
+
+- A picture card's reading is one chip, and the chip opens the picture. Asking
+  to see the text used to expand the card from 240.7px to 416.3px and draw six
+  rows under the thumbnail, a label, the text, a Show more, Tesseract's own box
+  and the two model names, and the gallery gives every card in a row the tallest
+  one's height. The "Text" chip opens the lightbox at the reading instead, where
+  the picture, the caption, the whole text and both bylines already sit together,
+  so the card does not move. The model names are on the card's tooltip. Typing a
+  reading by hand is still the card menu's "Type the text in this picture".
+
+- The dashboard's Compact and Focused views keep the hero. Compact used to
+  delete the one line that says anything about this notebook ("You have 218
+  notes, 3 reminders due") and cut the greeting to below body size while keeping
+  the clock at twice the greeting's height, and Focused, the level that shows
+  least, carried the second largest banner of the three: measured at 1440, the
+  three heroes stood 157.2, 76.3 and 133.2px tall. The rule now is one rule: the
+  greeting and the one number stay at every level, and what shrinks is the art
+  and the secondary rows. The greeting steps down the type scale rather than
+  falling off it, the emblem shrinks from 46px to 30px before it goes, the clock
+  loses its date and then itself, and Compact's three band labels move onto
+  their rows' own line. The heroes are 157.2, 99.6 and 47.2px, and the chrome
+  above the first widget is 593.6, 427.9 and 196px (it was 593.6, 456.6 and
+  282px).
+
+- The Timeline's table keeps its width when a note row is opened. The Title
+  column, the one column with no width of its own, was halving: 1032 to 516 at
+  1930, 702 to 351 at 1600, 542 to 271 at 1440, with the other half drawn as
+  empty space past the last header. The open row's cell spanned one column more
+  than the table draws, because the tick column is only there while the
+  selection mode is on, and a fixed table layout answers an extra column by
+  splitting the free space with it.
+- The Library reader is the page on a phone. It opened as a 342x776 dialog
+  inset from every edge of a 390px screen, with an X in its head and its
+  Copy, Ask and Save as note under a transcription you had to scroll to; it
+  is the whole screen now, with a back chevron and those actions in a bar at
+  the bottom where a thumb is, the same shape a note opened on a phone
+  already had. Every control in it takes the 44px touch floor.
+
+- The whiteboard and the mind map answer a finger. Two fingers pan and zoom the
+  board whatever tool is in hand, which is what every drawing app reserves them
+  for: until now a pinch did nothing at all unless you first went and found the
+  Pan tool. The tool rail below 600 is one button saying which tool is in hand,
+  opening a sheet with every tool in it at a size a thumb can hit, in place of a
+  56px band that scrolled 835px of tools through a 358px window and showed 16 of
+  its 31 buttons. The board's own bar takes the same 44px floor as the rest of
+  the app on a touch screen. The mind map's + handles were already touch-sized
+  and are unchanged.
+
+- The graph answers a finger on a phone. A hold on a node opens the node menu
+  (the same menu a right-click opens, now the app's own pointer-menu recipe, so
+  its rows are 44px, Escape closes it and it cannot be drawn off the edge of the
+  window); a hold on the empty map arms the lasso, which until now needed a
+  Shift key a phone does not have, so a selection could not be started at all.
+  The map's three floating control surfaces (the gear's panel, which covered 42%
+  of a 362x653 map, the View menu and the ⋯ menu) open as one sheet below 600
+  instead, holding the same controls and putting each one back on close. A hold
+  anywhere in the app no longer also does whatever a tap there would do: the
+  click the lift synthesises is swallowed, which is why holding a node used to
+  open its menu and its panel at once.
+
+- The rotate grip of a group selection on the whiteboard sits at the top centre
+  of the group, at any zoom. It was scaled about the canvas's origin rather than
+  its own anchor, so it sat right at 100% and drifted further off the box the
+  further you zoomed either way: 170px right of centre and below the top edge at
+  50%, 340px left of it at 200%. A group also drew every member's own handles on
+  top of its own, four rotate knobs and sixteen resize handles for three items;
+  members now show their outline and the group carries the grips, and anything
+  selected on its own still has all of them.
+
+- The CSS that styled the whiteboard's old export popover is gone. The popover
+  became a dialog several phases ago; its class stayed in seventeen grouped
+  selectors across three stylesheets, four of them rules with nothing else in
+  them.
+
+- The quick sketch pad's ink dots are a finger's size on a phone. They were
+  16px targets in a bar whose every other control steps up to 44, and the
+  dialog is the one place the touch sweep never looked. The dot is 32px below
+  820 with the press reaching 44 past its edge, and the seven of them wrap to
+  a second row rather than running off the bar at the largest text and
+  spacing settings.
+
+- On a phone, the whiteboard's context bar sits at the top of the canvas
+  instead of following the selection around it. At that width it is a band
+  rather than a bar, 348px of a 364px canvas, and floating put it on top of the
+  drawing tools for a selection low on the board. It also stays on the canvas
+  now whichever width you are at: a selection near the bottom could place it
+  past the bottom edge, where nothing could reach it.
+
+- A shape on the whiteboard follows the pointer at any zoom. Dragging one at 2x
+  moved it half as far as the cursor, and its resize grip widened it half as
+  far, because two drag handlers converted a delta that was already in board
+  coordinates. A link's bend grip is also the same size on screen at every
+  zoom now: it was 24px across at 2x against 12px at 1x, the one grip missing
+  from the rule that holds every other one still.
+
+- A highlighter stroke on the sketch pad lands under the pointer. It was
+  painted through a layer that scaled coordinates a second time, so a stroke
+  sat 15px left and 9px up of the cursor in the middle of the pad.
+
+- The quick sketch pad and the whiteboard have one highlighter. They held two
+  copies of it at different values, so the same tool covered the paper on one
+  surface and tinted it on the other; both read one table now (0.4 opacity, a
+  4x nib clamped to 12 to 24, a flat end and a round join). On the pad, picking
+  an ink colour no longer quietly puts the pen back: "highlighter, then yellow"
+  drew an opaque yellow line. Measured over a 255.0 paper: one pass 223.7, two
+  223.7 before and 199.2 now.
+
+- A highlighter stroke on a dark board lightens where it crosses itself instead
+  of muddying. Multiply is worth 3 luminance units a pass on a dark board and 20
+  on a light one, so a dark board screens and a light one multiplies; the blend
+  follows a theme change on a board that is already open, and an export carries
+  the blend its own background asks for. Measured dark: paper 26.4, one pass
+  85.9, two passes 128.4, against 26.4 / 23.6 / 22.0 before.
+
+- A phone opens the timeline as the table when no view has been chosen,
+  and a reminder row swiped right is done.
+- A phone opens a document to read it: the Rendered view is the default
+  below 600 when no view has been chosen, and Edit is a press away.
+- Chat on a phone: the message box takes one row with the microphone and
+  Send, the attachments sit beside the mode switch under it, the mode
+  switch is the first thing in that strip rather than off its right edge,
+  a reply's sources open as a sheet, and the popup agent goes to the Chat
+  tab instead of floating over a 390px window.
+- On a phone the sidebar no longer keeps a 52px rail down the left of every
+  page. It opens from a button at the start of the page's own head bar and
+  the notes, conversations and documents lists take the full width.
+- The notes head bar on a phone is three rows, not four: the sidebar button
+  sits beside the title and the search box gives way so Filter stays on its
+  line. 250px of bar became 166 at 390; the chat bar went from 166 to 114.
+- The top bar on a phone is three controls: the space switcher, notifications
+  and one menu holding theme, Settings, Lock and Quit. It was six, and at 320
+  the last one hung off the edge so every page scrolled sideways. Every
+  menu row on a phone is now 44px tall like every other control there.
 - numpy, and the embedding/search-matrix code that uses it, loads on first
   use instead of at server start. `ai/embeddings.py`, `ai/janitor.py`,
   `search/engine.py` and `search/search_manager.py` had `import numpy as np`
@@ -29,8 +648,71 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Opening the guide's '?' and pressing Escape no longer leaves the explanation
   stranded on screen after the panel it belongs to has closed.
+### Fixed
+
+- The table menu in a document's live view survives being pressed. Clicking a
+  table's header row draws a small menu button at its right end, and pressing
+  it used to unmount the button and leave the menu standing under the header
+  row with nothing to close it, which read as an extra empty row and as a
+  button that did nothing. Two causes, both measured: the menu's own work
+  (showing, measuring and, when it would be clipped, moving itself out to the
+  page) was read by the editor as the document changing under it, and the
+  blur that followed removed the button the person had just pressed. The menu
+  now claims its own work, an open menu holds its button on screen, and a
+  button taken away closes the menu with it.
+
 ### Added
 
+- A writing suggestion's underline answers the pointer. Resting on one now
+  tints the word in that suggestion's own colour, so a squiggle looks
+  pressable before you press it; it was the one part of the writing help that
+  gave no sign it was a control.
+- The documents formatting strip says what the caret is already in. Stand in a
+  bold word and Bold reads as on; the same for italic, code, the three heading
+  levels, lists, tasks, quotes and links. Only the buttons that have a state
+  to be in say so, so the ones that always insert something new are unchanged.
+- The table cell menu is grouped. Its ten commands cover rows, columns,
+  alignment and the table itself, and read as one list of ten; they now sit in
+  four groups with a hairline between them.
+- A "/" menu in a skill's steps box. It offers the two things the form beside
+  it already knows and nobody can type from memory: the answers the skill will
+  ask you for, as `{{placeholders}}`, and the exact names of the tools it has
+  been allowed to use. Nothing else, because a step is one instruction on one
+  line, not a block of markdown.
+- A Daily page in the documents template gallery, and the Timeline now
+  recognises it. New from a template offers Daily alongside the other six; it
+  makes a document titled with the day, the same title the journal note uses,
+  so a day written as a document gets the calendar mark in the Timeline and
+  the day's own row offers to open it rather than to start a second page.
+- A topic on a mind map can hold a picture. Put one in from the topic's own
+  menu and the node draws as a card with the image as its body and the label
+  as the caption under it, rather than a label with a thumbnail beside it. The
+  file goes through the same upload every other picture in the app does, so it
+  is in the Library too, and taking it out of the topic leaves it there.
+- The line into a topic bends where you drag it. Point at a line, or select
+  the topic at either end, and a dot appears on it: drag the dot and the line
+  follows, whether it is drawn as a curve, an elbow or a straight line.
+  Double-click the dot to put the line back. The shape travels with a copied
+  branch and through the FreeMind and OPML exports.
+- Share to MemoryMap from a phone's share sheet: with the app installed, a
+  page, a link or a selection shared to it opens Capture with the title,
+  the text and the link as one note ready to save.
+- On a phone a note opens as a page: tap the row and the note fills the
+  screen with a back chevron, unclamped, and its actions in a bar at the
+  foot where a thumb is.
+- On a phone a note row swipes: right to favourite, left to move it to the
+  bin, the same two actions the row already shows, with the same undo.
+- A "New note" button in the Notes bar, and on a phone a floating + above
+  the tab bar: one press opens Capture with the caret in the box. The first
+  showing of Capture used to drop the focus while it built the box's gutter
+  and live editor; it carries it over now.
+- A note card says what points at it: "In 1 document · on 1 board · on 1
+  map · linked by 1 note", one quiet chip that opens Connections, counted
+  for a whole page in one call (`GET /entries/reference-counts`). A mind
+  map's own note node now counts as the note being on that map, in the
+  chip, the Referenced-by row and the Connections dialog alike, and the
+  dialog tells a map from a board and lists every document and note the
+  chip counts.
 - The Guide answers with no model running. Its whole knowledge of this app is
   hand-written help text, which is also the only source of facts a model is
   given when one does answer, so with the model off it hands that text over
@@ -43,7 +725,8 @@ below). Versioning is `0.x` while the app stabilises.
   output with WiX). It installs per machine rather than per user, supports
   `msiexec /quiet` for a silent or Group Policy deployment, and gets a
   proper Add/Remove Programs entry with Windows Installer's own repair and
-  rollback. Unsigned for now, same as the .exe.
+  rollback. Unsigned for now, same as the .exe. The MSI's Start Menu group carries the same Repair shortcut
+  as the .exe installer's.
 
 - Find anything: one search over your notes, documents, boards, files, links
   and reminders at once, by your words and by what they mean, alongside the
@@ -126,6 +809,130 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A picture read twice shows both readings in the lightbox. A file can carry
+  Tesseract's own pass and a vision model's transcription at the same time,
+  and the lightbox drew only the vision one, so the other reading was nowhere
+  on the surface built for checking text against the picture. The second
+  reader's answer now sits under the first, labelled "Also read with Tesseract
+  OCR", exactly as the Library card's reading fold already showed it. A
+  picture with one reading looks as it did.
+- The documents formatting strip rises above the on-screen keyboard while it
+  is collapsed, which is how it starts. Expanded it already did; collapsed, a
+  more specific rule was overriding the keyboard inset away, so the strip you
+  type at sat under the keys. What can sit under a bottom strip is now one
+  named length that all three of them add.
+- The Copy button on a code block and on a table is drawn with the app's own
+  icon. Both said "⧉ Copy", a character typed where an icon belongs, while
+  five other Copy buttons in the app used the real one. Save beside them takes
+  its icon too, so the pair in one bar read as the same kind of control.
+- A picture on a mind map topic is in the board's own PNG and SVG export
+  instead of an empty box with a caption.
+- "Clean up orphaned media" counts a picture used by a mind map topic as used.
+  It looked only at pictures placed on a board as their own object, so the file
+  behind a topic's picture was listed as used by nothing.
+- The board's top bar answers a finger on a tablet. Between 600 and 820, the
+  band whose own rule is that the pointer there is a finger, all thirteen of
+  its controls were still 36px tall; and wherever the five menu buttons drop
+  their words they were 25.8px wide, narrower than any other control in the
+  app. The bar is two rows of 44px controls on a tablet now, and at 820 and
+  above it is the single 46px row it was, with nothing under the app's own
+  floor.
+
+
+- The ⋯ on a Library card and on a document row is visible on a touch screen.
+  Both were meant to be: each had a rule saying so where there is no pointer
+  to hover with, and each was written one class short of the rule it had to
+  beat, so neither ever applied and a 44x44 button sat at opacity 0 on every
+  card and every row at phone width.
+
+
+- The Library reader shows the page and what it says. Below 1100px the page
+  rail was hidden but its column was not, so the grid kept an empty 593px of
+  itself at 1024, squeezed the page into the 320px column beside it and
+  pushed the transcription onto a row of its own underneath; at 390 the
+  transcription had no width at all. The two panes take the two columns now.
+
+- "Take the tour" takes you on the tour. The dashboard's tile and Settings,
+  about's "Take tour again" both opened the welcome card instead, which is a
+  different thing: five slides about what MemoryMap is, rather than the
+  guided tour's cards anchored on the real controls. Both open the tour now,
+  and the welcome card keeps the two doors whose words name it, Settings,
+  help and guide's "Replay welcome tour" and the features browser's
+  "Welcome tour" row.
+
+- The Ask sub-tab shows each cited note once. Under the answer sat numbered
+  source cards for the same five notes, with the same ids in the same order,
+  that Matching records was already showing beside them; under the answer
+  there is now one line, "Sources: 5 notes, on the right", which brings the
+  column into view when pressed. A source the column does not hold, a file or
+  a web page, keeps its card and its number. A citation mark now lights the
+  records row for its note and shows the passage there, which is where that
+  note is drawn on this tab. The Chat tab is unchanged: it has no column
+  beside it, so its cards are the only place its sources can be.
+- Find anything centres its text in its bar. The field carried the
+  stacked-form `margin-bottom` every input in this app has, and the rule that
+  turns off the field's border, ground and padding inside the band had not
+  turned that off: `align-items: center` centres a flex item with its
+  margins, so the field sat 4.8px above the middle with 1px of room above it
+  and 11px below. The glyph beside it was dead centre the whole time, which
+  is what made the text look dropped. Zeroed, and the bar takes the band's
+  44px floor below 820, which it used to reach only by accident.
+- The guided tour never draws its cut-out off the page. A step whose control
+  was off the right edge clamped to a negative width, which is invalid CSS and
+  is dropped, so the cut-out kept the previous step's size and sat outside the
+  window: the dim is that element's own box-shadow, so the page went dark with
+  a bright band where the shadow's edge fell and nothing highlighted. Measured
+  at 2000x1140 with the target at x 3000: the cut-out placed at 2994 carrying
+  708px of stale width. A step whose control is not really on screen is now
+  dropped, the counter renumbers, and a cut-out that cannot be drawn is not
+  drawn at all, with the card centred instead. The tour sweep drives the
+  welcome flow's own hand-off at 2000x1140, 1440 and 390 and asserts a visible
+  card and an on-screen cut-out on every step.
+- The split document view lines its panes up from rects, not `offsetTop`.
+  The first fix mapped source lines to rendered blocks correctly and then read
+  each block's position with `offsetTop`, which is measured from the nearest
+  positioned ancestor rather than from the pane: measured on a real document,
+  every block's `offsetTop` ran 218px past its true offset in the pane at
+  1440 and 230px at 1024, and collapsing the sidebar changed the bias to
+  146px by putting a positioned element in between. Every anchor carried that
+  constant, so the preview parked that far past the line the source was
+  showing, at every position. The probe that closed the first report read
+  `offsetTop` too, so the same bias cancelled on both sides of its
+  subtraction and it reported 0px from a pane a paragraph and a half out.
+  Measured with rects: worst 444px at 1440 and 453px at 1024 before, 1px
+  after, across ten passes covering both directions, a mid-document edit, a
+  view switch, a save and the sidebar moving.
+- The split document view keeps its two panes on the same place. The sync
+  was a scroll fraction, which is exact at both ends and wrong in between
+  wherever a block takes a different amount of room in the two halves: a
+  picture is one line of source and four hundred pixels of preview, and every
+  such block shifts everything below it in one pane only. Measured on a
+  five-section document with a table, a code fence and a list in each, the
+  preview sat 282, 292, 266, 404 and 550px away from the heading the source
+  was showing, growing downwards. `renderMarkdown` now stamps every block
+  with the source line it came from and the sync interpolates between the
+  nearest pair of anchors: 0, 75, 0, 0, 0px, and the 75 is the editor landing
+  21px short of where it was asked to scroll.
+- The guide panel says it is the guide, and its thinking box can now be
+  drawn. The head reads "Atlas guide" over one muted line, "How this app
+  works, from its own help text", and the sheet's accessible name is that
+  same string. The streamed turn runs in a preset of its own
+  (`presets.GUIDE_MODE`, Quick's brevity and temperature) rather than
+  `quick`, whose `think: False` told every reasoning model not to think:
+  `.help-chat-think` was drawing an event that could not arrive. Which model
+  the panel takes is now pinned by tests in all three cases, because
+  `utility_model()` answers the chat model when smart model routing is off
+  and when no utility model has been chosen.
+- The guided tour switches to its step's tab and waits for the control to
+  arrive, leaves that control pressable, and carries a visible way out. The
+  dim was one layer across the window, so `elementFromPoint` at the centre of
+  all fifteen steps answered the dim and not the control; it is now four
+  panels around the cut-out, and the hole belongs to the page. A step that
+  navigates waits up to 1.5s of frames for its target rather than dropping it
+  on the first frame after `switchTab` resolves, which is why steps inside a
+  tab used to vanish and the tour looked as though it never moved. The card's
+  head gained a close X beside the counter; Skip and Escape still end the same
+  run.
 - The Guide streams its answer on a locked notebook. The streaming fetch sent
   no session token, so it was refused and the panel fell back quietly to the
   one-shot route: the reply arrived in one piece, and "streaming is broken"
@@ -334,6 +1141,141 @@ below). Versioning is `0.x` while the app stabilises.
   finished or skipped. The welcome that used to describe seven tabs from the
   middle of the screen is now two cards, the greeting and the setup check, and
   hands over to the tour.
+- One-click recovery. When start.sh or start.bat's normal launch fails for a
+  reason it can fix (no working interpreter in .venv, or a dependency the
+  app can't import), it repairs itself once, automatically, with no prompt,
+  says in one line what it did, and carries on; a repair that doesn't fix
+  it says exactly what is wrong and where the log is, and never loops. The
+  Windows installer gained a "Repair MemoryMap AI" shortcut beside the
+  ordinary one, running the packaged build's own repair (clears the cached
+  window profile, then opens the app normally; notes and preferences are
+  untouched).
+- Printing a document prints the document. A plain Ctrl+P from the editor put
+  the tab bar, the sidebar, the dock and the status bar on the page around the
+  text; it now puts black ink on white paper with a reading column, and keeps
+  a heading with the text it names, a code block and a quotation whole across
+  a page break.
+
+- The serif reading face gets a column of its own width. It is narrower than
+  the app's own face, so the same column held 93 characters on a line where
+  the default holds 76, which is past what is comfortable to read.
+
+- The command palette carries the documents editor's own actions while a
+  document is open, each with the keys that run it, and the keyboard shortcuts
+  dialog gained a section listing the editor's chords. Both are built from one
+  table, so they cannot disagree about what a key does.
+
+- A section can be moved by dragging its heading in the outline, and the
+  heading, its text and everything nested under it travel together. Alt with
+  an arrow does the same from the keyboard, on the row that has focus.
+
+- A document's outline folds and filters. A heading with sections under it
+  carries a caret that hides them, remembered per document, and past ten
+  headings a filter box appears above the list and says how many of them are
+  showing.
+
+- The Library's Documents list filters by a property a document declares about
+  itself. A document that opens with `status: draft` or `tags: [one, two]` can
+  now be found by that, from one control beside the search box that offers only
+  the properties the documents on screen actually have, with a count each.
+
+- The formatting strip above a document, and the matching one in the note
+  editor, light up under the pointer the way every other bar in the app does.
+  A hovered button wore an accent tint and a solid accent rim, so a hand
+  crossing twenty-seven controls lit each one in the colour this app uses to
+  mean "on".
+
+- The writing panel's answers are reachable from the keyboard. Pressing Enter
+  on a row now puts focus on the first suggestion, Escape hands it back to the
+  row, and a press with the pointer still leaves the caret in the document
+  where the word was just shown.
+
+- The outline marks the section you are writing in, not the one at the top of
+  the window. Typing in a section lower down the page left the heading above it
+  marked until the view happened to scroll. Scroll far enough that the caret
+  leaves the editor and the top of the view takes over again.
+
+- The Word (.docx) export is a button in Settings, optional extras. Without
+  python-docx the export answered with the name of a package and nowhere to
+  get it, which in an app that asks for no terminal is a dead end.
+
+- Typing into a box that is not a text field no longer triggers the app's
+  single-key shortcuts. A "/" typed while correcting a page reading in the
+  Library moved focus to the search box and swallowed the rest of the word.
+
+- A passage selected in a document and sent to the chat is re-checked against
+  the document you are looking at. It was checked against the empty textarea
+  the editor leaves behind, so every document selection was described to the
+  model as "the user has since edited it, so this passage may no longer be
+  there" while the passage was on screen.
+- The graph's display options fit their panel again. Physics, Groups and
+  Minimap are the three sections you set once and leave, so each is now a
+  fold on the app's own `details.settings-fold` recipe, closed by default and
+  remembered once you open it. Measured at 1440x900: 655px of list in a 488px
+  box, scrolling, before; 451px in 451px, not scrolling, after. At 1024 the
+  same 451 in 451. At 390 the panel still scrolls, as it did, but with 795px
+  of list where the same panel held 1071.
+- Notes → Write with AI is a writing desk. Its head is a dock on the app's
+  own grammar (identity, one Draft button, Stop, Undo, a '?' and a kebab)
+  where it used to be a heading and a lone round '?' over a card with two
+  filled buttons. Five quick-start chips stand where an empty pair of boxes
+  used to; under the thoughts box, three pickers say what to write, in what
+  voice and at what length, and an adder hands Atlas up to six of your own
+  notes to write from.
+
+- The draft arrives as it is written, with the thinking shown while it runs.
+  It used to appear in one piece once the model had finished: measured
+  against a stand-in model server, 22.9 seconds and one write of the box
+  before, first text in under a fifth of a second and one write per chunk
+  after. A pass that fails or is stopped hands back the draft that went in.
+
+- Five things to ask for rather than one: draft a note, carry on writing,
+  rewrite it in another voice, open bullets out into prose, close prose back
+  into bullets. Tone and length are pickers, not something to phrase.
+
+- What to do with a finished draft is one row: copy it, insert it into a note
+  you already have, or save it as a note. Inserting leaves you at the desk
+  with your draft, and offers the trip to the note rather than taking it.
+  Every draft the session produced is a chip you can go back to, beside the
+  undo that was already there.
+
+- A note you already have can be carried on: it comes into the draft, and
+  saving writes back to that note rather than filing a second copy of it.
+
+- With no model connected the writing desk says so in a line you can act on,
+  with the button that connects one, rather than only in a tooltip on a
+  button that cannot be pressed.
+- The Timeline's table keeps its title column on a tablet. Between 600 and
+  1024 pixels wide the fixed columns took everything and the title, the one
+  thing that says which note a row is, was squeezed to nothing and the table
+  scrolled sideways. The space and the two counts now give way at that width,
+  and the tags below 820.
+
+- The Timeline's density strip appears when it has a shape to draw rather than
+  when the notebook passes a note count. It used to hide a real profile (a
+  hundred and fifty notes spread over ten months) and show a row of identical
+  marks (two hundred notes written in a fortnight).
+
+- A skill can say what "it worked" means, and the app checks it. Settings →
+  Skills has a "Check it worked" row: pick a counting tool, what the number
+  should be afterwards, and whether to count only the notes with no tags. The
+  built-in "Auto-tag my notes" now claims what it actually promises, that no
+  note is left untagged, and the two audit skills that could not be checked at
+  all now report that they changed nothing. A skill saved from Settings used to
+  lose its check on the way to the server without saying so.
+
+- Counting your notes can be narrowed the way listing them always could:
+  `count_notes` takes "untagged" and a time window, so a skill can ask the
+  notebook a smaller question instead of paging through all of it.
+
+- A citation names the note a sentence actually came from. Which note is now
+  decided by the best passage in the answer's own candidate set rather than by
+  how many words the note shares with the sentence, so a long note that carries
+  a claim's words spread through paragraphs about other things no longer earns a
+  second mark beside the note that says the thing. Measured on sixteen fixture
+  questions (`tests/fixtures/chat/grounding_cases.json`): 18 of 18 sentences
+  cited to the right note, up from 17 of 18, with no mark at all on a sentence
+  the notes do not support.
 
 ## [0.3.1] - 2026-09-14
 
@@ -5699,3 +6641,22 @@ condensed record of what each one delivered.
   model, a tasks manager.
 - **Wave O:** stale-cache and re-lock fixes, brand logo, tool toggles; fixed the
   agent hallucinating note creation; expanded Appearance settings.
+
+### A model per feature
+
+- The Chat tab, Write with Atlas, the documents AI assistant and the Guide
+  can each run on a model of their own. Settings, Models lists them: every
+  row says which model it is on and whether that is its own choice or
+  inherited, each row has a reset that is live only while it is overridden,
+  and one button under the list hands every feature back to its default and
+  says how many that is. The same picker is in each surface's own menu, so
+  changing one does not mean walking to Settings. A feature left alone
+  follows the model it inherits, so changing the chat model still changes
+  it.
+- The Notes sub-tab is called "Write with Atlas". The tab button said "Write
+  with AI" while the panel it opens was already headed "Write with Atlas".
+- The Guide's send button reads as pressable again. It was never disabled:
+  it was painted in the app's secondary tier while the field beside it was
+  at full strength.
+- The Guide's thinking is a labelled block that folds away when the answer
+  starts, rather than a line and a half of clipped grey text.

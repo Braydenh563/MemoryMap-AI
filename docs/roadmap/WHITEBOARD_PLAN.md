@@ -102,6 +102,34 @@ kind. Every tool has a key and every key is in the tooltip and the help.
 7. **Highlighter** = marker with `mix-blend-mode: multiply` at 40%
    opacity, width 12 to 24, Shift for straight; the quick-sketch pad uses
    the same tool code, not a copy.
+   Two halves of this were left open when Phase 3 was built and are decided
+   here, 2026-09-20, with the measurements that decided them:
+   - **One table, two renderers. The pad stays a canvas.** The board draws
+     SVG paths and the pad draws into a `<canvas>`; they are two rendering
+     models and turning the pad into an SVG surface would be a rewrite of a
+     working thing to make one tool's numbers agree. What is shared is the
+     *definition*, not the code: `HIGHLIGHTER_STYLE` in `app.js` (alpha,
+     width multiplier, the 12 to 24 clamp, cap, join, and the blend per
+     backdrop) with `highlighterWidth()` and `highlighterBlend()` beside it,
+     read by the pad's `sketchMove`/`sketchEnd` and by whiteboard.js's
+     live-draw, mouseup and render paths. It lives in `app.js` because
+     `whiteboard.js` is lazily loaded (`app.js`'s module map) and can read
+     `app.js`, never the other way round. A tenth field of a highlighter
+     added to one renderer and not the other is the bug this ends; the
+     numbers before it were 0.4 with multiply on the board against 0.35
+     with no blend and no clamp on the pad.
+   - **The blend follows the backdrop, not the theme name.** Multiply is
+     worth 20 luminance units a pass on a light board and 3 on a dark one
+     (measured 252.9 / 229.6 / 211.5 light, 26.4 / 23.6 / 22.0 dark), so
+     multiply on a dark board is a blend that does nothing while turning
+     the ink to mud. The rule is `multiply` over a light backdrop and
+     `screen` over a dark one, chosen by the resolved mode and re-applied
+     when the mode changes, because the blend is an inline style (the
+     export clones these nodes into a standalone SVG, where a stylesheet
+     does not follow them). The pad passes "light" always and that is not a
+     fudge: its strokes go into their own transparent canvas stacked over
+     the paper canvas, so the backdrop a canvas blend sees is the other
+     strokes and never the paper.
 8. **Keys** (also in tooltips and help): V select, H pan, L lasso, P pen,
    M marker, E eraser, N sticky, T text, I image, C connector, A arrow,
    R rectangle, O ellipse, Delete, Ctrl+D duplicate, Ctrl+G group,
@@ -146,12 +174,11 @@ and dark and at 390x844).
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", WHITEBOARD_PLAN
 Phase 3): a plan holds open work only. Its gate lives on in
 `scratchpad/ui-sweeps/whiteboard3.js` (12 checks, green at 1440x900 light
-and dark and at 390x844). Two parts of decision 7 are **open**, with their
-measurements: the quick-sketch pad still has its own copy of the
-highlighter rather than sharing this code, and multiply is worth 20
-luminance units a pass on a light board and 3 on a dark one, which is the
-objection the pad's own comment in `app.js` already records. Both are in
-[`archive/agent-remaining/whiteboard-phases.md`](archive/agent-remaining/whiteboard-phases.md).
+and dark and at 390x844). The two parts of decision 7 that were open are
+decided and built, 2026-09-20 (the decision's own two sub-points above):
+one `HIGHLIGHTER_STYLE` table read by both renderers, and a blend chosen by
+the backdrop. Their gate is `scratchpad/ui-sweeps/sketchparity.js`,
+9 checks, green at 1440x900 in both modes.
 
 ### Phase 4: mind map regressions and Tidy: BUILT, 2026-09-12
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", WHITEBOARD_PLAN
@@ -172,13 +199,34 @@ are the one menu recipe; dialogs the modal recipe; keys in KEYMAP.
 ## 7. Not verified until built
 
 Touch: the rail's long-press flyout on a tablet; pen pressure for the
-marker; whether the context bar should pin to the top of the canvas on a
-phone instead of floating. **Floating is measured** (2026-09-12, Phase 2):
-at 390x844 the bar wraps to 348px wide and 54px (an image) to 208px (an
-arrow, four rows) in a 364x604 canvas, sits clear of the selected item at
-every kind, and never leaves the canvas. That is the case *for* floating and
-against pinning; what is not measured is a real finger on a real tablet,
-which is what the rest of this section is waiting for too.
+marker. What is not measured anywhere in this section is a real finger on a
+real tablet.
+
+**The context bar at phone width is decided, 2026-09-20: it pins.** Both
+placements were built and measured at 390x844 with five kinds high and low
+on the board, ten selections each way
+(`scratchpad/ui-sweeps/wbcontextphone.js`, 5/5 at 390x844 and at 1440x900).
+
+| | floating | pinned |
+| --- | --- | --- |
+| covers the item it edits | 0 of 10 | 2 of 10 (an image entirely, 8640px2; a line, 3519px2) |
+| sits on the tool rail | 2 of 10 (7759px2, 1122px2) | 0 of 10 |
+| leaves the canvas | 1 of 10 | 0 of 10 |
+| distinct tops | 10, spanning 452px | 1 |
+
+The earlier reading (Phase 2, 2026-09-12) measured the bar clear of the
+selection and inside the canvas and called that the case for floating; what
+it had not measured was the bar against the rest of the chrome. At this width
+the bar is a band, 348px of a 364px canvas for four of the five kinds and
+269px for an image, 6.6% to 25.3% of the board. A band over the item can be
+panned out from under; a band over the rail takes the drawing tools away.
+Pinning's cost is the two selections under it, which is recorded in the sweep
+rather than hidden. Desktop keeps the floating bar, measured at 1440x900 in
+the same run: 0.7% to 2.6% of the canvas, nothing covered.
+
+Found and fixed with it: the bar's `top` was never clamped to the canvas the
+way its `left` was, so a selection low on the board put it from 843px to
+1183px down an 844px window. It is clamped on both axes now.
 
 ## 8. Research: tldraw, Excalidraw, Miro, FigJam, and what it changes here
 
@@ -219,6 +267,16 @@ confirm in the product before building the phase where it matters.
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
 
+### ~~Found while measuring the board bar at 820 (2026-09-20, not the owner)~~
+
+~~**The board's top bar runs past its own right edge below 600, by 75px at 320
+and 5px at 390**, and carries thirteen controls at 1440 against the dock
+grammar's ceiling of seven.~~ **Both done, 2026-09-21**, measured before and
+after at five widths with `scratchpad/ui-sweeps/wbtopbar.js` (now in
+`scripts/gate.sh`'s sweep list), which also gates the menus' keyboard and ARIA.
+The Built block is in [HISTORY.md](HISTORY.md), "Moved from the plans,
+2026-09-21".
+
 12. **Whiteboard: export-selection popover opens a full-height list in the
     wrong place; arrow drawn shows both caps as Arrow in properties;
     missing align-centre and distribute-gaps; the arrange panel's buttons
@@ -229,9 +287,20 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     its search for head markers, so a shaft with zero start caps still
     measured a false zero-distance hit on its own start point and reported
     "both". Slicing the shaft's own match off the string before scanning
-    fixed it; verified live (`startcap: "none"`, was `"arrow"`). The
-    export-popover placement, align-centre/distribute-gaps and the arrange
-    panel's icon/text overlap are **still open**, not touched this session.
+    fixed it; verified live (`startcap: "none"`, was `"arrow"`).
+    **The rest is closed, 2026-09-20, by Phases 2 and 3 rather than by
+    repairs**, and measured rather than assumed
+    (`scratchpad/ui-sweeps/wbinbox12.js`, 6/6 at 1440x900 and at 390x844).
+    The popover the report is about is not built any more: the export is a
+    dialog (decision 4), `.wb-export-menu` builds nothing, and the dialog
+    opens inside the window at both widths (480x393 at 480,254 in 1440x900;
+    342x417 at 24,214 in 390x844). Align centres and even gaps are both on
+    the context bar, which carries all twelve arrange controls for a
+    selection of two plus the two z-order ones. And the panel whose buttons
+    drew their icons through their labels is gone with the properties drawer:
+    every arrange control is icon-only with its name in the tooltip, measured
+    at 0px2 of icon-over-text across 24 buttons on the bar and in the top
+    bar's Arrange menu together.
 25. **Whiteboard: the edge anchor outline on note objects differs from
     every other object kind.** Decision: one anchor recipe for all kinds
     (the shape one; the note one goes). Owner: WHITEBOARD_PLAN Phase 1.
@@ -319,6 +388,47 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     one bar surface, groups separated by a hairline divider only, no
     per-group background; the zoom pill on the same recipe. Size S.
 
+278. **Mid-work drop, 2026-09-20, verbatim (the owner), two screenshots.**
+    "the rotate line and circle dont sit at the top center of a group
+    selection in the whiteboard and instead sit off to the top left or
+    right, or below the top border". Seen: a group of two boxes and a bar
+    inside a circle, the rotate stem and knob at about a third of the box's
+    width from the left and the knob inside the box's top edge; a group of a
+    note card, an image card and a line, the stem rising from the top edge
+    at x of one member's own centre rather than the group box's, and a
+    second stem from a member card below. Owner: WHITEBOARD_PLAN (the group
+    selection box, `wbBulkGroupBox` and the group's rotate handle in
+    whiteboard.js). Recommendation: the group's rotate stem is drawn from
+    the group box's own top-centre in board units after the box is fitted
+    to every member's rotated bounds, and a member's own handles are hidden
+    while it is part of a group selection; measured with a probe placing the
+    knob at (box.x + box.w / 2, box.y - stem) at 0.5x, 1x and 2x, in
+    `scratchpad/ui-sweeps/wbgroupguides.js`. **Fixed, 2026-09-20**, and the
+    cause was one line narrower than the recipe guessed: the group's grip was
+    already drawn from the group box's own top centre in board units (measured
+    (340, 672) against a wanted (340, 672) at every zoom), but it never set a
+    `transform-origin`. `.wb-sketch-rotate-handle` and
+    `.wb-rotate-handle-stem` carry `scale(var(--wb-inv-zoom))` so a grip stays
+    one size to the hand, and that rule keeps `transform-box` at its
+    `view-box` default *because the drawing code sets the origin in board
+    coordinates*, which `wbDrawSketchHandles` does for a single shape and the
+    group path did not. The scale therefore resolved about the SVG view box's
+    origin and multiplied the grip's own coordinates by `1 / k`: on screen the
+    knob sat 170px right of the box's centre and below its top edge at 0.5x,
+    340px left of it at 2x, and exactly right at 1x, which is the report's
+    "top left or right, or below the top border" and why it looks intermittent.
+    The anchor is set in `layoutGroupChrome`, so it follows a resize drag
+    (measured mid-drag: box top 638, knob 612, the box's own top centre).
+    The recipe's second half was also real and is done: a three-item group drew
+    **four** rotate knobs, two stems and sixteen member resize handles, and now
+    draws one knob, one stem and none; a member keeps its outline, so the
+    earlier report this has to keep answering ("the shapes and lines arent
+    selected visually and individually") still is. A card or a line selected on
+    its own keeps all eight handles and its grip, measured.
+    `scratchpad/ui-sweeps/wbgroupguides.js` carries the checks (0.5x, 1x, 2x,
+    plus mid-resize), and `tests/test_ui_recipes.py` holds the ratchet: every
+    grip scaled by `--wb-inv-zoom` sets its own anchor.
+
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
 - "can the whiteboard arrange tools be better structured??" (screenshot):
@@ -337,3 +447,86 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
   accept a node with no entry (a plain shape is not a note), and the
   client's error path should say what failed rather than print an empty
   object.
+
+## Placed from INBOX, 2026-09-21
+
+258. **Recommendation, not a change, 2026-09-19 (the session).** The
+    reverted outside commit added right-drag to pan the board, filtered so
+    a right-click still reaches a node's context menu
+    (`wbZoomFilter`: `event.button === 2` on a target that is not
+    `.node-card, .sketch-group, .wb-object`). It is a good gesture and
+    every canvas app has it, but nobody asked for it and a new gesture on
+    the surface that carries the app's only context menu is a decision, not
+    a patch. Not built here on purpose (standing order 8: a new need is an
+    entry, not an ad-hoc build).
+    Recommendation: take it, guarded as above, plus `contextmenu` suppressed
+    on the canvas only while such a drag actually moved (so a right *click*
+    on empty canvas keeps whatever it does today), and measured against
+    `scratchpad/ui-sweeps/wbpan.js`. The other two ideas from that commit,
+    a rotated group outline and alignment guides for a group drag, are built
+    (861e740, 5273bae).
+    **Tried 2026-09-19 and taken back out, with what was learned.** The pan
+    itself is four lines in `wbZoomFilter` (`event.button === 2` when
+    `event.target` is not inside `.node-card, .sketch-group, .wb-object,
+    .wb-map-edge-hit, [contenteditable]`, and the mousemove half gated on a
+    flag the mousedown set) and measured clean: a right-drag moved the board
+    150px, a right-click with no drag left the transform untouched.
+    The half that matters could not be measured. Three things were found
+    and are worth having written down:
+    - The `contextmenu` that ends a right-drag over this board is dispatched
+      at the `<section>` *around* it, not at anything inside it, so a
+      listener scoped to `#whiteboard-container` never sees it and
+      `event.target.closest("#library-view-whiteboard")` is null on it.
+    - It is dispatched **before** `pointerup`, not after, so clearing the
+      "this drag moved" flag on the release is safe and clearing it on a
+      `setTimeout(0)` from the release is not.
+    - With all of that accounted for, two runs of identical code disagreed
+      about whether the menu was dispatched at all. Non-deterministic here,
+      and the difference between "the gesture is polished" and "the gesture
+      leaves a menu open on your board" is exactly that dispatch.
+    So: not shipped. `scratchpad/ui-sweeps/wbrightpan.js` is the acceptance
+    test, written first and failing, with the three facts above in its
+    header. Whoever builds it makes that file pass on a board with a card on
+    it, which is also the case this run could not cover.
+    **Built and taken back out a second time, 2026-09-20, and this run found
+    why. Two of the three facts above are wrong.** Measured with every event
+    logged in the capture phase across a full right-drag:
+
+        pointerdown@wb-svg-layer
+        mousedown@wb-svg-layer
+        contextmenu@wb-svg-layer      <- on the press
+        pointerup@wb-svg-layer
+        mouseup@wb-svg-layer
+        auxclick@wb-svg-layer
+
+    `contextmenu` arrives **on the press, before the drag has moved a pixel**,
+    and at `#wb-svg-layer`, not at the `<section>`. So at the only moment the
+    decision can be made, nothing can know whether the gesture will become a
+    drag: "suppress the menu only when the drag moved" is not implementable,
+    which is why both attempts left a menu open. The non-determinism recorded
+    above did not reproduce: six runs across two attempts agreed every time,
+    so it should not be planned around.
+    The pan half measured clean again (0 to 150px, three runs identical), and
+    a probe bug was fixed while there: the card's position was read at setup,
+    before checks 1 and 2 pan the board, so check 3 pressed empty canvas and
+    reported a 120px pan "on a card" that never touched one.
+    **Recommendation, for the owner, because it is a decision and not a
+    patch.** One shape works: suppress the native menu on the canvas outright
+    and open the app's own pointer menu (`openMenuAtPoint`, which exists) in
+    its place. A right-click then gives board actions instead of Chrome's
+    menu, and a right-drag gives a clean pan. What goes in that menu is the
+    open question, and assertion 2 of the acceptance test ("a right-click
+    still opens whatever it opened before") changes with it.
+
+276. **The sketch pad's toolbar wraps to two rows at 820 on Large text**, and
+    has since before this session: `scratchpad/ui-sweeps/sketchbar.js` reports
+    `rows=2` at 820/large-text (content 712 of an inner 714) and at
+    820/large+spacious (688 of 690), while 820/default and 820/spacious are
+    one row. The Canvas group is the one that drops. Found while giving the
+    ink dots a finger-sized target (the same sweep), not caused by it: the
+    dots only change below 820. Recommendation: the bar is five groups and
+    Large text buys their labels about 10px each, so the cheapest honest fix
+    is the group labels, not the controls: hide `.wb-tool-section-label`
+    below 1024 the way the phone band already hides other labels, and
+    re-measure; it is worth about 60px, which is more than the 2px the wrap
+    is short by. Owner: whoever next opens the pad's bar.

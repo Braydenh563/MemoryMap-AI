@@ -378,6 +378,82 @@ utilities as an icon cluster with hairline separators on the bar surface;
 a bottom tab bar on phone (five + more); sidebars as sheets under 900.
 Gate: Phase 9 numbers.
 
+### D16 Write with AI, the writing desk (M, Opus)
+
+The owner, INBOX 274: "I want to improve the design, capabilities and
+features in the write with ai subtab in notes because I think it is falling
+behind." HISTORY's flagged list already named it ("Write with AI tab: behind
+in function and UI. Owner: new dossier D16"); this is that dossier.
+
+**Measured before, 2026-09-20, on :8967 at 1440x900 and 390x844, light**
+(`scratchpad/ui-sweeps/writingroom.js` measures the same numbers after):
+
+| What | Before |
+| --- | --- |
+| Controls on the sub-tab | 10 at 1440, 10 at 390 |
+| Control heights | three at 1440 (36 / 40 / 330.3), four at 390 (40 / 44 / 189.2 / 330.3) |
+| Dock | none. The head is an `h2` and a lone round '?', so the sub-tab has no control bar and nothing on the dock grammar |
+| Primary buttons on the card | two, "Draft it" and "Save as note", both filled, one per column |
+| Quick starts | none (0 `.library-chip`, 0 `.seg`, 0 `data-help-for`; the help is the older `graph-help-toggle` pair) |
+| Empty state | none. Two empty boxes with placeholders, nothing that says what the desk is for |
+| Shape of a request | one POST `/drafts/compose`, answered when the whole draft exists |
+| A draft against the stand-in model server | arrived after **22.9s** in **2 distinct values** of the box (empty, then 82 characters): one piece, no stream, no progress beyond a status line |
+| Thinking | a `<details>` under both columns, written **after** the reply lands, never while it is written |
+| What can be done with a result | Extract notes, Discard, Save as note. No copy, no insert into an existing note, no retry, no version history beyond a single Undo |
+| Capabilities | thoughts in, a note out, plus a free-text instruction. No tone, no length, no "continue this note", no bullets/prose conversion, no sources: the notebook's own notes cannot be handed to the drafter at all |
+| With no model | "Draft it" and "Extract notes" are disabled with a `title` ("Drafting needs the local AI. Connect a model in Settings."); the section draws **no** `.ai-offline-note`, so the one control that fixes it (Settings → Models) is only in a tooltip on a disabled button |
+| Console errors | 0 at both widths |
+
+Against the two surfaces it should be a sibling of: the Chat composer
+streams token by token into a bubble, carries its sources, its mode segment
+and its length select on one strip under the box, and names its own offline
+state in a row with a button to Settings; the documents editor's AI edit
+shows a per-hunk diff before anything is accepted. The writing room has
+none of those three.
+
+**Target.** The sub-tab is a writing desk, not a form: a dock on the
+grammar (identity, one primary "Draft"), quick-start chips from the
+`.library-chip` recipe, one composer on the app's own composer surface
+carrying what to write, in what tone, at what length and from which notes,
+a result that streams as it is written with the thinking shown while it
+runs, one row of actions on the result (copy, insert into a note, save as
+note, retry), and a version history with a way back to any earlier draft.
+Every failure names its way out.
+
+**Gate.** `scratchpad/ui-sweeps/writingroom.js` (in `scripts/gate.sh`'s
+sweep list): the dock at seven controls or fewer with exactly one filled, a
+streamed draft arriving in more than one piece against the stand-in server,
+the actions row present, one column and 44px targets at 390, 0 console
+errors.
+
+**Built, 2026-09-20** (`feac0e2`, `9d03405`, `7db57d5`, `9a796be`), measured
+on :8967 and :8968 against `scratchpad/fake_openai_server.py`:
+
+| What | Before | After |
+| --- | --- | --- |
+| Dock | none | one on the grammar, 4 controls at one height (36px), 1 filled |
+| Filled buttons in the head | two on one card | one (Draft), with Save as note the result panel's own |
+| A draft arriving | 22.9s, 2 values of the box (one piece) | first text at 118 to 161ms, 3 writes of the box (40, 82, 82 characters) |
+| Thinking | after the reply, in a `<details>` | open while it is written, capped at 8rem (it had no CSS rule at all: it grew the column from 539px to 1576px on open, now 539 to 712) |
+| Quick starts | none | 5 `.library-chip`s at 36px (they drew at 22.4px until `--control-h` was given to the row), 44px at 390 |
+| What to write | one free-text instruction | 5 kinds, 5 tones, 3 lengths, and up to 6 notes as sources, each a removable chip |
+| Result actions | Extract notes, Discard, Save as note | Copy, Insert into a note, Save as note on one line, with Refine on its own composer row and Split into notes and Discard in the kebab |
+| Going back | one undo stack | the same undo, plus a version chip per draft this session, restoring any of them (dedupe and localStorage both measured) |
+| A note that already exists | nothing: every path here made a new note | "Carry on from a note" brings it in as the draft, marks which note it goes back to, and Save writes back to that note through the app's own PUT and undo entry (measured: the tag survives, no second copy) |
+| Inserting into a note | n/a | appends to the note you pick and stays on the desk, with the trip to it offered on the toast rather than taken (`flashEntry` used to hide the desk and its half-written draft) |
+| With no model | a title on a disabled button | that, plus an `.ai-offline-note` row naming Settings → Models, and a drafter message that names Ollama and Settings |
+| The two boxes at 390 | 189.2 and 330.3px | 189.2 and 176px (both `rows="7"`) |
+| Controls under 44px at 390 | 11 | 0 |
+| Card height at 1440 | 569px, columns 478/478 | 630px, columns 480/480, boxes 347.2 and 271.3 |
+| Console errors | 0 | 0 at 1440 and 390; errors.js clean at four widths, contrast.js clean light and dark |
+
+**Not verified.** Stop mid-pass (the stand-in server answers in ~150ms, so
+the pass is over before Stop can be pressed; the abort path is the one that
+was already there, plus a restore of the draft that went in). A real model's
+thinking stream, and therefore the 8rem panel with real content. Anything a
+small local model does with the five prompts: they are written and tested
+against a fake transport, not judged by a model's output.
+
 ---
 
 ## 4. The backend, made revolutionary (and still SQLite, still offline)
@@ -605,7 +681,7 @@ updated per session):
 | Contrast failures, both themes | `contrast.js` | 0 after fix | 0 |
 | Console errors across all tabs at 3 widths | `errors.js` | 0 | 0 |
 | Tablists without arrow keys | `audit/keys.js` | 0 after fix | 0 |
-| Idle requests per minute | `audit/idle.js` | 4 on 2026-09-12 (`/models/status` every 30s, `/reminders` and `/tasks` once a minute; was 14) | ≤ 2 |
+| Idle requests per minute | `scratchpad/ui-sweeps/idle.js` | **2 on 2026-09-21**, the gate met (`/models/status` backs off to a two-minute ceiling while its answer does not change, `/reminders` once a minute; was 4, and 14 before that). Timer wakes in the same minute went 124 to 5, and idle CPU 6.06% of one core to 5.55%: INBOX 266 item 7 | ≤ 2 |
 | First paint of Graph on 2k notes | `graph-fixture.js` | n/a (SVG) | < 300ms |
 | Search p95 on 5k notes | `tests/test_search_perf.py` | 14.2 ms median at 3,000 notes, 4 statements, flat (8.4 at 200, 10.5 at 1,000), 2026-09-12 | < 200ms |
 | Capture write cost | the same probe against `POST /entries` | 9.0 ms and 16 statements at 1,206 notes, identical at 56 and 406, 2026-09-12 | flat |
@@ -714,19 +790,29 @@ what could not be verified.
 
 ## 9. On testing with a real model in the sandbox
 
-The owner asked whether to install llama.cpp and a local model in the
-project so sessions can test against a real model. Answer: not in the
-repository (a GGUF is hundreds of MB to GBs and would break the clone,
-CI and the AGPL notices), but yes as a **dev-only script**:
-`scratchpad/llama-dev.sh` builds or downloads a llama.cpp `llama-server`
-release for the sandbox's CPU, fetches one small instruct GGUF
-(Qwen2.5-1.5B-Instruct Q4 or Llama-3.2-1B-Instruct Q4, about 1 GB) into the
-scratch directory, and starts it on a port the app's OpenAI-compatible
-provider can be pointed at. The sandbox's network policy and disk allowance
-decide whether it works; the script must fail loudly and the suite must
-never depend on it. It lifts the last half of CLAUDE.md's standing caveat
-(real inference) for skills evals, and `pytest -m evals --real` would use
-it. Add it as row 0 of §8 for the first session with network access.
+**Built, 2026-09-20: `scratchpad/llama-dev.sh`.** The script this section
+specified exists. `check` (and no argument at all) reports what is present and
+downloads nothing; `fetch` pulls one small instruct GGUF
+(Qwen2.5-1.5B-Instruct Q4_K_M, about 1.1 GB) into `LLAMA_DEV_DIR`, outside the
+repository; `build` compiles `llama-server` from a llama.cpp checkout named by
+`LLAMA_CPP_SRC`; `serve` starts it and prints the seam, and `stop` takes it
+down again. The seam is two environment variables rather than the
+`pytest -m evals --real` this section guessed at: `MEMORYMAP_EVALS_URL` and
+`MEMORYMAP_EVALS_MODEL`, read once while the eval module is being imported, so
+a shell that never ran the script skips every eval and no pytest plugin or
+custom option is needed for the suite to stay honest. Nothing in `tests/`
+imports the script, no mode of `scripts/gate.sh` calls it, and every
+absent-binary and absent-model path prints a sentence naming the way out, the
+way `src/memorymap/ai/offline.py` writes its own. Those three rules are a test
+of their own (`test_the_evals_seam_is_the_only_thing_that_reaches_the_runner`),
+which needs no model and runs in every suite: they are easy to write down and
+easy to break later without noticing.
+
+**What is still open here.** The evals themselves: `tests/test_skills_evals.py`
+holds the AGENT_SKILLS_REFORM acceptance gate and is the only eval module so
+far. Everything else CLAUDE.md section 4 lists as unproven (concurrent tool
+calls at index 1 and beyond, Ollama's native tool-call dialect) is still
+unproven, and each wants its own eval beside that one.
 
 ---
 
@@ -743,7 +829,7 @@ should fix the class and add the lint that keeps it fixed.
 | F3 | **Measured, 2026-09-12, and smaller than this row assumed at a realistic size.** `search_manager.semantic_search` still reads and parses every vector row per request, and it is on the Ask and chat path. At 2,000 notes and 384 dimensions that read and parse is 5.6 ms per request against 5.3 ms for the matmul over the same vectors already in memory, so it is about half the cost of a search at that size and grows linearly: about 56 ms at 20k and 140 ms at 50k. The three whole-notebook features (link suggestions, tensions, graph edges) already read `engine.vectors_by_id`, which serves the process-level matrix, so the fix is to point `semantic_search` at the same matrix. **Not done here, deliberately**: it is the most important path in the app and the swap has to keep the mixed-width behaviour this function grew (a model swap inside one backend leaves rows at the old width, and stacking them raised and took every search down with it), so it wants its own brief and its own tests rather than a late-night edit. | `search/search_manager.py` ~279, `search/engine.py` `vectors_by_id` | still open, sized |
 | F4 | **Re-measured 2026-09-13: 147 broad handlers, of which 52 say nothing at all.** `scratchpad/probe_excepts.py` reports both numbers, because the grep below counts every handler and the ones that cost something are the silent subset: a handler that logs with `exc_info` is the fix, not the flaw. Original figure: 88 `except Exception:` / bare `except:` in `src/` | `grep -rn "except Exception:\|except:" src/memorymap --include=*.py \| wc -l` | Failures become silence (the "features that never ran once" shape). | Each one either re-raises as the error contract, logs with `exc_info` to the logbuffer, or is narrowed. Lint: ruff `BLE001` enabled with a per-site `# noqa: BLE001 <reason>`. |
 | F5 | 13 raw `fetch()` calls beside `api()` | `grep -n 'fetch(\`\|fetch("' frontend/*.js \| grep -v "api\b"` | Each re-implements the auth header, the error contract and the offline path; one is `/chat/stream`, the most important call in the app. | `api.stream()` and `api.upload()` helpers; the 13 sites move onto them. Lint: no bare `fetch(` outside `api.js`. |
-| F6 | **Mostly fixed, and the old figure was stale.** Measured 2026-09-12 with `scratchpad/ui-sweeps/idle.js` (new: it wraps `setInterval` before any page script runs, so every live interval is named with the line that started it, and counts requests over a full idle minute in each visibility state). Requests: 4 in a visible minute (`/models/status` x2, `/reminders`, `/tasks`) and 2 hidden, not the 14 this row was written from, which the status poll's own backoff had already fixed. Timers: two one-second clocks survived hiding, `tickClocks` (app.js) and `paintDashClock` (dashboard.js), both painting HH:MM once a second to a tab nobody could see. Both now stop on `visibilitychange` and repaint on return; the only interval left while hidden is the 60s reminder check, which is the one thing a background tab should keep doing. What is left of this row is the `scheduler` it proposes, which is a refactor rather than a fix. | `idle.js`, `app.js`, `dashboard.js` | was battery | timers done, scheduler open |
+| F6 | **Done 2026-09-21** (INBOX 266, item 7): the scheduler this row proposed is still a refactor nobody needs, and the numbers it was written from are all met. What follows is the 2026-09-12 record, kept because it is what the measurements were taken against. **Mostly fixed, and the old figure was stale.** Measured 2026-09-12 with `scratchpad/ui-sweeps/idle.js` (new: it wraps `setInterval` before any page script runs, so every live interval is named with the line that started it, and counts requests over a full idle minute in each visibility state). Requests: 4 in a visible minute (`/models/status` x2, `/reminders`, `/tasks`) and 2 hidden, not the 14 this row was written from, which the status poll's own backoff had already fixed. Timers: two one-second clocks survived hiding, `tickClocks` (app.js) and `paintDashClock` (dashboard.js), both painting HH:MM once a second to a tab nobody could see. Both now stop on `visibilitychange` and repaint on return; the only interval left while hidden is the 60s reminder check, which is the one thing a background tab should keep doing. What is left of this row is the `scheduler` it proposes, which is a refactor rather than a fix. | `idle.js`, `idlecpu.js`, `app.js`, `dashboard.js` | was battery | done |
 | F7 | Threads in 16 modules share SQLAlchemy sessions created per call | `grep -rln "threading.Thread" src/memorymap` | SQLite is fine with this only while each thread opens its own session and nobody passes ORM objects across; nothing enforces it, and the "Could not refresh instance" 500 seen this session was exactly that shape. | B2 job runtime: one worker, jobs get a fresh session, results are plain dicts. Lint: `Thread(` allowed only in `core/jobs.py`. |
 | F8 | Two `innerHTML` writes with interpolated data | `grep -n 'innerHTML\s*=\s*\`[^\`]*\${' frontend/*.js` | Both interpolate app-controlled strings today; the pattern is the XSS shape and the next author will interpolate a title. | `setLabel()` (exists) at both sites. Lint: no `innerHTML =` with `${` anywhere. |
 | F9 | **Fixed.** The gate is per router (`dependencies=locked`), and a router added without it read exactly like one with it. `tests/test_every_route_is_locked.py` walks every route the app serves and asserts 401 without a token, against an allowlist that carries a reason per line. It found one: `GET /changelog`, open, now locked. Proven in both directions (dropping `dependencies=locked` from one router fails it with that router's three routes named). The walk itself is the subtle half: this FastAPI keeps an included router as one lazy entry, so the obvious `isinstance(route, APIRoute)` filter sees 3 routes out of 200 and passes with the whole API unchecked. | `api/app.py`, `tests/test_every_route_is_locked.py` | was medium | done |
@@ -819,11 +905,18 @@ listed so LAN mode cannot ship without them (Brief 15).
 | S9 | **Fixed (99adcc9).** `renderInlineMarkdown` set `a.href` from note text with no scheme check; the CSP blocked `javascript:` and nothing else did. `safeHref()` allow-lists http, https, mailto, tel, relative and anchors; `tests/test_markdown_link_schemes.py` pins it. | `app.js` renderInlineMarkdown | was low | done |
 | S10 | **Confirmed off**: `docs_url`, `redoc_url` and `openapi_url` are `None` in `create_app` (`api/app.py` ~361). MODERNISATION_AUDIT D5 is stale. | `api/app.py` | none | Record in D5. |
 | S11 | **Fixed, and it was not on the list.** `POST /update/apply` downloaded `browser_download_url` straight out of the GitHub release row and ran it silently as an installer, with only a truncation check between the two. TLS means only whoever controls the releases can choose that URL, so nothing was open today; the gap was between trusting the release and trusting whatever URL the release names. The host is now checked before a byte is written (https, and one of github.com, api.github.com, objects.githubusercontent.com), with the refusal, the https-only rule and the two ways an `endswith` allowlist is usually beaten all pinned in `tests/test_update.py`. | `api/routes_update.py` | was low | done |
+| S12 | **Fixed (INBOX 310, a read-only audit of the whole backend).** `restore_backup` streamed a backup's pages straight into the live `memorymap.db` via SQLite's own backup API, so a crash mid-copy could leave the primary database half-written; the pre-restore safety copy made that recoverable, not safe. Now restores into a temp file beside `db_path`, runs `PRAGMA integrity_check` on it (before the swap, not after: once swapped in it *is* the live database, so checking then would only confirm damage already done), and only on a clean check `os.replace`s it in atomically on the same filesystem, cleaning up the temp file and any stale WAL/SHM sidecars on every path. `tests/test_backups_api.py` pins a corrupt-backup restore and a failed-integrity-check restore, and that neither ever touches the live database's bytes. | `core/backup.py` ~117 | was low | done |
+| S13 | **Fixed (INBOX 310).** `_run_directory_import` read every `.md` file in a chosen folder whole with `f.read_text()`, no size ceiling at all, unlike every other import path in the app (`import_markdown`'s `MAX_IMPORT_BYTES`). Now `stat()`s each file before reading it and skips anything over that same constant, counting the skip and naming the reason in the activity-log detail the endpoint already writes for a finished import, which now fires on a skip-only run too rather than only when something was imported. `tests/test_vault_import.py` pins the skip and the exact log line. | `api/routes_settings.py` ~1885 | was low | done |
+| S14 | **Fixed (INBOX 310).** `_normalise_url` (bookmarks) only prepended `https://` when a URL had *no* scheme at all, so `javascript:alert(1)` passed through unchanged and was stored exactly as typed; self-XSS only (no import or AI tool path writes a bookmark from untrusted text) and the CSP was already a backstop. Now checked against the same allowlist `safeHref()` applies to markdown links (http, https, mailto, tel); a disallowed scheme is refused at write time with a 422 naming the allowed ones. Defence in depth on top: `library.js` now runs a saved URL through `safeHref()` before ever setting `link.href`, and the two `window.open(bookmark.url, ...)` sites (documents.js, app.js) do the same, so a bookmark stored before this existed can't become a live link either. `tests/test_bookmarks_api.py` and `tests/test_markdown_link_schemes.py` pin both the write-time and render-time halves. | `api/routes_bookmarks.py` ~38, `library.js` ~8084 | was low | done |
+| S15 | **Fixed (INBOX 310).** `_download` (the update installer fetch) called `requests.get(..., stream=True)` with the default `allow_redirects=True`, so only the *first* hop's host was checked against `ALLOWED_DOWNLOAD_HOSTS`; every redirect after that was followed unchecked, and GitHub's own release flow always redirects at least once (github.com to objects.githubusercontent.com, the reason both hosts are already on the allowlist). Now `allow_redirects=False`, with each `Location` re-validated through `_download_url_is_allowed` in a loop capped at `MAX_DOWNLOAD_REDIRECTS`, chosen over "follow redirects and check `response.url` after" because by the time a response has a final URL, `requests` has already connected to every host on the way there. `tests/test_update.py` pins the real allowed hop still working, a redirect off the allowlist being refused before a byte of it is fetched, and a redirect loop being capped rather than hung. | `api/routes_update.py` ~182 | was low | done |
 
-**Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5 as one
-change set with a `tests/test_lan_mode.py` that starts the app bound to
-0.0.0.0 in a subprocess and asserts each behaviour; only after it passes
-does Settings offer "Allow other devices on this network".
+**Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5, and
+`GET /debug/health`'s absolute `data_dir`/`db_path` paths (INBOX 310:
+harmless behind the unlock gate on localhost today, a full server path
+handed to anyone holding the session token once this ships) as one change
+set with a `tests/test_lan_mode.py` that starts the app bound to 0.0.0.0
+in a subprocess and asserts each behaviour; only after it passes does
+Settings offer "Allow other devices on this network".
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 
@@ -1748,6 +1841,36 @@ reachable, `keys.js` extended to every tab); a WCAG AA audit with
 desktop (a document in its own window); a first-run tour that ends in a
 first note and a first question, measured by time to first answer.
 
+**Decisions made.**
+
+1. **Release artifact naming: `<name>-<version>-<platform>-<arch>.<ext>`,
+   one scheme across every installer.** INBOX 266 asked for version,
+   platform and architecture in every installer's name, "so two files
+   downloaded a month apart from different machines are distinguishable in
+   a Downloads folder, and a 64-bit build and a future 32-bit or ARM one
+   never overwrite each other." Built and applied to all four release
+   artifacts `.github/workflows/release.yml` produces: the Windows `.exe`
+   (`packaging/windows/installer.iss`'s `OutputBaseFilename`,
+   `MemoryMap-AI-Setup-{#MyAppVersion}-windows-x86_64`), the Windows `.msi`
+   (`MemoryMap-AI-$env:MEMORYMAP_VERSION-windows-x86_64.msi`, built by
+   `packaging/windows/installer.wxs`), and the Linux `.tar.gz` and `.zip`
+   (`MemoryMap-AI-${VERSION}-linux-x86_64.{tar.gz,zip}`). `x86_64` rather
+   than Inno's own `x64` spelling: it is what `uname -m` prints and what
+   the Linux side already used, and one spelling across platforms is worth
+   more than matching one installer's internal vocabulary. Both the
+   `.tar.gz` (item 2) and the `.msi` (item 3, shipped beside the `.exe`,
+   not instead of it, with its own "Repair MemoryMap AI" shortcut per
+   INBOX 253) already existed before this entry was picked up; the naming
+   pass (item 4) is what is new, and `tests/test_release_smoke_step.py`
+   (`test_windows_exe_filename_carries_name_version_platform_and_arch`,
+   `..._msi_filename_...`, `..._zip_filename_...`) is the lint: it parses
+   `release.yml` and `installer.iss` as text and fails if any artifact's
+   name loses its version, platform or architecture. Not verified on a
+   real release run: no tag push or Windows/WiX runner exists in this
+   sandbox, so the check is that the workflow and installer sources parse
+   and read as intended, not that `wix build`/`ISCC.exe` actually produced
+   a file with that name.
+
 ### H7 The speed budget (A1 continued; S each)
 
 Boot JS under 1 MB compressed (from 1.7 MB), first paint under 300 ms on
@@ -1963,3 +2086,318 @@ SQLAlchemy layer's own shape (are the ORM's lazy loads causing N+1s on the
 list paths?), the event bus, the job queue's back-pressure, the frozen
 build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
 19.3. Each is a measurement with a command, in the manner of §10.
+
+## Placed from INBOX, 2026-09-21
+
+261. **Found by scan, 2026-09-19 (the session, not the owner).** Ten routes
+    the app serves that `frontend/*.js` never names, from
+    `scratchpad/probe_dead_routes.py` (new; run it with `PYTHONPATH=src`).
+    Four more were in this list and are now wired: `GET /learned` and its
+    whole lifecycle, `POST /night/run`, `GET /search/stats` and
+    `POST /drafts/title`. What is left, triaged:
+    - `GET|POST /entries/daily/{day}`, `POST /resurface/compute` and
+      `GET /openapi.json`: not the frontend's to call. The daily-note pair
+      is the agent's "add to today's note" tool and says so in app.js; the
+      compute half of resurfacing is the scheduler's, and its module
+      docstring is explicit that the read is the fast one; `/openapi.json`
+      is FastAPI's own. **Nothing to do.**
+    - `POST /insights/digest` and `GET /whiteboard/images`: superseded and
+      recorded as such (`/insights/digest/stream` is what the dashboard
+      calls; BACKLOG says `/media` replaced the board image listing).
+      **Recommendation:** leave them, or delete them in a sweep of their
+      own; either is defensible and neither is urgent.
+    - `GET /insights/on-this-day`: superseded by choice. The widget filters
+      `allEntries` in the browser, which is one fewer request and is
+      correct once the notebook has finished paging in.
+      **Recommendation:** leave it, and say so in the route's docstring, so
+      the next scan does not re-open this.
+    - `GET /tags`: **done.** The autocomplete was built from `allEntries`
+      (`refreshTagSuggestions`), so it was incomplete until every page of a
+      four thousand note notebook had arrived, and alphabetical, so a tag
+      used once outranked one used four hundred times. Measured on a
+      notebook tagged to show the difference, old against new:
+      `archive, budget, house, winter-roof-repair` (archive is used five
+      times) became `house, winter-roof-repair, budget, archive` (400, 400,
+      20, 5). One request, cached, in place of a flatten over every loaded
+      note twice per load.
+    - `GET /settings/events`: B1's event feed. Its own docstring names the
+      consumer, "what a Dashboard or Timeline activity strip should read
+      instead of scanning the notes table for recency", and no such strip
+      reads it. **Recommendation:** a brief in WORLD_CLASS_PLAN B1, not an
+      improvisation here: it is a surface, not a wire-up.
+    - `GET /resurface/near/{entry_id}`: "the faded notes closest to the one
+      being read", built and tested, and there is nowhere in the app that
+      reads a note. Checked before recommending anything: a note is a card
+      in a list, and the only thing resembling a detail view is the inline
+      edit form (`editingId`), which is a form. `lastOpenedEntryId` exists
+      but only feeds the agent's "what am I looking at" subject. So this is
+      a surface, not a wire-up, and probably why it was never wired.
+      **Recommendation:** decide the surface first. The cheapest honest one
+      is a row inside the edit form, under the tags, reusing
+      `paintFadedNotes` from dashboard.js (the route returns the same
+      `_card` shape the dashboard widget already renders); the better one
+      is the note detail view this app does not have, which is a plan item
+      rather than an INBOX item.
+    `POST /auth/rotate-vault-key` was on this list until the probe learned
+    to read `` `/auth/${mode === "setup" ? "setup" : "unlock"}` ``; it is
+    still uncalled, and re-keying the vault has no UI. Filed here rather
+    than fixed: it is the one route in the app that rewrites every private
+    note, and a button for it wants its own session.
+
+
+285. **Found by a line-by-line review of tonight's merges, 2026-09-21.**
+    `OpenAIClient._accumulate_tool_calls` reads a streamed fragment's index
+    as `fragment.get("index", 0)`. Every fragment a provider sends without
+    that field therefore lands in bucket 0, so with two concurrent calls
+    their `arguments` strings concatenate into one unparseable blob and both
+    calls are lost at `normalise_tool_calls`. OpenAI itself always sends the
+    index, which is why no test sees this and why the accumulator is
+    otherwise correct: buckets are keyed by index, replayed in index order,
+    and a missing id falls back to `call_<index>`. The risk is a local
+    OpenAI-compatible server that is looser than the spec, which is most of
+    them. Not reproduced: it needs a server that omits the field.
+    Recommendation: when `index` is absent, open a new bucket for a fragment
+    that carries a `function.name` and fold a nameless fragment into the
+    last one opened, so an omitted index degrades to arrival order rather
+    than to a collision. Owner: the models/chat agent, with a fake-transport
+    test that sends two indexless calls.
+
+283. **Found while measuring the writing desk, 2026-09-20 (WORLD_CLASS_PLAN
+    D16).** An OpenAI-dialect backend that is not there is still reported as
+    running, so every model-gated control in the app stays enabled and fails
+    only once it has been pressed, which is the exact failure
+    `data-needs-model` exists to prevent. Measured: `POST /models/provider`
+    with `base_url: http://127.0.0.1:8999/v1` (nothing listening),
+    `reload_llm_client` runs, and `GET /models/status` answers
+    `ollama_running: true` twelve seconds later with the new base_url in the
+    same body. Cause: `OpenAIClient._fetch_catalog` swallows every
+    `requests.RequestException` and returns `[]`, `list_models` then returns
+    `[]` rather than raising, and the status route decides `running` on
+    whether `list_models` raised. Recommendation: `_fetch_catalog` raises
+    `OllamaError` when no endpoint answered at all (distinct from one that
+    answered with an empty list), so "unreachable" and "no models installed"
+    stop being the same fact. Owner: the models/chat agent.
+
+## Placed from INBOX, 2026-09-21 (two app-wide contracts)
+
+301. **The owner, 2026-09-21, verbatim:** "the application wide
+    forward/backward navigation and undo/redo dont work for everything
+    everywhere." Two app-wide contracts, both of which are the kind that
+    cannot be fixed surface by surface without drifting again. Next step is
+    an audit before any fix: every surface, what it pushes to history and
+    what it makes undoable, as a table. Placed into WORLD_CLASS_PLAN.
+
+## Audio in the notebook: the architecture decided 2026-09-21, the build deferred
+
+The owner, 2026-09-21, in one message: recording tracks and storing them as
+notes or as objects like whiteboards and mind maps, attaching them to notes,
+an audio library like voice memos paired with meeting notes, transcription
+and perhaps live transcription, better text to speech, and separately a
+background music player over a folder of songs he already owns. Then, in the
+next breath: "idk if these are too big tasks though, maybe should be saved
+for later??"
+
+He is right on both counts, and both halves of that are recorded here so the
+answer does not have to be found again.
+
+**It is genuinely missing, and the code says so rather than being silent.**
+`routes_files.py` line 56: video and audio "are still out (no player exists
+for either yet; audio specifically is tracked as a gap)", and the upload path
+refuses them at line 92 with "video and audio attachments aren't yet". So
+this is a hole, not a rebuild, which for this project is worth stating
+plainly.
+
+**And it is too big for a session.** Audio as a first-class thing touches
+storage, the upload allowlist, a new surface, attachment, search, and
+probably an optional native helper for transcription. That is several
+sessions. Nothing here is built until the owner says go. What follows is the
+decision, so that when he does, the work starts at the first phase rather
+than at this argument.
+
+**Decision 1: two different features that must never share a store.** The
+owner drew this line himself and it is the right one. Background music is
+not notebook content: it is a player over files he already keeps, never
+indexed, never searched, never a note, and nothing about it should ever
+appear in a notebook view. Recorded audio is notebook content: a voice memo
+is a thing he made, and it belongs with his notes. The separation is
+structural rather than a flag on one kind, because a flag is how the two end
+up confused, which is precisely what he asked to avoid.
+
+**Decision 2: a recording is an object, not an attachment.** He asked
+whether they could be "notes or objects like whiteboards and mindmaps".
+Objects. A board and a map are already first-class things that can be
+referenced from a note, and a recording behaves the same way: it has its own
+identity, it can be opened on its own, and it can be pointed at from any
+number of notes. Making it an attachment instead would bury it inside
+whichever note happened to receive it first.
+
+**Decision 3: it is not mp3, and it must not be called mp3.** A browser's
+`MediaRecorder` produces webm or ogg carrying opus, and wav at best. Mp3
+would mean shipping an encoder into the page. The feature is named for what
+the recorder actually produces, and the word mp3 stays out of the interface
+so nobody is promised a format the app does not make.
+
+**Decision 4: transcription is optional and local, on the llama.cpp
+precedent.** `scratchpad/llama-dev.sh` and `tests/test_skills_evals.py`
+(2026-09-20) already establish how an optional native helper is allowed to
+exist here: the suite never depends on it, no mode of `scripts/gate.sh`
+reaches for it, and without its environment variables every test that needs
+it skips at collection. Transcription follows that shape exactly or it does
+not ship. The app ships with no model and that does not change.
+
+**Decision 5: live transcription is a separate question from
+transcription**, and is not promised alongside it. Transcribing a finished
+recording and transcribing a stream are different problems with different
+tools, and treating them as one feature is how the second one drags the
+first.
+
+**Phases, when the owner says go.** Each is a session's worth and each stands
+alone, so the feature can stop after any of them and still be whole: the
+recorder and the object, with the allowlist opened only as far as the object
+needs; the audio library as a surface, with playback; references from notes,
+using the machinery boards and maps already use; transcription behind the
+optional-helper contract; then, and only then, the streaming question. The
+background player is a separate row again, and its own open question is
+whether the app may read a folder outside its data directory, which is with
+the research agent now.
+
+**Not decided, and his to make**: whether the offline promise admits an
+explicitly opt-in online extra, which is what a connection to a streaming
+music service would need. Recorded elsewhere as a pending decision.
+
+**Research in flight**, not a commitment: whisper.cpp and vosk for speech to
+text, piper and kokoro for speech, evaluated on licence and on cost against
+this app's constraints. The evaluation is cheap and is worth having whether
+or not any of it is ever built.
+
+
+## 20. A model per feature (asked for directly, 2026-09-21)
+
+The owner: *"also allow the user to alter the model they use for that
+specific feature if they wish such as for the write with ai area, the chat
+tab and document ai assistant. allow these to be easily individually altered
+and reset and for there to be a mass reset for all individually altered ai
+model preferences."*
+
+Built 2026-09-21; the record is in HISTORY.md, "Moved from the plans". What
+stays here is the decisions, because they are what the next feature row is
+added against, and what is still open.
+
+### Decisions made
+
+1. **A second layer over the roles, not a replacement for them.**
+   `ai/model_manager.py` already has chat, utility, vision, ocr and embedding
+   roles. A feature override resolves to the feature's own model if one is
+   set and to the role it belongs to otherwise. One table, `FEATURES`, maps
+   each feature key to its role, and one seam, `for_feature(key)`, hands back
+   a manager view whose `chat_model()` / `utility_model()` answer for that
+   feature. A new feature is a row in that table, not a new setting, a new
+   route and a new control.
+2. **The first pass is four rows**: the Chat tab, the writing desk (Write
+   with Atlas), the documents AI assistant and the Guide. The Guide is in
+   because it is the same shape exactly, one surface, one model call, one
+   role to fall back to. **The skills runner is deliberately out**: a skill
+   run goes through `agent.run_agent` on `chat_model()`, the same loop the
+   chat tab's agent mode uses, so a "skills" row would have moved only
+   `skill_runner._replan`'s small recovery call and left the model that runs
+   every step where it was. Giving skills a model of their own means giving
+   `run_agent` a feature to run under, which belongs in AGENT_SKILLS_REFORM.
+3. **Settings is the canonical place**, because that is where a mass reset
+   makes sense: one list, a row per feature naming the model and whether it
+   is inherited, a per-row reset live only while that row is overridden, and
+   one reset for all of them that says how many it would clear.
+4. **Each surface also gets the picker in the menu it already has**, never a
+   new control in its chrome: the Chat tab's `kebabMenu`, the writing desk's
+   `details.dock-menu`, the documents editor's `details.dock-menu`. One
+   `openSheet` behind all three, so the wording cannot drift.
+5. **An unset feature stores absence, never the resolved name**, and resolves
+   through its role at read time. Storing the name would look identical on
+   the day it was written and then silently leave every untouched feature
+   behind the first time the chat model is changed in Settings.
+6. **The sub-tab is "Write with Atlas."** The tab button said "Write with AI"
+   while the heading of the panel it opens already said "Write with Atlas",
+   so the app contradicted itself on one screen.
+
+### Still open
+
+- **The feature list is inside `#models-config`**, which Settings hides whole
+  when no backend is answering. So with the model server down there is no way
+  to see or clear a feature override, and the app's own "no model" advice is
+  what shows instead. Defensible (every other model picker is in there too)
+  but worth revisiting if anyone reports it.
+- **The Guide's row is the answer to INBOX 288 but not to its cause.** Smart
+  model routing off silently moves the Guide, an interactive panel, onto the
+  chat model, because the switch is written for background jobs. Either the
+  switch's copy should say which surfaces it moves, or the Guide should stop
+  being one of them. A decision, not a bug fix, so it is written down here
+  rather than taken.
+- **A per-feature model is shown on the Chat tab and nowhere else.** The
+  chat pill (`#chat-active-model`) reads the pinned model now, but the
+  writing desk and the documents assistant say which model they are on only
+  inside their own menus. Neither has a pill to put it in, so this is a
+  design question (does a writing desk want a model badge in its dock?)
+  rather than an oversight.
+
+## 21. Every failure names its way out (INBOX 272 part 1, 2026-09-21)
+
+The owner, verbatim: "make sure all features and alternatives are easily
+knoticable by and offered for the user. like if the embedding model fails
+or has an error, it suggests to download nomic-embed-text. if duck duck go
+is rate limiting it automatically tries searxng and if it isnt installed it
+suggests it. and same for many other instances." INBOX 272 called this a
+class, not the two named examples, and asked for a survey before any of
+them were written. This is that survey, done before any code in this
+session, grep against the running app's own source rather than assumed.
+
+### What the survey found
+
+The two named examples, and most of the class around them, were already
+built, several sessions deep: `core/extras.py` is a real remedy registry
+(an allowlist of installable packages, each with what it buys, its size and
+a one-click Settings, Extras install/remove, some auto-installing their own
+system binary too), and three separate subsystems already try a working
+alternative before reporting failure. Two genuine gaps remained, both fixed
+this session (see "Built, 2026-09-21" below): Agent mode silently downgrading
+to plain Q&A with nothing on screen to say so, and `requirements.txt`'s own
+list of extras having drifted behind `core/extras.py`'s.
+
+| # | Where (file : line) | What the person sees today | Alternative tried first? | Remedy offered | Status |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `ai/ollama_client.py` `embed()`, chat model picked as the embedding model (HTTP 400/501) | "'{model}' can't create embeddings: it looks like a chat model... Download and select a dedicated embedding model such as 'nomic-embed-text'" | n/a (the fault is the choice itself) | Names `nomic-embed-text`, and Settings, Models draws a one-click "switch to nomic-embed-text" button (`embedding-error-fix-row`, `frontend/app.js` ~36481) when Ollama is running and the fix has not already run | Built. `.status.error` styling, not the `.notice.notice-warn` recipe (DESIGN.md); found, not fixed |
+| 2 | `ai/ollama_client.py` `embed()`, model chosen but not pulled (HTTP 404) | "The embedding model '{model}' is selected but not downloaded. Settings, Models has a download button for it... 'nomic-embed-text' is the recommended one and is about 274 MB" | n/a | Names the button's location and the size before it downloads | Built, same styling note as row 1 |
+| 3 | `search/websearch.py` `search()`, DuckDuckGo serves a challenge page and a SearXNG address is configured | Nothing: the configured SearXNG answers instead, only a log line | Yes, SearXNG first | n/a, it worked | Built |
+| 4 | `search/websearch.py` `search()`, DuckDuckGo rate-limits and no SearXNG is configured | Nothing shown yet; a local `discover_searxng()` probe runs the four usual ports first | Yes, auto-discovery of a local SearXNG on the usual ports | If none answers: "DuckDuckGo is rate-limiting this app... no SearXNG instance was found... Settings, Web search has a one-press install for it" | Built |
+| 5 | `search/searxng_manager.py` / `search/searxng_install.py`, SearXNG install itself fails | pip/docker output, last real line surfaced (`_reason`) | n/a | Names the actual failure line, not pip's boilerplate | Built, mirrors `core/extras.py`'s own `_pip_reason` |
+| 6 | `core/docview.py` `_read_document()`, a PDF has no text layer and `pypdfium2` is not installed | "There's no text layer in this file, it's probably a scan... install "Read scanned PDFs" in Settings -> Extras, and pick a vision or OCR model in Settings -> Models" | n/a (nothing to try, the page genuinely cannot be read without the rasteriser) | Names the exact Extras entry and the model step after it | Built |
+| 7 | `core/docview.py`, same path but the PDF is corrupted/encrypted (pdfium opens it to 0 pages) | "This PDF couldn't be opened... re-exporting or re-saving it... usually fixes this" | n/a | A real fix (there's nothing to install; the file itself is bad), told apart from row 6 by a real reproduction the module's own comment credits to a user's log | Built |
+| 8 | `api/routes_files.py` ~1980-2036, an image has no OCR text and Tesseract isn't on PATH | Names the vision-model alternative when one is installed, else "Install Tesseract to also see where each one sits on the page" | Yes, a vision/OCR model's transcription is tried first when one exists | Names Settings, Extras' OCR entry, which also attempts the system Tesseract binary install itself (`extras.py` `_run_install`, `ocr.attempt_binary_install`) | Built |
+| 9 | `ai/agent.py` `run_agent()`, Agent mode asked for and the active model cannot call tools | Nothing at all: `routes_chat.py` caught the event and did a bare `pass`, the turn silently answered as plain Q&A | No, there is no alternative to try (a model either can or cannot call tools) | None reached the screen | **Gap, built this session**: see below |
+| 10 | `ai/skill_runner.py`, same failure mid-run (a skill's later step) | "The model stopped being able to use tools part-way through." (the step-failed card), no remedy | No | None named | **Gap, built this session**: the step's `reason` now carries the same remedy as row 9 |
+| 11 | `requirements.txt`'s "Optional extras" comment | Four of `core/extras.py`'s eight entries (`pypdfium2`, `markitdown`, `python-docx`, and by design not `llama-cpp-python`) were never named for a source install, only in Settings, Extras | n/a | The comment undercounted the app's own remedy registry | **Doc gap, fixed this session** |
+| 12 | `api/routes_models.py`, Ollama (or a custom OpenAI-compatible backend) not answering at all | "○ {backend} not detected" (`backendLabel` names the actual configured backend, not always "Ollama"); "install Ollama" advice only when the provider is actually Ollama | n/a | Install advice for Ollama; a custom base URL that is simply wrong (LM Studio on the wrong port, a typo) gets the same "not detected" line as "not installed", nothing distinguishes the two | Found, not fixed: worth a "check the address" phrase specific to a custom `base_url`, filed as a BACKLOG candidate rather than guessed at here |
+| 13 | `api/routes_update.py`, a self-update candidate | The candidate payload already carries `size` before any download starts | n/a | Size is known ahead of the download, matching the "say the size before it starts" rule | Built server-side; the frontend's own use of `candidate.size` was not traced this session, so "shown before the button is pressed" is not verified end to end |
+| 14 | `ai/librarian.py` `model_error_message()`, a mid-turn model failure that is not a known shape (not offline, not a tool-support failure) | "The model ({model}) couldn't answer this: {sanitised error}" | n/a | Deliberately does not guess a remedy for an error shape it does not recognise (the function's own docstring), the raw (sanitised) reason is the most honest thing to show | Built, and the restraint is itself a decision worth keeping: a wrong guessed remedy is worse than an honest unknown |
+
+The guided tour (`tour.js`, part 2 of INBOX 272) was not touched. It has
+sections, a dimmed backdrop and per-section replay already, and HANDOVER's
+"Now" line records it was repaired the same day; nothing here depends on it
+or changes it.
+
+Built 2026-09-21 (rows 9-11: Agent mode's silent tools-unsupported downgrade,
+and the `requirements.txt` extras-list drift); moved to HISTORY.md ("Moved
+from the plans, 2026-09-21"). The lint that holds it in place is
+`tests/test_failure_remedies.py`.
+
+### Not verified
+
+Every provider test here runs against `tests/fakes.py`'s fake Ollama client
+(CLAUDE.md section 4): the new `"unsupported"` event's shape was exercised
+against that fake, not against a real small model's actual tool-call
+refusal. The frontend half (the `.notice.notice-warn` line and its "Change
+the model" button actually rendering, at the right place, in a real
+browser) was reasoned from the existing `renderAnswerSupport` pattern it
+mirrors and from `node --check`, not observed: no Chromium/Playwright pass
+was run this session. Row 12 (a wrong custom provider URL) and row 13 (the
+update downloader's frontend display of `size`) were read, not fixed;
+they are candidates for the next pass through this table, not decisions
+taken here.

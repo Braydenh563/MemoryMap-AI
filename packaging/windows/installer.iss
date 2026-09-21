@@ -76,6 +76,16 @@ Source: "..\..\dist\MemoryMap AI\*"; DestDir: "{app}"; Flags: ignoreversion recu
 ; terminal, not something a Start Menu shortcut should offer as a choice.
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+; INBOX 253, one-click recovery: beside the ordinary shortcut, not instead
+; of it, in the same Start Menu group so it is findable the moment the
+; ordinary one stops opening. Runs the packaged build's own --reinstall
+; (main()/_repair_install in __main__.py) — there is no venv here to
+; rebuild, so it clears the one thing this frozen build's own persistent
+; window profile (storage_path under <data dir>\webview, CLAUDE.md's own
+; trap note) can get stuck in, then opens the app normally; notes and
+; preferences are never touched. Not on the Desktop (Tasks: desktopicon)
+; on purpose — a repair shortcut is not something to click by habit.
+Name: "{autoprograms}\{#MyAppName}\Repair {#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop --reinstall"; IconFilename: "{app}\{#MyAppExeName}"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch {#MyAppName} now"; Flags: nowait postinstall skipifsilent

@@ -50,6 +50,19 @@ let graphSvg = null;
 let graphZoom = null;
 let graphCanvas = null;
 let graphNodesRef = null;
+// A saved view's node positions (GRAPH_PLAN Phase 5, INBOX 275's neighbour
+// row), one render's worth. `graphApplyView` stashes `view.positions` here;
+// the next `renderGraphCanvas()` (graph-canvas.js, the default renderer)
+// its own `set()` calls trigger reads and clears it, and every render after
+// that (the same `graphApplyView` call fires several more, one per control
+// it restores: layout, colour, physics, entities...) just inherits the
+// seeded positions forward through `prior`, the same as any other re-render
+// already does. See that function's node-build step for the decision this
+// exists to carry out: a restored arrangement holds, it does not re-settle.
+// Not read by the legacy `renderGraphSvg()` (graph.js): that path is a
+// dev-only fallback (`localStorage["graph-renderer"] = "svg"`, no UI
+// control) slated for deletion once the canvas renderer passes the gate.
+let graphPendingViewPositions = null;
 let graphMinimapTick = 0; // throttles minimap repaints during a cooling layout
 //: Set by the renderer each time the map is built. Repositions the label
 //: layer after it has been skipped while invisible, see the tick handler.
@@ -627,9 +640,11 @@ function renderTraceState() {
     return span;
   };
 
-  const arrow = document.createElement("span");
-  arrow.className = "graph-trace-arrow";
-  arrow.textContent = "→";
+  //: The vendored set, not a typed arrow: this sits between two chips as a
+  //: mark, which is where an icon belongs, and a typed one drew at the system
+  //: face beside chips built from Phosphor.
+  const arrow = document.createElement("i");
+  arrow.className = "ph ph-arrow-right graph-trace-arrow";
   arrow.setAttribute("aria-hidden", "true");
   holder.append(chip(traceFromNode, "click a note to start"), arrow,
                 chip(traceToNode, "then click where to end"));
@@ -925,9 +940,10 @@ function renderTraceReadout(result) {
     const connector = document.createElement("span");
     connector.className = "graph-trace-connector";
     connector.title = step.how;
-    const arrow = document.createElement("span");
-    arrow.className = "graph-trace-arrow-icon";
-    arrow.textContent = "→";
+    //: The class already said icon; it is one now. A typed arrow drew at the
+    //: system face inside a connector built from Phosphor everywhere else.
+    const arrow = document.createElement("i");
+    arrow.className = "ph ph-arrow-right graph-trace-arrow-icon";
     arrow.setAttribute("aria-hidden", "true");
     const how = document.createElement("span");
     how.className = "graph-trace-connector-label";
@@ -3343,7 +3359,9 @@ function openGraphLinkPanel(edge, nodes) {
   sourceLine.textContent = label(sourceNode, sourceId);
   const arrow = document.createElement("div");
   arrow.className = "muted graph-link-panel-arrow";
-  arrow.textContent = "↕ connected to";
+  //: Through `setLabel`, so the leading mark is a Phosphor icon rather than a
+  //: typed arrow at the system face.
+  setLabel(arrow, "ph:arrows-down-up connected to");
   const targetLine = document.createElement("div");
   targetLine.textContent = label(targetNode, targetId);
   title.append(sourceLine, arrow, targetLine);
@@ -3900,7 +3918,7 @@ function openGraphNewNote(event, linkFrom = null) {
   $("graph-new-tags").value = "";
   $("graph-new-status").textContent = "";
   $("graph-new-status").classList.remove("error");
-  $("graph-new-title").textContent = linkFrom ? "＋ Connected note" : "＋ New note";
+  setLabel($("graph-new-title"), linkFrom ? "ph:plus Connected note" : "ph:plus New note");
   $("graph-new-hint").textContent = linkFrom
     ? "This note will be linked to the one you grew it from."
     : "It joins the map as soon as you add it.";
@@ -4668,6 +4686,19 @@ function graphCaptureView() {
     documents: document.getElementById("graph-documents")?.checked ?? false,
     orphans: document.getElementById("graph-hide-orphans")?.checked ?? false,
     transform: transform ? { x: transform.x, y: transform.y, k: transform.k } : null,
+    // GRAPH_PLAN Phase 5, "positions on a saved view" (INBOX 275's neighbour
+    // row): the one thing a saved view used to lose. Every visible node's
+    // current spot, force layout or not (a tree/radial/arc one is
+    // recomputed deterministically on restore and never reads this back,
+    // see `graphApplyView`/`renderGraphCanvas`, but capturing it uniformly
+    // costs nothing and keeps this function from having to know the
+    // layout). `graphNodesRef` is the live node array either renderer
+    // draws from, so this is "what is actually on screen", not a stale copy.
+    positions: Object.fromEntries(
+      (graphNodesRef || [])
+        .filter((n) => Number.isFinite(n.x) && Number.isFinite(n.y))
+        .map((n) => [n.id, { x: n.x, y: n.y }])
+    ),
   };
 }
 
@@ -4689,6 +4720,17 @@ function graphApplyView(view) {
     else el.value = value;
     el.dispatchEvent(new Event("change", { bubbles: true }));
   };
+  // GRAPH_PLAN Phase 5, "positions on a saved view". The `set()` calls below
+  // each dispatch a real "change" and several of them (layout, colour,
+  // physics, entities, documents, orphans) independently call `renderGraph`,
+  // which is async and guards itself against a stale call with its own
+  // sequence number (`renderGraphCanvas`'s `s.renderSeq`): every render but
+  // the *last one dispatched here that actually renders* bails before it
+  // reaches the node-building step below, so setting this once, before any
+  // of them fire, and letting the render consume-and-clear it, is race-free
+  // without this function needing to know which `set()` call that will be.
+  graphPendingViewPositions =
+    view.positions && Object.keys(view.positions).length ? view.positions : null;
   localStorage.setItem("graph-layout", view.layout);
   if (view.colour) localStorage.setItem("graph-colour", view.colour);
   set("graph-layout", view.layout);

@@ -64,6 +64,10 @@ ON_THE_GRAMMAR = {
     "notes",
     "timeline",
     "reminders",
+    # The Notes tab's Write with Atlas sub-tab (WORLD_CLASS_PLAN D16): its head
+    # was an h2 and a lone round '?' with no control bar at all, and the two
+    # filled buttons it carried were one per column.
+    "writing-room",
     # The one dock that is not a tab head: the Settings screen's Logs console,
     # reported as the last control row still built by hand. It lives inside the
     # settings modal, which is why `scratchpad/ui-sweeps/docks.js` (which walks

@@ -9,6 +9,14 @@
 //      before any page script runs, so every interval the app starts is
 //      counted by its callback's name and the line that started it, and every
 //      `clearInterval` is subtracted. A screenshot cannot see this at all.
+//   3. **wakes per idle minute**: how many timer callbacks actually ran, by
+//      name. Added for INBOX 266 item 7, because counting live intervals
+//      stopped being the whole answer the moment a repeating timer could be
+//      a chained `setTimeout` rather than a `setInterval`, and because "how
+//      often is this process woken" is what a laptop battery is actually
+//      paying for. Measured 2026-09-21 against the branch head: 124 wakes
+//      in an idle visible minute, 120 of them two HH:MM clocks repainting
+//      the string already on screen.
 //
 // The gate: 0 one-second timers while hidden, and nothing polling while hidden
 // except the reminder check, which is the one thing a background tab is
@@ -52,10 +60,23 @@ const timers = (page) =>
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await ctx.addInitScript(() => {
     window.__timers = new Map();
+    //: Every callback a timer actually ran, by name. Counted rather than
+    //: inferred from the interval list, because a repeating timer is not
+    //: always a `setInterval`: a wall-clock-aligned clock is a chain of
+    //: `setTimeout`s, and an interval census cannot see it at all.
+    window.__wakes = {};
+    const note = (fn) => {
+      const name = (fn && fn.name) || 'anon';
+      window.__wakes[name] = (window.__wakes[name] || 0) + 1;
+    };
+    const wrap = (fn) =>
+      typeof fn === 'function'
+        ? function (...args) { note(fn); return fn.apply(this, args); }
+        : fn;
     const realSet = window.setInterval.bind(window);
     const realClear = window.clearInterval.bind(window);
     window.setInterval = function (fn, ms, ...rest) {
-      const id = realSet(fn, ms, ...rest);
+      const id = realSet(wrap(fn), ms, ...rest);
       const line = ((new Error().stack || '').split('\n')[2] || '').trim();
       window.__timers.set(id, { ms, name: (fn && fn.name) || 'anon', where: line });
       return id;
@@ -63,6 +84,13 @@ const timers = (page) =>
     window.clearInterval = function (id) {
       window.__timers.delete(id);
       return realClear(id);
+    };
+    //: `setTimeout` is wrapped for the count only, never for the census: a
+    //: one-shot debounce is not a waker, and listing every one of them
+    //: would bury the three things this sweep exists to find.
+    const realTimeout = window.setTimeout.bind(window);
+    window.setTimeout = function (fn, ms, ...rest) {
+      return realTimeout(wrap(fn), ms, ...rest);
     };
   });
   const page = await ctx.newPage();
@@ -96,9 +124,23 @@ const timers = (page) =>
   console.log(`intervals while visible: ${visibleTimers.length}`);
   for (const line of visibleTimers) console.log(`    ${line}`);
 
-  if (!QUICK) {
-    let mark = Date.now();
+  //: One window, both numbers: the wake census and the request census are
+  //: counted over the same minute, so a report cannot pair a quiet minute's
+  //: requests with a busy minute's wakes.
+  const idleMinute = async (label) => {
+    await page.evaluate(() => { window.__wakes = {}; });
+    const mark = Date.now();
     await sleep(MINUTE);
+    const fired = await page.evaluate(() => window.__wakes);
+    const rows = Object.entries(fired).sort((a, b) => b[1] - a[1]);
+    const total = rows.reduce((n, r) => n + r[1], 0);
+    console.log(`wakes, ${label} minute: ${total}`);
+    for (const [name, n] of rows.slice(0, 8)) console.log(`    ${n}x ${name}`);
+    return mark;
+  };
+
+  if (!QUICK) {
+    const mark = await idleMinute('visible');
     const visible = count(mark);
     console.log(`requests, visible minute: ${visible.total}  ${JSON.stringify(visible.by)}`);
   }
@@ -112,8 +154,7 @@ const timers = (page) =>
   for (const line of hiddenTimers) console.log(`    ${line}`);
 
   if (!QUICK) {
-    const mark = Date.now();
-    await sleep(MINUTE);
+    const mark = await idleMinute('hidden');
     const hidden = count(mark);
     console.log(`requests, hidden minute:  ${hidden.total}  ${JSON.stringify(hidden.by)}`);
   }

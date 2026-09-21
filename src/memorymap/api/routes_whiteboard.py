@@ -66,12 +66,58 @@ BOARD_TYPES = {"board", "map"}
 DEFAULT_BOARD_TYPE = "board"
 
 #: How a map arranges itself. "free" means "wherever you dragged it", which
-#: is the only thing an ordinary whiteboard has ever done; the other three
-#: are the standard mindmap arrangements (MINDMAP_PLAN.md §3.1). Stored
-#: rather than computed because it is a property of the map, not of the
-#: session looking at it, the layout you chose has to be there tomorrow.
-BOARD_LAYOUTS = {"free", "tree-right", "tree-down", "radial"}
+#: is the only thing an ordinary whiteboard has ever done; the others are the
+#: standard mindmap arrangements (MINDMAP_PLAN.md §3.1). Stored rather than
+#: computed because it is a property of the map, not of the session looking
+#: at it, the layout you chose has to be there tomorrow.
+#:
+#: "tree-left" and "tree-both" were added for MINDMAP_PLAN §13e: §12.0's own
+#: decision list promised both and §13.4 measured them missing, and
+#: both-sides is the layout Coggle is known for. A value this set does not
+#: know is refused rather than stored, so an older client asking for one of
+#: these is the only compatibility question, and it gets the default.
+BOARD_LAYOUTS = {"free", "tree-right", "tree-left", "tree-both", "tree-down", "radial"}
 DEFAULT_BOARD_LAYOUT = "free"
+
+#: **The map's own theme** (MINDMAP_PLAN.md §13e, the owner: "the
+#: customisation features are lacking severely"). §13.4 measured the gap
+#: precisely: a topic has eleven fields and the map as a whole has none, so
+#: every one of the eleven is set one topic at a time and the only bulk
+#: operation of any kind is "Reset to branch" on a single node.
+#:
+#: **What is in here and what is not is one question asked eleven times**:
+#: does this field describe *this topic*, or how *this map* draws topics? The
+#: ten below are the second kind. Left out, deliberately: `icon`, `core`,
+#: `image`, `link` and `edge_label`, each of which names which topic this is
+#: rather than how it is drawn (a map whose every topic is a core idea with
+#: the same picture is not a theme); `edge_bend` and `edge_slide`, which are
+#: a position on one line; and `color`, which is not one value but a rule: it
+#: seeds a whole subtree, and the map-level answer to it is a branch palette,
+#: which is drawn in two places (the canvas from d3, the Library thumbnail
+#: from `MAP_BRANCH_PALETTE` on this side) and would have to teach the
+#: preview cache about itself before it could be picked. That is its own row
+#: in §13e, not a corner of this one.
+#:
+#: The value `None` means "this map says nothing, use the app's default",
+#: which is what every map has today: a theme that stores nothing draws
+#: exactly the map that was drawn before this existed.
+MAP_THEME_FIELDS: dict[str, frozenset | type] = {
+    "font_size": int,
+    "align": frozenset({"left", "center", "right"}),
+    "bold": bool,
+    "italic": bool,
+    "shape": frozenset({"pill", "rect", "ellipse", "none"}),
+    "spine": frozenset({"dashed", "none"}),
+    "edge_style": frozenset({"curve", "elbow", "straight"}),
+    "edge_dashed": bool,
+    "edge_width": frozenset({"thin", "thick"}),
+    "edge_arrow": frozenset({"on", "off"}),
+}
+
+#: The bounds on a themed text size, the same two numbers the per-topic field
+#: is drawn between. A size outside them is not a style, it is a map nobody
+#: can read, and the strip itself only ever offers 12, 19 and 25.
+MAP_THEME_FONT_RANGE = (8, 96)
 
 #: A map node that stands for something that lives in the library. The node
 #: is a *pointer*: deleting it removes the pointer and never the thing, which
@@ -253,6 +299,61 @@ class WhiteboardObjectData(BaseModel):
     #: "whatever this line shape does" and the two words are the override.
     edge_width: str | None = Field(default=None, pattern="^(thin|thick)$")
     edge_arrow: str | None = Field(default=None, pattern="^(on|off)$")
+    #: **Where the line into this topic bends** (MINDMAP_PLAN.md §12.1 item
+    #: 5's third, "the control points on a curve drag to reshape it"). On the
+    #: child, with the rest of the edge's properties, for the reason
+    #: `edge_label` gives above: a tree edge is `parent_id` and has no row of
+    #: its own, so the only thing that can carry a control point is one of its
+    #: two ends, and the child is the end with exactly one incoming line.
+    #:
+    #: **Two fractions of the line's own length, not two board coordinates**,
+    #: and that is the whole of why this is storable at all. The waypoint is
+    #: written in the frame the line itself defines: `edge_slide` along it from
+    #: the halfway mark, `edge_bend` across it. A pair of board coordinates
+    #: would be correct until either end moved, which on a map that tidies
+    #: itself is about one gesture later; a pair of fractions rides the tidy,
+    #: the drag, the zoom and the layout switch unchanged, and the same numbers
+    #: mean the same shape on a map exported and read back at another size.
+    #:
+    #: Unset is the line every map has always drawn, so a map made before this
+    #: existed carries neither field and draws exactly as it did.
+    edge_bend: float | None = Field(default=None, ge=-4, le=4)
+    #: Held inside the ends rather than to the full -1..1 the frame allows: a
+    #: waypoint dragged past an anchor turns the curve back on itself, which
+    #: is a shape nobody asks for and a tangle nobody can undo by dragging.
+    edge_slide: float | None = Field(default=None, ge=-0.45, le=0.45)
+    #: **A picture in a topic** (MINDMAP_PLAN.md §12.1 item 2's fourth,
+    #: Coggle's text/link/image/icon). The url of something already uploaded
+    #: through `/media/upload`, which is the path a board image, a note
+    #: attachment and a pasted picture all already take: a second upload route
+    #: for the same bytes would be a second place for the captioning, the OCR
+    #: and the orphan sweep to be forgotten.
+    #:
+    #: Held to the same allowlist an image *object* is (`MEDIA_URL_RE`), by
+    #: the validator below rather than at the route, because this value also
+    #: arrives from an imported file: the two XML imports write straight into
+    #: `data` through `WhiteboardObjectData`, and a `_image` attribute in a
+    #: file somebody was sent is exactly the door an off-origin url would come
+    #: through.
+    image: str | None = Field(default=None, max_length=300)
+
+    @field_validator("image")
+    @classmethod
+    def _same_origin_picture(cls, value: str | None) -> str | None:
+        """A picture in a topic is one of this install's own uploads or it is
+        nothing. Same allowlist as an image object's `url`, and the same
+        reasoning: a prefix test on `/media/` passes
+        `/media/../../../etc/passwd`, and an arbitrary address would make a
+        node a way to call out of an app whose whole promise is that it never
+        does."""
+        if value is None:
+            return None
+        text = value.strip()
+        if not text:
+            return None
+        if not MEDIA_URL_RE.match(text):
+            raise ValueError("A topic's picture has to be a /media/... upload from this notebook")
+        return text
 
     @field_validator("link")
     @classmethod
@@ -613,6 +714,105 @@ def _store_board_settings(
     existing["layout"] = resolved_layout
     entry.board_settings = json.dumps(existing)
     return resolved_type, resolved_layout
+
+
+def _clean_theme(raw: object) -> dict:
+    """Whatever was handed in, reduced to the fields `MAP_THEME_FIELDS` knows
+    and the values they allow. Everything unknown is dropped rather than
+    refused, for the same reason `_board_settings` defaults instead of
+    raising: this runs on the read path of every map, and a blob written by a
+    newer client, or by hand, must degrade to a plainer map and never to a
+    500 on somebody's notebook.
+
+    `False` and `""` are dropped with `None`, because the absence of a value
+    is how a theme says "the app's own default" and three ways of saying that
+    would be three things to get wrong at the ten places that read one.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    theme: dict = {}
+    for field, allowed in MAP_THEME_FIELDS.items():
+        value = raw.get(field)
+        if value is None or value is False or value == "":
+            continue
+        if allowed is bool:
+            theme[field] = True
+            continue
+        if allowed is int:
+            try:
+                number = int(value)
+            except (TypeError, ValueError):
+                continue
+            low, high = MAP_THEME_FONT_RANGE
+            if low <= number <= high:
+                theme[field] = number
+            continue
+        if isinstance(value, str) and value in allowed:
+            theme[field] = value
+    return theme
+
+
+def _board_theme(entry: Entry | None) -> dict:
+    """This map's theme, defaulted and validated on the way out."""
+    if entry is None:
+        return {}
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return _clean_theme(parsed.get("theme"))
+
+
+def _store_board_theme(entry: Entry, theme: dict) -> dict:
+    """Merge a theme patch in, and return the theme as it now stands.
+
+    A patch, not a replacement, and a key whose value is `None` is a key
+    removed: that is the only way the dialog has of saying "stop theming
+    this field and go back to the app's default", and a replacing write would
+    make every control in it depend on every other one being sent.
+
+    `_store_board_settings`'s own read-modify-write, for its own reason: the
+    settings blob is a family, and replacing it here would clear the board's
+    type and layout every time somebody picked a font size.
+    """
+    current = _board_theme(entry)
+    merged = dict(current)
+    for field in MAP_THEME_FIELDS:
+        if field not in theme:
+            continue
+        value = theme[field]
+        if value is None or value is False or value == "":
+            merged.pop(field, None)
+        else:
+            merged[field] = value
+    resolved = _clean_theme(merged)
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    existing["theme"] = resolved
+    entry.board_settings = json.dumps(existing)
+    return resolved
+
+
+def _themed_style(style: dict, theme: dict) -> dict:
+    """One node's stored style with the map's theme filled in underneath it.
+
+    **The node always wins.** A theme is what a topic follows when it was
+    never told otherwise, so a field the node carries is left exactly as it
+    is: this is the one rule that makes a map-wide change safe to press,
+    because no deliberate per-topic choice can be overwritten by one.
+    """
+    if not theme:
+        return style
+    filled = dict(style)
+    for field, value in theme.items():
+        filled.setdefault(field, value)
+    return filled
 
 
 class BoardOut(BaseModel):
@@ -1725,6 +1925,13 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
 
 
 class BoardRename(BoardTypeMixin):
+    #: A patch on the map's theme (MINDMAP_PLAN.md §13e). Only the fields
+    #: sent are touched, and a field sent as `null` is a field the map stops
+    #: theming: see `_store_board_theme`. Unknown fields and values outside
+    #: their set are dropped by `_clean_theme` rather than refused, because
+    #: this is a look, and a picker one version ahead should leave a map
+    #: plainer rather than unsaveable.
+    theme: dict | None = None
     #: Optional since maps: `PUT` used to be rename-only and required a
     #: title, so a client changing the *layout* had to resend the name it was
     #: not touching: which is how a rename made in another tab gets silently
@@ -1769,6 +1976,18 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
             f"{stored[0]}, {stored[1]}",
             payload={"after": dict(zip(("type", "layout"), stored)), "before": before},
         )
+    if body.theme is not None:
+        before_theme = _board_theme(entry)
+        stored_theme = _store_board_theme(entry, body.theme)
+        if stored_theme != before_theme:
+            events.record(
+                db,
+                "edited",
+                "board",
+                entry.id,
+                f"map theme, {len(stored_theme)} field" + ("" if len(stored_theme) == 1 else "s"),
+                payload={"after": stored_theme, "before": before_theme},
+            )
     if body.title is not None:
         title = body.title.strip()
         update_entry(db, entry, content=apply_title(entry.content, title))
@@ -2332,6 +2551,9 @@ MAP_STYLE_FIELDS = (
     "edge_dashed",
     "edge_width",
     "edge_arrow",
+    "edge_bend",
+    "edge_slide",
+    "image",
 )
 
 
@@ -2480,6 +2702,13 @@ class MapTreeOut(BaseModel):
     #: the shape is documented above and asserted in `tests/test_mindmap.py`.
     roots: list[dict]
     cross_links: list[dict]
+    #: The map's own theme, `MAP_THEME_FIELDS` filtered to what this map set
+    #: (MINDMAP_PLAN.md §13e). Empty for every map that has never been
+    #: themed, which is every map that existed before this. It rides on the
+    #: tree rather than on `BoardOut` because the tree is the one call the
+    #: canvas makes before it draws, and a theme that arrived one request
+    #: later would paint the map twice.
+    theme: dict = {}
 
 
 def _board_entry(db: Session, board_id: int) -> Entry:
@@ -2512,6 +2741,7 @@ def board_tree(board_id: int, db: Session = Depends(get_session)) -> MapTreeOut:
         layout=layout,
         roots=_build_tree(db, objects),
         cross_links=_cross_links(db, board_id, {obj.id for obj in objects}),
+        theme=_board_theme(entry),
     )
 
 
@@ -2886,6 +3116,75 @@ def move_map_nodes(
     return [_object_to_out(node) for node in out]
 
 
+class MapClearStyleOut(BaseModel):
+    """How many topics changed, so the toast can say it rather than guess."""
+
+    cleared: int
+
+
+#: What "back to the map" drops from a topic, which is exactly what "back to
+#: the branch" drops from one node (`WB_MAP_STYLE_KEYS`, whiteboard.js): the
+#: same list, at the other scope. `color` is in it because a hand-painted
+#: topic is a look somebody gave one topic, and `image` is not, because a
+#: picture is content: the reset's whole promise is that it is the safe way
+#: out of a topic you over-decorated, and one that also threw away an upload
+#: would be the one control on this map you cannot press to find out what it
+#: does. `MAP_STYLE_FIELDS` minus the content ones, plus the colour it does
+#: not list because a node has carried `color` as a key of its own since
+#: before any of this existed.
+MAP_CONTENT_FIELDS = frozenset({"image"})
+MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
+
+
+@router.post("/boards/{board_id}/nodes/clear-style", response_model=MapClearStyleOut)
+@events.writes("whiteboard_object", "edited")
+def clear_map_node_styles(
+    board_id: int, db: Session = Depends(get_session)
+) -> MapClearStyleOut:
+    """Drop every per-topic look on this map in one request, one transaction.
+
+    **This is "Reset to branch" at the map's scope, not a second idea**
+    (MINDMAP_PLAN.md §13e). The ring's own reset drops this exact list from
+    one topic so that it goes back to following what it inherits; with a map
+    theme, what a topic inherits is the map, so the same sentence said about
+    the whole map is the bulk operation §13.4 measured missing. One button
+    that means two things at two scopes is one thing to learn; two buttons
+    that mean nearly the same would be two.
+
+    One request for the same reason `move-many` is one: a reset that is one
+    PUT per topic is two hundred round trips on a two-hundred-topic map, and
+    any one of them failing leaves the map half reset with nothing to roll
+    back to.
+    """
+    _require_board(db, board_id)
+    objects = _map_objects(db, board_id)
+    cleared = 0
+    for obj in objects:
+        data = _object_data(obj)
+        dropped = {key: value for key, value in data.items() if key in MAP_CLEARABLE_FIELDS}
+        if not dropped:
+            continue
+        for key in dropped:
+            data.pop(key, None)
+        obj.data = json.dumps(data)
+        cleared += 1
+    if cleared:
+        #: One event for the whole press, the reason `move-many` gives: a
+        #: person pressed one thing once, and a row per topic is a history
+        #: nobody can read.
+        events.record(
+            db,
+            "edited",
+            "whiteboard_object",
+            objects[0].id,
+            f"cleared the look of {cleared} topic" + ("" if cleared == 1 else "s")
+            + f" on map {board_id}",
+            payload={"after": {"cleared": cleared}, "before": {"board_id": board_id}},
+        )
+        db.commit()
+    return MapClearStyleOut(cleared=cleared)
+
+
 # --- export and import: text formats, so a map is not a lock-in -------------
 #
 # MINDMAP_PLAN.md §5 items 16-17. PNG/SVG/PDF come from the canvas and are the
@@ -3015,6 +3314,17 @@ _FREEMIND_EDGE_STYLE_BACK = {value: key for key, value in _FREEMIND_EDGE_STYLE.i
 #: - `edge_dashed`: `<edge>` has STYLE, COLOR and WIDTH, and no dash.
 #: - `align`: FreeMind aligns a node by which side of the root it sits on,
 #:   not by a text alignment, so there is nothing to write it into.
+#: - `edge_bend`/`edge_slide`: `<edge>` has no waypoint of any kind. Freeplane
+#:   grew one much later as a `<edge>` child in its own namespace, spelled in
+#:   absolute coordinates, which is the one spelling these two deliberately are
+#:   not (see the fields' own comment): writing it would claim a shape in units
+#:   the file cannot honour and would not come back as itself.
+#: - `image`: FreeMind's own way to put a picture in a node is a
+#:   `<richcontent>` body of HTML with an `<img>` in it, and the src this app
+#:   has to write is `/media/...`, which resolves to a picture only on the
+#:   install that holds the file. So the honest export is the url as a private
+#:   attribute: this reader puts the picture back, and another reader is shown
+#:   a topic with no broken image in it rather than one with.
 _FREEMIND_PRIVATE = {
     #: `_shape` as well as the native `STYLE` below, not instead of it:
     #: FreeMind's node style is `bubble` or `fork` and has no third value, so
@@ -3029,6 +3339,9 @@ _FREEMIND_PRIVATE = {
     "edge_dashed": "_edge_dashed",
     "edge_width": "_edge_width",
     "edge_arrow": "_edge_arrow",
+    "edge_bend": "_edge_bend",
+    "edge_slide": "_edge_slide",
+    "image": "_image",
     "align": "_align",
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
@@ -3050,6 +3363,9 @@ _OPML_PRIVATE = {
     "edge_dashed": "_edge_dashed",
     "edge_width": "_edge_width",
     "edge_arrow": "_edge_arrow",
+    "edge_bend": "_edge_bend",
+    "edge_slide": "_edge_slide",
+    "image": "_image",
 }
 
 
@@ -3064,7 +3380,7 @@ def _xml_attribute(value) -> str:
     return str(value)
 
 
-def _export_opml(title: str, roots: list[dict]) -> str:
+def _export_opml(title: str, roots: list[dict], cross_links: list[dict] | None = None) -> str:
     """OPML 2.0: the interchange format every mindmapper reads.
 
     Built with ElementTree rather than by formatting strings, so that a topic
@@ -3078,6 +3394,9 @@ def _export_opml(title: str, roots: list[dict]) -> str:
     head = ET.SubElement(opml, "head")
     ET.SubElement(head, "title").text = title
     body = ET.SubElement(opml, "body")
+    links_from: dict = {}
+    for link in cross_links or []:
+        links_from.setdefault(link.get("from_id"), []).append(link.get("to_id"))
 
     def build(parent_element, node: dict):
         attrs = {"text": node["text"] or "(untitled)"}
@@ -3105,6 +3424,18 @@ def _export_opml(title: str, roots: list[dict]) -> str:
                 attrs[attribute] = _xml_attribute(style[field])
         if node.get("color"):
             attrs["_color"] = str(node["color"])
+        #: **A cross-link, in the only place an outline has for one**
+        #: (MINDMAP_PLAN.md §13d). OPML is strictly a tree: there is no
+        #: element for an edge that is not containment, and inventing one
+        #: would make the file wrong for every other reader. So the same
+        #: bargain `_kind` and `_ref` already struck: a private attribute,
+        #: ignored by everything else, read back by this file. `_id` on every
+        #: outline and `_links` on the one the link starts at, space
+        #: separated because an outline may start several.
+        attrs["_id"] = _export_node_id(node["id"])
+        outgoing = links_from.get(node["id"])
+        if outgoing:
+            attrs["_links"] = " ".join(_export_node_id(end) for end in outgoing)
         return ET.SubElement(parent_element, "outline", attrs)
 
     _export_tree(body, roots, build)
@@ -3115,7 +3446,17 @@ def _export_opml(title: str, roots: list[dict]) -> str:
     )
 
 
-def _export_freemind(title: str, roots: list[dict]) -> str:
+#: **A cross-link's id in the two XML exports** (MINDMAP_PLAN.md §13d).
+#: FreeMind's own ids are the string `ID_` and a number, and its
+#: `<arrowlink DESTINATION>` points at one; the OPML export uses the same
+#: spelling in a private `_id` so that one reader in this file understands
+#: both. Derived from the object id rather than counted, so the same map
+#: exports to the same file twice and a diff of two exports is the changes.
+def _export_node_id(node_id: object) -> str:
+    return f"ID_{node_id}"
+
+
+def _export_freemind(title: str, roots: list[dict], cross_links: list[dict] | None = None) -> str:
     """FreeMind `.mm`: the other format every mindmapper reads, and the one
     Coggle, Freeplane, XMind and MindMeister all import (§4's list).
 
@@ -3132,6 +3473,7 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
     import xml.etree.ElementTree as ET
 
     document = ET.Element("map", {"version": "1.0.1"})
+    elements: dict = {}
 
     def build(parent_element, node: dict):
         attrs = {"TEXT": node["text"] or "(untitled)"}
@@ -3150,7 +3492,9 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
             # around it, which is exactly this map's "plain", and `bubble` is
             # the boxed node every other shape here is a variety of.
             attrs["STYLE"] = "fork" if style["shape"] == "none" else "bubble"
+        attrs["ID"] = _export_node_id(node["id"])
         element = ET.SubElement(parent_element, "node", attrs)
+        elements[node["id"]] = element
         # `<font>` and `<edge>` are FreeMind's own children of a node, and
         # they are written only when something was actually chosen: an empty
         # `<font/>` on every node would triple the size of a plain map's file
@@ -3193,6 +3537,22 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
     if len(roots) != 1:
         under = ET.SubElement(document, "node", {"TEXT": title})
     _export_tree(under, roots, build)
+    #: **The cross-links, in FreeMind's own element** (MINDMAP_PLAN.md §13d).
+    #: `<arrowlink>` is a child of the node the link starts at and names the
+    #: node it ends at, which is exactly the shape a link sketch already has,
+    #: so this is a spelling change rather than a model change. Written after
+    #: the tree because a link can point backwards as easily as forwards and
+    #: the element it points at has to exist; skipped when either end is not
+    #: on this map, which `_cross_links` already guarantees but a file this
+    #: function is handed twice should not depend on.
+    for link in cross_links or []:
+        source = elements.get(link.get("from_id"))
+        if source is None or link.get("to_id") not in elements:
+            continue
+        arrow = {"DESTINATION": _export_node_id(link["to_id"]), "ENDARROW": "Default"}
+        if link.get("label"):
+            arrow["MIDDLE_LABEL"] = _xml_attribute(link["label"])
+        ET.SubElement(source, "arrowlink", arrow)
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         + ET.tostring(document, encoding="unicode")
@@ -3229,13 +3589,37 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     entry = _board_entry(db, board_id)
     title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {board_id}"
     roots = _build_tree(db, _map_objects(db, board_id))
+    #: **An export of a themed map looks like the map** (MINDMAP_PLAN.md
+    #: §13e). A theme is resolved at paint time rather than written onto each
+    #: node, which is what keeps it safe to change; but none of the three
+    #: formats has a place to put a map-level look, so a file written from
+    #: the stored styles alone would come out plainer than the map it was
+    #: taken from. Resolved here and nowhere else: `/tree` deliberately keeps
+    #: reporting what each node actually carries, because that is what the
+    #: strip has to show as set or unset.
+    theme = _board_theme(entry)
+    if theme:
+        stack = list(roots)
+        while stack:
+            node = stack.pop()
+            node["style"] = _themed_style(node.get("style") or {}, theme)
+            stack.extend(node.get("children") or [])
     media, suffix = EXPORT_FORMATS[format]
+    #: **Markdown carries no cross-links, deliberately** (MINDMAP_PLAN.md
+    #: §13d's decision). This format's whole promise is in `_export_markdown`'s
+    #: own docstring, that the file is an outline anybody can paste into
+    #: anything, and everything a node wears is already dropped here for that
+    #: reason. A "Cross-links" section after the outline would also be read
+    #: straight back in by `_parse_markdown_outline`, which reads indentation
+    #: and nothing else, so one map's two links would come back as two topics.
     if format == "markdown":
         text = _export_markdown(title, roots)
-    elif format == "opml":
-        text = _export_opml(title, roots)
     else:
-        text = _export_freemind(title, roots)
+        #: Read only for the two formats that can carry them, so a Markdown
+        #: export does not pay for a scan of every sketch on the board to find
+        #: something it is going to drop.
+        links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
+        text = (_export_opml if format == "opml" else _export_freemind)(title, roots, links)
     # The filename is built from the board's id, never from its title: a
     # title is free text, and a Content-Disposition header is exactly where
     # free text becomes a header-injection question nobody wants to answer
@@ -3397,6 +3781,25 @@ def _opml_style(element) -> dict:
     return _clean_import_style(raw)
 
 
+#: The cross-links starting at one imported element, as the ids the file
+#: itself used (MINDMAP_PLAN.md §13d). Bounded, because this is a file
+#: somebody handed us: a node with ten thousand arrowlinks is either a
+#: generated file nobody meant to import or an attempt to make the import
+#: write ten thousand rows per node.
+MAX_IMPORT_LINKS_PER_NODE = 64
+
+
+def _import_link_targets(element, tag: str, attribute: str) -> list[str]:
+    out: list[str] = []
+    for link in element.findall(tag):
+        target = (link.get(attribute) or "").strip()
+        if target:
+            out.append(target)
+        if len(out) >= MAX_IMPORT_LINKS_PER_NODE:
+            break
+    return out
+
+
 def _parse_freemind(content: str) -> tuple[str, list[dict]]:
     """FreeMind `.mm` in, `(title, nested {text, children})` out.
 
@@ -3431,6 +3834,12 @@ def _parse_freemind(content: str) -> tuple[str, list[dict]]:
                 {
                     "text": text[:MAX_OBJECT_TEXT_CHARS],
                     "style": _freemind_style(child),
+                    #: The file's own id and the arrowlinks that start here
+                    #: (MINDMAP_PLAN.md §13d). Carried as written rather than
+                    #: resolved, because nothing has an object id yet: the
+                    #: import resolves them once every node has been placed.
+                    "ref": (child.get("ID") or "").strip(),
+                    "links": _import_link_targets(child, "arrowlink", "DESTINATION"),
                     "children": walk(child, depth + 1),
                 }
             )
@@ -3487,6 +3896,8 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
                 {
                     "text": text[:MAX_OBJECT_TEXT_CHARS],
                     "style": _opml_style(child),
+                    "ref": (child.get("_id") or "").strip(),
+                    "links": (child.get("_links") or "").split(),
                     "children": walk(child, depth + 1),
                 }
             )
@@ -3603,6 +4014,72 @@ def _place_map_nodes(
 
     place(parsed, None, 0)
     return created
+
+
+def _restore_import_links(
+    db: Session, board_id: int, parsed: list[dict], created: list[WhiteboardObject]
+) -> int:
+    """The imported file's cross-links, as the link sketches a map draws.
+
+    **The ids in the file are the file's, not this database's**, so this runs
+    after every node has been placed and has one: `parsed` is walked in the
+    same pre-order `_place_map_nodes` places in, which pairs each parsed node
+    with the object made from it, and that pairing is the whole translation.
+    Walked here rather than threaded through `_place_map_nodes` because the
+    other caller of that function (the AI proposal) has no file and no ids,
+    and giving it a parameter it can only pass None to is a parameter every
+    later reader has to rule out.
+
+    A link whose far end is not in this file is dropped rather than left
+    dangling: half a link is a row the canvas draws as a line to nowhere, and
+    `_forget_links_to` exists precisely to stop those accumulating.
+    """
+    by_file_id: dict[str, WhiteboardObject] = {}
+    flat: list[dict] = []
+
+    def walk(nodes: list[dict]) -> None:
+        for node in nodes:
+            flat.append(node)
+            walk(node.get("children") or [])
+
+    walk(parsed)
+    if len(flat) != len(created):
+        # The two walks disagreed, which they cannot unless `_place_map_nodes`
+        # changed shape. Nothing is written rather than something wrong: an
+        # import that quietly links the wrong pair of topics is worse than one
+        # that drops the links.
+        return 0
+    for node, obj in zip(flat, created):
+        ref = str(node.get("ref") or "")
+        if ref:
+            by_file_id[ref] = obj
+    made = 0
+    for node, obj in zip(flat, created):
+        for target in node.get("links") or []:
+            far = by_file_id.get(str(target))
+            if far is None or far.id == obj.id:
+                continue
+            db.add(
+                WhiteboardSketch(
+                    board_id=board_id,
+                    data=json.dumps(
+                        {
+                            "type": "link-straight",
+                            "sourceId": obj.id,
+                            "sourceKind": "object",
+                            "targetId": far.id,
+                            "targetKind": "object",
+                        }
+                    ),
+                    x=0.0,
+                    y=0.0,
+                    z=1,
+                )
+            )
+            made += 1
+    if made:
+        db.flush()
+    return made
 
 
 #: The most notes one proposal is built from. Matches
@@ -3917,12 +4394,13 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
     db.flush()  # the nodes need the board's id before they can point at it
 
     created = _place_map_nodes(db, entry.id, parsed)
+    crossed = _restore_import_links(db, entry.id, parsed, created)
     _record_map_creation(
         db,
         entry.id,
         name,
         f"imported {body.format} map, {len(created)} nodes",
-        {"format": body.format},
+        {"format": body.format, "cross_links": crossed},
         created,
     )
     db.commit()

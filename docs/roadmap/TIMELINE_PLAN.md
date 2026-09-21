@@ -126,10 +126,34 @@ help behind the '?' popover.
 
 ## 7. Not verified until built
 
-The density scrubber's usefulness under 200 notes (it may read as noise
-and should hide below a threshold measured then); the "auto" scale
-thresholds are a first guess to be tuned on a real notebook; the table's
-column set on a tablet needs a measurement at 820.
+**Both measurements were taken on 2026-09-20** over a 2,000-note seed
+(`seed-timeline-bulk.py`), and both changed what the app does. The account is
+in [HISTORY.md](HISTORY.md), "Moved from the plans, 2026-09-20"; the numbers
+in one line each:
+
+- **The density strip's threshold was the wrong variable.** It hid under 200
+  notes; measured with `scratchpad/ui-sweeps/timelinedensity.js`, a count
+  admits a notebook the strip cannot draw (200 notes over 18 days fills 18 of
+  its 120 slots: a comb, 86% of it empty or at the peak) and hides one it can
+  (150 notes over 300 days fills 103 slots with a peak of 5, and reads as a
+  profile). The test is now on the shape it would draw: a fifth of the slots
+  carrying something, and a peak of at least four.
+- **The table at 820 had no title column at all.** Measured with
+  `scratchpad/ui-sweeps/timelinetable820.js`: `table-layout: fixed` plus seven
+  columns in rems wanted 816px of a 704px box, so the one flexible column,
+  the title, came out 0px wide and the table scrolled sideways by 112px (222px
+  at 700, and at 1024 the title was 87px with all 300 titles cut off). Three
+  columns now give way between 600 and 1024 (space, words, links) and the tags
+  as well below 820; the title measures 375px at 1024, 176px at 820 and 242px
+  at 700, with no horizontal scroll at any width.
+
+Still open from this section: **the "auto" scale thresholds** (day under 60
+notes in range, week under 400, decision 4) are still the first guess. They
+were not tuned here because the seed is a shape rather than a notebook: what
+decides whether a day bucket reads well is how much a person writes in a day,
+and inventing that is how a measurement becomes a preference wearing a
+number. Next step: the owner's own notebook, or the same probe pointed at a
+restored backup.
 
 ## 8. Research: what the reference products do, and what it changes here
 

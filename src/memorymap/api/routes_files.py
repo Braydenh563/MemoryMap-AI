@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 import os
 import re
 import subprocess
@@ -27,7 +28,16 @@ from sqlalchemy.orm import Session
 from memorymap.ai import captioning, docreader, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview, filejobs, media_gc, media_process, ocr, pdfpages
+from memorymap.core import (
+    deps,
+    diskspace,
+    docview,
+    filejobs,
+    media_gc,
+    media_process,
+    ocr,
+    pdfpages,
+)
 from memorymap.core.database import Attachment, Entry, MediaUpload, PageRead
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -104,15 +114,23 @@ def upload_file(
     stored_name = f"{uuid.uuid4().hex}{suffix}"
     destination = uploads_dir / stored_name
 
+    #: `partial_write`, because the 413 above was the only failure this
+    #: write cleaned up after. Measured on a data dir filled to 100% (INBOX
+    #: 266, item 6): the upload answered 507, correctly, and left a
+    #: zero-byte file in `uploads/` that no database row pointed at and
+    #: nothing would ever remove. On a disk with 30 MB left and a 40 MB file
+    #: that is 30 MB of orphan, and the person is further from being able to
+    #: save anything than before they started.
     size = 0
-    with destination.open("wb") as out:
-        while chunk := file.file.read(1024 * 1024):
-            size += len(chunk)
-            if size > MAX_FILE_BYTES:
-                out.close()
-                destination.unlink(missing_ok=True)
-                raise HTTPException(status_code=413, detail="File is larger than 50 MB")
-            out.write(chunk)
+    with diskspace.partial_write(destination):
+        with destination.open("wb") as out:
+            while chunk := file.file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_FILE_BYTES:
+                    out.close()
+                    destination.unlink(missing_ok=True)
+                    raise HTTPException(status_code=413, detail="File is larger than 50 MB")
+                out.write(chunk)
 
     attachment = manager.add_attachment(
         session,
@@ -1016,7 +1034,12 @@ def save_generated_file(body: SaveFileBody) -> dict:
         stem, suffix = target.stem, target.suffix
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         target = _within_exports(exports, f"{stem}-{stamp}{suffix}")
-    target.write_bytes(data)
+    #: A half-written export is worse than no export: it lands in the folder
+    #: Settings lists, under the name the person chose, and opens as a
+    #: truncated file rather than as an obvious failure. `write_bytes`
+    #: truncates first and fills after, so out of space leaves exactly that.
+    with diskspace.partial_write(target):
+        target.write_bytes(data)
     return {"path": str(target), "filename": target.name, "bytes": len(data)}
 
 
@@ -1176,15 +1199,17 @@ def upload_media(
     stored_name = f"{uuid.uuid4().hex}{suffix}"
     destination = media_dir / stored_name
 
+    #: Same guard, same measured reason as the attachment upload above.
     size = 0
-    with destination.open("wb") as out:
-        while chunk := file.file.read(1024 * 1024):
-            size += len(chunk)
-            if size > MAX_FILE_BYTES:
-                out.close()
-                destination.unlink(missing_ok=True)
-                raise HTTPException(status_code=413, detail="File is larger than 50 MB")
-            out.write(chunk)
+    with diskspace.partial_write(destination):
+        with destination.open("wb") as out:
+            while chunk := file.file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_FILE_BYTES:
+                    out.close()
+                    destination.unlink(missing_ok=True)
+                    raise HTTPException(status_code=413, detail="File is larger than 50 MB")
+                out.write(chunk)
 
     original_name = file.filename or stored_name
     # `size` was already counted above while streaming the upload to disk, 
@@ -1928,7 +1953,12 @@ class OcrRegionsOut(BaseModel):
 #: `core/pdfpages.py` renders a page to PNG for the lightbox, and
 #: `ocr.extract_regions` reads a PNG.
 def _pdf_regions_for(
-    path: Path, index: int, stored_text: str, stored_label: str
+    path: Path,
+    index: int,
+    stored_text: str,
+    stored_label: str,
+    key: tuple[str, int] | None = None,
+    auto: bool = True,
 ) -> OcrRegionsOut:
     if not pdfpages.available():
         return OcrRegionsOut(
@@ -1953,6 +1983,17 @@ def _pdf_regions_for(
             message="That PDF could not be opened.",
         )
     index = max(0, min(index, count - 1))
+    #: **Before the rasteriser, not after it.** `_regions_for` consults the
+    #: same store, but by then this has already rendered the page to a PNG,
+    #: and that render is ~20ms *serialised* behind `pdfpages`'s own lock (see
+    #: that module on why the lock exists). Scrolling a long scan asks for
+    #: every page it passes, so the render is the same per-look cost the
+    #: reader was, on the same path, for an answer already in hand.
+    cached = _stored_regions(key, index)
+    if cached is not None:
+        cached.pages = count
+        cached.page = index
+        return cached
     png = pdfpages.render_page(path, index)
     if not png:
         return OcrRegionsOut(
@@ -1971,7 +2012,12 @@ def _pdf_regions_for(
         #: the whole file's reading as page 7's fallback would be the app
         #: stating a guess about where the text came from as a fact, the same
         #: line `_regions_for`'s own "stored-text" badge exists to hold.
-        out = _regions_for(page_path, stored_text if index == 0 else "", stored_label)
+        #: `key` and `index`, not the temporary file's path: the rasterised
+        #: page lives in a directory that is deleted three lines from here, so
+        #: the store has to be keyed by the page of the document it came from.
+        out = _regions_for(
+            page_path, stored_text if index == 0 else "", stored_label, key, index, auto
+        )
     out.pages = count
     out.page = index
     if out.source == "none":
@@ -1995,17 +2041,130 @@ def _pdf_regions_for(
     return out
 
 
-def _regions_for(path: Path, stored_text: str, stored_label: str) -> OcrRegionsOut:
-    """Region extraction with the honest fallback both callers below share."""
+#: **The regions of a page, kept, because looking is not reading.**
+#:
+#: Reported (INBOX 314): *"the tesseract generates it continuously not only the
+#: first time or when prompted by the iser"*. Measured before it was changed,
+#: with a fake reader counting its own calls (`tests/test_ocr_region_cache.py`):
+#: four looks at one image ran the reader four times, and two passes over a two
+#: page PDF ran it four times, because the workspace re-asks this route every
+#: time the page on screen changes and scroll mode changes it on every page you
+#: scroll past. Nothing was stored and nothing was consulted.
+#:
+#: The pair below is the whole fix: read the store first, write it after a real
+#: extraction. Both are silent on failure for the same reason
+#: `_remember_page_read` is: the answer reached the caller, and losing the
+#: *cache* of it must never turn that into an error a reader sees.
+def _stored_regions(key: tuple[str, int] | None, page: int) -> OcrRegionsOut | None:
+    """What the optical reader saw on this page last time, or None."""
+    if not key:
+        return None
+    kind, source_id = key
+    try:
+        with deps.get_db().session() as session:
+            row = (
+                session.query(PageRead.regions)
+                .filter(
+                    PageRead.kind == kind,
+                    PageRead.source_id == source_id,
+                    PageRead.page == int(page),
+                )
+                .one_or_none()
+            )
+        blob = (row[0] if row else "") or ""
+        if not blob.strip():
+            return None
+        return OcrRegionsOut(**json.loads(blob))
+    except Exception:  # noqa: BLE001 - an unreadable cache is an empty one
+        logger.debug("could not load the stored regions for a page", exc_info=True)
+        return None
+
+
+def _remember_regions(key: tuple[str, int] | None, page: int, out: OcrRegionsOut) -> None:
+    """Store what the optical reader saw on this page, replacing any earlier copy.
+
+    `pages` and `page` are left out of the stored body on purpose: how long the
+    document is, and which page was asked for, are properties of the request
+    rather than of the regions, and `_pdf_regions_for` sets both on the way
+    out. Storing them would be a page count going stale in a cache.
+    """
+    if not key or out.source != "tesseract":
+        return
+    kind, source_id = key
+    try:
+        body = out.model_dump(exclude={"pages", "page"})
+        with deps.get_db().session() as session:
+            row = (
+                session.query(PageRead)
+                .filter(
+                    PageRead.kind == kind,
+                    PageRead.source_id == source_id,
+                    PageRead.page == int(page),
+                )
+                .one_or_none()
+            )
+            if row is None:
+                #: A page looked at but never read is a real state: the row
+                #: carries the regions and an empty `text`, which is what keeps
+                #: "N pages read" honest. See `PageRead.regions`.
+                row = PageRead(kind=kind, source_id=source_id, page=int(page))
+                session.add(row)
+            row.regions = json.dumps(body)
+            session.commit()
+    except Exception:  # noqa: BLE001 - a cache write must never fail a read
+        logger.debug("could not store the regions for a page", exc_info=True)
+
+
+def _regions_for(
+    path: Path,
+    stored_text: str,
+    stored_label: str,
+    key: tuple[str, int] | None = None,
+    page: int = 0,
+    auto: bool = True,
+) -> OcrRegionsOut:
+    """Region extraction with the honest fallback both callers below share.
+
+    **Read once per page, not once per look at a page** (INBOX 314). `key` and
+    `page` say which page this is, which is what makes the answer storable;
+    without them (a caller that has no row to hang it on) this behaves exactly
+    as it always did and reads the image every time. See `PageRead.regions` for
+    why the store is a column on that table and not a reading of its own.
+    """
+    cached = _stored_regions(key, page)
+    if cached is not None:
+        return cached
+    #: **Nothing stored and nobody asked: read nothing.** The owner, 2026-09-21:
+    #: "I want to be able to disable tesseract in the ocr workspace, or if I am
+    #: not selected on tesseract and am instead selected on the ocr model, then
+    #: tesseract wont activate. I want tesseract to work once and then not alter
+    #: what is generated after that unless the user selects an option."
+    #:
+    #: Storing the answer (above) stopped the *repeat* reads, but a first look
+    #: at a page still ran Tesseract whether or not it was the reader the person
+    #: had chosen, which is how a page they meant to read with the vision model
+    #: came back transcribed by the other one. `auto` is false whenever the
+    #: workspace's reader is not Tesseract, and then this returns the honest
+    #: empty answer and the "use Read this page" message with it.
+    if not auto:
+        return OcrRegionsOut(
+            width=0, height=0, regions=[], source="none", message=""
+        )
     found = ocr.extract_regions(path)
     if found is not None:
-        return OcrRegionsOut(
+        out = OcrRegionsOut(
             width=found["width"],
             height=found["height"],
             regions=[OcrRegionOut(**region) for region in found["regions"]],
             source="tesseract",
             message="" if found["regions"] else "No text was found on this page.",
         )
+        #: Stored even when it found nothing: "this page was looked at and had
+        #: no text on it" is an answer, and re-running the reader on every
+        #: later look to be told the same thing is the cost this exists to
+        #: remove. A real read of the page clears it (`_remember_page_read`).
+        _remember_regions(key, page, out)
+        return out
     text = (stored_text or "").strip()
     if not text:
         return OcrRegionsOut(
@@ -2040,7 +2199,10 @@ def _regions_for(path: Path, stored_text: str, stored_label: str) -> OcrRegionsO
 
 @router.get("/media/{upload_id}/ocr-regions", response_model=OcrRegionsOut)
 def media_ocr_regions(
-    upload_id: int, page: int = 0, session: Session = Depends(get_session)
+    upload_id: int,
+    page: int = 0,
+    auto: bool = True,
+    session: Session = Depends(get_session),
 ) -> OcrRegionsOut:
     """The page, region by region, what the OCR workspace draws its boxes
     from. Asked for with three screenshots of Baidu's Unlimited-OCR: a page
@@ -2059,14 +2221,19 @@ def media_ocr_regions(
         if upload.vision_ocr_text
         else "Text already extracted from this file"
     )
+    key = _page_read_key(None, upload_id)
     if suffix == ".pdf":
-        return _pdf_regions_for(path, page, stored, label)
-    return _regions_for(path, stored, label)
+        return _pdf_regions_for(path, page, stored, label, key, auto)
+    #: An image is a one page document, and page 0 is where its regions go.
+    return _regions_for(path, stored, label, key, 0, auto)
 
 
 @router.get("/files/{attachment_id}/ocr-regions", response_model=OcrRegionsOut)
 def attachment_ocr_regions(
-    attachment_id: int, page: int = 0, session: Session = Depends(get_session)
+    attachment_id: int,
+    page: int = 0,
+    auto: bool = True,
+    session: Session = Depends(get_session),
 ) -> OcrRegionsOut:
     """`media_ocr_regions`'s sibling for an attached file. Two tables, two
     routes: the same split every other file endpoint in this module has."""
@@ -2083,9 +2250,10 @@ def attachment_ocr_regions(
         if attachment.vision_ocr_text
         else "Text already extracted from this file"
     )
+    key = _page_read_key(attachment_id, None)
     if suffix == ".pdf":
-        return _pdf_regions_for(path, page, stored, label)
-    return _regions_for(path, stored, label)
+        return _pdf_regions_for(path, page, stored, label, key, auto)
+    return _regions_for(path, stored, label, key, 0, auto)
 
 
 class OcrPageReadOut(BaseModel):
@@ -2107,6 +2275,18 @@ class OcrPageReadOut(BaseModel):
     #: this module keeps.
     caption: str = ""
     caption_model: str = ""
+    #: **What an optical reader saw on this page while it was on screen**, as
+    #: plain text, and a different claim again from `text`.
+    #:
+    #: Reported (INBOX 314): *"I can only view the extracted text on a single
+    #: page"*. The reading panel lists one section per page of the document, and
+    #: it could only list pages with a stored *reading*: a scan being read by
+    #: Tesseract as you scroll has no reading of any page, so the panel held
+    #: whichever page was on screen and nothing else, which is also why
+    #: clicking a section could not take you to another page. This carries
+    #: those pages, so the panel can list them without any of them claiming to
+    #: be a transcription somebody asked for. See `PageRead.regions`.
+    regions_text: str = ""
 
 
 #: **A vision read scoped to the page you are looking at.**
@@ -2274,6 +2454,14 @@ def _remember_page_read(key: tuple[str, int] | None, result: OcrPageReadOut, rea
             row.reader = reader
             row.model = result.model or ""
             row.text = result.text
+            #: **The regions cache belongs to the page as it was read.** A
+            #: fresh reading of this page replaces what the app knows about it,
+            #: so the stored rectangles from the previous look are thrown away
+            #: rather than left to describe a reading that no longer exists
+            #: (INBOX 314). The next look re-reads the page once and stores
+            #: that. Deleting a reading takes the whole row, so it needs no
+            #: invalidation of its own.
+            row.regions = ""
             row.created_at = datetime.now(timezone.utc)
             #: Explicit: `DatabaseManager.session()` hands back a bare Session,
             #: and `with` on one closes it without committing, the whole point
@@ -2400,6 +2588,24 @@ def _page_read_count_map(kind: str, ids: list[int]) -> dict[int, int]:
     return counts
 
 
+def _regions_text(blob: str | None) -> str:
+    """The stored regions of one page as plain text, blocks in reading order.
+
+    The blocks are joined with a blank line between them rather than a newline:
+    they are separate blocks on the page, and running them together would make
+    a heading and the paragraph under it look like one sentence.
+    """
+    if not (blob or "").strip():
+        return ""
+    try:
+        found = json.loads(blob)
+        parts = [(region.get("text") or "").strip() for region in found.get("regions") or []]
+    except Exception:  # noqa: BLE001 - an unreadable cache is an empty one
+        logger.debug("could not read the stored regions of a page", exc_info=True)
+        return ""
+    return "\n\n".join(part for part in parts if part)
+
+
 def _stored_page_reads(key: tuple[str, int] | None) -> list[OcrPageReadOut]:
     """Every page of this document that has already been read, oldest page first."""
     if not key:
@@ -2413,15 +2619,25 @@ def _stored_page_reads(key: tuple[str, int] | None) -> list[OcrPageReadOut]:
                 .order_by(PageRead.page.asc())
                 .all()
             )
-            return [
+            pages = [
                 OcrPageReadOut(
                     page=row.page,
                     text=row.text or "",
                     model=row.model or "",
                     caption=row.caption or "",
                     caption_model=row.caption_model or "",
+                    regions_text=_regions_text(row.regions),
                 )
                 for row in rows
+            ]
+            #: A row with nothing on it is one this table keeps for its own
+            #: bookkeeping, not a page the workspace has anything to say about.
+            #: Filtered here rather than in each caller: "already read" has
+            #: three callers and they must not be able to disagree about it.
+            return [
+                page
+                for page in pages
+                if page.text.strip() or page.caption.strip() or page.regions_text.strip()
             ]
     except Exception:  # noqa: BLE001 - an unreadable cache is an empty one
         logger.debug("could not load stored page readings", exc_info=True)

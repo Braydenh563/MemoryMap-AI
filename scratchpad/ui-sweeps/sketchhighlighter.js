@@ -11,7 +11,14 @@
 //   2. **A self-crossing must not darken.** A real marker crossed over its
 //      own line is the same colour there. Two passes at 0.35 composite to
 //      0.58, which is what "messy" looks like on a scribble.
-//   3. **The alpha asked for is the alpha painted**: 0.35, once.
+//   3. **The alpha asked for is the alpha painted**, once. The number is read
+//      out of `HIGHLIGHTER_STYLE` rather than written here: WHITEBOARD_PLAN
+//      decision 7 gave the pad and the whiteboard one table and moved the pad
+//      from 0.35 to the plan's 0.4, so a literal here would fail the day that
+//      table is edited, which is exactly when this sweep should still pass.
+//
+// Its companion is `sketchparity.js`, which asks the other half of decision 7:
+// that the pad and the board agree, and that the blend follows the backdrop.
 //
 // Drives the real canvas through real pointer events and reads the pixels
 // back with getImageData.
@@ -45,7 +52,8 @@ const { boot } = require('./lib.js');
     if (typeof sketchTool !== 'undefined') sketchTool = 'highlighter';
     if (typeof sketchHistory !== 'undefined') sketchHistory.length = 0;
     const r = c.getBoundingClientRect();
-    return { left: Math.round(r.left), top: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), cw: c.width, ch: c.height };
+    const table = typeof HIGHLIGHTER_STYLE !== 'undefined' ? HIGHLIGHTER_STYLE : null;
+    return { left: Math.round(r.left), top: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), cw: c.width, ch: c.height, alpha: table ? table.alpha : 0.35 };
   });
 
   // 1 and 3: one straight horizontal drag.
@@ -114,10 +122,15 @@ const { boot } = require('./lib.js');
     const armY = rows.indexOf(Math.max(...rows));
     const stemX = cols.indexOf(Math.max(...cols));
     //: A point on the same arm, far enough along it to be clear of the stem's
-    //: own width and of the turn at either end.
+    //: own width and of the turn at either end, **and inside the band rather
+    //: than on its edge**. Taking the first inked column took the arm's own
+    //: end, where the pixel is partly covered and reads about 0.07 light
+    //: whatever the alpha is: that is antialiasing, not a second pass, and it
+    //: made this check report a darkening that was not there the first time
+    //: the stroke's geometry shifted by a few pixels.
     const inked = [];
     for (let x = 0; x < c.width; x++) if (ink(x, armY) > 0.05) inked.push(x);
-    const away = inked.find((x) => Math.abs(x - stemX) > 40);
+    const away = inked.find((x, i) => Math.abs(x - stemX) > 40 && i >= 8 && i < inked.length - 8);
     return {
       crossing: +ink(stemX, armY).toFixed(3),
       plain: away === undefined ? null : +ink(away, armY).toFixed(3),
@@ -152,7 +165,42 @@ const { boot } = require('./lib.js');
     return +best.toFixed(3);
   });
 
-  console.log(`straight stroke: ${band.samples} inked samples, coverage min ${band.min} max ${band.max} mean ${band.mean}, spread ${band.spread}`);
+  //: **And the eraser**, for the same reason the pen is here: the brush the
+  //: pen and the shapes use was pulled into one `sketchApplyBrush` when the
+  //: highlighter moved to its own painter, and the eraser is the one branch
+  //: of it that composites differently (`destination-out`). A pen stroke, the
+  //: eraser over the same line, and the ink counted both times.
+  const eraser = await page.evaluate(() => {
+    const c = document.getElementById('sketch-canvas');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    //: Dark pixels, not opaque ones: this sweep paints the canvas white
+    //: before each case, so every pixel is opaque and the alpha channel says
+    //: nothing. The ink is black on white.
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] < 200) n += 1;
+    sketchTool = 'pen';
+    sketchPen.eraser = true;
+    return n;
+  });
+  await page.mouse.move(setup.left + 60, py2);
+  await page.mouse.down();
+  for (let i = 1; i <= 20; i++) await page.mouse.move(setup.left + 60 + i * 12, py2, { steps: 2 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const erased = await page.evaluate(() => {
+    const c = document.getElementById('sketch-canvas');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    //: The eraser composites `destination-out`, so an erased pixel is
+    //: transparent rather than white: both "not dark" and "not there" count
+    //: as gone.
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] < 200 && d[i + 3] > 5) n += 1;
+    sketchPen.eraser = false;
+    return n;
+  });
+
+  console.log(`straight stroke: ${band.samples} inked samples, coverage min ${band.min} max ${band.max} mean ${band.mean}, spread ${band.spread} (the table asks for ${setup.alpha})`);
+  console.log(`eraser:          ${eraser} inked pixels before, ${erased} after a pass over the same line`);
   console.log(`pen:             darkest pixel ${penInk} (an opaque pen on white should be 1)`);
   console.log(`self-crossing:   junction ${cross.crossing} at [${cross.at[0]},${cross.at[1]}] against ${cross.plain} at x=${cross.at[2]} on the same arm`);
 
@@ -160,10 +208,11 @@ const { boot } = require('./lib.js');
   // The band must be one value: a joint that composites twice shows up as a
   // spread. 0.03 is well under what a second 0.35 pass would add (~0.23).
   if (band.spread > 0.03) findings.push(`the band is uneven: coverage runs ${band.min} to ${band.max}, a spread of ${band.spread}`);
-  if (Math.abs(band.mean - 0.35) > 0.04) findings.push(`the band is ${band.mean} where the tool asks for 0.35`);
+  if (Math.abs(band.mean - setup.alpha) > 0.04) findings.push(`the band is ${band.mean} where the tool asks for ${setup.alpha}`);
   if (cross.plain === null || cross.crossing < 0.05) findings.push('the self-crossing stroke was not found on the canvas, so nothing was measured');
   else if (cross.crossing - cross.plain > 0.03) findings.push(`crossing its own line darkens the stroke, ${cross.plain} to ${cross.crossing}`);
   if (penInk < 0.98) findings.push(`the plain pen is no longer opaque: darkest pixel ${penInk}`);
+  if (erased > eraser * 0.2) findings.push(`the eraser left ${erased} of ${eraser} inked pixels behind`);
   if (errors.length) findings.push(`${errors.length} page error(s): ${errors.slice(0, 2)}`);
   for (const line of findings) console.log(`    ${line}`);
   console.log(findings.length ? `FAIL: ${findings.length} findings` : 'PASS: 0 findings');

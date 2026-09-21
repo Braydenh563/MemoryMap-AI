@@ -103,6 +103,11 @@ async function walkTour(page, label) {
 
 (async () => {
   for (const [width, height] of [
+    //: 2000x1140 is here because INBOX 280 was reported there and nothing had
+    //: ever driven the tour at a window that wide. The failure it found was
+    //: not about the width itself, but a sweep that only ever ran at two
+    //: sizes could not say that.
+    [2000, 1140],
     [1440, 900],
     [390, 844],
   ]) {
@@ -110,6 +115,93 @@ async function walkTour(page, label) {
     const label = `${width}x${height}`;
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
+
+    // --- the welcome tour, the way a first run reaches it --------------------
+    //
+    // INBOX 280: "this happens when I press next on the welcome tour", and the
+    // screenshot was the whole page dimmed with a bright strip at the right
+    // edge, no card. Everything below this drives `openTour` directly, which
+    // is the Settings path; the welcome reaches it through the last Next of
+    // `#onboarding-overlay` (`onboardingNext` in app.js), and that hand-off
+    // had never been driven by anything.
+    //
+    // The two things asserted on every step are the two the report says were
+    // missing: a card you can see, and a cut-out inside the window. A cut-out
+    // outside it is the fault itself, because the dim is the cut-out's own
+    // box-shadow, so a hole in the wrong place darkens the page and highlights
+    // nothing.
+    await page.evaluate(() => {
+      localStorage.removeItem("onboardingDone");
+      localStorage.removeItem("tourDone");
+      switchTab("dashboard");
+    });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => openOnboarding());
+    await page.waitForTimeout(600);
+    const slides = await page.evaluate(() => ONBOARDING_SLIDES.length);
+    for (let slide = 0; slide < slides; slide += 1) {
+      await page.click("#onboarding-next");
+      await page.waitForTimeout(700);
+    }
+    const handoff = await page.evaluate(() => !!tourRun);
+    check(handoff, `${label} the welcome's last Next starts the tour`);
+    for (let step = 0; step < 12 && (await page.evaluate(() => !!tourRun)); step += 1) {
+      const m = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        const spot = document.getElementById("tour-spot");
+        const card = document.getElementById("tour-card");
+        const sr = spot.getBoundingClientRect();
+        const cr = card.getBoundingClientRect();
+        const inside = (r) => r.left < vw && r.right > 0 && r.top < vh && r.bottom > 0;
+        const target = tourRun.el.getBoundingClientRect();
+        return {
+          counter: document.getElementById("tour-count").textContent,
+          step: tourRun.step.target,
+          spotHidden: spot.classList.contains("hidden"),
+          spot: [Math.round(sr.left), Math.round(sr.top), Math.round(sr.width), Math.round(sr.height)],
+          spotInside: inside(sr) && sr.width >= 1 && sr.height >= 1,
+          card: [Math.round(cr.left), Math.round(cr.top), Math.round(cr.width), Math.round(cr.height)],
+          cardVisible:
+            cr.width > 0 && cr.height > 0 && inside(cr) && getComputedStyle(card).display !== "none",
+          targetInside: inside(target),
+          //: The target has to be worth pointing at, not merely touching the
+          //: window: a control with two pixels inside the edge gives a cut-out
+          //: nobody can see the point of.
+          targetOverlap: Math.round(
+            Math.min(
+              Math.min(target.right, vw) - Math.max(target.left, 0),
+              Math.min(target.bottom, vh) - Math.max(target.top, 0)
+            )
+          ),
+        };
+      });
+      console.log(
+        `${label} welcome ${m.counter.padEnd(7)} ${m.step.padEnd(22)} ` +
+          `spot=${JSON.stringify(m.spot)} card=${JSON.stringify(m.card)}`
+      );
+      check(m.cardVisible, `${label} welcome ${m.counter} the card is on screen`);
+      check(m.targetInside, `${label} welcome ${m.counter} ${m.step} is on screen`);
+      check(
+        m.targetOverlap >= 8,
+        `${label} welcome ${m.counter} ${m.step} has a usable amount on screen (${m.targetOverlap}px)`
+      );
+      //: A step is either pointing at something, with the cut-out on it and
+      //: inside the window, or pointing at nothing, with no cut-out at all and
+      //: the card centred. The broken third state, a cut-out placed outside
+      //: the window, is what INBOX 280 was.
+      check(
+        m.spotHidden || m.spotInside,
+        `${label} welcome ${m.counter} the cut-out is inside the window or absent ` +
+          `(${JSON.stringify(m.spot)})`
+      );
+      await page.evaluate(() => tourNext());
+      await page.waitForTimeout(800);
+    }
+    await page.evaluate(() => {
+      if (tourRun) tourClose(false);
+    });
+    await page.waitForTimeout(300);
 
     // --- every step of the whole tour, at this width -------------------------
     await page.evaluate(() => {
@@ -206,11 +298,18 @@ async function walkTour(page, label) {
       `${label} Skip closes the tour and its dim`
     );
 
-    // Escape, and the focus handed back to whatever opened the tour.
-    await page.evaluate(() => {
-      document.getElementById("settings-btn").focus();
+    // Escape, and the focus handed back to whatever opened the tour. The
+    // opener is the space switcher rather than the gear, because the gear is
+    // `display: none` below 600 (it is behind `#header-more`, and that host is
+    // a SPAN, which does not take focus either). Focusing an element that
+    // cannot hold focus left `document.activeElement` on `<body>`, and this
+    // check then read a sweep bug as a tour bug for as long as it ran. The
+    // space switcher is a real button at both widths.
+    const opener = "space-switcher-btn";
+    await page.evaluate((id) => {
+      document.getElementById(id).focus();
       openTour("basics");
-    });
+    }, opener);
     await page.waitForTimeout(700);
     await page.keyboard.press("Escape");
     await page.waitForTimeout(400);
@@ -220,8 +319,8 @@ async function walkTour(page, label) {
     }));
     check(!afterEscape.open, `${label} Escape skips the tour`);
     check(
-      afterEscape.focus === "settings-btn",
-      `${label} focus returns to the opener (${afterEscape.focus})`
+      afterEscape.focus === opener,
+      `${label} focus returns to the opener ${opener} (${afterEscape.focus})`
     );
 
     // --- a step whose element is hidden is skipped ---------------------------
@@ -300,7 +399,12 @@ async function walkTour(page, label) {
     // The replay strip is built from TOUR_SECTIONS, so this is also the check
     // that the table and the buttons agree, and that pressing one closes the
     // settings modal before measuring a control the modal was covering.
-    await page.click("#settings-btn");
+    // Not `page.click("#settings-btn")`: below 600 the four desktop header
+    // buttons are hidden behind `#header-more` (DESIGN.md, "The top bar on a
+    // phone"), so that click waited 30s for a control the phone does not draw
+    // and took the whole sweep down at 390x844. The opener itself is the same
+    // on both, and it is what the kebab row calls.
+    await page.evaluate(() => openSettingsModal());
     await page.waitForTimeout(600);
     await page.evaluate(() => showSettingsSection("help"));
     await page.waitForTimeout(400);

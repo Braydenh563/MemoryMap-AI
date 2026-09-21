@@ -293,23 +293,33 @@ async function newBoard(page, name, type) {
     const strokes = await page.evaluate(() => ({
       count: wbState.sketches.length,
       blend: [...document.querySelectorAll(".sketch-path")].map((el) => el.style.mixBlendMode),
+      //: The blend the mode asks for, not the literal "multiply" this check
+      //: used to name: decision 7's second half makes it `multiply` over a
+      //: light board and `screen` over a dark one, so a hard-coded value here
+      //: would fail `THEME=dark` on a board that is behaving exactly as the
+      //: plan says.
+      wanted: wbHighlighterBlend(),
       width: (() => { try { return JSON.parse(wbState.sketches[0].data).width; } catch { return null; } })(),
       opacity: (() => { try { return JSON.parse(wbState.sketches[0].data).opacity; } catch { return null; } })(),
     }));
     ok(
-      "two highlighter strokes were drawn and both multiply",
-      strokes.count === 2 && strokes.blend.length === 2 && strokes.blend.every((b) => b === "multiply"),
-      `${strokes.count} strokes, blend ${JSON.stringify(strokes.blend)}, width ${strokes.width}, opacity ${strokes.opacity}`,
+      "two highlighter strokes were drawn and both carry the mode's blend",
+      strokes.count === 2 && strokes.blend.length === 2 && strokes.blend.every((b) => b === strokes.wanted),
+      `${strokes.count} strokes, blend ${JSON.stringify(strokes.blend)} (wanted ${strokes.wanted}), width ${strokes.width}, opacity ${strokes.opacity}`,
     );
     ok(
       "the highlighter width is the plan's 12 to 24",
       strokes.width >= 12 && strokes.width <= 24,
       `width ${strokes.width}`,
     );
+    //: "Darker" only over a light board: `screen` moves a dark one the other
+    //: way, and what both mean is that a second pass reads as a second pass.
+    const away = (a, b) => Math.abs(a - b);
     ok(
-      "the crossing is darker than either stroke alone",
+      "a crossing reads as two passes, not one",
       cross !== null && hOnly !== null && vOnly !== null && bare !== null
-        && cross < hOnly - 1 && cross < vOnly - 1 && hOnly < bare - 1,
+        && away(cross, bare) > away(hOnly, bare) + 1 && away(cross, bare) > away(vOnly, bare) + 1
+        && away(hOnly, bare) > 1,
       `luminance: crossing ${cross === null ? "?" : cross.toFixed(1)}, across ${hOnly === null ? "?" : hOnly.toFixed(1)}, down ${vOnly === null ? "?" : vOnly.toFixed(1)}, bare board ${bare === null ? "?" : bare.toFixed(1)}`,
     );
   }

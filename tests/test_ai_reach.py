@@ -230,3 +230,59 @@ def test_none_of_the_new_tools_leak_a_private_note(client, session):
             assert "ELDERFLOWER" not in blob, name
     finally:
         vault.close()
+
+
+def test_a_skill_written_by_the_model_can_carry_its_own_check(client, session, app_state):
+    """Nothing in the app offered a `verify` block except the built-ins: the
+    editor round-tripped it and `save_skill` had no argument for it, so a
+    skill the model wrote could never state the postcondition the harness was
+    built to check (brief-13-harness item 2)."""
+    result = tools.execute_tool(
+        session,
+        "save_skill",
+        {
+            "name": "Tag the bare ones",
+            "prompt": "Tag every note that has no tags.",
+            "tools": ["list_notes", "tag_note", "count_notes"],
+            "verify_tool": "count_notes",
+            "verify_expect": "max",
+            "verify_value": 0,
+            "verify_untagged": True,
+        },
+    )
+    assert "error" not in result, result
+    assert result["verify"] == {
+        "tool": "count_notes",
+        "args": {"untagged": True},
+        "field": "count",
+        "expect": {"max": 0},
+    }
+    saved = deps.get_config().get_preference("skills", [])
+    assert [s for s in saved if s["name"] == "Tag the bare ones" and s.get("verify")]
+
+
+def test_a_check_the_skill_cannot_run_is_refused_at_save_time(client, session, app_state):
+    """Same rule as a step's contract: a verifier the run's own allowlist
+    would refuse is a postcondition that can never pass, and finding that out
+    at the end of a run is finding it out too late."""
+    result = tools.execute_tool(
+        session,
+        "save_skill",
+        {
+            "name": "Checks with a tool it lacks",
+            "prompt": "Tag every note that has no tags.",
+            "tools": ["tag_note"],
+            "verify_tool": "count_notes",
+            "verify_expect": "unchanged",
+        },
+    )
+    assert "error" in result
+    assert "count_notes" in result["error"]
+
+
+def test_a_skill_with_no_verify_arguments_still_saves(client, session, app_state):
+    result = tools.execute_tool(
+        session, "save_skill", {"name": "Plain", "prompt": "Summarise my week."}
+    )
+    assert "error" not in result
+    assert result["verify"] is None

@@ -103,6 +103,19 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
     "moe": [
         {"name": "gemma4:e2b", "size": "~7.2 GB", "purpose": "MoE: 2B-class speed with more capability. Try it if bigger models are too slow"},
         {"name": "gemma4:e4b", "size": "~9.6 GB", "purpose": "MoE: noticeably more capable + better writing than the e2b"},
+        # Unsloth's quantisation-aware-training GGUFs of the same two models,
+        # asked for by name. QAT means the model was fine-tuned *while*
+        # quantised rather than squashed afterwards, so a 4-bit copy holds up
+        # better than an ordinary 4-bit of the same weights; the point of
+        # having them beside the bare tags is that they are roughly half the
+        # download for close to the same answers. `hf.co/…` because neither is
+        # in Ollama's curated library, the same shape the vision and ocr
+        # groups already use for that situation, and the UD-Q4_K_XL tag is
+        # Unsloth's own dynamic quant rather than a plain Q4.
+        {"name": "hf.co/unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL", "size": "~4.0 GB",
+         "purpose": "MoE, quantisation-aware 4-bit: e2b answers at roughly half the download"},
+        {"name": "hf.co/unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL", "size": "~5.3 GB",
+         "purpose": "MoE, quantisation-aware 4-bit: e4b answers at roughly half the download"},
         {"name": "gemma4:26b", "size": "~19 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB"},
         {"name": "qwen3.5:35b-a3b", "size": "~21 GB", "purpose": "MoE: the most capable here, still quick. Needs ~24 GB"},
     ],
@@ -265,14 +278,214 @@ def is_small_model(name: str) -> bool | None:
     return None if size is None else size < SMALL_MODEL_PARAMS_B
 
 
+# --- a model per feature (asked for directly) ---------------------------------
+#
+# *"allow the user to alter the model they use for that specific feature if
+# they wish such as for the write with ai area, the chat tab and document ai
+# assistant."*
+#
+# **A second layer over the roles above, not a replacement for them.** The
+# roles (chat, utility, vision, ocr, embedding) say what *kind* of job a model
+# is for; a feature override says "this one surface runs on that model". So a
+# feature never gets a setting, a route and a control of its own: it gets one
+# row in this table naming the role it falls back to, and everything else,
+# reading, setting, clearing, the mass reset, Settings' own list and the
+# inline picker, is generic over the table. Adding the next feature is a row.
+#
+# The fallback is a *role*, not a model name, and that is the decision the
+# whole thing rests on (decision 5): an unset feature stores nothing and
+# resolves through its role at read time. Storing the resolved name instead
+# would look identical on the day it was written and then silently leave every
+# untouched feature behind on the old model the first time the chat model is
+# changed in Settings, with nothing on screen connecting the two events.
+
+
+@dataclass(frozen=True)
+class Feature:
+    """One surface that may run on a model of its own."""
+
+    key: str
+    #: What Settings calls it. Sentence case, and it names the surface the
+    #: user can point at rather than the module behind it.
+    label: str
+    #: "chat" or "utility": the role getter this feature's override replaces,
+    #: and the model it inherits when there is no override.
+    role: str
+    #: One line for the Settings row, the rest of the explanation belongs in
+    #: the section's own '?' popover (DESIGN.md's help recipe).
+    note: str
+
+
+#: The first pass. Three surfaces were named in the ask; the Guide is here
+#: because it is the same shape exactly, one surface, one model call, one role
+#: to fall back to.
+#:
+#: **The skills runner is deliberately not a row.** It looked like a fourth
+#: candidate and is not: a skill run goes through `agent.run_agent`, the same
+#: loop the chat tab's agent mode uses and on the same `chat_model()`, so a
+#: "skills" row would have moved only `skill_runner._replan`'s small recovery
+#: call and left the model that actually runs every step exactly where it was.
+#: A control that changes a thing next to the thing it names is worse than no
+#: control. Giving skills a real model of their own means giving `run_agent` a
+#: feature of its own to run under, which is a bigger change than this one and
+#: belongs in AGENT_SKILLS_REFORM rather than half-done here.
+FEATURES: tuple[Feature, ...] = (
+    Feature(
+        key="chat",
+        label="Chat tab",
+        role="chat",
+        note="Answers in the Chat tab, including agent mode.",
+    ),
+    Feature(
+        key="writing",
+        label="Write with Atlas",
+        role="chat",
+        note="Drafts and revisions on the Notes tab's writing desk.",
+    ),
+    Feature(
+        key="documents",
+        label="Document AI assistant",
+        role="chat",
+        note="Edit, write and remove inside a document.",
+    ),
+    Feature(
+        key="guide",
+        label="Guide",
+        role="utility",
+        note="The help panel that answers questions about this app.",
+    ),
+)
+
+FEATURES_BY_KEY: dict[str, Feature] = {feature.key: feature for feature in FEATURES}
+
+#: One preference per feature, and an absent or empty value means inherited.
+#: Prefixed so `reset_feature_models` and the support bundle can find them all
+#: without a second list to keep in step with the table above.
+FEATURE_PREF_PREFIX = "feature_model_"
+
+
+def feature_pref_key(feature: str) -> str:
+    return f"{FEATURE_PREF_PREFIX}{feature}"
+
+
+def known_feature(feature: str) -> Feature:
+    """The row, or `ValueError`.
+
+    Refused rather than stored: a typo'd key would otherwise save a preference
+    nothing ever reads, and the surface it was meant for would go on running
+    the global model while Settings showed the override as applied.
+    """
+    row = FEATURES_BY_KEY.get(feature)
+    if row is None:
+        raise ValueError(f"'{feature}' is not a feature that has its own model")
+    return row
+
+
 class ModelManager:
     """Reads/writes the active-model preferences."""
 
-    def __init__(self, config: ConfigManager) -> None:
+    def __init__(self, config: ConfigManager, feature: str | None = None) -> None:
         self._config = config
+        #: Which feature's work this manager is answering for, or None for the
+        #: app's own preferences. A *view*, not a mode: `for_feature` hands
+        #: back a second manager over the same config rather than setting a
+        #: flag on this one, so nothing that holds a manager can have the
+        #: model it resolves changed underneath it by something elsewhere.
+        #:
+        #: This is the whole seam. Every module downstream, the agent loop,
+        #: the drafter, the help chat, goes on calling `chat_model()` and
+        #: `utility_model()` and knows nothing about features; a route hands
+        #: it the view for its own surface and the right model arrives.
+        self._feature = feature
+
+    def for_feature(self, feature: str) -> "ModelManager":
+        """This manager, answering as one feature (decision 1)."""
+        known_feature(feature)
+        return ModelManager(self._config, feature)
+
+    def _override_for_role(self, role: str) -> str:
+        """This view's override, if it replaces *this* role.
+
+        A feature's override lands on the getter for the role it falls back
+        to, and only that one. So the Guide, whose role is utility, moves its
+        own `utility_model()` and leaves `chat_model()` alone: a surface that
+        happens to also use the other role keeps using the app's choice for
+        it, which is the honest reading of "the model this feature runs on".
+        """
+        if not self._feature:
+            return ""
+        row = FEATURES_BY_KEY.get(self._feature)
+        if row is None or row.role != role:
+            return ""
+        return str(self._config.get_preference(feature_pref_key(self._feature), "") or "")
+
+    # --- feature overrides, read and written through the app's own manager ---
+
+    def feature_override(self, feature: str) -> str:
+        """The stored override, or "" for inherited. Never a resolved name."""
+        known_feature(feature)
+        return str(self._config.get_preference(feature_pref_key(feature), "") or "")
+
+    def feature_model(self, feature: str) -> str:
+        """The model this feature would actually run on right now."""
+        row = known_feature(feature)
+        view = self.for_feature(feature)
+        return view.chat_model() if row.role == "chat" else view.utility_model()
+
+    def set_feature_model(self, feature: str, name: str) -> None:
+        """Point one feature at a model. An empty name clears the override."""
+        known_feature(feature)
+        self._config.set_preference(feature_pref_key(feature), (name or "").strip())
+
+    def clear_feature_model(self, feature: str) -> None:
+        self.set_feature_model(feature, "")
+
+    def reset_feature_models(self) -> int:
+        """Clear every feature override, and say how many there were.
+
+        The count is the point: the mass reset in Settings says what it is
+        about to undo, and does nothing when the answer is nothing, rather
+        than reporting success over a no-op.
+        """
+        cleared = 0
+        for feature in FEATURES:
+            if self.feature_override(feature.key):
+                self.clear_feature_model(feature.key)
+                cleared += 1
+        return cleared
+
+    def feature_rows(self) -> list[dict]:
+        """One row per feature, resolved, for Settings and the inline picker.
+
+        Every row carries both facts the UI needs to draw it: the model in
+        use, and whether that is this feature's own choice or the role's. A
+        row that only carried the name would make "inherited" unsayable.
+        """
+        rows = []
+        for feature in FEATURES:
+            override = self.feature_override(feature.key)
+            #: Resolved through a plain manager, never through `self`: a view
+            #: asked for the rows would otherwise report its own override as
+            #: what every row inherits.
+            plain = ModelManager(self._config)
+            inherits = plain.chat_model() if feature.role == "chat" else plain.utility_model()
+            rows.append(
+                {
+                    "key": feature.key,
+                    "label": feature.label,
+                    "note": feature.note,
+                    "role": feature.role,
+                    "model": override or inherits,
+                    "inherits": inherits,
+                    "overridden": bool(override),
+                }
+            )
+        return rows
 
     def chat_model(self) -> str:
-        return self._config.get_preference("chat_model", "llama3.2")
+        return self._override_for_role("chat") or self._config.get_preference(
+            "chat_model", "llama3.2"
+        )
 
     def chat_model_is_small(self) -> bool | None:
         """Is the chat model small enough to need the simplified treatment?
@@ -291,6 +504,13 @@ class ModelManager:
         weekly digest, tidy suggestions, writing fixes. Defaults
         to the chat model, but the user can point it at a small fast model
         so the big chat model isn't tied up categorising every note."""
+        #: An explicit feature override is asked about first, and before the
+        #: routing switch. Routing off means "background jobs use the chat
+        #: model", which is a default about jobs nobody chose a model for; a
+        #: surface the user pointed at a model by hand is not one of those.
+        override = self._override_for_role("utility")
+        if override:
+            return override
         if not self._config.get_preference("smart_model_routing_enabled", True):
             return self.chat_model()
         return self._config.get_preference("utility_model", "") or self.chat_model()

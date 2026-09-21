@@ -332,6 +332,13 @@ try {
 
   $btnDetails = New-FooterButton "Details" 30 78
   $btnCopy    = New-FooterButton "Copy diagnostics" 116 122
+  # Asked for directly: "there's no way to minimise the or cancel loading the
+  # application from the splash". Cancel was there; getting the window out of
+  # the way was not. The form is borderless and TopMost, so there is no system
+  # minimise button and nothing else can be brought in front of it: a first
+  # install that pulls a model can sit there for minutes with the machine
+  # unusable behind it.
+  $btnMin     = New-FooterButton "Minimise" 326 78
   $btnCancel  = New-FooterButton "Cancel" 412 78
 
   $details              = New-Object System.Windows.Forms.TextBox
@@ -347,7 +354,7 @@ try {
   $details.Visible      = $false
 
   $form.Controls.AddRange(@($logo, $title, $tag, $bar, $progress, $status, $hint, $tip,
-                            $btnDetails, $btnCopy, $btnCancel, $details))
+                            $btnDetails, $btnCopy, $btnMin, $btnCancel, $details))
   foreach ($i in 0..($MAX_ROWS - 1)) {
     $form.Controls.AddRange(@($rowMark[$i], $rowName[$i], $rowDetail[$i]))
   }
@@ -522,6 +529,19 @@ try {
     } catch {
       $btnCopy.Text = "Could not copy"
     }
+  })
+
+  $btnMin.Add_Click({
+    # TopMost has to go with it, or a minimised window that is restored from
+    # the taskbar comes back in front of everything again, and some shells
+    # will not minimise a TopMost form at all. It is put back on restore
+    # below, so the window still sits above the desktop while it is working.
+    $form.TopMost = $false
+    $form.WindowState = "Minimized"
+  })
+
+  $form.Add_Resize({
+    if ($form.WindowState -eq "Normal") { $form.TopMost = $true }
   })
 
   $btnCancel.Add_Click({

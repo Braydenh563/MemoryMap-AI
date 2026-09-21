@@ -66,4 +66,17 @@ def test_the_guide_reads_a_stream_and_can_fall_back() -> None:
     assert 'fetch("/help/ask/stream"' in settings
     #: The one-shot route stays as the fallback for a proxy that buffers.
     assert 'return apiJson("/help/ask", {' in settings
-    assert 'className = "help-chat-think muted"' in settings
+    #: **The thinking is the chat transcript's own reasoning block, not a
+    #: clipped div** (INBOX 287, the owner: "the thinking box doesnt properly
+    #: render in it either at least while streaming"). This line used to pin
+    #: `className = "help-chat-think muted"`, a bare `<div>` that CSS clipped
+    #: to `max-height: 2.6em`: measured mid-stream at 29px tall over 262px of
+    #: text, unlabelled, with no way to open it. The shape is pinned here
+    #: rather than the class name so the next change has to keep the summary
+    #: and the body, which are what make it readable.
+    assert 'think.className = "help-chat-think agent-step step-thinking"' in settings
+    assert 'thinkSummary.textContent = "Thinking"' in settings
+    assert 'thinkBody.className = "thinking"' in settings
+    #: Folded when the answer starts, the same move the chat's own
+    #: `foldEarlierThinking` makes, so the answer is not read underneath it.
+    assert "if (think.open && !text) think.open = false;" in settings

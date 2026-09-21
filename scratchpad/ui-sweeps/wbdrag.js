@@ -72,7 +72,15 @@ const { boot } = require('./lib.js');
   const synth = await page.evaluate(() => {
     const d = wbState.nodes[0]; const el = document.querySelector(`.node-card[data-id="${d.id}"]`);
     const t0 = performance.now();
-    for (let i = 0; i < 50; i++) { el.style.transform = `translate(${d.x + i}px, ${d.y}px)`; wbAlignmentGuides('node', d.id, d.x + i, d.y, 200, 100); }
+    // `wbAlignmentGuides(excludeKeys, x, y, w, h)`: the first argument became
+    // a Set of `wbMultiKey` strings when a bulk move had to exclude every
+    // member it carries, and this line still passed the old `(kind, id, ...)`
+    // pair. Measured 2026-09-21 on the merge head and on the branch: the same
+    // `TypeError: excludeKeys.has is not a function`, so the sweep has been
+    // reporting nothing here rather than a cost, on both. `wbDragExcludeKeys`
+    // is what the real drag builds; one dragged card is one key.
+    const exclude = new Set([wbMultiKey('node', d.id)]);
+    for (let i = 0; i < 50; i++) { el.style.transform = `translate(${d.x + i}px, ${d.y}px)`; wbAlignmentGuides(exclude, d.x + i, d.y, 200, 100); }
     return ((performance.now() - t0) / 50).toFixed(2);
   });
   console.log(`114 drag        transform + alignment guides per move ${synth}ms on ${setup.cards} cards (was 7.67ms on 80 before the per-gesture box cache)`);

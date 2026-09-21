@@ -98,3 +98,17 @@ httpx>=0.28.1,<1.0  # FastAPI's TestClient needs this
 #     — also needs the `tesseract` system binary on PATH, which pip cannot
 #     install (apt/brew/choco install tesseract-ocr, or see INSTALL.md);
 #     without it this degrades to "no OCR text", never a failed upload.
+#   pip install pypdfium2 Pillow # read scanned PDFs (core/pdfpages.py): turns
+#     pages with no text layer into images a vision/OCR model can read;
+#     without it a scanned PDF is only ever reported as one.
+#   pip install markitdown        # import Word/PowerPoint/etc as notes
+#   pip install python-docx       # export a document to real Word (.docx)
+#
+# Every one of the four above (and voice/desktop above them) also has an
+# install button in Settings → Extras (`core/extras.py`), which is the
+# no-terminal way to get them: this list exists for a source install, not
+# because it is the only way in. INBOX 272 part 1 found this list itself
+# had drifted from `core/extras.py`'s own allowlist (four of eight extras
+# were missing here), which is the "found, not fixed" this fixes: a doc
+# describing which extras exist is worth as little as no doc at all once
+# it undercounts them.

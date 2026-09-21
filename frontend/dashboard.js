@@ -293,26 +293,36 @@ async function refreshAiGreeting(forced = false) {
   return true;
 }
 
+//: The stopper `startMinuteTicker` (app.js) hands back, not a timer id: a
+//: chained timeout has a new id every tick, so an id could not cancel it.
 let dashClockTimer = null;
 
+function stopDashClock() {
+  if (dashClockTimer) dashClockTimer();
+  dashClockTimer = null;
+}
+
 function startDashClock() {
-  if (dashClockTimer) clearInterval(dashClockTimer);
+  stopDashClock();
   // Nothing to tick for while nobody can see it. The repaint on return is
   // what makes stopping safe: resuming on the next tick would leave the time
   // it stopped at on screen for up to a second, which on a clock is the one
   // place a person notices.
   if (document.hidden) return;
-  dashClockTimer = setInterval(paintDashClock, 1000);
+  //: One wake a minute, on the minute, rather than sixty: this paints HH:MM,
+  //: so 59 of every 60 runs wrote the string already on screen. See
+  //: `startMinuteTicker` in app.js for why it is a wall-clock-aligned
+  //: timeout chain and not a 60,000 ms interval (INBOX 266, item 7).
+  dashClockTimer = startMinuteTicker(paintDashClock);
 }
 
 document.addEventListener("visibilitychange", () => {
   // Only while the dashboard is actually drawn: `paintDashClock` returns at
-  // once when its two elements are not in the page, but an interval started
-  // on every tab would still be an interval.
+  // once when its two elements are not in the page, but a ticker started
+  // on every tab would still be a ticker.
   if (!$("dash-clock-time")) return;
   if (document.hidden) {
-    if (dashClockTimer) clearInterval(dashClockTimer);
-    dashClockTimer = null;
+    stopDashClock();
     return;
   }
   paintDashClock();
@@ -452,14 +462,14 @@ function renderDashboardGreeting() {
   // so it has to be redrawn when the dashboard repaints after a theme change.
   // It also can't be sized while the tab is display:none, p5 measures zero , 
   // which is why this sits in the dashboard's own render and not in init.
-  renderEmblem($("dash-hero-emblem"), 46, { animate: true });
+  paintDashEmblem();
   paintDashClock();
-  // One ticking clock, however many times the dashboard re-renders, and none
-  // at all while the tab is hidden. It paints HH:MM, so a hidden tab was
-  // waking the process once a second to write the string that was already
-  // there, for as long as the app stayed open (WORLD_CLASS_PLAN section 10,
-  // F6: "0 timers while hidden"). Measured with a wrapped `setInterval`: two
-  // one-second intervals survived hiding, this one and app.js's `tickClocks`.
+  // One ticking clock, however many times the dashboard re-renders, none at
+  // all while the tab is hidden, and one wake a minute while it is not. It
+  // paints HH:MM, so a hidden tab was waking the process once a second to
+  // write the string that was already there, for as long as the app stayed
+  // open (WORLD_CLASS_PLAN section 10, F6: "0 timers while hidden"), and a
+  // visible one was doing the same 59 times out of 60.
   startDashClock();
   renderDashSubmessage().catch(() => {});
 }
@@ -1049,6 +1059,44 @@ function dashDensity() {
   return DASH_DENSITIES.includes(saved) ? saved : "full";
 }
 
+//: **The emblem is the hero's art, and art is what a density step spends**
+//: (INBOX 279). The first cut of the three levels hid the mark outright at the
+//: first step down and then kept a display-sized clock beside a greeting it had
+//: cut to `--text-lg`, which is how the hero came to "lose a lot" at Compact
+//: while Focused kept a bigger banner than Compact had.
+//:
+//: A size rather than a CSS rule because the mark is a p5 sketch drawn into a
+//: canvas of that many pixels: scaling the holder would either leave a 46px box
+//: around a 30px drawing or resample the canvas. 0 means the level does not
+//: carry it at all, and the CSS hides the holder to match.
+const DASH_EMBLEM_SIZE = { full: 46, compact: 30, focused: 0 };
+
+//: **The dashboard has drawn its banner at least once.** Set by the render,
+//: read by the density switch, because the switch used to ask whether a canvas
+//: was already in the holder instead, and that question answers "no" for the
+//: one case it exists to serve: Focused empties the holder, so switching back
+//: to Full or Compact found no canvas, skipped the repaint, and the mark was
+//: gone for good (the owner, 2026-09-21: "the animated logo is gone from the
+//: dashboard, it should be in both the full and compact dashboard view and
+//: shouldnt dissappear permanently").
+let dashEmblemDrawn = false;
+
+function paintDashEmblem() {
+  const holder = $("dash-hero-emblem");
+  if (!holder) return;
+  dashEmblemDrawn = true;
+  const size = DASH_EMBLEM_SIZE[dashDensity()] ?? DASH_EMBLEM_SIZE.full;
+  //: A sketch drawn into a hidden holder measures zero (the holder is
+  //: `display: none` at Focused), so the level that does not carry the mark
+  //: does not draw one either; switching back re-enters through
+  //: `applyDashDensity` below.
+  if (!size) {
+    holder.replaceChildren();
+    return;
+  }
+  renderEmblem(holder, size, { animate: true });
+}
+
 function applyDashDensity(value) {
   const density = DASH_DENSITIES.includes(value) ? value : "full";
   localStorage.setItem(DASH_DENSITY_KEY, density);
@@ -1066,6 +1114,11 @@ function applyDashDensity(value) {
   //: toolbar, and a select says which one is on by saying its name.
   const picker = document.getElementById("dash-density");
   if (picker && picker.value !== density) picker.value = density;
+  //: The mark is the one part of the banner CSS cannot resize (see
+  //: `DASH_EMBLEM_SIZE`), so the level change redraws it, but only once the
+  //: dashboard has drawn one: this function also runs at wiring time, before
+  //: the first render, and drawing there would race the render's own call.
+  if (page && dashEmblemDrawn) paintDashEmblem();
 }
 
 function wireDashDensity() {
@@ -1234,15 +1287,15 @@ function featureCatalog() {
       { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
       { name: "Attach to a message", desc: "Point a message at notes, documents, files, images or a map you already have.", run: () => { switchTab("chat"); $("attach-note").click(); } },
       { name: "Saved conversations", desc: "Every chat is kept, searchable, and can be picked up later.", run: () => switchTab("chat") },
-      { name: "Personas", desc: "Change the assistant's voice: Atlas, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
+      { name: "Personas", desc: "Change the voice Atlas writes in: its own, Coach, Analyst, or yours.", run: () => openSettingsModal("personas") },
       { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
-      { name: "Agent mode", desc: "Let the assistant use its tools, search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
+      { name: "Agent mode", desc: "Let Atlas use its tools, search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
       // The popup agent has the same capability as Chat's agent mode and is
       // reachable from every tab, which is exactly why it needs a row: a chord
       // nobody has been told about is not a feature anyone has.
-      { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens the assistant over whatever you are working on.", run: () => { closeFeatures(); toggleAgentPalette(); } },
-      { name: "What it remembers", desc: "See and edit the facts the assistant has kept about you.", run: () => openSettingsModal("memory") },
-      { name: "Web search", desc: "Optional, opt-in: the one feature that goes online.", run: () => switchTab("chat") },
+      { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens Atlas over whatever you are working on.", run: () => { closeFeatures(); toggleAgentPalette(); } },
+      { name: "What it remembers", desc: "See and edit the facts Atlas has kept about you.", run: () => openSettingsModal("memory") },
+      { name: "Web search", desc: "Opt-in, off by default: one of the two features that can go online.", run: () => switchTab("chat") },
       { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
       { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", run: () => openSettingsModal("preferences", "search-relevance-group") },
     ]},
@@ -1348,7 +1401,7 @@ function featureCatalog() {
       { name: "Import markdown", desc: "Bring in notes from an Obsidian-style vault.", run: () => openSettingsModal("data") },
       { name: "Backups", desc: "Snapshot your notebook and restore it later.", run: () => openSettingsModal("data") },
       { name: "Models", desc: "Choose the chat, utility and embedding models.", run: () => openSettingsModal("models") },
-      { name: "AI tool permissions", desc: "Decide exactly what the assistant is allowed to do.", run: () => openSettingsModal("tools") },
+      { name: "AI tool permissions", desc: "Decide exactly what Atlas is allowed to do.", run: () => openSettingsModal("tools") },
       { name: "Background tasks", desc: "What the app is doing in the background, and what it has finished.", run: () => openSettingsModal("tasks") },
       { name: "Packages", desc: "The optional extras (OCR, speech, vision) and whether they are installed.", run: () => openSettingsModal("extras") },
       { name: "Account & security", desc: "Change your password, and what happens when the app locks.", run: () => openSettingsModal("account") },
@@ -1501,8 +1554,22 @@ function gettingStartedCard() {
     {
       icon: "ph:compass",
       label: "Take the tour",
+      //: The tour, not the welcome card. These are two different things and
+      //: this tile used to run the wrong one: `openOnboarding` is the five
+      //: slides that say what MemoryMap is, while the tour (tour.js) points
+      //: at the real controls and says where they are. A tile that says
+      //: "take the tour" and opens a slideshow teaches that the tour is a
+      //: slideshow, and there was then no door to the tour on the dashboard
+      //: at all. The welcome card keeps its own doors, both correctly
+      //: worded: Settings, help and guide's "Replay welcome tour" and the
+      //: features browser's "Welcome tour" row.
       note: "Two minutes through what's here.",
-      run: () => openOnboarding(),
+      //: Guarded because tour.js is a separate file: a page served without
+      //: it must still show a dashboard rather than throw on the press.
+      run: () => {
+        if (typeof openTour === "function") openTour("basics");
+        else openOnboarding();
+      },
     },
   ];
   for (const action of actions) {

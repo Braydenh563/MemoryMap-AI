@@ -505,7 +505,6 @@ header#top-bar select,
 :root[data-glass="off"] .graph-options,
 :root[data-glass="off"] .graph-trace,
 :root[data-glass="off"] .whiteboard-floating-panel,
-:root[data-glass="off"] .wb-export-menu,
 :root[data-glass="off"] .wb-shape-menu,
 :root[data-glass="off"] .wb-stroke-width-badge,
 :root[data-glass="off"] .chat-skills-panel,
@@ -1897,6 +1896,144 @@ header#top-bar select,
   margin-top: var(--space-4);
 }
 
+/* **One control where the source cards were** (INBOX 274, then INBOX 300).
+   The Ask layout already shows every cited note in the Matching records
+   column beside the answer, so what belongs under the answer is the fact and
+   the way to it, not a second copy of the column.
+
+   It was drawn as a full-width pill, on the reasoning that taking the whole
+   row would make it read as a line rather than as an action among others.
+   Measured on the owner's screen and then here: 525px of a 525px column,
+   100% of it, which does not read as a line either. It reads as a banner,
+   and a banner is the one thing a control must not look like. The owner:
+   "fix the ui of this sources button in the ask tab".
+
+   So it sizes to its own words, like the follow-up chips it sits above and
+   like DESIGN.md's "a fact on a facts line that is also the way in". The
+   muted colour stays: this is the quietest thing in the foot, and it is
+   still a button. */
+.ask-sources-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+}
+
+/* The row a citation mark points at, in the records column. The same
+   `--accent-soft` wash and weight step `.chat-source-card.is-cited` takes, so
+   "this is the one the answer meant" reads the same in both places rather
+   than being learnt twice. */
+#raw-results li.is-cited {
+  background: var(--accent-soft);
+}
+
+#raw-results li.is-cited .chat-source-passage {
+  margin: var(--space-2) 0 0;
+}
+
+/* **The citation number, on the record it points at** (INBOX 299, the owner:
+   "can the notes in the matching records that appear in the ask tab be
+   numbered accordingly to match the inline referencing??"). Measured before
+   this: five records, five marks in the prose, nought numbers in the column.
+
+   Pinned to the card's own top-left corner rather than flowed into it, the
+   same technique and for the same reason as `.row-expand`
+   (01-forms-settings.css): a record card holds a title, a paragraph, a file
+   row and a badge lane, any of which can be the first child, so a number in
+   normal flow would sit somewhere different on almost every row. Absolute
+   against the `<li>` puts every digit on one edge, which is the whole point
+   of numbering them.
+
+   The gutter is reserved rather than overlapped: the card's own `0.8rem`
+   side padding plus the mark's width (`.chat-source-index`'s `min-width`,
+   1.25rem) plus a gap. Only on a row that has a number, so an uncited record
+   keeps the full width of the column. */
+/* **The number sits in the top right, and the text keeps its own column**
+   (the owner, 2026-09-21: "move the reference numbers in the matching records
+   column notes to the top right not top left and dont let it move the text or
+   cut it off on the right like it currently does on the left"). On the left it
+   was paid for with `padding-left`, which moved every line of the card in to
+   make room for a mark that only occupies the first one, so the title started
+   further right than the prose under it. The gutter is reserved on the right
+   instead, and only on the first row: `float` gives the heading a notch to
+   wrap around and costs nothing below it, so no line is indented and nothing
+   runs under the number. */
+/* **The timestamp joins the chips instead of claiming a line of its own**
+   (the owner, 2026-09-21: "the ask tab badges and metadata is wrapping onto
+   new lines and is ugly"). `.entry-meta-end` carries `margin-left: auto`,
+   which is right in a note list where the row has room: it lines every date
+   up on the right edge. In this column the chips fill the width, so the auto
+   margin pushed the date onto a row by itself, alone against the right edge
+   under a block of chips, which is the shape in the screenshot. Here it flows
+   with them and the rows close up. Scoped to this column: the note list keeps
+   its aligned dates. */
+#raw-results .entry-meta-end {
+  margin-left: 0;
+}
+
+/* A tighter rhythm for a narrow column: the chips are the same components,
+   but three wrapped rows of them at the list's spacing is most of a card. */
+#raw-results .entry-meta {
+  gap: var(--space-1);
+}
+
+#raw-results li.is-numbered {
+  position: relative;
+}
+
+/* The gutter goes on the row the number sits beside, which is the element
+   *after* the mark, not the first child: the mark is inserted first, so
+   `:first-child` was the mark itself and it took the 26.4px right padding
+   meant for the title. Measured: `padding: 0 26.4px 0 0` on a 1.25rem box,
+   which is the wide badge with the digit shoved to its left edge that was
+   reported. */
+/* **The whole row keeps the strip clear, not just the line beside the mark.**
+   Reported twice. Reserving it on the element after the mark only helps when
+   that element is the one the badge sits over, and a card's passage or a long
+   unwrapped line further down can still reach the top right corner; the badge
+   is `position: absolute`, so it is outside the flow and nothing pushes it.
+   A right inset on the row costs a ragged right edge of about two characters
+   and cannot be reached by any line, which is the trade the owner asked for
+   ("dont let it move the text or cut it off"): the text stops earlier, it is
+   never covered and never clipped. */
+#raw-results li.is-numbered {
+  padding-right: calc(1.25rem + var(--space-3));
+}
+
+#raw-results li.is-numbered > .record-index + * {
+  /* The mark's width plus a clear step either side of it, rather than a hair:
+     reported after the move ("text in the top line can clash with the
+     numbers"), and a title that ends one character short of a badge reads as
+     a collision even when it does not touch. */
+  padding-right: calc(1.25rem + var(--space-3));
+}
+
+/* Square, because it holds one or two digits and a mark that is wider than it
+   is tall reads as a chip rather than a number. `.chat-source-index` sets a
+   `min-width` and no height, so the padding decided the shape and one digit
+   came out a rectangle. Fixed on both axes, with the digit centred in it. */
+#raw-results li > .record-index {
+  position: absolute;
+  right: var(--space-2);
+  top: 0.6rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-width: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  /* **Opaque, so an overlap is never see-through** (asked for directly:
+     "maybe make the numbers more opaque?"). `--accent-soft` is a translucent
+     wash, which is right for a chip sitting in a row and wrong for a mark
+     floating over text: a title running under it showed through the digit.
+     The same colour composited onto the card, so it looks unchanged where
+     nothing is behind it. */
+  background-color: var(--card);
+  background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
+}
+
 .answer-grounding-label {
   font-size: var(--text-xs);
 }
@@ -3171,6 +3308,47 @@ p.graph-help-panel {
   margin: 0;
 }
 
+/* A section of this panel that is set once and then left, folded away on the
+   app's `details.settings-fold` recipe (DESIGN.md, the recipe index): the
+   flat summary, the chevron and the hover fill all come from
+   08-consistency.css's disclosure rules, which `.settings-fold` already
+   names. Only the room is restated here, because a fold in a popover list
+   is a row among rows and the Settings screen's `--space-3` block padding
+   plus a `0.5rem` margin would stand a head taller than every
+   `.graph-option-row` beside it.
+
+   The `:not()`s are not decoration: the rule being matched here is
+   `.settings-fold > summary:not(.icon-only):not(.icon-button)`, which is
+   (0,3,1), and a container class plus the element would lose to it. */
+.graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button) {
+  min-height: max(var(--control-h), var(--target-min));
+  margin: 0;
+  padding: 0;
+}
+
+/* `<details>` is a block box; the section's own `flex-direction: column` and
+   `gap` above only apply to what the browser lays out as flex items, and the
+   disclosure's contents are not those. Restating the column on the open
+   fold keeps its rows on the same rhythm as the rest of the panel. */
+.graph-options details.graph-options-fold {
+  display: block;
+}
+
+.graph-options .graph-options-fold[open] > summary {
+  margin-bottom: var(--space-1);
+}
+
+.graph-options .graph-options-fold > :not(summary) + :not(summary) {
+  margin-top: var(--space-1);
+}
+
+/* The section's one action, where `.dock-menu-section-head` used to put it:
+   hard right, with the fold's name at the left. The summary is already a
+   flex row (08-consistency.css), so one `auto` margin is the whole of it. */
+.graph-options .graph-options-fold > summary > button {
+  margin-left: auto;
+}
+
 /* An id rule outranks the generic .hidden helper, restate it, the same trap
    `#graph-empty.hidden` had to be dug out of. */
 #graph-options.hidden {
@@ -3515,7 +3693,18 @@ p.graph-help-panel {
   height: 100%;
   background: var(--accent);
   border-radius: var(--radius-pill);
-  transition: width var(--motion-slow) ease;
+  /* No transition on that width, deliberately (INBOX 308). There used to be
+     one, and it could never have run: `renderLooseEnds` sets the custom
+     property on this element while it is still detached and appends it
+     afterwards, so the first style it ever has is its final one, and a
+     transition has no before-change value to start from. Measured rather than
+     reasoned: replaying that exact order in the running app fires no
+     `transitionrun`, while changing the property on an element already in the
+     document fires one for `width`, which is a path nothing in the app
+     takes: the widget rebuilds the meter on every render.
+     If this ever should animate, it is the boot splash's shape and not a
+     width: full-width fill, `transform: scaleX()` from a left origin, the
+     rounded ends left to this track, which already clips. */
 }
 
 .dash-loose-caption {

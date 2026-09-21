@@ -176,6 +176,19 @@ const TOUR_SECTIONS = [
   },
 ];
 
+// The three layers, shown together and hidden together. `#tour-block` is the
+// press-catcher: one element holding the four panels that surround the hole,
+// so showing and hiding it is one class change rather than four.
+const TOUR_LAYERS = ["tour-block", "tour-spot", "tour-card"];
+
+//: The four panels, in the one order everything that touches them uses.
+const TOUR_PANEL_IDS = [
+  "tour-block-top",
+  "tour-block-right",
+  "tour-block-bottom",
+  "tour-block-left",
+];
+
 // The run in progress, or null. `steps` is a flattened copy rather than a
 // reference into the table above, because a step whose element turns out to be
 // hidden is spliced out of it, and the table has to stay whole for the next
@@ -210,6 +223,28 @@ function tourVisible(el) {
 //: not the thing the person is looking at), applied to geometry.
 function tourAnchorFor(el) {
   return el ? el.closest(".select-shell") || el : el;
+}
+
+//: **Laid out is not the same as on screen**, and the difference is what
+//: INBOX 280 is. `tourVisible` answers "this element has a box and is not
+//: painted out", which a control scrolled away, pushed past an edge or parked
+//: off the page all satisfy. The cut-out is then asked to sit on a rectangle
+//: that is not in the window, and everything downstream of it goes wrong at
+//: once (see `tourSpotlight`).
+//:
+//: A few pixels of overlap is not enough to point at, so this asks for a
+//: usable amount of the control to be inside the window rather than for the
+//: rectangles to merely touch.
+const TOUR_ON_SCREEN_MIN = 8;
+
+function tourOnScreen(el) {
+  if (!el) return false;
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const box = el.getBoundingClientRect();
+  const across = Math.min(box.right, vw) - Math.max(box.left, 0);
+  const down = Math.min(box.bottom, vh) - Math.max(box.top, 0);
+  return across >= TOUR_ON_SCREEN_MIN && down >= TOUR_ON_SCREEN_MIN;
 }
 
 //: **Set, measure, correct by the difference, never trust the first number.**
@@ -318,12 +353,109 @@ function tourChoose(target, side, size) {
 
 // --- painting one step ------------------------------------------------------
 
-//: The cut-out. The dim is this element's own `box-shadow`, spread past the
-//: far corner of any window, so the hole in the dim IS this box and the
-//: control inside it is drawn by the page at full strength. The alternative,
-//: four rectangles arranged around the control, needs all four kept in step on
-//: every scroll and resize, and gets it wrong on exactly the frames nobody
-//: watches.
+//: The dim, and the presses, in one set of four rectangles. Four panels around
+//: the hole rather than one sheet across the window, and the reason is the
+//: owner's report of 2026-09-20: "it doesnt let the user click the highglighted
+//: items". A tour that says "press Save" and then eats the press is worse than
+//: no tour, because the person believes the control is broken. `#tour-block`
+//: used to be `inset: 0`, and `document.elementFromPoint` at the centre of
+//: every one of the fifteen steps answered `tour-block`: the dim layer, not the
+//: control.
+//:
+//: Four panels, laid out from the same rectangle the cut-out uses, leave that
+//: rectangle with nothing of the tour's over it at all, so a press inside it
+//: reaches the page and a press anywhere else is still swallowed (the step
+//: cannot be taken out from under its own card). The four have to be kept in
+//: step on every scroll and resize, which is why they are written here, in the
+//: one function that already runs on every reflow, and never anywhere else.
+//:
+//: **Since 2026-09-21 these four also paint the dim** (04-chat-dock-appearance,
+//: the note over `.tour-block`). It used to be one `box-shadow` spread 100vmax
+//: from the cut-out, which no test could read; these four are the rectangles
+//: the sweep below already measures, so an uncovered strip is now a failing
+//: test rather than a photograph.
+function tourBlockPanels(left, top, right, bottom) {
+  //: **`innerWidth`, not `clientWidth`, and the difference is the bug the
+  //: owner photographed twice.** `clientWidth` stops at the scrollbar;
+  //: `innerWidth` includes its gutter. The panels are `position: fixed`, so
+  //: they are laid out against the window, and sizing them to the narrower
+  //: number leaves the gutter uncovered: the page goes dark and a bright band
+  //: stands at the right edge, the full height of the window, which is exactly
+  //: what his screenshots show. It never appeared in a sweep because headless
+  //: Chromium draws overlay scrollbars that take no space, so the gutter here
+  //: is 0 and the two numbers agree; on Windows they differ by about 17px, and
+  //: on a page with its own scrolling column by more.
+  //:
+  //: Covering a few pixels too many is free, because these panels are a flat
+  //: scrim with nothing to line up against. Covering too few is the fault.
+  const vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+  const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+  const panels = {
+    "tour-block-top": { left: 0, top: 0, width: vw, height: Math.max(0, top) },
+    "tour-block-bottom": {
+      left: 0,
+      top: Math.min(vh, bottom),
+      width: vw,
+      height: Math.max(0, vh - bottom),
+    },
+    "tour-block-left": {
+      left: 0,
+      top: Math.max(0, top),
+      width: Math.max(0, left),
+      height: Math.max(0, Math.min(vh, bottom) - Math.max(0, top)),
+    },
+    "tour-block-right": {
+      left: Math.min(vw, right),
+      top: Math.max(0, top),
+      width: Math.max(0, vw - right),
+      height: Math.max(0, Math.min(vh, bottom) - Math.max(0, top)),
+    },
+  };
+  for (const [id, box] of Object.entries(panels)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.style.width = `${Math.round(box.width)}px`;
+    el.style.height = `${Math.round(box.height)}px`;
+    tourPlaceFixed(el, box.left, box.top);
+  }
+}
+
+//: The cut-out. The hole in the dim is the rectangle the four panels above are
+//: laid out around, and this element only draws the ring inside it, so the
+//: control is the page at full strength with an accent outline on it. It never
+//: takes a press (`pointer-events: none`); the four panels are what take them.
+//: The tour with no cut-out: the card, centred, over a page that is not
+//: dimmed and not covered. Used when there is nothing on screen to point at,
+//: which is the one case where a dim is worse than none: a dim needs a hole,
+//: and a hole that is not in the window darkens everything and highlights
+//: nothing (INBOX 280: "the whole page dimmed except a ~100px vertical strip
+//: at the right edge, no card, nothing highlighted").
+function tourClearSpotlight() {
+  document.getElementById("tour-spot").classList.add("hidden");
+  for (const id of TOUR_PANEL_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.style.width = "0px";
+    el.style.height = "0px";
+  }
+}
+
+//: Lay the cut-out on the control, and answer whether it could be done.
+//:
+//: **The clamped box can be empty, and an empty one used to be written out
+//: anyway.** With a target off the right edge, `left` clamps to the target
+//: and `right` clamps to the window, so `right - left` goes *negative*:
+//: `width: -994px` is invalid, the declaration is dropped, and the element
+//: silently keeps the width it had on the previous step. The cut-out then
+//: sits off the page at the wrong size, its own `box-shadow` (which is the
+//: dim) lands somewhere nobody asked for, and the page is dark everywhere
+//: except whatever band the shadow's edge happens to fall on. Measured, at
+//: 2000x1140 with the target moved to x 3000: the spot was placed at 2994
+//: still carrying the previous step's 708px width. That is CLAUDE.md's
+//: invalid-value trap, and it is INBOX 280's screenshot.
+//:
+//: So the box is checked before it is written, and an empty one draws no
+//: cut-out at all rather than a broken one.
 function tourSpotlight(target) {
   const spot = document.getElementById("tour-spot");
   const vw = document.documentElement.clientWidth;
@@ -332,9 +464,18 @@ function tourSpotlight(target) {
   const top = Math.max(0, target.top - TOUR_PAD);
   const right = Math.min(vw, target.right + TOUR_PAD);
   const bottom = Math.min(vh, target.bottom + TOUR_PAD);
-  spot.style.width = `${Math.round(right - left)}px`;
-  spot.style.height = `${Math.round(bottom - top)}px`;
+  const width = right - left;
+  const height = bottom - top;
+  if (width < 1 || height < 1) {
+    tourClearSpotlight();
+    return false;
+  }
+  spot.classList.remove("hidden");
+  spot.style.width = `${Math.round(width)}px`;
+  spot.style.height = `${Math.round(height)}px`;
   tourPlaceFixed(spot, left, top);
+  tourBlockPanels(left, top, right, bottom);
+  return true;
 }
 
 //: A target below the fold is reached by moving the nearest scrolling
@@ -367,14 +508,54 @@ function tourBringIntoView(el) {
 }
 
 function tourPosition() {
-  if (!tourRun || !tourRun.el) return;
+  if (!tourRun) return;
+  //: A stranded step has no anchor, so the card goes to the middle of the
+  //: window and the spotlight and its four panels are taken down: a hole cut
+  //: around nothing is a hole in the middle of the screen.
+  if (!tourRun.el) {
+    //: The spotlight and its four panels come down: a hole cut around nothing
+    //: is a hole in the middle of the screen, and four panels each stretched
+    //: over the whole window is a flat grey page, which is what the first
+    //: attempt at this did. `tourClearSpotlight` is the one that already knows
+    //: how to take them down, and the centring below is the same arithmetic
+    //: the `!lit` case uses further down, clamped to the window so the card
+    //: cannot end up off the top right corner.
+    tourClearSpotlight();
+    const card = document.getElementById("tour-card");
+    if (!card) return;
+    card.dataset.side = "centre";
+    const size = card.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    tourPlaceFixed(
+      card,
+      tourClamp((vw - size.width) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vw - TOUR_EDGE - size.width)),
+      tourClamp((vh - size.height) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vh - TOUR_EDGE - size.height))
+    );
+    return;
+  }
   const card = document.getElementById("tour-card");
   const target = tourRun.el.getBoundingClientRect();
-  tourSpotlight(target);
+  const lit = tourSpotlight(target);
   // The card's own size is measured on screen, with this step's text already
   // in it: the height changes by a whole line between steps, and a placement
   // computed from the previous step's height is a card that overlaps.
   const size = card.getBoundingClientRect();
+  if (!lit) {
+    //: Nothing to point at, so the card stops pointing: centred, with the
+    //: page neither dimmed nor covered. A step reaches this only when its
+    //: control went off screen after it was placed (a resize, a scroll under
+    //: it); a step that starts that way is dropped in `tourShow` instead.
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    card.dataset.side = "centre";
+    tourPlaceFixed(
+      card,
+      tourClamp((vw - size.width) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vw - TOUR_EDGE - size.width)),
+      tourClamp((vh - size.height) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vh - TOUR_EDGE - size.height))
+    );
+    return;
+  }
   const place = tourChoose(target, tourRun.step.side, size);
   card.dataset.side = place.name;
   tourPlaceFixed(card, place.left, place.top);
@@ -384,13 +565,22 @@ function tourRender() {
   const run = tourRun;
   const total = run.steps.length;
   document.getElementById("tour-section").textContent = run.step.sectionLabel;
+  //: **A stranded step still says something** (INBOX 315). `run.el` is null
+  //: when the last step of a run has nothing on screen to point at: the tour
+  //: keeps the card rather than closing, because a tour that vanishes
+  //: mid-gesture reads as the feature breaking, so the card has to explain
+  //: itself instead of pointing at a corner of the window.
+  const card = document.getElementById("tour-card");
+  card?.classList.toggle("tour-card-stranded", Boolean(run.stranded));
   // "3 of 7", the owner's "card tutorial tour numbers". It counts the steps of
   // THIS run (one section, or all of them), and it renumbers when a step is
   // dropped for having no element, so it can never promise a step the tour is
   // not going to show.
   document.getElementById("tour-count").textContent = `${run.index + 1} of ${total}`;
   document.getElementById("tour-title").textContent = run.step.title;
-  document.getElementById("tour-text").textContent = run.step.text;
+  document.getElementById("tour-text").textContent = run.stranded
+    ? `${run.step.text} This control is not on screen at this window size, so there is nothing to point at here.`
+    : run.step.text;
   document.getElementById("tour-back").disabled = run.index === 0;
   document.getElementById("tour-next").textContent =
     run.index === total - 1 ? "Done" : "Next";
@@ -406,13 +596,87 @@ async function tourFrame() {
   );
 }
 
+//: Which tab is actually showing, asked of the markup rather than of
+//: `localStorage`. `switchTab` writes `activeTab` (app.js), so the two agree
+//: most of the time, but "most of the time" is the wrong standard for the
+//: guard that decides whether the tour navigates at all: a restore, a history
+//: step or a tab entered before the key was written all leave the stored name
+//: and the painted tab disagreeing, and a tour that trusts the key then skips
+//: the switch and points its card at a control on a page nobody is looking at.
+//: The pressed tab button is the page you can see.
+function tourActiveTab() {
+  const pressed = document.querySelector('#tab-bar [role="tab"].active');
+  return pressed?.dataset?.tab || localStorage.getItem("activeTab") || "";
+}
+
+//: A tab switch is not finished when `switchTab` resolves. The tab's own
+//: content is loaded after it (notes, the library, the graph all fetch), and
+//: for a beat the element this step names is in the DOM at zero height. The
+//: old code measured once, two frames after the switch, found nothing to point
+//: at and **dropped the step** (`tourShow` splices it out): on a fast empty
+//: notebook every step survived, which is why this was never seen here, and on
+//: a real one the steps that live inside a tab are exactly the ones that go.
+//: From outside that is the owner's report, "it doesnt automatically switch
+//: pages on different steps": the tour appears to stay where it was, because
+//: the steps that would have moved it have quietly stopped existing.
+//:
+//: So a step that navigated waits for its element, up to TOUR_WAIT_MS, and
+//: only a target that never arrives costs its step. The wait is per frame
+//: rather than on a timer: a frame is when layout has settled, and a target
+//: that is ready in one frame costs one frame.
+//:
+//: **Only a step that navigated waits.** A step naming a control that is
+//: always on the page (the tab bar, the status bar, the gear) has nothing on
+//: its way: if that control is not visible now it is because a responsive rule
+//: dropped it at this width, and no amount of waiting brings it back. Waiting
+//: anyway would put a second and a half of nothing between two cards every
+//: time a narrow window costs a step, which is the stall this wait was added
+//: to remove rather than to move somewhere else.
+const TOUR_WAIT_MS = 1500;
+
+//: **The tour is switched off while it is being fixed** (the owner,
+//: 2026-09-21: "disable the start the tour button so the user cant press it
+//: until we enable it again when the guided tour isnt broken"). It has been
+//: reported broken more times than it has been reported working, and a
+//: feature that fails in front of a first-time user is worse than one that
+//: is honestly absent: the welcome is the first thing anybody sees.
+//:
+//: One flag, read by every door into the tour (the welcome's last slide, the
+//: replay strip in Settings, the offer toast), so turning it back on is this
+//: line and nothing else. The tour itself is untouched and still opens if it
+//: is called, which is what keeps the probes working.
+const TOUR_ENABLED = false;
+
+async function tourWaitForTarget(step) {
+  const find = () => tourAnchorFor(document.querySelector(step.target));
+  if (!step.tab && !step.notes) return find();
+  const deadline = Date.now() + TOUR_WAIT_MS;
+  for (;;) {
+    const el = find();
+    if (tourVisible(el)) return el;
+    if (Date.now() >= deadline) return el;
+    await tourFrame();
+  }
+}
+
 //: Getting the app to the place where this step's element is on screen. Both
 //: calls are guarded rather than assumed: they live in app.js, which is loaded
 //: before this file, and a page served without it should fail loudly there
 //: rather than quietly here.
 async function tourNavigate(step) {
+  //: **The tour drives the app, including getting out of the way of itself**
+  //: (the owner, 2026-09-21: "the tour should automatically navigate the user
+  //: and open or close the appropriate tabs and popups for the user"). Starting
+  //: it from Settings, Help is the case that made this necessary: the modal
+  //: stays over the page, so every target behind it measures as not visible,
+  //: every step is dropped, and the run empties. Nothing else in the app can
+  //: be trusted to have closed either, so the tour closes what is open before
+  //: it navigates, rather than pointing at a control under a sheet.
+  if (typeof closeSettingsModal === "function") closeSettingsModal();
+  if (typeof closeActionMenus === "function") closeActionMenus();
+  if (typeof closeFinder === "function") closeFinder();
   if (step.tab && typeof switchTab === "function") {
-    if (localStorage.getItem("activeTab") !== step.tab) await switchTab(step.tab);
+    if (tourActiveTab() !== step.tab) await switchTab(step.tab);
   }
   if (step.notes && typeof showNotesSection === "function") showNotesSection(step.notes);
   await tourFrame();
@@ -427,10 +691,45 @@ async function tourShow() {
     // from Settings, while a tab was loading. Whatever happens next belongs to
     // whichever run is current, not to this one.
     if (tourRun !== run) return;
-    const el = tourAnchorFor(document.querySelector(step.target));
-    if (!tourVisible(el)) {
+    const el = await tourWaitForTarget(step);
+    if (tourRun !== run) return;
+    //: Brought into view first, then judged: a control below the fold of a
+    //: scrolling panel is a step worth showing once the panel has been
+    //: scrolled to it, and only a control that is still not in the window
+    //: after that has nothing to point at.
+    if (tourVisible(el)) {
+      tourBringIntoView(el);
+      //: **Judged after the scroll, not during it** (INBOX 315). Bringing a
+      //: control into view moves a scroller, and the box read in the same
+      //: task is the box it had before the move. A step measured there looks
+      //: off screen when it is about to be on it, and an off-screen step is
+      //: dropped, so a single mistimed measurement could eat the rest of the
+      //: run one step at a time. One frame is what the move needs.
+      await tourFrame();
+      if (tourRun !== run) return;
+    }
+    if (!tourVisible(el) || !tourOnScreen(el)) {
       // A step with nothing to point at is dropped from this run, rather than
       // shown empty or left pointing at the corner of the window.
+      //
+      //: **Except the last one, which would empty the run in silence**
+      //: (INBOX 315: the owner pressed Next on the first step and the tour
+      //: vanished, leaving the tab it had navigated to with no card and no
+      //: dim). Falling out of this loop calls `tourClose`, which is right
+      //: when somebody has reached the end and wrong when the end reached
+      //: them: a tour that disappears mid-gesture reads as the whole feature
+      //: breaking, which is exactly how it was reported. So the run keeps its
+      //: last step and says what happened, with the card centred, rather than
+      //: closing as though the tour were over.
+      if (run.steps.length <= 1) {
+        run.el = null;
+        run.step = step;
+        run.stranded = true;
+        tourRender();
+        tourPosition();
+        document.getElementById("tour-next")?.focus();
+        return;
+      }
       run.steps.splice(run.index, 1);
       if (run.direction < 0) run.index -= 1;
       if (run.index < 0) {
@@ -439,10 +738,10 @@ async function tourShow() {
       }
       continue;
     }
+    run.stranded = false;
     run.el = el;
     run.step = step;
     tourRender();
-    tourBringIntoView(el);
     tourPosition();
     // Focus lands inside the card, on the control that moves the tour on, so
     // Enter and Space do the obvious thing the moment a card appears. The card
@@ -491,9 +790,7 @@ function openTour(sectionId) {
     // the tour ends, whether it ends at the last card, at Skip or at Escape.
     returnFocus: document.activeElement,
   };
-  for (const id of ["tour-block", "tour-spot", "tour-card"]) {
-    document.getElementById(id).classList.remove("hidden");
-  }
+  for (const id of TOUR_LAYERS) document.getElementById(id).classList.remove("hidden");
   tourShow();
 }
 
@@ -501,9 +798,7 @@ function tourClose(finished) {
   if (!tourRun) return;
   const run = tourRun;
   tourRun = null;
-  for (const id of ["tour-block", "tour-spot", "tour-card"]) {
-    document.getElementById(id).classList.add("hidden");
-  }
+  for (const id of TOUR_LAYERS) document.getElementById(id).classList.add("hidden");
   // Finished or skipped, the answer is the same: this person has been offered
   // the tour and nothing may offer it to them again by itself. Kept beside
   // `onboardingDone`, and mirrored to the notebook's own preferences by
@@ -544,6 +839,14 @@ function tourBack() {
 document.getElementById("tour-next").addEventListener("click", tourNext);
 document.getElementById("tour-back").addEventListener("click", tourBack);
 document.getElementById("tour-skip").addEventListener("click", () => tourClose(false));
+//: The way out, in the corner of the card where every panel in this app keeps
+//: it. Skip was already there and does the same thing, but the owner did not
+//: read it as the exit: "it has no visible way to exit or quit it like a
+//: button or smth so I had to guess by pressing the escape button". Skip reads
+//: as "not this part" beside Back and Next; an X in the head reads as "close
+//: this". Both stay, because they are the same act reached two ways, and
+//: Escape is the third.
+document.getElementById("tour-close").addEventListener("click", () => tourClose(false));
 
 //: Captured, and it stops the event: the arrow keys move between tabs in this
 //: app and Escape closes whatever is open, and both would fire underneath a
@@ -584,9 +887,11 @@ document.addEventListener(
 //: does not bubble.
 function tourReflow() {
   if (!tourRun || !tourRun.el) return;
-  if (!tourVisible(tourRun.el)) {
+  if (!tourVisible(tourRun.el) || !tourOnScreen(tourRun.el)) {
     // The control went away under the tour (a window narrowed past the width
-    // that shows it). The step goes with it rather than the card hanging on.
+    // that shows it, a panel scrolled it out of the window). The step goes
+    // with it rather than the card hanging on beside a rectangle that is not
+    // there any more.
     tourShow();
     return;
   }
@@ -604,6 +909,7 @@ function renderTourReplay() {
   if (!box) return;
   box.replaceChildren();
   const start = (sectionId) => {
+    if (!TOUR_ENABLED) return;
     if (typeof closeSettingsModal === "function") closeSettingsModal();
     // On the next frame, not in the same one as the close: the first step's
     // rectangle is measured against the page the modal was covering.
@@ -615,6 +921,9 @@ function renderTourReplay() {
   all.textContent = "Start the tour";
   all.addEventListener("click", () => start(null));
   box.appendChild(all);
+  if (!TOUR_ENABLED) {
+    for (const button of [all]) tourDisable(button);
+  }
   for (const section of TOUR_SECTIONS) {
     const button = document.createElement("button");
     button.type = "button";
@@ -622,6 +931,7 @@ function renderTourReplay() {
     button.textContent = section.label;
     button.title = section.blurb;
     button.addEventListener("click", () => start(section.id));
+    if (!TOUR_ENABLED) tourDisable(button);
     box.appendChild(button);
   }
 }
@@ -639,3 +949,11 @@ function tourWireReplay() {
 }
 
 tourWireReplay();
+
+//: One place for the words, so every disabled door says the same thing and
+//: says why rather than just refusing.
+function tourDisable(button) {
+  button.disabled = true;
+  button.title = "The guided tour is being fixed and is turned off for now.";
+  button.setAttribute("aria-label", button.title);
+}

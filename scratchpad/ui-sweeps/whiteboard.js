@@ -195,6 +195,16 @@ async function clickCanvas(page) {
     ink ? `${Math.round(ink.rect.width)}x${Math.round(ink.rect.height)} at ${Math.round(ink.rect.x)},${Math.round(ink.rect.y)}` : "missing",
   );
   if (ink) {
+    // Below 600 the rail's tools are behind one opener and live in a sheet
+    // while it is open (Phase 11 item 7), so the swatch has to be opened to
+    // before it can be photographed. Above 600 there is no opener and
+    // nothing here changes.
+    const opener = await page.$("#wb-tools-opener");
+    const openedSheet = opener && (await opener.isVisible());
+    if (openedSheet) {
+      await opener.click();
+      await page.waitForTimeout(500);
+    }
     // The colour is read off the pixels, not off `value` or a computed
     // background: a native colour input paints its value through
     // `::-webkit-color-swatch`, and neither of those two properties would
@@ -218,7 +228,15 @@ async function clickCanvas(page) {
     await page.screenshot({ path: shot, clip: { x: box.x, y: box.y, width: box.width, height: box.height } });
     const mid = Math.round(box.width / 2);
     const px = execSync(`python3 ${__dirname}/../pngpixel.py ${shot} ${mid} ${mid}`).toString().trim();
-    ok("the ink swatch paints the drawing colour", /\(255, 0, 0\)/.test(px), `centre pixel ${px.split("\n").pop()} after the swatch went #ff0000`);
+    //: Red, rather than exactly `rgb(255, 0, 0)`, and only because of where
+    //: it is measured: inside the tools sheet the swatch is painted through
+    //: the card's own glass, whose `saturate` moves the pixel by a point or
+    //: two (measured: 249, 1, 3 at 390x844). The question this asks is
+    //: whether the swatch paints the drawing colour at all, so it is asked
+    //: of the colour rather than of three exact bytes.
+    const rgb = (px.split("\n").pop().match(/\((\d+), (\d+), (\d+)\)/) || []).slice(1).map(Number);
+    const isRed = rgb.length === 3 && rgb[0] > 230 && rgb[1] < 20 && rgb[2] < 20;
+    ok("the ink swatch paints the drawing colour", isRed, `centre pixel ${px.split("\n").pop()} after the swatch went #ff0000`);
     // And the other way: the rail is a control, not a read-out.
     const back = await page.evaluate(() => {
       const sw = document.getElementById("wb-rail-ink");
@@ -232,6 +250,10 @@ async function clickCanvas(page) {
       back.stroke === "#00ff00" && back.stored === "#00ff00",
       `currentStrokeColor ${back.stroke}, stored ${back.stored}`,
     );
+    if (openedSheet) {
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(400);
+    }
   }
 
   // --- 5. the keys the tooltips spell as chords -----------------------------
@@ -496,11 +518,19 @@ async function clickCanvas(page) {
   // Above the item where there is room and below it where there is not (the
   // placement's own rule, so a bar never covers the rotate handle or the top
   // bar), and never across it either way.
+  //
+  // **Except at phone width, where the bar is pinned to the top of the canvas
+  // and the item may be under it** (WHITEBOARD_PLAN section 7, decided
+  // 2026-09-20 on the numbers in `wbcontextphone.js`: floating there put the
+  // bar on the tool rail twice in ten and off the canvas once, and a band over
+  // the tools is worse than a band over the item). The clearance rule still
+  // holds at every width that is not a phone.
+  const pinned = VIEWPORT.width < 600;
   const clear = placed.item
     && (placed.bar.bottom <= placed.item.top + 1 || placed.bar.top >= placed.item.bottom - 1);
   ok(
-    "the bar is inside the canvas and clear of the item",
-    inside && Boolean(clear),
+    pinned ? "the bar is pinned to the top of the canvas" : "the bar is inside the canvas and clear of the item",
+    inside && (pinned || Boolean(clear)),
     `bar ${Math.round(placed.bar.top)} to ${Math.round(placed.bar.bottom)} (${Math.round(placed.bar.width)}x${Math.round(placed.bar.height)}), item ${placed.item ? `${Math.round(placed.item.top)} to ${Math.round(placed.item.bottom)}` : "n/a"}, canvas ${Math.round(placed.host.width)}x${Math.round(placed.host.height)}`,
   );
   // The "..." menu is the board menus' own recipe, so it escapes the canvas's

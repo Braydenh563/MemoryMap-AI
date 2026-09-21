@@ -157,6 +157,36 @@ and every run ends with a verification line and an Undo.
     folded it is invisible to the query that looks for it. Keyed on where the
     note ended up, because "notes like this belong in B" is the half that is
     usable when filing something new.
+10g. **A verify block may carry arguments, and they may only narrow it**
+    (2026-09-20, taken while closing `brief-13-harness.md` item 3). Decision
+    10b's shape is `{tool, field, expect}`, which can only ask a tool its
+    unfiltered question: how many notes are there. The postcondition a
+    *writing* skill makes is narrower, and "Auto-tag my notes" is the case
+    that names itself: it claims it leaves no untagged note behind, which is
+    `count_notes(untagged) max 0` and is unsayable without an argument. So the
+    block takes `args`, flat scalars only, at most four
+    (`skills.MAX_VERIFY_ARGS`), and `count_notes` takes the same `untagged`
+    and `since` filters `list_notes` has always had, out of one shared
+    function so the count and the list can never disagree about what
+    "untagged" means. What does not change is what a verifier may *do*: the
+    runner still refuses any tool that writes, and an argument only ever makes
+    a reading narrower. The three read-only audit skills that could not verify
+    without widening their allowlist now declare `count_notes` and are checked
+    with it, which is the widening, stated: one read-only counting tool, on
+    the wire, for a run that would otherwise only promise it changed nothing.
+10h. **The page cap stays at six pages of twenty-five, and the answer to a
+    large notebook is a narrower read** (2026-09-20; `brief-13-harness.md`
+    item 4 asked for this to be decided in the plan rather than in the
+    constant). Raising `MAX_PAGES_PER_STEP` trades one wrong answer for
+    another: a run that spends its whole budget paging is not a better run
+    than one that says it saw the first hundred and fifty. What was missing
+    was any way to ask a *smaller* question, and that is what 10g's filters
+    are: "the untagged ones", "the last thirty days", "this category", each
+    answered by the database rather than by a model holding a notebook in its
+    head (§R5). A step that needs more than one page of the whole notebook is
+    a step whose filter has not been written yet. The honest `truncated`
+    report stays exactly as it is.
+
 12. **A link the AI writes is a card when it is the whole line, and stays
     inline otherwise** (INBOX 172, decided 2026-09-13 in Phase 3). The two
     forms answer two different questions and the plan had been reading them as
@@ -223,6 +253,17 @@ and every run ends with a verification line and an Undo.
     with a tooltip "Connect a model in Settings" and a one-click link;
     Ask falls back to search results with passages; nothing is hidden.
 
+16. **A read-only note row draws the facts, not the actions** (INBOX 297).
+   A search result, an Ask column record and any other row built through
+   `clickableResult` gets `entryItem(entry, {facts: true})`: every fact the
+   card states about the note (its category, tags, space, confidence, what
+   it is linked to, whether it has no tags yet) is true of the note wherever
+   it is drawn and belongs on the row. A chip that is really an action does
+   not: "Tag with Atlas" starts a model call, and the "No tags yet" flag's
+   handler opens the edit form in a list that is not on screen, so on a
+   read-only row that flag is a fact with no handler. Measured before the
+   decision: the same note drew five chips in Browse and two in Ask.
+
 ## 5. Phases
 
 ### Phase 1: grounding and marks (one session; Brief 12)
@@ -230,6 +271,71 @@ Decisions 1 to 4. **Gate:** on the ten fixture questions, ≥ 95% of
 supported sentences carry a mark to the right note (fixtures name the
 note); a skill run cites the notes it read; hover highlights the passage;
 "I don't know" appears on the two unanswerable fixtures.
+
+**Three of the four gate lines are green, 2026-09-20**, and the fixture set
+they are scored on now exists: `tests/fixtures/chat/grounding_cases.json`,
+sixteen cases, scored by `tests/test_grounding_fixtures.py`. Which note
+grounds a sentence is decided by the passage score (decision 2's open half);
+the account and the numbers moved to
+[HISTORY.md](HISTORY.md), "Moved from the plans, 2026-09-20". A skill run
+citing what it read is decision 1 and has been covered since it landed
+(`tests/test_grounding.py`, the tool-read cases); hover highlighting the
+passage is measured in the browser by
+`scratchpad/ui-sweeps/citepassage.js`.
+
+**Phase 1's fourth gate line, the low-support state: built 2026-09-21.**
+`grounding.support(answer, grounded)` counts from the same `split_sentences`
+and `MIN_SENTENCE_WORDS` rules `ground_answer_sentences` uses to decide what
+it will even try to mark, so the denominator cannot disagree with the thing it
+is a denominator of, and it counts distinct sentences rather than rows (a
+sentence about two notes emits two). It rides on the `grounding` event as
+`{supported, sentences, ratio, low}`, **including the judgement**: two places
+each choosing when an answer is thin is two places to disagree, and the copy
+would then describe a different answer from the one the marks describe.
+Brief 12's threshold kept (< 50%), with a floor of two scoreable sentences,
+because calling a single unmarked sentence "0% supported" would put a warning
+over every honest one-line answer and teach people to ignore it.
+
+The line is placed **above** the answer, not beside the chips below it: the
+chips are a key to marks somebody has already read, this is a thing to know
+before reading. It uses `.notice.notice-warn`, a recipe added to DESIGN.md in
+the same commit (standing order 11) because the app had exactly one
+notice-shaped box, `.reindex-stale`, built inline; that box now uses the
+recipe too, which is what keeps a recipe from being a private box with a
+general name. The warn tone is an edge, not a fill: measured, background alpha
+0.14 against a `--warn` border, because a filled warning band over an answer
+reads as a failed answer and it is not one.
+
+Gates: `tests/test_answer_support.py` (six, including one that reads
+`routes_chat.py` and fails if a grounding event ships without support, and one
+that fails if a threshold appears in app.js) and
+`scratchpad/ui-sweeps/answersupport.js` (six, all green: placed above the
+answer, a Phosphor icon, the copy agreeing with itself at n=1, the edge tone,
+one box 34.8px tall, and nothing at all on a fully supported answer).
+
+**What is left of it:** a remembered turn shows no notice. The two live paths
+(the Ask stream and the Chat stream) carry `support` on the event; the two
+replay paths read a stored turn, and nothing stores it. The fix is a field on
+the saved turn, not a second counter in the frontend, which is the one thing
+this must not grow. Until then the notice appears when an answer arrives and
+is gone if you reopen the conversation, which is a real inconsistency and is
+written here rather than left to be rediscovered.
+
+**Superseded, the original note:**
+Brief 12 decided it ("unsupported sentences get a hollow mark and the 'I
+don't know' copy is triggered when < 50% of sentences are supported") and
+nothing in the app reads a support ratio: `grep` for `answer-citation` finds
+the marks, and there is no unsupported variant of one and no notice above an
+answer that came from the model rather than from the notebook. The empty case
+is designed already (`librarian.NO_RESULTS_MESSAGE` plus the "Elsewhere in
+your notebook" chips), so what is missing is only the partly-supported one.
+The fixture set can gate it as it stands: `recipe-and-general-knowledge` is
+one supported sentence of two, and the two `unanswerable-*` cases are zero of
+two. Next step, in order: the ratio on the `grounding` event
+(`routes_chat.py`, where `sentence_grounding` is assembled), one notice line
+above the answer on the app's own recipe, and a sweep that asserts it appears
+on an answer whose sentences are half marked and not on one that is fully
+marked.
 
 ### Phase 2: one composer, bubbles, streaming: **built 2026-09-13**, see
 [HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green
@@ -247,11 +353,20 @@ decision 14), so the sweep asserts 14 chips in 6 groups with the tab's own
 group first.
 
 ### Phase 4: skills that finish (one session; Brief 13)
-Decisions 10 and 10a to 10f. Built, 2026-09-12: see HISTORY.md, "Moved from
-the plans", Brief 13. What is left: the `evals` marker and its fixture set
-(the loose-ends fixture with eight planted loose ends, the zero-invalid-calls
-count over the built-in skills), which wants the dev model script
-(WORLD_CLASS_PLAN 9) to be worth more than a restatement of the unit tests.
+Decisions 10 and 10a to 10h. Built, 2026-09-12: see HISTORY.md, "Moved from
+the plans", Brief 13. The harness items that were left with it are closed as
+of 2026-09-20 (the `verify` control in the editor, the two audit skills that
+had no check, `count_notes`'s filters, and the page-cap question, now decision
+10h): see HISTORY.md, "Moved from the plans, 2026-09-20".
+
+**What is left, and why it is still left: the `evals` marker and its fixture
+set** (the loose-ends fixture with eight planted loose ends, the
+zero-invalid-calls count over the built-in skills). It wants the dev model
+script (WORLD_CLASS_PLAN 9) to be worth more than a restatement of the unit
+tests: a fake transport calls whatever its script says, so "80% of the skills
+complete with no invalid tool call" measured against one would be a
+measurement of the script. Nothing was built towards it this time, deliberately:
+a test module that can never run in CI is a feature that never ran once.
 See `docs/roadmap/archive/agent-remaining/brief-13-harness.md`.
 
 ## 6. Consistency rules
@@ -397,3 +512,57 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
   bar.
 - "in the chat tab, the main chat panel shadow actually reaches all the way
   down on the gap."
+
+## Placed from INBOX, 2026-09-21 (the Ask sub-tab, four reports in one pass)
+
+**All four built, 2026-09-21.** One pass, because they are one screen and
+four separate fixes would have meant four rounds of the same measurement.
+The probe is `scratchpad/ui-sweeps/asktab.js` (registered in
+`scripts/gate.sh`'s sweep list); it measures rather than captures, and it
+drives a real stream through `scratchpad/fake_answer_server.py`, which now
+takes `FAKE_DELAY_MS` so a stream lasts long enough to poll. The full record
+is in HISTORY.md, "INBOX resolved, 2026-09-21".
+
+~~297. Gaps between an attached file and the badges, and badges that do not
+all show.~~ **Built.** The gap: 0.0px to 6.4px, at 1440, 1024, 820 and 390.
+The badges: not a truncation and not a wrap (every badge the data implies
+was drawn at every width, none clipped, 0px of the lane scrolled out), but a
+condition that never fired: `clickableResult` passed `entryItem` no options,
+so every chip gated on `options.actions` was missing from a read-only row.
+The same note: 2 badges in the Ask column before, 4 after, against 5 in
+Browse, the fifth being the one chip decision 16 keeps off a result row.
+
+~~298. No generating animation while the model is thinking and streaming.~~
+**Built.** Frames with the answer actually streaming: 250 before, 0 of them
+showing anything moving; 63 after, 63 of them showing something. Across the
+whole turn: 120 of 372 before, 243 of 243 after. Two existing components
+(`progressLine`, `.is-generating`) called from a surface that never called
+either, not a new control.
+
+~~299. Number the matching records to match the inline referencing.~~
+**Built.** Records numbered: 0 of 5 before, 5 of 5 after, from
+`citationNumbers`, the map the prose marks, the "Grounded in" chips and the
+Sources panel already share. Marks whose row disagrees with them: 0. Numbers
+drawn over a row's own text: 0 (6.4px of clear gutter on every row).
+
+~~300. The sources button reads as a banner and describes a place.~~
+**Built.** 525px of a 525px column (100%) before, 204px (38.9%) after;
+"Sources: 5 notes, on the right" before, "Show the 5 notes used" after; and
+a press now moves the first cited record from 328px below the top of the
+window to 72px.
+
+### The four reports, verbatim
+
+297. **The owner, 2026-09-21, verbatim:** "in the ask subtab in notes, make
+    sure there are appropriate gaps between uploaded files and attachments
+    and the badges and make sure all the badges show."
+
+298. **The owner, 2026-09-21, verbatim:** "there's no generating animation
+    while the model is thinking and streaming in the ask tab either."
+
+299. **The owner, 2026-09-21, verbatim:** "can the notes in the matching
+    records that appear in the ask tab be numbered accordingly to match the
+    inline referencing??"
+
+300. **The owner, 2026-09-21, verbatim:** "fix the ui of this sources button
+    in the ask tab."

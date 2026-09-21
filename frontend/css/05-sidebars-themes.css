@@ -151,7 +151,12 @@
 }
 
 /* PDF export prints the rendered preview and nothing else, the browser's own
-   "Save as PDF" then produces the file, which beats bundling a PDF engine. */
+   "Save as PDF" then produces the file, which beats bundling a PDF engine.
+   `body.printing-doc` is now also set by a `beforeprint` listener
+   (documents.js), so a plain Ctrl+P from the editor prints the same page the
+   export button does rather than the whole application. What the printed page
+   *looks* like, its margins, its ink and where it may break, is the
+   `@media print` block in 09-editor.css, which loads after this file. */
 @media print {
 
   body.printing-doc>*:not(#tab-documents),
@@ -986,6 +991,90 @@ button.map-chip:focus-visible {
   margin-bottom: 0;
 }
 
+/* --- a board or a map as an object in a note (INBOX 309) ---------------------
+   The owner: "there is also no way to attach a whiteboard or mindmap to a note
+   as like an object in the notes". It sits on `.note-embed` above, and for the
+   same reason: this is another surface of the app living inside somebody's
+   text, and the dashed frame is what says so. What it adds is that the whole
+   card is the way in, so the padding moves onto the button rather than the
+   box, or the press would stop short of the frame it is drawn inside. */
+.board-embed {
+  padding: 0;
+  overflow: hidden;
+}
+
+.board-embed-open {
+  display: block;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-inner);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.board-embed-open:hover,
+.board-embed-open:focus-visible {
+  background: var(--card-bg-hover);
+}
+
+.board-embed-open .note-embed-head {
+  display: flex;
+}
+
+.board-embed-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* The miniature at a thumbnail's size rather than the card rule's full width:
+   a note is a column of text, and a board drawn across all of it reads as a
+   figure rather than as an object in a paragraph. Same override, same reason,
+   as `.library-list .board-minimap`. */
+.board-embed-body .board-embed-picture {
+  flex: 0 0 auto;
+  width: 7rem;
+  height: 3.9rem;
+  aspect-ratio: auto;
+  margin: 0;
+}
+
+.board-embed-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.board-embed-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.board-embed-meta {
+  display: block;
+}
+
+/* The board is gone. Muted rather than an error colour: nothing has failed,
+   and a red box in the middle of a note would read as one. */
+.board-embed-gone {
+  padding: var(--space-3) var(--space-4);
+}
+
+.board-embed-gone .board-embed-title {
+  margin: 0;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.board-embed-gone .board-embed-meta {
+  margin: var(--space-1) 0 0;
+}
+
 /* --- duplicate tidy-up -------------------------------------------------------- */
 .duplicate-group {
   margin: 0.6rem 0;
@@ -1564,8 +1653,13 @@ body.resizing-sidebar {
   display: none;
 }
 
+/* The collapsed strip keeps its smaller base term and adds what is under a
+   bottom dock, which the `.doc-toolbar` rule in 07-whiteboard-misc.css cannot
+   give it: that one is (0,1,0) and this is (0,2,0), so it was overriding the
+   keyboard inset away in the strip's default state. See `--dock-bottom-inset`
+   in 00-tokens-shell.css for the measurement. */
 .doc-toolbar.is-collapsed {
-  padding-block: var(--space-1);
+  padding-block: var(--space-1) calc(var(--space-1) + var(--dock-bottom-inset));
 }
 
 .doc-toolbar-collapsed-name {
@@ -1672,20 +1766,40 @@ body.resizing-sidebar {
   border-radius: var(--radius-md);
 }
 
+/* **The bar recipe's own hover, not an accent one.** consistency.md item 3
+   listed this strip as the last surface off `.dock > * > button.ghost`
+   (08-consistency.css), and measuring it said which half: the resting state
+   was already exactly right (27 controls, one height at 36px, one radius at
+   8.4px, transparent fill, 1px transparent border, no shadow, identical to
+   the notes dock's own). What was off was the *state*. A hovered control here
+   painted `rgba(79, 109, 245, 0.14)` with a solid `rgb(70, 100, 240)` rim,
+   where every bar in the app paints `--ghost-btn-bg`, `rgba(31, 36, 48,
+   0.12)`, and keeps the rim transparent so the geometry does not move.
+
+   That difference matters more here than in a six-control dock: a hand
+   crossing a 27-control strip lights an accent-bordered box under every
+   button it passes, and the accent is this app's "on" colour. It is the one
+   thing the strip will need when the toolbar's own state is driven from the
+   syntax tree (DOCUMENTS_PLAN, the engine phase's third open item: which
+   buttons are on for the caret), and spending it on hover now would leave
+   that state nothing to say itself with. */
 .doc-toolbar button:hover,
+.doc-toolbar button:focus-visible,
 .doc-toolbar button.icon-only:hover,
 .doc-toolbar button.icon-button:hover,
-.doc-toolbar summary:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+.doc-toolbar summary:hover,
+.doc-toolbar summary:focus-visible {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
 }
 
 /* An open menu keeps the hover fill: the opener is the thing the popup below
    belongs to, and a popup with no visible source is a popup you have to
-   remember the origin of. */
+   remember the origin of. Same fill as the hover, which is what
+   `.dock > * > details[open] > summary` does for the same reason. */
 .doc-toolbar .doc-toolbar-menu[open] > summary {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
 }
 
 .doc-toolbar button:focus-visible,
@@ -2261,6 +2375,93 @@ body.resizing-sidebar {
 .outline-link:hover {
   background: var(--surface-3);
   color: var(--ink);
+}
+
+/* **The fold gutter** (DOCUMENTS_PLAN Phase 4 item 3). One column, the same
+   width on every row whether or not that row has anything to fold, because
+   the thing this outline's indent rules spend three paragraphs protecting is
+   that a row's left edge is decided by its depth and by nothing else. A
+   caret that appeared only on some rows would move every one of those rows'
+   text by 16px against its own level. */
+.outline-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.outline-twist {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-base);
+  line-height: 1;
+  /* A span in the same slot on a row with nothing under it: no pointer, no
+     ink, exactly the same box. */
+  cursor: default;
+}
+
+button.outline-twist {
+  cursor: pointer;
+}
+
+button.outline-twist:hover,
+button.outline-twist:focus-visible {
+  color: var(--ink);
+}
+
+/* The row itself is what grows; the gutter never does. */
+.outline-row > .outline-link {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* **Dragging a section to a new place** (DOCUMENTS_PLAN Phase 4 item 3). A
+   line where it would land, drawn with an inset shadow rather than a border
+   so the row's own box never changes size as the pointer crosses it: a 2px
+   border appearing on hover would push every row below it down by 2px, which
+   makes the list move under the drag. `--accent`, because this is a preview
+   of a thing about to happen, which is what the accent is for. */
+.outline-row.is-dragging {
+  opacity: 0.5;
+}
+
+.outline-row.is-drop-before {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+.outline-row.is-drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
+/* The filter box above the list. The sidebar's own inset field, at the
+   control height every other input in this app uses, and `margin-bottom`
+   rather than a gap because `.doc-outline-wrap` is a flex column whose other
+   children set their own spacing. */
+.doc-outline-filter {
+  width: 100%;
+  /* `--control-h-lg`, not `--control-h`: the second is scoped (the library
+     head rows and the chat dock each set their own) and is not declared
+     anywhere up this sidebar's chain, so it resolved to nothing and the box
+     measured 42px against every other input's 36. The `-lg` token is the
+     global one and is the 2.25rem the app's controls are built on. */
+  height: var(--control-h-lg);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--field-inset);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-md);
+  padding: 0 var(--space-3);
 }
 
 /* **The heading you are in.** Keyed off the attribute rather than off the
@@ -3388,7 +3589,15 @@ textarea.autogrow {
 
 .name-nudge button {
   font-size: 0.8rem;
-  padding: 0.25rem 0.6rem;
+  /* Pinned rather than left to the padding, which is DESIGN.md's control
+     height rule for a row: measured at 1440, "Add your name" came out 29.2px
+     from its own padding and the X beside it 28px from `.ghost.small`'s
+     `min-height`, so the two sat on one row at two heights. This was the only
+     mixed-height button row left in the app (312 visible buttons walked
+     across seven tabs). */
+  height: 1.75rem;
+  padding-block: 0;
+  padding-inline: 0.6rem;
 }
 
 /* On a phone the header wraps to two or three rows and the sidebars stack

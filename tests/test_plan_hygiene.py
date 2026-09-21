@@ -17,7 +17,15 @@ ROOT = Path(__file__).resolve().parent.parent
 #: Directories the conflict-marker sweep below never walks: a checkout's own
 #: plumbing, a virtual environment's vendored packages, and the browser
 #: profiles the sweeps leave behind, none of which this project writes.
-_SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", ".gate", "shots"}
+#: `worktrees` is here for the same reason `.git` is: `.claude/worktrees/`
+#: holds other branches' checkouts, one per running agent, and a lint on this
+#: branch has no business asserting about another branch's files. Left in, it
+#: also fails for a reason that is not a fault: an agent part-way through a
+#: merge legitimately has conflict markers in its own tree, so this test went
+#: red the moment two agents were started and stayed red until they finished.
+#: Added 2026-09-21, after it correctly caught a real marker on this branch
+#: and then drowned it in eleven lines about other people's worktrees.
+_SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", ".gate", "shots", "worktrees"}
 
 
 def _skip(path: Path) -> bool:
@@ -95,4 +103,28 @@ def test_no_conflict_marker_survives_a_merge():
     assert offenders == [], (
         "an unresolved merge conflict is committed; resolve it rather than "
         "committing the markers:\n" + "\n".join(offenders[:40])
+    )
+
+
+def test_no_entry_is_in_both_the_tray_and_the_history():
+    """An entry moved to HISTORY must leave the tray.
+
+    Found 2026-09-21, and it was a merge that caused it: resolving a conflict
+    in INBOX.md by keeping both sides restores entries the other side had
+    already moved out, so 313 and 314 sat in the tray and in HISTORY at once.
+    Nothing else noticed, because each copy is well formed on its own and the
+    "Fixed" rule above only reads the first words of an entry.
+
+    The number is the identity, so the check is a set intersection.
+    """
+    import re
+
+    tray = set(re.findall(r"^(\d{3})\. ", (ROADMAP / "INBOX.md").read_text(encoding="utf-8"), re.M))
+    history = set(
+        re.findall(r"^(\d{3})\. ", (ROADMAP / "HISTORY.md").read_text(encoding="utf-8"), re.M)
+    )
+    both = sorted(tray & history)
+    assert not both, (
+        "these entries are in INBOX.md and in HISTORY.md at once, which means "
+        f"a move was undone (usually by a merge keeping both sides): {both}"
     )

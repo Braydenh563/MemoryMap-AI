@@ -340,3 +340,81 @@ def test_the_cards_two_lines_do_not_say_the_same_thing():
     body = APP[start : APP.index("\n}\n", start)]
     assert "linkCardPath(url)" in body
     assert "readableUrl(url)" not in body
+
+
+def test_the_ask_foot_does_not_redraw_the_records_column():
+    """INBOX 274, the owner with a screenshot: "having the notes appear as
+    sources below the ai response in the notes tab ask subtab is uncnecessary
+    when they are shown already on the right next to the ai response".
+    Measured on that screen: five numbered source cards under the answer and
+    the same five notes, same ids in the same order, as rows in Matching
+    records beside it.
+
+    The decision taken: the column is the one place for the notes, and under
+    the answer there is one line saying how many and where. A note the column
+    is not showing, and every source that is not a note, keeps a card, because
+    the column is notes and an answer can draw on a file or a page.
+
+    The Chat tab keeps its panel whole and that is not an inconsistency: Chat
+    has no column beside it, so the cards are the only place its sources can
+    be. This asserts the arrangement, not the components.
+    """
+    start = APP.index("function renderAskAnswerFoot(")
+    foot = APP[start : APP.index("\n}\n", start)]
+    #: The split: what the column already holds, and what it does not.
+    assert "askNotesOnTheRight(" in foot, (
+        "the foot has to know which notes the records column is showing, or "
+        "it cannot tell a duplicate from a source that has nowhere else to be"
+    )
+    #: **And no control for the notes it is already showing** (the owner,
+    #: 2026-09-21: "remove the show x notes used button in the ask subtab as
+    #: well, it isnt needed"). The button counted the notes the column holds
+    #: and scrolled to the first one the answer cites, which is a second door
+    #: to a list already on screen beside the answer, carrying the answer's own
+    #: numbers on its rows. Asserted as an absence because a helpful edit would
+    #: put it back: the split above is the feature, not the button.
+    assert "askSourcesLine" not in APP, (
+        "the notes the records column already shows get no button of their own"
+    )
+    assert "elsewhere" in foot, (
+        "a source the column does not hold still needs a card; dropping all of "
+        "them would lose the files and web pages an answer drew on"
+    )
+
+
+def test_a_citation_mark_still_has_something_to_land_on():
+    """The half of the change above that is easy to forget. `showCitedPassage`
+    found its target by `.chat-source-card[data-note-id]`, and on the Ask tab
+    those cards are gone: without this the marks in the answer became
+    decoration, which is a feature quietly lost rather than a duplicate
+    removed. The records row is where a cited note is drawn on that tab."""
+    start = APP.index("function showCitedPassage(")
+    body = APP[start : APP.index("\n}\n", start)]
+    assert "chat-source-card[data-note-id=" in body, "the Chat tab's cards"
+    assert "#raw-results li[data-id=" in body, (
+        "and the Ask tab's records rows, which are where a cited note is "
+        "drawn there"
+    )
+    clear = APP[APP.index("function clearCitedPassage(") :]
+    clear = clear[: clear.index("\n}\n")]
+    assert ".is-cited" in clear, (
+        "clearing has to reach both, or a mark left on a records row stays "
+        "lit under the next answer"
+    )
+
+
+def test_the_sources_panel_can_be_given_a_subset_without_renumbering_it():
+    """The numbers on the cards are the numbers in the answer. The Ask tab now
+    hands the panel only the sources its column is not showing, and a panel
+    that numbered its own rows would call them 1 and 2 while the answer above
+    printed [4] and [5]."""
+    start = APP.index("function chatSourcesPanel(")
+    body = APP[start : APP.index("\nfunction ", start + 10)]
+    assert "numberFrom" in body, (
+        "chatSourcesPanel must accept the full list the citations were "
+        "numbered against"
+    )
+    assert "numbering.indexOf(source)" in body, (
+        "and number each card by its place in that list, not by its place in "
+        "the subset it was handed"
+    )

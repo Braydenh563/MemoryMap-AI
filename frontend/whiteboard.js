@@ -75,9 +75,22 @@ function wbZoomFilter(event) {
   // mousemove reports the held set, and the drag half of the gesture needs to
   // pass the filter too.
   if (event.button === 1 || (event.buttons & 4) === 4) return true;
-  // Touch: only in Pan. A finger drag while a brush is selected is a stroke,
-  // and stealing it for a pan would make the board undrawable on a tablet.
-  if (event.type.startsWith("touch")) return window.currentTool === "pan";
+  //: **Two fingers always navigate; one finger belongs to the tool.**
+  //: (UI_MODERNISATION_PLAN Phase 11 item 7, "view and light edit only on a
+  //: phone: pan, zoom, select, move".) One finger stays as it was, for the
+  //: reason below: a drag while a brush is selected is a stroke, and stealing
+  //: it for a pan would make the board undrawable on a tablet. But that left
+  //: a phone with no way to move or zoom the board at all unless it first
+  //: went and found the Pan tool: measured at 390x844 on a fresh board, a
+  //: pinch from 80px to 280px between the fingers with the default Select
+  //: tool scaled it by exactly 1.000. Two fingers is what every drawing app
+  //: people already know reserves for the camera (Figma, Excalidraw,
+  //: Procreate), and it cannot collide with a tool, because no tool here is
+  //: drawn with two.
+  if (event.type.startsWith("touch")) {
+    if (event.touches && event.touches.length > 1) return true;
+    return window.currentTool === "pan";
+  }
   // Left button: Pan tool, or space held down.
   if (event.button === 0 || event.buttons === 1 || event.buttons === 0) {
     return window.currentTool === "pan" || wbSpaceHeld;
@@ -119,6 +132,10 @@ let wbDeleteObjectRef = null;
 // outside it, placing a text box switches back to Select once typed , 
 // can still call it, the same shape the delete-refs above already use.
 let wbSelectToolRef = null;
+//: The phone tools opener's label, refreshed from wherever a tool is chosen
+//: (`selectWbTool` is inside `initWhiteboard`'s closure, and so is the
+//: opener). Null until a board has been opened once.
+let wbToolsOpenerSyncRef = null;
 // Same shape again, for the marquee/lasso selection drag. Reported directly:
 // "there's a permanent selection box on my mindmap", a dashed accent
 // rectangle sitting on the canvas at rest, ~330x375, with nothing selected.
@@ -374,9 +391,49 @@ function wbApplyZoomTransform(t) {
 //: subtracts the live d3 transform itself, so what it needs here is the
 //: untransformed canvas box, and since the swap above that is the container
 //: rather than the SVG (which now moves).
-function wbCanvasOriginRect() {
-  return document.getElementById("whiteboard-container").getBoundingClientRect();
+//:
+//: **Measured once per gesture** (MINDMAP_PLAN.md §13a). Every frame of a
+//: drag writes SVG geometry (`d` on each moved edge) before anything asks
+//: for this, and an SVG attribute write dirties layout, so each frame's first
+//: `getBoundingClientRect` paid for a fresh layout of the whole board. On a
+//: 500-topic branch drag that single call was the largest cost left on the
+//: path once the topic measurements and the element lookups were cached.
+//:
+//: The canvas box cannot move during a gesture: a pointer is down on it. It
+//: can move between gestures (a panel opens, the window resizes, the page
+//: scrolls, full screen is toggled), so the cache is dropped at the start of
+//: every gesture as well as at the end of one, and on resize and scroll.
+let wbCanvasRectCache = null;
+
+function wbClearCanvasRectCache() {
+  wbCanvasRectCache = null;
 }
+
+function wbCanvasOriginRect() {
+  if (wbCanvasRectCache) return wbCanvasRectCache;
+  const rect = document.getElementById("whiteboard-container").getBoundingClientRect();
+  wbCanvasRectCache = rect;
+  return rect;
+}
+
+window.addEventListener("pointerdown", wbClearCanvasRectCache, true);
+window.addEventListener("pointerup", wbClearCanvasRectCache, true);
+window.addEventListener("pointercancel", wbClearCanvasRectCache, true);
+window.addEventListener("resize", wbClearCanvasRectCache);
+window.addEventListener("scroll", wbClearCanvasRectCache, true);
+//: And whenever nothing is being dragged, which closes the one gap the five
+//: above leave: a keyboard shortcut can open a panel and move the canvas
+//: without any pointer event at all, and the next read would have been taken
+//: against the box the canvas used to have. `buttons` is 0 for a hover and
+//: non-zero for every frame of a gesture, so this costs a hovering pointer
+//: exactly what it cost before the cache and costs a drag nothing.
+window.addEventListener(
+  "pointermove",
+  (event) => {
+    if (!event.buttons) wbClearCanvasRectCache();
+  },
+  true
+);
 
 function handleWbZoom(e) {
   wbApplyZoomTransform(e.transform);
@@ -733,22 +790,59 @@ const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter",
 //: decision 7: "marker with `mix-blend-mode: multiply` at 40% opacity, width
 //: 12 to 24, Shift for straight"), which is what FigJam and Apple Freeform
 //: both do and what makes two crossing strokes read as two passes of one pen
-//: rather than as a third, lighter colour. 0.4, not 0.35: the plan's figure,
-//: and multiply darkens where plain alpha did not, so the old number would
-//: have made it fainter than it was.
-const WB_HIGHLIGHTER_ALPHA = 0.4; // matches the sketch pad's own SKETCH_HIGHLIGHTER_ALPHA
-//: A nib, not a scaled pen. The width slider runs 1 to 24 and this was four
-//: times it, so a highlighter could be 4px (a pen) or 96px (a wall). Clamped
-//: to the plan's 12 to 24, which is the range a real highlighter has.
-const WB_HIGHLIGHTER_MIN = 12;
-const WB_HIGHLIGHTER_MAX = 24;
+//: rather than as a third, lighter colour.
+//:
+//: **The numbers are not here any more.** Decision 7's other half, decided
+//: 2026-09-20: the quick-sketch pad and this board are two renderers of one
+//: highlighter, and what they share is `HIGHLIGHTER_STYLE` in `app.js` (the
+//: alpha, the multiplier, the 12 to 24 clamp, the cap and join, and the blend
+//: per backdrop). This file only asks it. The board and the pad were 0.4 with
+//: multiply against 0.35 with no blend before that.
+const WB_HIGHLIGHTER_ALPHA = HIGHLIGHTER_STYLE.alpha;
+const WB_HIGHLIGHTER_MIN = HIGHLIGHTER_STYLE.minWidth;
+const WB_HIGHLIGHTER_MAX = HIGHLIGHTER_STYLE.maxWidth;
 //: Takes the pen width rather than reading it: `WB_STROKE_WIDTH` is a `let`
 //: inside `initWhiteboard`, not a module constant, so a module-level function
 //: that read it threw `WB_STROKE_WIDTH is not defined` on the first stroke
 //: (found by the sweep, which drew nothing at all and said so).
 function wbHighlighterWidth(penWidth) {
-  return Math.min(WB_HIGHLIGHTER_MAX, Math.max(WB_HIGHLIGHTER_MIN, (penWidth || 3) * 4));
+  return highlighterWidth(penWidth);
 }
+
+//: **The blend follows the backdrop.** Multiply is worth 20 luminance units a
+//: pass on a light board and 3 on a dark one (measured with pngpixel.py on
+//: two crossing strokes: 252.9 / 229.6 / 211.5 light, 26.4 / 23.6 / 22.0
+//: dark), so on a dark board it is a blend that costs the ink its colour and
+//: buys almost nothing. `screen` is the same signal in the direction a dark
+//: surface can move. Inline rather than a class because the export clones
+//: these nodes into a standalone SVG where a stylesheet does not follow them,
+//: which is also why it has to be re-applied when the mode changes: see
+//: `wbRefreshHighlighterBlend`.
+function wbHighlighterBlend() {
+  return highlighterBlend(document.documentElement.dataset.mode === "dark");
+}
+
+//: Every highlighter stroke on the board, re-blended for the mode that is on
+//: now. `renderWhiteboard` already sets the blend on every render, so this
+//: exists for the one case a render does not follow: the theme changing under
+//: a board that is already open. The observer below is the hook (a mode
+//: change is an attribute write on `<html>`, and `applyResolvedMode` in
+//: settings.js is reached from the toggle, the presets and the OS media
+//: query alike, so watching the attribute cannot miss a route the way
+//: listening to one of the three could).
+function wbRefreshHighlighterBlend() {
+  const blend = wbHighlighterBlend();
+  for (const path of document.querySelectorAll(".sketch-path")) {
+    if (path.style.mixBlendMode) path.style.mixBlendMode = blend;
+  }
+  const drawing = document.querySelector("#wb-zoom-group > path.wb-live-highlighter");
+  if (drawing) drawing.style.mixBlendMode = blend;
+}
+
+new MutationObserver(wbRefreshHighlighterBlend).observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ["data-mode"],
+});
 
 //: The four closed shape tools fill applies to, a pen/highlighter/line/
 //: arrow stroke has no enclosed area a fill would read as filling. Module
@@ -1013,10 +1107,24 @@ function wbItemBBox(kind, item) {
   // wins when the element is on screen, a link aimed at the stored box
   // stopped short of the visible one.
   if (kind === "object") {
-    const el = document.querySelector(`.wb-object[data-id="${item.id}"]`);
-    if (el && el.offsetWidth && el.offsetHeight) {
-      w = el.offsetWidth;
-      h = el.offsetHeight;
+    //: **The measurement the render already took, when there is one**
+    //: (MINDMAP_PLAN.md §13a). `wbContentBounds` asks this of every item on
+    //: the board, so on a 500-topic map the fit that runs on open was 500
+    //: document walks and 500 layout reads: 127.2ms of the open, for boxes
+    //: `renderWbObjects` had just measured in one pass. The cache holds
+    //: exactly those numbers (`offsetWidth`/`offsetHeight`, same reads, same
+    //: elements) and is dropped by every render and at the end of every
+    //: gesture, so a hit here cannot be older than what is on screen.
+    const measured = wbMapNodeSizeCache?.get(item.id);
+    if (measured) {
+      w = measured.w;
+      h = measured.h;
+    } else {
+      const el = document.querySelector(`.wb-object[data-id="${item.id}"]`);
+      if (el && el.offsetWidth && el.offsetHeight) {
+        w = el.offsetWidth;
+        h = el.offsetHeight;
+      }
     }
   }
   w = w || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
@@ -1677,12 +1785,38 @@ function wbSketchIsDrawable(sketch) {
   return true;
 }
 
+//: **One lookup table per list, not a scan per link end**
+//: (MINDMAP_PLAN.md §13a). `wbUpdateLinkedSketches` calls this twice for every
+//: link touching a moved item, on every frame of the gesture, so the `.find`
+//: this replaces was the whole object list walked twice per link per frame:
+//: measured on `mapperf.js`'s own link fixture at 500 topics, a branch drag
+//: over 300 link sketches had a 183.3ms worst frame with the list scanned and
+//: 33.3ms with it indexed.
+//:
+//: **Keyed on the array itself, so it cannot go stale by being replaced.**
+//: Every list on `wbState` is either mutated by push or replaced wholesale by
+//: a `filter`, and a replacement is a different array, which is a different
+//: key in this WeakMap and therefore a fresh index. The length guard covers
+//: the push. The one case neither covers is an element replaced in place at
+//: the same length, which happens in exactly one place (a card re-posted onto
+//: its own row), and that place drops the entry by hand.
+const wbLinkItemIndex = new WeakMap();
+
+function wbForgetLinkItems(list) {
+  wbLinkItemIndex.delete(list);
+}
+
 function wbLinkItem(kind, id) {
   if (id == null) return null;
   const list = kind === "object" ? (wbState.objects || [])
     : kind === "sketch" ? (wbState.sketches || [])
     : wbState.nodes;
-  return list.find((i) => i.id === id) || null;
+  let held = wbLinkItemIndex.get(list);
+  if (!held || held.size !== list.length) {
+    held = { size: list.length, byId: new Map(list.map((i) => [i.id, i])) };
+    wbLinkItemIndex.set(list, held);
+  }
+  return held.byId.get(id) || null;
 }
 
 //: Everything a link can start from or land on: cards, text boxes and
@@ -2318,6 +2452,14 @@ function wbContextKindOf(sel, item) {
       const candidate = JSON.parse(item.data);
       if (candidate && (candidate.type || "").startsWith("link-")) parsedLink = candidate;
     } catch { /* not JSON: not a link either */ }
+    //: **A cross-link on a map has no board bar** (§13c). Its whole control
+    //: surface is the map's own link ring now, and the board's bar was the
+    //: second vocabulary for the same object that §13.2 measured (ink, caps
+    //: and stroke, against the ring's own words). A link between a topic and a
+    //: card, or any link on an ordinary board, still gets the bar: it is not
+    //: one of the map's two kinds of connection and the ring has nothing to
+    //: say about it.
+    if (parsedLink && wbMapCrossLinkInfo(item.id)) return null;
     if (parsedLink) return "link";
     const parsed = wbSketchParsedData(item);
     if (!parsed) return null;
@@ -2859,6 +3001,73 @@ function wbMapLayout() {
   return window.wbMapState?.layout || "free";
 }
 
+//: **The map's own look** (MINDMAP_PLAN.md §13e). Ten of the eleven things a
+//: topic can be given are set here once for the whole map, and a topic that
+//: was never told otherwise follows. `{}` for every map that has never been
+//: themed, which is every map made before this existed, so the fast path out
+//: of `wbMapThemedData` is the one an unthemed map takes.
+//: One frozen empty object rather than a fresh `{}` per call, and a `for
+//: ... in` rather than `Object.keys` below, for one reason: this is called
+//: once per node and three or four times per edge on every render and every
+//: drag frame, and 13a's whole finding was that the drag's cost was per-member
+//: work nobody noticed writing. An allocation per edge per frame is exactly
+//: that shape.
+const WB_MAP_NO_THEME = Object.freeze({});
+
+function wbMapTheme() {
+  return window.wbMapState?.theme || WB_MAP_NO_THEME;
+}
+
+//: One node's data with the map's theme underneath it: what this topic
+//: actually draws, as opposed to what it was told.
+//:
+//: **The node always wins, and `false` is a value.** This is the whole of the
+//: theme's safety: a field the topic carries is left alone, so a map-wide
+//: change can never overwrite a choice somebody made. `null`, `undefined` and
+//: `""` all mean "nothing was chosen here" (`wbMapSetNodeStyle` writes `null`
+//: to unset, and every select in the strip stores `""` as no value at all),
+//: while an explicit `false` is somebody saying "not on this one" against a
+//: theme that says on: the same three-state `edge_arrow` has always used.
+//:
+//: Resolved on every read rather than written onto the nodes, which is what
+//: makes changing the theme one request instead of one per topic, and what
+//: makes it reversible.
+function wbMapThemedData(node) {
+  const data = node?.data || {};
+  const theme = wbMapTheme();
+  let merged = null;
+  for (const field in theme) {
+    const own = data[field];
+    if (own !== undefined && own !== null && own !== "") continue;
+    if (!merged) merged = { ...data };
+    merged[field] = theme[field];
+  }
+  return merged || data;
+}
+
+//: What this topic would draw for one field if it said nothing: the map's, or
+//: `undefined` for the app's own. The strip's write handlers ask, so that
+//: choosing what the topic already draws stores nothing rather than pinning
+//: it (`edge_arrow`'s rule, applied to the rest of the strip).
+function wbMapThemeDefault(field) {
+  return wbMapTheme()[field];
+}
+
+//: What a strip toggle writes when it is pressed: `true`, `false` or `null`.
+//:
+//: `null` is "say nothing and follow the map", which is the right answer only
+//: when the map is not already saying the opposite: on a themed map the
+//: unset state *is* the theme's, so turning a themed-on field off has to be
+//: stored as an explicit `false`. Three values rather than two because a
+//: boolean cannot hold three states, and the third one ("I chose off") is the
+//: only thing that distinguishes a deliberate choice from an untouched topic.
+function wbMapToggleValue(node, field) {
+  const want = !wbMapThemedData(node)[field];
+  const fallback = Boolean(wbMapThemeDefault(field));
+  if (want === fallback) return null;
+  return want ? true : false;
+}
+
 //: Refresh `window.wbMapState` from `GET /boards/{id}/tree`.
 //:
 //: One request, because that endpoint is the only one carrying all three
@@ -2911,6 +3120,7 @@ async function wbRefreshMapState() {
     window.wbMapState = {
       type: tree.type,
       layout: tree.layout,
+      theme: tree.theme && typeof tree.theme === "object" ? tree.theme : {},
       labels,
       facets,
       crossLinks: tree.cross_links || [],
@@ -3296,6 +3506,219 @@ function wbMapStats(index) {
   };
 }
 
+//: --- the map's own look (MINDMAP_PLAN.md §13e) -----------------------------
+//:
+//: The owner, INBOX 305: "the customisation features are lacking severely."
+//: §13.4 measured what that meant and it was not the topic: a topic has
+//: eleven fields, and the map as a whole had none, so every one of the eleven
+//: was set one topic at a time and "Reset to branch" on a single node was the
+//: only bulk operation of any kind.
+//:
+//: **Ten fields, and the question that chose them** is asked once of each:
+//: does this describe *this topic*, or how *this map* draws topics? An icon,
+//: a core mark, a picture, a link out, a line's label and a line's waypoint
+//: are the first kind, and a map-wide default for any of them would be a bug
+//: rather than a theme. The ten below are the second.
+const WB_MAP_THEME_GROUPS = [
+  {
+    label: "Text",
+    fields: [
+      { key: "font_size", label: "Size", kind: "select", number: true, options: [
+        ["", "The app's own"], ["12", "S"], ["19", "L"], ["25", "XL"],
+      ] },
+      { key: "align", label: "Alignment", kind: "select", options: [
+        ["", "The app's own"], ["left", "Left"], ["center", "Centre"], ["right", "Right"],
+      ] },
+      { key: "bold", label: "Bold", kind: "check" },
+      { key: "italic", label: "Italic", kind: "check" },
+    ],
+  },
+  {
+    label: "The topic box",
+    fields: [
+      { key: "shape", label: "Box", kind: "select", options: [
+        ["", "Rounded"], ["pill", "Pill"], ["rect", "Box"],
+        ["ellipse", "Ellipse"], ["none", "Plain"],
+      ] },
+      { key: "spine", label: "Edge bar", kind: "select", options: [
+        ["", "Solid bar"], ["dashed", "Dashed bar"], ["none", "No bar"],
+      ] },
+    ],
+  },
+  {
+    label: "The branch line",
+    fields: [
+      { key: "edge_style", label: "Shape", kind: "select", options: [
+        ["", "Curved line"], ["elbow", "Elbow line"], ["straight", "Straight line"],
+      ] },
+      { key: "edge_width", label: "Thickness", kind: "select", options: [
+        ["", "Line"], ["thin", "Thin line"], ["thick", "Thick line"],
+      ] },
+      { key: "edge_dashed", label: "Dashed", kind: "check" },
+      { key: "edge_arrow", label: "Arrowhead", kind: "select", options: [
+        ["", "As the line draws"], ["on", "Always"], ["off", "Never"],
+      ] },
+    ],
+  },
+];
+
+//: Write one patch onto the map's theme and redraw.
+//:
+//: One request whatever the map's size, because the theme is resolved when a
+//: topic is painted rather than written onto every topic: that is what makes
+//: it reversible, and what makes a deliberate per-topic choice impossible to
+//: overwrite with it.
+async function wbMapSetTheme(patch) {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return false;
+  try {
+    await apiJson(`/whiteboard/boards/${boardId}`, {
+      method: "PUT",
+      body: JSON.stringify({ theme: patch }),
+    });
+    const theme = { ...wbMapTheme() };
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null || value === false || value === "") delete theme[key];
+      else theme[key] = value;
+    }
+    window.wbMapState = { ...window.wbMapState, theme };
+    renderWhiteboardNow();
+    const selected = wbSelectedMapNode();
+    if (selected) wbSyncMapStrip(selected);
+    return true;
+  } catch (err) {
+    toast(err.message || "Couldn't change how this map draws.", true);
+    return false;
+  }
+}
+
+//: **"Back to the branch" at the map's scope, not a second idea** (§13e).
+//: The ring's reset drops one topic's own look so it follows what it
+//: inherits; with a theme, what a topic inherits is the map, so the same
+//: sentence said about every topic is the bulk operation §13.4 found missing.
+//: One endpoint and one transaction, `move-many`'s own reason: a reset that
+//: is one request per topic leaves a two-hundred-topic map half done if any
+//: one of them fails.
+async function wbMapClearEveryTopic() {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return;
+  const ok = await confirmDialog(
+    "Every topic goes back to following this map, losing the colours, shapes "
+    + "and line styles that were set on them one at a time. Pictures stay.",
+    { confirmLabel: "Back to the map", cancelLabel: "Leave them" }
+  );
+  if (!ok) return;
+  try {
+    const out = await apiJson(`/whiteboard/boards/${boardId}/nodes/clear-style`, { method: "POST" });
+    const count = Number(out?.cleared) || 0;
+    //: A full re-fetch rather than a patch of `wbState`: the endpoint dropped
+    //: a key from every topic's data in one transaction, and the objects this
+    //: tab is holding are now wrong about all of them.
+    await fetchWhiteboardState();
+    renderWhiteboardNow();
+    toast(count
+      ? `${count} topic${count === 1 ? "" : "s"} back to following this map.`
+      : "Every topic was already following this map.");
+  } catch (err) {
+    toast(err.message || "Couldn't reset the topics.", true);
+  }
+}
+
+//: The dialog, from the recipe index's own two rows: a `.card.modal-card`
+//: through the app's helper (`wbInfoDialog`), a plain `<select>` for a
+//: dropdown of values and a `label.setting-check` for an on/off. Nothing new
+//: is drawn on the canvas for it: §13b took the topic strip from fourteen
+//: controls to five and §13's decision 5 says nothing is added, so this is
+//: one row inside the View menu's existing Map section.
+//:
+//: Every control saves as it is changed, the way the View menu's own
+//: background and grid do; there is no OK, because a dialog of looks with an
+//: OK asks what you are agreeing to when what you want is to watch the map
+//: change behind it.
+function wbMapThemeDialog() {
+  if (!wbIsMap()) {
+    toast("A theme is a map's: this board is a free canvas.");
+    return;
+  }
+  const body = document.createElement("div");
+  body.className = "wb-map-theme";
+  const lead = document.createElement("p");
+  lead.className = "muted wb-map-theme-lead";
+  lead.textContent = "Every topic that was never given one of these follows the map.";
+  body.appendChild(lead);
+
+  for (const group of WB_MAP_THEME_GROUPS) {
+    const head = document.createElement("h4");
+    head.className = "setting-subhead";
+    head.textContent = group.label;
+    body.appendChild(head);
+    for (const field of group.fields) {
+      body.appendChild(field.kind === "check"
+        ? wbMapThemeCheck(field)
+        : wbMapThemeSelect(field));
+    }
+  }
+
+  const foot = document.createElement("div");
+  foot.className = "row wb-map-theme-foot";
+  const reset = smallButton(
+    "ph:arrow-counter-clockwise Bring every topic back to the map",
+    "Drop the look set on each topic one at a time, so they all follow this map",
+    () => { close(); wbMapClearEveryTopic(); }
+  );
+  foot.appendChild(reset);
+  body.appendChild(foot);
+  const close = wbInfoDialog("How this map draws topics", body);
+}
+
+function wbMapThemeSelect(field) {
+  //: A `div`, not a `label`, deliberately: `enhanceSelect` leaves the real
+  //: `<select>` in the DOM aria-hidden at 1px and draws its own opener beside
+  //: it, so a label wrapping one sends the click to the half nobody can see.
+  //: The name is on the select itself instead (`aria-label`).
+  const row = document.createElement("div");
+  row.className = "wb-menu-row wb-map-theme-row";
+  const name = document.createElement("span");
+  name.textContent = field.label;
+  const select = document.createElement("select");
+  select.className = "ghost small";
+  select.setAttribute("aria-label", `${field.label}, for every topic on this map`);
+  for (const [value, label] of field.options) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+  select.value = String(wbMapTheme()[field.key] ?? "");
+  select.addEventListener("change", () => {
+    const raw = select.value;
+    //: `null`, not `""`: the empty option is "this map says nothing", and the
+    //: endpoint reads a null as the field being dropped from the theme.
+    const value = raw === "" ? null : (field.number ? Number(raw) : raw);
+    wbMapSetTheme({ [field.key]: value });
+  });
+  row.append(name, select);
+  return row;
+}
+
+function wbMapThemeCheck(field) {
+  const row = document.createElement("label");
+  row.className = "setting-check wb-map-theme-check";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = Boolean(wbMapTheme()[field.key]);
+  const name = document.createElement("span");
+  name.textContent = field.label;
+  //: `null` rather than `false` when it is turned off, for the reason the
+  //: whole theme is a sparse blob: a map that says nothing about a field
+  //: draws exactly the map that was drawn before any of this existed.
+  box.addEventListener("change", () => {
+    wbMapSetTheme({ [field.key]: box.checked ? true : null });
+  });
+  row.append(box, name);
+  return row;
+}
+
 function wbShowMapStats() {
   if (!wbIsMap()) {
     toast("Stats are about a map's tree: this board is a free canvas.");
@@ -3368,6 +3791,11 @@ function wbInfoDialog(title, body) {
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
+  //: The close, handed back: a dialog whose body holds an action that leads
+  //: somewhere else (the map theme's "bring every topic back") has to be able
+  //: to get out of the way first, because the confirmation it opens installs
+  //: its own capture-phase Escape handler behind this one's.
+  return close;
 }
 
 //: **Templates** (§5 item 21). The plan's reason, quoted: "an empty canvas is
@@ -3758,6 +4186,32 @@ function wbBuildMapNode(el, d) {
   //: shape and `wbPaintMapNode` a slightly different one. The class is set in
   //: the paint pass, which is the only place that knows what the node wears.
   body.append("i").attr("class", "wb-map-node-icon").attr("aria-hidden", "true");
+  //: **A topic whose body is a picture** (MINDMAP_PLAN.md §12.1 item 2's
+  //: fourth, Coggle's text/link/image/icon). Built for every node and hidden
+  //: when there is nothing to show, the same rule the icon above and the
+  //: chevron below already follow, and for the same reason: one element built
+  //: one way, rather than the enter selection and the paint pass each knowing
+  //: how to make one.
+  //:
+  //: `alt` is deliberately empty and the element is `aria-hidden`: the topic's
+  //: own label is right beside it and says what this node is, so a screen
+  //: reader that also announced the picture would say the same thing twice.
+  //: A caption nobody wrote is not a description.
+  //: **`draggable="false"`, and deliberately no `pointerdown` guard.** The two
+  //: look interchangeable and are opposites here. The link button beside this
+  //: stops the press because it is a control: pressing it must not also start
+  //: a node drag. The picture is the node's *body*, the largest thing to take
+  //: hold of on a picture topic, so a stopped press would make the card
+  //: undraggable by the part of it anyone would grab. What does have to be
+  //: refused is the browser's own image drag, which would otherwise start an
+  //: HTML5 drag of the file over a canvas that has a `drop` handler for
+  //: exactly that, and that is what this attribute is for.
+  body.append("img")
+    .attr("class", "wb-map-node-picture")
+    .attr("alt", "")
+    .attr("aria-hidden", "true")
+    .attr("draggable", "false")
+    .property("hidden", true);
   const text = body.append("div")
     .attr("class", "wb-map-text")
     .attr("contenteditable", "false");
@@ -4063,6 +4517,20 @@ function wbPaintMapNode(el, d, index, colors) {
   }
   el.classed("wb-map-collapsed", collapsed);
   el.classed("wb-map-pinned", Boolean(d.data?.pinned));
+  //: **The spine is on the edge the parent is on** (MINDMAP_PLAN §13e). It is
+  //: the left edge in every layout that grows right, the top edge downward
+  //: (a class on the view, `wb-map-down`), and the *right* edge for a topic
+  //: whose parent is to its right: a bar on the far side from the branch it
+  //: belongs to points at nothing, which is the reason the downward case
+  //: exists at all. Per node rather than per view, because both-sides has
+  //: topics of both kinds on one map.
+  const layout = wbMapLayout();
+  let mirrored = layout === "tree-left";
+  if (layout === "tree-both" && index) {
+    const parent = index.byId.get(d.parent_id);
+    if (parent) mirrored = d.x + (d.width || WB_MAP_NODE_W) / 2 < parent.x + (parent.width || WB_MAP_NODE_W) / 2;
+  }
+  el.classed("wb-map-node-mirrored", Boolean(mirrored));
   wbPaintMapNodeStyle(node, d);
 }
 
@@ -4075,7 +4543,10 @@ function wbPaintMapNode(el, d, index, colors) {
 //: same result by construction rather than by two lists of properties being
 //: kept in step.
 function wbPaintMapNodeStyle(node, d) {
-  const data = d.data || {};
+  //: The map's theme underneath the node's own choices (§13e): this is the
+  //: one place a topic's look is turned into classes and attributes, so it is
+  //: the one place the theme has to be resolved for a topic to inherit it.
+  const data = wbMapThemedData(d);
   node.classList.toggle("wb-map-bold", Boolean(data.bold));
   node.classList.toggle("wb-map-italic", Boolean(data.italic));
   //: A core idea (MINDMAP_PLAN.md item 177). A class rather than a data
@@ -4126,6 +4597,30 @@ function wbPaintMapNodeStyle(node, d) {
       : "");
     icon.hidden = !name;
     icon.className = name ? `ph ph-${name} wb-map-node-icon` : "wb-map-node-icon";
+  }
+
+  //: The picture, and the node shape that goes with it (§12.1 item 2's
+  //: fourth). `data-body` rather than a class for the same reason `shape` and
+  //: `align` are attributes: it is one of a set of exclusive body layouts, and
+  //: the absence of the attribute is the label-only node this map has always
+  //: drawn. The stylesheet turns the body from a row into a column on it, so a
+  //: picture node is a second node *shape*, not a label with a thumbnail
+  //: wedged in beside it.
+  const picture = node.querySelector(".wb-map-node-picture");
+  if (picture) {
+    const url = typeof data.image === "string" ? data.image : "";
+    picture.hidden = !url;
+    if (url) {
+      // `mediaSrc`, never the raw url: media is served behind the unlock, so
+      // the token has to ride on the query string exactly as it does for a
+      // board image and a note's own attachment.
+      const src = mediaSrc(url);
+      if (picture.getAttribute("src") !== src) picture.setAttribute("src", src);
+      node.dataset.body = "picture";
+    } else {
+      picture.removeAttribute("src");
+      delete node.dataset.body;
+    }
   }
 
   const link = node.querySelector(".wb-map-link");
@@ -4248,6 +4743,11 @@ function wbMapStartResizeDrag(grip, event, d) {
     node.style.minHeight = `${height}px`;
     d.width = width;
     d.height = height;
+    //: This gesture is the one thing that changes a node's measured box
+    //: without a render, so it drops that node's cached size itself; without
+    //: this the edges would follow the size the node had when the grip was
+    //: taken hold of. See `wbMapNodeSize`.
+    wbForgetMapNodeSize(d.id);
     wbUpdateMapEdges(edges);
   };
   const done = async () => {
@@ -4320,7 +4820,10 @@ function wbMapBranchDragOrigin(d, alone) {
 function wbMapDropTargetAt(d, clientX, clientY) {
   const container = document.getElementById("whiteboard-container");
   if (!container || !wbIsMap() || !WB_MAP_KINDS.has(d.kind)) return null;
-  const rect = container.getBoundingClientRect();
+  //: The shared, per-gesture box rather than a fresh measurement: this runs
+  //: on every frame of a branch drag, after that frame has already written
+  //: every moved edge's geometry. See `wbCanvasOriginRect`.
+  const rect = wbCanvasOriginRect();
   const t = d3.zoomTransform(container);
   const [bx, by] = t.invert([clientX - rect.left, clientY - rect.top]);
   const index = wbMapIndex();
@@ -4484,11 +4987,80 @@ function wbMapOpenReference(d) {
 //: `height` column is therefore only ever an approximation of it. Falls back
 //: to the stored value, then to the creation defaults, for a node that is not
 //: in the DOM at all, collapsed away, or being laid out before first paint.
+//:
+//: **Measured once per node between renders, not once per edge per frame**
+//: (MINDMAP_PLAN.md §13a). Every edge redraw asks this for both of its ends,
+//: and a drag redraws every edge of every topic it is carrying, so the two
+//: lines below used to run a document-wide attribute query and a layout read
+//: a few thousand times inside a single frame. A CPU profile of one 500-topic
+//: drag put `querySelector` and this function's own `offsetWidth`/
+//: `offsetHeight` reads at the top of the list by a wide margin; nothing else
+//: on the drag path came close, and the maths around them was noise.
+//:
+//: A map node's *size* cannot change without something that also clears this:
+//: a render (which rebuilds the element), the size grip (which deletes its
+//: own node's entry as it drags), or the end of any gesture. Its *position*
+//: changes constantly during a drag and is not cached here, because position
+//: is read from the datum, not from the DOM. Only a real measurement is
+//: cached: the fallback below is what a node that has not been laid out yet
+//: returns, and freezing that would keep the wrong number after first paint.
+let wbMapNodeSizeCache = null;
+
 function wbMapNodeSize(d) {
+  const cached = wbMapNodeSizeCache?.get(d.id);
+  if (cached) return cached;
   const el = document.querySelector(`.wb-object[data-id="${d.id}"]`);
-  if (el && el.offsetHeight) return { w: el.offsetWidth, h: el.offsetHeight };
+  if (el && el.offsetHeight) {
+    const size = { w: el.offsetWidth, h: el.offsetHeight };
+    if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
+    wbMapNodeSizeCache.set(d.id, size);
+    return size;
+  }
   return { w: d.width || WB_MAP_NODE_W, h: d.height || WB_MAP_NODE_H };
 }
+
+function wbClearMapNodeSizeCache() {
+  wbMapNodeSizeCache = null;
+}
+
+//: **Every topic's element and box in one pass, for the gesture that is about
+//: to want all of them** (MINDMAP_PLAN.md §13a). Picking up a topic with a
+//: branch under it needs, on its first frame, the element of every topic it
+//: is carrying and the box of both ends of every edge between them: one
+//: `querySelector` each is five hundred separate walks of the document, and
+//: the first layout read after each of them is a fresh flush. One
+//: `querySelectorAll` and one batch of reads is the same information for one
+//: walk and one flush, which is what turns the pick-up from a stall into a
+//: frame.
+//:
+//: First element wins, matching what `wbMapNodeSize`'s own `querySelector`
+//: would have returned had two layers ever carried the same id. Only real
+//: measurements are kept, for the reason `wbMapNodeSize` gives.
+function wbIndexMapNodeElements() {
+  const byId = new Map();
+  if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
+  for (const el of document.querySelectorAll(".wb-object[data-id]")) {
+    const id = Number(el.dataset.id);
+    if (byId.has(id)) continue;
+    byId.set(id, el);
+    if (!wbMapNodeSizeCache.has(id) && el.offsetHeight) {
+      wbMapNodeSizeCache.set(id, { w: el.offsetWidth, h: el.offsetHeight });
+    }
+  }
+  return byId;
+}
+
+//: One node's measurement dropped, for the gesture that is changing that one
+//: node's box while it runs (the size grip). Clearing the whole cache there
+//: would put the board-wide re-measure back into every frame of a resize.
+function wbForgetMapNodeSize(id) {
+  wbMapNodeSizeCache?.delete(id);
+}
+
+// Every drag ends in one of these, whichever element it started on, and the
+// same two events already clear the alignment guides' own box cache.
+window.addEventListener("pointerup", wbClearMapNodeSizeCache, true);
+window.addEventListener("pointercancel", wbClearMapNodeSizeCache, true);
 
 //: Where an edge leaves its parent and where it meets its child, by layout, 
 //: right/left for a map that grows sideways, bottom/top for one that grows
@@ -4498,7 +5070,10 @@ function wbMapNodeSize(d) {
 function wbMapEdgeAnchors(parent, child, layout) {
   const p = wbMapNodeSize(parent);
   const c = wbMapNodeSize(child);
-  let horizontal = layout === "tree-right";
+  //: Every sideways layout is horizontal, whichever way it grows: the
+  //: `leftward` test below already reads the direction off the two boxes, so
+  //: tree-left and both-sides need nothing of their own here.
+  let horizontal = layout === "tree-right" || layout === "tree-left" || layout === "tree-both";
   if (layout === "radial" || layout === "free") {
     horizontal = Math.abs(child.x - parent.x) >= Math.abs(child.y - parent.y);
   }
@@ -4522,6 +5097,131 @@ function wbMapEdgeAnchors(parent, child, layout) {
   };
 }
 
+//: **Where the line into a topic bends** (MINDMAP_PLAN.md §12.1 item 5's
+//: third, "the control points on a curve drag to reshape it").
+//:
+//: A tree edge has no row of its own (it *is* `parent_id`), so the waypoint
+//: lives on the child, in `edge_slide` and `edge_bend`, as two fractions of
+//: the line's own length: along it from the halfway mark, and across it. The
+//: frame is rebuilt from the anchors every time it is read, which is what
+//: makes the stored pair survive a tidy, a drag, a zoom and a layout switch:
+//: two board coordinates would be right until either end moved, which on a
+//: map that lays itself out is about one gesture later.
+//:
+//: `bent` is what an unset pair means: the point is the anchors' own midpoint,
+//: every shape below is the shape it has always drawn, and the `d` string a
+//: plain map produces is the same string character for character.
+function wbMapEdgeWaypoint(a, child) {
+  const slide = Number(child?.data?.edge_slide) || 0;
+  const bend = Number(child?.data?.edge_bend) || 0;
+  const mx = (a.x1 + a.x2) / 2;
+  const my = (a.y1 + a.y2) / 2;
+  const dx = a.x2 - a.x1;
+  const dy = a.y2 - a.y1;
+  const len = Math.hypot(dx, dy) || 1;
+  // Along the line, and the normal to it: the pair (ux, uy), (-uy, ux).
+  const ux = dx / len;
+  const uy = dy / len;
+  return {
+    bent: Boolean(slide || bend),
+    x: mx + (ux * slide - uy * bend) * len,
+    y: my + (uy * slide + ux * bend) * len,
+  };
+}
+
+//: The same frame read the other way: a board point back into the two
+//: fractions the drag stores. Held to the same bounds the schema enforces, so
+//: a drag can never compose a value the PUT would then refuse (a gesture that
+//: works until you let go is the worst shape a control can have).
+const WB_MAP_BEND_MAX = 4;
+const WB_MAP_SLIDE_MAX = 0.45;
+
+function wbMapEdgeFractions(a, x, y) {
+  const mx = (a.x1 + a.x2) / 2;
+  const my = (a.y1 + a.y2) / 2;
+  const dx = a.x2 - a.x1;
+  const dy = a.y2 - a.y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const vx = x - mx;
+  const vy = y - my;
+  const hold = (value, limit) => Math.max(-limit, Math.min(limit, value));
+  //: Three decimals, which at the 45-degree worst case is under a hundredth
+  //: of a pixel on the longest branch this canvas allows: enough that the
+  //: line lands where it was dropped, and short enough that the number in an
+  //: exported file is a number a person can read.
+  const round = (value) => Math.round(value * 1000) / 1000;
+  return {
+    edge_slide: round(hold((vx * ux + vy * uy) / len, WB_MAP_SLIDE_MAX)),
+    edge_bend: round(hold((vx * -uy + vy * ux) / len, WB_MAP_BEND_MAX)),
+  };
+}
+
+//: The cubic a curved edge is drawn from, as four points, so the stroke and
+//: the ribbon are two drawings of one curve rather than two curves that drift
+//: (the same bargain `wbMapEdgePathD`'s own comment makes about the render and
+//: the per-frame drag follow).
+//:
+//: **The bend is 4/3 of the distance the point moved, and the number is the
+//: whole trick.** A cubic's own midpoint is `(p0 + 3c0 + 3c1 + p1) / 8`, so
+//: shifting *both* control points by d moves that midpoint by 6d/8: to put the
+//: curve through a point the pointer is holding, the control points move 4/3
+//: as far. Which means the handle is not near the line, it is exactly on it,
+//: at t = 0.5, at every zoom and in both orientations, and the probe can say
+//: so with a number rather than a screenshot.
+function wbMapEdgeCubic(a, child) {
+  const mx = (a.x1 + a.x2) / 2;
+  const my = (a.y1 + a.y2) / 2;
+  const p0 = { x: a.x1, y: a.y1 };
+  const p1 = { x: a.x2, y: a.y2 };
+  // Control points on the axis the edge leaves by, at half the span: the
+  // curve leaves the parent square to its own edge and arrives square to
+  // the child's, which is what makes a column of siblings read as one
+  // branch rather than a fan of straight lines crossing each other.
+  const c0 = a.horizontal ? { x: mx, y: a.y1 } : { x: a.x1, y: my };
+  const c1 = a.horizontal ? { x: mx, y: a.y2 } : { x: a.x2, y: my };
+  const w = wbMapEdgeWaypoint(a, child);
+  if (w.bent) {
+    const dx = (w.x - mx) * (4 / 3);
+    const dy = (w.y - my) * (4 / 3);
+    c0.x += dx;
+    c0.y += dy;
+    c1.x += dx;
+    c1.y += dy;
+  }
+  return { p0, c0, c1, p1 };
+}
+
+//: Where an elbow turns, which is the one thing a right-angled line has to
+//: give a waypoint. Held between the two anchors on both axes: a turn outside
+//: the span is a line that doubles back on itself, and the point it returns is
+//: then guaranteed to sit on the elbow's own crossing leg, which is what lets
+//: the handle be drawn on the line for this shape as well as the other two.
+function wbMapEdgeElbowTurn(a, w) {
+  const hold = (value, p, q) => Math.max(Math.min(p, q), Math.min(Math.max(p, q), value));
+  return { x: hold(w.x, a.x1, a.x2), y: hold(w.y, a.y1, a.y2) };
+}
+
+//: How far apart a line's two controls sit, in board units. The `+` is 24
+//: units across and the handle 14, so 26 is the first number at which neither
+//: covers the other at any zoom (both live in the zoomed layer and scale
+//: together). They were on the same point in the first build of this, and the
+//: `+` is HTML above the SVG: `elementFromPoint` at the handle's centre
+//: returned the button, and the drag could not start at all.
+const WB_MAP_EDGE_CONTROL_GAP = 26;
+
+//: The point on the drawn line where the handle belongs, per line shape
+//: (§12.1 item 5's third has to compose with item 4's three shapes). The curve
+//: and the straight line pass through the waypoint itself by construction; the
+//: elbow passes through its turn.
+function wbMapEdgeHandlePoint(parent, child, layout) {
+  const a = wbMapEdgeAnchors(parent, child, layout);
+  const w = wbMapEdgeWaypoint(a, child);
+  if ((wbMapThemedData(child).edge_style || "curve") === "elbow") return wbMapEdgeElbowTurn(a, w);
+  return { x: w.x, y: w.y };
+}
+
 //: One tree edge's `d`, from the two nodes' live `x`/`y` and their rendered
 //: sizes. Factored out of `wbRenderMapEdges` below so the per-frame drag
 //: follow (`wbUpdateMapEdges`) recomputes an edge with exactly the maths the
@@ -4539,22 +5239,26 @@ function wbMapEdgePathD(parent, child, layout) {
   //: the two points. The elbow turns at the same midpoint the curve's control
   //: points sit on, which is what keeps a column of siblings reading as one
   //: branch in either style.
-  const style = child.data?.edge_style || "curve";
-  const mx = (a.x1 + a.x2) / 2;
-  const my = (a.y1 + a.y2) / 2;
-  if (style === "straight") return `M${a.x1} ${a.y1} L${a.x2} ${a.y2}`;
-  if (style === "elbow") {
-    return a.horizontal
-      ? `M${a.x1} ${a.y1} L${mx} ${a.y1} L${mx} ${a.y2} L${a.x2} ${a.y2}`
-      : `M${a.x1} ${a.y1} L${a.x1} ${my} L${a.x2} ${my} L${a.x2} ${a.y2}`;
+  const style = wbMapThemedData(child).edge_style || "curve";
+  //: The waypoint composes with all three shapes rather than only the curve
+  //: (§12.1 item 5's third: "it now has to compose with the three line shapes
+  //: item 4 added"). Each shape bends in the way that shape can: the curve
+  //: passes through the point, the straight line kinks at it, and the elbow
+  //: moves its turn to it. An unbent line is the same string it always was.
+  const w = wbMapEdgeWaypoint(a, child);
+  if (style === "straight") {
+    return w.bent
+      ? `M${a.x1} ${a.y1} L${w.x} ${w.y} L${a.x2} ${a.y2}`
+      : `M${a.x1} ${a.y1} L${a.x2} ${a.y2}`;
   }
-  // Control points on the axis the edge leaves by, at half the span: the
-  // curve leaves the parent square to its own edge and arrives square to
-  // the child's, which is what makes a column of siblings read as one
-  // branch rather than a fan of straight lines crossing each other.
-  return a.horizontal
-    ? `M${a.x1} ${a.y1} C${mx} ${a.y1} ${mx} ${a.y2} ${a.x2} ${a.y2}`
-    : `M${a.x1} ${a.y1} C${a.x1} ${my} ${a.x2} ${my} ${a.x2} ${a.y2}`;
+  if (style === "elbow") {
+    const turn = wbMapEdgeElbowTurn(a, w);
+    return a.horizontal
+      ? `M${a.x1} ${a.y1} L${turn.x} ${a.y1} L${turn.x} ${a.y2} L${a.x2} ${a.y2}`
+      : `M${a.x1} ${a.y1} L${a.x1} ${turn.y} L${a.x2} ${turn.y} L${a.x2} ${a.y2}`;
+  }
+  const c = wbMapEdgeCubic(a, child);
+  return `M${c.p0.x} ${c.p0.y} C${c.c0.x} ${c.c0.y} ${c.c1.x} ${c.c1.y} ${c.p1.x} ${c.p1.y}`;
 }
 
 //: **A branch is a shape, not a line** (INBOX 180: "can you give the direction
@@ -4598,7 +5302,7 @@ const WB_MAP_RIBBON_THIN = 2;
 const WB_MAP_EDGE_WEIGHTS = { thin: 0.55, thick: 1.7 };
 
 function wbMapEdgeWeight(child) {
-  return WB_MAP_EDGE_WEIGHTS[child?.data?.edge_width] || 1;
+  return WB_MAP_EDGE_WEIGHTS[wbMapThemedData(child).edge_width] || 1;
 }
 
 //: Whether *this* line ends in an arrowhead.
@@ -4611,7 +5315,7 @@ function wbMapEdgeWeight(child) {
 //: whichever default applies, so the strip's toggle can add a head to a
 //: ribbon and take one off a straight line.
 function wbMapEdgeHasArrow(child) {
-  const set = child?.data?.edge_arrow;
+  const set = wbMapThemedData(child).edge_arrow;
   if (set === "on") return true;
   if (set === "off") return false;
   return !wbMapEdgeIsRibbon(child);
@@ -4631,12 +5335,11 @@ function wbMapCubicAt(t, p0, c0, c1, p1) {
 
 function wbMapRibbonD(parent, child, layout) {
   const a = wbMapEdgeAnchors(parent, child, layout);
-  const mx = (a.x1 + a.x2) / 2;
-  const my = (a.y1 + a.y2) / 2;
-  const p0 = { x: a.x1, y: a.y1 };
-  const p1 = { x: a.x2, y: a.y2 };
-  const c0 = a.horizontal ? { x: mx, y: a.y1 } : { x: a.x1, y: my };
-  const c1 = a.horizontal ? { x: mx, y: a.y2 } : { x: a.x2, y: my };
+  //: The same four points the stroked curve is drawn from, waypoint and all
+  //: (`wbMapEdgeCubic`): a ribbon that ignored the bend would be the default
+  //: line shape on this map quietly refusing the control, which is the one
+  //: way a feature can be "built" and do nothing on most of a map.
+  const { p0, c0, c1, p1 } = wbMapEdgeCubic(a, child);
   const weight = wbMapEdgeWeight(child);
   //: An arrowhead on a ribbon is part of the ribbon, not a marker: the shape
   //: is closed, so a `marker-end` would be placed at the end of the outline,
@@ -4688,7 +5391,8 @@ function wbMapRibbonD(parent, child, layout) {
 //: a ribbon painted with a stroke rule is a blob, and a stroke painted with a
 //: fill rule is invisible.
 function wbMapEdgeIsRibbon(child) {
-  return (child.data?.edge_style || "curve") === "curve" && !child.data?.edge_dashed;
+  const themed = wbMapThemedData(child);
+  return (themed.edge_style || "curve") === "curve" && !themed.edge_dashed;
 }
 
 //: The tree edges touching `id` (its own edge up to its parent, and one per
@@ -4704,28 +5408,57 @@ function wbMapEdgeIsRibbon(child) {
 //: `data.pinned` is set, so its `wbScheduleRender` never fired a second
 //: time). Precomputed for the same reason `wbLinkedSketchesFor` is: a node
 //: gains or loses a parent between drags, never during one.
-function wbMapEdgesFor(id) {
+//:
+//: **The three lines an edge is drawn from, found in one pass over the edge
+//: group rather than by three document-wide attribute queries per edge**
+//: (MINDMAP_PLAN.md §13a). `wbCaptureBulkMoveOrigin` calls `wbMapEdgesFor`
+//: once per topic in a dragged branch, so on a 500-topic map the old shape
+//: ran several thousand `document.querySelector` calls, and rebuilt the map
+//: index and read the layout once per topic on top of them, all before the
+//: pointer had moved. Passing one context in makes the whole capture linear
+//: in the branch rather than quadratic in the board.
+function wbMapEdgeContext() {
+  const els = new Map();
+  const group = document.querySelector(".wb-map-edges");
+  if (group) {
+    for (const el of group.querySelectorAll(
+      ".wb-map-edge, .wb-map-edge-hit, .wb-map-edge-handle"
+    )) {
+      const key = `${el.dataset.parent}:${el.dataset.child}`;
+      let slot = els.get(key);
+      if (!slot) els.set(key, (slot = {}));
+      // `wb-map-edge` is the visible path's own token; the ribbon, dash and
+      // thickness classes ride alongside it on the same element, and the twin
+      // and the handle carry neither it nor each other.
+      if (el.classList.contains("wb-map-edge")) slot.el = el;
+      else if (el.classList.contains("wb-map-edge-hit")) slot.hit = el;
+      else slot.grip = el;
+    }
+  }
+  return { index: wbMapIndex(), layout: wbMapLayout(), els };
+}
+
+function wbMapEdgesFor(id, ctx) {
   if (!wbIsMap()) return [];
-  const index = wbMapIndex();
+  const { index, layout, els } = ctx || wbMapEdgeContext();
   const self = index.byId.get(id);
   if (!self) return [];
-  const layout = wbMapLayout();
   const found = [];
   const add = (parent, child) => {
-    const el = document.querySelector(
-      `.wb-map-edges .wb-map-edge[data-parent="${parent.id}"][data-child="${child.id}"]`
-    );
-    // The invisible twin has to follow the drag as well, or the line you can
-    // point at stays where the line used to be: a target that is right until
-    // the first time anything moves is worse than no target.
-    const hit = document.querySelector(
-      `.wb-map-edges .wb-map-edge-hit[data-parent="${parent.id}"][data-child="${child.id}"]`
-    );
-    if (el && hit) el._wbHitTwin = hit;
+    const slot = els.get(`${parent.id}:${child.id}`);
     // No element means the edge is not drawn right now (a collapsed or
     // filtered branch), which is not an error: there is simply nothing to
     // follow the drag.
-    if (el) found.push({ parent, child, el, layout });
+    if (!slot || !slot.el) return;
+    // The invisible twin has to follow the drag as well, or the line you can
+    // point at stays where the line used to be: a target that is right until
+    // the first time anything moves is worse than no target.
+    if (slot.hit) slot.el._wbHitTwin = slot.hit;
+    // And the waypoint handle (§12.1 item 5's third), for the same reason the
+    // hit twin is here: a handle that stays where the line used to be is a
+    // control pointing at nothing the moment either end of the line moves.
+    if (slot.grip) slot.el._wbHandle = slot.grip;
+    found.push({ parent, child, el: slot.el, layout });
   };
   const parent = self.parent_id != null ? index.byId.get(self.parent_id) : null;
   if (parent) add(parent, self);
@@ -4745,6 +5478,11 @@ function wbUpdateMapEdges(edges) {
     // always the centreline, which is what a person is actually pointing at.
     el.setAttribute("d", wbMapEdgeIsRibbon(child) ? wbMapRibbonD(parent, child, layout) : d);
     if (el._wbHitTwin) el._wbHitTwin.setAttribute("d", d);
+    if (el._wbHandle) {
+      const point = wbMapEdgeHandlePoint(parent, child, layout);
+      el._wbHandle.setAttribute("cx", String(point.x));
+      el._wbHandle.setAttribute("cy", String(point.y));
+    }
   }
 }
 
@@ -4777,94 +5515,275 @@ function wbRenderMapEdges() {
   const colors = wbMapNodeColors(index);
   const hidden = wbMapConcealed(index);
   const layout = wbMapLayout();
-  const NS = "http://www.w3.org/2000/svg";
-  const next = [];
+  //: **A line is keyed by its two ends and updated in place**
+  //: (MINDMAP_PLAN.md §13a, the render pass). This loop used to build four
+  //: SVG elements per edge and `replaceChildren` the lot on every render: at
+  //: 500 topics that is two thousand elements created, wired and thrown away
+  //: because one of them moved, and it measured 122.2ms of a 527ms render.
+  //:
+  //: The old note here said an edge has no identity of its own, it *is* its
+  //: two endpoints, so there was nothing for a join to key on. The first half
+  //: is still true and the conclusion was wrong: those two endpoints are a
+  //: perfectly good key, and `wbMapEdgesFor` has been finding a line by them
+  //: mid-drag ever since. What an edge does not have is a *row*, which is why
+  //: this is a hand-rolled cache rather than a d3 data join.
+  //:
+  //: The cache hangs off the group element, not off the module: a board that
+  //: is not a map removes the group above, which takes the cache with it, so
+  //: a stale element can never be handed to the next board.
+  const cache = group._wbMapEdges instanceof Map ? group._wbMapEdges : (group._wbMapEdges = new Map());
+  const drawn = new Set();
+  //: **The group stays in the tree's own order**, which is what rebuilding it
+  //: gave for free. Two things read that order: SVG paints in document order,
+  //: so it decides which of two overlapping lines is on top, and
+  //: `mapstrip.js` pairs the first line with the first mid-line `+` (the
+  //: pluses are still rebuilt in index order). Appending new lines at the end
+  //: instead cost that sweep its insert check, which is the order saying out
+  //: loud that it is load-bearing. Nothing moves while the tree is unchanged:
+  //: this compares first and writes only when a line is out of place.
+  let slot = 0;
   for (const parent of index.nodes) {
     if (hidden.has(parent.id) || parent.data?.collapsed) continue;
     for (const child of index.childrenOf.get(parent.id) || []) {
       if (hidden.has(child.id)) continue;
-      const path = document.createElementNS(NS, "path");
-      const ribbon = wbMapEdgeIsRibbon(child);
-      //: The line's own classes (MINDMAP_PLAN.md item 177). Thickness is a
-      //: class rather than a `stroke-width` attribute for the same reason the
-      //: colour is a custom property: a presentation attribute sits below
-      //: every author rule, so `.wb-map-edge`'s own `stroke-width` would win
-      //: and the control would do nothing. The ribbon needs no thickness
-      //: class, since its width is in the path it is drawn from, and no arrow
-      //: class, since its head is too.
-      const classes = ["wb-map-edge"];
-      if (ribbon) classes.push("wb-map-edge-ribbon");
-      else {
-        if (child.data?.edge_dashed) classes.push("wb-map-edge-dashed");
-        if (child.data?.edge_width) classes.push(`wb-map-edge-${child.data.edge_width}`);
-        if (!wbMapEdgeHasArrow(child)) classes.push("wb-map-edge-headless");
+      const key = `${parent.id}:${child.id}`;
+      drawn.add(key);
+      const geom = wbMapEdgeGeometry(parent, child, layout, colors);
+      const held = cache.get(key);
+      //: `isConnected`, because something else can take the element out from
+      //: under this cache: `group.remove()` above on a board that stopped
+      //: being a map, and an export that clones and replaces the layer.
+      let wrap;
+      if (held && held.wrap.isConnected) {
+        wrap = held.wrap;
+        if (held.paint !== geom.paint) {
+          wbMapEdgeApply(wrap, geom);
+          held.paint = geom.paint;
+        }
+      } else {
+        wrap = wbMapEdgeElement(parent.id, child.id);
+        wbMapEdgeApply(wrap, geom);
+        cache.set(key, { wrap, paint: geom.paint });
       }
-      path.setAttribute("class", classes.join(" "));
-      path.setAttribute("d", ribbon
-        ? wbMapRibbonD(parent, child, layout)
-        : wbMapEdgePathD(parent, child, layout));
-      // The two ends' ids, so a drag can find *this* edge again and redraw it
-      // per frame (`wbMapEdgesFor`). The render itself still replaces the
-      // whole group wholesale, see the note below; these attributes are the
-      // identity a mid-drag update needs and nothing else reads.
-      path.setAttribute("data-parent", String(parent.id));
-      path.setAttribute("data-child", String(child.id));
-      //: **A custom property, not a `stroke` attribute**, and the difference
-      //: is the whole branch-colour feature. `.wb-map-edge` declares
-      //: `stroke` in 07-whiteboard-misc.css, and a presentation attribute is
-      //: a declaration at the bottom of the cascade, below every author rule
-      //: however unspecific: so the attribute was dead markup and every edge
-      //: on every map drew in the accent. Measured on a five-edge map: three
-      //: distinct `stroke` attributes from the branch palette, one computed
-      //: colour, `rgb(70, 100, 240)`, which is `--accent`. The thumbnail of
-      //: the same map has been branch-coloured this whole time, which is the
-      //: opposite of MINDMAP_PLAN §11.1's aim that the two pictures agree.
-      //:
-      //: `tests/test_svg_paint_attributes.py` is the lint that found it, and
-      //: `el.style` sits above the stylesheet where the attribute sat below.
-      const colour = colors.get(child.id);
-      if (colour) path.style.setProperty("--wb-map-edge-colour", colour);
-      next.push(path);
-      //: The same curve again, transparent and wide enough to grab (§12.1
-      //: item 4). Pushed *after* the visible path so it sits above it in the
-      //: group, which is what an SVG hit test needs; it is invisible either
-      //: way, and the visible line is inert.
-      const hit = document.createElementNS(NS, "path");
-      hit.setAttribute("class", "wb-map-edge-hit");
-      // The centreline, never the ribbon's outline: a stroke around a closed
-      // shape is a hit area shaped like a hoop, with a hole down the middle
-      // of the very line it is supposed to catch.
-      hit.setAttribute("d", wbMapEdgePathD(parent, child, layout));
-      hit.setAttribute("data-parent", String(parent.id));
-      hit.setAttribute("data-child", String(child.id));
-      wbWireMapEdgeGestures(hit, child.id);
-      next.push(hit);
-      //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
-      //: The midpoint is exact rather than approximated: both control points
-      //: of `wbMapEdgePathD`'s cubic sit on the line between the anchors'
-      //: midpoints, so the curve at t=0.5 passes through
-      //: ((x1+x2)/2, (y1+y2)/2) in both orientations. Worked out rather than
-      //: measured off a screenshot, which is what an offset that looks right
-      //: on one layout and wrong on the other comes from.
-      const label = child.data?.edge_label;
-      if (label) {
-        const a = wbMapEdgeAnchors(parent, child, layout);
-        const text = document.createElementNS(NS, "text");
-        text.setAttribute("class", "wb-map-edge-label");
-        text.setAttribute("x", String((a.x1 + a.x2) / 2));
-        text.setAttribute("y", String((a.y1 + a.y2) / 2));
-        text.setAttribute("dy", "-0.4em");
-        text.textContent = String(label);
-        next.push(text);
-      }
+      if (group.childNodes[slot] !== wrap) group.insertBefore(wrap, group.childNodes[slot] || null);
+      slot += 1;
     }
   }
-  // Replaced wholesale rather than joined: an edge has no identity of its own
-  // (it *is* its two endpoints), so there is nothing for a data join to key
-  // on, and a map's edge count is one per node, small enough that rebuilding
-  // is cheaper than the bookkeeping a join would need.
-  group.replaceChildren(...next);
+  //: The lines whose two ends are no longer joined: a re-parent, a delete, a
+  //: branch folded away. This is the one thing a keyed update has to do that
+  //: rebuilding the group got for free, and leaving it out is how a keyed
+  //: render grows edges that point at nothing.
+  for (const [key, held] of cache) {
+    if (drawn.has(key)) continue;
+    held.wrap.remove();
+    cache.delete(key);
+  }
   wbRenderMapEdgePluses(index, hidden, layout);
+  wbSyncMapEdgeHandles();
+}
+
+//: Everything one tree edge draws, worked out from the two topics it joins,
+//: plus `paint`: the same values as one string, which is what decides whether
+//: the line already on screen is the line this render wants. A property this
+//: function starts reading goes into `paint` too, exactly as it does for a
+//: node's own `wbObjectPaintKey`.
+function wbMapEdgeGeometry(parent, child, layout, colors) {
+  const ribbon = wbMapEdgeIsRibbon(child);
+  //: The line's own classes (MINDMAP_PLAN.md item 177). Thickness is a class
+  //: rather than a `stroke-width` attribute for the same reason the colour is
+  //: a custom property: a presentation attribute sits below every author
+  //: rule, so `.wb-map-edge`'s own `stroke-width` would win and the control
+  //: would do nothing. The ribbon needs no thickness class, since its width
+  //: is in the path it is drawn from, and no arrow class, since its head is
+  //: too.
+  const classes = ["wb-map-edge"];
+  if (ribbon) classes.push("wb-map-edge-ribbon");
+  else {
+    const themedEdge = wbMapThemedData(child);
+    if (themedEdge.edge_dashed) classes.push("wb-map-edge-dashed");
+    if (themedEdge.edge_width) classes.push(`wb-map-edge-${themedEdge.edge_width}`);
+    if (!wbMapEdgeHasArrow(child)) classes.push("wb-map-edge-headless");
+  }
+  //: The centreline, which is both the plain line's own path and, for a
+  //: ribbon, the hit target underneath it: a stroke around a closed shape is
+  //: a hit area shaped like a hoop, with a hole down the middle of the very
+  //: line it is supposed to catch.
+  const line = wbMapEdgePathD(parent, child, layout);
+  const className = classes.join(" ");
+  const d = ribbon ? wbMapRibbonD(parent, child, layout) : line;
+  const grip = wbMapEdgeHandlePoint(parent, child, layout);
+  const colour = colors.get(child.id) || "";
+  //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
+  //: `wbMapEdgeHandlePoint` rather than the anchors' own midpoint: for an
+  //: unbent line the two are the same point (the curve passes through it at
+  //: t = 0.5, worked out in `wbMapEdgeCubic`), and for a bent one this is the
+  //: one that is still on the line.
+  const label = child.data?.edge_label ? String(child.data.edge_label) : "";
+  return {
+    className, d, line, grip, colour, label,
+    paint: `${className}|${d}|${line}|${grip.x},${grip.y}|${colour}|${label}`,
+  };
+}
+
+//: One edge's elements, with no geometry on them yet: built once per edge and
+//: then kept, which is what `wbRenderMapEdges`'s cache is for.
+//:
+//: **One `<g>` per edge**, so the whole line is one hover target: the stroke,
+//: the target twin and the handle together. That is what lets the handle be
+//: revealed by pointing at the line (§12.1 item 5's third, and Coggle's own
+//: gesture) rather than only by selecting a topic, and it matters for a
+//: reason the first build of this measured: the map strip opens 44px above
+//: the selected topic and is several hundred pixels wide, so for a child laid
+//: out a little below its parent the strip lands exactly on the middle of the
+//: line into it. Measured on a child 200 units below its trunk:
+//: `elementFromPoint` at the handle's own centre returned the strip, and the
+//: drag never started. Hover needs no selection, so it needs no strip.
+//:
+//: Nothing keys off the group's own shape: every selector in this file and in
+//: the sweeps reaches an edge by class under `.wb-map-edges`.
+function wbMapEdgeElement(parentId, childId) {
+  const NS = "http://www.w3.org/2000/svg";
+  const wrap = document.createElementNS(NS, "g");
+  wrap.setAttribute("class", "wb-map-edge-group");
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("class", "wb-map-edge");
+  // The two ends' ids, so a drag can find *this* edge again and redraw it per
+  // frame (`wbMapEdgesFor`), and so this render can find it again next time.
+  path.setAttribute("data-parent", String(parentId));
+  path.setAttribute("data-child", String(childId));
+  wrap.appendChild(path);
+  //: The same curve again, transparent and wide enough to grab (§12.1 item
+  //: 4). Appended *after* the visible path so it sits above it in the group,
+  //: which is what an SVG hit test needs; it is invisible either way, and the
+  //: visible line is inert.
+  const hit = document.createElementNS(NS, "path");
+  hit.setAttribute("class", "wb-map-edge-hit");
+  hit.setAttribute("data-parent", String(parentId));
+  hit.setAttribute("data-child", String(childId));
+  wrap.appendChild(hit);
+  //: **The waypoint handle** (§12.1 item 5's third): the third target on a
+  //: line, after the visible stroke and the invisible one you can point at. A
+  //: circle rather than a button because it has to sit *on* the line at a
+  //: board coordinate and scale with the zoom, which is what the edge group
+  //: already is; the mid-line `+` is HTML for the opposite reason (it is a
+  //: button from the app's own ramp).
+  //:
+  //: Drawn for every line and shown only for the selected topic's own
+  //: (`wbSyncMapEdgeHandles`), so a map of two hundred lines is not a map of
+  //: two hundred grab dots, which is the same rule the `+` follows.
+  const handle = document.createElementNS(NS, "circle");
+  handle.setAttribute("class", "wb-map-edge-handle");
+  handle.setAttribute("r", "7");
+  handle.setAttribute("data-parent", String(parentId));
+  handle.setAttribute("data-child", String(childId));
+  //: The same sentence the link's own bend grip carries, because it is the
+  //: same control: a `<title>` is the tooltip an SVG shape gets, and it is
+  //: the only place either gesture is written down on the thing itself.
+  const gripTitle = document.createElementNS(NS, "title");
+  gripTitle.textContent = "Drag to bend this line · double-click to straighten";
+  handle.appendChild(gripTitle);
+  wbWireMapEdgeHandle(handle, parentId, childId);
+  wrap.appendChild(handle);
+  //: On the group, not on the hit stroke: a right-click and a hold belong to
+  //: the *line*, and the line now has two targets in it. Wired on the stroke
+  //: alone, the ring stopped opening wherever the handle was, since the
+  //: handle is a sibling of the stroke and the event never reached it
+  //: (measured by `mapstrip.js`, which caught it the moment the handle
+  //: landed: "right-click on a line opens the line's own ring" came back
+  //: `open: false`). This is the same fault the mid-line `+` already carries
+  //: its own forwarding for, and the same fix one level up: every part of the
+  //: line answers the line's own gestures.
+  wbWireMapEdgeGestures(wrap, childId);
+  return wrap;
+}
+
+//: One edge's geometry written onto the elements it already has.
+//:
+//: **A custom property, not a `stroke` attribute**, and the difference is the
+//: whole branch-colour feature. `.wb-map-edge` declares `stroke` in
+//: 07-whiteboard-misc.css, and a presentation attribute is a declaration at
+//: the bottom of the cascade, below every author rule however unspecific: so
+//: the attribute was dead markup and every edge on every map drew in the
+//: accent. Measured on a five-edge map: three distinct `stroke` attributes
+//: from the branch palette, one computed colour, `rgb(70, 100, 240)`, which
+//: is `--accent`. `tests/test_svg_paint_attributes.py` is the lint that found
+//: it, and `el.style` sits above the stylesheet where the attribute sat
+//: below. Removed as well as set, which a rebuilt element never had to do:
+//: a branch that loses its colour has to lose it on the line too.
+function wbMapEdgeApply(wrap, geom) {
+  //: By class, not by position: the group's order is the hit test's (the
+  //: invisible twin has to sit above the visible line), so reaching for a
+  //: child by index here would tie this to that order for no reason.
+  const path = wrap.querySelector("path.wb-map-edge");
+  path.setAttribute("class", geom.className);
+  path.setAttribute("d", geom.d);
+  if (geom.colour) path.style.setProperty("--wb-map-edge-colour", geom.colour);
+  else path.style.removeProperty("--wb-map-edge-colour");
+  const hit = wrap.querySelector(".wb-map-edge-hit");
+  hit.setAttribute("d", geom.line);
+  const handle = wrap.querySelector(".wb-map-edge-handle");
+  handle.setAttribute("cx", String(geom.grip.x));
+  handle.setAttribute("cy", String(geom.grip.y));
+  if (geom.colour) handle.style.setProperty("--wb-map-edge-colour", geom.colour);
+  else handle.style.removeProperty("--wb-map-edge-colour");
+  let text = wrap.querySelector(".wb-map-edge-label");
+  if (!geom.label) {
+    text?.remove();
+    return;
+  }
+  if (!text) {
+    text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("class", "wb-map-edge-label");
+    text.setAttribute("dy", "-0.4em");
+    wrap.appendChild(text);
+  }
+  text.setAttribute("x", String(geom.grip.x));
+  text.setAttribute("y", String(geom.grip.y));
+  text.textContent = geom.label;
+}
+
+//: Where the mid-line `+` sits: a short step along the line from the handle,
+//: towards the child, so a line's two controls are side by side on it rather
+//: than one on top of the other (see `WB_MAP_EDGE_CONTROL_GAP`).
+//:
+//: Along the line and not merely along the chord: the step is taken down the
+//: curve's own tangent at its middle, the elbow's own crossing leg, or the
+//: kinked straight line's second half, so the `+` stays on the line it
+//: inserts into whatever shape that line is and however far it has been bent.
+//: On a line too short to hold both, the step shrinks rather than running the
+//: `+` off the end.
+function wbMapEdgePlusPoint(parent, child, layout) {
+  const a = wbMapEdgeAnchors(parent, child, layout);
+  const style = wbMapThemedData(child).edge_style || "curve";
+  const middle = wbMapEdgeHandlePoint(parent, child, layout);
+  let dx;
+  let dy;
+  let room = Math.hypot(a.x2 - a.x1, a.y2 - a.y1);
+  if (style === "elbow") {
+    // The leg the turn sits on, which is the one that crosses the edge's axis.
+    dx = a.horizontal ? 0 : a.x2 - a.x1;
+    dy = a.horizontal ? a.y2 - a.y1 : 0;
+    room = Math.hypot(dx, dy);
+  } else if (style === "straight") {
+    const w = wbMapEdgeWaypoint(a, child);
+    dx = a.x2 - w.x;
+    dy = a.y2 - w.y;
+  } else {
+    const c = wbMapEdgeCubic(a, child);
+    const tangent = wbMapCubicAt(0.5, c.p0, c.c0, c.c1, c.p1);
+    dx = tangent.dx;
+    dy = tangent.dy;
+  }
+  // Two siblings at the same height make a horizontal elbow with no crossing
+  // leg at all: the line is straight, and the step goes along it instead.
+  if (!dx && !dy) {
+    dx = a.x2 - a.x1;
+    dy = a.y2 - a.y1;
+    room = Math.hypot(dx, dy);
+  }
+  const len = Math.hypot(dx, dy) || 1;
+  const step = Math.min(WB_MAP_EDGE_CONTROL_GAP, room * 0.35);
+  return { x: middle.x + (dx / len) * step, y: middle.y + (dy / len) * step };
 }
 
 //: **A `+` at the middle of every line, to put a topic between two others**
@@ -4903,13 +5822,22 @@ function wbRenderMapEdgePluses(index, hidden, layout) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "ghost small icon-only wb-map-edge-plus";
+      // The two ends, so `wbSyncMapEdgeHandles` can stand this button aside
+      // for the waypoint handle, which lives at the same point on the line.
+      button.dataset.parent = String(parent.id);
+      button.dataset.child = String(child.id);
       button.title = "Put a topic between these two";
       button.setAttribute("aria-label", "Put a topic between these two");
       // Half the button's own 1.5rem, so its centre is on the line rather
       // than its top-left corner. In board units, which is what this layer
       // is measured in.
-      button.style.left = `${(a.x1 + a.x2) / 2 - 12}px`;
-      button.style.top = `${(a.y1 + a.y2) / 2 - 12}px`;
+      // The *line's* middle, not the anchors': a bent line (§12.1 item 5's
+      // third) no longer passes through the halfway point between its ends,
+      // and a `+` floating off the line it inserts into is a button that
+      // looks like it belongs to something else.
+      const middle = wbMapEdgePlusPoint(parent, child, layout);
+      button.style.left = `${middle.x - 12}px`;
+      button.style.top = `${middle.y - 12}px`;
       const glyph = document.createElement("i");
       glyph.className = "ph ph-plus";
       glyph.setAttribute("aria-hidden", "true");
@@ -4930,6 +5858,13 @@ function wbRenderMapEdgePluses(index, hidden, layout) {
         event.stopPropagation();
         wbOpenMapLinkRadial(child.id, event.clientX, event.clientY);
       });
+      //: And the hold, for the same reason: a finger has no second button, so
+      //: the button that sits on the line's middle has to answer the line's
+      //: own gesture there too. `wireLongPress` (app.js) is the app's one
+      //: hold, and it swallows the click the lift makes, which this button's
+      //: own click (insert a topic here) would otherwise run the moment the
+      //: ring opened.
+      wireLongPress(button, (event, point) => wbOpenMapLinkRadial(child.id, point.x, point.y));
       next.push(button);
     }
   }
@@ -5036,6 +5971,31 @@ async function wbMapAddChild(parentId) {
   }
   selectWbItem("object", created.id);
   await wbMapTidyBranch(parentId);
+  renderWhiteboardNow();
+  wbMapEditNode(created.id);
+  return created;
+}
+
+//: **A new trunk where the person pointed** (MINDMAP_PLAN §13, the owner:
+//: the map's tools "dont show themselves how id expect"). Double-clicking
+//: empty canvas is how a new topic is made in Coggle, XMind and every
+//: whiteboard in this app's own reference list, and on a map it did nothing
+//: at all: measured, 3 topics before and 3 after. The rail's "Add a
+//: top-level topic" was the only route, and it puts the new trunk wherever
+//: the layout decides.
+//:
+//: Pinned, because the position is a decision the person made with the
+//: pointer: that is the same bargain `wbMapPinOnDrag` strikes for a dragged
+//: node, and without it the next tidy would move the new trunk away from the
+//: spot that was just chosen.
+async function wbMapAddRootAt(x, y) {
+  const created = await wbMapCreateNode({ parentId: null });
+  if (!created) return null;
+  created.x = Math.round(x - (created.width || WB_MAP_NODE_W) / 2);
+  created.y = Math.round(y - (created.height || WB_MAP_NODE_H) / 2);
+  created.data = { ...created.data, pinned: true };
+  await wbSaveObject(created);
+  selectWbItem("object", created.id);
   renderWhiteboardNow();
   wbMapEditNode(created.id);
   return created;
@@ -5475,7 +6435,65 @@ function wbTidyApportion(v, defaultAncestor, breadthOf, gap) {
 //: had a lag bug of exactly that shape (task #71).
 function wbMapTidyPositions(index, layout) {
   if (!index.roots.length) return new Map();
+  //: **Both sides, Coggle's signature** (MINDMAP_PLAN §12.0's own list of
+  //: eight layouts, §13.4: "tree-left and both-sides are missing, and
+  //: both-sides is Coggle's signature"). It is not a third algorithm: it is
+  //: this one twice, with the trunk's children split between the two runs and
+  //: the left run mirrored, which is exactly what a both-sides map *is*. Both
+  //: runs anchor on the same trunk (the shift at the bottom of this function
+  //: keeps `roots[0]` where it already was), so the two halves meet on it
+  //: without any arithmetic here.
+  //:
+  //: **By weight, in order, greedily**: each branch goes to whichever side is
+  //: currently lighter, counting the whole subtree rather than the branch
+  //: itself. Alternating was the first version and it is wrong on any map
+  //: that is not already balanced: measured on a 40-topic map whose four
+  //: branches held 1, 1, 1 and 36 topics, alternating put 37 on one side and
+  //: 2 on the other, because it counts branches and a person sees topics.
+  //: Greedy by weight gives the best split that keeps the branches in the
+  //: order they were written, which is the property a person notices second.
+  if (layout === "tree-both") {
+    const trunk = index.roots[0];
+    const kids = index.childrenOf.get(trunk.id) || [];
+    if (kids.length < 2) return wbMapTidyPositions(index, "tree-right");
+    const rightKids = [];
+    const leftKids = [];
+    let rightWeight = 0;
+    let leftWeight = 0;
+    for (const kid of kids) {
+      const weight = wbMapSubtree(index, kid.id).length;
+      if (rightWeight <= leftWeight) {
+        rightKids.push(kid);
+        rightWeight += weight;
+      } else {
+        leftKids.push(kid);
+        leftWeight += weight;
+      }
+    }
+    //: One side taking everything is not a both-sides map: with a single
+    //: branch, or with one branch heavier than every other put together, the
+    //: honest answer is the sideways tree it would have been anyway.
+    if (!rightKids.length || !leftKids.length) return wbMapTidyPositions(index, "tree-right");
+    const side = (keep, onlyTrunk) => ({
+      ...index,
+      roots: onlyTrunk ? [trunk] : index.roots,
+      childrenOf: new Map([...index.childrenOf, [trunk.id, keep]]),
+    });
+    //: The right run keeps every other root as well, so a map with a second
+    //: trunk lays that one out once; the left run is the first trunk's own
+    //: branches and nothing else.
+    const right = wbMapTidyPositions(side(rightKids, false), "tree-right");
+    const left = wbMapTidyPositions(side(leftKids, true), "tree-left");
+    const both = new Map(right);
+    for (const [id, pos] of left) if (id !== trunk.id) both.set(id, pos);
+    return both;
+  }
   const vertical = layout === "tree-down" || layout === "radial";
+  //: A map that grows to the left is the sideways tree with the depth axis
+  //: negated, and the node's own width taken off it because `x` is a left
+  //: edge: without that, each level would start where the last one ended and
+  //: the boxes would overlap by their own widths.
+  const leftward = layout === "tree-left";
   // Breadth is the axis siblings spread along: heights for a map that grows
   // sideways, widths for one that grows downward. Radial spreads siblings
   // around a ring, so its breadth is a width too, arc length, before it is
@@ -5592,7 +6610,7 @@ function wbMapTidyPositions(index, layout) {
       const along = offsets[f.depth] || 0;
       positions.set(f.obj.id, vertical
         ? { x: f.breadth - size.w / 2, y: along }
-        : { x: along, y: f.breadth - size.h / 2 });
+        : { x: leftward ? -along - size.w : along, y: f.breadth - size.h / 2 });
     }
   }
 
@@ -5737,10 +6755,58 @@ const WB_BOARD_ONLY_TOOLS = new Set([
 //: sections that only make sense on a board are marked in the markup, the
 //: map's own sections are marked the other way, and the shared three (move,
 //: connect, edit) carry no marker at all and are never touched here.
+//: **The rail says which of the map's two connections its Connect tools
+//: make** (MINDMAP_PLAN §13c). §13.3 measured the exact place the owner's
+//: "there are two types of connections" is *felt*: the Connect section's two
+//: buttons are the only things on screen with the word Connect on them, and
+//: both make a **cross-link**. Nothing on the rail makes a branch, because a
+//: branch is Tab, Enter, the ring or the node's own `+`. The words are the
+//: cheapest possible fix and the one the plan asked for: on a map the tools
+//: say cross-link and the section says what the other kind is and where it
+//: comes from. On a board there is only one kind of link, so the board's own
+//: words are left exactly as they were.
+const WB_CONNECT_WORDS = {
+  map: {
+    section: ["Cross-link", "Join two branches without changing the tree. A branch itself is Tab, or the topic's own +"],
+    "link-straight": ["Straight cross-link (C)", "Straight cross-link (C): drag from one topic to another. It joins two branches without changing the tree"],
+    "link-curved": ["Curved cross-link (Shift+C)", "Curved cross-link (Shift+C): drag from one topic to another. It joins two branches without changing the tree"],
+  },
+  board: {
+    section: ["Connect", "Join two things together"],
+    "link-straight": ["Straight link (C)", "Straight link (C): drag from one card to another"],
+    "link-curved": ["Curved link (Shift+C)", "Curved link (Shift+C): drag from one card to another"],
+  },
+};
+
+function wbSyncConnectWords(isMap) {
+  const words = WB_CONNECT_WORDS[isMap ? "map" : "board"];
+  const section = document.querySelector('#wb-tool-group .wb-tool-section[role="group"][aria-label="Connect"]');
+  if (section) {
+    const label = section.querySelector(".wb-tool-section-label");
+    if (label) {
+      label.textContent = words.section[0];
+      label.title = words.section[1];
+    }
+    //: The group's own accessible name as well as the word in it: the label
+    //: is `1x1` on screen (the rail's sections are named for a screen reader,
+    //: not drawn), so the `aria-label` is what a screen reader actually says
+    //: here and leaving it as "Connect" would keep the old vocabulary in the
+    //: one place it is read aloud.
+    section.setAttribute("aria-label", words.section[0]);
+  }
+  for (const tool of ["link-straight", "link-curved"]) {
+    const button = document.querySelector(`#wb-tool-group [data-tool="${tool}"]`);
+    if (!button) continue;
+    button.setAttribute("aria-label", words[tool][0]);
+    button.title = words[tool][1];
+  }
+}
+
 function wbSyncToolSurfaces(isMap) {
   for (const section of document.querySelectorAll("#wb-tool-group [data-wb-surface]")) {
     section.hidden = section.dataset.wbSurface === (isMap ? "board" : "map");
   }
+  wbSyncConnectWords(isMap);
   // A tool stays selected across a board switch, so opening a map while the
   // pen was active would leave the pen drawing on a surface whose own button
   // is no longer on screen: a mode with no way out, which is the exact shape
@@ -5789,7 +6855,11 @@ function wbSyncMapToolState() {
 let wbMapStripSyncing = false;
 
 function wbSyncMapStrip(node) {
-  const data = node.data || {};
+  //: **The effective state, not the stored one** (§13e). The arrow button has
+  //: always worked this way and says why below; a theme makes it true of the
+  //: whole strip, because a control reading the stored field alone would show
+  //: "M" over a topic the map draws at 19px.
+  const data = wbMapThemedData(node);
   wbMapStripSyncing = true;
   try {
     for (const [id, on] of [
@@ -5801,6 +6871,37 @@ function wbSyncMapStrip(node) {
       button.classList.toggle("active", Boolean(on));
       button.setAttribute("aria-pressed", on ? "true" : "false");
     }
+    //: **The blank option says what it does on a themed map** (§13e). Every
+    //: select here stores the app's own default as no value at all, so the
+    //: blank row is named after that default: "Rounded", "Line", "M". On a
+    //: map whose theme sets the field, choosing it means "follow the map" and
+    //: the map draws something else, so a row still labelled "Rounded" is a
+    //: control that visibly does nothing, which is the one thing this file's
+    //: own comments keep warning about. The label is rewritten to say what it
+    //: really does, and put back the moment the map stops theming the field.
+    //:
+    //: `enhanceSelect` rebuilds its shell from a MutationObserver on the
+    //: select's subtree, so changing an option's text reaches the drawn menu
+    //: without anything here having to know about the shell.
+    const nameBlank = (id, field) => {
+      const el = document.getElementById(id);
+      const blank = el?.querySelector('option[value=""]');
+      if (!blank) return;
+      if (blank.dataset.appDefault === undefined) blank.dataset.appDefault = blank.textContent;
+      const value = wbMapThemeDefault(field);
+      if (value == null) {
+        if (blank.textContent !== blank.dataset.appDefault) blank.textContent = blank.dataset.appDefault;
+        return;
+      }
+      const named = [...el.options].find((o) => o.value === String(value));
+      const said = `As the map draws (${(named ? named.textContent : String(value)).toLowerCase()})`;
+      if (blank.textContent !== said) blank.textContent = said;
+    };
+    for (const [id, field] of [
+      ["wb-map-text-size", "font_size"], ["wb-map-align", "align"],
+      ["wb-map-shape", "shape"], ["wb-map-spine", "spine"],
+      ["wb-map-edge-width", "edge_width"], ["wb-map-edge-shape", "edge_style"],
+    ]) nameBlank(id, field);
     const setSelect = (id, value) => {
       const el = document.getElementById(id);
       if (!el || el.value === value) return;
@@ -5932,6 +7033,77 @@ async function wbMapEditLink(node) {
     return;
   }
   await wbMapSetNodeStyle(node, { link: trimmed });
+}
+
+//: **A picture in a topic** (MINDMAP_PLAN.md §12.1 item 2's fourth, the last
+//: of Coggle's text/link/image/icon).
+//:
+//: **Through `/media/upload`, which is the one upload path this app has.** A
+//: board image, a picture pasted onto a board and a note's own attachment all
+//: already take it, and it is what runs the captioning, the text extraction
+//: and what the orphan sweep in the Library counts: a second route for the
+//: same bytes would be a second place for all three to be forgotten. The node
+//: stores the url it hands back and nothing else, so a topic's picture is the
+//: same upload the Library already lists and the same one `/media` serves.
+//:
+//: In the topic's own menu rather than as a fifth button on the strip, for the
+//: reason §12.5 gives about the link beside it: the strip is how a topic
+//: *looks*, and a picture is what it is. The plan says the same thing from the
+//: other end ("a second node shape, not a fourth button on a strip").
+//: Which topic the file chooser is open for. A module variable rather than a
+//: closure over the node, because the input is the one in the markup
+//: (`#wb-map-picture-input`) rather than one built per click: the file chooser
+//: is modal, so only one of these is ever open, and an id is what survives a
+//: render that replaced the node object in between.
+let wbMapPictureFor = null;
+
+async function wbMapEditPicture(node) {
+  const input = document.getElementById("wb-map-picture-input");
+  if (!node || !input) return;
+  wbMapPictureFor = node.id;
+  //: Cleared before opening, or choosing the same file twice in a row fires
+  //: no `change` the second time and the menu looks broken.
+  input.value = "";
+  input.click();
+}
+
+//: The upload itself, run from that input's own `change`.
+async function wbMapTakePicture(file) {
+  const id = wbMapPictureFor;
+  wbMapPictureFor = null;
+  const node = id == null ? null : wbMapIndex().byId.get(id);
+  if (!file || !node) return;
+  if (!file.type || !file.type.startsWith("image/")) {
+    toast("That file is not a picture.", true);
+    return;
+  }
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    // The same request `wbPlaceUploadedImage` makes, header and all: the
+    // token goes in `X-Auth-Token` because the body is a FormData and
+    // `apiJson` leaves the content type to the browser for one.
+    const uploaded = await apiJson("/media/upload", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: formData,
+    });
+    await wbMapSetNodeStyle(node, { image: uploaded.url });
+    renderWhiteboardNow();
+  } catch (err) {
+    toast(err.message || "Couldn't add that picture.", true);
+  }
+}
+
+//: Take the picture off a topic, leaving the upload itself alone: the file is
+//: in the Library, and a topic is one of the places it can appear, not its
+//: home. Deleting the bytes from here would be a delete nobody asked for, in a
+//: menu whose other entries are all about this node.
+async function wbMapRemovePicture(node) {
+  if (!node || !node.data?.image) return;
+  await wbMapSetNodeStyle(node, { image: null });
+  renderWhiteboardNow();
+  toast("Picture removed from the topic.");
 }
 
 //: --- the node radial (MINDMAP_PLAN.md §12.1 item 3) ------------------------
@@ -6251,7 +7423,7 @@ async function wbMapCopyBranch(id) {
     // The copy looks like the original: the styling lives in `data` and the
     // create endpoint only takes a label, so it is written straight after.
     const style = {};
-    for (const key of WB_MAP_STYLE_KEYS) {
+    for (const key of [...WB_MAP_STYLE_KEYS, ...WB_MAP_CONTENT_KEYS]) {
       if (node.data?.[key] != null) style[key] = node.data[key];
     }
     if (Object.keys(style).length) {
@@ -6288,7 +7460,21 @@ const WB_MAP_COPY_MAX = 120;
 const WB_MAP_STYLE_KEYS = [
   "color", "bold", "italic", "font_size", "align", "icon", "link", "edge_label",
   "shape", "core", "spine", "edge_style", "edge_dashed", "edge_width", "edge_arrow",
+  //: The waypoint on the line (§12.1 item 5's third) belongs with the other
+  //: four for the same reason: it is written from the line itself onto the
+  //: node, and a branch copied without it comes out drawn differently from the
+  //: one it was copied from.
+  "edge_bend", "edge_slide",
 ];
+
+//: What a copy carries that "back to the branch" must **not** drop: a picture
+//: in a topic (§12.1 item 2's fourth) is content, not a look. Reset's whole
+//: promise is that it is the safe way out of a topic you have over-decorated,
+//: and a reset that also threw away the picture somebody uploaded would make
+//: it the one control on this map you cannot press to find out what it does.
+//: Two lists rather than one flag, because the two questions are different
+//: ones and a boolean beside each key would be read as neither.
+const WB_MAP_CONTENT_KEYS = ["image"];
 
 //: Remove this topic and keep its branch: the children move up to its parent
 //: first, then the node goes. Through `/move`, which is the only endpoint
@@ -6420,7 +7606,13 @@ async function wbMapResetToBranch(id) {
   for (const key of WB_MAP_STYLE_KEYS) patch[key] = null;
   await wbMapSetNodeStyle(node, patch);
   renderWhiteboardNow();
-  toast("Back to the branch's own look.");
+  //: What it goes back to depends on whether the map says anything (§13e):
+  //: on a themed map a reset topic follows the map, and a toast that said
+  //: "the branch's own look" over a topic that just took the map's would be
+  //: describing the wrong thing.
+  toast(Object.keys(wbMapTheme()).length
+    ? "Back to following this map."
+    : "Back to the branch's own look.");
 }
 
 //: --- the link radial (MINDMAP_PLAN.md §12.1 item 4) -------------------------
@@ -6437,42 +7629,178 @@ async function wbMapResetToBranch(id) {
 //: (right-click, or hold on a touch screen), which is one gesture to learn
 //: rather than two, and the colour well is a slot inside it.
 let wbMapLinkRadialFor = null;
+//: **The same ring, on the map's other kind of connection** (MINDMAP_PLAN
+//: §13c). A map has two: the branch, which is the child's own `parent_id` and
+//: is therefore stored on the child, and the cross-link, which is a link
+//: sketch naming both ends. §13.2 measured what that cost a person: a
+//: right-click on a branch opened this ring, a right-click on a cross-link
+//: opened the *board's* flat menu and its context bar, so the same gesture on
+//: two lines that sit beside each other gave two different surfaces with two
+//: different vocabularies. One ring, told which kind it is on, is the fix
+//: §13's decision 2 asked for: "the data keeps two kinds of connection; the
+//: controls stop having two."
+let wbMapLinkRadialCross = null;
 
 function wbCloseMapLinkRadial() {
   const ring = document.getElementById("wb-map-link-radial");
   if (!ring || ring.classList.contains("hidden")) return;
   ring.classList.add("hidden");
   wbMapLinkRadialFor = null;
+  wbMapLinkRadialCross = null;
 }
 
-//: The gestures on one edge's hit stroke. Bound at creation rather than
-//: delegated: the edge group is replaced wholesale on every render
-//: (`wbRenderMapEdges`'s own comment says why), so there is exactly one
-//: binding per element per lifetime and nothing to clean up.
+//: A cross-link, read from a sketch row: its parsed data plus both topics,
+//: or null for a sketch that is not one (an ordinary board connector, a link
+//: to a card, a line whose ends are gone). One reader, because every slot
+//: below and the renderer's own dashed class all have to agree about what
+//: counts as a cross-link.
+function wbMapCrossLinkInfo(sketchId) {
+  if (!wbIsMap()) return null;
+  const sketch = (wbState.sketches || []).find((x) => x.id === sketchId);
+  if (!sketch) return null;
+  let data = null;
+  try {
+    data = JSON.parse(sketch.data);
+  } catch {
+    return null;
+  }
+  if (!data || !String(data.type || "").startsWith("link-")) return null;
+  const index = wbMapIndex();
+  const source = index.byId.get(data.sourceId);
+  const target = index.byId.get(data.targetId);
+  if (!source || !target) return null;
+  return { sketch, data, source, target, index };
+}
+
+//: **Which lines show their waypoint handle without being pointed at.**
+//:
+//: Two routes, and the second is not a luxury. Hover (the `<g>` wrapper, in
+//: the stylesheet) is the one that always works, because it needs nothing
+//: selected and so never has the map strip over it. This one is the other
+//: half: the lines of the topic you have selected show their handles while it
+//: is selected, which is the route a keyboard selection reaches and the one
+//: that says the control exists at all. A cheap attribute toggle over elements
+//: the render already built, so it can run on every selection change rather
+//: than forcing a re-render.
+function wbSyncMapEdgeHandles() {
+  const selected = wbIsMap() && wbMultiSelection.size <= 1 ? wbSelectedMapNode() : null;
+  const id = selected ? String(selected.id) : null;
+  const mine = (el) => Boolean(id) && (el.dataset.parent === id || el.dataset.child === id);
+  for (const handle of document.querySelectorAll(".wb-map-edges .wb-map-edge-handle")) {
+    handle.classList.toggle("is-shown", mine(handle));
+  }
+}
+
+//: Dragging one waypoint handle (§12.1 item 5's third).
+//:
+//: In client pixels over the zoom scale, the same conversion
+//: `wbMapStartResizeDrag` makes and for the same reason: the pointer's own
+//: delta is the only measurement that does not need the canvas transform
+//: rebuilt per frame, and the waypoint it starts from is already in board
+//: units. Per frame it redraws this one edge (`wbUpdateMapEdges`, which moves
+//: the visible path, the hit twin and the handle together) rather than the
+//: board; the write lands once, on the drop.
+function wbWireMapEdgeHandle(handle, parentId, childId) {
+  handle.addEventListener("pointerdown", (event) => {
+    //: No `is-shown` check here, deliberately: the stylesheet is the one gate,
+    //: and it has two ways of opening (hover on the line, or the topic at
+    //: either end selected). A class test would have refused the hover route
+    //: silently, which is the half that works when the strip is in the way.
+    //: An unshown handle is `pointer-events: none` and so is never the target
+    //: of this event in the first place.
+    event.preventDefault();
+    event.stopPropagation();
+    const index = wbMapIndex();
+    const parent = index.byId.get(parentId);
+    const child = index.byId.get(childId);
+    if (!parent || !child) return;
+    const layout = wbMapLayout();
+    const container = document.getElementById("whiteboard-container");
+    const k = container ? d3.zoomTransform(container).k : 1;
+    const start = wbMapEdgeWaypoint(wbMapEdgeAnchors(parent, child, layout), child);
+    const edges = wbMapEdgesFor(childId).filter((edge) => edge.parent.id === parentId);
+    const before = {
+      edge_bend: child.data?.edge_bend ?? null,
+      edge_slide: child.data?.edge_slide ?? null,
+    };
+    let next = null;
+    //: Held open for the length of the drag. The pointer leaves the line the
+    //: instant the bend starts, which ends the `:hover` that revealed the
+    //: handle: pointer capture should carry the moves anyway, but a control
+    //: that depends on capture outliving `pointer-events: none` is a control
+    //: that depends on a detail of one engine.
+    handle.classList.add("is-dragging");
+    handle.setPointerCapture?.(event.pointerId);
+    const move = (moveEvent) => {
+      const x = start.x + (moveEvent.clientX - event.clientX) / k;
+      const y = start.y + (moveEvent.clientY - event.clientY) / k;
+      next = wbMapEdgeFractions(wbMapEdgeAnchors(parent, child, layout), x, y);
+      child.data = { ...child.data, ...next };
+      wbUpdateMapEdges(edges);
+    };
+    const done = async () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", done);
+      handle.removeEventListener("pointercancel", done);
+      handle.classList.remove("is-dragging");
+      if (!next) return;
+      //: Zero is stored as nothing at all, like every other default this map
+      //: writes: a line dragged back to straight and a line nobody has
+      //: touched are the same line, and neither should carry a field into an
+      //: export.
+      const patch = {
+        edge_bend: next.edge_bend || null,
+        edge_slide: next.edge_slide || null,
+      };
+      if (patch.edge_bend === before.edge_bend && patch.edge_slide === before.edge_slide) return;
+      await wbMapSetNodeStyle(child, patch);
+      renderWhiteboardNow();
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", done);
+    handle.addEventListener("pointercancel", done);
+  });
+  //: Back to the line it was, without going to a menu for it. The same
+  //: gesture a text grip uses to reset a size elsewhere in this file, and the
+  //: node's own menu says so in words for anyone who does not try it.
+  handle.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const child = wbMapIndex().byId.get(childId);
+    if (child) wbMapStraightenEdge(child);
+  });
+}
+
+//: Drop a line's waypoint. Named rather than inlined because two surfaces ask
+//: for it (the handle's own double-click and the topic's menu) and §12.5's
+//: rule is one action in one place.
+async function wbMapStraightenEdge(node) {
+  if (!node) return;
+  if (!node.data?.edge_bend && !node.data?.edge_slide) return;
+  await wbMapSetNodeStyle(node, { edge_bend: null, edge_slide: null });
+  renderWhiteboardNow();
+}
+
+//: The gestures on one edge, bound to the group that holds its stroke, its
+//: target twin and its waypoint handle, so all three answer them. Bound at
+//: creation rather than delegated: the edge group is replaced wholesale on
+//: every render (`wbRenderMapEdges`'s own comment says why), so there is
+//: exactly one binding per element per lifetime and nothing to clean up.
+//:
+//: The handle stops its own `pointerdown`, so a hold that starts on the
+//: handle is a drag and not a ring; a hold anywhere else on the line is a
+//: ring, which is what it has always been.
 function wbWireMapEdgeGestures(hit, childId) {
-  let holdTimer = null;
-  const cancelHold = () => {
-    if (holdTimer) clearTimeout(holdTimer);
-    holdTimer = null;
-  };
   hit.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     event.stopPropagation();
     wbOpenMapLinkRadial(childId, event.clientX, event.clientY);
   });
-  // Touch has no right-click, so a hold stands in, with the same 500ms and
-  // the same cancel-on-move shape the node's own menu gesture uses.
-  hit.addEventListener("pointerdown", (event) => {
-    if (event.pointerType !== "touch") return;
-    cancelHold();
-    holdTimer = setTimeout(() => {
-      holdTimer = null;
-      wbOpenMapLinkRadial(childId, event.clientX, event.clientY);
-    }, 500);
-  });
-  for (const name of ["pointerup", "pointercancel", "pointermove"]) {
-    hit.addEventListener(name, cancelHold);
-  }
+  //: Touch has no right-click, so a hold stands in: `wireLongPress` (app.js),
+  //: which is the same 500ms and the same cancel-on-move this used to write
+  //: for itself, plus the one thing the hand-rolled version could not do,
+  //: swallowing the click the lift synthesises.
+  wireLongPress(hit, (event, point) => wbOpenMapLinkRadial(childId, point.x, point.y));
 }
 
 function wbOpenMapLinkRadial(childId, clientX, clientY) {
@@ -6488,19 +7816,162 @@ function wbOpenMapLinkRadial(childId, clientX, clientY) {
   // you were not looking.
   const hostRect = host.getBoundingClientRect();
   wbMapLinkRadialFor = childId;
+  wbMapLinkRadialCross = null;
   wbPlaceMapRadial(ring, host, clientX - hostRect.left, clientY - hostRect.top);
   wbSyncMapLinkRadial(child, index);
 }
 
+//: The same ring on a cross-link. Returns whether it took the gesture, so the
+//: one door every right-click and hold goes through (`wbOpenContextMenuFor`)
+//: can fall back to the board's flat menu for a link that is not one.
+function wbOpenMapCrossLinkRadial(sketchId, clientX, clientY) {
+  const info = wbMapCrossLinkInfo(sketchId);
+  const ring = document.getElementById("wb-map-link-radial");
+  const host = document.getElementById("library-view-whiteboard");
+  if (!info || !ring || !host) return false;
+  wbCloseContextMenu();
+  wbCloseMapRadial();
+  const hostRect = host.getBoundingClientRect();
+  wbMapLinkRadialFor = null;
+  wbMapLinkRadialCross = sketchId;
+  wbPlaceMapRadial(ring, host, clientX - hostRect.left, clientY - hostRect.top);
+  wbSyncMapLinkRadial(null, info.index);
+  return true;
+}
+
+//: **The ring says which of the two lines it is on, in words** (§13c). The
+//: three slots are the same three either way, and two of them mean something
+//: different on each: Cut takes a branch off its parent and deletes a
+//: cross-link outright, and the middle slot labels a branch and turns a
+//: cross-link into one. Saying so on the slot, rather than relying on the
+//: person having noticed which line they right-clicked, is the whole point of
+//: this pass: §13.2 found that nothing on screen said which kind was which.
 function wbSyncMapLinkRadial(child, index) {
   const reverse = document.getElementById("wb-link-reverse");
-  if (reverse) {
+  const middle = document.getElementById("wb-link-label");
+  const cut = document.getElementById("wb-link-cut");
+  const ring = document.getElementById("wb-map-link-radial");
+  const cross = wbMapLinkRadialCross != null;
+  const setSlot = (el, word, title, icon) => {
+    if (!el) return;
+    el.querySelector(".wb-map-radial-name").textContent = word;
+    el.title = title;
+    el.setAttribute("aria-label", title);
+    const glyph = el.querySelector("i");
+    if (glyph) glyph.className = icon;
+  };
+  if (ring) {
+    ring.setAttribute("aria-label", cross ? "What you can do with this cross-link" : "What you can do with this branch");
+    const caption = ring.querySelector(".wb-map-radial-caption");
+    if (caption) {
+      caption.dataset.rest = cross
+        ? "A cross-link: it joins two branches without changing the tree"
+        : "A branch: the line the tree itself is made of";
+      //: The drawn text as well as the attribute: `data-rest` is what the
+      //: caption goes back to when the pointer leaves a slot, and the ring was
+      //: already placed (and the caption already painted from the old value)
+      //: by the time this runs.
+      caption.textContent = caption.dataset.rest;
+    }
+  }
+  if (cross) {
+    setSlot(reverse, "Reverse", "Turn this cross-link around: it points the other way", "ph ph-swap");
+    setSlot(middle, "Make branch", "Make this a branch instead: the topic at the far end moves under this one", "ph ph-tree-structure");
+    setSlot(cut, "Cut", "Cut this cross-link: the two topics keep their own branches", "ph ph-scissors");
+    if (reverse) reverse.disabled = false;
+    return;
+  }
+  setSlot(reverse, "Reverse", "Turn the branch around: the topic below becomes the one above", "ph ph-swap");
+  setSlot(middle, "Label", "Label this branch", "ph ph-tag");
+  setSlot(cut, "Cut", "Cut this branch: the topic below becomes a trunk of its own", "ph ph-scissors");
+  if (reverse && child) {
     // Turning a line around makes the parent a child of the child. If the
     // parent is a trunk that is a clean swap; it is never possible for a line
     // that is not there, which is the only case worth refusing.
     const parent = index.byId.get(child.parent_id);
     reverse.disabled = !parent;
   }
+}
+
+//: Turn a cross-link around. The row's two ends swap, which is the whole of
+//: it: a cross-link is not stored on either topic, so nothing in the tree
+//: moves and nothing has to be tidied. The anchors swap with them, or a line
+//: turned around would leave from the edge its far end used to arrive at.
+async function wbMapReverseCrossLink(sketchId) {
+  const info = wbMapCrossLinkInfo(sketchId);
+  if (!info) return;
+  const data = {
+    ...info.data,
+    sourceId: info.data.targetId,
+    targetId: info.data.sourceId,
+    sourceKind: info.data.targetKind,
+    targetKind: info.data.sourceKind,
+    sourceAnchor: info.data.targetAnchor,
+    targetAnchor: info.data.sourceAnchor,
+  };
+  const sketch = info.sketch;
+  try {
+    //: The whole row, not the one field: `PUT /sketches/{id}` takes a
+    //: `WhiteboardSketchBase`, so a body of `{data}` alone is a 422 rather
+    //: than a partial update.
+    const saved = await apiJson(`/whiteboard/sketches/${sketchId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        data: JSON.stringify(data), board_id: sketch.board_id,
+        x: sketch.x, y: sketch.y, z: sketch.z, group_id: sketch.group_id ?? null,
+      }),
+    });
+    Object.assign(info.sketch, saved);
+  } catch (err) {
+    toast(err.message || "Couldn't turn that cross-link around.", true);
+    return;
+  }
+  renderWhiteboardNow();
+  toast("Turned the cross-link around.");
+}
+
+//: **A cross-link promoted to a branch** (§13c). The one action that teaches
+//: the difference between the map's two kinds of connection by undoing a
+//: choice the gesture made for you: `wbMapJoinByLink` decides between the two
+//: from whether the far end is already in the tree, which is invisible, so
+//: this is the way back for the case it guessed wrong. The far end moves
+//: under the near one, its own branch comes with it, and the cross-link row
+//: goes: keeping it would draw a dashed line over the branch it just became.
+async function wbMapCrossLinkToBranch(sketchId) {
+  const info = wbMapCrossLinkInfo(sketchId);
+  if (!info) return;
+  const { source, target, index } = info;
+  const descendants = new Set(wbMapSubtree(index, target.id).map((o) => o.id));
+  if (descendants.has(source.id)) {
+    toast(`"${wbMapLabel(source)}" is already under "${wbMapLabel(target)}": turn the cross-link around first.`, true);
+    return;
+  }
+  if (!(await wbMapTransplant(target, source.id, false, { via: "link" }))) return;
+  try {
+    await apiJson(`/whiteboard/sketches/${sketchId}`, { method: "DELETE" });
+    wbState.sketches = (wbState.sketches || []).filter((x) => x.id !== sketchId);
+  } catch (err) {
+    toast(err.message || "The branch was made, but the cross-link is still there.", true);
+  }
+  await wbRefreshMapState();
+  renderWhiteboardNow();
+}
+
+//: Cut a cross-link: the row goes and neither topic is touched, which is the
+//: difference between this and cutting a branch (that one re-parents).
+async function wbMapCutCrossLink(sketchId) {
+  const info = wbMapCrossLinkInfo(sketchId);
+  if (!info) return;
+  try {
+    await apiJson(`/whiteboard/sketches/${sketchId}`, { method: "DELETE" });
+  } catch (err) {
+    toast(err.message || "Couldn't cut that cross-link.", true);
+    return;
+  }
+  wbState.sketches = (wbState.sketches || []).filter((x) => x.id !== sketchId);
+  await wbRefreshMapState();
+  renderWhiteboardNow();
+  toast("Cut the cross-link. Both topics kept their branches.");
 }
 
 //: Turn a line around: the topic below becomes the one above.
@@ -6590,6 +8061,8 @@ function wbSyncMapChrome() {
   if (statsRow) statsRow.hidden = !isMap;
   const expandRow = document.getElementById("wb-map-expand-all");
   if (expandRow) expandRow.hidden = !isMap;
+  const themeRow = document.getElementById("wb-map-theme-item");
+  if (themeRow) themeRow.hidden = !isMap;
   if (!isMap && wbMapFocusState) wbMapFocusState = null;
   wbSyncMapViews();
 }
@@ -6633,7 +8106,7 @@ async function wbMapPinOnDrag(d) {
 function wbApplySelectionHighlight() {
   document
     .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
-    .forEach((el) => el.classList.remove("wb-selected"));
+    .forEach((el) => el.classList.remove("wb-selected", "wb-in-group"));
   // A sketch's resize handles have nowhere else to live between renders
   // (unlike a card/object, which always has 8 handle children of its own), 
   // recomputed here so they track a fresh selection or a just-finished move.
@@ -6647,10 +8120,22 @@ function wbApplySelectionHighlight() {
   // The map dock's own buttons act on the selected topic, so they follow the
   // selection for the same reason the properties panel above does.
   wbSyncMapToolState();
+  //: And the waypoint handle on the selected topic's own lines, which is the
+  //: other control that follows the selection without a re-render.
+  wbSyncMapEdgeHandles();
+  //: A card and a text box keep their eight handles and their rotate grip as
+  //: children, revealed by `.wb-selected`, so a *group* member is marked a
+  //: second way and 07-whiteboard-misc.css hides the grips on that class. The
+  //: outline stays: the member is still visibly one of the selected things
+  //: (INBOX 278, and the earlier report it has to keep answering).
+  const inGroup = wbMultiSelection.size > 1;
   for (const key of wbMultiSelection) {
     const sep = key.indexOf(":");
     const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
-    document.querySelector(WB_SELECTOR_BY_KIND[kind](id))?.classList.add("wb-selected");
+    const el = document.querySelector(WB_SELECTOR_BY_KIND[kind](id));
+    if (!el) continue;
+    el.classList.add("wb-selected");
+    el.classList.toggle("wb-in-group", inGroup);
   }
   if (!wbSelectedItem) return;
   const selector = WB_SELECTOR_BY_KIND[wbSelectedItem.kind](wbSelectedItem.id);
@@ -6701,6 +8186,59 @@ function clearWbSelection() {
 //: selection to sit above, so it sits centred just over the tool rail, which
 //: is where the thing it is about is. Excalidraw and tldraw both park the
 //: style panel against the rail for the same reason.
+//: The app's phone band, held once rather than asked per frame: this is read
+//: from `wbUpdateSelectionBar`, which runs on every pan and zoom frame. A
+//: `MediaQueryList` keeps itself current across a resize, so there is nothing
+//: to invalidate.
+const WB_PHONE = window.matchMedia("(max-width: 599.98px)");
+
+//: **The strip's three doors, opened and closed from here** (MINDMAP_PLAN
+//: §13b). Text, Shape and Branch line are `.wb-board-menu-wrap`s like the top
+//: bar's five, so opening, the outside click, Escape and the arrow keys are
+//: all the board menus' own wiring and there is no second popover here. What
+//: that wiring has no way to know is that this bar *moves*: it is placed on
+//: the selected topic and re-placed on every pan and zoom frame, and a menu
+//: that `escapeAndCapMenu` has parked in the window's own coordinates would
+//: otherwise stay where the topic used to be. So the open door is re-placed
+//: with the bar, and every door is shut when the bar goes away or when the
+//: selection moves to another topic, which is the one case where a menu about
+//: the old topic would still be on screen over the new one.
+function wbMapStripToggles() {
+  const strip = document.getElementById("wb-map-strip");
+  if (!strip) return [];
+  const out = [];
+  for (const toggle of strip.querySelectorAll("[data-wb-menu-toggle]")) {
+    const menu = document.getElementById(toggle.getAttribute("aria-controls") || "");
+    if (menu) out.push({ toggle, menu });
+  }
+  return out;
+}
+
+function wbCloseMapStripMenus() {
+  for (const { toggle, menu } of wbMapStripToggles()) {
+    if (menu.classList.contains("hidden")) continue;
+    menu.classList.add("hidden");
+    toggle.setAttribute("aria-expanded", "false");
+    //: Back inside its wrap and off the inline cap, the same two steps the
+    //: top bar's own close takes: a menu left escaped is a menu the next
+    //: `wrap.querySelector` cannot find.
+    restoreEscapedMenu(menu);
+    menu.style.maxHeight = "";
+  }
+}
+
+function wbTrackMapStripMenu() {
+  for (const { toggle, menu } of wbMapStripToggles()) {
+    if (menu.classList.contains("hidden")) continue;
+    escapeAndCapMenu(menu, toggle);
+  }
+}
+
+//: Which topic the strip is currently describing, so a move of the selection
+//: can be told from the sixty frames a pan asks about the same topic.
+let wbMapStripNodeId = null;
+
+
 function wbUpdateSelectionBar() {
   const bar = document.getElementById("wb-context");
   if (!bar) return;
@@ -6726,7 +8264,9 @@ function wbUpdateSelectionBar() {
   const active = mapNode ? strip : bar;
   const hideBoth = () => {
     bar.classList.add("hidden");
+    if (strip && !strip.classList.contains("hidden")) wbCloseMapStripMenus();
     strip?.classList.add("hidden");
+    wbMapStripNodeId = null;
     delete bar.dataset.wbAnchor;
   };
   if (!container || !host || wbLinkDragActive || !active) {
@@ -6795,6 +8335,14 @@ function wbUpdateSelectionBar() {
   // Filled before it is measured: the strip's controls take their values from
   // the node, and a select whose value changed is a different width, so
   // reading `offsetWidth` first would centre the bar on last node's size.
+  if (mapNode && mapNode.id !== wbMapStripNodeId) {
+    //: The selection moved to another topic: shut the doors before the bar is
+    //: filled from the new one, or a menu about the topic just left is still
+    //: open over the topic just chosen, writing to neither predictably.
+    wbCloseMapStripMenus();
+    wbMapStripNodeId = mapNode.id;
+  }
+  if (!mapNode) wbMapStripNodeId = null;
   if (mapNode) wbSyncMapStrip(mapNode);
   active.classList.remove("hidden");
   const w = active.offsetWidth, h = active.offsetHeight;
@@ -6803,7 +8351,7 @@ function wbUpdateSelectionBar() {
   // the item covered it, reported: "I can't rotate objects because that
   // panel appears."
   const gapAbove = 44, gapBelow = 10;
-  const left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
+  let left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
   // Above the item; below it when the top bar would cover the bar. The floor
   // is the bar's own clearance and not the ring's: a floor raised by the room
   // the ring takes *below* the node is what sent the strip down there.
@@ -6811,8 +8359,59 @@ function wbUpdateSelectionBar() {
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
   if (y < floor) y = bottom + gapBelow;
+  //: **At phone width the board bar is pinned to the top of the canvas**
+  //: (WHITEBOARD_PLAN section 7's open question, answered 2026-09-20 by
+  //: building both and measuring them: `scratchpad/ui-sweeps/wbcontextphone.js`,
+  //: five kinds high and low on the board, ten selections each way).
+  //:
+  //: What decided it was not the bar and the item, it was the bar and the
+  //: rail. Floating at 390x844 in a 364x604 canvas, the bar never covered the
+  //: item it edits (0px2 on all ten) but landed on the tool rail twice
+  //: (7759px2 and 1122px2) and off the canvas once, because at this width it
+  //: is a band and not a bar: 348px of a 364px canvas for a line, a shape, a
+  //: text box and an arrow, 269px for an image, 6.6% to 25.3% of the whole
+  //: board. A band that floats puts the controls in a different place every
+  //: time (ten distinct tops spanning 452px) and, low on the board, puts them
+  //: over the tools. A bar over the item can be panned out from under; a bar
+  //: over the rail takes the drawing tools away.
+  //:
+  //: Pinned: one top for all ten, all ten inside the canvas, nothing on the
+  //: rail or the top bar. Its cost, recorded rather than hidden, is that a
+  //: selection in the top band is under it: two of the ten, an image entirely
+  //: (8640px2) and a line (3519px2).
+  //:
+  //: Desktop keeps the floating bar and is untouched, measured by the same
+  //: sweep at 1440x900: 0.7% to 2.6% of the canvas, nothing covered, which is
+  //: what a contextual bar is for. `WB_PHONE` is the app's own phone band: the
+  //: same `(max-width: 599.98px)` query `PHONE_TABS` and `PHONE_FAB` use in
+  //: app.js and the same band `10-responsive.css` draws, rather than a number
+  //: chosen here or an `innerWidth` compare that a scrollbar can put on the
+  //: wrong side of the line. The map's node strip is left alone: it has its
+  //: own measured narrow behaviour, two centred rows.
+  const pinned = active === bar && WB_PHONE.matches;
+  if (pinned) {
+    bar.dataset.wbAnchor = "top";
+    left = rect.left - hostRect.left + 8;
+    y = floor;
+  } else {
+    //: **And the bar stays on the canvas.** `left` has been clamped to the
+    //: host since this bar was built; `y` never was, so a selection low on
+    //: the board (or below the fold, which select-all and a shift-click can
+    //: both produce) put its bar outside the canvas entirely: measured at
+    //: 390x844, five of ten selections placed the bar from 843px to 1183px
+    //: down an 844px window. The item is off screen in that case and nothing
+    //: can point at it, so the bar goes to the nearest edge it can be read
+    //: at rather than to a coordinate no one can see.
+    const canvasTop = rect.top - hostRect.top;
+    const canvasBottom = rect.bottom - hostRect.top;
+    y = Math.min(y, canvasBottom - h - gapBelow);
+    y = Math.max(y, Math.max(floor, canvasTop + gapBelow));
+  }
   active.style.left = `${Math.round(left)}px`;
   active.style.top = `${Math.round(y)}px`;
+  //: The open door goes where the bar goes. Cheap by construction: at most one
+  //: menu is open, and with none open this walks three toggles and returns.
+  if (active === strip) wbTrackMapStripMenu();
 }
 
 // Shared by every item's own click handler (sketch/node/object): a plain
@@ -6978,11 +8577,44 @@ function wbDragIsBulkMove(kind, id) {
 //: set instead of one item).
 function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
   const origin = new Map();
+  //: **One lookup table per capture, not one scan per member**
+  //: (MINDMAP_PLAN.md §13a). The line this replaces was
+  //: `list.find((i) => i.id === id)`, which is the whole board walked once
+  //: for every item being picked up: fine for a marquee of six, quadratic for
+  //: a branch drag, which hands this every topic under the one grabbed. Built
+  //: lazily per kind so a selection of one kind never touches the others.
+  const itemsByKind = new Map();
+  const itemFor = (kind, id) => {
+    let byId = itemsByKind.get(kind);
+    if (!byId) {
+      byId = new Map((wbState[WB_LIST_BY_KIND[kind]] || []).map((i) => [i.id, i]));
+      itemsByKind.set(kind, byId);
+    }
+    return byId.get(id);
+  };
+  //: The map index, the layout and the drawn edge elements, read once for the
+  //: whole capture rather than rebuilt inside `wbMapEdgesFor` per member.
+  const edgeCtx = wbIsMap() ? wbMapEdgeContext() : null;
+  //: Both of the things every member of this capture is about to be asked
+  //: for, taken in one pass rather than one lookup per member per frame.
+  const objectEls = wbIsMap() ? wbIndexMapNodeElements() : null;
+  //: The link sketches, parsed once for the whole capture rather than the
+  //: whole board re-parsed for each member (see `wbLinkSketchIndex`). Built
+  //: unconditionally, because a board with no sketches costs an empty loop
+  //: and an empty Map, while the case it saves is the one that hurts.
+  const linkIndex = wbLinkSketchIndex();
+  //: **An edge belongs to one end, not to both.** A tree edge joins two
+  //: topics, so when both are in the same dragged branch it appeared in two
+  //: members' lists and was recomputed and rewritten twice on every frame of
+  //: the drag. Claiming it for whichever member reaches it first halves the
+  //: per-frame edge work on any branch drag, and changes nothing about what
+  //: is drawn: both ends move by the same delta.
+  const claimed = new Set();
   for (const key of keys) {
     if (key === excludeKey) continue; // the dragged item's own handler already moves it
     const sep = key.indexOf(":");
     const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
-    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+    const item = itemFor(kind, id);
     if (!item) continue;
     if (kind === "sketch") {
       const parsed = wbSketchParsedData(item);
@@ -7000,10 +8632,24 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
       // `mapEdges` only for an object: a map node *is* an object, and a card
       // and an object can share an id, so asking for a card's tree edges
       // would follow the wrong node's branch.
+      const mapEdges = [];
+      if (kind === "object" && edgeCtx) {
+        for (const edge of wbMapEdgesFor(id, edgeCtx)) {
+          const edgeKey = `${edge.parent.id}:${edge.child.id}`;
+          if (claimed.has(edgeKey)) continue;
+          claimed.add(edgeKey);
+          mapEdges.push(edge);
+        }
+      }
       origin.set(key, {
         kind, id, item, x: item.x, y: item.y,
-        linked: wbLinkedSketchesFor(id, kind),
-        mapEdges: kind === "object" ? wbMapEdgesFor(id) : [],
+        linked: wbLinkedSketchesFor(id, kind, linkIndex),
+        mapEdges,
+        //: Resolved here when the board is a map (one pass for the whole
+        //: capture, above) and on the first frame that needs it otherwise;
+        //: kept for the rest of the gesture either way, see
+        //: `wbApplyBulkMove`.
+        el: (kind === "object" && objectEls?.get(id)) || null,
       });
     }
   }
@@ -7039,19 +8685,33 @@ function wbTranslateSelectionChrome(dx, dy) {
   }
 }
 
+//: **The element each member is drawn as, found once per gesture**
+//: (MINDMAP_PLAN.md §13a). This runs for every moved item on every frame, and
+//: it used to open with a document-wide attribute query per item: on a
+//: 500-topic branch drag that is 500 queries a frame for elements that cannot
+//: have changed, and it was the largest single cost left on the drag path
+//: after the topic measurements were cached. `isConnected` is a flag read, so
+//: the re-lookup still happens for real (a render between frames replaces the
+//: element) without paying for it when nothing has.
+function wbBulkMoveElement(entry, selector) {
+  if (entry.el && entry.el.isConnected) return entry.el;
+  entry.el = document.querySelector(selector);
+  return entry.el;
+}
+
 function wbApplyBulkMove(origin, dx, dy) {
   wbTranslateSelectionChrome(dx, dy);
   for (const entry of origin.values()) {
     if (entry.kind === "sketch") {
       const newD = wbTransformPathD(entry.d, { dx, dy });
-      const el = document.querySelector(`.sketch-group[data-id="${entry.id}"]`);
+      const el = wbBulkMoveElement(entry, `.sketch-group[data-id="${entry.id}"]`);
       el?.querySelector(".sketch-path")?.setAttribute("d", newD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
       entry.item._liveD = newD;
     } else {
       entry.item.x = entry.x + dx;
       entry.item.y = entry.y + dy;
-      const el = document.querySelector(WB_SELECTOR_BY_KIND[entry.kind](entry.id));
+      const el = wbBulkMoveElement(entry, WB_SELECTOR_BY_KIND[entry.kind](entry.id));
       if (el) el.style.transform = wbItemTransform(entry.item);
       // See this entry's own comment in `wbCaptureBulkMoveOrigin`: without
       // this, only the card the pointer is actually on kept its edges live
@@ -7283,6 +8943,28 @@ function wbBuildContextMenu(kind) {
     );
     item(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
       "An http, https or mailto address", () => wbMapEditLink(mapNode));
+    //: The picture (§12.1 item 2's fourth), beside the link because the two
+    //: are the same kind of thing: what this topic *is*, rather than how it
+    //: looks. Reference nodes are left out, their body is the note, document
+    //: or file they stand for.
+    if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
+      item(mapNode.data?.image ? "Change this topic's picture…" : "Put a picture in this topic…",
+        "An image from this computer", () => wbMapEditPicture(mapNode));
+      if (mapNode.data?.image) {
+        item("Take the picture out of this topic", "The upload stays in the library", () =>
+          wbMapRemovePicture(mapNode)
+        );
+      }
+    }
+    //: Only when there is a bend to drop (§12.1 item 5's third). A menu entry
+    //: that is there for every topic and does nothing on nearly all of them is
+    //: a row everybody reads past; this one appears exactly when the line has
+    //: been reshaped, and says where the gesture is for next time.
+    if (!rooted && (mapNode.data?.edge_bend || mapNode.data?.edge_slide)) {
+      item("Straighten the line into this topic", "Or double-click the dot on the line", () =>
+        wbMapStraightenEdge(mapNode)
+      );
+    }
     item("Connect this topic to another", "Shift+C, then drag to the other topic", () => {
       selectWbTool("link-straight");
       toast("Drag from this topic to the one it should join.");
@@ -7357,6 +9039,16 @@ function wbOpenMapNodeMenu(node, clientX, clientY) {
 //: toolbar menu already clamps itself.
 function wbOpenContextMenuFor(kind, id, clientX, clientY) {
   const key = wbMultiKey(kind, id);
+  //: **A cross-link on a map gets the map's ring** (§13c), before the
+  //: selection is touched: selecting it would put the board's own context bar
+  //: over the ring, which is the surface this is replacing.
+  //: `<= 1`, the same rule the node ring takes: a multi-selection keeps the
+  //: flat menu, because its actions are the only ones that mean anything for
+  //: more than one item. Anything less than that and the ring would be
+  //: withheld from the ordinary case of right-clicking a line while a topic
+  //: happens to be selected, which is how this was first written and what its
+  //: own sweep caught.
+  if (kind === "sketch" && wbMultiSelection.size <= 1 && wbOpenMapCrossLinkRadial(id, clientX, clientY)) return;
   if (!wbMultiSelection.has(key)) wbHandleItemClick(kind, id, { shiftKey: false });
   //: **A map node gets the ring, not the list** (MINDMAP_PLAN.md §12.1 item
   //: 3). Routed here rather than at the two gestures because right-click and
@@ -7858,6 +9550,29 @@ async function wbCreateTextBox(x, y) {
 //: an Entry (MINDMAP_PLAN.md §4 option B) and that is the same call the
 //: gallery's own Delete makes. Afterwards the canvas has no board to show, so
 //: it goes back to the gallery rather than sitting on a board that is gone.
+//: **Put the board you are looking at into a note** (INBOX 309). The board's
+//: half of the feature; the note's half is the "/" menu's "Board or mind
+//: map".
+//:
+//: The row from the board index when it has it, because that is where the
+//: board's `type` lives and a mind map must not be written into a note as a
+//: whiteboard. Failing that, the picker's own label and `wbIsMap()`, which
+//: are what this file already trusts for the same two facts (see
+//: `wbDeleteCurrentBoard` just below, which reads the title the same way).
+async function wbAddBoardToNote() {
+  const boardId = window.currentBoardId ?? null;
+  if (boardId === null) {
+    toast("The default board cannot go in a note. Make a board first.");
+    return;
+  }
+  const row = (typeof mapBoardById === "function" && mapBoardById(boardId)) || null;
+  const select = $("wb-board-select");
+  const title =
+    row?.title || select?.options?.[select.selectedIndex]?.textContent?.trim() || "This board";
+  const type = row?.type || (wbIsMap() ? "map" : "board");
+  if (typeof addBoardToNote === "function") await addBoardToNote({ id: boardId, title, type });
+}
+
 async function wbDeleteCurrentBoard() {
   const boardId = window.currentBoardId ?? null;
   if (boardId === null) {
@@ -8168,8 +9883,40 @@ function wbBuildExportSvg(scope) {
       parts.push(
         `<rect width="4" height="${size.h}" rx="2" fill="${wbSvgEscape(colour)}" />`
       );
+      //: **A topic that is a picture exports as the picture** (§12.1 item 2's
+      //: fourth). Without this a map of photographs came out as a page of
+      //: empty boxes with captions, which is the same "stored, served and not
+      //: drawn" gap the branch above this one exists to close.
+      //:
+      //: The box is measured off the live node rather than recomputed from the
+      //: stylesheet's padding: the element is on screen (`wbMapNodeSize` has
+      //: just read it for the card's own size), and two rects in the same
+      //: units give the picture's place inside the card exactly, at any zoom,
+      //: without this function having to know what `--space-2` is today.
+      //: `mediaSrc`, for the reason the image object above gives: the raster
+      //: pass loads the SVG through a plain `<img>`, which sends no header, so
+      //: the token has to be in the url.
+      let labelTop = 22;
+      const picture = obj.data.image
+        ? document.querySelector(`.wb-object[data-id="${obj.id}"] .wb-map-node-picture`)
+        : null;
+      const card = picture ? picture.closest(".wb-object") : null;
+      if (picture && card && !picture.hidden) {
+        const cardBox = card.getBoundingClientRect();
+        const picBox = picture.getBoundingClientRect();
+        const scale = cardBox.width ? size.w / cardBox.width : 1;
+        const px = (picBox.left - cardBox.left) * scale;
+        const py = (picBox.top - cardBox.top) * scale;
+        const pw = picBox.width * scale;
+        const ph = picBox.height * scale;
+        parts.push(
+          `<image href="${wbSvgEscape(mediaSrc(obj.data.image))}" x="${px}" y="${py}" ` +
+            `width="${pw}" height="${ph}" preserveAspectRatio="xMidYMid slice" />`
+        );
+        labelTop = py + ph + 16;
+      }
       const lines = wbSvgWrapLines(wbMapLabel(obj), size.w - 28, 4, 7.5);
-      parts.push(wbSvgText(lines, 14, 22, { fontSize: 14, fill: "#1f2430", lineHeight: 17 }));
+      parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
@@ -8860,6 +10607,43 @@ function wbExportBoard() {
   exportBtn.focus();
 }
 
+//: **A `role="menu"` with no `role="menuitem"` in it is an empty menu.**
+//:
+//: The board's six menus (Insert, Edit, Arrange, View, Board in the top bar,
+//: and the context bar's own) are written in index.html rather than built by
+//: `kebabMenu`, which is the deliberate part: their rows are not all commands.
+//: Half of the View menu is a colour input, a grid select and four switches,
+//: and a command list cannot hold those. What was not deliberate is that the
+//: container declared `role="menu"` and nothing inside it declared anything,
+//: so a screen reader was handed a menu of nought items and the shared
+//: arrow-key wiring (`wireMenuKeyboard`) found nothing to move between.
+//: Measured before this existed (`scratchpad/ui-sweeps/wbtopbar.js`, at 1440
+//: and at 320): five menus, 0 items each, 8/7/10/19/5 buttons with no role,
+//: and ArrowDown moving no focus in any of them.
+//:
+//: Stamped here rather than written into the markup 76 times, because the
+//: markup is the one place it could drift: a row added to a menu next year
+//: takes its role from the shape it is given. The mapping is the ARIA one:
+//: a command is a `menuitem`, a labelled section is a `group`, and a row that
+//: is a wrapper around a native control (a select, a colour well, a checkbox
+//: in its own label) is `none`, which leaves that control exposed as itself
+//: rather than lying about it being a command.
+function wbStampMenuRoles(menu) {
+  for (const section of menu.querySelectorAll(".wb-menu-section")) {
+    section.setAttribute("role", "group");
+  }
+  for (const item of menu.querySelectorAll(".wb-menu-item")) {
+    item.setAttribute("role", "menuitem");
+  }
+  //: Every other direct or sectioned child: a row that holds a control, a
+  //: group label, a file input. `role="none"` is what makes the container a
+  //: valid menu, and it is the honest answer for each of them: none of them
+  //: is a command.
+  for (const row of menu.querySelectorAll(".wb-menu-row, .wb-panel-group-label, input[type=\"file\"]")) {
+    if (!row.hasAttribute("role")) row.setAttribute("role", "none");
+  }
+}
+
 async function initWhiteboard() {
   if (wbInitialized) return;
   wbInitialized = true;
@@ -9052,6 +10836,7 @@ async function initWhiteboard() {
   //: where an element is drawn is a listener added again every time it is
   //: redrawn.
   $("wb-map-perspective")?.addEventListener("change", (e) => wbMapSetPerspective(e.target.value));
+  $("wb-map-theme-item")?.addEventListener("click", wbMapThemeDialog);
   $("wb-map-stats-item")?.addEventListener("click", wbShowMapStats);
   $("wb-map-expand-all")?.addEventListener("click", wbMapExpandAll);
   $("wb-map-focus-less")?.addEventListener("click", () => wbMapStepFocus(-1));
@@ -9173,22 +10958,41 @@ async function initWhiteboard() {
       if (node) await run(node);
     });
   };
-  linkSlot("wb-link-reverse", (node) => wbMapReverseEdge(node.id));
-  linkSlot("wb-link-label", (node) => wbMapLabelEdge(node.id));
-  linkSlot("wb-link-cut", (node) => wbMapSever(node.id));
+  //: Each slot is two actions, one per kind of line, chosen from the subject
+  //: the ring was opened on rather than from what the slot last said: the
+  //: words are re-written by `wbSyncMapLinkRadial` on open, and a handler that
+  //: read them back would be reading its own label.
+  const crossSlot = (id, onBranch, onCross) => {
+    $(id)?.addEventListener("click", async () => {
+      const sketchId = wbMapLinkRadialCross;
+      const node = sketchId == null ? linkNode() : null;
+      wbCloseMapLinkRadial();
+      if (sketchId != null) await onCross(sketchId);
+      else if (node) await onBranch(node);
+    });
+  };
+  crossSlot("wb-link-reverse", (node) => wbMapReverseEdge(node.id), (id) => wbMapReverseCrossLink(id));
+  crossSlot("wb-link-label", (node) => wbMapLabelEdge(node.id), (id) => wbMapCrossLinkToBranch(id));
+  crossSlot("wb-link-cut", (node) => wbMapSever(node.id), (id) => wbMapCutCrossLink(id));
 
   //: The node edit strip (§12.1 item 2). Every handler reads the selection at
   //: the moment it fires rather than closing over a node: the strip is one set
   //: of controls that moves between nodes, so a captured node is a control
   //: that keeps editing whatever was selected when the page loaded.
-  $("wb-map-bold")?.addEventListener("click", () => {
-    const node = wbSelectedMapNode();
-    if (node) wbMapSetNodeStyle(node, { bold: !node.data?.bold });
-  });
-  $("wb-map-italic")?.addEventListener("click", () => {
-    const node = wbSelectedMapNode();
-    if (node) wbMapSetNodeStyle(node, { italic: !node.data?.italic });
-  });
+  //: **Three-state against the map's theme** (§13e), which is the rule
+  //: `edge_arrow` below has always followed: store the choice only when it
+  //: differs from what this topic would draw anyway. On an unthemed map that
+  //: is the behaviour these two have always had, `true` or nothing; on a map
+  //: whose theme says bold, pressing the button off has to store an explicit
+  //: `false`, because `null` there means "follow the map" and would leave the
+  //: topic bold. A person pressing a toggle and watching nothing happen is
+  //: the one outcome a toggle must never have.
+  for (const [id, field] of [["wb-map-bold", "bold"], ["wb-map-italic", "italic"]]) {
+    $(id)?.addEventListener("click", () => {
+      const node = wbSelectedMapNode();
+      if (node) wbMapSetNodeStyle(node, { [field]: wbMapToggleValue(node, field) });
+    });
+  }
   //: **A core idea, stored as nothing at all when it is off.** `|| null`
   //: rather than `false` for the same reason "M" stores no font size: a map
   //: made before core nodes existed and one whose node was marked and then
@@ -9246,7 +11050,7 @@ async function initWhiteboard() {
   $("wb-map-edge-dashed")?.addEventListener("click", async () => {
     const node = wbSelectedMapNode();
     if (!node) return;
-    await wbMapSetNodeStyle(node, { edge_dashed: !node.data?.edge_dashed || null });
+    await wbMapSetNodeStyle(node, { edge_dashed: wbMapToggleValue(node, "edge_dashed") });
     renderWhiteboardNow();
   });
   $("wb-map-edge-arrow")?.addEventListener("click", async () => {
@@ -9592,6 +11396,7 @@ async function initWhiteboard() {
 
   $("wb-clear-board")?.addEventListener("click", wbClearBoard);
   $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
+  $("wb-add-to-note")?.addEventListener("click", wbAddBoardToNote);
   $("wb-export")?.addEventListener("click", wbExportBoard);
 
   // Tool Selection
@@ -10001,6 +11806,7 @@ async function initWhiteboard() {
     }
     if (shapeMenu && shapeToggle) wbCloseDockedMenu(shapeMenu, shapeToggle);
     wbRefreshArrowStyleControlRef?.();
+    wbToolsOpenerSyncRef?.();
     updateWbCursor();
     // The properties panel now also carries the style a drawing tool will
     // use, so a tool switch has to reopen/close it, see its own comment.
@@ -10014,6 +11820,85 @@ async function initWhiteboard() {
       const btn = e.target.closest("button[data-tool]");
       if (btn) selectWbTool(btn.dataset.tool);
     });
+  }
+
+  // --- the tools as a sheet on a phone ---------------------------------------
+  // UI_MODERNISATION_PLAN Phase 11 item 7, "creation tools in a sheet".
+  // Measured at 390x844 first: the rail is a 364x56 band under a 364x604
+  // canvas, and the band holds 835px of tools scrolled through a 358px
+  // window, so 16 of its 31 buttons were on screen at once and the Shapes
+  // section showed one of its seven. A row you scroll sideways to find a tool
+  // in is not a palette, and it is 56px of a 844px screen either way.
+  //
+  // What opens is `openSheet`, and what is in it is `#wb-tool-group` itself,
+  // moved in and put back on close. That is the whole design: the delegated
+  // `[data-tool]` listener above, every section label, every key and the
+  // shape menu are the ones that were already there, so a tool added to the
+  // rail is in the sheet without anybody remembering to add it twice.
+  let wbToolsSheetClose = null;
+  const toolsOpener = document.getElementById("wb-tools-opener");
+
+  function wbSyncToolsOpener() {
+    const label = document.getElementById("wb-tools-opener-label");
+    if (!label || !toolGroup) return;
+    //: The opener says which tool is in hand, because on a phone it is the
+    //: only place the rail's own "active" mark can be read.
+    const active = toolGroup.querySelector("button[data-tool].active");
+    const name = active?.getAttribute("aria-label") || active?.title?.split(" (")[0];
+    label.textContent = name ? name.replace(/ tool$/i, "") : "Tools";
+  }
+
+  function wbOpenToolsSheet() {
+    if (wbToolsSheetClose || !toolGroup || typeof openSheet !== "function") return;
+    const home = { parent: toolGroup.parentNode, next: toolGroup.nextSibling };
+    toolsOpener?.setAttribute("aria-expanded", "true");
+    wbToolsSheetClose = openSheet({
+      label: "Tools",
+      name: "wb-tools",
+      returnFocus: toolsOpener,
+      build: (card, close) => {
+        const body = document.createElement("div");
+        body.className = "wb-tools-palette";
+        body.appendChild(toolGroup);
+        card.appendChild(body);
+        //: Picking a tool is the end of the errand, so the sheet gets out of
+        //: the way and the board is there to draw on. The `close` the recipe
+        //: hands `build`, not the variable the call assigns afterwards, and
+        //: bound on the card so it cannot outlive the sheet.
+        //:
+        //: **Captured**, because the shape menu's rows stop their own click
+        //: from bubbling (they have to: a docked menu is reparented to
+        //: `<body>` while it is open, so it cannot rely on reaching
+        //: `#wb-tool-group`'s delegated listener). Measured: picking
+        //: Rectangle set the tool and left the sheet open over the board it
+        //: had just been chosen for.
+        card.addEventListener(
+          "click",
+          (event) => {
+            if (event.target.closest("button[data-tool]")) close();
+          },
+          true
+        );
+      },
+      onClose: () => {
+        home.parent.insertBefore(toolGroup, home.next);
+        wbToolsSheetClose = null;
+        toolsOpener?.setAttribute("aria-expanded", "false");
+        wbSyncToolsOpener();
+      },
+    });
+  }
+
+  if (toolsOpener) {
+    toolsOpener.addEventListener("click", () => {
+      if (wbToolsSheetClose) wbToolsSheetClose();
+      else wbOpenToolsSheet();
+    });
+    //: A window dragged past the band with the sheet open would leave the
+    //: rail's own tools inside a dialog the desktop layout has no opener for.
+    WB_PHONE.addEventListener("change", () => wbToolsSheetClose?.());
+    wbSyncToolsOpener();
+    wbToolsOpenerSyncRef = wbSyncToolsOpener;
   }
 
   // Docked as a sidebar, the toolbar panel scrolls (`overflow-y: auto`, so a
@@ -10095,15 +11980,8 @@ async function initWhiteboard() {
   function wbWireToggleGestures(toggle, menu, getLastTool) {
     if (!toggle || !menu) return;
     const picker = toggle.parentElement; // #wb-shape-picker / #wb-select-picker
-    let holdTimer = null;
-    let suppressClick = false; // a long-press's own release still fires a click
-
     toggle.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (suppressClick) {
-        suppressClick = false;
-        return;
-      }
       if (e.target.closest(".wb-shape-caret")) {
         if (menu.classList.contains("hidden")) wbOpenDockedMenu(menu, toggle);
         else wbCloseDockedMenu(menu, toggle);
@@ -10120,23 +11998,13 @@ async function initWhiteboard() {
       e.stopPropagation();
       wbOpenDockedMenu(menu, toggle);
     });
-    toggle.addEventListener("pointerdown", (e) => {
-      if (e.pointerType !== "touch") return;
-      holdTimer = setTimeout(() => {
-        holdTimer = null;
-        suppressClick = true;
-        wbOpenDockedMenu(menu, toggle);
-      }, 500);
-    });
-    const cancelHold = () => {
-      if (holdTimer) {
-        clearTimeout(holdTimer);
-        holdTimer = null;
-      }
-    };
-    toggle.addEventListener("pointerup", cancelHold);
-    toggle.addEventListener("pointercancel", cancelHold);
-    toggle.addEventListener("pointerleave", cancelHold);
+    //: The hold, through the app's own `wireLongPress` (app.js) rather than
+    //: a fourth copy of a 500ms timer with its own cancel set. It also
+    //: removes the `suppressClick` latch this carried: the recipe swallows
+    //: the click the lift synthesises, which is the thing that latch was
+    //: written to survive, and a latch that is only cleared by the *next*
+    //: click is a click lost whenever no click follows.
+    wireLongPress(toggle, () => wbOpenDockedMenu(menu, toggle));
 
     // Handled directly rather than relying on the click bubbling up to
     // #wb-tool-group's own delegated listener: once open+side-docked, the
@@ -10179,6 +12047,17 @@ async function initWhiteboard() {
   const boardMenus = [...document.querySelectorAll(".wb-board-menu-wrap")]
     .map((wrap) => ({ toggle: wrap.querySelector("[data-wb-menu-toggle]"), menu: wrap.querySelector(".wb-board-menu") }))
     .filter((pair) => pair.toggle && pair.menu);
+  for (const { menu, toggle } of boardMenus) {
+    wbStampMenuRoles(menu);
+    //: The arrow keys, Home and End, from the same function every other menu
+    //: in the app uses (`wireMenuKeyboard`, app.js). Measured before it was
+    //: called here (`scratchpad/ui-sweeps/wbtopbar.js`): all five top-bar
+    //: menus opened with `role="menu"` and not one `role="menuitem"` in them,
+    //: so a screen reader was told "menu, 0 items", and ArrowDown moved the
+    //: focus nowhere. Tab stepped through the items, because they are buttons,
+    //: which is why nobody driving it with a mouse ever saw this.
+    wireMenuKeyboard(menu, toggle);
+  }
   const closeAllWbMenus = () => {
     for (const { toggle, menu } of boardMenus) {
       menu.classList.add("hidden");
@@ -10232,19 +12111,35 @@ async function initWhiteboard() {
     closeAllWbMenus();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeAllWbMenus();
+    if (e.key !== "Escape") return;
+    //: Escape hands the focus back to the toggle that opened the menu, which
+    //: is the half of the contract that was missing: the menu closed and the
+    //: focus stayed on the item that had just vanished, so the next Tab
+    //: started from the top of the document. The toggle is read *before* the
+    //: close, because closing clears the state that says which one was open.
+    //: Only when the focus is in the menu or on its own toggle: Escape is a
+    //: board-wide key (it leaves full screen, it drops a selection), and a
+    //: press with the focus on the canvas must not pull it into the bar.
+    const open = boardMenus.find(({ menu }) => !menu.classList.contains("hidden"));
+    const inside = open && (open.menu.contains(document.activeElement) || document.activeElement === open.toggle);
+    closeAllWbMenus();
+    if (inside) open.toggle.focus();
   }, true);
   // Edit / Arrange menu items forward to the control that already owns the
   // action (`data-wb-click`), so a menu can never drift from the dock, the
   // drawer or the selection bar. `data-wb-fn` is for the one action with
   // no button of its own.
   document.addEventListener("click", (e) => {
-    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn]");
+    //: `.wb-menu-item` as well as the two forwarding attributes: an item that
+    //: owns its own listener (Rename, New board, the two map rows) used to
+    //: leave the menu standing open behind the dialog it had just opened,
+    //: because only the forwarding items closed it.
+    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu .wb-menu-item");
     if (!item) return;
     e.stopPropagation();
     closeAllWbMenus();
     if (item.dataset.wbFn === "select-all") { wbSelectAllItems(); return; }
-    document.getElementById(item.dataset.wbClick)?.click();
+    if (item.dataset.wbClick) document.getElementById(item.dataset.wbClick)?.click();
   });
   //: **A board can change its mind.** Reported: "when I press the boards
   //: dropdown to change boards, I cant tell which one is a whiteboard and
@@ -11026,6 +12921,63 @@ async function initWhiteboard() {
     wbFitToText(handle.closest(".wb-object, .node-card"));
   });
 
+  //: **The two gestures a map has to answer on its own canvas** (MINDMAP_PLAN
+  //: §13, the owner: the tools "dont show themselves how id expect"). Both
+  //: were measured doing nothing at all before this: a right-click on empty
+  //: map canvas opened no menu, and a double-click added no topic, so the
+  //: first two things anybody tries on a blank part of a mind map were dead.
+  //: Neither adds a resting affordance to the canvas (§13's decision 5); both
+  //: are the app's own recipes, `openMenuAtPoint` for the menu and the map's
+  //: own create for the topic.
+  containerEl.addEventListener("dblclick", (e) => {
+    if (!wbIsMap() || window.currentTool !== "select") return;
+    if (!wbIsEmptyCanvasTarget(e.target) || wbIsEditingTarget(e.target)) return;
+    e.preventDefault();
+    const [x, y] = getLogicalMouse(e);
+    wbMapAddRootAt(x, y);
+  });
+
+  //: One builder for the canvas menu, because the right-click and the hold
+  //: are the same menu and a second copy is how the two come to disagree
+  //: (DESIGN.md: every `contextmenu` listener is counted against a
+  //: `wireLongPress` call in the same file, and `tests/test_ui_recipes.py`
+  //: fails a right-click menu with no long-press twin).
+  const openMapCanvasMenu = (clientX, clientY) => {
+    const [x, y] = getLogicalMouse({ clientX, clientY });
+    const index = wbMapIndex();
+    const folded = index.nodes.filter((n) => n.data?.collapsed).length;
+    const items = [
+      makeMenuItem("ph:plus-circle Add a topic here", "A new trunk, where you pressed", () => wbMapAddRootAt(x, y)),
+      makeMenuItem("ph:broom Tidy the map", "Lay every unpinned topic out again", () => wbMapTidy()),
+      makeMenuItem(
+        folded ? `ph:arrows-out-line-vertical Open every folded branch (${folded})` : "ph:arrows-out-line-vertical Open every folded branch",
+        folded ? "This map has folded branches" : "Nothing is folded on this map",
+        () => wbMapExpandAll()
+      ),
+      makeMenuItem("ph:frame-corners Fit everything", "Show the whole map", () =>
+        document.getElementById("wb-zoom-fit")?.click()
+      ),
+    ];
+    openMenuAtPoint(items, "This map", clientX, clientY);
+  };
+
+  const wbMapCanvasMenuWanted = (target) =>
+    wbIsMap() && wbIsEmptyCanvasTarget(target) && !wbIsEditingTarget(target);
+
+  containerEl.addEventListener("contextmenu", (e) => {
+    //: A topic and a line have rings of their own, and both stop the event
+    //: before it reaches here; this is the canvas itself, which had nothing.
+    if (!wbMapCanvasMenuWanted(e.target)) return;
+    e.preventDefault();
+    openMapCanvasMenu(e.clientX, e.clientY);
+  });
+
+  //: The same menu from a hold, which is the right-click a phone has.
+  wireLongPress(containerEl, (event, point) => {
+    if (!wbMapCanvasMenuWanted(event.target)) return;
+    openMapCanvasMenu(point.x, point.y);
+  });
+
   containerEl.addEventListener("pointermove", (e) => {
     if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
     if (wbLinkDragActive) return;
@@ -11269,6 +13221,15 @@ async function initWhiteboard() {
   });
   const imageFileInput = document.getElementById("wb-image-file-input");
   document.getElementById("wb-add-image")?.addEventListener("click", () => imageFileInput?.click());
+  //: The map topic's own picture input (§12.1 item 2's fourth), beside the
+  //: board's: the same recipe, a different destination. `wbMapEditPicture`
+  //: says which topic it was opened for.
+  const mapPictureInput = document.getElementById("wb-map-picture-input");
+  mapPictureInput?.addEventListener("change", async () => {
+    const file = mapPictureInput.files && mapPictureInput.files[0];
+    mapPictureInput.value = "";
+    await wbMapTakePicture(file);
+  });
   imageFileInput?.addEventListener("change", () => {
     const rect = containerEl.getBoundingClientRect();
     const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
@@ -11312,16 +13273,18 @@ async function initWhiteboard() {
     );
     if (window.currentTool === "highlighter") {
       currentDrawPath.setAttribute("stroke-opacity", String(WB_HIGHLIGHTER_ALPHA));
-      currentDrawPath.setAttribute("stroke-linecap", "square");
+      currentDrawPath.setAttribute("stroke-linecap", HIGHLIGHTER_STYLE.lineCap);
       // An inline style, not a class: the export clones these elements into a
       // standalone SVG where a stylesheet does not follow them, and
       // `el.style.x = ...` is the form this app's CSP allows (an inline
-      // `style=` attribute in the markup is refused).
-      currentDrawPath.style.mixBlendMode = "multiply";
+      // `style=` attribute in the markup is refused). The class beside it is
+      // only a handle for `wbRefreshHighlighterBlend`.
+      currentDrawPath.classList.add("wb-live-highlighter");
+      currentDrawPath.style.mixBlendMode = wbHighlighterBlend();
     } else {
       currentDrawPath.setAttribute("stroke-linecap", "round");
     }
-    currentDrawPath.setAttribute("stroke-linejoin", "round");
+    currentDrawPath.setAttribute("stroke-linejoin", HIGHLIGHTER_STYLE.lineJoin);
     const dashArray = wbDashArray(window.currentDashStyle, WB_STROKE_WIDTH);
     if (dashArray) currentDrawPath.setAttribute("stroke-dasharray", dashArray);
     currentDrawPath.setAttribute("d", `M ${x} ${y}`);
@@ -11542,8 +13505,17 @@ async function initWhiteboard() {
       const res = await apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify(nodeData) });
       // If it exists in state already, replace it. Otherwise push.
       const idx = wbState.nodes.findIndex(n => n.id === res.id);
-      if (idx !== -1) wbState.nodes[idx] = res;
-      else wbState.nodes.push(res);
+      if (idx !== -1) {
+        wbState.nodes[idx] = res;
+        //: The one in-place replacement in this file, and the one case
+        //: `wbLinkItem`'s index cannot see: same array, same length, a
+        //: different object at that slot. Dropped by hand here so a link
+        //: anchored to this card resolves to the row that is actually in
+        //: state rather than to the one it replaced.
+        wbForgetLinkItems(wbState.nodes);
+      } else {
+        wbState.nodes.push(res);
+      }
       wbScheduleRender();
     } catch (err) {
       //: `console.error("...", err)` printed "{}": an Error's `message` is not
@@ -12525,12 +14497,21 @@ function wbRenderMultiSelectionHandles() {
     maxX: Math.max(...outlines.map((box) => box.maxX)),
     maxY: Math.max(...outlines.map((box) => box.maxY)),
   };
-  //: Each shape's own box and anchors as well as the group's, because that is
-  //: what the same sweep already gives a card or a text box: they carry their
-  //: handles as children and `.wb-selected` reveals them, while a shape has
-  //: nowhere to keep any and had none drawn at all.
+  //: **Each member is outlined, and only the group carries grips** (INBOX
+  //: 278's second half). A shape had nothing drawn round it at all in a
+  //: marquee selection, which was reported ("when I drag select shapes, the
+  //: individual anchor/rotate boxes dont appear... its fine for the notes but
+  //: the shapes and lines arent selected visually and individually"), and the
+  //: answer then was to give every member its own full set of handles. That
+  //: is what the second screenshot in 278 shows: a three-item group drew
+  //: **eight** rotate knobs and sixteen resize handles, one set per member
+  //: plus the group's, so the stem the eye lands on rises from a member's own
+  //: centre or sits below the group's top border, and no one of them reads as
+  //: the group's. Both reports are answered by drawing the member's outline
+  //: and nothing else: what is selected is still visible one by one, and
+  //: there is exactly one thing to grab.
   for (const row of boxes) {
-    if (row.entry.kind === "sketch") wbDrawSketchHandles(row.entry.item);
+    if (row.entry.kind === "sketch") wbDrawSketchHandles(row.entry.item, { outlineOnly: true });
   }
   //: **The overlay layer, not the base one** (INBOX 262: "not being able to
   //: drag the edges of a group selection"). The base SVG paints *under*
@@ -12574,8 +14555,29 @@ function wbRenderMultiSelectionHandles() {
       el.attr("x", hx - 5).attr("y", hy - 5);
     }
     const cx = (box.minX + box.maxX) / 2;
-    if (stem) stem.attr("x1", cx).attr("y1", box.minY).attr("x2", cx).attr("y2", box.minY - 28);
-    if (spinDot) spinDot.attr("cx", cx).attr("cy", box.minY - 28);
+    //: **The anchor, without which the grip leaves the box** (INBOX 278: "the
+    //: rotate line and circle dont sit at the top center of a group
+    //: selection... and instead sit off to the top left or right, or below the
+    //: top border"). `.wb-sketch-rotate-handle` and `.wb-rotate-handle-stem`
+    //: carry `scale(var(--wb-inv-zoom))` so a grip stays one size to the hand,
+    //: and that rule keeps `transform-box` at its `view-box` default *because
+    //: the code that draws them sets the origin in board units* (the rule says
+    //: so in its own comment, and `wbDrawSketchHandles` does it for a single
+    //: shape). This group never set one, so the scale resolved about the SVG
+    //: view box's origin and multiplied the grip's own coordinates by `1 / k`:
+    //: measured on a three-item group, the knob sat at board (680, 1344) at
+    //: 0.5x and (170, 336) at 2x for a box whose top centre is (340, 672), so
+    //: it flew down and right when you zoomed out and up and left when you
+    //: zoomed in, while sitting exactly right at 1x. The foot of the stem is
+    //: the point that must not move, the same anchor the single-shape handles
+    //: use, and it is re-set here rather than once at creation because a
+    //: resize drag calls this again with a new box.
+    const anchor = `${cx}px ${box.minY}px`;
+    if (stem) {
+      stem.attr("x1", cx).attr("y1", box.minY).attr("x2", cx).attr("y2", box.minY - 28)
+        .style("transform-origin", anchor);
+    }
+    if (spinDot) spinDot.attr("cx", cx).attr("cy", box.minY - 28).style("transform-origin", anchor);
   }
 
   //: The box the items now occupy, given the scale this frame is applying.
@@ -12778,7 +14780,11 @@ function wbRenderSketchHandles() {
 //: them; a shape is a path in the SVG layer with nowhere to keep handles, and
 //: this is the only thing that draws them. It ran for the single selection
 //: only, which is exactly the difference the screenshot shows.
-function wbDrawSketchHandles(sketch) {
+//: `outlineOnly` draws the selection box and stops: a member of a group
+//: selection is shown as selected without being given grips of its own, which
+//: belong to the group (INBOX 278). A link's endpoint handles are grips too,
+//: so that branch takes the same exit.
+function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
   // A link sketch has no `.d` of its own: `wbSketchParsedData` returns
   // null for it, and the 8-point bbox resize handles below make no sense
   // for a path recomputed fresh from its endpoints every render anyway.
@@ -12786,7 +14792,7 @@ function wbDrawSketchHandles(sketch) {
   let rawParsed;
   try { rawParsed = JSON.parse(sketch.data); } catch { rawParsed = null; }
   if (rawParsed && (rawParsed.type || "").startsWith("link-")) {
-    wbRenderLinkEndpointHandles(sketch, rawParsed);
+    if (!outlineOnly) wbRenderLinkEndpointHandles(sketch, rawParsed);
     return;
   }
   const parsed = wbSketchParsedData(sketch);
@@ -12808,6 +14814,8 @@ function wbDrawSketchHandles(sketch) {
     .attr("x", bbox.minX - 2).attr("y", bbox.minY - 2)
     .attr("width", (bbox.maxX - bbox.minX) + 4)
     .attr("height", (bbox.maxY - bbox.minY) + 4);
+
+  if (outlineOnly) return;
 
   for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
     const hx = handle.includes("w") ? bbox.minX : handle.includes("e") ? bbox.maxX : (bbox.minX + bbox.maxX) / 2;
@@ -12834,9 +14842,16 @@ function wbDrawSketchHandles(sketch) {
             sketch._resizeUndoBefore = WB_KIND_INFO.sketch.payload(sketch);
           })
           .on("drag", (event) => {
-            const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-            rawDX += event.dx / transform.k;
-            rawDY += event.dy / transform.k;
+            // No `/ transform.k`, for the reason the link endpoint handle
+            // above already records: this rect's drag container is its parent
+            // `<g>` inside the zoomed `#wb-zoom-group`, and d3.pointer
+            // resolves SVG coordinates through `getScreenCTM()`, which has
+            // already folded in every ancestor transform. `event.dx` arrives
+            // in board units. Dividing again halved the gesture at 2x
+            // (measured: a 60px drag on the east grip widened the shape by
+            // 30px on screen, where the card's own grip moved the full 60).
+            rawDX += event.dx;
+            rawDY += event.dy;
             const t = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey);
             const newD = wbTransformPathD(parsed.d, t);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
@@ -12939,11 +14954,19 @@ function wbDrawSketchHandles(sketch) {
 // getBoundingClientRect or querySelector would have needed to stay synchronous
 // and none was. `renderWhiteboardNow()` is kept for anything that ever does.
 let wbRenderQueued = false;
+//: The queued frame itself, so a synchronous render can call it off rather
+//: than merely lower the flag it checks (MINDMAP_PLAN.md §13a). Without this
+//: `renderWhiteboardNow` left the frame standing: opening a board queues a
+//: render, renders synchronously to measure the nodes for the fit, and then
+//: paid for a second full render of the same unchanged board one frame later.
+//: On a 500-topic map that was the whole board rendered twice on every open.
+let wbRenderFrame = 0;
 
 function wbScheduleRender() {
   if (wbRenderQueued) return;
   wbRenderQueued = true;
-  requestAnimationFrame(() => {
+  wbRenderFrame = requestAnimationFrame(() => {
+    wbRenderFrame = 0;
     wbRenderQueued = false;
     renderWhiteboard();
     wbUpdateSelectionBar();
@@ -12953,8 +14976,18 @@ function wbScheduleRender() {
 // The unbatched escape hatch. Prefer wbScheduleRender(); use this only when
 // the very next statement has to read the rendered DOM.
 function renderWhiteboardNow() {
+  //: Whether a queued frame was called off, so the one thing it did that this
+  //: function does not (the selection bar, below) still happens, and in the
+  //: order that frame would have done it in.
+  let cancelled = false;
+  if (wbRenderFrame) {
+    cancelAnimationFrame(wbRenderFrame);
+    wbRenderFrame = 0;
+    cancelled = true;
+  }
   wbRenderQueued = false;
   renderWhiteboard();
+  if (cancelled) wbUpdateSelectionBar();
   // A render replaces card elements, so the search highlight classes are gone
   // with them and the navigator's item rectangles are stale. Both re-apply
   // from state rather than being re-derived by their own callers.
@@ -12963,6 +14996,9 @@ function renderWhiteboardNow() {
 }
 
 function renderWhiteboard() {
+  //: A render replaces every map node's element, so every measurement taken
+  //: from the previous set is about to describe something that is gone.
+  wbClearMapNodeSizeCache();
   // Built once per render, not once per card: `allEntries.find(...)` inside
   // a per-card callback is O(cards × notebook size) on every single render
   //, for a large notebook that is real, measurable work paid on every
@@ -13082,9 +15118,13 @@ function renderWhiteboard() {
           ? wbCaptureBulkMoveOrigin(wbMultiKey("sketch", d.id))
           : null;
       }
-      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      d._dragRawDX += event.dx / transform.k;
-      d._dragRawDY += event.dy / transform.k;
+      // Board units already, no `/ transform.k`: this drag's container is the
+      // sketch group's parent inside the zoomed `#wb-zoom-group` (see the link
+      // endpoint handle's own note). A shape dragged at 2x followed the
+      // pointer at half speed until this was measured: 30px of travel for a
+      // 60px drag, against the card beside it, which moved the full 60.
+      d._dragRawDX += event.dx;
+      d._dragRawDY += event.dy;
       const bypassSnap = event.sourceEvent?.altKey;
       let dx = wbSnap(d._dragRawDX, bypassSnap), dy = wbSnap(d._dragRawDY, bypassSnap);
       //: **A sketch gets the alignment guides too.** Reported: "Alignment bars
@@ -13328,7 +15368,15 @@ function renderWhiteboard() {
       // the width and opacity above are set explicitly rather than only when
       // present. Inline rather than a class because the export clones these
       // nodes into a standalone SVG.
-      .style("mix-blend-mode", isHighlighterStroke ? "multiply" : null)
+      .style("mix-blend-mode", isHighlighterStroke ? wbHighlighterBlend() : null)
+      // The flat end a marker leaves, set here rather than only on the live
+      // path: the enter selection above appends every sketch with a round cap
+      // and nothing updated it, so a highlighter stroke was square while it
+      // was being drawn and round from the first render after mouseup
+      // (measured: `getComputedStyle(...).strokeLinecap` read round on both
+      // saved strokes while the pad read square).
+      .attr("stroke-linecap", isHighlighterStroke ? HIGHLIGHTER_STYLE.lineCap : "round")
+      .attr("stroke-linejoin", isHighlighterStroke ? HIGHLIGHTER_STYLE.lineJoin : "round")
       .attr("d", pathData)
       .attr("stroke", stroke)
       .attr("stroke-width", strokeWidth)
@@ -13947,6 +15995,7 @@ function renderWbObjects(canvas) {
     d._rawY = d.y;
     d._dragOriginX = d.x;
     d._dragOriginY = d.y;
+    d._raised = false;
     d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here, see the matching comment on
@@ -13967,7 +16016,15 @@ function renderWbObjects(canvas) {
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
         : wbMapBranchDragOrigin(d, d._dragAlone);
     }
-    d3.select(this.closest(".wb-object")).raise();
+    //: Once per gesture, not once per move: the card drag beside this one
+    //: took the same fix (INBOX 114, and see its own comment). `raise()`
+    //: reappends the element even when it is already last, and a DOM move
+    //: invalidates layout, so every frame's first `getBoundingClientRect`
+    //: (the drop target's, below) paid for a full re-layout of the board.
+    if (!d._raised) {
+      d3.select(this.closest(".wb-object")).raise();
+      d._raised = true;
+    }
     // d3.drag's dx/dy are raw screen pixels, not board-space, the
     // resize handles below already divide by the zoom scale for exactly
     // this reason; a plain drag has to as well, or a card/object moves
@@ -14382,28 +16439,51 @@ function renderWbObjects(canvas) {
   wbWireContextMenu(objectEnter, "object");
 
   const objectUpdate = objectEnter.merge(objectSelection);
-  objectUpdate
-    .style("transform", wbItemTransform)
-    .style("width", (d) => `${d.width}px`)
-    .style("height", objectHeight)
-    .style("z-index", (d) => d.z);
+  //: **A render repaints the objects that changed, not every object on the
+  //: board** (MINDMAP_PLAN.md §13a, the render pass). The four `.style` calls
+  //: this replaces ran for every object on every render, and the `.each`
+  //: below them repainted every map node whether or not anything about it had
+  //: moved: at 500 topics that was 2,000 style writes and 500 full node
+  //: repaints for a change to one of them.
+  //:
+  //: The key is every input this pass reads, in one string. An object whose
+  //: key is what it was last render draws exactly what it is already
+  //: drawing, so the cheapest correct thing to do with it is nothing. A fresh
+  //: element (the enter selection) has no key at all, so it always paints.
+  //: `wbObjectPaintKey` is the one list of those inputs: a property this pass
+  //: starts reading has to go into it, and the way that failure shows is a
+  //: node that stops following a change, which is what `mapstrip.js`,
+  //: `maptheme.js`, `mapline.js` and `maprejoin.js` each ask about directly.
+  const paintCtx = {
+    index: mapIndex,
+    colors: mapColors,
+    //: Read once for the pass, not once per node: both are board-wide, and
+    //: `wbMapThemedData` merges the theme underneath every node's own data.
+    layout: mapIndex ? wbMapLayout() : "",
+    theme: mapIndex ? JSON.stringify(wbMapTheme()) : "",
+  };
   // An image's own src can change (rare: nothing in this UI replaces one
   // yet, but a future paste-to-replace shouldn't need this rewritten) and a
   // text box's saved colour/size might have changed elsewhere (undo/redo);
   // the text itself is deliberately left alone here so a re-render mid-edit
   // (another item moving, say) can't overwrite what's being typed.
   objectUpdate.each(function (d) {
+    const key = wbObjectPaintKey(d, paintCtx);
+    if (this._wbPaintKey === key) return;
+    this._wbPaintKey = key;
     const el = d3.select(this);
+    this.style.transform = wbItemTransform(d);
+    this.style.width = `${d.width}px`;
+    this.style.height = objectHeight(d);
+    //: `removeProperty` for an unset `z`, which is what d3's own
+    //: `.style("z-index", d => d.z)` did with a null: an object with no z
+    //: stacks in document order rather than at "undefined".
+    if (d.z === null || d.z === undefined) this.style.removeProperty("z-index");
+    else this.style.zIndex = d.z;
     if (d.kind === "image") {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else if (WB_MAP_KINDS.has(d.kind)) {
       wbPaintMapNode(el, d, mapIndex, mapColors);
-      // The stored `height` is what the bounds, the alignment guides and the
-      // tidy layout all read, and a map node's real height is whatever its
-      // text needed. Syncing it here (locally: no PUT, nothing to save) is
-      // what keeps those three agreeing with what is actually on screen; the
-      // value rides along to the server on the node's next real save.
-      if (this.offsetHeight) d.height = this.offsetHeight;
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
@@ -14415,6 +16495,106 @@ function renderWbObjects(canvas) {
   });
 
   objectSelection.exit().remove();
+
+  //: **Every topic measured in one pass, after every write, never between
+  //: them** (MINDMAP_PLAN.md §13a). This loop used to be the last two lines
+  //: of the `.each` above, one `offsetHeight` read per node interleaved with
+  //: that node's own style writes. A style write invalidates layout for the
+  //: whole document, so each of those reads flushed a fresh layout of the
+  //: entire board: 500 nodes cost 500 full layouts, which is where this
+  //: render's superlinearity actually lived (renderWbObjects: 405.6ms of a
+  //: 527ms render at 500 topics, against 32.1ms for the painting itself).
+  //: Reads on their own flush once and are then free, so the same
+  //: information now costs one layout.
+  //:
+  //: The stored `height` is what the bounds, the alignment guides and the
+  //: tidy layout all read, and a map node's real height is whatever its text
+  //: needed; the value rides along to the server on the node's next real
+  //: save. The size cache is filled from the same reads because
+  //: `wbRenderMapEdges` runs next and asks for both ends of every edge: that
+  //: is what keeps `wbMapNodeSize` off `document.querySelector` for a board
+  //: whose elements this pass is holding already.
+  if (mapIndex) {
+    if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
+    objectUpdate.each(function (d) {
+      if (!WB_MAP_KINDS.has(d.kind)) return;
+      const h = this.offsetHeight;
+      if (!h) return;
+      wbMapNodeSizeCache.set(d.id, { w: this.offsetWidth, h });
+      d.height = h;
+    });
+  }
+}
+
+//: Everything `renderWbObjects` reads when it paints one object, as one
+//: string (MINDMAP_PLAN.md §13a). Two renders with the same key for an object
+//: would write the same pixels, so the second one skips it.
+//:
+//: **The map fields are the ones that are not on the object.** A topic's
+//: colour comes from its branch, its chevron from how many children it has,
+//: its badge from how many topics are folded under it, its spine from which
+//: side its parent is on, and everything the strip sets comes from the node's
+//: data with the map's theme merged underneath: all five change without the
+//: row itself changing, so all five are in the key.
+//:
+//: `height` is deliberately left out for a map node, because a map node's
+//: height is its text's: the measure pass at the end of `renderWbObjects`
+//: writes what was drawn back onto the datum, so including it would make
+//: every node's key differ from its own last render, for ever. The one
+//: exception is a topic somebody has resized by hand (`sized`), whose stored
+//: height is written back as a `min-height` and therefore is an input.
+function wbObjectPaintKey(d, ctx) {
+  const base = `${d.kind}|${d.x}|${d.y}|${d.z}|${d.width}|${d.rotation ?? ""}|${JSON.stringify(d.data ?? null)}`;
+  if (!WB_MAP_KINDS.has(d.kind)) return `${base}|${d.height}`;
+  const index = ctx.index;
+  const children = index?.childrenOf.get(d.id)?.length || 0;
+  const buried = d.data?.collapsed && index ? wbMapSubtree(index, d.id).length - 1 : 0;
+  //: Only where it is read: `wb-map-node-mirrored` is decided from the
+  //: parent's own box on a both-sides map, and on every other layout the
+  //: side is the layout's, so a parent moving cannot change a child's spine.
+  let parentBox = "";
+  if (ctx.layout === "tree-both" && index) {
+    const parent = index.byId.get(d.parent_id);
+    if (parent) parentBox = `${parent.x}:${parent.width ?? ""}`;
+  }
+  return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
+    `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}`;
+}
+
+//: **Every link sketch on the board, parsed once and filed under both of its
+//: ends** (MINDMAP_PLAN.md §13a). Built by whoever is about to ask about more
+//: than one item, which is `wbCaptureBulkMoveOrigin`: it is handed the whole
+//: branch under a dragged topic, and the alternative is `wbLinkedSketchesFor`
+//: walking and re-parsing every sketch on the board once per member.
+//:
+//: Keyed `kind:id`, the same pair `wbLinkedSketchesFor` matches on. The keys
+//: are strings, so a link whose stored id is `"12"` rather than `12` now finds
+//: its node where the scan's `===` did not: nothing in this app writes one,
+//: since both come from the same rows, and a link that cannot find its end is
+//: a line left behind by a drag either way.
+//:
+//: A sketch with both ends on one item is filed once, which is what the scan's
+//: `atSource || atTarget` did.
+function wbLinkSketchIndex() {
+  const byEnd = new Map();
+  for (const sketch of wbState.sketches || []) {
+    let parsed;
+    try {
+      parsed = JSON.parse(sketch.data);
+    } catch {
+      continue;
+    }
+    if (!parsed.type || !parsed.type.startsWith("link-")) continue;
+    const pair = { sketch, parsed };
+    const source = `${parsed.sourceKind || "node"}:${parsed.sourceId}`;
+    const target = `${parsed.targetKind || "node"}:${parsed.targetId}`;
+    for (const end of target === source ? [source] : [source, target]) {
+      const list = byEnd.get(end);
+      if (list) list.push(pair);
+      else byEnd.set(end, [pair]);
+    }
+  }
+  return byEnd;
 }
 
 //: The sketches touching `nodeId`, pre-parsed once. `wbUpdateLinkedSketches`
@@ -14424,7 +16604,15 @@ function renderWbObjects(canvas) {
 //: parses a second, visible as stutter on a busy board. `dragStart` below
 //: builds this list once per drag instead; a card gains or loses a link only
 //: between drags, never mid-drag, so it doesn't need to be live.
-function wbLinkedSketchesFor(nodeId, kind = "node") {
+function wbLinkedSketchesFor(nodeId, kind = "node", index = null) {
+  //: **One parse of the board, not one parse per item asking**
+  //: (MINDMAP_PLAN.md §13a). Given an index (see `wbLinkSketchIndex`), this
+  //: is a lookup. Without one it is the scan below, which is right for the
+  //: single item a solo drag picks up and quadratic for a bulk move, which
+  //: hands this every topic under the one grabbed: a branch of two hundred
+  //: topics over a board of a few hundred link sketches was two hundred full
+  //: scans with a `JSON.parse` in each of them, before the pointer had moved.
+  if (index) return index.get(`${kind}:${nodeId}`) || [];
   const found = [];
   for (const sketch of wbState.sketches) {
     let parsed;
@@ -14454,13 +16642,26 @@ function wbLinkedSketchesFor(nodeId, kind = "node") {
 //: `wbLinkedSketchesFor`'s own comment for why `dragging` always passes one.
 function wbUpdateLinkedSketches(nodeId, precomputed) {
   const pairs = precomputed || wbLinkedSketchesFor(nodeId);
-  for (const { sketch, parsed } of pairs) {
+  for (const entry of pairs) {
+    const { sketch, parsed } = entry;
     const endpoints = wbResolveLinkEndpoints(parsed);
     if (!endpoints) continue;
     const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend);
-    const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
-    el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
-    el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);
+    //: **The two paths, found once per gesture rather than once per frame**
+    //: (MINDMAP_PLAN.md §13a). Three document-wide queries per link per frame
+    //: is thousands of walks of the document a second on a board that mixes a
+    //: branch with a few hundred links, for elements that a render keyed by
+    //: id does not replace. `isConnected` is the revalidation, the same shape
+    //: `wbBulkMoveElement` already uses: a sketch deleted mid-gesture is gone
+    //: from the document and has to be looked for again rather than written
+    //: to invisibly for ever.
+    if (!entry.el || !entry.el.isConnected) {
+      entry.el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+      entry.path = entry.el?.querySelector(".sketch-path") || null;
+      entry.hitbox = entry.el?.querySelector(".sketch-hitbox") || null;
+    }
+    entry.path?.setAttribute("d", pathData);
+    entry.hitbox?.setAttribute("d", pathData);
   }
 }
 
@@ -14663,7 +16864,26 @@ async function dragEndNode(event, d) {
          const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
          wbState.sketches.push(res);
          wbPushUndo({ action: "create", kind: "sketch", id: res.id });
+         //: **A cross-link has to be *told* it is one, before it is drawn**
+         //: (MINDMAP_PLAN §13c). What marks a link sketch as a cross-link is
+         //: the board tree's `cross_links`, which is fetched with the map's
+         //: state, so a link drawn now and rendered now carried none of the
+         //: map's treatment: it was drawn as an ordinary board connector, in
+         //: the pen's colour and solid, until the board was next opened. That
+         //: is the most literal possible form of "there are two types of
+         //: connections" and the reason this refresh is awaited before the
+         //: render rather than left to the next reload.
+         if (wbIsMap()) await wbRefreshMapState();
          wbScheduleRender();
+         //: **Say which of the two it made** (MINDMAP_PLAN §13c). One gesture
+         //: produces either kind, decided by whether the far end is already in
+         //: the tree (`wbMapJoinByLink`), and §13.2's finding was that nothing
+         //: on screen says which is about to happen. The branch half has said
+         //: so since it was built ("Connected to ... as a branch"); this is
+         //: the other half, in the same words the ring and the rail now use.
+         if (wbIsMap() && wbMapCrossLinkInfo(res.id)) {
+           toast("Cross-link made: it joins two branches without changing the tree.");
+         }
        } catch (err) {
          console.error(err);
        }
@@ -15023,6 +17243,13 @@ async function renderLibraryBoardsGallery() {
             } catch (e) {
               toast(e.message, true);
             }
+          }),
+          //: The same action the open board's own menu carries (INBOX 309),
+          //: here because the gallery is where boards are browsed and the
+          //: one you want in a note is usually one you are looking at in a
+          //: list rather than one you have opened.
+          makeMenuItem("ph:note-pencil Add to a note", "Put this board in a note as an object", async () => {
+            if (typeof addBoardToNote === "function") await addBoardToNote(board);
           }),
           makeMenuItem("ph:trash Delete", "Delete this board", async () => {
             if (!(await confirmDialog(`Delete "${board.title}"? This cannot be undone.`))) return;

@@ -78,6 +78,20 @@ A handful of lints exist because the test suite cannot see the DOM:
 If one of these fails, it has found something real: fix the cause,
 never widen the rule.
 
+Every AI call in the suite is faked, which is the right trade for a
+test run that has to be fast and offline, and it does mean the suite
+cannot tell you how a real small model behaves. The tests that can are
+marked `evals` and are skipped unless you have a model running:
+
+```bash
+bash scratchpad/llama-dev.sh check   # what is present, downloads nothing
+bash scratchpad/llama-dev.sh serve   # starts one, prints two exports
+pytest -m evals                      # with those exports set
+```
+
+Nothing else needs it. The script downloads only when you ask it to,
+no mode of `scripts/gate.sh` calls it, and CI never sees a model.
+
 ## Writing code that fits in
 
 - Match the style of the file you're editing: naming, comment density,

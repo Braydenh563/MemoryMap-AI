@@ -175,6 +175,19 @@ def test_type_and_layout_survive_a_round_trip_through_the_list(client):
     assert listed[board["id"]]["layout"] == "radial"
 
 
+def test_the_two_layouts_this_plan_promised_are_storable(client):
+    """MINDMAP_PLAN 13e. Section 12.0's decision list named eight layouts and
+    section 13.4 measured four: tree-left and both-sides were missing, and
+    both-sides is the one Coggle is known for. A layout the API refuses is a
+    layout the picker cannot offer, so this is the half of that work that has
+    to be true before any of it is drawn."""
+    for layout in ("tree-left", "tree-both"):
+        board = _map(client, name=f"Map {layout}", layout=layout)
+        assert (board["type"], board["layout"]) == ("map", layout)
+        listed = {b["id"]: b for b in client.get("/whiteboard/boards").json()}
+        assert listed[board["id"]]["layout"] == layout
+
+
 def test_the_layout_can_be_changed_without_renaming_the_board(client):
     """`PUT /whiteboard/boards/{id}` was rename-only, and a title was
     required. Switching a map's layout must not force the caller to resend
@@ -680,6 +693,9 @@ MAP_STYLE = {
     "edge_dashed": True,
     "edge_width": "thick",
     "edge_arrow": "off",
+    "edge_bend": 0.32,
+    "edge_slide": -0.18,
+    "image": "/media/0123456789abcdef0123456789abcdef.png",
     "color": "#4f46e5",
 }
 
@@ -979,6 +995,74 @@ def test_an_imported_style_a_file_invented_is_dropped_field_by_field(client):
     node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
     assert node["style"] == {"bold": True}
     assert node["color"] is None
+
+
+def _put_style(client, board_id, node, patch):
+    """One style patch onto a node, through the door the strip and the rings
+    use, returned unasserted so a test can check a refusal."""
+    return client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board_id,
+            "data": {**node["data"], **patch},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+        },
+    )
+
+
+def test_a_picture_in_a_topic_is_one_of_this_notebooks_own_uploads(client):
+    """MINDMAP_PLAN.md §12.1 item 2's fourth. The picture is a url, so the
+    only question the schema has to answer is which urls: this install's own
+    `/media/...` uploads and nothing else.
+
+    Both of the two wrong answers are tested, because they fail differently:
+    an off-origin address makes a node a way to call out of an app whose whole
+    promise is that it never does, and a traversal passes a `startswith`
+    check while resolving well outside the media folder."""
+    board = _map(client, name="Pictures")
+    node = _node(client, board["id"], text="Trunk")
+    assert _put_style(client, board["id"], node, {"image": "https://evil.example/x.png"}).status_code == 422
+    assert _put_style(client, board["id"], node, {"image": "/media/../../../etc/passwd"}).status_code == 422
+    url = "/media/0123456789abcdef0123456789abcdef.png"
+    assert _put_style(client, board["id"], node, {"image": url}).status_code == 200
+    roots = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"]
+    assert roots[0]["style"]["image"] == url
+
+
+def test_a_line_bent_past_its_own_ends_is_refused(client):
+    """The waypoint is two fractions of the line's own length (the fields'
+    own comment). A slide past an anchor turns the curve back on itself, so
+    the schema holds it inside the ends rather than letting a tangle be
+    stored that no drag can undo."""
+    board = _map(client, name="Bends")
+    root = _node(client, board["id"], text="Trunk")
+    child = _node(client, board["id"], parent_id=root["id"], text="Branch")
+    assert _put_style(client, board["id"], child, {"edge_slide": 0.9}).status_code == 422
+    assert _put_style(client, board["id"], child, {"edge_bend": 40}).status_code == 422
+    assert _put_style(client, board["id"], child, {"edge_bend": -1.25, "edge_slide": 0.4}).status_code == 200
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]["children"][0]
+    assert node["style"]["edge_bend"] == -1.25
+    assert node["style"]["edge_slide"] == 0.4
+
+
+def test_an_imported_picture_or_bend_a_file_invented_is_dropped(client):
+    """The import door holds these two to the same rules the PUT door does,
+    which is what `_clean_import_style` is for: a `_image` in a file somebody
+    was sent is exactly the door an off-origin url would come through, and a
+    `_edge_bend` of a thousand is a line drawn off the edge of the map."""
+    hostile = """<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0"><head><title>Hostile</title></head><body>
+<outline text="Topic" _image="https://evil.example/x.png" _edge_bend="1000"
+         _edge_slide="0.2" _bold="true"/>
+</body></opml>"""
+    board = client.post(
+        "/whiteboard/boards/import", json={"format": "opml", "content": hostile}
+    ).json()
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert node["style"] == {"bold": True, "edge_slide": 0.2}
 
 
 def test_markdown_exports_as_an_indented_outline_and_comes_back(client):
@@ -1407,3 +1491,299 @@ def test_a_ring_in_the_tree_does_not_hang_an_export(client, session):
         laps_b = exported.text.count(">B<") + exported.text.count('"B"') + exported.text.count("- B")
         assert laps_a == 1, f"{fmt}: node A written {laps_a} times"
         assert laps_b == 1, f"{fmt}: node B written {laps_b} times"
+
+
+# --- the map's own theme (MINDMAP_PLAN.md §13e) ------------------------------
+#
+# The owner, INBOX 305: "the customisation features are lacking severely."
+# §13.4 measured what that meant: eleven per-topic fields, every one of them
+# set one topic at a time, and no map-level default of any kind. These tests
+# hold the two rules the theme is worth nothing without: a topic that was
+# never told otherwise follows the map, and a topic that *was* told never
+# changes because the map did.
+
+
+def test_a_new_map_has_no_theme(client):
+    board = _map(client)
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree")
+    assert tree.status_code == 200, tree.text
+    assert tree.json()["theme"] == {}
+
+
+def test_a_theme_is_stored_and_read_back(client):
+    board = _map(client)
+    saved = client.put(
+        f"/whiteboard/boards/{board['id']}",
+        json={"theme": {"font_size": 19, "shape": "pill", "edge_width": "thick", "bold": True}},
+    )
+    assert saved.status_code == 200, saved.text
+    theme = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["theme"]
+    assert theme == {"font_size": 19, "shape": "pill", "edge_width": "thick", "bold": True}
+
+
+def test_a_theme_write_is_a_patch_and_null_stops_theming_a_field(client):
+    board = _map(client)
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"shape": "pill", "italic": True}})
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"italic": None}})
+    theme = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["theme"]
+    # The shape was not mentioned in the second write, so it is untouched; the
+    # italic was sent as null, which is how the dialog says "stop theming it".
+    assert theme == {"shape": "pill"}
+
+
+def test_a_theme_never_clears_the_board_type_or_layout(client):
+    """The settings blob is a family, and a theme write is read-modify-write.
+
+    The failure this catches is silent: a map that quietly became an ordinary
+    whiteboard because somebody picked a font size.
+    """
+    board = _map(client, layout="radial")
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"font_size": 25}})
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree").json()
+    assert (tree["type"], tree["layout"]) == ("map", "radial")
+
+
+def test_a_layout_change_never_clears_the_theme(client):
+    board = _map(client)
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"font_size": 25}})
+    client.put(f"/whiteboard/boards/{board['id']}", json={"layout": "tree-down"})
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree").json()
+    assert tree["theme"] == {"font_size": 25}
+    assert tree["layout"] == "tree-down"
+
+
+def test_an_unknown_theme_field_or_value_is_dropped_rather_than_refused(client):
+    """A look, not a document: a picker one version ahead leaves a plainer map.
+
+    Refusing would make the whole write fail over one field, which is how a
+    person loses the four choices they made beside it.
+    """
+    board = _map(client)
+    saved = client.put(
+        f"/whiteboard/boards/{board['id']}",
+        json={"theme": {"shape": "octagon", "beard": "long", "align": "center", "font_size": 4000}},
+    )
+    assert saved.status_code == 200, saved.text
+    assert client.get(f"/whiteboard/boards/{board['id']}/tree").json()["theme"] == {"align": "center"}
+
+
+def test_a_corrupt_settings_blob_reads_as_no_theme(client, session):
+    board = _map(client)
+    entry = session.get(Entry, board["id"])
+    entry.board_settings = "{not json at all"
+    session.commit()
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree")
+    assert tree.status_code == 200
+    assert tree.json()["theme"] == {}
+
+
+def test_the_tree_still_reports_what_each_node_itself_carries(client):
+    """The theme is resolved at paint time, never written onto a node.
+
+    This is the rule that makes a map-wide change safe to press, and the one
+    the strip depends on: it has to be able to show a field as set or unset.
+    """
+    board = _map(client)
+    node = _node(client, board["id"], text="Root")
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"shape": "pill"}})
+    roots = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"]
+    assert roots[0]["id"] == node["id"]
+    assert "shape" not in roots[0]["style"]
+
+
+def test_an_export_of_a_themed_map_carries_the_theme_a_topic_did_not_override(client):
+    """None of the three formats has a place for a map-level look, so a file
+    written from the stored styles alone comes out plainer than the map."""
+    board = _map(client)
+    root = _node(client, board["id"], text="Root")
+    kept = _node(client, board["id"], parent_id=root["id"], text="Its own shape")
+    saved = client.put(
+        f"/whiteboard/objects/{kept['id']}",
+        json={
+            "kind": kept["kind"],
+            "board_id": board["id"],
+            "data": {**kept["data"], "shape": "rect"},
+            "x": kept["x"],
+            "y": kept["y"],
+            "z": kept["z"],
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"shape": "pill"}})
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    # The root never chose a shape, so it exports as the map's; the child did,
+    # and exports as its own.
+    assert 'shape="pill"' in text
+    assert 'shape="rect"' in text
+
+
+def test_clearing_every_topics_look_leaves_them_following_the_map(client):
+    """"Reset to branch" at the map's scope: the same list of fields, dropped
+    from every topic in one request rather than one at a time."""
+    board = _map(client)
+    root = _node(client, board["id"], text="Root")
+    child = _node(client, board["id"], parent_id=root["id"], text="Child")
+    for node, patch in ((root, {"shape": "ellipse", "bold": True}), (child, {"color": "#ff0000"})):
+        saved = client.put(
+            f"/whiteboard/objects/{node['id']}",
+            json={
+                "kind": node["kind"],
+                "board_id": board["id"],
+                "data": {**node["data"], **patch},
+                "x": node["x"],
+                "y": node["y"],
+                "z": node["z"],
+            },
+        )
+        assert saved.status_code == 200, saved.text
+    done = client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    assert done.status_code == 200, done.text
+    assert done.json() == {"cleared": 2}
+    roots = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"]
+    assert roots[0]["style"] == {}
+    assert roots[0]["children"][0]["style"] == {}
+    assert roots[0]["children"][0]["color"] is None
+    # And it is idempotent: nothing left to clear is a count of zero, not an
+    # error and not a write.
+    assert client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style").json() == {"cleared": 0}
+
+
+def test_clearing_a_topics_look_keeps_its_picture(client):
+    """A picture is content, not a look: the one thing the per-node reset has
+    always kept, kept here for the same reason."""
+    board = _map(client)
+    node = _node(client, board["id"], text="With a picture")
+    client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board["id"],
+            "data": {**node["data"], "image": "/media/x.png", "bold": True},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+        },
+    )
+    assert client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style").json() == {"cleared": 1}
+    root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert root["style"] == {"image": "/media/x.png"}
+
+
+# --- a cross-link survives an export (MINDMAP_PLAN.md §13d) -------------------
+#
+# §13.2 measured it: a map's two kinds of connection have different export
+# fates. The branch is the indent and survives all three formats; the
+# cross-link survived none, because `export_board` walks objects and
+# `parent_id` only and no exporter read `cross_links`.
+
+
+def _cross_link(client, board_id, source, target, label=""):
+    made = client.post(
+        "/whiteboard/sketches",
+        json={
+            "board_id": board_id,
+            "data": json.dumps(
+                {
+                    "type": "link-straight",
+                    "sourceId": source,
+                    "sourceKind": "object",
+                    "targetId": target,
+                    "targetKind": "object",
+                    "label": label,
+                }
+            ),
+        },
+    )
+    assert made.status_code == 200, made.text
+    return made.json()
+
+
+def _linked_map(client):
+    board = _map(client, name="Crossed")
+    root = _node(client, board["id"], text="Trunk")
+    left = _node(client, board["id"], parent_id=root["id"], text="Left")
+    right = _node(client, board["id"], parent_id=root["id"], text="Right")
+    _cross_link(client, board["id"], left["id"], right["id"], label="compare")
+    return board, root, left, right
+
+
+def test_a_cross_link_is_written_into_the_freemind_export(client):
+    board, _root, left, right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    assert f'ID="ID_{left["id"]}"' in text
+    assert f'DESTINATION="ID_{right["id"]}"' in text
+    assert 'MIDDLE_LABEL="compare"' in text
+
+
+def test_a_cross_link_is_written_into_the_opml_export(client):
+    board, _root, left, right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
+    assert f'_id="ID_{left["id"]}"' in text
+    assert f'_links="ID_{right["id"]}"' in text
+
+
+def test_markdown_carries_the_outline_and_says_nothing_about_cross_links(client):
+    """The decision, not an oversight: this format's promise is an outline
+    anybody can paste anywhere, and `_parse_markdown_outline` reads
+    indentation, so a cross-links section would come back in as topics."""
+    board, _root, _left, _right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert "Left" in text and "Right" in text
+    assert "ID_" not in text and "compare" not in text
+
+
+def test_a_cross_link_round_trips_through_freemind(client):
+    board, _root, left, right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    back = client.post(
+        "/whiteboard/boards/import",
+        json={"format": "freemind", "content": text, "name": "Back"},
+    )
+    assert back.status_code == 201, back.text
+    tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+    # A single-root map's `.mm` file names the map with its one root node, so
+    # the import brings "Left" and "Right" back as the roots: that is the
+    # format's own shape, documented on `_parse_freemind`, not this link's.
+    names = {node["id"]: node["text"] for node in tree["roots"]}
+    assert sorted(names.values()) == ["Left", "Right"]
+    assert len(tree["cross_links"]) == 1
+    link = tree["cross_links"][0]
+    assert (names[link["from_id"]], names[link["to_id"]]) == ("Left", "Right")
+
+
+def test_a_cross_link_round_trips_through_opml(client):
+    board, _root, _left, _right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "opml", "content": text, "name": "Back"}
+    )
+    assert back.status_code == 201, back.text
+    tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+    assert len(tree["cross_links"]) == 1
+
+
+def test_an_arrowlink_to_a_node_that_is_not_in_the_file_is_dropped(client):
+    """Half a link is a line to nowhere, which `_forget_links_to` exists to
+    stop accumulating; the import must not create one in the first place."""
+    content = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<map version="1.0.1"><node TEXT="Trunk" ID="ID_1">'
+        '<node TEXT="Here" ID="ID_2"><arrowlink DESTINATION="ID_999"/></node>'
+        "</node></map>"
+    )
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": content, "name": "Half"}
+    )
+    assert back.status_code == 201, back.text
+    tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+    assert tree["cross_links"] == []
+
+
+def test_a_map_with_no_cross_links_exports_exactly_as_it_did(client):
+    """A plain map's file must not grow a single attribute it did not have."""
+    board = _map(client, name="Plain")
+    root = _node(client, board["id"], text="Trunk")
+    _node(client, board["id"], parent_id=root["id"], text="Leaf")
+    for fmt, marker in (("freemind", "arrowlink"), ("opml", "_links")):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert marker not in text

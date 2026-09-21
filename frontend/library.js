@@ -1289,14 +1289,14 @@ $("library-refresh").addEventListener("click", loadLibrary);
 // than rushed; see BACKLOG.md.
 const LIBRARY_CREATE_BY_KIND = {
   note: {
-    label: "＋ New note",
+    label: "ph:plus New note",
     run: () => {
       switchTab("notes");
       showNotesSection("capture", { focus: true });
     },
   },
   document: {
-    label: "＋ New document",
+    label: "ph:plus New document",
     run: () => {
       switchTab("documents");
       // The Documents page's own loader opens the last document otherwise,
@@ -1305,14 +1305,14 @@ const LIBRARY_CREATE_BY_KIND = {
     },
   },
   chat: {
-    label: "＋ New chat",
+    label: "ph:plus New chat",
     run: () => {
       switchTab("chat");
       newChatConversation();
     },
   },
   meeting: {
-    label: "⏺ Transcribe audio",
+    label: "ph:microphone Transcribe audio",
     run: () => openMeetingRecorder(),
   },
   // Asked for directly: "I want ways to make custom knowledge graphs that are
@@ -1422,7 +1422,12 @@ function openLibraryCreatePicker() {
     button.className = "ghost doc-template-choice";
     button.dataset.kind = kind;
     const name = document.createElement("strong");
-    setLabel(name, `${icon} ${entry.label.replace(/^\S+\s*/, "")}`);
+    //: The picker names its own icon per kind (`LIBRARY_CREATE_HINTS`),
+    //: which is more specific than the button's shared `ph:plus`, so the
+    //: label's own leading token is dropped in favour of it. It used to be
+    //: a typed "\uff0b" that this line stripped by pattern; both ends are
+    //: `ph:` tokens now, so the strip is a token swap rather than a repair.
+    setLabel(name, `${icon} ${entry.label.replace(/^ph:\S+\s*/, "")}`);
     const line = document.createElement("span");
     line.className = "muted text-sm";
     line.textContent = hint;
@@ -1452,10 +1457,10 @@ function updateLibraryCreateButton() {
   const entry = LIBRARY_CREATE_BY_KIND[libraryKind];
   if (entry) {
     setLabel(btn, entry.label);
-    btn.title = entry.label.replace(/^\S+\s*/, "");
+    btn.title = entry.label.replace(/^ph:\S+\s*/, "");
     btn.onclick = entry.run;
   } else {
-    setLabel(btn, "＋ Create");
+    setLabel(btn, "ph:plus Create");
     btn.title = "Choose what to create";
     btn.onclick = openLibraryCreatePicker;
   }
@@ -1909,6 +1914,133 @@ const LIBRARY_DOC_SORTS = {
   longest: (a, b) => (Number(b.words) || 0) - (Number(a.words) || 0),
 };
 
+//: **Filtering documents by a property they declare about themselves**
+//: (DOCUMENTS_PLAN Phase 3 item 4's second clause, "searchable from the
+//: Library's filter").
+//:
+//: The filter is client-side, which is what OPEN.md's recorded next step
+//: asked for and what the shape of this list allows: `apiPagedList` below
+//: reads the documents to the end, so every row is already in memory and
+//: narrowing them costs no round trip and no keystroke latency. What the
+//: browser could *not* do for itself is see the properties: a document's
+//: content is never sent to the list (`_summary()` in routes_documents.py
+//: sends a preview, because a document runs to thousands of words), so the
+//: frontmatter is parsed on the server and rides along on the row as
+//: `properties` (`core/docmeta.py`). That is the same division the plan's
+//: section 11 made for backlinks, and for the same reason: a client-side
+//: scan would have found nothing and reported it as "no properties".
+//:
+//: **One control, not two.** A key picker beside a value picker would be two
+//: controls saying one thing, and would put this dock at the seven-control
+//: ceiling. One select, grouped by key, offers exactly the pairs some
+//: document on screen actually has.
+//:
+//: Kept in memory rather than in `localStorage`, unlike the sort: a sort
+//: that survives a reload shows the same documents in a remembered order,
+//: while a filter that survives one shows a list with most of the notebook
+//: missing and no obvious reason why.
+let libraryDocsProperty = "";
+
+//: The separator inside an option's value. A unit separator, because it is
+//: the one character that cannot appear in a key or a value: both come from
+//: a line of text that a newline has already ended.
+const LIBRARY_DOC_PROP_SEP = "\u001f";
+
+//: The pairs on offer, and how many documents each one has. Rebuilt on every
+//: render from the rows themselves, so a property nobody uses any more leaves
+//: the control on the next pass rather than sitting there matching nothing.
+function libraryDocsPropertyOptions(docs) {
+  const counts = new Map();
+  for (const doc of docs) {
+    const props = doc && doc.properties;
+    if (!props || typeof props !== "object") continue;
+    for (const [key, values] of Object.entries(props)) {
+      for (const value of Array.isArray(values) ? values : []) {
+        const id = `${key}${LIBRARY_DOC_PROP_SEP}${value}`;
+        counts.set(id, (counts.get(id) || 0) + 1);
+      }
+    }
+  }
+  return counts;
+}
+
+function libraryDocsMatchesProperty(doc) {
+  if (!libraryDocsProperty) return true;
+  const [key, value] = libraryDocsProperty.split(LIBRARY_DOC_PROP_SEP);
+  const values = doc && doc.properties && doc.properties[key];
+  return Array.isArray(values) && values.includes(value);
+}
+
+//: The select's own contents.
+//:
+//: **Grouped by key, `<optgroup>` per one.** The first shape kept this flat,
+//: an option reading `status: draft (2)` rather than a group, because
+//: `enhanceSelect` (app.js) built its menu by walking `select.options`,
+//: which drops which `<optgroup>` an option came from: the grouping existed
+//: only in a control the reader never saw. INBOX 273 taught the shared
+//: opener to draw a group's label, which is the recipe fifty-one other
+//: selects use too, so the workaround comes back out: the key is the
+//: group's name now, said once, and each option is just its value.
+function renderLibraryDocsPropertyFilter(docs) {
+  const select = document.getElementById("library-docs-property");
+  if (!select) return;
+  const counts = libraryDocsPropertyOptions(docs);
+  //: **A filter that is set stays on the control even when nothing on screen
+  //: has it, at a count of zero.** The first shape of this dropped it instead,
+  //: and that was wrong in a way the probe caught: the options are built from
+  //: what the *search* left, so searching while a property was chosen removed
+  //: that property from the offer, which silently cleared the filter and put
+  //: the whole notebook back. A control that turns itself off is worse than an
+  //: option reading "(0)", which at least says what is set and can be cleared
+  //: by hand.
+  if (libraryDocsProperty && !counts.has(libraryDocsProperty)) counts.set(libraryDocsProperty, 0);
+  const any = document.createElement("option");
+  any.value = "";
+  any.textContent = "Any property";
+  const groups = new Map();
+  for (const [id, count] of [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const [key, value] = id.split(LIBRARY_DOC_PROP_SEP);
+    const option = document.createElement("option");
+    option.value = id;
+    //: The count is the half that makes this worth opening: "draft" alone
+    //: does not say whether it is one document or forty.
+    option.textContent = `${value} (${count})`;
+    let group = groups.get(key);
+    if (!group) {
+      group = document.createElement("optgroup");
+      group.label = key;
+      groups.set(key, group);
+    }
+    group.appendChild(option);
+  }
+  select.replaceChildren(any, ...groups.values());
+  select.value = libraryDocsProperty;
+  //: Nothing to filter by is not an empty control: a select with one option
+  //: reading "Any property" is a control that looks broken. Hidden until some
+  //: document on screen has a property, which is also the state most
+  //: notebooks are in on day one.
+  //:
+  //: **The shell, not the select.** `enhanceSelect` moves the real `<select>`
+  //: inside a `.select-shell` and hides it behind an opener button, so hiding
+  //: the select alone hides the one part nobody can see: measured, the opener
+  //: went on reading "Any property" at 144x36 with the select marked hidden.
+  const shell = select.closest(".select-shell") || select;
+  shell.classList.toggle("hidden", counts.size === 0);
+  select.classList.toggle("hidden", counts.size === 0);
+}
+
+onDomReady(() => {
+  const select = document.getElementById("library-docs-property");
+  if (!select) return;
+  select.addEventListener("change", () => {
+    libraryDocsProperty = select.value;
+    //: Back to page one, for the same reason a re-sort goes back: page four
+    //: of a list that has just become shorter is a slice nobody asked for.
+    libraryDocsCurrentPage = 1;
+    renderLibraryDocuments();
+  });
+});
+
 const LIBRARY_DOC_SORT_KEY = "library-docs-sort";
 
 function libraryDocSort() {
@@ -1960,6 +2092,15 @@ async function renderLibraryDocuments() {
     return;
   }
 
+  //: The property filter's options come from what the *search* left, so the
+  //: control offers the properties of the documents on screen rather than of
+  //: a list the reader has already narrowed past. Drawn before the rows are
+  //: filtered by it, because it is what decides whether the current choice is
+  //: still on offer at all.
+  renderLibraryDocsPropertyFilter(docs);
+  const propertyFiltered = Boolean(libraryDocsProperty);
+  if (propertyFiltered) docs = docs.filter(libraryDocsMatchesProperty);
+
   // A reload can drop a document that was ticked (deleted, or filtered out
   // by a new search) - drop it from the selection too, or the bar's count
   // would go on including a row that no longer exists.
@@ -1969,11 +2110,18 @@ async function renderLibraryDocuments() {
   }
 
   list.replaceChildren();
-  const isFilteredEmpty = Boolean(needle) && !docs.length;
+  const isFilteredEmpty = (Boolean(needle) || propertyFiltered) && !docs.length;
   empty?.classList.toggle("hidden", docs.length > 0 || isFilteredEmpty);
   noMatch?.classList.toggle("hidden", !isFilteredEmpty);
   if (noMatch && isFilteredEmpty) {
-    noMatch.textContent = `No documents match \u201C${needle}\u201D.`;
+    //: Which of the two narrowings came up empty, said by name: "no documents
+    //: match" over a list the reader narrowed twice is an answer that does not
+    //: say which half to undo.
+    const [key, value] = libraryDocsProperty.split(LIBRARY_DOC_PROP_SEP);
+    const parts = [];
+    if (needle) parts.push(`match \u201C${needle}\u201D`);
+    if (propertyFiltered) parts.push(`have ${key} set to \u201C${value}\u201D`);
+    noMatch.textContent = `No documents ${parts.join(" and ")}.`;
   }
 
   // Sliced after the selection-cleanup above (which has to see every live
@@ -2566,6 +2714,13 @@ let ocrWorkspaceRegions = [];
 //: are. 0/1 for an image, which is a one-page document with no rail.
 let ocrWorkspacePage = 0;
 let ocrWorkspacePages = 1;
+//: **Whether that count is a fact or a placeholder.** `ocrWorkspacePages`
+//: starts at 1 for a document of unknown length, which is indistinguishable
+//: from a document that really has one page, and the two want opposite
+//: answers: "scroll cannot be honoured yet, wait for the count" against
+//: "scroll cannot be honoured at all, say so". Set when a region response
+//: brings the count back.
+let ocrPagesKnown = false;
 //: page index -> `{caption, caption_model}` for the document on the stage.
 //: Filled from the `page-reads` response (which carries a page's description
 //: on the same row as its reading), cleared and refilled on every page load so
@@ -2580,7 +2735,15 @@ function ocrRegionsUrl(image, page = 0) {
   const base = image._isAttachment
     ? `/files/${image.id}/ocr-regions`
     : `/media/${image.id}/ocr-regions`;
-  return `${base}?page=${page}`;
+  //: **`auto` says whether a first look may run Tesseract** (the owner,
+  //: 2026-09-21). The workspace's reader select is the answer: if the person
+  //: has chosen the vision model, opening a page must not quietly transcribe
+  //: it with the other reader, and an edited reading must not be replaced by
+  //: one nobody asked for. A page that already has stored regions is served
+  //: from the store either way, so this only governs the first read.
+  const reader = document.getElementById("ocr-reader")?.value || "";
+  const auto = reader === "tesseract" ? "1" : "0";
+  return `${base}?page=${page}&auto=${auto}`;
 }
 
 //: The rendered picture of one page, an image is itself the page, a PDF has
@@ -2859,7 +3022,13 @@ function ocrRenderRegions(body) {
     const ownPage = Number.isInteger(region.page) ? region.page : Number(body.page) || 0;
     const pageNumber = ownPage + 1;
     const pageCount = Number(body.pages) || 1;
-    if (Number.isInteger(region.page)) {
+    //: **Whole page, or a section of one.** This used to be read off `page`
+    //: being present, which was true only because a section never carried
+    //: one. It does now (`ocrDocumentReading` lists every page the app knows
+    //: about, and the sections of the page on screen sit among them), so the
+    //: row says which of the two it is rather than leaving it to be guessed.
+    const wholePage = region.whole === true;
+    if (wholePage) {
       // A stored reading is one panel per page: say the page, not "§1".
       where.textContent = `Page ${pageNumber}`;
       where.title = `The reading of page ${pageNumber}`;
@@ -2923,7 +3092,7 @@ function ocrRenderRegions(body) {
     //: landed on a page with nothing to delete and nothing changed. Each
     //: stored panel now removes its own page's reading.
     //: An image's reading is one panel; its delete is the header's delete.
-    if (!Number.isInteger(region.page) && ocrWorkspaceCurrent && !ocrIsPdf(ocrWorkspaceCurrent)
+    if (!wholePage && ocrWorkspaceCurrent && !ocrIsPdf(ocrWorkspaceCurrent)
         && body.source !== "text-file" && (region.text || "").trim()) {
       const remove = document.createElement("button");
       remove.type = "button";
@@ -2937,7 +3106,11 @@ function ocrRenderRegions(body) {
       });
       head.appendChild(remove);
     }
-    if (Number.isInteger(region.page) && body.source === "stored-text") {
+    //: Its own page's reading, deletable from the panel that shows it. Gated
+    //: on the row being a whole page rather than on the badge: the badge says
+    //: where the *page on screen* was read from, and the other pages in the
+    //: list are stored readings whatever it says.
+    if (wholePage && (region.text || "").trim()) {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "ghost small icon-button danger ocr-region-delete";
@@ -3345,6 +3518,91 @@ async function ocrStoredPageReads(image) {
   return apiJson(`${base}/page-reads`).catch(() => null);
 }
 
+//: **What the app knows about this document, page by page, in page order.**
+//:
+//: Reported (INBOX 314), verbatim: *"I could scroll through the pages and the
+//: ocr extracted text would scroll and if I clicked on a specific text setcion,
+//: it would go to that page scroll wise on the pdf. but now I can only view the
+//: extracted text on a single page"*.
+//:
+//: Both halves of that were already built, and both were unreachable for the
+//: reader he was using. The panel is page-linked through each row's
+//: `data-page` (`ocrWireRegionJump` takes you to it, `ocrRevealRegionsForPage`
+//: follows the page you scroll to), but the list it worked on was built one of
+//: two ways: the stored reading of *every* page, which is what he remembers,
+//: **or** the regions of the page on screen, whenever the reader returned any.
+//: Tesseract returns some for every page, so the second branch always won,
+//: every row in the list belonged to the page already in front of him, there
+//: was nothing to scroll, and a click could only ever ask for the page it was
+//: already on. Measured before the change with a fake reader standing in for
+//: Tesseract (`scratchpad/ui-sweeps/ocrscroll.js`): scrolled to page 4 of 6,
+//: the panel held 3 rows, all of page 4, and no row of any other page to click.
+//:
+//: So it is one list rather than a choice between two: every page the app has
+//: something for, in order, and where that page is the one on screen its own
+//: sections stand in for the summary, so the boxes on the picture keep their
+//: rows. A page has something when it has been read, described, or looked at
+//: with an optical reader (`regions_text`, see `PageRead.regions`).
+function ocrDocumentReading(body, storedPages, storedMessage) {
+  const here = Number(body.page) || 0;
+  //: Only a *positioned* reading of the page on screen replaces that page's
+  //: summary. A reading-derived list has no boxes and is already what the
+  //: stored panel for that page says, so letting it in would list the page
+  //: twice.
+  const live = body.source === "tesseract" ? body.regions || [] : [];
+  const byPage = new Map();
+  for (const entry of storedPages) byPage.set(Number(entry.page) || 0, entry);
+  const pages = [...new Set([...byPage.keys(), ...(live.length ? [here] : [])])].sort(
+    (a, b) => a - b
+  );
+  if (!pages.length) return body;
+  const regions = [];
+  for (const number of pages) {
+    if (number === here && live.length) {
+      for (const region of live) {
+        //: `whole: false`: these are sections of a page, which is what lets
+        //: the row keep its section number and its box.
+        regions.push({ ...region, page: number, whole: false });
+      }
+      continue;
+    }
+    const entry = byPage.get(number);
+    regions.push({
+      kind: "text",
+      //: The page's own reading first: a transcription somebody asked for is
+      //: a better answer than what an optical reader saw in passing, and only
+      //: one of the two can be shown on one row.
+      text: (entry.text || "").trim() || (entry.regions_text || "").trim(),
+      confidence: 0,
+      //: **No rectangle, rather than a rectangle round the whole page.** This
+      //: list is drawn over the page on screen, and a full-page box belonging
+      //: to page 2 would land on page 4's picture: a wrong answer where a
+      //: missing one is the truth.
+      box: null,
+      caption: (entry.caption || "").trim(),
+      caption_model: entry.caption_model || "",
+      page: number,
+      whole: true,
+    });
+  }
+  //: Renumbered across the whole list: `index` is what a box, its row, the
+  //: find filter and an edit all key off each other by, so two rows may not
+  //: share one.
+  regions.forEach((region, index) => {
+    region.index = index;
+  });
+  return {
+    ...body,
+    regions,
+    //: The badge is about the page on screen, which is the only page anything
+    //: was measured on.
+    source: live.length ? "tesseract" : "stored-text",
+    message: live.length ? body.message || "" : storedMessage || body.message || "",
+    pages: body.pages || ocrWorkspacePages,
+    page: here,
+  };
+}
+
 async function ocrLoadPage(image, page = 0, opts = {}) {
   ocrWorkspaceCurrent = image;
   ocrWorkspacePage = Math.max(0, page);
@@ -3521,31 +3779,19 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
       //: it is something the app knows about that page, and leaving it out
       //: meant a described-but-unread page rendered as "nothing read yet"
       //: with its description nowhere on screen.
-      (p) => (p.text || "").trim() || (p.caption || "").trim()
+      //: `regions_text` is the third kind of thing known about a page: what an
+      //: optical reader saw while the page was on screen (see
+      //: `PageRead.regions`). It is what puts a scan being read by Tesseract
+      //: into this list at all.
+      (p) => (p.text || "").trim() || (p.caption || "").trim() || (p.regions_text || "").trim()
     );
-    if (storedPages.length && body.source !== "tesseract") {
-      ocrRenderRegions({
-        regions: storedPages.map((entry, index) => ({
-          index,
-          kind: "text",
-          text: (entry.text || "").trim(),
-          confidence: 0,
-          box: { x: 0, y: 0, w: 1, h: 1 },
-          caption: (entry.caption || "").trim(),
-          caption_model: entry.caption_model || "",
-          //: Which page this reading is *of*, the row's own badge and its
-          //: delete button both need it, and `body.page` is only the page
-          //: currently on screen.
-          page: entry.page,
-        })),
-        source: "stored-text",
-        message: stored.message || `${storedPages.length} page(s) already read.`,
-        pages: body.pages || ocrWorkspacePages,
-        page: ocrWorkspacePage,
-      });
-    } else {
-      ocrRenderRegions(body);
-    }
+    //: **A document's reading is the whole document's**, not only the page in
+    //: front of you. See `ocrDocumentReading`, and INBOX 314.
+    ocrRenderRegions(
+      ocrIsPdf(image)
+        ? ocrDocumentReading(body, storedPages, stored?.message || "")
+        : body
+    );
     //: An image's description lives here too, so caption and reading are
     //: managed side by side (reported: "a lot of disconnect between files and
     //: images regarding ocr and image captioning").
@@ -3607,6 +3853,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
 //: does not render 200 pages to show three.
 function ocrBuildPageRail(image, pages) {
   ocrWorkspacePages = Math.max(1, pages || 1);
+  ocrPagesKnown = true;
   const rail = $("ocr-rail");
   if (!rail) return;
   //: The switch above the rail gains its "Pages" segment only once the page
@@ -3947,6 +4194,7 @@ function ocrOpenSibling(row) {
   if (ocrIsPdf(row)) {
     ocrWorkspacePage = 0;
     ocrWorkspacePages = 1;
+    ocrPagesKnown = false;
     ocrRailMode = "pages";
     ocrTearDownScroll();
     ocrLoadPage(row, 0);
@@ -3961,6 +4209,7 @@ function ocrOpenSibling(row) {
   ocrTearDownScroll();
   ocrWorkspacePage = 0;
   ocrWorkspacePages = 1;
+  ocrPagesKnown = false;
   ocrLoadPage(row);
   ocrRenderRail(row);
 }
@@ -3981,6 +4230,7 @@ function openOcrWorkspace(image, images, page = 0) {
   const startPage = Math.max(0, Number(page) || 0);
   ocrWorkspacePage = startPage;
   ocrWorkspacePages = 1;
+  ocrPagesKnown = false;
   //: Answers about regions belong to the file they were asked about. They are
   //: not stored anywhere, so opening another document has to take them away
   //: rather than leave them looking like something known about the new one.
@@ -4026,6 +4276,13 @@ function openOcrWorkspace(image, images, page = 0) {
   rail.dataset.pagesFor = "";
   rail.replaceChildren();
   rail.classList.add("hidden");
+  //: Below 600 the reader is the screen, not a dialog over it: the sheet
+  //: recipe's `page` variant, stamped by `ocrPhonePage` in app.js, which is
+  //: the only file allowed to write a variant class (DESIGN.md's "A sheet"
+  //: row, `tests/test_ui_recipes.py`). Called before the overlay is shown so
+  //: the first frame is already the right shape: a dialog that arrives as a
+  //: card and becomes the page a frame later is a flash of the wrong thing.
+  ocrPhonePage(window.matchMedia(PHONE_TABS).matches);
   overlay.classList.remove("hidden");
   if (ocrIsPdf(image)) {
     ocrWorkspaceImages = [];
@@ -4244,26 +4501,54 @@ function ocrStoredViewMode() {
   }
 }
 
-function ocrSyncViewButtons() {
+//: Lit for the mode you are actually in, which is not always the mode you
+//: asked for: see `ocrSetViewMode`. A segment showing "Scroll" over a single
+//: page is the control lying about the app's state, and it is most of what
+//: "even when on scroll mode I cant scroll" describes from the outside.
+function ocrSyncViewButtons(effective = ocrViewMode) {
   for (const button of document.querySelectorAll("#ocr-view button")) {
-    const on = button.dataset.ocrView === ocrViewMode;
+    const on = button.dataset.ocrView === effective;
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
 }
 
-function ocrSetViewMode(mode, image) {
+//: `asked` is true only when a person pressed the segment. The same function
+//: re-applies a *remembered* preference on every document that opens, and a
+//: photograph explaining that it is not long enough to scroll is furniture.
+function ocrSetViewMode(mode, image, opts = {}) {
   ocrViewMode = mode === "scroll" ? "scroll" : "page";
   try {
     localStorage.setItem(OCR_VIEW_KEY, ocrViewMode);
   } catch {
     //: See ocrStoredViewMode: not remembering is not a failure worth showing.
   }
-  ocrSyncViewButtons();
   const continuous = ocrViewMode === "scroll" && ocrIsPdf(image) && ocrWorkspacePages > 1;
+  //: **A mode that cannot engage says so rather than quietly doing something
+  //: else** (INBOX 314). Scroll used to fall back to one page in silence, and
+  //: leave its own segment lit while it did, so the three reasons it can fail
+  //: were indistinguishable from a broken scroll: the file is not a document,
+  //: the document has one page, or the page count has not come back yet. Only
+  //: the last is temporary, and `ocrLoadPage` turns the mode on the moment the
+  //: count arrives, so the button stays lit through that one and the other two
+  //: hand the light back to "One page".
+  const pending = ocrViewMode === "scroll" && !ocrPagesKnown;
+  ocrSyncViewButtons(continuous || pending ? ocrViewMode : "page");
   if (!continuous) {
     ocrTearDownScroll();
     ocrApplyZoom();
+    //: A toast rather than `#ocr-message`: that line carries what the reader
+    //: said about the page (often "nothing read yet", which is the more useful
+    //: sentence, and sometimes the reason the request failed, which must not be
+    //: painted over with a guess about page counts). This answers the press
+    //: and goes away.
+    if (opts.asked && !pending) {
+      toast(
+        ocrIsPdf(image)
+          ? `Scrolling needs a document with more than one page, this one has ${ocrWorkspacePages}.`
+          : "Scrolling through pages is for documents, this is a single image."
+      );
+    }
     return;
   }
   $("ocr-page-pane")?.classList.add("is-scroll");
@@ -4633,7 +4918,7 @@ onDomReady(() => {
   }
   for (const button of document.querySelectorAll("#ocr-view button")) {
     button.addEventListener("click", () => {
-      ocrSetViewMode(button.dataset.ocrView, ocrWorkspaceCurrent);
+      ocrSetViewMode(button.dataset.ocrView, ocrWorkspaceCurrent, { asked: true });
     });
   }
   $("ocr-prev-page")?.addEventListener("click", () => ocrStepPage(-1));
@@ -5165,8 +5450,12 @@ function mediaReadingSummary(row) {
   //: document read page by page can say so. 0 for an image and for a file
   //: whose reading is one whole-file blob, where "pages read" would be a
   //: number about nothing.
+  //: "14 pages", not "14 pages read": the line sits under a control that
+  //: already says "Text extracted from this file", so "read" was the same
+  //: claim twice, and the owner wrote the shorter one out in the report
+  //: (INBOX 279).
   const pages = Number(row?.pages_read) || 0;
-  if (pages) facts.push(`${pages} page${pages === 1 ? "" : "s"} read`);
+  if (pages) facts.push(`${pages} page${pages === 1 ? "" : "s"}`);
   facts.push(`${words.toLocaleString()} word${words === 1 ? "" : "s"}`);
   return { sentence, facts, words, pages };
 }
@@ -5196,37 +5485,32 @@ function libraryLightboxItems(images) {
     // the lightbox…can the captions and ocr accompany it somehow??"
     // The tile is the one place these are too small to read.
     caption: i.caption || "",
-    text: (i.vision_ocr_text || i.ocr_text || "").trim(),
-    byline: i.vision_ocr_text
-      ? `Text read by ${shortModelName(i.vision_ocr_model) || "a model"}`
-      : i.ocr_text
-        ? "Text read with Tesseract OCR"
-        : "",
+    //: Both readings, from app.js's one reader of a media row: a picture that
+    //: has been read twice shows the second reading under the first, the way
+    //: this file's own card fold already does. See `lightboxReadingsFor`.
+    ...lightboxReadingsFor(i),
     addedAt: i.created_at || "",
   }));
 }
 
-//: The Files row's reading block: one line of it, and the way to the rest.
-//: See `mediaReadingSummary` for why a clamped paragraph was the wrong answer.
-//: Rows whose whole reading is open; survives the gallery poll re-render.
-const openReadings = new Set();
-
-//: **And the fold above it, which had no such memory.** Reported again on
-//: 2026-09-09, against both media sub-tabs, after the poll's own signature
-//: check had already landed: "the text extracted from this file disclosure
-//: closes itself when the reader scrolls to the bottom of the text", and the
-//: same for "text in this image" on the Images tab.
+//: **Which rows are holding a reading open.** Reported on 2026-09-09, against
+//: both media sub-tabs, after the poll's own signature check had already
+//: landed: "the text extracted from this file disclosure closes itself when
+//: the reader scrolls to the bottom of the text", and the same for "text in
+//: this image" on the Images tab.
 //:
-//: Measured rather than reasoned. With the disclosure and the reading inside
-//: it both open and the list scrolled to 240, a caption written in the
-//: background (which is what the six-second poll exists to notice) rebuilt
-//: every tile: 9 rebuilds, the inner <details> still open because
-//: `openReadings` above remembers it, and the outer one *closed*, because
-//: nothing remembered that one at all. The signature check only ever covered
-//: the case where nothing changed; a poll that finds a real change still
-//: rebuilds, and then the fold a reader is holding open is gone. Six seconds
-//: is also about how long it takes to reach the bottom of a page of text,
-//: which is why the report reads as "when I scroll to the bottom".
+//: Measured rather than reasoned. With the disclosure open and the list
+//: scrolled to 240, a caption written in the background (which is what the
+//: six-second poll exists to notice) rebuilt every tile: 9 rebuilds, and the
+//: fold came back closed, because nothing remembered it. The signature check
+//: only ever covered the case where nothing changed; a poll that finds a real
+//: change still rebuilds, and then the fold a reader is holding open is gone.
+//: Six seconds is also about how long it takes to reach the bottom of a page
+//: of text, which is why the report reads as "when I scroll to the bottom".
+//:
+//: It carries the Images tab's on-demand reading panel too (see
+//: `revealReading`), which is mounted rather than folded and needs the same
+//: memory for the same reason.
 //:
 //: Keyed by `mediaRowKey`, not by `image.id`: an `Attachment` and a
 //: `MediaUpload` have separate id sequences and both kinds are rendered into
@@ -5252,13 +5536,26 @@ function buildFileReadingSummary(image, summary, images) {
     holder.appendChild(empty);
     return holder;
   }
-  const line = document.createElement("p");
-  line.className = "library-file-summary";
-  line.textContent = summary.sentence;
-  //: The whole first line in the tooltip: the summary is clipped to one line
-  //: by CSS, and a title is the cheapest way to see the rest without turning
-  //: the row into a paragraph again.
-  line.title = summary.sentence;
+  //: **One line of facts, the reading, one way in** (INBOX 279, the owner: "I
+  //: want you to better redesign the content in the text extracted from this
+  //: file dropdown in the files subtab").
+  //:
+  //: Measured at 1440 on a fourteen-page reading before this: opening the
+  //: disclosure added 102.3px to the row and drew four ranks inside it, the
+  //: first sentence (18px), the two numbers (18px), a full-width "Show the
+  //: whole reading" bar (32.8px) and an "Open reading" button (28px). Two of
+  //: those four are controls, and both of them answer the same question the
+  //: fold above them has already been asked. What is missing from the list is
+  //: the reading.
+  //:
+  //: So the block is the numbers, the reading, and one way to the page-by-page
+  //: view. The first sentence goes because the reading itself is now on screen
+  //: and starts with it; the inner disclosure goes because a fold inside a
+  //: fold is the same gesture twice, and the whole point of the outer one is
+  //: to be where the text is (reported once already: "a person who opens a
+  //: 'Text extracted from this file' field expects to read the text there").
+  const head = document.createElement("div");
+  head.className = "library-file-reading-head";
   const meta = document.createElement("p");
   meta.className = "muted text-sm library-file-summary-meta";
   meta.textContent = summary.facts.join("  ·  ");
@@ -5280,37 +5577,42 @@ function buildFileReadingSummary(image, summary, images) {
     //: complaint this item is answering.
     openLightbox(libraryLightboxItems(images), images.indexOf(image), { focusReading: true });
   });
+  //: **The whole reading, out of the app in one press** (the owner,
+  //: 2026-09-21: "there should be a way to copy all extracted text in a
+  //: document in the ocr workspace and files subtab"). The box below scrolls,
+  //: so selecting a forty page reading by hand means dragging through a
+  //: capped window, which is the gesture this replaces. It sits beside Open
+  //: reading because both are what you do *with* the text once you have read
+  //: the numbers above them, and it uses the app's own copy icon rather than
+  //: a typed glyph (`tests/test_no_glyph_icons.py`).
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "ghost small library-file-copy-reading";
+  setLabel(copy, "ph:copy Copy text");
+  copy.title = "Copy everything read from this file";
+  copy.addEventListener("click", (event) => {
+    event.stopPropagation();
+    copyToClipboard(mediaReading(image), copy);
+  });
+  //: The two controls travel together on the right, with the facts on the
+  //: left (the owner, 2026-09-21: "move the files tab row copy text button
+  //: next to the open readinf button on the right"). The head is
+  //: `space-between`, so three children put Copy in the middle of the row on
+  //: its own, which reads as a third column rather than as one of a pair.
+  const headActions = document.createElement("div");
+  headActions.className = "row library-file-reading-actions";
+  headActions.append(copy, open);
+  head.append(meta, headActions);
   //: The whole reading, in place. Reported directly: "the text extracted
   //: from this file area and dropdown in the library files subtab is
   //: broken, it only shows the first line on the first page extracted". It
   //: was the Phase 7.5 one-line summary working as designed, and the design
-  //: was wrong: a person who opens a "Text extracted from this file" field
-  //: expects to read the text there, not to be sent to a dialog. The line
-  //: stays as the collapsed state; opening it shows every page's reading in
-  //: a scrolling box, and "Open reading" still opens the page-by-page view.
-  const full = document.createElement("details");
-  full.className = "library-file-reading-full";
-  // The gallery re-renders on a poll (libraryImagesPollTimer), which rebuilt
-  // this element closed while a person was reading it (reported: "it keeps
-  // on randomly collapsing, maybe when I scroll to the bottom"). The open
-  // state lives outside the element, keyed by the row, so a re-render puts
-  // it back exactly as it was.
-  full.open = openReadings.has(mediaRowKey(image));
-  const fullSummary = document.createElement("summary");
-  fullSummary.className = "library-file-reading-more";
-  setLabel(fullSummary, "ph:caret-down Show the whole reading");
+  //: was wrong. The box is capped and scrolls (`.library-file-reading-text`),
+  //: so a forty-page scan shows its first few lines and the rest is a scroll
+  //: rather than a column that pushes every other row off the page.
   const fullText = document.createElement("pre");
   fullText.className = "library-file-reading-text";
   fullText.textContent = mediaReading(image);
-  full.append(fullSummary, fullText);
-  const syncReadingLabel = () =>
-    setLabel(fullSummary, full.open ? "ph:caret-up Hide the reading" : "ph:caret-down Show the whole reading");
-  syncReadingLabel();
-  full.addEventListener("toggle", () => {
-    if (full.open) openReadings.add(mediaRowKey(image));
-    else openReadings.delete(mediaRowKey(image));
-    syncReadingLabel();
-  });
   fullText.addEventListener("scroll", () => {
     readingScrollTops.set(mediaRowKey(image), fullText.scrollTop);
   });
@@ -5320,8 +5622,8 @@ function buildFileReadingSummary(image, summary, images) {
   //: synchronously in the same task.
   const savedScroll = readingScrollTops.get(mediaRowKey(image)) || 0;
   if (savedScroll > 0) requestAnimationFrame(() => { fullText.scrollTop = savedScroll; });
-  full.addEventListener("click", (event) => event.stopPropagation());
-  holder.append(line, meta, full, open);
+  fullText.addEventListener("click", (event) => event.stopPropagation());
+  holder.append(head, fullText);
   return holder;
 }
 
@@ -5921,6 +6223,23 @@ function filterLibraryImagesGallery() {
       provenance.textContent = parts.join(" · ");
       provenance.title = [image.caption_model, image.vision_ocr_model].filter(Boolean).join(" · ");
       provenance.classList.toggle("hidden", parts.length === 0);
+      //: **And on the card itself, for the Images layout** (INBOX 279: "the
+      //: two model names in the card's `title`, not on its face"). An image
+      //: card has one line of prose and one line of facts and no room for a
+      //: third rank of model names; a Files row does, and keeps the visible
+      //: byline. Written from the same function as the line so the two can
+      //: never disagree, and with the long names rather than the short ones,
+      //: because a tooltip is where the exact thing belongs.
+      if (image._isImage) {
+        const full = [];
+        if (image.caption_model) {
+          full.push(`Described by ${image.caption_model}${image.caption_edited ? ", edited by hand" : ""}`);
+        } else if (image.caption && image.caption_edited) {
+          full.push("Described by hand");
+        }
+        if (image.vision_ocr_model) full.push(`read by ${image.vision_ocr_model}`);
+        fig.title = full.join(" · ");
+      }
     };
     //: The section the description lives in, declared here and built further
     //: down with the rest of the card's blocks. `let`, not `const` at the
@@ -6929,14 +7248,28 @@ function filterLibraryImagesGallery() {
         ? "Open the card's menu to go to any of them"
         : "This picture is not in any note, document or board";
 
-    //: The byline goes with the reading, inside the fold. "Described by X,
-    //: read by Y" is a claim about where the card's words came from, not one
-    //: of the card's words, and it was two lines of model names on the
-    //: outside of every tile (INBOX 56, and again in the second design batch,
-    //: both times called noise). When there is no reading there is no fold,
-    //: and then the card does not carry it at all: the lightbox has shown
-    //: both bylines under the picture since long before this.
-    readingBody.append(provenance);
+    //: **The byline is on the card, not in it** (INBOX 279, the owner: "I als
+    //: want you to better design the bottom text for captions and ocr in the
+    //: image cards in the library images subtab"; the recommendation on record
+    //: is "the two model names in the card's `title`, not on its face").
+    //:
+    //: It was already off the resting card (INBOX 56 took it off the face and
+    //: put it inside the fold), but opening the fold to read the text put it
+    //: back: measured at 1440, "Described by qwen3-vl:4b · read by
+    //: GLM-OCR-GGUF:Q8_0" wrapped to two lines and 47px of the 176px the fold
+    //: added. "Described by X, read by Y" is a claim about where the card's
+    //: words came from rather than one of the card's words, so it belongs
+    //: where a provenance claim belongs: on the object's own tooltip, with the
+    //: lightbox still printing it under the picture for anyone reading the
+    //: picture properly.
+    //:
+    //: `syncProvenance` writes the tooltip itself (see its own comment), so a
+    //: caption or a reading written after the card was built moves it. The
+    //: paragraph is simply never appended on this layout, which is why there
+    //: is no line to hide here: hiding it would not hold anyway, since
+    //: `syncProvenance` takes the class back off whenever there is something
+    //: to say. A Files row still appends it, where a byline has a row with
+    //: room for one.
 
     //: **What the bottom of the card is: the prose, then one line of facts.**
     //: Reported a third time, 2026-09-13: "redesign the bottom text area of the
@@ -6967,13 +7300,47 @@ function filterLibraryImagesGallery() {
     //: the handle carries only what this layout needs.
     metaRow.className = "library-file-meta library-image-meta";
     if (links.length || image.usage_incomplete) metaRow.append(uses);
+    //: **The reading is behind one chip, and the chip opens the picture**
+    //: (INBOX 279: "the OCR text behind one 'Text' chip"). It was a
+    //: `<details>` opening in place, and in place is the one thing a 180px
+    //: tile has none of: measured at 1440, opening it took the card from
+    //: 240.7px to 416.3px and drew six rows under the thumbnail, a label, the
+    //: text, a Show more, Tesseract's own labelled box and the two model
+    //: names.
+    //:
+    //: What it opens instead is the lightbox, at the reading, which is the
+    //: same door `Open reading` uses on a Files row and the same one the tile
+    //: itself opens: the picture at a size the text can be checked against,
+    //: with the caption, the whole reading and both bylines under it. So the
+    //: card never grows, and the reading is finally somewhere it can be read.
+    //: Correcting one by hand is still the menu's "Type the text in this
+    //: picture", which mounts the editable panel through `revealReading`.
+    //:
+    //: `.library-chip`, the app's own pressable chip, because this is an
+    //: action: `.chip` is a fact (docs/DESIGN.md), and the fact beside it is
+    //: the usage count.
     if ((image.vision_ocr_text || "").trim() || (image.ocr_text || "").trim()) {
-      metaRow.append(visionField);
+      const textChip = document.createElement("button");
+      textChip.type = "button";
+      textChip.className = "library-chip library-image-text-chip";
+      setLabel(textChip, "ph:text-aa Text");
+      textChip.title = "Open the picture with the text found in it";
+      textChip.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openLightbox(libraryLightboxItems(images), images.indexOf(image), { focusReading: true });
+      });
+      metaRow.append(textChip);
     }
     //: Nothing to say, no line: a picture nobody has used and nothing has read
     //: keeps the short foot it has now rather than an empty row holding the
     //: rhythm open.
     if (metaRow.children.length) fields.append(metaRow);
+    //: The editable panel is mounted, never folded: it is on the card only
+    //: while somebody is correcting a reading (`revealReading`, reached from
+    //: the menu's "Type the text in this picture" and from a reader that has
+    //: just run), and `openRowReadings` carries it across the gallery's poll
+    //: so a rebuild mid-edit does not take it away.
+    if (openRowReadings.has(mediaRowKey(image))) revealReading();
 
     fig.append(frame, actions, fields);
     grid.appendChild(fig);
@@ -7873,7 +8240,13 @@ function bookmarkRow(bookmark) {
   const address = bookmarkAddress(bookmark.url);
   const link = document.createElement("a");
   link.className = "bookmark-title";
-  link.href = bookmark.url;
+  //: INBOX 310, finding 3. The backend now rejects a disallowed scheme at
+  //: write time, but a bookmark saved before that existed is still sitting
+  //: in the database, so the render side needs its own guard too:
+  //: `safeHref()` is the same allowlist `renderInlineMarkdown` applies to
+  //: a note's own links (tests/test_markdown_link_schemes.py), reused here
+  //: rather than a second copy of the same list.
+  link.href = safeHref(bookmark.url);
   link.target = "_blank";
   link.rel = "noopener noreferrer";
   link.textContent = bookmark.title || address.host;

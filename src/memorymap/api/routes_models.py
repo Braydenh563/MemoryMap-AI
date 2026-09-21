@@ -42,6 +42,18 @@ class UtilityModelBody(BaseModel):
     name: str = ""
 
 
+class FeatureModelBody(BaseModel):
+    """One surface, and the model it should run on.
+
+    `feature` is a key from `model_manager.FEATURES`; anything else is a 400
+    rather than a saved preference nothing reads. `name` empty means
+    "inherited": the feature goes back to the role it falls back to.
+    """
+
+    feature: str = Field(min_length=1, max_length=40)
+    name: str = ""
+
+
 class VisionModelBody(BaseModel):
     # "" means "auto-detect", the first installed model that declares the
     # "vision" capability. See ModelManager.resolve_vision_model.
@@ -171,6 +183,17 @@ def status() -> dict:
             manager.resolve_ocr_model(ollama, installed, vision_fallback=resolved_vision or "")
             if running
             else None
+        ),
+        # One row per feature that may run on a model of its own, resolved:
+        # the name in use and whether that is this feature's own choice or the
+        # role's. Carried on the poll that already runs rather than in a
+        # second endpoint, so Settings' list and the inline pickers cannot
+        # disagree about what is set.
+        "feature_models": manager.feature_rows(),
+        #: What the mass reset would clear. The button says the number and
+        #: does nothing when it is zero.
+        "feature_models_overridden": sum(
+            1 for row in manager.feature_rows() if row["overridden"]
         ),
         "embedding_backend": manager.embedding_backend(),
         # The Ollama model *setting*, only meaningful on that backend.
@@ -417,6 +440,65 @@ def set_ocr_model(body: VisionModelBody, session: Session = Depends(get_session)
     log_action(session, "edited", "preferences", detail=f"ocr_model={name or '(vision)'}")
     session.commit()
     return {"ocr_model": name}
+
+
+@router.post("/feature-model")
+def set_feature_model(
+    body: FeatureModelBody, session: Session = Depends(get_session)
+) -> dict:
+    """Point one feature at its own model, or hand it back to its role.
+
+    Asked for directly: *"allow the user to alter the model they use for that
+    specific feature ... allow these to be easily individually altered and
+    reset."* One route for every feature, because the features are a table
+    (`model_manager.FEATURES`) rather than a list of settings: the next one is
+    a row there and needs nothing here.
+
+    The name is checked against what is installed on the same terms
+    `/utility-model` uses, and for the same reason: an empty name always
+    applies (clearing can never be refused), and a name is only checked when
+    the backend is up to be asked.
+    """
+    name = body.name.strip()
+    if name and deps.get_ollama().is_running():
+        if not _name_matches(name, _installed_models(True)):
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{name}' isn't available on {_backend_label()}",
+            )
+    try:
+        deps.get_model_manager().set_feature_model(body.feature, name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    log_action(
+        session,
+        "edited",
+        "preferences",
+        detail=f"feature_model_{body.feature}={name or '(inherited)'}",
+    )
+    session.commit()
+    return {
+        "feature": body.feature,
+        "name": name,
+        "feature_models": deps.get_model_manager().feature_rows(),
+    }
+
+
+@router.post("/feature-models/reset")
+def reset_feature_models(session: Session = Depends(get_session)) -> dict:
+    """Hand every feature back to its role, and say how many that was.
+
+    The count is what makes this honest: Settings shows it on the button
+    before it is pressed and reports it after, so a reset over nothing reads
+    as nothing rather than as a success.
+    """
+    cleared = deps.get_model_manager().reset_feature_models()
+    if cleared:
+        log_action(
+            session, "edited", "preferences", detail=f"feature models reset ({cleared})"
+        )
+        session.commit()
+    return {"cleared": cleared, "feature_models": deps.get_model_manager().feature_rows()}
 
 
 @router.post("/provider")

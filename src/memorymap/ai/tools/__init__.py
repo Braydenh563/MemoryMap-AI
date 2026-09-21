@@ -616,6 +616,55 @@ def _notebook_structure(session: Session, args: dict) -> dict:
     return result
 
 
+def _scope_filters(args: dict) -> list:
+    """The `untagged` and `since` clauses, shared by `_list_notes` and
+    `_count_notes` so that counting a scope and listing it can never disagree.
+
+    **"Tag my untagged notes" is a filter, not a research project.**
+
+    Reported after watching a skill run fail twice in a row: *"skills are too
+    hard for small ais and things go wrong often"*, with a screenshot of the
+    model saying "due to the conversation context budget, I couldn't access
+    all of them" and giving up without tagging anything.
+
+    That is not a model failing at tagging. It is the app asking a 3B model to
+    page through the whole notebook, hold every note's tags in its head,
+    subtract one set from another, and only then start working, and to do it
+    inside a context budget the app itself enforces. §R5's rule for this is the
+    whole point of the section: *do not ask a small model to be careful; make
+    it structurally hard for it to be wrong.* One boolean turns the enumeration
+    into a query the database was always going to be better at.
+    """
+    filters: list = []
+    since_days = _since_days(args.get("since"))
+    if since_days is not None:
+        from memorymap.core.database import utcnow
+
+        filters.append(Entry.created_at >= utcnow() - timedelta(days=since_days))
+    if args.get("untagged"):
+        #: Three shapes for "no tags", and all three are real rows. `tags` is
+        #: a JSON string (`entry/manager.py` writes `json.dumps(tags or [])`),
+        #: so a note saved today is `"[]"`; a row from before that column was
+        #: always written is `NULL`; and one whose tags were cleared by hand
+        #: is `""`. A filter that checked only the shape in front of it would
+        #: be right on a fresh notebook and wrong on a restored backup, the
+        #: same trap `_visible` and the media-usage query already sidestep.
+        filters.append(or_(Entry.tags.is_(None), Entry.tags == "", Entry.tags == "[]"))
+    return filters
+
+
+def _scope_label(args: dict) -> str:
+    """What a filtered count says it counted, for the tool card."""
+    parts = ["untagged notes" if args.get("untagged") else "notes"]
+    category = str(args.get("category") or "").strip()
+    if category:
+        parts.append(f"in {category}")
+    days = _since_days(args.get("since"))
+    if days is not None:
+        parts.append(f"from the last {days} days")
+    return " ".join(parts)
+
+
 def _list_notes(session: Session, args: dict) -> dict:
     """Walk the notebook: filter, page, previews only.
 
@@ -636,34 +685,7 @@ def _list_notes(session: Session, args: dict) -> dict:
         # ("work" would hit "homework"); the exact check happens below.
         filters.append(Entry.tags.ilike(f"%{like_escape(tag)}%", escape=LIKE_ESCAPE))
     since_days = _since_days(args.get("since"))
-    if since_days is not None:
-        from memorymap.core.database import utcnow
-
-        filters.append(Entry.created_at >= utcnow() - timedelta(days=since_days))
-    #: **"Tag my untagged notes" is a filter, not a research project.**
-    #:
-    #: Reported after watching a skill run fail twice in a row: *"skills are
-    #: too hard for small ais and things go wrong often"*, with a screenshot of
-    #: the model saying "due to the conversation context budget, I couldn't
-    #: access all of them" and giving up without tagging anything.
-    #:
-    #: That is not a model failing at tagging. It is the app asking a 3B model
-    #: to page through the whole notebook, hold every note's tags in its head,
-    #: subtract one set from another, and only then start working, and to do
-    #: it inside a context budget the app itself enforces. §R5's rule for this
-    #: is the whole point of the section: *do not ask a small model to be
-    #: careful; make it structurally hard for it to be wrong.* One boolean
-    #: turns the enumeration into a query the database was always going to be
-    #: better at.
-    if args.get("untagged"):
-        #: Three shapes for "no tags", and all three are real rows. `tags` is
-        #: a JSON string (`entry/manager.py` writes `json.dumps(tags or [])`),
-        #: so a note saved today is `"[]"`; a row from before that column was
-        #: always written is `NULL`; and one whose tags were cleared by hand
-        #: is `""`. A filter that checked only the shape in front of it would
-        #: be right on a fresh notebook and wrong on a restored backup, the
-        #: same trap `_visible` and the media-usage query already sidestep.
-        filters.append(or_(Entry.tags.is_(None), Entry.tags == "", Entry.tags == "[]"))
+    filters.extend(_scope_filters(args))
 
     query = select(Entry).where(*_visible(*filters))
     rows = list(
@@ -732,15 +754,46 @@ def _count_notes(session: Session, args: dict) -> dict:
     JSON text column: SQL can't GROUP BY individual tag values without a
     virtual table or full-text index. Everything else uses SQL aggregation
     so no rows are transferred to Python at all.
+
+    **`untagged` and `since` are here so a skill can declare its own
+    postcondition** (CHAT_PLAN decision 10b, and the open item
+    `archive/agent-remaining/brief-13-harness.md` 3): "Auto-tag my notes"
+    claims it leaves no untagged note behind, and a claim like that is only
+    worth making if the app can read it back out of the notebook as one
+    integer. `list_notes` has had both filters since the tagging skill was
+    written, but it returns notes, and a verifier that has to page through
+    notes to count them is the thing `count_notes` exists to avoid. The two
+    filters are the same code as `_list_notes`'s, deliberately: a
+    postcondition that counted "untagged" differently from the tool that
+    found them would pass runs that left work undone.
     """
     tag = str(args.get("tag") or "").strip()
     wanted = str(args.get("category") or "").strip()
+    extra = _scope_filters(args)
+
+    if extra:
+        #: A filtered count, whatever the other filters say. The tag branch
+        #: below cannot answer this one in SQL (tags are a JSON string), so
+        #: when a tag is asked for as well it falls through to that branch
+        #: with these clauses added to it.
+        if not tag:
+            filters = list(_visible(*extra))
+            if wanted:
+                filters.append(_category_clause(session, wanted))
+            count = session.scalar(select(func.count(Entry.id)).where(*filters)) or 0
+            return {
+                "category": wanted or None,
+                "count": count,
+                "label": f"ph:list-numbers Counted {_scope_label(args)}",
+            }
 
     if tag:
         # ilike pre-filters (fast), Python exact-match removes false hits
         # ("work" matching "homework"). Count with a generator to avoid
         # materialising a list when we only need the number.
-        filters = list(_visible(Entry.tags.ilike(f"%{like_escape(tag)}%", escape=LIKE_ESCAPE)))
+        filters = list(
+            _visible(Entry.tags.ilike(f"%{like_escape(tag)}%", escape=LIKE_ESCAPE), *extra)
+        )
         if wanted:
             filters.append(_category_clause(session, wanted))
         count = sum(
@@ -1069,6 +1122,33 @@ def _list_skills(session: Session, args: dict) -> dict:
     }
 
 
+def _verify_block(args: dict) -> dict | None:
+    """`save_skill`'s four flat `verify_*` arguments, as one block.
+
+    The shape the app stores is nested (`{tool, args, field, expect}`); the
+    shape a small model writes reliably is flat. This is the one place they
+    meet, and it is deliberately dumb: anything wrong with the values is
+    `skills.verify_spec`'s to say, in the sentence it already has for it.
+    """
+    tool = str(args.get("verify_tool") or "").strip()
+    if not tool:
+        return None
+    predicate = str(args.get("verify_expect") or "").strip().lower() or "unchanged"
+    value = args.get("verify_value")
+    block: dict = {
+        "tool": tool,
+        "expect": {predicate: True if predicate == "unchanged" else value},
+    }
+    if args.get("verify_untagged"):
+        block["args"] = {"untagged": True}
+        #: `count_notes` answers a filtered question in `count` and an
+        #: unfiltered one in `total`, and `VERIFY_COUNT_FIELDS` tries `total`
+        #: first, so a filtered block that did not name its field would read
+        #: the number it was filtering away from.
+        block["field"] = "count"
+    return block
+
+
 def _save_skill(session: Session, args: dict) -> dict:
     """Create or update one skill. Same tool for both, because from the
     model's side "make me a skill that does X" is one intent, and a separate
@@ -1077,6 +1157,11 @@ def _save_skill(session: Session, args: dict) -> dict:
     `steps` and `tools` are the rebuild (roadmap §21): without somewhere to
     put them, "make me a skill that files my inbox notes" could only ever
     save another sentence.
+
+    The four flat `verify_*` arguments become one `verify` block
+    (`skills.verify_spec` validates it and says what is wrong in the model's
+    own words, so a bad predicate name is refused here rather than at the end
+    of a run).
     """
     config = deps.get_config()
     try:
@@ -1087,6 +1172,7 @@ def _save_skill(session: Session, args: dict) -> dict:
                 "steps": args.get("steps"),
                 "tools": args.get("tools"),
                 "when_to_use": args.get("when_to_use"),
+                "verify": _verify_block(args),
             },
             set(TOOLS),
         )
@@ -1110,6 +1196,10 @@ def _save_skill(session: Session, args: dict) -> dict:
         "updated": existed,
         "steps": len(skill["steps"]),
         "tools": skill["tools"],
+        # Said back, because a model that asked for a postcondition and got
+        # none (a blank tool name, a predicate that was dropped) would
+        # otherwise report having added a check the skill does not carry.
+        "verify": skill.get("verify"),
         "label": f"ph:lightning {'Updated' if existed else 'Created'} the “{skill['name']}” skill",
     }
 
@@ -2432,8 +2522,9 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "count_notes",
             "Count the user's notes: in total, broken down per category, or "
-            "for one category and/or tag. Returns numbers only, so it's the "
-            "cheap way to answer 'how many…' without reading any notes.",
+            "for one category, tag, age or notes with no tags at all. Returns "
+            "numbers only, so it's the cheap way to answer 'how many…' "
+            "without reading any notes.",
             {
                 "type": "object",
                 "properties": {
@@ -2444,6 +2535,16 @@ TOOLS: dict[str, ToolSpec] = {
                     "tag": {
                         "type": "string",
                         "description": "Only count notes with this tag (optional)",
+                    },
+                    "untagged": {
+                        "type": "boolean",
+                        "description": "Only count notes with no tags at all "
+                        "(optional)",
+                    },
+                    "since": {
+                        "type": "string",
+                        "description": "Only count notes from the last N days, "
+                        "or since an ISO date like 2026-07-01 (optional)",
                     },
                 },
             },
@@ -2911,6 +3012,33 @@ TOOLS: dict[str, ToolSpec] = {
                         "type": "string",
                         "description": "When this skill applies, so it can be found later",
                     },
+                    #: **The postcondition, on the wire** (CHAT_PLAN decision
+                    #: 10b). It was readable and writable through `normalise`
+                    #: and offered nowhere, so only the built-ins had one. Flat
+                    #: fields rather than a nested object, because a 3B model
+                    #: writing a skill gets a three-field shape right far more
+                    #: often than a shape inside a shape, and this is the tool
+                    #: the "Build a skill" skill drives.
+                    "verify_tool": {
+                        "type": "string",
+                        "description": "A read-only tool that counts something, "
+                        "e.g. count_notes, to check the skill worked (optional)",
+                    },
+                    "verify_expect": {
+                        "type": "string",
+                        "description": "What that count should be afterwards: "
+                        "one of min, max, equals, unchanged",
+                    },
+                    "verify_value": {
+                        "type": "integer",
+                        "description": "The number to compare against (not "
+                        "needed for unchanged)",
+                    },
+                    "verify_untagged": {
+                        "type": "boolean",
+                        "description": "Count only notes with no tags "
+                        "(optional, for count_notes)",
+                    },
                 },
                 "required": ["name", "prompt"],
             },
@@ -3119,7 +3247,15 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "set_reminder",
-            "Create a reminder, optionally attached to a note.",
+            #: **Say what `note_id` is for, not merely that it exists.** The
+            #: link between a note and a reminder has been storable since
+            #: reminders were written, and INBOX 309 is the owner reporting
+            #: it as missing, because nothing on either side showed it. A
+            #: reminder Atlas makes while reading a note is exactly the case
+            #: the link is for, and "optionally attached to a note" does not
+            #: tell a small model that.
+            "Create a reminder. When the reminder comes out of a note you "
+            "have just read, pass that note's id so the two stay joined.",
             {
                 "type": "object",
                 "properties": {
@@ -3130,7 +3266,7 @@ TOOLS: dict[str, ToolSpec] = {
                     },
                     "note_id": {
                         "type": "integer",
-                        "description": "Attach to this note (optional)",
+                        "description": "The note this reminder came out of, if it came from one",
                     },
                     "priority": {
                         "type": "string",
@@ -3941,6 +4077,18 @@ def budget_for_window(context_tokens: int) -> int:
     return int(context_tokens * TOOL_SCHEMA_WINDOW_SHARE) * CHARS_PER_TOKEN
 
 
+#: **The tools a skill's `verify` block can read a number from**, which is the
+#: list the skill editor offers (`renderSkillVerifyPicker`, app.js). A block
+#: may name any read-only tool and the runner will try it, so this is a
+#: shortlist rather than a rule: these two answer a question about notes with
+#: one integer in a field `skills.VERIFY_COUNT_FIELDS` looks for, and
+#: `tests/test_harness_verifier.py` runs each of them to prove it rather than
+#: trusting this comment. Offering thirty tools in a dropdown, most of which
+#: come back with no number at all, would be offering a choice that mostly
+#: fails at the end of a run.
+COUNTING_TOOLS = ("count_notes", "list_notes")
+
+
 def tool_catalog() -> list[dict]:
     """Metadata for the Settings → Tools toggles."""
     return [
@@ -3950,6 +4098,7 @@ def tool_catalog() -> list[dict]:
             "destructive": spec.destructive,
             "enabled": tool_enabled(spec.name),
             "online": spec.name in ("web_search", "read_url"),
+            "counts": spec.name in COUNTING_TOOLS,
         }
         for spec in TOOLS.values()
     ]

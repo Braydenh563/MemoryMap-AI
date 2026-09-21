@@ -400,6 +400,11 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "spine": None,
         "edge_width": None,
         "edge_arrow": None,
+        # And with §12.1 item 5's draggable waypoint on a line, and item 2's
+        # picture in a topic. Same rule again: named, not omitted.
+        "edge_bend": None,
+        "edge_slide": None,
+        "image": None,
     }
 
     moved = board_client.put(

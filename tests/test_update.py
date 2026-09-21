@@ -24,11 +24,19 @@ def _clean_update_state():
 
 
 class _FakeResponse:
-    def __init__(self, json_body=None, status=200, content=b"", headers=None):
+    def __init__(
+        self, json_body=None, status=200, content=b"", headers=None, redirect=False
+    ):
         self._json = json_body
-        self.status_code = status
+        self.status_code = 302 if redirect else status
         self.headers = headers or {}
         self._content = content
+        # requests.Response computes these from status_code + a Location
+        # header; a fake redirect response sets `redirect=True` (and a
+        # `Location` header) the same way a real 3xx from requests.get(...,
+        # allow_redirects=False) would.
+        self.is_redirect = redirect
+        self.is_permanent_redirect = False
 
     def raise_for_status(self):
         if self.status_code >= 400:
@@ -40,6 +48,9 @@ class _FakeResponse:
     def iter_content(self, chunk_size=None):
         for i in range(0, len(self._content), chunk_size or len(self._content) or 1):
             yield self._content[i : i + (chunk_size or len(self._content))]
+
+    def close(self):
+        pass
 
 
 RELEASE_WITH_ASSET = {
@@ -342,6 +353,113 @@ def test_the_allowed_hosts_are_https_only():
     assert not _download_url_is_allowed("https://github.com.evil.test/x.exe")
     assert not _download_url_is_allowed("")
     assert not _download_url_is_allowed(None)
+
+
+def test_a_redirect_to_another_allowed_host_is_followed(client, app_state, monkeypatch, tmp_path):
+    """INBOX 310, finding 4: github.com -> objects.githubusercontent.com is
+    the real shape every release download takes (the module's own docstring
+    names it), and the fix must not break that hop."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", True)
+    monkeypatch.setattr(routes_update.sys, "platform", "win32")
+    monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
+
+    redirect_target = "https://objects.githubusercontent.com/x/MemoryMap-AI-Setup-9.9.9.exe"
+
+    def _fake_get(url, **kwargs):
+        if "releases/latest" in url:
+            return _FakeResponse(RELEASE_WITH_ASSET)
+        # `_download` must ask for each hop itself, not let `requests`
+        # follow one on its own: that is the whole fix.
+        assert kwargs.get("allow_redirects") is False
+        if url == redirect_target:
+            return _FakeResponse(content=b"MZ-real-installer", headers={"Content-Length": "17"})
+        return _FakeResponse(redirect=True, headers={"Location": redirect_target})
+
+    monkeypatch.setattr(routes_update.requests, "get", _fake_get)
+    popen_calls = []
+    monkeypatch.setattr(routes_update.subprocess, "Popen", lambda *a, **k: popen_calls.append(a))
+    monkeypatch.setattr(routes_update.tempfile, "mkdtemp", lambda prefix="": str(tmp_path))
+    monkeypatch.setattr(routes_update, "EXIT_DELAY_SECONDS", 0)
+    exit_calls = []
+    monkeypatch.setattr(routes_update.os, "_exit", lambda code: exit_calls.append(code))
+
+    assert client.post("/update/apply").status_code == 200
+    _wait_until_idle()
+    _wait_until_exit_called(exit_calls)
+
+    state = routes_update.current()
+    assert state["outcome"] == "launched"
+    downloaded = tmp_path / "MemoryMap-AI-Setup-9.9.9.exe"
+    assert downloaded.read_bytes() == b"MZ-real-installer"
+
+
+def test_a_redirect_off_the_allowed_hosts_is_refused(client, app_state, monkeypatch, tmp_path):
+    """The gap this fix closes: `requests.get`'s default `allow_redirects=
+    True` only checked the *first* hop's host. A release asset URL is on
+    the allowlist, but a redirect it sends the client on might not be, and
+    that must be caught before a single byte of the redirect target is
+    written to disk."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", True)
+    monkeypatch.setattr(routes_update.sys, "platform", "win32")
+    monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
+
+    evil = "https://evil.example.com/MemoryMap-AI-Setup-9.9.9.exe"
+    fetched = []
+
+    def _fake_get(url, **kwargs):
+        fetched.append(url)
+        if "releases/latest" in url:
+            return _FakeResponse(RELEASE_WITH_ASSET)
+        if url == evil:
+            return _FakeResponse(content=b"MZ-evil", headers={"Content-Length": "7"})
+        return _FakeResponse(redirect=True, headers={"Location": evil})
+
+    monkeypatch.setattr(routes_update.requests, "get", _fake_get)
+    popen_calls = []
+    monkeypatch.setattr(routes_update.subprocess, "Popen", lambda *a, **k: popen_calls.append(a))
+    monkeypatch.setattr(routes_update.tempfile, "mkdtemp", lambda prefix="": str(tmp_path))
+
+    assert client.post("/update/apply").status_code == 200
+    _wait_until_idle()
+
+    state = routes_update.current()
+    assert state["outcome"] == "failed"
+    assert popen_calls == []
+    # The evil host was never fetched: the Location was rejected before a
+    # request to it was ever made, not merely ignored after the fact.
+    assert evil not in fetched
+    assert list(tmp_path.glob("*.exe")) == []
+
+
+def test_a_redirect_loop_is_capped_not_hung(client, app_state, monkeypatch, tmp_path):
+    """A server (or a MITM) that redirects forever must not hang the
+    download thread; `MAX_DOWNLOAD_REDIRECTS` bounds the loop."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", True)
+    monkeypatch.setattr(routes_update.sys, "platform", "win32")
+    monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
+
+    calls = []
+
+    def _fake_get(url, **kwargs):
+        if "releases/latest" in url:
+            return _FakeResponse(RELEASE_WITH_ASSET)
+        calls.append(url)
+        # Redirects to itself, an allowed host, forever: still has to stop.
+        return _FakeResponse(redirect=True, headers={"Location": url})
+
+    monkeypatch.setattr(routes_update.requests, "get", _fake_get)
+    monkeypatch.setattr(routes_update.subprocess, "Popen", lambda *a, **k: None)
+    monkeypatch.setattr(routes_update.tempfile, "mkdtemp", lambda prefix="": str(tmp_path))
+
+    assert client.post("/update/apply").status_code == 200
+    _wait_until_idle()
+
+    assert routes_update.current()["outcome"] == "failed"
+    assert len(calls) == routes_update.MAX_DOWNLOAD_REDIRECTS
+    assert list(tmp_path.glob("*.exe")) == []
 
 
 def test_no_matching_windows_asset_is_a_clean_failure_not_a_crash(client, app_state, monkeypatch):

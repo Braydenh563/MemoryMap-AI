@@ -26,6 +26,7 @@ from memorymap.ai.ollama_client import (
     OllamaError,
     ToolsUnsupportedError,
 )
+from memorymap.ai.provider import tools_unsupported_message
 
 # A runaway model must not loop forever on a local machine.
 MAX_ROUNDS = 6
@@ -993,6 +994,8 @@ def build_agent_messages(
     # The user's wall clock. This line is what "remind me in 10 minutes"
     # is computed from, so resolving it against the server's zone instead
     # puts every relative time out by the offset between them.
+    from datetime import timedelta
+
     local = user_now(deps.get_config())
     # To the minute, not the microsecond. This string sits near the top of a
     # prompt that is resent on every round of every turn, and Ollama's prefix
@@ -1002,7 +1005,40 @@ def build_agent_messages(
     # scratch. A tool loop runs its rounds seconds apart, so a minute-precision
     # clock is identical across all of them, and no answer this app gives
     # needs the seconds: "remind me in 10 minutes" is not resolved to one.
+    #: **The weekday and the week ahead, because the model was computing them
+    #: and getting them wrong.** The owner's transcript, 2026-09-21: he asked
+    #: for a reminder two hours before midnight, and the model reasoned "the
+    #: current date and time is 2026-09-21T15:55+10:00 ... midnight for today
+    #: is 2026-09-22T00:00 ... two hours before midnight is 2026-09-22T22:00",
+    #: which is a day out: two hours before that midnight is the 21st at
+    #: 22:00. It also had a note saying the work was due "Friday" and no way
+    #: to turn that into a date without counting days from an ISO string.
+    #:
+    #: An ISO timestamp does not say what day of the week it is, so a small
+    #: model derives it, and deriving a weekday from a date is exactly the
+    #: arithmetic these models are worst at. The days are cheap to state and
+    #: they are facts, so they are stated: naming them costs about 120
+    #: characters against `PROSE_BUDGET_CHARS` and removes a whole class of
+    #: wrong answer.
+    #:
+    #: The "still today" sentence is there because of the specific slip
+    #: above: a time worked out by subtracting from tonight's midnight lands
+    #: on today, and the model moved it to tomorrow. Saying so once is
+    #: cheaper than a reminder set on the wrong night.
+    week = ", ".join(
+        (local + timedelta(days=n)).strftime("%a %-d %b") for n in range(1, 8)
+    )
+    #: The order inside this line matters for the same reason the line's own
+    #: position does. The weekday, the week ahead and the rule change once a
+    #: day; the timestamp changes every minute. So the daily part goes first
+    #: and the minute goes last, which keeps the prefix cache holding
+    #: everything up to the minute that actually ticked.
+    #: `tests/test_prompt_prefix_stability.py` asserts the clock is last, and
+    #: it caught this being written the other way round.
     now_hint = (
+        f" Today is {local.strftime('%A')}, and the next seven days are {week}."
+        " Today ends at midnight tonight, so a time you reach by counting back"
+        " from that midnight is still today's date, not tomorrow's."
         f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )
@@ -1906,8 +1942,12 @@ def run_agent(
     image_context: str | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
-    {"type": "unsupported"}, model can't do tools; caller
-                                                 should fall back to plain Q&A
+    {"type": "unsupported", "model": ..., "message": ...}, model can't do
+                                                 tools; caller should fall
+                                                 back to plain Q&A, and
+                                                 should show `message`
+                                                 (INBOX 272 part 1) rather
+                                                 than drop the event
                                                  (always the first and only event)
     {"type": "thinking", "delta": str}
     {"type": "tool", "label": str, "ok": bool, "error": str|None}
@@ -1993,7 +2033,16 @@ def run_agent(
                 elif "final" in piece:
                     reply = piece["final"]
         except ToolsUnsupportedError:
-            yield {"type": "unsupported"}
+            # INBOX 272 part 1: named here, once, so every caller that
+            # forwards this event (routes_chat.py, skill_runner.py) shows
+            # the same remedy instead of dropping the event on the floor,
+            # which is what happened before (see tools_unsupported_message's
+            # own docstring).
+            yield {
+                "type": "unsupported",
+                "model": agent_model,
+                "message": tools_unsupported_message(agent_model),
+            }
             return
         except OllamaError as exc:
             # Mid-answer death: say so, but don't wipe what already streamed.

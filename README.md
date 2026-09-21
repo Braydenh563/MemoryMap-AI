@@ -4,7 +4,7 @@
 
 # MemoryMap AI
 
-**A notebook that files itself. Local AI, your machine, nothing sent anywhere.**
+**A notebook that files itself. Local AI, your machine, nothing sent anywhere unless you ask.**
 
 [![CI](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml)
@@ -210,6 +210,10 @@ is doing.
 - **Any local model.** Ollama by default; any OpenAI-compatible server by
   setting a URL. Settings > Models shows the sampling parameters and
   starts each at the value the model's own file recommends.
+- **A model per feature, if you want one.** Chat, Write with Atlas, the
+  documents assistant and the Guide each run on the chat model until you
+  give one of them a model of its own, from Settings > Models or from that
+  surface's own menu. One button hands them all back.
 - **Small models are first-class.** Skills and tool use have a small-model
   mode that gives a 4B model one step and one tool at a time, with
   recovery when it skips a step.
@@ -284,13 +288,24 @@ Python 3.11 to 3.13 on every push.
 
 ## Status
 
-Version 0.3.1. The core is built and stable: capture, chat with checkable
+Version 0.3.2. The core is built and stable: capture, chat with checkable
 answers, the graph, documents, boards and mind maps, the OCR workspace,
 private notes, themes, desktop packaging for Windows and Linux. The
 interface was rebuilt on one design system in this release, measured
 rather than eyeballed, and the in-app guide has a name. What comes next,
 in order, is in [docs/ROADMAP.md](docs/ROADMAP.md); what changed is in
 [CHANGELOG.md](CHANGELOG.md).
+
+**The guided tour is still in development and is known to be buggy.** It has
+been reported broken several times and fixed several times, most recently for
+a case where starting it from Settings, Help left the settings panel over the
+page so every step it wanted to point at measured as hidden and the run
+emptied itself. It may still drop steps, sit in the wrong place, or close
+itself part way through, particularly at window sizes and zoom levels that
+have not been measured here. Nothing else in the app depends on it: every
+screen it visits is reachable on its own, and you can leave the tour at any
+point with Escape or Skip. If it misbehaves, that is the tour and not your
+notebook.
 
 ## Licence
 

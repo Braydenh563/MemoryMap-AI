@@ -395,7 +395,18 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    const errMsg = typeof detail.detail === 'string' ? detail.detail : (JSON.stringify(detail.detail) || `Request failed (${response.status})`);
+    let errMsg = typeof detail.detail === 'string' ? detail.detail : (JSON.stringify(detail.detail) || `Request failed (${response.status})`);
+    //: **Out of space is the one failure the person can act on, so the part
+    //: that says how travels with it.** The server answers 507 with a
+    //: `hint` naming the folder, the room left and roughly how much to free
+    //: up (INBOX 266, item 6); every call site in this app toasts
+    //: `error.message` and nothing has ever read `hint`, so the actionable
+    //: half was being thrown away at this line. Appended here rather than
+    //: at fifty call sites, which is the only version that cannot be
+    //: forgotten by the next one.
+    if (response.status === 507 && typeof detail.hint === 'string' && detail.hint) {
+      errMsg = `${errMsg} ${detail.hint}`;
+    }
     if (!silent) {
       // Log HTTP errors so they always appear in Settings → Logs for debugging.
       recordBrowserLog("ERROR", [
@@ -478,6 +489,13 @@ const JOB_STARTING_PATH =
 //: state from just before the job existed, the exact miss this fixes.
 let jobPollKick = null;
 function kickBackgroundTaskPoll() {
+  //: A write that starts a job is the clearest "something just changed"
+  //: there is, so the status poll's idle backoff (see `resetStatusCadence`)
+  //: starts again from 30s rather than the job's progress being reported on
+  //: a two-minute delay. Reached only from `api()` on a non-GET, which
+  //: cannot happen before this file has finished evaluating, so the `const`
+  //: that function reads is always past its temporal dead zone by then.
+  resetStatusCadence();
   clearTimeout(jobPollKick);
   jobPollKick = setTimeout(() => {
     refreshBackgroundTasks().catch(() => {
@@ -522,9 +540,28 @@ async function apiJson(path, options = {}) {
 function showLockScreen(setupMode) {
   $("lock-overlay").classList.remove("hidden");
   $("lock-title").textContent = setupMode ? "Welcome to MemoryMap" : "Unlock MemoryMap";
+  //: **The trust moment, and it used to say nothing about trust.** This is the
+  //: first screen of the app and it asks for a credential; a person deciding
+  //: whether to hand one over is deciding whether to believe the product, and
+  //: the sentence that would persuade them ("it runs here, nothing goes out")
+  //: was three screens later, after the account already existed. It is here
+  //: now, along with the two facts that cost something to learn late: the
+  //: length rule, which was only ever shown after a failed attempt, and that
+  //: `/auth/setup` derives an encryption key from this password on the spot.
   $("lock-message").textContent = setupMode
-    ? "First run: choose a password (or PIN) to protect your notebook. You'll need it every time the app starts."
+    ? "A notebook that runs on this machine. Your notes stay here, and nothing goes online unless you turn it on later."
     : "Enter your password to unlock your notebook.";
+  //: Four is the backend's own floor (`Field(min_length=4)`,
+  //: routes_auth.py), quoted rather than restated so the two cannot drift.
+  const note = $("lock-setup-note");
+  if (note) {
+    note.textContent =
+      "Choose a password or PIN, at least four characters. You will need it every " +
+      "time the app starts. Ordinary notes are not encrypted and survive a reset, " +
+      "but anything you later mark private is locked with this password and cannot " +
+      "be recovered without it.";
+    note.classList.toggle("hidden", !setupMode);
+  }
   $("lock-submit").textContent = setupMode ? "Set password & start" : "Unlock";
   $("lock-overlay").dataset.mode = setupMode ? "setup" : "unlock";
   // One field in two modes (no separate setup form), autocomplete has to
@@ -685,6 +722,52 @@ async function initAuth() {
   startApp();
 }
 
+// --- a share from the phone's share sheet lands in Capture -------------------
+// UI_MODERNISATION_PLAN Phase 11 item 5, "upload from the share sheet". The
+// installed app is a Web Share Target (manifest.webmanifest): a page, a
+// link or a selection shared to MemoryMap opens the app at `/` with
+// `share_title`, `share_text` and `share_url` in the query, the GET form,
+// which needs no service worker and works on a locked notebook because the
+// query survives the lock screen (this runs once the entries have loaded,
+// which is after the unlock). The pieces become one capture: the title as
+// a heading, the text, the link on its own line, so the link stays a link.
+// The query is then cleared from the address bar, or a reload would share
+// it again. Files (an image shared from the camera roll) need the POST form
+// and a service worker and are not taken here.
+const SHARE_PARAMS = ["share_title", "share_text", "share_url"];
+
+function sharedCaptureText(params) {
+  const title = (params.get("share_title") || "").trim();
+  const text = (params.get("share_text") || "").trim();
+  const url = (params.get("share_url") || "").trim();
+  const lines = [];
+  if (title && title !== text) lines.push(`# ${title}`);
+  if (text) lines.push(text);
+  if (url && !text.includes(url)) lines.push(url);
+  return lines.join("\n\n");
+}
+
+function takeSharedIntake() {
+  const params = new URLSearchParams(window.location.search);
+  if (!SHARE_PARAMS.some((key) => params.has(key))) return;
+  const content = sharedCaptureText(params);
+  for (const key of SHARE_PARAMS) params.delete(key);
+  const rest = params.toString();
+  history.replaceState(null, "", `${location.pathname}${rest ? `?${rest}` : ""}${location.hash}`);
+  if (!content) return;
+  const box = $("entry-content");
+  if (!box) return;
+  switchTab("notes");
+  showNotesSection("capture");
+  box.value = box.value ? `${box.value}\n\n${content}` : content;
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  box.focus();
+  const mounted =
+    typeof mountNoteSurface === "function" ? mountNoteSurface(box) : Promise.resolve(null);
+  mounted.then((surface) => surface?.focus()).catch(() => {});
+  toast("Shared to your notebook. Save it when it reads right.");
+}
+
 function startApp() {
   // Whatever the shell was last saying about being unable to reach the server
   // is now provably false, we are about to talk to it. Left uncleared, the
@@ -789,6 +872,7 @@ function startApp() {
   // session, on every fresh start. This is the same shape as the comment
   // below about switchTab painting from a pile of 401s.
   step("load spaces", loadSpaces);
+  entriesReady.then(() => step("take what was shared to it", takeSharedIntake));
   step("tell the server your timezone", reportTimezone);
   // Fires only if the user opted in (Settings -> About); the endpoint itself
   // also checks the preference server-side, but skipping the call here means
@@ -2575,8 +2659,16 @@ const MAP_BOARD_INDEX_MS = 8000;
 //: twice). A second caller joins the first walk instead.
 let mapBoardIndexWalk = null;
 
-function loadMapBoardIndex() {
-  if (mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) {
+//: `force` skips the eight seconds. One caller passes it: a note's board
+//: object that could not find its board (`boardEmbedElement`). Eight seconds
+//: is the right answer for a chip that is merely decorating a row, and the
+//: wrong one for a card that is about to tell somebody their board has been
+//: deleted: a board made a moment ago is missing from an index built before
+//: it existed, and nothing else ever rebuilds that index (every other caller
+//: returns early while it is set). A walk already in flight is still joined
+//: rather than doubled.
+function loadMapBoardIndex(force = false) {
+  if (!force && mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) {
     return Promise.resolve(mapBoardIndexCache);
   }
   if (mapBoardIndexWalk) return mapBoardIndexWalk;
@@ -2652,7 +2744,14 @@ function mapBoardRows() {
 // which note it is, short enough that four of them are a row rather than a
 // paragraph: a chip is a signpost, and a signpost with a sentence on it is
 // not a signpost. The full text is the chip's tooltip.
-const LINK_CHIP_CHARS = 28;
+//: Raised from 28 (the owner, 2026-09-21: "note text gets cut off at like
+//: 2/3 through the note width, I think it should have a bit more width"). A
+//: character count rather than a width is what made it look arbitrary: the
+//: chip was cut at the same word whether it sat in a 400px column or across
+//: a 1900px card, so on a wide card it stopped two thirds of the way along a
+//: row that had room to spare. The chips wrap, so a longer label costs a row
+//: at worst, never an overflow.
+const LINK_CHIP_CHARS = 48;
 
 // How much of a note the list shows before clamping it. Roughly ten lines at
 // a comfortable reading width, long enough that a normal note is never
@@ -2737,6 +2836,8 @@ const MEDIA_PAGE_SIZE = 200;
 //: states draw `ph:star` and the difference is `is-favourite`, plus
 //: `aria-pressed`, which is what makes the state readable without the colour.
 function favouriteButton(entry) {
+  //: `.favourite-btn` names the control for the phone's swipe (`initRowSwipe`),
+  //: which presses it rather than carrying a second copy of the toggle.
   const button = smallButton(
     "ph:star",
     entry.pinned ? "Remove from Favourites" : "Add to Favourites (also floats it to the top)",
@@ -2759,6 +2860,7 @@ function favouriteButton(entry) {
       await loadEntries();
     }
   );
+  button.classList.add("favourite-btn");
   button.classList.toggle("is-favourite", Boolean(entry.pinned));
   button.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
   return button;
@@ -2768,10 +2870,41 @@ function favouriteButton(entry) {
 // "2 hours ago" style, with the exact date kept for the hover tooltip
 // (Wave J). Anything older than a week just shows the date.
 
+// The row menu's "Move to bin", as one function, because the phone's swipe
+// (`initRowSwipe`) is the same action from a different gesture and must not
+// carry a second copy of it. Instant + one-click Undo, soft delete
+// underneath (Wave J). Also on the global undo stack (status bar / Ctrl+Z),
+// so it survives past the toast's own timeout.
+async function binNoteWithUndo(entry) {
+  await api(`/entries/${entry.id}`, { method: "DELETE" });
+  await loadEntries();
+  const restoreIt = async () => {
+    await api(`/entries/${entry.id}/restore`, { method: "POST" });
+    await loadEntries();
+  };
+  const binIt = async () => {
+    await api(`/entries/${entry.id}`, { method: "DELETE" });
+    await loadEntries();
+  };
+  const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
+  toastAction("Moved to the recycle bin.", "Undo", async () => {
+    settleUndoFromToast(action);
+    await restoreIt();
+    toast("Note restored.");
+  });
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
   if (entry.id === linkSource) li.classList.add("link-source");
+  // The phone's swipe underlays read their words from the row (`initRowSwipe`,
+  // 10-responsive.css): what a swipe right and a swipe left will do to it.
+  if (entry.pinned) li.classList.add("is-favourite-row");
+  if (!entry.is_board && !entry.is_draft && options.actions) {
+    li.dataset.swipeRight = entry.pinned ? "Unfavourite" : "Favourite";
+    li.dataset.swipeLeft = "Bin";
+  }
   // An opened-out row renders as the full card, see `expandedRows`. The
   // class does nothing in card view, where every note is already this shape.
   if (expandedRows.has(entry.id)) li.classList.add("row-expanded");
@@ -2986,16 +3119,59 @@ function entryItem(entry, options = {}) {
   //: flag: it opens the edit form with the cursor in the tags field, where
   //: the AI's suggestions appear as you type, so the person is one click
   //: from tagged rather than being told and left there.
-  if (!entry.tags.length && !entry.is_board && !entry.is_draft && options.actions) {
-    const untagged = chip("ph:tag No tags yet", "untagged", (event) => {
-      event.stopPropagation();
-      editingId = entry.id;
-      focusTagsAfterRender = entry.id;
-      renderEntries();
-    });
-    untagged.title = "Add tags to this note";
+  if (!entry.tags.length && !entry.is_board && !entry.is_draft
+      && (options.actions || options.facts)) {
+    //: On a read-only row the flag is a **fact and nothing more**: the
+    //: handler below opens the edit form in the note list, which is not the
+    //: surface a search result is being read on, so wiring it here would be a
+    //: chip that looks pressable and does nothing visible (INBOX 297).
+    const untagged = options.actions
+      ? chip("ph:tag No tags yet", "untagged", (event) => {
+        event.stopPropagation();
+        editingId = entry.id;
+        focusTagsAfterRender = entry.id;
+        renderEntries();
+      })
+      : chip("ph:tag No tags yet", "untagged");
+    untagged.title = options.actions
+      ? "Add tags to this note"
+      : "This note has no tags yet";
     meta.appendChild(untagged);
+    //: **And the offer to have them written for you, in the one place a
+    //: person is thinking about tags** (INBOX 292, the owner: "half the time
+    //: when there are no tags on a note, i want the ai to generate them for
+    //: me ... i want it to be more evident that it is an option and to be
+    //: offered to the user"). The action already existed, one row deep in
+    //: this note's menu under a name that did not mention tags, which is
+    //: exactly the kind of thing nobody finds.
+    //:
+    //: Rendered rather than gated, because a chip is a `<span role="button">`
+    //: and `syncModelGatedControls` closes controls by setting `disabled`,
+    //: which does nothing to a span. An offer that cannot be honoured is
+    //: worse than no offer, so with no model answering there is simply the
+    //: flag above and the manual route it already opens.
+    //: `options.actions` again: the offer is a model call, which is an
+    //: action, so it stays off a read-only row even though the flag above it
+    //: is now drawn on one.
+    if (options.actions && (!modelStatus || modelStatus.ollama_running !== false)) {
+      const askAtlas = chip("ph:sparkle Tag with Atlas", "untagged-ai", (event) => {
+        event.stopPropagation();
+        reevaluateEntry(entry);
+      });
+      askAtlas.title = "Atlas reads the note and suggests tags for you to approve";
+      meta.appendChild(askAtlas);
+    }
   }
+  //: **What points at this note, on the card** (INBOX 246's third gap).
+  //: Only when the counts for this page have landed; `ensureCardCounts`
+  //: patches the chip in afterwards for cards rendered before they had.
+  const refs = referenceCountChip(entry, options);
+  if (refs) meta.appendChild(refs);
+  //: **And what it made you promise to do** (INBOX 309). Same cache, same
+  //: patch-in, same line: a reminder that came out of this note is a fact
+  //: about the note in exactly the way "on 1 board" is.
+  const alarms = reminderCountChip(entry, options);
+  if (alarms) meta.appendChild(alarms);
 
   // "AI 0%: check this" is a warning about the AI's filing, and it only makes
   // sense when the AI actually did some. On a note you filed yourself, or one
@@ -3118,7 +3294,7 @@ function entryItem(entry, options = {}) {
   // it's obvious something is running on this specific card.
   if (entry.id === busyEntryId) {
     li.classList.add("entry-busy");
-    const busy = chip("Re-evaluating…", "busy");
+    const busy = chip("Atlas is reading…", "busy");
     busy.classList.add("chip-busy");
     // The shared spinner (ROADMAP Priority 0 #14) replaces this chip's own
     // one-off ring: .chip's own `gap` handles the spacing and vertical
@@ -4386,7 +4562,7 @@ async function openConnections(kind, id, subject) {
           ["ph:arrow-up-right This note links to", data.outgoing, noteRow],
           ["ph:arrow-down-left Notes that link here", data.incoming, noteRow],
           ["ph:file-text In these documents", data.documents, docRow],
-          ["ph:squares-four On these boards", data.boards, boardRow],
+          ["ph:squares-four On these boards and maps", data.boards, boardRow],
           ["ph:image Files it uses", data.files, fileRow],
         ]
       : [
@@ -4418,7 +4594,10 @@ async function openConnections(kind, id, subject) {
     );
   }
   function boardRow(board) {
-    return row(`ph:squares-four ${board.title}`, `Open “${board.title}”`, () =>
+    // `kind` is "board" or "map" from the one reader the Referenced-by row
+    // uses (INBOX 246): a map is a different surface and gets its own icon.
+    const icon = board.kind === "map" ? "ph:tree-structure" : "ph:squares-four";
+    return row(`${icon} ${board.title}`, `Open “${board.title}”`, () =>
       openWhiteboardBoard(board.id ?? null)
     );
   }
@@ -4788,9 +4967,25 @@ function wireMenuKeyboard(menu, opener) {
   menu.addEventListener("keydown", (event) => {
     const menuItems = [
       ...menu.querySelectorAll(
-        ':scope > [role="menuitem"], :scope > .menu-group > [role="menuitem"]'
+        ':scope > [role="menuitem"], :scope > .menu-group > [role="menuitem"], ' +
+        //: `role="group"` as well as `.menu-group`, so a menu written in
+        //: markup can use the wrapper ARIA actually names. `kebabMenu` builds
+        //: its own groups as `.menu-group` divs with no role, and the board's
+        //: five top-bar menus are sections in index.html that become
+        //: `role="group"` at boot (`wbStampMenuRoles` in whiteboard.js): with
+        //: only the class in this list, ArrowDown in those five found no items
+        //: at all and left the focus where it was, which is the one thing a
+        //: person who has just opened a menu will try.
+        ':scope > [role="group"] > [role="menuitem"]'
       ),
-    ];
+    ]
+      //: An item nobody can see is not one the arrows may land on. It never
+      //: came up while every menu here was built by `kebabMenu`, which draws
+      //: only the items it was given; the board's View menu keeps two map rows
+      //: `hidden` on an ordinary whiteboard, and walking onto one of those
+      //: calls `focus()` on an element that cannot take it, which leaves the
+      //: focus where it was and reads as "the arrow keys do nothing".
+      .filter((item) => !item.hidden && item.offsetParent !== null);
     if (!menuItems.length) return;
     const current = menuItems.indexOf(document.activeElement);
     if (event.key === "ArrowDown") {
@@ -5125,8 +5320,15 @@ function entryOverflowMenu(entry) {
 
     const aiItems = [
       {
-        label: "ph:arrows-clockwise Re-evaluate",
-        title: "Refresh this note's AI confidence and suggest tags & links",
+        //: **Named for what it does, not for what it is called internally**
+        //: (INBOX 292, the owner: "i feel like it is more than just
+        //: re-evaluating, and it is hidden away"). The route re-files the
+        //: note, refreshing its confidence and its category unless the person
+        //: filed it themselves, *and* suggests tags and links for them to
+        //: apply. "Re-evaluate" named the smallest part of that, and tags,
+        //: the part it is actually reached for, were not in the name at all.
+        label: "ph:sparkle Tag and file with Atlas",
+        title: "Atlas re-reads the note, suggests tags and links, and may refile it",
         run: () => reevaluateEntry(entry),
       },
       {
@@ -5285,27 +5487,7 @@ function entryOverflowMenu(entry) {
     const danger = {
       label: "ph:trash Move to bin",
       danger: true,
-      // Instant + one-click Undo, soft delete underneath (Wave J). Also on the
-      // global undo stack (status bar / Ctrl+Z), so it survives past the
-      // toast's own timeout.
-      run: async () => {
-        await api(`/entries/${entry.id}`, { method: "DELETE" });
-        await loadEntries();
-        const restoreIt = async () => {
-          await api(`/entries/${entry.id}/restore`, { method: "POST" });
-          await loadEntries();
-        };
-        const binIt = async () => {
-          await api(`/entries/${entry.id}`, { method: "DELETE" });
-          await loadEntries();
-        };
-        const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-        toastAction("Moved to the recycle bin.", "Undo", async () => {
-          settleUndoFromToast(action);
-          await restoreIt();
-          toast("Note restored.");
-        });
-      },
+      run: () => binNoteWithUndo(entry),
     };
 
     for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
@@ -5326,7 +5508,7 @@ function entryOverflowMenu(entry) {
 // Ask the AI to re-evaluate one note, then show its suggestions inline.
 async function reevaluateEntry(entry) {
   closeActionMenus();
-  toast("Re-evaluating with AI…");
+  toast("Atlas is reading this note…");
   // Show a spinner on this exact card while the AI works.
   busyEntryId = entry.id;
   renderEntries();
@@ -5343,7 +5525,7 @@ async function reevaluateEntry(entry) {
   } catch (error) {
     busyEntryId = null;
     renderEntries();
-    toast(error.message || "Re-evaluate failed.", true);
+    toast(error.message || "Atlas could not read this note.", true);
   }
 }
 
@@ -5356,8 +5538,8 @@ function renderReevaluateResult(entry, wrap) {
   const head = document.createElement("p");
   head.className = "muted";
   head.textContent = data.recategorised_to
-    ? `Re-evaluated: confidence ${confidence}%, moved to “${data.recategorised_to}”.`
-    : `Re-evaluated: confidence now ${confidence}%.`;
+    ? `Read: confidence ${confidence}%, moved to “${data.recategorised_to}”.`
+    : `Read: confidence now ${confidence}%.`;
   wrap.appendChild(head);
 
   // Drop suggestions the user already applied (the card re-renders after each).
@@ -5374,7 +5556,7 @@ function renderReevaluateResult(entry, wrap) {
     label.textContent = "Add tags:";
     tagRow.appendChild(label);
     for (const tag of tags) {
-      const tagChip = chip(`＋ ${tag}`, "tag", async () => {
+      const tagChip = chip(`ph:plus ${tag}`, "tag", async () => {
         try {
           await api(`/entries/${entry.id}`, {
             method: "PUT",
@@ -5800,6 +5982,14 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   infoText.className = "lightbox-text";
   const infoByline = document.createElement("p");
   infoByline.className = "lightbox-byline";
+  //: The second reader's answer to the same question, under the first one's,
+  //: in the same two elements the first one uses: see `lightboxReadingsFor`
+  //: for why it is here at all and why it is not a toggle. Both are hidden
+  //: together, so a picture with one reading looks exactly as it did.
+  const infoAltText = document.createElement("p");
+  infoAltText.className = "lightbox-text lightbox-alt-text";
+  const infoAltByline = document.createElement("p");
+  infoAltByline.className = "lightbox-byline";
   // Dimensions, when it was added, the filename, the "other info about it"
   // half of the request. First, because it is the line that says *which*
   // picture this is; the readings below it are about what is in it.
@@ -5819,7 +6009,27 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   //: is also what makes "open the reader at *this* page" a meaningful offer.
   const infoPages = document.createElement("div");
   infoPages.className = "row lightbox-pages hidden";
-  info.append(infoFacts, infoPages, infoCaption, infoCaptionByline, infoText, infoByline);
+  info.append(
+    infoFacts,
+    infoPages,
+    infoCaption,
+    infoCaptionByline,
+    infoText,
+    infoByline,
+    infoAltText,
+    infoAltByline
+  );
+
+  //: Drawn from one place, because both `show()` and `renderInfo` paint this
+  //: panel and a second reading left behind by the previous picture is worse
+  //: than never showing one at all.
+  function renderAltReading(text, byline) {
+    const alt = (text || "").trim();
+    infoAltText.textContent = alt;
+    infoAltText.classList.toggle("hidden", !alt);
+    infoAltByline.textContent = alt ? byline || "" : "";
+    infoAltByline.classList.toggle("hidden", !alt || !byline);
+  }
   // Clicking the panel must not dismiss the dialog, someone selecting a line
   // of transcribed text to copy is the whole reason it is here.
   info.addEventListener("click", (e) => e.stopPropagation());
@@ -6553,9 +6763,13 @@ function openLightbox(items, startIndex = 0, opts = {}) {
       {
         label: "ph:text-aa Read text with AI",
         title: "Read the text in this image with a vision model",
+        //: The response carries both readings, so the panel is rebuilt from the
+        //: whole row rather than from the field this call happened to write:
+        //: re-reading with a model used to drop a Tesseract reading that was
+        //: still stored, and running Tesseract used to promote it over a vision
+        //: reading that is still the current one.
         run: run("read text", "Reading…", "/vision-ocr", (it, u) => {
-          it.text = (u.vision_ocr_text || "").trim();
-          it.byline = it.text ? `Text read by ${u.vision_ocr_model || "a model"}` : "";
+          Object.assign(it, lightboxReadingsFor(u));
         }),
       },
     ];
@@ -6581,8 +6795,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
         label: "ph:scan Read text (Tesseract OCR)",
         title: "Read the text in this image with Tesseract, a fast local tool, no AI model involved",
         run: run("read text", "Reading…", "/ocr", (it, u) => {
-          it.text = (u.ocr_text || "").trim();
-          it.byline = it.text ? "Text read with Tesseract OCR" : "";
+          Object.assign(it, lightboxReadingsFor(u));
         }),
       });
     }
@@ -7171,6 +7384,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     infoText.classList.toggle("hidden", !text);
     infoByline.textContent = item.byline || "";
     infoByline.classList.toggle("hidden", !item.byline);
+    renderAltReading(item.altText, item.altByline);
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     // The picture's own facts, which the app knew and never showed. Asked
     // for: "maybe it can have the image information and other info about it
@@ -7243,15 +7457,18 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     // The picture may have been paged away from while this was in flight.
     if (forIndex !== index) return;
 
+    const readings = lightboxReadingsFor(row);
     if (!item.caption && row.caption) item.caption = row.caption;
-    if (!item.text) item.text = (row.vision_ocr_text || row.ocr_text || "").trim();
+    if (!item.text) item.text = readings.text;
     if (!item.addedAt && row.created_at) item.addedAt = row.created_at;
-    if (!item.byline) {
-      item.byline = row.vision_ocr_text
-        ? `Text read by ${row.vision_ocr_model || "a model"}`
-        : row.ocr_text
-          ? "Text read with Tesseract OCR"
-          : "";
+    if (!item.byline) item.byline = readings.byline;
+    //: The alternate is filled whenever the row has one, rather than only when
+    //: the item arrived without it: a caller that passed a reading but knew
+    //: nothing of the second one (every caller with a bare url) would otherwise
+    //: keep the panel one reading short for the whole visit.
+    if (!item.altText) {
+      item.altText = readings.altText;
+      item.altByline = readings.altByline;
     }
     if (!item.captionByline) item.captionByline = captionBylineFor(row);
     // The gallery passes `original_name`; a bare url caller passes the
@@ -7304,6 +7521,11 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     infoText.classList.toggle("hidden", !text);
     infoByline.textContent = byline;
     infoByline.classList.toggle("hidden", !byline);
+    //: Not on a page of a document: `docPageRows` holds one reading per page
+    //: (`PageRead`), so there is no second reader to footnote there, and the
+    //: file-level alternate would be a claim about the whole PDF sitting under
+    //: page 4's own text.
+    renderAltReading(perPage ? "" : item.altText, item.altByline);
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     meta.textContent =
       items.length > 1
@@ -7525,8 +7747,14 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
 // Uses `pickEntryDialog` below rather than the chat dock's `#note-picker-panel`
 //, that one is a multi-select bound to the chat composer, not a general
 // chooser, and reusing it would mean it had two owners.
-async function appendSelectionToNote(text) {
-  const entry = await pickEntryDialog("Add the selected text to which note?");
+//: `jump` is for the one caller that is not a selection: the writing desk's
+//: "Insert into a note". `flashEntry` is the app's answer to "where did it
+//: go", and it is the right answer for the selection popup, which has nothing
+//: left behind it. From the desk it walks off a half-written draft and its
+//: thoughts to show a note that is already saved, so that caller takes the
+//: same trip as an offer instead (`toastAction`), and stays where it is.
+async function appendSelectionToNote(text, { jump = true, message = null, what = "the selected text" } = {}) {
+  const entry = await pickEntryDialog(message || "Add the selected text to which note?");
   if (!entry) return;
   const before = entry.content;
   const after = `${before.trimEnd()}\n\n${text}`;
@@ -7536,12 +7764,45 @@ async function appendSelectionToNote(text) {
       body: JSON.stringify({ content: after }),
     });
     pushEntryPutUndo(entry.id, "Added text to a note", { content: before }, { content: after });
-    toast("Added to the note.");
     await loadEntries();
-    flashEntry(entry.id);
+    if (jump) {
+      toast("Added to the note.");
+      flashEntry(entry.id);
+    } else {
+      toastAction("Added to the note.", "Open it", () => flashEntry(entry.id));
+    }
   } catch (error) {
-    toast(error.message || "Couldn't add that to the note.", true);
+    toast(error.message || `Couldn't add ${what} to the note.`, true);
   }
+}
+
+//: **The board's own way into a note** (INBOX 309). The second of the two
+//: doorways the owner asked for, and the one that starts where the thought
+//: does: you are looking at the board, and it belongs with something you
+//: wrote.
+//:
+//: Deliberately `appendSelectionToNote` rather than a second write path. That
+//: function already picks the note, appends, records the undo
+//: (`pushEntryPutUndo`) and reloads the list; a board-shaped copy of it would
+//: be a second place for "add text to a note" to get its undo wrong.
+//:
+//: The index is invalidated before the note is drawn again, because the board
+//: may have been made in the last eight seconds: see `loadMapBoardIndex`'s
+//: `force`. Without it the note would paint the board's own object as a
+//: tombstone the moment it was added, which is the worst possible first
+//: impression of this feature.
+async function addBoardToNote(board) {
+  if (!board || board.id == null) {
+    toast("The default board has no name to put in a note. Make a board first.");
+    return;
+  }
+  const isMap = board.type !== "board";
+  await appendSelectionToNote(boardEmbedMarkdown(board), {
+    jump: false,
+    what: isMap ? "that map" : "that board",
+    message: `Add \u201c${board.title || (isMap ? "this map" : "this board")}\u201d to which note?`,
+  });
+  if (typeof loadMapBoardIndex === "function") loadMapBoardIndex(true);
 }
 
 // A one-off "choose a note" dialog: search box, live list, Escape to cancel.
@@ -7646,11 +7907,33 @@ function pickEntryDialog(message) {
 //: / link, `MAP_REFERENCE_KINDS` in routes_whiteboard.py: rather than a
 //: display word, so a caller never has to translate between what the picker
 //: says and what the endpoint accepts.
+//: **`optIn` keeps a source out of the default set.** A board is a thing the
+//: Library holds and a perfectly good thing to point at from a note (INBOX
+//: 309), but this dialog's first caller feeds a map's reference node, and
+//: `MAP_REFERENCE_KINDS` in routes_whiteboard.py is note / document / file /
+//: link: a board offered there would be a row that cannot be saved. So the
+//: board source exists, and only a caller that names it in `sources` is
+//: shown it.
 const LIBRARY_PICK_SOURCES = [
   { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…" },
   { kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents", placeholder: "Search your documents…" },
   { kind: "file", label: "Files", icon: "ph:paperclip", path: "/files/gallery", placeholder: "Search your files…" },
   { kind: "link", label: "Links", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your links…" },
+  {
+    kind: "board",
+    label: "Boards and maps",
+    //: Per row, not per source: a whiteboard and a mind map sit in one list
+    //: here, and the owner has already reported once that a list of bare
+    //: titles gives no way to tell them apart.
+    icon: (row) => (row?.type === "board" ? "ph:squares-four" : "ph:tree-structure"),
+    path: "/whiteboard/boards",
+    placeholder: "Search your boards and maps…",
+    //: The unnamed scratch board (`id: null`) is left out, the same rule
+    //: `renderAttachToBoard` states: it is where things land when nobody
+    //: chose a board, not somewhere to point at on purpose.
+    keep: (row) => row && row.id != null,
+    optIn: true,
+  },
 ];
 
 //: One row's label per source, in one table for the reason `notePickerShape`
@@ -7658,6 +7941,7 @@ const LIBRARY_PICK_SOURCES = [
 //: copies of it is how the four drift apart.
 function libraryPickLabel(kind, row) {
   if (kind === "note") return noteLabel(row, 70);
+  if (kind === "board") return row.title || (row.type === "board" ? "Untitled board" : "Untitled map");
   if (kind === "document") return row.title || "Untitled document";
   if (kind === "file") return row.original_name || row.filename || "File";
   return row.title || row.url || "Link";
@@ -7668,8 +7952,8 @@ function libraryPickLabel(kind, row) {
 //: for the same reason: three of these lists are never looked at by someone
 //: who came to point at a note.
 function pickLibraryItemDialog(message, { sources = null } = {}) {
-  const available = LIBRARY_PICK_SOURCES.filter(
-    (source) => !sources || sources.includes(source.kind)
+  const available = LIBRARY_PICK_SOURCES.filter((source) =>
+    sources ? sources.includes(source.kind) : !source.optIn
   );
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -7732,7 +8016,8 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
       if (cache[kind]) return cache[kind];
       const source = available.find((s) => s.kind === kind);
       const rows = await apiJson(source.path, { silent: true }).catch(() => []);
-      cache[kind] = Array.isArray(rows) ? rows : rows.documents || [];
+      const list = Array.isArray(rows) ? rows : rows.documents || [];
+      cache[kind] = source.keep ? list.filter(source.keep) : list;
       return cache[kind];
     };
 
@@ -7762,9 +8047,14 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "entry-pick-row";
-        setLabel(button, `${active.icon} ${label}`);
+        setLabel(button, `${typeof active.icon === "function" ? active.icon(row) : active.icon} ${label}`);
         button.title = label;
-        button.addEventListener("click", () => close({ kind, id: row.id, label }));
+        //: The row itself travels with the choice. A caller that only needs
+        //: an id is unchanged (it destructures the three it always did), and
+        //: a caller that needs a fact the row already carries, whether a
+        //: board is a map, gets it without a second fetch for a list it has
+        //: just read.
+        button.addEventListener("click", () => close({ kind, id: row.id, label, row }));
         list.appendChild(button);
       }
     };
@@ -8618,6 +8908,60 @@ async function toggleFaded(entry) {
   card.appendChild(row);
 }
 
+//: **This note's reminders, under the card** (INBOX 309). The other half of
+//: the chip above.
+//:
+//: The same shape as `toggleReferences` and `toggleFaded` below, down to the
+//: shared `notePanel` state, because it answers a neighbouring question about
+//: the same note in the same place: a second way of drawing a row under a
+//: note is a second thing to keep consistent for no gain.
+//:
+//: Live reminders only, which is what the chip counted. A reminder ticked off
+//: last month is not something this note still wants from you, and the
+//: Reminders tab is where a finished one is still readable.
+async function toggleNoteReminders(entry) {
+  if (!toggleNotePanel(entry, "reminders")) return;
+  const answer = await apiJson(
+    `/reminders?entry_id=${entry.id}&include_done=false&limit=20`,
+    { silent: true }
+  ).catch(() => null);
+  const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
+  if (!card || !notePanelStillOpen(entry, "reminders")) return;
+  const row = document.createElement("div");
+  row.className = "entry-links";
+  const label = document.createElement("span");
+  label.className = "muted";
+  const items = Array.isArray(answer) ? answer : [];
+  //: Three states, not two, the rule the two panels beside this one already
+  //: follow: "nothing is due from this note" and "we could not ask" are
+  //: different facts.
+  label.textContent = !answer
+    ? "Couldn't read this note's reminders."
+    : items.length
+      ? "Reminds you to:"
+      : "Nothing is due from this note.";
+  row.appendChild(label);
+  for (const item of items) {
+    const wrap = document.createElement("span");
+    wrap.className = "entry-related-row";
+    const due = relativeWhen(item.due_at);
+    //: `flashReminder` rather than a jump of this panel's own: a
+    //: reminder has one home, it loads the tab's list, clears the filter
+    //: that would hide it and highlights the row. A second way in here
+    //: would be a fifth place a reminder can be read.
+    const alarm = chip("", "link", () => flashReminder(item.id));
+    setLabel(alarm, `ph:alarm ${item.text}`);
+    alarm.title = `Due ${due}. Press to open it in Reminders`;
+    wrap.appendChild(alarm);
+    const when = document.createElement("span");
+    when.className = "muted entry-reference-how";
+    when.textContent = due;
+    wrap.appendChild(when);
+    row.appendChild(wrap);
+  }
+  card.appendChild(row);
+}
+
 async function toggleReferences(entry) {
   if (!toggleNotePanel(entry, "references")) return;
   const answer = await apiJson(`/entries/${entry.id}/references`).catch(() => null);
@@ -9066,8 +9410,11 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
       label.textContent = "References: ";
       panel.appendChild(label);
       for (const bookmark of attached) {
+        // safeHref(): same scheme guard as library.js's bookmark rows
+        // (INBOX 310), so an already-stored bad-scheme bookmark can't reach
+        // window.open() from this chip either.
         const bmChip = chip(`ph:link ${bookmark.title || bookmark.url}`, "link", () =>
-          window.open(bookmark.url, "_blank", "noopener,noreferrer")
+          window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer")
         );
         bmChip.title = bookmark.url;
         const detach = document.createElement("span");
@@ -10076,7 +10423,68 @@ function wikiStem(entry) {
   return entry._wikiStem;
 }
 
+//: **A board or a map named by its id**, the form the "/" menu and the
+//: board's own "Add to a note" write: `board:12|House jobs`, or `map:12|The
+//: house`.
+//:
+//: Why an id rather than the title every other `[[link]]` uses (INBOX 309,
+//: the owner: "there is also no way to attach a whiteboard or mindmap to a
+//: note as like an object in the notes"). A title-addressed object breaks the
+//: moment the board is renamed, and it breaks *silently*: a renamed board and
+//: a deleted one look identical to the resolver, so the note either points at
+//: nothing or tombstones a board that is still there. A board is an `Entry`,
+//: so its id is stable, and renaming it now leaves every note that carries it
+//: pointing at the same board.
+//:
+//: **The title travels with the id anyway**, for two reasons that are not
+//: decoration. It is what a tombstone says when the board really is gone
+//: ("Old plan" beats "board 12"), and it is what the backend's own reference
+//: scan matches on: `_reference_rows` in routes_entries.py finds a board's
+//: references with a LIKE over note content for the board's label, so a note
+//: carrying the title still counts towards the card's "on 1 board" chip with
+//: no backend change at all.
+//:
+//: `whiteboard` and `mindmap` are accepted as spellings of the same two
+//: things because somebody typing this by hand will write one of them.
+const BOARD_REF_PATTERN = /^\s*(board|whiteboard|map|mindmap)\s*:\s*(\d{1,9})\s*(?:\|\s*([^|]*))?$/i;
+
+function boardEmbedRef(name) {
+  const match = BOARD_REF_PATTERN.exec(String(name || ""));
+  if (!match) return null;
+  return {
+    id: Number(match[2]),
+    title: (match[3] || "").trim(),
+    //: What the writer *said* it was, used only until the board itself is
+    //: found: the board's own `type` is the truth, and a map turned into a
+    //: whiteboard after the note was written should draw as a whiteboard.
+    map: /map/i.test(match[1]),
+  };
+}
+
+//: The board a reference points at, or null when it is really gone.
+//:
+//: Two lookups, in this order. The id is exact and is what the writer meant.
+//: The title is the fallback for the one case an id cannot survive: a board
+//: exported and imported again, or restored from a backup, keeps its name and
+//: takes a new id. Trying it before calling anything missing is the difference
+//: between a tombstone that is right and one that is merely early.
+function boardEmbedTarget(ref) {
+  if (!ref || !ref.id) return null;
+  const byId = typeof mapBoardById === "function" ? mapBoardById(ref.id) : null;
+  if (byId) return byId;
+  if (!ref.title || typeof mapBoardTitled !== "function") return null;
+  return mapBoardTitled(ref.title.toLowerCase());
+}
+
 function resolveWikiTarget(name) {
+  //: An id-addressed board is answered before anything is lower-cased or
+  //: scanned: it names exactly one thing, and the notes-then-documents walk
+  //: below could only ever find something else called "board:12".
+  const ref = boardEmbedRef(name);
+  if (ref) {
+    const board = boardEmbedTarget(ref);
+    return board ? { kind: "board", entry: board } : null;
+  }
   const needle = String(name || "").trim().toLowerCase();
   if (!needle) return null;
   const entries = typeof allEntries !== "undefined" ? allEntries : [];
@@ -10696,6 +11104,7 @@ $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
 $("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
 
 function renderEntries() {
+  closeNotePageIfGone();
   // A cleared box clears its reasons here rather than at each of the five
   // places that can clear the box: a reason for a query nobody typed is
   // worse than no reason at all.
@@ -10759,7 +11168,12 @@ function renderEntries() {
       list,
       paginateNotesForDisplay(sortEntries(visible)),
       (entry) => entryItem(entry, { actions: true }),
-      { afterChunk: () => applyEntryListTabOrder(list) }
+      {
+        afterChunk: () => {
+          applyEntryListTabOrder(list);
+          ensureCardCounts(list, _entriesLoadGeneration);
+        },
+      }
     );
     return;
   }
@@ -10809,6 +11223,7 @@ function renderEntries() {
     {
       afterChunk: () => {
         applyEntryListTabOrder(list);
+        ensureCardCounts(list, _entriesLoadGeneration);
         // After the list is in the DOM: drop the clamp from any note that
         // turned out to fit. No-op while the sub-tab is hidden;
         // showNotesSection re-runs it.
@@ -11120,6 +11535,8 @@ async function loadEntries() {
 
 async function _loadEntries() {
   const generation = ++_entriesLoadGeneration;
+  referenceCountsCache.clear();
+  reminderCountsCache.clear();
   showEntrySkeletons();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
@@ -11216,6 +11633,163 @@ async function _loadEntries() {
 //: chips stayed plain text until something else redrew the list. Guarded on
 //: the load generation, because a newer `loadEntries` may have taken over
 //: while this was in flight and its list is the one on screen.
+//: **"In 2 documents · on 1 board · linked by 3 notes", on the card.**
+//: INBOX 246's third gap: a card showed nothing until Connections was opened,
+//: so a note on two boards and in three documents looked exactly like a
+//: note nothing had ever touched. One muted chip on the card, opening
+//: Connections, from one batched call per page (`/entries/reference-counts
+//: ?ids=`): fifty cards asking `/references` each would be fifty scans per
+//: render. Cleared with every reload (`_loadEntries`), which is also what
+//: both attach panels call after a write, so a fresh attachment shows on
+//: the next paint without a second cache to keep honest.
+const referenceCountsCache = new Map();
+const _referenceCountsInFlight = new Set();
+const REFERENCE_COUNTS_BATCH = 60; // `REFERENCE_COUNT_IDS_MAX` in routes_entries.py
+const REFERENCE_COUNT_PHRASES = [
+  ["document", "in", "document", "documents"],
+  ["board", "on", "board", "boards"],
+  ["map", "on", "map", "maps"],
+  ["note", "linked by", "note", "notes"],
+];
+
+function referenceCountText(counts) {
+  const parts = [];
+  for (const [kind, verb, one, many] of REFERENCE_COUNT_PHRASES) {
+    const n = counts[kind] || 0;
+    if (n) parts.push(`${verb} ${n} ${n === 1 ? one : many}`);
+  }
+  if (!parts.length) return "";
+  // Read out loud as one line, sentence case on the first word only.
+  const line = parts.join(" · ");
+  return line[0].toUpperCase() + line.slice(1);
+}
+
+function referenceCountChip(entry, options = {}) {
+  //: `facts` as well as `actions` (INBOX 297): what a note is joined to is
+  //: true of the note wherever it is drawn, and this chip is DESIGN.md's
+  //: "a fact on a facts line that is also the way in" rather than an action.
+  if ((!options.actions && !options.facts) || entry.is_board || entry.is_draft) return null;
+  const counts = referenceCountsCache.get(entry.id);
+  if (!counts || !counts.total) return null;
+  const refChip = chip(`ph:graph ${referenceCountText(counts)}`, "refs", (event) => {
+    event.stopPropagation();
+    openConnections(
+      "entries",
+      entry.id,
+      entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80)
+    );
+  });
+  refChip.title = "Everything this note is joined to. Open Connections";
+  return refChip;
+}
+
+//: Called from the list's `afterChunk`, so it sees exactly the cards that
+//: are in the DOM and asks for the ones the cache has not met. Cards are
+//: patched in place rather than re-rendered: a re-render mid-chunking would
+//: restart the incremental renderer that called this.
+//: **What this note made you promise to do** (INBOX 309, the owner: "or to
+//: link reminders to notes").
+//:
+//: The link itself was never missing: `Reminder.entry_id` has existed since
+//: reminders did, the note card's own "Remind me" passes it, and the
+//: `set_reminder` tool takes a `note_id`. One end of it was drawn and the
+//: other was not: a reminder says which note it came from, and a note that
+//: caused three reminders looked exactly like a note that caused none. So
+//: this is the same answer INBOX 246 gave for boards and documents: one
+//: muted chip on the card, from one batched count per page.
+//:
+//: **A chip on the facts line, not a section under the note.** The card is
+//: already a title, a body and one line of facts about it, and a second
+//: block under every note with a reminder would push the next note off the
+//: screen for a fact that is usually one word long. It presses open the same
+//: `.entry-links` row "Referenced by" and "Similar notes" use, which is also
+//: what keeps it to one open panel per card.
+const reminderCountsCache = new Map();
+const _reminderCountsInFlight = new Set();
+
+function reminderCountChip(entry, options = {}) {
+  if ((!options.actions && !options.facts) || entry.is_board || entry.is_draft) return null;
+  const count = reminderCountsCache.get(entry.id) || 0;
+  if (!count) return null;
+  const alarm = chip(`ph:alarm ${count} reminder${count === 1 ? "" : "s"}`, "reminders", (event) => {
+    event.stopPropagation();
+    toggleNoteReminders(entry);
+  });
+  alarm.title = "What this note made you promise to do. Press to see them";
+  return alarm;
+}
+
+//: **The two count strips a card carries, as data.**
+//:
+//: They are the same mechanism twice over: read the ids on screen, ask once
+//: for all of them, patch the chip onto the cards that are still there. The
+//: reference counts had it first and the reminders would have been a second
+//: copy of it, which is how the two would come to disagree about batching,
+//: about a note deleted mid-flight, or about which generation of the list
+//: they belong to. One walker, one table of what differs.
+const CARD_COUNT_SOURCES = [
+  {
+    cache: referenceCountsCache,
+    inFlight: _referenceCountsInFlight,
+    path: (ids) => `/entries/reference-counts?ids=${ids}`,
+    marker: ".chip.refs",
+    //: A note the server did not answer for (deleted under us) is recorded
+    //: as empty, not left unknown, or it would be asked for again on every
+    //: chunk.
+    empty: { total: 0 },
+    chip: (entry) => referenceCountChip(entry, { actions: true }),
+  },
+  {
+    cache: reminderCountsCache,
+    inFlight: _reminderCountsInFlight,
+    path: (ids) => `/reminders/counts?ids=${ids}`,
+    marker: ".chip.reminders",
+    empty: 0,
+    chip: (entry) => reminderCountChip(entry, { actions: true }),
+  },
+];
+
+function ensureCardCounts(list, generation) {
+  for (const source of CARD_COUNT_SOURCES) ensureOneCardCount(list, generation, source);
+}
+
+function ensureOneCardCount(list, generation, source) {
+  const wanted = [];
+  for (const li of list.querySelectorAll("li[data-id]")) {
+    const id = Number(li.dataset.id);
+    if (!id || source.cache.has(id) || source.inFlight.has(id)) continue;
+    wanted.push(id);
+    if (wanted.length >= REFERENCE_COUNTS_BATCH) break;
+  }
+  if (!wanted.length) return;
+  for (const id of wanted) source.inFlight.add(id);
+  apiJson(source.path(wanted.join(",")), { silent: true })
+    .then((answer) => {
+      if (generation !== _entriesLoadGeneration) return;
+      const counts = (answer && answer.counts) || {};
+      for (const id of wanted) {
+        const given = counts[String(id)];
+        source.cache.set(id, given === undefined || given === null ? source.empty : given);
+      }
+      for (const id of wanted) {
+        const li = list.querySelector(`li[data-id="${id}"]`);
+        const meta = li && li.querySelector(":scope > .entry-meta");
+        if (!meta || meta.querySelector(source.marker)) continue;
+        const entry = allEntries.find((e) => e.id === id);
+        const built = entry && source.chip(entry);
+        if (built) meta.insertBefore(built, meta.querySelector(".entry-meta-end"));
+      }
+      // The page may hold more than one batch; the next call finds the rest.
+      if (list.querySelectorAll("li[data-id]").length > wanted.length) {
+        ensureOneCardCount(list, generation, source);
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      for (const id of wanted) source.inFlight.delete(id);
+    });
+}
+
 function ensureMapChipsFor(page, generation) {
   if (mapBoardIndexCache) return; // one index per session, as it always was
   if (!page.some((entry) => String(entry.content || "").includes("[["))) return;
@@ -11605,7 +12179,11 @@ async function renderAttachToDocument(entry, wrap) {
   // does not exist until the note makes you realise you want it.
   const fresh = document.createElement("option");
   fresh.value = NEW_DOCUMENT;
-  fresh.textContent = "＋ New document…";
+  //: No mark at all, and that is the only honest answer here: an `<option>`
+  //: may hold text and nothing else, so it cannot carry one of the app's
+  //: icons, and a typed one beside a menu of Phosphor is the mismatch this
+  //: rule exists to stop. The ellipsis already says "this opens something".
+  fresh.textContent = "New document…";
   picker.appendChild(fresh);
 
   const row = document.createElement("div");
@@ -11728,7 +12306,7 @@ function renderCaptureTagSuggestions(tags) {
   label.textContent = "Suggested tags:";
   row.appendChild(label);
   for (const tag of tags) {
-    const tagChip = chip(`＋ ${tag}`, "tag", () => {
+    const tagChip = chip(`ph:plus ${tag}`, "tag", () => {
       const box = $("entry-tags");
       const have = box.value.split(",").map((t) => t.trim()).filter(Boolean);
       if (!have.includes(tag)) box.value = [...have, tag].join(", ");
@@ -12101,8 +12679,19 @@ function flashCategory(name) {
 }
 
 // A raw search result the user can click to open the note (Wave C).
+//: `facts: true`, not `actions: true`. Reported as INBOX 297, "make sure all
+//: the badges show", and measured rather than guessed: the same note drew
+//: five chips in Browse and two here, because this call passed **no options
+//: at all** and every chip in `entryItem` that is gated on `options.actions`
+//: is gated on the row being one you can act on. Two of the three missing
+//: ones deserve that gate ("Tag with Atlas" starts a model call, and the
+//: "No tags yet" flag opens the edit form in a list that is not on screen);
+//: the third, the reference count, is a plain fact about the note that
+//: happened to be behind the same flag. So a second option, meaning "this
+//: row is read-only, draw the facts anyway", rather than turning the actions
+//: on and getting an edit button in a search result.
 function clickableResult(entry) {
-  const li = entryItem(entry);
+  const li = entryItem(entry, { facts: true });
   li.classList.add("clickable-result");
   li.title = "Open this note in the Notes tab";
   li.addEventListener("click", () => flashEntry(entry.id));
@@ -12244,6 +12833,12 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
       queue.unshift(node);
       const marker = document.createElement("sup");
       marker.className = "answer-citation";
+      //: Which note this digit stands for, on the element itself. The number
+      //: was the only thing on screen tying a mark to a source, so nothing
+      //: outside this function could check that the mark and the record row
+      //: it points at agree (INBOX 299), and `showCitedPassage` already reads
+      //: exactly this attribute off a source card.
+      marker.dataset.noteId = String(g.note_id);
       const link = document.createElement("button");
       link.type = "button";
       link.className = "answer-citation-link";
@@ -12291,7 +12886,17 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
 //: the one thing this adds only with a mouse.
 function showCitedPassage(noteId, passage) {
   clearCitedPassage();
-  for (const card of document.querySelectorAll(`.chat-source-card[data-note-id="${noteId}"]`)) {
+  //: **Both places a cited note can be drawn.** The Chat tab holds its
+  //: sources as cards under the answer; the Ask tab holds its notes in the
+  //: Matching records column beside it and draws no cards for them (INBOX
+  //: 274). A mark that only knew about the cards did nothing at all on Ask
+  //: once the cards went, which is a feature quietly lost rather than a
+  //: duplicate removed.
+  const cards = [
+    ...document.querySelectorAll(`.chat-source-card[data-note-id="${noteId}"]`),
+    ...document.querySelectorAll(`#raw-results li[data-id="${noteId}"]`),
+  ];
+  for (const card of cards) {
     //: A closed disclosure cannot show anything, and the mark is the reader
     //: asking to see this source: opened, and left open, because closing it
     //: again the moment the pointer moves would be the panel flickering at
@@ -12312,9 +12917,7 @@ function showCitedPassage(noteId, passage) {
 
 function clearCitedPassage() {
   for (const box of document.querySelectorAll(".chat-source-passage")) box.remove();
-  for (const card of document.querySelectorAll(".chat-source-card.is-cited")) {
-    card.classList.remove("is-cited");
-  }
+  for (const card of document.querySelectorAll(".is-cited")) card.classList.remove("is-cited");
 }
 
 // The "nothing in your notes, but…" row. Sent only on the empty path (see
@@ -12355,6 +12958,41 @@ function renderRelatedElsewhere(target, items) {
   target.appendChild(row);
 }
 
+//: The citation number, printed on the record it belongs to (INBOX 299).
+//:
+//: Guarded on the Ask tab's own grounding holder: the Chat tab calls
+//: `renderAnswerGrounding` with a bubble's holder and has no records column,
+//: so without this a chat turn would renumber a column left over from the
+//: last question asked on the other tab.
+//:
+//: `.chat-source-index` rather than a mark of its own: the Sources panel
+//: already draws "this is source n" that way, and one treatment learnt once
+//: is the whole point of the recipe index. An uncited row gets no number
+//: rather than a placeholder, because a digit that matches nothing in the
+//: answer is worse than a row with none.
+function numberMatchingRecords(target, numberFor) {
+  if (!target || target.id !== "ai-answer-grounding") return;
+  const list = $("raw-results");
+  if (!list) return;
+  for (const li of list.querySelectorAll("li[data-id]")) {
+    li.querySelector(":scope > .record-index")?.remove();
+    const n = numberFor.get(Number(li.dataset.id)) ?? numberFor.get(li.dataset.id);
+    if (!n) {
+      li.classList.remove("is-numbered");
+      continue;
+    }
+    const mark = document.createElement("span");
+    mark.className = "chat-source-index record-index";
+    mark.textContent = String(n);
+    //: Said aloud as well as shown: a screen reader reading "3" against a
+    //: note has no way to know what the digit is counting.
+    mark.setAttribute("aria-label", `Source ${n} in the answer`);
+    mark.title = `The answer cites this note as ${n}`;
+    li.classList.add("is-numbered");
+    li.insertBefore(mark, li.firstChild);
+  }
+}
+
 //: `question`, when the caller knows it, is what turns a click into a
 //: correction: opening the third source after asking something is the one
 //: signal the search has that its own order was wrong (WORLD_CLASS_PLAN I7,
@@ -12362,10 +13000,74 @@ function renderRelatedElsewhere(target, items) {
 //: corrections since Brief 23 while nothing in the browser wrote one). Left
 //: optional because the third caller rebuilds an old chat from storage, and
 //: a click on a source from last week is not evidence about today's ranking.
+//: How much of an answer the notebook actually backed, said out loud.
+//:
+//: CHAT_PLAN Phase 1's fourth gate line, and Brief 12's decision: under half
+//: the sentences supported, the app says so. The marks have always shown
+//: *which* sentences came from notes; nothing showed how many, so an answer
+//: with one cited sentence in six read, at a glance, exactly like one with six
+//: in six. That is the one thing a notebook that cites must not get wrong.
+//:
+//: **The threshold is the backend's, not this file's** (`grounding.support`,
+//: which sends `low` beside the numbers). Two places each choosing when an
+//: answer counts as thin is two places to disagree, and the copy here would
+//: then be describing a different answer from the one the marks describe.
+//:
+//: Placed above the answer rather than beside the chips below it: the chips
+//: are a key to marks somebody has already read, and this is a thing to know
+//: before reading. `.notice`, the app's recipe for exactly that
+//: (08-consistency.css), in its `notice-warn` tone, which is an edge and not a
+//: fill: a filled warning band would read as a failed answer, and it is not a
+//: failed answer, it is an answer with less behind it than usual.
+function renderAnswerSupport(answerEl, support) {
+  //: Every prose block of the turn may be passed (a skill run has one per
+  //: step); the notice belongs above the first.
+  const first = answerEl && answerEl.length ? answerEl[0] : answerEl;
+  if (!first || !first.parentElement) return;
+  const existing = first.parentElement.querySelector(":scope > .answer-support");
+  if (existing) existing.remove();
+  if (!support || !support.low) return;
+  const line = document.createElement("p");
+  line.className = "notice notice-warn answer-support";
+  line.setAttribute("role", "note");
+  const { supported = 0, sentences = 0 } = support;
+  setLabel(
+    line,
+    `ph:warning Only ${supported} of ${sentences} sentences here ` +
+      `${supported === 1 ? "comes" : "come"} from your notes. ` +
+      "The rest is the model's own writing, treat it as a draft."
+  );
+  first.parentElement.insertBefore(line, first);
+}
+
+//: INBOX 272 part 1, "every failure names its way out": the same
+//: `.notice.notice-warn` recipe as `renderAnswerSupport` above, plus the one
+//: control that fixes it, right under the turn that hit it rather than a
+//: sentence pointing at a different screen. Only the Chat tab's Agent mode
+//: can produce this event (the Ask box always sends `useTools: false`), so
+//: this has one caller.
+function renderToolsUnsupportedNotice(container, event) {
+  if (!container || !event) return;
+  const line = document.createElement("p");
+  line.className = "notice notice-warn tools-unsupported-notice";
+  line.setAttribute("role", "note");
+  setLabel(line, `ph:warning ${event.message || "This model can't call tools."}`);
+  const row = document.createElement("div");
+  row.className = "row tools-unsupported-fix-row";
+  row.appendChild(
+    smallButton("ph:gear Change the model", "Open Settings, Models", () => {
+      openSettingsModal("models", "chat-model-select");
+    })
+  );
+  container.append(line, row);
+}
+
 function renderAnswerGrounding(
-  target, sentences, rawResults, answerEl = null, question = "", orderedSources = null
+  target, sentences, rawResults, answerEl = null, question = "", orderedSources = null,
+  support = null
 ) {
   if (!target) return;
+  renderAnswerSupport(answerEl, support);
   // The markers go in the answer itself; the chip row below is their key.
   // Both are built from the same `sentences` and the same numbering
   // (`citationNumbers`), so they cannot disagree about which note is number 2,
@@ -12389,6 +13091,18 @@ function renderAnswerGrounding(
   label.textContent = "Grounded in:";
   target.appendChild(label);
   const numberFor = citationNumbers(sentences, orderedSources);
+  //: **And the third place a digit is printed: the records column itself**
+  //: (INBOX 299, the owner: "can the notes in the matching records that
+  //: appear in the ask tab be numbered accordingly to match the inline
+  //: referencing??"). Measured before this: five records on screen, five
+  //: marks in the prose, and nought numbers in the column, so the two lists
+  //: could only be read against each other by matching the words.
+  //:
+  //: From `numberFor`, here, rather than by numbering the column separately:
+  //: that map is already what the markers, the chips and the Sources panel
+  //: print, and a fourth loop deriving "the same" order is exactly how the
+  //: first three came to disagree (see `citationNumbers`' own comment).
+  numberMatchingRecords(target, numberFor);
   //: Drawn in the order the digits run, not in the order the sentences
   //: happened to arrive: a key whose rows read 2, 1, 3 is a key you have to
   //: search rather than read.
@@ -12516,8 +13230,37 @@ function renderAskAnswerFoot(object, meta) {
 
   const sources = $("ask-answer-sources");
   sources.replaceChildren();
-  const panel = object.sources.length
-    ? chatSourcesPanel({ sources: object.sources, meta })
+  //: **The notes are on the right, so they are not also under the answer.**
+  //: The owner, 2026-09-20, with a screenshot: "having the notes appear as
+  //: sources below the ai response in the notes tab ask subtab is
+  //: uncnecessary when they are shown already on the right next to the ai
+  //: response". Measured on that screen: five numbered source cards under the
+  //: answer and the same five notes, same ids, same order, as rows in
+  //: Matching records beside it. The whole point of the two-column Ask layout
+  //: is that the records are already in view; a second copy of them is the
+  //: column's own content pushed down the page by a picture of itself.
+  //:
+  //: The Chat tab keeps its panel, and that is not an inconsistency: Chat has
+  //: no column beside it, so the panel is the only place its sources can be.
+  //: This is the same components arranged for a layout that already shows
+  //: them.
+  const onRight = askNotesOnTheRight();
+  const here = object.sources.filter(
+    (source) => source.kind === "note" && source.id != null && onRight.has(String(source.id))
+  );
+  //: Anything the column does not hold still needs somewhere to be: a file, a
+  //: web result or a document is a source of this answer and Matching records
+  //: is notes. Those keep the panel, and keep their own numbers, so a citation
+  //: marker in the answer still points at the row it names.
+  const elsewhere = object.sources.filter((source) => !here.includes(source));
+  //: **No control for the notes the column is already showing** (the owner,
+  //: 2026-09-21: "remove the show x notes used button in the ask subtab as
+  //: well, it isnt needed"). It counted them and scrolled to the first one
+  //: cited, which is a second door to a list that is already on screen beside
+  //: the answer and carries the answer's own numbers on its rows. A control
+  //: that leads to what you can already see is furniture.
+  const panel = elsewhere.length
+    ? chatSourcesPanel({ sources: elsewhere, meta, numberFrom: object.sources })
     : null;
   if (panel) sources.appendChild(panel);
   sources.classList.toggle("hidden", !panel);
@@ -12526,6 +13269,41 @@ function renderAskAnswerFoot(object, meta) {
     "hidden",
     !object.related.length && !panel && $("ask-followups").classList.contains("hidden")
   );
+}
+
+//: The note ids the Matching records column is showing right now, as strings
+//: because that is what `dataset` answers on both sides of the comparison.
+function askNotesOnTheRight() {
+  const rows = document.querySelectorAll("#raw-results li[data-id]");
+  return new Set([...rows].map((row) => row.dataset.id));
+}
+
+
+//: Into view through the nearest scrolling ancestor's own `scrollTop`, which
+//: is DESIGN.md's rule: `scrollIntoView` walks every scrolling ancestor up to
+//: the page, and the page moving is how a reader loses the answer they were
+//: reading while trying to look at what it was built from.
+function askRevealRecords(noteId = null) {
+  const list = $("raw-results");
+  if (!list) return;
+  //: The row the answer cites first, when there is one, and the column's own
+  //: top otherwise: a press that lands on source 1 answers "which notes?"
+  //: with the note rather than with the heading above it.
+  const row = noteId == null ? null : list.querySelector(`li[data-id="${noteId}"]`);
+  const half = row || list.closest(".chat-half") || list;
+  let node = half.parentElement;
+  while (node && node !== document.body) {
+    const style = getComputedStyle(node);
+    if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) {
+      //: Rects rather than `offsetTop`, which is measured against the nearest
+      //: *positioned* ancestor and not against the scroller.
+      node.scrollTop += half.getBoundingClientRect().top - node.getBoundingClientRect().top;
+      return;
+    }
+    node = node.parentElement;
+  }
+  const scroller = document.scrollingElement || document.documentElement;
+  scroller.scrollTop += half.getBoundingClientRect().top - 12;
 }
 
 //: **A follow-up is a question that keeps the answer above it** (decision 8:
@@ -12680,6 +13458,12 @@ function renderChatMeta(meta) {
     }
     rawList.appendChild(row);
   }
+  //: The reference count is a fact the card draws from a cache the *note
+  //: list* fills, so a result row rendered before that list has been opened
+  //: had nowhere to read it from and drew nothing. The same patch-in the
+  //: note list uses, pointed at this list: one implementation, and a second
+  //: one is how the two would come to disagree about what "linked by" counts.
+  ensureCardCounts(rawList, _entriesLoadGeneration);
   $("chat-results").classList.remove("hidden");
   $("ask-idle")?.classList.add("hidden");
 }
@@ -12783,7 +13567,9 @@ async function streamChat({
   onHint,
   onStats,
   onGrounding,
+  onAnswerFinal,
   onRelated,
+  onUnsupported,
 }) {
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
@@ -12956,10 +13742,20 @@ async function streamChat({
       // ROADMAP.md item 36: which retrieved note backs which sentence of a
       // direct-Q&A answer. Only ever sent for that path (routes_chat.py).
       else if (event.type === "grounding" && onGrounding) onGrounding(event);
+      //: The finished answer, sent only when the server trimmed a greeting or
+      //: a sign-off off it (routes_chat.py, `trim_assistant_padding`). The
+      //: stream has already drawn the untrimmed text, so this replaces it once
+      //: rather than filtering every delta, which would flicker.
+      else if (event.type === "answer_final" && onAnswerFinal) onAnswerFinal(event);
       // Sent only when a question found no notes at all, the notebook is
       // more than its notes, so the answer names what else mentions it
       // (routes_chat.py's `_related_elsewhere`).
       else if (event.type === "related" && onRelated) onRelated(event);
+      // INBOX 272 part 1: Agent mode was asked for and the model couldn't
+      // call tools, so it answered as a plain question instead. Silently
+      // dropped before this (routes_chat.py used to `pass` on it); now it
+      // carries the remedy in `message` and the caller shows it.
+      else if (event.type === "unsupported" && onUnsupported) onUnsupported(event);
       else if (event.type === "error") {
         // The server caught something mid-stream and said so. Surfacing it
         // beats the silent truncation this used to be.
@@ -13064,13 +13860,82 @@ function renderAskedQuestion(question) {
   holder.classList.remove("hidden");
 }
 
+//: **What the Ask tab shows while the model works** (INBOX 298, the owner:
+//: "there's no generating animation while the model is thinking and streaming
+//: in the ask tab either"). Measured before this: 250 of 250 frames with the
+//: answer actually streaming had nothing moving on them anywhere.
+//:
+//: Three separate holes, one shape. `#ask-status` was plain text, so the
+//: whole turn was a sentence sitting still. The typing dots went into the
+//: answer box and `onThinking` removes them on the first thinking delta, so
+//: a model that streams its reasoning (which is what the owner runs) loses
+//: the indicator before the answer even starts. And `.is-generating`, the
+//: app's one universal "this is the thing producing the output" ring, was
+//: added on the first *answer* token rather than when the work began.
+//:
+//: The Chat tab already solved all three and wrote down why (see
+//: `bubble.classList.add("is-generating")` and its comment): the ring goes on
+//: before the request and comes off in the `finally`, and a `progressLine`
+//: lives for the whole turn. So this is two existing components called from a
+//: surface that never called them, not a new control: DESIGN.md's recipe
+//: index has no room for a second way of saying "working".
+function askStatusText(text = "") {
+  const status = $("ask-status");
+  if (!status) return null;
+  status.replaceChildren();
+  status.textContent = text;
+  return status;
+}
+
+//: Returns the progress line itself, because the caller drives it: `setStatus`
+//: for the words and `setPhase("writing")` for the moment the dots become the
+//: writing trace. A fresh one per turn, since the component owns timers that
+//: stop themselves when it leaves the page.
+//: **The progress line belongs in the bubble it is filling** (the owner,
+//: 2026-09-21, with a screenshot: the dots, "The model is thinking..." and
+//: the rotating line were drawn above the AI ANSWER heading while the bubble
+//: underneath held a second set of dots and nothing else). `#ask-status` sits
+//: above the whole answer block, so a status put there describes the answer
+//: from outside it and reads as a message about the page. It goes into
+//: `#ai-answer`, where the text it is a placeholder for will appear, and the
+//: separate typing dots that used to fill the bubble are gone with it: one
+//: indicator, in the place the answer arrives.
+function askStatusBusy(text) {
+  const box = $("ai-answer");
+  if (!box) return null;
+  $("ask-status")?.classList.remove("error");
+  $("ask-status")?.replaceChildren();
+  box.replaceChildren();
+  const line = progressLine(text);
+  box.appendChild(line);
+  //: **And brought into view, because it is now further down the page than
+  //: the old one was.** `#ask-status` sat directly under the question box, so
+  //: it was always in sight; the answer bubble is below the asked question
+  //: and below the thinking disclosure, which expands as the model reasons and
+  //: pushes the bubble further down. Reported as "nothing happens except the
+  //: send button changing to stop": the indicator was there and off screen,
+  //: which is the same thing as not having one.
+  requestAnimationFrame(() => {
+    try {
+      line.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } catch {
+      //: An older engine without the options object still gets the default.
+      line.scrollIntoView();
+    }
+  });
+  return line;
+}
+
 async function askQuestion(preset) {
   const status = $("ask-status");
   const questionBox = $("question");
 
   const question = (preset ?? questionBox.value).trim();
   if (!question) {
-    status.textContent = "Type a question first!";
+    //: Sentence case and no exclamation mark: DESIGN.md's copy rule, and
+    //: `tests/test_no_em_dashes.py`'s neighbour rules exist because this one
+    //: kept coming back.
+    askStatusText("Type a question first.");
     status.classList.add("error");
     return;
   }
@@ -13082,18 +13947,20 @@ async function askQuestion(preset) {
   hide("retry-btn", "copy-btn", "speak-btn");
   setAsking(true);
   status.classList.remove("error");
-  status.textContent =
-    modelStatus && modelStatus.embedding_ready
-      ? "Searching your notes by meaning…"
-      : "Searching your notes…";
-
   // Reset the output areas for the new answer.
   const answerBox = $("ai-answer");
   const thinkingBox = $("thinking-box");
   const thinkingText = $("ai-thinking");
   renderAskedQuestion(question);
   answerBox.textContent = "";
-  answerBox.appendChild(typingDots()); // until the first token arrives
+  //: After the reset, not before it: the progress line lives inside the
+  //: answer box now, so creating it first would only have it wiped.
+  const progress = askStatusBusy(
+    modelStatus && modelStatus.embedding_ready
+      ? "Searching your notes by meaning…"
+      : "Searching your notes…"
+  );
+  const say = (text) => (progress ? progress.setStatus(text) : askStatusText(text));
   $("ai-answer-grounding").replaceChildren();
   $("ai-answer-grounding").classList.add("hidden");
   //: The whole foot goes with it, not only the grounding chips: a sources
@@ -13104,9 +13971,16 @@ async function askQuestion(preset) {
   thinkingBox.classList.add("hidden");
   thinkingBox.open = false;
 
+  //: **On before the request, off in the `finally`.** The ring marks the
+  //: thing producing the output for as long as it is being produced: added on
+  //: the first token instead, it says nothing during the wait that is the
+  //: part actually worth marking, which is the Chat tab's own recorded bug
+  //: one surface over.
+  answerBox.classList.add("is-generating");
   let answerRaw = "";
   let stopped = false;
   let groundingRawResults = []; // set by onMeta, read by onGrounding
+  let groundedSupport = null; // how much of the answer the notes backed
   //: Kept beyond the callback that receives them, because the answer element
   //: is rebuilt after the stream ends and the markers have to be put back.
   let groundedSentences = [];
@@ -13141,16 +14015,21 @@ async function askQuestion(preset) {
         renderChatMeta(meta);
         answerMeta = meta;
         groundingRawResults = meta.raw_results || [];
-        status.textContent = "The model is writing…";
+        say("Reading your notes…");
       },
       onThinking: (delta) => {
-        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
+        //: Only a stray placeholder, never the progress line itself: that is
+        //: the thing saying what is happening, and it stays until the first
+        //: answer token replaces it.
+        for (const stray of answerBox.querySelectorAll(".typing-dots, .typing-label")) {
+          if (!progress || !progress.contains(stray)) stray.remove();
+        }
         // Auto-expand while the model reasons (user request).
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true;
         thinkingText.textContent += delta;
         keepAtBottom(thinkingText); // follow the reasoning, unless scrolled away
-        status.textContent = "The model is thinking…";
+        say("The model is thinking…");
       },
       onAnswer: (delta) => {
         //: The first answer token is the moment "waiting" becomes "writing",
@@ -13164,14 +14043,18 @@ async function askQuestion(preset) {
         // before the request because the dots own the "nothing yet" state.
         answerBox.classList.add("is-streaming", "is-generating");
         renderLive(answerRaw); // markdown renders AS it streams (user request)
-        status.textContent = "The model is writing…";
+        //: The indicator changes shape with the stage, not only its words: a
+        //: three-dot "thinking" animation beside the sentence "the model is
+        //: writing" is the exact mismatch reported of the Chat tab.
+        progress?.setPhase("writing");
+        say("The model is writing…");
       },
       onHint: (event) => {
         // Not an answer, so it does not go through the markdown renderer or
         // into the conversation: it is the box explaining itself.
         hinted = true;
         renderAskHint(answerBox, event);
-        status.textContent = "";
+        askStatusText("");
       },
       //: Collected, not drawn: it is a field of the answer object and is
       //: rendered with the rest of the foot once the stream is over. Drawing
@@ -13183,6 +14066,14 @@ async function askQuestion(preset) {
       onStats: (event) => {
         answerStats = event;
       },
+      //: The server took a greeting or a sign-off off the answer, so the text
+      //: on screen is not the text anything else will use. Repainted from the
+      //: trimmed version, and `answerRaw` moves with it: the grounding markers
+      //: placed a moment later are offsets into *this* string.
+      onAnswerFinal: (event) => {
+        answerRaw = event.text || answerRaw;
+        renderLive(answerRaw);
+      },
       onGrounding: (event) => {
         //: **Remembered here, drawn once at the end.** This used to draw the
         //: chips and the markers the moment the event arrived, which is
@@ -13193,6 +14084,10 @@ async function askQuestion(preset) {
         //: chips were numbered with nothing to agree with, so the digits did
         //: not match the panel the foot drew underneath them.
         groundedSentences = event.sentences || [];
+        //: Remembered with them and drawn in the same pass, for the same
+        //: reason: the answer is still streaming when this arrives, so a
+        //: notice placed now would sit above prose that is still growing.
+        groundedSupport = event.support || null;
       },
     });
 
@@ -13252,7 +14147,8 @@ async function askQuestion(preset) {
           groundingRawResults,
           answerBox,
           question,
-          answer.sources
+          answer.sources,
+          groundedSupport
         );
       }
       renderAskAnswerFoot(answer, answerMeta);
@@ -13260,7 +14156,7 @@ async function askQuestion(preset) {
       //: screen. The same contract `offerFollowups` has in the Chat tab.
       renderAskFollowups(question, answerRaw);
     }
-    status.textContent = "";
+    askStatusText("");
     // Asking changes both quick-access lists, and, for a real (non-hint)
     // answer: the browsable history too.
     loadRecentQuestions();
@@ -13276,10 +14172,10 @@ async function askQuestion(preset) {
       //: armed paint outlives the turn it belongs to.
       renderLive.stop();
       renderMarkdown(answerBox, answerRaw); // keep what streamed so far
-      status.textContent = "Stopped.";
+      askStatusText("Stopped.");
       show("retry-btn", "copy-btn", "speak-btn");
     } else {
-      status.textContent = error.message;
+      askStatusText(error.message);
       status.classList.add("error");
     }
   } finally {
@@ -15422,6 +16318,7 @@ function mountChatActionsMenu() {
           title: $("chat-compress")?.title,
           run: click("chat-compress"),
         },
+        featureModelMenuItem("chat"),
         { label: "ph:download-simple Export as Markdown", run: click("chat-export") },
         {
           //: Odysseus's "Save to Documents", which lands better here than it
@@ -17769,6 +18666,13 @@ function chatSourcesPanel(input) {
   //: what INBOX 81's second half is about.
   const sources = input.sources || chatSourcesFrom(input);
   if (!sources.length) return null;
+  //: **The number on a card is the number in the answer**, which stops being
+  //: the card's own position the moment this panel is handed a subset (the
+  //: Ask tab passes only the sources its records column is not already
+  //: showing). `numberFrom` is the full list the citation markers were
+  //: numbered against; without it a panel of two would call them 1 and 2 and
+  //: disagree with the [4] and [5] printed in the answer above it.
+  const numbering = input.numberFrom || sources;
   const details = document.createElement("details");
   details.className = "chat-sources";
   const summary = document.createElement("summary");
@@ -17824,7 +18728,8 @@ function chatSourcesPanel(input) {
     head.className = "chat-source-head";
     const number = document.createElement("span");
     number.className = "chat-source-index";
-    number.textContent = String(index + 1);
+    const at = numbering.indexOf(source);
+    number.textContent = String((at === -1 ? index : at) + 1);
     const title = document.createElement("span");
     title.className = "chat-source-title";
     setLabel(title, `${icons[source.kind] || "ph:note"} ${source.label}`);
@@ -17901,6 +18806,23 @@ function chatSourcesPanel(input) {
   });
   body.appendChild(grid);
   details.appendChild(body);
+  //: **On a phone the sources are a sheet** (UI_MODERNISATION_PLAN Phase 11
+  //: item 3). Opened in place, the grid of cards unfolds inside a bubble in
+  //: a 340px-tall transcript and pushes the answer it belongs to off the
+  //: screen. The same body, moved into the sheet recipe for as long as it
+  //: is open and put back on close, so a source card built once is the one
+  //: that opens, on either surface.
+  summary.addEventListener("click", (event) => {
+    if (!window.matchMedia(PHONE_TABS).matches || typeof openSheet !== "function") return;
+    event.preventDefault();
+    openSheet({
+      label: "Sources",
+      name: "sources",
+      returnFocus: summary,
+      build: (card) => card.appendChild(body),
+      onClose: () => details.appendChild(body),
+    });
+  });
   return details;
 }
 
@@ -17948,6 +18870,22 @@ function renderRecordsDetails(holder, meta) {
 
 const DRAFT_STORE = "writingRoomDraft";
 
+//: The notes this draft is being written from: `{id, label}`, in the order
+//: they were picked. Ids go to the server, which reads the notes itself: the
+//: client saying what a note contains would be one more copy of the truth.
+let draftSources = [];
+
+//: Every draft this session produced, oldest first, so any of them can be
+//: come back to. Undo steps back one pass; this is the desk full of earlier
+//: pages beside it, and it is the half a single undo cannot give you (a pass
+//: you liked, three passes ago).
+let draftVersions = [];
+const MAX_DRAFT_VERSIONS = 12;
+
+//: Matches `MAX_SOURCES` in api/routes_drafts.py, which is the one that
+//: actually binds: this only stops the picker offering a seventh.
+const DRAFT_MAX_SOURCES = 6;
+
 function saveDraftLocally() {
   try {
     localStorage.setItem(
@@ -17956,6 +18894,13 @@ function saveDraftLocally() {
         thoughts: $("draft-thoughts").value,
         draft: $("draft-text").value,
         tags: $("draft-tags").value,
+        kind: $("draft-kind").value,
+        tone: $("draft-tone").value,
+        length: $("draft-length").value,
+        sources: draftSources,
+        versions: draftVersions,
+        noteId: draftNoteId,
+        noteLabel: draftNoteLabel,
       })
     );
   } catch {
@@ -17970,10 +18915,181 @@ function restoreDraftLocally() {
     $("draft-thoughts").value = saved.thoughts || "";
     $("draft-text").value = saved.draft || "";
     $("draft-tags").value = saved.tags || "";
+    // A stored value that is no longer an option would leave the select
+    // showing its first option while sending the old one, so each is only
+    // taken when the select actually holds it.
+    for (const [id, value] of [
+      ["draft-kind", saved.kind],
+      ["draft-tone", saved.tone],
+      ["draft-length", saved.length],
+    ]) {
+      const select = $(id);
+      if (value && [...select.options].some((o) => o.value === value)) select.value = value;
+    }
+    draftSources = Array.isArray(saved.sources) ? saved.sources.slice(0, DRAFT_MAX_SOURCES) : [];
+    draftVersions = Array.isArray(saved.versions) ? saved.versions.slice(-MAX_DRAFT_VERSIONS) : [];
+    draftNoteId = Number.isInteger(saved.noteId) ? saved.noteId : null;
+    draftNoteLabel = saved.noteLabel || "";
+    renderDraftSources();
+    renderDraftVersions();
+    renderDraftTarget();
     updateDraftCount();
   } catch {
     /* unreadable: start clean rather than throwing on load */
   }
+}
+
+//: **The five asks the free-text instruction was being used for**, written
+//: down once. A chip sets what to write and, where it helps, a first line in
+//: the thoughts box; nothing runs until Draft is pressed, so a chip is a
+//: starting point rather than a button that spends a minute of a local
+//: model's time on a guess.
+const DRAFT_QUICKSTARTS = [
+  { label: "Write up my notes", icon: "ph:note-pencil", kind: "note", title: "Turn what is in the box into one organised note" },
+  { label: "Carry on writing", icon: "ph:pencil-line", kind: "continue", title: "Keep writing from where the draft stops, in the same voice" },
+  { label: "Say it plainly", icon: "ph:chat-text", kind: "rewrite", tone: "plain", title: "The same draft in plain words" },
+  { label: "Bullets to prose", icon: "ph:text-align-left", kind: "expand", title: "Open the bullet points out into paragraphs" },
+  { label: "Prose to bullets", icon: "ph:list-bullets", kind: "bullets", title: "Close the writing back up into bullet points" },
+];
+
+function renderDraftQuickstarts() {
+  const host = $("draft-quickstarts");
+  if (!host) return;
+  host.replaceChildren();
+  for (const start of DRAFT_QUICKSTARTS) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "library-chip";
+    chip.title = start.title;
+    setLabel(chip, `${start.icon} ${start.label}`);
+    chip.addEventListener("click", () => {
+      $("draft-kind").value = start.kind;
+      if (start.tone) $("draft-tone").value = start.tone;
+      markDraftQuickstart(start.kind);
+      saveDraftLocally();
+      $("draft-thoughts").focus();
+    });
+    host.appendChild(chip);
+  }
+  markDraftQuickstart($("draft-kind").value);
+}
+
+//: The chip and the select say the same thing, so picking either marks the
+//: other: two controls that disagree about what the next pass will do is the
+//: defect this feature is full of everywhere else it has been tried.
+function markDraftQuickstart(kind) {
+  const host = $("draft-quickstarts");
+  if (!host) return;
+  [...host.children].forEach((chip, index) => {
+    chip.classList.toggle("active", DRAFT_QUICKSTARTS[index]?.kind === kind);
+  });
+}
+
+function renderDraftSources() {
+  const host = $("draft-sources");
+  const count = $("draft-sources-count");
+  if (!host) return;
+  host.replaceChildren();
+  host.classList.toggle("hidden", draftSources.length === 0);
+  count.textContent = draftSources.length
+    ? `${draftSources.length} note${draftSources.length === 1 ? "" : "s"} to write from`
+    : "";
+  for (const source of draftSources) {
+    const chip = document.createElement("span");
+    chip.className = "chip draft-source-chip";
+    const text = document.createElement("span");
+    text.className = "draft-source-text";
+    text.textContent = source.label;
+    text.title = source.label;
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "ghost small icon-only draft-source-drop";
+    drop.setAttribute("aria-label", `Stop writing from "${source.label}"`);
+    drop.title = "Stop writing from this note";
+    setLabel(drop, "ph:x");
+    drop.addEventListener("click", () => {
+      draftSources = draftSources.filter((s) => s.id !== source.id);
+      renderDraftSources();
+      saveDraftLocally();
+    });
+    chip.append(text, drop);
+    host.appendChild(chip);
+  }
+}
+
+function renderDraftVersions() {
+  const host = $("draft-versions");
+  if (!host) return;
+  host.replaceChildren();
+  host.classList.toggle("hidden", draftVersions.length < 2);
+  if (draftVersions.length < 2) return;
+  const label = document.createElement("span");
+  label.className = "muted draft-versions-label";
+  label.textContent = "Earlier drafts";
+  host.appendChild(label);
+  draftVersions.forEach((version, index) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `library-chip${version.text === $("draft-text").value ? " active" : ""}`;
+    chip.title = `${version.words} words, ${version.at}`;
+    chip.textContent = `v${index + 1}`;
+    chip.addEventListener("click", () => {
+      pushDraftUndo();
+      $("draft-text").value = version.text;
+      updateDraftCount();
+      renderDraftVersions();
+      saveDraftLocally();
+      setDraftStatus(`Back to version ${index + 1}.`);
+      announce(`Restored draft version ${index + 1}.`);
+    });
+    host.appendChild(chip);
+  });
+}
+
+function rememberDraftVersion(text) {
+  const trimmed = (text || "").trim();
+  if (!trimmed) return;
+  if (draftVersions.length && draftVersions[draftVersions.length - 1].text === trimmed) return;
+  draftVersions.push({
+    text: trimmed,
+    words: trimmed.split(/\s+/).length,
+    at: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  });
+  if (draftVersions.length > MAX_DRAFT_VERSIONS) draftVersions.shift();
+  renderDraftVersions();
+}
+
+//: **The note this draft came from, when it came from one.** Set by "Carry on
+//: from a note" and by nothing else. While it is set, Save writes back to
+//: that note instead of filing a second copy of it, which is the whole
+//: difference between carrying a note on and rewriting it somewhere else.
+let draftNoteId = null;
+let draftNoteLabel = "";
+
+function renderDraftTarget() {
+  const chip = $("draft-target");
+  const save = $("draft-save");
+  chip.classList.toggle("hidden", draftNoteId === null);
+  chip.textContent = draftNoteId === null ? "" : `Carrying on: ${draftNoteLabel}`;
+  chip.title = draftNoteId === null ? "" : `Saving writes back to "${draftNoteLabel}"`;
+  setLabel(save, draftNoteId === null ? "ph:floppy-disk Save as note" : "ph:floppy-disk Save to that note");
+  save.title = draftNoteId === null
+    ? ""
+    : `Write this back to "${draftNoteLabel}" rather than filing a second copy`;
+}
+
+function clearDraftTarget() {
+  draftNoteId = null;
+  draftNoteLabel = "";
+  renderDraftTarget();
+}
+
+//: One place that writes the status line, because "error" is a class that
+//: sticks: a failure followed by a success used to leave the red on.
+function setDraftStatus(text, isError = false) {
+  const status = $("draft-status");
+  status.classList.toggle("error", !!isError);
+  status.textContent = text;
 }
 
 function updateDraftCount() {
@@ -18000,7 +19116,12 @@ function pushDraftUndo() {
 
 function updateDraftUndoButton() {
   const button = $("draft-undo");
-  button.disabled = draftUndoStack.length === 0;
+  // `draftController` as well as the stack: the undo point for a pass is
+  // pushed at its first token, not before the call, so without this the
+  // button came back to life half way through a stream and an Undo pressed
+  // there would restore the old draft while the new one was still arriving
+  // over the top of it.
+  button.disabled = !!draftController || draftUndoStack.length === 0;
   button.title = draftUndoStack.length
     ? `Go back to the version before the last AI pass (${draftUndoStack.length} available)`
     : "Nothing to undo yet";
@@ -18032,6 +19153,11 @@ function setDraftBusy(busy) {
   $("draft-compose").classList.toggle("hidden", busy);
   $("draft-cancel").classList.toggle("hidden", !busy);
   $("draft-undo").disabled = busy || draftUndoStack.length === 0;
+  // The draft box is being written into while this runs, so editing it would
+  // be editing something that is about to be overwritten by the next chunk.
+  $("draft-text").readOnly = busy;
+  $("draft-refine").disabled = busy;
+  $("writing-room").classList.toggle("draft-writing", busy);
 }
 
 function cancelDraft() {
@@ -18043,6 +19169,17 @@ function cancelDraft() {
 // was solving, at the cost of destroying the user's own writing.
 let foldedThoughts = "";
 
+//: **One pass at the desk, streamed.** Measured before this: a draft against
+//: a stand-in model server took 22.9 seconds to arrive and arrived in one
+//: piece, because `/drafts/compose` could not answer until the model had
+//: finished. `/drafts/compose/stream` speaks the same NDJSON the chat and the
+//: Guide do, so this reader is the third of the same shape rather than a new
+//: protocol.
+//:
+//: **The draft in the box is never written over until the first token of the
+//: new one arrives**, and is put back if the pass fails or is stopped: a
+//: half-written revision over settled writing is the one outcome this feature
+//: must never produce.
 async function composeDraft() {
   const written = $("draft-thoughts").value;
   // Only the part they've added since the last pass. If they edited earlier
@@ -18052,62 +19189,151 @@ async function composeDraft() {
     ? written.slice(foldedThoughts.length).trim()
     : written.trim();
   const draft = $("draft-text").value;
-  const status = $("draft-status");
   if (!thoughts && !draft.trim()) {
-    status.classList.add("error");
-    status.textContent = "Write a thought first.";
+    setDraftStatus("Write a thought first.", true);
+    $("draft-thoughts").focus();
     return;
   }
-  status.classList.remove("error");
-  setLabel(status, draft.trim() ? "ph:magic-wand Revising…" : "ph:magic-wand Drafting…");
+  const instruction = $("draft-instruction").value.trim();
+  setDraftStatus("");
+  setLabel($("draft-status"), draft.trim() ? "ph:magic-wand Revising…" : "ph:magic-wand Drafting…");
+  const thinking = $("draft-thinking");
+  const thinkingText = $("draft-thinking-text");
+  thinkingText.textContent = "";
+  thinking.classList.add("hidden");
+  thinking.open = false;
   draftController = new AbortController();
   setDraftBusy(true);
+
+  let streamed = "";
+  let started = false;
+  let thought = "";
+  let done = null;
   try {
-    const body = await apiJson("/drafts/compose", {
-      method: "POST",
-      signal: draftController.signal,
-      body: JSON.stringify({
+    await streamDraft(
+      {
         thoughts,
         draft,
-        instruction: $("draft-instruction").value.trim(),
-      }),
-    });
-    // Only record an undo point once the model has actually returned
-    // something: a failed call shouldn't add a step that changes nothing.
-    if (body.draft !== draft) pushDraftUndo();
-    $("draft-text").value = body.draft;
+        instruction,
+        kind: $("draft-kind").value,
+        tone: $("draft-tone").value,
+        length: $("draft-length").value,
+        source_ids: draftSources.map((s) => s.id),
+      },
+      draftController.signal,
+      (event) => {
+        if (event.type === "thinking") {
+          thought += event.text;
+          thinking.classList.remove("hidden");
+          thinking.open = true;
+          thinkingText.textContent = thought;
+          // The panel is capped at 8rem, so the newest line is the one worth
+          // showing: a bounded box that always shows its first line is a box
+          // that stops saying anything after three seconds.
+          thinkingText.scrollTop = thinkingText.scrollHeight;
+        } else if (event.type === "delta") {
+          if (!started) {
+            started = true;
+            // The first token is the moment the old draft is safe to replace:
+            // an undo point goes in here, not before the call.
+            if (draft.trim()) pushDraftUndo();
+            $("draft-text").value = "";
+          }
+          streamed += event.text;
+          $("draft-text").value = streamed;
+          updateDraftCount();
+        } else if (event.type === "done") {
+          done = event;
+        }
+      }
+    );
+  } catch (error) {
+    $("draft-text").value = draft;
     updateDraftCount();
+    if (error.name === "AbortError") {
+      // Nothing was kept, so nothing is lost, say so rather than showing it
+      // as a failure.
+      setDraftStatus("Stopped. Your thoughts and draft are untouched.");
+    } else {
+      setDraftStatus(error.message, true);
+    }
+    draftController = null;
+    setDraftBusy(false);
+    return;
+  }
+  draftController = null;
+  setDraftBusy(false);
+
+  const finished = done && typeof done.draft === "string" ? done.draft : streamed;
+  $("draft-text").value = finished || draft;
+  updateDraftCount();
+  // Collapsed once it lands: the thinking is worth watching and not worth
+  // keeping open over the draft it was about.
+  thinking.classList.toggle("hidden", !thought);
+  thinking.open = false;
+  if (done && done.message) {
+    setDraftStatus(done.message, true);
+  } else {
     // The thoughts have been folded in, remember that, but never delete what
     // they wrote. Clearing the box was reported twice as the app eating the
     // user's text, and it is: the raw thoughts are often the only copy of an
     // idea, and the draft is a rewrite of them, not a replacement.
-    if (body.ollama_running && thoughts) foldedThoughts = written;
+    if (thoughts) foldedThoughts = written;
     $("draft-instruction").value = "";
-    const thinking = $("draft-thinking");
-    thinking.classList.toggle("hidden", !body.thinking);
-    $("draft-thinking-text").textContent = body.thinking || "";
-    if (body.message) {
-      status.classList.add("error");
-      status.textContent = body.message;
-    } else {
-      status.textContent = thoughts
+    rememberDraftVersion($("draft-text").value);
+    setDraftStatus(
+      thoughts
         ? "Folded your thoughts into the draft, your notes above are untouched."
-        : "Draft updated: edit it, or add more thoughts.";
-      announce("The draft has been updated.");
+        : "Draft updated: edit it, or add more thoughts."
+    );
+    announce("The draft has been updated.");
+  }
+  saveDraftLocally();
+}
+
+//: The NDJSON reader for the writing desk. Hand-rolled rather than through
+//: `apiJson`, which cannot expose a streaming body, and deliberately small:
+//: the chat's reader carries a turn's worth of event kinds and an idle
+//: timeout for a conversation that can stall for minutes, and none of that
+//: belongs to a one-shot draft. A malformed line is skipped rather than
+//: thrown out of the loop, the same rule the chat reader keeps, so one bad
+//: frame cannot lose a draft that is already half written.
+async function streamDraft(body, signal, onEvent) {
+  const response = await fetch("/drafts/compose/stream", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Auth-Token": authToken(),
+      "X-Workspace-ID": activeSpaceId(),
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (response.status === 401) {
+    showLockScreen(false);
+    throw new Error("Locked");
+  }
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || `Request failed (${response.status})`);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffered += decoder.decode(value, { stream: true });
+    const lines = buffered.split("\n");
+    buffered = lines.pop(); // the last piece may be half a line
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        onEvent(JSON.parse(line));
+      } catch {
+        recordBrowserLog("WARN", [`[Draft stream] Unparseable line: ${line.slice(0, 80)}`]);
+      }
     }
-    saveDraftLocally();
-  } catch (error) {
-    if (error.name === "AbortError") {
-      // Nothing was written, so nothing is lost, say so rather than
-      // showing it as a failure.
-      status.textContent = "Stopped. Your thoughts and draft are untouched.";
-    } else {
-      status.classList.add("error");
-      status.textContent = error.message;
-    }
-  } finally {
-    draftController = null;
-    setDraftBusy(false);
   }
 }
 
@@ -18186,24 +19412,56 @@ async function saveDraftAsNote() {
     .map((t) => t.trim())
     .filter(Boolean);
   try {
-    // Marked as a draft on the way in, same as the text-selection popup's
-    // "Save as draft note", asked for directly, so a note drafted here is
-    // just as findable in the Drafts filter (sidebar, Library) as one
-    // captured that way, not silently indistinguishable from a note typed
-    // straight into Notes.
-    const entry = await apiJson("/entries", {
-      method: "POST",
-      body: JSON.stringify({ content, tags, is_draft: true }),
-    });
+    let entry;
+    if (draftNoteId !== null) {
+      // Carried on from a note, so it goes back to that note. A second copy
+      // of a note you asked to continue is not a save, it is a fork, and the
+      // two would drift from the moment it was made. The same undo entry the
+      // rest of the app records for an edited note, so this is as reversible
+      // as any other change to it.
+      const before = allEntries.find((e) => e.id === draftNoteId)?.content ?? "";
+      // The tags field only ever *adds* here: sending an empty list would
+      // strip the tags the note already carries, and an empty box on this
+      // desk means "I did not type any", never "take that note's tags off".
+      entry = await apiJson(`/entries/${draftNoteId}`, {
+        method: "PUT",
+        body: JSON.stringify(tags.length ? { content, tags } : { content }),
+      });
+      pushEntryPutUndo(
+        draftNoteId,
+        "Carried a note on from the writing desk",
+        { content: before },
+        { content }
+      );
+    } else {
+      // Marked as a draft on the way in, same as the text-selection popup's
+      // "Save as draft note", asked for directly, so a note drafted here is
+      // just as findable in the Drafts filter (sidebar, Library) as one
+      // captured that way, not silently indistinguishable from a note typed
+      // straight into Notes.
+      entry = await apiJson("/entries", {
+        method: "POST",
+        body: JSON.stringify({ content, tags, is_draft: true }),
+      });
+    }
+    const wroteBack = draftNoteId !== null;
+    clearDraftTarget();
     foldedThoughts = "";
     $("draft-thoughts").value = "";
     $("draft-text").value = "";
     $("draft-tags").value = "";
     $("draft-thinking").classList.add("hidden");
+    // The desk is clear, so its earlier versions and the notes this one was
+    // written from go too: a row of "v1 v2 v3" over an empty box offers a way
+    // back to drafts of a note that has already been filed.
+    draftSources = [];
+    draftVersions = [];
+    renderDraftSources();
+    renderDraftVersions();
     updateDraftCount();
     saveDraftLocally();
-    status.textContent = "Saved as a note.";
-    toast("Draft saved as a note.");
+    status.textContent = wroteBack ? "Saved back to the note." : "Saved as a note.";
+    toast(wroteBack ? "The note has been updated." : "Draft saved as a note.");
     await loadEntries();
     flashEntry(entry.id); // show them where it landed
   } catch (error) {
@@ -18747,7 +20005,10 @@ function renderFileAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "\u2715";
+    //: Through `setLabel`, like every other close in the app. It was a typed
+    //: U+2715, written as an escape, which is how it passed the glyph lint
+    //: while nine other close buttons were being converted.
+    setLabel(remove, "ph:x");
     remove.title = `Don't send “${file.name}” with this message`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", () => {
@@ -18946,13 +20207,35 @@ function renderSelectionAttachment() {
 //: which case the text is still sent, the user asked about it, but with no
 //: position claimed at all.
 function revalidateSelection(context) {
-  const surface = document.getElementById(context.surfaceId);
-  if (!(surface instanceof HTMLTextAreaElement)) {
+  //: **Through `docSurfaceById`, never `getElementById` alone.** A document
+  //: whose CodeMirror engine has mounted keeps `#doc-content` in the markup as
+  //: the form's empty value carrier: it is still an `HTMLTextAreaElement` and
+  //: its `.value` is still `""`, so reading it directly passed the type check
+  //: and then told the model every document passage was `gone` while the
+  //: passage was on screen (measured on the branch head by
+  //: `scratchpad/ui-sweeps/docsel.js`: "gone" for an untouched selection).
+  //: `docSurfaceById` resolves `doc-content` to whichever surface is editing,
+  //: and a note box that has mounted the engine the same way.
+  //:
+  //: Guarded by `typeof`, because documents.js is in the Library's lazy bundle
+  //: (`LAZY_MODULES`) and a selection taken from the capture box can be sent
+  //: before that bundle has ever loaded; the textarea is the right answer
+  //: there anyway.
+  const el = document.getElementById(context.surfaceId);
+  const surface =
+    typeof docSurfaceById === "function"
+      ? docSurfaceById(context.surfaceId)
+      //: `{ text }` rather than the element itself, so the one line below that
+      //: reads the words reads the same property in both branches.
+      : el instanceof HTMLTextAreaElement
+        ? { text: el.value }
+        : null;
+  if (!surface || typeof surface.text !== "string") {
     //: The note was closed or the document navigated away from. Nothing to
     //: check against, so nothing is claimed.
     return { ...context, position: "unknown" };
   }
-  const value = surface.value;
+  const value = surface.text;
   if (value.slice(context.start, context.end) === context.text) {
     return { ...context, position: "exact" };
   }
@@ -19626,7 +20909,7 @@ function appendRunResumeControls(bubble, spec) {
   } else if (!stopped && ranOutOfRounds) {
     bubble.appendChild(
       continueRunControls({
-        label: "→ Continue",
+        label: "ph:arrow-right Continue",
         hint: "Picks up from what it had already done.",
         onClick: () =>
           sendChatMessage(
@@ -19901,6 +21184,12 @@ async function sendChatMessage(preset, opts = {}) {
   // raw_results/search_mode/match_info a few lines below, which got exactly
   // this treatment already for the same reported-missing-on-reload reason.
   let groundingSentences = null;
+  // INBOX 272 part 1: set when the model couldn't call tools and the turn
+  // was silently answered as plain Q&A instead. Captured here, rendered
+  // once the stream is over (same reason `groundingSentences` waits: a
+  // notice drawn mid-stream would be for a bubble the live renderer is
+  // about to rebuild).
+  let toolsUnsupportedEvent = null;
   // Whether the user pressed Stop. An empty answer they asked for needs no
   // explanation; one they didn't ask for does.
   let stopped = false;
@@ -20096,6 +21385,9 @@ async function sendChatMessage(preset, opts = {}) {
       onRelated: (event) => {
         renderRelatedElsewhere(groundingHolder, event.items);
       },
+      onUnsupported: (event) => {
+        toolsUnsupportedEvent = event;
+      },
       onGrounding: (event) => {
         groundingSentences = event.sentences;
         renderAnswerGrounding(
@@ -20107,7 +21399,9 @@ async function sendChatMessage(preset, opts = {}) {
           bubble.querySelectorAll(".bubble-answer"),
           //: The turn's own question, so opening a source here teaches the
           //: search the same thing it learns from the Ask tab.
-          question
+          question,
+          null,
+          event.support || null
         );
       },
       onPlan: (event) => {
@@ -20440,6 +21734,12 @@ async function sendChatMessage(preset, opts = {}) {
     sources: turnSources,
   });
   if (sourcesPanel) recordsHolder.appendChild(sourcesPanel);
+  // INBOX 272 part 1: drawn once the stream is over, same reason
+  // `groundingSentences` waits (a notice inserted mid-stream is inside a
+  // bubble the live renderer is about to rebuild from raw markdown).
+  if (toolsUnsupportedEvent) {
+    renderToolsUnsupportedNotice(bubble, toolsUnsupportedEvent);
+  }
   // What this answer cost: model, wall-clock time, tokens, speed.
   const elapsedMs = Math.round(performance.now() - startedAt);
   // A turn that only ran tools still cost time and tokens, so it gets a meta
@@ -21734,41 +23034,67 @@ function enhanceSelect(select) {
     }
   };
 
+  //: **An option the app has hidden is not offered here either.** Measured
+  //: on the OCR workspace's reader picker: `#ocr-reader` carries
+  //: `<option value="ocr" hidden>AI vision model</option>`, which
+  //: `ocrLoadReaders` unhides only on a machine that really has two
+  //: different readers, and this stand-in listed all three regardless, so
+  //: the control offered a reader that does not exist here. The native
+  //: `<select>` has honoured `hidden` on an option for years; the shell in
+  //: front of it had never been told to. `syncHidden` below covers the same
+  //: mistake one level up, for a select that is hidden as a whole.
+  const buildOptionRow = (option) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "menu-item select-option";
+    row.setAttribute("role", "option");
+    row.dataset.value = option.value;
+    row.textContent = option.textContent.trim();
+    if (option.disabled) row.setAttribute("aria-disabled", "true");
+    row.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeActionMenus();
+      if (option.disabled || select.value === option.value) return;
+      select.value = option.value;
+      syncValue();
+      // The app listens on the real control, so the real control is what
+      // announces the change.
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    return row;
+  };
+
   const rebuild = () => {
     menu.replaceChildren();
-    for (const option of select.options) {
-      //: **An option the app has hidden is not offered here either.** Measured
-      //: on the OCR workspace's reader picker: `#ocr-reader` carries
-      //: `<option value="ocr" hidden>AI vision model</option>`, which
-      //: `ocrLoadReaders` unhides only on a machine that really has two
-      //: different readers, and this stand-in listed all three regardless, so
-      //: the control offered a reader that does not exist here. The native
-      //: `<select>` has honoured `hidden` on an option for years; the shell in
-      //: front of it had never been told to. `syncHidden` below covers the same
-      //: mistake one level up, for a select that is hidden as a whole.
-      //:
-      //: No observer needed for it: `rebuild()` runs on every open, so a
-      //: picker that gains a reader while the app is running shows it the next
-      //: time it is opened.
-      if (option.hidden) continue;
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "menu-item select-option";
-      row.setAttribute("role", "option");
-      row.dataset.value = option.value;
-      row.textContent = option.textContent.trim();
-      if (option.disabled) row.setAttribute("aria-disabled", "true");
-      row.addEventListener("click", (event) => {
-        event.stopPropagation();
-        closeActionMenus();
-        if (option.disabled || select.value === option.value) return;
-        select.value = option.value;
-        syncValue();
-        // The app listens on the real control, so the real control is what
-        // announces the change.
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-      menu.appendChild(row);
+    //: **A group's own name, drawn once, not folded into each option's
+    //: words.** INBOX 273: this opener built its menu by walking
+    //: `select.options`, `HTMLOptionsCollection`'s flat view that drops
+    //: which `<optgroup>` (if any) an option came from, so grouping the app
+    //: sets on a select never reached the control the reader actually opens
+    //: -- the Library's document-property filter worked around it by putting
+    //: the group's name in each option's own text ("status: draft") rather
+    //: than teach this shared opener about groups. Walking `select.children`
+    //: instead of `select.options` keeps document order (an optgroup's
+    //: options stay under it, a bare option stays where it was written) and
+    //: lets a group draw its own label row, `.dock-menu-section`'s shape: a
+    //: hairline above it and small text, not a `role="option"` row, so
+    //: `syncValue`'s `[role='option']` walk and the click handler both skip
+    //: past it without change. No observer needed for either shape: `rebuild()`
+    //: runs on every open, so a picker that gains a reader, or a group, while
+    //: the app is running shows it the next time it is opened.
+    for (const node of select.children) {
+      if (node.tagName === "OPTGROUP") {
+        const visible = [...node.children].filter((option) => !option.hidden);
+        if (!visible.length) continue;
+        const label = document.createElement("div");
+        label.className = "select-group-label";
+        label.textContent = node.label || "";
+        menu.appendChild(label);
+        for (const option of visible) menu.appendChild(buildOptionRow(option));
+      } else if (node.tagName === "OPTION") {
+        if (node.hidden) continue;
+        menu.appendChild(buildOptionRow(node));
+      }
     }
     syncValue();
   };
@@ -22003,7 +23329,31 @@ function kebabMenu(items, ariaLabel) {
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
+  //: **Groups, drawn from the items rather than from separator objects**
+  //: (DOCUMENTS_PLAN section 16). The table cell's menu was the case that
+  //: asked for this: ten items covering rows, columns, alignment and the
+  //: whole table, read as one list of ten, and a reader scanning it had to
+  //: know the order to find anything. A menu of five or fewer needs no help;
+  //: past that, the thing that makes a list scannable is a break every few
+  //: rows, which is what every other application's menus do.
+  //:
+  //: An item carries `group`, a name, and the rule is "a hairline wherever
+  //: the name changes". Callers declare meaning, never pixels, and a caller
+  //: that declares nothing gets exactly what it got before, so every existing
+  //: menu in the app is untouched. The name is not drawn: a heading per three
+  //: rows would make a ten-row menu seventeen rows tall, and the rule here is
+  //: the divider, not the label. `role="separator"` so the grouping is in the
+  //: accessibility tree too, and `wireMenuKeyboard` walks `.menu-item`, so a
+  //: divider is never a stop on the way down.
+  let lastGroup = null;
   for (const item of items) {
+    if (lastGroup !== null && item.group && item.group !== lastGroup) {
+      const rule = document.createElement("div");
+      rule.className = "menu-sep";
+      rule.setAttribute("role", "separator");
+      menu.appendChild(rule);
+    }
+    if (item.group) lastGroup = item.group;
     const button = document.createElement("button");
     button.className = item.disabled ? "menu-item menu-item-unavailable" : "menu-item";
     //: A destructive row says so in the app's own danger colour. Added when
@@ -22172,11 +23522,22 @@ function clampToolbarMenu(details, { retry = true } = {}) {
   // landed and correct by the difference. Self-correcting, cause-agnostic, and
   // one extra layout read.
   //
-  // Proven, not reasoned: this sandbox's headless Chromium reports
-  // `backdrop-filter: none` on every `.card`, so the user's exact trigger does
-  // not fire here: but `filter` creates the same containing block and *is*
-  // supported, so forcing `.card.doc-main { filter: saturate(1) }` reproduces
-  // it exactly. Measured with that in place: the panel's `style.left` reads
+  // Proven, not reasoned. **And the real trigger does fire here, which is a
+  // correction to what this comment said until 2026-09-20.** It read that
+  // headless Chromium reports `backdrop-filter: none` on every `.card`, so
+  // the user's exact trigger could not be reproduced and `filter: saturate(1)`
+  // had to stand in for it. That was true of a card measured with the
+  // background art *off*, which is the default and was the only state anyone
+  // had looked at. Turn the art on (`data-bg-art="on"`, Settings) and the
+  // same card reports `backdrop-filter: blur(14px) saturate(1.5)
+  // brightness(1.02)` in this Chromium: measured, a `position: fixed` child
+  // written to `left: 0; top: 0` inside `.card.doc-main` lands at x=293
+  // against the card's own x=292, so the card is its containing block and the
+  // trap is live on the real property. Test that path, not the stand-in.
+  //
+  // The stand-in's numbers are kept because they are the same fault measured
+  // twice: forcing `.card.doc-main { filter: saturate(1) }` reproduces it
+  // exactly, and with that in place the panel's `style.left` reads
   // 595px while it renders at x=886, the correction having subtracted the
   // card's own 291px offset. Without the second pass the same menu would have
   // been given left=886 and rendered at 1177, 291px to the right of the
@@ -22254,6 +23615,60 @@ function shortModelName(name) {
   return parts.at(-1) || withoutHost;
 }
 window.shortModelName = shortModelName;
+
+//: **A picture can carry two readings, and the lightbox showed one of them.**
+//: Reported, and reproduced before it was touched: a `MediaUpload` or an
+//: `Attachment` holds `ocr_text` (Tesseract's own pass, written automatically
+//: the moment the file is saved into a note) and `vision_ocr_text` (a vision
+//: model's transcription, always asked for by hand). With both stored, the
+//: lightbox drew `vision_ocr_text || ocr_text` and the Tesseract reading was
+//: nowhere on the surface built for reading: measured at 1440 with both seeded
+//: through `POST /media/{id}/ocr` and `/vision-ocr`, `.lightbox-text` held the
+//: vision reading and the whole `.lightbox-info` panel never contained a
+//: character of the other one.
+//:
+//: What it shows now is not a new decision. The Library card's own reading
+//: fold settled this exact question already (`renderLibraryImagesGallery`,
+//: library.js): "Tesseract's reading goes inside the same disclosure, under
+//: the vision one: it is the same question ('what does this say'), answered by
+//: the other reader", labelled "Also read with Tesseract OCR" and left out
+//: entirely when it is empty, which on a machine with no Tesseract is always.
+//: This applies that decision to the one surface that missed it, in the
+//: elements already there (`.lightbox-text`, `.lightbox-byline`), so there is
+//: no second recipe and no new rule to lint.
+//:
+//: Stacked rather than behind a two-state control, on purpose: the lightbox is
+//: the picture "at a size the text can be checked against", and two
+//: transcriptions of one image are worth having open precisely so they can be
+//: read against each other and against the page. A toggle answers "which one
+//: is current", which is a question the badge on the card already answers,
+//: and it makes the comparison impossible.
+//:
+//: One reader of the row, so the four surfaces that build a lightbox item
+//: cannot drift apart again (`hydrate` here, the two menu rows that re-read a
+//: picture, and `libraryLightboxItems` in library.js).
+function lightboxReadingsFor(row) {
+  const vision = (row?.vision_ocr_text || "").trim();
+  const tesseract = (row?.ocr_text || "").trim();
+  if (vision) {
+    return {
+      text: vision,
+      byline: `Text read by ${shortModelName(row?.vision_ocr_model) || "a model"}`,
+      //: Only a *second* reading is an alternate. With no vision reading the
+      //: Tesseract one is the reading, and it is returned as `text` below
+      //: rather than as a footnote to an empty panel.
+      altText: tesseract,
+      altByline: tesseract ? "Also read with Tesseract OCR" : "",
+    };
+  }
+  return {
+    text: tesseract,
+    byline: tesseract ? "Text read with Tesseract OCR" : "",
+    altText: "",
+    altByline: "",
+  };
+}
+window.lightboxReadingsFor = lightboxReadingsFor;
 
 function formatTokens(n) {
   const count = Number(n) || 0;
@@ -23062,6 +24477,7 @@ function startEditingSkill(skill) {
   $("skill-steps").value = stepsToText(skill.steps);
   $("skill-inputs").value = inputsToText(skill.inputs);
   renderSkillToolPicker(skill.tools || []);
+  renderSkillVerifyPicker(skill.verify || null);
   $("skill-add").textContent = "Save changes";
   $("skill-cancel").classList.remove("hidden");
   $("skill-status").textContent = `Editing “${skill.name}”…`;
@@ -23074,6 +24490,7 @@ function stopEditingSkill() {
     $(id).value = "";
   }
   renderSkillToolPicker([]);
+  setSkillVerify(null);
   $("skill-add").textContent = "Add skill";
   $("skill-cancel").classList.add("hidden");
   $("skill-status").textContent = "";
@@ -23107,6 +24524,77 @@ function chosenSkillTools() {
   const box = $("skill-tool-list");
   if (!box) return [];
   return [...box.querySelectorAll("input:checked")].map((input) => input.value);
+}
+
+//: **The skill's postcondition, in the editor** (CHAT_PLAN decision 10b).
+//: `skills.normalise` has read and written a `verify` block since the harness
+//: landed and nothing offered one, so only the shipped skills could say what
+//: "it worked" means for them. The tool list comes from the server's own
+//: catalog (`counts: true`) rather than a list written here, for the same
+//: reason the tool picker does: a name typed into the frontend is a name that
+//: drifts.
+async function renderSkillVerifyPicker(block) {
+  const select = $("skill-verify-tool");
+  if (!select) return;
+  const catalog = await apiJson("/chat/tools").catch(() => []);
+  const counting = catalog.filter((tool) => tool.counts);
+  select.replaceChildren();
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "nothing (no check)";
+  select.appendChild(none);
+  for (const tool of counting) {
+    const option = document.createElement("option");
+    option.value = tool.name;
+    option.textContent = tool.name;
+    option.title = tool.description;
+    select.appendChild(option);
+  }
+  setSkillVerify(block);
+}
+
+function setSkillVerify(block) {
+  const spec = block || {};
+  const expect = spec.expect || {};
+  const [predicate, value] = Object.entries(expect)[0] || ["unchanged", true];
+  $("skill-verify-tool").value = spec.tool || "";
+  $("skill-verify-expect").value = predicate;
+  $("skill-verify-value").value = predicate === "unchanged" ? 0 : Number(value) || 0;
+  $("skill-verify-untagged").checked = Boolean((spec.args || {}).untagged);
+  syncSkillVerifyRow();
+}
+
+//: The number is meaningless beside "unchanged", and a disabled control that
+//: still shows a value reads as a setting that is being ignored, so it is
+//: hidden rather than greyed. The same reasoning as the run dialog's own
+//: optional rows.
+function syncSkillVerifyRow() {
+  const predicate = $("skill-verify-expect").value;
+  $("skill-verify-value").classList.toggle("hidden", predicate === "unchanged");
+}
+
+//: The block the editor sends, or null. Built here rather than assembled in
+//: `addSkill` so the shape has one home: the server validates it again
+//: (`skills.verify_spec`) and its complaint is what the status line shows.
+function chosenSkillVerify() {
+  const tool = $("skill-verify-tool").value;
+  if (!tool) return null;
+  const predicate = $("skill-verify-expect").value;
+  const block = {
+    tool,
+    expect: {
+      [predicate]: predicate === "unchanged" ? true : Number($("skill-verify-value").value) || 0,
+    },
+  };
+  if ($("skill-verify-untagged").checked) {
+    block.args = { untagged: true };
+    //: `count_notes` answers a filtered question in `count` and an unfiltered
+    //: one in `total`, and the verifier tries `total` first, so a filtered
+    //: block that did not name its field would read the number it is
+    //: filtering away from.
+    block.field = "count";
+  }
+  return block;
 }
 
 // Run a skill. The server owns what a skill is, so this sends its name and
@@ -23699,6 +25187,7 @@ async function renderSkillSettings() {
   list.replaceChildren();
   for (const skill of allSkills()) list.appendChild(skillRow(skill));
   if (!$("skill-tool-list").children.length) renderSkillToolPicker([]);
+  if (!$("skill-verify-tool").children.length) renderSkillVerifyPicker(null);
 }
 
 async function addSkill() {
@@ -23715,6 +25204,7 @@ async function addSkill() {
   const custom = customSkills().filter(
     (s) => s.name !== name && s.name !== editingSkillName
   );
+  const verify = chosenSkillVerify();
   custom.push({
     name,
     prompt: promptText,
@@ -23722,6 +25212,7 @@ async function addSkill() {
     steps: textToSteps($("skill-steps").value),
     tools: chosenSkillTools(),
     inputs: textToInputs($("skill-inputs").value),
+    ...(verify ? { verify } : {}),
   });
   const wasEditing = editingSkillName;
   try {
@@ -24255,15 +25746,59 @@ function tickClocks() {
 // clock that resumed on the next tick would show the time it stopped at for
 // up to a second, and "up to a second" on a clock is exactly what a person
 // notices.
+//: **A clock with no seconds on it needs one wake a minute, not sixty.**
+//: (INBOX 266, item 7.) Stopping these while the tab is hidden, which is
+//: what the comment above records, fixed the half that ran for nobody; this
+//: is the half that ran for somebody and still wrote the string that was
+//: already there 59 times out of 60. Measured with `scratchpad/ui-sweeps/
+//: idle.js`, which now counts timer *fires* rather than only live intervals:
+//: two 1s clocks were 120 of the 123 callbacks an idle visible minute ran.
+//:
+//: Aligned to the wall clock rather than set to a 60,000 ms interval, which
+//: is the whole reason this is a `setTimeout` chain: an interval started at
+//: 10:00:59.8 repaints at 10:01:59.8, so for the 58 seconds in between the
+//: clock is a minute behind, and a clock that is a minute behind is worse
+//: than one that costs 60 wakes. The 250 ms is margin for a timer that fires
+//: a hair early; landing at :00.25 rather than :59.99 is the difference
+//: between showing the new minute and showing the old one again.
+//:
+//: One helper rather than three, because the app has three of these (the
+//: header clocks here, the Dashboard's, and the status bar's opt-in one) and
+//: they were 1s, 1s and 30s: `startMinuteTicker` is what they all mean.
+const MINUTE_TICK_MARGIN_MS = 250;
+
+function startMinuteTicker(paint) {
+  let handle = null;
+  const schedule = () => {
+    const wait = 60000 - (Date.now() % 60000) + MINUTE_TICK_MARGIN_MS;
+    //: Named, not an arrow: `scratchpad/ui-sweeps/idle.js` counts wakes by
+    //: `fn.name`, and a census of anonymous callbacks cannot tell anyone
+    //: which one to look at.
+    handle = setTimeout(function minuteTick() {
+      paint();
+      schedule();
+    }, wait);
+  };
+  paint();
+  schedule();
+  //: The caller keeps the stopper rather than an id: a chained timeout has a
+  //: different id after every tick, so a caller holding the first one could
+  //: not cancel the chain.
+  return () => {
+    if (handle !== null) clearTimeout(handle);
+    handle = null;
+  };
+}
+
 let clockTimer = null;
 
 function startClockTicker() {
-  if (clockTimer === null) clockTimer = setInterval(tickClocks, 1000);
+  if (clockTimer === null) clockTimer = startMinuteTicker(tickClocks);
 }
 
 function stopClockTicker() {
   if (clockTimer !== null) {
-    clearInterval(clockTimer);
+    clockTimer();
     clockTimer = null;
   }
 }
@@ -24824,6 +26359,11 @@ function noteFirstImage(content) {
 //: text is nothing but markers is still a link somebody typed, and a button
 //: with no words in it cannot be clicked on purpose.
 function wikiLinkLabel(name) {
+  //: An id-addressed board reads as its title, never as "board:12|House
+  //: jobs". The raw form is an address, and an address on a chip is the
+  //: same mistake as a url where a link's text should be.
+  const ref = boardEmbedRef(name);
+  if (ref) return ref.title || (ref.map ? "Mind map" : "Board");
   const clean = notePreviewText(name).replace(/\s+/g, " ").trim();
   return clean || name;
 }
@@ -24907,6 +26447,12 @@ async function loadReminders() {
     return;
   }
   surfaceRecovered($("reminders-empty"));
+  //: Anything that changes a reminder ends up here (setting, ticking off,
+  //: deleting, undoing), and every one of those changes a note card's
+  //: reminder chip (INBOX 309). Cleared rather than tracked per reminder:
+  //: this list is the whole table, so working out *which* note moved would
+  //: be a second model of the same data.
+  reminderCountsCache.clear();
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();
 
@@ -25160,6 +26706,7 @@ let editingReminderId = null;
 function reminderItem(reminder, label) {
   const li = document.createElement("li");
   li.dataset.id = reminder.id; // flashReminder's own hook, same shape as #entry-list's data-id
+  li.dataset.swipeRight = reminder.done ? "Reopen" : "Done"; // the phone's swipe (initRowSwipe)
   if (label === "Overdue") li.classList.add("overdue");
   // Colour-code by priority (styled in CSS: a coloured left border).
   if (reminder.priority && reminder.priority !== "normal") {
@@ -25227,7 +26774,7 @@ function reminderItem(reminder, label) {
       )
     );
     actions.appendChild(
-      smallButton("→ tmrw", "Snooze to tomorrow 9am", () =>
+      smallButton("ph:arrow-right tmrw", "Snooze to tomorrow 9am", () =>
         snoozeReminderTo(reminder, presetDate("tomorrow"))
       )
     );
@@ -25574,6 +27121,11 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
   // close to permanent (§36C).
   askNotificationPermission();
   toast("Reminder set.");
+  //: The card's reminder chip (INBOX 309) reads a cached count, and this is
+  //: the moment that count became wrong. Dropped rather than adjusted: the
+  //: next render asks, and a number kept in step by hand is a number that
+  //: eventually is not.
+  if (entryId != null) reminderCountsCache.delete(Number(entryId));
   loadReminders();
   return true;
 }
@@ -25756,9 +27308,12 @@ function mdCalloutElement(quoted, depth) {
 
   const head = document.createElement(fold ? "summary" : "p");
   head.className = "callout-head";
-  const icon = document.createElement("span");
+  //: The kind's icon, drawn from the vendored set like every other icon in
+  //: the app. `CALLOUT_KINDS` holds a `ph:` token (editor.js); this was a
+  //: `<span>` carrying the emoji itself until 2026-09-21.
+  const icon = document.createElement("i");
+  icon.className = `ph ph-${String((meta ? meta.icon : "ph:note")).replace(/^ph:/, "")}`;
   icon.setAttribute("aria-hidden", "true");
-  icon.textContent = meta ? meta.icon : "\u{1F4DD}";
   head.appendChild(icon);
   const title = document.createElement("span");
   // The title after the marker wins; failing that, the kind's own name.
@@ -25777,20 +27332,44 @@ function mdCalloutElement(quoted, depth) {
 
 // A `.note-embed` element for `![[name]]`.
 function mdEmbedElement(name, depth) {
+  //: **A board or a map is not text to transclude, it is a picture** (INBOX
+  //: 309). Everything else a note can embed is words, and the card below
+  //: renders those words inline; a whiteboard has no words to inline, so
+  //: this branch draws the same miniature the Library and the dashboard
+  //: draw and makes it the way in.
+  //:
+  //: Both spellings land here, because both already exist in real notes:
+  //: `![[board:12|House jobs]]`, which the "/" menu writes, and a plain
+  //: `![[House jobs]]` that happens to name a board, which `resolveWikiTarget`
+  //: has resolved to a board since the map chips were built and which this
+  //: function then rendered as "Nothing called House jobs yet" (measured on
+  //: 8793 before this change: the embed of a live board claimed it did not
+  //: exist).
+  const ref = boardEmbedRef(name);
+  const named = ref ? null : resolveWikiTarget(name);
+  if (ref) return boardEmbedElement(ref);
+  if (named && named.kind === "board") {
+    return boardEmbedElement({
+      id: named.entry.id,
+      title: named.entry.title || String(name || "").trim(),
+      map: named.entry.type !== "board",
+    });
+  }
+
   const box = document.createElement("div");
   box.className = "note-embed";
 
   const head = document.createElement("p");
   head.className = "note-embed-head";
-  const marker = document.createElement("span");
+  const marker = document.createElement("i");
+  marker.className = "ph ph-paperclip";
   marker.setAttribute("aria-hidden", "true");
-  marker.textContent = "\u{1F4CE}";
   head.append(marker, document.createTextNode(` Embedded: ${name}`));
   box.appendChild(head);
 
   const body = document.createElement("div");
   body.className = "note-embed-body";
-  const target = resolveWikiTarget(name);
+  const target = named;
   if (depth >= MD_MAX_DEPTH) {
     // A embeds B embeds A. The cap is what stops that hanging the tab, and
     // saying so beats rendering nothing and looking like a bug.
@@ -25816,6 +27395,157 @@ function mdEmbedElement(name, depth) {
   }
   box.appendChild(body);
   return box;
+}
+
+//: **A whiteboard or a mind map, living in a note as an object** (INBOX 309).
+//:
+//: One card, drawn from the one preview renderer this app has
+//: (`mapPreview`), so a board looks the same in a note as it does in the
+//: Library and on the dashboard. MINDMAP_PLAN §5 item 12's rule, which this
+//: is the fourth surface to keep: "One `mapChip()` and one `mapPreview()`,
+//: used by all of them: the app's recurring failure is the same object drawn
+//: five ways."
+//:
+//: The whole card is one `<button>`. A picture with a separate "open" link
+//: beside it is two tab stops for one action, and the picture is the thing
+//: the eye and the finger both go for; making the card itself the control is
+//: what `mapChip` already does for the chip-sized version of this.
+//:
+//: **The card is filled twice when the index is not loaded yet.** `mapPreview`
+//: draws from `/whiteboard/boards` (`loadMapBoardIndex`), which a document or
+//: a chat transcript has usually never asked for, and this function is
+//: synchronous because it runs inside a render pass. So an unloaded index
+//: draws the resting card, asks for the index, and fills in place. It cannot
+//: loop: `loadMapBoardIndex` de-duplicates and caches for eight seconds.
+//: The board ids a forced index refresh has already looked for and not found.
+//: See `fill` below: this is what keeps a dead reference from costing a
+//: request per render.
+const boardEmbedForced = new Set();
+
+function boardEmbedElement(ref) {
+  const box = document.createElement("div");
+  box.className = "note-embed board-embed";
+  //: The id this card points at, so a sweep (and a reader with the inspector
+  //: open) can tell which board a preview claims to be without reading the
+  //: note's source.
+  box.dataset.boardRef = String(ref.id || "");
+  //: **A miss is not a tombstone until the index has been asked again.**
+  //: `mapBoardIndexCache` is eight seconds old at most but is only *rebuilt*
+  //: when something asks for it, so a board made after this session's index
+  //: was built is missing from it: drawing "this board is no longer in your
+  //: notebook" over a board somebody created a minute ago is the worst thing
+  //: this card could say. So a miss asks once more, with the index refreshed,
+  //: and only then writes the tombstone. `final` is what tells the two apart,
+  //: and it cannot loop: the retry always passes true.
+  const fill = (final) => {
+    const found = boardEmbedFill(box, ref, final);
+    if (found) {
+      //: It is here after all, so a later deletion gets its own forced look
+      //: rather than inheriting this one's answer.
+      boardEmbedForced.delete(ref.id);
+      return;
+    }
+    if (final) return;
+    //: A reference a forced refresh has already failed to find is not asked
+    //: about again: without this, every re-render of a note holding a dead
+    //: object would walk `/whiteboard/boards` from the top.
+    if (boardEmbedForced.has(ref.id) || typeof loadMapBoardIndex !== "function") {
+      fill(true);
+      return;
+    }
+    boardEmbedForced.add(ref.id);
+    loadMapBoardIndex(true).then(() => fill(true), () => fill(true));
+  };
+  fill(false);
+  return box;
+}
+
+function boardEmbedFill(box, ref, final) {
+  const board = boardEmbedTarget(ref);
+  box.replaceChildren();
+  box.classList.toggle("board-embed-gone", !board && final);
+
+  if (!board && !final) {
+    //: **Not the tombstone.** "We have not looked yet" and "it is gone" are
+    //: different facts, and printing the second while the first is true is
+    //: how a working board gets reported as deleted.
+    const waiting = document.createElement("p");
+    waiting.className = "note-embed-head";
+    setLabel(waiting, `${ref.map ? "ph:tree-structure" : "ph:squares-four"} ${ref.title || "Loading\u2026"}`);
+    box.appendChild(waiting);
+    return null;
+  }
+
+  if (!board) {
+    //: **A tombstone, not a disappearance** (the decision recorded in
+    //: DOCUMENTS_PLAN's "Decisions made"). A board deleted after it was put
+    //: in a note would otherwise take a paragraph of that note with it, and
+    //: the reader would never learn that anything had been there: content
+    //: that vanishes silently is worse than content that says it is gone.
+    //: The title the reference carries is exactly what makes this sentence
+    //: worth reading.
+    const head = document.createElement("p");
+    head.className = "note-embed-head";
+    setLabel(head, "ph:trash Removed");
+    const what = document.createElement("p");
+    what.className = "board-embed-title";
+    what.textContent = ref.title || (ref.map ? "A mind map" : "A whiteboard");
+    const why = document.createElement("p");
+    why.className = "library-file-meta board-embed-meta";
+    why.textContent = "This board is no longer in your notebook.";
+    box.append(head, what, why);
+    return null;
+  }
+
+  const isMap = board.type !== "board";
+  const title = board.title || ref.title || (isMap ? "Untitled map" : "Untitled board");
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "board-embed-open";
+  open.title = `Open \u201c${title}\u201d`;
+
+  const head = document.createElement("span");
+  head.className = "note-embed-head";
+  setLabel(head, `${isMap ? "ph:tree-structure" : "ph:squares-four"} ${isMap ? "Mind map" : "Whiteboard"}`);
+
+  const body = document.createElement("span");
+  body.className = "board-embed-body";
+  const picture = mapPreview(board, { size: "card" });
+  picture.classList.add("board-embed-picture");
+  const text = document.createElement("span");
+  text.className = "board-embed-text";
+  const name = document.createElement("span");
+  name.className = "board-embed-title";
+  name.textContent = title;
+  //: The facts line recipe (DESIGN.md), the same sentence the Library card
+  //: and the dashboard row carry under the same picture.
+  const meta = document.createElement("span");
+  meta.className = "library-file-meta board-embed-meta";
+  meta.textContent = mapCountLabel(board);
+  text.append(name, meta);
+  body.append(picture, text);
+  open.append(head, body);
+  open.addEventListener("click", (event) => {
+    //: The note card underneath is itself clickable (it expands), so a press
+    //: meant for the board must not also open the note.
+    event.stopPropagation();
+    if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(board.id);
+  });
+  box.appendChild(open);
+  return board;
+}
+
+//: The reference a note carries for one board, the one place the text form is
+//: written. Read by the "/" menu and by the board's own "Add to a note", so
+//: the two cannot write two different spellings of the same object.
+function boardEmbedMarkdown(board) {
+  const isMap = board?.type !== "board";
+  const title = String(board?.title || (isMap ? "Untitled map" : "Untitled board"))
+    .replace(/[[\]|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return `![[${isMap ? "map" : "board"}:${board?.id}|${title}]]`;
 }
 
 //: How deep a callout or an embed may nest before rendering stops.
@@ -25852,7 +27582,13 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "ghost small code-copy";
-    b.textContent = text;
+    //: `setLabel`, not `textContent`: the Copy button here said "⧉ Copy", a
+    //: typed glyph standing where an icon belongs while the app ships
+    //: `ph:copy` and uses it in five other places
+    //: (`tests/test_no_glyph_icons.py` names the fault and now names this
+    //: glyph). A label with no `ph:` marker comes through unchanged, so the
+    //: bar's other buttons are untouched.
+    setLabel(b, text);
     b.title = title;
     if (onClick) b.addEventListener("click", onClick);
     return b;
@@ -26172,7 +27908,7 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   fit.hidden = true;
   full.hidden = true;
   actions.append(
-    button("⧉ Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
+    button("ph:copy Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
     menu,
     //: Last in the bar, which puts it at the panel's top-right corner, where
     //: every other X in this app is. Hidden in a bubble: there is nothing to
@@ -26290,7 +28026,24 @@ function openMenuAtPoint(items, ariaLabel, x, y) {
   //: app has had reported to it more than once.
   opener.setAttribute("tabindex", "-1");
   pointerMenuHost.appendChild(wrap);
-  openActionMenu(wrap.querySelector(".action-menu"), opener);
+  const menu = wrap.querySelector(".action-menu");
+  openActionMenu(menu, opener);
+  //: **The focus is asked for again on the next frame**, and only when it did
+  //: not stay. Measured on the graph at 390 with a real hold (CDP touch,
+  //: `scratchpad/ui-sweeps/graphphone.js`): `openActionMenu` focuses the
+  //: first row, and while a touch gesture is still in flight Chromium takes
+  //: it straight back out again (a `focusin` on the row followed immediately
+  //: by a `focusout` to nothing, with the menu still open and visible). The
+  //: cost is not cosmetic: Escape is bound on the menu, so a menu opened by a
+  //: hold could not be closed by the keyboard, and the same press with the
+  //: finger lifted first focuses perfectly. A frame later the same call
+  //: sticks. Nothing happens when the focus is already inside, so a menu
+  //: opened by a right-click is untouched.
+  requestAnimationFrame(() => {
+    if (!menu || menu.classList.contains("hidden")) return;
+    if (menu.contains(document.activeElement)) return;
+    menu.querySelector("button")?.focus({ preventScroll: true });
+  });
 }
 
 //: What a right-click on a link offers, by what the link is. An address can be
@@ -26361,39 +28114,84 @@ document.addEventListener("contextmenu", (event) => {
 //: whiteboard's own link gesture uses (`wbWireMapEdgeGestures`) so the app
 //: answers a long press at one speed. Cancelled by a move, because a hold
 //: that turns into a scroll is a scroll.
-const LINK_HOLD_CANCELS = ["pointerup", "pointercancel", "pointermove"];
+// --- a long-press is a right-click on a phone (UI Phase 11 item 9) ------------
+// A finger has no second button. Every right-click menu in the app gets the
+// same menu on a 500ms hold that neither moves nor lifts; `target` is the
+// element the hold is on, or `document` with a `selector` for holds that
+// land on elements built later (a link inside a rendered note). The handler
+// receives the pointer event of the press and the point to open at. Touch
+// only: a mouse held down is a drag waiting to happen, and it has the
+// button. `tests/test_ui_recipes.py` holds every contextmenu listener in
+// app.js and documents.js to a wireLongPress twin.
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_CANCELS = ["pointerup", "pointercancel", "pointermove"];
 
-document.addEventListener(
-  "pointerdown",
-  (event) => {
-    if (event.pointerType !== "touch") return;
-    const found = linkAtEvent(event);
-    if (!found) return;
-    const { clientX, clientY } = event;
-    //: **The cancel listeners live only as long as the hold does.** The first
-    //: cut kept three of them on `document` for the life of the page, one of
-    //: them `pointermove`, which fires on every pixel of every drag on the
-    //: whiteboard, a surface whose per-move cost was measured down from
-    //: 7.67ms to 0.79ms by a previous session. A listener that exists for
-    //: 500ms after a touch on a link costs nothing anybody can measure;
-    //: one that exists always is a tax on the app's most expensive gesture.
-    //: `passive`, because none of them ever calls `preventDefault` and a
-    //: non-passive move listener is what makes a page scroll badly.
-    const cancel = () => {
-      clearTimeout(timer);
-      for (const name of LINK_HOLD_CANCELS) {
-        document.removeEventListener(name, cancel, true);
+function wireLongPress(target, handler, { selector = null } = {}) {
+  if (!target) return;
+  target.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.pointerType !== "touch") return;
+      const hit = selector
+        ? event.target instanceof Element && event.target.closest(selector)
+        : target;
+      if (!hit) return;
+      const { clientX, clientY } = event;
+      const cancel = () => {
+        clearTimeout(timer);
+        for (const name of LONG_PRESS_CANCELS) {
+          document.removeEventListener(name, cancel, true);
+        }
+      };
+      const timer = setTimeout(() => {
+        cancel();
+        //: **The lift-off is swallowed.** A hold ends like every other touch,
+        //: with a click, and the element under it is the element the hold was
+        //: about: measured on the graph at 390, holding a node opened its menu
+        //: and lifting the finger opened that node's panel underneath it, so
+        //: the gesture did two things and the second one took the focus the
+        //: menu had just been given (the menu was still open, and Escape
+        //: closed the panel instead of it). Captured, so it never reaches the
+        //: surface, and `once` so only that one click is taken; the timer is
+        //: the belt for a press that ends in a `pointercancel` and therefore
+        //: sends no click at all, which would otherwise leave the swallow
+        //: waiting for the *next* tap, on a menu row.
+        //: All three of the mouse events a tap synthesises, not the click
+        //: alone: Chromium sends `mousedown`, `mouseup` and `click` when the
+        //: finger lifts, and it is the first of them that moves the focus.
+        //: Measured on the graph: with only the click taken, the menu opened
+        //: with its first row focused and the lift then put the focus on
+        //: `#graph-box`, so Escape reached the map instead of the menu and
+        //: the menu stayed open. `preventDefault` on the `mousedown` is what
+        //: leaves the focus where the hold put it.
+        const swallowed = ["mousedown", "mouseup", "click"];
+        const done = () => {
+          for (const type of swallowed) document.removeEventListener(type, swallow, true);
+        };
+        const swallow = (lift) => {
+          lift.preventDefault();
+          lift.stopPropagation();
+          if (lift.type === "click") done();
+        };
+        for (const type of swallowed) document.addEventListener(type, swallow, true);
+        setTimeout(done, 1200);
+        handler(event, { x: clientX, y: clientY, el: hit });
+      }, LONG_PRESS_MS);
+      for (const name of LONG_PRESS_CANCELS) {
+        document.addEventListener(name, cancel, { capture: true, passive: true });
       }
-    };
-    const timer = setTimeout(() => {
-      cancel();
-      openMenuAtPoint(found.items, "Link actions", clientX, clientY);
-    }, 500);
-    for (const name of LINK_HOLD_CANCELS) {
-      document.addEventListener(name, cancel, { capture: true, passive: true });
-    }
+    },
+    { passive: true }
+  );
+}
+
+wireLongPress(
+  document,
+  (event, point) => {
+    const found = linkAtEvent(event);
+    if (found) openMenuAtPoint(found.items, "Link actions", point.x, point.y);
   },
-  { passive: true }
+  { selector: "a[href], .wiki-link" }
 );
 
 function renderMarkdown(container, text, depth = 0) {
@@ -26403,12 +28201,48 @@ function renderMarkdown(container, text, depth = 0) {
   let list = null; // the <ul>/<ol> currently being filled, or null
   const headingIds = new Set(); // so two "Notes" headings get distinct anchors
 
+  //: **Which source line each rendered block came from**, written on the
+  //: block as `data-src-line`. The split document view needs it to line its
+  //: two panes up: a scroll fraction is exact at both ends and wrong
+  //: everywhere a picture, a table or a code fence takes a different amount
+  //: of room in the two halves, which is the owner's report of 2026-09-20
+  //: ("the scrolling is off in the split document view because of the md
+  //: rendering"). See `docScrollAnchors` in documents.js.
+  //:
+  //: Stamped here rather than worked out afterwards, because this loop is the
+  //: only thing that knows which lines produced which element. Any other
+  //: answer is a second parser standing beside this one, and two parsers
+  //: disagree the first time either is changed.
+  //:
+  //: The bookkeeping is deliberately outside the branches: a block is
+  //: appended at eight different points in this loop, several of them after
+  //: `i` has already moved past the lines they consumed, so the line is
+  //: remembered at the top of the iteration and everything the iteration
+  //: appended is stamped at the top of the next one. A list is the exception,
+  //: since `closeList` appends it in a later iteration than the one that
+  //: started it, so it carries its own start line.
+  let blockLine = 0;
+  let listLine = 0;
+  let stamped = 0;
+  const stampNewBlocks = () => {
+    while (stamped < container.childElementCount) {
+      container.children[stamped].dataset.srcLine = String(blockLine);
+      stamped += 1;
+    }
+  };
+
   const closeList = () => {
-    if (list) container.appendChild(list);
+    if (list) {
+      list.dataset.srcLine = String(listLine);
+      container.appendChild(list);
+      stamped = container.childElementCount;
+    }
     list = null;
   };
 
   while (i < lines.length) {
+    stampNewBlocks();
+    blockLine = i;
     const line = lines[i];
 
     // Fenced code block. Gets a header strip with the language (when the
@@ -26438,7 +28272,9 @@ function renderMarkdown(container, text, depth = 0) {
       const copy = document.createElement("button");
       copy.type = "button";
       copy.className = "ghost small code-copy";
-      copy.textContent = "⧉ Copy";
+      //: The app's own copy icon, not a typed `⧉`: see the note on the table
+      //: bar's `button` helper above, and `tests/test_no_glyph_icons.py`.
+      setLabel(copy, "ph:copy Copy");
       copy.title = "Copy this code block";
       copy.addEventListener("click", (event) =>
         copyToClipboard(text, event.currentTarget)
@@ -26450,7 +28286,11 @@ function renderMarkdown(container, text, depth = 0) {
       const save = document.createElement("button");
       save.type = "button";
       save.className = "ghost small code-copy";
-      save.textContent = "Save";
+      //: With its own icon, because the pair sit in one bar: an icon beside
+      //: "Copy" and nothing beside "Save" reads as two different kinds of
+      //: control. `ph:download-simple` is what the app already puts on a
+      //: "Save this to your computer" (the image reader's, app.js ~6328).
+      setLabel(save, "ph:download-simple Save");
       save.title = "Save this code block to the exports folder";
       save.addEventListener("click", () =>
         saveFile(`code-${Date.now()}.${language || "txt"}`, new Blob([text], { type: "text/plain" }))
@@ -26610,6 +28450,7 @@ function renderMarkdown(container, text, depth = 0) {
       if (!list || (list.tagName === "OL") !== wantOrdered) {
         closeList();
         list = document.createElement(wantOrdered ? "ol" : "ul");
+        listLine = i;
         // Start where the author started. Without this a list written as
         // "3. 4. 5." renders as 1, 2, 3, and, more importantly, a list that
         // resumes after a paragraph restarts from 1.
@@ -26697,6 +28538,9 @@ function renderMarkdown(container, text, depth = 0) {
     });
     container.appendChild(p);
   }
+  //: The last iteration's blocks, which no next iteration is coming to stamp,
+  //: and then the list the document may have ended in the middle of.
+  stampNewBlocks();
   closeList();
 }
 
@@ -27600,9 +29444,22 @@ function dailyNoteTitle(bucketKey) {
   return bucketKey;
 }
 
+//: **The day's page may be a note or a document** (DOCUMENTS_PLAN section 14).
+//: `/timeline` has returned documents as their own kind since Phase 4, so a
+//: document titled with the day was already in this feed; the day bucket just
+//: did not believe it, and went on offering to start a second page for a day
+//: already begun. One day, one page, and which store holds it is the writer's
+//: choice: the Documents tab's "Daily" template writes the same ISO title this
+//: function reads, so the two surfaces agree by spelling rather than by a
+//: shared table.
+//:
+//: Boards are not in the set on purpose: a mind map named after a date is a
+//: map of that date, not the day's writing.
+const TIMELINE_DAILY_KINDS = new Set(["note", "document"]);
+
 function timelineDailyNote(bucketKey, rows) {
   const wanted = dailyNoteTitle(bucketKey);
-  return rows.find((row) => row.kind === "note" && row.title.trim() === wanted) || null;
+  return rows.find((row) => TIMELINE_DAILY_KINDS.has(row.kind) && row.title.trim() === wanted) || null;
 }
 
 //: **The buckets are computed here, not fetched.** `/timeline` labels every
@@ -27715,7 +29572,10 @@ function timelineKindChoice() {
 }
 
 function timelineIsDailyNote(row) {
-  return row.kind === "note" && row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"));
+  return (
+    TIMELINE_DAILY_KINDS.has(row.kind) &&
+    row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"))
+  );
 }
 
 //: **One control, not four, and now one button rather than one well** (INBOX
@@ -28226,8 +30086,12 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
     const existing = timelineDailyNote(bucket.key, bucket.rows);
     head.appendChild(
       existing
-        ? smallButton("ph:calendar-dot Today's note", "Open today's journal note", () =>
-            focusTimelineRow(existing.key)
+        ? //: The button names the kind it found: "today's note" pointing at a
+          //: document is a small lie, and the two are different things to open.
+          smallButton(
+            existing.kind === "document" ? "ph:calendar-dot Today's document" : "ph:calendar-dot Today's note",
+            existing.kind === "document" ? "Open today's document" : "Open today's journal note",
+            () => focusTimelineRow(existing.key)
           )
         : smallButton("ph:plus Start today's note", "Open a new note with today's date in the title", () =>
             startTodaysNote()
@@ -28334,7 +30198,9 @@ function timelineRowElement(row, density) {
   //: made, so their own glyph is free to say what they are.
   glyph.className = `ph ${TIMELINE_KIND_GLYPHS[row.kind] || "ph-note"}`;
   if (row.kind === "note" && row.placedBy === "mentioned") glyph.className = "ph ph-clock-countdown";
-  if (row.kind === "note" && timelineIsDailyNote(row)) glyph.className = "ph ph-calendar-dot";
+  //: The day's page carries the calendar whichever store holds it
+  //: (DOCUMENTS_PLAN section 14); `timelineIsDailyNote` is what knows the set.
+  if (timelineIsDailyNote(row)) glyph.className = "ph ph-calendar-dot";
   mark.appendChild(glyph);
 
   const main = document.createElement("span");
@@ -28682,14 +30548,33 @@ function shortDate(iso) {
 //: fortnight everything happened in are visible at a glance and one drag away.
 //: It is the only SVG left in the tab, and it is one path.
 //:
-//: **It hides under 200 notes**, which the plan asked to be measured rather
-//: than assumed (section 7: "it may read as noise and should hide below a
-//: threshold measured then"). Measured on the 48-note seed: 40 buckets over 40
-//: days, every slot one note tall, which is a strip of identical marks saying
-//: nothing that the headers do not say better. The threshold is on the range's
-//: own size, not on what is loaded, so it does not appear halfway down a
-//: notebook that was always big enough.
-const TIMELINE_SCRUBBER_MIN = 200;
+//: **It hides when the shape it would draw says nothing**, which the plan
+//: asked to be measured rather than assumed (section 7: "it may read as noise
+//: and should hide below a threshold measured then"). It hid under 200 notes
+//: until 2026-09-20, and the measurement
+//: (`scratchpad/ui-sweeps/timelinedensity.js`, over a 2,000-note seed sliced
+//: into every size from 25 notes up, in both of the two shapes a notebook
+//: comes in) says a count is the wrong variable: it admits a notebook the
+//: strip cannot draw and hides one it can.
+//:
+//: - **A young notebook**, everything written in the last few weeks. The span
+//:   is the range, so 200 notes over 18 days fill 18 of the 120 slots and the
+//:   other 102 are empty: a comb of 18 teeth, which is the same complaint the
+//:   48-note seed earned, at the size that passed. 86% of the strip is either
+//:   empty or at the peak.
+//: - **An old, sparse notebook**, a few notes a month for years. 150 notes
+//:   fill 103 slots with a peak of 5, and that reads as a profile: 16% at an
+//:   extreme. The count rule hid it.
+//:
+//: So the test is on the drawn shape: enough slots carry something that the
+//: strip is not a comb, and the peak is deep enough that the bars differ at
+//: all (with a peak of 1 to 3 every bar is full, a third or two thirds, which
+//: is a bar code). Measured values: a fifth of the slots, and a peak of four.
+//: Both are read off the density of the **whole range**, not off what is
+//: loaded, so the strip does not appear halfway down a notebook that was
+//: always big enough.
+const TIMELINE_SCRUBBER_MIN_SLOTS = 24;
+const TIMELINE_SCRUBBER_MIN_PEAK = 4;
 const TIMELINE_SCRUBBER_SLOTS = 120;
 const TIMELINE_SCRUBBER_HEIGHT = 1000; // the viewBox's own units
 
@@ -28713,24 +30598,31 @@ function timelineDensitySpan() {
 
 function drawTimelineScrubber() {
   const strip = $("timeline-scrubber");
-  const total = Object.values(timelineDensity).reduce((sum, n) => sum + n, 0);
   const span = timelineDensitySpan();
-  const show = total >= TIMELINE_SCRUBBER_MIN && span !== null;
-  strip.classList.toggle("hidden", !show);
-  if (!show) return;
-
   // One slot per band of time, filled with everything written inside it: the
   // strip is a shape, not a list of days, and 120 slots is about one per 8
   // pixels of a full-height strip.
   const slots = new Array(TIMELINE_SCRUBBER_SLOTS).fill(0);
-  for (const [day, count] of Object.entries(timelineDensity)) {
-    const at = new Date(`${day}T00:00:00`).getTime();
-    if (Number.isNaN(at)) continue;
-    const fraction = (span.newest - at) / span.width;
-    const slot = Math.min(TIMELINE_SCRUBBER_SLOTS - 1, Math.max(0, Math.round(fraction * (TIMELINE_SCRUBBER_SLOTS - 1))));
-    slots[slot] += count;
+  if (span) {
+    for (const [day, count] of Object.entries(timelineDensity)) {
+      const at = new Date(`${day}T00:00:00`).getTime();
+      if (Number.isNaN(at)) continue;
+      const fraction = (span.newest - at) / span.width;
+      const slot = Math.min(TIMELINE_SCRUBBER_SLOTS - 1, Math.max(0, Math.round(fraction * (TIMELINE_SCRUBBER_SLOTS - 1))));
+      slots[slot] += count;
+    }
   }
   const peak = Math.max(...slots, 1);
+  //: The shape decides, not the count: see the constants above. The slotting
+  //: has to run first to ask the question at all, which is cheap (120 numbers
+  //: over the days in range) and is the work this function was going to do
+  //: anyway on every notebook large enough to draw.
+  const show =
+    span !== null &&
+    slots.filter((count) => count > 0).length >= TIMELINE_SCRUBBER_MIN_SLOTS &&
+    peak >= TIMELINE_SCRUBBER_MIN_PEAK;
+  strip.classList.toggle("hidden", !show);
+  if (!show) return;
   const step = TIMELINE_SCRUBBER_HEIGHT / TIMELINE_SCRUBBER_SLOTS;
   // A step chart drawn from the strip's right edge, closed along it, so the
   // shape reads as a profile of the writing rather than as a line drawing.
@@ -28842,7 +30734,13 @@ $("timeline-scrubber").addEventListener("pointermove", (event) => {
 //: cannot disagree about what a search matched, because they read the same
 //: `timelineVisibleRows()`.
 function timelineViewMode() {
-  return localStorage.getItem("timeline-view") === "table" ? "table" : "feed";
+  const stored = localStorage.getItem("timeline-view");
+  if (stored === "table" || stored === "feed") return stored;
+  //: **A phone opens the timeline as the table** (UI_MODERNISATION_PLAN
+  //: Phase 11 item 8): the feed's two-column ribbon is a desktop's shape,
+  //: and the table is one row per event at any width. A choice made on
+  //: either surface still wins.
+  return window.matchMedia("(max-width: 599.98px)").matches ? "table" : "feed";
 }
 
 // The columns, in the order decision 6 sets them out, with how each one sorts.
@@ -28918,7 +30816,39 @@ function paintTimelineTable(rows) {
   for (const cell of document.querySelectorAll(".timeline-col-select")) {
     cell.classList.toggle("hidden", !selectMode);
   }
+  syncTimelineDetailSpans();
   applyTimelineRowTabOrder();
+}
+
+//: **How many columns the table is actually drawing.** The tick column is
+//: `.hidden` unless the selection mode is on (`timelineTableRow` below), so the
+//: count is not `TIMELINE_COLUMNS.length + 1`: it is that, less the column that
+//: is not there.
+function timelineTableColumnCount() {
+  return TIMELINE_COLUMNS.length + (selectMode ? 1 : 0);
+}
+
+//: **And the open detail row spans exactly that many, never one more.**
+//:
+//: Reported as "the timeline table view shrinks horizontally when opening a
+//: note row" (INBOX 279). The detail was already a row of the table rather than
+//: a sibling pane, so nothing was reflowing the card: what shrank was the one
+//: column that has no width of its own. `table-layout: fixed` gives every
+//: auto-width column an equal share of what the sized columns leave, and a
+//: `colSpan` one past the last real column invents a tenth, auto-width column
+//: for the share to be split with. Measured at three widths with the second row
+//: opened, the Title column went 1032 to 516 at 1930, 702 to 351 at 1600 and
+//: 542 to 271 at 1440: exactly half, every time, with the other half drawn as
+//: empty space past the last header.
+//:
+//: Called from the paint (which is also where the tick column is shown and
+//: hidden) as well as from the opener, so turning the selection mode on under
+//: an open row re-spans it rather than leaving it a column short.
+function syncTimelineDetailSpans() {
+  const span = timelineTableColumnCount();
+  for (const cell of document.querySelectorAll(".timeline-detail-row > td")) {
+    if (cell.colSpan !== span) cell.colSpan = span;
+  }
 }
 
 function timelineTableRow(row) {
@@ -28984,7 +30914,10 @@ function timelineTableRow(row) {
   tr.appendChild(category);
 
   const space = document.createElement("td");
-  space.className = "timeline-col-wide";
+  //: Its own class as well as the wide one: the tablet band hides this column
+  //: and the two number columns (`06-timeline-dialogs.css`), and the head cell
+  //: carries the same pair.
+  space.className = "timeline-col-wide timeline-col-space";
   space.textContent = row.space || "";
   tr.appendChild(space);
 
@@ -29033,7 +30966,7 @@ function openTimelineTableDetail(tr, row) {
   const holder = document.createElement("tr");
   holder.className = "timeline-detail-row";
   const cell = document.createElement("td");
-  cell.colSpan = TIMELINE_COLUMNS.length + 1;
+  cell.colSpan = timelineTableColumnCount();
   const detail = document.createElement("div");
   detail.className = "timeline-row-detail";
   cell.appendChild(detail);
@@ -29230,7 +31163,7 @@ const NOTES_SECTION_STORE = "notesSection";
 // --- a new session starts at the front of every tab ----------------------------
 //
 // Reported directly: "Ive had times where I log into the app, click on the
-// notes tab, and the tab is selected on 'Write with AI' instead of 'Your
+// notes tab, and the tab is selected on 'Write with Atlas' instead of 'Your
 // Notes' because that must have been what I was on last."
 //
 // **Which sub-tab you are on is not a preference; it is where you happen to
@@ -29308,7 +31241,20 @@ function showNotesSection(name, { focus = false } = {}) {
   // belong to: switchTab records its own entry when the *tab* changes, and
   // recordTabVisit ignores a repeat of where you already are, so arriving at
   // Notes and then landing on a section does not produce two entries.
-  recordTabVisit("notes", wanted);
+  //
+  // **Only when Notes is the tab on screen** (INBOX 311). Setting a hidden
+  // tab's default section is not a navigation, and two boot steps do exactly
+  // that: `initNotesSubtabs` ends by selecting whichever section was last
+  // open, and the first `loadEntries` selects browse. Measured on a fresh
+  // load that never left the Dashboard, the stack was
+  // `["notes:browse", "dashboard", "notes:browse"]` with the pin on the last,
+  // so the history claimed you were in Notes while the Dashboard was drawn,
+  // Back went somewhere you had never been, and the owner reported exactly
+  // that. `revealTab` writes `activeTab` before any of a tab's own loading
+  // runs, so by the time a real arrival calls this, it reads "notes".
+  if ((localStorage.getItem("activeTab") || "dashboard") === "notes") {
+    recordTabVisit("notes", wanted);
+  }
   for (const id of NOTES_SECTIONS) {
     const card = document.getElementById(id);
     if (card) card.classList.toggle("hidden", id !== wanted);
@@ -30930,11 +32876,53 @@ async function renderBackups() {
 // /storage, so this app's own tests that treat GET /backups as a plain list
 // of backups don't have to change shape for a control that isn't about any
 // one backup.
+//: "4.2 MB", for a line a person reads rather than a byte count. The server
+//: has the same function (`core/diskspace.human_bytes`), because the notice
+//: below is drawn from raw bytes and the toast is built server-side.
+function humanBytes(count) {
+  if (typeof count !== "number" || !isFinite(count)) return "";
+  let size = count;
+  for (const unit of ["bytes", "KB", "MB", "GB"]) {
+    if (size < 1024 || unit === "GB") {
+      return unit === "bytes" ? `${Math.round(size)} bytes` : `${size.toFixed(1)} ${unit}`;
+    }
+    size /= 1024;
+  }
+  return "";
+}
+
+//: **Say it before a save is the thing that says it** (INBOX 266, item 6).
+//: Measured on a data dir filled to 100%: `data_dir_writable` stayed `true`
+//: throughout, so the one signal this panel had was a reassurance the app
+//: could not keep. The threshold is the server's (`low_space_bytes`), so
+//: there is one answer to "is this getting tight" rather than one per
+//: screen, and the line names the folder and what is worth deleting rather
+//: than only the number.
+function renderStorageSpaceNotice(storage) {
+  const line = $("storage-space-notice");
+  if (!line) return;
+  const free = storage && typeof storage.free_bytes === "number" ? storage.free_bytes : null;
+  const limit = (storage && storage.low_space_bytes) || 0;
+  if (free === null || !limit || free >= limit) {
+    line.classList.add("hidden");
+    line.replaceChildren();
+    return;
+  }
+  line.classList.remove("hidden");
+  setLabel(
+    line,
+    `ph:warning Only ${humanBytes(free)} left where your notebook is kept ` +
+      `(${storage.data_dir}). Deleting old backups below, or exports in ` +
+      "Import and export, is usually the quickest space to find."
+  );
+}
+
 async function renderBackupRetention() {
   const input = $("backup-retention");
   if (!input) return;
   const storage = await apiJson("/storage", { silent: true }).catch(() => null);
   if (!storage) return;
+  renderStorageSpaceNotice(storage);
   input.min = storage.backup_retention_min;
   input.max = storage.backup_retention_max;
   input.value = storage.backup_retention_count;
@@ -31194,7 +33182,18 @@ document.addEventListener(
 );
 
 function paletteCommands() {
+  //: **The documents editor's own commands, at the top, while one is open**
+  //: (DOCUMENTS_PLAN Phase 4 item 4). The plan named `Ctrl+K` for an editor
+  //: palette of its own, which is the chord this one already has: two
+  //: palettes on one key is the collision the agent palette's comment records
+  //: being caught twice. So the editor contributes a group here instead, and
+  //: `docPaletteCommands` (documents.js) returns nothing at all unless the
+  //: Documents tab is showing with a document in it. Guarded by `typeof`
+  //: because that file is in the Library's lazy bundle and the palette opens
+  //: from every tab, including before it has ever been fetched.
+  const editor = typeof docPaletteCommands === "function" ? docPaletteCommands() : [];
   return [
+    ...editor,
     { label: "ph:clipboard Go to Dashboard", run: () => switchTab("dashboard") },
     { label: "ph:magnifying-glass-plus Zoom in", run: () => nudgeZoom(1) },
     { label: "ph:magnifying-glass-minus Zoom out", run: () => nudgeZoom(-1) },
@@ -31481,9 +33480,15 @@ function paletteText(value) {
 
 function paletteMatches(query) {
   const lowered = query.trim().toLowerCase();
-  const commands = paletteCommands().filter((c) =>
-    paletteText(c.label).includes(lowered)
-  );
+  //: **The app's own commands get a group name too, now that something can
+  //: sit above them.** They had none because they were always first and a
+  //: header over the top of a list says nothing; with the editor's group
+  //: ahead of them, an unlabelled run reads as more of "This document", which
+  //: is the one thing it is not. `group` is only set where the row has not
+  //: already claimed one, so the editor's stays its own.
+  const commands = paletteCommands()
+    .filter((c) => paletteText(c.label).includes(lowered))
+    .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
   if (!lowered) return commands;
 
   //: **A question typed into the palette is a question** (INBOX 224). The
@@ -31617,6 +33622,16 @@ function renderPalette(query) {
     }
     const li = document.createElement("li");
     setLabel(li, match.label);
+    //: **The chord, beside the command that runs it.** A palette that only
+    //: performs an action teaches nobody the key for it, and the plan's whole
+    //: reason for this list is features that do not show themselves. Only the
+    //: rows that carry one, which today is the editor's group.
+    if (match.keys) {
+      const keys = document.createElement("kbd");
+      keys.className = "palette-keys";
+      keys.textContent = match.keys;
+      li.appendChild(keys);
+    }
     if (index === paletteIndex) li.classList.add("active");
     li.addEventListener("click", () => {
       closePalette();
@@ -31663,36 +33678,81 @@ function scrollPaletteToActive() {
 
 // --- Wave F: whiteboard-lite --------------------------------------------------------
 
-// Reported directly as "completely wrong": at 0.05 the highlighter needed
-// roughly twenty overlapping passes before a stroke showed at all, visually
-// indistinguishable from the tool doing nothing. 0.35 reads as an actual
-// highlighter (translucent, tints rather than covers) in one pass.
-const SKETCH_HIGHLIGHTER_ALPHA = 0.35;
+// **One highlighter, two renderers** (WHITEBOARD_PLAN decision 7, the half
+// decided 2026-09-20). This pad paints into a `<canvas>` and the whiteboard
+// paints SVG paths; two rendering models is a reason for two *painters*, not
+// for two answers to "what is a highlighter". Every number here used to be
+// two numbers: the board was 0.4 with a multiply blend and a 12 to 24 clamp,
+// the pad 0.35 with no blend and no clamp, so one tool covered the paper on
+// one surface and tinted it on the other (measured: one pass read 176.0 on a
+// 255.0 paper here, which is the ink's own luminance, against 229.6 on a
+// 252.9 board).
+//
+// It lives in app.js rather than whiteboard.js because whiteboard.js is
+// lazily loaded (the module map near the foot of this file): whiteboard.js
+// can read app.js, never the other way round.
+const HIGHLIGHTER_STYLE = {
+  // The plan's figure. Reported at 0.05 before Phase 3, where a stroke needed
+  // roughly twenty overlapping passes to show at all and read as the tool
+  // doing nothing.
+  alpha: 0.4,
+  // A nib, not a scaled pen: both width sliders reach 24 and four times that
+  // is a wall, so the product is clamped to the range a real marker has.
+  widthMultiplier: 4,
+  minWidth: 12,
+  maxWidth: 24,
+  // A flat end is what a marker leaves; a round join is what keeps a
+  // scribbled corner from reading as chipped.
+  lineCap: "square",
+  lineJoin: "round",
+  // Multiply is worth 20 luminance units a pass over a light backdrop and 3
+  // over a dark one (measured, WHITEBOARD_PLAN decision 7), so over a dark
+  // one the highlighter screens instead: the same "two passes of one pen"
+  // signal, in the direction that surface can actually move.
+  blendOnLight: "multiply",
+  blendOnDark: "screen",
+};
 
-// **The remaining two differences from the whiteboard's highlighter, now
-// gone.** Reported: "fix the highlighter in the quick sketch feature to be
-// the same as the whiteboard". The alpha and the width multiplier already
-// matched (see both constants); what did not was how the stroke was painted.
-//
-// · `globalCompositeOperation: "multiply"` was the substantive one. Multiply
-//   darkens toward black against whatever is behind it, so the same yellow
-//   that tints a white page turns to mud on a dark one, and this app has a
-//   dark theme. The whiteboard draws an SVG path with plain `stroke-opacity`
-//   and no blend mode at all, which behaves the same on any background.
-// · `lineJoin: "bevel"` against the whiteboard's `round`, which is what made
-//   a scribbled corner look chipped here and smooth there.
-//
-// `lineCap: "square"` stays: the whiteboard sets exactly that, and a flat
-// end is what a marker leaves.
-const SKETCH_HIGHLIGHTER_LINE_JOIN = "round";
-const SKETCH_HIGHLIGHTER_COMPOSITE = "source-over";
-// Was 6x: the whiteboard's own highlighter (WB_STROKE_WIDTH * 4 in
-// whiteboard.js) is the reference the two are meant to match, and reported
-// directly as needing to. Both start from a different base width (sketchPen
-// default 4px vs. the whiteboard's 3px), so matching the multiplier rather
-// than the pixel result is what keeps them proportionally alike as either
-// slider moves.
-const SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER = 4;
+// The one width both renderers ask for. Takes the pen width rather than
+// reading one: the board's `WB_STROKE_WIDTH` is a `let` inside
+// `initWhiteboard`, and a module-level function that read it threw on the
+// first stroke.
+function highlighterWidth(penWidth) {
+  return Math.min(
+    HIGHLIGHTER_STYLE.maxWidth,
+    Math.max(HIGHLIGHTER_STYLE.minWidth, (penWidth || 3) * HIGHLIGHTER_STYLE.widthMultiplier),
+  );
+}
+
+// `backdropIsDark` is about what the stroke composites *against*, which is
+// not the same question as which theme is on. The pad's strokes land in their
+// own transparent canvas stacked over a separate paper canvas, so the
+// backdrop a canvas blend sees is the other strokes and never the paper: the
+// pad passes false in both themes. The board's paths blend against the board
+// itself, so it passes the resolved mode.
+function highlighterBlend(backdropIsDark) {
+  return backdropIsDark ? HIGHLIGHTER_STYLE.blendOnDark : HIGHLIGHTER_STYLE.blendOnLight;
+}
+
+// The pad's one place for "what is the brush right now", so the drag path and
+// the single-click dot cannot drift apart: the five lines that make a
+// highlighter a highlighter were written out twice before this.
+function sketchApplyBrush(context) {
+  const isHighlighter = sketchTool === "highlighter";
+  const erasing = sketchPen.eraser && sketchTool === "pen";
+  context.lineCap = isHighlighter ? HIGHLIGHTER_STYLE.lineCap : "round";
+  context.lineJoin = isHighlighter ? HIGHLIGHTER_STYLE.lineJoin : "round";
+  context.globalCompositeOperation = erasing
+    ? "destination-out"
+    : isHighlighter
+      ? highlighterBlend(false)
+      : "source-over";
+  context.globalAlpha = isHighlighter ? HIGHLIGHTER_STYLE.alpha : 1.0;
+  context.strokeStyle = sketchPen.color;
+  context.lineWidth = isHighlighter
+    ? highlighterWidth(sketchPen.size)
+    : (erasing ? sketchPen.size * 4 : sketchPen.size);
+}
 
 //: **A highlighter is one translucent band, so it is painted once.** Reported
 //: three times now, most recently as "it doesnt act as it should and looks
@@ -31746,16 +33806,20 @@ function sketchPaintHighlighter(context) {
   if (sketchStrokePoints.length === 0) return;
 
   const layer = sketchStrokeLayer(canvas);
-  //: The canvas may be scaled for the device pixel ratio, and the points are
-  //: in CSS pixels because that is what `sketchPointer` returns. The layer is
-  //: a raw buffer, so it has to be given the same transform by hand.
-  const scale = canvas.width / (canvas.getBoundingClientRect().width || canvas.width);
-  layer.setTransform(scale, 0, 0, scale, 0, 0);
-  layer.lineCap = "square";
-  layer.lineJoin = SKETCH_HIGHLIGHTER_LINE_JOIN;
+  //: **No transform on the layer.** `sketchPointer` already returns canvas
+  //: pixels, not CSS pixels: it divides by the element's own rect and
+  //: multiplies by `canvas.width`. Scaling them again put every highlighter
+  //: stroke away from the pointer by `(1 - width/rectWidth)` of its distance
+  //: from the origin, which on the pad's 820px canvas in an 850px box was
+  //: 15px left and 9px up at the middle of the board, and would overshoot the
+  //: other way on any window that draws the canvas smaller than its buffer.
+  //: Measured: the stroke's box came back at x 276 to 514 for a drag whose
+  //: centre was canvas x 410.
+  layer.lineCap = HIGHLIGHTER_STYLE.lineCap;
+  layer.lineJoin = HIGHLIGHTER_STYLE.lineJoin;
   layer.globalAlpha = 1;
   layer.strokeStyle = sketchPen.color;
-  layer.lineWidth = sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER;
+  layer.lineWidth = highlighterWidth(sketchPen.size);
   layer.beginPath();
   const [first, ...rest] = sketchStrokePoints;
   layer.moveTo(first.x, first.y);
@@ -31768,8 +33832,12 @@ function sketchPaintHighlighter(context) {
 
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
-  context.globalCompositeOperation = SKETCH_HIGHLIGHTER_COMPOSITE;
-  context.globalAlpha = SKETCH_HIGHLIGHTER_ALPHA;
+  //: `highlighterBlend(false)`: the layer is blitted onto the strokes canvas,
+  //: which sits over the paper canvas rather than holding it, so what this
+  //: blend sees behind it is the other strokes and never the paper. See the
+  //: table's own note.
+  context.globalCompositeOperation = highlighterBlend(false);
+  context.globalAlpha = HIGHLIGHTER_STYLE.alpha;
   context.drawImage(sketchLayerCanvas, 0, 0);
   context.restore();
 }
@@ -31916,6 +33984,9 @@ function sketchStart(event) {
 
   sketchSaveSnapshot();
   const context = sketchContext();
+  // The highlighter keeps its own polyline (see `sketchPaintHighlighter`):
+  // the points are this stroke's, so they are cleared at the start of every
+  // stroke rather than when the tool changes.
   sketchStrokePoints = sketchTool === "highlighter" ? [{ x, y }] : [];
   if (sketchTool === "pen") {
     context.beginPath();
@@ -31947,13 +34018,7 @@ function sketchMove(event) {
     else context.clearRect(0, 0, context.canvas.width, context.canvas.height);
   }
 
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.globalCompositeOperation =
-    sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
-  context.globalAlpha = 1.0;
-  context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
+  sketchApplyBrush(context);
 
   if (sketchTool === "pen") {
     context.lineTo(x, y);
@@ -32022,15 +34087,9 @@ function sketchEnd(event) {
       sketchDrawing = false;
       return;
     }
-    context.lineCap = "round";
-    context.lineJoin = "round";
-    context.globalCompositeOperation =
-      sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
-    context.globalAlpha = 1.0;
-    context.strokeStyle = sketchPen.color;
+    sketchApplyBrush(context);
 
     if (sketchTool === "pen") {
-      context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
       context.beginPath();
       context.moveTo(sketchStartX, sketchStartY);
       context.lineTo(sketchStartX, sketchStartY + 0.1);
@@ -33766,6 +35825,9 @@ $("status-undo").addEventListener("contextmenu", (event) => {
   event.preventDefault();
   openUndoHistoryMenu($("status-undo"));
 });
+wireLongPress($("status-undo"), () => {
+  if (undoStack.length) openUndoHistoryMenu($("status-undo"));
+});
 
 document.addEventListener("mousedown", (event) => {
   const menu = $("undo-history-menu");
@@ -33840,6 +35902,25 @@ let modelStatus = null; // latest /models/status payload
 let statusEverAnswered = false;
 let suggestedCatalog = null; // loaded once, it never changes
 let statusTimer = null;
+//: The idle poll's own cadence, which doubles while nothing changes and
+//: snaps back the moment something does: see the comment where it is read,
+//: at the bottom of `refreshModelStatus`.
+const STATUS_IDLE_MS = 30000;
+const STATUS_IDLE_CEILING_MS = 120000;
+let statusIdleDelay = STATUS_IDLE_MS;
+//: `JSON.stringify` of the last payload. A string rather than a deep
+//: compare because the payload is small, already came off the wire as one,
+//: and "is this the same answer as last time" is the only question asked of
+//: it.
+let statusFingerprint = null;
+
+//: Anything that means "the person is here, or something just changed":
+//: the ladder starts again from the bottom. Called by the visibility
+//: handler and by `kickBackgroundTaskPoll`, so a job started from this page
+//: is never waiting out a two-minute idle delay.
+function resetStatusCadence() {
+  statusIdleDelay = STATUS_IDLE_MS;
+}
 
 // The Ollama embedding model offered as a one-click fallback when the
 // built-in (sentence-transformers) engine can't load: asked for directly,
@@ -33931,21 +36012,45 @@ async function refreshModelStatus() {
   // Idle is 30s, not 10: the status this reports (is the model runner up,
   // which model) changes on the order of minutes, and every tick wakes the
   // process that is also running the model. Measured before: 14 requests in
-  // an idle minute; the gate is 4 (status ×2, tasks ×1, reminders ×1).
+  // an idle minute; the gate was 4 (status ×2, tasks ×1, reminders ×1).
+  //
+  //: **And then it backs off again while the answer keeps being the same**
+  //: (INBOX 266, item 7, whose gate is ≤ 2 requests an idle minute). A
+  //: notebook left open on a desk asked this endpoint twice a minute for as
+  //: long as it stayed open, and every one of those asks reaches Ollama:
+  //: `/models/status` lists the runner's models, so an idle tab was waking
+  //: the model runner 2,880 times a day to be told the same thing. The
+  //: doubling only applies while the payload is byte-identical to the last
+  //: one, and any change at all drops it straight back to 30s, as does
+  //: coming back to the tab, opening Settings, or a job starting. What it
+  //: costs: on a laptop that has been idle for three minutes, Ollama
+  //: starting is noticed in up to two minutes rather than up to thirty
+  //: seconds, on a pill that reports a background fact. What it buys is the
+  //: other 1,400 wake-ups.
+  const fingerprint = JSON.stringify(modelStatus);
+  if (fingerprint !== statusFingerprint) {
+    statusFingerprint = fingerprint;
+    statusIdleDelay = STATUS_IDLE_MS;
+  } else if (!jobsRunning() && !settingsOpen() && !document.hidden) {
+    statusIdleDelay = Math.min(statusIdleDelay * 2, STATUS_IDLE_CEILING_MS);
+  }
   const delay = jobsRunning()
     ? 1000
     : document.hidden
       ? 120000
       : settingsOpen()
         ? 3000
-        : 30000;
+        : statusIdleDelay;
   statusTimer = setTimeout(refreshModelStatus, delay);
 }
 
 // Refresh immediately when the user returns to the tab, so a status that went
 // stale while hidden snaps up to date instead of waiting out the long delay.
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) refreshModelStatus();
+  if (!document.hidden) {
+    resetStatusCadence();
+    refreshModelStatus();
+  }
 });
 
 // Controls that can only do their job with a chat model running. Left
@@ -34040,6 +36145,13 @@ function syncModelGatedControls(status = modelStatus) {
     "No model is connected, so this answers from your notes alone: the matching records are below."
   );
   renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
+  //: And the writing desk, which is the third surface that is nothing but
+  //: Atlas: with no model it cannot draft at all, and before this the only
+  //: thing that said so was a title on a button that could not be pressed.
+  renderAiOfflineNotice(
+    $("draft-offline"),
+    "No model is connected, so nothing can be drafted here yet. Everything else on this tab still works."
+  );
   syncAgentPaletteAvailability();
 }
 
@@ -34627,6 +36739,7 @@ function renderSettings() {
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
+    renderFeatureModels(status);
     renderVisionModelPicker(status);
   renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
@@ -35375,7 +37488,16 @@ function renderChatModelPicker(status) {
 function renderChatActiveModelBadge() {
   const badge = $("chat-active-model");
   if (!badge) return;
-  const name = modelStatus && modelStatus.chat_model;
+  //: **The Chat tab's own model, which is not always the app's.** Since the
+  //: chat tab is a row in `model_manager.FEATURES` it can be pinned to a
+  //: model of its own, and a pill reading the global `chat_model` would then
+  //: name a model this tab is not using: the one thing this badge exists to
+  //: report, wrong, on the surface it reports for. The row is already
+  //: resolved by the server, so this is a lookup rather than a second rule.
+  const pinned = (modelStatus && modelStatus.feature_models || []).find(
+    (row) => row.key === "chat" && row.overridden
+  );
+  const name = (pinned && pinned.model) || (modelStatus && modelStatus.chat_model);
   badge.hidden = !name;
   //: The short form in the badge, the full id in the tooltip below, the
   //: badge is 22ch wide and a HuggingFace id is routinely longer than that.
@@ -35562,6 +37684,221 @@ function renderVisionModelPicker(status) {
   }
 }
 
+// --- a model per feature -----------------------------------------------------
+//
+// Asked for directly: *"allow the user to alter the model they use for that
+// specific feature if they wish ... individually altered and reset and for
+// there to be a mass reset."*
+//
+// The rows are drawn from `/models/status`'s `feature_models`, which the
+// server has already resolved: each row carries the model in use, what it
+// inherits, and whether the first of those is this feature's own choice. So
+// this file never has to know which role a feature falls back to, and the next
+// feature appears here by being added to `model_manager.FEATURES`, with no
+// change to any of the code below.
+//
+// The same data drives the inline picker in each surface's own ⋯, so the two
+// places a model can be changed are one list read twice and cannot disagree.
+
+//: The last rows the poll delivered. Read by the inline pickers, which open
+//: from a menu and cannot wait for a round trip before drawing themselves.
+let featureModelRows = [];
+let featureModelNames = [];
+
+function featureModelRow(key) {
+  return featureModelRows.find((row) => row.key === key) || null;
+}
+
+//: What a row says about itself under its name. This is the fact the control
+//: beside it cannot carry: a select showing "llama3.2" looks the same whether
+//: that name was chosen for this feature or arrived from the chat model.
+function featureModelState(row) {
+  return row.overridden
+    ? `Its own model: ${row.model}`
+    : `Inherited: ${row.inherits}`;
+}
+
+async function applyFeatureModel(key, name) {
+  const row = featureModelRow(key);
+  try {
+    await api("/models/feature-model", {
+      method: "POST",
+      body: JSON.stringify({ feature: key, name }),
+    });
+    const label = row ? row.label : "This feature";
+    toast(name ? `${label} now uses ${name}.` : `${label} is back on its default model.`);
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message || "Couldn't set that model.", true);
+    refreshModelStatus();
+  }
+}
+
+function renderFeatureModels(status) {
+  featureModelRows = status.feature_models || [];
+  featureModelNames = (status.installed_models || []).map((m) => m.name);
+  const list = $("feature-models-list");
+  if (!list) return;
+  list.replaceChildren();
+  for (const row of featureModelRows) {
+    const line = document.createElement("div");
+    line.className = "feature-model-row";
+    line.dataset.feature = row.key;
+    //: Read by the stylesheet, which tints the state line of a row that is on
+    //: a model of its own: the list's only job is to make those findable.
+    line.dataset.overridden = row.overridden ? "1" : "0";
+
+    const name = document.createElement("div");
+    name.className = "feature-model-name";
+    const label = document.createElement("span");
+    label.className = "feature-model-label";
+    label.textContent = row.label;
+    const state = document.createElement("span");
+    state.className = "feature-model-state";
+    state.textContent = featureModelState(row);
+    state.title = row.note || "";
+    name.append(label, state);
+
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", `Model for ${row.label}`);
+    select.title = `Model for ${row.label}`;
+    //: The "inherited" option names what it inherits, so the list can be read
+    //: without opening anything: every row says which model it is on.
+    fillModelSelect(
+      select,
+      featureModelNames,
+      { value: "", label: `Inherited: ${row.inherits}` },
+      row.overridden ? row.model : ""
+    );
+    select.addEventListener("change", () => applyFeatureModel(row.key, select.value));
+
+    //: Disabled until the row is overridden, because a reset on a row that is
+    //: already on its default is a control that does nothing when pressed.
+    const reset = smallButton(
+      "ph:arrow-counter-clockwise",
+      row.overridden
+        ? `Reset ${row.label} to the model it inherits`
+        : `${row.label} is already on the model it inherits`,
+      () => applyFeatureModel(row.key, "")
+    );
+    //: Named, because `enhanceSelect` wraps the select beside it in a shell
+    //: with a button of its own: "the first button in the row" stopped being
+    //: this one the moment the select was enhanced.
+    reset.classList.add("icon-only", "feature-model-reset");
+    reset.disabled = !row.overridden;
+
+    line.append(name, select, reset);
+    list.appendChild(line);
+  }
+
+  const count = Number(status.feature_models_overridden || 0);
+  const reset = $("feature-models-reset");
+  const note = $("feature-models-reset-note");
+  if (reset) {
+    //: The mass reset says how many it would clear and does nothing when the
+    //: answer is none, rather than reporting success over a no-op.
+    reset.disabled = count === 0;
+    reset.title = count
+      ? `Hand ${count === 1 ? "one feature" : `${count} features`} back to the model they inherit`
+      : "No feature has a model of its own yet";
+  }
+  if (note) {
+    note.textContent = count === 0
+      ? "No feature has a model of its own yet."
+      : count === 1
+        ? "One feature is on a model of its own."
+        : `${count} features are on models of their own.`;
+  }
+}
+
+async function resetAllFeatureModels() {
+  try {
+    const body = await api("/models/feature-models/reset", { method: "POST" });
+    const cleared = Number(body.cleared || 0);
+    toast(
+      cleared === 0
+        ? "Nothing to reset: every feature was already on its default model."
+        : cleared === 1
+          ? "One feature is back on its default model."
+          : `${cleared} features are back on their default models.`
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message || "Couldn't reset those models.", true);
+  }
+}
+
+//: **The inline picker, one sheet for every surface.** Decision 4: "easily
+//: altered" means not walking to Settings, and the way in is the surface's own
+//: ⋯ rather than a new control in its chrome. `openSheet` is DESIGN.md's
+//: recipe for a panel of choices and it is the one shape that works in all
+//: three places, two of which hold a `kebabMenu` and one a `details.dock-menu`
+//: that cannot nest a second menu inside itself.
+function openFeatureModelSheet(key) {
+  const row = featureModelRow(key);
+  if (!row) {
+    toast("Models aren't available yet. Open Settings, Models to check.", true);
+    return;
+  }
+  openSheet({
+    label: `Model for ${row.label}`,
+    name: `feature-model-${key}`,
+    build: (card, close) => {
+      const state = document.createElement("p");
+      state.className = "muted";
+      state.textContent = featureModelState(row);
+      card.appendChild(state);
+
+      const list = document.createElement("div");
+      list.className = "sheet-list";
+      list.appendChild(
+        sheetRow(
+          row.overridden ? "ph ph-arrow-counter-clockwise" : "ph ph-check",
+          `Inherited: ${row.inherits}`,
+          () => {
+            close();
+            if (row.overridden) applyFeatureModel(key, "");
+          }
+        )
+      );
+      for (const name of featureModelNames) {
+        const chosen = row.overridden && row.model === name;
+        list.appendChild(
+          sheetRow(chosen ? "ph ph-check" : "ph ph-cube", name, () => {
+            close();
+            if (!chosen) applyFeatureModel(key, name);
+          })
+        );
+      }
+      card.appendChild(list);
+      //: A backend that is not answering has no model list to offer, and the
+      //: sheet says so rather than showing one row and letting the reader
+      //: wonder where their models went.
+      if (!featureModelNames.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent =
+          "No models are installed, or the model server isn't answering.";
+        card.appendChild(empty);
+      }
+    },
+  });
+}
+
+//: The menu row every surface uses to reach the picker above. One label, one
+//: place, so the three surfaces cannot drift apart in wording.
+function featureModelMenuItem(key) {
+  const row = featureModelRow(key);
+  return {
+    label: "ph:cube Model for this feature",
+    //: A static title on purpose. These menus are built once and the model
+    //: can change under them, so the state is named by the sheet, which is
+    //: built at the moment it opens, rather than by a row that would go stale.
+    title: "Pick the model this feature runs on",
+    run: () => openFeatureModelSheet(key),
+  };
+}
+
 // Separate from the vision picker above because the jobs are separate, see
 // ModelManager.ocr_model. "Automatic" here means something more specific than
 // the vision picker's "Auto-detect": it prefers an installed document reader
@@ -35746,9 +38083,14 @@ function renderReindex(status) {
     const worth = !running && stale >= threshold;
     staleLine.classList.toggle("hidden", !worth);
     if (worth) {
-      staleLine.textContent =
-        `${stale} notes have been added or removed in bulk since the last rebuild, ` +
-        "semantic search may be missing them.";
+      //: Through `setLabel`, because `.notice` carries its icon as a child
+      //: element (the recipe, 08-consistency.css) and `textContent` would wipe
+      //: it and print the token.
+      setLabel(
+        staleLine,
+        `ph:warning ${stale} notes have been added or removed in bulk since the ` +
+          "last rebuild, semantic search may be missing them."
+      );
     }
   }
 }
@@ -36715,6 +39057,14 @@ const MIRRORED_UI_EXTRAS = [
   "graph-colour",
   "graph-options-open",
   "graph-trace-open",
+  // The options panel's three folds, keyed `graph-fold-<the section's id>` by
+  // `initGraphOptionFolds` far below. Written out rather than spread from a
+  // constant beside that function: this array is read at module level and the
+  // constant would be declared hundreds of lines later, which is the
+  // temporal-dead-zone blank app the comment above already describes.
+  "graph-fold-graph-physics",
+  "graph-fold-graph-groups-section",
+  "graph-fold-graph-minimap-section",
   "chat-composer-height",
   "wb-bg-color",
   "wb-panel-pos-board",
@@ -37653,6 +40003,432 @@ function initBottomTabBar() {
 
 initBottomTabBar();
 
+// --- the phone top bar: one menu where the desktop has four squares ----------
+// UI_MODERNISATION_PLAN Phase 11 item 1, "the top bar's own reduction: the
+// title, the AI dot and one action". Measured before (scratchpad/ui-sweeps/
+// phonehead.js): at 320 the bar held the space switcher, notifications and
+// four more squares (theme, settings, lock, quit), 44px each, and the last
+// of them ended at 332 in a 320 window, so every phone page scrolled
+// sideways by the width of the Quit button. Six controls is a desktop
+// bar; a phone bar is where you are, what came in, and one way to the rest.
+//
+// The four are not removed, they move: below 600 the CSS hides the four
+// buttons and shows this one `kebabMenu` (DESIGN.md's recipe, so it opens,
+// clamps and closes like every other menu) holding the same four verbs,
+// calling the same four functions the buttons call. Built once at boot and
+// shown by the stylesheet, which is the same arrangement the phone tab
+// dock uses: no listener, no second copy of the media query in JS.
+function initPhoneHeaderMore() {
+  const home = document.querySelector("#top-bar .header-cluster-end");
+  if (!home || typeof kebabMenu !== "function") return;
+  const menu = kebabMenu(
+    [
+      { label: "ph:circle-half Light or dark", title: "Toggle light or dark theme", run: () => toggleTheme() },
+      { label: "ph:gear Settings", title: "Settings", run: () => openSettingsModal() },
+      { label: "ph:lock Lock", title: "Lock the app", run: () => lockNow() },
+      {
+        label: "ph:power Quit MemoryMap",
+        title: "Quit MemoryMap: stops the app and its server",
+        run: () => quitApp(),
+        danger: true,
+      },
+    ],
+    "More"
+  );
+  menu.id = "header-more";
+  // Lock is only offered once a password exists, which is what shows the
+  // desktop's `#lock-btn`; the row follows that button's own state each time
+  // the menu opens rather than freezing it at boot, when no session exists.
+  const rows = menu.querySelectorAll(".menu-item");
+  const lockRow = rows[2];
+  menu.addEventListener(
+    "click",
+    () => {
+      if (lockRow) lockRow.hidden = $("lock-btn")?.classList.contains("hidden") ?? true;
+    },
+    true
+  );
+  home.appendChild(menu);
+}
+
+initPhoneHeaderMore();
+
+// --- the phone's sidebar opener: a button in the head, not a rail ------------
+// UI_MODERNISATION_PLAN Phase 11 item 2 ("the list as full-width rows") and
+// item 3 ("the sidebar as a sheet from the left edge"). Below 820 each
+// sidebar is already an edge sheet, opened by its own collapse toggle riding
+// a 52px rail that stays on screen, and every page beside a sidebar pads
+// itself by that rail. Measured at 390 on Notes: the list started at x=82
+// in a 390 window (13px page gutter, the 52px rail, 16px card padding), so
+// rows ran 262px wide for one 44px button that sat at the top of the strip
+// and nothing else the whole way down. On a tablet the rail is 6% of the
+// width and reads as a hinge; on a phone it is 13% of it and reads as a
+// margin nobody asked for.
+//
+// So below 600 the rail goes and the opener moves to where a phone keeps
+// it: the leading edge of the head bar, before the title (the HIG's
+// navigation-bar order, and where Slack, Notion and Mail put theirs). One
+// function mounts one `.dock-nav` opener per sidebar in that sidebar's own
+// dock, and pressing it presses the sidebar's existing toggle, so the sheet
+// logic (`applySidebarSheetMode`, the dismissal, `aria-expanded`) stays in
+// one place. The rail and the toggle come back above 600 by CSS alone.
+const PHONE_SIDEBAR_OPENERS = [
+  { aside: "sidebar", dock: '[data-dock-name="notes"]', label: "Categories and tags" },
+  { aside: "chat-sidebar", dock: '[data-dock-name="chat"]', label: "Conversations" },
+  { aside: "doc-sidebar", dock: ".doc-dock", label: "Documents list" },
+];
+
+function mountPhoneSidebarOpeners() {
+  for (const { aside: asideId, dock: dockSel, label } of PHONE_SIDEBAR_OPENERS) {
+    const aside = document.getElementById(asideId);
+    const dock = document.querySelector(dockSel);
+    if (!aside || !dock || dock.querySelector(":scope > .dock-nav")) continue;
+    const nav = document.createElement("span");
+    nav.className = "dock-nav";
+    const opener = smallButton("ph:sidebar-simple", label, () => {
+      const toggle = aside.querySelector(".sidebar-collapse-toggle");
+      if (toggle) toggle.click();
+      opener.setAttribute("aria-expanded", String(aside.classList.contains("sidebar-sheet-open")));
+    });
+    opener.classList.add("icon-only", "phone-sidebar-opener");
+    opener.setAttribute("aria-expanded", "false");
+    opener.setAttribute("aria-controls", asideId);
+    nav.appendChild(opener);
+    dock.prepend(nav);
+  }
+}
+
+mountPhoneSidebarOpeners();
+
+// --- swipe a row: star to the right, bin to the left --------------------------
+// UI_MODERNISATION_PLAN Phase 11 item 2: "the list as full-width rows with
+// swipe actions (pin, bin) matched to the row's menu (the HIG rule)". The
+// rule is the whole design: a swipe is a shortcut to something the row
+// already offers where a person can see it, never the only way to it, and
+// never a third copy of the action. So the swipe presses the row's own
+// controls: the star button (`.favourite-btn`, visible on the row) and the
+// row menu's "Move to bin" (`binNoteWithUndo`, the one function that menu
+// row calls, undo toast and all). Nothing here knows what favouriting or
+// binning does.
+//
+// One delegated set of listeners on the list, so re-rendered rows need no
+// wiring. Touch only, and only in the phone band: a mouse has the controls
+// under it already. The row's children slide on `--swipe-x` and the row's
+// own `::before`/`::after` are the two coloured underlays that appear in
+// the gap (10-responsive.css); past `ROW_SWIPE_ARM` the underlay saturates
+// to say a lift-off will act. `touch-action: pan-y` on the row is what
+// makes the horizontal drag ours and the vertical one the page's: the
+// first 8px decide which, and a vertical start hands the pointer back.
+const ROW_SWIPE_ARM = 88;
+const ROW_SWIPE_MAX = 124;
+
+//: `list` is the element the rows live under (delegated, so re-rendered rows
+//: need no wiring); `actions.right` and `actions.left` each take the row and
+//: press its own control. A direction the row has no label for
+//: (`data-swipe-right` / `data-swipe-left`, which are also the underlay's
+//: words) never arms: a reminder swipes right to Done and left to nothing.
+function initRowSwipe(list, actions) {
+  if (!list) return;
+  let row = null;
+  let startX = 0;
+  let startY = 0;
+  let dx = 0;
+  let decided = false;
+
+  const settle = (li) => {
+    li.classList.add("is-settling");
+    li.style.setProperty("--swipe-x", "0px");
+    li.classList.remove("swipe-left", "swipe-right", "swipe-armed", "is-swiping");
+    setTimeout(() => li.classList.remove("is-settling"), 240);
+  };
+
+  list.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch" || !window.matchMedia(PHONE_TABS).matches) return;
+    const li = event.target.closest("li[data-id]");
+    if (!li || li.querySelector("textarea")) return; // the edit form is not a row
+    if (event.target.closest("button, a, input, select, [contenteditable]")) return;
+    row = li;
+    startX = event.clientX;
+    startY = event.clientY;
+    dx = 0;
+    decided = false;
+  });
+
+  list.addEventListener("pointermove", (event) => {
+    if (!row) return;
+    const mx = event.clientX - startX;
+    const my = event.clientY - startY;
+    if (!decided) {
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      decided = true;
+      if (Math.abs(my) > Math.abs(mx)) {
+        row = null; // a scroll, the page's
+        return;
+      }
+      row.classList.add("is-swiping");
+    }
+    const canRight = Boolean(row.dataset.swipeRight);
+    const canLeft = Boolean(row.dataset.swipeLeft);
+    dx = Math.max(canLeft ? -ROW_SWIPE_MAX : 0, Math.min(canRight ? ROW_SWIPE_MAX : 0, mx));
+    row.style.setProperty("--swipe-x", `${dx}px`);
+    row.classList.toggle("swipe-right", dx > 0);
+    row.classList.toggle("swipe-left", dx < 0);
+    row.classList.toggle("swipe-armed", Math.abs(dx) >= ROW_SWIPE_ARM);
+  });
+
+  const end = () => {
+    if (!row) return;
+    const li = row;
+    const travelled = dx;
+    row = null;
+    settle(li);
+    if (Math.abs(travelled) < ROW_SWIPE_ARM) return;
+    if (travelled > 0) actions.right?.(li);
+    else actions.left?.(li);
+  };
+  list.addEventListener("pointerup", end);
+  list.addEventListener("pointercancel", end);
+}
+
+initRowSwipe(document.getElementById("entry-list"), {
+  right: (li) => li.querySelector(".favourite-btn")?.click(),
+  // The menu builds its rows on open, so the bin is reached as the one
+  // function the menu's own row calls, not by pressing a row that does
+  // not exist yet.
+  left: (li) => {
+    const entry = allEntries.find((e) => String(e.id) === li.dataset.id);
+    if (entry) binNoteWithUndo(entry);
+  },
+});
+
+//: Reminders (Phase 11 item 8, "reminders as rows with swipe done"): right
+//: presses the row's own Done checkbox, which toggles and saves as a tap on
+//: it would; there is no left.
+initRowSwipe(document.getElementById("reminder-groups"), {
+  right: (li) => li.querySelector('input[type="checkbox"]')?.click(),
+});
+
+// --- the note page: a note opened on a phone is a page, not a longer card ----
+// UI_MODERNISATION_PLAN Phase 11 item 2: "the note view as a page with a
+// back button, its actions in a bottom bar". On a desktop a row opens out
+// in place; on a phone that meant a card growing inside a list you were
+// scrolling, with its actions wherever its bottom edge landed. A tap on a
+// row (not on one of its controls, and not the end of a swipe) opens the
+// note as a full-height sheet: the sheet recipe's `page` variant, whose
+// close is a back chevron, holding the same card the list renders
+// (`entryItem`, unclamped) with that card's own actions row moved into a
+// `.thumb-bar` at the foot, where a thumb is. Same card, same actions, one
+// place: nothing is rendered twice. Bin or Archive from the page reloads
+// the list, and the page closes itself when its note is no longer in it.
+let notePageOpenId = null;
+let notePageClose = null;
+
+function openNotePage(entry, returnFocus = null) {
+  if (!entry || notePageOpenId === entry.id) return;
+  expandedNotes.add(entry.id);
+  notePageOpenId = entry.id;
+  const title = entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80) || "Note";
+  notePageClose = openSheet({
+    label: title,
+    name: "note",
+    variant: "page",
+    returnFocus,
+    onClose: () => {
+      notePageOpenId = null;
+      notePageClose = null;
+    },
+    build: (card) => {
+      const list = document.createElement("ul");
+      list.className = "entry-list note-page-list";
+      const item = entryItem(entry, { actions: true });
+      item.querySelector(".entry-content")?.classList.remove("entry-clamped");
+      item.querySelector(".entry-more")?.remove();
+      list.appendChild(item);
+      card.appendChild(list);
+      const actions = item.querySelector(".entry-actions");
+      if (actions) {
+        const bar = document.createElement("div");
+        bar.className = "thumb-bar note-page-bar";
+        bar.setAttribute("role", "toolbar");
+        bar.setAttribute("aria-label", "Note actions");
+        while (actions.firstChild) bar.appendChild(actions.firstChild);
+        actions.remove();
+        card.appendChild(bar);
+      }
+    },
+  });
+  const close = document.querySelector('.sheet-overlay[data-sheet="note"] .sheet-close');
+  if (close) {
+    setLabel(close, "ph:arrow-left");
+    close.setAttribute("aria-label", "Back");
+    close.title = "Back (Escape)";
+  }
+}
+
+function closeNotePageIfGone() {
+  if (notePageOpenId === null || !notePageClose) return;
+  if (!allEntries.some((e) => e.id === notePageOpenId)) notePageClose();
+}
+
+function initNotePage() {
+  const list = document.getElementById("entry-list");
+  if (!list) return;
+  list.addEventListener("click", (event) => {
+    if (!window.matchMedia(PHONE_TABS).matches) return;
+    const li = event.target.closest("li[data-id]");
+    if (!li || li.querySelector("textarea")) return;
+    if (event.target.closest("button, a, input, select, [contenteditable], .chip-interactive, summary")) return;
+    // The lift-off of a swipe is a click too; a row that moved was not tapped.
+    if (li.classList.contains("is-settling")) return;
+    if (window.getSelection && String(window.getSelection()).length) return;
+    const entry = allEntries.find((e) => String(e.id) === li.dataset.id);
+    if (entry) openNotePage(entry, li);
+  });
+}
+
+initNotePage();
+
+// --- the Library reader as the page ------------------------------------------
+// UI_MODERNISATION_PLAN Phase 11 item 5, "the reader full-screen with a bottom
+// bar". The reader itself is library.js's (`openOcrWorkspace`); what lives
+// here is the one thing that may not live there, stamping the sheet recipe's
+// `page` variant onto a surface. `tests/test_ui_recipes.py` holds that line,
+// and its reason is the loophole it closes: a variant class painted onto a
+// div by any file inherits none of the scrim, the tier, the head with its way
+// out, Escape or the backdrop press. The reader does inherit all five, because
+// it is already the app's `.modal-overlay` + `.card.modal-card` dialog; this
+// changes its size and where its actions sit, nothing else.
+//
+// Measured at 390x844 before: a 342x776 card inset 24px from each edge with a
+// 14px rounded top, so a page you were reading had a window's worth of scrim
+// around it; the Regions checkbox label 36px tall, a zoom segment button 35px
+// wide, the two rail tabs 13x25 and the find box 343x20. And the panes are a
+// grid of two columns below 1100 with three children in it, so the reading
+// pane fell into an implicit second row at 0px wide: on a phone the
+// transcription had no width at all, and at 1024 the hidden rail's column
+// still took 593px while the page was squeezed into the 320px column beside
+// it. The column half is fixed in 07-whiteboard-misc.css's 1100 band, where
+// it was wrong at every width, not only this one.
+//
+// The actions move rather than being redrawn, the way `openNotePage` moves a
+// row's own actions: same buttons, same ids, same handlers, and the code that
+// shows and hides them (`ocrSyncDeleteButton`, the describe button's own
+// rules) finds them exactly where it did.
+const OCR_PHONE_BAR_ID = "ocr-phone-bar";
+
+function ocrPhonePage(phone) {
+  const overlay = $("ocr-workspace");
+  const card = overlay?.querySelector(".ocr-card");
+  const foot = overlay?.querySelector(".ocr-regions-foot");
+  const close = $("ocr-close");
+  if (!overlay || !card || !foot || !close) return;
+  overlay.classList.toggle("sheet-overlay", phone);
+  card.classList.toggle("sheet-card", phone);
+  card.classList.toggle("sheet-card-page", phone);
+  let bar = document.getElementById(OCR_PHONE_BAR_ID);
+  if (phone) {
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = OCR_PHONE_BAR_ID;
+      bar.className = "thumb-bar ocr-phone-bar";
+      bar.setAttribute("role", "toolbar");
+      bar.setAttribute("aria-label", "What was read");
+      card.appendChild(bar);
+    }
+    while (foot.firstChild) bar.appendChild(foot.firstChild);
+    // The way out of a page is Back, not an X: an X says "this was over what
+    // you were doing", and on a phone the reader is the screen.
+    setLabel(close, "ph:arrow-left");
+    close.setAttribute("aria-label", "Back");
+    close.title = "Back (Escape)";
+  } else {
+    if (bar) {
+      while (bar.firstChild) foot.appendChild(bar.firstChild);
+      bar.remove();
+    }
+    setLabel(close, "ph:x");
+    close.setAttribute("aria-label", "Close");
+    close.title = "Close";
+  }
+}
+
+function initOcrPhonePage() {
+  // Only while it is open: a band crossed with the reader shut has nothing to
+  // move, and stamping a variant on a hidden dialog leaves state behind that
+  // the next open would have to undo.
+  window.matchMedia(PHONE_TABS).addEventListener("change", (event) => {
+    const overlay = document.getElementById("ocr-workspace");
+    if (overlay && !overlay.classList.contains("hidden")) ocrPhonePage(event.matches);
+  });
+}
+
+initOcrPhonePage();
+
+
+// --- the chat composer on a phone: attachments and mode in one row -----------
+// UI_MODERNISATION_PLAN Phase 11 item 3, "the composer above the keyboard
+// with the attachments and mode in one row". Measured at 390: the composer
+// row held the note picker, the image button, the box, the microphone and
+// Send, and with the row forced onto one line the box got 78px and grew to
+// 152px tall (autogrow wrapping its own placeholder), the trap the 820 band
+// in 04-chat-dock-appearance.css records. Two of the five are attachments,
+// which is what the strip under the box is for: below 600 they move there,
+// beside the mode segment, and the box keeps the row with the two buttons
+// that act on the message. Same elements, same handlers; back above 600.
+function dockChatAttachments(toStrip) {
+  const strip = document.querySelector(".chat-dock-controls");
+  const composer = document.querySelector(".chat-composer");
+  const mode = strip?.querySelector(":scope > .chat-tool-group-mode");
+  if (!strip || !composer || !mode) return;
+  const movers = [composer.querySelector(":scope > .note-picker"), composer.querySelector(":scope > #attach-image")]
+    .filter(Boolean);
+  const parked = [...strip.querySelectorAll(":scope > [data-composer-home]")];
+  //: The placeholder gives too: "Ask your notebook anything..." wraps to two
+  //: lines in the 182px the box has beside its two buttons, and autogrow
+  //: sizes the box to its placeholder (measured: 59px tall, empty). Five
+  //: words become two on the phone and come back with the width.
+  const box = composer.querySelector(":scope > #chat-input");
+  if (box) {
+    if (toStrip && !box.dataset.placeholderHome) {
+      box.dataset.placeholderHome = box.placeholder;
+      box.placeholder = "Ask anything…";
+    } else if (!toStrip && box.dataset.placeholderHome) {
+      box.placeholder = box.dataset.placeholderHome;
+      delete box.dataset.placeholderHome;
+    }
+    if (typeof autoGrow === "function") autoGrow(box);
+  }
+  if (toStrip) {
+    if (!movers.length) return;
+    let group = strip.querySelector(":scope > .chat-tool-group-attach");
+    if (!group) {
+      group = document.createElement("span");
+      group.className = "chat-tool-group chat-tool-group-attach";
+      mode.after(group);
+    }
+    for (const el of movers) {
+      el.dataset.composerHome = "1";
+      group.appendChild(el);
+    }
+  } else {
+    const group = strip.querySelector(":scope > .chat-tool-group-attach");
+    const home = composer.querySelector(":scope > #chat-input");
+    for (const el of group ? [...group.children] : parked) {
+      delete el.dataset.composerHome;
+      home ? home.before(el) : composer.prepend(el);
+    }
+    group?.remove();
+  }
+}
+
+function initPhoneChatRow() {
+  const query = window.matchMedia(PHONE_TABS);
+  dockChatAttachments(query.matches);
+  query.addEventListener("change", (event) => dockChatAttachments(event.matches));
+}
+
+initPhoneChatRow();
+
 // --- a sheet, the phone's own dialog ------------------------------------------
 // DESIGN.md's recipe index, "A sheet". UI_MODERNISATION_PLAN.md Phase 11.
 //
@@ -37984,7 +40760,7 @@ buildSettingsJumpList();
 // floating action from appearing over a tab it has nothing to do with; parking
 // it on the body would have needed a second mechanism to answer that.
 const PHONE_FAB = "(max-width: 599.98px)";
-const FAB_IDS = ["graph-add-node", "library-new-doc", "timeline-jump-today"];
+const FAB_IDS = ["graph-add-node", "library-new-doc", "timeline-jump-today", "notes-new-note"];
 
 function floatPrimaryActions(floating) {
   for (const id of FAB_IDS) {
@@ -38690,6 +41466,83 @@ $("draft-undo").addEventListener("click", undoDraft);
 $("draft-cancel").addEventListener("click", cancelDraft);
 $("draft-save").addEventListener("click", saveDraftAsNote);
 $("draft-title").addEventListener("click", suggestDraftTitle);
+// Refine is Draft with an instruction in hand: the same pass, so it runs the
+// same function rather than a second copy of it that could drift.
+$("draft-refine").addEventListener("click", () => {
+  if (!$("draft-instruction").value.trim()) {
+    setDraftStatus("Say what to change, then refine.", true);
+    $("draft-instruction").focus();
+    return;
+  }
+  composeDraft();
+});
+$("draft-instruction").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  $("draft-refine").click();
+});
+$("draft-copy").addEventListener("click", async (event) => {
+  const text = $("draft-text").value.trim();
+  if (!text) {
+    setDraftStatus("There's no draft to copy yet.", true);
+    return;
+  }
+  if (await copyToClipboard(text, event.currentTarget)) setDraftStatus("Draft copied.");
+});
+// `appendSelectionToNote` is the app's one "add this text to a note you
+// already have" path (the text-selection popup uses it): the same picker, the
+// same undo entry, the same flash on the note it landed in.
+$("draft-insert").addEventListener("click", () => {
+  const text = $("draft-text").value.trim();
+  if (!text) {
+    setDraftStatus("There's no draft to insert yet.", true);
+    return;
+  }
+  // The toast says it landed and offers the trip to it; the status line is
+  // not written here because this returns before the picker has been
+  // answered, and a line saying it was added is a lie until it was.
+  appendSelectionToNote(text, { jump: false });
+});
+$("draft-add-source").addEventListener("click", async () => {
+  if (draftSources.length >= DRAFT_MAX_SOURCES) {
+    setDraftStatus(`Six notes is the most one draft can be written from.`, true);
+    return;
+  }
+  const entry = await pickEntryDialog("Which note should Atlas write from?");
+  if (!entry) return;
+  if (draftSources.some((s) => s.id === entry.id)) return;
+  draftSources.push({
+    id: entry.id,
+    label: (entry.title || notePreviewText(entry.content) || "Untitled note").slice(0, 60),
+  });
+  renderDraftSources();
+  saveDraftLocally();
+});
+$("draft-continue-note").addEventListener("click", async () => {
+  const entry = await pickEntryDialog("Which note should Atlas carry on?");
+  if (!entry) return;
+  if ($("draft-text").value.trim()) pushDraftUndo();
+  $("draft-text").value = entry.content || "";
+  draftNoteId = entry.id;
+  draftNoteLabel = (entry.title || notePreviewText(entry.content) || "a note").slice(0, 40);
+  $("draft-kind").value = "continue";
+  markDraftQuickstart("continue");
+  renderDraftTarget();
+  // The note as it stands is version one, so the way back to what it said
+  // before Atlas touched it is the same chip row as every other pass.
+  rememberDraftVersion($("draft-text").value);
+  updateDraftCount();
+  saveDraftLocally();
+  setDraftStatus("That note is in the draft. Add a thought, then draft to carry it on.");
+  $("draft-thoughts").focus();
+});
+for (const id of ["draft-kind", "draft-tone", "draft-length"]) {
+  $(id).addEventListener("change", () => {
+    if (id === "draft-kind") markDraftQuickstart($("draft-kind").value);
+    saveDraftLocally();
+  });
+}
+renderDraftQuickstarts();
 $("draft-extract").addEventListener("click", () => openExtractPreview($("draft-text").value));
 $("extract-close").addEventListener("click", closeExtractPreview);
 $("extract-cancel").addEventListener("click", closeExtractPreview);
@@ -38715,7 +41568,15 @@ $("draft-discard").addEventListener("click", async () => {
   $("draft-text").value = "";
   $("draft-tags").value = "";
   $("draft-thinking").classList.add("hidden");
-  $("draft-status").textContent = "";
+  // The earlier versions and the notes it was being written from go with it:
+  // a desk that is cleared and still lists six sources and four old drafts
+  // has not been cleared.
+  draftSources = [];
+  draftVersions = [];
+  renderDraftSources();
+  renderDraftVersions();
+  clearDraftTarget();
+  setDraftStatus("");
   updateDraftCount();
   saveDraftLocally();
 });
@@ -38730,7 +41591,6 @@ $("draft-discard").addEventListener("click", async () => {
 function initHelpToggle(buttonId, panelId) {
   wireHelpPopover($(buttonId), $(panelId));
 }
-initHelpToggle("draft-help", "draft-intro");
 initHelpToggle("search-relevance-help", "search-relevance-intro");
 initHelpToggle("timeline-help", "timeline-intro");
 initHelpToggle("skills-help", "skills-intro");
@@ -38790,11 +41650,54 @@ const ATLAS_PROMPTS = {
 
 //: The three offered before anything is asked. Here rather than in settings.js
 //: so every piece of Atlas copy is in one file, and read from there.
+//:
+//: **Answerable, and about where you are** (INBOX 304, the owner: "the help
+//: bot is useless, or the suggested questions are bad or both"). Two faults,
+//: both measured. The first starter was "Where do reminders live?" and the
+//: corpus could not reach its own reminders entry, so the panel's opening
+//: offer was a question it answered with "I'm not sure": that half is fixed
+//: in `help_chat.py`, and `test_every_question_the_app_offers_to_ask_atlas_is_answerable`
+//: now reads both tables here against the corpus so it cannot come back. The
+//: second is these three themselves: a fixed set on every tab, two of which
+//: asked how to turn something off, which is a strange thing for an app to
+//: suggest you ask about it first. The generic three now say what the guide
+//: is, where a surface lives, and what the app keeps, and `ATLAS_TAB_STARTERS`
+//: below puts the tab you are actually on first.
 const ATLAS_STARTERS = [
+  "What can you help me with?",
   "Where do reminders live?",
-  "How do I turn off web search?",
-  "What does Performance mode do?",
+  "What does the app remember about me?",
 ];
+
+//: Keyed exactly as `AGENT_TAB_STARTERS` is, and read through the same
+//: `agentCurrentTab()`, because the two chat surfaces sit over the same tabs
+//: and a second way of naming them is a second thing to keep in step. The
+//: difference is what they offer: the agent's starters act on your notebook,
+//: these ask what the surface in front of you is for. A tab with no entry
+//: here simply shows the generic three.
+const ATLAS_TAB_STARTERS = {
+  dashboard: ["What can the dashboard show me?", "How do I change the widgets?"],
+  notes: ["How does the app file a note?", "What is the writing room for?"],
+  chat: ["What can the popup agent do that Chat cannot?", "What are skills?"],
+  graph: ["What do entity and board nodes add to the graph?", "What is the graph for?"],
+  library: ["What goes in the library?", "How does the whiteboard work?"],
+  documents: ["Where do my documents live?", "How do I see a document's history?"],
+  timeline: ["What does the timeline show?", "What can I do from the timeline?"],
+  reminders: ["Where do reminders live?", "How do I make a reminder recurring?"],
+};
+
+//: The tab's questions first, topped up from the generic three, capped at
+//: three: the same count the panel was designed around ("Three, not a wall",
+//: index.html), and the same cap the reference notes themselves have.
+function atlasStartersFor(tab) {
+  const here = ATLAS_TAB_STARTERS[tab] || [];
+  const out = here.slice(0, 3);
+  for (const question of ATLAS_STARTERS) {
+    if (out.length >= 3) break;
+    if (!out.includes(question)) out.push(question);
+  }
+  return out;
+}
 
 //: The one door, so every suggestion in the app opens the same sheet with the
 //: same question. settings.js owns the chat, and it loads after this file, so
@@ -39541,6 +42444,7 @@ renderStatusBar();
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("skill-cancel").addEventListener("click", stopEditingSkill);
+$("skill-verify-expect").addEventListener("change", syncSkillVerifyRow);
 $("graph-refresh").addEventListener("click", () => {
   graphHighlightIds = null; // a refresh clears any "similar notes" spotlight
   renderGraph();
@@ -39553,7 +42457,12 @@ $("graph-export-png")?.addEventListener("click", exportGraphPng);
 // re-fetches from /graph, which is what actually clears fx/fy, the same
 // path #graph-refresh already uses, so a freshly unpinned layout settles
 // through the ordinary simulation rather than a special-cased one.
-$("graph-unpin-all")?.addEventListener("click", async () => {
+$("graph-unpin-all")?.addEventListener("click", async (event) => {
+  // The button rides the Physics fold's own `<summary>` (index.html), so a
+  // press on it is also a press on the disclosure. `preventDefault` cancels
+  // the summary's activation behaviour and nothing else: a `type="button"`
+  // has no default action of its own to lose.
+  event.preventDefault();
   try {
     const result = await apiJson("/graph/unpin-all", { method: "POST" });
     graphHighlightIds = null;
@@ -39575,21 +42484,157 @@ $("graph-maps")?.addEventListener("change", renderGraph);
 // physics sliders on screen is a property of how you use the map rather than
 // of one visit: and because a panel that reopens closed every time is one
 // people stop opening.
+// Each fold in the options panel remembers whether it is open, for the reason
+// the panel itself does: which of these you want on screen is a property of
+// how you use the map, not of one visit. Closed is the default, which is what
+// gets the list back under the panel's own cap (GRAPH_PLAN, "Decision made,
+// 2026-09-20"); a fold you opened stays open until you close it.
+function initGraphOptionFolds() {
+  for (const fold of document.querySelectorAll("#graph-options details.graph-options-fold")) {
+    if (fold._foldWired || !fold.id) continue;
+    fold._foldWired = true;
+    const key = `graph-fold-${fold.id}`;
+    try {
+      fold.open = localStorage.getItem(key) === "1";
+    } catch (error) {
+      fold.open = false;
+    }
+    fold.addEventListener("toggle", () => {
+      try {
+        localStorage.setItem(key, fold.open ? "1" : "0");
+      } catch (error) {
+        /* A browser with storage refused still folds, it just forgets. */
+      }
+    });
+  }
+}
+initGraphOptionFolds();
+
 function setGraphOptionsOpen(open) {
   const panel = $("graph-options");
   const toggle = $("graph-options-toggle");
   if (!panel || !toggle) return;
-  panel.classList.toggle("hidden", !open);
-  toggle.setAttribute("aria-expanded", String(open));
-  toggle.classList.toggle("is-on", open);
+  //: **Below 600 the panel never floats** (UI_MODERNISATION_PLAN Phase 11
+  //: item 4). Measured at 390x844 on the running app: open, it is 350x288
+  //: over a map that is 362x653, which is 42% of the map covered by a panel
+  //: whose own content is 795px scrolling inside 286px. The same controls
+  //: are the sheet below, so the saved "open" pref still rides here (a
+  //: window widened again opens what it had open) and only the floating
+  //: half is refused.
+  const phone = window.matchMedia(PHONE_TABS).matches;
+  panel.classList.toggle("hidden", !open || phone);
+  toggle.setAttribute("aria-expanded", String(open && !phone));
+  toggle.classList.toggle("is-on", open && !phone);
   localStorage.setItem("graph-options-open", open ? "1" : "0");
 }
+
+// --- the graph's controls on a phone: one sheet -------------------------------
+// UI_MODERNISATION_PLAN Phase 11 item 4, "the docks as one bottom sheet with
+// the colour rule, groups and views". At 390 the Graph tab answers a question
+// about the map in one of three places: the gear's floating panel (physics,
+// what to show, time, groups, the minimap, suggest links), the View menu
+// (layout, the colour rule, Trace, the legend) and the ⋯ menu (saved views,
+// export). Each opens *over* the 362x653 map it is about, and the first of
+// them covers 42% of it.
+//
+// One sheet instead, from the gear, holding all three in that order: what the
+// map is, then what it shows, then what is saved. The same elements, moved in
+// while it is open and put back on close, so every handler, every id and every
+// saved preference is the one that was already there; nothing about this
+// surface is built twice. Above 600 nothing changes: the gear opens its panel
+// and the two menus are menus.
+//
+// The two `<details>` are hidden by the stylesheet below 600 rather than
+// emptied, because what is in them moves and comes back: an opener whose menu
+// is somewhere else is an opener that opens nothing.
+let graphSheetClose = null;
+
+//: `#graph-options` moves as itself, keeping its class, so the rules written
+//: for `.graph-options .dock-menu-section` still reach its sections inside
+//: the sheet; the two menus' children move into a holder wearing the menu
+//: list's own classes, for the same reason. What is deliberately left behind
+//: is the folded arrange zone: below 1100 `foldDockArrange` parks the View
+//: menu *inside* the ⋯ menu's list, so taking that list's children whole
+//: would bring an emptied View menu into the sheet under the rows that came
+//: out of it.
+function graphControlsSheetParts() {
+  const viewList = document.querySelector("#graph-view-menu .dock-menu-list");
+  const moreList = document.querySelector("#graph-more-menu .dock-menu-list");
+  const options = $("graph-options");
+  const groups = [];
+  if (viewList) groups.push({ holder: "menu", nodes: [...viewList.children] });
+  if (options) groups.push({ holder: "options", nodes: [options] });
+  if (moreList) {
+    groups.push({
+      holder: "menu",
+      nodes: [...moreList.children].filter(
+        (el) => !el.classList.contains("dock-arrange") && !el.classList.contains("dock-arrange-label")
+      ),
+    });
+  }
+  return groups.filter((group) => group.nodes.length);
+}
+
+function openGraphControlsSheet(opener) {
+  if (graphSheetClose) return;
+  const groups = graphControlsSheetParts();
+  if (!groups.length) return;
+  // Where each node came from, taken before anything moves: a node's parent
+  // and the sibling it sat in front of are what put it back exactly.
+  const home = [];
+  for (const group of groups) {
+    for (const node of group.nodes) home.push({ node, parent: node.parentNode, next: node.nextSibling });
+  }
+  const panel = $("graph-options");
+  const wasHidden = panel ? panel.classList.contains("hidden") : true;
+  opener?.setAttribute("aria-expanded", "true");
+  graphSheetClose = openSheet({
+    label: "Map controls",
+    name: "graph",
+    returnFocus: opener,
+    build: (card) => {
+      const body = document.createElement("div");
+      body.className = "graph-controls-body";
+      for (const group of groups) {
+        if (group.holder === "options") {
+          for (const node of group.nodes) {
+            node.classList.remove("hidden");
+            body.appendChild(node);
+          }
+          continue;
+        }
+        const holder = document.createElement("div");
+        holder.className = "doc-dock-menu-list dock-menu-list";
+        for (const node of group.nodes) holder.appendChild(node);
+        body.appendChild(holder);
+      }
+      card.appendChild(body);
+    },
+    onClose: () => {
+      for (const spot of home) spot.parent.insertBefore(spot.node, spot.next);
+      if (panel && wasHidden) panel.classList.add("hidden");
+      graphSheetClose = null;
+      opener?.setAttribute("aria-expanded", "false");
+    },
+  });
+}
+
 $("graph-options-toggle").addEventListener("click", (event) => {
   // The click must not reach the document listener below, which would read
   // the panel it has just opened as a click outside it and close it again.
   event.stopPropagation();
+  if (window.matchMedia(PHONE_TABS).matches) {
+    if (graphSheetClose) graphSheetClose();
+    else openGraphControlsSheet(event.currentTarget);
+    return;
+  }
   setGraphOptionsOpen($("graph-options").classList.contains("hidden"));
 });
+//: A window dragged across the boundary with the sheet open would leave the
+//: map's controls in a dialog the desktop layout has no opener for, and the
+//: fold below 1100 moves one of the pieces the sheet borrowed. Closing puts
+//: every one of them back where the width that is arriving expects it.
+window.matchMedia(PHONE_TABS).addEventListener("change", () => graphSheetClose?.());
 // A popover closes the three ways every popover in this app closes: its own
 // button, a click outside it, and Escape. It gained the last two when it
 // stopped being a strip in the column and became the gear's menu (INBOX 21):
@@ -39825,12 +42870,27 @@ $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
 // Escape leaves full screen. Reported with the rest of the full-screen state
 // ("restore on Esc"), and it is the one key every full-screen surface on the
 // web answers to, including this app's own whiteboard. Guarded on the class
-// so this listener does nothing at all on any other tab, and placed after the
-// popover handlers above so a help panel or a note popup open over the map
-// takes the first Escape and the map takes the second.
+// so this listener does nothing at all on any other tab.
+//
+// INBOX 275: this used to be placed after the popover handlers above on the
+// theory that "a help panel or a note popup open over the map takes the
+// first Escape and the map takes the second": but listener order does not
+// stop an event, it only decides who sees it first, and every listener here
+// still runs unless one of them calls stopPropagation. The graph options
+// panel's own Escape handler does (`$("graph-options")`, above: "The Escape
+// is spent here"), which is why closing *that* panel never also leaves full
+// screen; `openLightbox`'s `onKey` does not, and neither does anything else
+// that opens over the map, so one Escape closed the lightbox *and* left full
+// screen in the same press. Fixed by asking, not by hoping order holds:
+// `activeOverlay()` (below) already answers "is a dialog open over the
+// content", and `openLightbox` sets `role="dialog" aria-modal="true"`
+// precisely so it is inside that reach. Anything that should own an Escape
+// while the map is behind it belongs in `activeOverlay()`'s reach, not in a
+// new `stopPropagation()` call here.
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (!$("graph-card")?.classList.contains("graph-fullscreen")) return;
+  if (activeOverlay()) return;
   toggleGraphFullscreen();
 });
 
@@ -39840,6 +42900,24 @@ document.addEventListener("keydown", (event) => {
 // its four siblings); the notebook's own front page did not. `loadEntries`
 // is the same reload every autosave and filter change already calls.
 $("notes-refresh")?.addEventListener("click", () => loadEntries());
+//: The Notes dock's primary (and the phone's floating +): Capture, with the
+//: box ready to type in. `showNotesSection`'s own `focus` lands on the
+//: sub-tab button, which is right for a keyboard moving between sections
+//: and wrong here, where the press meant "I want to write".
+$("notes-new-note").addEventListener("click", () => {
+  showNotesSection("capture");
+  // The box is a live editor (documents.js `mountNoteSurface`) that mounts
+  // over the textarea the first time Capture shows, and the mount takes the
+  // focus a plain `focus()` had just set: measured in Chromium, the textarea
+  // was the active element 50ms after the press and nothing was at 750.
+  // Focusing the surface the mount resolves to lands on the editor whether
+  // this is its first showing or its fiftieth.
+  const box = $("entry-content");
+  box?.focus();
+  const mounted =
+    typeof mountNoteSurface === "function" ? mountNoteSurface(box) : Promise.resolve(null);
+  mounted.then((surface) => surface?.focus()).catch(() => {});
+});
 $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );
@@ -40682,6 +43760,8 @@ $("llm-provider-select").addEventListener("change", () => {
   $("llm-base-url").placeholder = defaults[$("llm-provider-select").value] || "Default address";
 });
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
+$("feature-models-reset").addEventListener("click", resetAllFeatureModels);
+$("draft-model").addEventListener("click", () => openFeatureModelSheet("writing"));
 $("vision-model-apply").addEventListener("click", applyVisionModel);
 $("ocr-model-apply")?.addEventListener("click", applyOcrModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
@@ -40755,6 +43835,8 @@ $("status-forward").addEventListener("contextmenu", (event) => {
   event.preventDefault();
   openNavHistoryMenu($("status-forward"));
 });
+wireLongPress($("status-back"), () => openNavHistoryMenu($("status-back")));
+wireLongPress($("status-forward"), () => openNavHistoryMenu($("status-forward")));
 $("status-nav-history")?.addEventListener("click", () => {
   const menu = $("status-nav-history-menu");
   if (menu.classList.contains("hidden")) openNavHistoryMenu($("status-nav-history"));
@@ -41112,9 +44194,19 @@ document.addEventListener("keydown", (e) => {
   }
   // "/" focuses search: but only when you're not already typing somewhere
   // and no overlay is open, so it never steals a literal slash (Wave J).
-  const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
-    document.activeElement && document.activeElement.tagName
-  );
+  //: **`isContentEditable` too**, which the chorded branch above already
+  //: checks and this one did not. The list of three tag names was exactly
+  //: right while every editing surface in this app was a textarea; it is not
+  //: any more. The documents editor stops its own single characters at its
+  //: host (`docGuardGlobalShortcuts` in documents.js, which explains why it is
+  //: done there rather than here), so the gap showed on the next
+  //: contenteditable instead: the Library's OCR region text, where a literal
+  //: "/" moved focus to the global search and swallowed the rest of the
+  //: correction (measured by `scratchpad/ui-sweeps/typingguard.js`). Fixing
+  //: the shared guard means the one after that is born working.
+  const el = document.activeElement;
+  const typing =
+    ["INPUT", "TEXTAREA", "SELECT"].includes(el && el.tagName) || Boolean(el && el.isContentEditable);
   const overlayOpen =
     settingsModalOpen() ||
     !$("palette-overlay").classList.contains("hidden") ||
@@ -41283,7 +44375,14 @@ const ONBOARDING_SLIDES = [
   {
     icon: "ph:brain",
     title: "Welcome to MemoryMap",
-    text: "A 100% offline notebook where a local AI files your thoughts and answers questions about them. Nothing ever leaves this computer.",
+    //: **"Out of the box", not "ever".** Measured 2026-09-21: two features
+    //: make outbound requests, web search and the update check, and both are
+    //: off by default (`core/config.py`), so the claim is exactly true until
+    //: the person turns one on and false the moment they do. Saying so is
+    //: stronger than the absolute, not weaker: this sentence sits in the same
+    //: Settings area as both switches, and a promise the app itself offers to
+    //: break is the kind a privacy-minded reader checks and stops trusting.
+    text: "A 100% offline notebook where a local AI files your thoughts and answers questions about them. Out of the box nothing leaves this computer. Two features can, web search and the update check, and both stay off until you turn them on.",
   },
   // §27: "before the person's first capture fails silently into
   // Uncategorised and they assume the AI is broken rather than absent", so
@@ -41347,7 +44446,7 @@ async function loadOnboardingDiagnostics(forSlide) {
       ? (storage.database_bytes / (1024 * 1024)).toFixed(1)
       : "0";
     lines.push(
-      `Your notebook lives at ${storage.data_dir} (${mb} MB so far), nothing here ever leaves this machine.`
+      `Your notebook lives at ${storage.data_dir} (${mb} MB so far), and nothing here leaves this machine unless you turn on web search or the update check.`
     );
     // ROADMAP.md's onboarding item named this the one still-open piece: a
     // data-dir writability check. The database opening at all already
@@ -41457,7 +44556,20 @@ function renderOnboardingSlide() {
   // opens the tour's first section rather than dropping somebody on the
   // Dashboard with nothing said about where anything is. The word has to say
   // so, or the tour arrives as a surprise on top of a card they just closed.
-  $("onboarding-next").textContent = last ? "Start the tour" : "Next";
+  const tourOn = typeof TOUR_ENABLED === "undefined" || TOUR_ENABLED;
+  $("onboarding-next").textContent = last ? (tourOn ? "Start the tour" : "Get started") : "Next";
+  //: **And the other answer to that offer, in words** (the owner, 2026-09-21:
+  //: "add a skip guided tour button to the welcome intro panels"). The left
+  //: button has always closed the welcome and counted as declining the tour,
+  //: which `closeOnboarding` records, but on the last slide it still said
+  //: "Skip" beside a primary that says "Start the tour", so the one thing it
+  //: was answering was the one thing it did not name. It names it there.
+  const skip = $("onboarding-skip");
+  skip.textContent = last && tourOn ? "Skip the tour" : "Skip";
+  skip.title = last
+    ? "Go straight to the app. You can start the tour any time from Settings, Help."
+    : "Close the welcome and go straight to the app";
+  skip.setAttribute("aria-label", skip.title);
 }
 
 function openOnboarding() {
@@ -41488,7 +44600,11 @@ function onboardingNext() {
     // are, and the last press of the one starts the other. Guarded because
     // tour.js is a separate file loaded after this one, and a page served
     // without it must still close the welcome cleanly.
-    if (typeof openTour === "function") openTour("basics");
+    //: Only if the tour is switched on: `TOUR_ENABLED` in tour.js is the one
+    //: flag, and the welcome's primary is relabelled to match.
+    if (typeof openTour === "function" && typeof TOUR_ENABLED !== "undefined" && TOUR_ENABLED) {
+      openTour("basics");
+    }
     return;
   }
   onboardingIndex += 1;
@@ -41518,6 +44634,7 @@ function maybeShowOnboarding() {
   }
   if (localStorage.getItem("tourDone")) return;
   if (typeof openTour !== "function") return;
+  if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
   localStorage.setItem("tourDone", "1");
   toastAction("There is a guided tour of MemoryMap now.", "Take the tour", () => {
     openTour("basics");
@@ -41527,16 +44644,43 @@ function maybeShowOnboarding() {
 $("onboarding-next").addEventListener("click", onboardingNext);
 $("onboarding-back").addEventListener("click", onboardingBack);
 $("onboarding-skip").addEventListener("click", closeOnboarding);
-// Two buttons, one behaviour. Settings → Help has "Replay welcome tour" and
-// Settings → About has "Take tour again"; only the first was ever wired, so
-// the About one was a button that did nothing at all. Found by listing every
-// id in index.html that no JS file and no stylesheet mentions.
-for (const id of ["show-guide-btn", "about-take-tour"]) {
-  $(id)?.addEventListener("click", () => {
-    closeSettingsModal();
-    openOnboarding();
-  });
+// Two buttons, two behaviours, each the one its own words name. Settings →
+// Help has "Replay welcome tour" and Settings → About has "Take tour again";
+// only the first was ever wired, so the About one was a button that did
+// nothing at all (found by listing every id in index.html that no JS file and
+// no stylesheet mentions), and wiring both to the same call then made the
+// About one say "tour" and open the welcome card instead. They are not the
+// same thing: the card is five slides about what MemoryMap is, the tour is
+// anchored cards on the real controls. So the welcome button opens the
+// welcome and the tour button opens the tour.
+$("show-guide-btn")?.addEventListener("click", () => {
+  closeSettingsModal();
+  openOnboarding();
+});
+//: The third door into the tour, and it was the one left open (the owner,
+//: 2026-09-21: "the take the tour again button in the about settings page
+//: isnt disabled"). Same flag, same words as the replay strip's buttons.
+if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) {
+  const aboutTour = $("about-take-tour");
+  if (aboutTour) {
+    aboutTour.disabled = true;
+    aboutTour.title = "The guided tour is being fixed and is turned off for now.";
+    aboutTour.setAttribute("aria-label", aboutTour.title);
+  }
 }
+
+$("about-take-tour")?.addEventListener("click", () => {
+  if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
+  closeSettingsModal();
+  // A frame later, for the same reason tour.js's own replay strip waits: the
+  // first step's rectangle is measured against the page the modal was
+  // covering, and a step measured while the modal is still up is dropped for
+  // having nothing on screen to point at.
+  requestAnimationFrame(() => {
+    if (typeof openTour === "function") openTour("basics");
+    else openOnboarding();
+  });
+});
 
 // Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
 // --- rebindable keyboard shortcuts -----------------------------------------------
@@ -41577,6 +44721,12 @@ const DEFAULT_SHORTCUTS = {
   // selection too (`selectionchange` fires for those), but a menu you can see
   // and cannot open is not an improvement.
   selectionActions: { keys: "Ctrl+Shift+E", label: "Actions for the selected text" },
+  //: DOCUMENTS_PLAN 18c. The "/" menu had exactly one way in, typing "/",
+  //: which you had to already know about. Here it is rebindable like the rest
+  //: and, more to the point, it is in the cheat sheet, which is where somebody
+  //: looks for what an app can do. The other two ways are the placeholder on
+  //: every editing surface and the menu itself (editor.js).
+  editorMenu: { keys: "Ctrl+/", label: "Blocks and commands, where you are writing" },
   // --- added when the section was expanded (reported: "expand the keyboard
   // shortcuts section in settings") ---------------------------------------
   //
@@ -41891,6 +45041,12 @@ function matchesShortcut(event, combo) {
 
 function runShortcut(id) {
   const actions = {
+    //: Handed to editor.js, which owns the menu and knows which surfaces have
+    //: one. It answers false when nothing editable has focus, and then this
+    //: does nothing rather than inserting a slash into whatever is there.
+    editorMenu: () => {
+      if (typeof editorOpenMenuByShortcut === "function") editorOpenMenuByShortcut();
+    },
     palette: () => {
       if ($("palette-overlay").classList.contains("hidden")) openPalette();
       else closePalette();
@@ -42100,6 +45256,19 @@ function openShortcuts() {
   capturingShortcut = null;
   setShortcutStatus("");
   renderShortcutList();
+  //: **The editor's rows come from the editor's own table**
+  //: (DOCUMENTS_PLAN Phase 4 item 4: "a `?` shortcut sheet generated from the
+  //: same table so the two cannot disagree"). documents.js is lazily loaded,
+  //: so the section says where its contents are rather than sitting empty
+  //: when this dialog is opened before that bundle has ever been fetched.
+  const editorList = $("shortcut-list-documents");
+  const editorNote = $("shortcut-list-documents-note");
+  if (editorList && typeof renderDocShortcutSheet === "function") {
+    renderDocShortcutSheet(editorList);
+    editorNote?.classList.add("hidden");
+  } else if (editorNote) {
+    editorNote.classList.remove("hidden");
+  }
   $("shortcuts-overlay").classList.remove("hidden");
   $("shortcuts-close").focus();
 }
@@ -42570,10 +45739,20 @@ for (const button of document.querySelectorAll(".sketch-color")) {
     // one call kept the old `sketch-eraser` id: so the optional-chain
     // swallowed it and the eraser stayed lit while the pen drew, which reads
     // as the colour swatches not working.
+    //
+    // **It does not mean you want the pen**, which is what this did until it
+    // was measured: "highlighter, then yellow" left `sketchTool` at "pen" and
+    // drew an opaque yellow line (one pass at 176.0 luminance on a 255.0
+    // paper, which is the ink's own value, so no translucency at all). The
+    // highlighter, the shapes and the text tool all take the ink too, so only
+    // the eraser is switched away from here.
+    const wasErasing = sketchPen.eraser;
     sketchPen.eraser = false;
-    sketchTool = "pen";
-    $("sketch-tool-eraser")?.classList.remove("active");
-    $("sketch-tool-pen")?.classList.add("active");
+    if (wasErasing) {
+      sketchTool = "pen";
+      $("sketch-tool-eraser")?.classList.remove("active");
+      $("sketch-tool-pen")?.classList.add("active");
+    }
     document
       .querySelectorAll(".sketch-color")
       .forEach((b) => b.classList.toggle("active", b === button));
@@ -43123,9 +46302,9 @@ function renderStatusBarSettings() {
 
 let statusClockTimer = null;
 
-// HH:MM, no seconds: a status-bar clock is glanced at, not watched, so a
-// 30s repaint interval keeps it current without the per-second DOM writes
-// the Dashboard's own bigger clock (paintDashClock) uses.
+// HH:MM, no seconds, repainted on the minute by `startMinuteTicker` (see it
+// for why a clock without seconds is one wake a minute rather than sixty,
+// or, as this one used to be, two).
 function paintStatusClock() {
   const el = $("status-clock");
   if (!el) return;
@@ -43141,12 +46320,14 @@ function applyStatusClock() {
   const on = Boolean(prefsCache?.status_bar_clock);
   el.classList.toggle("hidden", !on);
   if (statusClockTimer) {
-    clearInterval(statusClockTimer);
+    statusClockTimer();
     statusClockTimer = null;
   }
   if (on) {
-    paintStatusClock();
-    statusClockTimer = setInterval(paintStatusClock, 30000);
+    //: Was `setInterval(..., 30000)`, which cost two wakes a minute to paint
+    //: HH:MM *and* left the bar up to 30 seconds behind the minute it was
+    //: showing. `startMinuteTicker` is one wake and never behind.
+    statusClockTimer = startMinuteTicker(paintStatusClock);
   } else {
     closeStatusClockDetail();
   }
@@ -44218,6 +47399,18 @@ const cmdPaletteResults = $("command-palette-results");
 // palette on Ctrl+K, and then with the sketch pad on Ctrl+Shift+K, twice
 // without anything noticing.
 function toggleAgentPalette() {
+  //: **On a phone the chat is the agent** (UI_MODERNISATION_PLAN Phase 11
+  //: item 3): a second conversation surface floating over a 390px window
+  //: is the Chat tab with less room, so the shortcut, the status dot and
+  //: the More sheet's row all go to Chat there, with the box ready.
+  if (window.matchMedia(PHONE_TABS).matches) {
+    cmdPaletteOverlay.classList.add("hidden");
+    switchTab("chat");
+    // After the tab's own focus handling has settled (it takes the panel
+    // first); measured, a same-turn focus was gone by the next frame.
+    setTimeout(() => $("chat-input")?.focus(), 80);
+    return;
+  }
   if (cmdPaletteOverlay.classList.contains("hidden")) {
     cmdPaletteOverlay.classList.remove("hidden");
     //: Both on open rather than once at boot: which starters are recent and

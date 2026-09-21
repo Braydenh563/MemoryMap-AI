@@ -36,6 +36,7 @@ stopped those handlers firing for the new provider.
 
 from __future__ import annotations
 
+import ast
 import importlib
 import json
 import re
@@ -68,6 +69,25 @@ class ProviderError(RuntimeError):
 class ToolsUnsupportedError(ProviderError):
     """The active model can't do tool calls, the caller should fall
     back to plain Q&A, never fail the whole chat."""
+
+
+def tools_unsupported_message(model: str) -> str:
+    """INBOX 272 part 1: a failure with a known remedy names it where it
+    happened, not two screens away. Agent mode was requested and silently
+    downgraded to a plain answer because `model` can't call tools, one
+    caller (`ai/agent.py`) turns that into the `{"type": "unsupported"}`
+    event and every consumer of it (`routes_chat.py`, `ai/skill_runner.py`,
+    two more call sites) forwards this same sentence rather than writing
+    its own, so the remedy reads the same everywhere it can be shown. The
+    fix is one setting (Settings, Models has the "Can call tools" fact
+    beside every installed model), never a download: some small models
+    genuinely cannot do this at any size the app would suggest pulling."""
+    return (
+        f"'{model}' can't call tools, so this answered as a plain question "
+        "instead of using Agent mode. Pick a model whose spec sheet says "
+        "“Can call tools: yes” in Settings, Models to use Agent mode "
+        "with it."
+    )
 
 
 def is_transient_server_error(exc: Exception) -> bool:
@@ -614,16 +634,69 @@ class Provider:
 # --- stream helpers: about what a model wrote, not about who served it -------
 
 
+#: **Five spellings, because the families do not agree.** Qwen and the
+#: DeepSeek distills write `<think>`, several finetunes write `<thinking>`,
+#: and `<reasoning>`, `<reason>` and `<thought>` all appear in the wild.
+#: Shown raw, a reasoning block reads as garbage; dropped, a useful part of
+#: the answer goes with it, so both halves come back and the UI decides.
+_THINK_WORDS = ("think", "thinking", "thought", "reason", "reasoning")
+_THINK_OPEN_RE = re.compile(r"<\s*(?:%s)\s*>" % "|".join(_THINK_WORDS), re.I)
+_THINK_CLOSE_RE = re.compile(r"<\s*/\s*(?:%s)\s*>" % "|".join(_THINK_WORDS), re.I)
+
+
 class _ThinkTagSplitter:
-    """Routes streamed content into thinking vs answer pieces when a
-    model reasons inline with <think>…</think>, the tags themselves can
-    arrive split across chunks, so a little state is unavoidable."""
+    """Routes streamed content into thinking and answer pieces.
+
+    The tags arrive split across chunks, so a little state is unavoidable,
+    and the spelling is not agreed on between families: `<think>` from Qwen
+    and the DeepSeek distills, `<thinking>`, `<reasoning>`, `<reason>` and
+    `<thought>` from various finetunes. All five are accepted, in either
+    case, and a partly arrived tag is held back rather than emitted as text.
+
+    **The one case a stream cannot fully win.** DeepSeek's chat template
+    ends the prompt with an open tag, so the reply starts inside the thought
+    and the only tag the model ever writes is the close. Nothing in the
+    first chunk distinguishes that from an ordinary answer, and waiting to
+    find out would hold the whole reply back, which is worse. So the text is
+    streamed as the answer and the stray close tag is dropped when it
+    arrives rather than shown as `</think>` in the middle of a sentence.
+    `split_thinking` has the whole reply in hand and does separate the two,
+    which is why a saved message reads correctly even when the live stream
+    put the reasoning in the answer.
+    """
 
     OPEN, CLOSE = "<think>", "</think>"
+    OPENS = tuple(f"<{word}>" for word in _THINK_WORDS)
+    CLOSES = tuple(f"</{word}>" for word in _THINK_WORDS)
+    _LONGEST_CLOSE = max(len(tag) for tag in CLOSES)
 
     def __init__(self) -> None:
         self._buffer = ""
         self._mode = "start"  # start → thinking? → answer
+
+    @staticmethod
+    def _leading(text: str, tags: tuple[str, ...]) -> str | None:
+        lowered = text.lower()
+        for tag in tags:
+            if lowered.startswith(tag):
+                return tag
+        return None
+
+    @staticmethod
+    def _could_become(text: str, tags: tuple[str, ...]) -> bool:
+        lowered = text.lower()
+        return bool(lowered) and any(tag.startswith(lowered) for tag in tags)
+
+    @classmethod
+    def _find_close(cls, text: str) -> tuple[int, int]:
+        """(start, length) of the earliest closing tag, or (-1, 0)."""
+        lowered = text.lower()
+        best, size = -1, 0
+        for tag in cls.CLOSES:
+            at = lowered.find(tag)
+            if at != -1 and (best == -1 or at < best):
+                best, size = at, len(tag)
+        return best, size
 
     def feed(self, chunk: str) -> list[dict]:
         self._buffer += chunk
@@ -631,32 +704,47 @@ class _ThinkTagSplitter:
 
         if self._mode == "start":
             candidate = self._buffer.lstrip()
-            if candidate.startswith(self.OPEN):
+            opening = self._leading(candidate, self.OPENS)
+            if opening:
                 self._mode = "thinking"
-                self._buffer = candidate[len(self.OPEN) :]
-            elif self.OPEN.startswith(candidate):
-                return pieces  # could still become "<think>", wait
+                self._buffer = candidate[len(opening) :]
+            elif self._could_become(candidate, self.OPENS):
+                return pieces  # could still become an opening tag, wait
             else:
                 self._mode = "answer"
 
         if self._mode == "thinking":
-            end = self._buffer.find(self.CLOSE)
-            if end != -1:
-                pieces.append({"thinking_delta": self._buffer[:end]})
-                self._buffer = self._buffer[end + len(self.CLOSE) :]
+            at, size = self._find_close(self._buffer)
+            if at != -1:
+                pieces.append({"thinking_delta": self._buffer[:at]})
+                self._buffer = self._buffer[at + size :]
                 self._mode = "answer"
             else:
-                # Keep enough back that a half-arrived "</think>" isn't
+                # Keep enough back that a half-arrived closing tag is not
                 # emitted as thinking text.
-                safe = len(self._buffer) - (len(self.CLOSE) - 1)
+                safe = len(self._buffer) - (self._LONGEST_CLOSE - 1)
                 if safe > 0:
                     pieces.append({"thinking_delta": self._buffer[:safe]})
                     self._buffer = self._buffer[safe:]
                 return pieces
 
         if self._mode == "answer" and self._buffer:
-            pieces.append({"content_delta": self._buffer})
-            self._buffer = ""
+            # A close with no open before it: drop the tag, keep the text.
+            while True:
+                at, size = self._find_close(self._buffer)
+                if at == -1:
+                    break
+                self._buffer = self._buffer[:at] + self._buffer[at + size :]
+            hold = 0
+            for length in range(1, min(self._LONGEST_CLOSE, len(self._buffer) + 1)):
+                if self._could_become(self._buffer[-length:], self.CLOSES):
+                    hold = length
+            if hold:
+                emit, self._buffer = self._buffer[:-hold], self._buffer[-hold:]
+            else:
+                emit, self._buffer = self._buffer, ""
+            if emit:
+                pieces.append({"content_delta": emit})
         return pieces
 
     def flush(self) -> list[dict]:
@@ -841,6 +929,115 @@ def resolve_tool_name(name: object, tool_names: set[str]) -> object:
     return name
 
 
+#: **Every dialect a local model actually speaks when it writes a call as
+#: text.** The structured `tool_calls` field is the happy path; everything
+#: below is for a model that narrates the call instead, which is most of the
+#: small ones, and a model that gets the dialect wrong is indistinguishable
+#: to the user from a model that ignored the tool: the note never gets made
+#: and the app cheerfully says it did something. The shapes, with the
+#: families that emit them:
+#:
+#:   - `<tool_call>{"name": ..., "arguments": {...}}</tool_call>`: Qwen,
+#:     Hermes, Granite and Phi, the last two often with the `<|tool_call|>`
+#:     pipe spelling and sometimes a list inside one pair of tags.
+#:   - a bare or fenced JSON object naming a tool: Gemma, Mistral behind its
+#:     `[TOOL_CALLS]` marker, Llama behind `<|python_tag|>`.
+#:   - the name *outside* the JSON: `<function=name>{...}</function>` from
+#:     Llama 3, and `function<|tool_sep|>name` followed by a fenced object
+#:     from DeepSeek, whose real markers are full-width pipes and not the
+#:     ASCII ones.
+#:   - a Python call rather than JSON: `[get_weather(city="Paris")]` inside
+#:     LFM2's `<|tool_call_start|>` block, and `print(get_weather(...))`
+#:     inside the ```tool_code fence Gemma's own docs recommend.
+#:
+#: Each marker below is a real special token from one of those templates.
+_CALL_MARKER_RE = re.compile(
+    r"<\s*\|?\s*/?\s*(?:python_tag|tool[_\u2581]?(?:calls?|sep|response|outputs?)"
+    r"(?:[_\u2581](?:begin|end|start))?)\s*\|?\s*>"
+    r"|<[\uff5c][^<>]*tool[^<>]*[\uff5c]>"
+    r"|\[/?TOOL_CALLS\]",
+    re.I,
+)
+
+#: The name sits outside the JSON in both of these, so the object that
+#: follows is the arguments rather than the whole call.
+_NAMED_CALL_RE = re.compile(
+    r"<\s*function\s*=\s*([\w.\-]+)\s*>"
+    r"|function\s*<\s*[|\uff5c][^<>]*sep[^<>]*[|\uff5c]\s*>\s*([\w.\-]+)",
+    re.I,
+)
+
+#: The debris a lifted call leaves behind: the closing half of Llama's
+#: `<function=...>` wrapper, a fence with nothing left inside it, and the
+#: empty brackets of LFM2's one-element list.
+_CALL_DEBRIS_RE = re.compile(
+    r"</\s*function\s*>|```[a-zA-Z_]*\s*```|\[\s*,?\s*\]|\bprint\s*\(\s*\)"
+)
+
+
+def _first_json_object_after(text: str, start: int, window: int = 4000) -> tuple[int, int, str] | None:
+    """The first brace-balanced object at or after ``start``, if it is near.
+
+    The window exists so a name with no object of its own cannot reach
+    forward and adopt an unrelated one later in the message.
+    """
+    for begin, end, blob in _balanced_json_objects(text[start : start + window]):
+        return start + begin, start + end, blob
+    return None
+
+
+def _python_style_calls(content: str, tool_names: set[str]) -> list[tuple[int, int, dict]]:
+    """Calls written as Python rather than JSON, as (start, end, call).
+
+    Only keyword arguments are read, and only literals: `ast.literal_eval`
+    on each value, never `eval` on the call. A tool in this app takes a
+    named-argument object, so a positional argument has nowhere to go and is
+    dropped rather than guessed at.
+    """
+    found: list[tuple[int, int, dict]] = []
+    for name in sorted(tool_names):
+        for match in re.finditer(rf"\b{re.escape(name)}\s*\(", content):
+            depth, in_string, quote, escape = 0, False, "", False
+            end = -1
+            for index in range(match.end() - 1, len(content)):
+                char = content[index]
+                if in_string:
+                    if escape:
+                        escape = False
+                    elif char == "\\":
+                        escape = True
+                    elif char == quote:
+                        in_string = False
+                    continue
+                if char in "\"'":
+                    in_string, quote = True, char
+                elif char == "(":
+                    depth += 1
+                elif char == ")":
+                    depth -= 1
+                    if depth == 0:
+                        end = index + 1
+                        break
+            if end == -1:
+                continue
+            try:
+                node = ast.parse(content[match.start() : end], mode="eval").body
+            except SyntaxError:
+                continue
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+                continue
+            arguments: dict = {}
+            for keyword in node.keywords:
+                if keyword.arg is None:
+                    continue
+                try:
+                    arguments[keyword.arg] = ast.literal_eval(keyword.value)
+                except (ValueError, SyntaxError):
+                    continue
+            found.append((match.start(), end, {"name": node.func.id, "arguments": arguments}))
+    return found
+
+
 def extract_text_tool_calls(
     content: str, tool_names: set[str]
 ) -> tuple[list[dict], str]:
@@ -912,6 +1109,52 @@ def extract_text_tool_calls(
                 continue
             _consume(blob, blob)
 
+    # 3) the name outside the JSON: Llama's `<function=name>{...}</function>`
+    # and DeepSeek's `function<|tool_sep|>name` followed by its object. The
+    # object here is the *arguments*, not the call, so it carries no "name"
+    # key and pass 2 skips it on purpose rather than by accident.
+    if not calls:
+        for match in _NAMED_CALL_RE.finditer(content):
+            name = resolve_tool_name(match.group(1) or match.group(2), tool_names)
+            if name not in tool_names:
+                continue
+            nearby = _first_json_object_after(content, match.end())
+            if nearby is None:
+                continue
+            begin, end, blob = nearby
+            try:
+                arguments = json.loads(blob)
+            except ValueError:
+                continue
+            if not isinstance(arguments, dict):
+                continue
+            calls.append({"name": name, "arguments": arguments})
+            cleaned = cleaned.replace(content[match.start() : end], "")
+
+    # 4) a Python call rather than JSON, which is what LFM2 emits inside
+    # `<|tool_call_start|>` and what Gemma's own documented recipe puts in a
+    # ```tool_code fence. Gated on one of those markers being present: a
+    # model that merely *mentions* `create_note(title="x")` in prose is
+    # explaining itself, not calling anything, and this app's chat does that
+    # far more often than it writes Python.
+    if not calls and (_CALL_MARKER_RE.search(content) or "tool_code" in content):
+        for begin, end, call in _python_style_calls(content, tool_names):
+            calls.append(call)
+            cleaned = cleaned.replace(content[begin:end], "")
+
+    # The markers themselves are special tokens, never prose, so once a call
+    # has been lifted out they are noise in the answer: `<|python_tag|>` or a
+    # fence left empty by the removal above is exactly the debris a user
+    # reads as the app being broken. Only on a hit, so an answer that happens
+    # to quote one of these is left alone.
+    if calls:
+        cleaned = _CALL_MARKER_RE.sub("", cleaned)
+        # Twice, because the debris nests: Gemma's recipe is a `print(...)`
+        # inside a ```tool_code fence, and the fence only reads as empty once
+        # the emptied `print()` around the lifted call has gone.
+        for _ in range(2):
+            cleaned = _CALL_DEBRIS_RE.sub("", cleaned)
+
     return calls, cleaned.strip()
 
 
@@ -924,18 +1167,46 @@ def _ns_to_ms(value) -> int | None:
 
 
 def split_thinking(text: str) -> tuple[str, str | None]:
-    """Separate a thinking model's <think>…</think> block from its answer.
+    """Separate a thinking model's reasoning from its answer.
 
-    Models like DeepSeek-R1 or Qwen3 reason out loud inside think-tags;
-    shown raw it looks like garbage, hidden entirely it wastes useful
-    insight: so we return both parts and let the UI decide."""
-    start = text.find("<think>")
-    end = text.find("</think>")
-    if start == -1 or end == -1 or end < start:
-        return text.strip(), None
-    thinking = text[start + len("<think>") : end].strip()
-    clean = (text[:start] + text[end + len("</think>") :]).strip()
-    return clean, thinking or None
+    Three shapes, not one, and the two this gained are the ones that were
+    reaching users as raw text:
+
+    - A closing tag with no opening one. DeepSeek's own chat template ends
+      the prompt with `<think>`, so the model's reply *begins* inside the
+      thought and the only tag it ever writes is the close. Requiring both
+      tags, which is what this did, handed the entire chain of reasoning to
+      the user as the answer with a stray `</think>` in the middle of it.
+    - An opening tag with no closing one, which is what a reply cut short by
+      a token limit looks like. Everything after the tag is thought, and the
+      answer is whatever came before it, usually empty.
+
+    More than one block is folded together rather than only the first, since
+    a model that thinks twice is not a model whose second thought belongs in
+    its answer.
+    """
+    thoughts: list[str] = []
+    answer: list[str] = []
+    position = 0
+    while True:
+        opened = _THINK_OPEN_RE.search(text, position)
+        closed = _THINK_CLOSE_RE.search(text, position)
+        if closed and (opened is None or closed.start() < opened.start()):
+            thoughts.append(text[position : closed.start()])
+            position = closed.end()
+            continue
+        if opened is None:
+            answer.append(text[position:])
+            break
+        answer.append(text[position : opened.start()])
+        closing = _THINK_CLOSE_RE.search(text, opened.end())
+        if closing is None:
+            thoughts.append(text[opened.end() :])
+            break
+        thoughts.append(text[opened.end() : closing.start()])
+        position = closing.end()
+    thinking = "\n\n".join(part.strip() for part in thoughts if part.strip()).strip()
+    return "".join(answer).strip(), thinking or None
 
 
 def normalise_tool_calls(raw_calls: list[dict]) -> list[dict]:

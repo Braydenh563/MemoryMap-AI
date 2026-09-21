@@ -3,9 +3,29 @@ const OUT = (process.env.SCRATCH||'.') + '/shots';
 require('fs').mkdirSync(OUT,{recursive:true});
 const PW = 'testpassword123';
 const BASE = process.env.BASE || 'http://127.0.0.1:8781';
+// The browser-context options a sweep may ask for, beyond the viewport.
+//
+// This list is why INBOX 284 existed: `boot` used to pass `opts.viewport` and
+// nothing else, so a sweep that wrote `boot({viewport:{width:390...},
+// hasTouch:true, isMobile:true})` got a *desktop* context at a phone's width
+// and measured every `(pointer: coarse)` and `(hover: none)` rule on the wrong
+// side of its own media query, silently. Two sweeps built their own context to
+// get around it (graphtouch.js, then graphphone.js and wbphone.js) rather than
+// fix it here. Passing them through is the fix; naming them in one list is so
+// the next option a sweep needs is added once, here, rather than worked around
+// a fourth time.
+//
+// `isMobile` also turns on Chromium's mobile viewport and a mobile user agent,
+// which is what makes `(pointer: coarse)` match; `hasTouch` alone gives the
+// touch API without the media query, so the two are asked for together
+// everywhere in this directory.
+const CTX_OPTS = ['hasTouch', 'isMobile', 'deviceScaleFactor', 'locale',
+  'timezoneId', 'colorScheme', 'reducedMotion', 'forcedColors', 'userAgent'];
 async function boot(opts={}) {
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor:1});
+  const ctxOpts = {viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor:1};
+  for (const k of CTX_OPTS) if (opts[k] !== undefined) ctxOpts[k] = opts[k];
+  const ctx = await browser.newContext(ctxOpts);
   // Deterministic theme: the app remembers the last theme server-side, so a
   // sweep after a dark screenshot run would otherwise measure dark. THEME=dark
   // to sweep the other one.

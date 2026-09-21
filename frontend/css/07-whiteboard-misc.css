@@ -3212,7 +3212,7 @@ dialog::backdrop {
 .ask-composer > #question,
 .ask-composer > #question:focus,
 .ask-composer > #question:focus-visible,
-/* The Write with AI panel's revision instruction, which is the same thing on
+/* The Write with Atlas panel's revision instruction, which is the same thing on
    the same recipe: a field you type into with the button that acts on it at
    the end of the row. Written by id for the reason the paragraph below gives
    about `!important`, not because the two are different. */
@@ -3287,7 +3287,7 @@ dialog::backdrop {
 
 /* **One step between the blocks of this card, the step the other two sub-tabs
    use.** Brief 22 asked for the Ask panel to be brought to the same rhythm as
-   Capture and Write with AI rather than redesigned. Measured on :8895 at
+   Capture and Write with Atlas rather than redesigned. Measured on :8895 at
    1440x900 dark, the gaps down the Ask card were 12.8 (composer), 8 ("Try
    asking"), 8 ("Ask again") and 13.6 (the empty state), four different steps
    in one card, against the single 9.6px step every row of the Capture card
@@ -3519,8 +3519,15 @@ dialog::backdrop {
 
    So the visual stays thin and the target grows: a transparent box the
    height of the strip, with the track drawn at its old thickness inside it.
-   The control looks unchanged and is twice as easy to hit. */
-.whiteboard-floating-panel input[type="range"] {
+   The control looks unchanged and is twice as easy to hit.
+
+   Shared with the graph's controls sheet (Phase 11 item 4), which is the
+   same problem on a phone: Gravity, Spread and the time filter measured 16px
+   tall at 390, and the sheet they now open in is a surface a thumb drives.
+   One recipe, named twice, rather than a second set of slider rules that
+   would drift from this one. */
+.whiteboard-floating-panel input[type="range"],
+.graph-controls-body input[type="range"] {
   /* The track's visual thickness and the thumb's diameter, named once so
      the thumb's centring offset below can be derived from them. */
   --wb-range-track: 0.35rem;
@@ -3531,19 +3538,22 @@ dialog::backdrop {
   appearance: none;
 }
 
-.whiteboard-floating-panel input[type="range"]::-webkit-slider-runnable-track {
+.whiteboard-floating-panel input[type="range"]::-webkit-slider-runnable-track,
+.graph-controls-body input[type="range"]::-webkit-slider-runnable-track {
   height: var(--wb-range-track);
   border-radius: var(--radius-pill);
   background: var(--border);
 }
 
-.whiteboard-floating-panel input[type="range"]::-moz-range-track {
+.whiteboard-floating-panel input[type="range"]::-moz-range-track,
+.graph-controls-body input[type="range"]::-moz-range-track {
   height: var(--wb-range-track);
   border-radius: var(--radius-pill);
   background: var(--border);
 }
 
-.whiteboard-floating-panel input[type="range"]::-webkit-slider-thumb {
+.whiteboard-floating-panel input[type="range"]::-webkit-slider-thumb,
+.graph-controls-body input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: var(--wb-range-thumb);
@@ -3560,7 +3570,8 @@ dialog::backdrop {
   cursor: grab;
 }
 
-.whiteboard-floating-panel input[type="range"]::-moz-range-thumb {
+.whiteboard-floating-panel input[type="range"]::-moz-range-thumb,
+.graph-controls-body input[type="range"]::-moz-range-thumb {
   width: var(--wb-range-thumb);
   height: var(--wb-range-thumb);
   border: 0;
@@ -4093,6 +4104,28 @@ input[type="url"]:hover:not(:focus) {
   font-weight: 600;
 }
 
+/* An `<optgroup>`'s own name, drawn once above its options (INBOX 273:
+   `enhanceSelect` walked `select.options`, which drops which group an
+   option came from, so grouping the app set on a select was invisible in
+   the menu the reader actually opens). `.dock-menu-section`'s shape --
+   a hairline above every group but the first, small muted text below it --
+   not a new one: the same "a break, then a label" a dock menu already uses
+   to divide its own sections. Never a `role="option"` row: `enhanceSelect`
+   skips it in `syncValue`'s selection walk and in the click handler by
+   giving it no `role` at all, so the arrow-key/Tab order it lands in still
+   only ever stops on a real choice. */
+.select-group-label {
+  padding: var(--space-2) var(--space-3) 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.select-group-label:not(:first-child) {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider);
+}
+
 /* --- a chip lane scrolls without drawing a scrollbar ----------------------
    Reported: "the collapsed view of notes is completely visually broken", 
    a scrollbar had appeared under the chips on every row.
@@ -4252,8 +4285,21 @@ details[open].help-accordion > summary::before {
    filled button and the pixels said none. Named here, it falls through to
    the base `button` recipe, the app's real filled tier, rather than to a
    fourth button colour invented for one control. */
-button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary),
-button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary) {
+/*: `.icon-primary` is the fifth name, and it is the general one the fourth
+   should have been. INBOX 286, the owner: "the send and stop button in the
+   atlas guide panel looks disabled." Measured on the running panel with a
+   model connected: `#help-chat-send` was not disabled at all (`disabled`
+   false, opacity 1), it was painted `rgba(31, 36, 48, 0.12)` by this rule,
+   while the Chat tab's own Send, which carries no class and so falls through
+   to the base `button` recipe, was the accent fill. A composer's one action
+   drawn in the tonal tier beside a full-strength field reads as a control
+   that cannot be pressed, which is exactly the report.
+   `.graph-popup-tool-primary` above is the same fault fixed once for one
+   button; naming the intent rather than the place means the next surface
+   that needs its icon-only primary to look primary says so instead of
+   adding a sixth exception. */
+button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary),
+button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary) {
   /* Tonal, like `.ghost` (01-forms-settings.css): fill, transparent edge. */
   background: var(--ghost-btn-bg);
   border: 1px solid transparent;
@@ -4296,12 +4342,21 @@ button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not
   border: 1px solid transparent;
 }
 
+/* The fill is `--ghost-btn-bg`, and the rim stays transparent: these are the
+   same selectors as the rest rule above, carrying the same `:not()` chains
+   for the same specificity reason, so they have to say the bar recipe's
+   hover as well or the strip's menu openers keep an accent tint its buttons
+   no longer have. The reasoning for the recipe itself, and the measurements
+   that found this the last surface off it, are on the matching rule in
+   05-sidebars-themes.css. */
 .doc-toolbar summary:not(.icon-only):not(.icon-button):hover,
+.doc-toolbar summary:not(.icon-only):not(.icon-button):focus-visible,
 .doc-toolbar button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):hover,
 .doc-toolbar button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):hover,
 .doc-toolbar .doc-toolbar-menu[open] > summary:not(.icon-only):not(.icon-button) {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  background: var(--ghost-btn-bg);
+  border-color: transparent;
+  color: var(--ink);
 }
 
 /* **The `.seg button` exclusion the comment above promised and the selector
@@ -4925,6 +4980,47 @@ summary:not(.icon-only):not(.icon-button) {
 
 .wb-map-stats dd {
   margin: 0;
+}
+
+/* How this map draws topics (MINDMAP_PLAN.md §13e), inside the app's own
+   `.card.modal-card`: a column of the recipe index's two rows, a plain
+   `<select>` for a dropdown of values and a `label.setting-check` for an
+   on/off, under `h4.setting-subhead` group heads. Nothing here sets a look
+   of its own; it is spacing, because the controls are the app's. */
+.wb-map-theme {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: min(22rem, 78vw);
+}
+
+.wb-map-theme-lead {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+/* The first head sits under the lead line rather than against it; every
+   later one opens a group, so it gets the space above that says so. */
+.wb-map-theme .setting-subhead {
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.wb-map-theme .setting-subhead:first-of-type {
+  margin-top: 0;
+}
+
+.wb-map-theme-check {
+  min-height: 2rem;
+}
+
+/* The bulk action, on its own line under a hairline: it is about every topic
+   on the map rather than about the field above it, and a button that reaches
+   two hundred topics does not sit in the run of controls that reach one. */
+.wb-map-theme-foot {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider);
+  justify-content: flex-start;
 }
 
 /* The map proposal dialog (`wbReviewMapProposal`, whiteboard.js: "make a map
@@ -5571,9 +5667,21 @@ body:has(#library-media-selectbar:not(.hidden))
   margin-left: 0;
 }
 
+/* **The stricter measure for rendered prose, and this rule had to be written
+   twice to apply at all.** The rendered halves hold real prose with no syntax
+   in it, so they take the tighter measure the note cards use, 72ch rather
+   than the source pane's 78ch.
+
+   Written as `#doc-preview` alone it never once applied: the rule above is
+   `#doc-preview:not(.doc-split-pane)` at (1,1,0) and a bare id is (1,0,0), so
+   the *looser* cap won every time the preview was not a split pane, which is
+   exactly Read view. Measured before this: a paragraph in Read view was 686px
+   wide, which is 78ch of this face to the pixel, and with the serif option on
+   that is 93 characters on a line, past every typographic reference's 45 to
+   90. Restating the selector with the same `:not()` is what makes the
+   intended cap the one that runs. */
+#doc-preview:not(.doc-split-pane),
 #doc-preview {
-  /* The rendered halves hold real prose with no syntax in it, so they take
-     the stricter measure the note cards already use. */
   max-width: 72ch;
 }
 
@@ -6672,13 +6780,25 @@ button.connection-row {
 }
 
 /* Under 1100px the rail is the first thing to go, which page you are on is
-   answerable from the title, where a line sits on the page is not. */
+   answerable from the title, where a line sits on the page is not.
+
+   **The column goes, not just the rail.** Hiding `.ocr-rail` alone left
+   `.ocr-rail-column` in the grid as an empty item, and a grid of three items
+   in two columns puts the third in an implicit *row*: measured at 1024, the
+   empty column took 593px, the page was squeezed into the 320px column
+   beside it, and the reading pane dropped to a second row under both. At 390
+   the arithmetic was worse: the 1fr column collapsed to 0, so the reading had
+   no width at all. Two panes, two columns. */
 @media (max-width: 1100px) {
   .ocr-panes {
     grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
   }
 
-  .ocr-rail {
+  /* `> .ocr-rail-column`, not the bare class: the column's own
+     `display: flex` is declared further down this same stylesheet, so at
+     equal specificity it would win over a rule in a band above it and the
+     column would stay in the grid at every width. */
+  .ocr-panes > .ocr-rail-column {
     display: none;
   }
 }
@@ -7468,6 +7588,25 @@ button.connection-row {
   flex: 1 1 100%;
 }
 
+/* The chip that replaced that fold (INBOX 279): it opens the picture rather
+   than the card, so it never has to hold a paragraph. It takes the step down
+   the type scale and the quiet padding the fold's summary took before it, for
+   the same reason, a 180px card cannot carry a control at the prose's own
+   rank; `min-height` rather than `height` so the 44px touch floor below 820
+   (10-responsive.css) still raises it.
+
+   On the chip's own class rather than on `.library-image-meta > ...`: a rule
+   led by a facts line's handle may not carry a `font-size`, because the rank
+   of a facts line comes from `.library-file-meta` alone
+   (`tests/test_ui_recipes.py`), and this is the control's size, not the
+   line's. */
+.library-image-text-chip {
+  height: auto;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+}
+
 .library-file-meta-sep {
   opacity: 0.5;
 }
@@ -7494,12 +7633,37 @@ button.connection-row {
   min-width: 0;
 }
 
-.library-file-reading > .library-file-open-reading {
-  align-self: flex-start;
+/* **The numbers and the one way in share a line** (INBOX 279). The block used
+   to stack four ranks inside the fold, two of them controls asking the same
+   question the fold had just been asked; it is now the facts line and the
+   reading, with the action at the end of the facts line where the Files rows
+   already put theirs. `space-between` rather than a margin, and wrapping, so a
+   narrow row puts the button under the numbers instead of clipping it. */
+.library-file-reading-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
 }
 
-.library-file-reading-full {
-  width: 100%;
+/* The button's own `margin-top` is for the stacked layout it used to be in;
+   on the facts line it would drop it four pixels below the numbers it sits
+   beside. */
+/* Copy and Open reading are one group at the right end of the facts line. */
+.library-file-reading-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.library-file-reading-head > .library-file-open-reading,
+.library-file-reading-actions > .library-file-open-reading,
+.library-file-reading-actions > .library-file-copy-reading {
+  margin-top: 0;
+  flex: 0 0 auto;
 }
 
 .library-file-summary {
@@ -7847,7 +8011,18 @@ button.connection-row {
 
 /* Narrow boards: the top bar's right half wraps under its left half, the
    dock takes the full width, and the zoom cluster lifts above it (its
-   `bottom` comes from the 40rem rule in 06-timeline-dialogs.css). */
+   `bottom` comes from the 40rem rule in 06-timeline-dialogs.css).
+
+   **The halves themselves stay `nowrap`, and the phone band below pays for
+   that by carrying fewer controls rather than by wrapping harder**, which is
+   the trade WHITEBOARD_PLAN asked for in as many words. Measured before it
+   (2026-09-20, `wbtopbar820.js`, then `wbtopbar.js`): the bar's scrollWidth
+   ran 5px past its client width at 390 and **75px at 320**, so at 320 the
+   last controls in the row could not be reached at all. Letting the halves
+   wrap does fix it and costs a row (104px and two rows becomes 152px and
+   three at 390, and 200px and four at 320, over a canvas that is 604px tall
+   to begin with), which is why it is not what happens. Above 600 the bar does
+   not overflow at any width measured. */
 @media (max-width: 48rem) {
   .wb-topbar {
     flex-wrap: wrap;
@@ -8130,6 +8305,22 @@ button.connection-row {
   background: var(--accent-soft);
 }
 
+/* Rename arrives here from the bar's identity zone, and it is the one menu
+   item in the board's menus that can be disabled: the default scratch board
+   has no underlying note to rename (`refreshBoardList`). As an icon button it
+   said so through the button ramp's own disabled state; as a menu row it had
+   no rule at all, so a row that does nothing looked exactly like the row above
+   it. */
+.wb-menu-item:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.wb-menu-item:disabled:hover {
+  background: transparent;
+}
+
 .wb-menu-item kbd,
 .wb-help-grid kbd {
   font-family: var(--mono, ui-monospace, monospace);
@@ -8182,6 +8373,32 @@ button.connection-row {
 
   .wb-topbar .wb-menu-toggle {
     padding-inline: var(--space-2);
+  }
+}
+
+/* Losing the word must not take the target with it. Measured on an open board
+   at 820x1180: with their labels gone the five menu toggles rendered **25.8px
+   wide**, the narrowest controls anywhere in the app, under the app's global
+   28px floor and a long way under the 44 the band below 820 asks for. An icon
+   and a caret in `--space-2` of padding is simply narrower than a hit target,
+   so the floor is declared rather than left to the padding to produce. Same
+   for the Add-note button, whose own label goes at 76rem and which measured
+   43.6px wide at 768, four tenths of a pixel short of the floor.
+
+   **Down to 600 and no further, which is a decision rather than an oversight.**
+   Below 600 the bar is eleven controls in 348px and a 44px width floor on the
+   five menus costs it a whole row: measured at 390, 104px and two rows became
+   152px and three, and at 320, 200px and four, over a canvas that is 604px
+   tall to begin with. Phase 11 item 7 raised this bar to the touch floor on
+   its height for exactly that trade (88px to 104px) and recorded that a
+   phone-shaped board bar, one that does not simply wrap harder, is
+   WHITEBOARD_PLAN's work and not that item's. So on a phone these five stay
+   25.8px wide and 44px tall, written down here and in that plan, rather than
+   bought with a quarter of the screen. */
+@media (min-width: 600px) and (max-width: 56rem) {
+  .wb-topbar .wb-menu-toggle,
+  .wb-topbar #wb-add-note {
+    min-width: var(--target-min);
   }
 }
 
@@ -8312,6 +8529,30 @@ button.connection-row {
     display: none;
   }
 
+  /* **Two more leave on a phone, and neither is lost.** Measured at 320 with
+     the 44px touch floor on: the right half needs 5 menu toggles, a divider
+     and the Library button at 44px each in 260px of content box, which is
+     284px of demand, and the bar ran 75px past itself with the last two
+     controls unreachable. Both of the two that go are already somewhere a
+     finger can reach:
+
+     Full screen is View › Zoom › Full screen, and on a phone there is no
+     browser chrome for it to hide in the first place.
+
+     Arrange is the twelve alignment, distribution and order actions, every
+     one of which is on the **context bar** above a selection (WHITEBOARD_PLAN
+     decision 3, INBOX 12), which is the only time any of them can do
+     anything: the menu's own rows are labelled "2+ selected" and "3+
+     selected". A phone that has managed to select two objects has the context
+     bar in front of it already.
+
+     Insert, Edit, View and Board stay, because each of those is the only way
+     to what it holds. */
+  .wb-topbar #wb-fullscreen,
+  .wb-topbar .wb-board-menu-wrap:has([aria-controls="wb-arrange-menu"]) {
+    display: none;
+  }
+
   /* One scrolling row of tools beats two wrapped rows on a short screen. */
   .whiteboard-floating-panel.bottom-center {
     flex-wrap: nowrap;
@@ -8362,7 +8603,6 @@ button.connection-row {
 .wb-board-menu,
 .wb-search-bar,
 .whiteboard-sidebar,
-.wb-export-menu,
 .wb-navigator,
 .wb-context,
 .whiteboard-floating-panel {
@@ -8617,7 +8857,6 @@ header#top-bar > #tab-bar {
 .action-menu,
 .doc-dock-menu-list,
 .wb-board-menu,
-.wb-export-menu,
 .ocr-region-popover,
 .help-popover {
   max-height: calc(100vh - var(--space-9) * 2);
@@ -9173,6 +9412,36 @@ input[type="file"] {
   border-top-color: color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
 }
 
+/* --- the spine on the other edge (MINDMAP_PLAN.md §13e) ---------------------
+   A topic whose parent is to its *right* carries the branch bar on its right
+   edge, for the same reason a downward map carries it on the top: a bar on
+   the far side from the branch it belongs to points at nothing. Set per node
+   (`wb-map-node-mirrored`, written by `wbPaintMapNode`) rather than per view,
+   because a both-sides map has topics of both kinds on it.
+
+   Each of the three rules above has its mirror here, in the same order and
+   for the same reason: the explicit choice has to win over the weight a core
+   mark gave the edge, and source order is what decides that. */
+.wb-map-node.wb-map-node-mirrored {
+  border-left-width: 1.5px;
+  border-right: 4px solid var(--wb-branch);
+}
+
+.wb-map-node.wb-map-core.wb-map-node-mirrored {
+  border-left-width: 2px;
+  border-right-width: 6px;
+}
+
+.wb-map-node-mirrored[data-spine="dashed"]:not([data-shape="none"]) {
+  border-left-style: solid;
+  border-right-style: dashed;
+}
+
+.wb-map-node-mirrored[data-spine="none"]:not([data-shape="none"]) {
+  border-right-width: 1.5px;
+  border-right-color: color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
+}
+
 .wb-map-node-body {
   display: flex;
   align-items: center;
@@ -9189,6 +9458,52 @@ input[type="file"] {
    An em is measured against the node's own size, so the glyph now grows and
    shrinks with the label it belongs to. The ratio is the one the token gave
    at the default size, so a node nobody has resized looks exactly as it did. */
+/* **A topic whose body is a picture** (MINDMAP_PLAN.md §12.1 item 2's fourth).
+   The plan asked for a second node shape rather than a label with a thumbnail
+   beside it, and this is where that happens: the body turns from a row into a
+   column, the picture takes the node's full width, and the label becomes the
+   caption under it. The node's own padding tightens so the picture reads as
+   the card's content rather than as something sitting inside a text box.
+
+   `data-body`, not a class, for the reason `data-shape` and `data-align` are
+   attributes: one of a set of exclusive layouts, and the absence of it is the
+   label-only node every map has always drawn. */
+.wb-map-node[data-body="picture"] {
+  padding: var(--space-2);
+  /* A picture node is as tall as its picture; the floor a one-word topic
+     needs would only add a band of empty card under a short one. */
+  min-height: 0;
+}
+
+.wb-map-node[data-body="picture"] .wb-map-node-body {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+/* The caption. Smaller than the topic's own text and centred under the
+   picture, which is what makes the two read as one card rather than as a
+   label that happens to have an image over it. `em`, so a topic given a text
+   size of its own (the Aa grip writes a px `font-size` on the node) scales its
+   caption with it, the same rule the icon beside it follows. */
+.wb-map-node[data-body="picture"] .wb-map-text {
+  text-align: center;
+  font-size: 0.9em;
+}
+
+.wb-map-node-picture {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* A cap, not a size: a tall photograph would otherwise make a node several
+     screens high on a map whose other topics are 44px. Wide pictures are
+     unaffected, and `cover` crops the overflow of a tall one rather than
+     letterboxing it into a band of background. */
+  max-height: 10rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
 .wb-map-node-icon {
   flex: 0 0 auto;
   color: var(--wb-branch);
@@ -9463,7 +9778,13 @@ input[type="file"] {
   white-space: nowrap;
 }
 
-.wb-map-strip button.icon-only {
+/* The bar's own controls, which since §13b are the colour well, three menu
+   toggles and the reset: the child combinator, because a menu's rows are
+   inside a `.wb-board-menu` that `escapeAndCapMenu` moves to <body> the
+   moment the canvas would clip it, and a rule that reached into it would
+   dress a control one way in place and another way escaped. Inside a door,
+   the board menus' own row styling applies, wherever the door is. */
+.wb-map-strip > button.icon-only {
   height: 1.75rem;
   width: 1.75rem;
   min-width: 0;
@@ -9475,14 +9796,18 @@ input[type="file"] {
    inside a tray reads as separate objects sharing a tray). `.active` is a
    control that is currently *on* for this node, which is a fact about the
    node, not a hover state, so it keeps its fill. */
-.wb-map-strip button.ghost:not(.active):not(:disabled) {
+.wb-map-strip > button.ghost:not(.active):not(:disabled),
+.wb-map-strip .wb-menu-toggle:not(.active):not(:disabled) {
   background: none;
   border-color: transparent;
   box-shadow: none;
 }
 
-.wb-map-strip button.ghost:not(.active):hover,
-.wb-map-strip button.ghost:not(.active):focus-visible {
+.wb-map-strip > button.ghost:not(.active):hover,
+.wb-map-strip > button.ghost:not(.active):focus-visible,
+.wb-map-strip .wb-menu-toggle:not(.active):hover,
+.wb-map-strip .wb-menu-toggle:not(.active):focus-visible,
+.wb-map-strip .wb-menu-toggle[aria-expanded="true"] {
   background: var(--ghost-btn-bg);
 }
 
@@ -9524,12 +9849,50 @@ input[type="file"] {
   border-radius: 50%;
 }
 
-/* The size selects stay small enough that the strip does not out-measure the
-   node it belongs to: one or two characters of value plus the caret. */
-.wb-map-strip .select-shell > .select-opener {
+/* A select that is still on the bar itself rather than behind one of §13b's
+   three doors stays small enough that the strip does not out-measure the node
+   it belongs to: one or two characters of value plus the caret. Inside a
+   door, a select is a menu row's control and takes the board menus' own
+   sizing, which is the same in place and escaped. */
+.wb-map-strip > .select-shell > .select-opener {
   height: 1.75rem;
   min-width: 0;
   padding-inline: var(--space-2);
+}
+
+/* --- the strip's three doors (MINDMAP_PLAN.md §13b) ------------------------
+   Text, Shape and Branch line. The bar held fourteen glyphs in one run and
+   measured 959.4px against a 95px topic; these three say in a word what they
+   hold, and each row inside them labels its own control. The toggle is the
+   top bar's own `.wb-menu-toggle` (a word and a caret, reading as a menu
+   rather than as a button that does something), brought to the strip's own
+   1.75rem control height so it sits on the same line as the colour well. */
+.wb-map-strip .wb-menu-toggle {
+  height: 1.75rem;
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+/* The door's panel. Narrower than the board menus' 17rem, because these hold
+   one section of four rows rather than five sections, and centred under its
+   own toggle rather than pinned to its right edge: a 17rem panel hung off the
+   right of a 60px button on a bar that is itself centred on a topic lands
+   well off to one side of the thing it is about. `escapeAndCapMenu` still
+   takes over whenever the canvas would clip it. */
+.wb-map-strip-menu {
+  width: 14rem;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: normal;
+}
+
+/* Escaped to the window (`action-menu-escaped`), the transform above would be applied to a box that
+   `placeEscapedMenu` has already positioned by its own measured left edge,
+   which would put it half its own width to the left of where it was placed. */
+.wb-map-strip-menu.action-menu-escaped {
+  transform: none;
 }
 
 /* --- the node radial (MINDMAP_PLAN.md §12.1 item 3) -------------------------
@@ -9953,6 +10316,50 @@ input[type="file"] {
   cursor: context-menu;
 }
 
+/* **The waypoint handle on a line** (MINDMAP_PLAN.md §12.1 item 5's third).
+   The same control `.wb-link-bend-handle` is for a link sketch, on a tree edge
+   instead: a round grip on the line, dragged to bend it and double-clicked to
+   put it back. So it takes that rule's shape exactly, one size to the hand at
+   every zoom (the grip block near the end of this file) and coloured by the
+   branch rather than by the accent, because on a map the line's colour is what
+   says which branch you are holding.
+
+   **Invisible and inert until the topic at one end of the line is selected**
+   (`wbSyncMapEdgeHandles`). Both halves matter: a grab dot on every line would
+   be two hundred of them on a real map, and a dot that was invisible but still
+   took the pointer would swallow the press meant for the line underneath,
+   which is the bug the mid-line `+` already had once against the link ring. */
+.wb-map-edge-handle {
+  /* The line's own colour inside, the card outside: the same arrangement
+     `.wb-link-bend-handle` uses for the other drag-to-bend control in this
+     app, which reads as "this curve's own control" rather than as an endpoint.
+     The colour is the branch's, so the grip belongs to the branch it reshapes,
+     and `--accent` is what a line with no branch colour of its own draws in,
+     exactly as the line itself does. */
+  fill: var(--wb-map-edge-colour, var(--accent));
+  stroke: var(--card);
+  stroke-width: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) ease;
+}
+
+/* Two ways of opening, and the first is the one that always works: pointing
+   at the line, anywhere along it, reveals the handle on it. The whole edge is
+   one `<g>` (stroke, target twin and handle), so there is no gap to cross
+   between the line and its own control. `.is-shown` is the selection route,
+   and `.is-dragging` holds it open for a drag that has already left the line
+   behind. */
+.wb-map-edge-group:hover .wb-map-edge-handle,
+.wb-map-edge-handle.is-shown,
+.wb-map-edge-handle.is-dragging {
+  opacity: 1;
+  pointer-events: auto;
+  /* `move`, the cursor the link's own bend grip already uses: this drags a
+     point in two directions, which is not the one-axis pull `grab` promises. */
+  cursor: move;
+}
+
 /* **Per-branch thickness** (MINDMAP_PLAN.md item 177: "connection line styles:
    per-branch thickness, dash and arrowhead"). Only the three stroked line
    shapes are written here; the ribbon's width lives in the path it is drawn
@@ -9992,8 +10399,20 @@ input[type="file"] {
    two branches. Dashed, which is the systems-map convention every serious
    mindmapper uses to say "related, but not part of the tree" (MINDMAP_PLAN.md
    §5 item 9). The tree edges above stay solid so the difference is readable
-   without a legend. */
+   without a legend.
+
+   **And it is the map's own ink, not the pen's** (MINDMAP_PLAN §13c, the
+   owner: "there are two types of connections"). A link sketch carries the
+   colour the rail's ink well held when it was drawn, which on a map is a
+   colour with no meaning: it is the *pen's* colour, and the branches around
+   it are coloured by the palette, so a cross-link drawn while the ink was red
+   read as a branch in red. Two kinds of line that can be given each other's
+   look are two kinds nobody can tell apart, which is exactly the report. The
+   attribute stays on the row (an ordinary board still draws it, and a map
+   turned back into a board gets it back); on a map this rule wins, because a
+   CSS declaration beats the presentation attribute the renderer writes. */
 .sketch-group.wb-map-crosslink .sketch-path {
+  stroke: var(--muted);
   stroke-dasharray: 7 5;
   opacity: 0.85;
 }
@@ -10509,22 +10928,36 @@ input[type="file"] {
 /* The Files row's reading, opened in place (see buildFileReadingSummary).
    A pre so page breaks and tables survive, wrapped so a long line never
    widens the card, capped so a 40-page scan is a scrolling box rather than
-   a column that pushes every other card off the page. */
-.library-file-reading-more {
-  cursor: pointer;
-  color: var(--accent);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  list-style: none;
-}
+   a column that pushes every other card off the page.
 
-.library-file-reading-more::-webkit-details-marker {
-  display: none;
-}
+   **Three lines, not eighteen rem** (INBOX 279). The box used to sit behind a
+   second disclosure inside the first, so its height was somebody's problem
+   only after two clicks; it is what the fold opens onto now, and at 18rem one
+   opened row was 288px of reading in a list of rows. The recommendation on
+   record is "the first three lines of the reading shown inline and one Open
+   reading primary": the cap is those three lines at this size and line height,
+   the box still scrolls for anyone who wants the rest in place, and reading it
+   properly is what the button beside the numbers is for.
 
+   **One more line than that** (INBOX 289, the owner: "in the files subtab, I
+   want the expanded text box to be slightly taller as it is quite short
+   vertically"). Measured at 1440 before this: 64px of box against an 18px
+   line box, so 3.56 lines, and 3.56 is the number the report is about. The cap
+   is written as the old one plus exactly one line rather than as a new round
+   number, for two reasons: it says in the value itself that this is one more
+   line and not a re-guess, and it is the only form that stays one more line if
+   the text scale moves, since `--text-sm` and the 1.5 below are what the line
+   box is made of. 82px, 4.56 lines.
+
+   It stops at one because the box sits in a list of rows and every pixel it
+   gains is a pixel the next row moves down: measured with the fold open, the
+   row below starts at 472.3px of a 950px window at 1440, and at 788.3px of an
+   844px window at 390, so one line is what the phone has to spare and two is
+   not. The part-line at the bottom edge survives the change on purpose: it is
+   the only thing on screen saying there is more to scroll. */
 .library-file-reading-text {
   margin: var(--space-2) 0 0;
-  max-height: 18rem;
+  max-height: calc(4rem + var(--text-sm) * 1.5);
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -10685,15 +11118,22 @@ header#top-bar {
      bottom value with the two insets alone, which are both 0 on a desktop,
      so the composer sat flush on the card's edge (reported: "there's no
      bottom padding in the chat dock"). */
-  padding-bottom: calc(var(--space-3) + var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--space-3) + var(--dock-bottom-inset));
 }
 
 /* The formatting bar carries `padding: 0.4rem 0.4rem` of its own, so its
    base term is stated here rather than dropped, a longhand in a later file
    replaces the shorthand's bottom side outright, and `calc(0px + 0px)` would
-   have quietly taken 6.4px off the strip at every width. */
+   have quietly taken 6.4px off the strip at every width.
+
+   **This one only reaches the strip while it is expanded.** Collapsed, which
+   is its default, `.doc-toolbar.is-collapsed` in 05-sidebars-themes.css is
+   (0,2,0) against this rule's (0,1,0) and wins whatever the file order says,
+   so that rule carries `--dock-bottom-inset` itself. Measured at 820 with the
+   covered strip stubbed at 336px: expanded 6.4px to 342.4px, collapsed 4px to
+   4px, before the fix. */
 .doc-toolbar {
-  padding-bottom: calc(var(--space-2) + var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--space-2) + var(--dock-bottom-inset));
 }
 
 /* --- 4. reduced motion ---------------------------------------------------
@@ -11679,6 +12119,12 @@ header#top-bar {
    because which sub-tab is showing is already written in the DOM and a second
    mechanism would be a second thing to keep in step. */
 @media (max-width: 599.98px) {
+  /* The Notes + opens Capture, so while Capture is the section showing it
+     would float over the box it opens and offer what is already there. */
+  .tab-page:has(#capture:not(.hidden)) > #notes-new-note.dock-fab {
+    display: none;
+  }
+
   .tab-page:has(#library-view-whiteboard:not(.hidden)) > .dock-fab {
     display: none;
   }
@@ -11728,9 +12174,20 @@ header#top-bar {
 /* The SVG half. `transform-box: fill-box` is what makes `center` mean the
    element's own middle rather than the SVG view box's origin, which is where
    an SVG transform-origin otherwise resolves and would fling the handle across
-   the board. */
+   the board.
+
+   A link's bend grip belongs here too and was the one that did not: measured
+   at 24px across at 2x against the 12px it is at 1x, which is the shape of
+   miss this whole block exists to stop. */
 .wb-sketch-resize-handle,
-.wb-link-endpoint-handle {
+.wb-link-endpoint-handle,
+.wb-link-bend-handle,
+/* A map line's waypoint grip is centred on the point it moves, so its own
+   centre is the anchor, exactly like the link bend grip above it. Added with
+   the grip itself rather than after it, because the paragraph above says the
+   next handle follows this rule and a 7-unit circle on a map zoomed out to
+   0.3 is a 4px target. */
+.wb-map-edge-handle {
   transform-box: fill-box;
   transform-origin: center;
   transform: scale(var(--wb-inv-zoom));
@@ -11742,10 +12199,35 @@ header#top-bar {
    coordinates only the code that draws them knows. `wbRenderSketchHandles`
    sets `transform-origin` on both from the bbox it already has; this rule is
    the other half, and `transform-box` stays at its `view-box` default so that
-   origin is read in the same user units the bbox is in. */
+   origin is read in the same user units the bbox is in.
+
+   **A grip drawn by this rule with no origin set is a bug, not a default.**
+   The scale then resolves about the SVG view box's origin and multiplies the
+   grip's own coordinates by `1 / k`: the group selection's rotate grip did
+   exactly that until INBOX 278, measured at board (680, 1344) at 0.5x and
+   (170, 336) at 2x for a box whose top centre is (340, 672), which is the
+   owner's "off to the top left or right, or below the top border". Anything
+   added to this selector list sets its origin where it is drawn. */
 .wb-sketch-rotate-handle,
 .wb-rotate-handle-stem {
   transform: scale(var(--wb-inv-zoom));
+}
+
+/* --- A member of a group selection shows that it is selected, not how to
+   resize itself (INBOX 278) -------------------------------------------------
+   A card and a text box carry eight resize handles and a rotate grip as
+   children, which `.wb-selected` reveals. In a group that is one set per
+   member on top of the group's own: measured on a three-item group, eight
+   rotate knobs and sixteen resize handles at once, which is why the stem the
+   eye lands on rises from a member's centre rather than the group box's. The
+   outline the class also draws stays, because "the shapes and lines arent
+   selected visually and individually" was its own report and is still true
+   without the grips. */
+.node-card.wb-in-group .wb-resize-handle,
+.node-card.wb-in-group .wb-rotate-handle,
+.wb-object.wb-in-group .wb-resize-handle,
+.wb-object.wb-in-group .wb-rotate-handle {
+  display: none;
 }
 
 /* --- The attach picker's picture rows ------------------------------------
@@ -11910,6 +12392,21 @@ header#top-bar {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 
+/* The band's own floor, kept at the component because that is where this
+   file's touch section says a component fix belongs. The bar used to stand
+   46px tall by accident, on the stacked-form `margin-bottom` the field
+   carried and this rule had not turned off; that margin was also what pushed
+   the text off centre (INBOX 274). Zeroing it centred the text and left the
+   bar at 36.9px measured at 390, under the 44px this band gives anything a
+   finger lands on. The floor goes on the bar rather than on the field, so
+   `align-items: center` puts the field and its glyph on the bar's own middle,
+   which is the property being fixed rather than a second thing to keep. */
+@media (max-width: 819.98px) {
+  .finder-bar {
+    min-height: var(--target-min);
+  }
+}
+
 /* The glyph is centred on its own box rather than on its inline baseline: the
    same correction `.ask-composer-icon` carries, because `.ph`'s global
    `vertical-align` is calibrated for an icon beside text at the same size. It
@@ -11946,6 +12443,19 @@ header#top-bar {
   background: none;
   box-shadow: none;
   padding: 0;
+  /* **And the margin, not just the border and the padding** (DESIGN.md, "And
+     zero the margins, not just the heights"). Reported: "text in the find
+     anything popup window isnt centred vertically in the text box". It was
+     the stacked-form `margin-bottom` every field in this app carries, which
+     the rest of this rule had not turned off: `align-items: center` centres a
+     flex item *with its margins*, so the field plus 9.6px of margin was
+     centred and the field alone sat 4.8px above the middle. Measured before:
+     1px of room above the field and 11px below it in a 33px band, with the
+     glyph beside it dead centre, which is what makes the text look dropped.
+     After: 5px and 5px, and the field's centre on the bar's to within half a
+     pixel. Zero rather than a number, because the band's own padding is what
+     sets the height here. */
+  margin: 0;
   height: auto;
   color: var(--ink);
   font-size: var(--text-lg);
@@ -12193,14 +12703,35 @@ button.finder-row:hover,
 }
 
 /* --- the dashboard's three densities -----------------------------------------
-   INBOX 270. Keyed off `#tab-dashboard[data-density]` (dashboard.js,
-   `applyDashDensity`) rather than classes toggled on six elements, because the
-   attribute survives a render that replaces those elements and a class on a
-   replaced node does not.
+   INBOX 270, redesigned for INBOX 279. Keyed off `#tab-dashboard[data-density]`
+   (dashboard.js, `applyDashDensity`) rather than classes toggled on six
+   elements, because the attribute survives a render that replaces those
+   elements and a class on a replaced node does not.
 
    Nothing is display:none'd that cannot be reached another way: Compact folds,
    Focused hides the bands whose contents are all reachable from the search
-   field above them and from the tabs. */
+   field above them and from the tabs.
+
+   **What the first cut got wrong, measured** (INBOX 279, the owner: "fix and
+   refine the full compact and focused views on the dashboard as the hero
+   section loses a lot"). At 1440 the three levels stood at 593.6 / 456.6 /
+   282px of chrome above the widget grid, and their heroes at 157.2 / 76.3 /
+   133.2px. Two things are wrong in those six numbers:
+
+   * the hero does not shrink with the level. Focused, the level that shows
+     least, had the *second largest* hero, because it dropped whole bands and
+     never touched the banner it kept;
+   * Compact kept the clock at `--text-display` (58.3px tall) while cutting the
+     greeting to `--text-lg` (22.1px) and deleting the one line of numbers
+     about the notebook entirely. The decoration outranked the identity, which
+     is what "the hero section loses a lot" is.
+
+   So the rule every level now keeps: **the greeting and the one number stay at
+   every density, and what shrinks is the art and the secondary rows.** The
+   greeting steps down the type scale (h1 / h2 / h3) rather than falling off it,
+   the numbers line stays and takes `--text-sm` below Full, the emblem shrinks
+   (dashboard.js sizes it per density) before it goes, and the clock loses its
+   date and then itself. */
 
 /* Compact: the same things, smaller. The Start something tiles lose their
    description line and become a row of labelled icons, and the stats become
@@ -12228,10 +12759,6 @@ button.finder-row:hover,
   padding: var(--space-2) var(--space-3);
 }
 
-#tab-dashboard[data-density="compact"] .dash-hero-emblem {
-  display: none;
-}
-
 /* Measured: with only the tiles and the stats folded, Compact saved 50px of
    the 610px above the widget grid, which is not a decluttering anybody would
    notice. The rest of that height is the hero's own banner and the two pill
@@ -12239,17 +12766,41 @@ button.finder-row:hover,
    app's name is in the window title and the top bar), the greeting drops a
    step, and the Jump to and Run a skill rows tighten. Everything is still
    there and still one press away. */
-#tab-dashboard[data-density="compact"] .dash-wordmark,
-#tab-dashboard[data-density="compact"] .dash-submessage {
+#tab-dashboard[data-density="compact"] .dash-wordmark {
   display: none;
 }
 
+/* One step down the scale, not two and not off it. `--text-h2` is still the
+   largest thing in the banner, which is what makes the banner a greeting
+   rather than a strip of controls. */
 #tab-dashboard[data-density="compact"] .dash-greeting {
-  font-size: var(--text-lg);
+  font-size: var(--text-h2);
+}
+
+/* **The one number stays.** It is the only sentence on the dashboard that says
+   anything about this notebook ("You have 218 notes · 3 reminders due"), and
+   Compact used to delete it while keeping a clock the operating system already
+   draws. It takes the small rank instead. */
+#tab-dashboard[data-density="compact"] .dash-submessage {
+  font-size: var(--text-sm);
+  margin-top: 0;
 }
 
 #tab-dashboard[data-density="compact"] .dash-hero {
-  padding-block: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  gap: var(--space-5);
+}
+
+/* The clock is the banner's art, so it is what a density step takes: the date
+   goes first (the day is in every other surface of the app), and the time
+   drops from the display size to `--text-h1`, which keeps it below the
+   greeting rather than twice its size. */
+#tab-dashboard[data-density="compact"] .dash-clock-date {
+  display: none;
+}
+
+#tab-dashboard[data-density="compact"] .dash-clock-time {
+  font-size: var(--text-h1);
 }
 
 #tab-dashboard[data-density="compact"] .quick-pill {
@@ -12265,18 +12816,128 @@ button.finder-row:hover,
   gap: var(--space-2);
 }
 
+/* **And the group labels move onto their own rows' line.** Measured at 1440:
+   each of "Start something", "Jump to" and "Run a skill" costs 18px of label
+   plus its 8px gap above a row of tiles that already says what it is, so the
+   three eyebrows were 78px of a 480px page head. Beside the row instead of
+   over it, they cost nothing and still name the band.
+
+   Above 600 only: a phone has no room for a 7rem lead column, and its Full is
+   already the compact layout (10-responsive.css), which is why the picker
+   itself is hidden down there. */
+@media (min-width: 37.5625rem) {
+  #tab-dashboard[data-density="compact"] .launch-group {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  #tab-dashboard[data-density="compact"] .launch-label {
+    flex: 0 0 7rem;
+  }
+
+  #tab-dashboard[data-density="compact"] .launch-row {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
 /* Focused: the search and the widgets. Everything hidden here is one press
    away, from the search field itself (which finds actions as well as content)
    or from the tabs, which is the test a hidden thing has to pass. */
 #tab-dashboard[data-density="focused"] .dash-quicklinks,
 #tab-dashboard[data-density="focused"] .dash-stats,
 #tab-dashboard[data-density="focused"] .dash-hero-emblem,
+#tab-dashboard[data-density="focused"] .dash-wordmark,
 #tab-dashboard[data-density="focused"] .dash-clock {
   display: none;
 }
 
+/* The page head's wrapper (index.html, `.dash-head`). Out of the box tree at
+   every density but Focused, so Full and Compact lay the banner and the search
+   doorway out exactly as they did when the two were siblings of the page: one
+   band, then the next. `display: contents` rather than a second flex column,
+   because a column would introduce its own gap and margin collapsing between
+   two bands whose spacing is already right. */
+.dash-head {
+  display: contents;
+}
+
+/* **Focused is not less of the hero, it is the one thing you came here for**
+   (INBOX 296, the owner: "improve the ui of the hero section in the dashboard
+   when on focused mode"). His second report about this switch. The first one
+   (INBOX 279, the block above) was right that Focused had the wrong hero, and
+   fixed that: measured at 1440 afterwards the three heroes stood 157.2 / 99.6
+   / 47.2px, in the order the three levels can be read in.
+
+   What it left is a level whose banner is correct and does nothing. Measured
+   at 1440 on that head: the hero is a 47.2px strip carrying the greeting and
+   the one number, and 16px under it sits a 37.2px search field carrying the
+   only thing on a stripped dashboard a person is actually reaching for. Two
+   bands, 100.4px from the top of the hero to the bottom of the field, to say
+   who you are and offer one control.
+
+   So at this level the two are one row: the banner keeps its own width on the
+   left, the doorway takes the rest of the line and the row's height. The hero
+   stops being a strip above the useful part and becomes the row that holds it,
+   which is the only job a hero has at the level that shows least. Nothing is
+   hidden that was not already hidden, and nothing moves in the DOM, so the tab
+   order is unchanged: identity, then the way in, left to right.
+
+   `align-items: stretch` and the banner's own radius on the field: two
+   surfaces of the same height and the same corner read as one row, two
+   surfaces of different heights and corners read as a row and a leftover.
+   `flex-wrap` with a basis on the field rather than a width query, so a narrow
+   window puts them back in two bands without a second rule deciding where
+   narrow starts. */
+#tab-dashboard[data-density="focused"] .dash-head {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+/* The banner's own bottom margin is the gap between two bands; inside the row
+   it would be the row's own height plus 16px of nothing. The wrapper carries
+   it instead. */
+#tab-dashboard[data-density="focused"] .dash-head > .dash-hero {
+  flex: 0 1 auto;
+  margin-bottom: 0;
+}
+
+#tab-dashboard[data-density="focused"] .dash-head > .dash-find {
+  flex: 1 1 20rem;
+  width: auto;
+  border-radius: var(--radius);
+}
+
+/* **And the banner is a line, not a panel.** Focused kept a 133px hero, which
+   was more than Compact's, because it dropped bands around a banner it never
+   touched. Here the greeting and the one number share a baseline and the
+   padding comes down to a row's worth: the level that shows least has the
+   smallest hero, which is the only order the three levels can be read in.
+   `flex-wrap` rather than a width query, so a narrow window gets the two ranks
+   stacked back up without a second rule deciding where narrow starts. */
 #tab-dashboard[data-density="focused"] .dash-hero {
-  padding-block: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  gap: var(--space-4);
+}
+
+#tab-dashboard[data-density="focused"] .dash-hero-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+#tab-dashboard[data-density="focused"] .dash-greeting {
+  font-size: var(--text-h3);
+}
+
+#tab-dashboard[data-density="focused"] .dash-submessage {
+  font-size: var(--text-sm);
+  margin-top: 0;
 }
 
 /* The picker sits in the toolbar with Widgets and Edit layout, so it lines up

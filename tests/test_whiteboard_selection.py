@@ -52,15 +52,49 @@ def test_a_multi_selection_gets_one_box_with_working_anchors() -> None:
     assert "wbScheduleRender();" not in body.split('.on("end"')[0].split('.on("drag"')[1]
 
 
-def test_a_swept_shape_gets_its_own_box_and_anchors() -> None:
-    """The owner, with a screenshot of a selected face beside two selected
-    notes: "when I drag select shapes, the individual anchor/rotate boxes dont
-    appear ... its fine for the notes but the shapes and lines arent selected
-    visually and individually". A card keeps its handles as children, so the
-    class alone reveals them; a shape is a path with nowhere to keep any, and
-    only this function draws them."""
-    assert "function wbDrawSketchHandles(sketch)" in WB
-    assert "if (row.entry.kind === \"sketch\") wbDrawSketchHandles(row.entry.item);" in WB
+def test_a_swept_shape_gets_its_own_box_and_the_group_keeps_the_grips() -> None:
+    """Two reports, one rule.
+
+    The owner, with a screenshot of a selected face beside two selected notes:
+    "when I drag select shapes, the individual anchor/rotate boxes dont appear
+    ... its fine for the notes but the shapes and lines arent selected visually
+    and individually". A card keeps its handles as children, so the class alone
+    reveals them; a shape is a path with nowhere to keep any, and only this
+    function draws them.
+
+    Then INBOX 278, after every member got a full set: "the rotate line and
+    circle dont sit at the top center of a group selection ... and instead sit
+    off to the top left or right, or below the top border". Measured on a
+    three-item group: four rotate knobs, two stems and sixteen member resize
+    handles on screen at once, so whichever stem the eye lands on rises from a
+    member's own centre rather than the group box's.
+
+    What answers both: a member of a group is drawn with its outline and
+    nothing else, and the grips belong to the group. A shape selected on its
+    own is unchanged and still gets all of them."""
+    assert "function wbDrawSketchHandles(sketch, { outlineOnly = false } = {})" in WB
+    assert (
+        "if (row.entry.kind === \"sketch\") wbDrawSketchHandles(row.entry.item, { outlineOnly: true });"
+        in WB
+    ), "a member of a group selection is outlined, not given grips (INBOX 278)"
+    assert "if (outlineOnly) return;" in WB, (
+        "the outline-only mode has to stop before the eight handles, or it is "
+        "the same full set under another name"
+    )
+    #: The lone selection, which must keep everything: `wbRenderSketchHandles`
+    #: is the single-item path and passes no options.
+    lone = WB[WB.index("function wbRenderSketchHandles()") :]
+    lone = lone[: lone.index("\n//:")]
+    assert "wbDrawSketchHandles(sketch);" in lone, (
+        "a shape selected on its own keeps its own box, its eight anchors and "
+        "its rotate grip: that is the report the outline-only mode must not "
+        "undo"
+    )
+    #: And a card or a text box in a group hides its own grips by class, since
+    #: it carries them as children rather than having them drawn.
+    assert 'el.classList.toggle("wb-in-group", inGroup);' in WB
+    assert ".node-card.wb-in-group .wb-rotate-handle" in CSS
+    assert ".wb-object.wb-in-group .wb-resize-handle" in CSS
 
 
 def test_the_group_box_has_a_rotate_point() -> None:

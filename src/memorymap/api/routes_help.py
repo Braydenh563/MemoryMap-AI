@@ -40,7 +40,7 @@ class AskBody(BaseModel):
 def ask(body: AskBody) -> dict:
     return help_chat.answer(
         body.question,
-        deps.get_model_manager(),
+        deps.get_model_manager().for_feature("guide"),
         deps.get_ollama(),
         history=[turn.model_dump() for turn in body.history],
         tab=body.tab,
@@ -68,7 +68,7 @@ def ask_stream(body: AskBody) -> StreamingResponse:
     def lines():
         for event in help_chat.answer_stream(
             body.question,
-            deps.get_model_manager(),
+            deps.get_model_manager().for_feature("guide"),
             deps.get_ollama(),
             history=[turn.model_dump() for turn in body.history],
             tab=body.tab,

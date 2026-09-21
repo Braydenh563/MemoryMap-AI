@@ -42,7 +42,8 @@ from memorymap.ai import (
     tools,
     vision_ocr,
 )
-from memorymap.ai.grounding import ground_answer_sentences
+from memorymap.ai.answer_trim import trim_assistant_padding
+from memorymap.ai.grounding import ground_answer_sentences, support as grounding_support
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, docview
@@ -1127,7 +1128,11 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         # else: so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
     )
-    model_manager = deps.get_model_manager()
+    #: The Chat tab's own model, if one is set (model_manager.FEATURES).
+    #: A view over the same manager, so everything downstream, the agent
+    #: loop included, goes on asking for `chat_model()` and gets this
+    #: tab's answer without knowing features exist.
+    model_manager = deps.get_model_manager().for_feature("chat")
     ollama = deps.get_ollama()
     ollama_running = ollama.is_running()
     conversational = not intent.needs_retrieval(prepared["intent"])
@@ -1488,7 +1493,16 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         offline = extractive.answer(req.question, prepared["notes"])
         yield {"type": "answer", "delta": offline["text"]}
         if offline["grounding"]:
-            yield {"type": "grounding", "sentences": offline["grounding"]}
+            #: An extractive answer is every sentence lifted from a note, so
+            #: its support is whatever the same counter makes of it rather
+            #: than an assumed 100%: a sentence the joiner wrote between two
+            #: passages is not a passage, and should be counted as one that is
+            #: not backed.
+            yield {
+                "type": "grounding",
+                "sentences": offline["grounding"],
+                "support": grounding_support(offline["text"], offline["grounding"]),
+            }
         return
     else:
         messages = librarian.build_messages(
@@ -1697,8 +1711,13 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             }
         if first is None or first.get("type") == "unsupported":
             # The active model can't do tool calls, plain Q&A, never
-            # a hard dependency.
-            pass
+            # a hard dependency. INBOX 272 part 1: this used to be a silent
+            # `pass`, so Agent mode was asked for and downgraded with
+            # nothing on screen to say so or how to fix it. `first` (built
+            # in ai/agent.py) already carries the remedy; forward it before
+            # falling through to the plain-answer stream below.
+            if first is not None:
+                yield event(first)
         else:
             events = chain([first], agent_events)
     # ROADMAP.md item 36's frontend half: the non-streaming /chat already
@@ -1770,6 +1789,19 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         # connection detail; same sanitiser librarian.model_error_message
         # already trusts for this exact shape.
         yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {safe_value(exc)}"})
+    #: **The greeting and the sign-off come off before anything else reads it**
+    #: (the owner, 2026-09-21). Here, not in the browser: grounding marks
+    #: sentences by their offsets in this string, the saved turn stores it, and
+    #: an export reads it back, so trimming anywhere else would leave three
+    #: copies of the answer disagreeing about where sentence two starts.
+    trimmed_answer = trim_assistant_padding(answer_text)
+    if trimmed_answer != answer_text:
+        answer_text = trimmed_answer
+        #: The browser has already drawn the untrimmed text, so it is sent the
+        #: finished answer to replace it with. One event at the end rather than
+        #: a filter on every delta: a stream that edits what it already said,
+        #: token by token, flickers.
+        yield event({"type": "answer_final", "text": answer_text})
     conversational = not intent.needs_retrieval(prepared["intent"])
     candidates = _grounding_candidates(req.session, prepared["notes"], touched_note_ids)
     #: Kept past the branch below so the saved turn carries the same rows the
@@ -1788,7 +1820,19 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             }
             for row in grounding:
                 row["label"] = labels.get(row["note_id"], "")
-            yield event({"type": "grounding", "sentences": grounding})
+            #: **How much of the answer the notebook actually backs, beside
+            #: which sentences it backs.** CHAT_PLAN Phase 1's fourth gate
+            #: line: the marks have always said which sentences are
+            #: supported, and nothing said how many of them there were, so an
+            #: answer with one cited sentence in six read at a glance exactly
+            #: like one with six in six. The threshold travels with the
+            #: numbers (`grounding.support`) rather than being picked again
+            #: in the frontend.
+            yield event({
+                "type": "grounding",
+                "sentences": grounding,
+                "support": grounding_support(answer_text, grounding),
+            })
     if req.body.notes_only and answer_text:
         _save_ask_turn(req.session, req.question, answer_text, prepared, grounding)
     yield event({"type": "done"})
@@ -1808,7 +1852,11 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     {"type":"done"}
     """
     ollama = deps.get_ollama()
-    model_manager = deps.get_model_manager()
+    #: The Chat tab's own model, if one is set (model_manager.FEATURES).
+    #: A view over the same manager, so everything downstream, the agent
+    #: loop included, goes on asking for `chat_model()` and gets this
+    #: tab's answer without knowing features exist.
+    model_manager = deps.get_model_manager().for_feature("chat")
     history = [turn.model_dump() for turn in body.history]
     persona_prompt = _resolve_persona(body.persona, session)
     mode = _resolve_mode(body.mode)

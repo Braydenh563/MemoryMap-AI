@@ -1540,6 +1540,26 @@ progress {
   border: 1px dashed var(--border);
 }
 
+/* What points at this note (INBOX 246): documents, boards, maps, notes,
+   counted. Quiet like the untagged chip, since it is information rather
+   than a warning, but solid rather than dashed: a fact, not a gap. A
+   button, since it opens Connections. */
+.chip.refs {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* What this note made you promise to do (INBOX 309). The same treatment as
+   the references chip beside it, and deliberately so: the two are facts of
+   the same rank about the same note, on the same line, and giving this one a
+   colour of its own would make a reminder read as a warning about the note. */
+.chip.reminders {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
 /* A note that is saved but not yet filed. Quiet on purpose: this is a
    progress state on a note that is already safely on disk, not a warning,
    and it replaces the category chip for the second or two it lasts. */
@@ -1629,11 +1649,29 @@ progress {
    See spinnerEl() in app.js for the element itself. */
 .spinner {
   display: inline-block;
-  width: 0.9em;
-  height: 0.9em;
+  /* **A ring that cannot become an ellipse.** `.chip` is an inline-flex row,
+     so a spinner inside one is a flex item and took the default
+     `flex-shrink: 1`: in a tight row it was squeezed on the width while its
+     height held, and measured 9.45 by 10.8 against the 10.8 square it has
+     when there is room (INBOX 293, the owner: the animation "isnt quite
+     right"). A ring rotating inside a box that is not square wobbles, which
+     is what an ellipse spinning looks like. `flex: none` stops the squeeze
+     and `aspect-ratio` makes the shape independent of it, so a future
+     container cannot reintroduce this from the outside. The height carries
+     the size, in em so it still scales with the text beside it, and the
+     width is derived rather than declared: two declared sides are two things
+     that can disagree. */
+  flex: none;
+  aspect-ratio: 1;
+  block-size: 0.9em;
+  inline-size: auto;
   border: 2px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
+  /* Stated rather than inherited: the rotation is about the ring's own
+     centre, and a `transform-origin` set on an ancestor for a different
+     purpose must not reach it. */
+  transform-origin: 50% 50%;
   color: var(--accent);
   vertical-align: -0.15em;
   animation: chip-spin 0.7s linear infinite;
@@ -1890,6 +1928,19 @@ progress {
   text-align: center;
 }
 
+/* The setup note (index.html, `#lock-setup-note`): the length rule, what the
+   password unlocks and what a reset costs, said before the field is filled.
+   Left-aligned inside a centred card on purpose, it is three lines of prose
+   rather than a caption, and centred prose is read a word at a time. Smaller
+   and quieter than the line above it, which is the promise; this is the
+   detail under the promise. */
+.lock-setup-note {
+  margin-top: var(--space-3);
+  text-align: left;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
 /* --- entry actions + links (Phase 4) --------------------------------------- */
 /* No auto margin here, .entry-meta-end already owns the alignment. */
 .entry-actions {
@@ -1907,6 +1958,25 @@ progress {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* The attachments row is inserted *before* `.entry-meta` (entryItem in
+   app.js), so an attached file chip and the note's badges are two adjacent
+   rows with nothing between them. Reported with a screenshot (INBOX 297):
+   "make sure there are appropriate gaps between uploaded files and
+   attachments and the badges". Measured before this rule, on a row carrying
+   a PDF: 0.0px between the bottom of the file chip and the top of the badge
+   row, at 1440, 1024, 820 and 390, so the download button on the chip and
+   the category chip under it read as one crowded block.
+
+   On the adjacency rather than on `.entry-links` itself: the same class also
+   draws the wiki-link row lower down the card, and giving every one of them
+   a bottom margin would open a gap under a row that has nothing after it.
+   One step of the scale, the same step `.entry-links` already keeps above
+   itself, so the file row sits evenly between the note's text and its
+   badges rather than being pushed onto one of them. */
+.entry-links + .entry-meta {
+  margin-top: var(--space-2);
 }
 
 /* The edit form's own related-notes panel (renderRelatedWhileEditing,
@@ -3748,8 +3818,15 @@ html.modal-open body {
 
    Two levels is the whole ladder: markdown from this app never nests deeper
    than list > item before running out of block containers to end on. */
+/* **And one level further again for the Atlas help panel**, whose bubble holds
+   a thinking disclosure and a prose wrapper rather than the prose itself, so
+   `> :last-child` is that wrapper and the caret fell onto a line under the
+   answer. Reported: "the writing caret in the atlas help panel is on the line
+   below not after the text being streamed". */
+.is-streaming > .help-chat-prose > :last-child:not(:is(ul, ol, blockquote))::after,
+.is-streaming > .help-chat-prose > :last-child:is(ul, ol) > li:last-child::after,
 .is-streaming:not(:has(*))::after,
-.is-streaming > :last-child:not(:is(ul, ol, blockquote))::after,
+.is-streaming > :last-child:not(:is(ul, ol, blockquote, .help-chat-prose))::after,
 .is-streaming > :last-child:is(ul, ol) > li:last-child::after,
 .is-streaming > :last-child:is(blockquote) > :last-child::after {
   content: "\200b";
@@ -4446,13 +4523,14 @@ select {
 /* The "worth rebuilding now" line in Settings → Search index. An accent
    ground rather than a warning colour: nothing is broken, there is simply
    something useful to do. See `renderReindex` in app.js. */
+/* The box itself is `.notice.notice-warn` now (08-consistency.css, the recipe
+   index): this was the app's only one-line "something is worth knowing here"
+   box and it was built inline, which is what made the second one go looking
+   for a recipe and find none. What is left here is the one thing that is this
+   surface's own and not the recipe's: it sits above a list rather than above
+   prose, so it keeps the roomier padding it was drawn with. */
 .reindex-stale:not(.hidden) {
-  margin: 0 0 var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--warn);
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--ink);
 }
 
 /* --- the Contents index: the two columns of a row ---------------------------
@@ -5173,4 +5251,73 @@ select {
    `.learned-switch-stack` in the markup is what makes it not adjacent. */
 #learned-switches .learned-master {
   margin-bottom: var(--space-3);
+}
+
+/* --- a model per feature (Settings → Models) ---------------------------------
+   One row per feature: what it is, then what it runs on, then the way back to
+   the default. Three columns rather than a `.row` of loose controls because
+   the whole point of the list is comparison down the column: which of these is
+   on something other than the chat model. A ragged left edge makes that
+   question unanswerable at a glance.
+
+   The state line under each name carries "inherited" or "its own model", which
+   is the fact the row exists to report and the one a select alone cannot say:
+   a select showing "llama3.2" looks identical whether that name was chosen
+   here or came from the chat model above. */
+.feature-models {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.feature-model-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.feature-model-name {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.feature-model-label {
+  font-size: var(--text-lg);
+}
+
+.feature-model-state {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+/* A row that is on its own model says so in the app's accent, because the
+   list's only job is to make the overridden rows findable among the inherited
+   ones. */
+.feature-model-row[data-overridden="1"] .feature-model-state {
+  color: var(--accent);
+}
+
+/* `enhanceSelect` wraps every select in a `.select-shell` at boot and the
+   native control inside it stops being what is on screen, so the width has to
+   be given to the shell: a rule naming the select alone sizes something one
+   pixel wide that nobody can see. */
+.feature-model-row select,
+.feature-model-row .select-shell {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Below 600 the three columns become three rows: a 390px window cannot hold a
+   name, a select and a button side by side without the select collapsing to
+   the width of its own arrow. */
+@media (max-width: 600px) {
+  .feature-model-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .feature-model-name {
+    grid-column: 1 / -1;
+  }
 }

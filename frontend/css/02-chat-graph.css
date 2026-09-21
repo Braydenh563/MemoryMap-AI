@@ -1780,6 +1780,25 @@ button.ghost.danger {
   background: var(--accent-soft);
 }
 
+/* **The chord, at the far end of the row it belongs to**
+   (DOCUMENTS_PLAN Phase 4 item 4). A row is a flex line so the key can be
+   pushed right with `margin-left: auto` rather than by padding that would
+   have to know how long the label is; `flex: none` so a two-part chord never
+   squeezes the words it labels. The `<kbd>` itself takes the app's own key
+   paint from `01-forms-settings.css`, which is what makes it read as the same
+   object as the one in the shortcut sheet. */
+#palette-list li:has(> kbd.palette-keys) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+#palette-list kbd.palette-keys {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--text-xs);
+}
+
 /* Group headers inserted between Commands / Notes / Documents result sections.
    Non-interactive, so cursor:default and no hover background. */
 #palette-list li.palette-group-header {
@@ -2011,6 +2030,66 @@ button.ghost.danger {
 .sketch-color.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* ==================== AN INK DOT FOR A FINGER ============================
+   Below 820 the pointer is a finger and every control in this bar steps to
+   `--target-min` (2.75rem there). The swatches did not: seven 16px dots in a
+   bar of 44px buttons, which `touch.js` never caught because it does not open
+   this dialog.
+
+   Two steps rather than one, because seven dots at 44px is 308px of a 311px
+   bar at 390 and they would touch each other:
+
+   - the paint goes to 2rem, over the 28px floor `--target-min` is at every
+     other width and well over WCAG 2.5.8's 24px. Seven of those plus their
+     gaps is 248px of the 311 the bar has at 390, so the ink group stays one
+     row;
+   - the target goes the rest of the way with a transparent `::before`, the
+     same pattern the painted switches use (DESIGN.md, "Hit targets"): full
+     `--target-min` height, and half the gap on each side, so a target is
+     36x44 and two neighbours meet without overlapping. An overlapping target
+     would be worse than a small one: the dot on top would take presses meant
+     for the one beside it. */
+@media (max-width: 819.98px) {
+  .sketch-color {
+    width: 2rem;
+    height: 2rem;
+    position: relative;
+  }
+
+  .sketch-color::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--space-1) / -2);
+    right: calc(var(--space-1) / -2);
+    top: calc((var(--target-min) - 2rem) / -2);
+    bottom: calc((var(--target-min) - 2rem) / -2);
+  }
+
+  /* The dots wrap rather than run off the end of their own bar: seven at
+     2rem plus their gaps is 248px of the 311 this bar has at 390, but at
+     Large text with Spacious density it is 288px of 284 and the row overflowed
+     by 12. A colour group that becomes two rows of four and three is the same
+     seven colours; a group that overflows loses one. */
+  .sketch-colors {
+    gap: var(--space-1);
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
+  }
+
+  /* `flex-wrap` alone did nothing: a section is `flex: 1 0 auto` with the
+     default `min-width: auto`, so it refused to be narrower than its widest
+     row and the dots ran 12px past the bar instead of wrapping inside it.
+     `flex-shrink` with it: the section is `flex: 1 0 auto`, so a shrink
+     factor of zero meant the min-width alone changed nothing. Scoped to this
+     bar rather than to `.wb-tool-section`, which the whiteboard's own rail
+     shares. */
+  .sketch-toolbar .wb-tool-section {
+    min-width: 0;
+    flex-shrink: 1;
+  }
 }
 
 /* The slider and its number as one control, wearing the tonal recipe so that
@@ -3184,6 +3263,20 @@ kbd {
    a second rule that overrides `ghost`: a specificity fight between
    `button.ghost` and `.menu-item` is exactly how two menus drift apart again.
    `.doc-dock-menu-item` keeps only its layout job (full width, nowrap). */
+/* A break between two groups of rows, drawn wherever `kebabMenu`'s items
+   change `group` (app.js). A hairline and not a heading: a ten-row menu with
+   a title over every three rows is a seventeen-row menu, and what makes a
+   list scannable is the break, not the word. The inline margin pulls it in to
+   the rows' own text, so it reads as a rule between them rather than as an
+   edge of the card; `.action-menu` is a flex column, so `flex: none` stops it
+   being stretched into a thick band by the free space. */
+.action-menu > .menu-sep {
+  flex: none;
+  height: 1px;
+  margin: 0.25rem 0.4rem;
+  background: var(--border);
+}
+
 .menu-item {
   /* One row, one line, see `.action-menu`'s width note above. */
   white-space: nowrap;

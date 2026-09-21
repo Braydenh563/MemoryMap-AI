@@ -537,6 +537,40 @@
 
 }
 
+/* **Between 600px and 1024px, three columns give way** (TIMELINE_PLAN section
+   7's second measurement, taken 2026-09-20 with
+   `scratchpad/ui-sweeps/timelinetable820.js` over a 2,000-note seed). The
+   table is `table-layout: fixed` and every column but the title has a width in
+   rems, so the title takes what is left, and between those two widths there is
+   nothing left: measured at 820, the seven fixed columns want 816px of a 704px
+   box, the title column came out **0px wide and drew no title at all**, and
+   the table scrolled sideways by 112px (222px at 700). At 1024 the title was
+   87px and every one of the 300 titles on screen was cut off. A table of
+   dates, kinds and word counts with no title in it is a table nobody can read
+   a row out of, so this is a bug the measurement found rather than a
+   preference.
+
+   Which columns give way: the space (one space in most notebooks, and the
+   switcher in the header already says which), and the two numbers, which are
+   the columns you sort by rather than read. Below 820, the app's own band
+   edge, the tags go too, because 528px of fixed columns in a 594px box leaves
+   the title 66px, which is the same failure one column further along. Date,
+   title, kind and category are what is left, and the title is never one of the
+   ones that leaves. Measured after: the title is 375px at 1024, 176px at 820
+   and 242px at 700, with no horizontal scroll at any width. */
+@media (min-width: 37.5rem) and (max-width: 64rem) {
+  .timeline-table .timeline-col-space,
+  .timeline-table .timeline-col-number {
+    display: none;
+  }
+}
+
+@media (min-width: 37.5rem) and (max-width: 819.98px) {
+  .timeline-table .timeline-col-tags {
+    display: none;
+  }
+}
+
 
 /* A category heading in a tree layout, a real node in the drawing, but not
    a note: hollow, so it never reads as something you can open. */
@@ -2057,7 +2091,8 @@
 }
 
 .header-cluster > button,
-.header-cluster > .notif-wrap > button {
+.header-cluster > .notif-wrap > button,
+.header-cluster > .menu-wrap > button {
   border: 0;
   border-radius: var(--radius-inner);
   background: transparent;
@@ -2071,9 +2106,19 @@
 .header-cluster > button:hover,
 .header-cluster > button:focus-visible,
 .header-cluster > .notif-wrap > button:hover,
-.header-cluster > .notif-wrap > button:focus-visible {
+.header-cluster > .notif-wrap > button:focus-visible,
+.header-cluster > .menu-wrap > button:hover,
+.header-cluster > .menu-wrap > button:focus-visible {
   background: var(--surface-2);
   box-shadow: none;
+}
+
+/* The phone's one menu (`initPhoneHeaderMore`, app.js) is in the markup at
+   every width and shown by 10-responsive.css below 600 only, where the four
+   buttons it stands in for are hidden. Kept out of the flow here so the
+   desktop bar is exactly what it was. */
+#header-more {
+  display: none;
 }
 
 #quit-btn:hover {

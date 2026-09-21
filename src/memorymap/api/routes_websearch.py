@@ -28,7 +28,7 @@ def _require_web_search() -> str:
         raise HTTPException(
             status_code=403,
             detail="Web search is turned off. Enable it in Settings → Web search "
-            "(this is the one feature that goes online).",
+            "(one of the two features that can go online, with the update check).",
         )
     return str(config.get_preference("searxng_url", "") or "")
 

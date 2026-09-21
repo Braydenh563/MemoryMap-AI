@@ -112,6 +112,56 @@ def test_hand_built_menus_do_not_multiply() -> None:
         )
 
 
+#: Past this many rows a menu is a list you have to read rather than a set of
+#: choices you can see, and DESIGN.md's recipe says it is grouped. Five is
+#: where the app's own menus sit: measured on the branch head, the ones that
+#: are not grouped are all four rows or fewer, and the one that was ten
+#: (the table cell's) is the case that asked for the rule.
+MENU_GROUP_CEILING = 5
+
+
+def test_a_long_kebab_menu_is_grouped() -> None:
+    """Ten undifferentiated rows is a list, not a menu.
+
+    The table cell's menu covered rows, columns, alignment and the whole
+    table in one run of ten, and finding "Align centre" in it meant already
+    knowing the order. `kebabMenu` draws a hairline wherever an item's `group`
+    changes; this is the ratchet that a command table long enough to need that
+    actually declares it.
+
+    Counted on the *table* rather than on the rendered menu, because the menu
+    exists only in a browser and this suite cannot see the DOM. A command list
+    is a JavaScript array literal of objects each carrying `id:`, which is a
+    shape this file can count without running anything.
+    """
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    table = docs[docs.index("const DOC_TABLE_COMMANDS = ["):]
+    table = table[: table.index("\n];")]
+    rows = re.findall(r'^\s{2}\{\n\s+id: "([a-z-]+)",\n\s+group: "([a-z]+)",', table, re.M)
+    ids = re.findall(r'^\s+id: "([a-z-]+)",$', table, re.M)
+    assert len(ids) > MENU_GROUP_CEILING, (
+        "this ratchet is about a menu past the ceiling; the table cell's menu "
+        f"is now {len(ids)} rows, so either it shrank or the shape it is "
+        "counted by changed"
+    )
+    assert len(rows) == len(ids), (
+        f"{len(ids) - len(rows)} of the table cell menu's {len(ids)} commands "
+        "carry no `group`, so kebabMenu draws them as one undifferentiated "
+        "list (DESIGN.md, the recipe index: a menu past five rows is grouped)"
+    )
+    assert len(set(g for _, g in rows)) > 1, "one group over the whole menu groups nothing"
+    #: And the recipe has to be able to draw it, which is two lines away in
+    #: another file: the separator element and the stylesheet rule for it.
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert 'rule.className = "menu-sep"' in app and 'role", "separator"' in app, (
+        "kebabMenu no longer draws a separator between groups"
+    )
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    assert ".action-menu > .menu-sep" in css, (
+        "the separator has no rule, so a grouped menu draws a zero-height gap"
+    )
+
+
 def test_a_pointer_anchored_menu_is_the_recipe() -> None:
     """A right-click or long-press menu is `openMenuAtPoint`, not a new shape.
 
@@ -165,6 +215,9 @@ SHEET_RECIPE = {
     "sheet-row",
     "sheet-corner",
     "sheet-card-corner",
+    # The note page (UI Phase 11 item 2): full height, a back chevron.
+    "sheet-page",
+    "sheet-card-page",
 }
 
 
@@ -1025,6 +1078,46 @@ def test_the_facts_line_is_one_rule_rather_than_three() -> None:
                 )
 
 
+def test_a_facts_line_chip_opens_a_surface_rather_than_the_card() -> None:
+    """DESIGN.md's recipe index: a fact that is also the way in is a
+    `.library-chip` button, and what it opens is never the card it sits on.
+
+    The report (INBOX 279): "I als want you to better design the bottom text
+    for captions and ocr in the image cards in the library images subtab",
+    with a screenshot of six rows of chrome under one thumbnail. The reading
+    was a `<details>` opening in place, and a 180px picture tile has no place:
+    measured at 1440, opening it took the card from 240.7px to 416.3px and the
+    grid gives every card in a row the tallest one's height, so one card's
+    transcription resized its five neighbours.
+
+    The chip opens the lightbox instead, at the reading, which is the same
+    door the tile's own click and the Files row's "Open reading" use. This
+    lint holds the two halves that made it right: the control is the app's own
+    pressable chip rather than a hand-built one, and the picture card's facts
+    line holds no disclosure.
+    """
+    library = (ROOT / "frontend" / "library.js").read_text(encoding="utf-8")
+    assert 'textChip.className = "library-chip library-image-text-chip"' in library, (
+        "the picture card's reading chip is `.library-chip`, the app's own "
+        "pressable chip (DESIGN.md, the recipe index)"
+    )
+    assert "metaRow.append(visionField)" not in library, (
+        "the picture card's facts line must not hold a disclosure again: what "
+        "it opens has to be a surface with room for a transcription"
+    )
+    #: The chip's own size, not the facts line's: a rule led by
+    #: `.library-image-meta` carrying a font-size is the regression
+    #: `test_the_facts_line_is_one_rule_rather_than_three` above describes, and
+    #: this is the rule that was written that way first.
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    for selector, body in _rules(css):
+        if "library-image-text-chip" in selector and "font-size" in body:
+            assert _leading_name(selector) == ".library-image-text-chip", (
+                f"{selector.strip()} sizes the chip from the facts line's handle; "
+                "put it on the chip's own class"
+            )
+
+
 def _function_body(text: str, name: str) -> str:
     """The source of one top-level function, from its `function` to the next one.
 
@@ -1251,6 +1344,36 @@ def test_one_writing_finding_is_drawn_by_one_builder() -> None:
             "docFindingLine alone (DESIGN.md, the recipe index)"
         )
 
+    #: **And the kinds themselves are named in two places that have to agree.**
+    #: `docFindingKind` decides which dot and which underline a finding gets;
+    #: `DOC_FINDING_GROUPS` decides which heading it is filed under in the
+    #: panel. They agree today, and nothing made them: a fourth kind added to
+    #: the first alone renders with its own squiggle and then falls into no
+    #: group in the panel, which looks like a finding the panel has lost. A
+    #: fourth added to the second alone draws an empty heading forever, since
+    #: the panel skips a group with no members. Neither failure throws.
+    kinds_drawn = set(re.findall(r'return "([a-z]+)";', _function_body(js, "docFindingKind")))
+    groups = js[js.index("const DOC_FINDING_GROUPS = ["):]
+    kinds_grouped = set(re.findall(r'\["([a-z]+)", "', groups[: groups.index("\n];")]))
+    assert kinds_drawn and kinds_grouped, "one of the two finding-kind tables could not be read"
+    assert kinds_drawn == kinds_grouped, (
+        "docFindingKind draws "
+        + ", ".join(sorted(kinds_drawn))
+        + " and DOC_FINDING_GROUPS files "
+        + ", ".join(sorted(kinds_grouped))
+        + ": a kind in one and not the other is either an underline with no "
+        "group in the panel or a heading that can never have a member"
+    )
+    #: The stylesheet is the third place the same three names appear, as the
+    #: class `docFindingKind`'s answer is interpolated into
+    #: (`cm-finding-${kind}`), so a kind with no rule there is an underline
+    #: with no shape and no colour.
+    for kind in sorted(kinds_drawn):
+        assert f".cm-finding-{kind}" in js, (
+            f"the {kind} finding has no underline rule in docCmTheme, so it "
+            "draws as plain text while the panel lists it"
+        )
+
 
 #: **A surface says when its data did not arrive, and says it in one way.**
 #:
@@ -1297,6 +1420,79 @@ def test_the_failed_state_is_built_in_exactly_one_place() -> None:
         "the failed state is drawn by surfaceFailed alone; a second builder is "
         "how the empty states came to disagree in the first place"
     )
+# --- two panes showing one document (DESIGN.md, "Two views of one document") --
+
+
+def test_the_rendered_blocks_carry_the_line_they_came_from() -> None:
+    """The split view's scroll map is a contract across two files: app.js's
+    `renderMarkdown` writes `data-src-line` on every block it draws, and
+    documents.js's `docScrollAnchors` reads it. Neither half is any use alone,
+    and the failure when one goes is silent: the map finds no anchors, falls
+    back to the scroll fraction, and the panes are a screenful apart again
+    with nothing in the console to say why.
+
+    Measured before the stamps existed: on a document of five sections with a
+    table, a code fence and a list in each, the preview was 282, 292, 266, 404
+    and 550px out at the five headings, growing downwards because every block
+    that takes a different amount of room in the two panes shifts everything
+    below it. With them: 0, 75, 0, 0, 0, and the 75 is the editor landing 21px
+    short of where the probe asked it to scroll, not the map.
+    """
+    app_js = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    documents_js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    assert "dataset.srcLine = String(" in app_js, (
+        "renderMarkdown must stamp each block with the source line it came "
+        "from, or the split view has nothing to line its panes up by"
+    )
+    assert "dataset.srcLine" in documents_js, (
+        "documents.js must read the stamps; a stamp nothing reads is dead "
+        "markup on every surface that renders markdown"
+    )
+    anchors = _function_body(documents_js, "docScrollAnchors")
+    #: **Rects, never `offsetTop`** (INBOX 281). The mapping was right the
+    #: first time and the measurement of where a block sits was not:
+    #: `offsetTop` is taken from the nearest positioned ancestor, and measured
+    #: on a real document it ran 218px past the truth at 1440, 230px at 1024,
+    #: and 146px once the sidebar was collapsed and a positioned `#doc-layout`
+    #: appeared in between. Every anchor carried the bias, so the preview sat
+    #: that far past the line the source was showing at every position. It is
+    #: the rule `setDocPage` already states in app.js.
+    #: The comments in that function discuss `offsetTop` at length, which is
+    #: the point of them, so the check reads the code with the prose taken out.
+    anchor_code = "\n".join(
+        line for line in anchors.splitlines() if not line.lstrip().startswith("//")
+    )
+    assert "offsetTop" not in anchor_code, (
+        "docScrollAnchors must not read offsetTop: it is measured from the "
+        "nearest positioned ancestor, not from the pane, and the bias between "
+        "them lands on every anchor"
+    )
+    assert "getBoundingClientRect()" in anchor_code and "preview.scrollTop" in anchor_code, (
+        "a block's place in the pane is its rect corrected by the pane's own "
+        "rect and scroll"
+    )
+    assert "clientWidth" in anchor_code, (
+        "the cache token has to carry both panes' widths: a pane that changes "
+        "width rewraps every paragraph in it, and it can do that without "
+        "changing either scroll height"
+    )
+    assert "docPreviewLineShift" in anchors, (
+        "the stamps count lines in the string the preview rendered, which has "
+        "the title prepended and the frontmatter taken off: the shift has to "
+        "be undone or every titled document lines up two lines out"
+    )
+    assert "lineBlockAt(" in _function_body(documents_js, "docSourceLineTop"), (
+        "CodeMirror only renders the lines near the viewport, so coordsAtPos "
+        "answers null for exactly the off-screen anchors this table is built "
+        "from; lineBlockAt reads the height map, which covers the document"
+    )
+    sync = _function_body(documents_js, "syncDocScroll")
+    assert "docScrollAnchors(" in sync and "docMapThroughAnchors(" in sync, (
+        "the sync must go through the anchor map, with the scroll fraction "
+        "kept only for the case where there are no anchors to read"
+    )
+
+
 # --- the guided tour (DESIGN.md, "A guided tour of the interface") ------------
 
 TOUR_JS = ROOT / "frontend" / "tour.js"
@@ -1387,9 +1583,19 @@ def test_the_tours_dim_never_covers_the_control_it_describes() -> None:
     A sheet over the page with a highlight drawn on the control is the shape
     this must not become, because the control is then behind a dim layer and
     the tour is the centred slide carousel with extra steps. The cut-out is
-    `.tour-spot`: no background of its own, the dim spread out of it by its own
-    `box-shadow`, and no pointer events, so nothing of the tour's is ever drawn
-    on top of the thing being pointed at.
+    `.tour-spot`: no background of its own and no pointer events, so nothing of
+    the tour's is ever drawn on top of the thing being pointed at.
+
+    **The dim moved off this element on 2026-09-21 and this test moved with
+    it.** It used to be `.tour-spot`'s own `box-shadow`, spread 100vmax, and
+    this test pinned exactly that: an implementation, not the invariant. One
+    shadow's reach depends on `vmax` and on its own corner radius inflated by
+    the spread, and no probe could read it, which is how the owner came to
+    report an undimmed strip three times against a green suite. The dim is now
+    the four `.tour-block-panel`s that already tile the window around the hole,
+    so what this test asserts is the part that must never change (the spot is a
+    hole, not a highlight) plus where the scrim now has to be. Both the old
+    shape and a sheet over the whole window still fail it.
     """
     css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
     rule = re.search(r"\n\.tour-spot \{(.*?)\n\}", css, re.S)
@@ -1403,9 +1609,184 @@ def test_the_tours_dim_never_covers_the_control_it_describes() -> None:
         ".tour-spot must not take pointer events: #tour-block is what stops "
         "the page being used mid-step"
     )
-    assert "100vmax" in body and "var(--scrim)" in body, (
-        "the dim is .tour-spot's own box-shadow, spread past the far corner "
-        "of the window, in the app's scrim colour"
+    assert "var(--scrim)" not in body, (
+        "the dim must not be cast out of the cut-out again: one shadow's reach "
+        "is unmeasurable, which is why the owner reported a lit strip three "
+        "times. It belongs on the four .tour-block-panel rectangles"
+    )
+    panel = re.search(r"\n\.tour-block-panel \{(.*?)\n\}", css, re.S)
+    assert panel, ".tour-block-panel has no rule; where is the tour's dim?"
+    assert "background: var(--scrim)" in panel.group(1), (
+        "the four panels around the hole are the dim, in the app's scrim "
+        "colour: they are the rectangles tourdim.js can actually measure"
+    )
+    block = re.search(r"\n\.tour-block \{(.*?)\n\}", css, re.S)
+    assert block and "background: transparent" in block.group(1), (
+        "their container must stay transparent, or the dim is a sheet over the "
+        "whole window again and the cut-out is a highlight drawn on top of one"
+    )
+
+
+def test_the_tours_dim_leaves_the_control_pressable() -> None:
+    """The owner, 2026-09-20: "it doesnt let the user click the highglighted
+    items". `#tour-block` was `inset: 0` with a background of its own, and
+    `document.elementFromPoint` at the centre of all fifteen steps answered
+    `tour-block` rather than the control: the tour pointed at Save and then ate
+    the press, which teaches the person that Save is broken.
+
+    The shape that cannot come back is one element over the whole window taking
+    presses. The dim is four panels laid out around the hole, and the hole is
+    left to the page, so the container itself must take no presses and the
+    panels must take them instead.
+    """
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    block = re.search(r"\n\.tour-block \{(.*?)\n\}", css, re.S)
+    assert block, ".tour-block has no rule; has the tour's press-catcher moved?"
+    assert "pointer-events: none" in block.group(1), (
+        ".tour-block spans the window, so it must take no presses itself: the "
+        "four .tour-block-panel children take them and the hole between them "
+        "is left to the control the step is about"
+    )
+    panel = re.search(r"\n\.tour-block-panel \{(.*?)\n\}", css, re.S)
+    assert panel, (
+        ".tour-block-panel has no rule: the dim is four panels around the "
+        "hole (DESIGN.md, the recipe index)"
+    )
+    assert "pointer-events: auto" in panel.group(1), (
+        "a .tour-block-panel is the thing that stops the page being used "
+        "mid-step, so it has to take presses"
+    )
+    js = TOUR_JS.read_text(encoding="utf-8")
+    panels = _function_body(js, "tourBlockPanels")
+    for side in ("tour-block-top", "tour-block-right", "tour-block-bottom", "tour-block-left"):
+        assert side in panels, (
+            f"tourBlockPanels does not place {side}: all four are laid out "
+            "from the cut-out's own rectangle, on every reflow, or the hole "
+            "drifts off the control"
+        )
+    assert "tourBlockPanels(" in _function_body(js, "tourSpotlight"), (
+        "the panels are placed by the one function that already runs on every "
+        "reflow, or a scroll leaves them where the control used to be"
+    )
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert markup.count('class="tour-block-panel"') == 4, (
+        "the tour's dim is four panels around the hole, no more and no fewer"
+    )
+
+
+def test_the_tour_card_has_a_visible_way_out() -> None:
+    """The owner, 2026-09-20: "it has no visible way to exit or quit it like a
+    button or smth so I had to guess by pressing the escape button". Skip and
+    Escape both ended the tour already; neither read as the exit, because Skip
+    beside Back and Next reads as "not this part". The X in the card's head is
+    where every other panel in this app keeps its close, and all three stay:
+    they are one act reached three ways."""
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    close = re.search(r'<button id="tour-close"[^>]*>', markup, re.S)
+    assert close, "the tour card has no #tour-close: the way out has to be visible"
+    assert "icon-only" in close.group(0) and "ghost" in close.group(0), (
+        "#tour-close is the app's own icon-only ghost button, not a new shape"
+    )
+    assert 'aria-label="Close the tour"' in close.group(0), (
+        "an icon-only button says what it does in its accessible name"
+    )
+    js = TOUR_JS.read_text(encoding="utf-8")
+    assert 'getElementById("tour-close")' in js and "tourClose(false)" in js, (
+        "#tour-close must be wired to tourClose, or the button is a picture "
+        "of a way out"
+    )
+    assert 'key === "Escape"' in js, "Escape still ends the tour"
+    assert 'getElementById("tour-skip")' in js, "Skip stays: it is the same act"
+
+
+def test_a_tour_step_waits_for_the_tab_it_switched_to() -> None:
+    """A tab switch is not finished when `switchTab` resolves: the tab's own
+    content is fetched after it, and for a beat the element the step names is
+    in the DOM at zero height. Measuring once and dropping the step then is the
+    owner's "it doesnt automatically switch pages on different steps" seen from
+    outside: the steps that would have moved the tour quietly stop existing.
+
+    And the guard that decides whether to switch at all reads the markup, not
+    `localStorage`: a restore or a history step leaves the stored name and the
+    painted tab disagreeing, and the tour then skips the switch.
+    """
+    js = TOUR_JS.read_text(encoding="utf-8")
+    show = _function_body(js, "tourShow")
+    assert "await tourWaitForTarget(" in show, (
+        "tourShow must wait for the step's target before judging it missing, "
+        "or a tab that loads its content costs every step inside it"
+    )
+    wait = _function_body(js, "tourWaitForTarget")
+    assert "tourVisible(" in wait and "tourFrame(" in wait, (
+        "the wait polls per frame for a visible target; a frame is when "
+        "layout has settled"
+    )
+    assert "TOUR_WAIT_MS" in wait, "the wait has to end: a target that never arrives costs its step"
+    navigate = _function_body(js, "tourNavigate")
+    assert "tourActiveTab()" in navigate, (
+        "which tab is showing is asked of the markup (tourActiveTab), never "
+        "of localStorage alone, or the switch is skipped on a disagreement"
+    )
+    active = _function_body(js, "tourActiveTab")
+    assert "#tab-bar" in active, "tourActiveTab reads the pressed tab button"
+
+
+def test_the_cut_out_is_never_drawn_where_it_cannot_be_seen() -> None:
+    """INBOX 280, the owner at about 2000x1140: "this happens when I press next
+    on the welcome tour", with the whole page dimmed except a strip about 100px
+    wide at the right edge, no card and nothing highlighted.
+
+    The dim is the cut-out's own `box-shadow`, so a cut-out placed outside the
+    window darkens everything and highlights nothing. It got there through the
+    invalid-value trap CLAUDE.md names: with a target off the right edge,
+    `left` clamps to the target and `right` clamps to the window, so
+    `right - left` is **negative**, `width: -994px` is dropped as invalid, and
+    the element silently keeps the width it had on the previous step. Measured
+    at 2000x1140 with the target moved to x 3000: the cut-out was placed at
+    2994 carrying the previous step's 708px width.
+
+    Two rules come out of it, and both are here because neither is visible in
+    the output of the other: the box is checked before it is written, and a
+    step whose control is not really on screen is dropped rather than drawn.
+    """
+    js = TOUR_JS.read_text(encoding="utf-8")
+    spot = _function_body(js, "tourSpotlight")
+    assert "if (width < 1 || height < 1)" in spot, (
+        "tourSpotlight must check the clamped box before writing it: a "
+        "negative width is invalid CSS, is dropped, and leaves the previous "
+        "step's size on an element that has moved"
+    )
+    assert "tourClearSpotlight()" in spot and "return false" in spot, (
+        "a box that cannot be drawn draws no cut-out at all, rather than one "
+        "in the wrong place"
+    )
+    assert "return true" in spot, "and the caller has to be told which happened"
+
+    position = _function_body(js, "tourPosition")
+    assert "tourSpotlight(" in position and "if (!lit)" in position, (
+        "tourPosition must place the card differently when there is no "
+        "cut-out: beside nothing is not a position"
+    )
+
+    show = _function_body(js, "tourShow")
+    assert "tourOnScreen(el)" in show, (
+        "a step whose control is not on screen after the wait is dropped, so "
+        "the counter renumbers and the tour moves to one that can be pointed "
+        "at (DESIGN.md, the recipe index)"
+    )
+    reflow = _function_body(js, "tourReflow")
+    assert "tourOnScreen(" in reflow, (
+        "and a control that leaves the window under the tour costs its step "
+        "too, or the card hangs on beside a rectangle that has gone"
+    )
+
+    on_screen = _function_body(js, "tourOnScreen")
+    assert "clientWidth" in on_screen and "clientHeight" in on_screen, (
+        "on screen is measured against the window, not against the document"
+    )
+    assert "TOUR_ON_SCREEN_MIN" in on_screen, (
+        "a few pixels inside the edge is not something to point at; the "
+        "threshold is named so it can be argued with"
     )
 
 
@@ -1440,3 +1821,436 @@ def test_a_new_tour_section_needs_no_new_code() -> None:
             f"{name} must build itself from TOUR_SECTIONS, so a section added "
             "to that table arrives with no markup and no handler to write"
         )
+
+
+# --- the phone top bar (UI_MODERNISATION_PLAN Phase 11 item 1) ---------------
+#
+# Below 600 the four everyday-and-session squares (theme, settings, lock,
+# quit) become the rows of one `kebabMenu`, so the bar is three controls and
+# fits 320 (it was six, and scrolled the page sideways by one button). The
+# suite cannot measure that; `scratchpad/ui-sweeps/phonehead.js` does. What
+# it can check is that the arrangement is the recipe's: the menu is built by
+# `kebabMenu`, the swap is one stylesheet band, and nothing the desktop has
+# is dropped rather than moved.
+
+def test_the_phone_top_bar_menu_is_the_kebab_recipe_and_hides_nothing():
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("function initPhoneHeaderMore()")
+    body = app[start : app.index("initPhoneHeaderMore();", start)]
+    assert "kebabMenu(" in body, "the phone header menu must be the kebabMenu recipe"
+    for verb in ("toggleTheme()", "openSettingsModal()", "lockNow()", "quitApp()"):
+        assert verb in body, f"the phone header menu lost {verb}, which the desktop bar has"
+
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    band = css[css.index("Phase 11 item 1: the phone top bar") :]
+    band = band[: band.index("}\n}") + 3]
+    assert "@media (max-width: 599.98px)" in band
+    for ident in ("#theme-btn", "#settings-btn", "#lock-btn", "#quit-btn"):
+        assert ident in band, f"{ident} is not swapped for the menu on a phone"
+    assert "#header-more" in band
+
+
+def test_every_sidebar_gets_the_phone_opener_from_the_one_function():
+    """Phase 11 items 2 and 3: below 600 the sidebar rail goes and each
+    sidebar is opened from a `.dock-nav` button in its own head, mounted by
+    `mountPhoneSidebarOpeners` for every id in `SIDEBAR_IDS`. A fourth
+    sidebar added without a row here would keep a rail on the phone that
+    the other three no longer have."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    ids = re.search(r"const SIDEBAR_IDS = \[([^\]]*)\]", app)
+    assert ids, "SIDEBAR_IDS is not where this lint expects it"
+    sidebars = set(re.findall(r'"([^"]+)"', ids.group(1)))
+    rows = re.search(r"const PHONE_SIDEBAR_OPENERS = \[(.*?)\n\];", app, re.S)
+    assert rows, "PHONE_SIDEBAR_OPENERS is missing"
+    covered = set(re.findall(r'aside: "([^"]+)"', rows.group(1)))
+    assert covered == sidebars, f"sidebars without a phone opener: {sorted(sidebars - covered)}"
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    band = css[css.index("Phase 11 items 2 and 3: no rail on a phone") :]
+    for ident in sidebars:
+        assert f"#{ident}:not(.sidebar-sheet-open)" in band, f"#{ident} keeps its rail on a phone"
+
+
+def test_the_row_swipe_presses_the_rows_own_actions():
+    """Phase 11 item 2, the HIG rule: a swipe action matches the row's menu.
+    The swipe may only reach the star button the row shows and the one bin
+    function the row menu's own item calls; a swipe that grew an action of
+    its own would be the third copy of a verb, and the first one nobody can
+    see."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("function initRowSwipe(list, actions)")
+    body = app[start : app.index("// --- the note page", start)]
+    assert '".favourite-btn"' in body
+    assert "binNoteWithUndo(" in body
+    assert 'input[type="checkbox"]' in body, "the reminder swipe presses the row's own Done"
+    assert "fetch(" not in body and "api(" not in body, "the swipe calls the row's actions, never the API"
+    menu = app[app.index('label: "ph:trash Move to bin"') :][:200]
+    assert "binNoteWithUndo(" in menu, "the menu row and the swipe must call the same function"
+    assert "favourite-btn" in app[app.index("function favouriteButton(") :][:800]
+
+
+def test_every_right_click_menu_has_a_long_press_twin():
+    """Phase 11 item 9: a finger has no second button, so every contextmenu
+    listener in app.js, documents.js, graph-canvas.js and whiteboard.js is
+    matched by a `wireLongPress` call opening the same thing. Counted per
+    file, since the two are always written side by side. graph-canvas.js
+    joined the count with Phase 11 item 4 (the hold that opens the node menu,
+    and arms the lasso on the empty map) and whiteboard.js with item 7.
+
+    whiteboard.js has a fifth right-click, bound through d3 as
+    `.on("contextmenu.wbctx")` on a selection that is rebound on every
+    render, and it keeps its own hold for that reason: d3's namespaced `.on`
+    replaces a listener per rebind, while `addEventListener` would stack one
+    per render. It is not counted here because the pattern above does not
+    match it, which is the honest state of it rather than an oversight.
+    """
+    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js"):
+        text = (ROOT / "frontend" / name).read_text(encoding="utf-8")
+        right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
+        calls = len(re.findall(r"\bwireLongPress\(", text))
+        holds = calls - (1 if name == "app.js" else 0)  # app.js holds the definition
+        assert right_clicks == holds, f"{name}: {right_clicks} right-click menus, {holds} long-press twins"
+
+# A `<details>` in index.html that heads no named family: prose disclosures in
+# the Help guide, the chat's thinking boxes and the like, which take their
+# summary from their own surroundings. Frozen, like the hand-built menus
+# above: a folded group of settings is `details.settings-fold`, and a new
+# unnamed one is a second disclosure shape nobody styled.
+BARE_DISCLOSURES = 14
+
+# The families 08-consistency.css dresses as "a heading with a chevron" rather
+# than as a control in a row. Every one of its four disclosure rules has to
+# name the same set: a family on the flat rule but not the chevron rule is a
+# fold with no disclosure mark, and one on the chevron rule but not the hover
+# rule loses its pointer feedback.
+FOLD_RULES = (
+    "> summary:not(.icon-only):not(.icon-button) {",
+    "> summary::-webkit-details-marker",
+    "> summary:not(.icon-only):not(.icon-button)::before",
+    "> summary:not(.icon-only):not(.icon-button):hover",
+)
+
+
+def _fold_families(css: str, marker: str) -> set[str]:
+    """The container classes named on the rule `marker` belongs to.
+
+    The selector list runs from the end of whatever came before (a rule's
+    closing brace) to this rule's opening one, with its own comments taken
+    out: a comment above these rules quotes selectors while explaining them.
+    """
+    hit = css.index(marker)
+    brace = css.index("{", hit)
+    start = max(css.rfind("}", 0, hit), css.rfind("*/", 0, hit)) + 1
+    block = re.sub(r"/\*.*?\*/", "", css[start:brace], flags=re.S)
+    return set(re.findall(r"\.([a-z-]+)(?=(?:\[open\])? (?:details )?> summary)", block))
+
+
+def test_a_folded_group_of_settings_is_the_shared_disclosure_recipe() -> None:
+    """One fold, dressed in one place (DESIGN.md, the recipe index).
+
+    The graph's display options panel grew back past its own cap (655px of
+    list in a 488px box at 1440x900) and three of its six sections are set
+    once and then left. Folding them is the recipe the Settings screen
+    already has, `details.settings-fold`, and the point of this lint is that
+    the next surface that needs a fold reaches for the same three words
+    instead of writing a fourth summary of its own.
+    """
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    families = [_fold_families(css, marker) for marker in FOLD_RULES]
+    for marker, named in zip(FOLD_RULES[1:], families[1:]):
+        assert named == families[0], (
+            f"the disclosure rule at `{marker}` names {sorted(named)} while the "
+            f"flat-summary rule names {sorted(families[0])}; a fold family on one "
+            "rule and not another is a fold with no chevron or no hover "
+            "(DESIGN.md, the recipe index)"
+        )
+    assert "settings-fold" in families[0]
+
+    raw = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    markup = re.sub(r"<!--.*?-->", "", raw, flags=re.S)
+    bare = 0
+    graph_folds = 0
+    for attrs in re.findall(r"<details([^>]*)>", markup):
+        found = re.search(r'class="([^"]*)"', attrs)
+        classes = set(found.group(1).split()) if found else set()
+        if "graph-options-fold" in classes:
+            graph_folds += 1
+            assert "settings-fold" in classes, (
+                "a fold in the graph's options panel is the shared "
+                "`details.settings-fold` recipe, not a shape of its own"
+            )
+        if not classes - {"hidden"}:
+            bare += 1
+    assert bare <= BARE_DISCLOSURES, (
+        f"{bare} `<details>` elements in index.html name no family; a folded "
+        "group of settings is `details.settings-fold` (DESIGN.md, the recipe "
+        "index), and this count may only fall"
+    )
+    assert graph_folds == 3, (
+        "the graph options panel's three tuned-once sections (Physics, Groups, "
+        "Minimap) are folds; see GRAPH_PLAN.md, 'Decision made, 2026-09-20'"
+    )
+
+
+#: **A grip that scales with `--wb-inv-zoom` carries its own anchor**
+#: (INBOX 278). `.wb-sketch-rotate-handle` and `.wb-rotate-handle-stem` are
+#: scaled by `1 / k` in 07-whiteboard-misc.css so a grip stays one size to the
+#: hand, and that rule deliberately leaves `transform-box` at its `view-box`
+#: default, which means the origin has to come from the code that knows the
+#: board coordinates. The group selection's grip was added without one and the
+#: scale resolved about the view box's origin instead: measured at board
+#: (680, 1344) at 0.5x and (170, 336) at 2x for a box whose top centre is
+#: (340, 672), which is the owner's "off to the top left or right, or below the
+#: top border".
+#:
+#: The count, rather than the proximity: the group's origin is set in
+#: `layoutGroupChrome`, which sits above the element it anchors, so "within N
+#: lines of the class" would fail on the code that is correct. One
+#: `transform-origin` per grip drawn is the invariant, and a fifth grip added
+#: without one breaks this.
+GRIP_CLASSES = ("wb-rotate-handle-stem", "wb-sketch-rotate-handle")
+
+
+def test_every_inverse_scaled_grip_sets_its_own_anchor():
+    js = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    drawn = sum(js.count(f'"{name}"') for name in GRIP_CLASSES)
+    anchored = js.count('.style("transform-origin"')
+    assert drawn == 4, (
+        f"whiteboard.js draws {drawn} inverse-scaled rotate grips, not the 4 "
+        "this lint was measured against (one stem and one knob for a single "
+        "shape, one of each for a group selection); count the new one and give "
+        "it an anchor before raising this"
+    )
+    assert anchored >= drawn, (
+        f"{drawn} rotate grips are drawn and {anchored} anchors are set: a grip "
+        "scaled by `--wb-inv-zoom` with no `transform-origin` is scaled about "
+        "the SVG view box's origin and leaves the box it belongs to "
+        "(INBOX 278, WHITEBOARD_PLAN)"
+    )
+
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    rule = css.split(".wb-sketch-rotate-handle,\n.wb-rotate-handle-stem {")[1].split("}")[0]
+    assert "scale(var(--wb-inv-zoom))" in rule, (
+        "the grip rule this lint guards is gone or renamed; the lint and the "
+        "rule move together"
+    )
+    assert "transform-box" not in rule, (
+        "this rule keeps `transform-box` at its `view-box` default on purpose, "
+        "because the origin is a pair of board coordinates the drawing code "
+        "sets; a `fill-box` here would make those origins mean something else"
+    )
+
+
+#: The canvas grips this recipe covers (DESIGN.md, "A grip you drag on a
+#: canvas"). Named rather than discovered by pattern, because the point of the
+#: list is that a new grip is added to it deliberately: a grip that nobody
+#: thought about is exactly the one that ends up a 4px target at 0.3 zoom, or
+#: invisible and still eating the press meant for the line under it.
+CANVAS_GRIPS = (
+    ".wb-resize-handle",
+    ".wb-link-endpoint-handle",
+    ".wb-link-bend-handle",
+    ".wb-map-edge-handle",
+)
+
+
+def test_every_canvas_grip_is_one_size_to_the_hand():
+    """A grip is a constant size on screen, whatever the board's zoom is.
+
+    The rule and its reason are written out above the rules themselves in
+    07-whiteboard-misc.css, after a link's bend grip was measured at 24px
+    across at 2x against the 12px it is at 1x. This is that paragraph as a
+    lint, so the next grip added is measured against it rather than after it.
+    """
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    missing = [
+        grip for grip in CANVAS_GRIPS
+        if "scale(var(--wb-inv-zoom))" not in _rules_for(css, grip)
+    ]
+    assert missing == [], (
+        "these canvas grips scale with the board instead of staying one size "
+        "to the hand: " + ", ".join(missing)
+    )
+
+
+def test_a_grip_that_is_invisible_does_not_take_the_pointer():
+    """An invisible grip with `pointer-events: auto` swallows the press meant
+    for whatever is under it. It has happened twice on the map alone: the
+    mid-line `+` in front of a line's hit stroke (it forwards the gesture now),
+    and the waypoint grip on the same point as that `+`. So a grip that is
+    drawn at `opacity: 0` declares `pointer-events: none` in the same rule, and
+    opts back in only where it is revealed."""
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    offenders = []
+    for grip in CANVAS_GRIPS:
+        for rule in _rule_bodies(css, grip):
+            if re.search(r"opacity:\s*0\s*;", rule) and "pointer-events: none" not in rule:
+                offenders.append(grip)
+    assert offenders == [], (
+        "these grips are drawn invisible and still take the pointer: "
+        + ", ".join(sorted(set(offenders)))
+    )
+
+
+def _rule_bodies(css: str, selector: str) -> list[str]:
+    """Every rule body whose selector list names this class exactly.
+
+    Comments are stripped first, and that is not tidiness: this stylesheet
+    explains itself at length, and a comment that mentions a `{` (or sits
+    between two selectors in one list, as the grip rule's own does) makes a
+    brace-counting parse read the file as a different file.
+    """
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    bodies = []
+    for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", css):
+        selectors = [part.strip() for part in match.group(1).split(",")]
+        if any(part.split(":")[0].split(" ")[-1] == selector for part in selectors):
+            bodies.append(match.group(2))
+    return bodies
+
+
+def _rules_for(css: str, selector: str) -> str:
+    return "\n".join(_rule_bodies(css, selector))
+
+
+def test_the_boards_menu_bar_gets_its_roles_and_its_keyboard_from_one_place() -> None:
+    """A `role="menu"` with no `role="menuitem"` in it is an empty menu.
+
+    The board's menus are written in index.html rather than built by
+    `kebabMenu`, and that is deliberate: their rows are not all commands (the
+    View menu holds a colour input, a grid select and four switches, which a
+    command list cannot carry). The cost of writing a menu in markup is that
+    its ARIA is written 76 times or not at all, and it was not at all:
+    measured on the branch head with `scratchpad/ui-sweeps/wbtopbar.js`, all
+    five top-bar menus opened with `role="menu"` and nought `role="menuitem"`
+    in them, and ArrowDown moved no focus in any of them.
+
+    So the roles come from one function at boot and the keyboard from the same
+    one every other menu in the app uses. This is the ratchet on both: a menu
+    added to this bar next year is stamped and wired by the same loop, and a
+    role hand-written into the markup would be the drift that starts the next
+    one.
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    board = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+
+    menus = re.findall(r'<div id="(wb-[a-z-]+-menu)" class="wb-board-menu', html)
+    assert len(menus) >= 5, (
+        f"only {len(menus)} `.wb-board-menu` in the markup; the bar's five "
+        "menus and the context bar's are the shape this ratchet counts"
+    )
+    assert 'role="menuitem"' not in html, (
+        "a menu row carries a hand-written role in index.html; the roles come "
+        "from wbStampMenuRoles so one place decides (DESIGN.md, the recipe index)"
+    )
+    assert "function wbStampMenuRoles(" in board, "wbStampMenuRoles is gone"
+    for shape in ('".wb-menu-item"', '".wb-menu-section"'):
+        assert shape in board, f"wbStampMenuRoles no longer stamps {shape}"
+    assert "wbStampMenuRoles(menu)" in board and "wireMenuKeyboard(menu, toggle)" in board, (
+        "the board's menus are not stamped and wired from the one loop over "
+        "`.wb-board-menu-wrap`, so a menu added to the bar gets neither"
+    )
+    assert '> [role="group"] > [role="menuitem"]' in app, (
+        "wireMenuKeyboard no longer looks inside a `role=\"group\"`, so every "
+        "menu written in markup loses its arrow keys silently"
+    )
+
+
+def test_a_notice_is_the_recipe_and_not_a_second_private_box() -> None:
+    """DESIGN.md's recipe index, added 2026-09-21 with CHAT_PLAN Phase 1's
+    low-support line.
+
+    The app had exactly one "something worth knowing about what is on screen"
+    box, `.reindex-stale`, built inline with its own border, padding, radius
+    and ground. When a second surface needed the same thing there was nothing
+    to reuse, which is how a third and a fourth get drawn by hand and the
+    owner's "all the ui issues happen when new features are added" happens
+    again.
+
+    So: the recipe exists, it has exactly two tones, and nothing redraws it.
+    """
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    rule = re.search(r"\n\.notice \{(.*?)\n\}", css, re.S)
+    assert rule, ".notice has no rule; DESIGN.md's recipe index names it"
+    body = rule.group(1)
+    for declaration in ("border-radius: var(--radius-md)", "background: var(--accent-soft)"):
+        assert declaration in body, f".notice must carry `{declaration}`"
+    assert re.search(r"\n\.notice-warn \{", css), (
+        "the warn tone is `.notice-warn`, an edge rather than a fill"
+    )
+    warn = re.search(r"\n\.notice-warn \{(.*?)\n\}", css, re.S).group(1)
+    assert "background" not in warn, (
+        "`.notice-warn` sets an edge, never a fill: a filled warning band over "
+        "an answer reads as a failed answer, and it is not one"
+    )
+    #: A third tone would need a rule for when to use it, and DESIGN.md has
+    #: none. The index says two.
+    tones = set(re.findall(r"\n\.notice-([a-z]+) \{", css))
+    assert tones == {"warn"}, f"two tones and no more; found {sorted(tones)}"
+
+    #: And the box that used to be a class of one now uses it. This is what
+    #: keeps the recipe honest: a recipe with one caller is a private box with
+    #: a general name.
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert re.search(r'id="reindex-stale"[^>]*class="[^"]*\bnotice\b', html), (
+        "`#reindex-stale` was the app's only notice-shaped box and must be "
+        "drawn by the recipe, not beside it"
+    )
+    stale = re.search(r"\n\.reindex-stale:not\(\.hidden\) \{(.*?)\n\}", css, re.S)
+    assert stale, ".reindex-stale has no rule"
+    for gone in ("border:", "border-radius:", "background:"):
+        assert gone not in stale.group(1), (
+            f"`.reindex-stale` still sets `{gone}` itself; the recipe draws it now"
+        )
+
+
+def test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone() -> None:
+    """A board inside a note is drawn once, and never disappears silently.
+
+    INBOX 309 put another of this app's surfaces inside somebody's text, which
+    is the third place a board's miniature is drawn (the Library card and the
+    dashboard row are the other two). MINDMAP_PLAN §5 item 12 already says why
+    that has to go through one renderer: "the app's recurring failure is the
+    same object drawn five ways", and the two that existed had already drifted
+    into one with edges and labels and one without.
+
+    The second half is the decision recorded in DOCUMENTS_PLAN's "Decisions
+    made": a board deleted after somebody put it in a note takes a paragraph
+    of that note with it, and a card that renders as nothing teaches the
+    reader that the note was always like that. So the reference carries the
+    board's title, and a reference that resolves to nothing draws a tombstone
+    saying what was there.
+    """
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    editor = (ROOT / "frontend" / "editor.js").read_text(encoding="utf-8")
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+
+    assert "function boardEmbedElement(" in app and "function boardEmbedFill(" in app, (
+        "the board object's card is no longer built in one place"
+    )
+    # The picture comes from the shared renderer, not from a second SVG builder
+    # hand-written for notes.
+    fill = app.split("function boardEmbedFill(", 1)[1].split("\nfunction ", 1)[0]
+    assert 'mapPreview(board, { size: "card" })' in fill, (
+        "the note's board object draws its own miniature instead of calling "
+        "mapPreview: DESIGN.md's recipe index says there is one preview renderer"
+    )
+    assert "createElementNS" not in fill, (
+        "the note's board object builds SVG of its own; the picture is "
+        "mapPreview's, and a second builder is how the two came to disagree"
+    )
+    assert "board-embed-gone" in fill and "board-embed-gone" in css, (
+        "the tombstone is gone: a deleted board would take the note's "
+        "paragraph with it and say nothing (DOCUMENTS_PLAN, decisions made)"
+    )
+    # One spelling of the reference, shared by both doorways.
+    assert "function boardEmbedMarkdown(" in app, "the reference is no longer written in one place"
+    assert app.count("`![[${isMap ? \"map\" : \"board\"}:") == 1, (
+        "the board reference is spelled in more than one place; the \"/\" menu "
+        "and the board's own \"Add to a note\" both go through boardEmbedMarkdown"
+    )
+    assert "boardEmbedMarkdown(" in editor and "boardEmbedMarkdown(" in app, (
+        "a doorway writes its own form of the reference"
+    )
+    # The whole card is the control, not a link beside a picture.
+    assert ".board-embed-open" in css, "the board object's button has no rules of its own"

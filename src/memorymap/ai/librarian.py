@@ -794,23 +794,60 @@ def generate_link_reason(source_text: str, target_text: str, model_manager: Mode
 
 
 
+#: How many of the notebook's own tags the model is shown. Ordered by use,
+#: so the cut falls on the rarest. Sixty at an average of twelve characters is
+#: about 800 characters of prompt, comfortably inside `PROSE_BUDGET_CHARS`,
+#: and a notebook with more than sixty tags in use has a vocabulary problem
+#: this parameter cannot fix.
+VOCABULARY_SHOWN = 60
+
+
 def suggest_tags(
     text: str,
     existing: list[str],
     model_manager: ModelManager,
     ollama: OllamaClient,
     limit: int = 5,
+    vocabulary: list[str] | None = None,
 ) -> list[str]:
     """Suggest a few short topic tags for a note (Wave: re-evaluate). Uses
     the utility model. Raises OllamaError if the model is unavailable, 
     the caller decides what to do. Returns lowercased, de-duplicated tags,
-    excluding any already on the note."""
+    excluding any already on the note.
+
+    **`vocabulary` is the notebook's own tags, and leaving it out is why this
+    used to invent near-duplicates forever.** `existing` is the tags on *this
+    note*, and telling the model not to repeat those is not the same as
+    telling it what the notebook already calls things: with no vocabulary a
+    note about the same subject as fifty others could be tagged "machine
+    learning" where every one of those fifty says "ml", and nothing in the
+    app would ever reconcile the two. Found by reading karakeep, whose
+    tagging prompt passes the existing tags and whose output therefore
+    converges instead of spreading (ANALYSIS.md, the twenty-four repository
+    read, 2026-09-21).
+
+    Ordered by use and capped at `VOCABULARY_SHOWN`, so the tags the notebook
+    leans on are the ones the model sees. Optional, and absent it behaves
+    exactly as before, because one caller cannot always reach a session.
+    """
     have = ", ".join(existing) if existing else "none"
+    known = [tag for tag in (vocabulary or []) if tag][:VOCABULARY_SHOWN]
     system = (
         "You label notes with short topic tags. Reply with ONLY a comma-separated "
         f"list of {limit} or fewer tags, each one or two lowercase words, no "
         "hashtags, no explanation. Tags already on the note (don't repeat): " + have
     )
+    if known:
+        #: Reuse is instructed, not merely offered. A list of tags with no rule
+        #: attached reads to a small model as more context rather than as a
+        #: constraint, and the whole point is the constraint.
+        system += (
+            ". The notebook already uses these tags, most used first: "
+            + ", ".join(known)
+            + ". Prefer one of those when it fits the note, exactly as spelled, "
+            "rather than a new tag that means the same thing. Only invent a tag "
+            "when none of them fits."
+        )
     reply = ollama.chat(
         model_manager.utility_model(),
         [

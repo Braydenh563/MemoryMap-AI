@@ -273,15 +273,27 @@ the same thing.
    the id and copies the reference, the marker hides in Live and is stripped
    from Read, and `scratchpad/ui-sweeps/docblockref.js` measures the lot
    (25/25). Decisions in section 11.
-3. **Outline drag-to-reorder** (PLAN D6), breadcrumbs for the heading the
-   caret is in, sticky outline that highlights the current section.
-4. **Command palette** (`Ctrl+K`) listing every editor action with its
-   shortcut — the single biggest fix for "features that do not show
-   themselves" — and a `?` shortcut sheet generated from the same table so
-   the two cannot disagree.
-5. **Daily notes** and **templates gallery** (New ▾ → Meeting / Spec /
-   Decision / Weekly review / Daily), templates stored as documents tagged
-   `template` (exists) and offered with a preview.
+3. **Outline drag-to-reorder** (PLAN D6), breadcrumbs, sticky outline: built,
+   2026-09-20. The record is in HISTORY.md ("Moved from the plans,
+   2026-09-20", DOCUMENTS_PLAN.md Phase 4 item 3).
+4. **Command palette and shortcut sheet from one table**: built, 2026-09-20.
+   The record, including the `Ctrl+K` decision the plan left open, is in
+   HISTORY.md ("Moved from the plans, 2026-09-20", DOCUMENTS_PLAN.md Phase 4
+   item 4).
+5. **Daily notes** and **templates gallery**: built, 2026-09-20. The gallery
+   was already there with six templates, each carrying a description
+   (`scratchpad/ui-sweeps/doctemplates.js`); daily notes were the row that
+   needed the decision first, and it is section 14. What was built from it is
+   one template and one recognition: New from a template now offers Daily
+   (seven rows), the document it makes is titled with the ISO day, and the
+   Timeline's day bucket accepts a note *or* a document with that title, so
+   the "Start today's note" offer beside a day already written as a document
+   is gone. Measured before and after in `scratchpad/ui-sweeps/docdaily.js`,
+   11 of 11: before, 6 templates with no daily and the bucket offering to
+   start a second page beside a document titled `2026-09-20`; after, 7
+   templates, the created document titled `2026-09-20` with `# 2026-09-20` as
+   its first line, 0 "start today's note" offers, 1 "Today's document" offer,
+   and the calendar glyph on the row.
 
 ### Phase 5 — review, history and AI (1 session)
 
@@ -295,8 +307,9 @@ the same thing.
 3. **AI edit with a diff preview** and accept/reject per hunk (PLAN D11);
    "Check with AI" renders its findings *as findings* (Phase 0's menu),
    not as a paragraph of advice.
-4. **Focus and typewriter modes** (PLAN D9), reading typography for Read
-   view (measure, leading, a serif option), a print stylesheet.
+4. **Focus and typewriter modes, reading typography, a print stylesheet**:
+   built. The record is in HISTORY.md ("Moved from the plans, 2026-09-20",
+   DOCUMENTS_PLAN.md Phase 5 item 4).
 
 ### Phase 6 — responsive by device (partly built; UI Phase 9 did the bands)
 
@@ -345,10 +358,37 @@ the reasoning; `docnarrow.js` asserts it.
    instead, if the reach is ever reported, is the sidebar sheet *opening on the
    Outline tab* while a document is open, which is one line in the opener and no
    new surface. Left unbuilt on purpose.
-3. **"The first line of text is on screen with the keyboard open"** is asserted
-   without a keyboard: the sandbox has no soft keyboard, so `docnarrow.js`
-   measures the first line at 318px with the viewport at its full height and
-   nothing more. Not verified.
+3. **"The first line of text is on screen with the keyboard open"**: measured
+   as far as a sandbox can, 2026-09-20, `scratchpad/ui-sweeps/dockeyboard.js`,
+   16 of 16, **and it found a bug in the default state of the formatting
+   strip.**
+
+   **What cannot be measured, and stays not verified**: headless Chromium
+   raises no on-screen keyboard and nothing here can make it, so
+   `visualViewport` never shrinks on its own and `env(keyboard-inset-height)`
+   is always 0. No run here says what a real phone does.
+
+   **What is measured**: everything between the number the platform would
+   report and the pixels. The probe stubs `visualViewport.height` at a
+   middling phone keyboard (336px) and fires the app's own listener, so
+   `initKeyboardInset`, `--keyboard-inset` and every rule that reads it are
+   the real ones. At 390x820 with a document open in Live: the token is 0px
+   with no keyboard and 336px with one, and back to 0px when it closes; the
+   thumb bar's bottom padding goes 4px to 336px and back; the chat composer's
+   8px to 344px; the first line of text sits at 343 to 379 against a visible
+   viewport of 484px, and the thumb bar's top is at 435, so the phase's own
+   line holds with 56px to spare.
+
+   **The bug**: `.doc-toolbar.is-collapsed` (05-sidebars-themes.css) sets
+   `padding-block` at (0,2,0) and beat the `.doc-toolbar` rule in 07 that
+   carries the inset at (0,1,0). Specificity beats file order, so the
+   formatting strip rose with the keyboard while expanded and sat under it
+   while collapsed, which is its default since D1. Measured at 820 with the
+   strip shown: expanded 6.4px to 342.4px, collapsed 4px to 4px. Fixed by
+   naming the sum once as `--dock-bottom-inset` (00-tokens-shell.css) and
+   giving each of the three rules its own base term; after, collapsed is 4px
+   to 340px, expanded unchanged, and collapsing still buys back the same
+   2.4px it did before.
 4. **820–1100's icons rail** is a deliberate no-op until something asks for the
    width: the measure is at its cap there already. Left as a row here rather
    than built, so the next session does not build it twice.
@@ -404,13 +444,37 @@ stays plain (it is a sentence, not a note, and that half is done by being
 decided); the skill editor's steps box gets the `/` menu only. Gate: touch.js
 and mindmap.js unchanged.
 
-*Open, and not for the documents agent:* both remaining halves live in files
-the documents work does not own. The board's note card is `whiteboard.js`'s
-canvas text field, and the skill box's "/" is one line in `editor.js`'s
-`EDITOR_SURFACES`. The factory they both need is built and in the page
-(`noteSurface(host, options)`, `NOTE_SURFACES` in `documents.js`): adding a
-box is one row in that table, and `tests/test_note_surface.py` is the lint
-that says so.
+**The skill editor's steps box: built, 2026-09-20.** `"skill-steps": "skill"`
+in `editor.js`'s `EDITOR_SURFACES`, and the menu it opens is the box's own
+vocabulary rather than the note commands, for the reason `chatCommands` gives
+and more sharply here: this box's label says "one step per line, in order",
+`skills.normalise` reads those lines as instructions, and a callout or a table
+inserted into one is not a step. `skillCommands` offers the two things the
+form beside it declares and nobody can type correctly from memory, the
+`{{placeholders}}` from "Ask me for" and the exact spelling of the tools this
+skill has ticked, both read off the form so neither can go stale, plus one row
+that explains itself when the form is still empty. The box stays a plain
+textarea with no engine and no Live view, which is in
+`tests/test_note_surface.py`'s `NOT_NOTE_TEXT` with that reason. Measured,
+`scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: typing "/" opens a 304x165
+menu with the groups "Answers you will be asked for" and "Tools this skill may
+use", `tag: Which tag should I file?` yields `{{tag}}` and not the question,
+0 note commands leak in, and running one writes the placeholder at the caret.
+
+*Open, and still not for the documents agent: the board's note card.* It is
+`whiteboard.js`'s canvas text field (`wbEditNodeText`, ~2760), and adding a
+`NOTE_SURFACES` row for it is **not** the whole job, which is worth writing
+down before someone does exactly that. Three behaviours hang off that
+textarea and all three stop firing the moment a view is mounted over it:
+`keydown` (Enter commits, because the card is a single-idea field, and Escape
+abandons), `blur` (clicking away to the next card commits), and the
+`event.stopPropagation()` on that same keydown, which is what stops Tab and
+Enter reaching the board's own branch gestures. The last of those is a guard
+removed while the shape around it is kept, CLAUDE.md section 6 item 3: the
+row would look right, the edit would stop committing, and a Tab meant for the
+text would grow a branch. So the real work item is "move the commit keymap and
+the gesture guard onto the surface, then add the row", and it belongs to
+whoever owns `whiteboard.js`.
 
 ### Phase 7 — export and interchange: **built 2026-09-13**
 
@@ -835,9 +899,505 @@ measure.
 with its assets, and import of `.html`. The first needs a dependency decision
 this session did not have a reason to force.
 
+## 14. What a document daily note is: decided 2026-09-20
+
+Phase 4 item 5 asks for "daily notes" on a surface that already has them
+somewhere else, so this is the decision that had to come before the code, and
+it is taken here rather than deferred a fourth time (standing order 3).
+
+**Read first, both surfaces.** The Timeline built the whole of it and wrote the
+reason down: a daily note is an ordinary note whose first line is the ISO day,
+`# 2026-09-20` (`dailyNoteTitle` in `app.js`, TIMELINE_PLAN Phase 4,
+WORLD_CLASS_PLAN D6). On top of that convention sit `GET`/`POST
+/entries/daily/{day}` (create or return), `GET /entries/daily` with a month of
+`written` flags for a calendar strip and a streak, the today bucket's "Start
+today's note" button, which opens the composer rather than writing the note,
+and the agent's own "add to today's note" tool. None of that is duplicated.
+
+**The measurement that decided it.** On the branch head, a document titled
+`2026-09-20` is already in the Timeline's own feed as a `document` row (it is
+one of the four kinds `/timeline` returns), and the day bucket beside it still
+offered "Start today's note". So the app already lets a day be written as a
+document, and then does not believe it: the writer gets a second offer for a
+day they have already begun, and pressing it splits the day across two stores.
+That, not a missing feature, is what was wrong.
+
+**The decision.** *One day, one page, and which store holds it is the writer's
+choice, not the app's.*
+
+- Documents gets the **"Daily" template** its own item-5 list names, and
+  nothing else new. The document it makes is titled with the ISO day, the
+  exact string `dailyNoteTitle` writes, so the two surfaces agree by spelling
+  rather than by a shared table.
+- **No second endpoint, no second streak, no second calendar strip.** A
+  create-or-return `/documents/daily/{day}` would be the second implementation
+  of the same idea this item was told to avoid, and the streak and the strip
+  read `/entries/daily`, which is where a journal's own history belongs.
+- **The Timeline learns to recognise either.** `timelineDailyNote` and
+  `timelineIsDailyNote` accept a `note` or a `document` whose title is the day,
+  so a day written as a document gets the calendar glyph and the bucket offers
+  to open it instead of starting a second one. The button names the kind it
+  found, because "today's note" pointing at a document is a small lie.
+- **What a document daily note adds, and why it is worth having at all**: the
+  outline, backlinks, block references, comments, version history, tables and
+  the export set, for a day that grew past a capture. That is a real difference
+  in kind, not a second copy of the feature, and it costs one template row.
+
+**Not built, deliberately**: a "Today" button in the documents dock. The
+template gallery is two clicks from the same place, the Timeline's day view is
+the surface that knows about days, and a third door onto one page is what this
+decision exists to refuse.
+
+## 15. The code block's own bar, and where it belongs: measured 2026-09-20
+
+INBOX 232's brief for the live view asked for three things, of which two were
+built and checked (the fence's emptied marker rows, 706e2af, and the check of
+tables, blockquotes and task lists, 2026-09-19). The third, "a header row with
+the language and a copy button", was measured here before any of it was
+written, and **it already exists in the Read pane**: `renderMarkdown` in app.js
+has drawn a `.code-block` with a `.code-bar` carrying the language, Copy and
+Save since INBOX 172. Measured on the branch head at 1440x900, a document
+holding a `python` fence and an unlabelled one: 2 bars, `python Copy Save` and
+`code Copy Save`, 4 buttons, the language taken from the fence and "code" where
+there is none. Writing it again would have been the fourth rebuild this
+project's CLAUDE.md warns about.
+
+**The decision the measurement forces: the bar stays in Read, and the live view
+keeps the corner label with no button.** Three reasons, in order of weight:
+
+1. A control inside a `contenteditable` is a caret trap and a selection
+   hazard. The live view already pays for one (`DocTableMenuWidget` carries
+   `ignoreEvent`), and each one is a thing the arrow keys can walk into,
+   `Ctrl+A` can carry and a paste can take with it.
+2. The row it would hang from is **8px tall on purpose**, against a 36px line
+   (measured). The whole of the 2026-09-19 fix was to stop the fence spending
+   full rows on things that are not code; a header row put back is that fix
+   undone.
+3. The live view is editable text. The code is already under a caret that can
+   select it, and Read is one tap away on every band including the phone.
+
+**What the measurement did find, and what was fixed here**: the bar's Copy
+button read `⧉ Copy`, a typed U+29C9 standing where an icon belongs, in an app
+that ships `ph:copy` and draws five other Copy buttons with it. Two call sites,
+the chat's table bar and every rendered code block, both now through `setLabel`
+with `ph:copy`; Save beside it takes `ph:download-simple`, the icon the app
+already puts on "save this to your computer", because an icon beside one label
+and nothing beside the other reads as two kinds of control in one bar. The
+glyph is in `tests/test_no_glyph_icons.py`'s banned list so it cannot come
+back, and `scratchpad/ui-sweeps/doccodecopy.js` holds the whole measurement,
+11 of 11.
+
+## 16. The engine's three omissions, and the table menu: decided 2026-09-20
+
+Phase 2 named three things it deliberately did not build, and the sidebar work
+left a fourth beside them. Each is decided here rather than carried again, and
+each decision rests on a number from `scratchpad/ui-sweeps/doctoolbarstate.js`
+(21 of 21) rather than on how the item was described.
+
+**1. The toolbar's own state: built.** This is the one that was only ever
+waiting for the tree. Before the engine, deciding whether the caret sat inside
+`**bold**` meant counting asterisks from the top of the document on every
+keystroke; the tree exists now for the decorations, so `renderDocToolbarState`
+resolves one node and walks its ancestors, which costs the depth of the
+markdown at the caret and not the length of the document. It runs on the same
+beat as the caret readout, which is the beat that already exists.
+
+Measured at eleven stops in a document with one of everything: `h1` in a
+heading, nothing in plain prose, `bold`, `italic`, `code`, `h2`, `ul`, `task`,
+`ol`, `quote` and `link`, each with no other button lit. 17 of the strip's 41
+`data-md` buttons carry `aria-pressed`, and the other 24 are the ones that
+always insert something new and have no state to be in: a button that is not a
+toggle must not tell a screen reader it is one. The caret resolves with side
+`-1`, so a caret just past the final `d` of a bold word still reads as bold,
+which is what makes "keep typing in bold" and "the button says bold" the same
+answer. A task item lights `task` and not `ul`, although a task list is a
+bullet list in the grammar, because the more specific one is the one pressing
+the button would turn off.
+
+**2. Atomic ranges: decided against, and the decision rests on a
+measurement that contradicts the note that asked for them.** The engine file
+records the symptom as "a hidden marker can still be walked into with the
+arrow keys ... the caret appears to jump two characters". Walked on the branch
+head across `**a bold run**`, the caret visits offsets 29 to 36 in order,
+skipping none, and moves 10, 5, 9, 8, 11, 5 and 12 pixels between them: single
+characters throughout, with no two-character jump anywhere.
+
+What *is* measurable is a different thing, and a bigger one: **the reveal is
+per line, not per range.** With the caret on another line the word "italic"
+sits at x=779; with the caret inside the bold run it sits at x=820, so
+entering that line moves everything after the first hidden marker along it by
+41px. Atomic ranges would not touch that, because they govern where the caret
+may be placed and not what is revealed; and they would take away the one thing
+Phase 2 item 3 deliberately built, a marker you can put the caret between in
+order to edit it. So they are the wrong tool for the only symptom that
+reproduces. **If the line's shift is ever reported, the fix is a narrower
+reveal (the range under the caret rather than the whole line), not atomic
+ranges**, and that is the work item, not this one.
+
+**3. The `Mod+click` affordance: the note is out of date, and nothing is
+built.** It says "there is no affordance saying so beyond the tooltip".
+Measured, a link chip in Live carries `cursor: pointer` and
+`title="Ctrl+click to open https://example.com"`, which is a pointer inviting
+the press, the chord named, and the destination shown before it is followed.
+That is what Obsidian offers for the same gesture. The one thing that would
+improve it is the underline-while-the-modifier-is-held that VS Code draws, and
+it costs a window-level key listener with a reset on blur for a hover hint
+that is already available by resting on the chip. Left unbuilt on purpose; a
+row here rather than a fourth session rediscovering the tooltip.
+
+**4. The table cell's ten-row menu: built, as a change to the shared recipe.**
+Rows, columns, alignment and the whole table read as one list of ten, and
+finding "Align centre" in it meant knowing the order. The bullet that recorded
+this said correctly that `kebabMenu` had no separator and that this was
+therefore a change to the recipe and to DESIGN.md rather than a phase item, so
+that is what it is: an item may carry `group`, a name, and `kebabMenu` draws a
+hairline wherever the name changes. Callers declare meaning, never pixels, and
+an item with no `group` behaves exactly as before, so every other menu in the
+app is untouched.
+
+The name is not drawn. A heading over every three rows would make this menu
+seventeen rows tall, and what makes a list scannable is the break rather than
+the word. Measured after: 10 items, 3 hairlines at 1px tall and 172px wide,
+`role="separator"` on each so the grouping reaches the accessibility tree,
+10 `menuitem` roles and 3 separators, and `wireMenuKeyboard` walks
+`[role="menuitem"]`, so a hairline is never a stop on the way down. The recipe
+index carries it and `tests/test_ui_recipes.py` holds the ratchet: a command
+table past five rows declares its groups, and the separator element and its
+stylesheet rule both still exist.
+
+## 17. The live view for professional use: measured 2026-09-21, phases open
+
+The owner, INBOX 294: "can you improve the ui and ux of the live view and
+make it better for professional use and impressive as both a tool, utility
+and aesthetic?"
+
+**What it is for, decided here so the phases do not drift.** This is a
+notebook's editor, not a development environment. The person using it is
+writing a report, a plan or a set of notes, and the live view's whole claim
+is that the document looks like itself while it is being written. So
+"professional" here means the page a writer would be content to show
+somebody, not a denser instrument panel: nothing in these phases adds a
+control to the surface that a writer did not ask for, and any new affordance
+appears on approach rather than sitting on the page.
+
+**Measured on the branch head, 2026-09-21, at 1440 in the default view**
+(one document holding a title, a paragraph, a section, a list, a table, a
+fenced code block, a quotation, inline code, a link and a highlight):
+
+| What | Reading |
+| --- | --- |
+| Editor pane | 794.02px wide, the line box 774.83px |
+| Body text | 16px system-ui, line height 25.6px, so 1.6 |
+| Line length | about 81 characters, measured against a mixed alphabet rather than a repeated letter |
+| Page gutter | 9.6px each side |
+| Title | 28.8px at weight 700, so 1.8 times the body |
+| Decorations drawn | headings, list items with their own bullet mark, tables with a column count on the row, fences with quiet open and close lines, quotations, inline code, links, highlights |
+
+Two things that reading settles. The typography is not the problem: 81
+characters at 1.6 sits inside the comfortable range, and the decoration set
+is broad and already drawn rather than left as syntax. And the gutter is:
+9.6px puts the first character of every line ten pixels from the edge of its
+pane, where a document that reads as a document gives it room. That single
+number is the largest gap between this surface and the editors it will be
+compared with.
+
+**Decisions made.**
+
+1. The page is a page. The text sits in a measure with real margins rather
+   than filling its pane to the edge, and the margin is the same on both
+   sides at every width.
+2. The measure is capped. A line of prose has a comfortable length and a
+   wide monitor is not a reason to abandon it.
+3. Nothing is added to the chrome. Every phase below either changes what is
+   already drawn or reveals something on approach.
+4. No new recipe without its lint, per standing order 11.
+
+**Phases, each with the gate it is finished against.**
+
+- **17a. The page and its measure.** Give the surface a real gutter and a
+  capped measure, and hold both with a probe. The first thing to establish is
+  the one this session could not: `boot()` pins the viewport at 1440, so the
+  behaviour at 1920 and 2560 is unmeasured, and whether the pane is already
+  capped or merely happened to be 794px wide at this width is the first
+  question to answer, not to assume. Gate: the line length stays inside 60 to
+  90 characters at 1280, 1440, 1920 and 2560, the gutter is equal on both
+  sides at each, and no horizontal scroll appears at any of them.
+- **17b. The vertical rhythm.** One spacing scale between a heading and the
+  text under it, between paragraphs, and around a table, a fence and a
+  quotation, taken from the design tokens rather than written per
+  decoration. Gate: every gap between blocks is a token value, proved by
+  reading the computed boxes rather than the stylesheet.
+- **17c. The blocks that carry weight.** Tables, fences and quotations are
+  the three a reader judges a document by. Each gets one considered
+  treatment rather than the minimum that made it render. INBOX 290, the
+  phantom row under a table's header row with an unpressable kebab at its
+  end, is this phase's first row and is a bug before it is a design
+  question. Gate: a table, a fence and a quotation each measured against
+  their own before and after, and 290 reproduced then fixed.
+- **17d. The document's own furniture.** What tells a writer where they are:
+  the title, the section they are in, how far through they are. Nothing new
+  on the page; this is whether what exists is legible. Gate: a reader
+  arriving at a long document can name their position without scrolling.
+- **17e. Dark and light parity.** Every change above measured in both, since
+  the two views of a highlight disagreeing in one theme is exactly how INBOX
+  291 was found. Gate: `contrast.js` clean at 390, 820 and 1440 in both, with
+  its element count above zero, and `dochighlight.js` still passing.
+
+**Not verified, and to be taken first by whoever opens this.** Everything
+above is measured at 1440 in light only. The wide widths are unmeasured for
+the reason given in 17a, and the phone is untouched by this section: the
+live view on a phone is UI_MODERNISATION_PLAN Phase 11's territory and
+should not be redesigned from here.
+
+## 18. The slash menus as one system: built 2026-09-21
+
+The owner, INBOX 295: "I want you to MAJORLY rework and improve the slash
+commands in the notes and documents, I want them to be properly structured
+elements ... proper objects, they need to make the user's live really easy
+and also they need to be discoverable by the user as well."
+
+**Read the code before believing the brief.** "Not properly structured" is
+not what is there. `EDITOR_SURFACES` in `frontend/editor.js` is an
+id-to-context table, and each context has its own command list whose rows
+carry an id, a group, a label, a hint, search keywords, a `primary` flag and
+a `run`. That is a reasonable object already, and the documents side has a
+second one, `DOC_COMMANDS` in `frontend/documents.js`, 34 rows of id, icon,
+label, chord and `run`, bracketed by markers so `tests/test_doc_commands.py`
+can read its shape without a browser. So this section is not a rewrite of a
+mess. It is the work of making two good tables into one system, and of
+telling anybody that the feature exists.
+
+**Measured on the branch head, 2026-09-21:**
+
+| What | Reading |
+| --- | --- |
+| Contexts with their own commands | note, document, chat, skill |
+| Command groups declared in editor.js | 45 |
+| Labels written as emoji | 38 |
+| Labels written as the app's icon tokens | 10 |
+| Separate command tables | 2, editor.js's per-context lists and documents.js's `DOC_COMMANDS` |
+| Discoverability affordance | none found: the menu exists only once "/" is typed |
+
+The emoji count is the finding. This app ships a vendored icon set and names
+icons as `ph:` tokens everywhere else, and `tests/test_no_glyph_icons.py`
+exists precisely to keep typed characters out of the interface. The slash
+menus are where that rule was never applied: 38 rows against 10. A menu that
+draws its own icons in a different alphabet from every other menu is exactly
+the "not proper objects" the owner is reacting to, even though the data
+behind it is fine.
+
+**Decisions made.**
+
+1. One table shape for every context, and the row is the object: id, icon as
+   a `ph:` token, label, hint, keywords, group, `primary`, chord, `run`. The
+   document table and the editor tables meet at that shape rather than one
+   absorbing the other, because they are reached differently and always will
+   be.
+2. Icons come from the vendored set. No emoji in a command row, held by
+   extending `tests/test_no_glyph_icons.py` to cover the command tables, so
+   the next row added cannot reintroduce them.
+3. A command is discoverable three ways or it is not discoverable: the hint
+   on the surface, the menu itself, and search by keyword rather than by the
+   app's internal vocabulary. The keywords field already exists and is
+   already used for the second of those.
+4. The affordance is shown, not documented. Whatever says "/" is available
+   appears on an empty surface and gets out of the way once there is text,
+   rather than being a line in a help panel nobody opens.
+5. Nothing is added to the chrome, per section 17's rule, and any new recipe
+   arrives with its lint in the same commit (standing order 11).
+
+**Phases, each with its gate.**
+
+- ~~**18a. One row shape.**~~ **Built 2026-09-21**, and the difference
+  between the two shapes turned out not to be cosmetic. `DOC_COMMANDS` kept
+  its icon in an `icon` field; editor.js's four lists packed theirs into the
+  front of `label`, as a string the row builder printed whole. Two
+  consequences, both fixed by the split:
+
+  * it is *why* the eight callout commands reached for emoji. The row builder
+    used `textContent`, so a `ph:` token in a label would have printed as the
+    literal text "ph:note Note box"; an emoji was the only mark that could go
+    there at all.
+  * it quietly broke the menu's own ranking. `editorRankCommands` scores
+    `label.startsWith(query)` first, and no label started with a letter, so
+    that branch could never fire: typing the first word of a command ranked
+    it no better than a keyword hit.
+
+  39 rows split (38 plain, one template literal), the icon joined to the
+  label at render rather than stored joined, so a row can be read for its
+  icon without parsing its label. `tests/test_command_row_shape.py` reads
+  both tables from source with no browser and asserts every row carries an
+  `icon`, that no `label` opens with a token, and that no `label` opens with
+  a character outside ASCII (the shape check that backs
+  `test_no_glyph_icons.py`'s named-character one). Two of its three fail
+  against the code before the split.
+- ~~**18b. The icons.**~~ **Built 2026-09-21, and it found the menu did not
+  open at all.** The 38 are `ph:` tokens; the menu row builds its label
+  through `setLabel` like every other menu in the app, which it did not
+  before and which is why a token could not be written in one; the rendered
+  callout heads with an `<i class="ph">`, since `CALLOUT_KINDS` is read by
+  the renderer as well as by the menu. The Library's create table, the chat
+  attachment close, a note embed's marker and two graph arrows went with
+  them. `tests/test_no_glyph_icons.py` now decodes `\uXXXX` and `\u{...}`
+  before looking, which is the hole the 38 sat in: they were escapes, so a
+  lint reading the source text of the literal saw backslashes.
+  `scratchpad/ui-sweeps/slashicons.js` is the probe, in the gate: 14 rows, 0
+  printing a literal token, 14 of 14 carrying an icon element (4 of 14
+  before), 0 opening with a character outside ASCII.
+
+  **The finding that matters more than the icons.** Opening the menu to
+  count its rows is how this was found: 0 rows. `editorSurfaceFor` needs
+  `asSurface`, which documents.js defines, and documents.js is in the
+  Library's lazy bundle, so on every fresh load the "/" menu did nothing in
+  the note capture box, the note edit box, the chat composer and the skill
+  steps box until the person happened to open Library or Documents. Four of
+  the five surfaces. The guard that hid it said the case "cannot happen in
+  the browser (the script order is fixed)"; the script order had stopped
+  being fixed under it. Fixed by warming the bundle when an editing surface
+  takes focus and replaying the keystroke that arrived first, and held by
+  `tests/test_lazy_bundle_calls.py`, which accounts for every call a
+  boot-loaded file makes into a lazy bundle.
+
+  **The rule this leaves behind, which is the point of writing it down:** a
+  `typeof x === "function"` guard around a feature is not a safety net, it is
+  a silent off switch. A bare call would have thrown on the first press and
+  been fixed that day.
+- ~~**18c. Discoverability.**~~ **Built 2026-09-21.** Three ways, which is
+  what decision 3 asks for and what the surface had one of:
+
+  1. **The placeholder**, on every surface in `EDITOR_SURFACES`: "Press / for
+     blocks and commands." Applied from editor.js rather than written into
+     the markup, because one of the four (`entry-edit-content`) is built in
+     JS every time a note is opened, and three boxes that say it beside one
+     that does not teaches that the feature is per-box. Measured: 4 of 4
+     hinted, and the engine carries it through to `aria-placeholder` when it
+     is mounted over the composer.
+  2. **Ctrl+/**, through `DEFAULT_SHORTCUTS` and `runShortcut` (app.js), not
+     through a listener of editor.js's own. That makes it rebindable like
+     every other chord and, more to the point, puts it in the shortcuts cheat
+     sheet, which is where somebody looks for what an app can do. A second
+     listener would also have fired alongside app.js's chorded dispatcher and
+     inserted two slashes.
+  3. The menu itself, which is what 18a and 18b were about.
+
+  **Decision taken, recorded rather than remade** (standing order 3): 18c's
+  gate asked for a "visible route", and decision 5 forbids adding to the
+  chrome. The note toolbar already carries twelve controls; a thirteenth
+  teaches nothing and costs the one thing section 17 is protecting. So the
+  visible thing is the placeholder, which is copy rather than chrome and is
+  on screen at exactly the moment it is useful and gone the moment it is not,
+  and the route it names is a chord that the cheat sheet also lists.
+
+  The chord writes a real "/" into the text rather than faking the menu open:
+  the menu filters on what follows the slash and closes when it is deleted,
+  so both routes have to leave the surface in the same state or Escape and
+  Backspace would behave differently depending on how it was opened.
+
+  `scratchpad/ui-sweeps/slashicons.js` covers all of it: 4 of 4 surfaces
+  hinted, the menu open with 14 rows from the chord alone, and
+  `shortcuts.editorMenu` present so the cheat sheet lists it.
+- **18d. The menu itself.** Grouping, ordering, the `primary` flag's meaning,
+  what happens on no match, and keyboard behaviour end to end. Gate: arrow
+  keys move through the rows, Escape closes and returns focus to the surface,
+  a no-match state says so rather than showing an empty box, and every
+  context is measured at 1440 and 390.
+
+**Not verified.** None of the above is measured on a phone yet, and the chat
+context's commands press controls in the chat dock, so a change there has to
+be measured against that dock rather than assumed. The note context's own
+list was not read row by row for this section; 18a is where that happens.
+
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
 2026-09-12: a plan holds open work only. What is left open is in
 `archive/agent-remaining/doc-sidebar.md`.
 
+## Placed from INBOX, 2026-09-21
+
+294. **The owner, 2026-09-21, verbatim:** "can you improve the ui and ux of
+    the live view and make it better for professional use and impressive as
+    both a tool, utility and aesthetic?"
+    The documents live view (the CodeMirror surface, `frontend/documents.js`
+    and its theme around the `.cm-md-*` decorations). Scope is a plan
+    section rather than an INBOX fix: it wants a measured read of what the
+    surface is today against what a professional editor gives, a decision
+    about what this one is *for* (it is a notebook's editor, not an IDE), and
+    gated phases. Belongs in DOCUMENTS_PLAN. The two faults already found in
+    this surface tonight, the table header's phantom row with its unpressable
+    kebab (290) and the highlight colours (291, fixed), are evidence that it
+    has had features added faster than it has been measured.
+    **Placed 2026-09-21 into DOCUMENTS_PLAN section 17**, which carries the
+    measured read, the decisions and five gated phases.
+
+## 19. A board or a map as an object in a note, and a note's reminders: built 2026-09-21
+
+The owner, INBOX 309, verbatim: "there is also no way to attach a whiteboard
+or mindmap to a note as like an object in the notes. or to link reminders to
+notes". Two halves of one idea: this note and that thing are the same piece
+of work.
+
+**What the read found before anything was built.** Half of it existed and
+was not drawn, and one sentence of the brief was simply wrong, which is why
+section 1 of CLAUDE.md says to grep first.
+
+| Claim | What is actually there |
+| --- | --- |
+| A note cannot hold a board | A note's typed objects are markdown constructs, and `mdEmbedElement` (app.js) is the single renderer for `![[name]]` behind both `renderNoteText` (note cards) and `renderMarkdown` (documents and chat). `resolveWikiTarget` has resolved a board since the map chips were built, and `renderNoteInline` already drew an inline `mapChip` for `[[My map]]`. What `mdEmbedElement` did with a board was fall through to "Nothing called House jobs yet", measured on 8793 before the change: the embed of a live board claimed it did not exist |
+| There is no preview to reuse | `mapPreview(board, {size})` is the one miniature renderer (MINDMAP_PLAN §5 item 12), fed by `preview_items` from `/whiteboard/boards` through `loadMapBoardIndex` |
+| "A reminder row has no column naming the note it came from" | It has had one since reminders existed: `Reminder.entry_id`, with `entry_preview` on every reminder read, a chip on the reminder row that opens the note, `entry_id` on `POST /reminders`, `note_id` on the `set_reminder` tool, and the note card's own "Remind me" passing `entry.id`. **No migration was needed and none was written.** What was missing was the other direction: no way to ask for one note's reminders, and nothing on the note |
+
+**Built.**
+
+- `![[board:12|House jobs]]` (and `map:`) renders a preview card: the kind,
+  the board's own miniature from `mapPreview`, its title and `mapCountLabel`,
+  the whole card a `<button>` that opens the board. A plain `![[House jobs]]`
+  that happens to name a board renders the same card, which is the bug above
+  fixed in the same place.
+- Both doorways the brief asked for: the "/" menu's "Board or mind map" in
+  Links and references, and "Add to a note" on the board itself (the Board
+  menu's `#wb-add-to-note`, and the Library card's kebab). Both write through
+  `boardEmbedMarkdown`, and the board side appends through
+  `appendSelectionToNote`, so there is one spelling and one undo.
+- `GET /reminders?entry_id=` and `GET /reminders/counts?ids=`, then a
+  `2 reminders` chip on the note card that opens a panel listing them, each
+  pressing through to `flashReminder`.
+
+**Decisions made** (standing order 3: each was missing, each got a one-line
+recommendation, each was taken).
+
+1. **A board object is addressed by id, with its title carried beside it**
+   (`![[board:12|House jobs]]`), not by title alone like every other wiki
+   link. A title-addressed object breaks silently on a rename, and worse, a
+   renamed board and a deleted one look identical to the resolver. The title
+   travels anyway because it is what the tombstone says, and because
+   `_reference_rows` in routes_entries.py finds a board's references with a
+   LIKE over note content for its label, so the card's "on 1 board" chip
+   keeps working with no backend change.
+2. **A deleted board leaves a tombstone**, `.board-embed-gone` naming what
+   was there, rather than the object vanishing. Content that disappears
+   silently teaches the reader the note was always like that.
+   **And a miss is not a tombstone until the index has been refreshed once**:
+   `loadMapBoardIndex(true)`, because a board made a minute ago is missing
+   from an index built before it existed, and "this board is no longer in
+   your notebook" over a board somebody just made is the worst thing this
+   card could say.
+3. **The slash command is "Board or mind map"**, in Links and references,
+   `primary` so it is in the shortlist with nothing typed. Named for the two
+   things it inserts, in the app's own words for them.
+4. **A note's reminders are a chip on the facts line, not a section.** The
+   card is a title, a body and one line of facts; a block under every note
+   with a reminder would push the next note off the screen for a fact that is
+   usually four words long. The chip opens the same `.entry-links` panel
+   "Referenced by" and "Similar notes" use, which is also what keeps one
+   panel open per card.
+5. **The board picker is `pickLibraryItemDialog`'s fifth source, opt in.**
+   A fifth chooser for a fifth kind is the failure this app already has a
+   rule against. It is opt in because that dialog's first caller feeds a map
+   reference node, and `MAP_REFERENCE_KINDS` has no board in it: a board
+   offered there would be a row that cannot be saved.
+
+**Not done, and deliberately.** No backfill of `Reminder.entry_id` for
+reminders made before the link was drawn: there is nothing to backfill from.
+A reminder written by hand in the Reminders tab never named a note, and
+guessing one from the text would invent a link the person did not make.

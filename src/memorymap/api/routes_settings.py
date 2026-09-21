@@ -124,6 +124,16 @@ class SkillItem(BaseModel):
     steps: list[str] = Field(default_factory=list, max_length=skills.MAX_STEPS)
     tools: list[str] = Field(default_factory=list, max_length=skills.MAX_TOOLS)
     inputs: list[SkillInput] = Field(default_factory=list, max_length=skills.MAX_INPUTS)
+    #: **The postcondition** (CHAT_PLAN decision 10b). Measured 2026-09-20,
+    #: while building the editor's own control for it: a skill saved through
+    #: Settings arrived here with its block and left without one, because a
+    #: field this model does not declare is dropped before `normalise` ever
+    #: sees it. So "the editor round-trips it" was true of the stored shape
+    #: and not of the wire. Left as a loose dict on purpose: the rules are
+    #: `skills.verify_spec`'s, which is the one place that knows the
+    #: predicates and answers in a sentence the person can act on, and a
+    #: second model here would be a second set of rules to drift from it.
+    verify: dict | None = None
     # Pre-rebuild flag the UI still reads; derived on save from steps/tools.
     useTools: bool = False  # noqa: N815  # the stored key, kept for old skills
 
@@ -207,7 +217,10 @@ class PreferencesBody(BaseModel):
     #: hardware somebody is happy to give an hour to.
     run_budget_tokens: int | None = Field(default=None, ge=0)
     run_budget_seconds: int | None = Field(default=None, ge=0)
-    # The ONE feature that goes online, off unless the user opts in.
+    # One of the two features that can go online, off unless the user opts in.
+    # The other is `update_check_enabled` below. Counted, not assumed: see
+    # `tests/test_offline_promise.py`, which fails if a third appears and the
+    # copy still says two.
     web_search_enabled: bool | None = None
     # The other opt-in network call (Settings -> About): see core.config.
     update_check_enabled: bool | None = None
@@ -1877,8 +1890,21 @@ def _run_directory_import(directory_path: str):
     with deps.get_db().session() as session:
         imported = 0
         skipped = 0
+        skipped_oversize = 0
         for f in p.rglob("*.md"):
             try:
+                #: `import_markdown` (the upload path just below) has always
+                #: capped a file at `MAX_IMPORT_BYTES` before reading it; this
+                #: path read whole files with no ceiling at all, so a
+                #: multi-gigabyte `.md` dropped into the vault by mistake was
+                #: read into memory in full. `stat()` first and reuse the
+                #: same constant, so a directory import can't be a bigger
+                #: attack surface than the upload form sitting right next to
+                #: it in the settings page.
+                if f.stat().st_size > MAX_IMPORT_BYTES:
+                    skipped += 1
+                    skipped_oversize += 1
+                    continue
                 text = f.read_text(encoding="utf-8")
                 meta, body = _parse_frontmatter(text)
                 if not body.strip():
@@ -1915,12 +1941,27 @@ def _run_directory_import(directory_path: str):
                     session.commit()
             except Exception:
                 skipped += 1
-        if imported > 0:
-            manager.log_action(session, "imported", "data", detail=f"markdown dir x{imported}")
+        #: The importer runs as a background task (202 Accepted, no
+        #: synchronous response), so a skipped file has nowhere to be
+        #: reported except this activity-log line: unlike `import_markdown`,
+        #: which can hand its skip list straight back in the response body,
+        #: this is the only place the count and the reason reach anyone.
+        #: Firing on `skipped` too, not just `imported`, matters here: a
+        #: directory whose files were all oversize used to leave no trace
+        #: at all, imported stayed 0 and the whole run vanished silently.
+        if imported > 0 or skipped > 0:
+            detail = f"markdown dir x{imported}"
+            if skipped:
+                detail += f", skipped {skipped}"
+                if skipped_oversize:
+                    limit_mb = MAX_IMPORT_BYTES // (1024 * 1024)
+                    detail += f" ({skipped_oversize} over {limit_mb} MB)"
+            manager.log_action(session, "imported", "data", detail=detail)
             session.commit()
             #: A whole vault arriving at once is exactly the "large change"
             #: the rebuild suggestion exists for, see `mark_index_stale`.
-            deps.mark_index_stale(imported)
+            if imported > 0:
+                deps.mark_index_stale(imported)
 
 @router.post("/import/directory", status_code=202)
 def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTasks):

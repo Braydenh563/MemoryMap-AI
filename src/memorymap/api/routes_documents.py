@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter, vision_ocr
-from memorymap.core import deps, docexport, docview, filetypes
+from memorymap.core import deps, docexport, docmeta, docview, filetypes
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
@@ -169,6 +169,13 @@ def _summary(document: Document) -> dict:
         # anything at all, and the editor picks its whole mode from this.
         "file_type": filetypes.normalise(document.file_type),
         "archived_at": document.archived_at.isoformat() if document.archived_at else None,
+        # The frontmatter's keys and values, so the Library can filter on a
+        # property without a request per document (DOCUMENTS_PLAN Phase 3 item
+        # 4's second clause). It rides on the summary rather than on `_full`
+        # because the list is the only place that needs it: the editor has the
+        # content and parses its own. See `core/docmeta.py` for why the parse
+        # is here at all rather than in the browser.
+        "properties": docmeta.properties(document.content or ""),
     }
 
 
@@ -1043,7 +1050,9 @@ def export_docx(document_id: int, session: Session = Depends(get_session)) -> Re
         raise HTTPException(
             status_code=501,
             detail="This install has no Word exporter: python-docx is not "
-            "installed. Markdown, the zip bundle and HTML are available now.",
+            "installed. Turn it on in Settings, optional extras, "
+            "\u201cExport to Word\u201d. Markdown, the zip bundle and HTML "
+            "are available now.",
         )
     data = docexport.to_docx(document.title, document.content or "")
     return Response(
@@ -1080,7 +1089,7 @@ def ai_edit(
             raise HTTPException(status_code=400, detail="Say what to write.")
         inserted, thinking = drafter.compose_document_edit(
             document.content,
-            deps.get_model_manager(),
+            deps.get_model_manager().for_feature("documents"),
             deps.get_ollama(),
             instruction=instruction,
             verb="write",
@@ -1108,7 +1117,7 @@ def ai_edit(
             )
         revised, thinking = drafter.compose_document_edit(
             target,
-            deps.get_model_manager(),
+            deps.get_model_manager().for_feature("documents"),
             deps.get_ollama(),
             instruction=instruction or "Remove this passage entirely.",
             verb="remove",
@@ -1128,7 +1137,7 @@ def ai_edit(
     revised, thinking = drafter.compose(
         "",
         target,
-        deps.get_model_manager(),
+        deps.get_model_manager().for_feature("documents"),
         deps.get_ollama(),
         instruction=instruction,
     )
@@ -1176,7 +1185,7 @@ def rephrase_passage(
     _existing(session, document_id)
     options = drafter.rephrase(
         body.passage,
-        deps.get_model_manager(),
+        deps.get_model_manager().for_feature("documents"),
         deps.get_ollama(),
         note=body.note,
     )

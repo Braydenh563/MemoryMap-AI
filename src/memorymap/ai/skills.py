@@ -299,7 +299,62 @@ def verify_spec(raw: dict, known_tools: set[str] | None, declared: list[str]) ->
         except (TypeError, ValueError):
             raise SkillError(f"“{name}” in a verify block wants a whole number.") from None
     field = str(block.get("field") or "").strip()
-    return {"tool": tool, "field": field or None, "expect": checks}
+    spec = {"tool": tool, "field": field or None, "expect": checks}
+    arguments = _verify_args(block.get("args"))
+    if arguments:
+        spec["args"] = arguments
+    return spec
+
+
+#: **How many arguments a verify block may carry.** A postcondition is one
+#: reading of one number; anything needing five arguments to express is a
+#: question, not a fact, and belongs in the skill's steps where a person can
+#: see it happen. Four is the widest any tool in the registry needs to name a
+#: scope (category, tag, untagged, since).
+MAX_VERIFY_ARGS = 4
+
+
+def _verify_args(raw) -> dict:
+    """The arguments a verify block hands its tool, validated at save time.
+
+    **Why a verify block takes arguments at all** (added 2026-09-20, the open
+    item `archive/agent-remaining/brief-13-harness.md` 3). Decision 10b's shape
+    was `{tool, field, expect}`, which can only ever ask a tool its unfiltered
+    question: how many notes are there. The postcondition the write skills
+    actually make is narrower, and "Auto-tag my notes" is the example the open
+    item names: it claims it leaves no untagged note behind, which is
+    `count_notes(untagged) max 0` and is unsayable without an argument. This
+    does not widen what a verifier may *do*: `skill_runner._reading` still
+    refuses any tool that writes, and a filter only ever makes a reading
+    narrower.
+
+    Scalars only, and no nesting: an argument here is a scope
+    (`{"untagged": true}`, `{"category": "Work"}`), and a verifier that took a
+    structure would be a second place to write a query.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise SkillError("A verify block's args have to be a set of names and values.")
+    if len(raw) > MAX_VERIFY_ARGS:
+        raise SkillError(
+            f"A verify block takes at most {MAX_VERIFY_ARGS} arguments, "
+            f"this one has {len(raw)}."
+        )
+    out: dict = {}
+    for name, value in raw.items():
+        key = str(name).strip()
+        if not INPUT_NAME.match(key):
+            raise SkillError(f"“{key}” is not a name a tool takes.")
+        if isinstance(value, bool) or isinstance(value, int) or value is None:
+            out[key] = value
+        elif isinstance(value, str):
+            out[key] = _text(value, MAX_NAME, "A verify argument")
+        else:
+            raise SkillError(
+                f"“{key}” in a verify block wants a word, a number or true/false."
+            )
+    return out
 
 
 def step_specs(skill: dict) -> list[dict]:
@@ -1123,7 +1178,15 @@ BUILTIN_SKILLS: list[dict] = [
         ),
         "description": "Rewrites vague 'similar in meaning' links into specific reasons.",
         "when_to_use": "When I ask you to clean up or audit my links, or when the graph feels too vague.",
-        "tools": ["audit_link_reasons"],
+        #: `count_notes` is here to be verified with, not to be worked with:
+        #: this skill rewrites link reasons and touches no note, and the open
+        #: item that asked for this (brief-13-harness 3) left it out because
+        #: adding a tool to a run's allowlist is a real change. It is a
+        #: read-only count, it is what makes "this changed none of your notes"
+        #: a checked claim rather than a promise, and it is the same pair the
+        #: three audit skills already carry.
+        "tools": ["audit_link_reasons", "count_notes"],
+        "verify": {"tool": "count_notes", "expect": {"unchanged": True}},
         "steps": [
             _step(
                 "Run the audit_link_reasons tool to process a batch of vague "
@@ -1146,7 +1209,12 @@ BUILTIN_SKILLS: list[dict] = [
             "When I ask what I changed my mind about, whether my notes are consistent, "
             "or where I contradicted myself."
         ),
-        "tools": ["find_contradictions", "link_notes"],
+        #: Same pair, same reason as "Audit link reasons". This skill may link
+        #: two notes once I agree, and a link is not a note, so the count it
+        #: verifies against is unchanged either way: what the block rules out
+        #: is a run that wrote or deleted notes while reporting on them.
+        "tools": ["find_contradictions", "link_notes", "count_notes"],
+        "verify": {"tool": "count_notes", "expect": {"unchanged": True}},
         "steps": [
             _step("Run the find_contradictions tool.", "tool_called", "find_contradictions"),
             _step(
@@ -1260,7 +1328,21 @@ BUILTIN_SKILLS: list[dict] = [
             ),
             _step("Tell me which notes you tagged, and with what.", "answer_only"),
         ],
-        "tools": ["list_notes", "get_note", "list_tags", "tag_note"],
+        "tools": ["list_notes", "get_note", "list_tags", "tag_note", "count_notes"],
+        #: The first postcondition on a skill that writes. The three read-only
+        #: ones assert `unchanged`, which is the claim their prompts make; this
+        #: skill's prompt makes the opposite claim ("tag the notes that have no
+        #: tags yet"), and the notebook can answer it as one integer now that
+        #: `count_notes` takes the same `untagged` filter `list_notes` does.
+        #: A run that leaves untagged notes behind (the page cap is six pages
+        #: of 25) fails this and says the number it came back with, which is
+        #: the honest report: the run did some of the work.
+        "verify": {
+            "tool": "count_notes",
+            "args": {"untagged": True},
+            "field": "count",
+            "expect": {"max": 0},
+        },
     },
     {
         "name": "Link related notes",

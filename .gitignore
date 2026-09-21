@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
+.venv
 
 # Secrets / local config — copy .env.example to .env instead
 .env

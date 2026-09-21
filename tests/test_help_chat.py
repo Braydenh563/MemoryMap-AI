@@ -284,7 +284,15 @@ def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama
     assert f'const AI_NAME = "{help_chat.GUIDE_NAME}"' in app_js
     assert "const GUIDE_NAME = AI_NAME" in settings_js
     #: The sheet's own title comes from that constant rather than a literal.
-    assert "label: GUIDE_NAME," in settings_js
+    #: It is the name plus one word since 2026-09-20 (the owner: "the atlas
+    #: help panel needs a better title to make it evident that it is the
+    #: guide"), and that word is added to the constant rather than typed out
+    #: beside it, so a rename still costs one edit. The sheet's accessible
+    #: label is the same string as the visible title: two that disagree is a
+    #: screen reader describing a panel nobody can see.
+    assert "const GUIDE_TITLE = `${GUIDE_NAME} guide`" in settings_js
+    assert "label: GUIDE_TITLE," in settings_js
+    assert "name.textContent = GUIDE_TITLE;" in settings_js
     #: And the one surface that is markup says the same word.
     assert f"Ask {help_chat.GUIDE_NAME}</h4>" in index
     #: The model is told who it is in the first system message, not in a
@@ -538,3 +546,338 @@ def test_performance_mode_has_a_help_topic():
     assert "Performance mode" in topics[0]["body"]
     assert "2 cores" in topics[0]["body"]
 
+
+
+# --- which model a real request actually takes (INBOX 274) --------------------
+#
+# The owner, 2026-09-20: the Guide "doesnt use the utility model and instead
+# uses the chat model". Every line of copy around the panel says "your utility
+# model", and `help_chat` does call `model_manager.utility_model()`, so the
+# disagreement is not in this module at all: it is in what `utility_model()`
+# answers. It falls back to the chat model in two separate cases, and a reading
+# of the source is not proof of which one a running app is in, so these drive a
+# real request through a real `ModelManager` and read back the model the
+# provider was actually handed.
+
+
+def _guide_model(ai_client, fake_ollama) -> str:
+    """The model a real streamed Guide request hands the provider."""
+    fake_ollama.chat_models.clear()
+    response = ai_client.post("/help/ask/stream", json={"question": "how do I save a note?"})
+    assert response.status_code == 200
+    assert fake_ollama.chat_models, "the turn never reached the provider"
+    return fake_ollama.chat_models[-1]
+
+
+def test_the_guide_takes_the_utility_model_when_one_is_set(ai_client, fake_ollama):
+    """The case the copy describes, and the only one of the three in which
+    "your utility model" is the whole truth."""
+    from memorymap.core import deps
+
+    manager = deps.get_model_manager()
+    manager.set_chat_model("big-chat-model")
+    manager.set_utility_model("small-utility-model")
+    assert _guide_model(ai_client, fake_ollama) == "small-utility-model"
+
+
+def test_the_guide_falls_back_to_the_chat_model_when_no_utility_model_is_chosen(
+    ai_client, fake_ollama
+):
+    """Fallback one, and the likelier of the two to be what was reported: the
+    preference ships empty, so a notebook that has never opened Settings and
+    picked a small model is running the chat model here by design. Nothing to
+    fix in `help_chat`; the fix, if the reader wants a different model, is to
+    choose one, and this pins that the fallback is the chat model and not
+    something else."""
+    from memorymap.core import deps
+
+    manager = deps.get_model_manager()
+    manager.set_chat_model("big-chat-model")
+    manager.set_utility_model("")
+    assert _guide_model(ai_client, fake_ollama) == "big-chat-model"
+
+
+def test_the_guide_falls_back_to_the_chat_model_when_smart_routing_is_off(
+    ai_client, fake_ollama
+):
+    """Fallback two, and the one that looks like a bug from outside: a utility
+    model IS chosen and shown in Settings, and the Guide still runs the chat
+    model, because "smart model routing" off means every role collapses onto
+    the chat model. `ModelManager.utility_model()` is where that is decided,
+    for the janitor and the digest as much as for the Guide."""
+    from memorymap.core import deps
+
+    manager = deps.get_model_manager()
+    manager.set_chat_model("big-chat-model")
+    manager.set_utility_model("small-utility-model")
+    deps.get_config().set_preference("smart_model_routing_enabled", False)
+    assert _guide_model(ai_client, fake_ollama) == "big-chat-model"
+
+
+def test_the_streamed_guide_turn_does_not_turn_thinking_off(ai_client, fake_ollama):
+    """The owner: "thinking boxes dont render". They could not: the streamed
+    turn ran in the `quick` preset, whose `think` is `False`, so
+    `request_extras` sent `think: False` to any model with thinking to turn
+    off and `chat_stream`'s `thinking_delta` branch never fired. The panel's
+    `.help-chat-think` block was drawing an event that could not arrive.
+
+    `presets.GUIDE_MODE` is Quick's brevity with `think` left unset, and unset
+    means the field is never sent, so a reasoning model reasons and an
+    ordinary one is unaffected."""
+    from memorymap.ai import presets
+
+    fake_ollama.chat_modes.clear()
+    response = ai_client.post("/help/ask/stream", json={"question": "how do I save a note?"})
+    assert response.status_code == 200
+    assert fake_ollama.chat_modes[-1] == presets.GUIDE_MODE
+    mode = presets.resolve(presets.GUIDE_MODE)
+    assert mode.think is None, "the Guide must not send think: False, or its thinking box is dead"
+    assert mode.max_output_tokens == presets.MODES["quick"].max_output_tokens
+    assert mode.temperature == presets.MODES["quick"].temperature
+
+
+def test_the_guide_preset_is_not_on_the_mode_picker():
+    """It is the app's own choice for one panel, not a fourth thing for the
+    reader to weigh up in the chat dock. `routes_chat` builds the picker from
+    `MODES` and `routes_settings` refuses a preference outside it, so both stay
+    three long."""
+    from memorymap.ai import presets
+
+    assert presets.GUIDE_MODE not in presets.MODES
+    assert presets.GUIDE_MODE in presets.INTERNAL_MODES
+    assert len(presets.MODES) == 3
+
+
+def test_the_thinking_a_model_produces_reaches_the_stream(ai_client, fake_ollama):
+    """End to end over the real route: a provider that thinks produces a
+    `thinking` event on the wire, before the answer, which is what the panel
+    reads to un-hide `.help-chat-think`."""
+    import json
+
+    fake_ollama.librarian_thinking = "checking the help text"
+    response = ai_client.post("/help/ask/stream", json={"question": "how do I save a note?"})
+    assert response.status_code == 200
+    events = [json.loads(line) for line in response.text.splitlines() if line.strip()]
+    kinds = [event["type"] for event in events]
+    assert kinds[0] == "thinking", kinds
+    assert events[0]["text"] == "checking the help text"
+    assert "delta" in kinds and kinds[-1] == "done"
+
+
+def test_the_streamed_answer_arrives_in_more_than_one_piece(ai_client, fake_ollama):
+    """The owner: "the streaming is just off". A reply delivered as one
+    `delta` is a reply the panel can only paint in one frame, whatever the
+    client does with it, so the route is held to passing the provider's pieces
+    through as pieces rather than joining them and sending the join."""
+    import json
+
+    response = ai_client.post("/help/ask/stream", json={"question": "how do I save a note?"})
+    deltas = [
+        json.loads(line)
+        for line in response.text.splitlines()
+        if line.strip() and json.loads(line)["type"] == "delta"
+    ]
+    assert len(deltas) >= 2, deltas
+
+
+def test_the_guide_preset_sends_no_thinking_toggle_to_ollama():
+    """The seam the fix actually turns on, tested at the seam.
+
+    `Provider.request_extras` is where a preset's `think` becomes a field in
+    the request, and it is Ollama's dialect that has one: the OpenAI shape has
+    no standard equivalent and its `request_extras` returns nothing, so a
+    browser measurement against an OpenAI-compatible stand-in cannot tell the
+    two presets apart at all. This can.
+
+    On a model that declares `thinking`, `quick` sends `think: False` and the
+    model obeys, which is why the Guide's `.help-chat-think` block had never
+    been drawn on an Ollama backend. `GUIDE_MODE` sends nothing, and nothing
+    means "whatever the model does by default".
+    """
+    from memorymap.ai import presets
+    from memorymap.ai.ollama_client import OllamaClient
+
+    class _Thinker(OllamaClient):
+        def supports(self, model, capability):
+            return capability == "thinking"
+
+    client = _Thinker(base_url="http://127.0.0.1:1")
+    assert client.request_extras("quick", "reasoner") == {"think": False}
+    assert client.request_extras(presets.GUIDE_MODE, "reasoner") == {}
+    #: And the headroom follows the toggle: a turn that may think is given
+    #: room to think in on top of its reply cap, rather than the reply and the
+    #: reasoning competing for the same 256 tokens (§35A.3).
+    assert client.thinking_allowance("quick", "reasoner") == 0
+    assert client.thinking_allowance(presets.GUIDE_MODE, "reasoner") > 0
+
+
+# --- The guide answers for the surfaces the app has (INBOX 304) -------------
+#
+# The owner asked the Atlas guide "Where do reminders live?", which is the
+# first question the panel itself offers, and was told "I'm not sure where
+# reminders live. Please check the Help topics above this chat", with Notes
+# and What it remembers named as the sources. Measured, the corpus had a
+# reminders entry all along: `_matching_topics` never reached it, because its
+# keyword is "reminder" and the pattern is `\breminder\b`, which the plural in
+# the question does not match. Nothing matched, the Notes tab's own topics
+# filled the gap, and the model was handed reference notes about capture and
+# memory for a question about reminders. Every plural in the app had the same
+# hole: "documents", "notes", "spaces", "backups".
+#
+# These are the tests that hold the guide to its job rather than to its code.
+# A guide that cannot answer for a surface this app ships is broken however
+# well its retrieval reads, and a panel that offers a question it cannot
+# answer is the worst version of the same fault.
+
+#: One question per major surface, in the words a person uses rather than the
+#: words the keyword table happens to hold, and the topic each must reach.
+_SURFACE_QUESTIONS = [
+    ("Where do reminders live?", "reminders"),
+    ("Where do my documents live?", "documents"),
+    ("How do I take notes?", "capture"),
+    ("What is the whiteboard for?", "whiteboard"),
+    ("What do the graphs show me?", "graph"),
+    ("What goes in the library?", "library"),
+    ("How do I chat with my notes?", "ask-chat"),
+    ("What does the timeline show?", "timeline"),
+    ("What are spaces?", "spaces"),
+    ("Where are my backups kept?", "storage"),
+    ("What is the status bar telling me?", "statusbar"),
+]
+
+
+def test_every_major_surface_has_reference_notes_of_its_own():
+    for question, expected in _SURFACE_QUESTIONS:
+        ids = [topic["id"] for topic in help_chat.topics_for(question)]
+        assert ids, f"no reference notes at all for {question!r}"
+        assert expected in ids, f"{question!r} reached {ids}, not {expected!r}"
+
+
+def test_a_surface_question_reaches_the_model_grounded_not_empty_handed(
+    ai_client, fake_ollama
+):
+    """End to end, through the route the panel calls.
+
+    The system prompt tells the model to say it is not sure when it is given
+    no reference notes, so "was a reference block sent" is the measurable
+    form of "could this answer have been 'I'm not sure'". There is no model
+    in this sandbox: `fake_ollama` stands in for one, and what is asserted is
+    the prompt that reached it, not the words it replied with.
+    """
+    for question, expected in _SURFACE_QUESTIONS:
+        fake_ollama.librarian_reply = "Reference answer."
+        response = ai_client.post("/help/ask", json={"question": question})
+        assert response.status_code == 200
+        sent = fake_ollama.chat_calls[-1]
+        reference = [m["content"] for m in sent if "Reference notes" in m["content"]]
+        assert reference, f"{question!r} was sent to the model with no reference notes"
+        body = next(t["body"] for t in help_chat.HELP_TOPICS if t["id"] == expected)
+        assert body[:40] in reference[0], f"{question!r} was grounded in the wrong topic"
+
+
+def test_the_sources_named_for_a_surface_question_are_that_surface(
+    ai_client, fake_ollama
+):
+    """The screenshot's real tell: the answer named Notes and What it
+    remembers under a question about reminders. Those are `TAB_TOPICS`
+    filling an empty match, which is correct behaviour for "how does this
+    work?" and wrong for a question that names its own subject."""
+    fake_ollama.librarian_reply = "The Reminders tab."
+    response = ai_client.post(
+        "/help/ask", json={"question": "Where do reminders live?", "tab": "notes"}
+    )
+    assert response.status_code == 200
+    assert response.json()["sources"] == ["Reminders"]
+
+
+def test_a_plural_question_finds_what_the_singular_finds():
+    for singular, plural in (
+        ("how do I set a reminder?", "where do reminders live?"),
+        ("open a document", "where do my documents live?"),
+        ("write a note", "where are my notes?"),
+        ("make a backup", "where are my backups?"),
+        ("what is a space?", "how do spaces work?"),
+    ):
+        one = [t["id"] for t in help_chat._matching_topics(singular)]
+        many = [t["id"] for t in help_chat._matching_topics(plural)]
+        assert one, f"{singular!r} matched nothing, so the pair proves nothing"
+        assert one[0] in many, f"{plural!r} reached {many}, the singular reached {one}"
+
+
+def _atlas_questions() -> list[str]:
+    """Every question the app itself offers to ask Atlas: the three starters
+    under the transcript, and the line at the foot of a help popover."""
+    app = (
+        Path(__file__).resolve().parents[1] / "frontend" / "app.js"
+    ).read_text(encoding="utf-8")
+    starters = app[app.index("const ATLAS_STARTERS = [") :]
+    starters = starters[: starters.index("\n];")]
+    per_tab = app[app.index("const ATLAS_TAB_STARTERS = {") :]
+    per_tab = per_tab[: per_tab.index("\n};")]
+    prompts = app[app.index("const ATLAS_PROMPTS = {") :]
+    prompts = prompts[: prompts.index("\n};")]
+    return (
+        re.findall(r'"([^"]+)"', starters)
+        + re.findall(r'"([^"]+)"', per_tab)
+        + re.findall(r'": "([^"]+)"', prompts)
+    )
+
+
+def test_every_question_the_app_offers_to_ask_atlas_is_answerable():
+    """A suggested question the corpus cannot answer is a promise the guide
+    breaks on the first tap, and "Where do reminders live?" was the first
+    starter in the panel. Held here rather than by care: the table is in
+    `frontend/app.js` and the corpus is in Python, so nothing else sees both.
+    """
+    questions = _atlas_questions()
+    assert len(questions) >= 25, questions
+    unanswerable = [q for q in questions if not help_chat.topics_for(q)]
+    assert not unanswerable, f"Atlas offers questions it cannot answer: {unanswerable}"
+
+
+def test_a_keyword_still_does_not_match_inside_a_longer_word():
+    """The inflection fix must not turn the whole-word rule back into a
+    substring one: "ask" may reach "asks" and "asked", never "basket"."""
+    assert help_chat._matching_topics("where's the picnic basket for our task?") == []
+    assert help_chat._matching_topics("the weather is nice today") == []
+
+
+def test_the_panel_does_not_promise_a_model_it_may_not_use():
+    """INBOX 274, 288 and 304 are the same report three times: "it doesnt use
+    my utility model". Measured at the provider in `test_feature_models.py`,
+    the code is right and the copy was wrong: a guide turn takes the utility
+    model with smart model routing on, the chat model with it off, and the
+    guide's own row in the per-feature table over both. Three lines of copy
+    promised the first of those three as though it were the only one, which
+    is why the report keeps coming back from a reader who is in one of the
+    other two.
+
+    The '?' popover carries the whole rule, in place of the promise.
+    """
+    index = (
+        Path(__file__).resolve().parents[1] / "frontend" / "index.html"
+    ).read_text(encoding="utf-8")
+    assert "from your utility model" not in index
+    popover = index[index.index('id="help-chat-help"') :][:900]
+    assert "smart model routing is on" in popover
+    assert "on the chat model while it is off" in popover
+
+
+def test_the_composer_is_not_gated_on_a_model_the_guide_does_not_need(client):
+    """`offline_answer` is the whole point: with no model, `/help/ask` hands
+    back the app's own help text for what was asked and says so. Measured in
+    a browser with no model running, the field and Send carried
+    `data-needs-model` and were disabled, so the reply nobody needed a model
+    for could not be asked for. INBOX 203's own inventory says a control that
+    degrades without a model is not gated; this one degrades exactly that way.
+    """
+    index = (
+        Path(__file__).resolve().parents[1] / "frontend" / "index.html"
+    ).read_text(encoding="utf-8")
+    composer = index[index.index('id="help-chat-form"') :]
+    composer = composer[: composer.index("</form>")]
+    assert "data-needs-model" not in composer
+    #: And the route it posts to really does answer without one.
+    body = client.post("/help/ask", json={"question": "Where do reminders live?"}).json()
+    assert "Overdue" in body["content"]
+    assert body["sources"] == ["Reminders"]

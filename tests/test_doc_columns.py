@@ -16,6 +16,7 @@ what people type once they know both exist.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -36,6 +37,24 @@ def blocks_source() -> str:
     assert start != -1, f"{BEGIN} marker is missing from documents.js"
     assert stop > start, f"{END} marker is missing or before {BEGIN}"
     return text[start + len(BEGIN) : stop]
+
+
+#: What the toolbar and the "/" menu actually insert for a columns block, read
+#: out of MD_ACTIONS rather than restated here. `block + placeholder + suffix`
+#: is the order `applyMarkdownAction` writes them in for every `block` action,
+#: which is what puts the selection on the placeholder.
+def inserted_columns() -> str:
+    text = DOCUMENTS_JS.read_text(encoding="utf-8")
+    entry = re.search(
+        r"\n  columns: \{(.*?)\n  \},", text, re.S
+    )
+    assert entry, "MD_ACTIONS no longer has a `columns` entry in the shape this test reads"
+    parts = {}
+    for key in ("block", "suffix", "placeholder"):
+        found = re.search(rf'{key}: "((?:[^"\\]|\\.)*)"', entry.group(1))
+        assert found, f"MD_ACTIONS.columns has no `{key}`"
+        parts[key] = json.loads(f'"{found.group(1)}"')
+    return parts["block"] + parts["placeholder"] + parts["suffix"]
 
 
 DRIVER = r"""
@@ -129,11 +148,24 @@ function check(name, ok, detail) {
     JSON.stringify(text.slice(blocks[0].to, blocks[1].from)));
 }
 
-// --- the template the "/" menu inserts parses as one empty two-column block --
+// --- what the "/" menu really inserts parses as one two-column block --------
+//
+// INSERTED_COLUMNS is read out of MD_ACTIONS by the python side, not written
+// here, and that is the point of this check: it used to assert against a
+// `docColumnsTemplate()` helper that nothing but this line ever called, while
+// the toolbar and the "/" menu inserted their own string a thousand lines
+// away. A test of a string the app does not use cannot fail when the string
+// the app does use stops parsing.
 {
-  const blocks = docColumnsBlocks(docColumnsTemplate());
-  check('the template is a block', blocks.length === 1 && blocks[0].columns.length === 2,
+  const blocks = docColumnsBlocks(INSERTED_COLUMNS);
+  check('what the menu inserts is a block', blocks.length === 1, String(blocks.length));
+  check('with two columns', blocks.length === 1 && blocks[0].columns.length === 2,
     blocks.length ? String(blocks[0].columns.length) : 'no block');
+  //: The placeholder is what the first keystroke replaces, so it has to be
+  //: inside the first column rather than beside it.
+  check('and the placeholder is inside the first column',
+    blocks.length === 1 && blocks[0].columns[0].text.includes('Left column'),
+    blocks.length ? JSON.stringify(blocks[0].columns[0].text) : 'no block');
 }
 
 // --- image options, by shape rather than by position ------------------------
@@ -169,7 +201,8 @@ def block_checks(tmp_path_factory) -> list[dict]:
     if not node:  # pragma: no cover - node is in the sandbox and in CI
         pytest.skip("node is not available")
     script = tmp_path_factory.mktemp("doccols") / "run.js"
-    script.write_text(blocks_source() + DRIVER, encoding="utf-8")
+    preamble = f"const INSERTED_COLUMNS = {json.dumps(inserted_columns())};\n"
+    script.write_text(blocks_source() + preamble + DRIVER, encoding="utf-8")
     out = subprocess.run(
         [node, str(script)], capture_output=True, text=True, timeout=60, check=False
     )

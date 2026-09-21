@@ -69,3 +69,54 @@ def test_embed_other_http_error_stays_generic(monkeypatch):
     message = str(excinfo.value)
     assert "failed" in message
     assert "nomic-embed-text" in message  # names the model that failed
+
+
+#: **Every failure names its way out.** Asked for directly: "if the embedding
+#: model fails or has an error, it suggests to download nomic-embed-text...
+#: make sure all features and alternatives are easily knoticable by and
+#: offered for the user".
+#:
+#: The wrong-kind-of-model case above was already covered. The other routine
+#: way this breaks is a model that is selected but never downloaded, where
+#: Ollama answers 404 "model not found", and that fell through to a raw
+#: "Embedding with 'x' failed: 404 Client Error".
+def test_a_model_that_was_never_downloaded_says_how_to_download_it(monkeypatch):
+    _patch_post(monkeypatch, _FakeResponse(404, 'model "nomic-embed-text" not found'))
+    client = OllamaClient(base_url="http://localhost:11434")
+
+    with pytest.raises(OllamaError) as excinfo:
+        client.embed("nomic-embed-text", "hello")
+
+    message = str(excinfo.value)
+    assert "not downloaded" in message
+    #: Where the button is, since this app pulls models for you, and the
+    #: command for anyone who would rather type it.
+    assert "Settings" in message and "ollama pull nomic-embed-text" in message
+
+
+def test_it_names_the_model_the_person_chose_not_the_recommended_one(monkeypatch):
+    """Telling somebody to download a *different* model than the one they
+    picked is a second decision they did not ask to make. The recommendation
+    is offered after the fact, for anyone who is not sure."""
+    _patch_post(monkeypatch, _FakeResponse(404, "not found"))
+    client = OllamaClient(base_url="http://localhost:11434")
+
+    with pytest.raises(OllamaError) as excinfo:
+        client.embed("mxbai-embed-large", "hello")
+
+    message = str(excinfo.value)
+    assert "ollama pull mxbai-embed-large" in message
+    assert "nomic-embed-text" in message, "the recommendation is still offered"
+
+
+def test_even_an_unrecognised_failure_says_where_to_change_the_model(monkeypatch):
+    _patch_post(monkeypatch, _FakeResponse(503, "upstream boom"))
+    client = OllamaClient(base_url="http://localhost:11434")
+
+    with pytest.raises(OllamaError) as excinfo:
+        client.embed("nomic-embed-text", "hello")
+
+    assert "Settings" in str(excinfo.value), (
+        "a failure nobody anticipated still has a way out, and it is the same "
+        "one: the page where the embedding model is chosen"
+    )

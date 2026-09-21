@@ -25,7 +25,6 @@ import json
 import logging
 from dataclasses import dataclass
 
-import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -33,6 +32,19 @@ from memorymap.ai import librarian
 from memorymap.ai.embeddings import EmbeddingService, bytes_to_vector, cosine_similarity
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
+
+# **No `TYPE_CHECKING: import numpy as np` here.** CodeQL flagged it as
+# unused and CodeQL was right, which is worth writing down because the import
+# looked obviously necessary: the two annotations naming `np.ndarray` are
+# *local variable* annotations inside `_best_centroid_match` and `_knn_match`,
+# and both of those functions already import numpy for real at their top. The
+# local name resolves the annotation for a type checker, so the module-level
+# one paid a lint finding for nothing.
+#
+# The deferral it was part of stands: numpy is imported inside those two
+# functions alone, because every other filing path here (the chat-model
+# attempt, "no AI available") never touches a vector and must not pay to load
+# one.
 from memorymap.core import deps
 from memorymap.core.database import Category, EmbeddingRecord, Entry
 from memorymap.core.logbuffer import safe_value
@@ -246,6 +258,8 @@ def _best_centroid_match(
     if not rows:
         return None
 
+    import numpy as np
+
     vectors_by_category: dict[str, list[np.ndarray]] = {}
     for name, blob in rows:
         vectors_by_category.setdefault(name, []).append(bytes_to_vector(blob))
@@ -301,6 +315,8 @@ def _knn_match(
     # already avoids for the equivalent all-pairs comparison. One query vector
     # against N candidates is a single matrix-vector product, not a block sweep
     # (no N² blow-up to guard against the way `similar_pairs` does).
+    import numpy as np
+
     names = [name for name, _blob in rows]
     matrix = np.stack([bytes_to_vector(blob) for _name, blob in rows]).astype("float32")
     query_vec = note_vector.astype("float32")

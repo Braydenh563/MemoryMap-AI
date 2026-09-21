@@ -544,6 +544,20 @@ header#top-bar,
    this is the ink for *that node's colour*, which does not change with the
    theme, and `--ink` inverting under dark would take white text onto a pale
    branch. */
+/* The one hidden element `mapPreviewTextWidth` measures a preview label in.
+   Off screen rather than `display: none`, because a box with no layout has no
+   text metrics either and `getComputedTextLength` would return 0. A class,
+   not an inline `style=`, which the app's CSP refuses. */
+.map-preview-measure {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .board-minimap-label-inside {
   opacity: 0.95;
 }
@@ -1268,5 +1282,34 @@ header#top-bar,
 
   .dock .dock-find {
     min-width: min-content;
+  }
+}
+
+/* **An extras row stacks on a phone.** `.extras-row .entry-meta` is
+   `flex-wrap: nowrap` so the buttons never drop below the title (INBOX 107c,
+   measured at 1440 and 820), and that is right at those widths. At 390 it is
+   not: the buttons are 220px of a 268px row, they do not shrink, and the
+   title column is left with 48px, which measured as a 40px column 207px tall
+   with the model's name wrapping to roughly a character a line.
+
+   Below 600px the row wraps instead, so the name takes the width and the
+   buttons take the line under it. The same width band the rest of this file
+   already treats as the phone. */
+@media (max-width: 599.98px) {
+  .extras-row .entry-meta {
+    flex-wrap: wrap;
+  }
+
+  /* With the row wrapped, the title no longer has to be the shrinking column:
+     it takes the full width and the buttons sit under it, left-aligned with
+     everything else on the screen rather than pushed to an edge the eye is
+     not reading from on a narrow page. */
+  .extras-row .entry-title {
+    flex: 1 1 100%;
+  }
+
+  .extras-row .entry-actions {
+    margin-left: 0;
+    flex-wrap: wrap;
   }
 }

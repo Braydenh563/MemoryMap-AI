@@ -15,9 +15,38 @@ from __future__ import annotations
 
 import re
 
+from memorymap.ai import offline
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 
+#: **Says how, not just what.** Every message in this app that reported the
+#: model being unavailable said "start Ollama" and stopped there, which is no
+#: help to somebody who has never installed it and misleading to somebody
+#: whose copy is running on a different port. `offline.ollama_hint` tells
+#: those two apart and names the way out of each. See INBOX 272.
+#:
+#: A function rather than a constant now, because the hint depends on what is
+#: true on this machine, and a constant would fix that at import time.
+def offline_message() -> str:
+    return offline.offline_message(
+        "The AI isn't running, so it can't draft this yet. Nothing you've "
+        "typed is lost."
+    )
+
+
+def was_offline(note: str | None) -> bool:
+    """Did this turn end because the model was not there.
+
+    The route used to decide by comparing the returned note against the
+    constant, which is a string identity check across a module boundary: it
+    broke the moment the message stopped being a constant, and it would have
+    broken just as quietly on a reworded sentence. Named here, beside the
+    message it is about, so the two cannot drift apart again.
+    """
+    return bool(note) and note == offline_message()
+
+
+#: Kept for anything still importing the name.
 OFFLINE_MESSAGE = (
     "The AI isn't running, so it can't draft this yet. Start Ollama and try "
     "again: nothing you've typed is lost."
@@ -92,7 +121,7 @@ def compose(
     if not (thoughts or "").strip() and not (draft or "").strip():
         return "", None
     if not ollama.is_running():
-        return (draft or ""), OFFLINE_MESSAGE
+        return (draft or ""), offline_message()
 
     try:
         reply = ollama.chat(
@@ -100,7 +129,7 @@ def compose(
             build_messages(thoughts, draft, instruction),
         )
     except OllamaError:
-        return (draft or ""), OFFLINE_MESSAGE
+        return (draft or ""), offline_message()
 
     text = (reply.get("content") or "").strip()
     if not text:
@@ -163,7 +192,7 @@ def compose_document_edit(
     """
     empty_fallback = "" if verb == "write" else content
     if not ollama.is_running():
-        return empty_fallback, OFFLINE_MESSAGE
+        return empty_fallback, offline_message()
 
     if verb == "write":
         system = DOCUMENT_WRITE_PROMPT
@@ -183,7 +212,7 @@ def compose_document_edit(
             [{"role": "system", "content": system}, {"role": "user", "content": user}],
         )
     except OllamaError:
-        return empty_fallback, OFFLINE_MESSAGE
+        return empty_fallback, offline_message()
 
     text = (reply.get("content") or "").strip()
     if not text:

@@ -77,6 +77,9 @@ SYSTEM_PROMPT = (
     f"report goes to {SUPPORT_EMAIL} with the bundle to attach."
 )
 
+#: Kept only for anything still importing the name. The Guide no longer
+#: answers with an apology when the model is off: see `offline_answer`, which
+#: hands over the help text this sentence used to point at.
 OFFLINE_MESSAGE = (
     f"{GUIDE_NAME} isn't available right now (the local model doesn't seem "
     "to be running): the Help topics above still work without it."
@@ -243,12 +246,20 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "appearance",
-        "keywords": ("theme", "dark mode", "light mode", "accent colour", "accent color", "font", "density", "glass"),
+        "keywords": (
+            "theme", "dark mode", "light mode", "accent colour", "accent color", "font",
+            "density", "glass", "performance", "performance mode", "animation", "animations",
+            "slow", "laggy", "blur",
+        ),
         "body": (
             "Settings -> Appearance controls theme (light/dark/system), accent "
             "colour, fonts, density, glass effects and the animated background. "
             "High-contrast and reduce-motion options are there for comfort and "
-            "accessibility."
+            "accessibility. Performance mode (Effects & accessibility) turns off "
+            "the frosted-glass blur, the animations and the animated background "
+            "and slows the graph physics, for a slow or small machine; Auto "
+            "switches it on by itself on a machine with 2 cores or 4 GB or fewer, "
+            "and On or Off overrides that."
         ),
         "badge": {"label": "Appearance", "section": "appearance"},
     },
@@ -697,6 +708,74 @@ def _prompt_for(
     return messages, topics
 
 
+#: **The Guide, with no model running.**
+#:
+#: Asked for directly: *"I want to maximise the ability and function of all
+#: the application features without ai, the ai features should just be the
+#: bonus"*, and then again for this surface by name.
+#:
+#: The Guide is the one AI feature that never needed a model to be useful. Its
+#: entire knowledge of this app is `HELP_TOPICS` above: one hand-written
+#: paragraph per feature area, which is also the model's *only* source of
+#: facts when a model does answer. `topics_for` picks the right ones from the
+#: question and the tab, by keyword, with no inference anywhere in it. So with
+#: no model the honest answer is not "I am not available": it is those
+#: paragraphs, unedited, which is most of what the model would have said to
+#: begin with.
+#:
+#: What is lost without the model is real and is not hidden: the paragraphs
+#: are not rewritten to fit the question, several may arrive when one would
+#: have done, and a question the keywords do not reach gets nothing. The reply
+#: says so in its first line rather than passing this off as an answer
+#: composed for the asker.
+OFFLINE_LEAD = (
+    "The local model is not running, so this is the app's own help text for "
+    "what you asked about, word for word rather than written for your "
+    "question."
+)
+
+OFFLINE_NOTHING_MATCHED = (
+    "The local model is not running, and nothing in the app's own help text "
+    "matches that. Try a word from the feature's own name, a tab name, or "
+    "open Settings, Help, which lists every topic."
+)
+
+
+def offline_answer(
+    question: str,
+    tab: str | None = None,
+    context: str | None = None,
+) -> dict:
+    """The same shape `answer` returns, composed without a model.
+
+    `content`, `badges` and `sources` all come from the matched topics, so an
+    offline reply carries the same quick-access chips and the same named
+    sources an online one does: the chips are what turn "reminders live on the
+    Reminders tab" into a way to get there, and they are exactly as true with
+    the model off.
+    """
+    question = (question or "").strip()[:MAX_MESSAGE_CHARS]
+    topics = topics_for(question, tab) if question else []
+    if not topics:
+        #: The app's help text for whatever is on screen, when there is any:
+        #: a question this could not place is still a question asked *from
+        #: somewhere*, and that somewhere describes itself.
+        on_screen = (context or "").strip()[:MAX_CONTEXT_CHARS]
+        if on_screen:
+            return {
+                "content": f"{OFFLINE_LEAD}\n\n{on_screen}",
+                "badges": [],
+                "sources": [],
+            }
+        return {"content": OFFLINE_NOTHING_MATCHED, "badges": [], "sources": []}
+    body = "\n\n".join(topic["body"] for topic in topics)
+    return {
+        "content": f"{OFFLINE_LEAD}\n\n{body}",
+        "badges": badges_for(topics),
+        "sources": source_names(topics),
+    }
+
+
 def answer_stream(
     question: str,
     model_manager: ModelManager,
@@ -725,8 +804,12 @@ def answer_stream(
         yield {"type": "done", "content": "", "badges": [], "sources": []}
         return
     if not ollama.is_running():
-        yield {"type": "delta", "text": OFFLINE_MESSAGE}
-        yield {"type": "done", "content": OFFLINE_MESSAGE, "badges": [], "sources": []}
+        #: Not a canned apology: the app's own help text for what was asked,
+        #: with the same chips and sources an answered turn carries. See
+        #: `offline_answer`.
+        offline = offline_answer(question, tab, context)
+        yield {"type": "delta", "text": offline["content"]}
+        yield {"type": "done", **offline}
         return
 
     messages, topics = _prompt_for(question, history, tab, context)
@@ -768,7 +851,7 @@ def answer(
     if not question:
         return {"content": "", "badges": [], "sources": []}
     if not ollama.is_running():
-        return {"content": OFFLINE_MESSAGE, "badges": [], "sources": []}
+        return offline_answer(question, tab, context)
 
     messages, topics = _prompt_for(question, history, tab, context)
     reply = ollama.chat(model_manager.utility_model(), messages, mode="quick")

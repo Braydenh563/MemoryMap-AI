@@ -90,7 +90,7 @@ def test_offline_falls_back_to_one_plain_note(client, session):
     assert result["notes"][0]["content"] == "some thoughts to save"
     assert result["ollama_running"] is False
     assert result["links"] == []
-    assert result["message"] == extractor.OFFLINE_MESSAGE
+    assert result["message"] == extractor.offline_message()
 
 
 def test_unparsable_split_reply_falls_back_to_one_note_not_an_error(ai_client, fake_ollama, session):
@@ -211,7 +211,7 @@ def test_preview_without_ollama_is_one_plain_note_and_says_so(client):
     assert len(body["notes"]) == 1
     assert body["notes"][0]["content"] == "raw thoughts"
     assert body["ollama_running"] is False
-    assert body["message"] == extractor.OFFLINE_MESSAGE
+    assert body["message"] == extractor.offline_message()
 
 
 # --- API: /entries/extract/commit ---------------------------------------------

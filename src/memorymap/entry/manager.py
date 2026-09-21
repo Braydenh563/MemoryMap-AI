@@ -788,8 +788,8 @@ def unarchive_entry(session: Session, entry: Entry) -> None:
     session.commit()
 
 
-def _board_type_of(session: Session, board_id: int) -> str:
-    """"map" or "board" for the note with this id.
+def board_type_of(entry: Entry | None) -> str:
+    """"map" or "board" for a note that is one.
 
     A one-line read of `Entry.board_settings`, duplicated from
     `routes_whiteboard._board_settings` rather than imported: `entry/manager`
@@ -798,8 +798,12 @@ def _board_type_of(session: Session, board_id: int) -> str:
     Tolerant of every shape a JSON text column can hold, for the same reason
     the original is: a bad value must degrade to "an ordinary board", never
     to an exception in the middle of emptying the bin.
+
+    Public, and takes the row rather than an id, because a second caller
+    turned up (`routes_entries._reference_rows`, which already has the
+    `Entry` in hand and was about to write this parse a third time). The
+    id version below is kept for the callers that only have an id.
     """
-    entry = session.get(Entry, board_id)
     if entry is None:
         return "board"
     try:
@@ -809,6 +813,11 @@ def _board_type_of(session: Session, board_id: int) -> str:
     if not isinstance(parsed, dict):
         return "board"
     return "map" if parsed.get("type") == "map" else "board"
+
+
+def _board_type_of(session: Session, board_id: int) -> str:
+    """"map" or "board" for the note with this id."""
+    return board_type_of(session.get(Entry, board_id))
 
 
 #: The one shape a whiteboard image url may take, the same allowlist as
@@ -1949,6 +1958,15 @@ def plain_label(content: str, limit: int = 80) -> str:
     first = re.sub(r"^#{1,6}\s*", "", first)          # heading markers
     first = re.sub(r"^[-*+]\s+|^>\s*", "", first)     # list bullet / quote
     first = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", first)  # images, alt and all
+    #: **Before the markdown link rule, because that one cannot see this.**
+    #: `[text](url)` needs the `(url)` to match, so `[[a wiki link]]` fell
+    #: straight through it and every chip for a note whose first line links
+    #: to another note read `[[The roof quote]]`, brackets and all. Found
+    #: while building the references row (INBOX 246), where four of the five
+    #: source labels were wiki links and every one of them showed its
+    #: brackets. Same rule as the markdown link below: the link keeps its
+    #: text, because the text is what the note says.
+    first = WIKI_LINK.sub(r"\1", first)
     first = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", first)  # links keep their text
     first = re.sub(r"[*_`~]{1,3}", "", first)          # emphasis, code, strike
     first = re.sub(r"\s+", " ", first).strip()

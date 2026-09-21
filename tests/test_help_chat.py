@@ -10,11 +10,23 @@ from pathlib import Path
 from memorymap.ai import help_chat
 
 
-def test_ask_without_ai_returns_offline_message_never_5xx(client):
+def test_ask_without_ai_answers_from_the_help_text_never_5xx(client):
+    """With no model, the route still answers, and now it answers usefully.
+
+    It used to return a sentence saying the guide was unavailable, while
+    holding the exact hand-written paragraph the question was about. The
+    badges were empty for the same reason, and they are the thing that turns
+    "reminders live on the Reminders tab" into a way of getting there.
+    """
     response = client.post("/help/ask", json={"question": "how do I set a reminder?"})
     assert response.status_code == 200
-    assert "doesn't seem to be running" in response.json()["content"]
-    assert response.json()["badges"] == []
+    body = response.json()
+    assert help_chat.OFFLINE_LEAD in body["content"], (
+        "the reply has to say it is the app's help text rather than an answer "
+        "written for the question"
+    )
+    assert "reminder" in body["content"].lower()
+    assert {"label": "Reminders", "tab": "reminders"} in body["badges"]
 
 
 def test_ask_with_only_whitespace_is_a_no_op_not_a_model_call(ai_client, fake_ollama):
@@ -258,14 +270,18 @@ def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama
     from pathlib import Path
 
     frontend = Path(__file__).resolve().parents[1] / "frontend"
+    app_js = (frontend / "app.js").read_text(encoding="utf-8")
     settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
     index = (frontend / "index.html").read_text(encoding="utf-8")
 
     assert help_chat.GUIDE_NAME == "Atlas"
     #: Spelt once on each side (INBOX 225): the frontend's `AI_NAME` is the
     #: word, and `GUIDE_NAME` reads it, so the guide and the librarian can
-    #: never drift apart by one edit.
-    assert f'const AI_NAME = "{help_chat.GUIDE_NAME}"' in settings_js
+    #: never drift apart by one edit. The constant is in app.js, the first
+    #: script index.html loads, not settings.js, the last: a name declared in
+    #: the last script on the page cannot be read by anything that runs at
+    #: load, which is why `aiNameNow()` needed a fallback to exist at all.
+    assert f'const AI_NAME = "{help_chat.GUIDE_NAME}"' in app_js
     assert "const GUIDE_NAME = AI_NAME" in settings_js
     #: The sheet's own title comes from that constant rather than a literal.
     assert "label: GUIDE_NAME," in settings_js
@@ -274,7 +290,10 @@ def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama
     #: The model is told who it is in the first system message, not in a
     #: reference note that a question may or may not pull in.
     assert help_chat.SYSTEM_PROMPT.startswith(f"You are {help_chat.GUIDE_NAME},")
-    assert help_chat.GUIDE_NAME in help_chat.OFFLINE_MESSAGE
+    #: The offline reply no longer names the guide, because it is no longer
+    #: the guide speaking: it is the app's own help text, handed over
+    #: verbatim (`offline_answer`). Claiming a persona wrote it would be the
+    #: one false note in a reply whose whole point is that nothing wrote it.
 
 
 def test_the_guide_can_answer_what_it_is():
@@ -441,14 +460,81 @@ def test_the_streamed_turn_sends_the_same_prompt_as_the_one_shot_turn():
     assert isinstance(topics, list)
 
 
+class _Offline:
+    def is_running(self):
+        return False
+
+
+class _FakeManager:
+    def utility_model(self):
+        return "test-model"
+
+
 def test_a_stopped_provider_still_answers_the_streamed_turn():
-    class Offline:
-        def is_running(self):
-            return False
+    events = list(help_chat.answer_stream("anything", _FakeManager(), _Offline()))
+    assert events[-1]["type"] == "done"
+    assert events[-1]["content"]
 
-    class FakeManager:
-        def utility_model(self):
-            return "test-model"
 
-    events = list(help_chat.answer_stream("anything", FakeManager(), Offline()))
-    assert events[-1]["content"] == help_chat.OFFLINE_MESSAGE
+#: **The guide answers with no model at all.**
+#:
+#: Asked for directly: "I want to maximise the ability and function of all the
+#: application features without ai, the ai features should just be the bonus."
+#:
+#: The guide is the one AI surface that never needed a model to be useful: its
+#: whole knowledge of this app is `HELP_TOPICS`, hand-written, and those
+#: paragraphs are also the model's only source of facts when a model does
+#: answer. With the provider stopped it used to say it was unavailable while
+#: holding the exact paragraph that answered the question.
+def test_the_guide_answers_from_its_own_help_text_with_no_model():
+    reply = help_chat.offline_answer("how do I set a reminder?")
+    assert help_chat.OFFLINE_LEAD in reply["content"], (
+        "an offline reply must say that this is the app's help text rather "
+        "than an answer written for the question"
+    )
+    #: The body of the topic the keywords reached, not a paraphrase of it.
+    topics = help_chat.topics_for("how do I set a reminder?")
+    assert topics, "the fixture question must match a topic, or this proves nothing"
+    assert topics[0]["body"] in reply["content"]
+    #: And the same chips an answered turn carries: they are what turn "that
+    #: lives on the Reminders tab" into a way to get there, and they are
+    #: exactly as true with the model off.
+    assert reply["badges"] and reply["sources"]
+
+
+def test_the_streamed_offline_turn_is_the_same_reply():
+    """One composer, so the streamed and one-shot turns cannot drift: the same
+    reason `_prompt_for` exists for the online pair."""
+    question = "how do I set a reminder?"
+    once = help_chat.answer(question, _FakeManager(), _Offline())
+    streamed = list(help_chat.answer_stream(question, _FakeManager(), _Offline()))
+    assert streamed[-1]["content"] == once["content"]
+    assert streamed[-1]["badges"] == once["badges"]
+    assert "".join(e["text"] for e in streamed if e["type"] == "delta") == once["content"]
+
+
+def test_a_question_the_help_text_cannot_place_says_so_and_says_what_to_try():
+    reply = help_chat.offline_answer("xyzzy plugh frobnicate")
+    assert reply["content"] == help_chat.OFFLINE_NOTHING_MATCHED
+    assert "Settings" in reply["content"], "it has to name somewhere to look next"
+
+
+def test_an_unplaceable_question_falls_back_to_what_is_on_screen():
+    """A question this could not place is still asked from somewhere, and that
+    somewhere describes itself: the app sends the help text for the surface in
+    view as `context`."""
+    reply = help_chat.offline_answer(
+        "xyzzy plugh frobnicate", context="The board holds cards you can drag."
+    )
+    assert "The board holds cards you can drag." in reply["content"]
+
+
+def test_performance_mode_has_a_help_topic():
+    """Reported with a screenshot: "What does Performance mode do?" answered
+    "I'm not sure" with a Dashboard badge. The setting existed, the help
+    text did not, so the model was told to say it was not sure and did."""
+    topics = help_chat._matching_topics("What does Performance mode do?")
+    assert [t["id"] for t in topics][:1] == ["appearance"]
+    assert "Performance mode" in topics[0]["body"]
+    assert "2 cores" in topics[0]["body"]
+

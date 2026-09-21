@@ -161,10 +161,98 @@ let wbErasing = false;
 // anchor-hint redraw with a second, slightly-stale one.
 let wbLinkDragActive = false;
 // Which attached-note cards are expanded past their clamp, keyed by node id
-// (the whiteboard attachment, not the note itself), same "remember per card
-// for the session" shape as `expandedNotes` on the Notes list. A plain `let`
-// module-level Set, not persisted: reopening the board later re-clamps.
-const wbExpandedNodes = new Set();
+// (the whiteboard attachment, not the note itself), same "remember per card"
+// shape as `expandedNotes` on the Notes list.
+//
+//: **Kept across sessions**, asked for directly: "the state of note objects
+//: in the whiteboard and mindmap for if they are expanded or not should be
+//: persistant" (INBOX 238). It was a session-only Set, so every reload
+//: re-clamped a board someone had spent a minute opening the right cards on.
+//:
+//: In `localStorage`, which is where every other thing this board remembers
+//: about how it is being *looked at* already lives: the grid and snap
+//: settings, the alignment guide colours, the background colour and image,
+//: the navigator's open state, the map's perspective. Which cards are open
+//: is that kind of fact, not part of the board's content, and keeping it
+//: here needs no migration and no round trip on a click.
+//:
+//: One key rather than one per board: a node id is unique across boards, so
+//: nothing is gained by splitting it, and a single list is what makes the
+//: cap below able to bound the whole thing.
+const WB_EXPANDED_KEY = "wb-expanded-nodes";
+//: Enough for any real board, and a ceiling so this cannot grow forever as
+//: boards and their cards are deleted. Deleting a board does not come back
+//: here to tidy up, and it should not have to: the oldest entries fall off
+//: instead, and the only cost of dropping one is a card that opens clamped.
+const WB_EXPANDED_MAX = 500;
+
+const wbExpandedNodes = new Set(
+  (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(WB_EXPANDED_KEY) || "[]");
+      return Array.isArray(saved) ? saved.filter((id) => Number.isFinite(id)) : [];
+    } catch {
+      //: A key someone edited by hand, or a storage a browser has switched
+      //: off. Neither is worth failing the whole board's script over, and
+      //: "every card opens clamped" is the same as the old behaviour.
+      return [];
+    }
+  })()
+);
+
+function wbSaveExpandedNodes() {
+  try {
+    //: Newest last, so the slice keeps the cards most recently opened. A
+    //: `Set` iterates in insertion order, which is what makes that true
+    //: without tracking a timestamp per id.
+    const ids = [...wbExpandedNodes].slice(-WB_EXPANDED_MAX);
+    if (ids.length !== wbExpandedNodes.size) {
+      wbExpandedNodes.clear();
+      for (const id of ids) wbExpandedNodes.add(id);
+    }
+    localStorage.setItem(WB_EXPANDED_KEY, JSON.stringify(ids));
+  } catch {
+    //: Storage full or blocked. The board still works; it just forgets.
+  }
+}
+
+//: Show the "Show more" only on the cards that are actually hiding
+//: something. Every read happens before every write, deliberately: a loop
+//: that measured one card and then changed it would force the browser to
+//: lay the whole board out again for the next measurement, which on a two
+//: hundred card board is two hundred reflows instead of one.
+//:
+//: An expanded card always keeps its control, whatever it measures: with
+//: the clip off, its content fits by definition, so asking the same
+//: question of it would hide the only way back to "Show less".
+function wbSyncCardClamps() {
+  const wanted = [];
+  for (const card of document.querySelectorAll(".node-card")) {
+    const content = card.querySelector(".wb-card-content");
+    const toggle = card.querySelector(".wb-card-more");
+    if (!content || !toggle) continue;
+    wanted.push([
+      toggle,
+      !content.classList.contains("wb-card-content-clamped") ||
+        content.scrollHeight > content.clientHeight + 1,
+    ]);
+  }
+  for (const [toggle, needed] of wanted) toggle.hidden = !needed;
+}
+
+//: One sync per frame however many renders asked for it. `renderWhiteboard`
+//: runs on every state change and a drag can fire several in a frame;
+//: measuring once at the end of the frame is both cheaper and more correct,
+//: since it reads the layout every one of those renders has settled into.
+let wbClampSyncFrame = null;
+function wbScheduleCardClampSync() {
+  if (wbClampSyncFrame !== null) return;
+  wbClampSyncFrame = requestAnimationFrame(() => {
+    wbClampSyncFrame = null;
+    wbSyncCardClamps();
+  });
+}
+
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -386,13 +474,18 @@ const WB_ALIGN_SNAP_PX = 6; // board units: matches WB_GRID_SPACING's own order 
 //: once, on the first move, and reused until the pointer is released.
 let wbGuideBoxCache = null;
 
-function wbGuideBoxes(excludeKind, excludeId) {
-  const key = `${excludeKind}:${excludeId}`;
+//: `excludeKeys` is a set of `wbMultiKey` strings, because what has to be
+//: left out of the targets is *everything being dragged*, which is one item
+//: for a plain drag and the whole selection for a group one. It used to be a
+//: single kind and id, so a group drag would have snapped its own members to
+//: each other, which is why group drags had no guides at all.
+function wbGuideBoxes(excludeKeys) {
+  const key = excludeKeys ? [...excludeKeys].sort().join(",") : "";
   if (wbGuideBoxCache && wbGuideBoxCache.key === key) return wbGuideBoxCache.boxes;
   const boxes = [];
   for (const [kind, listName] of [["node", "nodes"], ["object", "objects"]]) {
     for (const item of wbState[listName] || []) {
-      if (kind === excludeKind && item.id === excludeId) continue;
+      if (excludeKeys && excludeKeys.has(wbMultiKey(kind, item.id))) continue;
       const box = wbItemBBox(kind, item);
       if (box) boxes.push(box);
     }
@@ -409,10 +502,78 @@ function wbClearGuideBoxCache() {
 window.addEventListener("pointerup", wbClearGuideBoxCache, true);
 window.addEventListener("pointercancel", wbClearGuideBoxCache, true);
 
-function wbAlignmentGuides(excludeKind, excludeId, x, y, w, h) {
+//: **The box the whole selection occupies, for a group drag.**
+//:
+//: A single drag asks the guides about the item under the pointer. A group
+//: drag has no single item to ask about, which is why it used to ask about
+//: nothing: the guide block was written `if (!bypassSnap && !d._bulkOrigin)`,
+//: so selecting several things and moving them turned the alignment guides
+//: off, exactly when lining things up is what you are doing.
+//:
+//: What a group should align is its own outer box, which is what every
+//: drawing app does with a multi-selection. `_bulkOrigin` holds every *other*
+//: member at the position the drag started from (the dragged item is
+//: deliberately not in it, since its own handler moves it), so the group's
+//: starting box is those plus the dragged item's own origin, and its box
+//: this frame is that shifted by how far the dragged item has come.
+//:
+//: Returns null when there is nothing to measure, so the caller falls back
+//: to the plain single-item path rather than guessing.
+//: `self` is for a dragged item that has no x/y/width/height of its own: a
+//: sketch is a path, and its box has to be measured from that path rather
+//: than read off the datum. Pass `{minX, minY, maxX, maxY, dx, dy}` (the
+//: item's box *before* this drag, and how far it has come) and the rest of
+//: the maths is identical, which is the point of threading it through here
+//: instead of writing the union a second time.
+function wbBulkGroupBox(d, kind, self = null) {
+  if (!d._bulkOrigin || !d._bulkOrigin.size) return null;
+  if (!self && (d._dragOriginX === undefined || d._dragOriginY === undefined)) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const add = (box) => {
+    if (!box) return;
+    minX = Math.min(minX, box.minX);
+    minY = Math.min(minY, box.minY);
+    maxX = Math.max(maxX, box.maxX);
+    maxY = Math.max(maxY, box.maxY);
+  };
+  add(
+    self || {
+      minX: d._dragOriginX,
+      minY: d._dragOriginY,
+      maxX: d._dragOriginX + (d.width || WB_CARD_DEFAULT_SIZE.w),
+      maxY: d._dragOriginY + (d.height || WB_CARD_DEFAULT_SIZE.h),
+    }
+  );
+  for (const entry of d._bulkOrigin.values()) {
+    if (entry.kind === "sketch") {
+      add(wbPathBBox(entry.d));
+    } else if (entry.x !== undefined) {
+      add({
+        minX: entry.x,
+        minY: entry.y,
+        maxX: entry.x + (entry.item.width || WB_CARD_DEFAULT_SIZE.w),
+        maxY: entry.y + (entry.item.height || WB_CARD_DEFAULT_SIZE.h),
+      });
+    }
+  }
+  if (!Number.isFinite(minX)) return null;
+  const dx = self ? self.dx : d.x - d._dragOriginX;
+  const dy = self ? self.dy : d.y - d._dragOriginY;
+  return { x: minX + dx, y: minY + dy, w: maxX - minX, h: maxY - minY };
+}
+
+//: Which keys the guides must ignore: everything moving this frame. The
+//: dragged item alone for a plain drag, the whole selection for a group one,
+//: since `_bulkOrigin` was built from it.
+function wbDragExcludeKeys(d, kind) {
+  if (!d._bulkOrigin || !d._bulkOrigin.size) return new Set([wbMultiKey(kind, d.id)]);
+  return new Set([wbMultiKey(kind, d.id), ...d._bulkOrigin.keys()]);
+}
+
+function wbAlignmentGuides(excludeKeys, x, y, w, h) {
   const dragged = { left: x, centerX: x + w / 2, right: x + w, top: y, centerY: y + h / 2, bottom: y + h };
   let bestX = null, bestY = null;
-  const others = wbGuideBoxes(excludeKind, excludeId);
+  const others = wbGuideBoxes(excludeKeys);
   {
     for (const box of others) {
       const other = {
@@ -4298,8 +4459,14 @@ async function wbMapJoinByLink(source, target) {
 function wbMapOpenReference(d) {
   const refId = d.data?.ref_id;
   if (!refId) return;
-  if (d.kind === "note" && typeof openEntryEditor === "function") {
-    openEntryEditor(refId);
+  //: `flashEntry` is the app's one door to a note: it switches to Notes,
+  //: puts the "browse" sub-tab up, clears the filters that would hide the
+  //: target, and scrolls to the card. This named `openEntryEditor`, which no
+  //: file defines, and the `typeof` guard meant the failure was silent: a
+  //: double-click on a note node fell through to the "open it from the
+  //: Library" toast, which is the message for the kinds that have no door.
+  if (d.kind === "note" && typeof flashEntry === "function") {
+    flashEntry(refId);
     return;
   }
   if (d.kind === "document" && typeof openDocument === "function") {
@@ -6843,7 +7010,37 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
   return origin;
 }
 
+//: **The selection chrome travels with the drag** (INBOX 262: "if I drag the
+//: selected group, the group selection box doesnt move with the selected
+//: objects when actively draging them around"). Measured before the fix: the
+//: cards moved 410px across a drag and the outline's left edge moved 0.
+//:
+//: A transform on the `<g>`, not a re-layout of its parts, for the reason the
+//: resize handles' own comment gives at length: every one of these groups has
+//: a live `d3.drag` bound to elements inside it, and anything that rebuilds
+//: them mid-gesture kills the gesture. The rotate handle already moves its
+//: group this way, so this is the shape the file already uses.
+//:
+//: Every handle group, not only the multi-selection's: a shape caught in the
+//: same sweep carries its own box and anchors in a `.wb-sketch-handle-group`
+//: of its own (`wbDrawSketchHandles`), and those were left behind by exactly
+//: the same amount.
+function wbTranslateSelectionChrome(dx, dy) {
+  //: Both layers, for the reason `wbClearSketchHandles` sweeps both: a
+  //: shape's own handles are in the base SVG and the group's box is in the
+  //: overlay, and a translate that missed either would leave half the chrome
+  //: behind.
+  const groups = document.querySelectorAll(
+    "#wb-zoom-group > .wb-sketch-handle-group, #wb-overlay-zoom-group > .wb-sketch-handle-group"
+  );
+  for (const group of groups) {
+    if (dx || dy) group.setAttribute("transform", `translate(${dx} ${dy})`);
+    else group.removeAttribute("transform");
+  }
+}
+
 function wbApplyBulkMove(origin, dx, dy) {
+  wbTranslateSelectionChrome(dx, dy);
   for (const entry of origin.values()) {
     if (entry.kind === "sketch") {
       const newD = wbTransformPathD(entry.d, { dx, dy });
@@ -6909,6 +7106,17 @@ async function wbSaveMapBulkMove(origin) {
 }
 
 async function wbSaveBulkMove(origin) {
+  //: **And is rebuilt where the items landed, before the save goes out.** The
+  //: translate above is a view of the drag, not the truth: the items' own
+  //: coordinates have moved, so the outline has to be recomputed from them or
+  //: it keeps the offset for as long as the selection lasts. Measured before
+  //: the fix: after the drag ended the box was still at the position the
+  //: items had started from, not just during the gesture.
+  //:
+  //: Here rather than in each of the three per-kind drag handlers, because
+  //: this is the one function all three end at, and it runs after the drag is
+  //: over, so replacing the handle elements can no longer cut a gesture short.
+  wbApplySelectionHighlight();
   const done = await wbSaveMapBulkMove(origin);
   for (const entry of origin.values()) {
     if (done && done.has(entry)) continue;
@@ -7754,8 +7962,8 @@ function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight } 
   return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
 }
 
-function wbSvgWrappedText(text, x, y, maxWidth) {
-  return wbSvgText(wbSvgWrapLines(text, maxWidth), x, y);
+function wbSvgWrappedText(text, x, y, maxWidth, maxLines) {
+  return wbSvgText(wbSvgWrapLines(text, maxWidth, maxLines), x, y);
 }
 
 // The board's full extent, every card and sketch, with padding, computed
@@ -7907,12 +8115,23 @@ function wbBuildExportSvg(scope) {
     const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
     const w = el ? el.offsetWidth : 250;
     const h = el ? el.offsetHeight : 150;
-    const label = entry ? notePreviewText(entry.content || "").slice(0, 160) : `Note ${node.entry_id}`;
+    const label = entry ? notePreviewText(entry.content || "") : `Note ${node.entry_id}`;
     parts.push(`<g transform="translate(${node.x}, ${node.y})">`);
     parts.push(
       `<rect width="${w}" height="${h}" rx="10" fill="#ffffffcc" stroke="#8888aa" stroke-width="1.5" />`
     );
-    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28));
+    //: **As many lines as the card itself is showing**, from the card's own
+    //: measured height. This used to take the first 160 characters and then
+    //: wrap them into at most six lines, which was two fixed answers to a
+    //: question the box already answers: a card someone had dragged to 700px
+    //: and expanded to show the whole note still exported six lines of it.
+    //: `h` is `el.offsetHeight`, the live card, so an expanded card exports
+    //: what it shows and a collapsed one exports what it shows.
+    //: 24 is the text's own baseline offset, 16 the line height `wbSvgText`
+    //: uses at font size 13, and 12 leaves the last line clear of the rounded
+    //: bottom edge.
+    const cardLines = Math.max(1, Math.floor((h - 24 - 12) / 16));
+    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28, cardLines));
     parts.push("</g>");
   }
 
@@ -8451,17 +8670,23 @@ const WB_EXPORT_FORMATS = [
     run: (scope) => wbExportPdf(scope),
   },
   {
-    value: "markdown", label: "Markdown", scopes: ["whole"], map: true,
+    //: `drawsCards: false`: these three read the notes themselves rather
+    //: than drawing the cards, so nothing is clipped out of them and the
+    //: export dialog's collapsed-notes warning would be a warning about
+    //: nothing. Named for what the dialog asks rather than inferred from
+    //: `map`, which happens to select the same three today and means
+    //: something else.
+    value: "markdown", label: "Markdown", scopes: ["whole"], map: true, drawsCards: false,
     note: "The map as an indented outline.",
     run: () => wbExportMapText("markdown"),
   },
   {
-    value: "opml", label: "OPML", scopes: ["whole"], map: true,
+    value: "opml", label: "OPML", scopes: ["whole"], map: true, drawsCards: false,
     note: "The interchange format every mind mapper reads.",
     run: () => wbExportMapText("opml"),
   },
   {
-    value: "freemind", label: "FreeMind", scopes: ["whole"], map: true,
+    value: "freemind", label: "FreeMind", scopes: ["whole"], map: true, drawsCards: false,
     note: "For FreeMind and Freeplane.",
     run: () => wbExportMapText("freemind"),
   },
@@ -8501,6 +8726,28 @@ function wbSyncExportSeg(seg, chosen, allowed) {
   }
 }
 
+//: How many note cards in this scope are hiding text behind their clamp.
+//:
+//: Asked for directly: "when exporting a whiteboard and/or mindmap, the user
+//: should be warned if any of their notes arent expanded and that not all
+//: their contents will be shown" (INBOX 238). Counted from the live cards
+//: rather than from the notes, because the question is whether *this card*
+//: is clipping, which depends on the box it was dragged to and not on how
+//: long the note is.
+function wbClippedCardCount(scope) {
+  const onlyKeys = scope === "selection" ? wbSelectedKeys() : null;
+  let clipped = 0;
+  for (const node of wbState.nodes) {
+    if (onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) continue;
+    const content = document.querySelector(
+      `.node-card[data-id="${node.id}"] .wb-card-content`
+    );
+    if (!content || !content.classList.contains("wb-card-content-clamped")) continue;
+    if (content.scrollHeight > content.clientHeight + 1) clipped += 1;
+  }
+  return clipped;
+}
+
 function wbExportBoard() {
   const hasSelection = wbMultiSelection.size > 0 || Boolean(wbSelectedItem);
   const isMap = wbIsMap();
@@ -8531,6 +8778,9 @@ function wbExportBoard() {
   scopeLabel.textContent = "How much";
   const note = document.createElement("p");
   note.className = "confirm-text wb-export-note";
+  const warning = document.createElement("p");
+  warning.className = "confirm-text wb-export-note status wb-export-warning";
+  warning.hidden = true;
 
   const scopeSeg = wbExportSegment("How much to export", WB_EXPORT_SCOPES, scope, (value) => {
     scope = value;
@@ -8553,6 +8803,16 @@ function wbExportBoard() {
     // Two sentences, the format's and the scope's, so the line reads the same
     // way round whichever of the two was changed last.
     note.textContent = [format.note, chosenScope ? `${chosenScope.title}.` : ""].filter(Boolean).join(" ");
+    //: Only for the formats that draw the cards. A mind map's outline and its
+    //: text exports read the notes themselves, so nothing is clipped out of
+    //: those and saying otherwise would be a warning about nothing.
+    const clipped = format.drawsCards === false ? 0 : wbClippedCardCount(scope);
+    warning.hidden = clipped === 0;
+    warning.textContent = clipped
+      ? `${clipped} note${clipped === 1 ? " is" : "s are"} collapsed, so only the ` +
+        `text you can see on ${clipped === 1 ? "it" : "them"} will be in the picture. ` +
+        `Open ${clipped === 1 ? "it" : "them"} with "Show more" first to export the whole note.`
+      : "";
   }
 
   let settled = false;
@@ -8591,7 +8851,7 @@ function wbExportBoard() {
   const exportBtn = smallButton("Export", "Export", go, false);
   exportBtn.id = "wb-export-go";
   row.append(smallButton("Cancel", "Cancel", close), exportBtn);
-  card.append(head, formatLabel, formatSeg, scopeLabel, scopeSeg, note, row);
+  card.append(head, formatLabel, formatSeg, scopeLabel, scopeSeg, note, warning, row);
   overlay.appendChild(card);
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);
@@ -12180,6 +12440,46 @@ function wbEntryBox(entry) {
   return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
 }
 
+//: **The box an item actually occupies, rotation included.**
+//:
+//: `wbEntryBox` above returns the item's *layout* box: the `x`, `y`, `width`
+//: and `height` stored on the row, which is what a resize has to write back
+//: and so is the only thing the group-scale maths may use. A rotated card
+//: does not occupy that box. Measured with one card at 0 degrees and one at
+//: 45: the group outline drawn from layout boxes missed the rotated card by
+//: 61px above, 61px below and 21px to the right, so a selection you could
+//: see was drawn inside a card you had selected.
+//:
+//: The corners of the layout box turned about its own centre, which is what
+//: `translate() rotate()` does to the element (`transform-origin` resolves
+//: to 50% 50% in the untouched box), and then the axis-aligned box around
+//: those four points.
+//:
+//: Deliberately a second function rather than a change to `wbEntryBox`: the
+//: two boxes answer different questions, and the group resize needs the
+//: layout one. Giving it this one instead would write a rotated card's
+//: bounding box back as its `width` and `height`, which grows the card every
+//: time the group is scaled.
+function wbEntryOutlineBox(entry) {
+  const box = wbEntryBox(entry);
+  if (!box) return null;
+  const rotation = entry.kind === "sketch" ? 0 : entry.item.rotation || 0;
+  if (!rotation) return box;
+  const centre = wbBoxCenter(box);
+  const corners = [
+    { x: box.minX, y: box.minY },
+    { x: box.maxX, y: box.minY },
+    { x: box.minX, y: box.maxY },
+    { x: box.maxX, y: box.maxY },
+  ].map((corner) => wbRotatePoint(corner, centre, rotation));
+  return {
+    minX: Math.min(...corners.map((c) => c.x)),
+    minY: Math.min(...corners.map((c) => c.y)),
+    maxX: Math.max(...corners.map((c) => c.x)),
+    maxY: Math.max(...corners.map((c) => c.y)),
+  };
+}
+
 //: What every frame of a group drag is computed from, taken once at the
 //: start: reading it back off the items each frame compounds the rounding
 //: into a shape that drifts while the pointer is still.
@@ -12215,11 +12515,15 @@ function wbRenderMultiSelectionHandles() {
   if (entries.length < 2) return;
   const boxes = entries.map((entry) => ({ entry, box: wbEntryBox(entry) })).filter((row) => row.box);
   if (boxes.length < 2) return;
+  //: The outline is drawn around what the items occupy (rotation included);
+  //: `row.box` stays the layout box, because that is what the resize below
+  //: writes back. See `wbEntryOutlineBox` for why the two cannot be one.
+  const outlines = boxes.map((row) => wbEntryOutlineBox(row.entry) || row.box);
   const bbox = {
-    minX: Math.min(...boxes.map((row) => row.box.minX)),
-    minY: Math.min(...boxes.map((row) => row.box.minY)),
-    maxX: Math.max(...boxes.map((row) => row.box.maxX)),
-    maxY: Math.max(...boxes.map((row) => row.box.maxY)),
+    minX: Math.min(...outlines.map((box) => box.minX)),
+    minY: Math.min(...outlines.map((box) => box.minY)),
+    maxX: Math.max(...outlines.map((box) => box.maxX)),
+    maxY: Math.max(...outlines.map((box) => box.maxY)),
   };
   //: Each shape's own box and anchors as well as the group's, because that is
   //: what the same sweep already gives a card or a text box: they carry their
@@ -12228,7 +12532,21 @@ function wbRenderMultiSelectionHandles() {
   for (const row of boxes) {
     if (row.entry.kind === "sketch") wbDrawSketchHandles(row.entry.item);
   }
-  const group = d3.select("#wb-zoom-group")
+  //: **The overlay layer, not the base one** (INBOX 262: "not being able to
+  //: drag the edges of a group selection"). The base SVG paints *under*
+  //: `#wb-html-layer`, which is where a card and its own eight handles live,
+  //: so a group handle that landed on a member's corner was both invisible
+  //: and unclickable: measured with `elementFromPoint` at each handle's own
+  //: centre, 6 of the 8 returned a card's `.wb-resize-handle` instead. The
+  //: link endpoint handles moved up here for exactly this reason and their
+  //: comment records it; a group box is the same case, since its corners are
+  //: the union of the members' corners and so sit on a member by definition.
+  //:
+  //: The members keep their own handles, visible and usable away from the
+  //: group's eight: that was asked for directly ("when I drag select shapes,
+  //: the individual anchor/rotate boxes dont appear"), so the fix is which
+  //: layer wins the press, not which handles are drawn.
+  const group = d3.select("#wb-overlay-zoom-group")
     .append("g")
     .attr("class", "wb-sketch-handle-group wb-multi-handle-group");
   const boxRect = group.append("rect").attr("class", "wb-sketch-selection-box");
@@ -12768,7 +13086,37 @@ function renderWhiteboard() {
       d._dragRawDX += event.dx / transform.k;
       d._dragRawDY += event.dy / transform.k;
       const bypassSnap = event.sourceEvent?.altKey;
-      const dx = wbSnap(d._dragRawDX, bypassSnap), dy = wbSnap(d._dragRawDY, bypassSnap);
+      let dx = wbSnap(d._dragRawDX, bypassSnap), dy = wbSnap(d._dragRawDY, bypassSnap);
+      //: **A sketch gets the alignment guides too.** Reported: "Alignment bars
+      //: don't appear for group selections". Measured, a group of *cards* has
+      //: had them since `wbBulkGroupBox` landed, and they draw correctly; this
+      //: handler is the one that never asked for them at all, solo or in a
+      //: group. So a marquee that happened to catch a sketch, dragged by that
+      //: sketch, was the one selection on the board with no guides, which is
+      //: exactly the report.
+      //:
+      //: A sketch has no x/y/width/height, only a path, so its box comes from
+      //: `wbPathBBox` and goes into the shared union through `self`.
+      if (!bypassSnap) {
+        const origin = wbPathBBox(d._dragOriginalD);
+        if (origin) {
+          const group = wbBulkGroupBox(d, "sketch", { ...origin, dx, dy });
+          const box = group || {
+            x: origin.minX + dx,
+            y: origin.minY + dy,
+            w: origin.maxX - origin.minX,
+            h: origin.maxY - origin.minY,
+          };
+          const snap = wbAlignmentGuides(
+            wbDragExcludeKeys(d, "sketch"), box.x, box.y, box.w, box.h
+          );
+          dx += snap.dx;
+          dy += snap.dy;
+          wbShowAlignmentGuides(snap.guideLines);
+        }
+      } else {
+        wbClearAlignmentGuides();
+      }
       const newD = wbTransformPathD(d._dragOriginalD, { dx, dy });
       d._dragLiveD = newD;
       const el = document.querySelector(`.sketch-group[data-id="${d.id}"]`);
@@ -12782,6 +13130,9 @@ function renderWhiteboard() {
       wbClearSketchHandles();
     })
     .on("end", async function (event, d) {
+      //: Every exit, before the early returns below: a guide left on the
+      //: canvas after the drag that drew it is a line pointing at nothing.
+      wbClearAlignmentGuides();
       if (d._linkKind === "sketch") {
         const r = dragEndNode.call(this, event, d);
         d._linkKind = null;
@@ -13247,13 +13598,29 @@ function renderWhiteboard() {
       return;
     }
     renderMarkdown(contentEl, text);
-    const isLong = text.length > LONG_NOTE_CHARS || text.split("\n").length > LONG_NOTE_LINES;
-    if (!isLong) return;
+    //: **Whether a note needs a "Show more" is a question about the box, not
+    //: about the note.** This used to ask `text.length > LONG_NOTE_CHARS ||
+    //: lines > LONG_NOTE_LINES`, the Notes list's own rule, and returned
+    //: early for anything under it. But the Notes list shows a note in a
+    //: column as tall as the page, while a board card is exactly as tall as
+    //: the person dragged it to, so the two questions have different
+    //: answers: measured, a 324-character note (well under the 500-character
+    //: threshold) in a 320x120 card laid out 215px of text, 112px of it
+    //: below the card's own bottom edge, with no clamp and no way to ask for
+    //: the rest. That is INBOX 238's "the text goes out of the panel
+    //: border".
+    //:
+    //: So the toggle is built for every note that has text, and
+    //: `wbSyncCardClamps` below hides it again on the cards where everything
+    //: already fits. Hidden rather than absent because the answer changes
+    //: whenever the card is resized, and a button that has to be created on
+    //: a resize is a button that will be missing after one.
     const expanded = () => wbExpandedNodes.has(d.id);
     contentEl.classList.toggle("wb-card-content-clamped", !expanded());
     const toggle = card.append("button")
       .attr("type", "button")
       .attr("class", "entry-more wb-card-more")
+      .attr("hidden", "")
       .text(expanded() ? "Show less" : "Show more");
     toggle.on("click", (event) => {
       event.stopPropagation();
@@ -13270,6 +13637,11 @@ function renderWhiteboard() {
       //: Applied to this card directly as well as in the merge below,
       //: because nothing redraws the board on a toggle.
       wbCardExpandHeight(this.closest(".wb-node") || card.node(), d);
+      //: Collapsing brings the clip back, which can make the toggle itself
+      //: unnecessary (a note that fits the box it was collapsed into), so
+      //: the answer is recomputed rather than assumed to still hold.
+      wbSyncCardClamps();
+      wbSaveExpandedNodes();
     });
   });
 
@@ -13277,6 +13649,9 @@ function renderWhiteboard() {
     nodeEnter.append("div")
       .attr("class", "wb-resize-handle")
       .attr("data-handle", handle)
+      //: The same title the object handles carry, for the same reason: the
+      //: double-click-to-fit gesture had nothing on screen saying it existed.
+      .attr("title", "Drag to resize: double click to fit the text")
       .call(nodeResizeDrag(handle));
   }
   nodeEnter.append("div")
@@ -13293,9 +13668,22 @@ function renderWhiteboard() {
     //: at (see `wbCardExpandHeight`), so a redraw does not clip it again.
     .style("height", (d) => (d.height && !wbExpandedNodes.has(d.id) ? `${d.height}px` : ""))
     .style("min-height", (d) => (d.height && wbExpandedNodes.has(d.id) ? `${d.height}px` : ""))
-    .style("z-index", d => d.z);
+    .style("z-index", d => d.z)
+    //: The eight-line cap is for the card that has never been resized and so
+    //: has no height of its own to clip against. A card with a stored height
+    //: does, and applying both would clamp a 700px card to eight lines and
+    //: leave the rest of it empty under a "Show more" hiding nothing.
+    .each(function (d) {
+      this.querySelector(".wb-card-content")
+        ?.classList.toggle("wb-card-content-capped", !d.height);
+    });
 
   nodeSelection.exit().remove();
+
+  //: After the heights above are on the elements, not before: the question
+  //: each card is being asked is whether its text fits the box this render
+  //: just gave it.
+  wbScheduleCardClampSync();
 
   renderWbObjects(canvas);
 
@@ -13364,10 +13752,70 @@ async function wbFitToText(el) {
     toast("Sized to its text.");
     return;
   }
+  //: **The card's own `scrollHeight` is not the answer for a note card.**
+  //: Reported as the gesture not working at all: *"Double tap anchor resize
+  //: nodes to auto size adjust"*. Measured, the gesture fires and the toast
+  //: says "Sized to its text", and a 100px card holding fourteen wrapped
+  //: lines came out 103px and still clipping.
+  //:
+  //: The reason is one rule further in. `.wb-card-content` carries
+  //: `min-height: 0; overflow: hidden` on purpose (INBOX 238: without them a
+  //: note's paragraphs were painted over the board), and a capped card also
+  //: carries a `max-height`. Both mean the text is already clipped *inside*
+  //: the card, so the card's own scroll height with `height: auto` is the
+  //: height of a box that is clipping, not the height the text needs.
+  //:
+  //: So the measurement opens the content up too, reads, and puts every
+  //: property back exactly as it found it. Restored with
+  //: `removeProperty`/assignment of the saved value rather than by setting
+  //: something "sensible": these elements are re-rendered from CSS, and
+  //: leaving an inline `overflow` behind would silently disable the clipping
+  //: that rule exists to do.
+  //: **The text's height, plus the card's chrome.** Not the card's own
+  //: `scrollHeight`, which is what this used to read and which cannot answer
+  //: the question: `.wb-card-content` carries `min-height: 0` and
+  //: `overflow: hidden` on purpose (INBOX 238, without them a note's
+  //: paragraphs were painted over the board), so the text is already clipped
+  //: *inside* the card and the card's scroll height is the height of a box
+  //: that is clipping, not the height the text needs. Measured: a 100px card
+  //: holding fourteen wrapped lines fitted to 100px, three times running,
+  //: while the toast said it had been sized to its text.
+  //:
+  //: So the content is opened up and measured on its own, and the difference
+  //: between the card and the content (padding, a thumbnail, a Show more
+  //: row) is added back. Every property is restored to exactly what it was,
+  //: by removal when it was not set inline: these elements are re-rendered
+  //: from CSS, and an inline `overflow` left behind would silently disable
+  //: the clipping that rule exists to do.
+  const content = el.querySelector(".wb-card-content");
   const previous = el.style.height;
-  el.style.height = "auto";
-  const fitted = Math.ceil(el.scrollHeight);
-  el.style.height = previous;
+  let fitted = 0;
+  if (content) {
+    const saved = {
+      overflow: content.style.overflow,
+      maxHeight: content.style.maxHeight,
+      height: content.style.height,
+    };
+    //: The chrome is measured *before* anything is opened up, while the card
+    //: is still in its real layout: afterwards both boxes are growing and
+    //: the difference between them is no longer the padding.
+    const chrome = Math.max(0, el.offsetHeight - content.offsetHeight);
+    content.style.overflow = "visible";
+    content.style.maxHeight = "none";
+    content.style.height = "auto";
+    el.style.height = "auto";
+    fitted = Math.ceil(content.scrollHeight) + chrome;
+    el.style.height = previous;
+    for (const [name, value] of Object.entries(saved)) {
+      const prop = name === "maxHeight" ? "max-height" : name;
+      if (value) content.style.setProperty(prop, value);
+      else content.style.removeProperty(prop);
+    }
+  } else {
+    el.style.height = "auto";
+    fitted = Math.ceil(el.scrollHeight);
+    el.style.height = previous;
+  }
   if (!fitted) return;
   //: The same floor the resize drag uses, so a fit cannot produce a box that
   //: a drag would refuse to make.
@@ -13545,8 +13993,18 @@ function renderWbObjects(canvas) {
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: holding it means "no snap assistance at all
     // for this drag", one concept, not two separate modifier keys to learn.
-    if (!bypassSnap && !d._bulkOrigin) {
-      const { dx, dy, guideLines } = wbAlignmentGuides("object", d.id, d.x, d.y, d.width, d.height);
+    if (!bypassSnap) {
+      //: The group's own box when several things are moving, the item's when
+      //: one is. Either way the delta lands on `d`, and `wbApplyBulkMove`
+      //: below carries the rest of the selection by the same amount.
+      const group = wbBulkGroupBox(d, "object");
+      const { dx, dy, guideLines } = wbAlignmentGuides(
+        wbDragExcludeKeys(d, "object"),
+        group ? group.x : d.x,
+        group ? group.y : d.y,
+        group ? group.w : d.width,
+        group ? group.h : d.height
+      );
       d.x += dx;
       d.y += dy;
       wbShowAlignmentGuides(guideLines);
@@ -13826,7 +14284,12 @@ function renderWbObjects(canvas) {
               .attr("type", "button")
               .attr("class", "ghost small icon-button")
               .attr("title", "Remove this")
-              .text("✕")
+              .attr("aria-label", "Remove this")
+              //: `setLabel`, not `.text("\u2715")`: a typed cross renders in
+              //: the page font at the text's own weight beside Phosphor icons
+              //: everywhere else in this bar. d3 has no icon idiom, so the
+              //: element is handed to the app's own one.
+              .each(function () { setLabel(this, "ph:x"); })
               .on("click", (event) => { event.stopPropagation(); deleteObject(d); });
           }
         });
@@ -13902,6 +14365,12 @@ function renderWbObjects(canvas) {
       el.append("div")
         .attr("class", "wb-resize-handle")
         .attr("data-handle", handle)
+        //: **The gesture says it exists.** The rotate grip beside these has
+        //: carried a title explaining its own modifier since it was built;
+        //: these had none, so double-tapping to fit was real and invisible,
+        //: which is indistinguishable from missing and was duly reported as
+        //: missing.
+        .attr("title", "Drag to resize: double click to fit the text")
         .call(resizeDrag(handle));
     }
     el.append("div")
@@ -14122,9 +14591,16 @@ function dragging(event, d) {
     // Smart alignment guides: asked for directly ("draw.io and Microsoft
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: one modifier, "no snap assistance", not two.
-    if (!bypassSnap && !d._bulkOrigin) {
+    if (!bypassSnap) {
       const w = d.width || WB_CARD_DEFAULT_SIZE.w, h = d.height || WB_CARD_DEFAULT_SIZE.h;
-      const { dx, dy, guideLines } = wbAlignmentGuides("node", d.id, d.x, d.y, w, h);
+      const group = wbBulkGroupBox(d, "node");
+      const { dx, dy, guideLines } = wbAlignmentGuides(
+        wbDragExcludeKeys(d, "node"),
+        group ? group.x : d.x,
+        group ? group.y : d.y,
+        group ? group.w : w,
+        group ? group.h : h
+      );
       d.x += dx;
       d.y += dy;
       wbShowAlignmentGuides(guideLines);

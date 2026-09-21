@@ -286,3 +286,48 @@ def test_browser_mode_ticks_the_final_step_and_desktop_mode_leaves_it_alone():
     bat = _start_bat()
     browser_tail = bat[bat.index("No second window is coming in browser mode") - 900 :]
     assert 'call :status !MM_STEP_START! "Start" "Handed over to the app" "done"' in browser_tail
+
+
+def test_the_entry_module_does_not_drag_the_whole_app_in_with_it():
+    """Nothing on screen until the imports finish, and they were the slow part.
+
+    `--desktop` puts its window up before the server thread starts, precisely
+    so someone with no console (the packaged build has none) sees something
+    happening. But `main()` cannot run until Python has finished importing the
+    module that defines it, and that module used to import
+    `memorymap.api.app`, which imports FastAPI, SQLAlchemy, the model manager
+    and the embeddings module. Measured with `-X importtime` on a warm cache:
+    1,203ms to import `memorymap.__main__`, of which `memorymap.api.app` was
+    1,113ms. 30ms once those two imports moved into `_run_server`, where the
+    work is wanted and where it happens on the server thread, behind the
+    window instead of in front of it.
+
+    A packaged Windows build pays that wait worse than this measurement does,
+    off disk through whatever is scanning it, and with no terminal to show
+    that anything is happening: reported as the launcher's splash not
+    appearing at all. So this is a startup budget, not a tidiness rule, and it
+    is checked in a subprocess with a cold `sys.modules` because an
+    in-process check would find whatever the rest of the suite had already
+    imported.
+    """
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys; import memorymap.__main__; "
+        "print(','.join(sorted(m for m in ('memorymap.api.app', 'uvicorn', "
+        "'fastapi', 'sqlalchemy') if m in sys.modules)))"
+    )
+    root = Path(__file__).resolve().parents[1]
+    env = dict(os.environ, PYTHONPATH=str(root / "src"))
+    out = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
+    ).stdout.strip()
+    assert not out, (
+        "importing memorymap.__main__ pulled in " + out + ": import these "
+        "inside _run_server instead, so the desktop window can open first"
+    )

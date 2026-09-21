@@ -34,100 +34,10 @@ with its owner named in the entry.
 
 ## Open items
 
-238. **Mid-work drop, 2026-09-14, verbatim (the owner), board and map
-    notes.** "when I expand the size of notes in the whiteboard and mindmap,
-    the text goes out of the panel border, the state of note objects in the
-    whiteboard and mindmap for if they are expanded or not should be
-    persistant, and when exporting a whiteboard and/or mindmap, the user
-    should be warned if any of their notes arent expanded and that not all
-    their contents will be shown, the export shouldnt include things like
-    the show less/more text as well." Owner: notes agent (whiteboard.js).
-
-232. **Mid-work drop, 2026-09-14, verbatim (the owner), the live view.**
-    "the md rendering on the live view, like in the documents page, needs to
-    be improved, especially for codeblocks and potentially for other things
-    as well." Screenshot: a fenced block renders as a dark slab with the
-    fence lines as empty numbered rows above and below, link chips wrap
-    oddly. Owner: notes agent (documents.js).
-
 228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
     you have finished all these, done the final bug sweep, make sure
     everything is finished for the pr, and finish the pr, merging it into
     main." Owner: orchestrator, last.
-
-226. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a flicker.**
-    "theres a flickering just above the bottom bar??" / "i was on the
-    dashboard". Reproduce first: sample the band above `#status-bar` on the
-    dashboard at 100 ms for four seconds and count pixel changes; log DOM
-    mutations in the same band. Suspects, in order: a widget re-rendering
-    on a timer (the Rediscover widget re-asks when its list empties; the
-    reminders and stats fetches were just shared by the boot agent), the
-    scroll-top button toggling on a scroll-height change, the status bar's
-    new Guide slot being redrawn by the header's model poll. Owner:
-    orchestrator, now.
-    **Not reproduced on the merged head, 2026-09-14** (`scratchpad/
-    flicker2.js`, `flicker3.js`, 1440x900, dashboard, 60 frames at 60 to
-    100 ms): with the art off, the only pixels changing in the 120px band
-    above the status bar are none (the status bar's own AI spinner is the
-    one moving thing on screen); with the art on and Movement: Still, zero
-    frame changes and zero `startBgArt`/`stopBgArt` calls or canvas swaps
-    in four seconds; with the art moving, every strip changes, which is the
-    art. The ten inline-style writes seen on `.dash-widget` sections are the
-    one-time span pass, not a loop. Left open for the owner: which theme,
-    which background style, and whether the desktop window or a browser
-    tab; a screenshot with the flicker in it names the element.
-
-225. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a core
-    persona.** "I was wondering if atlas or another named persona can be the
-    core persona of the application as the librarian?? idk, the persona cant
-    be too token heavy though, just as a theme yk??" **Decision:** Atlas is
-    the name of the notebook's AI everywhere the app speaks as it (the
-    status dot's label, "Atlas filed this under Work", the chat empty
-    state, the popup agent's greeting, the help chat), as copy and one
-    mark, not as prompt text: the model prompts gain at most one clause
-    ("You are Atlas, this notebook's librarian.") under
-    `agent.PROSE_BUDGET_CHARS`, and no persona prose, backstory or tone
-    instructions anywhere. One constant (`AI_NAME`) in the frontend and one
-    in `ai/` so a rename is one edit each; Settings, Models keeps the model's
-    own name beside it ("Atlas, running qwen2.5:7b"). Owner: chrome after
-    214 and 215; the backend clause and constant, backend2 after its list.
-    **Backend half fixed e024e49 (backend2), merged:** `AI_NAME` in
-    `ai/__init__.py`, one clause in the prompts that speak as the app,
-    tested under the prose budget; the help chat's `GUIDE_NAME` is that
-    constant. Frontend half: chrome.
-    **Decision, 2026-09-14 (the owner asked how to tell the two apart):**
-    one name, two hats, said by the surface and by one clause. The
-    librarian (chat, filing, the agent) is "Atlas" with the clause "You are
-    Atlas, this notebook's librarian."; the help sheet is "Atlas, about the
-    app" in its head and its clause is "You are Atlas, answering about the
-    app itself, never from the notes." Nothing else differs: same mark,
-    same voice, no persona prose in either.
-    **Frontend, 2026-09-14:** `AI_NAME` in settings.js with `GUIDE_NAME`
-    reading it; the help sheet, its popover lines, the palette command and
-    the empty states say Atlas (chrome, 224). Left for the next PR: the
-    copy sweep where the app speaks as the librarian ("Atlas filed this
-    under Work", the chat empty state, Settings, Models "Atlas, running
-    <model>"), one grep for "the AI" in app.js.
-
-220. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the docs
-    and how to proceed.** "make sure all the other docs like architecture.md
-    are up to date, and extend the roadmap and backlog. make it clear to me
-    how to proceed with development for after this pr... help me get my
-    head around everything." Also: "clean out unneeded documents or files.
-    refine the repo." And: "clean up the agent remaining-files as well if
-    they are outdated or not needed anymore... same with the plans... are
-    there any other plans or parts of plans that havent been done yet?? is
-    all the ui modernised and consistent??" ARCHITECTURE.md checked against
-    the code; `agent-remaining/` reduced to the files with open work (the
-    rest to HISTORY); finished plans marked superseded in ROADMAP's table;
-    ROADMAP and BACKLOG extended; a "How to proceed after PR 144" section
-    in HANDOVER naming every open plan section. Owner: orchestrator, last.
-    **Progress, 2026-09-14:** `agent-remaining/` consolidated (38 files to
-    `archive/agent-remaining/`, 134 open bullets in `OPEN.md`, 70
-    references repointed, merged `878f78d`); ARCHITECTURE's directory map
-    rewritten against the tree (`4bae0a0`); BACKLOG 115 and
-    WORLD_CLASS_PLAN 18 written. Left: the ROADMAP rewrite and the
-    HANDOVER "how to proceed" block, after the four agents merge.
 
 213. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the last
     scan.** "finish all the agents, scan for bugs and high complexity one
@@ -136,6 +46,400 @@ with its owner named in the entry.
     And: "once absolutely everything is done and the roadmap documents are
     cleaned etc, all the agent branches are merged into this one etc, merge
     this pr for me." Owner: orchestrator; the merge is the last act.
+    **The last scan, run 2026-09-20.** Four passes, each a number rather
+    than a reading:
+    - **Routes with no caller** (`scratchpad/probe_dead_routes.py`): 320
+      served, 9 unnamed by the frontend, every one triaged in 261. Two were
+      real and are fixed: `/resurface/near/{entry_id}` was unreachable *and*
+      crashed on its first call, and `GET /events` is a built feed with no
+      strip to read it (WORLD_CLASS_PLAN B1, still open).
+    - **Calls with no route** (`scratchpad/probe_missing_routes.py`, new,
+      the mirror and the worse failure): 297 distinct paths called, **0 with
+      no route**, both undecidable paths resolved by hand.
+    - **Frontend declarations nothing references**: 3,222 top-level names,
+      **0** referenced only by their own declaration. No dead weight left in
+      `frontend/*.js`.
+    - **Complexity, backend**, by branch count over 1,827 functions. The top
+      five, for whoever takes this on: `_run_one_step` (skill_runner.py:784,
+      50 branches / 419 lines), `analyse_attachment` (routes_files.py:381,
+      43 / 167), `search` (search/engine.py:645, 41 / 139),
+      `_optimization_pass` (autonomous.py:268, 40 / 250), `_run_skill`
+      (skill_runner.py:1206, 36 / 300). Not refactored here on purpose: this
+      PR is about to merge and restructuring a 419-line agent step is not a
+      thing to do on the way out of one.
+    A fifth pass, silent exception handlers, was run and is not reported as
+    a finding: 251 handlers return a fallback without logging, and in an app
+    whose whole design is "degrade to offline" that is the intended shape,
+    not a smell. The heuristic could not separate the two, so it is written
+    down here rather than left as a number somebody later mistakes for a
+    defect count.
+
+258. **Recommendation, not a change, 2026-09-19 (the session).** The
+    reverted outside commit added right-drag to pan the board, filtered so
+    a right-click still reaches a node's context menu
+    (`wbZoomFilter`: `event.button === 2` on a target that is not
+    `.node-card, .sketch-group, .wb-object`). It is a good gesture and
+    every canvas app has it, but nobody asked for it and a new gesture on
+    the surface that carries the app's only context menu is a decision, not
+    a patch. Not built here on purpose (standing order 8: a new need is an
+    entry, not an ad-hoc build).
+    Recommendation: take it, guarded as above, plus `contextmenu` suppressed
+    on the canvas only while such a drag actually moved (so a right *click*
+    on empty canvas keeps whatever it does today), and measured against
+    `scratchpad/ui-sweeps/wbpan.js`. The other two ideas from that commit,
+    a rotated group outline and alignment guides for a group drag, are built
+    (861e740, 5273bae).
+    **Tried 2026-09-19 and taken back out, with what was learned.** The pan
+    itself is four lines in `wbZoomFilter` (`event.button === 2` when
+    `event.target` is not inside `.node-card, .sketch-group, .wb-object,
+    .wb-map-edge-hit, [contenteditable]`, and the mousemove half gated on a
+    flag the mousedown set) and measured clean: a right-drag moved the board
+    150px, a right-click with no drag left the transform untouched.
+    The half that matters could not be measured. Three things were found
+    and are worth having written down:
+    - The `contextmenu` that ends a right-drag over this board is dispatched
+      at the `<section>` *around* it, not at anything inside it, so a
+      listener scoped to `#whiteboard-container` never sees it and
+      `event.target.closest("#library-view-whiteboard")` is null on it.
+    - It is dispatched **before** `pointerup`, not after, so clearing the
+      "this drag moved" flag on the release is safe and clearing it on a
+      `setTimeout(0)` from the release is not.
+    - With all of that accounted for, two runs of identical code disagreed
+      about whether the menu was dispatched at all. Non-deterministic here,
+      and the difference between "the gesture is polished" and "the gesture
+      leaves a menu open on your board" is exactly that dispatch.
+    So: not shipped. `scratchpad/ui-sweeps/wbrightpan.js` is the acceptance
+    test, written first and failing, with the three facts above in its
+    header. Whoever builds it makes that file pass on a board with a card on
+    it, which is also the case this run could not cover.
+    **Built and taken back out a second time, 2026-09-20, and this run found
+    why. Two of the three facts above are wrong.** Measured with every event
+    logged in the capture phase across a full right-drag:
+
+        pointerdown@wb-svg-layer
+        mousedown@wb-svg-layer
+        contextmenu@wb-svg-layer      <- on the press
+        pointerup@wb-svg-layer
+        mouseup@wb-svg-layer
+        auxclick@wb-svg-layer
+
+    `contextmenu` arrives **on the press, before the drag has moved a pixel**,
+    and at `#wb-svg-layer`, not at the `<section>`. So at the only moment the
+    decision can be made, nothing can know whether the gesture will become a
+    drag: "suppress the menu only when the drag moved" is not implementable,
+    which is why both attempts left a menu open. The non-determinism recorded
+    above did not reproduce: six runs across two attempts agreed every time,
+    so it should not be planned around.
+    The pan half measured clean again (0 to 150px, three runs identical), and
+    a probe bug was fixed while there: the card's position was read at setup,
+    before checks 1 and 2 pan the board, so check 3 pressed empty canvas and
+    reported a 120px pan "on a card" that never touched one.
+    **Recommendation, for the owner, because it is a decision and not a
+    patch.** One shape works: suppress the native menu on the canvas outright
+    and open the app's own pointer menu (`openMenuAtPoint`, which exists) in
+    its place. A right-click then gives board actions instead of Chrome's
+    menu, and a right-drag gives a clean pan. What goes in that menu is the
+    open question, and assertion 2 of the acceptance test ("a right-click
+    still opens whatever it opened before") changes with it.
+
+261. **Found by scan, 2026-09-19 (the session, not the owner).** Ten routes
+    the app serves that `frontend/*.js` never names, from
+    `scratchpad/probe_dead_routes.py` (new; run it with `PYTHONPATH=src`).
+    Four more were in this list and are now wired: `GET /learned` and its
+    whole lifecycle, `POST /night/run`, `GET /search/stats` and
+    `POST /drafts/title`. What is left, triaged:
+    - `GET|POST /entries/daily/{day}`, `POST /resurface/compute` and
+      `GET /openapi.json`: not the frontend's to call. The daily-note pair
+      is the agent's "add to today's note" tool and says so in app.js; the
+      compute half of resurfacing is the scheduler's, and its module
+      docstring is explicit that the read is the fast one; `/openapi.json`
+      is FastAPI's own. **Nothing to do.**
+    - `POST /insights/digest` and `GET /whiteboard/images`: superseded and
+      recorded as such (`/insights/digest/stream` is what the dashboard
+      calls; BACKLOG says `/media` replaced the board image listing).
+      **Recommendation:** leave them, or delete them in a sweep of their
+      own; either is defensible and neither is urgent.
+    - `GET /insights/on-this-day`: superseded by choice. The widget filters
+      `allEntries` in the browser, which is one fewer request and is
+      correct once the notebook has finished paging in.
+      **Recommendation:** leave it, and say so in the route's docstring, so
+      the next scan does not re-open this.
+    - `GET /tags`: **done.** The autocomplete was built from `allEntries`
+      (`refreshTagSuggestions`), so it was incomplete until every page of a
+      four thousand note notebook had arrived, and alphabetical, so a tag
+      used once outranked one used four hundred times. Measured on a
+      notebook tagged to show the difference, old against new:
+      `archive, budget, house, winter-roof-repair` (archive is used five
+      times) became `house, winter-roof-repair, budget, archive` (400, 400,
+      20, 5). One request, cached, in place of a flatten over every loaded
+      note twice per load.
+    - `GET /settings/events`: B1's event feed. Its own docstring names the
+      consumer, "what a Dashboard or Timeline activity strip should read
+      instead of scanning the notes table for recency", and no such strip
+      reads it. **Recommendation:** a brief in WORLD_CLASS_PLAN B1, not an
+      improvisation here: it is a surface, not a wire-up.
+    - `GET /resurface/near/{entry_id}`: "the faded notes closest to the one
+      being read", built and tested, and there is nowhere in the app that
+      reads a note. Checked before recommending anything: a note is a card
+      in a list, and the only thing resembling a detail view is the inline
+      edit form (`editingId`), which is a form. `lastOpenedEntryId` exists
+      but only feeds the agent's "what am I looking at" subject. So this is
+      a surface, not a wire-up, and probably why it was never wired.
+      **Recommendation:** decide the surface first. The cheapest honest one
+      is a row inside the edit form, under the tags, reusing
+      `paintFadedNotes` from dashboard.js (the route returns the same
+      `_card` shape the dashboard widget already renders); the better one
+      is the note detail view this app does not have, which is a plan item
+      rather than an INBOX item.
+    `POST /auth/rotate-vault-key` was on this list until the probe learned
+    to read `` `/auth/${mode === "setup" ? "setup" : "unlock"}` ``; it is
+    still uncalled, and re-keying the vault has no UI. Filed here rather
+    than fixed: it is the one route in the app that rewrites every private
+    note, and a button for it wants its own session.
+
+264. **Mid-work drop, 2026-09-20, verbatim (the owner).** "can you also make
+    more sub-menus in the documents meatball button dropdown or smth because
+    it is still almost off the bottom of the screen."
+    A screenshot of the open menu, fourteen rows deep, its last row level
+    with the status bar.
+    **Fixed** (`4e93458`): two more groups, "Editor and layout" and "While
+    you write", taken from the groupings the markup's own comments already
+    argued for. 562px and 14 rows to 346px and 8, measured at four window
+    sizes; it had been running 32px past the bottom at 1024x720 and now
+    clears it by 184px. A live bug fell out of it: a row inside *any* of
+    these flyouts had stopped closing the menu since the downloads were
+    folded, because `buildMenuGroupButton` reparents the panel to `<body>`
+    and the click never bubbles through the group the listener was on.
+
+265. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also can you fix
+    the highlighter in the quick sketch?? it doesnt act as it should and
+    looks messy"
+    **Fixed** (`6abc459`). Third report on this tool; the first two fixes
+    treated the alpha and this one is the compositing. Each segment was its
+    own `stroke()` at 0.35, so consecutive segments overlapped at every joint
+    and each pixel was covered about three times: measured 0.801 coverage
+    where the tool asks for 0.35, 0.725 to 0.824 along the band, and a
+    self-crossing going 0.286 to 0.824. The stroke is now drawn whole on its
+    own layer at full opacity and composited once. After: 0.353 everywhere,
+    spread 0, junction 0.353.
+
+266. **Mid-work drop, 2026-09-20, verbatim (the owner).** "What usability and
+    information architecture things are missing and can be added?? It's often
+    the small things that act up, are broken, unreliable, or missing with the
+    user needs to work which break the user's trust of the application and
+    make it feel less professional, unpolished, like a demo, and not
+    trustworthy to be actually used for legitimate work
+    Tar file for linus
+    Windows msi file
+    Version platform architecture for both windows and linux installers
+    Lightweight as possible
+    what happens if the user runs out of storage??
+    needs full backend professional design that accounts for everything
+    needs more optimisation
+    We need to do a full architecture analysis and make sure that we are
+    actually using the right architecture and backend functions. we need to
+    make sure that our choices are the best they can be. like why is storing
+    in an sqlite database the best way to store notes etc. are things running
+    when they arent necessary and taking up extra compute?? things like
+    containers are spun up as needed like serverless cloud architecture"
+    Open. Seven asks, and most are analysis rather than a fix: (1) the
+    usability and IA gaps that cost trust, (2) a `.tar.gz` for Linux, (3) an
+    `.msi` for Windows, (4) version, platform and architecture in every
+    installer's name, (5) lightweight, (6) what the app does when the disk
+    fills, (7) an architecture review with SQLite and idle compute named
+    specifically.
+
+267. **Mid-work drop, 2026-09-20, verbatim (the owner), a screenshot of four
+    lines.** "Alignment bars don't appear for group selections
+    Double tap anchor resize nodes to auto size adjust
+    In-text referencing and grounding in the ask subtab doesn't stick, the
+    wrong numbers will be used and in the wrong spot, and the numbers wont
+    match the grounding.
+    Grounding and in-text referencing not working now?? Needs fix."
+    Four things, taken worst first: (1) grounding and in-text references in
+    Ask, which the owner wrote twice and which is the one that makes answers
+    untrustworthy, (2) alignment bars missing on a group selection, which a
+    previous session recorded as built (`5273bae`), so measure before
+    believing either, (3) double-tapping a resize anchor to fit the content.
+    (2) fixed: measured first, and the report was right for a reason nobody
+    had guessed. A group of *cards* has drawn its guides since
+    `wbBulkGroupBox` landed, verified at 1 guide line on a two-card group
+    dragged into line. The sketch drag handler never asked for guides at all,
+    solo or in a group, so a marquee that caught a sketch and was dragged by
+    it was the one selection on the board with none. `wbBulkGroupBox` now
+    takes the dragged item's own box, since a sketch is a path with no
+    x/y/width/height, and the sketch handler snaps and draws like the other
+    two. Probe: `scratchpad/ui-sweeps/wbgroupguides.js`, in the gate's sweep
+    set. (3) fixed: the gesture was already wired (a `dblclick` on
+    `.wb-resize-handle` calling `wbFitToText`) and measured as doing nothing.
+    Two causes, both real. The handles carried no title, so the gesture was
+    invisible and indistinguishable from missing, which is why it was
+    reported as missing. And `wbFitToText` measured the *card's* own
+    `scrollHeight`, which cannot answer the question: `.wb-card-content`
+    clips on purpose (INBOX 238), so the card's scroll height is the height
+    of a box that is already clipping. It measures the content, unclipped,
+    plus the card's chrome now. Measured: a 100px card holding fourteen
+    wrapped lines went 100px to 100px before and 100px to 748px after, with
+    nothing clipped. Probe: `scratchpad/ui-sweeps/wbfitanchor.js`.
+    (1) fixed, `0f5d46d`, and measured: `liveMarkdownRenderer` armed a paint
+    up to 66ms before the stream ended, which fired after the markers were
+    placed and repainted the box from raw markdown, removing all three. The
+    Ask tab was the one caller that never called the renderer's own `stop()`,
+    which has existed for this since INBOX 40. Probe:
+    `scratchpad/ui-sweeps/askgrounding.js` against
+    `scratchpad/fake_answer_server.py`, 0 markers before, 3 after, numbered
+    1/2/3 against chips 1/2/3 and Sources rows 1/2/3. The reported "wrong
+    numbers" could not be reproduced on a clean notebook: 1/3/5 came from a
+    scratch data dir holding duplicate notes from earlier probe runs, so the
+    sources list genuinely had five rows. (2) and (3) open.
+
+268. **Mid-work drop, 2026-09-20, verbatim (the owner), with two
+    screenshots.** "what is the difference between the exe and msi installer??
+    also Cut off after 3 skill steps with barely any tool calls and skills are
+    just messy, overcomplicated, not built well so the ai doesn't have all the
+    things it needs to complete the actions, maybe to rigid?? Idk but skills
+    are just a mess and only semi work. also the empty minimap goes behind the
+    top bar and sits right in the corner with no gap. the mini map probably
+    shouldnt even appear when the graph is empty."
+    The skill screenshot is "Reorganise my categories": steps 1 to 3 ticked,
+    the model wrote a proposal and stopped; steps 4 to 9 (the ones that
+    actually change anything) never ran. Three things: (1) a skill run that
+    stops after the read-only steps, (2) the skill format itself, which the
+    owner reads as over-specified and under-supplied, (3) the minimap on an
+    empty graph. Decided with the owner the same day: Windows gets an `.msi`
+    built with WiX, unsigned for now (an unsigned MSI raises the same
+    SmartScreen prompt an unsigned `.exe` does; only an Authenticode
+    certificate removes it), and the idle memory work is lazy imports rather
+    than idle suspend. Open.
+
+269. **Mid-work drop, 2026-09-20, verbatim (the owner), two messages.** "And
+    I was wondering if we should have an ai free version of the guide
+    available for users who dont have the ai running or enabled?? like a
+    preprepared response or sentence stringing with sentence similarity and
+    stuff?? I want to maximise the ability and function of all the application
+    features without ai, the ai features should just eb the bonus." Then:
+    "maybe there can be a fill-in system response/description/explanation that
+    can replace the ai using clever sentence stringing and composition to give
+    the user a breakdown of the results on the ask page in place of the ai
+    without using the ai when it is disabled or not running?? and it can be
+    togglable to see both that response and the ai response when the ai is
+    enabled so the user can flick between both outputs... idk im just sprouting
+    ideas. but again I actually need you to use your ui and ux design skills
+    and the ones vendored in this repo and do a check for signs of being
+    vibecoded."
+    Two things. (1) An extractive, no-model answer on the Ask page: the
+    retrieval, the passage scorer and the grounding all run without a model
+    already, so the missing piece is composition, not search. Worth checking
+    what already exists before building: the Ask tab has a no-model path and
+    the passage scorer produces exactly the spans such an answer would be
+    made of. (2) A vibecoded sweep of the UI against DESIGN.md and the
+    vendored skills, which the owner has now asked for twice.
+    (2) done, `4884ead` and `29d0ccb`, in two passes. The first
+    (`scratchpad/ui-sweeps/vibecheck.js`) measured six tells a screenshot
+    cannot show across eight tabs: dead controls, leaked values, duplicate
+    ids, controls disabled with no reason, controls with no accessible name,
+    machine values on screen. 0 findings in all six, 104 buttons checked. The
+    second (`vibefail.js`) failed every request and found the real thing: four
+    surfaces drew their empty state, so a full notebook read "Your notebook is
+    empty", and the dashboard printed "0 this week" from figures it had never
+    read. Fixed with one recipe (`surfaceFailed`, in DESIGN.md's index, with a
+    lint in `test_ui_recipes.py`); 6 findings to 0. (1), the AI-free answer,
+    still open.
+
+270. **Mid-work drop, 2026-09-20, verbatim (the owner), with a dashboard
+    screenshot and four MSN/Bing screenshots.** "hit the rest of the open
+    items. make sure you complete all of my requests and flagged items. fix
+    the codeql and ci errors. fix any bugs you might have missed. also is
+    there a way to declutter the dashboard a bit or spread things out a
+    bit?? idk it looks good but a lot is happening on it. maybe something
+    like the feed layout options with msn on microsoft bing?? the user needs
+    to be able to view and access what they want within around 3 clicks and
+    they need to know how to instantly access what they want after loading
+    the app. maybe the dashboard should have a universal searchbar on it??
+    maybe that searchbar can be accessible in a univerally accessible popup
+    window like the popup agent and guide??? also can you improve/redesign
+    the ui and layout of the guide popup panel at all??"
+    **Decisions taken with the owner, 2026-09-20.** (a) The dashboard gets a
+    density switch, the MSN "Feed layout" shape: Full (today), Compact
+    (Start something collapses to icons, the stats become one line) and
+    Focused (search and widgets only, the rest behind More), remembered per
+    device. Nothing is removed, so no feature is lost to a layout choice.
+    (b) The search is not a feature-finder. The owner: "this is a search for
+    any and all content, items, text, files everything. a full application
+    wide semantic search which shows content as well as features and actions
+    etc. absolutely everything and what shows can be filtered, sorted and
+    toggled... similar to the aws search or amazon search bar. a separate
+    dashboard search might be good but also a popup window as well would be
+    good." Both doorways, one engine. (c) macOS: not yet, written up rather
+    than built, because Gatekeeper refuses an unsigned app outright rather
+    than warning about it, and notarising needs an Apple Developer account.
+    **Checked before building, and this is the finding that shapes the work:**
+    `/search` already exists and is exactly what (b) describes.
+    `routes_search.py` over `search/engine.py` searches notes, documents,
+    boards, files, bookmarks and reminders together, hybrid keyword plus
+    semantic, with `tag:`, `kind:`, `in:`, `before:`, `after:`, `has:`, `is:`,
+    quoted phrases and `-exclusions` from `search/query.py`, three scores and
+    an explanation per hit, and per-kind counts so an empty result can say
+    why. **Nothing in the app calls it.** The only reader of anything under
+    `/search` in the whole frontend is `settings.js` asking `/search/stats`
+    for a number. So the work is a front door, not an engine: the popup, the
+    dashboard field, the filters and the sort, over the route already there.
+    Measured from the screenshot: above the fold the dashboard stacks five
+    "Start something" tiles, four "Jump to" pills, three skill chips, four
+    stat tiles and a sparkline, then the widget grid heading, before a single
+    widget is visible. Six bands of chrome before any content. The MSN
+    reference is its "Feed layout" control: full page, partial view,
+    headings, three densities of the same page. Four things: (1) a density or
+    layout choice for the dashboard, (2) a search field on it that is the
+    obvious first thing, (3) that same search reachable from anywhere as a
+    popup, like the command palette already is, (4) a redesign of the guide
+    popup panel. Open.
+
+271. **Mid-work drop, 2026-09-20, verbatim (the owner).** "should we have the
+    msi and exe installer as an option?? what about mac??" Open; recommended
+    answer recorded with the reply: ship both Windows artifacts (an MSI is
+    what an IT department deploys, an EXE is what a person double-clicks, and
+    both come off one PyInstaller build), and treat macOS as its own decision
+    because Gatekeeper is stricter than SmartScreen: an unsigned app is
+    refused outright rather than warned about, so a Mac build is only worth
+    shipping alongside an Apple Developer account for notarisation.
+
+272. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also make sure
+    all features and alternatives are easily knoticable by and offered for the
+    user. like if the embedding model fails or has an error, it suggests to
+    download nomic-embed-text. if duck duck go is rate limiting it
+    automatically tries searxng and if it isnt installed it suggests it. and
+    same for many other instances. I guess the only other really big gap is
+    that there is no guided tour and introduction, with positioned popup cards
+    with back, next, skip, card tutorial tour numbers 1/?, dimmed background,
+    guide on making a note and showing various controlsa and features etc.
+    maybe a way for the user to replay it and to even only rerun certain
+    sections of the tour for specific main features?? the tour cant be too
+    long because I dont want users skipping it or finding it too hard and
+    giving up on trying the application.  maximised ui and ux."
+    Two things. (1) **Every failure names its way out.** A named class of bug
+    rather than a list: when something cannot work, the app says what would
+    make it work and offers it, and where an alternative exists it is tried
+    first. The owner's two examples are the embedding model (suggest
+    `nomic-embed-text`) and web search (fall back from DuckDuckGo to SearXNG,
+    and suggest installing it when it is absent). Survey every such point
+    before writing any of them: there will be more than the two named.
+    (2) **A guided tour.** Positioned cards with back, next, skip, a 1 of N
+    counter and a dimmed backdrop; short by design, because a tour long
+    enough to skip teaches nothing; replayable whole or by section, so a
+    feature can be re-learned without sitting through the rest. There is an
+    `#onboarding-overlay` already (the sweeps disable it), so check what it
+    does before building beside it. Open.
+
+271. **Mid-work drop, 2026-09-20, verbatim (the owner).** "can you focus on
+    refinement now?? refine everything, make sure all utility works and there
+    are no bugs. make things faster, optimise, reduce complexity. enhance
+    capability. what about the no ai available sentence string concatenation
+    search results for the help agent and ask response??" The named half is
+    built: the Guide answers from its own help text with no model (`9f715c4`),
+    and the Ask tab quotes the passage of each retrieved note that is about
+    the question (`ai/extractive.py`). The standing half, refinement, is the
+    session's own order of work from here.
 
 ## Placed (last 20, newest first)
 
@@ -147,15 +451,6 @@ with its owner named in the entry.
   docks as one bar, timeline redesign, responsive design, em-dashes,
   paragraphs to popovers, security review: all placed (HANDOVER "flagged
   list") and most built.
-
-246. **Mid-work drop, 2026-09-14, verbatim (the owner).** "I also want to
-    be able to attach whiteboards and mindmaps to notes. and I want it to
-    show in notes if they are attached to or referenced in/by a document,
-    note, whiteboard, or mindmap." Recommendation: the note edit form's
-    attach menu gains Board and Mind map (the same reference the board
-    already stores when it embeds a note, written from the note's side),
-    and the note card gets a "Referenced by" row listing documents, notes,
-    boards and maps that carry it, from one backlinks endpoint.
 
 253. **Mid-work drop, 2026-09-14, verbatim (the owner).** "the app needs
     to work even if it cant update or isnt available to the internet, and it

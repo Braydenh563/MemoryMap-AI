@@ -374,6 +374,33 @@
 /* An image with a caption or an alignment: `![A river|400|center](…)` and
    `![[river.jpg|400|center]]` both land here. Without either option an image
    is still a bare `<img>` and this wrapper never exists. */
+/* **A task checkbox must not make its own line taller than every other
+   line.** Measured in the live view: a document's lines are 26px and a
+   `- [ ] task` line was 34px, because `input[type="checkbox"]` carries a 28px
+   target floor (01-forms-settings.css, and it is there for a good reason) and
+   an inline 28px control in 16px text pushes the line out by 8. A document's
+   vertical rhythm is the one thing a reader notices without being able to
+   name it, and two of these in a list of twenty break it twenty times.
+
+   The floor is kept, not cancelled: the control is still 28x28 and still a
+   28px target. What changes is how much of that height the *line* has to
+   carry, which negative block margins give back, so the box overhangs its own
+   line by 4px at each end exactly as a tall glyph does. Nothing about the
+   target moves.
+
+   `accent-color` because the alternative is the operating system's blue in an
+   app that has its own accent everywhere else, which is the plainest possible
+   sign of a control nobody styled.
+
+   Here rather than in `docCmTheme`: a CodeMirror theme injects a stylesheet
+   the page cannot read back with `cssRules`, so a rule written there can be
+   reasoned about but not measured, and this one exists because of a
+   measurement. */
+.cm-md-task {
+  accent-color: var(--accent);
+  margin-block: -0.25em;
+}
+
 .cm-md-figure {
   display: inline-block;
   max-width: 100%;

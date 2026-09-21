@@ -804,7 +804,7 @@ function startApp() {
   // so this only ever fires the run right after a real update landed.
   step("check for a source-checkout update notice", checkForSourceUpdateNotice);
   step("load conversations", loadConversationList);
-  step("check the AI model status", refreshModelStatus);
+  step("check the model status", refreshModelStatus);
   // Reminders poll on their own timer once running (see startReminderWatch);
   // starting that here, not at module level, is the other half of the fix
   // described above revealTab("dashboard")'s module-level call: the same
@@ -1032,16 +1032,39 @@ async function applyTemplate() {
   box.focus();
 }
 
-function refreshTagSuggestions() {
-  // Autocomplete for the tags box, from tags already in use.
-  const tags = [...new Set(allEntries.flatMap((e) => e.tags))].sort();
+//: Autocomplete for the tags box, from `GET /tags`.
+//:
+//: **Out of `allEntries` and onto the route that answers this question.**
+//: The list used to be built by flattening every loaded note's tags, which
+//: is wrong twice on a notebook of any size. `GET /entries` is paged, so
+//: until the last of twenty-one pages has landed the autocomplete is missing
+//: the tags that live only in the notes that have not arrived, and it is
+//: sorted alphabetically, so a tag used once outranks one used four hundred
+//: times. The route answers tag to count, most used first, in one request,
+//: and it had no caller in the app at all (found by
+//: `scratchpad/probe_dead_routes.py`, INBOX 261).
+//:
+//: A `<datalist>` has no order of its own that the browser is obliged to
+//: honour, but every engine that ships one offers the options in document
+//: order, so most-used-first is what a person sees before they have typed
+//: anything. Alphabetical was a choice nobody made; this one is the answer
+//: to "which tag did I use for this".
+//:
+//: The failure path keeps whatever is already there rather than emptying
+//: the list: a request that did not answer is not the same fact as a
+//: notebook with no tags, and the old list is still the best guess.
+async function refreshTagSuggestions() {
   const datalist = $("tag-suggestions");
-  datalist.replaceChildren();
-  for (const tag of tags) {
-    const option = document.createElement("option");
-    option.value = tag;
-    datalist.appendChild(option);
-  }
+  if (!datalist) return;
+  const counts = await apiJson("/tags", { silent: true, cacheMs: 30000 }).catch(() => null);
+  if (!counts) return;
+  datalist.replaceChildren(
+    ...Object.keys(counts).map((tag) => {
+      const option = document.createElement("option");
+      option.value = tag;
+      return option;
+    })
+  );
 }
 
 // --- rendering ---------------------------------------------------------------
@@ -1069,15 +1092,51 @@ function refreshTagSuggestions() {
 // model are sentences, and `ph:link` in the middle of one is just noise the
 // reader has to decode.
 const PH_LABEL = /^ph:([a-z0-9-]{1,40})\s*/;
+//: **And one at the end**, for a label that carries its own action mark: a
+//: chip with a "remove" cross on the right is the shape the whole app uses
+//: for "this is attached, take it off", and before this the only way to draw
+//: it was to put the character U+2715 in the string. That reads as the app's
+//: icon set from a distance and is nothing of the kind up close: measured,
+//: the glyph came out system-ui 13.6px at weight 500 beside a Phosphor icon
+//: at 15.6px and weight 400, in the same chip (INBOX 263: "I want to strip
+//: all signs of being vibecoded by an ai from the ui"). One rule in the
+//: label grammar is cheaper than a hand-built chip per call site, which is
+//: standing order 11's whole point.
+const PH_LABEL_TRAILING = /\s*ph:([a-z0-9-]{1,40})$/;
 
 // Fills `el` with a label, turning a leading `ph:` marker into a real icon
 // element. Returns the element, so it composes.
 function setLabel(el, label) {
-  const text = String(label ?? "");
+  let text = String(label ?? "");
+  //: Taken off before the leading marker is read, so `ph:file-text Name ph:x`
+  //: is an icon, a name and an icon rather than a name ending in "ph:x".
+  //:
+  //: **Only when something comes before it.** The two patterns both match a
+  //: label that is nothing but one marker, and the trailing one reading
+  //: `"ph:x"` first turned every icon-only button in the app into a trailing
+  //: mark with no label to trail: measured the moment this was added, a
+  //: `smallButton("ph:x")` came back carrying `ph-trail`, which is 0.35em of
+  //: margin on one side and 0.7 opacity on a control that is not a
+  //: decoration.
+  const tail = PH_LABEL_TRAILING.exec(text);
+  if (tail && tail.index > 0) text = text.slice(0, tail.index);
+  else if (tail) tail.length = 0;
   const match = PH_LABEL.exec(text);
+  //: The trailing icon is appended after whatever the rest of this builds, so
+  //: it is the last child in every shape a label can take: text only, icon
+  //: and text, or icon only.
+  const withTail = (built) => {
+    if (tail && tail.length) {
+      const mark = document.createElement("i");
+      mark.className = `ph ph-${tail[1]} ph-trail`;
+      mark.setAttribute("aria-hidden", "true");
+      built.append(mark);
+    }
+    return built;
+  };
   if (!match) {
     el.textContent = text;
-    return el;
+    return withTail(el);
   }
   const icon = document.createElement("i");
   icon.className = `ph ph-${match[1]}`;
@@ -1102,7 +1161,7 @@ function setLabel(el, label) {
     textSpan.textContent = rest;
     el.append(textSpan);
   }
-  return el;
+  return withTail(el);
 }
 
 //: **Is the Settings dialog open?** Defined here, in app.js, and not in
@@ -1659,10 +1718,110 @@ const MAP_PREVIEW_CORNER_UNITS = 0.8;
 //: invisible is a preview of the big ones only.
 const MAP_PREVIEW_MIN_BLOCK = 0.5;
 
-//: A character's width as a fraction of the type size, for deciding whether a
-//: label fits inside its own shape. Rough on purpose: the alternative is
-//: measuring text in the DOM, which means laying out every thumbnail twice.
+//: A character's width as a fraction of the type size. Still here as the
+//: fallback for a browser that cannot measure (see `mapPreviewTextWidth`),
+//: and as the unit the padding around a label is expressed in.
+//:
+//: **It is no longer what decides whether a label fits**, and the reason is a
+//: measurement. An estimate that is 0.55 when the font draws wider puts the
+//: text past the room it was budgeted, and the budget is what every later
+//: decision is made from: measured on a seeded board, "body text" was
+//: budgeted into a margin and painted 20.0 units wide starting at x=100.1 in
+//: a 100-unit-wide viewBox, so the label began past the edge of the paper.
+//: Reported as "the boards and maps previews are kinda a mess".
 const MAP_PREVIEW_CHAR_WIDTH = 0.55;
+
+//: **What a label really paints, at font-size 1, cached by string.**
+//:
+//: One hidden SVG for the whole page, carrying `.board-minimap` so the
+//: stylesheet's own family and weight apply: measuring in a different font
+//: than the one drawn is worse than not measuring, because it is wrong with
+//: confidence. `getComputedTextLength` is the SVG text metric and needs the
+//: element in a rendered tree, which a freshly built preview is not, hence a
+//: measuring element rather than the label itself.
+//:
+//: Measured once per distinct string at size 100 and divided back out, so a
+//: board's six titles cost six measurements however many previews of it are
+//: on screen, and a title that appears in the dashboard widget and in the
+//: Library is measured once for both. The cost this comment's predecessor
+//: worried about ("laying out every thumbnail twice") is what the cache
+//: removes: nothing is laid out twice, and nothing is laid out per preview.
+const MAP_PREVIEW_TEXT_WIDTHS = new Map();
+const MAP_PREVIEW_MEASURE_SIZE = 100;
+let mapPreviewMeasureText = null;
+
+function mapPreviewTextWidth(text, fontSize) {
+  const body = String(text || "");
+  if (!body) return 0;
+  let perUnit = MAP_PREVIEW_TEXT_WIDTHS.get(body);
+  if (perUnit === undefined) {
+    perUnit = null;
+    try {
+      if (!mapPreviewMeasureText) {
+        const NS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(NS, "svg");
+        //: `board-minimap` for the font, `map-preview-measure` for the
+        //: off-screen placement: the CSP refuses an inline `style=`, so both
+        //: are classes (10-responsive.css holds the second).
+        svg.setAttribute("class", "board-minimap map-preview-measure");
+        svg.setAttribute("aria-hidden", "true");
+        const node = document.createElementNS(NS, "text");
+        node.setAttribute("font-size", String(MAP_PREVIEW_MEASURE_SIZE));
+        svg.appendChild(node);
+        document.body.appendChild(svg);
+        mapPreviewMeasureText = node;
+      }
+      mapPreviewMeasureText.textContent = body;
+      const measured = mapPreviewMeasureText.getComputedTextLength();
+      if (measured > 0) perUnit = measured / MAP_PREVIEW_MEASURE_SIZE;
+    } catch {
+      //: A browser with no SVG text metrics, or a document that will not take
+      //: the element: the estimate below is what this always used.
+      perUnit = null;
+    }
+    MAP_PREVIEW_TEXT_WIDTHS.set(body, perUnit);
+  }
+  return perUnit === null
+    ? body.length * MAP_PREVIEW_CHAR_WIDTH * fontSize
+    : perUnit * fontSize;
+}
+
+//: Cut a label to the widest it may paint, measuring rather than counting
+//: characters: "Illinois" and "WWWWWWWW" are eight characters and very
+//: different widths, and the second is what runs off the paper. Returns null
+//: when even one character and the ellipsis will not fit, which is the "draw
+//: nothing" case the caller already had.
+function mapPreviewFitText(text, fontSize, room) {
+  const body = String(text || "");
+  if (!body) return null;
+  if (mapPreviewTextWidth(body, fontSize) <= room) return body;
+  for (let cut = body.length - 1; cut >= 1; cut--) {
+    const shown = `${body.slice(0, cut).trimEnd()}\u2026`;
+    if (mapPreviewTextWidth(shown, fontSize) <= room) return shown;
+  }
+  return null;
+}
+
+//: Do two boxes share more than a hair? A shared edge is not a collision, and
+//: floating point makes an exactly shared edge rare, so the threshold is a
+//: fraction of a unit rather than zero.
+//: Is a painted box wholly on the thumbnail's paper? The slack is one
+//: hundredth of a unit, which is below what `round2` can express, so a box
+//: that lands exactly on the border is inside rather than half a rounding
+//: error outside it.
+function mapPreviewOnPaper(box, vw, vh) {
+  return (
+    box.x >= -0.01 && box.y >= -0.01
+    && box.x + box.w <= vw + 0.01 && box.y + box.h <= vh + 0.01
+  );
+}
+
+function mapPreviewOverlaps(a, b, slack = 0.35) {
+  return (
+    Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > slack
+    && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > slack
+  );
+}
 
 //: **Which ink a label takes when it sits on a coloured node.** Measured
 //: with `scratchpad/ui-sweeps/preview.js` the day inside labels landed: a
@@ -1981,10 +2140,47 @@ function mapPreview(board, { size = "card" } = {}) {
     };
   };
 
+  //: **Every block's painted box, collected as they are drawn**, so the label
+  //: pass below can ask whether a caption has landed on something that is not
+  //: its own (INBOX 263: the previews "are kinda a mess"). A label beside a
+  //: block used to be placed from that block alone, with no idea that the
+  //: margin it hung into was already full: measured on a six-card board,
+  //: "Retry budget" was drawn 10 units into a neighbouring card and 15.9
+  //: units across "Ingest pipeline".
+  const drawn = [];
+
+  //: **Nothing is drawn past the paper's edge.** `px`/`py` place an item's
+  //: *top-left corner* inside the drawable span, and the span is computed
+  //: from the default block's width, while `sizeOf` returns the item's own,
+  //: which can be many times larger. The server's `w` compounds it: it is a
+  //: fraction of the span between the items' corners (`_preview_items`), and
+  //: an item wider than the distance between the outermost two corners has a
+  //: `w` above 1 quite legitimately. Measured on a six-card board: cards
+  //: 39.06 units wide drawn at x=76.28 in a 100-unit-wide viewBox, so a third
+  //: of every card in the right-hand column was outside the thumbnail, which
+  //: is most of what "the boards and maps previews are kinda a mess" is
+  //: looking at.
+  //:
+  //: The left edge is kept and the far edge trimmed, rather than the block
+  //: being moved: where a thing starts is its position, which is information;
+  //: where a clipped block ends is not. A thumbnail is a crop of a board, and
+  //: a large item running to the edge should be drawn running to the edge.
+  //: The floor is the same one `sizeOf` uses (a fraction of the default
+  //: block), not a bare number: `MAP_PREVIEW_MIN_BLOCK` is a multiplier, and
+  //: reading it as viewBox units would make the smallest allowed block half a
+  //: unit, which is a dot.
+  const onPaper = (at, extent, floor, from, to) =>
+    Math.max(floor, Math.min(extent, to - Math.max(from, at)));
+
   for (const item of items) {
     const nx = px(item.x);
     const ny = py(item.y);
-    const size = sizeOf(item);
+    const raw = sizeOf(item);
+    const size = {
+      w: onPaper(nx, raw.w, blockW * MAP_PREVIEW_MIN_BLOCK, pad, vw - pad),
+      h: onPaper(ny, raw.h, blockH * MAP_PREVIEW_MIN_BLOCK, pad, vh - pad),
+    };
+    if (item.kind !== "sketch") drawn.push({ item, x: nx, y: ny, w: size.w, h: size.h });
     if (item.kind === "sketch") {
       // The shape it was drawn with, at the size and place it was drawn, in
       // its own ink: see `mapPreviewSketch`. The stroke data itself is still
@@ -2059,106 +2255,221 @@ function mapPreview(board, { size = "card" } = {}) {
       }
       continue;
     }
-    if (!labels || !item.label) continue;
-    //: **What the item says**, which is why this stopped being a list of bare
-    //: points. Reported as "the whiteboard preview is poor", and the
-    //: screenshot was three boards named "Cloud computing" showing three
-    //: identical arrangements of blank grey rectangles, a picture that could
-    //: not tell them apart, which is what a preview is for.
-    const text = document.createElementNS(NS, "text");
-    text.setAttribute("class", "board-minimap-label");
-    //: **Which side of the block the label sits on.** Drawn always to the
-    //: right in the first version, and looking at the result showed the
-    //: problem immediately: an item at the far right of a board is at nx ≈ 91
-    //: in a 100-wide viewBox, so its label ran off the edge and came out
-    //: sliced mid-word ("Cloud computi"). Past halfway it hangs off the left
-    //: instead, which is the same amount of room from the other direction.
-    //: **Inside the shape when the shape can hold it**, beside it when it
-    //: cannot. Reported as the text "sitting off its shapes", and measured
-    //: before this: six of six labels on a map card were drawn outside every
-    //: block, because a block was a fixed 9x6 units whatever it stood for and
-    //: nothing could ever contain a word. Now that a topic is drawn at its own
-    //: size, a 200x56 node has room for its own name, which is where a person
-    //: reading a map expects to find it.
-    //:
-    //: The test is the text's own width against the block's: `font` units per
-    //: character is the same approximation the ellipsis below uses, and a
-    //: character is about half the type size in this family.
-    const fontUnits = geo.font * unit;
-    const perChar = fontUnits * MAP_PREVIEW_CHAR_WIDTH;
-    //: How many characters the block itself can hold, with a character's
-    //: width of padding at each end. A node is usually wider than it is long
-    //: in words, so this is normally the whole label; when it is not, the
-    //: label is cut to fit *inside* rather than being pushed outside, because
-    //: a name on its own node reads as that node's name and the same name
-    //: floating between two edges reads as a third thing on the board.
-    const roomFor = Math.floor((size.w - perChar * 2) / perChar);
-    const tall = size.h >= fontUnits * 1.6;
-    //: **Inside only when nearly all of it fits.** The floor alone put a
-    //: twelve-character note title into a block with room for five and drew
-    //: "Retr…", which is less use than no label: measured on a seeded board,
-    //: three cards titled "Retry budget", "Ingest pipeline" and "Open
-    //: questions" came out as "Retr…", "Inge…" and "Open…", three cards that
-    //: cannot be told apart by the one thing on them that was supposed to tell
-    //: them apart. Beside the block there is a whole margin and a budget of 16,
-    //: so the title arrives whole; inside is kept for the case it was built
-    //: for, a map's topic, whose node is wide and whose label is short.
-    const fits = tall
-      && roomFor >= Math.max(MAP_PREVIEW_MIN_INSIDE_CHARS, item.label.length - 2);
-    const gap = 1.5 * unit;
-    //: **The margin a label beside a block actually has**, measured on both
-    //: sides rather than guessed from which half of the board the block sits
-    //: in. `nx > vw / 2` is the block's left edge, so a wide item just left of
-    //: centre was labelled to its right at `nx + size.w + gap`, which on a
-    //: 200-unit-wide topic is past the paper: the text drew over the board's
-    //: own border and was sliced at the thumbnail's edge, reported as the
-    //: preview's "note titles run over the edge" (INBOX 174). Both numbers are
-    //: the room in the viewBox's units from the block's edge to the paper's,
-    //: and the label goes to whichever side has more of it.
-    const roomRight = Math.max(0, vw - (nx + size.w + gap));
-    const roomLeft = Math.max(0, nx - gap);
-    const rightHalf = roomLeft > roomRight;
-    //: Characters that side can hold, with one character's width spare so the
-    //: last glyph is not flush against the border. The budget was a flat 16
-    //: on the assumption that "beside the block there is a whole margin",
-    //: which is true of a small node in the middle and false of every block
-    //: near an edge.
-    const outsideChars = Math.floor(Math.max(roomLeft, roomRight) / perChar) - 1;
-    //: Nothing at all rather than an ellipsis on its own: see
-    //: MAP_PREVIEW_MIN_OUTSIDE_CHARS. The block, its size and its colour still
-    //: say what is there; a one-letter caption beside it does not.
-    if (!fits && outsideChars < MAP_PREVIEW_MIN_OUTSIDE_CHARS) continue;
-    const budget = fits ? Math.min(roomFor, 16) : Math.min(outsideChars, 16);
-    const shown = item.label.length > budget
-      ? `${item.label.slice(0, Math.max(1, budget - 1)).trimEnd()}…`
-      : item.label;
-    if (fits) {
-      text.setAttribute("x", String(round2(nx + size.w / 2)));
-      text.setAttribute("y", String(round2(ny + size.h / 2 + fontUnits * 0.36)));
-      text.setAttribute("text-anchor", "middle");
-      text.classList.add("board-minimap-label-inside");
-      //: A class, not a `fill` attribute, and this is the trap the blocks
-      //: above already carry a note about: `.board-minimap-label` declares
-      //: `fill` in the stylesheet, and a CSS declaration beats a presentation
-      //: attribute however specific the attribute looks. Setting the
-      //: attribute changed nothing at all, measured: 3.82:1 before and after.
-      const onColour = item.color ? mapPreviewOnColour(item.color) : null;
-      if (onColour) text.classList.add(`board-minimap-label-${onColour}`);
-    } else {
-      text.setAttribute("x", String(round2(rightHalf ? nx - gap : nx + size.w + gap)));
-      text.setAttribute("y", String(round2(ny + size.h * 0.73)));
+  }
+
+  //: **The labels, placed after every block is drawn and against all of
+  //: them.** Reported as "the boards and maps previews are kinda a mess", and
+  //: measured on a six-card board before this: "Retry budget" drawn 10 units
+  //: into a neighbouring card and 15.9 across "Ingest pipeline", and a
+  //: caption starting at x=100.1 in a 100-unit-wide viewBox.
+  //:
+  //: Three things were wrong and each needed the pass to know more than one
+  //: item at a time. The width was estimated from a characters-times-0.55
+  //: constant, and a budget that under-reports puts the text past the room it
+  //: was granted; the margin a label hangs into was treated as empty when it
+  //: often holds the next card; and nothing looked at the other labels at
+  //: all. So: measure the text, test the box against the blocks and against
+  //: the labels already kept, and drop a caption that has nowhere to go.
+  //:
+  //: **Dropping is the right answer when there is no room**, not shrinking or
+  //: overlapping. A preview is a picture you read at a glance, and two
+  //: captions across each other are less use than one caption and a block
+  //: with no words on it: the block, its size, its place and its colour still
+  //: say what is there.
+  //:
+  //: Biggest first, so when two want the same margin the one on the larger
+  //: thing keeps it, which is also the one a reader's eye goes to.
+  if (labels) {
+    const kept = [];
+    const ordered = drawn
+      .filter((row) => row.item.label && row.item.kind !== "image")
+      .sort((a, b) => b.w * b.h - a.w * a.h);
+    for (const row of ordered) {
+      const { item } = row;
+      const fontUnits = geo.font * unit;
+      const perChar = fontUnits * MAP_PREVIEW_CHAR_WIDTH;
+      const gap = 1.5 * unit;
+      //: The label's painted height. `getBBox` would give it exactly, and
+      //: cannot be asked here (the preview is not in the document yet), but a
+      //: cap height plus descender is a fixed fraction of the type size in
+      //: any family, which is enough to test a box with.
+      const lineH = fontUnits * 1.15;
+
+      //: **Inside the shape when the shape can hold it**, beside it when it
+      //: cannot. Reported as the text "sitting off its shapes": before a
+      //: topic was drawn at its own size, a block was a fixed 9x6 units
+      //: whatever it stood for and nothing could ever contain a word. A
+      //: 200x56 node has room for its own name, which is where a person
+      //: reading a map expects to find it.
+      //:
+      //: Nearly all of it, or none: the earlier version cut to fit and drew
+      //: "Retr…", "Inge…" and "Open…" on three cards, which is three cards
+      //: that cannot be told apart by the one thing meant to tell them apart.
+      const insideRoom = row.w - perChar * 2;
+      const tall = row.h >= fontUnits * 1.6;
+      const full = mapPreviewTextWidth(item.label, fontUnits);
+      const insideChars = Math.floor(insideRoom / perChar);
+      const fits = tall && full <= insideRoom
+        && insideChars >= MAP_PREVIEW_MIN_INSIDE_CHARS;
+
+      let shown = null;
+      let box = null;
+      let anchor = "start";
+      let x = 0;
+      let y = 0;
+      if (fits) {
+        shown = item.label;
+        x = row.x + row.w / 2;
+        y = row.y + row.h / 2 + fontUnits * 0.36;
+        anchor = "middle";
+        box = { x: x - full / 2, y: y - fontUnits * 0.8, w: full, h: lineH };
+      } else {
+        //: Both margins measured from the block's own edges to the paper's,
+        //: and the wider one tried first. `nx > vw / 2` was the old test and
+        //: it reads the block's *left* edge, so a wide item just left of
+        //: centre was labelled to its right at `nx + size.w + gap`, which on
+        //: a 200-unit-wide topic is past the paper (INBOX 174).
+        const roomRight = Math.max(0, vw - (row.x + row.w + gap));
+        const roomLeft = Math.max(0, row.x - gap);
+        const roomBelow = Math.max(0, vh - (row.y + row.h + gap));
+        const roomAbove = Math.max(0, row.y - gap);
+        //: **Four places, not two: beside, and under or over.** Under a
+        //: thumbnail's block is where a caption goes in every file browser
+        //: ever written, and it was not tried at all, so a board whose cards
+        //: sit in a row lost every title but the outermost: the margin left
+        //: and right is the next card, and there was nowhere else to look.
+        //: Measured on a six-card board: 2 of 6 titles drawn before these two
+        //: positions existed.
+        //:
+        //: The wider margin first, then the taller one, so the caption lands
+        //: where there is most room and a board only falls back to stacking
+        //: text under a block when its sides are genuinely full.
+        const places = [
+          { side: "left", room: roomLeft },
+          { side: "right", room: roomRight },
+          { side: "below", room: roomBelow },
+          { side: "above", room: roomAbove },
+        ].sort((a, b) => b.room - a.room);
+        //: Each vertical position is tried three ways: centred under its
+        //: block, then flushed to the block's left edge, then to its right.
+        //: A centred caption is the one to want, and on a crowded board it is
+        //: often the only one of the three that meets the neighbour: sliding
+        //: it to an edge it already shares with its own block keeps it
+        //: attached to the right thing while stepping out of the way.
+        const alignments = ["centre", "start", "end"];
+        const tries = [];
+        for (const place of places) {
+          if (place.side === "below" || place.side === "above") {
+            for (const align of alignments) tries.push({ ...place, align });
+          } else {
+            tries.push({ ...place, align: "centre" });
+          }
+        }
+        for (const place of tries) {
+          const side = place.side;
+          const vertical = side === "below" || side === "above";
+          //: A caption under a block is bounded by the *paper's* width, not
+          //: by the margin below it, which is what has to hold its height.
+          if (vertical && place.room < lineH + gap) continue;
+          const room = vertical
+            ? Math.min(row.x + row.w, vw - row.x) * 2 - perChar
+            : place.room - perChar;
+          if (room < perChar * MAP_PREVIEW_MIN_OUTSIDE_CHARS) continue;
+          const cut = mapPreviewFitText(item.label, fontUnits, room);
+          if (!cut) continue;
+          const width = mapPreviewTextWidth(cut, fontUnits);
+          const centre = row.x + row.w / 2;
+          const baseline = side === "below"
+            ? row.y + row.h + gap + fontUnits * 0.8
+            : side === "above"
+              ? row.y - gap
+              : row.y + row.h * 0.73;
+          //: Where a vertical caption's own box starts, given the alignment
+          //: this attempt is trying.
+          const under = place.align === "start"
+            ? row.x
+            : place.align === "end"
+              ? row.x + row.w - width
+              : centre - width / 2;
+          const left = side === "left"
+            ? row.x - gap - width
+            : side === "right"
+              ? row.x + row.w + gap
+              : under;
+          const candidate = { x: left, y: baseline - fontUnits * 0.8, w: width, h: lineH };
+          //: **Off the paper is a reason to try the next position, not a
+          //: reason to give up on the label.** This test used to sit after
+          //: the loop, which made the first candidate that missed the other
+          //: blocks the last one considered: measured on the seeded board,
+          //: "Retry budget" cleared every block centred under its own card,
+          //: began at x=-1.21, and was then dropped without the two aligned
+          //: positions beside it ever being tried, one of which fits. Two
+          //: reasons to reject a place belong in the same list.
+          if (!mapPreviewOnPaper(candidate, vw, vh)) continue;
+          //: Its own block is not a clash: a caption beside a card may touch
+          //: the card it names, and often has to on a crowded board.
+          const clash = drawn.some((other) => other !== row && mapPreviewOverlaps(candidate, other))
+            || kept.some((other) => mapPreviewOverlaps(candidate, other));
+          if (clash) continue;
+          shown = cut;
+          //: The text anchor has to match the box that was just tested, or
+          //: the collision test is about a rectangle the browser never draws.
+          anchor = side === "left"
+            ? "end"
+            : side === "right"
+              ? "start"
+              : place.align === "start" ? "start" : place.align === "end" ? "end" : "middle";
+          x = side === "left"
+            ? row.x - gap
+            : side === "right"
+              ? row.x + row.w + gap
+              : place.align === "start" ? row.x : place.align === "end" ? row.x + row.w : centre;
+          y = baseline;
+          box = candidate;
+          break;
+        }
+      }
+      if (!shown || !box) continue;
+      //: **A label inside its own block is still checked against the labels
+      //: already kept.** Blocks legitimately overlap on a board (a card
+      //: dropped on another, a topic over a branch), so two captions drawn in
+      //: the middle of two overlapping blocks land on top of each other
+      //: however correct each one is on its own: measured on a board with
+      //: stacked cards, six pairs of identical titles across each other. It
+      //: is not checked against the *blocks*, because sitting on a block is
+      //: what an inside label is for.
+      if (fits && kept.some((other) => mapPreviewOverlaps(box, other))) continue;
+      //: The paper's own edges for the inside case, which has only the one
+      //: position to offer and so tests them here rather than in a loop. A
+      //: caption sliced by the thumbnail's edge reads as a rendering fault,
+      //: which is what it is.
+      if (!mapPreviewOnPaper(box, vw, vh)) continue;
+
+      const text = document.createElementNS(NS, "text");
+      text.setAttribute("class", "board-minimap-label");
+      text.setAttribute("x", String(round2(x)));
+      text.setAttribute("y", String(round2(y)));
+      if (anchor !== "start") text.setAttribute("text-anchor", anchor);
+      // The type size, in the box's units divided back out, for the same
+      // reason the blocks are: a fixed CSS `font-size` here is in viewBox
+      // units, so the labels on a square board came out half the size of the
+      // labels on a wide one. The stylesheet keeps the colour and the family.
+      text.setAttribute("font-size", String(round2(fontUnits)));
+      if (fits) {
+        text.classList.add("board-minimap-label-inside");
+        //: A class, not a `fill` attribute, and this is the trap the blocks
+        //: above already carry a note about: `.board-minimap-label` declares
+        //: `fill` in the stylesheet, and a CSS declaration beats a
+        //: presentation attribute however specific the attribute looks.
+        //: Setting the attribute changed nothing at all, measured: 3.82:1
+        //: before and after.
+        const onColour = item.color ? mapPreviewOnColour(item.color) : null;
+        if (onColour) text.classList.add(`board-minimap-label-${onColour}`);
+      }
+      text.textContent = shown;
+      svg.appendChild(text);
+      kept.push(box);
     }
-    // The type size, in the box's units divided back out, for the same reason
-    // the blocks are: a fixed CSS `font-size` here is in viewBox units, so the
-    // labels on a square board came out half the size of the labels on a wide
-    // one. The stylesheet keeps the colour and the family; only the size,
-    // which depends on the board's shape, is set here.
-    text.setAttribute("font-size", String(round2(fontUnits)));
-    if (!fits && rightHalf) text.setAttribute("text-anchor", "end");
-    // An ellipsis rather than a bare slice: "Connections prob" reads as
-    // broken, "Connections pro…" reads as shortened.
-    text.textContent = shown;
-    svg.appendChild(text);
   }
   return svg;
 }
@@ -2662,7 +2973,7 @@ function entryItem(entry, options = {}) {
   // actually happening instead.
   if (entry.filing_state === "pending") {
     const filing = chip("ph:circle-notch Filing…", "filing");
-    filing.title = "The AI is deciding where this note goes. It's already saved.";
+    filing.title = "Atlas is deciding where this note goes. It's already saved.";
     meta.appendChild(filing);
   } else {
     meta.appendChild(chip(entry.category));
@@ -2693,7 +3004,7 @@ function entryItem(entry, options = {}) {
   const aiDidFile = entry.ai_confidence > 0 && !entry.user_filed;
   // Plain-language explanation on hover, "confidence" is jargon otherwise,
   // and the number alone doesn't say what it's confident *about*.
-  const confidenceHint = "How sure the AI was when it picked this note's category.";
+  const confidenceHint = "How sure Atlas was when it picked this note's category.";
   const confidenceChip = aiDidFile
     ? entry.ai_confidence >= REVIEW_THRESHOLD
       ? chip(`AI ${entry.ai_confidence}%`, "confidence")
@@ -3972,10 +4283,59 @@ function wireEscapedActionMenu(wrap) {
     }
   });
   observer.observe(menu, { attributes: true, attributeFilter: ["class"] });
+  menu._escapedObserver = observer;
+  //: **The re-place on resize is one listener for the whole app, not one per
+  //: menu.** This used to be `window.addEventListener("resize", ...)` here,
+  //: inside a function that runs once per `kebabMenu()`, which is once per
+  //: card. The Library draws sixty cards and rebuilds them on every render,
+  //: and `window` is never collected, so every one of those closures stayed
+  //: alive holding its own `menu`, `opener` and `place`, and through them the
+  //: whole detached card.
+  //:
+  //: Measured per round (`scratchpad` leak probe, 1440x900, eight rounds of
+  //: the seven tabs on a four thousand note notebook, three forced GCs before
+  //: each sample), because the question is whether it plateaus. Round one is
+  //: one-time: it renders tabs that had never been drawn. A leak keeps
+  //: climbing after that, and this did, dead straight:
+  //:
+  //:              round  1     2     3     4     5     6     7     8
+  //:   listeners  3999  4719  5439  6159  6879  7599  8319  9039   (+720 each)
+  //:   nodes      26767 28793 30820 32843 34868 36895 38920 40943  (+2025 each)
+  //:
+  //: with the document itself flat at 13,237 nodes throughout, so every one
+  //: of those 2,025 nodes a round was detached and retained. 360 of the 370
+  //: observers created and never disconnected came from this function too.
+  //:
+  //: After: 3,866 listeners and 26,768 nodes on every round from the first,
+  //: flat. Heap growth over rounds two to eight went from +1.4 MB to +0.7 MB,
+  //: and the `resize` registrations in a run from 657 to 104.
+  //:
+  //: The listener below is registered once and finds its work in the DOM, so
+  //: it holds nothing: a menu that is gone is a menu the query does not
+  //: return. `_placeEscaped` is on the element, so the closure lives exactly
+  //: as long as the element does.
+  menu._placeEscaped = place;
+  wireEscapedMenuResize();
+}
+
+//: One `resize` listener for every escaped menu there will ever be. See
+//: `wireEscapedActionMenu` for the measurement that made this necessary.
+//:
+//: It asks the document rather than holding a list: `closeActionMenus` can
+//: remove a menu, a render can replace the card under it, and either would
+//: leave a stale entry in a registry. `:not(.hidden)` because a closed menu
+//: has nothing to place, and only an escaped one is positioned by this file
+//: at all.
+let escapedMenuResizeWired = false;
+function wireEscapedMenuResize() {
+  if (escapedMenuResizeWired) return;
+  escapedMenuResizeWired = true;
   window.addEventListener(
     "resize",
     () => {
-      if (!menu.classList.contains("hidden")) place();
+      for (const menu of document.querySelectorAll(".action-menu-escaped:not(.hidden)")) {
+        menu._placeEscaped?.();
+      }
     },
     { passive: true }
   );
@@ -4345,7 +4705,7 @@ async function toggleEntryPrivacy(entry) {
         "It gets encrypted with a key derived from your password, so it stays " +
         "unreadable in the database, in backups, and to anyone without that " +
         "password.\n\n" +
-        "It also stops appearing in search and stops being given to the AI.\n\n" +
+        "It also stops appearing in search and stops being given to Atlas.\n\n" +
         "There is no recovery: if you forget your password this note is gone."
     ));
     if (!ok) return;
@@ -4509,7 +4869,17 @@ function buildMenuGroupButton(label, subItems) {
   const submenu = document.createElement("div");
   submenu.className = "action-menu submenu hidden";
   submenu.setAttribute("role", "menu");
-  for (const item of subItems) submenu.appendChild(buildMenuItemButton(item));
+  //: **An entry may be a button that already exists**, not only a descriptor
+  //: to build one from. The document editor's ⋯ is static markup whose rows
+  //: carry ids that `documents.js` binds handlers to (`doc-export-md` and
+  //: four more), so folding them into a group has to *move* those buttons
+  //: rather than rebuild them: a rebuilt row is a row with no handler and an
+  //: id that two lints watch. Everything else about the group is identical,
+  //: which is the point of reusing this recipe rather than writing a second
+  //: flyout for one menu.
+  for (const item of subItems) {
+    submenu.appendChild(item instanceof HTMLElement ? item : buildMenuItemButton(item));
+  }
 
   // **Reparented to `<body>` while open, like `escapeMenuIfClipped` does for
   // the top-level kebab.** Reported: a submenu opened from a kebab near the
@@ -4715,8 +5085,8 @@ function entryOverflowMenu(entry) {
       {
         label: entry.is_private ? "ph:lock-open Make readable" : "ph:lock Make private",
         title: entry.is_private
-          ? "Decrypt this note so search and the AI can use it again"
-          : "Encrypt this note at rest, and keep it out of search and the AI",
+          ? "Decrypt this note so search and Atlas can use it again"
+          : "Encrypt this note at rest, and keep it out of search and Atlas",
         run: () => toggleEntryPrivacy(entry),
       },
       {
@@ -4781,7 +5151,7 @@ function entryOverflowMenu(entry) {
       ...(entry.title
         ? [
             {
-              label: "✕ Remove title",
+              label: "ph:x Remove title",
               title: "Take the title back out, the note's text is unchanged",
               run: () => removeEntryTitle(entry),
             },
@@ -4801,12 +5171,35 @@ function entryOverflowMenu(entry) {
         },
       },
       {
+        //: INBOX 246's first sentence. Next to "Add to a document" because
+        //: it is the same act on the other kind of surface, and the note
+        //: stays exactly where it is either way.
+        label: "ph:squares-four Add to a board or map",
+        title: "Put this note on a whiteboard or a mind map",
+        run: () => {
+          inlineAction = inlineActionIs(entry.id, "board")
+            ? null
+            : { id: entry.id, kind: "board" };
+          renderEntries();
+        },
+      },
+      {
         label: "ph:file-text Expand into a document",
         title: "Start a document from this note, the note stays where it is",
         run: () => expandNoteIntoDocument(entry),
       },
       { label: "ph:link Link to another", run: () => beginOrCompleteLink(entry) },
-      { label: "≈ Similar notes", run: () => toggleRelated(entry) },
+      { label: "ph:approximate-equals Similar notes", run: () => toggleRelated(entry) },
+      {
+        label: "ph:arrow-u-up-left Referenced by",
+        title: "Documents, notes, boards and maps that point at this note",
+        run: () => toggleReferences(entry),
+      },
+      {
+        label: "ph:hourglass-medium Forgotten notes like this",
+        title: "Notes you have not looked at in a long time that are close to this one",
+        run: () => toggleFaded(entry),
+      },
     ];
 
     const addItems = [
@@ -4840,7 +5233,7 @@ function entryOverflowMenu(entry) {
       },
       {
         label: "ph:plus Add context",
-        title: "Append detail: the AI may refile it",
+        title: "Append detail: Atlas may refile it",
         run: () => {
           inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
           renderEntries();
@@ -5076,6 +5469,11 @@ function renderInlineAction(entry) {
     return wrap;
   }
 
+  if (inlineAction.kind === "board") {
+    renderAttachToBoard(entry, wrap);
+    return wrap;
+  }
+
   if (inlineAction.kind === "remind") {
     const preview = entry.content.length > 40 ? entry.content.slice(0, 39) + "…" : entry.content;
     const textInput = document.createElement("input");
@@ -5110,7 +5508,7 @@ function renderInlineAction(entry) {
   const textarea = document.createElement("textarea");
   textarea.rows = 2;
   textarea.placeholder = isContext
-    ? "Add detail: the AI re-reads the whole note and may refile it…"
+    ? "Add detail: Atlas re-reads the whole note and may refile it…"
     : "Continue this train of thought…";
   wrap.appendChild(textarea);
 
@@ -7808,7 +8206,7 @@ function selectionMenuItems() {
         openExtractPreview(text);
       }
     ),
-    makeMenuItem("ph:chat-circle Ask the AI about this", "Start a chat about the selection", () => {
+    makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about the selection", () => {
       switchTab("chat");
       const input = $("chat-input");
       input.value = `Tell me about this: "${text}"`;
@@ -8088,15 +8486,43 @@ async function downloadAttachment(attachment) {
   await saveFile(attachment.filename, await response.blob());
 }
 
-let relatedOpenId = null; // entry currently showing its similar notes
+//: **One open panel, named by which one it is.** Three menu items open a row
+//: under a note card: "Similar notes", "Referenced by" and "Forgotten notes
+//: like this". Each kept its own open-id, and two of them said in their own
+//: comments that there should only be one, which is what happens when a
+//: third arrives: opening one left the others' ids set, so the next click on
+//: a *different* panel toggled the stale id instead and did nothing visible.
+//:
+//: One id and one kind, because the panels genuinely are one thing: they draw
+//: the same `.entry-links` row in the same place on the same card, and
+//: `renderEntries` clears whichever is showing, so only one can ever be on
+//: screen anyway. The variable now says that rather than three variables
+//: agreeing by accident.
+let notePanel = { id: null, kind: null };
+
+//: Toggle the named panel on a note: returns true when it should now be
+//: drawn, false when the click closed it. `renderEntries` between the two is
+//: what takes the previous panel off, whichever card it was on.
+function toggleNotePanel(entry, kind) {
+  const open = notePanel.id === entry.id && notePanel.kind === kind;
+  notePanel = open ? { id: null, kind: null } : { id: entry.id, kind };
+  renderEntries();
+  return !open;
+}
+
+//: Is the panel this render is finishing still the one that was asked for? An
+//: `await` sits between the click and the append, and in that window the
+//: reader can open something else or close this one.
+function notePanelStillOpen(entry, kind) {
+  return notePanel.id === entry.id && notePanel.kind === kind;
+}
+
 
 async function toggleRelated(entry) {
-  relatedOpenId = relatedOpenId === entry.id ? null : entry.id;
-  renderEntries();
-  if (relatedOpenId !== entry.id) return;
+  if (!toggleNotePanel(entry, "related")) return;
   const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
   const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
-  if (!card || relatedOpenId !== entry.id) return;
+  if (!card || !notePanelStillOpen(entry, "related")) return;
   const row = document.createElement("div");
   row.className = "entry-links";
   const label = document.createElement("span");
@@ -8111,6 +8537,144 @@ async function toggleRelated(entry) {
         label.textContent = "All similar notes are linked.";
       }
     }));
+  }
+  card.appendChild(row);
+}
+
+//: **What points at this note** (INBOX 246, the owner: "I want it to show in
+//: notes if they are attached to or referenced in/by a document, note,
+//: whiteboard, or mindmap").
+//:
+//: Deliberately the same shape as `toggleRelated` above, down to the single
+//: open-id variable: the two answer neighbouring questions ("what is like
+//: this" and "what points at this"), they open in the same place on the same
+//: card from the same menu, and a second way of drawing a row under a note
+//: would be a second thing to keep consistent for no gain.
+//:
+//: What each kind of reference is called on the chip, and the icon that says
+//: it without being read. A table rather than a chain of ternaries, because
+//: the kinds are the four the owner named and a missing one should be
+//: obvious rather than silently falling through to "note".
+const REFERENCE_KIND_LABELS = {
+  document: ["ph:file-text", "document"],
+  note: ["ph:note", "note"],
+  board: ["ph:squares-four", "board"],
+  map: ["ph:tree-structure", "map"],
+};
+
+//: **The faded notes nearest this one** (INBOX 261). `GET
+//: /resurface/near/{entry_id}` shipped with the rest of resurfacing and no
+//: `frontend/*.js` ever named it: found by `scratchpad/probe_dead_routes.py`,
+//: the same scan that found WORLD_CLASS_PLAN I9's whole backend built with no
+//: screen at all. A ranking nobody can read is a ranking that does not exist.
+//:
+//: **Not the same question as "Similar notes" above**, which is why it is its
+//: own row rather than a filter on that one. `/entries/{id}/related` answers
+//: "what means the same as this", newest and busiest notes included;
+//: `resurface.for_context` answers "what have you forgotten that bears on
+//: this", ranking by age, links and opens first and nearness second. The
+//: first is a lookup, the second is the thing this app is for.
+//:
+//: One open panel at a time across all three: see `notePanel` above, which is
+//: the single piece of state the three share.
+
+async function toggleFaded(entry) {
+  if (!toggleNotePanel(entry, "faded")) return;
+  const answer = await apiJson(`/resurface/near/${entry.id}`, { silent: true }).catch(() => null);
+  const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
+  if (!card || !notePanelStillOpen(entry, "faded")) return;
+  const row = document.createElement("div");
+  row.className = "entry-links";
+  const label = document.createElement("span");
+  label.className = "muted";
+  const items = (answer && answer.items) || [];
+  //: Three states, not two, exactly as `toggleReferences` has them: "nothing
+  //: is faded near this" and "we could not ask" are different facts, and the
+  //: second has a third cause of its own here (a notebook under
+  //: `resurface.MIN_NOTEBOOK` is refused a ranking by design, so an empty
+  //: answer on a small notebook is not a finding about this note).
+  label.textContent = !answer
+    ? "Couldn't look for forgotten notes near this one."
+    : items.length
+      ? "Forgotten, and close to this:"
+      : "Nothing faded is close to this note.";
+  row.appendChild(label);
+  for (const item of items) {
+    const wrap = document.createElement("span");
+    wrap.className = "entry-related-row";
+    const fadedChip = chip("", "link", () => flashEntry(item.id));
+    setLabel(fadedChip, `ph:hourglass-medium ${item.title}`);
+    //: The card's own sentence, which the route sends precisely so a panel
+    //: can say why it chose something: "120 days old, no links, never
+    //: opened" is checkable and "0.82" is not.
+    fadedChip.title = item.reason || item.preview || "";
+    wrap.appendChild(fadedChip);
+    const why = document.createElement("span");
+    why.className = "muted entry-reference-how";
+    why.textContent = item.reason || "";
+    wrap.appendChild(why);
+    row.appendChild(wrap);
+  }
+  card.appendChild(row);
+}
+
+async function toggleReferences(entry) {
+  if (!toggleNotePanel(entry, "references")) return;
+  const answer = await apiJson(`/entries/${entry.id}/references`).catch(() => null);
+  const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
+  if (!card || !notePanelStillOpen(entry, "references")) return;
+  const row = document.createElement("div");
+  row.className = "entry-links";
+  const label = document.createElement("span");
+  label.className = "muted";
+  const items = (answer && answer.items) || [];
+  //: Three states, not two: "nothing points at this" and "we could not ask"
+  //: are different facts and a person acting on the first one deserves to
+  //: know it was really the second.
+  label.textContent = !answer
+    ? "Couldn't check what points at this note."
+    : items.length
+      ? "Referenced by:"
+      : "Nothing points at this note yet.";
+  row.appendChild(label);
+  for (const item of items) {
+    const [icon, word] = REFERENCE_KIND_LABELS[item.kind] || ["ph:note", item.kind];
+    const wrap = document.createElement("span");
+    wrap.className = "entry-related-row";
+    const refChip = chip("", "link", () => {
+      //: A board and a map open in the Library, a note in Notes, a document
+      //: in its editor. Each already has one way in; this is not a fifth.
+      //: Each kind already has exactly one way in, and this uses it rather
+      //: than becoming a fifth. `typeof` because the board and document
+      //: files are lazy-loaded with the Library bundle and a note card can
+      //: be on screen before either has landed.
+      if (item.kind === "board" || item.kind === "map") {
+        if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(item.id);
+      } else if (item.kind === "document") {
+        openDocumentFromNote(item.id);
+      } else {
+        flashEntry(item.id);
+      }
+    });
+    setLabel(refChip, `${icon} ${item.label}`);
+    //: Read out loud rather than assembled: "This board on it" is what
+    //: pasting the server's phrase after the kind gives you, and it is not a
+    //: sentence. The phrase beside the chip stays terse because it sits in a
+    //: row of them; the tooltip is where there is room to say it properly.
+    refChip.title = {
+      "on it": `This ${word} has this note on it`,
+      "links to it": `This ${word} links to this note`,
+      "mentions it": `This ${word} mentions this note by name`,
+    }[item.how] || `This ${word} ${item.how}`;
+    wrap.appendChild(refChip);
+    //: The relationship, beside the thing rather than inside its name: "on
+    //: it", "links to it" and "mentions it" are three different strengths of
+    //: claim and the middle one is the only one somebody chose.
+    const how = document.createElement("span");
+    how.className = "muted entry-reference-how";
+    how.textContent = item.how;
+    wrap.appendChild(how);
+    row.appendChild(wrap);
   }
   card.appendChild(row);
 }
@@ -8134,7 +8698,14 @@ function similarNoteRow(entry, other, onLinked) {
   const wrap = document.createElement("span");
   wrap.className = "entry-related-row";
   const relChip = chip("", "link", () => flashEntry(other.id));
-  relChip.appendChild(document.createTextNode("≈ "));
+  //: The same mark the menu item that opens this row wears, drawn the same
+  //: way: an `<i class="ph">` rather than the character U+2248, which came
+  //: out in the page font at the text's own weight beside Phosphor icons in
+  //: every neighbouring chip (INBOX 263).
+  const relMark = document.createElement("i");
+  relMark.className = "ph ph-approximate-equals ph-lead";
+  relMark.setAttribute("aria-hidden", "true");
+  relChip.appendChild(relMark);
   const previewSpan = document.createElement("span");
   renderInlineMarkdown(previewSpan, preview, [], true);
   relChip.appendChild(previewSpan);
@@ -8566,7 +9137,7 @@ function fillCategoryOptions(select, selected) {
   if (selected === null) {
     const auto = document.createElement("option");
     auto.value = "";
-    auto.textContent = "Let the AI decide";
+    auto.textContent = "Let Atlas decide";
     select.appendChild(auto);
   }
   for (const name of names) {
@@ -9457,6 +10028,54 @@ function bodyWithoutTitleLine(content) {
 // inserts: a note's opening words); documents fall back to an exact,
 // case-insensitive title. Private notes are never a target: they cannot be
 // linked, and resolving to one would leak that it exists.
+//: **The lowercased forms a wiki lookup compares against, computed once per
+//: note rather than once per note per link.**
+//:
+//: `resolveWikiTarget` runs for every `[[link]]` that renders, and it used to
+//: lowercase every note's whole body, twice (once plain, once with the
+//: heading marker stripped by a regex), on every one of those calls. At four
+//: thousand notes averaging 594 bytes that is up to 4.8 MB of string work per
+//: link, and a note list draws sixty cards at a time. Profiled over fourteen
+//: seconds of ordinary use, `opening` and `openingTitle` and their caller
+//: came to 267 ms of self time, more than the dashboard's p5 sketch.
+//:
+//: Two things fix it and neither can go stale. The forms are cached **on the
+//: entry, keyed by the content string they were derived from**, so an edit
+//: invalidates them by construction: no generation counter to forget to bump,
+//: no cache to clear when `allEntries` is replaced. And only the first
+//: `WIKI_PREFIX_MAX` characters are lowercased, because every comparison here
+//: is `startsWith` against a needle that is a title. A needle longer than that
+//: falls back to the full string, so the bound is an optimisation and never a
+//: behaviour.
+const WIKI_PREFIX_MAX = 300;
+
+function wikiForms(entry, needleLength) {
+  const content = entry.content || "";
+  if (needleLength > WIKI_PREFIX_MAX) {
+    const full = content.toLowerCase();
+    return { opening: full, title: full.replace(/^#{1,6}[ \t]*/, "") };
+  }
+  if (entry._wikiSrc !== content) {
+    const head = content.slice(0, WIKI_PREFIX_MAX).toLowerCase();
+    entry._wikiSrc = content;
+    entry._wikiOpening = head;
+    entry._wikiTitle = head.replace(/^#{1,6}[ \t]*/, "");
+  }
+  return { opening: entry._wikiOpening, title: entry._wikiTitle };
+}
+
+//: The same trick for the imported-vault path: a file stem is derived from
+//: `source_path` with a split, a pop and a regex, which was also being redone
+//: per link per note.
+function wikiStem(entry) {
+  const path = entry.source_path || "";
+  if (entry._wikiStemSrc !== path) {
+    entry._wikiStemSrc = path;
+    entry._wikiStem = path.split("/").pop().replace(/\.(md|markdown)$/i, "").toLowerCase();
+  }
+  return entry._wikiStem;
+}
+
 function resolveWikiTarget(name) {
   const needle = String(name || "").trim().toLowerCase();
   if (!needle) return null;
@@ -9467,11 +10086,9 @@ function resolveWikiTarget(name) {
   //: should not lose to a note that merely opens with the word "index". Same
   //: rule as `find_by_wiki_name` in entry/manager.py, which is what makes the
   //: link the backend stores and the link this pane draws point at one note.
-  const vaultNote = entries.find((e) => {
-    if (e.is_private || !e.source_path) return false;
-    const stem = e.source_path.split("/").pop().replace(/\.(md|markdown)$/i, "");
-    return stem.toLowerCase() === needle;
-  });
+  const vaultNote = entries.find(
+    (e) => !e.is_private && e.source_path && wikiStem(e) === needle
+  );
   if (vaultNote) return { kind: "note", entry: vaultNote };
   //: **A board is a link target, and it is not a note.** MINDMAP_PLAN.md §5
   //: item 12 asks for a map chip in note bodies, and the `@`/`[[` picker in
@@ -9507,12 +10124,22 @@ function resolveWikiTarget(name) {
   //: The second comparison strips a leading heading marker from the *content*
   //: rather than adding one to the needle, because the marker is one to six
   //: hashes and any amount of space, and the content is where that is known.
-  const opening = (e) => (e.content || "").toLowerCase();
-  const openingTitle = (e) => opening(e).replace(/^#{1,6}[ \t]*/, "");
-  const notes = entries.filter((e) => !e.is_private && !e.is_board);
-  const note =
-    notes.find((e) => opening(e).startsWith(needle)) ||
-    notes.find((e) => openingTitle(e).startsWith(needle));
+  //: One pass, not a `filter` into a four thousand entry array followed by
+  //: two `find`s over it. The plain-opening match still wins over the
+  //: marker-stripped one, which is what the two passes were for: it is
+  //: remembered rather than searched for twice.
+  let note = null;
+  let titleMatch = null;
+  for (const entry of entries) {
+    if (entry.is_private || entry.is_board) continue;
+    const forms = wikiForms(entry, needle.length);
+    if (forms.opening.startsWith(needle)) {
+      note = entry;
+      break;
+    }
+    if (!titleMatch && forms.title.startsWith(needle)) titleMatch = entry;
+  }
+  note = note || titleMatch;
   if (note) return { kind: "note", entry: note };
   const documents = typeof editorDocumentCache !== "undefined" ? editorDocumentCache : null;
   const docList = documents || [];
@@ -10464,7 +11091,34 @@ function showEntrySkeletons() {
 // still ends up exactly as complete, one page later.
 const ENTRIES_PAGE_SIZE = 200;
 
+//: How long the list may go without showing a newly arrived page while the
+//: background paging runs. Short enough that a big notebook still visibly
+//: fills in, long enough that twenty-one pages are a handful of repaints
+//: rather than twenty-one.
+const ENTRIES_PROGRESS_MS = 250;
+let _entriesProgressTimer = null;
+
+function paintEntriesProgress() {
+  clearTimeout(_entriesProgressTimer);
+  _entriesProgressTimer = null;
+  renderStatusBar(); // the notebook's size changed, and the bar reads it here
+  renderEntries();
+}
+
+function scheduleEntriesProgress() {
+  if (_entriesProgressTimer !== null) return;
+  _entriesProgressTimer = setTimeout(paintEntriesProgress, ENTRIES_PROGRESS_MS);
+}
+
 async function loadEntries() {
+  //: Wrapped, because every path below this either paints the notebook or
+  //: throws, and a throw used to leave the skeletons and then the empty state
+  //: on screen: "Your notebook is empty" is a claim about the person's own
+  //: notes that a failed GET is no basis for. See `surfaceFailed`.
+  return loadSurface($("empty-message"), "notes", _loadEntries);
+}
+
+async function _loadEntries() {
   const generation = ++_entriesLoadGeneration;
   showEntrySkeletons();
 
@@ -10498,6 +11152,11 @@ async function loadEntries() {
   // change: it still ends up exactly as complete as it always was.
   let offset = 0;
   let total = Infinity; // discovered from the first response's X-Total-Count
+  //: Any repaint this load still owes. Cleared by `paintEntriesProgress`, so
+  //: the immediate paint on the last page cannot be followed by a stale
+  //: throttled one a moment later.
+  clearTimeout(_entriesProgressTimer);
+  _entriesProgressTimer = null;
   let first = true;
   while (offset < total) {
     const response = await api(`/entries?limit=${ENTRIES_PAGE_SIZE}&offset=${offset}`);
@@ -10510,9 +11169,21 @@ async function loadEntries() {
     const reported = Number(response.headers.get("X-Total-Count"));
     total = Number.isFinite(reported) ? reported : allEntries.length;
 
-    renderStatusBar(); // the notebook's size changed, and the bar reads it here
-    renderEntries();
     ensureMapChipsFor(page, generation);
+    //: **Twenty-one pages used to mean twenty-one full re-renders.**
+    //: `renderEntries()` costs 79 ms on a four thousand note list (measured
+    //: at 1440x900), and the loop called it for every page, so a notebook
+    //: that pages twenty-one times spent about 1.7 s of main thread redrawing
+    //: a list that nobody had asked to change. The first page is what the
+    //: reader is actually looking at; the pages after it are background.
+    //:
+    //: So the first page and the last one paint at once, the ones in between
+    //: are throttled. The list still visibly grows, which is the point of
+    //: painting during the load at all, it just grows in steps of a quarter
+    //: second rather than in twenty-one full repaints.
+    const lastPage = offset >= total || page.length === 0;
+    if (first || lastPage) paintEntriesProgress();
+    else scheduleEntriesProgress();
     if (first || offset >= total) {
       renderSidebar();
       // Categories the AI has filed notes into since the last load need
@@ -10616,7 +11287,7 @@ async function watchFiling(entry) {
     }
     if (status.filing_state === "pending") continue;
     if (status.filing_state === "failed") {
-      toast(`Saved, but the AI couldn't file it: it's in “${status.category}”.`, true);
+      toast(`Saved, but Atlas couldn't file it: it's in “${status.category}”.`, true);
     } else {
       toastAction(
         `Filed under “${status.category}” (${status.ai_confidence}% sure).`,
@@ -10645,13 +11316,18 @@ function filedByText(saved) {
     case "semantic-match":
       return `Filed under “${saved.category}” (${saved.ai_confidence}% sure): matched by meaning, no AI call needed`;
     case "llm":
-      return `Filed under “${saved.category}” (${saved.ai_confidence}% sure): decided by ${
-        (modelStatus && modelStatus.chat_model) || "the chat model"
+      //: **"Atlas, running qwen2.5:7b"**, the form the owner's own decision
+      //: names (INBOX 225): the librarian's name is what the app calls
+      //: itself, and the model's name stays beside it, because "which model
+      //: decided this" is the question this line exists to answer and a
+      //: persona name alone would stop answering it.
+      return `Filed under “${saved.category}” (${saved.ai_confidence}% sure): decided by ${aiNameNow()}${
+        modelStatus && modelStatus.chat_model ? `, running ${modelStatus.chat_model}` : ""
       }`;
     case "user":
-      return `Filed under “${saved.category}”: your choice, the AI stayed out of it`;
+      return `Filed under “${saved.category}”: your choice, ${aiNameNow()} stayed out of it`;
     default:
-      return `Saved as “${saved.category}”: the AI wasn't available to file it`;
+      return `Saved as “${saved.category}”: ${aiNameNow()} wasn't available to file it`;
   }
 }
 
@@ -10726,7 +11402,7 @@ function renderCaptureDocuments(documents) {
   const box = $("entry-document-chips");
   box.replaceChildren();
   for (const id of captureDocuments) {
-    const chipEl = chip(`ph:file-text ${captureDocumentTitles.get(String(id)) || id} ✕`, "tag", () => {
+    const chipEl = chip(`ph:file-text ${captureDocumentTitles.get(String(id)) || id} ph:x`, "tag", () => {
       captureDocuments.delete(id);
       renderCaptureDocuments();
     });
@@ -10783,6 +11459,114 @@ function renderCaptureDocumentAdder() {
   );
   const adder = labelledMenu("ph:file-plus Add to document", items, "Add this note to a document", "ghost");
   slot.replaceChildren(adder);
+}
+
+//: **Put this note on a whiteboard or a mind map** (INBOX 246, the owner:
+//: "I also want to be able to attach whiteboards and mindmaps to notes").
+//:
+//: "Attach" here means the thing a person means by it: the note goes on the
+//: board, as a card, where they can see it. That is a `WhiteboardNode` row,
+//: which is the reference the board already stores when it carries a note,
+//: written from the note's side. No new relation, no second way for a note
+//: and a board to be connected, and the "Referenced by" row above reads it
+//: back without knowing which side wrote it.
+//:
+//: Deliberately the shape of `renderAttachToDocument` below, which does the
+//: same job for documents: the same inline panel, the same select, the same
+//: Attach/Cancel pair, the same toast with a way in. Two adders that behave
+//: differently would be two things to learn for one idea.
+//:
+//: **No "new board" option**, unlike the document picker. A document made
+//: from a note is a document with that note in it and nothing else to
+//: decide; a board made from a note needs a type (board or map) and a name,
+//: which is a dialog, and the Library's own "New board" already asks both.
+//: Offering a half version here would be a third place that creates boards.
+async function renderAttachToBoard(entry, wrap) {
+  const status = document.createElement("p");
+  status.className = "muted";
+  status.textContent = "Loading boards\u2026";
+  wrap.appendChild(status);
+
+  const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
+  if (!boards) {
+    status.textContent = "Couldn't load your boards.";
+    return;
+  }
+  //: The unnamed scratch board (`id: null`) is left out: it is where things
+  //: land when nobody chose a board, not somewhere to file a note on
+  //: purpose, and it has no name to offer in a list.
+  const named = boards.filter((board) => board.id != null);
+  if (!named.length) {
+    status.textContent = "No boards or maps yet. Make one in the Library first.";
+    const only = document.createElement("div");
+    only.className = "row";
+    only.appendChild(
+      smallButton("Cancel", "", () => {
+        inlineAction = null;
+        renderEntries();
+      })
+    );
+    wrap.appendChild(only);
+    return;
+  }
+  status.textContent = "Put this note on:";
+
+  const picker = document.createElement("select");
+  for (const board of named) {
+    const option = document.createElement("option");
+    option.value = String(board.id);
+    //: The kind in the label, because the owner asked for whiteboards and
+    //: mind maps by name and a list of bare titles does not say which is
+    //: which. The word, not an icon: this is an `<option>`, and an option's
+    //: text is all it has.
+    option.textContent = `${board.title || "Untitled"} (${board.type === "map" ? "map" : "board"})`;
+    //: The name on its own, for the toast. The `(board)` half belongs in a
+    //: list where two kinds sit together and reads as part of the name
+    //: anywhere else: "Put on \u201cHouse jobs (board)\u201d" is not a sentence
+    //: somebody wrote.
+    option.dataset.title = board.title || "Untitled";
+    picker.appendChild(option);
+  }
+
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(
+    smallButton(
+      "Attach",
+      "Put this note on the chosen board",
+      async () => {
+        const id = Number(picker.value);
+        const title = picker.selectedOptions[0]?.dataset.title || "that board";
+        try {
+          await apiJson("/whiteboard/nodes", {
+            method: "POST",
+            //: Placed rather than dropped at the origin: every board already
+            //: has something at 0,0 sooner or later, and a card that lands
+            //: exactly under another one reads as "nothing happened". This is
+            //: the same offset the board's own "add a card" starts from, and
+            //: the card is draggable the moment it is there.
+            body: JSON.stringify({ entry_id: entry.id, board_id: id, x: 80, y: 80, z: 1 }),
+          });
+          inlineAction = null;
+          await loadEntries();
+          toastAction(`Put on \u201c${title}\u201d.`, "Open", () => {
+            if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(id);
+          });
+        } catch (error) {
+          toast(error.message, true);
+        }
+      },
+      false
+    )
+  );
+  row.appendChild(
+    smallButton("Cancel", "", () => {
+      inlineAction = null;
+      renderEntries();
+    })
+  );
+  wrap.append(picker, row);
+  focusSelect(picker);
 }
 
 // The other direction, asked for straight after the capture-time picker:
@@ -11041,7 +11825,7 @@ async function saveEntry() {
       ? "Saving…"
       : modelStatus && !modelStatus.embedding_ready
         ? "Filing… (the search AI is still warming up, this first one can take longer)"
-        : "Filing… (the AI is reading and categorising your note)";
+        : "Filing… (Atlas is reading and categorising your note)";
   try {
     //: **The pictures go up before the note does.** They were staged as
     //: `staged:<key>` urls while the note had no id (see `captureStagedImages`);
@@ -12412,6 +13196,20 @@ async function askQuestion(preset) {
       },
     });
 
+    //: **The live renderer's armed paint is cancelled before anything else**
+    //: (`liveMarkdownRenderer`'s own `stop`, and the same call the Chat tab's
+    //: `finalise` has made since INBOX 40). Reported as *"grounding and
+    //: in-text referencing not working now"* and, more precisely, *"doesn't
+    //: stick"*: measured, the markers were placed, all three of them, and a
+    //: `setTimeout` armed up to `LIVE_RENDER_INTERVAL_MS` before the stream
+    //: ended then fired and repainted this box from the raw markdown, which
+    //: removes every one of them. The prose is identical either way, so
+    //: nothing about it looks like a race; only the little numbers go.
+    //:
+    //: The Ask tab was the one caller of this renderer that never stopped it.
+    //: The fix is the call, not a delay: a timer cancelled cannot fire late,
+    //: whereas a longer wait only makes the race rarer.
+    renderLive.stop();
     // Final render (catches anything after the last animation frame).
     if (!hinted) renderMarkdown(answerBox, answerRaw);
     //: **And the citations go back in.** Reported: *"in the ask tab, no inline
@@ -12474,6 +13272,9 @@ async function askQuestion(preset) {
   } catch (error) {
     if (error.name === "AbortError") {
       stopped = true;
+      //: Same reason as the success path above: Stop is an exit too, and an
+      //: armed paint outlives the turn it belongs to.
+      renderLive.stop();
       renderMarkdown(answerBox, answerRaw); // keep what streamed so far
       status.textContent = "Stopped.";
       show("retry-btn", "copy-btn", "speak-btn");
@@ -13371,7 +14172,7 @@ function flashCopied(button) {
   // saving/restoring textContent silently wiped the icon back to blank once
   // the checkmark's timeout fired instead of putting it back.
   const original = button.innerHTML;
-  button.textContent = "✓";
+  setLabel(button, "ph:check");
   setTimeout(() => (button.innerHTML = original), 1200);
 }
 
@@ -13709,7 +14510,7 @@ function renderChatEmptyState() {
   //: One line about the other assistant (INBOX 224). The empty chat is where
   //: somebody asks the app a question it cannot answer from notes, "how do I
   //: turn this off", and Atlas is the one that can.
-  empty.appendChild(atlasSuggestion("What can the AI change in my notebook?"));
+  empty.appendChild(atlasSuggestion("What can Atlas change in my notebook?"));
   //: **The starters belong in the empty state, not in a strip above the
   //: composer.** Measured at 1440px: the welcome was a 326px column of centred
   //: text in a 1062px pane with four suggestion chips jammed against the
@@ -13964,8 +14765,8 @@ function buildWebResultRow(result) {
           run: () => window.open(result.url, "_blank", "noopener,noreferrer"),
         },
         {
-          label: "ph:chat-circle Ask the AI about this",
-          title: "Let the AI fetch this page and answer about it",
+          label: "ph:chat-circle Ask Atlas about this",
+          title: "Let Atlas fetch this page and answer about it",
           run: () => askAboutPage(result.url, result.title),
         },
         {
@@ -14425,7 +15226,7 @@ function renderModelHealthNote(spec) {
     note.textContent =
       "A small window: a back-and-forth chat will start losing earlier messages within a few exchanges. Notes and documents are unaffected; only the conversation itself is short-lived.";
   } else if (roughTurns <= 40) {
-    note.textContent = `What this means for you: a long chat will start dropping its earliest messages after roughly ${roughTurns} exchanges. The AI can still recall anything from further back by re-reading the note or asking again, it just won't be sitting in view.`;
+    note.textContent = `What this means for you: a long chat will start dropping its earliest messages after roughly ${roughTurns} exchanges. Atlas can still recall anything from further back by re-reading the note or asking again, it just won't be sitting in view.`;
   } else {
     note.textContent =
       "A large window: a normal conversation is very unlikely to ever run out of room.";
@@ -14767,6 +15568,26 @@ function renderCompressionState() {
 // read as a rendering fault rather than as progress. So when motion is off,
 // this becomes a word instead of a gesture. Silence is not an acceptable
 // substitute for either.
+//: **Battery-efficient mode, as the two generative pictures see it**
+//: (INBOX 260). The setting pauses the background AI tasks and the graph's
+//: similarity work, and for a long time reached nothing in the browser: a
+//: person who turned on a setting with "battery" in its name and watched
+//: the dashboard's constellation keep drawing would reasonably call that
+//: broken, whatever the help text said. So it is a third input to the motion
+//: resolution `startArt` (dashboard.js) and `startBgArt` (settings.js)
+//: already share with Reduce motion and Performance mode, and the help text
+//: says so now.
+//:
+//: Here rather than beside the other two because app.js is the first script
+//: the page loads and `prefsCache` is its own; the `typeof` guard is the
+//: same one every cross-file reading in this app carries, since a picture
+//: can start before the preferences have landed.
+function batteryModeOn() {
+  return Boolean(
+    typeof prefsCache !== "undefined" && prefsCache && prefsCache.battery_efficient_mode
+  );
+}
+
 function reducedMotionWanted() {
   return (
     window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
@@ -15067,12 +15888,12 @@ const PROGRESS_MUSINGS = [
   "Your notes are plain markdown on disk. You can read them without this app.",
   "Searching uses meaning and keywords together, then merges the two rankings.",
   "A note you never tagged is still findable, the links between notes count too.",
-  "Private notes are held back from the AI, even when it asks for them.",
+  "Private notes are held back from Atlas, even when it asks for them.",
   "Ask mode reads. Agent mode can change things, and says so before it does.",
   "Long answers are slower on a small model, not stuck.",
-  "Every tool call the AI makes is listed under the answer, with what it touched.",
+  "Every tool call Atlas makes is listed under the answer, with what it touched.",
   "Type [[ in any note to link to another one.",
-  "Select text anywhere you can edit and ask the AI about just that passage.",
+  "Select text anywhere you can edit and ask Atlas about just that passage.",
 ];
 
 //: How long to wait before showing one. A turn that finishes in a second
@@ -16537,7 +17358,7 @@ function renderToolConfirm(holder, event) {
   const card = document.createElement("div");
   card.className = "tool-confirm";
   const text = document.createElement("p");
-  setLabel(text, `ph:warning The AI wants to: ${event.label || event.name}`);
+  setLabel(text, `ph:warning Atlas wants to: ${event.label || event.name}`);
   
   const contentArea = document.createElement("div");
   
@@ -16615,7 +17436,7 @@ function renderMemoryProposal(holder, proposal) {
   const note = document.createElement("p");
   note.className = "muted";
   note.textContent =
-    "Saved preferences are added to the AI's instructions in every later " +
+    "Saved preferences are added to Atlas's instructions in every later " +
     "conversation. Nothing is in force until you say yes.";
 
   const row = document.createElement("div");
@@ -16649,7 +17470,7 @@ function renderMemoryProposal(holder, proposal) {
   };
 
   row.appendChild(
-    smallButton("Remember it", "Add this to the AI's standing instructions", () => answer(true), false)
+    smallButton("Remember it", "Add this to Atlas's standing instructions", () => answer(true), false)
   );
   row.appendChild(smallButton("No thanks", "Don't save this preference", () => answer(false)));
 
@@ -17290,6 +18111,66 @@ async function composeDraft() {
   }
 }
 
+//: **Name the draft.** `POST /drafts/title` shipped with the writing room
+//: and had no caller anywhere: the model could name a finished draft and
+//: nothing ever asked it to. A note's title in this app is its leading
+//: `# Heading` (see `withTitle`), which is the one part of a long draft
+//: nobody writes, and the capture box has a title field while this panel
+//: never did.
+//:
+//: Undoable like every other pass here, for the reason `pushDraftUndo`
+//: carries at length: handing your writing to the model is never a one-way
+//: door. An existing heading is replaced rather than stacked, because
+//: pressing this twice must not leave two of them.
+async function suggestDraftTitle() {
+  const box = $("draft-text");
+  const status = $("draft-status");
+  const button = $("draft-title");
+  const draft = box.value.trim();
+  if (!draft) {
+    status.classList.add("error");
+    status.textContent = "Write a draft first, then it has something to name.";
+    return;
+  }
+  button.disabled = true;
+  status.classList.remove("error");
+  status.textContent = "Thinking of a title…";
+  try {
+    const body = await apiJson("/drafts/title", {
+      method: "POST",
+      body: JSON.stringify({ draft }),
+    });
+    const title = (body.title || "").trim();
+    //: The route answers `""` rather than an error when the model is not
+    //: running or its answer was not a title (too long, too many words: see
+    //: `drafter.suggest_title`). That is a real answer and it gets a real
+    //: sentence, not a thrown error.
+    if (!title) {
+      status.classList.add("error");
+      status.textContent = `Couldn't think of a title for this one. ${aiNameNow()} may not be running.`;
+      return;
+    }
+    pushDraftUndo();
+    box.value = draftWithHeading(box.value, title);
+    updateDraftCount();
+    saveDraftLocally();
+    status.textContent = `Titled "${title}". Undo puts it back.`;
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+//: The draft with `title` as its leading `# Heading`: replacing the one it
+//: already has, or put in front of it with the blank line markdown needs
+//: between a heading and its first paragraph.
+function draftWithHeading(draft, title) {
+  const rest = draft.replace(/^\s*#\s+[^\n]*\n*/, "");
+  return `# ${title}\n\n${rest.replace(/^\n+/, "")}`;
+}
+
 async function saveDraftAsNote() {
   const content = $("draft-text").value.trim();
   const status = $("draft-status");
@@ -17596,7 +18477,7 @@ function renderImageAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = "Remove this image";
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", async () => {
@@ -17922,7 +18803,7 @@ function renderBoardAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Don't send “${board.name}” with this message`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", () => {
@@ -17975,7 +18856,7 @@ function renderDocumentAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Don't send “${document_.name}” with this message`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", () => {
@@ -18039,7 +18920,7 @@ function renderSelectionAttachment() {
   const remove = document.createElement("button");
   remove.className = "attachment-remove";
   remove.type = "button";
-  remove.textContent = "✕";
+  setLabel(remove, "ph:x");
   remove.title = "Don't send this selection with your message";
   remove.setAttribute("aria-label", remove.title);
   remove.addEventListener("click", () => {
@@ -18234,7 +19115,7 @@ function renderAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Remove "${noteLabel(entry, 24)}"`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", () => {
@@ -21544,7 +22425,7 @@ async function loadConversationList() {
       })
     );
     items.push(
-      makeMenuItem("ph:magic-wand Name with AI", "Let the AI name this chat", async () => {
+      makeMenuItem("ph:magic-wand Name with Atlas", "Let Atlas name this chat", async () => {
         const named = await apiJson(`/conversations/${conversation.id}/retitle`, {
           method: "POST",
         }).catch((e) => {
@@ -21914,11 +22795,20 @@ async function loadChatSuggestions() {
 // Personas section in Settings (Wave C, editing + reset in Wave D).
 // Mirrors the backend's built-ins: editing one saves an override with the
 // same name (the saved list wins), and Reset deletes the override.
-//: The app's AI is named in settings.js (`AI_NAME`), which index.html loads
-//: after this file, so anything here that runs at load must not read the
-//: constant itself: `renderPlanToggle()` does, and the first version of this
-//: threw at boot and the app never drew. A function call resolves at call
-//: time, and the fallback is the same word.
+//: The name, and the function that reads it. The function is kept even now
+//: that the constant is declared above it, because `GUIDE_NAME` is still
+//: settings.js's and the two are read the same way; the `typeof` guard is
+//: what stopped the first version of this throwing at boot, when the
+//: constant lived in the last script on the page and `renderPlanToggle()`
+//: read it at load.
+//: One name for the notebook's AI, spelt once (INBOX 225). It lives here
+//: rather than in settings.js because index.html loads app.js first and
+//: settings.js last: a module-level string anywhere else in the app can read
+//: this one at load time, and could not read a constant declared in the last
+//: script on the page. The backend's `AI_NAME` in ai/__init__.py is the same
+//: word.
+const AI_NAME = "Atlas";
+
 function aiNameNow() {
   return typeof AI_NAME === "string" ? AI_NAME : "Atlas";
 }
@@ -23532,6 +24422,22 @@ function syncTabOverflowFade() {
 
 // A tab you cannot fully see is a tab you cannot fully read. Selecting one
 // brings it into view, so the fade is only ever over a tab you are not using.
+//
+//: **`scrollIntoView` here is not the cost it looks like, and this note is so
+//: that nobody spends another hour on it.** A CDP sampling profile over seven
+//: tab switches puts 83.7ms of 88.9ms of `scrollIntoView` in this one call,
+//: which reads as the largest non-idle thing in the app. It is not: it is the
+//: layout the tab switch was going to force anyway, attributed to whichever
+//: call happens to flush it first. Two changes were tried and measured
+//: against a tab switch timed directly, ten rounds over seven tabs:
+//: skipping the call when the strip has nothing hidden, and deferring the
+//: whole thing to `requestAnimationFrame`. Median synchronous cost of a
+//: switch, before 13.8ms and 13.8ms, after 13.2ms and 14.8ms. Both were
+//: taken back out; with the guard gone the profile simply attributes the
+//: same 88ms to `scrollTo` instead.
+//:
+//: If this is worth attacking, the target is the tab switch's own DOM work,
+//: not the call that reveals the layout it caused.
 function revealActiveTab() {
   const active = document.querySelector("#tab-bar button.active");
   if (active && active.scrollIntoView) {
@@ -23992,7 +24898,15 @@ async function loadReminders() {
   //: paging was added to prevent. Reading to the end keeps the grouping below
   //: unchanged and loses nothing; a real pager is the better answer at
   //: thousands and is written up in `archive/agent-remaining/list-paging.md`.
-  const all = await apiPagedList("/reminders", 200).catch(() => []);
+  //: A sentinel, not `[]`: "you have no reminders" and "the reminders could
+  //: not be read" are different facts and only one of them is about the
+  //: person. See `surfaceFailed`.
+  const all = await apiPagedList("/reminders", 200).catch(() => null);
+  if (!all) {
+    surfaceFailed($("reminders-empty"), "reminders", loadReminders);
+    return;
+  }
+  surfaceRecovered($("reminders-empty"));
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();
 
@@ -24325,7 +25239,7 @@ function reminderItem(reminder, label) {
     })
   );
   actions.appendChild(
-    smallButton("×", "Delete this reminder", async () => {
+    smallButton("ph:x", "Delete this reminder", async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
       // Deleting a reminder is as undo-able as binning a note. There's no
@@ -25620,6 +26534,21 @@ function renderMarkdown(container, text, depth = 0) {
       // Map #→h3 … ######→h6 (the app reserves h1/h2 for its own chrome).
       const level = Math.min(6, heading[1].length + 2);
       const el = document.createElement(`h${level}`);
+      //: **And the source level as a class, because the tag has lost it.**
+      //: Demoting by two is right for the document outline and wrong for
+      //: everything else: three source levels (`####`, `#####`, `######`) all
+      //: land on `h6`, and nothing in the stylesheet catches `h5` or `h6` at
+      //: all, so they fall through to the browser's own defaults, which are
+      //: *smaller than body text*. Measured in the rendered pane against a
+      //: 16px paragraph: `# Heading one` 12px, `## Heading two` 16px, `###`
+      //: 13.3px, `####` and `#####` both 10.7px. The document's largest
+      //: heading was its smallest text, and two levels were identical.
+      //:
+      //: The live view of the same document is 28.8 / 24 / 20 / 17.6, so the
+      //: two views of one file disagreed about what a heading is. `md-h1`..
+      //: `md-h6` carry the level the person actually typed, and the
+      //: stylesheet keys the scale off that.
+      el.classList.add(`md-h${heading[1].length}`);
       // An id makes the heading a real jump target, for the outline and for
       // any [](#anchor) link written into the text.
       el.id = mdHeadingId(heading[2], headingIds);
@@ -26120,6 +27049,107 @@ async function goToTabHistory(next) {
   paintTabHistory();
 }
 
+//: **A surface whose data did not arrive says so, instead of saying it is
+//: empty.** Measured across seven tabs with every `/api` call failing
+//: (`scratchpad/ui-sweeps/vibefail.js`): four of them drew their empty state,
+//: so a notebook of four hundred notes read "Your notebook is empty", and the
+//: other three drew nothing at all. Both are the app claiming a fact about
+//: the person's own data that it has no basis for, which is the exact shape
+//: the owner described as breaking trust in an application.
+//:
+//: The same `.empty-state` component, told the truth, rather than a second
+//: component: it is already the thing in the middle of an empty surface, it
+//: already has an icon, a title, a sentence and room for one action, and
+//: DESIGN.md's Voice section says errors say what to do next. So this swaps
+//: its contents and puts them back, which also means a surface only needs the
+//: element it already has.
+//:
+//: `role="alert"` while it is failed and not otherwise: a screen reader should
+//: hear this when it appears, and should not hear the ordinary empty state
+//: announced every time a filter clears.
+const _surfaceFailedContents = new WeakMap();
+
+function surfaceFailed(el, what, retry) {
+  if (!el) return;
+  //: Saved once. A second failure while already failed must not capture the
+  //: failure message as "the original contents", which would make the real
+  //: empty state unrecoverable for the rest of the session.
+  if (!_surfaceFailedContents.has(el)) {
+    _surfaceFailedContents.set(el, { nodes: [...el.childNodes], display: el.style.display });
+  }
+  el.classList.add("is-failed");
+  el.classList.remove("hidden");
+  //: **And any inline `display` it is carrying.** The graph's empty state is
+  //: hidden with `style.display = "none"` rather than the class, deliberately
+  //: ("inline display beats every stylesheet rule", graph.js), so removing
+  //: `hidden` left the failure message in the document at 0 by 0 pixels:
+  //: present to every assertion and invisible to every reader. Measured, and
+  //: exactly the kind of fix that reports itself as working.
+  el.style.display = "";
+  el.replaceChildren();
+  const icon = document.createElement("i");
+  icon.className = "ph ph-warning-circle empty-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = `Could not load your ${what}`;
+  const body = document.createElement("p");
+  //: Says what is and is not true, because the first thing a person fears
+  //: here is that the notes are gone.
+  body.textContent =
+    "Nothing has been lost: the app could not read its own data just now.";
+  el.append(icon, title, body);
+  if (typeof retry === "function") {
+    const again = document.createElement("button");
+    again.type = "button";
+    again.className = "ghost small";
+    setLabel(again, "ph:arrow-clockwise Try again");
+    again.addEventListener("click", () => {
+      surfaceRecovered(el);
+      retry();
+    });
+    el.appendChild(again);
+  }
+  el.setAttribute("role", "alert");
+}
+
+//: The other half, and the reason the contents are saved rather than rebuilt:
+//: an empty state's markup is written in index.html, per surface, with its own
+//: wording and its own action, and none of that is knowable from here.
+function surfaceRecovered(el) {
+  if (!el || !_surfaceFailedContents.has(el)) return;
+  const saved = _surfaceFailedContents.get(el);
+  el.replaceChildren(...saved.nodes);
+  //: Put back exactly what was there, empty string included: the surface's own
+  //: renderer sets this on every pass and must not find a value this helper
+  //: invented.
+  el.style.display = saved.display;
+  _surfaceFailedContents.delete(el);
+  el.classList.remove("is-failed");
+  el.removeAttribute("role");
+}
+
+//: What a loader wraps its own body in. Kept to one helper so a surface added
+//: later gets the behaviour by naming its empty element, and so no loader has
+//: to decide for itself what a failure looks like (which is how the four
+//: surfaces that *do* have an empty state came to disagree with the three
+//: that do not).
+//:
+//: It swallows the error deliberately: the failure is now on screen, with the
+//: way out beside it, and a rethrow here is an unhandled rejection in the
+//: console and nothing more.
+async function loadSurface(el, what, run) {
+  try {
+    const result = await run();
+    surfaceRecovered(el);
+    return result;
+  } catch (error) {
+    surfaceFailed(el, what, () => loadSurface(el, what, run));
+    recordBrowserLog("WARN", [`[${what}] could not load: ${error?.message || error}`]);
+    return null;
+  }
+}
+
 // Empty states carry one action (DESIGN.md → Voice): "Capture a note" from
 // the Timeline and Graph empties, "Add a reminder" from the Reminders one.
 // One delegated listener rather than one per button, so a fourth empty
@@ -26221,6 +27251,8 @@ function placeDockMenuInWindow(details, list) {
   details.classList.remove("doc-dock-menu-up");
   list.style.maxHeight = "none";
   list.style.overflowY = "";
+  list.style.transform = "";
+  list.style.maxWidth = "";
   const anchor = opener.getBoundingClientRect();
   const box = list.getBoundingClientRect();
   //: Not laid out (a `<details>` in a hidden pane, the all-zero rect
@@ -26249,6 +27281,28 @@ function placeDockMenuInWindow(details, list) {
     list.style.maxHeight = `${room}px`;
     list.style.overflowY = "auto";
   }
+
+  //: **And sideways, which this never checked** (INBOX 262). The stylesheet
+  //: anchors these to the opener's *right* edge and grows them leftwards,
+  //: which is right beside a button at the end of a row and wrong when the
+  //: window is narrower than the menu plus whatever is to the opener's left.
+  //: Measured at 390x844 on the document editor's ⋯: a 286px menu in a 390px
+  //: window sat at left -53, so the first 53px of every label was off the
+  //: screen with no way to scroll to it.
+  //:
+  //: A `transform`, not a `left`: these are anchored with `right: 0` against
+  //: their own `<details>`, so switching to a left offset would mean
+  //: recomputing the anchoring this rule deliberately leaves to the
+  //: stylesheet. A translate moves the painted box and changes no layout.
+  //: The width cap comes first, because a menu wider than the window cannot
+  //: be shifted into it.
+  const wide = window.innerWidth - margin * 2;
+  if (box.width > wide) list.style.maxWidth = `${wide}px`;
+  const shifted = list.getBoundingClientRect();
+  const dx = shifted.left < margin
+    ? margin - shifted.left
+    : Math.min(0, window.innerWidth - margin - shifted.right);
+  if (dx) list.style.transform = `translateX(${Math.round(dx)}px)`;
 }
 
 document.addEventListener(
@@ -26872,6 +27926,14 @@ async function renderTimeline() {
   //: Which of these entries are maps, awaited alongside the timeline rather
   //: than before it, because neither needs the other's answer.
   const [body] = await Promise.all([apiJson(url).catch(() => null), loadMapBoardIndex()]);
+  //: A null here is a request that failed, not a notebook with nothing in it,
+  //: and the two used to look identical on screen: "Nothing to plot yet" over
+  //: a notebook full of dated notes. See `surfaceFailed`.
+  if (!body) {
+    surfaceFailed($("timeline-empty"), "timeline", renderTimeline);
+    return;
+  }
+  surfaceRecovered($("timeline-empty"));
   timelineDensity = body?.density || {};
   timelineNextCursor = body?.next_cursor || null;
   timelineRows = body ? body.rows.map(timelineRow) : [];
@@ -28312,13 +29374,6 @@ function scrollingPage() {
   return document.querySelector(".tab-page:not(.hidden)");
 }
 
-// Honour "prefers reduced motion", a long smooth scroll is exactly the kind
-// of movement that setting exists to stop.
-function scrollPageToTop() {
-  const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  scrollingPage()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
-}
-
 // --- back-to-top button -----------------------------------------------------------
 // Shown on every tab except the graph, where the page itself doesn't scroll
 // and the button would just sit on top of the map.
@@ -28627,7 +29682,7 @@ async function renderMemorySettings() {
   const data = await apiJson("/memory").catch(() => null);
   if (!data) {
     list.replaceChildren();
-    budget.textContent = "Couldn't load what the AI has remembered.";
+    budget.textContent = "Couldn't load what Atlas has remembered.";
     return;
   }
 
@@ -28666,7 +29721,7 @@ async function renderMemorySettings() {
       if (pref.proposed) {
         const tag = document.createElement("span");
         tag.className = "memory-proposed-tag";
-        setLabel(tag, "ph:brain Suggested by the AI");
+        setLabel(tag, "ph:brain Suggested by Atlas");
 
         const answer = async (accept) => {
           await apiJson(`/memory/${pref.id}/answer`, {
@@ -29270,6 +30325,9 @@ async function renderPrefs() {
     prefsCache.notifications_muted_except_reminders
   );
   $("prefs-status").textContent = "";
+  //: The fields now hold what the server holds, so nothing is unsaved: this
+  //: also covers the reopen, since `showSettingsSection` re-renders.
+  markPrefsSaved();
 }
 
 // --- Settings → Web search ------------------------------------------------------
@@ -29718,16 +30776,83 @@ async function savePrefs() {
       prefsSaveInFlight = null;
     }
     $("prefs-status").textContent = "Saved.";
+    markPrefsSaved();
+    //: **A toast as well as the inline word** (INBOX 263). Reported: "no
+    //: visual confirmation popup shows when I use ctrl s to save my
+    //: preferences settings". The inline "Saved." is beside the button, which
+    //: is at the bottom of the last group: press ctrl+s while reading the
+    //: field you just changed at the top of the section and the only feedback
+    //: the app gives is off screen. `toast` is DESIGN.md's recipe for a brief
+    //: confirmation and it is the same one every other save in the app uses,
+    //: so this also stops Preferences being the one place a save says
+    //: nothing.
+    toast("Preferences saved.");
 
     // Reflect a name change immediately if the dashboard is showing.
     if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
   } catch (error) {
     $("prefs-status").textContent = error.message;
+    toast(error.message, true);
+  }
+}
+
+//: **Preferences is the only section in Settings that does not save on its
+//: own**, and that was true without being said anywhere: every other section
+//: writes on change (`setPreference`, `saveSearchProvider`, the appearance
+//: controls), so someone who has learned that everywhere else closes this one
+//: and loses the field they just typed. Reported as "there is no visual
+//: indications that the preferences settings are the only settings that dont
+//: save automatically".
+//:
+//: Two things say it. A standing line at the top of the section says it
+//: before anything is typed, and this mark says it again at the moment it
+//: starts to matter: the button fills and names the state, so the thing you
+//: have to press is the thing that changed.
+let prefsDirty = false;
+
+function markPrefsDirty() {
+  if (prefsDirty) return;
+  prefsDirty = true;
+  const button = $("prefs-save");
+  if (button) {
+    button.classList.add("primary");
+    button.textContent = "Save preferences";
+  }
+  const note = $("prefs-unsaved");
+  if (note) note.classList.remove("hidden");
+  const status = $("prefs-status");
+  if (status) status.textContent = "";
+}
+
+function markPrefsSaved() {
+  prefsDirty = false;
+  const button = $("prefs-save");
+  if (button) button.classList.remove("primary");
+  const note = $("prefs-unsaved");
+  if (note) note.classList.add("hidden");
+}
+
+//: Every control the payload above reads, so the mark cannot go stale against
+//: a field someone adds to one and forgets in the other. A `change` and an
+//: `input` both, because a `<select>` and a checkbox fire the first and a
+//: text field is worth marking on the keystroke rather than on the blur.
+const PREFS_FIELD_IDS = [
+  "pref-display-name", "pref-bin-days", "pref-chat-retention",
+  "pref-search-min-sim", "pref-search-z-margin", "pref-style",
+  "pref-profile", "pref-profile-enabled", "pref-notif-mute-except-reminders",
+];
+
+function wirePrefsDirtyMarks() {
+  for (const id of PREFS_FIELD_IDS) {
+    const el = $(id);
+    if (!el) continue;
+    el.addEventListener("input", markPrefsDirty);
+    el.addEventListener("change", markPrefsDirty);
   }
 }
 
 async function deleteProfile() {
-  if (!(await confirmDialog("Delete your profile text? The AI will stop personalising answers."))) return;
+  if (!(await confirmDialog("Delete your profile text? Atlas will stop personalising answers."))) return;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ user_profile: "", profile_enabled: false }),
@@ -29788,7 +30913,7 @@ async function renderBackups() {
       })
     );
     actions.appendChild(
-      smallButton("×", "Delete this backup", async () => {
+      smallButton("ph:x", "Delete this backup", async () => {
         if (!(await confirmDialog("Delete this backup file?"))) return;
         await apiJson(`/backups/${item.name}`, { method: "DELETE" }).catch(() => {});
         renderBackups();
@@ -30424,7 +31549,11 @@ function paletteMatches(query) {
     .map((c) => ({
       group: "Conversations",
       label: `ph:chat-circle ${c.title}`,
-      run: () => loadChatHistory(c.id),
+      //: `openConversation`, the one function that loads a saved chat back
+      //: into the pane. This said `loadChatHistory`, which nothing defines,
+      //: so picking a conversation out of the command palette raised a
+      //: ReferenceError and the palette closed on an unchanged screen.
+      run: () => openConversation(c.id),
     }));
 
   // Files: matched on the name you gave the file and on its caption, because
@@ -30564,6 +31693,86 @@ const SKETCH_HIGHLIGHTER_COMPOSITE = "source-over";
 // than the pixel result is what keeps them proportionally alike as either
 // slider moves.
 const SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER = 4;
+
+//: **A highlighter is one translucent band, so it is painted once.** Reported
+//: three times now, most recently as "it doesnt act as it should and looks
+//: messy", and the previous two fixes were both real and both incomplete
+//: because they treated the alpha rather than the compositing.
+//:
+//: Each segment used to be its own `stroke()` at 0.35. That is correct for
+//: one segment and wrong for a stroke: consecutive segments overlap at every
+//: joint, a 16px band advancing 6px per pointer event covers each pixel about
+//: three times, and 1-(1-0.35)^3 is 0.73. Measured on a straight drag against
+//: white: coverage 0.80 where the tool asks for 0.35, running from 0.725 to
+//: 0.824 down the band (the chain of darker lozenges that reads as "messy"),
+//: and a stroke crossing its own line went 0.576 to 0.824.
+//:
+//: So the points are collected and the whole polyline is drawn on a layer of
+//: its own at full opacity, then that layer is composited onto the canvas
+//: once, at the stroke's alpha. Overlaps inside the layer are opaque-over-
+//: opaque, which changes nothing, and the single composite is the only place
+//: alpha is applied. This is what the whiteboard gets for free by drawing one
+//: SVG path with `stroke-opacity`, and it is why the two look different.
+//:
+//: The in-progress stroke repaints from the snapshot each frame, which is the
+//: same thing the rect, circle and arrow tools already do here.
+let sketchStrokePoints = [];
+let sketchLayerCanvas = null;
+
+//: The layer, sized to the canvas it will be blitted onto. Kept between
+//: strokes rather than allocated per pointerdown: it is one full-size buffer
+//: and a sketch is a burst of strokes.
+function sketchStrokeLayer(canvas) {
+  if (!sketchLayerCanvas) sketchLayerCanvas = document.createElement("canvas");
+  if (sketchLayerCanvas.width !== canvas.width) sketchLayerCanvas.width = canvas.width;
+  if (sketchLayerCanvas.height !== canvas.height) sketchLayerCanvas.height = canvas.height;
+  const layer = sketchLayerCanvas.getContext("2d");
+  layer.setTransform(1, 0, 0, 1, 0, 0);
+  layer.clearRect(0, 0, sketchLayerCanvas.width, sketchLayerCanvas.height);
+  return layer;
+}
+
+//: Draw the whole highlighter stroke as it stands: the snapshot back, the
+//: polyline onto the layer at full opacity, the layer onto the canvas at the
+//: stroke's alpha. Called from every move and once more on the release.
+function sketchPaintHighlighter(context) {
+  const canvas = context.canvas;
+  const last = sketchHistory[sketchHistory.length - 1];
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  if (last) context.putImageData(last, 0, 0);
+  else context.clearRect(0, 0, canvas.width, canvas.height);
+  context.restore();
+  if (sketchStrokePoints.length === 0) return;
+
+  const layer = sketchStrokeLayer(canvas);
+  //: The canvas may be scaled for the device pixel ratio, and the points are
+  //: in CSS pixels because that is what `sketchPointer` returns. The layer is
+  //: a raw buffer, so it has to be given the same transform by hand.
+  const scale = canvas.width / (canvas.getBoundingClientRect().width || canvas.width);
+  layer.setTransform(scale, 0, 0, scale, 0, 0);
+  layer.lineCap = "square";
+  layer.lineJoin = SKETCH_HIGHLIGHTER_LINE_JOIN;
+  layer.globalAlpha = 1;
+  layer.strokeStyle = sketchPen.color;
+  layer.lineWidth = sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER;
+  layer.beginPath();
+  const [first, ...rest] = sketchStrokePoints;
+  layer.moveTo(first.x, first.y);
+  //: A single point is a dab, not a line, and `lineTo` to the same place
+  //: draws nothing at all: the nudge is what every one-click mark in this
+  //: file uses.
+  if (rest.length === 0) layer.lineTo(first.x + 0.01, first.y);
+  for (const point of rest) layer.lineTo(point.x, point.y);
+  layer.stroke();
+
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = SKETCH_HIGHLIGHTER_COMPOSITE;
+  context.globalAlpha = SKETCH_HIGHLIGHTER_ALPHA;
+  context.drawImage(sketchLayerCanvas, 0, 0);
+  context.restore();
+}
 
 let sketchPen = { color: "#3b82f6", size: 4, eraser: false };
 let sketchDrawing = false;
@@ -30707,7 +31916,8 @@ function sketchStart(event) {
 
   sketchSaveSnapshot();
   const context = sketchContext();
-  if (sketchTool === "pen" || sketchTool === "highlighter") {
+  sketchStrokePoints = sketchTool === "highlighter" ? [{ x, y }] : [];
+  if (sketchTool === "pen") {
     context.beginPath();
     context.moveTo(x, y);
   }
@@ -30721,38 +31931,39 @@ function sketchMove(event) {
   if (x === sketchStartX && y === sketchStartY) return;
   sketchMoved = true;
   
-  if (sketchTool !== "pen" && sketchTool !== "highlighter") {
+  //: The highlighter is painted whole, from the snapshot up, every frame:
+  //: see `sketchPaintHighlighter` for why it cannot be drawn a segment at a
+  //: time. Everything below this is the per-segment path the pen and the
+  //: shapes use.
+  if (sketchTool === "highlighter") {
+    sketchStrokePoints.push({ x, y });
+    sketchPaintHighlighter(context);
+    return;
+  }
+
+  if (sketchTool !== "pen") {
     const last = sketchHistory[sketchHistory.length - 1];
     if (last) context.putImageData(last, 0, 0);
     else context.clearRect(0, 0, context.canvas.width, context.canvas.height);
   }
 
-  context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-  context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
+  context.lineCap = "round";
+  context.lineJoin = "round";
   context.globalCompositeOperation =
-    sketchPen.eraser && sketchTool === "pen"
-      ? "destination-out"
-      : sketchTool === "highlighter"
-        ? SKETCH_HIGHLIGHTER_COMPOSITE
-        : "source-over";
-  context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
+    sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
+  context.globalAlpha = 1.0;
   context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+  context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
 
-  if (sketchTool === "pen" || sketchTool === "highlighter") {
+  if (sketchTool === "pen") {
     context.lineTo(x, y);
     context.stroke();
-    // Reported: "the highlighter has no opacity to it, it's basically a
-    // thick pen." The path opened in sketchStart keeps every point ever
-    // added via lineTo: stroke() re-draws the *whole accumulated path*
-    // each time, not just the newest segment, so a stroke a hundred points
-    // long gets its first segment re-composited a hundred times over. At
-    // full opacity (the plain pen) that's invisible: opaque drawn twice is
-    // still opaque: but at the highlighter's 0.35 alpha, ~10 overlapping
-    // passes already reads as ~99% opaque (1-(1-0.35)^10), which is exactly
-    // "no opacity to it". Starting a fresh single-segment path from the
-    // current point makes every stroke() call draw that one segment
-    // exactly once, at exactly the alpha asked for.
+    //: A fresh single-segment path per move, so a hundred-point stroke does
+    //: not re-composite its first segment a hundred times. Harmless at the
+    //: pen's full opacity and load-bearing for anything translucent, which
+    //: is why the highlighter was here once and is not any more: one segment
+    //: drawn once is still not one *stroke* drawn once, and the overlap at
+    //: each joint is what `sketchPaintHighlighter` exists to remove.
     context.beginPath();
     context.moveTo(x, y);
   } else if (sketchTool === "line") {
@@ -30801,19 +32012,25 @@ function sketchMove(event) {
 function sketchEnd(event) {
   if (sketchDrawing && !sketchMoved && event && (event.type === "pointerup" || event.type === "click")) {
     const context = sketchContext();
-    context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-    context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
+    //: A dab with the highlighter goes through the same painter a drag does,
+    //: so a press that never moved leaves exactly the alpha every other
+    //: highlighter mark leaves.
+    if (sketchTool === "highlighter") {
+      sketchStrokePoints = [{ x: sketchStartX, y: sketchStartY }];
+      sketchPaintHighlighter(context);
+      sketchStrokePoints = [];
+      sketchDrawing = false;
+      return;
+    }
+    context.lineCap = "round";
+    context.lineJoin = "round";
     context.globalCompositeOperation =
-      sketchPen.eraser && sketchTool === "pen"
-        ? "destination-out"
-        : sketchTool === "highlighter"
-          ? SKETCH_HIGHLIGHTER_COMPOSITE
-          : "source-over";
-    context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
+      sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
+    context.globalAlpha = 1.0;
     context.strokeStyle = sketchPen.color;
-    
-    if (sketchTool === "pen" || sketchTool === "highlighter") {
-      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+
+    if (sketchTool === "pen") {
+      context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
       context.beginPath();
       context.moveTo(sketchStartX, sketchStartY);
       context.lineTo(sketchStartX, sketchStartY + 0.1);
@@ -32886,7 +34103,7 @@ function aiStatusState() {
       return {
         level: "idle",
         title: "Checking…",
-        detail: "Asking the app what the AI is doing. This takes a moment.",
+        detail: "Asking the app what Atlas is doing. This takes a moment.",
       };
     }
     return {
@@ -33153,6 +34370,25 @@ function renderStatusBar() {
   //: things to your notes and the other explains the app. A compass rather
   //: than the header's '?', because a '?' beside a labelled word reads as
   //: help about the word.
+  //: Find anything, one along again. A magnifying glass rather than a word
+  //: alone, because the bar's other two are glyph-plus-word and a lone word
+  //: here would read as a label for the Guide beside it.
+  const find = $("status-find");
+  if (find) {
+    find.replaceChildren();
+    const glyph = document.createElement("i");
+    glyph.className = "ph ph-magnifying-glass";
+    glyph.setAttribute("aria-hidden", "true");
+    const word = document.createElement("span");
+    word.textContent = "Find";
+    find.append(glyph, word);
+    //: Built the same way the agent's hint two controls up is, and for the
+    //: same reason it records: `STATUS_META_KEY` is the whole hint, so
+    //: appending to it names no shortcut at all.
+    const findMeta = STATUS_META_KEY.startsWith("\u2318") ? "\u2318" : "Ctrl";
+    find.title = `Search everything you keep, and the app itself (${findMeta}+P)`;
+  }
+
   const guide = $("status-guide");
   if (guide) {
     guide.replaceChildren();
@@ -33205,7 +34441,11 @@ function renderSearchEngineHealth(status) {
   let state = "not ready";
   let cls = "busy";
   if (status.embedding_ready) {
-    state = "✓ ready";
+    //: No tick in front of the word. The line already carries `status ok`,
+    //: which is the green, and a typed check beside it was the app saying the
+    //: same thing twice in two different alphabets: one of the plainer signs
+    //: of a UI assembled from whatever was to hand (INBOX 263).
+    state = "ready";
     cls = "ok";
   } else if (status.embedding_warming) {
     state = "… warming up";
@@ -33650,7 +34890,7 @@ async function renderExtras() {
       // extras would be tidier and less honest. The reason travels with the
       // button as its tooltip and is spelled out in full underneath, because a
       // disabled control whose reason is not visible is just a broken one.
-      const blocked = smallButton("⬇ Install", extra.unavailable, () => {});
+      const blocked = smallButton("ph:download-simple Install", extra.unavailable, () => {});
       blocked.disabled = true;
       actions.appendChild(blocked);
       // Same treatment as Installed, and for the same reason: it is the row's
@@ -33658,7 +34898,7 @@ async function renderExtras() {
       title.appendChild(chip("ph:hourglass Not ready yet", "extras-soon"));
     } else {
       actions.appendChild(
-        smallButton("⬇ Install", `Install ${extra.label}`, async () => {
+        smallButton("ph:download-simple Install", `Install ${extra.label}`, async () => {
           const ok = await confirmDialog(
             `Install ${extra.label}?\n\n${extra.size}. It is downloaded from ` +
               "PyPI to this machine, and MemoryMap needs a restart afterwards " +
@@ -33760,9 +35000,26 @@ async function renderEmbedModels() {
 
     const head = document.createElement("div");
     head.className = "entry-meta";
+    //: **The name and this row's status are one column; the buttons are the
+    //: other.** The same shape the packages list above already uses, and for
+    //: the reason recorded there (INBOX 107c): `.extras-row .entry-meta` is
+    //: `flex-wrap: nowrap` so the buttons never drop below the title, which
+    //: means whatever cannot shrink pushes the row off its own edge instead.
+    //:
+    //: This list was built the other way, with "✓ 1015 KB on disk" inside
+    //: `.entry-actions`, which is `flex: 0 0 auto`. Measured at 820px: the
+    //: chip 164px plus Re-download 122px plus Remove 91px made a 390px block
+    //: that would not shrink, against 458px of row holding an 80px name, so
+    //: Settings, Extras scrolled sideways (496 against 492). The status is
+    //: not an action; moving it into `.entry-title`, which is the shrinking
+    //: column and wraps inside itself, leaves the buttons 219px and lets the
+    //: name and the chip take the rest.
+    const title = document.createElement("div");
+    title.className = "entry-title";
     const name = document.createElement("strong");
     name.textContent = model.label + (model.default ? " · default" : "");
-    head.appendChild(name);
+    title.appendChild(name);
+    head.appendChild(title);
 
     const actions = document.createElement("span");
     actions.className = "entry-actions";
@@ -33770,12 +35027,12 @@ async function renderEmbedModels() {
       const busy = document.createElement("span");
       busy.className = "muted";
       busy.textContent = "Downloading…";
-      actions.appendChild(busy);
+      title.appendChild(busy);
     } else if (model.installed) {
       const done = document.createElement("span");
       done.className = "extras-installed";
-      done.textContent = `✓ ${model.on_disk} on disk`;
-      actions.appendChild(done);
+      setLabel(done, `ph:check ${model.on_disk} on disk`);
+      title.appendChild(done);
       // The same argument the packages' Reinstall makes: "the directory is
       // there" is not "the model is sound". A download interrupted halfway
       // leaves a snapshot that loads and produces nonsense, and fetching over
@@ -33811,7 +35068,7 @@ async function renderEmbedModels() {
         })
       );
     } else {
-      const get = smallButton("⬇ Download", `Fetch ${model.label}`, async () => {
+      const get = smallButton("ph:download-simple Download", `Fetch ${model.label}`, async () => {
         if (!(await confirmDialog(
           `Download ${model.label}?\n\n${model.size}, fetched from HuggingFace ` +
             "to this machine. It is the one thing on this screen that needs " +
@@ -34099,10 +35356,15 @@ function fillModelSelect(select, names, extraFirst, savedValue) {
 function renderChatModelPicker(status) {
   const names = status.installed_models.map((m) => m.name);
   fillModelSelect($("chat-model-select"), names, null, status.chat_model);
+  //: The name beside the model, which is INBOX 225's decision for this
+  //: screen: the app speaks as Atlas everywhere else, and "Active: qwen2.5:7b"
+  //: was the one place it went back to naming the machinery. Both halves are
+  //: here on purpose, "which model" is the question this line exists to
+  //: answer and the name alone would not answer it.
   $("chat-model-note").textContent =
     status.chat_model_installed === false
-      ? `Active model “${status.chat_model}” is not installed any more, pick another or download it below.`
-      : `Active: ${status.chat_model}`;
+      ? `${aiNameNow()} was running “${status.chat_model}”, which is not installed any more. Pick another or download it below.`
+      : `${aiNameNow()}, running ${status.chat_model}`;
 }
 
 // Nielsen #6, recognition over recall: which model answers was previously
@@ -34121,7 +35383,7 @@ function renderChatActiveModelBadge() {
   // The badge itself ellipsis-truncates a long id (a full HuggingFace path
   // easily runs past the header), the full name is still one hover away.
   badge.title = name
-    ? `The model currently answering in this chat: ${name}: click for what it is and what it can do`
+    ? `${aiNameNow()} is answering with ${name}: click for what it is and what it can do`
     : "";
 }
 
@@ -34375,11 +35637,57 @@ function renderEmbeddingPicker(status) {
   // of the choice is disabled and says why, rather than the whole section
   // disappearing, which is what used to happen.
   const offline = !status.ollama_running;
-  $("embedding-model-select").disabled = offline;
-  $("embedding-apply").disabled = offline;
+  //: **And it says whether it is the one in use.** Asked after reading the
+  //: code: "does the ai embedding model actually get used??" It does, in
+  //: seven places, but only when the backend above is set to Ollama, and the
+  //: built-in backend is the default. So somebody who picked a model here
+  //: expecting it to be doing the work had a fully enabled, fully ignored
+  //: control, which is the same class of thing as a disabled control that
+  //: does not say why: a setting whose state is invisible.
+  //:
+  //: Disabled rather than hidden, because hiding it would make the choice
+  //: unfindable from the radio that mentions it, and the tooltip carries the
+  //: reason so the state is legible without a second paragraph on screen.
+  syncEmbeddingPickerState(offline);
   document.querySelector('input[name="emb-backend"][value="ollama"]').disabled = offline;
   $("embedding-ollama-note").classList.toggle("hidden", offline);
   $("embedding-offline-note").classList.toggle("hidden", !offline);
+}
+
+//: **A control says whether it is the one in use.** Asked after reading the
+//: code: *"does the ai embedding model actually get used??"* It does, in
+//: seven places, but only when the backend radio above is set to Ollama, and
+//: the built-in backend is the default. So somebody who picked a model here
+//: expecting it to be doing the work had a fully enabled, fully ignored
+//: control, which is the same class of thing as a disabled control that does
+//: not say why: a setting whose state is invisible.
+//:
+//: Disabled rather than hidden, because hiding it would make the choice
+//: unfindable from the radio that names it, and the reason rides on the
+//: tooltip so the state is legible without another paragraph on screen.
+//:
+//: `offline` is passed by the status poll, which knows; the radio's own
+//: handler omits it and it is read back off the control the poll last set,
+//: so a change of radio cannot claim Ollama is reachable when it is not.
+function syncEmbeddingPickerState(offline) {
+  const ollamaRadio = document.querySelector('input[name="emb-backend"][value="ollama"]');
+  const down = offline === undefined ? Boolean(ollamaRadio?.disabled) : offline;
+  const usingOllama =
+    document.querySelector('input[name="emb-backend"]:checked')?.value === "ollama";
+  const picker = $("embedding-model-select");
+  if (!picker) return;
+  picker.disabled = down || !usingOllama;
+  picker.title = down
+    ? "Ollama is not running, so there are no embedding models to choose from"
+    : usingOllama
+      ? "The model used for semantic search"
+      : "Only used when the backend above is set to Ollama. The built-in one is in use";
+  const apply = $("embedding-apply");
+  if (!apply) return;
+  apply.disabled = down || !usingOllama;
+  apply.title = usingOllama
+    ? "Re-read every note with this model"
+    : "Choose the Ollama backend above to use a model from here";
 }
 
 // The button lives in index.html (see `#reindex-box`) rather than being built
@@ -34562,7 +35870,7 @@ function renderSuggested(status) {
 
       const pull = (status.pulls || {})[model.name];
       if (installedNames.has(model.name)) {
-        li.appendChild(chip("installed ✓", "confidence"));
+        li.appendChild(chip("ph:check installed", "confidence"));
       } else if (pull && pull.status === "running") {
         const progress = document.createElement("progress");
         progress.max = Math.max(pull.total, 1);
@@ -34680,7 +35988,7 @@ async function applyChatModel() {
       body: JSON.stringify({ name: select.value }),
     });
     delete select.dataset.userChosen; // applied: polling may reflect it now
-    note.textContent = `Active: ${select.value}: switched instantly, no re-index needed.`;
+    note.textContent = `${aiNameNow()}, running ${select.value}: switched instantly, no re-index needed.`;
     refreshModelStatus();
   } catch (error) {
     note.textContent = error.message;
@@ -34791,7 +36099,7 @@ async function runImprove() {
     return;
   }
   result.textContent = "";
-  status.textContent = "The AI is editing…";
+  status.textContent = "Atlas is editing…";
   status.classList.remove("error");
   $("improve-apply").disabled = true;
   try {
@@ -34818,7 +36126,7 @@ function applyImprove() {
     improveTarget.dispatchEvent(new Event("input")); // refresh char count
   }
   closeImprove();
-  toast("Applied the AI's suggestion.");
+  toast("Applied Atlas's suggestion.");
 }
 
 // --- Tensions: where the notebook disagrees with itself ---------------------
@@ -35056,7 +36364,7 @@ async function loadLinkSuggestions() {
   // own deduction). Labelled for what it actually touches instead.
   const backfill = smallButton(
     "ph:lightbulb Explain your existing links",
-    "For links you've already made elsewhere: work out why each one exists, first from how alike the notes are, then by asking the AI to name the actual connection. Doesn't touch the suggestions below, which aren't links yet.",
+    "For links you've already made elsewhere: work out why each one exists, first from how alike the notes are, then by asking Atlas to name the actual connection. Doesn't touch the suggestions below, which aren't links yet.",
     async () => {
       backfill.disabled = true;
       setLabel(backfill, "ph:lightbulb Working…");
@@ -35077,7 +36385,7 @@ async function loadLinkSuggestions() {
         toast(`Links: ${parts.join(", ")}.`);
         loadLinkSuggestions();
       } else if (result.ai_unavailable) {
-        toast("Marked what I could, the AI isn't running, so none could be put into words yet.", true);
+        toast("Marked what I could, Atlas isn't running, so none could be put into words yet.", true);
       } else if (result.checked) {
         toast("Nothing left to explain, every link already has a reason.");
       } else {
@@ -35097,7 +36405,7 @@ async function loadLinkSuggestions() {
   const rowReasons = [];
   const suggestReasons = smallButton(
     "ph:sparkle Suggest reasons",
-    "Ask the AI to guess why each note pair below might be connected, and fill in any empty Why box with its answer, still yours to edit or clear before linking.",
+    "Ask Atlas to guess why each note pair below might be connected, and fill in any empty Why box with its answer, still yours to edit or clear before linking.",
     async () => {
       const targets = rowReasons.filter((r) => !r.input.value.trim());
       if (!targets.length) {
@@ -35132,7 +36440,7 @@ async function loadLinkSuggestions() {
       if (filled) {
         toast(`Filled in ${filled} reason${filled === 1 ? "" : "s"}.`);
       } else if (result.ai_unavailable) {
-        toast("The AI isn't running, so no reasons could be guessed.", true);
+        toast("Atlas isn't running, so no reasons could be guessed.", true);
       } else {
         toast("Couldn't guess a reason for any of these.");
       }
@@ -35237,7 +36545,7 @@ async function loadLinkSuggestions() {
     reason.maxLength = 80;
     reason.placeholder = s.reason && s.reason !== "similar in meaning"
       ? s.reason
-      : "Why? (optional: the AI will work it out)";
+      : "Why? (optional: Atlas will work it out)";
     reason.setAttribute("aria-label", "Reason for this link");
     // Marks the box as the user's the moment they touch it, so the
     // auto-fill above can never overwrite what someone is typing.
@@ -35397,6 +36705,11 @@ const MIRRORED_UI_EXTRAS = [
   "motion",
   "custom-css",
   "onboardingDone",
+  // The guided tour's own flag, for the same reason `onboardingDone` is here:
+  // both were reported as "onboarding shows every time" when the desktop
+  // shell lost its profile, and a tour that reintroduces the app to somebody
+  // who has already been through it is the same bug wearing the new feature.
+  "tourDone",
   "activeTab",
   "graph-layout",
   "graph-colour",
@@ -36873,8 +38186,8 @@ $("local-only-ai").addEventListener("change", async (e) => {
   // central promise stops being enforced at exactly that click.
   toast(
     on
-      ? "The AI is locked to this machine."
-      : "Off: MemoryMap will now let you point the AI at a server on the internet."
+      ? "Atlas is locked to this machine."
+      : "Off: MemoryMap will now let you point Atlas at a server on the internet."
   );
   refreshModelStatus();
 });
@@ -37234,6 +38547,14 @@ $("pref-auto-capture").addEventListener("change", (e) =>
 $("pref-battery-mode").addEventListener("change", (e) => {
   setPreference("battery_efficient_mode", e.target.checked);
   $("power-saver-indicator")?.classList.toggle("hidden", !e.target.checked);
+  //: `prefsCache` is what `batteryModeOn` reads, and `setPreference` writes
+  //: the server before the cache, so the two pictures are restarted from
+  //: here with the new value already in hand. Without this the setting took
+  //: effect on the next load, which for a setting about power is the wrong
+  //: half of "immediately".
+  if (prefsCache) prefsCache.battery_efficient_mode = e.target.checked;
+  if (typeof startBgArt === "function") startBgArt();
+  if (typeof renderDashboard === "function") renderDashboard();
 });
 $("pref-autonomous-interval").addEventListener("change", (e) =>
   setPreference("autonomous_tasks_interval_hours", Number(e.target.value) || 6)
@@ -37246,7 +38567,14 @@ $("pref-smart-model-routing").addEventListener("change", (e) =>
 );
 
 $("semantic-search-toggle")?.addEventListener("change", () => {
-  if (noteSearch) loadAllNotes();
+  // `loadEntries`, which is what re-runs the list with the toggle's new
+  // state: this said `loadAllNotes()`, a name no file in frontend/ has ever
+  // defined, so turning semantic search on or off while a search term was in
+  // the box raised a ReferenceError and left the old results on screen.
+  // `tests/test_frontend_symbols.py` is what found it. The same pair, "set
+  // the term, then reload if semantic is on", is written out at the
+  // "Search the notebook" selection action.
+  if (noteSearch) loadEntries();
 });
 // The review panel for the background librarian (ROADMAP §40 item 2).
 //
@@ -37361,6 +38689,7 @@ $("draft-compose").addEventListener("click", composeDraft);
 $("draft-undo").addEventListener("click", undoDraft);
 $("draft-cancel").addEventListener("click", cancelDraft);
 $("draft-save").addEventListener("click", saveDraftAsNote);
+$("draft-title").addEventListener("click", suggestDraftTitle);
 $("draft-extract").addEventListener("click", () => openExtractPreview($("draft-text").value));
 $("extract-close").addEventListener("click", closeExtractPreview);
 $("extract-cancel").addEventListener("click", closeExtractPreview);
@@ -37449,7 +38778,7 @@ const ATLAS_PROMPTS = {
   "command-palette-help": "What can the popup agent do that Chat cannot?",
   "help-chat-help": "What can you help me with?",
   "graph-show-help": "What do entity and board nodes add to the graph?",
-  "autonomous-ai-help": "What can the AI change in my notebook on its own?",
+  "autonomous-ai-help": "What can Atlas change in my notebook on its own?",
   "websearch-help": "How do I turn off web search?",
   "battery-mode-help": "What does Performance mode do?",
   "memory-help": "What does the app remember about me?",
@@ -38142,10 +39471,10 @@ $("dashboard-greeting-regenerate")?.addEventListener("click", async () => {
   const btn = $("dashboard-greeting-regenerate");
   const status = $("dashboard-greeting-status");
   btn.disabled = true;
-  if (status) status.textContent = "Asking the AI…";
+  if (status) status.textContent = "Asking Atlas…";
   const ok = await refreshAiGreeting(true).catch(() => false);
   btn.disabled = false;
-  if (status) status.textContent = ok ? "New greeting set." : "Couldn't reach the AI, kept the current one.";
+  if (status) status.textContent = ok ? "New greeting set." : "Couldn't reach Atlas, kept the current one.";
   setTimeout(() => { if (status) status.textContent = ""; }, 3000);
 });
 for (const id of RESPONSE_MODE_SELECTS) {
@@ -38182,6 +39511,28 @@ $("status-agent")?.addEventListener("click", () => toggleAgentPalette());
 $("status-guide")?.addEventListener("click", () => {
   if (typeof openHelpChat === "function") openHelpChat();
 });
+
+$("status-find")?.addEventListener("click", () => openFinder());
+
+//: The dashboard's own doorway to the same dialog. `keydown` as well as
+//: `click`, so a person who starts typing at it is not told to press it
+//: first: the letter they typed opens the dialog and is the first letter of
+//: the query, which is what a field would have done.
+const dashFind = $("dash-find");
+if (dashFind) {
+  dashFind.addEventListener("click", () => openFinder());
+  dashFind.addEventListener("keydown", (event) => {
+    if (event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) return;
+    event.preventDefault();
+    openFinder(event.key);
+    //: Opened with the letter already in it, so `openFinder`'s own `select()`
+    //: would highlight it and the next keystroke would replace it.
+    const input = document.getElementById("finder-input");
+    if (input) input.setSelectionRange(input.value.length, input.value.length);
+  });
+  const keysHint = dashFind.querySelector(".dash-find-keys");
+  if (keysHint) keysHint.textContent = STATUS_META_KEY.startsWith("\u2318") ? "\u2318P" : "Ctrl P";
+}
 
 // Paint it before any poll lands, so the bar is furniture from the first frame
 // rather than four boxes that pop into existence a second later.
@@ -38649,7 +40000,7 @@ $("web-search-toggle").addEventListener("click", async () => {
   $("pref-web-search").checked = next; // keep the Settings checkbox in sync
   if (next) {
     toggleWebPanel(true); // turning it on reveals the search panel
-    toast("Web search on: the AI can search, and you can browse here.");
+    toast("Web search on: Atlas can search, and you can browse here.");
   } else {
     toggleWebPanel(false);
     toast("Web search off.");
@@ -38938,7 +40289,7 @@ function renderDuplicateGroups(groups) {
     aiBox.checked = aiReady;
     aiBox.disabled = !aiReady;
     useAi.append(aiBox, document.createTextNode(
-      aiReady ? " let the AI write the merged note" : " AI not running: notes will be joined"
+      aiReady ? " let Atlas write the merged note" : " Atlas is not running: notes will be joined"
     ));
     card.dataset.aiBoxId = aiBox.id;
     row.append(merge, useAi);
@@ -38984,7 +40335,7 @@ async function mergeDuplicateGroup(ids, card) {
       body: JSON.stringify({ ids, use_ai: useAi }),
     });
     card.remove();
-    toast(`Merged ${result.merged_count} notes${result.used_ai ? " with the AI" : ""}.`);
+    toast(`Merged ${result.merged_count} notes${result.used_ai ? " with Atlas" : ""}.`);
     await loadEntries();
   } catch (error) {
     status.classList.add("error");
@@ -39024,7 +40375,7 @@ function renderSavedSearches() {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "saved-search-remove";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Forget "${item.name}"`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", async () => {
@@ -39089,6 +40440,30 @@ initHelpToggle("capture-help", "capture-help-hint");
 
 
 $("prefs-save").addEventListener("click", savePrefs);
+wirePrefsDirtyMarks();
+
+//: **Ctrl+S on the Preferences section**, which the section's own copy has
+//: promised for a long time ("Ctrl+S saves too") without anything in the app
+//: implementing it: reported as no confirmation appearing on ctrl+s, and the
+//: reason there was none is that nothing ran. In a browser the press went to
+//: "save this page" instead; in the desktop window it did nothing at all.
+//:
+//: Capturing, so a focused textarea (the profile box is one) cannot swallow
+//: it, and `preventDefault` so the browser's own save dialog does not open
+//: on top of the toast. Scoped to this one section: ctrl+s elsewhere in
+//: Settings has nothing to save, and taking the key globally would break the
+//: browser shortcut everywhere for no gain.
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+    if (event.key !== "s" && event.key !== "S") return;
+    if (!settingsOpen() || currentSettingsSection !== "preferences") return;
+    event.preventDefault();
+    savePrefs();
+  },
+  true
+);
 $("pref-search-reset").addEventListener("click", () => {
   $("pref-search-min-sim").value = 0.25;
   $("pref-search-z-margin").value = 0.5;
@@ -39362,6 +40737,12 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
     // "Apply & re-index", and without this the next status poll put the old
     // backend back the instant focus left the radio.
     radio.dataset.userChosen = "1";
+    //: The picker's enabled state follows the radio immediately rather than
+    //: waiting for the next status poll: choosing Ollama and finding the
+    //: model list still greyed for a second reads as the choice not having
+    //: taken. It says which backend is *selected*, which is the question the
+    //: control is about; whether it is applied is what Apply is for.
+    syncEmbeddingPickerState();
   });
 }
 $("status-back").addEventListener("click", () => stepTabHistory(-1));
@@ -39915,45 +41296,22 @@ const ONBOARDING_SLIDES = [
     title: "Your setup",
     dynamic: true,
   },
-  {
-    icon: "ph:squares-four",
-    title: "Dashboard",
-    text: "The dashboard gives you a quick overview of your notebook, including AI suggestions, recent tasks, and reminders.",
-  },
-  {
-    icon: "ph:note-pencil",
-    title: "Capture your thoughts",
-    text: "Jot anything into the Notes tab and hit Save, the AI files it into a category and suggests tags. No folders to fuss over.",
-  },
-  {
-    icon: "ph:chat-circle",
-    title: "Ask your notebook",
-    text: "Ask questions in plain English and get answers grounded in your own notes. Switch on Agent mode and it can use its tools, searching your notes, opening a web page, and organising things for you.",
-  },
-  {
-    icon: "ph:books",
-    title: "Library",
-    text: "Manage everything you've created across your notebook in one place.",
-  },
-  // Was "Explore your graph", named just the Graph tab, which is only half
-  // of what the app's own name refers to. Naming both here, once, is cheap;
-  // leaving a first-time user to discover the Timeline's Line view (§10C) on
-  // their own is not (ANALYSIS §30's "product differentiation" note).
-  {
-    icon: "ph:map-trifold",
-    title: "Explore your map",
-    text: "The Graph tab draws how your notes connect; the Timeline's Line view draws the shape of one thread over time. Together, they're the map MemoryMap is named for, search, drag and zoom to rediscover things you'd forgotten you saved.",
-  },
-  {
-    icon: "ph:keyboard",
-    title: "Command Palette",
-    text: "Press Ctrl+K (or Cmd+K on Mac) anywhere to open the command palette and quickly jump around or search.",
-  },
-  {
-    icon: "ph:palette",
-    title: "Make it yours",
-    text: "Settings → Appearance has themes, accent colours, fonts, and more. Press ? any time for keyboard shortcuts. Enjoy!",
-  },
+  // **The seven slides that used to follow this one are the guided tour now**
+  // (frontend/tour.js). They described a tab in prose, "the Graph tab draws
+  // how your notes connect", "press Ctrl+K anywhere", from the middle of a
+  // screen that was covering the tab bar those words were about, which is the
+  // gap the owner named: "there is no guided tour and introduction, with
+  // positioned popup cards". Nothing was dropped: every one of them is a step
+  // in TOUR_SECTIONS anchored to the control it used to describe, which is
+  // both shorter to read and the only version that can point at anything.
+  //
+  // What stays here is what an anchored card cannot do. The welcome says what
+  // MemoryMap is before there is any interface to point at, and the setup
+  // slide is a live check of Ollama and the notebook's folder with its two
+  // one-click offers (pull a model, seed example notes) on it: a card the size
+  // of a sentence, hung off a control, is the wrong place for either. So the
+  // two surfaces are kept apart on purpose, the welcome ends by handing over
+  // to the tour, and Settings, help and guide offers them separately.
 ];
 
 let onboardingIndex = 0;
@@ -39980,7 +41338,7 @@ async function loadOnboardingDiagnostics(forSlide) {
   const lines = [];
   lines.push(
     models && models.ollama_running
-      ? "Ollama is running, so the AI will file your notes and answer questions."
+      ? "Ollama is running, so Atlas will file your notes and answer questions."
       : "Ollama isn't running right now, MemoryMap still works without it. " +
           "Notes are still searched by keyword, and everything catches up the moment it's on."
   );
@@ -40095,7 +41453,11 @@ function renderOnboardingSlide() {
   });
   $("onboarding-back").classList.toggle("hidden", onboardingIndex === 0);
   const last = onboardingIndex === ONBOARDING_SLIDES.length - 1;
-  $("onboarding-next").textContent = last ? "Get started" : "Next";
+  // "Start the tour", not "Get started": the last press of the welcome now
+  // opens the tour's first section rather than dropping somebody on the
+  // Dashboard with nothing said about where anything is. The word has to say
+  // so, or the tour arrives as a surprise on top of a card they just closed.
+  $("onboarding-next").textContent = last ? "Start the tour" : "Next";
 }
 
 function openOnboarding() {
@@ -40109,6 +41471,12 @@ function openOnboarding() {
 function closeOnboarding() {
   $("onboarding-overlay").classList.add("hidden");
   localStorage.setItem("onboardingDone", "1");
+  // Skipping the welcome is also an answer about the tour: whoever closed this
+  // card has been offered the introduction and said no, so nothing may open
+  // the tour at them by itself afterwards. `tourClose` writes the same key
+  // when the tour itself ends, and Settings, help and guide is the way back to
+  // either of them.
+  localStorage.setItem("tourDone", "1");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
 }
@@ -40116,6 +41484,11 @@ function closeOnboarding() {
 function onboardingNext() {
   if (onboardingIndex >= ONBOARDING_SLIDES.length - 1) {
     closeOnboarding();
+    // The hand-off: the welcome says what this is, the tour says where things
+    // are, and the last press of the one starts the other. Guarded because
+    // tour.js is a separate file loaded after this one, and a page served
+    // without it must still close the welcome cleanly.
+    if (typeof openTour === "function") openTour("basics");
     return;
   }
   onboardingIndex += 1;
@@ -40128,9 +41501,27 @@ function onboardingBack() {
   renderOnboardingSlide();
 }
 
-// Show the tour once, after the app is unlocked and running.
+// Show the welcome once, after the app is unlocked and running.
+//
+//: An install that has already been through the welcome (`onboardingDone` is
+//: set) is not shown it again, and is not shown the tour uninvited either: a
+//: card that takes over the screen of somebody who has been using the app for
+//: months is the "trapped" failure the tour is written to avoid. It is offered
+//: once instead, in a toast with an action, which is the app's existing recipe
+//: for "here is something, and here is the one press that takes it". Declining
+//: it is silent and permanent: the offer writes `tourDone` either way, so this
+//: runs at most once per notebook.
 function maybeShowOnboarding() {
-  if (!localStorage.getItem("onboardingDone")) openOnboarding();
+  if (!localStorage.getItem("onboardingDone")) {
+    openOnboarding();
+    return;
+  }
+  if (localStorage.getItem("tourDone")) return;
+  if (typeof openTour !== "function") return;
+  localStorage.setItem("tourDone", "1");
+  toastAction("There is a guided tour of MemoryMap now.", "Take the tour", () => {
+    openTour("basics");
+  });
 }
 
 $("onboarding-next").addEventListener("click", onboardingNext);
@@ -40214,6 +41605,14 @@ const DEFAULT_SHORTCUTS = {
   //: "the keyboard shortcut is listed in the shortcuts sheet": the sheet is
   //: built from this table, so listing it and declaring it are one act).
   askAtlas: { keys: "Ctrl+Shift+H", label: "Ask Atlas about the app" },
+  //: **The universal search.** In the registry, not bound loose, for the
+  //: reason `askAgent` above records at length: a chord in a listener of its
+  //: own is invisible to `test_frontend_shortcuts.py` and to the shortcuts
+  //: sheet, which is how two surfaces came to share one chord twice. Ctrl+P
+  //: rather than Ctrl+K (the navigation palette) or Ctrl+F (find on this
+  //: page): it is the chord every editor uses for "go to anything", and it
+  //: was free.
+  findAnything: { keys: "Ctrl+P", label: "Find anything: notes, files, actions" },
   whiteboard: { keys: "Ctrl+Shift+B", label: "Open the whiteboard" },
   settings: { keys: "Ctrl+,", label: "Open settings" },
   attachNote: { keys: "Ctrl+Shift+P", label: "Clip a note to your next question" },
@@ -40228,7 +41627,7 @@ const DEFAULT_SHORTCUTS = {
   //: registry rather than bound loose for the reason `askAgent` records above:
   //: a chord in a listener of its own is invisible to
   //: `test_frontend_shortcuts.py`'s collision check and to the shortcuts help.
-  inlineAi: { keys: "Ctrl+J", label: "Ask the AI to write at the cursor" },
+  inlineAi: { keys: "Ctrl+J", label: "Ask Atlas to write at the cursor" },
   navigateBack: { keys: "Alt+ArrowLeft", label: "Go back to the previous page or view" },
   navigateForward: { keys: "Alt+ArrowRight", label: "Go forward again" },
 };
@@ -40495,6 +41894,11 @@ function runShortcut(id) {
     palette: () => {
       if ($("palette-overlay").classList.contains("hidden")) openPalette();
       else closePalette();
+    },
+    findAnything: () => {
+      const overlay = document.getElementById("finder-overlay");
+      if (overlay && overlay.classList.contains("hidden")) openFinder();
+      else closeFinder();
     },
     search: () => {
       if (localStorage.getItem("activeTab") === "chat") {
@@ -40939,7 +42343,7 @@ function renderEntryAttachmentChips(boxId = "entry-content", hostId = "entry-att
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Remove "${name || url}" from this note`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", async () => {
@@ -41632,6 +43036,14 @@ const STATUS_SLOTS = [
     key: "guide",
     label: "Guide",
     hint: "Ask the guide how this app works, from any tab",
+  },
+  //: Added with INBOX 270. A slot added later appears by default for
+  //: everyone, which is what storing the hidden set rather than the shown one
+  //: buys (the note above).
+  {
+    key: "find",
+    label: "Find anything",
+    hint: "Search your notes, documents, files and the app itself",
   },
 ];
 
@@ -44308,3 +45720,469 @@ $("notif-mark-all-read")?.addEventListener("click", () => {
   openNotifications();
   toast("All notifications marked as read.");
 });
+
+// --- Find anything ------------------------------------------------------------
+//
+//: **One search over everything you keep, and over the app itself.**
+//:
+//: INBOX 270, the owner: *"this is a search for any and all content, items,
+//: text, files everything. a full application wide semantic search which shows
+//: content as well as features and actions etc. absolutely everything and what
+//: shows can be filtered, sorted and toggled."*
+//:
+//: The engine was already here and nothing called it. `/search`
+//: (routes_search.py over `search/engine.py`) ranks notes, documents, boards,
+//: files, bookmarks and reminders in one list, keyword and meaning together,
+//: with three scores, a plain-English explanation per hit and a count per kind
+//: so an empty result can say whether nothing matched or nothing of that kind
+//: is indexed. Measured against a live server before any of this was written:
+//: a three-note, one-document notebook answers `?q=sourdough` with all four,
+//: correctly ranked. The only reader of anything under `/search` in the whole
+//: frontend was Settings, asking for a number.
+//:
+//: So this file is a front door, not a second search. What it adds on top of
+//: the route is the half the route cannot have: the app's own actions. A
+//: person looking for "dark mode" or "tensions" is searching, and a search
+//: that answers only with documents sends them to the settings tree to hunt.
+//: `paletteCommands()` is the existing list, so a command added there appears
+//: here without anyone remembering this exists.
+
+//: One icon per kind, the same glyph that kind wears everywhere else, plus
+//: "action", which is this surface's own and is not a kind the index knows.
+const FINDER_KINDS = [
+  { key: "note", icon: "ph:note-pencil", one: "note", many: "notes" },
+  { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
+  { key: "board", icon: "ph:squares-four", one: "board", many: "boards" },
+  { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
+  { key: "bookmark", icon: "ph:bookmark-simple", one: "link", many: "links" },
+  { key: "reminder", icon: "ph:alarm", one: "reminder", many: "reminders" },
+  { key: "action", icon: "ph:lightning", one: "action", many: "actions" },
+];
+
+let finderKind = "";       // "" is everything
+let finderQuery = "";
+let finderHits = [];
+let finderCounts = {};
+let finderTimer = null;
+let finderRun = 0;         // so a slow answer cannot paint over a newer one
+let finderActive = -1;     // which row the keyboard is on
+let finderOpener = null;   // what to give focus back to
+
+//: What pressing a result does, per kind. A row whose kind has no opener is
+//: still drawn: knowing the thing exists and where it lives is most of the
+//: answer, and a control that does nothing when pressed is the one thing worse
+//: than no control, so those rows are not buttons.
+//: Through the Library's own `openLibraryItem` wherever a kind is one of its
+//: rows, rather than a second set of "how do I open a board" rules. That
+//: function already knows a board opens its board and not the empty note the
+//: board is stored in, which is exactly the mistake a fresh copy would make.
+const FINDER_OPEN = {
+  note: (hit) => { switchTab("notes"); flashEntry(hit.id); },
+  document: (hit) => { switchTab("documents"); openDocument(hit.id); },
+  board: (hit) => openLibraryItem({ kind: "board", id: hit.id }),
+  file: (hit) => flashLibraryItem("file", hit.id),
+  bookmark: (hit) => flashLibraryItem("link", hit.id),
+  reminder: () => switchTab("reminders"),
+};
+
+function finderOverlay() { return document.getElementById("finder-overlay"); }
+
+//: The app's own actions, matched here rather than sent to the server: they
+//: are not in the index, they change with the tab you are on, and matching a
+//: dozen labels in the browser is cheaper than a round trip.
+function finderActions(query) {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length || typeof paletteCommands !== "function") return [];
+  const out = [];
+  for (const command of paletteCommands()) {
+    const label = String(command.label || "").replace(/^ph:[\w-]+\s*/, "");
+    const hay = label.toLowerCase();
+    if (!words.every((word) => hay.includes(word))) continue;
+    out.push({
+      kind: "action",
+      id: label,
+      title: label,
+      snippet: "",
+      explain: ["an action in the app"],
+      //: Ranked just under a real content hit on purpose: someone typing
+      //: "sourdough" wants their notes, and someone typing "zoom in" gets no
+      //: content hits at all, so the ordering only matters in the case where
+      //: content exists and should win.
+      score: 0.5,
+      written: "",
+      run: command.run,
+    });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+async function finderSearch() {
+  const run = ++finderRun;
+  const query = finderQuery.trim();
+  const results = document.getElementById("finder-results");
+  const summary = document.getElementById("finder-summary");
+  if (!results) return;
+  if (!query) {
+    finderHits = [];
+    finderCounts = {};
+    finderRenderEmpty();
+    return;
+  }
+  //: **No "Searching" flash.** Reported: "the 'searching...' text keeps
+  //: suddenly appearing and disappearing and it feels jarring and not
+  //: smooth". A local index answers in tens of milliseconds, so on every
+  //: keystroke the word appeared and was replaced before it could be read: a
+  //: label that existed only to blink. It is written only if the search is
+  //: still going after a beat, which on this machine is almost never, and
+  //: the previous count stays on screen until the new one replaces it, so
+  //: the line never empties between two answers.
+  const slow = setTimeout(() => {
+    if (run === finderRun) summary.textContent = "Searching…";
+  }, 400);
+  //: `kind` is passed to the route, not filtered here, so a filtered search
+  //: gets a *full page* of that kind rather than whatever survived a page of
+  //: everything. Actions are filtered here because the route has never heard
+  //: of them.
+  const kindParam = finderKind && finderKind !== "action" ? `&kind=${finderKind}` : "";
+  const body = await apiJson(
+    `/search?q=${encodeURIComponent(query)}${kindParam}&limit=30`,
+    { silent: true }
+  ).catch(() => null);
+  clearTimeout(slow);
+  if (run !== finderRun) return; // a newer keystroke owns the screen now
+  if (!body) {
+    finderHits = [];
+    finderCounts = {};
+    results.replaceChildren();
+    surfaceFailed(results, "results", finderSearch);
+    return;
+  }
+  surfaceRecovered(results);
+  finderCounts = body.counts || {};
+  const actions = finderKind && finderKind !== "action" ? [] : finderActions(query);
+  const hits = finderKind === "action" ? [] : body.hits || [];
+  finderHits = [...hits, ...actions];
+  finderRender();
+}
+
+//: Sorting is done here rather than asked of the route because two of the
+//: three orders are about the answer set on screen, and one of them ("best
+//: match") is the order the route already returned. Re-querying to reverse a
+//: list would be a round trip to rearrange thirty rows.
+function finderSorted() {
+  const rows = [...finderHits];
+  const sort = document.getElementById("finder-sort")?.value || "best";
+  if (sort === "best") return rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+  const dir = sort === "newest" ? -1 : 1;
+  return rows.sort((a, b) => {
+    //: An action has no date, and an undated row sorted as the empty string
+    //: would bunch every one of them at one end of a date sort. They keep
+    //: their relative order and go last either way.
+    if (!a.written && !b.written) return 0;
+    if (!a.written) return 1;
+    if (!b.written) return -1;
+    return a.written < b.written ? dir : a.written > b.written ? -dir : 0;
+  });
+}
+
+function finderRenderEmpty() {
+  const results = document.getElementById("finder-results");
+  const summary = document.getElementById("finder-summary");
+  if (summary) summary.textContent = "";
+  if (!results) return;
+  results.replaceChildren();
+  const box = document.createElement("div");
+  box.className = "empty-state";
+  const icon = document.createElement("i");
+  icon.className = "ph ph-magnifying-glass empty-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = "Search everything you keep";
+  const body = document.createElement("p");
+  body.textContent =
+    "Notes, documents, boards, files, links and reminders at once, by your words and by what they mean. Type to begin.";
+  box.append(icon, title, body);
+  results.appendChild(box);
+  finderRenderFilters();
+}
+
+//: **Built once, updated in place.** Every search refreshes the counts, and a
+//: first version rebuilt the whole row to show them. Measured: the chip you
+//: had just pressed was replaced by a new node a moment later, so it reported
+//: itself unpressed to anything reading it, and a keyboard user lost focus to
+//: <body> on every filter change. The row is furniture; only its numbers and
+//: its pressed state change.
+function finderRenderFilters() {
+  const bar = document.getElementById("finder-filters");
+  if (!bar) return;
+  const wanted = [
+    { key: "", label: "Everything", count: null },
+    ...FINDER_KINDS.map((kind) => ({
+      key: kind.key,
+      label: kind.many.charAt(0).toUpperCase() + kind.many.slice(1),
+      //: A kind with nothing indexed still gets a chip, showing its own zero,
+      //: because "there are no files" is an answer and a missing chip is not.
+      //: Actions are counted by whatever the current query matches, so they
+      //: carry no number at all rather than a misleading one.
+      count: kind.key === "action" ? null : finderCounts[kind.key] ?? 0,
+    })),
+  ];
+  if (!bar.children.length) {
+    for (const row of wanted) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      //: `.library-chip`, the app's own interactive filter chip
+      //: (UI_MODERNISATION_PLAN Phase 2), not `.chip`, which is a *display*
+      //: chip: accent-soft, 0.75rem, weight 600, meant for a status label.
+      //: Reported with a screenshot: eight of them in a row read as eight
+      //: badges rather than eight controls, at a size nothing else here uses.
+      chip.className = "library-chip finder-chip";
+      chip.dataset.kind = row.key;
+      chip.addEventListener("click", () => {
+        finderKind = finderKind === row.key ? "" : row.key;
+        finderSearch();
+      });
+      bar.appendChild(chip);
+    }
+  }
+  [...bar.children].forEach((chip, index) => {
+    const row = wanted[index];
+    if (!row) return;
+    //: **A count only once there is something to count.** The chips used to
+    //: read "Notes 0, Documents 0, Boards 0" before a single character had
+    //: been typed, which is eight confident zeroes about a notebook nobody
+    //: had searched: they are the index's counts for the *query*, and with
+    //: no query they mean nothing. Reported with a screenshot.
+    const showCount = row.count != null && finderQuery.trim();
+    chip.textContent = showCount ? `${row.label} ${row.count}` : row.label;
+    //: `aria-pressed`, not a class alone: this is a filter that is on or off
+    //: and a screen reader has to hear which. `.active` is the class the
+    //: chip recipe paints from, and it is painted from the same fact rather
+    //: than being the fact.
+    chip.setAttribute("aria-pressed", String(finderKind === row.key));
+    chip.classList.toggle("active", finderKind === row.key);
+  });
+}
+
+function finderRender() {
+  const results = document.getElementById("finder-results");
+  const summary = document.getElementById("finder-summary");
+  if (!results) return;
+  finderRenderFilters();
+  let rows = finderSorted();
+  results.replaceChildren();
+  finderActive = -1;
+  if (!rows.length) {
+    const box = document.createElement("div");
+    box.className = "empty-state";
+    const title = document.createElement("p");
+    title.className = "empty-title";
+    title.textContent = "Nothing matched";
+    const body = document.createElement("p");
+    //: Says *why* it is empty, which the counts make possible: nothing
+    //: matched and nothing of that kind exists yet are different answers and
+    //: a bare empty list renders them identically.
+    const indexed = Object.values(finderCounts).reduce((sum, n) => sum + (n || 0), 0);
+    body.textContent = indexed
+      ? "Try fewer words, or take a filter off."
+      : "Nothing is indexed yet. Save a note and it will appear here.";
+    box.append(title, body);
+    results.appendChild(box);
+    if (summary) summary.textContent = "";
+    return;
+  }
+  if (summary) {
+    summary.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}`;
+  }
+  const icons = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k.icon]));
+  const names = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k]));
+  //: **Grouped by kind, once there is more than one kind on screen.**
+  //: Reported: "the results could have better Information Architecture". A
+  //: flat list of thirty rows mixing notes, documents and actions asks the
+  //: reader to sort them by eye, which is the work the app should have done.
+  //: A heading per kind, in the order the filter chips run, so the two agree
+  //: about what order the world is in.
+  //:
+  //: Only when it helps: one kind, or a sort other than best match, and a
+  //: heading would be a label on a list that needs none. A date sort in
+  //: particular is a *cross-kind* question ("what changed lately"), and
+  //: grouping it by kind would break exactly the order that was asked for.
+  const sortMode = document.getElementById("finder-sort")?.value || "best";
+  const kinds = [...new Set(rows.map((hit) => hit.kind))];
+  const grouped = sortMode === "best" && kinds.length > 1;
+  if (grouped) {
+    //: By kind in the chips' own order, and within a kind by the score the
+    //: sort already put them in. A stable sort is what keeps that second
+    //: half true without sorting twice.
+    const rank = Object.fromEntries(FINDER_KINDS.map((k, i) => [k.key, i]));
+    rows = [...rows].sort((a, b) => (rank[a.kind] ?? 99) - (rank[b.kind] ?? 99));
+  }
+  let lastKind = null;
+  rows.forEach((hit, index) => {
+    if (grouped && hit.kind !== lastKind) {
+      lastKind = hit.kind;
+      const head = document.createElement("p");
+      head.className = "finder-group muted";
+      const many = rows.filter((row) => row.kind === hit.kind).length;
+      const kind = names[hit.kind];
+      head.textContent = kind ? (many === 1 ? kind.one : kind.many) : hit.kind;
+      //: Not a `role="option"` inside the listbox: a heading is not
+      //: selectable, and a screen reader walking the options would otherwise
+      //: read the word "notes" as a result.
+      head.setAttribute("aria-hidden", "true");
+      results.appendChild(head);
+    }
+    const open = hit.run || FINDER_OPEN[hit.kind];
+    const row = document.createElement(open ? "button" : "div");
+    if (open) row.type = "button";
+    row.className = "finder-row";
+    row.setAttribute("role", "option");
+    row.setAttribute("aria-selected", "false");
+    row.dataset.index = String(index);
+    const head = document.createElement("span");
+    head.className = "finder-row-head";
+    const title = document.createElement("span");
+    title.className = "finder-row-title";
+    //: `setNoteLabel`, not `setLabel`: a hit's title is the thing's own text
+    //: and can begin with anything, a `#` or a `1.` included, so it must not
+    //: go through the markdown renderer joined to an app-written icon token.
+    setNoteLabel(title, icons[hit.kind] || "ph:dot", hit.title || "(untitled)", 70);
+    head.appendChild(title);
+    if (hit.written) {
+      const when = document.createElement("span");
+      when.className = "finder-row-when muted text-xs";
+      when.textContent = hit.written;
+      head.appendChild(when);
+    }
+    row.appendChild(head);
+    if (hit.snippet && hit.snippet !== hit.title) {
+      const snippet = document.createElement("span");
+      snippet.className = "finder-row-snippet muted";
+      //: **Rendered, not printed.** Reported: "in the universal search,
+      //: inline md isnt rendered or handled". `textContent` on a note's own
+      //: text prints its asterisks and the literal text of any image it
+      //: holds, which is the same report the chat's source cards had and is
+      //: fixed here the same way. `compact`, because this is a two-line
+      //: preview inside a row rather than a note body, and wiki links are
+      //: unwrapped first since `renderInlineMarkdown` is inline-only and does
+      //: not know `[[…]]`: without that a linked note prints its brackets.
+      renderInlineMarkdown(
+        snippet,
+        hit.snippet.slice(0, 200).replace(/\[\[([^[\]]{1,120})\]\]/g, "$1"),
+        null,
+        true
+      );
+      row.appendChild(snippet);
+    }
+    //: One line of facts, not a row of chips: this is what the row *is*,
+    //: which is DESIGN.md's `.library-file-meta` recipe ("short statements,
+    //: dot separators, `--text-xs`, `--muted`, one rank"). Chips here read as
+    //: things you could press, and two of them under every row turned the
+    //: list into a field of badges. Reported with a screenshot.
+    const reasons = (hit.explain || []).filter(Boolean);
+    if (reasons.length) {
+      const why = document.createElement("span");
+      why.className = "finder-why muted";
+      why.textContent = reasons.join(" \u00b7 ");
+      row.appendChild(why);
+    }
+    if (open) {
+      row.addEventListener("click", () => {
+        closeFinder();
+        open(hit);
+      });
+    }
+    results.appendChild(row);
+  });
+}
+
+//: Up and down move a highlight rather than focus, so the input keeps the
+//: caret and you can keep typing: the shape every search field in the world
+//: has, and the reason this is a `listbox` with `aria-activedescendant`
+//: behaviour rather than a list of focusable buttons you tab through.
+function finderMove(step) {
+  const rows = [...document.querySelectorAll("#finder-results .finder-row")];
+  if (!rows.length) return;
+  if (finderActive >= 0 && rows[finderActive]) {
+    rows[finderActive].setAttribute("aria-selected", "false");
+    rows[finderActive].classList.remove("is-active");
+  }
+  finderActive = (finderActive + step + rows.length) % rows.length;
+  const row = rows[finderActive];
+  row.setAttribute("aria-selected", "true");
+  row.classList.add("is-active");
+  //: The list's own `scrollTop`, never `scrollIntoView`, which walks every
+  //: scrolling ancestor including the page (DESIGN.md, the recipe index).
+  const box = row.parentElement;
+  const top = row.offsetTop;
+  const bottom = top + row.offsetHeight;
+  if (top < box.scrollTop) box.scrollTop = top;
+  else if (bottom > box.scrollTop + box.clientHeight) box.scrollTop = bottom - box.clientHeight;
+}
+
+function openFinder(prefill = "") {
+  const overlay = finderOverlay();
+  if (!overlay) return;
+  finderOpener = document.activeElement;
+  overlay.classList.remove("hidden");
+  const input = document.getElementById("finder-input");
+  if (input) {
+    if (prefill) input.value = prefill;
+    finderQuery = input.value;
+    input.focus();
+    input.select();
+  }
+  if (finderQuery.trim()) finderSearch();
+  else finderRenderEmpty();
+}
+
+function closeFinder() {
+  const overlay = finderOverlay();
+  if (!overlay || overlay.classList.contains("hidden")) return;
+  overlay.classList.add("hidden");
+  //: Focus goes back where it came from. A dialog that drops focus on <body>
+  //: sends the next Tab to the top of the page, which is how a keyboard user
+  //: loses their place.
+  if (finderOpener && document.contains(finderOpener)) finderOpener.focus();
+  finderOpener = null;
+}
+
+function wireFinder() {
+  const overlay = finderOverlay();
+  const input = document.getElementById("finder-input");
+  if (!overlay || !input) return;
+  input.addEventListener("input", () => {
+    finderQuery = input.value;
+    clearTimeout(finderTimer);
+    //: Long enough that a typist does not fire a query per letter, short
+    //: enough that the list feels attached to the keyboard. The abort is the
+    //: `finderRun` counter rather than an AbortController because the route
+    //: is cheap and a cancelled fetch mid-index-read is not.
+    finderTimer = setTimeout(finderSearch, 180);
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown") { event.preventDefault(); finderMove(1); }
+    else if (event.key === "ArrowUp") { event.preventDefault(); finderMove(-1); }
+    else if (event.key === "Enter") {
+      const rows = [...document.querySelectorAll("#finder-results .finder-row")];
+      const row = rows[finderActive] || rows[0];
+      if (row) { event.preventDefault(); row.click(); }
+    }
+  });
+  document.getElementById("finder-sort")?.addEventListener("change", finderRender);
+  document.getElementById("finder-close")?.addEventListener("click", closeFinder);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) closeFinder();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !overlay.classList.contains("hidden")) {
+      //: Captured before anything else can treat Escape as its own: this is
+      //: the topmost surface while it is open.
+      event.stopPropagation();
+      closeFinder();
+    }
+  }, true);
+}
+wireFinder();

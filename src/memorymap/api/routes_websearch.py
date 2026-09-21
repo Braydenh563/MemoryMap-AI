@@ -134,9 +134,15 @@ def searxng_status() -> dict:
 @router.post("/websearch/searxng/start")
 def searxng_start(session: Session = Depends(get_session)) -> dict:
     """Run SearXNG for the user and switch web search over to it."""
-    from memorymap.search import searxng_manager, websearch
+    from memorymap.search import searxng_docker, searxng_manager, websearch
 
     config = deps.get_config()
+    # Pressing Start is the one moment `docker_available`'s short memory could
+    # be seen to be wrong: the usual sequence is "it says Docker is not
+    # running, so start Docker Desktop, then press Start", and a remembered
+    # "no" would send that press to the from-source backend instead. Asking
+    # again costs one `docker info` per button press.
+    searxng_docker.forget_docker_daemon_state()
     try:
         # When nothing is installed yet, this kicks off a background install
         # that ends by starting SearXNG itself, the callback points web

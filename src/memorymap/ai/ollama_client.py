@@ -873,7 +873,28 @@ class OllamaClient(Provider):
                     "dedicated embedding model such as 'nomic-embed-text' as the "
                     "search engine."
                 ) from exc
-            raise OllamaError(f"Embedding with '{model}' failed: {exc}") from exc
+            #: **The model is chosen but not downloaded**, which is the other
+            #: way this is routinely misconfigured and the one the message
+            #: above does not fit: Ollama answers 404 with "model ... not
+            #: found". Asked for directly: "if the embedding model fails or
+            #: has an error, it suggests to download nomic-embed-text". It
+            #: names the model the person actually chose rather than the
+            #: recommended one, because telling somebody to download a
+            #: *different* model than the one they picked is a second
+            #: decision they did not ask to make, and it names where the
+            #: button is, since this app pulls models for you.
+            if status == 404 or "not found" in body.lower():
+                raise OllamaError(
+                    f"The embedding model '{model}' is selected but not "
+                    "downloaded. Settings, Models has a download button for "
+                    f"it, or run 'ollama pull {model}'. If you are not sure "
+                    "which to use, 'nomic-embed-text' is the recommended one "
+                    "and is about 274 MB."
+                ) from exc
+            raise OllamaError(
+                f"Embedding with '{model}' failed: {exc}. You can change or "
+                "re-download the embedding model in Settings, Models."
+            ) from exc
         except (
             requests.RequestException,
             KeyError,

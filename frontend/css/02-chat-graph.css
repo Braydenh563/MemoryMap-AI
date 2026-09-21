@@ -2764,6 +2764,16 @@ kbd {
   display: none;
 }
 
+/* The same empty state, saying the data did not arrive rather than that there
+   is none of it (app.js, `surfaceFailed`). One token's difference, because it
+   is the same component in a different mood, not a second component: the warn
+   colour on the icon and the title, which is what tells the eye this is a
+   report about the app rather than about the notebook. */
+.empty-state.is-failed .empty-icon,
+.empty-state.is-failed .empty-title {
+  color: var(--warn);
+}
+
 .empty-icon {
   font-size: 2.6rem;
   display: block;

@@ -262,14 +262,26 @@ for (const [shape, block] of Object.entries(SHAPES)) {
   }
 }
 
-// The fields the panel and the Library filter both read.
+// The entries the properties panel reads, in the shape it reads them.
+//
+// This used to go through a `docFrontmatterFields` helper that flattened them
+// into `{key, kind, value, items}`, and whose own comment claimed the panel
+// and the Library filter both called it. Neither did: `renderDocProperties`
+// walks `fm.entries` and reads `entry.value.text` and `entry.items[].text`
+// directly, and the Library has no property filter at all. The helper and its
+// comment were the only description of a shape nothing produced, so the test
+// now names the one the panel will actually be handed.
 {
-  const fields = docFrontmatterFields("---\nstatus: draft\ntags: [a, b]\n---\n\nbody");
-  check("fields/kinds", fields.map((f) => `${f.key}:${f.kind}`).join(",") === "status:scalar,tags:list",
-    JSON.stringify(fields));
-  check("fields/values", fields[0].value === "draft" && fields[1].items.join("|") === "a|b",
-    JSON.stringify(fields));
-  check("fields/none", docFrontmatterFields("# no properties here").length === 0, "fields from nothing");
+  const fm = docFrontmatterParse("---\nstatus: draft\ntags: [a, b]\n---\n\nbody");
+  check("fields/parses", !!fm, "no frontmatter");
+  const entries = fm ? fm.entries : [];
+  check("fields/kinds", entries.map((e) => `${e.key}:${e.kind}`).join(",") === "status:scalar,tags:list",
+    JSON.stringify(entries.map((e) => [e.key, e.kind])));
+  check("fields/scalar-value", entries[0] && entries[0].value.text === "draft",
+    entries[0] ? JSON.stringify(entries[0].value.text) : "no entry");
+  check("fields/list-items", entries[1] && entries[1].items.map((i) => i.text).join("|") === "a|b",
+    entries[1] ? JSON.stringify(entries[1].items) : "no entry");
+  check("fields/none", docFrontmatterParse("# no properties here") === null, "frontmatter from nothing");
 }
 
 process.stdout.write(JSON.stringify(results));

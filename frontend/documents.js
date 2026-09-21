@@ -169,8 +169,108 @@ document.getElementById("doc-dock-menu")?.addEventListener("click", (event) => {
 });
 document.addEventListener("click", (event) => {
   const menu = document.getElementById("doc-dock-menu");
-  if (menu?.open && !menu.contains(event.target)) menu.open = false;
+  if (!menu?.open) return;
+  //: The group flyouts are reparented to `<body>` while open (see
+  //: `buildMenuGroupButton`), so a click inside one is not inside `menu` and
+  //: the plain "clicked away" reading below would shut the whole thing before
+  //: the row's own handler had run.
+  const submenu = event.target.closest?.(".action-menu.submenu");
+  if (submenu) {
+    //: **And it is where a flyout row's close has to live**, for the same
+    //: reason: nothing on the group or on `#doc-dock-menu` sees this click.
+    //: The rules are the list's own, restated for rows that have moved into a
+    //: flyout. A switch keeps the menu open, because a switch has a state you
+    //: have to be able to see move and a menu that shuts on the click hides
+    //: the only feedback it gives. A nested group opener is not a row. A row
+    //: from one of *this* menu's flyouts closes it; one from some other
+    //: menu's flyout is none of our business.
+    if (!submenu.dataset.docDockSubmenu) return;
+    if (event.target.closest(".doc-dock-menu-check")) return;
+    if (!event.target.closest(".menu-item") || event.target.closest(".has-submenu")) return;
+    menu.open = false;
+    return;
+  }
+  if (menu.contains(event.target)) return;
+  menu.open = false;
 });
+
+//: **Five download rows into one** (INBOX 262, the owner: "I want to combine
+//: the "download as" options in it into a sub menu in that dropdown ... like
+//: the ones in the meatball dropdowns in the your notes page").
+//:
+//: Measured before: the menu is 706px tall in a 900px window at 1440px wide,
+//: 45 focusable rows, and on a taller, narrower window it runs to the bottom
+//: edge with a scrollbar of its own, which is what the report's screenshot
+//: shows. Four of those rows are the same verb.
+//:
+//: **The buttons are moved, not rebuilt.** They carry ids that this file
+//: binds handlers to and that `test_frontend_ids` and
+//: `test_frontend_handlers` both watch, so `buildMenuGroupButton` takes them
+//: as elements. Everything else is the notes kebab's own group recipe: hover
+//: or click to open, a flyout beside the row, an accordion at phone width,
+//: clamped to the window on both axes.
+//:
+//: Built once, at load, rather than per open: these rows are static markup
+//: and the groups are not rebuilt by anything.
+function foldDocMenuGroup(label, ids) {
+  const list = document.querySelector("#doc-dock-menu .doc-dock-menu-list");
+  if (!list) return;
+  const rows = ids.map((id) => document.getElementById(id)).filter(Boolean);
+  if (rows.length < 2 || typeof buildMenuGroupButton !== "function") return;
+  //: Already folded: this is called once at load, but a second call would
+  //: otherwise wrap a group inside a group.
+  if (rows[0].closest(".menu-group")) return;
+  //: **A marker, because the group takes the rows with it.**
+  //: `buildMenuGroupButton` appends each element into the flyout, so by the
+  //: time it returns, `rows[0]` is no longer a child of this list and
+  //: `insertBefore(group, rows[0])` throws `NotFoundError`. That throw is
+  //: not local: this runs at the top level of documents.js, so it took the
+  //: rest of the file's initialisation with it (`storageInfo`,
+  //: `DOC_VIEWS_UNRENDERED` and `docCmView` all failed to initialise, and
+  //: the editor would not open). A comment node holds the place instead.
+  const marker = document.createComment("menu group");
+  list.insertBefore(marker, rows[0]);
+  const group = buildMenuGroupButton(label, rows);
+  list.insertBefore(group, marker);
+  marker.remove();
+  //: **Marked, so the document-level handler below can recognise its own
+  //: flyouts.** A listener on `group` is never called once the flyout is
+  //: open, and that is not a subtlety worth rediscovering: `buildMenuGroupButton`
+  //: reparents the panel to `<body>` so it can escape a clipping ancestor, so
+  //: a click inside it does not bubble through the group at all. The first
+  //: version of this bound the close to `group` and looked right; measured,
+  //: clicking "Dim all but this paragraph" inside its flyout left the menu
+  //: open, and so did every download row.
+  const panel = group.querySelector(".action-menu.submenu");
+  if (panel) panel.dataset.docDockSubmenu = "1";
+}
+
+//: **Three groups, because fourteen rows do not fit on a laptop.** Reported
+//: twice: first that the menu "goes off the page", and after the downloads
+//: were folded, that it "is still almost off the bottom of the screen".
+//: Measured with the second report: the list is 562px of a 900px window at
+//: 1440 wide, and at 1024x720 it runs 32px past the bottom edge.
+//:
+//: The groups are the ones the markup already argued for in its own comments,
+//: not a fresh carve-up by row count. "What should be in front of you while
+//: you write" is what the dim/typewriter/serif trio was built as, and the two
+//: writing switches were put beside them for the same reason; they are one
+//: group. What is left of the view rows is what the *editor* shows rather
+//: than what the document is, so they are the other.
+//:
+//: `Connections`, `History`, `Extract notes` and `Delete document` stay in
+//: the list: each is a verb on this document, none is a preference, and
+//: hiding a one-off action behind a flyout costs a click every time to save a
+//: row once.
+foldDocMenuGroup("ph:download-simple Download or print", [
+  "doc-export-md", "doc-export-html", "doc-export-zip", "doc-export-docx", "doc-export-pdf",
+]);
+foldDocMenuGroup("ph:layout Editor and layout", [
+  "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode",
+]);
+foldDocMenuGroup("ph:pencil-simple While you write", [
+  "doc-dim-others", "doc-typewriter", "doc-serif", "doc-autocorrect-row", "doc-complete-row",
+]);
 
 // --- which of the four views is showing ----------------------------------------
 //
@@ -606,7 +706,16 @@ async function loadDocuments(selectId = null) {
   //: `[[wiki link]]` resolves against `docs` by title (see
   //: `docLinkTargetFor`), so a document missing from it is a link that
   //: silently fails to resolve, not just a row missing from a list.
-  docs = await apiPagedList("/documents", DOCUMENTS_PAGE_SIZE).catch(() => []);
+  //: A sentinel rather than `[]`, because an empty list and a failed request
+  //: were the same value here and the sidebar said "No documents yet" for
+  //: both. See `surfaceFailed` in app.js.
+  const loaded = await apiPagedList("/documents", DOCUMENTS_PAGE_SIZE).catch(() => null);
+  if (!loaded) {
+    surfaceFailed(document.getElementById("doc-empty"), "documents", () => loadDocuments(selectId));
+    return;
+  }
+  surfaceRecovered(document.getElementById("doc-empty"));
+  docs = loaded;
   renderDocList();
   if (selectId) return openDocument(selectId);
   if (!currentDoc && docs.length) return openDocument(docs[0].id);
@@ -1055,7 +1164,7 @@ function renderDocNotes() {
       showNotesSection("browse"); // focusing inside a hidden section does nothing
       flashEntry(note.id);
     });
-    const remove = smallButton("✕", "Detach this note from the document", async () => {
+    const remove = smallButton("ph:x", "Detach this note from the document", async () => {
       currentDoc = await apiJson(
         `/documents/${currentDoc.id}/notes/${note.id}`,
         { method: "DELETE" }
@@ -1101,7 +1210,7 @@ async function renderDocBookmarks() {
     setLabel(open, `ph:link ${bookmark.title || bookmark.url}`);
     open.title = bookmark.url;
     open.addEventListener("click", () => window.open(bookmark.url, "_blank", "noopener,noreferrer"));
-    const remove = smallButton("✕", "Remove this reference", async () => {
+    const remove = smallButton("ph:x", "Remove this reference", async () => {
       await apiJson(`/documents/${currentDoc.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
       renderDocBookmarks();
     });
@@ -1187,7 +1296,7 @@ async function attachBookmarkToDocument() {
     close();
     renderDocBookmarks();
   });
-  const cancel = smallButton("✕", "Don't attach a link", close);
+  const cancel = smallButton("ph:x", "Don't attach a link", close);
   cancel.classList.add("doc-outline-row-action");
   row.append(select, cancel);
   wrap.insertBefore(row, $("doc-attach-bookmark"));
@@ -2845,60 +2954,6 @@ function docTableCellSpan(table, row, col) {
   return { from, to: from + line.cells[col].length };
 }
 
-function docTableCellText(table, row, col) {
-  const line = table.rows[row];
-  if (!line || col < 0 || col >= line.cells.length) return "";
-  //: `\|` is a pipe the author escaped; it reads as one.
-  return line.cells[col].trim().replace(/\\\|/g, "|");
-}
-
-//: A cell's value on the way back in. A raw pipe would end the cell and a
-//: newline would end the row, so both are neutralised rather than allowed to
-//: rewrite the table's shape from inside one of its cells.
-function docTableCellEscape(value) {
-  return String(value == null ? "" : value)
-    .replace(/\r?\n/g, " ")
-    .replace(/\\\|/g, "|")
-    .replace(/\|/g, "\\|");
-}
-
-//: The padding the cell already had is the padding it keeps: this is the
-//: whole byte-exactness promise in one function. A cell that was blank is
-//: given one space each side, which is what a person types into `| |`.
-function docTableSetCellEdits(table, row, col, value) {
-  const line = table.rows[row];
-  if (!line) return [];
-  //: **A cell the row does not have yet.** GFM lets a body row carry fewer
-  //: cells than the header and pads the rest as empty, so the last column of
-  //: a ragged table is a cell you can see in the rendered table and cannot
-  //: find in the text. Writing to it appends it rather than doing nothing,
-  //: which is the silent-refusal shape this codebase keeps recording.
-  if (col >= line.cells.length) {
-    if (col >= table.columns) return [];
-    const last = docTableCellSpan(table, row, line.cells.length - 1);
-    const at = line.trail ? last.to : line.to;
-    let insert = "";
-    for (let i = line.cells.length; i < col; i += 1) insert += `|${docTableColumnPad(table, i, "")}`;
-    const body = docTableCellEscape(value);
-    insert += `| ${body} `;
-    //: A blank cell with nothing after it is not a cell: GFM drops a row's
-    //: optional trailing pipe and anything after the last one, so the row
-    //: would come back one cell short of its header.
-    if (!line.trail && !body.trim()) insert += "|";
-    return [{ from: at, to: at, insert }];
-  }
-  const span = docTableCellSpan(table, row, col);
-  if (!span) return [];
-  const raw = line.cells[col];
-  const parts = /^([ \t]*)([\s\S]*?)([ \t]*)$/.exec(raw);
-  const blank = !raw.trim();
-  const pre = blank ? (raw.length ? " " : "") : parts[1];
-  const post = blank ? (raw.length ? " " : "") : parts[3];
-  const insert = pre + docTableCellEscape(value) + post;
-  if (insert === raw) return [];
-  return [{ from: span.from, to: span.to, insert }];
-}
-
 //: The width a *new* cell in this column is written at. A table whose column
 //: is already one width everywhere is a table somebody has been keeping
 //: aligned by hand, and a new row that breaks the alignment is a new row they
@@ -2970,8 +3025,8 @@ function docTableAddColumnEdits(table, anchorCol, before = false) {
     else body = docTableColumnPad(table, sample, "");
     //: A body row that cannot hold a blank final cell is left alone: GFM pads
     //: a short row out to the header's width, so the column is there in the
-    //: rendered table, and writing into it (`docTableSetCellEdits`) appends
-    //: it for real. Inserting whitespace GFM is going to drop would put bytes
+    //: rendered table, and `docTableFillRowEdits` appends it for real when
+    //: Tab sends the caret into it. Inserting whitespace GFM is going to drop would put bytes
     //: in the file that nothing in the editor could ever reach again.
     //: Inserting *before* a cell needs no such care: the new cell has a real
     //: one after it, so nothing can drop it, and the pipe goes on its right.
@@ -3037,7 +3092,9 @@ function docTableFillRowEdits(table, row, upto) {
   let insert = "";
   for (let col = line.cells.length; col <= upto; col += 1) insert += `|${docTableColumnPad(table, col, "")}`;
   //: A blank cell at the end of a row with no trailing pipe is not a cell:
-  //: see `docTableSetCellEdits`.
+  //: GFM drops a row's optional trailing pipe and everything after the last
+  //: one, so the row would come back one cell short of its header. The pipe
+  //: is what makes the cell exist in the text rather than only in the render.
   if (!line.trail) insert += "|";
   return [{ from: at, to: at, insert }];
 }
@@ -3649,21 +3706,6 @@ function docFrontmatterStrip(text) {
   return String(text).slice(fm.textFrom).replace(/^\n+/, "");
 }
 
-//: Every property as `{key, kind, value, items}`, which is what the panel and
-//: the Library's filter both read. Kept beside the parse rather than derived
-//: at each call site, so the two cannot come to disagree about what a value
-//: is.
-function docFrontmatterFields(text) {
-  const fm = docFrontmatterParse(text);
-  if (!fm) return [];
-  return fm.entries.map((entry) => ({
-    key: entry.key,
-    kind: entry.kind,
-    value: entry.kind === "list" ? "" : entry.value.text,
-    items: entry.items.map((item) => item.text),
-  }));
-}
-
 // DOC-FRONTMATTER-END
 
 // -----------------------------------------------------------------------------
@@ -4062,11 +4104,6 @@ function docColumnsBlocks(text) {
 //: fences, because the caret being on the `:::` line is being in the block.
 function docColumnsAt(text, offset) {
   return docColumnsBlocks(text).find((block) => offset >= block.from && offset <= block.to) || null;
-}
-
-//: The text a `/` command inserts: two columns, the caret meant for the first.
-function docColumnsTemplate() {
-  return "\n:::columns\n\n:::column\n\n:::\n";
 }
 
 //: An image's `|`-separated options, by shape rather than by position.
@@ -5219,6 +5256,37 @@ function docLivePlugin(CM) {
   //: The capture is the whole `[!kind]`, so the marker can be hidden the way
   //: every other marker here is; the group inside it names the kind.
   const CALLOUT = /^>\s*(\[!([A-Za-z]+)\][-+]?)/;
+  //: How deep a list item is indented before the indent stops growing. Past
+  //: four levels the number is more useful as "this is deep" than as a count,
+  //: and an indent that kept growing would push a badly nested line off the
+  //: measure the whole document is set in.
+  const LIST_DEPTH_MAX = 4;
+
+  //: **A bullet's dash, drawn as a bullet while the caret is elsewhere.** The
+  //: last piece of raw markdown left in a rendered list: `-`, `*` and `+` all
+  //: mean the same thing and a reader has no use for knowing which was typed.
+  //:
+  //: Safe to replace here where hiding a `**` is not, and the difference is
+  //: length: this is one character standing in for one character, at the
+  //: start of a line, so nothing after it moves by more than the difference
+  //: between two glyph widths, and the caret cannot be inside it (the line is
+  //: not replaced while it is touched). `ignoreEvent` returns false for the
+  //: reason the callout label's does: a click on the bullet is a click into
+  //: the line behind it.
+  class DocBulletWidget extends WidgetType {
+    eq() {
+      return true;
+    }
+    ignoreEvent() {
+      return false;
+    }
+    toDOM() {
+      const dot = document.createElement("span");
+      dot.className = "cm-md-li-mark cm-md-li-bullet";
+      dot.textContent = "\u2022";
+      return dot;
+    }
+  }
 
   //: **A callout says which kind it is, in words, where its marker was.**
   //: Measured before this: with the caret away from the line, `> [!note] a
@@ -5477,6 +5545,10 @@ function docLivePlugin(CM) {
     //: Both line ends, because a range can span a soft-wrapped link.
     const rangeRevealed = (from, to) =>
       touched(doc.lineAt(from).from, doc.lineAt(to).to);
+    //: Whether the line numbers are showing, read once per build rather than
+    //: per fenced block: the fence rows collapse only when they are off, see
+    //: the note beside `cm-md-fence-quiet` below.
+    const gutterOn = docFenceGutterOn();
     const tree = syntaxTree(state);
     //: The document as one string, for the table model, and at most once per
     //: build: the model works in document offsets so it needs the whole text,
@@ -5600,6 +5672,71 @@ function docLivePlugin(CM) {
             );
             return false;
           }
+          //: **Lists, which the live view drew as plain text.** Measured
+          //: against the same document's own paragraph: a `- First bullet`
+          //: line had the same left edge, the same 0 indent and the same 0
+          //: padding as a paragraph, and a nested `  - Nested bullet` was
+          //: drawn at that same left edge too, so nesting was invisible and a
+          //: wrapped item ran back under its own marker. The single most
+          //: common construct in markdown was the one this view did nothing
+          //: for (INBOX 262: "the rendering on the live view of the documents
+          //: needs a lot of improvement").
+          //:
+          //: **A hanging indent rather than a hidden marker**, and that is
+          //: the decision this file's long note beside `rangeRevealed`
+          //: argues: taking characters out from under the caret moves the
+          //: text the caret is in, which is the reflow bug measured at 28.4px
+          //: backwards on a leftward keystroke. The marker stays where it is
+          //: and the line is indented around it, so nothing under the caret
+          //: moves at any time, and a wrapped line aligns under its own text
+          //: the way a list reads on paper.
+          //:
+          //: The depth is the item's own indentation in the document, in
+          //: units of two spaces (the width a tab is drawn at here), capped:
+          //: past four levels the indent is more useful as a signal that it
+          //: is deep than as an accurate count, and an uncapped one would
+          //: push a badly nested line off the measure.
+          if (name === "ListItem") {
+            const line = doc.lineAt(node.from);
+            const lead = /^[ \t]*/.exec(line.text)[0];
+            const depth = Math.min(
+              LIST_DEPTH_MAX,
+              Math.floor(lead.replace(/\t/g, "  ").length / 2)
+            );
+            //: Every line the item occupies, so a two-line bullet keeps its
+            //: indent on the continuation as well as on the marker row. The
+            //: same walk the blockquote below does, for the same reason.
+            for (let at = node.from; at <= node.to; ) {
+              const row = doc.lineAt(at);
+              ranges.push(
+                Decoration.line({ class: `cm-md-li cm-md-li-${depth}` }).range(row.from)
+              );
+              if (row.to >= node.to) break;
+              at = row.to + 1;
+            }
+            //: The marker itself, dimmed to the muted ink so the eye reads
+            //: the words and not the punctuation, and left in place so it can
+            //: still be selected, deleted and typed over. Ordered and
+            //: unordered take the same class: an editor that draws "1." in
+            //: one colour and "-" in another is saying they are different
+            //: kinds of thing, and they are not.
+            const mark = /^[ \t]*([-*+]|\d+[.)])(?=\s)/.exec(line.text);
+            if (mark) {
+              const from = line.from + mark[0].length - mark[1].length;
+              const to = from + mark[1].length;
+              //: A number carries information ("this is item 3") and stays as
+              //: it was typed; a dash does not, and becomes a bullet while
+              //: the caret is elsewhere. Both keep the muted ink.
+              if (/^[-*+]$/.test(mark[1]) && !touched(line.from, line.to)) {
+                ranges.push(
+                  Decoration.replace({ widget: new DocBulletWidget() }).range(from, to)
+                );
+              } else {
+                ranges.push(Decoration.mark({ class: "cm-md-li-mark" }).range(from, to));
+              }
+            }
+            return undefined;
+          }
           if (name === "Blockquote") {
             const first = doc.lineAt(node.from);
             const callout = CALLOUT.exec(first.text);
@@ -5646,9 +5783,68 @@ function docLivePlugin(CM) {
             return false;
           }
           if (name === "FencedCode") {
+            //: **The two fence lines are the block's padding, not two rows of
+            //: it.** Reported with a screenshot: "the md rendering on the live
+            //: view ... especially for codeblocks", a fenced block drawn as a
+            //: dark slab with an empty numbered row above and below the code.
+            //:
+            //: Measured on a four-line Python block: five rows of 26px each,
+            //: two of them empty, so 52 of 130 pixels of the block said
+            //: nothing. That is INBOX 198's doing and INBOX 198 was right: the
+            //: backticks and the language word are syntax, and syntax is what
+            //: this view hides. What it did not do was give the now-empty
+            //: lines a height to match what was left on them, which is
+            //: nothing.
+            //:
+            //: So they keep the tint, since they are part of the block, and
+            //: shrink to the padding a code block would have had anyway. The
+            //: language goes on the opening line as an attribute the theme
+            //: draws in the corner: outside the text flow, so it takes no row,
+            //: and it is the one thing the hidden `” ```python ”` was still
+            //: telling you.
+            const first = doc.lineAt(node.from);
+            const last = doc.lineAt(node.to);
+            const info = node.node.getChild("CodeInfo");
+            const language = info ? doc.sliceString(info.from, info.to).trim() : "";
+            //: With the caret inside the block the real `” ```python ”` is back
+            //: on screen (the `CodeMark`/`CodeInfo` branch above stops hiding
+            //: it), so both of the things below have to stand down with it: a
+            //: half-height row would clip the text that just came back, and
+            //: the corner label would be saying the language a second time
+            //: right next to where it is now written out.
+            const revealed = rangeRevealed(node.from, node.to);
             for (let at = node.from; at <= node.to; ) {
               const line = doc.lineAt(at);
-              ranges.push(Decoration.line({ class: "cm-md-fence" }).range(line.from));
+              const edge =
+                line.from === first.from
+                  ? "cm-md-fence-open"
+                  : line.from === last.from
+                  ? "cm-md-fence-close"
+                  : "";
+              //: The rounded corners are the block's shape and stay whatever
+              //: the caret is doing; only the height and the label are tied to
+              //: whether the row has text on it.
+              //:
+              //: **And to whether the line numbers are on** (INBOX 262). A
+              //: gutter draws one element per line at that line's own height
+              //: while the number inside keeps the editor's line-height, so a
+              //: row collapsed to half a line leaves its digit standing 26px
+              //: tall in an 8px box. Measured with the gutter on: "6 paints
+              //: 18px into 7" and "8 paints 18px into 9", the pair in the
+              //: report's screenshot. One row, one number, in line with the
+              //: text it counts is the contract the gutter makes, so where
+              //: the two disagree the gutter wins and the fence keeps its
+              //: row.
+              const quiet = edge && !revealed && !gutterOn ? " cm-md-fence-quiet" : "";
+              ranges.push(
+                Decoration.line({
+                  class: `cm-md-fence${edge ? ` ${edge}` : ""}${quiet}`,
+                  attributes:
+                    edge === "cm-md-fence-open" && language && !revealed
+                      ? { "data-lang": language }
+                      : undefined,
+                }).range(line.from)
+              );
               if (line.to >= node.to) break;
               at = line.to + 1;
             }
@@ -5974,6 +6170,7 @@ function docLivePlugin(CM) {
     class {
       constructor(view) {
         this.decorations = build(view);
+        this.gutterOn = docFenceGutterOn();
       }
       update(update) {
         //: Selection as well as document and viewport: the whole idea of this
@@ -5982,8 +6179,20 @@ function docLivePlugin(CM) {
         //: down entirely while the editor is not focused (`focused` in
         //: `build`): without this the reveal would wait for the first caret
         //: move after a click rather than happening on the click.
+        //:
+        //: And the line numbers, because one decoration reads them
+        //: (`cm-md-fence-quiet`, whose note in the theme says why). Toggling
+        //: them reaches the engine as a compartment reconfigure, which is an
+        //: update with none of the four flags above set, so without this the
+        //: fence rows kept whichever shape they were built with and the
+        //: collision came back the moment the numbers went on. Compared as a
+        //: value rather than sniffed out of `update.transactions`: the
+        //: preference is what the decoration actually depends on, and a
+        //: reconfigure that does not change it should not cost a rebuild.
+        const gutterOn = docFenceGutterOn();
         if (update.docChanged || update.viewportChanged || update.selectionSet
-            || update.focusChanged) {
+            || update.focusChanged || gutterOn !== this.gutterOn) {
+          this.gutterOn = gutterOn;
           this.decorations = build(update.view);
         }
       }
@@ -6734,7 +6943,7 @@ function applyMarkdown(kind, boxId = "doc-content") {
   }
   if (action.custom === "table") {
     //: Blank cells with their outer pipes, so every one of them is a cell GFM
-    //: can see (`docTableSetCellEdits` carries the reason a blank last cell
+    //: can see (`docTableFillRowEdits` carries the reason a blank last cell
     //: without a trailing pipe is not a cell at all).
     const table = "\n| Column | Column | Column |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |\n";
     box.value = value.slice(0, start) + table + value.slice(end);
@@ -7789,10 +7998,10 @@ function acceptDocAiEdit() {
 
   toast(
     verb === "write"
-      ? "Inserted the AI's text."
+      ? "Inserted Atlas's text."
       : verb === "remove"
         ? "Removed."
-        : "Applied the AI's edit."
+        : "Applied Atlas's edit."
   );
 }
 
@@ -12471,7 +12680,7 @@ function docSuggestAnswers(finding, opts = {}) {
     const askAi = document.createElement("button");
     askAi.type = "button";
     askAi.className = "doc-suggest-item doc-suggest-ai";
-    setLabel(askAi, "ph:magic-wand Ask the AI for wordings\u2026");
+    setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
     askAi.title = "Have the local model suggest two or three other ways to put this";
     askAi.addEventListener("click", async () => {
       if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
@@ -12487,7 +12696,7 @@ function docSuggestAnswers(finding, opts = {}) {
       if (!current()) return;
       const options = (body && body.options) || [];
       if (!options.length) {
-        setLabel(askAi, "ph:magic-wand Ask the AI for wordings\u2026");
+        setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
         askAi.disabled = false;
         return toast(
           (body && body.message) || "No other wordings came back for that one.",
@@ -13210,6 +13419,29 @@ function docCmTheme(CM) {
       ".cm-md-strong": { fontWeight: "700" },
       ".cm-md-em": { fontStyle: "italic" },
       ".cm-md-strike": { textDecoration: "line-through", opacity: "0.65" },
+      //: **The three tinted inlines wrap as whole chips, not as a chip cut in
+      //: half.** Reported (INBOX 232): "link chips wrap oddly". `box-
+      //: decoration-break` defaults to `slice`, which lays the background,
+      //: the rounded corners and the horizontal padding out once across the
+      //: whole run and then cuts it at the line break: the fragment that ends
+      //: a line has a flat right edge and no padding after its last letter,
+      //: and the fragment that starts the next one is flush against the
+      //: column's left margin with no padding and no rounding. Measured at
+      //: 390px on a document of wiki links: three of nine chips broke that
+      //: way, the second fragment starting at x=10, the column's own edge.
+      //:
+      //: `clone` gives every fragment the whole decoration, so a wrapped chip
+      //: reads as two chips rather than as one broken one. The `-webkit-`
+      //: spelling is the one Chromium still implements, so both are set and
+      //: the standard name is second, to win where it is supported.
+      //:
+      //: All three, not just the wiki link: inline code and a highlight are
+      //: the same shape (a tint with a radius and side padding) and break the
+      //: same way, which is why a fix for one of them is a fix for the class.
+      ".cm-md-code, .cm-md-highlight, .cm-md-wiki": {
+        WebkitBoxDecorationBreak: "clone",
+        boxDecorationBreak: "clone",
+      },
       ".cm-md-code": {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",
@@ -13266,6 +13498,26 @@ function docCmTheme(CM) {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         fontSize: "0.85em",
       },
+      //: **A list item's hanging indent.** `padding-left` moves the whole
+      //: line in and a matching negative `text-indent` pulls the first line
+      //: back out again, so the marker sits in the margin and the words line
+      //: up under each other however many times the item wraps. One rule per
+      //: depth rather than a CSS variable, because a CodeMirror theme is a
+      //: static stylesheet and there is nowhere to set a per-line variable
+      //: without an inline style, which the app's CSP refuses.
+      //:
+      //: `1.6em` is the width of a marker and its space at this type size,
+      //: measured rather than chosen: a `-` plus a space is 2 characters of a
+      //: 0.8em-per-character face.
+      ".cm-md-li": { paddingLeft: "1.6em", textIndent: "-1.6em" },
+      ".cm-md-li-1": { paddingLeft: "3.2em", textIndent: "-1.6em" },
+      ".cm-md-li-2": { paddingLeft: "4.8em", textIndent: "-1.6em" },
+      ".cm-md-li-3": { paddingLeft: "6.4em", textIndent: "-1.6em" },
+      ".cm-md-li-4": { paddingLeft: "8em", textIndent: "-1.6em" },
+      //: The marker itself: the muted ink, so the eye reads the words rather
+      //: than the punctuation, and left in the document so it can be
+      //: selected, deleted and typed over like any other character.
+      ".cm-md-li-mark": { color: "var(--muted)" },
       ".cm-md-quote": {
         borderLeft: "3px solid var(--border)",
         paddingLeft: "0.75em",
@@ -13279,6 +13531,66 @@ function docCmTheme(CM) {
       ".cm-md-fence": {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",
+      },
+      //: The opening and closing fence rows. Their text is hidden (INBOX
+      //: 198), so a full line-height row of it is 26px of nothing at each end
+      //: of every code block; these give them the height of padding instead,
+      //: and round the block's own corners so five tinted rows read as one
+      //: slab. `position: relative` is the anchor for the language label
+      //: below.
+      ".cm-md-fence-open, .cm-md-fence-close": {
+        position: "relative",
+      },
+      //: Only while the row has nothing on it. With the caret inside the
+      //: block its `” ``` ”` is back, and half a line of height would clip it.
+      //:
+      //: **And only while the line numbers are off** (INBOX 262: "the page
+      //: numbers and collapse arrows in the documents clash with other page
+      //: numnbers"). A gutter draws one element per line at that line's own
+      //: height, but the number inside it keeps the editor's line-height, so
+      //: a row collapsed to half a line leaves its digit standing 26px tall
+      //: in an 8px box. Measured on a fenced block with the gutter on: "6
+      //: paints 18px into 7" and "8 paints 18px into 9", which is the pair in
+      //: the report's screenshot exactly.
+      //:
+      //: Numbers win, because they are the contract: one row, one number, in
+      //: line with the text it counts. The tidy block is what prose gets, and
+      //: prose is where the gutter is off by default (`docGutterWanted`),
+      //: which is also where a fenced block wearing two blank rows was worth
+      //: fixing in the first place.
+      //:
+      //: The decision is made where the class is set, not here: a CodeMirror
+      //: theme's rules are injected into a stylesheet this page cannot read
+      //: back, and a `:has(.cm-gutters)` guard written here could not be
+      //: verified in the browser, only hoped for. `docGutterWanted` already
+      //: knows the answer at decoration time.
+      ".cm-md-fence-quiet": {
+        height: "0.5em",
+      },
+      ".cm-md-fence-open": {
+        borderTopLeftRadius: "var(--radius-sm, 6px)",
+        borderTopRightRadius: "var(--radius-sm, 6px)",
+      },
+      ".cm-md-fence-close": {
+        borderBottomLeftRadius: "var(--radius-sm, 6px)",
+        borderBottomRightRadius: "var(--radius-sm, 6px)",
+      },
+      //: The block's language, in the corner rather than on a line of its
+      //: own: it is a label for the block, the same relationship
+      //: `.cm-md-callout-label` has to a callout, and the whole point of this
+      //: change is that the block stops spending rows on things that are not
+      //: code. `user-select: none` and `pointer-events: none` so a drag
+      //: across the block selects the code and not the word "python".
+      ".cm-md-fence-open[data-lang]::after": {
+        content: "attr(data-lang)",
+        position: "absolute",
+        right: "0.6em",
+        top: "0",
+        fontSize: "0.7em",
+        lineHeight: "1.6",
+        color: "var(--muted)",
+        userSelect: "none",
+        pointerEvents: "none",
       },
       //: A rule whose own `---` is hidden is an empty line, and an empty line
       //: with a bottom border is a hairline sitting on the baseline of nothing.
@@ -13944,6 +14256,13 @@ function docCmSyncLanguage() {
 //: The line-number preference, applied to the engine. `applyDocGutter` still
 //: owns the *decision* (and the two note editors' own columns); this is only
 //: how it reaches the view.
+//: The one reading of the line-number preference that both the gutter itself
+//: and the decorations that have to dodge it go through, so the two cannot
+//: disagree about whether there are numbers on screen.
+function docFenceGutterOn() {
+  return docGutterWanted(!docFileType().previewable);
+}
+
 function docCmSyncGutter() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.gutter) return;
@@ -13958,7 +14277,7 @@ function docCmSyncGutter() {
 //: is a strip of chevrons with nothing to anchor them. One choice, one lane,
 //: `applyDocGutter` still owns the decision.
 function docCmGutter(CM) {
-  if (!docGutterWanted(!docFileType().previewable)) return [];
+  if (!docFenceGutterOn()) return [];
   //: **Only the gutter is in the gutter.** Folding itself moved into the base
   //: extensions when callouts became foldable (Phase 3 item 2): every fold
   //: this editor offers lived in here, so a markdown document, which opens

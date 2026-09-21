@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from memorymap.core import ocr
+from memorymap.core.subproc import NO_WINDOW
 
 #: Reported: a failed install showed "pip exited with code 1. The log above
 #: says why." in the Background tasks "Recently finished" history card, with
@@ -429,6 +430,7 @@ def _run_uninstall(extra: Extra) -> None:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            creationflags=NO_WINDOW,
         )
         _state.process = process
         for line in process.stdout or []:
@@ -544,6 +546,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            creationflags=NO_WINDOW,
         )
         _state.process = process
         for line in process.stdout or []:

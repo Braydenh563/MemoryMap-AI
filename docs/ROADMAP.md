@@ -30,10 +30,11 @@ Work from the plans, in this order; look things up in the rest.
 
 | Work from these (in this order) | Where it stands, 2026-09-14 |
 | --- | --- |
-| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The standing orders, the "Now" line, and "How to proceed after PR 144". Read first, every session. |
+| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The standing orders, the "Now" line, and "How to proceed after PR 149". Read first, every session. |
 | [roadmap/INBOX.md](roadmap/INBOX.md) | The owner's open reports, each with an owner. Bugs first. Under twenty items by lint. |
 | [roadmap/agent-remaining/OPEN.md](roadmap/agent-remaining/OPEN.md) | Every open item the agent files left, by surface, with file, id and next step. The 38 finished files are in `roadmap/archive/agent-remaining/`. |
-| [roadmap/WORLD_CLASS_PLAN.md](roadmap/WORLD_CLASS_PLAN.md) | The consistency contract (all lints), the backend moves (B1, B3, B5 built; B2 half built; B4, B6 to B8 open), the inventions (I4, I9 built, I1 first pass; I2, I3, I5 to I8 open), the audit A1 to A9 (this PR), and section 18, the next horizon H1 to H8. |
+| [roadmap/WORLD_CLASS_PLAN.md](roadmap/WORLD_CLASS_PLAN.md) | The consistency contract (all lints), the backend moves (B1, B3, B5 built; B2 half built; B4, B6 to B8 open), the inventions (I4 built, I9 built including its Settings section; I1 first pass with its
+manual run wired; I2, I3, I5 to I8 open), the audit A1 to A9 (this PR), and section 18, the next horizon H1 to H8. |
 | [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) | The operating protocol and one brief per session. Brief 33 is the PR after this one. |
 | [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phases 0 to 10 built. Open: Phase 8's three docks over the seven-control ceiling, Phase 11 items 1 to 9 (the phone done properly). |
 | [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | Phases 0 to 3 built. Open: Phase 3 item 4's Library filter, Phase 4 (the connected document), Phases 5 to 8. |
@@ -50,11 +51,27 @@ Work from the plans, in this order; look things up in the rest.
 | [roadmap/PLAN.md](roadmap/PLAN.md), [roadmap/AUDIT.md](roadmap/AUDIT.md), [roadmap/REDESIGN.md](roadmap/REDESIGN.md), [roadmap/FABLE_BRIEF.md](roadmap/FABLE_BRIEF.md) | Superseded; each says so in its first line. |
 | [DESIGN.md](DESIGN.md), [ARCHITECTURE.md](ARCHITECTURE.md) | The design system (lint-enforced) and how the pieces fit. |
 
-## How to proceed after PR 144
+## How to proceed after PR 149
 
-PR 144 (0.3.0) closes the UI modernisation, the per-surface redesigns,
-the audit of 2026-09-13 and the owner's reports to INBOX 222. What comes
-next, in order, each its own PR:
+PR 144 (0.3.0) closed the UI modernisation, the per-surface redesigns, the
+audit of 2026-09-13 and the owner's reports to INBOX 222. **PR 149 closed
+the week of outside changes and a night of measured fixes**: the whiteboard
+restored from a codemod that deleted ten live functions, the Windows console
+windows, the Tesseract probe, INBOX 225, 226, 232, 238, 246, 256, 257, 259
+and 260, and I9's Settings section, which had a complete backend and no
+screen at all.
+
+**The thing that PR taught, worth carrying into the next one.** A scan of
+every route the app serves against every path the frontend fetches
+(`scratchpad/probe_dead_routes.py`) found a whole plan item built, tested
+and unreachable, plus three more routes with no caller. Nothing in the
+suite could see it, because every piece of it passed. Run that probe at the
+start of a session that is about to build something new, and run the three
+sweeps that were added with it: `keyboard.js` walks the tab order,
+`requests.js` fails on a request that answers 4xx where nobody is told, and
+`leaks.js` watches listeners and nodes per round.
+
+What comes next, in order, each its own PR:
 
 1. **Read, in this order, at the start of every session:** `CLAUDE.md`,
    HANDOVER's standing orders and "Now" line, INBOX, `OPEN.md` for the
@@ -87,9 +104,21 @@ no new plan documents; every claim carries a number from a sweep.
 
 1. H7 the speed budget (unlocks honest numbers for everything after).
 2. BACKLOG 115 rows 1, 2, 7, 10 (unlocks trust for daily professional use).
+   Row 7, keyboard-complete and WCAG AA, has its first tool now:
+   `scratchpad/ui-sweeps/keyboard.js` walks the tab order and passes, so
+   that row starts from a measured baseline rather than from nothing.
 3. `OPEN.md` Documents and Graph sections with their plan phases.
 4. UI Phase 11, the phone done properly.
-5. H1 to H4 in that order; H8; H5 last.
+5. H1 to H4 in that order; H8; H5 last. H1's manual half is wired now
+   ("Read my notes now", Settings, "What it learned"), so H1 is the
+   remaining kinds (tensions, duplicates, entities, dates) and the bulk
+   routes I9's table has buttons waiting for.
+6. The three things PR 149 left deliberately undone, each with its reason
+   written where it belongs: right-drag to pan the board (INBOX 258, the
+   acceptance test is written and failing in
+   `scratchpad/ui-sweeps/wbrightpan.js`), the faded-notes-near-this route
+   with nowhere to put it (INBOX 261, it wants a note detail view this app
+   does not have), and B1's event feed with no activity strip reading it.
 
 ## How to work on this repo
 

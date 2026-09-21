@@ -99,9 +99,19 @@ def _strip_comments(text: str) -> str:
     The comments in this codebase quote code at length (they are the design
     record), so a naive scan reads a renamed function out of a paragraph
     explaining why it was renamed.
+
+    **Line comments go first, and the order is the whole correctness of
+    this.** Block comments were stripped first, which means a `/*` written
+    inside a `//` line was read as a block comment *opening*, and everything
+    to the next `*/` went with it. That is not hypothetical: a comment
+    mentioning `frontend/` followed by a star and `.js` swallowed 950 lines
+    of app.js and 13 function declarations, and this test then failed
+    claiming `showNotesFilter` was "defined nowhere in the frontend" while
+    looking straight at it. Removing the line first means the star inside it
+    is gone before anything looks for a block.
     """
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
-    return re.sub(r"^\s*//.*$", "", text, flags=re.M)
+    text = re.sub(r"^\s*//.*$", "", text, flags=re.M)
+    return re.sub(r"/\*.*?\*/", "", text, flags=re.S)
 
 
 def _body(source: str, signature: str) -> str:
@@ -212,6 +222,33 @@ def test_every_catalogue_row_names_an_element_that_exists():
             assert f'{attribute}="{value}"' in markup, (
                 f'{where}: no element has {attribute}="{value}"'
             )
+
+
+def test_the_comment_stripper_still_sees_the_whole_file():
+    """The guard the failure above had no way to give itself.
+
+    A scanner that silently stops reading part of a file reports the absence
+    of whatever was in that part, which reads exactly like a real finding and
+    sends the next person hunting for a function that is right there. So the
+    stripper is checked against the thing it must never do: lose a
+    declaration the raw file plainly has.
+
+    `test_ai_name.py` carries the same guard for the same reason, after a
+    regex literal holding three backticks cost it 130 lines of whiteboard.js.
+    Any scanner in this directory that strips before it searches wants one.
+    """
+    lost: list[str] = []
+    for script in SCRIPTS:
+        raw = _read(script)
+        stripped = _strip_comments(raw)
+        for match in re.finditer(r"^\s*function\s+([A-Za-z_$][\w$]*)\s*\(", raw, flags=re.M):
+            name = match.group(1)
+            if f"function {name}" not in stripped:
+                lost.append(f"{script}: {name}")
+    assert not lost, (
+        "the comment stripper lost these declarations, so every check built on "
+        f"it is reading a partial file: {lost[:10]}"
+    )
 
 
 def test_every_catalogue_row_calls_a_function_that_exists():

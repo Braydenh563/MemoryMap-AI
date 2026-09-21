@@ -46,12 +46,13 @@ def compose_draft(body: ComposeBody) -> dict:
         deps.get_ollama(),
         instruction=body.instruction,
     )
-    offline = note == drafter.OFFLINE_MESSAGE
+    #: Asked, not inferred from a string: see `drafter.was_offline`.
+    offline = drafter.was_offline(note)
     return {
         "draft": text,
         # Distinguishes "the model reasoned" from "the model wasn't there".
         "thinking": None if offline else note,
-        "message": drafter.OFFLINE_MESSAGE if offline else "",
+        "message": note if offline else "",
         "ollama_running": not offline,
     }
 

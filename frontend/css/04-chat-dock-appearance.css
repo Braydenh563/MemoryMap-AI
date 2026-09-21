@@ -2217,14 +2217,30 @@ label.setting-check,
   border-top: 1px solid var(--border);
 }
 
-/* --- help mini AI chat (item 40's second half) --------------------------- */
+/* --- help mini AI chat (item 40's second half) ---------------------------
+   **One idea of what a message looks like** (INBOX 270, the owner:
+   "improve/redesign the ui and layout of the guide popup panel"). This is the
+   app's second chat, and it disagreed with the first one about every property
+   a bubble has: `--radius-md` against `--radius-lg`, 0.4/0.6rem of padding
+   against 0.6/0.8rem, a user turn tinted `--accent-soft` with body-coloured
+   ink against `--accent-surface` with `--on-accent`, an assistant turn with a
+   border and no ground at all against `--inner` plus its border, and neither
+   of the two square-ish tail corners that say which side a turn is on in the
+   Chat tab. Two chats in one app that draw a message two ways is the texture
+   the consistency work exists to end, so the numbers below are `.msg`'s
+   (02-chat-graph.css), at this panel's smaller type.
+
+   The spacing is on the scale rather than in raw rem for a reason that shows:
+   `--space-*` multiply by `--density`, and Appearance's compact and spacious
+   settings (0.75 and 1.35) moved every surface around this chat and left the
+   chat itself fixed. */
 .help-chat-messages {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-3);
   max-height: 16rem;
   overflow-y: auto;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-3);
 }
 
 /* `.help-chat-messages:empty { display: none }` stood here, and with INBOX 204
@@ -2233,21 +2249,28 @@ label.setting-check,
    as a rule that reads as live and is not. */
 
 .help-chat-msg {
-  max-width: 85%;
-  padding: 0.4rem 0.6rem;
-  border-radius: var(--radius-md);
-  font-size: 0.92rem;
+  max-width: 82%;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-lg);
   line-height: 1.4;
+  /* A flex item's automatic minimum is its content, which is how a pasted URL
+     stretches a bubble past its column. The Chat tab learnt this one first. */
+  min-width: 0;
 }
 
 .help-chat-msg.is-user {
   align-self: flex-end;
-  background: var(--accent-soft);
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  border-bottom-right-radius: var(--radius-sm);
 }
 
 .help-chat-msg.is-assistant {
   align-self: flex-start;
+  background: var(--inner);
   border: 1px solid var(--border);
+  border-bottom-left-radius: var(--radius-sm);
 }
 
 .help-chat-msg.is-pending {
@@ -2258,12 +2281,12 @@ label.setting-check,
 .help-chat-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.4rem;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .help-chat-form {
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
 
 .help-chat-form input {
@@ -3857,6 +3880,59 @@ span > .chip {
   display: none;
 }
 
+/* **A heading scale for the rendered view, keyed on the level the person
+   typed.** `renderMarkdown` demotes `#` to `h3` so the app keeps `h1`/`h2`
+   for its own chrome, which is right for the outline and leaves the
+   typography with nothing to hold on to: three source levels land on `h6`,
+   and no rule in this stylesheet matched `h5` or `h6` at all, so they took
+   the browser's defaults. Measured in the rendered pane against a 16px
+   paragraph: `#` 12px, `##` 16px, `###` 13.3px, `####` and `#####` both
+   10.7px. A document's largest heading was smaller than its body text, and
+   two levels were indistinguishable.
+
+   The numbers are the live view's own (`docCmTheme`'s `.cm-md-h1`..`h6` in
+   documents.js), to the digit, because the two views are two windows onto
+   one file and a heading that changes size when you switch between them is
+   the plainest possible way to say the app does not know what it thinks.
+
+   `em`, so a preview scaled by the reader's own type-size preference scales
+   with it, which is what the live view does. */
+.markdown-body .md-h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.markdown-body .md-h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.markdown-body .md-h3 {
+  font-size: 1.25em;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.markdown-body .md-h4 {
+  font-size: 1.1em;
+  font-weight: 650;
+}
+
+.markdown-body .md-h5 {
+  font-size: 1em;
+  font-weight: 650;
+}
+
+/* The sixth level is the one the live view greys rather than shrinks: below
+   body size it stops being a heading and starts being small print. */
+.markdown-body .md-h6 {
+  font-size: 1em;
+  font-weight: 650;
+  color: var(--muted);
+}
+
 .doc-hint {
   /* <p> carries the UA default `margin: 1em 0`, nothing here ever zeroed it,
      so it stacked with .doc-main's own `gap` and #doc-status's identical
@@ -4707,4 +4783,102 @@ input.doc-title-input::placeholder {
     flex: 1 1 100%;
     min-width: 0;
   }
+}
+
+/* --- the guided tour (DESIGN.md, "A guided tour step") -------------------------
+   Three elements, three jobs, and keeping them apart is what makes the dim a
+   real cut-out rather than a sheet with a bright rectangle drawn on it:
+
+   * `.tour-block` paints nothing and exists to swallow presses, so a control
+     cannot be pressed out from under the card that is describing it.
+   * `.tour-spot` is the hole. It has no background of its own; the dim is its
+     `box-shadow` spread past the far corner of any window, so everything
+     outside this box is darkened by it and everything inside is the page,
+     untouched. That is the difference between "the control is highlighted"
+     and "the control is the one bright thing on screen".
+   * `.tour-card` is the step, a `.card` like every other surface in the app,
+     positioned in window coordinates from tour.js.
+
+   Deliberately no transition on `left`/`top`/`width`/`height`: tour.js sets a
+   position, measures it and corrects by the difference (DESIGN.md's rule for a
+   popup in window coordinates), and a transition makes that second measurement
+   read an interpolated position, so the correction would chase its own tail. */
+.tour-block {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  background: transparent;
+}
+
+.tour-spot {
+  position: fixed;
+  z-index: 1041;
+  background: transparent;
+  border-radius: var(--radius-md);
+  /* The first shadow is the dim, the second is the ring that says which
+     control this step is about. 100vmax is "past the far corner of the window
+     whatever its shape", and it is a length rather than a token because it is
+     not a spacing decision: it is the one number that guarantees the dim
+     reaches every edge. */
+  box-shadow:
+    0 0 0 100vmax var(--scrim),
+    inset 0 0 0 2px var(--accent);
+  /* The cut-out never takes a press: `.tour-block` above is what stops the
+     page being used mid-step, and a spot that swallowed presses would put a
+     dead rectangle over the control it is pointing at. */
+  pointer-events: none;
+}
+
+.tour-card {
+  position: fixed;
+  z-index: 1042;
+  margin: 0;
+  width: min(21rem, calc(100vw - var(--space-9)));
+  max-height: calc(100dvh - var(--space-9));
+  overflow: auto;
+}
+
+.tour-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tour-count {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.tour-title {
+  font-size: var(--text-h3);
+  margin: var(--space-3) 0 0;
+}
+
+.tour-text {
+  margin: var(--space-2) 0 0;
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.tour-actions-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Settings, help and guide: the whole tour first, then one button per section.
+   Wrapping, because the section names are words and the settings column is
+   narrow at phone widths. */
+.tour-replay-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }

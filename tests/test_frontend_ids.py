@@ -241,7 +241,7 @@ def test_every_appearance_setting_has_a_default():
 #: running"). This is the inventory; `data-needs-model` on the element is the
 #: implementation, and `syncModelGatedControls` (app.js) reads the attribute
 #: rather than a list in the code, because the list in the code is what fell
-#: behind: it carried seven of these fifteen.
+#: behind: it carried seven of the fifteen there were then.
 #:
 #: Adding an AI control means adding it here and marking it in the markup. A
 #: control that degrades without a model does NOT belong here: Ask falls back
@@ -251,6 +251,7 @@ MODEL_GATED_CONTROLS = {
     "improve-btn": "/entries/improve",
     "improve-retry": "/entries/improve",
     "draft-compose": "/drafts/compose",
+    "draft-title": "/drafts/title",
     "draft-extract": "/entries/extract/preview",
     "extract-commit": "/entries/extract/commit",
     "doc-ai": "/documents/<id>/ai-edit",

@@ -836,3 +836,38 @@ def test_the_self_update_relaunch_cannot_run_an_empty_command():
         "the empty-MM_SELF guard must carry on with the launch, not fall "
         "through to the call it is guarding"
     )
+
+
+def test_the_windows_launchers_use_crlf():
+    """`call :label` in an LF-only batch file cannot find its label.
+
+    cmd.exe does not parse a batch file up front. It remembers a byte offset,
+    re-opens the file at each `call`, and seeks the label with a scanner that
+    expects CRLF; in an LF-only file the seek lands mid-line, so it prints
+    "The system cannot find the batch label specified - <label>" and carries
+    on with the next command as though the call had returned.
+
+    Reported from a real install, between steps 1/4 and 2/4 of setup:
+    "The system cannot find the batch label specified - bail_if_cancelled".
+    `bail_if_cancelled` is the routine that stops the installer after someone
+    answers no, so on that machine every cancel was silently ignored.
+
+    The cause was `.gitattributes` saying `* text=auto eol=lf`, which is right
+    for the frontend (a `?v=` stamp, a CSS brace count and a wordlist the
+    spell checker matches with `Set.has` all change under CRLF) and wrong for
+    anything cmd.exe reads. `*.bat text eol=crlf` fixes the checkout; this
+    fails the build if a file ever comes back with lone LFs anyway, which is
+    what happens when one is written by a tool that ignores gitattributes.
+    """
+    offenders = []
+    for path in sorted(ROOT.glob("**/*.bat")) + sorted(ROOT.glob("**/*.cmd")):
+        if any(part in {".git", ".venv", "node_modules"} for part in path.parts):
+            continue
+        raw = path.read_bytes()
+        lone = raw.count(b"\n") - raw.count(b"\r\n")
+        if lone:
+            offenders.append(f"{path.relative_to(ROOT)}: {lone} lone LF")
+    assert not offenders, (
+        "Windows batch files must be CRLF, or `call :label` fails: "
+        + ", ".join(offenders)
+    )

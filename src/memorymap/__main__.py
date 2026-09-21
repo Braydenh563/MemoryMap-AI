@@ -15,9 +15,6 @@ import time
 import warnings
 from pathlib import Path
 
-import uvicorn
-
-from memorymap.api.app import create_app
 from memorymap.core import launch_status, startup_status
 
 logger = logging.getLogger("memorymap.launcher")
@@ -396,7 +393,31 @@ def _ensure_std_streams() -> None:
 
 
 def _run_server() -> None:
+    """Serve the app, on this thread, until the process ends.
+
+    **uvicorn and `create_app` are imported here rather than at the top of
+    this file**, and that is a startup measurement, not a style preference.
+    Importing this module used to pull in `memorymap.api.app`, and with it
+    FastAPI, SQLAlchemy, the model manager and the embeddings module: 1.20s of
+    the 1.21s it took to import this file at all, measured with `-X importtime`
+    on a warm cache on Linux. Every one of those seconds was spent *before*
+    `main()` had parsed a flag, so on `--desktop` it was spent before
+    `webview.create_window` could put anything on screen. A packaged Windows
+    build pays it worse: the imports come off disk through whatever is
+    scanning them, and the person is looking at nothing at all, because that
+    build has no console either ("the splash wasnt appearing on the packaged
+    windows launcher").
+
+    The desktop path does still need all of this, but it needs it on the
+    server thread, which `_run_desktop` starts *after* the window is up. So
+    the cost has not gone anywhere; it has moved behind the window it was
+    delaying.
+    """
     _ensure_std_streams()
+    import uvicorn
+
+    from memorymap.api.app import create_app
+
     uvicorn.run(create_app(), host=HOST, port=PORT, log_level="info")
 
 

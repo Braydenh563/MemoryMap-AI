@@ -491,8 +491,8 @@ function renderNameNudge(greetingEl) {
   });
   const dismiss = document.createElement("button");
   dismiss.type = "button";
-  dismiss.className = "ghost small";
-  dismiss.textContent = "✕";
+  dismiss.className = "ghost small icon-only";
+  setLabel(dismiss, "ph:x");
   dismiss.title = "Don't ask again";
   dismiss.setAttribute("aria-label", "Dismiss the name suggestion");
   dismiss.addEventListener("click", () => {
@@ -562,9 +562,18 @@ async function renderDashStats() {
   if (!box) return;
   const [stats, reminders] = await Promise.all([
     fetchDashStats().catch(() => null),
-    // To the end, same reason as the widget above.
-    dashReminders().catch(() => []),
+    // To the end, same reason as the widget above. A sentinel rather than an
+    // empty list, for the reason below.
+    dashReminders().catch(() => null),
   ]);
+  //: **A tile that could not read its number says so, instead of saying 0.**
+  //: Measured with every request failing: the notes tile already fell back to
+  //: an em-dash, and the other three printed a confident "0 this week",
+  //: "0 day streak", "0 reminders" computed from empty arrays. A zero is a
+  //: claim about the person's week; a dash is a claim about the app, and only
+  //: one of them is true here. Same distinction `surfaceFailed` draws for a
+  //: whole surface, at the scale a tile can manage.
+  const unknown = "\u2013";
 
   const now = new Date();
   const perDay = (stats && stats.per_day) || [];
@@ -573,19 +582,24 @@ async function renderDashStats() {
   const thisWeek = perDay.slice(-7).reduce((sum, n) => sum + n, 0);
   const open = (reminders || []).filter((r) => !r.done);
   const due = open.filter((r) => new Date(r.due_at) <= now).length;
+  const why = "This figure could not be read just now. It is not zero.";
 
   const tiles = [
     // Both of these are counts of notes, so they belong on the list that
     // shows them: not on whichever Notes sub-tab happened to be open last.
-    { icon: "ph:note-pencil", value: stats ? stats.total_entries : "–", label: "notes",
+    { icon: "ph:note-pencil", value: stats ? stats.total_entries : unknown, label: "notes",
+      title: stats ? "" : why,
       go: () => { switchTab("notes"); showNotesSection("browse"); } },
-    { icon: "ph:calendar", value: thisWeek, label: "this week",
+    { icon: "ph:calendar", value: stats ? thisWeek : unknown, label: "this week",
+      title: stats ? "" : why,
       go: () => { switchTab("notes"); showNotesSection("browse"); } },
-    { icon: "ph:flame", value: streak, label: streak === 1 ? "day streak" : "day streak", go: () => switchTab("dashboard") },
+    { icon: "ph:flame", value: stats ? streak : unknown, label: "day streak",
+      title: stats ? "" : why, go: () => switchTab("dashboard") },
     {
       icon: due ? "ph:alarm" : "ph:check-circle",
-      value: due || open.length,
+      value: reminders ? due || open.length : unknown,
       label: due ? "due now" : "reminders",
+      title: reminders ? "" : why,
       go: () => switchTab("reminders"),
       alert: Boolean(due),
     },
@@ -596,6 +610,9 @@ async function renderDashStats() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "stat-tile" + (tile.alert ? " stat-alert" : "");
+    //: Why a dash rather than a number, for anyone who hovers or reads it
+    //: with a screen reader: the tile itself has room for neither.
+    if (tile.title) button.title = tile.title;
     const icon = document.createElement("span");
     icon.className = "stat-icon";
     setLabel(icon, tile.icon);
@@ -702,7 +719,7 @@ const QUICK_START = [
   {
     icon: "ph:pencil-simple",
     label: "New note",
-    hint: "Capture a thought: the AI files it",
+    hint: "Capture a thought: Atlas files it",
     primary: true,
     run: () => {
       switchTab("notes");
@@ -723,7 +740,7 @@ const QUICK_START = [
   {
     icon: "ph:alarm",
     label: "Remind me",
-    hint: "Type it in plain English and the AI schedules it",
+    hint: "Type it in plain English and Atlas schedules it",
     run: () => {
       switchTab("reminders");
       $("reminder-magic").focus();
@@ -1004,6 +1021,61 @@ function launchGroup(label, className) {
   return { group, row };
 }
 
+//: **How much of the dashboard is chrome, as the reader's choice.**
+//:
+//: INBOX 270, the owner: *"is there a way to declutter the dashboard a bit or
+//: spread things out a bit?? idk it looks good but a lot is happening on it.
+//: maybe something like the feed layout options with msn on microsoft bing??"*
+//:
+//: Measured from their screenshot at 1440 wide: five Start something tiles,
+//: four Jump to pills, three skill chips, four stat tiles and a sparkline, and
+//: then the "Your dashboard" heading. Six bands of chrome above the first
+//: widget, which is the thing the page is named after.
+//:
+//: Three densities rather than a slider, the shape MSN's Feed layout uses and
+//: the shape a person can hold in their head: Full is what shipped, Compact
+//: folds the same things smaller, Focused shows the search and the widgets and
+//: puts the rest one press away. **Nothing is deleted by any of them**: a
+//: layout choice that removes a feature is a feature somebody cannot find
+//: again, and this app has been told before what that costs.
+//:
+//: Per device, in `localStorage`, beside the layout itself rather than in
+//: preferences: which density suits this screen is a fact about this screen.
+const DASH_DENSITIES = ["full", "compact", "focused"];
+const DASH_DENSITY_KEY = "dash-density";
+
+function dashDensity() {
+  const saved = localStorage.getItem(DASH_DENSITY_KEY);
+  return DASH_DENSITIES.includes(saved) ? saved : "full";
+}
+
+function applyDashDensity(value) {
+  const density = DASH_DENSITIES.includes(value) ? value : "full";
+  localStorage.setItem(DASH_DENSITY_KEY, density);
+  const page = document.getElementById("tab-dashboard");
+  //: A data attribute on the page, and every rule keyed off it in CSS. The
+  //: alternative, adding and removing classes on six elements from here, is
+  //: how one of them ends up in the wrong state after a render that rebuilt
+  //: it: the attribute survives, a class on a replaced node does not.
+  if (page) page.dataset.density = density;
+  //: **A dropdown, not a segmented control.** Reported with a screenshot:
+  //: the three segments sat taller than the two ghost buttons beside them
+  //: and none of them looked chosen, so the row read as three buttons that
+  //: did nothing. A `.seg` is right for two to four choices that are all
+  //: worth showing; here the two that are not current are noise in a
+  //: toolbar, and a select says which one is on by saying its name.
+  const picker = document.getElementById("dash-density");
+  if (picker && picker.value !== density) picker.value = density;
+}
+
+function wireDashDensity() {
+  const seg = document.getElementById("dash-density");
+  if (!seg || seg._wired) return;
+  seg._wired = true;
+  seg.addEventListener("change", () => applyDashDensity(seg.value));
+  applyDashDensity(dashDensity());
+}
+
 function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
@@ -1132,7 +1204,7 @@ async function renderContinueLink(row) {
 function featureCatalog() {
   return [
     { group: "Capture & notes", items: [
-      { name: "Capture a thought", desc: "Save anything; the AI files it into a category and suggests tags.", run: () => { switchTab("notes"); showNotesSection("capture"); $("entry-content").focus(); } },
+      { name: "Capture a thought", desc: "Save anything; Atlas files it into a category and suggests tags.", run: () => { switchTab("notes"); showNotesSection("capture"); $("entry-content").focus(); } },
       { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => { switchTab("notes"); showNotesSection("capture"); } },
       { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
       // The writing room is a sub-tab of Notes and was in the palette but in
@@ -1232,7 +1304,7 @@ function featureCatalog() {
       { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", run: () => switchTab("graph") },
       { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", run: () => switchTab("graph") },
       { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", run: () => switchTab("graph") },
-      { name: "Suggested links", desc: "The AI proposes connections between related notes.", run: () => switchTab("graph") },
+      { name: "Suggested links", desc: "Atlas proposes connections between related notes.", run: () => switchTab("graph") },
       { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", run: () => switchTab("timeline") },
       { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", run: () => switchTab("timeline") },
       { name: "Timeline bands", desc: "Group the timeline by category, tag or kind of thing.", run: () => switchTab("timeline") },
@@ -1242,7 +1314,7 @@ function featureCatalog() {
     ]},
     { group: "Plan & focus", items: [
       { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", run: () => switchTab("reminders") },
-      { name: "Magic add", desc: "Type “call mum tomorrow evening” and the AI schedules it.", run: () => { switchTab("reminders"); $("reminder-magic").focus(); } },
+      { name: "Magic add", desc: "Type “call mum tomorrow evening” and Atlas schedules it.", run: () => { switchTab("reminders"); $("reminder-magic").focus(); } },
       { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", run: () => switchTab("dashboard") },
       { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", run: () => switchTab("dashboard") },
       { name: "Tensions", desc: "Find where your notes contradict each other, a decision reversed, a date that moved.", run: () => openTensions() },
@@ -1321,7 +1393,7 @@ function renderFeatures(query) {
   // The AI's own tools, straight from the backend registry.
   if (featureAiTools && featureAiTools.length) {
     groups.push({
-      group: "What the AI can do for you",
+      group: "What Atlas can do for you",
       items: featureAiTools.map((tool) => ({
         name: tool.name.replace(/_/g, " "),
         desc: tool.description + (tool.destructive ? " (asks you to confirm first)" : ""),
@@ -1474,6 +1546,11 @@ async function renderDashboard() {
   renderDashboardGreeting();
   renderDashStats().catch(() => {});
   renderQuickLinks();
+  //: After the quick links, because Compact and Focused are about them; on
+  //: every render rather than once at boot, so a density chosen on another
+  //: device and synced, or one set before this grid existed, is applied to
+  //: what is actually on screen now.
+  wireDashDensity();
   const grid = $("dash-grid");
   grid.replaceChildren();
   $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
@@ -2017,6 +2094,10 @@ async function renderArtWidget(body) {
   return startArt(holder);
 }
 
+//: What the dashboard's constellation draws at. See `p.setup` below for why
+//: thirty rather than the sixty p5 defaults to.
+const ART_FRAME_RATE = 30;
+
 async function startArt(holder) {
   // Which run this is. `startArt` awaits /insights/stats before it mounts
   // anything, and `stopArt()` above that await can only remove an instance
@@ -2039,7 +2120,42 @@ async function startArt(holder) {
   }));
   const categories = (stats.categories || []).slice(0, 8);
   const total = Math.max(1, stats.total_entries || 0);
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  //: **Every switch that means "stop moving things", not only the OS hint.**
+  //:
+  //: This read the media query and nothing else, so the two generative
+  //: pictures in the app disagreed about the same question: the background
+  //: art (`startBgArt`, settings.js) resolves motion from the app's own
+  //: Reduce motion switch and from Performance mode as well, and this one
+  //: ignored both. Turn on Reduce motion and the background froze while this
+  //: widget kept running; turn on Performance mode, which DESIGN.md rule 12
+  //: says stops every animation but the progress indicators, and this was
+  //: the thing that kept going. The background art's own comment notes it
+  //: used to be "the one thing that kept running" under Performance mode;
+  //: this was the second one, and nobody had looked.
+  //:
+  //: Measured on the dashboard: this canvas runs at 59 fps in a 306x220 box,
+  //: and it is what the owner's "theres a flickering just above the bottom
+  //: bar" is looking at (INBOX 226: the pixels change in one column of the
+  //: band above the status bar, with no DOM mutation at all, and the
+  //: *background* art is off; the earlier investigation measured that one).
+  //:
+  //: `reducedMotionWanted` (app.js) is the OS hint or the app's own switch;
+  //: `perfModeOn` (settings.js) is the machine judgement. Both reached
+  //: through `typeof`, since dashboard.js loads before settings.js and a
+  //: render that somehow beat it should fall back to moving rather than
+  //: throw.
+  //:
+  //: Not `bg-motion`: that control is the background's own, is hidden when
+  //: the background art is off, and would be a surprising place to find the
+  //: switch for a widget.
+  //: Three inputs, not two: Battery-efficient mode joins them (INBOX 260).
+  //: A setting with "battery" in its name that leaves a canvas drawing is a
+  //: setting people read as broken, whatever its help text says.
+  const reduceMotion =
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+    (typeof reducedMotionWanted === "function" && reducedMotionWanted()) ||
+    (typeof perfModeOn === "function" && perfModeOn()) ||
+    (typeof batteryModeOn === "function" && batteryModeOn());
   // data-mode is always resolved to light or dark, including under "System",
   // so this no longer has to re-derive it from two sources.
   const dark = resolvedTheme() === "dark";
@@ -2097,12 +2213,30 @@ async function startArt(holder) {
       p.colorMode(p.HSL, 360, 100, 100, 1);
       p.randomSeed(artSeed(categories) + artNonce * 997);
       particles = buildArtParticles(p, categories, total, width, height);
+      //: **Thirty frames a second, for a drift that takes twenty seconds to
+      //: go round.** The motion here is `cos(t + phase) * amp` with `amp`
+      //: between 2 and 9 pixels: at sixty frames a second a star moves about
+      //: a fiftieth of a pixel between frames, which nobody can see and
+      //: everybody's battery pays for. Profiled over fourteen seconds of
+      //: ordinary use, p5 was 248 ms of self time, the largest single thing
+      //: on screen, and this is the sketch doing it.
+      //:
+      //: Halving it is only safe because `scene` is driven by the clock
+      //: below rather than by `frameCount`: a frame counter would have made
+      //: the drift itself run at half speed, which is a behaviour change
+      //: dressed as an optimisation.
+      p.frameRate(ART_FRAME_RATE);
       if (reduceMotion) {
         scene(0); // one still frame: no animation for reduced-motion users
         p.noLoop();
       }
     };
-    p.draw = () => scene(p.frameCount * 0.005);
+    //: Wall clock, not `frameCount`, so the drift runs at the speed it was
+    //: chosen at whatever the frame rate happens to be, including whatever a
+    //: browser throttles a background tab to. The two are the same number:
+    //: `frameCount * 0.005` at sixty frames a second advanced `t` by 0.3 a
+    //: second, and `millis() * 0.0003` advances it by 0.3 a second full stop.
+    p.draw = () => scene(p.millis() * 0.0003);
     // Was missing entirely: width was measured once at setup and never
     // re-synced, so this canvas was the one p5 sketch in the app with no
     // resize handling at all (the sibling in the whiteboard has its own).
@@ -2435,15 +2569,6 @@ async function renderQuestionsWidget(body) {
   body.appendChild(box);
 }
 
-async function renderOnThisDayWidget(body) {
-  const matches = await apiJson("/insights/on-this-day");
-  miniEntryList(
-    body,
-    matches,
-    "Notes you captured on this date in past months will resurface here."
-  );
-}
-
 // Weekly digest caching (Wave J follow-up). The AI digest is expensive,
 // so once it's generated it STAYS until you regenerate, and it resets
 // itself each day. Generation is a module-level promise, so switching
@@ -2599,7 +2724,7 @@ async function renderQuickCaptureWidget(body) {
   textarea.placeholder =
     modelStatus && modelStatus.ollama_running === false
       ? "Type a thought and press Save."
-      : "Type a thought and press Save, the AI files it.";
+      : "Type a thought and press Save, Atlas files it.";
   const row = document.createElement("div");
   row.className = "row";
   const status = document.createElement("span");
@@ -2666,6 +2791,20 @@ async function renderHeatmapWidget(body) {
 
   const grid = document.createElement("div");
   grid.className = "heatmap";
+  //: `overflow-x: auto` makes this a scroll container, and Chromium gives
+  //: every scroll container a tab stop so a keyboard user can scroll it with
+  //: the arrow keys. Measured with a Tab walk: focus lands here, and it was
+  //: the one element on the dashboard a screen reader would announce as
+  //: nothing at all. A scrollable region that takes focus needs a role and a
+  //: name, so it announces as what it is rather than as a bare group.
+  //:
+  //: `role="img"`, not `group`: the 365 day cells carry `title` text each,
+  //: and a group would have a screen reader walk all of them one at a time
+  //: to reach the same story the summary line under the grid already tells
+  //: in one sentence. This is a graphic drawn out of divs, so it announces
+  //: as one, and the tab stop Chromium gives it still scrolls with arrows.
+  grid.setAttribute("role", "img");
+  grid.setAttribute("aria-label", `Activity over the last year, ${data.total} notes`);
   body.appendChild(grid);
 
   //: **Full size, full year, scrolled rather than shrunk.** The first

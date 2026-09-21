@@ -7,6 +7,334 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- numpy, and the embedding/search-matrix code that uses it, loads on first
+  use instead of at server start. `ai/embeddings.py`, `ai/janitor.py`,
+  `search/engine.py` and `search/search_manager.py` had `import numpy as np`
+  at module scope, so simply importing `api/app.py` (every boot) pulled
+  numpy in whether or not the notebook had anything to embed yet. A fresh,
+  never-used notebook now never loads numpy at all.
+- The guide panel is a panel again. It floats in the bottom right corner on one
+  inset with all four corners rounded, instead of sitting welded to the bottom
+  edge of the window with two square corners and two insets that disagreed; on
+  a phone it is still the full-width sheet it has always been there. Its '?'
+  moved into the head, beside the line it explains, which gives the question
+  box back around 50px; a hairline marks where the conversation ends and what
+  you can send begins; the three example questions sit under the transcript and
+  over that box, where the Chat tab already puts its own; and a message looks
+  like a message in the Chat tab, same radius, padding, tail corner and ground,
+  and it follows the compact and spacious density settings, which it used to
+  ignore.
+
+- Opening the guide's '?' and pressing Escape no longer leaves the explanation
+  stranded on screen after the panel it belongs to has closed.
+### Added
+
+- The Guide answers with no model running. Its whole knowledge of this app is
+  hand-written help text, which is also the only source of facts a model is
+  given when one does answer, so with the model off it hands that text over
+  word for word, with the same quick-access chips, and says that is what it
+  is doing. It used to say it was unavailable while holding the exact
+  paragraph the question was about.
+
+- A Windows MSI ships alongside the existing .exe installer
+  (`MemoryMap-AI-*-windows-x86_64.msi`, built from the same PyInstaller
+  output with WiX). It installs per machine rather than per user, supports
+  `msiexec /quiet` for a silent or Group Policy deployment, and gets a
+  proper Add/Remove Programs entry with Windows Installer's own repair and
+  rollback. Unsigned for now, same as the .exe.
+
+- Find anything: one search over your notes, documents, boards, files, links
+  and reminders at once, by your words and by what they mean, alongside the
+  app's own actions. Every result says why it matched. It opens from a field
+  on the dashboard, from Find in the status bar, and on Ctrl+P. The engine
+  behind it already existed and nothing in the app had ever called it.
+
+- The dashboard has a density switch: full, compact or focused. Measured
+  above the widget grid, the three come to 610, 473 and 298 pixels of chrome.
+  Nothing is removed by any of them.
+
+- A note can show the notes you have forgotten that are closest to it.
+  "Forgotten notes like this" sits in its menu beside "Similar notes", and
+  answers a different question: not what means the same as this, but what
+  you have not looked at in a long time that bears on it. The ranking was
+  built and had no way in.
+
+- A note can be put on a whiteboard or a mind map from its own menu. "Add to
+  a board or map" sits beside "Add to a document" and does the same thing on
+  the other kind of surface: the note becomes a card on the board, where you
+  can see it and drag it, and the note's "Referenced by" row then says so.
+
+- "Referenced by" on a note. Its menu now answers what points at it:
+  the whiteboards and mind maps that carry it, the documents and notes that
+  link to it, and the ones that only mention it by name, with which of the
+  three said beside each. A link is a decision someone made and a mention is
+  a coincidence until they make it, so the rows someone chose come first and
+  the row says which it is.
+
+- Settings, "What it learned": everything Atlas worked out on its own, with
+  the note it came from, the model that decided it and how sure it was. Edit
+  a row and no later run overwrites it; delete one and the same thing is
+  never derived again; switch any of the seven background readers off, or
+  pause all of them at once; export the lot as JSON, or forget it all
+  without touching a note, and a "Read my notes now" button that runs the
+  night pass on demand and says what it found. The backend for all of this
+  shipped on 2026-09-13 and nothing in the app had ever called it.
+
+- A note's own label no longer shows its wiki brackets. `[text](url)` was
+  stripped from a chip and `[[a wiki link]]` was not, because the first rule
+  needs the `(url)` to match, so every chip for a note whose first line links
+  to another note read `[[The roof quote]]`, brackets and all.
+
+- Battery-efficient mode stops the moving pictures. It paused the background
+  AI tasks and the graph's similarity work and reached nothing else, so the
+  dashboard's constellation and the animated background kept drawing, which
+  is the two most expensive things on screen and the ones a person watching
+  for a change would notice. Both stop now, the setting takes effect the
+  moment you turn it on rather than on the next load, and its help text says
+  what it does.
+
+- A new check in the merge gate catches a request that fails where nobody is
+  told. `errors.js` watches the console, which sees a thrown exception; it
+  does not see a 404 or a 500 read into a `.catch(() => null)`, which is how
+  most of this app reads a response it can live without, and which is the
+  other half of "it does nothing and says nothing". The app currently passes
+  it: zero failing requests across seven tabs, four Notes sub-tabs, six
+  Library views and all eighteen Settings sections, on a fresh notebook and
+  on one with four thousand notes.
+
+- The tag autocomplete offers the tags you actually use first, and offers
+  all of them. It was built from the notes loaded so far, which on a large
+  notebook means it is missing whatever has not paged in yet, and sorted
+  alphabetically, so a tag used once came before one used four hundred
+  times. It now reads `GET /tags`, which answers tag and count, most used
+  first, in one request; that route had no caller in the app at all.
+
+- "Suggest a title" in the Writing Room. A note's title in this app is its
+  leading `# Heading`, which is the one part of a long draft nobody writes,
+  and the capture box has a title field while the Writing Room never did.
+  `POST /drafts/title` shipped with that panel and had no caller: the model
+  could name a finished draft and nothing ever asked it to. Undoable like
+  every other pass there, and pressing it twice replaces the heading rather
+  than stacking a second one.
+
+- Settings, About now shows what the search can actually see: how many notes,
+  documents and files are in the index, and whether the meaning-based half is
+  loaded. `GET /search/stats` says in its own docstring that the Settings page
+  wants this, and the Settings page had never asked.
+
+### Fixed
+
+- The Guide streams its answer on a locked notebook. The streaming fetch sent
+  no session token, so it was refused and the panel fell back quietly to the
+  one-shot route: the reply arrived in one piece, and "streaming is broken"
+  was the honest report. A lint now fails on any hand-rolled fetch to a locked
+  route that forgets the header.
+- "What does Performance mode do?" has an answer. The setting existed and the
+  help text did not, so the Guide was told to say it was not sure.
+- A document's AI edit reported the model as running when it was not: the
+  route compared the note against a constant the offline message stopped
+  being.
+- A failure now names its way out. DuckDuckGo rate-limiting goes looking for
+  a SearXNG on this machine and uses it if there is one, and says where the
+  one-press install is if there is not. An embedding model that is selected
+  but never downloaded says so, with the button and the command to get it,
+  rather than a raw 404.
+
+- A surface whose data did not arrive now says so, with a way to try again,
+  instead of drawing its empty state. Measured with every request failing:
+  the notes list, the map, the timeline and the library each claimed the
+  notebook was empty, and the dashboard's tiles printed "0 this week" and
+  "0 day streak" from figures they had not read.
+
+- Alignment guides now appear when a selection is dragged by a sketch. Cards
+  have had them for a while; the sketch drag was the one that never asked for
+  them, so any group that happened to include a drawing had none.
+
+- A skill run is no longer cut short on a local model. Its token allowance is
+  per step rather than per run, and there is no wall-clock limit out of the
+  box: a nine-step skill measured on a 4B model reached step three after
+  twenty three minutes, and a ninety second budget had already ended it.
+
+- The graph minimap is hidden when there is nothing to map, rather than
+  sitting empty in the corner under the top bar.
+
+- The Ask tab keeps its inline citation markers. A live-render paint armed
+  before the stream ended fired after the markers were placed and repainted
+  the answer from raw markdown, so the numbers appeared and vanished within a
+  frame.
+
+- The resurfacing ranking no longer fails when it is asked for the notes near
+  a particular one. It read the embedding column by the wrong name, in a loop
+  nothing had ever entered.
+
+- The Windows launchers are checked out with CRLF again. cmd.exe seeks a
+  batch label by byte offset and its scanner expects CRLF, so in an LF-only
+  file every `call :label` landed mid-line: reported from a real install as
+  "The system cannot find the batch label specified - bail_if_cancelled"
+  between steps 1 and 2 of setup, which meant answering "no" to the
+  installer did nothing at all. A `.gitattributes` rule and a lint.
+
+- The desktop window opens about a second and a quarter sooner. Starting the
+  app used to import the whole server, FastAPI and SQLAlchemy included,
+  before it had read its own command line: 1,203ms of the 1,210ms it took to
+  load the entry module. That now happens on the server thread, behind the
+  window instead of in front of it, which is also why the packaged build
+  looked like it had no splash.
+
+- Board and map previews no longer draw over themselves. Blocks are kept
+  inside the thumbnail, a caption's width is measured rather than estimated,
+  and a caption that would land on another block or another caption is moved
+  or left out. It also finds room for more titles than before, not fewer.
+
+- Headings in the rendered document view are the size they should be. A
+  document's biggest heading was drawn smaller than its body text, and two
+  levels of heading were identical, because the tags the renderer uses had
+  no styling at all. Both views of a document now use the same scale.
+
+- Lists render in the documents live view, which drew them as plain text:
+  bullets and numbers now hang in the margin with their text aligned under
+  itself, nesting is visible, and a dash is drawn as a bullet unless the
+  caret is on its line. A task's checkbox no longer makes its own line
+  taller than every other line in the document.
+
+- A group selection on a whiteboard can be resized and rotated. All eight
+  handles and the rotate dot were drawn but sat under the card layer, so six
+  of the nine could not be pressed. The outline also travels with the group
+  while it is dragged, instead of staying where the items started.
+
+- Line numbers in a document stop colliding around a fenced code block.
+
+- Ctrl+S saves your preferences, which the screen has promised for a long
+  time without anything doing it, and says so with a toast. Preferences is
+  the only settings section that does not save on its own, and now says that
+  too: once at the top, and again on the button as soon as you change
+  something.
+
+- "What it learned" uses the same switch rows as the rest of Settings. Every
+  row's name ran straight into its hint ("Night shiftReads notes you have
+  added or changed") because the rows were built from a different recipe.
+
+- Close, download and tick marks are drawn with the app's own icon set
+  instead of typed characters, so they match the icons beside them in face,
+  size and weight.
+
+- The document editor's ⋯ menu is shorter and stays on screen. Its five
+  "Download as" rows and "Print or save as PDF" are one "Download or print"
+  row now, opening the same side flyout the notes list's ⋯ menu already uses
+  (an accordion at phone width, where there is nowhere for a flyout to go).
+  The menu was 706px tall in a 900px window; it is 562px. Separately, these
+  menus were only ever clamped vertically: at 390px wide the document ⋯ sat
+  53px off the left edge of the screen, with no way to scroll to the start of
+  its labels. They are clamped on both axes now.
+
+- A search in what the notebook learned counted rows it was not showing, so
+  the table's pager offered pages that were not there. The page and the
+  count are narrowed by one function now.
+
+- The graph's minimap no longer writes "NaN" into the viewport rectangle.
+  Measured intermittently on a four thousand note notebook: 112 console
+  errors in one sweep, all of them `<rect> attribute x: Expected length,
+  "NaN"` and the same for y, width and height. Captured at the write, the
+  zoom transform itself held NaN while the dimensions and every node
+  position were finite. The minimap checks everything it reads now, and the
+  three places the app builds a zoom transform refuse to build one out of a
+  number that is not one: `Math.min`/`Math.max` propagate NaN rather than
+  clamping it, so the scale clamps that looked like guards were not.
+
+- The app calls its AI by name. Atlas was the name in the chat sheet and in
+  the prompts, and everywhere else the interface still said "the AI": 68
+  strings across eight files and 41 pieces of markup, including the Models
+  screen, which read "Active: qwen2.5:7b" and now reads "Atlas, running
+  qwen2.5:7b". Copy that means the model or the runtime rather than the
+  librarian still says so. `AI_NAME` moved to app.js, the first script the
+  page loads, so a string anywhere can read it; a new lint fails the build on
+  copy that calls it "the AI" again.
+
+- Four helpers in `documents.js` that no feature called are gone, and the
+  tests that covered them now cover what the app runs instead. The table pair
+  demonstrated byte-exact cell writes through a writer nothing reached (a cell
+  is edited by typing into the source line); the columns test asserted a
+  template the "/" menu does not insert; the frontmatter one asserted a
+  flattened shape the properties panel never sees. About 120 lines of
+  documents.js and three test sections, replaced by checks on cell spans,
+  the caret the Tab key computes, the ghost-cell fill the editor really calls,
+  and the columns string read straight out of `MD_ACTIONS`.
+
+- A keyboard user is told what the dashboard's activity heatmap is. The grid
+  scrolls horizontally, and Chromium gives every scroll container a tab stop
+  so it can be scrolled with the arrow keys, so Tab landed on a bare `div`
+  that a screen reader announced as nothing. It now carries a role and a name
+  ("Activity over the last year, N notes"). Found by walking the tab order,
+  which is now a sweep (`scratchpad/ui-sweeps/keyboard.js`, in the gate's
+  `--sweeps` set): it presses Tab across all seven tabs and fails on a stop
+  that is invisible, unnamed, or reordered by a positive `tabindex`.
+
+- The whiteboard works again. A change that came in from outside the project
+  ran a regular expression over `whiteboard.js` to move the board's undo
+  history onto the app's stack and deleted ten live functions along with the
+  two it meant to replace, among them `wbItemTransform`, which is what
+  positions every card on the board. The board threw on its first render and
+  drew nothing. That commit is reverted; the three parts of it that were right
+  are re-applied below.
+
+- No console window blinks over the packaged Windows app. It is a GUI process,
+  so every console tool it runs in the background (`docker`, `pip`,
+  `tesseract`, `winget`) was given a real console window by Windows, shown and
+  torn down. Every spawn now asks for `CREATE_NO_WINDOW`, and a lint fails the
+  build when a new one forgets.
+
+- Tesseract installed on Windows is found even when PATH does not mention it.
+  The installers do not reliably add themselves, and the per-user mode never
+  does, so the app told people who had just installed Tesseract to install
+  Tesseract. It now reads the installer's registry key first, then the standard
+  Program Files and LOCALAPPDATA locations, and points `pytesseract` at what it
+  finds.
+
+- A note's text stays inside its card on a board. A card could not shrink its
+  text below the box the person dragged it to, so the paragraphs were laid out
+  past the border and painted over the board; and whether a note got a "Show
+  more" was decided by its character count rather than by whether it fitted.
+
+- A card left open on a board is still open when the board is opened again.
+
+- An exported board carries what its cards are showing. Every card's label was
+  cut to 160 characters and six lines whatever the card's size, so an expanded
+  note exported as six lines. The export dialog now also says when collapsed
+  notes are keeping text out of the picture.
+
+- A fenced code block in the Live view no longer has an empty row above and
+  below it. The fence lines keep the block's tint and take the height of
+  padding, and the language is drawn in the block's corner.
+
+- Three calls to functions that no file defines: the semantic search toggle
+  (`loadAllNotes`), every Conversations row in the command palette
+  (`loadChatHistory`), and opening a note from a mind map node
+  (`openEntryEditor`).
+
+### Changed
+
+- The note list repaints four times while a big notebook loads instead of once
+  per page: measured on four thousand notes, `loadEntries()` goes from about
+  1.8 s to 0.9 s and hands back three quarters of a second of main thread.
+
+- The settings search reads each section's text once and remembers it, instead
+  of rebuilding and lowercasing 63 KB on every keystroke.
+
+- The Docker daemon is probed at most once every fifteen seconds, rather than
+  on every status poll with an eight second timeout.
+- MemoryMap introduces itself with a guided tour: a small card at a time,
+  anchored to the control it is describing, over a page dimmed everywhere
+  except that control, with back, next, skip, and a "3 of 7" counter. It comes
+  in four short sections (the basics, writing a note, finding things, boards
+  and maps); a first run is offered the basics alone, and Settings, help and
+  guide replays the whole thing or any one section. Escape leaves it, focus
+  goes back where it came from, and it never opens by itself once it has been
+  finished or skipped. The welcome that used to describe seven tabs from the
+  middle of the screen is now two cards, the greeting and the setup check, and
+  hands over to the tour.
+
 ## [0.3.1] - 2026-09-14
 
 - The status bar's help button says "Guide", not the assistant's name. It sat

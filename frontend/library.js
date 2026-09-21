@@ -186,6 +186,14 @@ function renderLibraryView() {
 
 async function loadLibrary() {
   const body = await apiJson("/library").catch(() => null);
+  //: Same distinction the Timeline draws: nothing came back is not the same
+  //: fact as there is nothing to show, and only one of them is about the
+  //: person's own library. See `surfaceFailed` in app.js.
+  if (!body) {
+    surfaceFailed(document.getElementById("library-empty"), "library", loadLibrary);
+    return;
+  }
+  surfaceRecovered(document.getElementById("library-empty"));
   libraryItems = (body && body.items) || [];
   libraryCounts = (body && body.counts) || {};
   libraryOverview = (body && body.overview) || {};
@@ -537,7 +545,7 @@ function libraryActions(item) {
         }).catch((e) => toast(e.message, true));
         reload();
       }),
-      makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
+      makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
         window.open(`/documents/${item.id}/export.md`, "_blank");
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
@@ -615,7 +623,7 @@ function libraryActions(item) {
       // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
       // hand one note to someone." Same route shape and menu placement as
       // the Document kind's own "Download .md" a few lines up.
-      makeMenuItem("⬇ Download .md", "Save a copy of this note as a markdown file", () => {
+      makeMenuItem("ph:download-simple Download .md", "Save a copy of this note as a markdown file", () => {
         window.open(`/entries/${item.id}/export.md`, "_blank");
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not the bin", async () => {
@@ -693,7 +701,7 @@ function libraryActions(item) {
       // navigation can't carry: the same gap `mediaSrc` already exists to
       // close for `<img src>`, just missed here. Every notebook with a
       // password set (the normal case) 401'd on Download until this.
-      makeMenuItem("⬇ Download", "Save this file", () => {
+      makeMenuItem("ph:download-simple Download", "Save this file", () => {
         window.open(mediaSrc(`/files/${item.id}`), "_blank");
       }),
       // Live-reported: an uploaded file "can't be deleted", true for its
@@ -1367,7 +1375,7 @@ const LIBRARY_CREATE_BY_KIND = {
 //: dialog is the recipe: a title, a line, a column of rows with a name and
 //: one line under it, Cancel at the foot.
 const LIBRARY_CREATE_HINTS = {
-  note: ["ph:note-pencil", "A quick thought. The AI files it and links it for you."],
+  note: ["ph:note-pencil", "A quick thought. Atlas files it and links it for you."],
   document: ["ph:file-text", "A long page: headings, an outline, templates, export."],
   map: ["ph:tree-structure", "A mind map: a tree of topics you move and connect."],
   chat: ["ph:chats", "A conversation grounded in your notes."],
@@ -1680,7 +1688,7 @@ async function renderSkillsDashboard() {
   const workersHint = document.createElement("p");
   workersHint.className = "muted text-sm";
   workersHint.textContent =
-    "Lets the AI work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
+    "Lets Atlas work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
   const workerToggle = (id, key, label, on) => {
     const wrap = document.createElement("label");
     // The app's own pill toggle, not the `.switch`/`.slider` markup that used
@@ -2122,7 +2130,7 @@ async function renderLibraryDocuments() {
           }).catch((e) => toast(e.message, true));
           renderLibraryDocuments();
         }),
-        makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
+        makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
           window.open(`/documents/${doc.id}/export.md`, "_blank");
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
@@ -4639,7 +4647,7 @@ onDomReady(() => {
     message.textContent =
       ocrReader() === "tesseract"
         ? "Tesseract will read the page, no model needed, and it marks where each block sits."
-        : "The AI vision model will read the page.";
+        : "The vision model will read the page.";
     message.classList.remove("hidden");
   });
   //: **The reading has to be able to leave this window.** A transcription you

@@ -1511,6 +1511,13 @@ def list_images(
     own markdown, which has none, see ROADMAP item 20a for that still-open
     gap), so this is a flat query, not new plumbing.
 
+    **Superseded in the Library by `/media`**, which lists every uploaded
+    file rather than only the ones that happen to be on a board, so nothing
+    in `frontend/*.js` names this any more (INBOX 261, found by
+    `scratchpad/probe_dead_routes.py`). Kept as the board-scoped view, which
+    `/media` does not offer; this paragraph is here so the next scan does not
+    re-open the question.
+
     **Paged**, with `X-Total-Count` over the same selection as the page and
     the row id as the order, which is also the tiebreaker two rows created in
     the same second need to stop them swapping places between pages.

@@ -26,6 +26,34 @@ def test_blank_url_is_rejected(client):
     assert response.status_code == 422
 
 
+def test_a_javascript_scheme_is_rejected_not_stored(client):
+    """INBOX 310, finding 3: `_normalise_url` used to only prepend
+    `https://` when a URL had *no* scheme, so `javascript:` passed through
+    unchanged and was stored as typed. The 422 must name the allowed
+    schemes, and nothing must have been written."""
+    response = client.post("/bookmarks", json={"url": "javascript:alert(1)"})
+    assert response.status_code == 422
+    assert "http:" in response.json()["detail"]
+    assert "mailto:" in response.json()["detail"]
+    assert client.get("/bookmarks").json() == []
+
+
+def test_disallowed_schemes_are_rejected_on_update_too(client):
+    created = client.post("/bookmarks", json={"url": "a.com"}).json()
+    for bad in ("javascript:alert(1)", "data:text/html,<script>1</script>", "vbscript:x"):
+        response = client.put(f"/bookmarks/{created['id']}", json={"url": bad})
+        assert response.status_code == 422, bad
+    # The original, safe URL is still what's stored.
+    assert client.get("/bookmarks").json()[0]["url"] == "https://a.com"
+
+
+def test_mailto_and_tel_schemes_are_allowed(client):
+    mail = client.post("/bookmarks", json={"url": "mailto:me@example.com"}).json()
+    assert mail["url"] == "mailto:me@example.com"
+    tel = client.post("/bookmarks", json={"url": "tel:+15551234567"}).json()
+    assert tel["url"] == "tel:+15551234567"
+
+
 def test_pinned_bookmarks_sort_first(client):
     a = client.post("/bookmarks", json={"url": "a.com"}).json()
     b = client.post("/bookmarks", json={"url": "b.com"}).json()

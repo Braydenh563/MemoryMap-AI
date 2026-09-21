@@ -1209,7 +1209,10 @@ async function renderDocBookmarks() {
     open.className = "outline-link";
     setLabel(open, `ph:link ${bookmark.title || bookmark.url}`);
     open.title = bookmark.url;
-    open.addEventListener("click", () => window.open(bookmark.url, "_blank", "noopener,noreferrer"));
+    // safeHref() (app.js): the same scheme guard library.js's bookmark rows
+    // use, so a bookmark saved before INBOX 310's write-time check existed
+    // can't reach window.open() with an unlisted scheme from here either.
+    open.addEventListener("click", () => window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer"));
     const remove = smallButton("ph:x", "Remove this reference", async () => {
       await apiJson(`/documents/${currentDoc.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
       renderDocBookmarks();

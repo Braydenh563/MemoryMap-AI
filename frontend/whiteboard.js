@@ -391,9 +391,36 @@ function wbApplyZoomTransform(t) {
 //: subtracts the live d3 transform itself, so what it needs here is the
 //: untransformed canvas box, and since the swap above that is the container
 //: rather than the SVG (which now moves).
-function wbCanvasOriginRect() {
-  return document.getElementById("whiteboard-container").getBoundingClientRect();
+//:
+//: **Measured once per gesture** (MINDMAP_PLAN.md §13a). Every frame of a
+//: drag writes SVG geometry (`d` on each moved edge) before anything asks
+//: for this, and an SVG attribute write dirties layout, so each frame's first
+//: `getBoundingClientRect` paid for a fresh layout of the whole board. On a
+//: 500-topic branch drag that single call was the largest cost left on the
+//: path once the topic measurements and the element lookups were cached.
+//:
+//: The canvas box cannot move during a gesture: a pointer is down on it. It
+//: can move between gestures (a panel opens, the window resizes, the page
+//: scrolls, full screen is toggled), so the cache is dropped at the start of
+//: every gesture as well as at the end of one, and on resize and scroll.
+let wbCanvasRectCache = null;
+
+function wbClearCanvasRectCache() {
+  wbCanvasRectCache = null;
 }
+
+function wbCanvasOriginRect() {
+  if (wbCanvasRectCache) return wbCanvasRectCache;
+  const rect = document.getElementById("whiteboard-container").getBoundingClientRect();
+  wbCanvasRectCache = rect;
+  return rect;
+}
+
+window.addEventListener("pointerdown", wbClearCanvasRectCache, true);
+window.addEventListener("pointerup", wbClearCanvasRectCache, true);
+window.addEventListener("pointercancel", wbClearCanvasRectCache, true);
+window.addEventListener("resize", wbClearCanvasRectCache);
+window.addEventListener("scroll", wbClearCanvasRectCache, true);
 
 function handleWbZoom(e) {
   wbApplyZoomTransform(e.transform);
@@ -4429,7 +4456,10 @@ function wbMapBranchDragOrigin(d, alone) {
 function wbMapDropTargetAt(d, clientX, clientY) {
   const container = document.getElementById("whiteboard-container");
   if (!container || !wbIsMap() || !WB_MAP_KINDS.has(d.kind)) return null;
-  const rect = container.getBoundingClientRect();
+  //: The shared, per-gesture box rather than a fresh measurement: this runs
+  //: on every frame of a branch drag, after that frame has already written
+  //: every moved edge's geometry. See `wbCanvasOriginRect`.
+  const rect = wbCanvasOriginRect();
   const t = d3.zoomTransform(container);
   const [bx, by] = t.invert([clientX - rect.left, clientY - rect.top]);
   const index = wbMapIndex();
@@ -4627,6 +4657,33 @@ function wbMapNodeSize(d) {
 
 function wbClearMapNodeSizeCache() {
   wbMapNodeSizeCache = null;
+}
+
+//: **Every topic's element and box in one pass, for the gesture that is about
+//: to want all of them** (MINDMAP_PLAN.md §13a). Picking up a topic with a
+//: branch under it needs, on its first frame, the element of every topic it
+//: is carrying and the box of both ends of every edge between them: one
+//: `querySelector` each is five hundred separate walks of the document, and
+//: the first layout read after each of them is a fresh flush. One
+//: `querySelectorAll` and one batch of reads is the same information for one
+//: walk and one flush, which is what turns the pick-up from a stall into a
+//: frame.
+//:
+//: First element wins, matching what `wbMapNodeSize`'s own `querySelector`
+//: would have returned had two layers ever carried the same id. Only real
+//: measurements are kept, for the reason `wbMapNodeSize` gives.
+function wbIndexMapNodeElements() {
+  const byId = new Map();
+  if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
+  for (const el of document.querySelectorAll(".wb-object[data-id]")) {
+    const id = Number(el.dataset.id);
+    if (byId.has(id)) continue;
+    byId.set(id, el);
+    if (!wbMapNodeSizeCache.has(id) && el.offsetHeight) {
+      wbMapNodeSizeCache.set(id, { w: el.offsetWidth, h: el.offsetHeight });
+    }
+  }
+  return byId;
 }
 
 //: One node's measurement dropped, for the gesture that is changing that one
@@ -7679,6 +7736,9 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
   //: The map index, the layout and the drawn edge elements, read once for the
   //: whole capture rather than rebuilt inside `wbMapEdgesFor` per member.
   const edgeCtx = wbIsMap() ? wbMapEdgeContext() : null;
+  //: Both of the things every member of this capture is about to be asked
+  //: for, taken in one pass rather than one lookup per member per frame.
+  const objectEls = wbIsMap() ? wbIndexMapNodeElements() : null;
   //: **An edge belongs to one end, not to both.** A tree edge joins two
   //: topics, so when both are in the same dragged branch it appeared in two
   //: members' lists and was recomputed and rewritten twice on every frame of
@@ -7721,9 +7781,11 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
         kind, id, item, x: item.x, y: item.y,
         linked: wbLinkedSketchesFor(id, kind),
         mapEdges,
-        //: Resolved on the first frame that needs it and kept for the rest of
-        //: the gesture, see `wbApplyBulkMove`.
-        el: null,
+        //: Resolved here when the board is a map (one pass for the whole
+        //: capture, above) and on the first frame that needs it otherwise;
+        //: kept for the rest of the gesture either way, see
+        //: `wbApplyBulkMove`.
+        el: (kind === "object" && objectEls?.get(id)) || null,
       });
     }
   }

@@ -97,8 +97,11 @@ One branch drag over 300 link sketches, the fixture that had never existed:
    frame**, and a ctrl-wheel zoom is 16.7ms median with a **166.7ms worst
    frame**, against 133.4 and 133.4 on the head before the pass, which is one
    frame of this machine's spread either way and not a change.
-   Neither is script: the CPU profile of a pan spends under 10ms in script
-   across the whole gesture. It is the browser re-rasterising one promoted
+   Neither is script, and the zoom's half of that is now measured rather than
+   inferred: with every function the gesture calls wrapped in a timer, one
+   ctrl-wheel zoom at 500 topics spends **2.6ms in script across 2,239ms**,
+   while 14 of its 34 frames run over 33ms. The pan's own CPU profile
+   (13.1 reading 1) puts a 30-move gesture under 10ms. It is the browser re-rasterising one promoted
    layer that holds every topic on the board, so the only thing that moves it
    is holding fewer topics. The row, with its gate, is in MINDMAP_PLAN
    ("13a-view"). Two things to know before starting:

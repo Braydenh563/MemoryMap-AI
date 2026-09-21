@@ -706,7 +706,15 @@ anything this pass changed.
 taken it, and 13.1 reading 1 predicted it): six ctrl-wheel steps out and six
 back in, at 500 topics, **16.7ms median and 166.7ms worst**, against 16.7 and
 133.4ms on the same head before this pass, which is one frame of this
-machine's spread either way. The prediction is confirmed: a zoom
+machine's spread either way.
+
+**And it is not script, measured rather than reasoned.** The same gesture with
+`handleWbZoom`, `wbApplyZoomTransform`, `wbSyncGridToTransform`,
+`wbRenderNavigator`, `wbUpdateSelectionBar` and `renderWhiteboard` each wrapped
+in a timer: **2.6ms of script across a 2,239ms gesture**, while 14 of its 34
+frames ran over 33ms and the worst was 166.7ms. A zoom changes the scale of one
+promoted layer holding every topic on the board, the browser re-rasters it, and
+no amount of making the render cheaper touches a frame that runs no render. The prediction is confirmed: a zoom
 changes the scale of one promoted layer holding every topic, the browser
 re-rasters it, and no amount of making the render cheaper touches it, because
 no script runs on those frames. That is 13a-view.

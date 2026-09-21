@@ -5184,3 +5184,72 @@ select {
 #learned-switches .learned-master {
   margin-bottom: var(--space-3);
 }
+
+/* --- a model per feature (Settings → Models) ---------------------------------
+   One row per feature: what it is, then what it runs on, then the way back to
+   the default. Three columns rather than a `.row` of loose controls because
+   the whole point of the list is comparison down the column: which of these is
+   on something other than the chat model. A ragged left edge makes that
+   question unanswerable at a glance.
+
+   The state line under each name carries "inherited" or "its own model", which
+   is the fact the row exists to report and the one a select alone cannot say:
+   a select showing "llama3.2" looks identical whether that name was chosen
+   here or came from the chat model above. */
+.feature-models {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.feature-model-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.feature-model-name {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.feature-model-label {
+  font-size: var(--text-lg);
+}
+
+.feature-model-state {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+/* A row that is on its own model says so in the app's accent, because the
+   list's only job is to make the overridden rows findable among the inherited
+   ones. */
+.feature-model-row[data-overridden="1"] .feature-model-state {
+  color: var(--accent);
+}
+
+/* `enhanceSelect` wraps every select in a `.select-shell` at boot and the
+   native control inside it stops being what is on screen, so the width has to
+   be given to the shell: a rule naming the select alone sizes something one
+   pixel wide that nobody can see. */
+.feature-model-row select,
+.feature-model-row .select-shell {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Below 600 the three columns become three rows: a 390px window cannot hold a
+   name, a select and a button side by side without the select collapsing to
+   the width of its own arrow. */
+@media (max-width: 600px) {
+  .feature-model-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .feature-model-name {
+    grid-column: 1 / -1;
+  }
+}

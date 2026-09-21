@@ -9513,6 +9513,10 @@ async function toggleDocHistoryDiff(entry, row, button, box) {
 }
 
 $("doc-history")?.addEventListener("click", openDocHistory);
+//: The AI assistant's own model. `openFeatureModelSheet` lives in app.js,
+//: which loads first, and is the same sheet the Chat tab and the writing desk
+//: open: one picker, three ways in.
+$("doc-ai-model")?.addEventListener("click", () => window.openFeatureModelSheet?.("documents"));
 
 const DOC_SIDEBAR_SECTIONS = ["list", "outline"];
 const DOC_SIDEBAR_STORE = "docSidebarSection";

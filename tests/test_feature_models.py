@@ -299,3 +299,59 @@ def test_a_feature_left_alone_still_follows_the_chat_model_at_the_provider(
     manager.set_chat_model("qwen3.5:4b")
     ai_client.post("/drafts/compose", json={"thoughts": "loose thoughts"})
     assert fake_ollama.chat_models[-1] == "qwen3.5:4b"
+
+
+# --- INBOX 288: which model a guide turn really runs on ------------------------
+#
+# The owner: *"also it doesnt use my utility model as my utility model isnt a
+# thinking model."* Measured here rather than reasoned about, because the
+# report was inferred from a symptom (a thinking box) rather than observed at
+# the provider, and the same claim had been recorded as fixed once before.
+#
+# What the three tests below measure: with smart routing on, both guide routes
+# really do reach the utility model. With it off, the guide reaches the *chat*
+# model, which is the one configuration that produces exactly the reported
+# symptom on a thinking chat model. That switch says "for background tasks",
+# and the Guide is a panel the user is sitting in front of, so the model it
+# lands on is no longer a guess either way: the Guide is a feature row, and an
+# explicit choice beats both defaults.
+
+
+def _guide_model(client, fake_ollama, streamed: bool = False) -> str:
+    fake_ollama.chat_models.clear()
+    body = {"question": "how do I export a note?"}
+    if streamed:
+        with client.stream("POST", "/help/ask/stream", json=body) as response:
+            list(response.iter_lines())
+    else:
+        client.post("/help/ask", json=body)
+    assert fake_ollama.chat_models, "the guide turn never reached the provider"
+    return fake_ollama.chat_models[-1]
+
+
+def test_the_guide_reaches_the_utility_model(ai_client, fake_ollama):
+    manager = deps.get_model_manager()
+    manager.set_chat_model("qwen3.5:9b")
+    manager.set_utility_model("llama3.2")
+    assert _guide_model(ai_client, fake_ollama) == "llama3.2"
+    assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"
+
+
+def test_with_smart_routing_off_the_guide_falls_to_the_chat_model(ai_client, fake_ollama):
+    """The measured cause of INBOX 288, and it is the switch doing what it
+    says: routing off means background work uses the chat model."""
+    manager = deps.get_model_manager()
+    manager.set_chat_model("qwen3.5:9b")
+    manager.set_utility_model("llama3.2")
+    deps.get_config().set_preference("smart_model_routing_enabled", False)
+    assert _guide_model(ai_client, fake_ollama) == "qwen3.5:9b"
+
+
+def test_the_guide_row_pins_the_model_whatever_routing_says(ai_client, fake_ollama):
+    """The way out of both defaults: an explicit model for this one panel."""
+    manager = deps.get_model_manager()
+    manager.set_chat_model("qwen3.5:9b")
+    manager.set_feature_model("guide", "llama3.2")
+    deps.get_config().set_preference("smart_model_routing_enabled", False)
+    assert _guide_model(ai_client, fake_ollama) == "llama3.2"
+    assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"

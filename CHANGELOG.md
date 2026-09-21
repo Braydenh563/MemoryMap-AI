@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A note with no tags offers to have them written. The action that reads a
+  note, suggests tags and links and refiles it was one row deep in the note's
+  menu under the name "Re-evaluate", which said the smallest part of what it
+  does. It is now "Tag and file with Atlas", and a note with no tags carries
+  the offer on the card, where the tags would be.
 - The spinner beside "Re-evaluating" on a note is a circle in a narrow row,
   not just a wide one. It sat in a flex row and could be squeezed on the
   width while its height held, so it turned as an ellipse; it now keeps its

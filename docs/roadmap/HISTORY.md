@@ -31582,3 +31582,30 @@ row and head of different lengths).
     widths, since a sweep cannot watch an animation: 5 of 5, ratio 1.000 at
     400, 120, 70 and 48px, turning about its own centre at each.
 
+292. **Fixed 2026-09-21.** The owner: "half the time when there are no tags
+    on a note, i want the ai to generate them for me, so one of my most used
+    features is the re-evaluate feature, but i feel like it is more than just
+    re-evaluating, and it is hidden away."
+    He was right on both counts, and the route settles the first:
+    `POST /entries/{id}/reevaluate` re-files the note, refreshing its
+    confidence and its category unless the person filed it themselves, *and*
+    suggests tags and links for them to apply, with nothing applied without a
+    click. "Re-evaluate" named the smallest part of that, and tags, the part
+    it is actually reached for, were not in the name at all.
+    Two halves. The menu row is now "Tag and file with Atlas", and the four
+    user-facing strings around it follow ("Atlas is reading this note", the
+    badge, the result line and the failure). And the offer moved to where a
+    person is thinking about tags: a note with no tags already carried a "No
+    tags yet" chip (INBOX 162) that opens the edit form, and it now carries
+    "Tag with Atlas" beside it, which runs the action from the card.
+    Rendered rather than gated: a chip is a `<span role="button">` and
+    `syncModelGatedControls` closes controls by setting `disabled`, which does
+    nothing to a span, so with no model answering there is simply the flag and
+    the manual route rather than an offer that cannot be honoured.
+    `scratchpad/ui-sweeps/tagoffer.js` measures both states, 11 of 11: with no
+    model the row reads "No tags yet" and nothing else is offered; with one,
+    the offer is a real control (role button, tabindex 0) at 132.3 by 24,
+    titled "Atlas reads the note and suggests tags for you to approve", and
+    the menu carries "Tag and file with Atlas" with no row still called
+    re-evaluate.
+

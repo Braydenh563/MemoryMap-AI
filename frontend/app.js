@@ -3076,6 +3076,27 @@ function entryItem(entry, options = {}) {
     });
     untagged.title = "Add tags to this note";
     meta.appendChild(untagged);
+    //: **And the offer to have them written for you, in the one place a
+    //: person is thinking about tags** (INBOX 292, the owner: "half the time
+    //: when there are no tags on a note, i want the ai to generate them for
+    //: me ... i want it to be more evident that it is an option and to be
+    //: offered to the user"). The action already existed, one row deep in
+    //: this note's menu under a name that did not mention tags, which is
+    //: exactly the kind of thing nobody finds.
+    //:
+    //: Rendered rather than gated, because a chip is a `<span role="button">`
+    //: and `syncModelGatedControls` closes controls by setting `disabled`,
+    //: which does nothing to a span. An offer that cannot be honoured is
+    //: worse than no offer, so with no model answering there is simply the
+    //: flag above and the manual route it already opens.
+    if (!modelStatus || modelStatus.ollama_running !== false) {
+      const askAtlas = chip("ph:sparkle Tag with Atlas", "untagged-ai", (event) => {
+        event.stopPropagation();
+        reevaluateEntry(entry);
+      });
+      askAtlas.title = "Atlas reads the note and suggests tags for you to approve";
+      meta.appendChild(askAtlas);
+    }
   }
   //: **What points at this note, on the card** (INBOX 246's third gap).
   //: Only when the counts for this page have landed; `ensureReferenceCounts`
@@ -3204,7 +3225,7 @@ function entryItem(entry, options = {}) {
   // it's obvious something is running on this specific card.
   if (entry.id === busyEntryId) {
     li.classList.add("entry-busy");
-    const busy = chip("Re-evaluating…", "busy");
+    const busy = chip("Atlas is reading…", "busy");
     busy.classList.add("chip-busy");
     // The shared spinner (ROADMAP Priority 0 #14) replaces this chip's own
     // one-off ring: .chip's own `gap` handles the spacing and vertical
@@ -5230,8 +5251,15 @@ function entryOverflowMenu(entry) {
 
     const aiItems = [
       {
-        label: "ph:arrows-clockwise Re-evaluate",
-        title: "Refresh this note's AI confidence and suggest tags & links",
+        //: **Named for what it does, not for what it is called internally**
+        //: (INBOX 292, the owner: "i feel like it is more than just
+        //: re-evaluating, and it is hidden away"). The route re-files the
+        //: note, refreshing its confidence and its category unless the person
+        //: filed it themselves, *and* suggests tags and links for them to
+        //: apply. "Re-evaluate" named the smallest part of that, and tags,
+        //: the part it is actually reached for, were not in the name at all.
+        label: "ph:sparkle Tag and file with Atlas",
+        title: "Atlas re-reads the note, suggests tags and links, and may refile it",
         run: () => reevaluateEntry(entry),
       },
       {
@@ -5411,7 +5439,7 @@ function entryOverflowMenu(entry) {
 // Ask the AI to re-evaluate one note, then show its suggestions inline.
 async function reevaluateEntry(entry) {
   closeActionMenus();
-  toast("Re-evaluating with AI…");
+  toast("Atlas is reading this note…");
   // Show a spinner on this exact card while the AI works.
   busyEntryId = entry.id;
   renderEntries();
@@ -5428,7 +5456,7 @@ async function reevaluateEntry(entry) {
   } catch (error) {
     busyEntryId = null;
     renderEntries();
-    toast(error.message || "Re-evaluate failed.", true);
+    toast(error.message || "Atlas could not read this note.", true);
   }
 }
 
@@ -5441,8 +5469,8 @@ function renderReevaluateResult(entry, wrap) {
   const head = document.createElement("p");
   head.className = "muted";
   head.textContent = data.recategorised_to
-    ? `Re-evaluated: confidence ${confidence}%, moved to “${data.recategorised_to}”.`
-    : `Re-evaluated: confidence now ${confidence}%.`;
+    ? `Read: confidence ${confidence}%, moved to “${data.recategorised_to}”.`
+    : `Read: confidence now ${confidence}%.`;
   wrap.appendChild(head);
 
   // Drop suggestions the user already applied (the card re-renders after each).

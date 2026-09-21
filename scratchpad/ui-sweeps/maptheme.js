@@ -345,6 +345,8 @@ const show = (o) => console.log("    " + JSON.stringify(o));
     };
   });
   show(chose);
+  check("and the dialog writes no inline style, which the CSP would refuse",
+    dialog.inlineStyles === 0, `${dialog.inlineStyles} inline style attributes`);
   check("picking a value in it changes what every untouched topic draws",
     chose.theme === "ellipse" && chose.drawn === "ellipse" && chose.stored === null,
     `theme ${chose.theme}, drawn "${chose.drawn}", the topic stores ${chose.stored}`);
@@ -424,6 +426,41 @@ const show = (o) => console.log("    " + JSON.stringify(o));
   check("every word in it is readable on the surface it is drawn on",
     readable.bad.length === 0,
     `worst ${readable.worst}:1 in ${readable.theme}` + (readable.bad.length ? ", " + readable.bad.join(", ") : ""));
+
+  //: **The bulk action, pressed** (CLAUDE.md section 6's second shape, "a
+  //: feature that never ran once"): its own button in the dialog's foot, then
+  //: the confirmation it opens, then the map.
+  await page.evaluate(async () => {
+    const node = wbMapIndex().nodes.find((n) => /Leaf 21/.test(n.data?.content || ""));
+    await wbMapSetNodeStyle(node, { shape: "rect" });
+    renderWhiteboardNow();
+  });
+  const footPressed = await page.evaluate(async () => {
+    const foot = document.querySelector(".wb-map-theme-foot button");
+    if (!foot) return { foot: false };
+    foot.click();
+    await new Promise((r) => setTimeout(r, 500));
+    const confirm = [...document.querySelectorAll(".confirm-overlay")]
+      .find((o) => /losing the colours/.test(o.textContent || ""));
+    if (!confirm) return { foot: true, confirm: false, label: foot.textContent.trim() };
+    const go = [...confirm.querySelectorAll("button")].find((b) => /Back to the map/.test(b.textContent));
+    go.click();
+    await new Promise((r) => setTimeout(r, 1600));
+    const node = wbMapIndex().nodes.find((n) => /Leaf 21/.test(n.data?.content || ""));
+    const el = document.querySelector(`.wb-object[data-id="${node.id}"]`);
+    return {
+      foot: true,
+      confirm: true,
+      label: foot.textContent.trim(),
+      stored: node.data?.shape ?? null,
+      drawn: el.dataset.shape || "",
+      themeKept: Boolean(wbMapTheme().shape),
+    };
+  });
+  show(footPressed);
+  check("the dialog's own button asks first, then brings every topic back",
+    footPressed.confirm && footPressed.stored === null && footPressed.themeKept,
+    `"${footPressed.label}": the topic stores ${footPressed.stored} and draws "${footPressed.drawn}"`);
 
   const ok = results.filter((r) => r.ok).length;
   console.log(`\n${ok}/${results.length} checks passed`);

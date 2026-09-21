@@ -1923,6 +1923,34 @@ header#top-bar select,
   margin: var(--space-2) 0 0;
 }
 
+/* **The citation number, on the record it points at** (INBOX 299, the owner:
+   "can the notes in the matching records that appear in the ask tab be
+   numbered accordingly to match the inline referencing??"). Measured before
+   this: five records, five marks in the prose, nought numbers in the column.
+
+   Pinned to the card's own top-left corner rather than flowed into it, the
+   same technique and for the same reason as `.row-expand`
+   (01-forms-settings.css): a record card holds a title, a paragraph, a file
+   row and a badge lane, any of which can be the first child, so a number in
+   normal flow would sit somewhere different on almost every row. Absolute
+   against the `<li>` puts every digit on one edge, which is the whole point
+   of numbering them.
+
+   The gutter is reserved rather than overlapped: the card's own `0.8rem`
+   side padding plus the mark's width (`.chat-source-index`'s `min-width`,
+   1.25rem) plus a gap. Only on a row that has a number, so an uncited record
+   keeps the full width of the column. */
+#raw-results li.is-numbered {
+  position: relative;
+  padding-left: calc(0.8rem + 1.25rem + var(--space-2));
+}
+
+#raw-results li > .record-index {
+  position: absolute;
+  left: 0.8rem;
+  top: 0.6rem;
+}
+
 .answer-grounding-label {
   font-size: var(--text-xs);
 }

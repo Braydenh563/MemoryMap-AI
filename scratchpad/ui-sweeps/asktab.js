@@ -406,15 +406,22 @@ function waitForFake() {
     const marks = [...document.querySelectorAll('#ai-answer .answer-citation')].map((m) => ({
       n: Number(m.textContent.replace(/\D/g, '')),
       noteId: m.dataset.noteId || m.querySelector('[data-note-id]')?.dataset.noteId || null,
+      label: (m.textContent || '').trim(),
     }));
     const rows = [...document.querySelectorAll('#raw-results li[data-id]')].map((li, i) => {
       const mark = li.querySelector('.chat-source-index, .record-index');
       const r = mark ? mark.getBoundingClientRect() : null;
+      // A number pinned into a gutter is only right if the gutter is really
+      // reserved: the row's own text must start to the right of the mark, not
+      // under it.
+      const body = li.querySelector('.entry-title, .entry-content');
+      const br = body ? body.getBoundingClientRect() : null;
       return {
         pos: i + 1,
         id: li.dataset.id,
         n: mark ? Number(mark.textContent.replace(/\D/g, '')) : null,
         visible: !!r && r.width > 0 && r.height > 0,
+        overlap: r && br ? Math.round((r.right - br.left) * 10) / 10 : null,
       };
     });
     return { marks, rows };
@@ -425,6 +432,12 @@ function waitForFake() {
   numbers.inlineMarks = cites.marks.length;
   console.log(`299 inline marks: ${cites.marks.length} ${JSON.stringify(cites.marks)}`);
   console.log(`299 record rows: ${cites.rows.length}, numbered: ${numbered} ${JSON.stringify(cites.rows)}`);
+  const overlapping = cites.rows.filter((r) => r.overlap !== null && r.overlap > 0.5);
+  numbers.recordNumberOverlaps = overlapping.length;
+  if (overlapping.length) {
+    findings.push(`299: ${overlapping.length} record number(s) drawn over the row's own text ` +
+      `(worst ${Math.max(...overlapping.map((r) => r.overlap))}px)`);
+  }
   if (!cites.marks.length) findings.push('299: no inline citation marks, so there is nothing to match');
   else if (!numbered) findings.push('299: the matching records carry no numbers at all');
   else {

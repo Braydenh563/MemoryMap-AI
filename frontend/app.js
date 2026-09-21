@@ -12531,6 +12531,12 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
       queue.unshift(node);
       const marker = document.createElement("sup");
       marker.className = "answer-citation";
+      //: Which note this digit stands for, on the element itself. The number
+      //: was the only thing on screen tying a mark to a source, so nothing
+      //: outside this function could check that the mark and the record row
+      //: it points at agree (INBOX 299), and `showCitedPassage` already reads
+      //: exactly this attribute off a source card.
+      marker.dataset.noteId = String(g.note_id);
       const link = document.createElement("button");
       link.type = "button";
       link.className = "answer-citation-link";
@@ -12650,6 +12656,41 @@ function renderRelatedElsewhere(target, items) {
   target.appendChild(row);
 }
 
+//: The citation number, printed on the record it belongs to (INBOX 299).
+//:
+//: Guarded on the Ask tab's own grounding holder: the Chat tab calls
+//: `renderAnswerGrounding` with a bubble's holder and has no records column,
+//: so without this a chat turn would renumber a column left over from the
+//: last question asked on the other tab.
+//:
+//: `.chat-source-index` rather than a mark of its own: the Sources panel
+//: already draws "this is source n" that way, and one treatment learnt once
+//: is the whole point of the recipe index. An uncited row gets no number
+//: rather than a placeholder, because a digit that matches nothing in the
+//: answer is worse than a row with none.
+function numberMatchingRecords(target, numberFor) {
+  if (!target || target.id !== "ai-answer-grounding") return;
+  const list = $("raw-results");
+  if (!list) return;
+  for (const li of list.querySelectorAll("li[data-id]")) {
+    li.querySelector(":scope > .record-index")?.remove();
+    const n = numberFor.get(Number(li.dataset.id)) ?? numberFor.get(li.dataset.id);
+    if (!n) {
+      li.classList.remove("is-numbered");
+      continue;
+    }
+    const mark = document.createElement("span");
+    mark.className = "chat-source-index record-index";
+    mark.textContent = String(n);
+    //: Said aloud as well as shown: a screen reader reading "3" against a
+    //: note has no way to know what the digit is counting.
+    mark.setAttribute("aria-label", `Source ${n} in the answer`);
+    mark.title = `The answer cites this note as ${n}`;
+    li.classList.add("is-numbered");
+    li.insertBefore(mark, li.firstChild);
+  }
+}
+
 //: `question`, when the caller knows it, is what turns a click into a
 //: correction: opening the third source after asking something is the one
 //: signal the search has that its own order was wrong (WORLD_CLASS_PLAN I7,
@@ -12684,6 +12725,18 @@ function renderAnswerGrounding(
   label.textContent = "Grounded in:";
   target.appendChild(label);
   const numberFor = citationNumbers(sentences, orderedSources);
+  //: **And the third place a digit is printed: the records column itself**
+  //: (INBOX 299, the owner: "can the notes in the matching records that
+  //: appear in the ask tab be numbered accordingly to match the inline
+  //: referencing??"). Measured before this: five records on screen, five
+  //: marks in the prose, and nought numbers in the column, so the two lists
+  //: could only be read against each other by matching the words.
+  //:
+  //: From `numberFor`, here, rather than by numbering the column separately:
+  //: that map is already what the markers, the chips and the Sources panel
+  //: print, and a fourth loop deriving "the same" order is exactly how the
+  //: first three came to disagree (see `citationNumbers`' own comment).
+  numberMatchingRecords(target, numberFor);
   //: Drawn in the order the digits run, not in the order the sentences
   //: happened to arrive: a key whose rows read 2, 1, 3 is a key you have to
   //: search rather than read.

@@ -32229,6 +32229,43 @@ row and head of different lengths).
     HANDOVER rather than built. **Fixed** (the reading half; the decision is
     the owner's).
 
+290. **The owner, 2026-09-21, verbatim:** "when I click on a header row in a
+    table on the live view in documents page, another row appears below it
+    until I click off, and I cant click the meatball button on the end of
+    the row". Screenshot shows a table titled "Example Table" with an empty
+    band between the header and the first data row, and the kebab at the
+    header's right edge. Two faults or one: a phantom row on focus, and a
+    control that cannot be pressed.
+
+    **One fault, 2026-09-21, measured rather than reasoned**
+    (`scratchpad/ui-sweeps/doctable290.js`, 10 of 10 after the fix). Clicking
+    the header row does not add a row: at 1440 in light the table drew three
+    rows with gaps of 0, 0 and 0 and was 0px taller focused than unfocused,
+    and the delimiter line stayed 0px high through a click at the top, the
+    middle and the bottom edge of the header and through an ArrowDown, which
+    steps over it. What the press did was this: `openActionMenu` shows the
+    popup, measures it and, when it would be clipped, moves it out to
+    `<body>`, and `DocTableMenuWidget` did not declare `ignoreMutation`, so
+    CodeMirror read all three as the document changing under it, rebuilt the
+    view and blurred the editor. Measured before the fix: after one press
+    `.cm-editor.cm-focused` was gone, the widget was unmounted, and the
+    200x402 menu was left standing at y=374 against a header whose bottom
+    edge is 370, with no opener. That is one bug wearing both of the
+    report's faces: an unanchored panel directly below the header row is the
+    band in the screenshot, and an opener that disappears on mousedown is the
+    button that cannot be pressed. Three changes, all in `documents.js`: the
+    widget claims its own mutations, it closes a menu it is being removed
+    with, and the decoration draws the kebab when the caret is in the table
+    **or** that table's own menu is open (`menuHeld`, read off the opener's
+    `aria-expanded`, which `openActionMenu` sets before anything it does can
+    move focus). `tests/test_table_menu_widget.py` holds all three shapes,
+    because none of them is visible to a test that cannot run a browser.
+    Not verified: the owner's own width, theme and table. The probe is one
+    3-column table at 1440 in light, and the earlier `mousedown`
+    preventDefault in `docTableMenu` (the first report of this button) is
+    left in place rather than removed, since it is what keeps the caret in
+    the row the commands act on.
+
 ## INBOX resolved, 2026-09-21
 
 286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the

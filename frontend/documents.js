@@ -6083,6 +6083,26 @@ function docLivePlugin(CM) {
     ignoreEvent() {
       return true;
     }
+    //: **And it must not read the menu's own DOM work as the document
+    //: changing under it** (INBOX 290). `openActionMenu` shows the popup,
+    //: measures it and, when it would be clipped, reparents it to `<body>`;
+    //: every one of those is a mutation inside this widget, and a widget that
+    //: does not claim its mutations makes CodeMirror re-read the content DOM,
+    //: which rebuilt the view and blurred the editor. Measured before the fix:
+    //: after one press, `.cm-editor.cm-focused` was gone, the widget was
+    //: unmounted, and the menu was left standing under the header row with no
+    //: opener, which is both halves of the report ("another row appears below
+    //: it", "I cant click the meatball button").
+    ignoreMutation() {
+      return true;
+    }
+    //: A menu whose opener is being removed has to close with it, or it is
+    //: left floating over the document.
+    destroy(dom) {
+      if (dom && dom.querySelector(".action-menu:not(.hidden)") && typeof closeActionMenus === "function") {
+        closeActionMenus();
+      }
+    }
     toDOM() {
       const wrap = docTableMenu(this.context);
       wrap.classList.add("cm-md-table-menu");
@@ -6772,6 +6792,19 @@ function docLivePlugin(CM) {
         if (!table) continue;
         for (const row of table.rows) tableSeen.add(doc.lineAt(row.from).number);
         const inTable = focused && sel.from <= table.to && sel.to >= table.from;
+        //: **An open menu holds its own opener on screen** (INBOX 290). The
+        //: menu is drawn from `focused`, and pressing the kebab can take
+        //: focus out of the editor, so without this the act of opening the
+        //: menu removed the button that opened it. `aria-expanded` is set by
+        //: `openActionMenu` before anything it does can move focus, so it is
+        //: true by the time this recomputes. The selection is still inside
+        //: the table (nothing moved it), so the menu's commands still act on
+        //: the row the person left the caret in.
+        const menuHeld =
+          !focused &&
+          sel.from <= table.to &&
+          sel.to >= table.from &&
+          !!view.dom.querySelector('.cm-md-table-menu [aria-expanded="true"]');
         for (let r = 0; r < table.rows.length; r += 1) {
           const row = table.rows[r];
           const rule = r === table.delim && !touched(row.from, row.to);
@@ -6816,7 +6849,7 @@ function docLivePlugin(CM) {
           //: controls sit in every editor the plan names, and is drawn out of
           //: the grid's flow by its class so it cannot become a column of its
           //: own.
-          if (r === 0 && inTable) {
+          if (r === 0 && (inTable || menuHeld)) {
             const cell = docTableCellAt(table, sel.from) || { row: 0, col: 0 };
             //: The *view's* own surface, not the document's: this plugin is
             //: mounted in every note editor too (Phase 8), and a menu that

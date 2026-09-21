@@ -434,6 +434,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Opening the guide's '?' and pressing Escape no longer leaves the explanation
   stranded on screen after the panel it belongs to has closed.
+### Fixed
+
+- The table menu in a document's live view survives being pressed. Clicking a
+  table's header row draws a small menu button at its right end, and pressing
+  it used to unmount the button and leave the menu standing under the header
+  row with nothing to close it, which read as an extra empty row and as a
+  button that did nothing. Two causes, both measured: the menu's own work
+  (showing, measuring and, when it would be clipped, moving itself out to the
+  page) was read by the editor as the document changing under it, and the
+  blur that followed removed the button the person had just pressed. The menu
+  now claims its own work, an open menu holds its button on screen, and a
+  button taken away closes the menu with it.
+
 ### Added
 
 - A writing suggestion's underline answers the pointer. Resting on one now

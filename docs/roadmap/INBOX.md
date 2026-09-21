@@ -327,14 +327,6 @@ with its owner named in the entry.
     the question (`ai/extractive.py`). The standing half, refinement, is the
     session's own order of work from here.
 
-290. **The owner, 2026-09-21, verbatim:** "when I click on a header row in a
-    table on the live view in documents page, another row appears below it
-    until I click off, and I cant click the meatball button on the end of
-    the row". Screenshot shows a table titled "Example Table" with an empty
-    band between the header and the first data row, and the kebab at the
-    header's right edge. Two faults or one: a phantom row on focus, and a
-    control that cannot be pressed.
-
 302. **Found by the repository read, 2026-09-21 (the session, not the owner):
     a decision for the owner.** needle (cactus-compute, Apache-2.0 for both
     the code and the Hugging Face weights) is a 14MB tool-calling and

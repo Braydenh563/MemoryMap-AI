@@ -104,10 +104,18 @@ const { boot } = require('./lib.js');
   await page.click('#notes-subtabs button[data-section="capture"]');
   await page.waitForTimeout(700);
   await page.click('#entry-content');
-  //: A delay per character on purpose: typed at full speed the menu's own
-  //: refresh loses a keystroke and the menu shows the unfiltered shortlist,
-  //: which is a sweep measuring its own typing rather than the app.
-  await page.type('#entry-content', '/board', { delay: 60 });
+  await page.waitForTimeout(900);
+  // **Type where the person types.** Focusing the capture box mounts the
+  // engine over it (`NOTE_SURFACES` in documents.js), so the textarea is the
+  // form's value carrier and no longer the editing surface: typing into it
+  // directly diverges from CodeMirror's own document and throws "Selection
+  // points outside of document" on the next update. Measured: that error
+  // appeared on a fresh notebook and nowhere a user could reach it.
+  const composer = (await page.$('.note-surface .cm-content')) ? '.note-surface .cm-content' : '#entry-content';
+  // A delay per character on purpose: typed at full speed the menu's own
+  // refresh loses a keystroke and the menu shows the unfiltered shortlist,
+  // which is a sweep measuring its own typing rather than the app.
+  await page.type(composer, '/board', { delay: 60 });
   await page.waitForTimeout(900);
   const menu = await page.evaluate(() => {
     const el = document.getElementById('editor-menu');

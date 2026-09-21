@@ -61,3 +61,8 @@ port 8793, data dir `/tmp/mm-noteobj`.
 - `<hash>` Docs: DOCUMENTS_PLAN section 19 (the read, what was built, five
   decisions, what was deliberately not done), DESIGN.md recipe row for an
   embedded surface, its lint in `tests/test_ui_recipes.py`, CHANGELOG.
+- `<hash>` The `set_reminder` tool's description now says what `note_id` is
+  for, so a reminder Atlas makes out of a note keeps the note. The sweep
+  types through the engine (`.note-surface .cm-content`) rather than into the
+  textarea behind it, which is what a person does and which removed a
+  "Selection points outside of document" the old path caused.

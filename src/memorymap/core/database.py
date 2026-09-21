@@ -1084,6 +1084,31 @@ class PageRead(Base):
     #: Which model wrote `caption`, surfaced in the UI for the same reason
     #: `model` is: a description is one model's guess, not the app's opinion.
     caption_model: Mapped[str] = mapped_column(String(200), default="")
+    #: **Where the optical reader saw each block on this page**, as the JSON
+    #: body of an `OcrRegionsOut` (width, height, regions). Empty when nothing
+    #: optical has looked at this page.
+    #:
+    #: Reported (INBOX 314): *"the tesseract generates it continuously not only
+    #: the first time or when prompted by the iser"*. The regions route ran
+    #: Tesseract on every request and kept nothing, and the workspace asks it
+    #: again every time the page on screen changes, which in scroll mode is
+    #: every page you scroll past. Where a block sits on a page is a property
+    #: of that page, so it is stored beside that page's reading rather than
+    #: worked out again for every look.
+    #:
+    #: **Not a reading, and deliberately not stored as one.** `text` above is a
+    #: transcription somebody asked for; this is what the reader saw while the
+    #: page was merely on screen. The Files row's "N pages read" badge and
+    #: `_page_read_text_map` are built on `text`, and a look must not inflate
+    #: either, so this gets its own column rather than filling that one.
+    #:
+    #: Cleared whenever the page is read again (`_remember_page_read`), and
+    #: taken with the row when the reading is deleted: a cache that outlives
+    #: what it caches is a lie about the page.
+    #:
+    #: Additive with a scalar default, so the auto-migrator backfills every
+    #: existing `page_reads` row with `""`, the same treatment `caption` had.
+    regions: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

@@ -75,22 +75,21 @@ being written by running agents stay beside this one.
   offer to 0, 0 open offers to 1 ("Today's document"), the calendar glyph on
   the row. Not built, deliberately: a "Today" button in the documents dock, a
   third door onto one page. [documents-phase4.md]
-- **Found, not fixed: `scratchpad/ui-sweeps/docexports.js` fails on a click
-  timeout and has for a while.** It times out at line 101 clicking
-  `#doc-export-docx`, whose comment says "the row lives in the document's ⋯
-  menu, which is a `<details>`" and opens that. Measured on the branch head:
-  the row's runtime parent is a `.action-menu` (`BUTTON#doc-export-docx` in
-  `DIV.action-menu` in `DIV.menu-group` in `DIV.doc-dock-menu-list` in
-  `DETAILS#doc-dock-menu`), the `<details>` opens fine, and the row still
-  measures 0x0 at 0,0 because the `.action-menu` inside it is `kebabMenu`'s
-  own hidden submenu and nothing opens that. **Not caused by this session**:
-  the sweep fails identically with `frontend/app.js`, `documents.js`,
-  `editor.js` and the five stylesheets checked out at 71a0197, the fork point,
-  which is the way to tell a stale probe from a regression. The fix is one
-  line in the probe, open the submenu as well as the `<details>`, and it needs
-  whoever knows which control is meant to open it in the app. `docxextra.js`
-  covers the same 501 message and passes, so the behaviour is not what is
-  broken. [documents-phases.md]
+- ~~**Found, not fixed: `scratchpad/ui-sweeps/docexports.js` fails on a click
+  timeout.**~~ **Fixed 2026-09-21**, and the diagnosis above was right about
+  everything but the opener. The control that opens that submenu is the
+  group's own trigger: `foldDocMenuGroup` (documents.js) moves the five
+  download rows at load into a "Download or print" group, and
+  `buildMenuGroupButton` reparents the flyout to `<body>` so it can escape the
+  menu's clipping, which is why `row.closest("details")` is null and why
+  opening the `<details>` off the row opened nothing. The probe now opens
+  `#doc-dock-menu` by its own id and clicks the trigger, matched by its label
+  rather than by position, because three groups are folded into that menu
+  ("Download or print", "Editor and layout", "While you write") and the
+  download one is not the first. A new assertion holds that the group opened
+  before the row is clicked, so this cannot rot silently again. Measured
+  against a live app on the branch head: 7 of 7 pass, 0 console errors.
+  [documents-phases.md]
 - **The templates gallery offers a description, not a preview of the page.**
   Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
   sections, sources, timeline." The plan's words are "offered with a preview",

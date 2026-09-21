@@ -90,13 +90,35 @@ const ok = (name, condition, detail) => {
   } else {
     ok("without the extra the answer names the package",
       word.status === 501 && /python-docx/.test(word.detail), JSON.stringify(word));
-    // The row lives in the document's ⋯ menu, which is a `<details>`: a click
-    // on a row inside a closed one times out on "element is not visible".
+    // Two doors, not one. The row is written inside the document's ⋯ menu,
+    // which is a `<details>`, but `foldDocMenuGroup` moves the five download
+    // rows into a "Download or print" group at load, and that group's flyout
+    // is reparented to `<body>` so it can escape the menu's clipping. So the
+    // row's runtime parent is the flyout, `row.closest("details")` is null,
+    // and opening the `<details>` off the row (what this did) opened nothing
+    // and the click timed out on "element is not visible". Open the
+    // `<details>` by its own id, then click the group trigger, which is what
+    // a person does.
     await page.evaluate(() => {
-      const row = document.getElementById("doc-export-docx");
-      const menu = row.closest("details");
+      const menu = document.getElementById("doc-dock-menu");
       if (menu) menu.open = true;
     });
+    await page.waitForTimeout(200);
+    const opened = await page.evaluate(() => {
+      const row = document.getElementById("doc-export-docx");
+      if (!row) return "no row";
+      const panel = row.closest(".action-menu.submenu");
+      if (!panel) return "not in a flyout";
+      // By label, not by position: three groups are folded into this menu
+      // ("Download or print", "Editor and layout", "While you write") and
+      // the first one is not this one.
+      const trigger = [...document.querySelectorAll("#doc-dock-menu .menu-item.has-submenu")]
+        .find((el) => /download/i.test(el.textContent));
+      if (!trigger) return "no trigger";
+      trigger.click();
+      return panel.classList.contains("hidden") ? "still hidden" : "open";
+    });
+    ok("the download group opens off the ⋯ menu", opened === "open", opened);
     await page.waitForTimeout(200);
     await page.click("#doc-export-docx");
     await page.waitForTimeout(700);

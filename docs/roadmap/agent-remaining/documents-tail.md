@@ -44,9 +44,17 @@ the live view's code fence (15), a "Today" button in the documents dock (14).
    already: `SELECTION_POPUP_EXCLUDED` is
    `"input, textarea, [contenteditable], .selection-popup"`, so the selection
    popup cannot be raised from a form field at all.
-3. **`docexports.js` is stale and fails on a click timeout**, with the
-   measurement in OPEN.md. Not a regression: it fails identically with the
-   frontend checked out at the fork point.
+3. ~~**`docexports.js` is stale and fails on a click timeout.**~~ Fixed
+   2026-09-21. The cause was the one named here: the five download rows are
+   written inside the ⋯ menu's `<details>`, but `foldDocMenuGroup` moves
+   them at load into a "Download or print" group whose flyout is reparented
+   to `<body>`, so the row's runtime parent is the flyout,
+   `row.closest("details")` is null, and the probe opened nothing before
+   clicking. It now opens the `<details>` by its own id and clicks the group
+   trigger, found by its label rather than by position, because three groups
+   are folded into that menu and the download one is not the first. A new
+   assertion holds the group open before the row is clicked. Measured
+   against a live app: 7 of 7 pass, 0 console errors.
 4. **A placement must never cover the rect it is anchored to.** From
    `spellwide2.js`'s table-cell case: a word at `655..707` in an editor whose
    visible box ends at `572`, with the menu at `440..717`, read as a 0px gap

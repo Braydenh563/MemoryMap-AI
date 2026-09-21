@@ -366,45 +366,19 @@ def test_the_ask_foot_does_not_redraw_the_records_column():
         "the foot has to know which notes the records column is showing, or "
         "it cannot tell a duplicate from a source that has nowhere else to be"
     )
-    assert "askSourcesLine(" in foot, "the line that replaces the cards"
+    #: **And no control for the notes it is already showing** (the owner,
+    #: 2026-09-21: "remove the show x notes used button in the ask subtab as
+    #: well, it isnt needed"). The button counted the notes the column holds
+    #: and scrolled to the first one the answer cites, which is a second door
+    #: to a list already on screen beside the answer, carrying the answer's own
+    #: numbers on its rows. Asserted as an absence because a helpful edit would
+    #: put it back: the split above is the feature, not the button.
+    assert "askSourcesLine" not in APP, (
+        "the notes the records column already shows get no button of their own"
+    )
     assert "elsewhere" in foot, (
         "a source the column does not hold still needs a card; dropping all of "
         "them would lose the files and web pages an answer drew on"
-    )
-
-    line = APP[APP.index("function askSourcesLine(") :]
-    line = line[: line.index("\n}\n")]
-    #: The words the owner will read, and the plural, since "1 notes" is the
-    #: sort of thing that survives a review and then gets reported.
-    assert '"note" : "notes"' in line, "the line says note or notes"
-    #: **It stopped saying where the notes are, on purpose** (INBOX 300, the
-    #: owner with a screenshot: "fix the ui of this sources button in the ask
-    #: tab"). It read "Sources: 10 notes, on the right", which described a
-    #: location rather than doing anything, and the location was a claim the
-    #: line could not keep: the column is not on the right on a phone, and on
-    #: a desktop it can be below the fold. A control that only points is not a
-    #: control. So the words went and the behaviour stayed, and this asserts
-    #: the behaviour plus the absence of the claim, which is the part a future
-    #: edit would most easily put back.
-    assert "on the right" not in line, (
-        "the line no longer tells the reader where to look; it takes them "
-        "there, and the column is not on the right at every width"
-    )
-    assert "askRevealRecords(" in line, (
-        "the line is a button because it does something: it reveals the "
-        "records column and the note the answer cited"
-    )
-    assert "raw-results" in line, (
-        "and it names what it controls, so a screen reader reads it as a "
-        "control over that column rather than as a sentence"
-    )
-
-    reveal = APP[APP.index("function askRevealRecords(") :]
-    reveal = reveal[: reveal.index("\n}\n")]
-    assert "scrollIntoView" not in reveal, (
-        "DESIGN.md: a row is brought into view through the scrolling box's own "
-        "scrollTop; scrollIntoView walks every ancestor including the page, "
-        "which takes the answer off screen while you look at its sources"
     )
 
 

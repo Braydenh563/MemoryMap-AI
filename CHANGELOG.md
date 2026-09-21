@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Ask tab's "show the N notes used" button is gone. It counted the notes
+  the Matching records column is already showing and scrolled to the first one
+  cited, which is a second door to a list on screen beside the answer that
+  already carries the answer's own numbers on its rows. Sources the column
+  does not hold, a file or a web page, keep their cards.
 - The Ask tab's progress indicator is inside the answer, not above it. The
   dots, "the model is thinking" and the rotating line were drawn above the AI
   ANSWER heading while the bubble underneath held a second set of dots and

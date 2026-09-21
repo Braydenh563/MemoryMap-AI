@@ -13246,20 +13246,21 @@ function renderAskAnswerFoot(object, meta) {
   //: is notes. Those keep the panel, and keep their own numbers, so a citation
   //: marker in the answer still points at the row it names.
   const elsewhere = object.sources.filter((source) => !here.includes(source));
-  const line = here.length ? askSourcesLine(here.length, here[0]?.id ?? null) : null;
-  if (line) sources.appendChild(line);
+  //: **No control for the notes the column is already showing** (the owner,
+  //: 2026-09-21: "remove the show x notes used button in the ask subtab as
+  //: well, it isnt needed"). It counted them and scrolled to the first one
+  //: cited, which is a second door to a list that is already on screen beside
+  //: the answer and carries the answer's own numbers on its rows. A control
+  //: that leads to what you can already see is furniture.
   const panel = elsewhere.length
     ? chatSourcesPanel({ sources: elsewhere, meta, numberFrom: object.sources })
     : null;
   if (panel) sources.appendChild(panel);
-  sources.classList.toggle("hidden", !line && !panel);
+  sources.classList.toggle("hidden", !panel);
 
   foot.classList.toggle(
     "hidden",
-    !object.related.length
-      && !line
-      && !panel
-      && $("ask-followups").classList.contains("hidden")
+    !object.related.length && !panel && $("ask-followups").classList.contains("hidden")
   );
 }
 
@@ -13270,33 +13271,6 @@ function askNotesOnTheRight() {
   return new Set([...rows].map((row) => row.dataset.id));
 }
 
-//: One control where the cards were: what the answer drew on, and the way to
-//: it. A button rather than a sentence, because it does something: the column
-//: can be below the fold on a short window.
-//:
-//: **It says what pressing it does, not where something is** (INBOX 300, the
-//: owner: "fix the ui of this sources button in the ask tab"). It read
-//: "Sources: 10 notes, on the right", which is a description of the layout: a
-//: control whose label is a fact about where to look is not a control, and at
-//: 525px in a 525px column it did not look like one either. The count is kept,
-//: because it is the fact worth having; the verb is what makes it pressable.
-//:
-//: `firstCited` is the note the answer cites as 1, now that the records carry
-//: the answer's own numbers (INBOX 299): pressing this lands on the record
-//: the answer starts from rather than on the top of the column, which is the
-//: same row on a short answer and a screenful apart on a long one.
-function askSourcesLine(count, firstCited = null) {
-  const line = document.createElement("button");
-  line.type = "button";
-  line.className = "ghost small ask-sources-line";
-  setLabel(line, `ph:books Show the ${count} ${count === 1 ? "note" : "notes"} used`);
-  line.title = "Bring Matching records into view, at the first note this answer cites";
-  //: Named, not just described: the control and the list it moves are two
-  //: halves of one thing, and this is the only thing on the page that says so.
-  line.setAttribute("aria-controls", "raw-results");
-  line.addEventListener("click", () => askRevealRecords(firstCited));
-  return line;
-}
 
 //: Into view through the nearest scrolling ancestor's own `scrollTop`, which
 //: is DESIGN.md's rule: `scrollIntoView` walks every scrolling ancestor up to

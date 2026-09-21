@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A mind map now answers the two gestures anybody tries on a blank part of it.
+  A right-click on empty canvas opens a short menu of the things that apply to
+  the map itself: add a topic here, tidy it, open every folded branch, fit
+  everything. A double-click makes a new trunk where the pointer was, ready to
+  be typed, and it stays where it was put. Both did nothing at all before.
 - A mind map now says which of its two kinds of connection it is talking
   about, everywhere it talks about one. A branch and a cross-link get the same
   ring, which names the kind it is on and offers the right three things for

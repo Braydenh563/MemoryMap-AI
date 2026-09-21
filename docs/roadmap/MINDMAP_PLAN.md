@@ -995,10 +995,19 @@ topic: a control that wide has nowhere to go.
   §12.0 promised and Coggle is known for; then a map-level default for new
   topics. Gate: each layout laid out and measured for overlap at 12 and 200
   topics, and `maptidy.js` still clean at 1440 and 390.
-- **13f. The doors that are built and shut.** The Insert menu's eight items
-  and the Arrange menu are in a map's top bar with no opener: remove them from
-  a map or give them a door. Gate: the route-split count shows no control in
-  a map's top bar that has no way to be reached.
+- ~~**13f. The doors that are built and shut.**~~ **Withdrawn 2026-09-21, and
+  a different thing built in its place**, recorded in HISTORY.md ("Moved from
+  the plans, 2026-09-21", "the two gestures a blank map did not answer").
+  Re-measured: `wbSyncMapChrome` sets `hidden` on the Insert and Arrange wraps
+  on a map, and that takes the menu inside the wrap with it, so their 8 and 10
+  controls are neither drawn nor exposed to a screen reader. Dead markup on a
+  map, not a shut door. What the counting *did* find is that a map's canvas
+  answered neither of the two gestures anybody tries on a blank part of it: a
+  right-click opened nothing and a double-click added nothing. Both now do,
+  and `mapdoors.js` (7/7, 3/7 on base, in the gate's sweep list) holds them
+  plus the door count and the naming rule. **What is left**: the Insert and
+  Arrange markup is still in the bar for a map to carry, which is a tidy-up,
+  not a user-visible bug.
 
 ### Not verified, and to be taken first by whoever opens this
 

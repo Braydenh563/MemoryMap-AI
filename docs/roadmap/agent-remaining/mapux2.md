@@ -21,11 +21,19 @@
   is marked as one before its first paint rather than at the next reload.
   `maptwokinds.js` 10 checks to 16, 16/16, six failing on base.
 
+- **The map's canvas answers a right-click and a double-click** (§13, in
+  place of the withdrawn 13f). `mapdoors.js`, new, 7/7 and 3/7 on base, in
+  `scripts/gate.sh`'s sweep list.
+
 ## Left to do
 
 - The rest of section 13's phases, in the plan's own order.
 
 ## Found, not fixed
+
+- **The Insert and Arrange menus are still in a map's top bar markup**, 18
+  controls, hidden with their wraps by `wbSyncMapChrome`. Not drawn, not
+  exposed, dead on a map. A tidy-up, not a bug.
 
 - **A right-click on a selected cross-link's bend grip does nothing.** The
   grip takes the press (measured: `circle.wb-link-bend-handle` under the

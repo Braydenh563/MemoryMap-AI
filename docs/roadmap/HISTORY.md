@@ -9,6 +9,46 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From MINDMAP_PLAN.md section 13: the two gestures a blank map did not answer
+
+Built 2026-09-21. §13.3 counted the doors into the map's tools and found them
+few and one-way; what it did not ask is what the canvas itself answers.
+Measured: a **right-click on empty map canvas opened nothing at all**, and a
+**double-click added no topic** (7 topics before, 7 after). Those are the
+first two things anybody tries on a blank part of a mind map, and on a map
+both were dead. The rail's "Add a top-level topic" was the only route to a
+second trunk, and it puts the trunk wherever the layout decides.
+
+- **Right-click** opens the map's own menu through `openMenuAtPoint`, the
+  app's pointer-menu recipe, with four rows in words: add a topic here, tidy
+  the map, open every folded branch (with the count when there are any), and
+  fit everything. A topic and a line stop the event before it gets here, so
+  each of the three subjects has exactly one menu.
+- **Double-click** makes a trunk where the pointer was, pinned and open for
+  typing. Pinned because the position is a decision made with the pointer,
+  which is the same bargain `wbMapPinOnDrag` strikes for a dragged node;
+  without it the next tidy would move the new trunk off the spot just chosen.
+  Measured: 0 and 21px from the press.
+
+Neither adds a resting affordance to the canvas, which §13's decision 5
+refuses.
+
+`scratchpad/ui-sweeps/mapdoors.js` is new, 7/7, **3/7 on the base branch**,
+and registered in `scripts/gate.sh`'s sweep list. It also carries the two
+counts §13.3 is written from, re-measured on this head: a map's top bar has 9
+controls on screen and 60 in its menus, the rail 13, the strip 4 (plus the
+three doors' contents), and every one of the 22 on the bar and the rail has
+both an `aria-label` and a `title`, which is DESIGN.md's icon-only rule.
+
+**§13.3's "two menus built into a map's top bar with no opener" is withdrawn
+as written.** Re-measured: `wbSyncMapChrome` sets `hidden` on the Insert and
+Arrange wraps on a map, and `hidden` takes the menu inside the wrap with it,
+so their 8 and 10 controls are neither drawn nor exposed to a screen reader.
+They are dead markup on a map, not a shut door, and `mapdoors.js` asks the
+question that matters instead: no menu in a map's top bar is exposed while
+its toggle is gone.
+
+
 ### From MINDMAP_PLAN.md section 13c: one vocabulary for two connections
 
 Built 2026-09-21. Section 13.2 measured what the owner's "there are two types

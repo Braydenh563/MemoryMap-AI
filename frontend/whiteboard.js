@@ -5550,6 +5550,31 @@ async function wbMapAddChild(parentId) {
   return created;
 }
 
+//: **A new trunk where the person pointed** (MINDMAP_PLAN §13, the owner:
+//: the map's tools "dont show themselves how id expect"). Double-clicking
+//: empty canvas is how a new topic is made in Coggle, XMind and every
+//: whiteboard in this app's own reference list, and on a map it did nothing
+//: at all: measured, 3 topics before and 3 after. The rail's "Add a
+//: top-level topic" was the only route, and it puts the new trunk wherever
+//: the layout decides.
+//:
+//: Pinned, because the position is a decision the person made with the
+//: pointer: that is the same bargain `wbMapPinOnDrag` strikes for a dragged
+//: node, and without it the next tidy would move the new trunk away from the
+//: spot that was just chosen.
+async function wbMapAddRootAt(x, y) {
+  const created = await wbMapCreateNode({ parentId: null });
+  if (!created) return null;
+  created.x = Math.round(x - (created.width || WB_MAP_NODE_W) / 2);
+  created.y = Math.round(y - (created.height || WB_MAP_NODE_H) / 2);
+  created.data = { ...created.data, pinned: true };
+  await wbSaveObject(created);
+  selectWbItem("object", created.id);
+  renderWhiteboardNow();
+  wbMapEditNode(created.id);
+  return created;
+}
+
 //: Add a child that **points at something the library already holds**
 //: (MINDMAP_PLAN.md §5 item 11).
 //:
@@ -12331,6 +12356,63 @@ async function initWhiteboard() {
     e.preventDefault();
     e.stopPropagation();
     wbFitToText(handle.closest(".wb-object, .node-card"));
+  });
+
+  //: **The two gestures a map has to answer on its own canvas** (MINDMAP_PLAN
+  //: §13, the owner: the tools "dont show themselves how id expect"). Both
+  //: were measured doing nothing at all before this: a right-click on empty
+  //: map canvas opened no menu, and a double-click added no topic, so the
+  //: first two things anybody tries on a blank part of a mind map were dead.
+  //: Neither adds a resting affordance to the canvas (§13's decision 5); both
+  //: are the app's own recipes, `openMenuAtPoint` for the menu and the map's
+  //: own create for the topic.
+  containerEl.addEventListener("dblclick", (e) => {
+    if (!wbIsMap() || window.currentTool !== "select") return;
+    if (!wbIsEmptyCanvasTarget(e.target) || wbIsEditingTarget(e.target)) return;
+    e.preventDefault();
+    const [x, y] = getLogicalMouse(e);
+    wbMapAddRootAt(x, y);
+  });
+
+  //: One builder for the canvas menu, because the right-click and the hold
+  //: are the same menu and a second copy is how the two come to disagree
+  //: (DESIGN.md: every `contextmenu` listener is counted against a
+  //: `wireLongPress` call in the same file, and `tests/test_ui_recipes.py`
+  //: fails a right-click menu with no long-press twin).
+  const openMapCanvasMenu = (clientX, clientY) => {
+    const [x, y] = getLogicalMouse({ clientX, clientY });
+    const index = wbMapIndex();
+    const folded = index.nodes.filter((n) => n.data?.collapsed).length;
+    const items = [
+      makeMenuItem("ph:plus-circle Add a topic here", "A new trunk, where you pressed", () => wbMapAddRootAt(x, y)),
+      makeMenuItem("ph:broom Tidy the map", "Lay every unpinned topic out again", () => wbMapTidy()),
+      makeMenuItem(
+        folded ? `ph:arrows-out-line-vertical Open every folded branch (${folded})` : "ph:arrows-out-line-vertical Open every folded branch",
+        folded ? "This map has folded branches" : "Nothing is folded on this map",
+        () => wbMapExpandAll()
+      ),
+      makeMenuItem("ph:frame-corners Fit everything", "Show the whole map", () =>
+        document.getElementById("wb-zoom-fit")?.click()
+      ),
+    ];
+    openMenuAtPoint(items, "This map", clientX, clientY);
+  };
+
+  const wbMapCanvasMenuWanted = (target) =>
+    wbIsMap() && wbIsEmptyCanvasTarget(target) && !wbIsEditingTarget(target);
+
+  containerEl.addEventListener("contextmenu", (e) => {
+    //: A topic and a line have rings of their own, and both stop the event
+    //: before it reaches here; this is the canvas itself, which had nothing.
+    if (!wbMapCanvasMenuWanted(e.target)) return;
+    e.preventDefault();
+    openMapCanvasMenu(e.clientX, e.clientY);
+  });
+
+  //: The same menu from a hold, which is the right-click a phone has.
+  wireLongPress(containerEl, (event, point) => {
+    if (!wbMapCanvasMenuWanted(event.target)) return;
+    openMapCanvasMenu(point.x, point.y);
   });
 
   containerEl.addEventListener("pointermove", (e) => {

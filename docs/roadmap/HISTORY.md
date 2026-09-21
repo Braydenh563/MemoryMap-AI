@@ -31652,6 +31652,58 @@ row and head of different lengths).
     the menu carries "Tag and file with Atlas" with no row still called
     re-evaluate.
 
+304. **The owner, 2026-09-21, verbatim, with a screenshot:** "the help bot
+    is useless, or the suggested questions are bad or both. also it didnt use
+    my utiliity model". The screenshot shows the Atlas guide answering "Where
+    do reminders live?" with "I'm not sure where reminders live. Please check
+    the Help topics above this chat", offering Notes and What it remembers as
+    its sources. Reminders are a surface of this app, so the guide failing on
+    that question is not a hard question failing, it is the guide failing at
+    its own job. Three things to separate before fixing anything: whether the
+    help corpus even contains reminders, whether retrieval found it and the
+    answer discarded it, and whether the suggested questions are drawn from
+    what the corpus can actually answer. The utility model half is INBOX 288,
+    which an agent addressed tonight; re-measure on the current head before
+    treating it as still open.
+
+    **Fixed, with the measurement** (`59985b9`, `322b7b9`, `b71f56b`,
+    `8e44c13`, `d22ed70`). All three causes separated before anything was
+    changed, and two of the three were real.
+
+    1. The corpus did contain reminders, and had all along.
+    2. Retrieval never reached it. The keyword is "reminder", the pattern was
+       `\breminder\b`, and the plural he typed does not match it. Nothing
+       matched, so the open tab's own topics filled in, which is exactly the
+       Notes and What it remembers in his screenshot. Every plural had the
+       same hole: documents, notes, spaces, backups. Keywords now take the
+       plural, the possessive and -y to -ies, and a tab's topics are a
+       fallback for a question that names nothing rather than padding for one
+       that names its subject.
+    3. The suggested questions were hand-written and checked against nothing.
+       "Where do reminders live?" was the first of the three. They are now
+       tab-aware (`ATLAS_TAB_STARTERS`, keyed as `AGENT_TAB_STARTERS` is) and
+       `test_every_question_the_app_offers_to_ask_atlas_is_answerable` reads
+       both tables in `frontend/app.js` against the corpus, so one that cannot
+       be answered fails the build. All thirty land on the topic they are
+       about.
+
+    Measured in a browser, port 8803, no model: "Where do reminders live?"
+    answers with the Reminders help text and names Reminders as its only
+    source. Two more found on the way: the composer carried
+    `data-needs-model`, so the one AI feature written to work without a model
+    could not be typed into with none running, and the corpus had no entry for
+    the status bar although the app offers "What is the status bar telling
+    me?" under the status bar's own '?'.
+
+    The utility model half re-measured on this head and is closed:
+    `tests/test_feature_models.py` drives a real guide turn through a real
+    `ModelManager` and reads back the model the provider was handed. With
+    smart model routing on it is the utility model, with it off the chat
+    model, and the guide's own feature row pins it over both. What was still
+    wrong was the copy, which promised the first of those three as if it were
+    the only one in three places, which is why the same report has now come in
+    three times (274, 288, 304). It says which model answers now.
+
 ## INBOX resolved, 2026-09-21
 
 286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the
@@ -31702,4 +31754,3 @@ row and head of different lengths).
     tasks"). The Guide is now a row in the per-feature model table, so it can
     be pinned to a model whatever routing says.
     `tests/test_feature_models.py` holds all three cases.
-

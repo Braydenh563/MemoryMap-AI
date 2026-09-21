@@ -9,6 +9,25 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas answers about reminders, documents, notes, spaces and backups again.
+  The help corpus had an entry for each of them, and the keyword match was
+  written in the singular, so a question asked in the plural reached none of
+  them: "Where do reminders live?" was answered with "I'm not sure", from the
+  notes and memory entries the open tab supplied instead. Keywords now cover
+  the plural and the possessive, a tab's own topics fill in only for a
+  question that names nothing, and the corpus gained an entry for the status
+  bar, which nothing covered.
+- The questions Atlas suggests follow the tab you are on, and every one of
+  them is a question the help corpus can answer. The three fixed suggestions
+  included one it could not answer at all and two about turning features off.
+- Atlas can be typed into with no model running. It carried the attribute
+  that disables an AI control when no model is there, although it was built
+  to answer from the app's own help text without one.
+- The guide no longer promises the utility model outright. It answers on the
+  utility model while smart model routing is on, on the chat model while it
+  is off, and Settings, Models can give it a model of its own; the panel's
+  '?' says so.
+
 - Typing part of a word finds it again. The find anything box tried a word as
   a prefix only from four letters, so a note called "test" appeared for "test"
   and not for "tes". Three letters is enough now, and the finder and the note

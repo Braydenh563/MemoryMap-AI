@@ -371,20 +371,6 @@ with its owner named in the entry.
     reopened, it is a second clearly labelled opt-in extra, off by default,
     and the copy in all three places changes in the same commit.
 
-304. **The owner, 2026-09-21, verbatim, with a screenshot:** "the help bot
-    is useless, or the suggested questions are bad or both. also it didnt use
-    my utiliity model". The screenshot shows the Atlas guide answering "Where
-    do reminders live?" with "I'm not sure where reminders live. Please check
-    the Help topics above this chat", offering Notes and What it remembers as
-    its sources. Reminders are a surface of this app, so the guide failing on
-    that question is not a hard question failing, it is the guide failing at
-    its own job. Three things to separate before fixing anything: whether the
-    help corpus even contains reminders, whether retrieval found it and the
-    answer discarded it, and whether the suggested questions are drawn from
-    what the corpus can actually answer. The utility model half is INBOX 288,
-    which an agent addressed tonight; re-measure on the current head before
-    treating it as still open.
-
 306. **The owner, 2026-09-21, verbatim:** "isnt the quick liquid repo heavily
     optimised?? and it has levels as well??" Against ANALYSIS.md's "leave it"
     verdict for quickLiquid. He is right that it is heavily optimised and the

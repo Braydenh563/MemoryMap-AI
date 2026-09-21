@@ -34,6 +34,46 @@ with its owner named in the entry.
 
 ## Open items
 
+310. **Found by a read-only audit of the whole backend, 2026-09-21 (the
+    session, not the owner): four low findings, all confirmed against the
+    code before being written down.** The audit read WORLD_CLASS_PLAN
+    section 12 first and re-reports none of S1 to S11; it is thin because
+    the classes that matter are genuinely closed (CSP, the SSRF guard, the
+    XML bomb defence, path containment, bcrypt and scrypt plus AES-GCM,
+    WAL with a busy timeout, the size caps, the outbound opt-ins). What is
+    left, in order of how much it would cost to be wrong:
+    - `restore_backup` writes the live database in place
+      (`src/memorymap/core/backup.py:117`): `source.backup(target)` streams
+      pages straight into `memorymap.db` with no temp-file-then-`os.replace`.
+      It takes a pre-restore safety copy first, so the damage is recoverable,
+      but a crash on that window is the one operation in the app that can
+      half-write the primary database. Fix: back up into a temp file beside
+      `db_path`, `PRAGMA integrity_check`, then `os.replace`.
+    - `_run_directory_import` (`routes_settings.py`) reads each `.md` file
+      whole with `f.read_text()` and no ceiling, unlike every other import
+      path in the app. Fix: `stat()` and skip or cap before the read, at
+      `MAX_IMPORT_BYTES`.
+    - `_normalise_url` (`routes_bookmarks.py:38`) only prepends `https://`
+      when a URL has *no* scheme, so `javascript:` passes through and is
+      stored, and `library.js` assigns it to `link.href` without the scheme
+      check `safeHref()` applies to markdown links. Self-XSS only (no
+      import or AI tool path writes a bookmark from untrusted text) and the
+      CSP blocks it as a backstop. Fix: the same allowlist, at write and at
+      render.
+    - `_download` (`routes_update.py:182`) calls `requests.get` with the
+      default `allow_redirects=True`, so only the first hop's host is
+      checked against `ALLOWED_DOWNLOAD_HOSTS`. GitHub's own release
+      infrastructure is the sole trust anchor either way, so this is a gap
+      in the claim rather than a hole. Fix: re-validate each `Location`, or
+      check `response.url` before trusting the bytes.
+
+    One more, informational: `GET /debug/health` returns `data_dir` and
+    `db_path` as absolute paths. It is behind the unlock gate, so today it
+    tells the owner their own machine's paths back; it belongs in Brief 15
+    (LAN mode) beside S1, where it would hand a full server path to anyone
+    holding the session token. Recommendation: take all four fixes in one
+    pass, they are small and each one is named.
+
 228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
     you have finished all these, done the final bug sweep, make sure
     everything is finished for the pr, and finish the pr, merging it into

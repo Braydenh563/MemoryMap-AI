@@ -43,3 +43,8 @@ port 8793, data dir `/tmp/mm-noteobj`.
   gone. Measured on 8793: card 104px tall x 733 wide with an svg preview,
   tombstone 88px naming "Old plan", press set `window.currentBoardId` to the
   right board, 0 page errors.
+- `<hash>` Doorway one, the "/" menu: "Board or mind map" in Links and
+  references, choosing through `pickLibraryItemDialog`'s new opt-in board
+  source. Measured end to end on 8793: the menu filters to one row on
+  `/board` and the chosen board lands in the box as
+  `![[board:1|House jobs]]`.

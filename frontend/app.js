@@ -2622,8 +2622,16 @@ const MAP_BOARD_INDEX_MS = 8000;
 //: twice). A second caller joins the first walk instead.
 let mapBoardIndexWalk = null;
 
-function loadMapBoardIndex() {
-  if (mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) {
+//: `force` skips the eight seconds. One caller passes it: a note's board
+//: object that could not find its board (`boardEmbedElement`). Eight seconds
+//: is the right answer for a chip that is merely decorating a row, and the
+//: wrong one for a card that is about to tell somebody their board has been
+//: deleted: a board made a moment ago is missing from an index built before
+//: it existed, and nothing else ever rebuilds that index (every other caller
+//: returns early while it is set). A walk already in flight is still joined
+//: rather than doubled.
+function loadMapBoardIndex(force = false) {
+  if (!force && mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) {
     return Promise.resolve(mapBoardIndexCache);
   }
   if (mapBoardIndexWalk) return mapBoardIndexWalk;
@@ -7821,11 +7829,33 @@ function pickEntryDialog(message) {
 //: / link, `MAP_REFERENCE_KINDS` in routes_whiteboard.py: rather than a
 //: display word, so a caller never has to translate between what the picker
 //: says and what the endpoint accepts.
+//: **`optIn` keeps a source out of the default set.** A board is a thing the
+//: Library holds and a perfectly good thing to point at from a note (INBOX
+//: 309), but this dialog's first caller feeds a map's reference node, and
+//: `MAP_REFERENCE_KINDS` in routes_whiteboard.py is note / document / file /
+//: link: a board offered there would be a row that cannot be saved. So the
+//: board source exists, and only a caller that names it in `sources` is
+//: shown it.
 const LIBRARY_PICK_SOURCES = [
   { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…" },
   { kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents", placeholder: "Search your documents…" },
   { kind: "file", label: "Files", icon: "ph:paperclip", path: "/files/gallery", placeholder: "Search your files…" },
   { kind: "link", label: "Links", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your links…" },
+  {
+    kind: "board",
+    label: "Boards and maps",
+    //: Per row, not per source: a whiteboard and a mind map sit in one list
+    //: here, and the owner has already reported once that a list of bare
+    //: titles gives no way to tell them apart.
+    icon: (row) => (row?.type === "board" ? "ph:squares-four" : "ph:tree-structure"),
+    path: "/whiteboard/boards",
+    placeholder: "Search your boards and maps…",
+    //: The unnamed scratch board (`id: null`) is left out, the same rule
+    //: `renderAttachToBoard` states: it is where things land when nobody
+    //: chose a board, not somewhere to point at on purpose.
+    keep: (row) => row && row.id != null,
+    optIn: true,
+  },
 ];
 
 //: One row's label per source, in one table for the reason `notePickerShape`
@@ -7833,6 +7863,7 @@ const LIBRARY_PICK_SOURCES = [
 //: copies of it is how the four drift apart.
 function libraryPickLabel(kind, row) {
   if (kind === "note") return noteLabel(row, 70);
+  if (kind === "board") return row.title || (row.type === "board" ? "Untitled board" : "Untitled map");
   if (kind === "document") return row.title || "Untitled document";
   if (kind === "file") return row.original_name || row.filename || "File";
   return row.title || row.url || "Link";
@@ -7843,8 +7874,8 @@ function libraryPickLabel(kind, row) {
 //: for the same reason: three of these lists are never looked at by someone
 //: who came to point at a note.
 function pickLibraryItemDialog(message, { sources = null } = {}) {
-  const available = LIBRARY_PICK_SOURCES.filter(
-    (source) => !sources || sources.includes(source.kind)
+  const available = LIBRARY_PICK_SOURCES.filter((source) =>
+    sources ? sources.includes(source.kind) : !source.optIn
   );
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -7907,7 +7938,8 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
       if (cache[kind]) return cache[kind];
       const source = available.find((s) => s.kind === kind);
       const rows = await apiJson(source.path, { silent: true }).catch(() => []);
-      cache[kind] = Array.isArray(rows) ? rows : rows.documents || [];
+      const list = Array.isArray(rows) ? rows : rows.documents || [];
+      cache[kind] = source.keep ? list.filter(source.keep) : list;
       return cache[kind];
     };
 
@@ -7937,9 +7969,14 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "entry-pick-row";
-        setLabel(button, `${active.icon} ${label}`);
+        setLabel(button, `${typeof active.icon === "function" ? active.icon(row) : active.icon} ${label}`);
         button.title = label;
-        button.addEventListener("click", () => close({ kind, id: row.id, label }));
+        //: The row itself travels with the choice. A caller that only needs
+        //: an id is unchanged (it destructures the three it always did), and
+        //: a caller that needs a fact the row already carries, whether a
+        //: board is a map, gets it without a second fetch for a list it has
+        //: just read.
+        button.addEventListener("click", () => close({ kind, id: row.id, label, row }));
         list.appendChild(button);
       }
     };
@@ -26978,6 +27015,11 @@ function mdEmbedElement(name, depth) {
 //: synchronous because it runs inside a render pass. So an unloaded index
 //: draws the resting card, asks for the index, and fills in place. It cannot
 //: loop: `loadMapBoardIndex` de-duplicates and caches for eight seconds.
+//: The board ids a forced index refresh has already looked for and not found.
+//: See `fill` below: this is what keeps a dead reference from costing a
+//: request per render.
+const boardEmbedForced = new Set();
+
 function boardEmbedElement(ref) {
   const box = document.createElement("div");
   box.className = "note-embed board-embed";
@@ -26995,8 +27037,22 @@ function boardEmbedElement(ref) {
   //: and it cannot loop: the retry always passes true.
   const fill = (final) => {
     const found = boardEmbedFill(box, ref, final);
-    if (found || final || typeof loadMapBoardIndex !== "function") return;
-    loadMapBoardIndex().then(() => fill(true), () => fill(true));
+    if (found) {
+      //: It is here after all, so a later deletion gets its own forced look
+      //: rather than inheriting this one's answer.
+      boardEmbedForced.delete(ref.id);
+      return;
+    }
+    if (final) return;
+    //: A reference a forced refresh has already failed to find is not asked
+    //: about again: without this, every re-render of a note holding a dead
+    //: object would walk `/whiteboard/boards` from the top.
+    if (boardEmbedForced.has(ref.id) || typeof loadMapBoardIndex !== "function") {
+      fill(true);
+      return;
+    }
+    boardEmbedForced.add(ref.id);
+    loadMapBoardIndex(true).then(() => fill(true), () => fill(true));
   };
   fill(false);
   return box;

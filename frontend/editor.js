@@ -240,6 +240,35 @@ function editorApplyNamed(textarea, kind) {
   editorApplyAction(textarea, (typeof MD_ACTIONS === "object" && MD_ACTIONS[kind]) || {});
 }
 
+//: **Put one block on a line of its own.**
+//:
+//: A board object is a block construct: `renderNoteText` and `renderMarkdown`
+//: both only recognise `![[...]]` when the line holds nothing else, so an
+//: object inserted mid-sentence renders as literal brackets, which is the
+//: silent-refusal shape this repo keeps meeting. The leading newlines are
+//: counted rather than always added, so inserting into an empty box does not
+//: start the note with two blank lines.
+function editorInsertBlock(textarea, markdown) {
+  const start = textarea.selectionStart;
+  const before = String(textarea.value || "").slice(0, start);
+  const lead = !before.length || before.endsWith("\n\n") ? "" : before.endsWith("\n") ? "\n" : "\n\n";
+  editorSplice(textarea, start, textarea.selectionEnd, `${lead}${markdown}\n\n`, null);
+}
+
+//: The "/" menu's board object: choose the board, then write its reference.
+//:
+//: The chooser is `pickLibraryItemDialog`, the app's own one-thing picker,
+//: asked for its board source. A fifth chooser for a fifth kind is exactly
+//: the "the same object drawn five ways" failure this app already has a rule
+//: against, and the dialog hands the row back, so the reference can say
+//: whether it is a board or a map without a second request.
+async function editorInsertBoardObject(textarea) {
+  if (typeof pickLibraryItemDialog !== "function" || typeof boardEmbedMarkdown !== "function") return;
+  const chosen = await pickLibraryItemDialog("Which board or map?", { sources: ["board"] });
+  if (!chosen) return;
+  editorInsertBlock(textarea, boardEmbedMarkdown(chosen.row || { id: chosen.id, title: chosen.label }));
+}
+
 // A callout block, ready to type into.
 //
 // Every line of the body needs its own "> ", a blockquote ends at the first
@@ -535,6 +564,26 @@ function editorCommands(context) {
         editorApplyAction(textarea, { insert: "![[" });
         editorOpenMenu(textarea, "[[");
       },
+    },
+    {
+      //: **A board or a map as an object in the note** (INBOX 309, the owner:
+      //: "there is also no way to attach a whiteboard or mindmap to a note as
+      //: like an object in the notes"). Two doorways were asked for and this
+      //: is the one inside the writing: the other is "Add to a note" on the
+      //: board itself, and a feature with only one of them is a feature
+      //: nobody finds.
+      //:
+      //: Not the `[[` menu's route, which the two rows above take. That menu
+      //: inserts a *name*, and a name-addressed board breaks the moment it is
+      //: renamed (see `boardEmbedRef` in app.js on why this one is an id), so
+      //: this command picks the board itself and writes the reference.
+      id: "board-object",
+      primary: true,
+      group: "Links & references",
+      label: "\u{1F5FA}\u{FE0F} Board or mind map",
+      hint: "a preview of it, here in the note",
+      keywords: ["board", "whiteboard", "map", "mindmap", "canvas", "object", "embed", "attach", "diagram"],
+      run: (textarea) => editorInsertBoardObject(textarea),
     },
     {
       id: "image",

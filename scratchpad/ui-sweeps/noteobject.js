@@ -104,7 +104,10 @@ const { boot } = require('./lib.js');
   await page.click('#notes-subtabs button[data-section="capture"]');
   await page.waitForTimeout(700);
   await page.click('#entry-content');
-  await page.type('#entry-content', '/board');
+  //: A delay per character on purpose: typed at full speed the menu's own
+  //: refresh loses a keystroke and the menu shows the unfiltered shortlist,
+  //: which is a sweep measuring its own typing rather than the app.
+  await page.type('#entry-content', '/board', { delay: 60 });
   await page.waitForTimeout(900);
   const menu = await page.evaluate(() => {
     const el = document.getElementById('editor-menu');
@@ -112,6 +115,35 @@ const { boot } = require('./lib.js');
     return [...el.querySelectorAll('.editor-menu-item')].map((i) => i.textContent.trim()).slice(0, 8);
   });
   console.log('menu', JSON.stringify(menu));
+
+  // The command all the way through: choose a board in the picker it opens
+  // and read what landed in the note. A menu row that inserts nothing is the
+  // shape this repo keeps meeting.
+  let inserted = null;
+  if (menu && menu.some((m) => /board|map/i.test(m))) {
+    await page.click('#editor-menu .editor-menu-item');
+    await page.waitForTimeout(1500);
+    const rows = await page.$$('.entry-pick-list .entry-pick-row');
+    if (rows.length) {
+      await rows[0].click();
+      await page.waitForTimeout(800);
+      inserted = await page.evaluate(() => document.getElementById('entry-content').value);
+    } else {
+      inserted = '(the picker offered nothing)';
+    }
+    console.log('inserted', JSON.stringify(inserted));
+  }
+
+  // The other doorway: "add to a note" from the board itself.
+  await page.evaluate((id) => openWhiteboardBoard(id), ids.board);
+  await page.waitForTimeout(2500);
+  const boardSide = await page.evaluate(() => {
+    const el = document.getElementById('wb-add-to-note');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { text: el.textContent.trim(), h: Math.round(r.height) };
+  });
+  console.log('boardSide', JSON.stringify(boardSide));
 
   const findings = [];
   if (!card) findings.push('the note did not render');
@@ -135,6 +167,8 @@ const { boot } = require('./lib.js');
   if (reminders && !reminders.some((r) => /Ring the roofer/.test(r))) findings.push('the reminders panel does not list the reminder: ' + JSON.stringify(reminders));
   if (!menu) findings.push('the "/" menu did not open on /board');
   else if (!menu.some((m) => /board|map/i.test(m))) findings.push('no board or map command in the "/" menu: ' + JSON.stringify(menu));
+  if (inserted !== null && !/!\[\[(board|map):\d+\|/.test(inserted)) findings.push('the "/" command inserted: ' + inserted);
+  if (!boardSide) findings.push('no "add to a note" action on the board itself (#wb-add-to-note)');
   if (errors.length) findings.push('page errors: ' + errors.join(' | '));
 
   console.log(findings.length ? 'FAIL: ' + findings.join('\n  ') : 'PASS: 0 findings');

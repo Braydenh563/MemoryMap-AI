@@ -16,6 +16,8 @@ below). Versioning is `0.x` while the app stabilises.
   leaves a card saying what was there rather than taking a paragraph of the
   note with it. An embedded board used to render as "Nothing called House
   jobs yet", which was the one case the transclusion renderer never learnt.
+- The "/" menu in a note can insert one: "Board or mind map", which offers
+  your boards and maps and writes the object where the caret is.
 
 ### Changed
 

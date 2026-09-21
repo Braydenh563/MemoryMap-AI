@@ -6793,8 +6793,13 @@
                  this image show". -->
             <button id="ocr-describe" class="ghost small hidden" type="button"
               title="Describe this image with the vision model (writes its caption)"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> <span id="ocr-describe-label">Describe</span></button>
-            <button id="ocr-copy-all" class="ghost small icon-only" type="button"
-              title="Copy everything read, in reading order" aria-label="Copy everything read"><i class="ph ph-copy" aria-hidden="true"></i></button>
+            <!-- Named, not just drawn. The control existed and the owner
+                 still asked for it (2026-09-21, "there should be a way to copy
+                 all extracted text in the ocr workspace and files subtab"): an
+                 icon-only button among labelled ones is a button nobody reads.
+                 Describe beside it carries its own word for the same reason. -->
+            <button id="ocr-copy-all" class="ghost small" type="button"
+              title="Copy everything read, in reading order"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> <span>Copy all</span></button>
             <!-- The reading is only worth having if it can leave this window.
                  A transcription you have to re-read in a dialog is a dead end;
                  the two things anyone does with one are ask about it and keep

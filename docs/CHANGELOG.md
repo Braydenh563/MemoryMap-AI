@@ -9,6 +9,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The bottom bar's history no longer says you have been somewhere you have
+  not. On a fresh load that never left the dashboard it listed two visits to
+  Notes, because two start-up steps set the Notes tab's default sub-tab while
+  that tab was hidden and each was recorded as an arrival. Setting a hidden
+  tab's default is not a navigation, so it is not recorded as one, and Back is
+  correctly dead until you actually go somewhere.
+- Everything read from a file can be copied in one press. The reading panel in
+  the Files sub-tab now has a Copy text button beside Open reading, because
+  the box it sits under is capped and scrolls, so copying a long reading meant
+  dragging through a window. The reading workspace already had the control and
+  now says so in words rather than only an icon.
 - Two things the Documents agent measured and left for later (INBOX 273).
   The settings Extras row's action buttons (Reinstall/Remove) could push
   past the panel's right edge at 820px because their column never shrank;

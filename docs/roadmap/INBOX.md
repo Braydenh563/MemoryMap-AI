@@ -34,6 +34,61 @@ with its owner named in the entry.
 
 ## Open items
 
+313. **The owner, 2026-09-21, verbatim, with a screenshot of the Files
+    sub-tab:** "there should be a way to copy all extracted text in a
+    document in the ocr workspace and files subtab". Fixed, and it was half
+    built. The OCR workspace has had `#ocr-copy-all` ("Copy everything read,
+    in reading order") wired to `ocrAllText()` for some time, but it was
+    `icon-only` among labelled buttons, which is a control nobody reads; it
+    carries the words "Copy all" now, like Describe beside it. The Files
+    sub-tab had nothing at all: the reading box is capped and scrolls, so
+    copying a fourteen page reading meant dragging through a window. A "Copy
+    text" button now sits beside Open reading in the reading panel's head and
+    copies `mediaReading(image)` whole.
+
+312. **The owner, 2026-09-21, verbatim:** "also why is the graph soo smooth
+    and clean to move nodes around, zoom and more when the whiteboard and
+    especially the mindmap are still horrendous and all the links lag
+    behind??" Answered from the code rather than guessed, and it is one
+    architectural difference. The graph draws to a single `<canvas>` 2D
+    context (`graph-canvas.js`, `getContext("2d")`) with its force simulation
+    in a **web worker** (`new Worker("/graph-worker.js")`), so a drag or a
+    zoom is one repaint of one element and the physics never touches the main
+    thread. The whiteboard and the mind map draw every card as a DOM element
+    and every link as an SVG `<path>` whose `d` attribute is recomputed and
+    rewritten in JavaScript (`whiteboard.js`, `setAttribute("d", ...)`). A
+    card can be moved by the compositor with a transform, but each link has
+    to be recalculated on the main thread and written, so the link arrives a
+    frame or more after the card it is attached to. That is the lag, exactly
+    as described. Today's render pass (MINDMAP_PLAN 13a-open) keyed the
+    repaint and cut a 500-topic change from 534.7ms to 47.8ms and a branch
+    drag over 300 link sketches from a 1,000ms worst frame to 116.7, but it
+    did not change what the board is made of: pan and zoom are still the
+    browser re-rastering one promoted layer holding every topic, measured at
+    2.6ms of script across a 2,239ms zoom gesture. Recommendation: this is
+    MINDMAP_PLAN row **13a-view**, already written with its gate (worst pan
+    and zoom frames under 50ms at 500 topics), and the honest fix is the one
+    the graph already took, a canvas for the links at least. Open, as a
+    decision about how far to take it.
+
+311. **The owner, 2026-09-21, verbatim, with a screenshot of the status bar
+    menu:** "when I load up the application, the bottom nav history dropdown
+    shows me being in the notes tab and having been to the notes tab even when
+    I havent moved from the dashboard". Fixed. Reproduced first
+    (`scratchpad/ui-sweeps/navhistory.js`): on a fresh load that never left
+    the Dashboard the stack was `["notes:browse", "dashboard",
+    "notes:browse"]` with the pin on the last entry, so the history said you
+    were in Notes while the Dashboard was drawn, and Back walked to a place
+    nobody had been. Two boot steps set the Notes tab's default section while
+    it was hidden (`initNotesSubtabs` selects whichever section was last open,
+    and the first `loadEntries` selects browse), and `showNotesSection`
+    recorded each as a visit. Setting a hidden tab's default section is not a
+    navigation, so the recording is now guarded by Notes being the tab on
+    screen. After: `["dashboard"]`, Back correctly dead, one move records one
+    step, one Back press returns. 10 of 10, and
+    `tests/test_nav_history_seed.py` holds both halves (the guard, and the
+    boot seed that must stay).
+
 228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
     you have finished all these, done the final bug sweep, make sure
     everything is finished for the pr, and finish the pr, merging it into

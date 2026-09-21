@@ -5447,7 +5447,24 @@ function buildFileReadingSummary(image, summary, images) {
     //: complaint this item is answering.
     openLightbox(libraryLightboxItems(images), images.indexOf(image), { focusReading: true });
   });
-  head.append(meta, open);
+  //: **The whole reading, out of the app in one press** (the owner,
+  //: 2026-09-21: "there should be a way to copy all extracted text in a
+  //: document in the ocr workspace and files subtab"). The box below scrolls,
+  //: so selecting a forty page reading by hand means dragging through a
+  //: capped window, which is the gesture this replaces. It sits beside Open
+  //: reading because both are what you do *with* the text once you have read
+  //: the numbers above them, and it uses the app's own copy icon rather than
+  //: a typed glyph (`tests/test_no_glyph_icons.py`).
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "ghost small library-file-copy-reading";
+  setLabel(copy, "ph:copy Copy text");
+  copy.title = "Copy everything read from this file";
+  copy.addEventListener("click", (event) => {
+    event.stopPropagation();
+    copyToClipboard(mediaReading(image), copy);
+  });
+  head.append(meta, copy, open);
   //: The whole reading, in place. Reported directly: "the text extracted
   //: from this file area and dropdown in the library files subtab is
   //: broken, it only shows the first line on the first page extracted". It

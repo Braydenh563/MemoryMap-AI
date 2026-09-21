@@ -31111,7 +31111,20 @@ function showNotesSection(name, { focus = false } = {}) {
   // belong to: switchTab records its own entry when the *tab* changes, and
   // recordTabVisit ignores a repeat of where you already are, so arriving at
   // Notes and then landing on a section does not produce two entries.
-  recordTabVisit("notes", wanted);
+  //
+  // **Only when Notes is the tab on screen** (INBOX 311). Setting a hidden
+  // tab's default section is not a navigation, and two boot steps do exactly
+  // that: `initNotesSubtabs` ends by selecting whichever section was last
+  // open, and the first `loadEntries` selects browse. Measured on a fresh
+  // load that never left the Dashboard, the stack was
+  // `["notes:browse", "dashboard", "notes:browse"]` with the pin on the last,
+  // so the history claimed you were in Notes while the Dashboard was drawn,
+  // Back went somewhere you had never been, and the owner reported exactly
+  // that. `revealTab` writes `activeTab` before any of a tab's own loading
+  // runs, so by the time a real arrival calls this, it reads "notes".
+  if ((localStorage.getItem("activeTab") || "dashboard") === "notes") {
+    recordTabVisit("notes", wanted);
+  }
   for (const id of NOTES_SECTIONS) {
     const card = document.getElementById(id);
     if (card) card.classList.toggle("hidden", id !== wanted);

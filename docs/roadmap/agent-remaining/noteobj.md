@@ -71,9 +71,45 @@ port 8793, data dir `/tmp/mm-noteobj`.
   object in a document's rendered view, 104px with an svg and no tombstone
   (`0d81135`).
 
+## Closed by agent-noterecipe (verification only, no code changed)
+
+- **The recipe row and its lint (the step the rate limit cut off) were
+  already in the merged head**, written in `de74a3b` alongside the
+  reminders half: DESIGN.md's recipe index row "Another surface of the app
+  embedded in somebody's text" and
+  `test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone`
+  in `tests/test_ui_recipes.py`. Read against the live markup
+  (`boardEmbedElement`/`boardEmbedFill`, app.js ~27247) and CSS
+  (`.board-embed*`, 05-sidebars-themes.css ~1001), the row's claims still
+  match: `.note-embed` frame, one `<button>`, `mapPreview(board, {size:
+  "card"})`, `.library-file-meta` facts line, `boardEmbedMarkdown` as the
+  one spelling, `.board-embed-gone` tombstone, the refresh-before-tombstone
+  rule. Proved the lint is not vacuous: swapped `mapPreview(...)` for a
+  hand-built `createElementNS` svg, `pytest -k board_is_the_one_preview`
+  failed on the swap, passed once reverted. Nothing to commit.
+- **The dead-menu report is only half true, and removing is unsafe.**
+  Measured on 8795 with two fresh boards (`POST /whiteboard/boards`,
+  `type: "board"` vs `type: "map"`): on an ordinary whiteboard `#wb-insert-menu`
+  and `#wb-arrange-menu` are reachable (`wrapHidden: false`,
+  `toggleReachable: true`) and Insert opens with 8 items
+  (`aria-expanded: "true"`); on a map both wraps are `hidden: true` and
+  their toggles have `offsetParent: null` (18 controls total: 8 Insert + 10
+  Arrange, matching the report). But `wbSyncMapChrome`'s own
+  `#wb-board-kind-label` toggle ("Turn into a whiteboard" / "Turn into a
+  mind map") converts the *same* board between the two kinds at runtime, so
+  the markup a map hides today is exactly what that same board needs the
+  moment it is turned back into a whiteboard. Removing it would delete a
+  whiteboard's Insert and Arrange menus, not a map's. Left as-is; this is
+  the "same markup may serve a whiteboard" case the brief warned about.
+- **`noteobject.js` re-run on the merged head (8795):** `PASS: 0 findings`.
+  Card 104x733 with an svg preview, tombstone 88px, reminder chip "2
+  reminders" at 24px, the "/" menu inserts `![[board:1|...]]`, the board's
+  own "Add to a note" (146x36) appends the same spelling, and the object
+  renders 104px with an svg inside a document's own view. Nothing to fix.
+
 ## Left
 
-Nothing in INBOX 309 is outstanding. What is worth doing next, in order:
+What is worth doing next, in order:
 
 1. **The board object on a phone is measured but not swept.** At 390x780
    the card is 290x104 with a 112x62 picture and a 115px title, no overflow

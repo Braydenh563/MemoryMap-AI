@@ -3791,6 +3791,13 @@ async function helpChatStreamTurn({ pending, signal, body }) {
   think.append(thinkSummary, thinkBody);
   think.hidden = true;
   const prose = document.createElement("div");
+  //: Named so the streaming caret can reach into it. The bubble's last child
+  //: is this wrapper, not the paragraph inside it, so the `::after` that draws
+  //: the caret landed on a line of its own under the answer (the owner,
+  //: 2026-09-21: "the writing caret in the atlas help panel is on the line
+  //: below not after the text being streamed"). The rule in
+  //: 01-forms-settings.css walks one level further for this class.
+  prose.className = "help-chat-prose";
   pending.append(think, prose);
   const list = $("help-chat-messages");
   const toBottom = () => { if (list) list.scrollTop = list.scrollHeight; };

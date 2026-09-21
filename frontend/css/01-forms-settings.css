@@ -3818,6 +3818,13 @@ html.modal-open body {
 
    Two levels is the whole ladder: markdown from this app never nests deeper
    than list > item before running out of block containers to end on. */
+/* **And one level further again for the Atlas help panel**, whose bubble holds
+   a thinking disclosure and a prose wrapper rather than the prose itself, so
+   `> :last-child` is that wrapper and the caret fell onto a line under the
+   answer. Reported: "the writing caret in the atlas help panel is on the line
+   below not after the text being streamed". */
+.is-streaming > .help-chat-prose > :last-child:not(:is(ul, ol, blockquote))::after,
+.is-streaming > .help-chat-prose > :last-child:is(ul, ol) > li:last-child::after,
 .is-streaming:not(:has(*))::after,
 .is-streaming > :last-child:not(:is(ul, ol, blockquote))::after,
 .is-streaming > :last-child:is(ul, ol) > li:last-child::after,

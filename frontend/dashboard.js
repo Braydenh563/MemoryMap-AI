@@ -1061,9 +1061,20 @@ function dashDensity() {
 //: carry it at all, and the CSS hides the holder to match.
 const DASH_EMBLEM_SIZE = { full: 46, compact: 30, focused: 0 };
 
+//: **The dashboard has drawn its banner at least once.** Set by the render,
+//: read by the density switch, because the switch used to ask whether a canvas
+//: was already in the holder instead, and that question answers "no" for the
+//: one case it exists to serve: Focused empties the holder, so switching back
+//: to Full or Compact found no canvas, skipped the repaint, and the mark was
+//: gone for good (the owner, 2026-09-21: "the animated logo is gone from the
+//: dashboard, it should be in both the full and compact dashboard view and
+//: shouldnt dissappear permanently").
+let dashEmblemDrawn = false;
+
 function paintDashEmblem() {
   const holder = $("dash-hero-emblem");
   if (!holder) return;
+  dashEmblemDrawn = true;
   const size = DASH_EMBLEM_SIZE[dashDensity()] ?? DASH_EMBLEM_SIZE.full;
   //: A sketch drawn into a hidden holder measures zero (the holder is
   //: `display: none` at Focused), so the level that does not carry the mark
@@ -1097,7 +1108,7 @@ function applyDashDensity(value) {
   //: `DASH_EMBLEM_SIZE`), so the level change redraws it, but only once the
   //: dashboard has drawn one: this function also runs at wiring time, before
   //: the first render, and drawing there would race the render's own call.
-  if (page && page.querySelector("#dash-hero-emblem canvas")) paintDashEmblem();
+  if (page && dashEmblemDrawn) paintDashEmblem();
 }
 
 function wireDashDensity() {

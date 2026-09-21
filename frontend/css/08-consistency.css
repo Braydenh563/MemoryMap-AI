@@ -2572,3 +2572,18 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .notice-warn > .ph {
   color: var(--warn);
 }
+
+
+/* **A divider needs something on both sides of it.** `.dock > * + *` draws
+   one before every zone after the first, which is right until the first
+   child is a zone that is not drawn: the Chat header's phone sidebar button
+   is `display: none` on a desktop, so the rule put a hairline between
+   nothing and the thread mark, and it read as a line floating to the left of
+   the chat icon (the owner, 2026-09-21, with a screenshot). Measured: the
+   line is `.dock-identity`'s own `border-left` from that rule. On a phone,
+   where the button is drawn, a divider immediately after it is equally
+   wrong: it is a control, not a zone. */
+.dock > .phone-sidebar-open + * {
+  border-left: 0;
+  padding-left: 0;
+}

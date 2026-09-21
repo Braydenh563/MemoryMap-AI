@@ -1958,6 +1958,7 @@ def _pdf_regions_for(
     stored_text: str,
     stored_label: str,
     key: tuple[str, int] | None = None,
+    auto: bool = True,
 ) -> OcrRegionsOut:
     if not pdfpages.available():
         return OcrRegionsOut(
@@ -2015,7 +2016,7 @@ def _pdf_regions_for(
         #: page lives in a directory that is deleted three lines from here, so
         #: the store has to be keyed by the page of the document it came from.
         out = _regions_for(
-            page_path, stored_text if index == 0 else "", stored_label, key, index
+            page_path, stored_text if index == 0 else "", stored_label, key, index, auto
         )
     out.pages = count
     out.page = index
@@ -2120,6 +2121,7 @@ def _regions_for(
     stored_label: str,
     key: tuple[str, int] | None = None,
     page: int = 0,
+    auto: bool = True,
 ) -> OcrRegionsOut:
     """Region extraction with the honest fallback both callers below share.
 
@@ -2132,6 +2134,22 @@ def _regions_for(
     cached = _stored_regions(key, page)
     if cached is not None:
         return cached
+    #: **Nothing stored and nobody asked: read nothing.** The owner, 2026-09-21:
+    #: "I want to be able to disable tesseract in the ocr workspace, or if I am
+    #: not selected on tesseract and am instead selected on the ocr model, then
+    #: tesseract wont activate. I want tesseract to work once and then not alter
+    #: what is generated after that unless the user selects an option."
+    #:
+    #: Storing the answer (above) stopped the *repeat* reads, but a first look
+    #: at a page still ran Tesseract whether or not it was the reader the person
+    #: had chosen, which is how a page they meant to read with the vision model
+    #: came back transcribed by the other one. `auto` is false whenever the
+    #: workspace's reader is not Tesseract, and then this returns the honest
+    #: empty answer and the "use Read this page" message with it.
+    if not auto:
+        return OcrRegionsOut(
+            width=0, height=0, regions=[], source="none", message=""
+        )
     found = ocr.extract_regions(path)
     if found is not None:
         out = OcrRegionsOut(
@@ -2181,7 +2199,10 @@ def _regions_for(
 
 @router.get("/media/{upload_id}/ocr-regions", response_model=OcrRegionsOut)
 def media_ocr_regions(
-    upload_id: int, page: int = 0, session: Session = Depends(get_session)
+    upload_id: int,
+    page: int = 0,
+    auto: bool = True,
+    session: Session = Depends(get_session),
 ) -> OcrRegionsOut:
     """The page, region by region, what the OCR workspace draws its boxes
     from. Asked for with three screenshots of Baidu's Unlimited-OCR: a page
@@ -2202,14 +2223,17 @@ def media_ocr_regions(
     )
     key = _page_read_key(None, upload_id)
     if suffix == ".pdf":
-        return _pdf_regions_for(path, page, stored, label, key)
+        return _pdf_regions_for(path, page, stored, label, key, auto)
     #: An image is a one page document, and page 0 is where its regions go.
-    return _regions_for(path, stored, label, key, 0)
+    return _regions_for(path, stored, label, key, 0, auto)
 
 
 @router.get("/files/{attachment_id}/ocr-regions", response_model=OcrRegionsOut)
 def attachment_ocr_regions(
-    attachment_id: int, page: int = 0, session: Session = Depends(get_session)
+    attachment_id: int,
+    page: int = 0,
+    auto: bool = True,
+    session: Session = Depends(get_session),
 ) -> OcrRegionsOut:
     """`media_ocr_regions`'s sibling for an attached file. Two tables, two
     routes: the same split every other file endpoint in this module has."""
@@ -2228,8 +2252,8 @@ def attachment_ocr_regions(
     )
     key = _page_read_key(attachment_id, None)
     if suffix == ".pdf":
-        return _pdf_regions_for(path, page, stored, label, key)
-    return _regions_for(path, stored, label, key, 0)
+        return _pdf_regions_for(path, page, stored, label, key, auto)
+    return _regions_for(path, stored, label, key, 0, auto)
 
 
 class OcrPageReadOut(BaseModel):

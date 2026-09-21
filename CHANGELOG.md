@@ -9,6 +9,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Tesseract only reads a page when it is the reader you chose. Storing each
+  page's regions stopped the repeated reads, but a first look at a page still
+  ran Tesseract whether or not you had picked it, which is how a page meant
+  for the vision model came back transcribed by the other one, and how an
+  edited reading could be replaced by one nobody asked for. The workspace now
+  says whether an automatic read is wanted, and answers honestly with "use
+  Read this page" when it is not.
+- The chat header no longer draws a hairline to the left of its icon. The
+  dock's divider rule puts one before every zone after the first, and the
+  first zone there is the phone sidebar button, which is not drawn on a
+  desktop, so the line stood between nothing and the thread mark.
 - The Windows splash screen can be got out of the way. It is a borderless
   window that sits above everything, so a first install that pulls a model
   could hold the screen for minutes with no way to move it aside. There is a

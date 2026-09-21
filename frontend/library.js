@@ -2735,7 +2735,15 @@ function ocrRegionsUrl(image, page = 0) {
   const base = image._isAttachment
     ? `/files/${image.id}/ocr-regions`
     : `/media/${image.id}/ocr-regions`;
-  return `${base}?page=${page}`;
+  //: **`auto` says whether a first look may run Tesseract** (the owner,
+  //: 2026-09-21). The workspace's reader select is the answer: if the person
+  //: has chosen the vision model, opening a page must not quietly transcribe
+  //: it with the other reader, and an edited reading must not be replaced by
+  //: one nobody asked for. A page that already has stored regions is served
+  //: from the store either way, so this only governs the first read.
+  const reader = document.getElementById("ocr-reader")?.value || "";
+  const auto = reader === "tesseract" ? "1" : "0";
+  return `${base}?page=${page}&auto=${auto}`;
 }
 
 //: The rendered picture of one page, an image is itself the page, a PDF has

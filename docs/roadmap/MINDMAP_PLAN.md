@@ -1079,7 +1079,7 @@ topic: a control that wide has nowhere to go.
   when a topic is painted so that a topic which was never told otherwise
   follows it and one that was keeps exactly what it was given; and "bring
   every topic back to the map" is the map-scope of the ring's own reset.
-  `maptheme.js`, new, 19/19 in light at 1440, in dark at 1440 and at 390,
+  `maptheme.js`, new, 22/22 in light at 1440, in dark at 1440 and at 390,
   against a base branch on which it stops at its second check
   (`wbMapTheme is not defined`). One request themes 25 topics; one request
   clears them. **What is left of 13e**: the branch palette and the font

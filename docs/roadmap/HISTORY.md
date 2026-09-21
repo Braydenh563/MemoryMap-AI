@@ -90,7 +90,7 @@ same list of fields from every topic in one request and one transaction
 idempotent. Measured: 3 topics cleared in 1 request, and they then drew the
 map's pill shape rather than the app's rounded default.
 
-`scratchpad/ui-sweeps/maptheme.js`, new, **19/19** in light at 1440, in dark
+`scratchpad/ui-sweeps/maptheme.js`, new, **22/22** in light at 1440, in dark
 at 1440 and at 390, registered in `scripts/gate.sh`'s sweep list. On the base
 branch the same file stops at its second check with `wbMapTheme is not
 defined`. `tests/test_mindmap.py` gained eleven cases, including the two the

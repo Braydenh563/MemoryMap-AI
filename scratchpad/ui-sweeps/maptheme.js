@@ -264,10 +264,26 @@ const show = (o) => console.log("    " + JSON.stringify(o));
     cleared.picture === "/media/none.png" && cleared.italic == null,
     `image ${cleared.picture}, italic ${cleared.italic}`);
 
-  // --- the dialog itself, from the recipe index ---
+  //: --- the dialog itself, reached the way a person reaches it ---
+  //:
+  //: Real clicks, not `wbMapThemeDialog()`: the point of the row is that it
+  //: is a door somebody can find and press, and calling the function proves
+  //: only that the function exists. CLAUDE.md section 6's second shape is
+  //: "a feature that never ran once"; this is the check that would catch it.
+  await page.click('[aria-controls="wb-view-menu"]');
+  await page.waitForTimeout(400);
+  const doorBox = await page.evaluate(() => {
+    const row = document.getElementById("wb-map-theme-item");
+    const box = row.getBoundingClientRect();
+    return { w: Math.round(box.width), h: Math.round(box.height), onScreen: box.top > 0 && box.bottom < innerHeight };
+  });
+  show(doorBox);
+  check("the row is really on screen once the View menu is open",
+    doorBox.w > 100 && doorBox.h >= 28 && doorBox.onScreen,
+    `${doorBox.w}x${doorBox.h}`);
+  await page.click("#wb-map-theme-item");
+  await page.waitForTimeout(600);
   const dialog = await page.evaluate(async () => {
-    wbMapThemeDialog();
-    await new Promise((r) => setTimeout(r, 400));
     //: Found from the body outwards: index.html holds a dozen overlays in
     //: markup, so the first `.modal-card` in document order is not this one.
     const body = document.querySelector(".wb-map-theme");
@@ -282,7 +298,9 @@ const show = (o) => console.log("    " + JSON.stringify(o));
       heads: [...body.querySelectorAll("h4.setting-subhead")].map((h) => h.textContent.trim()),
       inlineStyles: body.querySelectorAll("[style]").length,
       width: Math.round(box.width),
+      height: Math.round(box.height),
       overflows: body.scrollHeight > card.clientHeight + 2,
+      viewMenuClosed: document.getElementById("wb-view-menu").classList.contains("hidden"),
     };
   });
   show(dialog);
@@ -292,7 +310,44 @@ const show = (o) => console.log("    " + JSON.stringify(o));
     dialog.selects === 7 && dialog.checks === 3 && dialog.heads.length === 3,
     `${dialog.selects} selects, ${dialog.checks} switches, ${(dialog.heads || []).join(" | ")}`);
   check("and it fits without scrolling at this size",
-    !dialog.overflows, `${dialog.width}px wide`);
+    !dialog.overflows && dialog.viewMenuClosed,
+    `${dialog.width}x${dialog.height}, the menu behind it closed ${dialog.viewMenuClosed}`);
+
+  //: **And a control in it really changes the map**, driven through the
+  //: opener `enhanceSelect` draws rather than by setting `.value`: a select
+  //: written to directly does not go through the shell at all, which is how
+  //: a picker that looks right can be wired to nothing.
+  const openerAt = await page.evaluate(() => {
+    const sel = [...document.querySelectorAll(".wb-map-theme select")]
+      .find((el) => (el.getAttribute("aria-label") || "").startsWith("Box"));
+    const opener = sel?.closest(".select-shell")?.querySelector(".select-opener");
+    if (!opener) return null;
+    const box = opener.getBoundingClientRect();
+    return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
+  });
+  await page.mouse.click(openerAt.x, openerAt.y);
+  await page.waitForTimeout(400);
+  const chose = await page.evaluate(async () => {
+    const menu = [...document.querySelectorAll(".select-menu")]
+      .find((m) => m.getBoundingClientRect().width > 0);
+    const rows = menu ? [...menu.querySelectorAll("[role='option'], button, li")] : [];
+    const wanted = rows.find((o) => /Ellipse/.test(o.textContent));
+    if (!wanted) return { options: rows.map((o) => o.textContent.trim()) };
+    wanted.click();
+    await new Promise((r) => setTimeout(r, 900));
+    const node = wbMapIndex().nodes.find((n) => /Leaf 11/.test(n.data?.content || ""));
+    const el = document.querySelector(`.wb-object[data-id="${node.id}"]`);
+    return {
+      options: rows.map((o) => o.textContent.trim()),
+      theme: wbMapTheme().shape,
+      drawn: el.dataset.shape || "",
+      stored: node.data?.shape ?? null,
+    };
+  });
+  show(chose);
+  check("picking a value in it changes what every untouched topic draws",
+    chose.theme === "ellipse" && chose.drawn === "ellipse" && chose.stored === null,
+    `theme ${chose.theme}, drawn "${chose.drawn}", the topic stores ${chose.stored}`);
 
   //: **Every word in the dialog, against the surface it is drawn on**, in
   //: whichever theme this run is in: the same ratio `contrast.js` measures,

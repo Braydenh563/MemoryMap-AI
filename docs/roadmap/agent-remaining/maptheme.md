@@ -15,7 +15,7 @@
   fields can be set once for the whole map and are resolved when a topic is
   painted, so a topic that was never told otherwise follows and one that was
   keeps what it was given. One request themes 25 topics. `maptheme.js`, new,
-  **19/19** in light at 1440, in dark at 1440 and at 390; on the base branch
+  **22/22** in light at 1440, in dark at 1440 and at 390; on the base branch
   it stops at its second check (`wbMapTheme is not defined`).
 
 - **The bulk operation: "bring every topic back to the map."** The ring's own

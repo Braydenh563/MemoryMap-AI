@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A plain highlight in the documents live view is yellow again, and a
+  coloured one says its colour instead of showing it. The live view had one
+  highlight rule, taking the blue of the app's named set, so every plain
+  highlight was blue; and it never read the colour prefix, so `==blue|word==`
+  drew "blue|word". Both views now read the same eight colours and take the
+  same tokens in both themes.
 - The board's top bar carries six controls beside its five menus, down from
   eight: Rename this board and New board moved into the Board menu, which is
   already where this board's own life is kept. On a phone it carries seven in

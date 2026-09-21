@@ -6574,8 +6574,21 @@ function docLivePlugin(CM) {
           handle(match, from, from + match[0].length);
         }
       };
-      scan(/==([^=\n]{1,200})==/g, (match, from, to) => {
-        ranges.push(Decoration.mark({ class: "cm-md-highlight" }).range(from, to));
+      //: **The same allowlist the saved view carries** (`app.js`, the inline
+      //: pattern): `==text==` is the plain yellow highlight and
+      //: `==green|text==` picks one of a named set. Without the colour half
+      //: here, the live view drew every highlight in one colour and left the
+      //: `green|` sitting in the middle of the words as text, so the two views
+      //: of the same line disagreed about both the colour and the content.
+      //: The colour lands in a class name rather than an inline style, because
+      //: this app's CSP rejects inline styles outright.
+      scan(/==(?:(yellow|green|blue|pink|purple|orange|red|grey)\|)?([^=\n]{1,200})==/g, (match, from, to) => {
+        const colour = match[1];
+        ranges.push(
+          Decoration.mark({
+            class: colour ? `cm-md-highlight cm-md-highlight-${colour}` : "cm-md-highlight",
+          }).range(from, to),
+        );
         //: A highlight with a remark after it is a comment's subject, and it is
         //: drawn differently from a highlight somebody made to find their place
         //: again: the underline is what says "there is something to read about
@@ -6585,7 +6598,9 @@ function docLivePlugin(CM) {
           ranges.push(Decoration.mark({ class: "cm-md-commented" }).range(from, to));
         }
         if (rangeRevealed(from, to)) return;
-        hide(from, from + 2);
+        //: The colour prefix is syntax, so it is hidden with the marks rather
+        //: than read as part of the highlighted words.
+        hide(from, from + 2 + (colour ? colour.length + 1 : 0));
         hide(to - 2, to);
       });
       //: The remark itself. Revealed as its own text when the caret is on its
@@ -14501,7 +14516,22 @@ function docCmTheme(CM) {
         borderRadius: "3px",
         padding: "0 0.25em",
       },
-      ".cm-md-highlight": { backgroundColor: "var(--accent-soft)", borderRadius: "3px" },
+      //: Yellow is the default, the same as the saved view's
+      //: `mark.text-highlight-yellow`. It read `--accent-soft` here, which is
+      //: the *blue* of that set, so every plain highlight in the live view came
+      //: out blue and only a highlight somebody had explicitly called blue
+      //: looked right. One rule per colour in the allowlist above, taking the
+      //: same tokens as 05-sidebars-themes.css so the two views match in both
+      //: themes.
+      ".cm-md-highlight": { backgroundColor: "var(--warn-soft)", borderRadius: "3px" },
+      ".cm-md-highlight-yellow": { backgroundColor: "var(--warn-soft)" },
+      ".cm-md-highlight-green": { backgroundColor: "var(--ok-soft)" },
+      ".cm-md-highlight-blue": { backgroundColor: "var(--accent-soft)" },
+      ".cm-md-highlight-pink": { backgroundColor: "rgba(236, 72, 153, 0.22)" },
+      ".cm-md-highlight-purple": { backgroundColor: "rgba(168, 85, 247, 0.22)" },
+      ".cm-md-highlight-orange": { backgroundColor: "rgba(249, 115, 22, 0.22)" },
+      ".cm-md-highlight-red": { backgroundColor: "rgba(239, 68, 68, 0.22)" },
+      ".cm-md-highlight-grey": { backgroundColor: "rgba(148, 163, 184, 0.25)" },
       //: **A commented span, told apart from a plain highlight** (Phase 5 item
       //: 1). A hairline under the words rather than a fourth underline *shape*:
       //: the three the findings own (wavy in the error ink, wavy in the accent,

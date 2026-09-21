@@ -31542,3 +31542,26 @@ row and head of different lengths).
 `frontend/css/06-timeline-dialogs.css`,
 `scratchpad/ui-sweeps/timelinedensity.js`,
 `scratchpad/ui-sweeps/timelinetable820.js`.
+
+## INBOX resolved, 2026-09-21
+
+291. **Fixed.** The owner: "a text which should be highlighted a normal
+    yellow is still highlighted blue??" Two faults, both in the documents
+    live view, and neither in the saved view, which had been right all
+    along. The live view's default rule took `--accent-soft`, which is the
+    blue of the app's own named highlight set, so every plain highlight came
+    out blue and only one explicitly called blue looked correct. And the
+    live view's scan pattern had no colour half at all, where the saved
+    view's inline pattern carries the allowlist yellow, green, blue, pink,
+    purple, orange, red and grey, so `==blue|word==` drew the prefix as part
+    of the highlighted words.
+
+    Both views now read the same allowlist and take the same tokens, the
+    prefix is hidden as syntax rather than shown as text, and the colour
+    lands in a class name rather than an inline style, which this app's CSP
+    rejects outright. Measured on a live app by
+    `scratchpad/ui-sweeps/dochighlight.js`, 7 of 7: a plain highlight reads
+    `rgba(245, 189, 79, 0.25)` against blue's `rgba(79, 109, 245, 0.14)`,
+    green is its own `rgba(52, 199, 123, 0.2)`, each mark's text is
+    "highlighted" with no pipe in it, and no colour name survives anywhere
+    in the visible text.

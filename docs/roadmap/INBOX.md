@@ -364,15 +364,6 @@ with its owner named in the entry.
     header's right edge. Two faults or one: a phantom row on focus, and a
     control that cannot be pressed.
 
-291. **The owner, 2026-09-21, verbatim:** "also on the live view, a text
-    which should be highlighted a normal yellow is still highlighted blue??"
-    The screenshots carry more than the sentence does. The source line is
-    `==highlighted==` and `==blue|highlighted==`; rendered, the first is
-    blue when a bare highlight should be yellow, and the second renders the
-    literal text "blue|highlighted" rather than reading `blue` as the colour
-    and highlighting the word. So the colour prefix is not parsed and the
-    default colour is wrong.
-
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

@@ -327,12 +327,6 @@ with its owner named in the entry.
     the question (`ai/extractive.py`). The standing half, refinement, is the
     session's own order of work from here.
 
-289. **The owner, 2026-09-21, verbatim:** "in the files subtab, I want the
-    expanded text box to be slightly taller as it is quite short
-    vertically". The extracted-text panel in Library, Files. Measure the
-    panel's current height and what it would need to show one more line or
-    two without pushing the row below the fold.
-
 290. **The owner, 2026-09-21, verbatim:** "when I click on a header row in a
     table on the live view in documents page, another row appears below it
     until I click off, and I cant click the meatball button on the end of
@@ -381,14 +375,6 @@ with its owner named in the entry.
     capability tier, and this app has Performance mode and the
     `data-glass="off"` list. Next step: establish whether their tiering does
     anything this app's does not, as a measurement rather than a reading.
-
-307. **The owner, 2026-09-21, verbatim:** "I feel like the navigation and
-    undo/redo buttons keep getting pushed further and further to the left on
-    the bottom bar, is there a better way to restructure the right side of
-    the bottom bar??" A drift complaint, which means the fix is a rule rather
-    than a nudge: something has to own the right end of that bar so the next
-    feature cannot push these along again. Related to INBOX 301, the app-wide
-    navigation and undo contracts, already placed in WORLD_CLASS_PLAN.
 
 ## Placed (last 20, newest first)
 

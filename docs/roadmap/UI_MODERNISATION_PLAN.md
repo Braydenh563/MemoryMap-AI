@@ -1366,8 +1366,4 @@ glass. What is left is below.
 
 ## Placed from INBOX, 2026-09-21 (the dashboard's focused hero)
 
-296. **The owner, 2026-09-21, verbatim:** "improve the ui of the hero section
-    in the dashboard when on focused mode." The dashboard's density switch
-    has full, compact and focused; focused is the one he is naming. Placed
-    into UI_MODERNISATION_PLAN's "Placed from INBOX, 2026-09-21".
-
+296 is built. Moved whole to [`HISTORY.md`](HISTORY.md) ("INBOX resolved, 2026-09-21"), with what it measured before and after.

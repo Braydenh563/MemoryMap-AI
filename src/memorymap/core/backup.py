@@ -131,7 +131,28 @@ def prune(data_dir: Path, keep: int = KEEP_BACKUPS) -> int:
     stale = backup_files(data_dir)[max(0, keep) :]
     for path in stale:
         path.unlink(missing_ok=True)
+    _sweep_partials(data_dir)
     return len(stale)
+
+
+#: How long a `.partial` has to sit there before it is assumed abandoned.
+#: `backup_now` removes its own on any failure, so the only way one survives
+#: is the process dying mid-copy (a kill, a power cut). An hour, rather than
+#: "any that exist", because the startup backup and a click on Back up now
+#: can overlap, and deleting a copy that is still being written would turn a
+#: tidy-up into the bug it exists to prevent.
+_PARTIAL_GRACE_SECONDS = 3600
+
+
+def _sweep_partials(data_dir: Path) -> None:
+    now = datetime.now(timezone.utc).timestamp()
+    for path in backups_dir(data_dir).glob("memorymap-*.db.partial"):
+        try:
+            if now - path.stat().st_mtime > _PARTIAL_GRACE_SECONDS:
+                path.unlink(missing_ok=True)
+        except OSError:
+            # Tidying up is never worth an exception out of a backup.
+            continue
 
 
 def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path | None:

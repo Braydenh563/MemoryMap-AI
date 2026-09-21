@@ -229,3 +229,30 @@ def test_an_empty_file_is_never_offered_or_restored_as_a_backup(app_state):
     with pytest.raises(ValueError, match="empty"):
         backup.restore_backup(empty.name, config.db_path, config.data_dir)
     assert config.db_path.read_bytes() == before
+
+
+def test_an_abandoned_partial_copy_is_swept_up(app_state):
+    """`backup_now` cleans up its own failure; a killed process cannot.
+
+    The `.partial` name is outside the `memorymap-*.db` glob, so a leftover
+    one is never listed or restored, but it would sit in the folder holding
+    its bytes for ever. Swept on the next backup, with an hour's grace so a
+    copy that is still being written is never the one deleted.
+    """
+    import os
+    import time
+
+    config = deps.get_config()
+    folder = backup.backups_dir(config.data_dir)
+    abandoned = folder / "memorymap-20200101-000000.db.partial"
+    abandoned.write_bytes(b"half a backup")
+    old = time.time() - 7200
+    os.utime(abandoned, (old, old))
+
+    fresh = folder / "memorymap-20200101-000001.db.partial"
+    fresh.write_bytes(b"still being written")
+
+    backup.prune(config.data_dir, backup.KEEP_BACKUPS)
+
+    assert not abandoned.exists()
+    assert fresh.exists(), "a partial written seconds ago is not abandoned"

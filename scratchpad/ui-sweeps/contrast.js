@@ -41,6 +41,16 @@ const SECTIONS=['models','appearance','account','tools','skills','memory','learn
 const WIDTH=Number(process.env.WIDTH||1440);
 const HEIGHT=Number(process.env.HEIGHT||(WIDTH<600?844:900));
 const PHONE=WIDTH<600;
+// **A surface that came back empty is a failure, not a note.** The count below
+// was added after `whiteboard` sat in the tab list with no tab page to open,
+// so the sweep measured an empty window at every width and reported 0
+// low-contrast findings, which reads as a pass: and it reported it for a long
+// time. Counting the elements caught it; printing the count did not stop the
+// next one, because a line of prose in the middle of thirty-odd "ok"s is not
+// something anyone reads and the gate that runs this file only ever saw exit
+// 0. The surfaces that measured nothing are collected here, named at the end,
+// and the process exits non-zero. A sweep that measures nothing must fail.
+const empty=[];
 (async()=>{const {browser,page}=await boot({viewport:{width:WIDTH,height:HEIGHT},hasTouch:PHONE,isMobile:PHONE});
 const run=async(label)=>{const r=await page.evaluate(()=>{
   const cv=document.createElement('canvas');cv.width=cv.height=1;const cx=cv.getContext('2d',{willReadFrequently:true});
@@ -66,7 +76,7 @@ const run=async(label)=>{const r=await page.evaluate(()=>{
   }
   return {out:out.slice(0,12),checked};});
   console.log(`== ${label}: ${r.out.length?r.out.length+' low-contrast':'ok'} (${r.checked} text elements)`);r.out.forEach(l=>console.log('  '+l));
-  if(!r.checked)console.log('  nothing was measured here, which is a finding about the sweep, not the surface');};
+  if(!r.checked){console.log('  nothing was measured here, which is a finding about the sweep, not the surface');empty.push(label);}};
 const go=async(t)=>{await page.evaluate((name)=>{try{switchTab(name);}catch(e){}},t);await page.waitForTimeout(700);};
 for(const t of TABS){
   await go(t);
@@ -127,4 +137,9 @@ for(const s of SECTIONS){
   if(!ok)continue;await page.waitForTimeout(400);await run('settings/'+s);
 }
 console.log(`== done at ${WIDTH}x${HEIGHT}, theme ${process.env.THEME||'light'}`);
-await browser.close();})();
+if(empty.length){
+  console.log(`FAIL: ${empty.length} surface${empty.length===1?'':'s'} measured 0 text elements at ${WIDTH}x${HEIGHT}, theme ${process.env.THEME||'light'}: ${empty.join(', ')}`);
+  console.log('A surface with no text on it is either a surface this sweep could not open or one the app did not draw. Either way its "ok" above is about nothing.');
+}
+await browser.close();
+process.exitCode=empty.length?1:0;})();

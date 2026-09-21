@@ -50,6 +50,7 @@ from sqlalchemy.orm import Session
 from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
 from memorymap.search import index as search_index
 from memorymap.search import query as query_understanding
+from memorymap.search import search_manager
 
 if TYPE_CHECKING:
     # Annotation-only: see ai/embeddings.py's own TYPE_CHECKING import for
@@ -387,7 +388,13 @@ def _match_expression(terms: list[str], phrases: list[str], excluded: list[str],
     """
     parts: list[str] = []
     if mode == "prefix":
-        parts.extend(f"{term}*" if len(term) >= 4 else term for term in terms)
+        #: The shared threshold, not a second 4 written out here. The two
+        #: stages are meant to agree, and a duplicated constant is how they
+        #: stop agreeing: this one was still 4 while the note search's moved.
+        parts.extend(
+            f"{term}*" if len(term) >= search_manager.PREFIX_MIN_LEN else term
+            for term in terms
+        )
     else:
         parts.extend(terms)
     joiner = " OR " if mode == "any" else " AND "

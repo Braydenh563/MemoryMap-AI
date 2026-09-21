@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Typing part of a word finds it again. The find anything box tried a word as
+  a prefix only from four letters, so a note called "test" appeared for "test"
+  and not for "tes". Three letters is enough now, and the finder and the note
+  search read one threshold instead of each keeping their own.
 - Atlas is shown the tags your notebook already uses before it suggests new
   ones. It was told only which tags were on the note in front of it, so it had
   no way to know the notebook already said "ml" and would happily suggest

@@ -12887,7 +12887,7 @@ function renderAskAnswerFoot(object, meta) {
   //: is notes. Those keep the panel, and keep their own numbers, so a citation
   //: marker in the answer still points at the row it names.
   const elsewhere = object.sources.filter((source) => !here.includes(source));
-  const line = here.length ? askSourcesLine(here.length) : null;
+  const line = here.length ? askSourcesLine(here.length, here[0]?.id ?? null) : null;
   if (line) sources.appendChild(line);
   const panel = elsewhere.length
     ? chatSourcesPanel({ sources: elsewhere, meta, numberFrom: object.sources })
@@ -12911,17 +12911,31 @@ function askNotesOnTheRight() {
   return new Set([...rows].map((row) => row.dataset.id));
 }
 
-//: One line where the cards were: what the answer drew on, and where to look.
-//: A button rather than a sentence, because it does something: the column can
-//: be below the fold on a short window, and "on the right" is only true if
-//: the right is on screen.
-function askSourcesLine(count) {
+//: One control where the cards were: what the answer drew on, and the way to
+//: it. A button rather than a sentence, because it does something: the column
+//: can be below the fold on a short window.
+//:
+//: **It says what pressing it does, not where something is** (INBOX 300, the
+//: owner: "fix the ui of this sources button in the ask tab"). It read
+//: "Sources: 10 notes, on the right", which is a description of the layout: a
+//: control whose label is a fact about where to look is not a control, and at
+//: 525px in a 525px column it did not look like one either. The count is kept,
+//: because it is the fact worth having; the verb is what makes it pressable.
+//:
+//: `firstCited` is the note the answer cites as 1, now that the records carry
+//: the answer's own numbers (INBOX 299): pressing this lands on the record
+//: the answer starts from rather than on the top of the column, which is the
+//: same row on a short answer and a screenful apart on a long one.
+function askSourcesLine(count, firstCited = null) {
   const line = document.createElement("button");
   line.type = "button";
   line.className = "ghost small ask-sources-line";
-  setLabel(line, `ph:books Sources: ${count} ${count === 1 ? "note" : "notes"}, on the right`);
-  line.title = "Bring Matching records into view";
-  line.addEventListener("click", () => askRevealRecords());
+  setLabel(line, `ph:books Show the ${count} ${count === 1 ? "note" : "notes"} used`);
+  line.title = "Bring Matching records into view, at the first note this answer cites";
+  //: Named, not just described: the control and the list it moves are two
+  //: halves of one thing, and this is the only thing on the page that says so.
+  line.setAttribute("aria-controls", "raw-results");
+  line.addEventListener("click", () => askRevealRecords(firstCited));
   return line;
 }
 
@@ -12929,10 +12943,14 @@ function askSourcesLine(count) {
 //: is DESIGN.md's rule: `scrollIntoView` walks every scrolling ancestor up to
 //: the page, and the page moving is how a reader loses the answer they were
 //: reading while trying to look at what it was built from.
-function askRevealRecords() {
+function askRevealRecords(noteId = null) {
   const list = $("raw-results");
   if (!list) return;
-  const half = list.closest(".chat-half") || list;
+  //: The row the answer cites first, when there is one, and the column's own
+  //: top otherwise: a press that lands on source 1 answers "which notes?"
+  //: with the note rather than with the heading above it.
+  const row = noteId == null ? null : list.querySelector(`li[data-id="${noteId}"]`);
+  const half = row || list.closest(".chat-half") || list;
   let node = half.parentElement;
   while (node && node !== document.body) {
     const style = getComputedStyle(node);

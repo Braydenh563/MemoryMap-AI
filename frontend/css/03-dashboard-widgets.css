@@ -1896,18 +1896,26 @@ header#top-bar select,
   margin-top: var(--space-4);
 }
 
-/* **One line where the source cards were** (INBOX 274). The Ask layout already
-   shows every cited note in the Matching records column beside the answer, so
-   what belongs under the answer is the fact and the way to it, not a second
-   copy of the column. It is a ghost button at the app's small size, the same
-   shape as the follow-up chips it sits above, and it takes the whole row so
-   it reads as a line rather than as an action among others. */
+/* **One control where the source cards were** (INBOX 274, then INBOX 300).
+   The Ask layout already shows every cited note in the Matching records
+   column beside the answer, so what belongs under the answer is the fact and
+   the way to it, not a second copy of the column.
+
+   It was drawn as a full-width pill, on the reasoning that taking the whole
+   row would make it read as a line rather than as an action among others.
+   Measured on the owner's screen and then here: 525px of a 525px column,
+   100% of it, which does not read as a line either. It reads as a banner,
+   and a banner is the one thing a control must not look like. The owner:
+   "fix the ui of this sources button in the ask tab".
+
+   So it sizes to its own words, like the follow-up chips it sits above and
+   like DESIGN.md's "a fact on a facts line that is also the way in". The
+   muted colour stays: this is the quietest thing in the foot, and it is
+   still a button. */
 .ask-sources-line {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  width: 100%;
-  justify-content: flex-start;
   color: var(--muted);
 }
 

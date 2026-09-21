@@ -475,6 +475,43 @@ function waitForFake() {
     };
   });
   console.log('300 sources control:', JSON.stringify(sources));
+
+  // **And pressing it has to do something.** The whole objection in the
+  // report is that the control described a place instead of acting, so the
+  // measurement is the page moving: the first cited record's distance from
+  // the top of the window, before the press and after it.
+  const acted = await page.evaluate(async () => {
+    const el = document.querySelector('.ask-sources-line');
+    const first = document.querySelector('#raw-results li[data-id]');
+    if (!el || !first) return null;
+    // Shrunk first, so the column really is out of reach and a press has
+    // somewhere to move to: on a tall window everything is already in view
+    // and a control that works would measure the same as one that does not.
+    const scroller = (() => {
+      let n = first.parentElement;
+      while (n && n !== document.body) {
+        const st = getComputedStyle(n);
+        if (/(auto|scroll)/.test(st.overflowY) && n.scrollHeight > n.clientHeight + 1) return n;
+        n = n.parentElement;
+      }
+      return document.scrollingElement || document.documentElement;
+    })();
+    const before = Math.round(scroller.scrollTop);
+    const beforeTop = Math.round(first.getBoundingClientRect().top);
+    el.click();
+    await new Promise((r) => setTimeout(r, 400));
+    return {
+      scrollBefore: before,
+      scrollAfter: Math.round(scroller.scrollTop),
+      rowTopBefore: beforeTop,
+      rowTopAfter: Math.round(first.getBoundingClientRect().top),
+      scroller: `${scroller.tagName}#${scroller.id || ''}`,
+    };
+  });
+  console.log('300 what the press did:', JSON.stringify(acted));
+  if (acted) {
+    numbers.sourcesPressMovedPage = Math.abs(acted.rowTopAfter - acted.rowTopBefore);
+  }
   if (sources.present) {
     numbers.sourcesWidthPct = sources.share;
     numbers.sourcesWidthPx = sources.w;

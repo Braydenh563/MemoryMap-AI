@@ -43,6 +43,22 @@ answerable, the model copy, the composer not gated).
   browser it reads well for one topic and would read as a wall for three.
   Worth a look at what three matched topics look like in the panel.
 
+- **The Help topics accordion cannot grow a row.** The status bar entry was
+  added to `#settings-help` beside the corpus entry and then reverted:
+  `test_ui_recipes.py::test_a_folded_group_of_settings_is_the_shared_disclosure_recipe`
+  caps bare `<details>` in `index.html` at fourteen and the count may only
+  fall, and thirteen of those fourteen are this accordion's own topics. They
+  are not undressed: `.help-accordion details > summary` is a real family in
+  `08-consistency.css`, and the ratchet counts the class on the element, so it
+  cannot see a disclosure dressed by its container. Giving the new row
+  `settings-fold` to satisfy the count is not free either: that class adds
+  `margin: 0.5rem 0` to the summary (`03-dashboard-widgets.css:705`), so the
+  row would sit 8px further apart than its thirteen siblings. The fix is to
+  convert the accordion's thirteen to the named family in one commit, which is
+  a visual change across the whole list and wants measuring, not a line in
+  this task. Until then the corpus can cover a surface the Help list does not,
+  which it already does for twenty others.
+
 ## Traps met here
 
 - `ai_client` gives a working fake model, so a test of the no-model path

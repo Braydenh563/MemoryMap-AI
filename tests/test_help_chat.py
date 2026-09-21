@@ -709,3 +709,128 @@ def test_the_guide_preset_sends_no_thinking_toggle_to_ollama():
     #: reasoning competing for the same 256 tokens (§35A.3).
     assert client.thinking_allowance("quick", "reasoner") == 0
     assert client.thinking_allowance(presets.GUIDE_MODE, "reasoner") > 0
+
+
+# --- The guide answers for the surfaces the app has (INBOX 304) -------------
+#
+# The owner asked the Atlas guide "Where do reminders live?", which is the
+# first question the panel itself offers, and was told "I'm not sure where
+# reminders live. Please check the Help topics above this chat", with Notes
+# and What it remembers named as the sources. Measured, the corpus had a
+# reminders entry all along: `_matching_topics` never reached it, because its
+# keyword is "reminder" and the pattern is `\breminder\b`, which the plural in
+# the question does not match. Nothing matched, the Notes tab's own topics
+# filled the gap, and the model was handed reference notes about capture and
+# memory for a question about reminders. Every plural in the app had the same
+# hole: "documents", "notes", "spaces", "backups".
+#
+# These are the tests that hold the guide to its job rather than to its code.
+# A guide that cannot answer for a surface this app ships is broken however
+# well its retrieval reads, and a panel that offers a question it cannot
+# answer is the worst version of the same fault.
+
+#: One question per major surface, in the words a person uses rather than the
+#: words the keyword table happens to hold, and the topic each must reach.
+_SURFACE_QUESTIONS = [
+    ("Where do reminders live?", "reminders"),
+    ("Where do my documents live?", "documents"),
+    ("How do I take notes?", "capture"),
+    ("What is the whiteboard for?", "whiteboard"),
+    ("What do the graphs show me?", "graph"),
+    ("What goes in the library?", "library"),
+    ("How do I chat with my notes?", "ask-chat"),
+    ("What does the timeline show?", "timeline"),
+    ("What are spaces?", "spaces"),
+    ("Where are my backups kept?", "storage"),
+    ("What is the status bar telling me?", "statusbar"),
+]
+
+
+def test_every_major_surface_has_reference_notes_of_its_own():
+    for question, expected in _SURFACE_QUESTIONS:
+        ids = [topic["id"] for topic in help_chat.topics_for(question)]
+        assert ids, f"no reference notes at all for {question!r}"
+        assert expected in ids, f"{question!r} reached {ids}, not {expected!r}"
+
+
+def test_a_surface_question_reaches_the_model_grounded_not_empty_handed(
+    ai_client, fake_ollama
+):
+    """End to end, through the route the panel calls.
+
+    The system prompt tells the model to say it is not sure when it is given
+    no reference notes, so "was a reference block sent" is the measurable
+    form of "could this answer have been 'I'm not sure'". There is no model
+    in this sandbox: `fake_ollama` stands in for one, and what is asserted is
+    the prompt that reached it, not the words it replied with.
+    """
+    for question, expected in _SURFACE_QUESTIONS:
+        fake_ollama.librarian_reply = "Reference answer."
+        response = ai_client.post("/help/ask", json={"question": question})
+        assert response.status_code == 200
+        sent = fake_ollama.chat_calls[-1]
+        reference = [m["content"] for m in sent if "Reference notes" in m["content"]]
+        assert reference, f"{question!r} was sent to the model with no reference notes"
+        body = next(t["body"] for t in help_chat.HELP_TOPICS if t["id"] == expected)
+        assert body[:40] in reference[0], f"{question!r} was grounded in the wrong topic"
+
+
+def test_the_sources_named_for_a_surface_question_are_that_surface(
+    ai_client, fake_ollama
+):
+    """The screenshot's real tell: the answer named Notes and What it
+    remembers under a question about reminders. Those are `TAB_TOPICS`
+    filling an empty match, which is correct behaviour for "how does this
+    work?" and wrong for a question that names its own subject."""
+    fake_ollama.librarian_reply = "The Reminders tab."
+    response = ai_client.post(
+        "/help/ask", json={"question": "Where do reminders live?", "tab": "notes"}
+    )
+    assert response.status_code == 200
+    assert response.json()["sources"] == ["Reminders"]
+
+
+def test_a_plural_question_finds_what_the_singular_finds():
+    for singular, plural in (
+        ("how do I set a reminder?", "where do reminders live?"),
+        ("open a document", "where do my documents live?"),
+        ("write a note", "where are my notes?"),
+        ("make a backup", "where are my backups?"),
+        ("what is a space?", "how do spaces work?"),
+    ):
+        one = [t["id"] for t in help_chat._matching_topics(singular)]
+        many = [t["id"] for t in help_chat._matching_topics(plural)]
+        assert one, f"{singular!r} matched nothing, so the pair proves nothing"
+        assert one[0] in many, f"{plural!r} reached {many}, the singular reached {one}"
+
+
+def _atlas_questions() -> list[str]:
+    """Every question the app itself offers to ask Atlas: the three starters
+    under the transcript, and the line at the foot of a help popover."""
+    app = (
+        Path(__file__).resolve().parents[1] / "frontend" / "app.js"
+    ).read_text(encoding="utf-8")
+    starters = app[app.index("const ATLAS_STARTERS = [") :]
+    starters = starters[: starters.index("\n];")]
+    prompts = app[app.index("const ATLAS_PROMPTS = {") :]
+    prompts = prompts[: prompts.index("\n};")]
+    return re.findall(r'"([^"]+)"', starters) + re.findall(r'": "([^"]+)"', prompts)
+
+
+def test_every_question_the_app_offers_to_ask_atlas_is_answerable():
+    """A suggested question the corpus cannot answer is a promise the guide
+    breaks on the first tap, and "Where do reminders live?" was the first
+    starter in the panel. Held here rather than by care: the table is in
+    `frontend/app.js` and the corpus is in Python, so nothing else sees both.
+    """
+    questions = _atlas_questions()
+    assert len(questions) >= 12, questions
+    unanswerable = [q for q in questions if not help_chat.topics_for(q)]
+    assert not unanswerable, f"Atlas offers questions it cannot answer: {unanswerable}"
+
+
+def test_a_keyword_still_does_not_match_inside_a_longer_word():
+    """The inflection fix must not turn the whole-word rule back into a
+    substring one: "ask" may reach "asks" and "asked", never "basket"."""
+    assert help_chat._matching_topics("where's the picnic basket for our task?") == []
+    assert help_chat._matching_topics("the weather is nice today") == []

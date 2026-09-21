@@ -3212,7 +3212,7 @@ dialog::backdrop {
 .ask-composer > #question,
 .ask-composer > #question:focus,
 .ask-composer > #question:focus-visible,
-/* The Write with AI panel's revision instruction, which is the same thing on
+/* The Write with Atlas panel's revision instruction, which is the same thing on
    the same recipe: a field you type into with the button that acts on it at
    the end of the row. Written by id for the reason the paragraph below gives
    about `!important`, not because the two are different. */
@@ -3287,7 +3287,7 @@ dialog::backdrop {
 
 /* **One step between the blocks of this card, the step the other two sub-tabs
    use.** Brief 22 asked for the Ask panel to be brought to the same rhythm as
-   Capture and Write with AI rather than redesigned. Measured on :8895 at
+   Capture and Write with Atlas rather than redesigned. Measured on :8895 at
    1440x900 dark, the gaps down the Ask card were 12.8 (composer), 8 ("Try
    asking"), 8 ("Ask again") and 13.6 (the empty state), four different steps
    in one card, against the single 9.6px step every row of the Capture card
@@ -4263,8 +4263,21 @@ details[open].help-accordion > summary::before {
    filled button and the pixels said none. Named here, it falls through to
    the base `button` recipe, the app's real filled tier, rather than to a
    fourth button colour invented for one control. */
-button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary),
-button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary) {
+/*: `.icon-primary` is the fifth name, and it is the general one the fourth
+   should have been. INBOX 286, the owner: "the send and stop button in the
+   atlas guide panel looks disabled." Measured on the running panel with a
+   model connected: `#help-chat-send` was not disabled at all (`disabled`
+   false, opacity 1), it was painted `rgba(31, 36, 48, 0.12)` by this rule,
+   while the Chat tab's own Send, which carries no class and so falls through
+   to the base `button` recipe, was the accent fill. A composer's one action
+   drawn in the tonal tier beside a full-strength field reads as a control
+   that cannot be pressed, which is exactly the report.
+   `.graph-popup-tool-primary` above is the same fault fixed once for one
+   button; naming the intent rather than the place means the next surface
+   that needs its icon-only primary to look primary says so instead of
+   adding a sixth exception. */
+button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary),
+button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary) {
   /* Tonal, like `.ghost` (01-forms-settings.css): fill, transparent edge. */
   background: var(--ghost-btn-bg);
   border: 1px solid transparent;

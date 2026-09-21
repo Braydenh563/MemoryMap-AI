@@ -7,6 +7,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- The graph's full screen no longer spends one Escape on two things. Opening
+  the lightbox over a full-screen map and pressing Escape used to close the
+  lightbox *and* leave full screen in the same press, because the full-screen
+  handler relied on being placed after other Escape handlers rather than on
+  anything actually stopping the key. It now asks `activeOverlay()` whether
+  something is open over the map first (INBOX 275).
+- A saved graph view restores where the unpinned notes sat, not only the
+  layout, colour rule, filters, groups and zoom. Reopening a force-layout view
+  used to solve the same forces fresh rather than show the picture that was
+  saved; it now seeds the simulation with each note's saved spot and starts
+  at rest, reheating only for a note added since the view was saved, while
+  holding every saved note in place until that settles (GRAPH_PLAN Phase 5).
+
 ### Added
 
 - A cross-link on a mind map now survives an export. FreeMind files carry it

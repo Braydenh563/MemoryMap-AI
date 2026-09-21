@@ -7594,10 +7594,63 @@ noise. Both failures are written into the sweep so they are not repeated.
   (the plan's 600 KB for 5,000, in proportion; measured in the suite,
   `tests/test_graph_colour_rules.py`).
 
-Not built: positions stored on server-side views (views are still in
-localStorage; the local pane and multi-device views are the reason to move
-them, and neither exists yet) and the `?since=` cursor (nothing polls the
-graph, so nothing needs it).
+Not built (2026-09-09): positions stored on server-side views (views are
+still in localStorage; the local pane and multi-device views are the reason
+to move them, and neither exists yet) and the `?since=` cursor (nothing
+polls the graph, so nothing needs it). Re-read 2026-09-20: server-side
+positions are still nothing to build as written (the local pane exists now
+and does not read saved views; there is still no second device to sync to),
+but restoring where the *unpinned* notes sat on a saved view, entirely a
+frontend concern, was genuinely missing. The `?since=` cursor stays
+deferred.
+
+### Built, Phase 5 continued (positions on a saved view), 2026-09-21
+
+A saved view restored the layout, colour rule, filters, groups and zoom
+transform, but not where the unpinned notes sat, so reopening a
+force-layout view was a fresh solution of the same forces rather than the
+picture that was saved.
+
+`graphCaptureView` (`frontend/graph.js`) now stores every visible node's
+x/y (from `graphNodesRef`, the live array either renderer draws from)
+alongside the transform it already captures. `graphApplyView` stages them
+in a one-shot global, `graphPendingViewPositions`; `renderGraphCanvas`
+(`frontend/graph-canvas.js`, the default renderer) consumes and clears it,
+and passes the seeded positions and an `{alpha, freezeIds}` pair to
+`gcStartWorker`.
+
+**Decision made, 2026-09-21** (the question the original row left open,
+"whether a restored arrangement then holds or settles"): **it holds.** Every
+saved node seeds the worker's simulation at alpha 0, not 1: no reheat,
+nothing moves, because a saved picture is the thing that was asked for. The
+one case that must still reheat is a note added *since* the view was saved
+(no saved position at all): the worker gets alpha 1 and every saved node is
+frozen (`{type: "freeze", ids}`, the same message a drag already uses to
+hold the rest of the map still while one node moves) for exactly the length
+of that settle, released (`{type: "thaw"}`) the moment the worker posts
+`"end"`. A real pin (`graph_pin_x`/`graph_pin_y`, notebook content) is
+untouched by any of this: it is a permanent `fx`/`fy`, set and released by
+the code that already owned it.
+
+Measured with `scratchpad/ui-sweeps/graphviewpos.js` on a fresh data dir
+(8 linked notes, a saved view, the layout then disturbed by a physics-
+slider change and a manual node move): before the fix, applying the view
+left the notes 71px from their saved spots and still drifting 19px more
+two seconds later; after, drift is ~1px and does not continue. Adding a
+ninth note after the save and reapplying: the new note is placed (present
+in `graphNodesRef`) while the eight saved ones stay within 2px of where
+they were saved. A static shape test, `tests/test_graph_view_positions.py`,
+guards the code carrying this out (it cannot run the simulation itself;
+that is the sweep's job).
+
+Not verified: the legacy SVG renderer (`frontend/graph.js`'s
+`renderGraphSvg`, a dev-only fallback behind a manual `localStorage`
+override with no UI control, slated for deletion once the canvas renderer
+passes the gate) does not read the staged positions; left alone rather than
+duplicating the fix into code that is going away.
+
+**Files.** `frontend/graph.js`, `frontend/graph-canvas.js`,
+`tests/test_graph_view_positions.py`, `scratchpad/ui-sweeps/graphviewpos.js`.
 
 ### From GRAPH_PLAN.md
 
@@ -32279,6 +32332,29 @@ row and head of different lengths).
     tasks"). The Guide is now a row in the per-feature model table, so it can
     be pinned to a model whatever routing says.
     `tests/test_feature_models.py` holds all three cases.
+275. **Found by an agent, 2026-09-20, the graph's full screen spends one
+    Escape on two things.** With the map in full screen, opening the
+    lightbox (the node panel's attachment, a document) and pressing Escape
+    closed the lightbox *and* left full screen, in one press. Measured with
+    `scratchpad/ui-sweeps/graphfslightbox.js`: lightbox gone true, still in
+    full screen false. The cause named in the app's own comments was one
+    word out of date: the full-screen listener (`app.js`, "Escape leaves
+    full screen") said it was "placed after the popover handlers above so a
+    help panel or a note popup open over the map takes the first Escape and
+    the map takes the second", but listener order does not stop an event.
+    The graph options panel's own handler calls `stopPropagation` and
+    therefore really does spend the key ("The Escape is spent here",
+    app.js); `openLightbox`'s `onKey` does not, and neither does anything
+    else that opens over the map.
+
+    **Fixed** (`b1365fd`). The full-screen handler now asks `activeOverlay()`
+    whether anything is open over the map before it acts, rather than every
+    overlay having to remember to stop the key; the lightbox's own
+    `role="dialog" aria-modal="true"` (set for keyboard-trapping) is what
+    puts it inside that reach. Measured before/after with
+    `scratchpad/ui-sweeps/graphfslightbox.js`: `stillFullscreen` false, then
+    true. `tests/test_frontend_handlers.py` guards the handler against
+    going back to relying on order.
 
 ## Moved from HANDOVER, 2026-09-21
 

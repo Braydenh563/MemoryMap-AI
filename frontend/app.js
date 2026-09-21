@@ -395,7 +395,18 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    const errMsg = typeof detail.detail === 'string' ? detail.detail : (JSON.stringify(detail.detail) || `Request failed (${response.status})`);
+    let errMsg = typeof detail.detail === 'string' ? detail.detail : (JSON.stringify(detail.detail) || `Request failed (${response.status})`);
+    //: **Out of space is the one failure the person can act on, so the part
+    //: that says how travels with it.** The server answers 507 with a
+    //: `hint` naming the folder, the room left and roughly how much to free
+    //: up (INBOX 266, item 6); every call site in this app toasts
+    //: `error.message` and nothing has ever read `hint`, so the actionable
+    //: half was being thrown away at this line. Appended here rather than
+    //: at fifty call sites, which is the only version that cannot be
+    //: forgotten by the next one.
+    if (response.status === 507 && typeof detail.hint === 'string' && detail.hint) {
+      errMsg = `${errMsg} ${detail.hint}`;
+    }
     if (!silent) {
       // Log HTTP errors so they always appear in Settings → Logs for debugging.
       recordBrowserLog("ERROR", [
@@ -478,6 +489,13 @@ const JOB_STARTING_PATH =
 //: state from just before the job existed, the exact miss this fixes.
 let jobPollKick = null;
 function kickBackgroundTaskPoll() {
+  //: A write that starts a job is the clearest "something just changed"
+  //: there is, so the status poll's idle backoff (see `resetStatusCadence`)
+  //: starts again from 30s rather than the job's progress being reported on
+  //: a two-minute delay. Reached only from `api()` on a non-GET, which
+  //: cannot happen before this file has finished evaluating, so the `const`
+  //: that function reads is always past its temporal dead zone by then.
+  resetStatusCadence();
   clearTimeout(jobPollKick);
   jobPollKick = setTimeout(() => {
     refreshBackgroundTasks().catch(() => {
@@ -25703,15 +25721,59 @@ function tickClocks() {
 // clock that resumed on the next tick would show the time it stopped at for
 // up to a second, and "up to a second" on a clock is exactly what a person
 // notices.
+//: **A clock with no seconds on it needs one wake a minute, not sixty.**
+//: (INBOX 266, item 7.) Stopping these while the tab is hidden, which is
+//: what the comment above records, fixed the half that ran for nobody; this
+//: is the half that ran for somebody and still wrote the string that was
+//: already there 59 times out of 60. Measured with `scratchpad/ui-sweeps/
+//: idle.js`, which now counts timer *fires* rather than only live intervals:
+//: two 1s clocks were 120 of the 123 callbacks an idle visible minute ran.
+//:
+//: Aligned to the wall clock rather than set to a 60,000 ms interval, which
+//: is the whole reason this is a `setTimeout` chain: an interval started at
+//: 10:00:59.8 repaints at 10:01:59.8, so for the 58 seconds in between the
+//: clock is a minute behind, and a clock that is a minute behind is worse
+//: than one that costs 60 wakes. The 250 ms is margin for a timer that fires
+//: a hair early; landing at :00.25 rather than :59.99 is the difference
+//: between showing the new minute and showing the old one again.
+//:
+//: One helper rather than three, because the app has three of these (the
+//: header clocks here, the Dashboard's, and the status bar's opt-in one) and
+//: they were 1s, 1s and 30s: `startMinuteTicker` is what they all mean.
+const MINUTE_TICK_MARGIN_MS = 250;
+
+function startMinuteTicker(paint) {
+  let handle = null;
+  const schedule = () => {
+    const wait = 60000 - (Date.now() % 60000) + MINUTE_TICK_MARGIN_MS;
+    //: Named, not an arrow: `scratchpad/ui-sweeps/idle.js` counts wakes by
+    //: `fn.name`, and a census of anonymous callbacks cannot tell anyone
+    //: which one to look at.
+    handle = setTimeout(function minuteTick() {
+      paint();
+      schedule();
+    }, wait);
+  };
+  paint();
+  schedule();
+  //: The caller keeps the stopper rather than an id: a chained timeout has a
+  //: different id after every tick, so a caller holding the first one could
+  //: not cancel the chain.
+  return () => {
+    if (handle !== null) clearTimeout(handle);
+    handle = null;
+  };
+}
+
 let clockTimer = null;
 
 function startClockTicker() {
-  if (clockTimer === null) clockTimer = setInterval(tickClocks, 1000);
+  if (clockTimer === null) clockTimer = startMinuteTicker(tickClocks);
 }
 
 function stopClockTicker() {
   if (clockTimer !== null) {
-    clearInterval(clockTimer);
+    clockTimer();
     clockTimer = null;
   }
 }
@@ -32789,11 +32851,53 @@ async function renderBackups() {
 // /storage, so this app's own tests that treat GET /backups as a plain list
 // of backups don't have to change shape for a control that isn't about any
 // one backup.
+//: "4.2 MB", for a line a person reads rather than a byte count. The server
+//: has the same function (`core/diskspace.human_bytes`), because the notice
+//: below is drawn from raw bytes and the toast is built server-side.
+function humanBytes(count) {
+  if (typeof count !== "number" || !isFinite(count)) return "";
+  let size = count;
+  for (const unit of ["bytes", "KB", "MB", "GB"]) {
+    if (size < 1024 || unit === "GB") {
+      return unit === "bytes" ? `${Math.round(size)} bytes` : `${size.toFixed(1)} ${unit}`;
+    }
+    size /= 1024;
+  }
+  return "";
+}
+
+//: **Say it before a save is the thing that says it** (INBOX 266, item 6).
+//: Measured on a data dir filled to 100%: `data_dir_writable` stayed `true`
+//: throughout, so the one signal this panel had was a reassurance the app
+//: could not keep. The threshold is the server's (`low_space_bytes`), so
+//: there is one answer to "is this getting tight" rather than one per
+//: screen, and the line names the folder and what is worth deleting rather
+//: than only the number.
+function renderStorageSpaceNotice(storage) {
+  const line = $("storage-space-notice");
+  if (!line) return;
+  const free = storage && typeof storage.free_bytes === "number" ? storage.free_bytes : null;
+  const limit = (storage && storage.low_space_bytes) || 0;
+  if (free === null || !limit || free >= limit) {
+    line.classList.add("hidden");
+    line.replaceChildren();
+    return;
+  }
+  line.classList.remove("hidden");
+  setLabel(
+    line,
+    `ph:warning Only ${humanBytes(free)} left where your notebook is kept ` +
+      `(${storage.data_dir}). Deleting old backups below, or exports in ` +
+      "Import and export, is usually the quickest space to find."
+  );
+}
+
 async function renderBackupRetention() {
   const input = $("backup-retention");
   if (!input) return;
   const storage = await apiJson("/storage", { silent: true }).catch(() => null);
   if (!storage) return;
+  renderStorageSpaceNotice(storage);
   input.min = storage.backup_retention_min;
   input.max = storage.backup_retention_max;
   input.value = storage.backup_retention_count;
@@ -35773,6 +35877,25 @@ let modelStatus = null; // latest /models/status payload
 let statusEverAnswered = false;
 let suggestedCatalog = null; // loaded once, it never changes
 let statusTimer = null;
+//: The idle poll's own cadence, which doubles while nothing changes and
+//: snaps back the moment something does: see the comment where it is read,
+//: at the bottom of `refreshModelStatus`.
+const STATUS_IDLE_MS = 30000;
+const STATUS_IDLE_CEILING_MS = 120000;
+let statusIdleDelay = STATUS_IDLE_MS;
+//: `JSON.stringify` of the last payload. A string rather than a deep
+//: compare because the payload is small, already came off the wire as one,
+//: and "is this the same answer as last time" is the only question asked of
+//: it.
+let statusFingerprint = null;
+
+//: Anything that means "the person is here, or something just changed":
+//: the ladder starts again from the bottom. Called by the visibility
+//: handler and by `kickBackgroundTaskPoll`, so a job started from this page
+//: is never waiting out a two-minute idle delay.
+function resetStatusCadence() {
+  statusIdleDelay = STATUS_IDLE_MS;
+}
 
 // The Ollama embedding model offered as a one-click fallback when the
 // built-in (sentence-transformers) engine can't load: asked for directly,
@@ -35864,21 +35987,45 @@ async function refreshModelStatus() {
   // Idle is 30s, not 10: the status this reports (is the model runner up,
   // which model) changes on the order of minutes, and every tick wakes the
   // process that is also running the model. Measured before: 14 requests in
-  // an idle minute; the gate is 4 (status ×2, tasks ×1, reminders ×1).
+  // an idle minute; the gate was 4 (status ×2, tasks ×1, reminders ×1).
+  //
+  //: **And then it backs off again while the answer keeps being the same**
+  //: (INBOX 266, item 7, whose gate is ≤ 2 requests an idle minute). A
+  //: notebook left open on a desk asked this endpoint twice a minute for as
+  //: long as it stayed open, and every one of those asks reaches Ollama:
+  //: `/models/status` lists the runner's models, so an idle tab was waking
+  //: the model runner 2,880 times a day to be told the same thing. The
+  //: doubling only applies while the payload is byte-identical to the last
+  //: one, and any change at all drops it straight back to 30s, as does
+  //: coming back to the tab, opening Settings, or a job starting. What it
+  //: costs: on a laptop that has been idle for three minutes, Ollama
+  //: starting is noticed in up to two minutes rather than up to thirty
+  //: seconds, on a pill that reports a background fact. What it buys is the
+  //: other 1,400 wake-ups.
+  const fingerprint = JSON.stringify(modelStatus);
+  if (fingerprint !== statusFingerprint) {
+    statusFingerprint = fingerprint;
+    statusIdleDelay = STATUS_IDLE_MS;
+  } else if (!jobsRunning() && !settingsOpen() && !document.hidden) {
+    statusIdleDelay = Math.min(statusIdleDelay * 2, STATUS_IDLE_CEILING_MS);
+  }
   const delay = jobsRunning()
     ? 1000
     : document.hidden
       ? 120000
       : settingsOpen()
         ? 3000
-        : 30000;
+        : statusIdleDelay;
   statusTimer = setTimeout(refreshModelStatus, delay);
 }
 
 // Refresh immediately when the user returns to the tab, so a status that went
 // stale while hidden snaps up to date instead of waiting out the long delay.
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) refreshModelStatus();
+  if (!document.hidden) {
+    resetStatusCadence();
+    refreshModelStatus();
+  }
 });
 
 // Controls that can only do their job with a chat model running. Left
@@ -46099,9 +46246,9 @@ function renderStatusBarSettings() {
 
 let statusClockTimer = null;
 
-// HH:MM, no seconds: a status-bar clock is glanced at, not watched, so a
-// 30s repaint interval keeps it current without the per-second DOM writes
-// the Dashboard's own bigger clock (paintDashClock) uses.
+// HH:MM, no seconds, repainted on the minute by `startMinuteTicker` (see it
+// for why a clock without seconds is one wake a minute rather than sixty,
+// or, as this one used to be, two).
 function paintStatusClock() {
   const el = $("status-clock");
   if (!el) return;
@@ -46117,12 +46264,14 @@ function applyStatusClock() {
   const on = Boolean(prefsCache?.status_bar_clock);
   el.classList.toggle("hidden", !on);
   if (statusClockTimer) {
-    clearInterval(statusClockTimer);
+    statusClockTimer();
     statusClockTimer = null;
   }
   if (on) {
-    paintStatusClock();
-    statusClockTimer = setInterval(paintStatusClock, 30000);
+    //: Was `setInterval(..., 30000)`, which cost two wakes a minute to paint
+    //: HH:MM *and* left the bar up to 30 seconds behind the minute it was
+    //: showing. `startMinuteTicker` is one wake and never behind.
+    statusClockTimer = startMinuteTicker(paintStatusClock);
   } else {
     closeStatusClockDetail();
   }

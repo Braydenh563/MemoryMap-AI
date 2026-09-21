@@ -189,6 +189,92 @@ with its owner named in the entry.
     installer's name, (5) lightweight, (6) what the app does when the disk
     fills, (7) an architecture review with SQLite and idle compute named
     specifically.
+    **(6) done 2026-09-21**, measured on a real full filesystem: an 80 MB
+    tmpfs mounted as the data dir and filled to 100%, the app driven against
+    it. Already right: saving answered 507 with a sentence about disk space,
+    and reading, searching and exporting kept working throughout. Three
+    things were not. **Unlocking answered 507**, so a full disk locked the
+    person out of their own notebook entirely, over the audit row written
+    beside it. **A failed backup left a zero-byte file named like a backup**,
+    which listed as one, passed `PRAGMA integrity_check` (an empty file is a
+    valid empty database) and would have replaced the whole notebook with
+    nothing if restored: a full disk turning into total loss through the
+    app's own restore button. **A failed upload or export left its
+    half-written file behind**, orphaned, holding the space the person was
+    short of. All three fixed, plus one ASGI `SpaceGuard` that refuses a
+    write bigger than the room left before a byte of it is read, so the app
+    can no longer fill the last megabyte and lock itself out. After, on the
+    same full tmpfs: unlock 200, reads 200, save 507 naming the folder and
+    `0 bytes free`, a 1 MB upload refused up front asking for 3.0 MB, backup
+    507 with nothing left behind, every write working again the moment space
+    was freed. The 507's sentence now reaches every toast in the app and
+    Settings, Data carries a `.notice notice-warn` line when space is low
+    (`scratchpad/ui-sweeps/diskspace.js`, PASS in both themes).
+    **(7) done 2026-09-21**, both halves. *Idle compute*: with no browser
+    attached the server is asleep, 0.04s of CPU across 23 threads in 30
+    seconds (0.13% of one core), because every background piece blocks
+    rather than polls. The cost is the open tab: two HH:MM clocks ticking
+    once a second and a model-status poll asking twice a minute for ever.
+    The clocks are scheduled on the wall-clock minute now and the poll
+    doubles to a two-minute ceiling while the answer does not change,
+    dropping back to 30s on any change, on returning to the tab, on opening
+    Settings or on starting a job. Measured with `idle.js` (which now counts
+    timer *fires*, not only live intervals) and the new `idlecpu.js`: **timer
+    wakes in an idle visible minute 124 to 5, requests 4 to 2, idle CPU
+    6.01%/6.11% of one core to 5.50%/5.59%.** Found, not fixed, and a
+    decision for the owner rather than an agent: nearly all of what is left
+    is the Dashboard's emblem animating at 24fps because it was asked to,
+    which the same probe prices at 5.55% on the Dashboard against 2.09%
+    parked on Notes. *SQLite*: the answer is written down as a decision in
+    `docs/ARCHITECTURE.md` ("Why SQLite holds the notes"), with its reasons,
+    its numbers and where it would stop being right, so it does not have to
+    be argued a fourth time. No migration started, and the serverless
+    question is answered in a paragraph there rather than left hanging.
+    Still open on this entry: (1), (2), (3), (4) and (5).
+
+267. **Mid-work drop, 2026-09-20, verbatim (the owner), a screenshot of four
+    lines.** "Alignment bars don't appear for group selections
+    Double tap anchor resize nodes to auto size adjust
+    In-text referencing and grounding in the ask subtab doesn't stick, the
+    wrong numbers will be used and in the wrong spot, and the numbers wont
+    match the grounding.
+    Grounding and in-text referencing not working now?? Needs fix."
+    Four things, taken worst first: (1) grounding and in-text references in
+    Ask, which the owner wrote twice and which is the one that makes answers
+    untrustworthy, (2) alignment bars missing on a group selection, which a
+    previous session recorded as built (`5273bae`), so measure before
+    believing either, (3) double-tapping a resize anchor to fit the content.
+    (2) fixed: measured first, and the report was right for a reason nobody
+    had guessed. A group of *cards* has drawn its guides since
+    `wbBulkGroupBox` landed, verified at 1 guide line on a two-card group
+    dragged into line. The sketch drag handler never asked for guides at all,
+    solo or in a group, so a marquee that caught a sketch and was dragged by
+    it was the one selection on the board with none. `wbBulkGroupBox` now
+    takes the dragged item's own box, since a sketch is a path with no
+    x/y/width/height, and the sketch handler snaps and draws like the other
+    two. Probe: `scratchpad/ui-sweeps/wbgroupguides.js`, in the gate's sweep
+    set. (3) fixed: the gesture was already wired (a `dblclick` on
+    `.wb-resize-handle` calling `wbFitToText`) and measured as doing nothing.
+    Two causes, both real. The handles carried no title, so the gesture was
+    invisible and indistinguishable from missing, which is why it was
+    reported as missing. And `wbFitToText` measured the *card's* own
+    `scrollHeight`, which cannot answer the question: `.wb-card-content`
+    clips on purpose (INBOX 238), so the card's scroll height is the height
+    of a box that is already clipping. It measures the content, unclipped,
+    plus the card's chrome now. Measured: a 100px card holding fourteen
+    wrapped lines went 100px to 100px before and 100px to 748px after, with
+    nothing clipped. Probe: `scratchpad/ui-sweeps/wbfitanchor.js`.
+    (1) fixed, `0f5d46d`, and measured: `liveMarkdownRenderer` armed a paint
+    up to 66ms before the stream ended, which fired after the markers were
+    placed and repainted the box from raw markdown, removing all three. The
+    Ask tab was the one caller that never called the renderer's own `stop()`,
+    which has existed for this since INBOX 40. Probe:
+    `scratchpad/ui-sweeps/askgrounding.js` against
+    `scratchpad/fake_answer_server.py`, 0 markers before, 3 after, numbered
+    1/2/3 against chips 1/2/3 and Sources rows 1/2/3. The reported "wrong
+    numbers" could not be reproduced on a clean notebook: 1/3/5 came from a
+    scratch data dir holding duplicate notes from earlier probe runs, so the
+    sources list genuinely had five rows. (2) and (3) open.
     **(2), (3) and (4) checked and closed out (Sonnet, packaging worktree).**
     (2) and (3) were already built before this pass: `ee99f00` shipped the
     Linux `.tar.gz` (a zip loses the executable bit on several extractors,

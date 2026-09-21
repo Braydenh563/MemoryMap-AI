@@ -293,26 +293,36 @@ async function refreshAiGreeting(forced = false) {
   return true;
 }
 
+//: The stopper `startMinuteTicker` (app.js) hands back, not a timer id: a
+//: chained timeout has a new id every tick, so an id could not cancel it.
 let dashClockTimer = null;
 
+function stopDashClock() {
+  if (dashClockTimer) dashClockTimer();
+  dashClockTimer = null;
+}
+
 function startDashClock() {
-  if (dashClockTimer) clearInterval(dashClockTimer);
+  stopDashClock();
   // Nothing to tick for while nobody can see it. The repaint on return is
   // what makes stopping safe: resuming on the next tick would leave the time
   // it stopped at on screen for up to a second, which on a clock is the one
   // place a person notices.
   if (document.hidden) return;
-  dashClockTimer = setInterval(paintDashClock, 1000);
+  //: One wake a minute, on the minute, rather than sixty: this paints HH:MM,
+  //: so 59 of every 60 runs wrote the string already on screen. See
+  //: `startMinuteTicker` in app.js for why it is a wall-clock-aligned
+  //: timeout chain and not a 60,000 ms interval (INBOX 266, item 7).
+  dashClockTimer = startMinuteTicker(paintDashClock);
 }
 
 document.addEventListener("visibilitychange", () => {
   // Only while the dashboard is actually drawn: `paintDashClock` returns at
-  // once when its two elements are not in the page, but an interval started
-  // on every tab would still be an interval.
+  // once when its two elements are not in the page, but a ticker started
+  // on every tab would still be a ticker.
   if (!$("dash-clock-time")) return;
   if (document.hidden) {
-    if (dashClockTimer) clearInterval(dashClockTimer);
-    dashClockTimer = null;
+    stopDashClock();
     return;
   }
   paintDashClock();
@@ -454,12 +464,12 @@ function renderDashboardGreeting() {
   // which is why this sits in the dashboard's own render and not in init.
   paintDashEmblem();
   paintDashClock();
-  // One ticking clock, however many times the dashboard re-renders, and none
-  // at all while the tab is hidden. It paints HH:MM, so a hidden tab was
-  // waking the process once a second to write the string that was already
-  // there, for as long as the app stayed open (WORLD_CLASS_PLAN section 10,
-  // F6: "0 timers while hidden"). Measured with a wrapped `setInterval`: two
-  // one-second intervals survived hiding, this one and app.js's `tickClocks`.
+  // One ticking clock, however many times the dashboard re-renders, none at
+  // all while the tab is hidden, and one wake a minute while it is not. It
+  // paints HH:MM, so a hidden tab was waking the process once a second to
+  // write the string that was already there, for as long as the app stayed
+  // open (WORLD_CLASS_PLAN section 10, F6: "0 timers while hidden"), and a
+  // visible one was doing the same 59 times out of 60.
   startDashClock();
   renderDashSubmessage().catch(() => {});
 }

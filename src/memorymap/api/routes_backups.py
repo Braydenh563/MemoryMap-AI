@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from memorymap.core import backup, deps
+from memorymap.core import backup, deps, diskspace
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -65,6 +65,17 @@ def storage_location() -> dict:
         # folder; this is the same question asked of the notebook's own
         # folder instead.
         "data_dir_writable": os.access(config.data_dir, os.W_OK),
+        #: **How much room is left, before a save is the thing that says so.**
+        #: `data_dir_writable` answers "may the app write here", which stayed
+        #: `true` on a disk measured at 100% full (INBOX 266, item 6), so on
+        #: its own it is a reassurance the app cannot keep. These two are the
+        #: rest of the answer, and the Settings panel warns from them.
+        #: `None` when the filesystem cannot be read at all, never a 0 that
+        #: would read as "no space left".
+        "free_bytes": diskspace.free_bytes(config.data_dir),
+        "disk_total_bytes": diskspace.total_bytes(config.data_dir),
+        #: The threshold is the server's to decide, not four call sites'.
+        "low_space_bytes": diskspace.LOW_SPACE_BYTES,
     }
 
 

@@ -28,7 +28,16 @@ from sqlalchemy.orm import Session
 from memorymap.ai import captioning, docreader, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview, filejobs, media_gc, media_process, ocr, pdfpages
+from memorymap.core import (
+    deps,
+    diskspace,
+    docview,
+    filejobs,
+    media_gc,
+    media_process,
+    ocr,
+    pdfpages,
+)
 from memorymap.core.database import Attachment, Entry, MediaUpload, PageRead
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -105,15 +114,23 @@ def upload_file(
     stored_name = f"{uuid.uuid4().hex}{suffix}"
     destination = uploads_dir / stored_name
 
+    #: `partial_write`, because the 413 above was the only failure this
+    #: write cleaned up after. Measured on a data dir filled to 100% (INBOX
+    #: 266, item 6): the upload answered 507, correctly, and left a
+    #: zero-byte file in `uploads/` that no database row pointed at and
+    #: nothing would ever remove. On a disk with 30 MB left and a 40 MB file
+    #: that is 30 MB of orphan, and the person is further from being able to
+    #: save anything than before they started.
     size = 0
-    with destination.open("wb") as out:
-        while chunk := file.file.read(1024 * 1024):
-            size += len(chunk)
-            if size > MAX_FILE_BYTES:
-                out.close()
-                destination.unlink(missing_ok=True)
-                raise HTTPException(status_code=413, detail="File is larger than 50 MB")
-            out.write(chunk)
+    with diskspace.partial_write(destination):
+        with destination.open("wb") as out:
+            while chunk := file.file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_FILE_BYTES:
+                    out.close()
+                    destination.unlink(missing_ok=True)
+                    raise HTTPException(status_code=413, detail="File is larger than 50 MB")
+                out.write(chunk)
 
     attachment = manager.add_attachment(
         session,
@@ -1017,7 +1034,12 @@ def save_generated_file(body: SaveFileBody) -> dict:
         stem, suffix = target.stem, target.suffix
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         target = _within_exports(exports, f"{stem}-{stamp}{suffix}")
-    target.write_bytes(data)
+    #: A half-written export is worse than no export: it lands in the folder
+    #: Settings lists, under the name the person chose, and opens as a
+    #: truncated file rather than as an obvious failure. `write_bytes`
+    #: truncates first and fills after, so out of space leaves exactly that.
+    with diskspace.partial_write(target):
+        target.write_bytes(data)
     return {"path": str(target), "filename": target.name, "bytes": len(data)}
 
 
@@ -1177,15 +1199,17 @@ def upload_media(
     stored_name = f"{uuid.uuid4().hex}{suffix}"
     destination = media_dir / stored_name
 
+    #: Same guard, same measured reason as the attachment upload above.
     size = 0
-    with destination.open("wb") as out:
-        while chunk := file.file.read(1024 * 1024):
-            size += len(chunk)
-            if size > MAX_FILE_BYTES:
-                out.close()
-                destination.unlink(missing_ok=True)
-                raise HTTPException(status_code=413, detail="File is larger than 50 MB")
-            out.write(chunk)
+    with diskspace.partial_write(destination):
+        with destination.open("wb") as out:
+            while chunk := file.file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_FILE_BYTES:
+                    out.close()
+                    destination.unlink(missing_ok=True)
+                    raise HTTPException(status_code=413, detail="File is larger than 50 MB")
+                out.write(chunk)
 
     original_name = file.filename or stored_name
     # `size` was already counted above while streaming the upload to disk, 

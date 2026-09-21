@@ -9248,6 +9248,15 @@
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </div>
+              <!-- How much room is left, said before a save is the thing
+                   that says it (INBOX 266, item 6). Filled by
+                   renderBackupRetention() from GET /storage and hidden
+                   unless the number is genuinely low; `.notice notice-warn`
+                   is DESIGN.md's recipe for one line the app says about
+                   what is beside it, and this sits in the one panel that
+                   already knows where the notebook lives and holds the two
+                   things worth deleting. -->
+              <p id="storage-space-notice" class="notice notice-warn hidden" role="note"></p>
               <div class="row">
                 <button id="backup-now" class="small">Back up now</button>
                 <span id="backup-status" class="status" role="status"></span>

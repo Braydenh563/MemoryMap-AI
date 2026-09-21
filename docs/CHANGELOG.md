@@ -9,6 +9,61 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **What the notebook costs while nobody is touching it, measured and then
+  cut** (INBOX 266, item 7). With no browser attached the server is asleep:
+  0.04s of CPU across 23 threads in 30 seconds, 0.13% of one core, because
+  every background piece blocks rather than polls. The cost is the open tab,
+  and two things in it were being paid for nothing. Two HH:MM clocks ticked
+  once a second and wrote the string already on screen 59 times out of 60;
+  they are scheduled on the wall-clock minute now (`startMinuteTicker`),
+  which is cheaper *and* more correct, since the status bar's clock was a
+  30s interval and could show a minute that had already passed. The model
+  status poll asked twice a minute for as long as the app stayed open, and
+  every one of those asks reaches Ollama; it now doubles to a two-minute
+  ceiling while the answer is identical and drops back to 30s on any change,
+  on returning to the tab, on opening Settings or on starting a job.
+  Measured with `scratchpad/ui-sweeps/idle.js`, which now counts timer fires
+  as well as live intervals: **timer wakes in an idle visible minute 124 to
+  5, requests 4 to 2** (WORLD_CLASS_PLAN section 10's gate for this row),
+  and idle CPU **6.01% and 6.11% of one core to 5.50% and 5.59%**
+  (`scratchpad/ui-sweeps/idlecpu.js`, one server, one notebook, frontend
+  swapped). The honest reading is in `docs/ARCHITECTURE.md`: nearly all of
+  what is left is the Dashboard's emblem animating on purpose, which parking
+  the app on Notes prices at 2.09% against 5.55%.
+- **Why the notes live in SQLite, written down as a decision** rather than
+  re-argued (INBOX 266, item 7, and `docs/ARCHITECTURE.md`): one file to
+  back up, no server to install, transactions that are what "no silent
+  loss" is built on, FTS5 search in the same file and written in the same
+  transaction, and 1.8 KB per note measured at 50,000 notes. With where it
+  would stop being right (concurrent writers, multi-device sync, a vector
+  index past these sizes), and why "containers spun up as needed like
+  serverless" is the right instinct for a different machine.
+
+- **What happens when the disk fills up, measured on a real full filesystem
+  and then made honest** (INBOX 266, item 6). An 80 MB tmpfs was mounted as
+  the data dir and filled to 100%, and the app driven against it. Saving a
+  note already answered 507 with a sentence about disk space, and reading,
+  searching and exporting kept working throughout; three things were wrong.
+  **Unlocking answered 507**, so a full disk locked the person out of their
+  own notebook entirely, over the audit row written beside the unlock: the
+  unlock's two writes are now committed separately and an out-of-space
+  failure costs only itself. **A failed backup left a zero-byte file named
+  like a backup**, which listed as one, passed `PRAGMA integrity_check`
+  (an empty file is a valid empty database), and would have replaced the
+  whole notebook with nothing if restored: backups are now written to a
+  `.partial` sibling and renamed into place only once whole, empty files
+  are never listed or counted as the daily backup, and restoring one is
+  refused by name. **A failed upload or export left its half-written file
+  behind**, orphaned and taking up the space the person was short of: all
+  three streaming writes now clean up after themselves. A single ASGI
+  guard (`SpaceGuard`) refuses a write larger than the room left before a
+  byte of it is read, so the app can no longer fill the last megabyte and
+  lock itself out; the 507 now names the folder, how much is free and
+  roughly how much to free up, that sentence reaches every toast in the
+  app, and `GET /storage` reports `free_bytes` beside `data_dir_writable`,
+  which stayed `true` throughout on a disk that was 100% full. Settings →
+  Data carries a `.notice notice-warn` line when the room left is low.
+
 - The reading workspace stops re-reading a scanned page every time you look
   at it, and its reading panel covers the whole document again (INBOX 314).
   Three findings from one report. Where each block sits on a page is now

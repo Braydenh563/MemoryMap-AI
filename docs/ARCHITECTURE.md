@@ -705,6 +705,71 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 columns are added to existing databases in place. You never delete your data to
 upgrade. Rename/removal-style migrations are out of scope until genuinely needed.
 
+### Why SQLite holds the notes (a decision, with its limits)
+
+Asked directly, more than once: "why is storing in an sqlite database the
+best way to store notes?" Written down here so it is answered in one place
+rather than re-argued. **The decision stands, and this is why.**
+
+What SQLite actually buys *this* app, which is a single-user, 100% offline
+notebook on somebody's own machine:
+
+- **One file to back up, move or lose.** `memorymap.db` is the notebook.
+  `core/backup.py` copies it with SQLite's own backup API while the app is
+  running, and a restore is one `os.replace`. Notes as loose files on disk
+  would make a backup a directory walk and a restore a merge.
+- **No server, no daemon, no port.** SQLite is a library. There is nothing
+  to install, nothing to start before the app starts, and nothing running
+  when the app is not (which is the other half of the same question, below).
+  Postgres or MySQL would each add a service a person has to have working
+  before they can write a note down.
+- **Transactions, which are what "no silent loss" is built on.** A note, its
+  tags, its links and its search-index rows land together or not at all.
+  This is not theoretical here: it is what made the full-disk behaviour
+  (INBOX 266, item 6) a clean refusal instead of a half-written notebook.
+- **Search is in the same file.** `entries_fts` and `search_index` are FTS5
+  virtual tables with bm25 ranking and a porter stemmer
+  (`search/engine.py`, `search/index.py`). A notes-as-files design needs a
+  separate index (Lucene, Tantivy, a vector store) that has to be kept in
+  step with the files and rebuilt when it drifts. Here the index is written
+  by an `after_flush` hook inside the same transaction as the write, so it
+  cannot drift.
+- **The numbers say size is not the problem.** Measured with
+  `scripts/scale_test.py`: a real 50,000-note database is **12 MB**, and
+  ~**88 MB** re-priced at a 384-dimension embedding, about **1.8 KB per
+  note** including content, tags, metadata and vector. That extrapolates to
+  **~350 MB at 200,000 notes**. Attachments (`data/uploads/`) sit outside
+  this and are bounded by what the person attaches, not by the schema.
+
+**Where it would stop being right**, which is the part a decision needs to
+be worth writing down:
+
+- **Concurrent writers.** SQLite takes one writer at a time. This app runs
+  one process on purpose (see "One process, and why more is not an option"),
+  and WAL mode lets readers carry on during a write, so it does not bite
+  here. A multi-user server would change the answer.
+- **Multi-device sync.** Two machines editing one SQLite file over a synced
+  folder is a corruption story, not a sync story. If MemoryMap ever syncs,
+  the answer is a sync protocol over the row history, not a different
+  database; nothing about SQLite is what blocks it.
+- **A notebook far past the sizes above**, or a vector search that has to
+  stay fast at millions of embeddings, where a purpose-built vector index
+  would beat a linear scan over the `embeddings` table. That is a new index
+  beside SQLite, not a move off it.
+
+**And the shape the question came wrapped in: "things like containers are
+spun up as needed like serverless cloud architecture."** That is the right
+instinct for the wrong machine. Serverless exists to stop paying for idle
+capacity in somebody else's data centre, and it buys that with a network
+hop and a cold start. This app's promise is that it works with no network at
+all, on one computer, with the model on the same machine; there is no meter
+running, nothing to bill, and a cold start would be a delay added to writing
+a note down. The local equivalent of "spin it up when needed" is what the
+app already does: nothing runs on a timer that could be woken by an event,
+the heavy pieces (the embedding model, OCR, SearXNG) load lazily on first
+use rather than at boot, and what is left at rest is measured in the section
+named next.
+
 ### Storage headroom, measured not guessed
 
 Asked directly whether storage becomes a problem for a notebook that grows
@@ -1016,6 +1081,81 @@ python -m memorymap --desktop  # same app in its own window (needs pywebview)
 
 On first run you choose a password (bcrypt-hashed, stays local). See the
 [README](../README.md) for the full walkthrough of each screen.
+
+### What runs when nothing is happening
+
+Asked directly, with the rest of the architecture question: "are things
+running when they arent necessary and taking up extra compute?" Measured
+rather than argued, on 2026-09-21, with `scratchpad/ui-sweeps/idle.js`
+(requests and timer wakes per idle minute, visible and hidden) and
+`scratchpad/ui-sweeps/idlecpu.js` (Chromium's own `TaskDuration` for the tab
+and `/proc/<pid>` for the server, over three minutes of nothing).
+
+**The server, with no browser attached at all, is asleep.** Sampled per
+thread over 30 seconds: 0.04s of CPU on the main thread and zero on the
+other 22, which is 0.13% of one core. Nothing here spins. The background
+pieces are all blocked rather than polling: `core/jobs.py`'s workers sit on
+a queue, `ai/autonomous.py`'s scheduler waits on a `threading.Event` with
+its whole interval as the timeout (it used to wake 21,600 times a night to
+check a flag), and the heavy pieces (the embedding model, Tesseract,
+SearXNG) are not loaded until something asks for them.
+
+**The cost is the open tab, and it is small but it was not nothing.** Every
+waker, before and after, with its period:
+
+| Waker | Period | Notes |
+| --- | --- | --- |
+| `refreshModelStatus` | 30s idle, doubling to 120s while the answer does not change; 1s while a job runs, 3s with Settings open, 120s hidden | Is the model runner up, which model, and any running job |
+| `checkDueReminders` | 60s, visible or hidden | The one thing a background tab *should* keep doing |
+| `refreshBackgroundTasks` | every other status tick when idle | Notices a job started somewhere else |
+| `minuteTick` (three clocks) | on the minute | Was two 1s intervals and one 30s one |
+| `libraryImagesPoll` | 6s, only while the Library's image gallery is the open sub-tab | Captioning runs on a background thread and has nothing to push with |
+
+What was cut, and what it bought, measured on one server and one notebook
+with only the frontend swapped:
+
+- **Two HH:MM clocks ticking once a second.** They painted the string that
+  was already on screen 59 times out of 60. `startMinuteTicker` (app.js)
+  schedules the next repaint on the wall-clock minute instead, which is both
+  cheaper and more correct: the status bar's clock was a 30s interval, so it
+  could show a minute that had already passed for up to half a minute.
+  **Timer wakes in an idle visible minute: 124 before, 5 after.**
+- **A status poll that asked twice a minute for ever.** It backs off to a
+  two-minute ceiling while the answer is byte-identical, and drops straight
+  back to 30s on any change, on returning to the tab, on opening Settings
+  and on starting a job. Every one of those polls reaches Ollama, so an idle
+  tab was waking the model runner 2,880 times a day to be told the same
+  thing. **Requests in an idle visible minute: 4 before, 2 after**, which is
+  WORLD_CLASS_PLAN section 10's gate for this row.
+
+**The CPU numbers, on one machine, one server and one notebook, with only
+the frontend swapped** (`idlecpu.js`, two rounds of two minutes each, the
+tab's own `TaskDuration` plus the server's `utime+stime`):
+
+| At rest, Dashboard open | Tab | Server | Total |
+| --- | --- | --- | --- |
+| Before | 5.71%, 5.80% | 0.31% | **6.01%, 6.11%** |
+| After | 5.20%, 5.30% | 0.30%, 0.29% | **5.50%, 5.59%** |
+
+**And the honest reading of that**: removing 119 of 124 wakes a minute was
+worth about half a percentage point. Nearly all of what is left is one
+thing, and parking the app on the Notes tab instead names it: **1.79% tab,
+0.30% server, 2.09% total**. The difference is the Dashboard's emblem, a p5
+sketch that draws at 24fps because it was asked to ("whenever the generated
+p5.js node graph logo shows, make sure it is never static and always
+rotating"). The five emblems that are *not* on screen were already stopped
+with an `IntersectionObserver`; the one that is on screen is the decision,
+not an oversight, and it is about 3.5 points of the 5.5. Worth knowing
+before anyone goes looking for a leak: there is no leak, there is a
+deliberate animation, and turning it down is a design choice rather than a
+bug fix.
+
+What was deliberately *not* cut: the 60-second reminder check, because a
+reminder that waits for you to look at the tab is not a reminder, and the
+Library gallery's 6-second poll, which only runs while that gallery is the
+open sub-tab and exists because captioning finishes on a background thread
+with no channel to announce itself on. The event stream that would replace
+it is WORLD_CLASS_PLAN's B1, and it is a refactor rather than a fix.
 
 ### One process, and why more is not an option
 

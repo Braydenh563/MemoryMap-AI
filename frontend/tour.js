@@ -513,22 +513,27 @@ function tourPosition() {
   //: window and the spotlight and its four panels are taken down: a hole cut
   //: around nothing is a hole in the middle of the screen.
   if (!tourRun.el) {
+    //: The spotlight and its four panels come down: a hole cut around nothing
+    //: is a hole in the middle of the screen, and four panels each stretched
+    //: over the whole window is a flat grey page, which is what the first
+    //: attempt at this did. `tourClearSpotlight` is the one that already knows
+    //: how to take them down, and the centring below is the same arithmetic
+    //: the `!lit` case uses further down, clamped to the window so the card
+    //: cannot end up off the top right corner.
+    tourClearSpotlight();
     const card = document.getElementById("tour-card");
-    if (card) {
-      card.style.left = "50%";
-      card.style.top = "50%";
-      card.style.transform = "translate(-50%, -50%)";
-    }
-    document.getElementById("tour-spot")?.classList.add("hidden");
-    for (const panel of document.querySelectorAll(".tour-block-panel")) {
-      panel.classList.remove("hidden");
-      panel.style.inset = "0";
-    }
+    if (!card) return;
+    card.dataset.side = "centre";
+    const size = card.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    tourPlaceFixed(
+      card,
+      tourClamp((vw - size.width) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vw - TOUR_EDGE - size.width)),
+      tourClamp((vh - size.height) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vh - TOUR_EDGE - size.height))
+    );
     return;
   }
-  const card0 = document.getElementById("tour-card");
-  if (card0) card0.style.transform = "";
-  document.getElementById("tour-spot")?.classList.remove("hidden");
   const card = document.getElementById("tour-card");
   const target = tourRun.el.getBoundingClientRect();
   const lit = tourSpotlight(target);
@@ -646,6 +651,17 @@ async function tourWaitForTarget(step) {
 //: before this file, and a page served without it should fail loudly there
 //: rather than quietly here.
 async function tourNavigate(step) {
+  //: **The tour drives the app, including getting out of the way of itself**
+  //: (the owner, 2026-09-21: "the tour should automatically navigate the user
+  //: and open or close the appropriate tabs and popups for the user"). Starting
+  //: it from Settings, Help is the case that made this necessary: the modal
+  //: stays over the page, so every target behind it measures as not visible,
+  //: every step is dropped, and the run empties. Nothing else in the app can
+  //: be trusted to have closed either, so the tour closes what is open before
+  //: it navigates, rather than pointing at a control under a sheet.
+  if (typeof closeSettingsModal === "function") closeSettingsModal();
+  if (typeof closeActionMenus === "function") closeActionMenus();
+  if (typeof closeFinder === "function") closeFinder();
   if (step.tab && typeof switchTab === "function") {
     if (tourActiveTab() !== step.tab) await switchTab(step.tab);
   }

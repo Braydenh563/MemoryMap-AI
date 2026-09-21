@@ -8081,7 +8081,13 @@ function bookmarkRow(bookmark) {
   const address = bookmarkAddress(bookmark.url);
   const link = document.createElement("a");
   link.className = "bookmark-title";
-  link.href = bookmark.url;
+  //: INBOX 310, finding 3. The backend now rejects a disallowed scheme at
+  //: write time, but a bookmark saved before that existed is still sitting
+  //: in the database, so the render side needs its own guard too:
+  //: `safeHref()` is the same allowlist `renderInlineMarkdown` applies to
+  //: a note's own links (tests/test_markdown_link_schemes.py), reused here
+  //: rather than a second copy of the same list.
+  link.href = safeHref(bookmark.url);
   link.target = "_blank";
   link.rel = "noopener noreferrer";
   link.textContent = bookmark.title || address.host;

@@ -8,6 +8,7 @@ ones are pruned so the folder can't grow forever.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -114,12 +115,53 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
     if db_path.exists():
         backup_now(db_path, data_dir, keep)  # the pre-restore safety copy
 
-    source = sqlite3.connect(source_path)
+    # Restore into a temp file that sits beside db_path (same filesystem, so
+    # the os.replace below is atomic) instead of streaming pages straight
+    # into memorymap.db: a crash mid-copy used to be able to leave the live
+    # database half-written, with the pre-restore safety copy above as the
+    # only way back. The integrity check runs BEFORE the replace, not after:
+    # once the temp file has been renamed onto db_path it *is* the live
+    # database, so checking it then would only confirm damage already done.
+    # Checking first catches a corrupt backup while it is still a throwaway
+    # temp file nobody depends on.
+    tmp_path = db_path.with_name(f"{db_path.name}.restore-tmp")
     try:
-        target = sqlite3.connect(db_path)
+        source = sqlite3.connect(source_path)
         try:
-            source.backup(target)
+            target = sqlite3.connect(tmp_path)
+            try:
+                source.backup(target)
+            finally:
+                target.close()
         finally:
-            target.close()
-    finally:
-        source.close()
+            source.close()
+
+        checker = sqlite3.connect(tmp_path)
+        try:
+            try:
+                row = checker.execute("PRAGMA integrity_check").fetchone()
+            except sqlite3.DatabaseError as exc:
+                # Some corruption fails inside the check itself rather than
+                # coming back as a non-"ok" row; both mean the same thing.
+                raise ValueError(f"Backup {name} failed integrity check: {exc}") from exc
+        finally:
+            checker.close()
+        if row is None or row[0] != "ok":
+            raise ValueError(f"Backup {name} failed integrity check: {row}")
+
+        os.replace(tmp_path, db_path)
+        # The database runs in WAL mode (database.py), so db_path may still
+        # have a -wal/-shm pair from before the restore, holding frames for
+        # the database that just got replaced. Left in place they would be
+        # replayed onto the new file on its first connection, quietly
+        # bringing back rows the restore was meant to remove. The temp
+        # file's own sidecars (if the copy created any) are orphaned by the
+        # rename under their old name and are cleaned up the same way.
+        for stale in (db_path, tmp_path):
+            Path(f"{stale}-wal").unlink(missing_ok=True)
+            Path(f"{stale}-shm").unlink(missing_ok=True)
+    except Exception:
+        Path(tmp_path).unlink(missing_ok=True)
+        Path(f"{tmp_path}-wal").unlink(missing_ok=True)
+        Path(f"{tmp_path}-shm").unlink(missing_ok=True)
+        raise

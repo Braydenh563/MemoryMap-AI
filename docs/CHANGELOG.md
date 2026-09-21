@@ -9,6 +9,20 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Four low-severity findings from a release security audit (INBOX 310).
+  Restoring a backup now writes into a temp file beside the live database,
+  runs `PRAGMA integrity_check`, and only then swaps it in atomically,
+  instead of streaming pages straight into `memorymap.db`. Importing a
+  folder of markdown notes now caps each file at the same size the upload
+  importer already enforces, and reports a skip count when one is hit,
+  instead of reading every file whole with no ceiling. A bookmark's URL is
+  now checked against the same scheme allowlist (http, https, mailto, tel)
+  markdown links already use, rejected with a 422 naming the allowed
+  schemes if it isn't, and guarded again at render time so a bookmark saved
+  before this existed can't become a live link either. The update
+  downloader now re-validates every redirect hop against its host
+  allowlist instead of only the first one, keeping the real
+  github.com-to-objects.githubusercontent.com hop working.
 - The graph's full screen no longer spends one Escape on two things. Opening
   the lightbox over a full-screen map and pressing Escape used to close the
   lightbox *and* leave full screen in the same press, because the full-screen

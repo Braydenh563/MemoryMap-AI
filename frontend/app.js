@@ -9385,8 +9385,11 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
       label.textContent = "References: ";
       panel.appendChild(label);
       for (const bookmark of attached) {
+        // safeHref(): same scheme guard as library.js's bookmark rows
+        // (INBOX 310), so an already-stored bad-scheme bookmark can't reach
+        // window.open() from this chip either.
         const bmChip = chip(`ph:link ${bookmark.title || bookmark.url}`, "link", () =>
-          window.open(bookmark.url, "_blank", "noopener,noreferrer")
+          window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer")
         );
         bmChip.title = bookmark.url;
         const detach = document.createElement("span");

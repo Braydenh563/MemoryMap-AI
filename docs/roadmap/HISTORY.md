@@ -32319,6 +32319,111 @@ row and head of different lengths).
     left in place rather than removed, since it is what keeps the caret in
     the row the commands act on.
 
+310. **Found by a read-only audit of the whole backend, 2026-09-21 (the
+    session, not the owner): four low findings, all confirmed against the
+    code before being written down.** The audit read WORLD_CLASS_PLAN
+    section 12 first and re-reports none of S1 to S11; it is thin because
+    the classes that matter are genuinely closed (CSP, the SSRF guard, the
+    XML bomb defence, path containment, bcrypt and scrypt plus AES-GCM,
+    WAL with a busy timeout, the size caps, the outbound opt-ins). What is
+    left, in order of how much it would cost to be wrong:
+    - `restore_backup` writes the live database in place
+      (`src/memorymap/core/backup.py:117`): `source.backup(target)` streams
+      pages straight into `memorymap.db` with no temp-file-then-`os.replace`.
+      It takes a pre-restore safety copy first, so the damage is recoverable,
+      but a crash on that window is the one operation in the app that can
+      half-write the primary database. Fix: back up into a temp file beside
+      `db_path`, `PRAGMA integrity_check`, then `os.replace`.
+    - `_run_directory_import` (`routes_settings.py`) reads each `.md` file
+      whole with `f.read_text()` and no ceiling, unlike every other import
+      path in the app. Fix: `stat()` and skip or cap before the read, at
+      `MAX_IMPORT_BYTES`.
+    - `_normalise_url` (`routes_bookmarks.py:38`) only prepends `https://`
+      when a URL has *no* scheme, so `javascript:` passes through and is
+      stored, and `library.js` assigns it to `link.href` without the scheme
+      check `safeHref()` applies to markdown links. Self-XSS only (no
+      import or AI tool path writes a bookmark from untrusted text) and the
+      CSP blocks it as a backstop. Fix: the same allowlist, at write and at
+      render.
+    - `_download` (`routes_update.py:182`) calls `requests.get` with the
+      default `allow_redirects=True`, so only the first hop's host is
+      checked against `ALLOWED_DOWNLOAD_HOSTS`. GitHub's own release
+      infrastructure is the sole trust anchor either way, so this is a gap
+      in the claim rather than a hole. Fix: re-validate each `Location`, or
+      check `response.url` before trusting the bytes.
+
+    One more, informational: `GET /debug/health` returns `data_dir` and
+    `db_path` as absolute paths. It is behind the unlock gate, so today it
+    tells the owner their own machine's paths back; it belongs in Brief 15
+    (LAN mode) beside S1, where it would hand a full server path to anyone
+    holding the session token. Recommendation: take all four fixes in one
+    pass, they are small and each one is named.
+
+    **Fixed, all four, as WORLD_CLASS_PLAN section 12's S12 to S15 (a
+    Sonnet build agent, `worktree-agent-sec`).** What each fix actually
+    was, and what was measured:
+    - **Backup restore (S12).** `restore_backup` now copies into
+      `<db_path>.restore-tmp` (a sibling of `memorymap.db`, so the final
+      `os.replace` is same-filesystem and atomic), runs `PRAGMA
+      integrity_check` on that temp file, and only swaps it in on a clean
+      result; the temp file and any stale `-wal`/`-shm` sidecars are
+      removed on every path, success or failure. Measured, not assumed: a
+      first version that skipped the sidecar cleanup passed the corruption
+      tests but broke the existing round-trip test
+      (`test_backup_restore_rolls_the_database_back`), an entry saved
+      *after* the backup came back after restoring *before* it, because
+      the live database's `-wal` file (WAL mode, `database.py`) survived
+      the swap under its old name and got replayed onto the replaced file
+      on the next connection. Fixed by clearing both files' `-wal`/`-shm`
+      pairs after the swap; the full existing suite for this file, plus
+      two new corruption tests, all pass. `tests/test_backups_api.py`.
+    - **Directory import size cap (S13).** `_run_directory_import` now
+      `stat()`s each `.md` file and skips anything over
+      `MAX_IMPORT_BYTES` (the same constant `import_markdown` already
+      used) before ever reading it. Because this importer is a background
+      task with no synchronous response, the skip has nowhere to surface
+      except the activity-log line it already wrote on success; that line
+      now fires on a skip-only run too (previously `imported == 0` meant
+      no log entry at all, so an all-oversize folder vanished with no
+      trace) and names the count and reason, e.g. `"markdown dir x1,
+      skipped 1 (1 over 1 MB)"`. `tests/test_vault_import.py`.
+    - **Bookmark scheme allowlist (S14).** `_normalise_url` now checks a
+      URL that carries a scheme against the same allowlist (http, https,
+      mailto, tel) `safeHref()` already applies to markdown links,
+      refusing anything else with a 422 that names the allowed schemes;
+      a bare host with no scheme is still prefixed `https://` exactly as
+      before. Render-time guard added alongside it: `library.js`'s
+      bookmark row now sets `link.href = safeHref(bookmark.url)` rather
+      than the raw URL, and the two `window.open(bookmark.url, ...)`
+      call sites (`documents.js`'s reference chip, `app.js`'s entry
+      reference chip) were changed the same way, so a bookmark already
+      stored with a bad scheme cannot become a live link from any of the
+      three places one is opened. `tests/test_bookmarks_api.py`,
+      `tests/test_markdown_link_schemes.py` (a new static assertion that
+      `library.js` uses `safeHref`, not the raw field).
+    - **Update-downloader redirect validation (S15).** `_download` now
+      calls `requests.get(..., allow_redirects=False)` in a loop capped at
+      `MAX_DOWNLOAD_REDIRECTS` (5), re-validating each `Location` against
+      `_download_url_is_allowed` before ever requesting it; a relative
+      `Location` is resolved against the URL that sent it. Chosen over
+      checking `response.url` after following redirects, because by the
+      time a response carries a final URL every host on the chain has
+      already been contacted. Measured against three shapes: the real
+      github.com-to-objects.githubusercontent.com hop still completes and
+      launches the installer exactly as before; a redirect to a host off
+      the allowlist is refused with the disallowed host never actually
+      fetched (asserted directly, not just "download failed"); a redirect
+      loop stops at the cap rather than hanging. `tests/test_update.py`,
+      including a fixture change (`_FakeResponse` gained `is_redirect`,
+      `is_permanent_redirect` and `close()`) needed for the existing
+      tests in that file to keep passing against the new call shape.
+    - **Not changed**, per the entry's own note: `GET /debug/health`'s
+      absolute paths. Brief 15's own paragraph in WORLD_CLASS_PLAN section
+      12 now names it alongside S1, so LAN mode cannot ship without it
+      being addressed there.
+    - **Gate**: `bash scripts/gate.sh --changed` and `--full` both run
+      before this entry moved, five-line results in the merge report.
+
 ## INBOX resolved, 2026-09-21
 
 286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the

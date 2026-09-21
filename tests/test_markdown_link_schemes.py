@@ -7,7 +7,8 @@ never quietly reopens it. Static, because the suite cannot run the DOM.
 """
 from pathlib import Path
 
-APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
+FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
+APP = FRONTEND / "app.js"
 
 
 def test_markdown_links_go_through_the_scheme_allow_list():
@@ -25,3 +26,15 @@ def test_the_allow_list_is_what_it_says():
     fn = fn[: fn.index("\n}\n") + 3]
     assert "https?:" in fn and "mailto:" in fn
     assert 'return "#"' in fn
+
+
+def test_a_bookmark_row_goes_through_the_same_allow_list():
+    """INBOX 310, finding 3: a bookmark is saved with only a write-time
+    scheme check, so the render side needs its own guard too, in case a
+    bookmark saved before that check existed is still sitting in the
+    database. `library.js` sets `link.href` straight from the saved URL;
+    it must run it through the same `safeHref()` the markdown renderer
+    uses, not a second, possibly-different check."""
+    src = (FRONTEND / "library.js").read_text(encoding="utf-8")
+    assert "link.href = safeHref(bookmark.url)" in src
+    assert "link.href = bookmark.url" not in src

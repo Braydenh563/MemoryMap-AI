@@ -4,7 +4,7 @@ update, delete. Same shape as reminders.py; nothing here needs the AI.
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -35,15 +35,44 @@ class BookmarkUpdate(BaseModel):
     group_name: str | None = Field(default=None, max_length=120)
 
 
+#: The same allowlist `safeHref()` in frontend/app.js applies to markdown
+#: links (`tests/test_markdown_link_schemes.py`): web, mail, phone. A bare
+#: host with no scheme at all ("google.com") is not on this list because it
+#: never reaches it, see below.
+ALLOWED_URL_SCHEMES = ("http", "https", "mailto", "tel")
+#: Same shape as the scheme frontend/app.js's `safeHref()` looks for
+#: (`^[a-z][a-z0-9+.-]*:`): anything before the first colon that reads as a
+#: URI scheme, case-insensitively.
+_SCHEME_RE = re.compile(r"^([a-z][a-z0-9+.-]*):", re.IGNORECASE)
+
+
 def _normalise_url(raw: str) -> str:
-    """"google.com" is what most people actually type into a bookmark box, 
+    """"google.com" is what most people actually type into a bookmark box,
     requiring a scheme up front would reject the common case for no benefit,
-    since a bare host is unambiguous: it's never meant as a relative path."""
+    since a bare host is unambiguous: it's never meant as a relative path.
+
+    A URL that *does* carry a scheme is checked against `ALLOWED_URL_SCHEMES`
+    instead of being stored verbatim: this used to only prepend `https://`
+    when a URL had no scheme at all, so `javascript:alert(1)` passed through
+    unchanged and was stored exactly as typed. Rejecting it here (422,
+    naming the allowed schemes) is the write-time half of the fix; the CSP
+    was already a backstop and `library.js` now runs saved URLs through the
+    frontend's own `safeHref()` before ever setting `link.href`, so a
+    bookmark saved before this existed can't become a live link either.
+    """
     url = raw.strip()
     if not url:
         raise HTTPException(status_code=422, detail="A bookmark needs a URL")
-    if not urlparse(url).scheme:
-        url = f"https://{url}"
+    match = _SCHEME_RE.match(url)
+    if not match:
+        return f"https://{url}"
+    scheme = match.group(1).lower()
+    if scheme not in ALLOWED_URL_SCHEMES:
+        allowed = ", ".join(f"{s}:" for s in ALLOWED_URL_SCHEMES)
+        raise HTTPException(
+            status_code=422,
+            detail=f"URL scheme '{scheme}:' is not allowed. Allowed schemes: {allowed}.",
+        )
     return url
 
 

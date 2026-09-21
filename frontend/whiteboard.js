@@ -391,9 +391,49 @@ function wbApplyZoomTransform(t) {
 //: subtracts the live d3 transform itself, so what it needs here is the
 //: untransformed canvas box, and since the swap above that is the container
 //: rather than the SVG (which now moves).
-function wbCanvasOriginRect() {
-  return document.getElementById("whiteboard-container").getBoundingClientRect();
+//:
+//: **Measured once per gesture** (MINDMAP_PLAN.md §13a). Every frame of a
+//: drag writes SVG geometry (`d` on each moved edge) before anything asks
+//: for this, and an SVG attribute write dirties layout, so each frame's first
+//: `getBoundingClientRect` paid for a fresh layout of the whole board. On a
+//: 500-topic branch drag that single call was the largest cost left on the
+//: path once the topic measurements and the element lookups were cached.
+//:
+//: The canvas box cannot move during a gesture: a pointer is down on it. It
+//: can move between gestures (a panel opens, the window resizes, the page
+//: scrolls, full screen is toggled), so the cache is dropped at the start of
+//: every gesture as well as at the end of one, and on resize and scroll.
+let wbCanvasRectCache = null;
+
+function wbClearCanvasRectCache() {
+  wbCanvasRectCache = null;
 }
+
+function wbCanvasOriginRect() {
+  if (wbCanvasRectCache) return wbCanvasRectCache;
+  const rect = document.getElementById("whiteboard-container").getBoundingClientRect();
+  wbCanvasRectCache = rect;
+  return rect;
+}
+
+window.addEventListener("pointerdown", wbClearCanvasRectCache, true);
+window.addEventListener("pointerup", wbClearCanvasRectCache, true);
+window.addEventListener("pointercancel", wbClearCanvasRectCache, true);
+window.addEventListener("resize", wbClearCanvasRectCache);
+window.addEventListener("scroll", wbClearCanvasRectCache, true);
+//: And whenever nothing is being dragged, which closes the one gap the five
+//: above leave: a keyboard shortcut can open a panel and move the canvas
+//: without any pointer event at all, and the next read would have been taken
+//: against the box the canvas used to have. `buttons` is 0 for a hover and
+//: non-zero for every frame of a gesture, so this costs a hovering pointer
+//: exactly what it cost before the cache and costs a drag nothing.
+window.addEventListener(
+  "pointermove",
+  (event) => {
+    if (!event.buttons) wbClearCanvasRectCache();
+  },
+  true
+);
 
 function handleWbZoom(e) {
   wbApplyZoomTransform(e.transform);
@@ -4352,6 +4392,11 @@ function wbMapStartResizeDrag(grip, event, d) {
     node.style.minHeight = `${height}px`;
     d.width = width;
     d.height = height;
+    //: This gesture is the one thing that changes a node's measured box
+    //: without a render, so it drops that node's cached size itself; without
+    //: this the edges would follow the size the node had when the grip was
+    //: taken hold of. See `wbMapNodeSize`.
+    wbForgetMapNodeSize(d.id);
     wbUpdateMapEdges(edges);
   };
   const done = async () => {
@@ -4424,7 +4469,10 @@ function wbMapBranchDragOrigin(d, alone) {
 function wbMapDropTargetAt(d, clientX, clientY) {
   const container = document.getElementById("whiteboard-container");
   if (!container || !wbIsMap() || !WB_MAP_KINDS.has(d.kind)) return null;
-  const rect = container.getBoundingClientRect();
+  //: The shared, per-gesture box rather than a fresh measurement: this runs
+  //: on every frame of a branch drag, after that frame has already written
+  //: every moved edge's geometry. See `wbCanvasOriginRect`.
+  const rect = wbCanvasOriginRect();
   const t = d3.zoomTransform(container);
   const [bx, by] = t.invert([clientX - rect.left, clientY - rect.top]);
   const index = wbMapIndex();
@@ -4588,11 +4636,80 @@ function wbMapOpenReference(d) {
 //: `height` column is therefore only ever an approximation of it. Falls back
 //: to the stored value, then to the creation defaults, for a node that is not
 //: in the DOM at all, collapsed away, or being laid out before first paint.
+//:
+//: **Measured once per node between renders, not once per edge per frame**
+//: (MINDMAP_PLAN.md §13a). Every edge redraw asks this for both of its ends,
+//: and a drag redraws every edge of every topic it is carrying, so the two
+//: lines below used to run a document-wide attribute query and a layout read
+//: a few thousand times inside a single frame. A CPU profile of one 500-topic
+//: drag put `querySelector` and this function's own `offsetWidth`/
+//: `offsetHeight` reads at the top of the list by a wide margin; nothing else
+//: on the drag path came close, and the maths around them was noise.
+//:
+//: A map node's *size* cannot change without something that also clears this:
+//: a render (which rebuilds the element), the size grip (which deletes its
+//: own node's entry as it drags), or the end of any gesture. Its *position*
+//: changes constantly during a drag and is not cached here, because position
+//: is read from the datum, not from the DOM. Only a real measurement is
+//: cached: the fallback below is what a node that has not been laid out yet
+//: returns, and freezing that would keep the wrong number after first paint.
+let wbMapNodeSizeCache = null;
+
 function wbMapNodeSize(d) {
+  const cached = wbMapNodeSizeCache?.get(d.id);
+  if (cached) return cached;
   const el = document.querySelector(`.wb-object[data-id="${d.id}"]`);
-  if (el && el.offsetHeight) return { w: el.offsetWidth, h: el.offsetHeight };
+  if (el && el.offsetHeight) {
+    const size = { w: el.offsetWidth, h: el.offsetHeight };
+    if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
+    wbMapNodeSizeCache.set(d.id, size);
+    return size;
+  }
   return { w: d.width || WB_MAP_NODE_W, h: d.height || WB_MAP_NODE_H };
 }
+
+function wbClearMapNodeSizeCache() {
+  wbMapNodeSizeCache = null;
+}
+
+//: **Every topic's element and box in one pass, for the gesture that is about
+//: to want all of them** (MINDMAP_PLAN.md §13a). Picking up a topic with a
+//: branch under it needs, on its first frame, the element of every topic it
+//: is carrying and the box of both ends of every edge between them: one
+//: `querySelector` each is five hundred separate walks of the document, and
+//: the first layout read after each of them is a fresh flush. One
+//: `querySelectorAll` and one batch of reads is the same information for one
+//: walk and one flush, which is what turns the pick-up from a stall into a
+//: frame.
+//:
+//: First element wins, matching what `wbMapNodeSize`'s own `querySelector`
+//: would have returned had two layers ever carried the same id. Only real
+//: measurements are kept, for the reason `wbMapNodeSize` gives.
+function wbIndexMapNodeElements() {
+  const byId = new Map();
+  if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
+  for (const el of document.querySelectorAll(".wb-object[data-id]")) {
+    const id = Number(el.dataset.id);
+    if (byId.has(id)) continue;
+    byId.set(id, el);
+    if (!wbMapNodeSizeCache.has(id) && el.offsetHeight) {
+      wbMapNodeSizeCache.set(id, { w: el.offsetWidth, h: el.offsetHeight });
+    }
+  }
+  return byId;
+}
+
+//: One node's measurement dropped, for the gesture that is changing that one
+//: node's box while it runs (the size grip). Clearing the whole cache there
+//: would put the board-wide re-measure back into every frame of a resize.
+function wbForgetMapNodeSize(id) {
+  wbMapNodeSizeCache?.delete(id);
+}
+
+// Every drag ends in one of these, whichever element it started on, and the
+// same two events already clear the alignment guides' own box cache.
+window.addEventListener("pointerup", wbClearMapNodeSizeCache, true);
+window.addEventListener("pointercancel", wbClearMapNodeSizeCache, true);
 
 //: Where an edge leaves its parent and where it meets its child, by layout, 
 //: right/left for a map that grows sideways, bottom/top for one that grows
@@ -4936,35 +5053,57 @@ function wbMapEdgeIsRibbon(child) {
 //: `data.pinned` is set, so its `wbScheduleRender` never fired a second
 //: time). Precomputed for the same reason `wbLinkedSketchesFor` is: a node
 //: gains or loses a parent between drags, never during one.
-function wbMapEdgesFor(id) {
+//:
+//: **The three lines an edge is drawn from, found in one pass over the edge
+//: group rather than by three document-wide attribute queries per edge**
+//: (MINDMAP_PLAN.md §13a). `wbCaptureBulkMoveOrigin` calls `wbMapEdgesFor`
+//: once per topic in a dragged branch, so on a 500-topic map the old shape
+//: ran several thousand `document.querySelector` calls, and rebuilt the map
+//: index and read the layout once per topic on top of them, all before the
+//: pointer had moved. Passing one context in makes the whole capture linear
+//: in the branch rather than quadratic in the board.
+function wbMapEdgeContext() {
+  const els = new Map();
+  const group = document.querySelector(".wb-map-edges");
+  if (group) {
+    for (const el of group.querySelectorAll(
+      ".wb-map-edge, .wb-map-edge-hit, .wb-map-edge-handle"
+    )) {
+      const key = `${el.dataset.parent}:${el.dataset.child}`;
+      let slot = els.get(key);
+      if (!slot) els.set(key, (slot = {}));
+      // `wb-map-edge` is the visible path's own token; the ribbon, dash and
+      // thickness classes ride alongside it on the same element, and the twin
+      // and the handle carry neither it nor each other.
+      if (el.classList.contains("wb-map-edge")) slot.el = el;
+      else if (el.classList.contains("wb-map-edge-hit")) slot.hit = el;
+      else slot.grip = el;
+    }
+  }
+  return { index: wbMapIndex(), layout: wbMapLayout(), els };
+}
+
+function wbMapEdgesFor(id, ctx) {
   if (!wbIsMap()) return [];
-  const index = wbMapIndex();
+  const { index, layout, els } = ctx || wbMapEdgeContext();
   const self = index.byId.get(id);
   if (!self) return [];
-  const layout = wbMapLayout();
   const found = [];
   const add = (parent, child) => {
-    const el = document.querySelector(
-      `.wb-map-edges .wb-map-edge[data-parent="${parent.id}"][data-child="${child.id}"]`
-    );
-    // The invisible twin has to follow the drag as well, or the line you can
-    // point at stays where the line used to be: a target that is right until
-    // the first time anything moves is worse than no target.
-    const hit = document.querySelector(
-      `.wb-map-edges .wb-map-edge-hit[data-parent="${parent.id}"][data-child="${child.id}"]`
-    );
-    if (el && hit) el._wbHitTwin = hit;
-    // And the waypoint handle (§12.1 item 5's third), for the same reason the
-    // hit twin is here: a handle that stays where the line used to be is a
-    // control pointing at nothing the moment either end of the line moves.
-    const grip = document.querySelector(
-      `.wb-map-edges .wb-map-edge-handle[data-parent="${parent.id}"][data-child="${child.id}"]`
-    );
-    if (el && grip) el._wbHandle = grip;
+    const slot = els.get(`${parent.id}:${child.id}`);
     // No element means the edge is not drawn right now (a collapsed or
     // filtered branch), which is not an error: there is simply nothing to
     // follow the drag.
-    if (el) found.push({ parent, child, el, layout });
+    if (!slot || !slot.el) return;
+    // The invisible twin has to follow the drag as well, or the line you can
+    // point at stays where the line used to be: a target that is right until
+    // the first time anything moves is worse than no target.
+    if (slot.hit) slot.el._wbHitTwin = slot.hit;
+    // And the waypoint handle (§12.1 item 5's third), for the same reason the
+    // hit twin is here: a handle that stays where the line used to be is a
+    // control pointing at nothing the moment either end of the line moves.
+    if (slot.grip) slot.el._wbHandle = slot.grip;
+    found.push({ parent, child, el: slot.el, layout });
   };
   const parent = self.parent_id != null ? index.byId.get(self.parent_id) : null;
   if (parent) add(parent, self);
@@ -7592,11 +7731,39 @@ function wbDragIsBulkMove(kind, id) {
 //: set instead of one item).
 function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
   const origin = new Map();
+  //: **One lookup table per capture, not one scan per member**
+  //: (MINDMAP_PLAN.md §13a). The line this replaces was
+  //: `list.find((i) => i.id === id)`, which is the whole board walked once
+  //: for every item being picked up: fine for a marquee of six, quadratic for
+  //: a branch drag, which hands this every topic under the one grabbed. Built
+  //: lazily per kind so a selection of one kind never touches the others.
+  const itemsByKind = new Map();
+  const itemFor = (kind, id) => {
+    let byId = itemsByKind.get(kind);
+    if (!byId) {
+      byId = new Map((wbState[WB_LIST_BY_KIND[kind]] || []).map((i) => [i.id, i]));
+      itemsByKind.set(kind, byId);
+    }
+    return byId.get(id);
+  };
+  //: The map index, the layout and the drawn edge elements, read once for the
+  //: whole capture rather than rebuilt inside `wbMapEdgesFor` per member.
+  const edgeCtx = wbIsMap() ? wbMapEdgeContext() : null;
+  //: Both of the things every member of this capture is about to be asked
+  //: for, taken in one pass rather than one lookup per member per frame.
+  const objectEls = wbIsMap() ? wbIndexMapNodeElements() : null;
+  //: **An edge belongs to one end, not to both.** A tree edge joins two
+  //: topics, so when both are in the same dragged branch it appeared in two
+  //: members' lists and was recomputed and rewritten twice on every frame of
+  //: the drag. Claiming it for whichever member reaches it first halves the
+  //: per-frame edge work on any branch drag, and changes nothing about what
+  //: is drawn: both ends move by the same delta.
+  const claimed = new Set();
   for (const key of keys) {
     if (key === excludeKey) continue; // the dragged item's own handler already moves it
     const sep = key.indexOf(":");
     const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
-    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+    const item = itemFor(kind, id);
     if (!item) continue;
     if (kind === "sketch") {
       const parsed = wbSketchParsedData(item);
@@ -7614,10 +7781,24 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
       // `mapEdges` only for an object: a map node *is* an object, and a card
       // and an object can share an id, so asking for a card's tree edges
       // would follow the wrong node's branch.
+      const mapEdges = [];
+      if (kind === "object" && edgeCtx) {
+        for (const edge of wbMapEdgesFor(id, edgeCtx)) {
+          const edgeKey = `${edge.parent.id}:${edge.child.id}`;
+          if (claimed.has(edgeKey)) continue;
+          claimed.add(edgeKey);
+          mapEdges.push(edge);
+        }
+      }
       origin.set(key, {
         kind, id, item, x: item.x, y: item.y,
         linked: wbLinkedSketchesFor(id, kind),
-        mapEdges: kind === "object" ? wbMapEdgesFor(id) : [],
+        mapEdges,
+        //: Resolved here when the board is a map (one pass for the whole
+        //: capture, above) and on the first frame that needs it otherwise;
+        //: kept for the rest of the gesture either way, see
+        //: `wbApplyBulkMove`.
+        el: (kind === "object" && objectEls?.get(id)) || null,
       });
     }
   }
@@ -7653,19 +7834,33 @@ function wbTranslateSelectionChrome(dx, dy) {
   }
 }
 
+//: **The element each member is drawn as, found once per gesture**
+//: (MINDMAP_PLAN.md §13a). This runs for every moved item on every frame, and
+//: it used to open with a document-wide attribute query per item: on a
+//: 500-topic branch drag that is 500 queries a frame for elements that cannot
+//: have changed, and it was the largest single cost left on the drag path
+//: after the topic measurements were cached. `isConnected` is a flag read, so
+//: the re-lookup still happens for real (a render between frames replaces the
+//: element) without paying for it when nothing has.
+function wbBulkMoveElement(entry, selector) {
+  if (entry.el && entry.el.isConnected) return entry.el;
+  entry.el = document.querySelector(selector);
+  return entry.el;
+}
+
 function wbApplyBulkMove(origin, dx, dy) {
   wbTranslateSelectionChrome(dx, dy);
   for (const entry of origin.values()) {
     if (entry.kind === "sketch") {
       const newD = wbTransformPathD(entry.d, { dx, dy });
-      const el = document.querySelector(`.sketch-group[data-id="${entry.id}"]`);
+      const el = wbBulkMoveElement(entry, `.sketch-group[data-id="${entry.id}"]`);
       el?.querySelector(".sketch-path")?.setAttribute("d", newD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
       entry.item._liveD = newD;
     } else {
       entry.item.x = entry.x + dx;
       entry.item.y = entry.y + dy;
-      const el = document.querySelector(WB_SELECTOR_BY_KIND[entry.kind](entry.id));
+      const el = wbBulkMoveElement(entry, WB_SELECTOR_BY_KIND[entry.kind](entry.id));
       if (el) el.style.transform = wbItemTransform(entry.item);
       // See this entry's own comment in `wbCaptureBulkMoveOrigin`: without
       // this, only the card the pointer is actually on kept its edges live
@@ -13812,6 +14007,9 @@ function renderWhiteboardNow() {
 }
 
 function renderWhiteboard() {
+  //: A render replaces every map node's element, so every measurement taken
+  //: from the previous set is about to describe something that is gone.
+  wbClearMapNodeSizeCache();
   // Built once per render, not once per card: `allEntries.find(...)` inside
   // a per-card callback is O(cards × notebook size) on every single render
   //, for a large notebook that is real, measurable work paid on every
@@ -14808,6 +15006,7 @@ function renderWbObjects(canvas) {
     d._rawY = d.y;
     d._dragOriginX = d.x;
     d._dragOriginY = d.y;
+    d._raised = false;
     d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here, see the matching comment on
@@ -14828,7 +15027,15 @@ function renderWbObjects(canvas) {
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
         : wbMapBranchDragOrigin(d, d._dragAlone);
     }
-    d3.select(this.closest(".wb-object")).raise();
+    //: Once per gesture, not once per move: the card drag beside this one
+    //: took the same fix (INBOX 114, and see its own comment). `raise()`
+    //: reappends the element even when it is already last, and a DOM move
+    //: invalidates layout, so every frame's first `getBoundingClientRect`
+    //: (the drop target's, below) paid for a full re-layout of the board.
+    if (!d._raised) {
+      d3.select(this.closest(".wb-object")).raise();
+      d._raised = true;
+    }
     // d3.drag's dx/dy are raw screen pixels, not board-space, the
     // resize handles below already divide by the zoom scale for exactly
     // this reason; a plain drag has to as well, or a card/object moves

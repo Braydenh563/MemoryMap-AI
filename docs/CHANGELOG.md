@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A mind map no longer freezes when a topic is picked up. Dragging a topic
+  carries its branch, and the frame that took hold of it was doing the work
+  once per topic in the branch rather than once per thing that moved: a board
+  scan to find each one, three document-wide queries per line to find its
+  parts, and a fresh measurement of both ends of every line on every frame.
+  Measured on `scratchpad/ui-sweeps/mapperf.js`, the worst frame of a drag
+  falls from 83.3 to 16.8ms on a 50-topic map, 416.6 to 33.3ms at 200 and
+  1,650 to 66.8ms at 500. Opening a map and laying it out got faster with it,
+  from 3.4 to 2.0 seconds at 500 topics.
 - The app calls Atlas by name in eight more places. Five of them are the
   Tools and features descriptions, which said "the assistant" while teaching
   you what the app can do, and one was the persona hint explaining how to
@@ -18,9 +27,14 @@ below). Versioning is `0.x` while the app stabilises.
   table is a grid whose rows were all implicit, so CodeMirror's own trailing
   line break was auto-placed into a second one. The table's menu also no
   longer moves the caret out of the table when it is pressed.
-- The guided tour no longer leaves a bright strip down the right of a dimmed
-  page. Its four dim panels are fixed to the window but were sized to the
-  content box, which stops at the scrollbar, so the gutter stayed lit.
+- The guided tour is legible and the page behind it is genuinely dimmed.
+  Reported three times, the last as "the whole tour is completely and utterly
+  broken". The dim was one giant shadow cast by the cut-out, whose reach
+  depended on the window's shape and on a corner radius nothing could read;
+  it is now painted by the four panels that already tile the window around
+  the hole, so a lit strip is a failing test rather than a photograph. The
+  step card was see-through, and the dashboard clock read straight through
+  its text; it now has the same opaque ground as every other dialog.
 - The bottom status bar has three zones and its right end has an owner.
   Reported: the navigation and undo buttons "keep getting pushed further and
   further to the left". They were: the run after the spacer was one flat list,

@@ -670,24 +670,63 @@ thread shows up as one long frame, which is what it is.
 | 200 | 906.4ms | 0.1ms | 16.7ms | 281.4ms | 16.7 / 50.1ms | 16.7 / 416.5ms |
 | 500 | 3608.8ms | 0.1ms | 76.8ms | 1282.4ms | 16.7 / 133.4ms | 16.7 / 1583.3ms |
 
-**The claim is true, and it is one thing.** Four readings settle it:
+**Re-measured on the same probe after 13a** (2026-09-21, same machine, same
+Chromium, one run each; the 500 row's before figures in this second table are
+that run's own baseline, taken minutes earlier, not the numbers above):
 
-1. **Panning is not slow at any size.** The median frame is 16.7ms at 50, at
-   200 and at 500, which is vsync: a pan writes a transform and never
-   re-renders. Whatever the owner is feeling, it is not the pan.
+| Topics | Open to painted | `wbMapTidyPositions` | `renderWhiteboard` | Pan, median / worst | Drag, median / worst |
+| --- | --- | --- | --- | --- | --- |
+| 50 | 371.5 to **314.2ms** | 2.9 to **0.1ms** | 60.5 to **23.3ms** | 16.7 / 16.8ms | 83.3 to **16.8ms** |
+| 200 | 906.4 to **714.2ms** | 16.7 to **0.3ms** | 281.4 to **123.2ms** | 16.7 / 50.1ms | 416.6 to **33.3ms** |
+| 500 | 3443.3 to **2049.1ms** | 76.3 to **0.6ms** | 1279.2 to **543.0ms** | 16.7 / 133.4ms | 1650.0 to **66.8ms** |
+
+**The claim is true, and it is one thing.** Four readings settled it, and 13a
+found that the third and fourth name two different bugs, not one:
+
+1. ~~**Panning is not slow at any size.**~~ **Withdrawn, 2026-09-21.** The
+   median frame is 16.7ms at 50, at 200 and at 500 *in most runs*, and the
+   reading above treated one run as the answer. The owner, after this section
+   was written: "the mindmap is still insanely laggy to pan around, move
+   objects, and zoom." Re-measured with
+   `scratchpad/ui-sweeps/mapmidpan.js`, panning a 500-topic map is
+   **bimodal on the same machine**: five runs of the identical gesture gave
+   16.7, 16.7, 116.7, 133.3 and 150.0ms per frame, and the slow runs are not
+   explained by the tool or the button (the Hand tool with the left button
+   measured both fast and slow, as did the middle button from Select). Under
+   the CPU profiler the whole 30-move gesture spends **under 10ms in script**:
+   the time is the browser re-rasterising, and the three panned layers already
+   carry `will-change: transform`, so what is being re-rasterised is one
+   promoted layer holding every topic on the board. That is the render pass,
+   13a-open, reached from a second direction. **What is settled** is that the
+   pan *path* is not the bug: the middle button reaches the same d3-zoom
+   behaviour through `wbZoomFilter` as the Hand tool, and the two measure the
+   same in the same run, which `mapmidpan.js` now asserts as a comparison
+   rather than against a budget that a fast run would always meet.
 2. **The layout maths is not slow either.** 76.8ms to lay out 500 topics is
    a command a person pressed, and `wbMapIndex`, which every map action calls
    first, is free at 0.1ms. Neither is worth optimising.
-3. **`renderWhiteboard` is the whole of it**, and it grows faster than the
-   node count: 8.1× the nodes buys 21× the render. 1,282ms is a full second
-   of frozen tab per pass.
+3. **`renderWhiteboard` is the whole of the *opening***, and it grows faster
+   than the node count: 8.1× the nodes buys 21× the render. 1,282ms is a full
+   second of frozen tab per pass. **Corrected by 13a**: it is not what the
+   drag pays. A CPU profile of the probe's own 500-topic gesture put
+   `renderWhiteboard` at a twentieth of the drag's cost and
+   `document.querySelector` plus `offsetWidth` at the top of the list, so the
+   two halves of this section had two separate causes and reading 3 was
+   carrying the blame for both.
 4. **It lands on the user at the worst possible moment.** A second run of the
    probe recorded where in the gesture the worst frame falls: `dragWorstAt`
    **0.03**, three per cent into the drag. The 1.6-second stall at 500 topics
    is not the drop, it is the **pick-up**: the map freezes the instant a
    finger goes down on a topic, before it has moved. (`panWorstAt` 0.91, near
    the end, which is the settle after the pan.) A second 500-node run
-   reproduced it: 1,616.5ms worst drag frame, 1,179.5ms render.
+   reproduced it: 1,616.5ms worst drag frame, 1,179.5ms render. **This
+   reading was the one that mattered, and it was exactly right.** What the
+   first frame of a drag does is capture the branch under the topic and move
+   it once, and every part of that was written per member: a board scan to
+   find each one, a rebuilt map index and three document-wide attribute
+   queries per edge to find its lines, an element lookup per member per
+   frame, and a `querySelector` plus a layout read for both ends of every
+   edge. None of it was a render.
 
 So: the map is slow to open and slow to touch, and both are the same bug.
 Nothing else measured here is worth a phase until that one is fixed. **What
@@ -865,11 +904,51 @@ topic: a control that wide has nowhere to go.
 
 ### Phases, each with the gate it is finished against
 
-- **13a. The render pass.** Make `renderWhiteboard` proportional to what
+- ~~**13a. The render pass.** Make `renderWhiteboard` proportional to what
   changed rather than to what exists: the drag path must not rebuild every
-  node to pick one up. Gate: `mapperf.js` at 500 topics with the worst drag
-  frame under 100ms and `renderWhiteboard` under 200ms, open-to-painted under
-  1s, and the pan medians unchanged at 16.7ms at all three sizes.
+  node to pick one up.~~ **The drag half is built, 2026-09-21**, and the
+  record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
+  MINDMAP_PLAN section 13a: the drag pick-up"). Worst drag frame on
+  `mapperf.js`: 83.3 to **16.8ms** at 50, 416.6 to **33.3ms** at 200, 1,650.0
+  to **66.8ms** at 500, under the 100ms the gate asked for, with the pan
+  medians still 16.7ms at all three sizes and nothing worse at 50 than at 500.
+  `tests/test_map_drag_cost.py` holds the nine shapes the profile found.
+  **What is left of 13a is the open, and it is now its own row**: the drag
+  pass carried `renderWhiteboard` from 1,279.2 to 543.0ms and open-to-painted
+  from 3,443.3 to 2,049.1ms at 500 topics, because the render and the layout
+  read the same topic boxes this pass stopped re-measuring, but the gate's
+  other two figures (render under 200ms, open under 1s) are not met and will
+  not be met by caching: `renderWhiteboard` is still a full d3 data-join over
+  every node on the board, and making it proportional to what changed is a
+  separate piece of work.
+- **13a-open. The render pass proper.** `renderWhiteboard` rebuilds the whole
+  board for any change to it. Gate: `mapperf.js` at 500 topics with
+  `renderWhiteboard` under 200ms and open-to-painted under 1s, the drag and
+  pan figures above no worse. **This is also where the pan lands** (13.1
+  reading 1, withdrawn): a board that draws every topic whether or not it is
+  on screen is one promoted layer the size of the map, and panning it
+  re-rasterises. Drawing only what is in view is the one change that answers
+  the open, the pan and the zoom together, and it is the reason this row is
+  worth more than any of the control work below it.
+
+- **13g. The middle-button pan on the owner's own machine.** He reports, with
+  13.1's own gesture: "the whiteboard and mindmap goes haywire and moves to
+  the left when I try to move around by pushing down my mouse scroll wheel
+  and moving the mouse to the edges of the screen, no matter which
+  direction." **Not reproduced here**, and the two things that would explain
+  it were each tested: `mapmidpan.js` drives a real middle-button drag in all
+  four directions at 50 and 500 topics and the board goes the way the hand
+  goes every time, and a pan whose release never arrives (window blurred
+  mid-gesture) leaves the board still rather than following the pointer.
+  What cannot be tested here is the remaining explanation and the likeliest
+  one: **Chromium's middle-button autoscroll is a windowed-browser
+  behaviour**, a headless run has none, so the `mousedown` guard that exists
+  for it (INBOX 183, reasoned and never observed) is not exercised by any
+  gate in this repository. Gate: this needs the owner, not a sweep. What to
+  ask him for is which platform and whether the four-way autoscroll cursor
+  appears when he presses the wheel; if it does, the guard is not reaching
+  the event on his machine and the next thing to read is whether
+  `#library-view-whiteboard` is really an ancestor of what he pressed on.
 - **13b. The strip is sized like a topic.** One considered treatment of the
   fourteen controls that does not assume 959px: grouped, or revealed on
   approach, or moved to the topic's own row. Gate: the strip's width is under

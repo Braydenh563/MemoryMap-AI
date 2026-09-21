@@ -7704,8 +7704,8 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
 //: left behind it. From the desk it walks off a half-written draft and its
 //: thoughts to show a note that is already saved, so that caller takes the
 //: same trip as an offer instead (`toastAction`), and stays where it is.
-async function appendSelectionToNote(text, { jump = true } = {}) {
-  const entry = await pickEntryDialog("Add the selected text to which note?");
+async function appendSelectionToNote(text, { jump = true, message = null, what = "the selected text" } = {}) {
+  const entry = await pickEntryDialog(message || "Add the selected text to which note?");
   if (!entry) return;
   const before = entry.content;
   const after = `${before.trimEnd()}\n\n${text}`;
@@ -7723,8 +7723,37 @@ async function appendSelectionToNote(text, { jump = true } = {}) {
       toastAction("Added to the note.", "Open it", () => flashEntry(entry.id));
     }
   } catch (error) {
-    toast(error.message || "Couldn't add that to the note.", true);
+    toast(error.message || `Couldn't add ${what} to the note.`, true);
   }
+}
+
+//: **The board's own way into a note** (INBOX 309). The second of the two
+//: doorways the owner asked for, and the one that starts where the thought
+//: does: you are looking at the board, and it belongs with something you
+//: wrote.
+//:
+//: Deliberately `appendSelectionToNote` rather than a second write path. That
+//: function already picks the note, appends, records the undo
+//: (`pushEntryPutUndo`) and reloads the list; a board-shaped copy of it would
+//: be a second place for "add text to a note" to get its undo wrong.
+//:
+//: The index is invalidated before the note is drawn again, because the board
+//: may have been made in the last eight seconds: see `loadMapBoardIndex`'s
+//: `force`. Without it the note would paint the board's own object as a
+//: tombstone the moment it was added, which is the worst possible first
+//: impression of this feature.
+async function addBoardToNote(board) {
+  if (!board || board.id == null) {
+    toast("The default board has no name to put in a note. Make a board first.");
+    return;
+  }
+  const isMap = board.type !== "board";
+  await appendSelectionToNote(boardEmbedMarkdown(board), {
+    jump: false,
+    what: isMap ? "that map" : "that board",
+    message: `Add \u201c${board.title || (isMap ? "this map" : "this board")}\u201d to which note?`,
+  });
+  if (typeof loadMapBoardIndex === "function") loadMapBoardIndex(true);
 }
 
 // A one-off "choose a note" dialog: search box, live list, Escape to cancel.

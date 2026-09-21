@@ -48,3 +48,8 @@ port 8793, data dir `/tmp/mm-noteobj`.
   source. Measured end to end on 8793: the menu filters to one row on
   `/board` and the chosen board lands in the box as
   `![[board:1|House jobs]]`.
+- `<hash>` Doorway two, from the board: `#wb-add-to-note` in the board menu
+  and "Add to a note" on the Library card's kebab, both through
+  `addBoardToNote` and `appendSelectionToNote` (one write path, one undo).
+  Measured: the menu row is 146x36, and choosing a note appended
+  `![[board:51|House jobs]]` to that note's own text.

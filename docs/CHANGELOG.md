@@ -18,6 +18,9 @@ below). Versioning is `0.x` while the app stabilises.
   jobs yet", which was the one case the transclusion renderer never learnt.
 - The "/" menu in a note can insert one: "Board or mind map", which offers
   your boards and maps and writes the object where the caret is.
+- The other way round as well: a board's own Board menu, and its card in the
+  Library, now offer "Add to a note", which asks which note and puts the
+  board in it.
 
 ### Changed
 

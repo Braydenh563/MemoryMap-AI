@@ -134,16 +134,34 @@ const { boot } = require('./lib.js');
     console.log('inserted', JSON.stringify(inserted));
   }
 
-  // The other doorway: "add to a note" from the board itself.
+  // The other doorway: "add to a note" from the board itself, all the way
+  // through to the note's own text.
   await page.evaluate((id) => openWhiteboardBoard(id), ids.board);
   await page.waitForTimeout(2500);
+  await page.click('button[aria-controls="wb-board-menu"]').catch(() => {});
+  await page.waitForTimeout(600);
   const boardSide = await page.evaluate(() => {
     const el = document.getElementById('wb-add-to-note');
     if (!el) return null;
     const r = el.getBoundingClientRect();
-    return { text: el.textContent.trim(), h: Math.round(r.height) };
+    return { text: el.textContent.trim(), h: Math.round(r.height), w: Math.round(r.width) };
   });
   console.log('boardSide', JSON.stringify(boardSide));
+
+  let addedToNote = null;
+  if (boardSide && boardSide.h > 0) {
+    await page.click('#wb-add-to-note');
+    await page.waitForTimeout(1000);
+    await page.fill('.entry-pick-card input', 'Kitchen plan');
+    await page.waitForTimeout(600);
+    const rows = await page.$$('.entry-pick-list .entry-pick-row');
+    if (rows.length) {
+      await rows[0].click();
+      await page.waitForTimeout(1500);
+      addedToNote = await page.evaluate((id) => apiJson(`/entries/${id}`).then((e) => e.content), ids.note);
+    }
+    console.log('addedToNote', JSON.stringify((addedToNote || '').slice(-60)));
+  }
 
   const findings = [];
   if (!card) findings.push('the note did not render');
@@ -169,6 +187,9 @@ const { boot } = require('./lib.js');
   else if (!menu.some((m) => /board|map/i.test(m))) findings.push('no board or map command in the "/" menu: ' + JSON.stringify(menu));
   if (inserted !== null && !/!\[\[(board|map):\d+\|/.test(inserted)) findings.push('the "/" command inserted: ' + inserted);
   if (!boardSide) findings.push('no "add to a note" action on the board itself (#wb-add-to-note)');
+  else if (!boardSide.h) findings.push('the board\'s "add to a note" row did not open with its menu');
+  else if (!addedToNote) findings.push('the board\'s "add to a note" reached no note');
+  else if (!new RegExp(`!\\[\\[board:${ids.board}\\|`).test(addedToNote)) findings.push('the note did not gain the board object: ' + addedToNote.slice(-80));
   if (errors.length) findings.push('page errors: ' + errors.join(' | '));
 
   console.log(findings.length ? 'FAIL: ' + findings.join('\n  ') : 'PASS: 0 findings');

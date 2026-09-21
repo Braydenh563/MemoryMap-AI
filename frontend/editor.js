@@ -187,7 +187,18 @@ function editorHintPlaceholder(box) {
   if (!box || !(box.id in EDITOR_SURFACES)) return;
   const current = box.getAttribute("placeholder") || "";
   if (current.includes(EDITOR_MENU_HINT)) return;
-  box.setAttribute("placeholder", current ? `${current}\n  ${EDITOR_MENU_HINT}.` : `${EDITOR_MENU_HINT}.`);
+  //: **A second line only where there is a second line to spare** (the owner,
+  //: 2026-09-21: "the 'press / for blocks and commands' line in the empty chat
+  //: bar raises the chat bar height a bit"). A composer that grows to fit its
+  //: content measures the placeholder too, so a newline in it makes an empty
+  //: box one row taller than the message it is waiting for. The note editor
+  //: has the room and reads better with the hint under the prompt; the chat
+  //: bar is one row by design, and there the hint joins the sentence.
+  const tall = (Number(box.getAttribute("rows")) || 1) > 2;
+  const joined = tall
+    ? (current ? `${current}\n  ${EDITOR_MENU_HINT}.` : `${EDITOR_MENU_HINT}.`)
+    : (current ? `${current}  ${EDITOR_MENU_HINT}.` : `${EDITOR_MENU_HINT}.`);
+  box.setAttribute("placeholder", joined);
 }
 
 function editorHintAllPlaceholders() {

@@ -48,6 +48,17 @@ with its owner named in the entry.
     arithmetic goes wrong. Measure the bar's items and the menu's box against
     the opener before changing either.
 
+313. **The owner, 2026-09-21, verbatim, with a screenshot of the Files
+    sub-tab:** "there should be a way to copy all extracted text in a
+    document in the ocr workspace and files subtab". Fixed, and it was half
+    built. The OCR workspace has had `#ocr-copy-all` ("Copy everything read,
+    in reading order") wired to `ocrAllText()` for some time, but it was
+    `icon-only` among labelled buttons, which is a control nobody reads; it
+    carries the words "Copy all" now, like Describe beside it. The Files
+    sub-tab had nothing at all: the reading box is capped and scrolls, so
+    copying a fourteen page reading meant dragging through a window. A "Copy
+    text" button now sits beside Open reading in the reading panel's head and
+    copies `mediaReading(image)` whole.
 314. **The owner, 2026-09-21, verbatim, a regression in the reading
     workspace on a scanned PDF:** "on the ocr workspace, I have previously
     used an ocr model to read this scanned pdf document and I could scroll

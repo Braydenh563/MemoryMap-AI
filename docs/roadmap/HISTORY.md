@@ -32665,6 +32665,64 @@ row and head of different lengths).
     `.select-group-label` rows in the opener's own menu, with plain
     "value (count)" option text under each.
 
+314. **The owner, 2026-09-21, verbatim, a regression in the reading
+    workspace on a scanned PDF:** "on the ocr workspace, I have previously
+    used an ocr model to read this scanned pdf document and I could scroll
+    through the pages and the ocr extracted text would scroll and if I
+    clicked on a specific text setcion, it would go to that page scroll wise
+    on the pdf. but now I can only view the extracted text on a single page
+    and even when on scroll mode I cant scroll and the tesseract generates it
+    continuously not only the first time or when prompted by the iser".
+
+    Fixed, three faults, and they turned out to be two causes. Reproduced on
+    a real six page scan made for it (pages rasterised, no text layer,
+    `scratchpad/ui-sweeps/make-scan.py`), driven by
+    `scratchpad/ui-sweeps/ocrscroll.js`. Tesseract is not in this sandbox, so
+    a fake reader stands in for it at the one seam that needs it
+    (`scratchpad/ui-sweeps/fake_tesseract_app.py`): what was measured is the
+    plumbing either side of the reader, never what Tesseract reads off a real
+    scan.
+
+    (3) **Tesseract re-running on every page view was exactly as diagnosed.**
+    `_regions_for` called `ocr.extract_regions` unconditionally and stored
+    nothing, and the workspace asks that route again every time the current
+    page changes, which in scroll mode is every page you pass. Measured with
+    a fake reader counting its own calls: a scroll down and back up over the
+    six page scan ran it 13 times, and four looks at one image ran it 4
+    times. The regions of a page are now stored beside that page's reading
+    (`PageRead.regions`) and served from there: the same two runs are 6 and
+    1. Deliberately not filed as a *reading*: `PageRead.text` is a
+    transcription somebody asked for and feeds the Files row's "N pages read"
+    badge, and a look must not inflate that. A re-read of the page clears the
+    stored regions; deleting the reading takes the row with them.
+    `tests/test_ocr_region_cache.py` holds the counts.
+
+    (1) **"Only one page of extracted text" and (2) the panel no longer
+    following the pages or moving them were one cause, and nothing had been
+    removed.** The panel has been page-linked all along, through each row's
+    `data-page` (`ocrWireRegionJump` goes to that page, `ocrRevealRegionsForPage`
+    follows the page you scroll to). The *list* it worked on was built one of
+    two exclusive ways: the stored reading of every page, or the regions of
+    the page on screen whenever the reader returned any. Tesseract returns
+    some for every page, so with Tesseract as the reader the second always
+    won, every row belonged to the page already in front of you, there was
+    nothing to scroll and a click could only ask for the page it was already
+    on. Measured before: scrolled to page 4 of 6, the panel held 3 rows, all
+    of page 4. After: scrolled through all six pages, 8 rows over pages 1 to
+    6, the three rows of the page on screen marked current, the panel
+    scrolled to them, and clicking page 1's section moved the page pane from
+    scrollTop 1751 to 8 (`ocrDocumentReading`).
+
+    **Scroll mode itself was not broken**, and the check the entry asked for
+    came back the other way: on the six page scan the mode engages and
+    scrolls (a 654px pane over a 3892px stack of six stages, `overflow-y:
+    auto`, and scrolling to 1751 moved the page on screen from 1 to 4 with
+    the rail, the pager and the panel following). The owner's sentence reads
+    as the *reading panel* not scrolling, which is (1). The silent fallback
+    in `ocrSetViewMode` is real all the same and no longer silent: the
+    segment is lit for the mode you are in rather than the one you asked for,
+    except while the page count is still unknown, which is the one temporary
+    no; the two permanent ones say why.
 311. **The owner, 2026-09-21, verbatim, with a screenshot of the status bar
     menu:** "when I load up the application, the bottom nav history dropdown
     shows me being in the notes tab and having been to the notes tab even when

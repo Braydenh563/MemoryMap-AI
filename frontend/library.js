@@ -2714,6 +2714,13 @@ let ocrWorkspaceRegions = [];
 //: are. 0/1 for an image, which is a one-page document with no rail.
 let ocrWorkspacePage = 0;
 let ocrWorkspacePages = 1;
+//: **Whether that count is a fact or a placeholder.** `ocrWorkspacePages`
+//: starts at 1 for a document of unknown length, which is indistinguishable
+//: from a document that really has one page, and the two want opposite
+//: answers: "scroll cannot be honoured yet, wait for the count" against
+//: "scroll cannot be honoured at all, say so". Set when a region response
+//: brings the count back.
+let ocrPagesKnown = false;
 //: page index -> `{caption, caption_model}` for the document on the stage.
 //: Filled from the `page-reads` response (which carries a page's description
 //: on the same row as its reading), cleared and refilled on every page load so
@@ -3007,7 +3014,13 @@ function ocrRenderRegions(body) {
     const ownPage = Number.isInteger(region.page) ? region.page : Number(body.page) || 0;
     const pageNumber = ownPage + 1;
     const pageCount = Number(body.pages) || 1;
-    if (Number.isInteger(region.page)) {
+    //: **Whole page, or a section of one.** This used to be read off `page`
+    //: being present, which was true only because a section never carried
+    //: one. It does now (`ocrDocumentReading` lists every page the app knows
+    //: about, and the sections of the page on screen sit among them), so the
+    //: row says which of the two it is rather than leaving it to be guessed.
+    const wholePage = region.whole === true;
+    if (wholePage) {
       // A stored reading is one panel per page: say the page, not "§1".
       where.textContent = `Page ${pageNumber}`;
       where.title = `The reading of page ${pageNumber}`;
@@ -3071,7 +3084,7 @@ function ocrRenderRegions(body) {
     //: landed on a page with nothing to delete and nothing changed. Each
     //: stored panel now removes its own page's reading.
     //: An image's reading is one panel; its delete is the header's delete.
-    if (!Number.isInteger(region.page) && ocrWorkspaceCurrent && !ocrIsPdf(ocrWorkspaceCurrent)
+    if (!wholePage && ocrWorkspaceCurrent && !ocrIsPdf(ocrWorkspaceCurrent)
         && body.source !== "text-file" && (region.text || "").trim()) {
       const remove = document.createElement("button");
       remove.type = "button";
@@ -3085,7 +3098,11 @@ function ocrRenderRegions(body) {
       });
       head.appendChild(remove);
     }
-    if (Number.isInteger(region.page) && body.source === "stored-text") {
+    //: Its own page's reading, deletable from the panel that shows it. Gated
+    //: on the row being a whole page rather than on the badge: the badge says
+    //: where the *page on screen* was read from, and the other pages in the
+    //: list are stored readings whatever it says.
+    if (wholePage && (region.text || "").trim()) {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "ghost small icon-button danger ocr-region-delete";
@@ -3493,6 +3510,91 @@ async function ocrStoredPageReads(image) {
   return apiJson(`${base}/page-reads`).catch(() => null);
 }
 
+//: **What the app knows about this document, page by page, in page order.**
+//:
+//: Reported (INBOX 314), verbatim: *"I could scroll through the pages and the
+//: ocr extracted text would scroll and if I clicked on a specific text setcion,
+//: it would go to that page scroll wise on the pdf. but now I can only view the
+//: extracted text on a single page"*.
+//:
+//: Both halves of that were already built, and both were unreachable for the
+//: reader he was using. The panel is page-linked through each row's
+//: `data-page` (`ocrWireRegionJump` takes you to it, `ocrRevealRegionsForPage`
+//: follows the page you scroll to), but the list it worked on was built one of
+//: two ways: the stored reading of *every* page, which is what he remembers,
+//: **or** the regions of the page on screen, whenever the reader returned any.
+//: Tesseract returns some for every page, so the second branch always won,
+//: every row in the list belonged to the page already in front of him, there
+//: was nothing to scroll, and a click could only ever ask for the page it was
+//: already on. Measured before the change with a fake reader standing in for
+//: Tesseract (`scratchpad/ui-sweeps/ocrscroll.js`): scrolled to page 4 of 6,
+//: the panel held 3 rows, all of page 4, and no row of any other page to click.
+//:
+//: So it is one list rather than a choice between two: every page the app has
+//: something for, in order, and where that page is the one on screen its own
+//: sections stand in for the summary, so the boxes on the picture keep their
+//: rows. A page has something when it has been read, described, or looked at
+//: with an optical reader (`regions_text`, see `PageRead.regions`).
+function ocrDocumentReading(body, storedPages, storedMessage) {
+  const here = Number(body.page) || 0;
+  //: Only a *positioned* reading of the page on screen replaces that page's
+  //: summary. A reading-derived list has no boxes and is already what the
+  //: stored panel for that page says, so letting it in would list the page
+  //: twice.
+  const live = body.source === "tesseract" ? body.regions || [] : [];
+  const byPage = new Map();
+  for (const entry of storedPages) byPage.set(Number(entry.page) || 0, entry);
+  const pages = [...new Set([...byPage.keys(), ...(live.length ? [here] : [])])].sort(
+    (a, b) => a - b
+  );
+  if (!pages.length) return body;
+  const regions = [];
+  for (const number of pages) {
+    if (number === here && live.length) {
+      for (const region of live) {
+        //: `whole: false`: these are sections of a page, which is what lets
+        //: the row keep its section number and its box.
+        regions.push({ ...region, page: number, whole: false });
+      }
+      continue;
+    }
+    const entry = byPage.get(number);
+    regions.push({
+      kind: "text",
+      //: The page's own reading first: a transcription somebody asked for is
+      //: a better answer than what an optical reader saw in passing, and only
+      //: one of the two can be shown on one row.
+      text: (entry.text || "").trim() || (entry.regions_text || "").trim(),
+      confidence: 0,
+      //: **No rectangle, rather than a rectangle round the whole page.** This
+      //: list is drawn over the page on screen, and a full-page box belonging
+      //: to page 2 would land on page 4's picture: a wrong answer where a
+      //: missing one is the truth.
+      box: null,
+      caption: (entry.caption || "").trim(),
+      caption_model: entry.caption_model || "",
+      page: number,
+      whole: true,
+    });
+  }
+  //: Renumbered across the whole list: `index` is what a box, its row, the
+  //: find filter and an edit all key off each other by, so two rows may not
+  //: share one.
+  regions.forEach((region, index) => {
+    region.index = index;
+  });
+  return {
+    ...body,
+    regions,
+    //: The badge is about the page on screen, which is the only page anything
+    //: was measured on.
+    source: live.length ? "tesseract" : "stored-text",
+    message: live.length ? body.message || "" : storedMessage || body.message || "",
+    pages: body.pages || ocrWorkspacePages,
+    page: here,
+  };
+}
+
 async function ocrLoadPage(image, page = 0, opts = {}) {
   ocrWorkspaceCurrent = image;
   ocrWorkspacePage = Math.max(0, page);
@@ -3669,31 +3771,19 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
       //: it is something the app knows about that page, and leaving it out
       //: meant a described-but-unread page rendered as "nothing read yet"
       //: with its description nowhere on screen.
-      (p) => (p.text || "").trim() || (p.caption || "").trim()
+      //: `regions_text` is the third kind of thing known about a page: what an
+      //: optical reader saw while the page was on screen (see
+      //: `PageRead.regions`). It is what puts a scan being read by Tesseract
+      //: into this list at all.
+      (p) => (p.text || "").trim() || (p.caption || "").trim() || (p.regions_text || "").trim()
     );
-    if (storedPages.length && body.source !== "tesseract") {
-      ocrRenderRegions({
-        regions: storedPages.map((entry, index) => ({
-          index,
-          kind: "text",
-          text: (entry.text || "").trim(),
-          confidence: 0,
-          box: { x: 0, y: 0, w: 1, h: 1 },
-          caption: (entry.caption || "").trim(),
-          caption_model: entry.caption_model || "",
-          //: Which page this reading is *of*, the row's own badge and its
-          //: delete button both need it, and `body.page` is only the page
-          //: currently on screen.
-          page: entry.page,
-        })),
-        source: "stored-text",
-        message: stored.message || `${storedPages.length} page(s) already read.`,
-        pages: body.pages || ocrWorkspacePages,
-        page: ocrWorkspacePage,
-      });
-    } else {
-      ocrRenderRegions(body);
-    }
+    //: **A document's reading is the whole document's**, not only the page in
+    //: front of you. See `ocrDocumentReading`, and INBOX 314.
+    ocrRenderRegions(
+      ocrIsPdf(image)
+        ? ocrDocumentReading(body, storedPages, stored?.message || "")
+        : body
+    );
     //: An image's description lives here too, so caption and reading are
     //: managed side by side (reported: "a lot of disconnect between files and
     //: images regarding ocr and image captioning").
@@ -3755,6 +3845,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
 //: does not render 200 pages to show three.
 function ocrBuildPageRail(image, pages) {
   ocrWorkspacePages = Math.max(1, pages || 1);
+  ocrPagesKnown = true;
   const rail = $("ocr-rail");
   if (!rail) return;
   //: The switch above the rail gains its "Pages" segment only once the page
@@ -4095,6 +4186,7 @@ function ocrOpenSibling(row) {
   if (ocrIsPdf(row)) {
     ocrWorkspacePage = 0;
     ocrWorkspacePages = 1;
+    ocrPagesKnown = false;
     ocrRailMode = "pages";
     ocrTearDownScroll();
     ocrLoadPage(row, 0);
@@ -4109,6 +4201,7 @@ function ocrOpenSibling(row) {
   ocrTearDownScroll();
   ocrWorkspacePage = 0;
   ocrWorkspacePages = 1;
+  ocrPagesKnown = false;
   ocrLoadPage(row);
   ocrRenderRail(row);
 }
@@ -4129,6 +4222,7 @@ function openOcrWorkspace(image, images, page = 0) {
   const startPage = Math.max(0, Number(page) || 0);
   ocrWorkspacePage = startPage;
   ocrWorkspacePages = 1;
+  ocrPagesKnown = false;
   //: Answers about regions belong to the file they were asked about. They are
   //: not stored anywhere, so opening another document has to take them away
   //: rather than leave them looking like something known about the new one.
@@ -4399,26 +4493,54 @@ function ocrStoredViewMode() {
   }
 }
 
-function ocrSyncViewButtons() {
+//: Lit for the mode you are actually in, which is not always the mode you
+//: asked for: see `ocrSetViewMode`. A segment showing "Scroll" over a single
+//: page is the control lying about the app's state, and it is most of what
+//: "even when on scroll mode I cant scroll" describes from the outside.
+function ocrSyncViewButtons(effective = ocrViewMode) {
   for (const button of document.querySelectorAll("#ocr-view button")) {
-    const on = button.dataset.ocrView === ocrViewMode;
+    const on = button.dataset.ocrView === effective;
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
 }
 
-function ocrSetViewMode(mode, image) {
+//: `asked` is true only when a person pressed the segment. The same function
+//: re-applies a *remembered* preference on every document that opens, and a
+//: photograph explaining that it is not long enough to scroll is furniture.
+function ocrSetViewMode(mode, image, opts = {}) {
   ocrViewMode = mode === "scroll" ? "scroll" : "page";
   try {
     localStorage.setItem(OCR_VIEW_KEY, ocrViewMode);
   } catch {
     //: See ocrStoredViewMode: not remembering is not a failure worth showing.
   }
-  ocrSyncViewButtons();
   const continuous = ocrViewMode === "scroll" && ocrIsPdf(image) && ocrWorkspacePages > 1;
+  //: **A mode that cannot engage says so rather than quietly doing something
+  //: else** (INBOX 314). Scroll used to fall back to one page in silence, and
+  //: leave its own segment lit while it did, so the three reasons it can fail
+  //: were indistinguishable from a broken scroll: the file is not a document,
+  //: the document has one page, or the page count has not come back yet. Only
+  //: the last is temporary, and `ocrLoadPage` turns the mode on the moment the
+  //: count arrives, so the button stays lit through that one and the other two
+  //: hand the light back to "One page".
+  const pending = ocrViewMode === "scroll" && !ocrPagesKnown;
+  ocrSyncViewButtons(continuous || pending ? ocrViewMode : "page");
   if (!continuous) {
     ocrTearDownScroll();
     ocrApplyZoom();
+    //: A toast rather than `#ocr-message`: that line carries what the reader
+    //: said about the page (often "nothing read yet", which is the more useful
+    //: sentence, and sometimes the reason the request failed, which must not be
+    //: painted over with a guess about page counts). This answers the press
+    //: and goes away.
+    if (opts.asked && !pending) {
+      toast(
+        ocrIsPdf(image)
+          ? `Scrolling needs a document with more than one page, this one has ${ocrWorkspacePages}.`
+          : "Scrolling through pages is for documents, this is a single image."
+      );
+    }
     return;
   }
   $("ocr-page-pane")?.classList.add("is-scroll");
@@ -4788,7 +4910,7 @@ onDomReady(() => {
   }
   for (const button of document.querySelectorAll("#ocr-view button")) {
     button.addEventListener("click", () => {
-      ocrSetViewMode(button.dataset.ocrView, ocrWorkspaceCurrent);
+      ocrSetViewMode(button.dataset.ocrView, ocrWorkspaceCurrent, { asked: true });
     });
   }
   $("ocr-prev-page")?.addEventListener("click", () => ocrStepPage(-1));

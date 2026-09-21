@@ -99,6 +99,29 @@ with its owner named in the entry.
     installer's name, (5) lightweight, (6) what the app does when the disk
     fills, (7) an architecture review with SQLite and idle compute named
     specifically.
+    **(2), (3) and (4) checked and closed out (Sonnet, packaging worktree).**
+    (2) and (3) were already built before this pass: `ee99f00` shipped the
+    Linux `.tar.gz` (a zip loses the executable bit on several extractors,
+    measured) and `9eea17d`/`f0d478b` shipped the `.msi`
+    (`packaging/windows/installer.wxs`, unsigned, per-machine, with its own
+    "Repair MemoryMap AI" shortcut per INBOX 253), both already on this
+    branch. Nothing rebuilt. (4) was mostly done in the same commits (the
+    `.msi`, `.tar.gz` and `.zip` filenames all already carry
+    `<name>-<version>-<platform>-<arch>`, and `installer.iss`'s
+    `OutputBaseFilename` already gave the `.exe` the same shape); the one
+    real gap was a lint: nothing asserted the `.exe`'s own filename
+    (`installer.iss`, set independently of `release.yml`'s upload glob,
+    which would still match a name with the platform dropped) carried its
+    version, platform and architecture, so a future edit could quietly
+    regress it with nothing catching it. Added
+    `test_windows_exe_filename_carries_name_version_platform_and_arch` in
+    `tests/test_release_smoke_step.py`, alongside the MSI and zip
+    equivalents that already existed. The naming scheme itself is now
+    written down as a decision in `WORLD_CLASS_PLAN.md`'s H6 rather than
+    left implicit in code comments. Not verified: no tag push or Windows/
+    WiX runner exists in this sandbox, so none of this was checked against
+    a real release run, only against the workflow and installer sources as
+    text. (1), (5), (6) and (7) remain open, somebody else's.
 
 267. **Mid-work drop, 2026-09-20, verbatim (the owner), a screenshot of four
     lines.** "Alignment bars don't appear for group selections

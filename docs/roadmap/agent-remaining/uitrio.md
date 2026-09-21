@@ -57,3 +57,39 @@ redo), which it fails. The recipe is a row in `docs/DESIGN.md`'s index.
   never opened the app on a desktop cannot reach Focused at all. Pre-existing
   and documented in the CSS; noted because the focused head row is now the
   level's main feature and a phone cannot choose it.
+
+## Corrected 2026-09-21 by the orchestrator
+
+**"At 390 the `state` zone measures zero wide, so the AI status dot is
+invisible on a phone" was wrong, and it was wrong in the way this file
+already warned about.** The same remaining list records the trap: "reading
+the strip/ring with nothing selected (0x0 is 'not on screen', not 'no
+padding')". This reading made the same mistake one level up: it read the
+*zone's* width, not the button's.
+
+Measured at 390 on the branch head: `#ai-status` draws 28x28 at
+x 274.6..302.6, inside the viewport, and `elementFromPoint` at its centre
+returns `ai-status-dot`, so it is on screen and pressable. What measured zero
+was the flex zone around it, which had shrunk to nothing while its children,
+which do not shrink, spilled out of it. They stayed visible only because the
+bar does not clip on that axis.
+
+So there was no missing status dot, but there was a real fragility: a zone
+whose reported box does not contain what it draws is one `overflow` change
+away from hiding the only thing in this app that says what the local model is
+doing. `min-width: min-content` on the state zone keeps the number and the
+pixels honest. After: the zone reads 118.1px at 390, 500 and 600, 212.5 at
+820 and 244.5 at 1440, and the dot has not moved.
+
+The second finding in that pair, that the dashboard density picker is hidden
+below 600 so Focused cannot be reached on a phone, was not re-checked here
+and stands as written.
+
+**Also noted while re-running the probe:** `uitrio.js`'s first check, "the
+Files reading box shows at least four lines", fails with `undefined` on a
+fresh data directory, because it needs a file that has extracted text and
+nothing seeds one. It fails identically with this change stashed, so it is
+the fixture and not a regression, but a probe that reports `undefined` rather
+than "nothing to measure" is a probe that will be misread, exactly as the
+zone width was.
+

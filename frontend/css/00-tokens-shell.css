@@ -3522,6 +3522,20 @@ header#top-bar.tabs-wrapped #tab-bar {
    a control that shrinks out of reach costs the press. */
 .status-zone[data-status-zone="state"] {
   flex: 0 1 auto;
+  /* **It gives way, but not past what it is showing.** Measured at 390: this
+     zone reported 0.0px wide while the status dot inside it still drew at
+     28x28 and was hit-testable, because the zone shrank to nothing and its
+     children, which do not shrink, spilled out of it. They stayed on screen
+     only because the bar around them does not clip on that axis, so the
+     layout was one `overflow` change away from hiding the only thing in this
+     app that says what the local model is doing.
+
+     A zone whose reported box does not contain what it draws is also why an
+     earlier reading called the dot invisible on a phone: the number said 0
+     and the pixels said otherwise. `min-content` keeps the two honest, and
+     still lets a long background-job label shorten, which is what the rule
+     above is for. */
+  min-width: min-content;
 }
 
 .status-zone[data-status-zone="tools"],

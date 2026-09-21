@@ -27,6 +27,13 @@ below). Versioning is `0.x` while the app stabilises.
   utility model while smart model routing is on, on the chat model while it
   is off, and Settings, Models can give it a model of its own; the panel's
   '?' says so.
+- The mind map has been measured against the six things it was reported for,
+  and the report that it is slow is true and is one bug. Panning holds 60fps
+  at 50, 200 and 500 topics and the layout maths is cheap; a full re-render is
+  not, and it runs when a topic is picked up, so a 500-topic map freezes for
+  over a second the instant a finger goes down on a node. The read, the
+  numbers and the phases that follow from them are MINDMAP_PLAN section 13;
+  two probes hold the figures, `mapperf.js` and `maptwokinds.js`.
 
 - Typing part of a word finds it again. The find anything box tried a word as
   a prefix only from four letters, so a note called "test" appeared for "test"

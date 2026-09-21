@@ -377,10 +377,26 @@ def test_the_ask_foot_does_not_redraw_the_records_column():
     #: The words the owner will read, and the plural, since "1 notes" is the
     #: sort of thing that survives a review and then gets reported.
     assert '"note" : "notes"' in line, "the line says note or notes"
-    assert "on the right" in line, "the line says where the notes are"
+    #: **It stopped saying where the notes are, on purpose** (INBOX 300, the
+    #: owner with a screenshot: "fix the ui of this sources button in the ask
+    #: tab"). It read "Sources: 10 notes, on the right", which described a
+    #: location rather than doing anything, and the location was a claim the
+    #: line could not keep: the column is not on the right on a phone, and on
+    #: a desktop it can be below the fold. A control that only points is not a
+    #: control. So the words went and the behaviour stayed, and this asserts
+    #: the behaviour plus the absence of the claim, which is the part a future
+    #: edit would most easily put back.
+    assert "on the right" not in line, (
+        "the line no longer tells the reader where to look; it takes them "
+        "there, and the column is not on the right at every width"
+    )
     assert "askRevealRecords(" in line, (
-        "the line is a button because it does something: the column can be "
-        "below the fold, and then 'on the right' is a claim rather than a fact"
+        "the line is a button because it does something: it reveals the "
+        "records column and the note the answer cited"
+    )
+    assert "raw-results" in line, (
+        "and it names what it controls, so a screen reader reads it as a "
+        "control over that column rather than as a sentence"
     )
 
     reveal = APP[APP.index("function askRevealRecords(") :]

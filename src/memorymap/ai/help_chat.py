@@ -275,6 +275,26 @@ HELP_TOPICS: list[dict] = [
         "badge": {"label": "Appearance", "section": "appearance"},
     },
     {
+        #: **The strip along the bottom had no entry at all** (INBOX 304). The
+        #: app offers "What is the status bar telling me?" under the status
+        #: bar's own '?', and the guide had nothing to answer it from: a
+        #: suggestion the corpus cannot reach. Written from `STATUS_SLOTS` in
+        #: `frontend/app.js` and the copy in `#statusbar-help`, which are the
+        #: two places that decide what the bar actually shows.
+        "id": "statusbar",
+        "keywords": ("status bar", "statusbar", "bottom bar", "bottom strip", "the strip"),
+        "body": (
+            "The status bar is the strip along the bottom of every screen. It "
+            "shows what the local model is doing, your note count, open and due "
+            "reminders, back and forward, undo and redo, the Ctrl/Cmd+K hint, "
+            "Ask the agent, Atlas the guide, and Find anything. The offline "
+            "badge, the power-saver badge and the running-job slot appear only "
+            "when there is something to say. Settings -> Appearance -> Status "
+            "bar chooses which of the rest to show."
+        ),
+        "badge": {"label": "Appearance", "section": "appearance"},
+    },
+    {
         "id": "shortcuts",
         "keywords": ("shortcut", "keyboard", "hotkey", "command palette"),
         "body": (
@@ -393,6 +413,12 @@ HELP_TOPICS: list[dict] = [
         "keywords": (
             "atlas", "guide", "who are you", "what are you", "your name",
             "yourself", "what can you do", "what do you do",
+            #: The exact words under this panel's own '?' (`ATLAS_PROMPTS`,
+            #: "help-chat-help"). A suggestion the corpus cannot answer is the
+            #: worst kind of dead end, which is why
+            #: `test_every_question_the_app_offers_to_ask_atlas_is_answerable`
+            #: now reads that table against this one (INBOX 304).
+            "what can you help", "help me with",
         ),
         "body": (
             "Atlas is this app's in-app guide, named for a book of maps. It "
@@ -590,8 +616,36 @@ MAX_TOPICS = 3
 # request, and re-compiling ~100 small regexes (18 topics x ~6 keywords)
 # on every one of them is wasted work an unbounded local model call already
 # dwarfs, but costs nothing to avoid.
+#
+# **Whole word, but not one single form of the word** (INBOX 304, the owner:
+# "the help bot is useless, or the suggested questions are bad or both"). He
+# asked "Where do reminders live?" and was told the guide was not sure, with
+# Notes and What it remembers named as its sources. The reminders entry was
+# in this table the whole time: the keyword is "reminder", the pattern was
+# `\breminder\b`, and the plural he typed does not match it. Nothing matched,
+# so the tab's own topics filled in, and a question about reminders was
+# answered from the notes and memory entries. Every plural in the app had the
+# same hole: "documents", "notes", "spaces", "backups". The keyword table is
+# written in the singular by anyone adding to it, and people ask in whichever
+# number reads naturally, so the number is handled here once rather than by
+# asking thirty entries to list both forms and catching the next one late.
+#
+# A fixed set of inflections, not a stemmer: "-s", "-es" and the possessive,
+# plus "-y" to "-ies" for a keyword like "library". Anything less regular
+# ("recur" to "recurring") is spelt out in the keyword tuple, where it can be
+# read, rather than guessed at by a rule loose enough to match it.
+
+
+def _keyword_pattern(keyword: str) -> re.Pattern[str]:
+    if len(keyword) > 3 and keyword.endswith("y") and keyword[-2] not in "aeiou":
+        stem = re.escape(keyword[:-1]) + "(?:y|ies)"
+    else:
+        stem = re.escape(keyword) + "(?:es|'s|s)?"
+    return re.compile(rf"\b{stem}\b")
+
+
 _KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
-    keyword: re.compile(rf"\b{re.escape(keyword)}\b")
+    keyword: _keyword_pattern(keyword)
     for topic in HELP_TOPICS
     for keyword in topic["keywords"]
 }
@@ -647,14 +701,24 @@ def badges_for(topics: list[dict]) -> list[dict]:
 def topics_for(question: str, tab: str | None = None) -> list[dict]:
     """The reference entries for one question, asked from one tab.
 
-    What the question names comes first, because a person who asks about
-    reminders from the Graph tab is asking about reminders. The tab's own
-    topics follow, and they are what makes "how does this work?" answerable at
-    all: with no keyword in it, that question matched nothing and the model was
-    told to say it was not sure.
+    What the question names wins outright. The tab's own topics are a
+    fallback for a question that names nothing, and they are what makes "how
+    does this work?" answerable at all: with no keyword in it, that question
+    matched nothing and the model was told to say it was not sure.
+
+    **A fallback, not a supplement** (INBOX 304). They used to be appended to
+    whatever the question matched, up to `MAX_TOPICS`, so a question asked
+    from the Notes tab was grounded in the notes and memory entries however
+    clearly it named its own subject, and the answer printed Notes and What it
+    remembers as its sources. Two thirds of the reference material was then
+    about something the person had not asked about, on a small local model
+    with a 256-token reply: the wrong entries do not sit there politely, they
+    are what the model answers from. The tab is still on the prompt as a line
+    of its own ("the person asking has the notes tab open"), which is the part
+    of the context that was worth having.
     """
     topics = _matching_topics(question)
-    if not tab:
+    if not tab or topics:
         return topics
     seen = {topic["id"] for topic in topics}
     by_id = {topic["id"]: topic for topic in HELP_TOPICS}

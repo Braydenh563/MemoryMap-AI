@@ -2966,8 +2966,16 @@ function wbMapLayout() {
 //: was never told otherwise follows. `{}` for every map that has never been
 //: themed, which is every map made before this existed, so the fast path out
 //: of `wbMapThemedData` is the one an unthemed map takes.
+//: One frozen empty object rather than a fresh `{}` per call, and a `for
+//: ... in` rather than `Object.keys` below, for one reason: this is called
+//: once per node and three or four times per edge on every render and every
+//: drag frame, and 13a's whole finding was that the drag's cost was per-member
+//: work nobody noticed writing. An allocation per edge per frame is exactly
+//: that shape.
+const WB_MAP_NO_THEME = Object.freeze({});
+
 function wbMapTheme() {
-  return window.wbMapState?.theme || {};
+  return window.wbMapState?.theme || WB_MAP_NO_THEME;
 }
 
 //: One node's data with the map's theme underneath it: what this topic
@@ -2988,7 +2996,7 @@ function wbMapThemedData(node) {
   const data = node?.data || {};
   const theme = wbMapTheme();
   let merged = null;
-  for (const field of Object.keys(theme)) {
+  for (const field in theme) {
     const own = data[field];
     if (own !== undefined && own !== null && own !== "") continue;
     if (!merged) merged = { ...data };

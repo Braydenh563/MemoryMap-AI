@@ -48,56 +48,6 @@ with its owner named in the entry.
     arithmetic goes wrong. Measure the bar's items and the menu's box against
     the opener before changing either.
 
-316. **The owner, 2026-09-21, verbatim, with a screenshot of the documents
-    gutter:** "and make these dropdown arrows actually aligned and proper
-    icons". Fixed. CodeMirror's `foldGutter` draws a text triangle by
-    default, which rendered as a typed "v" in this app's font: the exact
-    shape `tests/test_no_glyph_icons.py` exists to keep out, and one that
-    could not line up with the numbers beside it because a glyph's box
-    belongs to its font rather than to the line. `markerDOM` hands the lane
-    the app's own `ph-caret-down`/`ph-caret-right` instead, and the lane gets
-    a box a line tall that centres what is in it. Measured with
-    `scratchpad/ui-sweeps/docfoldcaret.js`, 5 of 5: four markers, every one
-    an icon, none of them a character, and each arrow's centre 0.0px from the
-    centre of its own line number.
-
-315. **Fixed 2026-09-21.** **The owner, verbatim, with a screenshot:** "I pressed next
-    on the first thing of the guided tour and this happened, the guided tour
-    is still broken". The screenshot is the Reminders tab with no tour card
-    and no dim: the tour is gone, not stuck.
-
-    Read from the code, not yet reproduced. `tourShow` drops a step whose
-    target is not `tourVisible` and `tourOnScreen`, splices it out of the run
-    and continues; if every remaining step is dropped the loop falls through
-    to `tourClose(true)`, which ends the tour silently wherever the last
-    `tourNavigate` left you. That is exactly the screenshot: Next navigated
-    to a step's tab, the target was not judged on screen, and the rest of the
-    run was eaten one step at a time until the tour closed on Reminders.
-
-    The likely cause is the judging, not the steps: `tourWaitForTarget` waits
-    for the element to exist, but a tab that has just been switched to has
-    not necessarily laid out, so `tourOnScreen` can be asked before the
-    answer is meaningful. Two things to fix together: wait for layout (a
-    frame, or the element having a non-zero box) before judging, and **never
-    let the run empty itself in silence**: a tour that cannot find its next
-    step should say so and stay open on the step it has, because a tour that
-    vanishes mid-gesture is the third report of this surface being broken and
-    it reads as the whole feature failing.
-
-    **Both built.** A step is now judged after the scroll that brings it into
-    view rather than in the same task as it, because the box read before a
-    scroller moves is the box it had before the move, and one mistimed
-    measurement could eat the rest of the run a step at a time. And the run
-    can no longer empty itself: the last remaining step is kept and shown
-    centred, saying that the control is not on screen at this window size,
-    instead of the tour closing as though it were over.
-
-    Note against the earlier fix: today's tour work (the dim moved off
-    `.tour-spot` onto four panels, `toursteps.js` 24 of 24 across three
-    widths and both themes) measured the steps that survive. It never
-    measured a step being dropped, so the probe would pass with this bug
-    present. Whatever fixes this must add a gate for the drop path.
-
 314. **The owner, 2026-09-21, verbatim, a regression in the reading
     workspace on a scanned PDF:** "on the ocr workspace, I have previously
     used an ocr model to read this scanned pdf document and I could scroll
@@ -138,18 +88,6 @@ with its owner named in the entry.
     regression, so check the history for when they worked rather than
     rebuilding them (CLAUDE.md section 1).
 
-313. **The owner, 2026-09-21, verbatim, with a screenshot of the Files
-    sub-tab:** "there should be a way to copy all extracted text in a
-    document in the ocr workspace and files subtab". Fixed, and it was half
-    built. The OCR workspace has had `#ocr-copy-all` ("Copy everything read,
-    in reading order") wired to `ocrAllText()` for some time, but it was
-    `icon-only` among labelled buttons, which is a control nobody reads; it
-    carries the words "Copy all" now, like Describe beside it. The Files
-    sub-tab had nothing at all: the reading box is capped and scrolls, so
-    copying a fourteen page reading meant dragging through a window. A "Copy
-    text" button now sits beside Open reading in the reading panel's head and
-    copies `mediaReading(image)` whole.
-
 312. **The owner, 2026-09-21, verbatim:** "also why is the graph soo smooth
     and clean to move nodes around, zoom and more when the whiteboard and
     especially the mindmap are still horrendous and all the links lag
@@ -174,24 +112,6 @@ with its owner named in the entry.
     and zoom frames under 50ms at 500 topics), and the honest fix is the one
     the graph already took, a canvas for the links at least. Open, as a
     decision about how far to take it.
-
-311. **The owner, 2026-09-21, verbatim, with a screenshot of the status bar
-    menu:** "when I load up the application, the bottom nav history dropdown
-    shows me being in the notes tab and having been to the notes tab even when
-    I havent moved from the dashboard". Fixed. Reproduced first
-    (`scratchpad/ui-sweeps/navhistory.js`): on a fresh load that never left
-    the Dashboard the stack was `["notes:browse", "dashboard",
-    "notes:browse"]` with the pin on the last entry, so the history said you
-    were in Notes while the Dashboard was drawn, and Back walked to a place
-    nobody had been. Two boot steps set the Notes tab's default section while
-    it was hidden (`initNotesSubtabs` selects whichever section was last open,
-    and the first `loadEntries` selects browse), and `showNotesSection`
-    recorded each as a visit. Setting a hidden tab's default section is not a
-    navigation, so the recording is now guarded by Notes being the tab on
-    screen. After: `["dashboard"]`, Back correctly dead, one move records one
-    step, one Back press returns. 10 of 10, and
-    `tests/test_nav_history_seed.py` holds both halves (the guard, and the
-    boot seed that must stay).
 
 228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
     you have finished all these, done the final bug sweep, make sure

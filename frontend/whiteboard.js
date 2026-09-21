@@ -1107,10 +1107,24 @@ function wbItemBBox(kind, item) {
   // wins when the element is on screen, a link aimed at the stored box
   // stopped short of the visible one.
   if (kind === "object") {
-    const el = document.querySelector(`.wb-object[data-id="${item.id}"]`);
-    if (el && el.offsetWidth && el.offsetHeight) {
-      w = el.offsetWidth;
-      h = el.offsetHeight;
+    //: **The measurement the render already took, when there is one**
+    //: (MINDMAP_PLAN.md §13a). `wbContentBounds` asks this of every item on
+    //: the board, so on a 500-topic map the fit that runs on open was 500
+    //: document walks and 500 layout reads: 127.2ms of the open, for boxes
+    //: `renderWbObjects` had just measured in one pass. The cache holds
+    //: exactly those numbers (`offsetWidth`/`offsetHeight`, same reads, same
+    //: elements) and is dropped by every render and at the end of every
+    //: gesture, so a hit here cannot be older than what is on screen.
+    const measured = wbMapNodeSizeCache?.get(item.id);
+    if (measured) {
+      w = measured.w;
+      h = measured.h;
+    } else {
+      const el = document.querySelector(`.wb-object[data-id="${item.id}"]`);
+      if (el && el.offsetWidth && el.offsetHeight) {
+        w = el.offsetWidth;
+        h = el.offsetHeight;
+      }
     }
   }
   w = w || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
@@ -1771,12 +1785,38 @@ function wbSketchIsDrawable(sketch) {
   return true;
 }
 
+//: **One lookup table per list, not a scan per link end**
+//: (MINDMAP_PLAN.md §13a). `wbUpdateLinkedSketches` calls this twice for every
+//: link touching a moved item, on every frame of the gesture, so the `.find`
+//: this replaces was the whole object list walked twice per link per frame:
+//: measured on `mapperf.js`'s own link fixture at 500 topics, a branch drag
+//: over 300 link sketches had a 183.3ms worst frame with the list scanned and
+//: 33.3ms with it indexed.
+//:
+//: **Keyed on the array itself, so it cannot go stale by being replaced.**
+//: Every list on `wbState` is either mutated by push or replaced wholesale by
+//: a `filter`, and a replacement is a different array, which is a different
+//: key in this WeakMap and therefore a fresh index. The length guard covers
+//: the push. The one case neither covers is an element replaced in place at
+//: the same length, which happens in exactly one place (a card re-posted onto
+//: its own row), and that place drops the entry by hand.
+const wbLinkItemIndex = new WeakMap();
+
+function wbForgetLinkItems(list) {
+  wbLinkItemIndex.delete(list);
+}
+
 function wbLinkItem(kind, id) {
   if (id == null) return null;
   const list = kind === "object" ? (wbState.objects || [])
     : kind === "sketch" ? (wbState.sketches || [])
     : wbState.nodes;
-  return list.find((i) => i.id === id) || null;
+  let held = wbLinkItemIndex.get(list);
+  if (!held || held.size !== list.length) {
+    held = { size: list.length, byId: new Map(list.map((i) => [i.id, i])) };
+    wbLinkItemIndex.set(list, held);
+  }
+  return held.byId.get(id) || null;
 }
 
 //: Everything a link can start from or land on: cards, text boxes and
@@ -5475,153 +5515,231 @@ function wbRenderMapEdges() {
   const colors = wbMapNodeColors(index);
   const hidden = wbMapConcealed(index);
   const layout = wbMapLayout();
-  const NS = "http://www.w3.org/2000/svg";
-  const next = [];
+  //: **A line is keyed by its two ends and updated in place**
+  //: (MINDMAP_PLAN.md §13a, the render pass). This loop used to build four
+  //: SVG elements per edge and `replaceChildren` the lot on every render: at
+  //: 500 topics that is two thousand elements created, wired and thrown away
+  //: because one of them moved, and it measured 122.2ms of a 527ms render.
+  //:
+  //: The old note here said an edge has no identity of its own, it *is* its
+  //: two endpoints, so there was nothing for a join to key on. The first half
+  //: is still true and the conclusion was wrong: those two endpoints are a
+  //: perfectly good key, and `wbMapEdgesFor` has been finding a line by them
+  //: mid-drag ever since. What an edge does not have is a *row*, which is why
+  //: this is a hand-rolled cache rather than a d3 data join.
+  //:
+  //: The cache hangs off the group element, not off the module: a board that
+  //: is not a map removes the group above, which takes the cache with it, so
+  //: a stale element can never be handed to the next board.
+  const cache = group._wbMapEdges instanceof Map ? group._wbMapEdges : (group._wbMapEdges = new Map());
+  const drawn = new Set();
+  //: **The group stays in the tree's own order**, which is what rebuilding it
+  //: gave for free. Two things read that order: SVG paints in document order,
+  //: so it decides which of two overlapping lines is on top, and
+  //: `mapstrip.js` pairs the first line with the first mid-line `+` (the
+  //: pluses are still rebuilt in index order). Appending new lines at the end
+  //: instead cost that sweep its insert check, which is the order saying out
+  //: loud that it is load-bearing. Nothing moves while the tree is unchanged:
+  //: this compares first and writes only when a line is out of place.
+  let slot = 0;
   for (const parent of index.nodes) {
     if (hidden.has(parent.id) || parent.data?.collapsed) continue;
     for (const child of index.childrenOf.get(parent.id) || []) {
       if (hidden.has(child.id)) continue;
-      //: **One `<g>` per edge**, so the whole line is one hover target: the
-      //: stroke, the target twin and the handle together. That is what lets
-      //: the handle be revealed by pointing at the line (§12.1 item 5's third,
-      //: and Coggle's own gesture) rather than only by selecting a topic, and
-      //: it matters for a reason the first build of this measured: the map
-      //: strip opens 44px above the selected topic and is several hundred
-      //: pixels wide, so for a child laid out a little below its parent the
-      //: strip lands exactly on the middle of the line into it. Measured on a
-      //: child 200 units below its trunk: `elementFromPoint` at the handle's
-      //: own centre returned the strip, and the drag never started. Hover
-      //: needs no selection, so it needs no strip.
-      //:
-      //: Nothing keys off the group's own shape: every selector in this file
-      //: and in the sweeps reaches an edge by class under `.wb-map-edges`.
-      const wrap = document.createElementNS(NS, "g");
-      wrap.setAttribute("class", "wb-map-edge-group");
-      const path = document.createElementNS(NS, "path");
-      const ribbon = wbMapEdgeIsRibbon(child);
-      //: The line's own classes (MINDMAP_PLAN.md item 177). Thickness is a
-      //: class rather than a `stroke-width` attribute for the same reason the
-      //: colour is a custom property: a presentation attribute sits below
-      //: every author rule, so `.wb-map-edge`'s own `stroke-width` would win
-      //: and the control would do nothing. The ribbon needs no thickness
-      //: class, since its width is in the path it is drawn from, and no arrow
-      //: class, since its head is too.
-      const classes = ["wb-map-edge"];
-      if (ribbon) classes.push("wb-map-edge-ribbon");
-      else {
-        const themedEdge = wbMapThemedData(child);
-        if (themedEdge.edge_dashed) classes.push("wb-map-edge-dashed");
-        if (themedEdge.edge_width) classes.push(`wb-map-edge-${themedEdge.edge_width}`);
-        if (!wbMapEdgeHasArrow(child)) classes.push("wb-map-edge-headless");
+      const key = `${parent.id}:${child.id}`;
+      drawn.add(key);
+      const geom = wbMapEdgeGeometry(parent, child, layout, colors);
+      const held = cache.get(key);
+      //: `isConnected`, because something else can take the element out from
+      //: under this cache: `group.remove()` above on a board that stopped
+      //: being a map, and an export that clones and replaces the layer.
+      let wrap;
+      if (held && held.wrap.isConnected) {
+        wrap = held.wrap;
+        if (held.paint !== geom.paint) {
+          wbMapEdgeApply(wrap, geom);
+          held.paint = geom.paint;
+        }
+      } else {
+        wrap = wbMapEdgeElement(parent.id, child.id);
+        wbMapEdgeApply(wrap, geom);
+        cache.set(key, { wrap, paint: geom.paint });
       }
-      path.setAttribute("class", classes.join(" "));
-      path.setAttribute("d", ribbon
-        ? wbMapRibbonD(parent, child, layout)
-        : wbMapEdgePathD(parent, child, layout));
-      // The two ends' ids, so a drag can find *this* edge again and redraw it
-      // per frame (`wbMapEdgesFor`). The render itself still replaces the
-      // whole group wholesale, see the note below; these attributes are the
-      // identity a mid-drag update needs and nothing else reads.
-      path.setAttribute("data-parent", String(parent.id));
-      path.setAttribute("data-child", String(child.id));
-      //: **A custom property, not a `stroke` attribute**, and the difference
-      //: is the whole branch-colour feature. `.wb-map-edge` declares
-      //: `stroke` in 07-whiteboard-misc.css, and a presentation attribute is
-      //: a declaration at the bottom of the cascade, below every author rule
-      //: however unspecific: so the attribute was dead markup and every edge
-      //: on every map drew in the accent. Measured on a five-edge map: three
-      //: distinct `stroke` attributes from the branch palette, one computed
-      //: colour, `rgb(70, 100, 240)`, which is `--accent`. The thumbnail of
-      //: the same map has been branch-coloured this whole time, which is the
-      //: opposite of MINDMAP_PLAN §11.1's aim that the two pictures agree.
-      //:
-      //: `tests/test_svg_paint_attributes.py` is the lint that found it, and
-      //: `el.style` sits above the stylesheet where the attribute sat below.
-      const colour = colors.get(child.id);
-      if (colour) path.style.setProperty("--wb-map-edge-colour", colour);
-      wrap.appendChild(path);
-      next.push(wrap);
-      //: The same curve again, transparent and wide enough to grab (§12.1
-      //: item 4). Pushed *after* the visible path so it sits above it in the
-      //: group, which is what an SVG hit test needs; it is invisible either
-      //: way, and the visible line is inert.
-      const hit = document.createElementNS(NS, "path");
-      hit.setAttribute("class", "wb-map-edge-hit");
-      // The centreline, never the ribbon's outline: a stroke around a closed
-      // shape is a hit area shaped like a hoop, with a hole down the middle
-      // of the very line it is supposed to catch.
-      hit.setAttribute("d", wbMapEdgePathD(parent, child, layout));
-      hit.setAttribute("data-parent", String(parent.id));
-      hit.setAttribute("data-child", String(child.id));
-      wrap.appendChild(hit);
-      //: **The waypoint handle** (§12.1 item 5's third): the third target on
-      //: a line, after the visible stroke and the invisible one you can point
-      //: at. A circle rather than a button because it has to sit *on* the
-      //: line at a board coordinate and scale with the zoom, which is what the
-      //: edge group already is; the mid-line `+` is HTML for the opposite
-      //: reason (it is a button from the app's own ramp).
-      //:
-      //: Drawn for every line and shown only for the selected topic's own
-      //: (`wbSyncMapEdgeHandles`), so a map of two hundred lines is not a map
-      //: of two hundred grab dots, which is the same rule the `+` follows.
-      const handle = document.createElementNS(NS, "circle");
-      handle.setAttribute("class", "wb-map-edge-handle");
-      const grip = wbMapEdgeHandlePoint(parent, child, layout);
-      handle.setAttribute("cx", String(grip.x));
-      handle.setAttribute("cy", String(grip.y));
-      handle.setAttribute("r", "7");
-      handle.setAttribute("data-parent", String(parent.id));
-      handle.setAttribute("data-child", String(child.id));
-      //: The same sentence the link's own bend grip carries, because it is the
-      //: same control: a `<title>` is the tooltip an SVG shape gets, and it is
-      //: the only place either gesture is written down on the thing itself.
-      const gripTitle = document.createElementNS(NS, "title");
-      gripTitle.textContent = "Drag to bend this line · double-click to straighten";
-      handle.appendChild(gripTitle);
-      if (colour) handle.style.setProperty("--wb-map-edge-colour", colour);
-      wbWireMapEdgeHandle(handle, parent.id, child.id);
-      wrap.appendChild(handle);
-      //: On the group, not on the hit stroke: a right-click and a hold belong
-      //: to the *line*, and the line now has two targets in it. Wired on the
-      //: stroke alone, the ring stopped opening wherever the handle was, since
-      //: the handle is a sibling of the stroke and the event never reached it
-      //: (measured by `mapstrip.js`, which caught it the moment the handle
-      //: landed: "right-click on a line opens the line's own ring" came back
-      //: `open: false`). This is the same fault the mid-line `+` already
-      //: carries its own forwarding for, and the same fix one level up: every
-      //: part of the line answers the line's own gestures.
-      wbWireMapEdgeGestures(wrap, child.id);
-      //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
-      //: The midpoint is exact rather than approximated: both control points
-      //: of `wbMapEdgePathD`'s cubic sit on the line between the anchors'
-      //: midpoints, so the curve at t=0.5 passes through
-      //: ((x1+x2)/2, (y1+y2)/2) in both orientations. Worked out rather than
-      //: measured off a screenshot, which is what an offset that looks right
-      //: on one layout and wrong on the other comes from.
-      const label = child.data?.edge_label;
-      if (label) {
-        // `wbMapEdgeHandlePoint` rather than the anchors' own midpoint: for an
-        // unbent line the two are the same point (the curve passes through it
-        // at t = 0.5, worked out in `wbMapEdgeCubic`), and for a bent one this
-        // is the one that is still on the line.
-        const middle = wbMapEdgeHandlePoint(parent, child, layout);
-        const text = document.createElementNS(NS, "text");
-        text.setAttribute("class", "wb-map-edge-label");
-        text.setAttribute("x", String(middle.x));
-        text.setAttribute("y", String(middle.y));
-        text.setAttribute("dy", "-0.4em");
-        text.textContent = String(label);
-        wrap.appendChild(text);
-      }
+      if (group.childNodes[slot] !== wrap) group.insertBefore(wrap, group.childNodes[slot] || null);
+      slot += 1;
     }
   }
-  // Replaced wholesale rather than joined: an edge has no identity of its own
-  // (it *is* its two endpoints), so there is nothing for a data join to key
-  // on, and a map's edge count is one per node, small enough that rebuilding
-  // is cheaper than the bookkeeping a join would need.
-  group.replaceChildren(...next);
+  //: The lines whose two ends are no longer joined: a re-parent, a delete, a
+  //: branch folded away. This is the one thing a keyed update has to do that
+  //: rebuilding the group got for free, and leaving it out is how a keyed
+  //: render grows edges that point at nothing.
+  for (const [key, held] of cache) {
+    if (drawn.has(key)) continue;
+    held.wrap.remove();
+    cache.delete(key);
+  }
   wbRenderMapEdgePluses(index, hidden, layout);
   wbSyncMapEdgeHandles();
+}
+
+//: Everything one tree edge draws, worked out from the two topics it joins,
+//: plus `paint`: the same values as one string, which is what decides whether
+//: the line already on screen is the line this render wants. A property this
+//: function starts reading goes into `paint` too, exactly as it does for a
+//: node's own `wbObjectPaintKey`.
+function wbMapEdgeGeometry(parent, child, layout, colors) {
+  const ribbon = wbMapEdgeIsRibbon(child);
+  //: The line's own classes (MINDMAP_PLAN.md item 177). Thickness is a class
+  //: rather than a `stroke-width` attribute for the same reason the colour is
+  //: a custom property: a presentation attribute sits below every author
+  //: rule, so `.wb-map-edge`'s own `stroke-width` would win and the control
+  //: would do nothing. The ribbon needs no thickness class, since its width
+  //: is in the path it is drawn from, and no arrow class, since its head is
+  //: too.
+  const classes = ["wb-map-edge"];
+  if (ribbon) classes.push("wb-map-edge-ribbon");
+  else {
+    const themedEdge = wbMapThemedData(child);
+    if (themedEdge.edge_dashed) classes.push("wb-map-edge-dashed");
+    if (themedEdge.edge_width) classes.push(`wb-map-edge-${themedEdge.edge_width}`);
+    if (!wbMapEdgeHasArrow(child)) classes.push("wb-map-edge-headless");
+  }
+  //: The centreline, which is both the plain line's own path and, for a
+  //: ribbon, the hit target underneath it: a stroke around a closed shape is
+  //: a hit area shaped like a hoop, with a hole down the middle of the very
+  //: line it is supposed to catch.
+  const line = wbMapEdgePathD(parent, child, layout);
+  const className = classes.join(" ");
+  const d = ribbon ? wbMapRibbonD(parent, child, layout) : line;
+  const grip = wbMapEdgeHandlePoint(parent, child, layout);
+  const colour = colors.get(child.id) || "";
+  //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
+  //: `wbMapEdgeHandlePoint` rather than the anchors' own midpoint: for an
+  //: unbent line the two are the same point (the curve passes through it at
+  //: t = 0.5, worked out in `wbMapEdgeCubic`), and for a bent one this is the
+  //: one that is still on the line.
+  const label = child.data?.edge_label ? String(child.data.edge_label) : "";
+  return {
+    className, d, line, grip, colour, label,
+    paint: `${className}|${d}|${line}|${grip.x},${grip.y}|${colour}|${label}`,
+  };
+}
+
+//: One edge's elements, with no geometry on them yet: built once per edge and
+//: then kept, which is what `wbRenderMapEdges`'s cache is for.
+//:
+//: **One `<g>` per edge**, so the whole line is one hover target: the stroke,
+//: the target twin and the handle together. That is what lets the handle be
+//: revealed by pointing at the line (§12.1 item 5's third, and Coggle's own
+//: gesture) rather than only by selecting a topic, and it matters for a
+//: reason the first build of this measured: the map strip opens 44px above
+//: the selected topic and is several hundred pixels wide, so for a child laid
+//: out a little below its parent the strip lands exactly on the middle of the
+//: line into it. Measured on a child 200 units below its trunk:
+//: `elementFromPoint` at the handle's own centre returned the strip, and the
+//: drag never started. Hover needs no selection, so it needs no strip.
+//:
+//: Nothing keys off the group's own shape: every selector in this file and in
+//: the sweeps reaches an edge by class under `.wb-map-edges`.
+function wbMapEdgeElement(parentId, childId) {
+  const NS = "http://www.w3.org/2000/svg";
+  const wrap = document.createElementNS(NS, "g");
+  wrap.setAttribute("class", "wb-map-edge-group");
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("class", "wb-map-edge");
+  // The two ends' ids, so a drag can find *this* edge again and redraw it per
+  // frame (`wbMapEdgesFor`), and so this render can find it again next time.
+  path.setAttribute("data-parent", String(parentId));
+  path.setAttribute("data-child", String(childId));
+  wrap.appendChild(path);
+  //: The same curve again, transparent and wide enough to grab (§12.1 item
+  //: 4). Appended *after* the visible path so it sits above it in the group,
+  //: which is what an SVG hit test needs; it is invisible either way, and the
+  //: visible line is inert.
+  const hit = document.createElementNS(NS, "path");
+  hit.setAttribute("class", "wb-map-edge-hit");
+  hit.setAttribute("data-parent", String(parentId));
+  hit.setAttribute("data-child", String(childId));
+  wrap.appendChild(hit);
+  //: **The waypoint handle** (§12.1 item 5's third): the third target on a
+  //: line, after the visible stroke and the invisible one you can point at. A
+  //: circle rather than a button because it has to sit *on* the line at a
+  //: board coordinate and scale with the zoom, which is what the edge group
+  //: already is; the mid-line `+` is HTML for the opposite reason (it is a
+  //: button from the app's own ramp).
+  //:
+  //: Drawn for every line and shown only for the selected topic's own
+  //: (`wbSyncMapEdgeHandles`), so a map of two hundred lines is not a map of
+  //: two hundred grab dots, which is the same rule the `+` follows.
+  const handle = document.createElementNS(NS, "circle");
+  handle.setAttribute("class", "wb-map-edge-handle");
+  handle.setAttribute("r", "7");
+  handle.setAttribute("data-parent", String(parentId));
+  handle.setAttribute("data-child", String(childId));
+  //: The same sentence the link's own bend grip carries, because it is the
+  //: same control: a `<title>` is the tooltip an SVG shape gets, and it is
+  //: the only place either gesture is written down on the thing itself.
+  const gripTitle = document.createElementNS(NS, "title");
+  gripTitle.textContent = "Drag to bend this line · double-click to straighten";
+  handle.appendChild(gripTitle);
+  wbWireMapEdgeHandle(handle, parentId, childId);
+  wrap.appendChild(handle);
+  //: On the group, not on the hit stroke: a right-click and a hold belong to
+  //: the *line*, and the line now has two targets in it. Wired on the stroke
+  //: alone, the ring stopped opening wherever the handle was, since the
+  //: handle is a sibling of the stroke and the event never reached it
+  //: (measured by `mapstrip.js`, which caught it the moment the handle
+  //: landed: "right-click on a line opens the line's own ring" came back
+  //: `open: false`). This is the same fault the mid-line `+` already carries
+  //: its own forwarding for, and the same fix one level up: every part of the
+  //: line answers the line's own gestures.
+  wbWireMapEdgeGestures(wrap, childId);
+  return wrap;
+}
+
+//: One edge's geometry written onto the elements it already has.
+//:
+//: **A custom property, not a `stroke` attribute**, and the difference is the
+//: whole branch-colour feature. `.wb-map-edge` declares `stroke` in
+//: 07-whiteboard-misc.css, and a presentation attribute is a declaration at
+//: the bottom of the cascade, below every author rule however unspecific: so
+//: the attribute was dead markup and every edge on every map drew in the
+//: accent. Measured on a five-edge map: three distinct `stroke` attributes
+//: from the branch palette, one computed colour, `rgb(70, 100, 240)`, which
+//: is `--accent`. `tests/test_svg_paint_attributes.py` is the lint that found
+//: it, and `el.style` sits above the stylesheet where the attribute sat
+//: below. Removed as well as set, which a rebuilt element never had to do:
+//: a branch that loses its colour has to lose it on the line too.
+function wbMapEdgeApply(wrap, geom) {
+  //: By class, not by position: the group's order is the hit test's (the
+  //: invisible twin has to sit above the visible line), so reaching for a
+  //: child by index here would tie this to that order for no reason.
+  const path = wrap.querySelector("path.wb-map-edge");
+  path.setAttribute("class", geom.className);
+  path.setAttribute("d", geom.d);
+  if (geom.colour) path.style.setProperty("--wb-map-edge-colour", geom.colour);
+  else path.style.removeProperty("--wb-map-edge-colour");
+  const hit = wrap.querySelector(".wb-map-edge-hit");
+  hit.setAttribute("d", geom.line);
+  const handle = wrap.querySelector(".wb-map-edge-handle");
+  handle.setAttribute("cx", String(geom.grip.x));
+  handle.setAttribute("cy", String(geom.grip.y));
+  if (geom.colour) handle.style.setProperty("--wb-map-edge-colour", geom.colour);
+  else handle.style.removeProperty("--wb-map-edge-colour");
+  let text = wrap.querySelector(".wb-map-edge-label");
+  if (!geom.label) {
+    text?.remove();
+    return;
+  }
+  if (!text) {
+    text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("class", "wb-map-edge-label");
+    text.setAttribute("dy", "-0.4em");
+    wrap.appendChild(text);
+  }
+  text.setAttribute("x", String(geom.grip.x));
+  text.setAttribute("y", String(geom.grip.y));
+  text.textContent = geom.label;
 }
 
 //: Where the mid-line `+` sits: a short step along the line from the handle,
@@ -8480,6 +8598,11 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
   //: Both of the things every member of this capture is about to be asked
   //: for, taken in one pass rather than one lookup per member per frame.
   const objectEls = wbIsMap() ? wbIndexMapNodeElements() : null;
+  //: The link sketches, parsed once for the whole capture rather than the
+  //: whole board re-parsed for each member (see `wbLinkSketchIndex`). Built
+  //: unconditionally, because a board with no sketches costs an empty loop
+  //: and an empty Map, while the case it saves is the one that hurts.
+  const linkIndex = wbLinkSketchIndex();
   //: **An edge belongs to one end, not to both.** A tree edge joins two
   //: topics, so when both are in the same dragged branch it appeared in two
   //: members' lists and was recomputed and rewritten twice on every frame of
@@ -8520,7 +8643,7 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
       }
       origin.set(key, {
         kind, id, item, x: item.x, y: item.y,
-        linked: wbLinkedSketchesFor(id, kind),
+        linked: wbLinkedSketchesFor(id, kind, linkIndex),
         mapEdges,
         //: Resolved here when the board is a map (one pass for the whole
         //: capture, above) and on the first frame that needs it otherwise;
@@ -13382,8 +13505,17 @@ async function initWhiteboard() {
       const res = await apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify(nodeData) });
       // If it exists in state already, replace it. Otherwise push.
       const idx = wbState.nodes.findIndex(n => n.id === res.id);
-      if (idx !== -1) wbState.nodes[idx] = res;
-      else wbState.nodes.push(res);
+      if (idx !== -1) {
+        wbState.nodes[idx] = res;
+        //: The one in-place replacement in this file, and the one case
+        //: `wbLinkItem`'s index cannot see: same array, same length, a
+        //: different object at that slot. Dropped by hand here so a link
+        //: anchored to this card resolves to the row that is actually in
+        //: state rather than to the one it replaced.
+        wbForgetLinkItems(wbState.nodes);
+      } else {
+        wbState.nodes.push(res);
+      }
       wbScheduleRender();
     } catch (err) {
       //: `console.error("...", err)` printed "{}": an Error's `message` is not
@@ -14822,11 +14954,19 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
 // getBoundingClientRect or querySelector would have needed to stay synchronous
 // and none was. `renderWhiteboardNow()` is kept for anything that ever does.
 let wbRenderQueued = false;
+//: The queued frame itself, so a synchronous render can call it off rather
+//: than merely lower the flag it checks (MINDMAP_PLAN.md §13a). Without this
+//: `renderWhiteboardNow` left the frame standing: opening a board queues a
+//: render, renders synchronously to measure the nodes for the fit, and then
+//: paid for a second full render of the same unchanged board one frame later.
+//: On a 500-topic map that was the whole board rendered twice on every open.
+let wbRenderFrame = 0;
 
 function wbScheduleRender() {
   if (wbRenderQueued) return;
   wbRenderQueued = true;
-  requestAnimationFrame(() => {
+  wbRenderFrame = requestAnimationFrame(() => {
+    wbRenderFrame = 0;
     wbRenderQueued = false;
     renderWhiteboard();
     wbUpdateSelectionBar();
@@ -14836,8 +14976,18 @@ function wbScheduleRender() {
 // The unbatched escape hatch. Prefer wbScheduleRender(); use this only when
 // the very next statement has to read the rendered DOM.
 function renderWhiteboardNow() {
+  //: Whether a queued frame was called off, so the one thing it did that this
+  //: function does not (the selection bar, below) still happens, and in the
+  //: order that frame would have done it in.
+  let cancelled = false;
+  if (wbRenderFrame) {
+    cancelAnimationFrame(wbRenderFrame);
+    wbRenderFrame = 0;
+    cancelled = true;
+  }
   wbRenderQueued = false;
   renderWhiteboard();
+  if (cancelled) wbUpdateSelectionBar();
   // A render replaces card elements, so the search highlight classes are gone
   // with them and the navigator's item rectangles are stale. Both re-apply
   // from state rather than being re-derived by their own callers.
@@ -16289,28 +16439,51 @@ function renderWbObjects(canvas) {
   wbWireContextMenu(objectEnter, "object");
 
   const objectUpdate = objectEnter.merge(objectSelection);
-  objectUpdate
-    .style("transform", wbItemTransform)
-    .style("width", (d) => `${d.width}px`)
-    .style("height", objectHeight)
-    .style("z-index", (d) => d.z);
+  //: **A render repaints the objects that changed, not every object on the
+  //: board** (MINDMAP_PLAN.md §13a, the render pass). The four `.style` calls
+  //: this replaces ran for every object on every render, and the `.each`
+  //: below them repainted every map node whether or not anything about it had
+  //: moved: at 500 topics that was 2,000 style writes and 500 full node
+  //: repaints for a change to one of them.
+  //:
+  //: The key is every input this pass reads, in one string. An object whose
+  //: key is what it was last render draws exactly what it is already
+  //: drawing, so the cheapest correct thing to do with it is nothing. A fresh
+  //: element (the enter selection) has no key at all, so it always paints.
+  //: `wbObjectPaintKey` is the one list of those inputs: a property this pass
+  //: starts reading has to go into it, and the way that failure shows is a
+  //: node that stops following a change, which is what `mapstrip.js`,
+  //: `maptheme.js`, `mapline.js` and `maprejoin.js` each ask about directly.
+  const paintCtx = {
+    index: mapIndex,
+    colors: mapColors,
+    //: Read once for the pass, not once per node: both are board-wide, and
+    //: `wbMapThemedData` merges the theme underneath every node's own data.
+    layout: mapIndex ? wbMapLayout() : "",
+    theme: mapIndex ? JSON.stringify(wbMapTheme()) : "",
+  };
   // An image's own src can change (rare: nothing in this UI replaces one
   // yet, but a future paste-to-replace shouldn't need this rewritten) and a
   // text box's saved colour/size might have changed elsewhere (undo/redo);
   // the text itself is deliberately left alone here so a re-render mid-edit
   // (another item moving, say) can't overwrite what's being typed.
   objectUpdate.each(function (d) {
+    const key = wbObjectPaintKey(d, paintCtx);
+    if (this._wbPaintKey === key) return;
+    this._wbPaintKey = key;
     const el = d3.select(this);
+    this.style.transform = wbItemTransform(d);
+    this.style.width = `${d.width}px`;
+    this.style.height = objectHeight(d);
+    //: `removeProperty` for an unset `z`, which is what d3's own
+    //: `.style("z-index", d => d.z)` did with a null: an object with no z
+    //: stacks in document order rather than at "undefined".
+    if (d.z === null || d.z === undefined) this.style.removeProperty("z-index");
+    else this.style.zIndex = d.z;
     if (d.kind === "image") {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else if (WB_MAP_KINDS.has(d.kind)) {
       wbPaintMapNode(el, d, mapIndex, mapColors);
-      // The stored `height` is what the bounds, the alignment guides and the
-      // tidy layout all read, and a map node's real height is whatever its
-      // text needed. Syncing it here (locally: no PUT, nothing to save) is
-      // what keeps those three agreeing with what is actually on screen; the
-      // value rides along to the server on the node's next real save.
-      if (this.offsetHeight) d.height = this.offsetHeight;
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
@@ -16322,6 +16495,106 @@ function renderWbObjects(canvas) {
   });
 
   objectSelection.exit().remove();
+
+  //: **Every topic measured in one pass, after every write, never between
+  //: them** (MINDMAP_PLAN.md §13a). This loop used to be the last two lines
+  //: of the `.each` above, one `offsetHeight` read per node interleaved with
+  //: that node's own style writes. A style write invalidates layout for the
+  //: whole document, so each of those reads flushed a fresh layout of the
+  //: entire board: 500 nodes cost 500 full layouts, which is where this
+  //: render's superlinearity actually lived (renderWbObjects: 405.6ms of a
+  //: 527ms render at 500 topics, against 32.1ms for the painting itself).
+  //: Reads on their own flush once and are then free, so the same
+  //: information now costs one layout.
+  //:
+  //: The stored `height` is what the bounds, the alignment guides and the
+  //: tidy layout all read, and a map node's real height is whatever its text
+  //: needed; the value rides along to the server on the node's next real
+  //: save. The size cache is filled from the same reads because
+  //: `wbRenderMapEdges` runs next and asks for both ends of every edge: that
+  //: is what keeps `wbMapNodeSize` off `document.querySelector` for a board
+  //: whose elements this pass is holding already.
+  if (mapIndex) {
+    if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
+    objectUpdate.each(function (d) {
+      if (!WB_MAP_KINDS.has(d.kind)) return;
+      const h = this.offsetHeight;
+      if (!h) return;
+      wbMapNodeSizeCache.set(d.id, { w: this.offsetWidth, h });
+      d.height = h;
+    });
+  }
+}
+
+//: Everything `renderWbObjects` reads when it paints one object, as one
+//: string (MINDMAP_PLAN.md §13a). Two renders with the same key for an object
+//: would write the same pixels, so the second one skips it.
+//:
+//: **The map fields are the ones that are not on the object.** A topic's
+//: colour comes from its branch, its chevron from how many children it has,
+//: its badge from how many topics are folded under it, its spine from which
+//: side its parent is on, and everything the strip sets comes from the node's
+//: data with the map's theme merged underneath: all five change without the
+//: row itself changing, so all five are in the key.
+//:
+//: `height` is deliberately left out for a map node, because a map node's
+//: height is its text's: the measure pass at the end of `renderWbObjects`
+//: writes what was drawn back onto the datum, so including it would make
+//: every node's key differ from its own last render, for ever. The one
+//: exception is a topic somebody has resized by hand (`sized`), whose stored
+//: height is written back as a `min-height` and therefore is an input.
+function wbObjectPaintKey(d, ctx) {
+  const base = `${d.kind}|${d.x}|${d.y}|${d.z}|${d.width}|${d.rotation ?? ""}|${JSON.stringify(d.data ?? null)}`;
+  if (!WB_MAP_KINDS.has(d.kind)) return `${base}|${d.height}`;
+  const index = ctx.index;
+  const children = index?.childrenOf.get(d.id)?.length || 0;
+  const buried = d.data?.collapsed && index ? wbMapSubtree(index, d.id).length - 1 : 0;
+  //: Only where it is read: `wb-map-node-mirrored` is decided from the
+  //: parent's own box on a both-sides map, and on every other layout the
+  //: side is the layout's, so a parent moving cannot change a child's spine.
+  let parentBox = "";
+  if (ctx.layout === "tree-both" && index) {
+    const parent = index.byId.get(d.parent_id);
+    if (parent) parentBox = `${parent.x}:${parent.width ?? ""}`;
+  }
+  return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
+    `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}`;
+}
+
+//: **Every link sketch on the board, parsed once and filed under both of its
+//: ends** (MINDMAP_PLAN.md §13a). Built by whoever is about to ask about more
+//: than one item, which is `wbCaptureBulkMoveOrigin`: it is handed the whole
+//: branch under a dragged topic, and the alternative is `wbLinkedSketchesFor`
+//: walking and re-parsing every sketch on the board once per member.
+//:
+//: Keyed `kind:id`, the same pair `wbLinkedSketchesFor` matches on. The keys
+//: are strings, so a link whose stored id is `"12"` rather than `12` now finds
+//: its node where the scan's `===` did not: nothing in this app writes one,
+//: since both come from the same rows, and a link that cannot find its end is
+//: a line left behind by a drag either way.
+//:
+//: A sketch with both ends on one item is filed once, which is what the scan's
+//: `atSource || atTarget` did.
+function wbLinkSketchIndex() {
+  const byEnd = new Map();
+  for (const sketch of wbState.sketches || []) {
+    let parsed;
+    try {
+      parsed = JSON.parse(sketch.data);
+    } catch {
+      continue;
+    }
+    if (!parsed.type || !parsed.type.startsWith("link-")) continue;
+    const pair = { sketch, parsed };
+    const source = `${parsed.sourceKind || "node"}:${parsed.sourceId}`;
+    const target = `${parsed.targetKind || "node"}:${parsed.targetId}`;
+    for (const end of target === source ? [source] : [source, target]) {
+      const list = byEnd.get(end);
+      if (list) list.push(pair);
+      else byEnd.set(end, [pair]);
+    }
+  }
+  return byEnd;
 }
 
 //: The sketches touching `nodeId`, pre-parsed once. `wbUpdateLinkedSketches`
@@ -16331,7 +16604,15 @@ function renderWbObjects(canvas) {
 //: parses a second, visible as stutter on a busy board. `dragStart` below
 //: builds this list once per drag instead; a card gains or loses a link only
 //: between drags, never mid-drag, so it doesn't need to be live.
-function wbLinkedSketchesFor(nodeId, kind = "node") {
+function wbLinkedSketchesFor(nodeId, kind = "node", index = null) {
+  //: **One parse of the board, not one parse per item asking**
+  //: (MINDMAP_PLAN.md §13a). Given an index (see `wbLinkSketchIndex`), this
+  //: is a lookup. Without one it is the scan below, which is right for the
+  //: single item a solo drag picks up and quadratic for a bulk move, which
+  //: hands this every topic under the one grabbed: a branch of two hundred
+  //: topics over a board of a few hundred link sketches was two hundred full
+  //: scans with a `JSON.parse` in each of them, before the pointer had moved.
+  if (index) return index.get(`${kind}:${nodeId}`) || [];
   const found = [];
   for (const sketch of wbState.sketches) {
     let parsed;
@@ -16361,13 +16642,26 @@ function wbLinkedSketchesFor(nodeId, kind = "node") {
 //: `wbLinkedSketchesFor`'s own comment for why `dragging` always passes one.
 function wbUpdateLinkedSketches(nodeId, precomputed) {
   const pairs = precomputed || wbLinkedSketchesFor(nodeId);
-  for (const { sketch, parsed } of pairs) {
+  for (const entry of pairs) {
+    const { sketch, parsed } = entry;
     const endpoints = wbResolveLinkEndpoints(parsed);
     if (!endpoints) continue;
     const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend);
-    const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
-    el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
-    el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);
+    //: **The two paths, found once per gesture rather than once per frame**
+    //: (MINDMAP_PLAN.md §13a). Three document-wide queries per link per frame
+    //: is thousands of walks of the document a second on a board that mixes a
+    //: branch with a few hundred links, for elements that a render keyed by
+    //: id does not replace. `isConnected` is the revalidation, the same shape
+    //: `wbBulkMoveElement` already uses: a sketch deleted mid-gesture is gone
+    //: from the document and has to be looked for again rather than written
+    //: to invisibly for ever.
+    if (!entry.el || !entry.el.isConnected) {
+      entry.el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+      entry.path = entry.el?.querySelector(".sketch-path") || null;
+      entry.hitbox = entry.el?.querySelector(".sketch-hitbox") || null;
+    }
+    entry.path?.setAttribute("d", pathData);
+    entry.hitbox?.setAttribute("d", pathData);
   }
 }
 

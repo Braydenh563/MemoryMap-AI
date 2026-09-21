@@ -9,6 +9,101 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From MINDMAP_PLAN.md section 13a-open: the render pass
+
+Built 2026-09-21. The gate 13a set was `renderWhiteboard` under 200ms and
+open-to-painted under 1s at 500 topics, and the row said plainly that caching
+would not get there: the render was a full d3 data-join over every node,
+sketch and object on the board for any change to it. It is keyed now, and both
+figures are met.
+
+**Where the time was.** A CPU profile of one 500-topic render, function by
+function: `renderWbObjects` 405.6ms of 527, `wbRenderMapEdges` 122.2ms,
+`wbMapNodeSize` 80.6ms across 5,988 calls, and the painting of the nodes
+themselves 32.1ms. So the painting was never the cost. Two things were.
+
+**One, a layout flush per node.** `renderWbObjects` read `offsetHeight` at the
+end of each node's own `.each`, immediately after writing that node's
+transform, width, height and z-index. A style write invalidates layout for the
+whole document, so every one of those reads flushed a fresh layout of the
+entire board: 500 nodes cost 500 full layouts, which is exactly the
+superlinearity 13.1 recorded (8.1x the nodes for 21x the render). The reads
+are one pass now, after the last write, and they fill the size cache that
+`wbRenderMapEdges` is about to ask for both ends of every edge from.
+
+The number that says this was the mechanism rather than a story about it is
+the ceiling: a render that repaints **every** topic, which does exactly the
+painting the old one did and differs only in doing its reading afterwards,
+is 540.2 to **149.1ms** at 500 topics. Same work, one layout instead of five
+hundred.
+
+**Two, everything repainted for any change.** `wbObjectPaintKey` is every
+input the paint reads as one string, including the five a map node takes from
+somewhere other than its own row: the branch colour, the child count, the
+count folded under it, which side its parent is on, and the map theme merged
+under its data. An object whose key is what it was last render is left alone;
+a fresh element has no key, so it always paints. The same rule for the lines:
+`wbRenderMapEdges` built four SVG elements per edge and `replaceChildren`'d
+the group, two thousand elements made and thrown away because one moved, and
+it now keys them by their two endpoints, writes the ones that changed in
+place, and removes the ones whose ends are no longer joined. The group keeps
+the tree's order, because SVG paints in document order and `mapstrip.js` pairs
+the first line with the first mid-line `+`: appending new lines at the end
+cost that sweep its insert check, which is the order saying out loud that it
+is load-bearing.
+
+**The open, separately.** `openWhiteboardBoard` queues a render and then
+renders synchronously, because the fit that follows has to measure nodes that
+are in the document. `renderWhiteboardNow` lowered the flag `wbScheduleRender`
+checks, which does not stop the frame already queued, so the whole board was
+rendered a second time one frame later. That frame is cancelled now. And the
+fit itself asked `wbItemBBox` about every item on the board, a document query
+and two layout reads each, for boxes the render had just measured: it reads
+the size cache first.
+
+**`wbLinkedSketchesFor` as well**, which the previous pass found and could not
+fix for want of a fixture: it walks every sketch on the board with a
+`JSON.parse` in the loop, and `wbCaptureBulkMoveOrigin` called it once per
+member of a branch pick-up. `wbLinkSketchIndex` parses the board once and
+files every link under both of its ends; the capture builds one and hands it
+to every member. The fixture that made it visible then found two more scans
+of the same shape on the same path, both per frame rather than per pick-up:
+`wbLinkItem` resolved a link end with a `.find` over the whole list, and
+`wbUpdateLinkedSketches` found the two paths it writes with three document
+queries per link. One branch drag at 500 topics over 300 link sketches:
+**1,000.0ms worst frame before, 116.7 after**, against 66.7ms for the same
+gesture with no links at either end of the pass.
+
+**The numbers** (`scratchpad/ui-sweeps/mapperf.js`, 1440x900 light, one run
+each, the before column taken from the merge head on a second server minutes
+earlier with the same probe):
+
+| Topics | Open to painted | Render, one topic moved | Render, every topic | Render, nothing changed |
+| --- | --- | --- | --- | --- |
+| 50 | 314.0 to **393.1ms** | 22.6 to **7.9ms** | 27.7 to **16.6ms** | 23.7 to **10.5ms** |
+| 200 | 757.0 to **537.2ms** | 122.6 to **19.8ms** | 138.5 to **53.5ms** | 112.2 to **19.4ms** |
+| 500 | 2022.3 to **965.6ms** | 534.7 to **47.8ms** | 540.2 to **149.1ms** | 509.4 to **45.3ms** |
+
+Pan and drag medians are 16.7ms at all three sizes, before and after. The
+50-topic open came out slower than its own baseline: at that size the open is
+the tab switch, the fetch and the fit rather than the render (7.9ms of it),
+and the spread between two runs of it is bigger than anything this pass
+changed.
+
+**The probe had to change to stay honest.** A differential render timed five
+times in a row against an unchanged board measures the skip, so `mapperf.js`
+now takes three render numbers: after one topic has moved (what a drag, a
+rename, an add or a collapse leaves behind), after every topic has moved (the
+ceiling, and the number comparable with the single figure it used to report),
+and with nothing changed at all (the floor). It also takes the two gate
+figures as checks rather than as a table nobody runs, measures a ctrl-wheel
+zoom for the first time, and drags a branch twice, before and after three
+hundred link sketches are put on the board, which is the fixture
+`wbLinkedSketchesFor` never had.
+
+`tests/test_map_render_cost.py` holds the ten shapes these numbers came from,
+the same way `tests/test_map_drag_cost.py` holds the drag's nine.
+
 ### From MINDMAP_PLAN.md section 13d: a cross-link survives an export
 
 Built 2026-09-21. §13.2 measured a map's two kinds of connection having

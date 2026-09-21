@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- No phantom row under a table's header in the documents live view. Putting
+  the caret in a header row grew the line from 29.2px to 54.8px, because the
+  table is a grid whose rows were all implicit, so CodeMirror's own trailing
+  line break was auto-placed into a second one. The table's menu also no
+  longer moves the caret out of the table when it is pressed.
 - The guided tour no longer leaves a bright strip down the right of a dimmed
   page. Its four dim panels are fixed to the window but were sized to the
   content box, which stops at the scrollbar, so the gutter stayed lit.

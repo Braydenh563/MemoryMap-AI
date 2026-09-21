@@ -4063,7 +4063,21 @@ function docTableMenu(context) {
     disabled: command.enabled ? !command.enabled(context) : false,
     run: () => docTableCommand(command.id),
   }));
-  return kebabMenu(items, "Table row and column actions");
+  const wrap = kebabMenu(items, "Table row and column actions");
+  //: **Pressing it must not move the caret out of the table** (the owner: the
+  //: kebab "does nothing and just deselects the row when I try to press that
+  //: meatball button"). The menu only exists while the selection is inside the
+  //: table: the decoration that draws it is rebuilt from the selection, so the
+  //: moment a pointer-down moves the caret out of the header row, the widget
+  //: is unmounted, taking the menu that was opening with it. Measured: after a
+  //: press, the widget was gone.
+  //:
+  //: `mousedown` is where the caret moves, so that is where it is refused. The
+  //: click still lands and the menu still opens, and every command below then
+  //: runs against a selection that is still where the person left it, which is
+  //: also what makes "Insert row above" mean a row.
+  wrap.addEventListener("mousedown", (event) => event.preventDefault());
+  return wrap;
 }
 
 
@@ -14417,7 +14431,31 @@ function docCmLanguageFor(CM, ext) {
 function docTableGridRules() {
   const rules = {};
   for (let n = 1; n <= DOC_TABLE_GRID_MAX; n += 1) {
-    rules[`.cm-md-cols-${n}`] = { gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` };
+    rules[`.cm-md-cols-${n}`] = {
+      gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`,
+      //: **An implicit row gets no height** (the owner, twice: "when I click
+      //: on a header row in a table on the live view, another row appears
+      //: below it until I click off"). Measured with the caret in the header
+      //: at 1440: `grid-template-rows` reads "28.19px 25.59px" and the line
+      //: grows from 29.2px to 54.8px. The second row holds one child, the
+      //: trailing `<br>` CodeMirror appends to every line, which sits at
+      //: top+32.2 while every other child sits at top+1.
+      //:
+      //: The rule below already assigns it `grid-area: 1 / 1` and its computed
+      //: `grid-row-start` reads 1, so pinning it harder is not the answer, and
+      //: pinning the menu instead was measured and changed nothing. What is
+      //: certain is that the row is implicit, and an implicit row here is
+      //: always wrong: every cell of a table row is placed explicitly by
+      //: `.cm-md-c*`, so anything auto-placed is furniture, not content, and
+      //: furniture must not add height to the line.
+      //: One explicit row, then implicit ones with no height. Both halves are
+      //: needed and `grid-auto-rows` alone was measured collapsing the line to
+      //: 1px: with no `grid-template-rows` every row here is implicit,
+      //: including the one the cells are in, so zeroing implicit rows zeroed
+      //: the table.
+      gridTemplateRows: "auto",
+      gridAutoRows: "0",
+    };
     //: The menu is excluded because it is absolutely positioned against the
     //: header line and is not in the grid's flow at all; giving it `width: 0`
     //: would take its buttons away.

@@ -1958,6 +1958,17 @@ def _pdf_regions_for(
             message="That PDF could not be opened.",
         )
     index = max(0, min(index, count - 1))
+    #: **Before the rasteriser, not after it.** `_regions_for` consults the
+    #: same store, but by then this has already rendered the page to a PNG,
+    #: and that render is ~20ms *serialised* behind `pdfpages`'s own lock (see
+    #: that module on why the lock exists). Scrolling a long scan asks for
+    #: every page it passes, so the render is the same per-look cost the
+    #: reader was, on the same path, for an answer already in hand.
+    cached = _stored_regions(key, index)
+    if cached is not None:
+        cached.pages = count
+        cached.page = index
+        return cached
     png = pdfpages.render_page(path, index)
     if not png:
         return OcrRegionsOut(

@@ -131,6 +131,31 @@ def test_re_reading_a_page_throws_its_stored_regions_away(client, monkeypatch, f
 
 
 @needs_pdfium
+def test_a_stored_page_is_not_rasterised_again_to_answer_for_it(client, monkeypatch):
+    """The render is the other per-look cost on this path, and it is serialised.
+
+    `pdfpages` takes a process-wide lock around PDFium (its own docstring: a
+    concurrent render corrupts the C heap), so a page rendered again for an
+    answer already in hand queues behind every other page being scrolled past.
+    """
+    calls: list[Path] = []
+    _counting_reader(monkeypatch, calls)
+    renders: list[int] = []
+    real_render = pdfpages.render_page
+    monkeypatch.setattr(
+        pdfpages,
+        "render_page",
+        lambda path, index, *a, **k: (renders.append(index), real_render(path, index, *a, **k))[1],
+    )
+    attachment_id = _attach(client, "lecture.pdf", TWO_PAGE_PDF)
+
+    for _ in range(3):
+        client.get(f"/files/{attachment_id}/ocr-regions?page=0")
+
+    assert renders == [0], f"the page was rasterised {len(renders)} times for three looks"
+
+
+@needs_pdfium
 def test_a_page_whose_regions_are_stored_is_not_counted_as_read(client, monkeypatch):
     """Looking at a page is not the same claim as having read it.
 

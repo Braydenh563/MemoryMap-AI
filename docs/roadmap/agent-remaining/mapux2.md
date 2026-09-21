@@ -33,11 +33,13 @@
 
 ## Left to do
 
-- **13e's other half: a map-level default for new topics.** Every one of the
-  eleven per-topic fields is still set one topic at a time; the map has no
-  theme of its own and no bulk operation but "Reset to branch".
+- ~~**13e's other half: a map-level default for new topics.**~~ **Built
+  2026-09-21** by the next agent; the remaining list is
+  [maptheme.md](maptheme.md) and the record is in HISTORY.md ("Moved from the
+  plans, 2026-09-21", "From MINDMAP_PLAN.md section 13e: the map's own look").
 
-- The rest of section 13's phases, in the plan's own order.
+- The rest of section 13's phases, in the plan's own order. Picked up in
+  [maptheme.md](maptheme.md).
 
 ## Found, not fixed
 

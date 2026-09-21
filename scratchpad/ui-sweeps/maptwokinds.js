@@ -300,20 +300,33 @@ const show = (o) => console.log("    " + JSON.stringify(o));
     return out;
   });
   const carriesTree = exports.markdown.includes("Leaf 1a") && exports.markdown.includes("Branch 4");
-  // A cross link would have to appear as *something*: an arrow, a second
-  // parent, a note. Look for either end named twice, or any link vocabulary.
-  const crossWords = /cross|link|arrow|relation|connect/i;
-  const carriesCross = Object.values(exports).some((t) => crossWords.test(t));
+  //: **Inverted by 13d, which is the point of the row.** This used to assert
+  //: that a cross-link survives none of the three, which was true and was the
+  //: measurement 13.2's table was written from. The two XML formats now carry
+  //: it in the place each of them has: FreeMind's own `<arrowlink
+  //: DESTINATION>`, and a private `_links` on an OPML outline, which is the
+  //: same bargain `_kind` and `_ref` already struck there. Markdown carries
+  //: it in neither, deliberately: that file is an outline anybody can paste
+  //: anywhere, it already drops everything a node wears, and its own import
+  //: reads indentation, so a cross-links section would come back as topics.
+  const freemindCarries = /<arrowlink[^>]*DESTINATION="ID_\d+"/.test(exports.freemind);
+  const opmlCarries = /_links="ID_\d+/.test(exports.opml);
+  const markdownCarries = /arrowlink|_links|ID_\d/.test(exports.markdown);
   show({
     markdownChars: exports.markdown.length,
     opmlChars: exports.opml.length,
     freemindChars: exports.freemind.length,
     leaf1aInMarkdown: exports.markdown.includes("Leaf 1a"),
-    anyLinkVocabulary: carriesCross,
+    freemindCarries,
+    opmlCarries,
+    markdownCarries,
   });
   check("a tree edge survives the Markdown export", carriesTree, "every parent/child pair is an indent");
-  check("a free link survives none of the three text exports", !carriesCross,
-    carriesCross ? "something link-shaped appeared, re-read it" : "markdown, opml and freemind all carry only the tree");
+  check("a cross-link survives the two formats that have a place for it",
+    freemindCarries && opmlCarries,
+    `freemind arrowlink ${freemindCarries}, opml _links ${opmlCarries}`);
+  check("and the Markdown outline stays an outline", !markdownCarries,
+    markdownCarries ? "an id or a link attribute leaked into the outline" : "indentation only");
 
   // --- Part two: the surface against the app's own scales ---
   const scales = await page.evaluate(() => {

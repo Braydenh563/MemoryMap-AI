@@ -9,6 +9,25 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A cross-link on a mind map now survives an export. FreeMind files carry it
+  in their own arrow element, so a map opened in FreeMind, Freeplane or
+  Coggle is drawn with its cross-links; OPML files carry it as an attribute
+  other readers ignore and this one reads back. Both come back intact on
+  import. The Markdown outline stays an outline, which is what that file is
+  for.
+- A mind map can hold a look of its own, so a topic no longer has to be
+  dressed one at a time. Ten of the eleven things you can set on a topic, its
+  text size, weight, slant and alignment, its box and the bar down its edge,
+  and the thickness, shape, dash and arrowhead of the branch into it, can now
+  be set once for the whole map, and every topic that was never told otherwise
+  follows. A topic you did decorate by hand keeps exactly what you gave it: a
+  map-wide change can never overwrite a choice somebody made.
+- And one way to undo the lot: "bring every topic back to the map" drops the
+  colours, shapes and line styles that were set on topics one at a time, so
+  they all follow the map again. It is the ring's own "reset to branch" said
+  about the whole map rather than one topic, and it takes one request whatever
+  the map's size. Pictures stay, because a picture is content rather than a
+  look.
 - A whiteboard or a mind map can live inside a note as an object: a preview
   card of the board itself, with its name and how much is on it, that opens
   the board when pressed. It is written `![[board:12|House jobs]]`, by id, so
@@ -104,6 +123,31 @@ below). Versioning is `0.x` while the app stabilises.
   ended the underlying 40-against-42px difference for good was measured
   instead of taken: it moved eighteen buttons, put a half pixel into five
   graph controls and turned a text link into a box, so it was not taken.
+- A mind map can be laid out to the left, and on both sides of its trunk,
+  which is the arrangement most mind-mapping tools are pictured in. The
+  branches are split so the two sides hold about the same number of topics
+  rather than the same number of branches, and a topic whose parent is to its
+  right carries its branch bar on that side.
+- A mind map now answers the two gestures anybody tries on a blank part of it.
+  A right-click on empty canvas opens a short menu of the things that apply to
+  the map itself: add a topic here, tidy it, open every folded branch, fit
+  everything. A double-click makes a new trunk where the pointer was, ready to
+  be typed, and it stays where it was put. Both did nothing at all before.
+- A mind map now says which of its two kinds of connection it is talking
+  about, everywhere it talks about one. A branch and a cross-link get the same
+  ring, which names the kind it is on and offers the right three things for
+  it, including turning a cross-link into a branch when the drawing gesture
+  guessed wrong; the tool rail says cross-link on a map and link on a board;
+  and a cross-link is drawn in the map's own ink, dashed, from the moment it
+  is drawn rather than from the next time the board is opened. It used to take
+  the pen's colour, so one drawn while the ink was red read as a branch.
+- The bar that appears over a selected topic on a mind map is a third of the
+  width it was. It carried fourteen icons in one run, 959px of controls to
+  describe a topic 95px wide, which at 1024 took 94% of the window and at no
+  width drew a single word; the same fourteen controls now sit behind three
+  named doors on it, Text, Shape and Branch line, each of which labels every
+  control inside it. The bar measures 314px at 1440, 1024 and 820, and 54px
+  tall instead of 150px on a phone.
 - The loading bar on the splash screen is cheaper to draw, so it stays smooth
   on a slow machine, which is the only kind of machine that sees it for long.
   It used to grow by changing its width, which made the browser lay the page

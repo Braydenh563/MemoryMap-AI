@@ -30,6 +30,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The first screen tells you what you are agreeing to. It asked for a password
+  in 26 words that never said what the app is, never said it runs on your own
+  machine, never gave the length rule until you had already failed, and never
+  mentioned that the password becomes the key to anything you later mark
+  private. All four are on it now, before you type.
 - A mind map can be laid out to the left, and on both sides of its trunk,
   which is the arrangement most mind-mapping tools are pictured in. The
   branches are split so the two sides hold about the same number of topics

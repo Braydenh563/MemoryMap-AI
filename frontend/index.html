@@ -815,6 +815,15 @@
 
   <!-- ======================= DASHBOARD TAB ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
+    <!-- The page's head: the banner and the way in. A wrapper with
+         `display: contents` at Full and Compact, so those two lay out exactly
+         as they did when these were siblings, and a flex row at Focused, where
+         the two share one line (INBOX 296). It exists in the markup at every
+         density rather than being built by JS for one of them, for the same
+         reason the densities are keyed off `data-density` and not classes: a
+         render that replaces the hero must not be able to lose the structure
+         around it. -->
+    <div class="dash-head">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
          with a live clock on the right. -->
     <section class="dash-hero" id="dash-hero">
@@ -850,6 +859,7 @@
       <span class="dash-find-text">Search your notes, documents, files and the app</span>
       <span class="dash-find-keys" aria-hidden="true"></span>
     </button>
+    </div>
     <!-- One-tap shortcuts to the things people do most -->
     <div class="dash-quicklinks" id="dash-quicklinks" role="group"
       aria-label="Quick actions"></div>

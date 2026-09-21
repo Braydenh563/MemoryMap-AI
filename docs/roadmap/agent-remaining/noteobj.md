@@ -66,3 +66,6 @@ port 8793, data dir `/tmp/mm-noteobj`.
   types through the engine (`.note-surface .cm-content`) rather than into the
   textarea behind it, which is what a person does and which removed a
   "Selection points outside of document" the old path caused.
+- `<hash>` A dead board reference no longer offers to create a note named
+  after its address; it says the board is gone. Sweep now also measures the
+  object in a document's rendered view (104px, svg, not a tombstone).

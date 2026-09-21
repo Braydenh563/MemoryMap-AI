@@ -25,6 +25,8 @@ below). Versioning is `0.x` while the app stabilises.
   the card opens the list of them, and each one presses through to the
   Reminders tab. Reminders could already be attached to a note and say which
   note they came from; the note end of that link had nothing on it.
+- A link to a board that has been deleted now says so, rather than offering
+  to create a note named after the board's address.
 
 ### Changed
 

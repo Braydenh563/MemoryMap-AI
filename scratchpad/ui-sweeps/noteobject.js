@@ -34,7 +34,7 @@ const { boot } = require('./lib.js');
     await post('/whiteboard/nodes', { entry_id: gutters.id, board_id: board.id, x: 260, y: 180 });
     await post(`/whiteboard/boards/${map.id}/nodes`, { kind: 'note', parent_id: null, text: '', ref_id: roof.id });
     const note = await post('/entries', {
-      content: `Kitchen plan\n\n![[board:${board.id}|House jobs ${tag}]]\n\n![[map:${map.id}|The house ${tag}]]\n\n![[board:987654|Old plan ${tag}]]`,
+      content: `Kitchen plan\n\n![[board:${board.id}|House jobs ${tag}]]\n\n![[map:${map.id}|The house ${tag}]]\n\n![[board:987654|Old plan ${tag}]]\n\nSee [[board:987655|Older plan ${tag}]] as well.`,
       category: 'General',
     });
     const due = new Date(Date.now() + 86400000).toISOString().slice(0, 19);
@@ -98,6 +98,26 @@ const { boot } = require('./lib.js');
       return rows;
     }, ids.note);
     console.log('reminders', JSON.stringify(reminders));
+  }
+
+  // A dead reference written inline is a dead board, not a name to create:
+  // the offer to create "board:987655|Older plan" would make a note nobody
+  // wants and leave the link dead anyway.
+  let deadLink = null;
+  const wiki = await page.$(`#entry-list li[data-id="${ids.note}"] .wiki-link`);
+  if (wiki) {
+    await wiki.click();
+    await page.waitForTimeout(900);
+    deadLink = await page.evaluate(() => ({
+      label: document.querySelector('.wiki-link')?.textContent.trim() || '',
+      // Visible ones only: the page carries a dozen `.modal-overlay`
+      // elements in its markup, all `.hidden` until something opens them.
+      dialog: [...document.querySelectorAll('.modal-overlay')].some((o) => o.offsetParent),
+      toast: (document.querySelector('#toast, .toast')?.textContent || '').trim().slice(0, 80),
+    }));
+    console.log('deadLink', JSON.stringify(deadLink));
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
   }
 
   // The "/" menu's own doorway. The capture box lives on the Notes tab's
@@ -221,6 +241,12 @@ const { boot } = require('./lib.js');
   }
   if (card && card.objects.length && opened !== ids.board) findings.push(`pressing the board object opened ${opened}, wanted ${ids.board}`);
   if (reminders && !reminders.some((r) => /Ring the roofer/.test(r))) findings.push('the reminders panel does not list the reminder: ' + JSON.stringify(reminders));
+  if (!deadLink) findings.push('the inline board reference drew no link at all');
+  else {
+    if (deadLink.dialog) findings.push('a dead board reference offered to create a note called after it');
+    if (!/no longer in your notebook/.test(deadLink.toast)) findings.push('no word about the missing board: ' + JSON.stringify(deadLink));
+    if (/board:/.test(deadLink.label)) findings.push('the inline reference reads as its address: ' + deadLink.label);
+  }
   if (!menu) findings.push('the "/" menu did not open on /board');
   else if (!menu.some((m) => /board|map/i.test(m))) findings.push('no board or map command in the "/" menu: ' + JSON.stringify(menu));
   if (inserted !== null && !/!\[\[(board|map):\d+\|/.test(inserted)) findings.push('the "/" command inserted: ' + inserted);

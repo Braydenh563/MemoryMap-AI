@@ -1617,6 +1617,18 @@ async function offerToCreateWikiTarget(name) {
   const wanted = String(name || "").trim();
   if (!wanted) return;
 
+  //: **A board reference is not a name that can be created** (INBOX 309).
+  //: `[[board:12|House jobs]]` addresses one board by id, and the only
+  //: reason it fails to resolve is that the board has gone. Offering to
+  //: create "a note beginning board:12|House jobs" would make a note nobody
+  //: wants and still leave the link dead, which is the dead end this
+  //: function exists to remove, not a new one.
+  const ref = typeof boardEmbedRef === "function" ? boardEmbedRef(wanted) : null;
+  if (ref) {
+    toast(`\u201c${ref.title || "That board"}\u201d is no longer in your notebook.`);
+    return;
+  }
+
   const choice = await editorChoiceDialog(
     `Nothing called “${wanted}” exists yet.\n\nCreate it, and this link will resolve to it.`,
     [

@@ -51,21 +51,30 @@
    branch of two hundred topics with a few hundred link sketches it is the
    same quadratic shape the capture's `.find` had. The fix is the same shape
    too: parse the link sketches once per capture and index them by endpoint.
-3. **`mapperf.js`'s own cost.** It was about three minutes and is now faster
-   without being weakened, because the thing it measures got faster: the five
-   `renderWhiteboardNow()` calls per size cost 6.4s at 500 topics before this
-   pass and 2.7s after, and each open is 1.4s cheaper. Nothing was trimmed
-   from the probe and nothing should be: `SIZES=50` already exists for a
-   regression check, and the three-size curve is the reading that told this
-   pass which of two bugs it was looking at.
+3. **`mapperf.js`'s own cost: nothing was changed in the probe, and it is
+   2.8 times cheaper anyway.** The previous agent flagged it as the slowest
+   thing in the sweep list, at about three minutes. Timed here back to back on
+   the same warm machine and server, the same file against the base frontend
+   and against this branch: **89s before, 32s after**. That is the probe
+   measuring a gesture that used to block the main thread for a second and a
+   half per frame, so most of its wall clock was the thing it exists to
+   report. No line of `mapperf.js` was touched. Nothing in it should be
+   trimmed either: what could be cut is a size, and the three-size curve is
+   exactly what told this pass it was looking at two bugs rather than one
+   (8.1x the nodes for 21x the render said "open"; `dragWorstAt` 0.03 at every
+   size said "pick-up"). `SIZES=50` is already there for a one-number
+   regression check.
 
 ## Not verified
 
 - **Dark is unmeasured**, as it was in section 13.1. Every figure here is
   light mode at 1440x900.
-- **One machine, one Chromium, one run each way** except the 500-topic row,
-  which was run four times across the four commits and moved monotonically
-  (1,650 to 633.3 to 333.3 to 300.0 to 66.8ms). They are a shape, not a
+- **One machine, one Chromium.** The 500-topic row was run six times across
+  the pass and moved monotonically (1,650 to 633.3 to 333.3 to 300.0 to
+  66.8ms, and 66.7ms on the final head). The base was run twice, hours apart:
+  83.3 / 416.6 / 1,650.0 and 100.1 / 483.3 / 1,916.6, which is the run
+  variance on this machine and the reason the tables quote the first run's
+  figures throughout rather than mixing them. They are a shape, not a
   benchmark.
 - **The caches are invalidated by reasoning plus four sweeps, not by proof.**
   A topic's measured box is cached between renders; the three clear points

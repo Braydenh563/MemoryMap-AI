@@ -69,9 +69,24 @@ the layout and the render read the same boxes this pass stopped re-measuring,
 but neither meets its own gate figure and neither will by caching: that is
 13a-open in MINDMAP_PLAN, and it is a different piece of work.
 
+The probe itself was flagged as the slowest thing in the sweep list, at about
+three minutes, and it is now 2.8 times cheaper without a line of it changing:
+timed back to back on the same warm machine, the same file took **89s against
+the base frontend and 32s against this branch**. Most of its wall clock was
+the stall it exists to report. The base was run twice, hours apart, at
+83.3 / 416.6 / 1,650.0ms and 100.1 / 483.3 / 1,916.6ms, which is the run
+variance here; the tables above quote the first run throughout rather than
+mixing them.
+
 `tests/test_map_drag_cost.py` holds the nine shapes the profile found, against
 the source, because the suite cannot open a board. It says so in its own
 docstring: the sweep is the measurement, the lint is the shape.
+`scratchpad/ui-sweeps/mapbranchdrag.js` is the correctness half, in the same
+sweep list, 6/6: a middle topic dragged for real, its branch arriving by the
+same delta, the line into a child redrawn mid-gesture, both positions saved,
+and a topic re-measuring once its own cache entry is dropped. Fifteen seconds,
+because a cache that goes stale is the one way this pass could be fast and
+wrong.
 
 ### From WORLD_CLASS_PLAN.md section 20: a model per feature
 

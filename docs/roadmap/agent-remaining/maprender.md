@@ -158,6 +158,18 @@ One branch drag over 300 link sketches, the fixture that had never existed:
   stops naming one of the five map inputs, and the one thing deliberately left
   out of it (a map node's height, which the measure pass writes back) is named
   there too.
+- **The full suite did not finish on this machine.** `scripts/gate.sh --full`
+  was started twice from `worktree-agent-render`. The first run reached 96%
+  with **no F and no E in its log** and then stopped making progress: three
+  other agents were running the same suite at the same time, 14.7 of the
+  box's 16GB were in use with no swap and a load average of 43, and the
+  process sat sleeping with its CPU time flat. It was killed to give the
+  memory back. The second run is still going at the time of writing, behind
+  the same queue, and its log is `/tmp/mm-render2/gate-full.txt`. What did
+  pass, repeatedly: the lint set, `node --check`, ruff, `--changed` (which
+  selects `tests/test_whiteboard.py` and `tests/test_whiteboard_selection.py`
+  for this branch), the new `tests/test_map_render_cost.py`, and fourteen
+  sweeps. CI runs the suite on push.
 - **Dark is unmeasured**, as it was in section 13.1. Every figure in either
   pass is light mode at 1440x900.
 - **One machine again, and the open spread is wide.** The 500-topic open was

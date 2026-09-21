@@ -390,6 +390,28 @@ with its owner named in the entry.
     feature cannot push these along again. Related to INBOX 301, the app-wide
     navigation and undo contracts, already placed in WORLD_CLASS_PLAN.
 
+308. **The owner, 2026-09-21, verbatim:** "I also think we need to make sure
+    that all animations for things are done the cheapest they can be to
+    reduce cost in the browser and devices. like using transform etc etc."
+    **Measured before filing, and the answer is mostly reassuring.** Of 111
+    `transition:` declarations across `frontend/css/`, only three name a
+    layout property: `width` on the boot splash progress bar
+    (00-tokens-shell.css:4332, with `@keyframes boot-splash-progress-crawl`
+    animating `width` too), `width` on a dashboard widget
+    (03-dashboard-widgets.css:3621), and `height` in a responsive band
+    (10-responsive.css:941). Everything else already animates transform,
+    opacity or colour. Ten transitions name `box-shadow`, which repaints
+    rather than relayouts, and matters most on the glass surfaces.
+    Recommendation, two parts. Convert the three layout ones: a progress bar
+    is `transform: scaleX()` with `transform-origin: left`, which is the
+    textbook case, and a height transition to `auto` does not animate at all
+    in most browsers so that one may be dead code worth checking before
+    converting. Then add the lint, because this is a rule that only holds if
+    something enforces it: fail on a `transition` or `@keyframes` naming
+    width, height, top, left, margin or padding unless the declaration
+    carries a stated reason, the same shape as the other frontend lints.
+    Owner: a UI agent, after the current two land.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

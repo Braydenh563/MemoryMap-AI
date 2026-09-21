@@ -1785,12 +1785,38 @@ function wbSketchIsDrawable(sketch) {
   return true;
 }
 
+//: **One lookup table per list, not a scan per link end**
+//: (MINDMAP_PLAN.md §13a). `wbUpdateLinkedSketches` calls this twice for every
+//: link touching a moved item, on every frame of the gesture, so the `.find`
+//: this replaces was the whole object list walked twice per link per frame:
+//: measured on `mapperf.js`'s own link fixture at 500 topics, a branch drag
+//: over 300 link sketches had a 183.3ms worst frame with the list scanned and
+//: 33.3ms with it indexed.
+//:
+//: **Keyed on the array itself, so it cannot go stale by being replaced.**
+//: Every list on `wbState` is either mutated by push or replaced wholesale by
+//: a `filter`, and a replacement is a different array, which is a different
+//: key in this WeakMap and therefore a fresh index. The length guard covers
+//: the push. The one case neither covers is an element replaced in place at
+//: the same length, which happens in exactly one place (a card re-posted onto
+//: its own row), and that place drops the entry by hand.
+const wbLinkItemIndex = new WeakMap();
+
+function wbForgetLinkItems(list) {
+  wbLinkItemIndex.delete(list);
+}
+
 function wbLinkItem(kind, id) {
   if (id == null) return null;
   const list = kind === "object" ? (wbState.objects || [])
     : kind === "sketch" ? (wbState.sketches || [])
     : wbState.nodes;
-  return list.find((i) => i.id === id) || null;
+  let held = wbLinkItemIndex.get(list);
+  if (!held || held.size !== list.length) {
+    held = { size: list.length, byId: new Map(list.map((i) => [i.id, i])) };
+    wbLinkItemIndex.set(list, held);
+  }
+  return held.byId.get(id) || null;
 }
 
 //: Everything a link can start from or land on: cards, text boxes and
@@ -13479,7 +13505,15 @@ async function initWhiteboard() {
       const res = await apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify(nodeData) });
       // If it exists in state already, replace it. Otherwise push.
       const idx = wbState.nodes.findIndex(n => n.id === res.id);
-      if (idx !== -1) wbState.nodes[idx] = res;
+      if (idx !== -1) {
+        wbState.nodes[idx] = res;
+        //: The one in-place replacement in this file, and the one case
+        //: `wbLinkItem`'s index cannot see: same array, same length, a
+        //: different object at that slot. Dropped by hand here so a link
+        //: anchored to this card resolves to the row that is actually in
+        //: state rather than to the one it replaced.
+        wbForgetLinkItems(wbState.nodes);
+      }
       else wbState.nodes.push(res);
       wbScheduleRender();
     } catch (err) {
@@ -16607,13 +16641,26 @@ function wbLinkedSketchesFor(nodeId, kind = "node", index = null) {
 //: `wbLinkedSketchesFor`'s own comment for why `dragging` always passes one.
 function wbUpdateLinkedSketches(nodeId, precomputed) {
   const pairs = precomputed || wbLinkedSketchesFor(nodeId);
-  for (const { sketch, parsed } of pairs) {
+  for (const entry of pairs) {
+    const { sketch, parsed } = entry;
     const endpoints = wbResolveLinkEndpoints(parsed);
     if (!endpoints) continue;
     const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend);
-    const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
-    el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
-    el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);
+    //: **The two paths, found once per gesture rather than once per frame**
+    //: (MINDMAP_PLAN.md §13a). Three document-wide queries per link per frame
+    //: is thousands of walks of the document a second on a board that mixes a
+    //: branch with a few hundred links, for elements that a render keyed by
+    //: id does not replace. `isConnected` is the revalidation, the same shape
+    //: `wbBulkMoveElement` already uses: a sketch deleted mid-gesture is gone
+    //: from the document and has to be looked for again rather than written
+    //: to invisibly for ever.
+    if (!entry.el || !entry.el.isConnected) {
+      entry.el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+      entry.path = entry.el?.querySelector(".sketch-path") || null;
+      entry.hitbox = entry.el?.querySelector(".sketch-hitbox") || null;
+    }
+    entry.path?.setAttribute("d", pathData);
+    entry.hitbox?.setAttribute("d", pathData);
   }
 }
 

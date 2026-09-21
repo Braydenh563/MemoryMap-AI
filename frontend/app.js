@@ -22836,11 +22836,22 @@ function clampToolbarMenu(details, { retry = true } = {}) {
   // landed and correct by the difference. Self-correcting, cause-agnostic, and
   // one extra layout read.
   //
-  // Proven, not reasoned: this sandbox's headless Chromium reports
-  // `backdrop-filter: none` on every `.card`, so the user's exact trigger does
-  // not fire here: but `filter` creates the same containing block and *is*
-  // supported, so forcing `.card.doc-main { filter: saturate(1) }` reproduces
-  // it exactly. Measured with that in place: the panel's `style.left` reads
+  // Proven, not reasoned. **And the real trigger does fire here, which is a
+  // correction to what this comment said until 2026-09-20.** It read that
+  // headless Chromium reports `backdrop-filter: none` on every `.card`, so
+  // the user's exact trigger could not be reproduced and `filter: saturate(1)`
+  // had to stand in for it. That was true of a card measured with the
+  // background art *off*, which is the default and was the only state anyone
+  // had looked at. Turn the art on (`data-bg-art="on"`, Settings) and the
+  // same card reports `backdrop-filter: blur(14px) saturate(1.5)
+  // brightness(1.02)` in this Chromium: measured, a `position: fixed` child
+  // written to `left: 0; top: 0` inside `.card.doc-main` lands at x=293
+  // against the card's own x=292, so the card is its containing block and the
+  // trap is live on the real property. Test that path, not the stand-in.
+  //
+  // The stand-in's numbers are kept because they are the same fault measured
+  // twice: forcing `.card.doc-main { filter: saturate(1) }` reproduces it
+  // exactly, and with that in place the panel's `style.left` reads
   // 595px while it renders at x=886, the correction having subtracted the
   // card's own 291px offset. Without the second pass the same menu would have
   // been given left=886 and rendered at 1177, 291px to the right of the

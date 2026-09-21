@@ -14777,6 +14777,36 @@ function docCmTheme(CM) {
         textUnderlineOffset: "0.18em",
         cursor: "pointer",
       },
+      //: **The hover, which was the one surface in this feature with none.**
+      //: Four things draw a finding (the underline, the word menu, the panel,
+      //: the dictionary) and three of them answered the pointer; the underline
+      //: offered `cursor: pointer` and nothing else, so the only way to learn
+      //: that a squiggle is pressable was to press it.
+      //:
+      //: A tint rather than a thicker line: the three kinds are told apart by
+      //: the *shape* of their underline (wavy, wavy, dotted), and thickening
+      //: one on hover moves it towards another kind's shape. A ground behind
+      //: the word says "this is one object" without touching the mark that
+      //: says which kind it is, and it is the same thing `.menu-item:hover`
+      //: does one surface over.
+      //:
+      //: 12% of the kind's own colour, mixed against the page rather than
+      //: stated as an alpha, so it composes on the editor's ground in either
+      //: theme and follows `[data-contrast="on"]`'s redefinitions of
+      //: `--error`, `--accent` and `--muted` without a branch of its own.
+      //: Measured light and dark in `prosepanel.js`.
+      ".cm-finding-spelling:hover": {
+        backgroundColor: "color-mix(in srgb, var(--error) 12%, transparent)",
+        borderRadius: "3px",
+      },
+      ".cm-finding-style:hover": {
+        backgroundColor: "color-mix(in srgb, var(--accent) 12%, transparent)",
+        borderRadius: "3px",
+      },
+      ".cm-finding-repeat:hover": {
+        backgroundColor: "color-mix(in srgb, var(--muted) 12%, transparent)",
+        borderRadius: "3px",
+      },
       ".cm-finding-spelling": {
         textDecoration: "underline wavy",
         textDecorationColor: "color-mix(in srgb, var(--error) 80%, transparent)",

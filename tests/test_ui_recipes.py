@@ -1344,6 +1344,36 @@ def test_one_writing_finding_is_drawn_by_one_builder() -> None:
             "docFindingLine alone (DESIGN.md, the recipe index)"
         )
 
+    #: **And the kinds themselves are named in two places that have to agree.**
+    #: `docFindingKind` decides which dot and which underline a finding gets;
+    #: `DOC_FINDING_GROUPS` decides which heading it is filed under in the
+    #: panel. They agree today, and nothing made them: a fourth kind added to
+    #: the first alone renders with its own squiggle and then falls into no
+    #: group in the panel, which looks like a finding the panel has lost. A
+    #: fourth added to the second alone draws an empty heading forever, since
+    #: the panel skips a group with no members. Neither failure throws.
+    kinds_drawn = set(re.findall(r'return "([a-z]+)";', _function_body(js, "docFindingKind")))
+    groups = js[js.index("const DOC_FINDING_GROUPS = ["):]
+    kinds_grouped = set(re.findall(r'\["([a-z]+)", "', groups[: groups.index("\n];")]))
+    assert kinds_drawn and kinds_grouped, "one of the two finding-kind tables could not be read"
+    assert kinds_drawn == kinds_grouped, (
+        "docFindingKind draws "
+        + ", ".join(sorted(kinds_drawn))
+        + " and DOC_FINDING_GROUPS files "
+        + ", ".join(sorted(kinds_grouped))
+        + ": a kind in one and not the other is either an underline with no "
+        "group in the panel or a heading that can never have a member"
+    )
+    #: The stylesheet is the third place the same three names appear, as the
+    #: class `docFindingKind`'s answer is interpolated into
+    #: (`cm-finding-${kind}`), so a kind with no rule there is an underline
+    #: with no shape and no colour.
+    for kind in sorted(kinds_drawn):
+        assert f".cm-finding-{kind}" in js, (
+            f"the {kind} finding has no underline rule in docCmTheme, so it "
+            "draws as plain text while the panel lists it"
+        )
+
 
 #: **A surface says when its data did not arrive, and says it in one way.**
 #:

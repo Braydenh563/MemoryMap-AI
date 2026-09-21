@@ -142,17 +142,35 @@ being written by running agents stay beside this one.
   touch layout for the sidebar, which is UI Phase 9's territory.
   [doc-sidebar.md]
 - **The rest of the app's viewport popups have not been measured with the
-  background art on.** `kebabMenu` (`wireEscapedActionMenu`) and the toolbar
-  dropdowns (`clampToolbarMenu`) are covered; the chat dock's popovers, the
-  selection popup, the whiteboard's context menu and `.wb-board-menu`
-  (`escapeAndCapMenu`) are not. Next step: a sweep that sets
-  `data-bg-art="on"`, opens each in turn and asserts the two things
-  `spellwide.js` asserts, the parent and the trap. [editor-intelligence.md]
-- **`clampToolbarMenu`'s comment says the trigger cannot be reproduced here,
-  and that is now out of date.** With `data-bg-art="on"` the card reports
-  `blur(14px) saturate(1.5) brightness(1.02)` in this Chromium and the trap
-  fires. Worth correcting so the next reader tests the real path rather than
-  the `filter: saturate(1)` stand-in. [editor-intelligence.md]
+  background art on.** Still open, but **the blocker is gone**: this row used
+  to sit behind "the trigger cannot be reproduced in this sandbox", and that
+  is now known to be false. With `data-bg-art="on"` a `.card` reports
+  `backdrop-filter: blur(14px) saturate(1.5) brightness(1.02)` in this
+  Chromium, and a `position: fixed` child written to `left: 0; top: 0` inside
+  `.card.doc-main` lands at x=293 against the card's own x=292, so the card is
+  its containing block and the real property traps a real popup. `kebabMenu`
+  (`wireEscapedActionMenu`) and the toolbar dropdowns (`clampToolbarMenu`) are
+  covered; the chat dock's popovers, the selection popup, the whiteboard's
+  context menu and `.wb-board-menu` (`escapeAndCapMenu`) are not.
+  **What the next session needs, and what cost this one the item**: the sweep
+  is four openers and four selectors, and guessing them produced four failures
+  that were the probe's and not the app's, which is worse than no sweep. Find
+  each opener in the page first. One is already established: the selection
+  popup cannot be raised from the capture box at all, because
+  `SELECTION_POPUP_EXCLUDED` in app.js is
+  `"input, textarea, [contenteditable], .selection-popup"`, so it needs a
+  selection over *rendered* text. Then assert the two things `spellwide.js`
+  asserts, the parent and the trap, and report a popup that would not open as
+  not measured rather than as passing. [editor-intelligence.md]
+- ~~**`clampToolbarMenu`'s comment says the trigger cannot be reproduced
+  here, and that is now out of date.**~~ **Corrected 2026-09-20**, with the
+  measurement in the comment itself: with `data-bg-art="on"` the card reports
+  `backdrop-filter: blur(14px) saturate(1.5) brightness(1.02)` and a
+  `position: fixed` child written to `left: 0; top: 0` inside `.card.doc-main`
+  lands at x=293 against the card's own x=292, so the card is its containing
+  block and the trap is live on the real property. The `filter: saturate(1)`
+  stand-in's numbers are kept beside it as the same fault measured twice.
+  [editor-intelligence.md]
 - **The word menu measures its own width before it is placed.** A
   `position: fixed` box with `left` set and no `right` is shrink-to-fit, so a
   menu with long candidates opened near the right of a narrow card can render
@@ -167,21 +185,34 @@ being written by running agents stay beside this one.
   table cell's mark may measure outside the scroller the reveal scrolls), and
   that a placement must never cover the rect it is anchored to, which is worth
   an assertion of its own in both sweeps. [editor-intelligence.md]
-- **The writing-suggestion underline is the only surface with no hover
-  affordance.** `cursor: pointer` is the whole of it. Files:
-  `frontend/documents.js`, `docCmTheme`, the `.cm-finding` block around line
-  10924; the `[data-contrast="on"]` branch needs it too. Next step: add the
-  hover tint in the kind's own colour and measure it in both themes with
-  `prosepanel.js`'s painted-pixel pass. [prose-intelligence.md]
-- **`docFindingAtPoint` walks every mark on every pointer event** that lands
-  in the editor (`click`, `dblclick`, `contextmenu`), calling
-  `getClientRects()` per mark. Bounded by the viewport's marks, so not slow,
-  but not measured at all. Next step: time it on the plan's 20k-word document
-  with 200 findings on screen; past a millisecond, cache the rects per repaint
-  (the findings effect is the invalidation point). [prose-intelligence.md]
-- **The three finding kinds are named in two places**, `DOC_FINDING_GROUPS`
-  (the panel's group titles) and `docFindingKind` (the dot and the underline).
-  They agree today; a fourth kind has to be added to both.
+- ~~**The writing-suggestion underline is the only surface with no hover
+  affordance.**~~ **Built 2026-09-20.** A tint in the kind's own colour, 12%
+  mixed against the page rather than stated as an alpha, so it composes on
+  either theme's ground and follows `[data-contrast="on"]`'s redefinition of
+  `--error`, `--accent` and `--muted` with no branch of its own. A tint and
+  not a thicker line, because the three kinds are told apart by the *shape* of
+  their underline and thickening one moves it towards another's. Measured as a
+  painted colour under a real pointer, `scratchpad/ui-sweeps/findinghover.js`:
+  `rgba(0, 0, 0, 0)` at rest in both themes, `srgb 0.725 0.110 0.110 / 0.12`
+  hovered in light and `srgb 0.973 0.443 0.443 / 0.12` in dark, which is each
+  theme's own `--error`. [prose-intelligence.md]
+- ~~**`docFindingAtPoint` walks every mark on every pointer event**~~
+  **Timed 2026-09-20, and it is not a problem.** With 96 marks on screen (a
+  3,763-word document written to fill the viewport with them), a *miss*, which
+  is the expensive case because it walks every mark and calls
+  `getClientRects()` on each, takes **0.207ms** in light and 0.212ms in dark;
+  a hit takes 0.03ms. Linear in the marks, so the row's own 200-on-screen gate
+  extrapolates to about 0.43ms, still inside a pointer event's budget. The
+  assertion is in `findinghover.js`, so a change that makes it expensive fails
+  there rather than being felt. No cache built. [prose-intelligence.md]
+- ~~**The three finding kinds are named in two places**~~ **Held together by a
+  lint, 2026-09-20.** `tests/test_ui_recipes.py` now reads both tables and
+  fails if they differ, and checks that each kind has an underline rule in
+  `docCmTheme`. The two failures it prevents are silent ones: a kind in
+  `docFindingKind` alone draws its own squiggle and then falls into no group
+  in the panel, which looks like a finding the panel has lost; a kind in
+  `DOC_FINDING_GROUPS` alone draws a heading that can never have a member.
+  Proved against a simulated drift rather than assumed.
   [prose-intelligence.md]
 
 ## Graph

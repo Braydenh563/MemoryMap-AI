@@ -173,6 +173,10 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- A writing suggestion's underline answers the pointer. Resting on one now
+  tints the word in that suggestion's own colour, so a squiggle looks
+  pressable before you press it; it was the one part of the writing help that
+  gave no sign it was a control.
 - The documents formatting strip says what the caret is already in. Stand in a
   bold word and Bold reads as on; the same for italic, code, the three heading
   levels, lists, tasks, quotes and links. Only the buttons that have a state

@@ -34,6 +34,20 @@ with its owner named in the entry.
 
 ## Open items
 
+317. **The owner, 2026-09-21, verbatim, two messages with screenshots of the
+    whiteboard text box context bar:** "the textbox selection popup tools
+    menu items are cut off and also not aligned" and "when I press the
+    meatball button the menu appears up top with no connection to the tool
+    menu". Open. Two faults on one surface: the bar's own items (the Size
+    field clips its number, and the icon groups do not share a baseline), and
+    its kebab, whose menu lands far from the bar with nothing tying it to the
+    button that opened it. The second is the same family as INBOX 290's table
+    menu: `openActionMenu` reparents a menu to `<body>` when it would be
+    clipped, and then positions it from the opener, so a bar that is itself
+    `position: fixed` inside a transformed board is the case where that
+    arithmetic goes wrong. Measure the bar's items and the menu's box against
+    the opener before changing either.
+
 316. **The owner, 2026-09-21, verbatim, with a screenshot of the documents
     gutter:** "and make these dropdown arrows actually aligned and proper
     icons". Fixed. CodeMirror's `foldGutter` draws a text triangle by
@@ -47,7 +61,7 @@ with its owner named in the entry.
     an icon, none of them a character, and each arrow's centre 0.0px from the
     centre of its own line number.
 
-315. **The owner, 2026-09-21, verbatim, with a screenshot:** "I pressed next
+315. **Fixed 2026-09-21.** **The owner, verbatim, with a screenshot:** "I pressed next
     on the first thing of the guided tour and this happened, the guided tour
     is still broken". The screenshot is the Reminders tab with no tour card
     and no dim: the tour is gone, not stuck.
@@ -69,6 +83,14 @@ with its owner named in the entry.
     step should say so and stay open on the step it has, because a tour that
     vanishes mid-gesture is the third report of this surface being broken and
     it reads as the whole feature failing.
+
+    **Both built.** A step is now judged after the scroll that brings it into
+    view rather than in the same task as it, because the box read before a
+    scroller moves is the box it had before the move, and one mistimed
+    measurement could eat the rest of the run a step at a time. And the run
+    can no longer empty itself: the last remaining step is kept and shown
+    centred, saying that the control is not on screen at this window size,
+    instead of the tour closing as though it were over.
 
     Note against the earlier fix: today's tour work (the dim moved off
     `.tour-spot` onto four panels, `toursteps.js` 24 of 24 across three

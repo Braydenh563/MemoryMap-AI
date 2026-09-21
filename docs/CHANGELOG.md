@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The guided tour can no longer close itself halfway through. A step whose
+  control it could not find was dropped from the run, and when that took the
+  last one the tour ended silently on whatever tab it had just opened, which
+  is what pressing Next looked like. Steps are judged after the scroll that
+  brings them into view rather than during it, so far fewer are dropped at
+  all, and the last one is never dropped: it stays on screen and says the
+  control is not visible at this window size.
 - The fold arrows in a document's gutter are the app's own icons and line up
   with the numbers beside them. They were the editor's default text triangle,
   which came out as a typed letter in this app's font and sat a little above

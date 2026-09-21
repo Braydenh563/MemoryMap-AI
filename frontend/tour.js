@@ -508,7 +508,27 @@ function tourBringIntoView(el) {
 }
 
 function tourPosition() {
-  if (!tourRun || !tourRun.el) return;
+  if (!tourRun) return;
+  //: A stranded step has no anchor, so the card goes to the middle of the
+  //: window and the spotlight and its four panels are taken down: a hole cut
+  //: around nothing is a hole in the middle of the screen.
+  if (!tourRun.el) {
+    const card = document.getElementById("tour-card");
+    if (card) {
+      card.style.left = "50%";
+      card.style.top = "50%";
+      card.style.transform = "translate(-50%, -50%)";
+    }
+    document.getElementById("tour-spot")?.classList.add("hidden");
+    for (const panel of document.querySelectorAll(".tour-block-panel")) {
+      panel.classList.remove("hidden");
+      panel.style.inset = "0";
+    }
+    return;
+  }
+  const card0 = document.getElementById("tour-card");
+  if (card0) card0.style.transform = "";
+  document.getElementById("tour-spot")?.classList.remove("hidden");
   const card = document.getElementById("tour-card");
   const target = tourRun.el.getBoundingClientRect();
   const lit = tourSpotlight(target);
@@ -540,13 +560,22 @@ function tourRender() {
   const run = tourRun;
   const total = run.steps.length;
   document.getElementById("tour-section").textContent = run.step.sectionLabel;
+  //: **A stranded step still says something** (INBOX 315). `run.el` is null
+  //: when the last step of a run has nothing on screen to point at: the tour
+  //: keeps the card rather than closing, because a tour that vanishes
+  //: mid-gesture reads as the feature breaking, so the card has to explain
+  //: itself instead of pointing at a corner of the window.
+  const card = document.getElementById("tour-card");
+  card?.classList.toggle("tour-card-stranded", Boolean(run.stranded));
   // "3 of 7", the owner's "card tutorial tour numbers". It counts the steps of
   // THIS run (one section, or all of them), and it renumbers when a step is
   // dropped for having no element, so it can never promise a step the tour is
   // not going to show.
   document.getElementById("tour-count").textContent = `${run.index + 1} of ${total}`;
   document.getElementById("tour-title").textContent = run.step.title;
-  document.getElementById("tour-text").textContent = run.step.text;
+  document.getElementById("tour-text").textContent = run.stranded
+    ? `${run.step.text} This control is not on screen at this window size, so there is nothing to point at here.`
+    : run.step.text;
   document.getElementById("tour-back").disabled = run.index === 0;
   document.getElementById("tour-next").textContent =
     run.index === total - 1 ? "Done" : "Next";
@@ -639,10 +668,39 @@ async function tourShow() {
     //: scrolling panel is a step worth showing once the panel has been
     //: scrolled to it, and only a control that is still not in the window
     //: after that has nothing to point at.
-    if (tourVisible(el)) tourBringIntoView(el);
+    if (tourVisible(el)) {
+      tourBringIntoView(el);
+      //: **Judged after the scroll, not during it** (INBOX 315). Bringing a
+      //: control into view moves a scroller, and the box read in the same
+      //: task is the box it had before the move. A step measured there looks
+      //: off screen when it is about to be on it, and an off-screen step is
+      //: dropped, so a single mistimed measurement could eat the rest of the
+      //: run one step at a time. One frame is what the move needs.
+      await tourFrame();
+      if (tourRun !== run) return;
+    }
     if (!tourVisible(el) || !tourOnScreen(el)) {
       // A step with nothing to point at is dropped from this run, rather than
       // shown empty or left pointing at the corner of the window.
+      //
+      //: **Except the last one, which would empty the run in silence**
+      //: (INBOX 315: the owner pressed Next on the first step and the tour
+      //: vanished, leaving the tab it had navigated to with no card and no
+      //: dim). Falling out of this loop calls `tourClose`, which is right
+      //: when somebody has reached the end and wrong when the end reached
+      //: them: a tour that disappears mid-gesture reads as the whole feature
+      //: breaking, which is exactly how it was reported. So the run keeps its
+      //: last step and says what happened, with the card centred, rather than
+      //: closing as though the tour were over.
+      if (run.steps.length <= 1) {
+        run.el = null;
+        run.step = step;
+        run.stranded = true;
+        tourRender();
+        tourPosition();
+        document.getElementById("tour-next")?.focus();
+        return;
+      }
       run.steps.splice(run.index, 1);
       if (run.direction < 0) run.index -= 1;
       if (run.index < 0) {
@@ -651,6 +709,7 @@ async function tourShow() {
       }
       continue;
     }
+    run.stranded = false;
     run.el = el;
     run.step = step;
     tourRender();

@@ -371,6 +371,39 @@ with its owner named in the entry.
     reopened, it is a second clearly labelled opt-in extra, off by default,
     and the copy in all three places changes in the same commit.
 
+304. **The owner, 2026-09-21, verbatim, with a screenshot:** "the help bot
+    is useless, or the suggested questions are bad or both. also it didnt use
+    my utiliity model". The screenshot shows the Atlas guide answering "Where
+    do reminders live?" with "I'm not sure where reminders live. Please check
+    the Help topics above this chat", offering Notes and What it remembers as
+    its sources. Reminders are a surface of this app, so the guide failing on
+    that question is not a hard question failing, it is the guide failing at
+    its own job. Three things to separate before fixing anything: whether the
+    help corpus even contains reminders, whether retrieval found it and the
+    answer discarded it, and whether the suggested questions are drawn from
+    what the corpus can actually answer. The utility model half is INBOX 288,
+    which an agent addressed tonight; re-measure on the current head before
+    treating it as still open.
+
+306. **The owner, 2026-09-21, verbatim:** "isnt the quick liquid repo heavily
+    optimised?? and it has levels as well??" Against ANALYSIS.md's "leave it"
+    verdict for quickLiquid. He is right that it is heavily optimised and the
+    read says so; the verdict turned on the optimisation targeting a
+    different cost than the one this app measured. The "levels" half is not
+    answered anywhere and is the part worth checking: quickLiquid has a
+    Chromium-only refraction path with a frost fallback, which is a
+    capability tier, and this app has Performance mode and the
+    `data-glass="off"` list. Next step: establish whether their tiering does
+    anything this app's does not, as a measurement rather than a reading.
+
+307. **The owner, 2026-09-21, verbatim:** "I feel like the navigation and
+    undo/redo buttons keep getting pushed further and further to the left on
+    the bottom bar, is there a better way to restructure the right side of
+    the bottom bar??" A drift complaint, which means the fix is a rule rather
+    than a nudge: something has to own the right end of that bar so the next
+    feature cannot push these along again. Related to INBOX 301, the app-wide
+    navigation and undo contracts, already placed in WORLD_CLASS_PLAN.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

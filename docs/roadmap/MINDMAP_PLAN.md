@@ -693,3 +693,21 @@ candidates. Placed here:
 
 Each becomes a phase row when its phase is written; until then this list is
 the phase.
+
+## Placed from INBOX, 2026-09-21
+
+305. **The owner, 2026-09-21, verbatim:** "the mindmap needs A LOT of
+    improving. Tools and utilities are really awkward to use and dont show
+    themselves how id expect, there are two types of connections, it is
+    really confusing to access and use features and utilities, they are hard
+    to find and figure out how to use, they are unintuitive, the ui needs
+    improving, the mindmap is slow, the customisation features are lacking
+    severely and it just feels really unclean and unprofessional."
+    Plan-sized, and it names a structural problem rather than a list of bugs:
+    "there are two types of connections" is the tree edge derived from
+    `parent_id` sitting beside the free link, which this session added
+    waypoints to tonight. Belongs in MINDMAP_PLAN as a measured read plus
+    gated phases, in the shape DOCUMENTS_PLAN section 17 uses. "Slow" is the
+    one claim that must be measured before anything is designed.
+    **Placed 2026-09-21 into MINDMAP_PLAN section 13**, which carries the
+    measured read, the decisions and the gated phases.

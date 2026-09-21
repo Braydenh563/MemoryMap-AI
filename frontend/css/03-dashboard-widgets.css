@@ -1981,7 +1981,13 @@ header#top-bar select,
   position: relative;
 }
 
-#raw-results li.is-numbered > :first-child {
+/* The gutter goes on the row the number sits beside, which is the element
+   *after* the mark, not the first child: the mark is inserted first, so
+   `:first-child` was the mark itself and it took the 26.4px right padding
+   meant for the title. Measured: `padding: 0 26.4px 0 0` on a 1.25rem box,
+   which is the wide badge with the digit shoved to its left edge that was
+   reported. */
+#raw-results li.is-numbered > .record-index + * {
   padding-right: calc(1.25rem + var(--space-2));
 }
 

@@ -17,7 +17,15 @@ ROOT = Path(__file__).resolve().parent.parent
 #: Directories the conflict-marker sweep below never walks: a checkout's own
 #: plumbing, a virtual environment's vendored packages, and the browser
 #: profiles the sweeps leave behind, none of which this project writes.
-_SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", ".gate", "shots"}
+#: `worktrees` is here for the same reason `.git` is: `.claude/worktrees/`
+#: holds other branches' checkouts, one per running agent, and a lint on this
+#: branch has no business asserting about another branch's files. Left in, it
+#: also fails for a reason that is not a fault: an agent part-way through a
+#: merge legitimately has conflict markers in its own tree, so this test went
+#: red the moment two agents were started and stayed red until they finished.
+#: Added 2026-09-21, after it correctly caught a real marker on this branch
+#: and then drowned it in eleven lines about other people's worktrees.
+_SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", ".gate", "shots", "worktrees"}
 
 
 def _skip(path: Path) -> bool:

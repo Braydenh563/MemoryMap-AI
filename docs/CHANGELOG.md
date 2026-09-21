@@ -30,7 +30,31 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
-<<<<<<< HEAD
+- A mind map can be laid out to the left, and on both sides of its trunk,
+  which is the arrangement most mind-mapping tools are pictured in. The
+  branches are split so the two sides hold about the same number of topics
+  rather than the same number of branches, and a topic whose parent is to its
+  right carries its branch bar on that side.
+- A mind map now answers the two gestures anybody tries on a blank part of it.
+  A right-click on empty canvas opens a short menu of the things that apply to
+  the map itself: add a topic here, tidy it, open every folded branch, fit
+  everything. A double-click makes a new trunk where the pointer was, ready to
+  be typed, and it stays where it was put. Both did nothing at all before.
+- A mind map now says which of its two kinds of connection it is talking
+  about, everywhere it talks about one. A branch and a cross-link get the same
+  ring, which names the kind it is on and offers the right three things for
+  it, including turning a cross-link into a branch when the drawing gesture
+  guessed wrong; the tool rail says cross-link on a map and link on a board;
+  and a cross-link is drawn in the map's own ink, dashed, from the moment it
+  is drawn rather than from the next time the board is opened. It used to take
+  the pen's colour, so one drawn while the ink was red read as a branch.
+- The bar that appears over a selected topic on a mind map is a third of the
+  width it was. It carried fourteen icons in one run, 959px of controls to
+  describe a topic 95px wide, which at 1024 took 94% of the window and at no
+  width drew a single word; the same fourteen controls now sit behind three
+  named doors on it, Text, Shape and Branch line, each of which labels every
+  control inside it. The bar measures 314px at 1440, 1024 and 820, and 54px
+  tall instead of 150px on a phone.
 - The guide answers the question you asked. Three plain questions reached no
   help topic at all ("Can I use this offline?", "How do I add a tag?", "Can I
   import from Obsidian?"), so it answered them from whatever tab you happened
@@ -75,33 +99,6 @@ below). Versioning is `0.x` while the app stabilises.
   ended the underlying 40-against-42px difference for good was measured
   instead of taken: it moved eighteen buttons, put a half pixel into five
   graph controls and turned a text link into a box, so it was not taken.
-=======
-- A mind map can be laid out to the left, and on both sides of its trunk,
-  which is the arrangement most mind-mapping tools are pictured in. The
-  branches are split so the two sides hold about the same number of topics
-  rather than the same number of branches, and a topic whose parent is to its
-  right carries its branch bar on that side.
-- A mind map now answers the two gestures anybody tries on a blank part of it.
-  A right-click on empty canvas opens a short menu of the things that apply to
-  the map itself: add a topic here, tidy it, open every folded branch, fit
-  everything. A double-click makes a new trunk where the pointer was, ready to
-  be typed, and it stays where it was put. Both did nothing at all before.
-- A mind map now says which of its two kinds of connection it is talking
-  about, everywhere it talks about one. A branch and a cross-link get the same
-  ring, which names the kind it is on and offers the right three things for
-  it, including turning a cross-link into a branch when the drawing gesture
-  guessed wrong; the tool rail says cross-link on a map and link on a board;
-  and a cross-link is drawn in the map's own ink, dashed, from the moment it
-  is drawn rather than from the next time the board is opened. It used to take
-  the pen's colour, so one drawn while the ink was red read as a branch.
-- The bar that appears over a selected topic on a mind map is a third of the
-  width it was. It carried fourteen icons in one run, 959px of controls to
-  describe a topic 95px wide, which at 1024 took 94% of the window and at no
-  width drew a single word; the same fourteen controls now sit behind three
-  named doors on it, Text, Shape and Branch line, each of which labels every
-  control inside it. The bar measures 314px at 1440, 1024 and 820, and 54px
-  tall instead of 150px on a phone.
->>>>>>> worktree-agent-mapux2
 - The loading bar on the splash screen is cheaper to draw, so it stays smooth
   on a slow machine, which is the only kind of machine that sees it for long.
   It used to grow by changing its width, which made the browser lay the page

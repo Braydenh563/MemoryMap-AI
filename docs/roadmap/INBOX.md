@@ -255,20 +255,6 @@ with its owner named in the entry.
     cases takes for the Guide, so the facts are written down; what is missing
     is the app saying them.
 
-273. **Found by the Documents agent, 2026-09-20 (the session, not the
-    owner), two things it measured and did not own.** (1) `errors.js` at
-    820: "settings/extras section scrolls sideways 496>492", diagnosed with
-    `scratchpad/ui-sweeps/extraswide.js` to the embedding-models row's
-    `.entry-actions` (right edge 769 against a 765 frame), pre-existing.
-    Recommendation: the row's actions take `min-width: 0` and wrap, the
-    way the note card's own `.entry-meta` does at that width. (2) The
-    shared `enhanceSelect` opener builds its menu from `select.options`
-    and never reads an `<optgroup>` label, so grouping in any select is
-    invisible to the reader; the templates picker works around it by
-    putting the group in each option's words. Recommendation: the opener
-    draws a `.select-group-label` row per optgroup, the `.dock-menu-section`
-    shape, and the workaround comes out.
-
 272. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also make sure
     all features and alternatives are easily knoticable by and offered for the
     user. like if the embedding model fails or has an error, it suggests to

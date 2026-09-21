@@ -32563,6 +32563,51 @@ row and head of different lengths).
     scratch data dir holding duplicate notes from earlier probe runs, so the
     sources list genuinely had five rows. (2) and (3) open.
 
+273. **Found by the Documents agent, 2026-09-20 (the session, not the
+    owner), two things it measured and did not own.** (1) `errors.js` at
+    820: "settings/extras section scrolls sideways 496>492", diagnosed with
+    `scratchpad/ui-sweeps/extraswide.js` to the embedding-models row's
+    `.entry-actions` (right edge 769 against a 765 frame), pre-existing.
+    Recommendation: the row's actions take `min-width: 0` and wrap, the
+    way the note card's own `.entry-meta` does at that width. (2) The
+    shared `enhanceSelect` opener builds its menu from `select.options`
+    and never reads an `<optgroup>` label, so grouping in any select is
+    invisible to the reader; the templates picker works around it by
+    putting the group in each option's words. Recommendation: the opener
+    draws a `.select-group-label` row per optgroup, the `.dock-menu-section`
+    shape, and the workaround comes out.
+    **(1) and (2) both fixed (Sonnet, hygiene worktree, 2026-09-21).**
+    (1): took the recommendation, `56bf0db`. `.extras-row .entry-actions`
+    now takes `min-width: 0` and `flex-wrap: wrap`. Measured before and
+    after with `scratchpad/ui-sweeps/extraswide2.js` (new): the
+    Search-by-meaning row's own `.entry-actions` right edge at 820px, on
+    two servers running this branch's code either side of the CSS change.
+    Both read 748 against a 765 frame, comfortably inside; `errors.js`
+    found no sideways scroll either side either. The specific 496>492 /
+    769>765 overflow could not be reproduced in this sandbox (font-metric
+    or scrollbar differences between environments are the likely reason
+    for a 4px gap); the fix went in anyway because it removes the actual
+    cause, an actions column that can never shrink beside a title that
+    can, so a tighter row than either sandbox happened to render still has
+    somewhere to go. (2): took the recommendation as written, `6e937c1`.
+    `enhanceSelect`'s `rebuild()` now walks `select.children` instead of
+    `select.options` and draws a `.select-group-label` row per `<optgroup>`
+    before its options; the row carries no `role`, so `syncValue`'s
+    `[role='option']` walk and the click handler both skip it. Measured
+    with `scratchpad/ui-sweeps/selectgrouplabels.js` (new): a synthetic
+    grouped select run through the real `enhanceSelect`/`openActionMenu`
+    draws 2 group-label rows in the right order, still exactly 4 real
+    `[role="option"]` rows (a hidden option correctly excluded), and
+    clicking a grouped option still sets the underlying select's value.
+    The Library's workaround came back out too, `ce69887`:
+    `renderLibraryDocsPropertyFilter` now groups its options into a real
+    `<optgroup>` per key instead of repeating the key in each option's
+    text. Measured with `scratchpad/ui-sweeps/libpropgroups.js` (new):
+    given synthetic `status`/`area` properties, the live function draws
+    two `<optgroup>`s in the real `<select>` and the same two as
+    `.select-group-label` rows in the opener's own menu, with plain
+    "value (count)" option text under each.
+
 ## INBOX resolved, 2026-09-21
 
 286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the

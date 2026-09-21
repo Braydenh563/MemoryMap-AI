@@ -131,6 +131,65 @@ acceptance line. What it says about the reform is that at 1.5B the remaining
 gap is the model, not the scaffolding: the next thing worth measuring is the
 same run at 3B and 4B, which is the size Phase B was written about.
 
+## The harness does the work the model is worst at: decided 2026-09-21
+
+The owner, after being shown a prompt patched to teach a model what day it
+is: "that's bad harness design. the harness and skills need to be flawless.
+for all ai features, they need to be lightweight and insanely good, fast,
+good quality, not too context heavy and more."
+
+He is right, and the codebase convicts itself. **This app already owns a
+deterministic time resolver and does not use it where it matters most.**
+`entry/timewords.py` turns "tonight", "next Friday" and "in three days" into
+real instants with regular expressions and arithmetic against the user's own
+clock, and its own docstring explains why it is deterministic: it runs on
+every note saved, including with no model running. `ai/reminder_parser.py`
+does the same job for a typed reminder. And yet `set_reminder`, the tool the
+model calls, takes a raw `due_at` and does `datetime.fromisoformat` on it, so
+the single place where a small model is weakest, date arithmetic, is the one
+place the harness insists the model do it alone.
+
+The result is in the owner's transcript: asked for a reminder two hours
+before midnight, the model reasoned "midnight for today, September 21st, is
+2026-09-22T00:00, two hours before midnight is 2026-09-22T22:00", keeping the
+midnight's date and changing only the time, and set the reminder for the
+wrong night.
+
+**The rule, which is what this section exists to state.** A tool argument is
+either something only the model can supply, which is intent, or something the
+app can compute, which is a fact. Intent belongs in the schema. A fact the
+app can compute does not, and asking for it converts a deterministic answer
+into a probabilistic one. "Remind me two hours before midnight" is intent;
+`2026-09-22T22:00` is a computation, and the app is better at it than any
+model it will ever run, for free, offline, every time.
+
+Three consequences, each of which also makes the prompt lighter, which is the
+owner's other point:
+
+1. `set_reminder` takes a phrase and resolves it with `timewords`, keeping
+   the ISO field as an escape hatch for a model that genuinely has one. Every
+   other tool taking a computed value is found and given the same treatment;
+   two take an ISO date-time today.
+2. The prompt stops teaching arithmetic. The weekday and week-ahead lines
+   added on 2026-09-21 are **interim**, worth their 245 characters only until
+   the tool stops needing them, and they come out in the same commit that
+   lands 1. A prompt that grows every time a model gets something wrong is a
+   prompt that will keep growing.
+3. A skill's steps get the same audit. A step that asks the model to compute
+   something the app knows is the same fault at a larger scale, and skills
+   run unattended, where a wrong answer is not caught by the person reading
+   it.
+
+**Gate.** A test that asks for a reminder in the shapes people actually use,
+"two hours before midnight", "Friday night", "tomorrow morning", with a fake
+model that returns only the phrase, and asserts the resolved instant. It must
+pass with no model reachable at all, which is the proof that the arithmetic
+left the model.
+
+**Not verified.** How many other tool arguments are computations rather than
+intent: two take an ISO date-time, and the rest of the surface has not been
+read with this question in mind. That audit is the first step.
+
 ## Decisions made
 
 This plan had no decisions section, which standing order 3 says every plan

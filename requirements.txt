@@ -16,17 +16,17 @@
 
 # Web server
 fastapi>=0.141.1,<1.0
-uvicorn[standard]>=0.52.4,<1.0
+uvicorn[standard]>=0.53.0,<1.0
 
 # Database (SQLite via ORM)
-SQLAlchemy>=2.0.52,<3.0
+SQLAlchemy>=2.0.54,<3.0
 
 # Schema migrations for a real rename/drop — additive column changes still go
 # through DatabaseManager's own auto-migrator (core/database.py); this is the
 # escape hatch for the day that stops being enough. Never fatal if missing
 # (_ensure_alembic_baseline catches ImportError and logs), but the app then
 # silently stays on the additive-only path — keep it installed.
-alembic>=1.19.2,<2.0
+alembic>=1.20.0,<2.0
 
 # Config
 python-dotenv>=1.2.3,<2.0
@@ -39,12 +39,12 @@ python-dotenv>=1.2.3,<2.0
 # `user_now`). This is that fallback's actual cause on Windows, not a bad
 # zone name. tzdata is pure data, ~500KB, and safe to install unconditionally
 # on every platform (Python prefers the system database when one exists).
-tzdata>=2026.3
+tzdata>=2026.4
 
 # AI (Phase 2)
 requests>=2.34.2,<3.0      # talks to the local Ollama REST API
 numpy>=2.4.6,<3.0           # vectors stored as raw float32 bytes
-sentence-transformers>=6.0.1,<7.0
+sentence-transformers>=6.1.0,<7.0
 
 # torch: on Windows, force the CPU-only build. The default Windows torch wheel
 # now ships Intel's torch_xpu.dll, which fails to load on many machines with

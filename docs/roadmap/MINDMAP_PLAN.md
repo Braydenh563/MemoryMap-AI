@@ -949,11 +949,18 @@ topic: a control that wide has nowhere to go.
   appears when he presses the wheel; if it does, the guard is not reaching
   the event on his machine and the next thing to read is whether
   `#library-view-whiteboard` is really an ancestor of what he pressed on.
-- **13b. The strip is sized like a topic.** One considered treatment of the
-  fourteen controls that does not assume 959px: grouped, or revealed on
-  approach, or moved to the topic's own row. Gate: the strip's width is under
-  half the window at 1440, 1024 and 820, it never covers the line into its own
-  topic, and `mapnarrow.js` and `mapstrip.js` stay clean.
+- ~~**13b. The strip is sized like a topic.**~~ **Built 2026-09-21**, and the
+  record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
+  MINDMAP_PLAN.md section 13b: the topic strip is sized like a topic"). The
+  fourteen controls are behind three named doors, Text, Shape and Branch line,
+  each the board menu bar's own recipe; the strip is **314 x 38** at 1440,
+  1024 and 820 (0.22, 0.31 and 0.38 of the window, against a gate of a half)
+  and 314 x 54 at 390, against 959.4 x 38 and 348.4 x 150 before. `mapstrip.js`
+  39/39, `mapnarrow.js` 3/3, and `mapline.js`, `mapcore.js` and `mapspine.js`
+  untouched at 13/13, 16/16 and 9/9. **What is left of 13b** is the one thing
+  its gate asked that this did not measure: whether the strip still covers the
+  handle of the line into its own topic. It is a third of the width it was,
+  which makes it far less likely and does not make it false.
 - **13c. One vocabulary for two connections.** The free link on a map gets the
   link ring rather than the board's context bar, and one word that says what
   it is. Gate: `maptwokinds.js` extended so that right-clicking either kind

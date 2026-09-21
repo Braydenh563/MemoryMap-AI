@@ -9,6 +9,58 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From MINDMAP_PLAN.md section 13b: the topic strip is sized like a topic
+
+Built 2026-09-21. Section 13.5 measured the map's topic strip at **959.4 x 38**
+to describe a topic 95px wide: 10.1 times the width of its own subject, 67% of
+a 1440 window, and **94% of a 1024 one**, where it did not adapt at all (the
+same 959.4px at both widths, wrapping only in the phone band, to 348.4 x 150).
+Fourteen controls in one flat run, not one of which drew a word: bold, italic,
+core, text size, alignment, colour, icon, shape, spine, and the five of the
+line into the topic.
+
+The fourteen are all still there and none of them changed surface. They sit
+behind three named doors on the bar, **Text**, **Shape** and **Branch line**,
+each the board menu bar's own recipe (`.wb-board-menu-wrap` plus
+`[data-wb-menu-toggle]` and a `.wb-board-menu` written in markup, which is
+DESIGN.md's recipe for a menu whose rows are not all commands), so the ARIA
+stamping, the arrow keys, the outside click, Escape and `escapeAndCapMenu`'s
+clipping escape are all the wiring the top bar already has. Every id is the id
+the control had, so no listener in whiteboard.js moved. The colour well and
+"back to the branch" stay on the bar itself: the first is the control a
+mindmapper reaches for constantly (Coggle's branch colour) and the second
+undoes everything the three doors do.
+
+Measured with `scratchpad/ui-sweeps/mapstrip.js` (39/39) and the §13b probe:
+
+| Width | Strip before | Strip now | Fraction of the window |
+| --- | --- | --- | --- |
+| 1440 | 959.4 x 38 | **314 x 38** | 0.67 to **0.22** |
+| 1024 | 959.4 x 38 | **314 x 38** | 0.94 to **0.31** |
+| 820 | not read | **314 x 38** | **0.38** |
+| 390 | 348.4 x 150 | **314 x 54** | height 150 to **54** |
+
+Words on the bar: **0 of 14 before, 3 of 5 now**, and every control inside a
+door carries its own word in the row beside it (Weight, Size, Alignment, Icon;
+Core idea, Box, Edge bar; Thickness, Shape, Dashed, Arrowhead). The trade is
+one press: a look that was one press from a selected topic is now two, through
+a door that says what is behind it, which is §13's decision 3 ("a control
+surface for one topic does not take two thirds of the window") taken at its
+word.
+
+Three things the bar had to learn because it moves, none of which the top bar
+needs: the open door is re-placed with the bar on every pan and zoom frame
+(`wbTrackMapStripMenu`), every door is shut when the bar goes away
+(`wbCloseMapStripMenus` in `hideBoth`), and the doors are shut when the
+selection moves to another topic, so a menu about the topic just left is never
+left open over the topic just chosen.
+
+Two things measured on the way and left alone: `mapline.js` (13/13),
+`mapcore.js` (16/16) and `mapspine.js` (9/9) drive these controls by id and
+pass untouched, which is what says the listeners did not move; and
+`mapstyle.js`'s "radial slot" check fails on the base branch as well as on
+this one, so it is not this work's (recorded in `agent-remaining/mapux2.md`).
+
 ### From MINDMAP_PLAN.md section 13a: the drag pick-up
 
 Built 2026-09-21. Section 13.1 measured that a map freezes the instant a topic

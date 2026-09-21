@@ -148,10 +148,21 @@ async function newBoard(page, name, type) {
   // --- what the strip writes -----------------------------------------------
   await page.evaluate((id) => selectWbItem("object", id), kidId);
   await page.waitForTimeout(300);
+  // Bold and italic are behind the strip's Text door since MINDMAP_PLAN §13b,
+  // so a person presses the door and then the control, and so does this: a
+  // `page.click` on a control inside a closed menu waits for a visibility
+  // that never arrives, which is how this sweep reports the regrouping.
+  await page.click('#wb-map-strip [aria-controls="wb-map-text-menu"]');
+  await page.waitForTimeout(400);
   await page.click("#wb-map-bold");
   await page.waitForTimeout(700);
   await page.click("#wb-map-italic");
   await page.waitForTimeout(700);
+  // Shut it with its own toggle, not with Escape: Escape on a map clears the
+  // selection, and everything below this line is about the topic still being
+  // the selected one.
+  await page.click('#wb-map-strip [aria-controls="wb-map-text-menu"]');
+  await page.waitForTimeout(300);
   const marks = await page.evaluate((id) => {
     const node = document.querySelector(`.wb-object[data-id="${id}"]`);
     const text = node.querySelector(".wb-map-text");
@@ -553,8 +564,14 @@ async function newBoard(page, name, type) {
   await page.waitForTimeout(250);
   await page.evaluate((id) => selectWbItem("object", id), kidId);
   await page.waitForTimeout(500);
+  // Behind the strip's Branch line door since §13b, so it is opened first,
+  // the way a person opens it.
+  await page.click('#wb-map-strip [aria-controls="wb-map-line-menu"]');
+  await page.waitForTimeout(400);
   await page.selectOption("#wb-map-edge-shape", "elbow");
   await page.waitForTimeout(1100);
+  await page.click('#wb-map-strip [aria-controls="wb-map-line-menu"]');
+  await page.waitForTimeout(250);
   const elbowed = await page.evaluate((id) => {
     const line = document.querySelector(`.wb-map-edge[data-child="${id}"]`);
     return { stored: wbMapIndex().byId.get(id).data?.edge_style, d: line.getAttribute("d") };

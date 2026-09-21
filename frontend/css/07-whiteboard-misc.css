@@ -9675,7 +9675,13 @@ input[type="file"] {
   white-space: nowrap;
 }
 
-.wb-map-strip button.icon-only {
+/* The bar's own controls, which since §13b are the colour well, three menu
+   toggles and the reset: the child combinator, because a menu's rows are
+   inside a `.wb-board-menu` that `escapeAndCapMenu` moves to <body> the
+   moment the canvas would clip it, and a rule that reached into it would
+   dress a control one way in place and another way escaped. Inside a door,
+   the board menus' own row styling applies, wherever the door is. */
+.wb-map-strip > button.icon-only {
   height: 1.75rem;
   width: 1.75rem;
   min-width: 0;
@@ -9687,14 +9693,18 @@ input[type="file"] {
    inside a tray reads as separate objects sharing a tray). `.active` is a
    control that is currently *on* for this node, which is a fact about the
    node, not a hover state, so it keeps its fill. */
-.wb-map-strip button.ghost:not(.active):not(:disabled) {
+.wb-map-strip > button.ghost:not(.active):not(:disabled),
+.wb-map-strip .wb-menu-toggle:not(.active):not(:disabled) {
   background: none;
   border-color: transparent;
   box-shadow: none;
 }
 
-.wb-map-strip button.ghost:not(.active):hover,
-.wb-map-strip button.ghost:not(.active):focus-visible {
+.wb-map-strip > button.ghost:not(.active):hover,
+.wb-map-strip > button.ghost:not(.active):focus-visible,
+.wb-map-strip .wb-menu-toggle:not(.active):hover,
+.wb-map-strip .wb-menu-toggle:not(.active):focus-visible,
+.wb-map-strip .wb-menu-toggle[aria-expanded="true"] {
   background: var(--ghost-btn-bg);
 }
 
@@ -9736,12 +9746,50 @@ input[type="file"] {
   border-radius: 50%;
 }
 
-/* The size selects stay small enough that the strip does not out-measure the
-   node it belongs to: one or two characters of value plus the caret. */
-.wb-map-strip .select-shell > .select-opener {
+/* A select that is still on the bar itself rather than behind one of §13b's
+   three doors stays small enough that the strip does not out-measure the node
+   it belongs to: one or two characters of value plus the caret. Inside a
+   door, a select is a menu row's control and takes the board menus' own
+   sizing, which is the same in place and escaped. */
+.wb-map-strip > .select-shell > .select-opener {
   height: 1.75rem;
   min-width: 0;
   padding-inline: var(--space-2);
+}
+
+/* --- the strip's three doors (MINDMAP_PLAN.md §13b) ------------------------
+   Text, Shape and Branch line. The bar held fourteen glyphs in one run and
+   measured 959.4px against a 95px topic; these three say in a word what they
+   hold, and each row inside them labels its own control. The toggle is the
+   top bar's own `.wb-menu-toggle` (a word and a caret, reading as a menu
+   rather than as a button that does something), brought to the strip's own
+   1.75rem control height so it sits on the same line as the colour well. */
+.wb-map-strip .wb-menu-toggle {
+  height: 1.75rem;
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+/* The door's panel. Narrower than the board menus' 17rem, because these hold
+   one section of four rows rather than five sections, and centred under its
+   own toggle rather than pinned to its right edge: a 17rem panel hung off the
+   right of a 60px button on a bar that is itself centred on a topic lands
+   well off to one side of the thing it is about. `escapeAndCapMenu` still
+   takes over whenever the canvas would clip it. */
+.wb-map-strip-menu {
+  width: 14rem;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: normal;
+}
+
+/* Escaped to the window (`action-menu-escaped`), the transform above would be applied to a box that
+   `placeEscapedMenu` has already positioned by its own measured left edge,
+   which would put it half its own width to the left of where it was placed. */
+.wb-map-strip-menu.action-menu-escaped {
+  transform: none;
 }
 
 /* --- the node radial (MINDMAP_PLAN.md §12.1 item 3) -------------------------

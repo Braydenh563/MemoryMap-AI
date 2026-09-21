@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The bar that appears over a selected topic on a mind map is a third of the
+  width it was. It carried fourteen icons in one run, 959px of controls to
+  describe a topic 95px wide, which at 1024 took 94% of the window and at no
+  width drew a single word; the same fourteen controls now sit behind three
+  named doors on it, Text, Shape and Branch line, each of which labels every
+  control inside it. The bar measures 314px at 1440, 1024 and 820, and 54px
+  tall instead of 150px on a phone.
 - The loading bar on the splash screen is cheaper to draw, so it stays smooth
   on a slow machine, which is the only kind of machine that sees it for long.
   It used to grow by changing its width, which made the browser lay the page

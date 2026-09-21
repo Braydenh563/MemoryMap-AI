@@ -7406,6 +7406,53 @@ function clearWbSelection() {
 //: to invalidate.
 const WB_PHONE = window.matchMedia("(max-width: 599.98px)");
 
+//: **The strip's three doors, opened and closed from here** (MINDMAP_PLAN
+//: §13b). Text, Shape and Branch line are `.wb-board-menu-wrap`s like the top
+//: bar's five, so opening, the outside click, Escape and the arrow keys are
+//: all the board menus' own wiring and there is no second popover here. What
+//: that wiring has no way to know is that this bar *moves*: it is placed on
+//: the selected topic and re-placed on every pan and zoom frame, and a menu
+//: that `escapeAndCapMenu` has parked in the window's own coordinates would
+//: otherwise stay where the topic used to be. So the open door is re-placed
+//: with the bar, and every door is shut when the bar goes away or when the
+//: selection moves to another topic, which is the one case where a menu about
+//: the old topic would still be on screen over the new one.
+function wbMapStripToggles() {
+  const strip = document.getElementById("wb-map-strip");
+  if (!strip) return [];
+  const out = [];
+  for (const toggle of strip.querySelectorAll("[data-wb-menu-toggle]")) {
+    const menu = document.getElementById(toggle.getAttribute("aria-controls") || "");
+    if (menu) out.push({ toggle, menu });
+  }
+  return out;
+}
+
+function wbCloseMapStripMenus() {
+  for (const { toggle, menu } of wbMapStripToggles()) {
+    if (menu.classList.contains("hidden")) continue;
+    menu.classList.add("hidden");
+    toggle.setAttribute("aria-expanded", "false");
+    //: Back inside its wrap and off the inline cap, the same two steps the
+    //: top bar's own close takes: a menu left escaped is a menu the next
+    //: `wrap.querySelector` cannot find.
+    restoreEscapedMenu(menu);
+    menu.style.maxHeight = "";
+  }
+}
+
+function wbTrackMapStripMenu() {
+  for (const { toggle, menu } of wbMapStripToggles()) {
+    if (menu.classList.contains("hidden")) continue;
+    escapeAndCapMenu(menu, toggle);
+  }
+}
+
+//: Which topic the strip is currently describing, so a move of the selection
+//: can be told from the sixty frames a pan asks about the same topic.
+let wbMapStripNodeId = null;
+
+
 function wbUpdateSelectionBar() {
   const bar = document.getElementById("wb-context");
   if (!bar) return;
@@ -7431,7 +7478,9 @@ function wbUpdateSelectionBar() {
   const active = mapNode ? strip : bar;
   const hideBoth = () => {
     bar.classList.add("hidden");
+    if (strip && !strip.classList.contains("hidden")) wbCloseMapStripMenus();
     strip?.classList.add("hidden");
+    wbMapStripNodeId = null;
     delete bar.dataset.wbAnchor;
   };
   if (!container || !host || wbLinkDragActive || !active) {
@@ -7500,6 +7549,14 @@ function wbUpdateSelectionBar() {
   // Filled before it is measured: the strip's controls take their values from
   // the node, and a select whose value changed is a different width, so
   // reading `offsetWidth` first would centre the bar on last node's size.
+  if (mapNode && mapNode.id !== wbMapStripNodeId) {
+    //: The selection moved to another topic: shut the doors before the bar is
+    //: filled from the new one, or a menu about the topic just left is still
+    //: open over the topic just chosen, writing to neither predictably.
+    wbCloseMapStripMenus();
+    wbMapStripNodeId = mapNode.id;
+  }
+  if (!mapNode) wbMapStripNodeId = null;
   if (mapNode) wbSyncMapStrip(mapNode);
   active.classList.remove("hidden");
   const w = active.offsetWidth, h = active.offsetHeight;
@@ -7566,6 +7623,9 @@ function wbUpdateSelectionBar() {
   }
   active.style.left = `${Math.round(left)}px`;
   active.style.top = `${Math.round(y)}px`;
+  //: The open door goes where the bar goes. Cheap by construction: at most one
+  //: menu is open, and with none open this walks three toggles and returns.
+  if (active === strip) wbTrackMapStripMenu();
 }
 
 // Shared by every item's own click handler (sketch/node/object): a plain

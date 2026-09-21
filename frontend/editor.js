@@ -500,7 +500,9 @@ function skillCommands() {
       id: `skill-input-${name}`,
       primary: true,
       group: "Answers you will be asked for",
-      label: `\u{1F4AC} {{${name}}}`,
+      //: The same rule as the board row above: an icon, not a typed glyph.
+      icon: "ph:chat-teardrop-text",
+      label: `{{${name}}}`,
       hint: "the answer goes here",
       keywords: ["input", "placeholder", "ask", "variable", name],
       run: insert(`{{${name}}}`),
@@ -728,7 +730,16 @@ function editorCommands(context) {
       id: "board-object",
       primary: true,
       group: "Links & references",
-      label: "\u{1F5FA}\u{FE0F} Board or mind map",
+      //: An icon, like every other row (the owner, 2026-09-21: "the boards or
+      //: maps option is the only one with a wrong emoji and not an icon"). It
+      //: was a typed U+1F5FA world map, which the system font drew in colour
+      //: beside a column of monochrome Phosphor glyphs, and which is not what
+      //: this app calls a map anyway. `ph:squares-four` is the board's own
+      //: mark everywhere else in the app (the card chip, the Library row, the
+      //: finder), and the row covers both kinds, so it takes the one a person
+      //: will already have seen.
+      icon: "ph:squares-four",
+      label: "Board or mind map",
       hint: "a preview of it, here in the note",
       keywords: ["board", "whiteboard", "map", "mindmap", "canvas", "object", "embed", "attach", "diagram"],
       run: (textarea) => editorInsertBoardObject(textarea),

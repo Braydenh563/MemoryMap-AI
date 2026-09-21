@@ -1149,6 +1149,88 @@ the reason given in 17a, and the phone is untouched by this section: the
 live view on a phone is UI_MODERNISATION_PLAN Phase 11's territory and
 should not be redesigned from here.
 
+## 18. The slash menus as one system: measured 2026-09-21, phases open
+
+The owner, INBOX 295: "I want you to MAJORLY rework and improve the slash
+commands in the notes and documents, I want them to be properly structured
+elements ... proper objects, they need to make the user's live really easy
+and also they need to be discoverable by the user as well."
+
+**Read the code before believing the brief.** "Not properly structured" is
+not what is there. `EDITOR_SURFACES` in `frontend/editor.js` is an
+id-to-context table, and each context has its own command list whose rows
+carry an id, a group, a label, a hint, search keywords, a `primary` flag and
+a `run`. That is a reasonable object already, and the documents side has a
+second one, `DOC_COMMANDS` in `frontend/documents.js`, 34 rows of id, icon,
+label, chord and `run`, bracketed by markers so `tests/test_doc_commands.py`
+can read its shape without a browser. So this section is not a rewrite of a
+mess. It is the work of making two good tables into one system, and of
+telling anybody that the feature exists.
+
+**Measured on the branch head, 2026-09-21:**
+
+| What | Reading |
+| --- | --- |
+| Contexts with their own commands | note, document, chat, skill |
+| Command groups declared in editor.js | 45 |
+| Labels written as emoji | 38 |
+| Labels written as the app's icon tokens | 10 |
+| Separate command tables | 2, editor.js's per-context lists and documents.js's `DOC_COMMANDS` |
+| Discoverability affordance | none found: the menu exists only once "/" is typed |
+
+The emoji count is the finding. This app ships a vendored icon set and names
+icons as `ph:` tokens everywhere else, and `tests/test_no_glyph_icons.py`
+exists precisely to keep typed characters out of the interface. The slash
+menus are where that rule was never applied: 38 rows against 10. A menu that
+draws its own icons in a different alphabet from every other menu is exactly
+the "not proper objects" the owner is reacting to, even though the data
+behind it is fine.
+
+**Decisions made.**
+
+1. One table shape for every context, and the row is the object: id, icon as
+   a `ph:` token, label, hint, keywords, group, `primary`, chord, `run`. The
+   document table and the editor tables meet at that shape rather than one
+   absorbing the other, because they are reached differently and always will
+   be.
+2. Icons come from the vendored set. No emoji in a command row, held by
+   extending `tests/test_no_glyph_icons.py` to cover the command tables, so
+   the next row added cannot reintroduce them.
+3. A command is discoverable three ways or it is not discoverable: the hint
+   on the surface, the menu itself, and search by keyword rather than by the
+   app's internal vocabulary. The keywords field already exists and is
+   already used for the second of those.
+4. The affordance is shown, not documented. Whatever says "/" is available
+   appears on an empty surface and gets out of the way once there is text,
+   rather than being a line in a help panel nobody opens.
+5. Nothing is added to the chrome, per section 17's rule, and any new recipe
+   arrives with its lint in the same commit (standing order 11).
+
+**Phases, each with its gate.**
+
+- **18a. One row shape.** Reconcile the two tables onto the row described
+  above, without changing what any command does. Gate: a test reads both
+  tables and asserts every row carries every field, and the existing
+  `test_doc_commands.py` still passes.
+- **18b. The icons.** Replace all 38 emoji labels with `ph:` tokens and
+  extend the glyph lint to the command tables. Gate: 0 emoji in any command
+  row by lint, and a probe that opens the menu in each of the four contexts
+  and finds an icon element rather than a text glyph in every row.
+- **18c. Discoverability.** The affordance from decision 4, plus making the
+  menu reachable without typing "/" at all for somebody who does not know it
+  exists. Gate: a probe that opens the menu in each context by the visible
+  route alone, never by typing the slash.
+- **18d. The menu itself.** Grouping, ordering, the `primary` flag's meaning,
+  what happens on no match, and keyboard behaviour end to end. Gate: arrow
+  keys move through the rows, Escape closes and returns focus to the surface,
+  a no-match state says so rather than showing an empty box, and every
+  context is measured at 1440 and 390.
+
+**Not verified.** None of the above is measured on a phone yet, and the chat
+context's commands press controls in the chat dock, so a change there has to
+be measured against that dock rather than assumed. The note context's own
+list was not read row by row for this section; 18a is where that happens.
+
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on

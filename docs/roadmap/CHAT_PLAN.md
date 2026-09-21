@@ -463,3 +463,36 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
   bar.
 - "in the chat tab, the main chat panel shadow actually reaches all the way
   down on the gap."
+
+## Placed from INBOX, 2026-09-21 (the Ask sub-tab, four reports in one pass)
+
+297. **The owner, 2026-09-21, verbatim:** "in the ask subtab in notes, make
+    sure there are appropriate gaps between uploaded files and attachments
+    and the badges and make sure all the badges show." His screenshot shows
+    a file chip, "cab432_lecture_agents.pdf" with a download button, sitting
+    hard against the row of badges under it: Courses & Study, AI 72%,
+    Default Space, and the date. Two things in one: the spacing, and badges
+    that do not all appear. Placed into CHAT_PLAN.
+
+
+298. **The owner, 2026-09-21, verbatim:** "there's no generating animation
+    while the model is thinking and streaming in the ask tab either." The
+    Ask sub-tab in notes. Note that the app has a shared `.spinner`
+    (01-forms-settings.css) whose shape was fixed tonight, so this is a
+    missing call site rather than a new control. Placed into CHAT_PLAN.
+
+
+299. **The owner, 2026-09-21, verbatim:** "can the notes in the matching
+    records that appear in the ask tab be numbered accordingly to match the
+    inline referencing??" The answer's inline references are numbered, and
+    the matching records beside them are not, so the two cannot be read
+    against each other. Placed into CHAT_PLAN.
+
+
+300. **The owner, 2026-09-21, verbatim:** "fix the ui of this sources button
+    in the ask tab." His screenshot shows a full-width pill reading "Sources:
+    10 notes, on the right", spanning the answer column under a "Grounded in"
+    line, with "Ask next" suggestions below it. It reads as a banner rather
+    than a control and it describes where something is rather than doing
+    anything. Placed into CHAT_PLAN.
+

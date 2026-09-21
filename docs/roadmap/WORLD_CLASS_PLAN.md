@@ -2140,3 +2140,13 @@ build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
     `OllamaError` when no endpoint answered at all (distinct from one that
     answered with an empty list), so "unreachable" and "no models installed"
     stop being the same fact. Owner: the models/chat agent.
+
+## Placed from INBOX, 2026-09-21 (two app-wide contracts)
+
+301. **The owner, 2026-09-21, verbatim:** "the application wide
+    forward/backward navigation and undo/redo dont work for everything
+    everywhere." Two app-wide contracts, both of which are the kind that
+    cannot be fixed surface by surface without drifting again. Next step is
+    an audit before any fix: every surface, what it pushes to history and
+    what it makes undoable, as a table. Placed into WORLD_CLASS_PLAN.
+

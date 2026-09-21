@@ -1363,3 +1363,11 @@ glass. What is left is below.
     find the child whose `scrollWidth` is 496 at that width and let it
     shrink, the same `min-width: 0` answer the dock heads take. Owner:
     settings.
+
+## Placed from INBOX, 2026-09-21 (the dashboard's focused hero)
+
+296. **The owner, 2026-09-21, verbatim:** "improve the ui of the hero section
+    in the dashboard when on focused mode." The dashboard's density switch
+    has full, compact and focused; focused is the one he is naming. Placed
+    into UI_MODERNISATION_PLAN's "Placed from INBOX, 2026-09-21".
+

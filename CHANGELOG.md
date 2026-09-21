@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas is shown the tags your notebook already uses before it suggests new
+  ones. It was told only which tags were on the note in front of it, so it had
+  no way to know the notebook already said "ml" and would happily suggest
+  "machine learning" beside it. Now it is asked to reuse an existing tag when
+  one fits.
 - A note with no tags offers to have them written. The action that reads a
   note, suggests tags and links and refiles it was one row deep in the note's
   menu under the name "Re-evaluate", which said the smallest part of what it

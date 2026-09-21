@@ -631,13 +631,27 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
     }
 
 
+def _tag_vocabulary(session: Session) -> list[str]:
+    """The notebook's own tags, most used first.
+
+    Both tag suggesters read this, so a note filed before saving and a note
+    refiled afterwards are offered the same vocabulary and cannot drift
+    apart. `manager.all_tags` is cached by notebook fingerprint, so this is
+    a dictionary lookup rather than a scan on the common path.
+    """
+    counts = manager.all_tags(session)
+    return [tag for tag, _count in sorted(counts.items(), key=lambda row: (-row[1], row[0]))]
+
+
 class SuggestTagsBody(BaseModel):
     content: str
     tags: list[str] = Field(default_factory=list)
 
 
 @router.post("/suggest-tags")
-def suggest_tags_for_draft(body: SuggestTagsBody) -> dict:
+def suggest_tags_for_draft(
+    body: SuggestTagsBody, session: Session = Depends(get_session)
+) -> dict:
     """Tag suggestions for a note that doesn't exist yet: the other half of
     a report that `/{entry_id}/reevaluate` only ever covered post-save:
     "the ai and application doesnt suggest tags either before creating a
@@ -653,7 +667,11 @@ def suggest_tags_for_draft(body: SuggestTagsBody) -> dict:
         return {"suggested_tags": []}
     try:
         suggested = librarian.suggest_tags(
-            content, body.tags, deps.get_model_manager(), deps.get_ollama()
+            content,
+            body.tags,
+            deps.get_model_manager(),
+            deps.get_ollama(),
+            vocabulary=_tag_vocabulary(session),
         )
     except Exception:
         suggested = []
@@ -771,6 +789,7 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
             manager.entry_tags(entry),
             deps.get_model_manager(),
             deps.get_ollama(),
+            vocabulary=_tag_vocabulary(session),
         )
     except Exception:
         suggested_tags = []

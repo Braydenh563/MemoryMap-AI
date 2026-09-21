@@ -123,50 +123,6 @@ with its owner named in the entry.
     a real release run, only against the workflow and installer sources as
     text. (1), (5), (6) and (7) remain open, somebody else's.
 
-267. **Mid-work drop, 2026-09-20, verbatim (the owner), a screenshot of four
-    lines.** "Alignment bars don't appear for group selections
-    Double tap anchor resize nodes to auto size adjust
-    In-text referencing and grounding in the ask subtab doesn't stick, the
-    wrong numbers will be used and in the wrong spot, and the numbers wont
-    match the grounding.
-    Grounding and in-text referencing not working now?? Needs fix."
-    Four things, taken worst first: (1) grounding and in-text references in
-    Ask, which the owner wrote twice and which is the one that makes answers
-    untrustworthy, (2) alignment bars missing on a group selection, which a
-    previous session recorded as built (`5273bae`), so measure before
-    believing either, (3) double-tapping a resize anchor to fit the content.
-    (2) fixed: measured first, and the report was right for a reason nobody
-    had guessed. A group of *cards* has drawn its guides since
-    `wbBulkGroupBox` landed, verified at 1 guide line on a two-card group
-    dragged into line. The sketch drag handler never asked for guides at all,
-    solo or in a group, so a marquee that caught a sketch and was dragged by
-    it was the one selection on the board with none. `wbBulkGroupBox` now
-    takes the dragged item's own box, since a sketch is a path with no
-    x/y/width/height, and the sketch handler snaps and draws like the other
-    two. Probe: `scratchpad/ui-sweeps/wbgroupguides.js`, in the gate's sweep
-    set. (3) fixed: the gesture was already wired (a `dblclick` on
-    `.wb-resize-handle` calling `wbFitToText`) and measured as doing nothing.
-    Two causes, both real. The handles carried no title, so the gesture was
-    invisible and indistinguishable from missing, which is why it was
-    reported as missing. And `wbFitToText` measured the *card's* own
-    `scrollHeight`, which cannot answer the question: `.wb-card-content`
-    clips on purpose (INBOX 238), so the card's scroll height is the height
-    of a box that is already clipping. It measures the content, unclipped,
-    plus the card's chrome now. Measured: a 100px card holding fourteen
-    wrapped lines went 100px to 100px before and 100px to 748px after, with
-    nothing clipped. Probe: `scratchpad/ui-sweeps/wbfitanchor.js`.
-    (1) fixed, `0f5d46d`, and measured: `liveMarkdownRenderer` armed a paint
-    up to 66ms before the stream ended, which fired after the markers were
-    placed and repainted the box from raw markdown, removing all three. The
-    Ask tab was the one caller that never called the renderer's own `stop()`,
-    which has existed for this since INBOX 40. Probe:
-    `scratchpad/ui-sweeps/askgrounding.js` against
-    `scratchpad/fake_answer_server.py`, 0 markers before, 3 after, numbered
-    1/2/3 against chips 1/2/3 and Sources rows 1/2/3. The reported "wrong
-    numbers" could not be reproduced on a clean notebook: 1/3/5 came from a
-    scratch data dir holding duplicate notes from earlier probe runs, so the
-    sources list genuinely had five rows. (2) and (3) open.
-
 268. **Mid-work drop, 2026-09-20, verbatim (the owner), with two
     screenshots.** "what is the difference between the exe and msi installer??
     also Cut off after 3 skill steps with barely any tool calls and skills are

@@ -34,6 +34,35 @@ with its owner named in the entry.
 
 ## Open items
 
+315. **The owner, 2026-09-21, verbatim, with a screenshot:** "I pressed next
+    on the first thing of the guided tour and this happened, the guided tour
+    is still broken". The screenshot is the Reminders tab with no tour card
+    and no dim: the tour is gone, not stuck.
+
+    Read from the code, not yet reproduced. `tourShow` drops a step whose
+    target is not `tourVisible` and `tourOnScreen`, splices it out of the run
+    and continues; if every remaining step is dropped the loop falls through
+    to `tourClose(true)`, which ends the tour silently wherever the last
+    `tourNavigate` left you. That is exactly the screenshot: Next navigated
+    to a step's tab, the target was not judged on screen, and the rest of the
+    run was eaten one step at a time until the tour closed on Reminders.
+
+    The likely cause is the judging, not the steps: `tourWaitForTarget` waits
+    for the element to exist, but a tab that has just been switched to has
+    not necessarily laid out, so `tourOnScreen` can be asked before the
+    answer is meaningful. Two things to fix together: wait for layout (a
+    frame, or the element having a non-zero box) before judging, and **never
+    let the run empty itself in silence**: a tour that cannot find its next
+    step should say so and stay open on the step it has, because a tour that
+    vanishes mid-gesture is the third report of this surface being broken and
+    it reads as the whole feature failing.
+
+    Note against the earlier fix: today's tour work (the dim moved off
+    `.tour-spot` onto four panels, `toursteps.js` 24 of 24 across three
+    widths and both themes) measured the steps that survive. It never
+    measured a step being dropped, so the probe would pass with this bug
+    present. Whatever fixes this must add a gate for the drop path.
+
 314. **The owner, 2026-09-21, verbatim, a regression in the reading
     workspace on a scanned PDF:** "on the ocr workspace, I have previously
     used an ocr model to read this scanned pdf document and I could scroll

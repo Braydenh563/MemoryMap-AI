@@ -1,0 +1,215 @@
+"""An animation may not move a layout property without saying why (INBOX 308).
+
+The owner, verbatim: "I also think we need to make sure that all animations for
+things are done the cheapest they can be to reduce cost in the browser and
+devices. like using transform etc etc."
+
+An animated `width`, `height`, `top`, `left`, `margin` or `padding` makes the
+browser lay the page out again on every frame of the animation, on the frames
+where it is least affordable: a boot, a scroll, a phone. `transform` and
+`opacity` are handed to the compositor and cost no layout at all. The
+difference is not theoretical, and this repository has the number: converting
+the boot splash's progress bar from `width` to `transform: scaleX()` took one
+2.4s crawl from 121 layouts to 0 (`scratchpad/ui-sweeps/animcost.js`, which
+re-measures it).
+
+So this lint fails on a `transition` or a `@keyframes` rule that names one of
+those properties, and passes it when the declaration carries a stated reason in
+a `/* ... */` comment ending on the line above. The escape is a comment rather
+than a list of blessed selectors kept here, because the reason has to be read
+where the trade is made, and a list in a test file rots the moment the
+stylesheet moves. There is exactly one such reason in the app today, at
+`#phone-tab-dock`'s `transition: height` in `10-responsive.css`: a bar that
+recedes from 57.59px to 44px really is a box changing size with content in it,
+where `translateY` would take the bottom off a 44px touch target and `scaleY`
+would squash the icons.
+
+**`box-shadow` is deliberately not on the list**, and this is the place that
+decision is written down so it is not remade. Ten transitions in
+`frontend/css/` animate it, mostly the hover lift on buttons and cards. It
+repaints, it does not relayout, it is the app's idiomatic hover treatment, and
+the cheaper form (a pseudo-element carrying the shadow, animated on `opacity`)
+costs an extra box on every one of those surfaces. A rule that fires on the
+ordinary, correct thing is a rule people learn to suppress rather than obey, so
+this one fires only where there is a real layout to avoid. If shadow repaints
+ever show up in a measurement, the answer is that measurement and a plan entry,
+not a widening of this rule.
+
+Like the other frontend lints this cannot see the DOM. What runs against a real
+browser is `scratchpad/ui-sweeps/animcost.js`, which counts the layouts an
+animation actually forces.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+CSS_DIR = ROOT / "frontend"
+
+#: The properties whose animation costs a layout. Matched as whole property
+#: names, never as substrings: `border-width` and `stroke-width` are not
+#: `width`, and a lint that failed on them would be teaching the wrong rule.
+#: The longhands and the logical/min/max forms are here because they are the
+#: same fault written differently, which is exactly how a rule gets worked
+#: around.
+_BOX = ["margin", "padding"]
+_SIDES = ["top", "right", "bottom", "left", "block", "inline", "block-start",
+          "block-end", "inline-start", "inline-end"]
+LAYOUT_PROPERTIES = frozenset(
+    ["width", "height", "min-width", "max-width", "min-height", "max-height",
+     "top", "right", "bottom", "left",
+     "inset", "inset-block", "inset-inline",
+     "block-size", "inline-size", "min-block-size", "max-block-size",
+     "min-inline-size", "max-inline-size"]
+    + _BOX
+    + [f"{b}-{s}" for b in _BOX for s in _SIDES]
+)
+
+#: `all` is worse than naming one of them: it animates whatever happens to
+#: change, layout properties included, and nobody reading the rule can tell
+#: what it will move.
+BANNED_SHORTHANDS = frozenset({"all"})
+
+#: Not property names: the rest of a `transition` value. Durations and delays
+#: are stripped by their units, this is for the timing-function keywords and
+#: the two behaviour keywords, so that `ease` and `linear` are never read as
+#: properties.
+_NOT_PROPERTIES = frozenset({
+    "ease", "ease-in", "ease-out", "ease-in-out", "linear", "step-start",
+    "step-end", "normal", "allow-discrete", "none", "initial", "inherit",
+    "unset", "revert",
+})
+
+COMMENT_END = re.compile(r"\*/\s*$")
+DURATION = re.compile(r"^[\d.]+m?s$")
+
+
+def _css_files() -> list[Path]:
+    return sorted(p for p in CSS_DIR.rglob("*.css") if ".min." not in p.name)
+
+
+def _strip_comments(value: str) -> str:
+    return re.sub(r"/\*.*?\*/", " ", value, flags=re.S)
+
+
+def _has_reason(lines: list[str], index: int) -> bool:
+    """Does a `/* ... */` comment end on the line above `index`, with words in it?
+
+    A bare `/* */` or a comment that only repeats the property name is not a
+    reason; the shortest thing that passes here is a short sentence, which is
+    the point: the reader of the rule needs to know what was traded away.
+    """
+    if index == 0:
+        return False
+    if not COMMENT_END.search(lines[index - 1].strip()):
+        return False
+    # Walk back to the comment's opening so the whole block counts as the
+    # reason, not only its last line: the reasons in this codebase are
+    # paragraphs, and the one that matters most is eleven lines long.
+    i = index - 1
+    while i >= 0 and "/*" not in lines[i]:
+        i -= 1
+    if i < 0:
+        return False
+    body = re.sub(r"[/*]", " ", "\n".join(lines[i:index]))
+    return len(body.split()) >= 5
+
+
+def _transition_properties(value: str) -> set[str]:
+    """The property names in a `transition` / `transition-property` value."""
+    found: set[str] = set()
+    for part in _strip_comments(value).split(","):
+        for token in part.replace("(", " ").replace(")", " ").split():
+            token = token.strip().lower()
+            if not token or token in _NOT_PROPERTIES or DURATION.match(token):
+                continue
+            if token.startswith("cubic-bezier") or token.startswith("steps"):
+                continue
+            if token.startswith("var(") or token.startswith("--"):
+                continue
+            found.add(token)
+    return found
+
+
+def _blocks(source: str) -> list[tuple[int, int, str]]:
+    """Every `@keyframes` block as (open line, close line, body)."""
+    out = []
+    for match in re.finditer(r"@keyframes\s+([\w-]+)\s*\{", source):
+        depth, i = 1, match.end()
+        while depth and i < len(source):
+            if source[i] == "{":
+                depth += 1
+            elif source[i] == "}":
+                depth -= 1
+            i += 1
+        out.append((source.count("\n", 0, match.start()), match.group(1),
+                    source[match.end():i]))
+    return out
+
+
+@pytest.mark.parametrize("path", _css_files(), ids=lambda p: p.name)
+def test_transitions_do_not_animate_layout(path: Path):
+    lines = path.read_text(encoding="utf-8").splitlines()
+    offenders = []
+    for n, line in enumerate(lines):
+        match = re.search(r"(?<![-\w])(transition(?:-property)?)\s*:([^;{}]*)", line)
+        if not match:
+            continue
+        named = _transition_properties(match.group(2))
+        bad = sorted((named & LAYOUT_PROPERTIES) | (named & BANNED_SHORTHANDS))
+        if bad and not _has_reason(lines, n):
+            offenders.append(f"{path.name}:{n + 1}: transition animates {', '.join(bad)}")
+    assert not offenders, (
+        "\n".join(offenders)
+        + "\n\nAnimating a layout property lays the page out on every frame. "
+        "Use `transform` (scaleX/translate) or `opacity`, which the compositor "
+        "handles: a full-width box scaled from a left origin inside a clipping "
+        "track is the recipe for a bar, and 00-tokens-shell.css's "
+        "`.boot-splash-progress-fill` is the worked example. If the box really "
+        "does change size with content in it, keep the transition and write the "
+        "reason in a /* ... */ comment on the line above, as "
+        "`#phone-tab-dock` does."
+    )
+
+
+@pytest.mark.parametrize("path", _css_files(), ids=lambda p: p.name)
+def test_keyframes_do_not_animate_layout(path: Path):
+    source = path.read_text(encoding="utf-8")
+    lines = source.splitlines()
+    offenders = []
+    for start, name, body in _blocks(source):
+        named = {
+            m.group(1).lower()
+            for m in re.finditer(r"(?<![-\w])([a-z-]+)\s*:", _strip_comments(body))
+        }
+        bad = sorted(named & LAYOUT_PROPERTIES)
+        if bad and not _has_reason(lines, start):
+            offenders.append(
+                f"{path.name}:{start + 1}: @keyframes {name} animates {', '.join(bad)}"
+            )
+    assert not offenders, (
+        "\n".join(offenders)
+        + "\n\nA keyframe that moves a layout property lays the page out on "
+        "every frame of the animation. Animate `transform` or `opacity` "
+        "instead, or write the reason in a /* ... */ comment above the "
+        "`@keyframes` line."
+    )
+
+
+def test_the_rule_is_written_where_designers_read_it():
+    """DESIGN.md carries the rule, because a lint nobody has read is a trap.
+
+    Standing order 11: new UI comes from DESIGN.md's recipe index, and a rule
+    arrives with its lint. This is the other half of that, checked, so the two
+    cannot drift apart the way an undocumented lint always does.
+    """
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "test_cheap_animations" in design, (
+        "docs/DESIGN.md does not mention this lint; the rule about animating "
+        "transform rather than width/height has to be readable where the design "
+        "system is, not only where it is enforced"
+    )

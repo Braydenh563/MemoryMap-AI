@@ -126,4 +126,35 @@ async function once(browser, { control }) {
     `recalcs=${col(out.animated, 'recalcs') - col(out.control, 'recalcs')} ` +
     `layoutMs=${(col(out.animated, 'layoutMs') - col(out.control, 'layoutMs')).toFixed(2)}`);
   console.log('  geometry mid-crawl:', JSON.stringify(out.animated[0].geom));
+
+  // A verdict, not only a reading: this runs in scripts/gate.sh --sweeps, and a
+  // step that can only pass measures nothing. Two findings, both of them the
+  // ways this particular change comes undone.
+  const findings = [];
+  const attributable = col(out.animated, 'layouts') - col(out.control, 'layouts');
+  // The threshold is not zero because a boot is not perfectly repeatable: the
+  // control floor moved between 2 and 3 across runs on the machine this was
+  // written on. It is far below the 121 a width animation costs, so a bar that
+  // goes back to animating width fails this by twenty times over.
+  if (attributable > 8) {
+    findings.push(`the progress bar forces ${attributable} layouts over its crawl; ` +
+      'it should force none. Something in .boot-splash-progress-fill is animating ' +
+      'a layout property again (00-tokens-shell.css).');
+  }
+  const g = out.animated[0].geom;
+  if (!g) findings.push('no boot splash progress bar on the page at all');
+  else {
+    // Cheap and wrong is not a win: the fill still has to be a fraction of its
+    // track, flush with its left edge.
+    if (g.leftGap > 0.5) findings.push(`the fill starts ${g.leftGap}px in from the track's left edge`);
+    if (!(g.fillW > 8 && g.fillW < g.trackW)) {
+      findings.push(`the fill measures ${g.fillW}px inside a ${g.trackW}px track, which is not a bar part way along`);
+    }
+  }
+  if (findings.length) {
+    console.log('FINDINGS:');
+    for (const f of findings) console.log('  - ' + f);
+    process.exit(1);
+  }
+  console.log('  0 findings');
 })();

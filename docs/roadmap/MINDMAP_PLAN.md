@@ -901,6 +901,19 @@ topic: a control that wide has nowhere to go.
 5. **Nothing is added to the canvas.** Per standing order 11, any new
    affordance comes from DESIGN.md's recipe index or arrives with its own
    recipe and lint in the same commit.
+6. **A cross-link has no colour of its own** (taken 2026-09-21, building
+   13c). It is drawn in `--muted`, dashed, whatever the rail's ink well held
+   when it was drawn. The alternative was to keep the stored colour and give
+   the ring a colour well, which would have let a person paint a cross-link in
+   a branch's colour: two kinds of line that can be given each other's look
+   are two kinds nobody can tell apart, which is the report this section
+   exists for. The colour stays on the row, so an ordinary board still draws
+   it and a map turned back into a board gets it back.
+7. **The ring's middle slot promotes a cross-link to a branch** (taken
+   2026-09-21, building 13c). The gesture that makes one or the other decides
+   from whether the far end is already in the tree, which nothing on screen
+   can say in advance without describing the tree; the honest answer is a way
+   back afterwards, in the surface that already names both kinds.
 
 ### Phases, each with the gate it is finished against
 
@@ -961,11 +974,18 @@ topic: a control that wide has nowhere to go.
   its gate asked that this did not measure: whether the strip still covers the
   handle of the line into its own topic. It is a third of the width it was,
   which makes it far less likely and does not make it false.
-- **13c. One vocabulary for two connections.** The free link on a map gets the
-  link ring rather than the board's context bar, and one word that says what
-  it is. Gate: `maptwokinds.js` extended so that right-clicking either kind
-  opens the same ring with the slots that apply, and the board's context bar
-  never appears for a link on a map.
+- ~~**13c. One vocabulary for two connections.**~~ **Built 2026-09-21**, and
+  the record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
+  MINDMAP_PLAN.md section 13c: one vocabulary for two connections"). Both
+  kinds get the same ring, which names the kind it is on; the board's context
+  bar never appears for a cross-link on a map; the rail says cross-link on a
+  map and link on a board; a cross-link draws in the map's own ink, dashed,
+  whatever the pen held, and is told it is one before it is first drawn rather
+  than at the next reload. `maptwokinds.js` 10 checks to 16, **16/16**, six of
+  which fail on the base branch. **What is left of 13c**: a right-click that
+  lands on a selected cross-link's bend grip still does nothing (the grip
+  takes the press), and nothing yet says which kind a drag is about to make
+  *while* it is in flight, only after it lands.
 - **13d. A free link survives an export.** FreeMind's `<arrowlink>` first,
   since it has a place for it; OPML and Markdown need the decision made
   before the code. Gate: a map with one cross link round-trips through

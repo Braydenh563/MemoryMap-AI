@@ -9,6 +9,68 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From MINDMAP_PLAN.md section 13c: one vocabulary for two connections
+
+Built 2026-09-21. Section 13.2 measured what the owner's "there are two types
+of connections" cost in practice: a branch (the child's own `parent_id`) and a
+cross-link (a link sketch naming both ends) sat beside each other, and a
+right-click on the first opened the map's ring while a right-click on the
+second opened the *board's* flat menu and its context bar, with a different
+vocabulary (ink, caps, stroke) for the same idea. Nothing anywhere said which
+kind a line was, and the rail's two Connect tools, the only controls on screen
+with the word Connect on them, both made the kind nobody had a word for.
+
+What changed, all of it in the controls, none of it in the data (§13's
+decision 2: "the data keeps two kinds of connection; the controls stop having
+two"):
+
+- **One ring for both.** `wbOpenMapCrossLinkRadial` opens the same three-slot
+  ring on a cross-link, through the one door every right-click and hold
+  already went through (`wbOpenContextMenuFor`). The ring names the kind it is
+  on, in its `aria-label` and in the caption under it, and two of its three
+  slots do the kind's own thing: Cut takes a branch off its parent and deletes
+  a cross-link outright, and the middle slot labels a branch and **turns a
+  cross-link into one**.
+- **"Make branch"**, the new slot, is the way back from the gesture that
+  decides for you: `wbMapJoinByLink` makes a branch when the far end is not
+  yet in the tree and a cross-link when it is, which is invisible at the time.
+  The far end moves under the near one, its own branch comes with it, and the
+  cross-link row goes.
+- **The board's context bar never appears for a cross-link on a map.**
+  `wbContextKindOf` returns null for one, so the second vocabulary is gone
+  rather than merely discouraged. A link between a topic and a card, and every
+  link on an ordinary board, still gets the bar.
+- **The rail says which kind it makes.** On a map the Connect section is
+  "Cross-link" and its two tools are "Straight cross-link (C)" and "Curved
+  cross-link (Shift+C)", each saying it joins two branches without changing
+  the tree and where a branch comes from instead. On a board the words are
+  untouched. The section's `aria-label` moves with the drawn word, because the
+  rail's section labels are 1x1 on screen and the label is what a screen
+  reader reads.
+- **A cross-link is drawn in the map's own ink**, `--muted`, dashed, whatever
+  colour the pen held. A link sketch carries the rail ink well's colour, which
+  on a map is meaningless (the branches are coloured by the palette), so a
+  cross-link drawn while the ink was red read as a red branch. Two kinds that
+  can be given each other's look are two kinds nobody can tell apart.
+- **And it is told it is one before it is drawn.** What marks a link sketch as
+  a cross-link is the board tree's `cross_links`, fetched with the map's
+  state, so a link drawn now and rendered now carried none of the map's
+  treatment until the board was next opened: solid, in the pen's colour, for
+  the whole of the session that drew it. `dragEndNode` now awaits
+  `wbRefreshMapState` before the render, and so do the cut and the promotion.
+- **The drawing gesture says what it made.** The branch half already toasted
+  ("Connected to ... as a branch"); the cross-link half now does too.
+
+Measured with `scratchpad/ui-sweeps/maptwokinds.js`, extended from 10 checks
+to 16 and **16/16**. Six of them fail on the base branch, which is what says
+the change is the change: the context row reads "link" there, the right-click
+opens no ring, the ring says "this line" on both kinds, the cross-link draws
+in `rgb(125, 211, 200)` (the pen) rather than `rgb(76, 85, 99)` (the map's
+ink), and the rail says "Connect: Straight link (C)". Two of the sweep's own
+checks were **inverted** by this work and say so in a comment, because they
+asserted the behaviour §13.2 measured and this pass removed.
+
+
 ### From MINDMAP_PLAN.md section 13b: the topic strip is sized like a topic
 
 Built 2026-09-21. Section 13.5 measured the map's topic strip at **959.4 x 38**

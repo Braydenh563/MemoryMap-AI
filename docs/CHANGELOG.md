@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A mind map now says which of its two kinds of connection it is talking
+  about, everywhere it talks about one. A branch and a cross-link get the same
+  ring, which names the kind it is on and offers the right three things for
+  it, including turning a cross-link into a branch when the drawing gesture
+  guessed wrong; the tool rail says cross-link on a map and link on a board;
+  and a cross-link is drawn in the map's own ink, dashed, from the moment it
+  is drawn rather than from the next time the board is opened. It used to take
+  the pen's colour, so one drawn while the ink was red read as a branch.
 - The bar that appears over a selected topic on a mind map is a third of the
   width it was. It carried fourteen icons in one run, 959px of controls to
   describe a topic 95px wide, which at 1024 took 94% of the window and at no

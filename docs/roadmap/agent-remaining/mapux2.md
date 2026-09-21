@@ -15,11 +15,27 @@
   window); 348.4 x 150 to 314 x 54 at 390. Fourteen unlabelled icons in one
   run to five controls, three of which are named doors. `mapstrip.js` 39/39.
 
+- **13c, one vocabulary for two connections.** Both kinds on one ring, which
+  names the kind; no board context bar for a cross-link on a map; the rail
+  says cross-link on a map; a cross-link draws in the map's ink, dashed, and
+  is marked as one before its first paint rather than at the next reload.
+  `maptwokinds.js` 10 checks to 16, 16/16, six failing on base.
+
 ## Left to do
 
 - The rest of section 13's phases, in the plan's own order.
 
 ## Found, not fixed
+
+- **A right-click on a selected cross-link's bend grip does nothing.** The
+  grip takes the press (measured: `circle.wb-link-bend-handle` under the
+  pointer at the line's mid-point), so the ring never opens there.
+  `maptwokinds.js` works around it by pressing at 35% of the line's length.
+  The fix is a `contextmenu` on the grip that opens the same ring.
+- **Nothing says which kind a connect drag is about to make while it is in
+  flight.** Both kinds say what they made once it lands. A live cue on the
+  drag preview is the remaining half of §13.2's "one gesture produces either,
+  decided by something invisible".
 
 - **`scratchpad/ui-sweeps/mapstyle.js` fails its "radial slot" check on the
   base branch too** (`claude/open-sections-a-b`, measured by stashing this

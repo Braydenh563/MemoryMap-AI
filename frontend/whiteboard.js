@@ -2412,6 +2412,14 @@ function wbContextKindOf(sel, item) {
       const candidate = JSON.parse(item.data);
       if (candidate && (candidate.type || "").startsWith("link-")) parsedLink = candidate;
     } catch { /* not JSON: not a link either */ }
+    //: **A cross-link on a map has no board bar** (§13c). Its whole control
+    //: surface is the map's own link ring now, and the board's bar was the
+    //: second vocabulary for the same object that §13.2 measured (ink, caps
+    //: and stroke, against the ring's own words). A link between a topic and a
+    //: card, or any link on an ordinary board, still gets the bar: it is not
+    //: one of the map's two kinds of connection and the ring has nothing to
+    //: say about it.
+    if (parsedLink && wbMapCrossLinkInfo(item.id)) return null;
     if (parsedLink) return "link";
     const parsed = wbSketchParsedData(item);
     if (!parsed) return null;
@@ -6238,10 +6246,58 @@ const WB_BOARD_ONLY_TOOLS = new Set([
 //: sections that only make sense on a board are marked in the markup, the
 //: map's own sections are marked the other way, and the shared three (move,
 //: connect, edit) carry no marker at all and are never touched here.
+//: **The rail says which of the map's two connections its Connect tools
+//: make** (MINDMAP_PLAN §13c). §13.3 measured the exact place the owner's
+//: "there are two types of connections" is *felt*: the Connect section's two
+//: buttons are the only things on screen with the word Connect on them, and
+//: both make a **cross-link**. Nothing on the rail makes a branch, because a
+//: branch is Tab, Enter, the ring or the node's own `+`. The words are the
+//: cheapest possible fix and the one the plan asked for: on a map the tools
+//: say cross-link and the section says what the other kind is and where it
+//: comes from. On a board there is only one kind of link, so the board's own
+//: words are left exactly as they were.
+const WB_CONNECT_WORDS = {
+  map: {
+    section: ["Cross-link", "Join two branches without changing the tree. A branch itself is Tab, or the topic's own +"],
+    "link-straight": ["Straight cross-link (C)", "Straight cross-link (C): drag from one topic to another. It joins two branches without changing the tree"],
+    "link-curved": ["Curved cross-link (Shift+C)", "Curved cross-link (Shift+C): drag from one topic to another. It joins two branches without changing the tree"],
+  },
+  board: {
+    section: ["Connect", "Join two things together"],
+    "link-straight": ["Straight link (C)", "Straight link (C): drag from one card to another"],
+    "link-curved": ["Curved link (Shift+C)", "Curved link (Shift+C): drag from one card to another"],
+  },
+};
+
+function wbSyncConnectWords(isMap) {
+  const words = WB_CONNECT_WORDS[isMap ? "map" : "board"];
+  const section = document.querySelector('#wb-tool-group .wb-tool-section[role="group"][aria-label="Connect"]');
+  if (section) {
+    const label = section.querySelector(".wb-tool-section-label");
+    if (label) {
+      label.textContent = words.section[0];
+      label.title = words.section[1];
+    }
+    //: The group's own accessible name as well as the word in it: the label
+    //: is `1x1` on screen (the rail's sections are named for a screen reader,
+    //: not drawn), so the `aria-label` is what a screen reader actually says
+    //: here and leaving it as "Connect" would keep the old vocabulary in the
+    //: one place it is read aloud.
+    section.setAttribute("aria-label", words.section[0]);
+  }
+  for (const tool of ["link-straight", "link-curved"]) {
+    const button = document.querySelector(`#wb-tool-group [data-tool="${tool}"]`);
+    if (!button) continue;
+    button.setAttribute("aria-label", words[tool][0]);
+    button.title = words[tool][1];
+  }
+}
+
 function wbSyncToolSurfaces(isMap) {
   for (const section of document.querySelectorAll("#wb-tool-group [data-wb-surface]")) {
     section.hidden = section.dataset.wbSurface === (isMap ? "board" : "map");
   }
+  wbSyncConnectWords(isMap);
   // A tool stays selected across a board switch, so opening a map while the
   // pen was active would leave the pen drawing on a surface whose own button
   // is no longer on screen: a mode with no way out, which is the exact shape
@@ -7023,12 +7079,47 @@ async function wbMapResetToBranch(id) {
 //: (right-click, or hold on a touch screen), which is one gesture to learn
 //: rather than two, and the colour well is a slot inside it.
 let wbMapLinkRadialFor = null;
+//: **The same ring, on the map's other kind of connection** (MINDMAP_PLAN
+//: §13c). A map has two: the branch, which is the child's own `parent_id` and
+//: is therefore stored on the child, and the cross-link, which is a link
+//: sketch naming both ends. §13.2 measured what that cost a person: a
+//: right-click on a branch opened this ring, a right-click on a cross-link
+//: opened the *board's* flat menu and its context bar, so the same gesture on
+//: two lines that sit beside each other gave two different surfaces with two
+//: different vocabularies. One ring, told which kind it is on, is the fix
+//: §13's decision 2 asked for: "the data keeps two kinds of connection; the
+//: controls stop having two."
+let wbMapLinkRadialCross = null;
 
 function wbCloseMapLinkRadial() {
   const ring = document.getElementById("wb-map-link-radial");
   if (!ring || ring.classList.contains("hidden")) return;
   ring.classList.add("hidden");
   wbMapLinkRadialFor = null;
+  wbMapLinkRadialCross = null;
+}
+
+//: A cross-link, read from a sketch row: its parsed data plus both topics,
+//: or null for a sketch that is not one (an ordinary board connector, a link
+//: to a card, a line whose ends are gone). One reader, because every slot
+//: below and the renderer's own dashed class all have to agree about what
+//: counts as a cross-link.
+function wbMapCrossLinkInfo(sketchId) {
+  if (!wbIsMap()) return null;
+  const sketch = (wbState.sketches || []).find((x) => x.id === sketchId);
+  if (!sketch) return null;
+  let data = null;
+  try {
+    data = JSON.parse(sketch.data);
+  } catch {
+    return null;
+  }
+  if (!data || !String(data.type || "").startsWith("link-")) return null;
+  const index = wbMapIndex();
+  const source = index.byId.get(data.sourceId);
+  const target = index.byId.get(data.targetId);
+  if (!source || !target) return null;
+  return { sketch, data, source, target, index };
 }
 
 //: **Which lines show their waypoint handle without being pointed at.**
@@ -7175,19 +7266,162 @@ function wbOpenMapLinkRadial(childId, clientX, clientY) {
   // you were not looking.
   const hostRect = host.getBoundingClientRect();
   wbMapLinkRadialFor = childId;
+  wbMapLinkRadialCross = null;
   wbPlaceMapRadial(ring, host, clientX - hostRect.left, clientY - hostRect.top);
   wbSyncMapLinkRadial(child, index);
 }
 
+//: The same ring on a cross-link. Returns whether it took the gesture, so the
+//: one door every right-click and hold goes through (`wbOpenContextMenuFor`)
+//: can fall back to the board's flat menu for a link that is not one.
+function wbOpenMapCrossLinkRadial(sketchId, clientX, clientY) {
+  const info = wbMapCrossLinkInfo(sketchId);
+  const ring = document.getElementById("wb-map-link-radial");
+  const host = document.getElementById("library-view-whiteboard");
+  if (!info || !ring || !host) return false;
+  wbCloseContextMenu();
+  wbCloseMapRadial();
+  const hostRect = host.getBoundingClientRect();
+  wbMapLinkRadialFor = null;
+  wbMapLinkRadialCross = sketchId;
+  wbPlaceMapRadial(ring, host, clientX - hostRect.left, clientY - hostRect.top);
+  wbSyncMapLinkRadial(null, info.index);
+  return true;
+}
+
+//: **The ring says which of the two lines it is on, in words** (§13c). The
+//: three slots are the same three either way, and two of them mean something
+//: different on each: Cut takes a branch off its parent and deletes a
+//: cross-link outright, and the middle slot labels a branch and turns a
+//: cross-link into one. Saying so on the slot, rather than relying on the
+//: person having noticed which line they right-clicked, is the whole point of
+//: this pass: §13.2 found that nothing on screen said which kind was which.
 function wbSyncMapLinkRadial(child, index) {
   const reverse = document.getElementById("wb-link-reverse");
-  if (reverse) {
+  const middle = document.getElementById("wb-link-label");
+  const cut = document.getElementById("wb-link-cut");
+  const ring = document.getElementById("wb-map-link-radial");
+  const cross = wbMapLinkRadialCross != null;
+  const setSlot = (el, word, title, icon) => {
+    if (!el) return;
+    el.querySelector(".wb-map-radial-name").textContent = word;
+    el.title = title;
+    el.setAttribute("aria-label", title);
+    const glyph = el.querySelector("i");
+    if (glyph) glyph.className = icon;
+  };
+  if (ring) {
+    ring.setAttribute("aria-label", cross ? "What you can do with this cross-link" : "What you can do with this branch");
+    const caption = ring.querySelector(".wb-map-radial-caption");
+    if (caption) {
+      caption.dataset.rest = cross
+        ? "A cross-link: it joins two branches without changing the tree"
+        : "A branch: the line the tree itself is made of";
+      //: The drawn text as well as the attribute: `data-rest` is what the
+      //: caption goes back to when the pointer leaves a slot, and the ring was
+      //: already placed (and the caption already painted from the old value)
+      //: by the time this runs.
+      caption.textContent = caption.dataset.rest;
+    }
+  }
+  if (cross) {
+    setSlot(reverse, "Reverse", "Turn this cross-link around: it points the other way", "ph ph-swap");
+    setSlot(middle, "Make branch", "Make this a branch instead: the topic at the far end moves under this one", "ph ph-tree-structure");
+    setSlot(cut, "Cut", "Cut this cross-link: the two topics keep their own branches", "ph ph-scissors");
+    if (reverse) reverse.disabled = false;
+    return;
+  }
+  setSlot(reverse, "Reverse", "Turn the branch around: the topic below becomes the one above", "ph ph-swap");
+  setSlot(middle, "Label", "Label this branch", "ph ph-tag");
+  setSlot(cut, "Cut", "Cut this branch: the topic below becomes a trunk of its own", "ph ph-scissors");
+  if (reverse && child) {
     // Turning a line around makes the parent a child of the child. If the
     // parent is a trunk that is a clean swap; it is never possible for a line
     // that is not there, which is the only case worth refusing.
     const parent = index.byId.get(child.parent_id);
     reverse.disabled = !parent;
   }
+}
+
+//: Turn a cross-link around. The row's two ends swap, which is the whole of
+//: it: a cross-link is not stored on either topic, so nothing in the tree
+//: moves and nothing has to be tidied. The anchors swap with them, or a line
+//: turned around would leave from the edge its far end used to arrive at.
+async function wbMapReverseCrossLink(sketchId) {
+  const info = wbMapCrossLinkInfo(sketchId);
+  if (!info) return;
+  const data = {
+    ...info.data,
+    sourceId: info.data.targetId,
+    targetId: info.data.sourceId,
+    sourceKind: info.data.targetKind,
+    targetKind: info.data.sourceKind,
+    sourceAnchor: info.data.targetAnchor,
+    targetAnchor: info.data.sourceAnchor,
+  };
+  const sketch = info.sketch;
+  try {
+    //: The whole row, not the one field: `PUT /sketches/{id}` takes a
+    //: `WhiteboardSketchBase`, so a body of `{data}` alone is a 422 rather
+    //: than a partial update.
+    const saved = await apiJson(`/whiteboard/sketches/${sketchId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        data: JSON.stringify(data), board_id: sketch.board_id,
+        x: sketch.x, y: sketch.y, z: sketch.z, group_id: sketch.group_id ?? null,
+      }),
+    });
+    Object.assign(info.sketch, saved);
+  } catch (err) {
+    toast(err.message || "Couldn't turn that cross-link around.", true);
+    return;
+  }
+  renderWhiteboardNow();
+  toast("Turned the cross-link around.");
+}
+
+//: **A cross-link promoted to a branch** (§13c). The one action that teaches
+//: the difference between the map's two kinds of connection by undoing a
+//: choice the gesture made for you: `wbMapJoinByLink` decides between the two
+//: from whether the far end is already in the tree, which is invisible, so
+//: this is the way back for the case it guessed wrong. The far end moves
+//: under the near one, its own branch comes with it, and the cross-link row
+//: goes: keeping it would draw a dashed line over the branch it just became.
+async function wbMapCrossLinkToBranch(sketchId) {
+  const info = wbMapCrossLinkInfo(sketchId);
+  if (!info) return;
+  const { source, target, index } = info;
+  const descendants = new Set(wbMapSubtree(index, target.id).map((o) => o.id));
+  if (descendants.has(source.id)) {
+    toast(`"${wbMapLabel(source)}" is already under "${wbMapLabel(target)}": turn the cross-link around first.`, true);
+    return;
+  }
+  if (!(await wbMapTransplant(target, source.id, false, { via: "link" }))) return;
+  try {
+    await apiJson(`/whiteboard/sketches/${sketchId}`, { method: "DELETE" });
+    wbState.sketches = (wbState.sketches || []).filter((x) => x.id !== sketchId);
+  } catch (err) {
+    toast(err.message || "The branch was made, but the cross-link is still there.", true);
+  }
+  await wbRefreshMapState();
+  renderWhiteboardNow();
+}
+
+//: Cut a cross-link: the row goes and neither topic is touched, which is the
+//: difference between this and cutting a branch (that one re-parents).
+async function wbMapCutCrossLink(sketchId) {
+  const info = wbMapCrossLinkInfo(sketchId);
+  if (!info) return;
+  try {
+    await apiJson(`/whiteboard/sketches/${sketchId}`, { method: "DELETE" });
+  } catch (err) {
+    toast(err.message || "Couldn't cut that cross-link.", true);
+    return;
+  }
+  wbState.sketches = (wbState.sketches || []).filter((x) => x.id !== sketchId);
+  await wbRefreshMapState();
+  renderWhiteboardNow();
+  toast("Cut the cross-link. Both topics kept their branches.");
 }
 
 //: Turn a line around: the topic below becomes the one above.
@@ -8248,6 +8482,16 @@ function wbOpenMapNodeMenu(node, clientX, clientY) {
 //: toolbar menu already clamps itself.
 function wbOpenContextMenuFor(kind, id, clientX, clientY) {
   const key = wbMultiKey(kind, id);
+  //: **A cross-link on a map gets the map's ring** (§13c), before the
+  //: selection is touched: selecting it would put the board's own context bar
+  //: over the ring, which is the surface this is replacing.
+  //: `<= 1`, the same rule the node ring takes: a multi-selection keeps the
+  //: flat menu, because its actions are the only ones that mean anything for
+  //: more than one item. Anything less than that and the ring would be
+  //: withheld from the ordinary case of right-clicking a line while a topic
+  //: happens to be selected, which is how this was first written and what its
+  //: own sweep caught.
+  if (kind === "sketch" && wbMultiSelection.size <= 1 && wbOpenMapCrossLinkRadial(id, clientX, clientY)) return;
   if (!wbMultiSelection.has(key)) wbHandleItemClick(kind, id, { shiftKey: false });
   //: **A map node gets the ring, not the list** (MINDMAP_PLAN.md §12.1 item
   //: 3). Routed here rather than at the two gestures because right-click and
@@ -10133,9 +10377,22 @@ async function initWhiteboard() {
       if (node) await run(node);
     });
   };
-  linkSlot("wb-link-reverse", (node) => wbMapReverseEdge(node.id));
-  linkSlot("wb-link-label", (node) => wbMapLabelEdge(node.id));
-  linkSlot("wb-link-cut", (node) => wbMapSever(node.id));
+  //: Each slot is two actions, one per kind of line, chosen from the subject
+  //: the ring was opened on rather than from what the slot last said: the
+  //: words are re-written by `wbSyncMapLinkRadial` on open, and a handler that
+  //: read them back would be reading its own label.
+  const crossSlot = (id, onBranch, onCross) => {
+    $(id)?.addEventListener("click", async () => {
+      const sketchId = wbMapLinkRadialCross;
+      const node = sketchId == null ? linkNode() : null;
+      wbCloseMapLinkRadial();
+      if (sketchId != null) await onCross(sketchId);
+      else if (node) await onBranch(node);
+    });
+  };
+  crossSlot("wb-link-reverse", (node) => wbMapReverseEdge(node.id), (id) => wbMapReverseCrossLink(id));
+  crossSlot("wb-link-label", (node) => wbMapLabelEdge(node.id), (id) => wbMapCrossLinkToBranch(id));
+  crossSlot("wb-link-cut", (node) => wbMapSever(node.id), (id) => wbMapCutCrossLink(id));
 
   //: The node edit strip (§12.1 item 2). Every handler reads the selection at
   //: the moment it fires rather than closing over a node: the strip is one set
@@ -15791,7 +16048,26 @@ async function dragEndNode(event, d) {
          const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
          wbState.sketches.push(res);
          wbPushUndo({ action: "create", kind: "sketch", id: res.id });
+         //: **A cross-link has to be *told* it is one, before it is drawn**
+         //: (MINDMAP_PLAN §13c). What marks a link sketch as a cross-link is
+         //: the board tree's `cross_links`, which is fetched with the map's
+         //: state, so a link drawn now and rendered now carried none of the
+         //: map's treatment: it was drawn as an ordinary board connector, in
+         //: the pen's colour and solid, until the board was next opened. That
+         //: is the most literal possible form of "there are two types of
+         //: connections" and the reason this refresh is awaited before the
+         //: render rather than left to the next reload.
+         if (wbIsMap()) await wbRefreshMapState();
          wbScheduleRender();
+         //: **Say which of the two it made** (MINDMAP_PLAN §13c). One gesture
+         //: produces either kind, decided by whether the far end is already in
+         //: the tree (`wbMapJoinByLink`), and §13.2's finding was that nothing
+         //: on screen says which is about to happen. The branch half has said
+         //: so since it was built ("Connected to ... as a branch"); this is
+         //: the other half, in the same words the ring and the rail now use.
+         if (wbIsMap() && wbMapCrossLinkInfo(res.id)) {
+           toast("Cross-link made: it joins two branches without changing the tree.");
+         }
        } catch (err) {
          console.error(err);
        }

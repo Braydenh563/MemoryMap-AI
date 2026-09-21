@@ -10296,8 +10296,20 @@ input[type="file"] {
    two branches. Dashed, which is the systems-map convention every serious
    mindmapper uses to say "related, but not part of the tree" (MINDMAP_PLAN.md
    §5 item 9). The tree edges above stay solid so the difference is readable
-   without a legend. */
+   without a legend.
+
+   **And it is the map's own ink, not the pen's** (MINDMAP_PLAN §13c, the
+   owner: "there are two types of connections"). A link sketch carries the
+   colour the rail's ink well held when it was drawn, which on a map is a
+   colour with no meaning: it is the *pen's* colour, and the branches around
+   it are coloured by the palette, so a cross-link drawn while the ink was red
+   read as a branch in red. Two kinds of line that can be given each other's
+   look are two kinds nobody can tell apart, which is exactly the report. The
+   attribute stays on the row (an ordinary board still draws it, and a map
+   turned back into a board gets it back); on a map this rule wins, because a
+   CSS declaration beats the presentation attribute the renderer writes. */
 .sketch-group.wb-map-crosslink .sketch-path {
+  stroke: var(--muted);
   stroke-dasharray: 7 5;
   opacity: 0.85;
 }

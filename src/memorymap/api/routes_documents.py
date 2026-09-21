@@ -1089,7 +1089,7 @@ def ai_edit(
             raise HTTPException(status_code=400, detail="Say what to write.")
         inserted, thinking = drafter.compose_document_edit(
             document.content,
-            deps.get_model_manager(),
+            deps.get_model_manager().for_feature("documents"),
             deps.get_ollama(),
             instruction=instruction,
             verb="write",
@@ -1117,7 +1117,7 @@ def ai_edit(
             )
         revised, thinking = drafter.compose_document_edit(
             target,
-            deps.get_model_manager(),
+            deps.get_model_manager().for_feature("documents"),
             deps.get_ollama(),
             instruction=instruction or "Remove this passage entirely.",
             verb="remove",
@@ -1137,7 +1137,7 @@ def ai_edit(
     revised, thinking = drafter.compose(
         "",
         target,
-        deps.get_model_manager(),
+        deps.get_model_manager().for_feature("documents"),
         deps.get_ollama(),
         instruction=instruction,
     )
@@ -1185,7 +1185,7 @@ def rephrase_passage(
     _existing(session, document_id)
     options = drafter.rephrase(
         body.passage,
-        deps.get_model_manager(),
+        deps.get_model_manager().for_feature("documents"),
         deps.get_ollama(),
         note=body.note,
     )

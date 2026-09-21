@@ -88,7 +88,7 @@ def compose_draft(
     text, note = drafter.compose(
         body.thoughts,
         body.draft,
-        deps.get_model_manager(),
+        deps.get_model_manager().for_feature("writing"),
         deps.get_ollama(),
         instruction=body.instruction,
         kind=body.kind,
@@ -127,7 +127,7 @@ def compose_draft_stream(
         for event in drafter.compose_stream(
             body.thoughts,
             body.draft,
-            deps.get_model_manager(),
+            deps.get_model_manager().for_feature("writing"),
             deps.get_ollama(),
             instruction=body.instruction,
             kind=body.kind,
@@ -149,6 +149,8 @@ def draft_title(body: TitleBody) -> dict:
     """A suggested title for a finished draft ("" when unavailable)."""
     return {
         "title": drafter.suggest_title(
-            body.draft, deps.get_model_manager(), deps.get_ollama()
+            body.draft,
+        deps.get_model_manager().for_feature("writing"),
+        deps.get_ollama(),
         )
     }

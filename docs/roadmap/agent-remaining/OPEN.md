@@ -481,11 +481,20 @@ being written by running agents stay beside this one.
   covered. Found with it: the bar's `top` had never been clamped to the canvas
   the way its `left` was, so a selection low on the board put it 843px to
   1183px down an 844px window.
-- **`#wb-topbar` is 13 controls at 1440** against the dock grammar's ceiling of
-  seven. Out of scope for Phases 1 to 4 (the plan's section 3 says the top bar
-  is the dock grammar unchanged); it is the same counting question INBOX 47
-  raises for Notes and Library. Owner: UI_MODERNISATION_PLAN Phase 8.
-  [whiteboard-phases.md]
+- ~~**`#wb-topbar` is 13 controls at 1440** against the dock grammar's ceiling
+  of seven.~~ **Done 2026-09-21** with the phone bar's overflow, in one pass:
+  11 at 1440, 1024 and 820 with **6 beside the five menus** (Phase 8's menu-bar
+  exception is the toggles only), 7 at 390 and 320 with **0px of overflow**
+  where the bar ran 5px and 75px past its own content box, and every control at
+  or above the 44px floor. Rename and New board went into the Board menu; Full
+  screen and Arrange leave the bar below 600, both being reachable elsewhere.
+  Found and fixed while gating it: all five menus were a `role="menu"` with no
+  `role="menuitem"` in them and no arrow keys. Before and after in
+  [HISTORY.md](../HISTORY.md), "Moved from the plans, 2026-09-21"; gated by
+  `scratchpad/ui-sweeps/wbtopbar.js`, now in `scripts/gate.sh`'s sweep list.
+  What INBOX 47 raises for Notes and Library (whether the ceiling counts
+  controls a person reasons about or DOM elements) is still open and is still
+  UI_MODERNISATION_PLAN Phase 8's. [wbtopbar.md]
 - ~~**The old export popover's CSS still names it in grouped selectors.**~~
   Swept 2026-09-20: fifteen mentions of `.wb-export-menu` in
   `08-consistency.css` are none, the `[data-glass="off"]` entry in

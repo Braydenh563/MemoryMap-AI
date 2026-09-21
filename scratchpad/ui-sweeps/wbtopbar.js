@@ -159,6 +159,16 @@ const MEASURE = (barSel) => {
     // --- the menus, at the widest and the narrowest only ------------------
     if (w === 1440 || w === 320) {
       for (const menuId of MENUS) {
+        // A menu whose toggle is not on the bar at this width is not a menu
+        // anybody can open here: below 600 Arrange leaves the bar, its twelve
+        // actions being on the context bar above a selection. Opening it with
+        // a programmatic click and then asking where the focus went measures
+        // the probe's own reach, not the app's.
+        const onBar = await page.evaluate((mid) => {
+          const t = document.querySelector(`[aria-controls="${mid}"]`);
+          return Boolean(t && t.offsetParent !== null);
+        }, menuId);
+        if (!onBar) { console.log(`   ${menuId} @${w}: not on the bar at this width`); continue; }
         const r = await page.evaluate(async (mid) => {
           const menu = document.getElementById(mid);
           const toggle = document.querySelector(`[aria-controls="${mid}"]`);

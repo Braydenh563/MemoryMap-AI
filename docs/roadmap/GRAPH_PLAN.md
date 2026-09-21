@@ -132,11 +132,11 @@ panel scrolls inside, never the page; measured at 1440 and 1024 and on
 390 as a sheet. Gate: `scratchpad/ui-sweeps/graph4b.js` plus a node-panel
 probe that counts buttons per row and the panel's own scrollHeight.
 
-### Phase 5 — backend (built but for two rows, see below)
+### Phase 5 — backend (built; one row deliberately deferred, see below)
 Built 2026-09-09 (HISTORY.md, "Built, Phase 5 (backend)"): the per-node
 fields, `/graph/structure` cached per notebook version, and the payload
-gate. Two rows of the original phase were not built, and were re-read
-against the code on 2026-09-20 rather than started:
+gate. Two more rows of the original phase were re-read against the code on
+2026-09-20 rather than started:
 
 - **Positions on `/graph/views`.** Views are localStorage on purpose
   (`graph.js`, "saved views": per-device workspace state of the same kind
@@ -148,16 +148,11 @@ against the code on 2026-09-20 rather than started:
   the local pane exists now and does not read saved views, and there is no
   second device to sync to in a local-first notebook. Nothing to build
   here as written.
-- **What is genuinely missing** is smaller and belongs on this row rather
-  than on a server endpoint: a saved view restores the layout, the colour
-  rule, the filters, the groups and the zoom transform, but not where the
-  unpinned notes sat, so a force-layout view reopens as a fresh solution
-  of the same forces rather than the picture that was saved. The fix that
-  stays inside the decision above is `graphCaptureView` storing each
-  visible node's x and y alongside the transform it already stores, and
-  `graphApplyView` seeding the simulation with them. Not started: it is a
-  frontend change with a real design question in it (whether a restored
-  arrangement then holds or settles), and nothing has been asked for it.
+- **What was genuinely missing** (a saved view did not restore where the
+  unpinned notes sat) is built. Moved to HISTORY.md ("Built, Phase 5
+  continued (positions on a saved view), 2026-09-21", GRAPH_PLAN.md); the
+  decision it turned on ("Decision made, 2026-09-21: a restored view holds,
+  it does not re-settle", below) stays here.
 - **A `?since=` cursor.** Still nothing polls `/graph`: every call is
   `renderGraph()` behind a control, a tab activation or a save. A query
   parameter with no caller is the "feature that never ran once" shape
@@ -336,23 +331,28 @@ its own right and is not part of this change.
 
 ## Placed from INBOX, 2026-09-21
 
-275. **Found by an agent, 2026-09-20, the graph's full screen spends one
-    Escape on two things.** With the map in full screen, opening the
-    lightbox (the node panel's attachment, a document) and pressing Escape
-    closes the lightbox *and* leaves full screen, in one press. Measured
-    with `scratchpad/ui-sweeps/graphfslightbox.js`: lightbox gone true,
-    still in full screen false. The cause is named in the app's own
-    comments and is one word out of date: the full-screen listener
-    (`app.js`, "Escape leaves full screen") says it is "placed after the
-    popover handlers above so a help panel or a note popup open over the
-    map takes the first Escape and the map takes the second", but listener
-    order does not stop an event. The graph options panel's own handler
-    calls `stopPropagation` and therefore really does spend the key ("The
-    Escape is spent here", app.js); `openLightbox`'s `onKey` does not, and
-    neither does anything else that opens over the map.
-    Recommendation: the full-screen handler asks whether anything is open
-    over the map before it acts (the app already has `activeOverlay()`, and
-    the lightbox sets `role="dialog"` precisely so it is inside its reach),
-    rather than every overlay in the app having to remember to stop the
-    key. Owner: GRAPH_PLAN, Phase 2's chrome row. Size S.
+Item 275 (the graph's full screen spending one Escape on two things) is
+fixed. Moved to HISTORY.md ("INBOX resolved, 2026-09-21").
+
+## Decision made, 2026-09-21: a restored view holds, it does not re-settle
+
+The open question Phase 5's "positions on a saved view" row left ("whether a
+restored arrangement then holds or settles") is decided: **it holds.** A
+person saved a picture of the map; reopening it must give them that picture,
+not a fresh relaxation of the same forces that happens to start from it. So
+`graphApplyView` seeds each saved node's x/y and the simulation starts at
+alpha 0, not alpha 1: no reheat, nothing moves.
+
+The one case that must still reheat is a note added *since* the view was
+saved, which has no saved position at all: that note alone needs the
+simulation to place it. When one exists, every saved note is held in place
+(`fx`/`fy`, the same "freeze" a drag already uses to hold the rest of the map
+still while one node moves) for exactly the length of that settle, and
+released the moment it ends. A real pin (`graph_pin_x`/`graph_pin_y`,
+notebook content) is a different, permanent hold and is never touched by
+this: it is set and released by the code that already owns it.
+
+Read this where the code carries it out: `graphCaptureView`/`graphApplyView`
+(`frontend/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
+(`frontend/graph-canvas.js`, the default renderer).
 

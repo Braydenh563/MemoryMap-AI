@@ -42613,12 +42613,27 @@ $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
 // Escape leaves full screen. Reported with the rest of the full-screen state
 // ("restore on Esc"), and it is the one key every full-screen surface on the
 // web answers to, including this app's own whiteboard. Guarded on the class
-// so this listener does nothing at all on any other tab, and placed after the
-// popover handlers above so a help panel or a note popup open over the map
-// takes the first Escape and the map takes the second.
+// so this listener does nothing at all on any other tab.
+//
+// INBOX 275: this used to be placed after the popover handlers above on the
+// theory that "a help panel or a note popup open over the map takes the
+// first Escape and the map takes the second": but listener order does not
+// stop an event, it only decides who sees it first, and every listener here
+// still runs unless one of them calls stopPropagation. The graph options
+// panel's own Escape handler does (`$("graph-options")`, above: "The Escape
+// is spent here"), which is why closing *that* panel never also leaves full
+// screen; `openLightbox`'s `onKey` does not, and neither does anything else
+// that opens over the map, so one Escape closed the lightbox *and* left full
+// screen in the same press. Fixed by asking, not by hoping order holds:
+// `activeOverlay()` (below) already answers "is a dialog open over the
+// content", and `openLightbox` sets `role="dialog" aria-modal="true"`
+// precisely so it is inside that reach. Anything that should own an Escape
+// while the map is behind it belongs in `activeOverlay()`'s reach, not in a
+// new `stopPropagation()` call here.
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (!$("graph-card")?.classList.contains("graph-fullscreen")) return;
+  if (activeOverlay()) return;
   toggleGraphFullscreen();
 });
 

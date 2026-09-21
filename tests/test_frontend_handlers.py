@@ -202,3 +202,33 @@ def test_the_reminder_poll_waits_for_the_unlock():
     )
     assert source.count('$("app-quit").addEventListener("click", quitApp)') == 1
     assert source.count('$("quit-btn")?.addEventListener("click", quitApp)') == 1
+
+
+def test_graph_fullscreen_escape_asks_rather_than_relies_on_order():
+    """INBOX 275: one Escape used to close the lightbox *and* leave graph
+    full screen, because the full-screen handler assumed a listener placed
+    "after the popover handlers" would see the key second, and listener order
+    does not stop an event, only `stopPropagation`/`stopImmediatePropagation`
+    does. The fix is the handler asking `activeOverlay()` whether anything
+    (the lightbox included, via its `role="dialog"`) is open over the map,
+    rather than every overlay having to remember to spend the key.
+
+    This is the regression guard the brief asked for: it fails if the handler
+    goes back to relying on registration order (dropping the `activeOverlay()`
+    check) instead of asking. Measured before/after with
+    `scratchpad/ui-sweeps/graphfslightbox.js`.
+    """
+    source = APP.read_text(encoding="utf-8")
+    match = re.search(
+        r'(?ms)\$\("graph-fullscreen"\)\?\.addEventListener\("click", toggleGraphFullscreen\);'
+        r".*?document\.addEventListener\(\"keydown\", \(event\) => \{.*?\n\}\);",
+        source,
+    )
+    assert match, "graph full-screen Escape handler not found in app.js"
+    handler = match.group(0)
+    assert "activeOverlay()" in handler, (
+        "the full-screen Escape handler must ask activeOverlay() whether "
+        "something (e.g. the lightbox) is open over the map before it acts; "
+        "relying on where this listener sits relative to others does not "
+        "stop the event from also reaching them"
+    )

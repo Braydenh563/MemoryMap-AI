@@ -1274,7 +1274,7 @@ function featureCatalog() {
       // nobody has been told about is not a feature anyone has.
       { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens Atlas over whatever you are working on.", run: () => { closeFeatures(); toggleAgentPalette(); } },
       { name: "What it remembers", desc: "See and edit the facts Atlas has kept about you.", run: () => openSettingsModal("memory") },
-      { name: "Web search", desc: "Optional, opt-in: the one feature that goes online.", run: () => switchTab("chat") },
+      { name: "Web search", desc: "Opt-in, off by default: one of the two features that can go online.", run: () => switchTab("chat") },
       { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
       { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", run: () => openSettingsModal("preferences", "search-relevance-group") },
     ]},

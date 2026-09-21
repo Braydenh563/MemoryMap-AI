@@ -97,6 +97,11 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # and `--changed` printed "changed-tests (none matched)" on the commit
   # that did it; CI found it thirteen minutes later.
   tests/test_plan_hygiene.py
+  # The privacy promise against the code that keeps it. Here rather than
+  # left to the changed-test heuristic because it reads five copy files
+  # and two config files at once, so a sentence edited in one of them
+  # selects nothing.
+  tests/test_offline_promise.py
   tests/test_cheap_animations.py
   # The copy lint, here for the same reason `test_docs_site.py` is below: it
   # reads every string in `frontend/*.js` and every piece of markup outside a

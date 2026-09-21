@@ -217,7 +217,10 @@ class PreferencesBody(BaseModel):
     #: hardware somebody is happy to give an hour to.
     run_budget_tokens: int | None = Field(default=None, ge=0)
     run_budget_seconds: int | None = Field(default=None, ge=0)
-    # The ONE feature that goes online, off unless the user opts in.
+    # One of the two features that can go online, off unless the user opts in.
+    # The other is `update_check_enabled` below. Counted, not assumed: see
+    # `tests/test_offline_promise.py`, which fails if a third appears and the
+    # copy still says two.
     web_search_enabled: bool | None = None
     # The other opt-in network call (Settings -> About): see core.config.
     update_check_enabled: bool | None = None

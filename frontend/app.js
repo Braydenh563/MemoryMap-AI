@@ -44084,7 +44084,14 @@ const ONBOARDING_SLIDES = [
   {
     icon: "ph:brain",
     title: "Welcome to MemoryMap",
-    text: "A 100% offline notebook where a local AI files your thoughts and answers questions about them. Nothing ever leaves this computer.",
+    //: **"Out of the box", not "ever".** Measured 2026-09-21: two features
+    //: make outbound requests, web search and the update check, and both are
+    //: off by default (`core/config.py`), so the claim is exactly true until
+    //: the person turns one on and false the moment they do. Saying so is
+    //: stronger than the absolute, not weaker: this sentence sits in the same
+    //: Settings area as both switches, and a promise the app itself offers to
+    //: break is the kind a privacy-minded reader checks and stops trusting.
+    text: "A 100% offline notebook where a local AI files your thoughts and answers questions about them. Out of the box nothing leaves this computer. Two features can, web search and the update check, and both stay off until you turn them on.",
   },
   // §27: "before the person's first capture fails silently into
   // Uncategorised and they assume the AI is broken rather than absent", so
@@ -44148,7 +44155,7 @@ async function loadOnboardingDiagnostics(forSlide) {
       ? (storage.database_bytes / (1024 * 1024)).toFixed(1)
       : "0";
     lines.push(
-      `Your notebook lives at ${storage.data_dir} (${mb} MB so far), nothing here ever leaves this machine.`
+      `Your notebook lives at ${storage.data_dir} (${mb} MB so far), and nothing here leaves this machine unless you turn on web search or the update check.`
     );
     // ROADMAP.md's onboarding item named this the one still-open piece: a
     // data-dir writability check. The database opening at all already

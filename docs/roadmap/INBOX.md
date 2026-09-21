@@ -76,46 +76,6 @@ with its owner named in the entry.
     measured a step being dropped, so the probe would pass with this bug
     present. Whatever fixes this must add a gate for the drop path.
 
-314. **The owner, 2026-09-21, verbatim, a regression in the reading
-    workspace on a scanned PDF:** "on the ocr workspace, I have previously
-    used an ocr model to read this scanned pdf document and I could scroll
-    through the pages and the ocr extracted text would scroll and if I
-    clicked on a specific text setcion, it would go to that page scroll wise
-    on the pdf. but now I can only view the extracted text on a single page
-    and even when on scroll mode I cant scroll and the tesseract generates it
-    continuously not only the first time or when prompted by the iser".
-
-    Three faults, and the third is diagnosed already, from the code, without
-    a reproduction:
-
-    (3) **Tesseract re-runs on every page view, and in scroll mode on every
-    page you pass.** `ocrLoadPage` (library.js) fetches
-    `GET /media/{id}/ocr-regions?page=N` each time the current page changes;
-    that route calls `_regions_for`, which calls `ocr.extract_regions(path)`
-    unconditionally (`routes_files.py`). There is no cache and no stored
-    result: the route's own neighbour says it plainly, "`extract_text`/
-    `extract_and_store` have no write-once guard of their own, every call
-    re-reads the image". In scroll mode the IntersectionObserver moves the
-    current page as you scroll, so scrolling a fourteen page scan runs
-    Tesseract fourteen times. That is the owner's "continuously". Fix: the
-    regions for a page are a property of the page, so store them the way a
-    page read is stored and serve the stored copy, running Tesseract only on
-    an explicit read or when nothing is stored. Do not gate it on the "show
-    boxes" checkbox alone: the cost must go, not move.
-
-    (1) and (2), **the text pane no longer scrolls with the pages and no
-    longer jumps the PDF when a section is clicked, and scroll mode does not
-    scroll.** Not yet reproduced; both need a real scanned multi-page PDF.
-    Two things to check first, before assuming the feature was removed:
-    `ocrSetViewMode` computes `continuous = ocrViewMode === "scroll" &&
-    ocrIsPdf(image) && ocrWorkspacePages > 1`, and silently falls back to
-    single-page mode when any of the three is false, so a page count not yet
-    known reads exactly like "scroll mode does not scroll"; and the view-mode
-    control itself (`#ocr-view`) ships `hidden` and is revealed conditionally.
-    The scrolling text pane and click-to-page are what the entry calls a
-    regression, so check the history for when they worked rather than
-    rebuilding them (CLAUDE.md section 1).
-
 313. **The owner, 2026-09-21, verbatim, with a screenshot of the Files
     sub-tab:** "there should be a way to copy all extracted text in a
     document in the ocr workspace and files subtab". Fixed, and it was half

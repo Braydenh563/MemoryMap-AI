@@ -9,6 +9,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The reading workspace stops re-reading a scanned page every time you look
+  at it, and its reading panel covers the whole document again (INBOX 314).
+  Three findings from one report. Where each block sits on a page is now
+  stored beside that page's reading and served from there, so an optical
+  reader runs once per page rather than once per look: a scroll down and back
+  up over a six page scan went from 13 reader calls to 6, and four looks at
+  one image from 4 to 1, measured with a fake reader counting its own calls.
+  The panel lists every page the app has something for, in page order, rather
+  than choosing between the stored reading of every page and the sections of
+  the page on screen: Tesseract returns sections for every page, so that
+  choice always came down on the second, which is why only one page of text
+  could be seen, why it did not follow the pages as they scrolled, and why
+  clicking a section could not move the document. Scroll mode itself measured
+  healthy on a six page scan and was left alone, except that it no longer
+  keeps its own button lit while quietly showing one page.
 - The fold arrows in a document's gutter are the app's own icons and line up
   with the numbers beside them. They were the editor's default text triangle,
   which came out as a typed letter in this app's font and sat a little above

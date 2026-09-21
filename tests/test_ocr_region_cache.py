@@ -23,7 +23,6 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api.routes_files import _pdf_regions_for
 from memorymap.core import ocr, pdfpages
 
 from tests.test_ocr_pdf_regions import TWO_PAGE_PDF

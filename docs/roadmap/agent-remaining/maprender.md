@@ -28,12 +28,33 @@
 - **`tests/test_map_drag_cost.py`**, nine rules, one per cost the profile
   found. Source shapes, not measurements: the docstring says so, because a
   lint that looked like a benchmark would be worse than no lint.
+- **`scratchpad/ui-sweeps/mapmidpan.js`**, in `scripts/gate.sh`'s sweep list,
+  12/12. The owner pans by holding the wheel down, and 13.1's pan figure was
+  taken with the Hand tool and the left button, so the path he uses had never
+  been measured. It now is, at 50 and 500 topics: the frame cost of the Hand
+  tool and of the middle button side by side in the same run, and a real
+  middle-button drag in each of the four directions asserting the board goes
+  the way the hand goes.
+- **MINDMAP_PLAN section 13.1 reading 1 withdrawn, and 13g opened.** Panning a
+  500-topic map is bimodal on this machine (16.7, 16.7, 116.7, 133.3, 150.0ms
+  per frame across five runs of one gesture), it is not explained by the tool
+  or the button, and under the profiler the whole gesture spends under 10ms in
+  script. The pan path is not the bug; the layer it moves is.
 - **MINDMAP_PLAN section 13.1** carries both tables and a correction: reading
   3 ("`renderWhiteboard` is the whole of it") was carrying the blame for two
   separate bugs, and the open and the drag have different causes.
 
 ## Left to do, in the order it should be taken
 
+0. **13g, the haywire middle-button pan, needs the owner.** It did not
+   reproduce here in any of the three ways it could be reproduced headless
+   (four directions, both sizes, and a gesture whose release never arrives).
+   The remaining explanation is Chromium's own middle-button autoscroll, which
+   a headless browser does not have, so the guard written for it in INBOX 183
+   is not exercised by any gate here and never has been. The question to ask
+   is in the plan. **Do not "fix" this blind**: the guard is already there,
+   and a second one written from the same reasoning would be the third pass
+   over a bug nobody has observed.
 1. **13a-open, the render pass proper.** `renderWhiteboard` is still a full d3
    data-join over every node, sketch and object on the board for any change to
    it, and it is still superlinear: 23.3ms at 50 topics, 123.2 at 200, 543.0

@@ -31887,6 +31887,24 @@ row and head of different lengths).
     carries a stated reason, the same shape as the other frontend lints.
     Owner: a UI agent, after the current two land.
 
+310. **The owner, 2026-09-21, verbatim, on the guided tour:** "the whole tour
+  is completely and utterly broken", after "btw this is still broken" with
+  three screenshots and, before that, two reports of an undimmed band at the
+  right edge.
+
+  Fixed, and the fix is not what the first two attempts assumed. Measured at
+  1400x900: the dim was one `box-shadow` spread 100vmax out of the cut-out,
+  so its reach depended on the window's shape and on its own corner radius
+  inflated by the spread, and `scratchpad/ui-sweeps/tourdim.js` had been
+  measuring the four transparent press-swallowing panels, which were not the
+  dim at all. Two green sweeps and a green lint against a surface that was
+  visibly broken. The dim is now painted by those four panels, the lint is
+  re-pointed at the invariant instead of the mechanism, and the sweep walks
+  `elementsFromPoint` over the window (14,328 points, 0 uncovered, 0 with the
+  page in front). The second fault was in the same screenshots and nobody had
+  named it: the step card was a translucent `.card` and the dashboard clock
+  read through its text. It now uses the opaque-dialog recipe.
+
 ## INBOX resolved, 2026-09-21
 
 286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the

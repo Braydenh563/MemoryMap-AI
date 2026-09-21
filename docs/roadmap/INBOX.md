@@ -389,3 +389,20 @@ with its owner named in the entry.
 
 
 
+309. **The owner, 2026-09-21, verbatim:** "there is also no way to attach a
+  whiteboard or mindmap to a note as like an object in the notes. or to link
+  reminders to notes"
+
+  The session's reading, from the code, not from the app: notes already carry
+  typed objects (`objects` on a note, the chip row on a card, INBOX 246's
+  "boards via objects" work), and a board or a map is a first-class row with
+  an id, so the missing piece is an object kind that points at one plus the
+  two doorways that make it reachable (a slash command in the note, and "add
+  to a note" from the board and map themselves). Reminders are the other
+  direction: a reminder has a row of its own and no column that names the
+  note it came out of, so a reminder made from a note loses the note, and a
+  note that caused three reminders cannot show them. Both are one shape,
+  "this note and that thing are the same piece of work", and they belong in
+  DOCUMENTS_PLAN beside the objects section rather than in a plan of their
+  own (standing order 8).
+

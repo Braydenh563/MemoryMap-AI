@@ -365,17 +365,6 @@ with its owner named in the entry.
     reopened, it is a second clearly labelled opt-in extra, off by default,
     and the copy in all three places changes in the same commit.
 
-306. **The owner, 2026-09-21, verbatim:** "isnt the quick liquid repo heavily
-    optimised?? and it has levels as well??" Against ANALYSIS.md's "leave it"
-    verdict for quickLiquid. He is right that it is heavily optimised and the
-    read says so; the verdict turned on the optimisation targeting a
-    different cost than the one this app measured. The "levels" half is not
-    answered anywhere and is the part worth checking: quickLiquid has a
-    Chromium-only refraction path with a frost fallback, which is a
-    capability tier, and this app has Performance mode and the
-    `data-glass="off"` list. Next step: establish whether their tiering does
-    anything this app's does not, as a measurement rather than a reading.
-
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

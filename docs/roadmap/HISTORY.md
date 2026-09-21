@@ -31905,6 +31905,39 @@ row and head of different lengths).
   named it: the step card was a translucent `.card` and the dashboard clock
   read through its text. It now uses the opaque-dialog recipe.
 
+306. **The owner, 2026-09-21, verbatim:** "isnt the quick liquid repo heavily
+    optimised?? and it has levels as well??" Against ANALYSIS.md's "leave it"
+    verdict for quickLiquid. He is right that it is heavily optimised and the
+    read says so; the verdict turned on the optimisation targeting a
+    different cost than the one this app measured. The "levels" half is not
+    answered anywhere and is the part worth checking: quickLiquid has a
+    Chromium-only refraction path with a frost fallback, which is a
+    capability tier, and this app has Performance mode and the
+    `data-glass="off"` list. **Measured and answered 2026-09-21.** The two
+    tier on different axes, and this app's axis is the more useful one:
+    `perfModeOn()` (settings.js) defaults to `auto` and turns Performance
+    mode on when `smallMachine()` (two cores or four gigabytes or fewer) or
+    `lessTransparencyWanted()` (the OS asking for less transparency) says so,
+    and `applyAppearance` then takes the glass, the motion and the background
+    art down together and tells the person why in the setting's own hint.
+    quickLiquid's tier is per effect and by renderer: refraction on Chromium,
+    frost elsewhere. Nothing in theirs is absent from this one.
+
+    **What the measurement did find is the axis this app has nothing on at
+    all: feature availability.** `grep` over `frontend/css/`: **0 `@supports`
+    blocks**, against 160 uses of `color-mix()`, 131 of `:has()`, 128
+    `backdrop-filter` declarations, 25 `aspect-ratio` and 26
+    `scrollbar-width`. Every one of those is a decision that the engine can do
+    it; on one that cannot, the surface degrades wherever the cascade happens
+    to leave it rather than to something drawn on purpose. In practice the
+    risk is small (WebView2 is Chromium, current WebKitGTK has all five) and
+    the cost of covering it is high, so **this is a question for the owner
+    rather than work to start**: which engines must this run on, and is a
+    designed fallback for `backdrop-filter` and `color-mix()` worth 128 and
+    160 fallback declarations. Listed with the other pending decisions in
+    HANDOVER rather than built. **Fixed** (the reading half; the decision is
+    the owner's).
+
 ## INBOX resolved, 2026-09-21
 
 286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the

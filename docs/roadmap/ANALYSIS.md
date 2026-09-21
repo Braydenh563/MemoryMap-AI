@@ -3734,3 +3734,20 @@ goes online" in three places.
 
 Everything else in this read is either a recommendation with a first step or
 a plainly stated leave-it, and none of it was built.
+
+- **Which rendering engines this has to run on, and whether a designed
+  fallback is worth its cost** (from INBOX 306, the owner's "isnt the quick
+  liquid repo heavily optimised?? and it has levels as well??"). Measured
+  2026-09-21: `frontend/css/` holds **0 `@supports` blocks**, against 160
+  uses of `color-mix()`, 131 of `:has()`, 128 `backdrop-filter` declarations,
+  26 `scrollbar-width` and 25 `aspect-ratio`. The app tiers by machine and by
+  OS preference (`perfModeOn`, which takes glass, motion and background art
+  down together and says why), which is a better axis than quickLiquid's
+  per-effect renderer check and covers everything theirs does. What it has
+  nothing on is feature *availability*: on an engine missing one of those
+  five, the surface lands wherever the cascade leaves it rather than
+  somewhere drawn on purpose. In practice WebView2 is Chromium and current
+  WebKitGTK has all five, so the risk is small and the cost is 288 fallback
+  declarations for the first two alone. **Not started.** The question is
+  which engines are in scope; if it is "the two the launchers ship", the
+  honest answer is to write that down and keep the zero.

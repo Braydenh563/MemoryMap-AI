@@ -130,17 +130,30 @@ function waitForFake() {
   // every chip gated on `options.actions` is missing from a row that is
   // otherwise the same note. Browse is the control group.
   await page.evaluate(() => window.showNotesSection && showNotesSection('browse'));
-  await page.waitForTimeout(1800);
+  // The list on screen was rendered at boot, before this probe wrote its
+  // notes: without this it is a stale page and the control row is simply not
+  // in it, which reads exactly like a row that draws no chips.
+  await page.evaluate(() => window.loadEntries && loadEntries());
+  // Waited for, not slept through: the note list renders in chunks, so a
+  // fixed pause read an empty `#entry-list` and reported no control row.
+  await page.waitForSelector(`#entry-list li[data-id="${seeded.ids[2]}"]`, { timeout: 20000 })
+    .catch(() => null);
+  await page.waitForTimeout(700);
   const browse = await page.evaluate((id) => {
-    const li = document.querySelector(`#entry-list li[data-id="${id}"]`)
-      || document.querySelector(`#entry-list li[data-id="${id}"]`);
+    const li = document.querySelector(`#entry-list li[data-id="${id}"]`);
     if (!li) return null;
     return [...li.querySelectorAll('.entry-meta .chip')]
       .map((c) => c.textContent.replace(/\s+/g, ' ').trim());
   }, seeded.ids[2]);
+  // The one chip that is deliberately not carried over: "Tag with Atlas" is a
+  // model call, which is an action, and a search result row is read-only
+  // (CHAT_PLAN's decision for INBOX 297). Named by class rather than by its
+  // words so a rewording does not quietly widen the exception.
+  const ACTION_ONLY = ['untagged-ai'];
   const browseUntagged = await page.evaluate((id) => {
     const li = document.querySelector(`#entry-list li[data-id="${id}"]`);
-    return li ? [...li.querySelectorAll('.entry-meta .chip')].map((c) => c.className) : null;
+    return li ? [...li.querySelectorAll('.entry-meta .chip')]
+      .map((c) => ({ text: c.textContent.replace(/\s+/g, ' ').trim(), cls: c.className })) : null;
   }, seeded.ids[2]);
   console.log(`297 browse row (the note with no tags): ${JSON.stringify(browse)}`);
 
@@ -251,7 +264,10 @@ function waitForFake() {
   }, seeded.ids[2]);
   console.log(`297 ask row    (the same note):        ${JSON.stringify(askSame)}`);
   if (browse && askSame) {
-    const lost = browse.filter((b) => !askSame.includes(b));
+    const actionOnly = new Set((browseUntagged || [])
+      .filter((c) => ACTION_ONLY.some((name) => c.cls.split(/\s+/).includes(name)))
+      .map((c) => c.text));
+    const lost = browse.filter((b) => !askSame.includes(b) && !actionOnly.has(b));
     numbers.badgesInBrowse = browse.length;
     numbers.badgesInAsk = askSame.length;
     numbers.badgesLostInAsk = lost;
@@ -259,7 +275,7 @@ function waitForFake() {
   } else if (!browse) {
     console.log('297: the control row was not found in Browse, so no comparison was made');
   }
-  console.log(`297 browse chip classes: ${JSON.stringify(browseUntagged)}`);
+  console.log(`297 browse chip classes: ${JSON.stringify((browseUntagged || []).map((c) => c.cls))}`);
 
   // And the same row at the widths the column actually narrows to. "Make sure
   // all the badges show" can be a truncation rather than a missing chip, and a

@@ -3067,14 +3067,23 @@ function entryItem(entry, options = {}) {
   //: flag: it opens the edit form with the cursor in the tags field, where
   //: the AI's suggestions appear as you type, so the person is one click
   //: from tagged rather than being told and left there.
-  if (!entry.tags.length && !entry.is_board && !entry.is_draft && options.actions) {
-    const untagged = chip("ph:tag No tags yet", "untagged", (event) => {
-      event.stopPropagation();
-      editingId = entry.id;
-      focusTagsAfterRender = entry.id;
-      renderEntries();
-    });
-    untagged.title = "Add tags to this note";
+  if (!entry.tags.length && !entry.is_board && !entry.is_draft
+      && (options.actions || options.facts)) {
+    //: On a read-only row the flag is a **fact and nothing more**: the
+    //: handler below opens the edit form in the note list, which is not the
+    //: surface a search result is being read on, so wiring it here would be a
+    //: chip that looks pressable and does nothing visible (INBOX 297).
+    const untagged = options.actions
+      ? chip("ph:tag No tags yet", "untagged", (event) => {
+        event.stopPropagation();
+        editingId = entry.id;
+        focusTagsAfterRender = entry.id;
+        renderEntries();
+      })
+      : chip("ph:tag No tags yet", "untagged");
+    untagged.title = options.actions
+      ? "Add tags to this note"
+      : "This note has no tags yet";
     meta.appendChild(untagged);
     //: **And the offer to have them written for you, in the one place a
     //: person is thinking about tags** (INBOX 292, the owner: "half the time
@@ -3089,7 +3098,10 @@ function entryItem(entry, options = {}) {
     //: which does nothing to a span. An offer that cannot be honoured is
     //: worse than no offer, so with no model answering there is simply the
     //: flag above and the manual route it already opens.
-    if (!modelStatus || modelStatus.ollama_running !== false) {
+    //: `options.actions` again: the offer is a model call, which is an
+    //: action, so it stays off a read-only row even though the flag above it
+    //: is now drawn on one.
+    if (options.actions && (!modelStatus || modelStatus.ollama_running !== false)) {
       const askAtlas = chip("ph:sparkle Tag with Atlas", "untagged-ai", (event) => {
         event.stopPropagation();
         reevaluateEntry(entry);
@@ -11419,7 +11431,10 @@ function referenceCountText(counts) {
 }
 
 function referenceCountChip(entry, options = {}) {
-  if (!options.actions || entry.is_board || entry.is_draft) return null;
+  //: `facts` as well as `actions` (INBOX 297): what a note is joined to is
+  //: true of the note wherever it is drawn, and this chip is DESIGN.md's
+  //: "a fact on a facts line that is also the way in" rather than an action.
+  if ((!options.actions && !options.facts) || entry.is_board || entry.is_draft) return null;
   const counts = referenceCountsCache.get(entry.id);
   if (!counts || !counts.total) return null;
   const refChip = chip(`ph:graph ${referenceCountText(counts)}`, "refs", (event) => {
@@ -12362,8 +12377,19 @@ function flashCategory(name) {
 }
 
 // A raw search result the user can click to open the note (Wave C).
+//: `facts: true`, not `actions: true`. Reported as INBOX 297, "make sure all
+//: the badges show", and measured rather than guessed: the same note drew
+//: five chips in Browse and two here, because this call passed **no options
+//: at all** and every chip in `entryItem` that is gated on `options.actions`
+//: is gated on the row being one you can act on. Two of the three missing
+//: ones deserve that gate ("Tag with Atlas" starts a model call, and the
+//: "No tags yet" flag opens the edit form in a list that is not on screen);
+//: the third, the reference count, is a plain fact about the note that
+//: happened to be behind the same flag. So a second option, meaning "this
+//: row is read-only, draw the facts anyway", rather than turning the actions
+//: on and getting an edit button in a search result.
 function clickableResult(entry) {
-  const li = entryItem(entry);
+  const li = entryItem(entry, { facts: true });
   li.classList.add("clickable-result");
   li.title = "Open this note in the Notes tab";
   li.addEventListener("click", () => flashEntry(entry.id));
@@ -13021,6 +13047,12 @@ function renderChatMeta(meta) {
     }
     rawList.appendChild(row);
   }
+  //: The reference count is a fact the card draws from a cache the *note
+  //: list* fills, so a result row rendered before that list has been opened
+  //: had nowhere to read it from and drew nothing. The same patch-in the
+  //: note list uses, pointed at this list: one implementation, and a second
+  //: one is how the two would come to disagree about what "linked by" counts.
+  ensureReferenceCounts(rawList, _entriesLoadGeneration);
   $("chat-results").classList.remove("hidden");
   $("ask-idle")?.classList.add("hidden");
 }

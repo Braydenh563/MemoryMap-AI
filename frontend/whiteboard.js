@@ -4352,6 +4352,11 @@ function wbMapStartResizeDrag(grip, event, d) {
     node.style.minHeight = `${height}px`;
     d.width = width;
     d.height = height;
+    //: This gesture is the one thing that changes a node's measured box
+    //: without a render, so it drops that node's cached size itself; without
+    //: this the edges would follow the size the node had when the grip was
+    //: taken hold of. See `wbMapNodeSize`.
+    wbForgetMapNodeSize(d.id);
     wbUpdateMapEdges(edges);
   };
   const done = async () => {
@@ -4588,11 +4593,53 @@ function wbMapOpenReference(d) {
 //: `height` column is therefore only ever an approximation of it. Falls back
 //: to the stored value, then to the creation defaults, for a node that is not
 //: in the DOM at all, collapsed away, or being laid out before first paint.
+//:
+//: **Measured once per node between renders, not once per edge per frame**
+//: (MINDMAP_PLAN.md §13a). Every edge redraw asks this for both of its ends,
+//: and a drag redraws every edge of every topic it is carrying, so the two
+//: lines below used to run a document-wide attribute query and a layout read
+//: a few thousand times inside a single frame. A CPU profile of one 500-topic
+//: drag put `querySelector` and this function's own `offsetWidth`/
+//: `offsetHeight` reads at the top of the list by a wide margin; nothing else
+//: on the drag path came close, and the maths around them was noise.
+//:
+//: A map node's *size* cannot change without something that also clears this:
+//: a render (which rebuilds the element), the size grip (which deletes its
+//: own node's entry as it drags), or the end of any gesture. Its *position*
+//: changes constantly during a drag and is not cached here, because position
+//: is read from the datum, not from the DOM. Only a real measurement is
+//: cached: the fallback below is what a node that has not been laid out yet
+//: returns, and freezing that would keep the wrong number after first paint.
+let wbMapNodeSizeCache = null;
+
 function wbMapNodeSize(d) {
+  const cached = wbMapNodeSizeCache?.get(d.id);
+  if (cached) return cached;
   const el = document.querySelector(`.wb-object[data-id="${d.id}"]`);
-  if (el && el.offsetHeight) return { w: el.offsetWidth, h: el.offsetHeight };
+  if (el && el.offsetHeight) {
+    const size = { w: el.offsetWidth, h: el.offsetHeight };
+    if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
+    wbMapNodeSizeCache.set(d.id, size);
+    return size;
+  }
   return { w: d.width || WB_MAP_NODE_W, h: d.height || WB_MAP_NODE_H };
 }
+
+function wbClearMapNodeSizeCache() {
+  wbMapNodeSizeCache = null;
+}
+
+//: One node's measurement dropped, for the gesture that is changing that one
+//: node's box while it runs (the size grip). Clearing the whole cache there
+//: would put the board-wide re-measure back into every frame of a resize.
+function wbForgetMapNodeSize(id) {
+  wbMapNodeSizeCache?.delete(id);
+}
+
+// Every drag ends in one of these, whichever element it started on, and the
+// same two events already clear the alignment guides' own box cache.
+window.addEventListener("pointerup", wbClearMapNodeSizeCache, true);
+window.addEventListener("pointercancel", wbClearMapNodeSizeCache, true);
 
 //: Where an edge leaves its parent and where it meets its child, by layout, 
 //: right/left for a map that grows sideways, bottom/top for one that grows
@@ -13812,6 +13859,9 @@ function renderWhiteboardNow() {
 }
 
 function renderWhiteboard() {
+  //: A render replaces every map node's element, so every measurement taken
+  //: from the previous set is about to describe something that is gone.
+  wbClearMapNodeSizeCache();
   // Built once per render, not once per card: `allEntries.find(...)` inside
   // a per-card callback is O(cards × notebook size) on every single render
   //, for a large notebook that is real, measurable work paid on every

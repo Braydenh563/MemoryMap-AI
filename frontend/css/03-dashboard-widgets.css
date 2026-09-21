@@ -1987,6 +1987,19 @@ header#top-bar select,
    meant for the title. Measured: `padding: 0 26.4px 0 0` on a 1.25rem box,
    which is the wide badge with the digit shoved to its left edge that was
    reported. */
+/* **The whole row keeps the strip clear, not just the line beside the mark.**
+   Reported twice. Reserving it on the element after the mark only helps when
+   that element is the one the badge sits over, and a card's passage or a long
+   unwrapped line further down can still reach the top right corner; the badge
+   is `position: absolute`, so it is outside the flow and nothing pushes it.
+   A right inset on the row costs a ragged right edge of about two characters
+   and cannot be reached by any line, which is the trade the owner asked for
+   ("dont let it move the text or cut it off"): the text stops earlier, it is
+   never covered and never clipped. */
+#raw-results li.is-numbered {
+  padding-right: calc(1.25rem + var(--space-3));
+}
+
 #raw-results li.is-numbered > .record-index + * {
   /* The mark's width plus a clear step either side of it, rather than a hair:
      reported after the move ("text in the top line can clash with the
@@ -2001,7 +2014,7 @@ header#top-bar select,
    came out a rectangle. Fixed on both axes, with the digit centred in it. */
 #raw-results li > .record-index {
   position: absolute;
-  right: 0.8rem;
+  right: var(--space-2);
   top: 0.6rem;
   width: 1.25rem;
   height: 1.25rem;

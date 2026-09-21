@@ -34,6 +34,19 @@ with its owner named in the entry.
 
 ## Open items
 
+320. **The owner, 2026-09-21, verbatim:** "the numbers only appear after the
+    ai response is finished" (in the Ask tab's Matching records column). Open,
+    and it is closer to a design question than a bug: the numbers are the
+    answer's own citation markers, so a record can only be numbered once the
+    sentence citing it exists. `numberMatchingRecords` runs from the grounding
+    pass, which runs when the answer is complete. Two honest options: number
+    each record the moment the first marker naming it is placed, which needs
+    grounding to run per sentence as it streams rather than once at the end,
+    or say in the column that the numbers arrive with the finished answer.
+    Recommendation: the first, and it pairs with INBOX 318 (not every marker
+    appears), because both live in `ground_answer_sentences` and both want it
+    incremental. Measure `askgrounding.js` before and after.
+
 319. **The owner, 2026-09-21, verbatim, with two screenshots of a note
     card's connections row:** "also the buttons in these connections in notes
     need a redesign and look". Open. Each connection is a chip carrying a

@@ -570,32 +570,8 @@ oversubscription (42 s to 0.28 s with one thread), and `tail -1 &&` or
 `grep &&` chains that commit on a failed gate (read the failed line;
 four times this session).
 
-**Now (2026-09-14 early, Fable orchestrating): four more agents on the
-owner's night reports and the audit.** INBOX 195 to 199, 211 and the aurora
-half of 210 landed (`ea7b370`, `6437125`, `3440988`); chrome, mapux, backend2
-and boot run on the rest, each pushing to `origin/agent/wip-<name>` after
-every commit. **Their briefs and the resume recipe are in
-`agent-remaining/briefs-2026-09-13-night.md`** with `agent_common.md` beside
-it; the hourly routine merges each as it reports. Done when their lists are
-empty, the sweeps and `boottime.js` are re-run on the merged head, and the
-owner is told to merge.
-
-**Now (2026-09-13 night, Fable orchestrating): PR #144 is ready to merge.**
-All six agents finished their lists and were merged with `--no-ff` (backend
-`e7bd26f`, chat `112aac1`, phone `4d4a632`, documents `303db81`, graph
-`c2b4f01`, mind map `28068cf`); CI is green on `0e88c93` on all seven checks
-(three Python suites, ruff, CodeQL, Analyze, E2E) and the PR is mergeable
-clean. Local on that head: `errors.js` 0 errors and 0 layout findings at
-1440/1024/820/390 in both themes, `contrast.js`, `docks.js` and `touch.js`
-clean in both themes. INBOX holds seven older batches with every sub-report
-marked; no Fixed items. What each agent could not verify or left is in its
-`agent-remaining` file (mindmap, ui-phase-11, documents-phases, graph,
-chat-timeline-skills, chat-popup-agent, backend-probe); the app.js split
-(gzip bound raised to 700 KB), the graph options panel's height, `.segmented-
-control` radii and F3/F7/F10 are the named leftovers, all placed. **After the
-merge: Brief 33** (SESSION_BRIEFS), in the owner's words. The `agent/wip-*`
-branches on origin are merged and can be deleted from the GitHub UI (the git
-proxy here refuses deletes).
+**Previously (2026-09-14 early and 2026-09-13 night):** moved to HISTORY.md,
+"Moved from HANDOVER, 2026-09-21 (second pass)".
 
 **Previously (2026-09-13 evening and midday):** moved to HISTORY.md, "Moved from HANDOVER, 2026-09-21".
 

@@ -88,6 +88,15 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # The command tables' row shape: it reads editor.js and documents.js
   # together, so neither file's name selects it on its own.
   tests/test_command_row_shape.py
+  # The documentation hygiene lint (standing order 10: plan sizes, the
+  # HANDOVER line cap, a "Fixed" item left in INBOX). Here because the
+  # changed-test heuristic cannot reach it: it opens `HANDOVER.md` and the
+  # plans through `ROADMAP / "..."`, a constructed path rather than a
+  # literal a diff can be matched against, so editing HANDOVER selects no
+  # test at all. 2026-09-21: two HANDOVER additions took it to 606 lines
+  # and `--changed` printed "changed-tests (none matched)" on the commit
+  # that did it; CI found it thirteen minutes later.
+  tests/test_plan_hygiene.py
   tests/test_cheap_animations.py
   # The copy lint, here for the same reason `test_docs_site.py` is below: it
   # reads every string in `frontend/*.js` and every piece of markup outside a

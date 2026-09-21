@@ -51,6 +51,17 @@ instead is the browser's own image drag (`draggable="false"`), which would
 otherwise start an HTML5 file drag over a canvas that has a `drop` handler for
 exactly that.
 
+**One thing the feature broke on its way in, found by reading the path rather
+than by a report.** `media_gc`'s orphan pass asked for whiteboard objects
+`WHERE kind = 'image'`, which was every board object that could point at an
+upload on the day it was written and stopped being true the moment a topic
+could carry a picture: a picture topic's file listed as an orphan, and "clean
+up orphaned media" would have deleted it out from under a topic that is
+drawing it, while reporting that nothing used it. Both collectors now read
+every object's `data` blob, which is text and already parsed by
+`referenced_names`, so a kind added later is covered by having been added.
+`tests/test_media_gc.py` holds it.
+
 Put in and taken out from the topic's own menu, not the strip, for the reason
 §12.5 gives about the link beside it: the strip is how a topic *looks*, a
 picture is what it is. Taking it out leaves the upload in the Library (see

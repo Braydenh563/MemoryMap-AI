@@ -300,6 +300,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 - A picture on a mind map topic is in the board's own PNG and SVG export
   instead of an empty box with a caption.
+- "Clean up orphaned media" counts a picture used by a mind map topic as used.
+  It looked only at pictures placed on a board as their own object, so the file
+  behind a topic's picture was listed as used by nothing.
 - The board's top bar answers a finger on a tablet. Between 600 and 820, the
   band whose own rule is that the pointer there is a finger, all thirteen of
   its controls were still 36px tall; and wherever the five menu buttons drop

@@ -52,7 +52,17 @@ def _referenced_filenames(session: Session) -> tuple[set[str], bool]:
     referenced: set[str] = set()
     skipped_private = False
 
-    for obj in session.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "image")):
+    #: **Every object on every board, not only the ones whose kind is
+    #: `image`.** An image object was the only thing on a board that could
+    #: point at an upload when this was written, and it stopped being true the
+    #: moment a mind map topic could carry a picture (MINDMAP_PLAN.md §12.1
+    #: item 2's fourth, `data.image`): a filter on `kind` would have left every
+    #: picture topic's upload counted as an orphan, and "clean up orphaned
+    #: media" would then delete the file out from under a topic that is drawing
+    #: it. `referenced_names` reads the `data` blob as text and takes the
+    #: `/media/...` names out of it, so it does not care which key holds one,
+    #: and a kind added later is covered by having been added.
+    for obj in session.scalars(select(WhiteboardObject)):
         referenced.update(referenced_names(obj.data))
 
     for doc in session.scalars(select(Document)):
@@ -123,7 +133,11 @@ def usage_map(session: Session) -> tuple[dict[str, list[dict]], bool]:
             {"kind": kind, "id": ident, "label": (label or "").strip()[:80] or "Untitled"}
         )
 
-    for obj in session.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "image")):
+    #: Every object, for the reason `_referenced_filenames` gives above: a map
+    #: topic carrying a picture is a use of that upload, and a screen that says
+    #: "nothing points at this file" while a topic is drawing it is the screen
+    #: that offers to delete it.
+    for obj in session.scalars(select(WhiteboardObject)):
         for name in referenced_names(obj.data):
             note(name, "board", obj.board_id, "Whiteboard")
 

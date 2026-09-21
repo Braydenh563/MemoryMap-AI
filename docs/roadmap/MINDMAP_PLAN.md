@@ -991,10 +991,18 @@ topic: a control that wide has nowhere to go.
   before the code. Gate: a map with one cross link round-trips through
   FreeMind with the link intact, and `maptwokinds.js`'s export check inverts
   from "survives none" to "survives the format that can carry it".
-- **13e. The map's own customisation.** Tree-left and both-sides, the two
-  §12.0 promised and Coggle is known for; then a map-level default for new
-  topics. Gate: each layout laid out and measured for overlap at 12 and 200
-  topics, and `maptidy.js` still clean at 1440 and 390.
+- **13e. The map's own customisation.** ~~Tree-left and both-sides, the two
+  §12.0 promised and Coggle is known for~~ **built 2026-09-21**, recorded in
+  HISTORY.md ("Moved from the plans, 2026-09-21", "From MINDMAP_PLAN.md
+  section 13e: the two layouts the plan promised"): both in the picker, in
+  `BOARD_LAYOUTS` and in the tidy, 0 overlapping pairs at 12 and 200 topics
+  in all five layouts, 5/6 and 93/106 either side of the trunk, `maptidy.js`
+  5/5 at 1440 and 390, `maplayouts.js` new at 19/19 (5 failing on base).
+  **What is left of 13e is the other half: a map-level default for new
+  topics.** §13.4's finding stands: every one of the eleven per-topic fields
+  is still set one topic at a time, the map has no theme of its own (no font
+  choice, no branch palette a person picks, no line-style default) and "Reset
+  to branch" is still its only bulk operation.
 - ~~**13f. The doors that are built and shut.**~~ **Withdrawn 2026-09-21, and
   a different thing built in its place**, recorded in HISTORY.md ("Moved from
   the plans, 2026-09-21", "the two gestures a blank map did not answer").

@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A mind map can be laid out to the left, and on both sides of its trunk,
+  which is the arrangement most mind-mapping tools are pictured in. The
+  branches are split so the two sides hold about the same number of topics
+  rather than the same number of branches, and a topic whose parent is to its
+  right carries its branch bar on that side.
 - A mind map now answers the two gestures anybody tries on a blank part of it.
   A right-click on empty canvas opens a short menu of the things that apply to
   the map itself: add a topic here, tidy it, open every folded branch, fit

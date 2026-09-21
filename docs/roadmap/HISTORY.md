@@ -9,6 +9,51 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From MINDMAP_PLAN.md section 13e: the two layouts the plan promised
+
+Built 2026-09-21. §12.0's decision list named eight layouts, §13.4 measured
+four, and the two missing ones included **both sides**, which is the layout
+Coggle is known for. Added: `tree-left` and `tree-both`, in the picker, in
+`BOARD_LAYOUTS` and in the tidy.
+
+**Both sides is this layout twice, not a third algorithm.** The trunk's
+branches are split between a right-growing run and a left-growing one, both
+anchored on the same trunk (the tidy's closing shift keeps `roots[0]` where
+it already was, so the halves meet on it with no arithmetic), and the left
+run's positions are the sideways tree with the depth axis negated and the
+node's own width taken off it.
+
+**The split is greedy by weight, in branch order.** Alternating was the first
+version and it is wrong on any map that is not already balanced: measured on
+a 40-topic map whose four branches held 1, 1, 1 and 36 topics, alternating
+put 37 topics on one side and 2 on the other, because it counts branches and
+a person sees topics. Greedy by subtree size, keeping the branches in the
+order they were written: **5 left / 6 right at 12 topics, 93 / 106 at 200**.
+A trunk with one branch, or with one branch heavier than all the others put
+together, falls back to the sideways tree it would have been anyway.
+
+**The branch bar moves to the edge the parent is on.** It is the left edge in
+a map that grows right, the top edge in one that grows down (a class on the
+view), and the right edge for a topic whose parent is to its right, which is
+per node because a both-sides map has both kinds on it
+(`wb-map-node-mirrored`, four CSS rules mirroring the three the left edge
+already had). Measured: 4px on the right against a 1px hairline on the left,
+on 200 of 200 topics in tree-left and 93 of 200 in tree-both.
+
+`scratchpad/ui-sweeps/maplayouts.js` is new, **19/19**, five of them failing
+on the base branch, and registered in `scripts/gate.sh`'s sweep list. It lays
+every one of the five tidy layouts out at 12 and 200 topics and counts
+overlapping pairs in the board's own coordinates (**0 pairs everywhere**, the
+gate §13e set), asks whether each new layout survives the round trip through
+the server, and checks the bar. `tests/test_mindmap.py` gained the API half,
+written before the drawing: a layout the API refuses is a picker that lies.
+`maptidy.js` stays 5/5 at 1440 and at 390.
+
+The picker's first row was relabelled with it: "Tree, sideways" is no longer
+a distinct thing from "Tree, to the left", so the four read "to the right",
+"to the left", "both sides", "downward".
+
+
 ### From MINDMAP_PLAN.md section 13: the two gestures a blank map did not answer
 
 Built 2026-09-21. §13.3 counted the doors into the map's tools and found them

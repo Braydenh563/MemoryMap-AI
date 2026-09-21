@@ -9339,6 +9339,36 @@ input[type="file"] {
   border-top-color: color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
 }
 
+/* --- the spine on the other edge (MINDMAP_PLAN.md §13e) ---------------------
+   A topic whose parent is to its *right* carries the branch bar on its right
+   edge, for the same reason a downward map carries it on the top: a bar on
+   the far side from the branch it belongs to points at nothing. Set per node
+   (`wb-map-node-mirrored`, written by `wbPaintMapNode`) rather than per view,
+   because a both-sides map has topics of both kinds on it.
+
+   Each of the three rules above has its mirror here, in the same order and
+   for the same reason: the explicit choice has to win over the weight a core
+   mark gave the edge, and source order is what decides that. */
+.wb-map-node.wb-map-node-mirrored {
+  border-left-width: 1.5px;
+  border-right: 4px solid var(--wb-branch);
+}
+
+.wb-map-node.wb-map-core.wb-map-node-mirrored {
+  border-left-width: 2px;
+  border-right-width: 6px;
+}
+
+.wb-map-node-mirrored[data-spine="dashed"]:not([data-shape="none"]) {
+  border-left-style: solid;
+  border-right-style: dashed;
+}
+
+.wb-map-node-mirrored[data-spine="none"]:not([data-shape="none"]) {
+  border-right-width: 1.5px;
+  border-right-color: color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
+}
+
 .wb-map-node-body {
   display: flex;
   align-items: center;

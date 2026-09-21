@@ -25,7 +25,17 @@
   place of the withdrawn 13f). `mapdoors.js`, new, 7/7 and 3/7 on base, in
   `scripts/gate.sh`'s sweep list.
 
+- **13e's first half, the two missing layouts.** Tree-left and both sides,
+  in the picker, the API and the tidy; the split is greedy by subtree weight
+  (5/6 at 12 topics, 93/106 at 200); the branch bar moves to the edge the
+  parent is on. `maplayouts.js`, new, 19/19 and 5 failing on base, in the
+  gate's sweep list.
+
 ## Left to do
+
+- **13e's other half: a map-level default for new topics.** Every one of the
+  eleven per-topic fields is still set one topic at a time; the map has no
+  theme of its own and no bulk operation but "Reset to branch".
 
 - The rest of section 13's phases, in the plan's own order.
 

@@ -4191,6 +4191,20 @@ function wbPaintMapNode(el, d, index, colors) {
   }
   el.classed("wb-map-collapsed", collapsed);
   el.classed("wb-map-pinned", Boolean(d.data?.pinned));
+  //: **The spine is on the edge the parent is on** (MINDMAP_PLAN §13e). It is
+  //: the left edge in every layout that grows right, the top edge downward
+  //: (a class on the view, `wb-map-down`), and the *right* edge for a topic
+  //: whose parent is to its right: a bar on the far side from the branch it
+  //: belongs to points at nothing, which is the reason the downward case
+  //: exists at all. Per node rather than per view, because both-sides has
+  //: topics of both kinds on one map.
+  const layout = wbMapLayout();
+  let mirrored = layout === "tree-left";
+  if (layout === "tree-both" && index) {
+    const parent = index.byId.get(d.parent_id);
+    if (parent) mirrored = d.x + (d.width || WB_MAP_NODE_W) / 2 < parent.x + (parent.width || WB_MAP_NODE_W) / 2;
+  }
+  el.classed("wb-map-node-mirrored", Boolean(mirrored));
   wbPaintMapNodeStyle(node, d);
 }
 
@@ -4727,7 +4741,10 @@ window.addEventListener("pointercancel", wbClearMapNodeSizeCache, true);
 function wbMapEdgeAnchors(parent, child, layout) {
   const p = wbMapNodeSize(parent);
   const c = wbMapNodeSize(child);
-  let horizontal = layout === "tree-right";
+  //: Every sideways layout is horizontal, whichever way it grows: the
+  //: `leftward` test below already reads the direction off the two boxes, so
+  //: tree-left and both-sides need nothing of their own here.
+  let horizontal = layout === "tree-right" || layout === "tree-left" || layout === "tree-both";
   if (layout === "radial" || layout === "free") {
     horizontal = Math.abs(child.x - parent.x) >= Math.abs(child.y - parent.y);
   }
@@ -6009,7 +6026,65 @@ function wbTidyApportion(v, defaultAncestor, breadthOf, gap) {
 //: had a lag bug of exactly that shape (task #71).
 function wbMapTidyPositions(index, layout) {
   if (!index.roots.length) return new Map();
+  //: **Both sides, Coggle's signature** (MINDMAP_PLAN §12.0's own list of
+  //: eight layouts, §13.4: "tree-left and both-sides are missing, and
+  //: both-sides is Coggle's signature"). It is not a third algorithm: it is
+  //: this one twice, with the trunk's children split between the two runs and
+  //: the left run mirrored, which is exactly what a both-sides map *is*. Both
+  //: runs anchor on the same trunk (the shift at the bottom of this function
+  //: keeps `roots[0]` where it already was), so the two halves meet on it
+  //: without any arithmetic here.
+  //:
+  //: **By weight, in order, greedily**: each branch goes to whichever side is
+  //: currently lighter, counting the whole subtree rather than the branch
+  //: itself. Alternating was the first version and it is wrong on any map
+  //: that is not already balanced: measured on a 40-topic map whose four
+  //: branches held 1, 1, 1 and 36 topics, alternating put 37 on one side and
+  //: 2 on the other, because it counts branches and a person sees topics.
+  //: Greedy by weight gives the best split that keeps the branches in the
+  //: order they were written, which is the property a person notices second.
+  if (layout === "tree-both") {
+    const trunk = index.roots[0];
+    const kids = index.childrenOf.get(trunk.id) || [];
+    if (kids.length < 2) return wbMapTidyPositions(index, "tree-right");
+    const rightKids = [];
+    const leftKids = [];
+    let rightWeight = 0;
+    let leftWeight = 0;
+    for (const kid of kids) {
+      const weight = wbMapSubtree(index, kid.id).length;
+      if (rightWeight <= leftWeight) {
+        rightKids.push(kid);
+        rightWeight += weight;
+      } else {
+        leftKids.push(kid);
+        leftWeight += weight;
+      }
+    }
+    //: One side taking everything is not a both-sides map: with a single
+    //: branch, or with one branch heavier than every other put together, the
+    //: honest answer is the sideways tree it would have been anyway.
+    if (!rightKids.length || !leftKids.length) return wbMapTidyPositions(index, "tree-right");
+    const side = (keep, onlyTrunk) => ({
+      ...index,
+      roots: onlyTrunk ? [trunk] : index.roots,
+      childrenOf: new Map([...index.childrenOf, [trunk.id, keep]]),
+    });
+    //: The right run keeps every other root as well, so a map with a second
+    //: trunk lays that one out once; the left run is the first trunk's own
+    //: branches and nothing else.
+    const right = wbMapTidyPositions(side(rightKids, false), "tree-right");
+    const left = wbMapTidyPositions(side(leftKids, true), "tree-left");
+    const both = new Map(right);
+    for (const [id, pos] of left) if (id !== trunk.id) both.set(id, pos);
+    return both;
+  }
   const vertical = layout === "tree-down" || layout === "radial";
+  //: A map that grows to the left is the sideways tree with the depth axis
+  //: negated, and the node's own width taken off it because `x` is a left
+  //: edge: without that, each level would start where the last one ended and
+  //: the boxes would overlap by their own widths.
+  const leftward = layout === "tree-left";
   // Breadth is the axis siblings spread along: heights for a map that grows
   // sideways, widths for one that grows downward. Radial spreads siblings
   // around a ring, so its breadth is a width too, arc length, before it is
@@ -6126,7 +6201,7 @@ function wbMapTidyPositions(index, layout) {
       const along = offsets[f.depth] || 0;
       positions.set(f.obj.id, vertical
         ? { x: f.breadth - size.w / 2, y: along }
-        : { x: along, y: f.breadth - size.h / 2 });
+        : { x: leftward ? -along - size.w : along, y: f.breadth - size.h / 2 });
     }
   }
 

@@ -66,11 +66,17 @@ BOARD_TYPES = {"board", "map"}
 DEFAULT_BOARD_TYPE = "board"
 
 #: How a map arranges itself. "free" means "wherever you dragged it", which
-#: is the only thing an ordinary whiteboard has ever done; the other three
-#: are the standard mindmap arrangements (MINDMAP_PLAN.md §3.1). Stored
-#: rather than computed because it is a property of the map, not of the
-#: session looking at it, the layout you chose has to be there tomorrow.
-BOARD_LAYOUTS = {"free", "tree-right", "tree-down", "radial"}
+#: is the only thing an ordinary whiteboard has ever done; the others are the
+#: standard mindmap arrangements (MINDMAP_PLAN.md §3.1). Stored rather than
+#: computed because it is a property of the map, not of the session looking
+#: at it, the layout you chose has to be there tomorrow.
+#:
+#: "tree-left" and "tree-both" were added for MINDMAP_PLAN §13e: §12.0's own
+#: decision list promised both and §13.4 measured them missing, and
+#: both-sides is the layout Coggle is known for. A value this set does not
+#: know is refused rather than stored, so an older client asking for one of
+#: these is the only compatibility question, and it gets the default.
+BOARD_LAYOUTS = {"free", "tree-right", "tree-left", "tree-both", "tree-down", "radial"}
 DEFAULT_BOARD_LAYOUT = "free"
 
 #: A map node that stands for something that lives in the library. The node

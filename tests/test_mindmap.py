@@ -175,6 +175,19 @@ def test_type_and_layout_survive_a_round_trip_through_the_list(client):
     assert listed[board["id"]]["layout"] == "radial"
 
 
+def test_the_two_layouts_this_plan_promised_are_storable(client):
+    """MINDMAP_PLAN 13e. Section 12.0's decision list named eight layouts and
+    section 13.4 measured four: tree-left and both-sides were missing, and
+    both-sides is the one Coggle is known for. A layout the API refuses is a
+    layout the picker cannot offer, so this is the half of that work that has
+    to be true before any of it is drawn."""
+    for layout in ("tree-left", "tree-both"):
+        board = _map(client, name=f"Map {layout}", layout=layout)
+        assert (board["type"], board["layout"]) == ("map", layout)
+        listed = {b["id"]: b for b in client.get("/whiteboard/boards").json()}
+        assert listed[board["id"]]["layout"] == layout
+
+
 def test_the_layout_can_be_changed_without_renaming_the_board(client):
     """`PUT /whiteboard/boards/{id}` was rename-only, and a title was
     required. Switching a map's layout must not force the caller to resend

@@ -8689,6 +8689,29 @@ async function wbCreateTextBox(x, y) {
 //: an Entry (MINDMAP_PLAN.md §4 option B) and that is the same call the
 //: gallery's own Delete makes. Afterwards the canvas has no board to show, so
 //: it goes back to the gallery rather than sitting on a board that is gone.
+//: **Put the board you are looking at into a note** (INBOX 309). The board's
+//: half of the feature; the note's half is the "/" menu's "Board or mind
+//: map".
+//:
+//: The row from the board index when it has it, because that is where the
+//: board's `type` lives and a mind map must not be written into a note as a
+//: whiteboard. Failing that, the picker's own label and `wbIsMap()`, which
+//: are what this file already trusts for the same two facts (see
+//: `wbDeleteCurrentBoard` just below, which reads the title the same way).
+async function wbAddBoardToNote() {
+  const boardId = window.currentBoardId ?? null;
+  if (boardId === null) {
+    toast("The default board cannot go in a note. Make a board first.");
+    return;
+  }
+  const row = (typeof mapBoardById === "function" && mapBoardById(boardId)) || null;
+  const select = $("wb-board-select");
+  const title =
+    row?.title || select?.options?.[select.selectedIndex]?.textContent?.trim() || "This board";
+  const type = row?.type || (wbIsMap() ? "map" : "board");
+  if (typeof addBoardToNote === "function") await addBoardToNote({ id: boardId, title, type });
+}
+
 async function wbDeleteCurrentBoard() {
   const boardId = window.currentBoardId ?? null;
   if (boardId === null) {
@@ -10492,6 +10515,7 @@ async function initWhiteboard() {
 
   $("wb-clear-board")?.addEventListener("click", wbClearBoard);
   $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
+  $("wb-add-to-note")?.addEventListener("click", wbAddBoardToNote);
   $("wb-export")?.addEventListener("click", wbExportBoard);
 
   // Tool Selection
@@ -16091,6 +16115,13 @@ async function renderLibraryBoardsGallery() {
             } catch (e) {
               toast(e.message, true);
             }
+          }),
+          //: The same action the open board's own menu carries (INBOX 309),
+          //: here because the gallery is where boards are browsed and the
+          //: one you want in a note is usually one you are looking at in a
+          //: list rather than one you have opened.
+          makeMenuItem("ph:note-pencil Add to a note", "Put this board in a note as an object", async () => {
+            if (typeof addBoardToNote === "function") await addBoardToNote(board);
           }),
           makeMenuItem("ph:trash Delete", "Delete this board", async () => {
             if (!(await confirmDialog(`Delete "${board.title}"? This cannot be undone.`))) return;

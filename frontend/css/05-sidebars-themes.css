@@ -991,6 +991,90 @@ button.map-chip:focus-visible {
   margin-bottom: 0;
 }
 
+/* --- a board or a map as an object in a note (INBOX 309) ---------------------
+   The owner: "there is also no way to attach a whiteboard or mindmap to a note
+   as like an object in the notes". It sits on `.note-embed` above, and for the
+   same reason: this is another surface of the app living inside somebody's
+   text, and the dashed frame is what says so. What it adds is that the whole
+   card is the way in, so the padding moves onto the button rather than the
+   box, or the press would stop short of the frame it is drawn inside. */
+.board-embed {
+  padding: 0;
+  overflow: hidden;
+}
+
+.board-embed-open {
+  display: block;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-inner);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.board-embed-open:hover,
+.board-embed-open:focus-visible {
+  background: var(--card-bg-hover);
+}
+
+.board-embed-open .note-embed-head {
+  display: flex;
+}
+
+.board-embed-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* The miniature at a thumbnail's size rather than the card rule's full width:
+   a note is a column of text, and a board drawn across all of it reads as a
+   figure rather than as an object in a paragraph. Same override, same reason,
+   as `.library-list .board-minimap`. */
+.board-embed-body .board-embed-picture {
+  flex: 0 0 auto;
+  width: 7rem;
+  height: 3.9rem;
+  aspect-ratio: auto;
+  margin: 0;
+}
+
+.board-embed-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.board-embed-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.board-embed-meta {
+  display: block;
+}
+
+/* The board is gone. Muted rather than an error colour: nothing has failed,
+   and a red box in the middle of a note would read as one. */
+.board-embed-gone {
+  padding: var(--space-3) var(--space-4);
+}
+
+.board-embed-gone .board-embed-title {
+  margin: 0;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.board-embed-gone .board-embed-meta {
+  margin: var(--space-1) 0 0;
+}
+
 /* --- duplicate tidy-up -------------------------------------------------------- */
 .duplicate-group {
   margin: 0.6rem 0;

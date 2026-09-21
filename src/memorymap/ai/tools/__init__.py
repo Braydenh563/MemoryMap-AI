@@ -3247,7 +3247,15 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "set_reminder",
-            "Create a reminder, optionally attached to a note.",
+            #: **Say what `note_id` is for, not merely that it exists.** The
+            #: link between a note and a reminder has been storable since
+            #: reminders were written, and INBOX 309 is the owner reporting
+            #: it as missing, because nothing on either side showed it. A
+            #: reminder Atlas makes while reading a note is exactly the case
+            #: the link is for, and "optionally attached to a note" does not
+            #: tell a small model that.
+            "Create a reminder. When the reminder comes out of a note you "
+            "have just read, pass that note's id so the two stay joined.",
             {
                 "type": "object",
                 "properties": {
@@ -3258,7 +3266,7 @@ TOOLS: dict[str, ToolSpec] = {
                     },
                     "note_id": {
                         "type": "integer",
-                        "description": "Attach to this note (optional)",
+                        "description": "The note this reminder came out of, if it came from one",
                     },
                     "priority": {
                         "type": "string",

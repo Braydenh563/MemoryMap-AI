@@ -1550,6 +1550,16 @@ progress {
   border: 1px solid var(--border);
 }
 
+/* What this note made you promise to do (INBOX 309). The same treatment as
+   the references chip beside it, and deliberately so: the two are facts of
+   the same rank about the same note, on the same line, and giving this one a
+   colour of its own would make a reminder read as a warning about the note. */
+.chip.reminders {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
 /* A note that is saved but not yet filed. Quiet on purpose: this is a
    progress state on a note that is already safely on disk, not a warning,
    and it replaces the category chip for the second or two it lasts. */

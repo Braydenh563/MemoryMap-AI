@@ -7,6 +7,27 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- A whiteboard or a mind map can live inside a note as an object: a preview
+  card of the board itself, with its name and how much is on it, that opens
+  the board when pressed. It is written `![[board:12|House jobs]]`, by id, so
+  renaming the board does not break the note. A board that has been deleted
+  leaves a card saying what was there rather than taking a paragraph of the
+  note with it. An embedded board used to render as "Nothing called House
+  jobs yet", which was the one case the transclusion renderer never learnt.
+- The "/" menu in a note can insert one: "Board or mind map", which offers
+  your boards and maps and writes the object where the caret is.
+- The other way round as well: a board's own Board menu, and its card in the
+  Library, now offer "Add to a note", which asks which note and puts the
+  board in it.
+- A note now shows what it made you promise to do: a "2 reminders" chip on
+  the card opens the list of them, and each one presses through to the
+  Reminders tab. Reminders could already be attached to a note and say which
+  note they came from; the note end of that link had nothing on it.
+- A link to a board that has been deleted now says so, rather than offering
+  to create a note named after the board's address.
+
 ### Changed
 
 - The guide answers the question you asked. Three plain questions reached no

@@ -2622,8 +2622,16 @@ const MAP_BOARD_INDEX_MS = 8000;
 //: twice). A second caller joins the first walk instead.
 let mapBoardIndexWalk = null;
 
-function loadMapBoardIndex() {
-  if (mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) {
+//: `force` skips the eight seconds. One caller passes it: a note's board
+//: object that could not find its board (`boardEmbedElement`). Eight seconds
+//: is the right answer for a chip that is merely decorating a row, and the
+//: wrong one for a card that is about to tell somebody their board has been
+//: deleted: a board made a moment ago is missing from an index built before
+//: it existed, and nothing else ever rebuilds that index (every other caller
+//: returns early while it is set). A walk already in flight is still joined
+//: rather than doubled.
+function loadMapBoardIndex(force = false) {
+  if (!force && mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) {
     return Promise.resolve(mapBoardIndexCache);
   }
   if (mapBoardIndexWalk) return mapBoardIndexWalk;
@@ -3111,10 +3119,15 @@ function entryItem(entry, options = {}) {
     }
   }
   //: **What points at this note, on the card** (INBOX 246's third gap).
-  //: Only when the counts for this page have landed; `ensureReferenceCounts`
+  //: Only when the counts for this page have landed; `ensureCardCounts`
   //: patches the chip in afterwards for cards rendered before they had.
   const refs = referenceCountChip(entry, options);
   if (refs) meta.appendChild(refs);
+  //: **And what it made you promise to do** (INBOX 309). Same cache, same
+  //: patch-in, same line: a reminder that came out of this note is a fact
+  //: about the note in exactly the way "on 1 board" is.
+  const alarms = reminderCountChip(entry, options);
+  if (alarms) meta.appendChild(alarms);
 
   // "AI 0%: check this" is a warning about the AI's filing, and it only makes
   // sense when the AI actually did some. On a note you filed yourself, or one
@@ -7696,8 +7709,8 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
 //: left behind it. From the desk it walks off a half-written draft and its
 //: thoughts to show a note that is already saved, so that caller takes the
 //: same trip as an offer instead (`toastAction`), and stays where it is.
-async function appendSelectionToNote(text, { jump = true } = {}) {
-  const entry = await pickEntryDialog("Add the selected text to which note?");
+async function appendSelectionToNote(text, { jump = true, message = null, what = "the selected text" } = {}) {
+  const entry = await pickEntryDialog(message || "Add the selected text to which note?");
   if (!entry) return;
   const before = entry.content;
   const after = `${before.trimEnd()}\n\n${text}`;
@@ -7715,8 +7728,37 @@ async function appendSelectionToNote(text, { jump = true } = {}) {
       toastAction("Added to the note.", "Open it", () => flashEntry(entry.id));
     }
   } catch (error) {
-    toast(error.message || "Couldn't add that to the note.", true);
+    toast(error.message || `Couldn't add ${what} to the note.`, true);
   }
+}
+
+//: **The board's own way into a note** (INBOX 309). The second of the two
+//: doorways the owner asked for, and the one that starts where the thought
+//: does: you are looking at the board, and it belongs with something you
+//: wrote.
+//:
+//: Deliberately `appendSelectionToNote` rather than a second write path. That
+//: function already picks the note, appends, records the undo
+//: (`pushEntryPutUndo`) and reloads the list; a board-shaped copy of it would
+//: be a second place for "add text to a note" to get its undo wrong.
+//:
+//: The index is invalidated before the note is drawn again, because the board
+//: may have been made in the last eight seconds: see `loadMapBoardIndex`'s
+//: `force`. Without it the note would paint the board's own object as a
+//: tombstone the moment it was added, which is the worst possible first
+//: impression of this feature.
+async function addBoardToNote(board) {
+  if (!board || board.id == null) {
+    toast("The default board has no name to put in a note. Make a board first.");
+    return;
+  }
+  const isMap = board.type !== "board";
+  await appendSelectionToNote(boardEmbedMarkdown(board), {
+    jump: false,
+    what: isMap ? "that map" : "that board",
+    message: `Add \u201c${board.title || (isMap ? "this map" : "this board")}\u201d to which note?`,
+  });
+  if (typeof loadMapBoardIndex === "function") loadMapBoardIndex(true);
 }
 
 // A one-off "choose a note" dialog: search box, live list, Escape to cancel.
@@ -7821,11 +7863,33 @@ function pickEntryDialog(message) {
 //: / link, `MAP_REFERENCE_KINDS` in routes_whiteboard.py: rather than a
 //: display word, so a caller never has to translate between what the picker
 //: says and what the endpoint accepts.
+//: **`optIn` keeps a source out of the default set.** A board is a thing the
+//: Library holds and a perfectly good thing to point at from a note (INBOX
+//: 309), but this dialog's first caller feeds a map's reference node, and
+//: `MAP_REFERENCE_KINDS` in routes_whiteboard.py is note / document / file /
+//: link: a board offered there would be a row that cannot be saved. So the
+//: board source exists, and only a caller that names it in `sources` is
+//: shown it.
 const LIBRARY_PICK_SOURCES = [
   { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…" },
   { kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents", placeholder: "Search your documents…" },
   { kind: "file", label: "Files", icon: "ph:paperclip", path: "/files/gallery", placeholder: "Search your files…" },
   { kind: "link", label: "Links", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your links…" },
+  {
+    kind: "board",
+    label: "Boards and maps",
+    //: Per row, not per source: a whiteboard and a mind map sit in one list
+    //: here, and the owner has already reported once that a list of bare
+    //: titles gives no way to tell them apart.
+    icon: (row) => (row?.type === "board" ? "ph:squares-four" : "ph:tree-structure"),
+    path: "/whiteboard/boards",
+    placeholder: "Search your boards and maps…",
+    //: The unnamed scratch board (`id: null`) is left out, the same rule
+    //: `renderAttachToBoard` states: it is where things land when nobody
+    //: chose a board, not somewhere to point at on purpose.
+    keep: (row) => row && row.id != null,
+    optIn: true,
+  },
 ];
 
 //: One row's label per source, in one table for the reason `notePickerShape`
@@ -7833,6 +7897,7 @@ const LIBRARY_PICK_SOURCES = [
 //: copies of it is how the four drift apart.
 function libraryPickLabel(kind, row) {
   if (kind === "note") return noteLabel(row, 70);
+  if (kind === "board") return row.title || (row.type === "board" ? "Untitled board" : "Untitled map");
   if (kind === "document") return row.title || "Untitled document";
   if (kind === "file") return row.original_name || row.filename || "File";
   return row.title || row.url || "Link";
@@ -7843,8 +7908,8 @@ function libraryPickLabel(kind, row) {
 //: for the same reason: three of these lists are never looked at by someone
 //: who came to point at a note.
 function pickLibraryItemDialog(message, { sources = null } = {}) {
-  const available = LIBRARY_PICK_SOURCES.filter(
-    (source) => !sources || sources.includes(source.kind)
+  const available = LIBRARY_PICK_SOURCES.filter((source) =>
+    sources ? sources.includes(source.kind) : !source.optIn
   );
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -7907,7 +7972,8 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
       if (cache[kind]) return cache[kind];
       const source = available.find((s) => s.kind === kind);
       const rows = await apiJson(source.path, { silent: true }).catch(() => []);
-      cache[kind] = Array.isArray(rows) ? rows : rows.documents || [];
+      const list = Array.isArray(rows) ? rows : rows.documents || [];
+      cache[kind] = source.keep ? list.filter(source.keep) : list;
       return cache[kind];
     };
 
@@ -7937,9 +8003,14 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "entry-pick-row";
-        setLabel(button, `${active.icon} ${label}`);
+        setLabel(button, `${typeof active.icon === "function" ? active.icon(row) : active.icon} ${label}`);
         button.title = label;
-        button.addEventListener("click", () => close({ kind, id: row.id, label }));
+        //: The row itself travels with the choice. A caller that only needs
+        //: an id is unchanged (it destructures the three it always did), and
+        //: a caller that needs a fact the row already carries, whether a
+        //: board is a map, gets it without a second fetch for a list it has
+        //: just read.
+        button.addEventListener("click", () => close({ kind, id: row.id, label, row }));
         list.appendChild(button);
       }
     };
@@ -8788,6 +8859,60 @@ async function toggleFaded(entry) {
     why.className = "muted entry-reference-how";
     why.textContent = item.reason || "";
     wrap.appendChild(why);
+    row.appendChild(wrap);
+  }
+  card.appendChild(row);
+}
+
+//: **This note's reminders, under the card** (INBOX 309). The other half of
+//: the chip above.
+//:
+//: The same shape as `toggleReferences` and `toggleFaded` below, down to the
+//: shared `notePanel` state, because it answers a neighbouring question about
+//: the same note in the same place: a second way of drawing a row under a
+//: note is a second thing to keep consistent for no gain.
+//:
+//: Live reminders only, which is what the chip counted. A reminder ticked off
+//: last month is not something this note still wants from you, and the
+//: Reminders tab is where a finished one is still readable.
+async function toggleNoteReminders(entry) {
+  if (!toggleNotePanel(entry, "reminders")) return;
+  const answer = await apiJson(
+    `/reminders?entry_id=${entry.id}&include_done=false&limit=20`,
+    { silent: true }
+  ).catch(() => null);
+  const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
+  if (!card || !notePanelStillOpen(entry, "reminders")) return;
+  const row = document.createElement("div");
+  row.className = "entry-links";
+  const label = document.createElement("span");
+  label.className = "muted";
+  const items = Array.isArray(answer) ? answer : [];
+  //: Three states, not two, the rule the two panels beside this one already
+  //: follow: "nothing is due from this note" and "we could not ask" are
+  //: different facts.
+  label.textContent = !answer
+    ? "Couldn't read this note's reminders."
+    : items.length
+      ? "Reminds you to:"
+      : "Nothing is due from this note.";
+  row.appendChild(label);
+  for (const item of items) {
+    const wrap = document.createElement("span");
+    wrap.className = "entry-related-row";
+    const due = relativeWhen(item.due_at);
+    //: `flashReminder` rather than a jump of this panel's own: a
+    //: reminder has one home, it loads the tab's list, clears the filter
+    //: that would hide it and highlights the row. A second way in here
+    //: would be a fifth place a reminder can be read.
+    const alarm = chip("", "link", () => flashReminder(item.id));
+    setLabel(alarm, `ph:alarm ${item.text}`);
+    alarm.title = `Due ${due}. Press to open it in Reminders`;
+    wrap.appendChild(alarm);
+    const when = document.createElement("span");
+    when.className = "muted entry-reference-how";
+    when.textContent = due;
+    wrap.appendChild(when);
     row.appendChild(wrap);
   }
   card.appendChild(row);
@@ -10251,7 +10376,68 @@ function wikiStem(entry) {
   return entry._wikiStem;
 }
 
+//: **A board or a map named by its id**, the form the "/" menu and the
+//: board's own "Add to a note" write: `board:12|House jobs`, or `map:12|The
+//: house`.
+//:
+//: Why an id rather than the title every other `[[link]]` uses (INBOX 309,
+//: the owner: "there is also no way to attach a whiteboard or mindmap to a
+//: note as like an object in the notes"). A title-addressed object breaks the
+//: moment the board is renamed, and it breaks *silently*: a renamed board and
+//: a deleted one look identical to the resolver, so the note either points at
+//: nothing or tombstones a board that is still there. A board is an `Entry`,
+//: so its id is stable, and renaming it now leaves every note that carries it
+//: pointing at the same board.
+//:
+//: **The title travels with the id anyway**, for two reasons that are not
+//: decoration. It is what a tombstone says when the board really is gone
+//: ("Old plan" beats "board 12"), and it is what the backend's own reference
+//: scan matches on: `_reference_rows` in routes_entries.py finds a board's
+//: references with a LIKE over note content for the board's label, so a note
+//: carrying the title still counts towards the card's "on 1 board" chip with
+//: no backend change at all.
+//:
+//: `whiteboard` and `mindmap` are accepted as spellings of the same two
+//: things because somebody typing this by hand will write one of them.
+const BOARD_REF_PATTERN = /^\s*(board|whiteboard|map|mindmap)\s*:\s*(\d{1,9})\s*(?:\|\s*([^|]*))?$/i;
+
+function boardEmbedRef(name) {
+  const match = BOARD_REF_PATTERN.exec(String(name || ""));
+  if (!match) return null;
+  return {
+    id: Number(match[2]),
+    title: (match[3] || "").trim(),
+    //: What the writer *said* it was, used only until the board itself is
+    //: found: the board's own `type` is the truth, and a map turned into a
+    //: whiteboard after the note was written should draw as a whiteboard.
+    map: /map/i.test(match[1]),
+  };
+}
+
+//: The board a reference points at, or null when it is really gone.
+//:
+//: Two lookups, in this order. The id is exact and is what the writer meant.
+//: The title is the fallback for the one case an id cannot survive: a board
+//: exported and imported again, or restored from a backup, keeps its name and
+//: takes a new id. Trying it before calling anything missing is the difference
+//: between a tombstone that is right and one that is merely early.
+function boardEmbedTarget(ref) {
+  if (!ref || !ref.id) return null;
+  const byId = typeof mapBoardById === "function" ? mapBoardById(ref.id) : null;
+  if (byId) return byId;
+  if (!ref.title || typeof mapBoardTitled !== "function") return null;
+  return mapBoardTitled(ref.title.toLowerCase());
+}
+
 function resolveWikiTarget(name) {
+  //: An id-addressed board is answered before anything is lower-cased or
+  //: scanned: it names exactly one thing, and the notes-then-documents walk
+  //: below could only ever find something else called "board:12".
+  const ref = boardEmbedRef(name);
+  if (ref) {
+    const board = boardEmbedTarget(ref);
+    return board ? { kind: "board", entry: board } : null;
+  }
   const needle = String(name || "").trim().toLowerCase();
   if (!needle) return null;
   const entries = typeof allEntries !== "undefined" ? allEntries : [];
@@ -10938,7 +11124,7 @@ function renderEntries() {
       {
         afterChunk: () => {
           applyEntryListTabOrder(list);
-          ensureReferenceCounts(list, _entriesLoadGeneration);
+          ensureCardCounts(list, _entriesLoadGeneration);
         },
       }
     );
@@ -10990,7 +11176,7 @@ function renderEntries() {
     {
       afterChunk: () => {
         applyEntryListTabOrder(list);
-        ensureReferenceCounts(list, _entriesLoadGeneration);
+        ensureCardCounts(list, _entriesLoadGeneration);
         // After the list is in the DOM: drop the clamp from any note that
         // turned out to fit. No-op while the sub-tab is hidden;
         // showNotesSection re-runs it.
@@ -11303,6 +11489,7 @@ async function loadEntries() {
 async function _loadEntries() {
   const generation = ++_entriesLoadGeneration;
   referenceCountsCache.clear();
+  reminderCountsCache.clear();
   showEntrySkeletons();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
@@ -11453,42 +11640,106 @@ function referenceCountChip(entry, options = {}) {
 //: are in the DOM and asks for the ones the cache has not met. Cards are
 //: patched in place rather than re-rendered: a re-render mid-chunking would
 //: restart the incremental renderer that called this.
-function ensureReferenceCounts(list, generation) {
+//: **What this note made you promise to do** (INBOX 309, the owner: "or to
+//: link reminders to notes").
+//:
+//: The link itself was never missing: `Reminder.entry_id` has existed since
+//: reminders did, the note card's own "Remind me" passes it, and the
+//: `set_reminder` tool takes a `note_id`. One end of it was drawn and the
+//: other was not: a reminder says which note it came from, and a note that
+//: caused three reminders looked exactly like a note that caused none. So
+//: this is the same answer INBOX 246 gave for boards and documents: one
+//: muted chip on the card, from one batched count per page.
+//:
+//: **A chip on the facts line, not a section under the note.** The card is
+//: already a title, a body and one line of facts about it, and a second
+//: block under every note with a reminder would push the next note off the
+//: screen for a fact that is usually one word long. It presses open the same
+//: `.entry-links` row "Referenced by" and "Similar notes" use, which is also
+//: what keeps it to one open panel per card.
+const reminderCountsCache = new Map();
+const _reminderCountsInFlight = new Set();
+
+function reminderCountChip(entry, options = {}) {
+  if ((!options.actions && !options.facts) || entry.is_board || entry.is_draft) return null;
+  const count = reminderCountsCache.get(entry.id) || 0;
+  if (!count) return null;
+  const alarm = chip(`ph:alarm ${count} reminder${count === 1 ? "" : "s"}`, "reminders", (event) => {
+    event.stopPropagation();
+    toggleNoteReminders(entry);
+  });
+  alarm.title = "What this note made you promise to do. Press to see them";
+  return alarm;
+}
+
+//: **The two count strips a card carries, as data.**
+//:
+//: They are the same mechanism twice over: read the ids on screen, ask once
+//: for all of them, patch the chip onto the cards that are still there. The
+//: reference counts had it first and the reminders would have been a second
+//: copy of it, which is how the two would come to disagree about batching,
+//: about a note deleted mid-flight, or about which generation of the list
+//: they belong to. One walker, one table of what differs.
+const CARD_COUNT_SOURCES = [
+  {
+    cache: referenceCountsCache,
+    inFlight: _referenceCountsInFlight,
+    path: (ids) => `/entries/reference-counts?ids=${ids}`,
+    marker: ".chip.refs",
+    //: A note the server did not answer for (deleted under us) is recorded
+    //: as empty, not left unknown, or it would be asked for again on every
+    //: chunk.
+    empty: { total: 0 },
+    chip: (entry) => referenceCountChip(entry, { actions: true }),
+  },
+  {
+    cache: reminderCountsCache,
+    inFlight: _reminderCountsInFlight,
+    path: (ids) => `/reminders/counts?ids=${ids}`,
+    marker: ".chip.reminders",
+    empty: 0,
+    chip: (entry) => reminderCountChip(entry, { actions: true }),
+  },
+];
+
+function ensureCardCounts(list, generation) {
+  for (const source of CARD_COUNT_SOURCES) ensureOneCardCount(list, generation, source);
+}
+
+function ensureOneCardCount(list, generation, source) {
   const wanted = [];
   for (const li of list.querySelectorAll("li[data-id]")) {
     const id = Number(li.dataset.id);
-    if (!id || referenceCountsCache.has(id) || _referenceCountsInFlight.has(id)) continue;
+    if (!id || source.cache.has(id) || source.inFlight.has(id)) continue;
     wanted.push(id);
     if (wanted.length >= REFERENCE_COUNTS_BATCH) break;
   }
   if (!wanted.length) return;
-  for (const id of wanted) _referenceCountsInFlight.add(id);
-  apiJson(`/entries/reference-counts?ids=${wanted.join(",")}`, { silent: true })
+  for (const id of wanted) source.inFlight.add(id);
+  apiJson(source.path(wanted.join(",")), { silent: true })
     .then((answer) => {
       if (generation !== _entriesLoadGeneration) return;
       const counts = (answer && answer.counts) || {};
       for (const id of wanted) {
-        // A note the server did not answer for (deleted under us) is
-        // recorded as empty, not left unknown, or it would be asked for
-        // again on every chunk.
-        referenceCountsCache.set(id, counts[String(id)] || { total: 0 });
+        const given = counts[String(id)];
+        source.cache.set(id, given === undefined || given === null ? source.empty : given);
       }
       for (const id of wanted) {
         const li = list.querySelector(`li[data-id="${id}"]`);
         const meta = li && li.querySelector(":scope > .entry-meta");
-        if (!meta || meta.querySelector(".chip.refs")) continue;
+        if (!meta || meta.querySelector(source.marker)) continue;
         const entry = allEntries.find((e) => e.id === id);
-        const refChip = entry && referenceCountChip(entry, { actions: true });
-        if (refChip) meta.insertBefore(refChip, meta.querySelector(".entry-meta-end"));
+        const built = entry && source.chip(entry);
+        if (built) meta.insertBefore(built, meta.querySelector(".entry-meta-end"));
       }
       // The page may hold more than one batch; the next call finds the rest.
       if (list.querySelectorAll("li[data-id]").length > wanted.length) {
-        ensureReferenceCounts(list, generation);
+        ensureOneCardCount(list, generation, source);
       }
     })
     .catch(() => {})
     .finally(() => {
-      for (const id of wanted) _referenceCountsInFlight.delete(id);
+      for (const id of wanted) source.inFlight.delete(id);
     });
 }
 
@@ -13169,7 +13420,7 @@ function renderChatMeta(meta) {
   //: had nowhere to read it from and drew nothing. The same patch-in the
   //: note list uses, pointed at this list: one implementation, and a second
   //: one is how the two would come to disagree about what "linked by" counts.
-  ensureReferenceCounts(rawList, _entriesLoadGeneration);
+  ensureCardCounts(rawList, _entriesLoadGeneration);
   $("chat-results").classList.remove("hidden");
   $("ask-idle")?.classList.add("hidden");
 }
@@ -25930,6 +26181,11 @@ function noteFirstImage(content) {
 //: text is nothing but markers is still a link somebody typed, and a button
 //: with no words in it cannot be clicked on purpose.
 function wikiLinkLabel(name) {
+  //: An id-addressed board reads as its title, never as "board:12|House
+  //: jobs". The raw form is an address, and an address on a chip is the
+  //: same mistake as a url where a link's text should be.
+  const ref = boardEmbedRef(name);
+  if (ref) return ref.title || (ref.map ? "Mind map" : "Board");
   const clean = notePreviewText(name).replace(/\s+/g, " ").trim();
   return clean || name;
 }
@@ -26013,6 +26269,12 @@ async function loadReminders() {
     return;
   }
   surfaceRecovered($("reminders-empty"));
+  //: Anything that changes a reminder ends up here (setting, ticking off,
+  //: deleting, undoing), and every one of those changes a note card's
+  //: reminder chip (INBOX 309). Cleared rather than tracked per reminder:
+  //: this list is the whole table, so working out *which* note moved would
+  //: be a second model of the same data.
+  reminderCountsCache.clear();
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();
 
@@ -26681,6 +26943,11 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
   // close to permanent (§36C).
   askNotificationPermission();
   toast("Reminder set.");
+  //: The card's reminder chip (INBOX 309) reads a cached count, and this is
+  //: the moment that count became wrong. Dropped rather than adjusted: the
+  //: next render asks, and a number kept in step by hand is a number that
+  //: eventually is not.
+  if (entryId != null) reminderCountsCache.delete(Number(entryId));
   loadReminders();
   return true;
 }
@@ -26887,6 +27154,30 @@ function mdCalloutElement(quoted, depth) {
 
 // A `.note-embed` element for `![[name]]`.
 function mdEmbedElement(name, depth) {
+  //: **A board or a map is not text to transclude, it is a picture** (INBOX
+  //: 309). Everything else a note can embed is words, and the card below
+  //: renders those words inline; a whiteboard has no words to inline, so
+  //: this branch draws the same miniature the Library and the dashboard
+  //: draw and makes it the way in.
+  //:
+  //: Both spellings land here, because both already exist in real notes:
+  //: `![[board:12|House jobs]]`, which the "/" menu writes, and a plain
+  //: `![[House jobs]]` that happens to name a board, which `resolveWikiTarget`
+  //: has resolved to a board since the map chips were built and which this
+  //: function then rendered as "Nothing called House jobs yet" (measured on
+  //: 8793 before this change: the embed of a live board claimed it did not
+  //: exist).
+  const ref = boardEmbedRef(name);
+  const named = ref ? null : resolveWikiTarget(name);
+  if (ref) return boardEmbedElement(ref);
+  if (named && named.kind === "board") {
+    return boardEmbedElement({
+      id: named.entry.id,
+      title: named.entry.title || String(name || "").trim(),
+      map: named.entry.type !== "board",
+    });
+  }
+
   const box = document.createElement("div");
   box.className = "note-embed";
 
@@ -26900,7 +27191,7 @@ function mdEmbedElement(name, depth) {
 
   const body = document.createElement("div");
   body.className = "note-embed-body";
-  const target = resolveWikiTarget(name);
+  const target = named;
   if (depth >= MD_MAX_DEPTH) {
     // A embeds B embeds A. The cap is what stops that hanging the tab, and
     // saying so beats rendering nothing and looking like a bug.
@@ -26926,6 +27217,157 @@ function mdEmbedElement(name, depth) {
   }
   box.appendChild(body);
   return box;
+}
+
+//: **A whiteboard or a mind map, living in a note as an object** (INBOX 309).
+//:
+//: One card, drawn from the one preview renderer this app has
+//: (`mapPreview`), so a board looks the same in a note as it does in the
+//: Library and on the dashboard. MINDMAP_PLAN §5 item 12's rule, which this
+//: is the fourth surface to keep: "One `mapChip()` and one `mapPreview()`,
+//: used by all of them: the app's recurring failure is the same object drawn
+//: five ways."
+//:
+//: The whole card is one `<button>`. A picture with a separate "open" link
+//: beside it is two tab stops for one action, and the picture is the thing
+//: the eye and the finger both go for; making the card itself the control is
+//: what `mapChip` already does for the chip-sized version of this.
+//:
+//: **The card is filled twice when the index is not loaded yet.** `mapPreview`
+//: draws from `/whiteboard/boards` (`loadMapBoardIndex`), which a document or
+//: a chat transcript has usually never asked for, and this function is
+//: synchronous because it runs inside a render pass. So an unloaded index
+//: draws the resting card, asks for the index, and fills in place. It cannot
+//: loop: `loadMapBoardIndex` de-duplicates and caches for eight seconds.
+//: The board ids a forced index refresh has already looked for and not found.
+//: See `fill` below: this is what keeps a dead reference from costing a
+//: request per render.
+const boardEmbedForced = new Set();
+
+function boardEmbedElement(ref) {
+  const box = document.createElement("div");
+  box.className = "note-embed board-embed";
+  //: The id this card points at, so a sweep (and a reader with the inspector
+  //: open) can tell which board a preview claims to be without reading the
+  //: note's source.
+  box.dataset.boardRef = String(ref.id || "");
+  //: **A miss is not a tombstone until the index has been asked again.**
+  //: `mapBoardIndexCache` is eight seconds old at most but is only *rebuilt*
+  //: when something asks for it, so a board made after this session's index
+  //: was built is missing from it: drawing "this board is no longer in your
+  //: notebook" over a board somebody created a minute ago is the worst thing
+  //: this card could say. So a miss asks once more, with the index refreshed,
+  //: and only then writes the tombstone. `final` is what tells the two apart,
+  //: and it cannot loop: the retry always passes true.
+  const fill = (final) => {
+    const found = boardEmbedFill(box, ref, final);
+    if (found) {
+      //: It is here after all, so a later deletion gets its own forced look
+      //: rather than inheriting this one's answer.
+      boardEmbedForced.delete(ref.id);
+      return;
+    }
+    if (final) return;
+    //: A reference a forced refresh has already failed to find is not asked
+    //: about again: without this, every re-render of a note holding a dead
+    //: object would walk `/whiteboard/boards` from the top.
+    if (boardEmbedForced.has(ref.id) || typeof loadMapBoardIndex !== "function") {
+      fill(true);
+      return;
+    }
+    boardEmbedForced.add(ref.id);
+    loadMapBoardIndex(true).then(() => fill(true), () => fill(true));
+  };
+  fill(false);
+  return box;
+}
+
+function boardEmbedFill(box, ref, final) {
+  const board = boardEmbedTarget(ref);
+  box.replaceChildren();
+  box.classList.toggle("board-embed-gone", !board && final);
+
+  if (!board && !final) {
+    //: **Not the tombstone.** "We have not looked yet" and "it is gone" are
+    //: different facts, and printing the second while the first is true is
+    //: how a working board gets reported as deleted.
+    const waiting = document.createElement("p");
+    waiting.className = "note-embed-head";
+    setLabel(waiting, `${ref.map ? "ph:tree-structure" : "ph:squares-four"} ${ref.title || "Loading\u2026"}`);
+    box.appendChild(waiting);
+    return null;
+  }
+
+  if (!board) {
+    //: **A tombstone, not a disappearance** (the decision recorded in
+    //: DOCUMENTS_PLAN's "Decisions made"). A board deleted after it was put
+    //: in a note would otherwise take a paragraph of that note with it, and
+    //: the reader would never learn that anything had been there: content
+    //: that vanishes silently is worse than content that says it is gone.
+    //: The title the reference carries is exactly what makes this sentence
+    //: worth reading.
+    const head = document.createElement("p");
+    head.className = "note-embed-head";
+    setLabel(head, "ph:trash Removed");
+    const what = document.createElement("p");
+    what.className = "board-embed-title";
+    what.textContent = ref.title || (ref.map ? "A mind map" : "A whiteboard");
+    const why = document.createElement("p");
+    why.className = "library-file-meta board-embed-meta";
+    why.textContent = "This board is no longer in your notebook.";
+    box.append(head, what, why);
+    return null;
+  }
+
+  const isMap = board.type !== "board";
+  const title = board.title || ref.title || (isMap ? "Untitled map" : "Untitled board");
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "board-embed-open";
+  open.title = `Open \u201c${title}\u201d`;
+
+  const head = document.createElement("span");
+  head.className = "note-embed-head";
+  setLabel(head, `${isMap ? "ph:tree-structure" : "ph:squares-four"} ${isMap ? "Mind map" : "Whiteboard"}`);
+
+  const body = document.createElement("span");
+  body.className = "board-embed-body";
+  const picture = mapPreview(board, { size: "card" });
+  picture.classList.add("board-embed-picture");
+  const text = document.createElement("span");
+  text.className = "board-embed-text";
+  const name = document.createElement("span");
+  name.className = "board-embed-title";
+  name.textContent = title;
+  //: The facts line recipe (DESIGN.md), the same sentence the Library card
+  //: and the dashboard row carry under the same picture.
+  const meta = document.createElement("span");
+  meta.className = "library-file-meta board-embed-meta";
+  meta.textContent = mapCountLabel(board);
+  text.append(name, meta);
+  body.append(picture, text);
+  open.append(head, body);
+  open.addEventListener("click", (event) => {
+    //: The note card underneath is itself clickable (it expands), so a press
+    //: meant for the board must not also open the note.
+    event.stopPropagation();
+    if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(board.id);
+  });
+  box.appendChild(open);
+  return board;
+}
+
+//: The reference a note carries for one board, the one place the text form is
+//: written. Read by the "/" menu and by the board's own "Add to a note", so
+//: the two cannot write two different spellings of the same object.
+function boardEmbedMarkdown(board) {
+  const isMap = board?.type !== "board";
+  const title = String(board?.title || (isMap ? "Untitled map" : "Untitled board"))
+    .replace(/[[\]|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return `![[${isMap ? "map" : "board"}:${board?.id}|${title}]]`;
 }
 
 //: How deep a callout or an embed may nest before rendering stops.

@@ -9,6 +9,70 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From MINDMAP_PLAN.md section 13a: the drag pick-up
+
+Built 2026-09-21. Section 13.1 measured that a map freezes the instant a topic
+is touched: `dragWorstAt` **0.03**, three per cent into the gesture, and a
+1,650ms worst frame at 500 topics. The plan read that as `renderWhiteboard`,
+which is the whole of the *opening* cost and none of this one. A CPU profile
+of `mapperf.js`'s own gesture (Chromium's `Profiler` around the real pointer
+drag) put `document.querySelector` and `wbMapNodeSize`'s `offsetWidth` /
+`offsetHeight` reads at the top of the self-time list by a wide margin, with
+every piece of the edge maths that calls them far below and `renderWhiteboard`
+at a twentieth of the total. Nothing on the drag path was a render.
+
+**What the first frame of a branch drag was doing**, all of it per member of
+the branch rather than per thing that moved:
+
+- `wbCaptureBulkMoveOrigin` scanned the whole object list once per member to
+  find it (`list.find(...)`), which is quadratic in the board.
+- It called `wbMapEdgesFor` per member, and that rebuilt the map index, read
+  the layout, and ran three document-wide attribute queries per edge to find
+  the edge's visible path, its invisible hit twin and its waypoint handle.
+- Every interior edge of the branch was collected twice, once from each end,
+  so it was recomputed and rewritten twice on every frame.
+- `wbApplyBulkMove` re-found every moved item's element by attribute selector
+  on every frame.
+- `wbMapNodeSize` ran a `querySelector` and a layout read for both ends of
+  every edge, on every frame. This was the largest single cost.
+- `objDragMove` called `raise()` per frame (the card drag stopped doing that
+  in INBOX 114 for the same reason), and a DOM move dirties layout, so the
+  drop-target test's `getBoundingClientRect` re-laid out the whole board once
+  a frame.
+
+**The fix, in four commits, none of them a debounce or a frame wrapper over a
+redraw.** A topic's measured box is cached between renders and dropped at the
+only three moments it can change (a render, the size grip, the end of a
+gesture). A capture builds one lookup table, one edge context (index, layout
+and one pass over the drawn edge elements) and one `querySelectorAll` over the
+topics, which also fills the box cache in a single layout flush, so the
+pick-up is linear in the branch instead of quadratic in the board. An edge is
+claimed by whichever end reaches it first. Elements are resolved once per
+gesture and re-looked-up only when the one held has left the document. The
+canvas box is measured once per gesture, because every frame writes SVG
+geometry before the drop-target test asks for it and an SVG attribute write
+dirties layout. And the object drag raises once per gesture.
+
+**Measured, `mapperf.js`, the gate in `scripts/gate.sh`'s sweep list**, same
+machine and Chromium, one run each way:
+
+| Topics | Worst drag frame | Open to painted | `renderWhiteboard` | `wbMapTidyPositions` |
+| --- | --- | --- | --- | --- |
+| 50 | 83.3 to **16.8ms** | 371.5 to 314.2ms | 60.5 to 23.3ms | 2.9 to 0.1ms |
+| 200 | 416.6 to **33.3ms** | 906.4 to 714.2ms | 281.4 to 123.2ms | 16.7 to 0.3ms |
+| 500 | 1,650.0 to **66.8ms** | 3,443.3 to 2,049.1ms | 1,279.2 to 543.0ms | 76.3 to 0.6ms |
+
+16.8ms is vsync, so at 50 topics the pick-up is now a frame. The pan medians
+are 16.7ms at all three sizes before and after, and nothing is worse at 50
+than it is at 500. The open and the render improved as a side effect, because
+the layout and the render read the same boxes this pass stopped re-measuring,
+but neither meets its own gate figure and neither will by caching: that is
+13a-open in MINDMAP_PLAN, and it is a different piece of work.
+
+`tests/test_map_drag_cost.py` holds the nine shapes the profile found, against
+the source, because the suite cannot open a board. It says so in its own
+docstring: the sweep is the measurement, the lint is the shape.
+
 ### From WORLD_CLASS_PLAN.md section 20: a model per feature
 
 Built 2026-09-21, answering the owner's ask: *"allow the user to alter the

@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A mind map no longer freezes when a topic is picked up. Dragging a topic
+  carries its branch, and the frame that took hold of it was doing the work
+  once per topic in the branch rather than once per thing that moved: a board
+  scan to find each one, three document-wide queries per line to find its
+  parts, and a fresh measurement of both ends of every line on every frame.
+  Measured on `scratchpad/ui-sweeps/mapperf.js`, the worst frame of a drag
+  falls from 83.3 to 16.8ms on a 50-topic map, 416.6 to 33.3ms at 200 and
+  1,650 to 66.8ms at 500. Opening a map and laying it out got faster with it,
+  from 3.4 to 2.0 seconds at 500 topics.
 - Atlas answers about reminders, documents, notes, spaces and backups again.
   The help corpus had an entry for each of them, and the keyword match was
   written in the singular, so a question asked in the plural reached none of

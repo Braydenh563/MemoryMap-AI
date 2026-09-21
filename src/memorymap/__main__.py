@@ -997,6 +997,102 @@ def _stop_background_work() -> None:
         logger.warning("couldn't stop background work before exiting: %s", exc)
 
 
+def _webview2_runtime_missing() -> bool:
+    """True only when this is Windows and the WebView2 Runtime is provably
+    absent. Everything else (not Windows, the registry check itself failing,
+    an unexpected shape) answers False: this exists to turn one specific
+    silent failure into a clear message, never to add a new way to refuse to
+    start.
+
+    **Why this exists, not verified against a real machine** (the owner,
+    2026-09-21, testing the packaged .exe: "this graphic doesnt show").
+    Read from the code rather than reproduced: pywebview's Windows backend is
+    WebView2 (edgechromium), and the loader DLL this build already bundles
+    (WebView2Loader.dll, visible in the packaging log) only talks to the
+    system-wide WebView2 Runtime; it does not carry the runtime itself. Most
+    Windows 10/11 machines have it as a Windows Update component, but a clean
+    image, a minimal Windows Server, or an old LTSC build may not, and
+    pywebview's failure mode when it is missing ranges from an exception this
+    launcher never sees (the frozen build hides its console) to a legacy
+    engine that cannot render the inline SVG mark or the flexbox layout
+    `_LOADING_HTML` uses, which is exactly "the graphic doesn't show" with
+    nothing in any log to say why.
+
+    Detected the way Microsoft's own docs recommend: the Evergreen Runtime
+    registers its version under this registry key, one of a 32-bit and a
+    64-bit location depending on the machine, and a present, non-empty `pv`
+    value is the runtime being installed and current.
+    https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import winreg
+
+        client_id = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+        # Not raw strings: a raw string cannot end in a single backslash,
+        # which the client id's own leading brace made tempting to reach for.
+        for hive, subkey in (
+            (
+                winreg.HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\" + client_id,
+            ),
+            (
+                winreg.HKEY_LOCAL_MACHINE,
+                "SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\" + client_id,
+            ),
+            (
+                winreg.HKEY_CURRENT_USER,
+                "SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\" + client_id,
+            ),
+        ):
+            try:
+                with winreg.OpenKey(hive, subkey) as key:
+                    version, _ = winreg.QueryValueEx(key, "pv")
+                    if str(version).strip():
+                        return False
+            except OSError:
+                continue
+        return True
+    except Exception as exc:  # noqa: BLE001 - a failed check must never block the app
+        logger.debug("WebView2 Runtime detection did not run: %s", exc, exc_info=True)
+        return False
+
+
+def _warn_webview2_missing() -> None:
+    """A native message box, since the thing it is reporting is the absence
+    of the only rendering surface this launcher has. `ShellExecuteW` opens
+    the official installer page in whatever browser is default; both calls
+    are best-effort, because a launcher that crashes while explaining a
+    problem has made the problem worse, not explained it.
+    """
+    message = (
+        "MemoryMap AI needs the Microsoft Edge WebView2 Runtime to show its "
+        "window, and this machine does not have it installed.\n\n"
+        "Opening the Microsoft installer page now. Run the installer, then "
+        "start MemoryMap AI again."
+    )
+    try:
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(0, message, "MemoryMap AI", 0x30)  # MB_ICONWARNING
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("could not show the WebView2 message box: %s", exc)
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.ShellExecuteW(
+            None,
+            "open",
+            "https://developer.microsoft.com/microsoft-edge/webview2/",
+            None,
+            None,
+            1,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("could not open the WebView2 download page: %s", exc)
+
+
 def _run_desktop(hidden_relaunch: bool = False) -> None:
     """A real app window: uvicorn in a background thread,
     pywebview in front. Closing the window exits the process.
@@ -1074,6 +1170,14 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     # below once this window is actually on screen (pywebview's own
     # `func=`/`args=`, the standard way to do post-open work without
     # blocking the window from appearing in the first place).
+    # **Checked before the window that would fail to show anything useful**
+    # (see `_webview2_runtime_missing`'s own docstring for why this exists
+    # and what it is not verified against). A window pywebview cannot really
+    # render is worse than no window: at least this says what is wrong.
+    if _webview2_runtime_missing():
+        _warn_webview2_missing()
+        return
+
     window = webview.create_window(
         "MemoryMap AI",
         html=_loading_html(),

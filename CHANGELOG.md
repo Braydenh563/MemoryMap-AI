@@ -9,6 +9,23 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The packaged Windows app now says what is wrong when it cannot show its
+  window, instead of a blank or missing graphic with nothing in any log.
+  Reported directly on the .exe build: pywebview's Windows backend needs the
+  Microsoft Edge WebView2 Runtime, which the app bundles the loader for but
+  not the runtime itself, and a machine without it installed could get a
+  launcher with no visible feedback at all. Detected once, before the window
+  is created (the same registry key Microsoft's own docs point at), and
+  answered with a native message box plus the official installer page opened
+  automatically. Not verified against a real machine reproducing the report;
+  the detection logic itself is tested against a faked registry, in both
+  directions and against a broken registry call, which must never crash the
+  launcher.
+- The MSI build is switched off in the release workflow. WiX Toolset v7 now
+  refuses to build at all without accepting its Open Source Maintenance Fee
+  EULA, which had also been taking the working .exe upload down with it: a
+  failed step ends the job before the upload step runs. The MSI stays in the
+  file, disabled, until the EULA is accepted or an older WiX is pinned.
 - Answers arrive without their padding. A greeting, an announcement of what
   the model is about to do, and a closing offer of further help are taken off
   before anything else reads the answer, so the saved turn, the export and the

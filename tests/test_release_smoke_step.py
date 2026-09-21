@@ -9,13 +9,18 @@ step that packages or uploads it.
 The Windows job also builds an MSI (packaging/windows/installer.wxs)
 alongside the existing Inno Setup .exe, the owner's explicit decision:
 both ship, the MSI unsigned for now, for `msiexec /quiet`, Group Policy
-deployment and Windows Installer's own repair/rollback. The tests below
-guard the same shape the smoke-test tests above guard for the .exe: the
-MSI is built after the frozen app has been proven to actually run, both
-installers are uploaded (never one silently dropped by an edit to the
-upload step), and every release filename, on both platforms, carries
-the app name, the version, the platform and the architecture, so nobody
-downloading from the Releases page has to guess which file is which.
+deployment and Windows Installer's own repair/rollback. **The MSI build is
+`if: false` as of 2026-09-21**: WiX Toolset v7 now refuses to build without
+accepting its Open Source Maintenance Fee EULA (WIX7015), and a failed step
+in this job used to take the working .exe upload down with it. The step
+stays in the file, disabled, until that is resolved one way or the other.
+The tests below guard the same shape the smoke-test tests above guard for
+the .exe: the MSI, when it is on, is built after the frozen app has been
+proven to actually run and every release filename, on both platforms,
+carries the app name, the version, the platform and the architecture, so
+nobody downloading from the Releases page has to guess which file is which;
+the upload step is guarded against expecting a file a disabled build will
+never produce.
 """
 
 import xml.etree.ElementTree as ET
@@ -83,14 +88,37 @@ def test_windows_job_builds_the_msi_after_the_smoke_test():
     )
 
 
-def test_windows_job_uploads_both_the_exe_and_the_msi():
+def test_windows_job_uploads_the_exe():
     job = _job("build-windows-installer")
     upload = job[job.index("Upload installers to the release") :]
     assert "MemoryMap-AI-Setup-*.exe" in upload, (
         "the .exe installer dropped out of the upload step's files: list"
     )
-    assert "MemoryMap-AI-*-windows-x86_64.msi" in upload, (
-        "the .msi installer is missing from the upload step's files: list"
+
+
+def test_the_msi_is_off_and_the_upload_step_does_not_expect_one():
+    """The MSI build is `if: false` for now (2026-09-21): WiX Toolset v7
+    refuses to build at all without accepting the Open Source Maintenance
+    Fee EULA (WIX7015), and a failed step in this job took the working .exe
+    upload down with it, since the upload step never runs after one.
+
+    This is deliberately "the .msi glob is absent", not "the .msi steps are
+    gone": the build steps stay in the file with `if: false` and a comment
+    naming the two real fixes, so re-enabling one of them is a one-line
+    change rather than writing the job back from scratch.
+    """
+    job = _job("build-windows-installer")
+    msi_step = job[
+        job.index("Build the .msi installer") : job.index("Upload installers to the release")
+    ]
+    assert "if: false" in msi_step, (
+        "the .msi build step should be disabled (if: false) until WIX7015 "
+        "is resolved, not deleted or silently re-enabled"
+    )
+    upload = job[job.index("Upload installers to the release") :]
+    assert "windows-x86_64.msi" not in upload, (
+        "the upload step still expects a .msi that the disabled build step "
+        "will never produce, which fails the whole job on a missing glob"
     )
 
 

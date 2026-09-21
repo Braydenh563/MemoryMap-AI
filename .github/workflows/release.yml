@@ -172,10 +172,23 @@ jobs:
       # MSI is for `msiexec /quiet`, Group Policy deployment and Windows
       # Installer's own repair/rollback. Unsigned for now, same as the
       # .exe — see installer.wxs's own header for why that is fine to ship.
+      #
+      # **Off for now** (2026-09-21): WiX Toolset v7's CLI now refuses to
+      # build at all without accepting the Open Source Maintenance Fee EULA
+      # (WIX7015, https://wixtoolset.org/osmf/), which stopped this release
+      # cold and, worse, took the .exe upload down with it below, since a
+      # failed step ends the job before "Upload installers" ever runs. The
+      # owner: comment the MSI out so the .exe still ships. `if: false` on
+      # both WiX steps rather than deleting them, since the fix is either
+      # accepting the EULA (a decision, not a workaround) or pinning an
+      # older WiX release that predates it, and the commands are exactly
+      # what a future session needs to re-enable one of those.
       - name: Install WiX
+        if: false
         run: dotnet tool install --global wix
 
       - name: Build the .msi installer (WiX)
+        if: false
         shell: pwsh
         env:
           MEMORYMAP_VERSION: ${{ needs.resolve-version.outputs.version }}
@@ -189,9 +202,11 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.resolve-version.outputs.tag }}
+          # The .msi line is out with the steps above: a glob with nothing to
+          # match fails this action outright, and the .exe alone is a
+          # complete, working release either way.
           files: |
             dist/installer/MemoryMap-AI-Setup-*.exe
-            dist/installer/MemoryMap-AI-*-windows-x86_64.msi
 
   build-linux-package:
     name: Build Linux package

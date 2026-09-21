@@ -88,6 +88,13 @@
 
 ## Not verified
 
+- **Zoom is unmeasured.** The owner named three things, "laggy to pan around,
+  move objects, and zoom", and this pass measured two of them. Nothing here
+  reports what a wheel zoom costs at 500 topics, and no sweep in the
+  repository does. The bimodal pan finding says the likely answer is the same
+  one (the board is one promoted layer holding every topic, and a zoom changes
+  its scale, which cannot be composited from the existing raster), but that is
+  a prediction, not a number. Take it with 13a-open.
 - **Dark is unmeasured**, as it was in section 13.1. Every figure here is
   light mode at 1440x900.
 - **One machine, one Chromium.** The 500-topic row was run six times across

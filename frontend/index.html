@@ -4911,8 +4911,6 @@
         <select id="wb-board-select" aria-label="Which board or map to show" title="Which board or map to show" class="ghost small">
           <option value="">Default board</option>
         </select>
-        <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board" aria-label="Rename this board"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
-        <button id="wb-new-board" class="ghost small icon-button" type="button" title="Create a new board" aria-label="Create a new board"><i class="ph ph-plus" aria-hidden="true"></i></button>
         <!-- The map controls (MINDMAP_PLAN.md §5 Phase 2). All three are
              `hidden` until `wbSyncMapChrome` finds the open board is a map,
              rather than disabled: a control that can never apply to an
@@ -5057,6 +5055,21 @@
         <div class="wb-board-menu-wrap">
           <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="Export, clear, help" aria-haspopup="true" aria-expanded="false" aria-controls="wb-board-menu"><span class="wb-menu-label">Board</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
           <div id="wb-board-menu" class="wb-board-menu hidden" role="menu" aria-label="Board">
+            <!-- Rename and New used to be two icon buttons in the bar's
+                 identity zone, which is what took `#wb-topbar` to thirteen
+                 controls at 1440 against the dock grammar's ceiling of seven
+                 (measured, `scratchpad/ui-sweeps/wbtopbar.js`). Phase 8 names
+                 this bar as the menu-bar exception, so the five menu toggles
+                 are one zone rather than five controls; the rest of the bar
+                 answers to the ceiling, and these two are the two that had a
+                 menu to go to. Same ids, so every listener in whiteboard.js is
+                 unchanged, including the one that disables Rename on the
+                 default scratch board. -->
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Boards</span>
+              <button id="wb-rename-board" type="button" class="wb-menu-item" title="Rename this board"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i><span>Rename this board</span></button>
+              <button id="wb-new-board" type="button" class="wb-menu-item" title="Create a new board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span>New board</span></button>
+            </div>
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">This board</span>
               <div class="wb-menu-row">

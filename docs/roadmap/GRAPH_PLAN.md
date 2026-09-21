@@ -333,3 +333,26 @@ its own right and is not part of this change.
   hover over them or smth?? I feel like the graph nodes could look slightly
   nicer, cooler, more professional and more modern. visually"). Built, both
   renderers. Detail in HISTORY.md.
+
+## Placed from INBOX, 2026-09-21
+
+275. **Found by an agent, 2026-09-20, the graph's full screen spends one
+    Escape on two things.** With the map in full screen, opening the
+    lightbox (the node panel's attachment, a document) and pressing Escape
+    closes the lightbox *and* leaves full screen, in one press. Measured
+    with `scratchpad/ui-sweeps/graphfslightbox.js`: lightbox gone true,
+    still in full screen false. The cause is named in the app's own
+    comments and is one word out of date: the full-screen listener
+    (`app.js`, "Escape leaves full screen") says it is "placed after the
+    popover handlers above so a help panel or a note popup open over the
+    map takes the first Escape and the map takes the second", but listener
+    order does not stop an event. The graph options panel's own handler
+    calls `stopPropagation` and therefore really does spend the key ("The
+    Escape is spent here", app.js); `openLightbox`'s `onKey` does not, and
+    neither does anything else that opens over the map.
+    Recommendation: the full-screen handler asks whether anything is open
+    over the map before it acts (the app already has `activeOverlay()`, and
+    the lightbox sets `role="dialog"` precisely so it is inside its reach),
+    rather than every overlay in the app having to remember to stop the
+    key. Owner: GRAPH_PLAN, Phase 2's chrome row. Size S.
+

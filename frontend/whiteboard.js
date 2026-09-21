@@ -9528,6 +9528,43 @@ function wbExportBoard() {
   exportBtn.focus();
 }
 
+//: **A `role="menu"` with no `role="menuitem"` in it is an empty menu.**
+//:
+//: The board's six menus (Insert, Edit, Arrange, View, Board in the top bar,
+//: and the context bar's own) are written in index.html rather than built by
+//: `kebabMenu`, which is the deliberate part: their rows are not all commands.
+//: Half of the View menu is a colour input, a grid select and four switches,
+//: and a command list cannot hold those. What was not deliberate is that the
+//: container declared `role="menu"` and nothing inside it declared anything,
+//: so a screen reader was handed a menu of nought items and the shared
+//: arrow-key wiring (`wireMenuKeyboard`) found nothing to move between.
+//: Measured before this existed (`scratchpad/ui-sweeps/wbtopbar.js`, at 1440
+//: and at 320): five menus, 0 items each, 8/7/10/19/5 buttons with no role,
+//: and ArrowDown moving no focus in any of them.
+//:
+//: Stamped here rather than written into the markup 76 times, because the
+//: markup is the one place it could drift: a row added to a menu next year
+//: takes its role from the shape it is given. The mapping is the ARIA one:
+//: a command is a `menuitem`, a labelled section is a `group`, and a row that
+//: is a wrapper around a native control (a select, a colour well, a checkbox
+//: in its own label) is `none`, which leaves that control exposed as itself
+//: rather than lying about it being a command.
+function wbStampMenuRoles(menu) {
+  for (const section of menu.querySelectorAll(".wb-menu-section")) {
+    section.setAttribute("role", "group");
+  }
+  for (const item of menu.querySelectorAll(".wb-menu-item")) {
+    item.setAttribute("role", "menuitem");
+  }
+  //: Every other direct or sectioned child: a row that holds a control, a
+  //: group label, a file input. `role="none"` is what makes the container a
+  //: valid menu, and it is the honest answer for each of them: none of them
+  //: is a command.
+  for (const row of menu.querySelectorAll(".wb-menu-row, .wb-panel-group-label, input[type=\"file\"]")) {
+    if (!row.hasAttribute("role")) row.setAttribute("role", "none");
+  }
+}
+
 async function initWhiteboard() {
   if (wbInitialized) return;
   wbInitialized = true;
@@ -10910,6 +10947,17 @@ async function initWhiteboard() {
   const boardMenus = [...document.querySelectorAll(".wb-board-menu-wrap")]
     .map((wrap) => ({ toggle: wrap.querySelector("[data-wb-menu-toggle]"), menu: wrap.querySelector(".wb-board-menu") }))
     .filter((pair) => pair.toggle && pair.menu);
+  for (const { menu, toggle } of boardMenus) {
+    wbStampMenuRoles(menu);
+    //: The arrow keys, Home and End, from the same function every other menu
+    //: in the app uses (`wireMenuKeyboard`, app.js). Measured before it was
+    //: called here (`scratchpad/ui-sweeps/wbtopbar.js`): all five top-bar
+    //: menus opened with `role="menu"` and not one `role="menuitem"` in them,
+    //: so a screen reader was told "menu, 0 items", and ArrowDown moved the
+    //: focus nowhere. Tab stepped through the items, because they are buttons,
+    //: which is why nobody driving it with a mouse ever saw this.
+    wireMenuKeyboard(menu, toggle);
+  }
   const closeAllWbMenus = () => {
     for (const { toggle, menu } of boardMenus) {
       menu.classList.add("hidden");
@@ -10963,19 +11011,35 @@ async function initWhiteboard() {
     closeAllWbMenus();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeAllWbMenus();
+    if (e.key !== "Escape") return;
+    //: Escape hands the focus back to the toggle that opened the menu, which
+    //: is the half of the contract that was missing: the menu closed and the
+    //: focus stayed on the item that had just vanished, so the next Tab
+    //: started from the top of the document. The toggle is read *before* the
+    //: close, because closing clears the state that says which one was open.
+    //: Only when the focus is in the menu or on its own toggle: Escape is a
+    //: board-wide key (it leaves full screen, it drops a selection), and a
+    //: press with the focus on the canvas must not pull it into the bar.
+    const open = boardMenus.find(({ menu }) => !menu.classList.contains("hidden"));
+    const inside = open && (open.menu.contains(document.activeElement) || document.activeElement === open.toggle);
+    closeAllWbMenus();
+    if (inside) open.toggle.focus();
   }, true);
   // Edit / Arrange menu items forward to the control that already owns the
   // action (`data-wb-click`), so a menu can never drift from the dock, the
   // drawer or the selection bar. `data-wb-fn` is for the one action with
   // no button of its own.
   document.addEventListener("click", (e) => {
-    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn]");
+    //: `.wb-menu-item` as well as the two forwarding attributes: an item that
+    //: owns its own listener (Rename, New board, the two map rows) used to
+    //: leave the menu standing open behind the dialog it had just opened,
+    //: because only the forwarding items closed it.
+    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu .wb-menu-item");
     if (!item) return;
     e.stopPropagation();
     closeAllWbMenus();
     if (item.dataset.wbFn === "select-all") { wbSelectAllItems(); return; }
-    document.getElementById(item.dataset.wbClick)?.click();
+    if (item.dataset.wbClick) document.getElementById(item.dataset.wbClick)?.click();
   });
   //: **A board can change its mind.** Reported: "when I press the boards
   //: dropdown to change boards, I cant tell which one is a whiteboard and

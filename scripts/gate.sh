@@ -124,7 +124,29 @@ step ruff "$RUFF" check .
 # working tree. Not since origin/main: on a long branch that is the whole
 # suite again. It prints the list it picked so a miss is visible.
 changed_tests() {
-  local base; base="${GATE_BASE:-$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo HEAD~1)}"
+  # **A worktree has no upstream, and the old fallback was silent.** An agent
+  # branch cut with `git worktree add -b` tracks nothing, so this fell through
+  # to HEAD~1: on a fresh worktree that is the base commit itself, the diff is
+  # empty, no test file is selected, and the gate still prints green. Two
+  # agents ran a gate that measured nothing tonight and could not tell. So the
+  # fallback walks out to the branch this was cut from before it gives up, and
+  # whichever base is used is printed, because a gate that will not say what
+  # it compared against cannot be trusted by the person reading its five lines.
+  local base
+  base="${GATE_BASE:-$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)}"
+  if [ -z "$base" ]; then
+    for candidate in claude/open-sections-a-b origin/main main; do
+      if git rev-parse --verify --quiet "$candidate" >/dev/null &&
+         [ "$(git rev-parse HEAD)" != "$(git rev-parse "$candidate")" ]; then
+        base="$candidate"; break
+      fi
+    done
+  fi
+  [ -n "$base" ] || base="HEAD~1"
+  # To stderr, not stdout: this function *returns* the test list on stdout,
+  # so a friendly line printed here becomes a file name pytest then cannot
+  # find. Caught by the gate itself one minute after it was written.
+  echo "changed-base: $base" >&2
   { git diff --name-only "$base"; git diff --name-only; git ls-files --others --exclude-standard; } | sort -u |
   while read -r f; do
     case "$f" in
@@ -175,7 +197,7 @@ if [ "$SWEEPS" = 1 ]; then
   # previewclash: the board and map thumbnails, whose faults (a caption over a
   # block, over another caption, or past the paper) are pure geometry and so
   # are a number, but a number no lint can reach without a browser.
-  for s in errors docks contrast touch leaks keyboard requests previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  for s in errors docks contrast touch leaks keyboard requests previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve wbtopbar; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

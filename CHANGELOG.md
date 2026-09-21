@@ -9,6 +9,18 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The board's top bar carries six controls beside its five menus, down from
+  eight: Rename this board and New board moved into the Board menu, which is
+  already where this board's own life is kept. On a phone it carries seven in
+  all, down from eleven, and no longer runs past its own right edge (75px past
+  at 320, 5px at 390, both now 0): Full screen and Arrange leave the bar below
+  600, the first being in the View menu and the second being on the context
+  bar above a selection, which is the only time it can act. Its five menus
+  declared `role="menu"` with no `role="menuitem"` inside, so a screen reader
+  was told the menu was empty and the arrow keys moved nothing; they now take
+  their roles and their keyboard from the same two places every other menu in
+  the app does, and Escape hands the focus back to the toggle that opened them.
+
 - The Files sub-tab's "Text extracted from this file" block is the numbers, the
   reading and one way in. Opening it used to draw four ranks and two controls,
   the first sentence, "14 pages read · 808 words", a full-width "Show the whole

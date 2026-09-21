@@ -4877,9 +4877,25 @@ function wireMenuKeyboard(menu, opener) {
   menu.addEventListener("keydown", (event) => {
     const menuItems = [
       ...menu.querySelectorAll(
-        ':scope > [role="menuitem"], :scope > .menu-group > [role="menuitem"]'
+        ':scope > [role="menuitem"], :scope > .menu-group > [role="menuitem"], ' +
+        //: `role="group"` as well as `.menu-group`, so a menu written in
+        //: markup can use the wrapper ARIA actually names. `kebabMenu` builds
+        //: its own groups as `.menu-group` divs with no role, and the board's
+        //: five top-bar menus are sections in index.html that become
+        //: `role="group"` at boot (`wbStampMenuRoles` in whiteboard.js): with
+        //: only the class in this list, ArrowDown in those five found no items
+        //: at all and left the focus where it was, which is the one thing a
+        //: person who has just opened a menu will try.
+        ':scope > [role="group"] > [role="menuitem"]'
       ),
-    ];
+    ]
+      //: An item nobody can see is not one the arrows may land on. It never
+      //: came up while every menu here was built by `kebabMenu`, which draws
+      //: only the items it was given; the board's View menu keeps two map rows
+      //: `hidden` on an ordinary whiteboard, and walking onto one of those
+      //: calls `focus()` on an element that cannot take it, which leaves the
+      //: focus where it was and reads as "the arrow keys do nothing".
+      .filter((item) => !item.hidden && item.offsetParent !== null);
     if (!menuItems.length) return;
     const current = menuItems.indexOf(document.activeElement);
     if (event.key === "ArrowDown") {

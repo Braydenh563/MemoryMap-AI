@@ -152,7 +152,7 @@ const OCR = 'INGEST -> PARSE -> STORE\nnightly batch?\nask Priya about the retry
   else {
     // INBOX 279: the reading left the card, so there is nothing on a picture
     // card to open and nothing that can resize its row-mates.
-    if (images.folds) fail.push(`Images sub-tab: ${images.folds} picture cards carry a reading fold at rest (INBOX 279 put the reading behind a .library-chip)`);
+    if (images.folds) fail.push(`Images sub-tab: ${images.folds} picture card${images.folds === 1 ? '' : 's'} carry a reading fold at rest (INBOX 279 put the reading behind a .library-chip)`);
     const spread = Math.max(...images.heights) - Math.min(...images.heights);
     console.log(`images    row spread ${spread.toFixed(1)}px`);
     if (spread > 1) fail.push(`Images sub-tab: cards in one row differ by ${spread.toFixed(1)}px`);

@@ -368,8 +368,21 @@ function tourChoose(target, side, size) {
 //: step on every scroll and resize, which is why they are written here, in the
 //: one function that already runs on every reflow, and never anywhere else.
 function tourBlockPanels(left, top, right, bottom) {
-  const vw = document.documentElement.clientWidth;
-  const vh = document.documentElement.clientHeight;
+  //: **`innerWidth`, not `clientWidth`, and the difference is the bug the
+  //: owner photographed twice.** `clientWidth` stops at the scrollbar;
+  //: `innerWidth` includes its gutter. The panels are `position: fixed`, so
+  //: they are laid out against the window, and sizing them to the narrower
+  //: number leaves the gutter uncovered: the page goes dark and a bright band
+  //: stands at the right edge, the full height of the window, which is exactly
+  //: what his screenshots show. It never appeared in a sweep because headless
+  //: Chromium draws overlay scrollbars that take no space, so the gutter here
+  //: is 0 and the two numbers agree; on Windows they differ by about 17px, and
+  //: on a page with its own scrolling column by more.
+  //:
+  //: Covering a few pixels too many is free, because these panels are a flat
+  //: scrim with nothing to line up against. Covering too few is the fault.
+  const vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+  const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
   const panels = {
     "tour-block-top": { left: 0, top: 0, width: vw, height: Math.max(0, top) },
     "tour-block-bottom": {

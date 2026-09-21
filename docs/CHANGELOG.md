@@ -9,6 +9,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The guided tour no longer leaves a bright strip down the right of a dimmed
+  page. Its four dim panels are fixed to the window but were sized to the
+  content box, which stops at the scrollbar, so the gutter stayed lit.
 - Atlas answers about reminders, documents, notes, spaces and backups again.
   The help corpus had an entry for each of them, and the keyword match was
   written in the singular, so a question asked in the plural reached none of

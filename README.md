@@ -296,6 +296,17 @@ rather than eyeballed, and the in-app guide has a name. What comes next,
 in order, is in [docs/ROADMAP.md](docs/ROADMAP.md); what changed is in
 [CHANGELOG.md](CHANGELOG.md).
 
+**The guided tour is still in development and is known to be buggy.** It has
+been reported broken several times and fixed several times, most recently for
+a case where starting it from Settings, Help left the settings panel over the
+page so every step it wanted to point at measured as hidden and the run
+emptied itself. It may still drop steps, sit in the wrong place, or close
+itself part way through, particularly at window sizes and zoom levels that
+have not been measured here. Nothing else in the app depends on it: every
+screen it visits is reachable on its own, and you can leave the tour at any
+point with Escape or Skip. If it misbehaves, that is the tour and not your
+notebook.
+
 ## Licence
 
 [GNU Affero General Public License v3.0](LICENSE).

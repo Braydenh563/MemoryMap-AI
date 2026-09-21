@@ -3812,6 +3812,32 @@ function wbBuildMapNode(el, d) {
   //: shape and `wbPaintMapNode` a slightly different one. The class is set in
   //: the paint pass, which is the only place that knows what the node wears.
   body.append("i").attr("class", "wb-map-node-icon").attr("aria-hidden", "true");
+  //: **A topic whose body is a picture** (MINDMAP_PLAN.md §12.1 item 2's
+  //: fourth, Coggle's text/link/image/icon). Built for every node and hidden
+  //: when there is nothing to show, the same rule the icon above and the
+  //: chevron below already follow, and for the same reason: one element built
+  //: one way, rather than the enter selection and the paint pass each knowing
+  //: how to make one.
+  //:
+  //: `alt` is deliberately empty and the element is `aria-hidden`: the topic's
+  //: own label is right beside it and says what this node is, so a screen
+  //: reader that also announced the picture would say the same thing twice.
+  //: A caption nobody wrote is not a description.
+  //: **`draggable="false"`, and deliberately no `pointerdown` guard.** The two
+  //: look interchangeable and are opposites here. The link button beside this
+  //: stops the press because it is a control: pressing it must not also start
+  //: a node drag. The picture is the node's *body*, the largest thing to take
+  //: hold of on a picture topic, so a stopped press would make the card
+  //: undraggable by the part of it anyone would grab. What does have to be
+  //: refused is the browser's own image drag, which would otherwise start an
+  //: HTML5 drag of the file over a canvas that has a `drop` handler for
+  //: exactly that, and that is what this attribute is for.
+  body.append("img")
+    .attr("class", "wb-map-node-picture")
+    .attr("alt", "")
+    .attr("aria-hidden", "true")
+    .attr("draggable", "false")
+    .property("hidden", true);
   const text = body.append("div")
     .attr("class", "wb-map-text")
     .attr("contenteditable", "false");
@@ -4180,6 +4206,30 @@ function wbPaintMapNodeStyle(node, d) {
       : "");
     icon.hidden = !name;
     icon.className = name ? `ph ph-${name} wb-map-node-icon` : "wb-map-node-icon";
+  }
+
+  //: The picture, and the node shape that goes with it (§12.1 item 2's
+  //: fourth). `data-body` rather than a class for the same reason `shape` and
+  //: `align` are attributes: it is one of a set of exclusive body layouts, and
+  //: the absence of the attribute is the label-only node this map has always
+  //: drawn. The stylesheet turns the body from a row into a column on it, so a
+  //: picture node is a second node *shape*, not a label with a thumbnail
+  //: wedged in beside it.
+  const picture = node.querySelector(".wb-map-node-picture");
+  if (picture) {
+    const url = typeof data.image === "string" ? data.image : "";
+    picture.hidden = !url;
+    if (url) {
+      // `mediaSrc`, never the raw url: media is served behind the unlock, so
+      // the token has to ride on the query string exactly as it does for a
+      // board image and a note's own attachment.
+      const src = mediaSrc(url);
+      if (picture.getAttribute("src") !== src) picture.setAttribute("src", src);
+      node.dataset.body = "picture";
+    } else {
+      picture.removeAttribute("src");
+      delete node.dataset.body;
+    }
   }
 
   const link = node.querySelector(".wb-map-link");
@@ -4576,6 +4626,131 @@ function wbMapEdgeAnchors(parent, child, layout) {
   };
 }
 
+//: **Where the line into a topic bends** (MINDMAP_PLAN.md §12.1 item 5's
+//: third, "the control points on a curve drag to reshape it").
+//:
+//: A tree edge has no row of its own (it *is* `parent_id`), so the waypoint
+//: lives on the child, in `edge_slide` and `edge_bend`, as two fractions of
+//: the line's own length: along it from the halfway mark, and across it. The
+//: frame is rebuilt from the anchors every time it is read, which is what
+//: makes the stored pair survive a tidy, a drag, a zoom and a layout switch:
+//: two board coordinates would be right until either end moved, which on a
+//: map that lays itself out is about one gesture later.
+//:
+//: `bent` is what an unset pair means: the point is the anchors' own midpoint,
+//: every shape below is the shape it has always drawn, and the `d` string a
+//: plain map produces is the same string character for character.
+function wbMapEdgeWaypoint(a, child) {
+  const slide = Number(child?.data?.edge_slide) || 0;
+  const bend = Number(child?.data?.edge_bend) || 0;
+  const mx = (a.x1 + a.x2) / 2;
+  const my = (a.y1 + a.y2) / 2;
+  const dx = a.x2 - a.x1;
+  const dy = a.y2 - a.y1;
+  const len = Math.hypot(dx, dy) || 1;
+  // Along the line, and the normal to it: the pair (ux, uy), (-uy, ux).
+  const ux = dx / len;
+  const uy = dy / len;
+  return {
+    bent: Boolean(slide || bend),
+    x: mx + (ux * slide - uy * bend) * len,
+    y: my + (uy * slide + ux * bend) * len,
+  };
+}
+
+//: The same frame read the other way: a board point back into the two
+//: fractions the drag stores. Held to the same bounds the schema enforces, so
+//: a drag can never compose a value the PUT would then refuse (a gesture that
+//: works until you let go is the worst shape a control can have).
+const WB_MAP_BEND_MAX = 4;
+const WB_MAP_SLIDE_MAX = 0.45;
+
+function wbMapEdgeFractions(a, x, y) {
+  const mx = (a.x1 + a.x2) / 2;
+  const my = (a.y1 + a.y2) / 2;
+  const dx = a.x2 - a.x1;
+  const dy = a.y2 - a.y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const vx = x - mx;
+  const vy = y - my;
+  const hold = (value, limit) => Math.max(-limit, Math.min(limit, value));
+  //: Three decimals, which at the 45-degree worst case is under a hundredth
+  //: of a pixel on the longest branch this canvas allows: enough that the
+  //: line lands where it was dropped, and short enough that the number in an
+  //: exported file is a number a person can read.
+  const round = (value) => Math.round(value * 1000) / 1000;
+  return {
+    edge_slide: round(hold((vx * ux + vy * uy) / len, WB_MAP_SLIDE_MAX)),
+    edge_bend: round(hold((vx * -uy + vy * ux) / len, WB_MAP_BEND_MAX)),
+  };
+}
+
+//: The cubic a curved edge is drawn from, as four points, so the stroke and
+//: the ribbon are two drawings of one curve rather than two curves that drift
+//: (the same bargain `wbMapEdgePathD`'s own comment makes about the render and
+//: the per-frame drag follow).
+//:
+//: **The bend is 4/3 of the distance the point moved, and the number is the
+//: whole trick.** A cubic's own midpoint is `(p0 + 3c0 + 3c1 + p1) / 8`, so
+//: shifting *both* control points by d moves that midpoint by 6d/8: to put the
+//: curve through a point the pointer is holding, the control points move 4/3
+//: as far. Which means the handle is not near the line, it is exactly on it,
+//: at t = 0.5, at every zoom and in both orientations, and the probe can say
+//: so with a number rather than a screenshot.
+function wbMapEdgeCubic(a, child) {
+  const mx = (a.x1 + a.x2) / 2;
+  const my = (a.y1 + a.y2) / 2;
+  const p0 = { x: a.x1, y: a.y1 };
+  const p1 = { x: a.x2, y: a.y2 };
+  // Control points on the axis the edge leaves by, at half the span: the
+  // curve leaves the parent square to its own edge and arrives square to
+  // the child's, which is what makes a column of siblings read as one
+  // branch rather than a fan of straight lines crossing each other.
+  const c0 = a.horizontal ? { x: mx, y: a.y1 } : { x: a.x1, y: my };
+  const c1 = a.horizontal ? { x: mx, y: a.y2 } : { x: a.x2, y: my };
+  const w = wbMapEdgeWaypoint(a, child);
+  if (w.bent) {
+    const dx = (w.x - mx) * (4 / 3);
+    const dy = (w.y - my) * (4 / 3);
+    c0.x += dx;
+    c0.y += dy;
+    c1.x += dx;
+    c1.y += dy;
+  }
+  return { p0, c0, c1, p1 };
+}
+
+//: Where an elbow turns, which is the one thing a right-angled line has to
+//: give a waypoint. Held between the two anchors on both axes: a turn outside
+//: the span is a line that doubles back on itself, and the point it returns is
+//: then guaranteed to sit on the elbow's own crossing leg, which is what lets
+//: the handle be drawn on the line for this shape as well as the other two.
+function wbMapEdgeElbowTurn(a, w) {
+  const hold = (value, p, q) => Math.max(Math.min(p, q), Math.min(Math.max(p, q), value));
+  return { x: hold(w.x, a.x1, a.x2), y: hold(w.y, a.y1, a.y2) };
+}
+
+//: How far apart a line's two controls sit, in board units. The `+` is 24
+//: units across and the handle 14, so 26 is the first number at which neither
+//: covers the other at any zoom (both live in the zoomed layer and scale
+//: together). They were on the same point in the first build of this, and the
+//: `+` is HTML above the SVG: `elementFromPoint` at the handle's centre
+//: returned the button, and the drag could not start at all.
+const WB_MAP_EDGE_CONTROL_GAP = 26;
+
+//: The point on the drawn line where the handle belongs, per line shape
+//: (§12.1 item 5's third has to compose with item 4's three shapes). The curve
+//: and the straight line pass through the waypoint itself by construction; the
+//: elbow passes through its turn.
+function wbMapEdgeHandlePoint(parent, child, layout) {
+  const a = wbMapEdgeAnchors(parent, child, layout);
+  const w = wbMapEdgeWaypoint(a, child);
+  if ((child.data?.edge_style || "curve") === "elbow") return wbMapEdgeElbowTurn(a, w);
+  return { x: w.x, y: w.y };
+}
+
 //: One tree edge's `d`, from the two nodes' live `x`/`y` and their rendered
 //: sizes. Factored out of `wbRenderMapEdges` below so the per-frame drag
 //: follow (`wbUpdateMapEdges`) recomputes an edge with exactly the maths the
@@ -4594,21 +4769,25 @@ function wbMapEdgePathD(parent, child, layout) {
   //: points sit on, which is what keeps a column of siblings reading as one
   //: branch in either style.
   const style = child.data?.edge_style || "curve";
-  const mx = (a.x1 + a.x2) / 2;
-  const my = (a.y1 + a.y2) / 2;
-  if (style === "straight") return `M${a.x1} ${a.y1} L${a.x2} ${a.y2}`;
-  if (style === "elbow") {
-    return a.horizontal
-      ? `M${a.x1} ${a.y1} L${mx} ${a.y1} L${mx} ${a.y2} L${a.x2} ${a.y2}`
-      : `M${a.x1} ${a.y1} L${a.x1} ${my} L${a.x2} ${my} L${a.x2} ${a.y2}`;
+  //: The waypoint composes with all three shapes rather than only the curve
+  //: (§12.1 item 5's third: "it now has to compose with the three line shapes
+  //: item 4 added"). Each shape bends in the way that shape can: the curve
+  //: passes through the point, the straight line kinks at it, and the elbow
+  //: moves its turn to it. An unbent line is the same string it always was.
+  const w = wbMapEdgeWaypoint(a, child);
+  if (style === "straight") {
+    return w.bent
+      ? `M${a.x1} ${a.y1} L${w.x} ${w.y} L${a.x2} ${a.y2}`
+      : `M${a.x1} ${a.y1} L${a.x2} ${a.y2}`;
   }
-  // Control points on the axis the edge leaves by, at half the span: the
-  // curve leaves the parent square to its own edge and arrives square to
-  // the child's, which is what makes a column of siblings read as one
-  // branch rather than a fan of straight lines crossing each other.
-  return a.horizontal
-    ? `M${a.x1} ${a.y1} C${mx} ${a.y1} ${mx} ${a.y2} ${a.x2} ${a.y2}`
-    : `M${a.x1} ${a.y1} C${a.x1} ${my} ${a.x2} ${my} ${a.x2} ${a.y2}`;
+  if (style === "elbow") {
+    const turn = wbMapEdgeElbowTurn(a, w);
+    return a.horizontal
+      ? `M${a.x1} ${a.y1} L${turn.x} ${a.y1} L${turn.x} ${a.y2} L${a.x2} ${a.y2}`
+      : `M${a.x1} ${a.y1} L${a.x1} ${turn.y} L${a.x2} ${turn.y} L${a.x2} ${a.y2}`;
+  }
+  const c = wbMapEdgeCubic(a, child);
+  return `M${c.p0.x} ${c.p0.y} C${c.c0.x} ${c.c0.y} ${c.c1.x} ${c.c1.y} ${c.p1.x} ${c.p1.y}`;
 }
 
 //: **A branch is a shape, not a line** (INBOX 180: "can you give the direction
@@ -4685,12 +4864,11 @@ function wbMapCubicAt(t, p0, c0, c1, p1) {
 
 function wbMapRibbonD(parent, child, layout) {
   const a = wbMapEdgeAnchors(parent, child, layout);
-  const mx = (a.x1 + a.x2) / 2;
-  const my = (a.y1 + a.y2) / 2;
-  const p0 = { x: a.x1, y: a.y1 };
-  const p1 = { x: a.x2, y: a.y2 };
-  const c0 = a.horizontal ? { x: mx, y: a.y1 } : { x: a.x1, y: my };
-  const c1 = a.horizontal ? { x: mx, y: a.y2 } : { x: a.x2, y: my };
+  //: The same four points the stroked curve is drawn from, waypoint and all
+  //: (`wbMapEdgeCubic`): a ribbon that ignored the bend would be the default
+  //: line shape on this map quietly refusing the control, which is the one
+  //: way a feature can be "built" and do nothing on most of a map.
+  const { p0, c0, c1, p1 } = wbMapEdgeCubic(a, child);
   const weight = wbMapEdgeWeight(child);
   //: An arrowhead on a ribbon is part of the ribbon, not a marker: the shape
   //: is closed, so a `marker-end` would be placed at the end of the outline,
@@ -4776,6 +4954,13 @@ function wbMapEdgesFor(id) {
       `.wb-map-edges .wb-map-edge-hit[data-parent="${parent.id}"][data-child="${child.id}"]`
     );
     if (el && hit) el._wbHitTwin = hit;
+    // And the waypoint handle (§12.1 item 5's third), for the same reason the
+    // hit twin is here: a handle that stays where the line used to be is a
+    // control pointing at nothing the moment either end of the line moves.
+    const grip = document.querySelector(
+      `.wb-map-edges .wb-map-edge-handle[data-parent="${parent.id}"][data-child="${child.id}"]`
+    );
+    if (el && grip) el._wbHandle = grip;
     // No element means the edge is not drawn right now (a collapsed or
     // filtered branch), which is not an error: there is simply nothing to
     // follow the drag.
@@ -4799,6 +4984,11 @@ function wbUpdateMapEdges(edges) {
     // always the centreline, which is what a person is actually pointing at.
     el.setAttribute("d", wbMapEdgeIsRibbon(child) ? wbMapRibbonD(parent, child, layout) : d);
     if (el._wbHitTwin) el._wbHitTwin.setAttribute("d", d);
+    if (el._wbHandle) {
+      const point = wbMapEdgeHandlePoint(parent, child, layout);
+      el._wbHandle.setAttribute("cx", String(point.x));
+      el._wbHandle.setAttribute("cy", String(point.y));
+    }
   }
 }
 
@@ -4837,6 +5027,22 @@ function wbRenderMapEdges() {
     if (hidden.has(parent.id) || parent.data?.collapsed) continue;
     for (const child of index.childrenOf.get(parent.id) || []) {
       if (hidden.has(child.id)) continue;
+      //: **One `<g>` per edge**, so the whole line is one hover target: the
+      //: stroke, the target twin and the handle together. That is what lets
+      //: the handle be revealed by pointing at the line (§12.1 item 5's third,
+      //: and Coggle's own gesture) rather than only by selecting a topic, and
+      //: it matters for a reason the first build of this measured: the map
+      //: strip opens 44px above the selected topic and is several hundred
+      //: pixels wide, so for a child laid out a little below its parent the
+      //: strip lands exactly on the middle of the line into it. Measured on a
+      //: child 200 units below its trunk: `elementFromPoint` at the handle's
+      //: own centre returned the strip, and the drag never started. Hover
+      //: needs no selection, so it needs no strip.
+      //:
+      //: Nothing keys off the group's own shape: every selector in this file
+      //: and in the sweeps reaches an edge by class under `.wb-map-edges`.
+      const wrap = document.createElementNS(NS, "g");
+      wrap.setAttribute("class", "wb-map-edge-group");
       const path = document.createElementNS(NS, "path");
       const ribbon = wbMapEdgeIsRibbon(child);
       //: The line's own classes (MINDMAP_PLAN.md item 177). Thickness is a
@@ -4878,7 +5084,8 @@ function wbRenderMapEdges() {
       //: `el.style` sits above the stylesheet where the attribute sat below.
       const colour = colors.get(child.id);
       if (colour) path.style.setProperty("--wb-map-edge-colour", colour);
-      next.push(path);
+      wrap.appendChild(path);
+      next.push(wrap);
       //: The same curve again, transparent and wide enough to grab (§12.1
       //: item 4). Pushed *after* the visible path so it sits above it in the
       //: group, which is what an SVG hit test needs; it is invisible either
@@ -4891,8 +5098,44 @@ function wbRenderMapEdges() {
       hit.setAttribute("d", wbMapEdgePathD(parent, child, layout));
       hit.setAttribute("data-parent", String(parent.id));
       hit.setAttribute("data-child", String(child.id));
-      wbWireMapEdgeGestures(hit, child.id);
-      next.push(hit);
+      wrap.appendChild(hit);
+      //: **The waypoint handle** (§12.1 item 5's third): the third target on
+      //: a line, after the visible stroke and the invisible one you can point
+      //: at. A circle rather than a button because it has to sit *on* the
+      //: line at a board coordinate and scale with the zoom, which is what the
+      //: edge group already is; the mid-line `+` is HTML for the opposite
+      //: reason (it is a button from the app's own ramp).
+      //:
+      //: Drawn for every line and shown only for the selected topic's own
+      //: (`wbSyncMapEdgeHandles`), so a map of two hundred lines is not a map
+      //: of two hundred grab dots, which is the same rule the `+` follows.
+      const handle = document.createElementNS(NS, "circle");
+      handle.setAttribute("class", "wb-map-edge-handle");
+      const grip = wbMapEdgeHandlePoint(parent, child, layout);
+      handle.setAttribute("cx", String(grip.x));
+      handle.setAttribute("cy", String(grip.y));
+      handle.setAttribute("r", "7");
+      handle.setAttribute("data-parent", String(parent.id));
+      handle.setAttribute("data-child", String(child.id));
+      //: The same sentence the link's own bend grip carries, because it is the
+      //: same control: a `<title>` is the tooltip an SVG shape gets, and it is
+      //: the only place either gesture is written down on the thing itself.
+      const gripTitle = document.createElementNS(NS, "title");
+      gripTitle.textContent = "Drag to bend this line · double-click to straighten";
+      handle.appendChild(gripTitle);
+      if (colour) handle.style.setProperty("--wb-map-edge-colour", colour);
+      wbWireMapEdgeHandle(handle, parent.id, child.id);
+      wrap.appendChild(handle);
+      //: On the group, not on the hit stroke: a right-click and a hold belong
+      //: to the *line*, and the line now has two targets in it. Wired on the
+      //: stroke alone, the ring stopped opening wherever the handle was, since
+      //: the handle is a sibling of the stroke and the event never reached it
+      //: (measured by `mapstrip.js`, which caught it the moment the handle
+      //: landed: "right-click on a line opens the line's own ring" came back
+      //: `open: false`). This is the same fault the mid-line `+` already
+      //: carries its own forwarding for, and the same fix one level up: every
+      //: part of the line answers the line's own gestures.
+      wbWireMapEdgeGestures(wrap, child.id);
       //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
       //: The midpoint is exact rather than approximated: both control points
       //: of `wbMapEdgePathD`'s cubic sit on the line between the anchors'
@@ -4902,14 +5145,18 @@ function wbRenderMapEdges() {
       //: on one layout and wrong on the other comes from.
       const label = child.data?.edge_label;
       if (label) {
-        const a = wbMapEdgeAnchors(parent, child, layout);
+        // `wbMapEdgeHandlePoint` rather than the anchors' own midpoint: for an
+        // unbent line the two are the same point (the curve passes through it
+        // at t = 0.5, worked out in `wbMapEdgeCubic`), and for a bent one this
+        // is the one that is still on the line.
+        const middle = wbMapEdgeHandlePoint(parent, child, layout);
         const text = document.createElementNS(NS, "text");
         text.setAttribute("class", "wb-map-edge-label");
-        text.setAttribute("x", String((a.x1 + a.x2) / 2));
-        text.setAttribute("y", String((a.y1 + a.y2) / 2));
+        text.setAttribute("x", String(middle.x));
+        text.setAttribute("y", String(middle.y));
         text.setAttribute("dy", "-0.4em");
         text.textContent = String(label);
-        next.push(text);
+        wrap.appendChild(text);
       }
     }
   }
@@ -4919,6 +5166,51 @@ function wbRenderMapEdges() {
   // is cheaper than the bookkeeping a join would need.
   group.replaceChildren(...next);
   wbRenderMapEdgePluses(index, hidden, layout);
+  wbSyncMapEdgeHandles();
+}
+
+//: Where the mid-line `+` sits: a short step along the line from the handle,
+//: towards the child, so a line's two controls are side by side on it rather
+//: than one on top of the other (see `WB_MAP_EDGE_CONTROL_GAP`).
+//:
+//: Along the line and not merely along the chord: the step is taken down the
+//: curve's own tangent at its middle, the elbow's own crossing leg, or the
+//: kinked straight line's second half, so the `+` stays on the line it
+//: inserts into whatever shape that line is and however far it has been bent.
+//: On a line too short to hold both, the step shrinks rather than running the
+//: `+` off the end.
+function wbMapEdgePlusPoint(parent, child, layout) {
+  const a = wbMapEdgeAnchors(parent, child, layout);
+  const style = child.data?.edge_style || "curve";
+  const middle = wbMapEdgeHandlePoint(parent, child, layout);
+  let dx;
+  let dy;
+  let room = Math.hypot(a.x2 - a.x1, a.y2 - a.y1);
+  if (style === "elbow") {
+    // The leg the turn sits on, which is the one that crosses the edge's axis.
+    dx = a.horizontal ? 0 : a.x2 - a.x1;
+    dy = a.horizontal ? a.y2 - a.y1 : 0;
+    room = Math.hypot(dx, dy);
+  } else if (style === "straight") {
+    const w = wbMapEdgeWaypoint(a, child);
+    dx = a.x2 - w.x;
+    dy = a.y2 - w.y;
+  } else {
+    const c = wbMapEdgeCubic(a, child);
+    const tangent = wbMapCubicAt(0.5, c.p0, c.c0, c.c1, c.p1);
+    dx = tangent.dx;
+    dy = tangent.dy;
+  }
+  // Two siblings at the same height make a horizontal elbow with no crossing
+  // leg at all: the line is straight, and the step goes along it instead.
+  if (!dx && !dy) {
+    dx = a.x2 - a.x1;
+    dy = a.y2 - a.y1;
+    room = Math.hypot(dx, dy);
+  }
+  const len = Math.hypot(dx, dy) || 1;
+  const step = Math.min(WB_MAP_EDGE_CONTROL_GAP, room * 0.35);
+  return { x: middle.x + (dx / len) * step, y: middle.y + (dy / len) * step };
 }
 
 //: **A `+` at the middle of every line, to put a topic between two others**
@@ -4957,13 +5249,22 @@ function wbRenderMapEdgePluses(index, hidden, layout) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "ghost small icon-only wb-map-edge-plus";
+      // The two ends, so `wbSyncMapEdgeHandles` can stand this button aside
+      // for the waypoint handle, which lives at the same point on the line.
+      button.dataset.parent = String(parent.id);
+      button.dataset.child = String(child.id);
       button.title = "Put a topic between these two";
       button.setAttribute("aria-label", "Put a topic between these two");
       // Half the button's own 1.5rem, so its centre is on the line rather
       // than its top-left corner. In board units, which is what this layer
       // is measured in.
-      button.style.left = `${(a.x1 + a.x2) / 2 - 12}px`;
-      button.style.top = `${(a.y1 + a.y2) / 2 - 12}px`;
+      // The *line's* middle, not the anchors': a bent line (§12.1 item 5's
+      // third) no longer passes through the halfway point between its ends,
+      // and a `+` floating off the line it inserts into is a button that
+      // looks like it belongs to something else.
+      const middle = wbMapEdgePlusPoint(parent, child, layout);
+      button.style.left = `${middle.x - 12}px`;
+      button.style.top = `${middle.y - 12}px`;
       const glyph = document.createElement("i");
       glyph.className = "ph ph-plus";
       glyph.setAttribute("aria-hidden", "true");
@@ -5995,6 +6296,77 @@ async function wbMapEditLink(node) {
   await wbMapSetNodeStyle(node, { link: trimmed });
 }
 
+//: **A picture in a topic** (MINDMAP_PLAN.md §12.1 item 2's fourth, the last
+//: of Coggle's text/link/image/icon).
+//:
+//: **Through `/media/upload`, which is the one upload path this app has.** A
+//: board image, a picture pasted onto a board and a note's own attachment all
+//: already take it, and it is what runs the captioning, the text extraction
+//: and what the orphan sweep in the Library counts: a second route for the
+//: same bytes would be a second place for all three to be forgotten. The node
+//: stores the url it hands back and nothing else, so a topic's picture is the
+//: same upload the Library already lists and the same one `/media` serves.
+//:
+//: In the topic's own menu rather than as a fifth button on the strip, for the
+//: reason §12.5 gives about the link beside it: the strip is how a topic
+//: *looks*, and a picture is what it is. The plan says the same thing from the
+//: other end ("a second node shape, not a fourth button on a strip").
+//: Which topic the file chooser is open for. A module variable rather than a
+//: closure over the node, because the input is the one in the markup
+//: (`#wb-map-picture-input`) rather than one built per click: the file chooser
+//: is modal, so only one of these is ever open, and an id is what survives a
+//: render that replaced the node object in between.
+let wbMapPictureFor = null;
+
+async function wbMapEditPicture(node) {
+  const input = document.getElementById("wb-map-picture-input");
+  if (!node || !input) return;
+  wbMapPictureFor = node.id;
+  //: Cleared before opening, or choosing the same file twice in a row fires
+  //: no `change` the second time and the menu looks broken.
+  input.value = "";
+  input.click();
+}
+
+//: The upload itself, run from that input's own `change`.
+async function wbMapTakePicture(file) {
+  const id = wbMapPictureFor;
+  wbMapPictureFor = null;
+  const node = id == null ? null : wbMapIndex().byId.get(id);
+  if (!file || !node) return;
+  if (!file.type || !file.type.startsWith("image/")) {
+    toast("That file is not a picture.", true);
+    return;
+  }
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    // The same request `wbPlaceUploadedImage` makes, header and all: the
+    // token goes in `X-Auth-Token` because the body is a FormData and
+    // `apiJson` leaves the content type to the browser for one.
+    const uploaded = await apiJson("/media/upload", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: formData,
+    });
+    await wbMapSetNodeStyle(node, { image: uploaded.url });
+    renderWhiteboardNow();
+  } catch (err) {
+    toast(err.message || "Couldn't add that picture.", true);
+  }
+}
+
+//: Take the picture off a topic, leaving the upload itself alone: the file is
+//: in the Library, and a topic is one of the places it can appear, not its
+//: home. Deleting the bytes from here would be a delete nobody asked for, in a
+//: menu whose other entries are all about this node.
+async function wbMapRemovePicture(node) {
+  if (!node || !node.data?.image) return;
+  await wbMapSetNodeStyle(node, { image: null });
+  renderWhiteboardNow();
+  toast("Picture removed from the topic.");
+}
+
 //: --- the node radial (MINDMAP_PLAN.md §12.1 item 3) ------------------------
 //:
 //: Coggle's idiom, and the reason §12.1 exists: the controls appear on the
@@ -6312,7 +6684,7 @@ async function wbMapCopyBranch(id) {
     // The copy looks like the original: the styling lives in `data` and the
     // create endpoint only takes a label, so it is written straight after.
     const style = {};
-    for (const key of WB_MAP_STYLE_KEYS) {
+    for (const key of [...WB_MAP_STYLE_KEYS, ...WB_MAP_CONTENT_KEYS]) {
       if (node.data?.[key] != null) style[key] = node.data[key];
     }
     if (Object.keys(style).length) {
@@ -6349,7 +6721,21 @@ const WB_MAP_COPY_MAX = 120;
 const WB_MAP_STYLE_KEYS = [
   "color", "bold", "italic", "font_size", "align", "icon", "link", "edge_label",
   "shape", "core", "spine", "edge_style", "edge_dashed", "edge_width", "edge_arrow",
+  //: The waypoint on the line (§12.1 item 5's third) belongs with the other
+  //: four for the same reason: it is written from the line itself onto the
+  //: node, and a branch copied without it comes out drawn differently from the
+  //: one it was copied from.
+  "edge_bend", "edge_slide",
 ];
+
+//: What a copy carries that "back to the branch" must **not** drop: a picture
+//: in a topic (§12.1 item 2's fourth) is content, not a look. Reset's whole
+//: promise is that it is the safe way out of a topic you have over-decorated,
+//: and a reset that also threw away the picture somebody uploaded would make
+//: it the one control on this map you cannot press to find out what it does.
+//: Two lists rather than one flag, because the two questions are different
+//: ones and a boolean beside each key would be read as neither.
+const WB_MAP_CONTENT_KEYS = ["image"];
 
 //: Remove this topic and keep its branch: the children move up to its parent
 //: first, then the node goes. Through `/move`, which is the only endpoint
@@ -6506,10 +6892,124 @@ function wbCloseMapLinkRadial() {
   wbMapLinkRadialFor = null;
 }
 
-//: The gestures on one edge's hit stroke. Bound at creation rather than
-//: delegated: the edge group is replaced wholesale on every render
-//: (`wbRenderMapEdges`'s own comment says why), so there is exactly one
-//: binding per element per lifetime and nothing to clean up.
+//: **Which lines show their waypoint handle without being pointed at.**
+//:
+//: Two routes, and the second is not a luxury. Hover (the `<g>` wrapper, in
+//: the stylesheet) is the one that always works, because it needs nothing
+//: selected and so never has the map strip over it. This one is the other
+//: half: the lines of the topic you have selected show their handles while it
+//: is selected, which is the route a keyboard selection reaches and the one
+//: that says the control exists at all. A cheap attribute toggle over elements
+//: the render already built, so it can run on every selection change rather
+//: than forcing a re-render.
+function wbSyncMapEdgeHandles() {
+  const selected = wbIsMap() && wbMultiSelection.size <= 1 ? wbSelectedMapNode() : null;
+  const id = selected ? String(selected.id) : null;
+  const mine = (el) => Boolean(id) && (el.dataset.parent === id || el.dataset.child === id);
+  for (const handle of document.querySelectorAll(".wb-map-edges .wb-map-edge-handle")) {
+    handle.classList.toggle("is-shown", mine(handle));
+  }
+}
+
+//: Dragging one waypoint handle (§12.1 item 5's third).
+//:
+//: In client pixels over the zoom scale, the same conversion
+//: `wbMapStartResizeDrag` makes and for the same reason: the pointer's own
+//: delta is the only measurement that does not need the canvas transform
+//: rebuilt per frame, and the waypoint it starts from is already in board
+//: units. Per frame it redraws this one edge (`wbUpdateMapEdges`, which moves
+//: the visible path, the hit twin and the handle together) rather than the
+//: board; the write lands once, on the drop.
+function wbWireMapEdgeHandle(handle, parentId, childId) {
+  handle.addEventListener("pointerdown", (event) => {
+    //: No `is-shown` check here, deliberately: the stylesheet is the one gate,
+    //: and it has two ways of opening (hover on the line, or the topic at
+    //: either end selected). A class test would have refused the hover route
+    //: silently, which is the half that works when the strip is in the way.
+    //: An unshown handle is `pointer-events: none` and so is never the target
+    //: of this event in the first place.
+    event.preventDefault();
+    event.stopPropagation();
+    const index = wbMapIndex();
+    const parent = index.byId.get(parentId);
+    const child = index.byId.get(childId);
+    if (!parent || !child) return;
+    const layout = wbMapLayout();
+    const container = document.getElementById("whiteboard-container");
+    const k = container ? d3.zoomTransform(container).k : 1;
+    const start = wbMapEdgeWaypoint(wbMapEdgeAnchors(parent, child, layout), child);
+    const edges = wbMapEdgesFor(childId).filter((edge) => edge.parent.id === parentId);
+    const before = {
+      edge_bend: child.data?.edge_bend ?? null,
+      edge_slide: child.data?.edge_slide ?? null,
+    };
+    let next = null;
+    //: Held open for the length of the drag. The pointer leaves the line the
+    //: instant the bend starts, which ends the `:hover` that revealed the
+    //: handle: pointer capture should carry the moves anyway, but a control
+    //: that depends on capture outliving `pointer-events: none` is a control
+    //: that depends on a detail of one engine.
+    handle.classList.add("is-dragging");
+    handle.setPointerCapture?.(event.pointerId);
+    const move = (moveEvent) => {
+      const x = start.x + (moveEvent.clientX - event.clientX) / k;
+      const y = start.y + (moveEvent.clientY - event.clientY) / k;
+      next = wbMapEdgeFractions(wbMapEdgeAnchors(parent, child, layout), x, y);
+      child.data = { ...child.data, ...next };
+      wbUpdateMapEdges(edges);
+    };
+    const done = async () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", done);
+      handle.removeEventListener("pointercancel", done);
+      handle.classList.remove("is-dragging");
+      if (!next) return;
+      //: Zero is stored as nothing at all, like every other default this map
+      //: writes: a line dragged back to straight and a line nobody has
+      //: touched are the same line, and neither should carry a field into an
+      //: export.
+      const patch = {
+        edge_bend: next.edge_bend || null,
+        edge_slide: next.edge_slide || null,
+      };
+      if (patch.edge_bend === before.edge_bend && patch.edge_slide === before.edge_slide) return;
+      await wbMapSetNodeStyle(child, patch);
+      renderWhiteboardNow();
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", done);
+    handle.addEventListener("pointercancel", done);
+  });
+  //: Back to the line it was, without going to a menu for it. The same
+  //: gesture a text grip uses to reset a size elsewhere in this file, and the
+  //: node's own menu says so in words for anyone who does not try it.
+  handle.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const child = wbMapIndex().byId.get(childId);
+    if (child) wbMapStraightenEdge(child);
+  });
+}
+
+//: Drop a line's waypoint. Named rather than inlined because two surfaces ask
+//: for it (the handle's own double-click and the topic's menu) and §12.5's
+//: rule is one action in one place.
+async function wbMapStraightenEdge(node) {
+  if (!node) return;
+  if (!node.data?.edge_bend && !node.data?.edge_slide) return;
+  await wbMapSetNodeStyle(node, { edge_bend: null, edge_slide: null });
+  renderWhiteboardNow();
+}
+
+//: The gestures on one edge, bound to the group that holds its stroke, its
+//: target twin and its waypoint handle, so all three answer them. Bound at
+//: creation rather than delegated: the edge group is replaced wholesale on
+//: every render (`wbRenderMapEdges`'s own comment says why), so there is
+//: exactly one binding per element per lifetime and nothing to clean up.
+//:
+//: The handle stops its own `pointerdown`, so a hold that starts on the
+//: handle is a drag and not a ring; a hold anywhere else on the line is a
+//: ring, which is what it has always been.
 function wbWireMapEdgeGestures(hit, childId) {
   hit.addEventListener("contextmenu", (event) => {
     event.preventDefault();
@@ -6695,6 +7195,9 @@ function wbApplySelectionHighlight() {
   // The map dock's own buttons act on the selected topic, so they follow the
   // selection for the same reason the properties panel above does.
   wbSyncMapToolState();
+  //: And the waypoint handle on the selected topic's own lines, which is the
+  //: other control that follows the selection without a re-render.
+  wbSyncMapEdgeHandles();
   //: A card and a text box keep their eight handles and their rotate grip as
   //: children, revealed by `.wb-selected`, so a *group* member is marked a
   //: second way and 07-whiteboard-misc.css hides the grips on that class. The
@@ -7394,6 +7897,28 @@ function wbBuildContextMenu(kind) {
     );
     item(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
       "An http, https or mailto address", () => wbMapEditLink(mapNode));
+    //: The picture (§12.1 item 2's fourth), beside the link because the two
+    //: are the same kind of thing: what this topic *is*, rather than how it
+    //: looks. Reference nodes are left out, their body is the note, document
+    //: or file they stand for.
+    if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
+      item(mapNode.data?.image ? "Change this topic's picture…" : "Put a picture in this topic…",
+        "An image from this computer", () => wbMapEditPicture(mapNode));
+      if (mapNode.data?.image) {
+        item("Take the picture out of this topic", "The upload stays in the library", () =>
+          wbMapRemovePicture(mapNode)
+        );
+      }
+    }
+    //: Only when there is a bend to drop (§12.1 item 5's third). A menu entry
+    //: that is there for every topic and does nothing on nearly all of them is
+    //: a row everybody reads past; this one appears exactly when the line has
+    //: been reshaped, and says where the gesture is for next time.
+    if (!rooted && (mapNode.data?.edge_bend || mapNode.data?.edge_slide)) {
+      item("Straighten the line into this topic", "Or double-click the dot on the line", () =>
+        wbMapStraightenEdge(mapNode)
+      );
+    }
     item("Connect this topic to another", "Shift+C, then drag to the other topic", () => {
       selectWbTool("link-straight");
       toast("Drag from this topic to the one it should join.");
@@ -8279,8 +8804,40 @@ function wbBuildExportSvg(scope) {
       parts.push(
         `<rect width="4" height="${size.h}" rx="2" fill="${wbSvgEscape(colour)}" />`
       );
+      //: **A topic that is a picture exports as the picture** (§12.1 item 2's
+      //: fourth). Without this a map of photographs came out as a page of
+      //: empty boxes with captions, which is the same "stored, served and not
+      //: drawn" gap the branch above this one exists to close.
+      //:
+      //: The box is measured off the live node rather than recomputed from the
+      //: stylesheet's padding: the element is on screen (`wbMapNodeSize` has
+      //: just read it for the card's own size), and two rects in the same
+      //: units give the picture's place inside the card exactly, at any zoom,
+      //: without this function having to know what `--space-2` is today.
+      //: `mediaSrc`, for the reason the image object above gives: the raster
+      //: pass loads the SVG through a plain `<img>`, which sends no header, so
+      //: the token has to be in the url.
+      let labelTop = 22;
+      const picture = obj.data.image
+        ? document.querySelector(`.wb-object[data-id="${obj.id}"] .wb-map-node-picture`)
+        : null;
+      const card = picture ? picture.closest(".wb-object") : null;
+      if (picture && card && !picture.hidden) {
+        const cardBox = card.getBoundingClientRect();
+        const picBox = picture.getBoundingClientRect();
+        const scale = cardBox.width ? size.w / cardBox.width : 1;
+        const px = (picBox.left - cardBox.left) * scale;
+        const py = (picBox.top - cardBox.top) * scale;
+        const pw = picBox.width * scale;
+        const ph = picBox.height * scale;
+        parts.push(
+          `<image href="${wbSvgEscape(mediaSrc(obj.data.image))}" x="${px}" y="${py}" ` +
+            `width="${pw}" height="${ph}" preserveAspectRatio="xMidYMid slice" />`
+        );
+        labelTop = py + ph + 16;
+      }
       const lines = wbSvgWrapLines(wbMapLabel(obj), size.w - 28, 4, 7.5);
-      parts.push(wbSvgText(lines, 14, 22, { fontSize: 14, fill: "#1f2430", lineHeight: 17 }));
+      parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
@@ -11443,6 +12000,15 @@ async function initWhiteboard() {
   });
   const imageFileInput = document.getElementById("wb-image-file-input");
   document.getElementById("wb-add-image")?.addEventListener("click", () => imageFileInput?.click());
+  //: The map topic's own picture input (§12.1 item 2's fourth), beside the
+  //: board's: the same recipe, a different destination. `wbMapEditPicture`
+  //: says which topic it was opened for.
+  const mapPictureInput = document.getElementById("wb-map-picture-input");
+  mapPictureInput?.addEventListener("change", async () => {
+    const file = mapPictureInput.files && mapPictureInput.files[0];
+    mapPictureInput.value = "";
+    await wbMapTakePicture(file);
+  });
   imageFileInput?.addEventListener("change", () => {
     const rect = containerEl.getBoundingClientRect();
     const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });

@@ -9303,6 +9303,52 @@ input[type="file"] {
    An em is measured against the node's own size, so the glyph now grows and
    shrinks with the label it belongs to. The ratio is the one the token gave
    at the default size, so a node nobody has resized looks exactly as it did. */
+/* **A topic whose body is a picture** (MINDMAP_PLAN.md §12.1 item 2's fourth).
+   The plan asked for a second node shape rather than a label with a thumbnail
+   beside it, and this is where that happens: the body turns from a row into a
+   column, the picture takes the node's full width, and the label becomes the
+   caption under it. The node's own padding tightens so the picture reads as
+   the card's content rather than as something sitting inside a text box.
+
+   `data-body`, not a class, for the reason `data-shape` and `data-align` are
+   attributes: one of a set of exclusive layouts, and the absence of it is the
+   label-only node every map has always drawn. */
+.wb-map-node[data-body="picture"] {
+  padding: var(--space-2);
+  /* A picture node is as tall as its picture; the floor a one-word topic
+     needs would only add a band of empty card under a short one. */
+  min-height: 0;
+}
+
+.wb-map-node[data-body="picture"] .wb-map-node-body {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+/* The caption. Smaller than the topic's own text and centred under the
+   picture, which is what makes the two read as one card rather than as a
+   label that happens to have an image over it. `em`, so a topic given a text
+   size of its own (the Aa grip writes a px `font-size` on the node) scales its
+   caption with it, the same rule the icon beside it follows. */
+.wb-map-node[data-body="picture"] .wb-map-text {
+  text-align: center;
+  font-size: 0.9em;
+}
+
+.wb-map-node-picture {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* A cap, not a size: a tall photograph would otherwise make a node several
+     screens high on a map whose other topics are 44px. Wide pictures are
+     unaffected, and `cover` crops the overflow of a tall one rather than
+     letterboxing it into a band of background. */
+  max-height: 10rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
 .wb-map-node-icon {
   flex: 0 0 auto;
   color: var(--wb-branch);
@@ -10065,6 +10111,50 @@ input[type="file"] {
   stroke-width: 16;
   pointer-events: stroke;
   cursor: context-menu;
+}
+
+/* **The waypoint handle on a line** (MINDMAP_PLAN.md §12.1 item 5's third).
+   The same control `.wb-link-bend-handle` is for a link sketch, on a tree edge
+   instead: a round grip on the line, dragged to bend it and double-clicked to
+   put it back. So it takes that rule's shape exactly, one size to the hand at
+   every zoom (the grip block near the end of this file) and coloured by the
+   branch rather than by the accent, because on a map the line's colour is what
+   says which branch you are holding.
+
+   **Invisible and inert until the topic at one end of the line is selected**
+   (`wbSyncMapEdgeHandles`). Both halves matter: a grab dot on every line would
+   be two hundred of them on a real map, and a dot that was invisible but still
+   took the pointer would swallow the press meant for the line underneath,
+   which is the bug the mid-line `+` already had once against the link ring. */
+.wb-map-edge-handle {
+  /* The line's own colour inside, the card outside: the same arrangement
+     `.wb-link-bend-handle` uses for the other drag-to-bend control in this
+     app, which reads as "this curve's own control" rather than as an endpoint.
+     The colour is the branch's, so the grip belongs to the branch it reshapes,
+     and `--accent` is what a line with no branch colour of its own draws in,
+     exactly as the line itself does. */
+  fill: var(--wb-map-edge-colour, var(--accent));
+  stroke: var(--card);
+  stroke-width: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) ease;
+}
+
+/* Two ways of opening, and the first is the one that always works: pointing
+   at the line, anywhere along it, reveals the handle on it. The whole edge is
+   one `<g>` (stroke, target twin and handle), so there is no gap to cross
+   between the line and its own control. `.is-shown` is the selection route,
+   and `.is-dragging` holds it open for a drag that has already left the line
+   behind. */
+.wb-map-edge-group:hover .wb-map-edge-handle,
+.wb-map-edge-handle.is-shown,
+.wb-map-edge-handle.is-dragging {
+  opacity: 1;
+  pointer-events: auto;
+  /* `move`, the cursor the link's own bend grip already uses: this drags a
+     point in two directions, which is not the one-axis pull `grab` promises. */
+  cursor: move;
 }
 
 /* **Per-branch thickness** (MINDMAP_PLAN.md item 177: "connection line styles:
@@ -11859,7 +11949,13 @@ header#top-bar {
    miss this whole block exists to stop. */
 .wb-sketch-resize-handle,
 .wb-link-endpoint-handle,
-.wb-link-bend-handle {
+.wb-link-bend-handle,
+/* A map line's waypoint grip is centred on the point it moves, so its own
+   centre is the anchor, exactly like the link bend grip above it. Added with
+   the grip itself rather than after it, because the paragraph above says the
+   next handle follows this rule and a 7-unit circle on a map zoomed out to
+   0.3 is a 4px target. */
+.wb-map-edge-handle {
   transform-box: fill-box;
   transform-origin: center;
   transform: scale(var(--wb-inv-zoom));

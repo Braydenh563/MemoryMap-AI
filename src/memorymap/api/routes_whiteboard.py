@@ -253,6 +253,61 @@ class WhiteboardObjectData(BaseModel):
     #: "whatever this line shape does" and the two words are the override.
     edge_width: str | None = Field(default=None, pattern="^(thin|thick)$")
     edge_arrow: str | None = Field(default=None, pattern="^(on|off)$")
+    #: **Where the line into this topic bends** (MINDMAP_PLAN.md §12.1 item
+    #: 5's third, "the control points on a curve drag to reshape it"). On the
+    #: child, with the rest of the edge's properties, for the reason
+    #: `edge_label` gives above: a tree edge is `parent_id` and has no row of
+    #: its own, so the only thing that can carry a control point is one of its
+    #: two ends, and the child is the end with exactly one incoming line.
+    #:
+    #: **Two fractions of the line's own length, not two board coordinates**,
+    #: and that is the whole of why this is storable at all. The waypoint is
+    #: written in the frame the line itself defines: `edge_slide` along it from
+    #: the halfway mark, `edge_bend` across it. A pair of board coordinates
+    #: would be correct until either end moved, which on a map that tidies
+    #: itself is about one gesture later; a pair of fractions rides the tidy,
+    #: the drag, the zoom and the layout switch unchanged, and the same numbers
+    #: mean the same shape on a map exported and read back at another size.
+    #:
+    #: Unset is the line every map has always drawn, so a map made before this
+    #: existed carries neither field and draws exactly as it did.
+    edge_bend: float | None = Field(default=None, ge=-4, le=4)
+    #: Held inside the ends rather than to the full -1..1 the frame allows: a
+    #: waypoint dragged past an anchor turns the curve back on itself, which
+    #: is a shape nobody asks for and a tangle nobody can undo by dragging.
+    edge_slide: float | None = Field(default=None, ge=-0.45, le=0.45)
+    #: **A picture in a topic** (MINDMAP_PLAN.md §12.1 item 2's fourth,
+    #: Coggle's text/link/image/icon). The url of something already uploaded
+    #: through `/media/upload`, which is the path a board image, a note
+    #: attachment and a pasted picture all already take: a second upload route
+    #: for the same bytes would be a second place for the captioning, the OCR
+    #: and the orphan sweep to be forgotten.
+    #:
+    #: Held to the same allowlist an image *object* is (`MEDIA_URL_RE`), by
+    #: the validator below rather than at the route, because this value also
+    #: arrives from an imported file: the two XML imports write straight into
+    #: `data` through `WhiteboardObjectData`, and a `_image` attribute in a
+    #: file somebody was sent is exactly the door an off-origin url would come
+    #: through.
+    image: str | None = Field(default=None, max_length=300)
+
+    @field_validator("image")
+    @classmethod
+    def _same_origin_picture(cls, value: str | None) -> str | None:
+        """A picture in a topic is one of this install's own uploads or it is
+        nothing. Same allowlist as an image object's `url`, and the same
+        reasoning: a prefix test on `/media/` passes
+        `/media/../../../etc/passwd`, and an arbitrary address would make a
+        node a way to call out of an app whose whole promise is that it never
+        does."""
+        if value is None:
+            return None
+        text = value.strip()
+        if not text:
+            return None
+        if not MEDIA_URL_RE.match(text):
+            raise ValueError("A topic's picture has to be a /media/... upload from this notebook")
+        return text
 
     @field_validator("link")
     @classmethod
@@ -2332,6 +2387,9 @@ MAP_STYLE_FIELDS = (
     "edge_dashed",
     "edge_width",
     "edge_arrow",
+    "edge_bend",
+    "edge_slide",
+    "image",
 )
 
 
@@ -3015,6 +3073,17 @@ _FREEMIND_EDGE_STYLE_BACK = {value: key for key, value in _FREEMIND_EDGE_STYLE.i
 #: - `edge_dashed`: `<edge>` has STYLE, COLOR and WIDTH, and no dash.
 #: - `align`: FreeMind aligns a node by which side of the root it sits on,
 #:   not by a text alignment, so there is nothing to write it into.
+#: - `edge_bend`/`edge_slide`: `<edge>` has no waypoint of any kind. Freeplane
+#:   grew one much later as a `<edge>` child in its own namespace, spelled in
+#:   absolute coordinates, which is the one spelling these two deliberately are
+#:   not (see the fields' own comment): writing it would claim a shape in units
+#:   the file cannot honour and would not come back as itself.
+#: - `image`: FreeMind's own way to put a picture in a node is a
+#:   `<richcontent>` body of HTML with an `<img>` in it, and the src this app
+#:   has to write is `/media/...`, which resolves to a picture only on the
+#:   install that holds the file. So the honest export is the url as a private
+#:   attribute: this reader puts the picture back, and another reader is shown
+#:   a topic with no broken image in it rather than one with.
 _FREEMIND_PRIVATE = {
     #: `_shape` as well as the native `STYLE` below, not instead of it:
     #: FreeMind's node style is `bubble` or `fork` and has no third value, so
@@ -3029,6 +3098,9 @@ _FREEMIND_PRIVATE = {
     "edge_dashed": "_edge_dashed",
     "edge_width": "_edge_width",
     "edge_arrow": "_edge_arrow",
+    "edge_bend": "_edge_bend",
+    "edge_slide": "_edge_slide",
+    "image": "_image",
     "align": "_align",
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
@@ -3050,6 +3122,9 @@ _OPML_PRIVATE = {
     "edge_dashed": "_edge_dashed",
     "edge_width": "_edge_width",
     "edge_arrow": "_edge_arrow",
+    "edge_bend": "_edge_bend",
+    "edge_slide": "_edge_slide",
+    "image": "_image",
 }
 
 

@@ -194,6 +194,16 @@ below). Versioning is `0.x` while the app stabilises.
   makes a document titled with the day, the same title the journal note uses,
   so a day written as a document gets the calendar mark in the Timeline and
   the day's own row offers to open it rather than to start a second page.
+- A topic on a mind map can hold a picture. Put one in from the topic's own
+  menu and the node draws as a card with the image as its body and the label
+  as the caption under it, rather than a label with a thumbnail beside it. The
+  file goes through the same upload every other picture in the app does, so it
+  is in the Library too, and taking it out of the topic leaves it there.
+- The line into a topic bends where you drag it. Point at a line, or select
+  the topic at either end, and a dot appears on it: drag the dot and the line
+  follows, whether it is drawn as a curve, an elbow or a straight line.
+  Double-click the dot to put the line back. The shape travels with a copied
+  branch and through the FreeMind and OPML exports.
 - Share to MemoryMap from a phone's share sheet: with the app installed, a
   page, a link or a selection shared to it opens Capture with the title,
   the text and the link as one note ready to save.
@@ -318,6 +328,11 @@ below). Versioning is `0.x` while the app stabilises.
   icon. Both said "⧉ Copy", a character typed where an icon belongs, while
   five other Copy buttons in the app used the real one. Save beside them takes
   its icon too, so the pair in one bar read as the same kind of control.
+- A picture on a mind map topic is in the board's own PNG and SVG export
+  instead of an empty box with a caption.
+- "Clean up orphaned media" counts a picture used by a mind map topic as used.
+  It looked only at pictures placed on a board as their own object, so the file
+  behind a topic's picture was listed as used by nothing.
 - The board's top bar answers a finger on a tablet. Between 600 and 820, the
   band whose own rule is that the pointer there is a finger, all thirteen of
   its controls were still 36px tall; and wherever the five menu buttons drop

@@ -117,8 +117,6 @@ def test_no_entry_is_in_both_the_tray_and_the_history():
 
     The number is the identity, so the check is a set intersection.
     """
-    import re
-
     tray = set(re.findall(r"^(\d{3})\. ", (ROADMAP / "INBOX.md").read_text(encoding="utf-8"), re.M))
     history = set(
         re.findall(r"^(\d{3})\. ", (ROADMAP / "HISTORY.md").read_text(encoding="utf-8"), re.M)

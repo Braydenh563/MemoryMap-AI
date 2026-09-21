@@ -1707,7 +1707,15 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             )
             first = {
                 "type": "answer",
-                "delta": f"Something went wrong before it could start: {exc}",
+                # CodeQL #419, the same finding as #296 one branch over: this
+                # arm was written before `safe_value` existed and kept `exc`'s
+                # own str(), which can carry a file path or a connection
+                # detail out to the browser. The sanitiser the mid-stream arm
+                # below already trusts.
+                "delta": (
+                    "Something went wrong before it could start: "
+                    f"{safe_value(exc)}"
+                ),
             }
         if first is None or first.get("type") == "unsupported":
             # The active model can't do tool calls, plain Q&A, never

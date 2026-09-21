@@ -153,10 +153,19 @@ def test_out_of_space_is_recognised_however_it_was_raised():
 
 def test_partial_write_removes_what_a_failure_left_and_keeps_what_worked(tmp_path):
     target = tmp_path / "export.md"
-    with pytest.raises(OSError):
+    #: The assertion is after the `with`, not inside it. CodeQL read the
+    #: earlier shape as unreachable code (#421) and it was right about the
+    #: letter of it: the `raise` is the last statement of the inner block, so
+    #: anything after it in that block never runs. Written this way the
+    #: intent is also plainer, which is that the *context manager* cleans up,
+    #: not the body.
+    def fills_the_disk() -> None:
         with diskspace.partial_write(target):
             target.write_bytes(b"half of a fi")
             raise OSError(errno.ENOSPC, "No space left on device")
+
+    with pytest.raises(OSError):
+        fills_the_disk()
     assert not target.exists()
 
     with diskspace.partial_write(target):

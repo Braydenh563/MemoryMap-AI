@@ -169,5 +169,12 @@ def partial_write(*paths: str | os.PathLike[str]) -> Iterator[None]:
             try:
                 Path(path).unlink(missing_ok=True)
             except OSError:
-                logger.debug("couldn't remove partial write %s", path, exc_info=True)
+                # CodeQL #420 (log injection): `path` comes from a caller
+                # that may have taken it from a request, and a newline in it
+                # would forge a second log entry. One line per event, always.
+                logger.debug(
+                    "couldn't remove partial write %s",
+                    str(path).replace("\r", " ").replace("\n", " "),
+                    exc_info=True,
+                )
         raise

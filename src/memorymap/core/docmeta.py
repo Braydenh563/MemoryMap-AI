@@ -40,7 +40,25 @@ _FENCE = re.compile(r"^---[ \t]*$")
 #: spaces inside but never at the ends. Kept character for character in step
 #: with `DOC_FM_KEY` in documents.js, because a key this reads and that one
 #: does not would be a filter offering a property the panel cannot edit.
-_KEY = re.compile(r"^([A-Za-z0-9_][A-Za-z0-9_.\- ]*?)[ \t]*:(.*)$")
+#: **Split on the first colon, then check the key.** This was one regex,
+#: `^([A-Za-z0-9_][A-Za-z0-9_.\- ]*?)[ \t]*:(.*)$`, and CodeQL was right about
+#: it (#418, py/polynomial-redos): a lazy run of a class that includes spaces,
+#: followed by another run of spaces, is quadratic on a line of spaces with no
+#: colon, which is a line any document can contain. `str.partition` finds the
+#: colon in one pass and this only has to say whether what precedes it is a
+#: key, over a class with no repetition ambiguity in it at all.
+_KEY_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.\- ]*$")
+
+
+def _split_key(line: str) -> tuple[str, str] | None:
+    """`("key", "the rest")`, or None when the line is not `key: value`."""
+    head, sep, rest = line.partition(":")
+    if not sep:
+        return None
+    head = head.rstrip(" \t")
+    if not head or not _KEY_NAME.match(head):
+        return None
+    return head, rest
 
 #: A block list item under a key: `  - value`.
 _ITEM = re.compile(r"^[ \t]*-[ \t]?(.*)$")
@@ -91,12 +109,12 @@ def properties(text: str) -> dict[str, list[str]]:
     found: dict[str, list[str]] = {}
     index = 1
     while index < close:
-        match = _KEY.match(lines[index])
-        if not match:
+        split = _split_key(lines[index])
+        if not split:
             index += 1
             continue
-        key = match.group(1)
-        rest = match.group(2).strip()
+        key, rest = split
+        rest = rest.strip()
         values: list[str] = []
         if rest.startswith("[") and rest.endswith("]"):
             values = [_unquote(part) for part in rest[1:-1].split(",")]

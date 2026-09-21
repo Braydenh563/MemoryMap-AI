@@ -26,6 +26,7 @@ from memorymap.ai.ollama_client import (
     OllamaError,
     ToolsUnsupportedError,
 )
+from memorymap.ai.provider import tools_unsupported_message
 
 # A runaway model must not loop forever on a local machine.
 MAX_ROUNDS = 6
@@ -1941,8 +1942,12 @@ def run_agent(
     image_context: str | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
-    {"type": "unsupported"}, model can't do tools; caller
-                                                 should fall back to plain Q&A
+    {"type": "unsupported", "model": ..., "message": ...}, model can't do
+                                                 tools; caller should fall
+                                                 back to plain Q&A, and
+                                                 should show `message`
+                                                 (INBOX 272 part 1) rather
+                                                 than drop the event
                                                  (always the first and only event)
     {"type": "thinking", "delta": str}
     {"type": "tool", "label": str, "ok": bool, "error": str|None}
@@ -2028,7 +2033,16 @@ def run_agent(
                 elif "final" in piece:
                     reply = piece["final"]
         except ToolsUnsupportedError:
-            yield {"type": "unsupported"}
+            # INBOX 272 part 1: named here, once, so every caller that
+            # forwards this event (routes_chat.py, skill_runner.py) shows
+            # the same remedy instead of dropping the event on the floor,
+            # which is what happened before (see tools_unsupported_message's
+            # own docstring).
+            yield {
+                "type": "unsupported",
+                "model": agent_model,
+                "message": tools_unsupported_message(agent_model),
+            }
             return
         except OllamaError as exc:
             # Mid-answer death: say so, but don't wipe what already streamed.

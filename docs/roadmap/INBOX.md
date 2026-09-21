@@ -282,6 +282,27 @@ with its owner named in the entry.
     `#onboarding-overlay` already (the sweeps disable it), so check what it
     does before building beside it. Open.
 
+    **Part 1, done 2026-09-21.** Surveyed first (`WORLD_CLASS_PLAN.md`
+    section 21's table, 14 points, grepped against the running app before any
+    fix): the two named examples, and most of the class around them, were
+    already built across several earlier sessions (`core/extras.py`'s
+    install-from-Settings registry, DuckDuckGo-to-SearXNG with a local
+    auto-discovery probe, scanned-PDF and OCR remedies). Two real gaps
+    remained and are fixed: Agent mode silently downgraded to a plain answer
+    when the model couldn't call tools, with nothing shown and no way to fix
+    it (`routes_chat.py` used to `pass` on the event); it now shows a
+    `.notice.notice-warn` line naming the model with a "Change the model"
+    button straight to Settings, Models, and a skill run that stops mid-way
+    for the same reason names the same fix in its step card. A doc gap too:
+    `requirements.txt`'s "Optional extras" comment had drifted behind
+    `core/extras.py`'s own allowlist, missing three installable extras; both
+    fixes are held in place by `tests/test_failure_remedies.py`. Two points
+    read as still weak and are not fixed (a wrong custom provider URL reads
+    identically to "not installed"; the embedding-error box uses `.status
+    .error` rather than the `.notice.notice-warn` recipe), recorded in the
+    table rather than guessed at. Part 2 (the guided tour) stays open above;
+    `tour.js` was read for the survey and not touched.
+
 271. **Mid-work drop, 2026-09-20, verbatim (the owner).** "can you focus on
     refinement now?? refine everything, make sure all utility works and there
     are no bugs. make things faster, optimise, reduce complexity. enhance

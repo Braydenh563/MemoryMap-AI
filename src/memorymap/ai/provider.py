@@ -71,6 +71,25 @@ class ToolsUnsupportedError(ProviderError):
     back to plain Q&A, never fail the whole chat."""
 
 
+def tools_unsupported_message(model: str) -> str:
+    """INBOX 272 part 1: a failure with a known remedy names it where it
+    happened, not two screens away. Agent mode was requested and silently
+    downgraded to a plain answer because `model` can't call tools, one
+    caller (`ai/agent.py`) turns that into the `{"type": "unsupported"}`
+    event and every consumer of it (`routes_chat.py`, `ai/skill_runner.py`,
+    two more call sites) forwards this same sentence rather than writing
+    its own, so the remedy reads the same everywhere it can be shown. The
+    fix is one setting (Settings, Models has the "Can call tools" fact
+    beside every installed model), never a download: some small models
+    genuinely cannot do this at any size the app would suggest pulling."""
+    return (
+        f"'{model}' can't call tools, so this answered as a plain question "
+        "instead of using Agent mode. Pick a model whose spec sheet says "
+        "“Can call tools: yes” in Settings, Models to use Agent mode "
+        "with it."
+    )
+
+
 def is_transient_server_error(exc: Exception) -> bool:
     """A 5xx from the backend itself, not a 4xx: the request was well-formed
     but the server briefly couldn't handle it (a model still swapping in,

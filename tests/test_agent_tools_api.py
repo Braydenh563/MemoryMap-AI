@@ -267,6 +267,15 @@ def test_model_without_tool_support_falls_back_to_plain_chat(ai_client, fake_oll
     # The normal streamed librarian answered instead of the agent.
     assert answer == fake_ollama.librarian_reply
     assert events[-1]["type"] == "done"
+    # INBOX 272 part 1: this downgrade used to be silent (routes_chat.py
+    # dropped the "unsupported" event with a bare `pass`). It must now
+    # reach the client, naming the model and a remedy the user can act on,
+    # not just the fact that Agent mode didn't happen.
+    unsupported = [e for e in events if e["type"] == "unsupported"]
+    assert len(unsupported) == 1
+    assert unsupported[0]["model"]
+    assert "can't call tools" in unsupported[0]["message"]
+    assert "Settings, Models" in unsupported[0]["message"]
 
 
 def test_use_tools_false_skips_the_agent(ai_client, fake_ollama):

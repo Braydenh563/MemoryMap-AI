@@ -13015,6 +13015,28 @@ function renderAnswerSupport(answerEl, support) {
   first.parentElement.insertBefore(line, first);
 }
 
+//: INBOX 272 part 1, "every failure names its way out": the same
+//: `.notice.notice-warn` recipe as `renderAnswerSupport` above, plus the one
+//: control that fixes it, right under the turn that hit it rather than a
+//: sentence pointing at a different screen. Only the Chat tab's Agent mode
+//: can produce this event (the Ask box always sends `useTools: false`), so
+//: this has one caller.
+function renderToolsUnsupportedNotice(container, event) {
+  if (!container || !event) return;
+  const line = document.createElement("p");
+  line.className = "notice notice-warn tools-unsupported-notice";
+  line.setAttribute("role", "note");
+  setLabel(line, `ph:warning ${event.message || "This model can't call tools."}`);
+  const row = document.createElement("div");
+  row.className = "row tools-unsupported-fix-row";
+  row.appendChild(
+    smallButton("ph:gear Change the model", "Open Settings, Models", () => {
+      openSettingsModal("models", "chat-model-select");
+    })
+  );
+  container.append(line, row);
+}
+
 function renderAnswerGrounding(
   target, sentences, rawResults, answerEl = null, question = "", orderedSources = null,
   support = null
@@ -13547,6 +13569,7 @@ async function streamChat({
   onStats,
   onGrounding,
   onRelated,
+  onUnsupported,
 }) {
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
@@ -13723,6 +13746,11 @@ async function streamChat({
       // more than its notes, so the answer names what else mentions it
       // (routes_chat.py's `_related_elsewhere`).
       else if (event.type === "related" && onRelated) onRelated(event);
+      // INBOX 272 part 1: Agent mode was asked for and the model couldn't
+      // call tools, so it answered as a plain question instead. Silently
+      // dropped before this (routes_chat.py used to `pass` on it); now it
+      // carries the remedy in `message` and the caller shows it.
+      else if (event.type === "unsupported" && onUnsupported) onUnsupported(event);
       else if (event.type === "error") {
         // The server caught something mid-stream and said so. Surfacing it
         // beats the silent truncation this used to be.
@@ -21113,6 +21141,12 @@ async function sendChatMessage(preset, opts = {}) {
   // raw_results/search_mode/match_info a few lines below, which got exactly
   // this treatment already for the same reported-missing-on-reload reason.
   let groundingSentences = null;
+  // INBOX 272 part 1: set when the model couldn't call tools and the turn
+  // was silently answered as plain Q&A instead. Captured here, rendered
+  // once the stream is over (same reason `groundingSentences` waits: a
+  // notice drawn mid-stream would be for a bubble the live renderer is
+  // about to rebuild).
+  let toolsUnsupportedEvent = null;
   // Whether the user pressed Stop. An empty answer they asked for needs no
   // explanation; one they didn't ask for does.
   let stopped = false;
@@ -21307,6 +21341,9 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onRelated: (event) => {
         renderRelatedElsewhere(groundingHolder, event.items);
+      },
+      onUnsupported: (event) => {
+        toolsUnsupportedEvent = event;
       },
       onGrounding: (event) => {
         groundingSentences = event.sentences;
@@ -21654,6 +21691,12 @@ async function sendChatMessage(preset, opts = {}) {
     sources: turnSources,
   });
   if (sourcesPanel) recordsHolder.appendChild(sourcesPanel);
+  // INBOX 272 part 1: drawn once the stream is over, same reason
+  // `groundingSentences` waits (a notice inserted mid-stream is inside a
+  // bubble the live renderer is about to rebuild from raw markdown).
+  if (toolsUnsupportedEvent) {
+    renderToolsUnsupportedNotice(bubble, toolsUnsupportedEvent);
+  }
   // What this answer cost: model, wall-clock time, tokens, speed.
   const elapsedMs = Math.round(performance.now() - startedAt);
   // A turn that only ran tools still cost time and tokens, so it gets a meta

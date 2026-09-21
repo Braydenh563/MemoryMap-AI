@@ -2383,6 +2383,11 @@ sections, a dimmed backdrop and per-section replay already, and HANDOVER's
 "Now" line records it was repaired the same day; nothing here depends on it
 or changes it.
 
+Built 2026-09-21 (rows 9-11: Agent mode's silent tools-unsupported downgrade,
+and the `requirements.txt` extras-list drift); moved to HISTORY.md ("Moved
+from the plans, 2026-09-21"). The lint that holds it in place is
+`tests/test_failure_remedies.py`.
+
 ### Not verified
 
 Every provider test here runs against `tests/fakes.py`'s fake Ollama client

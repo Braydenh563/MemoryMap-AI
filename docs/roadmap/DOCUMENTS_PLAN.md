@@ -1149,7 +1149,7 @@ the reason given in 17a, and the phone is untouched by this section: the
 live view on a phone is UI_MODERNISATION_PLAN Phase 11's territory and
 should not be redesigned from here.
 
-## 18. The slash menus as one system: measured 2026-09-21, phases open
+## 18. The slash menus as one system: 18b and 18c built 2026-09-21, 18a open
 
 The owner, INBOX 295: "I want you to MAJORLY rework and improve the slash
 commands in the notes and documents, I want them to be properly structured
@@ -1212,14 +1212,71 @@ behind it is fine.
   above, without changing what any command does. Gate: a test reads both
   tables and asserts every row carries every field, and the existing
   `test_doc_commands.py` still passes.
-- **18b. The icons.** Replace all 38 emoji labels with `ph:` tokens and
-  extend the glyph lint to the command tables. Gate: 0 emoji in any command
-  row by lint, and a probe that opens the menu in each of the four contexts
-  and finds an icon element rather than a text glyph in every row.
-- **18c. Discoverability.** The affordance from decision 4, plus making the
-  menu reachable without typing "/" at all for somebody who does not know it
-  exists. Gate: a probe that opens the menu in each context by the visible
-  route alone, never by typing the slash.
+- ~~**18b. The icons.**~~ **Built 2026-09-21, and it found the menu did not
+  open at all.** The 38 are `ph:` tokens; the menu row builds its label
+  through `setLabel` like every other menu in the app, which it did not
+  before and which is why a token could not be written in one; the rendered
+  callout heads with an `<i class="ph">`, since `CALLOUT_KINDS` is read by
+  the renderer as well as by the menu. The Library's create table, the chat
+  attachment close, a note embed's marker and two graph arrows went with
+  them. `tests/test_no_glyph_icons.py` now decodes `\uXXXX` and `\u{...}`
+  before looking, which is the hole the 38 sat in: they were escapes, so a
+  lint reading the source text of the literal saw backslashes.
+  `scratchpad/ui-sweeps/slashicons.js` is the probe, in the gate: 14 rows, 0
+  printing a literal token, 14 of 14 carrying an icon element (4 of 14
+  before), 0 opening with a character outside ASCII.
+
+  **The finding that matters more than the icons.** Opening the menu to
+  count its rows is how this was found: 0 rows. `editorSurfaceFor` needs
+  `asSurface`, which documents.js defines, and documents.js is in the
+  Library's lazy bundle, so on every fresh load the "/" menu did nothing in
+  the note capture box, the note edit box, the chat composer and the skill
+  steps box until the person happened to open Library or Documents. Four of
+  the five surfaces. The guard that hid it said the case "cannot happen in
+  the browser (the script order is fixed)"; the script order had stopped
+  being fixed under it. Fixed by warming the bundle when an editing surface
+  takes focus and replaying the keystroke that arrived first, and held by
+  `tests/test_lazy_bundle_calls.py`, which accounts for every call a
+  boot-loaded file makes into a lazy bundle.
+
+  **The rule this leaves behind, which is the point of writing it down:** a
+  `typeof x === "function"` guard around a feature is not a safety net, it is
+  a silent off switch. A bare call would have thrown on the first press and
+  been fixed that day.
+- ~~**18c. Discoverability.**~~ **Built 2026-09-21.** Three ways, which is
+  what decision 3 asks for and what the surface had one of:
+
+  1. **The placeholder**, on every surface in `EDITOR_SURFACES`: "Press / for
+     blocks and commands." Applied from editor.js rather than written into
+     the markup, because one of the four (`entry-edit-content`) is built in
+     JS every time a note is opened, and three boxes that say it beside one
+     that does not teaches that the feature is per-box. Measured: 4 of 4
+     hinted, and the engine carries it through to `aria-placeholder` when it
+     is mounted over the composer.
+  2. **Ctrl+/**, through `DEFAULT_SHORTCUTS` and `runShortcut` (app.js), not
+     through a listener of editor.js's own. That makes it rebindable like
+     every other chord and, more to the point, puts it in the shortcuts cheat
+     sheet, which is where somebody looks for what an app can do. A second
+     listener would also have fired alongside app.js's chorded dispatcher and
+     inserted two slashes.
+  3. The menu itself, which is what 18a and 18b were about.
+
+  **Decision taken, recorded rather than remade** (standing order 3): 18c's
+  gate asked for a "visible route", and decision 5 forbids adding to the
+  chrome. The note toolbar already carries twelve controls; a thirteenth
+  teaches nothing and costs the one thing section 17 is protecting. So the
+  visible thing is the placeholder, which is copy rather than chrome and is
+  on screen at exactly the moment it is useful and gone the moment it is not,
+  and the route it names is a chord that the cheat sheet also lists.
+
+  The chord writes a real "/" into the text rather than faking the menu open:
+  the menu filters on what follows the slash and closes when it is deleted,
+  so both routes have to leave the surface in the same state or Escape and
+  Backspace would behave differently depending on how it was opened.
+
+  `scratchpad/ui-sweeps/slashicons.js` covers all of it: 4 of 4 surfaces
+  hinted, the menu open with 14 rows from the chord alone, and
+  `shortcuts.editorMenu` present so the cheat sheet lists it.
 - **18d. The menu itself.** Grouping, ordering, the `primary` flag's meaning,
   what happens on no match, and keyboard behaviour end to end. Gate: arrow
   keys move through the rows, Escape closes and returns focus to the surface,

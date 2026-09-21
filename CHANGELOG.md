@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The "/" menu tells you it is there, and opens from the keyboard. Every
+  writing box now says "Press / for blocks and commands" while it is empty,
+  and Ctrl+/ opens the same menu without you having to know the trick. The
+  chord is rebindable and listed with the other shortcuts.
 - The "/" menu works again in the note box, the note edit form, the chat
   composer and a skill's steps. It had stopped opening in all four: the file
   that builds an editing surface moved into the Library's on-demand bundle,

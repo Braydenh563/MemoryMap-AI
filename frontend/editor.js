@@ -136,6 +136,73 @@ function editorEnsureSurfaceModule(box) {
   });
 }
 
+//: **The second route, and the affordance that says either exists.**
+//: DOCUMENTS_PLAN 18c: the owner asked for these commands to be "discoverable
+//: by the user", and until now the only way in was to already know that "/"
+//: did something. Section 18's decision 5 forbids adding to the chrome (a
+//: thirteenth button on a twelve-control toolbar teaches nothing), so this is
+//: two things that cost no chrome at all:
+//:
+//: * Ctrl+/ opens the menu with an empty query, from anywhere in one of these
+//:   surfaces. A route that is not "type a character into your own text" also
+//:   answers the person who wants the list without leaving a stray slash
+//:   behind if they change their mind.
+//: * Every one of these surfaces says so in its own placeholder, which is the
+//:   one piece of copy that is visible exactly while the box is empty and
+//:   gone the moment it is not. The capture box already taught `[[` there;
+//:   this is the same teaching in the same place.
+//:
+//: Recorded as a decision in DOCUMENTS_PLAN section 18 rather than taken
+//: quietly, because 18c's own gate asked for "the visible route" and the
+//: decision above rules out the obvious one.
+const EDITOR_MENU_HINT = "Press / for blocks and commands";
+
+//: The keystroke itself goes through `DEFAULT_SHORTCUTS`/`runShortcut`
+//: (app.js) rather than through a listener of this file's own, for two
+//: reasons. It is then rebindable like every other chord, and it appears in
+//: the shortcuts cheat sheet, which is the third of decision 3's three ways a
+//: command has to be findable. A second listener here would also fire
+//: alongside app.js's chorded dispatcher and insert two slashes.
+//:
+//: Answers false when there is no editing surface focused, so the dispatcher
+//: can fall through to whatever else wants the chord.
+function editorOpenMenuByShortcut() {
+  const surface = editorSurfaceFor(document.activeElement);
+  if (!surface || !editorSurfaceKind(surface)) return false;
+  //: The slash is written into the text, not faked: the menu filters on what
+  //: follows it and closes when it is deleted, so both routes have to leave
+  //: the surface in the same state, or Escape and Backspace would behave
+  //: differently depending on how the menu was opened.
+  surface.setRangeText("/", surface.selectionStart, surface.selectionEnd, "end");
+  surface.dispatchEvent(new InputEvent("input", { bubbles: true, data: "/" }));
+  return true;
+}
+
+//: The placeholder half. Applied from here rather than written into the
+//: markup because one of the four surfaces (`entry-edit-content`) is built in
+//: JS every time a note is opened, and a hint that three boxes carry and the
+//: fourth does not is worse than none: it teaches that the feature is
+//: per-box. Appended to whatever the box already says, once.
+function editorHintPlaceholder(box) {
+  if (!box || !(box.id in EDITOR_SURFACES)) return;
+  const current = box.getAttribute("placeholder") || "";
+  if (current.includes(EDITOR_MENU_HINT)) return;
+  box.setAttribute("placeholder", current ? `${current}\n  ${EDITOR_MENU_HINT}.` : `${EDITOR_MENU_HINT}.`);
+}
+
+function editorHintAllPlaceholders() {
+  for (const id of Object.keys(EDITOR_SURFACES)) editorHintPlaceholder(document.getElementById(id));
+}
+
+//: Twice: once at boot for the surfaces the markup ships, and once whenever a
+//: surface takes focus, which covers the edit form built after boot.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", editorHintAllPlaceholders);
+} else {
+  editorHintAllPlaceholders();
+}
+document.addEventListener("focusin", (event) => editorHintPlaceholder(event.target), true);
+
 //: And warmed on focus, so the bundle is usually already there by the time
 //: anything is typed. Focusing an editing surface is the earliest honest
 //: signal that these commands are about to be wanted.

@@ -43895,6 +43895,12 @@ const DEFAULT_SHORTCUTS = {
   // selection too (`selectionchange` fires for those), but a menu you can see
   // and cannot open is not an improvement.
   selectionActions: { keys: "Ctrl+Shift+E", label: "Actions for the selected text" },
+  //: DOCUMENTS_PLAN 18c. The "/" menu had exactly one way in, typing "/",
+  //: which you had to already know about. Here it is rebindable like the rest
+  //: and, more to the point, it is in the cheat sheet, which is where somebody
+  //: looks for what an app can do. The other two ways are the placeholder on
+  //: every editing surface and the menu itself (editor.js).
+  editorMenu: { keys: "Ctrl+/", label: "Blocks and commands, where you are writing" },
   // --- added when the section was expanded (reported: "expand the keyboard
   // shortcuts section in settings") ---------------------------------------
   //
@@ -44209,6 +44215,12 @@ function matchesShortcut(event, combo) {
 
 function runShortcut(id) {
   const actions = {
+    //: Handed to editor.js, which owns the menu and knows which surfaces have
+    //: one. It answers false when nothing editable has focus, and then this
+    //: does nothing rather than inserting a slash into whatever is there.
+    editorMenu: () => {
+      if (typeof editorOpenMenuByShortcut === "function") editorOpenMenuByShortcut();
+    },
     palette: () => {
       if ($("palette-overlay").classList.contains("hidden")) openPalette();
       else closePalette();

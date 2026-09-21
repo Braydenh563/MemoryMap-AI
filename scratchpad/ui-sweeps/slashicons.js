@@ -38,7 +38,7 @@ function ok(label, pass, detail) {
   //: `input` listener that asks `editorSurfaceFor(event.target)` which of
   //: `EDITOR_SURFACES` the caret is in, so a synthetic event on any other
   //: textarea is ignored, which is what "0 rows" meant the first time.
-  const box = await page.$("#entry-content");
+  const box = (await page.$(".cm-editor .cm-content")) || (await page.$("#entry-content"));
   if (!box) {
     ok("the note composer is on screen", false, "#entry-content not found");
     await browser.close();
@@ -82,6 +82,54 @@ function ok(label, pass, detail) {
     );
 
   }
+
+  //: 18c, the two routes that are not "already know that / does something".
+  //: Escape first, so the menu this opens is a fresh one.
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => {
+    const box = document.getElementById("entry-content");
+    box.value = "";
+    box.dispatchEvent(new InputEvent("input", { bubbles: true }));
+  });
+  await page.waitForTimeout(300);
+  const hint = await page.evaluate(() =>
+    Object.keys(EDITOR_SURFACES)
+      .map((id) => document.getElementById(id))
+      .filter((el) => el && el.tagName === "TEXTAREA")
+      .map((el) => `${el.id}:${/Press \/ /.test(el.getAttribute("placeholder") || "") ? "hinted" : "SILENT"}`)
+  );
+  ok(
+    "every editing surface says in its placeholder that / opens something",
+    hint.length > 0 && hint.every((h) => h.endsWith("hinted")),
+    hint.join(" ")
+  );
+
+  //: The note composer may have the editor engine mounted over it, in which
+  //: case the textarea is behind a `.cm-content` that takes the pointer. Both
+  //: are the same surface to `editorSurfaceFor`; only the click target differs.
+  const editable = await page.$(".cm-editor .cm-content");
+  if (editable) await editable.click();
+  else await page.click("#entry-content");
+  await page.keyboard.down("Control");
+  await page.keyboard.press("/");
+  await page.keyboard.up("Control");
+  await page.waitForTimeout(500);
+  const byChord = await page.evaluate(() => ({
+    rows: document.querySelectorAll(".editor-menu-item").length,
+    open: editorMenuState.open,
+    listed: typeof shortcuts === "object" && !!shortcuts.editorMenu,
+  }));
+  ok(
+    "and the menu opens without typing a slash into the text",
+    byChord.open && byChord.rows > 4,
+    `open=${byChord.open}, ${byChord.rows} rows`
+  );
+  ok(
+    "the chord is in the rebindable shortcut table, so it is in the cheat sheet",
+    byChord.listed,
+    `shortcuts.editorMenu present: ${byChord.listed}`
+  );
+  await page.keyboard.press("Escape");
 
   //: The other reader of the same table: a callout rendered into a note.
   const callout = await page.evaluate(async () => {

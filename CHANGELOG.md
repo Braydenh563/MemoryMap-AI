@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A mind map can hold a look of its own, so a topic no longer has to be
+  dressed one at a time. Ten of the eleven things you can set on a topic, its
+  text size, weight, slant and alignment, its box and the bar down its edge,
+  and the thickness, shape, dash and arrowhead of the branch into it, can now
+  be set once for the whole map, and every topic that was never told otherwise
+  follows. A topic you did decorate by hand keeps exactly what you gave it: a
+  map-wide change can never overwrite a choice somebody made.
 - A whiteboard or a mind map can live inside a note as an object: a preview
   card of the board itself, with its name and how much is on it, that opens
   the board when pressed. It is written `![[board:12|House jobs]]`, by id, so
@@ -30,7 +37,6 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
-<<<<<<< HEAD
 - The guide answers the question you asked. Three plain questions reached no
   help topic at all ("Can I use this offline?", "How do I add a tag?", "Can I
   import from Obsidian?"), so it answered them from whatever tab you happened
@@ -75,7 +81,6 @@ below). Versioning is `0.x` while the app stabilises.
   ended the underlying 40-against-42px difference for good was measured
   instead of taken: it moved eighteen buttons, put a half pixel into five
   graph controls and turned a text link into a box, so it was not taken.
-=======
 - A mind map can be laid out to the left, and on both sides of its trunk,
   which is the arrangement most mind-mapping tools are pictured in. The
   branches are split so the two sides hold about the same number of topics
@@ -101,7 +106,6 @@ below). Versioning is `0.x` while the app stabilises.
   named doors on it, Text, Shape and Branch line, each of which labels every
   control inside it. The bar measures 314px at 1440, 1024 and 820, and 54px
   tall instead of 150px on a phone.
->>>>>>> worktree-agent-mapux2
 - The loading bar on the splash screen is cheaper to draw, so it stays smooth
   on a slow machine, which is the only kind of machine that sees it for long.
   It used to grow by changing its width, which made the browser lay the page

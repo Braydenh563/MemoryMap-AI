@@ -1491,3 +1491,127 @@ def test_a_ring_in_the_tree_does_not_hang_an_export(client, session):
         laps_b = exported.text.count(">B<") + exported.text.count('"B"') + exported.text.count("- B")
         assert laps_a == 1, f"{fmt}: node A written {laps_a} times"
         assert laps_b == 1, f"{fmt}: node B written {laps_b} times"
+
+
+# --- the map's own theme (MINDMAP_PLAN.md §13e) ------------------------------
+#
+# The owner, INBOX 305: "the customisation features are lacking severely."
+# §13.4 measured what that meant: eleven per-topic fields, every one of them
+# set one topic at a time, and no map-level default of any kind. These tests
+# hold the two rules the theme is worth nothing without: a topic that was
+# never told otherwise follows the map, and a topic that *was* told never
+# changes because the map did.
+
+
+def test_a_new_map_has_no_theme(client):
+    board = _map(client)
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree")
+    assert tree.status_code == 200, tree.text
+    assert tree.json()["theme"] == {}
+
+
+def test_a_theme_is_stored_and_read_back(client):
+    board = _map(client)
+    saved = client.put(
+        f"/whiteboard/boards/{board['id']}",
+        json={"theme": {"font_size": 19, "shape": "pill", "edge_width": "thick", "bold": True}},
+    )
+    assert saved.status_code == 200, saved.text
+    theme = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["theme"]
+    assert theme == {"font_size": 19, "shape": "pill", "edge_width": "thick", "bold": True}
+
+
+def test_a_theme_write_is_a_patch_and_null_stops_theming_a_field(client):
+    board = _map(client)
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"shape": "pill", "italic": True}})
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"italic": None}})
+    theme = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["theme"]
+    # The shape was not mentioned in the second write, so it is untouched; the
+    # italic was sent as null, which is how the dialog says "stop theming it".
+    assert theme == {"shape": "pill"}
+
+
+def test_a_theme_never_clears_the_board_type_or_layout(client):
+    """The settings blob is a family, and a theme write is read-modify-write.
+
+    The failure this catches is silent: a map that quietly became an ordinary
+    whiteboard because somebody picked a font size.
+    """
+    board = _map(client, layout="radial")
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"font_size": 25}})
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree").json()
+    assert (tree["type"], tree["layout"]) == ("map", "radial")
+
+
+def test_a_layout_change_never_clears_the_theme(client):
+    board = _map(client)
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"font_size": 25}})
+    client.put(f"/whiteboard/boards/{board['id']}", json={"layout": "tree-down"})
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree").json()
+    assert tree["theme"] == {"font_size": 25}
+    assert tree["layout"] == "tree-down"
+
+
+def test_an_unknown_theme_field_or_value_is_dropped_rather_than_refused(client):
+    """A look, not a document: a picker one version ahead leaves a plainer map.
+
+    Refusing would make the whole write fail over one field, which is how a
+    person loses the four choices they made beside it.
+    """
+    board = _map(client)
+    saved = client.put(
+        f"/whiteboard/boards/{board['id']}",
+        json={"theme": {"shape": "octagon", "beard": "long", "align": "center", "font_size": 4000}},
+    )
+    assert saved.status_code == 200, saved.text
+    assert client.get(f"/whiteboard/boards/{board['id']}/tree").json()["theme"] == {"align": "center"}
+
+
+def test_a_corrupt_settings_blob_reads_as_no_theme(client, session):
+    board = _map(client)
+    entry = session.get(Entry, board["id"])
+    entry.board_settings = "{not json at all"
+    session.commit()
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree")
+    assert tree.status_code == 200
+    assert tree.json()["theme"] == {}
+
+
+def test_the_tree_still_reports_what_each_node_itself_carries(client):
+    """The theme is resolved at paint time, never written onto a node.
+
+    This is the rule that makes a map-wide change safe to press, and the one
+    the strip depends on: it has to be able to show a field as set or unset.
+    """
+    board = _map(client)
+    node = _node(client, board["id"], text="Root")
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"shape": "pill"}})
+    roots = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"]
+    assert roots[0]["id"] == node["id"]
+    assert "shape" not in roots[0]["style"]
+
+
+def test_an_export_of_a_themed_map_carries_the_theme_a_topic_did_not_override(client):
+    """None of the three formats has a place for a map-level look, so a file
+    written from the stored styles alone comes out plainer than the map."""
+    board = _map(client)
+    root = _node(client, board["id"], text="Root")
+    kept = _node(client, board["id"], parent_id=root["id"], text="Its own shape")
+    saved = client.put(
+        f"/whiteboard/objects/{kept['id']}",
+        json={
+            "kind": kept["kind"],
+            "board_id": board["id"],
+            "data": {**kept["data"], "shape": "rect"},
+            "x": kept["x"],
+            "y": kept["y"],
+            "z": kept["z"],
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    client.put(f"/whiteboard/boards/{board['id']}", json={"theme": {"shape": "pill"}})
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    # The root never chose a shape, so it exports as the map's; the child did,
+    # and exports as its own.
+    assert 'shape="pill"' in text
+    assert 'shape="rect"' in text

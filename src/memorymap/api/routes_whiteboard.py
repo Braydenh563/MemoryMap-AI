@@ -79,6 +79,46 @@ DEFAULT_BOARD_TYPE = "board"
 BOARD_LAYOUTS = {"free", "tree-right", "tree-left", "tree-both", "tree-down", "radial"}
 DEFAULT_BOARD_LAYOUT = "free"
 
+#: **The map's own theme** (MINDMAP_PLAN.md §13e, the owner: "the
+#: customisation features are lacking severely"). §13.4 measured the gap
+#: precisely: a topic has eleven fields and the map as a whole has none, so
+#: every one of the eleven is set one topic at a time and the only bulk
+#: operation of any kind is "Reset to branch" on a single node.
+#:
+#: **What is in here and what is not is one question asked eleven times**:
+#: does this field describe *this topic*, or how *this map* draws topics? The
+#: ten below are the second kind. Left out, deliberately: `icon`, `core`,
+#: `image`, `link` and `edge_label`, each of which names which topic this is
+#: rather than how it is drawn (a map whose every topic is a core idea with
+#: the same picture is not a theme); `edge_bend` and `edge_slide`, which are
+#: a position on one line; and `color`, which is not one value but a rule: it
+#: seeds a whole subtree, and the map-level answer to it is a branch palette,
+#: which is drawn in two places (the canvas from d3, the Library thumbnail
+#: from `MAP_BRANCH_PALETTE` on this side) and would have to teach the
+#: preview cache about itself before it could be picked. That is its own row
+#: in §13e, not a corner of this one.
+#:
+#: The value `None` means "this map says nothing, use the app's default",
+#: which is what every map has today: a theme that stores nothing draws
+#: exactly the map that was drawn before this existed.
+MAP_THEME_FIELDS: dict[str, frozenset | type] = {
+    "font_size": int,
+    "align": frozenset({"left", "center", "right"}),
+    "bold": bool,
+    "italic": bool,
+    "shape": frozenset({"pill", "rect", "ellipse", "none"}),
+    "spine": frozenset({"dashed", "none"}),
+    "edge_style": frozenset({"curve", "elbow", "straight"}),
+    "edge_dashed": bool,
+    "edge_width": frozenset({"thin", "thick"}),
+    "edge_arrow": frozenset({"on", "off"}),
+}
+
+#: The bounds on a themed text size, the same two numbers the per-topic field
+#: is drawn between. A size outside them is not a style, it is a map nobody
+#: can read, and the strip itself only ever offers 12, 19 and 25.
+MAP_THEME_FONT_RANGE = (8, 96)
+
 #: A map node that stands for something that lives in the library. The node
 #: is a *pointer*: deleting it removes the pointer and never the thing, which
 #: is the half of containment that must not be got wrong (MINDMAP_PLAN.md
@@ -674,6 +714,105 @@ def _store_board_settings(
     existing["layout"] = resolved_layout
     entry.board_settings = json.dumps(existing)
     return resolved_type, resolved_layout
+
+
+def _clean_theme(raw: object) -> dict:
+    """Whatever was handed in, reduced to the fields `MAP_THEME_FIELDS` knows
+    and the values they allow. Everything unknown is dropped rather than
+    refused, for the same reason `_board_settings` defaults instead of
+    raising: this runs on the read path of every map, and a blob written by a
+    newer client, or by hand, must degrade to a plainer map and never to a
+    500 on somebody's notebook.
+
+    `False` and `""` are dropped with `None`, because the absence of a value
+    is how a theme says "the app's own default" and three ways of saying that
+    would be three things to get wrong at the ten places that read one.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    theme: dict = {}
+    for field, allowed in MAP_THEME_FIELDS.items():
+        value = raw.get(field)
+        if value is None or value is False or value == "":
+            continue
+        if allowed is bool:
+            theme[field] = True
+            continue
+        if allowed is int:
+            try:
+                number = int(value)
+            except (TypeError, ValueError):
+                continue
+            low, high = MAP_THEME_FONT_RANGE
+            if low <= number <= high:
+                theme[field] = number
+            continue
+        if isinstance(value, str) and value in allowed:
+            theme[field] = value
+    return theme
+
+
+def _board_theme(entry: Entry | None) -> dict:
+    """This map's theme, defaulted and validated on the way out."""
+    if entry is None:
+        return {}
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return _clean_theme(parsed.get("theme"))
+
+
+def _store_board_theme(entry: Entry, theme: dict) -> dict:
+    """Merge a theme patch in, and return the theme as it now stands.
+
+    A patch, not a replacement, and a key whose value is `None` is a key
+    removed: that is the only way the dialog has of saying "stop theming
+    this field and go back to the app's default", and a replacing write would
+    make every control in it depend on every other one being sent.
+
+    `_store_board_settings`'s own read-modify-write, for its own reason: the
+    settings blob is a family, and replacing it here would clear the board's
+    type and layout every time somebody picked a font size.
+    """
+    current = _board_theme(entry)
+    merged = dict(current)
+    for field in MAP_THEME_FIELDS:
+        if field not in theme:
+            continue
+        value = theme[field]
+        if value is None or value is False or value == "":
+            merged.pop(field, None)
+        else:
+            merged[field] = value
+    resolved = _clean_theme(merged)
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    existing["theme"] = resolved
+    entry.board_settings = json.dumps(existing)
+    return resolved
+
+
+def _themed_style(style: dict, theme: dict) -> dict:
+    """One node's stored style with the map's theme filled in underneath it.
+
+    **The node always wins.** A theme is what a topic follows when it was
+    never told otherwise, so a field the node carries is left exactly as it
+    is: this is the one rule that makes a map-wide change safe to press,
+    because no deliberate per-topic choice can be overwritten by one.
+    """
+    if not theme:
+        return style
+    filled = dict(style)
+    for field, value in theme.items():
+        filled.setdefault(field, value)
+    return filled
 
 
 class BoardOut(BaseModel):
@@ -1786,6 +1925,13 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
 
 
 class BoardRename(BoardTypeMixin):
+    #: A patch on the map's theme (MINDMAP_PLAN.md §13e). Only the fields
+    #: sent are touched, and a field sent as `null` is a field the map stops
+    #: theming: see `_store_board_theme`. Unknown fields and values outside
+    #: their set are dropped by `_clean_theme` rather than refused, because
+    #: this is a look, and a picker one version ahead should leave a map
+    #: plainer rather than unsaveable.
+    theme: dict | None = None
     #: Optional since maps: `PUT` used to be rename-only and required a
     #: title, so a client changing the *layout* had to resend the name it was
     #: not touching: which is how a rename made in another tab gets silently
@@ -1830,6 +1976,18 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
             f"{stored[0]}, {stored[1]}",
             payload={"after": dict(zip(("type", "layout"), stored)), "before": before},
         )
+    if body.theme is not None:
+        before_theme = _board_theme(entry)
+        stored_theme = _store_board_theme(entry, body.theme)
+        if stored_theme != before_theme:
+            events.record(
+                db,
+                "edited",
+                "board",
+                entry.id,
+                f"map theme, {len(stored_theme)} field" + ("" if len(stored_theme) == 1 else "s"),
+                payload={"after": stored_theme, "before": before_theme},
+            )
     if body.title is not None:
         title = body.title.strip()
         update_entry(db, entry, content=apply_title(entry.content, title))
@@ -2544,6 +2702,13 @@ class MapTreeOut(BaseModel):
     #: the shape is documented above and asserted in `tests/test_mindmap.py`.
     roots: list[dict]
     cross_links: list[dict]
+    #: The map's own theme, `MAP_THEME_FIELDS` filtered to what this map set
+    #: (MINDMAP_PLAN.md §13e). Empty for every map that has never been
+    #: themed, which is every map that existed before this. It rides on the
+    #: tree rather than on `BoardOut` because the tree is the one call the
+    #: canvas makes before it draws, and a theme that arrived one request
+    #: later would paint the map twice.
+    theme: dict = {}
 
 
 def _board_entry(db: Session, board_id: int) -> Entry:
@@ -2576,6 +2741,7 @@ def board_tree(board_id: int, db: Session = Depends(get_session)) -> MapTreeOut:
         layout=layout,
         roots=_build_tree(db, objects),
         cross_links=_cross_links(db, board_id, {obj.id for obj in objects}),
+        theme=_board_theme(entry),
     )
 
 
@@ -3310,6 +3476,21 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     entry = _board_entry(db, board_id)
     title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {board_id}"
     roots = _build_tree(db, _map_objects(db, board_id))
+    #: **An export of a themed map looks like the map** (MINDMAP_PLAN.md
+    #: §13e). A theme is resolved at paint time rather than written onto each
+    #: node, which is what keeps it safe to change; but none of the three
+    #: formats has a place to put a map-level look, so a file written from
+    #: the stored styles alone would come out plainer than the map it was
+    #: taken from. Resolved here and nowhere else: `/tree` deliberately keeps
+    #: reporting what each node actually carries, because that is what the
+    #: strip has to show as set or unset.
+    theme = _board_theme(entry)
+    if theme:
+        stack = list(roots)
+        while stack:
+            node = stack.pop()
+            node["style"] = _themed_style(node.get("style") or {}, theme)
+            stack.extend(node.get("children") or [])
     media, suffix = EXPORT_FORMATS[format]
     if format == "markdown":
         text = _export_markdown(title, roots)

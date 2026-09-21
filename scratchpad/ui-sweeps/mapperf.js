@@ -243,6 +243,17 @@ const r1 = (x) => Math.round(x * 10) / 10;
       dragMedian: r1(median(dragFrames)),
       dragWorst: r1(Math.max(0, ...dragFrames)),
       dragFrames: dragFrames.length,
+      // Where the worst frame falls, as a fraction of the gesture. This is
+      // the number that decides the fix: a stall at the very start is the
+      // pick-up, one at the very end is the drop and its re-render, and one
+      // in the middle would be the move handler itself. Reported rather
+      // than reasoned about, because the three have different repairs.
+      dragWorstAt: dragFrames.length
+        ? Math.round((dragFrames.indexOf(Math.max(...dragFrames)) / (dragFrames.length - 1)) * 100) / 100
+        : null,
+      panWorstAt: panFrames.length
+        ? Math.round((panFrames.indexOf(Math.max(...panFrames)) / (panFrames.length - 1)) * 100) / 100
+        : null,
     };
     table.push(row);
     console.log("    " + JSON.stringify(row));

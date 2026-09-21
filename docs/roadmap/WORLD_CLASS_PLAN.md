@@ -2150,3 +2150,86 @@ build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
     an audit before any fix: every surface, what it pushes to history and
     what it makes undoable, as a table. Placed into WORLD_CLASS_PLAN.
 
+## Audio in the notebook: the architecture decided 2026-09-21, the build deferred
+
+The owner, 2026-09-21, in one message: recording tracks and storing them as
+notes or as objects like whiteboards and mind maps, attaching them to notes,
+an audio library like voice memos paired with meeting notes, transcription
+and perhaps live transcription, better text to speech, and separately a
+background music player over a folder of songs he already owns. Then, in the
+next breath: "idk if these are too big tasks though, maybe should be saved
+for later??"
+
+He is right on both counts, and both halves of that are recorded here so the
+answer does not have to be found again.
+
+**It is genuinely missing, and the code says so rather than being silent.**
+`routes_files.py` line 56: video and audio "are still out (no player exists
+for either yet; audio specifically is tracked as a gap)", and the upload path
+refuses them at line 92 with "video and audio attachments aren't yet". So
+this is a hole, not a rebuild, which for this project is worth stating
+plainly.
+
+**And it is too big for a session.** Audio as a first-class thing touches
+storage, the upload allowlist, a new surface, attachment, search, and
+probably an optional native helper for transcription. That is several
+sessions. Nothing here is built until the owner says go. What follows is the
+decision, so that when he does, the work starts at the first phase rather
+than at this argument.
+
+**Decision 1: two different features that must never share a store.** The
+owner drew this line himself and it is the right one. Background music is
+not notebook content: it is a player over files he already keeps, never
+indexed, never searched, never a note, and nothing about it should ever
+appear in a notebook view. Recorded audio is notebook content: a voice memo
+is a thing he made, and it belongs with his notes. The separation is
+structural rather than a flag on one kind, because a flag is how the two end
+up confused, which is precisely what he asked to avoid.
+
+**Decision 2: a recording is an object, not an attachment.** He asked
+whether they could be "notes or objects like whiteboards and mindmaps".
+Objects. A board and a map are already first-class things that can be
+referenced from a note, and a recording behaves the same way: it has its own
+identity, it can be opened on its own, and it can be pointed at from any
+number of notes. Making it an attachment instead would bury it inside
+whichever note happened to receive it first.
+
+**Decision 3: it is not mp3, and it must not be called mp3.** A browser's
+`MediaRecorder` produces webm or ogg carrying opus, and wav at best. Mp3
+would mean shipping an encoder into the page. The feature is named for what
+the recorder actually produces, and the word mp3 stays out of the interface
+so nobody is promised a format the app does not make.
+
+**Decision 4: transcription is optional and local, on the llama.cpp
+precedent.** `scratchpad/llama-dev.sh` and `tests/test_skills_evals.py`
+(2026-09-20) already establish how an optional native helper is allowed to
+exist here: the suite never depends on it, no mode of `scripts/gate.sh`
+reaches for it, and without its environment variables every test that needs
+it skips at collection. Transcription follows that shape exactly or it does
+not ship. The app ships with no model and that does not change.
+
+**Decision 5: live transcription is a separate question from
+transcription**, and is not promised alongside it. Transcribing a finished
+recording and transcribing a stream are different problems with different
+tools, and treating them as one feature is how the second one drags the
+first.
+
+**Phases, when the owner says go.** Each is a session's worth and each stands
+alone, so the feature can stop after any of them and still be whole: the
+recorder and the object, with the allowlist opened only as far as the object
+needs; the audio library as a surface, with playback; references from notes,
+using the machinery boards and maps already use; transcription behind the
+optional-helper contract; then, and only then, the streaming question. The
+background player is a separate row again, and its own open question is
+whether the app may read a folder outside its data directory, which is with
+the research agent now.
+
+**Not decided, and his to make**: whether the offline promise admits an
+explicitly opt-in online extra, which is what a connection to a streaming
+music service would need. Recorded elsewhere as a pending decision.
+
+**Research in flight**, not a commitment: whisper.cpp and vosk for speech to
+text, piper and kokoro for speech, evaluated on licence and on cost against
+this app's constraints. The evaluation is cheap and is worth having whether
+or not any of it is ever built.
+

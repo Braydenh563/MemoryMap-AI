@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The welcome's last panel names both answers. Its primary says "Start the
+  tour", and the button beside it, which has always closed the welcome and
+  counted as declining the tour, said only "Skip". It says "Skip the tour"
+  there, and its tooltip says the tour is still in Settings, Help whenever
+  you want it.
 - **What the notebook costs while nobody is touching it, measured and then
   cut** (INBOX 266, item 7). With no browser attached the server is asleep:
   0.04s of CPU across 23 threads in 30 seconds, 0.13% of one core, because

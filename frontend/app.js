@@ -44532,6 +44532,18 @@ function renderOnboardingSlide() {
   // Dashboard with nothing said about where anything is. The word has to say
   // so, or the tour arrives as a surprise on top of a card they just closed.
   $("onboarding-next").textContent = last ? "Start the tour" : "Next";
+  //: **And the other answer to that offer, in words** (the owner, 2026-09-21:
+  //: "add a skip guided tour button to the welcome intro panels"). The left
+  //: button has always closed the welcome and counted as declining the tour,
+  //: which `closeOnboarding` records, but on the last slide it still said
+  //: "Skip" beside a primary that says "Start the tour", so the one thing it
+  //: was answering was the one thing it did not name. It names it there.
+  const skip = $("onboarding-skip");
+  skip.textContent = last ? "Skip the tour" : "Skip";
+  skip.title = last
+    ? "Go straight to the app. You can start the tour any time from Settings, Help."
+    : "Close the welcome and go straight to the app";
+  skip.setAttribute("aria-label", skip.title);
 }
 
 function openOnboarding() {

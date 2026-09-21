@@ -440,10 +440,13 @@ being written by running agents stay beside this one.
   Arrange menu at all, both sweeps take `VIEWPORT`, `mapstrip.js` runs 39/39
   on `#wb-context`, `mapperspective.js` measures every Colour by on a map of
   twenty notes 12/12 (category 5 colours, 4.59:1 to 9.13:1 against the card),
-  and `wbrail.js` reads the rail against the bar recipe 6/6. What is actually
-  left: **curve control points on a tree edge** (a link has its bend already,
-  a branch has a shape and no control point), an image in a node, and the AI
-  half, which no sandbox here can exercise.
+  and `wbrail.js` reads the rail against the bar recipe 6/6. Of what that
+  re-check found actually left, ~~**curve control points on a tree edge**~~ and
+  ~~**an image in a node**~~ were built 2026-09-21 (MINDMAP_PLAN §12.1 items 2
+  and 5, moved whole to HISTORY.md, "Moved from the plans, 2026-09-21";
+  `scratchpad/ui-sweeps/mindmapcurve.js` 14/14 and `mindmapimage.js` 10/10, light and dark,
+  both now in `scripts/gate.sh`'s sweep list). What is left of that list is the
+  AI half, which no sandbox here can exercise.
 - **The whiteboard's own View menu (`.wb-board-menu`) was never reproduced as
   broken.** It has its own max-height-on-open logic (`whiteboard.js`, the
   `wb-board-menu-wrap` toggle listener), unrelated to the `details.dock-menu`

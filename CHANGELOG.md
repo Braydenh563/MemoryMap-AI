@@ -173,6 +173,16 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- A topic on a mind map can hold a picture. Put one in from the topic's own
+  menu and the node draws as a card with the image as its body and the label
+  as the caption under it, rather than a label with a thumbnail beside it. The
+  file goes through the same upload every other picture in the app does, so it
+  is in the Library too, and taking it out of the topic leaves it there.
+- The line into a topic bends where you drag it. Point at a line, or select
+  the topic at either end, and a dot appears on it: drag the dot and the line
+  follows, whether it is drawn as a curve, an elbow or a straight line.
+  Double-click the dot to put the line back. The shape travels with a copied
+  branch and through the FreeMind and OPML exports.
 - Share to MemoryMap from a phone's share sheet: with the app installed, a
   page, a link or a selection shared to it opens Capture with the title,
   the text and the link as one note ready to save.

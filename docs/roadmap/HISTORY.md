@@ -7,6 +7,103 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-09-21
+
+### From MINDMAP_PLAN.md §12.1 items 2 and 5: a picture in a topic, and a line that bends where you drag it
+
+Built 2026-09-21. The two items as the plan carried them:
+
+> - **An image in a node** (item 2's fourth). It needs the board's upload
+>   path and a node whose body is a picture rather than a label, which is a
+>   second node shape, not a fourth button on a strip.
+> - **The control points on a curve drag to reshape it** (item 5's third).
+>   A tree edge is derived from `parent_id` and has no row to store a
+>   control point on; it would be two more `data` fields on the child and a
+>   third hit target per line, and it now has to compose with the three
+>   line shapes item 4 added.
+
+**A picture in a topic.** `data.image` on the node, a `/media/upload` url and
+nothing else. There was no new route to write and that is the point: a board
+image, a picture pasted onto a board and a note's own attachment all already
+POST to `/media/upload`, which is what runs the captioning, the text
+extraction and what the Library's orphan sweep counts, so a second upload path
+for the same bytes would have been a second place for all three to be
+forgotten. The field is held to the same `MEDIA_URL_RE` allowlist an image
+object's `url` is, by a validator on the field rather than at the endpoint,
+because the two XML imports write into `data` through the same model: a
+`_image` attribute in a file somebody was sent is exactly the door an
+off-origin url would come through, and `/media/../../../etc/passwd` passes a
+`startswith` test.
+
+Drawn as a second node shape rather than a thumbnail beside a label:
+`data-body="picture"` turns the node body from a row into a column, the
+picture takes the card's full width inside its padding and the label becomes
+the caption under it. Measured (`scratchpad/ui-sweeps/mindmapimage.js`, 10 of
+10, light and dark): a 160x90 PNG uploaded through the file chooser the topic's own menu opens
+comes back at `natural 160x90`, draws at 182.2x102.5 inside a 200x137.8 card
+at the aspect it was sent at, the caption's top (441.7) is below the picture's
+bottom (437.7) where the label node's text is beside its icon, the sibling
+topic stays 44px tall, and taking the picture out returns the card to 44.
+
+Put in and taken out from the topic's own menu, not the strip, for the reason
+§12.5 gives about the link beside it: the strip is how a topic *looks*, a
+picture is what it is. Taking it out leaves the upload in the Library (see
+§12.0's decision), and `image` is in the list a copied branch carries but not
+in the list "back to the branch" clears.
+
+**A line that bends where you drag it.** `edge_bend` and `edge_slide` on the
+child, exactly the two fields the plan priced, written as fractions of the
+line's own length in the frame the line defines rather than as board
+coordinates: the frame is rebuilt from the anchors on every read, so the pair
+survives a tidy, a drag, a zoom, a layout switch and an export read back at
+another size.
+
+The waypoint composes with all three of item 4's line shapes. The curve passes
+through it, and the arithmetic is worth keeping: a cubic's own midpoint is
+`(p0 + 3c0 + 3c1 + p1) / 8`, so moving both control points by `d` moves that
+midpoint by `6d/8`, and the control points therefore move 4/3 as far as the
+pointer. That is what makes the handle sit *on* the curve at t = 0.5 rather
+than near it, which is a claim a probe can settle with a number. The straight
+line kinks at the waypoint, the elbow moves its turn to it (clamped between
+the anchors, so a right angle cannot double back), and the tapered ribbon the
+default curve is drawn as reads the same four points, so the control does
+something on the default line shape and not only on the three minority ones.
+
+Measured (`scratchpad/ui-sweeps/mindmapcurve.js`, 14 of 14, light and dark):
+the handle sits
+0.19 to 0.39 board units from the closest point on the path for all three
+shapes, a drag moves the centreline's middle 74 units and the ribbon's quarter
+point with it, an elbow's turn moves from x 485 to x 580, and the pair comes
+back off the server (`{"bend":-0.225,"slide":0.186}` and its neighbours)
+inside the bounds the schema holds it to. Double-clicking the handle puts the
+line back, and the topic's own menu says so in words while there is a bend to
+drop.
+
+**Two things the probe found rather than assumed**, both of the "invalid where
+it is used" shape CLAUDE.md warns about. The mid-line `+` sat on the same point
+as the handle, and being HTML above the SVG, invisible but still taking the
+pointer, it swallowed the drag outright: `elementFromPoint` at the handle's
+centre returned the button. It steps 26 units along the line now, down the
+line's own tangent, measured 0.26 units off the path. And the map strip opens
+44px above the selected topic and is several hundred pixels wide, so for a
+child laid out a little below its parent it lands exactly on the middle of the
+line into it: `elementFromPoint` there returned `DIV.wb-map-strip` and the drag
+never started. So the handle is revealed by pointing at the line (one `<g>` per
+edge, and the hover needs nothing selected and therefore no strip) as well as
+by selecting the topic at either end of it.
+
+Both fields ride out and back through both XML exports as private attributes
+(`_image`, `_edge_bend`, `_edge_slide`), alongside the rest of
+`MAP_STYLE_FIELDS`: FreeMind's `<edge>` has no waypoint of any kind, and its
+own way to put a picture in a node is a `<richcontent>` body of HTML whose
+`src` would resolve only on the install that holds the file. `tests/test_mindmap.py`'s
+`MAP_STYLE` fixture carries all three, so §12.1's gate
+("export/import round-trip of a map using every feature") covers them by
+construction, and three new tests hold the doors: an off-origin or traversing
+picture url is a 422 at the PUT, a bend past its own ends is a 422, and an
+imported `_image` or `_edge_bend` a file invented is dropped field by field
+while the attributes beside it are kept.
+
 ## Built, I9's Settings section (2026-09-19): "What it learned"
 
 WORLD_CLASS_PLAN I9's frontend, the half that had been open since the

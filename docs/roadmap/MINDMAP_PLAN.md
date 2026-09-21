@@ -403,6 +403,53 @@ extended with the numbers named.
   rule, so a trunk's colour marks the trunk and every branch under it keeps
   its own. The picker's title says which of the two it is doing.
 
+- **A picture in a topic is one of this notebook's own uploads, through
+  `/media/upload`, and nothing else** (§12.1 item 2's fourth, decided 2026-09-21
+  while building it). The plan said the item "needs the board's upload path",
+  and it turned out there is exactly one to need: a board image, a picture
+  pasted onto a board and a note's own attachment all already POST to
+  `/media/upload`, which is what runs the captioning, the text extraction and
+  what the Library's orphan sweep counts. So no route was added; the node
+  stores the url that path hands back, in `data.image`, held to the same
+  `MEDIA_URL_RE` allowlist an image *object*'s url is, by a validator on the
+  field rather than at the endpoint, because the two XML imports write into
+  `data` through the same model and a `_image` attribute in a file somebody
+  was sent is exactly the door an off-origin url would come through.
+- **Taking the picture out of a topic leaves the upload alone.** The file is in
+  the Library and a topic is one of the places it can appear, not its home; a
+  delete of the bytes from a menu whose every other entry is about this node
+  would be a delete nobody asked for. For the same reason `image` is *not* in
+  the list "back to the branch" clears (`WB_MAP_STYLE_KEYS`): reset's whole
+  promise is that it is the safe way out of an over-decorated topic, so it
+  drops looks and never content. It is in the list a *copy* carries, because a
+  copied branch that lost its pictures would be the other half of that mistake.
+- **A bend on a line is two fractions of that line's own length, not two board
+  coordinates** (§12.1 item 5's third, decided 2026-09-21 while building it).
+  The plan named the cost correctly: a tree edge has no row, so it is two
+  `data` fields on the child, `edge_bend` (across the line) and `edge_slide`
+  (along it from the halfway mark). They are fractions in the frame the line
+  defines because the frame is rebuilt from the anchors on every read: a pair
+  of coordinates would be right until either end moved, which on a map that
+  tidies itself is one gesture later, and the same pair would mean a different
+  shape after an export and an import at another size.
+- **The waypoint composes with all three line shapes, each in the way that
+  shape can**: the curve passes through it (its two control points move 4/3 as
+  far, which is what puts the handle *on* the curve at t = 0.5 rather than near
+  it), the straight line kinks at it, and the elbow moves its turn to it,
+  clamped between the anchors so a right angle cannot double back. The tapered
+  ribbon the default curve is drawn as reads the same four points, so the
+  control is not one that does nothing on most of a map.
+- **A line's two controls sit side by side on it, and the handle is revealed by
+  pointing at the line as well as by selecting a topic.** Both of these are
+  answers to something measured rather than reasoned: the mid-line `+` was at
+  the same point as the handle and, being HTML above the SVG and invisible but
+  still taking the pointer, swallowed the drag outright, so it now steps 26
+  units along the line; and the map strip opens 44px above the selected topic
+  and is several hundred pixels wide, so for a child laid out a little below
+  its parent it lands exactly on the middle of the line into it
+  (`elementFromPoint` at the handle's centre returned the strip). Hover needs
+  nothing selected, so it needs no strip.
+
 ### 12.1 Phase 6a, the controls (1 session)
 
 1. **The map toolbar** (replaces the whiteboard rail on a map): Add
@@ -424,16 +471,18 @@ extended with the numbers named.
    2026-09-12", MINDMAP_PLAN.md §12.1 items 2 to 9); a plan holds open work
    only. What is left of those eight, with the reason each was left:
 
-   - **An image in a node** (item 2's fourth). It needs the board's upload
-     path and a node whose body is a picture rather than a label, which is a
-     second node shape, not a fourth button on a strip.
+   - **An image in a node** (item 2's fourth) and **the control points on a
+     curve drag to reshape it** (item 5's third) were both built on
+     2026-09-21. Moved to HISTORY.md ("Moved from the plans, 2026-09-21",
+     MINDMAP_PLAN.md §12.1 items 2 and 5): a picture is `data.image`, a
+     `/media/upload` url, drawn as a second node shape (`data-body="picture"`,
+     measured 182x102 inside a 200x138 card, 10/10 in
+     `scratchpad/ui-sweeps/mindmapimage.js`); a bend is `edge_bend` and
+     `edge_slide` on the child, two fractions of the line's own length, with a
+     handle measured 0.2 to 0.4 board units off the path for all three line
+     shapes (14/14 in `scratchpad/ui-sweeps/mindmapcurve.js`).
    - **Comment on a node** (item 3's sixth) is §12.2 item 6 and belongs
      there, not here.
-   - **The control points on a curve drag to reshape it** (item 5's third).
-     A tree edge is derived from `parent_id` and has no row to store a
-     control point on; it would be two more `data` fields on the child and a
-     third hit target per line, and it now has to compose with the three
-     line shapes item 4 added.
    - **Line thickness** (item 4's "style") was not built: the three shapes
      and the dash carry the distinction, and a fourth axis on a 2px line is
      a setting nobody can see.
@@ -451,7 +500,9 @@ back through both imports, and the two rings stay inside the canvas at any
 viewport. The account, including which field each format has an honest home
 for and which ride as private attributes, is in HISTORY.md ("Moved from the
 plans, 2026-09-12", "what the sixth run closed behind items 2 to 9"). What is
-still open of §12.1 is item 1's four dock menus and the five sub-items above.
+still open of §12.1 is item 1's four dock menus and the three sub-items above
+that are still open (the comment, which belongs to §12.2, line thickness, and
+the shift-drag sever).
 **Node shape is built too** (2026-09-12, same run): four shapes, decided in
 §12.0 and recorded in HISTORY with the rest.
 

@@ -36,6 +36,11 @@
 // gesture and stopped after it, so what is reported is what the compositor
 // actually did, not what a timer around the gesture would suggest.
 //
+// **It is not a fast sweep**, and it cannot be: building and opening a
+// 500-node map is the thing being measured. Budget about three minutes for
+// the default three sizes. `SIZES=50` cuts it to one size when what is
+// wanted is a regression check rather than the shape of the curve.
+//
 //   BASE=http://127.0.0.1:8804 SCRATCH=/tmp/mm-mapread \
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/mapperf.js
 const { boot } = require("./lib.js");

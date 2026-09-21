@@ -10067,6 +10067,45 @@ input[type="file"] {
   cursor: context-menu;
 }
 
+/* **The waypoint handle on a line** (MINDMAP_PLAN.md §12.1 item 5's third).
+   Round and card-filled in the branch's own colour: the same recipe
+   `.wb-link-endpoint-handle` above uses for the other drag-a-dot-on-a-line
+   control in this app, so the two read as the same kind of thing, and coloured
+   so it belongs to the line it reshapes rather than to the canvas.
+
+   **Invisible and inert until the topic at one end of the line is selected**
+   (`wbSyncMapEdgeHandles`). Both halves matter: a grab dot on every line would
+   be two hundred of them on a real map, and a dot that was invisible but still
+   took the pointer would swallow the press meant for the line underneath,
+   which is the bug the mid-line `+` already had once against the link ring. */
+.wb-map-edge-handle {
+  fill: var(--card);
+  stroke: var(--wb-map-edge-colour, var(--accent));
+  stroke-width: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) ease;
+}
+
+/* Two ways of opening, and the first is the one that always works: pointing
+   at the line, anywhere along it, reveals the handle on it. The whole edge is
+   one `<g>` (stroke, target twin and handle), so there is no gap to cross
+   between the line and its own control. `.is-shown` is the selection route,
+   and `.is-dragging` holds it open for a drag that has already left the line
+   behind. */
+.wb-map-edge-group:hover .wb-map-edge-handle,
+.wb-map-edge-handle.is-shown,
+.wb-map-edge-handle.is-dragging {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.wb-map-edge-handle:hover,
+.wb-map-edge-handle.is-dragging {
+  fill: var(--wb-map-edge-colour, var(--accent));
+}
+
 /* **Per-branch thickness** (MINDMAP_PLAN.md item 177: "connection line styles:
    per-branch thickness, dash and arrowhead"). Only the three stroked line
    shapes are written here; the ribbon's width lives in the path it is drawn

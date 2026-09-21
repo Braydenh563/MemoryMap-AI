@@ -680,6 +680,9 @@ MAP_STYLE = {
     "edge_dashed": True,
     "edge_width": "thick",
     "edge_arrow": "off",
+    "edge_bend": 0.32,
+    "edge_slide": -0.18,
+    "image": "/media/0123456789abcdef0123456789abcdef.png",
     "color": "#4f46e5",
 }
 
@@ -979,6 +982,74 @@ def test_an_imported_style_a_file_invented_is_dropped_field_by_field(client):
     node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
     assert node["style"] == {"bold": True}
     assert node["color"] is None
+
+
+def _put_style(client, board_id, node, patch):
+    """One style patch onto a node, through the door the strip and the rings
+    use, returned unasserted so a test can check a refusal."""
+    return client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board_id,
+            "data": {**node["data"], **patch},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+        },
+    )
+
+
+def test_a_picture_in_a_topic_is_one_of_this_notebooks_own_uploads(client):
+    """MINDMAP_PLAN.md §12.1 item 2's fourth. The picture is a url, so the
+    only question the schema has to answer is which urls: this install's own
+    `/media/...` uploads and nothing else.
+
+    Both of the two wrong answers are tested, because they fail differently:
+    an off-origin address makes a node a way to call out of an app whose whole
+    promise is that it never does, and a traversal passes a `startswith`
+    check while resolving well outside the media folder."""
+    board = _map(client, name="Pictures")
+    node = _node(client, board["id"], text="Trunk")
+    assert _put_style(client, board["id"], node, {"image": "https://evil.example/x.png"}).status_code == 422
+    assert _put_style(client, board["id"], node, {"image": "/media/../../../etc/passwd"}).status_code == 422
+    url = "/media/0123456789abcdef0123456789abcdef.png"
+    assert _put_style(client, board["id"], node, {"image": url}).status_code == 200
+    roots = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"]
+    assert roots[0]["style"]["image"] == url
+
+
+def test_a_line_bent_past_its_own_ends_is_refused(client):
+    """The waypoint is two fractions of the line's own length (the fields'
+    own comment). A slide past an anchor turns the curve back on itself, so
+    the schema holds it inside the ends rather than letting a tangle be
+    stored that no drag can undo."""
+    board = _map(client, name="Bends")
+    root = _node(client, board["id"], text="Trunk")
+    child = _node(client, board["id"], parent_id=root["id"], text="Branch")
+    assert _put_style(client, board["id"], child, {"edge_slide": 0.9}).status_code == 422
+    assert _put_style(client, board["id"], child, {"edge_bend": 40}).status_code == 422
+    assert _put_style(client, board["id"], child, {"edge_bend": -1.25, "edge_slide": 0.4}).status_code == 200
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]["children"][0]
+    assert node["style"]["edge_bend"] == -1.25
+    assert node["style"]["edge_slide"] == 0.4
+
+
+def test_an_imported_picture_or_bend_a_file_invented_is_dropped(client):
+    """The import door holds these two to the same rules the PUT door does,
+    which is what `_clean_import_style` is for: a `_image` in a file somebody
+    was sent is exactly the door an off-origin url would come through, and a
+    `_edge_bend` of a thousand is a line drawn off the edge of the map."""
+    hostile = """<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0"><head><title>Hostile</title></head><body>
+<outline text="Topic" _image="https://evil.example/x.png" _edge_bend="1000"
+         _edge_slide="0.2" _bold="true"/>
+</body></opml>"""
+    board = client.post(
+        "/whiteboard/boards/import", json={"format": "opml", "content": hostile}
+    ).json()
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert node["style"] == {"bold": True, "edge_slide": 0.2}
 
 
 def test_markdown_exports_as_an_indented_outline_and_comes_back(client):

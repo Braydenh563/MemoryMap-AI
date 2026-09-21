@@ -5475,153 +5475,231 @@ function wbRenderMapEdges() {
   const colors = wbMapNodeColors(index);
   const hidden = wbMapConcealed(index);
   const layout = wbMapLayout();
-  const NS = "http://www.w3.org/2000/svg";
-  const next = [];
+  //: **A line is keyed by its two ends and updated in place**
+  //: (MINDMAP_PLAN.md §13a, the render pass). This loop used to build four
+  //: SVG elements per edge and `replaceChildren` the lot on every render: at
+  //: 500 topics that is two thousand elements created, wired and thrown away
+  //: because one of them moved, and it measured 122.2ms of a 527ms render.
+  //:
+  //: The old note here said an edge has no identity of its own, it *is* its
+  //: two endpoints, so there was nothing for a join to key on. The first half
+  //: is still true and the conclusion was wrong: those two endpoints are a
+  //: perfectly good key, and `wbMapEdgesFor` has been finding a line by them
+  //: mid-drag ever since. What an edge does not have is a *row*, which is why
+  //: this is a hand-rolled cache rather than a d3 data join.
+  //:
+  //: The cache hangs off the group element, not off the module: a board that
+  //: is not a map removes the group above, which takes the cache with it, so
+  //: a stale element can never be handed to the next board.
+  const cache = group._wbMapEdges instanceof Map ? group._wbMapEdges : (group._wbMapEdges = new Map());
+  const drawn = new Set();
+  //: **The group stays in the tree's own order**, which is what rebuilding it
+  //: gave for free. Two things read that order: SVG paints in document order,
+  //: so it decides which of two overlapping lines is on top, and
+  //: `mapstrip.js` pairs the first line with the first mid-line `+` (the
+  //: pluses are still rebuilt in index order). Appending new lines at the end
+  //: instead cost that sweep its insert check, which is the order saying out
+  //: loud that it is load-bearing. Nothing moves while the tree is unchanged:
+  //: this compares first and writes only when a line is out of place.
+  let slot = 0;
   for (const parent of index.nodes) {
     if (hidden.has(parent.id) || parent.data?.collapsed) continue;
     for (const child of index.childrenOf.get(parent.id) || []) {
       if (hidden.has(child.id)) continue;
-      //: **One `<g>` per edge**, so the whole line is one hover target: the
-      //: stroke, the target twin and the handle together. That is what lets
-      //: the handle be revealed by pointing at the line (§12.1 item 5's third,
-      //: and Coggle's own gesture) rather than only by selecting a topic, and
-      //: it matters for a reason the first build of this measured: the map
-      //: strip opens 44px above the selected topic and is several hundred
-      //: pixels wide, so for a child laid out a little below its parent the
-      //: strip lands exactly on the middle of the line into it. Measured on a
-      //: child 200 units below its trunk: `elementFromPoint` at the handle's
-      //: own centre returned the strip, and the drag never started. Hover
-      //: needs no selection, so it needs no strip.
-      //:
-      //: Nothing keys off the group's own shape: every selector in this file
-      //: and in the sweeps reaches an edge by class under `.wb-map-edges`.
-      const wrap = document.createElementNS(NS, "g");
-      wrap.setAttribute("class", "wb-map-edge-group");
-      const path = document.createElementNS(NS, "path");
-      const ribbon = wbMapEdgeIsRibbon(child);
-      //: The line's own classes (MINDMAP_PLAN.md item 177). Thickness is a
-      //: class rather than a `stroke-width` attribute for the same reason the
-      //: colour is a custom property: a presentation attribute sits below
-      //: every author rule, so `.wb-map-edge`'s own `stroke-width` would win
-      //: and the control would do nothing. The ribbon needs no thickness
-      //: class, since its width is in the path it is drawn from, and no arrow
-      //: class, since its head is too.
-      const classes = ["wb-map-edge"];
-      if (ribbon) classes.push("wb-map-edge-ribbon");
-      else {
-        const themedEdge = wbMapThemedData(child);
-        if (themedEdge.edge_dashed) classes.push("wb-map-edge-dashed");
-        if (themedEdge.edge_width) classes.push(`wb-map-edge-${themedEdge.edge_width}`);
-        if (!wbMapEdgeHasArrow(child)) classes.push("wb-map-edge-headless");
+      const key = `${parent.id}:${child.id}`;
+      drawn.add(key);
+      const geom = wbMapEdgeGeometry(parent, child, layout, colors);
+      const held = cache.get(key);
+      //: `isConnected`, because something else can take the element out from
+      //: under this cache: `group.remove()` above on a board that stopped
+      //: being a map, and an export that clones and replaces the layer.
+      let wrap;
+      if (held && held.wrap.isConnected) {
+        wrap = held.wrap;
+        if (held.paint !== geom.paint) {
+          wbMapEdgeApply(wrap, geom);
+          held.paint = geom.paint;
+        }
+      } else {
+        wrap = wbMapEdgeElement(parent.id, child.id);
+        wbMapEdgeApply(wrap, geom);
+        cache.set(key, { wrap, paint: geom.paint });
       }
-      path.setAttribute("class", classes.join(" "));
-      path.setAttribute("d", ribbon
-        ? wbMapRibbonD(parent, child, layout)
-        : wbMapEdgePathD(parent, child, layout));
-      // The two ends' ids, so a drag can find *this* edge again and redraw it
-      // per frame (`wbMapEdgesFor`). The render itself still replaces the
-      // whole group wholesale, see the note below; these attributes are the
-      // identity a mid-drag update needs and nothing else reads.
-      path.setAttribute("data-parent", String(parent.id));
-      path.setAttribute("data-child", String(child.id));
-      //: **A custom property, not a `stroke` attribute**, and the difference
-      //: is the whole branch-colour feature. `.wb-map-edge` declares
-      //: `stroke` in 07-whiteboard-misc.css, and a presentation attribute is
-      //: a declaration at the bottom of the cascade, below every author rule
-      //: however unspecific: so the attribute was dead markup and every edge
-      //: on every map drew in the accent. Measured on a five-edge map: three
-      //: distinct `stroke` attributes from the branch palette, one computed
-      //: colour, `rgb(70, 100, 240)`, which is `--accent`. The thumbnail of
-      //: the same map has been branch-coloured this whole time, which is the
-      //: opposite of MINDMAP_PLAN §11.1's aim that the two pictures agree.
-      //:
-      //: `tests/test_svg_paint_attributes.py` is the lint that found it, and
-      //: `el.style` sits above the stylesheet where the attribute sat below.
-      const colour = colors.get(child.id);
-      if (colour) path.style.setProperty("--wb-map-edge-colour", colour);
-      wrap.appendChild(path);
-      next.push(wrap);
-      //: The same curve again, transparent and wide enough to grab (§12.1
-      //: item 4). Pushed *after* the visible path so it sits above it in the
-      //: group, which is what an SVG hit test needs; it is invisible either
-      //: way, and the visible line is inert.
-      const hit = document.createElementNS(NS, "path");
-      hit.setAttribute("class", "wb-map-edge-hit");
-      // The centreline, never the ribbon's outline: a stroke around a closed
-      // shape is a hit area shaped like a hoop, with a hole down the middle
-      // of the very line it is supposed to catch.
-      hit.setAttribute("d", wbMapEdgePathD(parent, child, layout));
-      hit.setAttribute("data-parent", String(parent.id));
-      hit.setAttribute("data-child", String(child.id));
-      wrap.appendChild(hit);
-      //: **The waypoint handle** (§12.1 item 5's third): the third target on
-      //: a line, after the visible stroke and the invisible one you can point
-      //: at. A circle rather than a button because it has to sit *on* the
-      //: line at a board coordinate and scale with the zoom, which is what the
-      //: edge group already is; the mid-line `+` is HTML for the opposite
-      //: reason (it is a button from the app's own ramp).
-      //:
-      //: Drawn for every line and shown only for the selected topic's own
-      //: (`wbSyncMapEdgeHandles`), so a map of two hundred lines is not a map
-      //: of two hundred grab dots, which is the same rule the `+` follows.
-      const handle = document.createElementNS(NS, "circle");
-      handle.setAttribute("class", "wb-map-edge-handle");
-      const grip = wbMapEdgeHandlePoint(parent, child, layout);
-      handle.setAttribute("cx", String(grip.x));
-      handle.setAttribute("cy", String(grip.y));
-      handle.setAttribute("r", "7");
-      handle.setAttribute("data-parent", String(parent.id));
-      handle.setAttribute("data-child", String(child.id));
-      //: The same sentence the link's own bend grip carries, because it is the
-      //: same control: a `<title>` is the tooltip an SVG shape gets, and it is
-      //: the only place either gesture is written down on the thing itself.
-      const gripTitle = document.createElementNS(NS, "title");
-      gripTitle.textContent = "Drag to bend this line · double-click to straighten";
-      handle.appendChild(gripTitle);
-      if (colour) handle.style.setProperty("--wb-map-edge-colour", colour);
-      wbWireMapEdgeHandle(handle, parent.id, child.id);
-      wrap.appendChild(handle);
-      //: On the group, not on the hit stroke: a right-click and a hold belong
-      //: to the *line*, and the line now has two targets in it. Wired on the
-      //: stroke alone, the ring stopped opening wherever the handle was, since
-      //: the handle is a sibling of the stroke and the event never reached it
-      //: (measured by `mapstrip.js`, which caught it the moment the handle
-      //: landed: "right-click on a line opens the line's own ring" came back
-      //: `open: false`). This is the same fault the mid-line `+` already
-      //: carries its own forwarding for, and the same fix one level up: every
-      //: part of the line answers the line's own gestures.
-      wbWireMapEdgeGestures(wrap, child.id);
-      //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
-      //: The midpoint is exact rather than approximated: both control points
-      //: of `wbMapEdgePathD`'s cubic sit on the line between the anchors'
-      //: midpoints, so the curve at t=0.5 passes through
-      //: ((x1+x2)/2, (y1+y2)/2) in both orientations. Worked out rather than
-      //: measured off a screenshot, which is what an offset that looks right
-      //: on one layout and wrong on the other comes from.
-      const label = child.data?.edge_label;
-      if (label) {
-        // `wbMapEdgeHandlePoint` rather than the anchors' own midpoint: for an
-        // unbent line the two are the same point (the curve passes through it
-        // at t = 0.5, worked out in `wbMapEdgeCubic`), and for a bent one this
-        // is the one that is still on the line.
-        const middle = wbMapEdgeHandlePoint(parent, child, layout);
-        const text = document.createElementNS(NS, "text");
-        text.setAttribute("class", "wb-map-edge-label");
-        text.setAttribute("x", String(middle.x));
-        text.setAttribute("y", String(middle.y));
-        text.setAttribute("dy", "-0.4em");
-        text.textContent = String(label);
-        wrap.appendChild(text);
-      }
+      if (group.childNodes[slot] !== wrap) group.insertBefore(wrap, group.childNodes[slot] || null);
+      slot += 1;
     }
   }
-  // Replaced wholesale rather than joined: an edge has no identity of its own
-  // (it *is* its two endpoints), so there is nothing for a data join to key
-  // on, and a map's edge count is one per node, small enough that rebuilding
-  // is cheaper than the bookkeeping a join would need.
-  group.replaceChildren(...next);
+  //: The lines whose two ends are no longer joined: a re-parent, a delete, a
+  //: branch folded away. This is the one thing a keyed update has to do that
+  //: rebuilding the group got for free, and leaving it out is how a keyed
+  //: render grows edges that point at nothing.
+  for (const [key, held] of cache) {
+    if (drawn.has(key)) continue;
+    held.wrap.remove();
+    cache.delete(key);
+  }
   wbRenderMapEdgePluses(index, hidden, layout);
   wbSyncMapEdgeHandles();
+}
+
+//: Everything one tree edge draws, worked out from the two topics it joins,
+//: plus `paint`: the same values as one string, which is what decides whether
+//: the line already on screen is the line this render wants. A property this
+//: function starts reading goes into `paint` too, exactly as it does for a
+//: node's own `wbObjectPaintKey`.
+function wbMapEdgeGeometry(parent, child, layout, colors) {
+  const ribbon = wbMapEdgeIsRibbon(child);
+  //: The line's own classes (MINDMAP_PLAN.md item 177). Thickness is a class
+  //: rather than a `stroke-width` attribute for the same reason the colour is
+  //: a custom property: a presentation attribute sits below every author
+  //: rule, so `.wb-map-edge`'s own `stroke-width` would win and the control
+  //: would do nothing. The ribbon needs no thickness class, since its width
+  //: is in the path it is drawn from, and no arrow class, since its head is
+  //: too.
+  const classes = ["wb-map-edge"];
+  if (ribbon) classes.push("wb-map-edge-ribbon");
+  else {
+    const themedEdge = wbMapThemedData(child);
+    if (themedEdge.edge_dashed) classes.push("wb-map-edge-dashed");
+    if (themedEdge.edge_width) classes.push(`wb-map-edge-${themedEdge.edge_width}`);
+    if (!wbMapEdgeHasArrow(child)) classes.push("wb-map-edge-headless");
+  }
+  //: The centreline, which is both the plain line's own path and, for a
+  //: ribbon, the hit target underneath it: a stroke around a closed shape is
+  //: a hit area shaped like a hoop, with a hole down the middle of the very
+  //: line it is supposed to catch.
+  const line = wbMapEdgePathD(parent, child, layout);
+  const className = classes.join(" ");
+  const d = ribbon ? wbMapRibbonD(parent, child, layout) : line;
+  const grip = wbMapEdgeHandlePoint(parent, child, layout);
+  const colour = colors.get(child.id) || "";
+  //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
+  //: `wbMapEdgeHandlePoint` rather than the anchors' own midpoint: for an
+  //: unbent line the two are the same point (the curve passes through it at
+  //: t = 0.5, worked out in `wbMapEdgeCubic`), and for a bent one this is the
+  //: one that is still on the line.
+  const label = child.data?.edge_label ? String(child.data.edge_label) : "";
+  return {
+    className, d, line, grip, colour, label,
+    paint: `${className}|${d}|${line}|${grip.x},${grip.y}|${colour}|${label}`,
+  };
+}
+
+//: One edge's elements, with no geometry on them yet: built once per edge and
+//: then kept, which is what `wbRenderMapEdges`'s cache is for.
+//:
+//: **One `<g>` per edge**, so the whole line is one hover target: the stroke,
+//: the target twin and the handle together. That is what lets the handle be
+//: revealed by pointing at the line (§12.1 item 5's third, and Coggle's own
+//: gesture) rather than only by selecting a topic, and it matters for a
+//: reason the first build of this measured: the map strip opens 44px above
+//: the selected topic and is several hundred pixels wide, so for a child laid
+//: out a little below its parent the strip lands exactly on the middle of the
+//: line into it. Measured on a child 200 units below its trunk:
+//: `elementFromPoint` at the handle's own centre returned the strip, and the
+//: drag never started. Hover needs no selection, so it needs no strip.
+//:
+//: Nothing keys off the group's own shape: every selector in this file and in
+//: the sweeps reaches an edge by class under `.wb-map-edges`.
+function wbMapEdgeElement(parentId, childId) {
+  const NS = "http://www.w3.org/2000/svg";
+  const wrap = document.createElementNS(NS, "g");
+  wrap.setAttribute("class", "wb-map-edge-group");
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("class", "wb-map-edge");
+  // The two ends' ids, so a drag can find *this* edge again and redraw it per
+  // frame (`wbMapEdgesFor`), and so this render can find it again next time.
+  path.setAttribute("data-parent", String(parentId));
+  path.setAttribute("data-child", String(childId));
+  wrap.appendChild(path);
+  //: The same curve again, transparent and wide enough to grab (§12.1 item
+  //: 4). Appended *after* the visible path so it sits above it in the group,
+  //: which is what an SVG hit test needs; it is invisible either way, and the
+  //: visible line is inert.
+  const hit = document.createElementNS(NS, "path");
+  hit.setAttribute("class", "wb-map-edge-hit");
+  hit.setAttribute("data-parent", String(parentId));
+  hit.setAttribute("data-child", String(childId));
+  wrap.appendChild(hit);
+  //: **The waypoint handle** (§12.1 item 5's third): the third target on a
+  //: line, after the visible stroke and the invisible one you can point at. A
+  //: circle rather than a button because it has to sit *on* the line at a
+  //: board coordinate and scale with the zoom, which is what the edge group
+  //: already is; the mid-line `+` is HTML for the opposite reason (it is a
+  //: button from the app's own ramp).
+  //:
+  //: Drawn for every line and shown only for the selected topic's own
+  //: (`wbSyncMapEdgeHandles`), so a map of two hundred lines is not a map of
+  //: two hundred grab dots, which is the same rule the `+` follows.
+  const handle = document.createElementNS(NS, "circle");
+  handle.setAttribute("class", "wb-map-edge-handle");
+  handle.setAttribute("r", "7");
+  handle.setAttribute("data-parent", String(parentId));
+  handle.setAttribute("data-child", String(childId));
+  //: The same sentence the link's own bend grip carries, because it is the
+  //: same control: a `<title>` is the tooltip an SVG shape gets, and it is
+  //: the only place either gesture is written down on the thing itself.
+  const gripTitle = document.createElementNS(NS, "title");
+  gripTitle.textContent = "Drag to bend this line · double-click to straighten";
+  handle.appendChild(gripTitle);
+  wbWireMapEdgeHandle(handle, parentId, childId);
+  wrap.appendChild(handle);
+  //: On the group, not on the hit stroke: a right-click and a hold belong to
+  //: the *line*, and the line now has two targets in it. Wired on the stroke
+  //: alone, the ring stopped opening wherever the handle was, since the
+  //: handle is a sibling of the stroke and the event never reached it
+  //: (measured by `mapstrip.js`, which caught it the moment the handle
+  //: landed: "right-click on a line opens the line's own ring" came back
+  //: `open: false`). This is the same fault the mid-line `+` already carries
+  //: its own forwarding for, and the same fix one level up: every part of the
+  //: line answers the line's own gestures.
+  wbWireMapEdgeGestures(wrap, childId);
+  return wrap;
+}
+
+//: One edge's geometry written onto the elements it already has.
+//:
+//: **A custom property, not a `stroke` attribute**, and the difference is the
+//: whole branch-colour feature. `.wb-map-edge` declares `stroke` in
+//: 07-whiteboard-misc.css, and a presentation attribute is a declaration at
+//: the bottom of the cascade, below every author rule however unspecific: so
+//: the attribute was dead markup and every edge on every map drew in the
+//: accent. Measured on a five-edge map: three distinct `stroke` attributes
+//: from the branch palette, one computed colour, `rgb(70, 100, 240)`, which
+//: is `--accent`. `tests/test_svg_paint_attributes.py` is the lint that found
+//: it, and `el.style` sits above the stylesheet where the attribute sat
+//: below. Removed as well as set, which a rebuilt element never had to do:
+//: a branch that loses its colour has to lose it on the line too.
+function wbMapEdgeApply(wrap, geom) {
+  //: By class, not by position: the group's order is the hit test's (the
+  //: invisible twin has to sit above the visible line), so reaching for a
+  //: child by index here would tie this to that order for no reason.
+  const path = wrap.querySelector("path.wb-map-edge");
+  path.setAttribute("class", geom.className);
+  path.setAttribute("d", geom.d);
+  if (geom.colour) path.style.setProperty("--wb-map-edge-colour", geom.colour);
+  else path.style.removeProperty("--wb-map-edge-colour");
+  const hit = wrap.querySelector(".wb-map-edge-hit");
+  hit.setAttribute("d", geom.line);
+  const handle = wrap.querySelector(".wb-map-edge-handle");
+  handle.setAttribute("cx", String(geom.grip.x));
+  handle.setAttribute("cy", String(geom.grip.y));
+  if (geom.colour) handle.style.setProperty("--wb-map-edge-colour", geom.colour);
+  else handle.style.removeProperty("--wb-map-edge-colour");
+  let text = wrap.querySelector(".wb-map-edge-label");
+  if (!geom.label) {
+    text?.remove();
+    return;
+  }
+  if (!text) {
+    text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("class", "wb-map-edge-label");
+    text.setAttribute("dy", "-0.4em");
+    wrap.appendChild(text);
+  }
+  text.setAttribute("x", String(geom.grip.x));
+  text.setAttribute("y", String(geom.grip.y));
+  text.textContent = geom.label;
 }
 
 //: Where the mid-line `+` sits: a short step along the line from the handle,

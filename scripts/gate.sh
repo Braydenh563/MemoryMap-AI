@@ -41,10 +41,38 @@ for arg in "$@"; do
   esac
 done
 ran=(); passed=(); failed=(); skipped=()
+# **pytest's exit 5 is "no tests were collected", and it is a failure here.**
+#
+# The reading that would make it a pass is that a change touching no tested
+# file legitimately runs nothing. That case never reaches pytest: `--changed`
+# checks `${#TARGETED[@]}` first and records `changed-tests (none matched)` as
+# *skipped*, with the base it compared against printed above it, so an empty
+# selection is already said out loud rather than shown as a green test run.
+#
+# What is left, by elimination, is pytest being handed test files that yield
+# no tests: a new test file with nothing in it yet, a file whose tests were all
+# renamed out from under the selection, a collection error swallowed into an
+# empty run. Every one of those is the selection and reality disagreeing, which
+# is the same silence an empty `--changed` used to print green, and the gate
+# that let two agents measure nothing was fixed tonight for exactly it.
+#
+# So it fails, and it says which failure it is: "no tests failed" and "no tests
+# ran" want different answers from whoever is reading the five lines, and a
+# bare red step name gives neither. Only pytest returns 5; `node --check`
+# returns 0 or 1 and ruff 0, 1 or 2, so nothing else can land here by accident.
+#
+# The five lines are the whole diagnosis, and that is not a stylistic
+# preference: `pytest -q` on an empty collection writes one byte to its log
+# (measured), so "logs: .gate/changed-tests.log" leads to a blank file and the
+# step name is all the reader gets.
 step() {  # name, command...
-  local name="$1"; shift
+  local name="$1" rc; shift
   ran+=("$name")
-  if "$@" > "$LOG/$name.log" 2>&1; then passed+=("$name"); else failed+=("$name"); fi
+  "$@" > "$LOG/$name.log" 2>&1
+  rc=$?
+  if [ "$rc" = 0 ]; then passed+=("$name")
+  elif [ "$rc" = 5 ]; then failed+=("$name (exit 5: no tests collected)")
+  else failed+=("$name"); fi
 }
 LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_braces.py
   tests/test_frontend_ids.py tests/test_frontend_handlers.py tests/test_dock_grammar.py
@@ -197,7 +225,7 @@ if [ "$SWEEPS" = 1 ]; then
   # previewclash: the board and map thumbnails, whose faults (a caption over a
   # block, over another caption, or past the paper) are pure geometry and so
   # are a number, but a number no lint can reach without a browser.
-  for s in errors docks contrast touch leaks keyboard requests previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve wbtopbar dochighlight spinnershape tagoffer; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  for s in errors docks contrast touch leaks keyboard requests previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve wbtopbar dochighlight spinnershape tagoffer imagefold imagecardfoot; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

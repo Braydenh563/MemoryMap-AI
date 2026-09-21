@@ -614,13 +614,38 @@ being written by running agents stay beside this one.
   card width, about 330px, it is 39%. The label is the only place left to cut
   and "Text in this image" is the shortest true thing it can say.
   [image-cards.md]
-- **The Files sub-tab rows were never on screen.** They share
-  `library-image-*` classes and take the unchanged full-width fold by design,
-  and `.library-image-caption` moved from `--text-sm` to `--text-md` for the
-  cards, which grew a Files row's description by 5.1px as arithmetic, not as a
-  measurement: this sandbox's seeded media are all images. Next step: seed a
-  PDF through `/media/upload` and run `imagecardfoot.js` against the Files
-  sub-tab. [image-cards.md, logs-cards-links.md]
+- ~~**The Files sub-tab rows were never on screen.**~~ **Measured 2026-09-21.**
+  `imagecardfoot.js` seeds PDFs through `/media/upload` and takes `SUBTAB=files`,
+  and `imagefold.js` seeds them too. At 1440 in light: a row with nothing to say
+  is 160px and one with a description 226.3px, four controls at rest on each,
+  the description block 43.5px (the same `--text-md` block a picture card
+  draws), the fold summary 1197.6px wide of a 1197.6px column and 32.8px tall
+  at contrast 6.02. The full-width fold is by design and is now a number rather
+  than an inference: on a Files row it is 100% of the content column, against
+  the 82% that was judged nearly a bar on a 156.3px picture tile. The rows are
+  `display: flex`, one per line, not the pictures' grid, so an open reading
+  moves 0 of 0 row-mates and pushes only its own row, 160 to 167.5px: the hole
+  the picture cards were rescued from cannot happen there while that holds, and
+  `imagefold.js` is the ratchet on it. Open, and measured rather than guessed: a
+  described row leaves 50.3px of slack under its last block against 24.8px on an
+  undescribed one, so the two ranks of Files row do not sit on one rhythm.
+  [image-cards.md, logs-cards-links.md, readings.md]
+- **An uploaded document cannot be given a reading from outside the app.**
+  `POST /media/{id}/ocr` and `/media/{id}/vision-ocr` both answer 415 for a
+  PDF, because `ocr.OCR_SUFFIXES` and `vision_ocr.VISION_OCR_SUFFIXES` are the
+  six image types, so every seeded PDF's fold says "nothing has read this yet"
+  and no sweep can measure the Files fold with a reading behind it. A document's
+  reading lives in `PageRead` rows instead (`/media/{id}/ocr-page-read`, which
+  needs a model). Not a bug on its own; it is the reason the Files fold's filled
+  state is still unmeasured. [readings.md]
+- **A Files row asks for a PDF first page that this sandbox cannot render.**
+  Four `GET /media/pdf-page/<name>/0` 404s per render, one per document row,
+  because `pdfpages.render_page` returns None with no rasteriser installed.
+  Deliberate: the `<img>` carries an `error` handler that removes itself and
+  leaves the type glyph underneath (`renderLibraryImagesGallery`, library.js),
+  which is how the fallback is discovered. Recorded so the next agent does not
+  chase the console errors `errors.js` would report on that sub-tab.
+  [readings.md]
 - **Two pictures in a gallery row are still different sizes when one card has
   nothing to say.** UI_MODERNISATION_PLAN's decision block records why a
   subgrid was rejected (it equalises everything and puts 75px of hole under

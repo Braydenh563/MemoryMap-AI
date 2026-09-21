@@ -5913,6 +5913,14 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   infoText.className = "lightbox-text";
   const infoByline = document.createElement("p");
   infoByline.className = "lightbox-byline";
+  //: The second reader's answer to the same question, under the first one's,
+  //: in the same two elements the first one uses: see `lightboxReadingsFor`
+  //: for why it is here at all and why it is not a toggle. Both are hidden
+  //: together, so a picture with one reading looks exactly as it did.
+  const infoAltText = document.createElement("p");
+  infoAltText.className = "lightbox-text lightbox-alt-text";
+  const infoAltByline = document.createElement("p");
+  infoAltByline.className = "lightbox-byline";
   // Dimensions, when it was added, the filename, the "other info about it"
   // half of the request. First, because it is the line that says *which*
   // picture this is; the readings below it are about what is in it.
@@ -5932,7 +5940,27 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   //: is also what makes "open the reader at *this* page" a meaningful offer.
   const infoPages = document.createElement("div");
   infoPages.className = "row lightbox-pages hidden";
-  info.append(infoFacts, infoPages, infoCaption, infoCaptionByline, infoText, infoByline);
+  info.append(
+    infoFacts,
+    infoPages,
+    infoCaption,
+    infoCaptionByline,
+    infoText,
+    infoByline,
+    infoAltText,
+    infoAltByline
+  );
+
+  //: Drawn from one place, because both `show()` and `renderInfo` paint this
+  //: panel and a second reading left behind by the previous picture is worse
+  //: than never showing one at all.
+  function renderAltReading(text, byline) {
+    const alt = (text || "").trim();
+    infoAltText.textContent = alt;
+    infoAltText.classList.toggle("hidden", !alt);
+    infoAltByline.textContent = alt ? byline || "" : "";
+    infoAltByline.classList.toggle("hidden", !alt || !byline);
+  }
   // Clicking the panel must not dismiss the dialog, someone selecting a line
   // of transcribed text to copy is the whole reason it is here.
   info.addEventListener("click", (e) => e.stopPropagation());
@@ -6666,9 +6694,13 @@ function openLightbox(items, startIndex = 0, opts = {}) {
       {
         label: "ph:text-aa Read text with AI",
         title: "Read the text in this image with a vision model",
+        //: The response carries both readings, so the panel is rebuilt from the
+        //: whole row rather than from the field this call happened to write:
+        //: re-reading with a model used to drop a Tesseract reading that was
+        //: still stored, and running Tesseract used to promote it over a vision
+        //: reading that is still the current one.
         run: run("read text", "Reading…", "/vision-ocr", (it, u) => {
-          it.text = (u.vision_ocr_text || "").trim();
-          it.byline = it.text ? `Text read by ${u.vision_ocr_model || "a model"}` : "";
+          Object.assign(it, lightboxReadingsFor(u));
         }),
       },
     ];
@@ -6694,8 +6726,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
         label: "ph:scan Read text (Tesseract OCR)",
         title: "Read the text in this image with Tesseract, a fast local tool, no AI model involved",
         run: run("read text", "Reading…", "/ocr", (it, u) => {
-          it.text = (u.ocr_text || "").trim();
-          it.byline = it.text ? "Text read with Tesseract OCR" : "";
+          Object.assign(it, lightboxReadingsFor(u));
         }),
       });
     }
@@ -7284,6 +7315,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     infoText.classList.toggle("hidden", !text);
     infoByline.textContent = item.byline || "";
     infoByline.classList.toggle("hidden", !item.byline);
+    renderAltReading(item.altText, item.altByline);
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     // The picture's own facts, which the app knew and never showed. Asked
     // for: "maybe it can have the image information and other info about it
@@ -7356,15 +7388,18 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     // The picture may have been paged away from while this was in flight.
     if (forIndex !== index) return;
 
+    const readings = lightboxReadingsFor(row);
     if (!item.caption && row.caption) item.caption = row.caption;
-    if (!item.text) item.text = (row.vision_ocr_text || row.ocr_text || "").trim();
+    if (!item.text) item.text = readings.text;
     if (!item.addedAt && row.created_at) item.addedAt = row.created_at;
-    if (!item.byline) {
-      item.byline = row.vision_ocr_text
-        ? `Text read by ${row.vision_ocr_model || "a model"}`
-        : row.ocr_text
-          ? "Text read with Tesseract OCR"
-          : "";
+    if (!item.byline) item.byline = readings.byline;
+    //: The alternate is filled whenever the row has one, rather than only when
+    //: the item arrived without it: a caller that passed a reading but knew
+    //: nothing of the second one (every caller with a bare url) would otherwise
+    //: keep the panel one reading short for the whole visit.
+    if (!item.altText) {
+      item.altText = readings.altText;
+      item.altByline = readings.altByline;
     }
     if (!item.captionByline) item.captionByline = captionBylineFor(row);
     // The gallery passes `original_name`; a bare url caller passes the
@@ -7417,6 +7452,11 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     infoText.classList.toggle("hidden", !text);
     infoByline.textContent = byline;
     infoByline.classList.toggle("hidden", !byline);
+    //: Not on a page of a document: `docPageRows` holds one reading per page
+    //: (`PageRead`), so there is no second reader to footnote there, and the
+    //: file-level alternate would be a claim about the whole PDF sitting under
+    //: page 4's own text.
+    renderAltReading(perPage ? "" : item.altText, item.altByline);
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     meta.textContent =
       items.length > 1
@@ -22973,6 +23013,60 @@ function shortModelName(name) {
   return parts.at(-1) || withoutHost;
 }
 window.shortModelName = shortModelName;
+
+//: **A picture can carry two readings, and the lightbox showed one of them.**
+//: Reported, and reproduced before it was touched: a `MediaUpload` or an
+//: `Attachment` holds `ocr_text` (Tesseract's own pass, written automatically
+//: the moment the file is saved into a note) and `vision_ocr_text` (a vision
+//: model's transcription, always asked for by hand). With both stored, the
+//: lightbox drew `vision_ocr_text || ocr_text` and the Tesseract reading was
+//: nowhere on the surface built for reading: measured at 1440 with both seeded
+//: through `POST /media/{id}/ocr` and `/vision-ocr`, `.lightbox-text` held the
+//: vision reading and the whole `.lightbox-info` panel never contained a
+//: character of the other one.
+//:
+//: What it shows now is not a new decision. The Library card's own reading
+//: fold settled this exact question already (`renderLibraryImagesGallery`,
+//: library.js): "Tesseract's reading goes inside the same disclosure, under
+//: the vision one: it is the same question ('what does this say'), answered by
+//: the other reader", labelled "Also read with Tesseract OCR" and left out
+//: entirely when it is empty, which on a machine with no Tesseract is always.
+//: This applies that decision to the one surface that missed it, in the
+//: elements already there (`.lightbox-text`, `.lightbox-byline`), so there is
+//: no second recipe and no new rule to lint.
+//:
+//: Stacked rather than behind a two-state control, on purpose: the lightbox is
+//: the picture "at a size the text can be checked against", and two
+//: transcriptions of one image are worth having open precisely so they can be
+//: read against each other and against the page. A toggle answers "which one
+//: is current", which is a question the badge on the card already answers,
+//: and it makes the comparison impossible.
+//:
+//: One reader of the row, so the four surfaces that build a lightbox item
+//: cannot drift apart again (`hydrate` here, the two menu rows that re-read a
+//: picture, and `libraryLightboxItems` in library.js).
+function lightboxReadingsFor(row) {
+  const vision = (row?.vision_ocr_text || "").trim();
+  const tesseract = (row?.ocr_text || "").trim();
+  if (vision) {
+    return {
+      text: vision,
+      byline: `Text read by ${shortModelName(row?.vision_ocr_model) || "a model"}`,
+      //: Only a *second* reading is an alternate. With no vision reading the
+      //: Tesseract one is the reading, and it is returned as `text` below
+      //: rather than as a footnote to an empty panel.
+      altText: tesseract,
+      altByline: tesseract ? "Also read with Tesseract OCR" : "",
+    };
+  }
+  return {
+    text: tesseract,
+    byline: tesseract ? "Text read with Tesseract OCR" : "",
+    altText: "",
+    altByline: "",
+  };
+}
+window.lightboxReadingsFor = lightboxReadingsFor;
 
 function formatTokens(n) {
   const count = Number(n) || 0;

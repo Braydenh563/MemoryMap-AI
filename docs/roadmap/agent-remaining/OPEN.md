@@ -701,13 +701,25 @@ being written by running agents stay beside this one.
 
 ## App wide: shell, phone and the shared recipes
 
-- **A filled button is 2px shorter than every tonal button beside it, app
-  wide.** `button` carries `border: none` (01-forms-settings.css) and `.ghost`
-  a 1px edge, so a filled control measures 40px in a row of 42px ones. The
-  one-line fix is `border: 1px solid transparent` on the base `button`, and it
-  moves every filled button in the app, so it needs its own measurement pass
-  (docks pin their heights and would not move; the chat composer, the note
-  toolbars and the dashboard widgets would). [popup-redesigns.md,
+- ~~**A filled button is 2px shorter than every tonal button beside it, app
+  wide.**~~ **Measured and closed, 2026-09-21, and the proposed fix was worse
+  than the defect.** The cause was real: `button` carries `border: none`
+  (01-forms-settings.css) and `.ghost` a 1px edge, so 40px against 42px under
+  `box-sizing: border-box`. "App wide" was not: walking all 312 visible
+  buttons across seven tabs at 1440 found **70 button rows and exactly one
+  mixed**, because DESIGN.md's "Control height" section has been pinning rows
+  with `--control-h` for seven rounds. The one-line fix was then measured by
+  giving every borderless button a 1px transparent edge in the running app and
+  re-walking: **18 of 312 buttons moved, and the moves were worse than the
+  defect.** `.linklike`, which is text rather than a box, went 18 to 20px;
+  five graph toolbar buttons went 36 to 36.5px, putting a half pixel where
+  there had been none; a reminders select opener went 36 to 44px. So the base
+  rule stands, the one genuinely mixed row is fixed (`.name-nudge`: "Add your
+  name" at 29.2px from its own padding beside a 28px `.ghost.small` X, both
+  pinned to 1.75rem), and the class of bug is now held by a probe rather than
+  by the next report: `scratchpad/ui-sweeps/btnrows.js`, in the gate's sweep
+  list, 312 buttons, 70 rows, 0 mixed, and it finds the `.name-nudge` row
+  against the stylesheet before this change. [popup-redesigns.md,
   logs-cards-links.md]
 - **`.segmented-control` is only conformed where it was reported.** INBOX
   192's fix is scoped to `#doc-ai-verb` in `09-editor.css`; the base rule is

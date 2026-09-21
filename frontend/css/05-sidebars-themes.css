@@ -3505,7 +3505,15 @@ textarea.autogrow {
 
 .name-nudge button {
   font-size: 0.8rem;
-  padding: 0.25rem 0.6rem;
+  /* Pinned rather than left to the padding, which is DESIGN.md's control
+     height rule for a row: measured at 1440, "Add your name" came out 29.2px
+     from its own padding and the X beside it 28px from `.ghost.small`'s
+     `min-height`, so the two sat on one row at two heights. This was the only
+     mixed-height button row left in the app (312 visible buttons walked
+     across seven tabs). */
+  height: 1.75rem;
+  padding-block: 0;
+  padding-inline: 0.6rem;
 }
 
 /* On a phone the header wraps to two or three rows and the sidebars stack

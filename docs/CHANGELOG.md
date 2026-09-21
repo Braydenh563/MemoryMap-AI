@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Buttons that share a row share a height, and a probe now holds it. The
+  greeting's "Add your name" was 29.2px beside its own 28px close button, the
+  last mixed row of seventy in the app. The one-line change that would have
+  ended the underlying 40-against-42px difference for good was measured
+  instead of taken: it moved eighteen buttons, put a half pixel into five
+  graph controls and turned a text link into a box, so it was not taken.
 - The loading bar on the splash screen is cheaper to draw, so it stays smooth
   on a slow machine, which is the only kind of machine that sees it for long.
   It used to grow by changing its width, which made the browser lay the page

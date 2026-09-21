@@ -9,6 +9,63 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From WORLD_CLASS_PLAN.md section 21: every failure names its way out (INBOX 272 part 1)
+
+Two real gaps (rows 9-10 of section 21's survey table) and one doc gap (row
+11), all reached by grepping the running app rather than assumed from a
+feature list.
+
+**Agent mode's silent downgrade (rows 9-10).** `ai/provider.py` gained
+`tools_unsupported_message(model)`, the one place the remedy sentence is
+written; `ai/agent.py`'s `except ToolsUnsupportedError` now yields
+`{"type": "unsupported", "model": ..., "message": ...}` instead of a bare
+`{"type": "unsupported"}`. Every consumer of that event already existed
+(`routes_chat.py`'s direct-turn path, `skill_runner.py`'s two paths that
+forward `first` verbatim, and its third path that builds its own "step
+failed" event) so the fix is one write site read by four. `routes_chat.py`'s
+branch that used to be a bare `pass` now `yield`s the event before falling
+through to the plain-answer stream. `skill_runner.py`'s mid-run "step
+failed" reason now prefers `first["message"]` over its own generic
+sentence. The frontend's shared chat-stream reader (`frontend/app.js`
+~13548-13725) gained an `onUnsupported` callback and a dispatch case; the
+Chat tab (the only caller that can ever send `useTools: true`, the Ask box
+always sends `false`) captures the event during the stream and renders it
+once the stream ends, alongside the existing `groundingSentences` pattern
+for the same "the live markdown re-render would wipe a DOM node inserted
+mid-stream" reason. `renderToolsUnsupportedNotice()` uses the
+`.notice.notice-warn` recipe (DESIGN.md) plus one `smallButton` that opens
+Settings, Models on the chat model picker (`openSettingsModal("models",
+"chat-model-select")`, the same target the model-spec panel's own "Change
+the model" button already uses), so the fix is one click from the failure,
+never a different screen.
+
+**`requirements.txt` (row 11).** The "Optional extras" comment gained the
+three missing installable entries (`pypdfium2 Pillow`, `markitdown`,
+`python-docx`) with the same one-line-each shape the existing four use;
+`llama-cpp-python` was deliberately left out, `core/extras.py`'s own
+`unavailable` reason for that entry says installing it buys nothing yet
+(the supported route is `llama-server`, already reachable from Settings,
+Models' provider picker with no install at all), and naming it here would
+be exactly the "offering something the app cannot do" shape INBOX 272 part
+1 rules out.
+
+**The lint (standing order, "hold it with a test").**
+`tests/test_failure_remedies.py`: `test_every_named_remedy_still_names_its_fix`
+asserts each remedy phrase in the survey table (`nomic-embed-text`, `SearXNG`,
+`Settings, Extras`, `Settings, Models`) is still present in the file that
+raises it, so a rewrite that drops the fix while keeping the diagnosis goes
+red; `test_requirements_txt_lists_every_extras_package` holds row 11's fix
+in place by asserting every non-`unavailable` `core/extras.py` package
+appears in `requirements.txt`; `test_extras_registry_entries_are_actionable_or_say_why_not`
+requires every entry to have a size (the "say so before it starts" rule)
+and, when disabled, a real reason longer than a shrug;
+`test_ollama_client_forwards_a_message_not_a_bare_event` is the direct
+regression test for rows 9-10's fix. `tests/test_agent_tools_api.py`'s
+existing `test_model_without_tool_support_falls_back_to_plain_chat` was
+extended in place (it already exercised exactly this path) to assert the
+"unsupported" event now reaches the client with a model name and the
+remedy phrase, rather than adding a parallel test file for the same call.
+
 ### From MINDMAP_PLAN.md section 13a-open: the render pass
 
 Built 2026-09-21. The gate 13a set was `renderWhiteboard` under 200ms and

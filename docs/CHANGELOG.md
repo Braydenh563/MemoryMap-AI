@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Agent mode silently downgraded to a plain answer when the active model
+  couldn't call tools, with nothing on screen to say so or how to fix it
+  (INBOX 272 part 1's survey). The turn now shows a notice naming the
+  model and one button to change it in Settings, Models; a skill run that
+  stops mid-way for the same reason names the same fix in its step card.
+  `requirements.txt`'s "Optional extras" comment had also drifted behind
+  `core/extras.py`'s own allowlist (three installable extras were never
+  named there); both are held in step now by `tests/test_failure_remedies.py`.
 - The guided tour can no longer close itself halfway through. A step whose
   control it could not find was dropped from the run, and when that took the
   last one the tour ended silently on whatever tab it had just opened, which

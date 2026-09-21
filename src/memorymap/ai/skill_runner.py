@@ -875,7 +875,12 @@ def _run_one_step(setup: _RunSetup, run: _RunState, index: int) -> Iterator[dict
                 "index": index,
                 "state": "failed",
                 "text": step,
-                "reason": "The model stopped being able to use tools part-way through.",
+                # INBOX 272 part 1: `first["message"]` (set once, in
+                # ai/agent.py) already names the remedy; only a `first` from
+                # an older event shape (or a test double) falls back to the
+                # bare fact.
+                "reason": first.get("message")
+                or "The model stopped being able to use tools part-way through.",
             }
             run.stopped_at = index
             # Not re-plannable: no rewording of a step gives a model back

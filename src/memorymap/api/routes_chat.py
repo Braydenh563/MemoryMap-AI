@@ -1710,8 +1710,13 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             }
         if first is None or first.get("type") == "unsupported":
             # The active model can't do tool calls, plain Q&A, never
-            # a hard dependency.
-            pass
+            # a hard dependency. INBOX 272 part 1: this used to be a silent
+            # `pass`, so Agent mode was asked for and downgraded with
+            # nothing on screen to say so or how to fix it. `first` (built
+            # in ai/agent.py) already carries the remedy; forward it before
+            # falling through to the plain-answer stream below.
+            if first is not None:
+                yield event(first)
         else:
             events = chain([first], agent_events)
     # ROADMAP.md item 36's frontend half: the non-streaming /chat already

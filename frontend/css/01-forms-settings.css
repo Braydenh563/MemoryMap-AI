@@ -3826,7 +3826,7 @@ html.modal-open body {
 .is-streaming > .help-chat-prose > :last-child:not(:is(ul, ol, blockquote))::after,
 .is-streaming > .help-chat-prose > :last-child:is(ul, ol) > li:last-child::after,
 .is-streaming:not(:has(*))::after,
-.is-streaming > :last-child:not(:is(ul, ol, blockquote))::after,
+.is-streaming > :last-child:not(:is(ul, ol, blockquote, .help-chat-prose))::after,
 .is-streaming > :last-child:is(ul, ol) > li:last-child::after,
 .is-streaming > :last-child:is(blockquote) > :last-child::after {
   content: "\200b";

@@ -4983,35 +4983,57 @@ function wbMapEdgeIsRibbon(child) {
 //: `data.pinned` is set, so its `wbScheduleRender` never fired a second
 //: time). Precomputed for the same reason `wbLinkedSketchesFor` is: a node
 //: gains or loses a parent between drags, never during one.
-function wbMapEdgesFor(id) {
+//:
+//: **The three lines an edge is drawn from, found in one pass over the edge
+//: group rather than by three document-wide attribute queries per edge**
+//: (MINDMAP_PLAN.md §13a). `wbCaptureBulkMoveOrigin` calls `wbMapEdgesFor`
+//: once per topic in a dragged branch, so on a 500-topic map the old shape
+//: ran several thousand `document.querySelector` calls, and rebuilt the map
+//: index and read the layout once per topic on top of them, all before the
+//: pointer had moved. Passing one context in makes the whole capture linear
+//: in the branch rather than quadratic in the board.
+function wbMapEdgeContext() {
+  const els = new Map();
+  const group = document.querySelector(".wb-map-edges");
+  if (group) {
+    for (const el of group.querySelectorAll(
+      ".wb-map-edge, .wb-map-edge-hit, .wb-map-edge-handle"
+    )) {
+      const key = `${el.dataset.parent}:${el.dataset.child}`;
+      let slot = els.get(key);
+      if (!slot) els.set(key, (slot = {}));
+      // `wb-map-edge` is the visible path's own token; the ribbon, dash and
+      // thickness classes ride alongside it on the same element, and the twin
+      // and the handle carry neither it nor each other.
+      if (el.classList.contains("wb-map-edge")) slot.el = el;
+      else if (el.classList.contains("wb-map-edge-hit")) slot.hit = el;
+      else slot.grip = el;
+    }
+  }
+  return { index: wbMapIndex(), layout: wbMapLayout(), els };
+}
+
+function wbMapEdgesFor(id, ctx) {
   if (!wbIsMap()) return [];
-  const index = wbMapIndex();
+  const { index, layout, els } = ctx || wbMapEdgeContext();
   const self = index.byId.get(id);
   if (!self) return [];
-  const layout = wbMapLayout();
   const found = [];
   const add = (parent, child) => {
-    const el = document.querySelector(
-      `.wb-map-edges .wb-map-edge[data-parent="${parent.id}"][data-child="${child.id}"]`
-    );
-    // The invisible twin has to follow the drag as well, or the line you can
-    // point at stays where the line used to be: a target that is right until
-    // the first time anything moves is worse than no target.
-    const hit = document.querySelector(
-      `.wb-map-edges .wb-map-edge-hit[data-parent="${parent.id}"][data-child="${child.id}"]`
-    );
-    if (el && hit) el._wbHitTwin = hit;
-    // And the waypoint handle (§12.1 item 5's third), for the same reason the
-    // hit twin is here: a handle that stays where the line used to be is a
-    // control pointing at nothing the moment either end of the line moves.
-    const grip = document.querySelector(
-      `.wb-map-edges .wb-map-edge-handle[data-parent="${parent.id}"][data-child="${child.id}"]`
-    );
-    if (el && grip) el._wbHandle = grip;
+    const slot = els.get(`${parent.id}:${child.id}`);
     // No element means the edge is not drawn right now (a collapsed or
     // filtered branch), which is not an error: there is simply nothing to
     // follow the drag.
-    if (el) found.push({ parent, child, el, layout });
+    if (!slot || !slot.el) return;
+    // The invisible twin has to follow the drag as well, or the line you can
+    // point at stays where the line used to be: a target that is right until
+    // the first time anything moves is worse than no target.
+    if (slot.hit) slot.el._wbHitTwin = slot.hit;
+    // And the waypoint handle (§12.1 item 5's third), for the same reason the
+    // hit twin is here: a handle that stays where the line used to be is a
+    // control pointing at nothing the moment either end of the line moves.
+    if (slot.grip) slot.el._wbHandle = slot.grip;
+    found.push({ parent, child, el: slot.el, layout });
   };
   const parent = self.parent_id != null ? index.byId.get(self.parent_id) : null;
   if (parent) add(parent, self);
@@ -7639,11 +7661,36 @@ function wbDragIsBulkMove(kind, id) {
 //: set instead of one item).
 function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
   const origin = new Map();
+  //: **One lookup table per capture, not one scan per member**
+  //: (MINDMAP_PLAN.md §13a). The line this replaces was
+  //: `list.find((i) => i.id === id)`, which is the whole board walked once
+  //: for every item being picked up: fine for a marquee of six, quadratic for
+  //: a branch drag, which hands this every topic under the one grabbed. Built
+  //: lazily per kind so a selection of one kind never touches the others.
+  const itemsByKind = new Map();
+  const itemFor = (kind, id) => {
+    let byId = itemsByKind.get(kind);
+    if (!byId) {
+      byId = new Map((wbState[WB_LIST_BY_KIND[kind]] || []).map((i) => [i.id, i]));
+      itemsByKind.set(kind, byId);
+    }
+    return byId.get(id);
+  };
+  //: The map index, the layout and the drawn edge elements, read once for the
+  //: whole capture rather than rebuilt inside `wbMapEdgesFor` per member.
+  const edgeCtx = wbIsMap() ? wbMapEdgeContext() : null;
+  //: **An edge belongs to one end, not to both.** A tree edge joins two
+  //: topics, so when both are in the same dragged branch it appeared in two
+  //: members' lists and was recomputed and rewritten twice on every frame of
+  //: the drag. Claiming it for whichever member reaches it first halves the
+  //: per-frame edge work on any branch drag, and changes nothing about what
+  //: is drawn: both ends move by the same delta.
+  const claimed = new Set();
   for (const key of keys) {
     if (key === excludeKey) continue; // the dragged item's own handler already moves it
     const sep = key.indexOf(":");
     const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
-    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+    const item = itemFor(kind, id);
     if (!item) continue;
     if (kind === "sketch") {
       const parsed = wbSketchParsedData(item);
@@ -7661,10 +7708,22 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
       // `mapEdges` only for an object: a map node *is* an object, and a card
       // and an object can share an id, so asking for a card's tree edges
       // would follow the wrong node's branch.
+      const mapEdges = [];
+      if (kind === "object" && edgeCtx) {
+        for (const edge of wbMapEdgesFor(id, edgeCtx)) {
+          const edgeKey = `${edge.parent.id}:${edge.child.id}`;
+          if (claimed.has(edgeKey)) continue;
+          claimed.add(edgeKey);
+          mapEdges.push(edge);
+        }
+      }
       origin.set(key, {
         kind, id, item, x: item.x, y: item.y,
         linked: wbLinkedSketchesFor(id, kind),
-        mapEdges: kind === "object" ? wbMapEdgesFor(id) : [],
+        mapEdges,
+        //: Resolved on the first frame that needs it and kept for the rest of
+        //: the gesture, see `wbApplyBulkMove`.
+        el: null,
       });
     }
   }
@@ -7700,19 +7759,33 @@ function wbTranslateSelectionChrome(dx, dy) {
   }
 }
 
+//: **The element each member is drawn as, found once per gesture**
+//: (MINDMAP_PLAN.md §13a). This runs for every moved item on every frame, and
+//: it used to open with a document-wide attribute query per item: on a
+//: 500-topic branch drag that is 500 queries a frame for elements that cannot
+//: have changed, and it was the largest single cost left on the drag path
+//: after the topic measurements were cached. `isConnected` is a flag read, so
+//: the re-lookup still happens for real (a render between frames replaces the
+//: element) without paying for it when nothing has.
+function wbBulkMoveElement(entry, selector) {
+  if (entry.el && entry.el.isConnected) return entry.el;
+  entry.el = document.querySelector(selector);
+  return entry.el;
+}
+
 function wbApplyBulkMove(origin, dx, dy) {
   wbTranslateSelectionChrome(dx, dy);
   for (const entry of origin.values()) {
     if (entry.kind === "sketch") {
       const newD = wbTransformPathD(entry.d, { dx, dy });
-      const el = document.querySelector(`.sketch-group[data-id="${entry.id}"]`);
+      const el = wbBulkMoveElement(entry, `.sketch-group[data-id="${entry.id}"]`);
       el?.querySelector(".sketch-path")?.setAttribute("d", newD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
       entry.item._liveD = newD;
     } else {
       entry.item.x = entry.x + dx;
       entry.item.y = entry.y + dy;
-      const el = document.querySelector(WB_SELECTOR_BY_KIND[entry.kind](entry.id));
+      const el = wbBulkMoveElement(entry, WB_SELECTOR_BY_KIND[entry.kind](entry.id));
       if (el) el.style.transform = wbItemTransform(entry.item);
       // See this entry's own comment in `wbCaptureBulkMoveOrigin`: without
       // this, only the card the pointer is actually on kept its edges live
@@ -14858,6 +14931,7 @@ function renderWbObjects(canvas) {
     d._rawY = d.y;
     d._dragOriginX = d.x;
     d._dragOriginY = d.y;
+    d._raised = false;
     d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here, see the matching comment on
@@ -14878,7 +14952,15 @@ function renderWbObjects(canvas) {
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
         : wbMapBranchDragOrigin(d, d._dragAlone);
     }
-    d3.select(this.closest(".wb-object")).raise();
+    //: Once per gesture, not once per move: the card drag beside this one
+    //: took the same fix (INBOX 114, and see its own comment). `raise()`
+    //: reappends the element even when it is already last, and a DOM move
+    //: invalidates layout, so every frame's first `getBoundingClientRect`
+    //: (the drop target's, below) paid for a full re-layout of the board.
+    if (!d._raised) {
+      d3.select(this.closest(".wb-object")).raise();
+      d._raised = true;
+    }
     // d3.drag's dx/dy are raw screen pixels, not board-space, the
     // resize handles below already divide by the zoom scale for exactly
     // this reason; a plain drag has to as well, or a card/object moves

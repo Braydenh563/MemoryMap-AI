@@ -3823,12 +3823,21 @@ function wbBuildMapNode(el, d) {
   //: own label is right beside it and says what this node is, so a screen
   //: reader that also announced the picture would say the same thing twice.
   //: A caption nobody wrote is not a description.
+  //: **`draggable="false"`, and deliberately no `pointerdown` guard.** The two
+  //: look interchangeable and are opposites here. The link button beside this
+  //: stops the press because it is a control: pressing it must not also start
+  //: a node drag. The picture is the node's *body*, the largest thing to take
+  //: hold of on a picture topic, so a stopped press would make the card
+  //: undraggable by the part of it anyone would grab. What does have to be
+  //: refused is the browser's own image drag, which would otherwise start an
+  //: HTML5 drag of the file over a canvas that has a `drop` handler for
+  //: exactly that, and that is what this attribute is for.
   body.append("img")
     .attr("class", "wb-map-node-picture")
     .attr("alt", "")
     .attr("aria-hidden", "true")
-    .property("hidden", true)
-    .on("pointerdown", (event) => event.stopPropagation());
+    .attr("draggable", "false")
+    .property("hidden", true);
   const text = body.append("div")
     .attr("class", "wb-map-text")
     .attr("contenteditable", "false");

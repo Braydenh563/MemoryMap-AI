@@ -201,6 +201,30 @@ const READ = `(ids) => {
     return items;
   }, built.pictured);
 
+  // The picture is the body of the card, so it is what anyone would take hold
+  // of to move the topic: a press stopped there (the guard the link button
+  // beside it needs, and this one must not have) would make a picture topic
+  // undraggable by its largest part.
+  const pictureBox = await page.evaluate((ids) => {
+    const img = document.querySelector(`.wb-object[data-id="${ids.pictured}"] .wb-map-node-picture`);
+    const b = img.getBoundingClientRect();
+    return {
+      x: b.x + b.width / 2, y: b.y + b.height / 2,
+      native: img.getAttribute("draggable"),
+      before: wbMapIndex().byId.get(ids.pictured).x,
+    };
+  }, built);
+  // A real pointer, not a synthesised one: the node drag is d3's, and what is
+  // being measured here is whether the press reaches it at all.
+  await page.mouse.move(pictureBox.x, pictureBox.y);
+  await page.mouse.down();
+  await page.mouse.move(pictureBox.x + 70, pictureBox.y, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(900);
+  const dragged = await page.evaluate((ids) => ({
+    after: wbMapIndex().byId.get(ids.pictured).x,
+  }), built);
+
   // And off again, which must leave the topic exactly as it started.
   await page.evaluate((id) => wbMapRemovePicture(wbMapIndex().byId.get(id)), built.pictured);
   await page.waitForTimeout(900);
@@ -246,6 +270,9 @@ const READ = `(ids) => {
     stored.svgSrc && stored.svgSrc.startsWith(stored.image) &&
       stored.svgBox && Math.abs(stored.svgBox[0] / stored.svgBox[1] - PNG_W / PNG_H) < 0.15,
     `<image> at ${stored.svgBox && stored.svgBox.join("x")} from ${(stored.svgSrc || "").slice(0, 40)}`);
+  check("the card is still draggable by its picture, and the picture is not",
+    Math.abs(dragged.after - pictureBox.before) > 40 && pictureBox.native === "false",
+    `x ${pictureBox.before} -> ${dragged.after}, draggable=${pictureBox.native}`);
   check("taking it out puts the topic back as it was",
     removed.picture.shape === null && removed.picture.img === null &&
       Math.abs(removed.picture.node.h - before.picture.node.h) < 2,

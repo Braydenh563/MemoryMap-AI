@@ -38,12 +38,18 @@ off-origin url would come through, and `/media/../../../etc/passwd` passes a
 Drawn as a second node shape rather than a thumbnail beside a label:
 `data-body="picture"` turns the node body from a row into a column, the
 picture takes the card's full width inside its padding and the label becomes
-the caption under it. Measured (`scratchpad/ui-sweeps/mindmapimage.js`, 10 of
-10, light and dark): a 160x90 PNG uploaded through the file chooser the topic's own menu opens
+the caption under it. Measured (`scratchpad/ui-sweeps/mindmapimage.js`, 12 of
+12, light and dark): a 160x90 PNG uploaded through the file chooser the topic's own menu opens
 comes back at `natural 160x90`, draws at 182.2x102.5 inside a 200x137.8 card
 at the aspect it was sent at, the caption's top (441.7) is below the picture's
 bottom (437.7) where the label node's text is beside its icon, the sibling
-topic stays 44px tall, and taking the picture out returns the card to 44.
+topic stays 44px tall, and taking the picture out returns the card to 44. The
+card is still dragged by its picture (x 560 to 630, with a real pointer): the
+press is deliberately *not* stopped there, since the picture is the body of a
+picture topic and the largest thing to take hold of, and what is refused
+instead is the browser's own image drag (`draggable="false"`), which would
+otherwise start an HTML5 file drag over a canvas that has a `drop` handler for
+exactly that.
 
 Put in and taken out from the topic's own menu, not the strip, for the reason
 §12.5 gives about the link beside it: the strip is how a topic *looks*, a

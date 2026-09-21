@@ -444,7 +444,7 @@ being written by running agents stay beside this one.
   re-check found actually left, ~~**curve control points on a tree edge**~~ and
   ~~**an image in a node**~~ were built 2026-09-21 (MINDMAP_PLAN §12.1 items 2
   and 5, moved whole to HISTORY.md, "Moved from the plans, 2026-09-21";
-  `scratchpad/ui-sweeps/mindmapcurve.js` 14/14 and `mindmapimage.js` 10/10, light and dark,
+  `scratchpad/ui-sweeps/mindmapcurve.js` 14/14 and `mindmapimage.js` 12/12, light and dark,
   both now in `scripts/gate.sh`'s sweep list). What is left of that list is the
   AI half, which no sandbox here can exercise.
 - **The whiteboard's own View menu (`.wb-board-menu`) was never reproduced as

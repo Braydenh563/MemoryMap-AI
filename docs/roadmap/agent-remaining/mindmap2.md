@@ -14,7 +14,7 @@
   `/media/upload` url held to `MEDIA_URL_RE` by a validator on the field, drawn
   as a second node shape (`data-body="picture"`: the body becomes a column, the
   picture takes the card's width, the label is the caption). Put in and taken
-  out from the topic's own menu. `scratchpad/ui-sweeps/mindmapimage.js`, 10/10:
+  out from the topic's own menu. `scratchpad/ui-sweeps/mindmapimage.js`, 12/12:
   a 160x90 PNG through the real file chooser draws at 182.2x102.5 inside a
   200x137.8 card at aspect 1.78, the sibling stays 44px, removal returns it to
   44px, and the FreeMind export carries `_image`.
@@ -33,7 +33,7 @@
 ## Left to do
 
 - **Neither probe has been run at 390x844.** Both were run in dark as well as
-  light (14/14 and 10/10 either way), and both take `VIEWPORT`, but neither has
+  light (14/14 and 12/12 either way), and both take `VIEWPORT`, but neither has
   been read at phone width.
 - **A picture node on a phone is unmeasured.** A 200px card with a 10rem
   picture cap is fine at 1440; at 390x844 with the map zoomed out the caption

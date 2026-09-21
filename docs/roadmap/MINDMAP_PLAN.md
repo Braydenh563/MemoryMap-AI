@@ -476,7 +476,7 @@ extended with the numbers named.
      2026-09-21. Moved to HISTORY.md ("Moved from the plans, 2026-09-21",
      MINDMAP_PLAN.md §12.1 items 2 and 5): a picture is `data.image`, a
      `/media/upload` url, drawn as a second node shape (`data-body="picture"`,
-     measured 182x102 inside a 200x138 card, 10/10 in
+     measured 182x102 inside a 200x138 card, 12/12 in
      `scratchpad/ui-sweeps/mindmapimage.js`); a bend is `edge_bend` and
      `edge_slide` on the child, two fractions of the line's own length, with a
      handle measured 0.2 to 0.4 board units off the path for all three line

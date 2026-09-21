@@ -53,3 +53,11 @@ port 8793, data dir `/tmp/mm-noteobj`.
   `addBoardToNote` and `appendSelectionToNote` (one write path, one undo).
   Measured: the menu row is 146x36, and choosing a note appended
   `![[board:51|House jobs]]` to that note's own text.
+- `<hash>` Half two, the reminders: `GET /reminders?entry_id=` and
+  `GET /reminders/counts?ids=`, a `.chip.reminders` on the card and the
+  panel under it. No migration: `Reminder.entry_id` already existed, so the
+  brief's premise was wrong. Measured on 8793: chip reads "2 reminders" at
+  24px, the panel lists both by name.
+- `<hash>` Docs: DOCUMENTS_PLAN section 19 (the read, what was built, five
+  decisions, what was deliberately not done), DESIGN.md recipe row for an
+  embedded surface, its lint in `tests/test_ui_recipes.py`, CHANGELOG.

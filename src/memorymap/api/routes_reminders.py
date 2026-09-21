@@ -104,11 +104,70 @@ REMINDERS_PAGE_SIZE = 200
 REMINDERS_PAGE_SIZE_MAX = 1000
 
 
+#: How many notes one reminder-count call may cover, the same ceiling and the
+#: same reason as `REFERENCE_COUNT_IDS_MAX` in routes_entries.py: a page of
+#: the note list is fifty cards, and anything past this is a report rather
+#: than a row of chips.
+REMINDER_COUNT_IDS_MAX = 60
+
+
+@router.get("/counts")
+def reminder_counts(
+    ids: str = Query(default="", description="Comma-separated note ids"),
+    include_done: bool = False,
+    session: Session = Depends(get_session),
+) -> dict:
+    """How many live reminders each of these notes has, for one page at once.
+
+    INBOX 309, the owner's second sentence: "or to link reminders to notes".
+    The link itself has always existed (`Reminder.entry_id`, and the
+    `set_reminder` tool has taken a `note_id` since it was written), and one
+    end of it was drawn: a reminder says which note it came from. The other
+    end was not. A note that caused three reminders looked exactly like a
+    note that caused none, which is the same gap INBOX 246 closed for boards
+    and documents, so this is the same shape of answer: one batched count per
+    page of cards, never a request per card.
+
+    Done reminders are left out by default. A note whose one reminder was
+    ticked off last month is finished with, and a chip that keeps counting it
+    is a chip that never goes away.
+
+    A static path declared before `/{reminder_id}` routes so FastAPI, which
+    matches in declaration order, does not try "counts" as an int and 422.
+    """
+    wanted: list[int] = []
+    for part in ids.split(","):
+        part = part.strip()
+        if part.isdigit():
+            wanted.append(int(part))
+    wanted = wanted[:REMINDER_COUNT_IDS_MAX]
+    if not wanted:
+        return {"counts": {}}
+    filters = [Reminder.entry_id.in_(wanted)]
+    if not include_done:
+        filters.append(Reminder.done.is_(False))
+    rows = session.execute(
+        select(Reminder.entry_id, func.count(Reminder.id))
+        .where(*filters)
+        .group_by(Reminder.entry_id)
+    ).all()
+    #: Every id asked about is answered for, zeros included: a caller that
+    #: caches "this note has none" must be able to tell that from "the
+    #: server did not mention it", or it asks again on every render.
+    counts = {str(entry_id): 0 for entry_id in wanted}
+    for entry_id, count in rows:
+        if entry_id is not None:
+            counts[str(entry_id)] = int(count)
+    return {"counts": counts}
+
+
 @router.get("")
 def list_reminders(
     response: Response,
     limit: int = Query(default=REMINDERS_PAGE_SIZE, ge=1, le=REMINDERS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    entry_id: int | None = Query(default=None, description="Only this note's reminders"),
+    include_done: bool = True,
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """A page of reminders, soonest first; the frontend groups them.
@@ -118,10 +177,24 @@ def list_reminders(
     is the tiebreaker on `due_at` so two reminders due at the same minute
     cannot swap places between one page and the next, which is how a paged
     list silently drops a row.
+
+    `entry_id` narrows it to one note's reminders (INBOX 309). The filter is
+    in SQL and `X-Total-Count` counts the same filtered set, because a total
+    that answers a different question from the rows is worse than no total:
+    the Reminders tab pages on it.
     """
-    total = session.scalar(select(func.count(Reminder.id))) or 0
+    filters = []
+    if entry_id is not None:
+        filters.append(Reminder.entry_id == entry_id)
+    if not include_done:
+        filters.append(Reminder.done.is_(False))
+    total = session.scalar(select(func.count(Reminder.id)).where(*filters)) or 0
     rows = session.scalars(
-        select(Reminder).order_by(Reminder.due_at, Reminder.id).limit(limit).offset(offset)
+        select(Reminder)
+        .where(*filters)
+        .order_by(Reminder.due_at, Reminder.id)
+        .limit(limit)
+        .offset(offset)
     )
     response.headers["X-Total-Count"] = str(total)
     return [_to_out(session, r) for r in rows]

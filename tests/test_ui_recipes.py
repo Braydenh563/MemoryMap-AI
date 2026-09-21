@@ -2154,3 +2154,55 @@ def test_the_boards_menu_bar_gets_its_roles_and_its_keyboard_from_one_place() ->
         "wireMenuKeyboard no longer looks inside a `role=\"group\"`, so every "
         "menu written in markup loses its arrow keys silently"
     )
+
+
+def test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone() -> None:
+    """A board inside a note is drawn once, and never disappears silently.
+
+    INBOX 309 put another of this app's surfaces inside somebody's text, which
+    is the third place a board's miniature is drawn (the Library card and the
+    dashboard row are the other two). MINDMAP_PLAN §5 item 12 already says why
+    that has to go through one renderer: "the app's recurring failure is the
+    same object drawn five ways", and the two that existed had already drifted
+    into one with edges and labels and one without.
+
+    The second half is the decision recorded in DOCUMENTS_PLAN's "Decisions
+    made": a board deleted after somebody put it in a note takes a paragraph
+    of that note with it, and a card that renders as nothing teaches the
+    reader that the note was always like that. So the reference carries the
+    board's title, and a reference that resolves to nothing draws a tombstone
+    saying what was there.
+    """
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    editor = (ROOT / "frontend" / "editor.js").read_text(encoding="utf-8")
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+
+    assert "function boardEmbedElement(" in app and "function boardEmbedFill(" in app, (
+        "the board object's card is no longer built in one place"
+    )
+    # The picture comes from the shared renderer, not from a second SVG builder
+    # hand-written for notes.
+    fill = app.split("function boardEmbedFill(", 1)[1].split("\nfunction ", 1)[0]
+    assert 'mapPreview(board, { size: "card" })' in fill, (
+        "the note's board object draws its own miniature instead of calling "
+        "mapPreview: DESIGN.md's recipe index says there is one preview renderer"
+    )
+    assert "createElementNS" not in fill, (
+        "the note's board object builds SVG of its own; the picture is "
+        "mapPreview's, and a second builder is how the two came to disagree"
+    )
+    assert "board-embed-gone" in fill and "board-embed-gone" in css, (
+        "the tombstone is gone: a deleted board would take the note's "
+        "paragraph with it and say nothing (DOCUMENTS_PLAN, decisions made)"
+    )
+    # One spelling of the reference, shared by both doorways.
+    assert "function boardEmbedMarkdown(" in app, "the reference is no longer written in one place"
+    assert app.count("`![[${isMap ? \"map\" : \"board\"}:") == 1, (
+        "the board reference is spelled in more than one place; the \"/\" menu "
+        "and the board's own \"Add to a note\" both go through boardEmbedMarkdown"
+    )
+    assert "boardEmbedMarkdown(" in editor and "boardEmbedMarkdown(" in app, (
+        "a doorway writes its own form of the reference"
+    )
+    # The whole card is the control, not a link beside a picture.
+    assert ".board-embed-open" in css, "the board object's button has no rules of its own"

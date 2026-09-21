@@ -21,6 +21,10 @@ below). Versioning is `0.x` while the app stabilises.
 - The other way round as well: a board's own Board menu, and its card in the
   Library, now offer "Add to a note", which asks which note and puts the
   board in it.
+- A note now shows what it made you promise to do: a "2 reminders" chip on
+  the card opens the list of them, and each one presses through to the
+  Reminders tab. Reminders could already be attached to a note and say which
+  note they came from; the note end of that link had nothing on it.
 
 ### Changed
 

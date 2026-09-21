@@ -271,3 +271,61 @@ def test_reminders_limit_is_validated(client):
     assert client.get("/reminders", params={"offset": -1}).status_code == 422
     over = routes_reminders.REMINDERS_PAGE_SIZE_MAX + 1
     assert client.get("/reminders", params={"limit": over}).status_code == 422
+
+
+def test_reminders_can_be_listed_for_one_note(client):
+    """INBOX 309: "or to link reminders to notes".
+
+    The link has always been stored; what did not exist was any way to ask
+    the other question, "what did this note make me promise to do". Without
+    the filter a note's own reminders could only be found by reading every
+    reminder in the notebook and throwing most of them away.
+    """
+    kitchen = _save(client, "the kitchen plan")
+    garden = _save(client, "the garden plan")
+    due = (utcnow() + timedelta(days=1)).isoformat()
+    for text, entry in (("ring the roofer", kitchen), ("measure the hall", kitchen), ("order bulbs", garden)):
+        assert (
+            client.post(
+                "/reminders", json={"text": text, "due_at": due, "entry_id": entry["id"]}
+            ).status_code
+            == 201
+        )
+    # And one belonging to no note at all, which must not follow either of them.
+    client.post("/reminders", json={"text": "call mum", "due_at": due})
+
+    mine = client.get("/reminders", params={"entry_id": kitchen["id"]})
+    assert [r["text"] for r in mine.json()] == ["ring the roofer", "measure the hall"]
+    # The total answers the same question the rows do, or paging lies.
+    assert mine.headers["X-Total-Count"] == "2"
+    assert client.get("/reminders", params={"entry_id": garden["id"]}).json()[0]["text"] == "order bulbs"
+    assert len(client.get("/reminders").json()) == 4
+
+
+def test_reminder_counts_for_a_page_of_notes(client):
+    """One batched count per page of cards, never a request per card: the
+    same shape (and the same ceiling) as `/entries/reference-counts`."""
+    from memorymap.api import routes_reminders
+
+    kitchen = _save(client, "the kitchen plan")
+    garden = _save(client, "the garden plan")
+    quiet = _save(client, "a note nothing was promised about")
+    due = (utcnow() + timedelta(days=1)).isoformat()
+    for entry in (kitchen, kitchen, garden):
+        client.post("/reminders", json={"text": "do it", "due_at": due, "entry_id": entry["id"]})
+
+    ids = f"{kitchen['id']},{garden['id']},{quiet['id']}"
+    counts = client.get("/reminders/counts", params={"ids": ids}).json()["counts"]
+    # Every id asked about is answered for, zeros included: "none" and "not
+    # mentioned" must be tellable apart or the client asks again forever.
+    assert counts == {str(kitchen["id"]): 2, str(garden["id"]): 1, str(quiet["id"]): 0}
+
+    # A reminder that is done is finished with, and stops counting.
+    done = client.get("/reminders", params={"entry_id": garden["id"]}).json()[0]
+    client.put(f"/reminders/{done['id']}", json={"done": True})
+    assert client.get("/reminders/counts", params={"ids": ids}).json()["counts"][str(garden["id"])] == 0
+    with_done = client.get("/reminders/counts", params={"ids": ids, "include_done": True}).json()
+    assert with_done["counts"][str(garden["id"])] == 1
+
+    assert client.get("/reminders/counts").json() == {"counts": {}}
+    assert routes_reminders.REMINDER_COUNT_IDS_MAX == 60

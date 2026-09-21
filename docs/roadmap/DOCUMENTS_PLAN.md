@@ -1253,3 +1253,75 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
     has had features added faster than it has been measured.
     **Placed 2026-09-21 into DOCUMENTS_PLAN section 17**, which carries the
     measured read, the decisions and five gated phases.
+
+## 19. A board or a map as an object in a note, and a note's reminders: built 2026-09-21
+
+The owner, INBOX 309, verbatim: "there is also no way to attach a whiteboard
+or mindmap to a note as like an object in the notes. or to link reminders to
+notes". Two halves of one idea: this note and that thing are the same piece
+of work.
+
+**What the read found before anything was built.** Half of it existed and
+was not drawn, and one sentence of the brief was simply wrong, which is why
+section 1 of CLAUDE.md says to grep first.
+
+| Claim | What is actually there |
+| --- | --- |
+| A note cannot hold a board | A note's typed objects are markdown constructs, and `mdEmbedElement` (app.js) is the single renderer for `![[name]]` behind both `renderNoteText` (note cards) and `renderMarkdown` (documents and chat). `resolveWikiTarget` has resolved a board since the map chips were built, and `renderNoteInline` already drew an inline `mapChip` for `[[My map]]`. What `mdEmbedElement` did with a board was fall through to "Nothing called House jobs yet", measured on 8793 before the change: the embed of a live board claimed it did not exist |
+| There is no preview to reuse | `mapPreview(board, {size})` is the one miniature renderer (MINDMAP_PLAN §5 item 12), fed by `preview_items` from `/whiteboard/boards` through `loadMapBoardIndex` |
+| "A reminder row has no column naming the note it came from" | It has had one since reminders existed: `Reminder.entry_id`, with `entry_preview` on every reminder read, a chip on the reminder row that opens the note, `entry_id` on `POST /reminders`, `note_id` on the `set_reminder` tool, and the note card's own "Remind me" passing `entry.id`. **No migration was needed and none was written.** What was missing was the other direction: no way to ask for one note's reminders, and nothing on the note |
+
+**Built.**
+
+- `![[board:12|House jobs]]` (and `map:`) renders a preview card: the kind,
+  the board's own miniature from `mapPreview`, its title and `mapCountLabel`,
+  the whole card a `<button>` that opens the board. A plain `![[House jobs]]`
+  that happens to name a board renders the same card, which is the bug above
+  fixed in the same place.
+- Both doorways the brief asked for: the "/" menu's "Board or mind map" in
+  Links and references, and "Add to a note" on the board itself (the Board
+  menu's `#wb-add-to-note`, and the Library card's kebab). Both write through
+  `boardEmbedMarkdown`, and the board side appends through
+  `appendSelectionToNote`, so there is one spelling and one undo.
+- `GET /reminders?entry_id=` and `GET /reminders/counts?ids=`, then a
+  `2 reminders` chip on the note card that opens a panel listing them, each
+  pressing through to `flashReminder`.
+
+**Decisions made** (standing order 3: each was missing, each got a one-line
+recommendation, each was taken).
+
+1. **A board object is addressed by id, with its title carried beside it**
+   (`![[board:12|House jobs]]`), not by title alone like every other wiki
+   link. A title-addressed object breaks silently on a rename, and worse, a
+   renamed board and a deleted one look identical to the resolver. The title
+   travels anyway because it is what the tombstone says, and because
+   `_reference_rows` in routes_entries.py finds a board's references with a
+   LIKE over note content for its label, so the card's "on 1 board" chip
+   keeps working with no backend change.
+2. **A deleted board leaves a tombstone**, `.board-embed-gone` naming what
+   was there, rather than the object vanishing. Content that disappears
+   silently teaches the reader the note was always like that.
+   **And a miss is not a tombstone until the index has been refreshed once**:
+   `loadMapBoardIndex(true)`, because a board made a minute ago is missing
+   from an index built before it existed, and "this board is no longer in
+   your notebook" over a board somebody just made is the worst thing this
+   card could say.
+3. **The slash command is "Board or mind map"**, in Links and references,
+   `primary` so it is in the shortlist with nothing typed. Named for the two
+   things it inserts, in the app's own words for them.
+4. **A note's reminders are a chip on the facts line, not a section.** The
+   card is a title, a body and one line of facts; a block under every note
+   with a reminder would push the next note off the screen for a fact that is
+   usually four words long. The chip opens the same `.entry-links` panel
+   "Referenced by" and "Similar notes" use, which is also what keeps one
+   panel open per card.
+5. **The board picker is `pickLibraryItemDialog`'s fifth source, opt in.**
+   A fifth chooser for a fifth kind is the failure this app already has a
+   rule against. It is opt in because that dialog's first caller feeds a map
+   reference node, and `MAP_REFERENCE_KINDS` has no board in it: a board
+   offered there would be a row that cannot be saved.
+
+**Not done, and deliberately.** No backfill of `Reminder.entry_id` for
+reminders made before the link was drawn: there is nothing to backfill from.
+A reminder written by hand in the Reminders tab never named a note, and
+guessing one from the text would invent a link the person did not make.

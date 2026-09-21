@@ -3119,10 +3119,15 @@ function entryItem(entry, options = {}) {
     }
   }
   //: **What points at this note, on the card** (INBOX 246's third gap).
-  //: Only when the counts for this page have landed; `ensureReferenceCounts`
+  //: Only when the counts for this page have landed; `ensureCardCounts`
   //: patches the chip in afterwards for cards rendered before they had.
   const refs = referenceCountChip(entry, options);
   if (refs) meta.appendChild(refs);
+  //: **And what it made you promise to do** (INBOX 309). Same cache, same
+  //: patch-in, same line: a reminder that came out of this note is a fact
+  //: about the note in exactly the way "on 1 board" is.
+  const alarms = reminderCountChip(entry, options);
+  if (alarms) meta.appendChild(alarms);
 
   // "AI 0%: check this" is a warning about the AI's filing, and it only makes
   // sense when the AI actually did some. On a note you filed yourself, or one
@@ -8859,6 +8864,60 @@ async function toggleFaded(entry) {
   card.appendChild(row);
 }
 
+//: **This note's reminders, under the card** (INBOX 309). The other half of
+//: the chip above.
+//:
+//: The same shape as `toggleReferences` and `toggleFaded` below, down to the
+//: shared `notePanel` state, because it answers a neighbouring question about
+//: the same note in the same place: a second way of drawing a row under a
+//: note is a second thing to keep consistent for no gain.
+//:
+//: Live reminders only, which is what the chip counted. A reminder ticked off
+//: last month is not something this note still wants from you, and the
+//: Reminders tab is where a finished one is still readable.
+async function toggleNoteReminders(entry) {
+  if (!toggleNotePanel(entry, "reminders")) return;
+  const answer = await apiJson(
+    `/reminders?entry_id=${entry.id}&include_done=false&limit=20`,
+    { silent: true }
+  ).catch(() => null);
+  const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
+  if (!card || !notePanelStillOpen(entry, "reminders")) return;
+  const row = document.createElement("div");
+  row.className = "entry-links";
+  const label = document.createElement("span");
+  label.className = "muted";
+  const items = Array.isArray(answer) ? answer : [];
+  //: Three states, not two, the rule the two panels beside this one already
+  //: follow: "nothing is due from this note" and "we could not ask" are
+  //: different facts.
+  label.textContent = !answer
+    ? "Couldn't read this note's reminders."
+    : items.length
+      ? "Reminds you to:"
+      : "Nothing is due from this note.";
+  row.appendChild(label);
+  for (const item of items) {
+    const wrap = document.createElement("span");
+    wrap.className = "entry-related-row";
+    const due = relativeWhen(item.due_at);
+    //: `flashReminder` rather than a jump of this panel's own: a
+    //: reminder has one home, it loads the tab's list, clears the filter
+    //: that would hide it and highlights the row. A second way in here
+    //: would be a fifth place a reminder can be read.
+    const alarm = chip("", "link", () => flashReminder(item.id));
+    setLabel(alarm, `ph:alarm ${item.text}`);
+    alarm.title = `Due ${due}. Press to open it in Reminders`;
+    wrap.appendChild(alarm);
+    const when = document.createElement("span");
+    when.className = "muted entry-reference-how";
+    when.textContent = due;
+    wrap.appendChild(when);
+    row.appendChild(wrap);
+  }
+  card.appendChild(row);
+}
+
 async function toggleReferences(entry) {
   if (!toggleNotePanel(entry, "references")) return;
   const answer = await apiJson(`/entries/${entry.id}/references`).catch(() => null);
@@ -11065,7 +11124,7 @@ function renderEntries() {
       {
         afterChunk: () => {
           applyEntryListTabOrder(list);
-          ensureReferenceCounts(list, _entriesLoadGeneration);
+          ensureCardCounts(list, _entriesLoadGeneration);
         },
       }
     );
@@ -11117,7 +11176,7 @@ function renderEntries() {
     {
       afterChunk: () => {
         applyEntryListTabOrder(list);
-        ensureReferenceCounts(list, _entriesLoadGeneration);
+        ensureCardCounts(list, _entriesLoadGeneration);
         // After the list is in the DOM: drop the clamp from any note that
         // turned out to fit. No-op while the sub-tab is hidden;
         // showNotesSection re-runs it.
@@ -11430,6 +11489,7 @@ async function loadEntries() {
 async function _loadEntries() {
   const generation = ++_entriesLoadGeneration;
   referenceCountsCache.clear();
+  reminderCountsCache.clear();
   showEntrySkeletons();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
@@ -11580,42 +11640,106 @@ function referenceCountChip(entry, options = {}) {
 //: are in the DOM and asks for the ones the cache has not met. Cards are
 //: patched in place rather than re-rendered: a re-render mid-chunking would
 //: restart the incremental renderer that called this.
-function ensureReferenceCounts(list, generation) {
+//: **What this note made you promise to do** (INBOX 309, the owner: "or to
+//: link reminders to notes").
+//:
+//: The link itself was never missing: `Reminder.entry_id` has existed since
+//: reminders did, the note card's own "Remind me" passes it, and the
+//: `set_reminder` tool takes a `note_id`. One end of it was drawn and the
+//: other was not: a reminder says which note it came from, and a note that
+//: caused three reminders looked exactly like a note that caused none. So
+//: this is the same answer INBOX 246 gave for boards and documents: one
+//: muted chip on the card, from one batched count per page.
+//:
+//: **A chip on the facts line, not a section under the note.** The card is
+//: already a title, a body and one line of facts about it, and a second
+//: block under every note with a reminder would push the next note off the
+//: screen for a fact that is usually one word long. It presses open the same
+//: `.entry-links` row "Referenced by" and "Similar notes" use, which is also
+//: what keeps it to one open panel per card.
+const reminderCountsCache = new Map();
+const _reminderCountsInFlight = new Set();
+
+function reminderCountChip(entry, options = {}) {
+  if ((!options.actions && !options.facts) || entry.is_board || entry.is_draft) return null;
+  const count = reminderCountsCache.get(entry.id) || 0;
+  if (!count) return null;
+  const alarm = chip(`ph:alarm ${count} reminder${count === 1 ? "" : "s"}`, "reminders", (event) => {
+    event.stopPropagation();
+    toggleNoteReminders(entry);
+  });
+  alarm.title = "What this note made you promise to do. Press to see them";
+  return alarm;
+}
+
+//: **The two count strips a card carries, as data.**
+//:
+//: They are the same mechanism twice over: read the ids on screen, ask once
+//: for all of them, patch the chip onto the cards that are still there. The
+//: reference counts had it first and the reminders would have been a second
+//: copy of it, which is how the two would come to disagree about batching,
+//: about a note deleted mid-flight, or about which generation of the list
+//: they belong to. One walker, one table of what differs.
+const CARD_COUNT_SOURCES = [
+  {
+    cache: referenceCountsCache,
+    inFlight: _referenceCountsInFlight,
+    path: (ids) => `/entries/reference-counts?ids=${ids}`,
+    marker: ".chip.refs",
+    //: A note the server did not answer for (deleted under us) is recorded
+    //: as empty, not left unknown, or it would be asked for again on every
+    //: chunk.
+    empty: { total: 0 },
+    chip: (entry) => referenceCountChip(entry, { actions: true }),
+  },
+  {
+    cache: reminderCountsCache,
+    inFlight: _reminderCountsInFlight,
+    path: (ids) => `/reminders/counts?ids=${ids}`,
+    marker: ".chip.reminders",
+    empty: 0,
+    chip: (entry) => reminderCountChip(entry, { actions: true }),
+  },
+];
+
+function ensureCardCounts(list, generation) {
+  for (const source of CARD_COUNT_SOURCES) ensureOneCardCount(list, generation, source);
+}
+
+function ensureOneCardCount(list, generation, source) {
   const wanted = [];
   for (const li of list.querySelectorAll("li[data-id]")) {
     const id = Number(li.dataset.id);
-    if (!id || referenceCountsCache.has(id) || _referenceCountsInFlight.has(id)) continue;
+    if (!id || source.cache.has(id) || source.inFlight.has(id)) continue;
     wanted.push(id);
     if (wanted.length >= REFERENCE_COUNTS_BATCH) break;
   }
   if (!wanted.length) return;
-  for (const id of wanted) _referenceCountsInFlight.add(id);
-  apiJson(`/entries/reference-counts?ids=${wanted.join(",")}`, { silent: true })
+  for (const id of wanted) source.inFlight.add(id);
+  apiJson(source.path(wanted.join(",")), { silent: true })
     .then((answer) => {
       if (generation !== _entriesLoadGeneration) return;
       const counts = (answer && answer.counts) || {};
       for (const id of wanted) {
-        // A note the server did not answer for (deleted under us) is
-        // recorded as empty, not left unknown, or it would be asked for
-        // again on every chunk.
-        referenceCountsCache.set(id, counts[String(id)] || { total: 0 });
+        const given = counts[String(id)];
+        source.cache.set(id, given === undefined || given === null ? source.empty : given);
       }
       for (const id of wanted) {
         const li = list.querySelector(`li[data-id="${id}"]`);
         const meta = li && li.querySelector(":scope > .entry-meta");
-        if (!meta || meta.querySelector(".chip.refs")) continue;
+        if (!meta || meta.querySelector(source.marker)) continue;
         const entry = allEntries.find((e) => e.id === id);
-        const refChip = entry && referenceCountChip(entry, { actions: true });
-        if (refChip) meta.insertBefore(refChip, meta.querySelector(".entry-meta-end"));
+        const built = entry && source.chip(entry);
+        if (built) meta.insertBefore(built, meta.querySelector(".entry-meta-end"));
       }
       // The page may hold more than one batch; the next call finds the rest.
       if (list.querySelectorAll("li[data-id]").length > wanted.length) {
-        ensureReferenceCounts(list, generation);
+        ensureOneCardCount(list, generation, source);
       }
     })
     .catch(() => {})
     .finally(() => {
-      for (const id of wanted) _referenceCountsInFlight.delete(id);
+      for (const id of wanted) source.inFlight.delete(id);
     });
 }
 
@@ -13250,7 +13374,7 @@ function renderChatMeta(meta) {
   //: had nowhere to read it from and drew nothing. The same patch-in the
   //: note list uses, pointed at this list: one implementation, and a second
   //: one is how the two would come to disagree about what "linked by" counts.
-  ensureReferenceCounts(rawList, _entriesLoadGeneration);
+  ensureCardCounts(rawList, _entriesLoadGeneration);
   $("chat-results").classList.remove("hidden");
   $("ask-idle")?.classList.add("hidden");
 }
@@ -26088,6 +26212,12 @@ async function loadReminders() {
     return;
   }
   surfaceRecovered($("reminders-empty"));
+  //: Anything that changes a reminder ends up here (setting, ticking off,
+  //: deleting, undoing), and every one of those changes a note card's
+  //: reminder chip (INBOX 309). Cleared rather than tracked per reminder:
+  //: this list is the whole table, so working out *which* note moved would
+  //: be a second model of the same data.
+  reminderCountsCache.clear();
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();
 
@@ -26756,6 +26886,11 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
   // close to permanent (§36C).
   askNotificationPermission();
   toast("Reminder set.");
+  //: The card's reminder chip (INBOX 309) reads a cached count, and this is
+  //: the moment that count became wrong. Dropped rather than adjusted: the
+  //: next render asks, and a number kept in step by hand is a number that
+  //: eventually is not.
+  if (entryId != null) reminderCountsCache.delete(Number(entryId));
   loadReminders();
   return true;
 }

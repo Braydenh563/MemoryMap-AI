@@ -812,9 +812,15 @@ def _atlas_questions() -> list[str]:
     ).read_text(encoding="utf-8")
     starters = app[app.index("const ATLAS_STARTERS = [") :]
     starters = starters[: starters.index("\n];")]
+    per_tab = app[app.index("const ATLAS_TAB_STARTERS = {") :]
+    per_tab = per_tab[: per_tab.index("\n};")]
     prompts = app[app.index("const ATLAS_PROMPTS = {") :]
     prompts = prompts[: prompts.index("\n};")]
-    return re.findall(r'"([^"]+)"', starters) + re.findall(r'": "([^"]+)"', prompts)
+    return (
+        re.findall(r'"([^"]+)"', starters)
+        + re.findall(r'"([^"]+)"', per_tab)
+        + re.findall(r'": "([^"]+)"', prompts)
+    )
 
 
 def test_every_question_the_app_offers_to_ask_atlas_is_answerable():
@@ -824,7 +830,7 @@ def test_every_question_the_app_offers_to_ask_atlas_is_answerable():
     `frontend/app.js` and the corpus is in Python, so nothing else sees both.
     """
     questions = _atlas_questions()
-    assert len(questions) >= 12, questions
+    assert len(questions) >= 25, questions
     unanswerable = [q for q in questions if not help_chat.topics_for(q)]
     assert not unanswerable, f"Atlas offers questions it cannot answer: {unanswerable}"
 

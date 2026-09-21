@@ -157,7 +157,10 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "reminders",
-        "keywords": ("reminder", "due date", "snooze", "recur"),
+        #: "recurring" is spelt out rather than left to the inflection rule:
+        #: doubling the final consonant is exactly the kind of irregularity
+        #: that rule deliberately does not guess at.
+        "keywords": ("reminder", "due date", "snooze", "recur", "recurring"),
         "body": (
             "The Reminders tab groups items into Overdue / Today / Upcoming / "
             "Done. Set a priority, snooze, edit inline, or make one recurring. "
@@ -390,7 +393,15 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "autonomous",
-        "keywords": ("background librarian", "auto tag", "auto-tag", "auto link", "auto-link", "dedupe", "duplicate", "autonomous"),
+        #: The last three are the words a person uses for this rather than the
+        #: name the feature has: "what can it change on its own" is the
+        #: question, and it used to reach the entry about Atlas instead,
+        #: because it names Atlas and nothing else matched (INBOX 304).
+        "keywords": (
+            "background librarian", "auto tag", "auto-tag", "auto link",
+            "auto-link", "dedupe", "duplicate", "autonomous",
+            "on its own", "by itself", "without me",
+        ),
         "body": (
             "Turned on in Settings -> Preferences, the background librarian "
             "tags, links and flags duplicate notes on an interval you choose "

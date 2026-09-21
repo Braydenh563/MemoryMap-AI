@@ -40867,11 +40867,54 @@ const ATLAS_PROMPTS = {
 
 //: The three offered before anything is asked. Here rather than in settings.js
 //: so every piece of Atlas copy is in one file, and read from there.
+//:
+//: **Answerable, and about where you are** (INBOX 304, the owner: "the help
+//: bot is useless, or the suggested questions are bad or both"). Two faults,
+//: both measured. The first starter was "Where do reminders live?" and the
+//: corpus could not reach its own reminders entry, so the panel's opening
+//: offer was a question it answered with "I'm not sure": that half is fixed
+//: in `help_chat.py`, and `test_every_question_the_app_offers_to_ask_atlas_is_answerable`
+//: now reads both tables here against the corpus so it cannot come back. The
+//: second is these three themselves: a fixed set on every tab, two of which
+//: asked how to turn something off, which is a strange thing for an app to
+//: suggest you ask about it first. The generic three now say what the guide
+//: is, where a surface lives, and what the app keeps, and `ATLAS_TAB_STARTERS`
+//: below puts the tab you are actually on first.
 const ATLAS_STARTERS = [
+  "What can you help me with?",
   "Where do reminders live?",
-  "How do I turn off web search?",
-  "What does Performance mode do?",
+  "What does the app remember about me?",
 ];
+
+//: Keyed exactly as `AGENT_TAB_STARTERS` is, and read through the same
+//: `agentCurrentTab()`, because the two chat surfaces sit over the same tabs
+//: and a second way of naming them is a second thing to keep in step. The
+//: difference is what they offer: the agent's starters act on your notebook,
+//: these ask what the surface in front of you is for. A tab with no entry
+//: here simply shows the generic three.
+const ATLAS_TAB_STARTERS = {
+  dashboard: ["What can the dashboard show me?", "How do I change the widgets?"],
+  notes: ["How does the app file a note?", "What is the writing room for?"],
+  chat: ["What can the popup agent do that Chat cannot?", "What are skills?"],
+  graph: ["What do entity and board nodes add to the graph?", "What is the graph for?"],
+  library: ["What goes in the library?", "How does the whiteboard work?"],
+  documents: ["Where do my documents live?", "How do I see a document's history?"],
+  timeline: ["What does the timeline show?", "What can I do from the timeline?"],
+  reminders: ["Where do reminders live?", "How do I make a reminder recurring?"],
+};
+
+//: The tab's questions first, topped up from the generic three, capped at
+//: three: the same count the panel was designed around ("Three, not a wall",
+//: index.html), and the same cap the reference notes themselves have.
+function atlasStartersFor(tab) {
+  const here = ATLAS_TAB_STARTERS[tab] || [];
+  const out = here.slice(0, 3);
+  for (const question of ATLAS_STARTERS) {
+    if (out.length >= 3) break;
+    if (!out.includes(question)) out.push(question);
+  }
+  return out;
+}
 
 //: The one door, so every suggestion in the app opens the same sheet with the
 //: same question. settings.js owns the chat, and it loads after this file, so

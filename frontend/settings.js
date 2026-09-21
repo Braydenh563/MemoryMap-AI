@@ -3935,7 +3935,15 @@ function renderAtlasStarters() {
     const host = $(id);
     if (!host) continue;
     host.replaceChildren();
-    for (const question of typeof ATLAS_STARTERS === "object" ? ATLAS_STARTERS : []) {
+    //: The tab you are on decides which three (INBOX 304). Guarded the same
+    //: way the table itself was: settings.js runs whether or not app.js has.
+    const questions =
+      typeof atlasStartersFor === "function"
+        ? atlasStartersFor(typeof agentCurrentTab === "function" ? agentCurrentTab() : null)
+        : typeof ATLAS_STARTERS === "object"
+          ? ATLAS_STARTERS
+          : [];
+    for (const question of questions) {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "ghost small atlas-starter";

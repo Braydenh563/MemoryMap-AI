@@ -517,6 +517,26 @@ select optgroup {
      set, does its damage nowhere near the code that caused it. */
   --keyboard-inset: 0px;
 
+  /* Everything that can sit under a strip at the bottom of a card, as one
+     length: the keyboard above, and the home indicator. Named because it was
+     spelled out three times and the third spelling was the one that lost.
+
+     `.doc-toolbar.is-collapsed` (05-sidebars-themes.css) sets `padding-block`
+     at (0,2,0) and beat the `.doc-toolbar` rule in 07 that carries this sum
+     at (0,1,0): specificity beats file order, so the formatting strip read
+     the keyboard inset while it was expanded and not while it was collapsed,
+     which is its default state since D1. Measured at 820 with the strip
+     shown and the covered strip stubbed at 336px: expanded, 6.4px to
+     342.4px; collapsed, 4px to 4px. Both of those bars are strips you type
+     at, and a keyboard covers a collapsed one exactly as thoroughly.
+
+     So each rule now states its own base term and adds this, and a fourth
+     bottom dock is one `calc` rather than a fourth chance to get the sum
+     wrong. `env(safe-area-inset-bottom, 0px)` keeps its fallback because it
+     is the platform's property, not a token this stylesheet declares, and
+     `test_style_scale.py`'s no-fallback rule is about the latter. */
+  --dock-bottom-inset: calc(var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+
   --radius: 14px;
   /* --- the corner scale (§35L) ---------------------------------------------
      Three tiers derived from --radius, which is the slider in Settings →

@@ -50,6 +50,12 @@ NOT_NOTE_TEXT = {
     "reminder-magic",
     # Chat is its own recipe: send on Enter, "/" and `[[` only.
     "chat-input",
+    # A skill's steps: instructions read line by line by `skills.normalise`,
+    # not note text. Phase 8c gives this box the "/" menu and nothing else,
+    # with its own command set (`skillCommands` in editor.js: the placeholders
+    # the form declares and the tools it has ticked). A Live view here would
+    # render a heading or a table that no step can be.
+    "skill-steps",
 }
 
 

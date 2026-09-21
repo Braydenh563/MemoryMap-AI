@@ -112,6 +112,56 @@ def test_hand_built_menus_do_not_multiply() -> None:
         )
 
 
+#: Past this many rows a menu is a list you have to read rather than a set of
+#: choices you can see, and DESIGN.md's recipe says it is grouped. Five is
+#: where the app's own menus sit: measured on the branch head, the ones that
+#: are not grouped are all four rows or fewer, and the one that was ten
+#: (the table cell's) is the case that asked for the rule.
+MENU_GROUP_CEILING = 5
+
+
+def test_a_long_kebab_menu_is_grouped() -> None:
+    """Ten undifferentiated rows is a list, not a menu.
+
+    The table cell's menu covered rows, columns, alignment and the whole
+    table in one run of ten, and finding "Align centre" in it meant already
+    knowing the order. `kebabMenu` draws a hairline wherever an item's `group`
+    changes; this is the ratchet that a command table long enough to need that
+    actually declares it.
+
+    Counted on the *table* rather than on the rendered menu, because the menu
+    exists only in a browser and this suite cannot see the DOM. A command list
+    is a JavaScript array literal of objects each carrying `id:`, which is a
+    shape this file can count without running anything.
+    """
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    table = docs[docs.index("const DOC_TABLE_COMMANDS = ["):]
+    table = table[: table.index("\n];")]
+    rows = re.findall(r'^\s{2}\{\n\s+id: "([a-z-]+)",\n\s+group: "([a-z]+)",', table, re.M)
+    ids = re.findall(r'^\s+id: "([a-z-]+)",$', table, re.M)
+    assert len(ids) > MENU_GROUP_CEILING, (
+        "this ratchet is about a menu past the ceiling; the table cell's menu "
+        f"is now {len(ids)} rows, so either it shrank or the shape it is "
+        "counted by changed"
+    )
+    assert len(rows) == len(ids), (
+        f"{len(ids) - len(rows)} of the table cell menu's {len(ids)} commands "
+        "carry no `group`, so kebabMenu draws them as one undifferentiated "
+        "list (DESIGN.md, the recipe index: a menu past five rows is grouped)"
+    )
+    assert len(set(g for _, g in rows)) > 1, "one group over the whole menu groups nothing"
+    #: And the recipe has to be able to draw it, which is two lines away in
+    #: another file: the separator element and the stylesheet rule for it.
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert 'rule.className = "menu-sep"' in app and 'role", "separator"' in app, (
+        "kebabMenu no longer draws a separator between groups"
+    )
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    assert ".action-menu > .menu-sep" in css, (
+        "the separator has no rule, so a grouped menu draws a zero-height gap"
+    )
+
+
 def test_a_pointer_anchored_menu_is_the_recipe() -> None:
     """A right-click or long-press menu is `openMenuAtPoint`, not a new shape.
 
@@ -1292,6 +1342,36 @@ def test_one_writing_finding_is_drawn_by_one_builder() -> None:
         assert js.count(f'"{piece}') + js.count(f"`{piece}") == 1, (
             f"{piece} is built in more than one place: a finding is drawn by "
             "docFindingLine alone (DESIGN.md, the recipe index)"
+        )
+
+    #: **And the kinds themselves are named in two places that have to agree.**
+    #: `docFindingKind` decides which dot and which underline a finding gets;
+    #: `DOC_FINDING_GROUPS` decides which heading it is filed under in the
+    #: panel. They agree today, and nothing made them: a fourth kind added to
+    #: the first alone renders with its own squiggle and then falls into no
+    #: group in the panel, which looks like a finding the panel has lost. A
+    #: fourth added to the second alone draws an empty heading forever, since
+    #: the panel skips a group with no members. Neither failure throws.
+    kinds_drawn = set(re.findall(r'return "([a-z]+)";', _function_body(js, "docFindingKind")))
+    groups = js[js.index("const DOC_FINDING_GROUPS = ["):]
+    kinds_grouped = set(re.findall(r'\["([a-z]+)", "', groups[: groups.index("\n];")]))
+    assert kinds_drawn and kinds_grouped, "one of the two finding-kind tables could not be read"
+    assert kinds_drawn == kinds_grouped, (
+        "docFindingKind draws "
+        + ", ".join(sorted(kinds_drawn))
+        + " and DOC_FINDING_GROUPS files "
+        + ", ".join(sorted(kinds_grouped))
+        + ": a kind in one and not the other is either an underline with no "
+        "group in the panel or a heading that can never have a member"
+    )
+    #: The stylesheet is the third place the same three names appear, as the
+    #: class `docFindingKind`'s answer is interpolated into
+    #: (`cm-finding-${kind}`), so a kind with no rule there is an underline
+    #: with no shape and no colour.
+    for kind in sorted(kinds_drawn):
+        assert f".cm-finding-{kind}" in js, (
+            f"the {kind} finding has no underline rule in docCmTheme, so it "
+            "draws as plain text while the panel lists it"
         )
 
 

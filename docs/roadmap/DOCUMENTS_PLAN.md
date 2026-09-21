@@ -280,9 +280,20 @@ the same thing.
    The record, including the `Ctrl+K` decision the plan left open, is in
    HISTORY.md ("Moved from the plans, 2026-09-20", DOCUMENTS_PLAN.md Phase 4
    item 4).
-5. **Daily notes** and **templates gallery** (New ▾ → Meeting / Spec /
-   Decision / Weekly review / Daily), templates stored as documents tagged
-   `template` (exists) and offered with a preview.
+5. **Daily notes** and **templates gallery**: built, 2026-09-20. The gallery
+   was already there with six templates, each carrying a description
+   (`scratchpad/ui-sweeps/doctemplates.js`); daily notes were the row that
+   needed the decision first, and it is section 14. What was built from it is
+   one template and one recognition: New from a template now offers Daily
+   (seven rows), the document it makes is titled with the ISO day, and the
+   Timeline's day bucket accepts a note *or* a document with that title, so
+   the "Start today's note" offer beside a day already written as a document
+   is gone. Measured before and after in `scratchpad/ui-sweeps/docdaily.js`,
+   11 of 11: before, 6 templates with no daily and the bucket offering to
+   start a second page beside a document titled `2026-09-20`; after, 7
+   templates, the created document titled `2026-09-20` with `# 2026-09-20` as
+   its first line, 0 "start today's note" offers, 1 "Today's document" offer,
+   and the calendar glyph on the row.
 
 ### Phase 5 — review, history and AI (1 session)
 
@@ -347,10 +358,37 @@ the reasoning; `docnarrow.js` asserts it.
    instead, if the reach is ever reported, is the sidebar sheet *opening on the
    Outline tab* while a document is open, which is one line in the opener and no
    new surface. Left unbuilt on purpose.
-3. **"The first line of text is on screen with the keyboard open"** is asserted
-   without a keyboard: the sandbox has no soft keyboard, so `docnarrow.js`
-   measures the first line at 318px with the viewport at its full height and
-   nothing more. Not verified.
+3. **"The first line of text is on screen with the keyboard open"**: measured
+   as far as a sandbox can, 2026-09-20, `scratchpad/ui-sweeps/dockeyboard.js`,
+   16 of 16, **and it found a bug in the default state of the formatting
+   strip.**
+
+   **What cannot be measured, and stays not verified**: headless Chromium
+   raises no on-screen keyboard and nothing here can make it, so
+   `visualViewport` never shrinks on its own and `env(keyboard-inset-height)`
+   is always 0. No run here says what a real phone does.
+
+   **What is measured**: everything between the number the platform would
+   report and the pixels. The probe stubs `visualViewport.height` at a
+   middling phone keyboard (336px) and fires the app's own listener, so
+   `initKeyboardInset`, `--keyboard-inset` and every rule that reads it are
+   the real ones. At 390x820 with a document open in Live: the token is 0px
+   with no keyboard and 336px with one, and back to 0px when it closes; the
+   thumb bar's bottom padding goes 4px to 336px and back; the chat composer's
+   8px to 344px; the first line of text sits at 343 to 379 against a visible
+   viewport of 484px, and the thumb bar's top is at 435, so the phase's own
+   line holds with 56px to spare.
+
+   **The bug**: `.doc-toolbar.is-collapsed` (05-sidebars-themes.css) sets
+   `padding-block` at (0,2,0) and beat the `.doc-toolbar` rule in 07 that
+   carries the inset at (0,1,0). Specificity beats file order, so the
+   formatting strip rose with the keyboard while expanded and sat under it
+   while collapsed, which is its default since D1. Measured at 820 with the
+   strip shown: expanded 6.4px to 342.4px, collapsed 4px to 4px. Fixed by
+   naming the sum once as `--dock-bottom-inset` (00-tokens-shell.css) and
+   giving each of the three rules its own base term; after, collapsed is 4px
+   to 340px, expanded unchanged, and collapsing still buys back the same
+   2.4px it did before.
 4. **820–1100's icons rail** is a deliberate no-op until something asks for the
    width: the measure is at its cap there already. Left as a row here rather
    than built, so the next session does not build it twice.
@@ -406,13 +444,37 @@ stays plain (it is a sentence, not a note, and that half is done by being
 decided); the skill editor's steps box gets the `/` menu only. Gate: touch.js
 and mindmap.js unchanged.
 
-*Open, and not for the documents agent:* both remaining halves live in files
-the documents work does not own. The board's note card is `whiteboard.js`'s
-canvas text field, and the skill box's "/" is one line in `editor.js`'s
-`EDITOR_SURFACES`. The factory they both need is built and in the page
-(`noteSurface(host, options)`, `NOTE_SURFACES` in `documents.js`): adding a
-box is one row in that table, and `tests/test_note_surface.py` is the lint
-that says so.
+**The skill editor's steps box: built, 2026-09-20.** `"skill-steps": "skill"`
+in `editor.js`'s `EDITOR_SURFACES`, and the menu it opens is the box's own
+vocabulary rather than the note commands, for the reason `chatCommands` gives
+and more sharply here: this box's label says "one step per line, in order",
+`skills.normalise` reads those lines as instructions, and a callout or a table
+inserted into one is not a step. `skillCommands` offers the two things the
+form beside it declares and nobody can type correctly from memory, the
+`{{placeholders}}` from "Ask me for" and the exact spelling of the tools this
+skill has ticked, both read off the form so neither can go stale, plus one row
+that explains itself when the form is still empty. The box stays a plain
+textarea with no engine and no Live view, which is in
+`tests/test_note_surface.py`'s `NOT_NOTE_TEXT` with that reason. Measured,
+`scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: typing "/" opens a 304x165
+menu with the groups "Answers you will be asked for" and "Tools this skill may
+use", `tag: Which tag should I file?` yields `{{tag}}` and not the question,
+0 note commands leak in, and running one writes the placeholder at the caret.
+
+*Open, and still not for the documents agent: the board's note card.* It is
+`whiteboard.js`'s canvas text field (`wbEditNodeText`, ~2760), and adding a
+`NOTE_SURFACES` row for it is **not** the whole job, which is worth writing
+down before someone does exactly that. Three behaviours hang off that
+textarea and all three stop firing the moment a view is mounted over it:
+`keydown` (Enter commits, because the card is a single-idea field, and Escape
+abandons), `blur` (clicking away to the next card commits), and the
+`event.stopPropagation()` on that same keydown, which is what stops Tab and
+Enter reaching the board's own branch gestures. The last of those is a guard
+removed while the shape around it is kept, CLAUDE.md section 6 item 3: the
+row would look right, the edit would stop committing, and a Tab meant for the
+text would grow a branch. So the real work item is "move the commit keymap and
+the gesture guard onto the surface, then add the row", and it belongs to
+whoever owns `whiteboard.js`.
 
 ### Phase 7 — export and interchange: **built 2026-09-13**
 
@@ -836,6 +898,172 @@ measure.
 **Not decided here, and deliberately still open**: DOCX both ways, Markdown
 with its assets, and import of `.html`. The first needs a dependency decision
 this session did not have a reason to force.
+
+## 14. What a document daily note is: decided 2026-09-20
+
+Phase 4 item 5 asks for "daily notes" on a surface that already has them
+somewhere else, so this is the decision that had to come before the code, and
+it is taken here rather than deferred a fourth time (standing order 3).
+
+**Read first, both surfaces.** The Timeline built the whole of it and wrote the
+reason down: a daily note is an ordinary note whose first line is the ISO day,
+`# 2026-09-20` (`dailyNoteTitle` in `app.js`, TIMELINE_PLAN Phase 4,
+WORLD_CLASS_PLAN D6). On top of that convention sit `GET`/`POST
+/entries/daily/{day}` (create or return), `GET /entries/daily` with a month of
+`written` flags for a calendar strip and a streak, the today bucket's "Start
+today's note" button, which opens the composer rather than writing the note,
+and the agent's own "add to today's note" tool. None of that is duplicated.
+
+**The measurement that decided it.** On the branch head, a document titled
+`2026-09-20` is already in the Timeline's own feed as a `document` row (it is
+one of the four kinds `/timeline` returns), and the day bucket beside it still
+offered "Start today's note". So the app already lets a day be written as a
+document, and then does not believe it: the writer gets a second offer for a
+day they have already begun, and pressing it splits the day across two stores.
+That, not a missing feature, is what was wrong.
+
+**The decision.** *One day, one page, and which store holds it is the writer's
+choice, not the app's.*
+
+- Documents gets the **"Daily" template** its own item-5 list names, and
+  nothing else new. The document it makes is titled with the ISO day, the
+  exact string `dailyNoteTitle` writes, so the two surfaces agree by spelling
+  rather than by a shared table.
+- **No second endpoint, no second streak, no second calendar strip.** A
+  create-or-return `/documents/daily/{day}` would be the second implementation
+  of the same idea this item was told to avoid, and the streak and the strip
+  read `/entries/daily`, which is where a journal's own history belongs.
+- **The Timeline learns to recognise either.** `timelineDailyNote` and
+  `timelineIsDailyNote` accept a `note` or a `document` whose title is the day,
+  so a day written as a document gets the calendar glyph and the bucket offers
+  to open it instead of starting a second one. The button names the kind it
+  found, because "today's note" pointing at a document is a small lie.
+- **What a document daily note adds, and why it is worth having at all**: the
+  outline, backlinks, block references, comments, version history, tables and
+  the export set, for a day that grew past a capture. That is a real difference
+  in kind, not a second copy of the feature, and it costs one template row.
+
+**Not built, deliberately**: a "Today" button in the documents dock. The
+template gallery is two clicks from the same place, the Timeline's day view is
+the surface that knows about days, and a third door onto one page is what this
+decision exists to refuse.
+
+## 15. The code block's own bar, and where it belongs: measured 2026-09-20
+
+INBOX 232's brief for the live view asked for three things, of which two were
+built and checked (the fence's emptied marker rows, 706e2af, and the check of
+tables, blockquotes and task lists, 2026-09-19). The third, "a header row with
+the language and a copy button", was measured here before any of it was
+written, and **it already exists in the Read pane**: `renderMarkdown` in app.js
+has drawn a `.code-block` with a `.code-bar` carrying the language, Copy and
+Save since INBOX 172. Measured on the branch head at 1440x900, a document
+holding a `python` fence and an unlabelled one: 2 bars, `python Copy Save` and
+`code Copy Save`, 4 buttons, the language taken from the fence and "code" where
+there is none. Writing it again would have been the fourth rebuild this
+project's CLAUDE.md warns about.
+
+**The decision the measurement forces: the bar stays in Read, and the live view
+keeps the corner label with no button.** Three reasons, in order of weight:
+
+1. A control inside a `contenteditable` is a caret trap and a selection
+   hazard. The live view already pays for one (`DocTableMenuWidget` carries
+   `ignoreEvent`), and each one is a thing the arrow keys can walk into,
+   `Ctrl+A` can carry and a paste can take with it.
+2. The row it would hang from is **8px tall on purpose**, against a 36px line
+   (measured). The whole of the 2026-09-19 fix was to stop the fence spending
+   full rows on things that are not code; a header row put back is that fix
+   undone.
+3. The live view is editable text. The code is already under a caret that can
+   select it, and Read is one tap away on every band including the phone.
+
+**What the measurement did find, and what was fixed here**: the bar's Copy
+button read `⧉ Copy`, a typed U+29C9 standing where an icon belongs, in an app
+that ships `ph:copy` and draws five other Copy buttons with it. Two call sites,
+the chat's table bar and every rendered code block, both now through `setLabel`
+with `ph:copy`; Save beside it takes `ph:download-simple`, the icon the app
+already puts on "save this to your computer", because an icon beside one label
+and nothing beside the other reads as two kinds of control in one bar. The
+glyph is in `tests/test_no_glyph_icons.py`'s banned list so it cannot come
+back, and `scratchpad/ui-sweeps/doccodecopy.js` holds the whole measurement,
+11 of 11.
+
+## 16. The engine's three omissions, and the table menu: decided 2026-09-20
+
+Phase 2 named three things it deliberately did not build, and the sidebar work
+left a fourth beside them. Each is decided here rather than carried again, and
+each decision rests on a number from `scratchpad/ui-sweeps/doctoolbarstate.js`
+(21 of 21) rather than on how the item was described.
+
+**1. The toolbar's own state: built.** This is the one that was only ever
+waiting for the tree. Before the engine, deciding whether the caret sat inside
+`**bold**` meant counting asterisks from the top of the document on every
+keystroke; the tree exists now for the decorations, so `renderDocToolbarState`
+resolves one node and walks its ancestors, which costs the depth of the
+markdown at the caret and not the length of the document. It runs on the same
+beat as the caret readout, which is the beat that already exists.
+
+Measured at eleven stops in a document with one of everything: `h1` in a
+heading, nothing in plain prose, `bold`, `italic`, `code`, `h2`, `ul`, `task`,
+`ol`, `quote` and `link`, each with no other button lit. 17 of the strip's 41
+`data-md` buttons carry `aria-pressed`, and the other 24 are the ones that
+always insert something new and have no state to be in: a button that is not a
+toggle must not tell a screen reader it is one. The caret resolves with side
+`-1`, so a caret just past the final `d` of a bold word still reads as bold,
+which is what makes "keep typing in bold" and "the button says bold" the same
+answer. A task item lights `task` and not `ul`, although a task list is a
+bullet list in the grammar, because the more specific one is the one pressing
+the button would turn off.
+
+**2. Atomic ranges: decided against, and the decision rests on a
+measurement that contradicts the note that asked for them.** The engine file
+records the symptom as "a hidden marker can still be walked into with the
+arrow keys ... the caret appears to jump two characters". Walked on the branch
+head across `**a bold run**`, the caret visits offsets 29 to 36 in order,
+skipping none, and moves 10, 5, 9, 8, 11, 5 and 12 pixels between them: single
+characters throughout, with no two-character jump anywhere.
+
+What *is* measurable is a different thing, and a bigger one: **the reveal is
+per line, not per range.** With the caret on another line the word "italic"
+sits at x=779; with the caret inside the bold run it sits at x=820, so
+entering that line moves everything after the first hidden marker along it by
+41px. Atomic ranges would not touch that, because they govern where the caret
+may be placed and not what is revealed; and they would take away the one thing
+Phase 2 item 3 deliberately built, a marker you can put the caret between in
+order to edit it. So they are the wrong tool for the only symptom that
+reproduces. **If the line's shift is ever reported, the fix is a narrower
+reveal (the range under the caret rather than the whole line), not atomic
+ranges**, and that is the work item, not this one.
+
+**3. The `Mod+click` affordance: the note is out of date, and nothing is
+built.** It says "there is no affordance saying so beyond the tooltip".
+Measured, a link chip in Live carries `cursor: pointer` and
+`title="Ctrl+click to open https://example.com"`, which is a pointer inviting
+the press, the chord named, and the destination shown before it is followed.
+That is what Obsidian offers for the same gesture. The one thing that would
+improve it is the underline-while-the-modifier-is-held that VS Code draws, and
+it costs a window-level key listener with a reset on blur for a hover hint
+that is already available by resting on the chip. Left unbuilt on purpose; a
+row here rather than a fourth session rediscovering the tooltip.
+
+**4. The table cell's ten-row menu: built, as a change to the shared recipe.**
+Rows, columns, alignment and the whole table read as one list of ten, and
+finding "Align centre" in it meant knowing the order. The bullet that recorded
+this said correctly that `kebabMenu` had no separator and that this was
+therefore a change to the recipe and to DESIGN.md rather than a phase item, so
+that is what it is: an item may carry `group`, a name, and `kebabMenu` draws a
+hairline wherever the name changes. Callers declare meaning, never pixels, and
+an item with no `group` behaves exactly as before, so every other menu in the
+app is untouched.
+
+The name is not drawn. A heading over every three rows would make this menu
+seventeen rows tall, and what makes a list scannable is the break rather than
+the word. Measured after: 10 items, 3 hairlines at 1px tall and 172px wide,
+`role="separator"` on each so the grouping reaches the accessibility tree,
+10 `menuitem` roles and 3 separators, and `wireMenuKeyboard` walks
+`[role="menuitem"]`, so a hairline is never a stop on the way down. The recipe
+index carries it and `tests/test_ui_recipes.py` holds the ratchet: a command
+table past five rows declares its groups, and the separator element and its
+stylesheet rule both still exist.
 
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 

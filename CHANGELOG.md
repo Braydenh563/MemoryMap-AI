@@ -173,6 +173,27 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- A writing suggestion's underline answers the pointer. Resting on one now
+  tints the word in that suggestion's own colour, so a squiggle looks
+  pressable before you press it; it was the one part of the writing help that
+  gave no sign it was a control.
+- The documents formatting strip says what the caret is already in. Stand in a
+  bold word and Bold reads as on; the same for italic, code, the three heading
+  levels, lists, tasks, quotes and links. Only the buttons that have a state
+  to be in say so, so the ones that always insert something new are unchanged.
+- The table cell menu is grouped. Its ten commands cover rows, columns,
+  alignment and the table itself, and read as one list of ten; they now sit in
+  four groups with a hairline between them.
+- A "/" menu in a skill's steps box. It offers the two things the form beside
+  it already knows and nobody can type from memory: the answers the skill will
+  ask you for, as `{{placeholders}}`, and the exact names of the tools it has
+  been allowed to use. Nothing else, because a step is one instruction on one
+  line, not a block of markdown.
+- A Daily page in the documents template gallery, and the Timeline now
+  recognises it. New from a template offers Daily alongside the other six; it
+  makes a document titled with the day, the same title the journal note uses,
+  so a day written as a document gets the calendar mark in the Timeline and
+  the day's own row offers to open it rather than to start a second page.
 - Share to MemoryMap from a phone's share sheet: with the app installed, a
   page, a link or a selection shared to it opens Capture with the title,
   the text and the link as one note ready to save.
@@ -288,6 +309,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The documents formatting strip rises above the on-screen keyboard while it
+  is collapsed, which is how it starts. Expanded it already did; collapsed, a
+  more specific rule was overriding the keyboard inset away, so the strip you
+  type at sat under the keys. What can sit under a bottom strip is now one
+  named length that all three of them add.
+- The Copy button on a code block and on a table is drawn with the app's own
+  icon. Both said "⧉ Copy", a character typed where an icon belongs, while
+  five other Copy buttons in the app used the real one. Save beside them takes
+  its icon too, so the pair in one bar read as the same kind of control.
 - The board's top bar answers a finger on a tablet. Between 600 and 820, the
   band whose own rule is that the pointer there is a finger, all thirteen of
   its controls were still 36px tall; and wherever the five menu buttons drop

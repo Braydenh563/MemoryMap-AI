@@ -15,7 +15,7 @@ then the plan tails by surface, then the horizon.
 | --- | --- | --- |
 | ~~238~~ | **Done 2026-09-19** (5a9c909, 128a731, 7e8d902). All three parts, with measurements in INBOX 238: the card clips its own text (`min-height: 0` plus `overflow: hidden` on `.wb-card-content`, and the "Show more" decided by the box rather than by a character count); the expanded set is in `localStorage`; and the export's line budget comes from the card's measured height (7 lines collapsed, 22 expanded, both were 6) with a `--warn` line in the dialog naming how many notes are collapsed. | done |
 | ~~246~~ | **Done 2026-09-20.** Maps' own reference nodes counted (`_board_reference_rows`, both tables, one reader), `GET /entries/reference-counts` and the chip row on the card measured in Chromium (`refchips.js`), Connections telling maps from boards and listing every reference the chip counts. Record in HISTORY's INBOX 246. | done |
-| ~~232~~ | **Mostly already built; measure before building any of it.** Checked on the branch head 2026-09-19 (`scratchpad` sweep, one document holding all of them): tables render as 6 `.cm-md-td` cells with **0 pipes on screen**, callouts as 2 `.cm-md-callout` lines with a label and **0 `[!note]` markers**, task lists as 2 real `<input type="checkbox">` with **0 `- [ ]` brackets**, and an image as a drawn `.cm-md-image` with **0 `![...]` syntax**; strikethrough, highlight, footnotes and maths all carry their marks too. The two things that were genuinely wrong are fixed: the code fence's empty rows (706e2af) and the chips that broke in half when they wrapped (2b94271). This row was stale, and rebuilding from it would have been the fourth time this project rebuilt something that existed. | done, except anything the owner names next |
+| ~~232~~ | **Mostly already built; measure before building any of it.** Checked on the branch head 2026-09-19 (`scratchpad` sweep, one document holding all of them): tables render as 6 `.cm-md-td` cells with **0 pipes on screen**, callouts as 2 `.cm-md-callout` lines with a label and **0 `[!note]` markers**, task lists as 2 real `<input type="checkbox">` with **0 `- [ ]` brackets**, and an image as a drawn `.cm-md-image` with **0 `![...]` syntax**; strikethrough, highlight, footnotes and maths all carry their marks too. The two things that were genuinely wrong are fixed: the code fence's empty rows (706e2af) and the chips that broke in half when they wrapped (2b94271). This row was stale, and rebuilding from it would have been the fourth time this project rebuilt something that existed. **Closed 2026-09-20.** The one line of the brief nobody had checked, "a header row with the language and a copy button", was measured before being written and is built: `renderMarkdown`'s `.code-bar` has carried the language, Copy and Save since INBOX 172, and a document with a `python` fence and an unlabelled one draws 2 bars, 4 buttons and the labels `python` and `code`. The live view keeps the corner label and no button, by the decision now in DOCUMENTS_PLAN section 15 (a control inside a contenteditable is a caret trap; the row it would hang from is 8px tall against a 36px line, measured, and that smallness is the 2026-09-19 fix). What the measurement found instead was the glyph in those labels, a typed `⧉` on a Copy button in an app that ships `ph:copy`: fixed at both call sites and added to `tests/test_no_glyph_icons.py`. `scratchpad/ui-sweeps/doccodecopy.js`, 11 of 11. | done |
 | ~~253~~ | **Done 2026-09-20** (b062d0d, f0d478b, f24d8a5, 1f018d6). `start.sh`/`start.bat` self-repair a failed start once with no prompt; the venv health check imports the app itself; a Repair MemoryMap AI shortcut in the .exe installer and the MSI runs `--desktop --reinstall`. Record in HISTORY's INBOX 253. | done |
 | 225 | The frontend copy sweep: every place the app still speaks as "the AI", "the assistant" or "the guide" where it means Atlas. | INBOX 225's second half |
 | 226 | A flicker above the bottom bar on the dashboard, never reproduced here; needs the owner's theme, art setting and zoom. | INBOX 226 |
@@ -60,19 +60,37 @@ being written by running agents stay beside this one.
 
 ## Documents
 
-- **DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that.** Items 1 to 4
-  are built (backlinks and block references 2026-09-12; the outline's reorder,
-  folding and filter box, and the command palette and shortcut sheet from one
-  table, 2026-09-20, both recorded in HISTORY.md with their probes). The
-  templates half of item 5 exists and was measured on 2026-09-20
-  (`scratchpad/ui-sweeps/doctemplates.js`: the gallery opens at 480x526 with
-  six templates, each carrying a description). Daily notes were left alone
-  deliberately: `grep -n "daily" frontend/*.js src/memorymap/api/*.py` finds
-  `dailyNoteTitle` in app.js and twenty-two hits in routes_entries.py, so the
-  next step is to read what the Timeline already built (TIMELINE_PLAN Phase 4,
-  "a daily note is a convention, not a table") and decide what a *document*
-  daily note would add to it, rather than building a second one.
-  [documents-phase4.md]
+- ~~**DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that.**~~
+  **Decided and built, 2026-09-20.** The decision is DOCUMENTS_PLAN section 14
+  ("one day, one page, and which store holds it is the writer's choice"): the
+  Timeline owns the journal, its two endpoints, its streak and its calendar
+  strip, and none of that is duplicated. What Documents got is the Daily
+  template its own item-5 list names, titled with the ISO day so the two
+  surfaces agree by spelling; what the Timeline got is a day bucket that
+  accepts a note *or* a document with that title. The measurement that decided
+  it: a document titled `2026-09-20` was already in the Timeline's feed and
+  the bucket beside it still offered "Start today's note", so the app let a day
+  be written as a document and then did not believe it.
+  `scratchpad/ui-sweeps/docdaily.js`, 11 of 11: 6 templates to 7, 1 start
+  offer to 0, 0 open offers to 1 ("Today's document"), the calendar glyph on
+  the row. Not built, deliberately: a "Today" button in the documents dock, a
+  third door onto one page. [documents-phase4.md]
+- **Found, not fixed: `scratchpad/ui-sweeps/docexports.js` fails on a click
+  timeout and has for a while.** It times out at line 101 clicking
+  `#doc-export-docx`, whose comment says "the row lives in the document's ⋯
+  menu, which is a `<details>`" and opens that. Measured on the branch head:
+  the row's runtime parent is a `.action-menu` (`BUTTON#doc-export-docx` in
+  `DIV.action-menu` in `DIV.menu-group` in `DIV.doc-dock-menu-list` in
+  `DETAILS#doc-dock-menu`), the `<details>` opens fine, and the row still
+  measures 0x0 at 0,0 because the `.action-menu` inside it is `kebabMenu`'s
+  own hidden submenu and nothing opens that. **Not caused by this session**:
+  the sweep fails identically with `frontend/app.js`, `documents.js`,
+  `editor.js` and the five stylesheets checked out at 71a0197, the fork point,
+  which is the way to tell a stale probe from a regression. The fix is one
+  line in the probe, open the submenu as well as the `<details>`, and it needs
+  whoever knows which control is meant to open it in the app. `docxextra.js`
+  covers the same 501 message and passes, so the behaviour is not what is
+  broken. [documents-phases.md]
 - **The templates gallery offers a description, not a preview of the page.**
   Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
   sections, sources, timeline." The plan's words are "offered with a preview",
@@ -86,24 +104,51 @@ being written by running agents stay beside this one.
   capture box threw). Next step: fail on `autoGrow(`, `mountGutterFor(`,
   `syncDocGutterMetrics(` or `watchDocGutter(` called with an identifier the
   same function received as a surface. [documents-engine.md]
-- **Phase 8c's two halves are in files the documents agent does not own.** The
-  board's note card is `frontend/whiteboard.js`'s canvas text field; the skill
-  editor's steps box is one row in `editor.js`'s `EDITOR_SURFACES`. The
-  factory both need is built: `noteSurface(host, options)` and the
-  `NOTE_SURFACES` table in `documents.js`, one row per box, plus one line in
-  `tests/test_note_surface.py`'s list if it is not note text.
+- **Phase 8c: the skill editor's steps box is built; the board's note card is
+  not, and is not one row.** The steps box landed 2026-09-20 with its own
+  command set (`skillCommands` in editor.js: the form's `{{placeholders}}` and
+  its ticked tools, read off the form so neither goes stale), because the note
+  commands are all wrong in a box whose contract is one instruction per line.
+  Measured, `scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: "/" opens a
+  304x165 menu with two groups and 0 note commands in it.
+  **The board's card is the open half, and adding a `NOTE_SURFACES` row for it
+  would break it**: `wbEditNodeText` (`frontend/whiteboard.js` ~2760) hangs
+  Enter-commits, Escape-abandons, blur-commits and an `event.stopPropagation()`
+  off that textarea's own `keydown`, and all four stop firing once a view is
+  mounted over it. The last one is the guard that keeps Tab and Enter out of
+  the board's branch gestures, so losing it grows a branch from a keystroke
+  meant for the text. The work item is "move the commit keymap and the gesture
+  guard onto the surface, then add the row", for whoever owns whiteboard.js.
   [documents-phases.md]
-- **The table cell menu is a `kebabMenu` with ten items and no grouping.**
-  Rows, columns and alignment read as one list of ten. `kebabMenu` has no
-  separator, so this is a change to the shared recipe and to DESIGN.md rather
-  than a phase item. [documents-phase4.md]
-- **Atomic ranges, the `Mod+click` affordance and the toolbar's own state**
-  are the three things DOCUMENTS_PLAN lists for the engine phase that were
-  deliberately not built: a hidden marker can be walked into with the arrow
-  keys (`EditorView.atomicRanges` over the replace decorations is the usual
-  answer), nothing says `Mod+click` opens a link chip beyond the tooltip, and
-  which buttons are "on" for the caret is not driven from the syntax tree,
-  which the tree now makes cheap. [documents-engine.md]
+- ~~**The table cell menu is a `kebabMenu` with ten items and no grouping.**~~
+  **Built 2026-09-20, as the change to the shared recipe this row said it was.**
+  An item may carry `group`, a name, and `kebabMenu` draws a hairline wherever
+  it changes; the name is not printed, because a heading over every three rows
+  makes this menu seventeen rows tall. Measured: 10 items, 3 hairlines at 1px
+  by 172px, 10 `menuitem` roles and 3 `separator` roles, and `wireMenuKeyboard`
+  walks `[role="menuitem"]` so a hairline is never a keyboard stop. In
+  DESIGN.md's recipe index with a ratchet in `tests/test_ui_recipes.py`.
+  [documents-phase4.md]
+- ~~**Atomic ranges, the `Mod+click` affordance and the toolbar's own
+  state**~~ **All three decided 2026-09-20, DOCUMENTS_PLAN section 16,
+  `scratchpad/ui-sweeps/doctoolbarstate.js` 21 of 21.**
+  **The toolbar's state is built**: `renderDocToolbarState` resolves one
+  syntax node at the caret and walks its ancestors, so the cost is the depth
+  of the markdown and not the length of the document. Measured at eleven
+  stops: h1, nothing, bold, italic, code, h2, ul, task, ol, quote, link, each
+  with nothing else lit; 17 of the strip's 41 `data-md` buttons carry
+  `aria-pressed` and the other 24 are the ones that always insert something
+  new. **Atomic ranges: decided against, and the measurement contradicts the
+  note that asked for them.** The caret visits offsets 29 to 36 in order
+  across `**a bold run**`, moving 10, 5, 9, 8, 11, 5 and 12 pixels: no
+  two-character jump anywhere. What does reproduce is different and bigger:
+  the reveal is per *line*, so entering that line moves the rest of it by
+  41px (x=779 to x=820). Atomic ranges would not touch that and would take
+  away the marker you can put the caret between, which Phase 2 built on
+  purpose. **If the shift is reported, the fix is a narrower reveal, not
+  atomic ranges.** **`Mod+click`: the note is out of date**; a chip carries
+  `cursor: pointer` and `title="Ctrl+click to open <url>"`, which names the
+  chord and the destination. Left unbuilt on purpose. [documents-engine.md]
 - **Outline rows are 24 to 25.2px, under the app's own 28px floor.**
   `frontend/css/05-sidebars-themes.css`, `.outline-link`
   (`padding: 0.15rem 0.25rem` plus a 0.85rem line) against DESIGN.md's
@@ -113,17 +158,35 @@ being written by running agents stay beside this one.
   touch layout for the sidebar, which is UI Phase 9's territory.
   [doc-sidebar.md]
 - **The rest of the app's viewport popups have not been measured with the
-  background art on.** `kebabMenu` (`wireEscapedActionMenu`) and the toolbar
-  dropdowns (`clampToolbarMenu`) are covered; the chat dock's popovers, the
-  selection popup, the whiteboard's context menu and `.wb-board-menu`
-  (`escapeAndCapMenu`) are not. Next step: a sweep that sets
-  `data-bg-art="on"`, opens each in turn and asserts the two things
-  `spellwide.js` asserts, the parent and the trap. [editor-intelligence.md]
-- **`clampToolbarMenu`'s comment says the trigger cannot be reproduced here,
-  and that is now out of date.** With `data-bg-art="on"` the card reports
-  `blur(14px) saturate(1.5) brightness(1.02)` in this Chromium and the trap
-  fires. Worth correcting so the next reader tests the real path rather than
-  the `filter: saturate(1)` stand-in. [editor-intelligence.md]
+  background art on.** Still open, but **the blocker is gone**: this row used
+  to sit behind "the trigger cannot be reproduced in this sandbox", and that
+  is now known to be false. With `data-bg-art="on"` a `.card` reports
+  `backdrop-filter: blur(14px) saturate(1.5) brightness(1.02)` in this
+  Chromium, and a `position: fixed` child written to `left: 0; top: 0` inside
+  `.card.doc-main` lands at x=293 against the card's own x=292, so the card is
+  its containing block and the real property traps a real popup. `kebabMenu`
+  (`wireEscapedActionMenu`) and the toolbar dropdowns (`clampToolbarMenu`) are
+  covered; the chat dock's popovers, the selection popup, the whiteboard's
+  context menu and `.wb-board-menu` (`escapeAndCapMenu`) are not.
+  **What the next session needs, and what cost this one the item**: the sweep
+  is four openers and four selectors, and guessing them produced four failures
+  that were the probe's and not the app's, which is worse than no sweep. Find
+  each opener in the page first. One is already established: the selection
+  popup cannot be raised from the capture box at all, because
+  `SELECTION_POPUP_EXCLUDED` in app.js is
+  `"input, textarea, [contenteditable], .selection-popup"`, so it needs a
+  selection over *rendered* text. Then assert the two things `spellwide.js`
+  asserts, the parent and the trap, and report a popup that would not open as
+  not measured rather than as passing. [editor-intelligence.md]
+- ~~**`clampToolbarMenu`'s comment says the trigger cannot be reproduced
+  here, and that is now out of date.**~~ **Corrected 2026-09-20**, with the
+  measurement in the comment itself: with `data-bg-art="on"` the card reports
+  `backdrop-filter: blur(14px) saturate(1.5) brightness(1.02)` and a
+  `position: fixed` child written to `left: 0; top: 0` inside `.card.doc-main`
+  lands at x=293 against the card's own x=292, so the card is its containing
+  block and the trap is live on the real property. The `filter: saturate(1)`
+  stand-in's numbers are kept beside it as the same fault measured twice.
+  [editor-intelligence.md]
 - **The word menu measures its own width before it is placed.** A
   `position: fixed` box with `left` set and no `right` is shrink-to-fit, so a
   menu with long candidates opened near the right of a narrow card can render
@@ -138,21 +201,34 @@ being written by running agents stay beside this one.
   table cell's mark may measure outside the scroller the reveal scrolls), and
   that a placement must never cover the rect it is anchored to, which is worth
   an assertion of its own in both sweeps. [editor-intelligence.md]
-- **The writing-suggestion underline is the only surface with no hover
-  affordance.** `cursor: pointer` is the whole of it. Files:
-  `frontend/documents.js`, `docCmTheme`, the `.cm-finding` block around line
-  10924; the `[data-contrast="on"]` branch needs it too. Next step: add the
-  hover tint in the kind's own colour and measure it in both themes with
-  `prosepanel.js`'s painted-pixel pass. [prose-intelligence.md]
-- **`docFindingAtPoint` walks every mark on every pointer event** that lands
-  in the editor (`click`, `dblclick`, `contextmenu`), calling
-  `getClientRects()` per mark. Bounded by the viewport's marks, so not slow,
-  but not measured at all. Next step: time it on the plan's 20k-word document
-  with 200 findings on screen; past a millisecond, cache the rects per repaint
-  (the findings effect is the invalidation point). [prose-intelligence.md]
-- **The three finding kinds are named in two places**, `DOC_FINDING_GROUPS`
-  (the panel's group titles) and `docFindingKind` (the dot and the underline).
-  They agree today; a fourth kind has to be added to both.
+- ~~**The writing-suggestion underline is the only surface with no hover
+  affordance.**~~ **Built 2026-09-20.** A tint in the kind's own colour, 12%
+  mixed against the page rather than stated as an alpha, so it composes on
+  either theme's ground and follows `[data-contrast="on"]`'s redefinition of
+  `--error`, `--accent` and `--muted` with no branch of its own. A tint and
+  not a thicker line, because the three kinds are told apart by the *shape* of
+  their underline and thickening one moves it towards another's. Measured as a
+  painted colour under a real pointer, `scratchpad/ui-sweeps/findinghover.js`:
+  `rgba(0, 0, 0, 0)` at rest in both themes, `srgb 0.725 0.110 0.110 / 0.12`
+  hovered in light and `srgb 0.973 0.443 0.443 / 0.12` in dark, which is each
+  theme's own `--error`. [prose-intelligence.md]
+- ~~**`docFindingAtPoint` walks every mark on every pointer event**~~
+  **Timed 2026-09-20, and it is not a problem.** With 96 marks on screen (a
+  3,763-word document written to fill the viewport with them), a *miss*, which
+  is the expensive case because it walks every mark and calls
+  `getClientRects()` on each, takes **0.207ms** in light and 0.212ms in dark;
+  a hit takes 0.03ms. Linear in the marks, so the row's own 200-on-screen gate
+  extrapolates to about 0.43ms, still inside a pointer event's budget. The
+  assertion is in `findinghover.js`, so a change that makes it expensive fails
+  there rather than being felt. No cache built. [prose-intelligence.md]
+- ~~**The three finding kinds are named in two places**~~ **Held together by a
+  lint, 2026-09-20.** `tests/test_ui_recipes.py` now reads both tables and
+  fails if they differ, and checks that each kind has an underline rule in
+  `docCmTheme`. The two failures it prevents are silent ones: a kind in
+  `docFindingKind` alone draws its own squiggle and then falls into no group
+  in the panel, which looks like a finding the panel has lost; a kind in
+  `DOC_FINDING_GROUPS` alone draws a heading that can never have a member.
+  Proved against a simulated drift rather than assumed.
   [prose-intelligence.md]
 
 ## Graph

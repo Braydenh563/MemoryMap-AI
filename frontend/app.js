@@ -22643,7 +22643,31 @@ function kebabMenu(items, ariaLabel) {
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
+  //: **Groups, drawn from the items rather than from separator objects**
+  //: (DOCUMENTS_PLAN section 16). The table cell's menu was the case that
+  //: asked for this: ten items covering rows, columns, alignment and the
+  //: whole table, read as one list of ten, and a reader scanning it had to
+  //: know the order to find anything. A menu of five or fewer needs no help;
+  //: past that, the thing that makes a list scannable is a break every few
+  //: rows, which is what every other application's menus do.
+  //:
+  //: An item carries `group`, a name, and the rule is "a hairline wherever
+  //: the name changes". Callers declare meaning, never pixels, and a caller
+  //: that declares nothing gets exactly what it got before, so every existing
+  //: menu in the app is untouched. The name is not drawn: a heading per three
+  //: rows would make a ten-row menu seventeen rows tall, and the rule here is
+  //: the divider, not the label. `role="separator"` so the grouping is in the
+  //: accessibility tree too, and `wireMenuKeyboard` walks `.menu-item`, so a
+  //: divider is never a stop on the way down.
+  let lastGroup = null;
   for (const item of items) {
+    if (lastGroup !== null && item.group && item.group !== lastGroup) {
+      const rule = document.createElement("div");
+      rule.className = "menu-sep";
+      rule.setAttribute("role", "separator");
+      menu.appendChild(rule);
+    }
+    if (item.group) lastGroup = item.group;
     const button = document.createElement("button");
     button.className = item.disabled ? "menu-item menu-item-unavailable" : "menu-item";
     //: A destructive row says so in the app's own danger colour. Added when
@@ -22812,11 +22836,22 @@ function clampToolbarMenu(details, { retry = true } = {}) {
   // landed and correct by the difference. Self-correcting, cause-agnostic, and
   // one extra layout read.
   //
-  // Proven, not reasoned: this sandbox's headless Chromium reports
-  // `backdrop-filter: none` on every `.card`, so the user's exact trigger does
-  // not fire here: but `filter` creates the same containing block and *is*
-  // supported, so forcing `.card.doc-main { filter: saturate(1) }` reproduces
-  // it exactly. Measured with that in place: the panel's `style.left` reads
+  // Proven, not reasoned. **And the real trigger does fire here, which is a
+  // correction to what this comment said until 2026-09-20.** It read that
+  // headless Chromium reports `backdrop-filter: none` on every `.card`, so
+  // the user's exact trigger could not be reproduced and `filter: saturate(1)`
+  // had to stand in for it. That was true of a card measured with the
+  // background art *off*, which is the default and was the only state anyone
+  // had looked at. Turn the art on (`data-bg-art="on"`, Settings) and the
+  // same card reports `backdrop-filter: blur(14px) saturate(1.5)
+  // brightness(1.02)` in this Chromium: measured, a `position: fixed` child
+  // written to `left: 0; top: 0` inside `.card.doc-main` lands at x=293
+  // against the card's own x=292, so the card is its containing block and the
+  // trap is live on the real property. Test that path, not the stand-in.
+  //
+  // The stand-in's numbers are kept because they are the same fault measured
+  // twice: forcing `.card.doc-main { filter: saturate(1) }` reproduces it
+  // exactly, and with that in place the panel's `style.left` reads
   // 595px while it renders at x=886, the correction having subtracted the
   // card's own 291px offset. Without the second pass the same menu would have
   // been given left=886 and rendered at 1177, 291px to the right of the
@@ -26569,7 +26604,13 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "ghost small code-copy";
-    b.textContent = text;
+    //: `setLabel`, not `textContent`: the Copy button here said "⧉ Copy", a
+    //: typed glyph standing where an icon belongs while the app ships
+    //: `ph:copy` and uses it in five other places
+    //: (`tests/test_no_glyph_icons.py` names the fault and now names this
+    //: glyph). A label with no `ph:` marker comes through unchanged, so the
+    //: bar's other buttons are untouched.
+    setLabel(b, text);
     b.title = title;
     if (onClick) b.addEventListener("click", onClick);
     return b;
@@ -26889,7 +26930,7 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   fit.hidden = true;
   full.hidden = true;
   actions.append(
-    button("⧉ Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
+    button("ph:copy Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
     menu,
     //: Last in the bar, which puts it at the panel's top-right corner, where
     //: every other X in this app is. Hidden in a bubble: there is nothing to
@@ -27253,7 +27294,9 @@ function renderMarkdown(container, text, depth = 0) {
       const copy = document.createElement("button");
       copy.type = "button";
       copy.className = "ghost small code-copy";
-      copy.textContent = "⧉ Copy";
+      //: The app's own copy icon, not a typed `⧉`: see the note on the table
+      //: bar's `button` helper above, and `tests/test_no_glyph_icons.py`.
+      setLabel(copy, "ph:copy Copy");
       copy.title = "Copy this code block";
       copy.addEventListener("click", (event) =>
         copyToClipboard(text, event.currentTarget)
@@ -27265,7 +27308,11 @@ function renderMarkdown(container, text, depth = 0) {
       const save = document.createElement("button");
       save.type = "button";
       save.className = "ghost small code-copy";
-      save.textContent = "Save";
+      //: With its own icon, because the pair sit in one bar: an icon beside
+      //: "Copy" and nothing beside "Save" reads as two different kinds of
+      //: control. `ph:download-simple` is what the app already puts on a
+      //: "Save this to your computer" (the image reader's, app.js ~6328).
+      setLabel(save, "ph:download-simple Save");
       save.title = "Save this code block to the exports folder";
       save.addEventListener("click", () =>
         saveFile(`code-${Date.now()}.${language || "txt"}`, new Blob([text], { type: "text/plain" }))
@@ -28419,9 +28466,22 @@ function dailyNoteTitle(bucketKey) {
   return bucketKey;
 }
 
+//: **The day's page may be a note or a document** (DOCUMENTS_PLAN section 14).
+//: `/timeline` has returned documents as their own kind since Phase 4, so a
+//: document titled with the day was already in this feed; the day bucket just
+//: did not believe it, and went on offering to start a second page for a day
+//: already begun. One day, one page, and which store holds it is the writer's
+//: choice: the Documents tab's "Daily" template writes the same ISO title this
+//: function reads, so the two surfaces agree by spelling rather than by a
+//: shared table.
+//:
+//: Boards are not in the set on purpose: a mind map named after a date is a
+//: map of that date, not the day's writing.
+const TIMELINE_DAILY_KINDS = new Set(["note", "document"]);
+
 function timelineDailyNote(bucketKey, rows) {
   const wanted = dailyNoteTitle(bucketKey);
-  return rows.find((row) => row.kind === "note" && row.title.trim() === wanted) || null;
+  return rows.find((row) => TIMELINE_DAILY_KINDS.has(row.kind) && row.title.trim() === wanted) || null;
 }
 
 //: **The buckets are computed here, not fetched.** `/timeline` labels every
@@ -28534,7 +28594,10 @@ function timelineKindChoice() {
 }
 
 function timelineIsDailyNote(row) {
-  return row.kind === "note" && row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"));
+  return (
+    TIMELINE_DAILY_KINDS.has(row.kind) &&
+    row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"))
+  );
 }
 
 //: **One control, not four, and now one button rather than one well** (INBOX
@@ -29045,8 +29108,12 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
     const existing = timelineDailyNote(bucket.key, bucket.rows);
     head.appendChild(
       existing
-        ? smallButton("ph:calendar-dot Today's note", "Open today's journal note", () =>
-            focusTimelineRow(existing.key)
+        ? //: The button names the kind it found: "today's note" pointing at a
+          //: document is a small lie, and the two are different things to open.
+          smallButton(
+            existing.kind === "document" ? "ph:calendar-dot Today's document" : "ph:calendar-dot Today's note",
+            existing.kind === "document" ? "Open today's document" : "Open today's journal note",
+            () => focusTimelineRow(existing.key)
           )
         : smallButton("ph:plus Start today's note", "Open a new note with today's date in the title", () =>
             startTodaysNote()
@@ -29153,7 +29220,9 @@ function timelineRowElement(row, density) {
   //: made, so their own glyph is free to say what they are.
   glyph.className = `ph ${TIMELINE_KIND_GLYPHS[row.kind] || "ph-note"}`;
   if (row.kind === "note" && row.placedBy === "mentioned") glyph.className = "ph ph-clock-countdown";
-  if (row.kind === "note" && timelineIsDailyNote(row)) glyph.className = "ph ph-calendar-dot";
+  //: The day's page carries the calendar whichever store holds it
+  //: (DOCUMENTS_PLAN section 14); `timelineIsDailyNote` is what knows the set.
+  if (timelineIsDailyNote(row)) glyph.className = "ph ph-calendar-dot";
   mark.appendChild(glyph);
 
   const main = document.createElement("span");

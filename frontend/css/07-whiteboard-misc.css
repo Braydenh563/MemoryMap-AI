@@ -10774,10 +10774,27 @@ input[type="file"] {
    record is "the first three lines of the reading shown inline and one Open
    reading primary": the cap is those three lines at this size and line height,
    the box still scrolls for anyone who wants the rest in place, and reading it
-   properly is what the button beside the numbers is for. */
+   properly is what the button beside the numbers is for.
+
+   **One more line than that** (INBOX 289, the owner: "in the files subtab, I
+   want the expanded text box to be slightly taller as it is quite short
+   vertically"). Measured at 1440 before this: 64px of box against an 18px
+   line box, so 3.56 lines, and 3.56 is the number the report is about. The cap
+   is written as the old one plus exactly one line rather than as a new round
+   number, for two reasons: it says in the value itself that this is one more
+   line and not a re-guess, and it is the only form that stays one more line if
+   the text scale moves, since `--text-sm` and the 1.5 below are what the line
+   box is made of. 82px, 4.56 lines.
+
+   It stops at one because the box sits in a list of rows and every pixel it
+   gains is a pixel the next row moves down: measured with the fold open, the
+   row below starts at 472.3px of a 950px window at 1440, and at 788.3px of an
+   844px window at 390, so one line is what the phone has to spare and two is
+   not. The part-line at the bottom edge survives the change on purpose: it is
+   the only thing on screen saying there is more to scroll. */
 .library-file-reading-text {
   margin: var(--space-2) 0 0;
-  max-height: 4rem;
+  max-height: calc(4rem + var(--text-sm) * 1.5);
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

@@ -12,6 +12,7 @@ setup screen first.
 
 from __future__ import annotations
 
+import logging
 import secrets
 import time
 
@@ -21,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import crypto, vault
+from memorymap.core import crypto, diskspace, vault
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
@@ -213,8 +214,37 @@ def unlock(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
     _unlock_succeeded()
     # Unwrap the data key so private notes are readable for this session.
     vault_open = vault.open_with(session, body.password)
-    log_action(session, "unlocked", "user", user.id)
-    session.commit()
+    #: **A full disk must not lock you out of your own notebook.** Measured
+    #: (INBOX 266, item 6) on a data dir filled to 100%: this route answered
+    #: 507 and the app became unopenable, while every read endpoint behind it
+    #: was answering 200 perfectly well. Unlocking is a password check and an
+    #: in-memory token; the only writes near it are a vault row on the first
+    #: unlock after an upgrade and an audit line, and neither is worth the
+    #: notebook. Both are committed separately now so a failure costs only
+    #: itself, and only an out-of-space failure is swallowed: anything else
+    #: is still a real fault and still raised.
+    try:
+        session.commit()  # the vault row, when open_with had to create one
+    except Exception as exc:
+        if not diskspace.out_of_space(exc):
+            raise
+        session.rollback()
+        #: Never hold a key in memory that is not on disk. Private notes
+        #: written under a wrapped DEK that never got saved would be
+        #: unreadable on the next launch, which is worse than not being able
+        #: to open them now.
+        vault.close()
+        vault_open = False
+    try:
+        log_action(session, "unlocked", "user", user.id)
+        session.commit()
+    except Exception as exc:
+        if not diskspace.out_of_space(exc):
+            raise
+        session.rollback()
+        logging.getLogger("memorymap.auth").warning(
+            "unlocked without writing the audit line: the disk is full"
+        )
     return {"token": _issue_token(), "vault_open": vault_open}
 
 

@@ -10,7 +10,6 @@ core/security.py, which runs alongside the CSP from the same module.
 
 from __future__ import annotations
 
-import errno
 import logging
 import os
 import sys
@@ -69,6 +68,7 @@ from memorymap.core import (
     backup,
     bgtasks,
     deps,
+    diskspace,
     events,
     jobs,
     logbuffer,
@@ -447,16 +447,11 @@ def _register_error_handlers(app: FastAPI) -> None:
     #: and a missing table, and neither is this; matching the message is
     #: uglier than an error code and is what the driver actually gives us,
     #: since `sqlite3` exposes no stable constant for it.
-    def _is_out_of_space(exc: BaseException) -> bool:
-        seen = set()
-        while exc is not None and id(exc) not in seen:
-            seen.add(id(exc))
-            if isinstance(exc, OSError) and exc.errno == errno.ENOSPC:
-                return True
-            if "database or disk is full" in str(exc).lower():
-                return True
-            exc = exc.__cause__ or exc.__context__
-        return False
+    #: The recognition itself lives in `core/diskspace.py`, because the
+    #: pre-write guard below and this after-the-fact handler have to agree
+    #: about what "out of space" means, and a second copy of a two-shape
+    #: match is exactly the kind of thing that drifts.
+    _is_out_of_space = diskspace.out_of_space
 
     @app.exception_handler(OSError)
     async def _os_error_handler(request, exc: OSError) -> JSONResponse:  # noqa: ANN001
@@ -464,19 +459,9 @@ def _register_error_handlers(app: FastAPI) -> None:
             return await _unhandled_exception_handler(request, exc)
         return _out_of_space_response(exc)
 
-    def _out_of_space_response(exc: BaseException) -> JSONResponse:
+    def _out_of_space_response(exc: BaseException | None = None) -> JSONResponse:
         error_logger.error("out of disk space", exc_info=exc)
-        return JSONResponse(
-            status_code=507,
-            content={
-                "detail": "This computer has run out of disk space, so that could not be saved.",
-                "code": "out_of_space",
-                "hint": (
-                    "Free some space and try again. Nothing already in your "
-                    "notebook has been lost, and you can still read and export it."
-                ),
-            },
-        )
+        return JSONResponse(status_code=507, content=out_of_space_body())
 
     @app.exception_handler(Exception)
     async def _unhandled_exception_handler(_request, exc: Exception) -> JSONResponse:
@@ -491,6 +476,105 @@ def _register_error_handlers(app: FastAPI) -> None:
             status_code=500,
             content={"detail": "Internal error", "code": "internal", "ref": ref},
         )
+
+
+#: **"The disk is full" is not something a person can act on; "your notebook
+#: is on /home/you/.local/share, which has 4.2 MB left, free about 46 MB" is.**
+#: The owner asked for exactly that (INBOX 266, item 6: "which disk, roughly
+#: how much is needed, what to delete"), so the sentence is built from the
+#: numbers rather than written once and frozen. One function, because the
+#: guard that refuses a write before it starts and the handler that catches
+#: one that already failed have to say the same thing.
+def out_of_space_body(wanted: int | None = None) -> dict:
+    data_dir = None
+    try:
+        data_dir = str(deps.get_config().data_dir)
+    except Exception:  # pragma: no cover - only before the config exists
+        pass
+    free = diskspace.free_bytes(data_dir) if data_dir else None
+    where = f" Your notebook is in {data_dir}." if data_dir else ""
+    room = f" There is {diskspace.human_bytes(free)} free there." if free is not None else ""
+    need = ""
+    if wanted is not None and data_dir:
+        short = diskspace.shortfall(data_dir, wanted)
+        if short:
+            need = f" Free up about {diskspace.human_bytes(short)} and try again."
+    return {
+        "detail": "This computer has run out of disk space, so that could not be saved.",
+        "code": "out_of_space",
+        "hint": (
+            f"{where}{room}{need or ' Free some space and try again.'}"
+            " Nothing already in your notebook has been lost, and you can still"
+            " read and export it. Emptying the trash, or deleting old backups"
+            " and exports in Settings, is usually the quickest space to find."
+        ).strip(),
+        #: The numbers as numbers too, so the Settings panel and any future
+        #: caller are not reduced to parsing the sentence.
+        "free_bytes": free,
+        "data_dir": data_dir,
+    }
+
+
+class SpaceGuard:
+    """Refuse a write that cannot fit, before a byte of it is read.
+
+    **Where it cannot be forgotten**, which is the whole point: every write
+    in this app arrives as one non-GET request with a `Content-Length`, so
+    one ASGI middleware covers the routes that exist, the routes added
+    tomorrow, and the ones nobody remembered to check. A per-call-site check
+    would have to be remembered fifty times.
+
+    What it buys over letting the write fail: the failure happens without
+    consuming the last megabyte. Measured (INBOX 266): a 50 MB upload onto a
+    nearly-full disk used to write until the filesystem was at zero, and at
+    zero even `POST /auth/unlock` answered 507, so the person could not open
+    their notebook at all. Refusing the upload up front leaves the disk
+    exactly as full as it was and the notebook exactly as usable.
+
+    GET and HEAD are never touched: reading a notebook needs no space, and
+    that stays true right down to the last byte.
+    """
+
+    #: Bodies below this are never weighed. A note, a preference, a
+    #: whiteboard stroke: at this size the arithmetic is noise next to the
+    #: 2 MB headroom, and weighing them only adds a way to refuse work the
+    #: disk could plainly do.
+    SMALL_BODY_BYTES = 64 * 1024
+
+    def __init__(self, app) -> None:  # noqa: ANN001
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001
+        if scope.get("type") != "http" or scope.get("method") in ("GET", "HEAD", "OPTIONS"):
+            await self.app(scope, receive, send)
+            return
+        wanted = _content_length(scope)
+        if wanted is not None and wanted > self.SMALL_BODY_BYTES:
+            try:
+                config = deps.get_config()
+            except Exception:  # pragma: no cover - before the config exists
+                config = None
+            if config is not None and not diskspace.has_room_for(config.data_dir, wanted):
+                logging.getLogger("memorymap.errors").error(
+                    "refused a %s-byte write: %s has %s free",
+                    wanted,
+                    config.data_dir,
+                    diskspace.free_bytes(config.data_dir),
+                )
+                response = JSONResponse(status_code=507, content=out_of_space_body(wanted))
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
+def _content_length(scope) -> int | None:  # noqa: ANN001
+    for name, value in scope.get("headers", ()):
+        if name == b"content-length":
+            try:
+                return int(value)
+            except ValueError:
+                return None
+    return None
 
 
 #: How long shutdown waits for the background pool's workers. Short: the only
@@ -641,6 +725,7 @@ def create_app() -> FastAPI:
         ),
     )
     app.add_middleware(security.OriginCheckMiddleware)
+    app.add_middleware(SpaceGuard)
     app.add_middleware(RequestPulse)
     app.add_middleware(
         security.SecurityHeadersMiddleware,

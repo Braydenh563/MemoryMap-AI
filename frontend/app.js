@@ -395,7 +395,18 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    const errMsg = typeof detail.detail === 'string' ? detail.detail : (JSON.stringify(detail.detail) || `Request failed (${response.status})`);
+    let errMsg = typeof detail.detail === 'string' ? detail.detail : (JSON.stringify(detail.detail) || `Request failed (${response.status})`);
+    //: **Out of space is the one failure the person can act on, so the part
+    //: that says how travels with it.** The server answers 507 with a
+    //: `hint` naming the folder, the room left and roughly how much to free
+    //: up (INBOX 266, item 6); every call site in this app toasts
+    //: `error.message` and nothing has ever read `hint`, so the actionable
+    //: half was being thrown away at this line. Appended here rather than
+    //: at fifty call sites, which is the only version that cannot be
+    //: forgotten by the next one.
+    if (response.status === 507 && typeof detail.hint === 'string' && detail.hint) {
+      errMsg = `${errMsg} ${detail.hint}`;
+    }
     if (!silent) {
       // Log HTTP errors so they always appear in Settings → Logs for debugging.
       recordBrowserLog("ERROR", [
@@ -32707,11 +32718,53 @@ async function renderBackups() {
 // /storage, so this app's own tests that treat GET /backups as a plain list
 // of backups don't have to change shape for a control that isn't about any
 // one backup.
+//: "4.2 MB", for a line a person reads rather than a byte count. The server
+//: has the same function (`core/diskspace.human_bytes`), because the notice
+//: below is drawn from raw bytes and the toast is built server-side.
+function humanBytes(count) {
+  if (typeof count !== "number" || !isFinite(count)) return "";
+  let size = count;
+  for (const unit of ["bytes", "KB", "MB", "GB"]) {
+    if (size < 1024 || unit === "GB") {
+      return unit === "bytes" ? `${Math.round(size)} bytes` : `${size.toFixed(1)} ${unit}`;
+    }
+    size /= 1024;
+  }
+  return "";
+}
+
+//: **Say it before a save is the thing that says it** (INBOX 266, item 6).
+//: Measured on a data dir filled to 100%: `data_dir_writable` stayed `true`
+//: throughout, so the one signal this panel had was a reassurance the app
+//: could not keep. The threshold is the server's (`low_space_bytes`), so
+//: there is one answer to "is this getting tight" rather than one per
+//: screen, and the line names the folder and what is worth deleting rather
+//: than only the number.
+function renderStorageSpaceNotice(storage) {
+  const line = $("storage-space-notice");
+  if (!line) return;
+  const free = storage && typeof storage.free_bytes === "number" ? storage.free_bytes : null;
+  const limit = (storage && storage.low_space_bytes) || 0;
+  if (free === null || !limit || free >= limit) {
+    line.classList.add("hidden");
+    line.replaceChildren();
+    return;
+  }
+  line.classList.remove("hidden");
+  setLabel(
+    line,
+    `ph:warning Only ${humanBytes(free)} left where your notebook is kept ` +
+      `(${storage.data_dir}). Deleting old backups below, or exports in ` +
+      "Import and export, is usually the quickest space to find."
+  );
+}
+
 async function renderBackupRetention() {
   const input = $("backup-retention");
   if (!input) return;
   const storage = await apiJson("/storage", { silent: true }).catch(() => null);
   if (!storage) return;
+  renderStorageSpaceNotice(storage);
   input.min = storage.backup_retention_min;
   input.max = storage.backup_retention_max;
   input.value = storage.backup_retention_count;

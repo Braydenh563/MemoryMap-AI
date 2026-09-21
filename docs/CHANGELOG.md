@@ -9,6 +9,31 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **What happens when the disk fills up, measured on a real full filesystem
+  and then made honest** (INBOX 266, item 6). An 80 MB tmpfs was mounted as
+  the data dir and filled to 100%, and the app driven against it. Saving a
+  note already answered 507 with a sentence about disk space, and reading,
+  searching and exporting kept working throughout; three things were wrong.
+  **Unlocking answered 507**, so a full disk locked the person out of their
+  own notebook entirely, over the audit row written beside the unlock: the
+  unlock's two writes are now committed separately and an out-of-space
+  failure costs only itself. **A failed backup left a zero-byte file named
+  like a backup**, which listed as one, passed `PRAGMA integrity_check`
+  (an empty file is a valid empty database), and would have replaced the
+  whole notebook with nothing if restored: backups are now written to a
+  `.partial` sibling and renamed into place only once whole, empty files
+  are never listed or counted as the daily backup, and restoring one is
+  refused by name. **A failed upload or export left its half-written file
+  behind**, orphaned and taking up the space the person was short of: all
+  three streaming writes now clean up after themselves. A single ASGI
+  guard (`SpaceGuard`) refuses a write larger than the room left before a
+  byte of it is read, so the app can no longer fill the last megabyte and
+  lock itself out; the 507 now names the folder, how much is free and
+  roughly how much to free up, that sentence reaches every toast in the
+  app, and `GET /storage` reports `free_bytes` beside `data_dir_writable`,
+  which stayed `true` throughout on a disk that was 100% full. Settings →
+  Data carries a `.notice notice-warn` line when the room left is low.
+
 - Four low-severity findings from a release security audit (INBOX 310).
   Restoring a backup now writes into a temp file beside the live database,
   runs `PRAGMA integrity_check`, and only then swaps it in atomically,

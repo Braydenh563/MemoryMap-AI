@@ -103,3 +103,31 @@ def test_the_routing_set_names_real_topics() -> None:
     known = {topic["id"] for topic in help_chat.HELP_TOPICS}
     named = {topic_id for _, topic_id in ROUTES}
     assert named <= known, f"these routes name topics that no longer exist: {sorted(named - known)}"
+
+
+def test_every_suggested_question_is_one_the_guide_can_answer() -> None:
+    """The other half of "the suggested questions are bad".
+
+    The panel offers three questions before you have typed anything, tailored
+    to the tab you are on (`ATLAS_STARTERS` and `ATLAS_TAB_STARTERS`, app.js).
+    A starter the guide cannot route is the worst question on the screen: the
+    app put it there, so pressing it and getting a vague answer teaches that
+    the whole feature is vague. Read from app.js rather than duplicated here,
+    so a starter added tomorrow is checked tomorrow.
+    """
+    import re
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(encoding="utf-8")
+    generic = re.search(r"const ATLAS_STARTERS = \[(.*?)\];", source, re.S)
+    per_tab = re.search(r"const ATLAS_TAB_STARTERS = \{(.*?)\n\};", source, re.S)
+    assert generic and per_tab, "the starter tables have moved; this test cannot find them"
+    questions = re.findall(r'"([^"]+\?)"', generic.group(1)) + re.findall(
+        r'"([^"]+\?)"', per_tab.group(1)
+    )
+    assert len(questions) > 10, f"only {len(questions)} starters found; has the shape changed?"
+    unanswerable = [q for q in questions if not help_chat.topics_for(q)]
+    assert not unanswerable, (
+        "the app offers these questions and the guide routes none of them:\n"
+        + "\n".join(unanswerable)
+    )

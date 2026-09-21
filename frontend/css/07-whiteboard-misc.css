@@ -9303,6 +9303,52 @@ input[type="file"] {
    An em is measured against the node's own size, so the glyph now grows and
    shrinks with the label it belongs to. The ratio is the one the token gave
    at the default size, so a node nobody has resized looks exactly as it did. */
+/* **A topic whose body is a picture** (MINDMAP_PLAN.md §12.1 item 2's fourth).
+   The plan asked for a second node shape rather than a label with a thumbnail
+   beside it, and this is where that happens: the body turns from a row into a
+   column, the picture takes the node's full width, and the label becomes the
+   caption under it. The node's own padding tightens so the picture reads as
+   the card's content rather than as something sitting inside a text box.
+
+   `data-body`, not a class, for the reason `data-shape` and `data-align` are
+   attributes: one of a set of exclusive layouts, and the absence of it is the
+   label-only node every map has always drawn. */
+.wb-map-node[data-body="picture"] {
+  padding: var(--space-2);
+  /* A picture node is as tall as its picture; the floor a one-word topic
+     needs would only add a band of empty card under a short one. */
+  min-height: 0;
+}
+
+.wb-map-node[data-body="picture"] .wb-map-node-body {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+/* The caption. Smaller than the topic's own text and centred under the
+   picture, which is what makes the two read as one card rather than as a
+   label that happens to have an image over it. `em`, so a topic given a text
+   size of its own (the Aa grip writes a px `font-size` on the node) scales its
+   caption with it, the same rule the icon beside it follows. */
+.wb-map-node[data-body="picture"] .wb-map-text {
+  text-align: center;
+  font-size: 0.9em;
+}
+
+.wb-map-node-picture {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* A cap, not a size: a tall photograph would otherwise make a node several
+     screens high on a map whose other topics are 44px. Wide pictures are
+     unaffected, and `cover` crops the overflow of a tall one rather than
+     letterboxing it into a band of background. */
+  max-height: 10rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
 .wb-map-node-icon {
   flex: 0 0 auto;
   color: var(--wb-branch);

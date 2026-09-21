@@ -3812,6 +3812,23 @@ function wbBuildMapNode(el, d) {
   //: shape and `wbPaintMapNode` a slightly different one. The class is set in
   //: the paint pass, which is the only place that knows what the node wears.
   body.append("i").attr("class", "wb-map-node-icon").attr("aria-hidden", "true");
+  //: **A topic whose body is a picture** (MINDMAP_PLAN.md §12.1 item 2's
+  //: fourth, Coggle's text/link/image/icon). Built for every node and hidden
+  //: when there is nothing to show, the same rule the icon above and the
+  //: chevron below already follow, and for the same reason: one element built
+  //: one way, rather than the enter selection and the paint pass each knowing
+  //: how to make one.
+  //:
+  //: `alt` is deliberately empty and the element is `aria-hidden`: the topic's
+  //: own label is right beside it and says what this node is, so a screen
+  //: reader that also announced the picture would say the same thing twice.
+  //: A caption nobody wrote is not a description.
+  body.append("img")
+    .attr("class", "wb-map-node-picture")
+    .attr("alt", "")
+    .attr("aria-hidden", "true")
+    .property("hidden", true)
+    .on("pointerdown", (event) => event.stopPropagation());
   const text = body.append("div")
     .attr("class", "wb-map-text")
     .attr("contenteditable", "false");
@@ -4180,6 +4197,30 @@ function wbPaintMapNodeStyle(node, d) {
       : "");
     icon.hidden = !name;
     icon.className = name ? `ph ph-${name} wb-map-node-icon` : "wb-map-node-icon";
+  }
+
+  //: The picture, and the node shape that goes with it (§12.1 item 2's
+  //: fourth). `data-body` rather than a class for the same reason `shape` and
+  //: `align` are attributes: it is one of a set of exclusive body layouts, and
+  //: the absence of the attribute is the label-only node this map has always
+  //: drawn. The stylesheet turns the body from a row into a column on it, so a
+  //: picture node is a second node *shape*, not a label with a thumbnail
+  //: wedged in beside it.
+  const picture = node.querySelector(".wb-map-node-picture");
+  if (picture) {
+    const url = typeof data.image === "string" ? data.image : "";
+    picture.hidden = !url;
+    if (url) {
+      // `mediaSrc`, never the raw url: media is served behind the unlock, so
+      // the token has to ride on the query string exactly as it does for a
+      // board image and a note's own attachment.
+      const src = mediaSrc(url);
+      if (picture.getAttribute("src") !== src) picture.setAttribute("src", src);
+      node.dataset.body = "picture";
+    } else {
+      picture.removeAttribute("src");
+      delete node.dataset.body;
+    }
   }
 
   const link = node.querySelector(".wb-map-link");
@@ -6231,6 +6272,64 @@ async function wbMapEditLink(node) {
   await wbMapSetNodeStyle(node, { link: trimmed });
 }
 
+//: **A picture in a topic** (MINDMAP_PLAN.md §12.1 item 2's fourth, the last
+//: of Coggle's text/link/image/icon).
+//:
+//: **Through `/media/upload`, which is the one upload path this app has.** A
+//: board image, a picture pasted onto a board and a note's own attachment all
+//: already take it, and it is what runs the captioning, the text extraction
+//: and what the orphan sweep in the Library counts: a second route for the
+//: same bytes would be a second place for all three to be forgotten. The node
+//: stores the url it hands back and nothing else, so a topic's picture is the
+//: same upload the Library already lists and the same one `/media` serves.
+//:
+//: In the topic's own menu rather than as a fifth button on the strip, for the
+//: reason §12.5 gives about the link beside it: the strip is how a topic
+//: *looks*, and a picture is what it is. The plan says the same thing from the
+//: other end ("a second node shape, not a fourth button on a strip").
+async function wbMapEditPicture(node) {
+  if (!node) return;
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.addEventListener("change", async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (!file.type || !file.type.startsWith("image/")) {
+      toast("That file is not a picture.", true);
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      // The same request `wbPlaceUploadedImage` makes, header and all: the
+      // token goes in `X-Auth-Token` because the body is a FormData and
+      // `apiJson` leaves the content type to the browser for one.
+      const uploaded = await apiJson("/media/upload", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: formData,
+      });
+      await wbMapSetNodeStyle(node, { image: uploaded.url });
+      renderWhiteboardNow();
+    } catch (err) {
+      toast(err.message || "Couldn't add that picture.", true);
+    }
+  }, { once: true });
+  input.click();
+}
+
+//: Take the picture off a topic, leaving the upload itself alone: the file is
+//: in the Library, and a topic is one of the places it can appear, not its
+//: home. Deleting the bytes from here would be a delete nobody asked for, in a
+//: menu whose other entries are all about this node.
+async function wbMapRemovePicture(node) {
+  if (!node || !node.data?.image) return;
+  await wbMapSetNodeStyle(node, { image: null });
+  renderWhiteboardNow();
+  toast("Picture removed from the topic.");
+}
+
 //: --- the node radial (MINDMAP_PLAN.md §12.1 item 3) ------------------------
 //:
 //: Coggle's idiom, and the reason §12.1 exists: the controls appear on the
@@ -7756,6 +7855,19 @@ function wbBuildContextMenu(kind) {
     );
     item(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
       "An http, https or mailto address", () => wbMapEditLink(mapNode));
+    //: The picture (§12.1 item 2's fourth), beside the link because the two
+    //: are the same kind of thing: what this topic *is*, rather than how it
+    //: looks. Reference nodes are left out, their body is the note, document
+    //: or file they stand for.
+    if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
+      item(mapNode.data?.image ? "Change this topic's picture…" : "Put a picture in this topic…",
+        "An image from this computer", () => wbMapEditPicture(mapNode));
+      if (mapNode.data?.image) {
+        item("Take the picture out of this topic", "The upload stays in the library", () =>
+          wbMapRemovePicture(mapNode)
+        );
+      }
+    }
     //: Only when there is a bend to drop (§12.1 item 5's third). A menu entry
     //: that is there for every topic and does nothing on nearly all of them is
     //: a row everybody reads past; this one appears exactly when the line has

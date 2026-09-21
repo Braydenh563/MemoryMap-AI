@@ -1988,7 +1988,11 @@ header#top-bar select,
    which is the wide badge with the digit shoved to its left edge that was
    reported. */
 #raw-results li.is-numbered > .record-index + * {
-  padding-right: calc(1.25rem + var(--space-2));
+  /* The mark's width plus a clear step either side of it, rather than a hair:
+     reported after the move ("text in the top line can clash with the
+     numbers"), and a title that ends one character short of a badge reads as
+     a collision even when it does not touch. */
+  padding-right: calc(1.25rem + var(--space-3));
 }
 
 /* Square, because it holds one or two digits and a mark that is wider than it
@@ -2007,6 +2011,14 @@ header#top-bar select,
   align-items: center;
   justify-content: center;
   line-height: 1;
+  /* **Opaque, so an overlap is never see-through** (asked for directly:
+     "maybe make the numbers more opaque?"). `--accent-soft` is a translucent
+     wash, which is right for a chip sitting in a row and wrong for a mark
+     floating over text: a title running under it showed through the digit.
+     The same colour composited onto the card, so it looks unchanged where
+     nothing is behind it. */
+  background-color: var(--card);
+  background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
 }
 
 .answer-grounding-label {

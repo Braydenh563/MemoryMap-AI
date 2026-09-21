@@ -366,7 +366,7 @@
            row two buttons wide. -->
       <form id="help-chat-form" class="row help-chat-form atlas-composer">
         <input type="text" id="help-chat-input" data-needs-model="Atlas answers with your utility model" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
-        <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="icon-only" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
+        <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="icon-only icon-primary" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
         <button type="button" class="icon-only ghost small graph-help-toggle"
           data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
           title="About this chat" aria-label="About this chat">
@@ -945,7 +945,7 @@
           <button role="tab" data-section="capture" aria-selected="false"
             aria-controls="capture" tabindex="-1"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture</button>
           <button role="tab" data-section="writing-room" aria-selected="false"
-            aria-controls="writing-room" tabindex="-1"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Write with AI</button>
+            aria-controls="writing-room" tabindex="-1"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Write with Atlas</button>
           <button role="tab" data-section="ask" aria-selected="false"
             aria-controls="ask" tabindex="-1"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask</button>
         </div>
@@ -1274,6 +1274,13 @@
                        rather than to a second copy of it. -->
                   <button id="draft-continue-note" class="doc-dock-menu-item" type="button"
                     title="Bring a note you already have into the draft and carry on writing it"><i class="ph ph-pencil-line ph-lead" aria-hidden="true"></i> Carry on from a note</button>
+                  <!-- The desk's own model, changeable here rather than in
+                       Settings (decision 4: "easily altered" means not walking
+                       to Settings). The row opens the same sheet the Chat tab
+                       and the documents assistant open, against the same list,
+                       so the three surfaces cannot drift apart in wording. -->
+                  <button id="draft-model" class="doc-dock-menu-item" type="button"
+                    title="Pick the model this writing desk runs on"><i class="ph ph-cube ph-lead" aria-hidden="true"></i> Model for this feature</button>
                   <button id="draft-discard" class="doc-dock-menu-item" type="button"
                     title="Clear the desk: the thoughts, the draft and its earlier versions"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Discard this draft</button>
                 </div>
@@ -3603,6 +3610,12 @@
                      both are worth having. -->
                 <button id="doc-history" class="menu-item doc-dock-menu-item" type="button"
                   title="Every version this document has had, and a way back to any of them"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History</button>
+                <!-- The AI assistant's own model. In this menu rather than
+                     in the assistant's dialog head, because that head is two
+                     controls and a third would be new chrome; this is the
+                     menu the AI edit button already sits beside. -->
+                <button id="doc-ai-model" class="menu-item doc-dock-menu-item" type="button"
+                  title="Pick the model Atlas runs on in this document"><i class="ph ph-cube ph-lead" aria-hidden="true"></i> Model for this feature</button>
                 <button id="doc-extract" data-needs-model="Extracting notes needs the local AI" class="menu-item doc-dock-menu-item" type="button"
                   title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
@@ -7078,6 +7091,52 @@
                   installed, then falls back to your vision model. Scanned
                   PDFs also need the “Read scanned PDFs” extra, below in
                   Packages.
+                </p>
+              </div>
+
+              <!-- **A model per feature**, asked for directly: "allow the user
+                   to alter the model they use for that specific feature if they
+                   wish such as for the write with ai area, the chat tab and
+                   document ai assistant ... individually altered and reset and
+                   for there to be a mass reset".
+
+                   Here rather than only on each surface because this is where a
+                   mass reset makes sense: one list, every feature on it, and one
+                   button under it that says how many overrides it would clear.
+                   Each surface has the same picker in its own ⋯ as well, so
+                   changing one model never means walking to Settings.
+
+                   The rows are built in app.js from `/models/status`'s
+                   `feature_models`, which the server resolves, so a row can say
+                   "inherited" and name what it inherits without the frontend
+                   having to know which role each feature falls back to. -->
+              <div class="row help-head">
+                <h3>Model per feature</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="feature-models-help" aria-controls="feature-models-help" aria-expanded="false"
+                  title="About a model per feature" aria-label="About a model per feature">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Each of these runs on the model it inherits until you give it one of its own.</p>
+              <div id="feature-models-list" class="feature-models"></div>
+              <div class="row">
+                <button id="feature-models-reset" class="ghost small" type="button"
+                  title="Hand every feature back to the model it inherits"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset every feature to its default model</button>
+              </div>
+              <p id="feature-models-reset-note" class="muted"></p>
+              <div class="help-body hidden" id="feature-models-help" role="dialog" aria-label="About a model per feature">
+                <p>
+                  A feature left on “inherited” follows the chat model above, or
+                  the utility model where the feature is a background one, so
+                  changing your chat model changes it too. Give one a model of
+                  its own when the job is different: a bigger model for drafting,
+                  a small quick one for the Guide.
+                </p>
+                <p>
+                  Reset on a row hands that feature back to what it inherits.
+                  The button below does the same for every feature at once and
+                  says how many it will clear.
                 </p>
               </div>
             </div>

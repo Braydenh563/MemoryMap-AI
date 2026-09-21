@@ -2378,7 +2378,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    (INBOX 179: "'?' tooltip circle buttons are ovals again"). Measured
    across every tab, the Library's sub-tabs, the whiteboard, the documents
    editor and Settings: fourteen of fifteen were square, and `#draft-help`
-   in the Write with AI head came out 32x36, because
+   in the Write with Atlas head came out 32x36, because
    `#writing-room > .row:has(> h2) button` (an id, a class and an element)
    outranks `.graph-help-toggle`'s own 2rem and sets only the height. An id
    plus a class ties that selector and wins on file order, which this file
@@ -2499,16 +2499,23 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 }
 
 /* The Guide's thinking while it is thinking, above the answer it is working
-   towards (`helpChatStreamTurn`). A sign of life, not a transcript: clipped to
-   about two lines and scrolled to the newest text, so a model that reasons for
-   two hundred words does not push the panel around while it does it. It is
-   removed when the turn finishes; what stays is the answer. */
+   towards (`helpChatStreamTurn`).
+
+   **It is the chat transcript's own reasoning block now, not a clipped div**
+   (INBOX 287). This rule used to be the whole treatment: `max-height: 2.6em`
+   with `overflow: hidden`, measured mid-stream at 29px tall over 262px of
+   text, unlabelled, with no way to open it. The markup carries
+   `details.agent-step.step-thinking` and a `.thinking` body, so the summary,
+   the caret and the scrolling body all come from the rules those two families
+   already have (02-chat-graph.css, 01-forms-settings.css) and this rule is
+   only what is different here: it sits in a narrow panel, so its body is held
+   to a few lines rather than the transcript's fourteen. */
 .help-chat-think {
-  max-height: 2.6em;
-  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+
+.help-chat-think .thinking {
+  max-height: 7rem;
   font-size: var(--text-xs);
   line-height: 1.3;
-  white-space: pre-wrap;
-  margin-bottom: var(--space-2);
-  opacity: 0.75;
 }

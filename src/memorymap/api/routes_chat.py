@@ -1127,7 +1127,11 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         # else: so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
     )
-    model_manager = deps.get_model_manager()
+    #: The Chat tab's own model, if one is set (model_manager.FEATURES).
+    #: A view over the same manager, so everything downstream, the agent
+    #: loop included, goes on asking for `chat_model()` and gets this
+    #: tab's answer without knowing features exist.
+    model_manager = deps.get_model_manager().for_feature("chat")
     ollama = deps.get_ollama()
     ollama_running = ollama.is_running()
     conversational = not intent.needs_retrieval(prepared["intent"])
@@ -1808,7 +1812,11 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     {"type":"done"}
     """
     ollama = deps.get_ollama()
-    model_manager = deps.get_model_manager()
+    #: The Chat tab's own model, if one is set (model_manager.FEATURES).
+    #: A view over the same manager, so everything downstream, the agent
+    #: loop included, goes on asking for `chat_model()` and gets this
+    #: tab's answer without knowing features exist.
+    model_manager = deps.get_model_manager().for_feature("chat")
     history = [turn.model_dump() for turn in body.history]
     persona_prompt = _resolve_persona(body.persona, session)
     mode = _resolve_mode(body.mode)

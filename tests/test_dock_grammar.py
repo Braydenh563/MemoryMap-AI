@@ -64,7 +64,7 @@ ON_THE_GRAMMAR = {
     "notes",
     "timeline",
     "reminders",
-    # The Notes tab's Write with AI sub-tab (WORLD_CLASS_PLAN D16): its head
+    # The Notes tab's Write with Atlas sub-tab (WORLD_CLASS_PLAN D16): its head
     # was an h2 and a lone round '?' with no control bar at all, and the two
     # filled buttons it carried were one per column.
     "writing-room",

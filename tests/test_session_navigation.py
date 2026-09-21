@@ -5,7 +5,7 @@ Reported directly:
     "can you also make it so when the user begins a new session after logging
      into the app, it resets the navigation on all the tabs to the default
      subtabs?? Ive had times where I log into the app, click on the notes tab,
-     and the tab is selected on 'Write with AI' instead of 'Your Notes'
+     and the tab is selected on 'Write with Atlas' instead of 'Your Notes'
      because that must have been what I was on last."
 
 Which sub-tab you are on is not a preference; it is where you happen to be
@@ -14,7 +14,7 @@ a sub-tab you visited once a week ago, reads as the app being in a state you
 did not put it in.
 
 These are lints: there is no DOM here. The behaviour itself was checked in a
-browser: deep in Write with AI + Image Gallery → a reload keeps the place, a
+browser: deep in Write with Atlas + Image Gallery → a reload keeps the place, a
 lock/unlock and a fresh session both come back on Your Notes and All.
 """
 

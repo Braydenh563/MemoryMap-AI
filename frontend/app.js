@@ -15763,6 +15763,7 @@ function mountChatActionsMenu() {
           title: $("chat-compress")?.title,
           run: click("chat-compress"),
         },
+        featureModelMenuItem("chat"),
         { label: "ph:download-simple Export as Markdown", run: click("chat-export") },
         {
           //: Odysseus's "Save to Documents", which lands better here than it
@@ -30323,7 +30324,7 @@ const NOTES_SECTION_STORE = "notesSection";
 // --- a new session starts at the front of every tab ----------------------------
 //
 // Reported directly: "Ive had times where I log into the app, click on the
-// notes tab, and the tab is selected on 'Write with AI' instead of 'Your
+// notes tab, and the tab is selected on 'Write with Atlas' instead of 'Your
 // Notes' because that must have been what I was on last."
 //
 // **Which sub-tab you are on is not a preference; it is where you happen to
@@ -35801,6 +35802,7 @@ function renderSettings() {
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
+    renderFeatureModels(status);
     renderVisionModelPicker(status);
   renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
@@ -36549,7 +36551,16 @@ function renderChatModelPicker(status) {
 function renderChatActiveModelBadge() {
   const badge = $("chat-active-model");
   if (!badge) return;
-  const name = modelStatus && modelStatus.chat_model;
+  //: **The Chat tab's own model, which is not always the app's.** Since the
+  //: chat tab is a row in `model_manager.FEATURES` it can be pinned to a
+  //: model of its own, and a pill reading the global `chat_model` would then
+  //: name a model this tab is not using: the one thing this badge exists to
+  //: report, wrong, on the surface it reports for. The row is already
+  //: resolved by the server, so this is a lookup rather than a second rule.
+  const pinned = (modelStatus && modelStatus.feature_models || []).find(
+    (row) => row.key === "chat" && row.overridden
+  );
+  const name = (pinned && pinned.model) || (modelStatus && modelStatus.chat_model);
   badge.hidden = !name;
   //: The short form in the badge, the full id in the tooltip below, the
   //: badge is 22ch wide and a HuggingFace id is routinely longer than that.
@@ -36734,6 +36745,221 @@ function renderVisionModelPicker(status) {
     note.textContent =
       "Auto-detect: no installed model reports it can see images yet.";
   }
+}
+
+// --- a model per feature -----------------------------------------------------
+//
+// Asked for directly: *"allow the user to alter the model they use for that
+// specific feature if they wish ... individually altered and reset and for
+// there to be a mass reset."*
+//
+// The rows are drawn from `/models/status`'s `feature_models`, which the
+// server has already resolved: each row carries the model in use, what it
+// inherits, and whether the first of those is this feature's own choice. So
+// this file never has to know which role a feature falls back to, and the next
+// feature appears here by being added to `model_manager.FEATURES`, with no
+// change to any of the code below.
+//
+// The same data drives the inline picker in each surface's own ⋯, so the two
+// places a model can be changed are one list read twice and cannot disagree.
+
+//: The last rows the poll delivered. Read by the inline pickers, which open
+//: from a menu and cannot wait for a round trip before drawing themselves.
+let featureModelRows = [];
+let featureModelNames = [];
+
+function featureModelRow(key) {
+  return featureModelRows.find((row) => row.key === key) || null;
+}
+
+//: What a row says about itself under its name. This is the fact the control
+//: beside it cannot carry: a select showing "llama3.2" looks the same whether
+//: that name was chosen for this feature or arrived from the chat model.
+function featureModelState(row) {
+  return row.overridden
+    ? `Its own model: ${row.model}`
+    : `Inherited: ${row.inherits}`;
+}
+
+async function applyFeatureModel(key, name) {
+  const row = featureModelRow(key);
+  try {
+    await api("/models/feature-model", {
+      method: "POST",
+      body: JSON.stringify({ feature: key, name }),
+    });
+    const label = row ? row.label : "This feature";
+    toast(name ? `${label} now uses ${name}.` : `${label} is back on its default model.`);
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message || "Couldn't set that model.", true);
+    refreshModelStatus();
+  }
+}
+
+function renderFeatureModels(status) {
+  featureModelRows = status.feature_models || [];
+  featureModelNames = (status.installed_models || []).map((m) => m.name);
+  const list = $("feature-models-list");
+  if (!list) return;
+  list.replaceChildren();
+  for (const row of featureModelRows) {
+    const line = document.createElement("div");
+    line.className = "feature-model-row";
+    line.dataset.feature = row.key;
+    //: Read by the stylesheet, which tints the state line of a row that is on
+    //: a model of its own: the list's only job is to make those findable.
+    line.dataset.overridden = row.overridden ? "1" : "0";
+
+    const name = document.createElement("div");
+    name.className = "feature-model-name";
+    const label = document.createElement("span");
+    label.className = "feature-model-label";
+    label.textContent = row.label;
+    const state = document.createElement("span");
+    state.className = "feature-model-state";
+    state.textContent = featureModelState(row);
+    state.title = row.note || "";
+    name.append(label, state);
+
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", `Model for ${row.label}`);
+    select.title = `Model for ${row.label}`;
+    //: The "inherited" option names what it inherits, so the list can be read
+    //: without opening anything: every row says which model it is on.
+    fillModelSelect(
+      select,
+      featureModelNames,
+      { value: "", label: `Inherited: ${row.inherits}` },
+      row.overridden ? row.model : ""
+    );
+    select.addEventListener("change", () => applyFeatureModel(row.key, select.value));
+
+    //: Disabled until the row is overridden, because a reset on a row that is
+    //: already on its default is a control that does nothing when pressed.
+    const reset = smallButton(
+      "ph:arrow-counter-clockwise",
+      row.overridden
+        ? `Reset ${row.label} to the model it inherits`
+        : `${row.label} is already on the model it inherits`,
+      () => applyFeatureModel(row.key, "")
+    );
+    //: Named, because `enhanceSelect` wraps the select beside it in a shell
+    //: with a button of its own: "the first button in the row" stopped being
+    //: this one the moment the select was enhanced.
+    reset.classList.add("icon-only", "feature-model-reset");
+    reset.disabled = !row.overridden;
+
+    line.append(name, select, reset);
+    list.appendChild(line);
+  }
+
+  const count = Number(status.feature_models_overridden || 0);
+  const reset = $("feature-models-reset");
+  const note = $("feature-models-reset-note");
+  if (reset) {
+    //: The mass reset says how many it would clear and does nothing when the
+    //: answer is none, rather than reporting success over a no-op.
+    reset.disabled = count === 0;
+    reset.title = count
+      ? `Hand ${count === 1 ? "one feature" : `${count} features`} back to the model they inherit`
+      : "No feature has a model of its own yet";
+  }
+  if (note) {
+    note.textContent = count === 0
+      ? "No feature has a model of its own yet."
+      : count === 1
+        ? "One feature is on a model of its own."
+        : `${count} features are on models of their own.`;
+  }
+}
+
+async function resetAllFeatureModels() {
+  try {
+    const body = await api("/models/feature-models/reset", { method: "POST" });
+    const cleared = Number(body.cleared || 0);
+    toast(
+      cleared === 0
+        ? "Nothing to reset: every feature was already on its default model."
+        : cleared === 1
+          ? "One feature is back on its default model."
+          : `${cleared} features are back on their default models.`
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message || "Couldn't reset those models.", true);
+  }
+}
+
+//: **The inline picker, one sheet for every surface.** Decision 4: "easily
+//: altered" means not walking to Settings, and the way in is the surface's own
+//: ⋯ rather than a new control in its chrome. `openSheet` is DESIGN.md's
+//: recipe for a panel of choices and it is the one shape that works in all
+//: three places, two of which hold a `kebabMenu` and one a `details.dock-menu`
+//: that cannot nest a second menu inside itself.
+function openFeatureModelSheet(key) {
+  const row = featureModelRow(key);
+  if (!row) {
+    toast("Models aren't available yet. Open Settings, Models to check.", true);
+    return;
+  }
+  openSheet({
+    label: `Model for ${row.label}`,
+    name: `feature-model-${key}`,
+    build: (card, close) => {
+      const state = document.createElement("p");
+      state.className = "muted";
+      state.textContent = featureModelState(row);
+      card.appendChild(state);
+
+      const list = document.createElement("div");
+      list.className = "sheet-list";
+      list.appendChild(
+        sheetRow(
+          row.overridden ? "ph ph-arrow-counter-clockwise" : "ph ph-check",
+          `Inherited: ${row.inherits}`,
+          () => {
+            close();
+            if (row.overridden) applyFeatureModel(key, "");
+          }
+        )
+      );
+      for (const name of featureModelNames) {
+        const chosen = row.overridden && row.model === name;
+        list.appendChild(
+          sheetRow(chosen ? "ph ph-check" : "ph ph-cube", name, () => {
+            close();
+            if (!chosen) applyFeatureModel(key, name);
+          })
+        );
+      }
+      card.appendChild(list);
+      //: A backend that is not answering has no model list to offer, and the
+      //: sheet says so rather than showing one row and letting the reader
+      //: wonder where their models went.
+      if (!featureModelNames.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent =
+          "No models are installed, or the model server isn't answering.";
+        card.appendChild(empty);
+      }
+    },
+  });
+}
+
+//: The menu row every surface uses to reach the picker above. One label, one
+//: place, so the three surfaces cannot drift apart in wording.
+function featureModelMenuItem(key) {
+  const row = featureModelRow(key);
+  return {
+    label: "ph:cube Model for this feature",
+    //: A static title on purpose. These menus are built once and the model
+    //: can change under them, so the state is named by the sheet, which is
+    //: built at the moment it opens, rather than by a row that would go stale.
+    title: "Pick the model this feature runs on",
+    run: () => openFeatureModelSheet(key),
+  };
 }
 
 // Separate from the vision picker above because the jobs are separate, see
@@ -42534,6 +42760,8 @@ $("llm-provider-select").addEventListener("change", () => {
   $("llm-base-url").placeholder = defaults[$("llm-provider-select").value] || "Default address";
 });
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
+$("feature-models-reset").addEventListener("click", resetAllFeatureModels);
+$("draft-model").addEventListener("click", () => openFeatureModelSheet("writing"));
 $("vision-model-apply").addEventListener("click", applyVisionModel);
 $("ocr-model-apply")?.addEventListener("click", applyOcrModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);

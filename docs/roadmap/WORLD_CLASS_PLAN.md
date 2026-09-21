@@ -2233,3 +2233,70 @@ text, piper and kokoro for speech, evaluated on licence and on cost against
 this app's constraints. The evaluation is cheap and is worth having whether
 or not any of it is ever built.
 
+
+## 20. A model per feature (asked for directly, 2026-09-21)
+
+The owner: *"also allow the user to alter the model they use for that
+specific feature if they wish such as for the write with ai area, the chat
+tab and document ai assistant. allow these to be easily individually altered
+and reset and for there to be a mass reset for all individually altered ai
+model preferences."*
+
+Built 2026-09-21; the record is in HISTORY.md, "Moved from the plans". What
+stays here is the decisions, because they are what the next feature row is
+added against, and what is still open.
+
+### Decisions made
+
+1. **A second layer over the roles, not a replacement for them.**
+   `ai/model_manager.py` already has chat, utility, vision, ocr and embedding
+   roles. A feature override resolves to the feature's own model if one is
+   set and to the role it belongs to otherwise. One table, `FEATURES`, maps
+   each feature key to its role, and one seam, `for_feature(key)`, hands back
+   a manager view whose `chat_model()` / `utility_model()` answer for that
+   feature. A new feature is a row in that table, not a new setting, a new
+   route and a new control.
+2. **The first pass is four rows**: the Chat tab, the writing desk (Write
+   with Atlas), the documents AI assistant and the Guide. The Guide is in
+   because it is the same shape exactly, one surface, one model call, one
+   role to fall back to. **The skills runner is deliberately out**: a skill
+   run goes through `agent.run_agent` on `chat_model()`, the same loop the
+   chat tab's agent mode uses, so a "skills" row would have moved only
+   `skill_runner._replan`'s small recovery call and left the model that runs
+   every step where it was. Giving skills a model of their own means giving
+   `run_agent` a feature to run under, which belongs in AGENT_SKILLS_REFORM.
+3. **Settings is the canonical place**, because that is where a mass reset
+   makes sense: one list, a row per feature naming the model and whether it
+   is inherited, a per-row reset live only while that row is overridden, and
+   one reset for all of them that says how many it would clear.
+4. **Each surface also gets the picker in the menu it already has**, never a
+   new control in its chrome: the Chat tab's `kebabMenu`, the writing desk's
+   `details.dock-menu`, the documents editor's `details.dock-menu`. One
+   `openSheet` behind all three, so the wording cannot drift.
+5. **An unset feature stores absence, never the resolved name**, and resolves
+   through its role at read time. Storing the name would look identical on
+   the day it was written and then silently leave every untouched feature
+   behind the first time the chat model is changed in Settings.
+6. **The sub-tab is "Write with Atlas."** The tab button said "Write with AI"
+   while the heading of the panel it opens already said "Write with Atlas",
+   so the app contradicted itself on one screen.
+
+### Still open
+
+- **The feature list is inside `#models-config`**, which Settings hides whole
+  when no backend is answering. So with the model server down there is no way
+  to see or clear a feature override, and the app's own "no model" advice is
+  what shows instead. Defensible (every other model picker is in there too)
+  but worth revisiting if anyone reports it.
+- **The Guide's row is the answer to INBOX 288 but not to its cause.** Smart
+  model routing off silently moves the Guide, an interactive panel, onto the
+  chat model, because the switch is written for background jobs. Either the
+  switch's copy should say which surfaces it moves, or the Guide should stop
+  being one of them. A decision, not a bug fix, so it is written down here
+  rather than taken.
+- **A per-feature model is shown on the Chat tab and nowhere else.** The
+  chat pill (`#chat-active-model`) reads the pinned model now, but the
+  writing desk and the documents assistant say which model they are on only
+  inside their own menus. Neither has a pill to put it in, so this is a
+  design question (does a writing desk want a model badge in its dock?)
+  rather than an oversight.

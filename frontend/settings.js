@@ -3764,12 +3764,31 @@ async function helpChatStreamTurn({ pending, signal, body }) {
   pending.classList.remove("is-pending");
   pending.classList.add("is-streaming");
   pending.replaceChildren();
-  //: The thinking, live, in its own muted block above the answer. It is a
-  //: sign of life rather than a transcript, so it is clipped by CSS to the
-  //: last couple of lines and goes away when the turn is over: what stays is
-  //: the answer, which is the part worth reading twice.
-  const think = document.createElement("div");
-  think.className = "help-chat-think muted";
+  //: **The thinking, on the app's own streamed-reasoning recipe** (INBOX 287,
+  //: the owner: "the thinking box doesnt properly render in it either at
+  //: least while streaming").
+  //:
+  //: It used to be a bare `<div>` clipped by CSS to `max-height: 2.6em`.
+  //: Measured mid-stream on the running panel: 29px tall, holding 262px of
+  //: text, no label and no way to open it, so what was on screen was one and
+  //: a half lines from the middle of a sentence in grey. Nothing about that
+  //: said "this is the model reasoning", which is what "doesn't properly
+  //: render" is describing.
+  //:
+  //: `details.agent-step.step-thinking` holding a `.thinking` body is what
+  //: the chat transcript already uses for exactly this (app.js's
+  //: `startThinking`): a summary that says what it is, a caret, and a body
+  //: that scrolls rather than clips. It folds itself when the answer starts,
+  //: the same move `foldEarlierThinking` makes, so the reasoning is a step on
+  //: the way rather than a block the answer has to be read underneath.
+  const think = document.createElement("details");
+  think.className = "help-chat-think agent-step step-thinking";
+  think.open = true;
+  const thinkSummary = document.createElement("summary");
+  thinkSummary.textContent = "Thinking";
+  const thinkBody = document.createElement("div");
+  thinkBody.className = "thinking";
+  think.append(thinkSummary, thinkBody);
   think.hidden = true;
   const prose = document.createElement("div");
   pending.append(think, prose);
@@ -3787,9 +3806,12 @@ async function helpChatStreamTurn({ pending, signal, body }) {
     try { event = JSON.parse(line); } catch { return; }
     if (event.type === "thinking") {
       think.hidden = false;
-      think.textContent += event.text || "";
-      think.scrollTop = think.scrollHeight;
+      thinkBody.textContent += event.text || "";
+      thinkBody.scrollTop = thinkBody.scrollHeight;
     } else if (event.type === "delta") {
+      //: Folded the moment there is an answer to read, not when the turn
+      //: ends: by then the reader has already had to scroll past it.
+      if (think.open && !text) think.open = false;
       text += event.text || "";
       renderMarkdown(prose, text);
     } else if (event.type === "done") {

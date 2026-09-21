@@ -210,6 +210,10 @@ is doing.
 - **Any local model.** Ollama by default; any OpenAI-compatible server by
   setting a URL. Settings > Models shows the sampling parameters and
   starts each at the value the model's own file recommends.
+- **A model per feature, if you want one.** Chat, Write with Atlas, the
+  documents assistant and the Guide each run on the chat model until you
+  give one of them a model of its own, from Settings > Models or from that
+  surface's own menu. One button hands them all back.
 - **Small models are first-class.** Skills and tool use have a small-model
   mode that gives a 4B model one step and one tool at a time, with
   recovery when it skips a step.

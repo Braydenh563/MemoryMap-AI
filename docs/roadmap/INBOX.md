@@ -327,29 +327,6 @@ with its owner named in the entry.
     the question (`ai/extractive.py`). The standing half, refinement, is the
     session's own order of work from here.
 
-286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the
-    atlas guide panel looks disabled". Screenshot shows the guide panel's
-    Overview with the composer's control at the top right reading as greyed
-    out. Next step: measure the button's computed colour, opacity and
-    `disabled` state at rest, mid-stream and after a reply, against the
-    dock's own enabled reading; a control that is live but reads as dead is
-    the same bug as one that is dead.
-
-287. **The owner, 2026-09-21, verbatim:** "the thinking box doesnt properly
-    render in it either at least while streaming". The guide panel, while a
-    reply streams. Note that `_ThinkTagSplitter` gained four more tag
-    spellings and a stray-close-tag rule tonight (cb15a20), so reproduce on
-    the current head before theorising: the guide may be on a path that does
-    not use the splitter at all.
-
-288. **The owner, 2026-09-21, verbatim:** "also it doesnt use my utility
-    model as my utility model isnt a thinking model". The evidence is item
-    287's thinking box: if the guide is thinking, it is not on the utility
-    model. This was reported once before and recorded as fixed, so either it
-    regressed or the earlier fix covered a different call. Next step: assert
-    the model name that actually reached the provider for a guide turn, not
-    the setting.
-
 289. **The owner, 2026-09-21, verbatim:** "in the files subtab, I want the
     expanded text box to be slightly taller as it is quite short
     vertically". The extracted-text panel in Library, Files. Measure the

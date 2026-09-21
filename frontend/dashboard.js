@@ -1266,14 +1266,14 @@ function featureCatalog() {
       { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
       { name: "Attach to a message", desc: "Point a message at notes, documents, files, images or a map you already have.", run: () => { switchTab("chat"); $("attach-note").click(); } },
       { name: "Saved conversations", desc: "Every chat is kept, searchable, and can be picked up later.", run: () => switchTab("chat") },
-      { name: "Personas", desc: "Change the assistant's voice: Atlas, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
+      { name: "Personas", desc: "Change the voice Atlas writes in: its own, Coach, Analyst, or yours.", run: () => openSettingsModal("personas") },
       { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
-      { name: "Agent mode", desc: "Let the assistant use its tools, search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
+      { name: "Agent mode", desc: "Let Atlas use its tools, search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
       // The popup agent has the same capability as Chat's agent mode and is
       // reachable from every tab, which is exactly why it needs a row: a chord
       // nobody has been told about is not a feature anyone has.
-      { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens the assistant over whatever you are working on.", run: () => { closeFeatures(); toggleAgentPalette(); } },
-      { name: "What it remembers", desc: "See and edit the facts the assistant has kept about you.", run: () => openSettingsModal("memory") },
+      { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens Atlas over whatever you are working on.", run: () => { closeFeatures(); toggleAgentPalette(); } },
+      { name: "What it remembers", desc: "See and edit the facts Atlas has kept about you.", run: () => openSettingsModal("memory") },
       { name: "Web search", desc: "Optional, opt-in: the one feature that goes online.", run: () => switchTab("chat") },
       { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
       { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", run: () => openSettingsModal("preferences", "search-relevance-group") },
@@ -1380,7 +1380,7 @@ function featureCatalog() {
       { name: "Import markdown", desc: "Bring in notes from an Obsidian-style vault.", run: () => openSettingsModal("data") },
       { name: "Backups", desc: "Snapshot your notebook and restore it later.", run: () => openSettingsModal("data") },
       { name: "Models", desc: "Choose the chat, utility and embedding models.", run: () => openSettingsModal("models") },
-      { name: "AI tool permissions", desc: "Decide exactly what the assistant is allowed to do.", run: () => openSettingsModal("tools") },
+      { name: "AI tool permissions", desc: "Decide exactly what Atlas is allowed to do.", run: () => openSettingsModal("tools") },
       { name: "Background tasks", desc: "What the app is doing in the background, and what it has finished.", run: () => openSettingsModal("tasks") },
       { name: "Packages", desc: "The optional extras (OCR, speech, vision) and whether they are installed.", run: () => openSettingsModal("extras") },
       { name: "Account & security", desc: "Change your password, and what happens when the app locks.", run: () => openSettingsModal("account") },

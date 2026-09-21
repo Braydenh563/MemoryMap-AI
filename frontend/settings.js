@@ -3496,7 +3496,7 @@ const GUIDE_LINE = "How this app works, from its own help text";
 //: The persona hint's "(Atlas)" follows the name too.
 {
   const hint = document.getElementById("persona-placeholder-hint");
-  if (hint) hint.textContent = `Write {ai_name} where the assistant's name should go and it reads as the app's AI name (${AI_NAME}). Optional.`;
+  if (hint) hint.textContent = `Write {ai_name} where the name should go and it is replaced with ${AI_NAME}. Optional.`;
 }
 
 function helpChatAppendRow(row) {

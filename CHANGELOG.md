@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The app calls Atlas by name in eight more places. Five of them are the
+  Tools and features descriptions, which said "the assistant" while teaching
+  you what the app can do, and one was the persona hint explaining how to
+  write the name.
 - No phantom row under a table's header in the documents live view. Putting
   the caret in a header row grew the line from 29.2px to 54.8px, because the
   table is a grid whose rows were all implicit, so CodeMirror's own trailing

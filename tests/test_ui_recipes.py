@@ -2154,3 +2154,51 @@ def test_the_boards_menu_bar_gets_its_roles_and_its_keyboard_from_one_place() ->
         "wireMenuKeyboard no longer looks inside a `role=\"group\"`, so every "
         "menu written in markup loses its arrow keys silently"
     )
+
+
+def test_a_notice_is_the_recipe_and_not_a_second_private_box() -> None:
+    """DESIGN.md's recipe index, added 2026-09-21 with CHAT_PLAN Phase 1's
+    low-support line.
+
+    The app had exactly one "something worth knowing about what is on screen"
+    box, `.reindex-stale`, built inline with its own border, padding, radius
+    and ground. When a second surface needed the same thing there was nothing
+    to reuse, which is how a third and a fourth get drawn by hand and the
+    owner's "all the ui issues happen when new features are added" happens
+    again.
+
+    So: the recipe exists, it has exactly two tones, and nothing redraws it.
+    """
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    rule = re.search(r"\n\.notice \{(.*?)\n\}", css, re.S)
+    assert rule, ".notice has no rule; DESIGN.md's recipe index names it"
+    body = rule.group(1)
+    for declaration in ("border-radius: var(--radius-md)", "background: var(--accent-soft)"):
+        assert declaration in body, f".notice must carry `{declaration}`"
+    assert re.search(r"\n\.notice-warn \{", css), (
+        "the warn tone is `.notice-warn`, an edge rather than a fill"
+    )
+    warn = re.search(r"\n\.notice-warn \{(.*?)\n\}", css, re.S).group(1)
+    assert "background" not in warn, (
+        "`.notice-warn` sets an edge, never a fill: a filled warning band over "
+        "an answer reads as a failed answer, and it is not one"
+    )
+    #: A third tone would need a rule for when to use it, and DESIGN.md has
+    #: none. The index says two.
+    tones = set(re.findall(r"\n\.notice-([a-z]+) \{", css))
+    assert tones == {"warn"}, f"two tones and no more; found {sorted(tones)}"
+
+    #: And the box that used to be a class of one now uses it. This is what
+    #: keeps the recipe honest: a recipe with one caller is a private box with
+    #: a general name.
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert re.search(r'id="reindex-stale"[^>]*class="[^"]*\bnotice\b', html), (
+        "`#reindex-stale` was the app's only notice-shaped box and must be "
+        "drawn by the recipe, not beside it"
+    )
+    stale = re.search(r"\n\.reindex-stale:not\(\.hidden\) \{(.*?)\n\}", css, re.S)
+    assert stale, ".reindex-stale has no rule"
+    for gone in ("border:", "border-radius:", "background:"):
+        assert gone not in stale.group(1), (
+            f"`.reindex-stale` still sets `{gone}` itself; the recipe draws it now"
+        )

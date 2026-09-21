@@ -12702,10 +12702,52 @@ function numberMatchingRecords(target, numberFor) {
 //: corrections since Brief 23 while nothing in the browser wrote one). Left
 //: optional because the third caller rebuilds an old chat from storage, and
 //: a click on a source from last week is not evidence about today's ranking.
+//: How much of an answer the notebook actually backed, said out loud.
+//:
+//: CHAT_PLAN Phase 1's fourth gate line, and Brief 12's decision: under half
+//: the sentences supported, the app says so. The marks have always shown
+//: *which* sentences came from notes; nothing showed how many, so an answer
+//: with one cited sentence in six read, at a glance, exactly like one with six
+//: in six. That is the one thing a notebook that cites must not get wrong.
+//:
+//: **The threshold is the backend's, not this file's** (`grounding.support`,
+//: which sends `low` beside the numbers). Two places each choosing when an
+//: answer counts as thin is two places to disagree, and the copy here would
+//: then be describing a different answer from the one the marks describe.
+//:
+//: Placed above the answer rather than beside the chips below it: the chips
+//: are a key to marks somebody has already read, and this is a thing to know
+//: before reading. `.notice`, the app's recipe for exactly that
+//: (08-consistency.css), in its `notice-warn` tone, which is an edge and not a
+//: fill: a filled warning band would read as a failed answer, and it is not a
+//: failed answer, it is an answer with less behind it than usual.
+function renderAnswerSupport(answerEl, support) {
+  //: Every prose block of the turn may be passed (a skill run has one per
+  //: step); the notice belongs above the first.
+  const first = answerEl && answerEl.length ? answerEl[0] : answerEl;
+  if (!first || !first.parentElement) return;
+  const existing = first.parentElement.querySelector(":scope > .answer-support");
+  if (existing) existing.remove();
+  if (!support || !support.low) return;
+  const line = document.createElement("p");
+  line.className = "notice notice-warn answer-support";
+  line.setAttribute("role", "note");
+  const { supported = 0, sentences = 0 } = support;
+  setLabel(
+    line,
+    `ph:warning Only ${supported} of ${sentences} sentences here ` +
+      `${supported === 1 ? "comes" : "come"} from your notes. ` +
+      "The rest is the model's own writing, treat it as a draft."
+  );
+  first.parentElement.insertBefore(line, first);
+}
+
 function renderAnswerGrounding(
-  target, sentences, rawResults, answerEl = null, question = "", orderedSources = null
+  target, sentences, rawResults, answerEl = null, question = "", orderedSources = null,
+  support = null
 ) {
   if (!target) return;
+  renderAnswerSupport(answerEl, support);
   // The markers go in the answer itself; the chip row below is their key.
   // Both are built from the same `sentences` and the same numbering
   // (`citationNumbers`), so they cannot disagree about which note is number 2,
@@ -13607,6 +13649,7 @@ async function askQuestion(preset) {
   let answerRaw = "";
   let stopped = false;
   let groundingRawResults = []; // set by onMeta, read by onGrounding
+  let groundedSupport = null; // how much of the answer the notes backed
   //: Kept beyond the callback that receives them, because the answer element
   //: is rebuilt after the stream ends and the markers have to be put back.
   let groundedSentences = [];
@@ -13697,6 +13740,10 @@ async function askQuestion(preset) {
         //: chips were numbered with nothing to agree with, so the digits did
         //: not match the panel the foot drew underneath them.
         groundedSentences = event.sentences || [];
+        //: Remembered with them and drawn in the same pass, for the same
+        //: reason: the answer is still streaming when this arrives, so a
+        //: notice placed now would sit above prose that is still growing.
+        groundedSupport = event.support || null;
       },
     });
 
@@ -13756,7 +13803,8 @@ async function askQuestion(preset) {
           groundingRawResults,
           answerBox,
           question,
-          answer.sources
+          answer.sources,
+          groundedSupport
         );
       }
       renderAskAnswerFoot(answer, answerMeta);
@@ -20998,7 +21046,9 @@ async function sendChatMessage(preset, opts = {}) {
           bubble.querySelectorAll(".bubble-answer"),
           //: The turn's own question, so opening a source here teaches the
           //: search the same thing it learns from the Ask tab.
-          question
+          question,
+          null,
+          event.support || null
         );
       },
       onPlan: (event) => {
@@ -37315,9 +37365,14 @@ function renderReindex(status) {
     const worth = !running && stale >= threshold;
     staleLine.classList.toggle("hidden", !worth);
     if (worth) {
-      staleLine.textContent =
-        `${stale} notes have been added or removed in bulk since the last rebuild, ` +
-        "semantic search may be missing them.";
+      //: Through `setLabel`, because `.notice` carries its icon as a child
+      //: element (the recipe, 08-consistency.css) and `textContent` would wipe
+      //: it and print the token.
+      setLabel(
+        staleLine,
+        `ph:warning ${stale} notes have been added or removed in bulk since the ` +
+          "last rebuild, semantic search may be missing them."
+      );
     }
   }
 }

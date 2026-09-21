@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- An answer the notebook barely backs says so. Under half its sentences
+  coming from your notes, a line above the answer now says how many did and
+  that the rest is the model's own writing. The marks under each sentence have
+  always said which ones were grounded; nothing said how few.
 - Typing the first word of a "/" command now finds it first. Every command
   label used to open with an emoji, so the menu's "starts with what you typed"
   ranking could never match anything and every search fell through to keyword

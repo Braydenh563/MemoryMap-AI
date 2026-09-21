@@ -4493,13 +4493,14 @@ select {
 /* The "worth rebuilding now" line in Settings → Search index. An accent
    ground rather than a warning colour: nothing is broken, there is simply
    something useful to do. See `renderReindex` in app.js. */
+/* The box itself is `.notice.notice-warn` now (08-consistency.css, the recipe
+   index): this was the app's only one-line "something is worth knowing here"
+   box and it was built inline, which is what made the second one go looking
+   for a recipe and find none. What is left here is the one thing that is this
+   surface's own and not the recipe's: it sits above a list rather than above
+   prose, so it keeps the roomier padding it was drawn with. */
 .reindex-stale:not(.hidden) {
-  margin: 0 0 var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--warn);
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--ink);
 }
 
 /* --- the Contents index: the two columns of a row ---------------------------

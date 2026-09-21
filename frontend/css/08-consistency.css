@@ -2519,3 +2519,56 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-size: var(--text-xs);
   line-height: 1.3;
 }
+
+/* --- a notice: one line the app says about what is on screen -----------------
+   DESIGN.md's recipe index, added 2026-09-21 with CHAT_PLAN Phase 1's
+   low-support line, which is the second surface to need this and the first to
+   go looking for a recipe. The first was `.reindex-stale` (01-forms-settings),
+   a class of one built inline; it now uses this, which is how a recipe earns
+   the name rather than being a second private box with the same job.
+
+   What a notice is, and what it is not. It is the app speaking about the thing
+   beside it: the search index is stale, this answer is mostly the model. It is
+   not an error (a toast), not help (`data-help-for`), and not an empty state
+   (`.empty-state`, which replaces content rather than annotating it). One
+   short line, an icon from the vendored set, and a tone.
+
+   Two tones and no more, because a third would need a rule for when to use it:
+   `.notice` is something worth knowing, on the accent ground the app already
+   uses for "there is something useful to do here"; `.notice-warn` is something
+   worth doubting, and takes the warn edge. Neither uses a warn *fill*: a
+   filled warning band over an answer reads as a failure, and the answer is
+   not a failure, it is an answer with less behind it than usual. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.notice.hidden {
+  display: none;
+}
+
+.notice-warn {
+  border-color: var(--warn);
+}
+
+/* The icon keeps its own line height so a notice that wraps to two lines
+   still has its mark against the first, not floating in the middle. */
+.notice > .ph {
+  flex: none;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.notice-warn > .ph {
+  color: var(--warn);
+}

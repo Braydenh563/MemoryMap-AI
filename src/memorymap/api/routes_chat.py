@@ -42,7 +42,7 @@ from memorymap.ai import (
     tools,
     vision_ocr,
 )
-from memorymap.ai.grounding import ground_answer_sentences
+from memorymap.ai.grounding import ground_answer_sentences, support as grounding_support
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, docview
@@ -1492,7 +1492,16 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         offline = extractive.answer(req.question, prepared["notes"])
         yield {"type": "answer", "delta": offline["text"]}
         if offline["grounding"]:
-            yield {"type": "grounding", "sentences": offline["grounding"]}
+            #: An extractive answer is every sentence lifted from a note, so
+            #: its support is whatever the same counter makes of it rather
+            #: than an assumed 100%: a sentence the joiner wrote between two
+            #: passages is not a passage, and should be counted as one that is
+            #: not backed.
+            yield {
+                "type": "grounding",
+                "sentences": offline["grounding"],
+                "support": grounding_support(offline["text"], offline["grounding"]),
+            }
         return
     else:
         messages = librarian.build_messages(
@@ -1792,7 +1801,19 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             }
             for row in grounding:
                 row["label"] = labels.get(row["note_id"], "")
-            yield event({"type": "grounding", "sentences": grounding})
+            #: **How much of the answer the notebook actually backs, beside
+            #: which sentences it backs.** CHAT_PLAN Phase 1's fourth gate
+            #: line: the marks have always said which sentences are
+            #: supported, and nothing said how many of them there were, so an
+            #: answer with one cited sentence in six read at a glance exactly
+            #: like one with six in six. The threshold travels with the
+            #: numbers (`grounding.support`) rather than being picked again
+            #: in the frontend.
+            yield event({
+                "type": "grounding",
+                "sentences": grounding,
+                "support": grounding_support(answer_text, grounding),
+            })
     if req.body.notes_only and answer_text:
         _save_ask_turn(req.session, req.question, answer_text, prepared, grounding)
     yield event({"type": "done"})

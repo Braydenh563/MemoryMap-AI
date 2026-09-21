@@ -383,6 +383,51 @@ def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
     return grounded
 
 
+#: Below this, an answer is mostly the model talking rather than the notebook
+#: answering, and the app says so. Brief 12's number, kept: "the 'I don't know'
+#: copy is triggered when < 50% of sentences are supported".
+LOW_SUPPORT_RATIO = 0.5
+
+#: And under this many scoreable sentences there is no ratio worth reading. One
+#: sentence is either marked or not, and calling a single unmarked sentence "0%
+#: supported" would put a warning over every one-line answer, including the
+#: honest short ones ("You have no notes about that."), which teaches people to
+#: ignore the warning.
+LOW_SUPPORT_MIN_SENTENCES = 2
+
+
+def support(answer: str, grounded: list[dict]) -> dict:
+    """How much of this answer the notebook actually backs.
+
+    CHAT_PLAN Phase 1's fourth gate line. The marks have always said which
+    sentences are supported; nothing said how much of the answer that was, so
+    an answer with one cited sentence in six looked, at a glance, exactly like
+    one with six in six.
+
+    Counted from `split_sentences` and `MIN_SENTENCE_WORDS`, the same two rules
+    `ground_answer_sentences` uses to decide what it will even try to mark, so
+    the denominator can never disagree with the thing it is a denominator of. A
+    sentence too short to score is not evidence of anything either way and is
+    left out of both halves.
+
+    `grounded` may hold two rows for one sentence (a sentence about two notes),
+    so the numerator is over distinct sentences, not over rows.
+    """
+    eligible = [s for s in split_sentences(answer or "") if len(_word_set(s)) >= MIN_SENTENCE_WORDS]
+    marked = {row.get("sentence") for row in (grounded or []) if row.get("sentence")}
+    hit = sum(1 for sentence in eligible if sentence in marked)
+    total = len(eligible)
+    ratio = (hit / total) if total else 0.0
+    return {
+        "supported": hit,
+        "sentences": total,
+        "ratio": round(ratio, 3),
+        #: The judgement travels with the numbers, so the frontend and any
+        #: future caller cannot each pick their own threshold.
+        "low": total >= LOW_SUPPORT_MIN_SENTENCES and ratio < LOW_SUPPORT_RATIO,
+    }
+
+
 def _mark(sentence: str, note_id: int, contents: dict[int, str]) -> dict:
     """One grounding row, with the passage located inside its note.
 

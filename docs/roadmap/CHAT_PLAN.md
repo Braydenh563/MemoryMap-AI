@@ -283,7 +283,45 @@ citing what it read is decision 1 and has been covered since it landed
 passage is measured in the browser by
 `scratchpad/ui-sweeps/citepassage.js`.
 
-**What is left of Phase 1: the fourth gate line, the low-support state.**
+**Phase 1's fourth gate line, the low-support state: built 2026-09-21.**
+`grounding.support(answer, grounded)` counts from the same `split_sentences`
+and `MIN_SENTENCE_WORDS` rules `ground_answer_sentences` uses to decide what
+it will even try to mark, so the denominator cannot disagree with the thing it
+is a denominator of, and it counts distinct sentences rather than rows (a
+sentence about two notes emits two). It rides on the `grounding` event as
+`{supported, sentences, ratio, low}`, **including the judgement**: two places
+each choosing when an answer is thin is two places to disagree, and the copy
+would then describe a different answer from the one the marks describe.
+Brief 12's threshold kept (< 50%), with a floor of two scoreable sentences,
+because calling a single unmarked sentence "0% supported" would put a warning
+over every honest one-line answer and teach people to ignore it.
+
+The line is placed **above** the answer, not beside the chips below it: the
+chips are a key to marks somebody has already read, this is a thing to know
+before reading. It uses `.notice.notice-warn`, a recipe added to DESIGN.md in
+the same commit (standing order 11) because the app had exactly one
+notice-shaped box, `.reindex-stale`, built inline; that box now uses the
+recipe too, which is what keeps a recipe from being a private box with a
+general name. The warn tone is an edge, not a fill: measured, background alpha
+0.14 against a `--warn` border, because a filled warning band over an answer
+reads as a failed answer and it is not one.
+
+Gates: `tests/test_answer_support.py` (six, including one that reads
+`routes_chat.py` and fails if a grounding event ships without support, and one
+that fails if a threshold appears in app.js) and
+`scratchpad/ui-sweeps/answersupport.js` (six, all green: placed above the
+answer, a Phosphor icon, the copy agreeing with itself at n=1, the edge tone,
+one box 34.8px tall, and nothing at all on a fully supported answer).
+
+**What is left of it:** a remembered turn shows no notice. The two live paths
+(the Ask stream and the Chat stream) carry `support` on the event; the two
+replay paths read a stored turn, and nothing stores it. The fix is a field on
+the saved turn, not a second counter in the frontend, which is the one thing
+this must not grow. Until then the notice appears when an answer arrives and
+is gone if you reopen the conversation, which is a real inconsistency and is
+written here rather than left to be rediscovered.
+
+**Superseded, the original note:**
 Brief 12 decided it ("unsupported sentences get a hollow mark and the 'I
 don't know' copy is triggered when < 50% of sentences are supported") and
 nothing in the app reads a support ratio: `grep` for `answer-citation` finds

@@ -13437,13 +13437,57 @@ function renderAskedQuestion(question) {
   holder.classList.remove("hidden");
 }
 
+//: **What the Ask tab shows while the model works** (INBOX 298, the owner:
+//: "there's no generating animation while the model is thinking and streaming
+//: in the ask tab either"). Measured before this: 250 of 250 frames with the
+//: answer actually streaming had nothing moving on them anywhere.
+//:
+//: Three separate holes, one shape. `#ask-status` was plain text, so the
+//: whole turn was a sentence sitting still. The typing dots went into the
+//: answer box and `onThinking` removes them on the first thinking delta, so
+//: a model that streams its reasoning (which is what the owner runs) loses
+//: the indicator before the answer even starts. And `.is-generating`, the
+//: app's one universal "this is the thing producing the output" ring, was
+//: added on the first *answer* token rather than when the work began.
+//:
+//: The Chat tab already solved all three and wrote down why (see
+//: `bubble.classList.add("is-generating")` and its comment): the ring goes on
+//: before the request and comes off in the `finally`, and a `progressLine`
+//: lives for the whole turn. So this is two existing components called from a
+//: surface that never called them, not a new control: DESIGN.md's recipe
+//: index has no room for a second way of saying "working".
+function askStatusText(text = "") {
+  const status = $("ask-status");
+  if (!status) return null;
+  status.replaceChildren();
+  status.textContent = text;
+  return status;
+}
+
+//: Returns the progress line itself, because the caller drives it: `setStatus`
+//: for the words and `setPhase("writing")` for the moment the dots become the
+//: writing trace. A fresh one per turn, since the component owns timers that
+//: stop themselves when it leaves the page.
+function askStatusBusy(text) {
+  const status = $("ask-status");
+  if (!status) return null;
+  status.classList.remove("error");
+  status.replaceChildren();
+  const line = progressLine(text);
+  status.appendChild(line);
+  return line;
+}
+
 async function askQuestion(preset) {
   const status = $("ask-status");
   const questionBox = $("question");
 
   const question = (preset ?? questionBox.value).trim();
   if (!question) {
-    status.textContent = "Type a question first!";
+    //: Sentence case and no exclamation mark: DESIGN.md's copy rule, and
+    //: `tests/test_no_em_dashes.py`'s neighbour rules exist because this one
+    //: kept coming back.
+    askStatusText("Type a question first.");
     status.classList.add("error");
     return;
   }
@@ -13455,10 +13499,12 @@ async function askQuestion(preset) {
   hide("retry-btn", "copy-btn", "speak-btn");
   setAsking(true);
   status.classList.remove("error");
-  status.textContent =
+  const progress = askStatusBusy(
     modelStatus && modelStatus.embedding_ready
       ? "Searching your notes by meaning…"
-      : "Searching your notes…";
+      : "Searching your notes…"
+  );
+  const say = (text) => (progress ? progress.setStatus(text) : askStatusText(text));
 
   // Reset the output areas for the new answer.
   const answerBox = $("ai-answer");
@@ -13477,6 +13523,12 @@ async function askQuestion(preset) {
   thinkingBox.classList.add("hidden");
   thinkingBox.open = false;
 
+  //: **On before the request, off in the `finally`.** The ring marks the
+  //: thing producing the output for as long as it is being produced: added on
+  //: the first token instead, it says nothing during the wait that is the
+  //: part actually worth marking, which is the Chat tab's own recorded bug
+  //: one surface over.
+  answerBox.classList.add("is-generating");
   let answerRaw = "";
   let stopped = false;
   let groundingRawResults = []; // set by onMeta, read by onGrounding
@@ -13514,7 +13566,7 @@ async function askQuestion(preset) {
         renderChatMeta(meta);
         answerMeta = meta;
         groundingRawResults = meta.raw_results || [];
-        status.textContent = "The model is writing…";
+        say("Reading your notes…");
       },
       onThinking: (delta) => {
         answerBox.querySelector(".typing-dots, .typing-label")?.remove();
@@ -13523,7 +13575,7 @@ async function askQuestion(preset) {
         thinkingBox.open = true;
         thinkingText.textContent += delta;
         keepAtBottom(thinkingText); // follow the reasoning, unless scrolled away
-        status.textContent = "The model is thinking…";
+        say("The model is thinking…");
       },
       onAnswer: (delta) => {
         //: The first answer token is the moment "waiting" becomes "writing",
@@ -13537,14 +13589,18 @@ async function askQuestion(preset) {
         // before the request because the dots own the "nothing yet" state.
         answerBox.classList.add("is-streaming", "is-generating");
         renderLive(answerRaw); // markdown renders AS it streams (user request)
-        status.textContent = "The model is writing…";
+        //: The indicator changes shape with the stage, not only its words: a
+        //: three-dot "thinking" animation beside the sentence "the model is
+        //: writing" is the exact mismatch reported of the Chat tab.
+        progress?.setPhase("writing");
+        say("The model is writing…");
       },
       onHint: (event) => {
         // Not an answer, so it does not go through the markdown renderer or
         // into the conversation: it is the box explaining itself.
         hinted = true;
         renderAskHint(answerBox, event);
-        status.textContent = "";
+        askStatusText("");
       },
       //: Collected, not drawn: it is a field of the answer object and is
       //: rendered with the rest of the foot once the stream is over. Drawing
@@ -13633,7 +13689,7 @@ async function askQuestion(preset) {
       //: screen. The same contract `offerFollowups` has in the Chat tab.
       renderAskFollowups(question, answerRaw);
     }
-    status.textContent = "";
+    askStatusText("");
     // Asking changes both quick-access lists, and, for a real (non-hint)
     // answer: the browsable history too.
     loadRecentQuestions();
@@ -13649,10 +13705,10 @@ async function askQuestion(preset) {
       //: armed paint outlives the turn it belongs to.
       renderLive.stop();
       renderMarkdown(answerBox, answerRaw); // keep what streamed so far
-      status.textContent = "Stopped.";
+      askStatusText("Stopped.");
       show("retry-btn", "copy-btn", "speak-btn");
     } else {
-      status.textContent = error.message;
+      askStatusText(error.message);
       status.classList.add("error");
     }
   } finally {

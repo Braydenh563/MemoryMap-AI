@@ -324,7 +324,11 @@ function waitForFake() {
       const streaming = !!answer && answer.classList.contains('is-streaming');
       const asking = !document.getElementById('stop-btn')?.classList.contains('hidden');
       if (!asking && !streaming) return requestAnimationFrame(look);
-      const dots = document.querySelector('#ai-answer .typing-dots, #ai-answer .typing-label');
+      // Anywhere on this surface, not only in the answer box: the point of
+      // the report is that *nothing* moves, so the probe must not be fussy
+      // about which of the app's indicators is the one doing the moving.
+      const dots = document.querySelector(
+        '#ai-answer .typing-dots, #ai-answer .typing-label, #ask-status .typing-dots, #ask-status .progress-line');
       const spinner = document.querySelector('#chat-results .spinner, #ask-status .spinner, .ask-composer .spinner');
       const busyChip = document.querySelector('#chat-results .chip-busy, #ask-status .chip-busy');
       const vis = (el) => {
@@ -336,10 +340,19 @@ function waitForFake() {
         t: Math.round(performance.now()),
         streaming,
         generating: !!answer && answer.classList.contains('is-generating'),
+        // The ring is a CSS animation on the answer box itself, so it has no
+        // element to find: the computed animation name is the only honest
+        // way to say whether it is actually running.
+        ring: !!answer && /generating-glow/.test(getComputedStyle(answer).animationName || ''),
         dots: vis(dots),
         spinner: vis(spinner),
         busyChip: vis(busyChip),
         status: (document.getElementById('ask-status')?.textContent || '').trim(),
+        // The progress line is a two-row grid (indicator, then the label with
+        // the musing under it): its own box says whether it laid out as that
+        // or collapsed into one run-on sentence.
+        statusH: Math.round(document.getElementById('ask-status')?.getBoundingClientRect().height || 0),
+        lineW: Math.round(document.querySelector('#ask-status .progress-line')?.getBoundingClientRect().width || 0),
       });
       requestAnimationFrame(look);
     };
@@ -373,6 +386,14 @@ function waitForFake() {
   console.log(`298 frames observed while asking: ${frames}, of them showing a busy affordance: ${withSomething}`);
   console.log(`298 frames with the answer actually streaming: ${streamFrames.length}, ` +
     `of them showing one: ${streamWith}`);
+  const statusH = Math.max(0, ...busy.map((b) => b.statusH || 0));
+  const lineW = Math.max(0, ...busy.map((b) => b.lineW || 0));
+  numbers.statusBoxTallest = statusH;
+  numbers.progressLineWidest = lineW;
+  console.log(`298 ask status box, tallest during the turn: ${statusH}px; progress line widest: ${lineW}px`);
+  const ringFrames = streamFrames.filter((b) => b.ring).length;
+  numbers.streamFramesWithRing = ringFrames;
+  console.log(`298 streaming frames with the generating ring running: ${ringFrames}`);
   console.log(`298 last status line: ${JSON.stringify(busy.length ? busy[busy.length - 1].status : '')}`);
   if (frames && withSomething === 0) findings.push('298: nothing on screen moves while the answer is being produced');
   else if (streamFrames.length && streamWith === 0) {

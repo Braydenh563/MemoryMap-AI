@@ -25,6 +25,10 @@
   board units off the path for all three shapes, a drag moves the centreline 74
   units, and the stored pair comes back inside the schema's bounds.
 - Both probes are in `scripts/gate.sh`'s sweep list by name.
+- The grip follows DESIGN.md's canvas-grip recipe, which gained the row and
+  two lints in `tests/test_ui_recipes.py` (every canvas grip cancels the
+  board's zoom; a grip drawn invisible does not take the pointer).
+- A picture topic draws as its picture in the board's own PNG/SVG export.
 
 ## Left to do
 
@@ -41,10 +45,11 @@
   not done is the strip's own placement: it opens 44px above the topic,
   several hundred pixels wide, and knows nothing about what is under it. If
   this is ever worth fixing it belongs to the strip, not to this item.
-- **A picture is not in the PNG or SVG export of a board.** `wbBuildExportSvg`
-  clones nodes into SVG; an `<img>` inside a `foreignObject` would need the
-  bytes inlined as a data URI to survive as a file. Out of scope here, and
-  §12.2 item 10 is where the export work lives.
+- **`scratchpad/ui-sweeps/mindmap3.js` times out** at `#wb-boards-generate`
+  (the "make a map from my notes" flow, the AI half OPEN.md already says no
+  sandbox here can exercise). Nothing in this work touches the boards list or
+  that button, and mindmap3 is not in the gate's sweep list, so it was left
+  alone; whether it is pre-existing was not checked against the base branch.
 - **Nothing resizes the node to the picture.** A picture node keeps whatever
   width the topic had (200 in the probe, 170 by default) and grows only in
   height. Widening a topic on upload was left out deliberately: the resize grip

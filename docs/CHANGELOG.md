@@ -298,6 +298,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A picture on a mind map topic is in the board's own PNG and SVG export
+  instead of an empty box with a caption.
 - The board's top bar answers a finger on a tablet. Between 600 and 820, the
   band whose own rule is that the pointer there is a finger, all thirteen of
   its controls were still 36px tall; and wherever the five menu buttons drop

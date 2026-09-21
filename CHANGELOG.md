@@ -17,6 +17,36 @@ below). Versioning is `0.x` while the app stabilises.
 - The guided tour no longer leaves a bright strip down the right of a dimmed
   page. Its four dim panels are fixed to the window but were sized to the
   content box, which stops at the scrollbar, so the gutter stayed lit.
+- The bottom status bar has three zones and its right end has an owner.
+  Reported: the navigation and undo buttons "keep getting pushed further and
+  further to the left". They were: the run after the spacer was one flat list,
+  so every control the bar gained was appended at its right end, and reading
+  it right to left gives the order they arrived in. Measured at 1440 against
+  the bar's content edge, redo ended 391px from it and the navigation group
+  467px. The bar now has state (what the app is holding or doing, left end,
+  and the only zone that shrinks), tools (the doorways, and the only zone that
+  grows) and control (back, forward, history, undo, redo), which ends the bar
+  and takes no new members. Redo is flush with the content edge and the
+  navigation group 76px from it, and a control added tomorrow lands in tools
+  and pushes tools along. On a phone, where the bar scrolls sideways, the
+  controls come first instead, so undo, redo and Back are reachable without
+  dragging the bar.
+
+- The dashboard's focused view puts the greeting and the search field on one
+  row. Focused had a 47.2px banner saying who you are and, 16px under it, the
+  37.2px field that is the only thing a stripped dashboard is reached for:
+  100.4px of head to say one thing and offer one control. The banner keeps its
+  width on the left and the field takes the rest of the line and the row's
+  height, so the head is 47.2px and the chrome above the widgets falls from
+  196 to 158.8px. Full and compact are unchanged, and a phone stacks the two
+  back up.
+
+- The text extracted from a file shows one more line. In Library, Files, the
+  box that opens under "Text extracted from this file" was 64px against an
+  18px line, so three and a half lines of a reading that can run to forty
+  pages. It is 82px, four and a half lines, which is as far as it can go
+  before the row below it leaves the screen on a phone.
+
 - Atlas answers about reminders, documents, notes, spaces and backups again.
   The help corpus had an entry for each of them, and the keyword match was
   written in the singular, so a question asked in the plural reached none of

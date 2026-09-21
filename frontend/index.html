@@ -815,6 +815,15 @@
 
   <!-- ======================= DASHBOARD TAB ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
+    <!-- The page's head: the banner and the way in. A wrapper with
+         `display: contents` at Full and Compact, so those two lay out exactly
+         as they did when these were siblings, and a flex row at Focused, where
+         the two share one line (INBOX 296). It exists in the markup at every
+         density rather than being built by JS for one of them, for the same
+         reason the densities are keyed off `data-density` and not classes: a
+         render that replaces the hero must not be able to lose the structure
+         around it. -->
+    <div class="dash-head">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
          with a live clock on the right. -->
     <section class="dash-hero" id="dash-hero">
@@ -850,6 +859,7 @@
       <span class="dash-find-text">Search your notes, documents, files and the app</span>
       <span class="dash-find-keys" aria-hidden="true"></span>
     </button>
+    </div>
     <!-- One-tap shortcuts to the things people do most -->
     <div class="dash-quicklinks" id="dash-quicklinks" role="group"
       aria-label="Quick actions"></div>
@@ -6239,103 +6249,139 @@
   </div>
 
   <footer id="status-bar" class="edge-fade">
-    <!-- The generated emblem, which followed the status dot down: it is an AI
-         presence marker and it belongs beside the thing that says what the AI
-         is doing, which is the reason it was next to it in the header. -->
-    <span id="ai-mark" class="emblem emblem-mark" data-status-slot="ai" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
-    <span class="ai-status-wrap" data-status-slot="ai">
-      <button id="ai-status" class="ai-status" type="button"
-        aria-expanded="false" aria-describedby="ai-status-popup">
-        <span class="ai-status-dot" aria-hidden="true"></span>
-        <span class="visually-hidden" id="ai-status-label">Checking what Atlas is doing</span>
-      </button>
-      <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
-        <strong id="ai-status-title"></strong>
-        <span id="ai-status-detail" class="ai-status-detail"></span>
+    <!-- **The bar has three named zones, in one order** (INBOX 307, the owner:
+         "I feel like the navigation and undo/redo buttons keep getting pushed
+         further and further to the left on the bottom bar, is there a better
+         way to restructure the right side of the bottom bar??").
+
+         He is describing a real drift and the history shows it: this run was
+         built as one flat list after the spacer, so every control added since
+         has been appended at the right end and pushed the pair before it left.
+         Measured at 1440 before this, in the order they were added: nav ended
+         467px from the right edge of the bar and redo 391px, behind Command
+         palette, Ask the agent, Guide and (added last, 2026-09-20) Find.
+
+         A nudge would put them back and the next feature would move them
+         again, so the answer is a rule with an owner, the same shape the
+         control docks already use (`tests/test_dock_grammar.py`):
+
+           state    what the app is holding or doing. Never pressed to get
+                    somewhere, so it takes the left end and shrinks first.
+           tools    the doorways: the palette hint, the agent, the guide,
+                    Find, the clock. **This is the only zone that grows.**
+           control  back, forward, history, undo, redo. Fixed membership,
+                    and it ends the bar.
+
+         `tests/test_status_bar_grammar.py` holds all three: the zones in that
+         order, no control loose in the bar, and nothing new allowed into
+         `control`. So a feature added tomorrow lands in `tools` and pushes
+         `tools` along; the pair at the end cannot move again. -->
+    <span class="status-zone" data-status-zone="state">
+      <!-- The generated emblem, which followed the status dot down: it is an AI
+           presence marker and it belongs beside the thing that says what the AI
+           is doing, which is the reason it was next to it in the header. -->
+      <span id="ai-mark" class="emblem emblem-mark" data-status-slot="ai" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
+      <span class="ai-status-wrap" data-status-slot="ai">
+        <button id="ai-status" class="ai-status" type="button"
+          aria-expanded="false" aria-describedby="ai-status-popup">
+          <span class="ai-status-dot" aria-hidden="true"></span>
+          <span class="visually-hidden" id="ai-status-label">Checking what Atlas is doing</span>
+        </button>
+        <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
+          <strong id="ai-status-title"></strong>
+          <span id="ai-status-detail" class="ai-status-detail"></span>
+        </span>
       </span>
+      <button id="status-notes" class="status-item" type="button" data-status-slot="notes"></button>
+      <button id="status-reminders" class="status-item" type="button" data-status-slot="reminders"></button>
+      <!-- Hidden until something is actually running. A slot that says "nothing
+           is happening" for hours is the decoration the caveat above warns
+           about; a slot that appears is a thing you notice. -->
+      <button id="status-task" class="status-item status-task hidden" type="button"></button>
+      <!-- The way back to the Agent Activity panel. It used to open itself on
+           every agent log line and there was no other way to reach it, so the
+           only two states were "in your face" and "gone for good". Log lines no
+           longer open it (app.js: `appendAgentLog`), so this slot is what makes
+           a finished run still reachable, and, like the job slot above, it
+           appears only once there is something to show. -->
+      <button id="status-activity" class="status-item hidden" type="button"></button>
+      <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On"><i class="ph ph-battery-full ph-lead" aria-hidden="true"></i> Saver On</span>
+      <!-- Offline badge. MemoryMap works offline by design, that is the whole
+           point of it: so this is not an error state and must not read as one.
+           What it tells you is narrower and genuinely useful: the two things
+           that DO need the network (web search, and any cloud model you have
+           configured) will not answer right now. Hence the neutral/warning
+           chip rather than the error colour.
+           `role="status"` so a screen reader hears it when it appears; the
+           markup for it was missing entirely while app.js already had the
+           online/offline listeners, so the feature could never show. -->
+      <span id="offline-indicator" class="chip warning hidden" role="status"
+        title="No internet connection: web search and any cloud model are unavailable. Your notes and local AI are unaffected."><i class="ph ph-wifi-slash ph-lead" aria-hidden="true"></i>Offline</span>
     </span>
-    <button id="status-notes" class="status-item" type="button" data-status-slot="notes"></button>
-    <button id="status-reminders" class="status-item" type="button" data-status-slot="reminders"></button>
-    <!-- Hidden until something is actually running. A slot that says "nothing
-         is happening" for hours is the decoration the caveat above warns
-         about; a slot that appears is a thing you notice. -->
-    <button id="status-task" class="status-item status-task hidden" type="button"></button>
-    <!-- The way back to the Agent Activity panel. It used to open itself on
-         every agent log line and there was no other way to reach it, so the
-         only two states were "in your face" and "gone for good". Log lines no
-         longer open it (app.js: `appendAgentLog`), so this slot is what makes
-         a finished run still reachable, and, like the job slot above, it
-         appears only once there is something to show. -->
-    <button id="status-activity" class="status-item hidden" type="button"></button>
-    <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On"><i class="ph ph-battery-full ph-lead" aria-hidden="true"></i> Saver On</span>
-    <!-- Offline badge. MemoryMap works offline by design, that is the whole
-         point of it: so this is not an error state and must not read as one.
-         What it tells you is narrower and genuinely useful: the two things
-         that DO need the network (web search, and any cloud model you have
-         configured) will not answer right now. Hence the neutral/warning
-         chip rather than the error colour.
-         `role="status"` so a screen reader hears it when it appears; the
-         markup for it was missing entirely while app.js already had the
-         online/offline listeners, so the feature could never show. -->
-    <span id="offline-indicator" class="chip warning hidden" role="status"
-      title="No internet connection: web search and any cloud model are unavailable. Your notes and local AI are unaffected."><i class="ph ph-wifi-slash ph-lead" aria-hidden="true"></i>Offline</span>
     <span class="status-spacer"></span>
-    <!-- Back/forward through the pages you have visited. Asked for directly,
-         then asked to live here rather than in the header, and specifically
-         to stay "distinct from the undo and redo buttons", which sit right
-         beside them. Two things do that work: caret icons against undo/redo's
-         u-turn arrows (a different shape, not just a different direction), and
-         the .status-nav rule's own divider marking them off as a separate
-         pair. They move you between pages; undo/redo change your notes. -->
-    <span class="status-nav" role="group" aria-label="Move between pages" data-status-slot="nav">
-      <button id="status-back" class="status-item icon-only" type="button" disabled></button>
-      <button id="status-forward" class="status-item icon-only" type="button" disabled></button>
-      <!-- Asked for directly: "if they are right clicked, a little popup
-           shows above with the navigation history to fast track back to a
-           place (or maybe it can be a little button next to it??)". Both:
-           right-clicking either Back or Forward opens the same popup this
-           button does. -->
-      <button id="status-nav-history" class="status-item icon-only" type="button"
-        aria-haspopup="menu" aria-expanded="false" aria-controls="status-nav-history-menu"
-        title="Navigation history" aria-label="Navigation history">
-        <i class="ph ph-caret-up ph-lead" aria-hidden="true"></i>
-      </button>
+    <span class="status-zone" data-status-zone="tools">
+      <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
+      <!-- Asked for directly: "make sure the user knows the popup agent exists
+           and can access it. through the tools and features popup, the command
+           pallate, settings, and maybe even the bottom status bar if toggled."
+           The palette entry and the Help topic covered the first two; this is
+           the bar. On by default rather than opt-in like the clock beside it,
+           because the whole point of the ask is discoverability, a control
+           nobody switches on advertises nothing, and it joins STATUS_SLOTS so
+           it can be hidden from Settings like every other slot here. -->
+      <button id="status-agent" class="status-item" type="button" data-status-slot="agent"></button>
+      <!-- The Guide, beside the agent, same shape (INBOX 207). The two are a
+           pair: one does things to your notes, the other explains the app, and
+           a person reaching for either is asking the same question, "who do I
+           ask". Splitting them across the header and the status bar was the
+           reason the Guide kept being reported as hard to find. Its own slot
+           key so it can be hidden on its own from Settings. -->
+      <button id="status-guide" class="status-item" type="button" data-status-slot="guide"></button>
+      <!-- Find anything, beside the pair above and for the same reason (INBOX
+           270). A search nobody can see is a search nobody uses, and this one
+           was worse than invisible: the engine behind it had no doorway at all.
+           Its own slot key so it can be hidden on its own from Settings. -->
+      <button id="status-find" class="status-item" type="button" data-status-slot="find"></button>
+      <!-- Off by default, unlike the STATUS_SLOTS group above (app.js): a
+           clock is not one of the bar's existing permanent landmarks, so it
+           does not appear for everyone the moment this shipped. Asked for
+           directly: "allow the user to choose to show the current time in the
+           bottom status bar." Was a <span> that "starts nothing", now a real
+           <button>, since a later ask gave it something to start: a detail
+           popover with seconds, the date and the timezone, none of which fit
+           a glanced-at HH:MM. -->
+      <button id="status-clock" type="button" class="status-item status-clock hidden"
+        aria-haspopup="dialog" aria-expanded="false" aria-controls="status-clock-detail"
+        aria-label="Current time: click or hover for the date, seconds and timezone"></button>
     </span>
-    <button id="status-undo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
-    <button id="status-redo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
-    <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
-    <!-- Asked for directly: "make sure the user knows the popup agent exists
-         and can access it. through the tools and features popup, the command
-         pallate, settings, and maybe even the bottom status bar if toggled."
-         The palette entry and the Help topic covered the first two; this is
-         the bar. On by default rather than opt-in like the clock beside it,
-         because the whole point of the ask is discoverability, a control
-         nobody switches on advertises nothing, and it joins STATUS_SLOTS so
-         it can be hidden from Settings like every other slot here. -->
-    <button id="status-agent" class="status-item" type="button" data-status-slot="agent"></button>
-    <!-- The Guide, beside the agent, same shape (INBOX 207). The two are a
-         pair: one does things to your notes, the other explains the app, and
-         a person reaching for either is asking the same question, "who do I
-         ask". Splitting them across the header and the status bar was the
-         reason the Guide kept being reported as hard to find. Its own slot
-         key so it can be hidden on its own from Settings. -->
-    <button id="status-guide" class="status-item" type="button" data-status-slot="guide"></button>
-    <!-- Find anything, beside the pair above and for the same reason (INBOX
-         270). A search nobody can see is a search nobody uses, and this one
-         was worse than invisible: the engine behind it had no doorway at all.
-         Its own slot key so it can be hidden on its own from Settings. -->
-    <button id="status-find" class="status-item" type="button" data-status-slot="find"></button>
-    <!-- Off by default, unlike the STATUS_SLOTS group above (app.js): a
-         clock is not one of the bar's existing permanent landmarks, so it
-         does not appear for everyone the moment this shipped. Asked for
-         directly: "allow the user to choose to show the current time in the
-         bottom status bar." Was a <span> that "starts nothing", now a real
-         <button>, since a later ask gave it something to start: a detail
-         popover with seconds, the date and the timezone, none of which fit
-         a glanced-at HH:MM. -->
-    <button id="status-clock" type="button" class="status-item status-clock hidden"
-      aria-haspopup="dialog" aria-expanded="false" aria-controls="status-clock-detail"
-      aria-label="Current time: click or hover for the date, seconds and timezone"></button>
+    <!-- The right end, and the only run in this bar with a fixed membership.
+         Nothing is added here: a new control is a doorway and belongs in
+         `tools` above, which is what keeps this pair where it is. -->
+    <span class="status-zone" data-status-zone="control">
+      <!-- Back/forward through the pages you have visited. Asked for directly,
+           then asked to live here rather than in the header, and specifically
+           to stay "distinct from the undo and redo buttons", which sit right
+           beside them. Two things do that work: caret icons against undo/redo's
+           u-turn arrows (a different shape, not just a different direction), and
+           the .status-nav rule's own divider marking them off as a separate
+           pair. They move you between pages; undo/redo change your notes. -->
+      <span class="status-nav" role="group" aria-label="Move between pages" data-status-slot="nav">
+        <button id="status-back" class="status-item icon-only" type="button" disabled></button>
+        <button id="status-forward" class="status-item icon-only" type="button" disabled></button>
+        <!-- Asked for directly: "if they are right clicked, a little popup
+             shows above with the navigation history to fast track back to a
+             place (or maybe it can be a little button next to it??)". Both:
+             right-clicking either Back or Forward opens the same popup this
+             button does. -->
+        <button id="status-nav-history" class="status-item icon-only" type="button"
+          aria-haspopup="menu" aria-expanded="false" aria-controls="status-nav-history-menu"
+          title="Navigation history" aria-label="Navigation history">
+          <i class="ph ph-caret-up ph-lead" aria-hidden="true"></i>
+        </button>
+      </span>
+      <button id="status-undo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
+      <button id="status-redo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
+    </span>
     <div id="status-clock-detail" class="status-clock-detail hidden" role="dialog" aria-label="Current date and time">
       <p id="status-clock-detail-date" class="status-clock-detail-date"></p>
       <p id="status-clock-detail-time" class="status-clock-detail-time"></p>

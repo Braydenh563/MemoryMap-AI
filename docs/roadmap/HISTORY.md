@@ -31704,6 +31704,79 @@ row and head of different lengths).
     the only one in three places, which is why the same report has now come in
     three times (274, 288, 304). It says which model answers now.
 
+289. **The owner, 2026-09-21, verbatim:** "in the files subtab, I want the
+    expanded text box to be slightly taller as it is quite short
+    vertically". The extracted-text panel in Library, Files. Measure the
+    panel's current height and what it would need to show one more line or
+    two without pushing the row below the fold.
+
+    **Fixed** (`55daeb2`). Measured at 1440 with the fold open on a
+    fourteen-page reading: the box was 64px against an 18px line box, so 3.56
+    lines. The cap is now the old one plus exactly one line, written as that
+    rather than as a new round number so it stays one more line if the text
+    scale moves: 82px, 4.56 lines. One line and not two because the box sits
+    in a list of rows, and with it open the row below starts at 490.3px of a
+    950px window at 1440 and 806.3px of an 844px window at 390, so the phone
+    has one line to spare and not two. The part-line at the bottom edge is
+    kept: it is the only thing on screen saying there is more to scroll.
+    `scratchpad/ui-sweeps/uitrio.js` measures it.
+296. **The owner, 2026-09-21, verbatim:** "improve the ui of the hero
+    section in the dashboard when on focused mode." Placed into
+    UI_MODERNISATION_PLAN on the day, and built the same day.
+
+    **Fixed** (`e34fe42`). His second report about this switch. The first
+    (INBOX 279) was that the hero "loses a lot" across the densities, and it
+    was answered: the greeting and the one number stay at every level and the
+    art and the secondary rows are what shrink, so the three heroes measure
+    157.2 / 99.6 / 47.2px at 1440, smallest at the level that shows least.
+    That change is right and is untouched.
+
+    What it left is a level whose banner is correct and does nothing.
+    Measured at 1440 on that head: a 47.2px strip carrying the greeting and
+    the one number, and 16px below it a 37.2px search field carrying the only
+    thing a person on a stripped dashboard is reaching for. Two bands,
+    100.4px, to say who you are and offer one control. So focused is not less
+    of the hero, it is the one thing you came here for: the banner keeps its
+    width on the left and the search doorway takes the rest of the line and
+    the row's height. Head 47.2px, one row, and the chrome above the widget
+    grid falls from 196 to 158.8px. The two are stretched to one height and
+    share the banner's radius, or they read as a row and a leftover.
+
+    Full and compact are unchanged, measured: heroes 157.2 and 99.6px, chrome
+    593.6 and 427.9px, still two bands. The wrapper that makes it possible is
+    `display: contents` at those levels, so nothing moves in the DOM and the
+    tab order is the same at all three; at 390 the row wraps back into two
+    bands (head 140px). `scratchpad/ui-sweeps/uitrio.js` measures all of it.
+
+307. **The owner, 2026-09-21, verbatim:** "I feel like the navigation and
+    undo/redo buttons keep getting pushed further and further to the left on
+    the bottom bar, is there a better way to restructure the right side of
+    the bottom bar??" A drift complaint, which means the fix is a rule rather
+    than a nudge: something has to own the right end of that bar so the next
+    feature cannot push these along again. Related to INBOX 301, the app-wide
+    navigation and undo contracts, already placed in WORLD_CLASS_PLAN.
+
+    **Fixed** (`157e53c`). The drift is real and the history shows it: the run
+    after the spacer was a flat list, so every control the bar gained was
+    appended at its right end, and reading the run right to left gives the
+    order they were added (Find, 2026-09-20; Guide; Ask the agent; Command
+    palette). Measured at 1440 against the bar's content edge before: redo
+    ended 391px from it and the navigation group 467px.
+
+    So the bar has three zones with one order, as `data-status-zone` on a
+    direct child: `state` (what the app is holding or doing, left end, the
+    only zone that shrinks), `tools` (the doorways, and the only zone that
+    grows) and `control` (back, forward, history, undo, redo), which ends the
+    bar and has fixed membership. After, at 1440: redo flush with the content
+    edge (0px) and the navigation group 76px from it, and `tools` now grows
+    leftwards from `control`, so the next control cannot move the pair again.
+    Below 400 the bar scrolls sideways, where the right end is the part you
+    have to drag to reach, so `control` takes `order: -1` there: measured at
+    390, 587px of content in 390px with the control zone fully in view.
+    `tests/test_status_bar_grammar.py` holds the three rules and is in the
+    gate's lint set (checked against the fault it is for, a sixth button
+    appended after redo); the recipe is a row in `docs/DESIGN.md`'s index.
+
 ## INBOX resolved, 2026-09-21
 
 286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the

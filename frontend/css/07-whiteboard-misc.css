@@ -10774,10 +10774,27 @@ input[type="file"] {
    record is "the first three lines of the reading shown inline and one Open
    reading primary": the cap is those three lines at this size and line height,
    the box still scrolls for anyone who wants the rest in place, and reading it
-   properly is what the button beside the numbers is for. */
+   properly is what the button beside the numbers is for.
+
+   **One more line than that** (INBOX 289, the owner: "in the files subtab, I
+   want the expanded text box to be slightly taller as it is quite short
+   vertically"). Measured at 1440 before this: 64px of box against an 18px
+   line box, so 3.56 lines, and 3.56 is the number the report is about. The cap
+   is written as the old one plus exactly one line rather than as a new round
+   number, for two reasons: it says in the value itself that this is one more
+   line and not a re-guess, and it is the only form that stays one more line if
+   the text scale moves, since `--text-sm` and the 1.5 below are what the line
+   box is made of. 82px, 4.56 lines.
+
+   It stops at one because the box sits in a list of rows and every pixel it
+   gains is a pixel the next row moves down: measured with the fold open, the
+   row below starts at 472.3px of a 950px window at 1440, and at 788.3px of an
+   844px window at 390, so one line is what the phone has to spare and two is
+   not. The part-line at the bottom edge survives the change on purpose: it is
+   the only thing on screen saying there is more to scroll. */
 .library-file-reading-text {
   margin: var(--space-2) 0 0;
-  max-height: 4rem;
+  max-height: calc(4rem + var(--text-sm) * 1.5);
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -12671,6 +12688,65 @@ button.finder-row:hover,
 #tab-dashboard[data-density="focused"] .dash-wordmark,
 #tab-dashboard[data-density="focused"] .dash-clock {
   display: none;
+}
+
+/* The page head's wrapper (index.html, `.dash-head`). Out of the box tree at
+   every density but Focused, so Full and Compact lay the banner and the search
+   doorway out exactly as they did when the two were siblings of the page: one
+   band, then the next. `display: contents` rather than a second flex column,
+   because a column would introduce its own gap and margin collapsing between
+   two bands whose spacing is already right. */
+.dash-head {
+  display: contents;
+}
+
+/* **Focused is not less of the hero, it is the one thing you came here for**
+   (INBOX 296, the owner: "improve the ui of the hero section in the dashboard
+   when on focused mode"). His second report about this switch. The first one
+   (INBOX 279, the block above) was right that Focused had the wrong hero, and
+   fixed that: measured at 1440 afterwards the three heroes stood 157.2 / 99.6
+   / 47.2px, in the order the three levels can be read in.
+
+   What it left is a level whose banner is correct and does nothing. Measured
+   at 1440 on that head: the hero is a 47.2px strip carrying the greeting and
+   the one number, and 16px under it sits a 37.2px search field carrying the
+   only thing on a stripped dashboard a person is actually reaching for. Two
+   bands, 100.4px from the top of the hero to the bottom of the field, to say
+   who you are and offer one control.
+
+   So at this level the two are one row: the banner keeps its own width on the
+   left, the doorway takes the rest of the line and the row's height. The hero
+   stops being a strip above the useful part and becomes the row that holds it,
+   which is the only job a hero has at the level that shows least. Nothing is
+   hidden that was not already hidden, and nothing moves in the DOM, so the tab
+   order is unchanged: identity, then the way in, left to right.
+
+   `align-items: stretch` and the banner's own radius on the field: two
+   surfaces of the same height and the same corner read as one row, two
+   surfaces of different heights and corners read as a row and a leftover.
+   `flex-wrap` with a basis on the field rather than a width query, so a narrow
+   window puts them back in two bands without a second rule deciding where
+   narrow starts. */
+#tab-dashboard[data-density="focused"] .dash-head {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+/* The banner's own bottom margin is the gap between two bands; inside the row
+   it would be the row's own height plus 16px of nothing. The wrapper carries
+   it instead. */
+#tab-dashboard[data-density="focused"] .dash-head > .dash-hero {
+  flex: 0 1 auto;
+  margin-bottom: 0;
+}
+
+#tab-dashboard[data-density="focused"] .dash-head > .dash-find {
+  flex: 1 1 20rem;
+  width: auto;
+  border-radius: var(--radius);
 }
 
 /* **And the banner is a line, not a panel.** Focused kept a 133px hero, which

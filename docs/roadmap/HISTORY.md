@@ -9,6 +9,49 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From WORLD_CLASS_PLAN.md section 20: a model per feature
+
+Built 2026-09-21, answering the owner's ask: *"allow the user to alter the
+model they use for that specific feature if they wish such as for the write
+with ai area, the chat tab and document ai assistant. allow these to be
+easily individually altered and reset and for there to be a mass reset for
+all individually altered ai model preferences."* The decisions stay in the
+plan; this is what was built.
+
+**The seam.** `ai/model_manager.py` grew one table, `FEATURES`, a row per
+feature naming the role it falls back to, and one view,
+`ModelManager.for_feature(key)`, whose `chat_model()` / `utility_model()`
+answer for that feature. Four routes pass the view down
+(`routes_chat.py`, `routes_drafts.py`, `routes_documents.py`,
+`routes_help.py`); nothing downstream, the agent loop, the drafter or the
+help chat, learns that features exist. Reading, setting, clearing, the mass
+reset, the Settings list and the inline picker are all generic over the
+table, so the next feature is a row.
+
+**The controls.** Settings, Models lists a row per feature: the model in
+use, whether that is its own choice or inherited, a select, and a reset that
+is live only while that row is overridden. Under the list, one reset for all
+of them that names the count and does nothing at zero. Each of the three
+surfaces reaches the same `openSheet` picker from the menu it already had,
+the Chat tab's `kebabMenu` and the writing desk's and documents editor's
+`details.dock-menu`, so no surface gained a control in its chrome.
+
+**Measured** at 1440 (`scratchpad/ui-sweeps/featuremodels.js`, now in the
+gate's sweep list): four rows at 44px with 273px selects; changing one row
+leaves the other three reading "Inherited: llama3.2"; each per-row reset is
+disabled until its own row is overridden; the inline picker in all three
+surfaces sets the value the Settings row then shows; the mass reset clears
+three overrides and goes quiet. At 390 the row folds to a name over a select
+and a reset, 268x96 with a 216px select and no overflow.
+`tests/test_feature_models.py` asserts the model that reached the provider
+for a chat turn, a draft, a document edit and a guide turn, not a setting
+that round-tripped.
+
+**The rename.** The Notes sub-tab button said "Write with AI" while the
+heading of the panel it opens already said "Write with Atlas". It is "Write
+with Atlas" in both places now, and nothing in `frontend/` says the old name.
+
+
 ### From MINDMAP_PLAN.md §12.1 items 2 and 5: a picture in a topic, and a line that bends where you drag it
 
 Built 2026-09-21. The two items as the plan carried them:
@@ -31542,3 +31585,54 @@ row and head of different lengths).
 `frontend/css/06-timeline-dialogs.css`,
 `scratchpad/ui-sweeps/timelinedensity.js`,
 `scratchpad/ui-sweeps/timelinetable820.js`.
+## INBOX resolved, 2026-09-21
+
+286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the
+    atlas guide panel looks disabled". Screenshot shows the guide panel's
+    Overview with the composer's control at the top right reading as greyed
+    out. Next step: measure the button's computed colour, opacity and
+    `disabled` state at rest, mid-stream and after a reply, against the
+    dock's own enabled reading; a control that is live but reads as dead is
+    the same bug as one that is dead.
+
+    **Fixed** (`b94557c`). It was not disabled. Measured on the running panel
+    with a model connected: `disabled` false, opacity 1, background
+    `rgba(31, 36, 48, 0.12)`, the tonal fill that
+    `button.icon-only:not(...)` in 07-whiteboard-misc.css gives every
+    unclassed icon-only button, against the Chat tab's own Send at the accent
+    fill. `.icon-primary` is the general form of the exception that rule
+    already carried for one graph button. Both send buttons now measure
+    identical: accent fill, 0px border, 8.4px radius, the same glow.
+287. **The owner, 2026-09-21, verbatim:** "the thinking box doesnt properly
+    render in it either at least while streaming". The guide panel, while a
+    reply streams. Note that `_ThinkTagSplitter` gained four more tag
+    spellings and a stray-close-tag rule tonight (cb15a20), so reproduce on
+    the current head before theorising: the guide may be on a path that does
+    not use the splitter at all.
+
+    **Fixed** (`b94557c`). Reproduced on the current head with a scripted
+    stream. Measured mid-flight: a bare div clipped to 29px holding 262px of
+    text, unlabelled, with no way to open it, so what was on screen was a
+    line and a half from the middle of a sentence. Not the splitter: the
+    events arrived correctly, the box could not show them. It is
+    `details.agent-step.step-thinking` over a `.thinking` body now, the shape
+    the chat transcript already uses, and it folds itself when the first
+    answer delta lands: 152px while thinking, 34px after.
+288. **The owner, 2026-09-21, verbatim:** "also it doesnt use my utility
+    model as my utility model isnt a thinking model". The evidence is item
+    287's thinking box: if the guide is thinking, it is not on the utility
+    model. This was reported once before and recorded as fixed, so either it
+    regressed or the earlier fix covered a different call. Next step: assert
+    the model name that actually reached the provider for a guide turn, not
+    the setting.
+
+    **Answered, with the measurement** (`2340ce7`). Measured at the provider,
+    both guide routes: with smart model routing on, a guide turn reaches the
+    utility model, so the report does not reproduce in that configuration.
+    With smart model routing *off*, it reaches the chat model, which is the
+    one setting that produces exactly this symptom on a thinking chat model,
+    and it is the switch doing what its own label says ("for background
+    tasks"). The Guide is now a row in the per-feature model table, so it can
+    be pinned to a model whatever routing says.
+    `tests/test_feature_models.py` holds all three cases.
+

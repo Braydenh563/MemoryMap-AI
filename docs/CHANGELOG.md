@@ -6156,3 +6156,22 @@ condensed record of what each one delivered.
   model, a tasks manager.
 - **Wave O:** stale-cache and re-lock fixes, brand logo, tool toggles; fixed the
   agent hallucinating note creation; expanded Appearance settings.
+
+### A model per feature
+
+- The Chat tab, Write with Atlas, the documents AI assistant and the Guide
+  can each run on a model of their own. Settings, Models lists them: every
+  row says which model it is on and whether that is its own choice or
+  inherited, each row has a reset that is live only while it is overridden,
+  and one button under the list hands every feature back to its default and
+  says how many that is. The same picker is in each surface's own menu, so
+  changing one does not mean walking to Settings. A feature left alone
+  follows the model it inherits, so changing the chat model still changes
+  it.
+- The Notes sub-tab is called "Write with Atlas". The tab button said "Write
+  with AI" while the panel it opens was already headed "Write with Atlas".
+- The Guide's send button reads as pressable again. It was never disabled:
+  it was painted in the app's secondary tier while the field beside it was
+  at full strength.
+- The Guide's thinking is a labelled block that folds away when the answer
+  starts, rather than a line and a half of clipped grey text.

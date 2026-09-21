@@ -36429,7 +36429,16 @@ function renderChatModelPicker(status) {
 function renderChatActiveModelBadge() {
   const badge = $("chat-active-model");
   if (!badge) return;
-  const name = modelStatus && modelStatus.chat_model;
+  //: **The Chat tab's own model, which is not always the app's.** Since the
+  //: chat tab is a row in `model_manager.FEATURES` it can be pinned to a
+  //: model of its own, and a pill reading the global `chat_model` would then
+  //: name a model this tab is not using: the one thing this badge exists to
+  //: report, wrong, on the surface it reports for. The row is already
+  //: resolved by the server, so this is a lookup rather than a second rule.
+  const pinned = (modelStatus && modelStatus.feature_models || []).find(
+    (row) => row.key === "chat" && row.overridden
+  );
+  const name = (pinned && pinned.model) || (modelStatus && modelStatus.chat_model);
   badge.hidden = !name;
   //: The short form in the badge, the full id in the tooltip below, the
   //: badge is 22ch wide and a HuggingFace id is routinely longer than that.

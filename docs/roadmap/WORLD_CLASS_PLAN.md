@@ -2337,3 +2337,62 @@ added against, and what is still open.
   inside their own menus. Neither has a pill to put it in, so this is a
   design question (does a writing desk want a model badge in its dock?)
   rather than an oversight.
+
+## 21. Every failure names its way out (INBOX 272 part 1, 2026-09-21)
+
+The owner, verbatim: "make sure all features and alternatives are easily
+knoticable by and offered for the user. like if the embedding model fails
+or has an error, it suggests to download nomic-embed-text. if duck duck go
+is rate limiting it automatically tries searxng and if it isnt installed it
+suggests it. and same for many other instances." INBOX 272 called this a
+class, not the two named examples, and asked for a survey before any of
+them were written. This is that survey, done before any code in this
+session, grep against the running app's own source rather than assumed.
+
+### What the survey found
+
+The two named examples, and most of the class around them, were already
+built, several sessions deep: `core/extras.py` is a real remedy registry
+(an allowlist of installable packages, each with what it buys, its size and
+a one-click Settings, Extras install/remove, some auto-installing their own
+system binary too), and three separate subsystems already try a working
+alternative before reporting failure. Two genuine gaps remained, both fixed
+this session (see "Built, 2026-09-21" below): Agent mode silently downgrading
+to plain Q&A with nothing on screen to say so, and `requirements.txt`'s own
+list of extras having drifted behind `core/extras.py`'s.
+
+| # | Where (file : line) | What the person sees today | Alternative tried first? | Remedy offered | Status |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `ai/ollama_client.py` `embed()`, chat model picked as the embedding model (HTTP 400/501) | "'{model}' can't create embeddings: it looks like a chat model... Download and select a dedicated embedding model such as 'nomic-embed-text'" | n/a (the fault is the choice itself) | Names `nomic-embed-text`, and Settings, Models draws a one-click "switch to nomic-embed-text" button (`embedding-error-fix-row`, `frontend/app.js` ~36481) when Ollama is running and the fix has not already run | Built. `.status.error` styling, not the `.notice.notice-warn` recipe (DESIGN.md); found, not fixed |
+| 2 | `ai/ollama_client.py` `embed()`, model chosen but not pulled (HTTP 404) | "The embedding model '{model}' is selected but not downloaded. Settings, Models has a download button for it... 'nomic-embed-text' is the recommended one and is about 274 MB" | n/a | Names the button's location and the size before it downloads | Built, same styling note as row 1 |
+| 3 | `search/websearch.py` `search()`, DuckDuckGo serves a challenge page and a SearXNG address is configured | Nothing: the configured SearXNG answers instead, only a log line | Yes, SearXNG first | n/a, it worked | Built |
+| 4 | `search/websearch.py` `search()`, DuckDuckGo rate-limits and no SearXNG is configured | Nothing shown yet; a local `discover_searxng()` probe runs the four usual ports first | Yes, auto-discovery of a local SearXNG on the usual ports | If none answers: "DuckDuckGo is rate-limiting this app... no SearXNG instance was found... Settings, Web search has a one-press install for it" | Built |
+| 5 | `search/searxng_manager.py` / `search/searxng_install.py`, SearXNG install itself fails | pip/docker output, last real line surfaced (`_reason`) | n/a | Names the actual failure line, not pip's boilerplate | Built, mirrors `core/extras.py`'s own `_pip_reason` |
+| 6 | `core/docview.py` `_read_document()`, a PDF has no text layer and `pypdfium2` is not installed | "There's no text layer in this file, it's probably a scan... install "Read scanned PDFs" in Settings -> Extras, and pick a vision or OCR model in Settings -> Models" | n/a (nothing to try, the page genuinely cannot be read without the rasteriser) | Names the exact Extras entry and the model step after it | Built |
+| 7 | `core/docview.py`, same path but the PDF is corrupted/encrypted (pdfium opens it to 0 pages) | "This PDF couldn't be opened... re-exporting or re-saving it... usually fixes this" | n/a | A real fix (there's nothing to install; the file itself is bad), told apart from row 6 by a real reproduction the module's own comment credits to a user's log | Built |
+| 8 | `api/routes_files.py` ~1980-2036, an image has no OCR text and Tesseract isn't on PATH | Names the vision-model alternative when one is installed, else "Install Tesseract to also see where each one sits on the page" | Yes, a vision/OCR model's transcription is tried first when one exists | Names Settings, Extras' OCR entry, which also attempts the system Tesseract binary install itself (`extras.py` `_run_install`, `ocr.attempt_binary_install`) | Built |
+| 9 | `ai/agent.py` `run_agent()`, Agent mode asked for and the active model cannot call tools | Nothing at all: `routes_chat.py` caught the event and did a bare `pass`, the turn silently answered as plain Q&A | No, there is no alternative to try (a model either can or cannot call tools) | None reached the screen | **Gap, built this session**: see below |
+| 10 | `ai/skill_runner.py`, same failure mid-run (a skill's later step) | "The model stopped being able to use tools part-way through." (the step-failed card), no remedy | No | None named | **Gap, built this session**: the step's `reason` now carries the same remedy as row 9 |
+| 11 | `requirements.txt`'s "Optional extras" comment | Four of `core/extras.py`'s eight entries (`pypdfium2`, `markitdown`, `python-docx`, and by design not `llama-cpp-python`) were never named for a source install, only in Settings, Extras | n/a | The comment undercounted the app's own remedy registry | **Doc gap, fixed this session** |
+| 12 | `api/routes_models.py`, Ollama (or a custom OpenAI-compatible backend) not answering at all | "○ {backend} not detected" (`backendLabel` names the actual configured backend, not always "Ollama"); "install Ollama" advice only when the provider is actually Ollama | n/a | Install advice for Ollama; a custom base URL that is simply wrong (LM Studio on the wrong port, a typo) gets the same "not detected" line as "not installed", nothing distinguishes the two | Found, not fixed: worth a "check the address" phrase specific to a custom `base_url`, filed as a BACKLOG candidate rather than guessed at here |
+| 13 | `api/routes_update.py`, a self-update candidate | The candidate payload already carries `size` before any download starts | n/a | Size is known ahead of the download, matching the "say the size before it starts" rule | Built server-side; the frontend's own use of `candidate.size` was not traced this session, so "shown before the button is pressed" is not verified end to end |
+| 14 | `ai/librarian.py` `model_error_message()`, a mid-turn model failure that is not a known shape (not offline, not a tool-support failure) | "The model ({model}) couldn't answer this: {sanitised error}" | n/a | Deliberately does not guess a remedy for an error shape it does not recognise (the function's own docstring), the raw (sanitised) reason is the most honest thing to show | Built, and the restraint is itself a decision worth keeping: a wrong guessed remedy is worse than an honest unknown |
+
+The guided tour (`tour.js`, part 2 of INBOX 272) was not touched. It has
+sections, a dimmed backdrop and per-section replay already, and HANDOVER's
+"Now" line records it was repaired the same day; nothing here depends on it
+or changes it.
+
+### Not verified
+
+Every provider test here runs against `tests/fakes.py`'s fake Ollama client
+(CLAUDE.md section 4): the new `"unsupported"` event's shape was exercised
+against that fake, not against a real small model's actual tool-call
+refusal. The frontend half (the `.notice.notice-warn` line and its "Change
+the model" button actually rendering, at the right place, in a real
+browser) was reasoned from the existing `renderAnswerSupport` pattern it
+mirrors and from `node --check`, not observed: no Chromium/Playwright pass
+was run this session. Row 12 (a wrong custom provider URL) and row 13 (the
+update downloader's frontend display of `size`) were read, not fixed;
+they are candidates for the next pass through this table, not decisions
+taken here.

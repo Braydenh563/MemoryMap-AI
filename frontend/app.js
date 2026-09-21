@@ -522,9 +522,28 @@ async function apiJson(path, options = {}) {
 function showLockScreen(setupMode) {
   $("lock-overlay").classList.remove("hidden");
   $("lock-title").textContent = setupMode ? "Welcome to MemoryMap" : "Unlock MemoryMap";
+  //: **The trust moment, and it used to say nothing about trust.** This is the
+  //: first screen of the app and it asks for a credential; a person deciding
+  //: whether to hand one over is deciding whether to believe the product, and
+  //: the sentence that would persuade them ("it runs here, nothing goes out")
+  //: was three screens later, after the account already existed. It is here
+  //: now, along with the two facts that cost something to learn late: the
+  //: length rule, which was only ever shown after a failed attempt, and that
+  //: `/auth/setup` derives an encryption key from this password on the spot.
   $("lock-message").textContent = setupMode
-    ? "First run: choose a password (or PIN) to protect your notebook. You'll need it every time the app starts."
+    ? "A notebook that runs on this machine. Your notes stay here, and nothing goes online unless you turn it on later."
     : "Enter your password to unlock your notebook.";
+  //: Four is the backend's own floor (`Field(min_length=4)`,
+  //: routes_auth.py), quoted rather than restated so the two cannot drift.
+  const note = $("lock-setup-note");
+  if (note) {
+    note.textContent =
+      "Choose a password or PIN, at least four characters. You will need it every " +
+      "time the app starts. Ordinary notes are not encrypted and survive a reset, " +
+      "but anything you later mark private is locked with this password and cannot " +
+      "be recovered without it.";
+    note.classList.toggle("hidden", !setupMode);
+  }
   $("lock-submit").textContent = setupMode ? "Set password & start" : "Unlock";
   $("lock-overlay").dataset.mode = setupMode ? "setup" : "unlock";
   // One field in two modes (no separate setup form), autocomplete has to

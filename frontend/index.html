@@ -303,6 +303,19 @@
       <p id="lock-message" class="muted"></p>
       <input id="lock-password" type="password" placeholder="Password or PIN"
         aria-label="Password" autocomplete="current-password">
+      <!-- **What this password is for, said before it is chosen, not after.**
+           Measured on five fresh data directories, 2026-09-21: the first screen
+           a new person sees asked for a credential in 26 words that never said
+           what the app is, never said it runs on this machine, never stated the
+           four-character rule (that arrived only after a failed attempt) and
+           never mentioned that `vault.create` derives an encryption key from it
+           right there in `/auth/setup`. The good explanation of all of it
+           existed, nested inside Settings, Account and security, which is not
+           where somebody deciding whether to trust an app is looking.
+
+           Shown only while setting up, hidden on the ordinary unlock, where it
+           would be furniture. -->
+      <p id="lock-setup-note" class="muted lock-setup-note hidden"></p>
       <button id="lock-submit">Unlock</button>
       <p id="lock-error" class="status error" role="alert"></p>
     </div>

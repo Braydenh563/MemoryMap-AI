@@ -91,16 +91,21 @@ doing what its label says. The Guide is now a feature row, so it can be
 pinned whatever routing says. All three cases are pinned in
 `tests/test_feature_models.py`.
 
-## Where I stopped
+## The gate
 
-`scripts/gate.sh --full` was re-running when this was written. The run
-before it was green except for one failure,
+`GATE_BASE=claude/open-sections-a-b scripts/gate.sh --full`: **green**, on
+`5e50fe2`. `lints node-check ruff full-suite` all passed, none failed.
+
+The run before it failed one test,
 `tests/test_chat_resume_controls.py::test_the_guide_reads_a_stream_and_can_fall_back`,
-which pinned the source line of the old thinking div; `5e50fe2` moves that
-assertion onto the new shape and the test passes on its own. **If a fresh
-agent picks this up, run `GATE_BASE=claude/open-sections-a-b scripts/gate.sh
---full` once and trust nothing else about the suite until it is green.**
-`--changed` was green twice earlier (67 files selected).
+which pinned the source line that built the old thinking div, the shape
+INBOX 287 reported as broken. `5e50fe2` moves that assertion onto the new
+recipe (summary, body, fold) rather than deleting it. `--changed` was green
+twice earlier in the run (67 files selected each time).
+
+The only thing not covered by the gate is the sweep: run it with the app up,
+`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BASE=http://127.0.0.1:<port>
+node scratchpad/ui-sweeps/featuremodels.js`, exit 0 and `"findings": []`.
 
 ## Remaining, in order of how much it matters
 

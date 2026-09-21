@@ -861,3 +861,23 @@ def test_the_panel_does_not_promise_a_model_it_may_not_use():
     popover = index[index.index('id="help-chat-help"') :][:900]
     assert "smart model routing is on" in popover
     assert "on the chat model while it is off" in popover
+
+
+def test_the_composer_is_not_gated_on_a_model_the_guide_does_not_need(client):
+    """`offline_answer` is the whole point: with no model, `/help/ask` hands
+    back the app's own help text for what was asked and says so. Measured in
+    a browser with no model running, the field and Send carried
+    `data-needs-model` and were disabled, so the reply nobody needed a model
+    for could not be asked for. INBOX 203's own inventory says a control that
+    degrades without a model is not gated; this one degrades exactly that way.
+    """
+    index = (
+        Path(__file__).resolve().parents[1] / "frontend" / "index.html"
+    ).read_text(encoding="utf-8")
+    composer = index[index.index('id="help-chat-form"') :]
+    composer = composer[: composer.index("</form>")]
+    assert "data-needs-model" not in composer
+    #: And the route it posts to really does answer without one.
+    body = client.post("/help/ask", json={"question": "Where do reminders live?"}).json()
+    assert "Overdue" in body["content"]
+    assert body["sources"] == ["Reminders"]

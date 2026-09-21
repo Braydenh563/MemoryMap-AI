@@ -267,8 +267,15 @@ MODEL_GATED_CONTROLS = {
     "reminder-magic-add": "/reminders/parse",
     "chat-send": "/chat/stream",
     "chat-input": "/chat/stream",
-    "help-chat-send": "/help/ask",
-    "help-chat-input": "/help/ask",
+    #: **Atlas is not here, and that is this rule's own rule** (INBOX 304).
+    #: The guide's field and Send were gated with the rest of INBOX 203's
+    #: fifteen, and then `help_chat.offline_answer` was built precisely so the
+    #: guide does not need a model: with none running, `/help/ask` answers with
+    #: the app's own help text for what was asked, and says in its first line
+    #: that it is doing so. That is the paragraph two lines up, word for word,
+    #: so the two entries were removed rather than the paragraph amended.
+    #: Measured in a browser with no model: the composer was disabled, so the
+    #: one AI feature written to work without a model could not be typed into.
 }
 
 

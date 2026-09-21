@@ -25240,6 +25240,80 @@ hides nothing, because the reader sees its `.select-shell`.
     mode still flips, the suppression class is gone again a frame later, and
     the art canvas is rebuilt. **Not verified:** the desktop webview, which is
     the window the report came from; the numbers above are headless Chromium.
+## Moved from the plans, 2026-09-21
+
+### From WHITEBOARD_PLAN.md
+
+### Built: the board's top bar, six controls beside its menus, and menus a keyboard can drive, 2026-09-21
+
+Two things the plan's "Placed from INBOX" section held open, measured before
+and after at 1440, 1024, 820, 390 and 320 with a probe that is now gated
+(`scratchpad/ui-sweeps/wbtopbar.js`, in `scripts/gate.sh`'s sweep list).
+
+**The control count.** `#wb-topbar` carried **13** controls at 1440, 1024 and
+820, against the dock grammar's ceiling of seven and against every other dock
+in the app (notes 6, graph 6, library 5, chat 4, timeline 4, reminders 4).
+UI_MODERNISATION_PLAN Phase 8 names this bar as the menu-bar exception, with
+Insert, Edit, Arrange, View and Board as its zones, so the decision that was
+already made is that the five menu toggles are one zone; what was not decided
+is that the eight controls beside them may sit over the ceiling. Two of the
+eight had a menu to go to: **Rename this board** and **New board** are
+board-level actions and the Board menu is already where this board's own life
+is kept (export, kind, clear, delete, help). They moved into it as its first
+section, keeping their ids, so every listener in whiteboard.js is unchanged,
+including the one that disables Rename on the default scratch board, which for
+the first time has a rule saying what a disabled menu row looks like.
+
+After: **11** controls at 1440, 1024 and 820, **6** of them beside the five
+menus, and the bar is one row at all three widths as before.
+
+**The phone.** The bar ran **5px past its own content box at 390** and **75px
+at 320**, with `wb-add-note` 33.4px and `wb-fullscreen` 81.4px past the right
+edge at 320, which is to say unreachable. The plan's own entry ruled out the
+only fix that keeps all eleven (letting the halves wrap costs a row: 104px and
+two rows becomes 152px and three at 390 and 200px and four at 320, over a
+604px canvas) and asked instead for a bar that carries fewer things. Two leave
+below 600 and neither is lost:
+
+* **Full screen** is View, Zoom, Full screen, and on a phone there is no
+  browser chrome for it to hide.
+* **Arrange** is twelve alignment, distribution and order actions, every one
+  of which is on the context bar above a selection (decision 3, INBOX 12),
+  which is the only time any of them can act: the menu's own rows are labelled
+  "2+ selected" and "3+ selected".
+
+After: **7** controls at both phone widths, **0px** of overflow, nothing past
+the content box, and every control at or above the 44px touch floor (the probe
+resolves `--target-min` by laying an element out at it, because the token is
+declared in rem and reading the custom property gives 2.75).
+
+**The menus, found while gating them.** All five declared `role="menu"` and
+carried **nought** `role="menuitem"`: a screen reader was handed a menu of no
+items, and ArrowDown moved no focus in any of them. Tab stepped through the
+rows, because they are buttons, which is why driving the bar with a mouse
+never showed it. The roles now come from `wbStampMenuRoles` at boot rather
+than from 76 places in markup (`.wb-menu-item` as `menuitem`,
+`.wb-menu-section` as `group`, a row wrapping a native control as `none`,
+which is the honest answer for the View menu's colour well, grid select and
+four switches), and the keyboard from `wireMenuKeyboard`, the function every
+other menu in the app already used. Two fixes it needed to reach here: it can
+now see inside a `role="group"` as well as a `.menu-group`, and it skips an
+item with no box, which the View menu's two map rows are on an ordinary
+whiteboard. Escape now hands the focus back to the toggle that opened the
+menu, and only when the focus was in the menu or on that toggle, since Escape
+is also a board-wide key. A `.wb-menu-item` that owns its own listener now
+closes the menu too, which Rename, New board and the two map rows did not.
+
+After, at 1440 and at 320: five menus, 8/7/10/4/2 visible items, 0 buttons
+without a role, 0 children of `role="menu"` with a role ARIA does not allow,
+ArrowDown moving the focus in every one, Escape closing and returning the
+focus, an outside press closing. The recipe is in DESIGN.md's index with
+`tests/test_ui_recipes.py` as its ratchet.
+
+The board's own shortcuts were re-checked after the new keydown listener: V,
+H, R, O, A and T still pick their tools, Ctrl+F still opens the search bar and
+Shift+N the overview.
+
 ## Moved from the plans, 2026-09-20
 
 ### From AGENT_SKILLS_REFORM.md

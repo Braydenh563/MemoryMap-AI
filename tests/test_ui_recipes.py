@@ -2088,3 +2088,47 @@ def _rule_bodies(css: str, selector: str) -> list[str]:
 
 def _rules_for(css: str, selector: str) -> str:
     return "\n".join(_rule_bodies(css, selector))
+
+
+def test_the_boards_menu_bar_gets_its_roles_and_its_keyboard_from_one_place() -> None:
+    """A `role="menu"` with no `role="menuitem"` in it is an empty menu.
+
+    The board's menus are written in index.html rather than built by
+    `kebabMenu`, and that is deliberate: their rows are not all commands (the
+    View menu holds a colour input, a grid select and four switches, which a
+    command list cannot carry). The cost of writing a menu in markup is that
+    its ARIA is written 76 times or not at all, and it was not at all:
+    measured on the branch head with `scratchpad/ui-sweeps/wbtopbar.js`, all
+    five top-bar menus opened with `role="menu"` and nought `role="menuitem"`
+    in them, and ArrowDown moved no focus in any of them.
+
+    So the roles come from one function at boot and the keyboard from the same
+    one every other menu in the app uses. This is the ratchet on both: a menu
+    added to this bar next year is stamped and wired by the same loop, and a
+    role hand-written into the markup would be the drift that starts the next
+    one.
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    board = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+
+    menus = re.findall(r'<div id="(wb-[a-z-]+-menu)" class="wb-board-menu', html)
+    assert len(menus) >= 5, (
+        f"only {len(menus)} `.wb-board-menu` in the markup; the bar's five "
+        "menus and the context bar's are the shape this ratchet counts"
+    )
+    assert 'role="menuitem"' not in html, (
+        "a menu row carries a hand-written role in index.html; the roles come "
+        "from wbStampMenuRoles so one place decides (DESIGN.md, the recipe index)"
+    )
+    assert "function wbStampMenuRoles(" in board, "wbStampMenuRoles is gone"
+    for shape in ('".wb-menu-item"', '".wb-menu-section"'):
+        assert shape in board, f"wbStampMenuRoles no longer stamps {shape}"
+    assert "wbStampMenuRoles(menu)" in board and "wireMenuKeyboard(menu, toggle)" in board, (
+        "the board's menus are not stamped and wired from the one loop over "
+        "`.wb-board-menu-wrap`, so a menu added to the bar gets neither"
+    )
+    assert '> [role="group"] > [role="menuitem"]' in app, (
+        "wireMenuKeyboard no longer looks inside a `role=\"group\"`, so every "
+        "menu written in markup loses its arrow keys silently"
+    )

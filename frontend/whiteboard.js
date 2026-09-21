@@ -13513,8 +13513,9 @@ async function initWhiteboard() {
         //: anchored to this card resolves to the row that is actually in
         //: state rather than to the one it replaced.
         wbForgetLinkItems(wbState.nodes);
+      } else {
+        wbState.nodes.push(res);
       }
-      else wbState.nodes.push(res);
       wbScheduleRender();
     } catch (err) {
       //: `console.error("...", err)` printed "{}": an Error's `message` is not

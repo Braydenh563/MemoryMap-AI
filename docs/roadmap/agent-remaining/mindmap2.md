@@ -29,6 +29,14 @@
   two lints in `tests/test_ui_recipes.py` (every canvas grip cancels the
   board's zoom; a grip drawn invisible does not take the pointer).
 - A picture topic draws as its picture in the board's own PNG/SVG export.
+- Two bugs this work would otherwise have shipped, both fixed here: the orphan
+  media sweep counted only `kind = 'image'` objects, so "clean up orphaned
+  media" would have deleted the file behind a picture topic while reporting
+  that nothing used it (`tests/test_media_gc.py` holds it now); and the picture
+  picker's own `<input>` was built in JS with `accept = "image/*"`, whose `/*`
+  in a string cost `tests/test_feature_catalog.py`'s comment stripper ten
+  function declarations (the input is `#wb-map-picture-input` in index.html
+  now, the way every other file input here is written).
 
 ## Left to do
 

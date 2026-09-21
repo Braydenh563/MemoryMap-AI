@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import sqlite3
+
+import pytest
+
 from memorymap.core import backup, deps
 
 
@@ -90,6 +94,54 @@ def test_backup_restore_rolls_the_database_back(client):
     assert keep["id"] in [e["id"] for e in entries]
     # The named backup + a pre-restore safety snapshot both exist.
     assert len(client.get("/backups").json()) == before_count + 2
+
+
+def test_restore_leaves_live_db_untouched_when_backup_is_corrupt(app_state):
+    """INBOX 310, finding 1: `restore_backup` used to stream pages straight
+    into memorymap.db, so a corrupt backup (or a crash mid-copy) could leave
+    the live database half-written. It now copies into a sibling temp file,
+    runs PRAGMA integrity_check on that temp file, and only replaces
+    memorymap.db if the check passes; the temp file is removed either way."""
+    config = deps.get_config()
+    before = config.db_path.read_bytes()
+
+    # A file named like a backup but not a valid SQLite database at all:
+    # `source.backup()` on it fails outright, well before integrity_check
+    # would even run, but it must still be caught and leave the live db
+    # and its own temp file alone, exactly as a failed integrity_check would.
+    bogus = backup.backups_dir(config.data_dir) / "memorymap-bogus.db"
+    bogus.write_bytes(b"not a sqlite database")
+
+    with pytest.raises(sqlite3.DatabaseError):
+        backup.restore_backup(bogus.name, config.db_path, config.data_dir)
+
+    assert config.db_path.read_bytes() == before
+    tmp_path = config.db_path.with_name(f"{config.db_path.name}.restore-tmp")
+    assert not tmp_path.exists()
+
+
+def test_restore_rejects_a_backup_that_fails_integrity_check(app_state):
+    """A syntactically valid SQLite file whose pages are corrupt must not
+    become the live database. The header and page count are left alone (so
+    `source.backup()` copies it without complaint, the way real corruption
+    from a bad disk or a bad sync would) and a wide stretch of page bytes is
+    flipped instead, which is what actually trips `PRAGMA integrity_check`."""
+    config = deps.get_config()
+    before = config.db_path.read_bytes()
+
+    good = backup.backup_now(config.db_path, config.data_dir)
+    data = bytearray(good.read_bytes())
+    assert len(data) > 8192, "fixture db too small to corrupt past the header"
+    for i in range(4096, 8192):
+        data[i] ^= 0xFF
+    good.write_bytes(bytes(data))
+
+    with pytest.raises(ValueError, match="integrity check"):
+        backup.restore_backup(good.name, config.db_path, config.data_dir)
+
+    assert config.db_path.read_bytes() == before
+    tmp_path = config.db_path.with_name(f"{config.db_path.name}.restore-tmp")
+    assert not tmp_path.exists()
 
 
 def test_backup_if_due_skips_recent(app_state):

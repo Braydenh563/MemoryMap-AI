@@ -96,6 +96,27 @@ def _strip_comments(value: str) -> str:
     return re.sub(r"/\*.*?\*/", " ", value, flags=re.S)
 
 
+def _blank_comments(source: str) -> str:
+    """Every `/* ... */` replaced by spaces, with its newlines kept.
+
+    Two faults this closes, both found by running the first draft of this lint
+    against the real stylesheets. A comment that *discusses* a transition
+    ("No width transition: the grid track...", 07-whiteboard-misc.css:448) is
+    not a declaration and must not be read as one. And a declaration's value
+    does not have to sit on one line: eight of them in `frontend/css/` wrap
+    onto a second or third, so a line-by-line scan reads the first property
+    and walks past the rest. Blanking rather than deleting keeps every line
+    number, which the failure messages and the reason-above check both need.
+    """
+    out, i = [], 0
+    for match in re.finditer(r"/\*.*?\*/", source, flags=re.S):
+        out.append(source[i:match.start()])
+        out.append(re.sub(r"[^\n]", " ", match.group(0)))
+        i = match.end()
+    out.append(source[i:])
+    return "".join(out)
+
+
 def _has_reason(lines: list[str], index: int) -> bool:
     """Does a `/* ... */` comment end on the line above `index`, with words in it?
 
@@ -135,8 +156,8 @@ def _transition_properties(value: str) -> set[str]:
     return found
 
 
-def _blocks(source: str) -> list[tuple[int, int, str]]:
-    """Every `@keyframes` block as (open line, close line, body)."""
+def _blocks(source: str) -> list[tuple[int, str, str]]:
+    """Every `@keyframes` block as (the line it opens on, its name, its body)."""
     out = []
     for match in re.finditer(r"@keyframes\s+([\w-]+)\s*\{", source):
         depth, i = 1, match.end()
@@ -153,13 +174,15 @@ def _blocks(source: str) -> list[tuple[int, int, str]]:
 
 @pytest.mark.parametrize("path", _css_files(), ids=lambda p: p.name)
 def test_transitions_do_not_animate_layout(path: Path):
-    lines = path.read_text(encoding="utf-8").splitlines()
+    source = path.read_text(encoding="utf-8")
+    lines = source.splitlines()
+    # The value runs to its `;`, over as many lines as it takes: the character
+    # class stops at `;`, `{` and `}` and crosses newlines without being asked.
+    code = _blank_comments(source)
     offenders = []
-    for n, line in enumerate(lines):
-        match = re.search(r"(?<![-\w])(transition(?:-property)?)\s*:([^;{}]*)", line)
-        if not match:
-            continue
-        named = _transition_properties(match.group(2))
+    for match in re.finditer(r"(?<![-\w])transition(?:-property)?\s*:([^;{}]*)", code):
+        n = code.count("\n", 0, match.start())
+        named = _transition_properties(match.group(1))
         bad = sorted((named & LAYOUT_PROPERTIES) | (named & BANNED_SHORTHANDS))
         if bad and not _has_reason(lines, n):
             offenders.append(f"{path.name}:{n + 1}: transition animates {', '.join(bad)}")
@@ -181,7 +204,7 @@ def test_keyframes_do_not_animate_layout(path: Path):
     source = path.read_text(encoding="utf-8")
     lines = source.splitlines()
     offenders = []
-    for start, name, body in _blocks(source):
+    for start, name, body in _blocks(_blank_comments(source)):
         named = {
             m.group(1).lower()
             for m in re.finditer(r"(?<![-\w])([a-z-]+)\s*:", _strip_comments(body))

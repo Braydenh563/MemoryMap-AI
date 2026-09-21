@@ -76,6 +76,7 @@ step() {  # name, command...
 }
 LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_braces.py
   tests/test_frontend_ids.py tests/test_frontend_handlers.py tests/test_dock_grammar.py
+  tests/test_status_bar_grammar.py
   tests/test_docs_layout.py tests/test_asset_cache_busting.py tests/test_no_em_dashes.py
   tests/test_no_innerhtml_interpolation.py tests/test_markdown_link_schemes.py
   tests/test_frontend_load_order.py tests/test_ui_recipes.py tests/test_perf_mode.py

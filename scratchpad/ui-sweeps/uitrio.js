@@ -157,31 +157,63 @@ async function statusBar(page) {
   return page.evaluate(() => {
     const r = (n) => Math.round(n * 10) / 10;
     const bar = document.getElementById('status-bar');
+    const cs = getComputedStyle(bar);
+    const barBox = bar.getBoundingClientRect();
+    // The bar's *content* edge, not its border edge: the page gutter is the
+    // bar's own padding, so a control flush against the end of the run still
+    // measures a gutter's width from `right`.
+    const contentRight = barBox.right - parseFloat(cs.paddingRight);
     const items = [];
+    const zones = [];
     let side = 'left';
     for (const el of bar.children) {
       const box = el.getBoundingClientRect();
       const shown = box.width > 0 && getComputedStyle(el).display !== 'none';
       if (el.classList.contains('status-spacer')) { side = 'right'; continue; }
       if (!shown) continue;
+      const zone = el.dataset.statusZone || null;
+      if (zone) {
+        zones.push({
+          zone,
+          side,
+          left: r(box.left),
+          right: r(box.right),
+          order: getComputedStyle(el).order,
+          items: [...el.children]
+            .filter((c) => c.getBoundingClientRect().width > 0)
+            .map((c) => c.id || c.className.toString().split(' ')[0]),
+        });
+      }
       items.push({
         id: el.id || el.className.toString().split(' ')[0],
         side,
         left: r(box.left),
         right: r(box.right),
         w: r(box.width),
-        zone: el.dataset.statusZone || null,
+        zone,
       });
     }
     const nav = document.querySelector('.status-nav');
     const redo = document.getElementById('status-redo');
+    const control = document.querySelector('[data-status-zone="control"]');
     return {
-      barW: r(bar.getBoundingClientRect().width),
+      barW: r(barBox.width),
       items,
-      // The two numbers the report is about: how far the navigation pair's
-      // right edge sits from the right edge of the bar, and the same for redo.
-      navFromRight: nav ? r(bar.getBoundingClientRect().right - nav.getBoundingClientRect().right) : null,
-      redoFromRight: redo ? r(bar.getBoundingClientRect().right - redo.getBoundingClientRect().right) : null,
+      zones,
+      // DOM order of the zones, which is the order the lint holds.
+      zoneOrder: [...bar.querySelectorAll('[data-status-zone]')].map((e) => e.dataset.statusZone),
+      // The two numbers the report is about, against the content edge.
+      navFromRight: nav ? r(contentRight - nav.getBoundingClientRect().right) : null,
+      redoFromRight: redo ? r(contentRight - redo.getBoundingClientRect().right) : null,
+      // On a phone the bar scrolls sideways by design, so what matters is not
+      // where the run ends but whether these are reachable without a drag.
+      overflow: bar.scrollWidth > bar.clientWidth + 1,
+      scrollW: bar.scrollWidth,
+      clientW: bar.clientWidth,
+      controlInView: control
+        ? control.getBoundingClientRect().right <= window.innerWidth + 1 &&
+          control.getBoundingClientRect().left >= -1
+        : null,
       rightCount: items.filter((i) => i.side === 'right').length,
     };
   });
@@ -207,11 +239,15 @@ async function statusBar(page) {
     const bar = await statusBar(page);
     out[`bar${width}`] = bar;
     console.log(
-      `307 bar ${bar.barW}px, ${bar.rightCount} items right of the spacer, ` +
-        `nav ends ${bar.navFromRight}px from the right edge, redo ${bar.redoFromRight}px`
+      `307 bar ${bar.barW}px, zones [${bar.zoneOrder.join(', ')}], ` +
+        `nav ends ${bar.navFromRight}px from the content edge, redo ${bar.redoFromRight}px, ` +
+        `overflowing ${bar.overflow} (${bar.scrollW} of ${bar.clientW})`
     );
-    for (const i of bar.items.filter((x) => x.side === 'right'))
-      console.log(`      ${i.id.padEnd(22)} left ${String(i.left).padStart(7)}  w ${i.w}  zone ${i.zone}`);
+    for (const z of bar.zones)
+      console.log(
+        `      ${z.zone.padEnd(8)} left ${String(z.left).padStart(7)} right ${String(z.right).padStart(7)} ` +
+          `order ${z.order}  [${z.items.join(', ')}]`
+      );
 
     {
       await page.evaluate(() => switchTab('dashboard'));
@@ -296,9 +332,10 @@ async function statusBar(page) {
     `one row ${focused390.oneRow}, head ${focused390.head}px`
   );
 
-  // 307: the right end has an owner. Navigation and undo end the bar, so no
-  // later feature can push them left: their distance from the right edge is
-  // bounded by the width of the pair itself.
+  // 307: the right end has an owner. The zones are in one order at every
+  // width; on a bar wide enough to show all of it, the control zone ends the
+  // run, so nothing added later can push it. On a phone the bar scrolls and
+  // the order flips on purpose, so what is checked there is reachability.
   for (const width of widths) {
     const b = out[`bar${width}`];
     check(
@@ -307,11 +344,23 @@ async function statusBar(page) {
       b.items.filter((i) => i.side === 'right' && !i.zone).map((i) => i.id).join(', ') || 'all zoned'
     );
     check(
-      `307 at ${width}: the navigation pair ends the bar`,
-      b.redoFromRight !== null && b.redoFromRight <= 4,
-      `redo ends ${b.redoFromRight}px from the right edge`
+      `307 at ${width}: the zones are state, tools, control in the markup`,
+      b.zoneOrder.join(',') === 'state,tools,control',
+      `[${b.zoneOrder.join(', ')}]`
     );
   }
+  const wide = out.bar1440;
+  check(
+    '307 at 1440: the control zone ends the bar',
+    wide.redoFromRight !== null && Math.abs(wide.redoFromRight) <= 1,
+    `redo ends ${wide.redoFromRight}px from the content edge (was 391px behind four doorways)`
+  );
+  const phone = out.bar390;
+  check(
+    '307 at 390: the controls are reachable without dragging the bar',
+    phone.controlInView === true,
+    `control zone in view ${phone.controlInView}, bar ${phone.scrollW} of ${phone.clientW}`
+  );
 
   console.log(failures ? `\nFAILURES ${failures}` : '\nall checks passed');
   process.exit(failures ? 1 : 0);

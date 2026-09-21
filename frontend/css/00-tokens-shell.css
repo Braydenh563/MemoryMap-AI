@@ -3485,6 +3485,74 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex: 1 1 auto;
 }
 
+/* --- the bar's three zones ---------------------------------------------------
+   INBOX 307, the owner: "I feel like the navigation and undo/redo buttons keep
+   getting pushed further and further to the left on the bottom bar, is there a
+   better way to restructure the right side of the bottom bar??"
+
+   He is right, and it is drift rather than a placement mistake: the run after
+   the spacer was one flat list, so each control added to the bar was appended
+   at its right end and moved the pair before it along. Measured at 1440 before
+   this, reading right to left in the order they were added: Find (2026-09-20),
+   Guide, Ask the agent, Command palette, then redo 391px from the right edge
+   of the bar and the navigation group 467px.
+
+   Moving them back would last until the next feature, so the bar has zones
+   with one order and one owner for its right end (index.html carries the same
+   note, `tests/test_status_bar_grammar.py` holds it):
+
+     state    what the app is holding or doing. Takes the left end and is the
+              only zone that shrinks, because none of it is a control.
+     tools    the doorways. The only zone that grows.
+     control  back, forward, history, undo, redo. Fixed membership, and it
+              ends the bar.
+
+   A zone is the same flex run the bar itself was, with the bar's own gap, so
+   the spacing between two controls is the same whether or not a zone boundary
+   falls between them. */
+.status-zone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* The state zone is the one that gives way: a long background-job label is the
+   server's text and can be any length, and shortening it costs nothing, while
+   a control that shrinks out of reach costs the press. */
+.status-zone[data-status-zone="state"] {
+  flex: 0 1 auto;
+}
+
+.status-zone[data-status-zone="tools"],
+.status-zone[data-status-zone="control"] {
+  flex: 0 0 auto;
+}
+
+/* The seam that says the right end is a different kind of thing: everything
+   left of it opens something, everything right of it moves you or changes what
+   you already have. The same divider `.status-nav` uses one group further in,
+   and for the same reason. */
+.status-zone[data-status-zone="control"] {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
+}
+
+/* Below 400 the bar scrolls sideways rather than dropping a control (the block
+   further down this file), and on a scrolling bar "the right end" is not a
+   place anybody can see: it is the part you have to drag the bar to reach. So
+   on a phone the order flips and the controls come first, which keeps undo,
+   redo and Back visible without a drag, exactly the three that block says a
+   phone has no other route to. The seam goes with them, since the zone is no
+   longer the thing at the end. */
+@media (max-width: 400px) {
+  .status-zone[data-status-zone="control"] {
+    order: -1;
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
 .status-item {
   display: inline-flex;
   align-items: center;

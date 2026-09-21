@@ -3612,13 +3612,14 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     #: reason. A "Cross-links" section after the outline would also be read
     #: straight back in by `_parse_markdown_outline`, which reads indentation
     #: and nothing else, so one map's two links would come back as two topics.
-    links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
     if format == "markdown":
         text = _export_markdown(title, roots)
-    elif format == "opml":
-        text = _export_opml(title, roots, links)
     else:
-        text = _export_freemind(title, roots, links)
+        #: Read only for the two formats that can carry them, so a Markdown
+        #: export does not pay for a scan of every sketch on the board to find
+        #: something it is going to drop.
+        links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
+        text = (_export_opml if format == "opml" else _export_freemind)(title, roots, links)
     # The filename is built from the board's id, never from its title: a
     # title is free text, and a Content-Disposition header is exactly where
     # free text becomes a header-injection question nobody wants to answer

@@ -328,7 +328,7 @@
         <span class="atlas-mark" aria-hidden="true"><i class="ph ph-compass" aria-hidden="true"></i></span>
         <div class="atlas-intro-words">
           <p class="atlas-name">Atlas</p>
-          <p class="muted atlas-line">Explains the app, from your utility model, never from your notes.</p>
+          <p class="muted atlas-line">Explains the app, never your notes.</p>
         </div>
       </div>
       <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Atlas">
@@ -365,8 +365,8 @@
            second action and a labelled button for it is what made the old head
            row two buttons wide. -->
       <form id="help-chat-form" class="row help-chat-form atlas-composer">
-        <input type="text" id="help-chat-input" data-needs-model="Atlas answers with your utility model" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
-        <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="icon-only icon-primary" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
+        <input type="text" id="help-chat-input" data-needs-model="Atlas needs a local model to answer" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
+        <button type="submit" id="help-chat-send" data-needs-model="Atlas needs a local model to answer" class="icon-only icon-primary" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
         <button type="button" class="icon-only ghost small graph-help-toggle"
           data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
           title="About this chat" aria-label="About this chat">
@@ -378,8 +378,10 @@
         <p>
           Atlas is named for a book of maps: it is the reference you open to
           find your way around this app. Quick "how do I…" answers about
-          MemoryMap itself, from your utility model, not your notes, and
-          nothing here is saved.
+          MemoryMap itself, not your notes, and nothing here is saved.
+          It answers on your utility model while smart model routing is on,
+          on the chat model while it is off, and Settings, Models can give
+          the guide a model of its own.
         </p>
       </div>
     </div>
@@ -9478,7 +9480,7 @@
                 </div>
                 <button type="button" id="atlas-open" class="ghost small"><i class="ph ph-chat-teardrop-text ph-lead" aria-hidden="true"></i> Open Atlas</button>
               </div>
-              <p class="muted">Atlas explains the app, from your utility model, never from your notes.</p>
+              <p class="muted">Atlas explains the app, never your notes.</p>
               <div class="help-body hidden" id="atlas-row-help" role="dialog" aria-label="About Atlas">
                 <p>
                   Atlas is named for a book of maps: the reference you open to

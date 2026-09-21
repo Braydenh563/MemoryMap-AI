@@ -840,3 +840,24 @@ def test_a_keyword_still_does_not_match_inside_a_longer_word():
     substring one: "ask" may reach "asks" and "asked", never "basket"."""
     assert help_chat._matching_topics("where's the picnic basket for our task?") == []
     assert help_chat._matching_topics("the weather is nice today") == []
+
+
+def test_the_panel_does_not_promise_a_model_it_may_not_use():
+    """INBOX 274, 288 and 304 are the same report three times: "it doesnt use
+    my utility model". Measured at the provider in `test_feature_models.py`,
+    the code is right and the copy was wrong: a guide turn takes the utility
+    model with smart model routing on, the chat model with it off, and the
+    guide's own row in the per-feature table over both. Three lines of copy
+    promised the first of those three as though it were the only one, which
+    is why the report keeps coming back from a reader who is in one of the
+    other two.
+
+    The '?' popover carries the whole rule, in place of the promise.
+    """
+    index = (
+        Path(__file__).resolve().parents[1] / "frontend" / "index.html"
+    ).read_text(encoding="utf-8")
+    assert "from your utility model" not in index
+    popover = index[index.index('id="help-chat-help"') :][:900]
+    assert "smart model routing is on" in popover
+    assert "on the chat model while it is off" in popover

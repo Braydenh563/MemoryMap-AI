@@ -6,8 +6,18 @@ name: CodeQL
 on:
   push:
     branches: [main]
+  # **No base-branch filter, deliberately.** This read `branches: [main]`, and
+  # a pull request's branch filter matches its *base*, so a stacked pull
+  # request (one opened against another feature branch rather than against
+  # main) was never scanned at all. Measured 2026-09-21: PR #150, whose base
+  # is PR #149's branch, had **0 CodeQL runs** against several hundred
+  # commits, while `ci.yml`, which carries no such filter, ran on every push
+  # to it. The tests were watching and the security scan was not.
+  #
+  # Scanning every pull request costs one run per PR and removes a silent
+  # hole that only appears when work is stacked, which is exactly when a
+  # branch is longest-lived and least reviewed.
   pull_request:
-    branches: [main]
   schedule:
     - cron: "27 3 * * 1" # every Monday at 03:27 UTC — catches newly-published rules
 

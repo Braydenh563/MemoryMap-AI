@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The loading bar on the splash screen is cheaper to draw, so it stays smooth
+  on a slow machine, which is the only kind of machine that sees it for long.
+  It used to grow by changing its width, which made the browser lay the page
+  out again on every frame: 121 times over one 2.4 second load, against none
+  now that it scales instead. Every animation in the app is now held to that
+  by a lint, so the next one cannot quietly cost more.
 - No phantom row under a table's header in the documents live view. Putting
   the caret in a header row grew the line from 29.2px to 54.8px, because the
   table is a grid whose rows were all implicit, so CodeMirror's own trailing

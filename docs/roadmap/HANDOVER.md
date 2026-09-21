@@ -384,9 +384,18 @@ own text. It now uses the opaque-dialog recipe.
 **A trap found the same morning, and it changes standing order 5a's
 arithmetic.** CI *is* running on this branch (`ci.yml`, 73 runs), and almost
 none of them finish. `ci.yml` sets `concurrency: cancel-in-progress: true`, so
-each push cancels the run the previous push started, and a run takes about
-eight minutes. Five consecutive pushes this morning produced five runs with
-conclusion `cancelled` and not one pass. Standing order 5a's rule for not
+each push cancels the run the previous push started. Five consecutive pushes
+this morning produced five runs with conclusion `cancelled` and not one pass.
+
+**And the gap needed is bigger than it first looked.** This block first said
+a run takes about eight minutes, read off one run that had itself been
+cancelled at eight. Timed properly against run 1538: started 07:31:28,
+cancelled 07:49:43, still unfinished at eighteen minutes. So a push has to be
+followed by roughly twenty quiet minutes for CI to reach a conclusion, not
+eight, and the session that wrote this rule then broke it within the hour by
+pushing at the eighteen-minute mark. Which is the argument for the local
+full gate being the real one and CI the second opinion, rather than the other
+way round. Standing order 5a's rule for not
 running the suite locally ("CI runs it on every push") is therefore only true
 at a slow push cadence: at the cadence an agent session actually pushes, the
 only full run of the suite is the local one. Two things follow, neither of

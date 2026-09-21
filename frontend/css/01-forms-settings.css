@@ -1937,6 +1937,25 @@ progress {
   gap: var(--space-2);
 }
 
+/* The attachments row is inserted *before* `.entry-meta` (entryItem in
+   app.js), so an attached file chip and the note's badges are two adjacent
+   rows with nothing between them. Reported with a screenshot (INBOX 297):
+   "make sure there are appropriate gaps between uploaded files and
+   attachments and the badges". Measured before this rule, on a row carrying
+   a PDF: 0.0px between the bottom of the file chip and the top of the badge
+   row, at 1440, 1024, 820 and 390, so the download button on the chip and
+   the category chip under it read as one crowded block.
+
+   On the adjacency rather than on `.entry-links` itself: the same class also
+   draws the wiki-link row lower down the card, and giving every one of them
+   a bottom margin would open a gap under a row that has nothing after it.
+   One step of the scale, the same step `.entry-links` already keeps above
+   itself, so the file row sits evenly between the note's text and its
+   badges rather than being pushed onto one of them. */
+.entry-links + .entry-meta {
+  margin-top: var(--space-2);
+}
+
 /* The edit form's own related-notes panel (renderRelatedWhileEditing,
    app.js): same shape as .entry-links above (it reuses the same chip
    markup) but its own class, since it lives in a different place in the

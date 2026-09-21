@@ -3067,14 +3067,23 @@ function entryItem(entry, options = {}) {
   //: flag: it opens the edit form with the cursor in the tags field, where
   //: the AI's suggestions appear as you type, so the person is one click
   //: from tagged rather than being told and left there.
-  if (!entry.tags.length && !entry.is_board && !entry.is_draft && options.actions) {
-    const untagged = chip("ph:tag No tags yet", "untagged", (event) => {
-      event.stopPropagation();
-      editingId = entry.id;
-      focusTagsAfterRender = entry.id;
-      renderEntries();
-    });
-    untagged.title = "Add tags to this note";
+  if (!entry.tags.length && !entry.is_board && !entry.is_draft
+      && (options.actions || options.facts)) {
+    //: On a read-only row the flag is a **fact and nothing more**: the
+    //: handler below opens the edit form in the note list, which is not the
+    //: surface a search result is being read on, so wiring it here would be a
+    //: chip that looks pressable and does nothing visible (INBOX 297).
+    const untagged = options.actions
+      ? chip("ph:tag No tags yet", "untagged", (event) => {
+        event.stopPropagation();
+        editingId = entry.id;
+        focusTagsAfterRender = entry.id;
+        renderEntries();
+      })
+      : chip("ph:tag No tags yet", "untagged");
+    untagged.title = options.actions
+      ? "Add tags to this note"
+      : "This note has no tags yet";
     meta.appendChild(untagged);
     //: **And the offer to have them written for you, in the one place a
     //: person is thinking about tags** (INBOX 292, the owner: "half the time
@@ -3089,7 +3098,10 @@ function entryItem(entry, options = {}) {
     //: which does nothing to a span. An offer that cannot be honoured is
     //: worse than no offer, so with no model answering there is simply the
     //: flag above and the manual route it already opens.
-    if (!modelStatus || modelStatus.ollama_running !== false) {
+    //: `options.actions` again: the offer is a model call, which is an
+    //: action, so it stays off a read-only row even though the flag above it
+    //: is now drawn on one.
+    if (options.actions && (!modelStatus || modelStatus.ollama_running !== false)) {
       const askAtlas = chip("ph:sparkle Tag with Atlas", "untagged-ai", (event) => {
         event.stopPropagation();
         reevaluateEntry(entry);
@@ -11419,7 +11431,10 @@ function referenceCountText(counts) {
 }
 
 function referenceCountChip(entry, options = {}) {
-  if (!options.actions || entry.is_board || entry.is_draft) return null;
+  //: `facts` as well as `actions` (INBOX 297): what a note is joined to is
+  //: true of the note wherever it is drawn, and this chip is DESIGN.md's
+  //: "a fact on a facts line that is also the way in" rather than an action.
+  if ((!options.actions && !options.facts) || entry.is_board || entry.is_draft) return null;
   const counts = referenceCountsCache.get(entry.id);
   if (!counts || !counts.total) return null;
   const refChip = chip(`ph:graph ${referenceCountText(counts)}`, "refs", (event) => {
@@ -12362,8 +12377,19 @@ function flashCategory(name) {
 }
 
 // A raw search result the user can click to open the note (Wave C).
+//: `facts: true`, not `actions: true`. Reported as INBOX 297, "make sure all
+//: the badges show", and measured rather than guessed: the same note drew
+//: five chips in Browse and two here, because this call passed **no options
+//: at all** and every chip in `entryItem` that is gated on `options.actions`
+//: is gated on the row being one you can act on. Two of the three missing
+//: ones deserve that gate ("Tag with Atlas" starts a model call, and the
+//: "No tags yet" flag opens the edit form in a list that is not on screen);
+//: the third, the reference count, is a plain fact about the note that
+//: happened to be behind the same flag. So a second option, meaning "this
+//: row is read-only, draw the facts anyway", rather than turning the actions
+//: on and getting an edit button in a search result.
 function clickableResult(entry) {
-  const li = entryItem(entry);
+  const li = entryItem(entry, { facts: true });
   li.classList.add("clickable-result");
   li.title = "Open this note in the Notes tab";
   li.addEventListener("click", () => flashEntry(entry.id));
@@ -12505,6 +12531,12 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
       queue.unshift(node);
       const marker = document.createElement("sup");
       marker.className = "answer-citation";
+      //: Which note this digit stands for, on the element itself. The number
+      //: was the only thing on screen tying a mark to a source, so nothing
+      //: outside this function could check that the mark and the record row
+      //: it points at agree (INBOX 299), and `showCitedPassage` already reads
+      //: exactly this attribute off a source card.
+      marker.dataset.noteId = String(g.note_id);
       const link = document.createElement("button");
       link.type = "button";
       link.className = "answer-citation-link";
@@ -12624,6 +12656,41 @@ function renderRelatedElsewhere(target, items) {
   target.appendChild(row);
 }
 
+//: The citation number, printed on the record it belongs to (INBOX 299).
+//:
+//: Guarded on the Ask tab's own grounding holder: the Chat tab calls
+//: `renderAnswerGrounding` with a bubble's holder and has no records column,
+//: so without this a chat turn would renumber a column left over from the
+//: last question asked on the other tab.
+//:
+//: `.chat-source-index` rather than a mark of its own: the Sources panel
+//: already draws "this is source n" that way, and one treatment learnt once
+//: is the whole point of the recipe index. An uncited row gets no number
+//: rather than a placeholder, because a digit that matches nothing in the
+//: answer is worse than a row with none.
+function numberMatchingRecords(target, numberFor) {
+  if (!target || target.id !== "ai-answer-grounding") return;
+  const list = $("raw-results");
+  if (!list) return;
+  for (const li of list.querySelectorAll("li[data-id]")) {
+    li.querySelector(":scope > .record-index")?.remove();
+    const n = numberFor.get(Number(li.dataset.id)) ?? numberFor.get(li.dataset.id);
+    if (!n) {
+      li.classList.remove("is-numbered");
+      continue;
+    }
+    const mark = document.createElement("span");
+    mark.className = "chat-source-index record-index";
+    mark.textContent = String(n);
+    //: Said aloud as well as shown: a screen reader reading "3" against a
+    //: note has no way to know what the digit is counting.
+    mark.setAttribute("aria-label", `Source ${n} in the answer`);
+    mark.title = `The answer cites this note as ${n}`;
+    li.classList.add("is-numbered");
+    li.insertBefore(mark, li.firstChild);
+  }
+}
+
 //: `question`, when the caller knows it, is what turns a click into a
 //: correction: opening the third source after asking something is the one
 //: signal the search has that its own order was wrong (WORLD_CLASS_PLAN I7,
@@ -12658,6 +12725,18 @@ function renderAnswerGrounding(
   label.textContent = "Grounded in:";
   target.appendChild(label);
   const numberFor = citationNumbers(sentences, orderedSources);
+  //: **And the third place a digit is printed: the records column itself**
+  //: (INBOX 299, the owner: "can the notes in the matching records that
+  //: appear in the ask tab be numbered accordingly to match the inline
+  //: referencing??"). Measured before this: five records on screen, five
+  //: marks in the prose, and nought numbers in the column, so the two lists
+  //: could only be read against each other by matching the words.
+  //:
+  //: From `numberFor`, here, rather than by numbering the column separately:
+  //: that map is already what the markers, the chips and the Sources panel
+  //: print, and a fourth loop deriving "the same" order is exactly how the
+  //: first three came to disagree (see `citationNumbers`' own comment).
+  numberMatchingRecords(target, numberFor);
   //: Drawn in the order the digits run, not in the order the sentences
   //: happened to arrive: a key whose rows read 2, 1, 3 is a key you have to
   //: search rather than read.
@@ -12808,7 +12887,7 @@ function renderAskAnswerFoot(object, meta) {
   //: is notes. Those keep the panel, and keep their own numbers, so a citation
   //: marker in the answer still points at the row it names.
   const elsewhere = object.sources.filter((source) => !here.includes(source));
-  const line = here.length ? askSourcesLine(here.length) : null;
+  const line = here.length ? askSourcesLine(here.length, here[0]?.id ?? null) : null;
   if (line) sources.appendChild(line);
   const panel = elsewhere.length
     ? chatSourcesPanel({ sources: elsewhere, meta, numberFrom: object.sources })
@@ -12832,17 +12911,31 @@ function askNotesOnTheRight() {
   return new Set([...rows].map((row) => row.dataset.id));
 }
 
-//: One line where the cards were: what the answer drew on, and where to look.
-//: A button rather than a sentence, because it does something: the column can
-//: be below the fold on a short window, and "on the right" is only true if
-//: the right is on screen.
-function askSourcesLine(count) {
+//: One control where the cards were: what the answer drew on, and the way to
+//: it. A button rather than a sentence, because it does something: the column
+//: can be below the fold on a short window.
+//:
+//: **It says what pressing it does, not where something is** (INBOX 300, the
+//: owner: "fix the ui of this sources button in the ask tab"). It read
+//: "Sources: 10 notes, on the right", which is a description of the layout: a
+//: control whose label is a fact about where to look is not a control, and at
+//: 525px in a 525px column it did not look like one either. The count is kept,
+//: because it is the fact worth having; the verb is what makes it pressable.
+//:
+//: `firstCited` is the note the answer cites as 1, now that the records carry
+//: the answer's own numbers (INBOX 299): pressing this lands on the record
+//: the answer starts from rather than on the top of the column, which is the
+//: same row on a short answer and a screenful apart on a long one.
+function askSourcesLine(count, firstCited = null) {
   const line = document.createElement("button");
   line.type = "button";
   line.className = "ghost small ask-sources-line";
-  setLabel(line, `ph:books Sources: ${count} ${count === 1 ? "note" : "notes"}, on the right`);
-  line.title = "Bring Matching records into view";
-  line.addEventListener("click", () => askRevealRecords());
+  setLabel(line, `ph:books Show the ${count} ${count === 1 ? "note" : "notes"} used`);
+  line.title = "Bring Matching records into view, at the first note this answer cites";
+  //: Named, not just described: the control and the list it moves are two
+  //: halves of one thing, and this is the only thing on the page that says so.
+  line.setAttribute("aria-controls", "raw-results");
+  line.addEventListener("click", () => askRevealRecords(firstCited));
   return line;
 }
 
@@ -12850,10 +12943,14 @@ function askSourcesLine(count) {
 //: is DESIGN.md's rule: `scrollIntoView` walks every scrolling ancestor up to
 //: the page, and the page moving is how a reader loses the answer they were
 //: reading while trying to look at what it was built from.
-function askRevealRecords() {
+function askRevealRecords(noteId = null) {
   const list = $("raw-results");
   if (!list) return;
-  const half = list.closest(".chat-half") || list;
+  //: The row the answer cites first, when there is one, and the column's own
+  //: top otherwise: a press that lands on source 1 answers "which notes?"
+  //: with the note rather than with the heading above it.
+  const row = noteId == null ? null : list.querySelector(`li[data-id="${noteId}"]`);
+  const half = row || list.closest(".chat-half") || list;
   let node = half.parentElement;
   while (node && node !== document.body) {
     const style = getComputedStyle(node);
@@ -13021,6 +13118,12 @@ function renderChatMeta(meta) {
     }
     rawList.appendChild(row);
   }
+  //: The reference count is a fact the card draws from a cache the *note
+  //: list* fills, so a result row rendered before that list has been opened
+  //: had nowhere to read it from and drew nothing. The same patch-in the
+  //: note list uses, pointed at this list: one implementation, and a second
+  //: one is how the two would come to disagree about what "linked by" counts.
+  ensureReferenceCounts(rawList, _entriesLoadGeneration);
   $("chat-results").classList.remove("hidden");
   $("ask-idle")?.classList.add("hidden");
 }
@@ -13405,13 +13508,57 @@ function renderAskedQuestion(question) {
   holder.classList.remove("hidden");
 }
 
+//: **What the Ask tab shows while the model works** (INBOX 298, the owner:
+//: "there's no generating animation while the model is thinking and streaming
+//: in the ask tab either"). Measured before this: 250 of 250 frames with the
+//: answer actually streaming had nothing moving on them anywhere.
+//:
+//: Three separate holes, one shape. `#ask-status` was plain text, so the
+//: whole turn was a sentence sitting still. The typing dots went into the
+//: answer box and `onThinking` removes them on the first thinking delta, so
+//: a model that streams its reasoning (which is what the owner runs) loses
+//: the indicator before the answer even starts. And `.is-generating`, the
+//: app's one universal "this is the thing producing the output" ring, was
+//: added on the first *answer* token rather than when the work began.
+//:
+//: The Chat tab already solved all three and wrote down why (see
+//: `bubble.classList.add("is-generating")` and its comment): the ring goes on
+//: before the request and comes off in the `finally`, and a `progressLine`
+//: lives for the whole turn. So this is two existing components called from a
+//: surface that never called them, not a new control: DESIGN.md's recipe
+//: index has no room for a second way of saying "working".
+function askStatusText(text = "") {
+  const status = $("ask-status");
+  if (!status) return null;
+  status.replaceChildren();
+  status.textContent = text;
+  return status;
+}
+
+//: Returns the progress line itself, because the caller drives it: `setStatus`
+//: for the words and `setPhase("writing")` for the moment the dots become the
+//: writing trace. A fresh one per turn, since the component owns timers that
+//: stop themselves when it leaves the page.
+function askStatusBusy(text) {
+  const status = $("ask-status");
+  if (!status) return null;
+  status.classList.remove("error");
+  status.replaceChildren();
+  const line = progressLine(text);
+  status.appendChild(line);
+  return line;
+}
+
 async function askQuestion(preset) {
   const status = $("ask-status");
   const questionBox = $("question");
 
   const question = (preset ?? questionBox.value).trim();
   if (!question) {
-    status.textContent = "Type a question first!";
+    //: Sentence case and no exclamation mark: DESIGN.md's copy rule, and
+    //: `tests/test_no_em_dashes.py`'s neighbour rules exist because this one
+    //: kept coming back.
+    askStatusText("Type a question first.");
     status.classList.add("error");
     return;
   }
@@ -13423,10 +13570,12 @@ async function askQuestion(preset) {
   hide("retry-btn", "copy-btn", "speak-btn");
   setAsking(true);
   status.classList.remove("error");
-  status.textContent =
+  const progress = askStatusBusy(
     modelStatus && modelStatus.embedding_ready
       ? "Searching your notes by meaning…"
-      : "Searching your notes…";
+      : "Searching your notes…"
+  );
+  const say = (text) => (progress ? progress.setStatus(text) : askStatusText(text));
 
   // Reset the output areas for the new answer.
   const answerBox = $("ai-answer");
@@ -13445,6 +13594,12 @@ async function askQuestion(preset) {
   thinkingBox.classList.add("hidden");
   thinkingBox.open = false;
 
+  //: **On before the request, off in the `finally`.** The ring marks the
+  //: thing producing the output for as long as it is being produced: added on
+  //: the first token instead, it says nothing during the wait that is the
+  //: part actually worth marking, which is the Chat tab's own recorded bug
+  //: one surface over.
+  answerBox.classList.add("is-generating");
   let answerRaw = "";
   let stopped = false;
   let groundingRawResults = []; // set by onMeta, read by onGrounding
@@ -13482,7 +13637,7 @@ async function askQuestion(preset) {
         renderChatMeta(meta);
         answerMeta = meta;
         groundingRawResults = meta.raw_results || [];
-        status.textContent = "The model is writing…";
+        say("Reading your notes…");
       },
       onThinking: (delta) => {
         answerBox.querySelector(".typing-dots, .typing-label")?.remove();
@@ -13491,7 +13646,7 @@ async function askQuestion(preset) {
         thinkingBox.open = true;
         thinkingText.textContent += delta;
         keepAtBottom(thinkingText); // follow the reasoning, unless scrolled away
-        status.textContent = "The model is thinking…";
+        say("The model is thinking…");
       },
       onAnswer: (delta) => {
         //: The first answer token is the moment "waiting" becomes "writing",
@@ -13505,14 +13660,18 @@ async function askQuestion(preset) {
         // before the request because the dots own the "nothing yet" state.
         answerBox.classList.add("is-streaming", "is-generating");
         renderLive(answerRaw); // markdown renders AS it streams (user request)
-        status.textContent = "The model is writing…";
+        //: The indicator changes shape with the stage, not only its words: a
+        //: three-dot "thinking" animation beside the sentence "the model is
+        //: writing" is the exact mismatch reported of the Chat tab.
+        progress?.setPhase("writing");
+        say("The model is writing…");
       },
       onHint: (event) => {
         // Not an answer, so it does not go through the markdown renderer or
         // into the conversation: it is the box explaining itself.
         hinted = true;
         renderAskHint(answerBox, event);
-        status.textContent = "";
+        askStatusText("");
       },
       //: Collected, not drawn: it is a field of the answer object and is
       //: rendered with the rest of the foot once the stream is over. Drawing
@@ -13601,7 +13760,7 @@ async function askQuestion(preset) {
       //: screen. The same contract `offerFollowups` has in the Chat tab.
       renderAskFollowups(question, answerRaw);
     }
-    status.textContent = "";
+    askStatusText("");
     // Asking changes both quick-access lists, and, for a real (non-hint)
     // answer: the browsable history too.
     loadRecentQuestions();
@@ -13617,10 +13776,10 @@ async function askQuestion(preset) {
       //: armed paint outlives the turn it belongs to.
       renderLive.stop();
       renderMarkdown(answerBox, answerRaw); // keep what streamed so far
-      status.textContent = "Stopped.";
+      askStatusText("Stopped.");
       show("retry-btn", "copy-btn", "speak-btn");
     } else {
-      status.textContent = error.message;
+      askStatusText(error.message);
       status.classList.add("error");
     }
   } finally {

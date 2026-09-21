@@ -432,9 +432,25 @@ function calloutTemplate(kind, fold = "") {
 //: `editorRunItem` before `run` is called, so the question is left clean.
 function chatCommands() {
   const press = (id) => () => document.getElementById(id)?.click();
+  //: **On the next frame, not in this one** (the owner, 2026-09-21: pressing
+  //: "A document" in the slash menu showed the picker "for a split second but
+  //: then disappears"). Both halves run inside the handler for the click that
+  //: chose the menu row, so the picker opened, installed its own
+  //: close-on-click-outside listener, and then that very click carried on
+  //: bubbling to the document and closed it again. Anything that opens a
+  //: surface from inside a click has to let the click finish first.
   const pick = (source) => () => {
-    if (typeof openNotePicker === "function") openNotePicker();
-    document.querySelector(`#note-picker-sources [data-picker-source="${source}"]`)?.click();
+    if (typeof openNotePicker !== "function") return;
+    requestAnimationFrame(() => {
+      openNotePicker();
+      //: And the source tab a frame after that: the picker renders its own
+      //: markup when it opens, so the button is not there to press yet.
+      requestAnimationFrame(() => {
+        document
+          .querySelector(`#note-picker-sources [data-picker-source="${source}"]`)
+          ?.click();
+      });
+    });
   };
   const mode = (name) => () =>
     document.querySelector(`#chat-mode-seg button[data-chat-mode="${name}"]`)?.click();

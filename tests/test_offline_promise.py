@@ -81,6 +81,13 @@ COPY = [
     ROOT / "frontend" / "index.html",
     ROOT / "src" / "memorymap" / "api" / "routes_websearch.py",
     ROOT / "src" / "memorymap" / "api" / "routes_settings.py",
+    #: The two a person reads *before* installing, which is when the promise
+    #: does most of its work. `PRIVACY.md` is the worse place to be wrong: its
+    #: own heading says it exists to be precise "since it's the whole promise",
+    #: and it carried an explicitly exhaustive table that said "Three things do
+    #: touch the network" and listed three, with the update check missing.
+    ROOT / "README.md",
+    ROOT / "docs" / "PRIVACY.md",
 ]
 
 
@@ -131,6 +138,36 @@ def test_no_copy_claims_there_is_only_one_way_out():
         "copy claims one way out, or claims none at all, while "
         f"{len(NETWORK_FEATURES)} opt-in network features exist "
         f"({', '.join(sorted(NETWORK_FEATURES))}):\n" + "\n".join(offenders)
+    )
+
+
+def test_the_privacy_page_counts_the_same_network_features():
+    """`PRIVACY.md` enumerates what goes out. An enumeration can be wrong in a
+    way prose cannot: it says how many, and then lists them.
+
+    It said three (a model pull, the embedding download, web search) and left
+    out the update check, under a heading promising precision. This checks the
+    number in the sentence against the rows in the table under it, so the two
+    cannot come apart again.
+    """
+    page = (ROOT / "docs" / "PRIVACY.md").read_text(encoding="utf-8")
+    said = re.search(r"(\w+) things do touch the network", page)
+    assert said, "PRIVACY.md no longer says how many things touch the network"
+    words = {"Two": 2, "Three": 3, "Four": 4, "Five": 5, "two": 2, "three": 3, "four": 4, "five": 5}
+    claimed = words.get(said.group(1))
+    assert claimed, f"unreadable count in PRIVACY.md: {said.group(1)!r}"
+    table = re.search(r"\| What \| When \| What goes out \|\n\|[^\n]*\|\n((?:\|[^\n]*\|\n)+)", page)
+    assert table, "the network table in PRIVACY.md has moved or changed shape"
+    rows = [r for r in table.group(1).strip().splitlines() if r.strip().startswith("|")]
+    assert claimed == len(rows), (
+        f"PRIVACY.md says {claimed} things touch the network and its table lists "
+        f"{len(rows)}. An exhaustive list that is not exhaustive is worse than no "
+        "list: it invites the reader to stop looking."
+    )
+    #: Both opt-in features must appear by name, whatever the count says.
+    assert "Web search" in table.group(1), "web search is missing from the network table"
+    assert "update check" in table.group(1).lower(), (
+        "the update check reaches api.github.com and must be in the table"
     )
 
 

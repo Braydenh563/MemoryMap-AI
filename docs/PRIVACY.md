@@ -24,7 +24,7 @@ who genuinely want a hosted API.
 ## What actually touches the network
 
 Being precise about what "local" means here, since it's the whole
-promise. Three things do touch the network, and none of them is your
+promise. Four things do touch the network, and none of them is your
 notes:
 
 | What | When | What goes out |
@@ -32,13 +32,22 @@ notes:
 | `ollama pull` | You download a model | The model name, to Ollama's registry |
 | The embedding model | Once, on first use | A one-off download of `bge-small-en-v1.5` |
 | Web search | Only if you turn it on | Your search words, never your notes |
+| The update check | Only if you turn it on | A request to the GitHub releases API, no data about you |
 
 Your notes, your questions, and everything the AI writes about them
-stay on your machine in all three cases. Ollama's own hosted service
+stay on your machine in all four cases.
+
+One more thing is worth stating plainly, because it is a choice you can
+make rather than a feature the app switches on: **the AI provider is an
+address you control.** It defaults to Ollama on this machine, and the
+OpenAI-compatible option defaults to `http://localhost:1234/v1`. Point
+either at a remote service and your prompts, and the notes used to answer
+them, go to that service. Nothing stops you; the app simply will not do it
+on its own. Ollama's own hosted service
 (`ollama.com`) would not be local, and the lock refuses it like any
 other remote address.
 
-## Web search: the one exception
+## Web search: the largest of the two opt-ins
 
 Off until you turn it on in **Settings → Web search**. When it is on:
 
@@ -99,7 +108,14 @@ and Ollama itself have actually been attacked. So:
   `127.0.0.1` only, never the wider network.
 
 `.github/workflows/codeql.yml` runs static security analysis on every
-push and weekly.
+push to `main`, on every pull request whatever its base, and weekly.
+
+That "whatever its base" was added on 2026-09-21 and is not a detail. The
+workflow filtered on `pull_request: branches: [main]`, and a pull request's
+branch filter matches its *base*, so a pull request opened against another
+feature branch was never scanned: measured at the time, one such branch had
+**0 CodeQL runs** against several hundred commits while the ordinary test
+workflow, which carries no such filter, ran on every push to it.
 
 ## One notebook, one password
 

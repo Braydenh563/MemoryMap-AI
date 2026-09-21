@@ -4,7 +4,7 @@
 
 # MemoryMap AI
 
-**A notebook that files itself. Local AI, your machine, nothing sent anywhere.**
+**A notebook that files itself. Local AI, your machine, nothing sent anywhere unless you ask.**
 
 [![CI](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml)

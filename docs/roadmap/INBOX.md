@@ -77,57 +77,6 @@ with its owner named in the entry.
     arithmetic goes wrong. Measure the bar's items and the menu's box against
     the opener before changing either.
 
-313. **The owner, 2026-09-21, verbatim, with a screenshot of the Files
-    sub-tab:** "there should be a way to copy all extracted text in a
-    document in the ocr workspace and files subtab". Fixed, and it was half
-    built. The OCR workspace has had `#ocr-copy-all` ("Copy everything read,
-    in reading order") wired to `ocrAllText()` for some time, but it was
-    `icon-only` among labelled buttons, which is a control nobody reads; it
-    carries the words "Copy all" now, like Describe beside it. The Files
-    sub-tab had nothing at all: the reading box is capped and scrolls, so
-    copying a fourteen page reading meant dragging through a window. A "Copy
-    text" button now sits beside Open reading in the reading panel's head and
-    copies `mediaReading(image)` whole.
-314. **The owner, 2026-09-21, verbatim, a regression in the reading
-    workspace on a scanned PDF:** "on the ocr workspace, I have previously
-    used an ocr model to read this scanned pdf document and I could scroll
-    through the pages and the ocr extracted text would scroll and if I
-    clicked on a specific text setcion, it would go to that page scroll wise
-    on the pdf. but now I can only view the extracted text on a single page
-    and even when on scroll mode I cant scroll and the tesseract generates it
-    continuously not only the first time or when prompted by the iser".
-
-    Three faults, and the third is diagnosed already, from the code, without
-    a reproduction:
-
-    (3) **Tesseract re-runs on every page view, and in scroll mode on every
-    page you pass.** `ocrLoadPage` (library.js) fetches
-    `GET /media/{id}/ocr-regions?page=N` each time the current page changes;
-    that route calls `_regions_for`, which calls `ocr.extract_regions(path)`
-    unconditionally (`routes_files.py`). There is no cache and no stored
-    result: the route's own neighbour says it plainly, "`extract_text`/
-    `extract_and_store` have no write-once guard of their own, every call
-    re-reads the image". In scroll mode the IntersectionObserver moves the
-    current page as you scroll, so scrolling a fourteen page scan runs
-    Tesseract fourteen times. That is the owner's "continuously". Fix: the
-    regions for a page are a property of the page, so store them the way a
-    page read is stored and serve the stored copy, running Tesseract only on
-    an explicit read or when nothing is stored. Do not gate it on the "show
-    boxes" checkbox alone: the cost must go, not move.
-
-    (1) and (2), **the text pane no longer scrolls with the pages and no
-    longer jumps the PDF when a section is clicked, and scroll mode does not
-    scroll.** Not yet reproduced; both need a real scanned multi-page PDF.
-    Two things to check first, before assuming the feature was removed:
-    `ocrSetViewMode` computes `continuous = ocrViewMode === "scroll" &&
-    ocrIsPdf(image) && ocrWorkspacePages > 1`, and silently falls back to
-    single-page mode when any of the three is false, so a page count not yet
-    known reads exactly like "scroll mode does not scroll"; and the view-mode
-    control itself (`#ocr-view`) ships `hidden` and is revealed conditionally.
-    The scrolling text pane and click-to-page are what the entry calls a
-    regression, so check the history for when they worked rather than
-    rebuilding them (CLAUDE.md section 1).
-
 312. **The owner, 2026-09-21, verbatim:** "also why is the graph soo smooth
     and clean to move nodes around, zoom and more when the whiteboard and
     especially the mindmap are still horrendous and all the links lag
@@ -260,73 +209,6 @@ with its owner named in the entry.
     be argued a fourth time. No migration started, and the serverless
     question is answered in a paragraph there rather than left hanging.
     Still open on this entry: (1), (2), (3), (4) and (5).
-
-267. **Mid-work drop, 2026-09-20, verbatim (the owner), a screenshot of four
-    lines.** "Alignment bars don't appear for group selections
-    Double tap anchor resize nodes to auto size adjust
-    In-text referencing and grounding in the ask subtab doesn't stick, the
-    wrong numbers will be used and in the wrong spot, and the numbers wont
-    match the grounding.
-    Grounding and in-text referencing not working now?? Needs fix."
-    Four things, taken worst first: (1) grounding and in-text references in
-    Ask, which the owner wrote twice and which is the one that makes answers
-    untrustworthy, (2) alignment bars missing on a group selection, which a
-    previous session recorded as built (`5273bae`), so measure before
-    believing either, (3) double-tapping a resize anchor to fit the content.
-    (2) fixed: measured first, and the report was right for a reason nobody
-    had guessed. A group of *cards* has drawn its guides since
-    `wbBulkGroupBox` landed, verified at 1 guide line on a two-card group
-    dragged into line. The sketch drag handler never asked for guides at all,
-    solo or in a group, so a marquee that caught a sketch and was dragged by
-    it was the one selection on the board with none. `wbBulkGroupBox` now
-    takes the dragged item's own box, since a sketch is a path with no
-    x/y/width/height, and the sketch handler snaps and draws like the other
-    two. Probe: `scratchpad/ui-sweeps/wbgroupguides.js`, in the gate's sweep
-    set. (3) fixed: the gesture was already wired (a `dblclick` on
-    `.wb-resize-handle` calling `wbFitToText`) and measured as doing nothing.
-    Two causes, both real. The handles carried no title, so the gesture was
-    invisible and indistinguishable from missing, which is why it was
-    reported as missing. And `wbFitToText` measured the *card's* own
-    `scrollHeight`, which cannot answer the question: `.wb-card-content`
-    clips on purpose (INBOX 238), so the card's scroll height is the height
-    of a box that is already clipping. It measures the content, unclipped,
-    plus the card's chrome now. Measured: a 100px card holding fourteen
-    wrapped lines went 100px to 100px before and 100px to 748px after, with
-    nothing clipped. Probe: `scratchpad/ui-sweeps/wbfitanchor.js`.
-    (1) fixed, `0f5d46d`, and measured: `liveMarkdownRenderer` armed a paint
-    up to 66ms before the stream ended, which fired after the markers were
-    placed and repainted the box from raw markdown, removing all three. The
-    Ask tab was the one caller that never called the renderer's own `stop()`,
-    which has existed for this since INBOX 40. Probe:
-    `scratchpad/ui-sweeps/askgrounding.js` against
-    `scratchpad/fake_answer_server.py`, 0 markers before, 3 after, numbered
-    1/2/3 against chips 1/2/3 and Sources rows 1/2/3. The reported "wrong
-    numbers" could not be reproduced on a clean notebook: 1/3/5 came from a
-    scratch data dir holding duplicate notes from earlier probe runs, so the
-    sources list genuinely had five rows. (2) and (3) open.
-    **(2), (3) and (4) checked and closed out (Sonnet, packaging worktree).**
-    (2) and (3) were already built before this pass: `ee99f00` shipped the
-    Linux `.tar.gz` (a zip loses the executable bit on several extractors,
-    measured) and `9eea17d`/`f0d478b` shipped the `.msi`
-    (`packaging/windows/installer.wxs`, unsigned, per-machine, with its own
-    "Repair MemoryMap AI" shortcut per INBOX 253), both already on this
-    branch. Nothing rebuilt. (4) was mostly done in the same commits (the
-    `.msi`, `.tar.gz` and `.zip` filenames all already carry
-    `<name>-<version>-<platform>-<arch>`, and `installer.iss`'s
-    `OutputBaseFilename` already gave the `.exe` the same shape); the one
-    real gap was a lint: nothing asserted the `.exe`'s own filename
-    (`installer.iss`, set independently of `release.yml`'s upload glob,
-    which would still match a name with the platform dropped) carried its
-    version, platform and architecture, so a future edit could quietly
-    regress it with nothing catching it. Added
-    `test_windows_exe_filename_carries_name_version_platform_and_arch` in
-    `tests/test_release_smoke_step.py`, alongside the MSI and zip
-    equivalents that already existed. The naming scheme itself is now
-    written down as a decision in `WORLD_CLASS_PLAN.md`'s H6 rather than
-    left implicit in code comments. Not verified: no tag push or Windows/
-    WiX runner exists in this sandbox, so none of this was checked against
-    a real release run, only against the workflow and installer sources as
-    text. (1), (5), (6) and (7) remain open, somebody else's.
 
 268. **Mid-work drop, 2026-09-20, verbatim (the owner), with two
     screenshots.** "what is the difference between the exe and msi installer??

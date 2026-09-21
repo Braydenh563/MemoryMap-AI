@@ -104,3 +104,27 @@ def test_no_conflict_marker_survives_a_merge():
         "an unresolved merge conflict is committed; resolve it rather than "
         "committing the markers:\n" + "\n".join(offenders[:40])
     )
+
+
+def test_no_entry_is_in_both_the_tray_and_the_history():
+    """An entry moved to HISTORY must leave the tray.
+
+    Found 2026-09-21, and it was a merge that caused it: resolving a conflict
+    in INBOX.md by keeping both sides restores entries the other side had
+    already moved out, so 313 and 314 sat in the tray and in HISTORY at once.
+    Nothing else noticed, because each copy is well formed on its own and the
+    "Fixed" rule above only reads the first words of an entry.
+
+    The number is the identity, so the check is a set intersection.
+    """
+    import re
+
+    tray = set(re.findall(r"^(\d{3})\. ", (ROADMAP / "INBOX.md").read_text(encoding="utf-8"), re.M))
+    history = set(
+        re.findall(r"^(\d{3})\. ", (ROADMAP / "HISTORY.md").read_text(encoding="utf-8"), re.M)
+    )
+    both = sorted(tray & history)
+    assert not both, (
+        "these entries are in INBOX.md and in HISTORY.md at once, which means "
+        f"a move was undone (usually by a merge keeping both sides): {both}"
+    )

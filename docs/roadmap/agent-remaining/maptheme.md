@@ -53,9 +53,12 @@
 - **A topic cannot be pulled back to the *app's* own default for a field the
   map themes**, only to another named value or to the map's. The strip's
   blank option means "follow the map", and where the map says something the
-  app's own default has no name in the strip's vocabulary. Narrow, recorded
-  as MINDMAP_PLAN decision 9 rather than solved; the fix is an explicit
-  option per themed select, which needs a stored name for each default.
+  app's own default has no name in the strip's vocabulary. It is not silent
+  about it (the blank row reads "As the map draws (pill)" while the map
+  themes the shape, measured), but it is still a value nobody can choose.
+  Narrow, recorded as MINDMAP_PLAN decision 9 rather than solved; the fix is
+  an explicit option per themed select, which needs a stored name for each
+  default.
 
 - **The theme is not carried by the three XML exports as a map-level fact.**
   It is resolved into each node's style on the way out, so an export of a

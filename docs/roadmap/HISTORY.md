@@ -72,7 +72,10 @@ against the theme, which is the rule `edge_arrow` had already been following
 alone, and the whole strip now reads the effective look rather than the
 stored one (measured: the shape select reads "pill" over a topic storing
 `null`, and pressing bold off on a bold-themed map stores `false` and draws
-unbolded).
+unbolded). Each select's blank row is named after the app's own default
+("Rounded", "Line", "M"), which on a themed map would be a row that visibly
+does nothing, so it reads "As the map draws (pill)" while the map themes that
+field and goes back the moment it stops.
 
 **The door is one row in the View menu's Map section**, "How this map draws
 topics", opening `wbInfoDialog`'s `.card.modal-card` with a plain `<select>`

@@ -940,9 +940,17 @@ topic: a control that wide has nowhere to go.
    topic at the moment it is chosen, was refused for both halves of that: it
    is the change that cannot be undone and the one that silently overwrites.
    The cost is that a topic cannot be pulled back to the *app's* own default
-   for a field the map themes, only to another named value or to the map's;
-   that is recorded below rather than solved, because every value the strip
-   offers is already a named one and the case is narrow.
+   for a field the map themes, only to another named value or to the map's.
+   What that cost is **not** allowed to be is a control that visibly does
+   nothing: every one of the strip's selects stores the app's default as no
+   value at all, so its blank row is named after that default ("Rounded",
+   "Line", "M"), and on a themed map choosing it means "follow the map" while
+   the row still says "Rounded". So the blank row is relabelled to "As the
+   map draws (pill)" while the map themes that field and put back the moment
+   it stops, and the three toggles that stored "off" as nothing at all are
+   three-state against the theme, which is the rule `edge_arrow` had been
+   following alone. The remaining gap is recorded below rather than solved,
+   because it needs a stored name for each app default and the case is narrow.
 10. **The theme lives in one row of the View menu's Map section, and nothing
    is added to the canvas** (taken 2026-09-21, building 13e). Decision 5
    above, and §13b had just taken the topic strip from fourteen controls to

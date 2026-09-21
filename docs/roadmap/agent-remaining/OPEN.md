@@ -75,6 +75,22 @@ being written by running agents stay beside this one.
   offer to 0, 0 open offers to 1 ("Today's document"), the calendar glyph on
   the row. Not built, deliberately: a "Today" button in the documents dock, a
   third door onto one page. [documents-phase4.md]
+- **Found, not fixed: `scratchpad/ui-sweeps/docexports.js` fails on a click
+  timeout and has for a while.** It times out at line 101 clicking
+  `#doc-export-docx`, whose comment says "the row lives in the document's ⋯
+  menu, which is a `<details>`" and opens that. Measured on the branch head:
+  the row's runtime parent is a `.action-menu` (`BUTTON#doc-export-docx` in
+  `DIV.action-menu` in `DIV.menu-group` in `DIV.doc-dock-menu-list` in
+  `DETAILS#doc-dock-menu`), the `<details>` opens fine, and the row still
+  measures 0x0 at 0,0 because the `.action-menu` inside it is `kebabMenu`'s
+  own hidden submenu and nothing opens that. **Not caused by this session**:
+  the sweep fails identically with `frontend/app.js`, `documents.js`,
+  `editor.js` and the five stylesheets checked out at 71a0197, the fork point,
+  which is the way to tell a stale probe from a regression. The fix is one
+  line in the probe, open the submenu as well as the `<details>`, and it needs
+  whoever knows which control is meant to open it in the app. `docxextra.js`
+  covers the same 501 message and passes, so the behaviour is not what is
+  broken. [documents-phases.md]
 - **The templates gallery offers a description, not a preview of the page.**
   Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
   sections, sources, timeline." The plan's words are "offered with a preview",

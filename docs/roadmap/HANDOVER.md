@@ -381,6 +381,27 @@ The second fault was in the same screenshots and nobody had named it: the step
 card was a translucent `.card`, so the dashboard clock read through the step's
 own text. It now uses the opaque-dialog recipe.
 
+**A trap found the same morning, and it changes standing order 5a's
+arithmetic.** CI *is* running on this branch (`ci.yml`, 73 runs), and almost
+none of them finish. `ci.yml` sets `concurrency: cancel-in-progress: true`, so
+each push cancels the run the previous push started, and a run takes about
+eight minutes. Five consecutive pushes this morning produced five runs with
+conclusion `cancelled` and not one pass. Standing order 5a's rule for not
+running the suite locally ("CI runs it on every push") is therefore only true
+at a slow push cadence: at the cadence an agent session actually pushes, the
+only full run of the suite is the local one. Two things follow, neither of
+them a change to the order: run `scripts/gate.sh --full` before the last push
+of a batch rather than only at the end of a session, and leave a gap after
+that last push so the run survives to a conclusion. The alternative, taking
+`cancel-in-progress` off, is the owner's call and is not taken here: it would
+queue eight-minute runs behind every push instead, which is its own cost.
+
+**The other thing to know about this repo's CI**: `github-advanced-security`
+has been red on every SHA for days, including SHAs from before this session,
+with `CAPIError: 400 The requested model is not supported`. That is GitHub's
+own scanning agent failing to start a session; it is not this PR's, it has its
+stand-down comment, and it gets no further comments.
+
 **The lesson worth keeping, because it is the third time this shape has cost a
 session:** a probe that passes against a broken surface is worse than no probe.
 When a report survives a fix, the first question is not "what else could cause

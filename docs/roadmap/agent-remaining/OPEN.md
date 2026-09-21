@@ -684,12 +684,17 @@ being written by running agents stay beside this one.
 
 ## Notes and capture
 
-- **The Notes categories sidebar overflows at 390px**, on every sub-tab
-  including Browse: `errors.js` reports
-  `aside#sidebar.card.sidebar-panel 976>706` five times, once per sub-tab
-  page. Pre-existing. The fix belongs with the phone pass
-  (UI_MODERNISATION_PLAN Phase 9 and 11): the category list needs its own
-  scroll or a collapse at that width. [notes-subtabs.md]
+- ~~**The Notes categories sidebar overflows at 390px**, on every sub-tab.~~
+  **Fixed since this row was written; re-measured 2026-09-21 and closed.**
+  The reported `aside#sidebar.card.sidebar-panel 976>706` does not reproduce
+  on any of the four Notes sub-tabs at 390: the sidebar is not in the
+  overflow list at all. MODERNISATION_AUDIT Brief 2's phone rule is what
+  fixed it (`02-chat-graph.css`, the `max-width: 600px` block): the category
+  list is `flex-wrap: nowrap` with `overflow-x: auto` there, one scrolling
+  row with no head, so it cannot grow downward however many categories there
+  are. What the sweep still reports on that list is `73>66`, seven pixels,
+  which is the hidden horizontal scrollbar's own gutter on a row that scrolls
+  sideways by design, not content that cannot be reached. [notes-subtabs.md]
 - **`textarea.autogrow`'s `min-height: 2.75rem` is still shared** between the
   capture box and the Reminders "Magic add" row. It does no harm now (the
   capture box has its own 11rem floor and Reminders measures 44px across both

@@ -62,6 +62,16 @@ every object's `data` blob, which is text and already parsed by
 `referenced_names`, so a kind added later is covered by having been added.
 `tests/test_media_gc.py` holds it.
 
+**And one the suite found.** The picker built its own `<input type="file">`
+in JavaScript, and `accept = "image/*"` put a `/*` in a string in
+whiteboard.js: `tests/test_feature_catalog.py`'s comment stripper read it as a
+block comment opening and lost ten function declarations after it. The stripper
+is right to be naive (its own docstring says why the order of its two passes
+matters), and the app already has the answer, which is that a file input is
+written in `index.html` with its accessible name and its hidden class, where
+the id and handler lints can see it: `#wb-map-picture-input`, beside the
+board's own two.
+
 Put in and taken out from the topic's own menu, not the strip, for the reason
 §12.5 gives about the link beside it: the strip is how a topic *looks*, a
 picture is what it is. Taking it out leaves the upload in the Library (see

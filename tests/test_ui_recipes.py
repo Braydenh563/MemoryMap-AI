@@ -1962,7 +1962,7 @@ def test_every_canvas_grip_is_one_size_to_the_hand():
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     missing = [
         grip for grip in CANVAS_GRIPS
-        if f"scale(var(--wb-inv-zoom))" not in _rules_for(css, grip)
+        if "scale(var(--wb-inv-zoom))" not in _rules_for(css, grip)
     ]
     assert missing == [], (
         "these canvas grips scale with the board instead of staying one size "

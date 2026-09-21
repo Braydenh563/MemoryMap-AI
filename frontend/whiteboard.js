@@ -6311,36 +6311,49 @@ async function wbMapEditLink(node) {
 //: reason §12.5 gives about the link beside it: the strip is how a topic
 //: *looks*, and a picture is what it is. The plan says the same thing from the
 //: other end ("a second node shape, not a fourth button on a strip").
+//: Which topic the file chooser is open for. A module variable rather than a
+//: closure over the node, because the input is the one in the markup
+//: (`#wb-map-picture-input`) rather than one built per click: the file chooser
+//: is modal, so only one of these is ever open, and an id is what survives a
+//: render that replaced the node object in between.
+let wbMapPictureFor = null;
+
 async function wbMapEditPicture(node) {
-  if (!node) return;
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/*";
-  input.addEventListener("change", async () => {
-    const file = input.files && input.files[0];
-    if (!file) return;
-    if (!file.type || !file.type.startsWith("image/")) {
-      toast("That file is not a picture.", true);
-      return;
-    }
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      // The same request `wbPlaceUploadedImage` makes, header and all: the
-      // token goes in `X-Auth-Token` because the body is a FormData and
-      // `apiJson` leaves the content type to the browser for one.
-      const uploaded = await apiJson("/media/upload", {
-        method: "POST",
-        headers: { "X-Auth-Token": authToken() },
-        body: formData,
-      });
-      await wbMapSetNodeStyle(node, { image: uploaded.url });
-      renderWhiteboardNow();
-    } catch (err) {
-      toast(err.message || "Couldn't add that picture.", true);
-    }
-  }, { once: true });
+  const input = document.getElementById("wb-map-picture-input");
+  if (!node || !input) return;
+  wbMapPictureFor = node.id;
+  //: Cleared before opening, or choosing the same file twice in a row fires
+  //: no `change` the second time and the menu looks broken.
+  input.value = "";
   input.click();
+}
+
+//: The upload itself, run from that input's own `change`.
+async function wbMapTakePicture(file) {
+  const id = wbMapPictureFor;
+  wbMapPictureFor = null;
+  const node = id == null ? null : wbMapIndex().byId.get(id);
+  if (!file || !node) return;
+  if (!file.type || !file.type.startsWith("image/")) {
+    toast("That file is not a picture.", true);
+    return;
+  }
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    // The same request `wbPlaceUploadedImage` makes, header and all: the
+    // token goes in `X-Auth-Token` because the body is a FormData and
+    // `apiJson` leaves the content type to the browser for one.
+    const uploaded = await apiJson("/media/upload", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: formData,
+    });
+    await wbMapSetNodeStyle(node, { image: uploaded.url });
+    renderWhiteboardNow();
+  } catch (err) {
+    toast(err.message || "Couldn't add that picture.", true);
+  }
 }
 
 //: Take the picture off a topic, leaving the upload itself alone: the file is
@@ -11987,6 +12000,15 @@ async function initWhiteboard() {
   });
   const imageFileInput = document.getElementById("wb-image-file-input");
   document.getElementById("wb-add-image")?.addEventListener("click", () => imageFileInput?.click());
+  //: The map topic's own picture input (§12.1 item 2's fourth), beside the
+  //: board's: the same recipe, a different destination. `wbMapEditPicture`
+  //: says which topic it was opened for.
+  const mapPictureInput = document.getElementById("wb-map-picture-input");
+  mapPictureInput?.addEventListener("change", async () => {
+    const file = mapPictureInput.files && mapPictureInput.files[0];
+    mapPictureInput.value = "";
+    await wbMapTakePicture(file);
+  });
   imageFileInput?.addEventListener("change", () => {
     const rect = containerEl.getBoundingClientRect();
     const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });

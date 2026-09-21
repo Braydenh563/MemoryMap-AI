@@ -396,6 +396,21 @@ that last push so the run survives to a conclusion. The alternative, taking
 `cancel-in-progress` off, is the owner's call and is not taken here: it would
 queue eight-minute runs behind every push instead, which is its own cost.
 
+**Fifteen commits on this branch are unsigned, and it was my doing.** The
+repo has `commit.gpgsign=true` with `gpg.format=ssh` and a key at
+`~/.ssh/commit_signing_key.pub`, and every commit I made this session used
+`git -c commit.gpgsign=false commit`, a habit carried in from a sandbox with
+no key. GitHub shows those fifteen as Unverified. Every agent's commits are
+signed; only the orchestrator's were not. **Do not pass that flag.** The five
+that had not been pushed yet were re-signed in place
+(`git rebase --exec "git commit --amend --no-edit --reset-author"`, content
+identical, verified with a `git diff` against the pre-rebase tip); the
+fifteen already on GitHub were deliberately left, because rewriting them
+means a force-push on a branch two agents have live worktrees cut from, and
+their merge bases would stop matching mid-flight. Worth one clean re-sign
+after both have merged, if the owner wants the green ticks; the content is
+not in question either way.
+
 **The other thing to know about this repo's CI**: `github-advanced-security`
 has been red on every SHA for days, including SHAs from before this session,
 with `CAPIError: 400 The requested model is not supported`. That is GitHub's

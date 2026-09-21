@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Ask tab's progress indicator is inside the answer, not above it. The
+  dots, "the model is thinking" and the rotating line were drawn above the AI
+  ANSWER heading while the bubble underneath held a second set of dots and
+  nothing else, so one answer had two indicators and neither was where the
+  text would appear. There is one now, in the bubble it is filling.
+- A matching record's reference number sits in the top right corner and no
+  longer moves the text. On the left it was paid for with padding, which
+  indented every line of the card to make room for a mark that only occupies
+  the first one.
 - The welcome's last panel names both answers. Its primary says "Start the
   tour", and the button beside it, which has always closed the welcome and
   counted as declining the tour, said only "Skip". It says "Skip the tour"

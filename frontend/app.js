@@ -13904,13 +13904,23 @@ function askStatusText(text = "") {
 //: for the words and `setPhase("writing")` for the moment the dots become the
 //: writing trace. A fresh one per turn, since the component owns timers that
 //: stop themselves when it leaves the page.
+//: **The progress line belongs in the bubble it is filling** (the owner,
+//: 2026-09-21, with a screenshot: the dots, "The model is thinking..." and
+//: the rotating line were drawn above the AI ANSWER heading while the bubble
+//: underneath held a second set of dots and nothing else). `#ask-status` sits
+//: above the whole answer block, so a status put there describes the answer
+//: from outside it and reads as a message about the page. It goes into
+//: `#ai-answer`, where the text it is a placeholder for will appear, and the
+//: separate typing dots that used to fill the bubble are gone with it: one
+//: indicator, in the place the answer arrives.
 function askStatusBusy(text) {
-  const status = $("ask-status");
-  if (!status) return null;
-  status.classList.remove("error");
-  status.replaceChildren();
+  const box = $("ai-answer");
+  if (!box) return null;
+  $("ask-status")?.classList.remove("error");
+  $("ask-status")?.replaceChildren();
+  box.replaceChildren();
   const line = progressLine(text);
-  status.appendChild(line);
+  box.appendChild(line);
   return line;
 }
 
@@ -13935,20 +13945,20 @@ async function askQuestion(preset) {
   hide("retry-btn", "copy-btn", "speak-btn");
   setAsking(true);
   status.classList.remove("error");
-  const progress = askStatusBusy(
-    modelStatus && modelStatus.embedding_ready
-      ? "Searching your notes by meaning…"
-      : "Searching your notes…"
-  );
-  const say = (text) => (progress ? progress.setStatus(text) : askStatusText(text));
-
   // Reset the output areas for the new answer.
   const answerBox = $("ai-answer");
   const thinkingBox = $("thinking-box");
   const thinkingText = $("ai-thinking");
   renderAskedQuestion(question);
   answerBox.textContent = "";
-  answerBox.appendChild(typingDots()); // until the first token arrives
+  //: After the reset, not before it: the progress line lives inside the
+  //: answer box now, so creating it first would only have it wiped.
+  const progress = askStatusBusy(
+    modelStatus && modelStatus.embedding_ready
+      ? "Searching your notes by meaning…"
+      : "Searching your notes…"
+  );
+  const say = (text) => (progress ? progress.setStatus(text) : askStatusText(text));
   $("ai-answer-grounding").replaceChildren();
   $("ai-answer-grounding").classList.add("hidden");
   //: The whole foot goes with it, not only the grounding chips: a sources
@@ -14006,7 +14016,12 @@ async function askQuestion(preset) {
         say("Reading your notes…");
       },
       onThinking: (delta) => {
-        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
+        //: Only a stray placeholder, never the progress line itself: that is
+        //: the thing saying what is happening, and it stays until the first
+        //: answer token replaces it.
+        for (const stray of answerBox.querySelectorAll(".typing-dots, .typing-label")) {
+          if (!progress || !progress.contains(stray)) stray.remove();
+        }
         // Auto-expand while the model reasons (user request).
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true;

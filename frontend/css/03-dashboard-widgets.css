@@ -1948,14 +1948,27 @@ header#top-bar select,
    side padding plus the mark's width (`.chat-source-index`'s `min-width`,
    1.25rem) plus a gap. Only on a row that has a number, so an uncited record
    keeps the full width of the column. */
+/* **The number sits in the top right, and the text keeps its own column**
+   (the owner, 2026-09-21: "move the reference numbers in the matching records
+   column notes to the top right not top left and dont let it move the text or
+   cut it off on the right like it currently does on the left"). On the left it
+   was paid for with `padding-left`, which moved every line of the card in to
+   make room for a mark that only occupies the first one, so the title started
+   further right than the prose under it. The gutter is reserved on the right
+   instead, and only on the first row: `float` gives the heading a notch to
+   wrap around and costs nothing below it, so no line is indented and nothing
+   runs under the number. */
 #raw-results li.is-numbered {
   position: relative;
-  padding-left: calc(0.8rem + 1.25rem + var(--space-2));
+}
+
+#raw-results li.is-numbered > :first-child {
+  padding-right: calc(1.25rem + var(--space-2));
 }
 
 #raw-results li > .record-index {
   position: absolute;
-  left: 0.8rem;
+  right: 0.8rem;
   top: 0.6rem;
 }
 

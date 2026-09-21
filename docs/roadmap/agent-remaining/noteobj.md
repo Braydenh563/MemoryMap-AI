@@ -75,10 +75,13 @@ port 8793, data dir `/tmp/mm-noteobj`.
 
 Nothing in INBOX 309 is outstanding. What is worth doing next, in order:
 
-1. **The board object on a phone.** Measured at 1440 only. The card is a
-   flex row of a 7rem picture and a text column; below 600 it may want to
-   stack. `scratchpad/ui-sweeps/noteobject.js` takes a viewport, so this is
-   one run and a CSS band, not a design question.
+1. **The board object on a phone is measured but not swept.** At 390x780
+   the card is 290x104 with a 112x62 picture and a 115px title, no overflow
+   in the card and none on the page, and the button that opens the board is
+   102px tall; the reminder chip is 112x24, the same height as the
+   references chip beside it. That was a one-off probe, not a step in
+   `noteobject.js`: the sweep still runs at 1440 in both themes, and the
+   phone reading should be a step in it so it cannot regress unseen.
 2. **A board object in the chat transcript.** `renderMarkdown` draws it
    there too and it has never been measured there; a model that writes
    `![[board:12|...]]` back at you would produce one. Same sweep, one more
@@ -92,7 +95,8 @@ Nothing in INBOX 309 is outstanding. What is worth doing next, in order:
 
 ## Not verified
 
-- Anything below 820px: this sweep runs at 1440 in both themes.
+- Anything below 820px inside the *sweep*: the phone numbers above are
+  from a one-off probe, so they are true today and unguarded tomorrow.
 - The desktop shell (`start-desktop.sh`); browser only.
 - What a real model does with the `set_reminder` description change. Every
   provider test here runs against a fake transport (CLAUDE.md section 4).

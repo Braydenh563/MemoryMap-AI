@@ -5089,7 +5089,6 @@ function wbRenderMapEdges() {
       hit.setAttribute("d", wbMapEdgePathD(parent, child, layout));
       hit.setAttribute("data-parent", String(parent.id));
       hit.setAttribute("data-child", String(child.id));
-      wbWireMapEdgeGestures(hit, child.id);
       wrap.appendChild(hit);
       //: **The waypoint handle** (§12.1 item 5's third): the third target on
       //: a line, after the visible stroke and the invisible one you can point
@@ -5109,9 +5108,25 @@ function wbRenderMapEdges() {
       handle.setAttribute("r", "7");
       handle.setAttribute("data-parent", String(parent.id));
       handle.setAttribute("data-child", String(child.id));
+      //: The same sentence the link's own bend grip carries, because it is the
+      //: same control: a `<title>` is the tooltip an SVG shape gets, and it is
+      //: the only place either gesture is written down on the thing itself.
+      const gripTitle = document.createElementNS(NS, "title");
+      gripTitle.textContent = "Drag to bend this line · double-click to straighten";
+      handle.appendChild(gripTitle);
       if (colour) handle.style.setProperty("--wb-map-edge-colour", colour);
       wbWireMapEdgeHandle(handle, parent.id, child.id);
       wrap.appendChild(handle);
+      //: On the group, not on the hit stroke: a right-click and a hold belong
+      //: to the *line*, and the line now has two targets in it. Wired on the
+      //: stroke alone, the ring stopped opening wherever the handle was, since
+      //: the handle is a sibling of the stroke and the event never reached it
+      //: (measured by `mapstrip.js`, which caught it the moment the handle
+      //: landed: "right-click on a line opens the line's own ring" came back
+      //: `open: false`). This is the same fault the mid-line `+` already
+      //: carries its own forwarding for, and the same fix one level up: every
+      //: part of the line answers the line's own gestures.
+      wbWireMapEdgeGestures(wrap, child.id);
       //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
       //: The midpoint is exact rather than approximated: both control points
       //: of `wbMapEdgePathD`'s cubic sit on the line between the anchors'
@@ -6964,10 +6979,15 @@ async function wbMapStraightenEdge(node) {
   renderWhiteboardNow();
 }
 
-//: The gestures on one edge's hit stroke. Bound at creation rather than
-//: delegated: the edge group is replaced wholesale on every render
-//: (`wbRenderMapEdges`'s own comment says why), so there is exactly one
-//: binding per element per lifetime and nothing to clean up.
+//: The gestures on one edge, bound to the group that holds its stroke, its
+//: target twin and its waypoint handle, so all three answer them. Bound at
+//: creation rather than delegated: the edge group is replaced wholesale on
+//: every render (`wbRenderMapEdges`'s own comment says why), so there is
+//: exactly one binding per element per lifetime and nothing to clean up.
+//:
+//: The handle stops its own `pointerdown`, so a hold that starts on the
+//: handle is a drag and not a ring; a hold anywhere else on the line is a
+//: ring, which is what it has always been.
 function wbWireMapEdgeGestures(hit, childId) {
   hit.addEventListener("contextmenu", (event) => {
     event.preventDefault();
@@ -8762,8 +8782,40 @@ function wbBuildExportSvg(scope) {
       parts.push(
         `<rect width="4" height="${size.h}" rx="2" fill="${wbSvgEscape(colour)}" />`
       );
+      //: **A topic that is a picture exports as the picture** (§12.1 item 2's
+      //: fourth). Without this a map of photographs came out as a page of
+      //: empty boxes with captions, which is the same "stored, served and not
+      //: drawn" gap the branch above this one exists to close.
+      //:
+      //: The box is measured off the live node rather than recomputed from the
+      //: stylesheet's padding: the element is on screen (`wbMapNodeSize` has
+      //: just read it for the card's own size), and two rects in the same
+      //: units give the picture's place inside the card exactly, at any zoom,
+      //: without this function having to know what `--space-2` is today.
+      //: `mediaSrc`, for the reason the image object above gives: the raster
+      //: pass loads the SVG through a plain `<img>`, which sends no header, so
+      //: the token has to be in the url.
+      let labelTop = 22;
+      const picture = obj.data.image
+        ? document.querySelector(`.wb-object[data-id="${obj.id}"] .wb-map-node-picture`)
+        : null;
+      const card = picture ? picture.closest(".wb-object") : null;
+      if (picture && card && !picture.hidden) {
+        const cardBox = card.getBoundingClientRect();
+        const picBox = picture.getBoundingClientRect();
+        const scale = cardBox.width ? size.w / cardBox.width : 1;
+        const px = (picBox.left - cardBox.left) * scale;
+        const py = (picBox.top - cardBox.top) * scale;
+        const pw = picBox.width * scale;
+        const ph = picBox.height * scale;
+        parts.push(
+          `<image href="${wbSvgEscape(mediaSrc(obj.data.image))}" x="${px}" y="${py}" ` +
+            `width="${pw}" height="${ph}" preserveAspectRatio="xMidYMid slice" />`
+        );
+        labelTop = py + ph + 16;
+      }
       const lines = wbSvgWrapLines(wbMapLabel(obj), size.w - 28, 4, 7.5);
-      parts.push(wbSvgText(lines, 14, 22, { fontSize: 14, fill: "#1f2430", lineHeight: 17 }));
+      parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);

@@ -177,7 +177,16 @@ const READ = `(ids) => {
     const exported = await fetch(`/whiteboard/boards/${ids.board}/export?format=freemind`, {
       headers: { "X-Auth-Token": authToken() },
     }).then((r) => r.text());
-    return { image: obj.data?.image ?? null, exported: exported.includes(`_image="${obj.data?.image}"`) };
+    // And the picture in the board's own picture: a map of photographs that
+    // exported as a page of empty boxes would be the drawn half missing.
+    const svg = wbBuildExportSvg("board").svg;
+    const drawn = svg.match(/<image href="([^"]*)"[^>]*width="([\d.]+)" height="([\d.]+)"/);
+    return {
+      image: obj.data?.image ?? null,
+      exported: exported.includes(`_image="${obj.data?.image}"`),
+      svgSrc: drawn ? drawn[1] : null,
+      svgBox: drawn ? [+drawn[2], +drawn[3]] : null,
+    };
   }, built);
 
   // What the topic's own menu offers, read from the menu itself rather than
@@ -233,6 +242,10 @@ const READ = `(ids) => {
     JSON.stringify(menu.filter((row) => row.toLowerCase().includes("picture"))));
   check("the map export carries the url out",
     stored.exported, `_image in the FreeMind file: ${stored.exported}`);
+  check("and the board's own PNG/SVG export draws the picture, not an empty box",
+    stored.svgSrc && stored.svgSrc.startsWith(stored.image) &&
+      stored.svgBox && Math.abs(stored.svgBox[0] / stored.svgBox[1] - PNG_W / PNG_H) < 0.15,
+    `<image> at ${stored.svgBox && stored.svgBox.join("x")} from ${(stored.svgSrc || "").slice(0, 40)}`);
   check("taking it out puts the topic back as it was",
     removed.picture.shape === null && removed.picture.img === null &&
       Math.abs(removed.picture.node.h - before.picture.node.h) < 2,

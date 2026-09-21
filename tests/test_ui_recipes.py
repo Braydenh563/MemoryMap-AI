@@ -1936,3 +1936,75 @@ def test_every_inverse_scaled_grip_sets_its_own_anchor():
         "because the origin is a pair of board coordinates the drawing code "
         "sets; a `fill-box` here would make those origins mean something else"
     )
+
+
+#: The canvas grips this recipe covers (DESIGN.md, "A grip you drag on a
+#: canvas"). Named rather than discovered by pattern, because the point of the
+#: list is that a new grip is added to it deliberately: a grip that nobody
+#: thought about is exactly the one that ends up a 4px target at 0.3 zoom, or
+#: invisible and still eating the press meant for the line under it.
+CANVAS_GRIPS = (
+    ".wb-resize-handle",
+    ".wb-link-endpoint-handle",
+    ".wb-link-bend-handle",
+    ".wb-map-edge-handle",
+)
+
+
+def test_every_canvas_grip_is_one_size_to_the_hand():
+    """A grip is a constant size on screen, whatever the board's zoom is.
+
+    The rule and its reason are written out above the rules themselves in
+    07-whiteboard-misc.css, after a link's bend grip was measured at 24px
+    across at 2x against the 12px it is at 1x. This is that paragraph as a
+    lint, so the next grip added is measured against it rather than after it.
+    """
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    missing = [
+        grip for grip in CANVAS_GRIPS
+        if f"scale(var(--wb-inv-zoom))" not in _rules_for(css, grip)
+    ]
+    assert missing == [], (
+        "these canvas grips scale with the board instead of staying one size "
+        "to the hand: " + ", ".join(missing)
+    )
+
+
+def test_a_grip_that_is_invisible_does_not_take_the_pointer():
+    """An invisible grip with `pointer-events: auto` swallows the press meant
+    for whatever is under it. It has happened twice on the map alone: the
+    mid-line `+` in front of a line's hit stroke (it forwards the gesture now),
+    and the waypoint grip on the same point as that `+`. So a grip that is
+    drawn at `opacity: 0` declares `pointer-events: none` in the same rule, and
+    opts back in only where it is revealed."""
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    offenders = []
+    for grip in CANVAS_GRIPS:
+        for rule in _rule_bodies(css, grip):
+            if re.search(r"opacity:\s*0\s*;", rule) and "pointer-events: none" not in rule:
+                offenders.append(grip)
+    assert offenders == [], (
+        "these grips are drawn invisible and still take the pointer: "
+        + ", ".join(sorted(set(offenders)))
+    )
+
+
+def _rule_bodies(css: str, selector: str) -> list[str]:
+    """Every rule body whose selector list names this class exactly.
+
+    Comments are stripped first, and that is not tidiness: this stylesheet
+    explains itself at length, and a comment that mentions a `{` (or sits
+    between two selectors in one list, as the grip rule's own does) makes a
+    brace-counting parse read the file as a different file.
+    """
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    bodies = []
+    for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", css):
+        selectors = [part.strip() for part in match.group(1).split(",")]
+        if any(part.split(":")[0].split(" ")[-1] == selector for part in selectors):
+            bodies.append(match.group(2))
+    return bodies
+
+
+def _rules_for(css: str, selector: str) -> str:
+    return "\n".join(_rule_bodies(css, selector))

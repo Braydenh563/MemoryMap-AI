@@ -2673,3 +2673,1029 @@ notes and the history to what the window holds. So odysseus's compaction
 idea, which is still the owner's to decide, is a refinement of a guard that
 exists rather than a missing one, and nothing is silently overflowing while
 the decision waits.
+
+## Twenty-four repositories read for MemoryMap, 2026-09-21
+
+Asked for directly: *"there are some repos I want you to look at, evaluate
+and see if we can take anything from them"*, four named, then a fifth
+(*"can you also get the agent to look at this as well??"*), then a sixth with
+a product question attached to it, and finally four more named for a question
+of their own about speech. Then fourteen more, this app's actual peers, for a
+question of the owner's own: whether a feature this app already has is done
+better somewhere else. Twenty-four in all, in four batches, answered in one
+section, with the depth of each read stated rather than implied. Each was shallow-cloned (`git clone --depth 50`, or 30 for the last
+four) into a scratch directory and read: README, licence file, top-level
+layout, and the parts that looked relevant, then deleted. **Nothing was
+run.** Every proposal below was checked against
+MemoryMap's own code by grep before it was written down, per this file's
+standing rule and the four earlier reads (§33, §59, §60, "Six repositories
+read for MemoryMap, 2026-09-20"), and where the answer was "the app already
+does this", that is stated as plainly as a gap.
+
+**Licences, checked against the constraint at the top of this file
+(MemoryMap is AGPL-3.0; MIT, BSD and Apache code may come in with its
+notices kept; AGPL and GPL code may come in; nothing of ours goes out to an
+MIT project):**
+
+| Repository | Licence | May its code come into MemoryMap? |
+| --- | --- | --- |
+| quickLiquid (amarnath3003) | MIT, root `LICENSE` and `packages/quick-liquid/LICENSE` | Yes, notice kept |
+| needle (cactus-compute) | Apache-2.0 in the repo; the weights repo `Cactus-Compute/needle3` also carries `license: apache-2.0` | Yes, notice kept, code and weights both |
+| cognee (topoteretes) | Apache-2.0 with a `NOTICE.md` | Yes, notice kept |
+| openwolf (cytostack) | AGPL-3.0, the same licence as this project | Yes, and it costs nothing |
+| OpenJarvis (open-jarvis) | Apache-2.0 | Yes, notice kept |
+| cupid-music-player (cupidbity) | **None. No `LICENSE` file, no `license` field, `private: true`** | **No.** Default copyright, so no code and no asset |
+| whisper.cpp (ggerganov) | MIT, and its ggml Whisper weights are MIT | Yes, notice kept |
+| vosk-api (alphacep) | Apache-2.0 | Yes, notice kept; model licences vary and are read per model |
+| piper (rhasspy) | MIT, but development moved to `OHF-Voice/piper1-gpl`, which is GPL-3.0 | Yes, either one; GPL-3.0 combines into an AGPL-3.0 work |
+| kokoro (hexgrad) | Apache-2.0, weights Apache-2.0 | Yes by licence, blocked by its torch dependency instead |
+
+One of the ten ends at the licence: cupid-music-player grants none, so
+nothing of it may be copied, and the evaluation of the repository stops
+there. For the other nine the direction that bites is the outward one, and
+none of them asks for it.
+
+### quickLiquid (amarnath3003)
+
+**What it is.** A liquid-glass UI effects engine: about 4,500 lines of
+TypeScript in `packages/quick-liquid`, with a React wrapper and a demo and
+landing page that together are half the repository. The core is real optics
+rather than a CSS preset. `src/core/optics.ts` traces Snell refraction
+through a convex circular bezel into a 512-sample lookup table,
+`rasterizeLens` renders that into an `ImageData` buffer, `core/engine.ts`
+encodes it to a PNG blob URL and drives `feDisplacementMap` through an
+injected SVG filter, with a refcounted cache so same-size elements share one
+map, plus spring gestures, metaball merging between grouped elements and a
+Chromium-only refraction path with a frost fallback elsewhere. `PHYSICS.md`
+and `OPTIMIZATION.md` are genuine derivations with error bounds, not
+marketing. **How alive:** one contributor, 46 commits in the 50-commit
+window, last commit 2026-09-13, npm at 0.1.2. Alive, but one person and one
+release line.
+
+**Licence.** MIT, confirmed in both `LICENSE` files.
+
+**What MemoryMap has today, and the decision already on the table.** The app
+has a complete glass system, and it also has a recorded decision against
+exactly this. `docs/DESIGN.md`, "Deliberately not taken": *"Refraction and
+lensing (a displacement filter on every glass surface is the one effect
+measured as too costly on an integrated GPU; the lit rim stands in for
+it)"*, repeated in `UI_MODERNISATION_PLAN.md` Phase 10. The measurement
+behind it is in DESIGN.md too: with every `.card` blurred, the blurred area
+at rest was 32% of the viewport on the dashboard and over 80% on notes, chat
+and graph; after the fix it is 6 to 10%, and `tests/test_perf_mode.py` keeps
+it under 10%. Around that sit `--glass-blur`, `--glass-filter`,
+`.glass-clear` with `--glass-scrim`, the `data-glass="off"` list of 35-plus
+selectors, and Performance mode turning itself on for a machine reporting
+`prefers-reduced-transparency`. Standing order 3 says a decision is not
+remade, so the only question worth asking is whether this repository changes
+the facts the decision rested on.
+
+**It does not.** quickLiquid's own cost model (`OPTIMIZATION.md` section 0)
+prices `feDisplacementMap` at roughly twice a streaming filter pass over the
+filter region, and its headline win is cutting the chain from `12A` to `2A`
+for frosted materials: that is a reduction in the multiplier, and MemoryMap's
+measured problem was `A` itself, the blurred area per frame on an integrated
+GPU. A displacement tap is added on top of a blur that is already there, so
+the app's cheapest surface gets more expensive, not less.
+
+**What it would cost if taken anyway.** TypeScript built with `tsup`, into a
+codebase with no bundler; `engine.ts:689` and `animations/morph.ts:218` build
+their SVG with `innerHTML`, which `tests/test_no_innerhtml_interpolation.py`
+forbids and which would become `createElementNS` calls; a PNG blob URL per
+unique geometry to get past the content security policy; and every new glass
+surface added to the `data-glass="off"` list or `tests/test_ui_recipes.py`
+fails, correctly.
+
+**Recommendation: leave it.** The decision in DESIGN.md holds, this
+repository's own numbers do not overturn it, and the lit rim it stands in for
+is already built.
+
+### needle (cactus-compute)
+
+**What it is.** A 121M-parameter tool-calling and extraction model, and the
+Python package that drives it. The repository is the package, not the model:
+44 Python files, about 6,000 lines, 21 authors in the window, last commit
+2026-09-20, a 64-file tree with its own test directory. Inference is
+`ctypes.CDLL` into a prebuilt `libneedle.so`/`.dylib`/`.dll` fetched from
+Hugging Face beside a `.cact` weights archive (`needle/__init__.py:136`,
+`needle/agent/fetch.py`), so the only runtime dependency is
+`huggingface_hub`; the JAX and flax stack is the training extra, and there is
+no torch anywhere. It does three things and says so: grammar-constrained tool
+calls, schema-constrained extraction, and sentence embeddings
+(`needle_embed`), each carrying a calibrated confidence. It does not write
+prose, and the README does not pretend otherwise.
+
+**Licence.** Apache-2.0 in the repository. The weights and engine live in
+`Cactus-Compute/needle3` on Hugging Face, whose hub metadata also says
+`license: apache-2.0` (36.1k downloads, updated 2026-09-19). Both halves may
+come in with the notice kept.
+
+**Say this before anything else: the shipped engine has telemetry on by
+default.** `needle/_telemetry.py` posts anonymous counts to a hosted endpoint
+unless `NEEDLE_TELEMETRY=0`, and the README says the binary does the same
+unless `NEEDLE_TELEMETRY=0` and `DO_NOT_TRACK=1` are both set. For an app
+whose whole claim is that it works with the plug pulled, that is not a
+footnote: it is a property to verify with a packet capture on a machine with
+the network cut, never a README line to trust.
+
+**(a) The tool-schema design rules. Free, no code, and the cheapest thing in
+this whole read.** `needle/environments/smart_home.py` and its siblings are
+written to a stated rule set, in the file's own words: every closed set is an
+enum, every number has bounds, *"no correct call ever needs a value the user
+did not say"*, and an enum value must not hide inside a likely query word
+(*"a room named office poisons an off action, so this home has a study"*).
+Checked against MemoryMap: the 15 tools in `src/memorymap/ai/tools/__init__.py`
+carry exactly two `"enum"` keys between them (the reminder priority, line
+3265), no numeric bounds anywhere, and `create_reminder` requires `due_at` as
+an ISO datetime the model must synthesise (line 1502), which is the clearest
+case of the third rule being broken. The app already attacks the same problem
+from the other end (`ai/reminder_parser.py` resolves "in half an hour" with a
+regex because *"it is a lookup, not a natural-language problem"*, and
+`tools/_common.py:249` hands the model what a note's own "tomorrow" meant), so
+this is a schema audit against a named rule set, not a redesign.
+
+**(b) The ungrounded-argument check.** `needle/__init__.py`'s
+`_temporal_grounding`, `_walk_grounding` and `_annotate_ungrounded` walk a
+tool's JSON schema alongside the arguments a model produced and flag any
+`date`/`date-time` field whose year appears nowhere in the user's text,
+unless the text reasons relatively ("tomorrow", "next week"), in which case
+the system date's year is licensed too; `_grounded_number_paths` does the
+same for numbers. MemoryMap has grounding, twice, and neither one is this:
+`ai/grounding.py` grounds each sentence of a Q&A answer in a retrieved note,
+and `unsupported_claims` checks the agent's narrated actions. Nothing checks
+a **tool argument** against the words that asked for it, and
+`tools/_common.py:325` is permissive on purpose (*"anything unparseable means
+no time filter rather than an error"*). A year the model invented for
+`create_reminder` is the failure this catches, locally, with no model call.
+The risk it covers is narrow, because the regex path already resolves the
+common phrasings; it is cheap for the same reason.
+
+**(c) The model itself, which is the owner's decision.** A 14MB Apache-2.0
+tool-calling model with a grammar that guarantees parseable output would
+answer the one thing this app cannot promise today: that the agent works on a
+machine with no Ollama and no 3B model. Against it: a third inference path
+(`ctypes` into a downloaded native binary) beside the two HTTP providers in
+`ai/provider.py`; a Hugging Face download at first use; the telemetry default
+above; and the fact that it writes no prose, so it could only ever power tool
+routing, `ai/intent.py` and structured extraction (`ai/extractor.py`,
+`ai/entities.py`), never an answer. Worth being blunt about the appeal: the
+AGENT_SKILLS_REFORM Phase D gate measured Qwen2.5-1.5B-Instruct Q4_K_M
+stalling on a step whose contract was one `list_tags` call, and concluded
+*"at 1.5B the remaining gap is the model, not the scaffolding"*. needle
+claims to be exactly the fix for that, and that claim is precisely what this
+session cannot test.
+
+**Recommendation: take (a) and (b) as one small pass; (c) is an owner
+decision, INBOX 302.** First step for (a) and (b): the schema audit of
+`ai/tools/__init__.py` in one commit (enums for the closed sets, bounds on the
+numbers, a note on every argument the user must have said), and the year check
+as one helper called from `create_reminder`.
+
+### cognee (topoteretes)
+
+**What it is.** The AI-memory platform already read as §59. It has grown into
+a platform business: 476,000 lines, 152 contributors inside a 50-commit
+window, last commit 2026-09-19, with an MCP server, a Claude Code plugin,
+Kuzu/LanceDB/Postgres/Neo4j adapters, a hosted cloud and a research paper.
+Alive by every measure available.
+
+**Licence.** Apache-2.0 with a `NOTICE.md`.
+
+**The first finding is that the previous read has been fully built.** Every
+one of the five items §59 promoted to the roadmap from cognee and its
+siblings now exists, checked by grep this session, not assumed:
+
+- IDF-weighted keyword search: `search/index.py`'s `BM25_WEIGHTS` over an
+  FTS5 index, fused in `search/engine.py` (`WEIGHTS = {"bm25": 0.5,
+  "cosine": 0.35, "graph": 0.15}`).
+- Multi-hop graph reach: `search/engine.py:527` `_hops_from`, breadth-first
+  over `entry_links` and reply threads to two hops, with the reason a third
+  hop is refused written beside it.
+- The entity layer cognee had and this app did not: `core/database.py`'s
+  `Entity` and `EntityMention` tables and `ai/entities.py`.
+- Vision: `ai/captioning.py` and `ai/vision_ocr.py`.
+- Per-claim grounding: `ai/grounding.py` and `ai/facts.py`.
+
+A third read of cognee for graph or memory ideas would be rework, which is
+the mistake CLAUDE.md section 1 calls this project's most expensive.
+
+**What is new since that read, and worth exactly one thing.** cognee now
+ships a local path with no LLM and no API key at all (`cognee.remember` /
+`cognee.recall`, README "Run locally without an LLM"), and the interesting
+part is what it runs on. Its **core** dependency list, not an extra, now
+carries `fastembed<=0.8.0` with `onnxruntime`, under the comment *"Local CPU
+embeddings (onnxruntime, ~65 MB): the embedder cognee runs on when no LLM key
+and no EMBEDDING_* settings are configured, so a bare install can ingest"*
+(`pyproject.toml:62`). Entity extraction without a model goes through the
+`gliner2` package behind a `gliner` extra, with the run falling back to the
+LLM extractor when it is absent (`cognee/modules/cognify/config.py`).
+
+**Where that lands here, and it is an open plan item, not a new idea.**
+`WORLD_CLASS_PLAN.md` section 19.1 measured 776MB RSS idle on a running
+instance, with 436 scipy, 117 sklearn and 29 torch shared objects mapped by
+the embedding warm-up, and named three directions of which the second is
+*"ONNX Runtime instead of torch for inference. Same model, a fraction of the
+resident cost, no scipy or sklearn in the import graph. This is the change
+with the best ratio and the most work"*, marked *"none yet taken"*.
+MemoryMap's default embedding backend is `sentence-transformers` with
+`BAAI/bge-small-en-v1.5` (`ai/embeddings.py`, `DEFAULT_ST_MODEL`), and
+fastembed's own default is that same model in ONNX form. So the "most work"
+half of that item is largely a packaging question already answered by someone
+else: a third `Extra` in `core/extras.py` beside the existing
+sentence-transformers one, a second loader branch in `ai/embeddings.py`
+behind the existing `embed_text()` seam, and a row in `core/embedmodels.py`'s
+allowlist so the model can be listed, sized and removed like the others.
+
+**What it would cost, honestly.** onnxruntime is a 65MB wheel, so this
+replaces a 2GB download rather than removing one, and the app still needs the
+model weights. Vectors from a quantised ONNX build are not bit-identical to
+the torch model's, so a switch is the same "two vector widths in one table"
+problem `search/search_manager.py:280-324` already survives by grouping on
+width and logging a reindex hint; the honest shape is a reindex, not a silent
+mix. And none of this is measured here: the 65MB is cognee's comment, the
+776MB is MemoryMap's own earlier measurement of the present state, and the
+result of the swap is measured nowhere yet.
+
+**Recommendation: take it, as the named implementation for WORLD_CLASS_PLAN
+19.1 direction 2.** First step is a measurement, not a wiring: install
+`fastembed` and `onnxruntime` into a scratch venv (neither is torch nor
+sentence-transformers, so CLAUDE.md section 7 permits it), embed a few
+hundred notes, and record resident MB, first-embed latency and cosine
+agreement against vectors an existing notebook already stores, before any
+code in `ai/embeddings.py` changes.
+
+### openwolf (cytostack)
+
+**What it is.** An npm CLI that gives coding agents project memory in a
+`.wolf/` folder beside a repository: a task checkpoint, a scanned project map
+with symbols and imports, a bug log, session notes, a token and cost ledger,
+and an Express plus React dashboard, wired in through Claude Code, Codex and
+OpenCode hooks. 28,000 lines of TypeScript across 274 files, 30 test files,
+2 authors, last commit 2026-09-15, published at 2.5.2 with a real changelog.
+It is a developer tool for agent sessions. Nothing in it is about a person's
+own notes.
+
+**Licence.** AGPL-3.0, the same as this project, so its code could come in
+with notices intact and no clause to reason about. That is the one licence in
+this batch that costs nothing, and it is not enough on its own.
+
+**What MemoryMap could take: close to nothing, and the specifics are worth
+recording so a later session does not look again.**
+
+- **File importance** (`src/anatomy/importance.ts`) is a hand-rolled PageRank
+  power method over the import graph. `entry/paths.py`'s `pagerank()` already
+  does this over the link graph, and §59 already recorded that the
+  neighbouring clustering question was settled there too, with its reason.
+- **Similar-bug search** (`src/buglog/bug-tracker.ts`, `findSimilarBugs`) is
+  substring containment plus Jaccard word overlap over a 0.3 threshold.
+  `search/engine.py` fuses IDF-weighted FTS5 `bm25()`, cosine over real
+  vectors and graph proximity. Taking this would be a downgrade, and saying so
+  is the finding.
+- **Memory archiving** (`src/hooks/memory-archive.ts`) is the one piece with a
+  shape worth naming: an eligible old session block moves to
+  `archive/memory/<sha256>.md`, the live file keeps a one-line
+  `> Archived session: <id>` pointer, the archive is re-hashed and verified
+  before the live file is rewritten, and restore refuses on a checksum
+  mismatch. That is a real answer to "prune without losing anything". It does
+  not port: MemoryMap's equivalent guarantee comes from a transaction over
+  `EntryRevision` and `AuditLog` rather than from a hash over a Markdown
+  block. What could port is the phrasing of the promise, which the
+  resurface and archive copy could borrow.
+
+**What it would cost.** Everything here is Node, hook-shaped and aimed at
+other agents' protocols; there is no Python and no browser code to lift, and
+the dashboard is a Vite and Tailwind build, which is the one shape this
+frontend cannot have.
+
+**One honest aside, outside the question asked.** openwolf's plausible
+audience for this project is the owner's own process, not the app: its
+context-health audit (`src/daemon/context-audit.ts`) warns when a `CLAUDE.md`
+passes 200 lines because every line loads every session, which is a live
+concern in a repository whose CLAUDE.md is the operating manual and whose
+HANDOVER is capped at 600 lines by a lint. Whether it is worth adopting as a
+development tool is a different question from this one, and is not answered
+here.
+
+**Recommendation: leave it.** Nothing in it beats what the app already has,
+its one good idea is already carried by SQLite, and its licence being free is
+not a reason to take code nobody needs.
+
+### OpenJarvis (open-jarvis)
+
+**What it is.** A framework for local-first personal AI with a Stanford
+project page, an arXiv paper and a leaderboard: 313,000 lines of Python
+across 2,150 tracked files, plus a Rust extension, a Tauri desktop frontend
+and an mkdocs site. 9 authors in the 50-commit window, last commit
+2026-09-20. An installer sets up uv, Ollama and a starter model, and `jarvis`
+runs agent presets (morning digest, deep research, code assistant, scheduled
+monitor, plain chat). Read by size rather than by pitch, the centre of
+gravity is not the assistant: `evals/` is 37,000 lines and `agents/` 24,000,
+against 978 lines of `memory/` and 1,127 of `intelligence/`. It is a research
+harness with a product attached, and its stated thesis is efficiency, that
+local models already serve most queries if energy, FLOPs, latency and cost
+are treated as first-class.
+
+**Licence.** Apache-2.0.
+
+**Because the name promises an assistant, here is which part is meant, and
+which parts are not.**
+
+- **Not the agent loop.** Atlas already has tools behind a confirm-card path
+  (`ai/cards.py`), skills with per-step contracts and a per-skill tool
+  allowlist (`ai/skills.py`), and a budgeted runner that refuses to tick a
+  step whose contract failed (`ai/skill_runner.py`, gated by
+  `tests/test_skills_evals.py`). Nothing in `openjarvis/agents/` is a better
+  version of that for a single-user notebook.
+- **Not the routing.** Its local-versus-cloud escalation is a decision this
+  app made in the other direction, and §59 already recorded hosted-provider
+  breadth as a scope boundary rather than a gap.
+- **Not memory.** `openjarvis/memory/` is 978 lines that ask a small local
+  model after each exchange for a JSON array of durable facts about the user
+  and append them to a deduped, capped JSON file
+  (`memory/extractor.py`, `memory/store.py`). MemoryMap does the same idea
+  more carefully and has already argued it out in code comments:
+  `ai/passive_capture.py` writes **drafts** rather than finished rows
+  precisely because *"a background job that mis-files something nobody asked
+  to capture is a worse failure than one that misses something"*, and
+  `ai/memory.py` with `save_user_preference` (`ai/tools/__init__.py:2148`)
+  puts a preference behind an accept or decline card.
+  `openjarvis/memory/store.py` has no see, edit, delete and switch-off
+  contract at all, which is the thing WORLD_CLASS_PLAN I9 makes
+  non-negotiable here.
+- **Not the skills subsystem**, with one note. `openjarvis/skills/` is 2,448
+  lines to MemoryMap's 3,368 across `ai/skills.py` and `ai/skill_runner.py`,
+  and the overlap (a manifest, a tool adapter, a per-skill capability list)
+  is already built. The one shape that is not: `skills/overlay.py` keeps
+  optimiser output (few-shot examples learned from traces) in a sidecar file
+  so a skill's own text is never overwritten. That is the same contract I9
+  already states for derived rows, applied to skills, and it is only worth
+  anything if this app ever learns from its own runs, which it deliberately
+  does not (`ai/learning.py`: bounded, decaying arithmetic over corrections,
+  *"there is no training here"*).
+
+**The one part worth naming: `openjarvis/telemetry/`, which despite the name
+sends nothing anywhere.** It is a local SQLite record of every inference
+(`telemetry/store.py`, `aggregator.py`) with per-phase metrics, inter-token
+latency (`itl.py`), FLOPs (`flops.py`) and energy read from Intel RAPL,
+NVIDIA, AMD and Apple counters (`energy_*.py`), aggregated per model and per
+engine. MemoryMap measures a piece of the same thing once per response and
+then throws it away: `ai/ollama_client.py:551` computes `eval_ms` from the
+Ollama payload and `frontend/app.js:21270` renders "3.9k/8k window · 12 tok/s
+· llama3.2" onto the message. There is no table for it: `core/database.py`
+declares 30-odd models and none of them is an inference record. So the app
+cannot answer *"which of the models I have installed is actually fastest on
+this machine"*, which is the question the Models screen exists to help with.
+
+**What it would cost.** One table and an alembic migration, one write on the
+response path where `ollama_client` already holds the numbers, one aggregate
+read for the Models screen, and a retention rule so it cannot grow forever
+(`AuditLog`'s compaction is the precedent). OpenAI-compatible providers
+return no `eval_duration` (`ai/openai_client.py:603` sets `eval_ms` to
+`None`), so the panel must say "not reported" rather than render a zero, and
+that honesty is the whole value of the feature. Deliberately not taken: the
+energy counters. RAPL needs a readable powercap sysfs, the NVIDIA path needs
+NVML, and none of it works on the Windows laptop this app most often runs on,
+so an energy number here would be absent exactly where it was promised.
+
+**Recommendation: take the small half.** First step is the inference-record
+table plus the single write in `ollama_client`, with the Models screen panel
+behind it; a BACKLOG row against the Models screen, not a plan phase.
+
+
+### cupid-music-player (cupidbity), and the music question attached to it
+
+**What it is.** A pixel-art desktop music player: Electron plus Vite plus
+React, 3,550 lines of JavaScript across a 103-file repository that is mostly
+sprite sheets (a spinning vinyl, a needle, a plant, two colour themes). One
+author, 17 commits, last commit 2026-06-07, which is three and a half months
+before this read. Local playback is a plain HTML5 `Audio` element driven by a
+183-line hook over a hand-edited `audio/playlist.json`, with `file://` URLs
+resolved through an Electron IPC bridge. The integrations are the bulk of the
+work: Spotify and Apple Music OAuth, YouTube through `youtubei.js`, and a
+`postinstall` script that downloads a `yt-dlp` binary. Worth saying plainly,
+because the README's feature list does not: its Spotify support does not play
+Spotify audio. It browses the account's playlists through the API and then
+plays the track by finding it on YouTube through `yt-dlp` (`package.json`
+`postinstall`, and the last commit's own message, *"Make YouTube streaming
+work: JS runtime plus bot-detection workarounds"*). Working around a service's
+bot detection is a fragile thing to depend on and not a thing to copy.
+
+**Licence: none. This is where the evaluation of the repository ends.** There
+is no `LICENSE` file, no `license` field in `package.json`, and
+`"private": true` is set. No licence granted means default copyright: not the
+code, not the sprites, not a file of it may come into an AGPL-3.0 project. So
+nothing below is taken from it. The owner's question stands on its own, and
+what follows answers it from MemoryMap's own code.
+
+**Part one: playing files the person already owns. The app does not do it,
+and the gap is already scoped, here.** Checked before proposing anything:
+there is no `<audio>` element and no `new Audio` anywhere in `frontend/`, and
+audio is refused on the way in on purpose, with the reason in the code.
+`api/routes_files.py:56` says it: *"video and audio are still out (no player
+exists for either yet; audio specifically is tracked as a real feature to add,
+not a permanent refusal)"*, and the 415 message the person sees says *"video
+and audio attachments aren't yet"*. The tracking it refers to is
+**BACKLOG.md section 75, "Voice memos: capture, storage, playback, and a
+dedicated library page"**, which already scopes three separable pieces: the
+suffixes added to `ATTACHMENT_SUFFIXES` with a size ceiling suited to audio
+rather than to a PDF (`MAX_FILE_BYTES` is 50MB today, generous for a document
+and thin for an album), an `<audio>` player *"wherever an attachment is
+already rendered inline (the note card, the lightbox)"*, and a Library subtab
+listing every audio attachment the way `routes_library.py` already lists
+images. A music player is that same item with a different use case attached,
+not a new one, and the pieces it adds on top are a queue, a next and previous
+control, and a position that survives leaving the tab.
+
+**But uploading is the wrong shape for a music library, and the owner's
+second message has the better one.** Copying gigabytes of audio into
+`data_dir/media` puts it inside the thing `core/backup.py` backs up and
+`Settings` reports the size of, for files that already exist somewhere else on
+the same disk. Pointing at a folder stores a reference, and the honest
+question is what a reference can be here. Two routes, with opposite costs.
+
+**Route A, the browser holds the folder.** A browser cannot open a path from
+a string, so "save folder locations" cannot mean storing `D:\Music` and
+reopening it. The File System Access API is the only thing that makes a
+directory re-openable: the person picks once, the `FileSystemDirectoryHandle`
+is kept in IndexedDB, and a later session re-requests permission on it.
+Checked: nothing in this app uses it. `frontend/` has no `showDirectoryPicker`
+or `showOpenFilePicker` anywhere. What it does have, already, is the other
+folder mechanism: `frontend/index.html:8988` is an
+`<input type="file" webkitdirectory directory multiple>` for importing an
+Obsidian vault, which reads every file once and cannot be reopened later
+without picking again. **The part that decides this route, and the part this
+session cannot verify:** the desktop window is pywebview
+(`src/memorymap/__main__.py`), which is Edge WebView2 on Windows, WKWebView on
+macOS and WebKitGTK on Linux. Only the first of those three is Chromium, so a
+File System Access feature would work in a browser tab and on Windows, and be
+absent in the desktop window on the other two platforms. That is a read of
+what those runtimes are, not a measurement: no desktop window was launched
+this session, and CLAUDE.md section 1 says to say so rather than to report it
+as checked.
+
+**Route B, the server holds the folder, and the precedent already exists.**
+This app runs a Python server on the same machine, so a saved folder can be a
+path the server reads and serves, identically in both runtimes and in every
+browser. The decision this seems to require, letting the app read outside its
+own data folder, **has already been made and written down**:
+`api/routes_settings.py:1853`, `_validated_import_directory`, exists precisely
+so *"the already-authenticated owner of this single-user, local-only notebook
+[can] pick any folder on their own machine to import from... There is no
+narrower base directory to confine it to without breaking that"*, with
+CodeQL's objection answered in the comment and a null-byte, resolve-strict,
+is-a-directory check as the guard. The Settings screen has the text box for it
+today ("Import from a folder path").
+
+**Where the two genuinely differ, and it is not the scope question.** The
+importer reads a folder **once** and copies what it finds into notes. A music
+folder is read **repeatedly**, and every track is a byte range served to the
+browser from outside the data directory on request, which is a new shape for
+this app and the one that has to be got right: the stored thing is the folder
+root, every requested file resolves against that root and is rejected unless
+`Path.resolve().is_relative_to(root)`, and only known audio suffixes are
+served. That is the same defence `MEDIA_SUFFIXES` and the media route already
+run for uploads, pointed at a root that is not the data directory. Route A
+needs none of that and cannot be built for the desktop window on two of three
+platforms; route B works everywhere the app runs and puts the burden on one
+resolve-and-check function this codebase has written twice already.
+
+**What a folder of music needs beyond a file list, honestly.** Filenames are
+not track titles. Showing artist, album and cover art means reading ID3 tags:
+in the browser that is a JavaScript library and there is no bundler to install
+one with, and on the server it is a pip package (the `mutagen` shape),
+which `core/extras.py` already has the pattern for as an optional install with
+its size and its caveat stated. Either is real work, and a first version that
+shows filenames and plays them in order is not embarrassing.
+
+**Recommendation for part one: take it, folder first, and the first step is a
+decision recorded rather than code.** Route B, the server, on the grounds
+above; the first step is a paragraph in BACKLOG section 75 saying so and
+naming the resolve-and-check guard, then the audio suffixes and the
+`<audio>` element, which section 75 already scopes, and only then the saved
+folder. Nothing here needs a new dependency, a build step or a network call.
+
+**Part two: Spotify and YouTube Music. Not this session's call, and the
+wording is the constraint.** The owner's instinct in his own message is
+right, and the app has already picked its words. `api/routes_settings.py:220`
+calls web search *"The ONE feature that goes online, off unless the user opts
+in"*; `api/routes_websearch.py:31` returns a 403 with *"this is the one
+feature that goes online"* while the preference is off; `dashboard.js:1277`
+says the same to the person. So the promise this app makes is not "never
+online", it is "exactly one thing goes online, you turn it on, and it says so
+in three places". A streaming integration would make that sentence false in
+all three, which is a copy change the size of a product decision, plus an
+OAuth flow, a cloud account, a token to store, and a service whose terms
+govern what may be played and how. That is INBOX 303, not a recommendation.
+
+
+### Speech, four projects read by name, and what this app already does
+
+Asked for directly, alongside the music question: recording, an audio
+library paired with meeting notes, live transcription, and *"improved text
+to speech... are there any github repos that do it for free and well??"*.
+Before any of the four: what is here already, because two of the three
+capabilities are built and the third is not silent about being missing.
+
+**Speech to text is built, and optional.** `ai/voice.py` transcribes with
+faster-whisper (Whisper through CTranslate2, no torch), installed by the
+person from `core/extras.py` as `Extra(id="voice", ... "~50 MB, plus a model
+on first use")`, absent-safe by design: *"without the package the voice
+endpoints report 'not available' with that hint, and the mic button in the UI
+explains instead of breaking. Audio never leaves the machine."*
+`api/routes_voice.py` has both `/voice/transcribe` and a
+`/voice/transcribe-meeting` sized for a meeting (a 300MB ceiling against the
+spoken note's 25MB), and `librarian.summarize_meeting` already pulls decisions
+and action items out of a transcript. `frontend/app.js` has two recorders, one
+for dictation and one for meetings with pause and resume.
+
+**Text to speech is built, barely.** `frontend/app.js:33882` uses the
+browser's own `speechSynthesis` with a bare `SpeechSynthesisUtterance` and
+`cancel()` as the stop button. No voice picker, no rate, nothing saved. So
+"improved" has a specific baseline: whichever voices the operating system
+ships, chosen for you.
+
+**What is genuinely missing is the recording itself.** The meeting recorder
+builds a blob at `app.js:33714`, posts it to `/voice/transcribe-meeting`, and
+nothing keeps it; audio attachments are refused with a 415
+(`routes_files.py:92`, *"video and audio attachments aren't yet"*) because,
+in the same file's words at line 56, *"there is no player anywhere in the app,
+so an uploaded .mp3 would just be a file nobody could listen to... audio
+specifically is tracked as a real feature to add, not a permanent refusal"*.
+The transcript survives and the recording does not. That is the hole, it is
+recorded in BACKLOG section 75, and it is not a rebuild.
+
+**One correction to carry through the naming, before anything is promised.**
+A browser recorder does not make mp3. `MediaRecorder` produces webm or ogg
+with Opus, and `app.js:33714` says so itself, defaulting the blob type to
+`"audio/webm"`. Shipping mp3 would mean an encoder inside the page, a
+dependency and a build step bought for nothing, since anything that can record
+in a browser can play back what it recorded. Name the feature for the
+recording, not for the container.
+
+**whisper.cpp (ggerganov). MIT**, stated in `LICENSE` ("The ggml authors").
+23 authors inside a 30-commit window, last commit 2026-09-18: one of the most
+active projects of its kind. C and C++ over ggml with no runtime dependencies,
+building to a CLI, a `server` example that answers over HTTP, a `stream`
+example doing continuous sliding-window transcription gated by a VAD
+threshold, and WASM builds (`whisper.wasm`, `stream.wasm`). Weights are ggml
+conversions of OpenAI's Whisper, fetched by
+`models/download-ggml-model.sh`, so it does not run without a download and
+neither does what this app has today. **What it is worth here is not a
+replacement.** MemoryMap already transcribes with the same model family
+through a pip package that needs no compiler, and swapping that for a native
+binary the person must build or fetch is CLAUDE.md section 6's first shape, a
+working thing rewritten into a riskier one. What whisper.cpp has that
+faster-whisper does not is the streaming half, and the precedent for how it is
+allowed to exist here already landed tonight: `scratchpad/llama-dev.sh` is an
+optional native helper reached through two environment variables, with
+`tests/test_skills_evals.py` holding the seam so nothing in `tests/` and no
+mode of `scripts/gate.sh` can reach for it. **Recommendation: leave the
+shipping transcription path alone; if live transcription is built,
+whisper.cpp's `stream` is the reference to measure against through that same
+seam, never a runtime dependency.**
+
+**vosk-api (alphacep). Apache-2.0**, stated in `COPYING`. 14 authors in a
+30-commit window, last commit 2026-08-09. A Kaldi-based C++ core with
+bindings for Python, Java, C#, Go, Rust and Node, and the property the live
+question actually needs: a streaming recogniser with partial results as you
+speak, on models of about 50MB rather than Whisper's hundreds.
+`pip install vosk` ships prebuilt wheels carrying the native library, which
+is exactly the `core/extras.py` shape the voice and OCR extras already use,
+and `python/example/test_microphone.py` is the whole streaming loop. Two
+cautions, both worth stating before anyone plans on it: the browser binding
+in this repository is `webjs`, a **Node** binding, not a WASM build (the
+browser port is a separate third-party project, and a wrapper around this one
+would not be a finding); and a 50MB Vosk model is less accurate than Whisper
+base on ordinary speech, which for captions scrolling during a meeting is a
+trade rather than a defect, because the text that gets kept can still be
+Whisper's afterwards. **Recommendation: this is the honest answer for live
+transcription, as a second Extra beside the voice one. First step is a
+measurement, not code: run one recorded meeting through both and compare
+against the faster-whisper transcript the app already produces.**
+
+**piper (rhasspy), and where it actually lives now.** `rhasspy/piper` is
+**MIT** (`LICENSE.md`), last commit 2025-08-26, and the first line of its
+README is *"Development has moved: https://github.com/OHF-Voice/piper1-gpl"*.
+The successor is **GPL-3.0** (`COPYING`), last commit 2026-09-17, maintained
+under the Open Home Foundation, and its README is openly asking for
+maintainers. The relicence is because it embeds espeak-ng to turn text into
+phonemes. GPL-3.0 combines into an AGPL-3.0 work, so it may come in with its
+notices intact, and as ever nothing goes the other way. What it is: a small
+ONNX neural voice engine, `pip install piper-tts`, with a CLI, an HTTP server
+and a Python API, and per-voice model files downloaded separately whose
+licences vary by voice and have to be read per voice rather than assumed.
+**Already queued here:** this file's own F9 table, row 4, says *"Local TTS via
+Piper as a `core/extras.py` package, evaluated exactly like Tesseract was"*,
+and ROADMAP section 88.2 item 7 scoped it and recommended Piper. So the idea
+is not new; what this read adds is that the recommended repository has moved
+and changed licence, and the plan row still names the old one.
+**Recommendation: take, and the first step is a one-line correction to that
+plan row** naming `OHF-Voice/piper1-gpl` and its GPL-3.0 licence, before
+somebody installs the MIT one and finds it unmaintained.
+
+**kokoro (hexgrad). Apache-2.0** in `LICENSE`, and the weights are Apache-2.0
+too (`hexgrad/Kokoro-82M`, and the ONNX build
+`onnx-community/Kokoro-82M-v1.0-ONNX`, both checked on the hub). An 82M
+parameter model with a reputation for quality well above its size. Last commit
+to the Python package 2025-08-06, about thirteen months before this read, with
+the activity since living in the JS port and the community ONNX builds.
+**The blocker is in its own `pyproject.toml`: the package depends on `torch`
+and `transformers`,** which CLAUDE.md section 7 forbids outright, so the pip
+path is closed and that is the end of that route rather than something to
+design around. The repository also carries `kokoro.js`, which runs the ONNX
+build in the browser through Transformers.js with no torch anywhere: good for
+quality, and wrong for this app twice over, since it is an npm package that
+expects a bundler in a frontend whose rule is no build step, and it would pull
+an 82M-parameter model into the page. The route that would actually fit is a
+third one nobody ships: the ONNX weights under `onnxruntime` on the server,
+plus a phonemiser, which is the part Piper embeds espeak-ng for and Kokoro
+solves with `misaki`. **Recommendation: leave it for now.** The licence is
+clean and the voices beat the browser's; revisit only if the
+onnxruntime-on-the-server path lands for embeddings first (the cognee item
+above), because then this is a model to load rather than a runtime to adopt.
+
+**Anything that beats those, and the one improvement that needs no project at
+all.** Nothing turned up that is not a wrapper around one of these four. The
+honest fourth option is the one already in the app: `speechSynthesis` costs
+nothing, ships with the operating system, downloads nothing and depends on
+nothing. What `app.js` does not do with it is use `getVoices()`: there is no
+voice picker, no rate control and no saved preference, so the app speaks in
+whatever voice the machine defaults to. That is a half-day against the
+existing code, it needs no repository, no licence review and no download, and
+it should be measured before a neural engine is installed to beat it, because
+"improved text to speech" may turn out to mean "let me pick the voice".
+
+**On the rest of the ask, briefly, since the architecture is being written
+elsewhere.** Attaching to notes already exists as a mechanism: `Attachment`
+rows through `/entries/{id}/files`, with `ATTACHMENT_SUFFIXES` as the
+allowlist and audio the one deliberate refusal. Whiteboards and mind maps are
+surfaces with their own tables rather than attachments, so "can they all be
+attached to notes" has two different answers, and the audio half is the one
+BACKLOG section 75 already scopes: suffixes, a ceiling suited to audio, an
+`<audio>` element where attachments already render, and a Library subtab
+listing every recording the way `routes_library.py` lists images.
+
+
+### The peer apps: fourteen triaged, five read properly
+
+Asked for directly, and it comes with a correction to how the rest of this
+section is written: *"even if features already exist in this app, the other
+apps might do it better in some ways so make sure the agent didnt skip
+anything from the other repos it has already analysed"*. CLAUDE.md section 1
+says the same thing in its own words: *"'Already exists' is not 'is good
+enough.'"* So from here on there are three outcomes, not two: we do not have
+it; we have it and ours is at least as good, with the reason; we have it and
+theirs is better at a named thing, with what we would change. The revisit of
+the earlier ten is the block after this one.
+
+Fourteen were named or found. All fourteen were cloned (`--depth 1`) and
+their licence, layout and size established, which is the shallow pass; five
+were then read properly, and the section says which is which, because a
+shallow read of fourteen is worth less than a real read of five.
+
+| Repository | Licence | Size | Comparable? | Read |
+| --- | --- | --- | --- | --- |
+| khoj-ai/khoj | AGPL-3.0 | 83k lines, last commit 2026-08-02 | The closest peer of all: AI over your own documents, self-hosted, local models | **Deep** |
+| reorproject/reor | AGPL-3.0 | 43k lines, last commit **2025-05-13** | Local-first AI notes with automatic linking: the single closest match to this app's own pitch, and it has stopped | **Deep** |
+| TriliumNext/Trilium | AGPL-3.0 | 576k lines, last commit 2026-09-20 | The mature hierarchical notebook; its attribute and relation model is the nearest thing to this app's tags, categories and entities | **Deep** |
+| karakeep-app/karakeep | AGPL-3.0 | 149k lines, last commit 2026-09-19 | Bookmark-everything with AI tagging: narrower product, but the tagging pass is directly comparable | **Deep** |
+| mem0ai/mem0 | Apache-2.0 | 230k lines, last commit 2026-09-18 | Memory extraction and update, which is what this app calls preferences and learning | **Deep** |
+| letta-ai/letta | Apache-2.0 | **A stub: 12 files and no code**, pointing at `letta-ai/letta-code` | Read together with mem0; see the note below, because the memory server is in neither repository | **Deep, with a caveat** |
+| siyuan-note/siyuan | AGPL-3.0 | 655k lines, alive | A block-level notebook with its own kernel; block references are a different data model from this app's note-level one, and adopting them would be a rewrite | Skim |
+| logseq/logseq | AGPL-3.0 | 269k lines, alive | Outliner and daily notes in ClojureScript, mid-rewrite onto a database version; the journal idea is already in this app's timeline | Skim |
+| streetwriters/notesnook | GPL-3.0 | 260k lines, alive | Zero-knowledge encrypted notes (XChaCha20-Poly1305, Argon2). Encryption is the product; this app has its own vault and does not sync, so the threat model differs | Skim |
+| toeverything/AFFiNE | MIT outside `packages/backend`, which has its own licence | 851k lines, alive | Notion and Miro in one, with a real canvas. Its whiteboard is ahead of this app's, and it is a BlockSuite-sized dependency, not a technique | Skim |
+| anyproto/anytype-ts | **Any Source Available License 1.0, not an open-source licence** | 234k lines, alive | Local-first encrypted knowledge OS. **The licence ends the evaluation**: source-available is not a grant this project can build on | Skim, stopped at the licence |
+| Mintplex-Labs/anything-llm | MIT | 211k lines, alive | Chat over a document workspace with agents. Nothing may go out to it; what could come in is workspace-scoping, which this app already has as Spaces | Skim |
+| open-webui/open-webui | **Custom "Open WebUI License": BSD-3 plus a branding clause** | 348k lines, alive | A model chat front end, not a notebook. Its licence forbids removing its branding above fifty users, so a copied fragment carries that condition into an AGPL project. Not worth the entanglement | Skim, stopped at the licence |
+| onyx-dot-app/onyx | MIT outside the `ee/` directories, which are proprietary | 1.24M lines, alive | Enterprise RAG with fifty-plus connectors. The connector breadth is the product; this app is deliberately one machine and one notebook | Skim |
+
+**Why those five.** khoj and reor are the two projects doing the same thing
+as MemoryMap rather than something adjacent; Trilium is the mature notebook
+with the data model closest to this app's; mem0 (with letta) is the memory
+architecture behind the part this app calls learning; and karakeep earned its
+place with one specific finding that is worth more than the other skims put
+together. The nine skims are stated as skims and no claim below rests on one.
+
+#### khoj-ai/khoj
+
+**What it is.** A Django plus Next.js personal AI over your own documents:
+markdown, org-mode, PDF, Word, Notion and GitHub ingested into a vector
+index, chat with local or hosted models, agents with personas, scheduled
+automations, and clients for browser, Obsidian, Emacs, desktop and phone.
+83,000 lines of Python and TypeScript, an active project with a real test
+workflow, last commit 2026-08-02, with the team's newest energy visibly
+moving to a separate product (Pipali).
+
+**Licence.** AGPL-3.0, the same as MemoryMap.
+
+**Where khoj is better, specifically: it reranks and this app does not.**
+`src/khoj/search_type/text_search.py` retrieves with a bi-encoder and then
+runs `cross_encoder_score` and `rerank_and_sort_results` over the hits, with
+`mixedbread-ai/mxbai-rerank-xsmall-v1` as the default cross encoder
+(`database/models/__init__.py:566`). MemoryMap has no rerank stage at all:
+`search/engine.py` fuses three scores with fixed weights (`bm25 0.5,
+cosine 0.35, graph 0.15`) and sorts. Fusion and reranking are not the same
+move: fusion trades off signals computed independently of each other, while a
+cross encoder reads the query and the candidate together and is the standard
+way to fix the top five when the top fifty are roughly right. **What we would
+change:** a rerank of the top N only, behind the same optional-extra seam
+semantic search already sits behind, and through onnxruntime rather than
+khoj's route, because khoj's costs `torch` (`text_search.py` imports it at
+module level) and this project forbids that. It is the same
+onnxruntime-on-the-server question the cognee item above raises, which is an
+argument for answering that one first and getting two features out of it.
+
+**Where this app is better, and it is not a close call on two of them.**
+First, khoj's retrieval is semantic-plus-rerank with no lexical leg;
+MemoryMap's has FTS5 `bm25()` over a Porter-stemmed index beside the vectors,
+so an exact phrase or a rare proper noun cannot fall through, and
+`_explain()` tells the person which signal matched. Second, and bluntly:
+**khoj phones home by default.** `src/khoj/utils/state.py` reads
+`KHOJ_TELEMETRY_DISABLE`, so telemetry is opt-out, and `src/telemetry/` is
+their own FastAPI collector forwarding to PostHog. MemoryMap sends nothing,
+ever, and its one online feature is off until switched on. For an app whose
+pitch is a personal AI, that is a real difference in kind, not in degree.
+Third, khoj's local mode needs torch and sentence-transformers as ordinary
+dependencies, where this app treats that stack as an optional extra with its
+2GB cost written on the button.
+
+**Recommendation: take the rerank idea, after the onnxruntime measurement,
+and take nothing else.** First step is the same measurement the cognee item
+asks for, extended by one question: whether an ONNX cross encoder can rerank
+the top 50 inside the latency the search box already has.
+
+#### reorproject/reor
+
+**What it is.** An Electron desktop notes app whose whole thesis is this
+app's thesis: *"AI tools for thought should run models locally by default"*.
+Every note is chunked and embedded into LanceDB, related notes are connected
+automatically by vector similarity, Q&A does RAG over the corpus, and
+embeddings run in-process through Transformers.js rather than Python.
+43,000 lines. **Last commit 2025-05-13**, sixteen months before this read,
+with an announcement in its README saying the team is *"shipping very
+quickly right now"*. It is not.
+
+**Licence.** AGPL-3.0.
+
+**One thing genuinely worth knowing, and it is not a feature.** reor runs its
+embedding model through Transformers.js inside the app process with no Python
+and no torch, which is the third existence proof in this section that the
+ONNX route is the one local-first apps actually take (cognee's fastembed, the
+Kokoro ONNX community build, this). That is corroboration for the
+WORLD_CLASS_PLAN 19.1 item, not a new idea.
+
+**Where this app is better, and it is the feature reor is named for.** reor's
+related-notes sidebar (`src/components/Sidebars/SimilarFilesSidebar.tsx`,
+`SemanticSidebar/SimilarEntriesComponent.tsx`) lists notes by raw vector
+similarity and says nothing about why. MemoryMap has the same panel live
+while a note is open (`frontend/app.js:9158`), and every link carries a
+reason that starts as "similar in meaning" and is then rewritten by
+`ai/links.py` into the specific thing connecting the two notes, with
+`ai/links.py` rejecting a reply that is still vague. A related note with a
+reason is a different product from a related note with a cosine score, and
+this app already has the better one.
+
+**Recommendation: leave it.** The project has stopped, its one transferable
+idea is already recommended elsewhere in this section, and its headline
+feature is behind this app's version of the same thing.
+
+#### TriliumNext/Trilium
+
+**What it is.** The continuation of the long-running Trilium notebook: a
+hierarchical note tree where a note can live in several places at once, with
+scripting, a web clipper, desktop and server builds. 576,000 lines across a
+pnpm monorepo, very much alive (last commit 2026-09-20).
+
+**Licence.** AGPL-3.0.
+
+**The one idea worth naming: attributes as one table with two types.**
+Trilium's `attributes` table (`docs/Developer Guide/.../attributes.md`) gives
+every note rows of `type` (`label` or `relation`), `name`, `value`, with
+labels carrying arbitrary key-value data and relations pointing at another
+note, plus "promoted attributes" which are the ones a note type chooses to
+show as fields in the UI. One mechanism covers tagging, typed metadata,
+and typed links between notes. MemoryMap spreads the same ground over four
+separate things: a `tags` JSON column on `Entry`, a `Category`,
+`EntryLink` with its reason, and `Entity`/`EntityMention`. **That is not a
+recommendation to unify them**: this app's four each carry behaviour the
+others do not (a category has a centroid used for filing, a link has a
+model-written reason and a confidence), and a rewrite onto one generic table
+would lose exactly the specificity that makes them good. What is worth
+taking is narrower, and it is the promoted-attribute idea: a note that wants
+a typed field (a due date, a status, an amount) has nowhere to put it here
+except free text.
+
+**Where this app is better.** Trilium's AI is bolted on and optional;
+MemoryMap's filing, linking, resurfacing and Q&A are the product, and
+`ai/janitor.py`'s four-tier filing cascade (model, then category centroid,
+then nearest-neighbour vote, then Uncategorised at confidence zero) has no
+equivalent there at all.
+
+**Recommendation: leave the data model alone; the typed-field idea is a
+BACKLOG row**, not a plan phase, and it should be written as "a note can
+carry named fields" rather than as "adopt attributes".
+
+#### karakeep-app/karakeep
+
+**What it is.** A self-hostable bookmark-everything app (links, notes,
+images, PDFs) with an AI tagging pass, full-text search, lists and rules.
+149,000 lines, alive (2026-09-19). Narrower than MemoryMap, and read here
+only for the tagging worker.
+
+**Licence.** AGPL-3.0.
+
+**The finding, and it is a real one.** `apps/workers/workers/inference/
+tagging.ts` builds its prompt with the user's **existing** tag names
+included, truncated to a budget for exactly the reason the constant is named:
+`RELEVANT_TAG_TRUNCATE_LENGTH = 1000`, *"the maximum length of the relevant
+tag names to avoid bloating the inference context"*. The model is asked to
+reuse the vocabulary that already exists before inventing a new word.
+MemoryMap does not do this. `librarian.suggest_tags(text, existing, ...)`
+passes `existing` as *"tags already on the note (don't repeat)"* and nothing
+else: the notebook's own tag vocabulary is never shown to the model, so every
+note is tagged from a blank slate and a notebook accumulates `work-project`,
+`work project` and `project` as three separate tags that mean one thing.
+**What we would change:** pass a bounded list of the notebook's most-used
+tags into that prompt beside the note's own, which is a few lines in
+`ai/librarian.py:797` and its two callers in `api/routes_entries.py:655`
+and `:769`. Cheap, and it improves every tag the app has ever suggested.
+karakeep also carries a rule engine (if the source domain is X, add tag Y);
+that is a bookmarking feature and this app is not a bookmarking app.
+
+**Recommendation: take the tag-vocabulary fix.** First step is the prompt
+change plus a fixture in the tag tests showing an existing tag being reused
+rather than a near-duplicate invented.
+
+#### mem0ai/mem0, and letta
+
+**What they are.** mem0 is a memory layer for LLM apps: extract facts from a
+conversation, compare them against what is already stored, and decide what to
+do. letta (formerly MemGPT) is the best-known project in this space, and
+**the named repository is now a stub**: twelve files, no code, pointing at
+`letta-ai/letta-code`, which is a coding-agent CLI (535,000 lines) whose
+memory calls are client calls against a Letta server that lives in neither
+repository. So the memory architecture cannot be read from its code here,
+only from its prompts, and this read says so rather than describing a design
+it did not see. Both are Apache-2.0.
+
+**Where mem0 is better at a named thing.** Its update prompt
+(`mem0/configs/prompts.py:176`) does not just add: the model is handed the
+new fact and the similar existing memories and must answer **ADD, UPDATE,
+DELETE or NONE**, so a contradicted memory is rewritten and a retracted one
+is removed. MemoryMap's `_save_user_preference`
+(`ai/tools/__init__.py:2148`) checks only for an exact case-insensitive
+duplicate, then caps at `MAX_ACTIVE_PREFERENCES` and tells the model to *"ask
+the user which one to drop"*. So "answer briefly" and a later "give me more
+detail" both sit in the prompt at once, and nothing notices. **What we would
+change, and it should stay inside this app's own decisions:** when a
+preference is *proposed*, show the nearest existing preference beside it in
+the accept-or-decline card (`ai/cards.py`) and offer "replace that one" as a
+third button. That is a comparison at propose time, not a background model
+pass rewriting what the person said, which is the shape `ai/facts.py` already
+argues for at length.
+
+**A second, smaller one from letta's prompts.** `src/agent/prompts/letta.md`
+treats memory as named blocks with descriptions and a size the agent is
+responsible for, and its `context-doctor` skill audits memory for *"duplicate
+or contradictory facts/instructions, stale content"* and for which files
+dominate the context estimate. MemoryMap's memory stream is bounded by
+`MEMORY_STREAM_BUDGET_CHARS = 600` in `ai/memory.py` with newest-wins
+truncation, which is a sound rule and is **invisible**: a person with twenty
+saved preferences is not told which ones actually reached the model this
+turn. Showing that in Settings, "in force now" against "saved but over
+budget", is a small honesty feature of exactly the kind this app already
+builds everywhere else.
+
+**Where this app is better.** mem0's pipeline writes to memory on its own
+judgement; MemoryMap proposes and waits, with the reason written in the code
+(*"a model that misread one sentence gave itself a permanent rule the user
+never agreed to"*). Keep that. Take the comparison, not the autonomy.
+
+**Recommendation: take both small items**, the nearest-preference comparison
+at propose time and the "in force now" marker. Neither needs a decision and
+neither adds a dependency.
+
+
+### Revisited: where theirs is better, project by project
+
+The instruction that prompted this block: *"even if features already exist in
+this app, the other apps might do it better in some ways"*. Every repository
+above was read again against that question, including the ones this read had
+already closed, because "nothing to take" can quietly mean "nothing we lack"
+rather than "nothing we could learn". One line each, and where the answer is
+"ours is better", the reason is given rather than asserted.
+
+- **quickLiquid.** Better than this app at optical realism, and at nothing
+  this app wants: the effect it exists for is the one DESIGN.md measured and
+  declined. Ours is better on the measurement that matters here (blurred area
+  at rest, 6 to 10% of the viewport, gated by `tests/test_perf_mode.py`).
+  No change.
+- **needle.** Better at one named thing: its decode grammar makes an
+  unparseable tool call impossible, where `ai/ollama_client.py` and
+  `ai/openai_client.py` parse defensively after the fact and recover from
+  malformed calls. We cannot adopt the grammar without adopting the engine,
+  which is INBOX 302; the schema rules and the ungrounded-argument check
+  above are the parts that transfer without it.
+- **cognee.** Better at typed entities. Its extraction is ontology-guided,
+  so an entity has a type and entities relate to each other. `ai/entities.py`
+  is deliberately smaller, and says so in its own header: *"no
+  entity-to-entity graph, no type system, a single free-text name per
+  entity"*. That decision stands. The place it bites is narrower than the
+  decision: `entities.py` has `suggest_entities`,
+  `_find_or_create_entity` and `extract_entities_pass` and nothing else, so
+  there is no way to merge or alias two entities, and "Dad" and "my father"
+  stay two nodes forever. A merge action needs no type system and is the
+  fix that fits inside the existing decision.
+- **openwolf.** Better at one thing this app has no view of: it audits and
+  prices the always-on context a project pays for every turn
+  (`src/daemon/context-audit.ts`). MemoryMap shows a per-message window
+  figure and lints its static prompt text (`agent.PROSE_BUDGET_CHARS`), but
+  nothing shows what the prompt was actually made of on a given turn. Small,
+  and it converges with the letta finding below. Everything else in openwolf
+  is behind what this app has.
+- **OpenJarvis.** Better at per-inference measurement kept over time, as
+  recorded above. Worse at memory: its extractor writes facts about the user
+  with no visible-edit-delete contract, which is the thing WORLD_CLASS_PLAN
+  I9 makes non-negotiable here.
+- **cupid-music-player.** Better at nothing, and barred by its licence
+  anyway. It does have a player, which this app does not, and that is the
+  gap BACKLOG 75 already names.
+- **whisper.cpp.** Better at streaming, which faster-whisper cannot do at
+  all. Worse at installation, which is why the shipping path should not
+  change.
+- **vosk.** Better at latency and model size; worse at accuracy. That is the
+  trade, stated as a trade.
+- **piper and kokoro.** Both better than `speechSynthesis` at voice quality.
+  Neither is better than measuring whether a voice picker over the voices
+  the browser already has is what "improved" meant.
+- **khoj.** Better at reranking. Worse at lexical retrieval, at explaining a
+  result, and at staying offline (telemetry is opt-out there and absent
+  here).
+- **reor.** Better at nothing measured here; its signature feature is behind
+  this app's version of it, and the project has stopped.
+- **Trilium.** Better at typed fields on a note. Worse at everything the AI
+  touches.
+- **karakeep.** Better at tag reuse, concretely and cheaply, as recorded
+  above. It is the single best-value finding in this whole read.
+- **mem0 and letta.** Better at contradiction and supersession in stored
+  memory, and at telling the person what is actually in force. Worse at
+  asking first, which this app does and should keep doing.
+
+### What this read could not verify
+
+- **Nothing was run.** No repository was built, installed or executed. Five
+  source reads, against a sandbox that would not have had the toolchains
+  anyway (tsup and pnpm for two of them, a Rust extension for a third).
+- **needle's engine is a binary this session never downloaded**, so every
+  claim about its size, its speed, its accuracy and what its telemetry
+  actually sends is that project's own documentation, not a measurement. The
+  weights licence was read from Hugging Face hub metadata, not from a file in
+  a clone.
+- **The fastembed numbers are cognee's comment**, and the 776MB resident
+  figure is MemoryMap's own earlier measurement of its current state. The
+  result of swapping one for the other is measured nowhere yet, which is why
+  the recommendation's first step is a measurement.
+- **quickLiquid's cost model was read, not reproduced.** No browser
+  measurement of a displacement filter was taken this session, and per
+  CLAUDE.md section 1 a report that cannot see a browser says so.
+- **Contributor and commit counts come from shallow clones** (50 commits,
+  or 30 for the four speech projects), so every one of them is a floor rather
+  than a total.
+- **The desktop window was never launched.** Whether pywebview's runtime
+  exposes the File System Access API is read from what those three engines
+  are (Edge WebView2, WKWebView, WebKitGTK), not from a window this session
+  opened, and CLAUDE.md section 1 says to say so.
+- **Where the line is, for the next session.** Read deeply: quickLiquid,
+  needle, cognee, openwolf, OpenJarvis, cupid-music-player, khoj, reor,
+  Trilium, karakeep, mem0 (with letta, whose memory server is in neither of
+  its repositories). Read at the level of licence, layout, size and the one
+  relevant subsystem: whisper.cpp, vosk-api, piper (and its GPL successor),
+  kokoro. **Skimmed only, at licence and README depth, with no subsystem
+  read:** siyuan, logseq, notesnook, AFFiNE, anytype-ts (stopped at its
+  licence), anything-llm, open-webui (stopped at its licence), onyx. No claim
+  in this section rests on one of those eight, and any of them could be worth
+  a proper read later, siyuan and AFFiNE most of all, since one is the
+  block-model notebook and the other has the canvas this app's whiteboard is
+  behind.
+- **No audio was recorded, transcribed or spoken this session.** Every claim
+  about whisper.cpp, vosk, piper and kokoro is a source and licence read;
+  none of the four was built, installed or measured, and the accuracy
+  comparisons named above are the measurements the recommendations ask for,
+  not results.
+
+### Decisions left to the owner
+
+Two.
+
+**INBOX 302**, whether a bundled tool-calling model belongs in this app at
+all. The cheap half of that same read (the needle schema rules and the
+ungrounded-argument check) needs no decision and is worth doing either way.
+
+**INBOX 303**, whether the offline promise admits a second opt-in online
+feature, which is what a Spotify or YouTube Music connection would be. The
+app's own copy is the constraint and it currently says "the ONE feature that
+goes online" in three places.
+
+Everything else in this read is either a recommendation with a first step or
+a plainly stated leave-it, and none of it was built.

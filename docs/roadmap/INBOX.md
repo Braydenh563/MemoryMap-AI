@@ -364,6 +364,36 @@ with its owner named in the entry.
     header's right edge. Two faults or one: a phantom row on focus, and a
     control that cannot be pressed.
 
+302. **Found by the repository read, 2026-09-21 (the session, not the owner):
+    a decision for the owner.** needle (cactus-compute, Apache-2.0 for both
+    the code and the Hugging Face weights) is a 14MB tool-calling and
+    extraction model that runs through a prebuilt native engine by `ctypes`,
+    with grammar-constrained output and a calibrated confidence, and no
+    prose. Bundling it would give the agent a tool-calling path on a machine
+    with no Ollama, which is the one thing this app cannot promise today;
+    against it, a third inference path beside the two HTTP providers, a
+    Hugging Face download at first use, and a shipped binary whose telemetry
+    is on unless two environment variables are set. Recommendation: not now,
+    and revisit only if "works with no Ollama installed" is to become a
+    product promise. The cheap half of the same read (ANALYSIS.md, "Twenty-four
+    repositories read for MemoryMap, 2026-09-21", needle items a and b) needs
+    no decision and is worth doing either way.
+
+303. **The owner, 2026-09-21, verbatim, with the session's reading beneath
+    it:** "it'd be cool if the user can upload songs or connect an in-app
+    player to a player or maybe even spotify or youtube music but idk if
+    that's offline only anymore...". The local half is a recommendation, not
+    a decision, and is in the ANALYSIS.md section named above. The streaming
+    half is his: today `routes_settings.py:220` calls web search "The ONE
+    feature that goes online, off unless the user opts in",
+    `routes_websearch.py:31` says the same in its 403, and
+    `dashboard.js:1277` says it to the person, so a Spotify or YouTube Music
+    connection would make that sentence false in three places, on top of an
+    OAuth flow, a cloud account and a stored token. Recommendation: leave the
+    promise absolute and build the local folder player instead; if it is ever
+    reopened, it is a second clearly labelled opt-in extra, off by default,
+    and the copy in all three places changes in the same commit.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

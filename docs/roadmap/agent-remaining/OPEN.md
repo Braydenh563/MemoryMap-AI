@@ -592,11 +592,17 @@ being written by running agents stay beside this one.
   bucket reads well is how much a person writes in a day, and a seed is a
   shape rather than a notebook. Next step: the same probe against a restored
   backup or the owner's own notebook. [timeline-phases.md]
-- **The band label sits over the cards scrolled under it.** Visible in
-  `docs/screenshots/timeline.png`: the sticky left column ("Uncategorised 12")
-  is translucent, so the cards of the columns scrolled behind it show through
-  as ghost text. Check it at a scrolled position, not at `scrollLeft` 0 where
-  it cannot be seen. [picker-catalog-readme.md]
+- ~~**The band label sits over the cards scrolled under it.**~~ **Stale,
+  checked 2026-09-21.** The row described a sticky left column reading
+  "Uncategorised 12" in a band view, citing `docs/screenshots/timeline.png`.
+  That screenshot is now the list view and shows no such column; the Timeline
+  has a list view and a table view, neither has a sticky left column, and
+  `grep` finds no `band` class in any stylesheet or in `app.js`'s timeline
+  code. The surface it described was rebuilt under it. What remains true is
+  the rule it was an instance of, and that rule holds where it applies:
+  `.timeline-table thead th` composites `var(--bg)` under a `--card` wash
+  rather than painting in glass alone, with the reason at the declaration.
+  [picker-catalog-readme.md]
 - Timeline Phases 1 to 4 are built (`scratchpad/ui-sweeps/timelinekinds.js`
   exists and the Built blocks are in HISTORY.md), so `timeline.md`'s and
   `timeline-phases.md`'s own step lists were not carried.
@@ -721,11 +727,32 @@ being written by running agents stay beside this one.
   list, 312 buttons, 70 rows, 0 mixed, and it finds the `.name-nudge` row
   against the stylesheet before this change. [popup-redesigns.md,
   logs-cards-links.md]
-- **`.segmented-control` is only conformed where it was reported.** INBOX
-  192's fix is scoped to `#doc-ai-verb` in `09-editor.css`; the base rule is
-  in `03-dashboard-widgets.css`. Measured: `#graph-layout` still has an 11.2px
-  track and a 6px segment where `.seg` is 15.4px. One rule moved into the base
-  file finishes it, and DESIGN.md already says it should be.
+- **`.segmented-control` is only conformed where it was reported, and the
+  problem is bigger than this row said.** INBOX 192's fix is scoped to
+  `#doc-ai-verb` in `09-editor.css`; the base rule is in
+  `03-dashboard-widgets.css`. **Re-measured 2026-09-21** across all seven
+  tabs, reading the computed track radius of every `.seg` and every
+  `.segmented-control` in the app: there are **five different track radii**,
+  not two. 15.4px on twelve of them (`#doc-ai-verb`, `#doc-view-seg`,
+  `#doc-history-filter`, `#note-picker-sources`, `#wb-prop-align`,
+  `#ocr-zoom`, `#ocr-view`, `#theme-seg`, `#fontsize-seg`, `#font-seg`,
+  `#density-seg`, `#border-style-seg`); 11.2px on the two sub-tab strips
+  (`#notes-subtabs`, `#library-subtabs`); 8.4px on nine toolbar toggles
+  (`#notes-view-toggle`, `#timeline-view-seg`, `#reminder-view-toggle`,
+  `#library-view`, `#library-boards-view`, `#library-media-view`,
+  `#contents-mode`, `#log-view-toggle`, `#graph-layout`); 999px on the two
+  chat pills (`.seg-compact` `#chat-skill`, `#chat-mode-seg`); and 0px on
+  `#doc-sidebar-tabs`.
+  **The recommendation, which the next session should take rather than
+  remake** (standing order 3): three of those five are probably deliberate
+  families and none of them is written down, so the fix is not one rule but
+  one table. Name the three in DESIGN.md (choice control 15.4px, sub-tab
+  strip 11.2px, pill 999px), fold the 8.4px toolbar toggles into the choice
+  control since nothing distinguishes them from it, decide `#doc-sidebar-tabs`
+  on its own (a full-bleed strip has a reason to be square), and add the lint
+  in the same commit so a sixth radius cannot appear. Doing only what this row
+  originally asked, moving `#doc-ai-verb`'s rule into the base file, would
+  conform one of the nine and leave the other eight.
   [documents-phases.md]
 - **`#doc-ai-verb` and `#graph-layout` still differ in segment radius** (6px
   against 4.2px) because `--radius-inner` resolves differently under the graph

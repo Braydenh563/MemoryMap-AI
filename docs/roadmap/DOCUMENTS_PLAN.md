@@ -1065,9 +1065,109 @@ index carries it and `tests/test_ui_recipes.py` holds the ratchet: a command
 table past five rows declares its groups, and the separator element and its
 stylesheet rule both still exist.
 
+## 17. The live view for professional use: measured 2026-09-21, phases open
+
+The owner, INBOX 294: "can you improve the ui and ux of the live view and
+make it better for professional use and impressive as both a tool, utility
+and aesthetic?"
+
+**What it is for, decided here so the phases do not drift.** This is a
+notebook's editor, not a development environment. The person using it is
+writing a report, a plan or a set of notes, and the live view's whole claim
+is that the document looks like itself while it is being written. So
+"professional" here means the page a writer would be content to show
+somebody, not a denser instrument panel: nothing in these phases adds a
+control to the surface that a writer did not ask for, and any new affordance
+appears on approach rather than sitting on the page.
+
+**Measured on the branch head, 2026-09-21, at 1440 in the default view**
+(one document holding a title, a paragraph, a section, a list, a table, a
+fenced code block, a quotation, inline code, a link and a highlight):
+
+| What | Reading |
+| --- | --- |
+| Editor pane | 794.02px wide, the line box 774.83px |
+| Body text | 16px system-ui, line height 25.6px, so 1.6 |
+| Line length | about 81 characters, measured against a mixed alphabet rather than a repeated letter |
+| Page gutter | 9.6px each side |
+| Title | 28.8px at weight 700, so 1.8 times the body |
+| Decorations drawn | headings, list items with their own bullet mark, tables with a column count on the row, fences with quiet open and close lines, quotations, inline code, links, highlights |
+
+Two things that reading settles. The typography is not the problem: 81
+characters at 1.6 sits inside the comfortable range, and the decoration set
+is broad and already drawn rather than left as syntax. And the gutter is:
+9.6px puts the first character of every line ten pixels from the edge of its
+pane, where a document that reads as a document gives it room. That single
+number is the largest gap between this surface and the editors it will be
+compared with.
+
+**Decisions made.**
+
+1. The page is a page. The text sits in a measure with real margins rather
+   than filling its pane to the edge, and the margin is the same on both
+   sides at every width.
+2. The measure is capped. A line of prose has a comfortable length and a
+   wide monitor is not a reason to abandon it.
+3. Nothing is added to the chrome. Every phase below either changes what is
+   already drawn or reveals something on approach.
+4. No new recipe without its lint, per standing order 11.
+
+**Phases, each with the gate it is finished against.**
+
+- **17a. The page and its measure.** Give the surface a real gutter and a
+  capped measure, and hold both with a probe. The first thing to establish is
+  the one this session could not: `boot()` pins the viewport at 1440, so the
+  behaviour at 1920 and 2560 is unmeasured, and whether the pane is already
+  capped or merely happened to be 794px wide at this width is the first
+  question to answer, not to assume. Gate: the line length stays inside 60 to
+  90 characters at 1280, 1440, 1920 and 2560, the gutter is equal on both
+  sides at each, and no horizontal scroll appears at any of them.
+- **17b. The vertical rhythm.** One spacing scale between a heading and the
+  text under it, between paragraphs, and around a table, a fence and a
+  quotation, taken from the design tokens rather than written per
+  decoration. Gate: every gap between blocks is a token value, proved by
+  reading the computed boxes rather than the stylesheet.
+- **17c. The blocks that carry weight.** Tables, fences and quotations are
+  the three a reader judges a document by. Each gets one considered
+  treatment rather than the minimum that made it render. INBOX 290, the
+  phantom row under a table's header row with an unpressable kebab at its
+  end, is this phase's first row and is a bug before it is a design
+  question. Gate: a table, a fence and a quotation each measured against
+  their own before and after, and 290 reproduced then fixed.
+- **17d. The document's own furniture.** What tells a writer where they are:
+  the title, the section they are in, how far through they are. Nothing new
+  on the page; this is whether what exists is legible. Gate: a reader
+  arriving at a long document can name their position without scrolling.
+- **17e. Dark and light parity.** Every change above measured in both, since
+  the two views of a highlight disagreeing in one theme is exactly how INBOX
+  291 was found. Gate: `contrast.js` clean at 390, 820 and 1440 in both, with
+  its element count above zero, and `dochighlight.js` still passing.
+
+**Not verified, and to be taken first by whoever opens this.** Everything
+above is measured at 1440 in light only. The wide widths are unmeasured for
+the reason given in 17a, and the phone is untouched by this section: the
+live view on a phone is UI_MODERNISATION_PLAN Phase 11's territory and
+should not be redesigned from here.
+
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
 2026-09-12: a plan holds open work only. What is left open is in
 `archive/agent-remaining/doc-sidebar.md`.
 
+## Placed from INBOX, 2026-09-21
+
+294. **The owner, 2026-09-21, verbatim:** "can you improve the ui and ux of
+    the live view and make it better for professional use and impressive as
+    both a tool, utility and aesthetic?"
+    The documents live view (the CodeMirror surface, `frontend/documents.js`
+    and its theme around the `.cm-md-*` decorations). Scope is a plan
+    section rather than an INBOX fix: it wants a measured read of what the
+    surface is today against what a professional editor gives, a decision
+    about what this one is *for* (it is a notebook's editor, not an IDE), and
+    gated phases. Belongs in DOCUMENTS_PLAN. The two faults already found in
+    this surface tonight, the table header's phantom row with its unpressable
+    kebab (290) and the highlight colours (291, fixed), are evidence that it
+    has had features added faster than it has been measured.
+    **Placed 2026-09-21 into DOCUMENTS_PLAN section 17**, which carries the
+    measured read, the decisions and five gated phases.

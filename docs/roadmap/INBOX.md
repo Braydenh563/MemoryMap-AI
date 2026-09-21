@@ -388,19 +388,6 @@ with its owner named in the entry.
     tagged. Keep the kebab row for notes that have tags already. Owner: the
     notes surface.
 
-294. **The owner, 2026-09-21, verbatim:** "can you improve the ui and ux of
-    the live view and make it better for professional use and impressive as
-    both a tool, utility and aesthetic?"
-    The documents live view (the CodeMirror surface, `frontend/documents.js`
-    and its theme around the `.cm-md-*` decorations). Scope is a plan
-    section rather than an INBOX fix: it wants a measured read of what the
-    surface is today against what a professional editor gives, a decision
-    about what this one is *for* (it is a notebook's editor, not an IDE), and
-    gated phases. Belongs in DOCUMENTS_PLAN. The two faults already found in
-    this surface tonight, the table header's phantom row with its unpressable
-    kebab (290) and the highlight colours (291, fixed), are evidence that it
-    has had features added faster than it has been measured.
-
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

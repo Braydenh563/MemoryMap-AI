@@ -14539,6 +14539,25 @@ function docCmTheme(CM) {
         color: "var(--muted)",
         border: "none",
       },
+      //: The fold lane is a line tall and centred in itself, so an arrow lines
+      //: up with the number beside it and with the text it folds. Without the
+      //: explicit `lineHeight` the marker inherits the gutter's own, which is
+      //: not the editor's line height, and every arrow sits a little high.
+      ".cm-foldGutter": { width: "1.1em" },
+      ".cm-foldGutter .cm-gutterElement": {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0",
+        lineHeight: "inherit",
+        cursor: "pointer",
+      },
+      ".cm-fold-caret": {
+        fontSize: "0.85em",
+        lineHeight: "1",
+        color: "var(--muted)",
+      },
+      ".cm-gutterElement:hover .cm-fold-caret": { color: "var(--text)" },
       ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--text)" },
       ".cm-activeLine": { backgroundColor: "transparent" },
       ".cm-selectionMatch": { backgroundColor: "var(--accent-soft)" },
@@ -15483,7 +15502,22 @@ function docCmGutter(CM) {
   //: with the line numbers off, had no folding at all and a callout's toggle
   //: would have been a chevron that did nothing. The arrow in the margin is a
   //: gutter control and stays; what it operates is not.
-  return [CM.view.lineNumbers(), CM.language.foldGutter()];
+  //: **The arrow is an icon, not a character** (the owner, 2026-09-21: "make
+  //: these dropdown arrows actually aligned and proper icons"). CodeMirror's
+  //: `foldGutter` draws a text triangle by default, which rendered as a typed
+  //: "v" in this app's font: the exact shape `tests/test_no_glyph_icons.py`
+  //: exists to keep out, sitting beside a column of numbers it could not line
+  //: up with because a glyph's box is its font's business, not the line's.
+  //: `markerDOM` hands it the app's own caret instead, and the rule for
+  //: `.cm-foldGutter` below gives the lane a box the size of a line so the
+  //: arrow sits on the text it folds rather than near it.
+  const markerDOM = (open) => {
+    const icon = document.createElement("i");
+    icon.className = `ph ph-caret-${open ? "down" : "right"} cm-fold-caret`;
+    icon.setAttribute("aria-hidden", "true");
+    return icon;
+  };
+  return [CM.view.lineNumbers(), CM.language.foldGutter({ markerDOM })];
 }
 
 //: **Folding on headings.** The markdown parser gives fold ranges for fenced

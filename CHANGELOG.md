@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The fold arrows in a document's gutter are the app's own icons and line up
+  with the numbers beside them. They were the editor's default text triangle,
+  which came out as a typed letter in this app's font and sat a little above
+  the line it folded, because a character's box belongs to the font rather
+  than to the row.
 - The bottom bar's history no longer says you have been somewhere you have
   not. On a fresh load that never left the dashboard it listed two visits to
   Notes, because two start-up steps set the Notes tab's default sub-tab while

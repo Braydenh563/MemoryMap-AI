@@ -34,6 +34,19 @@ with its owner named in the entry.
 
 ## Open items
 
+316. **The owner, 2026-09-21, verbatim, with a screenshot of the documents
+    gutter:** "and make these dropdown arrows actually aligned and proper
+    icons". Fixed. CodeMirror's `foldGutter` draws a text triangle by
+    default, which rendered as a typed "v" in this app's font: the exact
+    shape `tests/test_no_glyph_icons.py` exists to keep out, and one that
+    could not line up with the numbers beside it because a glyph's box
+    belongs to its font rather than to the line. `markerDOM` hands the lane
+    the app's own `ph-caret-down`/`ph-caret-right` instead, and the lane gets
+    a box a line tall that centres what is in it. Measured with
+    `scratchpad/ui-sweeps/docfoldcaret.js`, 5 of 5: four markers, every one
+    an icon, none of them a character, and each arrow's centre 0.0px from the
+    centre of its own line number.
+
 315. **The owner, 2026-09-21, verbatim, with a screenshot:** "I pressed next
     on the first thing of the guided tour and this happened, the guided tour
     is still broken". The screenshot is the Reminders tab with no tour card

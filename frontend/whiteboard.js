@@ -2961,6 +2961,65 @@ function wbMapLayout() {
   return window.wbMapState?.layout || "free";
 }
 
+//: **The map's own look** (MINDMAP_PLAN.md §13e). Ten of the eleven things a
+//: topic can be given are set here once for the whole map, and a topic that
+//: was never told otherwise follows. `{}` for every map that has never been
+//: themed, which is every map made before this existed, so the fast path out
+//: of `wbMapThemedData` is the one an unthemed map takes.
+function wbMapTheme() {
+  return window.wbMapState?.theme || {};
+}
+
+//: One node's data with the map's theme underneath it: what this topic
+//: actually draws, as opposed to what it was told.
+//:
+//: **The node always wins, and `false` is a value.** This is the whole of the
+//: theme's safety: a field the topic carries is left alone, so a map-wide
+//: change can never overwrite a choice somebody made. `null`, `undefined` and
+//: `""` all mean "nothing was chosen here" (`wbMapSetNodeStyle` writes `null`
+//: to unset, and every select in the strip stores `""` as no value at all),
+//: while an explicit `false` is somebody saying "not on this one" against a
+//: theme that says on: the same three-state `edge_arrow` has always used.
+//:
+//: Resolved on every read rather than written onto the nodes, which is what
+//: makes changing the theme one request instead of one per topic, and what
+//: makes it reversible.
+function wbMapThemedData(node) {
+  const data = node?.data || {};
+  const theme = wbMapTheme();
+  let merged = null;
+  for (const field of Object.keys(theme)) {
+    const own = data[field];
+    if (own !== undefined && own !== null && own !== "") continue;
+    if (!merged) merged = { ...data };
+    merged[field] = theme[field];
+  }
+  return merged || data;
+}
+
+//: What this topic would draw for one field if it said nothing: the map's, or
+//: `undefined` for the app's own. The strip's write handlers ask, so that
+//: choosing what the topic already draws stores nothing rather than pinning
+//: it (`edge_arrow`'s rule, applied to the rest of the strip).
+function wbMapThemeDefault(field) {
+  return wbMapTheme()[field];
+}
+
+//: What a strip toggle writes when it is pressed: `true`, `false` or `null`.
+//:
+//: `null` is "say nothing and follow the map", which is the right answer only
+//: when the map is not already saying the opposite: on a themed map the
+//: unset state *is* the theme's, so turning a themed-on field off has to be
+//: stored as an explicit `false`. Three values rather than two because a
+//: boolean cannot hold three states, and the third one ("I chose off") is the
+//: only thing that distinguishes a deliberate choice from an untouched topic.
+function wbMapToggleValue(node, field) {
+  const want = !wbMapThemedData(node)[field];
+  const fallback = Boolean(wbMapThemeDefault(field));
+  if (want === fallback) return null;
+  return want ? true : false;
+}
+
 //: Refresh `window.wbMapState` from `GET /boards/{id}/tree`.
 //:
 //: One request, because that endpoint is the only one carrying all three
@@ -3013,6 +3072,7 @@ async function wbRefreshMapState() {
     window.wbMapState = {
       type: tree.type,
       layout: tree.layout,
+      theme: tree.theme && typeof tree.theme === "object" ? tree.theme : {},
       labels,
       facets,
       crossLinks: tree.cross_links || [],
@@ -3398,6 +3458,219 @@ function wbMapStats(index) {
   };
 }
 
+//: --- the map's own look (MINDMAP_PLAN.md §13e) -----------------------------
+//:
+//: The owner, INBOX 305: "the customisation features are lacking severely."
+//: §13.4 measured what that meant and it was not the topic: a topic has
+//: eleven fields, and the map as a whole had none, so every one of the eleven
+//: was set one topic at a time and "Reset to branch" on a single node was the
+//: only bulk operation of any kind.
+//:
+//: **Ten fields, and the question that chose them** is asked once of each:
+//: does this describe *this topic*, or how *this map* draws topics? An icon,
+//: a core mark, a picture, a link out, a line's label and a line's waypoint
+//: are the first kind, and a map-wide default for any of them would be a bug
+//: rather than a theme. The ten below are the second.
+const WB_MAP_THEME_GROUPS = [
+  {
+    label: "Text",
+    fields: [
+      { key: "font_size", label: "Size", kind: "select", number: true, options: [
+        ["", "The app's own"], ["12", "S"], ["19", "L"], ["25", "XL"],
+      ] },
+      { key: "align", label: "Alignment", kind: "select", options: [
+        ["", "The app's own"], ["left", "Left"], ["center", "Centre"], ["right", "Right"],
+      ] },
+      { key: "bold", label: "Bold", kind: "check" },
+      { key: "italic", label: "Italic", kind: "check" },
+    ],
+  },
+  {
+    label: "The topic box",
+    fields: [
+      { key: "shape", label: "Box", kind: "select", options: [
+        ["", "Rounded"], ["pill", "Pill"], ["rect", "Box"],
+        ["ellipse", "Ellipse"], ["none", "Plain"],
+      ] },
+      { key: "spine", label: "Edge bar", kind: "select", options: [
+        ["", "Solid bar"], ["dashed", "Dashed bar"], ["none", "No bar"],
+      ] },
+    ],
+  },
+  {
+    label: "The branch line",
+    fields: [
+      { key: "edge_style", label: "Shape", kind: "select", options: [
+        ["", "Curved line"], ["elbow", "Elbow line"], ["straight", "Straight line"],
+      ] },
+      { key: "edge_width", label: "Thickness", kind: "select", options: [
+        ["", "Line"], ["thin", "Thin line"], ["thick", "Thick line"],
+      ] },
+      { key: "edge_dashed", label: "Dashed", kind: "check" },
+      { key: "edge_arrow", label: "Arrowhead", kind: "select", options: [
+        ["", "As the line draws"], ["on", "Always"], ["off", "Never"],
+      ] },
+    ],
+  },
+];
+
+//: Write one patch onto the map's theme and redraw.
+//:
+//: One request whatever the map's size, because the theme is resolved when a
+//: topic is painted rather than written onto every topic: that is what makes
+//: it reversible, and what makes a deliberate per-topic choice impossible to
+//: overwrite with it.
+async function wbMapSetTheme(patch) {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return false;
+  try {
+    await apiJson(`/whiteboard/boards/${boardId}`, {
+      method: "PUT",
+      body: JSON.stringify({ theme: patch }),
+    });
+    const theme = { ...wbMapTheme() };
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null || value === false || value === "") delete theme[key];
+      else theme[key] = value;
+    }
+    window.wbMapState = { ...window.wbMapState, theme };
+    renderWhiteboardNow();
+    const selected = wbSelectedMapNode();
+    if (selected) wbSyncMapStrip(selected);
+    return true;
+  } catch (err) {
+    toast(err.message || "Couldn't change how this map draws.", true);
+    return false;
+  }
+}
+
+//: **"Back to the branch" at the map's scope, not a second idea** (§13e).
+//: The ring's reset drops one topic's own look so it follows what it
+//: inherits; with a theme, what a topic inherits is the map, so the same
+//: sentence said about every topic is the bulk operation §13.4 found missing.
+//: One endpoint and one transaction, `move-many`'s own reason: a reset that
+//: is one request per topic leaves a two-hundred-topic map half done if any
+//: one of them fails.
+async function wbMapClearEveryTopic() {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return;
+  const ok = await confirmDialog(
+    "Every topic goes back to following this map, losing the colours, shapes "
+    + "and line styles that were set on them one at a time. Pictures stay.",
+    { confirmLabel: "Back to the map", cancelLabel: "Leave them" }
+  );
+  if (!ok) return;
+  try {
+    const out = await apiJson(`/whiteboard/boards/${boardId}/nodes/clear-style`, { method: "POST" });
+    const count = Number(out?.cleared) || 0;
+    //: A full re-fetch rather than a patch of `wbState`: the endpoint dropped
+    //: a key from every topic's data in one transaction, and the objects this
+    //: tab is holding are now wrong about all of them.
+    await fetchWhiteboardState();
+    renderWhiteboardNow();
+    toast(count
+      ? `${count} topic${count === 1 ? "" : "s"} back to following this map.`
+      : "Every topic was already following this map.");
+  } catch (err) {
+    toast(err.message || "Couldn't reset the topics.", true);
+  }
+}
+
+//: The dialog, from the recipe index's own two rows: a `.card.modal-card`
+//: through the app's helper (`wbInfoDialog`), a plain `<select>` for a
+//: dropdown of values and a `label.setting-check` for an on/off. Nothing new
+//: is drawn on the canvas for it: §13b took the topic strip from fourteen
+//: controls to five and §13's decision 5 says nothing is added, so this is
+//: one row inside the View menu's existing Map section.
+//:
+//: Every control saves as it is changed, the way the View menu's own
+//: background and grid do; there is no OK, because a dialog of looks with an
+//: OK asks what you are agreeing to when what you want is to watch the map
+//: change behind it.
+function wbMapThemeDialog() {
+  if (!wbIsMap()) {
+    toast("A theme is a map's: this board is a free canvas.");
+    return;
+  }
+  const body = document.createElement("div");
+  body.className = "wb-map-theme";
+  const lead = document.createElement("p");
+  lead.className = "muted wb-map-theme-lead";
+  lead.textContent = "Every topic that was never given one of these follows the map.";
+  body.appendChild(lead);
+
+  for (const group of WB_MAP_THEME_GROUPS) {
+    const head = document.createElement("h4");
+    head.className = "setting-subhead";
+    head.textContent = group.label;
+    body.appendChild(head);
+    for (const field of group.fields) {
+      body.appendChild(field.kind === "check"
+        ? wbMapThemeCheck(field)
+        : wbMapThemeSelect(field));
+    }
+  }
+
+  const foot = document.createElement("div");
+  foot.className = "row wb-map-theme-foot";
+  const reset = smallButton(
+    "ph:arrow-counter-clockwise Bring every topic back to the map",
+    "Drop the look set on each topic one at a time, so they all follow this map",
+    () => { close(); wbMapClearEveryTopic(); }
+  );
+  foot.appendChild(reset);
+  body.appendChild(foot);
+  const close = wbInfoDialog("How this map draws topics", body);
+}
+
+function wbMapThemeSelect(field) {
+  //: A `div`, not a `label`, deliberately: `enhanceSelect` leaves the real
+  //: `<select>` in the DOM aria-hidden at 1px and draws its own opener beside
+  //: it, so a label wrapping one sends the click to the half nobody can see.
+  //: The name is on the select itself instead (`aria-label`).
+  const row = document.createElement("div");
+  row.className = "wb-menu-row wb-map-theme-row";
+  const name = document.createElement("span");
+  name.textContent = field.label;
+  const select = document.createElement("select");
+  select.className = "ghost small";
+  select.setAttribute("aria-label", `${field.label}, for every topic on this map`);
+  for (const [value, label] of field.options) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+  select.value = String(wbMapTheme()[field.key] ?? "");
+  select.addEventListener("change", () => {
+    const raw = select.value;
+    //: `null`, not `""`: the empty option is "this map says nothing", and the
+    //: endpoint reads a null as the field being dropped from the theme.
+    const value = raw === "" ? null : (field.number ? Number(raw) : raw);
+    wbMapSetTheme({ [field.key]: value });
+  });
+  row.append(name, select);
+  return row;
+}
+
+function wbMapThemeCheck(field) {
+  const row = document.createElement("label");
+  row.className = "setting-check wb-map-theme-check";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = Boolean(wbMapTheme()[field.key]);
+  const name = document.createElement("span");
+  name.textContent = field.label;
+  //: `null` rather than `false` when it is turned off, for the reason the
+  //: whole theme is a sparse blob: a map that says nothing about a field
+  //: draws exactly the map that was drawn before any of this existed.
+  box.addEventListener("change", () => {
+    wbMapSetTheme({ [field.key]: box.checked ? true : null });
+  });
+  row.append(box, name);
+  return row;
+}
+
 function wbShowMapStats() {
   if (!wbIsMap()) {
     toast("Stats are about a map's tree: this board is a free canvas.");
@@ -3470,6 +3743,11 @@ function wbInfoDialog(title, body) {
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
+  //: The close, handed back: a dialog whose body holds an action that leads
+  //: somewhere else (the map theme's "bring every topic back") has to be able
+  //: to get out of the way first, because the confirmation it opens installs
+  //: its own capture-phase Escape handler behind this one's.
+  return close;
 }
 
 //: **Templates** (§5 item 21). The plan's reason, quoted: "an empty canvas is
@@ -4217,7 +4495,10 @@ function wbPaintMapNode(el, d, index, colors) {
 //: same result by construction rather than by two lists of properties being
 //: kept in step.
 function wbPaintMapNodeStyle(node, d) {
-  const data = d.data || {};
+  //: The map's theme underneath the node's own choices (§13e): this is the
+  //: one place a topic's look is turned into classes and attributes, so it is
+  //: the one place the theme has to be resolved for a topic to inherit it.
+  const data = wbMapThemedData(d);
   node.classList.toggle("wb-map-bold", Boolean(data.bold));
   node.classList.toggle("wb-map-italic", Boolean(data.italic));
   //: A core idea (MINDMAP_PLAN.md item 177). A class rather than a data
@@ -4889,7 +5170,7 @@ const WB_MAP_EDGE_CONTROL_GAP = 26;
 function wbMapEdgeHandlePoint(parent, child, layout) {
   const a = wbMapEdgeAnchors(parent, child, layout);
   const w = wbMapEdgeWaypoint(a, child);
-  if ((child.data?.edge_style || "curve") === "elbow") return wbMapEdgeElbowTurn(a, w);
+  if ((wbMapThemedData(child).edge_style || "curve") === "elbow") return wbMapEdgeElbowTurn(a, w);
   return { x: w.x, y: w.y };
 }
 
@@ -4910,7 +5191,7 @@ function wbMapEdgePathD(parent, child, layout) {
   //: the two points. The elbow turns at the same midpoint the curve's control
   //: points sit on, which is what keeps a column of siblings reading as one
   //: branch in either style.
-  const style = child.data?.edge_style || "curve";
+  const style = wbMapThemedData(child).edge_style || "curve";
   //: The waypoint composes with all three shapes rather than only the curve
   //: (§12.1 item 5's third: "it now has to compose with the three line shapes
   //: item 4 added"). Each shape bends in the way that shape can: the curve
@@ -4973,7 +5254,7 @@ const WB_MAP_RIBBON_THIN = 2;
 const WB_MAP_EDGE_WEIGHTS = { thin: 0.55, thick: 1.7 };
 
 function wbMapEdgeWeight(child) {
-  return WB_MAP_EDGE_WEIGHTS[child?.data?.edge_width] || 1;
+  return WB_MAP_EDGE_WEIGHTS[wbMapThemedData(child).edge_width] || 1;
 }
 
 //: Whether *this* line ends in an arrowhead.
@@ -4986,7 +5267,7 @@ function wbMapEdgeWeight(child) {
 //: whichever default applies, so the strip's toggle can add a head to a
 //: ribbon and take one off a straight line.
 function wbMapEdgeHasArrow(child) {
-  const set = child?.data?.edge_arrow;
+  const set = wbMapThemedData(child).edge_arrow;
   if (set === "on") return true;
   if (set === "off") return false;
   return !wbMapEdgeIsRibbon(child);
@@ -5062,7 +5343,8 @@ function wbMapRibbonD(parent, child, layout) {
 //: a ribbon painted with a stroke rule is a blob, and a stroke painted with a
 //: fill rule is invisible.
 function wbMapEdgeIsRibbon(child) {
-  return (child.data?.edge_style || "curve") === "curve" && !child.data?.edge_dashed;
+  const themed = wbMapThemedData(child);
+  return (themed.edge_style || "curve") === "curve" && !themed.edge_dashed;
 }
 
 //: The tree edges touching `id` (its own edge up to its parent, and one per
@@ -5219,8 +5501,9 @@ function wbRenderMapEdges() {
       const classes = ["wb-map-edge"];
       if (ribbon) classes.push("wb-map-edge-ribbon");
       else {
-        if (child.data?.edge_dashed) classes.push("wb-map-edge-dashed");
-        if (child.data?.edge_width) classes.push(`wb-map-edge-${child.data.edge_width}`);
+        const themedEdge = wbMapThemedData(child);
+        if (themedEdge.edge_dashed) classes.push("wb-map-edge-dashed");
+        if (themedEdge.edge_width) classes.push(`wb-map-edge-${themedEdge.edge_width}`);
         if (!wbMapEdgeHasArrow(child)) classes.push("wb-map-edge-headless");
       }
       path.setAttribute("class", classes.join(" "));
@@ -5345,7 +5628,7 @@ function wbRenderMapEdges() {
 //: `+` off the end.
 function wbMapEdgePlusPoint(parent, child, layout) {
   const a = wbMapEdgeAnchors(parent, child, layout);
-  const style = child.data?.edge_style || "curve";
+  const style = wbMapThemedData(child).edge_style || "curve";
   const middle = wbMapEdgeHandlePoint(parent, child, layout);
   let dx;
   let dy;
@@ -6446,7 +6729,11 @@ function wbSyncMapToolState() {
 let wbMapStripSyncing = false;
 
 function wbSyncMapStrip(node) {
-  const data = node.data || {};
+  //: **The effective state, not the stored one** (§13e). The arrow button has
+  //: always worked this way and says why below; a theme makes it true of the
+  //: whole strip, because a control reading the stored field alone would show
+  //: "M" over a topic the map draws at 19px.
+  const data = wbMapThemedData(node);
   wbMapStripSyncing = true;
   try {
     for (const [id, on] of [
@@ -6458,6 +6745,37 @@ function wbSyncMapStrip(node) {
       button.classList.toggle("active", Boolean(on));
       button.setAttribute("aria-pressed", on ? "true" : "false");
     }
+    //: **The blank option says what it does on a themed map** (§13e). Every
+    //: select here stores the app's own default as no value at all, so the
+    //: blank row is named after that default: "Rounded", "Line", "M". On a
+    //: map whose theme sets the field, choosing it means "follow the map" and
+    //: the map draws something else, so a row still labelled "Rounded" is a
+    //: control that visibly does nothing, which is the one thing this file's
+    //: own comments keep warning about. The label is rewritten to say what it
+    //: really does, and put back the moment the map stops theming the field.
+    //:
+    //: `enhanceSelect` rebuilds its shell from a MutationObserver on the
+    //: select's subtree, so changing an option's text reaches the drawn menu
+    //: without anything here having to know about the shell.
+    const nameBlank = (id, field) => {
+      const el = document.getElementById(id);
+      const blank = el?.querySelector('option[value=""]');
+      if (!blank) return;
+      if (blank.dataset.appDefault === undefined) blank.dataset.appDefault = blank.textContent;
+      const value = wbMapThemeDefault(field);
+      if (value == null) {
+        if (blank.textContent !== blank.dataset.appDefault) blank.textContent = blank.dataset.appDefault;
+        return;
+      }
+      const named = [...el.options].find((o) => o.value === String(value));
+      const said = `As the map draws (${(named ? named.textContent : String(value)).toLowerCase()})`;
+      if (blank.textContent !== said) blank.textContent = said;
+    };
+    for (const [id, field] of [
+      ["wb-map-text-size", "font_size"], ["wb-map-align", "align"],
+      ["wb-map-shape", "shape"], ["wb-map-spine", "spine"],
+      ["wb-map-edge-width", "edge_width"], ["wb-map-edge-shape", "edge_style"],
+    ]) nameBlank(id, field);
     const setSelect = (id, value) => {
       const el = document.getElementById(id);
       if (!el || el.value === value) return;
@@ -7162,7 +7480,13 @@ async function wbMapResetToBranch(id) {
   for (const key of WB_MAP_STYLE_KEYS) patch[key] = null;
   await wbMapSetNodeStyle(node, patch);
   renderWhiteboardNow();
-  toast("Back to the branch's own look.");
+  //: What it goes back to depends on whether the map says anything (§13e):
+  //: on a themed map a reset topic follows the map, and a toast that said
+  //: "the branch's own look" over a topic that just took the map's would be
+  //: describing the wrong thing.
+  toast(Object.keys(wbMapTheme()).length
+    ? "Back to following this map."
+    : "Back to the branch's own look.");
 }
 
 //: --- the link radial (MINDMAP_PLAN.md §12.1 item 4) -------------------------
@@ -7611,6 +7935,8 @@ function wbSyncMapChrome() {
   if (statsRow) statsRow.hidden = !isMap;
   const expandRow = document.getElementById("wb-map-expand-all");
   if (expandRow) expandRow.hidden = !isMap;
+  const themeRow = document.getElementById("wb-map-theme-item");
+  if (themeRow) themeRow.hidden = !isMap;
   if (!isMap && wbMapFocusState) wbMapFocusState = null;
   wbSyncMapViews();
 }
@@ -10379,6 +10705,7 @@ async function initWhiteboard() {
   //: where an element is drawn is a listener added again every time it is
   //: redrawn.
   $("wb-map-perspective")?.addEventListener("change", (e) => wbMapSetPerspective(e.target.value));
+  $("wb-map-theme-item")?.addEventListener("click", wbMapThemeDialog);
   $("wb-map-stats-item")?.addEventListener("click", wbShowMapStats);
   $("wb-map-expand-all")?.addEventListener("click", wbMapExpandAll);
   $("wb-map-focus-less")?.addEventListener("click", () => wbMapStepFocus(-1));
@@ -10521,14 +10848,20 @@ async function initWhiteboard() {
   //: the moment it fires rather than closing over a node: the strip is one set
   //: of controls that moves between nodes, so a captured node is a control
   //: that keeps editing whatever was selected when the page loaded.
-  $("wb-map-bold")?.addEventListener("click", () => {
-    const node = wbSelectedMapNode();
-    if (node) wbMapSetNodeStyle(node, { bold: !node.data?.bold });
-  });
-  $("wb-map-italic")?.addEventListener("click", () => {
-    const node = wbSelectedMapNode();
-    if (node) wbMapSetNodeStyle(node, { italic: !node.data?.italic });
-  });
+  //: **Three-state against the map's theme** (§13e), which is the rule
+  //: `edge_arrow` below has always followed: store the choice only when it
+  //: differs from what this topic would draw anyway. On an unthemed map that
+  //: is the behaviour these two have always had, `true` or nothing; on a map
+  //: whose theme says bold, pressing the button off has to store an explicit
+  //: `false`, because `null` there means "follow the map" and would leave the
+  //: topic bold. A person pressing a toggle and watching nothing happen is
+  //: the one outcome a toggle must never have.
+  for (const [id, field] of [["wb-map-bold", "bold"], ["wb-map-italic", "italic"]]) {
+    $(id)?.addEventListener("click", () => {
+      const node = wbSelectedMapNode();
+      if (node) wbMapSetNodeStyle(node, { [field]: wbMapToggleValue(node, field) });
+    });
+  }
   //: **A core idea, stored as nothing at all when it is off.** `|| null`
   //: rather than `false` for the same reason "M" stores no font size: a map
   //: made before core nodes existed and one whose node was marked and then
@@ -10586,7 +10919,7 @@ async function initWhiteboard() {
   $("wb-map-edge-dashed")?.addEventListener("click", async () => {
     const node = wbSelectedMapNode();
     if (!node) return;
-    await wbMapSetNodeStyle(node, { edge_dashed: !node.data?.edge_dashed || null });
+    await wbMapSetNodeStyle(node, { edge_dashed: wbMapToggleValue(node, "edge_dashed") });
     renderWhiteboardNow();
   });
   $("wb-map-edge-arrow")?.addEventListener("click", async () => {

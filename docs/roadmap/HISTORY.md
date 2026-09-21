@@ -9,6 +9,61 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From MINDMAP_PLAN.md section 13e: the map's own look
+
+Built 2026-09-21, the other half of 13e. The owner, INBOX 305: "the
+customisation features are lacking severely." §13.4 measured what that meant
+and it was not the topic: a topic had eleven fields, the map as a whole had
+none, so every one of the eleven was set one topic at a time and "Reset to
+branch" on a single node was the only bulk operation of any kind.
+
+**A map now has a theme of ten fields**, stored in `Entry.board_settings`
+beside the type and the layout (`MAP_THEME_FIELDS`, `_board_theme`,
+`_store_board_theme`), carried on `GET /boards/{id}/tree` and patched through
+`PUT /boards/{id}`. The ten are the ones that answer "how does this map draw
+topics": text size, alignment, bold, italic, the box, the bar on its edge,
+and the branch line's shape, thickness, dash and arrowhead. The six left out
+answer "which topic is this" (icon, core, picture, link, the line's label,
+the line's waypoint), and `color` is left out for a third reason, recorded as
+decision 8: it is a rule rather than a value, and its map-level answer is a
+branch palette drawn in two places.
+
+**It is resolved when a topic is painted, never written onto the topics**
+(`wbMapThemedData`, whiteboard.js; `_themed_style`, routes_whiteboard.py).
+A topic's own value always wins and an explicit `false` is a value, so a
+decorated topic cannot be changed by a map-wide setting; theming a 25-topic
+map measured **one request**, and would be one at 500. The three strip
+toggles that used to store "off" as no value at all are now three-state
+against the theme, which is the rule `edge_arrow` had already been following
+alone, and the whole strip now reads the effective look rather than the
+stored one (measured: the shape select reads "pill" over a topic storing
+`null`, and pressing bold off on a bold-themed map stores `false` and draws
+unbolded).
+
+**The door is one row in the View menu's Map section**, "How this map draws
+topics", opening `wbInfoDialog`'s `.card.modal-card` with a plain `<select>`
+per dropdown and a `label.setting-check` per on/off, three groups under
+`h4.setting-subhead`. Nothing was added to the canvas: top bar 10, rail 0,
+strip 0 on a map with nothing selected, unchanged, which matters because
+§13b had just taken the strip from fourteen controls to five. The dialog is
+438px wide at 1440 and 304px at 390, no scroll at either, worst text
+contrast **6.81:1 in light and 7.9:1 in dark**.
+
+**"Bring every topic back to the map" is the ring's own reset at the map's
+scope**, not a second idea: `POST /boards/{id}/nodes/clear-style` drops the
+same list of fields from every topic in one request and one transaction
+(`move-many`'s reason), keeps a picture because a picture is content, and is
+idempotent. Measured: 3 topics cleared in 1 request, and they then drew the
+map's pill shape rather than the app's rounded default.
+
+`scratchpad/ui-sweeps/maptheme.js`, new, **19/19** in light at 1440, in dark
+at 1440 and at 390, registered in `scripts/gate.sh`'s sweep list. On the base
+branch the same file stops at its second check with `wbMapTheme is not
+defined`. `tests/test_mindmap.py` gained eleven cases, including the two the
+theme is worth nothing without and the three that hold the settings blob
+together (a theme write never clears the type or the layout, a layout change
+never clears the theme, a corrupt blob reads as no theme).
+
 ### From MINDMAP_PLAN.md section 13e: the two layouts the plan promised
 
 Built 2026-09-21. §12.0's decision list named eight layouts, §13.4 measured

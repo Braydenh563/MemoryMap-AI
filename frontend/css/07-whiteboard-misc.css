@@ -4960,6 +4960,47 @@ summary:not(.icon-only):not(.icon-button) {
   margin: 0;
 }
 
+/* How this map draws topics (MINDMAP_PLAN.md §13e), inside the app's own
+   `.card.modal-card`: a column of the recipe index's two rows, a plain
+   `<select>` for a dropdown of values and a `label.setting-check` for an
+   on/off, under `h4.setting-subhead` group heads. Nothing here sets a look
+   of its own; it is spacing, because the controls are the app's. */
+.wb-map-theme {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: min(22rem, 78vw);
+}
+
+.wb-map-theme-lead {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+/* The first head sits under the lead line rather than against it; every
+   later one opens a group, so it gets the space above that says so. */
+.wb-map-theme .setting-subhead {
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.wb-map-theme .setting-subhead:first-of-type {
+  margin-top: 0;
+}
+
+.wb-map-theme-check {
+  min-height: 2rem;
+}
+
+/* The bulk action, on its own line under a hairline: it is about every topic
+   on the map rather than about the field above it, and a button that reaches
+   two hundred topics does not sit in the run of controls that reach one. */
+.wb-map-theme-foot {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider);
+  justify-content: flex-start;
+}
+
 /* The map proposal dialog (`wbReviewMapProposal`, whiteboard.js: "make a map
    of these notes"). `.confirm-card`'s min(30rem, 92vw) is sized for a question
    and two buttons; what this holds is a twenty-line outline, and at that width

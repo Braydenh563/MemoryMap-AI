@@ -1615,3 +1615,55 @@ def test_an_export_of_a_themed_map_carries_the_theme_a_topic_did_not_override(cl
     # and exports as its own.
     assert 'shape="pill"' in text
     assert 'shape="rect"' in text
+
+
+def test_clearing_every_topics_look_leaves_them_following_the_map(client):
+    """"Reset to branch" at the map's scope: the same list of fields, dropped
+    from every topic in one request rather than one at a time."""
+    board = _map(client)
+    root = _node(client, board["id"], text="Root")
+    child = _node(client, board["id"], parent_id=root["id"], text="Child")
+    for node, patch in ((root, {"shape": "ellipse", "bold": True}), (child, {"color": "#ff0000"})):
+        saved = client.put(
+            f"/whiteboard/objects/{node['id']}",
+            json={
+                "kind": node["kind"],
+                "board_id": board["id"],
+                "data": {**node["data"], **patch},
+                "x": node["x"],
+                "y": node["y"],
+                "z": node["z"],
+            },
+        )
+        assert saved.status_code == 200, saved.text
+    done = client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    assert done.status_code == 200, done.text
+    assert done.json() == {"cleared": 2}
+    roots = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"]
+    assert roots[0]["style"] == {}
+    assert roots[0]["children"][0]["style"] == {}
+    assert roots[0]["children"][0]["color"] is None
+    # And it is idempotent: nothing left to clear is a count of zero, not an
+    # error and not a write.
+    assert client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style").json() == {"cleared": 0}
+
+
+def test_clearing_a_topics_look_keeps_its_picture(client):
+    """A picture is content, not a look: the one thing the per-node reset has
+    always kept, kept here for the same reason."""
+    board = _map(client)
+    node = _node(client, board["id"], text="With a picture")
+    client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board["id"],
+            "data": {**node["data"], "image": "/media/x.png", "bold": True},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+        },
+    )
+    assert client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style").json() == {"cleared": 1}
+    root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert root["style"] == {"image": "/media/x.png"}

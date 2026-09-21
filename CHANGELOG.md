@@ -16,6 +16,12 @@ below). Versioning is `0.x` while the app stabilises.
   be set once for the whole map, and every topic that was never told otherwise
   follows. A topic you did decorate by hand keeps exactly what you gave it: a
   map-wide change can never overwrite a choice somebody made.
+- And one way to undo the lot: "bring every topic back to the map" drops the
+  colours, shapes and line styles that were set on topics one at a time, so
+  they all follow the map again. It is the ring's own "reset to branch" said
+  about the whole map rather than one topic, and it takes one request whatever
+  the map's size. Pictures stay, because a picture is content rather than a
+  look.
 - A whiteboard or a mind map can live inside a note as an object: a preview
   card of the board itself, with its name and how much is on it, that opens
   the board when pressed. It is written `![[board:12|House jobs]]`, by id, so

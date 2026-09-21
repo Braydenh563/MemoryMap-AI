@@ -3116,6 +3116,75 @@ def move_map_nodes(
     return [_object_to_out(node) for node in out]
 
 
+class MapClearStyleOut(BaseModel):
+    """How many topics changed, so the toast can say it rather than guess."""
+
+    cleared: int
+
+
+#: What "back to the map" drops from a topic, which is exactly what "back to
+#: the branch" drops from one node (`WB_MAP_STYLE_KEYS`, whiteboard.js): the
+#: same list, at the other scope. `color` is in it because a hand-painted
+#: topic is a look somebody gave one topic, and `image` is not, because a
+#: picture is content: the reset's whole promise is that it is the safe way
+#: out of a topic you over-decorated, and one that also threw away an upload
+#: would be the one control on this map you cannot press to find out what it
+#: does. `MAP_STYLE_FIELDS` minus the content ones, plus the colour it does
+#: not list because a node has carried `color` as a key of its own since
+#: before any of this existed.
+MAP_CONTENT_FIELDS = frozenset({"image"})
+MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
+
+
+@router.post("/boards/{board_id}/nodes/clear-style", response_model=MapClearStyleOut)
+@events.writes("whiteboard_object", "edited")
+def clear_map_node_styles(
+    board_id: int, db: Session = Depends(get_session)
+) -> MapClearStyleOut:
+    """Drop every per-topic look on this map in one request, one transaction.
+
+    **This is "Reset to branch" at the map's scope, not a second idea**
+    (MINDMAP_PLAN.md §13e). The ring's own reset drops this exact list from
+    one topic so that it goes back to following what it inherits; with a map
+    theme, what a topic inherits is the map, so the same sentence said about
+    the whole map is the bulk operation §13.4 measured missing. One button
+    that means two things at two scopes is one thing to learn; two buttons
+    that mean nearly the same would be two.
+
+    One request for the same reason `move-many` is one: a reset that is one
+    PUT per topic is two hundred round trips on a two-hundred-topic map, and
+    any one of them failing leaves the map half reset with nothing to roll
+    back to.
+    """
+    _require_board(db, board_id)
+    objects = _map_objects(db, board_id)
+    cleared = 0
+    for obj in objects:
+        data = _object_data(obj)
+        dropped = {key: value for key, value in data.items() if key in MAP_CLEARABLE_FIELDS}
+        if not dropped:
+            continue
+        for key in dropped:
+            data.pop(key, None)
+        obj.data = json.dumps(data)
+        cleared += 1
+    if cleared:
+        #: One event for the whole press, the reason `move-many` gives: a
+        #: person pressed one thing once, and a row per topic is a history
+        #: nobody can read.
+        events.record(
+            db,
+            "edited",
+            "whiteboard_object",
+            objects[0].id,
+            f"cleared the look of {cleared} topic" + ("" if cleared == 1 else "s")
+            + f" on map {board_id}",
+            payload={"after": {"cleared": cleared}, "before": {"board_id": board_id}},
+        )
+        db.commit()
+    return MapClearStyleOut(cleared=cleared)
+
+
 # --- export and import: text formats, so a map is not a lock-in -------------
 #
 # MINDMAP_PLAN.md §5 items 16-17. PNG/SVG/PDF come from the canvas and are the

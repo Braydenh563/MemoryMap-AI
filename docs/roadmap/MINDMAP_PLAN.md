@@ -914,6 +914,58 @@ topic: a control that wide has nowhere to go.
    from whether the far end is already in the tree, which nothing on screen
    can say in advance without describing the tree; the honest answer is a way
    back afterwards, in the surface that already names both kinds.
+8. **A map's theme holds the ten fields that describe how a map draws
+   topics, and none of the ones that say which topic this is** (taken
+   2026-09-21, building 13e). The question was asked once of each of
+   §13.4's eleven: text size, alignment, bold, italic, the box, the bar on
+   its edge, and the branch line's shape, thickness, dash and arrowhead are
+   how *this map* draws; an icon, the core mark, a picture, a link out, a
+   line's label and a line's waypoint are which *this topic* is. A map-wide
+   default for the second set would not be a theme: "every topic is a core
+   idea with the same picture" is a bug with a settings row in front of it.
+   `color` is left out for a third reason, and it is the only one of the
+   eleven that is: it is not one value but a rule, seeding a whole subtree,
+   and the map-level answer to it is a branch palette, which is drawn twice
+   (the canvas from d3, the Library thumbnail from `MAP_BRANCH_PALETTE` on
+   the server) and would have to teach the preview cache about itself before
+   anybody could pick one. That is its own row below, not a corner of this
+   one.
+9. **The theme is resolved when a topic is painted, never written onto the
+   topics** (taken 2026-09-21, building 13e). A topic's own value always
+   wins, and an explicit `false` is a value: so a topic that was decorated by
+   hand cannot be changed by a map-wide setting, which is the single property
+   that makes the setting safe to press. It also makes theming a 500-topic
+   map one request rather than 500, and makes it reversible, since nothing
+   was overwritten to reverse. The alternative, stamping the theme onto every
+   topic at the moment it is chosen, was refused for both halves of that: it
+   is the change that cannot be undone and the one that silently overwrites.
+   The cost is that a topic cannot be pulled back to the *app's* own default
+   for a field the map themes, only to another named value or to the map's;
+   that is recorded below rather than solved, because every value the strip
+   offers is already a named one and the case is narrow.
+10. **The theme lives in one row of the View menu's Map section, and nothing
+   is added to the canvas** (taken 2026-09-21, building 13e). Decision 5
+   above, and §13b had just taken the topic strip from fourteen controls to
+   five: a theme that arrived as a sixth control on the canvas would undo
+   half of the section it belongs to. The row is the menu bar's own recipe,
+   beside "Open every folded branch" and "What this map is made of", and it
+   opens the recipe index's `.card.modal-card` through `wbInfoDialog`, whose
+   body is that index's own two rows, a plain `<select>` for a dropdown of
+   values and a `label.setting-check` for an on/off. Measured after:
+   top bar 10, rail 0 and strip 0 on a map with nothing selected, unchanged.
+   Every control saves as it is changed, the way the View menu's own
+   background and grid already do, so there is no OK: a dialog of looks with
+   an OK asks what you are agreeing to when what you want is to watch the map
+   change behind it.
+11. **"Reset to branch" and the map-wide reset are one idea at two scopes,
+   not two ideas** (taken 2026-09-21, building 13e). The ring's reset drops
+   one topic's own look so that it goes back to following what it inherits;
+   with a theme, what a topic inherits is the map, so the same sentence said
+   about every topic is the bulk operation §13.4 measured missing. Same list
+   of fields (`MAP_CLEARABLE_FIELDS` on the server is `WB_MAP_STYLE_KEYS` in
+   the client), same rule about a picture, one endpoint and one transaction
+   for the reason `move-many` is one. Two buttons that meant nearly the same
+   thing would be two things to learn and one of them would be wrong.
 
 ### Phases, each with the gate it is finished against
 
@@ -998,11 +1050,21 @@ topic: a control that wide has nowhere to go.
   `BOARD_LAYOUTS` and in the tidy, 0 overlapping pairs at 12 and 200 topics
   in all five layouts, 5/6 and 93/106 either side of the trunk, `maptidy.js`
   5/5 at 1440 and 390, `maplayouts.js` new at 19/19 (5 failing on base).
-  **What is left of 13e is the other half: a map-level default for new
-  topics.** §13.4's finding stands: every one of the eleven per-topic fields
-  is still set one topic at a time, the map has no theme of its own (no font
-  choice, no branch palette a person picks, no line-style default) and "Reset
-  to branch" is still its only bulk operation.
+  ~~**What is left of 13e is the other half: a map-level default for new
+  topics.**~~ **Built 2026-09-21**, and the record is in HISTORY.md ("Moved
+  from the plans, 2026-09-21", "From MINDMAP_PLAN.md section 13e: the map's
+  own look"). A map now has a theme of ten of the eleven fields, resolved
+  when a topic is painted so that a topic which was never told otherwise
+  follows it and one that was keeps exactly what it was given; and "bring
+  every topic back to the map" is the map-scope of the ring's own reset.
+  `maptheme.js`, new, 19/19 in light at 1440, in dark at 1440 and at 390,
+  against a base branch on which it stops at its second check
+  (`wbMapTheme is not defined`). One request themes 25 topics; one request
+  clears them. **What is left of 13e**: the branch palette and the font
+  choice §13.4 also names, both of which are drawn in two places rather
+  than one (decision 8), and the narrow case decision 9 records, a topic
+  that cannot be pulled back to the app's own default for a field the map
+  themes.
 - ~~**13f. The doors that are built and shut.**~~ **Withdrawn 2026-09-21, and
   a different thing built in its place**, recorded in HISTORY.md ("Moved from
   the plans, 2026-09-21", "the two gestures a blank map did not answer").

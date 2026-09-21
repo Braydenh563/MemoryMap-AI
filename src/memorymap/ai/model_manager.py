@@ -103,6 +103,19 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
     "moe": [
         {"name": "gemma4:e2b", "size": "~7.2 GB", "purpose": "MoE: 2B-class speed with more capability. Try it if bigger models are too slow"},
         {"name": "gemma4:e4b", "size": "~9.6 GB", "purpose": "MoE: noticeably more capable + better writing than the e2b"},
+        # Unsloth's quantisation-aware-training GGUFs of the same two models,
+        # asked for by name. QAT means the model was fine-tuned *while*
+        # quantised rather than squashed afterwards, so a 4-bit copy holds up
+        # better than an ordinary 4-bit of the same weights; the point of
+        # having them beside the bare tags is that they are roughly half the
+        # download for close to the same answers. `hf.co/…` because neither is
+        # in Ollama's curated library, the same shape the vision and ocr
+        # groups already use for that situation, and the UD-Q4_K_XL tag is
+        # Unsloth's own dynamic quant rather than a plain Q4.
+        {"name": "hf.co/unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL", "size": "~4.0 GB",
+         "purpose": "MoE, quantisation-aware 4-bit: e2b answers at roughly half the download"},
+        {"name": "hf.co/unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL", "size": "~5.3 GB",
+         "purpose": "MoE, quantisation-aware 4-bit: e4b answers at roughly half the download"},
         {"name": "gemma4:26b", "size": "~19 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB"},
         {"name": "qwen3.5:35b-a3b", "size": "~21 GB", "purpose": "MoE: the most capable here, still quick. Needs ~24 GB"},
     ],

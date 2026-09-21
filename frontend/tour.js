@@ -634,6 +634,19 @@ function tourActiveTab() {
 //: to remove rather than to move somewhere else.
 const TOUR_WAIT_MS = 1500;
 
+//: **The tour is switched off while it is being fixed** (the owner,
+//: 2026-09-21: "disable the start the tour button so the user cant press it
+//: until we enable it again when the guided tour isnt broken"). It has been
+//: reported broken more times than it has been reported working, and a
+//: feature that fails in front of a first-time user is worse than one that
+//: is honestly absent: the welcome is the first thing anybody sees.
+//:
+//: One flag, read by every door into the tour (the welcome's last slide, the
+//: replay strip in Settings, the offer toast), so turning it back on is this
+//: line and nothing else. The tour itself is untouched and still opens if it
+//: is called, which is what keeps the probes working.
+const TOUR_ENABLED = false;
+
 async function tourWaitForTarget(step) {
   const find = () => tourAnchorFor(document.querySelector(step.target));
   if (!step.tab && !step.notes) return find();
@@ -896,6 +909,7 @@ function renderTourReplay() {
   if (!box) return;
   box.replaceChildren();
   const start = (sectionId) => {
+    if (!TOUR_ENABLED) return;
     if (typeof closeSettingsModal === "function") closeSettingsModal();
     // On the next frame, not in the same one as the close: the first step's
     // rectangle is measured against the page the modal was covering.
@@ -907,6 +921,9 @@ function renderTourReplay() {
   all.textContent = "Start the tour";
   all.addEventListener("click", () => start(null));
   box.appendChild(all);
+  if (!TOUR_ENABLED) {
+    for (const button of [all]) tourDisable(button);
+  }
   for (const section of TOUR_SECTIONS) {
     const button = document.createElement("button");
     button.type = "button";
@@ -914,6 +931,7 @@ function renderTourReplay() {
     button.textContent = section.label;
     button.title = section.blurb;
     button.addEventListener("click", () => start(section.id));
+    if (!TOUR_ENABLED) tourDisable(button);
     box.appendChild(button);
   }
 }
@@ -931,3 +949,11 @@ function tourWireReplay() {
 }
 
 tourWireReplay();
+
+//: One place for the words, so every disabled door says the same thing and
+//: says why rather than just refusing.
+function tourDisable(button) {
+  button.disabled = true;
+  button.title = "The guided tour is being fixed and is turned off for now.";
+  button.setAttribute("aria-label", button.title);
+}

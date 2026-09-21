@@ -9,6 +9,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The guided tour is switched off while it is being fixed. Every door into it
+  is disabled and says why: the welcome's last panel offers "Get started"
+  instead of starting a tour, and the replay buttons in Settings, Help are
+  greyed. One flag in `tour.js` turns it back on.
+- The Ask tab's matching records read better: the reference number is a
+  square in the top right rather than a rectangle on the left, the badges and
+  the timestamp share their rows instead of the date taking one of its own,
+  and a note's connection labels are cut at 48 characters rather than 28, so
+  a wide card no longer stops two thirds of the way along a row with room to
+  spare.
+- Two more suggested models, Unsloth's quantisation-aware 4-bit copies of the
+  two Gemma MoE models, which are roughly half the download for close to the
+  same answers.
 - The Ask tab's "show the N notes used" button is gone. It counted the notes
   the Matching records column is already showing and scrolled to the first one
   cited, which is a second door to a list on screen beside the answer that

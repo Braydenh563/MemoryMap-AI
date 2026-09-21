@@ -1958,6 +1958,25 @@ header#top-bar select,
    instead, and only on the first row: `float` gives the heading a notch to
    wrap around and costs nothing below it, so no line is indented and nothing
    runs under the number. */
+/* **The timestamp joins the chips instead of claiming a line of its own**
+   (the owner, 2026-09-21: "the ask tab badges and metadata is wrapping onto
+   new lines and is ugly"). `.entry-meta-end` carries `margin-left: auto`,
+   which is right in a note list where the row has room: it lines every date
+   up on the right edge. In this column the chips fill the width, so the auto
+   margin pushed the date onto a row by itself, alone against the right edge
+   under a block of chips, which is the shape in the screenshot. Here it flows
+   with them and the rows close up. Scoped to this column: the note list keeps
+   its aligned dates. */
+#raw-results .entry-meta-end {
+  margin-left: 0;
+}
+
+/* A tighter rhythm for a narrow column: the chips are the same components,
+   but three wrapped rows of them at the list's spacing is most of a card. */
+#raw-results .entry-meta {
+  gap: var(--space-1);
+}
+
 #raw-results li.is-numbered {
   position: relative;
 }
@@ -1966,10 +1985,22 @@ header#top-bar select,
   padding-right: calc(1.25rem + var(--space-2));
 }
 
+/* Square, because it holds one or two digits and a mark that is wider than it
+   is tall reads as a chip rather than a number. `.chat-source-index` sets a
+   `min-width` and no height, so the padding decided the shape and one digit
+   came out a rectangle. Fixed on both axes, with the digit centred in it. */
 #raw-results li > .record-index {
   position: absolute;
   right: 0.8rem;
   top: 0.6rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-width: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .answer-grounding-label {

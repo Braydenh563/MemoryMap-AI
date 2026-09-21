@@ -34,6 +34,35 @@ with its owner named in the entry.
 
 ## Open items
 
+319. **The owner, 2026-09-21, verbatim, with two screenshots of a note
+    card's connections row:** "also the buttons in these connections in notes
+    need a redesign and look". Open. Each connection is a chip carrying a
+    direction arrow and a truncated label, followed by three round icon
+    buttons (edit, block, remove) of the same size and weight as each other,
+    so a row of three connections is nine identical circles and the labels
+    read as captions between them. The label's cut is fixed separately (the
+    character cap rose from 28 to 48), but the shape is the ask here.
+    Recommendation, to measure before building: the three actions belong
+    behind the `kebabMenu` recipe the rest of the app uses for exactly this
+    (DESIGN.md's recipe index, standing order 11), leaving one chip and one
+    ⋯ per connection, which also gives the label the width the three buttons
+    were taking. Owner: WHITEBOARD_PLAN is the wrong home; this is the notes
+    surface, so DOCUMENTS_PLAN or a Placed from INBOX row in
+    UI_MODERNISATION_PLAN.
+
+318. **The owner, 2026-09-21, verbatim, with a screenshot of an Ask answer:**
+    "not all inline reference number links show, only one showed in the
+    response". The answer carries one superscript marker against a paragraph
+    that draws on several records, and the Grounded in row below it lists
+    three notes (1, 4 and 10) while the column holds five. So the grounding
+    found more than the answer shows. Open, and worth measuring before
+    theorising: `ground_answer_sentences` marks a sentence only when it can
+    attribute it (`MIN_SENTENCE_WORDS`, the distinct-sentence rule in
+    `grounding.support`), so the first question is whether the missing markers
+    are sentences it declined to attribute or markers it attributed and the
+    renderer dropped. `scratchpad/ui-sweeps/askgrounding.js` against
+    `scratchpad/fake_answer_server.py` is the probe that already counts them.
+
 317. **The owner, 2026-09-21, verbatim, two messages with screenshots of the
     whiteboard text box context bar:** "the textbox selection popup tools
     menu items are cut off and also not aligned" and "when I press the
@@ -531,21 +560,4 @@ with its owner named in the entry.
   list") and most built.
 
 
-
-309. **The owner, 2026-09-21, verbatim:** "there is also no way to attach a
-  whiteboard or mindmap to a note as like an object in the notes. or to link
-  reminders to notes"
-
-  The session's reading, from the code, not from the app: notes already carry
-  typed objects (`objects` on a note, the chip row on a card, INBOX 246's
-  "boards via objects" work), and a board or a map is a first-class row with
-  an id, so the missing piece is an object kind that points at one plus the
-  two doorways that make it reachable (a slash command in the note, and "add
-  to a note" from the board and map themselves). Reminders are the other
-  direction: a reminder has a row of its own and no column that names the
-  note it came out of, so a reminder made from a note loses the note, and a
-  note that caused three reminders cannot show them. Both are one shape,
-  "this note and that thing are the same piece of work", and they belong in
-  DOCUMENTS_PLAN beside the objects section rather than in a plan of their
-  own (standing order 8).
 

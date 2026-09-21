@@ -2744,7 +2744,14 @@ function mapBoardRows() {
 // which note it is, short enough that four of them are a row rather than a
 // paragraph: a chip is a signpost, and a signpost with a sentence on it is
 // not a signpost. The full text is the chip's tooltip.
-const LINK_CHIP_CHARS = 28;
+//: Raised from 28 (the owner, 2026-09-21: "note text gets cut off at like
+//: 2/3 through the note width, I think it should have a bit more width"). A
+//: character count rather than a width is what made it look arbitrary: the
+//: chip was cut at the same word whether it sat in a 400px column or across
+//: a 1900px card, so on a wide card it stopped two thirds of the way along a
+//: row that had room to spare. The chips wrap, so a longer label costs a row
+//: at worst, never an overflow.
+const LINK_CHIP_CHARS = 48;
 
 // How much of a note the list shows before clamping it. Roughly ten lines at
 // a comfortable reading width, long enough that a normal note is never
@@ -44535,7 +44542,8 @@ function renderOnboardingSlide() {
   // opens the tour's first section rather than dropping somebody on the
   // Dashboard with nothing said about where anything is. The word has to say
   // so, or the tour arrives as a surprise on top of a card they just closed.
-  $("onboarding-next").textContent = last ? "Start the tour" : "Next";
+  const tourOn = typeof TOUR_ENABLED === "undefined" || TOUR_ENABLED;
+  $("onboarding-next").textContent = last ? (tourOn ? "Start the tour" : "Get started") : "Next";
   //: **And the other answer to that offer, in words** (the owner, 2026-09-21:
   //: "add a skip guided tour button to the welcome intro panels"). The left
   //: button has always closed the welcome and counted as declining the tour,
@@ -44543,7 +44551,7 @@ function renderOnboardingSlide() {
   //: "Skip" beside a primary that says "Start the tour", so the one thing it
   //: was answering was the one thing it did not name. It names it there.
   const skip = $("onboarding-skip");
-  skip.textContent = last ? "Skip the tour" : "Skip";
+  skip.textContent = last && tourOn ? "Skip the tour" : "Skip";
   skip.title = last
     ? "Go straight to the app. You can start the tour any time from Settings, Help."
     : "Close the welcome and go straight to the app";
@@ -44578,7 +44586,11 @@ function onboardingNext() {
     // are, and the last press of the one starts the other. Guarded because
     // tour.js is a separate file loaded after this one, and a page served
     // without it must still close the welcome cleanly.
-    if (typeof openTour === "function") openTour("basics");
+    //: Only if the tour is switched on: `TOUR_ENABLED` in tour.js is the one
+    //: flag, and the welcome's primary is relabelled to match.
+    if (typeof openTour === "function" && typeof TOUR_ENABLED !== "undefined" && TOUR_ENABLED) {
+      openTour("basics");
+    }
     return;
   }
   onboardingIndex += 1;
@@ -44608,6 +44620,7 @@ function maybeShowOnboarding() {
   }
   if (localStorage.getItem("tourDone")) return;
   if (typeof openTour !== "function") return;
+  if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
   localStorage.setItem("tourDone", "1");
   toastAction("There is a guided tour of MemoryMap now.", "Take the tour", () => {
     openTour("basics");

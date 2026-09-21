@@ -55,6 +55,22 @@ whole thing still downloads and still has to be held in memory. `gemma4:e2b`
 is a 7.2 GB download and `gemma4:e4b` is 9.6 GB, so neither is a small-laptop
 model despite the name.
 
+**The quantisation-aware copies are the small-laptop answer.** Unsloth
+publishes both of those models fine-tuned *while* quantised rather than
+squashed afterwards, which is why a 4-bit copy of one holds up better than an
+ordinary 4-bit of the same weights. They are roughly half the download for
+close to the same answers, and they are suggested in Settings, Models beside
+the bare tags:
+
+| Model | Size | Why |
+| :-- | :-- | :-- |
+| `hf.co/unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL` | 4.0 GB | `e2b` at roughly half the download |
+| `hf.co/unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL` | 5.3 GB | `e4b` at roughly half the download |
+
+Neither is in Ollama's own curated library, so they pull straight from the
+publisher's Hub repo, the same `hf.co/…` shape the document readers below
+use.
+
 ## 16 GB and up
 
 | Model | Size | Why |

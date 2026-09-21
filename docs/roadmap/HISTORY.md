@@ -31565,3 +31565,20 @@ row and head of different lengths).
     green is its own `rgba(52, 199, 123, 0.2)`, each mark's text is
     "highlighted" with no pipe in it, and no colour name survives anywhere
     in the visible text.
+
+293. **Fixed 2026-09-21.** The owner: the spinning "re-evaluating" animation
+    in the note badge "isnt quite right". His word for it, an ellipse, was
+    the measurement. `.chip` is an inline-flex row, so the shared `.spinner`
+    inside one is a flex item and carried the default `flex-shrink: 1`: with
+    room it measured 10.8 by 10.8, and in a 70px row 9.45 by 10.8, a ratio of
+    0.875. A ring rotating inside a box that is not square wobbles, which is
+    what a spinning ellipse looks like.
+    The ring now declares `flex: none` so it is not squeezed, and
+    `aspect-ratio: 1` with the size on the block axis alone so its shape does
+    not depend on that and a future container cannot reintroduce the fault
+    from outside; two declared sides are two things that can disagree. The
+    rotation origin is stated rather than inherited.
+    `scratchpad/ui-sweeps/spinnershape.js` measures the shape at four row
+    widths, since a sweep cannot watch an animation: 5 of 5, ratio 1.000 at
+    400, 120, 70 and 48px, turning about its own centre at each.
+

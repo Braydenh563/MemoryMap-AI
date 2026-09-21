@@ -1639,11 +1639,29 @@ progress {
    See spinnerEl() in app.js for the element itself. */
 .spinner {
   display: inline-block;
-  width: 0.9em;
-  height: 0.9em;
+  /* **A ring that cannot become an ellipse.** `.chip` is an inline-flex row,
+     so a spinner inside one is a flex item and took the default
+     `flex-shrink: 1`: in a tight row it was squeezed on the width while its
+     height held, and measured 9.45 by 10.8 against the 10.8 square it has
+     when there is room (INBOX 293, the owner: the animation "isnt quite
+     right"). A ring rotating inside a box that is not square wobbles, which
+     is what an ellipse spinning looks like. `flex: none` stops the squeeze
+     and `aspect-ratio` makes the shape independent of it, so a future
+     container cannot reintroduce this from the outside. The height carries
+     the size, in em so it still scales with the text beside it, and the
+     width is derived rather than declared: two declared sides are two things
+     that can disagree. */
+  flex: none;
+  aspect-ratio: 1;
+  block-size: 0.9em;
+  inline-size: auto;
   border: 2px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
+  /* Stated rather than inherited: the rotation is about the ring's own
+     centre, and a `transform-origin` set on an ancestor for a different
+     purpose must not reach it. */
+  transform-origin: 50% 50%;
   color: var(--accent);
   vertical-align: -0.15em;
   animation: chip-spin 0.7s linear infinite;

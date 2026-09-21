@@ -1354,3 +1354,12 @@ glass. What is left is below.
     side", which is one grid row: row-scoped it reads 1.71, the figure commit
     e5a0a19 recorded.
 
+## Placed from INBOX, 2026-09-21
+
+282. **Found by errors.js while sweeping the writing desk, 2026-09-20.**
+    `[settings/extras] section scrolls sideways 496>492` at 820px, and only
+    at 820: 1440, 1024 and 390 are clean. Four pixels, so it is one control
+    or one row with a fixed width rather than the layout. Recommendation:
+    find the child whose `scrollWidth` is 496 at that width and let it
+    shrink, the same `min-width: 0` answer the dock heads take. Owner:
+    settings.

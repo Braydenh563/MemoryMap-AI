@@ -364,6 +364,43 @@ with its owner named in the entry.
     header's right edge. Two faults or one: a phantom row on focus, and a
     control that cannot be pressed.
 
+292. **The owner, 2026-09-21, verbatim:** "half the time when there are no
+    tags on a note, I want the ai to generate them for me, so one of my most
+    used features is the re-evaluate feature, but I feel like it is more
+    than just re-evaluating, and it is hidden away and the user's probably
+    wont know its a thing. so I want it to be more evident that it is an
+    option and to be offered to the user."
+    He is right about the name on the evidence of the route itself:
+    `POST /entries/{id}/reevaluate` re-files the note (confidence, and the
+    category unless the user filed it themselves) *and* suggests tags and
+    links for the user to apply, with nothing tagged or linked without a
+    click. "Re-evaluate" names the smallest part of that, and the part he
+    uses it for, tags, is not in the name at all. Today it is one row in the
+    note's kebab (`app.js`, "ph:arrows-clockwise Re-evaluate").
+    Recommendation, in two halves. Rename the action for what it does, in
+    Atlas's name: "Tag and file with Atlas" on the row, with the longer
+    account behind the `?` popover (it re-reads the whole note, may move it
+    to another category unless you filed it yourself, and suggests tags and
+    links you approve). And offer it where he says he wants it, which is
+    exactly where it is missing: a note with no tags shows the offer in its
+    own empty tag row rather than nothing, so it is discoverable at the
+    moment it is wanted and costs no chrome on a note that is already
+    tagged. Keep the kebab row for notes that have tags already. Owner: the
+    notes surface.
+
+294. **The owner, 2026-09-21, verbatim:** "can you improve the ui and ux of
+    the live view and make it better for professional use and impressive as
+    both a tool, utility and aesthetic?"
+    The documents live view (the CodeMirror surface, `frontend/documents.js`
+    and its theme around the `.cm-md-*` decorations). Scope is a plan
+    section rather than an INBOX fix: it wants a measured read of what the
+    surface is today against what a professional editor gives, a decision
+    about what this one is *for* (it is a notebook's editor, not an IDE), and
+    gated phases. Belongs in DOCUMENTS_PLAN. The two faults already found in
+    this surface tonight, the table header's phantom row with its unpressable
+    kebab (290) and the highlight colours (291, fixed), are evidence that it
+    has had features added faster than it has been measured.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.
@@ -377,10 +414,3 @@ with its owner named in the entry.
 
 
 
-282. **Found by errors.js while sweeping the writing desk, 2026-09-20.**
-    `[settings/extras] section scrolls sideways 496>492` at 820px, and only
-    at 820: 1440, 1024 and 390 are clean. Four pixels, so it is one control
-    or one row with a fixed width rather than the layout. Recommendation:
-    find the child whose `scrollWidth` is 496 at that width and let it
-    shrink, the same `min-width: 0` answer the dock heads take. Owner:
-    settings.

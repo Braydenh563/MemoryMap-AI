@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The spinner beside "Re-evaluating" on a note is a circle in a narrow row,
+  not just a wide one. It sat in a flex row and could be squeezed on the
+  width while its height held, so it turned as an ellipse; it now keeps its
+  shape whatever the row does.
 - A plain highlight in the documents live view is yellow again, and a
   coloured one says its colour instead of showing it. The live view had one
   highlight rule, taking the blue of the app's named set, so every plain

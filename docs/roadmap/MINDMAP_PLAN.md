@@ -966,6 +966,21 @@ topic: a control that wide has nowhere to go.
    the client), same rule about a picture, one endpoint and one transaction
    for the reason `move-many` is one. Two buttons that meant nearly the same
    thing would be two things to learn and one of them would be wrong.
+12. **Markdown carries no cross-links, and that is a decision rather than
+   the work not being done** (taken 2026-09-21, building 13d). §13.2's table
+   asked for a line in the exports and 13d's row said OPML and Markdown
+   needed the decision made before the code. FreeMind has `<arrowlink>`, so
+   it gets it natively. OPML is strictly a tree with no element for an edge
+   that is not containment, so it gets the private-attribute treatment
+   `_kind` and `_ref` already have: an `_id` per outline and `_links` on the
+   one the link starts at, ignored by every other reader and read back by
+   this one. Markdown gets nothing, for the reason `_export_markdown`'s own
+   docstring already gives about style: that file's whole promise is an
+   outline anybody can paste into anything. A "Cross-links" section after
+   the outline would also be read straight back in by
+   `_parse_markdown_outline`, which reads indentation and nothing else, so
+   one map's two links would return as two topics. Two of three formats is
+   the honest answer, and `maptwokinds.js` asserts both halves.
 
 ### Phases, each with the gate it is finished against
 
@@ -1038,11 +1053,18 @@ topic: a control that wide has nowhere to go.
   lands on a selected cross-link's bend grip still does nothing (the grip
   takes the press), and nothing yet says which kind a drag is about to make
   *while* it is in flight, only after it lands.
-- **13d. A free link survives an export.** FreeMind's `<arrowlink>` first,
-  since it has a place for it; OPML and Markdown need the decision made
-  before the code. Gate: a map with one cross link round-trips through
-  FreeMind with the link intact, and `maptwokinds.js`'s export check inverts
-  from "survives none" to "survives the format that can carry it".
+- ~~**13d. A free link survives an export.**~~ **Built 2026-09-21**, and the
+  record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
+  MINDMAP_PLAN.md section 13d: a cross-link survives an export"). FreeMind
+  carries it in its own `<arrowlink DESTINATION>` under the node the link
+  starts at, with an `ID` on every node; OPML carries it in a private `_id`
+  and `_links`, the bargain `_kind` and `_ref` already struck there; Markdown
+  carries it in neither, by decision 12. Both XML formats round-trip
+  (`test_a_cross_link_round_trips_through_freemind`, `..._through_opml`), a
+  link whose far end is not in the file is dropped rather than left dangling,
+  and a map with no cross-links exports byte-for-byte the file it did.
+  `maptwokinds.js` 16 checks to 17, **17/17**, with the export check inverted
+  as the gate asked.
 - **13e. The map's own customisation.** ~~Tree-left and both-sides, the two
   §12.0 promised and Coggle is known for~~ **built 2026-09-21**, recorded in
   HISTORY.md ("Moved from the plans, 2026-09-21", "From MINDMAP_PLAN.md

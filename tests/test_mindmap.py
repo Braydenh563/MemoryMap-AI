@@ -1667,3 +1667,123 @@ def test_clearing_a_topics_look_keeps_its_picture(client):
     assert client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style").json() == {"cleared": 1}
     root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
     assert root["style"] == {"image": "/media/x.png"}
+
+
+# --- a cross-link survives an export (MINDMAP_PLAN.md §13d) -------------------
+#
+# §13.2 measured it: a map's two kinds of connection have different export
+# fates. The branch is the indent and survives all three formats; the
+# cross-link survived none, because `export_board` walks objects and
+# `parent_id` only and no exporter read `cross_links`.
+
+
+def _cross_link(client, board_id, source, target, label=""):
+    made = client.post(
+        "/whiteboard/sketches",
+        json={
+            "board_id": board_id,
+            "data": json.dumps(
+                {
+                    "type": "link-straight",
+                    "sourceId": source,
+                    "sourceKind": "object",
+                    "targetId": target,
+                    "targetKind": "object",
+                    "label": label,
+                }
+            ),
+        },
+    )
+    assert made.status_code == 200, made.text
+    return made.json()
+
+
+def _linked_map(client):
+    board = _map(client, name="Crossed")
+    root = _node(client, board["id"], text="Trunk")
+    left = _node(client, board["id"], parent_id=root["id"], text="Left")
+    right = _node(client, board["id"], parent_id=root["id"], text="Right")
+    _cross_link(client, board["id"], left["id"], right["id"], label="compare")
+    return board, root, left, right
+
+
+def test_a_cross_link_is_written_into_the_freemind_export(client):
+    board, _root, left, right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    assert f'ID="ID_{left["id"]}"' in text
+    assert f'DESTINATION="ID_{right["id"]}"' in text
+    assert 'MIDDLE_LABEL="compare"' in text
+
+
+def test_a_cross_link_is_written_into_the_opml_export(client):
+    board, _root, left, right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
+    assert f'_id="ID_{left["id"]}"' in text
+    assert f'_links="ID_{right["id"]}"' in text
+
+
+def test_markdown_carries_the_outline_and_says_nothing_about_cross_links(client):
+    """The decision, not an oversight: this format's promise is an outline
+    anybody can paste anywhere, and `_parse_markdown_outline` reads
+    indentation, so a cross-links section would come back in as topics."""
+    board, _root, _left, _right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert "Left" in text and "Right" in text
+    assert "ID_" not in text and "compare" not in text
+
+
+def test_a_cross_link_round_trips_through_freemind(client):
+    board, _root, left, right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    back = client.post(
+        "/whiteboard/boards/import",
+        json={"format": "freemind", "content": text, "name": "Back"},
+    )
+    assert back.status_code == 201, back.text
+    tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+    # A single-root map's `.mm` file names the map with its one root node, so
+    # the import brings "Left" and "Right" back as the roots: that is the
+    # format's own shape, documented on `_parse_freemind`, not this link's.
+    names = {node["id"]: node["text"] for node in tree["roots"]}
+    assert sorted(names.values()) == ["Left", "Right"]
+    assert len(tree["cross_links"]) == 1
+    link = tree["cross_links"][0]
+    assert (names[link["from_id"]], names[link["to_id"]]) == ("Left", "Right")
+
+
+def test_a_cross_link_round_trips_through_opml(client):
+    board, _root, _left, _right = _linked_map(client)
+    text = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "opml", "content": text, "name": "Back"}
+    )
+    assert back.status_code == 201, back.text
+    tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+    assert len(tree["cross_links"]) == 1
+
+
+def test_an_arrowlink_to_a_node_that_is_not_in_the_file_is_dropped(client):
+    """Half a link is a line to nowhere, which `_forget_links_to` exists to
+    stop accumulating; the import must not create one in the first place."""
+    content = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<map version="1.0.1"><node TEXT="Trunk" ID="ID_1">'
+        '<node TEXT="Here" ID="ID_2"><arrowlink DESTINATION="ID_999"/></node>'
+        "</node></map>"
+    )
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": content, "name": "Half"}
+    )
+    assert back.status_code == 201, back.text
+    tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
+    assert tree["cross_links"] == []
+
+
+def test_a_map_with_no_cross_links_exports_exactly_as_it_did(client):
+    """A plain map's file must not grow a single attribute it did not have."""
+    board = _map(client, name="Plain")
+    root = _node(client, board["id"], text="Trunk")
+    _node(client, board["id"], parent_id=root["id"], text="Leaf")
+    for fmt, marker in (("freemind", "arrowlink"), ("opml", "_links")):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert marker not in text

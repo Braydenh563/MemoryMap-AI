@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A cross-link on a mind map now survives an export. FreeMind files carry it
+  in their own arrow element, so a map opened in FreeMind, Freeplane or
+  Coggle is drawn with its cross-links; OPML files carry it as an attribute
+  other readers ignore and this one reads back. Both come back intact on
+  import. The Markdown outline stays an outline, which is what that file is
+  for.
 - A mind map can hold a look of its own, so a topic no longer has to be
   dressed one at a time. Ten of the eleven things you can set on a topic, its
   text size, weight, slant and alignment, its box and the bar down its edge,

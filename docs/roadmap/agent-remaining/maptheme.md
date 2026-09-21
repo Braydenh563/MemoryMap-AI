@@ -23,6 +23,12 @@
   keeping a picture. Measured: 3 topics cleared in 1 request, drawing the
   map's shape rather than the app's default afterwards.
 
+- **13d, a cross-link survives an export.** FreeMind's own `<arrowlink>`,
+  OPML's private `_id`/`_links`, Markdown deliberately neither (decision 12).
+  Both XML formats round-trip; a link whose far end is not in the file is
+  dropped; a map with no cross-links exports the file it always did.
+  `maptwokinds.js` 16 checks to **17/17**.
+
 - **The conflict markers committed on `claude/open-sections-a-b`.** Three
   `<<<<<<<`/`=======`/`>>>>>>>` lines in each of `CHANGELOG.md` and
   `docs/CHANGELOG.md`, from the mapux2 merge, failing
@@ -38,8 +44,9 @@
   key or the same map is two pictures. Recorded as MINDMAP_PLAN decision 8.
 
 - **The rest of section 13's phases, in the plan's own order**: 13a-open (the
-  render pass proper, the highest-value row in the section), 13d (a free link
-  survives an export), 13g (the middle-button pan, which needs the owner).
+  render pass proper, the highest-value row in the section, and the one that
+  answers the open, the pan and the zoom together) and 13g (the middle-button
+  pan, which needs the owner rather than a sweep).
 
 ## Found, not fixed
 
@@ -61,6 +68,11 @@
   the Insert and Arrange markup still in a map's top bar, the right-click on
   a cross-link's bend grip, no live cue of which kind a connect drag will
   make, and `mapstyle.js`'s "radial slot" check failing on the base branch.
+
+- **An `<arrowlink>` written by FreeMind itself is untested.** The round-trip
+  is this app's own file both ways; a real `.mm` from FreeMind or Freeplane,
+  whose arrowlinks carry `STARTINCLINATION`, `ENDINCLINATION` and an `ID` of
+  a shape this app does not write, was not tried.
 
 ## Not verified
 

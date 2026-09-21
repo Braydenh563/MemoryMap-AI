@@ -3380,7 +3380,7 @@ def _xml_attribute(value) -> str:
     return str(value)
 
 
-def _export_opml(title: str, roots: list[dict]) -> str:
+def _export_opml(title: str, roots: list[dict], cross_links: list[dict] | None = None) -> str:
     """OPML 2.0: the interchange format every mindmapper reads.
 
     Built with ElementTree rather than by formatting strings, so that a topic
@@ -3394,6 +3394,9 @@ def _export_opml(title: str, roots: list[dict]) -> str:
     head = ET.SubElement(opml, "head")
     ET.SubElement(head, "title").text = title
     body = ET.SubElement(opml, "body")
+    links_from: dict = {}
+    for link in cross_links or []:
+        links_from.setdefault(link.get("from_id"), []).append(link.get("to_id"))
 
     def build(parent_element, node: dict):
         attrs = {"text": node["text"] or "(untitled)"}
@@ -3421,6 +3424,18 @@ def _export_opml(title: str, roots: list[dict]) -> str:
                 attrs[attribute] = _xml_attribute(style[field])
         if node.get("color"):
             attrs["_color"] = str(node["color"])
+        #: **A cross-link, in the only place an outline has for one**
+        #: (MINDMAP_PLAN.md §13d). OPML is strictly a tree: there is no
+        #: element for an edge that is not containment, and inventing one
+        #: would make the file wrong for every other reader. So the same
+        #: bargain `_kind` and `_ref` already struck: a private attribute,
+        #: ignored by everything else, read back by this file. `_id` on every
+        #: outline and `_links` on the one the link starts at, space
+        #: separated because an outline may start several.
+        attrs["_id"] = _export_node_id(node["id"])
+        outgoing = links_from.get(node["id"])
+        if outgoing:
+            attrs["_links"] = " ".join(_export_node_id(end) for end in outgoing)
         return ET.SubElement(parent_element, "outline", attrs)
 
     _export_tree(body, roots, build)
@@ -3431,7 +3446,17 @@ def _export_opml(title: str, roots: list[dict]) -> str:
     )
 
 
-def _export_freemind(title: str, roots: list[dict]) -> str:
+#: **A cross-link's id in the two XML exports** (MINDMAP_PLAN.md §13d).
+#: FreeMind's own ids are the string `ID_` and a number, and its
+#: `<arrowlink DESTINATION>` points at one; the OPML export uses the same
+#: spelling in a private `_id` so that one reader in this file understands
+#: both. Derived from the object id rather than counted, so the same map
+#: exports to the same file twice and a diff of two exports is the changes.
+def _export_node_id(node_id: object) -> str:
+    return f"ID_{node_id}"
+
+
+def _export_freemind(title: str, roots: list[dict], cross_links: list[dict] | None = None) -> str:
     """FreeMind `.mm`: the other format every mindmapper reads, and the one
     Coggle, Freeplane, XMind and MindMeister all import (§4's list).
 
@@ -3448,6 +3473,7 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
     import xml.etree.ElementTree as ET
 
     document = ET.Element("map", {"version": "1.0.1"})
+    elements: dict = {}
 
     def build(parent_element, node: dict):
         attrs = {"TEXT": node["text"] or "(untitled)"}
@@ -3466,7 +3492,9 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
             # around it, which is exactly this map's "plain", and `bubble` is
             # the boxed node every other shape here is a variety of.
             attrs["STYLE"] = "fork" if style["shape"] == "none" else "bubble"
+        attrs["ID"] = _export_node_id(node["id"])
         element = ET.SubElement(parent_element, "node", attrs)
+        elements[node["id"]] = element
         # `<font>` and `<edge>` are FreeMind's own children of a node, and
         # they are written only when something was actually chosen: an empty
         # `<font/>` on every node would triple the size of a plain map's file
@@ -3509,6 +3537,22 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
     if len(roots) != 1:
         under = ET.SubElement(document, "node", {"TEXT": title})
     _export_tree(under, roots, build)
+    #: **The cross-links, in FreeMind's own element** (MINDMAP_PLAN.md §13d).
+    #: `<arrowlink>` is a child of the node the link starts at and names the
+    #: node it ends at, which is exactly the shape a link sketch already has,
+    #: so this is a spelling change rather than a model change. Written after
+    #: the tree because a link can point backwards as easily as forwards and
+    #: the element it points at has to exist; skipped when either end is not
+    #: on this map, which `_cross_links` already guarantees but a file this
+    #: function is handed twice should not depend on.
+    for link in cross_links or []:
+        source = elements.get(link.get("from_id"))
+        if source is None or link.get("to_id") not in elements:
+            continue
+        arrow = {"DESTINATION": _export_node_id(link["to_id"]), "ENDARROW": "Default"}
+        if link.get("label"):
+            arrow["MIDDLE_LABEL"] = _xml_attribute(link["label"])
+        ET.SubElement(source, "arrowlink", arrow)
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         + ET.tostring(document, encoding="unicode")
@@ -3561,12 +3605,20 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
             node["style"] = _themed_style(node.get("style") or {}, theme)
             stack.extend(node.get("children") or [])
     media, suffix = EXPORT_FORMATS[format]
+    #: **Markdown carries no cross-links, deliberately** (MINDMAP_PLAN.md
+    #: §13d's decision). This format's whole promise is in `_export_markdown`'s
+    #: own docstring, that the file is an outline anybody can paste into
+    #: anything, and everything a node wears is already dropped here for that
+    #: reason. A "Cross-links" section after the outline would also be read
+    #: straight back in by `_parse_markdown_outline`, which reads indentation
+    #: and nothing else, so one map's two links would come back as two topics.
+    links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
     if format == "markdown":
         text = _export_markdown(title, roots)
     elif format == "opml":
-        text = _export_opml(title, roots)
+        text = _export_opml(title, roots, links)
     else:
-        text = _export_freemind(title, roots)
+        text = _export_freemind(title, roots, links)
     # The filename is built from the board's id, never from its title: a
     # title is free text, and a Content-Disposition header is exactly where
     # free text becomes a header-injection question nobody wants to answer
@@ -3728,6 +3780,25 @@ def _opml_style(element) -> dict:
     return _clean_import_style(raw)
 
 
+#: The cross-links starting at one imported element, as the ids the file
+#: itself used (MINDMAP_PLAN.md §13d). Bounded, because this is a file
+#: somebody handed us: a node with ten thousand arrowlinks is either a
+#: generated file nobody meant to import or an attempt to make the import
+#: write ten thousand rows per node.
+MAX_IMPORT_LINKS_PER_NODE = 64
+
+
+def _import_link_targets(element, tag: str, attribute: str) -> list[str]:
+    out: list[str] = []
+    for link in element.findall(tag):
+        target = (link.get(attribute) or "").strip()
+        if target:
+            out.append(target)
+        if len(out) >= MAX_IMPORT_LINKS_PER_NODE:
+            break
+    return out
+
+
 def _parse_freemind(content: str) -> tuple[str, list[dict]]:
     """FreeMind `.mm` in, `(title, nested {text, children})` out.
 
@@ -3762,6 +3833,12 @@ def _parse_freemind(content: str) -> tuple[str, list[dict]]:
                 {
                     "text": text[:MAX_OBJECT_TEXT_CHARS],
                     "style": _freemind_style(child),
+                    #: The file's own id and the arrowlinks that start here
+                    #: (MINDMAP_PLAN.md §13d). Carried as written rather than
+                    #: resolved, because nothing has an object id yet: the
+                    #: import resolves them once every node has been placed.
+                    "ref": (child.get("ID") or "").strip(),
+                    "links": _import_link_targets(child, "arrowlink", "DESTINATION"),
                     "children": walk(child, depth + 1),
                 }
             )
@@ -3818,6 +3895,8 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
                 {
                     "text": text[:MAX_OBJECT_TEXT_CHARS],
                     "style": _opml_style(child),
+                    "ref": (child.get("_id") or "").strip(),
+                    "links": (child.get("_links") or "").split(),
                     "children": walk(child, depth + 1),
                 }
             )
@@ -3934,6 +4013,72 @@ def _place_map_nodes(
 
     place(parsed, None, 0)
     return created
+
+
+def _restore_import_links(
+    db: Session, board_id: int, parsed: list[dict], created: list[WhiteboardObject]
+) -> int:
+    """The imported file's cross-links, as the link sketches a map draws.
+
+    **The ids in the file are the file's, not this database's**, so this runs
+    after every node has been placed and has one: `parsed` is walked in the
+    same pre-order `_place_map_nodes` places in, which pairs each parsed node
+    with the object made from it, and that pairing is the whole translation.
+    Walked here rather than threaded through `_place_map_nodes` because the
+    other caller of that function (the AI proposal) has no file and no ids,
+    and giving it a parameter it can only pass None to is a parameter every
+    later reader has to rule out.
+
+    A link whose far end is not in this file is dropped rather than left
+    dangling: half a link is a row the canvas draws as a line to nowhere, and
+    `_forget_links_to` exists precisely to stop those accumulating.
+    """
+    by_file_id: dict[str, WhiteboardObject] = {}
+    flat: list[dict] = []
+
+    def walk(nodes: list[dict]) -> None:
+        for node in nodes:
+            flat.append(node)
+            walk(node.get("children") or [])
+
+    walk(parsed)
+    if len(flat) != len(created):
+        # The two walks disagreed, which they cannot unless `_place_map_nodes`
+        # changed shape. Nothing is written rather than something wrong: an
+        # import that quietly links the wrong pair of topics is worse than one
+        # that drops the links.
+        return 0
+    for node, obj in zip(flat, created):
+        ref = str(node.get("ref") or "")
+        if ref:
+            by_file_id[ref] = obj
+    made = 0
+    for node, obj in zip(flat, created):
+        for target in node.get("links") or []:
+            far = by_file_id.get(str(target))
+            if far is None or far.id == obj.id:
+                continue
+            db.add(
+                WhiteboardSketch(
+                    board_id=board_id,
+                    data=json.dumps(
+                        {
+                            "type": "link-straight",
+                            "sourceId": obj.id,
+                            "sourceKind": "object",
+                            "targetId": far.id,
+                            "targetKind": "object",
+                        }
+                    ),
+                    x=0.0,
+                    y=0.0,
+                    z=1,
+                )
+            )
+            made += 1
+    if made:
+        db.flush()
+    return made
 
 
 #: The most notes one proposal is built from. Matches
@@ -4248,12 +4393,13 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
     db.flush()  # the nodes need the board's id before they can point at it
 
     created = _place_map_nodes(db, entry.id, parsed)
+    crossed = _restore_import_links(db, entry.id, parsed, created)
     _record_map_creation(
         db,
         entry.id,
         name,
         f"imported {body.format} map, {len(created)} nodes",
-        {"format": body.format},
+        {"format": body.format, "cross_links": crossed},
         created,
     )
     db.commit()

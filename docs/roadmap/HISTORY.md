@@ -9,6 +9,40 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From MINDMAP_PLAN.md section 13d: a cross-link survives an export
+
+Built 2026-09-21. §13.2 measured a map's two kinds of connection having
+different export fates: the branch is the indent and survives all three
+formats, the cross-link survived none, because `export_board` walks objects
+and `parent_id` only and no exporter read `cross_links`.
+
+**FreeMind carries it natively.** Every `<node>` now has an `ID`, and the
+node a link starts at gets `<arrowlink DESTINATION="ID_x" ENDARROW="Default">`
+with the link's label as `MIDDLE_LABEL`. That is FreeMind's own element for
+exactly this, so a map exported here opens in FreeMind, Freeplane and Coggle
+with the cross-links drawn.
+
+**OPML carries it in the only place an outline has.** OPML is strictly a
+tree: there is no element for an edge that is not containment, and inventing
+one would make the file wrong for every other reader. So the same bargain
+`_kind` and `_ref` already struck: `_id` on every outline, `_links` on the
+one the link starts at, space separated.
+
+**Markdown carries it in neither, by decision 12.** That file's promise is an
+outline anybody can paste anywhere, it already drops everything a node wears,
+and `_parse_markdown_outline` reads indentation and nothing else, so a
+"Cross-links" section would come back in as topics.
+
+Both XML formats round-trip: the ids in a file are the file's, so
+`_restore_import_links` runs after every node is placed and pairs the parsed
+tree with the created objects by walking it in the same pre-order
+`_place_map_nodes` places in, dropping any link whose far end is not in the
+file rather than leaving half a line. A map with no cross-links exports the
+file it always did (asserted). `maptwokinds.js` 16 checks to **17/17**, with
+its export check inverted from "survives none of the three text exports" to
+"survives the two formats that have a place for it" plus "and the Markdown
+outline stays an outline". `tests/test_mindmap.py` gained seven cases.
+
 ### From MINDMAP_PLAN.md section 13e: the map's own look
 
 Built 2026-09-21, the other half of 13e. The owner, INBOX 305: "the

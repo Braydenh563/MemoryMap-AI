@@ -3932,51 +3932,23 @@ p.graph-help-panel {
      width in the quiet style, not bold bars stretched across the page.
    - A skill's pill is marked by its lightning icon, not a dashed accent
      border, which read as a drop zone. */
-#tab-dashboard[data-density="full"] .dash-hero {
-  padding: var(--space-5) var(--space-6);
-  margin-bottom: var(--space-4);
-}
-
+/* Revised the same day (owner: "the dashboard feels squished now and the
+   compact and full view are basically the same"). The first pass also moved
+   Compact's shape into Full (labels beside their rows, one-line hints, a
+   clock smaller than Compact's own), and the default look set the app-wide
+   density to compact on top, so Full lost its room twice. What stays is
+   weight, not size: the clock is ink rather than accent, and the secondary
+   pills are quiet and their own width. Full keeps its labels over their rows,
+   its two-line hints and its spacing; Compact is the view that folds. */
 #tab-dashboard[data-density="full"] .dash-clock-time {
-  font-size: var(--text-h2);
+  font-size: var(--text-h1);
   font-weight: 600;
   color: var(--ink);
 }
 
-#tab-dashboard[data-density="full"] .dash-quicklinks {
-  gap: var(--space-3);
-  margin: var(--space-4) 0;
-}
-
-#tab-dashboard[data-density="full"] .quick-action {
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-md);
-}
-
-#tab-dashboard[data-density="full"] .quick-action .quick-link-hint {
-  -webkit-line-clamp: 1;
-}
-
 @media (min-width: 37.5625rem) {
-  #tab-dashboard[data-density="full"] .launch-group:not(:has(.launch-row-start)) {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-4);
-  }
-
-  #tab-dashboard[data-density="full"] .launch-group:not(:has(.launch-row-start)) > .launch-label {
-    flex: 0 0 7rem;
-  }
-
-  #tab-dashboard[data-density="full"] .launch-group:not(:has(.launch-row-start)) > .launch-row {
-    flex: 1 1 auto;
-    min-width: 0;
-    gap: var(--space-2);
-  }
-
   #tab-dashboard[data-density="full"] .launch-row:not(.launch-row-start) > .quick-pill {
     flex: 0 0 auto;
-    --quick-h: 2rem;
     font-weight: 500;
     background: transparent;
   }

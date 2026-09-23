@@ -242,7 +242,11 @@ if [ "$CHANGED" = 1 ]; then
     step changed-tests "$PY" -m pytest -q -p no:warnings "${TARGETED[@]}"
   fi
 else skipped+=("changed-tests (--changed)"); fi
-if [ "$FULL" = 1 ]; then step full-suite "$PY" -m pytest -q -p no:warnings tests/; else skipped+=("full-suite (--full)"); fi
+# Across every core when pytest-xdist is there (requirements.txt): the suite
+# is 25 minutes serial and under 9 on four cores, and each test already runs
+# in its own data dir, so nothing is shared between workers.
+XDIST=(); "$PY" -c "import xdist" 2>/dev/null && XDIST=(-n auto)
+if [ "$FULL" = 1 ]; then step full-suite "$PY" -m pytest -q -p no:warnings "${XDIST[@]}" tests/; else skipped+=("full-suite (--full)"); fi
 if [ "$SWEEPS" = 1 ]; then
   export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}"
   export BASE="${BASE:-http://127.0.0.1:8781}"

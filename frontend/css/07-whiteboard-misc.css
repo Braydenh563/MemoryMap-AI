@@ -12955,14 +12955,14 @@ button.finder-row:hover,
 
 /* The clock is the banner's art, so it is what a density step takes: the date
    goes first (the day is in every other surface of the app), and the time
-   drops from the display size to `--text-h1`, which keeps it below the
-   greeting rather than twice its size. */
+   drops to `--text-h2`, the greeting's own size here, one step under Full's
+   `--text-h1`. */
 #tab-dashboard[data-density="compact"] .dash-clock-date {
   display: none;
 }
 
 #tab-dashboard[data-density="compact"] .dash-clock-time {
-  font-size: var(--text-h1);
+  font-size: var(--text-h2);
 }
 
 #tab-dashboard[data-density="compact"] .quick-pill {

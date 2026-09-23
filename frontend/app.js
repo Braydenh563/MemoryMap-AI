@@ -39667,6 +39667,43 @@ document.addEventListener("focusin", (event) => {
   });
 });
 
+//: **Tab indents from the first keystroke** (owner, INBOX 392: "indenting and
+//: dedenting across the app also doesnt come in the form it should"). The
+//: editor that owns Tab and Shift+Tab (documents.js `indentDocSelection`)
+//: arrives with the Library bundle on a note box's first focus, and until it
+//: has, the box is a plain textarea: measured on a fresh boot, "- alpha"
+//: plus Tab moved focus to the tags field instead of indenting. This bridges
+//: that second or two with the same rule the editor applies: whole lines,
+//: two spaces, list items as blocks, Shift+Tab only when there is something
+//: to take off (so a flush-left caret still tabs backwards out of the box).
+//: Once the bundle is in, the textarea is replaced and this never runs.
+document.addEventListener("keydown", (event) => {
+  const box = event.target;
+  if (event.key !== "Tab" || event.ctrlKey || event.altKey || event.metaKey) return;
+  if (!(box instanceof HTMLTextAreaElement) || !NOTE_SURFACE_IDS.has(box.id)) return;
+  const value = box.value;
+  const selStart = box.selectionStart;
+  const selEnd = box.selectionEnd;
+  const lineStart = value.lastIndexOf("\n", selStart - 1) + 1;
+  const endBreak = value.indexOf("\n", selEnd > selStart ? selEnd - 1 : selEnd);
+  const lineEnd = endBreak === -1 ? value.length : endBreak;
+  const lines = value.slice(lineStart, lineEnd).split("\n");
+  let next;
+  if (event.shiftKey) {
+    if (!lines.some((line) => /^( {1,2}|\t)/.test(line))) return;
+    next = lines.map((line) => line.replace(/^( {1,2}|\t)/, ""));
+  } else {
+    next = lines.map((line) => `  ${line}`);
+  }
+  event.preventDefault();
+  const text = next.join("\n");
+  box.setRangeText(text, lineStart, lineEnd, "preserve");
+  const shift = next[0].length - lines[0].length;
+  box.selectionStart = Math.max(lineStart, selStart + shift);
+  box.selectionEnd = selEnd + (text.length - (lineEnd - lineStart));
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+});
+
 //: **The entry points that can be reached before their own file exists.**
 //:
 //: Most calls into a lazy module happen on its own tab, after `switchTab` has

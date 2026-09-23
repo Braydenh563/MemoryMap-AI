@@ -290,6 +290,14 @@ function renderLibraryFilters() {
     badge.className = "library-chip-count";
     badge.textContent = count;
     button.append(icon, label, badge);
+    //: **An empty kind is not offered** (the owner's de-vibecoding pass:
+    //: thirteen chips over two rows at 1440, six of them reading 0). The
+    //: count above already says a filter is empty before it is pressed; the
+    //: next step is not drawing a filter that can only show nothing. Kept in
+    //: the row (a class, not a removal) so the active chip, and a kind that
+    //: fills while the tab is open, need no second code path; "Everything"
+    //: and whichever chip is selected always show.
+    button.classList.toggle("is-empty", count === 0 && kind.key !== "all" && libraryKind !== kind.key);
     button.addEventListener("click", () => {
       libraryKind = kind.key;
       libraryCurrentPage = 1;

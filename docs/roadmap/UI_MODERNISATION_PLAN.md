@@ -1113,6 +1113,50 @@ different problem than the list says.
 
     Still open: the screenshot set for the owner.
 
+12. **Content gets the screen: built** (2026-09-23, INBOX 392: "the mobile
+    view is still very broken, takes up a lot of the screen"). Gate:
+    `scratchpad/ui-sweeps/phonechrome.js` (chrome at most 25% of the height,
+    content in the top 40%, no sideways scroll, no cut picker, 44px targets,
+    no row drawing over its own text, nothing fixed on the tab bar), PASS at
+    390x844, 768x1024 and 1024x768 in the new default look. Before and after
+    at 390: chat chrome 266 to 170px, notes 206 to 164, the reminders list
+    from y=836 to 188, the library's first card from 407 to 304. The block
+    with its numbers is in HISTORY.md ("Moved from the plans, 2026-09-23").
+
+    **What each surface is for on a phone** (the owner, 2026-09-23: "actually
+    intentionally designing for those resolutions, and not just adapting to
+    them"), which decides what is first on its screen:
+    - Dashboard: see what is due and start something; the greeting, search
+      and the two launch rows, then the widgets.
+    - Notes: find a note and read it; the row is the note (swipe to star or
+      bin, tap to open, ⋯ for the rest), capture is the floating +.
+    - Chat: ask and read the answer; one head row, the transcript, and a
+      composer whose second row is mode, attach and the gear; the model and
+      tools live in the gear's sheet.
+    - Library: find a thing and open it; one head row, the kind chips in
+      one sideways row, cards of three lines.
+    - Timeline: scan what happened when; the table, the floating Today.
+    - Reminders: see what is due and tick it off; the list is the page,
+      adding is the floating + and a sheet.
+    - A board: look and move around; the canvas under one bar, two fingers
+      for the camera, the tool sheet at the foot.
+
+    **Decisions (made here).** Below 600 the status bar is not a bar: Back,
+    Undo and the AI dot move into the header and every other control is a row
+    of the header menu, returning as a bar only for a running job, offline or
+    power saver (this moves the AI dot out of the status bar item 1 left it
+    in, because the bar itself left the screen). A coarse pointer gets the
+    44px floor at every width, not only below 820 (supersedes band 2's
+    tab-strip-only floor; an iPad in landscape is 1024). A form that fills a
+    narrow first screen is a sheet from the list's own filled action (below
+    1100, Reminders). Below 600 a ⋯ menu is an action sheet
+    (`openKebabSheet`); a menu at the pointer stays at the pointer.
+
+    Open: the selection ticks on Library cards and reminder
+    rows draw a 44px box at rest, where a smaller drawn box in a 44px target
+    would read lighter; Settings scrolls sideways in two sections at 768.
+    The list, with ids, is `agent-remaining/phone.md`.
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.

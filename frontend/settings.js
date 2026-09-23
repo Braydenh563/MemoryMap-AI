@@ -1383,9 +1383,13 @@ const THEME_PRESETS = {
   //: **Quiet utilitarian is the default look** (UI_MODERNISATION_PLAN
   //: decisions, 2026-09-23): used whenever no look has been chosen, see
   //: `activeThemePreset`. The old default is "Classic", kept exactly.
+  //: No density of its own: it once set compact, which as the default
+  //: scaled every spacing token to 0.75 across the app (owner: "the
+  //: dashboard feels squished now"). Quiet is flat colour and small radii,
+  //: not less room; density stays the reader's choice.
   utilitarian: {
     label: "Quiet utilitarian",
-    values: { palette: "utilitarian", glass: "off", radius: "8", density: "compact" },
+    values: { palette: "utilitarian", glass: "off", radius: "8" },
   },
   default: {
     label: "Classic",

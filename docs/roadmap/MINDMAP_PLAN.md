@@ -956,6 +956,13 @@ topic: a control that wide has nowhere to go.
    are two kinds nobody can tell apart, which is the report this section
    exists for. The colour stays on the row, so an ordinary board still draws
    it and a map turned back into a board gets it back.
+   **Revised by the owner 2026-09-23**: "these links I drew using the
+   cross-link tools are different from the ones between the other mind map
+   nodes ... I want them to be the same". A cross-link between two topics is
+   now drawn by the map (`wbMapCrossLinkLook`): the branch's shape, facing
+   anchors, weight and taper, in the source branch's colour (the target's
+   for a root, the accent failing both). Still no colour of its own, and the
+   pen's colour still stays on the row for an ordinary board.
 7. **The ring's middle slot promotes a cross-link to a branch** (taken
    2026-09-21, building 13c). The gesture that makes one or the other decides
    from whether the far end is already in the tree, which nothing on screen

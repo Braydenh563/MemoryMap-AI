@@ -140,6 +140,8 @@ with its owner named in the entry.
     after, the mobile view is still bery broken, takes up a lot of the screen
     and the design needs a lot of improvement." Placement: UI_MODERNISATION_PLAN
     phone phases; measure chrome height against content at 390x844 first.
+    That half is built (2026-09-23): UI_MODERNISATION_PLAN Phase 11 item 12,
+    gated by `scratchpad/ui-sweeps/phonechrome.js` at 390, 768 and 1024.
     Later the same day, verbatim: "make sure the whole of the app ui is
     repsponsive, not just for mobile but any ui resolution. though mobile-first
     design is I'm told a good practice" and "when I say mobile and responsive

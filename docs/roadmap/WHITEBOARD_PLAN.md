@@ -530,3 +530,21 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     below 1024 the way the phone band already hides other labels, and
     re-measure; it is worth about 60px, which is more than the 2px the wrap
     is short by. Owner: whoever next opens the pad's bar.
+
+## Placed from INBOX, 2026-09-23
+
+- **The small conventions every canvas user takes for granted.** The owner,
+  verbatim: "I cant do things on the whiteboard and mindmap like double clcike
+  the rotate point above the top centre of an object and reset it to its
+  default rotate. the whiteboard and mindmap are still missing a lot of those
+  small features that we as user's use all the time and take for granted but
+  very much notice when they arent there." Then: "same with the documents and
+  other app features." One pass per surface, whiteboard and map first (with
+  the map UX remainder), then documents, notes, chat and the Library: list
+  what a Figma, Miro, tldraw, Google Docs or VS Code user expects
+  (double-click a handle to reset it, Alt-drag to duplicate, Shift to
+  constrain, arrow-key nudge, Escape to cancel a gesture, Ctrl+D, Ctrl+A in
+  scope, triple-click a paragraph, and so on), measure which are missing in
+  the running app, build them. Decision, taken: the missing ones are built
+  without asking; a convention the app breaks on purpose keeps its reason
+  written next to it.

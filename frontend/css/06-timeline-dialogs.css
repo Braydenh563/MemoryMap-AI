@@ -608,7 +608,7 @@
    bold alone wasn't enough to tell a category from a note in the arc view). */
 .graph-node text.graph-label-group {
   font-size: 0.8rem;
-  font-weight: 650;
+  font-weight: 600;
   fill: var(--accent);
 }
 
@@ -1576,7 +1576,7 @@
 
 /* 1. Category. The bare `.chip` with no variant is the category, it earns the
       accent because it is the answer to "where does this note live?". */
-.entry-meta>.chip:not(.tag):not(.confidence):not(.review):not(.when):not(.link) {
+.entry-meta>.chip.category {
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 600;
@@ -2032,7 +2032,7 @@
 }
 
 .notif-unread .notif-title {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .notif-actionable {

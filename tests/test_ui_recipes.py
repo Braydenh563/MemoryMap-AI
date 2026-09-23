@@ -2256,6 +2256,89 @@ def test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone() 
     assert ".board-embed-open" in css, "the board object's button has no rules of its own"
 
 
+def test_every_status_bar_control_has_a_way_in_on_a_phone() -> None:
+    """Below 600 the status bar is not on screen (INBOX 392, UI_MODERNISATION_PLAN
+    Phase 11 item 12): `dockPhoneStatus` moves Back, Undo and the AI dot into
+    the header and every other control is a row of the header's menu
+    (`PHONE_STATUS_ROWS`). A control added to the bar later with neither would
+    exist on a desktop and not on a phone, which Phase 11's decision forbids
+    ("nothing is hidden that the desktop has"). The notes count and the
+    palette hint, hidden below 720 by the bar's own band, and the clock, a
+    desktop opt-in, are the named exceptions."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    footer = re.search(r'<footer[^>]*id="status-bar".*?</footer>', html, flags=re.S)
+    assert footer, "the status bar is gone from index.html"
+    ids = set(re.findall(r'<button[^>]*\bid="([^"]+)"', footer.group(0)))
+    rows = re.search(r"const PHONE_STATUS_ROWS = \[(.*?)\];", app, flags=re.S)
+    assert rows, "PHONE_STATUS_ROWS is gone from app.js"
+    in_menu = set(re.findall(r'id: "([^"]+)"', rows.group(1)))
+    docker = app.split("function dockPhoneStatus", 1)[1][:2000]
+    for name in ("status-back", "status-undo", "ai-status"):
+        assert f'$("{name}")' in docker, f"{name} is no longer moved into the phone header"
+    moved = {"status-back", "status-undo", "ai-status"}
+    exceptions = {"status-notes", "status-command", "status-clock"}
+    # The transient ones bring the bar itself back while they show.
+    responsive_css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    transient = {name for name in ids if f"#{name}:not(.hidden" in responsive_css}
+    assert {"status-task", "status-activity"} <= transient, (
+        "a running job or an activity no longer brings the phone's status bar back"
+    )
+    # Three are rows of the tab bar's More sheet already, which is their way in.
+    more = app.split("function openPhoneMoreSheet", 1)[1][:4000]
+    in_more = {"status-reminders", "status-agent", "status-guide"}
+    assert '"reminders"' in app.split("const PHONE_MORE_TABS", 1)[1][:200], (
+        "Reminders left the More sheet, and the status bar's count was its phone way in"
+    )
+    for word in ("Ask the agent", "Guide"):
+        assert f'"{word}"' in more, f"'{word}' left the More sheet; give its status control a header row"
+    missing = sorted(ids - in_menu - moved - exceptions - transient - in_more)
+    assert not missing, (
+        f"status-bar controls with no way in on a phone: {missing}; add each to "
+        "PHONE_STATUS_ROWS (app.js), which makes it a row of the header menu"
+    )
+    responsive = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    assert "--status-bar-h: 0px" in responsive, (
+        "the phone band no longer takes the status bar's height back"
+    )
+
+
+def test_a_menu_behind_a_button_is_an_action_sheet_on_a_phone() -> None:
+    """DESIGN.md, "A menu behind a button": below 600 both ⋯ builders open the
+    sheet recipe through `openKebabSheet` (INBOX 392: "a bottom sheet instead
+    of a popover"). A third builder, or one of these two losing the branch,
+    would put a popover back on a phone for that one menu."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    for builder in ("function kebabMenu(", "function entryOverflowMenu("):
+        body = app.split(builder, 1)[1][:3000]
+        assert "PHONE_ACTION_SHEET" in body and "openKebabSheet(" in body, (
+            f"{builder.split('(')[0][9:]} no longer opens as an action sheet below 600"
+        )
+    sheet = app.split("function openKebabSheet(", 1)[1][:2500]
+    assert "openSheet(" in sheet and "has-submenu" in sheet, (
+        "openKebabSheet no longer uses the sheet recipe, or closes on a group's own row"
+    )
+
+
+def test_a_coarse_pointer_gets_the_touch_floor_at_every_width() -> None:
+    """DESIGN.md, "Hit targets": the 44px floor follows the pointer, not only
+    the width (INBOX 392). Measured with a touch context at 1024x768 before:
+    search boxes, sub-tabs and dock buttons at 36px and the status bar's items
+    at 28, because every floor was written for `max-width: 819.98px` and an
+    iPad in landscape is 1024. The `:root` token and the dock's own floor are
+    the two a regression would lose first."""
+    touch_query = "@media (max-width: 819.98px), (pointer: coarse)"
+    shell = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    token = re.search(r"@media[^{\n]*\{\s*:root\s*\{\s*--target-min:\s*2\.75rem;", shell)
+    assert token and token.group(0).startswith(touch_query), (
+        "the 44px --target-min is no longer declared for a coarse pointer at every width"
+    )
+    dock = re.search(r"@media[^{\n]*\{\s*\.dock button,", shell)
+    assert dock and dock.group(0).startswith(touch_query), (
+        "the dock's 44px floor is width-only again; a finger at 1024 gets 36px controls"
+    )
+
+
 def test_code_diagnostics_are_drawn_in_the_apps_ink() -> None:
     """A syntax error in a code document is the recipe DESIGN.md names (INBOX
     392): CodeMirror's linter and completion list, restyled in `docCmTheme`

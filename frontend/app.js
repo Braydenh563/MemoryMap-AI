@@ -3113,9 +3113,16 @@ function entryItem(entry, options = {}) {
     filing.title = "Atlas is deciding where this note goes. It's already saved.";
     meta.appendChild(filing);
   } else {
-    meta.appendChild(chip(entry.category));
+    //: `category` names the chip for the meta line's own styles (08-
+    //: consistency.css, "one line of facts"): before it had a class, the
+    //: category rule was "a chip with none of these variants", which caught
+    //: every variant added after it and drew "No tags yet" and "Linked by 5
+    //: notes" as accent pills too.
+    meta.appendChild(chip(entry.category, "category"));
   }
-  for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
+  //: `hashtag` marks a real tag: `tag` alone is also the quiet look the
+  //: documents, the source and the space borrow, and only a tag gets the #.
+  for (const tag of entry.tags) meta.appendChild(chip(tag, "tag hashtag"));
   //: **A note with no tags says so, where the tags would be** (INBOX 162:
   //: "notes with no tags or other things arent highlighted"). Only on a real
   //: note in a list that offers actions: a board is not filed by tag and a
@@ -3130,7 +3137,7 @@ function entryItem(entry, options = {}) {
     //: surface a search result is being read on, so wiring it here would be a
     //: chip that looks pressable and does nothing visible (INBOX 297).
     const untagged = options.actions
-      ? chip("ph:tag No tags yet", "untagged", (event) => {
+      ? chip("ph:tag Add tags", "untagged", (event) => {
         event.stopPropagation();
         editingId = entry.id;
         focusTagsAfterRender = entry.id;
@@ -3186,17 +3193,28 @@ function entryItem(entry, options = {}) {
   // Plain-language explanation on hover, "confidence" is jargon otherwise,
   // and the number alone doesn't say what it's confident *about*.
   const confidenceHint = "How sure Atlas was when it picked this note's category.";
-  const confidenceChip = aiDidFile
-    ? entry.ai_confidence >= REVIEW_THRESHOLD
-      ? chip(`AI ${entry.ai_confidence}%`, "confidence")
-      : // Low confidence from a real attempt, worth a human look (Phase 3).
-        chip(`AI ${entry.ai_confidence}%: check this`, "review")
+  //: **Confident filing is a fact about the category, not a line item.**
+  //: A score above the review line asks nothing of anyone, and as its own
+  //: pill it was one more badge on every card (owner: "a better ui/ux and
+  //: more modern and professional way to ... display all the metadata,
+  //: links, badges"). It rides on the category's tooltip instead; the low
+  //: score keeps its own mark, because that one is a request to check.
+  const categoryChip = meta.querySelector(".chip.category");
+  if (aiDidFile && categoryChip && entry.ai_confidence >= REVIEW_THRESHOLD) {
+    categoryChip.title = `Filed by Atlas, ${entry.ai_confidence}% sure`;
+  }
+  const confidenceChip = aiDidFile && entry.ai_confidence < REVIEW_THRESHOLD
+    ? // Low confidence from a real attempt, worth a human look (Phase 3).
+      chip(`AI ${entry.ai_confidence}%: check this`, "review")
     : null;
   if (confidenceChip) confidenceChip.title = confidenceHint;
   // Flash the badge once when this note's confidence just changed, so the
   // update after a re-evaluation is actually noticeable (user request).
-  if (confidenceChip && entry.id === flashConfidenceId) {
-    confidenceChip.classList.add("badge-flash");
+  //: The category flashes when the score went to its tooltip, since the
+  //: category is what a re-evaluation actually answered.
+  const flashed = confidenceChip || categoryChip;
+  if (flashed && entry.id === flashConfidenceId) {
+    flashed.classList.add("badge-flash");
     flashConfidenceId = null;
   }
   if (confidenceChip) meta.appendChild(confidenceChip);
@@ -4486,6 +4504,10 @@ function wireEscapedActionMenu(wrap) {
   //: own opener.
   const escapeTarget = () => opener.closest("dialog[open]") || document.body;
   const observer = new MutationObserver(() => {
+    // A menu shown as a phone's action sheet (`openKebabSheet`) is already
+    // out of every clipping ancestor; escaping it would take it back out of
+    // the sheet.
+    if (menu._inSheet) return;
     const open = !menu.classList.contains("hidden");
     const target = escapeTarget();
     if (open && menu.parentElement !== target) {
@@ -5293,6 +5315,12 @@ function entryOverflowMenu(entry) {
   //: using the same icon as the other builder fixes the centring and the
   //: drift in one go.
   const opener = smallButton("ph:dots-three", "More actions", () => {
+    // The phone's action sheet, as `kebabMenu` opens (`openKebabSheet`).
+    if (window.matchMedia(PHONE_ACTION_SHEET).matches && typeof openSheet === "function") {
+      fillMenu();
+      openKebabSheet(menu, opener, "Note actions");
+      return;
+    }
     const willOpen = menu.classList.contains("hidden");
     if (willOpen) {
       fillMenu();
@@ -20935,12 +20963,44 @@ function chatDockMoreOpen() {
   return !$("chat-dock-more-panel").classList.contains("hidden");
 }
 
+// **On a phone the panel is a sheet** (UI_MODERNISATION_PLAN Phase 11 item
+// 12). A popover hanging above a composer at the foot of a 390px window has
+// the keyboard under it and the transcript over it; the sheet recipe is the
+// phone's dialog. The panel itself moves into the sheet and back on close,
+// never a copy, so its selects, its persona peek and every handler on them
+// are the ones the desktop uses. `dockChatTools` has already moved the model
+// picker and the tool toggles into it at that width.
+let chatDockMoreSheetClose = null;
+
 function openChatDockMore() {
-  $("chat-dock-more-panel").classList.remove("hidden");
-  $("chat-dock-more-btn").setAttribute("aria-expanded", "true");
+  const panel = $("chat-dock-more-panel");
+  const button = $("chat-dock-more-btn");
+  panel.classList.remove("hidden");
+  button.setAttribute("aria-expanded", "true");
+  if (!window.matchMedia(PHONE_TABS).matches || typeof openSheet !== "function") return;
+  const home = panel.parentElement;
+  chatDockMoreSheetClose = openSheet({
+    label: "How it answers",
+    name: "chat-answers",
+    returnFocus: button,
+    build: (card) => {
+      card.classList.add("chat-answers-card");
+      card.appendChild(panel);
+    },
+    onClose: () => {
+      chatDockMoreSheetClose = null;
+      home.appendChild(panel);
+      panel.classList.add("hidden");
+      button.setAttribute("aria-expanded", "false");
+    },
+  });
 }
 
 function closeChatDockMore() {
+  if (chatDockMoreSheetClose) {
+    chatDockMoreSheetClose();
+    return;
+  }
   $("chat-dock-more-panel").classList.add("hidden");
   $("chat-dock-more-btn").setAttribute("aria-expanded", "false");
 }
@@ -22771,6 +22831,17 @@ function initSidebarSheetDismissal() {
       const opener = open.querySelector(".sidebar-collapse-toggle");
       opener?.setAttribute("aria-expanded", "false");
       opener?.focus();
+      //: Below 600 that toggle is not on the page once the sheet is shut
+      //: (the head's `.phone-sidebar-opener` stands for it), so the focus
+      //: went nowhere, measured by `sheetdismiss.js` at 390: activeElement
+      //: was the body. The phone's own opener takes it there.
+      const phoneOpener = open.id
+        ? document.querySelector(`.phone-sidebar-opener[aria-controls="${CSS.escape(open.id)}"]`)
+        : null;
+      if (phoneOpener) {
+        phoneOpener.setAttribute("aria-expanded", "false");
+        if (document.activeElement !== opener) phoneOpener.focus();
+      }
     },
   });
 }
@@ -23461,6 +23532,58 @@ function watchForSelects() {
   }).observe(document.body, { childList: true, subtree: true });
 }
 
+// **On a phone a ⋯ menu is an action sheet** (INBOX 392, UI_MODERNISATION_PLAN
+// Phase 11 item 12: "a bottom sheet instead of a popover"). A popover hung
+// from a 44px opener in a 390px window lands wherever the opener is, often
+// under the thumb's far reach at the top of the screen, and is clamped and
+// flipped to fit; the phone's own answer is the sheet from the bottom edge,
+// every row full width at the thumb. Below 600 every `kebabMenu` opens the
+// sheet recipe with the menu itself moved in, its rows, their handlers, their
+// groups and its keyboard the same, and put back on close. A row press closes
+// the sheet first (captured, before the row's own handler runs), so whatever
+// the row opens next, a dialog or another sheet, takes the focus after it.
+// Only `kebabMenu`, the recipe: a context menu at a point (`openMenuAtPoint`)
+// stays where the finger held.
+const PHONE_ACTION_SHEET = "(max-width: 599.98px)";
+
+function openKebabSheet(menu, opener, label) {
+  closeActionMenus();
+  const home = menu.parentElement;
+  let closeSheet = null;
+  // A group's row opens its group in place (below 720 a submenu is an
+  // accordion, `buildMenuGroupButton`), so it leaves the sheet open.
+  const onRow = (event) => {
+    const row = event.target.closest(".menu-item");
+    if (row && !row.classList.contains("has-submenu") && closeSheet) closeSheet();
+  };
+  closeSheet = openSheet({
+    label,
+    name: "action-menu",
+    returnFocus: opener,
+    build: (card) => {
+      card.classList.add("action-menu-card");
+      menu._inSheet = true;
+      menu.style.left = "";
+      menu.style.top = "";
+      menu.classList.remove("hidden", "action-menu-flip", "action-menu-escaped");
+      card.appendChild(menu);
+      card.addEventListener("click", onRow, true);
+    },
+    onClose: () => {
+      closeSheet = null;
+      menu.classList.add("hidden");
+      if (home) home.appendChild(menu);
+      // After the observer has seen the class change above, so it does not
+      // escape a menu that is on its way home.
+      queueMicrotask(() => {
+        menu._inSheet = false;
+      });
+      opener.setAttribute("aria-expanded", "false");
+    },
+  });
+  opener.setAttribute("aria-expanded", "true");
+}
+
 function kebabMenu(items, ariaLabel) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -23470,6 +23593,10 @@ function kebabMenu(items, ariaLabel) {
   menu.setAttribute("role", "menu");
 
   const opener = smallButton("ph:dots-three", ariaLabel, () => {
+    if (window.matchMedia(PHONE_ACTION_SHEET).matches && typeof openSheet === "function") {
+      openKebabSheet(menu, opener, ariaLabel);
+      return;
+    }
     const willOpen = menu.classList.contains("hidden");
     if (willOpen) openActionMenu(menu, opener);
     else closeActionMenus();
@@ -29408,8 +29535,8 @@ document.addEventListener("click", (event) => {
     // later so the box is visible when the caret lands in it.
     requestAnimationFrame(() => $("entry-content")?.focus());
   } else if (action === "reminder") {
-    const field = $("reminder-text") || $("reminder-magic");
-    if (field) field.focus();
+    // The form is a sheet on a phone; `openReminderCompose` knows which.
+    openReminderCompose();
   } else if (action === "clear-filter") {
     // The same path as typing into the box and deleting it: the handler on
     // #note-search owns `noteSearch`, the Save-filter button and the render.
@@ -40547,19 +40674,55 @@ initBottomTabBar();
 // calling the same four functions the buttons call. Built once at boot and
 // shown by the stylesheet, which is the same arrangement the phone tab
 // dock uses: no listener, no second copy of the media query in JS.
+// **The status bar's rows** (INBOX 392, UI_MODERNISATION_PLAN Phase 11 item
+// 12). Below 600 the status bar is no longer a second bar stacked on the tab
+// bar: measured at 390, the two together were 95px of the 844 on every tab,
+// the bar's AI dot was 28x28 and its reminders count 82x28, and three of its
+// controls were scrolled off the end of a bar that scrolls sideways.
+// `dockPhoneStatus` moves the three a phone reaches for without looking (the
+// AI dot, Back and Undo) into this header, and every other control the bar
+// holds is a row here that presses the bar's own button, so the handler, the
+// disabled state and the switched-off slot all stay where they are (the
+// pattern `mountPhoneSidebarOpeners` uses). A row whose button is switched
+// off in Settings or hidden right now is hidden; one whose button is disabled
+// is shown muted, the way the menu marks any row that cannot run.
+//
+// Three of the bar's controls are not rows here because the tab bar's More
+// sheet already has each (`openPhoneMoreSheet`): Reminders, Ask the agent and
+// Guide. A second copy in a second menu is two answers to "where is it".
+const PHONE_STATUS_ROWS = [
+  { id: "status-forward", label: "ph:caret-right Forward" },
+  { id: "status-nav-history", label: "ph:clock-counter-clockwise Recent places" },
+  { id: "status-redo", label: "ph:arrow-clockwise Redo" },
+  { id: "status-task", label: "ph:gear Background tasks" },
+  { id: "status-find", label: "ph:magnifying-glass Find" },
+];
+
 function initPhoneHeaderMore() {
   const home = document.querySelector("#top-bar .header-cluster-end");
   if (!home || typeof kebabMenu !== "function") return;
   const menu = kebabMenu(
     [
-      { label: "ph:circle-half Light or dark", title: "Toggle light or dark theme", run: () => toggleTheme() },
-      { label: "ph:gear Settings", title: "Settings", run: () => openSettingsModal() },
-      { label: "ph:lock Lock", title: "Lock the app", run: () => lockNow() },
+      ...PHONE_STATUS_ROWS.map((row) => ({
+        label: row.label,
+        title: row.label.replace(/^ph:\S+\s*/, ""),
+        run: () => $(row.id)?.click(),
+        group: "status",
+      })),
+      {
+        label: "ph:circle-half Light or dark",
+        title: "Toggle light or dark theme",
+        run: () => toggleTheme(),
+        group: "app",
+      },
+      { label: "ph:gear Settings", title: "Settings", run: () => openSettingsModal(), group: "app" },
+      { label: "ph:lock Lock", title: "Lock the app", run: () => lockNow(), group: "app" },
       {
         label: "ph:power Quit MemoryMap",
         title: "Quit MemoryMap: stops the app and its server",
         run: () => quitApp(),
         danger: true,
+        group: "app",
       },
     ],
     "More"
@@ -40568,12 +40731,26 @@ function initPhoneHeaderMore() {
   // Lock is only offered once a password exists, which is what shows the
   // desktop's `#lock-btn`; the row follows that button's own state each time
   // the menu opens rather than freezing it at boot, when no session exists.
-  const rows = menu.querySelectorAll(".menu-item");
-  const lockRow = rows[2];
+  // The status rows follow their buttons the same way.
+  const rows = [...menu.querySelectorAll(".menu-item")];
+  const lockRow = rows[PHONE_STATUS_ROWS.length + 2];
   menu.addEventListener(
     "click",
     () => {
       if (lockRow) lockRow.hidden = $("lock-btn")?.classList.contains("hidden") ?? true;
+      PHONE_STATUS_ROWS.forEach((spec, index) => {
+        const source = $(spec.id);
+        const row = rows[index];
+        if (!row) return;
+        row.hidden =
+          !source ||
+          source.classList.contains("hidden") ||
+          source.classList.contains("status-slot-off");
+        const unavailable = Boolean(source?.disabled);
+        row.classList.toggle("menu-item-unavailable", unavailable);
+        if (unavailable) row.setAttribute("aria-disabled", "true");
+        else row.removeAttribute("aria-disabled");
+      });
     },
     true
   );
@@ -40581,6 +40758,58 @@ function initPhoneHeaderMore() {
 }
 
 initPhoneHeaderMore();
+
+// The three status-bar controls that move into the phone header, and back
+// above 600. Moved, never copied: a marker holds each one's place in the bar,
+// as `floatPrimaryActions` does for the floating +. Back and Undo sit after
+// the space switcher, where a phone keeps its back chevron (the HIG's
+// navigation-bar order); the AI dot sits before the bell, since both say
+// what the app is doing rather than go anywhere.
+const PHONE_STATUS = "(max-width: 599.98px)";
+
+function dockPhoneStatus(phone) {
+  const bar = $("top-bar");
+  const switcher = bar?.querySelector(".space-switcher");
+  const bellCluster = bar?.querySelector(".header-controls > .header-cluster:not(.header-cluster-end)");
+  if (!bar || !switcher || !bellCluster) return;
+  let nav = bar.querySelector(".header-cluster-nav");
+  if (phone && !nav) {
+    nav = document.createElement("span");
+    nav.className = "header-cluster header-cluster-nav";
+    switcher.after(nav);
+  }
+  const moves = [
+    { el: $("status-back"), into: nav, first: false },
+    { el: $("status-undo"), into: nav, first: false },
+    { el: $("ai-status")?.closest(".ai-status-wrap"), into: bellCluster, first: true },
+  ];
+  for (const { el, into, first } of moves) {
+    if (!el) continue;
+    const key = el.id || "ai-status-wrap";
+    if (phone) {
+      if (el.closest("#top-bar")) continue;
+      const slot = document.createElement("span");
+      slot.className = "status-home-slot";
+      slot.dataset.statusFor = key;
+      slot.hidden = true;
+      el.replaceWith(slot);
+      if (first) into.prepend(el);
+      else into.append(el);
+    } else {
+      const slot = document.querySelector(`.status-home-slot[data-status-for="${CSS.escape(key)}"]`);
+      if (slot) slot.replaceWith(el);
+    }
+  }
+  if (!phone) nav?.remove();
+}
+
+function initPhoneStatus() {
+  const query = window.matchMedia(PHONE_STATUS);
+  dockPhoneStatus(query.matches);
+  query.addEventListener("change", (event) => dockPhoneStatus(event.matches));
+}
+
+initPhoneStatus();
 
 // --- the phone's sidebar opener: a button in the head, not a rail ------------
 // UI_MODERNISATION_PLAN Phase 11 item 2 ("the list as full-width rows") and
@@ -40950,10 +41179,81 @@ function dockChatAttachments(toStrip) {
   }
 }
 
+// **The strip under the box is one row that fits** (INBOX 392). Measured at
+// 390 after the attachments joined it: 767px of controls in a 312px strip
+// that scrolled sideways, the model picker cut at the strip's edge
+// ("Inherited: llam"), and the skills, web search and plan toggles off
+// screen to the right with nothing saying they were there. What a phone
+// sends a message with is the mode and an attachment; which model answers,
+// and what Atlas may use, are settings of the conversation, and the gear
+// beside them already opens "How it answers". So below 600 those three
+// groups move into that panel (a sheet at that width, `openChatDockMore`)
+// and the strip is the mode, the two attachments and the gear, 298px in
+// 312. Moved with a marker each, back above 600, the same elements and
+// handlers; the header's subline still names the model at a glance.
+function dockChatTools(phone) {
+  const panel = $("chat-dock-more-panel");
+  if (!panel) return;
+  // The picker's shell when `enhanceSelect` has built it, the bare select
+  // when it has not yet (it runs from a MutationObserver, and wraps the
+  // select wherever it then is). Either way, what goes back is the shell.
+  const model = $("chat-feature-model");
+  const movers = [
+    model?.closest(".select-shell") || model,
+    $("chat-skills"),
+    $("web-search-toggle")?.closest(".chat-tool-group"),
+  ];
+  let group = panel.querySelector(":scope > .chat-dock-more-tools");
+  if (phone) {
+    // A labelled row for the model, the way Length and Persona are labelled
+    // below it, and one wrapping row for the toggles.
+    if (!group) {
+      group = document.createElement("div");
+      group.className = "chat-dock-more-tools";
+      const modelRow = document.createElement("div");
+      modelRow.className = "chat-dock-more-row chat-dock-more-model";
+      const word = document.createElement("span");
+      word.className = "muted";
+      word.textContent = "Model";
+      modelRow.appendChild(word);
+      const toggles = document.createElement("div");
+      toggles.className = "chat-dock-more-toggles";
+      group.append(modelRow, toggles);
+      panel.prepend(group);
+    }
+    const homes = [
+      group.querySelector(".chat-dock-more-model"),
+      group.querySelector(".chat-dock-more-toggles"),
+      group.querySelector(".chat-dock-more-toggles"),
+    ];
+    movers.forEach((el, index) => {
+      if (!el || panel.contains(el)) return;
+      const slot = document.createElement("span");
+      slot.className = "chat-tool-home-slot";
+      slot.hidden = true;
+      el.replaceWith(slot);
+      el._chatToolHome = slot;
+      homes[index].appendChild(el);
+    });
+  } else {
+    for (const el of [model, ...movers]) {
+      if (!el?._chatToolHome) continue;
+      const slot = el._chatToolHome;
+      delete el._chatToolHome;
+      slot.replaceWith(el.parentElement?.classList.contains("select-shell") ? el.parentElement : el);
+    }
+    group?.remove();
+  }
+}
+
 function initPhoneChatRow() {
   const query = window.matchMedia(PHONE_TABS);
   dockChatAttachments(query.matches);
-  query.addEventListener("change", (event) => dockChatAttachments(event.matches));
+  dockChatTools(query.matches);
+  query.addEventListener("change", (event) => {
+    dockChatAttachments(event.matches);
+    dockChatTools(event.matches);
+  });
 }
 
 initPhoneChatRow();
@@ -41031,6 +41331,11 @@ function openSheet({ label, name, build, variant = "", returnFocus = document.ac
   //: uses, for the same reason.
   const onKey = (event) => {
     if (event.key !== "Escape") return;
+    //: **One Escape, one sheet.** A sheet can open over a sheet (a ⋯ action
+    //: sheet over the note page, INBOX 392), and every sheet's listener is
+    //: on the document, so one Escape closed both. Only the topmost answers.
+    const sheets = document.querySelectorAll(".sheet-overlay");
+    if (sheets.length && sheets[sheets.length - 1] !== overlay) return;
     event.stopPropagation();
     close();
   };
@@ -41289,7 +41594,13 @@ buildSettingsJumpList();
 // floating action from appearing over a tab it has nothing to do with; parking
 // it on the body would have needed a second mechanism to answer that.
 const PHONE_FAB = "(max-width: 599.98px)";
-const FAB_IDS = ["graph-add-node", "library-new-doc", "timeline-jump-today", "notes-new-note"];
+const FAB_IDS = [
+  "graph-add-node",
+  "library-new-doc",
+  "timeline-jump-today",
+  "notes-new-note",
+  "reminders-new",
+];
 
 function floatPrimaryActions(floating) {
   for (const id of FAB_IDS) {
@@ -42387,7 +42698,7 @@ $("chat-dock-more-btn").addEventListener("click", () => {
 });
 document.addEventListener("click", (event) => {
   if (!chatDockMoreOpen()) return;
-  if (event.target.closest(".chat-dock-more, .action-menu")) return;
+  if (event.target.closest(".chat-dock-more, .action-menu, .select-menu, .sheet-overlay")) return;
   closeChatDockMore();
 });
 $("chat-dock-more-panel").addEventListener("keydown", (event) => {
@@ -43679,8 +43990,57 @@ $("reminder-add").addEventListener("click", async () => {
     $("reminder-recurring").value = "none";
     // A fresh default for the next one, measured from now.
     setDue(defaultDueValue());
+    // On a phone the form was a sheet over the list; the toast says it
+    // landed and the list behind is where it now is.
+    reminderComposeSheetClose?.();
   }
 });
+
+// **What a phone comes to Reminders for is the list** (INBOX 392,
+// UI_MODERNISATION_PLAN Phase 11 item 12): what is due, and ticking it off.
+// Measured at 390 before: the add form (the sentence box, the text, date,
+// time, priority and repeat fields, the quick-set strip and a note) filled
+// the whole first screen and the list began at y=836 of 844; at 768x1024 the
+// form wrapped to 690px and the list began at y=752. Below 1100 (the width at
+// which the rest of the app goes to one column) the form leaves the page and
+// the dock's "New reminder", floated as the + by `FAB_IDS` below 600, opens
+// it as a sheet: the form itself, moved in and put back on close, so its
+// handlers, its quick-set strip and its clock are the ones the desktop uses.
+// Above 1100 the button takes the caret to the form, which is on the page.
+const REMINDER_SHEET = "(max-width: 1099.98px)";
+let reminderComposeSheetClose = null;
+
+function openReminderCompose() {
+  const form = $("reminder-compose");
+  if (!form) return;
+  // The sentence box when the AI that reads it is there, the plain one when
+  // it is not (`data-needs-model` disables the sentence box's Add).
+  const field = () =>
+    ($("reminder-magic-add")?.disabled ? $("reminder-text") : $("reminder-magic")) || $("reminder-text");
+  if (!window.matchMedia(REMINDER_SHEET).matches || typeof openSheet !== "function") {
+    field()?.focus();
+    return;
+  }
+  if (reminderComposeSheetClose) return;
+  const home = form.parentElement;
+  const next = form.nextElementSibling;
+  reminderComposeSheetClose = openSheet({
+    label: "New reminder",
+    name: "reminder-compose",
+    returnFocus: $("reminders-new"),
+    build: (card) => {
+      card.classList.add("reminder-compose-card");
+      card.appendChild(form);
+    },
+    onClose: () => {
+      reminderComposeSheetClose = null;
+      home.insertBefore(form, next && next.parentElement === home ? next : null);
+    },
+  });
+  field()?.focus();
+}
+
+$("reminders-new")?.addEventListener("click", openReminderCompose);
 $("reminder-clear-done").addEventListener("click", clearDoneReminders);
 $("reminders-page-size").value = remindersPageSize;
 $("reminders-page-size").addEventListener("change", (e) => {

@@ -10,7 +10,7 @@
 (function () {
   const _r = document.documentElement;
   const THEMES = {
-    utilitarian: { palette: "utilitarian", glass: "off", radius: "8", density: "compact" },
+    utilitarian: { palette: "utilitarian", glass: "off", radius: "8" },
     paper: { palette: "paper", glass: "off", radius: "4" },
     mono: { palette: "mono", glass: "off", radius: "2", density: "compact" },
     default: { palette: "default", glass: "on", radius: "14" },

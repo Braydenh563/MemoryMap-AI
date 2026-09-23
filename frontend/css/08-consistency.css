@@ -2631,3 +2631,300 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   border-left: 0;
   padding-left: 0;
 }
+
+/* --- glass reaches the floating chrome that sat outside it ------------------
+   Owner, with four screenshots: "some elements dont use the glass styles if
+   they are active". Measured with glass on in Classic dark: the graph's
+   floating dock was rgb(24, 27, 37), fully opaque, and the chat composer's
+   dock was the input well (a near-black 55% fill, no blur), so the two bars
+   a person uses most on those tabs read as black slabs on a glass app.
+
+   The graph panels were made opaque on purpose (02-chat-graph.css, "the map
+   is the tab"): a 4% see-through panel over a moving graph left the nodes
+   legible as ghosts through the words. A frosted pane answers the same
+   complaint, because the blur is what smears the nodes, so the fill stays
+   heavy (80%) and the blur comes back. The composer is a pane in the chat
+   card, not a well: the same frosted shell, lighter. Both are keyed on glass
+   being on, so `[data-glass="off"]` and Performance mode (which sets it)
+   keep the opaque grounds with no rule of their own. */
+:root:not([data-glass="off"]) .graph-overlay .dock[data-dock-name="graph"],
+:root:not([data-glass="off"]) .graph-overlay .graph-options,
+:root:not([data-glass="off"]) .graph-overlay .graph-trace,
+:root:not([data-glass="off"]) .graph-overlay .graph-trace-result,
+:root:not([data-glass="off"]) .graph-overlay #link-suggestions {
+  background: rgb(from var(--modal-bg-opaque) r g b / 0.8);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-rim);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+:root:not([data-glass="off"]) .chat-dock {
+  background: rgb(from var(--modal-bg-opaque) r g b / 0.55);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-rim);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+/* --- one line of facts: a note's meta row -----------------------------------
+   Owner: "I was also wondering if there might be a better ui/ux and more
+   modern and professional way to redesign and display all the metadata,
+   links, badges and more at the bottom of notes in the notes tab and when
+   they appear anywhere else". Measured on a seeded card at 1440: five pills
+   in a row (category, "No tags yet", "AI 63%", the space, "Linked by 5
+   notes"), three of them bold accent fills, so the row outweighed the note's
+   own title. Two of the three were a selector accident (the category rule
+   caught every chip without a listed variant, 06-timeline-dialogs.css).
+
+   What it is now is the line Linear, Things and Apple Notes draw: facts as
+   text, one weight step apart. The category leads in ink with a dot; tags
+   are `#tag`; the space, the documents, the links and the dates are muted
+   text with their icon; nothing has a fill at rest. A fact that is also an
+   action (every interactive chip) shows a hover ground, so it still reads
+   as pressable the moment it is pointed at. The two marks that ask for
+   something keep colour: a low filing score in warn, and the in-flight
+   states (filing, Atlas reading) in accent. Scoped to `.entry-meta`, which
+   is every place a note card is drawn (the list, search results, the
+   timeline's expanded note), so the note looks the same everywhere. */
+.entry-meta {
+  gap: var(--space-1) var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.entry-meta > .chip {
+  background: transparent;
+  border: 0;
+  padding: 0 var(--space-1);
+  margin-inline: calc(-1 * var(--space-1));
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.entry-meta > .chip.category {
+  background: transparent;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.entry-meta > .chip.category::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.entry-meta > .chip.hashtag::before {
+  content: "#";
+  opacity: 0.6;
+}
+
+.entry-meta > .chip-interactive:hover {
+  background: var(--chip-bg);
+  color: var(--ink);
+  filter: none;
+}
+
+.entry-meta > .chip.review {
+  color: var(--warn);
+  font-weight: 500;
+}
+
+.entry-meta > .chip.filing,
+.entry-meta > .chip.chip-busy,
+.entry-meta > .chip.untagged-ai {
+  color: var(--accent);
+}
+
+/* The note's links and files, the row under the facts: the same quiet
+   voice, a hairline outline rather than a filled pill, so a link still
+   reads as a thing you can open without competing with the note. */
+.entry-links > .chip.link {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.entry-links > .chip.link:hover {
+  color: var(--ink);
+  background: var(--chip-bg);
+}
+
+/* --- the flat looks: a selected tab is a place, not an action ---------------
+   Measured on Notes at 1440 in Quiet: three accent fills on one screen, the
+   active top tab, the active sub-tab and "New note", so the one button that
+   acts was the third loudest thing in its own row. In the flat looks the
+   accent is kept for what acts; a selected tab or segment is a raised
+   neutral ground with ink text, which is how Linear, GitHub and the macOS
+   segmented control say "you are here". Classic and the colour looks keep
+   their filled tabs exactly (the owner's "the current look" option). */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #tab-bar button.active,
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notes-subtabs button.active,
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg button.active,
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-chip.active {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ink) 11%, transparent);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+/* --- the Library, de-vibecoded (the owner: "devibecode all the ui") --------
+   Measured at 1440 on a seeded notebook, four findings on one screen:
+
+   1. `.library-chip.is-empty`: a kind with nothing in it (library.js says
+      why it is still in the row) takes no room.
+   2. The pick-a-card tick drew a 28px empty square on every card at rest,
+      forty of them on one screen, for a gesture most visits never make. It
+      shows when the card is pointed at or focused, and on every card once
+      any card is ticked (the grid is then in selection, so every tick is
+      an answer); a touch screen has no hover, so there it always shows.
+      This is the Finder and Photos pattern.
+   3. Titles at 650 outweighed every other card title in the app (a note
+      card's is 500): one step down, to the app's 600 for titles.
+   4. In the flat looks the per-kind colour spine goes: the icon beside
+      every title already names the kind, and a coloured left edge on a
+      card is one of the marks that reads as generated rather than
+      designed. Classic keeps it. */
+.library-chip.is-empty {
+  display: none;
+}
+
+@media (hover: hover) {
+  /* Out of the row, into the corner: a hidden tick that kept its 28px left
+     every title indented beside a hole. */
+  .library-card {
+    position: relative;
+  }
+
+  .library-card .library-card-tick {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    margin: 0;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity var(--motion-fast);
+  }
+
+  .library-card:is(:hover, :focus-within) .library-card-tick,
+  .library-card .library-card-tick:checked,
+  :is(.library-grid, .library-list):has(.library-card-tick:checked) .library-card-tick {
+    opacity: 1;
+  }
+}
+
+.library-card-title {
+  font-weight: 600;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(.library-note, .library-document, .library-chat, .library-file, .library-tag, .library-archived, .library-activity) {
+  box-shadow: none;
+}
+
+/* --- the dashboard and the labels, de-vibecoded ------------------------------
+   Measured at 1440 in Quiet:
+
+   1. The quick links' bottom margin and the stats' top margin stacked to
+      32px where every other band on the page is 16px apart; the stats take
+      the one gap, not two.
+   2. Stat tiles drew each icon in a tinted accent circle, the stock "metric
+      card" of a generated dashboard; four accent discs outweighed the four
+      numbers they label. In the flat looks the icon is plain muted ink.
+   3. The eyebrow over the greeting ("MEMORYMAP AI" in spaced accent
+      capitals) repeats the name the top bar's mark and the window title
+      already carry. Gone in the flat looks, as Compact already had it.
+   4. Quiet sets its labels in sentence case. Uppercase letter-spaced labels
+      everywhere ("START SOMETHING", "JUMP TO", every group in every menu)
+      are the other mark of a template; weight and colour already make them
+      labels. Paper keeps its small capitals (an editorial convention) and
+      Mono its technical capitals, and a code language or a log source tag
+      keeps its capitals in every look. */
+#tab-dashboard .dash-quicklinks ~ .dash-stats {
+  margin-top: 0;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .stat-icon {
+  width: auto;
+  height: auto;
+  background: transparent;
+  color: var(--muted);
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .dash-wordmark {
+  display: none;
+}
+
+:root[data-palette="utilitarian"] :is(
+  .card h3, .eyebrow, .nav-group-label, .launch-label,
+  #suggested-list .suggested-group-label, .contents-heading, .msg-role,
+  #palette-list li.palette-group-header, .features-group, .reminder-group-head,
+  .editor-menu-group, .note-embed-head, .doc-prose-group,
+  .wb-export-card .wb-export-label, .wb-tool-section-label,
+  .dash-widgets-group-label, .wb-panel-group-label, .connection-heading,
+  .wb-help-grid h4, .finder-group, .chord-guide-title
+) {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* 5. The name nudge was two boxed buttons in the greeting ("Add your name"
+      and its ×), a form control sitting in a sentence. In the flat looks it
+      is an inline text action with a hover ground, like the meta line's. */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #dash-name-nudge button {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #dash-name-nudge button:hover {
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+/* --- chat, de-vibecoded -----------------------------------------------------
+   1. The suggested questions were the generic chip: bold accent text on an
+      accent tint, four of them centred under a centred logo and a bold
+      headline, which is the stock "empty chat" of every generated
+      assistant UI. A suggestion is a question you might type, so it reads
+      as one: regular weight, ink, a hairline, a hover ground.
+   2. The thread's mark was an icon in a tinted accent square (the same
+      metric-card tell as the stat tiles). In the flat looks it is the icon
+      alone, in muted ink. */
+:is(#chat-suggest, #suggested-questions) > .chip {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 400;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-4);
+}
+
+:is(#chat-suggest, #suggested-questions) > .chip:hover {
+  background: var(--chip-bg);
+  filter: none;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .chat-thread-mark {
+  background: transparent;
+  color: var(--muted);
+  width: auto;
+}
+
+/* --- the graph's legend: one container, not a pill in a box ------------------
+   Each legend entry drew its own tinted pill inside the legend's own
+   bordered panel, so one fact ("these dots are Seed") sat in two frames.
+   The panel is the frame; an entry is a toggle in it with a hover ground,
+   and its dimmed state (hidden kinds) still reads through its opacity. */
+.graph-legend-row .legend-item {
+  background: transparent;
+  border-color: transparent;
+}
+
+.graph-legend-row .legend-item:hover {
+  background: var(--chip-bg);
+}

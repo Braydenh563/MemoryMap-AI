@@ -243,8 +243,9 @@ new" is a fact rather than a guess.
 
 - **Do not install torch or `sentence-transformers`.** Install by hand:
   `python3 -m venv .venv && .venv/bin/pip install fastapi "uvicorn[standard]" SQLAlchemy alembic python-dotenv requests numpy "fsspec[http]" bcrypt cryptography python-multipart pytest httpx ruff defusedxml`
-- `python -m pytest tests/`: 2,800+ tests, ten to fifteen minutes, all
-  green. Keep it that way, but run it locally only when absolutely
+- `python -m pytest -n auto tests/`: 2,800+ tests, all green; about 25
+  minutes serial, under 9 across four cores (pytest-xdist, in
+  requirements.txt; `gate.sh --full` and CI use it). Keep it that way, but run it locally only when absolutely
   needed (`scripts/gate.sh --full`: the end of a large agent task, the
   end of a session); CI runs it on every push. `PYTHONPATH=src` is
   needed to run the app.

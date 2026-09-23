@@ -1853,7 +1853,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-selected-count {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .library-view button {
@@ -2202,7 +2202,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      -webkit-line-clamp already ellipsizes without it, reported live as
      missing, not reproduced here, cheap enough to harden regardless. */
   font-size: var(--text-body);
-  font-weight: 650;
+  font-weight: 600;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3675,7 +3675,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .status-item b {
   color: var(--ink);
-  font-weight: 650;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 

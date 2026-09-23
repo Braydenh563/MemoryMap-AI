@@ -88,6 +88,9 @@ defusedxml>=0.7.1,<1.0
 # Tests
 pytest>=9.1.1,<10.0
 httpx>=0.28.1,<1.0  # FastAPI's TestClient needs this
+# Runs the suite across every core (`pytest -n auto`): 25 minutes serial,
+# under 9 on four cores. Every test already has its own data dir.
+pytest-xdist>=3.8.0,<4.0
 
 # Optional extras (Wave H) — NOT installed automatically. These are plain
 # comments so pip skips them; install by hand only if you want the feature:

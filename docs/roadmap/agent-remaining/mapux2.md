@@ -27,7 +27,11 @@ Left, in order (struck when built):
 - ~~Map: double-click a branch line asks for its label (it made a topic).~~ Built.
 - Found on the way and fixed: a click on a shape's grip deselected it;
   Ctrl+Shift+G ungrouped and also switched to Chat (agent mode).
-- Job B: View menu 714px, the hint strip, discoverability, the 44px ticks.
+- ~~Job B: the View menu.~~ Built: 453px on this head (the columns had
+  already taken it down from 714) to 357px on a map at 1440; no printed
+  headings, hairlines between groups, no second copy of the zoom bar's
+  buttons, no empty Map group on a board. `mapviewmenu.js` 4/4, 0/4 before.
+- Job B: the hint strip, discoverability, the 44px ticks.
 
 ## Done
 

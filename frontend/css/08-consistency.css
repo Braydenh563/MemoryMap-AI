@@ -3106,3 +3106,17 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     opacity: 1;
   }
 }
+
+/* The View menu's two columns break before Panels, by name rather than by
+   wherever the column balancing happens to fall, so the second column
+   starts with a group and not with a hairline over nothing (measured: the
+   balanced columns put the Panels group's top rule at the head of column
+   two). Look and the map's own group are one column, the panels and the
+   camera the other. One column below 600, where the rule comes back. */
+@media (min-width: 600px) {
+  #wb-view-menu .wb-menu-section[aria-label="Panels"] {
+    break-before: column;
+    border-top: 0;
+    padding-top: 0;
+  }
+}

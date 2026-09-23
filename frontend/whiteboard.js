@@ -8415,6 +8415,10 @@ function wbSyncMapChrome() {
   if (expandRow) expandRow.hidden = !isMap;
   const themeRow = document.getElementById("wb-map-theme-item");
   if (themeRow) themeRow.hidden = !isMap;
+  //: The group itself as well as its rows: on a board it held nothing but
+  //: its own heading, a group of zero rows drawn between two that have some.
+  const mapSection = document.getElementById("wb-view-map-section");
+  if (mapSection) mapSection.hidden = !isMap;
   if (!isMap && wbMapFocusState) wbMapFocusState = null;
   wbSyncMapViews();
 }
@@ -11618,6 +11622,9 @@ async function initWhiteboard() {
   $("wb-map-perspective")?.addEventListener("change", (e) => wbMapSetPerspective(e.target.value));
   $("wb-map-theme-item")?.addEventListener("click", wbMapThemeDialog);
   $("wb-map-stats-item")?.addEventListener("click", wbShowMapStats);
+  $("wb-zoom-actual")?.addEventListener("click", () =>
+    d3.select(document.getElementById("whiteboard-container")).transition().duration(160).call(wbZoom.scaleTo, 1)
+  );
   $("wb-map-expand-all")?.addEventListener("click", wbMapExpandAll);
   $("wb-map-focus-less")?.addEventListener("click", () => wbMapStepFocus(-1));
   $("wb-map-focus-more")?.addEventListener("click", () => wbMapStepFocus(1));

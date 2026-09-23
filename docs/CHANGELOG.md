@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Dashboard widgets: a map in Boards & maps reads as a title like a board beside it (not an accent pill), the heatmap legend shows its swatches, and a reminder shows its time on a line of its own.
 - Settings: a pane's title no longer sits flush on its first group, and a checkbox row keeps a gap from the field above it (found by a sweep for flush-stacked controls across every tab and pane).
 - Documents: opening a markdown document right after typing in a code file no longer throws a stale completion error.
 - A plain toast can be dismissed by tapping its text, as well as by its close button.

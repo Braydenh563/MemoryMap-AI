@@ -2860,7 +2860,16 @@ async function renderRemindersWidget(body) {
     //: with seconds ("9/24/2026, 1:22:17 PM", measured); the relative phrase
     //: ("in 23 hours") is the tooltip.
     const when = due.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-    li.textContent = `${reminder.text}: ${when}`;
+    //: The thing to do, then when, on a line of its own in the muted rank:
+    //: "Submit IT assignment: Thu, Sep 24, 1:22 PM" as one run-on line made
+    //: the time read as part of the sentence.
+    const what = document.createElement("span");
+    what.className = "dash-reminder-text";
+    what.textContent = reminder.text;
+    const at = document.createElement("span");
+    at.className = "dash-reminder-when muted";
+    at.textContent = when;
+    li.append(what, at);
     if (typeof relativeWhen === "function") li.title = relativeWhen(reminder.due_at);
     if (due < new Date()) li.classList.add("overdue");
     li.addEventListener("click", () => switchTab("reminders"));

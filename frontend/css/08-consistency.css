@@ -3618,3 +3618,47 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #settings-modal .row + .check-row {
   margin-top: var(--space-3);
 }
+
+/* --- dashboard widgets, de-vibecoded -------------------------------------------
+   1. In the Boards & maps widget a map's name was a bold accent pill (the
+      shared `mapChip`) while a plain board's name was plain text, one list
+      in two voices. The row is already the button there, so the chip draws
+      as the row's title: the icon, the name in ink, no ground.
+   2. The heatmap legend read "Less  More" with nothing between: its five
+      swatches are the grid's own cells, which take their size from the
+      grid, and outside it they had none.
+   3. A reminder is its words, then when, on a line of its own. */
+.dash-list .map-chip {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--ink);
+  font-weight: 500;
+  font-size: var(--text-body);
+}
+
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.heat-legend > .heat-cell {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+}
+
+.heat-legend > span:not(.heat-cell) {
+  margin-inline: var(--space-1);
+}
+
+.dash-reminder-text,
+.dash-reminder-when {
+  display: block;
+}
+
+.dash-reminder-when {
+  font-size: var(--text-sm);
+}

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- De-vibecoding, settings: switch labels at 500 instead of bold, a healthy status is a green dot before muted text instead of a green sentence, section help is a bare glyph in the flat looks, number fields share one short width, and the name placeholders no longer carry a real person's name.
 - De-vibecoding, reminders: the due readout is a small muted note on the form, and a reminder's own words are body size instead of 12px.
 - De-vibecoding, timeline: row titles at 500 and the category as muted text, instead of a column of bold accent pills.
 - De-vibecoding, dashboard, chat and graph: sentence-case labels in Quiet, plain stat icons, no eyebrow over the greeting, an even 16px rhythm, the name nudge as inline text; card titles at 600 (650 rendered as bold on static fonts); chat suggestions read as questions, not accent pills; the thread mark and the graph legend lose their extra frames.

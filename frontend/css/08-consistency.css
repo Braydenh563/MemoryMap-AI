@@ -2964,3 +2964,54 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #tab-reminders .reminder-text {
   font-size: var(--text-body);
 }
+
+/* --- settings, de-vibecoded ---------------------------------------------------
+   1. A switch's label was bold, inherited from the form label rule, so a
+      pane of eight switches was eight bold sentences with nothing left to
+      mark the section headings. Labels are 500; their hints stay regular.
+   2. A healthy status ("Search engine: Built-in ... ready") was a whole
+      line of green text. Health is a dot, not a colour for a sentence: the
+      text is muted and the ok colour is the mark before it. Warnings and
+      errors keep their colour, because those ask for something.
+   3. The section help "?" drew a grey disc on every section of every pane.
+      In the flat looks it is a bare glyph with a hover ground; it is still
+      there, still keyboard reachable, just no longer a thing to look at
+      before the setting it explains. */
+.setting-check > span {
+  font-weight: 500;
+}
+
+.setting-check > span small {
+  font-weight: 400;
+}
+
+#settings-modal .status.ok {
+  color: var(--muted);
+}
+
+#settings-modal .status.ok::before {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-inline-end: var(--space-2);
+  border-radius: 50%;
+  background: var(--ok);
+  vertical-align: 0.1em;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .graph-help-toggle:not(:hover):not([aria-expanded="true"]) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+/* 4. A number is a short field. The Preferences pane drew four number
+      inputs at 253, 100, 300 and 300px, so a two-digit day count and a
+      0.25 threshold each got a field wide enough for a sentence, and no
+      two of them lined up. One width for a number, the one that already
+      fitted "0" plus its unit beside it. */
+#settings-modal :is(#pref-bin-days, #pref-chat-retention, #pref-search-min-sim, #pref-search-z-margin) {
+  width: 7rem;
+  flex: 0 0 auto;
+}

@@ -43787,12 +43787,14 @@ $("reminder-add").addEventListener("click", async () => {
 // UI_MODERNISATION_PLAN Phase 11 item 12): what is due, and ticking it off.
 // Measured at 390 before: the add form (the sentence box, the text, date,
 // time, priority and repeat fields, the quick-set strip and a note) filled
-// the whole first screen and the list began at y=836 of 844. Below 600 the
-// form leaves the page and the dock's "New reminder", floated as the + by
-// `FAB_IDS`, opens it as a sheet: the form itself, moved in and put back on
-// close, so its handlers, its quick-set strip and its clock are the ones the
-// desktop uses. Above 600 the button takes the caret to the form, which is
-// on the page there.
+// the whole first screen and the list began at y=836 of 844; at 768x1024 the
+// form wrapped to 690px and the list began at y=752. Below 1100 (the width at
+// which the rest of the app goes to one column) the form leaves the page and
+// the dock's "New reminder", floated as the + by `FAB_IDS` below 600, opens
+// it as a sheet: the form itself, moved in and put back on close, so its
+// handlers, its quick-set strip and its clock are the ones the desktop uses.
+// Above 1100 the button takes the caret to the form, which is on the page.
+const REMINDER_SHEET = "(max-width: 1099.98px)";
 let reminderComposeSheetClose = null;
 
 function openReminderCompose() {
@@ -43800,8 +43802,9 @@ function openReminderCompose() {
   if (!form) return;
   // The sentence box when the AI that reads it is there, the plain one when
   // it is not (`data-needs-model` disables the sentence box's Add).
-  const field = () => ($("reminder-magic-add")?.disabled ? $("reminder-text") : $("reminder-magic")) || $("reminder-text");
-  if (!window.matchMedia(PHONE_TABS).matches || typeof openSheet !== "function") {
+  const field = () =>
+    ($("reminder-magic-add")?.disabled ? $("reminder-text") : $("reminder-magic")) || $("reminder-text");
+  if (!window.matchMedia(REMINDER_SHEET).matches || typeof openSheet !== "function") {
     field()?.focus();
     return;
   }

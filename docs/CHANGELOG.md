@@ -34,6 +34,10 @@ below). Versioning is `0.x` while the app stabilises.
   narrow window, instead of five identical arrows; on a phone an open board
   takes the Library's sub-tabs' space, the map's keyboard hint is left to
   keyboards, and the tool bar at the foot has lost a stray dark frame.
+- On a tablet, or any touch screen, every control is a finger's size
+  (44px) at any width, not only below 820; the status bar is a touch bar
+  there and no longer pushes the page sideways at 768; Reminders opens on
+  its list below 1100; and the Library's kind chips stay on one row.
 
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window

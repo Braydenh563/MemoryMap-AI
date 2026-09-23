@@ -1020,6 +1020,15 @@ it with room for a border. Measured violations before this token existed:
 - The reminder rows' checkboxes, **13×13**, barely half the floor and
   genuinely fiddly with a trackpad.
 
+**A finger gets 44px wherever it is** (INBOX 392). The token is 2.75rem
+below 820 **or under a coarse pointer at any width**: every touch-floor
+block is written `@media (max-width: 819.98px), (pointer: coarse)`, because
+width is a proxy for the pointer and it fails at 1024, which is an iPad in
+landscape (measured with a touch context at 1024x768: search boxes, sub-tabs
+and dock buttons at 36px, status items at 28). A block that also changes
+layout stays width-only; the floor is split out of it. A mouse at 1024 keeps
+28. `tests/test_ui_recipes.py` holds the `:root` declaration to that query.
+
 A `min-height`, never a `height`, so a strip declaring a taller
 `--control-h` still wins and a control that wraps to two lines still grows.
 **Not a spacing token**, for the reason the control-height section already

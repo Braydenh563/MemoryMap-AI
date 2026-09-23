@@ -702,7 +702,7 @@ header#top-bar,
   transform: translateY(0);
 }
 
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
   /* Measured at 43px, a pixel under the floor, which only matters now that
      these are things a finger is meant to land on. */
   .chord-guide-row {
@@ -876,7 +876,7 @@ header#top-bar,
    up to the well's so the run reads as one block rather than four pills.
    `.dock` in the selector for specificity against 08-consistency's `.dock
    .seg`, not because it is only true in a dock. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
 
   .dock .seg-multi {
     height: var(--target-min);
@@ -1224,7 +1224,7 @@ header#top-bar,
    still grows; a square floor on the two icon controls, which have no label to
    grow by. The chip's own padding and radius are untouched: what was wrong was
    the height, not the shape. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
 
   .library-chip {
     min-height: var(--target-min);
@@ -1257,7 +1257,7 @@ header#top-bar,
    the arrangement that is wrong, not the title: below 600 the identity is a
    line of its own and everything after it is the control row. The dock already
    wraps, so this changes where the break falls rather than introducing one. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
 
   summary.ghost,
   .legend-item {
@@ -1383,6 +1383,75 @@ header#top-bar,
   }
 }
 
+/* --- Phase 11 item 12: the status bar on a tablet is a touch bar ------------
+   From 600 to 819 the pointer is a finger (this file's band 2 rule), and the
+   status bar was the one strip in it still drawn for a mouse. Measured at
+   768x1024 (phonechrome.js): every item 28px tall, and the bar ran to 812 in
+   a 768 window, so the whole page scrolled sideways by the width of Redo.
+   A tablet keeps the bar (it has the height to spare, and a bottom toolbar is
+   where a tablet app keeps these), but as a touch bar: items at the band's
+   44px floor, the three doorways as icons (their words are on hover, which a
+   finger does not have, and in their titles), and the notebook count and the
+   palette's keyboard hint gone, as they already are below 720. At 768 that
+   is about 520px of controls in 742. */
+@media (min-width: 600px) and (max-width: 819.98px), (min-width: 600px) and (pointer: coarse) {
+
+  :root {
+    --status-bar-h: 3.25rem;
+  }
+
+  #status-bar {
+    --status-h: var(--target-min);
+  }
+
+  #status-notes,
+  #status-command {
+    display: none;
+  }
+
+  #status-bar :is(#status-agent, #status-guide, #status-find) > span {
+    display: none;
+  }
+
+  #status-bar .status-item {
+    min-width: var(--target-min);
+    justify-content: center;
+  }
+}
+
+/* Three more a finger found on a tablet (768x1024, phonechrome.js). The
+   header's tab strip let its shortest caption, "Chat", shrink its column to
+   41px; the chat composer's model picker was 30px tall in a strip of 44s;
+   and a note's action strip, which sits in a lane the row keeps above its
+   text on a touch screen, overlapped the note's title, because the lane is
+   `--control-h-lg` tall and the buttons in it are `--target-min`, which the
+   new default look's compact density made the taller of the two. */
+@media (max-width: 819.98px), (pointer: coarse) {
+
+  #top-bar #tab-bar button {
+    min-width: var(--target-min);
+  }
+
+  /* The graph dock's concept-maps toggle, 42.6px wide at 768 (touch.js). */
+  #graph-concept-maps {
+    min-width: var(--target-min);
+  }
+
+  /* At the specificity of 04-chat-dock-appearance.css's own rule, which sets
+     both to `--control-h`. */
+  .chat-dock-controls .select-shell:has(> .feature-model-select) .select-opener {
+    height: var(--target-min);
+    min-height: var(--target-min);
+  }
+}
+
+@media (hover: none) and (min-width: 600px) {
+
+  #entry-list > li:not(:has(textarea)) {
+    padding-top: calc(var(--space-3) + var(--target-min));
+  }
+}
+
 /* --- Phase 11 item 12: one bar at the foot of a phone, not two ---------------
    Measured at 390x844 (scratchpad/ui-sweeps/phonechrome.js, INBOX 392): the
    status bar sat on the tab bar on every tab, 37px over 58, with its AI dot
@@ -1438,7 +1507,7 @@ header#top-bar,
    bare buttons take. Measured at 320: the space switcher 44, the bell 36, the
    menu 36, three heights on one line. The floor, restated at the wrapper's
    specificity, in the band where a finger is the pointer. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
 
   #top-bar .header-cluster > .notif-wrap > button,
   #top-bar .header-cluster > .menu-wrap > button {
@@ -1715,9 +1784,33 @@ header#top-bar,
     padding-left: 0;
   }
 
+  /* Never wider than the dock: a zone of many actions (the Writing room's,
+     515px of them) takes a row of its own and wraps inside it, right
+     aligned, rather than running off the window (errors.js at 390). */
   .dock > .dock-actions {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    max-width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     margin-left: auto;
+  }
+
+  /* The Ask sub-tab's model picker and History share a row that did not
+     wrap: 309px of picker and 96 of button in 344. */
+  #ask > .row.space-between {
+    flex-wrap: wrap;
+  }
+
+  #ask .row > .ask-header-actions {
+    flex: 1 1 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  #ask .ask-header-actions > .select-shell {
+    flex: 1 1 12rem;
+    min-width: 0;
   }
 
   .dock > .dock-find {
@@ -1836,8 +1929,10 @@ header#top-bar,
    count goes (it is the dashboard's number, and on a phone this line is the
    difference between a card on the first screen and none), and a preview
    is three lines, enough to recognise a thing by, with the whole of it one
-   tap away. */
-@media (max-width: 599.98px) {
+   tap away. The first two hold on a tablet as well (below 1100, where the
+   first card began at y=371 of 768 in landscape); the clamp is the phone's,
+   where the cards are one column. */
+@media (max-width: 1099.98px) {
 
   #tab-library .library-controls {
     padding-inline: 0;
@@ -1853,17 +1948,34 @@ header#top-bar,
     display: none;
   }
 
+  /* The kind chips are one sideways row, as they already are below 820
+     (07-whiteboard-misc.css): at 1024 thirteen of them wrapped to two rows,
+     48px of the first screen spent on a filter. */
+  #tab-library .library-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  #tab-library .library-filters > * {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 599.98px) {
+
   #tab-library .library-card-preview {
     -webkit-line-clamp: 3;
     line-clamp: 3;
   }
 }
 
-/* Reminders on a phone: the list is the page, and the add form is the sheet
-   the floating "New reminder" opens (`openReminderCompose`, app.js). While
-   the form is on the page it is not shown below 600; in the sheet it sheds
-   its card, since the sheet is the card. */
-@media (max-width: 599.98px) {
+/* Reminders below 1100: the list is the page, and the add form is the sheet
+   "New reminder" opens (`openReminderCompose`, app.js; the floating + below
+   600, the dock's filled button above). While the form is on the page it is
+   not shown in this band; in the sheet it sheds its card, since the sheet is
+   the card. */
+@media (max-width: 1099.98px) {
 
   #tab-reminders > #reminder-compose {
     display: none;
@@ -2182,7 +2294,7 @@ header#top-bar,
 
    It costs one step of height for thirteen targets that can be hit, the same
    trade item 7 made at 390 (88px to 104px there). */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
 
   #wb-topbar :is(button, summary, select) {
     min-height: var(--target-min);

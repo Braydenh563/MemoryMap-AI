@@ -3146,7 +3146,7 @@ span > .chip {
    the number just comes from the band below 820 rather than from a constant
    written for a desktop column. `scratchpad/ui-sweeps/writingroom.js` counts
    them. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
   .draft-column,
   .draft-controls {
     --control-h: var(--target-min);

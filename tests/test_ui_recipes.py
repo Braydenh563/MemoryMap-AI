@@ -2293,3 +2293,22 @@ def test_every_status_bar_control_has_a_way_in_on_a_phone() -> None:
     assert "--status-bar-h: 0px" in responsive, (
         "the phone band no longer takes the status bar's height back"
     )
+
+
+def test_a_coarse_pointer_gets_the_touch_floor_at_every_width() -> None:
+    """DESIGN.md, "Hit targets": the 44px floor follows the pointer, not only
+    the width (INBOX 392). Measured with a touch context at 1024x768 before:
+    search boxes, sub-tabs and dock buttons at 36px and the status bar's items
+    at 28, because every floor was written for `max-width: 819.98px` and an
+    iPad in landscape is 1024. The `:root` token and the dock's own floor are
+    the two a regression would lose first."""
+    touch_query = "@media (max-width: 819.98px), (pointer: coarse)"
+    shell = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    token = re.search(r"@media[^{\n]*\{\s*:root\s*\{\s*--target-min:\s*2\.75rem;", shell)
+    assert token and token.group(0).startswith(touch_query), (
+        "the 44px --target-min is no longer declared for a coarse pointer at every width"
+    )
+    dock = re.search(r"@media[^{\n]*\{\s*\.dock button,", shell)
+    assert dock and dock.group(0).startswith(touch_query), (
+        "the dock's 44px floor is width-only again; a finger at 1024 gets 36px controls"
+    )

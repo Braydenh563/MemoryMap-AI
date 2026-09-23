@@ -5211,7 +5211,7 @@ select {
    drawn at a size of their own and the label around them is the hit area.
    That is why the label recipes are named here instead: raising the row is
    what makes the switch reachable. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
 
   :root {
     --settings-control-h: var(--target-min);

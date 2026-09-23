@@ -3827,7 +3827,7 @@ p.graph-help-panel {
    A floor, never a height: every one of these controls keeps whatever size
    its own rule gives it at every other width, and above 820 this block does
    not exist. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
 
   .seg button {
     min-height: var(--target-min);

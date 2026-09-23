@@ -11226,7 +11226,7 @@ input[type="file"] {
    Below 820 the pointer is a finger. 2.75rem is 44px at the default root
    size: the figure both Apple's and Google's guidance give, and the one
    `touch.js` asserts against every dock control on Notes, Library and Chat. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
   :root {
     --target-min: 2.75rem;
   }
@@ -12064,7 +12064,7 @@ header#top-bar {
    layout that had already been told the pointer was a finger. A floor rather
    than a height, so the dock's own alignment rule still decides the common
    size and this only ever raises it. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
 
   .dock button,
   .dock select,
@@ -12565,7 +12565,7 @@ header#top-bar {
    finger lands on. The floor goes on the bar rather than on the field, so
    `align-items: center` puts the field and its glyph on the bar's own middle,
    which is the property being fixed rather than a second thing to keep. */
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
   .finder-bar {
     min-height: var(--target-min);
   }

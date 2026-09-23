@@ -1172,63 +1172,6 @@ function wireDashDensity() {
   seg._wired = true;
   seg.addEventListener("change", () => applyDashDensity(seg.value));
   applyDashDensity(dashDensity());
-  wireDashFold();
-}
-
-//: **The widgets start at the fold** (INBOX 394 e, the owner: the "Your
-//: dashboard" line "should always sit neatly at the bottom of the user's
-//: screen when on the full view and then when the user scrolls the dashboard
-//: will show as normal"). On Full, the first screen is the day's start (the
-//: banner, the search, the actions, the numbers) and the bar that opens the
-//: widgets closes it, so the room left under the numbers goes above the bar
-//: rather than letting the first widget peek in halfway. Nothing is sticky:
-//: the page scrolls as any page does. Compact and Focused keep their own
-//: tight stacking, a phone keeps its column, and a first screen already
-//: taller than the window adds nothing.
-//:
-//: Measured, not guessed, and re-measured whenever anything above the bar
-//: or the page itself changes size (a render, the tab being shown, a window
-//: resize, a density change), through one ResizeObserver.
-let dashFoldFrame = 0;
-
-function placeDashFold() {
-  dashFoldFrame = 0;
-  const page = document.getElementById("tab-dashboard");
-  const bar = page && page.querySelector(":scope > .dash-toolbar");
-  if (!bar) return;
-  const shown = page.clientHeight > 0 && !page.classList.contains("hidden");
-  if (!shown) return;
-  //: The numbers strip travels with the bar: the first screen is two
-  //: clusters, the day's start at the top (banner, search, actions) and the
-  //: day's figures sitting on the bar at the bottom, with the room between
-  //: them. Measured the other ways first, at 1440x900: all of it above the
-  //: bar left a 270px hole under the figures, and sharing it across every
-  //: gap floated each section apart from the next. One gap reads as layout.
-  const figures = bar.previousElementSibling;
-  const target = figures && figures.offsetHeight > 0 ? figures : bar;
-  for (const el of [figures, bar]) if (el) el.style.marginTop = "";
-  if (page.dataset.density !== "full" || window.matchMedia("(max-width: 599.98px)").matches) return;
-  const pad = parseFloat(getComputedStyle(page).paddingBottom) || 0;
-  const barBottom = bar.getBoundingClientRect().bottom - page.getBoundingClientRect().top + page.scrollTop;
-  const room = Math.floor(page.clientHeight - pad - barBottom);
-  if (room <= 0) return;
-  const base = parseFloat(getComputedStyle(target).marginTop) || 0;
-  target.style.marginTop = `${base + room}px`;
-}
-
-function queueDashFold() {
-  if (!dashFoldFrame) dashFoldFrame = requestAnimationFrame(placeDashFold);
-}
-
-function wireDashFold() {
-  const page = document.getElementById("tab-dashboard");
-  const bar = page && page.querySelector(":scope > .dash-toolbar");
-  if (!bar || page._foldWired || typeof ResizeObserver === "undefined") return;
-  page._foldWired = true;
-  const watch = new ResizeObserver(queueDashFold);
-  watch.observe(page);
-  for (let el = bar.previousElementSibling; el; el = el.previousElementSibling) watch.observe(el);
-  new MutationObserver(queueDashFold).observe(page, { attributes: true, attributeFilter: ["data-density", "class"] });
 }
 
 function renderQuickLinks() {

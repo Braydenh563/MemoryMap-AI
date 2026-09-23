@@ -1408,9 +1408,9 @@ plumbing and a table).
 **Built. Backend 2026-09-13 (HISTORY.md, "Built, I9's whole backend and the
 first pass of I1"); the Settings section 2026-09-19 (HISTORY.md, "Built,
 I9's Settings section").** What is still open here is the kinds I1's later
-passes add (tensions, duplicates, entities, dates), the bulk actions (there
-is no `POST /learned/bulk`; the route has to exist before the button does),
-and the "Learned: manage" link from each invention's own surface. The text
+passes add (tensions, duplicates, entities, dates) and the "Learned: manage"
+link (the bulk actions and `POST /learned/bulk` were built together on
+2026-09-23, agent-remaining/OPEN.md's Backend section has the measurement) from each invention's own surface. The text
 below is kept because it is the spec for those.
 
 Added by direct instruction: "give the user the ability to see what the

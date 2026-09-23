@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Settings, What it learned can delete or reset several rows at once: tick
+  them and the selection bar offers Delete, and Reset when a ticked row was
+  edited by you. One request changes them all or none, and each deletion is
+  still remembered so the next run does not derive it again.
 - A Recent activity widget for the dashboard, in the widget picker: what
   changed in the notebook lately (notes, documents, boards and reminders),
   and whether you, Atlas or a skill changed it. Off until added, so no

@@ -7752,6 +7752,17 @@
                   aria-label="Search what it learned">
               </div>
               <p class="status hidden" id="learned-status" role="status"></p>
+              <!-- DESIGN.md's selection bar recipe: the count first, the
+                   actions in one end group, sticky while the selection lasts.
+                   One request for the lot (`POST /learned/bulk`), not a loop. -->
+              <div id="learned-selectbar" class="row library-contextbar selectbar hidden" role="group" aria-label="Selected facts">
+                <span id="learned-selected-count" class="library-selected-count" role="status">0 selected</span>
+                <span class="library-contextbar-end">
+                  <button id="learned-bulk-reset" class="ghost small" type="button"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset</button>
+                  <button id="learned-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+                  <button id="learned-bulk-done" class="ghost small" type="button">Done</button>
+                </span>
+              </div>
               <ul id="learned-list" class="entry-list"></ul>
               <p id="learned-empty" class="muted hidden">
                 Nothing worked out yet. This fills in as Atlas reads your notes in the background.

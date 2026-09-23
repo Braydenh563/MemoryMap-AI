@@ -995,8 +995,15 @@ being written by running agents stay beside this one.
   is wrong at 200 documents and 200 uploads; all are wrong at some size.
   `apiPagedList(path, pageSize, options)` in `documents.js` is already global.
   [list-paging.md]
-- **`POST /learned/bulk`** (`{ids, action}`) is in the plan and not built: no
-  caller exists until the Settings table does. [learning-loop.md]
+- ~~**`POST /learned/bulk`**~~ **Done 2026-09-23**, route and caller
+  together: `{ids, action}` with `delete` (each writes its `delete_fact`
+  correction, as the single route does) or `reset` (edited rows only), one
+  transaction, unknown ids named in `missing`. Settings, What it learned has a
+  box per row and the DESIGN.md selection bar (`#learned-selectbar`), Reset
+  shown only over a selection with an edited row.
+  `tests/test_learned_spec.py`, three new; `oi-learnedbulk.js`, 7 of 7 (two
+  ticked, "2 selected", sticky, one request for both, 4 rows to 2).
+  [learning-loop.md]
 - **I1's later passes**: tensions, duplicates, entities and dates as kinds in
   the same table. `ai/tensions.py` and `ai/entities.py` already produce the
   first two in their own shapes; folding them in means giving each a span and

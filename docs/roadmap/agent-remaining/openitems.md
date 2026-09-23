@@ -48,5 +48,7 @@ Phase 8c, the templates preview, outline row height.
 - done 9e0ff43: 5, the keyword index rebuilt by the re-index job.
 - done 3129aa8: 6, support on both replay paths, CHAT_PLAN Phase 1
   moved to HISTORY; `oi-replaysupport.js` 3 of 3.
-- done (this commit): 7, the Recent activity widget; `oi-activity.js` 6 of 6.
-- next: 8, `POST /learned/bulk` and the table's bulk actions (settings.js ~4117).
+- done 513324c: 7, the Recent activity widget; `oi-activity.js` 6 of 6.
+- done (this commit): 8, `POST /learned/bulk` plus the selection bar;
+  `oi-learnedbulk.js` 7 of 7.
+- next: 9, the vector matrix's dead rows (search/engine.py, `_live_matrix`).

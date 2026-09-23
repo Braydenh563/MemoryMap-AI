@@ -17600,6 +17600,11 @@ async function renderLibraryBoardsGallery() {
     if (board.id !== null) {
       const menu = kebabMenu(
         [
+          //: The shared "act on this" row (INBOX 393): a board or a map can
+          //: be taken to the chat that answers about it, like a note.
+          makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this board or map", () =>
+            askAtlasAboutThing(board.type === "map" ? "map" : "board", board.title)
+          ),
           makeMenuItem("ph:pencil-simple Rename", "Rename this board", async () => {
             const next = await promptDialog("Rename this board:", board.title);
             if (!next) return;

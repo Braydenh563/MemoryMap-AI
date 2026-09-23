@@ -3684,11 +3684,18 @@ async function showNoteInGraph(id) {
 //: would use, so the agent's own search tools find it, rather than pasting the
 //: whole note into the box.
 function askAtlasAboutNote(entry) {
-  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim().slice(0, 80);
+  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim();
+  askAtlasAboutThing("note", name);
+}
+
+//: One door into the chat for any object: a note, a document, a board, a
+//: file. Named, so the agent's own tools find it.
+function askAtlasAboutThing(kind, name) {
+  const label = String(name || "").trim().slice(0, 80) || `this ${kind}`;
   switchTab("chat");
   const input = $("chat-input");
   if (!input) return;
-  input.value = `Tell me about my note "${name}" and what it connects to.`;
+  input.value = `Tell me about my ${kind} "${label}" and what it connects to.`;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.focus();
 }

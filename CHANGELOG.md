@@ -30,8 +30,8 @@ below). Versioning is `0.x` while the app stabilises.
   line's label drags with the pointer and no longer starts a selection box.
 - The dashboard's note count leaves out boards and maps, as the Notes list
   does.
-- A note's menu can show it in the graph (centred and lit) or start a chat
-  about it with Atlas.
+- Notes, documents, boards and maps can be taken straight to a chat with
+  Atlas from their menus, and a note to the graph (centred and lit).
 - Links everywhere use the accent colour (plain links were the browser's own
   blue and purple); Timeline rows for boards and reminders no longer repeat
   their title as a snippet; an empty Ollama embedding picker says why.

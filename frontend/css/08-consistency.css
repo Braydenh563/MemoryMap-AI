@@ -3148,6 +3148,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    with the description and the groups below it. */
 #settings-modal .settings-section > .help-head {
   padding-inline: 0 var(--space-6);
+  /* A pane whose first child is a group (Appearance, Import & export) had
+     its new title flush on the group's border, 0px apart. */
+  margin-bottom: var(--space-4);
 }
 
 #settings-modal .settings-section > .help-head > h3 {
@@ -3607,4 +3610,11 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   background: var(--card);
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
+}
+
+/* A field row followed by a checkbox row (the skill form's "verify" number,
+   then "untagged"): measured 0px apart, the checkbox reading as part of the
+   field above it. */
+#settings-modal .row + .check-row {
+  margin-top: var(--space-3);
 }

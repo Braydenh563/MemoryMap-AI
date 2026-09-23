@@ -240,6 +240,33 @@ const TABS = [
     console.log(`  ${tab.padEnd(10)} chrome ${String(r.chrome ?? '-').padStart(3)}px (${r.chrome ? Math.round(r.chrome / H * 100) : '-'}%)  content at y=${r.contentTop ?? '-'}  [${(r.bands || []).join(', ')}]`);
     for (const line of bad) console.log('      ' + line);
   }
+  // The status bar's transient state below 600: it comes back for a running
+  // job or an activity (the embedding model loading after a restart is the
+  // common one), and when it does it must be a touch bar standing on the tab
+  // bar, not the desktop strip of seven 28px items it once came back as.
+  if (W < 600) {
+    const t = await page.evaluate(() => {
+      const a = document.getElementById('status-activity');
+      const was = a.classList.contains('hidden');
+      a.classList.remove('hidden');
+      if (!a.textContent.trim()) a.textContent = 'Sweep probe activity';
+      const bar = document.getElementById('status-bar').getBoundingClientRect();
+      const tabs = document.getElementById('phone-tab-dock').getBoundingClientRect();
+      const items = [...document.querySelectorAll('#status-bar button, #status-bar .chip')]
+        .filter((e) => e.checkVisibility())
+        .map((e) => ({ id: e.id, h: Math.round(e.getBoundingClientRect().height) }));
+      if (was) a.classList.add('hidden');
+      return { barH: Math.round(bar.height), barBottom: Math.round(bar.bottom), tabsTop: Math.round(tabs.top), items };
+    });
+    const bad = [];
+    if (t.barH < 44) bad.push(`the bar came back ${t.barH}px tall`);
+    if (t.barBottom > t.tabsTop + 1) bad.push(`the bar runs under the tab bar (${t.barBottom} past ${t.tabsTop})`);
+    const small = t.items.filter((i) => i.h < 44);
+    if (small.length) bad.push('items under 44px: ' + small.map((i) => `${i.id} ${i.h}`).join(', '));
+    console.log(`  status bar, transient: ${t.barH}px, ${t.items.length} item(s)`);
+    for (const line of bad) console.log('      ' + line);
+    failures += bad.length;
+  }
   for (const line of [...new Set(errs)]) console.log('  ' + line);
   failures += new Set(errs).size;
   console.log(failures ? `\nFAIL: ${failures} findings` : '\nPASS: 0 findings');

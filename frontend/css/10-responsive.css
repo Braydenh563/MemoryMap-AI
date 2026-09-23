@@ -1466,6 +1466,22 @@ header#top-bar,
    power saver, which are things a person has to see without asking. */
 @media (max-width: 599.98px) {
 
+  /* When it does come back it says only the transient thing, at the band's
+     floor: everything else it holds is in the header or its menu already.
+     Measured after a restart, while the embedding model loaded: the bar back
+     with seven items at 28px, four of them copies of header rows. */
+  :root {
+    --status-bar-h: 3.25rem;
+  }
+
+  #status-bar {
+    --status-h: var(--target-min);
+  }
+
+  #status-bar [data-status-zone] > :not(#status-task, #status-activity, #offline-indicator, #power-saver-indicator) {
+    display: none;
+  }
+
   :root:not(:has(#status-task:not(.hidden, .status-slot-off), #status-activity:not(.hidden), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) {
     --status-bar-h: 0px;
   }
@@ -1796,23 +1812,6 @@ header#top-bar,
     margin-left: auto;
   }
 
-  /* The Ask sub-tab's model picker and History share a row that did not
-     wrap: 309px of picker and 96 of button in 344. */
-  #ask > .row.space-between {
-    flex-wrap: wrap;
-  }
-
-  #ask .row > .ask-header-actions {
-    flex: 1 1 100%;
-    min-width: 0;
-    flex-wrap: wrap;
-  }
-
-  #ask .ask-header-actions > .select-shell {
-    flex: 1 1 12rem;
-    min-width: 0;
-  }
-
   .dock > .dock-find {
     order: 1;
   }
@@ -1863,16 +1862,31 @@ header#top-bar,
    at `bottom: status bar + 10px`, over the tab bar's captions and over the
    floating +, and the agent activity panel, a bottom sheet here, was pinned
    to `bottom: 0` over the whole bar, so the one way between tabs went while
-   an agent ran. Both stand on the bar now; a toast also clears the +, the
-   way a phone's snackbar rises above a floating button rather than over it,
-   and takes the width, since a 340px card in a 390px window is the width
-   anyway less a crooked gap. */
-@media (max-width: 599.98px) {
+   an agent ran. The panel stands on the bar now.
+
+   A toast comes from the top below 1100, under the header, the way a
+   phone's own banners do. The foot of a narrow screen is where the thing
+   being worked with is: the tab bar, the floating +, and the chat composer,
+   whose Send and microphone a due-reminder toast covered at 390 once it had
+   been lifted clear of the bar (touch.js), and whose mode switch it covered
+   at 768 from the corner a desktop gives it. The top has only the head of a
+   list for the few seconds a toast lasts, and it takes the width, since a
+   340px card in a 390px window is the width anyway less a crooked gap. */
+@media (max-width: 1099.98px) {
 
   #toast-box {
     left: var(--space-4);
     right: var(--space-4);
-    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px) + var(--target-min) + var(--space-5) + var(--space-3));
+    top: calc(var(--header-h) + env(safe-area-inset-top, 0px) + var(--space-2));
+    bottom: auto;
+    align-items: center;
+  }
+}
+
+@media (max-width: 599.98px) {
+
+  #toast-box {
+    align-items: stretch;
   }
 
   #toast-box > .toast {

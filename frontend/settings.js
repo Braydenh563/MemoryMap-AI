@@ -3651,6 +3651,10 @@ async function submitHelpChatQuestion(question) {
   const input = $("help-chat-input");
   helpChatAbort = new AbortController();
   const signal = helpChatAbort.signal;
+  //: The answer's row, and whether the turn failed, for the notice a turn
+  //: that ends behind a closed sheet posts (see the `finally` below).
+  let answerRow = null;
+  let failed = false;
   helpChatSetBusy(true);
   renderHelpChatMessage("user", question);
   // Same "thinking" indicator every other AI-backed surface uses
@@ -3700,7 +3704,7 @@ async function submitHelpChatQuestion(question) {
     pending.remove();
     //: Stopped mid-reveal: what was shown stays, marked, and the history
     //: keeps the whole answer so a follow-up still makes sense to the model.
-    renderHelpChatMessage(
+    answerRow = renderHelpChatMessage(
       "assistant",
       signal.aborted ? `${shown.trimEnd()} (stopped)` : content,
       signal.aborted ? [] : result?.badges || [],
@@ -3713,9 +3717,20 @@ async function submitHelpChatQuestion(question) {
     if (signal.aborted || error?.name === "AbortError") {
       renderHelpChatMessage("assistant", "Stopped.");
     } else {
-      renderHelpChatMessage("assistant", "Something went wrong asking that, try again.");
+      failed = true;
+      answerRow = renderHelpChatMessage("assistant", "Something went wrong asking that, try again.");
     }
   } finally {
+    //: **Closed before the answer arrived** (the owner, 2026-09-23). Closing
+    //: the sheet puts the chat back in its hidden host and does not stop the
+    //: turn, so the answer lands where nobody can see it; this says it came,
+    //: with the way back to it. Not when stopped, and not when the sheet is
+    //: open, where the answer is its own notice.
+    if (answerRow && !signal.aborted && !document.querySelector('[data-sheet="guide"]')
+      && typeof noticeUnwatchedAnswer === "function") {
+      answerRow.dataset.answerId = `guide-${Date.now()}`;
+      noticeUnwatchedAnswer("guide", question, answerRow.dataset.answerId, { failed });
+    }
     helpChatBusy = false;
     helpChatAbort = null;
     helpChatSetBusy(false);

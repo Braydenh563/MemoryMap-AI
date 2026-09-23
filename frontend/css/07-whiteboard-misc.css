@@ -1428,9 +1428,29 @@ body.has-agent-monitor #tab-library .library-view-section {
 }
 
 /* The agent activity monitor. */
-.monitor-header {
+#agent-monitor .monitor-header {
+  margin: 0;
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--border-light);
+}
+
+/* The identity takes the width the icon group leaves and ellipsises in it;
+   the group is pushed to the right edge, where the run rows' state pills
+   end, so the head and the rows share one right edge as well as one left. */
+.monitor-header > .monitor-title {
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.monitor-header > .monitor-header-actions {
+  flex: none;
+  gap: var(--space-1);
+  margin-left: auto;
 }
 
 /* **The size here is the card's, not this panel's.** `font-size: var(--text-lg)`
@@ -1479,52 +1499,117 @@ body.has-agent-monitor #tab-library .library-view-section {
   font-size: var(--text-md);
 }
 
-/* The summary is already `display: flex` (`.agent-step.step-plan summary`);
-   this only decides who absorbs the leftover width. The name does, so the
-   step count and the state stay together on the right and do not move from
-   row to row: a column that jitters as names change length is the thing
-   that makes a list read as noise. */
+/* **A run row is a grid of four columns** (owner report, 2026-09-23: "not
+   aligned and look unprofessional"): the fold marker, the run's icon, the
+   name, and the state pill. The second line (the detail or step count, and
+   the bar) starts in the name's column, so every line of every row begins
+   on one edge, and the pill is pinned to the last column's right edge, so
+   every row ends on one. Measured before: the name's text at 76px and the
+   detail under it at 43.6px, with the icon inside the name and the detail
+   sentence wrapping to three lines beside a bar centred on it.
+
+   The marker column is kept on a row with nothing to fold too (its marker
+   is `visibility: hidden`, below), because a row that closed the gap would
+   put its icon one column left of its neighbours'. */
+.monitor-runs .agent-run-row > .agent-run-summary {
+  display: grid;
+  grid-template-columns: var(--space-3) 1rem minmax(0, 1fr) auto;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  align-items: center;
+}
+
+.monitor-runs .agent-run-row > .agent-run-summary::before {
+  grid-column: 1;
+  justify-self: center;
+}
+
+.agent-run-icon {
+  grid-column: 2;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
 .agent-run-name {
-  /* **`flex: 1 1 0`, and each of those three numbers is load-bearing.** The
-     summary wraps (so the progress bar can take a line of its own), and a
-     wrapping flex row moves an item to the next line rather than shrinking it
-     - so with an `auto` basis the name claimed the whole 300px and pushed the
-     step count and the state onto a second line, measured. A zero basis makes
-     the name fit by definition, grow into whatever the other two leave, and
-     ellipsise inside it. `min-width: 0` is the other half: without it a flex
-     item cannot shrink below its own content and the ellipsis never happens. */
-  flex: 1 1 0;
+  grid-column: 3;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* The state ("Done", "Running") is two words and never shrinks; the meta is
-   either "Step 2 of 5" or, for a step-less background job, the run's whole
-   detail sentence, so it has to be allowed to shrink and wrap. */
+/* The detail is one line: a background job's sentence is truncated here and
+   whole on the element's `title` (renderAgentRunSummary), because a sentence
+   wrapped to three lines beside a bar made the first row 96px against its
+   neighbours' 60. A step counter ("Step 2 of 3") never shrinks: it is a
+   label on the bar beside it. */
 .agent-run-meta {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
-}
-
-/* The counter half of that slot: "Step 2 of 3" is a label on the bar it sits
-   beside, and a label that wraps under itself puts the bar on one line and the
-   words on another. Measured in the 384px panel: three rows of 78px, and a
-   list that scrolled inside its own 200px; unwrapped they are 60px and all
-   three fit. Set on the counter only (`renderAgentRunSummary` marks it), so a
-   background job's detail sentence still wraps as the rule above intends. */
-.agent-run-meta.agent-run-count {
-  flex: 0 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.agent-run-state {
-  flex: none;
+.agent-run-meta.agent-run-count {
+  flex: 0 0 auto;
 }
 
-.agent-run-meta,
-.agent-run-state {
+.agent-run-meta:empty {
+  display: none;
+}
+
+/* The state is a pill: tinted by what it says, in the last column. The word
+   stays `--ink` on every tint, so its contrast does not depend on which state
+   it is in; the glyph carries the state's own colour. */
+.monitor-runs .agent-run-state {
+  grid-column: 4;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.monitor-runs .agent-run-state.plan-step-running {
+  background: var(--accent-soft);
+}
+
+.monitor-runs .agent-run-state.plan-step-running > i {
+  color: var(--accent);
+}
+
+.monitor-runs .agent-run-state.plan-step-done > i {
+  color: var(--ok);
+}
+
+.monitor-runs .agent-run-state.plan-step-failed {
+  background: var(--error-soft);
+}
+
+.monitor-runs .agent-run-state.plan-step-failed > i {
+  color: var(--error);
+}
+
+.monitor-runs .agent-run-state.plan-step-stalled,
+.monitor-runs .agent-run-state.plan-step-paused {
+  background: var(--warn-soft);
+}
+
+.monitor-runs .agent-run-state.plan-step-stalled > i,
+.monitor-runs .agent-run-state.plan-step-paused > i {
+  color: var(--warn);
+}
+
+.agent-run-meta {
   font-weight: 400;
   color: var(--muted);
   font-size: var(--text-sm);
@@ -1535,6 +1620,13 @@ body.has-agent-monitor #tab-library .library-view-section {
    ordered list uses for exactly this. */
 .agent-run-step {
   margin-left: var(--space-5);
+}
+
+/* In the panel a step starts in the run's icon column, so the fold marker of
+   a step sits under the icon of the run it belongs to: the summary's own
+   inset plus the marker column and its gap. */
+.monitor-runs .agent-run-step {
+  margin-left: calc(var(--space-3) * 2 + var(--space-2));
 }
 
 /* A step's own text is content, not a heading: the same normal weight the
@@ -1611,21 +1703,11 @@ body.has-agent-monitor #tab-library .library-view-section {
   content: none;
 }
 
-/* The summary is the row, and it carries the step count and the progress bar
-   as a second line, see the comment where they are appended. Wrapping is what
-   puts them there: the name and the state are one line of flex items, and the
-   wrapper below is given the whole width so it lands under them. */
-.agent-run-summary {
-  flex-wrap: wrap;
-}
-
-/* `1 1 100%`, not `1 0 100%`: a run with no steps puts its whole detail
-   sentence in `.agent-run-meta` on this line, and a line that may not shrink
-   below its content pushed the run list 501px wide inside a 300px panel
-   (measured, 2026-09-09). It still takes a line of its own, it just may now
-   give width back. */
+/* The second line spans the name's column to the end: `minmax(0, 1fr)` on
+   that column is what lets a long detail shrink rather than push the list
+   wider than the panel (measured once at 501px inside 300, 2026-09-09). */
 .agent-run-progress {
-  flex: 1 1 100%;
+  grid-column: 3 / -1;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -1636,6 +1718,13 @@ body.has-agent-monitor #tab-library .library-view-section {
   flex: 1 1 auto;
   height: var(--space-1);
   margin: 0;
+}
+
+/* Beside a detail sentence the bar takes a fixed share, so the sentence and
+   the bar each keep a readable width rather than the sentence's own length
+   deciding the bar's. */
+.agent-run-meta:not(.agent-run-count):not(:empty) + .task-progress {
+  flex: 0 0 40%;
 }
 
 /* **A step's state has to beat the summary's own colour.** The step rows reuse

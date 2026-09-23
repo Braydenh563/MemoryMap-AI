@@ -9169,6 +9169,42 @@ function wbBuildContextMenu(kind) {
   return menu;
 }
 
+//: **The context bar's "More" menu opens against the bar, whatever the
+//: window's height** (the owner, 2026-09-23: "its kebab menu lands away from
+//: the bar"). `placeEscapedMenu` (app.js) tries below the opener, then above,
+//: and when neither side holds the whole menu it pins the box to the last
+//: position that fits in the window, which is right for a card's menu whose
+//: opener has scrolled out of view and wrong for a bar floating over the
+//: canvas: measured at 947x608 (1184x760 at 125% zoom), the 333px menu was
+//: put at 267 to 600 with the bar at 316 to 354, over the bar it came from
+//: and 86px from either edge of it.
+//:
+//: So for this bar the menu takes the side with more room, starts or ends
+//: one gap from the bar's own edge (the bar, not the toggle: the toggle is
+//: 5px inside it), and scrolls inside whatever height that side has. Only
+//: for a menu that was escaped to <body>: one the stylesheet placed was not
+//: clipped and already sits under the bar. Set, measured and corrected by
+//: the difference (DESIGN.md, a popup in the window's own coordinates).
+function wbKeepMenuBesideBar(menu, bar) {
+  if (!menu || !bar || !menu._escapedHome) return;
+  const margin = 8;
+  const gap = 2;
+  const edge = bar.getBoundingClientRect();
+  if (!edge.width || !edge.height) return;
+  menu.style.maxHeight = "none";
+  const natural = menu.getBoundingClientRect().height;
+  const below = window.innerHeight - margin - (edge.bottom + gap);
+  const above = edge.top - gap - margin;
+  const useBelow = natural <= below || below >= above;
+  const room = Math.max(120, Math.floor(useBelow ? below : above));
+  const shown = Math.min(natural, room);
+  const want = useBelow ? edge.bottom + gap : edge.top - gap - shown;
+  menu.style.maxHeight = `${room}px`;
+  menu.style.top = `${Math.round(want)}px`;
+  const got = menu.getBoundingClientRect().top;
+  if (Math.abs(got - want) > 0.5) menu.style.top = `${Math.round(want + (want - got))}px`;
+}
+
 function wbCloseContextMenu() {
   wbCtxMenuEl?.classList.add("hidden");
 }
@@ -12369,6 +12405,7 @@ async function initWhiteboard() {
         // the list is.
         syncPanelSwitches();
         escapeAndCapMenu(menu, toggle);
+        if (menu.id === "wb-context-menu") wbKeepMenuBesideBar(menu, document.getElementById("wb-context"));
       }
     });
   }

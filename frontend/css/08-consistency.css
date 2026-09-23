@@ -1707,6 +1707,18 @@ summary > .ph-lead,
 [data-doc-dock-submenu] .doc-dock-menu-check > input {
   margin-left: auto;
 }
+/* **The words take the row's free width**, so they start beside the icon on
+   every row. The input's `margin-left: auto` above is overridden by the
+   switch's own rule, which left `space-between` to share the slack, and a
+   short label ("Sketches") was centred between its icon and its switch while
+   a long one sat at the left: measured in the Library's "Kinds" menu at
+   1184, the two labels began at 669 and 637px, and the Timeline's four at
+   708, 703, 687 and 690. */
+.doc-dock-menu-list .doc-dock-menu-check > span,
+[data-doc-dock-submenu] .doc-dock-menu-check > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .doc-dock-menu-list #doc-file-type {
   width: 100%;
   max-width: none;

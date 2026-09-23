@@ -43,6 +43,32 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The whiteboard context bar's "More" menu opens against the bar in a short
+  window. When neither side of the bar held the whole menu it was pinned
+  wherever it fitted, which at 947x608 (the 1184x760 window at 125% zoom) put
+  it over the bar it came from, 86px from either edge. It now takes the side
+  with more room, ends 2px from the bar's edge and scrolls inside that height.
+  The Size field and the bar's centre line were measured and already right on
+  this head (Size shows "16" and "128" whole in its 62px; every control
+  centred on one line, 0px spread).
+- Library, Images: a "Kinds" menu beside the search box shows sketches,
+  uploaded images or both, and the sort applies to whatever is left. A
+  sketch is the PNG the sketch pad saves as `sketch-<stamp>.png`; each kind's
+  count is in its row, and the last kind on cannot be turned off. The menu is
+  the Timeline's own "Kinds" dock menu, Images only, as the read filter is
+  Files only. The same pass fixes both kinds menus drawing a short label
+  centred between its icon and its switch (the Library's two at 669 and
+  637px, now both 632).
+- The Agent activity panel is laid out on one grid. Its head is the app's
+  panel-head recipe (the title, then three icon buttons with tooltips, all on
+  one centre line), and every run row is four columns: fold marker, icon,
+  name, state pill. The detail line and the bar start under the name rather
+  than 33px to the left of it, a long name or detail truncates to one line
+  with the whole text on hover, the state is a tinted pill whose right edge
+  is the same on every row, and a run's steps start under its icon. Measured
+  at 1184x760 by `scratchpad/ui-sweeps/monitorgrid.js`: header centres
+  within 0px, name, detail and bar left edges all at 80.4px, pills all
+  ending at 388.4px, the first row 57px rather than 96px.
 - The packaged Windows app now says what is wrong when it cannot show its
   window, instead of a blank or missing graphic with nothing in any log.
   Reported directly on the .exe build: pywebview's Windows backend needs the
@@ -255,6 +281,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- An answer that finishes after you closed its panel now says so. Close the
+  popup agent or the Atlas guide while it is still answering, and when the
+  answer arrives a notification is recorded in the bell ("Popup agent
+  answered: ..." or "Atlas answered: ...") with a toast carrying an Open
+  button; either one reopens that panel scrolled to the answer. Nothing is
+  posted while the panel is open, or for a turn you stopped, and the mute and
+  "Panel only" switches still apply. Verified in a browser with both streams
+  held for two seconds (`scratchpad/ui-sweeps/unwatched.js`); not verified
+  against a real model.
 - A lint on the release artifact naming scheme (INBOX 266, item 4).
   `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
   `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses

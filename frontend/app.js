@@ -35276,12 +35276,16 @@ async function openNotifications({ keepWatermark = false } = {}) {
     row.append(readToggle);
 
     // A notification you cannot act on is a notification you learn to ignore.
-    if (item.action && (item.action.tab || item.action.exports)) {
+    if (item.action && (item.action.tab || item.action.exports || item.action.panel)) {
       row.classList.add("notif-actionable");
       row.tabIndex = 0;
       row.title = item.action.exports ? "Open the exports folder" : "Open";
       const go = () => {
         closeNotifications();
+        if (item.action.panel) {
+          reopenAnswerPanel(item.action);
+          return;
+        }
         if (item.action.exports) {
           openExportsFromNotification();
           return;
@@ -35518,7 +35522,7 @@ function agentActivityQuiet() {
 //: shown as a toast only when the reader wants them. Every background-job and
 //: run notice goes through this rather than `toast` directly: a rule that
 //: only some of them followed would be a setting that half works.
-function agentActivityNotice(message, { isError = false, kind = "task", detail = "", action = null } = {}) {
+function agentActivityNotice(message, { isError = false, kind = "task", detail = "", action = null, onOpen = null } = {}) {
   recordNotification({ kind: isError ? "error" : kind, title: message, detail, action });
   //: **Both switches bind here, errors included.** Reported twice: "the agent
   //: activity straight up ignores muted notifications even when on panel only"
@@ -35532,7 +35536,61 @@ function agentActivityNotice(message, { isError = false, kind = "task", detail =
   //: the notifications centre above has already recorded it, so nothing is
   //: lost by not flying it past the corner of the screen.
   if (agentActivityQuiet() || notificationsMuted()) return;
-  toast(message, isError);
+  //: A notice with somewhere to go carries the way there on the toast as
+  //: well as on its row in the bell, so the reader who sees it fly past does
+  //: not have to open the bell to act on it.
+  if (onOpen) toastAction(message, "Open", onOpen);
+  else toast(message, isError);
+}
+
+//: **An answer that finished while its panel was shut** (the owner,
+//: 2026-09-23: "if an AI response is started in the popup agent or the Atlas
+//: guide and the user closes the panel before it finishes, post a
+//: notification"). Closing either panel never stopped the run, the answer was
+//: still written into a transcript nobody could see, and nothing said it had
+//: arrived. Called by both panels at the end of a turn, only when that panel
+//: is closed at that moment: a panel that is open is its own notice.
+//:
+//: The action is plain data because notifications live in localStorage: the
+//: panel's name and the answer's id, which `reopenAnswerPanel` turns back
+//: into "open the panel on that answer". After a reload the transcript is
+//: gone and the id finds nothing, so it opens the panel and stops there.
+const ANSWER_PANEL_NAMES = { agent: "Popup agent", guide: "Atlas" };
+
+function noticeUnwatchedAnswer(panel, question, answerId, { failed = false } = {}) {
+  const who = ANSWER_PANEL_NAMES[panel];
+  if (!who) return;
+  const action = { panel, answer: answerId || "" };
+  agentActivityNotice(
+    failed ? `${who} could not answer: ${agentRunTitle(question)}` : `${who} answered: ${agentRunTitle(question)}`,
+    {
+      isError: failed,
+      detail: "Open it to read the answer.",
+      action,
+      onOpen: () => reopenAnswerPanel(action),
+    },
+  );
+}
+
+function reopenAnswerPanel({ panel, answer } = {}) {
+  let list = null;
+  if (panel === "agent") {
+    if (cmdPaletteOverlay.classList.contains("hidden")) toggleAgentPalette();
+    list = cmdPaletteResults;
+  } else if (panel === "guide") {
+    if (typeof openHelpChat === "function") openHelpChat();
+    list = $("help-chat-messages");
+  }
+  if (!list || !answer) return;
+  const row = [...list.querySelectorAll("[data-answer-id]")].find((el) => el.dataset.answerId === answer);
+  if (!row) return;
+  //: The list's own scrollTop, never `scrollIntoView`, which walks every
+  //: scrolling ancestor and moves the page under the panel (DESIGN.md's
+  //: recipe for a list that says where you are). After a frame, because the
+  //: guide's sheet is built by the call above and has no size until then.
+  requestAnimationFrame(() => {
+    list.scrollTop += row.getBoundingClientRect().top - list.getBoundingClientRect().top;
+  });
 }
 
 function renderAgentActivityMode() {
@@ -46722,7 +46780,14 @@ function runStateLabel(state) {
 
 function renderAgentRunSummary(run) {
   if (!run) return;
-  setLabel(run.nameEl, run.icon ? `${run.icon} ${run.name}` : run.name);
+  //: The icon is its own grid column rather than part of the name, so the
+  //: name, the detail line and the bar under it all start on one edge
+  //: (measured before: the name's text at 76px, the detail at 43.6px). The
+  //: name ellipsises in one line and carries the whole of itself on `title`.
+  const iconName = /^ph:([\w-]+)$/.exec(run.icon || "")?.[1] || "circle";
+  run.iconEl.className = `ph ph-${iconName} agent-run-icon`;
+  run.nameEl.textContent = run.name;
+  run.nameEl.title = run.name;
   // "Step 2 of 5" only when the run declared steps. A background job knows how
   // far along it is as a fraction and not as a step number; an agent turn with
   // no plan has no steps at all, and inventing one for either would be the
@@ -46735,6 +46800,7 @@ function renderAgentRunSummary(run) {
   } else {
     run.metaEl.textContent = run.detail || "";
   }
+  run.metaEl.title = run.metaEl.textContent;
   //: **A counter is a label on the bar beside it; a detail is a sentence.**
   //: Both go in the same slot, and the slot is allowed to wrap because of the
   //: sentence: so "Step 2 of 3" broke across two lines next to the bar, which
@@ -46798,6 +46864,8 @@ function addAgentRun({ kind, name, icon = "", steps = [], detail = "" }) {
   el.className = "agent-step step-plan agent-run-row";
   const summary = document.createElement("summary");
   summary.className = "agent-run-summary";
+  run.iconEl = document.createElement("i");
+  run.iconEl.setAttribute("aria-hidden", "true");
   run.nameEl = document.createElement("span");
   run.nameEl.className = "agent-run-name";
   run.metaEl = document.createElement("span");
@@ -46822,7 +46890,7 @@ function addAgentRun({ kind, name, icon = "", steps = [], detail = "" }) {
   run.progressWrap = document.createElement("span");
   run.progressWrap.className = "agent-run-progress";
   run.progressWrap.append(run.metaEl, run.bar);
-  summary.append(run.nameEl, run.stateEl, run.progressWrap);
+  summary.append(run.iconEl, run.nameEl, run.stateEl, run.progressWrap);
   run.body = document.createElement("div");
   run.body.className = "agent-run-body";
   el.append(summary, run.body);
@@ -47030,7 +47098,13 @@ function setAgentMonitorLogVisible(show) {
   agentMonitorLogs.classList.toggle("hidden", !show);
   agentMonitorRuns.classList.toggle("hidden", show);
   agentMonitorEmpty?.classList.toggle("hidden", show || agentRuns.length > 0);
-  agentMonitorLogToggle.textContent = show ? "Show runs" : "Show log";
+  //: An icon button now (the head is the panel-head recipe), so what it
+  //: will do is said in its name and its tooltip, and the glyph is the view
+  //: it switches to.
+  const words = show ? "Show the runs" : "Show the log";
+  agentMonitorLogToggle.setAttribute("aria-label", words);
+  agentMonitorLogToggle.title = words;
+  setLabel(agentMonitorLogToggle, show ? "ph:list-checks" : "ph:terminal-window");
   agentMonitorLogToggle.setAttribute("aria-expanded", String(show));
 }
 
@@ -48168,6 +48242,9 @@ async function cmdPaletteAsk(text) {
   //: (01-forms-settings.css). It goes on the bubble that is filling, not on a
   //: spinner parked elsewhere, so what pulses is the thing being waited for.
   agentMsg.className = "msg assistant is-generating";
+  //: What a notification finds this answer by, if the palette is shut when
+  //: it finishes (`noticeUnwatchedAnswer`).
+  agentMsg.dataset.answerId = `agent-${Date.now()}`;
   //: **What the tools did, as the same fold the Chat tab shows.** Reported:
   //: "tool calls dont show" in the popup agent. The palette answered every
   //: tool event with one word on the status line ("Working…") and threw the
@@ -48260,6 +48337,8 @@ async function cmdPaletteAsk(text) {
   // of a second, parallel, broken implementation of both.
   let answerRaw = "";
   let answered = false;
+  //: Stopped by the reader, which is the one ending that needs no notice.
+  let stopped = false;
   let found = [];
   //: Keyed on kind *and* id, because a note 3 and a document 3 are two
   //: different things and both may be touched in one turn.
@@ -48435,6 +48514,7 @@ async function cmdPaletteAsk(text) {
     cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
   } catch (err) {
     if (err?.name === "AbortError") {
+      stopped = true;
       answerBox.textContent = answerRaw || "(stopped)";
     } else {
       // The message, not a euphemism for it. A failing model's real reason
@@ -48461,6 +48541,12 @@ async function cmdPaletteAsk(text) {
           ? "ph:check-circle Answered"
           : "ph:warning-circle Nothing came back",
     );
+    //: Shut before the answer arrived: say so, once, with the way back to it.
+    if (!stopped && cmdPaletteOverlay.classList.contains("hidden")) {
+      noticeUnwatchedAnswer("agent", text, agentMsg.dataset.answerId, {
+        failed: agentMsg.classList.contains("error"),
+      });
+    }
   }
 }
 

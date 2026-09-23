@@ -2284,7 +2284,15 @@ def test_every_status_bar_control_has_a_way_in_on_a_phone() -> None:
     assert {"status-task", "status-activity"} <= transient, (
         "a running job or an activity no longer brings the phone's status bar back"
     )
-    missing = sorted(ids - in_menu - moved - exceptions - transient)
+    # Three are rows of the tab bar's More sheet already, which is their way in.
+    more = app.split("function openPhoneMoreSheet", 1)[1][:4000]
+    in_more = {"status-reminders", "status-agent", "status-guide"}
+    assert '"reminders"' in app.split("const PHONE_MORE_TABS", 1)[1][:200], (
+        "Reminders left the More sheet, and the status bar's count was its phone way in"
+    )
+    for word in ("Ask the agent", "Guide"):
+        assert f'"{word}"' in more, f"'{word}' left the More sheet; give its status control a header row"
+    missing = sorted(ids - in_menu - moved - exceptions - transient - in_more)
     assert not missing, (
         f"status-bar controls with no way in on a phone: {missing}; add each to "
         "PHONE_STATUS_ROWS (app.js), which makes it a row of the header menu"
@@ -2292,6 +2300,23 @@ def test_every_status_bar_control_has_a_way_in_on_a_phone() -> None:
     responsive = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
     assert "--status-bar-h: 0px" in responsive, (
         "the phone band no longer takes the status bar's height back"
+    )
+
+
+def test_a_menu_behind_a_button_is_an_action_sheet_on_a_phone() -> None:
+    """DESIGN.md, "A menu behind a button": below 600 both ⋯ builders open the
+    sheet recipe through `openKebabSheet` (INBOX 392: "a bottom sheet instead
+    of a popover"). A third builder, or one of these two losing the branch,
+    would put a popover back on a phone for that one menu."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    for builder in ("function kebabMenu(", "function entryOverflowMenu("):
+        body = app.split(builder, 1)[1][:3000]
+        assert "PHONE_ACTION_SHEET" in body and "openKebabSheet(" in body, (
+            f"{builder.split('(')[0][9:]} no longer opens as an action sheet below 600"
+        )
+    sheet = app.split("function openKebabSheet(", 1)[1][:2500]
+    assert "openSheet(" in sheet and "has-submenu" in sheet, (
+        "openKebabSheet no longer uses the sheet recipe, or closes on a group's own row"
     )
 
 

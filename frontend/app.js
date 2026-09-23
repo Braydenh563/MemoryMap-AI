@@ -4475,6 +4475,10 @@ function wireEscapedActionMenu(wrap) {
   //: own opener.
   const escapeTarget = () => opener.closest("dialog[open]") || document.body;
   const observer = new MutationObserver(() => {
+    // A menu shown as a phone's action sheet (`openKebabSheet`) is already
+    // out of every clipping ancestor; escaping it would take it back out of
+    // the sheet.
+    if (menu._inSheet) return;
     const open = !menu.classList.contains("hidden");
     const target = escapeTarget();
     if (open && menu.parentElement !== target) {
@@ -5275,6 +5279,12 @@ function entryOverflowMenu(entry) {
   //: using the same icon as the other builder fixes the centring and the
   //: drift in one go.
   const opener = smallButton("ph:dots-three", "More actions", () => {
+    // The phone's action sheet, as `kebabMenu` opens (`openKebabSheet`).
+    if (window.matchMedia(PHONE_ACTION_SHEET).matches && typeof openSheet === "function") {
+      fillMenu();
+      openKebabSheet(menu, opener, "Note actions");
+      return;
+    }
     const willOpen = menu.classList.contains("hidden");
     if (willOpen) {
       fillMenu();
@@ -22785,6 +22795,17 @@ function initSidebarSheetDismissal() {
       const opener = open.querySelector(".sidebar-collapse-toggle");
       opener?.setAttribute("aria-expanded", "false");
       opener?.focus();
+      //: Below 600 that toggle is not on the page once the sheet is shut
+      //: (the head's `.phone-sidebar-opener` stands for it), so the focus
+      //: went nowhere, measured by `sheetdismiss.js` at 390: activeElement
+      //: was the body. The phone's own opener takes it there.
+      const phoneOpener = open.id
+        ? document.querySelector(`.phone-sidebar-opener[aria-controls="${CSS.escape(open.id)}"]`)
+        : null;
+      if (phoneOpener) {
+        phoneOpener.setAttribute("aria-expanded", "false");
+        if (document.activeElement !== opener) phoneOpener.focus();
+      }
     },
   });
 }
@@ -23461,6 +23482,58 @@ function watchForSelects() {
   }).observe(document.body, { childList: true, subtree: true });
 }
 
+// **On a phone a ⋯ menu is an action sheet** (INBOX 392, UI_MODERNISATION_PLAN
+// Phase 11 item 12: "a bottom sheet instead of a popover"). A popover hung
+// from a 44px opener in a 390px window lands wherever the opener is, often
+// under the thumb's far reach at the top of the screen, and is clamped and
+// flipped to fit; the phone's own answer is the sheet from the bottom edge,
+// every row full width at the thumb. Below 600 every `kebabMenu` opens the
+// sheet recipe with the menu itself moved in, its rows, their handlers, their
+// groups and its keyboard the same, and put back on close. A row press closes
+// the sheet first (captured, before the row's own handler runs), so whatever
+// the row opens next, a dialog or another sheet, takes the focus after it.
+// Only `kebabMenu`, the recipe: a context menu at a point (`openMenuAtPoint`)
+// stays where the finger held.
+const PHONE_ACTION_SHEET = "(max-width: 599.98px)";
+
+function openKebabSheet(menu, opener, label) {
+  closeActionMenus();
+  const home = menu.parentElement;
+  let closeSheet = null;
+  // A group's row opens its group in place (below 720 a submenu is an
+  // accordion, `buildMenuGroupButton`), so it leaves the sheet open.
+  const onRow = (event) => {
+    const row = event.target.closest(".menu-item");
+    if (row && !row.classList.contains("has-submenu") && closeSheet) closeSheet();
+  };
+  closeSheet = openSheet({
+    label,
+    name: "action-menu",
+    returnFocus: opener,
+    build: (card) => {
+      card.classList.add("action-menu-card");
+      menu._inSheet = true;
+      menu.style.left = "";
+      menu.style.top = "";
+      menu.classList.remove("hidden", "action-menu-flip", "action-menu-escaped");
+      card.appendChild(menu);
+      card.addEventListener("click", onRow, true);
+    },
+    onClose: () => {
+      closeSheet = null;
+      menu.classList.add("hidden");
+      if (home) home.appendChild(menu);
+      // After the observer has seen the class change above, so it does not
+      // escape a menu that is on its way home.
+      queueMicrotask(() => {
+        menu._inSheet = false;
+      });
+      opener.setAttribute("aria-expanded", "false");
+    },
+  });
+  opener.setAttribute("aria-expanded", "true");
+}
+
 function kebabMenu(items, ariaLabel) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -23470,6 +23543,10 @@ function kebabMenu(items, ariaLabel) {
   menu.setAttribute("role", "menu");
 
   const opener = smallButton("ph:dots-three", ariaLabel, () => {
+    if (window.matchMedia(PHONE_ACTION_SHEET).matches && typeof openSheet === "function") {
+      openKebabSheet(menu, opener, ariaLabel);
+      return;
+    }
     const willOpen = menu.classList.contains("hidden");
     if (willOpen) openActionMenu(menu, opener);
     else closeActionMenus();
@@ -40470,15 +40547,16 @@ initBottomTabBar();
 // pattern `mountPhoneSidebarOpeners` uses). A row whose button is switched
 // off in Settings or hidden right now is hidden; one whose button is disabled
 // is shown muted, the way the menu marks any row that cannot run.
+//
+// Three of the bar's controls are not rows here because the tab bar's More
+// sheet already has each (`openPhoneMoreSheet`): Reminders, Ask the agent and
+// Guide. A second copy in a second menu is two answers to "where is it".
 const PHONE_STATUS_ROWS = [
   { id: "status-forward", label: "ph:caret-right Forward" },
   { id: "status-nav-history", label: "ph:clock-counter-clockwise Recent places" },
   { id: "status-redo", label: "ph:arrow-clockwise Redo" },
-  { id: "status-reminders", label: "ph:check-circle Reminders" },
   { id: "status-task", label: "ph:gear Background tasks" },
   { id: "status-find", label: "ph:magnifying-glass Find" },
-  { id: "status-agent", label: "ph:magic-wand Ask the agent" },
-  { id: "status-guide", label: "ph:compass Guide" },
 ];
 
 function initPhoneHeaderMore() {
@@ -40514,8 +40592,7 @@ function initPhoneHeaderMore() {
   // Lock is only offered once a password exists, which is what shows the
   // desktop's `#lock-btn`; the row follows that button's own state each time
   // the menu opens rather than freezing it at boot, when no session exists.
-  // The status rows follow their buttons the same way, and the reminders row
-  // carries the count the bar would have shown.
+  // The status rows follow their buttons the same way.
   const rows = [...menu.querySelectorAll(".menu-item")];
   const lockRow = rows[PHONE_STATUS_ROWS.length + 2];
   menu.addEventListener(
@@ -40534,14 +40611,6 @@ function initPhoneHeaderMore() {
         row.classList.toggle("menu-item-unavailable", unavailable);
         if (unavailable) row.setAttribute("aria-disabled", "true");
         else row.removeAttribute("aria-disabled");
-        if (spec.id === "status-reminders" && source) {
-          // The bar's own words ("2 open", "1 due"), read off the button.
-          const said = [...source.querySelectorAll("b, span")]
-            .map((part) => part.textContent.trim())
-            .filter(Boolean)
-            .join(" ");
-          setLabel(row, said ? `ph:check-circle Reminders, ${said}` : spec.label);
-        }
       });
     },
     true
@@ -41123,6 +41192,11 @@ function openSheet({ label, name, build, variant = "", returnFocus = document.ac
   //: uses, for the same reason.
   const onKey = (event) => {
     if (event.key !== "Escape") return;
+    //: **One Escape, one sheet.** A sheet can open over a sheet (a ⋯ action
+    //: sheet over the note page, INBOX 392), and every sheet's listener is
+    //: on the document, so one Escape closed both. Only the topmost answers.
+    const sheets = document.querySelectorAll(".sheet-overlay");
+    if (sheets.length && sheets[sheets.length - 1] !== overlay) return;
     event.stopPropagation();
     close();
   };

@@ -38,6 +38,10 @@ below). Versioning is `0.x` while the app stabilises.
   (44px) at any width, not only below 820; the status bar is a touch bar
   there and no longer pushes the page sideways at 768; Reminders opens on
   its list below 1100; and the Library's kind chips stay on one row.
+- On a phone every ⋯ menu opens as a sheet from the bottom of the screen,
+  with full-width rows; Escape closes only the top sheet when one is open
+  over another; and closing the sidebar sheet puts the focus back on the
+  button that opened it.
 
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window

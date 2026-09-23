@@ -1970,6 +1970,35 @@ header#top-bar,
   }
 }
 
+/* A ⋯ menu as an action sheet below 600 (`openKebabSheet`, app.js): the menu
+   is moved into the sheet's card and sheds the popover it is elsewhere; its
+   rows take the card's width at the band's 44px floor, and its hairlines
+   between groups stay. */
+.action-menu-card > .action-menu {
+  position: static;
+  inset: auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow-y: auto;
+  transform: none;
+  animation: none;
+}
+
+.action-menu-card .action-menu .menu-item {
+  width: 100%;
+  min-height: var(--target-min);
+}
+
 /* Reminders below 1100: the list is the page, and the add form is the sheet
    "New reminder" opens (`openReminderCompose`, app.js; the floating + below
    600, the dock's filled button above). While the form is on the page it is

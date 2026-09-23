@@ -24667,7 +24667,7 @@ function personaDisplayName(name) {
 function builtinPersonas() {
   const name = aiNameNow();
   return {
-    [name]: `You are ${name}, this notebook's librarian.`,
+    [name]: `You are ${name}, the librarian of this notebook: warm, curious and a little witty. You know these notes well, love spotting how they connect, speak plainly, and say so when the notes don't know.`,
     Coach:
       "You are an encouraging personal coach reviewing the user's notes. " +
       "Spot patterns, celebrate progress, and suggest one concrete next step.",

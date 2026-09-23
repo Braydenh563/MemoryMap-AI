@@ -3902,6 +3902,16 @@ function docTableGo(context, edits, row, col) {
   const span = table && docTableCellSpan(table, row, col);
   if (!span) return true;
   const raw = table.rows[row].cells[col];
+  //: **An empty cell takes the caret after its first space, not its last.**
+  //: A new row is written `|  |  |`, two spaces a cell, and the caret was put
+  //: after both: measured, Tab out of the last cell and "Three" typed gave
+  //: `|  Three|`, a cell that no longer matched a single other one in the
+  //: table. One space in is where a person would have typed it by hand.
+  if (!raw.trim()) {
+    const at = span.from + Math.min(1, raw.length);
+    surface.setSelectionRange(at, at);
+    return true;
+  }
   const lead = (/^[ \t]*/.exec(raw) || [""])[0].length;
   const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
   surface.setSelectionRange(span.from + lead, Math.max(span.from + lead, span.to - tail));
@@ -6383,9 +6393,64 @@ function docLivePlugin(CM) {
             );
             return false;
           }
+          //: **A bare address and an `<address>` are links too** (INBOX 392's
+          //: inventory, `scratchpad/ui-sweeps/doclivemd.js`). The GitHub
+          //: dialect parses both, as a `URL` on its own and as an `Autolink`
+          //: holding one, and the view drew neither: a pasted address was
+          //: plain text you could not open, and `<https://…>` kept its
+          //: brackets. Both now wear the link chip and open on Ctrl+click
+          //: through the same `data-doc-href` a `[text](url)` link uses. A
+          //: `URL` inside a `Link` or an `Image` never reaches here: those
+          //: two branches return false and the walk skips their children.
+          if (name === "Autolink") {
+            const url = node.node.getChild("URL");
+            if (!url) return false;
+            const href = doc.sliceString(url.from, url.to);
+            ranges.push(
+              Decoration.mark({
+                class: "cm-md-link",
+                attributes: { "data-doc-href": href, title: `Ctrl+click to open ${href}` },
+              }).range(url.from, url.to)
+            );
+            if (!rangeRevealed(node.from, node.to)) {
+              hide(node.from, url.from);
+              hide(url.to, node.to);
+            }
+            return false;
+          }
+          if (name === "URL") {
+            const href = doc.sliceString(node.from, node.to);
+            ranges.push(
+              Decoration.mark({
+                class: "cm-md-link",
+                attributes: { "data-doc-href": href, title: `Ctrl+click to open ${href}` },
+              }).range(node.from, node.to)
+            );
+            return false;
+          }
+          //: `\*` is how a writer says "a star, not emphasis", and the
+          //: backslash is syntax like every other marker here: hidden while
+          //: the caret is elsewhere, back when it is on the line.
+          if (name === "Escape") {
+            if (!lineTouched(node.from)) hide(node.from, node.from + 1);
+            return false;
+          }
           if (name === "TaskMarker") {
-            if (lineTouched(node.from)) return false;
             const marker = doc.sliceString(node.from, node.to);
+            //: **A finished task reads as finished**, struck through in the
+            //: muted ink, which is what every task list the plan compares
+            //: against does and what the rendered view now does too
+            //: (09-editor.css). Drawn whether or not the caret is on the
+            //: line: the `[x]` coming back is a reveal, the item being done
+            //: is a fact about it.
+            if (/[xX]/.test(marker)) {
+              const task = node.node.parent;
+              const end = Math.min(task ? task.to : node.to, doc.lineAt(node.from).to);
+              if (end > node.to) {
+                ranges.push(Decoration.mark({ class: "cm-md-task-done" }).range(node.to, end));
+              }
+            }
+            if (lineTouched(node.from)) return false;
             ranges.push(
               Decoration.replace({
                 widget: new DocTaskWidget(/[xX]/.test(marker), node.from, node.to),
@@ -6809,6 +6874,13 @@ function docLivePlugin(CM) {
           sel.from <= table.to &&
           sel.to >= table.from &&
           !!view.dom.querySelector('.cm-md-table-menu [aria-expanded="true"]');
+        //: **The cell being edited is marked** (INBOX 392: "it is hard to
+        //: edit things like tables"). With the pipes hidden, the caret was the
+        //: only thing saying which cell a keystroke would land in, and a
+        //: one-pixel caret in a grid of ruled cells is easy to lose: a ring
+        //: round the cell says it at a glance, and follows Tab and Shift+Tab.
+        //: Only while the editor has focus, like every other reveal here.
+        const activeCell = inTable ? docTableCellAt(table, sel.head) : null;
         for (let r = 0; r < table.rows.length; r += 1) {
           const row = table.rows[r];
           const rule = r === table.delim && !touched(row.from, row.to);
@@ -6837,7 +6909,12 @@ function docLivePlugin(CM) {
             const span = docTableCellSpan(table, r, c);
             const align = table.aligns[c];
             const place = c < DOC_TABLE_GRID_MAX ? ` cm-md-c${c + 1}` : "";
-            const cls = (align ? `cm-md-td cm-md-td-${align}` : "cm-md-td") + place;
+            //: The header's last cell keeps room for the kebab that sits at
+            //: its end, so a long heading wraps before it rather than under it.
+            const last = r === 0 && c === row.cells.length - 1 ? " cm-md-td-last" : "";
+            const active =
+              activeCell && activeCell.row === r && activeCell.col === c ? " cm-md-td-active" : "";
+            const cls = (align ? `cm-md-td cm-md-td-${align}` : "cm-md-td") + place + last + active;
             if (span.to > span.from) {
               ranges.push(Decoration.mark({ class: cls }).range(span.from, span.to));
             } else {
@@ -6867,6 +6944,96 @@ function docLivePlugin(CM) {
               }).range(row.to)
             );
           }
+        }
+      }
+    }
+
+    //: **The vertical rhythm** (DOCUMENTS_PLAN 17b). Measured before this
+    //: (`scratchpad/ui-sweeps/docpage17.js`): every gap between two blocks was
+    //: the blank line the writer typed, so a paragraph, a heading, a table and
+    //: a fence were all separated by exactly one 25.6px line of nothing, the
+    //: space above a section was the same as the space under it, and two
+    //: blank lines drew twice the gap the rendered view draws. The source's
+    //: blank line is what separates blocks, so it is the blank line that is
+    //: given the gap, from one small scale of tokens:
+    //:
+    //: - `cm-md-gap`: between two blocks, `--space-6`;
+    //: - `cm-md-gap-major` / `-minor`: above an h1 or h2 / an h3 to h6,
+    //:   `--space-9` / `--space-8`, so a section starts visibly apart from
+    //:   the one before it;
+    //: - `cm-md-gap-tight`: under a heading, `--space-3`, so the heading
+    //:   belongs to the text it introduces rather than floating between two;
+    //: - `cm-md-gap-extra`: the second and later blank lines of a run, which
+    //:   the rendered view collapses to one gap and so does this.
+    //:
+    //: **By `line-height`, never by `height`**, and this is the reason the
+    //: caret does not jump. A blank line's only content is the `<br>`, so its
+    //: line height *is* its height, and the caret CodeMirror draws on it is
+    //: that tall: arrowing through a gap moves nothing, and the line grows to
+    //: a text line only when a character is typed into it, which is a
+    //: change the writer made. The one exception is an extra blank line,
+    //: which is zero tall until the caret arrives on it and then takes the
+    //: plain gap, because a caret with no height is a caret nobody can find.
+    //:
+    //: Never inside a fenced block (a blank line in code is code) or the
+    //: frontmatter (hidden above), and only in the documents editor: the note
+    //: editors mount this plugin too, and a note card is not a page.
+    //:
+    //: **And not while the line numbers are on**, the rule the quiet fence
+    //: rows already follow (INBOX 262): a gutter number keeps the editor's
+    //: line height whatever its line's height is, so a 16px gap left its
+    //: number standing 10px into the line below (measured by `docgutter.js`,
+    //: "9 paints 10px into 10"). One row, one number, in line with the text
+    //: it counts is the gutter's contract, and where the two disagree the
+    //: gutter wins and the blank line keeps its full row.
+    if (view.dom.closest(".doc-editor") && !gutterOn) {
+      const fence = (pos) => {
+        for (let node = tree.resolveInner(pos, 1); node; node = node.parent) {
+          if (node.name === "FencedCode") return true;
+        }
+        return false;
+      };
+      const headingLevel = (text) => {
+        const atx = /^ {0,3}(#{1,6})(?:[ \t]|$)/.exec(text);
+        return atx ? atx[1].length : 0;
+      };
+      const blank = (n) => n >= 1 && n <= doc.lines && !doc.line(n).text.trim();
+      const fmEnd =
+        doc.length > 3 && doc.sliceString(0, 4) === "---\n"
+          ? (docFrontmatterParse(source()) || { to: -1 }).to
+          : -1;
+      //: The whole rendered viewport rather than the visible ranges the
+      //: other passes walk: this changes line heights, and a line drawn
+      //: just below the fold at a full line's height would shrink to its gap
+      //: as it scrolled into view, moving the text under the reader's eye.
+      {
+        const first = doc.lineAt(view.viewport.from).number;
+        //: One past the viewport's last line: measured, a document ending in
+        //: a newline reported a viewport ending one character short of its
+        //: length, so its final empty line was drawn and never given a gap.
+        const last = Math.min(doc.lines, doc.lineAt(view.viewport.to).number + 1);
+        for (let n = first; n <= last; n += 1) {
+          if (!blank(n)) continue;
+          const line = doc.line(n);
+          if (line.from <= fmEnd || fence(line.from)) continue;
+          let cls = "cm-md-gap";
+          if (blank(n - 1)) {
+            if (!touched(line.from, line.to)) cls = "cm-md-gap cm-md-gap-extra";
+          } else {
+            let next = n + 1;
+            while (blank(next)) next += 1;
+            const below = next <= doc.lines ? headingLevel(doc.line(next).text) : 0;
+            const above = n > 1 ? doc.line(n - 1).text : "";
+            //: A setext heading's underline is the line above a gap under
+            //: a heading just as surely as a `#` line is.
+            const underHeading =
+              headingLevel(above) ||
+              (/^ {0,3}=+[ \t]*$/.test(above) && n > 2 && !blank(n - 2));
+            if (below === 1 || below === 2) cls = "cm-md-gap cm-md-gap-major";
+            else if (below) cls = "cm-md-gap cm-md-gap-minor";
+            else if (underHeading) cls = "cm-md-gap cm-md-gap-tight";
+          }
+          ranges.push(Decoration.line({ class: cls }).range(line.from));
         }
       }
     }
@@ -14381,6 +14548,9 @@ const docCmParts = {
   //: Whether the *browser's* checker draws squiggles, which is a question with
   //: two answers over the life of one editor: see `docCmSpellcheck`.
   spell: null,
+  //: A code file's diagnostics and completions (`docCodeTools`); empty for
+  //: prose and in Plain.
+  code: null,
 };
 
 //: How the prose findings tell the view to repaint. A `StateEffect` rather
@@ -14507,6 +14677,32 @@ function docTableGridRules() {
   return rules;
 }
 
+//: **Indent guides under a nested list** (INBOX 392). A nested item was
+//: told apart from its parent by its indent alone, and three levels deep a
+//: reader was counting em widths to know which item a line belonged to. One
+//: hairline per ancestor, down the column of that ancestor's own marker, is
+//: what every outliner draws; it is a background rather than a border or a
+//: widget because a line decoration can carry it without adding a node, and
+//: it cannot move the text. The marker of level `k` sits at `k * 1.6em` (the
+//: hanging indent in the theme), so the guide for level `j` is at that plus
+//: 0.3em, under the bullet's middle.
+function docListGuides(depth) {
+  const tone = "color-mix(in srgb, var(--muted) 35%, transparent)";
+  const ink = `linear-gradient(${tone}, ${tone})`;
+  const layers = [];
+  const places = [];
+  for (let j = 0; j < depth; j += 1) {
+    layers.push(ink);
+    places.push(`${(j * 1.6 + 0.3).toFixed(2)}em 0`);
+  }
+  return {
+    backgroundImage: layers.join(", "),
+    backgroundPosition: places.join(", "),
+    backgroundSize: "1px 100%",
+    backgroundRepeat: "no-repeat",
+  };
+}
+
 function docCmTheme(CM) {
   const dark = document.documentElement.dataset.mode === "dark";
   return CM.view.EditorView.theme(
@@ -14570,6 +14766,102 @@ function docCmTheme(CM) {
         border: "1px solid var(--border)",
         color: "var(--text)",
       },
+
+      //: --- a code file's diagnostics and completions (INBOX 392) ----------
+      //: CodeMirror's own lint styles are fixed colours (#d11 for an error,
+      //: a red SVG squiggle, a white-on-#17c selected completion), which is
+      //: the same trap the highlighter fell into (`docCmHighlight`): right on
+      //: a white page, wrong on this app's dark one, and deaf to a custom
+      //: accent. Every one is restated here in the app's tokens.
+      //:
+      //: The underline is the prose findings' own shape, a wavy line in the
+      //: kind's ink (`.cm-finding-spelling`), so an error in code and a
+      //: misspelling in prose are one idea drawn once. The SVG CodeMirror
+      //: paints as a background is switched off rather than recoloured: its
+      //: colour is baked into a data URL.
+      ".cm-lintRange": {
+        backgroundImage: "none",
+        paddingBottom: "0",
+        textDecorationSkipInk: "none",
+        textUnderlineOffset: "0.18em",
+      },
+      ".cm-lintRange-error": {
+        textDecoration: "underline wavy",
+        textDecorationColor: "var(--error)",
+      },
+      ".cm-lintRange-warning": {
+        textDecoration: "underline wavy",
+        textDecorationColor: "var(--warn)",
+      },
+      ".cm-lintRange-info, .cm-lintRange-hint": {
+        textDecoration: "underline dotted",
+        textDecorationThickness: "2px",
+        textDecorationColor: "var(--muted)",
+      },
+      ".cm-lintRange-active": { backgroundColor: "var(--accent-soft)" },
+      //: The gutter mark: a dot in the kind's ink, centred on its line. The
+      //: library's marker is an SVG in its own colours set as `content`, so
+      //: `content: normal` takes it away and the box draws the dot.
+      ".cm-gutter-lint": { width: "1em" },
+      ".cm-gutter-lint .cm-gutterElement": {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0",
+      },
+      ".cm-lint-marker": {
+        content: "normal",
+        width: "0.55em",
+        height: "0.55em",
+        borderRadius: "var(--radius-pill)",
+        backgroundColor: "var(--muted)",
+      },
+      ".cm-lint-marker-error": { backgroundColor: "var(--error)" },
+      ".cm-lint-marker-warning": { backgroundColor: "var(--warn)" },
+      ".cm-diagnostic": {
+        padding: "var(--space-2) var(--space-4)",
+        marginLeft: "0",
+        fontSize: "var(--text-sm)",
+        borderLeft: "3px solid var(--muted)",
+      },
+      ".cm-diagnostic-error": { borderLeftColor: "var(--error)" },
+      ".cm-diagnostic-warning": { borderLeftColor: "var(--warn)" },
+      ".cm-diagnostic-info, .cm-diagnostic-hint": { borderLeftColor: "var(--accent)" },
+      ".cm-tooltip-lint": { padding: "0", borderRadius: "var(--radius-sm, 6px)" },
+      //: **Opaque, where the tooltip above is glass.** `--card` is 55%
+      //: opaque (measured through `doccode.js`), which is right for a panel
+      //: over the page's own ground and wrong for a box of words laid over
+      //: other words: the code under a diagnostic read through its message.
+      //: The ground the selection bar uses for the same reason
+      //: (DESIGN.md's recipe index, "a bar of actions").
+      ".cm-tooltip.cm-tooltip-hover, .cm-tooltip.cm-tooltip-autocomplete": {
+        backgroundColor: "var(--modal-bg-opaque)",
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete": {
+        borderRadius: "var(--radius-sm, 6px)",
+        boxShadow: "var(--shadow-md)",
+        overflow: "hidden",
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete > ul": {
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-sm)",
+        maxHeight: "16em",
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete > ul > li": {
+        padding: "var(--space-1) var(--space-4)",
+        lineHeight: "1.5",
+      },
+      ".cm-tooltip-autocomplete ul li[aria-selected]": {
+        backgroundColor: "var(--accent-soft)",
+        color: "var(--text)",
+      },
+      ".cm-completionMatchedText": {
+        textDecoration: "none",
+        fontWeight: "700",
+        color: "var(--accent)",
+      },
+      ".cm-completionDetail": { color: "var(--muted)", fontStyle: "normal" },
+      ".cm-completionIcon": { color: "var(--muted)", opacity: "1" },
 
       //: --- Live preview -------------------------------------------------
       //: The rendered shapes, in the app's own type scale rather than in a
@@ -14691,17 +14983,29 @@ function docCmTheme(CM) {
       //: measured rather than chosen: a `-` plus a space is 2 characters of a
       //: 0.8em-per-character face.
       ".cm-md-li": { paddingLeft: "1.6em", textIndent: "-1.6em" },
-      ".cm-md-li-1": { paddingLeft: "3.2em", textIndent: "-1.6em" },
-      ".cm-md-li-2": { paddingLeft: "4.8em", textIndent: "-1.6em" },
-      ".cm-md-li-3": { paddingLeft: "6.4em", textIndent: "-1.6em" },
-      ".cm-md-li-4": { paddingLeft: "8em", textIndent: "-1.6em" },
+      ".cm-md-li-1": { paddingLeft: "3.2em", textIndent: "-1.6em", ...docListGuides(1) },
+      ".cm-md-li-2": { paddingLeft: "4.8em", textIndent: "-1.6em", ...docListGuides(2) },
+      ".cm-md-li-3": { paddingLeft: "6.4em", textIndent: "-1.6em", ...docListGuides(3) },
+      ".cm-md-li-4": { paddingLeft: "8em", textIndent: "-1.6em", ...docListGuides(4) },
+      ".cm-md-task-done": {
+        color: "var(--muted)",
+        textDecoration: "line-through",
+        textDecorationColor: "color-mix(in srgb, var(--muted) 70%, transparent)",
+      },
       //: The marker itself: the muted ink, so the eye reads the words rather
       //: than the punctuation, and left in the document so it can be
       //: selected, deleted and typed over like any other character.
       ".cm-md-li-mark": { color: "var(--muted)" },
+      //: **A quotation's bar has to be seen to do its job** (17c). It was
+      //: `--border`, a 10% ink that composites to 1.2:1 on the page, so a
+      //: quotation read as a paragraph set in grey. Half the muted ink is a
+      //: rule you can see without it competing with the callout's accent
+      //: bar, and the rendered view's `#doc-preview blockquote` (09-editor.css)
+      //: now draws the same bar, inset and ink, where before it drew the
+      //: browser's own 40px indent and nothing else.
       ".cm-md-quote": {
-        borderLeft: "3px solid var(--border)",
-        paddingLeft: "0.75em",
+        borderLeft: "3px solid color-mix(in srgb, var(--muted) 70%, transparent)",
+        paddingLeft: "var(--space-5)",
         color: "var(--muted)",
       },
       ".cm-md-callout": {
@@ -14709,9 +15013,14 @@ function docCmTheme(CM) {
         paddingLeft: "0.75em",
         backgroundColor: "var(--accent-soft)",
       },
+      //: The inset is the rendered `pre`'s own (`--space-5`): without it the
+      //: code's first glyph sat on the very edge of its tinted slab, 0px in,
+      //: which is how a block reads as a highlighted paragraph rather than
+      //: as a panel of code (17c).
       ".cm-md-fence": {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",
+        paddingInline: "var(--space-5)",
       },
       //: The opening and closing fence rows. Their text is hidden (INBOX
       //: 198), so a full line-height row of it is 26px of nothing at each end
@@ -14782,6 +15091,14 @@ function docCmTheme(CM) {
         height: "0.6em",
         margin: "0.4em 0",
       },
+      //: The gaps between blocks (17b), one token each; the note beside the
+      //: decoration in `docLivePlugin` says why this is `line-height` and not
+      //: `height`.
+      ".cm-md-gap": { lineHeight: "var(--space-6)" },
+      ".cm-md-gap-major": { lineHeight: "var(--space-9)" },
+      ".cm-md-gap-minor": { lineHeight: "var(--space-8)" },
+      ".cm-md-gap-tight": { lineHeight: "var(--space-3)" },
+      ".cm-md-gap-extra": { lineHeight: "0" },
       //: The callout's kind, in the place its `[!note]` marker was. Set in
       //: `em` so it tracks the editor's own type scale, and in the muted ink
       //: because it labels the block rather than being part of what it says.
@@ -14864,10 +15181,25 @@ function docCmTheme(CM) {
         //: The cell menu is positioned against this line.
         position: "relative",
       },
+      //: The rendered view's own cell inset (`.md-table td`: 0.4rem by
+      //: 0.6rem), where this was 0.05em by 0.5em and a row of words sat
+      //: against the rules above and below it (17c, measured in
+      //: `scratchpad/ui-sweeps/docblocks17c.js`).
       ".cm-md-td": {
-        padding: "0.05em 0.5em",
+        padding: "var(--space-2) var(--space-4)",
         borderRight: "1px solid var(--border)",
         borderBottom: "1px solid var(--border)",
+      },
+      //: The cell the caret is in: a ring inside the cell, so it moves no
+      //: rule and changes no column width, and a faint ground that sits
+      //: under a selection rather than hiding it.
+      ".cm-md-td-active": {
+        boxShadow: "inset 0 0 0 2px var(--accent)",
+        backgroundColor: "color-mix(in srgb, var(--accent) 6%, transparent)",
+        borderRadius: "var(--radius-sm, 6px)",
+      },
+      ".cm-md-table-head .cm-md-td-last": {
+        paddingRight: "calc(var(--space-4) + 1.75rem)",
       },
       ".cm-md-td-left": { textAlign: "left" },
       ".cm-md-td-center": { textAlign: "center" },
@@ -15122,6 +15454,378 @@ function docTableCellClick(event, view) {
   return true;
 }
 
+// -----------------------------------------------------------------------------
+// Code documents as a code editor: diagnostics and completions (INBOX 392)
+// -----------------------------------------------------------------------------
+//
+// The owner: "the code document types dont act like a code editor with
+// errors, suggestions and that needs to be improved." Before this the editor
+// mounted no linter and no completion source at all (this file had no use of
+// `CM.lint` or `CM.autocomplete`), in a bundle that already carried
+// CodeMirror's own linter, lint gutter and completion engine, exported by
+// `frontend/vendor/codemirror/entry.js` since it was first built; nothing
+// needed rebuilding.
+//
+// **Where each language is checked, and why there.** The browser checks what
+// it has a real parser for and the server checks the rest, never the other
+// way round, because a round trip per pause in typing is only worth paying
+// where the browser cannot answer:
+//
+// - JSON: `JSON.parse`, whose error names the offset.
+// - JavaScript, TypeScript and CSS: the Lezer tree CodeMirror has already
+//   built to colour the file. A node the grammar could not place is an error
+//   node, so this costs nothing the highlighter had not already spent. Never
+//   `new Function` or `eval`: the CSP forbids both, and running somebody's
+//   file to find out whether it parses is not a check, it is execution.
+// - Python, TOML, XML and YAML: `POST /documents/check-syntax`, which uses
+//   `ast.parse`, `tomllib`, `defusedxml` and PyYAML's composer
+//   (`src/memorymap/core/syntaxcheck.py`). Offline, stateless, capped.
+//
+// Only for code: a markdown document is prose, and its checker is the
+// writing panel's. Plain view turns these off with the highlighting, because
+// Plain is defined as the editor with nothing interpreting the text.
+
+//: The languages the server checks. A 400 from it (PyYAML not installed, say)
+//: takes that language out of this set for the session, so a file is not
+//: asked about again on every pause in typing.
+const DOC_CHECK_REMOTE = new Set(["py", "toml", "xml", "yaml"]);
+//: Mirrors `syntaxcheck.MAX_CHARS`: past it the server answers 422, so the
+//: request is not made.
+const DOC_CHECK_MAX_CHARS = 200000;
+//: How long typing has to pause before a check runs. Long enough that a
+//: half-typed line is not underlined while it is being typed.
+const DOC_CHECK_DELAY_MS = 750;
+//: Languages whose grammar in the bundle is a Lezer grammar with honest
+//: error recovery, so an error node means the text does not parse.
+const DOC_CHECK_TREE = new Set(["js", "ts", "css"]);
+
+//: A 1-based line and column from a checker, as the offsets CodeMirror
+//: underlines. The range runs to the end of the word at that column, so the
+//: underline sits under the token that is wrong rather than under one letter
+//: of it; at the end of a line it takes the last character instead, because
+//: an empty range draws no underline at all.
+function docDiagnosticRange(doc, lineNo, col) {
+  const line = doc.line(Math.max(1, Math.min(lineNo, doc.lines)));
+  let from = Math.min(line.from + Math.max(0, col - 1), line.to);
+  const rest = doc.sliceString(from, line.to);
+  const word = /^[\w$]+|^\S/.exec(rest);
+  let to = from + (word ? word[0].length : 0);
+  if (to === from && from > line.from) from -= 1;
+  if (to === from && from < doc.length) to = from + 1;
+  return { from, to: Math.min(to, doc.length) };
+}
+
+// DOC-JSON-BEGIN (tests/test_syntax_check.py runs this region in node)
+//: **Where a JSON text stops being JSON**, as an offset and a sentence.
+//:
+//: `JSON.parse` says whether, and is the fast path, but not reliably where:
+//: measured in this build of Chromium, a trailing comma before `}` throws
+//: `Unexpected token '}', ..."b": \n}" is not valid JSON` with no position at
+//: all, so the underline had nowhere to go. This walks the grammar once, only
+//: after `JSON.parse` has already failed, and stops at the first character
+//: that cannot continue it. Recursion is bounded by the text's own nesting,
+//: which the size of a document caps.
+function docJsonErrorAt(text) {
+  let i = 0;
+  const fail = (message) => {
+    throw { at: i, message };
+  };
+  const ws = () => {
+    while (i < text.length && " \t\n\r".includes(text[i])) i += 1;
+  };
+  const literal = (word) => {
+    if (text.startsWith(word, i)) i += word.length;
+    else fail("Expected a value");
+  };
+  const string = () => {
+    i += 1;
+    while (i < text.length) {
+      const ch = text[i];
+      if (ch === '"') {
+        i += 1;
+        return;
+      }
+      if (ch === "\\") {
+        i += 1;
+        if (!'"\\/bfnrtu'.includes(text[i] || "")) fail("Not a valid escape in a string");
+        if (text[i] === "u" && !/^[0-9a-fA-F]{4}$/.test(text.slice(i + 1, i + 5))) {
+          fail("A \\u escape needs four hex digits");
+        }
+      } else if (ch === "\n") fail("A string cannot run onto the next line");
+      else if (ch < " ") fail("A control character has to be escaped in a string");
+      i += 1;
+    }
+    fail("This string is never closed");
+  };
+  const number = () => {
+    const match = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?/.exec(text.slice(i, i + 400));
+    if (!match) fail("Expected a value");
+    i += match[0].length;
+  };
+  const value = () => {
+    ws();
+    const ch = text[i];
+    if (ch === "{") return object();
+    if (ch === "[") return array();
+    if (ch === '"') return string();
+    if (ch === "t") return literal("true");
+    if (ch === "f") return literal("false");
+    if (ch === "n") return literal("null");
+    if (ch === "-" || (ch >= "0" && ch <= "9")) return number();
+    return fail(i >= text.length ? "The text ends where a value was expected" : "Expected a value");
+  };
+  const object = () => {
+    i += 1;
+    ws();
+    if (text[i] === "}") {
+      i += 1;
+      return;
+    }
+    for (;;) {
+      ws();
+      if (text[i] !== '"') {
+        fail(text[i] === "}" ? "A comma with nothing after it" : "Expected a property name in double quotes");
+      }
+      string();
+      ws();
+      if (text[i] !== ":") fail("Expected a colon after the property name");
+      i += 1;
+      value();
+      ws();
+      if (text[i] === ",") {
+        i += 1;
+        continue;
+      }
+      if (text[i] === "}") {
+        i += 1;
+        return;
+      }
+      fail("Expected a comma or a closing brace");
+    }
+  };
+  const array = () => {
+    i += 1;
+    ws();
+    if (text[i] === "]") {
+      i += 1;
+      return;
+    }
+    for (;;) {
+      ws();
+      if (text[i] === "]") fail("A comma with nothing after it");
+      value();
+      ws();
+      if (text[i] === ",") {
+        i += 1;
+        continue;
+      }
+      if (text[i] === "]") {
+        i += 1;
+        return;
+      }
+      fail("Expected a comma or a closing bracket");
+    }
+  };
+  try {
+    value();
+    ws();
+    if (i < text.length) fail("There is more text after the value");
+    return null;
+  } catch (error) {
+    if (error && typeof error.at === "number") return error;
+    throw error;
+  }
+}
+
+// DOC-JSON-END
+
+//: JSON, checked in the browser: `JSON.parse` says whether, and
+//: `docJsonErrorAt` says where. If the two ever disagree the error goes on
+//: the last character of the text with the engine's own words, which is
+//: still true and still somewhere a person can find.
+function docJsonDiagnostics(doc) {
+  const text = doc.toString();
+  if (!text.trim()) return [];
+  try {
+    JSON.parse(text);
+    return [];
+  } catch (error) {
+    const found = docJsonErrorAt(text);
+    let offset = found ? found.at : text.trimEnd().length - 1;
+    offset = Math.max(0, Math.min(offset, doc.length));
+    const line = doc.lineAt(offset);
+    const range = docDiagnosticRange(doc, line.number, offset - line.from + 1);
+    const message = found ? found.message : String(error.message || "Not valid JSON");
+    return [{ ...range, severity: "error", message }];
+  }
+}
+
+//: JavaScript, TypeScript and CSS, from the parse tree. The whole document is
+//: parsed first (`ensureSyntaxTree`, with a time budget) because the tree the
+//: highlighter keeps may stop at the viewport, and an error below it would
+//: otherwise appear only when scrolled to. One diagnostic per line: a single
+//: missing bracket can leave several error nodes on one line, and five
+//: underlines for one mistake reads as five mistakes.
+function docTreeDiagnostics(CM, state) {
+  const tree =
+    CM.language.ensureSyntaxTree(state, state.doc.length, 200) || CM.language.syntaxTree(state);
+  const found = [];
+  const lines = new Set();
+  tree.iterate({
+    enter: (node) => {
+      if (!node.type.isError || found.length >= 50) return;
+      const line = state.doc.lineAt(node.from);
+      if (lines.has(line.number)) return;
+      lines.add(line.number);
+      const text = state.doc.sliceString(node.from, Math.min(node.to, node.from + 24)).trim();
+      const range = docDiagnosticRange(state.doc, line.number, node.from - line.from + 1);
+      found.push({
+        ...range,
+        severity: "error",
+        message: text ? `Unexpected “${text.split("\n")[0]}”` : "Something is missing here",
+      });
+    },
+  });
+  return found;
+}
+
+//: The server's checkers. Resolves to `[]` on any failure: an editor that
+//: underlines nothing because the check could not run is honest, one that
+//: underlines the wrong thing is not.
+async function docRemoteDiagnostics(ext, doc) {
+  const text = doc.toString();
+  if (!text.trim() || text.length > DOC_CHECK_MAX_CHARS) return [];
+  let found;
+  try {
+    const response = await api("/documents/check-syntax", {
+      method: "POST",
+      body: JSON.stringify({ language: ext, text }),
+      silent: true,
+      readOnly: true,
+    });
+    found = await response.json();
+  } catch (error) {
+    if (/no checker/.test(String(error.message))) DOC_CHECK_REMOTE.delete(ext);
+    return [];
+  }
+  return (Array.isArray(found) ? found : []).map((d) => ({
+    ...docDiagnosticRange(doc, d.line, d.col),
+    severity: ["error", "warning", "info"].includes(d.severity) ? d.severity : "error",
+    message: String(d.message || "Syntax error"),
+  }));
+}
+
+//: The one lint source, dispatching on the open file's type at the moment it
+//: runs rather than when the extension was built, so a type change between
+//: two checks is answered by the new type.
+function docCodeLintSource(CM) {
+  return async (view) => {
+    const ext = docFileType().ext;
+    if (ext === "json") return docJsonDiagnostics(view.state.doc);
+    if (DOC_CHECK_TREE.has(ext)) return docTreeDiagnostics(CM, view.state);
+    if (DOC_CHECK_REMOTE.has(ext)) return docRemoteDiagnostics(ext, view.state.doc);
+    return [];
+  };
+}
+
+//: The words each language reserves, for the languages whose grammar in the
+//: bundle brings no completions of its own. JavaScript, TypeScript, Python,
+//: CSS and HTML are absent on purpose: their CodeMirror packages already
+//: complete keywords, snippets and the names in scope at the caret, which is
+//: better than a flat list, so this adds nothing there.
+const DOC_CODE_KEYWORDS = {
+  go: "break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var nil true false append cap close copy delete len make new panic print println recover string int int64 float64 bool byte rune error",
+  rs: "as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while Some None Ok Err Vec String Option Result Box println",
+  c: "auto break case char const continue default do double else enum extern float for goto if inline int long register return short signed sizeof static struct switch typedef union unsigned void volatile while NULL include define printf malloc free",
+  cpp: "auto bool break case catch char class const constexpr continue default delete do double else enum explicit false float for friend if inline int long namespace new nullptr operator private protected public return short static struct switch template this throw true try typedef typename using virtual void while std vector string include",
+  cs: "abstract as async await base bool break case catch class const continue decimal default delegate do double else enum event false finally float for foreach get if int interface internal is lock long namespace new null object out override private protected public readonly ref return set static string struct switch this throw true try using var virtual void while",
+  java: "abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for if implements import instanceof int interface long new null package private protected public return short static super switch this throw throws true false try void while String System",
+  kt: "as break class continue do else false for fun if in interface is null object package return super this throw true try typealias val var when while companion data override private public internal open sealed suspend println",
+  rb: "alias and begin break case class def defined do else elsif end ensure false for if in module next nil not or redo rescue retry return self super then true undef unless until when while yield puts require attr_accessor",
+  swift: "associatedtype class deinit enum extension func import init inout internal let operator private protocol public static struct subscript typealias var break case continue default defer do else fallthrough for guard if in repeat return switch where while as false is nil self Self super throw throws true try print",
+  r: "if else repeat while function for in next break TRUE FALSE NULL Inf NaN NA library return print list",
+  php: "abstract and array as break callable case catch class clone const continue declare default do echo else elseif empty extends final finally fn for foreach function global if implements include instanceof interface isset list match namespace new or print private protected public readonly require return static switch throw trait try unset use var while yield true false null",
+  sql: "select from where and or not insert into values update set delete create table drop alter add column index primary key foreign references join left right inner outer on group by order having limit offset as distinct union all null is in like between case when then else end count sum avg min max",
+  bash: "if then else elif fi case esac for while until do done in function select time return exit export local readonly echo printf read cd pwd source shift set unset true false",
+  json: "true false null",
+  yaml: "true false null",
+  toml: "true false",
+};
+
+//: Keywords, then every name already written in the document, through
+//: `completeFromList`. The names are read at the moment the list is asked
+//: for, so a function defined a second ago is offered, and the word being
+//: typed is left out so the list never offers you what you have already got.
+//:
+//: **One function, kept, and it is not a style point.** The completion engine
+//: tells a source it is still waiting on from a new one by identity, and the
+//: language-data callback below runs on every transaction: returning a fresh
+//: closure each time made every keystroke a new source, the answer to the
+//: last one was thrown away as stale, and the list sat at "pending" forever
+//: (measured: `completionStatus` read "pending" 800ms after typing "hel",
+//: while the same source called by hand returned fifty options).
+let docCodeCompletionCache = null;
+
+function docCodeCompletionSource(CM) {
+  if (docCodeCompletionCache) return docCodeCompletionCache;
+  docCodeCompletionCache = (context) => {
+    const word = context.matchBefore(/[A-Za-z_$][\w$]*/);
+    if (!word || (word.from === word.to && !context.explicit)) return null;
+    const ext = docFileType().ext;
+    const keywords = (DOC_CODE_KEYWORDS[ext] || "").split(" ").filter(Boolean);
+    const seen = new Set(keywords);
+    const options = keywords.map((label) => ({ label, type: "keyword" }));
+    const text = context.state.doc.toString();
+    const names = /[A-Za-z_$][\w$]{2,}/g;
+    let match;
+    while ((match = names.exec(text)) !== null && options.length < 2000) {
+      if (match.index === word.from) continue;
+      if (seen.has(match[0])) continue;
+      seen.add(match[0]);
+      options.push({ label: match[0], type: "variable" });
+    }
+    return CM.autocomplete.completeFromList(options)(context);
+  };
+  return docCodeCompletionCache;
+}
+
+//: The language-data entry, built once for the same reason as the source.
+let docCodeCompletionDataCache = null;
+
+function docCodeCompletionData(CM) {
+  if (!docCodeCompletionDataCache) {
+    const entry = [{ autocomplete: docCodeCompletionSource(CM) }];
+    docCodeCompletionDataCache = CM.state.EditorState.languageData.of(() => entry);
+  }
+  return docCodeCompletionDataCache;
+}
+
+//: The code tools for the open document, or nothing. Whether a type counts
+//: as code is the file-type table's own answer (`previewable` is prose);
+//: plain text and CSV have no syntax and no vocabulary, so they get neither.
+function docCodeTools(CM) {
+  const type = docFileType();
+  if (type.previewable || docView === "plain" || ["txt", "csv"].includes(type.ext)) return [];
+  const native = ["js", "ts", "py", "css", "html"].includes(type.ext);
+  return [
+    CM.lint.linter(docCodeLintSource(CM), { delay: DOC_CHECK_DELAY_MS }),
+    CM.lint.lintGutter(),
+    CM.autocomplete.autocompletion({ activateOnTyping: true, maxRenderedOptions: 60 }),
+    //: Beside the language's own sources, not instead of them: `override`
+    //: would switch off the scope-aware completion the JavaScript and
+    //: Python packages bring.
+    native ? [] : docCodeCompletionData(CM),
+  ];
+}
+
+//: The file type or the view changed: the code tools follow, by compartment,
+//: so the caret, the scroll position and the undo history survive.
+function docCmSyncCodeTools() {
+  const CM = window.CM6;
+  if (!docCmView || !CM || !docCmParts.code) return;
+  docCmView.dispatch({ effects: docCmParts.code.reconfigure(docCodeTools(CM)) });
+}
+
 function docCmExtensions(CM) {
   const type = docFileType();
   docCmParts.language = new CM.state.Compartment();
@@ -15131,8 +15835,13 @@ function docCmExtensions(CM) {
   docCmParts.live = new CM.state.Compartment();
   docCmParts.spell = new CM.state.Compartment();
   docCmParts.reading = new CM.state.Compartment();
+  docCmParts.code = new CM.state.Compartment();
   if (!docFindingsEffect) docFindingsEffect = CM.state.StateEffect.define();
   return [
+    //: First, so its gutter is the leftmost: the error mark sits outside the
+    //: line numbers, where every code editor the owner compares this with
+    //: puts it.
+    docCmParts.code.of(docCodeTools(CM)),
     //: Live's decorations, off until `setDocView` turns them on. Findings are
     //: a separate plugin because they are drawn in *every* view: an underline
     //: under a misspelling is not a rendering of the markdown, it is the
@@ -15478,6 +16187,7 @@ function docCmSyncFileType() {
     effects: [
       docCmParts.language.reconfigure(docCmViewLanguage(CM)),
       docCmParts.wrap.reconfigure(type.previewable ? CM.view.EditorView.lineWrapping : []),
+      ...(docCmParts.code ? [docCmParts.code.reconfigure(docCodeTools(CM))] : []),
     ],
   });
 }
@@ -15507,6 +16217,7 @@ function docCmSyncLanguage() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.language) return;
   docCmView.dispatch({ effects: docCmParts.language.reconfigure(docCmViewLanguage(CM)) });
+  docCmSyncCodeTools();
 }
 
 //: The line-number preference, applied to the engine. `applyDocGutter` still

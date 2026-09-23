@@ -75,8 +75,19 @@ below). Versioning is `0.x` while the app stabilises.
   in them. Note boxes indent with Tab from the first keystroke after a
   restart, not only once the editor has loaded. Renaming a topic can be
   undone.
+- The note Capture box's formatting toolbar stays on one row in the desktop
+  window: the two colour pickers are an icon and a caret, and on a narrow
+  window List, Task and Preview show their icons only.
 - A missing search-by-meaning package is reported in words, with
   nomic-embed-text offered as the alternative, instead of a traceback.
+
+### Added
+
+- Code documents act like a code editor: a syntax error is underlined with a
+  mark beside its line and says what is wrong on hover (Python, TOML, XML
+  and YAML checked by the app itself, JSON, JavaScript, TypeScript and CSS in
+  the window, nothing sent anywhere), and a list of the language's keywords
+  and the names already in the file appears as you type.
 
 ### Changed
 
@@ -84,7 +95,19 @@ below). Versioning is `0.x` while the app stabilises.
   panels, one ink-blue accent and tighter spacing. Two new looks, Editorial
   paper and Technical mono, sit beside it in Appearance, and the previous
   look is kept as Classic. A look you already chose is kept.
-
+- The documents live view reads as a page: the text sits in a measure of about
+  75 characters with a margin either side, and the space between blocks comes
+  from one scale (more above a section, less under its heading, one gap
+  however many blank lines were typed).
+- Tables in the documents live view mark the cell you are editing, have the
+  rendered view's cell spacing, keep their menu clear of the last heading,
+  and a new row from Tab puts the caret where you would type. Code blocks
+  have an inset, and quotations have a visible bar in both the live and the
+  rendered view.
+- The documents live view draws more of markdown: indent guides under
+  nested lists, finished tasks struck through (in the rendered view too),
+  bare web addresses and `<address>` links as links, and a backslash escape
+  without its backslash until you are on the line.
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label
   prompt no longer deletes it; "Take the label off the line" does.

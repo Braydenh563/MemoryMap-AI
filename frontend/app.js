@@ -336,10 +336,14 @@ async function api(path, options = {}) {
   // than as an expired session. Change-password answers 401 for "that isn't
   // your current password", a typo there must show a message beside the
   // field, not throw the user out to the lock screen.
-  const { silent, timeoutMs, ownsAuthErrors, ...fetchOptions } = options;
+  // `readOnly`: a POST that writes nothing (the code checker in documents.js
+  // sends a file's text in a body because a query string cannot carry it).
+  // Without it every pause in typing a .py file would empty the read cache
+  // for the whole app, which is a write's job, not a read's.
+  const { silent, timeoutMs, ownsAuthErrors, readOnly, ...fetchOptions } = options;
   refuseStagedUrls(fetchOptions.body);
   // Any write invalidates the read cache above, see clearApiCache().
-  if (fetchOptions.method && fetchOptions.method !== "GET") clearApiCache();
+  if (!readOnly && fetchOptions.method && fetchOptions.method !== "GET") clearApiCache();
   let timer = null;
   if (timeoutMs) {
     const controller = new AbortController();
@@ -23127,6 +23131,20 @@ function enhanceSelect(select) {
   caret.className = "ph ph-caret-down select-caret";
   caret.setAttribute("aria-hidden", "true");
   opener.append(valueText, caret);
+  //: **A select whose closed face is an icon and a caret** (`data-select-icon`
+  //: on the select, a Phosphor class). For a picker that is an action rather
+  //: than a setting, whose resting text is only ever its own name ("Text
+  //: colour…"): in a toolbar that name is a word-sized box saying what the
+  //: icon beside it already says. The word stays in the opener, visually
+  //: hidden (`.select-opener-icon`), and the opener's name is the select's
+  //: aria-label below, so nothing is lost to a screen reader.
+  if (select.dataset.selectIcon) {
+    const icon = document.createElement("i");
+    icon.className = `ph ${select.dataset.selectIcon} select-icon`;
+    icon.setAttribute("aria-hidden", "true");
+    opener.prepend(icon);
+    opener.classList.add("select-opener-icon");
+  }
 
   const menu = document.createElement("div");
   menu.className = "action-menu select-menu hidden";

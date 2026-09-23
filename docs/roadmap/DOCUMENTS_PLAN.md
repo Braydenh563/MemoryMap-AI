@@ -1114,26 +1114,10 @@ compared with.
 
 **Phases, each with the gate it is finished against.**
 
-- **17a. The page and its measure.** Give the surface a real gutter and a
-  capped measure, and hold both with a probe. The first thing to establish is
-  the one this session could not: `boot()` pins the viewport at 1440, so the
-  behaviour at 1920 and 2560 is unmeasured, and whether the pane is already
-  capped or merely happened to be 794px wide at this width is the first
-  question to answer, not to assume. Gate: the line length stays inside 60 to
-  90 characters at 1280, 1440, 1920 and 2560, the gutter is equal on both
-  sides at each, and no horizontal scroll appears at any of them.
-- **17b. The vertical rhythm.** One spacing scale between a heading and the
-  text under it, between paragraphs, and around a table, a fence and a
-  quotation, taken from the design tokens rather than written per
-  decoration. Gate: every gap between blocks is a token value, proved by
-  reading the computed boxes rather than the stylesheet.
-- **17c. The blocks that carry weight.** Tables, fences and quotations are
-  the three a reader judges a document by. Each gets one considered
-  treatment rather than the minimum that made it render. INBOX 290, the
-  phantom row under a table's header row with an unpressable kebab at its
-  end, is this phase's first row and is a bug before it is a design
-  question. Gate: a table, a fence and a quotation each measured against
-  their own before and after, and 290 reproduced then fixed.
+- **17a and 17b: built 2026-09-23.** Moved to HISTORY.md ("Moved from the
+  plans, 2026-09-23"); `scratchpad/ui-sweeps/docpage17.js` is the gate.
+- **17c: built 2026-09-23.** Moved to HISTORY.md ("Moved from the plans,
+  2026-09-23"); `scratchpad/ui-sweeps/docblocks17c.js` is the gate.
 - **17d. The document's own furniture.** What tells a writer where they are:
   the title, the section they are in, how far through they are. Nothing new
   on the page; this is whether what exists is legible. Gate: a reader
@@ -1143,11 +1127,13 @@ compared with.
   291 was found. Gate: `contrast.js` clean at 390, 820 and 1440 in both, with
   its element count above zero, and `dochighlight.js` still passing.
 
-**Not verified, and to be taken first by whoever opens this.** Everything
-above is measured at 1440 in light only. The wide widths are unmeasured for
-the reason given in 17a, and the phone is untouched by this section: the
-live view on a phone is UI_MODERNISATION_PLAN Phase 11's territory and
-should not be redesigned from here.
+**Not verified, and to be taken first by whoever opens this.** 17a to 17c
+are measured at 1280, 1440, 1920 and 2560, light and dark, in the default
+look and in Classic (`scratchpad/ui-sweeps/doclooks.sh`); 17d and 17e are
+not started. The phone is untouched by this section: the live view on a
+phone is UI_MODERNISATION_PLAN Phase 11's territory and should not be
+redesigned from here, which is why 17a's page margin applies above 600
+only.
 
 ## 18. The slash menus as one system: built 2026-09-21
 
@@ -1401,3 +1387,11 @@ recommendation, each was taken).
 reminders made before the link was drawn: there is nothing to backfill from.
 A reminder written by hand in the Reminders tab never named a note, and
 guessing one from the text would invent a link the person did not make.
+
+## Placed from INBOX, 2026-09-23 (392)
+
+- **The live view's markdown rendering: built 2026-09-23.** Moved to
+  HISTORY.md ("Moved from the plans, 2026-09-23"); `doclivemd.js` is the gate.
+- **Code documents as a code editor (diagnostics, completions): built
+  2026-09-23.** Moved to HISTORY.md ("Moved from the plans, 2026-09-23");
+  `doccode.js` and `tests/test_syntax_check.py` are the gate.

@@ -36,6 +36,11 @@ below). Versioning is `0.x` while the app stabilises.
   every palette (they stayed navy in dark), the desktop loading page and the
   packaged splash wear the look too, and a new Background wash setting gives
   the flat looks a soft light across the page. Classic is second in the list.
+- A dashboard you have not arranged shows nine widgets (reminders, recent
+  notes, favourites, quick capture, documents, boards and maps, the weekly
+  digest, on this day, the heatmap) instead of all twenty-three; the rest are
+  under Widgets, and Reset returns here. Reminder times read as a day and a
+  time, and the heatmap counts notes, not boards.
 - The Back and Forward history names places ("Documents: Weekly plan",
   "Library: Documents") instead of internal ids.
 - Model pickers show the short model name and stop at 14rem, and no longer

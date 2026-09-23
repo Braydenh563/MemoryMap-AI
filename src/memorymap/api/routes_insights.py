@@ -315,6 +315,10 @@ def heatmap(session: Session = Depends(get_session)) -> dict:
     rows = session.scalars(
         select(Entry).where(
             Entry.is_deleted == False,  # noqa: E712
+            # Notes only, the one count the rest of the app shows (boards
+            # and drafts are Entry rows too: the heatmap said 77 beside 40).
+            Entry.is_draft == False,  # noqa: E712
+            Entry.is_board == False,  # noqa: E712
             Entry.created_at >= utcnow() - timedelta(days=HEATMAP_DAYS),
         )
     )

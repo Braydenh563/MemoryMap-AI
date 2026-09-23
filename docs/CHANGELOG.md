@@ -27,6 +27,9 @@ below). Versioning is `0.x` while the app stabilises.
   search under it, and the Library's cards start on the first screen: the
   header is unframed, the words-written line is left to the dashboard, and
   a card's preview is three lines.
+- On a phone toasts and the agent activity panel no longer cover the tab
+  bar (a toast also clears the floating button), and a long note shows five
+  lines in the list rather than eight.
 
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window

@@ -73,6 +73,13 @@ const TABS = [
       await page.evaluate((t) => switchTab(t), tab);
       await page.waitForTimeout(1500);
     }
+    // Two transient things that have landed on the tab bar: a toast, raised
+    // on every tab, and the agent activity panel, shown on the first.
+    await page.evaluate((first) => {
+      if (typeof toast === 'function') toast('Sweep probe: where a toast lands');
+      if (first) document.getElementById('agent-monitor')?.classList.remove('hidden');
+    }, tab === TABS[0][0]);
+    await page.waitForTimeout(300);
     const r = await page.evaluate(({ sel, W, H, MIN }) => {
       const round = (n) => Math.round(n);
       const vis = (el) => el.checkVisibility
@@ -100,7 +107,7 @@ const TABS = [
       const bands = [];
       for (const el of document.body.querySelectorAll('*')) {
         if (content.contains(el) || el.contains(content)) continue;
-        if (el.closest('.modal-overlay, .toast, .toast-container, .action-menu, [role="tooltip"], .ai-status-popup')) continue;
+        if (el.closest('.modal-overlay, .toast, .toast-container, #toast-box, #agent-monitor, .action-menu, [role="tooltip"], .ai-status-popup')) continue;
         const pos = getComputedStyle(el).position;
         const b = el.getBoundingClientRect();
         if (b.width < W * 0.5 || b.height < 16 || b.height > H * 0.6) continue;
@@ -162,8 +169,10 @@ const TABS = [
         const room = s.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
         if (cv.measureText(t).width > room + 1) clipped.push(`${name(s)} "${t.slice(0, 24)}" ${round(cv.measureText(t).width)}>${round(room)}`);
       }
+      // 3px of slack: the bell's unread dot hangs 2px over its button's corner
+      // by design (measured), and that is not a box too narrow for its text.
       const wide = [...document.querySelectorAll('.tab-page:not(.hidden) *, #top-bar *, #phone-tab-dock *')]
-        .filter((el) => vis(el) && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible' && el.clientWidth > 0)
+        .filter((el) => vis(el) && el.scrollWidth > el.clientWidth + 3 && getComputedStyle(el).overflowX === 'visible' && el.clientWidth > 0)
         .slice(0, 4).map((el) => `${name(el)} ${el.scrollWidth}>${el.clientWidth}`);
       // A row designed for touch: nothing of a row's own drawn over its text
       // at rest. Two shapes were reported on Notes at 390: the row's action
@@ -187,7 +196,22 @@ const TABS = [
           if (hit) rowFaults.push(`${name(btn)} ${btn.getAttribute('aria-label') || ''} over ${name(hit)}`);
         }
       }
+      // Nothing fixed lands on the tab bar: a toast and the agent activity
+      // panel both did (INBOX 392), and the bar is the one way between tabs.
+      const tabBar = document.getElementById('phone-tab-dock');
+      const onBar = [];
+      if (tabBar && vis(tabBar)) {
+        const t = tabBar.getBoundingClientRect();
+        for (const el of document.body.querySelectorAll('*')) {
+          if (tabBar.contains(el) || el.contains(tabBar)) continue;
+          if (el.closest('.modal-overlay, .action-menu, .select-menu, [role="tooltip"]')) continue;
+          if (getComputedStyle(el).position !== 'fixed' || !vis(el)) continue;
+          const b = el.getBoundingClientRect();
+          if (b.bottom > t.top + 1 && b.top < t.bottom && b.right > t.left && b.left < t.right) onBar.push(`${name(el)} ${round(b.top)}-${round(b.bottom)}`);
+        }
+      }
       return {
+        onBar: onBar.slice(0, 4),
         rowFaults: [...new Set(rowFaults)].slice(0, 4),
         chrome: round(total),
         bands: outer.map((a) => `${name(a.el)} ${round(a.bottom - a.top)}`),
@@ -199,6 +223,7 @@ const TABS = [
         wide,
       };
     }, { sel: contentSel, W, H, MIN });
+    await page.evaluate(() => document.getElementById('agent-monitor')?.classList.add('hidden'));
     const bad = [];
     if (r.none) bad.push('no content found for ' + contentSel);
     else {
@@ -208,6 +233,7 @@ const TABS = [
       if (r.clipped.length) bad.push('clipped: ' + r.clipped.join(', '));
       if (r.small.length) bad.push(`under ${MIN}px: ` + r.small.join(', '));
       if (r.rowFaults.length) bad.push('row at rest: ' + r.rowFaults.join(', '));
+      if (r.onBar.length) bad.push('on the tab bar: ' + r.onBar.join(', '));
       if (r.contentTop > H * MAX_CONTENT_TOP) bad.push(`content starts at y=${r.contentTop}, below ${Math.round(H * MAX_CONTENT_TOP)}`);
     }
     failures += bad.length;

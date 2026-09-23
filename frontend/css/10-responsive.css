@@ -1670,6 +1670,14 @@ header#top-bar,
     display: none;
   }
 
+  /* Five lines of a long note, not eight: at 390 eight lines of a long
+     note made a row 400px tall, one note to a screen, and the whole of it is
+     the note page one tap away. */
+  #entry-list > li .entry-content.entry-clamped {
+    -webkit-line-clamp: 5;
+    line-clamp: 5;
+  }
+
   /* The list is the page: the card that framed it on a desktop is a second
      frame inside the window's own, and cost each row 33px of its width. */
   #tab-notes #browse,
@@ -1755,6 +1763,31 @@ header#top-bar,
      lane was 42px of nothing before the opener. */
   #tab-chat .chat-toolbar {
     padding-left: var(--space-3);
+  }
+}
+
+/* **Nothing lands on the tab bar.** Measured at 390 (INBOX 392): a toast sat
+   at `bottom: status bar + 10px`, over the tab bar's captions and over the
+   floating +, and the agent activity panel, a bottom sheet here, was pinned
+   to `bottom: 0` over the whole bar, so the one way between tabs went while
+   an agent ran. Both stand on the bar now; a toast also clears the +, the
+   way a phone's snackbar rises above a floating button rather than over it,
+   and takes the width, since a 340px card in a 390px window is the width
+   anyway less a crooked gap. */
+@media (max-width: 599.98px) {
+
+  #toast-box {
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px) + var(--target-min) + var(--space-5) + var(--space-3));
+  }
+
+  #toast-box > .toast {
+    max-width: none;
+  }
+
+  .agent-monitor {
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px));
   }
 }
 

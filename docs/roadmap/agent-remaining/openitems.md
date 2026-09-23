@@ -108,3 +108,5 @@ For the orchestrator (another agent's surface, or the owner's call):
 Verified since: Ctrl+D inside the documents editor stays in the editor (a
 probe typed, selected and pressed it: tab still documents). Not verified: a real Ollama embedding
 backend's memory; Windows and macOS anything.
+
+Full suite at ed95c64: exit 0 (pytest -n 3, own basetemp; the gate's own `--full` run was killed at 64% by memory pressure from the other agents' servers, with no failure before it); `scripts/gate.sh` lints, node-check and ruff pass.

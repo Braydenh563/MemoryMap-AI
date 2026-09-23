@@ -42,6 +42,7 @@ def test_stats_leave_drafts_out_like_the_notes_list(client):
     30, or 31 notes?")."""
     _save(client, "a real note", category="Alpha")
     _save(client, "half a thought", category="Alpha", is_draft=True)
+    client.post("/whiteboard/boards", json={"name": "A board is not a note"})
 
     body = client.get("/insights/stats").json()
     assert body["total_entries"] == 1

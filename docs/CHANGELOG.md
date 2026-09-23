@@ -28,6 +28,8 @@ below). Versioning is `0.x` while the app stabilises.
 - On a mind map the bottom bar offers one Cross-link tool drawn in the map's
   own line style, instead of a generic straight and curved pair; a map
   line's label drags with the pointer and no longer starts a selection box.
+- The dashboard's note count leaves out boards and maps, as the Notes list
+  does.
 - A note's menu can show it in the graph (centred and lit) or start a chat
   about it with Atlas.
 - Links everywhere use the accent colour (plain links were the browser's own
@@ -56,6 +58,11 @@ below). Versioning is `0.x` while the app stabilises.
   nomic-embed-text offered as the alternative, instead of a traceback.
 
 ### Changed
+
+- **A new default look, Quiet utilitarian**: a warm grey ground, solid
+  panels, one ink-blue accent and tighter spacing. Two new looks, Editorial
+  paper and Technical mono, sit beside it in Appearance, and the previous
+  look is kept as Classic. A look you already chose is kept.
 
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label

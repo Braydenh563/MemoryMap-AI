@@ -232,6 +232,20 @@
   }
 }
 
+/* **A quotation in the rendered view** (DOCUMENTS_PLAN 17c). The document's
+   preview had no rule for `blockquote` at all, so a quotation was the
+   browser's default: a 40px indent, the body ink, no bar, and nothing to say
+   it was somebody else's words. It now wears what the live view draws on the
+   same lines (`.cm-md-quote` in documents.js), so the two views of one
+   document agree. A callout is a `.callout`, not a bare `blockquote`, and
+   keeps its own rule. */
+#doc-preview blockquote {
+  margin: var(--space-4) 0;
+  padding: 0 0 0 var(--space-5);
+  border-left: 3px solid color-mix(in srgb, var(--muted) 70%, transparent);
+  color: var(--muted);
+}
+
 #tab-documents.doc-wide .doc-props {
   max-width: none;
 }

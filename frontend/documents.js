@@ -3902,6 +3902,16 @@ function docTableGo(context, edits, row, col) {
   const span = table && docTableCellSpan(table, row, col);
   if (!span) return true;
   const raw = table.rows[row].cells[col];
+  //: **An empty cell takes the caret after its first space, not its last.**
+  //: A new row is written `|  |  |`, two spaces a cell, and the caret was put
+  //: after both: measured, Tab out of the last cell and "Three" typed gave
+  //: `|  Three|`, a cell that no longer matched a single other one in the
+  //: table. One space in is where a person would have typed it by hand.
+  if (!raw.trim()) {
+    const at = span.from + Math.min(1, raw.length);
+    surface.setSelectionRange(at, at);
+    return true;
+  }
   const lead = (/^[ \t]*/.exec(raw) || [""])[0].length;
   const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
   surface.setSelectionRange(span.from + lead, Math.max(span.from + lead, span.to - tail));
@@ -6809,6 +6819,13 @@ function docLivePlugin(CM) {
           sel.from <= table.to &&
           sel.to >= table.from &&
           !!view.dom.querySelector('.cm-md-table-menu [aria-expanded="true"]');
+        //: **The cell being edited is marked** (INBOX 392: "it is hard to
+        //: edit things like tables"). With the pipes hidden, the caret was the
+        //: only thing saying which cell a keystroke would land in, and a
+        //: one-pixel caret in a grid of ruled cells is easy to lose: a ring
+        //: round the cell says it at a glance, and follows Tab and Shift+Tab.
+        //: Only while the editor has focus, like every other reveal here.
+        const activeCell = inTable ? docTableCellAt(table, sel.head) : null;
         for (let r = 0; r < table.rows.length; r += 1) {
           const row = table.rows[r];
           const rule = r === table.delim && !touched(row.from, row.to);
@@ -6837,7 +6854,12 @@ function docLivePlugin(CM) {
             const span = docTableCellSpan(table, r, c);
             const align = table.aligns[c];
             const place = c < DOC_TABLE_GRID_MAX ? ` cm-md-c${c + 1}` : "";
-            const cls = (align ? `cm-md-td cm-md-td-${align}` : "cm-md-td") + place;
+            //: The header's last cell keeps room for the kebab that sits at
+            //: its end, so a long heading wraps before it rather than under it.
+            const last = r === 0 && c === row.cells.length - 1 ? " cm-md-td-last" : "";
+            const active =
+              activeCell && activeCell.row === r && activeCell.col === c ? " cm-md-td-active" : "";
+            const cls = (align ? `cm-md-td cm-md-td-${align}` : "cm-md-td") + place + last + active;
             if (span.to > span.from) {
               ranges.push(Decoration.mark({ class: cls }).range(span.from, span.to));
             } else {
@@ -14781,9 +14803,16 @@ function docCmTheme(CM) {
       //: than the punctuation, and left in the document so it can be
       //: selected, deleted and typed over like any other character.
       ".cm-md-li-mark": { color: "var(--muted)" },
+      //: **A quotation's bar has to be seen to do its job** (17c). It was
+      //: `--border`, a 10% ink that composites to 1.2:1 on the page, so a
+      //: quotation read as a paragraph set in grey. Half the muted ink is a
+      //: rule you can see without it competing with the callout's accent
+      //: bar, and the rendered view's `#doc-preview blockquote` (09-editor.css)
+      //: now draws the same bar, inset and ink, where before it drew the
+      //: browser's own 40px indent and nothing else.
       ".cm-md-quote": {
-        borderLeft: "3px solid var(--border)",
-        paddingLeft: "0.75em",
+        borderLeft: "3px solid color-mix(in srgb, var(--muted) 70%, transparent)",
+        paddingLeft: "var(--space-5)",
         color: "var(--muted)",
       },
       ".cm-md-callout": {
@@ -14791,9 +14820,14 @@ function docCmTheme(CM) {
         paddingLeft: "0.75em",
         backgroundColor: "var(--accent-soft)",
       },
+      //: The inset is the rendered `pre`'s own (`--space-5`): without it the
+      //: code's first glyph sat on the very edge of its tinted slab, 0px in,
+      //: which is how a block reads as a highlighted paragraph rather than
+      //: as a panel of code (17c).
       ".cm-md-fence": {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",
+        paddingInline: "var(--space-5)",
       },
       //: The opening and closing fence rows. Their text is hidden (INBOX
       //: 198), so a full line-height row of it is 26px of nothing at each end
@@ -14954,10 +14988,25 @@ function docCmTheme(CM) {
         //: The cell menu is positioned against this line.
         position: "relative",
       },
+      //: The rendered view's own cell inset (`.md-table td`: 0.4rem by
+      //: 0.6rem), where this was 0.05em by 0.5em and a row of words sat
+      //: against the rules above and below it (17c, measured in
+      //: `scratchpad/ui-sweeps/docblocks17c.js`).
       ".cm-md-td": {
-        padding: "0.05em 0.5em",
+        padding: "var(--space-2) var(--space-4)",
         borderRight: "1px solid var(--border)",
         borderBottom: "1px solid var(--border)",
+      },
+      //: The cell the caret is in: a ring inside the cell, so it moves no
+      //: rule and changes no column width, and a faint ground that sits
+      //: under a selection rather than hiding it.
+      ".cm-md-td-active": {
+        boxShadow: "inset 0 0 0 2px var(--accent)",
+        backgroundColor: "color-mix(in srgb, var(--accent) 6%, transparent)",
+        borderRadius: "var(--radius-sm, 6px)",
+      },
+      ".cm-md-table-head .cm-md-td-last": {
+        paddingRight: "calc(var(--space-4) + 1.75rem)",
       },
       ".cm-md-td-left": { textAlign: "left" },
       ".cm-md-td-center": { textAlign: "center" },

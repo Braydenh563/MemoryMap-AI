@@ -1116,13 +1116,8 @@ compared with.
 
 - **17a and 17b: built 2026-09-23.** Moved to HISTORY.md ("Moved from the
   plans, 2026-09-23"); `scratchpad/ui-sweeps/docpage17.js` is the gate.
-- **17c. The blocks that carry weight.** Tables, fences and quotations are
-  the three a reader judges a document by. Each gets one considered
-  treatment rather than the minimum that made it render. INBOX 290, the
-  phantom row under a table's header row with an unpressable kebab at its
-  end, is this phase's first row and is a bug before it is a design
-  question. Gate: a table, a fence and a quotation each measured against
-  their own before and after, and 290 reproduced then fixed.
+- **17c: built 2026-09-23.** Moved to HISTORY.md ("Moved from the plans,
+  2026-09-23"); `scratchpad/ui-sweeps/docblocks17c.js` is the gate.
 - **17d. The document's own furniture.** What tells a writer where they are:
   the title, the section they are in, how far through they are. Nothing new
   on the page; this is whether what exists is legible. Gate: a reader

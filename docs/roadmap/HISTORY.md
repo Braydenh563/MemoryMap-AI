@@ -62,6 +62,51 @@ face, past the gate's 90.
   tall (8, 32, 8 and six of 16), no blank line left at 25.6px, no margin
   between any two lines.
 
+### From DOCUMENTS_PLAN.md section 17: 17c, tables, fences and quotations (INBOX 392)
+
+The phase as the plan stated it:
+
+- **17c. The blocks that carry weight.** Tables, fences and quotations are
+  the three a reader judges a document by. Each gets one considered
+  treatment rather than the minimum that made it render. INBOX 290, the
+  phantom row under a table's header row with an unpressable kebab at its
+  end, is this phase's first row and is a bug before it is a design
+  question. Gate: a table, a fence and a quotation each measured against
+  their own before and after, and 290 reproduced then fixed.
+
+**Built.** Measured with `scratchpad/ui-sweeps/docblocks17c.js`, which
+reads each block in the live view and the same document's rendered view,
+then edits a table by click, Tab and Shift+Tab.
+
+- INBOX 290 first, as the phase asked: reproduced against this head with
+  `doctable290.js` and it did not come back (all pass: no band under the
+  header, the table 0px taller focused, the kebab mounted at 28x28 and
+  opening its ten commands). It was fixed on 2026-09-21 (HISTORY, "INBOX
+  resolved", 290) and stays fixed after the changes below.
+- Tables. Tab and Shift+Tab already walked the cells in the live view
+  (`docTableTab`) and Tab in the last cell already added a row; what was
+  missing was being able to see where you were. The cell the caret is in
+  now carries `cm-md-td-active`: a 2px accent ring inside the cell (so no
+  rule moves and no column narrows) and a 6% accent ground, only while the
+  editor has focus, and it follows Tab. The cells take the rendered view's
+  inset, `--space-2` by `--space-4` where they had 0.8px by 8px (row 28.2px
+  to 39.4px). The header's last cell reserves the kebab's width so a long
+  heading wraps before the menu rather than under it (text now ends 46.8px
+  short of the menu). And the caret in a new, empty cell goes one space in:
+  before, Tab out of the last cell and a typed word gave `|  Three|`; now
+  `| Three |`.
+- Fences. The code's first glyph sat 0px from the edge of its tinted slab;
+  it now sits 12.8px in (`--space-5`, the rendered `pre`'s own inset).
+- Quotations. The live view's bar was `--border`, which composites to about
+  1.2:1 on the page, and the rendered view had no rule for `blockquote` at
+  all (the browser's 40px indent, body ink, no bar). Both now draw one
+  treatment: a 3px bar at 70% of the muted ink, a `--space-5` inset, muted
+  text. Measured bar contrast 4.6:1 in light and 4.6:1 in dark, against
+  WCAG 1.4.11's 3:1 for a graphic.
+- `doctable.js`'s "a short row is one line high" allowance moved from 5px to
+  16px of chrome with the reason written beside it (the new inset is 12.8px
+  of it); all 24 of its checks pass.
+
 ## Moved from the plans, 2026-09-21
 
 ### From WORLD_CLASS_PLAN.md section 21: every failure names its way out (INBOX 272 part 1)

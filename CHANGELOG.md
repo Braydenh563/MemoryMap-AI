@@ -43,6 +43,11 @@ below). Versioning is `0.x` while the app stabilises.
   75 characters with a margin either side, and the space between blocks comes
   from one scale (more above a section, less under its heading, one gap
   however many blank lines were typed).
+- Tables in the documents live view mark the cell you are editing, have the
+  rendered view's cell spacing, keep their menu clear of the last heading,
+  and a new row from Tab puts the caret where you would type. Code blocks
+  have an inset, and quotations have a visible bar in both the live and the
+  rendered view.
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label
   prompt no longer deletes it; "Take the label off the line" does.

@@ -122,7 +122,10 @@ def test_a_drag_snaps_the_movement_not_the_position() -> None:
     where my mouse was on the object". Rounding the absolute position moves an
     off-grid item up to half a cell the instant the drag starts, and it stays
     that far from the cursor; rounding the delta keeps the grab point."""
-    assert WB.count("d.x = d._dragOriginX + wbSnap(d._rawX - d._dragOriginX, bypassSnap);") == 2
+    # The delta is snapped, not the position; Shift may zero one axis of it
+    # (the one-axis drag, `wbAxisLock`), which is still a delta.
+    assert WB.count('d.x = d._dragOriginX + (lock === "y" ? 0 : wbSnap(d._rawX - d._dragOriginX, bypassSnap));') == 2
+    assert WB.count('d.y = d._dragOriginY + (lock === "x" ? 0 : wbSnap(d._rawY - d._dragOriginY, bypassSnap));') == 2
 
 
 def test_the_board_owns_undo_while_it_is_open() -> None:

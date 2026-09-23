@@ -17711,7 +17711,9 @@ async function openWhiteboardBoard(boardId) {
   //: their own identity this way (`doc:{id}`, `focus:{id}`, `conv:{id}`); this
   //: is the same key for the same reason.
   if (typeof recordTabVisit === "function") {
-    recordTabVisit("library", boardId ? `board:${boardId}` : "library-view-whiteboard");
+    //: `mapBoardById` (app.js) is the one board index every surface shares.
+    const boardTitle = boardId ? mapBoardById(boardId)?.title : "";
+    recordTabVisit("library", boardId ? `board:${boardId}` : "library-view-whiteboard", boardTitle || "");
   }
 }
 

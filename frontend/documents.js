@@ -877,7 +877,7 @@ async function openDocument(id) {
   // recorded here (not at each of openDocument's several call sites) so
   // none of them has to remember to, same reasoning openConversation's own
   // comment gives for doing it there instead of at ITS call sites.
-  recordTabVisit("documents", `doc:${doc.id}`);
+  recordTabVisit("documents", `doc:${doc.id}`, doc.title || "Untitled document");
   currentDoc = doc;
   $("doc-title").disabled = false;
   docBoxEl().disabled = false;

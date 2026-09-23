@@ -36,6 +36,8 @@ below). Versioning is `0.x` while the app stabilises.
   every palette (they stayed navy in dark), the desktop loading page and the
   packaged splash wear the look too, and a new Background wash setting gives
   the flat looks a soft light across the page. Classic is second in the list.
+- The Back and Forward history names places ("Documents: Weekly plan",
+  "Library: Documents") instead of internal ids.
 - Model pickers show the short model name and stop at 14rem, and no longer
   call an installed model "not installed".
 - Theme and palette cards in Appearance keep their text inside the card and

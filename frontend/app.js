@@ -28881,6 +28881,8 @@ function tabLabel(name) {
   // Not a real tab-page, see stepTabHistory's own "settings" branch, so
   // there is no `#tab-bar` button to read a label from.
   if (name === "settings") return "Settings";
+  //: The document editor is a page, not a tab, so it has no button either.
+  if (name === "documents") return "Documents";
   const button = document.querySelector(`#tab-bar button[data-tab="${name}"]`);
   return button?.textContent?.trim() || name;
 }
@@ -28895,9 +28897,19 @@ function entryLabel(entry) {
   // no good short label to build; naming the tab is honest instead of
   // printing the raw id.
   if (entry.tab === "chat") return tab;
-  const button = document.querySelector(`[data-section="${entry.section}"]`);
-  const section = button?.textContent?.trim() || entry.section;
-  return `${tab} → ${section}`;
+  //: A document, board or focus is named by what it is, never by its id
+  //: (owner's screenshot: "documents → doc:4", "Library → library-view-docs").
+  const named = historyTitles.get(entry.section);
+  if (named) return `${tab}: ${named}`;
+  if (/^(doc|board|focus|conv):/.test(entry.section)) {
+    const kind = entry.section.split(":")[0];
+    return `${tab}: ${{ doc: "a document", board: "a board", focus: "a note", conv: "a chat" }[kind]}`;
+  }
+  const button = document.querySelector(
+    `[data-section="${entry.section}"], [data-target="${entry.section}"], [aria-controls="${entry.section}"]`
+  );
+  const section = button?.textContent?.trim().replace(/\s+/g, " ");
+  return section ? `${tab}: ${section}` : tab;
 }
 
 // One history entry. `section` is the sub-tab within a tab, when that tab has
@@ -28905,7 +28917,13 @@ function entryLabel(entry) {
 // navigation between sub tabs as well." Notes has four (browse / capture /
 // writing-room / ask) and moving between them is as much a navigation as
 // moving between tabs, so Back should undo it.
-function recordTabVisit(name, section = null) {
+//: The human name of a history step that is a thing rather than a sub-tab
+//: (a document, a board), recorded by whoever opens it, so the Back menu can
+//: say "Documents: Weekly plan" instead of "documents → doc:4".
+const historyTitles = new Map();
+
+function recordTabVisit(name, section = null, title = "") {
+  if (section && title) historyTitles.set(section, String(title).trim());
   // A back/forward press is a move *through* history, not a new entry.
   if (tabHistory.navigating) return;
   const current = tabHistory.stack[tabHistory.index];

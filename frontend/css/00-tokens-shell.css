@@ -596,6 +596,13 @@ select optgroup {
   --radius-lg: calc(var(--radius) * 0.8);
   /* cards, dialogs */
   --radius-pill: 999px;
+  /* The segmented-control table (DESIGN.md, "Segmented controls"): a choice
+     control's track, and a sub-tab strip's. Named because five track radii
+     had grown with none written down; `tests/test_ui_recipes.py` holds every
+     track to these two, the pill in the chat dock, the bar's own corner in a
+     `.dock`, and 0 for the one full-bleed strip. */
+  --radius-choice: calc(var(--radius) * 0.5 + var(--radius-md));
+  --radius-strip: var(--radius-lg);
 
   /* --- aliases for a second set of token names (audit of §40) ---------------
      Twenty-three declarations across the newer components reached for names

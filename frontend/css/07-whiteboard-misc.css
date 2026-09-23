@@ -1881,7 +1881,7 @@ body.has-agent-monitor #tab-library .library-view-section {
   margin: 0 0 var(--space-4);
   background: var(--card);
   backdrop-filter: blur(16px);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-strip);
   padding: var(--space-1);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
@@ -7417,7 +7417,10 @@ button.connection-row {
   gap: var(--space-1);
   padding: var(--space-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  /* A tab strip, so the radius table's strip row (DESIGN.md, "Segmented
+     controls"): it was the one track in the app on the bar corner while
+     standing in no bar. */
+  border-radius: var(--radius-strip);
   background: var(--inner);
 }
 

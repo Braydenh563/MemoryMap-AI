@@ -9,6 +9,51 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-23
 
+### From OPEN.md, 2026-09-23 (askcite agent): the segmented-control radius table
+
+- **`.segmented-control` is only conformed where it was reported, and the
+  problem is bigger than this row said.** INBOX 192's fix is scoped to
+  `#doc-ai-verb` in `09-editor.css`; the base rule is in
+  `03-dashboard-widgets.css`. **Re-measured 2026-09-21** across all seven
+  tabs, reading the computed track radius of every `.seg` and every
+  `.segmented-control` in the app: there are **five different track radii**,
+  not two. 15.4px on twelve of them (`#doc-ai-verb`, `#doc-view-seg`,
+  `#doc-history-filter`, `#note-picker-sources`, `#wb-prop-align`,
+  `#ocr-zoom`, `#ocr-view`, `#theme-seg`, `#fontsize-seg`, `#font-seg`,
+  `#density-seg`, `#border-style-seg`); 11.2px on the two sub-tab strips
+  (`#notes-subtabs`, `#library-subtabs`); 8.4px on nine toolbar toggles
+  (`#notes-view-toggle`, `#timeline-view-seg`, `#reminder-view-toggle`,
+  `#library-view`, `#library-boards-view`, `#library-media-view`,
+  `#contents-mode`, `#log-view-toggle`, `#graph-layout`); 999px on the two
+  chat pills (`.seg-compact` `#chat-skill`, `#chat-mode-seg`); and 0px on
+  `#doc-sidebar-tabs`.
+  **The recommendation, which the next session should take rather than
+  remake** (standing order 3): three of those five are probably deliberate
+  families and none of them is written down, so the fix is not one rule but
+  one table. Name the three in DESIGN.md (choice control 15.4px, sub-tab
+  strip 11.2px, pill 999px), fold the 8.4px toolbar toggles into the choice
+  control since nothing distinguishes them from it, decide `#doc-sidebar-tabs`
+  on its own (a full-bleed strip has a reason to be square), and add the lint
+  in the same commit so a sixth radius cannot appear. Doing only what this row
+  originally asked, moving `#doc-ai-verb`'s rule into the base file, would
+  conform one of the nine and leave the other eight.
+  [documents-phases.md]
+
+  **Built 2026-09-23.** `--radius-choice` and `--radius-strip` in
+  00-tokens-shell.css, the table in DESIGN.md ("Segmented controls"), and
+  `test_a_segmented_track_is_rounded_by_the_table` in
+  `tests/test_ui_recipes.py`, which fails any rule that rounds a track off
+  it. One part of the recommendation was not taken, for a measured reason:
+  the toolbar toggles were *not* folded into the choice row, because every
+  one of them stands in a `.dock` whose buttons are `--radius-md`, and the
+  one-corner-per-row rule in 08-consistency.css exists to stop exactly a
+  15.4px well beside 8.4px buttons; the table names that row instead. The
+  sweep found a sixth track the row had not listed, the OCR rail's
+  `#ocr-rail-switch`, on the bar corner in no bar; it is on the strip row
+  now. `scratchpad/ui-sweeps/segradius.js`: 12 off-table before (against the
+  table as first drafted), 0 after; 28 tracks in five named rows (choice 11,
+  bar 10, strip 4, pill 2, full-bleed 1).
+
 ### From DOCUMENTS_PLAN.md: code documents as a code editor, part two (pairs, Enter, Format, quick fixes)
 
 The owner, verbatim: "on the code document types as well, can you add the

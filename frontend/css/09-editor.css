@@ -767,8 +767,8 @@
    Four numbers, no new colours: the selected segment stays `--accent-surface`
    behind `--on-accent`, which is the line DESIGN.md settles for both forms. */
 #doc-ai-verb {
-  /* `.seg`'s own radius line, from 04-chat-dock-appearance.css. */
-  border-radius: calc(var(--radius) * 0.5 + var(--radius-md));
+  /* The choice control's row of the radius table (DESIGN.md). */
+  border-radius: var(--radius-choice);
   /* **A grid, so the three verbs are one width.** As a flex row they measured
      73.4 / 82.7 / 101.2px, and `flex: 1 1 0` cannot equalise them: the track
      is content-width by an earlier decision, so every segment sits clamped at

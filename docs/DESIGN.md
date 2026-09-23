@@ -578,6 +578,26 @@ already that, and the Graph's layout/colour pickers plus the chat dock's
 mode switch were the three drawn as cards, now conformed, not given a
 third recipe.
 
+**A segmented track's corner comes from this table and nowhere else.**
+Measured 2026-09-21 and 2026-09-23 (`scratchpad/ui-sweeps/segradius.js`):
+five track radii, none written down, so every new toggle picked the nearest
+token. `tests/test_ui_recipes.py` (`test_a_segmented_track_is_rounded_by_the_table`)
+fails a rule that rounds a track any other way.
+
+| Where the control stands | Track radius | At the default 14px |
+| --- | --- | --- |
+| A choice control on its own: a form, a card, a popup, the document view and history toggles, the assistant's verbs | `--radius-choice` | 15.4px |
+| A tab strip (`#notes-subtabs`, `#library-subtabs`, the OCR rail's `#ocr-rail-switch`; the tab bar is on the same token) | `--radius-strip` | 11.2px |
+| Inside a `.dock` bar: the bar's corner, which its buttons already use | `--radius-md` | 8.4px |
+| Inside the chat dock, where every control is a pill | `--radius-pill` | 999px |
+| The one full-bleed strip, `#doc-sidebar-tabs` | `0` | 0 |
+
+The third row is the one-corner-per-row rule (08-consistency.css): a 15.4px
+well beside 8.4px buttons in the same bar was two radii in one strip, which
+is what that rule was written to remove. So the toolbar toggles keep the
+bar's corner rather than folding into the choice row, and the chat dock's
+pills are the same rule in a row of pills.
+
 **A choice control's selected segment is `--accent-surface` behind
 `--on-accent`, with no shadow, whichever of the two forms it is.** The
 radio-backed form (`.segmented-control`: `#doc-ai-verb`, `#graph-layout`) is

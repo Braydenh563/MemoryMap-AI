@@ -778,33 +778,6 @@ being written by running agents stay beside this one.
   list, 312 buttons, 70 rows, 0 mixed, and it finds the `.name-nudge` row
   against the stylesheet before this change. [popup-redesigns.md,
   logs-cards-links.md]
-- **`.segmented-control` is only conformed where it was reported, and the
-  problem is bigger than this row said.** INBOX 192's fix is scoped to
-  `#doc-ai-verb` in `09-editor.css`; the base rule is in
-  `03-dashboard-widgets.css`. **Re-measured 2026-09-21** across all seven
-  tabs, reading the computed track radius of every `.seg` and every
-  `.segmented-control` in the app: there are **five different track radii**,
-  not two. 15.4px on twelve of them (`#doc-ai-verb`, `#doc-view-seg`,
-  `#doc-history-filter`, `#note-picker-sources`, `#wb-prop-align`,
-  `#ocr-zoom`, `#ocr-view`, `#theme-seg`, `#fontsize-seg`, `#font-seg`,
-  `#density-seg`, `#border-style-seg`); 11.2px on the two sub-tab strips
-  (`#notes-subtabs`, `#library-subtabs`); 8.4px on nine toolbar toggles
-  (`#notes-view-toggle`, `#timeline-view-seg`, `#reminder-view-toggle`,
-  `#library-view`, `#library-boards-view`, `#library-media-view`,
-  `#contents-mode`, `#log-view-toggle`, `#graph-layout`); 999px on the two
-  chat pills (`.seg-compact` `#chat-skill`, `#chat-mode-seg`); and 0px on
-  `#doc-sidebar-tabs`.
-  **The recommendation, which the next session should take rather than
-  remake** (standing order 3): three of those five are probably deliberate
-  families and none of them is written down, so the fix is not one rule but
-  one table. Name the three in DESIGN.md (choice control 15.4px, sub-tab
-  strip 11.2px, pill 999px), fold the 8.4px toolbar toggles into the choice
-  control since nothing distinguishes them from it, decide `#doc-sidebar-tabs`
-  on its own (a full-bleed strip has a reason to be square), and add the lint
-  in the same commit so a sixth radius cannot appear. Doing only what this row
-  originally asked, moving `#doc-ai-verb`'s rule into the base file, would
-  conform one of the nine and leave the other eight.
-  [documents-phases.md]
 - **`#doc-ai-verb` and `#graph-layout` still differ in segment radius** (6px
   against 4.2px) because `--radius-inner` resolves differently under the graph
   toolbar. Small, and not chased. [visual-c.md]

@@ -34,6 +34,14 @@ with its owner named in the entry.
 
 ## Open items
 
+396. **The owner, 2026-09-23 night, verbatim, with two whiteboard
+    screenshots.** "on the whiteboard, when Im selected on a textbox I cant
+    open the meatball button dropdown menu in the popup tools. also the
+    arrange topbar dropdown menu is very and overly short in height for how
+    many items it contains" The screenshot shows Arrange open at about 230px
+    tall with a scrollbar, two rows visible. Placed with the map agent,
+    beside INBOX 317 (the same bar's kebab placement).
+
 394. **The owner, 2026-09-23 night, verbatim, with screenshots of the Ask
     tab, the map's radial menu, the dashboard, a connection pill, the Write
     tab's action chips, the dashboard's Jump to and Run a skill rows, the

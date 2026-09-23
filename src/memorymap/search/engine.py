@@ -47,7 +47,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import event, or_, select, text
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, Reminder
 from memorymap.search import index as search_index
 from memorymap.search import query as query_understanding
 from memorymap.search import search_manager
@@ -143,6 +143,8 @@ class _Matrix:
     ids: list[int]
     rows: np.ndarray
     position: dict[int, int]
+    #: Rows forgotten in place (zeroed, id -1) and not yet compacted away.
+    dead: int = 0
 
     def top_k(self, vector: np.ndarray, k: int, exclude: int | None = None) -> list[tuple[int, float]]:
         if not self.ids:
@@ -156,9 +158,18 @@ class _Matrix:
         # `argpartition` rather than a full sort: at 50k vectors the sort is
         # most of the cost of the whole call, and only the top k is wanted.
         take = min(k + (1 if exclude is not None else 0), len(self.ids))
+        # Widened by the dead rows, and the dead rows dropped: a zeroed row
+        # scores 0, which outranks every negative cosine, so with few live
+        # vectors pointing away from the query `top_k` used to hand back the
+        # id -1 as an answer.
+        take = min(take + self.dead, len(self.ids))
         best = np.argpartition(-scores, take - 1)[:take]
         ordered = best[np.argsort(-scores[best])]
-        out = [(self.ids[i], float(scores[i])) for i in ordered if self.ids[i] != exclude]
+        out = [
+            (self.ids[i], float(scores[i]))
+            for i in ordered
+            if self.ids[i] != exclude and self.ids[i] >= 0
+        ]
         return out[:k]
 
     def scores_for(self, vector: np.ndarray, wanted: list[int]) -> dict[int, float]:
@@ -362,10 +373,33 @@ def _forget(entry_id: int) -> None:
         return
     # The row is zeroed rather than removed: deleting from the middle of the
     # array would renumber every position after it. A zero row scores zero
-    # against every query, which is exactly "not a match", and the next
-    # `warm_vectors` on a fresh process rebuilds without it.
+    # against every query, and `top_k` skips it by its id.
     _matrix.rows[position] = 0.0
     _matrix.ids[position] = -1
+    _matrix.dead += 1
+    # **Compacted once the dead rows are a quarter of the array** (the
+    # `search-matrix-compaction` row: "counted rather than guessed"). Before,
+    # a dead row stayed for the life of the process, so a long session of
+    # deleting and privatising carried all of it in memory and in every
+    # `top_k` scan. A quarter because the rebuild is one copy of the live
+    # rows, O(n), so paying it after n/4 forgets costs at most four row
+    # copies per forget, amortised; the floor keeps a small notebook from
+    # rebuilding on every second delete.
+    if _matrix.dead >= max(COMPACT_MIN_DEAD, len(_matrix.ids) // 4):
+        _compact(_matrix)
+
+
+#: The fewest dead rows worth a rebuild, whatever the fraction says.
+COMPACT_MIN_DEAD = 8
+
+
+def _compact(matrix: _Matrix) -> None:
+    """Rebuild the matrix without its dead rows, in place."""
+    keep = [position for position, entry_id in enumerate(matrix.ids) if entry_id >= 0]
+    matrix.rows = matrix.rows[keep] if keep else matrix.rows[:0]
+    matrix.ids = [matrix.ids[position] for position in keep]
+    matrix.position = {entry_id: n for n, entry_id in enumerate(matrix.ids)}
+    matrix.dead = 0
 
 
 # --- the search ---------------------------------------------------------------
@@ -668,6 +702,76 @@ def _has_attachment_ids(session: Session, entry_ids: list[int]) -> set[int]:
     )
 
 
+#: What each `has:` word is answered from (the decision the retrieval brief
+#: left open: "decide each one's source ... and answer them over the
+#: candidates, never with a join on every save"). `file` and `image` read the
+#: attachment table, `link` a connection either way round, `reminder` a
+#: reminder pointing at the note. A word not in this table matches nothing,
+#: which is what an unknown `is:` does too: a filter nobody can satisfy must
+#: not silently become no filter.
+HAS_WORDS = ("file", "image", "link", "reminder")
+
+#: Extensions a `/media/...` upload or an attachment name is a picture by,
+#: for a row whose mime was never recorded.
+_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".heic", ".avif")
+
+
+def _has_ids(session: Session, want: str, entry_ids: list[int]) -> set[int]:
+    """Which of these notes carry `want`. One query per word, candidates only."""
+    if not entry_ids:
+        return set()
+    if want == "file":
+        return _has_attachment_ids(session, entry_ids)
+    if want == "image":
+        rows = session.execute(
+            select(Attachment.entry_id, Attachment.mime, Attachment.filename).where(
+                Attachment.entry_id.in_(entry_ids)
+            )
+        )
+        return {
+            entry_id
+            for entry_id, mime, name in rows
+            if str(mime or "").startswith("image/")
+            or str(name or "").lower().endswith(_IMAGE_SUFFIXES)
+        }
+    if want == "link":
+        rows = session.execute(
+            select(EntryLink.source_entry_id, EntryLink.target_entry_id).where(
+                or_(
+                    EntryLink.source_entry_id.in_(entry_ids),
+                    EntryLink.target_entry_id.in_(entry_ids),
+                )
+            )
+        )
+        wanted = set(entry_ids)
+        return {end for pair in rows for end in pair if end in wanted}
+    if want == "reminder":
+        return set(
+            session.scalars(select(Reminder.entry_id).where(Reminder.entry_id.in_(entry_ids)))
+        )
+    return set()
+
+
+def _row_has(row, want: str, carriers: dict[str, set[int]]) -> bool:  # noqa: ANN001
+    """Does one index row satisfy one `has:` word."""
+    kind = row["kind"]
+    if want == "file":
+        return kind == "file" or row["ref_id"] in carriers["file"]
+    if want == "image":
+        # A picture written into the text counts wherever the text is: a
+        # note, a board or a document. `![` is the markdown for one.
+        if "![" in (row["body"] or ""):
+            return True
+        if kind == "file":
+            return str(row["title"] or "").lower().endswith(_IMAGE_SUFFIXES)
+        return row["ref_id"] in carriers["image"]
+    if want == "reminder":
+        return kind == "reminder" or row["ref_id"] in carriers["reminder"]
+    if want in carriers:
+        return row["ref_id"] in carriers[want]
+    return want in (row["flags"] or "").split()
+
+
 def search(
     session: Session,
     q: str,
@@ -738,18 +842,8 @@ def search(
         rows = [row for row in rows if all(flag in (row["flags"] or "").split() for flag in wanted_is)]
     if wanted_has:
         note_ids = [row["ref_id"] for row in rows if row["kind"] in search_index.ENTRY_KINDS]
-        with_file = _has_attachment_ids(session, note_ids) if "file" in wanted_has else set()
-        kept = []
-        for row in rows:
-            ok = True
-            for want in wanted_has:
-                if want == "file":
-                    ok = ok and (row["kind"] == "file" or row["ref_id"] in with_file)
-                else:
-                    ok = ok and want in (row["flags"] or "").split()
-            if ok:
-                kept.append(row)
-        rows = kept
+        carriers = {want: _has_ids(session, want, note_ids) for want in HAS_WORDS if want in wanted_has}
+        rows = [row for row in rows if all(_row_has(row, want, carriers) for want in wanted_has)]
     wanted_tags = [tag.lower() for tag in asked.filters["tag"]]
     if wanted_tags:
         # Substring rather than word equality: the tags column is a space-
@@ -913,7 +1007,10 @@ def stats(session: Session) -> dict:
     matrix = _live_matrix(session)
     return {
         "index": index_counts(session),
-        "vectors": len(matrix.ids) if matrix else 0,
+        "vectors": (len(matrix.ids) - matrix.dead) if matrix else 0,
         "vectors_warm": matrix is not None,
         "weights": dict(WEIGHTS),
+        #: `{at, rows}` from the last full rebuild in this process, or None.
+        #: Beside `index` so a drift is readable: rows now against rows then.
+        "last_rebuild": search_index.last_rebuild(),
     }

@@ -4952,8 +4952,11 @@
                 <li><span>Pan sideways</span><kbd>Shift + wheel</kbd></li>
                 <li><span>Zoom</span><kbd>Ctrl+wheel · pinch</kbd></li>
                 <li><span>Pan (any tool)</span><kbd>Space + drag</kbd></li>
+                <li><span>Zoom in · out</span><kbd>Ctrl+= · Ctrl+-</kbd></li>
+                <li><span>100% · fit everything</span><kbd>Ctrl+0 · Shift+1</kbd></li>
                 <li><span>Overview · Find</span><kbd>Shift+N · Ctrl+F</kbd></li>
-                <li><span>Back to Select</span><kbd>Esc</kbd></li>
+                <li><span>Cancel a drag · back to Select</span><kbd>Esc</kbd></li>
+                <li><span>Text box · canvas menu</span><kbd>double-click · right-click</kbd></li>
               </ul>
             </section>
             <section>
@@ -4975,16 +4978,23 @@
                 <li><span>Walk the tree</span><kbd>arrow keys</kbd></li>
                 <li><span>Rename a topic</span><kbd>F2 · double-click</kbd></li>
                 <li><span>Delete the subtree</span><kbd>Delete</kbd></li>
-                <li><span>Fold a branch</span><kbd>the chevron on it</kbd></li>
+                <li><span>Fold a branch</span><kbd>C · the chevron on it</kbd></li>
+                <li><span>Label a line</span><kbd>double-click it</kbd></li>
+                <li><span>Straighten a line</span><kbd>double-click its grip</kbd></li>
                 <li><span>Focus here · show all again</span><kbd>F</kbd></li>
               </ul>
               <h4>Selection</h4>
               <ul>
-                <li><span>Duplicate</span><kbd>Ctrl + D</kbd></li>
+                <li><span>Duplicate · copy as you drag</span><kbd>Ctrl + D · Alt + drag</kbd></li>
+                <li><span>Copy · paste at the pointer</span><kbd>Ctrl + C · V</kbd></li>
+                <li><span>Nudge · further</span><kbd>arrows · Shift + arrows</kbd></li>
+                <li><span>Keep to one axis</span><kbd>Shift + drag</kbd></li>
+                <li><span>Keep proportions · fit the text</span><kbd>Shift + corner · double-click it</kbd></li>
+                <li><span>Group · ungroup</span><kbd>Ctrl + G · Ctrl + Shift + G</kbd></li>
                 <li><span>Back · Forward</span><kbd>[ · ]</kbd></li>
                 <li><span>Copy · paste style</span><kbd>Ctrl+Alt+C · V</kbd></li>
                 <li><span>Add to selection</span><kbd>Shift + click</kbd></li>
-                <li><span>Rotate</span><kbd>handle above it</kbd></li>
+                <li><span>Rotate · upright again</span><kbd>handle above it · double-click it</kbd></li>
               </ul>
             </section>
           </div>
@@ -5094,8 +5104,11 @@
         <div class="wb-board-menu-wrap">
           <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="How the board looks and which panels are open" aria-haspopup="true" aria-expanded="false" aria-controls="wb-view-menu"><i class="ph ph-eye wb-menu-icon" aria-hidden="true"></i><span class="wb-menu-label">View</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
           <div id="wb-view-menu" class="wb-board-menu hidden" role="menu" aria-label="View">
-            <div class="wb-menu-section">
-              <span class="wb-panel-group-label">Look</span>
+            <!-- Groups are told apart by a hairline, not a printed heading
+                 (DESIGN.md, the recipe index: a heading over every group is
+                 what made this menu so tall). Each group keeps its name for
+                 a screen reader as `aria-label`. -->
+            <div class="wb-menu-section" role="group" aria-label="Look">
               <div class="wb-menu-row">
                 <span>Background</span>
                 <span class="wb-menu-controls">
@@ -5118,13 +5131,11 @@
                 <input type="checkbox" id="wb-snap-toggle">
               </label>
             </div>
-            <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
             <!-- Map views (MINDMAP_PLAN.md §5 items 19 and 20). Both rows
                  are hidden on an ordinary whiteboard by `wbSyncMapChrome`,
                  the same rule the top bar's map controls follow: a control
                  that can never apply here is not one worth reading past. -->
-            <div class="wb-menu-section">
-              <span class="wb-panel-group-label">Map</span>
+            <div class="wb-menu-section" id="wb-view-map-section" role="group" aria-label="Map" hidden>
               <div class="wb-menu-row" hidden>
                 <span>Colour by</span>
                 <select id="wb-map-perspective" class="ghost small" aria-label="What a node's colour means" title="What a node's colour means">
@@ -5144,25 +5155,27 @@
               <button type="button" class="wb-menu-item" id="wb-map-expand-all" hidden><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Open every folded branch</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-stats-item" hidden><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i><span>What this map is made of</span></button>
             </div>
-            <div class="wb-menu-section">
-              <span class="wb-panel-group-label">Panels</span>
+            <div class="wb-menu-section" role="group" aria-label="Panels">
               <label class="wb-menu-row wb-snap-label" title="Show the context bar above the selection, and above the rail while a drawing tool is held"><span>Context bar</span><input type="checkbox" id="wb-panel-props" checked></label>
               <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
               <label class="wb-menu-row wb-snap-label" title="The note library"><span>Library</span><input type="checkbox" id="wb-panel-library"></label>
               <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span>Search</span><input type="checkbox" id="wb-panel-search"></label>
-            </div>
-            <div class="wb-menu-section">
-              <span class="wb-panel-group-label">Zoom</span>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-in"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span>Zoom in</span><kbd>Ctrl + wheel</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-out"><i class="ph ph-minus ph-lead" aria-hidden="true"></i><span>Zoom out</span></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-fit"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Fit everything</span></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-fullscreen"><i class="ph ph-arrows-out ph-lead" aria-hidden="true"></i><span>Full screen</span><kbd>Esc leaves</kbd></button>
               <div class="wb-menu-row">
                 <span>Toolbar</span>
                 <button id="wb-dock-toggle" class="ghost small" type="button" title="Dock as a sidebar" aria-label="Dock as a sidebar"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Bottom</button>
               </div>
             </div>
+            <!-- Zoom in and Zoom out are the zoom bar's two buttons already,
+                 one click away at the foot of the canvas, so they are not
+                 here a second time; what the bar has no button for (100%)
+                 and what is worth its key (Shift+1, Ctrl+0) is. -->
+            <div class="wb-menu-section" role="group" aria-label="Zoom">
+              <button type="button" class="wb-menu-item" data-wb-click="wb-zoom-fit"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Fit everything</span><kbd>Shift+1</kbd></button>
+              <button type="button" class="wb-menu-item" id="wb-zoom-actual"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i><span>Zoom to 100%</span><kbd>Ctrl+0</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-click="wb-fullscreen"><i class="ph ph-arrows-out ph-lead" aria-hidden="true"></i><span>Full screen</span><kbd>Esc leaves</kbd></button>
+            </div>
           </div>
+          <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
         </div>
         <div class="wb-board-menu-wrap">
           <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="Export, clear, help" aria-haspopup="true" aria-expanded="false" aria-controls="wb-board-menu"><i class="ph ph-squares-four wb-menu-icon" aria-hidden="true"></i><span class="wb-menu-label">Board</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
@@ -5361,7 +5374,14 @@
             The strip under the bar is how the topic and its line look: bold,
             core idea, size, colour, icon, shape and the line's own weight.
             Right-click a line for what only a line has: reverse it, label it,
-            cut it.
+            cut it. Double-click a line to label it, and its grip to
+            straighten it.
+          </p>
+          <p>
+            The canvas itself: double-click it for a new trunk, right-click
+            it for the map's own menu. Escape takes back a drag you have not
+            let go of yet; Shift+1 fits the whole map and Ctrl+0 shows it at
+            100%.
           </p>
           <p>
             This rail is the map itself: a new trunk, focus on one branch, the
@@ -7273,10 +7293,14 @@
                 <select id="utility-model-select" aria-label="Model used for background jobs" title="Model used for background jobs"></select>
                 <button id="utility-model-apply" class="small">Use this model</button>
               </div>
+              <!-- What background jobs actually run on, and why (INBOX 277):
+                   the picker shows the stored choice, which is not the model
+                   in use while smart model routing is off. -->
+              <p id="utility-model-note" class="muted" aria-live="polite"></p>
               <div class="stack-top-gap">
                 <label class="checkbox-label row align-center">
                   <input type="checkbox" id="pref-smart-model-routing">
-                  <span>Use Smart Model Routing for Background Tasks</span>
+                  <span>Use smart model routing for background jobs</span>
                 </label>
               </div>
               <p class="muted">A small fast model handles background jobs, so the chat model stays free to answer.</p>
@@ -7464,10 +7488,11 @@
               </div>
               <div class="help-body hidden" id="reindex-help" role="dialog" aria-label="About the search index">
                 <p>
-                  Rebuilds what semantic search matches on. Worth doing
-                  after an update, or if searching stops finding notes you
-                  know are there, it re-reads every note with its category,
-                  tags and attached text included.
+                  Rebuilds both halves of search: the word index that finds
+                  exact words, and what semantic search matches on. Worth
+                  doing after an update or a restore, or if searching stops
+                  finding notes you know are there. It re-reads every note
+                  with its category, tags and attached text included.
                 </p>
               </div>
               <progress id="reindex-progress" class="hidden" value="0" max="1"></progress>
@@ -7478,7 +7503,7 @@
                    day you import a vault is one that means something. -->
               <p id="reindex-stale" class="status notice notice-warn reindex-stale hidden" role="status"></p>
               <div class="row space-between reindex-action">
-                <p id="reindex-blurb" class="muted text-sm">Rebuilds what semantic search matches on.</p>
+                <p id="reindex-blurb" class="muted text-sm">Rebuilds the word index and what semantic search matches on.</p>
                 <button id="reindex-start" class="ghost small" type="button">Rebuild search index</button>
               </div>
             </div>
@@ -7850,6 +7875,17 @@
                   aria-label="Search what it learned">
               </div>
               <p class="status hidden" id="learned-status" role="status"></p>
+              <!-- DESIGN.md's selection bar recipe: the count first, the
+                   actions in one end group, sticky while the selection lasts.
+                   One request for the lot (`POST /learned/bulk`), not a loop. -->
+              <div id="learned-selectbar" class="row library-contextbar selectbar hidden" role="group" aria-label="Selected facts">
+                <span id="learned-selected-count" class="library-selected-count" role="status">0 selected</span>
+                <span class="library-contextbar-end">
+                  <button id="learned-bulk-reset" class="ghost small" type="button"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset</button>
+                  <button id="learned-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+                  <button id="learned-bulk-done" class="ghost small" type="button">Done</button>
+                </span>
+              </div>
               <ul id="learned-list" class="entry-list"></ul>
               <p id="learned-empty" class="muted hidden">
                 Nothing worked out yet. This fills in as Atlas reads your notes in the background.

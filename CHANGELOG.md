@@ -7,19 +7,57 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- Files: a description or reading typed while the automatic one was still being written is no longer overwritten when the automatic one lands.
+- Empty states: the Timeline's sits centred in its card instead of at the foot under a blank body, and the Graph's action button is its own width instead of spanning the map.
+- Dashboard: an empty notebook no longer shows a strip of zeros above the welcome card; the figures appear with the first note or reminder.
+- The loading screen shows one progress indicator (the bar) instead of animated dots above a bar; the dots stay as the screen reader's loading status.
+- Dragging a note that is part of a lasso selection on the graph carries the
+  whole selection with it, at the same offsets. Before, only the note in hand
+  moved and the rest of the selection stayed put. The usual rules hold for
+  every note carried: a plain drag places, Shift pins, and a pinned note stays
+  pinned where it lands.
+- Settings, What it learned can delete or reset several rows at once: tick
+  them and the selection bar offers Delete, and Reset when a ticked row was
+  edited by you. One request changes them all or none, and each deletion is
+  still remembered so the next run does not derive it again.
+- A Recent activity widget for the dashboard, in the widget picker: what
+  changed in the notebook lately (notes, documents, boards and reminders),
+  and whether you, Atlas or a skill changed it. Off until added, so no
+  existing dashboard grows a widget. It reads the event log's newest rows
+  once and then only what came after, with no timer running while the tab
+  sits idle.
+
 ### Fixed
 
 - Labels that lost their capitals in Quiet keep their rank: a section label is small, bold and in ink over a muted description, and the Contents index's section names are headings with the Timeline's underline over rows one step smaller; a Files row's name is in ink and lines up with its facts.
 - Scrolling and typing, traced and cut: the page scrollers and the editor scroll on the compositor (Notes scroll raster 2.7s to 0.25s, Library 1.0s to 0.2s, typing in a long document 3.2s to 0.24s over a 30-step scroll or 88 characters at 1184x760); a card's hover animation stands down while a list scrolls; the back-to-top check no longer matches every button in the app on every scroll frame (184ms to 12ms); the open-menu checks on every scroll event walk only the menus; typing in a document no longer restyles the whole editor per keystroke (style 1.65s to 0.35s) or rewrites 51 toolbar states; the Library search no longer cross-fades the window on every letter.
+- Dashboard: Quick capture saves on Ctrl+Enter (Cmd+Enter), and its placeholder says so.
+- Reminders: Enter adds a reminder from its text field, and in the edit form Enter saves and Escape cancels.
+- Settings: Ctrl+F searches Settings while it is open (it used to search the page hidden behind it), and the arrow keys, Home and End walk the pane list.
+- Settings: Packages no longer shows its heading twice.
+- Dashboard widgets: a map in Boards & maps reads as a title like a board beside it (not an accent pill), the heatmap legend shows its swatches, and a reminder shows its time on a line of its own.
+- Settings: a pane's title no longer sits flush on its first group, and a checkbox row keeps a gap from the field above it (found by a sweep for flush-stacked controls across every tab and pane).
+- Documents: opening a markdown document right after typing in a code file no longer throws a stale completion error.
+- A plain toast can be dismissed by tapping its text, as well as by its close button.
+- A confirmation's button names its action ("Delete", "Remove", "Clear"...) read from the question, instead of a red "OK".
+- Reminders: a reminder's row keeps its two snoozes and Edit, and gains a menu with Open its note, Ask Atlas about this, Copy text and Delete (still undoable), in place of a fourth icon.
 - Lists keep the conventions people expect: a right-click (a hold on a phone) on a Library card, a Documents row, a link, a file, a note or a chat opens that row's own menu at the pointer; F2 renames the focused row; the arrow keys, Home and End move between cards and rows; Shift+click ticks the run between two; with a selection open, Escape clears it, Ctrl+A selects every row instead of the page's text, and Delete presses the bar's own Delete; the Library keeps its scroll position when you come back from another tab; an empty Library search offers Clear the search; Library cards and document rows gain Copy title (and Copy link for a document); New note, New document, New chat, Settings and light/dark name their shortcut in the tooltip.
 - Library on a phone: the Files and Images dock is two rows instead of three (sort and view fold into a menu, as on the other sub-tabs), the floating Create shows only on the All view where it belongs instead of beside each sub-tab's own filled action, and New mind map keeps its icon without its word below 600.
 - Library, second pass continued: skill cards title at card size (the eyebrow rule had set them at 12px), Built-in as a small label, Run as a ghost button so New skill is the one filled button, and the background workers as the settings switches; the skill log's Clear rests disabled with nothing to clear; the Contents index names a note by its heading, keeps its labels on one edge, and its jump chips lose the accent tint; chips that are still chips carry a hairline edge in the flat looks so they read on a white card; a failed thumbnail (dashboard, Contents, chat sources, timeline) is hidden instead of drawing the missing-image box in its slot; timeline rows show the category with its colour dot and tags as #tag, and leave Uncategorised out.
 - With glass on, the status bar is glass like the top bar instead of an opaque strip.
+- Resizing or turning a group of selected items is one undo step (Ctrl+Z put nothing back before), and Escape during it puts every member back.
+- The board's help, the map rail's help, the rotate and resize grips and the map's canvas menu now name the new gestures and keys (Alt-drag, Shift to constrain, Escape to take back a drag, double-click a grip or a line, Ctrl+0 and Shift+1), so they can be found without being told.
+- On a touch screen the Library card ticks and the reminder ticks keep their 44px target but draw a 22px box in the middle of it, instead of a bordered, shadowed 44px square beside every row at rest.
+- The keyboard hint strip no longer stands over the bottom of every new mind map (it counted note cards, which a map has none of): a map's selected topic already names the keys on its ring and the rail's ? lists them, and on a whiteboard the strip shows only while a single note card is selected, the only time Tab and Enter act, and never over that card.
+- The board and mind map View menu: groups are told apart by a hairline instead of a printed heading (DESIGN.md's menu rule), Zoom in and Zoom out leave it (the zoom bar has both), Zoom to 100% and the keys for it and for Fit join it, the Toolbar row moves in with the panels, the columns break before Panels so no rule sits at the head of a column, and a whiteboard no longer shows an empty "Map" group: 453px to 357px on a map at 1440.
 - Lock screen: a real title, the password field at body size and the Unlock button as wide as the field.
 - Notifications: the panel is wide enough for its activity picker, and in the flat looks an unread row is marked with a dot instead of a coloured left edge; the palette no longer paints a hovered row like the chosen one.
 - Find anything: the text-selection menu no longer appears over the Finder (a search field's selected query is not writing; fields inside overlays are excluded); result rows lose the button glow, titles step to 500, dates read "Sep 23", a zero-count kind is dimmed, the dialog's name is its heading and Sort matches the chips. In the flat looks no button carries the accent glow.
 - Settings: every pane opens with its name as a heading (eleven of eighteen began mid-thought), a list row's actions sit on its title line instead of leaving an empty band under it, and labels straight in a pane line up with their text.
 - Settings: every section help "?" sits on one right edge (five positions before) with no filled ground in the flat looks; a pane's title is a real heading flush with its text; skills, personas and templates show a title, a hairline Built-in label, dot-separated facts and "Changes notes" in the warn colour instead of rows of identical pills; a persona's voice is clamped to two lines instead of cut mid-word.
+- The guided tour is back on, and every door into it works again. It was broken whenever anything was open over the page (the Atlas guide, the command palette, the features browser, the shortcut sheet): each step lit up the overlay instead of the control. The tour now closes what is open before every step and checks that nothing is drawn over the control it points at. On a phone the card is a sheet at the top or bottom of the screen, Settings and Timeline point at More with words that say so, and the step count no longer changes half way through. Typing in the highlighted box types instead of moving the tour.
 - Graph: the Documents switch now shows every live document (unattached ones alone, hidden by Hide unlinked like any lone node) instead of only documents attached to notes, which left the switch doing nothing on most notebooks; the options panel's folds are inset from the edge and the Groups field matches its Add button's height.
 - Board and mind map conventions, second pass: a board's bare canvas answers a right-click with its own menu (paste here, a text box, a sticky, select all, zoom to 100%, fit) and a double-click with a text box ready to type; Ctrl+0, Ctrl+=, Ctrl+- and Shift+1 work the board's zoom, and the zoom buttons name them; a double-click on a mind map's branch line asks for its label instead of making a new topic on top of it.
 - Board and mind map conventions, first pass: double-click a rotate grip stands a card, text box or shape upright again; Shift on a corner keeps the box's proportions (it squared it); Shift keeps a drag on one axis; Alt-drag leaves a copy behind; Escape during a move, resize, turn or link draw puts everything back and records nothing; a burst of arrow nudges is one undo step and no longer drops presses; a group drag undoes whole; Ctrl+D, copy and paste take several items at once and paste at the pointer; a click on a shape's grip no longer deselects it; Ctrl+Shift+G on a board ungroups without also switching agent mode on.
@@ -195,6 +233,45 @@ below). Versioning is `0.x` while the app stabilises.
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label
   prompt no longer deletes it; "Take the label off the line" does.
+- Similar-notes lists can no longer contain a note that was deleted or made
+  private in the same session. Its vector was blanked in place, and a blank
+  row outranked every genuinely unrelated note, so a short list could come
+  back with a hole in it; blanked rows are now skipped, and dropped from
+  memory once they are a quarter of the total.
+- A reopened chat or Ask history answer keeps its "Only 1 of 3 sentences here
+  comes from your notes" line. The line appeared when an answer arrived and
+  was gone once the conversation was reopened, because nothing stored it; the
+  saved turn now carries it, counted on the server by the same rule the live
+  answer used.
+- "Rebuild search index" in Settings, Models rebuilds the word index as well
+  as the semantic one. The word index was built once, when its table was
+  first made, and could not be rebuilt after a restore, an import or a fault;
+  `/search/stats` now also says when it was last rebuilt and with how many
+  rows.
+- `has:image`, `has:link` and `has:reminder` work in Find anything. They were
+  understood and matched nothing; now a picture attached or written into the
+  text, a connection to another note, and a reminder on the note each answer,
+  checked over the matches rather than on every save.
+- Search no longer finds things that are gone. Emptying the bin left each
+  purged note in the search index for good (it still answered `is:deleted`),
+  and deleting a space left its notes, documents and reminders findable from
+  All spaces, because both delete in bulk and the index only follows ordinary
+  saves. Both now take their rows out, and a lint fails any new bulk delete
+  of a searchable kind that does not.
+- A note the AI re-files, by adding context to it or by re-evaluating it, is
+  marked as the AI's choice, the same as a note it files on save. Moving one
+  of those by hand afterwards now records the correction the filing loop
+  learns from; before, only the two create paths set the mark, so a second
+  guess by the AI was invisible to it.
+- Settings, Models says which model background jobs actually run on, and why
+  (INBOX 277). The utility picker shows the stored choice, and that choice is
+  not the model in use while smart model routing is off or nothing has been
+  chosen; a line under it now reads, for example, "Background jobs run on
+  llama3.2, the chat model, because smart model routing is off", from one
+  server function (`utility_resolution`) that `utility_model()` itself uses.
+  The routing switch beside it also showed unchecked whenever Settings was
+  opened on Models, because only Background tasks ever filled it in; it now
+  reads the stored value when Models opens. Label in sentence case.
 
 ## [0.3.2] - 2026-09-21
 

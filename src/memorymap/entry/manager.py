@@ -849,6 +849,12 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
                     attachment.id,
                     type(exc).__name__,
                 )
+    # The search index hangs off the ORM flush, and the two DELETEs here are
+    # statements the flush never sees, so their rows are taken out by hand.
+    from memorymap.search import index as search_index
+
+    search_index.forget(session, Attachment, [a.id for a in attachments])
+    search_index.forget(session, Entry, ids)
     session.execute(delete(Attachment).where(Attachment.entry_id.in_(ids)))
     session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id.in_(ids)))
     session.execute(

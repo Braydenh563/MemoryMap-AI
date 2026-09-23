@@ -84,6 +84,11 @@ const DASH_WIDGETS = {
   //: the sidebar and the note cards call this Favourites.
   pinned: { title: "ph:star Favourites", description: "Notes you've starred, so they're always one click away.", render: renderPinnedWidget },
   "recent-notes": { title: "ph:clock Recently added", description: "The last few notes you created, newest first.", render: renderRecentNotesWidget },
+  //: WORLD_CLASS_PLAN B1's strip: the event feed (`GET /events`) had no
+  //: reader. Not a second "Recently added": that one lists what you wrote,
+  //: this one what *happened*, including what Atlas or a skill changed on
+  //: your behalf, which is the one thing no other widget can say.
+  activity: { title: "ph:pulse Recent activity", description: "What changed in your notebook lately, and whether you, Atlas or a skill changed it.", render: renderActivityWidget },
   "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
   "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections, the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
@@ -160,6 +165,13 @@ const DASH_DEFAULT_SHOWN = [
   "documents", "boards", "digest", "on-this-day", "heatmap",
 ];
 
+//: Widgets added after the dashboard shipped that start switched off. The
+//: owner asked for a dashboard with less on it (INBOX 270), so a new widget is
+//: offered in the picker rather than appended to every existing dashboard.
+//: Applied only while a saved layout has never seen the widget: once anybody
+//: adds it, or saves a layout with it hidden, the saved layout decides.
+const DASH_OPT_IN = ["activity"];
+
 function dashLayout() {
   const saved = (prefsCache && prefsCache.dashboard_layout) || {};
   //: Empty lists count as never arranged: the preference's own default is
@@ -167,15 +179,21 @@ function dashLayout() {
   //: this set too.
   const fresh = !saved.order?.length && !saved.hidden?.length;
   const order = [...(fresh ? DASH_DEFAULT_SHOWN : saved.order || [])];
+  const hidden = fresh
+    ? Object.keys(DASH_WIDGETS).filter((n) => !DASH_DEFAULT_SHOWN.includes(n))
+    : [...(saved.hidden || [])];
   for (const name of Object.keys(DASH_WIDGETS)) {
-    if (!order.includes(name)) order.push(name); // new widgets append
+    if (!order.includes(name)) {
+      order.push(name); // new widgets append
+      if (DASH_OPT_IN.includes(name) && !hidden.includes(name)) hidden.push(name);
+    }
   }
   // Older layouts stored this as {name: "wide"}, fold those in so a saved
   // layout still works.
   const legacyWide = Object.keys(saved.sizes || {}).filter((n) => saved.sizes[n] === "wide");
   return {
     order: order.filter((n) => DASH_WIDGETS[n]),
-    hidden: fresh ? Object.keys(DASH_WIDGETS).filter((n) => !DASH_DEFAULT_SHOWN.includes(n)) : saved.hidden || [],
+    hidden,
     wide: saved.wide?.length
       ? saved.wide
       : (legacyWide.length ? legacyWide : DASH_DEFAULT_WIDE.filter((n) => DASH_WIDGETS[n])),
@@ -633,6 +651,14 @@ async function renderDashStats() {
   ];
 
   box.replaceChildren();
+  //: **An empty notebook has no figures to show.** A first visit read four
+  //: zeros (notes, this week, day streak, reminders) above the welcome card
+  //: that already says the notebook is empty and what to do first: numbers
+  //: about nothing, before the one thing worth reading. The strip comes back
+  //: with the first note or reminder. A failed read is not empty, so it
+  //: still shows its dashes.
+  const empty = stats && stats.total_entries === 0 && reminders && !reminders.length;
+  box.classList.toggle("hidden", Boolean(empty));
   for (const tile of tiles) {
     const button = document.createElement("button");
     button.type = "button";
@@ -2813,8 +2839,8 @@ async function renderQuickCaptureWidget(body) {
   // Don't promise AI filing when there's no AI to do it; the note still saves.
   textarea.placeholder =
     modelStatus && modelStatus.ollama_running === false
-      ? "Type a thought and press Save."
-      : "Type a thought and press Save, Atlas files it.";
+      ? "Type a thought and press Save (Ctrl+Enter)."
+      : "Type a thought and press Save (Ctrl+Enter), Atlas files it.";
   const row = document.createElement("div");
   row.className = "row";
   const status = document.createElement("span");
@@ -2838,6 +2864,15 @@ async function renderQuickCaptureWidget(body) {
     }, false)
   );
   row.appendChild(status);
+  //: Ctrl+Enter (Cmd+Enter) saves, as it does in the capture box on the
+  //: Notes tab and in every multi-line "post" field people use; plain
+  //: Enter stays a new line.
+  textarea.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+      event.preventDefault();
+      row.querySelector("button")?.click();
+    }
+  });
   body.append(textarea, row);
 }
 
@@ -2860,7 +2895,16 @@ async function renderRemindersWidget(body) {
     //: with seconds ("9/24/2026, 1:22:17 PM", measured); the relative phrase
     //: ("in 23 hours") is the tooltip.
     const when = due.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-    li.textContent = `${reminder.text}: ${when}`;
+    //: The thing to do, then when, on a line of its own in the muted rank:
+    //: "Submit IT assignment: Thu, Sep 24, 1:22 PM" as one run-on line made
+    //: the time read as part of the sentence.
+    const what = document.createElement("span");
+    what.className = "dash-reminder-text";
+    what.textContent = reminder.text;
+    const at = document.createElement("span");
+    at.className = "dash-reminder-when muted";
+    at.textContent = when;
+    li.append(what, at);
     if (typeof relativeWhen === "function") li.title = relativeWhen(reminder.due_at);
     if (due < new Date()) li.classList.add("overdue");
     li.addEventListener("click", () => switchTab("reminders"));
@@ -3521,6 +3565,91 @@ function dashBoardThumb(board) {
   // ones: sizing belongs to the row, the drawing belongs to the map.
   svg.classList.add("dash-list-thumb", "dash-board-thumb");
   return svg;
+}
+
+// --- Recent activity: the event feed, read with its cursor ---------------------
+//
+// `GET /events` reads forwards from a cursor (WORLD_CLASS_PLAN B1). The first
+// render asks for the newest few with `tail`; every later render asks only for
+// what came after the cursor it was handed, so reopening the dashboard reads
+// the handful of new rows rather than the log again. No timer: the widget is
+// redrawn when the dashboard is, and an idle tab polling a log for a strip
+// nobody is looking at is the cost INBOX 266 (7) took out of this app.
+const DASH_ACTIVITY_KINDS = "entry,document,board,reminder";
+const DASH_ACTIVITY_ROWS = 8;
+let dashActivity = { items: [], cursor: null };
+
+const DASH_ACTIVITY_NOUNS = { entry: "Note", document: "Document", board: "Board", reminder: "Reminder" };
+
+async function dashActivityItems() {
+  const first = dashActivity.cursor === null;
+  const path = first
+    ? `/events?tail=${DASH_ACTIVITY_ROWS}&entity_type=${DASH_ACTIVITY_KINDS}`
+    : `/events?since=${dashActivity.cursor}&entity_type=${DASH_ACTIVITY_KINDS}`;
+  const feed = await apiJson(path, { silent: true });
+  dashActivity = {
+    items: [...dashActivity.items, ...(feed.items || [])].slice(-DASH_ACTIVITY_ROWS),
+    cursor: feed.cursor ?? dashActivity.cursor ?? 0,
+  };
+  return dashActivity.items;
+}
+
+async function renderActivityWidget(body) {
+  let items;
+  try {
+    items = await dashActivityItems();
+  } catch {
+    surfaceFailed(body, "recent activity", () => renderActivityWidget(body));
+    return;
+  }
+  if (!items.length) {
+    dashEmpty(body, "What you and Atlas change in the notebook shows up here.");
+    return;
+  }
+  const entries = await dashEntries().catch(() => []);
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const ul = document.createElement("ul");
+  ul.className = "dash-list";
+  for (const item of [...items].reverse()) {
+    const entry = item.entity_type === "entry" || item.entity_type === "board" ? byId.get(item.entity_id) : null;
+    const noun = DASH_ACTIVITY_NOUNS[item.entity_type] || "Item";
+    const name = entry ? notePreviewText(entry.content || "").split("\n")[0].slice(0, 60) : "";
+    const verb = HISTORY_ACTION_WORDS[item.action] || item.action.replace(/_/g, " ");
+    //: A compacted run is one line, not a burst of edits (the feed's own
+    //: `snapshot` count says how many it stands for).
+    const run = item.snapshot ? ` (${item.snapshot} edits)` : "";
+    const who = historyActorLabel(item.actor);
+    const meta = [who, dashRelativeTime(item.created_at)].filter(Boolean).join(" · ");
+    const open = entry && !entry.is_deleted
+      ? () => flashEntry(entry.id)
+      : item.entity_type === "document" && item.action !== "deleted"
+        ? () => {
+            switchTab("documents");
+            openDocument(item.entity_id);
+          }
+        : null;
+    const title = `${verb}${run}: ${name || noun.toLowerCase()}`;
+    if (open) {
+      dashActionRow(ul, { title, meta, hint: `Open this ${noun.toLowerCase()}`, onOpen: open });
+      continue;
+    }
+    //: Something that is gone (a note deleted for good, a reminder) has
+    //: nothing to open, so it is a plain row rather than a button that does
+    //: nothing, which is the "dead control" the vibe check counts.
+    const li = document.createElement("li");
+    const text = document.createElement("span");
+    text.className = "dash-list-text";
+    const titleEl = document.createElement("span");
+    titleEl.className = "dash-list-title";
+    titleEl.textContent = title;
+    const metaEl = document.createElement("span");
+    metaEl.className = "dash-list-preview";
+    metaEl.textContent = meta;
+    text.append(titleEl, metaEl);
+    li.appendChild(text);
+    ul.appendChild(li);
+  }
+  body.appendChild(ul);
 }
 
 async function renderDocumentsWidget(body) {

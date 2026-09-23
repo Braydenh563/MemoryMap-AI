@@ -118,10 +118,33 @@ let currentSettingsSection = "models";
 //: (`.help-head > h3`, styled as the pane title in 08-consistency.css), made
 //: once and kept, so the word in the list and the word over the pane can
 //: never disagree.
+//: **Arrow keys walk the pane list**, the way a sidebar of sections moves
+//: in every settings window people know: Up and Down go to the previous and
+//: next pane and open it, Home and End to the first and last. Tab still
+//: leaves the list for the pane, so nothing a keyboard user relied on moves.
+document.getElementById("settings-nav")?.addEventListener("keydown", (event) => {
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  const buttons = [...document.querySelectorAll("#settings-nav button[data-section]")]
+    .filter((b) => b.getClientRects().length);
+  const at = buttons.indexOf(document.activeElement);
+  if (at < 0) return;
+  event.preventDefault();
+  const next =
+    event.key === "Home" ? 0
+      : event.key === "End" ? buttons.length - 1
+        : Math.max(0, Math.min(buttons.length - 1, at + (event.key === "ArrowDown" ? 1 : -1)));
+  buttons[next].focus();
+  buttons[next].click();
+});
+
 function ensureSettingsPaneTitle(box, name) {
   if (!box || box.querySelector(":scope > .help-head > h3, :scope > .settings-pane-title")) return;
   const label = document.querySelector(`#settings-nav [data-section="${name}"]`)?.textContent.trim();
   if (!label) return;
+  //: A pane whose first group is already named the same (Packages) would
+  //: say it twice, one heading straight over the other.
+  const firstHeading = box.querySelector("h3")?.textContent.trim().toLowerCase();
+  if (firstHeading === label.toLowerCase()) return;
   const head = document.createElement("div");
   head.className = "row help-head settings-pane-title";
   const title = document.createElement("h3");
@@ -176,6 +199,21 @@ function showSettingsSection(name) {
       .then((prefs) => {
         prefsCache = prefs;
         renderAutonomousSettings();
+      })
+      .catch(() => {});
+  }
+  //: `#pref-smart-model-routing` sits in Models, beside the utility picker it
+  //: governs, and was only ever filled by `renderAutonomousSettings`, which
+  //: runs when *Background tasks* opens. So Settings opened on Models showed
+  //: the raw HTML default, unchecked, over a preference that ships on:
+  //: measured, the box read false while `/preferences` said true, and the
+  //: first click "turned on" a switch that was already on. The same shape the
+  //: comment on `renderAutonomousSettings` records, one section over.
+  if (name === "models") {
+    apiJson("/preferences")
+      .then((prefs) => {
+        prefsCache = prefs;
+        $("pref-smart-model-routing").checked = prefs.smart_model_routing_enabled ?? true;
       })
       .catch(() => {});
   }
@@ -4210,11 +4248,10 @@ renderAtlasStarters();
 // routes exists so a person can see the model being wrong and say so. With
 // no screen, `derived_facts` grew where nobody could read it.
 //
-// Built against what the backend ships rather than against the whole spec:
-// there is no `POST /learned/bulk`, so there are no bulk actions here. An
-// invented client-side loop over N rows is not the same thing (it is N
-// requests that can half fail), and the honest version of that row is a
-// backend route, not a for-loop.
+// Built against what the backend ships rather than against the whole spec.
+// The bulk actions waited for `POST /learned/bulk` (2026-09-23) rather than
+// being a client-side loop over N rows, which is N requests that can half
+// fail: the route changes every selected row in one transaction.
 
 //: One page. 50 rather than the route's 100 default: this is a settings
 //: panel inside a modal, and a hundred rows is a scroll nobody finishes.
@@ -4373,6 +4410,50 @@ async function learnedSetSwitch(name, value) {
   await renderLearnedSwitches();
 }
 
+//: The ticked rows on the page on screen. Cleared whenever the page is
+//: redrawn: a selection you cannot see is one you cannot check before
+//: deleting it, so it never survives a page turn or a new search.
+const learnedSelected = new Map();
+
+function syncLearnedSelectbar() {
+  const bar = $("learned-selectbar");
+  if (!bar) return;
+  const count = learnedSelected.size;
+  bar.classList.toggle("hidden", count === 0);
+  $("learned-selected-count").textContent = `${count} selected`;
+  //: Reset only means something for a row you edited; offering it over a
+  //: selection with none would be a button that does nothing.
+  const edited = [...learnedSelected.values()].filter((fact) => fact.edited_by_user).length;
+  $("learned-bulk-reset").classList.toggle("hidden", edited === 0);
+}
+
+async function learnedBulk(action) {
+  const ids = [...learnedSelected.keys()];
+  if (!ids.length) return;
+  if (action === "delete") {
+    const ok = await confirmDialog(
+      `Delete ${ids.length === 1 ? "this" : `these ${ids.length}`} and never work ${ids.length === 1 ? "it" : "them"} out again?\n\nYour notes are not touched. Each deletion is remembered, so the next run will not derive the same things.`,
+      { confirmLabel: "Delete" }
+    );
+    if (!ok) return;
+  }
+  try {
+    const reply = await apiJson("/learned/bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids, action }),
+    });
+    const verb = action === "delete" ? "Deleted" : "Reset";
+    const gone = reply.missing?.length ? `, ${reply.missing.length} already gone` : "";
+    toast(`${verb} ${reply.done}${gone}.`);
+    if (action === "delete" && learnedOffset > 0 && learnedTotal - reply.done <= learnedOffset) {
+      learnedOffset = Math.max(0, learnedOffset - LEARNED_PAGE);
+    }
+    renderLearnedList();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
 function learnedRow(fact) {
   const li = document.createElement("li");
   li.className = "entry-item learned-row";
@@ -4380,6 +4461,17 @@ function learnedRow(fact) {
 
   const head = document.createElement("div");
   head.className = "row align-center learned-row-head";
+  const pick = document.createElement("input");
+  pick.type = "checkbox";
+  pick.className = "learned-select";
+  pick.setAttribute("aria-label", "Select this");
+  pick.checked = learnedSelected.has(fact.id);
+  pick.addEventListener("change", () => {
+    if (pick.checked) learnedSelected.set(fact.id, fact);
+    else learnedSelected.delete(fact.id);
+    syncLearnedSelectbar();
+  });
+  head.appendChild(pick);
   const kind = document.createElement("span");
   kind.className = "chip";
   kind.textContent = learnedKindLabel(fact.kind);
@@ -4453,6 +4545,8 @@ async function renderLearnedList() {
     return;
   }
   learnedTotal = Number(data.total) || 0;
+  learnedSelected.clear();
+  syncLearnedSelectbar();
   list.replaceChildren(...data.items.map(learnedRow));
   if (empty) empty.classList.toggle("hidden", data.items.length > 0 || Boolean(q) || Boolean(kind));
   if (count) {
@@ -4632,6 +4726,13 @@ function wireLearnedSection() {
   $("learned-run-now")?.addEventListener("click", learnedRunNow);
   $("learned-export")?.addEventListener("click", learnedExport);
   $("learned-forget")?.addEventListener("click", learnedForget);
+  $("learned-bulk-delete")?.addEventListener("click", () => learnedBulk("delete"));
+  $("learned-bulk-reset")?.addEventListener("click", () => learnedBulk("reset"));
+  $("learned-bulk-done")?.addEventListener("click", () => {
+    learnedSelected.clear();
+    for (const box of document.querySelectorAll("#learned-list .learned-select")) box.checked = false;
+    syncLearnedSelectbar();
+  });
 }
 
 async function renderLearned() {

@@ -20,15 +20,15 @@ measured; "partial" names what is left.
 | Map node menu grouped; radial ring stays open | Done |
 | Pan and drag smoothness on the board and map | Done (style recalc 2439 to 29 ms) |
 | "Do that optimisation on the rest of the app" | Partial: scroll handlers fixed (back-to-top, scroll edge, graph wheel); left: Notes raster cost during scroll, Library layout during scroll, a trace per interaction (typing, drag, dialogs) |
-| Efficiency: CPU, RAM, network, storage | Partial: CPU on scroll and pan; left: network (polling, payloads), RAM (lazy bundles, caches), storage |
+| Efficiency: CPU, RAM, network, storage | Measured 2026-09-23: idle network 2 requests and 1.9KB a minute; boot 25 requests, 1.0s to load; JS heap 25MB and 11,001 elements, flat over three rounds of every tab (no leak); CPU on scroll and pan fixed. Left: per-interaction traces for typing and dialogs (Library agent has scroll and typing), 217 document-level listeners worth consolidating |
 | Mind map professional refinement: controls findability, View menu size, hint strip over the canvas | Partial: node menu, cross-link tool, label drag, cross-links drawn like branches done; left: View menu (714px), hint strip, discoverability pass |
 | Cross-links look the same as branches | Done |
 | Live view markdown rendering and table editing | Done (documents agent) |
 | Code documents as a code editor: errors, suggestions | Done (diagnostics, completions) |
 | Auto-closing pairs, Enter indentation, format document or selection, quick fixes | Done (code editor agent: 48 of 48 in `doccodeedit.js`, 39 tests; HISTORY "code documents as a code editor, part two") |
-| Indent and dedent across the app | Partial: notes textareas, board text; left: verify documents, chat, captions, every textarea |
+| Indent and dedent across the app | Done: note surfaces (Tab bridge), board and map text, documents (code: indent unit and Shift+Tab; prose: the editor's own Tab); chat and single-line fields keep Tab as focus movement on purpose (a keyboard user's way out) |
 | Phone designed on purpose; responsive at every resolution | Done for 390, 768 and 1024 (`phonechrome.js`, 0 findings; touch.js clean); left: a sweep at 1280, 1920 and 2560 |
-| De-vibecode all the UI, surface by surface, not one fix and stop | In progress: Notes meta line redesigned; left: every other surface in the audit order below |
+| De-vibecode all the UI, surface by surface, not one fix and stop | First pass done on every surface in the audit order below (Notes, dashboard incl. widgets and empty notebook, chat, graph, Library, timeline, reminders, every Settings pane, Finder, palette, notifications, menus, confirm dialogs, lock screen, boot splash, empty states); second pass on the Library, documents, notes and chat running (agent) |
 | Note metadata, badges and links redesigned everywhere | Done: one line of facts with a category pill and stable colour dot, #tags, dates as days, connection pills with their menu inside; Settings lists (skills, personas, templates) have title, label and facts |
 | More integration between features (INBOX 393) | Partial: Ask Atlas and Show in graph on notes, documents, boards; left: files, reminders, a consistency table |
 | Glass on every surface when glass is on | Partial: graph dock and panels, chat composer; left: a sweep of every floating surface |
@@ -38,7 +38,7 @@ measured; "partial" names what is left.
 | CI red on Python 3.13 | Done: vault key leak between tests, a create_all race (a lock on the singletons), 3.13's JSON trailing-comma position |
 | Graph: Documents switch did nothing; options panel arrows and field height | Done |
 | Settings: "?" buttons misaligned and missed; pane titles; section headers; flattened badges hard to read | Done: one right edge for every "?", a title on every pane, item rows with a hierarchy |
-| Guided tour broken past slide one | In progress (tour agent) |
+| Guided tour broken past slide one | Done: re-enabled; overlays closed before each step, phone steps point at More, a fixed counter, typing left alone; `tour.js` 118 of 118 steps at 1440, 1184 and 390 (`archive/agent-remaining/tour.md`) |
 | Second de-vibecoding pass of the whole app, especially the Library; micro-conventions everywhere; optimisation | In progress: orchestrator did Settings, Finder, palette, notifications, lock screen; Library/documents/notes/chat agent and canvas agent running |
 | Agents commit often so nothing is lost | Done (agents told; the hourly check-in merges gated agent commits and pushes) |
 
@@ -79,7 +79,7 @@ then the plan tails by surface, then the horizon.
 | GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
-| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); Phase 1's fourth gate line, the low-support "I don't know" state, is still open and is written up in the plan; Phase 4's harness items. |
+| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
 | TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. Section 7's third line, the "auto" scale thresholds, wants a real notebook and is left. |
 | AGENT_SKILLS_REFORM | ~~Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first.~~ **Done 2026-09-20.** The runner is `scratchpad/llama-dev.sh` and the gate is `tests/test_skills_evals.py`, four `evals` tests that skip at collection without a model: 3 passed and 1 skipped against Qwen2.5-1.5B-Instruct Q4_K_M through llama.cpp, with the skip itself the finding (the run stalled on step 1's `list_tags` contract and said so, rather than ticking it). Record in HISTORY's "Moved from the plans, 2026-09-20". What is left is breadth, and it sits in WORLD_CLASS_PLAN 9: the same gate at 3B and 4B, and an eval each for the rest of CLAUDE.md section 4's unproven list. |
 
@@ -405,10 +405,10 @@ being written by running agents stay beside this one.
   over the candidate set's pooled passages, and the second-mark ratio is
   calibrated on the set. 18 of 18 supported sentences attributed, up from 17 of
   18; 0 false marks on 5 unsupported sentences; 16 of 16 passage spans. The
-  account is in HISTORY.md, "Moved from the plans, 2026-09-20". Still open:
-  Phase 1's fourth gate line (the "I don't know" state when fewer than half an
-  answer's sentences are supported), written up in CHAT_PLAN Phase 1 with its
-  next steps. [chat-timeline-skills.md, chat-popup-agent.md]
+  account is in HISTORY.md, "Moved from the plans, 2026-09-20". Phase 1's
+  fourth gate line was built 2026-09-21 and its replay tail (a reopened turn
+  keeps the notice) 2026-09-23, so Phase 1 is closed: HISTORY.md, "Moved from
+  the plans, 2026-09-23". [chat-timeline-skills.md, chat-popup-agent.md]
 - **Ask's answer object was measured on the offline branch only.** The sweep
   runs against a server with no model, so `sentences` was empty in every
   measurement and the grounding chips and inline marks under an Ask answer
@@ -952,30 +952,45 @@ being written by running agents stay beside this one.
   query carries an operator the client parser does not know, and render the
   returned order; then the Library, then the command palette. One surface per
   commit, each with a sweep. [brief11-retrieval-engine.md]
-- **No FTS index rebuild job.** `file: src/memorymap/search/index.py`, `id:
-  search-reindex-job`. `rebuild()` runs once, at the startup that first
-  creates the table; there is no way to ask for a rebuild after a restore, an
-  import or a bug. Next step: a `reindex` job kind once Brief 9's runtime
-  lands, with `/search/stats` showing the row counts it is working towards. Do
-  not add a route that rebuilds inline. [brief11-retrieval-engine.md]
-- **A bulk write can leave the index stale.** `file:
-  src/memorymap/search/index.py`, `id: search-bulk-writes`. The hook sees the
-  ORM's unit of work; `session.execute(update(Entry)...)` or raw SQL bypasses
-  it, and `touch(session, source, ref_id)` has no caller. Next step: grep for
-  bulk `update(` and `delete(` over the six indexed models (the importer and
-  the space reassignment in `routes_spaces.py` are the likely two) and call
-  `touch` there, or add a lint that fails on a bulk statement against an
-  indexed model. [brief11-retrieval-engine.md]
-- **The vector matrix forgets by zeroing a row.** `file:
-  src/memorymap/search/engine.py`, `id: search-matrix-compaction`. Dead rows
-  score zero and are never returned, but they stay in the array. Next step:
-  rebuild when dead rows pass some fraction of the whole, counted rather than
-  guessed. [brief11-retrieval-engine.md]
-- **`has:` only knows `file`.** `file: src/memorymap/search/engine.py`, `id:
-  search-has-vocabulary`. `has:image`, `has:link` and `has:reminder` parse and
-  match nothing. Next step: decide each one's source (an attachment mime,
-  `EntryLink`, `Reminder.entry_id`) and answer them over the candidates, never
-  with a join on every save. [brief11-retrieval-engine.md]
+- ~~**No FTS index rebuild job.**~~ **Done 2026-09-23**, in the job that
+  already existed rather than a new kind: `model_manager._run_reindex`, behind
+  Settings' "Rebuild search index", now rebuilds the keyword index first (the
+  fast half, and the one search answers from while vectors are redone), and
+  `/search/stats` carries `last_rebuild: {at, rows}` beside the live `index`
+  counts so a drift reads as two numbers. No route rebuilds inline.
+  `tests/test_models_api.py::test_a_rebuild_also_rebuilds_the_keyword_index`
+  drifts the index both ways (a note's row gone, a ghost row added) and finds
+  it whole after. The Settings copy says both halves now.
+  [brief11-retrieval-engine.md]
+- ~~**A bulk write can leave the index stale.**~~ **Done 2026-09-23**, and
+  it was worse than stale. Grepped over the six indexed models: two bulk
+  paths, both deletes. Emptying the bin (`manager._hard_delete`) left every
+  purged note's row behind flagged `deleted`, and deleting a space
+  (`routes_spaces.delete_space`) left its notes, documents and reminders
+  findable from All spaces. `search_index.forget(session, model, ids)` is the
+  bulk half of `touch`, both paths call it, and a lint in
+  `tests/test_search_engine.py` fails any file that issues a statement-level
+  delete against an indexed model without it (three tests failed before the
+  fix, pass after). The two bulk `update`s left (`Reminder.entry_id`,
+  `Entry.parent_id` on a purge) touch no indexed column.
+  [brief11-retrieval-engine.md]
+- ~~**The vector matrix forgets by zeroing a row.**~~ **Done 2026-09-23**,
+  and the row's "are never returned" was false: a zeroed row scores 0, which
+  outranks every negative cosine, so `top_k` over a few live vectors pointing
+  away from the query returned id -1 (a test reproduced it before the fix).
+  Dead rows are counted on the matrix, skipped by `top_k` with the partition
+  widened by their number, and compacted once they are a quarter of the array
+  (floor 8), one O(n) copy amortised over n/4 forgets. `/search/stats`'s
+  `vectors` counts live rows only. `tests/test_search_engine.py`, three new.
+  [brief11-retrieval-engine.md]
+- ~~**`has:` only knows `file`.**~~ **Done 2026-09-23**, on the sources this
+  row named: `image` is an image attachment (mime, or the name for a row with
+  none) or a `![` picture in the text of any kind; `link` is an `EntryLink`
+  either way round; `reminder` is a `Reminder.entry_id`, plus the reminders
+  themselves. One query per word over the candidates (`engine._has_ids`), no
+  join on save; a word outside `HAS_WORDS` still matches nothing.
+  `tests/test_search_engine.py`, four new, three failing before.
+  [brief11-retrieval-engine.md]
 - **The graph signal needs an open note, and the Notes list rarely has one.**
   `file: frontend/app.js`, `id: search-open-note`. The list passes `entry_id`
   only in rows view or while editing; in card view the third signal is zero.
@@ -990,23 +1005,24 @@ being written by running agents stay beside this one.
   (`events.is_compacted`); a deleted board item is the one case with nothing
   to put back, since the whiteboard tables have no soft delete.
   [brief7-event-log.md]
-- **The Timeline and Dashboard activity strips.** `file:
-  frontend/dashboard.js`, `id: events-strip`. `GET /events?since=` exists and
-  nothing reads it. The "Recently added" widget was deliberately left alone.
-  Next step: a strip that polls `/events` with the cursor, rendering actor and
-  action; the feed's shape is settled (`changed`, `snapshot`, `compacted`), so
-  a folded run renders as one line rather than a burst of edits.
-  [brief7-event-log.md]
+- ~~**The Timeline and Dashboard activity strips.**~~ **The Dashboard half
+  built 2026-09-23**: a Recent activity widget, opt-in (`DASH_OPT_IN`, so
+  existing dashboards do not grow a widget), reading `/events?tail=8` once
+  and `?since=<cursor>` on every later render, with no timer (an idle tab
+  polling a log is the cost INBOX 266 (7) removed). Actor and action per row,
+  a folded run as one line with its count. The feed grew `tail` and a comma
+  list for `entity_type` (`tests/test_events.py`, two new);
+  `scratchpad/ui-sweeps/oi-activity.js`, 6 of 6. The Timeline half is left
+  on purpose: see WORLD_CLASS_PLAN's dead-routes triage. [brief7-event-log.md]
 - **Sync (B6) as log shipping.** `id: events-sync`. Unstarted and no longer
   blocked: it needed the retention rule, which now exists. A compacted
   snapshot ships as a snapshot. [brief7-event-log.md]
-- **`filing_state = "auto"` is set on the two create paths only.** The
-  recategorise-on-add-context path (`src/memorymap/api/routes_entries.py`, the
-  `exclude_entry_id` call into `janitor.categorise`) files with the AI and
-  does not set it, so moving one of those notes by hand records no correction.
-  Next step: grep `categorise(` and set `manager.AUTO_FILED` wherever
-  `janitor.is_ai_method` holds, the same two lines as the create paths.
-  [brief-13-harness.md]
+- ~~**`filing_state = "auto"` is set on the two create paths only.**~~
+  **Done 2026-09-23.** Two paths, not one: adding context and re-evaluating
+  both re-file with the AI, and both now set `manager.AUTO_FILED` when
+  `janitor.is_ai_method` holds (a keyword fallback still leaves `done`).
+  `tests/test_harness_verifier.py`, three new, one of which moves the note by
+  hand afterwards and finds the `correction` row. [brief-13-harness.md]
 - **The Reminders tab still reads one page.** `loadReminders` draws the tab
   from `GET /reminders`, ordered `due_at` ascending, so the first page is the
   oldest rows, ticked-off ones included: a notebook whose oldest two hundred
@@ -1025,8 +1041,15 @@ being written by running agents stay beside this one.
   is wrong at 200 documents and 200 uploads; all are wrong at some size.
   `apiPagedList(path, pageSize, options)` in `documents.js` is already global.
   [list-paging.md]
-- **`POST /learned/bulk`** (`{ids, action}`) is in the plan and not built: no
-  caller exists until the Settings table does. [learning-loop.md]
+- ~~**`POST /learned/bulk`**~~ **Done 2026-09-23**, route and caller
+  together: `{ids, action}` with `delete` (each writes its `delete_fact`
+  correction, as the single route does) or `reset` (edited rows only), one
+  transaction, unknown ids named in `missing`. Settings, What it learned has a
+  box per row and the DESIGN.md selection bar (`#learned-selectbar`), Reset
+  shown only over a selection with an edited row.
+  `tests/test_learned_spec.py`, three new; `oi-learnedbulk.js`, 7 of 7 (two
+  ticked, "2 selected", sticky, one request for both, 4 rows to 2).
+  [learning-loop.md]
 - **I1's later passes**: tensions, duplicates, entities and dates as kinds in
   the same table. `ai/tensions.py` and `ai/entities.py` already produce the
   first two in their own shapes; folding them in means giving each a span and

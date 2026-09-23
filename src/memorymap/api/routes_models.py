@@ -130,6 +130,7 @@ def status() -> dict:
         installed = []
         running = False
     chat_model = manager.chat_model()
+    utility_resolved, utility_reason = manager.utility_resolution()
     # Resolved once. It walks the installed models asking each whether it can
     # see, which is an HTTP call per model on a cold cache.
     resolved_vision = manager.resolve_vision_model(ollama, installed) if running else None
@@ -182,6 +183,11 @@ def status() -> dict:
         ),
         # "" means "same as chat model" (utility model).
         "utility_model": manager._config.get_preference("utility_model", ""),
+        # What background jobs actually run on, and why (INBOX 277): the
+        # stored name above is what the picker shows, and on its own it
+        # misreports a notebook with smart model routing off.
+        "utility_model_resolved": utility_resolved,
+        "utility_model_reason": utility_reason,
         # "" means "auto-detect" (vision model). The resolved field is what
         # an image-carrying turn would actually use right now, None if
         # nothing installed declares vision and no explicit choice is set, 

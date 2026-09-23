@@ -242,6 +242,42 @@ def test_a_rebuild_can_be_asked_for_directly(ai_client, fake_embeddings):
         session.close()
 
 
+def test_a_rebuild_also_rebuilds_the_keyword_index(ai_client, fake_embeddings):
+    """The keyword index (`search_index`) was built once, at the startup that
+    created its table, and never again: after a restore, an import or a bug
+    there was no way to ask for it. "Rebuild search index" now rebuilds both
+    halves of search, in the job it already ran, and `/search/stats` says
+    when and with how many rows."""
+    from sqlalchemy import text as sa_text
+
+    ai_client.post("/entries", json={"content": "the lighthouse keeper's log"})
+    session = deps.get_db().session()
+    try:
+        # A drifted index: one row taken out behind the flush hook's back,
+        # and one row for a note that does not exist.
+        session.execute(sa_text("DELETE FROM search_index WHERE kind = 'note'"))
+        from memorymap.search import index
+
+        ghost = index._rowid(index.source_for("notes"), 999999)
+        session.execute(
+            sa_text(
+                "INSERT INTO search_index(rowid, title, body, tags, kind, ref_id, source, "
+                "space, flags, written) VALUES (:rowid, 'ghost', 'ghost', '', 'note', 999999, "
+                "'notes', 'default', '', '')"
+            ),
+            {"rowid": ghost},
+        )
+        session.commit()
+    finally:
+        session.close()
+    assert ai_client.post("/models/reindex").status_code == 200
+    _wait_for(ai_client, lambda b: (b["reindex"] or {}).get("status") == "success")
+    stats = ai_client.get("/search/stats").json()
+    assert stats["index"]["note"] == 1
+    assert stats["last_rebuild"]["rows"]["note"] == 1
+    assert stats["last_rebuild"]["at"]
+
+
 def test_a_rebuild_does_not_change_which_backend_is_in_use(ai_client, fake_embeddings):
     """It re-embeds with the *current* backend. A rebuild that quietly moved
     the user to a different one would be a settings change wearing a
@@ -284,3 +320,49 @@ def test_status_names_the_model_an_openai_server_actually_runs(client, monkeypat
     body = client.get("/models/status").json()
     assert body["chat_model_installed"] is False
     assert body["chat_model_effective"] == "qwen3.5-4b-q4.gguf"
+
+
+# --- INBOX 277: what the utility role resolves to, and why ------------------
+#
+# A role can say one model and run another: the utility preference ships
+# empty, and smart model routing off sends every background job to the chat
+# model whatever the preference says. Settings used to show only the stored
+# name, so a person who picked a small model and then turned routing off was
+# told something untrue about their own notebook. The status poll now reports
+# the resolved name and the reason, from the one function that decides it.
+
+
+def test_status_reports_the_utility_model_it_resolves_to(client):
+    body = client.get("/models/status").json()
+    assert body["utility_model_resolved"] == body["chat_model"]
+    assert body["utility_model_reason"] == "unset"
+
+
+def test_status_says_a_chosen_utility_model_is_the_one_in_use(client):
+    deps.get_model_manager().set_utility_model("phi3.5")
+    body = client.get("/models/status").json()
+    assert body["utility_model"] == "phi3.5"
+    assert body["utility_model_resolved"] == "phi3.5"
+    assert body["utility_model_reason"] == "chosen"
+
+
+def test_status_says_routing_off_sends_background_jobs_to_chat(client):
+    manager = deps.get_model_manager()
+    manager.set_utility_model("phi3.5")
+    manager._config.set_preference("smart_model_routing_enabled", False)
+    body = client.get("/models/status").json()
+    # The stored choice is still reported (the picker shows it), and the
+    # resolved name says what actually runs.
+    assert body["utility_model"] == "phi3.5"
+    assert body["utility_model_resolved"] == body["chat_model"]
+    assert body["utility_model_reason"] == "routing_off"
+
+
+def test_resolution_agrees_with_the_getter_in_every_case(app_state):
+    manager = deps.get_model_manager()
+    for chosen in ("", "phi3.5"):
+        for routing in (True, False):
+            manager.set_utility_model(chosen)
+            manager._config.set_preference("smart_model_routing_enabled", routing)
+            model, _reason = manager.utility_resolution()
+            assert model == manager.utility_model()

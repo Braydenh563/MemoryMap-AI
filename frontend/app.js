@@ -1400,8 +1400,31 @@ function buildSelect(options, selected) {
 //: Callers that pass no checkbox still get a plain boolean, because thirty of
 //: them read the result directly and widening that contract for all of them
 //: would be a rewrite in service of one feature.
+//: **The button says what it does.** A confirmation whose question is
+//: "Delete the 'Audit link reasons' skill?" answered with a red "OK", which
+//: is the one label that names no action (every platform's guidelines ask
+//: for the verb). Most call sites pass no label, so the default is read off
+//: the question itself: its first word, when that word is one of the
+//: actions the app asks about. Anything else keeps "OK".
+const CONFIRM_VERBS = new Set([
+  "delete", "remove", "clear", "discard", "reset", "replace", "archive", "leave",
+  "disconnect", "overwrite", "restore", "empty", "forget", "unlink", "stop",
+  "merge", "move", "rename", "revert", "undo", "lock",
+]);
+function confirmVerb(message) {
+  const first = String(message || "").trim().split(/\s+/)[0]?.replace(/[^A-Za-z]/g, "") || "";
+  return CONFIRM_VERBS.has(first.toLowerCase())
+    ? first[0].toUpperCase() + first.slice(1).toLowerCase()
+    : "OK";
+}
+
 function confirmDialog(message, options = {}) {
-  const { confirmLabel = "OK", cancelLabel = "Cancel", danger = true, checkbox = null } = options;
+  const {
+    confirmLabel = confirmVerb(message),
+    cancelLabel = "Cancel",
+    danger = true,
+    checkbox = null,
+  } = options;
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay confirm-overlay";
@@ -14634,7 +14657,10 @@ async function viewAskHistoryTurn(id) {
       historyMeta.raw_results,
       answerBox,
       turn.question,
-      remembered.sources
+      remembered.sources,
+      //: The stored turn's support (`routes_ask_history.py`), so a reopened
+      //: answer keeps the low-support notice the live one had.
+      turn.support || null
     );
   }
   renderAskAnswerFoot(remembered, historyMeta);
@@ -24467,7 +24493,12 @@ async function openConversation(id) {
           handles.groundingHolder,
           message.sentence_grounding,
           message.raw_results || [],
-          handles.bubble?.querySelectorAll(".bubble-answer") || null
+          handles.bubble?.querySelectorAll(".bubble-answer") || null,
+          "",
+          null,
+          //: Saved on the turn by the server from the same counter the live
+          //: stream used, so the notice survives reopening the chat.
+          message.support || null
         );
       }
       // And the same shape again for the "what to ask next" chips, reported
@@ -27199,8 +27230,11 @@ function reminderItem(reminder, label) {
       loadReminders();
     })
   );
-  actions.appendChild(
-    smallButton("ph:x", "Delete this reminder", async () => {
+  //: Delete joins the row's other connections in one menu (INBOX 393, the
+  //: integration vocabulary every object already speaks: its note, Atlas,
+  //: copy). The two snoozes and Edit stay on the row, being what a reminder
+  //: is touched for; four same-sized icons were one more than a row reads.
+  const deleteReminder = async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
       // Deleting a reminder is as undo-able as binning a note. There's no
@@ -27232,8 +27266,23 @@ function reminderItem(reminder, label) {
         await recreate().catch((e) => toast(e.message, true));
         toast("Reminder restored.");
       });
-    })
+    };
+  const menuItems = [];
+  if (reminder.entry_id) {
+    menuItems.push({ label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" });
+  }
+  menuItems.push(
+    { label: "ph:sparkle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
+    {
+      label: "ph:copy Copy text",
+      run: async () => {
+        if (await copyToClipboard(reminder.text)) toast("Copied.");
+      },
+      group: "go",
+    },
+    { label: "ph:trash Delete", run: deleteReminder, group: "remove", danger: true }
   );
+  actions.appendChild(kebabMenu(menuItems, `Actions for the reminder “${reminder.text}”`));
   row.appendChild(actions);
   li.appendChild(row);
 
@@ -27511,6 +27560,19 @@ function reminderEditForm(reminder) {
     })
   );
   wrap.append(textInput, dueInput, prioritySelect, recurringSelect, row);
+  //: Enter saves and Escape cancels, from any field in the form: the two
+  //: keys every inline editor answers. Only the buttons did before.
+  wrap.addEventListener("keydown", (event) => {
+    if (event.isComposing) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      row.querySelectorAll("button")[1]?.click();
+    } else if (event.key === "Enter" && event.target.tagName === "INPUT") {
+      event.preventDefault();
+      row.querySelector("button")?.click();
+    }
+  });
   setTimeout(() => textInput.focus(), 0);
   return wrap;
 }
@@ -36372,6 +36434,15 @@ function toast(message, isError = false, { exempt = false } = {}) {
   }
   const timer = setTimeout(() => note.remove(), isError ? 9000 : 5500);
   note.appendChild(toastCloseButton(note, timer));
+  //: A tap on the words dismisses it, the way a phone's own banners go
+  //: (below 1100 a toast comes down from the top, over the head of a list,
+  //: and the small close button is not the only way to clear it). Its
+  //: buttons keep their own jobs.
+  note.addEventListener("click", (event) => {
+    if (event.target.closest("button")) return;
+    clearTimeout(timer);
+    note.remove();
+  });
   box.appendChild(note);
 }
 
@@ -38562,6 +38633,19 @@ function renderUtilityModelPicker(status) {
     { value: "", label: "Same as chat model" },
     status.utility_model || ""
   );
+  //: INBOX 277. The select shows what is stored; this line says what runs.
+  //: The two differ exactly when smart model routing is off, and the server
+  //: decides which (`ModelManager.utility_resolution`), so this only words
+  //: the reason it was given rather than repeating the rule.
+  const note = $("utility-model-note");
+  if (!note) return;
+  const resolved = status.utility_model_resolved || status.chat_model || "";
+  const reasons = {
+    routing_off: `Background jobs run on ${resolved}, the chat model, because smart model routing is off.`,
+    unset: `Background jobs run on ${resolved}, the chat model, until you choose another.`,
+    chosen: `Background jobs run on ${resolved}.`,
+  };
+  note.textContent = resolved ? reasons[status.utility_model_reason] || `Background jobs run on ${resolved}.` : "";
 }
 
 function renderVisionModelPicker(status) {
@@ -38582,7 +38666,7 @@ function renderVisionModelPicker(status) {
   if (status.vision_model) {
     note.textContent = `Active: ${status.vision_model}`;
   } else if (status.vision_model_resolved) {
-    note.textContent = `Auto-detect: currently: ${status.vision_model_resolved}`;
+    note.textContent = `Auto-detect, currently ${status.vision_model_resolved}`;
   } else {
     note.textContent =
       "Auto-detect: no installed model reports it can see images yet.";
@@ -38912,7 +38996,7 @@ function renderOcrModelPicker(status) {
   if (status.ocr_model) {
     note.textContent = `Active: ${status.ocr_model}`;
   } else if (status.ocr_model_resolved) {
-    note.textContent = `Automatic: currently: ${status.ocr_model_resolved}`;
+    note.textContent = `Automatic, currently ${status.ocr_model_resolved}`;
   } else {
     note.textContent =
       "Automatic: nothing installed can read text off a page yet.";
@@ -42573,9 +42657,13 @@ $("pref-autonomous-interval").addEventListener("change", (e) =>
 $("pref-autonomous-model").addEventListener("change", (e) =>
   setPreference("autonomous_tasks_model", e.target.value.trim())
 );
-$("pref-smart-model-routing").addEventListener("change", (e) =>
-  setPreference("smart_model_routing_enabled", e.target.checked)
-);
+//: The switch changes which model background jobs run on, so the line under
+//: the utility picker (INBOX 277) is re-read once the preference has landed
+//: rather than left describing the old state until the next poll.
+$("pref-smart-model-routing").addEventListener("change", async (e) => {
+  await setPreference("smart_model_routing_enabled", e.target.checked);
+  refreshModelStatus();
+});
 
 $("semantic-search-toggle")?.addEventListener("change", () => {
   // `loadEntries`, which is what re-runs the list with the toggle's new
@@ -43310,6 +43398,15 @@ function openGlobalFind() {
   // entirely, and a card can be scrolled far outside the viewport with no
   // scrollIntoView that means anything on an infinite canvas. The board has
   // its own find, which pans the viewport to each match, send Ctrl+F there.
+  //: **Find is scoped to what is in front of you.** With Settings open, the
+  //: page-wide bar searched the tab hidden behind the dialog; Settings has
+  //: its own search, which filters its panes, so Ctrl+F goes there.
+  const settingsOpen = !$("settings-modal")?.classList.contains("hidden");
+  if (settingsOpen && $("settings-search")) {
+    $("settings-search").focus();
+    $("settings-search").select();
+    return;
+  }
   const wbCanvas = document.getElementById("wb-canvas-view");
   const wbView = document.getElementById("library-view-whiteboard");
   if (
@@ -44374,6 +44471,14 @@ $("web-reader-ask").addEventListener("click", () => {
 // Reminders (Wave D). The dashboard's own wiring (dash-edit,
 // dash-widgets-open/search) moved to dashboard.js along with the code it
 // drives; this comment used to cover both.
+//: Enter adds it, the way a one-line "add" field works everywhere; a
+//: reminder had to be clicked in with the mouse after typing it. Skipped
+//: while an input method is composing, where Enter picks a candidate.
+$("reminder-text")?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  $("reminder-add").click();
+});
 $("reminder-add").addEventListener("click", async () => {
   const ok = await addReminder($("reminder-text").value.trim(), $("reminder-due").value, null, {
     priority: $("reminder-priority").value,

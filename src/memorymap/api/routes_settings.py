@@ -1156,9 +1156,17 @@ def event_feed(
     limit: int = Query(default=100, ge=1, le=500),
     entity_type: str = Query(default="", max_length=40),
     include_quiet: bool = Query(default=False),
+    tail: int = Query(default=0, ge=0, le=100),
     session: Session = Depends(get_session),
 ) -> dict:
     """The event log forwards, for anything that follows what happens here.
+
+    `tail=N` is where a follower starts: the newest N events (after `since`
+    and the filters), still oldest first, with the cursor after the last. A
+    strip opening for the first time wants the last few things that
+    happened, and without it the only way in was the first hundred events of
+    the notebook's life, or `/audit` backwards and a cursor worked out by
+    hand. It is the Dashboard's Recent activity widget's first read.
 
     `/audit` reads backwards from now, which is what a viewer wants and what
     a feed cannot use: a poller has to ask "what has happened since the last
@@ -1185,11 +1193,18 @@ def event_feed(
     one line rather than as a burst of edits.
     """
     query = select(AuditLog).where(AuditLog.id > since)
-    if entity_type:
-        query = query.where(AuditLog.entity_type == entity_type)
+    #: One type or a comma list: a strip about the notebook's content wants
+    #: notes, documents, boards and reminders, and not the preference toggles
+    #: and model downloads that would otherwise fill its last ten rows.
+    types = [part.strip() for part in entity_type.split(",") if part.strip()]
+    if types:
+        query = query.where(AuditLog.entity_type.in_(types))
     if not include_quiet:
         query = query.where(AuditLog.action.notin_(sorted(events.QUIET_ACTIONS)))
-    rows = list(session.scalars(query.order_by(AuditLog.id.asc()).limit(limit)))
+    if tail:
+        rows = list(session.scalars(query.order_by(AuditLog.id.desc()).limit(tail)))[::-1]
+    else:
+        rows = list(session.scalars(query.order_by(AuditLog.id.asc()).limit(limit)))
     return {"items": [_feed_item(row) for row in rows], "cursor": rows[-1].id if rows else since}
 
 

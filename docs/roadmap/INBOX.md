@@ -413,27 +413,6 @@ with its owner named in the entry.
     refused outright rather than warned about, so a Mac build is only worth
     shipping alongside an Apple Developer account for notarisation.
 
-277. **Found while fixing 274 (the session, not the owner): a role can say one
-    model and run another, everywhere, silently.** 274's "it doesnt use the
-    utility model and instead uses the chat model" was not a bug in the Guide:
-    `ModelManager.utility_model()` answers the **chat** model whenever no
-    utility model has been chosen (the preference ships empty) or smart model
-    routing is off, and both are the documented design. The trouble is that
-    nothing on screen says so. Four places around the Guide alone print "your
-    utility model" as a statement of fact, and the janitor, the weekly digest,
-    tidy suggestions and the writing fixes take the same role and say the same
-    thing in their own copy. A reader who has set a small utility model and
-    then turned smart routing off is told, in five places, something that is
-    not true of their notebook, which is exactly how 274 came to be filed
-    against the Guide. Recommendation: Settings, Models shows what each role
-    **resolves to** rather than what is stored, "Utility model: same as chat
-    (llama3.2), because smart model routing is off" beside the picker, from
-    one endpoint that reports the resolved name and the reason per role; the
-    surfaces that name a role in prose then say "your utility model" and mean
-    it. `tests/test_help_chat.py` already pins which model each of the three
-    cases takes for the Guide, so the facts are written down; what is missing
-    is the app saying them.
-
 272. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also make sure
     all features and alternatives are easily knoticable by and offered for the
     user. like if the embedding model fails or has an error, it suggests to

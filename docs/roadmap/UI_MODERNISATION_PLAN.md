@@ -1155,7 +1155,7 @@ different problem than the list says.
     Open: the selection ticks on Library cards and reminder
     rows draw a 44px box at rest, where a smaller drawn box in a 44px target
     would read lighter; Settings scrolls sideways in two sections at 768.
-    The list, with ids, is `agent-remaining/phone.md`.
+    The list, with ids, is `archive/agent-remaining/phone.md`.
 
 ## Placed from INBOX, 2026-09-09
 

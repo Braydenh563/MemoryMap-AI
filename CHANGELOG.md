@@ -16,6 +16,39 @@ below). Versioning is `0.x` while the app stabilises.
 - With glass on, the graph's floating dock and panels and the chat composer are frosted panes like the rest of the glass chrome, instead of an opaque bar and a near-black well.
 - The full test suite runs across every core (pytest-xdist): under 9 minutes on four cores instead of about 25. The resurface timing test now waits for the embedding warm-up before it starts its clock.
 - Quiet utilitarian no longer sets compact density, which had squeezed every spacing token app-wide, and the dashboard's Full view has its labelled rows, two-line hints and larger clock back, so Full and Compact differ again (first widget at 631px against 483px at 1440).
+- On a phone the foot of the screen is one bar, not two: Back, Undo and the
+  AI status sit in the top bar, and the status bar's other controls are in
+  the top bar's menu. The status bar comes back only while a job is running,
+  or when offline or on power saver.
+- On a phone a note row is the note: no action buttons sitting on its tags,
+  no coloured strips at its edges, and the list runs the full width. Swipe
+  to favourite or bin, tap to open, or use the row's menu.
+- On a phone the Notes and Chat headers are one row (title and actions),
+  with the search under it; the chat's model, skills, web search and plan
+  are in the "How it answers" sheet behind the gear, so the controls under
+  the chat box fit on one row and nothing is cut off.
+- On a phone Reminders opens on the list; "New reminder" (the floating
+  button, and a button in the list's header on a computer) opens the add
+  form as a sheet, which closes once the reminder is added.
+- On a phone every list header is one row of title and actions with the
+  search under it, and the Library's cards start on the first screen: the
+  header is unframed, the words-written line is left to the dashboard, and
+  a card's preview is three lines.
+- On a phone toasts and the agent activity panel no longer cover the tab
+  bar (a toast also clears the floating button), and a long note shows five
+  lines in the list rather than eight.
+- A board's top bar menus keep an icon when their words are dropped on a
+  narrow window, instead of five identical arrows; on a phone an open board
+  takes the Library's sub-tabs' space, the map's keyboard hint is left to
+  keyboards, and the tool bar at the foot has lost a stray dark frame.
+- On a tablet, or any touch screen, every control is a finger's size
+  (44px) at any width, not only below 820; the status bar is a touch bar
+  there and no longer pushes the page sideways at 768; Reminders opens on
+  its list below 1100; and the Library's kind chips stay on one row.
+- On a phone every ⋯ menu opens as a sheet from the bottom of the screen,
+  with full-width rows; Escape closes only the top sheet when one is open
+  over another; and closing the sidebar sheet puts the focus back on the
+  button that opened it.
 - Scrolling does less per frame everywhere: the back-to-top button updates once per frame and only writes what changed, the bar-over-list edge measures only when a list crosses its top, and the graph's wheel listener lives on the graph canvas instead of every tab.
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window

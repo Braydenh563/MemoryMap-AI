@@ -5274,7 +5274,7 @@ button.ghost.doc-template-choice:focus-visible {
   font-weight: 600;
 }
 
-@media (max-width: 819.98px) {
+@media (max-width: 819.98px), (pointer: coarse) {
   /* The phone floor, the same one the docks and the segmented controls take:
      a crumb is a tap target, and 0.15rem of padding around 0.75rem text is
      22px of one. */

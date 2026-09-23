@@ -29,6 +29,12 @@ async function touch(cdp, type, points) {
 async function newBoard(page, name, type) {
   await page.click('[data-tab="library"]');
   await page.waitForTimeout(600);
+  // On a phone an open board hides the Library's sub-tabs (INBOX 392); its
+  // own "Boards" is the way back to them, as it is for a person.
+  if (await page.isVisible('#wb-back-to-boards')) {
+    await page.click('#wb-back-to-boards');
+    await page.waitForTimeout(600);
+  }
   await page.click('[data-target="library-view-whiteboard"]');
   await page.waitForTimeout(800);
   await page.click('#wb-boards-new');

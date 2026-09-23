@@ -3651,8 +3651,12 @@ function entryItem(entry, options = {}) {
       //: draw, and it showed as its raw `![...](...)` (owner's screenshot:
       //: "Gary The Moss Monster :D ![Gary The Moss Monst..."). The picture
       //: is dropped from the label; the words around it stay.
+      //: The preview is clipped by the server, so an image can arrive cut
+      //: in half (`![WallpaperEngineOverride_rand`, owner's screenshot) and
+      //: a heading with its `#`: both go, whole or truncated.
       const label = (link.preview || "")
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .replace(/!\[[^\]]*(?:\](?:\([^)]*\)?)?)?/g, "")
+        .replace(/^\s*#{1,6}\s+/, "")
         .replace(/\s{2,}/g, " ")
         .trim();
       const short = label.length > LINK_CHIP_CHARS
@@ -27409,7 +27413,7 @@ function reminderItem(reminder, label) {
     menuItems.push({ label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" });
   }
   menuItems.push(
-    { label: "ph:sparkle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
+    { label: "ph:chat-circle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
     {
       label: "ph:copy Copy text",
       run: async () => {
@@ -30903,8 +30907,17 @@ function paintTimeline() {
   // offering the mode where it cannot be used is a control that does nothing.
   $("timeline-select-btn").classList.toggle("hidden", !table);
   syncTimelineSelectUi();
-  if (table) paintTimelineTable(rows);
-  else paintTimelineFeed(rows);
+  //: The mode not drawn is emptied, not only hidden. Crossing the phone
+  //: breakpoint switches the mode, and the hidden feed kept its rows beside
+  //: the table's: every `.timeline-row` query (the keyboard walk, the tab
+  //: order, the sweeps) then counted both, measured as 113 rows read as 226.
+  if (table) {
+    $("timeline-feed").replaceChildren();
+    paintTimelineTable(rows);
+  } else {
+    $("timeline-table-body").replaceChildren();
+    paintTimelineFeed(rows);
+  }
 }
 
 function paintTimelineFeed(rows) {

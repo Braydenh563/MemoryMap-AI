@@ -141,6 +141,13 @@ def test_a_description_typed_while_the_model_ran_is_kept(client, session, monkey
 
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)
+    # The upload route starts the same pass on a thread of its own, and with
+    # the fakes above it writes "A handout about ..." whenever it gets there:
+    # after `caption = None` below on a slow runner (CI, 3.12 and 3.13). This
+    # test is about the one call it makes itself, so the route's is held off.
+    from memorymap.api import routes_files
+
+    monkeypatch.setattr(routes_files.docreader, "read_in_background", lambda fid: None)
     file_id = _attach(client)
     row = session.get(Attachment, file_id)
     row.caption = None

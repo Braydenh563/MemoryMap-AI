@@ -827,6 +827,12 @@ function libraryActions(item) {
       makeMenuItem("ph:download-simple Download", "Save this file", () => {
         window.open(mediaSrc(`/files/${item.id}`), "_blank");
       }),
+      //: The same way into a chat every other object's menu offers (INBOX
+      //: 393's vocabulary); a file's read text and caption are searchable by
+      //: the agent, so the question has something to answer from.
+      makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this file", () =>
+        askAtlasAboutThing("file", item.title)
+      ),
       // Live-reported: an uploaded file "can't be deleted", true for its
       // own ⋯ menu specifically; bulk-select delete already worked
       // (`library-bulk-delete` already has a `file` branch), but nothing

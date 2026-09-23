@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A file's menu in the Library offers Ask Atlas about this, like every other
+  object's menu; the reminder menu's entry uses the same icon as the rest.
 - Files: a description or reading typed while the automatic one was still being written is no longer overwritten when the automatic one lands.
 - Empty states: the Timeline's sits centred in its card instead of at the foot under a blank body, and the Graph's action button is its own width instead of spanning the map.
 - Dashboard: an empty notebook no longer shows a strip of zeros above the welcome card; the figures appear with the first note or reminder.
@@ -44,6 +46,24 @@ below). Versioning is `0.x` while the app stabilises.
 - Library, Boards & maps on a phone: the dock is two rows like every other Library dock (was four, 198px to 114px at 390); New mind map and Reload move into the dock's menu there and back out on a wider window.
 - Segmented controls round their corners from one table: a choice control, a tab strip, a control inside a bar, the chat dock's pills and the one full-bleed strip; the OCR rail's Images, Files and Pages switch and the radio-backed toggles outside a bar now match the rest.
 - Ask: every sentence the notes back gets its citation number in the answer, including sentences in a list, after a bold label or with a word in italics (a formatted answer grounded to three notes used to show none); the Matching records column is numbered as each sentence completes instead of after the answer finishes.
+- A connection pill's ⋯ is round, so its hover no longer pokes past the
+  pill's border, and a linked note whose first line is a heading or a
+  clipped image reads as its words (no `#` or half an `![...`).
+- A skill's facts line in Settings no longer starts a wrapped line with its
+  separator dot.
+- A reminder's time sits at the end of its row; with a mouse, its actions
+  appear over the time on hover instead of holding an empty 193px gap. An
+  overdue reminder keeps its amber edge without the amber frame as well.
+- Settings section intros step down to sit under their headings (they were
+  larger than the headings they describe).
+- Resizing the window across the phone width no longer leaves the Timeline's
+  previous view in the page: the rows counted twice (113 read as 226), which
+  broke arrow-key walking, the pinned day head and Enter's detail.
+- Timeline rows with a second line keep their kind mark and time on the
+  title's line, rather than centred between the two lines.
+- The graph options panel's four section heads share one style (they wore
+  three), and the dashboard's day streak tile opens the Timeline instead of
+  doing nothing.
 - Labels that lost their capitals in Quiet keep their rank: a section label is small, bold and in ink over a muted description, and the Contents index's section names are headings with the Timeline's underline over rows one step smaller; a Files row's name is in ink and lines up with its facts.
 - Scrolling and typing, traced and cut: the page scrollers and the editor scroll on the compositor (Notes scroll raster 2.7s to 0.25s, Library 1.0s to 0.2s, typing in a long document 3.2s to 0.24s over a 30-step scroll or 88 characters at 1184x760); a card's hover animation stands down while a list scrolls; the back-to-top check no longer matches every button in the app on every scroll frame (184ms to 12ms); the open-menu checks on every scroll event walk only the menus; typing in a document no longer restyles the whole editor per keystroke (style 1.65s to 0.35s) or rewrites 51 toolbar states; the Library search no longer cross-fades the window on every letter.
 - Dashboard: Quick capture saves on Ctrl+Enter (Cmd+Enter), and its placeholder says so.
@@ -226,6 +246,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Capture's "Add to this note" tools (Attach, From library, Sketch, Dictate,
+  Improve) and "Add to document" are a quiet toolbar rather than a row of
+  heavy buttons, with Improve set apart; every Capture row shares one label
+  column, and on a phone the labels sit above their fields.
 - **A new default look, Quiet utilitarian**: a warm grey ground, solid
   panels, one ink-blue accent and tighter spacing. Two new looks, Editorial
   paper and Technical mono, sit beside it in Appearance, and the previous

@@ -222,6 +222,14 @@ with its owner named in the entry.
     be argued a fourth time. No migration started, and the serverless
     question is answered in a paragraph there rather than left hanging.
     Still open on this entry: (1), (2), (3), (4) and (5).
+    **Checked 2026-09-23.** (2) built: `release.yml` ships
+    `MemoryMap-AI-<version>-linux-x86_64.tar.gz` beside the zip. (3) built and
+    then switched off (`b7b15c7`, WiX v7's fee terms; see 271, resolved). (4)
+    built: every artifact name carries version, platform and architecture
+    (`MemoryMap-AI-Setup-<version>-windows-x86_64` in `installer.iss`, the
+    MSI and both Linux archives in `release.yml`). Left: (1), the usability
+    and information-architecture read, and (5), lightweight, whose decided
+    shape is lazy imports (268).
 
 268. **Mid-work drop, 2026-09-20, verbatim (the owner), with two
     screenshots.** "what is the difference between the exe and msi installer??
@@ -241,40 +249,11 @@ with its owner named in the entry.
     SmartScreen prompt an unsigned `.exe` does; only an Authenticode
     certificate removes it), and the idle memory work is lazy imports rather
     than idle suspend. Open.
-
-269. **Mid-work drop, 2026-09-20, verbatim (the owner), two messages.** "And
-    I was wondering if we should have an ai free version of the guide
-    available for users who dont have the ai running or enabled?? like a
-    preprepared response or sentence stringing with sentence similarity and
-    stuff?? I want to maximise the ability and function of all the application
-    features without ai, the ai features should just eb the bonus." Then:
-    "maybe there can be a fill-in system response/description/explanation that
-    can replace the ai using clever sentence stringing and composition to give
-    the user a breakdown of the results on the ask page in place of the ai
-    without using the ai when it is disabled or not running?? and it can be
-    togglable to see both that response and the ai response when the ai is
-    enabled so the user can flick between both outputs... idk im just sprouting
-    ideas. but again I actually need you to use your ui and ux design skills
-    and the ones vendored in this repo and do a check for signs of being
-    vibecoded."
-    Two things. (1) An extractive, no-model answer on the Ask page: the
-    retrieval, the passage scorer and the grounding all run without a model
-    already, so the missing piece is composition, not search. Worth checking
-    what already exists before building: the Ask tab has a no-model path and
-    the passage scorer produces exactly the spans such an answer would be
-    made of. (2) A vibecoded sweep of the UI against DESIGN.md and the
-    vendored skills, which the owner has now asked for twice.
-    (2) done, `4884ead` and `29d0ccb`, in two passes. The first
-    (`scratchpad/ui-sweeps/vibecheck.js`) measured six tells a screenshot
-    cannot show across eight tabs: dead controls, leaked values, duplicate
-    ids, controls disabled with no reason, controls with no accessible name,
-    machine values on screen. 0 findings in all six, 104 buttons checked. The
-    second (`vibefail.js`) failed every request and found the real thing: four
-    surfaces drew their empty state, so a full notebook read "Your notebook is
-    empty", and the dashboard printed "0 this week" from figures it had never
-    read. Fixed with one recipe (`surfaceFailed`, in DESIGN.md's index, with a
-    lint in `test_ui_recipes.py`); 6 findings to 0. (1), the AI-free answer,
-    still open.
+    **Checked 2026-09-23.** (3) built: an empty graph lays the minimap out of
+    the way (`graph.js`, the comment quoting this entry;
+    `scratchpad/ui-sweeps/graphminimap.js`). (1) and (2) are
+    AGENT_SKILLS_REFORM's, whose Phase D was verified against a real small
+    model on 2026-09-20; what that plan still holds is its evals breadth.
 
 270. **Mid-work drop, 2026-09-20, verbatim (the owner), with a dashboard
     screenshot and four MSN/Bing screenshots.** "hit the rest of the open
@@ -324,15 +303,12 @@ with its owner named in the entry.
     obvious first thing, (3) that same search reachable from anywhere as a
     popup, like the command palette already is, (4) a redesign of the guide
     popup panel. Open.
-
-271. **Mid-work drop, 2026-09-20, verbatim (the owner).** "should we have the
-    msi and exe installer as an option?? what about mac??" Open; recommended
-    answer recorded with the reply: ship both Windows artifacts (an MSI is
-    what an IT department deploys, an EXE is what a person double-clicks, and
-    both come off one PyInstaller build), and treat macOS as its own decision
-    because Gatekeeper is stricter than SmartScreen: an unsigned app is
-    refused outright rather than warned about, so a Mac build is only worth
-    shipping alongside an Apple Developer account for notarisation.
+    **Checked 2026-09-23.** (1) built: `DASH_DENSITY_KEY` and the Full,
+    Compact and Focused levels in `dashboard.js`. (2) and (3) built: the
+    finder reads `/search` (`app.js`, `finderRun`, `Ctrl+P` in
+    `DEFAULT_SHORTCUTS` as "Find anything"). (4) partly: INBOX 274 fixed the
+    guide panel's title, model, thinking and streaming; a redesign as such has
+    not been done and is the one part left.
 
 272. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also make sure
     all features and alternatives are easily knoticable by and offered for the
@@ -381,16 +357,13 @@ with its owner named in the entry.
     .error` rather than the `.notice.notice-warn` recipe), recorded in the
     table rather than guessed at. Part 2 (the guided tour) stays open above;
     `tour.js` was read for the survey and not touched.
-
-271. **Mid-work drop, 2026-09-20, verbatim (the owner).** "can you focus on
-    refinement now?? refine everything, make sure all utility works and there
-    are no bugs. make things faster, optimise, reduce complexity. enhance
-    capability. what about the no ai available sentence string concatenation
-    search results for the help agent and ask response??" The named half is
-    built: the Guide answers from its own help text with no model (`9f715c4`),
-    and the Ask tab quotes the passage of each retrieved note that is about
-    the question (`ai/extractive.py`). The standing half, refinement, is the
-    session's own order of work from here.
+    **Checked 2026-09-23.** Part 2 was built (`frontend/tour.js`, INBOX 274
+    fixed three faults in it) and then switched off by the owner on
+    2026-09-21 ("disable the start the tour button ... until we enable it
+    again when the guided tour isnt broken"; `TOUR_ENABLED` in tour.js,
+    `4beba07`). What is still broken was not written down, so the next step
+    is to run `scratchpad/ui-sweeps/tour.js` and ask the owner which step
+    fails, and the switch stays the owner's.
 
 302. **Found by the repository read, 2026-09-21 (the session, not the owner):
     a decision for the owner.** needle (cactus-compute, Apache-2.0 for both

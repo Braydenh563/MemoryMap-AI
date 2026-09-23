@@ -53,7 +53,12 @@ Phase 8c, the templates preview, outline row height.
   `oi-learnedbulk.js` 7 of 7.
 - done 47d34a3: 9, dead matrix rows skipped and compacted (and the -1
   answer they could produce).
-- done (this commit): GRAPH_PLAN's open line, the lasso selection drags as
+- done 61c613d: GRAPH_PLAN's open line, the lasso selection drags as
   one; `oi-groupdrag.js` 1 finding before, 0 after.
-- next: 10, Settings, Extras at 820 (measured clean: `oi-extras820.js` 492 in
-  492, `errors.js` 0 findings at 820), close it with the stale rows.
+- done (this commit): the stale-row pass. OPEN.md: the GRAPH_PLAN row in
+  section B, Reminders paging, first-page callers, INBOX 235 and 237, I9's
+  Settings section, Settings Extras at 820 (not reproduced), the D6 row
+  re-read. INBOX: 269 and both 271s resolved to HISTORY; 266, 268, 270 and
+  272 annotated with which parts are built and which are left.
+- next: 11, a decision for D6's chord (INBOX, one-line recommendation), then
+  INBOX 266 (5) lazy imports measured.

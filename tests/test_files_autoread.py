@@ -129,3 +129,30 @@ def test_the_module_never_leaks_a_path_outside_the_uploads_dir(client, session):
     session.commit()
     assert docreader.read_document_and_store(file_id) is None
     assert Path("/etc/passwd").exists()
+
+
+def test_a_description_typed_while_the_model_ran_is_kept(client, session, monkeypatch):
+    """The lost update CI caught: the automatic description arrives seconds
+    after the upload, and a description typed in between must survive it.
+    The fake model call writes the typed value mid-call, which is exactly the
+    window the real one leaves open."""
+    from memorymap.ai import captioning
+    from memorymap.core import deps
+
+    monkeypatch.setattr(deps, "get_ollama", _Ollama)
+    monkeypatch.setattr(deps, "get_model_manager", _Models)
+    file_id = _attach(client)
+    row = session.get(Attachment, file_id)
+    row.caption = None
+    session.commit()
+
+    def typed_meanwhile(text, models, ollama):
+        with deps.get_db().session() as other:
+            other.get(Attachment, file_id).caption = "typed while it ran"
+            other.commit()
+        return "the automatic description"
+
+    monkeypatch.setattr(captioning, "describe_document", typed_meanwhile)
+    assert docreader.read_document_and_store(file_id) == "typed while it ran"
+    session.refresh(row)
+    assert row.caption == "typed while it ran"

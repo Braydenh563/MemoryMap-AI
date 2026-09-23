@@ -26205,8 +26205,18 @@ const SCROLL_EDGE_GAP = 24;
 // possible way to learn which elements are worth asking about.
 const scrollEdgeRegions = new Set();
 
-function markScrollEdge(region) {
+//: What each region last told its bar. The bar over a region only changes
+//: when the region crosses its top edge, so a scroll that stays below it
+//: (nearly every frame of every scroll) has nothing to measure: without this
+//: each frame read every bar's box, which traced at 34 to 87ms per scroll.
+const scrollEdgeLastState = new WeakMap();
+
+function markScrollEdge(region, force = false) {
   if (!region || typeof region.getBoundingClientRect !== "function") return;
+  const wasScrolled = scrollEdgeLastState.get(region);
+  const nowScrolled = region.scrollTop > 1;
+  if (!force && wasScrolled === nowScrolled) return;
+  scrollEdgeLastState.set(region, nowScrolled);
   // A menu, a dialog or a popover scrolls over the page, not under a bar.
   if (
     region.closest &&
@@ -26332,7 +26342,7 @@ function syncScrollEdges() {
       continue;
     }
     if (page && page.contains(region) && region.scrollTop > 1) {
-      markScrollEdge(region);
+      markScrollEdge(region, true);
       handled = true;
     }
   }
@@ -31730,11 +31740,18 @@ function initScrollTopButton() {
     const show = chat
       ? fromBottom > 200
       : scrollTop > (tab === "dashboard" ? 200 : 400) && !NO_SCROLL_TOP_TABS.has(tab);
-    button.dataset.mode = chat ? "bottom" : "top";
-    button.textContent = chat ? "↓" : "↑";
-    const label = chat ? "Jump to the newest message" : "Back to top";
-    button.title = label;
-    button.setAttribute("aria-label", label);
+    //: Written only when they change: this runs on scroll, and a text or
+    //: attribute write on every frame invalidates style that the layout reads
+    //: just below (`coversAFormPrimary`, `positionScrollTopForNested`) then
+    //: have to recompute.
+    const mode = chat ? "bottom" : "top";
+    if (button.dataset.mode !== mode) {
+      button.dataset.mode = mode;
+      button.textContent = chat ? "↓" : "↑";
+      const label = chat ? "Jump to the newest message" : "Back to top";
+      button.title = label;
+      button.setAttribute("aria-label", label);
+    }
     const visible = show && !NO_SCROLL_TOP_TABS.has(tab) && !coversAFormPrimary(button);
     button.classList.toggle("visible", visible);
     //: INBOX 33: `--scroll-top-clearance` used to be unconditional
@@ -31751,8 +31768,22 @@ function initScrollTopButton() {
   // Capture, because scroll events do not bubble: the listener has to see them
   // on whichever .tab-page is currently the scroll container, and that changes
   // every time the user switches tab.
-  document.addEventListener("scroll", update, { passive: true, capture: true });
-  window.addEventListener("resize", update, { passive: true });
+  //: **Once per frame, not once per scroll event** (INBOX 392's optimisation
+  //: pass, the method that fixed the board's pan: trace, then remove the work
+  //: nobody sees). A wheel or trackpad sends several scroll events a frame,
+  //: and each ran this in full, layout reads included: traced at the desktop
+  //: window, 77ms on the dashboard, 194ms on Notes and 267ms on the Library
+  //: over a 30-step scroll.
+  let updateFrame = 0;
+  const scheduleUpdate = () => {
+    if (updateFrame) return;
+    updateFrame = requestAnimationFrame(() => {
+      updateFrame = 0;
+      update();
+    });
+  };
+  document.addEventListener("scroll", scheduleUpdate, { passive: true, capture: true });
+  window.addEventListener("resize", scheduleUpdate, { passive: true });
   update();
   return update;
 }

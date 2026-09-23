@@ -83,6 +83,17 @@ branch head first (`canvasconventions.js` 20/47 there), then built.
 - The graph panel items from the owner (disclosure arrows, Groups search
   height) are the orchestrator's.
 
+### Found, not fixed (measured on the base, `d1f7748`, served from an archive)
+
+- `maptwokinds.js` 16/17 on base and here: "a cross-link is drawn ...
+  dashed" expects the dashed look the "drawn like branches" change retired.
+  The sweep is stale, not the map.
+- `mindmap.js` (H1) "a node's edges still follow a drag on a 200-node map"
+  fails on base and here (after 0px, about 570ms for 12 pointer frames).
+- `wbgroupguides.js` and `mindmap.js` (B) read the default board, so a data
+  dir other sweeps have used fails them (a leftover card under the pointer
+  shows its grip on hover). Both pass on a fresh data dir, here and on base.
+
 ## Done
 
 - **13b, the topic strip is sized like a topic.** 959.4 x 38 to 314 x 38 at

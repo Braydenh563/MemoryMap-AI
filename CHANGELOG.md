@@ -41,6 +41,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Resizing the window across the phone width no longer leaves the Timeline's
+  previous view in the page: the rows counted twice (113 read as 226), which
+  broke arrow-key walking, the pinned day head and Enter's detail.
 - Timeline rows with a second line keep their kind mark and time on the
   title's line, rather than centred between the two lines.
 - The graph options panel's four section heads share one style (they wore

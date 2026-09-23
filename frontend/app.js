@@ -30782,8 +30782,17 @@ function paintTimeline() {
   // offering the mode where it cannot be used is a control that does nothing.
   $("timeline-select-btn").classList.toggle("hidden", !table);
   syncTimelineSelectUi();
-  if (table) paintTimelineTable(rows);
-  else paintTimelineFeed(rows);
+  //: The mode not drawn is emptied, not only hidden. Crossing the phone
+  //: breakpoint switches the mode, and the hidden feed kept its rows beside
+  //: the table's: every `.timeline-row` query (the keyboard walk, the tab
+  //: order, the sweeps) then counted both, measured as 113 rows read as 226.
+  if (table) {
+    $("timeline-feed").replaceChildren();
+    paintTimelineTable(rows);
+  } else {
+    $("timeline-table-body").replaceChildren();
+    paintTimelineFeed(rows);
+  }
 }
 
 function paintTimelineFeed(rows) {

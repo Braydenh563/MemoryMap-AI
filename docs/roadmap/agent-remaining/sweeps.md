@@ -72,7 +72,7 @@ while it is *already* the active tab, after the viewport has crossed the
 DOM instead of clearing them: a fresh load straight at 390 is clean (113
 table rows, real heights); going 1440 -> 1024 -> 390 without a reload is not
 (113 -> 226, `.timeline-row` matches both the old, now-hidden feed rows and
-the newly painted table rows). Not fixed here (app.js, not this task); the
+the newly painted table rows). **Fixed by the orchestrator** (`paintTimeline` empties the mode it does not draw; `sw-timelineresize2.js` holds 141 rows through 1440, 1024 and 390). The
 four downstream failures (unreadable titles, broken arrow nav, the pinned
 bucket head, Enter's detail panel) are symptoms of that one duplication, not
 four separate defects.

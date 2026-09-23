@@ -25,14 +25,20 @@
   an overflow only when what runs past is drawn and in flow or carries
   text, and names it in the finding. No app change.
 
+- **INBOX 394 (d)**, the ring's More menu: anchored to the button, gap 4px
+  at three widths (was 30 to 41px down and right, from the ring's box).
+  `mapradialmore.js` 18/18.
+
+- **INBOX 396 and 317.** Escape with a board menu open no longer drops the
+  selection (it hid the bar, so the next press on More hit the canvas); every
+  top-bar menu hangs from its button and scrolls in the room there instead of
+  being pinned across it. `wbmenuroom.js` 72/72 (new), `wbtextbar.js` now
+  checks every control for clipping. **Not reproduced:** the kebab failing
+  to open on its own (six paths, three sizes), and Arrange at 230px.
+
 ## Open
 
-- INBOX 396: the context bar's kebab does not open; the top bar's Arrange
-  menu opens 230px tall with a scrollbar (and Insert, Edit, View).
-- INBOX 394 (d): the map ring's More opens its menu at the bottom right.
 
-- INBOX 317: the whiteboard text box context bar (items clipped, icon groups
-  off one centre line, kebab menu far from its opener).
 - WHITEBOARD_PLAN "Placed from INBOX, 2026-09-23": the micro-conventions
   still open there.
 - Not culled: freehand and link sketches (a stroke's box has to be parsed from

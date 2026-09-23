@@ -33834,6 +33834,48 @@ measured, so nobody rebuilds them.
     2px at 1440; on a phone each label sits above its controls (the tags
     field 150 to 320px wide at 390). No overflow at 1440, 1024 or 390.
 
+396. **The owner, 2026-09-23 night, verbatim, with two whiteboard
+    screenshots.** "on the whiteboard, when Im selected on a textbox I cant
+    open the meatball button dropdown menu in the popup tools. also the
+    arrange topbar dropdown menu is very and overly short in height for how
+    many items it contains" The screenshot shows Arrange open at about 230px
+    tall with a scrollbar, two rows visible. Placed with the map agent,
+    beside INBOX 317 (the same bar's kebab placement).
+    **Built 2026-09-23, one half not reproduced.** (1) The kebab opened on
+    every path tried with a real mouse (a click or a double-click into the
+    box, typing into it first, a 120ms held press, after the top-bar menus,
+    with the background art on) at 1440x900, 1184x760 and 947x608. What did
+    stop it, and is changed: with any board menu open, Escape also dropped
+    the selection, which hides the bar, so the next press on its More landed
+    on the canvas; Escape now closes the menu and nothing else. (2) Not short
+    here, but wrong: where the window could not hold a top-bar menu below or
+    above its button, it was pinned across the button (Arrange at 1440x600
+    drew 99 to 592 over its own toggle and the top bar; Insert, Arrange and
+    Board at 1280x520). Every board menu now hangs from its button and
+    scrolls inside the room there (Arrange at 1440x600: 179 to 592, 413px of
+    491 shown; at 1440x900 all 491). `wbmenuroom.js` 72/72: each menu opened
+    by a real click is on top, within 8px of its button, and as tall as it
+    needs up to the window. The 230px the screenshot shows was not seen at
+    any size tried.
+317. **The owner, 2026-09-21, verbatim, two messages with screenshots of the
+    whiteboard text box context bar:** "the textbox selection popup tools
+    menu items are cut off and also not aligned" and "when I press the
+    meatball button the menu appears up top with no connection to the tool
+    menu". Open. Two faults on one surface: the bar's own items (the Size
+    field clips its number, and the icon groups do not share a baseline), and
+    its kebab, whose menu lands far from the bar with nothing tying it to the
+    button that opened it. The second is the same family as INBOX 290's table
+    menu: `openActionMenu` reparents a menu to `<body>` when it would be
+    clipped, and then positions it from the opener, so a bar that is itself
+    `position: fixed` inside a transformed board is the case where that
+    arithmetic goes wrong. Measure the bar's items and the menu's box against
+    the opener before changing either.
+    **Built 2026-09-23** (with 396): the Size field and the centre line were
+    already right (`e8915e1`, measured then); the kebab's placement was
+    fixed there too. `wbtextbar.js` now also asserts that no control in the
+    bar is narrower than its content or outside the bar: none at 1184x760 and
+    947x608, menu 1.4px under the bar and 1.5px above it when it flips.
+
 ## Moved from the plans, 2026-09-23
 
 ### From CHAT_PLAN.md

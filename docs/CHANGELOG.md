@@ -43,6 +43,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Whiteboard: a top-bar menu (Insert, Edit, Arrange, View, Board) that the window cannot hold opens under its button and scrolls there, instead of being drawn across the button and the top bar; Escape with a board menu open closes the menu and keeps the selection, so the context bar and its More stay where they were.
+- Mind map: the More button on a topic's ring opens its menu right beside the button (on its left when the right has no room) instead of down and to the right of the whole ring.
 - Mind map and whiteboard: panning no longer stalls on the press and the release (worst frame at 500 topics 166.6ms to 16.8ms): the grab cursor moved off the board's container, whose cursor every item inherited, and a Settings rule that made any class change anywhere restyle a whole subtree was narrowed. Cards, text boxes and topics well off screen are no longer drawn, and a dragged branch's lines stay on their topics every frame instead of trailing up to 12px behind.
 - A skill's facts line in Settings no longer starts a wrapped line with its
   separator dot.

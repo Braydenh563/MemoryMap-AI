@@ -9861,20 +9861,39 @@ function wbCloseContextMenu() {
 //: slot and the ContextMenu key (Shift+F10 on a keyboard without one). It is
 //: the same builder and the same clamp the pointer route uses, because two
 //: menus for one node is how the two come to say different things.
-function wbOpenMapNodeMenu(node, clientX, clientY) {
+//:
+//: **Beside the button that opened it, when there is one** (INBOX 394 (d), the
+//: owner: "the dropdown menu doesnt appear next to it but the bottom right").
+//: The ring's More used to pass the whole ring's right edge and top, and the
+//: ring is wider and taller than its More slot: measured at 1440x900 the menu
+//: opened 30 to 41px down and to the right of More, and where the window was
+//: short it was then clamped further away. `opener` is that button: the menu
+//: goes on its right with its top level with the button's, or on its left
+//: when the right has no room, and is clamped into the window on the other
+//: axis. Set, measured and corrected by the difference, the recipe DESIGN.md
+//: gives a popup placed in the window's coordinates.
+function wbOpenMapNodeMenu(node, clientX, clientY, opener = null) {
   if (!node) return;
   const menu = wbBuildContextMenu("object");
   menu.classList.remove("hidden");
-  menu.style.left = `${clientX}px`;
-  menu.style.top = `${clientY}px`;
   const margin = 8;
-  const rect = menu.getBoundingClientRect();
-  if (rect.right > window.innerWidth - margin) {
-    menu.style.left = `${Math.max(margin, window.innerWidth - rect.width - margin)}px`;
+  const gap = 4;
+  const size = menu.getBoundingClientRect();
+  let left = clientX;
+  let top = clientY;
+  const anchor = opener?.getBoundingClientRect();
+  if (anchor && anchor.width) {
+    const right = anchor.right + gap;
+    left = right + size.width <= window.innerWidth - margin ? right : anchor.left - gap - size.width;
+    top = anchor.top;
   }
-  if (rect.bottom > window.innerHeight - margin) {
-    menu.style.top = `${Math.max(margin, window.innerHeight - rect.height - margin)}px`;
-  }
+  left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - size.width - margin));
+  top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - size.height - margin));
+  menu.style.left = `${Math.round(left)}px`;
+  menu.style.top = `${Math.round(top)}px`;
+  const got = menu.getBoundingClientRect();
+  if (Math.abs(got.left - left) > 0.5) menu.style.left = `${Math.round(left + (left - got.left))}px`;
+  if (Math.abs(got.top - top) > 0.5) menu.style.top = `${Math.round(top + (top - got.top))}px`;
   menu.querySelector(".menu-item")?.focus();
 }
 
@@ -11866,11 +11885,12 @@ async function initWhiteboard() {
     //: **The ring stays while its menu is open** (owner: "the referring
     //: radial menu closes when I open the more menu"): the menu is the ring's
     //: own overflow, and the ring is what says which topic it is about. The
-    //: menu opens beside the ring rather than over it; picking anything, or
-    //: Escape, or a click elsewhere, closes both.
+    //: menu opens beside its More button rather than over the ring (see
+    //: `wbOpenMapNodeMenu`); picking anything, or Escape, or a click
+    //: elsewhere, closes both.
     const x = box ? box.right + 8 : event.clientX || 0;
     const y = box ? box.top : event.clientY || 0;
-    wbOpenMapNodeMenu(node, x, y);
+    wbOpenMapNodeMenu(node, x, y, event.currentTarget);
   });
 
   //: The link ring (§12.1 item 4). Same shape as the node ring's slots, one
@@ -13060,7 +13080,16 @@ async function initWhiteboard() {
         // the list is.
         syncPanelSwitches();
         escapeAndCapMenu(menu, toggle);
-        if (menu.id === "wb-context-menu") wbKeepMenuBesideBar(menu, document.getElementById("wb-context"));
+        //: **Hung from what opened it, every one of them** (INBOX 396). A
+        //: top-bar menu escaped to <body> went through `placeEscapedMenu`'s
+        //: last resort when the window could not hold it below or above its
+        //: button, and was pinned across the button instead: measured, Arrange
+        //: at 1440x600 drew from 99 to 592 over its own toggle and the top
+        //: bar, and at 1280x520 Insert, Arrange and Board did the same. The
+        //: context bar's menu already had the fix; the top bar's use it with
+        //: their own toggle as the edge, so each opens under its button and
+        //: scrolls inside the room there (`wbmenuroom.js`).
+        wbKeepMenuBesideBar(menu, menu.id === "wb-context-menu" ? document.getElementById("wb-context") : toggle);
       }
     });
   }
@@ -13087,6 +13116,16 @@ async function initWhiteboard() {
     const inside = open && (open.menu.contains(document.activeElement) || document.activeElement === open.toggle);
     closeAllWbMenus();
     if (inside) open.toggle.focus();
+    //: **With a menu open, Escape closes the menu and nothing else.** It went
+    //: on to the board's own Escape, which drops the selection: measured, a
+    //: text box selected, its More menu or Arrange opened, one Escape, and
+    //: the menu, the selection and the context bar were all gone, so the next
+    //: press on the bar's More landed on the canvas (`wbmenuroom.js`). One key
+    //: undoes one thing, the innermost, as it does in every editor.
+    if (open) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   }, true);
   // Edit / Arrange menu items forward to the control that already owns the
   // action (`data-wb-click`), so a menu can never drift from the dock, the

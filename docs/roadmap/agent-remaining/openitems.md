@@ -55,23 +55,56 @@ Phase 8c, the templates preview, outline row height.
   answer they could produce).
 - done 61c613d: GRAPH_PLAN's open line, the lasso selection drags as
   one; `oi-groupdrag.js` 1 finding before, 0 after.
-- done (this commit): the stale-row pass. OPEN.md: the GRAPH_PLAN row in
+- done c8c4296: the stale-row pass. OPEN.md: the GRAPH_PLAN row in
   section B, Reminders paging, first-page callers, INBOX 235 and 237, I9's
   Settings section, Settings Extras at 820 (not reproduced), the D6 row
   re-read. INBOX: 269 and both 271s resolved to HISTORY; 266, 268, 270 and
   272 annotated with which parts are built and which are left.
-- done c8c4296: the stale-row pass.
-- done f3f8dd7: INBOX 266 (5) measured (104MB before the embedding
-  model, 774MB after; no heavy import at startup) and said in Settings.
-- done (this commit): 11, INBOX 321 decided and built, `Ctrl+D` opens or
-  starts today's page; `oi-ctrld.js` 3 of 3.
+- done f3f8dd7: INBOX 266 (5) measured (104MB before the embedding model,
+  774MB after; no heavy import at startup) and said in Settings.
+- done c475278: 11, INBOX 321 decided and built, `Ctrl+D` opens or starts
+  today's page; `oi-ctrld.js` 3 of 3.
 - measured: the tour (`tour.js`) 339 checks ok; its 7 failures are exactly
-  the doors `TOUR_ENABLED = false` closes, so what the owner calls broken is
-  not something the sweep sees (INBOX 272 annotated).
-- done (next commit): `help-popovers.js` built, 81 popovers and 1 finding
-  (the skill tools '?' at 390), fixed, 82 and 0.
-- done 1d737a9: H7's boot duplicates, `/chat/recent` and
-  `/entries/most-accessed` asked twice at every start (6 boot requests to 4,
-  `oi-dupfetch.js`), and the reminder alert's one page read open reminders.
-- next: the Settings fold summary at 390 (`help-popovers.js`, new: 81
-  popovers, 1 finding, the skill tools '?' unreachable).
+  the doors `TOUR_ENABLED = false` closes (INBOX 272 annotated).
+- done 1d737a9: H7's boot duplicates (6 boot requests to 4,
+  `oi-dupfetch.js`), and the reminder alert's page reads open reminders.
+- done 4a1b230: `help-popovers.js` built, 81 popovers and 1 finding (the
+  skill tools '?' at 390), fixed, 82 and 0.
+- done 4e5a6d6, 777a2da: "Advanced response settings" on the column, its
+  arrow hanging in the gutter; `oi-hangmark.js` 3 of 3.
+
+## Left, with the reason
+
+Mine, not built:
+
+- D6's calendar strip on the Timeline and the streak there (a design step:
+  the dock is at its grammar, and `.dock-chip-row` is held at zero uses by
+  `test_ui_recipes.py`), and the yesterday and tomorrow pair (note head, the
+  notes surface's owner).
+- "Undo all" for a background pass or a skill run: each change already has
+  its own Undo (`changeRow`); an honest "all" needs `tools.execute_tool` to
+  run the undos inside one transaction (it commits per call), or it is N
+  requests that can half fail, the objection `POST /learned/bulk` answered.
+- The graph signal needs an open note, and the Notes filter using `/search`
+  for operators it does not know: both are the Notes list, another agent's.
+- `#settings-tools`'s intro help item and "toggle rows onto one recipe":
+  both Settings copy/visual questions with no measured fault; left.
+- The Timeline's "auto" scale thresholds: need a real notebook.
+- I1's later passes, `night_runs` and the morning card (H1): a migration and
+  a surface each, the next horizon item in its own PR.
+
+For the orchestrator (another agent's surface, or the owner's call):
+
+- INBOX 312, 317 (whiteboard and mind map), 319 (notes connections row),
+  318 and 320 (Ask citations: the grounding is backend, the numbering and
+  markers are the Ask UI), the board card's Phase 8c, the templates preview,
+  the outline row height.
+- The segmented-control radius table and lint (OPEN.md, App wide): the
+  recommendation is written and taken, but it restyles toggles on the notes,
+  library and documents surfaces, three of which are owned right now.
+- INBOX 272 part 2: the owner's words on which tour step fails.
+- INBOX 266 (1) and 270 (4): an IA read and a guide panel redesign.
+
+Not verified: the documents editor keeping `Ctrl+D` for "select next match"
+(reasoned from `defaultPrevented`, not driven); a real Ollama embedding
+backend's memory; Windows and macOS anything.

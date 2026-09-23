@@ -504,6 +504,66 @@ def test_forget_vector_is_reachable_on_its_own(session, fake_embeddings):
     assert entry.id not in engine.vectors_by_id(session)
 
 
+def _toy_matrix(count: int, width: int = 4):
+    import numpy as np
+
+    from memorymap.search import engine
+
+    rng = np.random.default_rng(7)
+    rows = rng.normal(size=(count, width)).astype("float32")
+    rows /= np.linalg.norm(rows, axis=1, keepdims=True)
+    ids = list(range(1, count + 1))
+    return engine._Matrix(key="toy", ids=ids, rows=rows, position={i: n for n, i in enumerate(ids)})
+
+
+def test_a_forgotten_row_is_never_an_answer(monkeypatch):
+    """A zeroed row scores 0, which beats every negative cosine: with few live
+    vectors all pointing away from the query, `top_k` handed back id -1."""
+    import numpy as np
+
+    from memorymap.search import engine
+
+    matrix = engine._Matrix(
+        key="toy", ids=[5, 6], rows=np.array([[1.0, 0.0], [0.0, 1.0]], dtype="float32"),
+        position={5: 0, 6: 1},
+    )
+    monkeypatch.setattr(engine, "_matrix", matrix)
+    engine._forget(6)
+    assert [entry_id for entry_id, _score in matrix.top_k(np.array([-1.0, 0.0]), 2)] == [5]
+
+
+def test_dead_rows_are_compacted_once_they_are_a_quarter(monkeypatch):
+    """Forgetting zeroed a row and kept it for the life of the process. Now
+    the array is rebuilt without them once dead rows pass a quarter of it,
+    counted, so a long session of privatising and deleting does not carry
+    its whole history in memory and in every scan."""
+    import numpy as np
+
+    from memorymap.search import engine
+
+    matrix = _toy_matrix(40)
+    kept_vector = matrix.rows[39].copy()
+    monkeypatch.setattr(engine, "_matrix", matrix)
+    for entry_id in range(1, 11):  # 10 of 40: a quarter
+        engine.forget_vector(entry_id)
+    live = engine._matrix
+    assert len(live.ids) == 30 and live.rows.shape[0] == 30
+    assert -1 not in live.ids
+    assert all(live.ids[position] == entry_id for entry_id, position in live.position.items())
+    assert np.allclose(live.rows[live.position[40]], kept_vector)
+    assert live.dead == 0
+
+
+def test_a_few_dead_rows_are_left_until_they_add_up(monkeypatch):
+    from memorymap.search import engine
+
+    matrix = _toy_matrix(40)
+    monkeypatch.setattr(engine, "_matrix", matrix)
+    for entry_id in (1, 2, 3):
+        engine.forget_vector(entry_id)
+    assert engine._matrix.rows.shape[0] == 40 and engine._matrix.dead == 3
+
+
 def test_a_query_of_filters_alone_still_answers(session):
     """`kind:document` is a question. An empty page for it would be the app
     refusing the one thing §5.1 promises works with no model running."""

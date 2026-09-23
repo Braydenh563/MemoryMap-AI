@@ -932,11 +932,15 @@ being written by running agents stay beside this one.
   fix, pass after). The two bulk `update`s left (`Reminder.entry_id`,
   `Entry.parent_id` on a purge) touch no indexed column.
   [brief11-retrieval-engine.md]
-- **The vector matrix forgets by zeroing a row.** `file:
-  src/memorymap/search/engine.py`, `id: search-matrix-compaction`. Dead rows
-  score zero and are never returned, but they stay in the array. Next step:
-  rebuild when dead rows pass some fraction of the whole, counted rather than
-  guessed. [brief11-retrieval-engine.md]
+- ~~**The vector matrix forgets by zeroing a row.**~~ **Done 2026-09-23**,
+  and the row's "are never returned" was false: a zeroed row scores 0, which
+  outranks every negative cosine, so `top_k` over a few live vectors pointing
+  away from the query returned id -1 (a test reproduced it before the fix).
+  Dead rows are counted on the matrix, skipped by `top_k` with the partition
+  widened by their number, and compacted once they are a quarter of the array
+  (floor 8), one O(n) copy amortised over n/4 forgets. `/search/stats`'s
+  `vectors` counts live rows only. `tests/test_search_engine.py`, three new.
+  [brief11-retrieval-engine.md]
 - ~~**`has:` only knows `file`.**~~ **Done 2026-09-23**, on the sources this
   row named: `image` is an image attachment (mime, or the name for a row with
   none) or a `![` picture in the text of any kind; `link` is an `EntryLink`

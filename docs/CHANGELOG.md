@@ -22,6 +22,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Similar-notes lists can no longer contain a note that was deleted or made
+  private in the same session. Its vector was blanked in place, and a blank
+  row outranked every genuinely unrelated note, so a short list could come
+  back with a hole in it; blanked rows are now skipped, and dropped from
+  memory once they are a quarter of the total.
 - A reopened chat or Ask history answer keeps its "Only 1 of 3 sentences here
   comes from your notes" line. The line appeared when an answer arrived and
   was gone once the conversation was reopened, because nothing stored it; the

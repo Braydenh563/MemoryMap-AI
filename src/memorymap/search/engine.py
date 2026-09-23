@@ -143,6 +143,8 @@ class _Matrix:
     ids: list[int]
     rows: np.ndarray
     position: dict[int, int]
+    #: Rows forgotten in place (zeroed, id -1) and not yet compacted away.
+    dead: int = 0
 
     def top_k(self, vector: np.ndarray, k: int, exclude: int | None = None) -> list[tuple[int, float]]:
         if not self.ids:
@@ -156,9 +158,18 @@ class _Matrix:
         # `argpartition` rather than a full sort: at 50k vectors the sort is
         # most of the cost of the whole call, and only the top k is wanted.
         take = min(k + (1 if exclude is not None else 0), len(self.ids))
+        # Widened by the dead rows, and the dead rows dropped: a zeroed row
+        # scores 0, which outranks every negative cosine, so with few live
+        # vectors pointing away from the query `top_k` used to hand back the
+        # id -1 as an answer.
+        take = min(take + self.dead, len(self.ids))
         best = np.argpartition(-scores, take - 1)[:take]
         ordered = best[np.argsort(-scores[best])]
-        out = [(self.ids[i], float(scores[i])) for i in ordered if self.ids[i] != exclude]
+        out = [
+            (self.ids[i], float(scores[i]))
+            for i in ordered
+            if self.ids[i] != exclude and self.ids[i] >= 0
+        ]
         return out[:k]
 
     def scores_for(self, vector: np.ndarray, wanted: list[int]) -> dict[int, float]:
@@ -362,10 +373,33 @@ def _forget(entry_id: int) -> None:
         return
     # The row is zeroed rather than removed: deleting from the middle of the
     # array would renumber every position after it. A zero row scores zero
-    # against every query, which is exactly "not a match", and the next
-    # `warm_vectors` on a fresh process rebuilds without it.
+    # against every query, and `top_k` skips it by its id.
     _matrix.rows[position] = 0.0
     _matrix.ids[position] = -1
+    _matrix.dead += 1
+    # **Compacted once the dead rows are a quarter of the array** (the
+    # `search-matrix-compaction` row: "counted rather than guessed"). Before,
+    # a dead row stayed for the life of the process, so a long session of
+    # deleting and privatising carried all of it in memory and in every
+    # `top_k` scan. A quarter because the rebuild is one copy of the live
+    # rows, O(n), so paying it after n/4 forgets costs at most four row
+    # copies per forget, amortised; the floor keeps a small notebook from
+    # rebuilding on every second delete.
+    if _matrix.dead >= max(COMPACT_MIN_DEAD, len(_matrix.ids) // 4):
+        _compact(_matrix)
+
+
+#: The fewest dead rows worth a rebuild, whatever the fraction says.
+COMPACT_MIN_DEAD = 8
+
+
+def _compact(matrix: _Matrix) -> None:
+    """Rebuild the matrix without its dead rows, in place."""
+    keep = [position for position, entry_id in enumerate(matrix.ids) if entry_id >= 0]
+    matrix.rows = matrix.rows[keep] if keep else matrix.rows[:0]
+    matrix.ids = [matrix.ids[position] for position in keep]
+    matrix.position = {entry_id: n for n, entry_id in enumerate(matrix.ids)}
+    matrix.dead = 0
 
 
 # --- the search ---------------------------------------------------------------
@@ -973,7 +1007,7 @@ def stats(session: Session) -> dict:
     matrix = _live_matrix(session)
     return {
         "index": index_counts(session),
-        "vectors": len(matrix.ids) if matrix else 0,
+        "vectors": (len(matrix.ids) - matrix.dead) if matrix else 0,
         "vectors_warm": matrix is not None,
         "weights": dict(WEIGHTS),
         #: `{at, rows}` from the last full rebuild in this process, or None.

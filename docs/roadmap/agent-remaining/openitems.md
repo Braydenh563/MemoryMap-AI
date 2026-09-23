@@ -49,6 +49,8 @@ Phase 8c, the templates preview, outline row height.
 - done 3129aa8: 6, support on both replay paths, CHAT_PLAN Phase 1
   moved to HISTORY; `oi-replaysupport.js` 3 of 3.
 - done 513324c: 7, the Recent activity widget; `oi-activity.js` 6 of 6.
-- done (this commit): 8, `POST /learned/bulk` plus the selection bar;
+- done 5f2e0ca: 8, `POST /learned/bulk` plus the selection bar;
   `oi-learnedbulk.js` 7 of 7.
-- next: 9, the vector matrix's dead rows (search/engine.py, `_live_matrix`).
+- done (this commit): 9, dead matrix rows skipped and compacted (and the -1
+  answer they could produce).
+- next: 10, Settings, Extras scrolls 4px sideways at 820.

@@ -1066,6 +1066,16 @@ topic: a control that wide has nowhere to go.
   The drag and pan figures are no worse. **What the row also predicted is not
   built and is now 13a-view below**: drawing only what is on screen. The open
   turned out not to need it.
+- **13a-view, corrected 2026-09-23 by a trace** (INBOX 392). The worst pan
+  and zoom frames were not re-rasterising alone: a Chrome trace of a wheel
+  pan on a 60-topic map put 2,439ms of 50 steps in style recalculation
+  (1,713 elements per frame), from the grid's custom properties written on
+  `#whiteboard-container` each frame and inherited by every card. Registered
+  non-inheriting, with `--wb-inv-zoom` written only once a zoom settles:
+  29ms of style for the same pan, 18ms for a zoom (was 1,448). `mapperf.js`
+  after: 50 topics, worst pan/drag/zoom 16.8ms each (was 50.1/50/66.7); 500
+  topics, zoom worst 16.8ms (gate met), pan worst 116.6ms (was 150, gate
+  not met). Culling below is still the route to the pan gate at 500.
 - **13a-view. Draw the topics that are on screen.** The pan and the zoom are
   what is left of 13.1 reading 1, and 13a-open did not touch them: measured on
   `mapperf.js` after it, a 500-topic map pans at a 16.7ms median with a worst

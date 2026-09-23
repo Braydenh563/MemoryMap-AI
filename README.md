@@ -296,16 +296,14 @@ rather than eyeballed, and the in-app guide has a name. What comes next,
 in order, is in [docs/ROADMAP.md](docs/ROADMAP.md); what changed is in
 [CHANGELOG.md](CHANGELOG.md).
 
-**The guided tour is still in development and is known to be buggy.** It has
-been reported broken several times and fixed several times, most recently for
-a case where starting it from Settings, Help left the settings panel over the
-page so every step it wanted to point at measured as hidden and the run
-emptied itself. It may still drop steps, sit in the wrong place, or close
-itself part way through, particularly at window sizes and zoom levels that
-have not been measured here. Nothing else in the app depends on it: every
-screen it visits is reachable on its own, and you can leave the tour at any
-point with Escape or Skip. If it misbehaves, that is the tour and not your
-notebook.
+**The guided tour** points at the real controls, one card at a time, over a
+dimmed page: the basics, writing a note, finding things, and the boards and
+maps, whole or one section at a time from Settings, help and guide. It closes
+whatever is open over the page before each step, becomes a sheet on a phone,
+and can be left at any point with the X, Skip or Escape. Every step of every
+section is walked at three window sizes by `scratchpad/ui-sweeps/tour.js`; a
+window size or zoom level that sweep has not measured is the likeliest place
+for it to misbehave, and nothing else in the app depends on it.
 
 ## Licence
 

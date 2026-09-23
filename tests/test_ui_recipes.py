@@ -1769,7 +1769,8 @@ def test_the_cut_out_is_never_drawn_where_it_cannot_be_seen() -> None:
     )
 
     show = _function_body(js, "tourShow")
-    assert "tourOnScreen(el)" in show, (
+    usable = _function_body(js, "tourUsable")
+    assert "tourUsable(el)" in show and "tourOnScreen(el)" in usable, (
         "a step whose control is not on screen after the wait is dropped, so "
         "the counter renumbers and the tour moves to one that can be pointed "
         "at (DESIGN.md, the recipe index)"
@@ -1805,6 +1806,91 @@ def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:
     assert "run.steps.length" in render, (
         "the counter must be drawn from the run's own length, or it promises "
         "steps the tour has already dropped"
+    )
+
+
+def test_a_tour_steps_second_control_exists_and_says_where_it_went() -> None:
+    """On a phone Settings and Timeline live in More, and a step naming the
+    gear or the Timeline tab was dropped mid-run there, renumbering the
+    counter under the person (measured 2026-09-23 at 390x844: 1 of 15, then
+    4 of 14, then 10 of 13). A step's `or` is the control it moved behind, and
+    its `orText` is what the card says while pointing at that one instead: a
+    card that describes a gear while lighting a button labelled More is the
+    tour describing UI that is not there."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    table = TOUR_TABLE.search(js).group(1)
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    ids = set(re.findall(r'\sid="([^"]+)"', markup))
+    ors = re.findall(r'\bor: "([^"]+)",\s*orText: "([^"]+)"', table)
+    assert len(ors) == len(re.findall(r"\bor: \"", table)), (
+        "every step with an `or` control carries an `orText` right after it"
+    )
+    assert ors, "Settings and Timeline need their phone controls (More)"
+    for selector, text in ors:
+        assert selector.startswith("#") and selector[1:] in ids, (
+            f"the `or` control {selector} is not in index.html"
+        )
+        assert "More" in text, f"{selector}'s words must say the control is in More: {text!r}"
+    assert "run.step.orText" in _function_body(js, "tourRender"), (
+        "tourRender shows `orText` when the step is pointing at its `or` control"
+    )
+    assert "tourResolve(" in _function_body(js, "tourReflow"), (
+        "a resize across the phone breakpoint moves the step between its two "
+        "controls rather than dropping it"
+    )
+
+
+def test_the_tour_closes_what_is_open_and_will_not_point_under_it() -> None:
+    """The fault behind "completely broken on all the slides except the first
+    one" (the owner, 2026-09-23), measured before this: with the Atlas guide,
+    the command palette, the features browser or the shortcut sheet open, all
+    four basics steps had the overlay on top of their control, so the hole in
+    the dim showed the overlay. Laid out and inside the window were both true;
+    in front was not."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    clear = _function_body(js, "tourClearTheWay")
+    for closer in ("closeSettingsModal", "closePalette", "closeFeatures", "closeShortcuts", ".sheet-close"):
+        assert closer in clear, f"tourClearTheWay must close what {closer} closes"
+    assert "tourClearTheWay()" in _function_body(js, "tourNavigate"), "every step clears the way first"
+    assert "tourClearTheWay()" in _function_body(js, "openTour"), "and so does opening the tour"
+    usable = _function_body(js, "tourUsable")
+    assert "tourCovered(el)" in usable, "a control with something drawn over it is not usable"
+    covered = _function_body(js, "tourCovered")
+    assert "elementsFromPoint" in covered and "#tour-block" in covered, (
+        "covered is asked of what is on top, skipping the tour's own layers"
+    )
+
+
+def test_the_tour_count_is_settled_before_the_first_card() -> None:
+    """A chrome step (no tab) that is not laid out now never will be during
+    this run, so it is left out before the count is written: the counter says
+    the same total from the first card to the last."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    body = _function_body(js, "openTour")
+    assert "step.tab || step.notes || tourVisible(tourResolve(step).el)" in body
+
+
+def test_typing_in_the_lit_control_is_not_a_tour_key() -> None:
+    """The hole is the page and the capture box step invites typing: the
+    arrows and Enter inside a field outside the card belong to the field."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    start = js.index('document.addEventListener(\n  "keydown"')
+    handler = js[start : js.index("true\n);", start)]
+    assert "isContentEditable" in handler and "TEXTAREA" in handler and '!target.closest("#tour-card")' in handler
+
+
+def test_the_tour_is_switched_on_and_its_doors_are_live() -> None:
+    """The owner switched the tour off on 2026-09-21 until it was fixed; it is
+    on again, and every door reads the one flag rather than being disabled on
+    its own (the About button was the door that got left open last time)."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    assert re.search(r"^const TOUR_ENABLED = true;$", js, re.M), "TOUR_ENABLED must be true"
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert re.search(r"aboutTour\.disabled = true", app), "About's door is still guarded by the flag"
+    guard = app[: app.index("aboutTour.disabled = true")].rsplit("\nif (", 1)[1]
+    assert "TOUR_ENABLED" in guard, "About's button is disabled only when the flag is off"
+    assert "if (!TOUR_ENABLED)" in _function_body(js, "renderTourReplay"), (
+        "the replay strip is disabled only when the flag is off"
     )
 
 

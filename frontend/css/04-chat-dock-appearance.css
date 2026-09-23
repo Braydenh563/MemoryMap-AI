@@ -5061,6 +5061,16 @@ input.doc-title-input::placeholder {
   overflow: auto;
 }
 
+/* On a phone the step is a sheet: the width of the window less its gutters,
+   docked by tour.js (`tourSheetPlace`) to whichever edge is away from the
+   control. The breakpoint is `PHONE_TABS`'s, where the tab bar moves to the
+   bottom. */
+@media (max-width: 599.98px) {
+  .tour-card {
+    width: calc(100vw - var(--space-9));
+  }
+}
+
 .tour-head {
   display: flex;
   align-items: center;

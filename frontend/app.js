@@ -286,6 +286,18 @@ function replaceMissingMedia(img) {
     img.classList.add("hidden");
     return;
   }
+  //: **A thumbnail is hidden too.** A picture beside a row's own words (the
+  //: dashboard's recent notes, the Contents index, a chat source, a
+  //: timeline row: every class here ending in `-thumb`) is a hint, and the
+  //: words beside it already name the thing. The placeholder, a 170px dashed
+  //: box of "Image no longer in this notebook", was drawn into a 2.5rem slot
+  //: and pushed the row's title off its column (measured on the dashboard's
+  //: Recently added and the Contents index). An attachment's own thumbnail is
+  //: the exception: it is the attachment, so saying it is gone is the point.
+  if (/-thumb\b/.test(img.className) && !img.classList.contains("attachment-thumb")) {
+    img.classList.add("hidden");
+    return;
+  }
   if (img.dataset.mediaMissing) return;
   img.dataset.mediaMissing = "1";
   const gone = document.createElement("span");
@@ -30594,9 +30606,20 @@ function timelineRowElement(row, density) {
   if (density !== "dense") {
     // The note row's own chips (`chip()`), not a second chip recipe for the
     // same facts: a tag should look the same here as in the Notes list.
-    if (row.category) meta.appendChild(chip(row.category));
+    //: **Which word is the category and which are tags.** Flattened to
+    //: muted text in the first de-vibecoding pass, a row's facts read as one
+    //: run of words ("Uncategorised personal health"), the owner's "missing
+    //: distinguishing between titles that used to be badges". They take the
+    //: note meta row's grammar now, so the three surfaces agree: the
+    //: category leads with its colour dot in ink, a tag reads #tag, and an
+    //: unset category is left out rather than printed on every row.
+    if (row.category && row.category !== "Uncategorised") {
+      const cat = chip(row.category, "category");
+      cat.style.setProperty("--category-dot", categoryDotColour(row.category));
+      meta.appendChild(cat);
+    }
     for (const tag of row.tags.slice(0, density === "full" ? 3 : 2)) {
-      meta.appendChild(chip(tag, "tag"));
+      meta.appendChild(chip(tag, "tag hashtag"));
     }
   }
   const when = document.createElement("time");

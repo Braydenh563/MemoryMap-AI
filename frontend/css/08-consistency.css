@@ -3341,7 +3341,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 600;
 }
 
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-read-badge {
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-image-tile .chip.library-read-badge {
   background: transparent;
   border: 0;
   padding: 0;
@@ -3351,4 +3351,116 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 .library-file-rows .library-image-reading > summary {
   width: fit-content;
+}
+
+/* 11. A skill card (findings 15 to 17). The title was `--text-md`, the same
+       size as the description under it and smaller than the card titles
+       everywhere else in the Library; it is a card title now. "Built-in"
+       was a pill on every card, the same weight as the title beside it, for
+       a fact that is true of most of them: it is a small label in muted ink,
+       and "Yours" keeps the accent, since that is the one worth seeing. */
+.skill-card-title {
+  font-size: var(--text-body);
+}
+
+.skill-card-header {
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .skill-card-header > .chip.skill-badge {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .skill-card-header > .chip.skill-badge-custom {
+  color: var(--accent);
+}
+
+.skills-worker-toggles {
+  padding-left: 0;
+}
+
+/* 12. The Contents index (finding 21): a picture note's row carries a 2rem
+       thumbnail and the rest do not, so in one column the labels started at
+       two x positions. A list that has any picture in it reserves the
+       picture's column on every row, the same rule the Library's own Rows
+       view keys off `.has-thumbs`. */
+.contents-list:has(.contents-thumb) > li > a:not(:has(.contents-thumb))::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 2rem;
+}
+
+/* 13. The Contents jump chips are a row of places to go, so in the flat
+       looks they read like the Library's own filter chips: a neutral
+       ground and ink at 500 (they were accent tint at 600, and drew the
+       button glow the flat looks now take off every button). A skill card's
+       title is an `h3` inside a `.card`, so the eyebrow recipe (`.card h3`)
+       set it at 12px muted: measured 12px where the title of every other
+       Library card is 16px. */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .contents-jump-chip {
+  background: var(--chip-bg);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.skill-card .skill-card-title {
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* 14. "Removing the badges background has made some areas look pretty plain
+       and hard to read" (the owner). Quiet's `--chip-bg` is ink at 5%, so a
+       chip with no border of its own is a 5% smudge: measured on a white
+       card, the skill cards' "2 steps" and "2 tools", a file's "Used in"
+       note and the Contents jump chips were grounds nobody could see around
+       text set at the size of the facts beside them. The better look is the
+       one the note meta row's category pill already settled on after the
+       owner's "improve the look of the category chips": the soft ground plus
+       a hairline edge, so a chip has a shape again without a fill that
+       shouts. Only chips that are still chips; a fact that became text in
+       the first pass stays text. */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(
+  .skill-card-facts .chip.skill-fact,
+  .skill-fact-expand > summary.skill-fact,
+  .library-image-tile .chip.library-image-usage-chip,
+  .chip.contents-jump-chip
+) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+/* 15. The timeline's facts in the note meta row's grammar (app.js, the
+       timeline row builder): the category in ink after its colour dot, a
+       tag as #tag in muted ink, so the words on the right of a row say
+       which is which without a pill around either. */
+.timeline-row-meta > .chip.category {
+  --category-dot: var(--accent);
+  gap: var(--space-2);
+  color: var(--ink);
+}
+
+.timeline-row-meta > .chip.category::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--category-dot);
+}
+
+.timeline-row-meta > .chip.hashtag {
+  gap: 0;
+}
+
+.timeline-row-meta > .chip.hashtag::before {
+  content: "#";
+  opacity: 0.6;
 }

@@ -1754,7 +1754,10 @@ function skillCard(skill, lastRun) {
   const footer = document.createElement("div");
   footer.className = "skill-card-footer";
   const run = document.createElement("button");
-  run.className = "small";
+  //: Ghost, not filled: a page of skills drew one filled Run per card, four
+  //: to twelve filled buttons on one screen, where the ramp allows one per
+  //: surface and this surface's is "New skill" (pass2.md finding 15).
+  run.className = "ghost small";
   setLabel(run, "ph:play Run");
   run.title = `Run “${skill.name}” in the chat`;
   // runSkill, not startSkill: it prompts for the skill's inputs when it has
@@ -1839,7 +1842,12 @@ async function renderSkillsDashboard() {
     const wrap = document.createElement("label");
     // The app's own pill toggle, not the `.switch`/`.slider` markup that used
     // to be here and exists nowhere else in this codebase.
-    wrap.className = "checkbox-label";
+    //: **Now the settings switch** (DESIGN.md: "An on/off setting:
+    //: `label.setting-check` with the switch first"). The pill toggle drew
+    //: each job as an outlined accent pill in bold accent text, the loudest
+    //: thing on the page for a setting (pass2.md finding 16); these are the
+    //: same three preferences Settings shows, so they now look like them.
+    wrap.className = "setting-check";
     const box = document.createElement("input");
     box.type = "checkbox";
     box.id = id;
@@ -1945,6 +1953,13 @@ async function renderSkillLogs() {
   const skillLogs =
     (await apiJson("/audit?limit=50&entity_type=skill").catch(() => null)) || [];
   logList.innerHTML = "";
+  //: Clear with nothing to clear is a control that does nothing, so it says
+  //: why it is resting (DESIGN.md: a disabled control says why in its title).
+  const clear = $("skills-logs-clear");
+  if (clear) {
+    clear.disabled = !skillLogs.length;
+    clear.title = skillLogs.length ? "Clear this log" : "Nothing to clear yet";
+  }
 
   if (!skillLogs.length) {
     logList.innerHTML =
@@ -8876,6 +8891,14 @@ function contentsOrderedKeys(groups) {
   return keys.sort((a, b) => a.localeCompare(b));
 }
 
+function contentsNoteName(entry) {
+  const first = String(entry.content || "").split("\n").find((line) => line.trim()) || "";
+  const heading = /^\s*#{1,6}\s+(.+)$/.exec(first);
+  if (!heading) return noteLabel(entry, 80);
+  const name = notePreviewText(heading[1]).replace(/\s+/g, " ").trim();
+  return name || noteLabel(entry, 80);
+}
+
 async function renderContents() {
   const outline = $("contents-outline");
   const empty = $("contents-empty");
@@ -8994,6 +9017,10 @@ async function renderContents() {
         thumb.src = mediaSrc(shot.url);
         thumb.alt = "";
         thumb.loading = "lazy";
+        //: A picture that will not load is simply not shown: the row's own
+        //: words still name the note, and the missing-media placeholder is a
+        //: 170px box that pushed this row's label off the index's left edge.
+        thumb.addEventListener("error", () => thumb.remove());
         link.appendChild(thumb);
       }
       const text = document.createElement("span");
@@ -9005,7 +9032,12 @@ async function renderContents() {
         contentsMode === "folder" && entry.source_path
           ? entry.source_path.split("/").pop()
           : "";
-      text.textContent = fileName || noteLabel(entry, 80);
+      //: **An index lists titles.** A note with a heading was labelled with
+      //: its heading run straight into its first paragraph ("Sprint retro
+      //: What went well: measuring..."), which reads as one long title. A
+      //: note that has a heading is named by it; one without is named by its
+      //: opening words, as before.
+      text.textContent = fileName || contentsNoteName(entry);
       link.appendChild(text);
       //: The right-hand column of an index: what a row is filed under, or
       //: when it was written when the grouping already answers "under what".

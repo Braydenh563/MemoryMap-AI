@@ -49,6 +49,8 @@ below). Versioning is `0.x` while the app stabilises.
   with full-width rows; Escape closes only the top sheet when one is open
   over another; and closing the sidebar sheet puts the focus back on the
   button that opened it.
+- Tab in the documents editor leaves the caret after the indent it inserts;
+  what you typed next used to land before it.
 - Scrolling does less per frame everywhere: the back-to-top button updates once per frame and only writes what changed, the bar-over-list edge measures only when a list crosses its top, and the graph's wheel listener lives on the graph canvas instead of every tab.
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window
@@ -128,6 +130,12 @@ below). Versioning is `0.x` while the app stabilises.
   and YAML checked by the app itself, JSON, JavaScript, TypeScript and CSS in
   the window, nothing sent anywhere), and a list of the language's keywords
   and the names already in the file appears as you type.
+- Code documents close quotes and brackets as you type, with the caret
+  between them: typing the closer steps over it, Backspace in an empty pair
+  takes both, and a pair typed over a selection wraps it. Enter between
+  braces opens an indented line with the closer below it, and a typed `}`
+  lines up with its opener, in every code type including C, Java, Go, Rust
+  and PHP.
 
 ### Changed
 

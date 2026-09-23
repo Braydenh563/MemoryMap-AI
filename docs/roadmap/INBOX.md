@@ -76,6 +76,54 @@ with its owner named in the entry.
     renderer dropped. `scratchpad/ui-sweeps/askgrounding.js` against
     `scratchpad/fake_answer_server.py` is the probe that already counts them.
 
+391. **The owner, 2026-09-23, with the Gemini/Antigravity pass on
+    `fix/gemini-fixes-5` (1e63d87, 2c3e16e): "fix and refine the changes
+    attempted by gemini ... fix the ui, fix the ux, fix bugs, revert and refine
+    risky or bad changes, implement the attempted fixes and improvements but
+    better."** Reports in the same drop, and where each stands on this branch:
+    packaged-exe splash (fixed: bootloader Splash); installer optional packages
+    (fixed: `--install-extras`, frozen `--target` folder); `ModuleNotFoundError`
+    traceback and no nomic-embed-text suggestion (fixed); Notes dock and
+    dashboard tiles wrapping at 100% (fixed, measured at 1184); edit scrolls to
+    top and blank Notes page on first edit (fixed: `applyDocGutter` lazy entry
+    point); 29/30/31 notes (fixed: drafts out of every count); no select all
+    (fixed, one toggle per bar); table cells in live view (fixed, focus kept);
+    whiteboard undo for formatting and map styles (fixed); mind maps missing from
+    Find anything, weekly digest filler and "tonight", per-feature model
+    picker, agent activity panel alignment, image filter sketches/uploads,
+    notification when a closed panel's answer finishes (agents running). Open
+    decisions, recommendation beneath each: "incorporate laya (jev opensource
+    alternative)?" (unclear which project is meant; ask once, with the licence
+    check ANALYSIS names), "finetune a model to come packaged with the app?"
+    (no: a stock small instruct model plus this app's prompts is cheaper to
+    keep current; revisit only with an eval set that shows a gap).
+
+392. **The owner, 2026-09-23, verbatim, for after 391:** "poke holes in the
+    application as in find bugs, security flaws places where there is
+    unintuitive design, poor information architecture, poor design, poor ui and
+    ux, poor learnability/usability/heirarchy/spacing and more. hit the open
+    items and plans in open.md. finish all unfinished work. majorly optimise at
+    the level of professional applications. make everything feel like it is a
+    professional application and not just a demo. maximise use of affordances
+    and semiotics. look at websites like motion.dev for ui and component
+    refinement, bklit.ui, kokonut ui etc so make sure none of the ui elements are
+    unprofessionally designed or act in a wierd way. I have found the mind map
+    is very unintuitive to use, really slow to pan and move around, the controls
+    and tools are annoying to find and use, the connections in the bottom bar
+    are different from the ones the mind map nodes use and it just needs a
+    whole professional refinement. same with the code mirror live view in the
+    documents editor, the live view needs a lot better md rendering and it is
+    hard to edit things like tables and other elements and it could look a lot
+    nicer rendered, and usability ux could be improved. also the code document
+    types dont act like a code editor with errors, suggestions and that needs to
+    be imporved. indenting and dedenting across the app also doesnt come in the
+    form it should." Placement: the mind map half joins MINDMAP_PLAN row
+    13a-view (INBOX 312's pan cost) plus a connector-parity row (the bottom
+    bar's link tools must draw what map edges draw); live view and code
+    diagnostics join DOCUMENTS_PLAN; indent/dedent (Tab/Shift+Tab on list
+    items and selections in every text surface) is a WORLD_CLASS_PLAN
+    consistency rule with a lint.
+
 317. **The owner, 2026-09-21, verbatim, two messages with screenshots of the
     whiteboard text box context bar:** "the textbox selection popup tools
     menu items are cut off and also not aligned" and "when I press the

@@ -5,6 +5,35 @@ based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows a "waves and phases" development history (see the milestones
 below). Versioning is `0.x` while the app stabilises.
 
+## [Unreleased]
+
+### Fixed
+
+- The packaged Windows app shows a splash from the moment it is opened, drawn
+  by the launcher itself before Python starts, and closes it when the window
+  appears. Not verified on a Windows build from this sandbox.
+- Optional packages installed from the packaged app, or ticked in the
+  installer, now actually load: they go into a folder beside your notes that
+  the packaged app reads. Needs a Python on PATH to run pip, as before.
+- Editing a note right after starting the app no longer blanks the notes list.
+- The note count is the same everywhere (drafts are left out, as the list
+  already did).
+- Select all (and Select none) in every selection bar; the Timeline's only
+  ticks notes and boards, the rows its actions can act on.
+- Clicking into a table cell in the documents live view puts the caret where
+  you clicked.
+- Undo covers text formatting, colours and every mind map style change.
+- The Notes toolbar stays on one line in the desktop window; the dashboard's
+  Start tiles fit one row there, and never wrap in compact view.
+- A missing search-by-meaning package is reported in words, with
+  nomic-embed-text offered as the alternative, instead of a traceback.
+
+### Changed
+
+- The mind map node menu is grouped with dividers instead of hover
+  submenus, so it works by touch and keyboard. Clearing a line's label
+  prompt no longer deletes it; "Take the label off the line" does.
+
 ## [0.3.2] - 2026-09-21
 
 ### Fixed

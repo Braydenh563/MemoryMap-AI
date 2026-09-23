@@ -283,3 +283,107 @@ def test_the_ghost_and_the_preview_are_drawn_in_the_apps_ink():
     assert 'color: "var(--muted)"' in ghost
     info = theme.split('".cm-tooltip.cm-completionInfo"', 1)[1].split("}", 1)[0]
     assert "var(--modal-bg-opaque)" in info
+
+
+# --- INBOX 402: Emmet beyond HTML, wrap and balance ------------------------------
+
+
+def run402(calls: list) -> list:
+    script = (
+        EMMET_JS.read_text(encoding="utf-8")
+        + "\n"
+        + _region()
+        + "\nconst E = EMMET;\n"
+        "const fns = {};\n"
+        "fns.at = (line, col, syntax, anywhere) => {"
+        " const f = docEmmetAt(line, col, syntax, E, anywhere); return f && f.abbr; };\n"
+        "fns.expand = (abbr, syntax, text) => { const x = docEmmetExpansion(E, abbr, syntax, text);"
+        " return x && x.preview; };\n"
+        "fns.wrap = (abbr, syntax, text, indent) => { const x = docEmmetExpansion(E, abbr, syntax,"
+        " docEmmetWrapText(text, indent, abbr)); return x && x.preview; };\n"
+        "fns.balance = (src, from, to, inward) => { const o = { xml: true };"
+        " const into = inward && from !== to;"
+        " const tags = into ? E.balancedInward(src, from, o) : E.balancedOutward(src, from, o);"
+        " return docBalanceRange(tags, from, to, into); };\n"
+        "const calls = JSON.parse(process.argv[1]);\n"
+        "console.log(JSON.stringify(calls.map(([name, ...args]) => fns[name](...args))));\n"
+    )
+    out = subprocess.run(
+        ["node", "-e", script, json.dumps(calls)], capture_output=True, text=True, check=True, timeout=60
+    )
+    return json.loads(out.stdout)
+
+
+@node
+@pytest.mark.parametrize(
+    ("line", "col", "syntax", "anywhere", "found"),
+    [
+        # JSX: an element, a component, an operator; never the page.
+        ("    div.card", 12, "jsx", False, "div.card"),
+        ("    Card>Item", 13, "jsx", False, "Card>Item"),
+        ("    !", 5, "jsx", False, None),
+        # XML: any name, but on typing only with an operator.
+        ("  item>name", 11, "xml", False, "item>name"),
+        ("  row*3", 7, "xml", False, "row*3"),
+        ("  item", 6, "xml", False, None),
+        ("  item", 6, "xml", True, "item"),
+    ],
+)
+def test_emmet_in_jsx_and_xml(line, col, syntax, anywhere, found):
+    assert run402([["at", line, col, syntax, anywhere]])[0] == found
+
+
+@node
+def test_jsx_writes_classname_and_xml_closes_empty_elements():
+    jsx, xml, br = run402([["expand", "div.card>p", "jsx"], ["expand", "item[id=1]>name{x}", "xml"], ["expand", "br", "xml"]])
+    assert jsx == '<div className="card">\n\t<p></p>\n</div>'
+    assert xml == '<item id="1">\n\t<name>x</name>\n</item>'
+    assert br == "<br/>"
+
+
+@node
+def test_wrap_with_an_abbreviation():
+    one_block, per_line, indented = run402(
+        [
+            ["wrap", "div.box", "html", "<p>x</p>", ""],
+            ["wrap", "ul>li*", "html", "one\ntwo", ""],
+            #: The lines after the first lose the first line's indent, which
+            #: the snippet puts back, so a wrapped block does not drift right.
+            ["wrap", "section", "html", "<p>a</p>\n    <p>b</p>", "    "],
+        ]
+    )
+    assert one_block == '<div class="box">\n\t<p>x</p>\n</div>'
+    assert per_line == "<ul>\n\t<li>one</li>\n\t<li>two</li>\n</ul>"
+    assert indented == "<section>\n\t<p>a</p>\n\t<p>b</p>\n</section>"
+
+
+_SRC = "<div>\n  <p>hi <b>there</b></p>\n</div>"
+
+
+@node
+def test_balance_steps_out_and_back_in():
+    #: From a caret in "hi": the p's content, the p, the div's content, the div.
+    out1, out2, out3, out4, edge = run402(
+        [
+            ["balance", _SRC, 12, 12, False],
+            ["balance", _SRC, 11, 26, False],
+            ["balance", _SRC, 8, 30, False],
+            ["balance", _SRC, 5, 31, False],
+            ["balance", _SRC, 0, 37, False],
+        ]
+    )
+    assert out1 == [11, 26] and out2 == [8, 30] and out3 == [5, 31] and out4 == [0, 37]
+    assert edge is None
+    in1, in2 = run402([["balance", _SRC, 0, 37, True], ["balance", _SRC, 5, 31, True]])
+    assert in1 == [5, 31] and in2 == [8, 30]
+
+
+def test_emmet_commands_are_in_the_palette_for_code():
+    source = _source()
+    table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]
+    for command in ("docEmmetWrap()", "docEmmetBalance(false)", "docEmmetBalance(true)"):
+        assert command in table
+    assert "code: true, run: () => docEmmetWrap()" in table
+    extras = _function("docCompletionExtras")
+    assert 'CM.javascript.javascriptLanguage.data.of({ autocomplete: docEmmetSource(CM, "jsx") })' in extras
+    assert "docJsxChildAt(CM, state, pos)" in _function("docEmmetPlace")

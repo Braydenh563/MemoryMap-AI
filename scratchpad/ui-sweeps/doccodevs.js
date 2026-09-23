@@ -98,6 +98,60 @@ const ok = (n, c, d) => {
   t = await text();
   ok("prose keeps the file type's own comment", t === "<!-- Some words -->", J(t));
 
+  // --- 2. Emmet beyond HTML, wrap and balance ------------------------------------
+  const settle = () => page.waitForTimeout(450);
+  const emmetRow = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll(".cm-tooltip-autocomplete li")].some((li) => li.querySelector(".cm-completionDetail")?.textContent === "Emmet")
+    );
+  await open("card.js", "js", "const A = () => (\n  <div>\n    |\n  </div>\n);");
+  await page.waitForFunction(() => !!window.EMMET, null, { timeout: 5000 }).catch(() => {});
+  await page.keyboard.type("span.x");
+  await settle();
+  ok("JSX children offer Emmet", await emmetRow());
+  await page.keyboard.press("Enter");
+  await settle();
+  t = await text();
+  ok("and it writes className", t.includes('    <span className="x"></span>'), J(t));
+
+  await open("plain.js", "js", "");
+  await page.keyboard.type("a.push");
+  await settle();
+  ok("plain JavaScript offers no Emmet row", !(await emmetRow()));
+  await page.keyboard.press("Escape");
+
+  await open("data.xml", "xml", "<root>\n  |\n</root>");
+  await page.keyboard.type("item>name");
+  await settle();
+  ok("XML offers Emmet with an operator", await emmetRow());
+  await page.keyboard.press("Enter");
+  await settle();
+  t = await text();
+  ok("and closes the pair", t.includes("  <item>\n    <name></name>\n  </item>") || t.includes("  <item>\n\t\t<name></name>"), J(t));
+
+  await open("wrap.html", "html", "<p>x</p>");
+  await select(0, 8);
+  const wrapping = page.evaluate(() => docEmmetWrap());
+  await page.waitForSelector(".prompt-card input", { timeout: 3000 });
+  await page.fill(".prompt-card input", "div.box");
+  await page.keyboard.press("Enter");
+  ok("Wrap with an abbreviation resolves", (await wrapping) === true);
+  await settle();
+  t = await text();
+  ok("and wraps the selection", /^<div class="box">\n\s+<p>x<\/p>\n<\/div>$/.test(t), J(t));
+
+  await open("bal.html", "html", "<div>\n  <p>hi <b>there</b></p>\n</div>");
+  await page.evaluate(() => docCmView.dispatch({ selection: { anchor: 12 } }));
+  const steps = [];
+  for (let k = 0; k < 4; k += 1) {
+    await page.evaluate(() => docEmmetBalance(false));
+    steps.push(await page.evaluate(() => [docCmView.state.selection.main.from, docCmView.state.selection.main.to]));
+  }
+  ok("balance outward steps content, tag, parent's content, parent", J(steps) === J([[11, 26], [8, 30], [5, 31], [0, 37]]), J(steps));
+  await page.evaluate(() => docEmmetBalance(true));
+  const back = await page.evaluate(() => [docCmView.state.selection.main.from, docCmView.state.selection.main.to]);
+  ok("and inward steps back", J(back) === J([5, 31]), J(back));
+
 
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`\n${good} passed, ${bad} failed`);

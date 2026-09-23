@@ -2170,6 +2170,14 @@ const DOC_COMMANDS = [
   //: puts it in the palette and the shortcut sheet (INBOX 402).
   { id: "block-comment", icon: "ph:brackets-angle", label: "Block comment around the selection", keys: "Shift+Alt+A",
     code: true, run: () => docCodeCommentAtCaret(docSurface(), true) },
+  //: Emmet's editing commands (INBOX 402). No chord: VS Code has none for
+  //: them either, and every free one is spoken for by something commoner.
+  { id: "emmet-wrap", icon: "ph:brackets-angle", label: "Wrap the selection with an Emmet abbreviation", keys: "",
+    code: true, run: () => docEmmetWrap() },
+  { id: "emmet-balance-out", icon: "ph:arrows-out-line-horizontal", label: "Select the enclosing tag (Emmet balance outward)", keys: "",
+    code: true, run: () => docEmmetBalance(false) },
+  { id: "emmet-balance-in", icon: "ph:arrows-in-line-horizontal", label: "Select the tag inside (Emmet balance inward)", keys: "",
+    code: true, run: () => docEmmetBalance(true) },
 ];
 
 // DOC-COMMANDS-END
@@ -16220,7 +16228,7 @@ function docEmmetSnippets(E, type) {
 //: `pos`, the start of the property it becomes) is left to the language's
 //: own list, which does it better, and so is anything Emmet can only turn
 //: into an empty `columns: ;`.
-function docEmmetIntended(abbr, syntax, E) {
+function docEmmetIntended(abbr, syntax, E, anywhere = false) {
   if (!abbr || /^\d/.test(abbr)) return false;
   if (syntax === "css") {
     if (abbr.length < 2 || !/^[a-z]/i.test(abbr)) return false;
@@ -16233,10 +16241,20 @@ function docEmmetIntended(abbr, syntax, E) {
     const declaration = /^([a-z-]+): (.+);$/.exec(out);
     return Boolean(declaration) && !declaration[1].startsWith(abbr.toLowerCase());
   }
+  //: XML has no vocabulary to check a name against, so on typing only an
+  //: operator says "Emmet" (`item>name`, `row*3`); Tab on a bare name is a
+  //: request and makes the pair.
+  if (syntax === "xml") {
+    if (!/^[a-zA-Z_]/.test(abbr)) return false;
+    return anywhere || /[>+*^[{(]/.test(abbr);
+  }
   const snippets = docEmmetSnippets(E, "markup");
   const name = (/^[a-zA-Z][\w-]*(?::[\w-]+)*/.exec(abbr) || [""])[0];
-  if (!name) return /^[.#!([{]/.test(abbr);
-  return DOC_HTML_TAGS.has(name.toLowerCase()) || Object.hasOwn(snippets, name);
+  //: JSX: an HTML element or a component (a capital), never `!`, which is a
+  //: whole page and has no place inside a component.
+  if (!name) return syntax === "jsx" ? /^[.#([]/.test(abbr) : /^[.#!([{]/.test(abbr);
+  if (syntax === "jsx" && /^[A-Z]/.test(name)) return true;
+  return DOC_HTML_TAGS.has(name.toLowerCase()) || (syntax === "html" && Object.hasOwn(snippets, name));
 }
 
 //: The abbreviation that ends at column `col` of `line`, as `{ abbr, start,
@@ -16264,7 +16282,7 @@ function docEmmetAt(line, col, syntax, E, anywhere) {
     const place = css ? /(^|[{;])\s*$/ : /(^|>)\s*$/;
     if (!place.test(before)) return null;
   }
-  if (!docEmmetIntended(found.abbreviation, syntax, E)) return null;
+  if (!docEmmetIntended(found.abbreviation, syntax, E, anywhere)) return null;
   return { abbr: found.abbreviation, start: found.start, end: Math.max(found.end, col) };
 }
 
@@ -16280,13 +16298,19 @@ function docEmmetAt(line, col, syntax, E, anywhere) {
 //: left `device-width` selected and the title third; nobody writing a page
 //: starts there. An empty attribute (`a[href]`) keeps its stop, because
 //: that is the thing to fill in.
-function docEmmetExpansion(E, abbr, syntax) {
+//:
+//: `text`, when given, is what the abbreviation wraps (Wrap with
+//: abbreviation): a string goes in whole, an array of lines one per repeat
+//: (`ul>li*` makes a list item of each line).
+function docEmmetExpansion(E, abbr, syntax, text) {
   const type = syntax === "css" ? "stylesheet" : "markup";
+  const config = type === "markup" ? { type, syntax } : { type };
+  if (text !== undefined) config.text = text;
   try {
-    const preview = E.expand(abbr, { type });
+    const preview = E.expand(abbr, config);
     if (!preview.trim()) return null;
     const field = (index, placeholder) => `\u0001${index}\u0002${placeholder || ""}\u0003`;
-    const marked = E.expand(abbr, { type, options: { "output.field": field } });
+    const marked = E.expand(abbr, { ...config, options: { "output.field": field } });
     const template = marked
       .replace(/[{}]/g, "\\$&")
       .replace(/\u0001(\d+)\u0002([^\u0003]*)\u0003/g, (_, index, placeholder, offset, whole) => {
@@ -16376,20 +16400,58 @@ function docGhostSuffix(before, after, label) {
   }
   return "";
 }
+
+//: Balance, VS Code's "Emmet: Balance": the next selection out from (or in
+//: to) `from`..`to`, given the tags around the caret as the matcher lists
+//: them (`{ open: [a, b], close: [c, d] }`, innermost first going out,
+//: outermost first going in). Each tag offers its content, then itself, so
+//: repeated presses step content, element, parent's content, parent. Null
+//: at the edge.
+function docBalanceRange(tags, from, to, inward) {
+  const spans = [];
+  for (const tag of tags) {
+    const whole = [tag.open[0], (tag.close || tag.open)[1]];
+    const inner = tag.close ? [tag.open[1], tag.close[0]] : null;
+    if (inward) spans.push(whole, ...(inner ? [inner] : []));
+    else spans.push(...(inner ? [inner] : []), whole);
+  }
+  for (const [a, b] of spans) {
+    const grows = a <= from && b >= to && (a < from || b > to);
+    const shrinks = a >= from && b <= to && (a > from || b < to);
+    if (inward ? shrinks && from !== to : grows) return [a, b];
+  }
+  return null;
+}
+
+//: The text Wrap hands Emmet: lines after the first lose the first line's
+//: indentation, because the snippet puts it back (every line of a snippet is
+//: indented to the line it starts on) and the wrapped block would otherwise
+//: drift one level right each time. An array when the abbreviation repeats
+//: without a count (`ul>li*`), so each line becomes one item.
+function docEmmetWrapText(text, indent, abbr) {
+  const lines = text.split("\n").map((line, i) => (i && line.startsWith(indent) ? line.slice(indent.length) : line));
+  return lines.length > 1 && /\*(?!\d)/.test(abbr) ? lines.filter((l) => l.trim()) : lines.join("\n");
+}
 // DOC-COMPLETE-END
 
-//: Where Emmet comes from. Loaded the first time an HTML or CSS document is
+//: Where Emmet comes from. Loaded the first time a document it serves is
 //: opened, never at boot, as the editor bundle is; like it, the vendor URL
 //: carries no `?v=` stamp (the version is the pin in package.json there).
 const DOC_EMMET_BUNDLE = "/vendor/emmet/emmet.min.js";
-const DOC_EMMET_TYPES = new Set(["html", "css"]);
+
+//: The file types Emmet serves, and the dialect for each (INBOX 402). A
+//: `.js` file is mounted with JSX, so there it is `className` and only
+//: inside JSX; TypeScript is mounted without JSX and gets none. SCSS, Less
+//: and SVG are not file types here, so they are not in the list.
+const DOC_EMMET_SYNTAX = { html: "html", css: "css", xml: "xml", js: "jsx" };
 let docEmmetLoad = null;
 
 //: Fire and forget. The sources read `window.EMMET` when they are asked, so
 //: nothing has to be reconfigured when it lands; until then the lists are
 //: the language's own, and if it never loads they stay that way.
 function docLoadEmmet() {
-  if (window.EMMET || docEmmetLoad) return;
+  if (window.EMMET) return Promise.resolve(true);
+  if (docEmmetLoad) return docEmmetLoad;
   docEmmetLoad = new Promise((resolve) => {
     const script = document.createElement("script");
     script.src = DOC_EMMET_BUNDLE;
@@ -16401,6 +16463,7 @@ function docLoadEmmet() {
     });
     document.head.appendChild(script);
   });
+  return docEmmetLoad;
 }
 
 //: Whether the caret is where markup's text goes, rather than inside a tag,
@@ -16411,6 +16474,32 @@ function docHtmlTextAt(CM, state, pos) {
     if (/Tag$|^(TagName|Attribute|AttributeName|AttributeValue|Comment|DoctypeDecl|ProcessingInst)$/.test(node.name)) return false;
   }
   return true;
+}
+
+//: The same question in JSX: inside an element's children, and not in a
+//: tag, an attribute or a `{...}` expression (which is JavaScript again).
+//: Everywhere else in a `.js` file the answer is no, because `a`, `b`, `i`,
+//: `p` and `s` are the commonest names in JavaScript and every one is a tag.
+function docJsxChildAt(CM, state, pos) {
+  for (let node = CM.language.syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
+    if (/^JSX(OpenTag|CloseTag|SelfClosingTag|Attribute|AttributeValue|Escape|FragmentTag)$/.test(node.name)) return false;
+    if (node.name === "JSXElement" || node.name === "JSXFragment") return true;
+  }
+  return false;
+}
+
+//: XML is a stream mode here, with no tree to ask: outside a tag is after
+//: the last `>` rather than the last `<`.
+function docXmlTextAt(state, pos) {
+  const before = state.sliceDoc(Math.max(0, pos - 4000), pos);
+  return before.lastIndexOf("<") <= before.lastIndexOf(">");
+}
+
+function docEmmetPlace(CM, state, pos, syntax) {
+  if (syntax === "css") return docCssInBlock(CM, state, pos);
+  if (syntax === "jsx") return docJsxChildAt(CM, state, pos);
+  if (syntax === "xml") return docXmlTextAt(state, pos);
+  return docHtmlTextAt(CM, state, pos);
 }
 
 //: Whether the caret is inside a CSS rule's braces.
@@ -16426,7 +16515,7 @@ function docCssInBlock(CM, state, pos) {
 function docEmmetMatch(CM, state, pos, syntax, anywhere) {
   const E = window.EMMET;
   if (!E) return null;
-  if (syntax === "css" ? !docCssInBlock(CM, state, pos) : !docHtmlTextAt(CM, state, pos)) return null;
+  if (!docEmmetPlace(CM, state, pos, syntax)) return null;
   const line = state.doc.lineAt(pos);
   const found = docEmmetAt(line.text, pos - line.from, syntax, E, anywhere);
   if (!found) return null;
@@ -16475,12 +16564,82 @@ function docEmmetSource(CM, syntax) {
 //: VS Code's `emmet.triggerExpansionOnTab` does. False when there is none,
 //: so Tab goes on to indent.
 function docEmmetExpandAtCaret(view, CM) {
-  const ext = docFileType().ext;
+  const syntax = DOC_EMMET_SYNTAX[docFileType().ext];
   const range = view.state.selection.main;
-  if (!DOC_EMMET_TYPES.has(ext) || !range.empty) return false;
-  const found = docEmmetMatch(CM, view.state, range.head, ext, true);
+  if (!syntax || !range.empty) return false;
+  const found = docEmmetMatch(CM, view.state, range.head, syntax, true);
   if (!found) return false;
   CM.autocomplete.snippet(found.template)(view, null, found.from, found.to);
+  return true;
+}
+
+//: The markup dialect of the open code document, or null (CSS has no tags
+//: to wrap or balance).
+function docEmmetMarkupSyntax() {
+  const type = docFileType();
+  const syntax = DOC_EMMET_SYNTAX[type.ext];
+  if (!docCmView || !window.CM6 || type.previewable || docView === "plain") return null;
+  return syntax && syntax !== "css" ? syntax : null;
+}
+
+//: **Wrap with abbreviation**, VS Code's Emmet command: the selection (or
+//: the line, without its indentation) goes inside what an abbreviation
+//: makes, `ul>li*` taking one item per line. The abbreviation is asked for
+//: in the app's own dialog; the last one is offered again.
+let docEmmetLastWrap = "div";
+
+async function docEmmetWrap() {
+  const syntax = docEmmetMarkupSyntax();
+  if (!syntax) {
+    toast("Wrap with an abbreviation works in HTML, XML and JSX files.");
+    return false;
+  }
+  const view = docCmView;
+  const CM = window.CM6;
+  if (!(await docLoadEmmet()) || !window.EMMET) {
+    toast("Emmet could not be loaded, so nothing was wrapped.", true);
+    return false;
+  }
+  let { from, to } = view.state.selection.main;
+  const first = view.state.doc.lineAt(from);
+  const indent = /^\s*/.exec(first.text)[0];
+  if (from === to) {
+    from = first.from + indent.length;
+    to = first.to;
+  }
+  const abbr = await promptDialog("Wrap with an abbreviation:", docEmmetLastWrap, { confirmLabel: "Wrap" });
+  if (!abbr || !docCmView) return false;
+  const text = docEmmetWrapText(view.state.sliceDoc(from, to), indent, abbr);
+  const expansion = docEmmetExpansion(window.EMMET, abbr, syntax, text);
+  if (!expansion) {
+    toast(`Emmet cannot read "${abbr}" as an abbreviation.`, true);
+    return false;
+  }
+  docEmmetLastWrap = abbr;
+  view.focus();
+  CM.autocomplete.snippet(expansion.template)(view, null, from, to);
+  markDocDirty();
+  return true;
+}
+
+//: **Balance**, VS Code's Emmet command: select the tag around the
+//: selection's content, then the tag, then its parent's content and so on
+//: (outward), or back in (inward). From the text, by Emmet's own matcher, so
+//: HTML, XML and JSX all work the same way.
+function docEmmetBalance(inward) {
+  const syntax = docEmmetMarkupSyntax();
+  const E = window.EMMET;
+  if (!syntax || !E) return false;
+  const view = docCmView;
+  const text = view.state.doc.toString();
+  const { from, to } = view.state.selection.main;
+  const options = { xml: syntax !== "html" };
+  const into = inward && from !== to;
+  const tags = into ? E.balancedInward(text, from, options) : E.balancedOutward(text, from, options);
+  const range = docBalanceRange(tags, from, to, into);
+  if (!range) return false;
+  view.dispatch({ selection: { anchor: range[0], head: range[1] }, scrollIntoView: true });
+  view.focus();
   return true;
 }
 
@@ -16610,14 +16769,22 @@ function docGhostPlugin(CM) {
 
 //: Everything above, for a code document: the list opening as you type,
 //: Emmet where the type has it, the ghost text and Tab.
+//: XML's Emmet source, as language data for the stream mode: one stable
+//: array, for the identity reason above.
+let docEmmetXmlData = null;
+
 function docCompletionExtras(CM, type) {
-  const emmet = DOC_EMMET_TYPES.has(type.ext);
-  if (emmet) docLoadEmmet();
+  if (DOC_EMMET_SYNTAX[type.ext]) docLoadEmmet();
+  if (!docEmmetXmlData) docEmmetXmlData = [{ autocomplete: docEmmetSource(CM, "xml") }];
   const config = { activateOnTyping: true, maxRenderedOptions: 60 };
   if (type.ext === "css") config.override = docCssSources(CM);
   return [
     CM.autocomplete.autocompletion(config),
     type.ext === "html" ? CM.html.htmlLanguage.data.of({ autocomplete: docEmmetSource(CM, "html") }) : [],
+    //: The JSX dialect shares JavaScript's language data, so this reaches a
+    //: `.js` file; the source itself answers only inside JSX.
+    type.ext === "js" ? CM.javascript.javascriptLanguage.data.of({ autocomplete: docEmmetSource(CM, "jsx") }) : [],
+    type.ext === "xml" ? CM.state.EditorState.languageData.of(() => docEmmetXmlData) : [],
     docGhostPlugin(CM),
     CM.state.Prec.highest(CM.view.keymap.of([{ key: "Tab", run: (view) => docCompleteTab(view, CM) }])),
   ];

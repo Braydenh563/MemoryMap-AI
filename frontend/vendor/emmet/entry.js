@@ -13,3 +13,7 @@
 // integration it provides is the part that has to follow this app's own
 // completion list, Tab and theme anyway (documents.js, `docEmmet*`).
 export { default as expand, extract, resolveConfig } from "emmet";
+// Added for INBOX 402 (balance, rename the matching tag): the tag matcher
+// Emmet's own editor plugins use. It reads tags from the text, so it works
+// the same in HTML, XML (a stream mode here, with no tree to ask) and JSX.
+export { default as matchTag, balancedInward, balancedOutward } from "@emmetio/html-matcher";

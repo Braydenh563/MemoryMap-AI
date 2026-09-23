@@ -462,6 +462,29 @@ const near = (a, b, tol = 1.5) => a != null && b != null && Math.abs(a - b) <= t
     await wait(600);
     k1 = await cam();
     check("Ctrl+0 zooms to 100%", near(k1.k, 1, 0.001), `k ${k1.k}`);
+    await page.keyboard.press("Control+Equal");
+    await wait(500);
+    const kIn = (await cam()).k;
+    await page.keyboard.press("Control+Minus");
+    await wait(500);
+    const kOut = (await cam()).k;
+    check("Ctrl+= and Ctrl+- step the zoom in and out", near(kIn, 1.2, 0.01) && near(kOut, 0.96, 0.01), `1 to ${kIn.toFixed(2)} to ${kOut.toFixed(2)}`);
+    await page.keyboard.press("Control+0");
+    await wait(500);
+
+    // Escape during a link draw makes no link
+    const sk0 = (await counts()).sketches;
+    await page.evaluate(() => wbSelectToolRef?.("link-straight"));
+    const fromCard = await centre(`.wb-object[data-id="${ids.t}"]`);
+    const toCard = await centre(`.node-card[data-id="${ids.n}"]`);
+    if (fromCard && toCard) {
+      await drag(fromCard, toCard, { after: async () => { await page.keyboard.press("Escape"); await wait(100); } });
+    }
+    const sk1 = (await counts()).sketches;
+    const strayPath = await page.evaluate(() => document.querySelectorAll("#wb-zoom-group > path:not([class])").length);
+    check("Escape during a link draw makes no link and leaves no line behind", fromCard && toCard && sk1 === sk0 && strayPath === 0,
+      `links ${sk0} to ${sk1}, stray lines ${strayPath}`);
+    await page.evaluate(() => wbSelectToolRef?.("select"));
     await page.evaluate(() => d3.select(document.getElementById("whiteboard-container")).call(wbZoom.transform, d3.zoomIdentity.translate(-1500, -900).scale(0.5)));
     await wait(300);
     await page.keyboard.press("Shift+!");

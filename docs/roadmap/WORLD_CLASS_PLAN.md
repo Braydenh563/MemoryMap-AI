@@ -2123,8 +2123,13 @@ build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
     - `GET /settings/events`: B1's event feed. Its own docstring names the
       consumer, "what a Dashboard or Timeline activity strip should read
       instead of scanning the notes table for recency", and no such strip
-      reads it. **Recommendation:** a brief in WORLD_CLASS_PLAN B1, not an
-      improvisation here: it is a surface, not a wire-up.
+      reads it. **Built 2026-09-23** as the Dashboard's Recent activity
+      widget (`renderActivityWidget`, dashboard.js), opt-in in the widget
+      picker rather than appended to every dashboard (INBOX 270's
+      declutter), reading `tail` once and the cursor after
+      (`scratchpad/ui-sweeps/oi-activity.js`, 6 of 6). The Timeline half is
+      not built: the Timeline is ordered by when a thing was written, and a
+      feed of changes inside it would be a second clock on one page.
     - `GET /resurface/near/{entry_id}`: "the faded notes closest to the one
       being read", built and tested, and there is nowhere in the app that
       reads a note. Checked before recommending anything: a note is a card

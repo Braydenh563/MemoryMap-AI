@@ -7,6 +7,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- A Recent activity widget for the dashboard, in the widget picker: what
+  changed in the notebook lately (notes, documents, boards and reminders),
+  and whether you, Atlas or a skill changed it. Off until added, so no
+  existing dashboard grows a widget. It reads the event log's newest rows
+  once and then only what came after, with no timer running while the tab
+  sits idle.
+
 ### Fixed
 
 - A reopened chat or Ask history answer keeps its "Only 1 of 3 sentences here

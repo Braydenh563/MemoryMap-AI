@@ -959,13 +959,15 @@ being written by running agents stay beside this one.
   (`events.is_compacted`); a deleted board item is the one case with nothing
   to put back, since the whiteboard tables have no soft delete.
   [brief7-event-log.md]
-- **The Timeline and Dashboard activity strips.** `file:
-  frontend/dashboard.js`, `id: events-strip`. `GET /events?since=` exists and
-  nothing reads it. The "Recently added" widget was deliberately left alone.
-  Next step: a strip that polls `/events` with the cursor, rendering actor and
-  action; the feed's shape is settled (`changed`, `snapshot`, `compacted`), so
-  a folded run renders as one line rather than a burst of edits.
-  [brief7-event-log.md]
+- ~~**The Timeline and Dashboard activity strips.**~~ **The Dashboard half
+  built 2026-09-23**: a Recent activity widget, opt-in (`DASH_OPT_IN`, so
+  existing dashboards do not grow a widget), reading `/events?tail=8` once
+  and `?since=<cursor>` on every later render, with no timer (an idle tab
+  polling a log is the cost INBOX 266 (7) removed). Actor and action per row,
+  a folded run as one line with its count. The feed grew `tail` and a comma
+  list for `entity_type` (`tests/test_events.py`, two new);
+  `scratchpad/ui-sweeps/oi-activity.js`, 6 of 6. The Timeline half is left
+  on purpose: see WORLD_CLASS_PLAN's dead-routes triage. [brief7-event-log.md]
 - **Sync (B6) as log shipping.** `id: events-sync`. Unstarted and no longer
   blocked: it needed the retention rule, which now exists. A compacted
   snapshot ships as a snapshot. [brief7-event-log.md]

@@ -46,6 +46,7 @@ Phase 8c, the templates preview, outline row height.
   paths, plus the lint.
 - done 2d013e1: 4, `has:image`, `has:link`, `has:reminder`.
 - done 9e0ff43: 5, the keyword index rebuilt by the re-index job.
-- done (this commit): 6, support on both replay paths, CHAT_PLAN Phase 1
+- done 3129aa8: 6, support on both replay paths, CHAT_PLAN Phase 1
   moved to HISTORY; `oi-replaysupport.js` 3 of 3.
-- next: 7, the dashboard activity strip over `GET /events` (dashboard.js).
+- done (this commit): 7, the Recent activity widget; `oi-activity.js` 6 of 6.
+- next: 8, `POST /learned/bulk` and the table's bulk actions (settings.js ~4117).

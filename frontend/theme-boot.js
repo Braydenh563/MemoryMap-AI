@@ -42,6 +42,7 @@
       ? theme
       : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 
+  _r.dataset.pageWash = pref("page-wash", "on");
   const palette = pref("palette", "default");
   if (palette && palette !== "default") _r.dataset.palette = palette;
   const accent = pref("accent", "indigo");

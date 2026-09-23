@@ -2955,7 +2955,8 @@ dialog::backdrop {
    paragraph is not a title, and letting it wrap makes every row the same
    height and the same shape. */
 .dash-list-title {
-  font-weight: 600;
+  /* 500, not 600: a list of titles all in bold is a list with no emphasis. */
+  font-weight: 500;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;

@@ -42,7 +42,7 @@ below). Versioning is `0.x` while the app stabilises.
   with full-width rows; Escape closes only the top sheet when one is open
   over another; and closing the sidebar sheet puts the focus back on the
   button that opened it.
-
+- Scrolling does less per frame everywhere: the back-to-top button updates once per frame and only writes what changed, the bar-over-list edge measures only when a list crosses its top, and the graph's wheel listener lives on the graph canvas instead of every tab.
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window
   appears. Not verified on a Windows build from this sandbox.
@@ -64,8 +64,28 @@ below). Versioning is `0.x` while the app stabilises.
   line's label drags with the pointer and no longer starts a selection box.
 - The dashboard's note count leaves out boards and maps, as the Notes list
   does.
-- A note's menu can show it in the graph (centred and lit) or start a chat
-  about it with Atlas.
+- Notes, documents, boards and maps can be taken straight to a chat with
+  Atlas from their menus, and a note to the graph (centred and lit).
+- Menus, docks, popovers and the graph toolbar follow the chosen look in
+  every palette (they stayed navy in dark), the desktop loading page and the
+  packaged splash wear the look too, and a new Background wash setting gives
+  the flat looks a soft light across the page. Classic is second in the list.
+- The mind map node menu is eight rows with Add, Topic, Branch and Order
+  flyouts (was eighteen rows, most of the screen), and the topic's ring stays
+  open beside it. A press inside any menu no longer closes it before a group
+  can open. The dashboard's top is calmer: a lower hero with an ink clock,
+  one-line start tiles, and Jump to as quiet pills beside their label.
+- A dashboard you have not arranged shows nine widgets (reminders, recent
+  notes, favourites, quick capture, documents, boards and maps, the weekly
+  digest, on this day, the heatmap) instead of all twenty-three; the rest are
+  under Widgets, and Reset returns here. Reminder times read as a day and a
+  time, and the heatmap counts notes, not boards.
+- The Back and Forward history names places ("Documents: Weekly plan",
+  "Library: Documents") instead of internal ids.
+- Model pickers show the short model name and stop at 14rem, and no longer
+  call an installed model "not installed".
+- Theme and palette cards in Appearance keep their text inside the card and
+  line up: swatches and names on one line per row, descriptions in body weight.
 - Links everywhere use the accent colour (plain links were the browser's own
   blue and purple); Timeline rows for boards and reminders no longer repeat
   their title as a snippet; an empty Ollama embedding picker says why.
@@ -88,8 +108,19 @@ below). Versioning is `0.x` while the app stabilises.
   in them. Note boxes indent with Tab from the first keystroke after a
   restart, not only once the editor has loaded. Renaming a topic can be
   undone.
+- The note Capture box's formatting toolbar stays on one row in the desktop
+  window: the two colour pickers are an icon and a caret, and on a narrow
+  window List, Task and Preview show their icons only.
 - A missing search-by-meaning package is reported in words, with
   nomic-embed-text offered as the alternative, instead of a traceback.
+
+### Added
+
+- Code documents act like a code editor: a syntax error is underlined with a
+  mark beside its line and says what is wrong on hover (Python, TOML, XML
+  and YAML checked by the app itself, JSON, JavaScript, TypeScript and CSS in
+  the window, nothing sent anywhere), and a list of the language's keywords
+  and the names already in the file appears as you type.
 
 ### Changed
 
@@ -97,7 +128,19 @@ below). Versioning is `0.x` while the app stabilises.
   panels, one ink-blue accent and tighter spacing. Two new looks, Editorial
   paper and Technical mono, sit beside it in Appearance, and the previous
   look is kept as Classic. A look you already chose is kept.
-
+- The documents live view reads as a page: the text sits in a measure of about
+  75 characters with a margin either side, and the space between blocks comes
+  from one scale (more above a section, less under its heading, one gap
+  however many blank lines were typed).
+- Tables in the documents live view mark the cell you are editing, have the
+  rendered view's cell spacing, keep their menu clear of the last heading,
+  and a new row from Tab puts the caret where you would type. Code blocks
+  have an inset, and quotations have a visible bar in both the live and the
+  rendered view.
+- The documents live view draws more of markdown: indent guides under
+  nested lists, finished tasks struck through (in the rendered view too),
+  bare web addresses and `<address>` links as links, and a backslash escape
+  without its backslash until you are on the line.
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label
   prompt no longer deletes it; "Take the label off the line" does.

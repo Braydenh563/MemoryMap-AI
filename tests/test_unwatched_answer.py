@@ -50,6 +50,6 @@ def test_the_notice_carries_a_way_back_that_survives_storage():
 
 
 def test_the_bell_row_reopens_the_panel():
-    start = APP.index("item.action && (item.action.tab || item.action.exports || item.action.panel)")
+    start = APP.index("item.action && (item.action.tab || item.action.exports || item.action.panel")
     block = APP[start : start + 700]
     assert "reopenAnswerPanel(item.action)" in block

@@ -336,10 +336,14 @@ async function api(path, options = {}) {
   // than as an expired session. Change-password answers 401 for "that isn't
   // your current password", a typo there must show a message beside the
   // field, not throw the user out to the lock screen.
-  const { silent, timeoutMs, ownsAuthErrors, ...fetchOptions } = options;
+  // `readOnly`: a POST that writes nothing (the code checker in documents.js
+  // sends a file's text in a body because a query string cannot carry it).
+  // Without it every pause in typing a .py file would empty the read cache
+  // for the whole app, which is a write's job, not a read's.
+  const { silent, timeoutMs, ownsAuthErrors, readOnly, ...fetchOptions } = options;
   refuseStagedUrls(fetchOptions.body);
   // Any write invalidates the read cache above, see clearApiCache().
-  if (fetchOptions.method && fetchOptions.method !== "GET") clearApiCache();
+  if (!readOnly && fetchOptions.method && fetchOptions.method !== "GET") clearApiCache();
   let timer = null;
   if (timeoutMs) {
     const controller = new AbortController();
@@ -3684,11 +3688,18 @@ async function showNoteInGraph(id) {
 //: would use, so the agent's own search tools find it, rather than pasting the
 //: whole note into the box.
 function askAtlasAboutNote(entry) {
-  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim().slice(0, 80);
+  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim();
+  askAtlasAboutThing("note", name);
+}
+
+//: One door into the chat for any object: a note, a document, a board, a
+//: file. Named, so the agent's own tools find it.
+function askAtlasAboutThing(kind, name) {
+  const label = String(name || "").trim().slice(0, 80) || `this ${kind}`;
   switchTab("chat");
   const input = $("chat-input");
   if (!input) return;
-  input.value = `Tell me about my note "${name}" and what it connects to.`;
+  input.value = `Tell me about my ${kind} "${label}" and what it connects to.`;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.focus();
 }
@@ -5100,6 +5111,7 @@ let openGroupSubmenu = null;
 // entirely and expands in place instead, an accordion, not a flyout, which
 // is what "compatible with small screens like iPhones" actually means here.
 function buildMenuGroupButton(label, subItems) {
+  let openedByHoverAt = 0;
   const groupWrap = document.createElement("div");
   groupWrap.className = "menu-group";
 
@@ -5207,7 +5219,10 @@ function buildMenuGroupButton(label, subItems) {
   let hoverTimer = null;
   groupWrap.addEventListener("mouseenter", () => {
     clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(openSubmenu, 120); // brief delay: a mouse crossing the item isn't a request to open it
+    hoverTimer = setTimeout(() => {
+      openSubmenu();
+      openedByHoverAt = Date.now();
+    }, 120); // brief delay: a mouse crossing the item isn't a request to open it
   });
   groupWrap.addEventListener("mouseleave", () => {
     clearTimeout(hoverTimer);
@@ -5225,8 +5240,11 @@ function buildMenuGroupButton(label, subItems) {
   });
   trigger.addEventListener("click", (event) => {
     event.stopPropagation();
+    //: A click that lands just after the hover opened the flyout is the same
+    //: request, not a second one: toggling there closed what the person had
+    //: just reached for (measured on the map node menu).
     if (submenu.classList.contains("hidden")) openSubmenu();
-    else closeSubmenu();
+    else if (Date.now() - openedByHoverAt > 600) closeSubmenu();
   });
   submenu.addEventListener("keydown", (event) => {
     const subItems = [...submenu.querySelectorAll(':scope > [role="menuitem"]')];
@@ -23166,6 +23184,20 @@ function enhanceSelect(select) {
   caret.className = "ph ph-caret-down select-caret";
   caret.setAttribute("aria-hidden", "true");
   opener.append(valueText, caret);
+  //: **A select whose closed face is an icon and a caret** (`data-select-icon`
+  //: on the select, a Phosphor class). For a picker that is an action rather
+  //: than a setting, whose resting text is only ever its own name ("Text
+  //: colour…"): in a toolbar that name is a word-sized box saying what the
+  //: icon beside it already says. The word stays in the opener, visually
+  //: hidden (`.select-opener-icon`), and the opener's name is the select's
+  //: aria-label below, so nothing is lost to a screen reader.
+  if (select.dataset.selectIcon) {
+    const icon = document.createElement("i");
+    icon.className = `ph ${select.dataset.selectIcon} select-icon`;
+    icon.setAttribute("aria-hidden", "true");
+    opener.prepend(icon);
+    opener.classList.add("select-opener-icon");
+  }
 
   const menu = document.createElement("div");
   menu.className = "action-menu select-menu hidden";
@@ -26300,8 +26332,18 @@ const SCROLL_EDGE_GAP = 24;
 // possible way to learn which elements are worth asking about.
 const scrollEdgeRegions = new Set();
 
-function markScrollEdge(region) {
+//: What each region last told its bar. The bar over a region only changes
+//: when the region crosses its top edge, so a scroll that stays below it
+//: (nearly every frame of every scroll) has nothing to measure: without this
+//: each frame read every bar's box, which traced at 34 to 87ms per scroll.
+const scrollEdgeLastState = new WeakMap();
+
+function markScrollEdge(region, force = false) {
   if (!region || typeof region.getBoundingClientRect !== "function") return;
+  const wasScrolled = scrollEdgeLastState.get(region);
+  const nowScrolled = region.scrollTop > 1;
+  if (!force && wasScrolled === nowScrolled) return;
+  scrollEdgeLastState.set(region, nowScrolled);
   // A menu, a dialog or a popover scrolls over the page, not under a bar.
   if (
     region.closest &&
@@ -26427,7 +26469,7 @@ function syncScrollEdges() {
       continue;
     }
     if (page && page.contains(region) && region.scrollTop > 1) {
-      markScrollEdge(region);
+      markScrollEdge(region, true);
       handled = true;
     }
   }
@@ -28983,6 +29025,8 @@ function tabLabel(name) {
   // Not a real tab-page, see stepTabHistory's own "settings" branch, so
   // there is no `#tab-bar` button to read a label from.
   if (name === "settings") return "Settings";
+  //: The document editor is a page, not a tab, so it has no button either.
+  if (name === "documents") return "Documents";
   const button = document.querySelector(`#tab-bar button[data-tab="${name}"]`);
   return button?.textContent?.trim() || name;
 }
@@ -28997,9 +29041,19 @@ function entryLabel(entry) {
   // no good short label to build; naming the tab is honest instead of
   // printing the raw id.
   if (entry.tab === "chat") return tab;
-  const button = document.querySelector(`[data-section="${entry.section}"]`);
-  const section = button?.textContent?.trim() || entry.section;
-  return `${tab} → ${section}`;
+  //: A document, board or focus is named by what it is, never by its id
+  //: (owner's screenshot: "documents → doc:4", "Library → library-view-docs").
+  const named = historyTitles.get(entry.section);
+  if (named) return `${tab}: ${named}`;
+  if (/^(doc|board|focus|conv):/.test(entry.section)) {
+    const kind = entry.section.split(":")[0];
+    return `${tab}: ${{ doc: "a document", board: "a board", focus: "a note", conv: "a chat" }[kind]}`;
+  }
+  const button = document.querySelector(
+    `[data-section="${entry.section}"], [data-target="${entry.section}"], [aria-controls="${entry.section}"]`
+  );
+  const section = button?.textContent?.trim().replace(/\s+/g, " ");
+  return section ? `${tab}: ${section}` : tab;
 }
 
 // One history entry. `section` is the sub-tab within a tab, when that tab has
@@ -29007,7 +29061,13 @@ function entryLabel(entry) {
 // navigation between sub tabs as well." Notes has four (browse / capture /
 // writing-room / ask) and moving between them is as much a navigation as
 // moving between tabs, so Back should undo it.
-function recordTabVisit(name, section = null) {
+//: The human name of a history step that is a thing rather than a sub-tab
+//: (a document, a board), recorded by whoever opens it, so the Back menu can
+//: say "Documents: Weekly plan" instead of "documents → doc:4".
+const historyTitles = new Map();
+
+function recordTabVisit(name, section = null, title = "") {
+  if (section && title) historyTitles.set(section, String(title).trim());
   // A back/forward press is a move *through* history, not a new entry.
   if (tabHistory.navigating) return;
   const current = tabHistory.stack[tabHistory.index];
@@ -31680,14 +31740,19 @@ function positionScrollTopForNested(button, tab) {
   const rightPanel = document.querySelector("#library-view-skills:not(.hidden) #skills-sidebar");
   if (rightPanel) {
     const rightPanelRect = rightPanel.getBoundingClientRect();
-    button.style.right = `${Math.max(margin, window.innerWidth - rightPanelRect.left + margin + scrollbarClearance)}px`;
+    const right = `${Math.max(margin, window.innerWidth - rightPanelRect.left + margin + scrollbarClearance)}px`;
+    if (button.style.right !== right) button.style.right = right;
   } else {
-    button.style.right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
+    const right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
+    if (button.style.right !== right) button.style.right = right;
   }
 
   // **Bottom**: a panel shorter than the viewport must not leave the button
   // floating below its own content.
-  button.style.bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
+  const bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
+  //: Only when it moved: an inline-style write invalidates style even when
+  //: the value is the same, and this runs on every scroll frame.
+  if (button.style.bottom !== bottom) button.style.bottom = bottom;
 }
 
 //: **The back-to-top button must never sit on top of a Save button.**
@@ -31726,7 +31791,23 @@ const FORM_PRIMARY_SELECTOR = [
 //: it cannot be read as a pixel count directly. Resolving it through a real
 //: element is what makes the clearance track the density setting instead of
 //: freezing at one multiplier's value.
+//: Cached, because the probe below is a body append: every call forced a
+//: whole-document style recalc and layout, and the back-to-top button asked
+//: on every scroll frame (traced: 1,732-element recalcs per frame on Notes).
+//: A spacing token only moves with the root's text size, density or look,
+//: all of which are attributes or inline style on <html>, or with a resize.
+const spacingPxCache = new Map();
+window.addEventListener("resize", () => spacingPxCache.clear(), { passive: true });
+new MutationObserver(() => spacingPxCache.clear()).observe(document.documentElement, { attributes: true });
+
 function spacingPx(name, fallback) {
+  if (spacingPxCache.has(name)) return spacingPxCache.get(name);
+  const px = measureSpacingPx(name, fallback);
+  spacingPxCache.set(name, px);
+  return px;
+}
+
+function measureSpacingPx(name, fallback) {
   const probe = document.createElement("div");
   probe.style.cssText = `position:absolute;visibility:hidden;width:var(${name})`;
   document.body.appendChild(probe);
@@ -31784,6 +31865,7 @@ function initScrollTopButton() {
   });
   document.body.appendChild(button);
 
+  let wasVisible = false;
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
     const target = scrollTopTargetEl();
@@ -31807,11 +31889,18 @@ function initScrollTopButton() {
     const show = chat
       ? fromBottom > 200
       : scrollTop > (tab === "dashboard" ? 200 : 400) && !NO_SCROLL_TOP_TABS.has(tab);
-    button.dataset.mode = chat ? "bottom" : "top";
-    button.textContent = chat ? "↓" : "↑";
-    const label = chat ? "Jump to the newest message" : "Back to top";
-    button.title = label;
-    button.setAttribute("aria-label", label);
+    //: Written only when they change: this runs on scroll, and a text or
+    //: attribute write on every frame invalidates style that the layout reads
+    //: just below (`coversAFormPrimary`, `positionScrollTopForNested`) then
+    //: have to recompute.
+    const mode = chat ? "bottom" : "top";
+    if (button.dataset.mode !== mode) {
+      button.dataset.mode = mode;
+      button.textContent = chat ? "↓" : "↑";
+      const label = chat ? "Jump to the newest message" : "Back to top";
+      button.title = label;
+      button.setAttribute("aria-label", label);
+    }
     const visible = show && !NO_SCROLL_TOP_TABS.has(tab) && !coversAFormPrimary(button);
     button.classList.toggle("visible", visible);
     //: INBOX 33: `--scroll-top-clearance` used to be unconditional
@@ -31823,13 +31912,30 @@ function initScrollTopButton() {
     //: clearance only while this class says the button is actually there
     //: to clear.
     document.body.classList.toggle("scroll-top-visible", visible);
-    positionScrollTopForNested(button, tab);
+    //: A hidden button has nowhere to be: its box is only measured while it
+    //: shows, and once more on the frame it goes, so it hides where it was.
+    if (visible || wasVisible) positionScrollTopForNested(button, tab);
+    wasVisible = visible;
   };
   // Capture, because scroll events do not bubble: the listener has to see them
   // on whichever .tab-page is currently the scroll container, and that changes
   // every time the user switches tab.
-  document.addEventListener("scroll", update, { passive: true, capture: true });
-  window.addEventListener("resize", update, { passive: true });
+  //: **Once per frame, not once per scroll event** (INBOX 392's optimisation
+  //: pass, the method that fixed the board's pan: trace, then remove the work
+  //: nobody sees). A wheel or trackpad sends several scroll events a frame,
+  //: and each ran this in full, layout reads included: traced at the desktop
+  //: window, 77ms on the dashboard, 194ms on Notes and 267ms on the Library
+  //: over a 30-step scroll.
+  let updateFrame = 0;
+  const scheduleUpdate = () => {
+    if (updateFrame) return;
+    updateFrame = requestAnimationFrame(() => {
+      updateFrame = 0;
+      update();
+    });
+  };
+  document.addEventListener("scroll", scheduleUpdate, { passive: true, capture: true });
+  window.addEventListener("resize", scheduleUpdate, { passive: true });
   update();
   return update;
 }
@@ -38324,9 +38430,20 @@ function syncFeatureModelSelects() {
     //: With no backend connected the inherited name is only the configured
     //: default: measured, the picker said "Inherited: llama3.2" under a banner
     //: saying no model is connected.
-    const inherited = featureModelNames.includes(row.inherits)
-      ? `Inherited: ${row.inherits}`
-      : `Inherited: ${row.inherits} (not installed)`;
+    //: Installed by the server's own rule (`_name_matches`: "llama3.2" is an
+    //: installed "llama3.2:latest"), and the server's own verdict on the chat
+    //: model wins over this list: measured, an installed
+    //: `hf.co/...:UD-Q4_K_XL` read "(not installed)" from a literal compare.
+    //: The short name in the label, the full id in the tooltip: the long
+    //: form made the Ask header's picker 1,200px wide.
+    const installedNames = new Set(featureModelNames.flatMap((n) => [n, String(n).split(":")[0]]));
+    const serverSaysInstalled = row.inherits === modelStatus?.chat_model
+      && modelStatus?.chat_model_installed === true;
+    const isInstalled = serverSaysInstalled || installedNames.has(row.inherits)
+      || modelStatus?.chat_model_installed == null;
+    const inherited = isInstalled
+      ? `Inherited: ${shortModelName(row.inherits)}`
+      : `Inherited: ${shortModelName(row.inherits)} (not installed)`;
     fillModelSelect(
       select,
       names,
@@ -39708,7 +39825,7 @@ function seedUiStateFromServer(state) {
 // the UI so "why isn't the theme's colour showing?" has a visible answer.
 const OVERRIDABLE_KEYS = [
   "theme", "palette", "accent", "accent-custom", "page-bg", "font", "fontsize",
-  "density", "radius", "glass", "glass-blur", "glass-opacity", "glass-sheen",
+  "density", "radius", "glass", "glass-blur", "glass-opacity", "glass-sheen", "page-wash",
   "glass-sheen-strength", "bg-style", "bg-motion", "bg-intensity", "zoom",
 ];
 
@@ -40120,9 +40237,13 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
     emblemObservers.get(holder)?.disconnect();
     emblemObservers.delete(holder);
   }
-  const accentHex =
-    localStorage.getItem("accent-custom") ||
-    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  //: The colour the page is actually wearing (`currentAccentHex`, settings.js),
+  //: not the accent picker's stored name: a look's palette sets the accent
+  //: too, and the emblem stayed the old indigo on the Quiet default.
+  const accentHex = typeof currentAccentHex === "function"
+    ? currentAccentHex()
+    : localStorage.getItem("accent-custom") ||
+      (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
   // The emblem spins unless the user has explicitly asked for a still UI in
   // Settings → Appearance. We deliberately don't freeze it on the OS-level
   // prefers-reduced-motion hint alone: this mark has always turned, the app
@@ -45097,8 +45218,12 @@ document.addEventListener("keydown", (e) => {
 // bubble phase. `pointerdown` in the capture phase runs first, ahead of
 // every other handler on the page, so the menu is gone before anything
 // underneath it can react to the same gesture.
+//: A press *inside* any open menu is the menu's own: `.action-menu` covers a
+//: menu that lives on <body> without a `.menu-wrap` around it (the board's
+//: context menu), where a press on one of its group rows closed the whole
+//: menu before the row could open its flyout (measured on the map node menu).
 document.addEventListener("pointerdown", (e) => {
-  if (!e.target.closest(".menu-wrap, .action-menu-escaped")) closeActionMenus();
+  if (!e.target.closest(".menu-wrap, .action-menu, .action-menu-escaped")) closeActionMenus();
 }, true);
 
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it

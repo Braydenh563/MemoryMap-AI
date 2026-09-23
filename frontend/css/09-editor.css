@@ -69,6 +69,36 @@
   max-width: none;
 }
 
+/* **A document is a page** (DOCUMENTS_PLAN 17a). Prose gets a margin either
+   side of its text and a measure counted in characters; a code file keeps the
+   narrow inset and the older cap, because its line numbers sit against the
+   text they count and a 2rem gap between a number and its line reads as two
+   columns rather than one.
+
+   Measured before (`scratchpad/ui-sweeps/docpage17.js`): the content padding
+   was `--space-4` (9.6px) on each side of a 78ch column, so the text sat ten
+   pixels from the editor's own edge and 93 characters ran on a line. The
+   editor's cap is the measure plus both margins, so the *text* is the thing
+   capped and the margin is added around it rather than taken out of it.
+
+   The selector outranks the theme's own `.cm-content` rule (an adopted sheet,
+   which wins at equal specificity: see the note at the top of this file) by
+   specificity rather than by `!important`. Above 600 only: the phone's
+   editor is UI_MODERNISATION_PLAN Phase 11's, not this plan's. */
+@media (min-width: 601px) {
+  .doc-editor .cm-editor:not(.doc-content-code) {
+    max-width: calc(var(--doc-measure) + 2 * var(--doc-gutter));
+  }
+
+  .doc-source-wrap .doc-editor .cm-editor:not(.doc-content-code) .cm-content {
+    padding-inline: var(--doc-gutter);
+  }
+
+  #tab-documents.doc-wide .doc-editor .cm-editor:not(.doc-content-code) {
+    max-width: none;
+  }
+}
+
 /* Asked for directly: "the plain text view should be more like a vs code
    editor with a plain black or white background." Plain is Source with the
    language compartment emptied (documents.js), and the CM6 theme's own `&`
@@ -182,6 +212,7 @@
   margin-inline: auto;
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
+
   /* Eight properties is a tall block above someone's writing, so the panel
      scrolls rather than pushing the first line of the document off screen.
      The cap is a line-height multiple rather than a round number: it is
@@ -189,6 +220,39 @@
   max-height: 10lh;
   overflow-y: auto;
   flex: 0 0 auto;
+}
+
+/* The same page as the text under it (17a): the fields start where the
+   writing starts, on the margin `--doc-gutter` draws, rather than on the
+   older inset the text has left. */
+@media (min-width: 601px) {
+  .doc-props {
+    max-width: calc(var(--doc-measure) + 2 * var(--doc-gutter));
+    padding-inline: var(--doc-gutter);
+  }
+}
+
+/* **A quotation in the rendered view** (DOCUMENTS_PLAN 17c). The document's
+   preview had no rule for `blockquote` at all, so a quotation was the
+   browser's default: a 40px indent, the body ink, no bar, and nothing to say
+   it was somebody else's words. It now wears what the live view draws on the
+   same lines (`.cm-md-quote` in documents.js), so the two views of one
+   document agree. A callout is a `.callout`, not a bare `blockquote`, and
+   keeps its own rule. */
+#doc-preview blockquote {
+  margin: var(--space-4) 0;
+  padding: 0 0 0 var(--space-5);
+  border-left: 3px solid color-mix(in srgb, var(--muted) 70%, transparent);
+  color: var(--muted);
+}
+
+/* A finished task in the rendered view, struck through in the muted ink the
+   live view gives it (`.cm-md-task-done`), so the two views agree about
+   which items are done. `:has` on the box the renderer writes first. */
+#doc-preview .md-task:has(> input:checked) {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
 }
 
 #tab-documents.doc-wide .doc-props {

@@ -41,6 +41,14 @@ async function boot(opts={}) {
   // app.js). A sweep that let that offer appear would measure a toast nobody
   // asked about, and a click landing on it. A sweep that wants the tour opens
   // it itself (scratchpad/ui-sweeps/tour.js does).
+  // LOOK picks a look by its preset id (`default` is Classic), for a sweep
+  // that has to hold in more than the default look. Unset means whatever the
+  // app's own default is, which is what every older sweep measured.
+  await ctx.addInitScript((look) => {
+    try {
+      if (look) localStorage.setItem('themePreset', look);
+    } catch (e) {}
+  }, process.env.LOOK || '');
   await ctx.addInitScript((t) => {
     try {
       localStorage.setItem('theme', t);

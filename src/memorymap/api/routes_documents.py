@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter, vision_ocr
-from memorymap.core import deps, docexport, docmeta, docview, filetypes
+from memorymap.core import deps, docexport, docmeta, docview, filetypes, syntaxcheck
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
@@ -290,6 +290,28 @@ def list_file_types() -> dict:
     every call instead of answering.
     """
     return {"default": filetypes.DEFAULT_FILE_TYPE, "types": filetypes.as_dicts()}
+
+
+class SyntaxCheckBody(BaseModel):
+    language: str = Field(min_length=1, max_length=16)
+    text: str = Field(default="", max_length=syntaxcheck.MAX_CHARS)
+
+
+@router.post("/check-syntax")
+def check_syntax(body: SyntaxCheckBody) -> list[dict]:
+    """Syntax diagnostics for a code document (INBOX 392).
+
+    `[{line, col, message, severity}]`, 1-based, empty when the text parses.
+    Stateless on purpose: it takes the text rather than a document id, so the
+    editor can check what is on screen before it has been saved, and it never
+    touches the database. A language this server cannot check is a 400, not
+    an empty list, because an empty list is what "no errors" looks like.
+    Declared above `/{document_id}` for the reason `/file-types` is.
+    """
+    try:
+        return syntaxcheck.check(body.language, body.text)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 #: A page of the document list, not a ceiling on how many documents a

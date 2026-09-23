@@ -548,6 +548,11 @@ function libraryActions(item) {
       makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
         window.open(`/documents/${item.id}/export.md`, "_blank");
       }),
+      //: The shared "act on this" rows (INBOX 393): every object can be taken
+      //: to the chat that answers about it.
+      makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this document", () =>
+        askAtlasAboutThing("document", item.title)
+      ),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
         await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
           toast(e.message, true)
@@ -620,6 +625,10 @@ function libraryActions(item) {
   if (item.kind === "note") {
     return [
       makeMenuItem("ph:arrow-square-out Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
+      makeMenuItem("ph:graph Show in graph", "Open the graph centred on this note", () => showNoteInGraph(item.id)),
+      makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this note", () =>
+        askAtlasAboutThing("note", item.title)
+      ),
       // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
       // hand one note to someone." Same route shape and menu placement as
       // the Document kind's own "Download .md" a few lines up.

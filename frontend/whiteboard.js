@@ -9103,6 +9103,7 @@ function wbBuildContextMenu(kind) {
   }
   const menu = wbCtxMenuEl;
   menu.replaceChildren();
+  const mapNodeForMenu = wbIsMap() && wbMultiSelection.size <= 1 ? wbSelectedMapNode() : null;
   const item = (label, title, fn) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -9113,6 +9114,7 @@ function wbBuildContextMenu(kind) {
     button.addEventListener("click", (e) => {
       e.stopPropagation();
       wbCloseContextMenu();
+      if (mapNodeForMenu) wbCloseMapRadial();
       fn();
     });
     menu.appendChild(button);
@@ -9123,11 +9125,43 @@ function wbBuildContextMenu(kind) {
   //: keyboard, so each group is a run of ordinary rows with a hairline
   //: (`.menu-sep`) before it. `label` is kept for the reader of this code;
   //: a printed heading over every three rows would make the menu taller.
+  //: **On a map node the groups fold into flyouts** (owner, with a
+  //: screenshot of the 18-row menu: "consolidate and group this more menu a
+  //: bit?? it takes up majority of the screen in the mind map"). The same
+  //: recipe the note card's menu uses (`buildMenuGroupButton`, app.js): a
+  //: group is one row that opens beside the menu on click, hover or the
+  //: arrow keys, and expands in place on a phone. Eight rows instead of
+  //: eighteen. A group of one is just its row. On a plain board the menu is
+  //: short already and keeps its hairline groups.
+  const WB_MAP_GROUP_LABELS = {
+    Add: "ph:plus Add",
+    Content: "ph:note-pencil Topic",
+    Lines: "ph:path Line",
+    Branch: "ph:tree-structure Branch",
+    Order: "ph:stack Order",
+  };
   const subItem = (label, buildSubItems) => {
     const rows = [];
     buildSubItems((subLabel, title, fn) => rows.push([subLabel, title, fn]));
     if (!rows.length) return;
-    if (menu.children.length) {
+    if (mapNodeForMenu && rows.length > 1 && typeof buildMenuGroupButton === "function") {
+      menu.appendChild(buildMenuGroupButton(
+        WB_MAP_GROUP_LABELS[label] || label,
+        rows.map(([subLabel, title, fn]) => ({
+          label: subLabel,
+          title,
+          run: () => {
+            wbCloseContextMenu();
+            wbCloseMapRadial();
+            fn();
+          },
+        }))
+      ));
+      return;
+    }
+    //: Hairlines separate groups of rows; among flyout rows a lone row is just
+    //: one more row, and a hairline above it split the list for nothing.
+    if (menu.children.length && !mapNodeForMenu) {
       const sep = document.createElement("div");
       sep.className = "menu-sep";
       sep.setAttribute("role", "separator");
@@ -9228,7 +9262,10 @@ function wbBuildContextMenu(kind) {
   subItem("Order", (sub) => {
     sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
     sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
-    sub("Delete", "Delete", () => deleteWbSelection());
+  });
+  item("Delete", "Delete", () => {
+    wbCloseMapRadial();
+    deleteWbSelection();
   });
   return menu;
 }
@@ -11274,10 +11311,14 @@ async function initWhiteboard() {
     const node = wbMapRadialNode();
     const ring = document.getElementById("wb-map-radial");
     const box = ring?.getBoundingClientRect();
-    wbCloseMapRadial();
     if (!node) return;
-    const x = event.clientX || box?.left || 0;
-    const y = event.clientY || box?.top || 0;
+    //: **The ring stays while its menu is open** (owner: "the referring
+    //: radial menu closes when I open the more menu"): the menu is the ring's
+    //: own overflow, and the ring is what says which topic it is about. The
+    //: menu opens beside the ring rather than over it; picking anything, or
+    //: Escape, or a click elsewhere, closes both.
+    const x = box ? box.right + 8 : event.clientX || 0;
+    const y = box ? box.top : event.clientY || 0;
     wbOpenMapNodeMenu(node, x, y);
   });
 
@@ -17600,6 +17641,11 @@ async function renderLibraryBoardsGallery() {
     if (board.id !== null) {
       const menu = kebabMenu(
         [
+          //: The shared "act on this" row (INBOX 393): a board or a map can
+          //: be taken to the chat that answers about it, like a note.
+          makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this board or map", () =>
+            askAtlasAboutThing(board.type === "map" ? "map" : "board", board.title)
+          ),
           makeMenuItem("ph:pencil-simple Rename", "Rename this board", async () => {
             const next = await promptDialog("Rename this board:", board.title);
             if (!next) return;
@@ -17706,7 +17752,9 @@ async function openWhiteboardBoard(boardId) {
   //: their own identity this way (`doc:{id}`, `focus:{id}`, `conv:{id}`); this
   //: is the same key for the same reason.
   if (typeof recordTabVisit === "function") {
-    recordTabVisit("library", boardId ? `board:${boardId}` : "library-view-whiteboard");
+    //: `mapBoardById` (app.js) is the one board index every surface shares.
+    const boardTitle = boardId ? mapBoardById(boardId)?.title : "";
+    recordTabVisit("library", boardId ? `board:${boardId}` : "library-view-whiteboard", boardTitle || "");
   }
 }
 

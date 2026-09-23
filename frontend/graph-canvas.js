@@ -1769,7 +1769,12 @@ function gcWireNodeMenu(s = gcTab) {
     }
     gcArmTouchLasso(event, x, y, s);
   });
-  window.addEventListener("wheel", gcCloseNodeMenu, { passive: true });
+  //: On the canvas, not the window: a wheel over the map zooms it out from
+  //: under the menu's node, which is the case this closes for. On the window
+  //: it ran on every wheel tick on every tab (traced: 49ms over one scroll of
+  //: Reminders), and closed the node menu when the wheel was over the menu
+  //: itself.
+  s.canvas.addEventListener("wheel", gcCloseNodeMenu, { passive: true });
 }
 
 //: **The menu at the pointer is the app's own recipe** (DESIGN.md, "A menu at

@@ -331,3 +331,25 @@ def test_the_entry_module_does_not_drag_the_whole_app_in_with_it():
         "importing memorymap.__main__ pulled in " + out + ": import these "
         "inside _run_server instead, so the desktop window can open first"
     )
+
+
+def test_the_loading_page_wears_the_saved_look(tmp_path):
+    """Owner: "some popup ui's havent followed the theme change like the
+    loading screen". The desktop loading page reads the look mirrored to the
+    server's preferences and recolours its own stylesheet."""
+    from memorymap import __main__ as main
+    from memorymap.core.config import ConfigManager
+
+    fresh = main._recolour_loading_page(main._LOADING_HTML, str(tmp_path))
+    assert "#161615" in fresh.split("</style>")[0]  # no look chosen: Quiet
+    assert "#12141c" not in fresh.split("</style>")[0]
+
+    ConfigManager(str(tmp_path)).set_preference("ui_state", {"themePreset": "default"})
+    classic = main._recolour_loading_page(main._LOADING_HTML, str(tmp_path))
+    assert classic == main._LOADING_HTML
+
+    ConfigManager(str(tmp_path)).set_preference("ui_state", {"themePreset": "mono", "theme": "light"})
+    mono = main._recolour_loading_page(main._LOADING_HTML, str(tmp_path))
+    assert "#eceff2" in mono.split("</style>")[0]
+    # The logo's own colours are untouched.
+    assert mono.split("</style>")[1] == main._LOADING_HTML.split("</style>")[1]

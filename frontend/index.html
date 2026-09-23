@@ -1082,19 +1082,24 @@
               <span class="doc-toolbar-sep" aria-hidden="true"></span>
               <button type="button" class="icon-only" data-md="highlight" title="Highlight (yellow)"
                 aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
-              <select class="md-colour-select" data-md-colour="highlight"
+              <!-- The two colour pickers are an icon and a caret
+                   (`data-select-icon`, enhanceSelect in app.js): their words
+                   were 253px of a strip that wrapped "Preview" onto a row
+                   of its own at the 1184px desktop window. The name is the
+                   select's aria-label either way. -->
+              <select class="md-colour-select" data-md-colour="highlight" data-select-icon="ph-highlighter-circle"
                 aria-label="Highlight colour" title="Highlight in a colour">
                 <option value="">Highlight…</option>
               </select>
-              <select class="md-colour-select" data-md-colour="ink"
+              <select class="md-colour-select" data-md-colour="ink" data-select-icon="ph-text-a-underline"
                 aria-label="Text colour" title="Text colour">
                 <option value="">Text colour…</option>
               </select>
               <button type="button" class="icon-only" data-md="clearformat" title="Remove highlight or colour"
                 aria-label="Remove highlight or colour"><i class="ph ph-eraser" aria-hidden="true"></i></button>
               <span class="doc-toolbar-sep" aria-hidden="true"></span>
-              <button type="button" data-md="ul" title="Bulleted list"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> List</button>
-              <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
+              <button type="button" data-md="ul" title="Bulleted list"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> <span class="toolbar-word">List</span></button>
+              <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Task</span></button>
               <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
               <span class="doc-toolbar-sep" aria-hidden="true"></span>
               <!-- Asked for directly: a way to see highlights and text colours
@@ -1104,7 +1109,7 @@
               <button type="button" id="entry-preview-toggle" class="doc-toolbar-toggle"
                 aria-pressed="false" aria-controls="entry-preview"
                 title="Preview: see highlights and colours as they will look">
-                <i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview
+                <i class="ph ph-eye ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Preview</span>
               </button>
             </div>
             <textarea id="entry-content" rows="3" class="autogrow"
@@ -8275,6 +8280,14 @@
                 <span>
                   Frosted-glass blur on floating panels
                   <small class="muted">Off = flat panels. Performance mode turns this off too.</small>
+                </span>
+              </label>
+
+              <label class="setting-check" id="page-wash-row">
+                <input type="checkbox" id="page-wash-toggle" checked>
+                <span>
+                  Background wash
+                  <small class="muted">A soft light across the page on the flat looks (Quiet, Paper, Mono).</small>
                 </span>
               </label>
 

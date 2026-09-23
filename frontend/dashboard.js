@@ -147,9 +147,26 @@ const DASH_WIDGETS = {
 //: any widget, their list wins and this is never consulted again.
 const DASH_DEFAULT_WIDE = ["heatmap"];
 
+//: **What a dashboard nobody has arranged shows** (INBOX 393: "I lose trust
+//: in ... applications with poor ui design"). Every widget used to be on by
+//: default: measured, 23 cards on a fresh dashboard, most of them empty-state
+//: sentences on a new notebook, which reads as a demo of widgets rather than
+//: a place to start. A fresh layout shows these nine, in this order: what is
+//: due, what is new, what is kept, a box to write in, then the work and the
+//: look back. The other fourteen are one press away under Widgets. Only a
+//: layout that has never been saved is affected; any saved choice wins.
+const DASH_DEFAULT_SHOWN = [
+  "reminders", "recent-notes", "pinned", "capture",
+  "documents", "boards", "digest", "on-this-day", "heatmap",
+];
+
 function dashLayout() {
   const saved = (prefsCache && prefsCache.dashboard_layout) || {};
-  const order = [...(saved.order || [])];
+  //: Empty lists count as never arranged: the preference's own default is
+  //: `{order: [], hidden: []}`, and Reset writes the same, so Reset returns to
+  //: this set too.
+  const fresh = !saved.order?.length && !saved.hidden?.length;
+  const order = [...(fresh ? DASH_DEFAULT_SHOWN : saved.order || [])];
   for (const name of Object.keys(DASH_WIDGETS)) {
     if (!order.includes(name)) order.push(name); // new widgets append
   }
@@ -158,7 +175,7 @@ function dashLayout() {
   const legacyWide = Object.keys(saved.sizes || {}).filter((n) => saved.sizes[n] === "wide");
   return {
     order: order.filter((n) => DASH_WIDGETS[n]),
-    hidden: saved.hidden || [],
+    hidden: fresh ? Object.keys(DASH_WIDGETS).filter((n) => !DASH_DEFAULT_SHOWN.includes(n)) : saved.hidden || [],
     wide: saved.wide?.length
       ? saved.wide
       : (legacyWide.length ? legacyWide : DASH_DEFAULT_WIDE.filter((n) => DASH_WIDGETS[n])),
@@ -729,7 +746,7 @@ const QUICK_START = [
   {
     icon: "ph:pencil-simple",
     label: "New note",
-    hint: "Capture a thought: Atlas files it",
+    hint: "Atlas files it for you",
     primary: true,
     run: () => {
       switchTab("notes");
@@ -740,17 +757,17 @@ const QUICK_START = [
   {
     icon: "ph:chat-circle",
     label: "Ask AI",
-    hint: "A question answered from your own notes",
+    hint: "Answered from your notes",
     run: () => {
       switchTab("chat");
       $("chat-input").focus();
     },
   },
-  { icon: "ph:palette", label: "Sketch", hint: "Draw something and save it as a note", run: () => openSketch() },
+  { icon: "ph:palette", label: "Sketch", hint: "Draw, then keep it as a note", run: () => openSketch() },
   {
     icon: "ph:alarm",
     label: "Remind me",
-    hint: "Type it in plain English and Atlas schedules it",
+    hint: "Say when, in plain words",
     run: () => {
       switchTab("reminders");
       $("reminder-magic").focus();
@@ -759,7 +776,7 @@ const QUICK_START = [
   {
     icon: "ph:microphone",
     label: "Meeting notes",
-    hint: "Record something longer and file the transcript",
+    hint: "Record and transcribe",
     run: () => openMeetingRecorder(),
   },
 ];
@@ -2839,7 +2856,12 @@ async function renderRemindersWidget(body) {
   for (const reminder of reminders) {
     const li = document.createElement("li");
     const due = new Date(reminder.due_at);
-    li.textContent = `${reminder.text}: ${due.toLocaleString()}`;
+    //: The day and the time a person would say, never a machine timestamp
+    //: with seconds ("9/24/2026, 1:22:17 PM", measured); the relative phrase
+    //: ("in 23 hours") is the tooltip.
+    const when = due.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    li.textContent = `${reminder.text}: ${when}`;
+    if (typeof relativeWhen === "function") li.title = relativeWhen(reminder.due_at);
     if (due < new Date()) li.classList.add("overdue");
     li.addEventListener("click", () => switchTab("reminders"));
     ul.appendChild(li);

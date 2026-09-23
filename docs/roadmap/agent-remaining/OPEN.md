@@ -76,7 +76,7 @@ then the plan tails by surface, then the horizon.
 | --- | --- |
 | DOCUMENTS_PLAN | ~~Phase 4~~ closed 2026-09-20: the templates gallery was verified by `scratchpad/ui-sweeps/doctemplates.js` (six templates, each with a description), and item 5's daily notes were built from the decision in DOCUMENTS_PLAN section 14 and measured by `docdaily.js`, 11 of 11 (7 templates with Daily, the document titled with the ISO day, 0 "start today's note" offers beside a day already written as a document). What is left: the Phase 2, 6 and 8 tails and the engine's three deliberate omissions, in this file's Documents section. Everything else this row used to list was built or already existed: the Library's property filter, outline reorder with folding and a filter box, the command palette and shortcut sheet from one table, version history with its diff and its AI filter, the per-hunk AI diff, reading typography and the print stylesheet (all 2026-09-20 or earlier, each with its probe named in HISTORY.md). |
 | UI_MODERNISATION_PLAN | ~~Phase 8's docks over the seven-control ceiling~~: re-measured 2026-09-20 (`docks.js` at 1440): notes 6, graph 6, library 5, chat 4, timeline 4, reminders 4, and only `#wb-topbar` at 13, which the plan names as the menu-bar exception (Insert, Edit, Arrange, View, Board on the dock's zones). Done. Phase 11, the phone done properly: items 1, 2, 3, 5 (its share sheet half), 6, 8 and 9 were built on 2026-09-20, and items 4 (the graph: the hold that opens the node menu and arms the lasso, the controls as one sheet) and 7 (the whiteboard and the map: two fingers for the camera, the tools as a sheet, the board bar at the touch floor) on the same day, each with its own gate in `scratchpad/ui-sweeps/` (`graphphone.js`, `wbphone.js`). Item 5's reader full screen with a bottom bar was built on 2026-09-20 (`scratchpad/ui-sweeps/libreader.js`, the sheet recipe's `page` variant, and a pane-grid bug it found that was wrong at every width under 1100). Item 9's hover-only half was swept properly on 2026-09-20 (`scratchpad/ui-sweeps/hoveronly.js`: 45 reveal rules, eleven stops, `hover: none` emulated and each candidate tapped) and the two it found were both a `hover: none` override written a class short of the rule it had to beat, so neither had ever applied. Item 11's two open gates were closed on 2026-09-20: errors.js was already clean at 390, and contrast.js, which took no viewport and had only ever run at 1440x900, now takes one, reaches Settings the way a phone reaches it, reports how many text elements it measured (which caught the whiteboard being in its tab list with no tab page to open, so it had been measuring an empty window at every width) and comes back 0 low-contrast over 33 surfaces at 390, 820 and 1440 in light and dark. Item 7's leftovers at 820 were measured and fixed in the same pass. What is left of the phase: item 11's screenshot set for the owner. |
-| GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
+| GRAPH_PLAN | ~~All four~~ **stale, checked 2026-09-23**: Phase 5's real gap (a saved view restoring unpinned positions) was built 2026-09-21 and the `?since=` cursor is left until something polls, both on the plan's Phase 5 row; Phase 6 was measured built on 2026-09-20 (this file's Graph section); the local pane's switches are left by the 2026-09-13 decision; 6b the minimap was built 2026-09-13 (`minimap6b.js`). The one line the plan still held, a lasso selection dragging as one, was built 2026-09-23 (`oi-groupdrag.js`). |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
 | CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
@@ -612,10 +612,14 @@ being written by running agents stay beside this one.
 - **WORLD_CLASS D6, the daily journal: the backend is built, the frontend is
   not.** `POST /entries/daily/{date}` creates or returns and
   `GET /entries/daily?through=&days=` gives the calendar strip its days and
-  the streak (`tests/test_daily_journal.py`). Next step, all frontend:
-  `startTodaysNote` in `frontend/app.js` calls POST `/entries/daily/${key}`
-  instead of posting to `/entries`, which fixes the duplicate it makes today;
-  then `Ctrl+D`, then the strip and the yesterday and tomorrow pair.
+  the streak (`tests/test_daily_journal.py`). **Re-read 2026-09-23**: the
+  first step is superseded, not missing. `startTodaysNote` deliberately opens
+  the composer with the day's title and saves nothing until Save (INBOX 199,
+  the comment above it in app.js), which is what removed the duplicate, and
+  the POST stays for the agent's own tool. `Ctrl+D` built 2026-09-23 on the
+  decision in INBOX 321 (now in HISTORY). Still open: the calendar strip and
+  the yesterday and tomorrow pair (the pair sits in the note head, which is
+  the notes surface's owner's).
   [chat-timeline-skills.md]
 - **The strip's threshold: measured and replaced, 2026-09-20.** A note count
   is the wrong variable (it showed a comb of 200 notes over 18 days and hid a
@@ -884,7 +888,11 @@ being written by running agents stay beside this one.
   rather than inventing a fourth arrangement, which is what the lint is there
   to insist on. [ask-head-ocr.md]
 
-- **Settings → Extras scrolls sideways by 4px at 820** (`errors.js`,
+- ~~**Settings → Extras scrolls sideways by 4px at 820**~~ **Not reproduced
+  on the head, 2026-09-23**: `scratchpad/ui-sweeps/oi-extras820.js` reads
+  `#settings-extras` at 492 in 492 at 820, 302 in 302 at 390 and 600 in 600
+  at 1440, and a full `errors.js` run reports 0 layout findings at 1440,
+  1024, 820 and 390. The original row: (`errors.js`,
   2026-09-20: `section scrolls sideways 496>492`, the only finding in the
   three widths it walks). Pre-existing by inspection, found while sweeping the
   skills pane next door; nothing in the extras markup was touched this
@@ -894,20 +902,32 @@ being written by running agents stay beside this one.
 
 ## Settings and help
 
-- **INBOX 235, the Settings Help page and the Models order** (chrome2, not
+- ~~**INBOX 235, the Settings Help page and the Models order**~~ **Stale,
+  checked 2026-09-23**: "Advanced response settings" sits above "Installed
+  models" on the Models page (index.html, the `#sampling-box` group before
+  the `Installed models` heading). The original row: (chrome2, not
   started, cut by the PR deadline). `frontend/index.html` only, leaving
   `SETTINGS_SECTIONS` alone: a `var(--space-4)` gap between the Ask Atlas row
   and the FAQ group on Help (the row sits by the `data-goto-section="help"`
   block, ~line 9117), and the "Advanced response settings" group moved above
   "Installed models" on the Models page. [chrome2.md]
-- **INBOX 237, the built-in Librarian persona is Atlas** (chrome2, not
+- ~~**INBOX 237, the built-in Librarian persona is Atlas**~~ **Stale,
+  checked 2026-09-23**: `librarian.PERSONA_ALIASES = {"Librarian": "Atlas"}`
+  keeps the stored id resolving and `DEFAULT_PERSONA` names Atlas, "this
+  notebook's librarian". The original row: (chrome2, not
   started). `frontend/app.js` ~line 21492 mirrors the backend's built-ins:
   rename the built-in card to Atlas, description "Atlas, this notebook's
   librarian: files, links and answers from your notes.", on both sides (the
   backend's list lives with `resolve_persona_prompt`), keeping the id
   "Librarian" so stored preferences still resolve. Test in
   `tests/test_personas*`. [chrome2.md]
-- **"Advanced response settings" sits 20.8px right of its siblings.** It is
+- ~~**"Advanced response settings" sits 20.8px right of its siblings.**~~
+  **Done 2026-09-23, keeping the mark**: measured still 566.8 against the
+  other 54 headings' 546 at 1440. The chevron now hangs in the gutter (the
+  summary drops its start padding and the mark is positioned just left of
+  it), so the heading is at 547, 291 and 59 against the column's 546, 290 and
+  58 at 1440, 820 and 390, the mark inside the card at all three
+  (`scratchpad/ui-sweeps/oi-hangmark.js`, 3 of 3). The original row: It is
   inside a `<summary>` (`#sampling-box`, `frontend/index.html` ~line 5326) and
   the disclosure marker precedes it; 54 of the 55 Settings headings share one
   left edge at 546px. Fixing it means hiding the native marker, and hiding it
@@ -920,14 +940,23 @@ being written by running agents stay beside this one.
   paragraphs, then convert or decide it. [help-popovers.md]
 - **Toggle rows onto one recipe (no lavender-filled bars): not started.**
   [help-popovers.md]
-- **`scratchpad/ui-sweeps/help-popovers.js` is not built**: open every '?' on
-  Settings, assert each popover rect is inside the viewport at 1440 and 390.
-  It would also have caught the shortcuts-overlay overflow. [help-popovers.md]
+- ~~**`scratchpad/ui-sweeps/help-popovers.js` is not built**~~ **Built
+  2026-09-23**, and its first run found a real fault: every Settings section,
+  every visible '?', a trusted press, the panel measured inside the window
+  and closed by a second press, at 1440 and 390. 81 popovers, 1 finding: at
+  390 the skill form's "Tools this skill may use" '?' could not be pressed,
+  because the fold's summary was pinned to 44px while its wrapped sentence
+  made the head inside it 100px tall. The summary's height is a floor now and
+  the '?' keeps the row's end (01-forms-settings.css); re-run, 82 popovers, 0
+  findings. [help-popovers.md]
 - **Not one of the seven tabs carries a `data-help-for` popover.** All 41 are
   in the Settings modal or a dialog; the Guide sends the tab's control labels
   instead, and a tab that grows a popover is picked up with no further change.
   [chat-popup-agent.md]
-- **The learning loop's Settings section (I9's frontend) is not built.** The
+- ~~**The learning loop's Settings section (I9's frontend) is not built.**~~
+  **Stale, checked 2026-09-23**: Settings, What it learned (settings.js, "What
+  it learned (WORLD_CLASS_PLAN I9)") reads every route below, built
+  2026-09-19, and its bulk actions landed 2026-09-23. The original row: The
   backend is complete: `GET /learned?kind=&q=&limit=&offset=` returns
   `{items, total}` with `X-Total-Count`, `GET|PATCH|DELETE /learned/{id}`,
   `POST /learned/{id}/reset`, `GET|PUT /learned/switches`, `DELETE /learned`
@@ -1023,7 +1052,11 @@ being written by running agents stay beside this one.
   `janitor.is_ai_method` holds (a keyword fallback still leaves `done`).
   `tests/test_harness_verifier.py`, three new, one of which moves the note by
   hand afterwards and finds the `correction` row. [brief-13-harness.md]
-- **The Reminders tab still reads one page.** `loadReminders` draws the tab
+- ~~**The Reminders tab still reads one page.**~~ **Stale, checked
+  2026-09-23**: `loadReminders` and `clearDoneReminders` both read
+  `apiPagedList("/reminders", 200)` (app.js, the comment "Every reminder, not
+  the first page"), the palette's preload does the same, and so does the
+  dashboard's reminder read. The original row: `loadReminders` draws the tab
   from `GET /reminders`, ordered `due_at` ascending, so the first page is the
   oldest rows, ticked-off ones included: a notebook whose oldest two hundred
   reminders are done would push everything upcoming off the page. Two honest
@@ -1034,7 +1067,12 @@ being written by running agents stay beside this one.
   `clearDoneReminders` is fixed exactly by reading to the end; `openPalette`
   preloads `paletteReminders` first page only, so a reminder past it is
   unfindable in the palette. [list-paging.md]
-- **Other first-page-only callers, one call each.** `app.js`
+- ~~**Other first-page-only callers, one call each.**~~ **Stale, checked
+  2026-09-23**: `loadCaptureDocuments`, `renderAttachToDocument` and
+  `notePickerRows` all read through `apiPagedList`; the one first-page read
+  left, `renderDocumentsWidget`, wants the six newest of a list the route
+  already orders by `updated_at` descending, so page one is the right answer
+  at any size. The original row: `app.js`
   `loadCaptureDocuments` and `renderAttachToDocument`, `app.js`
   `notePickerRows` for its `documents` and `images` sources, and
   `dashboard.js` `renderDocumentsWidget` plus its three reminder reads. None

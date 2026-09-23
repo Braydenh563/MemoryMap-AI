@@ -2593,7 +2593,7 @@ async function renderPinnedWidget(body) {
 }
 
 async function renderMostUsedWidget(body) {
-  const entries = await apiJson("/entries/most-accessed");
+  const entries = await apiJson("/entries/most-accessed", { cacheMs: 30000 });
   miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
 }
 
@@ -2660,7 +2660,7 @@ async function renderTopTagsWidget(body) {
 }
 
 async function renderQuestionsWidget(body) {
-  const questions = await apiJson("/chat/recent");
+  const questions = await apiJson("/chat/recent", { cacheMs: 30000 });
   if (!questions.length) {
     body.textContent = "Your recent questions will appear here.";
     body.classList.add("muted");

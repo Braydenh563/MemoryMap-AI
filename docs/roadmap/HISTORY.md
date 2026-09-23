@@ -33569,6 +33569,86 @@ measured, so nobody rebuilds them.
     switching routing off rewrites the line to name it, switching back
     restores it.
 
+269. **Mid-work drop, 2026-09-20, verbatim (the owner), two messages.** "And
+    I was wondering if we should have an ai free version of the guide
+    available for users who dont have the ai running or enabled?? like a
+    preprepared response or sentence stringing with sentence similarity and
+    stuff?? I want to maximise the ability and function of all the application
+    features without ai, the ai features should just eb the bonus." Then:
+    "maybe there can be a fill-in system response/description/explanation that
+    can replace the ai using clever sentence stringing and composition to give
+    the user a breakdown of the results on the ask page in place of the ai
+    without using the ai when it is disabled or not running?? and it can be
+    togglable to see both that response and the ai response when the ai is
+    enabled so the user can flick between both outputs... idk im just sprouting
+    ideas. but again I actually need you to use your ui and ux design skills
+    and the ones vendored in this repo and do a check for signs of being
+    vibecoded."
+    Two things. (1) An extractive, no-model answer on the Ask page: the
+    retrieval, the passage scorer and the grounding all run without a model
+    already, so the missing piece is composition, not search. Worth checking
+    what already exists before building: the Ask tab has a no-model path and
+    the passage scorer produces exactly the spans such an answer would be
+    made of. (2) A vibecoded sweep of the UI against DESIGN.md and the
+    vendored skills, which the owner has now asked for twice.
+    (2) done, `4884ead` and `29d0ccb`, in two passes. The first
+    (`scratchpad/ui-sweeps/vibecheck.js`) measured six tells a screenshot
+    cannot show across eight tabs: dead controls, leaked values, duplicate
+    ids, controls disabled with no reason, controls with no accessible name,
+    machine values on screen. 0 findings in all six, 104 buttons checked. The
+    second (`vibefail.js`) failed every request and found the real thing: four
+    surfaces drew their empty state, so a full notebook read "Your notebook is
+    empty", and the dashboard printed "0 this week" from figures it had never
+    read. Fixed with one recipe (`surfaceFailed`, in DESIGN.md's index, with a
+    lint in `test_ui_recipes.py`); 6 findings to 0. (1), the AI-free answer,
+    still open.
+    **Resolved, checked 2026-09-23.** (1) was built after this line was
+    written: the Guide answers from its own help text with no model
+    (`9f715c4`) and the Ask tab's no-model branch quotes the passage of each
+    retrieved note (`ai/extractive.py`, `extractive.answer`, called from
+    `routes_chat.py`'s offline branch with its grounding rows), as INBOX 271
+    below records. Both halves done.
+271. **Mid-work drop, 2026-09-20, verbatim (the owner).** "should we have the
+    msi and exe installer as an option?? what about mac??" Open; recommended
+    answer recorded with the reply: ship both Windows artifacts (an MSI is
+    what an IT department deploys, an EXE is what a person double-clicks, and
+    both come off one PyInstaller build), and treat macOS as its own decision
+    because Gatekeeper is stricter than SmartScreen: an unsigned app is
+    refused outright rather than warned about, so a Mac build is only worth
+    shipping alongside an Apple Developer account for notarisation.
+    **Resolved, checked 2026-09-23.** Decided with the owner (INBOX 268):
+    both Windows artifacts, macOS written up and not built. Both were built
+    (`release.yml`, the Inno Setup `.exe` and the WiX `.msi`); the MSI step
+    is switched off since `b7b15c7` because WiX v7 refuses to build without
+    accepting its maintenance-fee terms, which is a licence decision for the
+    owner, recorded in the CHANGELOG, not an open build task.
+271. **Mid-work drop, 2026-09-20, verbatim (the owner).** "can you focus on
+    refinement now?? refine everything, make sure all utility works and there
+    are no bugs. make things faster, optimise, reduce complexity. enhance
+    capability. what about the no ai available sentence string concatenation
+    search results for the help agent and ask response??" The named half is
+    built: the Guide answers from its own help text with no model (`9f715c4`),
+    and the Ask tab quotes the passage of each retrieved note that is about
+    the question (`ai/extractive.py`). The standing half, refinement, is the
+    session's own order of work from here.
+    **Resolved, checked 2026-09-23.** The named half is built as stated, and
+    the standing half is standing order 1's "Continue", not a report.
+
+321. **Found by the open-items pass, 2026-09-23 (the session, not the
+    owner): a missing decision.** WORLD_CLASS_PLAN D6 names `Ctrl+D` for
+    "open today's note", and the board already binds `Ctrl+D` to duplicate
+    the selection (whiteboard.js, the Figma, Miro and tldraw chord), so one of
+    the two has to give where both apply. Recommendation, taken: `Ctrl+D` is
+    today's note everywhere except while a board is open, where the board's
+    duplicate keeps it, decided by the same `boardHistoryActive()` the
+    undo handoff already uses, so the two chords never both fire.
+    **Resolved 2026-09-23, built on the decision.** `todaysNote` in
+    `DEFAULT_SHORTCUTS` (so it is rebindable, collision-checked by
+    `tests/test_frontend_shortcuts.py` and in the shortcuts sheet), stepping
+    aside on an open board and for any editor that has already answered the
+    chord (the documents editor's CodeMirror binds it to "select the next
+    match"). `scratchpad/ui-sweeps/oi-ctrld.js`, 3 of 3.
+
 ## Moved from the plans, 2026-09-23
 
 ### From CHAT_PLAN.md

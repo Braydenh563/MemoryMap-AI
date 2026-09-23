@@ -555,10 +555,26 @@ async function apiJson(path, options = {}) {
   const { cacheMs, ...rest } = options;
   if (cacheMs && (!rest.method || rest.method === "GET")) {
     const hit = _apiCache.get(path);
-    if (hit && Date.now() - hit.at < cacheMs) return hit.data;
-    const data = await (await api(path, rest)).json();
-    _apiCache.set(path, { data, at: Date.now() });
-    return data;
+    if (hit && Date.now() - hit.at < cacheMs) return hit.pending || hit.data;
+    //: **A request already in flight is shared, not repeated.** Measured at
+    //: boot (`scratchpad/ui-sweeps/oi-dupfetch.js`): the Notes tab's "Ask
+    //: again" row and the dashboard's Recent questions widget both asked for
+    //: `/chat/recent` within the same second, and the same for
+    //: `/entries/most-accessed`, because the second caller arrived before the
+    //: first answer did and the cache only held finished answers. The promise
+    //: is cached with the entry and replaced by the data when it lands; a
+    //: failure is dropped from the cache so the next caller asks again.
+    const pending = api(path, rest).then((response) => response.json());
+    const entry = { pending, at: Date.now() };
+    _apiCache.set(path, entry);
+    try {
+      const data = await pending;
+      if (_apiCache.get(path) === entry) _apiCache.set(path, { data, at: entry.at });
+      return data;
+    } catch (error) {
+      if (_apiCache.get(path) === entry) _apiCache.delete(path);
+      throw error;
+    }
   }
   return (await api(path, options)).json();
 }
@@ -30887,6 +30903,30 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
 //: the duplicate guard unnecessary: five presses now fill the same two fields
 //: five times rather than making five notes (INBOX 199). The endpoint stays
 //: for the agent's own `add to today's note` tool, which has no composer.
+//: `Ctrl+D` (WORLD_CLASS_PLAN D6): today's page if the day has one, else the
+//: composer with the day's title, exactly what the Timeline's own button does
+//: on today's bucket. Asked of `/timeline` for today, so the answer is the one
+//: the Timeline itself would give (a note or a document titled with the day,
+//: `timelineDailyNote`), and opened where that kind lives.
+async function openTodaysPage() {
+  const key = timelineBucketKey(new Date(), "day");
+  const body = await apiJson("/timeline?scale=day&days=1&kind=note,document", { silent: true }).catch(
+    () => null
+  );
+  const existing = body ? timelineDailyNote(key, (body.rows || []).map(timelineRow)) : null;
+  if (!existing) {
+    startTodaysNote();
+    return;
+  }
+  const id = Number(String(existing.key).split(":")[1]);
+  if (existing.kind === "document") {
+    switchTab("documents");
+    openDocument(id);
+    return;
+  }
+  flashEntry(id);
+}
+
 function startTodaysNote() {
   const title = dailyNoteTitle(timelineBucketKey(new Date(), "day"));
   switchTab("notes");
@@ -36173,7 +36213,13 @@ async function checkDueReminders() {
   // on every load: visible in the browser's network log, and in the server's
   // own log, where it looks like an auth failure worth investigating.
   if (!authToken()) return;
-  const all = await apiJson("/reminders", { silent: true }).catch(() => null);
+  //: Open ones only. The route orders by `due_at` ascending with ticked-off
+  //: rows included by default, so this poll's one page was the *oldest*
+  //: reminders, done or not: a notebook whose oldest two hundred were done
+  //: never heard about the one due now. Without the done rows the page is
+  //: the soonest open reminders, which is exactly what "is anything due"
+  //: asks, and it is smaller.
+  const all = await apiJson("/reminders?include_done=false", { silent: true }).catch(() => null);
   if (!all) return; // server asleep or locked, say nothing rather than guess
   const now = Date.now();
   const due = all.filter((r) => !r.done && new Date(r.due_at).getTime() <= now);
@@ -36745,7 +36791,9 @@ document.addEventListener("mousedown", (event) => {
 
 async function loadRecentQuestions() {
   const box = $("recent-questions");
-  const questions = await apiJson("/chat/recent").catch(() => []);
+  //: Shared with the dashboard's Recent questions widget (`cacheMs`), which
+  //: asks for the same list in the same second at boot. Any write clears it.
+  const questions = await apiJson("/chat/recent", { cacheMs: 30000 }).catch(() => []);
   box.replaceChildren();
   box.classList.toggle("hidden", questions.length === 0);
   if (questions.length === 0) return;
@@ -36766,7 +36814,7 @@ async function loadRecentQuestions() {
 async function loadMostUsed() {
   const box = $("most-used-box");
   const list = $("most-used");
-  const entries = await apiJson("/entries/most-accessed").catch(() => []);
+  const entries = await apiJson("/entries/most-accessed", { cacheMs: 30000 }).catch(() => []);
   list.replaceChildren();
   box.classList.toggle("hidden", entries.length === 0);
   for (const entry of entries) {
@@ -45536,6 +45584,11 @@ document.addEventListener("keydown", (e) => {
       document.activeElement?.isContentEditable;
     for (const [id, def] of Object.entries(shortcuts)) {
       if ((id === "undo" || id === "redo") && inTextField) continue;
+      //: INBOX 321: on an open board the same chord duplicates the selection.
+      //: And an editor that already answered it keeps it: the documents
+      //: editor binds Ctrl+D to "select the next match" (CodeMirror's search
+      //: keymap), handles it at the target and marks it `defaultPrevented`.
+      if (id === "todaysNote" && (boardHistoryActive() || e.defaultPrevented)) continue;
       if (matchesShortcut(e, def.keys)) {
         e.preventDefault();
         //: The chord goes through the same `performUndo`/`performRedo` the
@@ -46132,6 +46185,11 @@ const DEFAULT_SHORTCUTS = {
   help: { keys: "?", label: "Show this shortcuts list" },
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
+  //: WORLD_CLASS_PLAN D6. Opens today's page wherever it is (a note or a
+  //: document titled with the day), or starts one in the composer. Not while a
+  //: board is open: there `Ctrl+D` is the board's duplicate (INBOX 321), and
+  //: the chorded loop in the keydown handler steps aside for it.
+  todaysNote: { keys: "Ctrl+D", label: "Open today's note, or start it" },
   // A recording is started the moment a meeting starts, and anything that
   // makes you navigate first is what makes it not get started at all, the
   // reason this is a shortcut as well as a palette entry and a tray item.
@@ -46530,6 +46588,7 @@ function runShortcut(id) {
       switchTab("documents");
       createDocument();
     },
+    todaysNote: () => openTodaysPage(),
     recordMeeting: openMeetingRecorder,
     forceReload: forceReloadApp,
     toggleTheme,

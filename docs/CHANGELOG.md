@@ -13,6 +13,16 @@ below). Versioning is `0.x` while the app stabilises.
 - Empty states: the Timeline's sits centred in its card instead of at the foot under a blank body, and the Graph's action button is its own width instead of spanning the map.
 - Dashboard: an empty notebook no longer shows a strip of zeros above the welcome card; the figures appear with the first note or reminder.
 - The loading screen shows one progress indicator (the bar) instead of animated dots above a bar; the dots stay as the screen reader's loading status.
+- Ctrl+D opens today's note from any tab, or starts it in the composer with
+  the day as its title when the day has none (a document titled with the day
+  counts too). It is in the shortcuts list and can be rebound. On an open
+  board Ctrl+D still duplicates the selection, and inside the documents editor
+  it still selects the next match.
+- Settings, Models says what the built-in search engine costs in memory
+  (about 650 MB while the app is open, measured) and that choosing Ollama for
+  embeddings keeps MemoryMap itself near 100 MB. Measured with the imports at
+  startup, which were already lazy: nothing heavier than FastAPI, SQLAlchemy
+  and alembic loads before the embedding model does.
 - Dragging a note that is part of a lasso selection on the graph carries the
   whole selection with it, at the same offsets. Before, only the note in hand
   moved and the rest of the selection stayed put. The usual rules hold for
@@ -233,6 +243,24 @@ below). Versioning is `0.x` while the app stabilises.
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label
   prompt no longer deletes it; "Take the label off the line" does.
+- "Advanced response settings" in Settings, Models lines up with every other
+  heading. Its disclosure arrow pushed it 20.8px to the right; the arrow now
+  hangs in the margin beside the heading instead of being removed.
+- On a phone, the '?' beside "Tools this skill may use" in Settings, Skills
+  can be pressed again. The fold's heading wrapped onto two lines inside a
+  box pinned to one line's height, which left the '?' outside the box it
+  belonged to; a fold heading now grows with its words. Found by a new sweep,
+  `scratchpad/ui-sweeps/help-popovers.js`, which opens every '?' in Settings
+  at 1440 and 390 and checks each one lands inside the window (82 of 82).
+- Reminder alerts no longer miss a reminder that is due when the notebook
+  holds many finished ones. The minute-by-minute check read one page of
+  reminders ordered oldest first with the ticked-off ones included, so the
+  page could be all done reminders; it now asks for open ones only, soonest
+  first. And two requests the app made twice at every start (recent
+  questions and most-used notes, once for the Notes tab and once for the
+  dashboard) are made once, because a request already in flight is now
+  shared by whoever asks for the same thing (measured with
+  `scratchpad/ui-sweeps/oi-dupfetch.js`: 6 boot requests to 4).
 - Similar-notes lists can no longer contain a note that was deleted or made
   private in the same session. Its vector was blanked in place, and a blank
   row outranked every genuinely unrelated note, so a short list could come

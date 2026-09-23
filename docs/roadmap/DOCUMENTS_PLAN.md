@@ -1395,3 +1395,8 @@ guessing one from the text would invent a link the person did not make.
 - **Code documents as a code editor (diagnostics, completions): built
   2026-09-23.** Moved to HISTORY.md ("Moved from the plans, 2026-09-23");
   `doccode.js` and `tests/test_syntax_check.py` are the gate.
+- **Code documents as a code editor, part two (pairs, Enter, Format, quick
+  fixes): built 2026-09-23.** Moved to HISTORY.md ("Moved from the plans,
+  2026-09-23"); `doccodeedit.js` and `tests/test_code_editing.py` are the
+  gate. Decided there: quick fixes on Alt+Enter, not Ctrl+. (the app's stop
+  chord); no model call and no new endpoint.

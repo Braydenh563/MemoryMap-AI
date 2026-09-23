@@ -9,6 +9,106 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-23
 
+### From DOCUMENTS_PLAN.md: code documents as a code editor, part two (pairs, Enter, Format, quick fixes)
+
+The owner, verbatim: "on the code document types as well, can you add the
+things like with vs code how if I write a \" it automatically does \"\" and
+puts my cursor position in between them, stuff like that. like if Im writing
+in a c language or java or smth where I write var_name { and it
+automatically does {} and then if I press enter it automatically indents and
+code structures them?? also a button to automatically format the whole
+document, ot just a selection. stuff like that. also recommended fixes to
+apply like the other autocorrect feature." Built on part one (the
+diagnostics and completions, below). No bundle rebuild: `closeBrackets`,
+`closeBracketsKeymap`, `indentService`, `indentUnit` and the lint actions
+were all already exported by `frontend/vendor/codemirror/entry.js`.
+
+**Built.**
+
+- **One structure scan** (`docCodeScan`, documents.js's `DOC-CODE` region):
+  per file type, where strings, comments, heredocs, C++ and Rust raw
+  strings, Rust lifetimes and chars, C# verbatim strings, JavaScript
+  template literals (with `${}` nesting) and regexes, and PHP's tags are,
+  which bracket each closer closes, and how deep every line sits. Pairs,
+  Enter, Format and the bracket fixes all read this one answer. A frame's
+  lines sit one unit in from the line that opened it however many brackets
+  that line opened; a line starting with closers sits where their opener's
+  line sat; `case` labels indent under a C, Java or JavaScript switch and
+  sit flush under Go's and Swift's; a brace-less `if` body and a continued
+  expression get one more unit.
+- **Pairs and Enter** (`docCodeEditing`): `closeBrackets` and its keymap
+  (the pair with the caret between, the closer stepped over, Backspace
+  taking both, a selection wrapped), the file type's `indent` as the
+  editor's `indentUnit`, per-language pairs where the package does not
+  declare them (no `'` for Rust and Swift, a backtick for Go, shell, SQL and
+  R), and `docCodeIndentAt` answering Enter and `indentOnInput` for the
+  fourteen types with no indenting grammar, so `{` then Enter splits into
+  three lines in C, Java, Go, Rust, C# and PHP as in JavaScript.
+- **Format** (`docFormatCode`): `#doc-code-format` in the dock (code types
+  only, swapped with the markdown strip), Shift+Alt+F and a palette row, one
+  command with two scopes (the lines the selection touches, else the file).
+  Brace languages are re-indented by the scan; HTML and XML by their
+  elements (`docFormatMarkupText`: void elements, the end tags HTML lets you
+  leave out, `<pre>`, `<textarea>`, `<script>` and `<style>` text never
+  re-indented, a comment or a script moving with its opener); Python, YAML,
+  shell, SQL, Ruby, TOML and INI have only trailing space and the final line
+  break tidied, since their indentation is syntax or has no brackets to
+  follow. JSON is re-printed from its own tokens rather than through
+  `JSON.parse` and `JSON.stringify`, which would have turned
+  `12345678901234567890` into `12345678901234567000` and `1.0e5` into
+  `100000`. The inside of a string is never touched, nor a YAML block
+  scalar. Refused, with the line and the reason in a toast, when the Lezer
+  tree (JavaScript, TypeScript, CSS), the server's check (Python, TOML,
+  YAML) or the scan says the file does not parse; one isolated undo step
+  touching only the lines that change.
+- **Quick fixes**: each checker's diagnostics carry their fixes as
+  CodeMirror actions (the hover card's buttons, restyled onto
+  `--accent-soft`), recomputed against the text at the moment one is chosen
+  (`docCodeFixNow`). Alt+Enter lists them at the caret through
+  `openMenuAtPoint`, falling back to the caret's line, with both formats
+  beneath; F8 and Shift+F8 walk the problems. The fixes: add a missing
+  bracket where it was meant (`foo(a;` to `foo(a);`, `if (x > 1 {` to
+  `if (x > 1) {`, a `}` on its own line at the opener's depth), change or
+  remove a stray closer, close a string before the `);` its line ends with,
+  close a comment, remove a JSON trailing comma, add a missing JSON comma,
+  quote a bare or single-quoted JSON name, close what JSON left open at the
+  end, add Python's missing colon, and convert mixed tabs and spaces (a
+  note, only where the file really is mixed; spaces after tabs are Go's
+  alignment and left alone). The scan now also checks C, C++, C#, Java,
+  Kotlin, Go, Rust, Swift, PHP, R and SQL, which had no check at all; for
+  JavaScript, TypeScript and CSS it is asked only when the tree has already
+  found an error, so it can never underline valid code.
+- **Found by measuring, and fixed**: Tab in the editor left the caret
+  *before* the indent it inserted, in prose and code alike, since the engine
+  landed (the adapter's `replaceRange` maps a caret at the insertion point
+  to before it; the textarea's `insertText` put it after): Tab then "a" at
+  the start of `int x;` gave `a    int x;`. The Python colon fix never
+  matched, because `syntaxcheck.py` capitalises the compiler's "expected
+  ':'". And JSX in a `.js` file was underlined as a syntax error; the
+  package is now mounted with `jsx: true` (not for `.ts`, where TSX would
+  misread `<T>(x) => x`), and Format refuses a JSX file by name.
+
+**Decided.** Quick fixes are on Alt+Enter (the prose menu's chord, and
+JetBrains'), not VS Code's Ctrl+., which app.js's registry gives to "stop the
+answer being written"; taking it inside the editor would break that
+shortcut exactly while someone is in a code file. No model call: every fix is
+a mechanical edit whose result can be stated in its name. No new endpoint:
+Format reuses `POST /documents/check-syntax` for its refusal.
+
+**Measured.** `tests/test_code_editing.py`, 39 tests in node and over the
+source (every indent, format and fix held to exact output; idempotence;
+refusals naming the cause, not its consequences). `scratchpad/ui-sweeps/
+doccodeedit.js` in Chromium, 48 of 48: the pairs, `{` then Enter in eight
+types, Tab and Escape then Tab, Format on messy JSON and messy JavaScript,
+a selection, three refusals, the hover button, Alt+Enter then Enter, F8,
+one Ctrl+Z per fix. The document dock's height is unchanged by the button
+at 1440, 1184, 1024, 820 and 390.
+
+**Not verified.** The desktop window (WebView2) and a real keyboard layout
+other than US (Shift+Alt+F and the pairs are typed by Playwright); Format on
+files of thousands of lines was not timed in the browser (the scan is linear
+and `docCodeIndentAt` stands down past the checker's 200,000-character cap).
+
 ### From UI_MODERNISATION_PLAN.md Phase 11 item 12: content gets the screen (INBOX 392)
 
 The owner: "the mobile view is still very broken, takes up a lot of the

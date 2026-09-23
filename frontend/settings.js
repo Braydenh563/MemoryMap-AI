@@ -118,6 +118,25 @@ let currentSettingsSection = "models";
 //: (`.help-head > h3`, styled as the pane title in 08-consistency.css), made
 //: once and kept, so the word in the list and the word over the pane can
 //: never disagree.
+//: **Arrow keys walk the pane list**, the way a sidebar of sections moves
+//: in every settings window people know: Up and Down go to the previous and
+//: next pane and open it, Home and End to the first and last. Tab still
+//: leaves the list for the pane, so nothing a keyboard user relied on moves.
+document.getElementById("settings-nav")?.addEventListener("keydown", (event) => {
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  const buttons = [...document.querySelectorAll("#settings-nav button[data-section]")]
+    .filter((b) => b.getClientRects().length);
+  const at = buttons.indexOf(document.activeElement);
+  if (at < 0) return;
+  event.preventDefault();
+  const next =
+    event.key === "Home" ? 0
+      : event.key === "End" ? buttons.length - 1
+        : Math.max(0, Math.min(buttons.length - 1, at + (event.key === "ArrowDown" ? 1 : -1)));
+  buttons[next].focus();
+  buttons[next].click();
+});
+
 function ensureSettingsPaneTitle(box, name) {
   if (!box || box.querySelector(":scope > .help-head > h3, :scope > .settings-pane-title")) return;
   const label = document.querySelector(`#settings-nav [data-section="${name}"]`)?.textContent.trim();

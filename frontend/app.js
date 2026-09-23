@@ -43024,6 +43024,15 @@ function openGlobalFind() {
   // entirely, and a card can be scrolled far outside the viewport with no
   // scrollIntoView that means anything on an infinite canvas. The board has
   // its own find, which pans the viewport to each match, send Ctrl+F there.
+  //: **Find is scoped to what is in front of you.** With Settings open, the
+  //: page-wide bar searched the tab hidden behind the dialog; Settings has
+  //: its own search, which filters its panes, so Ctrl+F goes there.
+  const settingsOpen = !$("settings-modal")?.classList.contains("hidden");
+  if (settingsOpen && $("settings-search")) {
+    $("settings-search").focus();
+    $("settings-search").select();
+    return;
+  }
   const wbCanvas = document.getElementById("wb-canvas-view");
   const wbView = document.getElementById("library-view-whiteboard");
   if (

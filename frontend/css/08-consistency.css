@@ -2928,3 +2928,22 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .graph-legend-row .legend-item:hover {
   background: var(--chip-bg);
 }
+
+/* --- the timeline, de-vibecoded ---------------------------------------------
+   A day of the timeline is a list of a hundred rows, and every title was
+   600 with a bold accent "Uncategorised" pill at its end: a column of
+   identical badges down the right edge, each as loud as the title it
+   describes. Titles step to 500 (a list reads by its rows, not by shouting
+   every one); the category is the same quiet fact the notes' meta line
+   makes it, muted text with no fill. */
+.timeline-row-title {
+  font-weight: 500;
+}
+
+.timeline-row-meta > .chip {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-weight: 400;
+}

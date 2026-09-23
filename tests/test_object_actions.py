@@ -36,3 +36,21 @@ def test_library_notes_and_documents_reach_the_chat():
 
 def test_a_board_or_map_card_reaches_the_chat():
     assert "askAtlasAboutThing(board.type === \"map\" ? \"map\" : \"board\", board.title)" in BOARDS
+
+
+def test_a_file_and_a_reminder_reach_the_chat():
+    """The ledger's "left: files, reminders" (OPEN.md, INBOX 393). A reminder
+    already had the row; a file card's menu held Download and Delete only."""
+    file_menu = _block(LIBRARY, 'if (item.kind === "file") {', "return [];\n}")
+    assert 'askAtlasAboutThing("file", item.title)' in file_menu
+    assert 'askAtlasAboutThing("reminder", reminder.text)' in APP
+
+
+def test_the_shared_row_says_the_same_thing_everywhere():
+    """One door, one face: the same words and the same glyph on every object's
+    menu. The reminder's wore a sparkle where every other wore the chat bubble,
+    which reads as a different feature."""
+    for source in (APP, LIBRARY, BOARDS):
+        for line in source.splitlines():
+            if "Ask Atlas about this" in line and ("label" in line or "makeMenuItem(" in line):
+                assert "ph:chat-circle Ask Atlas about this" in line, line.strip()

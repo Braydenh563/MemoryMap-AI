@@ -855,6 +855,12 @@ function libraryActions(item) {
       makeMenuItem("ph:download-simple Download", "Save this file", () => {
         window.open(mediaSrc(`/files/${item.id}`), "_blank");
       }),
+      //: The shared "act on this" row (INBOX 393), the last object kind
+      //: without it: a note, a document, a board, a map and a reminder could
+      //: all be taken to the chat, a file only downloaded or deleted.
+      makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this file", () =>
+        askAtlasAboutThing("file", item.title)
+      ),
       // Live-reported: an uploaded file "can't be deleted", true for its
       // own ⋯ menu specifically; bulk-select delete already worked
       // (`library-bulk-delete` already has a `file` branch), but nothing

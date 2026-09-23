@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Files: a file's menu in the Library offers Ask Atlas about this, the last kind of object without it; the reminder row's version wears the same chat icon as every other.
 - Chat: with no model connected, the Chat tab says so above the composer, names Notes, Ask as the place that answers without one, and carries the Connect a model button, as Ask, the popup agent and the writing desk already did. Before, the box was grey and only a tooltip said why.
 - Dashboard: Ask AI and the empty notebook's Ask your notebook go to Notes, Ask when no model is running (it answers from your notes without one) and to Chat when one is, with the caret in the box. Before, both opened a disabled Chat box with the caret nowhere.
 - Library: a new notebook's first screen says what to make and offers Create beside the sentence, instead of "Nothing of this kind yet" (the activity log was being counted as things you had made); a kind with nothing in it names itself ("No meetings yet"). The Create picker now offers a board and a file upload too, seven rows in all.

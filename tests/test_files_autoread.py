@@ -139,8 +139,17 @@ def test_a_description_typed_while_the_model_ran_is_kept(client, session, monkey
     from memorymap.ai import captioning
     from memorymap.core import deps
 
+    from memorymap.api import routes_files
+
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)
+    #: The upload route starts its own reading pass on a thread, with the fake
+    #: model patched in above, so that pass could land its automatic caption
+    #: after the `caption = None` below and before the call under test: it did
+    #: under the gate's parallel run (the assertion saw "A handout about agents
+    #: and tools."), and passed alone. The pass under test is the one called
+    #: directly, so the background one is switched off.
+    monkeypatch.setattr(routes_files.docreader, "read_in_background", lambda fid: None)
     file_id = _attach(client)
     row = session.get(Attachment, file_id)
     row.caption = None

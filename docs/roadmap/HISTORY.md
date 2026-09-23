@@ -33711,6 +33711,77 @@ measured, so nobody rebuilds them.
     (`archive/agent-remaining/tour.md`, `tour.js` 118 of 118 on its own
     checks, 1,581 of 1,581 on the sweep refresh) and `TOUR_ENABLED` is true.
 
+270. **Mid-work drop, 2026-09-20, verbatim (the owner), with a dashboard
+    screenshot and four MSN/Bing screenshots.** "hit the rest of the open
+    items. make sure you complete all of my requests and flagged items. fix
+    the codeql and ci errors. fix any bugs you might have missed. also is
+    there a way to declutter the dashboard a bit or spread things out a
+    bit?? idk it looks good but a lot is happening on it. maybe something
+    like the feed layout options with msn on microsoft bing?? the user needs
+    to be able to view and access what they want within around 3 clicks and
+    they need to know how to instantly access what they want after loading
+    the app. maybe the dashboard should have a universal searchbar on it??
+    maybe that searchbar can be accessible in a univerally accessible popup
+    window like the popup agent and guide??? also can you improve/redesign
+    the ui and layout of the guide popup panel at all??"
+    **Decisions taken with the owner, 2026-09-20.** (a) The dashboard gets a
+    density switch, the MSN "Feed layout" shape: Full (today), Compact
+    (Start something collapses to icons, the stats become one line) and
+    Focused (search and widgets only, the rest behind More), remembered per
+    device. Nothing is removed, so no feature is lost to a layout choice.
+    (b) The search is not a feature-finder. The owner: "this is a search for
+    any and all content, items, text, files everything. a full application
+    wide semantic search which shows content as well as features and actions
+    etc. absolutely everything and what shows can be filtered, sorted and
+    toggled... similar to the aws search or amazon search bar. a separate
+    dashboard search might be good but also a popup window as well would be
+    good." Both doorways, one engine. (c) macOS: not yet, written up rather
+    than built, because Gatekeeper refuses an unsigned app outright rather
+    than warning about it, and notarising needs an Apple Developer account.
+    **Checked before building, and this is the finding that shapes the work:**
+    `/search` already exists and is exactly what (b) describes.
+    `routes_search.py` over `search/engine.py` searches notes, documents,
+    boards, files, bookmarks and reminders together, hybrid keyword plus
+    semantic, with `tag:`, `kind:`, `in:`, `before:`, `after:`, `has:`, `is:`,
+    quoted phrases and `-exclusions` from `search/query.py`, three scores and
+    an explanation per hit, and per-kind counts so an empty result can say
+    why. **Nothing in the app calls it.** The only reader of anything under
+    `/search` in the whole frontend is `settings.js` asking `/search/stats`
+    for a number. So the work is a front door, not an engine: the popup, the
+    dashboard field, the filters and the sort, over the route already there.
+    Measured from the screenshot: above the fold the dashboard stacks five
+    "Start something" tiles, four "Jump to" pills, three skill chips, four
+    stat tiles and a sparkline, then the widget grid heading, before a single
+    widget is visible. Six bands of chrome before any content. The MSN
+    reference is its "Feed layout" control: full page, partial view,
+    headings, three densities of the same page. Four things: (1) a density or
+    layout choice for the dashboard, (2) a search field on it that is the
+    obvious first thing, (3) that same search reachable from anywhere as a
+    popup, like the command palette already is, (4) a redesign of the guide
+    popup panel. Open.
+    **Checked 2026-09-23.** (1) built: `DASH_DENSITY_KEY` and the Full,
+    Compact and Focused levels in `dashboard.js`. (2) and (3) built: the
+    finder reads `/search` (`app.js`, `finderRun`, `Ctrl+P` in
+    `DEFAULT_SHORTCUTS` as "Find anything"). (4) partly: INBOX 274 fixed the
+    guide panel's title, model, thinking and streaming; a redesign as such has
+    not been done and is the one part left.
+    **(4) done 2026-09-23** (`8316d5a`), screenshotted at 1440, 1024 and 390
+    in light and dark and audited against DESIGN.md. Five findings, all
+    fixed: the chat sat in a tinted `.settings-group` inside the card (a box
+    in a box, 398x349 with 16px of its own padding); the head was 63px, its
+    subtitle wrapping at 1440 and 1024 and `.card h2`'s margin under the
+    title; the head's '?', kebab and X were three shapes at two sizes; the
+    empty state was a five-line muted paragraph over three stacked grey
+    buttons; an answer's first line sat 25px under its bubble's top against
+    9.6px of padding. After: flat on the card like the agent activity panel
+    and the popup agent, a 35px one-row head with three quiet 28px controls
+    on one centre line, the Chat tab's welcome shape (title, one line, the
+    three questions as centred hairline chips inside it), an answer inset of
+    10.6px. `scratchpad/ui-sweeps/guidepanel.js` asserts all of it, 31
+    checks at each of 1440, 1024 and 390, PASS in light and dark;
+    `contrast.js` now opens the guide, 0 low-contrast in both themes. All
+    four parts built: **Fixed.**
+
 ## Moved from the plans, 2026-09-23
 
 ### From CHAT_PLAN.md

@@ -43,6 +43,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A connection pill's ⋯ is round, so its hover no longer pokes past the
+  pill's border, and a linked note whose first line is a heading or a
+  clipped image reads as its words (no `#` or half an `![...`).
 - A skill's facts line in Settings no longer starts a wrapped line with its
   separator dot.
 - A reminder's time sits at the end of its row; with a mouse, its actions

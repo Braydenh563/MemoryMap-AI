@@ -3082,6 +3082,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   padding: 0;
   margin-inline-end: var(--space-1);
   border: 0;
+  /* Round, inside a round pill: the button's own square corners drew its
+     hover fill past the pill's border (owner's screenshot). */
+  border-radius: var(--radius-pill);
   background: transparent;
   box-shadow: none;
   color: var(--muted);

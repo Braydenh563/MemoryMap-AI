@@ -3651,8 +3651,12 @@ function entryItem(entry, options = {}) {
       //: draw, and it showed as its raw `![...](...)` (owner's screenshot:
       //: "Gary The Moss Monster :D ![Gary The Moss Monst..."). The picture
       //: is dropped from the label; the words around it stay.
+      //: The preview is clipped by the server, so an image can arrive cut
+      //: in half (`![WallpaperEngineOverride_rand`, owner's screenshot) and
+      //: a heading with its `#`: both go, whole or truncated.
       const label = (link.preview || "")
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .replace(/!\[[^\]]*(?:\](?:\([^)]*\)?)?)?/g, "")
+        .replace(/^\s*#{1,6}\s+/, "")
         .replace(/\s{2,}/g, " ")
         .trim();
       const short = label.length > LINK_CHIP_CHARS

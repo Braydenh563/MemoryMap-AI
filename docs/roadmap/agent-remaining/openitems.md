@@ -65,7 +65,7 @@ Phase 8c, the templates preview, outline row height.
 - done c475278: 11, INBOX 321 decided and built, `Ctrl+D` opens or starts
   today's page; `oi-ctrld.js` 3 of 3.
 - measured: the tour (`tour.js`) 339 checks ok; its 7 failures are exactly
-  the doors `TOUR_ENABLED = false` closes (INBOX 272 annotated).
+  the doors `TOUR_ENABLED = false` closed then; the flag is true since the tour agent's merge (INBOX 272 resolved).
 - done 1d737a9: H7's boot duplicates (6 boot requests to 4,
   `oi-dupfetch.js`), and the reminder alert's page reads open reminders.
 - done 4a1b230: `help-popovers.js` built, 81 popovers and 1 finding (the

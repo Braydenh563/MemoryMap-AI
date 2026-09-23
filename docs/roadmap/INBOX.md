@@ -308,7 +308,24 @@ with its owner named in the entry.
     its numbers and where it would stop being right, so it does not have to
     be argued a fourth time. No migration started, and the serverless
     question is answered in a paragraph there rather than left hanging.
-    Still open on this entry: (1), (2), (3), (4) and (5).
+    **(1) done 2026-09-23**, the usability and IA read against the owner's
+    "3 clicks to anything" (INBOX 270): 22 primary tasks driven from a fresh
+    dashboard by `scratchpad/ui-sweeps/clicks.js`, 21 within three clicks and
+    restoring from the bin at four on purpose (the table is in
+    `agent-remaining/guideia.md`). Four trust breakers it found, all fixed:
+    both dashboard "Ask" doors opened a disabled Chat box when no model was
+    running (now Notes, Ask, which answers without one); the Chat tab never
+    said why its box was grey (now the same Connect-a-model line as Ask, the
+    agent and the writing desk); a new notebook's Library said "Nothing of
+    this kind yet" because the activity log counted as things made (now a
+    sentence and a Create button); Create offered no board and no upload
+    (now seven rows).
+    Checked, not built here (packaging is another agent's): (2) the
+    `.tar.gz` ships (`release.yml`, `MemoryMap-AI-<v>-linux-x86_64.tar.gz`);
+    (3) the `.msi` steps exist but are `if: false`, so no MSI ships; (4)
+    every installer name carries version, platform and arch
+    (`installer.iss`: `MemoryMap-AI-Setup-<v>-windows-x86_64`). Still open on
+    this entry: (3) and (5).
     **Checked 2026-09-23.** (2) built: `release.yml` ships
     `MemoryMap-AI-<version>-linux-x86_64.tar.gz` beside the zip. (3) built and
     then switched off (`b7b15c7`, WiX v7's fee terms; see 271, resolved). (4)
@@ -355,61 +372,6 @@ with its owner named in the entry.
     `scratchpad/ui-sweeps/graphminimap.js`). (1) and (2) are
     AGENT_SKILLS_REFORM's, whose Phase D was verified against a real small
     model on 2026-09-20; what that plan still holds is its evals breadth.
-
-270. **Mid-work drop, 2026-09-20, verbatim (the owner), with a dashboard
-    screenshot and four MSN/Bing screenshots.** "hit the rest of the open
-    items. make sure you complete all of my requests and flagged items. fix
-    the codeql and ci errors. fix any bugs you might have missed. also is
-    there a way to declutter the dashboard a bit or spread things out a
-    bit?? idk it looks good but a lot is happening on it. maybe something
-    like the feed layout options with msn on microsoft bing?? the user needs
-    to be able to view and access what they want within around 3 clicks and
-    they need to know how to instantly access what they want after loading
-    the app. maybe the dashboard should have a universal searchbar on it??
-    maybe that searchbar can be accessible in a univerally accessible popup
-    window like the popup agent and guide??? also can you improve/redesign
-    the ui and layout of the guide popup panel at all??"
-    **Decisions taken with the owner, 2026-09-20.** (a) The dashboard gets a
-    density switch, the MSN "Feed layout" shape: Full (today), Compact
-    (Start something collapses to icons, the stats become one line) and
-    Focused (search and widgets only, the rest behind More), remembered per
-    device. Nothing is removed, so no feature is lost to a layout choice.
-    (b) The search is not a feature-finder. The owner: "this is a search for
-    any and all content, items, text, files everything. a full application
-    wide semantic search which shows content as well as features and actions
-    etc. absolutely everything and what shows can be filtered, sorted and
-    toggled... similar to the aws search or amazon search bar. a separate
-    dashboard search might be good but also a popup window as well would be
-    good." Both doorways, one engine. (c) macOS: not yet, written up rather
-    than built, because Gatekeeper refuses an unsigned app outright rather
-    than warning about it, and notarising needs an Apple Developer account.
-    **Checked before building, and this is the finding that shapes the work:**
-    `/search` already exists and is exactly what (b) describes.
-    `routes_search.py` over `search/engine.py` searches notes, documents,
-    boards, files, bookmarks and reminders together, hybrid keyword plus
-    semantic, with `tag:`, `kind:`, `in:`, `before:`, `after:`, `has:`, `is:`,
-    quoted phrases and `-exclusions` from `search/query.py`, three scores and
-    an explanation per hit, and per-kind counts so an empty result can say
-    why. **Nothing in the app calls it.** The only reader of anything under
-    `/search` in the whole frontend is `settings.js` asking `/search/stats`
-    for a number. So the work is a front door, not an engine: the popup, the
-    dashboard field, the filters and the sort, over the route already there.
-    Measured from the screenshot: above the fold the dashboard stacks five
-    "Start something" tiles, four "Jump to" pills, three skill chips, four
-    stat tiles and a sparkline, then the widget grid heading, before a single
-    widget is visible. Six bands of chrome before any content. The MSN
-    reference is its "Feed layout" control: full page, partial view,
-    headings, three densities of the same page. Four things: (1) a density or
-    layout choice for the dashboard, (2) a search field on it that is the
-    obvious first thing, (3) that same search reachable from anywhere as a
-    popup, like the command palette already is, (4) a redesign of the guide
-    popup panel. Open.
-    **Checked 2026-09-23.** (1) built: `DASH_DENSITY_KEY` and the Full,
-    Compact and Focused levels in `dashboard.js`. (2) and (3) built: the
-    finder reads `/search` (`app.js`, `finderRun`, `Ctrl+P` in
-    `DEFAULT_SHORTCUTS` as "Find anything"). (4) partly: INBOX 274 fixed the
-    guide panel's title, model, thinking and streaming; a redesign as such has
-    not been done and is the one part left.
 
 302. **Found by the repository read, 2026-09-21 (the session, not the owner):
     a decision for the owner.** needle (cactus-compute, Apache-2.0 for both

@@ -352,25 +352,33 @@
              script because it is what is true before anything has happened,
              and `renderHelpChatMessage` hides it on the first turn while New
              chat brings it back. -->
-        <p id="help-chat-empty" class="muted help-chat-empty">
-          Ask where a feature lives, what a setting does, or which tab you
-          want. Atlas answers from the app's own help, says so when it is not
-          sure, and cannot read your notes or your documents.
-        </p>
-      </div>
-      <!-- Three, not a wall: the popup agent's starters are the same idea at
-           the same size, and these are the three questions the help topics
-           are asked most often to answer. `renderAtlasStarters` fills both
-           this and the Settings row from one table.
+        <!-- **The Chat tab's welcome, at this panel's size** (INBOX 270 part 4,
+             the redesign). It was a 120px paragraph of muted body text over a
+             column of three grey buttons, which is a settings row rather than
+             a chat, and the app's own chat greets you the other way: a mark, a
+             title, one line, and the questions you might ask centred under
+             them (`renderChatEmptyState`). Same order, same chip look, so the
+             two assistants read as one idea. The mark is the one thing not
+             repeated: the head carries the compass 50px above, and a second
+             one here was the same glyph twice in one panel.
 
-           **Under the transcript, over the composer** (INBOX 270). They stood
-           above the log, so the panel offered three example questions before
-           the sentence that says what this chat is for, and the app's other
-           chat does the opposite: `#chat-suggest` sits between the transcript
-           and the dock, which is also where every chat people have used puts
-           them. They are things you are about to send, so they belong beside
-           the thing you send with. -->
-      <div class="atlas-starters" id="help-chat-starters"></div>
+             The starters live inside the welcome rather than between the log
+             and the composer: the Chat tab moved its own chips into its
+             welcome for the same reason ("two halves of one invitation"), and
+             they retire together, since `helpChatAppendRow` hides both and New
+             chat brings both back. `aria-live="off"` because the log around it
+             is a live region, and `renderAtlasStarters` rebuilds the chips on
+             every open: without it a screen reader read three questions aloud
+             each time the panel appeared. -->
+        <div id="help-chat-empty" class="atlas-welcome" aria-live="off">
+          <p class="empty-title">Ask how anything in the app works</p>
+          <p class="muted atlas-welcome-line">
+            Answers come from the app's own help. Atlas
+            cannot read your notes or your documents.
+          </p>
+          <div class="atlas-starters" id="help-chat-starters"></div>
+        </div>
+      </div>
       <!-- The composer, along the foot, which is where the popup agent puts
            its own: input, an icon-only send at the app's one icon-button size,
            and the '?' that every surface in this app carries for the longer
@@ -2149,6 +2157,14 @@
                the top is worse than either arrangement on its own, you press
                it and nothing appears to happen. -->
           <div class="chat-dock">
+            <!-- **Why the box is grey, in the place you are looking** (INBOX
+                 266 part 1). With no model the composer and Send are disabled
+                 (`data-needs-model`) and the only thing that said why was a
+                 tooltip on a control that cannot be pressed; the three other
+                 surfaces that are nothing but the model (Ask, the popup agent,
+                 the writing desk) each carry this line. Filled and hidden by
+                 `renderAiOfflineNotice`, the same one line and one button. -->
+            <div id="chat-offline" class="ai-offline-note hidden"></div>
             <!-- Attached notes are per-message too. They are their own line
                  because they are *content*, a variable number of note chips , 
                  and putting them in the control strip would make its height
@@ -4483,6 +4499,10 @@
                micro-conventions): the Notes list's own no-match state has
                had "Clear the filter" for a long time; this one had none. -->
           <button id="library-empty-clear" class="ghost small hidden" type="button"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear the search</button>
+          <!-- The next step, beside the sentence that names it (INBOX 266
+               part 1): the dock's Create for this kind, relabelled to match
+               it by `renderLibrary`. -->
+          <button id="library-empty-create" class="ghost small hidden" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Create</button>
         </div>
 
         <!-- Inject the Skills section here -->

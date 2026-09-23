@@ -37259,6 +37259,14 @@ function syncModelGatedControls(status = modelStatus) {
     "No model is connected, so this answers from your notes alone: the matching records are below."
   );
   renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
+  //: The Chat tab, the fourth surface that is nothing but the model (INBOX
+  //: 266 part 1): its box was disabled with no sentence anywhere near it. It
+  //: names where a question can still be asked, because that is the next
+  //: step for somebody who came here to ask one.
+  renderAiOfflineNotice(
+    $("chat-offline"),
+    "No model is connected, so Chat cannot answer yet. Notes, Ask answers from your notes without one."
+  );
   //: And the writing desk, which is the third surface that is nothing but
   //: Atlas: with no model it cannot draft at all, and before this the only
   //: thing that said so was a title on a button that could not be pressed.

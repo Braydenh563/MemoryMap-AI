@@ -124,6 +124,19 @@ for(const t of TABS){
 // is hidden and Settings is a row in the header's `#header-more` menu (Phase
 // 11 item 1), so a sweep that clicked it measured no Settings section at all
 // at phone width and said nothing about having skipped them.
+// The guide panel (INBOX 270 part 4): a sheet, so `.modal-overlay` already
+// puts it in scope; it only had to be opened. Empty, then with a conversation,
+// because the welcome and the bubbles are different text on different grounds.
+{
+  const opened=await page.evaluate(()=>{try{openHelpChat();return true;}catch(e){return false;}});
+  if(opened){
+    await page.waitForTimeout(500);await run('guide (empty)');
+    await page.evaluate(()=>{renderHelpChatMessage('user','How do I add a reminder?');renderHelpChatMessage('assistant','Open the **Reminders** tab.',[{label:'Open Reminders',tab:'reminders'}],['Reminders']);});
+    await page.waitForTimeout(200);await run('guide (a conversation)');
+    await page.evaluate(()=>helpChatNewChat());await page.keyboard.press('Escape');await page.waitForTimeout(300);
+  } else console.log('== guide: SKIPPED, openHelpChat is not reachable');
+}
+
 await page.evaluate(()=>{try{openSettingsModal('models');}catch(e){document.getElementById('settings-btn')?.click();}});await page.waitForTimeout(600);
 // The section strip is hidden below 600 (the phone puts every section in one
 // scroll with a jump select beside the search), so the sections are reached

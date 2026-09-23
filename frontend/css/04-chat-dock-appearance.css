@@ -2301,6 +2301,28 @@ label.setting-check,
   border-bottom-left-radius: var(--radius-sm);
 }
 
+/* **The bubble's padding is its inset, and a paragraph's margin was adding a
+   second one** (INBOX 270 part 4). `renderMarkdown` writes a `<p>` whose
+   browser margin is 1em, so an answer's first line sat 25px below the
+   bubble's top edge against 10px under its last, and the citation hung 15px
+   below the prose. The Chat tab zeroes the same margin for the same reason
+   (`.bubble-answer > :first-child`, 02-chat-graph.css); here the paragraphs
+   also step down to the scale so the gap inside an answer is the gap between
+   two answers' rows, not a larger one. */
+.help-chat-msg p {
+  margin-block: var(--space-2);
+}
+
+.help-chat-msg > :first-child,
+.help-chat-prose > :first-child {
+  margin-top: 0;
+}
+
+.help-chat-msg > :last-child,
+.help-chat-prose > :last-child {
+  margin-bottom: 0;
+}
+
 .help-chat-msg.is-pending {
   color: var(--muted);
   font-style: italic;

@@ -131,6 +131,28 @@ Insert/Edit/Arrange/View/Board, chat, context menus, nav history) is this
 recipe. Lint: a menu item with a non-transparent rest background fails
 `test_ui_signatures.py`.
 
+**The "act on this" rows (INBOX 393), where each object stands.** One
+vocabulary on every object's own menu, one wording and one glyph per row
+(`ph:chat-circle Ask Atlas about this` everywhere). Read from the code
+2026-09-23; `tests/test_object_actions.py` holds every "yes" in the Ask
+column and the one wording.
+
+| Object, its menu | Open | Ask Atlas about this | Show in graph | Remind me | Link to |
+| --- | --- | --- | --- | --- | --- |
+| Note, Notes card ⋯ | the card | yes | yes | yes | yes |
+| Note, Library card ⋯ | Open in Notes | yes | yes | no | no |
+| Document, Library card ⋯ | the card | yes | no | no | no |
+| Board or map, Boards card ⋯ | the card | yes | no | no | no |
+| Reminder, row ⋯ | Open its note (when it has one) | yes | no | n/a | no |
+| File, Library card ⋯ | the card | yes (2026-09-23) | no | no | no |
+
+Open next, in impact order: Remind me on a document and a board (a
+reminder carries an `entry_id` only, so this needs the reminder to point at
+other kinds first, a backend step); Show in graph for a document, now the
+graph has a Documents switch; the Library note card's Remind me and Link to,
+which the Notes card already has, so the Library one is two rows short of
+its twin.
+
 ### 1.4 Bars (docks, heads, toolbars, footers)
 
 A bar is one continuous panel surface. Zones inside it (identity, find,

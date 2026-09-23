@@ -266,6 +266,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Timeline tab's code moved out of app.js into its own file,
+  timeline.js, loaded at startup right after the dashboard's. Nothing it
+  does changed; app.js is about 24 KB smaller to download (gzipped), which
+  brings it back under its size bound instead of raising the bound a third
+  time.
 - Atlas has a persona rather than a job title: "the librarian of this
   notebook: warm, curious and a little witty", who knows the notes well,
   likes spotting how they connect, speaks plainly and says so when the notes

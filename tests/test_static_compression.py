@@ -53,6 +53,13 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
     # written; the split should be done instead, and the count above is here so
     # whoever reads this next can see how overdue it is rather than inferring
     # it from one number.
+    #
+    # **The third time, the split was done.** 2026-09-23: 750,706 bytes, 0.1%
+    # over. The Timeline tab (about 1,800 lines) moved into its own
+    # timeline.js, loaded at boot after dashboard.js, and the bound stayed
+    # where it was: 724,604 bytes after, measured through the live server.
+    # The next time this goes red, the answer is the next surface out of
+    # app.js, not a fourth number here.
     assert len(raw) < 750_000, f"gzipped app.js is {len(raw)} bytes, expected under 750 KB"
 
 

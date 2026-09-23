@@ -1,7 +1,7 @@
 """A boot-loaded file may not quietly depend on a file that loads later.
 
-`index.html` loads five scripts: app.js, editor.js, dashboard.js, settings.js
-and tour.js. Everything else, graph.js and graph-canvas.js, documents.js,
+`index.html` loads six scripts: app.js, editor.js, dashboard.js, timeline.js,
+settings.js and tour.js. Everything else, graph.js and graph-canvas.js, documents.js,
 whiteboard.js and library.js, is in a lazy bundle (`LAZY_MODULES`, app.js) and
 arrives only when a tab asks for it. So a boot file that calls a function
 defined only in a lazy file is calling something that is not there yet, and

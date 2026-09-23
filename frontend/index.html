@@ -10751,6 +10751,19 @@
        documents.js made for `initDocSidebarTabs()`, see dashboard.js's own
        header for the full explanation. -->
   <script src="/dashboard.js?v=0.3.2"></script>
+  <!-- Timeline: the feed, the table view, the density scrubber, the kind
+       chips and the daily page (split out of app.js on 2026-09-23, when the
+       gzipped app.js crossed test_static_compression.py's bound a third
+       time). Loaded after app.js and shares its global scope, the same terms
+       as dashboard.js above: its own top-level lines only register listeners
+       and read what app.js has already defined, and every call app.js makes
+       into it (switchTab's timeline branch, the select-mode toggles, the
+       shortcuts table) runs from a click or a closure, never at parse time.
+       No bare top-level line had to move with it and no `typeof` guard was
+       added, so this position is not load-bearing; it sits before
+       settings.js because settings.js's tail is the one that must run last.
+       See timeline.js's own header for what stayed in app.js and why. -->
+  <script src="/timeline.js?v=0.3.2"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview): §88.3 of the app.js-split plan, the fourth and LAST file.

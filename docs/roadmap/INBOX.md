@@ -34,6 +34,39 @@ with its owner named in the entry.
 
 ## Open items
 
+394. **The owner, 2026-09-23 night, verbatim, with screenshots of the Ask
+    tab, the map's radial menu, the dashboard, a connection pill, the Write
+    tab's action chips, the dashboard's Jump to and Run a skill rows, the
+    Library tabs, the Boards filter and the Contents chips.** "are those chips
+    the right colour?? also I was wondering if we migth be able to give atlas
+    a tinsy little bit more personality?? idk. also on the document editor
+    code files I want ALL THE PREFILL SUGGESTIONS AND POPUP BOXES FOR
+    OPTIONS. like if I do just '!' on a document and press enter it does base
+    html code, or for all the available css properties for that css feature,
+    or doinf inline suggestions. also when I press the more button on a mind
+    map node tool radial, the dropdown menu doesnt appear next to it but the
+    bottom right. Also I was wondering if the \"your dashboard line\" should
+    always sti neatly at the bottom of the user's screen when on the \"full\"
+    view and then when the user scrolls the dashboard will show as normal, the
+    line wont move up top the content above it will just scroll like a
+    regular page. also the square top right and bottom right corners of the
+    meatball buttons in the note links goes out of the badge borders a bit"
+    and "can you also put a bit of the background shine in the bottom right
+    corner as well like the classic view??" and "also are these pills a sign
+    of ai vibe coding?? if they arent it's fine. just keep devibecoding and
+    improving the design to be more modern and professional. keep doing
+    anything else you were doing and keep bug fixing and more."
+    Placed: (a) Ask's "Ask again" chips filled while "Try asking" are
+    outlined, orchestrator; (b) Atlas's voice, orchestrator (prompt budget);
+    (c) code completions (Emmet `!`, every CSS property and value, inline
+    suggestions), an agent; (d) the radial More menu, the map agent; (e) the
+    dashboard's head at the fold, orchestrator; (f) the connection pill's
+    kebab corners and its raw markdown title (`# ... ![...]`), orchestrator;
+    (g) the page shine's second corner, orchestrator; (h) pills: yes, a
+    fully round pill on every control is a tell (dashed pills most of all);
+    the segmented-track table (the Ask citations agent) is the start, and
+    nav rows become tabs, actions `--radius-md` buttons.
+
 320. **The owner, 2026-09-21, verbatim:** "the numbers only appear after the
     ai response is finished" (in the Ask tab's Matching records column). Open,
     and it is closer to a design question than a bug: the numbers are the

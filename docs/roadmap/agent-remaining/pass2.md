@@ -122,17 +122,17 @@ there); the sandbox has neither.
 
 ## Remaining (found, not fixed)
 
-1. Boards & maps dock at 390 is still 198px (four rows): needs New board as
+1. **Fixed 2026-09-23 (askcite)**: 114px via `foldDockActions`. Was: Boards & maps dock at 390 is still 198px (four rows): needs New board as
    that sub-tab's floating action, which the rail-overlap rule in
    07-whiteboard-misc.css currently forbids.
-2. A board card has no date: `/whiteboard/boards` sends no timestamp (a
+2. **Fixed 2026-09-23 (askcite)**: `updated_at` on the list, drawn as `.library-card-when`. Was: a board card has no date: `/whiteboard/boards` sends no timestamp (a
    backend change).
 3. Typing in a note in a 230-note list: about 12ms of CodeMirror input
    handling per key, measured and not attributed further.
 4. Drag to reorder: no user-owned order exists in the Library's lists.
 5. Not verified: grey-scale text in the composited scrollers on a 1x
    Windows ClearType display.
-6. The `seed-libtext.js` fixture writes `![undefined](…)` (it reads
+6. **Fixed 2026-09-23 (askcite)**: reads `filename` now. Was: the `seed-libtext.js` fixture writes `![undefined](…)` (it reads
    `up.original_name`, which the upload response does not carry).
 
 Gate at the end: `scripts/gate.sh --full` passed (lints, node-check, ruff,

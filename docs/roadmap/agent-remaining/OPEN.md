@@ -139,35 +139,12 @@ being written by running agents stay beside this one.
   before the row is clicked, so this cannot rot silently again. Measured
   against a live app on the branch head: 7 of 7 pass, 0 console errors.
   [documents-phases.md]
-- **The templates gallery offers a description, not a preview of the page.**
-  Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
-  sections, sources, timeline." The plan's words are "offered with a preview",
-  and a sentence about the template is a fair reading of that; a thumbnail of
-  the body is not built and may not be worth it. Left as a row here rather
-  than built, so the next session does not build it twice.
-  [documents-phase4.md]
 - **The document surface's aliases have no lint.** A call site that hands the
   surface to something expecting a DOM element reads as correct and fails at
   runtime (`autoGrow` wrote `style.height` on it and every "/" command in the
   capture box threw). Next step: fail on `autoGrow(`, `mountGutterFor(`,
   `syncDocGutterMetrics(` or `watchDocGutter(` called with an identifier the
   same function received as a surface. [documents-engine.md]
-- **Phase 8c: the skill editor's steps box is built; the board's note card is
-  not, and is not one row.** The steps box landed 2026-09-20 with its own
-  command set (`skillCommands` in editor.js: the form's `{{placeholders}}` and
-  its ticked tools, read off the form so neither goes stale), because the note
-  commands are all wrong in a box whose contract is one instruction per line.
-  Measured, `scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: "/" opens a
-  304x165 menu with two groups and 0 note commands in it.
-  **The board's card is the open half, and adding a `NOTE_SURFACES` row for it
-  would break it**: `wbEditNodeText` (`frontend/whiteboard.js` ~2760) hangs
-  Enter-commits, Escape-abandons, blur-commits and an `event.stopPropagation()`
-  off that textarea's own `keydown`, and all four stop firing once a view is
-  mounted over it. The last one is the guard that keeps Tab and Enter out of
-  the board's branch gestures, so losing it grows a branch from a keystroke
-  meant for the text. The work item is "move the commit keymap and the gesture
-  guard onto the surface, then add the row", for whoever owns whiteboard.js.
-  [documents-phases.md]
 - ~~**The table cell menu is a `kebabMenu` with ten items and no grouping.**~~
   **Built 2026-09-20, as the change to the shared recipe this row said it was.**
   An item may carry `group`, a name, and `kebabMenu` draws a hairline wherever
@@ -778,33 +755,6 @@ being written by running agents stay beside this one.
   list, 312 buttons, 70 rows, 0 mixed, and it finds the `.name-nudge` row
   against the stylesheet before this change. [popup-redesigns.md,
   logs-cards-links.md]
-- **`.segmented-control` is only conformed where it was reported, and the
-  problem is bigger than this row said.** INBOX 192's fix is scoped to
-  `#doc-ai-verb` in `09-editor.css`; the base rule is in
-  `03-dashboard-widgets.css`. **Re-measured 2026-09-21** across all seven
-  tabs, reading the computed track radius of every `.seg` and every
-  `.segmented-control` in the app: there are **five different track radii**,
-  not two. 15.4px on twelve of them (`#doc-ai-verb`, `#doc-view-seg`,
-  `#doc-history-filter`, `#note-picker-sources`, `#wb-prop-align`,
-  `#ocr-zoom`, `#ocr-view`, `#theme-seg`, `#fontsize-seg`, `#font-seg`,
-  `#density-seg`, `#border-style-seg`); 11.2px on the two sub-tab strips
-  (`#notes-subtabs`, `#library-subtabs`); 8.4px on nine toolbar toggles
-  (`#notes-view-toggle`, `#timeline-view-seg`, `#reminder-view-toggle`,
-  `#library-view`, `#library-boards-view`, `#library-media-view`,
-  `#contents-mode`, `#log-view-toggle`, `#graph-layout`); 999px on the two
-  chat pills (`.seg-compact` `#chat-skill`, `#chat-mode-seg`); and 0px on
-  `#doc-sidebar-tabs`.
-  **The recommendation, which the next session should take rather than
-  remake** (standing order 3): three of those five are probably deliberate
-  families and none of them is written down, so the fix is not one rule but
-  one table. Name the three in DESIGN.md (choice control 15.4px, sub-tab
-  strip 11.2px, pill 999px), fold the 8.4px toolbar toggles into the choice
-  control since nothing distinguishes them from it, decide `#doc-sidebar-tabs`
-  on its own (a full-bleed strip has a reason to be square), and add the lint
-  in the same commit so a sixth radius cannot appear. Doing only what this row
-  originally asked, moving `#doc-ai-verb`'s rule into the base file, would
-  conform one of the nine and leave the other eight.
-  [documents-phases.md]
 - **`#doc-ai-verb` and `#graph-layout` still differ in segment radius** (6px
   against 4.2px) because `--radius-inner` resolves differently under the graph
   toolbar. Small, and not chased. [visual-c.md]

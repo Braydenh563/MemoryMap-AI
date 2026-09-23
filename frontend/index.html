@@ -719,10 +719,19 @@
        Asked for directly ("customise the set word goal popup... same design
        style as the rest of the application"). Same shape as the space
        dialogs above. -->
-  <dialog id="doc-template-dialog" class="card space-dialog doc-ai-history-dialog">
+  <dialog id="doc-template-dialog" class="card space-dialog doc-ai-history-dialog doc-template-dialog">
     <h3>New from a template</h3>
     <p class="muted">A starting shape, not a form, every line is yours to change. Today's date is filled in.</p>
-    <ul id="doc-template-list" class="doc-ai-history-list" role="list"></ul>
+    <!-- The list and a picture of the page the pointed-at row makes
+         (`showDocTemplatePreview`, documents.js). The picture is the same
+         text the button would create, rendered, so it cannot describe a
+         template differently from what it is. Decorative for a screen
+         reader, which has each row's own hint, and inert so a task box drawn
+         in it cannot be ticked. -->
+    <div class="doc-template-body">
+      <ul id="doc-template-list" class="doc-ai-history-list" role="list"></ul>
+      <div id="doc-template-preview" class="doc-template-preview" aria-hidden="true" inert></div>
+    </div>
     <div class="row right space-dialog-actions">
       <button type="button" class="ghost" data-close-dialog="doc-template-dialog">Cancel</button>
     </div>
@@ -4730,12 +4739,16 @@
             </div>
           </div>
           <div class="dock-actions">
+            <!-- At a phone's width the primary keeps its icon and hides its
+                 word (the `.toolbar-word` recipe), and the two actions marked
+                 `data-fold-narrow` move into the ⋯ (`foldDockActions`), so
+                 the title, New board, help and the ⋯ share one row. -->
             <button id="wb-boards-new" class="small" type="button"
-              title="Start a new board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New board</button>
+              title="Start a new board" aria-label="New board"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New board</span></button>
             <!-- A map is a board with a `type` (MINDMAP_PLAN.md §4 option B),
                  so this is the same dialog with the Mind map segment already
                  chosen, not a second creation path. -->
-            <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New mind map</span></button>
+            <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map" data-fold-narrow><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New mind map</span></button>
             <!-- MINDMAP_PLAN.md §5 item 17. `POST /whiteboard/boards/import`
                  has existed since Phase 1 and §10.4 recorded it as having no
                  UI at all, so a map written anywhere else could not come in.
@@ -4748,7 +4761,7 @@
             <input id="wb-import-map-file" type="file" accept=".opml,.xml,.mm,.md,.markdown,.txt" class="hidden"
               aria-label="Choose an OPML, FreeMind or Markdown outline to import as a mind map"
               title="Choose an OPML, FreeMind or Markdown outline to import as a mind map">
-            <button id="library-boards-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button id="library-boards-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload" data-fold-narrow><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
               title="Every board and concept map you have made. Pick one to open it, or start a mind map from the button beside New board."

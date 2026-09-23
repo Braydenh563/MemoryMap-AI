@@ -26,7 +26,7 @@ the live view's code fence (15), a "Today" button in the documents dock (14).
 
 ## Still open, in the order to take them
 
-1. **The board's note card, Phase 8c's other half.** In `whiteboard.js`, and
+1. **Built 2026-09-23 (askcite), see HISTORY.** **The board's note card, Phase 8c's other half.** In `whiteboard.js`, and
    **it is not one row in `NOTE_SURFACES`**: `wbEditNodeText` (~2760) hangs
    Enter-commits, Escape-abandons, blur-commits and an
    `event.stopPropagation()` off that textarea's own `keydown`, and all four

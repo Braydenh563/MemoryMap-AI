@@ -13059,101 +13059,189 @@ function citationNumbers(sentences, orderedSources = null) {
   return numberFor;
 }
 
+//: **What a sentence is matched on: its letters and digits, nothing else**
+//: (INBOX 318). The grounded sentence is the answer's markdown source and the
+//: page holds what the renderer made of it, and the two differ in exactly the
+//: characters that carry no words: `**` and `*` vanish, a list's `- ` is
+//: drawn as a bullet, a link keeps its text and loses its target, and
+//: emphasis cuts one sentence into three text nodes. Measured with an answer
+//: shaped the way a model writes (a lead-in, a list with bold labels, a
+//: closing sentence with one word in italics): the grounding named every note
+//: and not one marker was placed, because the old search looked for the raw
+//: sentence inside one text node at a time. Compared on letters and digits
+//: across the whole block, the formatting cannot make a sentence unfindable,
+//: and it cannot make one match in the wrong place either: a sentence of a
+//: dozen words is the same run of letters wherever it is drawn.
+const CITATION_WORD_CHAR = /[\p{L}\p{N}]/u;
+
+function citationKey(sentence) {
+  //: `plainText` first, for the one difference that *is* letters: a link's
+  //: target and a wikilink's brackets are not on the page.
+  const text = plainText(sentence || "");
+  let key = "";
+  for (let i = 0; i < text.length; i += 1) {
+    if (CITATION_WORD_CHAR.test(text[i])) key += text[i].toLowerCase();
+  }
+  return key;
+}
+
+//: The answer's own letters, in order, each with the text node and offset it
+//: sits at. Rebuilt after every marker, because placing one splits a node and
+//: the offsets after the split point move to the new half.
+function citationTextIndex(targets) {
+  let text = "";
+  const at = [];
+  for (const target of targets) {
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT, {
+      //: A marker's own digit is not answer text, and neither is code: the
+      //: backend never grounds a fenced block, so its letters could only
+      //: produce a false match.
+      acceptNode: (node) =>
+        node.parentElement?.closest(".answer-citation, pre, .typing-dots, .typing-label")
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT,
+    });
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      const data = node.data;
+      for (let i = 0; i < data.length; i += 1) {
+        if (!CITATION_WORD_CHAR.test(data[i])) continue;
+        for (const low of data[i].toLowerCase()) {
+          text += low;
+          at.push([node, i]);
+        }
+      }
+    }
+  }
+  return { text, at };
+}
+
+//: Where the marker goes once the sentence's last letter is found: after the
+//: punctuation that closes it, and outside any bold or italic the sentence
+//: ended inside, so the digit is not drawn bold because the last word was.
+const CITATION_CLOSING = /[.!?:;,)\]"'”’]/;
+const CITATION_INLINE_TAGS = new Set(["STRONG", "EM", "B", "I", "A", "CODE", "MARK", "S", "DEL", "SPAN"]);
+function citationInsertionPoint(node, offset, targets) {
+  let end = offset + 1;
+  while (end < node.data.length && CITATION_CLOSING.test(node.data[end])) end += 1;
+  if (end < node.data.length) {
+    const tail = node.splitText(end);
+    return { parent: tail.parentNode, before: tail };
+  }
+  let anchor = node;
+  while (
+    !anchor.nextSibling &&
+    anchor.parentElement &&
+    CITATION_INLINE_TAGS.has(anchor.parentElement.tagName) &&
+    !targets.includes(anchor.parentElement)
+  ) {
+    anchor = anchor.parentElement;
+  }
+  const next = anchor.nextSibling;
+  if (next && next.nodeType === Node.TEXT_NODE) {
+    let run = 0;
+    while (run < next.data.length && CITATION_CLOSING.test(next.data[run])) run += 1;
+    if (run) {
+      const tail = next.splitText(run);
+      return { parent: tail.parentNode, before: tail };
+    }
+  }
+  return { parent: anchor.parentNode, before: anchor.nextSibling };
+}
+
 function addInlineCitations(answerEl, sentences, rawResults, orderedSources = null) {
   const targets = [
     ...(answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : []),
-  ].reverse();
-  if (!targets.length || !sentences || !sentences.length) return;
+  ];
+  if (!targets.length) return;
+  //: **Idempotent.** The Ask tab now calls this after every live paint as
+  //: well as once at the end (INBOX 320), and a paint that happened not to
+  //: rebuild the box would otherwise collect a second set of digits.
+  for (const target of targets) {
+    for (const old of target.querySelectorAll(".answer-citation")) old.remove();
+    target.normalize();
+  }
+  if (!sentences || !sentences.length) return;
   const byId = new Map((rawResults || []).map((entry) => [entry.id, entry]));
   // One number per note, in the order they are first cited, the numbering a
   // reader expects, rather than note ids, which mean nothing to anyone.
   const numberFor = citationNumbers(sentences, orderedSources);
-  // Longest first: when one grounded sentence is a prefix of another, marking
-  // the short one first would leave the long one unmatchable.
-  const wanted = [...sentences]
-    .filter((g) => (g.sentence || "").trim().length > 12)
-    .sort((a, b) => (b.sentence || "").length - (a.sentence || "").length);
-  const placed = new Set();
-  //: One queue over all of them, and one `placed` set, so a sentence gets
-  //: exactly one marker across the whole turn rather than one per block.
-  const queue = [];
-  for (const target of targets) {
-    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) queue.push(walker.currentNode);
+  //: One place per sentence, holding every note it was grounded to: a
+  //: sentence about two notes gets both digits side by side, in number order.
+  const bySentence = new Map();
+  for (const g of sentences) {
+    const key = citationKey(g.sentence);
+    //: A dozen letters is about three words; below that a "sentence" is a
+    //: fragment that could match anywhere, and the backend never grounds one.
+    if (key.length < 12) continue;
+    if (!bySentence.has(key)) bySentence.set(key, []);
+    if (!bySentence.get(key).some((row) => row.note_id === g.note_id)) bySentence.get(key).push(g);
   }
+  //: Longest first, and a claimed stretch is never reused by a different
+  //: sentence: when one grounded sentence is contained in another, the short
+  //: one must find its own occurrence, not the middle of the long one.
+  const claimed = [];
+  const overlaps = (start, end) => claimed.some(([s, e]) => start < e && end > s);
+  const wanted = [...bySentence.entries()].sort((a, b) => b[0].length - a[0].length);
+  for (const [key, rows] of wanted) {
+    const index = citationTextIndex(targets);
+    let start = index.text.indexOf(key);
+    while (start !== -1 && overlaps(start, start + key.length)) {
+      start = index.text.indexOf(key, start + 1);
+    }
+    if (start === -1) continue;
+    claimed.push([start, start + key.length]);
+    const [node, offset] = index.at[start + key.length - 1];
+    const { parent, before } = citationInsertionPoint(node, offset, targets);
+    rows.sort((a, b) => (numberFor.get(a.note_id) || 0) - (numberFor.get(b.note_id) || 0));
+    for (const g of rows) parent.insertBefore(citationMarker(g, byId, numberFor), before);
+  }
+}
 
-  // A queue rather than a plain loop, because placing a marker *splits* the
-  // text node it was found in. The remainder is a new node that the tree
-  // walker never saw, and a paragraph routinely carries several grounded
-  // sentences: measured: two sentences in one <p> produced exactly one
-  // marker before this, because the first placement ended the node's turn.
-  // Pushing the tail back on is what lets the rest of the paragraph be
-  // scanned for the sentences that are still unplaced.
-  while (queue.length) {
-    const node = queue.shift();
-    if (!node.parentNode || node.parentNode.closest?.(".answer-citation")) continue;
-    for (const g of wanted) {
-      const key = `${g.note_id}:${g.sentence}`;
-      if (placed.has(key)) continue;
-      const text = node.textContent;
-      const at = text.indexOf(g.sentence.trim());
-      if (at === -1) continue;
-      const end = at + g.sentence.trim().length;
-      const tail = node.splitText(end);
-      // Both halves go back on. The tail is the rest of the paragraph, and
-      // the head still holds everything *before* this match, which is where
-      // an earlier sentence in the same paragraph lives. Measured: with only
-      // the tail re-queued, a paragraph whose second sentence was the longer
-      // one (so matched first) never got a marker on its first sentence.
-      queue.unshift(tail);
-      queue.unshift(node);
-      const marker = document.createElement("sup");
-      marker.className = "answer-citation";
-      //: Which note this digit stands for, on the element itself. The number
-      //: was the only thing on screen tying a mark to a source, so nothing
-      //: outside this function could check that the mark and the record row
-      //: it points at agree (INBOX 299), and `showCitedPassage` already reads
-      //: exactly this attribute off a source card.
-      marker.dataset.noteId = String(g.note_id);
-      const link = document.createElement("button");
-      link.type = "button";
-      link.className = "answer-citation-link";
-      const entry = byId.get(g.note_id);
-      // A note a tool read mid-turn is not in `rawResults`; the backend
-      // sends its opening words on the entry itself for exactly this case.
-      const name = noteLabel({ content: entry?.content || g.label || "" }, 40);
-      link.textContent = String(numberFor.get(g.note_id));
-      link.title = `Open the note this came from: ${name}`;
-      link.setAttribute("aria-label", `Source ${numberFor.get(g.note_id)}: ${name}`);
-      link.addEventListener("click", (event) => {
-        event.stopPropagation();
-        flashEntry(g.note_id);
-      });
-      //: **Hover shows the passage, not the whole note** (CHAT_PLAN decision
-      //: 2, the last step of `archive/agent-remaining/chat-timeline-skills.md` item
-      //: 1). The span has been on every grounding row since the passage
-      //: scorer landed and nothing on screen read it, so a mark said "note 4"
-      //: where it could say which forty words of note 4. The card is the
-      //: place for it rather than a tooltip: it is already the thing that
-      //: says what this source is, and a tooltip cannot hold a paragraph.
-      const passage =
-        Number.isInteger(g.start) && Number.isInteger(g.end) && g.end > g.start
-          ? (entry?.content || "").slice(g.start, g.end)
-          : "";
-      if (passage) {
-        for (const name of ["mouseenter", "focus"]) {
-          link.addEventListener(name, () => showCitedPassage(g.note_id, passage));
-        }
-        for (const name of ["mouseleave", "blur"]) {
-          link.addEventListener(name, clearCitedPassage);
-        }
-      }
-      marker.appendChild(link);
-      tail.parentNode.insertBefore(marker, tail);
-      placed.add(key);
-      break; // this node is now split; its tail is at the head of the queue
+function citationMarker(g, byId, numberFor) {
+  const marker = document.createElement("sup");
+  marker.className = "answer-citation";
+  //: Which note this digit stands for, on the element itself. The number
+  //: was the only thing on screen tying a mark to a source, so nothing
+  //: outside this function could check that the mark and the record row
+  //: it points at agree (INBOX 299), and `showCitedPassage` already reads
+  //: exactly this attribute off a source card.
+  marker.dataset.noteId = String(g.note_id);
+  const link = document.createElement("button");
+  link.type = "button";
+  link.className = "answer-citation-link";
+  const entry = byId.get(g.note_id);
+  // A note a tool read mid-turn is not in `rawResults`; the backend
+  // sends its opening words on the entry itself for exactly this case.
+  const name = noteLabel({ content: entry?.content || g.label || "" }, 40);
+  link.textContent = String(numberFor.get(g.note_id));
+  link.title = `Open the note this came from: ${name}`;
+  link.setAttribute("aria-label", `Source ${numberFor.get(g.note_id)}: ${name}`);
+  link.addEventListener("click", (event) => {
+    event.stopPropagation();
+    flashEntry(g.note_id);
+  });
+  //: **Hover shows the passage, not the whole note** (CHAT_PLAN decision
+  //: 2, the last step of `archive/agent-remaining/chat-timeline-skills.md` item
+  //: 1). The span has been on every grounding row since the passage
+  //: scorer landed and nothing on screen read it, so a mark said "note 4"
+  //: where it could say which forty words of note 4. The card is the
+  //: place for it rather than a tooltip: it is already the thing that
+  //: says what this source is, and a tooltip cannot hold a paragraph.
+  const passage =
+    Number.isInteger(g.start) && Number.isInteger(g.end) && g.end > g.start
+      ? (entry?.content || "").slice(g.start, g.end)
+      : "";
+  if (passage) {
+    for (const name of ["mouseenter", "focus"]) {
+      link.addEventListener(name, () => showCitedPassage(g.note_id, passage));
+    }
+    for (const name of ["mouseleave", "blur"]) {
+      link.addEventListener(name, clearCitedPassage);
     }
   }
+  marker.appendChild(link);
+  return marker;
 }
 
 //: The passage a citation came from, shown on its own card while the mark is
@@ -13843,6 +13931,7 @@ async function streamChat({
   onHint,
   onStats,
   onGrounding,
+  onGroundingLive,
   onAnswerFinal,
   onRelated,
   onUnsupported,
@@ -14018,6 +14107,10 @@ async function streamChat({
       // ROADMAP.md item 36: which retrieved note backs which sentence of a
       // direct-Q&A answer. Only ever sent for that path (routes_chat.py).
       else if (event.type === "grounding" && onGrounding) onGrounding(event);
+      //: INBOX 320: the rows so far, sent each time a sentence completes, so
+      //: a record can be numbered while the answer is still being written.
+      //: Provisional: the `grounding` event above replaces them at the end.
+      else if (event.type === "grounding_live" && onGroundingLive) onGroundingLive(event);
       //: The finished answer, sent only when the server trimmed a greeting or
       //: a sign-off off it (routes_chat.py, `trim_assistant_padding`). The
       //: stream has already drawn the untrimmed text, so this replaces it once
@@ -14053,7 +14146,11 @@ async function streamChat({
 // work entirely when the text hasn't changed: smooth, and far less main-
 // thread churn, so other animations (the typing dots) don't stutter.
 const LIVE_RENDER_INTERVAL_MS = 66;
-function liveMarkdownRenderer(box) {
+//: `afterPaint`, when given, runs after every paint: a paint rebuilds the box
+//: from raw markdown, so anything written into it afterwards (the Ask tab's
+//: citation markers, placed while the answer streams, INBOX 320) has to be
+//: written again each time or it lasts a fifteenth of a second.
+function liveMarkdownRenderer(box, afterPaint = null) {
   let latest = "";
   let rendered = null;
   let timer = null;
@@ -14065,6 +14162,7 @@ function liveMarkdownRenderer(box) {
     if (latest === rendered) return; // nothing new since last paint
     rendered = latest;
     renderMarkdown(box, latest);
+    afterPaint?.();
   };
 
   const render = (text) => {
@@ -14269,7 +14367,21 @@ async function askQuestion(preset) {
   // The box explained itself instead of answering, so the final markdown
   // pass, the saved turn and the answer actions all sit this one out.
   let hinted = false;
-  const renderLive = liveMarkdownRenderer(answerBox);
+  //: **Numbered while it streams** (INBOX 320, the owner: "the numbers only
+  //: appear after the ai response is finished"). The backend now grounds each
+  //: sentence as it completes and sends the rows so far (`grounding_live`);
+  //: the records column is numbered from them at once, and the markers are
+  //: put back into the prose after every live paint, which rebuilds it. The
+  //: numbering is the same `citationNumbers` over the same source order the
+  //: finished answer uses (`chatSourcesFrom` over this turn's meta), so a
+  //: digit that appears mid-answer is the digit it keeps.
+  let liveSources = null;
+  const placeLiveCitations = () => {
+    if (groundedSentences.length) {
+      addInlineCitations(answerBox, groundedSentences, groundingRawResults, liveSources);
+    }
+  };
+  const renderLive = liveMarkdownRenderer(answerBox, placeLiveCitations);
   askController = new AbortController();
   try {
     // Stream: raw results arrive first, then thinking/answer tokens live.
@@ -14349,6 +14461,15 @@ async function askQuestion(preset) {
       onAnswerFinal: (event) => {
         answerRaw = event.text || answerRaw;
         renderLive(answerRaw);
+      },
+      onGroundingLive: (event) => {
+        groundedSentences = event.sentences || [];
+        liveSources ??= chatSourcesFrom({ meta: answerMeta, toolEvents: [], touched: [] });
+        numberMatchingRecords(
+          $("ai-answer-grounding"),
+          citationNumbers(groundedSentences, liveSources)
+        );
+        placeLiveCitations();
       },
       onGrounding: (event) => {
         //: **Remembered here, drawn once at the end.** This used to draw the
@@ -36823,7 +36944,11 @@ async function loadRecentQuestions() {
   label.textContent = "Ask again:";
   box.appendChild(label);
   for (const question of questions) {
-    const again = chip(question.length > 48 ? question.slice(0, 47) + "…" : question, "", () => {
+    //: The clock is what says "you asked this before" (INBOX 394 a): the chip
+    //: is drawn like the suggestions beside it, so the icon carries the
+    //: difference the fill used to.
+    const short = question.length > 48 ? question.slice(0, 47) + "…" : question;
+    const again = chip(`ph:clock-counter-clockwise ${short}`, "", () => {
       $("question").value = question;
       askQuestion();
     });
@@ -40624,6 +40749,7 @@ const NOTE_SURFACE_IDS = new Set([
   "graph-new-content",
   "draft-text",
   "draft-thoughts",
+  "wb-card-editor",
 ]);
 
 //: Mount the editor on one note box now, fetching the bundle if it is not in
@@ -42309,6 +42435,74 @@ function initDockFolding() {
 }
 
 initDockFolding();
+
+//: **The second fold: a dock's secondary actions, at a phone's width.**
+//: The Boards & maps dock was four rows and 198px at 390, where every other
+//: Library dock is two rows and 114px (pass2.md, Remaining 1). Its title and
+//: its actions need about 480px of a 309px row: New board, New mind map,
+//: refresh, help and the ⋯. The arrange fold above has already emptied the
+//: arrange zone into the ⋯, so what is left is actions, and the grammar says
+//: which of them a narrow row keeps: the one primary, help, and the ⋯ that
+//: holds everything else.
+//:
+//: An action marked `data-fold-narrow` moves into its dock's ⋯ below 600px
+//: and back out above it, by the rule the arrange fold is held to: moved, not
+//: cloned, and never hidden, so it keeps its id, its handler and its title.
+//: In the menu it is a menu row (`.doc-dock-menu-item`), and an icon-only
+//: control gets its accessible name written beside its icon, since a row of
+//: bare icons in a list is a row of guesses.
+const DOCK_ACTIONS_FOLD_BELOW = "(max-width: 599.98px)";
+
+function foldDockActions(fold) {
+  for (const dock of document.querySelectorAll(".dock[data-dock-name]")) {
+    const menu = dock.querySelector(":scope > .dock-actions > .dock-more > .dock-menu-list");
+    if (!menu) continue;
+    if (fold) {
+      const moving = [...dock.querySelectorAll(":scope > .dock-actions > [data-fold-narrow]")];
+      let after = null;
+      for (const control of moving) {
+        const slot = document.createElement("span");
+        slot.className = "dock-action-slot";
+        slot.hidden = true;
+        slot.dataset.for = control.id;
+        control.replaceWith(slot);
+        control.dataset.rowClass = control.className;
+        control.className = "doc-dock-menu-item dock-folded-action";
+        if (!control.querySelector(".toolbar-word, .dock-folded-word")) {
+          const word = document.createElement("span");
+          word.className = "dock-folded-word";
+          word.textContent = control.getAttribute("aria-label") || control.title || "";
+          control.append(" ", word);
+        }
+        if (after) after.after(control);
+        else menu.prepend(control);
+        after = control;
+      }
+    } else {
+      for (const control of menu.querySelectorAll(":scope > .dock-folded-action")) {
+        const slot = dock.querySelector(`:scope > .dock-actions > .dock-action-slot[data-for="${control.id}"]`);
+        if (!slot) continue;
+        control.className = control.dataset.rowClass || "";
+        delete control.dataset.rowClass;
+        control.querySelector(":scope > .dock-folded-word")?.remove();
+        //: The space `append(" ", word)` put before the word, left behind as
+        //: a trailing text node that would widen the icon button by a glyph.
+        if (control.lastChild?.nodeType === Node.TEXT_NODE && !control.lastChild.data.trim()) {
+          control.lastChild.remove();
+        }
+        slot.replaceWith(control);
+      }
+    }
+  }
+}
+
+function initDockActionFolding() {
+  const query = window.matchMedia(DOCK_ACTIONS_FOLD_BELOW);
+  foldDockActions(query.matches);
+  query.addEventListener("change", (event) => foldDockActions(event.matches));
+}
+
+initDockActionFolding();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
 // Used to reopen on whichever tab was last active, with only the very

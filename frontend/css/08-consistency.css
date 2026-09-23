@@ -965,7 +965,7 @@ summary > .ph-lead,
      they are being matched to. */
   padding: 0.1rem 0.6rem;
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--chip-bg);
   color: var(--muted);
   font-size: var(--text-xs);
@@ -1032,7 +1032,7 @@ summary > .ph-lead,
 .library-image-usage-chip,
 .library-image-tile .chip:not(.chip.tag) {
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-4);
   background: var(--chip-bg);
   color: var(--muted);
@@ -2711,7 +2711,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   --category-dot: var(--accent);
   background: var(--chip-bg);
   border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   padding: 0 var(--space-3) 0 var(--space-2);
   margin-inline: 0;
   gap: var(--space-2);
@@ -2911,7 +2911,14 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    2. The thread's mark was an icon in a tinted accent square (the same
       metric-card tell as the stat tiles). In the flat looks it is the icon
       alone, in muted ink. */
-:is(#chat-suggest, #suggested-questions) > .chip {
+/* 3. "Ask again" and "Try asking" sit on the same Ask screen and were two
+      chips: the history ones the filled accent-soft generic chip, the
+      suggestions this hairline (INBOX 394 a). One style for both; a past
+      question is told apart by its clock icon (`loadRecentQuestions`). */
+:is(#chat-suggest, #suggested-questions, #recent-questions) > .chip {
+  /* A question you press is an action, so it has the button's corner rather
+     than a label's (DESIGN.md, "Pills are rare"). */
+  border-radius: var(--radius-md);
   background: transparent;
   border: 1px solid var(--border);
   color: var(--ink);
@@ -2920,7 +2927,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   padding: var(--space-1) var(--space-4);
 }
 
-:is(#chat-suggest, #suggested-questions) > .chip:hover {
+:is(#chat-suggest, #suggested-questions, #recent-questions) > .chip:hover {
   background: var(--chip-bg);
   filter: none;
 }
@@ -3751,12 +3758,14 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 /* 17. The Boards & maps dock at a phone's width was four rows (198px): the
        title, then New board and New mind map, then refresh, help and the
-       menu, then search. "New mind map" keeps its icon and hides its word
-       there, the `.toolbar-word` recipe (DESIGN.md: hidden, not dropped, the
-       title still names it for a pointer), and the actions fit the title's
-       row. */
+       menu, then search. New mind map and refresh fold into the ⋯ there
+       (`foldDockActions`, app.js), and New board keeps its icon and hides
+       its word, the `.toolbar-word` recipe (DESIGN.md: hidden, not dropped;
+       its aria-label and title still name it), so the title, New board, help
+       and the ⋯ share the title's row: 114px, the other Library docks'
+       height. */
 @media (max-width: 599.98px) {
-  #wb-boards-new-map .toolbar-word {
+  #wb-boards-new .toolbar-word {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -3769,12 +3778,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     border: 0;
   }
 
-  #wb-boards-new-map {
+  #wb-boards-new {
     width: var(--target-min);
     padding-inline: 0;
   }
 
-  #wb-boards-new-map > .ph-lead {
+  #wb-boards-new > .ph-lead {
     margin-inline-end: 0;
   }
 }

@@ -270,6 +270,30 @@ def test_creating_a_board_makes_a_named_note_and_lists_it(board_client):
     assert entry["sketch_count"] == 1
 
 
+def test_a_board_says_when_it_last_changed(board_client, session):
+    """A board card had a count and no date, where every other kind of card
+    in the Library has one (pass2.md, Remaining 2): the list sent no time. It
+    is the later of the board note's own edit and the last thing drawn on it,
+    because drawing on a board never touches its note."""
+    from datetime import datetime, timedelta
+
+    from memorymap.core.database import Entry
+
+    created = board_client.post("/whiteboard/boards", json={"name": "Trip plan"}).json()
+    entry = session.get(Entry, created["id"])
+    entry.updated_at = datetime(2020, 1, 1)
+    session.commit()
+    listed = next(b for b in board_client.get("/whiteboard/boards").json() if b["id"] == created["id"])
+    assert listed["updated_at"].startswith("2020-01-01")
+
+    board_client.post("/whiteboard/sketches", json={"data": "M0 0 L1 1", "board_id": created["id"]})
+    listed = next(b for b in board_client.get("/whiteboard/boards").json() if b["id"] == created["id"])
+    drawn = datetime.fromisoformat(listed["updated_at"].replace("Z", ""))
+    assert drawn > datetime(2020, 1, 1) + timedelta(days=365)
+    default = next(b for b in board_client.get("/whiteboard/boards").json() if b["id"] is None)
+    assert "updated_at" in default
+
+
 def test_a_board_survives_being_emptied_back_out(board_client, session):
     """The other half of the live report: not just a fresh board, but one
     that *had* content and was cleared back to zero (every card/sketch/object

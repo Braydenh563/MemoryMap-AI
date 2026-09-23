@@ -3108,15 +3108,42 @@ function wbEditNodeText(nodeId) {
 
   const box = document.createElement("textarea");
   box.className = "wb-card-editor";
+  //: **The app's note engine, not a bare textarea** (DOCUMENTS_PLAN Phase
+  //: 8c, the board half). The id is the `NOTE_SURFACES` row, so the focus
+  //: below mounts the same editor every other note box has: Live rendering,
+  //: the "/" menu, undo, Ctrl+B. One card is edited at a time, which is what
+  //: lets the id be fixed.
+  box.id = "wb-card-editor";
   box.value = original;
+  //: The card's own contract, handed to the engine as keys because once the
+  //: view is mounted the textarea never sees a keystroke again: the four
+  //: listeners this used to hang off it (Enter, Escape, blur, and the
+  //: stopPropagation guard) all went quiet the moment a view sat over it,
+  //: which is why this row could not simply be added to the table.
+  box.noteSurfaceKeys = [
+    { key: "Enter", run: () => { finish(true); return true; } },
+    {
+      key: "Shift-Enter",
+      run: (view) => {
+        view.dispatch(view.state.replaceSelection("\n"), { scrollIntoView: true });
+        return true;
+      },
+    },
+    { key: "Escape", run: () => { finish(false); return true; } },
+  ];
   content.replaceChildren(box);
   box.focus();
   box.select();
 
+  //: Listeners on the card's content element rather than on the textarea,
+  //: so they hold whichever of the two has the focus, and all of them go
+  //: with the edit (`signal`), since the content element outlives it.
+  const listening = new AbortController();
   let settled = false;
   const finish = async (save) => {
     if (settled) return;
     settled = true;
+    listening.abort();
     const text = box.value.trim();
     const keep = save && text ? text : original;
     if (save && text && text !== original) {
@@ -3146,17 +3173,41 @@ function wbEditNodeText(nodeId) {
   // Enter commits, Shift+Enter is a real newline, the convention for a
   // single-idea field. Escape abandons. Blur commits, because clicking away
   // to the next card is the most common way to finish one.
+  //
+  // This listener is the textarea's half, for the moment before the engine
+  // has mounted (the bundle can take a beat on a first card) and for a
+  // session where it cannot load; `noteSurfaceKeys` above is the view's half.
   box.addEventListener("keydown", (event) => {
-    event.stopPropagation(); // Tab/Enter here are text, not branch gestures
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       finish(true);
     } else if (event.key === "Escape") {
       event.preventDefault();
       finish(false);
+    } else if (event.key === "Tab") {
+      //: A tab in the text, as the engine's Tab indents, rather than the
+      //: browser walking the focus out of the card and committing it.
+      event.preventDefault();
+      box.setRangeText("\t", box.selectionStart, box.selectionEnd, "end");
     }
+  }, { signal: listening.signal });
+  //: **The guard: a key typed in the card is text, never a board gesture**
+  //: (Tab and Enter make branches). On the content element, so it holds for
+  //: the view as well as the textarea: a key's bubble passes through here on
+  //: its way to the board's document-level handlers either way.
+  content.addEventListener("keydown", (event) => event.stopPropagation(), {
+    signal: listening.signal,
   });
-  box.addEventListener("blur", () => finish(true));
+  //: Blur commits, judged a tick later and against the content element:
+  //: mounting the engine moves the textarea into its wrapper, which blurs it
+  //: for a moment before the view takes the focus, and that is not the
+  //: person clicking away.
+  content.addEventListener("focusout", (event) => {
+    if (content.contains(event.relatedTarget)) return;
+    setTimeout(() => {
+      if (!content.contains(document.activeElement)) finish(true);
+    }, 0);
+  }, { signal: listening.signal });
 }
 
 //: Tab: a new child of the selected card, at "the next open radial slot":
@@ -18589,7 +18640,23 @@ async function renderLibraryBoardsGallery() {
     // surface that says it, `mapCountLabel` in app.js. It used to be nine
     // lines here and four in the dashboard's own widget, which is how the two
     // came to disagree about what to call a map's objects.
-    meta.textContent = mapCountLabel(board);
+    const count = document.createElement("span");
+    count.textContent = mapCountLabel(board);
+    meta.appendChild(count);
+    //: **When it last changed**, which every other Library card says and this
+    //: one did not (pass2.md, Remaining 2: `/whiteboard/boards` sent no time).
+    //: Drawn exactly as the Library's own card foot draws it
+    //: (`.library-card-when` in library.js: relative, the full time on hover),
+    //: so a board and a document side by side in the Library read the same
+    //: way. `updated_at` is the later of the note's edit and the last thing
+    //: drawn on the board (`list_boards`).
+    if (board.updated_at) {
+      const when = document.createElement("span");
+      when.className = "library-card-when";
+      when.textContent = relativeTime(board.updated_at);
+      when.title = `Changed ${(parseServerTime(board.updated_at) || new Date(board.updated_at)).toLocaleString()}`;
+      meta.appendChild(when);
+    }
 
     // **A thumbnail of the board itself**, rather than the same icon on every
     // card. Asked for directly: the Boards & maps sub-tab is "boring and

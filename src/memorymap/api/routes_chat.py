@@ -43,7 +43,11 @@ from memorymap.ai import (
     vision_ocr,
 )
 from memorymap.ai.answer_trim import trim_assistant_padding
-from memorymap.ai.grounding import ground_answer_sentences, support as grounding_support
+from memorymap.ai.grounding import (
+    SentenceGrounder,
+    ground_answer_sentences,
+    support as grounding_support,
+)
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, docview
@@ -1641,6 +1645,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
 
     events: Iterator[dict] = _plain_events(req, prepared, ollama_running)
+    agentic = False
     # Small talk never goes near the agent: "hey" is not a request to do
     # anything, and handing it a toolbox invites it to invent an errand.
     if ollama_running and req.use_tools and intent.needs_retrieval(prepared["intent"]):
@@ -1738,6 +1743,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                 yield event(first)
         else:
             events = chain([first], agent_events)
+            agentic = True
     # ROADMAP.md item 36's frontend half: the non-streaming /chat already
     # grounds its answer, but the live Ask box only ever calls this
     # streaming route. Accumulated here (not computed per-delta: the
@@ -1778,14 +1784,36 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     # must not break a paragraph in half.
     paragraph_breaks = {"thinking", "tool", "step", "plan", "result"}
     in_prose = False
+    conversational = not intent.needs_retrieval(prepared["intent"])
+    #: **Grounding as the answer streams** (INBOX 320). The Ask tab numbers
+    #: its Matching records from the answer's citations, and those used to
+    #: arrive in one event after the last token, so the column sat unnumbered
+    #: for the whole answer. Each completed sentence is grounded as it lands
+    #: and the rows so far go out as `grounding_live`, which the client treats
+    #: as provisional: the `grounding` event below is still computed over the
+    #: whole, trimmed answer and is what the saved turn and the support line
+    #: read. Plain answers only: an agent turn's candidates grow with every
+    #: note a tool reads, so a live row there could name a set the final pass
+    #: would not.
+    live_grounder = (
+        SentenceGrounder(prepared["notes"])
+        if not agentic and not conversational and prepared["notes"]
+        else None
+    )
     try:
         for payload in events:
             kind = payload.get("type")
+            live_rows: list[dict] = []
             if kind == "answer":
                 if answer_text and not in_prose:
                     answer_text += "\n\n"
-                answer_text += payload.get("delta") or ""
+                delta = payload.get("delta") or ""
+                answer_text += delta
                 in_prose = True
+                #: Only when this delta could have ended a sentence: a split of
+                #: the whole answer per token is wasted work on every other one.
+                if live_grounder is not None and any(ch in delta for ch in ".!?\n"):
+                    live_rows = live_grounder.feed(answer_text)
             elif kind in paragraph_breaks:
                 in_prose = False
                 if kind == "tool":
@@ -1793,6 +1821,8 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                         if item.get("kind") == "note" and isinstance(item.get("id"), int):
                             touched_note_ids.append(item["id"])
             yield event(payload)
+            if live_rows:
+                yield event({"type": "grounding_live", "sentences": list(live_grounder.rows)})
     except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
         # for a failure that shows up partway through rather than before
         # the first event (a later skill step, say). Same fix: say what
@@ -1820,7 +1850,6 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         #: a filter on every delta: a stream that edits what it already said,
         #: token by token, flickers.
         yield event({"type": "answer_final", "text": answer_text})
-    conversational = not intent.needs_retrieval(prepared["intent"])
     candidates = _grounding_candidates(req.session, prepared["notes"], touched_note_ids)
     #: Kept past the branch below so the saved turn carries the same rows the
     #: client was just sent (INBOX 241). A conversational turn, or one nothing

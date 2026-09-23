@@ -2492,3 +2492,152 @@ def test_an_icon_picker_keeps_its_name_and_hides_its_word_by_clipping() -> None:
             "an icon picker needs an aria-label (its name) and a title (its hover text)"
         )
 
+
+#: **The segmented-control radius table** (DESIGN.md, "Segmented controls";
+#: OPEN.md's App wide row). Measured 2026-09-21 and again 2026-09-23: five
+#: track radii in the app and none of them written down, so each new toggle
+#: picked one. The table names them, and this holds every rule that rounds a
+#: track to one of its rows, so a sixth cannot appear by a new rule reaching
+#: for whatever token was nearest. The value maps to the one context it is
+#: allowed in (None: anywhere).
+SEG_TRACK_RADII = {
+    "var(--radius-choice)": None,  # a choice control
+    "var(--radius-strip)": None,  # a sub-tab strip
+    "var(--radius-pill)": ".chat-dock-controls",  # the chat dock, a row of pills
+    "var(--radius-md)": ".dock",  # in a bar the control takes the bar's corner
+    "0": ".doc-sidebar-tabs",  # a full-bleed strip
+}
+
+
+def _seg_track_names() -> set[str]:
+    names = {
+        ".seg",
+        ".seg-compact",
+        ".segmented-control",
+        ".notes-subtabs",
+        ".library-subtabs",
+        ".doc-sidebar-tabs",
+        ".ocr-rail-switch",
+    }
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for tag in re.findall(r"<[a-z]+\s[^>]*>", page):
+        classes = re.search(r'class="([^"]*)"', tag)
+        ident = re.search(r'\sid="([^"]+)"', tag)
+        if (
+            classes
+            and ident
+            and re.search(r"(?<![\w-])(seg|segmented-control)(?![\w-])", classes.group(1))
+        ):
+            names.add("#" + ident.group(1))
+    return names
+
+
+def test_a_segmented_track_is_rounded_by_the_table() -> None:
+    names = _seg_track_names()
+    offenders = []
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            radius = re.search(r"(?<![\w-])border-radius\s*:\s*([^;]+)", body)
+            if not radius or selector.startswith("@"):
+                continue
+            value = " ".join(radius.group(1).replace("!important", "").split())
+            for part in selector.split(","):
+                part = " ".join(part.split())
+                #: The last compound is the element the rule rounds: `.seg
+                #: button` rounds a segment, which is not what this table is
+                #: about, and `.dock .seg` rounds a track.
+                last = re.split(r"\s*[\s>+~]\s*", part)[-1]
+                if not set(re.findall(r"[.#][\w-]+", last)) & names:
+                    continue
+                if value not in SEG_TRACK_RADII:
+                    offenders.append(f"{path.name}: {part} -> {value}")
+                    continue
+                scope = SEG_TRACK_RADII[value]
+                if scope and scope not in part:
+                    offenders.append(f"{path.name}: {part} -> {value} (only under {scope})")
+    assert not offenders, (
+        "a segmented track rounded off the table (DESIGN.md, 'Segmented controls'):\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+#: **Where a control may still be a capsule** (DESIGN.md, "Pills are rare, and
+#: never dashed"; INBOX 394 h). Every other rule that rounds a control to
+#: `--radius-pill` fails `test_a_control_is_a_pill_only_where_named`. The key
+#: is the selector as it is written, the value is why it earns the shape.
+PILL_CONTROLS = {
+    ".icon-btn": "a round icon button is a circle, not a pill",
+    ".lightbox-close": "a round button over a photo",
+    ".lightbox-nav": "a round button over a photo",
+    ".chat-jump-latest": "floats over the thread, the floating-action shape",
+    ".dock-fab": "the floating action button",
+    ".chat-dock-controls select": "the chat composer's row is pills (the radius table)",
+    ".chat-dock-controls>.chat-tool-group>button": "the chat composer's row is pills",
+    ".chat-dock-controls .chat-dock-more>button": "the chat composer's row is pills",
+    ".chat-dock-controls .seg": "the chat composer's row is pills",
+    ".chat-dock-controls .seg button": "the chat composer's row is pills",
+    ".chat-context-pill": "the context meter in the chat composer's row",
+    "#notif-btn.has-unread::after": "an unread dot",
+    ".notif-unread-chip": "a count badge",
+    ".selection-bar button": "a floating bar over a canvas",
+    ".wb-context button": "the board's floating context bar",
+    ".wb-map-strip>button.icon-only": "a round icon button in the map's floating strip",
+    '.wb-map-node[data-shape="pill"]': "a node shape the person picked",
+    "#entry-list .link-connection>.menu-wrap>button": "the round kebab inside a connection",
+}
+
+_PILL_CONTROL = re.compile(
+    r"(?<![\w-])(button|summary|select)(?![\w-])"
+    r"|chip|pill|btn|toggle|\.seg(?![\w-])|-close|-nav\b|jump|fab"
+)
+
+
+def test_a_control_is_a_pill_only_where_named() -> None:
+    offenders = []
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            radius = re.search(r"(?<![\w-])border-radius\s*:\s*([^;]+)", body)
+            if not radius or not re.search(r"radius-pill|\b9{3,}px", radius.group(1)):
+                continue
+            for part in selector.split(","):
+                part = " ".join(part.split())
+                last = re.split(r"\s*[\s>+~]\s*", part)[-1]
+                if not _PILL_CONTROL.search(last):
+                    continue
+                if re.sub(r"\s*>\s*", ">", part) not in PILL_CONTROLS:
+                    offenders.append(f"{path.name}: {part}")
+    assert not offenders, (
+        "a control drawn as a capsule outside PILL_CONTROLS (DESIGN.md, 'Pills are "
+        "rare'): use --radius-md for a button or a navigation row, --radius-sm for a "
+        "label, or add it with its reason:\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_no_control_marks_itself_with_a_dashed_edge() -> None:
+    """A dashed edge is an empty slot; the dashboard's skill pills wore one to
+    say "this runs something", which read as a drop zone (INBOX 394 h)."""
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    for selector, body in _rules(css):
+        if ".quick-link" in selector:
+            assert "dashed" not in body, f"{selector} is dashed again"
+
+
+def test_a_template_preview_is_the_page_the_row_would_make() -> None:
+    """DESIGN.md's recipe for a dialog of choices that each make something:
+    the preview is drawn by the function that creates the thing, so it cannot
+    describe a template differently from what it is, and it is inert and
+    hidden from a screen reader, which has each row's own hint."""
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    body = _function_body(docs, "showDocTemplatePreview")
+    assert "docTemplateFill(template)" in body and "renderMarkdown(" in body
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    pane = re.search(r'<div id="doc-template-preview"[^>]*>', page)
+    assert pane and 'aria-hidden="true"' in pane.group(0) and "inert" in pane.group(0)
+
+
+def test_the_table_s_two_named_radii_are_tokens() -> None:
+    tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
+    assert "--radius-choice:" in tokens and "--radius-strip:" in tokens
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "--radius-choice" in design and "--radius-strip" in design
+

@@ -88,6 +88,104 @@ slow with many strokes). The render and open gates of 13a-open read 227.1ms
 and 1,265ms in the same run at load 8, against 149.1 and 965.6 when they
 were set on a quiet machine; not re-measured quiet. **Not verified:** the
 owner's own machine, and a real trackpad pinch.
+### From OPEN.md, 2026-09-23 (askcite agent): Phase 8c, the board's note card
+
+- **Phase 8c: the skill editor's steps box is built; the board's note card is
+  not, and is not one row.** The steps box landed 2026-09-20 with its own
+  command set (`skillCommands` in editor.js: the form's `{{placeholders}}` and
+  its ticked tools, read off the form so neither goes stale), because the note
+  commands are all wrong in a box whose contract is one instruction per line.
+  Measured, `scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: "/" opens a
+  304x165 menu with two groups and 0 note commands in it.
+  **The board's card is the open half, and adding a `NOTE_SURFACES` row for it
+  would break it**: `wbEditNodeText` (`frontend/whiteboard.js` ~2760) hangs
+  Enter-commits, Escape-abandons, blur-commits and an `event.stopPropagation()`
+  off that textarea's own `keydown`, and all four stop firing once a view is
+  mounted over it. The last one is the guard that keeps Tab and Enter out of
+  the board's branch gestures, so losing it grows a branch from a keystroke
+  meant for the text. The work item is "move the commit keymap and the gesture
+  guard onto the surface, then add the row", for whoever owns whiteboard.js.
+  [documents-phases.md]
+
+  **Built 2026-09-23, in the order the row asked.** The contract moved first:
+  Enter, Shift+Enter and Escape are `host.noteSurfaceKeys`, which the note
+  engine now runs ahead of its own chords (`noteSurfaceExtensions`), and the
+  stopPropagation guard and blur-commit are listeners on the card's content
+  element, so they hold for the textarea and the mounted view alike (blur
+  judged a tick later, because mounting moves the textarea and blurs it).
+  Then the row: `"wb-card-editor"` in `NOTE_SURFACES` and in app.js's
+  `NOTE_SURFACE_IDS`. The textarea's own fallback also stops Tab walking the
+  focus out of the card, which was committing the placeholder. Measured with
+  `scratchpad/ui-sweeps/wbcardeditor.js`: before, a bare textarea and 3
+  findings (Enter after a Tab left the editor open and saved "New branch");
+  after, the engine mounted, 0 findings (Enter saves both lines, Tab makes no
+  branch, Escape discards, a click away saves, the editor inside its card).
+  `test_the_board_card_keeps_its_contract_on_the_engine` holds the shape.
+
+### From OPEN.md, 2026-09-23 (askcite agent): the templates gallery's preview
+
+- **The templates gallery offers a description, not a preview of the page.**
+  Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
+  sections, sources, timeline." The plan's words are "offered with a preview",
+  and a sentence about the template is a fair reading of that; a thumbnail of
+  the body is not built and may not be worth it. Left as a row here rather
+  than built, so the next session does not build it twice.
+  [documents-phase4.md]
+
+  **Built 2026-09-23.** The dialog is two columns at 44rem and over: the
+  rows, and a preview of the page the pointed-at row would make, drawn by
+  `showDocTemplatePreview` through the same `docTemplateFill` the button
+  uses and `renderMarkdown`, inert and `aria-hidden`, clipped with a fade.
+  Below 44rem it is left out and the rows keep their hints. DESIGN.md has the
+  recipe row, `test_a_template_preview_is_the_page_the_row_would_make` holds
+  it. `scratchpad/ui-sweeps/doctplpreview.js`: dialog 480 to 736px at 1440,
+  preview 401px, 7 of 7 rows show their own page on hover, none at 390, no
+  sideways scroll; light and dark.
+
+### From OPEN.md, 2026-09-23 (askcite agent): the segmented-control radius table
+
+- **`.segmented-control` is only conformed where it was reported, and the
+  problem is bigger than this row said.** INBOX 192's fix is scoped to
+  `#doc-ai-verb` in `09-editor.css`; the base rule is in
+  `03-dashboard-widgets.css`. **Re-measured 2026-09-21** across all seven
+  tabs, reading the computed track radius of every `.seg` and every
+  `.segmented-control` in the app: there are **five different track radii**,
+  not two. 15.4px on twelve of them (`#doc-ai-verb`, `#doc-view-seg`,
+  `#doc-history-filter`, `#note-picker-sources`, `#wb-prop-align`,
+  `#ocr-zoom`, `#ocr-view`, `#theme-seg`, `#fontsize-seg`, `#font-seg`,
+  `#density-seg`, `#border-style-seg`); 11.2px on the two sub-tab strips
+  (`#notes-subtabs`, `#library-subtabs`); 8.4px on nine toolbar toggles
+  (`#notes-view-toggle`, `#timeline-view-seg`, `#reminder-view-toggle`,
+  `#library-view`, `#library-boards-view`, `#library-media-view`,
+  `#contents-mode`, `#log-view-toggle`, `#graph-layout`); 999px on the two
+  chat pills (`.seg-compact` `#chat-skill`, `#chat-mode-seg`); and 0px on
+  `#doc-sidebar-tabs`.
+  **The recommendation, which the next session should take rather than
+  remake** (standing order 3): three of those five are probably deliberate
+  families and none of them is written down, so the fix is not one rule but
+  one table. Name the three in DESIGN.md (choice control 15.4px, sub-tab
+  strip 11.2px, pill 999px), fold the 8.4px toolbar toggles into the choice
+  control since nothing distinguishes them from it, decide `#doc-sidebar-tabs`
+  on its own (a full-bleed strip has a reason to be square), and add the lint
+  in the same commit so a sixth radius cannot appear. Doing only what this row
+  originally asked, moving `#doc-ai-verb`'s rule into the base file, would
+  conform one of the nine and leave the other eight.
+  [documents-phases.md]
+
+  **Built 2026-09-23.** `--radius-choice` and `--radius-strip` in
+  00-tokens-shell.css, the table in DESIGN.md ("Segmented controls"), and
+  `test_a_segmented_track_is_rounded_by_the_table` in
+  `tests/test_ui_recipes.py`, which fails any rule that rounds a track off
+  it. One part of the recommendation was not taken, for a measured reason:
+  the toolbar toggles were *not* folded into the choice row, because every
+  one of them stands in a `.dock` whose buttons are `--radius-md`, and the
+  one-corner-per-row rule in 08-consistency.css exists to stop exactly a
+  15.4px well beside 8.4px buttons; the table names that row instead. The
+  sweep found a sixth track the row had not listed, the OCR rail's
+  `#ocr-rail-switch`, on the bar corner in no bar; it is on the strip row
+  now. `scratchpad/ui-sweeps/segradius.js`: 12 off-table before (against the
+  table as first drafted), 0 after; 28 tracks in five named rows (choice 11,
+  bar 10, strip 4, pill 2, full-bleed 1).
 
 ### From DOCUMENTS_PLAN.md: code documents as a code editor, part two (pairs, Enter, Format, quick fixes)
 
@@ -33760,6 +33858,54 @@ measured, so nobody rebuilds them.
     because a dragged branch's lines were drawn before their other end had
     moved, not because script writes them (77 of 81 frames up to 12px
     behind, now 0, `mapedgelag.js`). Off-screen items are culled as well.
+320. **The owner, 2026-09-21, verbatim:** "the numbers only appear after the
+    ai response is finished" (in the Ask tab's Matching records column). Open,
+    and it is closer to a design question than a bug: the numbers are the
+    answer's own citation markers, so a record can only be numbered once the
+    sentence citing it exists. `numberMatchingRecords` runs from the grounding
+    pass, which runs when the answer is complete. Two honest options: number
+    each record the moment the first marker naming it is placed, which needs
+    grounding to run per sentence as it streams rather than once at the end,
+    or say in the column that the numbers arrive with the finished answer.
+    Recommendation: the first, and it pairs with INBOX 318 (not every marker
+    appears), because both live in `ground_answer_sentences` and both want it
+    incremental. Measure `askgrounding.js` before and after.
+
+    **Fixed 2026-09-23 (the askcite pass), the first option.**
+    `grounding.SentenceGrounder` grounds each sentence once another has begun
+    after it, and `/chat/stream` sends the rows so far as `grounding_live`
+    (plain answers only: an agent turn's candidates grow with each tool read);
+    the Ask tab numbers the column from them and re-places the markers after
+    every live paint. The final `grounding` event is unchanged and still
+    authoritative. Measured with `askgrounding.js` against the fake at 30 ms a
+    word: first record number 1201 ms (the moment the answer finished) before,
+    1435 ms against the answer finishing at 1688 ms after; a real model's gap
+    is the seconds a sentence takes.
+
+318. **Fixed 2026-09-23 (the askcite pass).** Measured first: the markers
+    were attributed and then dropped by the renderer, not declined. With the
+    fake answering the way a model formats (`FAKE_STYLE=markdown`: a lead-in
+    with a colon, a list with bold labels, a word in italics), grounding
+    returned 2 rows for 2 notes and 0 markers were placed. Two causes: the
+    backend split the lead-in and the first list item into one "sentence"
+    (a colon and a `- ` are not a sentence boundary), and the client searched
+    for the raw markdown inside one text node, which a bold label or an
+    italic word splits. `split_sentences` now works block by block with list,
+    heading and quote markers dropped, and `addInlineCitations` matches on
+    letters and digits across the block. After: 3 rows, 3 notes, 3 markers.
+    The owner's report:
+    **The owner, 2026-09-21, verbatim, with a screenshot of an Ask answer:**
+    "not all inline reference number links show, only one showed in the
+    response". The answer carries one superscript marker against a paragraph
+    that draws on several records, and the Grounded in row below it lists
+    three notes (1, 4 and 10) while the column holds five. So the grounding
+    found more than the answer shows. Open, and worth measuring before
+    theorising: `ground_answer_sentences` marks a sentence only when it can
+    attribute it (`MIN_SENTENCE_WORDS`, the distinct-sentence rule in
+    `grounding.support`), so the first question is whether the missing markers
+    are sentences it declined to attribute or markers it attributed and the
+    renderer dropped. `scratchpad/ui-sweeps/askgrounding.js` against
+    `scratchpad/fake_answer_server.py` is the probe that already counts them.
 
 272. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also make sure
     all features and alternatives are easily knoticable by and offered for the

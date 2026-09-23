@@ -601,12 +601,10 @@
   }
 }
 
-@media (hover: hover) {
-  .library-chip:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-}
+/* No hover lift on a filter or navigation chip: its hover is the tone change
+   in 00-tokens-shell.css. A row of chips that each rise 2px with a shadow was
+   the other half of the "pills" tell (INBOX 394 h), and the cards above had
+   already given up the lift for the reason their own comment gives. */
 
 /* ======================= SKILLS TAB ======================= */
 .skills-grid {
@@ -1903,7 +1901,7 @@ body.has-agent-monitor #tab-library .library-view-section {
   margin: 0 0 var(--space-4);
   background: var(--card);
   backdrop-filter: blur(16px);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-strip);
   padding: var(--space-1);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
@@ -2235,7 +2233,7 @@ body.scroll-top-visible .skills-split > main {
 .trace-chip {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   white-space: nowrap;
   overflow: hidden;
@@ -7454,7 +7452,10 @@ button.connection-row {
   gap: var(--space-1);
   padding: var(--space-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  /* A tab strip, so the radius table's strip row (DESIGN.md, "Segmented
+     controls"): it was the one track in the app on the bar corner while
+     standing in no bar. */
+  border-radius: var(--radius-strip);
   background: var(--inner);
 }
 
@@ -10762,7 +10763,7 @@ input[type="file"] {
   text-overflow: ellipsis;
   padding: 0.1rem var(--space-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1.5;

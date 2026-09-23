@@ -217,7 +217,7 @@
   display: inline-flex;
   gap: 0.15rem;
   padding: 0.25rem;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-choice);
   background: var(--chip-bg);
   margin-bottom: 0.5rem;
   flex-wrap: wrap;
@@ -1446,7 +1446,7 @@ header#top-bar select,
   height: var(--quick-h);
   padding: 0 var(--space-5);
   font-size: var(--text-md);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
 }
 
 /* A pill is one line by definition, a declared height and a second line of
@@ -1481,13 +1481,10 @@ header#top-bar select,
   white-space: nowrap;
 }
 
-/* A skill costs a model round-trip, so it is marked rather than merely listed
-   - the dotted edge is the same "this runs something" cue the chat's ⚡ group
-   uses. */
-.quick-link-skill {
-  border-style: dashed;
-  border-color: var(--accent);
-}
+/* A skill costs a model round-trip, so it is marked rather than merely listed:
+   by its lightning icon. It was a dashed accent edge too, which read as a drop
+   zone and, on a pill, as the most generated-looking thing on the page (INBOX
+   394 h). */
 
 .quick-link-more {
   color: var(--muted);
@@ -2743,7 +2740,7 @@ header#top-bar select,
   color: var(--ink);
   background: var(--chip-bg);
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   box-shadow: none;
 }
 
@@ -2809,7 +2806,7 @@ header#top-bar select,
   align-self: flex-start;
   background: var(--chip-bg);
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-choice);
   padding: 0.25rem;
   gap: 0.15rem;
 }
@@ -3957,8 +3954,4 @@ p.graph-help-panel {
   }
 }
 
-.quick-link-skill {
-  border-style: solid;
-  border-color: var(--border);
-}
 

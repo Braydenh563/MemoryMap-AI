@@ -153,3 +153,23 @@ def test_app_js_mirrors_the_table_for_the_boot_time_door():
     assert ids == _table_ids(), (
         f"app.js NOTE_SURFACE_IDS {sorted(ids)} differs from documents.js NOTE_SURFACES {sorted(_table_ids())}"
     )
+
+
+def test_the_board_card_keeps_its_contract_on_the_engine() -> None:
+    """Phase 8c, the board half. The card's editor is a `NOTE_SURFACES` row
+    now, and the four behaviours it hung off the textarea's own listeners
+    (Enter commits, Escape abandons, blur commits, keys never reach the
+    board's gestures) are carried where a mounted view still honours them:
+    keys the engine runs first, and listeners on the card's content element.
+    `scratchpad/ui-sweeps/wbcardeditor.js` drives all four."""
+    assert "wb-card-editor" in _table_ids()
+    wb = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    body = wb.split("function wbEditNodeText(", 1)[1].split("\nfunction ", 1)[0]
+    assert 'box.id = "wb-card-editor"' in body
+    assert "box.noteSurfaceKeys" in body and 'key: "Enter"' in body and 'key: "Escape"' in body
+    assert 'content.addEventListener("keydown", (event) => event.stopPropagation()' in body, (
+        "the guard that keeps Tab and Enter out of the board's branch gestures is gone"
+    )
+    assert 'content.addEventListener("focusout"' in body, "blur no longer commits"
+    region = _region(DOCS, "NOTE-SURFACE")
+    assert "host.noteSurfaceKeys" in region, "the engine no longer runs a host's own keys"

@@ -1807,8 +1807,10 @@ select {
   border-radius: calc(var(--radius) * 0.7);
 }
 
-.chip,
-.seg,
+/* The track itself is the radius table's choice-control row
+   (`--radius-choice`, 03-dashboard-widgets.css) and its segments keep the
+   same corner. A chip is not a segment: it is a label with a small radius
+   (`.chip`, 01-forms-settings.css; DESIGN.md "Pills"). */
 .seg button {
   border-radius: calc(var(--radius) * 0.5 + var(--radius-md));
 }

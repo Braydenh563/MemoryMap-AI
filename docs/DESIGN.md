@@ -328,6 +328,7 @@ this table and its lint in the same commit as the feature, never after.
 
 | You need | Use | Guarded by |
 | --- | --- | --- |
+| A dialog of choices that each make something (a template, a starting shape) | the choices as quiet rows (`button.ghost.doc-template-choice`: name over a one-line hint) in a `.doc-template-body` grid beside a preview column that shows **what the pointed-at row would create**, rendered by the same function that creates it (`showDocTemplatePreview` through `docTemplateFill` and `renderMarkdown`), inert and `aria-hidden` because every row already says what it is; the preview is clipped with a fade, never a second scroller, and left out below 44rem | `tests/test_ui_recipes.py`, `scratchpad/ui-sweeps/doctplpreview.js` |
 | A tab or sub-tab's control bar | `.dock` with `.dock-identity`, `.dock-group`, `.dock-actions`; seven controls at most, one filled | `tests/test_dock_grammar.py`, `scratchpad/ui-sweeps/docks.js` |
 | A palette of many tools (a drawing bar, where every control is a tool rather than one of seven choices) | `.wb-tool-section` around one `.wb-tool-section-label` and one `.wb-tool-section-row`, all of them in one bar; the group boundary is the hairline `.wb-tool-section + .wb-tool-section` draws in `--divider`, and nothing sits in the bar outside a section. Used by the whiteboard rail and the sketch pad's toolbar | `tests/test_ui_recipes.py` |
 | A menu behind a button | `kebabMenu(items, ariaLabel)` in app.js (positions, clamps, escapes clipping, closes on outside click) or `details.dock-menu` in markup. **Past five rows it is grouped**: an item carries `group`, a name, and the menu draws a hairline (`.menu-sep`, `role="separator"`) wherever that name changes. The name is not printed, because a heading over every three rows makes a ten-row menu seventeen rows tall and what makes a list scannable is the break rather than the word; an item with no `group` behaves exactly as before, so a short menu declares nothing. **Below 600 it is an action sheet**: `openKebabSheet` moves the menu into the sheet recipe (rows full width at the thumb, groups and keyboard kept, a group row opening in place) and puts it back on close; the note row's own ⋯ (`entryOverflowMenu`) does the same, and a menu at the pointer stays at the pointer | `tests/test_ui_recipes.py` (hand-built menus may not multiply; a long menu is grouped) |
@@ -577,6 +578,45 @@ with no edge, whatever else it is inside. Measured: 28 `.seg` groups were
 already that, and the Graph's layout/colour pickers plus the chat dock's
 mode switch were the three drawn as cards, now conformed, not given a
 third recipe.
+
+**A segmented track's corner comes from this table and nowhere else.**
+Measured 2026-09-21 and 2026-09-23 (`scratchpad/ui-sweeps/segradius.js`):
+five track radii, none written down, so every new toggle picked the nearest
+token. `tests/test_ui_recipes.py` (`test_a_segmented_track_is_rounded_by_the_table`)
+fails a rule that rounds a track any other way.
+
+| Where the control stands | Track radius | At the default 14px |
+| --- | --- | --- |
+| A choice control on its own: a form, a card, a popup, the document view and history toggles, the assistant's verbs | `--radius-choice` | 15.4px |
+| A tab strip (`#notes-subtabs`, `#library-subtabs`, the OCR rail's `#ocr-rail-switch`; the tab bar is on the same token) | `--radius-strip` | 11.2px |
+| Inside a `.dock` bar: the bar's corner, which its buttons already use | `--radius-md` | 8.4px |
+| Inside the chat dock, where every control is a pill | `--radius-pill` | 999px |
+| The one full-bleed strip, `#doc-sidebar-tabs` | `0` | 0 |
+
+The third row is the one-corner-per-row rule (08-consistency.css): a 15.4px
+well beside 8.4px buttons in the same bar was two radii in one strip, which
+is what that rule was written to remove. So the toolbar toggles keep the
+bar's corner rather than folding into the choice row, and the chat dock's
+pills are the same rule in a row of pills.
+
+**Pills are rare, and never dashed.** The owner, 2026-09-23 (INBOX 394 h):
+"are these pills a sign of ai vibe coding??" Yes: a fully round capsule on
+every control is one of the clearest generated-UI tells, a dashed one most of
+all. Measured before (`scratchpad/ui-sweeps/pills.js`, 1440, light): 90
+controls in 14 groups drawn as capsules, including the Library's kind row and
+the Boards filter (navigation), the Write tab's starters and the dashboard's
+Jump to row (actions), and every category and fact chip. The rule:
+
+| What it is | Corner |
+| --- | --- |
+| A navigation or filter row you pick one of (`.library-chip`: the Library kinds, the Boards filter, Reminders' Open/All/Done) | `--radius-md`, the button's corner, with the selected one filled |
+| An action (`.quick-pill`, the Write tab's starters) | `--radius-md`: it is a button |
+| A label: a category, a tag, a fact (`.chip`, `.dock-chip`, the skill facts, a legend entry) | `--radius-sm` |
+| A capsule | Only where `PILL_CONTROLS` in `tests/test_ui_recipes.py` names it with its reason: the chat composer's row, a round icon button, a floating bar over a canvas, a count badge, a switch |
+
+A dashed edge means an empty slot you can fill (a drop zone, an unset trace
+end), never "this one is special": a skill is marked by its lightning icon.
+A chip does not lift on hover; its tone changes.
 
 **A choice control's selected segment is `--accent-surface` behind
 `--on-accent`, with no shadow, whichever of the two forms it is.** The

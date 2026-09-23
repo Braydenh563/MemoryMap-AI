@@ -36936,7 +36936,11 @@ async function loadRecentQuestions() {
   label.textContent = "Ask again:";
   box.appendChild(label);
   for (const question of questions) {
-    const again = chip(question.length > 48 ? question.slice(0, 47) + "…" : question, "", () => {
+    //: The clock is what says "you asked this before" (INBOX 394 a): the chip
+    //: is drawn like the suggestions beside it, so the icon carries the
+    //: difference the fill used to.
+    const short = question.length > 48 ? question.slice(0, 47) + "…" : question;
+    const again = chip(`ph:clock-counter-clockwise ${short}`, "", () => {
       $("question").value = question;
       askQuestion();
     });

@@ -1550,9 +1550,9 @@
 /* A recently-run skill promoted onto the dashboard (§36D). Marked, because a
    button that runs a job on your notebook should not look identical to one
    that just switches tab, the two rows either side of it do nothing on their
-   own, and this one might tag forty notes. */
+   own, and this one might tag forty notes. Its lightning icon is the mark
+   (03-dashboard-widgets.css, INBOX 394 h: no dashed edge). */
 .quick-link-skill {
-  border-style: dashed;
   max-width: 14rem;
 }
 

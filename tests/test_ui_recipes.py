@@ -2561,6 +2561,67 @@ def test_a_segmented_track_is_rounded_by_the_table() -> None:
     )
 
 
+#: **Where a control may still be a capsule** (DESIGN.md, "Pills are rare, and
+#: never dashed"; INBOX 394 h). Every other rule that rounds a control to
+#: `--radius-pill` fails `test_a_control_is_a_pill_only_where_named`. The key
+#: is the selector as it is written, the value is why it earns the shape.
+PILL_CONTROLS = {
+    ".icon-btn": "a round icon button is a circle, not a pill",
+    ".lightbox-close": "a round button over a photo",
+    ".lightbox-nav": "a round button over a photo",
+    ".chat-jump-latest": "floats over the thread, the floating-action shape",
+    ".dock-fab": "the floating action button",
+    ".chat-dock-controls select": "the chat composer's row is pills (the radius table)",
+    ".chat-dock-controls>.chat-tool-group>button": "the chat composer's row is pills",
+    ".chat-dock-controls .chat-dock-more>button": "the chat composer's row is pills",
+    ".chat-dock-controls .seg": "the chat composer's row is pills",
+    ".chat-dock-controls .seg button": "the chat composer's row is pills",
+    ".chat-context-pill": "the context meter in the chat composer's row",
+    "#notif-btn.has-unread::after": "an unread dot",
+    ".notif-unread-chip": "a count badge",
+    ".selection-bar button": "a floating bar over a canvas",
+    ".wb-context button": "the board's floating context bar",
+    ".wb-map-strip>button.icon-only": "a round icon button in the map's floating strip",
+    '.wb-map-node[data-shape="pill"]': "a node shape the person picked",
+    "#entry-list .link-connection>.menu-wrap>button": "the round kebab inside a connection",
+}
+
+_PILL_CONTROL = re.compile(
+    r"(?<![\w-])(button|summary|select)(?![\w-])"
+    r"|chip|pill|btn|toggle|\.seg(?![\w-])|-close|-nav\b|jump|fab"
+)
+
+
+def test_a_control_is_a_pill_only_where_named() -> None:
+    offenders = []
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            radius = re.search(r"(?<![\w-])border-radius\s*:\s*([^;]+)", body)
+            if not radius or not re.search(r"radius-pill|\b9{3,}px", radius.group(1)):
+                continue
+            for part in selector.split(","):
+                part = " ".join(part.split())
+                last = re.split(r"\s*[\s>+~]\s*", part)[-1]
+                if not _PILL_CONTROL.search(last):
+                    continue
+                if re.sub(r"\s*>\s*", ">", part) not in PILL_CONTROLS:
+                    offenders.append(f"{path.name}: {part}")
+    assert not offenders, (
+        "a control drawn as a capsule outside PILL_CONTROLS (DESIGN.md, 'Pills are "
+        "rare'): use --radius-md for a button or a navigation row, --radius-sm for a "
+        "label, or add it with its reason:\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_no_control_marks_itself_with_a_dashed_edge() -> None:
+    """A dashed edge is an empty slot; the dashboard's skill pills wore one to
+    say "this runs something", which read as a drop zone (INBOX 394 h)."""
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    for selector, body in _rules(css):
+        if ".quick-link" in selector:
+            assert "dashed" not in body, f"{selector} is dashed again"
+
+
 def test_the_table_s_two_named_radii_are_tokens() -> None:
     tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
     assert "--radius-choice:" in tokens and "--radius-strip:" in tokens

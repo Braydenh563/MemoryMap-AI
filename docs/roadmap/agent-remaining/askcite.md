@@ -20,12 +20,13 @@ server on 8798 (`FAKE_STYLE=markdown FAKE_DELAY_MS=30`).
    marked `data-fold-narrow` into the dock's menu below 600px; New board
    keeps its icon there. Unfold on resize measured (1440 row restored).
 
+3b. INBOX 394 (h) and (a): pills to `--radius-md` / `--radius-sm`, no
+   dashed skill pills, no chip hover lift, `PILL_CONTROLS` lint; Ask chips one
+   style with a clock icon. `pills.js` 90 to 5 (allowed). Screens after in
+   light and dark, before in light only (`/tmp/a2-scratch/shots`).
+
 ## Remaining, in order
 
-0. INBOX 394 (h) pills and (a) Ask chips, from the coordinator: extend the
-   radius table to navigation rows, action chips, the dashed skill pills and
-   filter chips; lint no `--radius-pill` on buttons outside an allowlist;
-   one style for "Ask again" and "Try asking". Screens light and dark.
 3. Library leftovers: board cards show no date (`updated` on the boards API, rendered like
    the notes cards' date); `scratchpad/seed-libtext.js` writes "undefined"
    alt text.

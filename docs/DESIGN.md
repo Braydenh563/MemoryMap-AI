@@ -598,6 +598,25 @@ is what that rule was written to remove. So the toolbar toggles keep the
 bar's corner rather than folding into the choice row, and the chat dock's
 pills are the same rule in a row of pills.
 
+**Pills are rare, and never dashed.** The owner, 2026-09-23 (INBOX 394 h):
+"are these pills a sign of ai vibe coding??" Yes: a fully round capsule on
+every control is one of the clearest generated-UI tells, a dashed one most of
+all. Measured before (`scratchpad/ui-sweeps/pills.js`, 1440, light): 90
+controls in 14 groups drawn as capsules, including the Library's kind row and
+the Boards filter (navigation), the Write tab's starters and the dashboard's
+Jump to row (actions), and every category and fact chip. The rule:
+
+| What it is | Corner |
+| --- | --- |
+| A navigation or filter row you pick one of (`.library-chip`: the Library kinds, the Boards filter, Reminders' Open/All/Done) | `--radius-md`, the button's corner, with the selected one filled |
+| An action (`.quick-pill`, the Write tab's starters) | `--radius-md`: it is a button |
+| A label: a category, a tag, a fact (`.chip`, `.dock-chip`, the skill facts, a legend entry) | `--radius-sm` |
+| A capsule | Only where `PILL_CONTROLS` in `tests/test_ui_recipes.py` names it with its reason: the chat composer's row, a round icon button, a floating bar over a canvas, a count badge, a switch |
+
+A dashed edge means an empty slot you can fill (a drop zone, an unset trace
+end), never "this one is special": a skill is marked by its lightning icon.
+A chip does not lift on hover; its tone changes.
+
 **A choice control's selected segment is `--accent-surface` behind
 `--on-accent`, with no shadow, whichever of the two forms it is.** The
 radio-backed form (`.segmented-control`: `#doc-ai-verb`, `#graph-layout`) is

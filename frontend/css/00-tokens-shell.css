@@ -2036,7 +2036,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      card. The edge is transparent rather than absent so the height is
      unchanged and `[data-contrast="on"]` can colour it back. */
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--chip-bg);
   box-shadow: none;
   color: var(--muted);

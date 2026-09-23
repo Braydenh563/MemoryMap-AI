@@ -73,7 +73,12 @@ with its owner named in the entry.
     (g) the page shine's second corner, orchestrator; (h) pills: yes, a
     fully round pill on every control is a tell (dashed pills most of all);
     the segmented-track table (the Ask citations agent) is the start, and
-    nav rows become tabs, actions `--radius-md` buttons.
+    nav rows become tabs, actions `--radius-md` buttons. **(a) and (h) built
+    2026-09-23 (askcite):** one chip style on Ask with a clock on a past
+    question; DESIGN.md "Pills are rare, and never dashed" with
+    `test_a_control_is_a_pill_only_where_named`; `pills.js` 90 capsule
+    controls in 14 groups before, 5 in 4 after (the chat composer's row, on
+    the allowlist). The rest of 394 is open.
 
 393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
     improvements, remove any trace of vibe coded stuff in elements, designs,

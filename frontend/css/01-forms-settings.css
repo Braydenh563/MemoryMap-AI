@@ -1485,7 +1485,7 @@ progress {
   align-items: center;
   gap: 0.3em;
   padding: 0.1rem 0.6rem;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   background: var(--accent-soft);
   color: var(--accent);

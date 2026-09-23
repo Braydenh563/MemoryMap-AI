@@ -31631,14 +31631,19 @@ function positionScrollTopForNested(button, tab) {
   const rightPanel = document.querySelector("#library-view-skills:not(.hidden) #skills-sidebar");
   if (rightPanel) {
     const rightPanelRect = rightPanel.getBoundingClientRect();
-    button.style.right = `${Math.max(margin, window.innerWidth - rightPanelRect.left + margin + scrollbarClearance)}px`;
+    const right = `${Math.max(margin, window.innerWidth - rightPanelRect.left + margin + scrollbarClearance)}px`;
+    if (button.style.right !== right) button.style.right = right;
   } else {
-    button.style.right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
+    const right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
+    if (button.style.right !== right) button.style.right = right;
   }
 
   // **Bottom**: a panel shorter than the viewport must not leave the button
   // floating below its own content.
-  button.style.bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
+  const bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
+  //: Only when it moved: an inline-style write invalidates style even when
+  //: the value is the same, and this runs on every scroll frame.
+  if (button.style.bottom !== bottom) button.style.bottom = bottom;
 }
 
 //: **The back-to-top button must never sit on top of a Save button.**
@@ -31677,7 +31682,23 @@ const FORM_PRIMARY_SELECTOR = [
 //: it cannot be read as a pixel count directly. Resolving it through a real
 //: element is what makes the clearance track the density setting instead of
 //: freezing at one multiplier's value.
+//: Cached, because the probe below is a body append: every call forced a
+//: whole-document style recalc and layout, and the back-to-top button asked
+//: on every scroll frame (traced: 1,732-element recalcs per frame on Notes).
+//: A spacing token only moves with the root's text size, density or look,
+//: all of which are attributes or inline style on <html>, or with a resize.
+const spacingPxCache = new Map();
+window.addEventListener("resize", () => spacingPxCache.clear(), { passive: true });
+new MutationObserver(() => spacingPxCache.clear()).observe(document.documentElement, { attributes: true });
+
 function spacingPx(name, fallback) {
+  if (spacingPxCache.has(name)) return spacingPxCache.get(name);
+  const px = measureSpacingPx(name, fallback);
+  spacingPxCache.set(name, px);
+  return px;
+}
+
+function measureSpacingPx(name, fallback) {
   const probe = document.createElement("div");
   probe.style.cssText = `position:absolute;visibility:hidden;width:var(${name})`;
   document.body.appendChild(probe);
@@ -31735,6 +31756,7 @@ function initScrollTopButton() {
   });
   document.body.appendChild(button);
 
+  let wasVisible = false;
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
     const target = scrollTopTargetEl();
@@ -31781,7 +31803,10 @@ function initScrollTopButton() {
     //: clearance only while this class says the button is actually there
     //: to clear.
     document.body.classList.toggle("scroll-top-visible", visible);
-    positionScrollTopForNested(button, tab);
+    //: A hidden button has nowhere to be: its box is only measured while it
+    //: shows, and once more on the frame it goes, so it hides where it was.
+    if (visible || wasVisible) positionScrollTopForNested(button, tab);
+    wasVisible = visible;
   };
   // Capture, because scroll events do not bubble: the listener has to see them
   // on whichever .tab-page is currently the scroll container, and that changes

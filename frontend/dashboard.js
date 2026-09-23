@@ -746,7 +746,7 @@ const QUICK_START = [
   {
     icon: "ph:pencil-simple",
     label: "New note",
-    hint: "Capture a thought: Atlas files it",
+    hint: "Atlas files it for you",
     primary: true,
     run: () => {
       switchTab("notes");
@@ -757,17 +757,17 @@ const QUICK_START = [
   {
     icon: "ph:chat-circle",
     label: "Ask AI",
-    hint: "A question answered from your own notes",
+    hint: "Answered from your notes",
     run: () => {
       switchTab("chat");
       $("chat-input").focus();
     },
   },
-  { icon: "ph:palette", label: "Sketch", hint: "Draw something and save it as a note", run: () => openSketch() },
+  { icon: "ph:palette", label: "Sketch", hint: "Draw, then keep it as a note", run: () => openSketch() },
   {
     icon: "ph:alarm",
     label: "Remind me",
-    hint: "Type it in plain English and Atlas schedules it",
+    hint: "Say when, in plain words",
     run: () => {
       switchTab("reminders");
       $("reminder-magic").focus();
@@ -776,7 +776,7 @@ const QUICK_START = [
   {
     icon: "ph:microphone",
     label: "Meeting notes",
-    hint: "Record something longer and file the transcript",
+    hint: "Record and transcribe",
     run: () => openMeetingRecorder(),
   },
 ];

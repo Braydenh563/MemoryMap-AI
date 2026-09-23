@@ -3910,3 +3910,80 @@ p.graph-help-panel {
 .faded-dismiss {
   justify-self: end;
 }
+
+/* =========== A CALMER TOP, NOTHING TAKEN AWAY (Full view) ================
+   Owner, with a screenshot: "it also feels like there is a lot going on at
+   the top of the dashboard. I love what's there and I dont want to remove
+   stuff ... but the dashboard at the top at least feels like a lot when I
+   load it up and I bet it's worse for new users."
+
+   Measured at the 1184x760 desktop window before: the hero 144px, the start
+   tiles 103px, the "Jump to" row 61px (plus a skills row where skills
+   exist), the stats 52px and the toolbar 50px, so the first widget started
+   at 592px and a person saw 170px of their own notes. Everything stays;
+   what changes is weight and hierarchy:
+
+   - The hero is lower, and its clock is ink rather than a display-size
+     accent: the accent is for what acts, and a clock the size of the
+     greeting competed with it for the first look.
+   - A start tile keeps its sentence, on one line.
+   - "Jump to" and the skills are secondary: their label sits beside their
+     row (as the compact view already does), and their pills are their own
+     width in the quiet style, not bold bars stretched across the page.
+   - A skill's pill is marked by its lightning icon, not a dashed accent
+     border, which read as a drop zone. */
+#tab-dashboard[data-density="full"] .dash-hero {
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+#tab-dashboard[data-density="full"] .dash-clock-time {
+  font-size: var(--text-h2);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+#tab-dashboard[data-density="full"] .dash-quicklinks {
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+#tab-dashboard[data-density="full"] .quick-action {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-md);
+}
+
+#tab-dashboard[data-density="full"] .quick-action .quick-link-hint {
+  -webkit-line-clamp: 1;
+}
+
+@media (min-width: 37.5625rem) {
+  #tab-dashboard[data-density="full"] .launch-group:not(:has(.launch-row-start)) {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  #tab-dashboard[data-density="full"] .launch-group:not(:has(.launch-row-start)) > .launch-label {
+    flex: 0 0 7rem;
+  }
+
+  #tab-dashboard[data-density="full"] .launch-group:not(:has(.launch-row-start)) > .launch-row {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: var(--space-2);
+  }
+
+  #tab-dashboard[data-density="full"] .launch-row:not(.launch-row-start) > .quick-pill {
+    flex: 0 0 auto;
+    --quick-h: 2rem;
+    font-weight: 500;
+    background: transparent;
+  }
+}
+
+.quick-link-skill {
+  border-style: solid;
+  border-color: var(--border);
+}
+

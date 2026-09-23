@@ -36,6 +36,11 @@ below). Versioning is `0.x` while the app stabilises.
   every palette (they stayed navy in dark), the desktop loading page and the
   packaged splash wear the look too, and a new Background wash setting gives
   the flat looks a soft light across the page. Classic is second in the list.
+- The mind map node menu is eight rows with Add, Topic, Branch and Order
+  flyouts (was eighteen rows, most of the screen), and the topic's ring stays
+  open beside it. A press inside any menu no longer closes it before a group
+  can open. The dashboard's top is calmer: a lower hero with an ink clock,
+  one-line start tiles, and Jump to as quiet pills beside their label.
 - A dashboard you have not arranged shows nine widgets (reminders, recent
   notes, favourites, quick capture, documents, boards and maps, the weekly
   digest, on this day, the heatmap) instead of all twenty-three; the rest are

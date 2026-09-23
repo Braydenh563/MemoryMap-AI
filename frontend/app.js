@@ -5103,6 +5103,7 @@ let openGroupSubmenu = null;
 // entirely and expands in place instead, an accordion, not a flyout, which
 // is what "compatible with small screens like iPhones" actually means here.
 function buildMenuGroupButton(label, subItems) {
+  let openedByHoverAt = 0;
   const groupWrap = document.createElement("div");
   groupWrap.className = "menu-group";
 
@@ -5210,7 +5211,10 @@ function buildMenuGroupButton(label, subItems) {
   let hoverTimer = null;
   groupWrap.addEventListener("mouseenter", () => {
     clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(openSubmenu, 120); // brief delay: a mouse crossing the item isn't a request to open it
+    hoverTimer = setTimeout(() => {
+      openSubmenu();
+      openedByHoverAt = Date.now();
+    }, 120); // brief delay: a mouse crossing the item isn't a request to open it
   });
   groupWrap.addEventListener("mouseleave", () => {
     clearTimeout(hoverTimer);
@@ -5228,8 +5232,11 @@ function buildMenuGroupButton(label, subItems) {
   });
   trigger.addEventListener("click", (event) => {
     event.stopPropagation();
+    //: A click that lands just after the hover opened the flyout is the same
+    //: request, not a second one: toggling there closed what the person had
+    //: just reached for (measured on the map node menu).
     if (submenu.classList.contains("hidden")) openSubmenu();
-    else closeSubmenu();
+    else if (Date.now() - openedByHoverAt > 600) closeSubmenu();
   });
   submenu.addEventListener("keydown", (event) => {
     const subItems = [...submenu.querySelectorAll(':scope > [role="menuitem"]')];
@@ -44795,8 +44802,12 @@ document.addEventListener("keydown", (e) => {
 // bubble phase. `pointerdown` in the capture phase runs first, ahead of
 // every other handler on the page, so the menu is gone before anything
 // underneath it can react to the same gesture.
+//: A press *inside* any open menu is the menu's own: `.action-menu` covers a
+//: menu that lives on <body> without a `.menu-wrap` around it (the board's
+//: context menu), where a press on one of its group rows closed the whole
+//: menu before the row could open its flyout (measured on the map node menu).
 document.addEventListener("pointerdown", (e) => {
-  if (!e.target.closest(".menu-wrap, .action-menu-escaped")) closeActionMenus();
+  if (!e.target.closest(".menu-wrap, .action-menu, .action-menu-escaped")) closeActionMenus();
 }, true);
 
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it

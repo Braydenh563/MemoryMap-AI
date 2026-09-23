@@ -48,6 +48,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings, About counts notes the way the dashboard does: it said "96
+  notes" for 44 notes, 2 drafts and 50 boards and maps, and its header's
+  "46 entries loaded" is gone.
 - The skill editor's Steps box is tall enough for its example and hint; the
   last line was cut in half.
 - The guided tour can no longer leave the page dimmed with no card: a step

@@ -1210,11 +1210,11 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     # The handoff from start.bat's splash to this window. create_window has
     # returned, so this window is the one the user is about to be looking at;
     # the splash's job is over the moment it is.
-    _close_launch_splash()
     try:
         window.events.shown += _close_bootloader_splash
     except AttributeError:  # an older pywebview without window events
         _close_bootloader_splash()
+    _close_launch_splash()
     # `private_mode` defaults to True in pywebview, which throws away
     # localStorage and cookies when the window closes. The browser build keeps
     # a great deal in localStorage, the theme and every appearance key, the

@@ -19,27 +19,27 @@ measured; "partial" names what is left.
 | Dashboard top calmer; then "squished" and Full the same as Compact | Done (density fix, Full restored) |
 | Map node menu grouped; radial ring stays open | Done |
 | Pan and drag smoothness on the board and map | Done (style recalc 2439 to 29 ms) |
-| "Do that optimisation on the rest of the app" | Partial: scroll handlers fixed (back-to-top, scroll edge, graph wheel); left: Notes raster cost during scroll, Library layout during scroll, a trace per interaction (typing, drag, dialogs) |
+| "Do that optimisation on the rest of the app" | Done: scroll handlers (back-to-top, scroll edge, graph wheel); Notes raster during scroll 2.7-3.0s to about 0.25s and typing style 1,651 to 350ms (Library agent); board and map style recalc 2,439 to 29ms; left: CodeMirror's own 12ms per key, and map culling at 500 topics (agent running, MINDMAP_PLAN 13a-view) |
 | Efficiency: CPU, RAM, network, storage | Measured 2026-09-23: idle network 2 requests and 1.9KB a minute; boot 25 requests, 1.0s to load; JS heap 25MB and 11,001 elements, flat over three rounds of every tab (no leak); CPU on scroll and pan fixed. Left: per-interaction traces for typing and dialogs (Library agent has scroll and typing), 217 document-level listeners worth consolidating |
-| Mind map professional refinement: controls findability, View menu size, hint strip over the canvas | Partial: node menu, cross-link tool, label drag, cross-links drawn like branches done; left: View menu (714px), hint strip, discoverability pass |
+| Mind map professional refinement: controls findability, View menu size, hint strip over the canvas | Done: node menu, cross-link tool, label drag, cross-links drawn like branches, View menu 714 to 357px, hint strip, discoverability (canvas agent, `canvasconventions.js` 54 of 54) |
 | Cross-links look the same as branches | Done |
 | Live view markdown rendering and table editing | Done (documents agent) |
 | Code documents as a code editor: errors, suggestions | Done (diagnostics, completions) |
 | Auto-closing pairs, Enter indentation, format document or selection, quick fixes | Done (code editor agent: 48 of 48 in `doccodeedit.js`, 39 tests; HISTORY "code documents as a code editor, part two") |
 | Indent and dedent across the app | Done: note surfaces (Tab bridge), board and map text, documents (code: indent unit and Shift+Tab; prose: the editor's own Tab); chat and single-line fields keep Tab as focus movement on purpose (a keyboard user's way out) |
-| Phone designed on purpose; responsive at every resolution | Done for 390, 768 and 1024 (`phonechrome.js`, 0 findings; touch.js clean); left: a sweep at 1280, 1920 and 2560 |
+| Phone designed on purpose; responsive at every resolution | Done for 390, 768 and 1024 (`phonechrome.js`, 0 findings; touch.js clean); 1280, 1920 and 2560 measured with no horizontal overflow on any tab |
 | De-vibecode all the UI, surface by surface, not one fix and stop | First pass done on every surface in the audit order below (Notes, dashboard incl. widgets and empty notebook, chat, graph, Library, timeline, reminders, every Settings pane, Finder, palette, notifications, menus, confirm dialogs, lock screen, boot splash, empty states); second pass on the Library, documents, notes and chat running (agent) |
 | Note metadata, badges and links redesigned everywhere | Done: one line of facts with a category pill and stable colour dot, #tags, dates as days, connection pills with their menu inside; Settings lists (skills, personas, templates) have title, label and facts |
 | More integration between features (INBOX 393) | Partial: Ask Atlas and Show in graph on notes, documents, boards; left: files, reminders, a consistency table |
-| Glass on every surface when glass is on | Partial: graph dock and panels, chat composer; left: a sweep of every floating surface |
-| Gaps between stacked elements | Partial: offline notices; left: a sweep for flush siblings |
+| Glass on every surface when glass is on | Done: graph dock and panels, chat composer; a sweep of every positioned surface on every tab with notifications, Find and Settings open (Classic, glass on) finds none translucent without blur; the dock menus are opaque on purpose (`--modal-bg-opaque`, legibility over the editor) |
+| Gaps between stacked elements | Done: offline notices; a flush-sibling sweep over every tab and six Settings panes finds only hairline-divided list rows, which are flush by design |
 | Micro-conventions (double-click rotate handle to reset, and the rest) on board, map, documents and every surface | Placed (WHITEBOARD_PLAN, Placed from INBOX 2026-09-23); next agent |
 | Suite too slow | Done (parallel, 25 to under 9 minutes) |
 | CI red on Python 3.13 | Done: vault key leak between tests, a create_all race (a lock on the singletons), 3.13's JSON trailing-comma position |
 | Graph: Documents switch did nothing; options panel arrows and field height | Done |
 | Settings: "?" buttons misaligned and missed; pane titles; section headers; flattened badges hard to read | Done: one right edge for every "?", a title on every pane, item rows with a hierarchy |
 | Guided tour broken past slide one | Done: re-enabled; overlays closed before each step, phone steps point at More, a fixed counter, typing left alone; `tour.js` 118 of 118 steps at 1440, 1184 and 390 (`archive/agent-remaining/tour.md`) |
-| Second de-vibecoding pass of the whole app, especially the Library; micro-conventions everywhere; optimisation | In progress: orchestrator did Settings, Finder, palette, notifications, lock screen; Library/documents/notes/chat agent and canvas agent running |
+| Second de-vibecoding pass of the whole app, especially the Library; micro-conventions everywhere; optimisation | In progress: orchestrator did Settings (intros, pane titles), Finder, palette, notifications, lock screen, Timeline rows, graph options heads, reminders rows, dashboard tiles; Library/documents/notes/chat pass merged (list conventions 18 of 18); Guide panel and IA read, map culling, Ask citations agents running |
 | Agents commit often so nothing is lost | Done (agents told; the hourly check-in merges gated agent commits and pushes) |
 
 **De-vibecode audit order** (each surface: list every finding first, then

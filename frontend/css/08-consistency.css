@@ -3218,9 +3218,13 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 400;
 }
 
-.entry-meta > .chip.item-fact + .chip.item-fact::before {
+/* The separator rides the fact before it, not the one after: a row that
+   wraps (a long skill name at 1440 did) then ends its first line on "4 steps
+   ·" and starts the next on "3 tools", where a leading dot opened the second
+   line on "· 3 tools". */
+.entry-meta > .chip.item-fact:has(+ .chip.item-fact)::after {
   content: "·";
-  margin-inline-end: var(--space-2);
+  margin-inline-start: var(--space-2);
   opacity: 0.7;
 }
 

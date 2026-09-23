@@ -41,6 +41,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A skill's facts line in Settings no longer starts a wrapped line with its
+  separator dot.
 - A reminder's time sits at the end of its row; with a mouse, its actions
   appear over the time on hover instead of holding an empty 193px gap. An
   overdue reminder keeps its amber edge without the amber frame as well.

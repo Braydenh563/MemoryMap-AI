@@ -2568,6 +2568,13 @@ function setLibraryMediaKind(kind) {
     readFilter.classList.toggle("hidden", libraryMediaKind !== "files");
     if (libraryMediaKind !== "files") readFilter.value = "all";
   }
+  //: And the kind-of-picture filter is an Images idea: a PDF is neither a
+  //: sketch nor an uploaded image in the sense that menu means.
+  const originMenu = $("library-media-origin-menu");
+  if (originMenu) {
+    originMenu.classList.toggle("hidden", libraryMediaKind === "files");
+    if (libraryMediaKind === "files") originMenu.open = false;
+  }
   const input = $("library-images-upload-input");
   if (input) {
     input.accept =
@@ -5803,7 +5810,93 @@ onDomReady(() => {
   document
     .getElementById("library-media-read")
     ?.addEventListener("change", () => filterLibraryImagesGallery());
+  //: `change`, not `click`: the checkbox sits inside its own label, so a press
+  //: on the words fires a click on both and a click handler would toggle twice.
+  document.getElementById("library-media-origins")?.addEventListener("change", (event) => {
+    const check = event.target.closest("[data-image-origin]");
+    if (!check || check.disabled) return;
+    const next = new Set(libraryImageOriginsOn);
+    if (check.checked) next.add(check.dataset.imageOrigin);
+    else next.delete(check.dataset.imageOrigin);
+    if (!next.size) return;
+    libraryImageOriginsOn = next;
+    filterLibraryImagesGallery();
+  });
 });
+
+//: **Where a picture came from: the sketch pad, or anywhere else.** Asked for
+//: directly (2026-09-23): filter the Images sub-tab by sketches and uploaded
+//: images. A sketch has no table or flag of its own: `saveSketch` (app.js)
+//: sends its PNG through `/media/upload` as `sketch-<stamp>.png` and files a
+//: note in "Sketches" that shows it, so the name is the one thing the gallery
+//: row carries that says which it is. Anchored at the start, so a photo
+//: called "my-sketchbook-cover.jpg" stays an upload.
+function libraryImageOrigin(item) {
+  return /^sketch(?:[-_ ][^/]*)?\.png$/i.test(String(item?.original_name || "")) ? "sketch" : "upload";
+}
+
+const LIBRARY_IMAGE_ORIGINS = [
+  { key: "sketch", label: "Sketches", glyph: "ph-scribble-loop" },
+  { key: "upload", label: "Uploaded images", glyph: "ph-image" },
+];
+
+//: Which origins are on. Not stored, for the reason the Files read filter is
+//: not: a filter left on across sessions is how a gallery comes back next
+//: week apparently missing half its pictures.
+let libraryImageOriginsOn = new Set(LIBRARY_IMAGE_ORIGINS.map((o) => o.key));
+
+//: The menu's rows, and the caption the closed button carries. The Timeline's
+//: `renderTimelineKinds` shape: a checkbox in its own label per row, the last
+//: one on cannot be turned off (an empty gallery is not a filter), and the
+//: count of each kind beside its name.
+function renderLibraryImageOrigins() {
+  const box = $("library-media-origins");
+  if (!box) return;
+  const counts = new Map();
+  for (const item of libraryImagesCache || []) {
+    if (!item._isImage) continue;
+    const key = libraryImageOrigin(item);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  box.replaceChildren();
+  for (const origin of LIBRARY_IMAGE_ORIGINS) {
+    const on = libraryImageOriginsOn.has(origin.key);
+    const row = document.createElement("label");
+    row.className = "menu-item doc-dock-menu-item doc-dock-menu-check checkbox-label";
+    row.title = on ? `Hide ${origin.label.toLowerCase()}` : `Show ${origin.label.toLowerCase()}`;
+    const icon = document.createElement("i");
+    icon.className = `ph ${origin.glyph} ph-lead`;
+    icon.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = origin.label;
+    const many = document.createElement("span");
+    many.className = "muted timeline-kind-count";
+    many.textContent = ` ${counts.get(origin.key) || 0}`;
+    label.appendChild(many);
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = on;
+    check.dataset.imageOrigin = origin.key;
+    if (on && libraryImageOriginsOn.size === 1) {
+      check.disabled = true;
+      row.title = "At least one kind has to be shown";
+    }
+    row.append(icon, label, check);
+    box.appendChild(row);
+  }
+  const all = libraryImageOriginsOn.size === LIBRARY_IMAGE_ORIGINS.length;
+  const words = LIBRARY_IMAGE_ORIGINS.filter((o) => libraryImageOriginsOn.has(o.key)).map((o) =>
+    o.label.toLowerCase()
+  );
+  const caption = $("library-media-origin-label");
+  if (caption) caption.textContent = `Kinds: ${all ? "all" : words.join(", ")}`;
+  const button = $("library-media-origin-btn");
+  if (button) {
+    button.title = all
+      ? "Which kinds of picture the gallery shows: sketches and uploaded images"
+      : `Showing ${words.join(", ")}. Press to change which kinds the gallery shows`;
+  }
+}
 
 function filterLibraryImagesGallery() {
   const grid = $("library-images-grid");
@@ -5827,7 +5920,12 @@ function filterLibraryImagesGallery() {
       if (readState === "read") return mediaHasBeenRead(i);
       if (readState === "unread") return !mediaHasBeenRead(i);
       return true;
-    });
+    })
+    //: The Images half of the same idea: which kind of picture is part of
+    //: which pictures this sub-tab shows, so it is applied with the kind and
+    //: the sort still runs over what is left.
+    .filter((i) => libraryMediaKind === "files" || libraryImageOriginsOn.has(libraryImageOrigin(i)));
+  renderLibraryImageOrigins();
   const matched = query
     ? ofKind.filter(
         (i) =>

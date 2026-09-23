@@ -6039,6 +6039,19 @@
             <option value="read">Read</option>
             <option value="unread">Not read yet</option>
           </select>
+          <!-- **Images only: which kind of picture** (the owner, 2026-09-23:
+               filter the Images sub-tab by sketches and uploaded images,
+               keeping the sort). The Timeline's "Kinds" dock menu, the recipe
+               DESIGN.md's index names for a set of toggles that belong to one
+               question: one button that says what it is set to, a checkbox
+               row per kind that keeps the menu open. The mirror of the read
+               filter above, which is Files only, so the dock's count of
+               controls is the same on both sub-tabs. -->
+          <details class="doc-dock-menu dock-menu" id="library-media-origin-menu">
+            <summary class="ghost small doc-dock-menu-btn" id="library-media-origin-btn"
+              title="Which kinds of picture the gallery shows"><i class="ph ph-funnel ph-lead" aria-hidden="true"></i> <span id="library-media-origin-label">Kinds: all</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list" id="library-media-origins" role="group" aria-label="Kinds of picture to show"></div>
+          </details>
         </div>
         <div class="dock-group dock-arrange">
           <!-- Reported: "the library subtabs are missing sorting and filtering

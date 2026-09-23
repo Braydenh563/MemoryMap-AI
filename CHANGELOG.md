@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Library, Images: a "Kinds" menu beside the search box shows sketches,
+  uploaded images or both, and the sort applies to whatever is left. A
+  sketch is the PNG the sketch pad saves as `sketch-<stamp>.png`; each kind's
+  count is in its row, and the last kind on cannot be turned off. The menu is
+  the Timeline's own "Kinds" dock menu, Images only, as the read filter is
+  Files only. The same pass fixes both kinds menus drawing a short label
+  centred between its icon and its switch (the Library's two at 669 and
+  637px, now both 632).
 - The Agent activity panel is laid out on one grid. Its head is the app's
   panel-head recipe (the title, then three icon buttons with tooltips, all on
   one centre line), and every run row is four columns: fold marker, icon,

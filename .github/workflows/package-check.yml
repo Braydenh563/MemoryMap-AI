@@ -1,0 +1,102 @@
+# Package check: build the frozen Windows app and prove it serves a whole,
+# working page, before release day rather than on it.
+#
+# release.yml builds and smoke-tests the frozen app only when a version tag
+# is pushed, so a packaging break (a new dependency the spec does not know,
+# a hidden import, a file the frontend needs and the bundle lacks) was found
+# at the moment of shipping. This runs the same build on any pull request
+# that touches what the package is made of, weekly on the default branch,
+# and on demand. It publishes nothing.
+#
+# The smoke is stronger than release.yml's "the page answered": it reads
+# index.html from the frozen app and fetches every script and stylesheet the
+# page references, so a bundle missing one file (a new split file like
+# timeline.js, say) fails here instead of booting a blank window.
+
+name: Package check
+
+on:
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "requirements*.txt"
+      - "pyproject.toml"
+      - "src/memorymap/__main__.py"
+      - "src/memorymap/api/app.py"
+      - "frontend/index.html"
+      - ".github/workflows/package-check.yml"
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Build and smoke the frozen Windows app
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies (the same set release.yml uses)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install fastapi "uvicorn[standard]" SQLAlchemy alembic python-dotenv \
+            requests numpy "fsspec[http]" bcrypt cryptography \
+            python-multipart defusedxml pywebview pystray Pillow pyinstaller
+          pip install -e . --no-deps
+
+      - name: Build the frozen app (PyInstaller)
+        shell: bash
+        run: |
+          pyinstaller packaging/windows/memorymap.spec --distpath dist --workpath build --noconfirm
+
+      - name: Smoke test, the page and every asset it references
+        shell: bash
+        env:
+          MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
+          MEMORYMAP_PORT: "8765"
+        run: |
+          "dist/MemoryMap AI/MemoryMap AI.exe" &
+          pid=$!
+          up=0
+          for i in $(seq 1 60); do
+            if curl -sf -o index.html http://127.0.0.1:8765/; then up=1; echo "served after ${i}s"; break; fi
+            sleep 1
+          done
+          if [ "$up" != 1 ]; then
+            echo "the frozen app did not answer within 60 s"
+            cat "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
+            kill $pid || true
+            exit 1
+          fi
+          failed=0
+          count=0
+          for url in $(grep -oE '(src|href)="/[^"]+\.(js|css)[^"]*"' index.html | sed -E 's/^(src|href)="//; s/"$//' | sort -u); do
+            count=$((count + 1))
+            if ! curl -sf -o /dev/null "http://127.0.0.1:8765${url}"; then
+              echo "missing from the bundle: ${url}"
+              failed=1
+            fi
+          done
+          # The lazy bundles (whiteboard, documents, graph...) are fetched
+          # on demand, not referenced by index.html; ask for each by name.
+          for f in frontend/*.js; do
+            count=$((count + 1))
+            if ! curl -sf -o /dev/null "http://127.0.0.1:8765/$(basename "$f")"; then
+              echo "missing from the bundle: /$(basename "$f")"
+              failed=1
+            fi
+          done
+          echo "checked ${count} assets"
+          curl -sf http://127.0.0.1:8765/health || failed=1
+          kill $pid || true
+          [ "$count" -gt 10 ] || { echo "found only ${count} assets in index.html"; exit 1; }
+          exit $failed

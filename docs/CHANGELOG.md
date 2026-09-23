@@ -281,6 +281,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A package check builds the frozen Windows app on every pull request that
+  touches packaging, the entry point or index.html, and weekly, and fetches
+  every script and stylesheet the page references plus each lazy bundle,
+  so a file missing from the bundle fails before release day.
 - The Timeline tab's code moved out of app.js into its own file,
   timeline.js, loaded at startup right after the dashboard's. Nothing it
   does changed; app.js is about 24 KB smaller to download (gzipped), which

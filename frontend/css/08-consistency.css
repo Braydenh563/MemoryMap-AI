@@ -3598,3 +3598,13 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .library-file-rows .library-image-reading > summary {
   width: fit-content;
 }
+
+/* The status bar is the top bar's twin at the other edge, and with glass on
+   it was the one opaque strip of chrome (96% ground, no blur) under a glass
+   top bar: the same recipe now, keyed on glass being on, so glass off and
+   Performance mode keep the solid bar. */
+:root:not([data-glass="off"]) #status-bar {
+  background: var(--card);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}

@@ -651,6 +651,14 @@ async function renderDashStats() {
   ];
 
   box.replaceChildren();
+  //: **An empty notebook has no figures to show.** A first visit read four
+  //: zeros (notes, this week, day streak, reminders) above the welcome card
+  //: that already says the notebook is empty and what to do first: numbers
+  //: about nothing, before the one thing worth reading. The strip comes back
+  //: with the first note or reminder. A failed read is not empty, so it
+  //: still shows its dashes.
+  const empty = stats && stats.total_entries === 0 && reminders && !reminders.length;
+  box.classList.toggle("hidden", Boolean(empty));
   for (const tile of tiles) {
     const button = document.createElement("button");
     button.type = "button";

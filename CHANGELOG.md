@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Dashboard: an empty notebook no longer shows a strip of zeros above the welcome card; the figures appear with the first note or reminder.
 - The loading screen shows one progress indicator (the bar) instead of animated dots above a bar; the dots stay as the screen reader's loading status.
 - Dragging a note that is part of a lasso selection on the graph carries the
   whole selection with it, at the same offsets. Before, only the note in hand

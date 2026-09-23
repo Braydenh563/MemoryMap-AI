@@ -2824,3 +2824,107 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(.library-note, .library-document, .library-chat, .library-file, .library-tag, .library-archived, .library-activity) {
   box-shadow: none;
 }
+
+/* --- the dashboard and the labels, de-vibecoded ------------------------------
+   Measured at 1440 in Quiet:
+
+   1. The quick links' bottom margin and the stats' top margin stacked to
+      32px where every other band on the page is 16px apart; the stats take
+      the one gap, not two.
+   2. Stat tiles drew each icon in a tinted accent circle, the stock "metric
+      card" of a generated dashboard; four accent discs outweighed the four
+      numbers they label. In the flat looks the icon is plain muted ink.
+   3. The eyebrow over the greeting ("MEMORYMAP AI" in spaced accent
+      capitals) repeats the name the top bar's mark and the window title
+      already carry. Gone in the flat looks, as Compact already had it.
+   4. Quiet sets its labels in sentence case. Uppercase letter-spaced labels
+      everywhere ("START SOMETHING", "JUMP TO", every group in every menu)
+      are the other mark of a template; weight and colour already make them
+      labels. Paper keeps its small capitals (an editorial convention) and
+      Mono its technical capitals, and a code language or a log source tag
+      keeps its capitals in every look. */
+#tab-dashboard .dash-quicklinks ~ .dash-stats {
+  margin-top: 0;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .stat-icon {
+  width: auto;
+  height: auto;
+  background: transparent;
+  color: var(--muted);
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .dash-wordmark {
+  display: none;
+}
+
+:root[data-palette="utilitarian"] :is(
+  .card h3, .eyebrow, .nav-group-label, .launch-label,
+  #suggested-list .suggested-group-label, .contents-heading, .msg-role,
+  #palette-list li.palette-group-header, .features-group, .reminder-group-head,
+  .editor-menu-group, .note-embed-head, .doc-prose-group,
+  .wb-export-card .wb-export-label, .wb-tool-section-label,
+  .dash-widgets-group-label, .wb-panel-group-label, .connection-heading,
+  .wb-help-grid h4, .finder-group, .chord-guide-title
+) {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* 5. The name nudge was two boxed buttons in the greeting ("Add your name"
+      and its ×), a form control sitting in a sentence. In the flat looks it
+      is an inline text action with a hover ground, like the meta line's. */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #dash-name-nudge button {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #dash-name-nudge button:hover {
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+/* --- chat, de-vibecoded -----------------------------------------------------
+   1. The suggested questions were the generic chip: bold accent text on an
+      accent tint, four of them centred under a centred logo and a bold
+      headline, which is the stock "empty chat" of every generated
+      assistant UI. A suggestion is a question you might type, so it reads
+      as one: regular weight, ink, a hairline, a hover ground.
+   2. The thread's mark was an icon in a tinted accent square (the same
+      metric-card tell as the stat tiles). In the flat looks it is the icon
+      alone, in muted ink. */
+:is(#chat-suggest, #suggested-questions) > .chip {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 400;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-4);
+}
+
+:is(#chat-suggest, #suggested-questions) > .chip:hover {
+  background: var(--chip-bg);
+  filter: none;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .chat-thread-mark {
+  background: transparent;
+  color: var(--muted);
+  width: auto;
+}
+
+/* --- the graph's legend: one container, not a pill in a box ------------------
+   Each legend entry drew its own tinted pill inside the legend's own
+   bordered panel, so one fact ("these dots are Seed") sat in two frames.
+   The panel is the frame; an entry is a toggle in it with a hover ground,
+   and its dimmed state (hidden kinds) still reads through its opacity. */
+.graph-legend-row .legend-item {
+  background: transparent;
+  border-color: transparent;
+}
+
+.graph-legend-row .legend-item:hover {
+  background: var(--chip-bg);
+}

@@ -608,7 +608,7 @@
    bold alone wasn't enough to tell a category from a note in the arc view). */
 .graph-node text.graph-label-group {
   font-size: 0.8rem;
-  font-weight: 650;
+  font-weight: 600;
   fill: var(--accent);
 }
 
@@ -2032,7 +2032,7 @@
 }
 
 .notif-unread .notif-title {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .notif-actionable {

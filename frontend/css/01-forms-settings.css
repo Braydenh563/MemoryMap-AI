@@ -53,7 +53,7 @@
 .card h2 {
   margin: 0 0 var(--space-5);
   font-size: var(--text-body);
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.005em;
 }
 
@@ -1455,7 +1455,7 @@ progress {
 .entry-title {
   margin: 0 0 var(--space-2);
   font-size: var(--text-lg);
-  font-weight: 650;
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -3639,7 +3639,7 @@ html.modal-open body {
 }
 
 .entry-list li.priority-high .reminder-text {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .entry-list li.priority-low .reminder-text {
@@ -3713,7 +3713,7 @@ html.modal-open body {
 
 .reminder-cal-today {
   border-color: var(--accent);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .reminder-cal-has-items {

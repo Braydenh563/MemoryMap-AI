@@ -189,7 +189,7 @@
   background: var(--accent-surface);
   color: var(--on-accent);
   border-radius: var(--radius-md);
-  font-weight: 650;
+  font-weight: 600;
   /* This button carries `.graph-trace-note` too (graph.js, for the shared
      chip reset), which caps chips at 12rem with an ellipsis so a long note
      preview doesn't take over the row, but "Generate Story from Path" is
@@ -1781,7 +1781,7 @@ body.scroll-top-visible #tab-notes .layout > main {
 
 .md-table th {
   background: var(--chip-bg);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .md-table tbody tr:nth-child(even) {
@@ -3463,7 +3463,7 @@ span > .chip {
 }
 
 .doc-list-title {
-  font-weight: 650;
+  font-weight: 600;
   font-size: var(--text-body);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3852,7 +3852,7 @@ span > .chip {
      a readable width, instead of shrinking the title toward zero. */
   min-width: 8rem;
   font-size: 1.15rem;
-  font-weight: 650;
+  font-weight: 600;
   border: 1px solid transparent;
   background: none;
 }
@@ -4099,25 +4099,25 @@ span > .chip {
 
 .markdown-body .md-h3 {
   font-size: 1.25em;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.35;
 }
 
 .markdown-body .md-h4 {
   font-size: 1.1em;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .markdown-body .md-h5 {
   font-size: 1em;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* The sixth level is the one the live view greys rather than shrinks: below
    body size it stops being a heading and starts being small print. */
 .markdown-body .md-h6 {
   font-size: 1em;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--muted);
 }
 
@@ -4731,7 +4731,7 @@ input.doc-title-input {
   border-color: transparent;
   background: none;
   font-size: var(--text-h3);
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: -0.01em;
   padding-left: var(--space-2);
 }

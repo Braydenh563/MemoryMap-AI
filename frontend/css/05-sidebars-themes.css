@@ -4565,7 +4565,7 @@ textarea.autogrow {
 }
 
 .doc-prose-row[aria-current] .doc-finding-words {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* The completion popup. `position: fixed` because it is placed in viewport
@@ -4776,7 +4776,7 @@ textarea.autogrow {
    as the answer and the rest as the alternatives. Weight only: a second
    colour here would compete with the accent the hovered row already uses. */
 .doc-suggest-best {
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .doc-suggest-none {

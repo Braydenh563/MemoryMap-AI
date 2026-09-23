@@ -619,7 +619,7 @@ section title was the same size as the subsections beneath it.
 
 | Level | Size | Treatment |
 | --- | --- | --- |
-| `.card h2` | `--text-body` | weight 650, tight tracking, **a heading: names a thing** |
+| `.card h2` | `--text-body` | weight 600, tight tracking, **a heading: names a thing** (was 650, which a font with static weights, Segoe UI and most system faces, resolves to Bold 700: every card title drew a step heavier than designed) |
 | `.card h3`, `.eyebrow`, `.nav-group-label`, `.launch-label` | `--text-sm` | weight 600, muted, uppercase, 0.04em, **an eyebrow: labels a section of controls** |
 | `h4.setting-subhead` | `--text-md` | weight 600, sentence case, a subdivision inside an eyebrow's group |
 | `.dash-getting-started h2` | `--text-h3` | titles a whole panel, not a card |

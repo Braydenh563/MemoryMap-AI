@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- De-vibecoding, dashboard, chat and graph: sentence-case labels in Quiet, plain stat icons, no eyebrow over the greeting, an even 16px rhythm, the name nudge as inline text; card titles at 600 (650 rendered as bold on static fonts); chat suggestions read as questions, not accent pills; the thread mark and the graph legend lose their extra frames.
 - De-vibecoding, Notes and Library: a note's facts are one quiet line (category with a dot, #tags, space, links, date) instead of five pills, and confident AI filing moves to the category's tooltip; in the flat looks a selected tab, segment or filter chip is a neutral ground so the accent marks only actions; the Library hides empty kinds, shows a card's tick on hover (always on touch), drops the per-kind colour stripe in the flat looks, and titles step down to 600; the notes filter placeholder no longer truncates.
 - The "No model is connected" notices keep a gap below their button, so the draft chips and the agent's description no longer sit flush against it.
 - A cross-link on a mind map is drawn like the map's own branches: the same ribbon or line style, facing anchors, weight and taper, in its branch's colour, instead of a straight pen-coloured line.

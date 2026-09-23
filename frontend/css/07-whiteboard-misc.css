@@ -7603,7 +7603,7 @@ button.connection-row {
 }
 
 .library-file-rows .library-image-tile > figcaption {
-  font-weight: 650;
+  font-weight: 600;
   /* A filename is one line; the description under it is where the length
      belongs. Wrapping a name over three lines pushes every other fact in the
      row down and makes a list of files impossible to scan. */

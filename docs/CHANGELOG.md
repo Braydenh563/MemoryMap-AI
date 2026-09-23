@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The guided tour walks through every main feature, one section after
+  another: Notes, Chat, Graph, Library, Boards, Mind maps, Timeline,
+  Reminders, Settings and the status bar each open the feature and point at
+  three to five of its controls. The last card of a section offers the next
+  one by name ("Next: Chat") or Finish, and the count is per section. Nothing
+  is created on the way: with no mind map yet, the tour points at New mind
+  map and says what it makes (INBOX 398).
+- Library cards: the select tick no longer sits on top of the card's menu
+  button, so pressing the menu opens it instead of ticking the card.
 - A file's menu in the Library offers Ask Atlas about this, like every other
   object's menu; the reminder menu's entry uses the same icon as the rest.
 - Files: a file's menu in the Library offers Ask Atlas about this, the last kind of object without it; the reminder row's version wears the same chat icon as every other.

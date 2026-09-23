@@ -34092,6 +34092,23 @@ measured, so nobody rebuilds them.
     `contrast.js` now opens the guide, 0 low-contrast in both themes. All
     four parts built: **Fixed.**
 
+398. **The owner, 2026-09-23 night, verbatim.** "Ok your guided tour fix
+    worked! though If I want to do the other sections of the tour, I have to
+    go into the help settings and click the other tour section buttons, and
+    they dont guide me through the other main features." Two asks: the
+    sections should chain (the last card of one offers the next), and every
+    main feature should have a section that walks into it rather than
+    pointing at its tab button. Owner: the tourdepth agent
+    (`agent-remaining/tourdepth.md`).
+    **Fixed 2026-09-23** (`dad2ff6`): eleven sections, each walking into its
+    feature on three to five of its own controls; a run chains from the
+    section it starts at to the end, the count is per section, and a
+    section's last card offers "Next: <section>" or Finish. Measured with
+    `scratchpad/ui-sweeps/tour.js` at 1440x900, 1184x760, 390x844 and
+    1600x890 at 1.25: every card of every section passes, from the welcome,
+    from Start the tour and from each section's own button; the tour opened
+    boards and maps and made none.
+
 ## Moved from the plans, 2026-09-23
 
 ### From CHAT_PLAN.md

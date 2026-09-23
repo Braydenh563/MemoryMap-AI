@@ -2631,3 +2631,38 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   border-left: 0;
   padding-left: 0;
 }
+
+/* --- glass reaches the floating chrome that sat outside it ------------------
+   Owner, with four screenshots: "some elements dont use the glass styles if
+   they are active". Measured with glass on in Classic dark: the graph's
+   floating dock was rgb(24, 27, 37), fully opaque, and the chat composer's
+   dock was the input well (a near-black 55% fill, no blur), so the two bars
+   a person uses most on those tabs read as black slabs on a glass app.
+
+   The graph panels were made opaque on purpose (02-chat-graph.css, "the map
+   is the tab"): a 4% see-through panel over a moving graph left the nodes
+   legible as ghosts through the words. A frosted pane answers the same
+   complaint, because the blur is what smears the nodes, so the fill stays
+   heavy (80%) and the blur comes back. The composer is a pane in the chat
+   card, not a well: the same frosted shell, lighter. Both are keyed on glass
+   being on, so `[data-glass="off"]` and Performance mode (which sets it)
+   keep the opaque grounds with no rule of their own. */
+:root:not([data-glass="off"]) .graph-overlay .dock[data-dock-name="graph"],
+:root:not([data-glass="off"]) .graph-overlay .graph-options,
+:root:not([data-glass="off"]) .graph-overlay .graph-trace,
+:root:not([data-glass="off"]) .graph-overlay .graph-trace-result,
+:root:not([data-glass="off"]) .graph-overlay #link-suggestions {
+  background: rgb(from var(--modal-bg-opaque) r g b / 0.8);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow), var(--glass-rim);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+:root:not([data-glass="off"]) .chat-dock {
+  background: rgb(from var(--modal-bg-opaque) r g b / 0.55);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-rim);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}

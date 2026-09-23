@@ -21,12 +21,22 @@ const { boot } = require('./lib.js');
   await page.waitForTimeout(800);
   await page.click('#library-subtabs [data-target="library-view-whiteboard"]');
   await page.waitForTimeout(1500);
+  //: **Its own board, not the default one.** Read on a fresh data dir this
+  //: check passed; on one with history in it, whatever card a previous run
+  //: (or the app's own seed data) left under the pointer showed its grip in
+  //: the group's guide reading and check B misfired on a leftover, not on the
+  //: group logic. A board this sweep makes and opens itself has nothing on
+  //: it until the setup below puts something there.
   await page.evaluate(async () => {
     const v = document.getElementById('library-view-whiteboard');
     if (v.classList.contains('hidden') || !v.offsetParent) {
       for (const s of document.querySelectorAll('[id^="library-view-"]')) s.classList.toggle('hidden', s !== v);
     }
-    await initWhiteboard(); wbShowCanvasView(); await fetchWhiteboardState();
+    await initWhiteboard();
+    const board = await apiJson('/whiteboard/boards', { method: 'POST', body: JSON.stringify({ name: 'Group guides check' }) });
+    await openWhiteboardBoard(board.id);
+    wbShowCanvasView();
+    await fetchWhiteboardState();
     await new Promise((r) => setTimeout(r, 600));
   });
 

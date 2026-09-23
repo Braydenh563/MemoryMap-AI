@@ -742,6 +742,12 @@ body.scroll-top-visible #tab-notes .layout > main {
   max-width: 16rem;
 }
 
+/* A chat model that is set but not installed says so in the warning ink, so
+   the badge cannot be read as the model that answers. */
+#chat-active-model.is-missing {
+  color: var(--warn);
+}
+
 .chat-subline:empty {
   display: none;
 }

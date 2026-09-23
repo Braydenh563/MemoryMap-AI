@@ -3043,6 +3043,146 @@ button.outline-twist:focus-visible {
   --chip-bg: rgba(255, 255, 255, 0.07);
 }
 
+/* --- Quiet utilitarian: the default look (UI_MODERNISATION_PLAN decisions,
+   2026-09-23). A neutral warm-grey ground with no gradient and no blobs,
+   solid panels, one ink-blue accent: the content is the colour. Chosen by the
+   owner against an audit that found the old default's indigo, lavender
+   gradient and glass to be the look people read as machine-made. The accent
+   holds 5.3:1 on white; the grey ground is warm rather than blue-grey so the
+   one blue on the page is the thing that acts. -------------------------------- */
+:root[data-palette="utilitarian"] {
+  --page: #f4f3f1;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #ffffff;
+  --inner: #f7f6f4;
+  --input-bg: #ffffff;
+  --glass-border: #e3e1dd;
+  --modal-bg: #ffffff;
+  --glass-shadow: 0 1px 2px rgba(28, 28, 26, 0.06), 0 2px 8px rgba(28, 28, 26, 0.04);
+  --ink: #1c1c1a;
+  --muted: #66645f;
+  --accent: #2f5bd3;
+  --accent-soft: rgba(47, 91, 211, 0.1);
+  --border: rgba(28, 28, 26, 0.1);
+  --chip-bg: rgba(28, 28, 26, 0.05);
+}
+
+:root[data-palette="utilitarian"][data-mode="dark"] {
+  --page: #161615;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #1e1e1c;
+  --inner: #242422;
+  --input-bg: #1a1a19;
+  --glass-border: #2f2f2c;
+  --modal-bg: #1e1e1c;
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --ink: #ecebe8;
+  --muted: #a09e98;
+  --accent: #8aa7f7;
+  --accent-soft: rgba(138, 167, 247, 0.16);
+  --border: rgba(236, 235, 232, 0.1);
+  --chip-bg: rgba(236, 235, 232, 0.06);
+}
+
+/* --- Editorial paper: off-white paper, black type, one red-orange for what
+   acts, and hairlines where the other palettes fill a card. The accent holds
+   4.6:1 on the paper. Deliberately not a cream with a serif (the other
+   machine-made default); the type stays the system face, set in black. ------- */
+:root[data-palette="paper"] {
+  --page: #faf9f6;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #faf9f6;
+  --inner: #f3f1ec;
+  --input-bg: #ffffff;
+  --glass-border: rgba(17, 17, 17, 0.16);
+  --modal-bg: #faf9f6;
+  --glass-shadow: none;
+  --ink: #111111;
+  --muted: #57544e;
+  --accent: #c63d17;
+  --accent-soft: rgba(198, 61, 23, 0.1);
+  --border: rgba(17, 17, 17, 0.14);
+  --chip-bg: rgba(17, 17, 17, 0.05);
+}
+
+:root[data-palette="paper"][data-mode="dark"] {
+  --page: #141312;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #141312;
+  --inner: #1c1b19;
+  --input-bg: #1a1917;
+  --glass-border: rgba(242, 239, 233, 0.16);
+  --modal-bg: #181715;
+  --glass-shadow: none;
+  --ink: #f2efe9;
+  --muted: #a49f95;
+  --accent: #ff7a4d;
+  --accent-soft: rgba(255, 122, 77, 0.14);
+  --border: rgba(242, 239, 233, 0.14);
+  --chip-bg: rgba(242, 239, 233, 0.06);
+}
+
+/* --- Technical mono: a cool graphite ground, monospace for the numbers and
+   the small print, a green signal accent, square corners (the look's radius,
+   in THEME_PRESETS). The accent holds 4.6:1 on the card. --------------------- */
+:root[data-palette="mono"] {
+  --page: #eceff2;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #f8f9fa;
+  --inner: #f0f2f4;
+  --input-bg: #ffffff;
+  --glass-border: #d5dae0;
+  --modal-bg: #f8f9fa;
+  --glass-shadow: 0 1px 2px rgba(21, 25, 30, 0.08);
+  --ink: #15191e;
+  --muted: #56606b;
+  --accent: #1a7f45;
+  --accent-soft: rgba(26, 127, 69, 0.1);
+  --border: rgba(21, 25, 30, 0.13);
+  --chip-bg: rgba(21, 25, 30, 0.06);
+}
+
+:root[data-palette="mono"][data-mode="dark"] {
+  --page: #0f1215;
+  --blob-a: transparent;
+  --blob-b: transparent;
+  --card: #161a1f;
+  --inner: #1c2127;
+  --input-bg: #12161a;
+  --glass-border: #262c33;
+  --modal-bg: #161a1f;
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --ink: #e6eaee;
+  --muted: #8f9aa6;
+  --accent: #42d67f;
+  --accent-soft: rgba(66, 214, 127, 0.14);
+  --border: rgba(230, 234, 238, 0.11);
+  --chip-bg: rgba(230, 234, 238, 0.06);
+}
+
+/* The three flat looks draw no wash on the dashboard hero: its accent glow
+   is the Classic look's light on glass, and on a solid panel it read as the
+   lavender stain the new default exists to remove. */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .dash-hero {
+  background: var(--card);
+}
+
+:root[data-palette="paper"] :is(.card, .dash-hero) {
+  box-shadow: none;
+}
+
+/* The mono look's one rule beyond colour: numbers and small print in the
+   monospace face, with figures that line up. */
+:root[data-palette="mono"] :is(.muted, time, .chip, .status-bar, .stat-value, [class$="-count"]) {
+  font-family: var(--mono, ui-monospace, "Cascadia Code", Consolas, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- the picker itself ------------------------------------------------------- */
 /* Swatches, not a dropdown: a palette is a look, and a list of names asks you
    to imagine it. Each card previews its own colours. */

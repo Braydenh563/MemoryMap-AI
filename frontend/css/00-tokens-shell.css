@@ -964,6 +964,21 @@ body {
   overflow: hidden;
 }
 
+/* **A link is the accent, everywhere, unless something says otherwise.**
+   There was no base rule, so every plain `<a>` (Settings' "Get it from
+   ollama.com", help text, rendered answers without their own class) drew in
+   the browser's own #00e blue and visited purple, in both themes. `:where`
+   keeps it at zero specificity, so every link that already has a style of
+   its own keeps it. */
+:where(a) {
+  color: var(--accent);
+  text-underline-offset: 0.15em;
+}
+
+:where(a):hover {
+  text-decoration-thickness: 2px;
+}
+
 /* Appearance → Font. Default (system) leaves --ui-font unset → the fallback. */
 :root[data-font="serif"] {
   --ui-font: Georgia, "Iowan Old Style", "Times New Roman", serif;

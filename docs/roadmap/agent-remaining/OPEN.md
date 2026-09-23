@@ -401,13 +401,6 @@ being written by running agents stay beside this one.
   is a narrower read, which the new `count_notes`/`list_notes` filters make
   expressible. The honest `truncated` report is unchanged.
   [brief-13-harness.md]
-- **The agent panel does not close on Escape.** Every other floating surface
-  does. Not added because it is a behaviour change on a non-modal panel that
-  never takes focus, and Escape is already crowded. [visual-c.md]
-- **`.monitor-runs` overflows its 200px cap by 4px with three runs.** Rows are
-  60px plus an 8px gap plus 8px of padding. The cap is a recorded decision
-  ("the same max-height as the log it replaces"), so it was left; a fourth run
-  scrolls either way. [visual-c.md]
 - **The follow-up chips were stubbed at the route in the sweep**, because
   `/chat/followups` answers `[]` with no model. What is measured is the
   request a chip causes, not the model's choice of question. Worth knowing

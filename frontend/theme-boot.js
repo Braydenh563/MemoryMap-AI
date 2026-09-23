@@ -10,6 +10,9 @@
 (function () {
   const _r = document.documentElement;
   const THEMES = {
+    utilitarian: { palette: "utilitarian", glass: "off", radius: "8", density: "compact" },
+    paper: { palette: "paper", glass: "off", radius: "4" },
+    mono: { palette: "mono", glass: "off", radius: "2", density: "compact" },
     default: { palette: "default", glass: "on", radius: "14" },
     manuscript: { palette: "parchment", font: "serif", glass: "off", radius: "6", density: "spacious" },
     terminal: { palette: "carbon", font: "mono", glass: "off", radius: "2", density: "compact" },
@@ -21,7 +24,10 @@
     graphite: { palette: "carbon", glass: "off", radius: "4" },
     lagoon: { palette: "lagoon", glass: "on", radius: "14" },
   };
-  const preset = THEMES[localStorage.getItem("themePreset")] || {};
+  // No look chosen means the default look, Quiet utilitarian (settings.js
+  // `DEFAULT_THEME_PRESET`); an explicit choice, "default" (Classic)
+  // included, is kept.
+  const preset = THEMES[localStorage.getItem("themePreset") ?? "utilitarian"] || {};
   const pref = (key, fallback) =>
     localStorage.getItem(key) ?? preset[key] ?? fallback;
 

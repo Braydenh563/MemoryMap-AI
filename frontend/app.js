@@ -3588,89 +3588,109 @@ function entryItem(entry, options = {}) {
       linkChip.title = reasonNote
         ? `${wayRound}: ${label}\nReason: ${reasonNote}`
         : `${wayRound}: ${label}`;
-      if (options.actions) {
-        const editReason = document.createElement("span");
-        editReason.className = "unlink reason-edit";
-        setLabel(editReason, "ph:pencil-simple");
-        editReason.title = link.reason ? "Edit this link's reason" : "Add a reason for this link";
-        editReason.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          // promptDialog resolves "" for both Cancel and an empty Save, so it
-          // can only ever *set* a reason here, clearing one that already
-          // exists goes through the ⊘ below instead, where the intent is
-          // unambiguous.
-          const next = await promptDialog(
-            "Why are these notes connected?",
-            link.reason || ""
-          );
-          if (!next) return;
-          await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
-            method: "PUT",
-            body: JSON.stringify({ reason: next }),
-          });
-          await loadEntries();
+      //: **One chip and one menu per connection** (INBOX 319, the owner: "the
+      //: buttons in these connections in notes need a redesign and look").
+      //: Edit reason, clear reason and unlink were three round buttons of one
+      //: size inside every chip, so three connections were nine identical
+      //: circles with the labels reading as captions between them. They are
+      //: the `kebabMenu` recipe now (DESIGN.md, standing order 11), which also
+      //: gives the label the width the buttons took.
+      const editReason = async () => {
+        const next = await promptDialog("Why are these notes connected?", link.reason || "");
+        if (!next) return;
+        await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+          method: "PUT",
+          body: JSON.stringify({ reason: next }),
         });
-        linkChip.appendChild(editReason);
-
-        if (link.reason) {
-          const clearReason = document.createElement("span");
-          clearReason.className = "unlink reason-clear";
-          // A Phosphor icon, not the "⊘" character: that glyph comes from
-          // the system font and sits at a different vertical offset than
-          // Phosphor's: .ph's `vertical-align: -0.12em` tuning (and the
-          // flex centring around it) only lines up glyphs sharing one font.
-          // Mixing "⊘"/"×" with a Phosphor pencil icon here is exactly what
-          // made these three actions look vertically staggered.
-          setLabel(clearReason, "ph:prohibit");
-          clearReason.title = "Remove this link's reason";
-          clearReason.addEventListener("click", async (e) => {
-            e.stopPropagation();
-            await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
-              method: "PUT",
-              body: JSON.stringify({ reason: null }),
+        await loadEntries();
+      };
+      const clearReason = async () => {
+        await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+          method: "PUT",
+          body: JSON.stringify({ reason: null }),
+        });
+        await loadEntries();
+      };
+      const unlink = async () => {
+        const otherId = link.entry_id;
+        const reason = link.reason;
+        let liveLinkId = link.link_id;
+        await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+        await loadEntries();
+        pushUndo(
+          "Removed a link between notes",
+          async () => {
+            const updated = await apiJson(`/entries/${entry.id}/links`, {
+              method: "POST",
+              body: JSON.stringify({ target_id: otherId, reason }),
             });
+            liveLinkId = updated.links.find((l) => l.entry_id === otherId)?.link_id ?? liveLinkId;
             await loadEntries();
-          });
-          linkChip.appendChild(clearReason);
+          },
+          async () => {
+            await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+            await loadEntries();
+          }
+        );
+      };
+      const connection = document.createElement("span");
+      connection.className = "link-connection";
+      connection.appendChild(linkChip);
+      if (options.actions) {
+        const items = [
+          {
+            label: link.reason ? "ph:pencil-simple Edit the reason" : "ph:pencil-simple Add a reason",
+            title: link.reason ? "Edit why these notes are connected" : "Say why these notes are connected",
+            run: editReason,
+            group: "reason",
+          },
+        ];
+        if (link.reason) {
+          items.push({ label: "ph:eraser Clear the reason", title: "Keep the link, drop its reason", run: clearReason, group: "reason" });
         }
-
-        const unlink = document.createElement("span");
-        unlink.className = "unlink";
-        // Phosphor's "x", not the "×" character: see the reason-clear icon
-        // above for why: a mixed-font row of action icons never lines up,
-        // no matter how the flex box around each one is centred.
-        setLabel(unlink, "ph:x");
-        unlink.title = "Remove this link";
-        unlink.addEventListener("click", async () => {
-          const otherId = link.entry_id;
-          const reason = link.reason;
-          let liveLinkId = link.link_id;
-          await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
-          await loadEntries();
-          pushUndo(
-            "Removed a link between notes",
-            async () => {
-              const updated = await apiJson(`/entries/${entry.id}/links`, {
-                method: "POST",
-                body: JSON.stringify({ target_id: otherId, reason }),
-              });
-              liveLinkId = updated.links.find((l) => l.entry_id === otherId)?.link_id ?? liveLinkId;
-              await loadEntries();
-            },
-            async () => {
-              await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
-              await loadEntries();
-            }
-          );
-        });
-        makeUnlinkAccessible(unlink);
-        linkChip.appendChild(unlink);
+        items.push({ label: "ph:link-break Remove the link", title: "Remove this link (undoable)", run: unlink, group: "remove" });
+        connection.appendChild(kebabMenu(items, `Actions for the link to ${label}`));
       }
-      linkRow.appendChild(linkChip);
+      linkRow.appendChild(connection);
     }
     li.appendChild(linkRow);
   }
   return li;
+}
+
+//: Take a note to the graph and put it in the middle, lit. The graph is its
+//: own lazy bundle and lays itself out after the tab opens, so this waits for
+//: the node to exist and to have a position rather than guessing a delay.
+async function showNoteInGraph(id) {
+  await switchTab("graph");
+  const deadline = Date.now() + 4000;
+  let node = null;
+  while (Date.now() < deadline) {
+    node = graphNodeById(id);
+    if (node && Number.isFinite(node.x)) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (!node || !Number.isFinite(node.x)) {
+    toast("That note is not on the graph right now: a filter or the view may be hiding it.", true);
+    return;
+  }
+  focusGraphNode(node);
+  if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
+    graphSvg.transition().duration(400).call(graphZoom.translateTo, node.x, node.y);
+  }
+}
+
+//: Start a chat about one note. Named by its title in the words a person
+//: would use, so the agent's own search tools find it, rather than pasting the
+//: whole note into the box.
+function askAtlasAboutNote(entry) {
+  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim().slice(0, 80);
+  switchTab("chat");
+  const input = $("chat-input");
+  if (!input) return;
+  input.value = `Tell me about my note "${name}" and what it connects to.`;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.focus();
 }
 
 function inlineActionIs(id, kind) {
@@ -5436,6 +5456,21 @@ function entryOverflowMenu(entry) {
         title: "Notes you have not looked at in a long time that are close to this one",
         run: () => toggleFaded(entry),
       },
+      //: **The note's two other homes, one press away** (INBOX 393: "there
+      //: needs to be more integration between all the main features"). The
+      //: menu could put a note on a board, in a document and in a reminder,
+      //: and could not take it to the graph that draws it or to the chat that
+      //: answers about it.
+      {
+        label: "ph:graph Show in graph",
+        title: "Open the graph centred on this note, its links lit",
+        run: () => showNoteInGraph(entry.id),
+      },
+      {
+        label: "ph:chat-circle Ask Atlas about this note",
+        title: "Start a chat about this note and what it connects to",
+        run: () => askAtlasAboutNote(entry),
+      },
     ];
 
     const addItems = [
@@ -5476,7 +5511,7 @@ function entryOverflowMenu(entry) {
         },
       },
       {
-        label: "⤵ Continue thought",
+        label: "ph:arrow-bend-down-right Continue thought",
         title: "Start or extend a thread from this note",
         run: () => {
           inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };
@@ -29529,6 +29564,15 @@ function timelineRow(entry) {
   //: now. The map lookup stays because a board's *title* still comes from the
   //: map index rather than from its note text.
   const kind = entry.kind || (board ? "board" : "note");
+  const title = entry.title || (board ? board.title : head) || "Untitled note";
+  //: **A snippet says something the title does not.** For a board the preview
+  //: is its note's own `# Title` line and for a reminder it is the reminder's
+  //: text, so both rows repeated their title underneath it, the board's with
+  //: the markdown hash still on it (measured: "R board" over "# R board").
+  const other = stripMarkdownPreview(entry.preview || "").replace(/\s+/g, " ").trim();
+  const snippet = entry.kind === "note" || !entry.kind
+    ? rest
+    : other && other.replace(/^#+\s*/, "") !== title ? other : "";
   return {
     id: entry.id,
     //: Identity across kinds: note 3 and document 3 are two different things,
@@ -29538,8 +29582,8 @@ function timelineRow(entry) {
     kind,
     board,
     // The first line of a note is what a person calls it, heading or not.
-    title: entry.title || (board ? board.title : head) || "Untitled note",
-    snippet: entry.kind === "note" || !entry.kind ? rest : entry.preview || "",
+    title,
+    snippet,
     when: parseServerTime(entry.at) || new Date(entry.at),
     whenIso: entry.at,
     writtenAt: entry.written_at,
@@ -35308,7 +35352,7 @@ async function openNotifications({ keepWatermark = false } = {}) {
     row.append(readToggle);
 
     // A notification you cannot act on is a notification you learn to ignore.
-    if (item.action && (item.action.tab || item.action.exports || item.action.panel)) {
+    if (item.action && (item.action.tab || item.action.exports || item.action.panel || item.action.settings)) {
       row.classList.add("notif-actionable");
       row.tabIndex = 0;
       row.title = item.action.exports ? "Open the exports folder" : "Open";
@@ -35316,6 +35360,10 @@ async function openNotifications({ keepWatermark = false } = {}) {
         closeNotifications();
         if (item.action.panel) {
           reopenAnswerPanel(item.action);
+          return;
+        }
+        if (item.action.settings) {
+          openSettingsModal(item.action.settings);
           return;
         }
         if (item.action.exports) {
@@ -36524,6 +36572,36 @@ function renderAiPill() {
   $("ai-status-title").textContent = state.title;
   $("ai-status-detail").textContent = state.detail;
   renderChatActiveModelBadge();
+  nudgeEmbeddingProblem();
+}
+
+//: **A broken search engine is said where the person is, once** (owner,
+//: packaged app: "I didnt have sentence transformers installed ... I
+//: encountered errors and I saw no popup or anything to suggest that I
+//: switch to nomic-embed-text or install sentence transformers"). The fix
+//: sentence and its one-click button lived only in Settings, Models, which
+//: nobody opens to find out why search feels dull. So the first poll that
+//: carries `embedding_error` raises a toast with the way to fix it and leaves
+//: the same in the bell, keyed by the error so it is said once per problem,
+//: not once per poll.
+let embeddingNudgeSaid = "";
+function nudgeEmbeddingProblem() {
+  const error = modelStatus?.embedding_error;
+  if (!error || error === embeddingNudgeSaid) return;
+  embeddingNudgeSaid = error;
+  const installing = /being installed/.test(error);
+  const title = installing ? "Search by meaning is being installed" : "Search by meaning is not working";
+  const detail = installing
+    ? "Search uses keywords until it finishes. Or pick nomic-embed-text in Settings, Models."
+    : `${error}. Settings, Models can switch it to ${EMBEDDING_FALLBACK_MODEL} or install the package.`;
+  recordNotification({
+    kind: "assist",
+    title,
+    detail,
+    key: `embedding:${error}`,
+    action: { settings: "models" },
+  });
+  if (!installing) toastAction(`${title}. Search is using keywords for now.`, "Fix it", () => openSettingsModal("models", "embedding-model-select"));
 }
 
 // --- the status bar (§36D) ---------------------------------------------------
@@ -37717,16 +37795,27 @@ function renderChatActiveModelBadge() {
   const pinned = (modelStatus && modelStatus.feature_models || []).find(
     (row) => row.key === "chat" && row.overridden
   );
-  const name = (pinned && pinned.model) || (modelStatus && modelStatus.chat_model);
+  //: `chat_model_effective`, not `chat_model`: on a llama.cpp or LM Studio
+  //: server the configured name is not what answers when that server has a
+  //: different model loaded (owner: the header said llama3.2, which was not
+  //: installed, while another model answered). On Ollama a missing model
+  //: is said to be missing rather than named as if it ran.
+  const name = (pinned && pinned.model)
+    || (modelStatus && (modelStatus.chat_model_effective || modelStatus.chat_model));
+  const missing = !pinned && modelStatus?.chat_model_installed === false
+    && name === modelStatus.chat_model;
   badge.hidden = !name;
+  badge.classList.toggle("is-missing", Boolean(missing));
   //: The short form in the badge, the full id in the tooltip below, the
   //: badge is 22ch wide and a HuggingFace id is routinely longer than that.
-  badge.textContent = shortModelName(name);
+  badge.textContent = missing ? `${shortModelName(name)} (not installed)` : shortModelName(name);
   // The badge itself ellipsis-truncates a long id (a full HuggingFace path
   // easily runs past the header), the full name is still one hover away.
-  badge.title = name
-    ? `${aiNameNow()} is answering with ${name}: click for what it is and what it can do`
-    : "";
+  badge.title = !name
+    ? ""
+    : missing
+      ? `${name} is set for chat but is not installed: click to pick a model you have`
+      : `${aiNameNow()} is answering with ${name}: click for what it is and what it can do`;
 }
 
 //: **What this model actually is.** Asked for: "in chat I want more details in
@@ -38314,6 +38403,19 @@ function syncEmbeddingPickerState(offline) {
   const picker = $("embedding-model-select");
   if (!picker) return;
   picker.disabled = down || !usingOllama;
+  //: An empty select says nothing: with Ollama off it drew as a blank 46px
+  //: box beside a pale Apply button. It names why it is empty instead.
+  if (!picker.options.length || picker.options[0].dataset.placeholder) {
+    const note = down ? "Needs Ollama running" : "No embedding models installed";
+    let option = picker.options[0];
+    if (!option) {
+      option = document.createElement("option");
+      option.value = "";
+      option.dataset.placeholder = "1";
+      picker.appendChild(option);
+    }
+    option.textContent = note;
+  }
   picker.title = down
     ? "Ollama is not running, so there are no embedding models to choose from"
     : usingOllama
@@ -47568,6 +47670,15 @@ if (agentMonitorClose) {
     agentMonitorDismissedAt = Date.now();
     agentMonitorPinned = false;
     setAgentMonitorVisible(false);
+  });
+  //: Escape closes it when focus is inside it, as it closes every other
+  //: floating surface (OPEN.md, Chat and popup agent). Only from inside: the
+  //: panel is non-modal and never takes focus, so an Escape meant for the
+  //: editor behind it must not also dismiss it.
+  agentMonitor.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    event.preventDefault();
+    agentMonitorClose.click();
   });
 }
 

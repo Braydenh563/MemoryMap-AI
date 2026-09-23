@@ -47,6 +47,23 @@ below). Versioning is `0.x` while the app stabilises.
 - On a mind map the bottom bar offers one Cross-link tool drawn in the map's
   own line style, instead of a generic straight and curved pair; a map
   line's label drags with the pointer and no longer starts a selection box.
+- The dashboard's note count leaves out boards and maps, as the Notes list
+  does.
+- A note's menu can show it in the graph (centred and lit) or start a chat
+  about it with Atlas.
+- Links everywhere use the accent colour (plain links were the browser's own
+  blue and purple); Timeline rows for boards and reminders no longer repeat
+  their title as a snippet; an empty Ollama embedding picker says why.
+- A note's connections are one chip and one ⋯ menu each (edit or clear the
+  reason, remove the link), instead of three round buttons inside every chip.
+- The chat header names the model that actually answers (on llama.cpp and
+  LM Studio, the loaded one), or says a set model is not installed, instead
+  of the configured default. A broken search by meaning now says so in a
+  toast and the bell, with a Fix it button, not only inside Settings.
+- A picture is described once and its text read once: repeat saves no
+  longer queue repeat jobs, Tesseract stands down when a vision model reads
+  the text, and a running caption shows as one row in Agent activity, not
+  two.
 - Panning and zooming the whiteboard and mind maps no longer re-styles every
   item on the board each frame (traced: 2.4 s of style work over a 50-step
   pan on a 60-topic map, now 29 ms; zoom 1.4 s to 18 ms). Worst frame at 50
@@ -60,6 +77,11 @@ below). Versioning is `0.x` while the app stabilises.
   nomic-embed-text offered as the alternative, instead of a traceback.
 
 ### Changed
+
+- **A new default look, Quiet utilitarian**: a warm grey ground, solid
+  panels, one ink-blue accent and tighter spacing. Two new looks, Editorial
+  paper and Technical mono, sit beside it in Appearance, and the previous
+  look is kept as Classic. A look you already chose is kept.
 
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label

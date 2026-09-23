@@ -269,3 +269,18 @@ def test_a_second_rebuild_while_one_runs_is_refused(ai_client, fake_embeddings, 
     response = ai_client.post("/models/reindex")
     assert response.status_code == 409
     assert "already running" in response.json()["detail"]
+
+
+def test_status_names_the_model_an_openai_server_actually_runs(client, monkeypatch):
+    """Owner, packaged app: the chat header said llama3.2, not installed,
+    while the server's own loaded model answered. On an OpenAI-dialect
+    server the loaded model is what runs; report it."""
+    from memorymap.core import deps
+
+    config = deps.get_config()
+    config.set_preference("llm_provider", "openai")
+    ollama = deps.get_ollama()
+    monkeypatch.setattr(ollama, "list_models", lambda: [{"name": "qwen3.5-4b-q4.gguf", "size": 1}])
+    body = client.get("/models/status").json()
+    assert body["chat_model_installed"] is False
+    assert body["chat_model_effective"] == "qwen3.5-4b-q4.gguf"

@@ -316,6 +316,37 @@ def touch(session: Session, source_name: str, ref_id: int) -> None:
     _write(session.connection(), source, ref_id, row)
 
 
+def forget(session: Session, model: type, ids: Iterable[int]) -> int:
+    """Take rows out for things a bulk statement is about to delete, or has.
+
+    `touch` above re-reads one object; this is its bulk half, for the deletes
+    that never reach the flush hook: emptying the bin (`manager._hard_delete`
+    runs `DELETE FROM entries WHERE id IN (...)`) and deleting a space (every
+    table in `routes_spaces.delete_space` goes by a query-level delete). Both
+    left their rows here for good, measured: a purged note stayed findable
+    with `is:deleted`, and a deleted space's notes, documents and reminders
+    stayed findable from All spaces. Every source of the model is cleared,
+    because a note and a board share `Entry` and the caller cannot know
+    which of the two a row was indexed as. Returns rows removed.
+    """
+    wanted = [int(ref_id) for ref_id in ids]
+    if not wanted or _table_missing(session):
+        return 0
+    rowids = [_rowid(source, ref_id) for source in _BY_MODEL.get(model, ()) for ref_id in wanted]
+    removed = 0
+    connection = session.connection()
+    # In chunks: SQLite's default bound-parameter ceiling is 999 on older
+    # builds, and a bin can hold more notes than that.
+    for start in range(0, len(rowids), 500):
+        chunk = rowids[start : start + 500]
+        result = connection.exec_driver_sql(
+            f"DELETE FROM search_index WHERE rowid IN ({', '.join('?' * len(chunk))})",
+            tuple(chunk),
+        )
+        removed += max(result.rowcount or 0, 0)
+    return removed
+
+
 def rebuild(session: Session, only: str | None = None) -> dict[str, int]:
     """Index everything from scratch. Returns rows written per kind.
 

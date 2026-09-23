@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Search no longer finds things that are gone. Emptying the bin left each
+  purged note in the search index for good (it still answered `is:deleted`),
+  and deleting a space left its notes, documents and reminders findable from
+  All spaces, because both delete in bulk and the index only follows ordinary
+  saves. Both now take their rows out, and a lint fails any new bulk delete
+  of a searchable kind that does not.
 - A note the AI re-files, by adding context to it or by re-evaluating it, is
   marked as the AI's choice, the same as a note it files on save. Moving one
   of those by hand afterwards now records the correction the filing loop

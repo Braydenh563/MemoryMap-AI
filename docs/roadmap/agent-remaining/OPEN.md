@@ -916,14 +916,18 @@ being written by running agents stay beside this one.
   import or a bug. Next step: a `reindex` job kind once Brief 9's runtime
   lands, with `/search/stats` showing the row counts it is working towards. Do
   not add a route that rebuilds inline. [brief11-retrieval-engine.md]
-- **A bulk write can leave the index stale.** `file:
-  src/memorymap/search/index.py`, `id: search-bulk-writes`. The hook sees the
-  ORM's unit of work; `session.execute(update(Entry)...)` or raw SQL bypasses
-  it, and `touch(session, source, ref_id)` has no caller. Next step: grep for
-  bulk `update(` and `delete(` over the six indexed models (the importer and
-  the space reassignment in `routes_spaces.py` are the likely two) and call
-  `touch` there, or add a lint that fails on a bulk statement against an
-  indexed model. [brief11-retrieval-engine.md]
+- ~~**A bulk write can leave the index stale.**~~ **Done 2026-09-23**, and
+  it was worse than stale. Grepped over the six indexed models: two bulk
+  paths, both deletes. Emptying the bin (`manager._hard_delete`) left every
+  purged note's row behind flagged `deleted`, and deleting a space
+  (`routes_spaces.delete_space`) left its notes, documents and reminders
+  findable from All spaces. `search_index.forget(session, model, ids)` is the
+  bulk half of `touch`, both paths call it, and a lint in
+  `tests/test_search_engine.py` fails any file that issues a statement-level
+  delete against an indexed model without it (three tests failed before the
+  fix, pass after). The two bulk `update`s left (`Reminder.entry_id`,
+  `Entry.parent_id` on a purge) touch no indexed column.
+  [brief11-retrieval-engine.md]
 - **The vector matrix forgets by zeroing a row.** `file:
   src/memorymap/search/engine.py`, `id: search-matrix-compaction`. Dead rows
   score zero and are never returned, but they stay in the array. Next step:

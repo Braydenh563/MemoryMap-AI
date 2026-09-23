@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A cross-link on a mind map is drawn like the map's own branches: the same ribbon or line style, facing anchors, weight and taper, in its branch's colour, instead of a straight pen-coloured line.
 - With glass on, the graph's floating dock and panels and the chat composer are frosted panes like the rest of the glass chrome, instead of an opaque bar and a near-black well.
 - The full test suite runs across every core (pytest-xdist): under 9 minutes on four cores instead of about 25. The resurface timing test now waits for the embedding warm-up before it starts its clock.
 - Quiet utilitarian no longer sets compact density, which had squeezed every spacing token app-wide, and the dashboard's Full view has its labelled rows, two-line hints and larger clock back, so Full and Compact differ again (first widget at 631px against 483px at 1440).

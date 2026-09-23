@@ -6931,6 +6931,82 @@ const WB_CONNECT_WORDS = {
 //: beside it said a cross-link was a different kind of drawing. So a map
 //: shows one tool, drawn in the map's style and dashed (a cross-link's own
 //: mark, §13c), and what it draws follows the same style.
+//: **A cross-link on a map is drawn by the map, not by the board** (owner,
+//: with a screenshot: "these links I drew using the cross-link tools are
+//: different from the ones between the other mind map nodes ... I want them
+//: to be the same"). Measured on that map: the branches were tapered ribbons
+//: in their branch's colour leaving each topic's facing side, and the
+//: cross-link was a 3px straight cyan line from the bottom anchor of one
+//: topic, because a link is a board sketch and was drawn with the pen's
+//: colour and the board's link geometry. So between two topics this returns
+//: the branch drawing itself: `wbMapEdgePathD` and `wbMapRibbonD` between
+//: the two topics' facing sides, in the map's line style, weight and taper,
+//: coloured like the source topic's branch. A stand-in child carries only
+//: the map's style, so the target's own tree edge (its bend, its slide) is
+//: not borrowed. `null` off a map, for any end that is not a topic, and for
+//: a link someone has bent by hand, which keeps the board's own bent curve.
+//: Built once per render pass (the microtask reset), since a render asks
+//: for every link and the index and colours are a walk of the whole map.
+let wbMapCrossLinkMemo = null;
+function wbMapCrossLinkLook(parsed) {
+  if (!wbIsMap() || !parsed?.type?.startsWith("link-")) return null;
+  const source = wbLinkItem(parsed.sourceKind || "node", parsed.sourceId);
+  const target = wbLinkItem(parsed.targetKind || "node", parsed.targetId);
+  if (!source || !target || !WB_MAP_KINDS.has(source.kind) || !WB_MAP_KINDS.has(target.kind)) return null;
+  if (!wbMapCrossLinkMemo) {
+    const index = wbMapIndex();
+    wbMapCrossLinkMemo = { index, colors: wbMapNodeColors(index), layout: wbMapLayout() };
+    queueMicrotask(() => { wbMapCrossLinkMemo = null; });
+  }
+  const { index, colors, layout } = wbMapCrossLinkMemo;
+  //: A leaf has no colour of its own (null in the map): it wears its
+  //: branch's, so the nearest coloured ancestor is the one its line has.
+  //: A root has none at all, so a link from one takes the target's branch,
+  //: and failing both, the accent an uncoloured map line already draws in.
+  const branchColour = (from) => {
+    for (let at = from, hops = 0; at && hops < 64; hops++) {
+      const own = colors.get(at.id);
+      if (own) return own;
+      at = at.parent_id != null ? index.byId.get(at.parent_id) : null;
+    }
+    return "";
+  };
+  const colour = branchColour(source) || branchColour(target) || currentAccentHex();
+  //: Bent by hand: the board's own bent curve, still in the branch's colour
+  //: and weight, since a bend is the one shape the map's lines cannot hold.
+  if (parsed.bend && (parsed.bend.x || parsed.bend.y)) {
+    const ends = wbResolveLinkEndpoints(parsed);
+    if (!ends) return null;
+    const line = wbLinkPathD("link-curved", ends.source, ends.target, null, 3, parsed.bend);
+    return { line, d: line, ribbon: false, colour, width: 3 };
+  }
+  const style = wbMapTheme().edge_style || "curve";
+  const ghost = { ...target, data: { edge_style: style === "elbow" ? "elbow" : style } };
+  const line = wbMapEdgePathD(source, ghost, layout);
+  const ribbon = wbMapEdgeIsRibbon(ghost);
+  return {
+    line,
+    d: ribbon ? wbMapRibbonD(source, ghost, layout) : line,
+    ribbon,
+    colour,
+    width: 3 * wbMapEdgeWeight(ghost),
+  };
+}
+
+//: Where a drawn line starts and ends, read off its own path: the first
+//: `M x y` and the last pair of numbers, which is the end point in every
+//: command the map's lines use (L, C, and the elbow's run of Ls). The link's
+//: handles sit here, so on a map they are on the line that is drawn rather
+//: than on the board's anchor the link was first dropped on.
+function wbPathEnds(d) {
+  const nums = String(d).match(/-?\d*\.?\d+(?:e-?\d+)?/gi)?.map(Number) || [];
+  if (nums.length < 4) return null;
+  return {
+    source: { x: nums[0], y: nums[1] },
+    target: { x: nums[nums.length - 2], y: nums[nums.length - 1] },
+  };
+}
+
 function wbMapCrossLinkType() {
   const style = window.wbMapState?.theme?.edge_style || "curve";
   return style === "straight" ? "link-straight" : "link-curved";
@@ -14644,7 +14720,8 @@ function wbClearSketchHandles() {
 }
 
 function wbRenderLinkEndpointHandles(sketch, parsed) {
-  const endpoints = wbResolveLinkEndpoints(parsed);
+  const look = wbMapCrossLinkLook(parsed);
+  const endpoints = (look && wbPathEnds(look.line)) || wbResolveLinkEndpoints(parsed);
   if (!endpoints) return;
   // The overlay layer (see its own comment in index.html), an endpoint
   // sits *on a card's own border* by definition, which the base SVG layer
@@ -14665,6 +14742,14 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
     const repaint = () => {
       const d = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, bendLive);
       for (const el of paths()) el?.setAttribute("d", d);
+      //: A map's ribbon is a filled outline; mid-bend the path is an open
+      //: curve, which a fill would close into a wedge. Stroke it in the same
+      //: colour until the render after the gesture redraws it properly.
+      const drawn = paths()[0];
+      if (look?.ribbon && drawn && drawn.getAttribute("fill") !== "none") {
+        drawn.setAttribute("stroke", drawn.getAttribute("fill"));
+        drawn.setAttribute("fill", "none");
+      }
     };
     const handle = group.append("circle")
       .attr("class", "wb-link-bend-handle")
@@ -15735,6 +15820,7 @@ function renderWhiteboard() {
 
   sketchUpdate.each(function(d) {
     let pathData = d.data;
+    let hitboxData = null;
     let stroke = "var(--text-color)";
     let strokeWidth = "3";
     let strokeOpacity = 1;
@@ -15770,11 +15856,28 @@ function renderWhiteboard() {
         stroke = parsed.color || stroke;
         strokeWidth = String(parsed.width || 3);
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
-        const endpoints = wbResolveLinkEndpoints(parsed);
-        pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend) : "";
+        const look = wbMapCrossLinkLook(parsed);
+        if (look) {
+          //: The branch's own drawing (see `wbMapCrossLinkLook`): a ribbon is
+          //: a filled outline, so it paints with fill and no stroke, and the
+          //: hitbox keeps the centreline so the whole length stays a target.
+          const colour = look.colour || stroke;
+          pathData = look.d;
+          hitboxData = look.line;
+          stroke = look.ribbon ? "none" : colour;
+          strokeWidth = String(look.width);
+          dashArray = null;
+          if (look.ribbon) {
+            fill = colour;
+            fillOpacity = 1;
+          }
+        } else {
+          const endpoints = wbResolveLinkEndpoints(parsed);
+          pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend) : "";
+        }
       }
     } catch(e) {}
-    d3.select(this).select(".sketch-hitbox").attr("d", pathData);
+    d3.select(this).select(".sketch-hitbox").attr("d", hitboxData ?? pathData);
     d3.select(this).select(".sketch-path")
       // The highlighter's multiply, re-applied every render and cleared on
       // every other kind so a reused element cannot keep it: the same reason
@@ -17069,9 +17172,12 @@ function wbUpdateLinkedSketches(nodeId, precomputed) {
   const pairs = precomputed || wbLinkedSketchesFor(nodeId);
   for (const entry of pairs) {
     const { sketch, parsed } = entry;
-    const endpoints = wbResolveLinkEndpoints(parsed);
-    if (!endpoints) continue;
-    const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend);
+    const look = wbMapCrossLinkLook(parsed);
+    const endpoints = look ? null : wbResolveLinkEndpoints(parsed);
+    if (!look && !endpoints) continue;
+    const pathData = look
+      ? look.d
+      : wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend);
     //: **The two paths, found once per gesture rather than once per frame**
     //: (MINDMAP_PLAN.md §13a). Three document-wide queries per link per frame
     //: is thousands of walks of the document a second on a board that mixes a
@@ -17086,7 +17192,7 @@ function wbUpdateLinkedSketches(nodeId, precomputed) {
       entry.hitbox = entry.el?.querySelector(".sketch-hitbox") || null;
     }
     entry.path?.setAttribute("d", pathData);
-    entry.hitbox?.setAttribute("d", pathData);
+    entry.hitbox?.setAttribute("d", look ? look.line : pathData);
   }
 }
 

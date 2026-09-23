@@ -10573,10 +10573,16 @@ input[type="file"] {
    attribute stays on the row (an ordinary board still draws it, and a map
    turned back into a board gets it back); on a map this rule wins, because a
    CSS declaration beats the presentation attribute the renderer writes. */
+/* **Superseded 2026-09-23 by the owner** (MINDMAP_PLAN decisions): "these
+   links I drew using the cross-link tools are different from the ones between
+   the other mind map nodes ... I want them to be the same". The half of the
+   above that stands is "the map's own ink, not the pen's": a cross-link now
+   takes the branch's colour, shape, weight and taper from the renderer
+   (`wbMapCrossLinkLook` in whiteboard.js), so this rule only has to stop
+   the stroke width and paint the attributes carry from being overridden,
+   and it no longer dashes or mutes the line. */
 .sketch-group.wb-map-crosslink .sketch-path {
-  stroke: var(--muted);
-  stroke-dasharray: 7 5;
-  opacity: 0.85;
+  opacity: 1;
 }
 
 /* --- the Library on a phone (BACKLOG §116.1 item 3) -------------------------

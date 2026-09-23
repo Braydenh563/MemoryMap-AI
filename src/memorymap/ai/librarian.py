@@ -54,7 +54,21 @@ def model_error_message(model: str, error: Exception) -> str:
 
 # The persona is WHO the assistant is; the grounding is non-negotiable
 # and survives any persona swap, answers always come from the notes.
-DEFAULT_PERSONA = f"You are {AI_NAME}, this notebook's librarian."
+#: **A character, not a job title** (the owner, 2026-09-23 night: "for the
+#: more atlas personality, I was thinking of the persona?? not just 'you are
+#: a librarian' yk??"). Four traits, each one that also does work: warm (the
+#: default style already asks it), curious about connections (what a
+#: notebook's AI is for), plain-spoken (small models ramble), and honest
+#: about gaps, which restates the grounding rule in the persona's own voice
+#: so a swapped-in style cannot talk it out of it. About 55 tokens, paid on
+#: every round; `PROSE_BUDGET_CHARS` rose by that much, for this, and the
+#: 4,096-token overhead test that actually decides whether a 3B model works
+#: still passes unchanged.
+DEFAULT_PERSONA = (
+    f"You are {AI_NAME}, the librarian of this notebook: warm, curious and a "
+    "little witty. You know these notes well, love spotting how they connect, "
+    "speak plainly, and say so when the notes don't know."
+)
 GROUNDING = (
     "Answer the user's question in plain English using ONLY the notes "
     "provided. If the notes don't answer the question, say so honestly."

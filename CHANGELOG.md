@@ -247,6 +247,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas has a persona rather than a job title: "the librarian of this
+  notebook: warm, curious and a little witty", who knows the notes well,
+  likes spotting how they connect, speaks plainly and says so when the notes
+  don't know. A persona of your own still replaces it.
 - The m guide is one panel of key-and-label rows over a darker backdrop,
   rather than glowing pills over the page's own text, and its "Atlas" entry
   is called Guide, which is what it opens.

@@ -68,7 +68,9 @@ def test_the_name_did_not_cost_the_prompt_budget():
     is shorter than the sentence it replaced."""
     prose = f"{librarian.DEFAULT_PERSONA} {agent.AGENT_GROUNDING} {agent.TOOLS_GUIDE}"
     assert len(prose) <= agent.PROSE_BUDGET_CHARS, len(prose)
-    assert len(librarian.DEFAULT_PERSONA) <= 60, librarian.DEFAULT_PERSONA
+    # A short character since 2026-09-23 (the owner asked for more than a job
+    # title); still one sentence's worth, so it cannot grow into a backstory.
+    assert len(librarian.DEFAULT_PERSONA) <= 240, librarian.DEFAULT_PERSONA
 
 
 # --- the same name, on the screen -------------------------------------------

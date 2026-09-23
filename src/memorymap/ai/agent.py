@@ -361,7 +361,10 @@ def tools_guide(window_tokens: int | None) -> str:
 # turn, before the question, the notes or the history, and unlike the tool
 # schemas, nothing fits it to the window. If this trips, something was added to
 # TOOLS_GUIDE or the persona; look there rather than at the number.
-PROSE_BUDGET_CHARS = 3_000
+#: 3,000 until 2026-09-23, raised by the default persona's growth alone
+#: (librarian.DEFAULT_PERSONA, the owner's ask for a character): nothing else
+#: may spend it.
+PROSE_BUDGET_CHARS = 3_200
 
 #: Re-exported so the constant keeps resolving from `agent` for anything that
 #: already reads it there. It lives in `ai/memory.py` now, next to the code

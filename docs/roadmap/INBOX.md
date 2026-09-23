@@ -34,6 +34,22 @@ with its owner named in the entry.
 
 ## Open items
 
+403. **The owner, 2026-09-23 night, verbatim.** "for me, trust in the
+    application isn't just the information it shows but that is very much a
+    key point, it is also how cleanly and professionally the application ui
+    is designed and works. the less professional or unclean any part of the
+    ui is, no matter how small, I instantly doubt the applicationa dn wonder
+    if it is worth putting any time into as it feels unreliable. things like
+    having that small gap between the edge of the note connection pill chips
+    on the right and the 'x' delete button, as well as poorly designed
+    dropdown menus with bd widths, poor spacing, poor alignment, poor
+    heirarchy, positioning, poor learnability, not intuitive controls poor
+    information architecture and more. keep doing what you are doing" The
+    standing bar for every pass (INBOX 399's hole-poke and refinement briefs
+    carry it). Named: the connection pill's x inset, orchestrator; menus
+    (widths, spacing, alignment), a sweep of every menu for width, padding
+    and row alignment.
+
 401. **The owner, 2026-09-23 night, verbatim.** "should we vendor any of the
     repos I have had you analyse?? or take anything from them??" Answer from
     ANALYSIS.md ("Six repositories read", 2026-09-20; section 33 and 60 for

@@ -4348,3 +4348,48 @@ main,
   min-width: 1.5rem;
   text-align: center;
 }
+
+/* --- A chip's x: a round target inset evenly (INBOX 403) --- */
+/* The owner: "that small gap between the edge of the note connection pill
+   chips on the right and the 'x' delete button". The x was a bare glyph set
+   0.25rem after the label, so the chip's own right padding sat outside it
+   and the gap to the edge read as a mistake. Every chip that ends in an x
+   now ends in a round target the same distance from the top, the bottom
+   and the right edge (the tag-input shape), measured 4px on all three on
+   the notes list's 24px chips. The chip's end padding shrinks to match. */
+.chip:has(> .unlink:last-child) {
+  padding-inline-end: var(--space-1);
+}
+
+/* A 1rem square, centred: on the 24px chips the notes list draws, that is
+   4px from the top, the bottom and the end, one number on three sides
+   (`aspect-ratio` with a stretched height measured 12x16 in a flex row, so
+   the square is written out). */
+.chip > .unlink:last-child {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  align-self: center;
+  width: 1rem;
+  height: 1rem;
+  margin-inline-start: var(--space-1);
+  border-radius: var(--radius-pill);
+  font-size: 0.85em;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.chip > .unlink:last-child:hover,
+.chip > .unlink:last-child:focus-visible {
+  background: color-mix(in srgb, var(--error) 14%, transparent);
+  color: var(--error);
+}
+
+/* With a mouse the x is the 1rem square above; a finger keeps the 28px
+   target floor `.unlink` sets, and the chip grows around it there. */
+@media (pointer: fine) {
+  .chip > .unlink:last-child {
+    min-width: 0;
+    min-height: 0;
+  }
+}

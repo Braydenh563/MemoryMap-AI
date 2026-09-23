@@ -48,6 +48,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A chip's x (detach a document, remove a file or a reference) is a round
+  target the same distance from the chip's top, bottom and right edge, not
+  a glyph with a stray gap after it.
 - Settings, About counts notes the way the dashboard does: it said "96
   notes" for 44 notes, 2 drafts and 50 boards and maps, and its header's
   "46 entries loaded" is gone.

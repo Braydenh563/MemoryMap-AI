@@ -454,3 +454,47 @@ def test_tag_link_is_one_undo_step_and_mounted_where_there_are_tags():
     extras = _function("docCompletionExtras")
     assert '["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : []' in extras
     assert 'type.ext === "xml" ? docXmlAutoClose(CM) : []' in extras
+
+
+@node
+@pytest.mark.parametrize(
+    ("original", "hex_", "written"),
+    [
+        ("#f00", "#00ff00", "#00ff00"),
+        ("#F00", "#00ff00", "#00FF00"),
+        # The alpha is kept, whichever length it came in.
+        ("#f008", "#00ff00", "#00ff0088"),
+        ("#ff000080", "#0000ff", "#0000ff80"),
+        # Functions keep their syntax and their alpha.
+        ("rgb(255, 0, 0)", "#010203", "rgb(1, 2, 3)"),
+        ("rgba(255, 0, 0, 0.5)", "#010203", "rgba(1, 2, 3, 0.5)"),
+        ("rgb(255 0 0 / 50%)", "#010203", "rgb(1 2 3 / 50%)"),
+        # The picker has only hex to give for the rest.
+        ("hsl(0, 100%, 50%)", "#010203", "#010203"),
+        ("red", "#010203", "#010203"),
+    ],
+)
+def test_a_picked_colour_is_written_in_the_values_own_form(original, hex_, written):
+    assert _region_call("docCssColorFormat(ARG[0], ARG[1])", [original, hex_]) == written
+
+
+@node
+@pytest.mark.parametrize(
+    ("computed", "hex_"),
+    [("rgb(255, 0, 0)", "#ff0000"), ("rgba(1, 2, 3, 0.5)", "#010203"), ("rgb(0 128 0)", "#008000"), ("transparent", None)],
+)
+def test_the_computed_colour_as_the_pickers_hex(computed, hex_):
+    assert _region_call("docRgbToHex(ARG)", computed) == hex_
+
+
+def test_swatches_are_drawn_from_the_tree_for_css_and_html():
+    swatches = _function("docColorSwatches")
+    for name in ('"CallExpression"', '"ValueName"', '"ColorLiteral"', "view.visibleRanges", 'CSS.supports("color"'):
+        assert name in swatches
+    assert '["css", "html"].includes(type.ext) ? docColorSwatches(CM) : []' in _function("docCompletionExtras")
+    picker = _function("docColorAt")
+    assert 'input.type = "color"' in picker and "input.showPicker()" in picker
+    assert ".setAttribute(\"style\"" not in picker, "the CSP refuses a style attribute"
+    theme = _source().split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
+    swatch = theme.split('".cm-color-swatch"', 1)[1].split("}", 1)[0]
+    assert "var(--border)" in swatch and "var(--radius-inner)" in swatch

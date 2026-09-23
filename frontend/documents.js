@@ -15047,6 +15047,19 @@ function docCmTheme(CM) {
       //: The ghost text: the rest of the chosen row after the caret, in the
       //: muted ink the placeholder uses, so it reads as offered, not typed.
       ".cm-ghostText": { color: "var(--muted)", opacity: "0.85", pointerEvents: "none" },
+      //: A colour value's swatch: the colour on a hairline in the border
+      //: token, square with the inner radius, one text-height small, so it
+      //: reads as a mark beside the value and not as a control of its own.
+      ".cm-color-swatch": {
+        display: "inline-block",
+        width: "0.8em",
+        height: "0.8em",
+        marginRight: "var(--space-1)",
+        verticalAlign: "-0.05em",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-inner)",
+        cursor: "pointer",
+      },
 
       //: --- Live preview -------------------------------------------------
       //: The rendered shapes, in the app's own type scale rather than in a
@@ -16484,6 +16497,38 @@ function docXmlUnclosed(before) {
   }
   return stack.length ? stack[stack.length - 1] : null;
 }
+
+//: A computed colour (`rgb(1, 2, 3)` or `rgba(1, 2, 3, 0.5)`, which is what
+//: the browser answers for any colour) as `#rrggbb`, the only form the
+//: native picker takes; null for anything else.
+function docRgbToHex(rgb) {
+  const match = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(rgb || "");
+  if (!match) return null;
+  return `#${match.slice(1, 4).map((n) => Math.min(255, Number(n)).toString(16).padStart(2, "0")).join("")}`;
+}
+
+//: The picker's `#rrggbb`, written back in the form the value was in, as
+//: VS Code does: a hex stays hex (its case and its alpha kept), `rgb()` and
+//: `rgba()` stay functions (comma or space syntax, the alpha kept); `hsl()`
+//: and a named colour become hex, because the picker has no other answer.
+function docCssColorFormat(original, hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const hash = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(original);
+  if (hash) {
+    const digits = hash[1];
+    const alpha = digits.length === 4 ? digits[3].repeat(2) : digits.length === 8 ? digits.slice(6) : "";
+    const out = hex + alpha;
+    return /[A-F]/.test(digits) && !/[a-f]/.test(digits) ? out.toUpperCase() : out.toLowerCase();
+  }
+  const fn = /^(rgba?)\(([^)]*)\)$/i.exec(original.trim());
+  if (fn) {
+    const parts = fn[2].split(/[\s,/]+/).filter(Boolean);
+    const alpha = parts[3];
+    if (fn[2].includes(",")) return `${fn[1]}(${r}, ${g}, ${b}${alpha ? `, ${alpha}` : ""})`;
+    return `${fn[1]}(${r} ${g} ${b}${alpha ? ` / ${alpha}` : ""})`;
+  }
+  return hex;
+}
 // DOC-COMPLETE-END
 
 //: Where Emmet comes from. Loaded the first time a document it serves is
@@ -16892,6 +16937,123 @@ function docXmlAutoClose(CM) {
   return docXmlCloseCache;
 }
 
+//: **Colour swatches** (INBOX 402), VS Code's colour decorators: a small
+//: square before each colour in a CSS value (a hex, `rgb()`, `hsl()` and
+//: their alpha forms, a named colour), in the colour itself, and a click on
+//: it opens the browser's own colour picker. From the tree, so only real
+//: values get one (a colour word in a comment or a selector does not), and
+//: only over the visible lines. HTML's `<style>` is the same CSS tree.
+function docColorAt(view, swatch, from, to) {
+  const original = view.state.sliceDoc(from, to);
+  const probe = document.createElement("span");
+  probe.style.color = original;
+  document.body.appendChild(probe);
+  const hex = docRgbToHex(getComputedStyle(probe).color) || "#000000";
+  probe.remove();
+  const input = document.createElement("input");
+  input.type = "color";
+  input.value = hex;
+  input.className = "doc-color-input";
+  input.setAttribute("aria-label", "Pick a colour");
+  //: Where the swatch is, because the picker opens beside its input; not
+  //: seen and not in the way. Set as properties: the CSP refuses `style=`.
+  const box = swatch.getBoundingClientRect();
+  Object.assign(input.style, {
+    position: "fixed", left: `${box.left}px`, top: `${box.bottom}px`,
+    width: "1px", height: "1px", opacity: "0", border: "0", padding: "0",
+  });
+  document.body.appendChild(input);
+  let range = { from, to };
+  input.addEventListener("input", () => {
+    const text = docCssColorFormat(view.state.sliceDoc(range.from, range.to), input.value);
+    view.dispatch({ changes: { from: range.from, to: range.to, insert: text }, userEvent: "input.color" });
+    range = { from: range.from, to: range.from + text.length };
+    markDocDirty();
+  });
+  const done = () => input.remove();
+  input.addEventListener("change", done);
+  input.addEventListener("blur", done);
+  try {
+    input.showPicker();
+  } catch {
+    input.click();
+  }
+  return input;
+}
+
+let docColorPluginCache = null;
+
+function docColorSwatches(CM) {
+  if (docColorPluginCache) return docColorPluginCache;
+  const { Decoration, ViewPlugin, WidgetType } = CM.view;
+  class Swatch extends WidgetType {
+    constructor(color, from, to) {
+      super();
+      this.color = color;
+      this.from = from;
+      this.to = to;
+    }
+    eq(other) {
+      return other.color === this.color && other.from === this.from;
+    }
+    toDOM(view) {
+      const el = document.createElement("span");
+      el.className = "cm-color-swatch";
+      el.setAttribute("role", "button");
+      el.setAttribute("aria-label", `Pick a colour for ${this.color}`);
+      el.title = "Pick a colour";
+      el.style.backgroundColor = this.color;
+      el.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        docColorAt(view, el, this.from, this.to);
+      });
+      return el;
+    }
+    ignoreEvent() {
+      return true;
+    }
+  }
+  const named = new Set(DOC_CSS_COLORS.filter((c) => c !== "transparent" && c !== "currentcolor"));
+  const build = (view) => {
+    const found = [];
+    const { state } = view;
+    for (const { from, to } of view.visibleRanges) {
+      CM.language.syntaxTree(state).iterate({
+        from,
+        to,
+        enter: (node) => {
+          if (node.name === "CallExpression") {
+            const callee = node.node.getChild("Callee");
+            const name = callee ? state.sliceDoc(callee.from, callee.to) : "";
+            if (!/^(rgba?|hsla?|hwb|lab|lch|oklab|oklch)$/i.test(name)) return;
+          } else if (node.name === "ValueName") {
+            if (!named.has(state.sliceDoc(node.from, node.to).toLowerCase())) return;
+          } else if (node.name !== "ColorLiteral") return;
+          const text = state.sliceDoc(node.from, node.to);
+          if (typeof CSS !== "undefined" && !CSS.supports("color", text)) return false;
+          found.push(Decoration.widget({ widget: new Swatch(text, node.from, node.to), side: -1 }).range(node.from));
+          return false;
+        },
+      });
+    }
+    return Decoration.set(found, true);
+  };
+  docColorPluginCache = ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.decorations = build(view);
+      }
+      update(update) {
+        if (update.docChanged || update.viewportChanged || CM.language.syntaxTree(update.startState) !== CM.language.syntaxTree(update.state)) {
+          this.decorations = build(update.view);
+        }
+      }
+    },
+    { decorations: (plugin) => plugin.decorations }
+  );
+  return docColorPluginCache;
+}
+
 //: XML's Emmet source, as language data for the stream mode: one stable
 //: array, for the identity reason above.
 let docEmmetXmlData = null;
@@ -16909,6 +17071,7 @@ function docCompletionExtras(CM, type) {
     type.ext === "js" ? CM.javascript.javascriptLanguage.data.of({ autocomplete: docEmmetSource(CM, "jsx") }) : [],
     type.ext === "xml" ? CM.state.EditorState.languageData.of(() => docEmmetXmlData) : [],
     type.ext === "xml" ? docXmlAutoClose(CM) : [],
+    ["css", "html"].includes(type.ext) ? docColorSwatches(CM) : [],
     ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],
     docGhostPlugin(CM),
     CM.state.Prec.highest(CM.view.keymap.of([{ key: "Tab", run: (view) => docCompleteTab(view, CM) }])),

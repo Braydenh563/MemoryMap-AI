@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: a colour in a CSS file (or an HTML file's style block) has a small swatch beside it, and a click on it opens the colour picker; the picked colour is written back as hex or rgb(), whichever it was.
 - Documents: renaming a tag in an HTML, XML or JSX file renames its matching tag as you type (one undo takes both back), and XML files close a tag on `>` and finish `</` as HTML and JSX already did.
 - Documents: Emmet in JSX (inside a .js file's JSX, writing `className`) and XML as well as HTML and CSS, and Emmet's own editing commands in the palette for code files: wrap the selection with an abbreviation, and balance outward or inward to select the enclosing tag.
 - Documents: Ctrl+/ in a code file comments by the language at the caret, as VS Code does (`//` inside an HTML file's script, `/* */` in its style, `{/* */}` for a JSX child), and Shift+Alt+A block-comments the selection. Fixed: Ctrl+/ on a line of prose replaced the line with a lone "/", and a .sql document could not be opened at all.

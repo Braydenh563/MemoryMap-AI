@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Dragging a note that is part of a lasso selection on the graph carries the
+  whole selection with it, at the same offsets. Before, only the note in hand
+  moved and the rest of the selection stayed put. The usual rules hold for
+  every note carried: a plain drag places, Shift pins, and a pinned note stays
+  pinned where it lands.
 - Settings, What it learned can delete or reset several rows at once: tick
   them and the selection bar offers Delete, and Reset when a ticked row was
   edited by you. One request changes them all or none, and each deletion is

@@ -33220,3 +33220,23 @@ two. Next step, in order: the ratio on the `grounding` event
 above the answer on the app's own recipe, and a sweep that asserts it appears
 on an answer whose sentences are half marked and not on one that is fully
 marked.
+
+### From GRAPH_PLAN.md
+
+### Built: the graph's lasso selection drags as one, 2026-09-23
+
+The group drag this entry left open (a lasso selection moving together
+the same way): the canvas renderer dragged one node at a time, so the
+selection's other notes stayed frozen where they were while the one in
+hand moved. Now grabbing a note that is part of a selection of two or more
+carries the rest at their offsets (`s.dragGroup`, graph-canvas.js), each
+under the same rule as the note in hand: a plain drag places and releases,
+Shift pins, a note already pinned stays pinned at its new place and only a
+real pin is written to `/graph/pin`. Drag-to-link is off while a group is
+carried, because dropping a selection on a note is not "link these two". A
+note outside the selection drags alone, as before. The SVG renderer, a
+debug fallback behind `localStorage["graph-renderer"]`, was not changed.
+Measured with `scratchpad/ui-sweeps/oi-groupdrag.js` (three of eight notes
+selected, a 134px drag on one): before, the note in hand moved 107.7 world
+units and the other two 1.2 and 1.4; after, 87.9 against 88.0 and 85.0,
+with an unselected note moving 1.7 and no pins written.

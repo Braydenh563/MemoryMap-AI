@@ -51,6 +51,9 @@ Phase 8c, the templates preview, outline row height.
 - done 513324c: 7, the Recent activity widget; `oi-activity.js` 6 of 6.
 - done 5f2e0ca: 8, `POST /learned/bulk` plus the selection bar;
   `oi-learnedbulk.js` 7 of 7.
-- done (this commit): 9, dead matrix rows skipped and compacted (and the -1
+- done 47d34a3: 9, dead matrix rows skipped and compacted (and the -1
   answer they could produce).
-- next: 10, Settings, Extras scrolls 4px sideways at 820.
+- done (this commit): GRAPH_PLAN's open line, the lasso selection drags as
+  one; `oi-groupdrag.js` 1 finding before, 0 after.
+- next: 10, Settings, Extras at 820 (measured clean: `oi-extras820.js` 492 in
+  492, `errors.js` 0 findings at 820), close it with the stale rows.

@@ -110,6 +110,9 @@ function gcSurface(options = {}) {
     wired: false,
     dropTarget: null,
     dragNode: null,
+    //: The rest of a lasso selection travelling with `dragNode`, each with its
+    //: offset from it and whether it was pinned before the gesture.
+    dragGroup: [],
     //: The node the pointer is over. The tab mirrors it into
     //: `graphHoveredId`, which the SVG renderer and the node popup read.
     hoveredId: null,
@@ -1337,6 +1340,31 @@ function gcWireInteraction(s = gcTab) {
         node.fx = wx;
         node.fy = wy;
         gcPost({ type: "drag", phase: "start", id: node.id, x: wx, y: wy }, s);
+        //: **A lasso selection moves as one** (GRAPH_PLAN, "Decision changed,
+        //: 2026-09-09", its one open line: "a dragged cluster moving together
+        //: the same way"). Grabbing a note that is part of a selection of two
+        //: or more carries the rest at their offsets from it, each under the
+        //: same rule as the note in hand: a plain drag places, Shift pins, and
+        //: a note that was pinned stays pinned at its new place. A note outside
+        //: the selection drags alone, as it always has.
+        s.dragGroup =
+          s.selected.has(node.id) && s.selected.size > 1
+            ? gcSelectedNodes(s)
+                .filter((other) => other !== node && !other.isGroup)
+                .map((other) => ({
+                  node: other,
+                  dx: other.x - node.x,
+                  dy: other.y - node.y,
+                  startX: other.x,
+                  startY: other.y,
+                  wasPinned: other.fx != null,
+                }))
+            : [];
+        for (const mate of s.dragGroup) {
+          mate.node.fx = wx + mate.dx;
+          mate.node.fy = wy + mate.dy;
+          gcPost({ type: "drag", phase: "start", id: mate.node.id, x: mate.node.fx, y: mate.node.fy }, s);
+        }
         // **Everything holds still except this note's own neighbours.**
         //
         // Two rules were in conflict here and both are real. The SVG renderer
@@ -1353,10 +1381,11 @@ function gcWireInteraction(s = gcTab) {
         // physicality, and every other note on the map holds the position you
         // are aiming at, which is the gesture.
         const following = s.adj.get(node.id) || new Set();
+        const carried = new Set(s.dragGroup.map((mate) => mate.node.id));
         gcPost({
           type: "freeze",
           ids: s.nodes
-            .filter((n) => n !== node && n.fx == null && !following.has(n.id))
+            .filter((n) => n !== node && n.fx == null && !following.has(n.id) && !carried.has(n.id))
             .map((n) => n.id),
         }, s);
       })
@@ -1369,9 +1398,18 @@ function gcWireInteraction(s = gcTab) {
         node.y = wy;
         s.quadtreeDirty = true;
         gcPost({ type: "drag", phase: "move", id: node.id, x: wx, y: wy }, s);
+        for (const mate of s.dragGroup) {
+          mate.node.fx = mate.node.x = wx + mate.dx;
+          mate.node.fy = mate.node.y = wy + mate.dy;
+          gcPost({ type: "drag", phase: "move", id: mate.node.id, x: mate.node.fx, y: mate.node.fy }, s);
+        }
         //: `graphNodeUnder` aims at `graphNodesRef`, which is the tab's map.
         //: Drag-to-link is a Graph-tab gesture; a pane drags to place only.
-        s.dropTarget = s.size === "full" ? graphNodeUnder(node, { x: wx, y: wy }) : null;
+        //: Never while carrying a group: dropping a selection on a note is
+        //: not "link these two", and guessing which of the carried notes was
+        //: meant would be.
+        s.dropTarget =
+          s.size === "full" && !s.dragGroup.length ? graphNodeUnder(node, { x: wx, y: wy }) : null;
         gcRequestDraw(s);
       })
       .on("end", (event) => {
@@ -1394,6 +1432,26 @@ function gcWireInteraction(s = gcTab) {
         //: pinned node is a reposition, not a request to release it.
         const keep = node._dragShift || node._wasPinned;
         gcPost({ type: "drag", phase: "end", id: node.id, keep }, s);
+        for (const mate of s.dragGroup) {
+          const mateKeeps = node._dragShift || mate.wasPinned;
+          gcPost({ type: "drag", phase: "end", id: mate.node.id, keep: mateKeeps }, s);
+          const mateMoved =
+            Math.abs(mate.node.x - mate.startX) > 2 || Math.abs(mate.node.y - mate.startY) > 2;
+          if (!mateKeeps) {
+            mate.node.fx = null;
+            mate.node.fy = null;
+          } else if (mateMoved) {
+            //: The same "only a real pin is written down" rule as the note in
+            //: hand, below.
+            mate.node.graph_pin_x = mate.node.fx;
+            mate.node.graph_pin_y = mate.node.fy;
+            apiJson(`/graph/pin/${mate.node.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ x: mate.node.fx, y: mate.node.fy }),
+            }).catch(() => {});
+          }
+        }
+        s.dragGroup = [];
         gcPost({ type: "thaw" }, s);
         if (!keep) {
           node.fx = null;

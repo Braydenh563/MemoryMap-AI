@@ -16,15 +16,17 @@ number). Baseline on the branch head: 20/47.
 
 Left, in order (struck when built):
 
-- Double-click a rotate handle resets to 0 (card, text box, shape).
-- Shift-resize keeps the aspect ratio (was: squares the box).
-- Escape cancels a move, resize, rotate, link draw in flight.
-- Shift-drag keeps to one axis; Alt-drag leaves a copy behind.
-- Arrow nudges: one undo step per burst (and the race that dropped presses).
-- Ctrl+D and copy/paste of several items, paste at the pointer.
+- ~~Double-click a rotate handle resets to 0 (card, text box, shape).~~ Built.
+- ~~Shift-resize keeps the aspect ratio (was: squares the box).~~ Built.
+- ~~Escape cancels a move, resize, rotate, link draw in flight.~~ Built.
+- ~~Shift-drag keeps to one axis; Alt-drag leaves a copy behind.~~ Built.
+- ~~Arrow nudges: one undo step per burst (and the race that dropped presses).~~ Built.
+- ~~Ctrl+D and copy/paste of several items, paste at the pointer.~~ Built.
 - Board canvas: right-click menu, double-click adds a text box.
 - Keyboard zoom: Ctrl+0, Shift+1, Ctrl+= and Ctrl+-.
 - Map: double-click a branch line asks for its label (it made a topic).
+- Found on the way and fixed: a click on a shape's grip deselected it;
+  Ctrl+Shift+G ungrouped and also switched to Chat (agent mode).
 - Job B: View menu 714px, the hint strip, discoverability, the 44px ticks.
 
 ## Done

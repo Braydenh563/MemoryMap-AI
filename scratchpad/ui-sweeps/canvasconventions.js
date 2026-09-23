@@ -102,10 +102,21 @@ const near = (a, b, tol = 1.5) => a != null && b != null && Math.abs(a - b) <= t
         if (ok(x, y) && ok(x - 110, y - 70) && ok(x + 110, y + 70) && ok(x - 110, y + 70) && ok(x + 110, y - 70)) return { x, y };
       }
     }
+    // Nowhere with room around it: any bare point will do for a click.
+    for (let i = 1; i < 20; i++) for (let j = 1; j < 12; j++) {
+      const x = r.left + (r.width * i) / 20, y = r.top + (r.height * j) / 12;
+      const el = document.elementFromPoint(x, y);
+      if (el && el.closest("#whiteboard-container") && !el.closest(".node-card, .sketch-group, .wb-object, .wb-sketch-handle-group, .wb-map-edge-group, button, input, .dock, #wb-topbar")) return { x, y };
+    }
     return null;
   }, [fromX, fromY]);
   const clickEmpty = async () => {
     const c = await emptyPoint(0.85, 0.75);
+    if (!c) console.log("no empty point", await page.evaluate(() => {
+      const r = document.getElementById("whiteboard-container").getBoundingClientRect();
+      const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return JSON.stringify(r) + " " + (el ? el.tagName + "." + el.className + "#" + el.id : "none");
+    }));
     await page.mouse.click(c.x, c.y);
     await wait(200);
   };
@@ -175,6 +186,34 @@ const near = (a, b, tol = 1.5) => a != null && b != null && Math.abs(a - b) <= t
     await wait(700);
     const n1 = await node(ids.n);
     check("double-click the rotate handle: a note card goes back to 0 degrees", n1.r === 0, `rotation ${n1.r}`);
+
+    // A shape bakes its turn into its path; the grip still turns it back.
+    const shapeBoxOf = () => page.evaluate((id) => {
+      const s = wbState.sketches.find((x) => x.id === id);
+      const b = wbPathBBox(wbSketchParsedData(s).d);
+      return { w: Math.round(b.maxX - b.minX), h: Math.round(b.maxY - b.minY) };
+    }, ids.s);
+    const sb0 = await shapeBoxOf();
+    await select("sketch", ids.s);
+    await wait(300);
+    grip = await centre(".wb-sketch-rotate-handle");
+    const sc = await page.evaluate((id) => {
+      const b = document.querySelector(`.sketch-group[data-id="${id}"] .sketch-hitbox`).getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    }, ids.s);
+    if (grip) await drag(grip, { x: sc.x + 120, y: sc.y });
+    await wait(400);
+    const sb1 = await shapeBoxOf();
+    await select("sketch", ids.s);
+    await wait(300);
+    grip = await centre(".wb-sketch-rotate-handle");
+    if (grip) await page.mouse.dblclick(grip.x, grip.y);
+    await wait(800);
+    const sb2 = await shapeBoxOf();
+    check("double-click the rotate handle: a shape turns back upright",
+      sb1.w !== sb0.w && near(sb2.w, sb0.w, 2) && near(sb2.h, sb0.h, 2),
+      `${sb0.w}x${sb0.h}, turned ${sb1.w}x${sb1.h}, back ${sb2.w}x${sb2.h}`);
+    await clickEmpty();
 
     // --- 2. Shift while rotating snaps to 15 degrees ---
     await select("object", ids.t);
@@ -334,10 +373,7 @@ const near = (a, b, tol = 1.5) => a != null && b != null && Math.abs(a - b) <= t
     }, [ids.t, ids.u]);
     await page.keyboard.press("Control+c");
     await wait(200);
-    const pastePoint = await page.evaluate(() => {
-      const r = document.getElementById("whiteboard-container").getBoundingClientRect();
-      return { x: r.left + 700, y: r.top + 620 };
-    });
+    const pastePoint = await emptyPoint(0.6, 0.7);
     await page.mouse.move(pastePoint.x, pastePoint.y);
     c0 = await counts();
     await page.keyboard.press("Control+v");

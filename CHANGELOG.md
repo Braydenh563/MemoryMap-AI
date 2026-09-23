@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Board and mind map conventions, first pass: double-click a rotate grip stands a card, text box or shape upright again; Shift on a corner keeps the box's proportions (it squared it); Shift keeps a drag on one axis; Alt-drag leaves a copy behind; Escape during a move, resize, turn or link draw puts everything back and records nothing; a burst of arrow nudges is one undo step and no longer drops presses; a group drag undoes whole; Ctrl+D, copy and paste take several items at once and paste at the pointer; a click on a shape's grip no longer deselects it; Ctrl+Shift+G on a board ungroups without also switching agent mode on.
 - Note meta line, second pass: the category is a soft pill with its own stable colour dot, tags read #work, a date reads as the day alone (the note's own phrase on hover), and each connection is one pill with its menu inside it, so hidden menus no longer leave gaps between connections; image markdown no longer shows raw in a connection's label. Settings no longer scrolls sideways at 768.
 - De-vibecoding, settings: switch labels at 500 instead of bold, a healthy status is a green dot before muted text instead of a green sentence, section help is a bare glyph in the flat looks, number fields share one short width, and the name placeholders no longer carry a real person's name.
 - De-vibecoding, reminders: the due readout is a small muted note on the form, and a reminder's own words are body size instead of 12px.

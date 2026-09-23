@@ -45050,7 +45050,14 @@ document.addEventListener("keydown", (e) => {
   // otherwise fixing a typo in the note box would silently restore a
   // deleted note instead of undoing the keystroke.
   const chorded = e.ctrlKey || e.metaKey || e.altKey;
-  if (chorded) {
+  //: **A chord the open board answers itself is the board's** (the
+  //: conventions pass, 2026-09-23). Ctrl+Shift+G is Ungroup on every canvas
+  //: people know and agent mode here, and both listeners ran: ungrouping a
+  //: selection on a board also threw you out to Chat (measured: the board's
+  //: container measured 0 x 0 straight after). `wbOwnsChord` names the
+  //: board's own chords; the same handoff undo already makes
+  //: (`boardHistoryActive`), one owner for one shortcut.
+  if (chorded && !(typeof wbOwnsChord === "function" && wbOwnsChord(e))) {
     const inTextField =
       ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName) ||
       document.activeElement?.isContentEditable;

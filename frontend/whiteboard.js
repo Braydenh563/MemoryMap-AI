@@ -2356,7 +2356,47 @@ function wbExtractNotes() {
 // arrow keys"). Moves the whole current selection (single item or multi)
 // by one step; the keydown handler in initWhiteboard decides the step size
 // (grid spacing when snap is on, else 1px, 10px with Shift).
-async function wbNudgeSelection(dx, dy) {
+//: **A burst of nudges is one undo step, and one save** (the conventions
+//: pass, 2026-09-23). Holding an arrow key sends thirty presses a second;
+//: each used to push its own undo entry, so taking back a two-second nudge
+//: meant pressing Ctrl+Z sixty times, where Figma, tldraw and PowerPoint
+//: take it back in one. Each press also saved on its own and applied the
+//: server's answer when it came back, so an answer to press one landing
+//: after press three put the item back two pixels (measured: five presses
+//: moved it three). So a burst moves the item on screen at once, pushes one
+//: entry holding where the burst began, and saves once when the keys stop.
+//: A burst ends after a pause, a different selection, or any other undo
+//: step landing on top of it.
+const WB_NUDGE_BURST_MS = 600;
+let wbNudgeBurst = null; // { key, entry, items: [{kind, item}], timer }
+
+//: The chords a board answers itself while it is on screen, which the app's
+//: global shortcuts step aside for (see app.js, where the chords are read).
+//: Only the ones that collide with an app shortcut are named: Ctrl+Shift+G
+//: (agent mode there, Ungroup here).
+function wbOwnsChord(e) {
+  const view = document.getElementById("library-view-whiteboard");
+  if (!view || view.classList.contains("hidden") || view.offsetParent === null) return false;
+  const field = document.activeElement;
+  const typing = field && field.offsetParent !== null
+    && (["INPUT", "TEXTAREA"].includes(field.tagName) || field.isContentEditable);
+  if (typing) return false;
+  return (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "g";
+}
+
+async function wbFlushNudge() {
+  const burst = wbNudgeBurst;
+  if (!burst) return;
+  wbNudgeBurst = null;
+  clearTimeout(burst.timer);
+  for (const { kind, item } of burst.items) {
+    if (kind === "sketch") await wbSaveSketchProps(item, {});
+    else if (kind === "node") await wbSaveNode(item);
+    else await wbSaveObject(item);
+  }
+}
+
+function wbNudgeSelection(dx, dy) {
   const entries = wbMultiSelection.size > 0
     ? wbSelectionEntries()
     : wbSelectedItem
@@ -2368,9 +2408,32 @@ async function wbNudgeSelection(dx, dy) {
         })()
       : [];
   if (entries.length === 0) return;
-  const pushed = [];
-  for (const e of entries) pushed.push(await wbMoveItemBy(e.kind, e.id, e.item, dx, dy));
-  wbPushMoveBatch(pushed);
+  const key = entries.map((e) => wbMultiKey(e.kind, e.id)).sort().join(",");
+  const joining = wbNudgeBurst && wbNudgeBurst.key === key
+    && wbUndoStack[wbUndoStack.length - 1] === wbNudgeBurst.entry;
+  if (!joining) {
+    wbFlushNudge();
+    const moves = entries.map((e) => ({
+      action: "move", kind: e.kind, id: e.id, before: WB_KIND_INFO[e.kind].payload(e.item),
+    }));
+    const entry = moves.length === 1 ? moves[0] : { action: "batch", entries: moves };
+    wbPushUndo(entry);
+    wbNudgeBurst = { key, entry, items: entries.map((e) => ({ kind: e.kind, item: e.item })), timer: 0 };
+  }
+  for (const e of entries) {
+    if (e.kind === "sketch") {
+      const parsed = wbSketchParsedData(e.item);
+      if (!parsed) continue;
+      parsed.d = wbTransformPathD(parsed.d, { dx, dy });
+      e.item.data = JSON.stringify(parsed);
+    } else {
+      e.item.x = (e.item.x || 0) + dx;
+      e.item.y = (e.item.y || 0) + dy;
+    }
+  }
+  wbScheduleRender();
+  clearTimeout(wbNudgeBurst.timer);
+  wbNudgeBurst.timer = setTimeout(wbFlushNudge, WB_NUDGE_BURST_MS);
 }
 
 // as the resize handles above, there is no one set of properties to show
@@ -9001,6 +9064,205 @@ function wbApplyBulkMove(origin, dx, dy) {
   }
 }
 
+// --- The gesture conventions (the owner, 2026-09-23) -----------------------
+//
+// "the whiteboard and mindmap are still missing a lot of those small features
+// that we as user's use all the time and take for granted but very much
+// notice when they arent there." What follows is shared by the three drags
+// (card, object, shape), their resize and rotate grips and the link draw:
+// Escape to put a gesture back, Shift to keep a move on one axis, Alt to
+// leave a copy behind, and one undo step for everything a drag moved.
+// `scratchpad/ui-sweeps/canvasconventions.js` measures each of them.
+
+//: **The gesture in flight, so Escape can put it back.** Every editor people
+//: know treats Escape mid-drag as "never mind": Figma, tldraw and Excalidraw
+//: all return the item to where it was taken from and record nothing. d3-drag
+//: has no way to abort a gesture from outside, so a cancelled one is left to
+//: run out: its handlers read `cancelled`, ignore the rest of the pointer's
+//: travel and save nothing when it is released. `restore` is written by the
+//: drag that begins the gesture, because only it knows what it changed.
+let wbGesture = null;
+
+function wbBeginGesture(restore) {
+  wbGesture = { restore, cancelled: false };
+  return wbGesture;
+}
+
+function wbEndGesture(gesture) {
+  if (gesture && wbGesture === gesture) wbGesture = null;
+  return Boolean(gesture?.cancelled);
+}
+
+//: Called by the board's Escape before anything else Escape does: a gesture
+//: in flight is the one thing on screen the key can mean.
+function wbCancelGesture() {
+  const gesture = wbGesture;
+  if (!gesture || gesture.cancelled) return false;
+  gesture.cancelled = true;
+  try {
+    gesture.restore?.();
+  } finally {
+    wbClearAlignmentGuides();
+  }
+  return true;
+}
+
+//: Put a moved item (and whatever moved with it) back where the drag found
+//: it, on screen only: nothing was saved yet, so nothing needs unsaving.
+function wbRestoreMove(kind, d) {
+  if (kind === "sketch") {
+    const el = document.querySelector(`.sketch-group[data-id="${d.id}"]`);
+    if (d._dragOriginalD != null) {
+      el?.querySelector(".sketch-path")?.setAttribute("d", d._dragOriginalD);
+      el?.querySelector(".sketch-hitbox")?.setAttribute("d", d._dragOriginalD);
+    }
+    delete d._dragLiveD;
+  } else {
+    d.x = d._dragOriginX;
+    d.y = d._dragOriginY;
+    const el = document.querySelector(WB_SELECTOR_BY_KIND[kind](d.id));
+    if (el) el.style.transform = wbItemTransform(d);
+  }
+  if (d._bulkOrigin) {
+    wbApplyBulkMove(d._bulkOrigin, 0, 0);
+    for (const entry of d._bulkOrigin.values()) delete entry.item._liveD;
+  }
+  if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
+  if (d._mapEdges?.length) wbUpdateMapEdges(d._mapEdges);
+  if (wbIsMap()) wbMapClearDropTarget();
+  delete d._dropTarget;
+  wbUpdateSelectionBar();
+}
+
+//: Put a resized or turned card or text box back to the box it had when the
+//: grip was taken, from the undo snapshot the grip already keeps.
+function wbRestoreBox(kind, d, before) {
+  if (!before) return;
+  for (const key of ["x", "y", "width", "height", "rotation"]) d[key] = before[key];
+  const el = document.querySelector(WB_SELECTOR_BY_KIND[kind](d.id));
+  if (!el) return;
+  el.style.width = d.width ? `${d.width}px` : "";
+  el.style.height = d.height ? `${d.height}px` : "";
+  el.style.transform = wbItemTransform(d);
+}
+
+//: **Shift keeps a move on one axis** (Figma, Miro, tldraw, PowerPoint): the
+//: axis the pointer has travelled further along wins, decided afresh every
+//: frame so a drag that turns the corner follows it. `null` means free.
+function wbAxisLock(dx, dy, shiftKey) {
+  if (!shiftKey) return null;
+  return Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+}
+
+//: The undo entries for every member a drag carried besides the item under
+//: the pointer. A group move used to undo only the one item that was grabbed
+//: and leave the rest of the group where it landed ("a real limitation, not
+//: attempted further", the node drag's end said): the origin map already
+//: holds where each member started, so the whole move is one step now.
+function wbBulkUndoEntries(origin) {
+  const out = [];
+  for (const entry of origin?.values() || []) {
+    const before = WB_KIND_INFO[entry.kind].payload(entry.item);
+    if (entry.kind === "sketch") {
+      let parsed = null;
+      try { parsed = JSON.parse(entry.item.data); } catch { parsed = null; }
+      if (!parsed) continue;
+      parsed.d = entry.d;
+      before.data = JSON.stringify(parsed);
+    } else {
+      if (entry.item.x === entry.x && entry.item.y === entry.y) continue;
+      before.x = entry.x;
+      before.y = entry.y;
+    }
+    out.push({ action: "move", kind: entry.kind, id: entry.id, before });
+  }
+  return out;
+}
+
+//: **Alt-drag leaves a copy behind** (tldraw, Figma, Miro and Excalidraw all
+//: bind it). Made at the drop, at the place every dragged item was taken
+//: from, rather than at the press: a copy created mid-gesture needs a render
+//: to appear, and a render during a drag is exactly what this file keeps
+//: finding kills the drag. What is left behind and what is carried look the
+//: same, so where the copy is made is invisible except for that.
+//:
+//: Two things are not copied, each for a reason that is not this gesture's:
+//: a note card (one card per note per board, `wbCopySelection`'s own note)
+//: and a map topic (a copy of a topic's row is a topic with no place in
+//: the tree, which is not what anyone dragging a branch means by a copy).
+//: A group copied together is a new group, not new members of the old one.
+async function wbDropCopies(befores) {
+  const created = await wbCreateCopies(
+    befores
+      .filter(({ kind, before }) => kind !== "node" && !(kind === "object" && WB_MAP_KINDS.has(before.kind)))
+      .map(({ kind, before }) => ({ kind, payload: before })),
+    0, 0
+  );
+  if (befores.some((b) => b.kind === "node")) {
+    toast("A note card can't be copied: drag the note in again from the Library for a second card.");
+  }
+  return created;
+}
+
+//: Make copies of `items` ({kind, payload}) moved by (dx, dy), and return
+//: their "create" undo entries. The one maker behind Alt-drag, Ctrl+D and
+//: paste, so a copy is the same thing however it was asked for: a group
+//: copied whole is a new group, and a shape moves by its path, not its x/y
+//: (see `wbTransformPathD`: a sketch's own x/y do not place it).
+async function wbCreateCopies(items, dx, dy) {
+  const created = [];
+  const groups = new Map();
+  for (const { kind, payload } of items) {
+    const body = { ...payload, board_id: window.currentBoardId };
+    if (kind === "sketch") {
+      const parsed = wbSketchParsedData({ data: body.data });
+      if (parsed && (dx || dy)) {
+        parsed.d = wbTransformPathD(parsed.d, { dx, dy });
+        body.data = JSON.stringify(parsed);
+      }
+    } else {
+      body.x = (body.x || 0) + dx;
+      body.y = (body.y || 0) + dy;
+    }
+    if (body.group_id) {
+      if (!groups.has(body.group_id)) {
+        groups.set(body.group_id, crypto.randomUUID ? crypto.randomUUID() : `g${Date.now()}${Math.random().toString(36).slice(2)}`);
+      }
+      body.group_id = groups.get(body.group_id);
+    }
+    const { base, list } = WB_KIND_INFO[kind];
+    try {
+      const made = await apiJson(base, { method: "POST", body: JSON.stringify(body) });
+      wbState[list].push(made);
+      created.push({ action: "create", kind, id: made.id });
+    } catch (err) {
+      toast(err.message || "Couldn't make that copy.", true);
+    }
+  }
+  return created;
+}
+
+//: One undo step for a whole drag: the item under the pointer, the members
+//: it carried, and the copies an Alt-drag left behind.
+function wbPushDragUndo(entries) {
+  const all = entries.filter(Boolean);
+  if (all.length === 0) return;
+  wbPushUndo(all.length === 1 ? all[0] : { action: "batch", entries: all });
+}
+
+//: Everything a drag that ends has to do after its own item is saved: the
+//: carried members saved, the copies made, and one undo step pushed for it.
+async function wbFinishDrag(primary, bulkOrigin, altCopy) {
+  const carried = wbBulkUndoEntries(bulkOrigin);
+  if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
+  let copies = [];
+  if (altCopy && (primary || carried.length)) {
+    copies = await wbDropCopies([primary, ...carried].filter(Boolean));
+  }
+  wbPushDragUndo([primary, ...carried, ...copies]);
+  if (copies.length) wbScheduleRender();
+}
+
 //: **A map's own nodes go in one request.** A tidy of a two hundred node map
 //: was two hundred PUTs, two hundred transactions and a map half arranged for
 //: as long as they took, with nothing to roll back to when one of them failed
@@ -9077,71 +9339,114 @@ async function wbSaveBulkMove(origin) {
 // nothing to gain from `navigator.clipboard` here (no cross-tab/cross-app
 // paste target makes sense for a sketch's own path data), and a plain
 // in-memory value is simpler and needs no permission prompt.
-let wbClipboard = null; // {kind, payload}: see WB_KIND_INFO's own payload() per kind
+let wbClipboard = null; // { items: [{kind, payload}], box: {minX, minY, maxX, maxY} }
 
-//: A card is deliberately excluded. `POST /whiteboard/nodes` is "one card
+//: Where the pointer last was over the canvas, or null once it has left.
+//: Paste lands here (below), which is what Figma, Miro and tldraw all do
+//: with a keyboard paste while the pointer is on the canvas. Kept as the raw
+//: client point and turned into board units only when a paste asks: it is
+//: written on every pointer move, pans included, and a layout read per move
+//: is the cost the pan path has been cleared of (`wbSyncGridToTransform`).
+let wbPointerClient = null;
+
+function wbPointerOnBoard() {
+  if (!wbPointerClient) return null;
+  const t = d3.zoomTransform(document.getElementById("whiteboard-container"));
+  const r = wbCanvasOriginRect();
+  return [(wbPointerClient.clientX - r.left - t.x) / t.k, (wbPointerClient.clientY - r.top - t.y) / t.k];
+}
+
+//: What a copy of the selection would carry: every selected item a copy can
+//: be made of, with the box they share. Several items now, not one (the
+//: conventions pass: a marquee, Ctrl+C, Ctrl+V gave nothing, so a group
+//: could not be copied at all and Ctrl+D ignored a multi-selection).
+//:
+//: A card is deliberately left out. `POST /whiteboard/nodes` is "one card
 //: per note per board" by design (routes_whiteboard.py's own comment: two
 //: cards for the same note stacked on each other reads as one card that
-//: won't drag properly): POSTing a copy would silently *move* the
-//: original card to the paste offset instead of creating a second one,
-//: which is worse than not supporting copy/paste for cards at all.
+//: won't drag properly): POSTing a copy would silently *move* the original
+//: card instead of creating a second one. A link is left out because it is
+//: recomputed from the two things it joins, not a shape of its own.
+function wbCopyableSelection({ quiet = false } = {}) {
+  const entries = wbMultiSelection.size > 0
+    ? wbSelectionEntries()
+    : (() => {
+        if (!wbSelectedItem) return [];
+        const { kind, id } = wbSelectedItem;
+        const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+        const bbox = item && wbItemBBox(kind, item);
+        return item && bbox ? [{ kind, id, item, bbox }] : [];
+      })();
+  if (entries.length === 0) return null;
+  const items = [];
+  let cards = 0, links = 0;
+  const box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  for (const e of entries) {
+    if (e.kind === "node") { cards++; continue; }
+    if (e.kind === "sketch" && !wbSketchParsedData(e.item)) { links++; continue; }
+    items.push({ kind: e.kind, payload: WB_KIND_INFO[e.kind].payload(e.item) });
+    box.minX = Math.min(box.minX, e.bbox.minX);
+    box.minY = Math.min(box.minY, e.bbox.minY);
+    box.maxX = Math.max(box.maxX, e.bbox.maxX);
+    box.maxY = Math.max(box.maxY, e.bbox.maxY);
+  }
+  if (items.length === 0) {
+    if (!quiet && cards) toast("A note card can't be copied: drag it, or drop the note again from the Library.");
+    else if (!quiet && links) toast("A link can't be copied: copy the things it connects instead.");
+    return null;
+  }
+  return { items, box };
+}
+
 function wbCopySelection() {
-  if (!wbSelectedItem) return false;
-  if (wbSelectedItem.kind === "node") {
-    toast("A note card can't be copied: drag it, or drop the note again from the Library.");
-    return false;
-  }
-  const { kind, id } = wbSelectedItem;
-  const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
-  if (!item) return false;
-  if (kind === "sketch" && !wbSketchParsedData(item)) {
-    // A link sketch: its `data` has no `d`, only sourceId/targetId, and is
-    // recomputed from two cards' positions on every render; nothing here is
-    // a standalone shape to copy.
-    toast("A link can't be copied: copy the cards it connects instead.");
-    return false;
-  }
-  wbClipboard = { kind, payload: WB_KIND_INFO[kind].payload(item) };
-  toast("Copied.");
+  const copied = wbCopyableSelection();
+  if (!copied) return false;
+  wbClipboard = copied;
+  toast(copied.items.length > 1 ? `Copied ${copied.items.length} items.` : "Copied.");
   return true;
 }
 
-//: Applied to both axes on paste, so the copy lands visibly beside the
-//: original rather than exactly on top of it, same reasoning as every
-//: other drawing app's paste offset.
+//: Applied to both axes when a copy is not placed at the pointer (Ctrl+D,
+//: or a paste with the pointer off the canvas), so the copy lands visibly
+//: beside the original rather than exactly on top of it.
 const WB_PASTE_OFFSET = 24;
 
-async function wbPasteClipboard() {
+//: Make `copied` on the board, centred on `at` (board units) when given,
+//: else offset from where it was copied; select what was made and record
+//: it as one undo step.
+async function wbPlaceCopies(copied, at) {
+  if (!copied?.items.length) return [];
+  const { box } = copied;
+  const dx = at ? at[0] - (box.minX + box.maxX) / 2 : WB_PASTE_OFFSET;
+  const dy = at ? at[1] - (box.minY + box.maxY) / 2 : WB_PASTE_OFFSET;
+  const created = await wbCreateCopies(copied.items, dx, dy);
+  if (created.length === 0) return created;
+  wbPushDragUndo(created);
+  wbSelectToolRef?.("select");
+  if (created.length === 1) {
+    selectWbItem(created[0].kind, created[0].id);
+  } else {
+    wbSelectedItem = null;
+    wbMultiSelection.clear();
+    for (const c of created) wbMultiSelection.add(wbMultiKey(c.kind, c.id));
+    wbApplySelectionHighlight();
+    wbUpdateSelectionBar();
+  }
+  wbScheduleRender();
+  return created;
+}
+
+async function wbPasteClipboard(at = wbPointerOnBoard()) {
   if (!wbClipboard) return;
-  const { kind, payload } = wbClipboard;
-  const { base, list } = WB_KIND_INFO[kind];
-  const body = {
-    ...payload,
-    x: (payload.x || 0) + WB_PASTE_OFFSET,
-    y: (payload.y || 0) + WB_PASTE_OFFSET,
-    board_id: window.currentBoardId,
-  };
-  if (kind === "sketch") {
-    // A sketch's own x/y isn't what positions it on screen, its path data
-    // is (wbTransformPathD's own comment): so bumping x/y alone would draw
-    // the paste directly on top of the original, offset in the database but
-    // not on the board.
-    const parsed = wbSketchParsedData({ data: body.data });
-    if (parsed) {
-      parsed.d = wbTransformPathD(parsed.d, { dx: WB_PASTE_OFFSET, dy: WB_PASTE_OFFSET });
-      body.data = JSON.stringify(parsed);
-    }
-  }
-  try {
-    const created = await apiJson(base, { method: "POST", body: JSON.stringify(body) });
-    wbState[list].push(created);
-    wbPushUndo({ action: "create", kind, id: created.id });
-    wbScheduleRender();
-    wbSelectToolRef?.("select");
-    selectWbItem(kind, created.id);
-  } catch (err) {
-    toast(err.message || "Couldn't paste that.", true);
-  }
+  await wbPlaceCopies(wbClipboard, at);
+}
+
+//: Ctrl+D: a copy of the selection beside it, one undo step, the copies
+//: selected so a second Ctrl+D steps on again. Leaves the clipboard alone,
+//: so a duplicate never overwrites something copied to paste later.
+async function wbDuplicateSelection() {
+  const copied = wbCopyableSelection();
+  if (copied) await wbPlaceCopies(copied, null);
 }
 
 // Cut: ROADMAP §89.12, asked as a question alongside the context menu
@@ -9149,6 +9454,15 @@ async function wbPasteClipboard() {
 // can't be cut): wbCopySelection already toasts why, so cut just declines
 // to delete anything when the copy half refuses.
 function wbCutSelection() {
+  //: A cut deletes the whole selection, so it only runs when the whole
+  //: selection went onto the clipboard: a marquee that caught a note card
+  //: would otherwise lose the card, which no copy was made of.
+  const copied = wbCopyableSelection();
+  const selected = wbMultiSelection.size || (wbSelectedItem ? 1 : 0);
+  if (copied && copied.items.length < selected) {
+    toast("Only part of this selection can be copied, so nothing was cut: note cards and links stay where they are.");
+    return false;
+  }
   if (!wbCopySelection()) return false;
   deleteWbSelection();
   return true;
@@ -9438,11 +9752,13 @@ function wbOpenContextMenuFor(kind, id, clientX, clientY) {
     if (wbOpenMapRadial(ringNode)) return;
   }
   wbCloseMapRadial();
-  // Copy/Cut only ever act on a single-item selection (`wbCopySelection`'s
-  // own `wbSelectedItem` check): a multi-selection gets the same "node"
-  // treatment as a card, which is "Delete only", rather than two buttons
-  // that would silently do nothing.
-  const menu = wbBuildContextMenu(wbMultiSelection.size > 0 ? "node" : kind);
+  // A multi-selection offers Copy and Cut when there is something in it a
+  // copy can be made of (`wbCopyableSelection`), and otherwise gets the same
+  // "node" treatment as a card, rather than two buttons that do nothing.
+  const menuKind = wbMultiSelection.size > 0
+    ? (wbCopyableSelection({ quiet: true }) ? "multi" : "node")
+    : kind;
+  const menu = wbBuildContextMenu(menuKind);
   menu.classList.remove("hidden");
   menu.style.left = `${clientX}px`;
   menu.style.top = `${clientY}px`;
@@ -12057,8 +12373,7 @@ async function initWhiteboard() {
     };
     const actions = {
       "wb-selbar-duplicate": () => {
-        const kept = wbClipboard;
-        if (wbCopySelection()) wbPasteClipboard().finally(() => { wbClipboard = kept; });
+        wbDuplicateSelection();
       },
       "wb-selbar-back": () => zOrder(false),
       "wb-selbar-forward": () => zOrder(true),
@@ -12855,6 +13170,15 @@ async function initWhiteboard() {
   document.addEventListener("keydown", (e) => {
     const view = document.getElementById("library-view-whiteboard");
     if (!view || view.classList.contains("hidden")) return;
+    //: **Escape takes back a gesture in flight** before it does anything
+    //: else (see `wbCancelGesture`): with a drag, a resize, a turn or a line
+    //: half drawn, that is the only thing the key can mean, and the
+    //: selection it would otherwise clear is the one being dragged.
+    if (e.key === "Escape" && wbCancelGesture()) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     // Ctrl+F is deliberately *not* bound here. The app already owns it for
     // "Find on this page", and binding it a second time opened both bars at
@@ -13126,8 +13450,7 @@ async function initWhiteboard() {
     }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "d") {
       e.preventDefault();
-      const kept = wbClipboard;
-      if (wbCopySelection()) wbPasteClipboard().finally(() => { wbClipboard = kept; });
+      wbDuplicateSelection();
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
@@ -13244,6 +13567,13 @@ async function initWhiteboard() {
   // one-shot flag that stops it from wiping out the selection the marquee
   // just made.
   containerEl.addEventListener("click", (e) => {
+    //: A press on a shape's own grip that did not move is not a click on
+    //: the canvas. The grips live in their own handle group rather than in
+    //: the shape (see `wbIsEmptyCanvasTarget`), so nothing stopped this
+    //: click, and it deselected the shape: the grips vanished under the
+    //: pointer, and the second half of a double-click on the rotate grip
+    //: landed on bare canvas (measured: the reset never ran).
+    if (e.target.closest?.(".wb-sketch-handle-group")) return;
     if (window.currentTool === "select" || window.currentTool === "lasso") {
       if (wbMarqueeJustSelected) {
         wbMarqueeJustSelected = false;
@@ -13403,6 +13733,13 @@ async function initWhiteboard() {
   //: render on every change, and a listener bound per handle is a listener
   //: lost on the next repaint (the mistake `wbWireContextMenu` documents).
   containerEl.addEventListener("dblclick", (e) => {
+    const turn = e.target.closest?.(".wb-rotate-handle, .wb-sketch-rotate-handle");
+    if (turn) {
+      e.preventDefault();
+      e.stopPropagation();
+      wbResetRotation(turn);
+      return;
+    }
     const handle = e.target.closest?.(".wb-resize-handle, .wb-map-resize-grip");
     if (!handle) return;
     e.preventDefault();
@@ -13466,6 +13803,12 @@ async function initWhiteboard() {
     if (!wbMapCanvasMenuWanted(event.target)) return;
     openMapCanvasMenu(point.x, point.y);
   });
+
+  //: Where a keyboard paste lands (`wbPointerOnBoard`).
+  containerEl.addEventListener("pointermove", (e) => {
+    wbPointerClient = { clientX: e.clientX, clientY: e.clientY };
+  }, { passive: true });
+  containerEl.addEventListener("pointerleave", () => { wbPointerClient = null; });
 
   containerEl.addEventListener("pointermove", (e) => {
     if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
@@ -14494,6 +14837,15 @@ function wbPathBBox(d) {
 //: corner/edge from whichever handle moved stays fixed, mirroring
 //: `resizeDrag`'s own width/height-and-floor logic for image/text objects.
 const WB_SKETCH_MIN_SIZE = 10;
+//: A corner resize held to the proportions it started with: whichever axis
+//: the pointer has stretched further (as a fraction of its own start) wins,
+//: and the other follows it, so the corner stays under the pointer along the
+//: axis being pulled hardest.
+function wbKeepAspect(startW, startH, w, h) {
+  const scale = Math.max(w / startW, h / startH);
+  return { w: startW * scale, h: startH * scale };
+}
+
 function wbSketchResizeTransform(bbox, handle, dx, dy, shiftKey) {
   const { minX, minY, maxX, maxY } = bbox;
   let newMinX = minX, newMaxX = maxX, newMinY = minY, newMaxY = maxY;
@@ -14506,11 +14858,13 @@ function wbSketchResizeTransform(bbox, handle, dx, dy, shiftKey) {
   // together; the larger of the two free-form extents wins, and the corner
   // *opposite* the one being dragged stays anchored, matching `anchorX`/
   // `anchorY` below rather than recentring the shape.
+  //: Shift keeps the shape's own proportions (see nodeResizeDrag), which is
+  //: still a square for a shape that was drawn square.
   const isCorner = handle.length === 2;
   if (isCorner && shiftKey) {
-    const size = Math.max(newMaxX - newMinX, newMaxY - newMinY, WB_SKETCH_MIN_SIZE);
-    if (handle.includes("e")) newMaxX = newMinX + size; else newMinX = newMaxX - size;
-    if (handle.includes("s")) newMaxY = newMinY + size; else newMinY = newMaxY - size;
+    const { w, h } = wbKeepAspect(maxX - minX || 1, maxY - minY || 1, newMaxX - newMinX, newMaxY - newMinY);
+    if (handle.includes("e")) newMaxX = newMinX + w; else newMinX = newMaxX - w;
+    if (handle.includes("s")) newMaxY = newMinY + h; else newMinY = newMaxY - h;
   }
   const oldW = maxX - minX || 1, oldH = maxY - minY || 1;
   const sx = handle.includes("e") || handle.includes("w") ? (newMaxX - newMinX) / oldW : 1;
@@ -15338,8 +15692,14 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
             rawDX = 0;
             rawDY = 0;
             sketch._resizeUndoBefore = WB_KIND_INFO.sketch.payload(sketch);
+            sketch._gesture = wbBeginGesture(() => {
+              delete sketch._liveD;
+              document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", parsed.d);
+              document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", parsed.d);
+            });
           })
           .on("drag", (event) => {
+            if (sketch._gesture?.cancelled) return;
             // No `/ transform.k`, for the reason the link endpoint handle
             // above already records: this rect's drag container is its parent
             // `<g>` inside the zoomed `#wb-zoom-group`, and d3.pointer
@@ -15359,6 +15719,8 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
           .on("end", async () => {
             const before = sketch._resizeUndoBefore;
             delete sketch._resizeUndoBefore;
+            if (wbEndGesture(sketch._gesture)) delete sketch._liveD;
+            delete sketch._gesture;
             if (sketch._liveD) {
               const finalD = sketch._liveD;
               delete sketch._liveD;
@@ -15395,7 +15757,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
   // rotation applied is exactly the pointer's own angle from vertical, the
   // same "the handle follows your cursor" feel `nodeRotateDrag` above
   // already established for cards.
-  let rotateOriginalD = null, rotateLiveD = null;
+  let rotateOriginalD = null, rotateLiveD = null, rotateLiveAngle = 0;
   group.append("circle")
     .attr("class", "wb-sketch-rotate-handle")
     // r 6, not 7: the card and text-box grip is 12px across
@@ -15410,24 +15772,40 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
           event.sourceEvent.stopPropagation();
           rotateOriginalD = parsed.d;
           sketch._rotateUndoBefore = WB_KIND_INFO.sketch.payload(sketch);
+          sketch._gesture = wbBeginGesture(() => {
+            rotateLiveD = null;
+            document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", parsed.d);
+            document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", parsed.d);
+          });
         })
         .on("drag", (event) => {
+          if (sketch._gesture?.cancelled) return;
           const currentAngle = wbSketchAngleFromCenterDeg(centerX, centerY, event.sourceEvent, event.sourceEvent.shiftKey);
           const newD = wbTransformPathD(rotateOriginalD, { rotate: currentAngle, anchorX: centerX, anchorY: centerY });
           rotateLiveD = newD;
+          rotateLiveAngle = currentAngle;
           document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
           document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
         })
         .on("end", async () => {
           const before = sketch._rotateUndoBefore;
           delete sketch._rotateUndoBefore;
+          if (wbEndGesture(sketch._gesture)) rotateLiveD = null;
+          delete sketch._gesture;
           if (rotateLiveD) {
             const finalD = rotateLiveD;
             rotateLiveD = null;
-            await wbSaveSketchD(sketch, finalD);
+            //: The running total `wbResetRotation` turns the shape back by.
+            const turned = ((Number(parsed.turned) || 0) + rotateLiveAngle) % 360;
+            await wbSaveSketchProps(sketch, { d: finalD, turned });
             if (before) wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+            //: Only after a real turn. A render rebuilds this grip, and a
+            //: press that turned nothing (half of a double-click) then left
+            //: the second press on a different element, so the browser sent
+            //: the double-click to the canvas behind it and the reset never
+            //: ran (measured: the event's target was `#wb-svg-layer`).
+            wbScheduleRender();
           }
-          wbScheduleRender();
         })
     );
 }
@@ -15586,6 +15964,8 @@ function renderWhiteboard() {
       d._linkedSketches = wbLinkedSketchesFor(d.id, "sketch");
       d._dragOriginalD = parsed ? parsed.d : null;
       d._moveUndoBefore = WB_KIND_INFO.sketch.payload(d);
+      d._altCopy = Boolean(event.sourceEvent?.altKey);
+      d._gesture = wbBeginGesture(() => wbRestoreMove("sketch", d));
       // Raw (never-snapped) running totals, applied fresh from the
       // *original* d each frame, the same fix as `dragging`'s own comment
       // above: re-snapping an already-snapped value every frame discards
@@ -15606,7 +15986,7 @@ function renderWhiteboard() {
     })
     .on("drag", function (event, d) {
       if (d._linkKind === "sketch") return dragging.call(this, event, d);
-      if (d._dragOriginalD == null) return;
+      if (d._dragOriginalD == null || d._gesture?.cancelled) return;
       // First real movement of this gesture, decide once whether this is
       // a solo move or a bulk move of the whole multi-selection. Deferred
       // to here rather than "start" (see its own comment) specifically so
@@ -15624,7 +16004,9 @@ function renderWhiteboard() {
       d._dragRawDX += event.dx;
       d._dragRawDY += event.dy;
       const bypassSnap = event.sourceEvent?.altKey;
-      let dx = wbSnap(d._dragRawDX, bypassSnap), dy = wbSnap(d._dragRawDY, bypassSnap);
+      const lock = wbAxisLock(d._dragRawDX, d._dragRawDY, event.sourceEvent?.shiftKey);
+      let dx = lock === "y" ? 0 : wbSnap(d._dragRawDX, bypassSnap);
+      let dy = lock === "x" ? 0 : wbSnap(d._dragRawDY, bypassSnap);
       //: **A sketch gets the alignment guides too.** Reported: "Alignment bars
       //: don't appear for group selections". Measured, a group of *cards* has
       //: had them since `wbBulkGroupBox` landed, and they draw correctly; this
@@ -15648,8 +16030,8 @@ function renderWhiteboard() {
           const snap = wbAlignmentGuides(
             wbDragExcludeKeys(d, "sketch"), box.x, box.y, box.w, box.h
           );
-          dx += snap.dx;
-          dy += snap.dy;
+          if (lock !== "y") dx += snap.dx;
+          if (lock !== "x") dy += snap.dy;
           wbShowAlignmentGuides(snap.guideLines);
         }
       } else {
@@ -15681,20 +16063,28 @@ function renderWhiteboard() {
       const finalD = d._dragLiveD;
       const bulkOrigin = d._bulkOrigin;
       const moveBefore = d._moveUndoBefore;
+      const altCopy = d._altCopy;
       delete d._dragOriginalD;
       delete d._dragRawDX;
       delete d._dragRawDY;
       delete d._dragLiveD;
       delete d._bulkOrigin;
       delete d._moveUndoBefore;
+      delete d._altCopy;
+      const cancelled = wbEndGesture(d._gesture);
+      delete d._gesture;
+      if (cancelled) {
+        wbScheduleRender();
+        return;
+      }
       // `finalD`/`bulkOrigin` are only ever set once real movement occurred
       // (in "drag" above): a zero-movement click leaves both undefined, so
       // this correctly does nothing rather than a wasted save.
-      if (finalD) {
-        await wbSaveSketchD(d, finalD);
-        if (moveBefore) wbPushUndo({ action: "move", kind: "sketch", id: d.id, before: moveBefore });
-      }
-      if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
+      if (finalD) await wbSaveSketchD(d, finalD);
+      await wbFinishDrag(
+        finalD && moveBefore ? { action: "move", kind: "sketch", id: d.id, before: moveBefore } : null,
+        bulkOrigin, altCopy
+      );
       wbScheduleRender();
     });
 
@@ -15953,8 +16343,10 @@ function renderWhiteboard() {
         rawDX = 0;
         rawDY = 0;
         d._resizeUndoBefore = WB_KIND_INFO.node.payload(d);
+        d._gesture = wbBeginGesture(() => wbRestoreBox("node", d, d._resizeUndoBefore));
       })
       .on("drag", (event, d) => {
+        if (d._gesture?.cancelled) return;
         const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
         rawDX += event.dx / transform.k;
         rawDY += event.dy / transform.k;
@@ -15972,8 +16364,14 @@ function renderWhiteboard() {
         // larger of the two free-form sizes wins. Computed before the x/y
         // anchor adjustment below so a w/n handle's anchor math sees the
         // final, square-constrained size rather than the pre-shift one.
+        //: **The box's own proportions, not a square** (the owner, 2026-09-23,
+        //: the conventions pass: Shift keeps the aspect ratio in Figma, Miro,
+        //: tldraw and PowerPoint alike). The first answer to "shift didn't snap
+        //: to a square" made every Shift-resize a square, which turned a 2:1
+        //: card into a 1:1 one the moment Shift went down; a square stays a
+        //: square under this rule, so that report is still answered.
         if (handle.length === 2 && event.sourceEvent.shiftKey) {
-          width = height = Math.max(width, height);
+          ({ w: width, h: height } = wbKeepAspect(startW, startH, width, height));
         }
         if (handle.includes("w")) x = startX + (startW - width);
         if (handle.includes("n")) y = startY + (startH - height);
@@ -15993,9 +16391,14 @@ function renderWhiteboard() {
         delete d._resizeStartH;
         delete d._resizeStartX;
         delete d._resizeStartY;
-        await wbSaveNode(d);
         const before = d._resizeUndoBefore;
         delete d._resizeUndoBefore;
+        const cancelled = wbEndGesture(d._gesture);
+        delete d._gesture;
+        //: Escape put it back; and a press that resized nothing (each half of
+        //: the double-click that fits the text is one) is not a resize.
+        if (cancelled || (before && before.width === (d.width ?? null) && before.height === (d.height ?? null))) return;
+        await wbSaveNode(d);
         if (before) wbPushUndo({ action: "move", kind: "node", id: d.id, before });
         wbScheduleRender();
       });
@@ -16014,8 +16417,10 @@ function renderWhiteboard() {
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         d._rotateUndoBefore = WB_KIND_INFO.node.payload(d);
+        d._gesture = wbBeginGesture(() => wbRestoreBox("node", d, d._rotateUndoBefore));
       })
       .on("drag", (event, d) => {
+        if (d._gesture?.cancelled) return;
         const el = document.querySelector(`.node-card[data-id="${d.id}"]`);
         if (!el) return;
         const rect = el.getBoundingClientRect();
@@ -16027,9 +16432,14 @@ function renderWhiteboard() {
         el.style.transform = wbItemTransform(d);
       })
       .on("end", async (event, d) => {
-        await wbSaveNode(d);
         const before = d._rotateUndoBefore;
         delete d._rotateUndoBefore;
+        const cancelled = wbEndGesture(d._gesture);
+        delete d._gesture;
+        //: A press that turned nothing (each half of a double-click is one)
+        //: saves nothing and leaves no undo step to press through.
+        if (cancelled || (before && (before.rotation || 0) === (d.rotation || 0))) return;
+        await wbSaveNode(d);
         if (before) wbPushUndo({ action: "move", kind: "node", id: d.id, before });
       });
   }
@@ -16290,6 +16700,54 @@ const WB_OBJECT_MIN_SIZE = 40;
 //: needs. Measured live rather than estimated from character counts, which is
 //: the version of this that is wrong for every font but the one it was tuned
 //: against.
+//: **Double-click the rotate grip and the item stands up straight again**
+//: (the owner, 2026-09-23: "double clcike the rotate point above the top
+//: centre of an object and reset it to its default rotate"). The same
+//: gesture Figma, Miro and PowerPoint give the grip, and the partner of the
+//: resize handle's double-click-to-fit just below: a handle's double-click
+//: puts back the thing that handle changes.
+//:
+//: A card and a text box store their angle, so this is `rotation: 0`. A
+//: shape bakes its turn into its path (see the sketch rotate grip), so it
+//: keeps a running total of the turns it was given in `turned` and is
+//: rotated back by that much about its own centre. A shape turned before
+//: `turned` existed has nothing to go back by, and says so rather than
+//: guessing. A group's grip is not here: a group has no angle of its own,
+//: only members that were each turned about its centre.
+async function wbResetRotation(grip) {
+  const el = grip.closest(".node-card, .wb-object");
+  if (el) {
+    const kind = el.classList.contains("node-card") ? "node" : "object";
+    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === Number(el.dataset.id));
+    if (!item || !item.rotation) return;
+    const before = WB_KIND_INFO[kind].payload(item);
+    item.rotation = 0;
+    el.style.transform = wbItemTransform(item);
+    if (kind === "node") await wbSaveNode(item);
+    else await wbSaveObject(item);
+    wbPushUndo({ action: "move", kind, id: item.id, before });
+    wbScheduleRender();
+    return;
+  }
+  const sketch = wbSelectedSketchOrNull();
+  const parsed = sketch && wbSketchParsedData(sketch);
+  if (!parsed) return;
+  const turned = Number(parsed.turned) || 0;
+  if (!turned) {
+    toast("This shape was turned before its angle was kept: turn it back by hand.");
+    return;
+  }
+  const box = wbPathBBox(parsed.d);
+  if (!box) return;
+  const before = WB_KIND_INFO.sketch.payload(sketch);
+  const d = wbTransformPathD(parsed.d, {
+    rotate: -turned, anchorX: (box.minX + box.maxX) / 2, anchorY: (box.minY + box.maxY) / 2,
+  });
+  await wbSaveSketchProps(sketch, { d, turned: 0 });
+  wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+  wbScheduleRender();
+}
+
 async function wbFitToText(el) {
   if (!el) return;
   const id = Number(el.dataset.id);
@@ -16513,6 +16971,8 @@ function renderWbObjects(canvas) {
     d._dragOriginY = d.y;
     d._raised = false;
     d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
+    d._altCopy = Boolean(event.sourceEvent?.altKey);
+    d._gesture = wbBeginGesture(() => wbRestoreMove("object", d));
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here, see the matching comment on
     // the sketch drag's own "start" for the click-toggle bug that caused.
@@ -16520,6 +16980,7 @@ function renderWbObjects(canvas) {
   function objDragMove(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     if (window.currentTool?.startsWith("link-")) return dragging.call(this, event, d);
+    if (d._gesture?.cancelled) return;
     if (d._bulkOrigin === undefined) {
       //: **A map node drags its branch with it** (MINDMAP_PLAN.md §12.1 item
       //: 8). Decided on the first real drag frame, like the marquee case
@@ -16560,8 +17021,10 @@ function renderWbObjects(canvas) {
     //: still moves in whole grid steps, and for the ordinary case (an item
     //: that is already on the grid, because it was placed or dragged with
     //: snap on) the two are the same number.
-    d.x = d._dragOriginX + wbSnap(d._rawX - d._dragOriginX, bypassSnap);
-    d.y = d._dragOriginY + wbSnap(d._rawY - d._dragOriginY, bypassSnap);
+    //: Shift keeps the move on one axis (see `wbAxisLock`).
+    const lock = wbAxisLock(d._rawX - d._dragOriginX, d._rawY - d._dragOriginY, event.sourceEvent?.shiftKey);
+    d.x = d._dragOriginX + (lock === "y" ? 0 : wbSnap(d._rawX - d._dragOriginX, bypassSnap));
+    d.y = d._dragOriginY + (lock === "x" ? 0 : wbSnap(d._rawY - d._dragOriginY, bypassSnap));
     // Smart alignment guides: asked for directly ("draw.io and Microsoft
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: holding it means "no snap assistance at all
@@ -16578,8 +17041,8 @@ function renderWbObjects(canvas) {
         group ? group.w : d.width,
         group ? group.h : d.height
       );
-      d.x += dx;
-      d.y += dy;
+      if (lock !== "y") d.x += dx;
+      if (lock !== "x") d.y += dy;
       wbShowAlignmentGuides(guideLines);
     } else {
       wbClearAlignmentGuides();
@@ -16622,6 +17085,14 @@ function renderWbObjects(canvas) {
     delete d._dropTarget;
     delete d._dragAlone;
     wbMapClearDropTarget();
+    const altCopy = d._altCopy;
+    delete d._altCopy;
+    if (wbEndGesture(d._gesture)) {
+      delete d._gesture;
+      delete d._moveUndoBefore;
+      return;
+    }
+    delete d._gesture;
     if (dropTarget) {
       delete d._moveUndoBefore;
       if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
@@ -16647,14 +17118,14 @@ function renderWbObjects(canvas) {
     //: hoisted above the save so it governs both.
     const reallyMoved = !moveBefore || moveBefore.x !== d.x || moveBefore.y !== d.y;
     if (reallyMoved) await wbSaveObject(d);
-    if (moveBefore && reallyMoved) {
-      wbPushUndo({ action: "move", kind: "object", id: d.id, before: moveBefore });
-      // A map node that was actually moved is now pinned, see
-      // `wbMapPinOnDrag`. Gated on the same "did it really move" check the
-      // undo entry uses, so a click is never mistaken for a placement.
-      await wbMapPinOnDrag(d);
-    }
-    if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
+    const primary = moveBefore && reallyMoved
+      ? { action: "move", kind: "object", id: d.id, before: moveBefore }
+      : null;
+    await wbFinishDrag(primary, bulkOrigin, altCopy);
+    // A map node that was actually moved is now pinned, see
+    // `wbMapPinOnDrag`. Gated on the same "did it really move" check the
+    // undo entry uses, so a click is never mistaken for a placement.
+    if (primary) await wbMapPinOnDrag(d);
   }
 
   const objDrag = d3.drag()
@@ -16725,23 +17196,29 @@ function renderWbObjects(canvas) {
       .on("start", function (event, d) {
         event.sourceEvent.stopPropagation(); // don't also start objDrag
         d._resizeUndoBefore = WB_KIND_INFO.object.payload(d);
+        //: From where the gesture began rather than frame on frame, like the
+        //: card's resize: a proportion held with Shift is a proportion of the
+        //: box you took hold of, and a per-frame delta has no memory of it.
+        d._resizeStart = { x: d.x, y: d.y, w: d.width, h: d.height, dx: 0, dy: 0 };
+        d._gesture = wbBeginGesture(() => wbRestoreBox("object", d, d._resizeUndoBefore));
       })
       .on("drag", function (event, d) {
+        const start = d._resizeStart;
+        if (!start || d._gesture?.cancelled) return;
         const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-        const dx = event.dx / transform.k;
-        const dy = event.dy / transform.k;
-        let newWidth = d.width, newHeight = d.height;
-        if (handle.includes("e")) newWidth = Math.max(WB_OBJECT_MIN_SIZE, d.width + dx);
-        if (handle.includes("w")) newWidth = Math.max(WB_OBJECT_MIN_SIZE, d.width - dx);
-        if (handle.includes("s")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, d.height + dy);
-        if (handle.includes("n")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, d.height - dy);
-        // Reported directly: shift while resizing didn't snap to a square, 
-        // same fix as nodeResizeDrag's own copy just above.
+        start.dx += event.dx / transform.k;
+        start.dy += event.dy / transform.k;
+        let newWidth = start.w, newHeight = start.h;
+        if (handle.includes("e")) newWidth = Math.max(WB_OBJECT_MIN_SIZE, start.w + start.dx);
+        if (handle.includes("w")) newWidth = Math.max(WB_OBJECT_MIN_SIZE, start.w - start.dx);
+        if (handle.includes("s")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, start.h + start.dy);
+        if (handle.includes("n")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, start.h - start.dy);
+        // Shift on a corner keeps the box's proportions, see nodeResizeDrag.
         if (handle.length === 2 && event.sourceEvent.shiftKey) {
-          newWidth = newHeight = Math.max(newWidth, newHeight);
+          ({ w: newWidth, h: newHeight } = wbKeepAspect(start.w, start.h, newWidth, newHeight));
         }
-        if (handle.includes("w")) d.x += d.width - newWidth;
-        if (handle.includes("n")) d.y += d.height - newHeight;
+        d.x = handle.includes("w") ? start.x + start.w - newWidth : start.x;
+        d.y = handle.includes("n") ? start.y + start.h - newHeight : start.y;
         d.width = newWidth;
         d.height = newHeight;
         const el = d3.select(this.closest(".wb-object"));
@@ -16750,9 +17227,13 @@ function renderWbObjects(canvas) {
           .style("transform", wbItemTransform(d));
       })
       .on("end", async (event, d) => {
-        await wbSaveObject(d);
+        delete d._resizeStart;
         const before = d._resizeUndoBefore;
         delete d._resizeUndoBefore;
+        const cancelled = wbEndGesture(d._gesture);
+        delete d._gesture;
+        if (cancelled || (before && before.width === d.width && before.height === d.height)) return;
+        await wbSaveObject(d);
         if (before) wbPushUndo({ action: "move", kind: "object", id: d.id, before });
       });
   }
@@ -16767,8 +17248,10 @@ function renderWbObjects(canvas) {
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         d._rotateUndoBefore = WB_KIND_INFO.object.payload(d);
+        d._gesture = wbBeginGesture(() => wbRestoreBox("object", d, d._rotateUndoBefore));
       })
       .on("drag", (event, d) => {
+        if (d._gesture?.cancelled) return;
         const el = document.querySelector(`.wb-object[data-id="${d.id}"]`);
         if (!el) return;
         const rect = el.getBoundingClientRect();
@@ -16780,9 +17263,12 @@ function renderWbObjects(canvas) {
         el.style.transform = wbItemTransform(d);
       })
       .on("end", async (event, d) => {
-        await wbSaveObject(d);
         const before = d._rotateUndoBefore;
         delete d._rotateUndoBefore;
+        const cancelled = wbEndGesture(d._gesture);
+        delete d._gesture;
+        if (cancelled || (before && (before.rotation || 0) === (d.rotation || 0))) return;
+        await wbSaveObject(d);
         if (before) wbPushUndo({ action: "move", kind: "object", id: d.id, before });
       });
   }
@@ -17215,6 +17701,13 @@ function dragStart(event, d) {
     d.linkingPath.setAttribute("stroke", window.currentStrokeColor || "#ffffff");
     d.linkingPath.setAttribute("stroke-width", "3");
     document.getElementById("wb-zoom-group").appendChild(d.linkingPath);
+    //: Escape mid-draw drops the line being drawn and makes nothing.
+    d._gesture = wbBeginGesture(() => {
+      d.linkingPath?.remove();
+      d.linkingPath = null;
+      wbLinkDragActive = false;
+      wbClearAnchorHints();
+    });
   } else {
     // `.raise()` deliberately does NOT happen here, see the matching
     // comment in `dragging` below for a real bug this caused.
@@ -17239,6 +17732,8 @@ function dragStart(event, d) {
     // Asked for directly: undo should cover a move, not only create/delete.
     // Snapshotted before anything below can mutate `d`.
     d._moveUndoBefore = WB_KIND_INFO.node.payload(d);
+    d._altCopy = Boolean(event.sourceEvent?.altKey);
+    d._gesture = wbBeginGesture(() => wbRestoreMove("node", d));
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here, see the matching comment on
     // the sketch drag's own "start" for the click-toggle bug that caused.
@@ -17247,6 +17742,7 @@ function dragStart(event, d) {
 
 function dragging(event, d) {
   if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
+  if (d._gesture?.cancelled) return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     const [mx, my] = d3.pointer(event, document.getElementById("wb-zoom-group"));
 
@@ -17317,8 +17813,10 @@ function dragging(event, d) {
     //: still moves in whole grid steps, and for the ordinary case (an item
     //: that is already on the grid, because it was placed or dragged with
     //: snap on) the two are the same number.
-    d.x = d._dragOriginX + wbSnap(d._rawX - d._dragOriginX, bypassSnap);
-    d.y = d._dragOriginY + wbSnap(d._rawY - d._dragOriginY, bypassSnap);
+    //: Shift keeps the move on one axis (see `wbAxisLock`).
+    const lock = wbAxisLock(d._rawX - d._dragOriginX, d._rawY - d._dragOriginY, event.sourceEvent?.shiftKey);
+    d.x = d._dragOriginX + (lock === "y" ? 0 : wbSnap(d._rawX - d._dragOriginX, bypassSnap));
+    d.y = d._dragOriginY + (lock === "x" ? 0 : wbSnap(d._rawY - d._dragOriginY, bypassSnap));
     // Smart alignment guides: asked for directly ("draw.io and Microsoft
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: one modifier, "no snap assistance", not two.
@@ -17332,8 +17830,8 @@ function dragging(event, d) {
         group ? group.w : w,
         group ? group.h : h
       );
-      d.x += dx;
-      d.y += dy;
+      if (lock !== "y") d.x += dx;
+      if (lock !== "x") d.y += dy;
       wbShowAlignmentGuides(guideLines);
     } else {
       wbClearAlignmentGuides();
@@ -17350,6 +17848,14 @@ function dragging(event, d) {
 
 async function dragEndNode(event, d) {
   if (window.currentTool && window.currentTool.startsWith("link-")) {
+    const cancelledLink = wbEndGesture(d._gesture);
+    delete d._gesture;
+    if (cancelledLink) {
+      d.linkingPath?.remove();
+      d.linkingPath = null;
+      d.linkSourceAnchor = null;
+      return;
+    }
     if (d.linkingPath) d.linkingPath.remove();
     d.linkingPath = null;
     wbLinkDragActive = false;
@@ -17430,22 +17936,25 @@ async function dragEndNode(event, d) {
     // rebuilt). Refetching puts the screen back in step; leaving it, as this
     // did, shows a card sitting where you dropped it that is not saved
     // anywhere: the worst of both answers.
-    await wbSaveNode(d);
-    // The directly-dragged item's own move-undo. A bulk drag's *other*
-    // members don't get one each, undo after a group move puts back only
-    // the card actually dragged, not the whole group; a real limitation,
-    // not attempted further this session.
     const moveBefore = d._moveUndoBefore;
     delete d._moveUndoBefore;
-    if (moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y)) {
-      wbPushUndo({ action: "move", kind: "node", id: d.id, before: moveBefore });
-    }
-    // Reset unconditionally, even when this gesture wasn't a bulk move, 
+    // Reset unconditionally, even when this gesture wasn't a bulk move,
     // see the matching comment in objDrag's own "end" for why leaving a
     // solo drag's `null` in place would break bulk-move detection later.
     const bulkOrigin = d._bulkOrigin;
     delete d._bulkOrigin;
-    if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
+    const altCopy = d._altCopy;
+    delete d._altCopy;
+    const cancelled = wbEndGesture(d._gesture);
+    delete d._gesture;
+    if (cancelled) return;
+    //: A click is not a drop (see objDrag's own "end"): only a card that
+    //: really moved is saved.
+    const moved = moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y);
+    if (moved || !moveBefore) await wbSaveNode(d);
+    //: The whole drag is one undo step now, carried members and Alt copies
+    //: included (`wbFinishDrag`); this used to undo only the card grabbed.
+    await wbFinishDrag(moved ? { action: "move", kind: "node", id: d.id, before: moveBefore } : null, bulkOrigin, altCopy);
   }
 }
 

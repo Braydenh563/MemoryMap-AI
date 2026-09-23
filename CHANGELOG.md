@@ -239,6 +239,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- An answer that finishes after you closed its panel now says so. Close the
+  popup agent or the Atlas guide while it is still answering, and when the
+  answer arrives a notification is recorded in the bell ("Popup agent
+  answered: ..." or "Atlas answered: ...") with a toast carrying an Open
+  button; either one reopens that panel scrolled to the answer. Nothing is
+  posted while the panel is open, or for a turn you stopped, and the mute and
+  "Panel only" switches still apply. Verified in a browser with both streams
+  held for two seconds (`scratchpad/ui-sweeps/unwatched.js`); not verified
+  against a real model.
 - A lint on the release artifact naming scheme (INBOX 266, item 4).
   `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
   `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses

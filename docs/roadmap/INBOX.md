@@ -101,7 +101,11 @@ with its owner named in the entry.
     question; DESIGN.md "Pills are rare, and never dashed" with
     `test_a_control_is_a_pill_only_where_named`; `pills.js` 90 capsule
     controls in 14 groups before, 5 in 4 after (the chat composer's row, on
-    the allowlist). The rest of 394 is open.
+    the allowlist). (b) built as a persona sentence (the owner: "not just
+    'you are a librarian'"); (d) built (map agent, `mapradialmore.js`); (f)
+    and (g) built; (e) built and reverted at the owner's word ("the user's
+    wont know there are widgets"), so the first widget row stays on the
+    first screen. Left: (c), with the code completions agent.
 
 393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
     improvements, remove any trace of vibe coded stuff in elements, designs,

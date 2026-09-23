@@ -34,6 +34,19 @@ with its owner named in the entry.
 
 ## Open items
 
+400. **The owner, 2026-09-23 night, verbatim.** "I also need you to look for
+    more of those issues like with what were making the whiteboard and
+    mindmap pan glitchy, smth to do with inline css i think?? keep
+    optimising, also I need oyou to validate or criticise the app's
+    architectural and structural decisions to see if there are better
+    alternatives." Placed: (1) a style-invalidation hunt, the class the map
+    agent found (`[class*="card"] *` restyling whole subtrees on any class
+    change, 218ms to 0.1ms; inherited custom properties written per frame on
+    a container), across every surface, with `tests/test_css_invalidation.py`
+    extended to each new shape; (2) an architecture review written into
+    ANALYSIS.md: what is sound, what a professional app would do instead,
+    cost and order of each change.
+
 399. **The owner, 2026-09-23 night, verbatim.** "what is left in the world
     class plan?? can you poke more holes in the application for bugs,
     security, poor learnaility/utility/usability/accessibility and more??

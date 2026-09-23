@@ -1878,7 +1878,10 @@ header#top-bar select,
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  margin-top: var(--space-3);
+  /* Both sides: with only a top margin, the row after it (the writing desk's
+     chips, the agent palette's description) sat flush against the button
+     (owner, two screenshots: "these elements have no gaps between them"). */
+  margin-block: var(--space-3);
 }
 
 /* The Ask tab's answer foot (CHAT_PLAN.md Phase 3): "Elsewhere in your

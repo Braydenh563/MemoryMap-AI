@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The "No model is connected" notices keep a gap below their button, so the draft chips and the agent's description no longer sit flush against it.
 - A cross-link on a mind map is drawn like the map's own branches: the same ribbon or line style, facing anchors, weight and taper, in its branch's colour, instead of a straight pen-coloured line.
 - With glass on, the graph's floating dock and panels and the chat composer are frosted panes like the rest of the glass chrome, instead of an opaque bar and a near-black well.
 - The full test suite runs across every core (pytest-xdist): under 9 minutes on four cores instead of about 25. The resurface timing test now waits for the embedding warm-up before it starts its clock.

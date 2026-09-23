@@ -34,6 +34,26 @@ with its owner named in the entry.
 
 ## Open items
 
+404. **The owner, 2026-09-23 night, verbatim.** "also does emmet workf for
+    other languages like python, c#, java and more??" and "what about code
+    errors, debugging console or smth?? what is the doc editor missing for
+    both text/md/docx/other text files as well as for code files as well??"
+    Answer: Emmet is markup and CSS only (HTML, XML, JSX, CSS family); the
+    equivalent elsewhere is snippets. Present already (grepped): Problems
+    panel and F8, error underlines for JSON/JS/TS/CSS/Python/TOML/XML/YAML,
+    outline, history and diff, comments, footnotes, TOC, spelling, focus
+    mode, split view, word count, export and print. Placed. Code side (the
+    completions agent's queue): per-language snippets (Python, Java, C#, C,
+    C++, Go, Rust, JS/TS, SQL, shell), Run with an output console for JS/TS
+    in a sandboxed worker and HTML in a sandboxed preview frame, Python via
+    Pyodide as an opt-in extra (offline once installed), go to definition
+    and find references within a file, find across documents. Not
+    proposed: breakpoint debugging and compiled languages (a native
+    toolchain per language). Prose side (new agent): grammar and style with
+    Harper (INBOX 401), suggestion mode (tracked changes), read aloud with
+    the system's own voices, an accessibility check (heading order, alt
+    text, link text), and a .docx round trip if export is missing.
+
 403. **The owner, 2026-09-23 night, verbatim.** "for me, trust in the
     application isn't just the information it shows but that is very much a
     key point, it is also how cleanly and professionally the application ui

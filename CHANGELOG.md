@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Notifications: the panel is wide enough for its activity picker, and in the flat looks an unread row is marked with a dot instead of a coloured left edge; the palette no longer paints a hovered row like the chosen one.
 - Find anything: the text-selection menu no longer appears over the Finder (a search field's selected query is not writing; fields inside overlays are excluded); result rows lose the button glow, titles step to 500, dates read "Sep 23", a zero-count kind is dimmed, the dialog's name is its heading and Sort matches the chips. In the flat looks no button carries the accent glow.
 - Settings: every pane opens with its name as a heading (eleven of eighteen began mid-thought), a list row's actions sit on its title line instead of leaving an empty band under it, and labels straight in a pane line up with their text.
 - Settings: every section help "?" sits on one right edge (five positions before) with no filled ground in the flat looks; a pane's title is a real heading flush with its text; skills, personas and templates show a title, a hairline Built-in label, dot-separated facts and "Changes notes" in the warn colour instead of rows of identical pills; a persona's voice is clamped to two lines instead of cut mid-word.

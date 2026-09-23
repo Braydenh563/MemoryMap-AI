@@ -3305,3 +3305,32 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #palette-list li:hover:not(.active) {
   background: var(--chip-bg);
 }
+
+/* --- notifications -------------------------------------------------------------
+   1. At 22rem the tools row (label, picker, two buttons) left the picker
+      "Pop-ups + pa…": the panel is a little wider, still well inside a
+      laptop's top-right corner (clamped to the window as before).
+   2. An unread row was marked by a 2px accent stripe down its left edge,
+      the coloured-edge card again. In the flat looks the row is marked the
+      way mail clients mark it: a small accent dot before the title, and the
+      row keeps its alignment with the read ones. */
+.notif-panel {
+  width: 25rem;
+  max-width: min(25rem, calc(100vw - var(--space-8)));
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread {
+  border-left: 0;
+  position: relative;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--space-1) * -1);
+  top: 1.05em;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--accent);
+}

@@ -36077,6 +36077,15 @@ function toast(message, isError = false, { exempt = false } = {}) {
   }
   const timer = setTimeout(() => note.remove(), isError ? 9000 : 5500);
   note.appendChild(toastCloseButton(note, timer));
+  //: A tap on the words dismisses it, the way a phone's own banners go
+  //: (below 1100 a toast comes down from the top, over the head of a list,
+  //: and the small close button is not the only way to clear it). Its
+  //: buttons keep their own jobs.
+  note.addEventListener("click", (event) => {
+    if (event.target.closest("button")) return;
+    clearTimeout(timer);
+    note.remove();
+  });
   box.appendChild(note);
 }
 

@@ -72,6 +72,20 @@ one of them and is judged by a count, not by looking at a screenshot.
 Standing order 3: a decision recorded here is not re-opened. A missing one
 becomes an INBOX entry with a one-line recommendation, which is then taken.
 
+- **The default look is Quiet utilitarian; the old default is a palette**
+  (the owner, 2026-09-23, asked against the unslop audit, which found the
+  identity itself to be the tell: indigo accent, purple-blue emblem, lavender
+  pastel page gradient and glass panels by default). Chosen: "go the quiet
+  utilitarian, but also have the editorial paper, technical mono and the
+  current look as ui appearance options". Quiet utilitarian: a neutral warm
+  grey ground with no gradient or blobs, solid panels (glass off unless
+  chosen), one ink-blue accent, tighter spacing; the content is the colour.
+  Editorial paper: off-white paper, strong black type, a single red-orange
+  accent for actions, hairline rules in place of card fills. Technical mono:
+  a cool graphite ground, monospace for metadata and numbers, a green signal
+  accent, square corners. Classic: today's look, kept exactly, as a palette
+  anyone can choose. All four ship light and dark sets, like every palette.
+
 - **A picker that adds to a list is an adder, not a `<select>`** (the owner,
   2026-09-12, on the capture form's "Add to document" box, INBOX 116). A
   `<select>` is the right control for choosing *a* value in a form: it shows

@@ -154,8 +154,9 @@ begin
   ChkSemantic.Left := 0;
   ChkSemantic.Top := Y;
   ChkSemantic.Width := ExtrasPage.SurfaceWidth;
-  ChkSemantic.Caption := 'Search by meaning (sentence-transformers) — ~2 GB';
-  ChkSemantic.Checked := False;
+  ChkSemantic.Caption := 'Search by meaning (sentence-transformers) — ~2 GB'
+    + ' [Recommended]';
+  ChkSemantic.Checked := True;
   Y := Y + 24;
 
   Lbl := TNewStaticText.Create(ExtrasPage);

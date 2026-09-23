@@ -3684,12 +3684,40 @@ function inlineActionIs(id, kind) {
 // scroll outside the open menu closes it; a scroll inside a long menu is
 // the menu's own and is left alone.
 function closeActionMenusOnScroll(event) {
-  const open = document.querySelector(".action-menu:not(.hidden)");
-  if (!open) return;
-  if (event.target instanceof Node && open.contains(event.target)) return;
+  const openMenus = document.querySelectorAll(".action-menu:not(.hidden)");
+  if (openMenus.length === 0) return;
+
+  // Trackpads send small deltaX values along with deltaY when scrolling vertically.
+  // If a dropdown lacks horizontal scroll, browsers often chain the deltaX to the 
+  // nearest horizontally scrollable ancestor. If that ancestor scrolls, this function
+  // fires. By ignoring the scroll while the user is actively hovering the menu, we 
+  // prevent the menu from abruptly closing during trackpad scrolling.
+  // We also track the last wheel event time, as :hover is often lost during 
+  // momentum scrolling on touchpads.
+  const timeSinceLastMenuWheel = Date.now() - (window._lastMenuWheelTime || 0);
+  if (
+    timeSinceLastMenuWheel < 500 || 
+    document.querySelector(".select-menu:hover, .action-menu:hover, .doc-dock-menu-list:hover, .library-image-menu-list:hover, .wb-board-menu:hover")
+  ) {
+    return;
+  }
+
+  if (event.target instanceof Node) {
+    for (const open of openMenus) {
+      if (open.contains(event.target)) return;
+    }
+  }
   closeActionMenus();
 }
 window.addEventListener("scroll", closeActionMenusOnScroll, true);
+
+// Track recent wheel events over menus to prevent them from closing during 
+// momentum scrolls where the :hover state might temporarily detach.
+window.addEventListener("wheel", (event) => {
+  if (event.target.closest(".select-menu, .action-menu, .doc-dock-menu-list, .library-image-menu-list, .wb-board-menu")) {
+    window._lastMenuWheelTime = Date.now();
+  }
+}, { passive: true, capture: true });
 
 function closeActionMenus() {
   for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
@@ -16693,6 +16721,9 @@ function wheelScrollsHorizontally(element) {
     "wheel",
     (event) => {
       if (event.deltaX !== 0 || event.shiftKey) return;
+      // Do not steal vertical scroll if the target is inside a scrollable dropdown/menu
+      if (event.target.closest(".select-menu, .action-menu, .doc-dock-menu-list, .library-image-menu-list, .wb-board-menu")) return;
+      
       const room = element.scrollWidth - element.clientWidth;
       if (room <= 1) return;
       const atStart = element.scrollLeft <= 0 && event.deltaY < 0;
@@ -16705,6 +16736,14 @@ function wheelScrollsHorizontally(element) {
   );
 }
 window.wheelScrollsHorizontally = wheelScrollsHorizontally;
+
+// Trackpads send small deltaX values along with deltaY when scrolling vertically.
+// If a dropdown lacks horizontal scroll, browsers often ignore `overscroll-behavior` 
+// on that axis and chain the deltaX to the nearest horizontally scrollable ancestor.
+// When the ancestor scrolls, `closeActionMenusOnScroll` fires and closes the menu.
+// [REMOVED] The manual wheel event handler was removed because `menu.scrollTop += event.deltaY`
+// breaks two-finger trackpad scrolling. Instead, `closeActionMenusOnScroll` now checks 
+// if the cursor is actively hovering the menu, and if so, it ignores the ancestor scroll event.
 
 //: Every horizontal strip in the app, in one list. A strip added later gets
 //: this by being added here, which is cheaper than each surface remembering.
@@ -36176,6 +36215,13 @@ function syncModelGatedControls(status = modelStatus) {
       }
     }
     control.classList.toggle("ai-unavailable", off);
+  }
+  //: The badge is a span, not a button, so `disabled` does nothing to it
+  //: (see its own comment in `renderTimelineEntry`). Explicitly hidden here so
+  //: a badge drawn while the model was online doesn't sit on screen as a
+  //: broken promise once it drops.
+  for (const badge of document.querySelectorAll(".untagged-ai")) {
+    badge.style.display = off ? "none" : "";
   }
   //: The link half of decision 11. A tooltip on a disabled control is read by
   //: somebody who already suspects the answer; a person who does not know why

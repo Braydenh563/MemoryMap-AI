@@ -1638,9 +1638,19 @@ function wbEdgePoint(kind, item, towardX, towardY) {
     return wbBoxRayIntersection(box, towardX, towardY);
   }
   const rot = wbItemRotation(kind, item);
-  if (!rot) return wbBoxRayIntersection(box, towardX, towardY);
+  let shape = "rectangle";
+  if (kind === "object") shape = item.data?.shape || "rectangle";
+  else if (kind === "node") shape = item.shape || "rectangle";
+  
+  const getIntersection = (bx, tx, ty) => {
+    if (shape === "ellipse") return wbEllipseRayIntersection(bx, tx, ty);
+    if (shape === "pill") return wbPillRayIntersection(bx, tx, ty);
+    return wbBoxRayIntersection(bx, tx, ty);
+  };
+
+  if (!rot) return getIntersection(box, towardX, towardY);
   const local = wbRotatePoint({ x: towardX, y: towardY }, c, -rot);
-  return wbRotatePoint(wbBoxRayIntersection(box, local.x, local.y), c, rot);
+  return wbRotatePoint(getIntersection(box, local.x, local.y), c, rot);
 }
 
 //: The direction a curved link should leave an endpoint in: the box's face
@@ -1723,6 +1733,51 @@ function wbEdgeNormal(box, pt) {
 //: behaviour.
 function wbWithDir(pt, dir) {
   return dir ? { x: pt.x, y: pt.y, dir } : pt;
+}
+
+function wbEllipseRayIntersection(box, towardX, towardY) {
+  const cx = (box.minX + box.maxX) / 2, cy = (box.minY + box.maxY) / 2;
+  const dx = towardX - cx, dy = towardY - cy;
+  if (!dx && !dy) return { x: cx, y: cy };
+  const a = (box.maxX - box.minX) / 2, b = (box.maxY - box.minY) / 2;
+  if (a === 0 || b === 0) return { x: cx, y: cy };
+  const t = 1 / Math.sqrt((dx * dx) / (a * a) + (dy * dy) / (b * b));
+  return { x: cx + dx * t, y: cy + dy * t };
+}
+
+function wbPillRayIntersection(box, towardX, towardY) {
+  const cx = (box.minX + box.maxX) / 2, cy = (box.minY + box.maxY) / 2;
+  const dx = towardX - cx, dy = towardY - cy;
+  if (!dx && !dy) return { x: cx, y: cy };
+  const w = box.maxX - box.minX, h = box.maxY - box.minY;
+  const r = Math.min(w, h) / 2;
+  const pt = wbBoxRayIntersection(box, towardX, towardY);
+  if (w > h) {
+    if (pt.x > box.minX + r && pt.x < box.maxX - r) return pt;
+    const circleCx = pt.x <= box.minX + r ? box.minX + r : box.maxX - r;
+    const dcx = cx - circleCx;
+    const a = dx * dx + dy * dy;
+    const b = 2 * (dcx * dx);
+    const c = dcx * dcx - r * r;
+    const discriminant = b * b - 4 * a * c;
+    if (discriminant >= 0) {
+      const t = (-b + Math.sqrt(discriminant)) / (2 * a);
+      return { x: cx + dx * t, y: cy + dy * t };
+    }
+  } else {
+    if (pt.y > box.minY + r && pt.y < box.maxY - r) return pt;
+    const circleCy = pt.y <= box.minY + r ? box.minY + r : box.maxY - r;
+    const dcy = cy - circleCy;
+    const a = dx * dx + dy * dy;
+    const b = 2 * (dcy * dy);
+    const c = dcy * dcy - r * r;
+    const discriminant = b * b - 4 * a * c;
+    if (discriminant >= 0) {
+      const t = (-b + Math.sqrt(discriminant)) / (2 * a);
+      return { x: cx + dx * t, y: cy + dy * t };
+    }
+  }
+  return pt;
 }
 
 function wbBoxRayIntersection(box, towardX, towardY) {
@@ -5622,9 +5677,13 @@ function wbMapEdgeGeometry(parent, child, layout, colors) {
   //: t = 0.5, worked out in `wbMapEdgeCubic`), and for a bent one this is the
   //: one that is still on the line.
   const label = child.data?.edge_label ? String(child.data.edge_label) : "";
+  const ldx = Number(child.data?.edge_label_dx) || 0;
+  const ldy = Number(child.data?.edge_label_dy) || 0;
+  const lx = grip.x + ldx;
+  const ly = grip.y + ldy;
   return {
-    className, d, line, grip, colour, label,
-    paint: `${className}|${d}|${line}|${grip.x},${grip.y}|${colour}|${label}`,
+    className, d, line, grip, colour, label, lx, ly,
+    paint: `${className}|${d}|${line}|${grip.x},${grip.y}|${colour}|${label}|${lx},${ly}`,
   };
 }
 
@@ -5713,6 +5772,8 @@ function wbMapEdgeElement(parentId, childId) {
 //: it, and `el.style` sits above the stylesheet where the attribute sat
 //: below. Removed as well as set, which a rebuilt element never had to do:
 //: a branch that loses its colour has to lose it on the line too.
+let edgeLabelDrag;
+
 function wbMapEdgeApply(wrap, geom) {
   //: By class, not by position: the group's order is the hit test's (the
   //: invisible twin has to sit above the visible line), so reaching for a
@@ -5738,10 +5799,55 @@ function wbMapEdgeApply(wrap, geom) {
     text = document.createElementNS("http://www.w3.org/2000/svg", "text");
     text.setAttribute("class", "wb-map-edge-label");
     text.setAttribute("dy", "-0.4em");
+    // bounding-box creates a solid hit area matching the text's box, preventing mis-clicks
+    text.style.pointerEvents = "bounding-box";
+    text.style.cursor = "move";
+    text.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      const childId = Number(wrap.querySelector(".wb-map-edge").dataset.child);
+      if (childId) wbMapLabelEdge(childId);
+    });
+
+    if (!edgeLabelDrag) {
+      edgeLabelDrag = d3.drag()
+        .on("start", function(event) {
+          event.sourceEvent.stopPropagation();
+          const pWrap = this.closest(".wb-map-edge-group");
+          const childId = Number(pWrap.querySelector(".wb-map-edge").dataset.child);
+          const node = wbMapIndex().byId.get(childId);
+          if (!node) return;
+          this._dragNode = node;
+          this._dragStartX = Number(node.data?.edge_label_dx) || 0;
+          this._dragStartY = Number(node.data?.edge_label_dy) || 0;
+        })
+        .on("drag", function(event) {
+          if (!this._dragNode) return;
+          // event.dx is already in the coordinate space of the parent group
+          this._dragStartX += event.dx;
+          this._dragStartY += event.dy;
+          const pWrap = this.closest(".wb-map-edge-group");
+          const pHandle = pWrap.querySelector(".wb-map-edge-handle");
+          const hx = Number(pHandle.getAttribute("cx"));
+          const hy = Number(pHandle.getAttribute("cy"));
+          this.setAttribute("x", String(hx + this._dragStartX));
+          this.setAttribute("y", String(hy + this._dragStartY));
+        })
+        .on("end", async function(event) {
+          if (!this._dragNode) return;
+          await wbMapSetNodeStyle(this._dragNode, { 
+            edge_label_dx: Math.round(this._dragStartX), 
+            edge_label_dy: Math.round(this._dragStartY)
+          });
+          this._dragNode = null;
+          wbScheduleRender();
+        });
+    }
+    d3.select(text).call(edgeLabelDrag);
+
     wrap.appendChild(text);
   }
-  text.setAttribute("x", String(geom.grip.x));
-  text.setAttribute("y", String(geom.grip.y));
+  text.setAttribute("x", String(geom.lx));
+  text.setAttribute("y", String(geom.ly));
   text.textContent = geom.label;
 }
 
@@ -7462,6 +7568,7 @@ const WB_MAP_COPY_MAX = 120;
 //: line's look travelling with a copy is worse than none of it.
 const WB_MAP_STYLE_KEYS = [
   "color", "bold", "italic", "font_size", "align", "icon", "link", "edge_label",
+  "edge_label_dx", "edge_label_dy",
   "shape", "core", "spine", "edge_style", "edge_dashed", "edge_width", "edge_arrow",
   //: The waypoint on the line (§12.1 item 5's third) belongs with the other
   //: four for the same reason: it is written from the line itself onto the
@@ -7589,11 +7696,10 @@ async function wbMapLabelEdge(id) {
     current,
     { confirmLabel: current ? "Change the label" : "Add the label" }
   );
-  const text = String(answer ?? "").trim();
-  // Same rule as the strip's link: `promptDialog` cannot tell Escape from an
-  // empty field, so an empty answer changes nothing. Clearing a label is
-  // "Back to the branch" on this same ring.
-  if (!text) return;
+  //: Same rule as the strip's link: `promptDialog` cannot tell Escape from an
+  //: empty field, so `answer` is `null` on escape and `""` on empty submit.
+  if (answer === null) return;
+  const text = String(answer).trim();
   await wbMapSetNodeStyle(node, { edge_label: text.slice(0, 80) });
   wbScheduleRender();
 }
@@ -8919,6 +9025,37 @@ function wbBuildContextMenu(kind) {
     });
     menu.appendChild(button);
   };
+  const subItem = (label, buildSubItems) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "wb-ctx-has-submenu";
+    wrapper.setAttribute("role", "menuitem");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "menu-item";
+    button.innerHTML = `${label} <i class="ph ph-caret-right" aria-hidden="true" style="margin-left: auto;"></i>`;
+    wrapper.appendChild(button);
+    const submenu = document.createElement("div");
+    submenu.className = "action-menu wb-ctx-submenu";
+    submenu.setAttribute("role", "menu");
+    const subMenuItem = (subLabel, title, fn) => {
+      const subBtn = document.createElement("button");
+      subBtn.type = "button";
+      subBtn.className = "menu-item";
+      subBtn.setAttribute("role", "menuitem");
+      subBtn.textContent = subLabel;
+      if (title) subBtn.title = title;
+      subBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        wbCloseContextMenu();
+        fn();
+      });
+      submenu.appendChild(subBtn);
+    };
+    buildSubItems(subMenuItem);
+    if (submenu.children.length === 0) return; // don't render empty submenus
+    wrapper.appendChild(submenu);
+    menu.appendChild(wrapper);
+  };
   if (kind !== "node") {
     item("Copy", "Ctrl/Cmd+C", () => wbCopySelection());
     item("Cut", "Ctrl/Cmd+X", () => wbCutSelection());
@@ -8939,66 +9076,66 @@ function wbBuildContextMenu(kind) {
     const folded = Boolean(mapNode.data?.collapsed);
     const kids = (index.childrenOf.get(mapNode.id) || []).length;
     const rooted = mapNode.parent_id == null || !index.byId.has(mapNode.parent_id);
-    item("Add a child topic", "Tab", () => wbMapAddChild(mapNode.id));
-    item("Add a topic beside this one", "Enter", () => wbMapAddSibling(mapNode.id));
-    item("Add from the library…", "Point a new child at a note, document, file or link", () =>
-      wbMapAddReference(mapNode.id)
-    );
-    item(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
-      "An http, https or mailto address", () => wbMapEditLink(mapNode));
-    //: The picture (§12.1 item 2's fourth), beside the link because the two
-    //: are the same kind of thing: what this topic *is*, rather than how it
-    //: looks. Reference nodes are left out, their body is the note, document
-    //: or file they stand for.
-    if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
-      item(mapNode.data?.image ? "Change this topic's picture…" : "Put a picture in this topic…",
-        "An image from this computer", () => wbMapEditPicture(mapNode));
-      if (mapNode.data?.image) {
-        item("Take the picture out of this topic", "The upload stays in the library", () =>
-          wbMapRemovePicture(mapNode)
+    
+    subItem("Add...", sub => {
+      sub("A child topic", "Tab", () => wbMapAddChild(mapNode.id));
+      sub("A topic beside this one", "Enter", () => wbMapAddSibling(mapNode.id));
+      sub("From the library…", "Point a new child at a note, document, file or link", () =>
+        wbMapAddReference(mapNode.id)
+      );
+    });
+
+    subItem("Content...", sub => {
+      sub(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
+        "An http, https or mailto address", () => wbMapEditLink(mapNode));
+      if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
+        sub(mapNode.data?.image ? "Change this topic's picture…" : "Put a picture in this topic…",
+          "An image from this computer", () => wbMapEditPicture(mapNode));
+        if (mapNode.data?.image) {
+          sub("Take the picture out of this topic", "The upload stays in the library", () =>
+            wbMapRemovePicture(mapNode)
+          );
+        }
+      }
+    });
+
+    subItem("Lines...", sub => {
+      if (!rooted && (mapNode.data?.edge_bend || mapNode.data?.edge_slide)) {
+        sub("Straighten the line into this topic", "Or double-click the dot on the line", () =>
+          wbMapStraightenEdge(mapNode)
         );
       }
-    }
-    //: Only when there is a bend to drop (§12.1 item 5's third). A menu entry
-    //: that is there for every topic and does nothing on nearly all of them is
-    //: a row everybody reads past; this one appears exactly when the line has
-    //: been reshaped, and says where the gesture is for next time.
-    if (!rooted && (mapNode.data?.edge_bend || mapNode.data?.edge_slide)) {
-      item("Straighten the line into this topic", "Or double-click the dot on the line", () =>
-        wbMapStraightenEdge(mapNode)
-      );
-    }
-    item("Connect this topic to another", "Shift+C, then drag to the other topic", () => {
-      selectWbTool("link-straight");
-      toast("Drag from this topic to the one it should join.");
-    });
-    if (kids) item(folded ? "Open this branch again" : "Fold this branch away", "C", () =>
-      wbMapToggleCollapse(mapNode.id)
-    );
-    //: Focus (§5 item 18). On the node's own menu because focus is about one
-    //: node: "show me around here" is a thing you say pointing at something.
-    item(wbMapFocusState && wbMapFocusState.id === mapNode.id ? "Show the whole map again" : "Focus here",
-      "F", () => {
-        if (wbMapFocusState && wbMapFocusState.id === mapNode.id) wbMapClearFocus();
-        else wbMapSetFocus(mapNode.id);
+      sub("Connect this topic to another", "Shift+C, then drag to the other topic", () => {
+        selectWbTool("link-straight");
+        toast("Drag from this topic to the one it should join.");
       });
-    //: Tidy one branch. The dock's broom tidies the map; this is the same pass
-    //: with `onlyBranch`, which is the half that used to be a ring slot.
-    if (kids) item("Lay this branch out again", "Tidy this topic and everything under it", async () => {
-      const moved = await wbMapTidy({ onlyBranch: mapNode.id, quiet: true });
-      toast(moved
-        ? `Laid out ${moved} topic${moved === 1 ? "" : "s"}.`
-        : "This branch is already where the layout puts it.");
     });
-    item("Copy this branch", "This topic and everything under it, beside itself", () =>
-      wbMapCopyBranch(mapNode.id)
-    );
-    if (!rooted) item("Cut this topic free of its parent", "It becomes a trunk of its own", () =>
-      wbMapSever(mapNode.id)
-    );
-    item("Back to the branch", "Drop this topic's own colour, size, weight, alignment, shape, icon, link and line", () =>
-      wbMapResetToBranch(mapNode.id)
-    );
+
+    subItem("Branch...", sub => {
+      if (kids) sub(folded ? "Open this branch again" : "Fold this branch away", "C", () =>
+        wbMapToggleCollapse(mapNode.id)
+      );
+      sub(wbMapFocusState && wbMapFocusState.id === mapNode.id ? "Show the whole map again" : "Focus here",
+        "F", () => {
+          if (wbMapFocusState && wbMapFocusState.id === mapNode.id) wbMapClearFocus();
+          else wbMapSetFocus(mapNode.id);
+        });
+      if (kids) sub("Lay this branch out again", "Tidy this topic and everything under it", async () => {
+        const moved = await wbMapTidy({ onlyBranch: mapNode.id, quiet: true });
+        toast(moved
+          ? `Laid out ${moved} topic${moved === 1 ? "" : "s"}.`
+          : "This branch is already where the layout puts it.");
+      });
+      sub("Copy this branch", "This topic and everything under it, beside itself", () =>
+        wbMapCopyBranch(mapNode.id)
+      );
+      if (!rooted) sub("Cut this topic free of its parent", "It becomes a trunk of its own", () =>
+        wbMapSever(mapNode.id)
+      );
+      sub("Reset branch styling", "Drop this topic's own colour, size, weight, alignment, shape, icon, link and line", () =>
+        wbMapResetToBranch(mapNode.id)
+      );
+    });
   }
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
@@ -10943,6 +11080,7 @@ async function initWhiteboard() {
   //: menu is a list of words rather than a ring of icons for the actions that
   //: are easier to read than to aim at.
   $("wb-radial-more")?.addEventListener("click", (event) => {
+    event.stopPropagation();
     const node = wbMapRadialNode();
     const ring = document.getElementById("wb-map-radial");
     const box = ring?.getBoundingClientRect();
@@ -16721,10 +16859,7 @@ function dragStart(event, d) {
     // specific corner stays pinned there through a later resize, `null`
     // (nothing near enough) is the free/floating case, resolved fresh every
     // render in `wbLinkEndpoints` instead of frozen at drag-start.
-    const startTransform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const startRect = wbCanvasOriginRect();
-    const startX = (event.sourceEvent.clientX - startRect.left - startTransform.x) / startTransform.k;
-    const startY = (event.sourceEvent.clientY - startRect.top - startTransform.y) / startTransform.k;
+    const [startX, startY] = d3.pointer(event, document.getElementById("wb-zoom-group"));
     d.linkSourceAnchor = wbNearestAnchor(d._linkKind || "node", d, startX, startY);
     wbLinkDragActive = true;
     wbShowAnchorHints(d._linkKind || "node", d, d.linkSourceAnchor);
@@ -16766,17 +16901,15 @@ function dragStart(event, d) {
 function dragging(event, d) {
   if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
-    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = wbCanvasOriginRect();
-    const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
-    const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
+    const [mx, my] = d3.pointer(event, document.getElementById("wb-zoom-group"));
 
     // A fixed source anchor stays put; a floating one re-aims at the live
     // pointer every frame: the same rectangle-intersection the render path
     // uses, not the old fixed centre-point.
     const fixedStart = wbAnchorPoint(d._linkKind || "node", d, d.linkSourceAnchor);
     const start = fixedStart || wbEdgePoint(d._linkKind || "node", d, mx, my);
-    d.linkingPath.setAttribute("d", wbLinkPathD(window.currentTool, start, { x: mx, y: my }));
+    const tool = (d._linkKind === "object") ? "link-curved" : window.currentTool;
+    d.linkingPath.setAttribute("d", wbLinkPathD(tool, start, { x: mx, y: my }));
 
     // Anchor hints follow whichever card, text box, sticky or shape the
     // pointer is over, so the drop target's own snap points are visible
@@ -16871,10 +17004,7 @@ async function dragEndNode(event, d) {
     wbLinkDragActive = false;
     wbClearAnchorHints();
 
-    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = wbCanvasOriginRect();
-    const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
-    const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
+    const [mx, my] = d3.pointer(event, document.getElementById("wb-zoom-group"));
 
     const sourceKind = d._linkKind || "node";
     const hit = wbLinkCandidateAt(mx, my, sourceKind, d.id);
@@ -16892,9 +17022,10 @@ async function dragEndNode(event, d) {
        // source got at drag-start, `null` (nothing near enough) persists
        // as a free/floating end, same as the source's own case.
        const targetAnchor = wbNearestAnchor(targetKind, targetNode, mx, my);
+       const tool = (sourceKind === "object") ? "link-curved" : window.currentTool;
        const sketchData = {
          data: JSON.stringify({
-            type: window.currentTool,
+            type: tool,
             sourceId: d.id,
             targetId: targetNode.id,
             sourceKind: sourceKind === "node" ? undefined : sourceKind,

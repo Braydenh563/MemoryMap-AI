@@ -4911,6 +4911,11 @@
       <svg id="wb-overlay-layer" class="wb-svg-layer">
         <g id="wb-overlay-zoom-group"></g>
       </svg>
+      <!-- The pan shield (MINDMAP_PLAN 13a-view): shown only while the board
+           is being panned or space is held, so the grab and grabbing cursors
+           live on one childless element instead of on the container, whose
+           cursor every topic on the board inherits. -->
+      <div class="wb-pan-shield" aria-hidden="true"></div>
       <!-- Shown only while the board is empty, cleared the moment anything
            real lands on it (renderWhiteboard). A board is a note nobody
            told you it was, and a blank canvas with an eight-icon toolbar

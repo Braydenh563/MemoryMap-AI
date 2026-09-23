@@ -102,7 +102,8 @@ let wbZoom = d3
   .zoom()
   .scaleExtent([0.1, 4])
   .filter(wbZoomFilter)
-  .on("zoom", handleWbZoom);
+  .on("zoom", handleWbZoom)
+  .on("end.shield", wbEndPanShield);
 let wbState = { nodes: [], sketches: [], objects: [] };
 let wbHintForcedOpen = false; // the "?" help button's override: see renderWhiteboard
 let wbInitialized = false;
@@ -245,6 +246,9 @@ function wbSaveExpandedNodes() {
 function wbSyncCardClamps() {
   const wanted = [];
   for (const card of document.querySelectorAll(".node-card")) {
+    //: A culled card keeps the toggle it had: asking its content for a
+    //: height would lay out the very subtree the cull is there to skip.
+    if (card.classList.contains("wb-culled")) continue;
     const content = card.querySelector(".wb-card-content");
     const toggle = card.querySelector(".wb-card-more");
     if (!content || !toggle) continue;
@@ -435,7 +439,25 @@ window.addEventListener(
   true
 );
 
+//: **The pan shield goes up on the first move of a pointer pan** (MINDMAP_PLAN
+//: 13a-view; the rule and its reasons are on `.wb-pan-shield`). On the move,
+//: not the press: a press that never moves is a click, and its click has to
+//: land on whatever was under it rather than on the shield. A class on the
+//: container is cheap here only because no rule for the container itself
+//: reads it; the one rule that does styles the shield alone.
+function wbStartPanShield(e) {
+  const type = e.sourceEvent?.type;
+  if (type !== "mousemove" && type !== "pointermove") return;
+  const el = document.getElementById("whiteboard-container");
+  if (el && !el.classList.contains("wb-hand-pan")) el.classList.add("wb-hand-pan");
+}
+
+function wbEndPanShield() {
+  document.getElementById("whiteboard-container")?.classList.remove("wb-hand-pan");
+}
+
 function handleWbZoom(e) {
+  wbStartPanShield(e);
   wbApplyZoomTransform(e.transform);
   wbZoomPending = e.transform;
   if (wbZoomFrame) return;
@@ -445,6 +467,9 @@ function handleWbZoom(e) {
     wbZoomPending = null;
     if (!t) return;
     wbSyncGridToTransform(t);
+    //: In the same frame as the transform it answers, so a topic panned into
+    //: view is drawn on the frame it arrives in rather than one later.
+    wbCullNow(t);
     wbUpdateSelectionBar();
     // The navigator's viewport rectangle is only true for one transform, so
     // it is redrawn with every pan and zoom. `wbRenderNavigator` returns
@@ -452,6 +477,105 @@ function handleWbZoom(e) {
     wbRenderNavigator();
   });
 }
+
+//: **Only what is near the window is drawn** (MINDMAP_PLAN.md 13a-view,
+//: INBOX 312). Every card, text box and topic on the board is a DOM element
+//: under the layer the pan moves, and a topic is nineteen of them: a
+//: 500-topic map is eleven thousand elements, and every restyle, hit test and
+//: repaint of the layer walked all of them whether or not one was on screen.
+//: Measured on that map, a tool switch restyled the board in 120ms; with the
+//: topics off screen culled, 40ms.
+//:
+//: **`content-visibility: hidden`, not `display: none` and not detaching.**
+//: A culled item keeps its box, so everything that measures an item (the
+//: export, `wbItemBBox`, `wbMapSpillsOffCanvas`, a drag's drop target) reads
+//: the same numbers it always did; `contain-intrinsic-size: auto` on the
+//: items (07-whiteboard-misc.css) is what makes the height the one it last
+//: drew at. Only what is inside it stops being styled, laid out, painted and
+//: hit. `content-visibility: auto` was measured first and culled nothing
+//: here: the browser's own on-screen test does not see through the pan's
+//: transform, so all 500 topics stayed live.
+//:
+//: **What is never culled:** the selection, anything being dragged, and
+//: anything holding focus, which is the text being typed into. Those are the
+//: things a gesture is reaching for, and they can sit off screen: a new
+//: topic opens its editor before the view has moved to it.
+//:
+//: The margin is half the window on every side, so a pan draws what it is
+//: about to show a whole half-screen before it arrives, and the cull runs
+//: once per pan frame, in the frame's own rAF.
+const WB_CULL_MARGIN = 0.5;
+let wbCullFrame = 0;
+
+function wbScheduleCull() {
+  if (wbCullFrame) return;
+  wbCullFrame = requestAnimationFrame(() => {
+    wbCullFrame = 0;
+    wbCullNow();
+  });
+}
+
+function wbCullNow(transform) {
+  const container = document.getElementById("whiteboard-container");
+  const layer = document.getElementById("wb-html-layer");
+  if (!container || !layer) return;
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  //: A hidden board (another tab, the boards gallery) has no window to cull
+  //: against; leave it as it is rather than culling everything.
+  if (!w || !h) return;
+  const t = transform || d3.zoomTransform(container);
+  const k = t.k || 1;
+  const mx = w * WB_CULL_MARGIN;
+  const my = h * WB_CULL_MARGIN;
+  const x0 = (-mx - t.x) / k;
+  const x1 = (w + mx - t.x) / k;
+  const y0 = (-my - t.y) / k;
+  const y1 = (h + my - t.y) / k;
+  //: A box from what the datum says rather than from the element: reading
+  //: a box would flush layout on every pan frame. Padded by half its larger
+  //: side, so a rotated item's corners and a card taller than its stored
+  //: height are both inside it.
+  const outside = (x, y, bw, bh) => {
+    const pad = Math.max(bw, bh) / 2;
+    return x + bw + pad < x0 || x - pad > x1 || y + bh + pad < y0 || y - pad > y1;
+  };
+  const focused = document.activeElement;
+  for (const el of layer.children) {
+    const d = el.__data__;
+    if (!d || typeof d.x !== "number") continue;
+    const keep =
+      el.classList.contains("wb-selected") ||
+      el.classList.contains("dragging") ||
+      (focused && focused !== document.body && el.contains(focused));
+    const bw = d.width || WB_CARD_DEFAULT_SIZE.w;
+    const bh = d.height || WB_CARD_DEFAULT_SIZE.h;
+    const cull = !keep && outside(d.x, d.y, bw, bh);
+    if (el.classList.contains("wb-culled") !== cull) el.classList.toggle("wb-culled", cull);
+  }
+  //: A map's tree lines, by the box of their two ends: a line with one end on
+  //: screen is on screen. `display: none` is right for these: nothing ever
+  //: measures a line's element, only its ends.
+  const edges = document.querySelector("#wb-zoom-group .wb-map-edges");
+  const cache = edges?._wbMapEdges;
+  if (cache instanceof Map && cache.size) {
+    const byId = new Map((wbState.objects || []).map((o) => [o.id, o]));
+    for (const [key, held] of cache) {
+      const cut = key.indexOf(":");
+      const a = byId.get(Number(key.slice(0, cut)));
+      const b = byId.get(Number(key.slice(cut + 1)));
+      if (!a || !b) continue;
+      const left = Math.min(a.x, b.x);
+      const top = Math.min(a.y, b.y);
+      const right = Math.max(a.x + (a.width || 0), b.x + (b.width || 0));
+      const bottom = Math.max(a.y + (a.height || 0), b.y + (b.height || 0));
+      const cull = outside(left, top, right - left, bottom - top);
+      if (held.wrap.classList.contains("wb-culled") !== cull) held.wrap.classList.toggle("wb-culled", cull);
+    }
+  }
+}
+
+window.addEventListener("resize", wbScheduleCull);
 
 //: The grid's spacing in board coordinates. Scaled by the zoom so a square
 //: stays a square of the *board*, not of the screen, panning and zooming
@@ -9059,6 +9183,8 @@ function wbBulkMoveElement(entry, selector) {
 
 function wbApplyBulkMove(origin, dx, dy) {
   wbTranslateSelectionChrome(dx, dy);
+  //: A branch carried into view from off screen is drawn on the next frame.
+  wbScheduleCull();
   for (const entry of origin.values()) {
     if (entry.kind === "sketch") {
       const newD = wbTransformPathD(entry.d, { dx, dy });
@@ -9071,14 +9197,26 @@ function wbApplyBulkMove(origin, dx, dy) {
       entry.item.y = entry.y + dy;
       const el = wbBulkMoveElement(entry, WB_SELECTOR_BY_KIND[entry.kind](entry.id));
       if (el) el.style.transform = wbItemTransform(entry.item);
-      // See this entry's own comment in `wbCaptureBulkMoveOrigin`: without
-      // this, only the card the pointer is actually on kept its edges live
-      // during a multi-select drag.
-      wbUpdateLinkedSketches(entry.id, entry.linked);
-      // Same for a map's tree edges, which are not sketches at all: a marquee
-      // drag of half a branch left every one of its curves behind.
-      if (entry.mapEdges?.length) wbUpdateMapEdges(entry.mapEdges);
     }
+  }
+  //: **Every line after every move, never between them.** The lines were
+  //: redrawn inside the loop above, member by member, and a tree line is
+  //: claimed by whichever of its two ends the capture reached first
+  //: (`wbCaptureBulkMoveOrigin`), which in a branch is the parent: so each
+  //: line was drawn to a child that had not moved yet this frame, and every
+  //: line inside a dragged branch trailed its topic by one frame's travel.
+  //: Measured on a 195-topic branch, every animation frame of a real drag
+  //: (MINDMAP_PLAN 13a-view): 77 of 81 frames had a line up to 12px from
+  //: where its two topics were, and none after this.
+  for (const entry of origin.values()) {
+    if (entry.kind === "sketch") continue;
+    // See this entry's own comment in `wbCaptureBulkMoveOrigin`: without
+    // this, only the card the pointer is actually on kept its edges live
+    // during a multi-select drag.
+    wbUpdateLinkedSketches(entry.id, entry.linked);
+    // Same for a map's tree edges, which are not sketches at all: a marquee
+    // drag of half a branch left every one of its curves behind.
+    if (entry.mapEdges?.length) wbUpdateMapEdges(entry.mapEdges);
   }
 }
 
@@ -16183,9 +16321,9 @@ function renderWhiteboard() {
       const el = document.querySelector(`.sketch-group[data-id="${d.id}"]`);
       el?.querySelector(".sketch-path")?.setAttribute("d", newD);
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
+      if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
       if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       wbUpdateSelectionBar();
-      if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
       // Handles would otherwise trail the sketch by a whole render, cheap
       // to keep in step since there are at most 8 of them.
       wbClearSketchHandles();
@@ -16813,6 +16951,11 @@ function renderWhiteboard() {
   // before this render is gone with it, re-apply from the state that
   // actually persists (`wbSelectedItem`), not the DOM.
   wbApplySelectionHighlight();
+
+  //: A frame later, not now: a fresh element has to be drawn once before it
+  //: is culled, which is what gives `contain-intrinsic-size: auto` a size to
+  //: remember it by (see `wbCullNow`).
+  wbScheduleCull();
 }
 
 //: Min size a resize can shrink an object to, small enough for a sticky
@@ -17189,10 +17332,13 @@ function renderWbObjects(canvas) {
       wbClearAlignmentGuides();
     }
     d3.select(this.closest(".wb-object")).style("transform", wbItemTransform(d));
+    //: The branch first and this topic's own lines after it, for the reason
+    //: `wbApplyBulkMove` gives: a line drawn before its other end has moved
+    //: is a line a frame behind.
+    if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
     if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
     if (d._mapEdges?.length) wbUpdateMapEdges(d._mapEdges);
     wbUpdateSelectionBar();
-    if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
     // The topic this branch would land on, lit as you pass over it. From the
     // pointer's own position rather than the node's, because what you aim at
     // is where you are pointing, not where the box has caught up to.
@@ -17626,6 +17772,11 @@ function renderWbObjects(canvas) {
     const key = wbObjectPaintKey(d, paintCtx);
     if (this._wbPaintKey === key) return;
     this._wbPaintKey = key;
+    //: Drawn live for this pass, so the measure below reads what the new
+    //: content really needs rather than the size it was culled at. The next
+    //: cull (queued at the end of the render) puts it back if it is still
+    //: off screen.
+    if (this.classList.contains("wb-culled")) this.classList.remove("wb-culled");
     const el = d3.select(this);
     this.style.transform = wbItemTransform(d);
     this.style.width = `${d.width}px`;
@@ -17673,6 +17824,12 @@ function renderWbObjects(canvas) {
     if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
     objectUpdate.each(function (d) {
       if (!WB_MAP_KINDS.has(d.kind)) return;
+      //: A culled topic was not repainted (the paint above uncovers anything
+      //: it repaints), so its stored height is still the one it drew at.
+      if (this.classList.contains("wb-culled")) {
+        if (d.width && d.height) wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
+        return;
+      }
       const h = this.offsetHeight;
       if (!h) return;
       wbMapNodeSizeCache.set(d.id, { w: this.offsetWidth, h });
@@ -17979,11 +18136,13 @@ function dragging(event, d) {
     }
     d3.select(this).style("transform", wbItemTransform(d));
     wbUpdateSelectionBar();
+    // The rest of the selection first, so a line from this card to another
+    // selected one is drawn to where that one is now (see `wbApplyBulkMove`).
+    if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
     // Update this card's own link lines directly rather than a full
     // wbScheduleRender(), see wbUpdateLinkedSketches's own comment for why
     // that was the "glitchy and slow to update" report.
     wbUpdateLinkedSketches(d.id, d._linkedSketches);
-    if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
   }
 }
 

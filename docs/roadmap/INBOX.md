@@ -169,31 +169,6 @@ with its owner named in the entry.
     arithmetic goes wrong. Measure the bar's items and the menu's box against
     the opener before changing either.
 
-312. **The owner, 2026-09-21, verbatim:** "also why is the graph soo smooth
-    and clean to move nodes around, zoom and more when the whiteboard and
-    especially the mindmap are still horrendous and all the links lag
-    behind??" Answered from the code rather than guessed, and it is one
-    architectural difference. The graph draws to a single `<canvas>` 2D
-    context (`graph-canvas.js`, `getContext("2d")`) with its force simulation
-    in a **web worker** (`new Worker("/graph-worker.js")`), so a drag or a
-    zoom is one repaint of one element and the physics never touches the main
-    thread. The whiteboard and the mind map draw every card as a DOM element
-    and every link as an SVG `<path>` whose `d` attribute is recomputed and
-    rewritten in JavaScript (`whiteboard.js`, `setAttribute("d", ...)`). A
-    card can be moved by the compositor with a transform, but each link has
-    to be recalculated on the main thread and written, so the link arrives a
-    frame or more after the card it is attached to. That is the lag, exactly
-    as described. Today's render pass (MINDMAP_PLAN 13a-open) keyed the
-    repaint and cut a 500-topic change from 534.7ms to 47.8ms and a branch
-    drag over 300 link sketches from a 1,000ms worst frame to 116.7, but it
-    did not change what the board is made of: pan and zoom are still the
-    browser re-rastering one promoted layer holding every topic, measured at
-    2.6ms of script across a 2,239ms zoom gesture. Recommendation: this is
-    MINDMAP_PLAN row **13a-view**, already written with its gate (worst pan
-    and zoom frames under 50ms at 500 topics), and the honest fix is the one
-    the graph already took, a canvas for the links at least. Open, as a
-    decision about how far to take it.
-
 228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
     you have finished all these, done the final bug sweep, make sure
     everything is finished for the pr, and finish the pr, merging it into

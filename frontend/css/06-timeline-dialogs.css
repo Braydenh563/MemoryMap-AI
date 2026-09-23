@@ -2450,9 +2450,10 @@
   touch-action: none;
 }
 
-.whiteboard-container:active {
-  cursor: grabbing;
-}
+/* No `:active { cursor: grabbing }` here: the cursor is inherited by every
+   topic on the board, so that rule restyled all of them on each press and
+   release. The grabbing cursor is the pan shield's (07-whiteboard-misc.css,
+   MINDMAP_PLAN 13a-view). */
 
 /* Grid types. Asked for directly ("adding the grid", "grid lines (varying
    types)"), scoped to the three every comparable tool offers: draw.io and

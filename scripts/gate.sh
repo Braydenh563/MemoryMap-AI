@@ -75,6 +75,7 @@ step() {  # name, command...
   else failed+=("$name"); fi
 }
 LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_braces.py
+  tests/test_css_invalidation.py
   tests/test_frontend_ids.py tests/test_frontend_handlers.py tests/test_dock_grammar.py
   tests/test_status_bar_grammar.py
   tests/test_docs_layout.py tests/test_asset_cache_busting.py tests/test_no_em_dashes.py

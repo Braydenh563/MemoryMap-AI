@@ -465,6 +465,14 @@ const r1 = (x) => Math.round(x * 10) / 10;
     // 60fps is a 16.7ms frame. A median above it during a gesture is the
     // report being true; below it, at this size, it is not.
     check(`${n}: pan holds 60fps at the median`, row.panMedian <= 17, `${row.panMedian}ms median, ${row.panWorst}ms worst`);
+    // MINDMAP_PLAN 13a-view's gate: the worst frame of the pan and of the
+    // zoom, not only the median. Both were 116 to 166ms at 500 topics before
+    // it, and both were one thing: a press and a release that restyled every
+    // element on the board (the container's own `:active` cursor, inherited
+    // by eleven thousand elements, and a `[class*="card"] *` rule in Settings
+    // that made any class change restyle a whole subtree).
+    check(`${n}: the worst pan frame is under 50ms`, row.panWorst < 50, `${row.panWorst}ms`);
+    check(`${n}: the worst zoom frame is under 50ms`, row.zoomWorst < 50, `${row.zoomWorst}ms`);
     check(`${n}: drag holds 60fps at the median`, !node || row.dragMedian <= 17, `${row.dragMedian}ms median, ${row.dragWorst}ms worst`);
     // The two gate figures MINDMAP_PLAN.md 13a set for this surface, asserted
     // at the size they were set at rather than described in a table nobody

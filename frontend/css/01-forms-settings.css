@@ -4928,9 +4928,20 @@ select {
    two-word *control* label breaking onto a second line inside a fixed-height
    box; a palette card is a paragraph, so the same declaration ran its
    description off the side of the card and straight through the two cards
-   beside it. A card's text wraps -- that is what a card is. */
-#settings-modal .settings-section [class*="card"],
-#settings-modal .settings-section [class*="card"] * {
+   beside it. A card's text wraps -- that is what a card is.
+
+   **On the card, and inherited from there; never `[class*="card"] *`.** The
+   descendant form was here, and a substring match on `class` followed by a
+   descendant `*` is one of the few selectors a browser cannot scope: every
+   class change on any element anywhere in the app had to restyle that
+   element's whole subtree, in case it had just become a card. Measured on a
+   500-topic mind map (MINDMAP_PLAN 13a-view), toggling one unrelated class
+   on the board restyled 13,662 elements in 218ms, and 0.1ms without the
+   rule. `white-space` inherits, so the card alone reaches its contents:
+   walking all eighteen sections at 1440 and 390, the 96 elements inside a
+   card compute the same value and the same height either way
+   (`tests/test_css_invalidation.py` keeps the form out). */
+#settings-modal .settings-section [class*="card"] {
   white-space: normal;
 }
 

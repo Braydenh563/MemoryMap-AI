@@ -568,6 +568,28 @@
   will-change: transform;
 }
 
+/* **Off screen, not drawn** (MINDMAP_PLAN 13a-view; `wbCullNow` decides).
+   A culled card, text box or topic keeps its own box and skips everything
+   inside it: style, layout, paint and hit testing. `auto` in the intrinsic
+   size is what keeps that box honest: it is the size the item last drew at,
+   so anything measuring a culled item (the export, a link's anchor, a
+   drop target) reads what it would have read before; the lengths after it
+   are only for an item that has never drawn, which the render never culls.
+   A map's tree line has nothing measured on it, so it is simply not
+   displayed. */
+#wb-html-layer > .wb-object,
+#wb-html-layer > .wb-card {
+  contain-intrinsic-size: auto 250px auto 44px;
+}
+
+#wb-html-layer > .wb-culled {
+  content-visibility: hidden;
+}
+
+.wb-map-edges > .wb-culled {
+  display: none;
+}
+
 @media (hover: hover) {
   .card.interactive:hover,
   .wb-card:hover:not(.dragging) {
@@ -5465,34 +5487,49 @@ summary:not(.icon-only):not(.icon-button) {
    panel knows. `grab` while held, `grabbing` while actually dragging, which
    is the pair every canvas app uses and the one people already recognise.
 
-   `!important` on the cursor specifically: `selectWbTool` writes
-   `container.style.cursor` inline for the active tool (a crosshair, a custom
-   brush bitmap), and an inline style beats any selector here. The whole point
-   of this class is to override the tool's own cursor for as long as space is
-   down, so it has to win against that inline value. */
-.whiteboard-container.wb-space-pan,
-.whiteboard-container.wb-space-pan * {
-  cursor: grab !important;
+   **On the pan shield, never on the container** (MINDMAP_PLAN 13a-view).
+   `cursor` is inherited, and every topic, link and text box on the board is
+   a descendant of the container: these rules used to read
+   `.whiteboard-container.wb-space-pan *` and the container's own
+   `:active { cursor: grabbing }` (06-timeline-dialogs.css), so each press,
+   release and space key re-styled the whole board. Traced on a 500-topic
+   map, that was a 105 to 135ms style recalculation on the press and again
+   on the release of every hand-tool pan, which was the worst frame of the
+   pan and the whole of what `mapperf.js` measured as pan lag. The shield is
+   one childless element above the three layers, shown only while a pan is
+   possible or running: the cursor the pointer is over is the shield's, so a
+   class on the container restyles one element, and the hit test of every
+   move during the pan stops at it instead of walking the board.
+
+   It sits in DOM order after the layers with no z-index of its own, so it
+   covers the board and stays under every floating panel, which carry one. */
+.wb-pan-shield {
+  position: absolute;
+  inset: 0;
+  display: none;
+  cursor: grabbing;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.whiteboard-container.wb-space-pan:active,
-.whiteboard-container.wb-space-pan:active *,
+.whiteboard-container.wb-space-pan > .wb-pan-shield {
+  display: block;
+  cursor: grab;
+}
+
+.whiteboard-container.wb-space-pan > .wb-pan-shield:active,
 /* The middle-button pan (INBOX 183). It is the same gesture as the two
    above and had no cursor of its own, so the board moved under an arrow
    pointer. `wb-mid-pan` is set on the mousedown that prevents the browser's
-   autoscroll and cleared on the release, see initWhiteboard. */
-.whiteboard-container.wb-mid-pan,
-.whiteboard-container.wb-mid-pan * {
-  cursor: grabbing !important;
-}
-
-/* A middle drag must not leave a trail of selected text behind it: the
-   browser's own selection is what makes the gesture feel broken rather than
-   merely undecorated. */
-.whiteboard-container.wb-mid-pan,
-.whiteboard-container.wb-mid-pan * {
-  user-select: none;
-  -webkit-user-select: none;
+   autoscroll and cleared on the release, and `wb-hand-pan` on the first move
+   of any pointer pan (handleWbZoom), see initWhiteboard. The shield also
+   takes the browser's text selection out of the gesture: a middle drag must
+   not leave a trail of selected text behind it. */
+.whiteboard-container.wb-mid-pan > .wb-pan-shield,
+.whiteboard-container.wb-hand-pan > .wb-pan-shield {
+  display: block;
+  cursor: grabbing;
 }
 
 /* --- the board panel, sorted into the questions it answers ---------------

@@ -78,8 +78,9 @@ branch head first (`canvasconventions.js` 20/47 there), then built.
 
 ### Left
 
-- Escape during a lasso or marquee is the old behaviour (clears the
-  rectangle, keeps the selection it had); not re-measured.
+- ~~Escape during a lasso or marquee~~: measured 2026-09-23 (the culling
+  agent) clearing the selection as well as the rectangle; it takes back the
+  drag only now, `wbmarqueeescape.js` 8/8.
 - The graph panel items from the owner (disclosure arrows, Groups search
   height) are the orchestrator's.
 
@@ -88,8 +89,10 @@ branch head first (`canvasconventions.js` 20/47 there), then built.
 - `maptwokinds.js` 16/17 on base and here: "a cross-link is drawn ...
   dashed" expects the dashed look the "drawn like branches" change retired.
   The sweep is stale, not the map.
-- `mindmap.js` (H1) "a node's edges still follow a drag on a 200-node map"
-  fails on base and here (after 0px, about 570ms for 12 pointer frames).
+- ~~`mindmap.js` (H1) "a node's edges still follow a drag on a 200-node
+  map"~~: passes after the culling agent's line order fix (a branch's lines
+  drawn after every member moves), during 0px and after 0px, `mindmap.js`
+  76/76 on a fresh data dir, 2026-09-23.
 - `wbgroupguides.js` and `mindmap.js` (B) read the default board, so a data
   dir other sweeps have used fails them (a leftover card under the pointer
   shows its grip on hover). Both pass on a fresh data dir, here and on base.

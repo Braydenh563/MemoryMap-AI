@@ -9,6 +9,86 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-23
 
+### From MINDMAP_PLAN.md section 13a-view: the pan, the lines, and what is on screen (INBOX 312)
+
+The owner, 2026-09-21: "why is the graph soo smooth and clean to move nodes
+around, zoom and more when the whiteboard and especially the mindmap are
+still horrendous and all the links lag behind??" The row's gate: `mapperf.js`
+at 500 topics with the worst pan and zoom frames under 50ms, and
+`mapbranchdrag.js`, `maplayouts.js` and `mapstrip.js` unchanged.
+
+**The row's own diagnosis was wrong, and a trace said so.** It read the worst
+pan frame as the browser re-rasterising one promoted layer. A Chrome trace of
+the same pan (CDP `Tracing`, with invalidation tracking) put the whole of it
+in two tasks: the press and the release, each a 105 to 135ms style
+recalculation of the entire board, and nothing in between. Two causes, both
+found by removing one stylesheet rule at a time and timing the recalc:
+
+- **`.whiteboard-container:active { cursor: grabbing }`**. `cursor` inherits,
+  and a 500-topic map is 13,662 elements under the container (nineteen per
+  topic), so every press and release of a hand-tool pan restyled all of them.
+  The grabbing and grab cursors now live on `.wb-pan-shield`, one childless
+  element above the three layers, shown by a class on the container while a
+  pan runs (`wb-hand-pan`, set on the first move so a click still lands where
+  it was aimed), while space is held (`wb-space-pan`) or during a middle-button
+  pan (`wb-mid-pan`). The `*` descendant rules those two classes used are gone
+  with it. The shield also ends the per-move hit test through the board
+  during a pan.
+- **`#settings-modal .settings-section [class*="card"] *`**. A substring match
+  on `class` in an ancestor position is the one selector a browser cannot
+  narrow: every class change on any element anywhere in the app restyled that
+  element's whole subtree. Toggling one unrelated class on the board's
+  container: **218ms, and 0.1ms** with the rule on the card alone
+  (`white-space` inherits; walking all eighteen Settings sections at 1440 and
+  390, the 96 elements inside a card compute the same value and height either
+  way). `tests/test_css_invalidation.py` keeps the shape out, and is in
+  `gate.sh`'s lint set.
+
+**Culling, as the row asked** (`wbCullNow` in whiteboard.js, `.wb-culled` in
+07-whiteboard-misc.css). Cards, text boxes and topics more than half a window
+outside the view take `content-visibility: hidden`: the item keeps its box
+(`contain-intrinsic-size: auto` remembers the size it last drew at, so the
+export, link anchors and drop targets measure what they did before) and
+nothing inside it is styled, laid out, painted or hit. A map's tree lines
+outside the same box are `display: none`. The selection, a dragged item and
+anything holding focus are never culled; a repainted item is uncovered before
+it is measured. `content-visibility: auto` was measured first and culled
+nothing: the browser's own on-screen test does not see through the pan's
+transform. Measured on the 500-topic map with 496 of 500 topics culled, a
+tool switch (which restyles every item through the cursor rules of INBOX 115)
+went from **120 to 40ms**. The same code runs on a plain whiteboard's cards
+and text boxes; freehand sketches are not culled (see "Not built").
+
+**The lines that lagged, found by measuring every frame.** The owner's
+"links lag behind" was answered in INBOX 312 from the code (a line is
+rewritten in script, so it must arrive a frame late). Measured instead, with
+a new sweep that compares every tree line and cross-link inside a dragged
+branch with where its topics are at each animation frame
+(`scratchpad/ui-sweeps/mapedgelag.js`): **77 of 81 frames had a line up to
+12px behind**, and all of them inside the moving branch. The writes were in
+the same frame; the order was wrong. `wbApplyBulkMove` redrew each member's
+lines inside the loop that moved the members, and a tree line is claimed by
+its parent end, so it was drawn to a child that had not moved yet. Lines are
+now drawn after every member has moved, and the dragged item's own lines
+after its branch (object, card and sketch drags alike): **0 of 93 frames**,
+worst tree line 0px over 18,135 checks, worst cross-link 0px over 558.
+
+**Numbers**, `mapperf.js` at 500 topics on a machine at load 8 on 4 cores:
+pan worst **166.6ms to 16.8ms** (median 16.7 both), zoom worst 16.8 before
+and 33.3 after (one frame of this machine's spread; the gate is 50), drag
+worst 233.3 to 150.1, open to painted 1,664 to 1,265ms. `mapperf.js` now
+asserts both worst frames under 50ms. `mapbranchdrag.js` 6/6,
+`maplayouts.js` 19/19, `mapstrip.js` 39/39 (all as recorded before),
+`mappan.js` 11/11 (its two cursor checks now read the cursor of the element
+under the pointer, which is the shield's), `mapedgelag.js` 4/4 (new).
+
+**Not built.** Freehand sketches and link sketches are not culled (a stroke's
+box has to be parsed from its path; worth it only on a board that measures
+slow with many strokes). The render and open gates of 13a-open read 227.1ms
+and 1,265ms in the same run at load 8, against 149.1 and 965.6 when they
+were set on a quiet machine; not re-measured quiet. **Not verified:** the
+owner's own machine, and a real trackpad pinch.
+
 ### From DOCUMENTS_PLAN.md: code documents as a code editor, part two (pairs, Enter, Format, quick fixes)
 
 The owner, verbatim: "on the code document types as well, can you add the
@@ -33649,6 +33729,38 @@ measured, so nobody rebuilds them.
     chord (the documents editor's CodeMirror binds it to "select the next
     match"). `scratchpad/ui-sweeps/oi-ctrld.js`, 3 of 3.
 
+312. **The owner, 2026-09-21, verbatim:** "also why is the graph soo smooth
+    and clean to move nodes around, zoom and more when the whiteboard and
+    especially the mindmap are still horrendous and all the links lag
+    behind??" Answered from the code rather than guessed, and it is one
+    architectural difference. The graph draws to a single `<canvas>` 2D
+    context (`graph-canvas.js`, `getContext("2d")`) with its force simulation
+    in a **web worker** (`new Worker("/graph-worker.js")`), so a drag or a
+    zoom is one repaint of one element and the physics never touches the main
+    thread. The whiteboard and the mind map draw every card as a DOM element
+    and every link as an SVG `<path>` whose `d` attribute is recomputed and
+    rewritten in JavaScript (`whiteboard.js`, `setAttribute("d", ...)`). A
+    card can be moved by the compositor with a transform, but each link has
+    to be recalculated on the main thread and written, so the link arrives a
+    frame or more after the card it is attached to. That is the lag, exactly
+    as described. Today's render pass (MINDMAP_PLAN 13a-open) keyed the
+    repaint and cut a 500-topic change from 534.7ms to 47.8ms and a branch
+    drag over 300 link sketches from a 1,000ms worst frame to 116.7, but it
+    did not change what the board is made of: pan and zoom are still the
+    browser re-rastering one promoted layer holding every topic, measured at
+    2.6ms of script across a 2,239ms zoom gesture. Recommendation: this is
+    MINDMAP_PLAN row **13a-view**, already written with its gate (worst pan
+    and zoom frames under 50ms at 500 topics), and the honest fix is the one
+    the graph already took, a canvas for the links at least. Open, as a
+    decision about how far to take it. **Fixed 2026-09-23 without a canvas,
+    because a trace and a per-frame probe said the diagnosis above was
+    wrong on both halves** (MINDMAP_PLAN 13a-view, record in HISTORY.md):
+    the pan's worst frame was a restyle of all 13,662 elements on the press
+    and the release (166.6ms to 16.8ms at 500 topics), and the lines lagged
+    because a dragged branch's lines were drawn before their other end had
+    moved, not because script writes them (77 of 81 frames up to 12px
+    behind, now 0, `mapedgelag.js`). Off-screen items are culled as well.
+
 272. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also make sure
     all features and alternatives are easily knoticable by and offered for the
     user. like if the embedding model fails or has an error, it suggests to
@@ -33721,6 +33833,48 @@ measured, so nobody rebuilds them.
     column (8.5rem) for every row, so the three rows start at x 461 within
     2px at 1440; on a phone each label sits above its controls (the tags
     field 150 to 320px wide at 390). No overflow at 1440, 1024 or 390.
+
+396. **The owner, 2026-09-23 night, verbatim, with two whiteboard
+    screenshots.** "on the whiteboard, when Im selected on a textbox I cant
+    open the meatball button dropdown menu in the popup tools. also the
+    arrange topbar dropdown menu is very and overly short in height for how
+    many items it contains" The screenshot shows Arrange open at about 230px
+    tall with a scrollbar, two rows visible. Placed with the map agent,
+    beside INBOX 317 (the same bar's kebab placement).
+    **Built 2026-09-23, one half not reproduced.** (1) The kebab opened on
+    every path tried with a real mouse (a click or a double-click into the
+    box, typing into it first, a 120ms held press, after the top-bar menus,
+    with the background art on) at 1440x900, 1184x760 and 947x608. What did
+    stop it, and is changed: with any board menu open, Escape also dropped
+    the selection, which hides the bar, so the next press on its More landed
+    on the canvas; Escape now closes the menu and nothing else. (2) Not short
+    here, but wrong: where the window could not hold a top-bar menu below or
+    above its button, it was pinned across the button (Arrange at 1440x600
+    drew 99 to 592 over its own toggle and the top bar; Insert, Arrange and
+    Board at 1280x520). Every board menu now hangs from its button and
+    scrolls inside the room there (Arrange at 1440x600: 179 to 592, 413px of
+    491 shown; at 1440x900 all 491). `wbmenuroom.js` 72/72: each menu opened
+    by a real click is on top, within 8px of its button, and as tall as it
+    needs up to the window. The 230px the screenshot shows was not seen at
+    any size tried.
+317. **The owner, 2026-09-21, verbatim, two messages with screenshots of the
+    whiteboard text box context bar:** "the textbox selection popup tools
+    menu items are cut off and also not aligned" and "when I press the
+    meatball button the menu appears up top with no connection to the tool
+    menu". Open. Two faults on one surface: the bar's own items (the Size
+    field clips its number, and the icon groups do not share a baseline), and
+    its kebab, whose menu lands far from the bar with nothing tying it to the
+    button that opened it. The second is the same family as INBOX 290's table
+    menu: `openActionMenu` reparents a menu to `<body>` when it would be
+    clipped, and then positions it from the opener, so a bar that is itself
+    `position: fixed` inside a transformed board is the case where that
+    arithmetic goes wrong. Measure the bar's items and the menu's box against
+    the opener before changing either.
+    **Built 2026-09-23** (with 396): the Size field and the centre line were
+    already right (`e8915e1`, measured then); the kebab's placement was
+    fixed there too. `wbtextbar.js` now also asserts that no control in the
+    bar is narrower than its content or outside the bar: none at 1184x760 and
+    947x608, menu 1.4px under the bar and 1.5px above it when it flips.
 
 ## Moved from the plans, 2026-09-23
 

@@ -548,3 +548,13 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
   the running app, build them. Decision, taken: the missing ones are built
   without asking; a convention the app breaks on purpose keeps its reason
   written next to it.
+  **The whiteboard and map half is built**: the checklist, with before and
+  after for each convention, is `agent-remaining/mapux2.md` (agent M,
+  `canvasconventions.js` 54/54). Its one row left, Escape during a marquee or
+  lasso, was measured 2026-09-23 and was wrong: it took the rectangle away
+  and then cleared the selection as well, and the release's click cleared
+  it again. Escape now takes back the drag and nothing else, and the rest of
+  the drag selects nothing (`wbmarqueeescape.js`, new, 8/8, 4/8 before).
+  With a board menu open, Escape closes the menu and keeps the selection
+  (INBOX 396). **Open:** the same pass on documents, notes, chat and the
+  Library.

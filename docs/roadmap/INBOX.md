@@ -62,14 +62,6 @@ with its owner named in the entry.
     walks of all 15 steps at 1.25x scale, with and without real scrollbars,
     were correct before and after, so the owner's run is the test.
 
-396. **The owner, 2026-09-23 night, verbatim, with two whiteboard
-    screenshots.** "on the whiteboard, when Im selected on a textbox I cant
-    open the meatball button dropdown menu in the popup tools. also the
-    arrange topbar dropdown menu is very and overly short in height for how
-    many items it contains" The screenshot shows Arrange open at about 230px
-    tall with a scrollbar, two rows visible. Placed with the map agent,
-    beside INBOX 317 (the same bar's kebab placement).
-
 394. **The owner, 2026-09-23 night, verbatim, with screenshots of the Ask
     tab, the map's radial menu, the dashboard, a connection pill, the Write
     tab's action chips, the dashboard's Jump to and Run a skill rows, the
@@ -95,7 +87,10 @@ with its owner named in the entry.
     Placed: (a) Ask's "Ask again" chips filled while "Try asking" are
     outlined, orchestrator; (b) Atlas's voice, orchestrator (prompt budget);
     (c) code completions (Emmet `!`, every CSS property and value, inline
-    suggestions), an agent; (d) the radial More menu, the map agent; (e) the
+    suggestions), an agent; (d) the radial More menu, the map agent (**built
+    2026-09-23**: it was placed from the whole ring's box, 30 to 41px down
+    and right of More; it opens beside the button now, gap 4px at 1440, 1184
+    and 947 wide, `mapradialmore.js` 18/18); (e) the
     dashboard's head at the fold, orchestrator; (f) the connection pill's
     kebab corners and its raw markdown title (`# ... ![...]`), orchestrator;
     (g) the page shine's second corner, orchestrator; (h) pills: yes, a
@@ -223,45 +218,6 @@ with its owner named in the entry.
     label drag drifting and starting a selection box; the chat header naming
     llama3.2 while another model answered; no prompt when search by meaning
     failed; a picture captioned and read several times over.
-
-317. **The owner, 2026-09-21, verbatim, two messages with screenshots of the
-    whiteboard text box context bar:** "the textbox selection popup tools
-    menu items are cut off and also not aligned" and "when I press the
-    meatball button the menu appears up top with no connection to the tool
-    menu". Open. Two faults on one surface: the bar's own items (the Size
-    field clips its number, and the icon groups do not share a baseline), and
-    its kebab, whose menu lands far from the bar with nothing tying it to the
-    button that opened it. The second is the same family as INBOX 290's table
-    menu: `openActionMenu` reparents a menu to `<body>` when it would be
-    clipped, and then positions it from the opener, so a bar that is itself
-    `position: fixed` inside a transformed board is the case where that
-    arithmetic goes wrong. Measure the bar's items and the menu's box against
-    the opener before changing either.
-
-312. **The owner, 2026-09-21, verbatim:** "also why is the graph soo smooth
-    and clean to move nodes around, zoom and more when the whiteboard and
-    especially the mindmap are still horrendous and all the links lag
-    behind??" Answered from the code rather than guessed, and it is one
-    architectural difference. The graph draws to a single `<canvas>` 2D
-    context (`graph-canvas.js`, `getContext("2d")`) with its force simulation
-    in a **web worker** (`new Worker("/graph-worker.js")`), so a drag or a
-    zoom is one repaint of one element and the physics never touches the main
-    thread. The whiteboard and the mind map draw every card as a DOM element
-    and every link as an SVG `<path>` whose `d` attribute is recomputed and
-    rewritten in JavaScript (`whiteboard.js`, `setAttribute("d", ...)`). A
-    card can be moved by the compositor with a transform, but each link has
-    to be recalculated on the main thread and written, so the link arrives a
-    frame or more after the card it is attached to. That is the lag, exactly
-    as described. Today's render pass (MINDMAP_PLAN 13a-open) keyed the
-    repaint and cut a 500-topic change from 534.7ms to 47.8ms and a branch
-    drag over 300 link sketches from a 1,000ms worst frame to 116.7, but it
-    did not change what the board is made of: pan and zoom are still the
-    browser re-rastering one promoted layer holding every topic, measured at
-    2.6ms of script across a 2,239ms zoom gesture. Recommendation: this is
-    MINDMAP_PLAN row **13a-view**, already written with its gate (worst pan
-    and zoom frames under 50ms at 500 topics), and the honest fix is the one
-    the graph already took, a canvas for the links at least. Open, as a
-    decision about how far to take it.
 
 228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
     you have finished all these, done the final bug sweep, make sure

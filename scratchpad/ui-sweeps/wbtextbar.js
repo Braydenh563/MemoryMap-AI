@@ -64,6 +64,19 @@ async function newBoard(page, name) {
   console.log(JSON.stringify(m));
   const spread = (cs) => { const ys = cs.map((c) => c.cy); return +(Math.max(...ys) - Math.min(...ys)).toFixed(1); };
   if (m.input.sw > m.input.cw) fails.push(`Size input clips ${m.input.value}: ${m.input.sw} > ${m.input.cw}`);
+  // Every control, not only the Size field (INBOX 317: "the menu items are
+  // cut off"): nothing in the bar is narrower than what it holds, and nothing
+  // runs past the bar's own box.
+  const cut = await page.evaluate(() => {
+    const bar = document.getElementById('wb-context');
+    const b = bar.getBoundingClientRect();
+    return [...bar.querySelectorAll('.wb-context-group:not(.hidden) :is(button, label, input, select, .seg)')]
+      .filter((el) => el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== 'hidden')
+      .map((el) => { const r = el.getBoundingClientRect(); return {id: el.id || el.getAttribute('aria-label') || el.className, sw: el.scrollWidth, cw: el.clientWidth, out: r.left < b.left - 0.5 || r.right > b.right + 0.5}; })
+      .filter((c) => c.sw > c.cw + 1 || c.out);
+  });
+  console.log('cut', JSON.stringify(cut));
+  if (cut.length) fails.push(`controls cut: ${cut.map((c) => `${c.id} ${c.sw}>${c.cw}${c.out ? ' outside the bar' : ''}`).join(', ')}`);
   if (spread(m.controls) > 1) fails.push(`control centres spread ${spread(m.controls)}px: ${m.controls.map((c) => c.id + '@' + c.cy).join(', ')}`);
   // Three digits: the widest value the field allows.
   await page.evaluate(() => { const i = document.getElementById('wb-prop-fontsize'); i.value = '128'; });

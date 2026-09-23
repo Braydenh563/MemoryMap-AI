@@ -523,6 +523,19 @@ const near = (a, b, tol = 1.5) => a != null && b != null && Math.abs(a - b) <= t
       `${c0.objects} to ${c1.objects}, editing ${editing}`);
     await page.keyboard.press("Escape");
     await wait(300);
+
+    // --- 17. a first-time user can find them: the help and the grips say so ---
+    const taught = await page.evaluate(() => {
+      const help = document.getElementById("wb-empty-hint")?.textContent.replace(/\s+/g, " ") || "";
+      const wanted = ["Alt + drag", "Shift + drag", "Shift + corner", "Ctrl+0", "Shift+1", "Shift + arrows",
+        "Ctrl + Shift + G", "paste at the pointer", "Cancel a drag", "upright again", "Label a line"];
+      const grip = document.querySelector(".wb-rotate-handle")?.title || "";
+      const resize = document.querySelector(".wb-resize-handle")?.title || "";
+      return { missing: wanted.filter((w) => !help.includes(w)), grip, resize };
+    });
+    check("the board's help names every convention", taught.missing.length === 0, taught.missing.join(", ") || "all named");
+    check("and the grips say what their double-click does", /double-click/.test(taught.grip) && /double-click/.test(taught.resize),
+      `${taught.grip} | ${taught.resize}`);
   }
 
   // =========================== the mind map ===========================

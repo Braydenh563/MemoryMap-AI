@@ -36,7 +36,12 @@ Left, in order (struck when built):
   one note card is selected and never over it. `mapviewmenu.js` 8/8.
 - ~~Job B: the 44px ticks.~~ Built: 22px drawn box in a 44px target on a
   coarse pointer, Library cards and reminders; `touchticks.js` 7/7.
-- Job B: the discoverability pass.
+- ~~Job B: the discoverability pass.~~ Built as far as words go: the
+  board's ? help lists every new gesture and key, the map rail's ? names the
+  line and canvas gestures, the rotate and resize grips name their Shift and
+  double-click, the map's canvas menu names its keys, the zoom buttons their
+  keys. `canvasconventions.js` checks the help names each one (52/52).
+  `mapdoors.js` 7/7 still: every control on a map's bar and rail is named.
 
 ## Done
 

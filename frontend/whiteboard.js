@@ -13838,14 +13838,14 @@ async function initWhiteboard() {
     const index = wbMapIndex();
     const folded = index.nodes.filter((n) => n.data?.collapsed).length;
     const items = [
-      makeMenuItem("ph:plus-circle Add a topic here", "A new trunk, where you pressed", () => wbMapAddRootAt(x, y)),
+      makeMenuItem("ph:plus-circle Add a topic here", "A new trunk, where you pressed: or double-click the canvas", () => wbMapAddRootAt(x, y)),
       makeMenuItem("ph:broom Tidy the map", "Lay every unpinned topic out again", () => wbMapTidy()),
       makeMenuItem(
         folded ? `ph:arrows-out-line-vertical Open every folded branch (${folded})` : "ph:arrows-out-line-vertical Open every folded branch",
         folded ? "This map has folded branches" : "Nothing is folded on this map",
         () => wbMapExpandAll()
       ),
-      makeMenuItem("ph:frame-corners Fit everything", "Show the whole map", () =>
+      makeMenuItem("ph:frame-corners Fit everything", "Show the whole map (Shift+1)", () =>
         document.getElementById("wb-zoom-fit")?.click()
       ),
     ];
@@ -15853,7 +15853,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
   // same "the handle follows your cursor" feel `nodeRotateDrag` above
   // already established for cards.
   let rotateOriginalD = null, rotateLiveD = null, rotateLiveAngle = 0;
-  group.append("circle")
+  const shapeGrip = group.append("circle")
     .attr("class", "wb-sketch-rotate-handle")
     // r 6, not 7: the card and text-box grip is 12px across
     // (`.wb-rotate-handle`), and 14 against 12 was the one measured difference
@@ -15903,6 +15903,9 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
           }
         })
     );
+  //: The grip's two gestures, written on it: an SVG shape's tooltip is its
+  //: `<title>`, the same way the map's line grip says what it does.
+  shapeGrip.append("title").text("Drag to rotate: Shift snaps to 15°, double-click stands it upright");
 }
 
 // Coalesce a burst of state changes into one paint.
@@ -16720,12 +16723,12 @@ function renderWhiteboard() {
       .attr("data-handle", handle)
       //: The same title the object handles carry, for the same reason: the
       //: double-click-to-fit gesture had nothing on screen saying it existed.
-      .attr("title", "Drag to resize: double click to fit the text")
+      .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the text")
       .call(nodeResizeDrag(handle));
   }
   nodeEnter.append("div")
     .attr("class", "wb-rotate-handle")
-    .attr("title", "Drag to rotate: hold Shift to snap to 15°")
+    .attr("title", "Drag to rotate: Shift snaps to 15°, double-click stands it upright")
     .call(nodeRotateDrag());
 
   wbWireContextMenu(nodeEnter, "node");
@@ -17536,12 +17539,12 @@ function renderWbObjects(canvas) {
         //: these had none, so double-tapping to fit was real and invisible,
         //: which is indistinguishable from missing and was duly reported as
         //: missing.
-        .attr("title", "Drag to resize: double click to fit the text")
+        .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the text")
         .call(resizeDrag(handle));
     }
     el.append("div")
       .attr("class", "wb-rotate-handle")
-      .attr("title", "Drag to rotate: hold Shift to snap to 15°")
+      .attr("title", "Drag to rotate: Shift snaps to 15°, double-click stands it upright")
       .call(objectRotateDrag());
   });
 

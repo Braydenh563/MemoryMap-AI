@@ -3895,3 +3895,24 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* --- empty states that sit where they should ------------------------------------
+   1. Timeline: the empty state came after `.timeline-body`, which grows to
+      fill the card even with nothing in it, so "Nothing to plot yet" sat at
+      the card's foot under 421px of blank. With the empty state showing, the
+      body takes no room and the empty state centres in what is left.
+   2. Graph: the empty state's action stretched across the whole map (790px
+      of button for "Capture a note"); it is its own width, like every other
+      empty state's action. */
+.card:has(> #timeline-empty:not(.hidden)) > .timeline-body {
+  flex: 0 0 auto;
+}
+
+#timeline-empty:not(.hidden) {
+  margin-block: auto;
+}
+
+#graph-empty button {
+  justify-self: center;
+  width: auto;
+}

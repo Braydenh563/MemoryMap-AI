@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Empty states: the Timeline's sits centred in its card instead of at the foot under a blank body, and the Graph's action button is its own width instead of spanning the map.
 - Dashboard: an empty notebook no longer shows a strip of zeros above the welcome card; the figures appear with the first note or reminder.
 - The loading screen shows one progress indicator (the bar) instead of animated dots above a bar; the dots stay as the screen reader's loading status.
 - Dragging a note that is part of a lasso selection on the graph carries the

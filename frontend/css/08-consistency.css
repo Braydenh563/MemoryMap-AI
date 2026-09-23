@@ -3297,3 +3297,11 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .finder-card .select-shell {
   font-size: var(--text-sm);
 }
+
+/* The palette painted a hovered row with the same ground as the row the
+   keyboard has chosen (02-chat-graph.css), so with the mouse resting over
+   the list two rows looked selected and Enter's target was a guess. The
+   chosen row keeps the ground; a hovered one gets the lighter hover wash. */
+#palette-list li:hover:not(.active) {
+  background: var(--chip-bg);
+}

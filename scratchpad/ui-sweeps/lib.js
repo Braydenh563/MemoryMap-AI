@@ -22,7 +22,13 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8781';
 const CTX_OPTS = ['hasTouch', 'isMobile', 'deviceScaleFactor', 'locale',
   'timezoneId', 'colorScheme', 'reducedMotion', 'forcedColors', 'userAgent'];
 async function boot(opts={}) {
-  const browser = await chromium.launch();
+  //: SCROLLBARS=1 draws real scrollbars, as Windows does (17px, taking
+  //: layout width). Headless Chromium hides them by default, which is the
+  //: one difference between a sweep and the owner's desktop window that no
+  //: viewport or scale setting reproduces (INBOX 397).
+  const browser = await chromium.launch(
+    process.env.SCROLLBARS ? { ignoreDefaultArgs: ["--hide-scrollbars"] } : {}
+  );
   const ctxOpts = {viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor:1};
   for (const k of CTX_OPTS) if (opts[k] !== undefined) ctxOpts[k] = opts[k];
   const ctx = await browser.newContext(ctxOpts);

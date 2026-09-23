@@ -324,15 +324,58 @@ function tourUsable(el) {
 //: anyway: it costs one extra `getBoundingClientRect` per step and it is the
 //: difference between a card beside a button and a card in another postcode.
 function tourPlaceFixed(el, left, top) {
-  el.style.left = `${Math.round(left)}px`;
-  el.style.top = `${Math.round(top)}px`;
-  const box = el.getBoundingClientRect();
-  const dx = left - box.left;
-  const dy = top - box.top;
-  if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-    el.style.left = `${Math.round(left + dx)}px`;
-    el.style.top = `${Math.round(top + dy)}px`;
+  //: **Measured against a probe that never moves, then checked a frame
+  //: later** (INBOX 397, the owner's desktop window, three reports). The
+  //: old pass wrote a position, read the element straight back and added
+  //: the difference. That is right for a containing block and wrong for
+  //: anything that makes the element's own box lag behind its style (a
+  //: transition, an animation, a compositor that has not caught up): the
+  //: read-back is where the box *was*, the "correction" doubles the move,
+  //: and the owner's screenshots show exactly that, the ring the right size
+  //: and 620px to one side, right on one run and left on the next, with the
+  //: card thrown off the window the same way. Headless Chromium never showed
+  //: it at any size, scale or with real scrollbars.
+  //:
+  //: The frame's origin is read from `#tour-origin`, a 0x0 fixed box at
+  //: 0,0 in the same parent that nothing ever moves, so an ancestor's
+  //: filter or transform is still accounted for, and the element's own
+  //: state cannot poison the number. The element is then read back once,
+  //: after a frame, and nudged only if it is still somewhere else.
+  const origin = tourOrigin();
+  const x = Math.round(left - origin.left);
+  const y = Math.round(top - origin.top);
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  const token = (el._tourPlace = (el._tourPlace || 0) + 1);
+  requestAnimationFrame(() => {
+    if (el._tourPlace !== token || !el.isConnected) return;
+    const box = el.getBoundingClientRect();
+    const dx = left - box.left;
+    const dy = top - box.top;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      console.warn(`Tour: ${el.id} asked for ${Math.round(left)},${Math.round(top)}, drew at ${Math.round(box.left)},${Math.round(box.top)}; moved`);
+      el.style.left = `${Math.round(x + dx)}px`;
+      el.style.top = `${Math.round(y + dy)}px`;
+    }
+  });
+}
+
+//: The window-coordinate origin of the frame the tour's layers are laid out
+//: in: (0, 0) unless an ancestor gives fixed boxes a frame of its own.
+function tourOrigin() {
+  let probe = document.getElementById("tour-origin");
+  if (!probe) {
+    probe = document.createElement("div");
+    probe.id = "tour-origin";
+    probe.setAttribute("aria-hidden", "true");
+    for (const [k, v] of Object.entries({
+      position: "fixed", left: "0px", top: "0px", width: "0px", height: "0px",
+      visibility: "hidden", pointerEvents: "none", transition: "none", animation: "none",
+    })) probe.style[k] = v;
+    const card = document.getElementById("tour-card");
+    (card?.parentElement || document.body).appendChild(probe);
   }
+  return probe.getBoundingClientRect();
 }
 
 function tourClamp(value, low, high) {

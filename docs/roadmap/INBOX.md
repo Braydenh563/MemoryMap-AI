@@ -50,6 +50,17 @@ with its owner named in the entry.
     document scrolling), and each of the three writes a `Tour:` line to
     Settings, Logs. Open until the owner's next run: if it recurs, those
     lines name the cause.
+    **Then two more screenshots**, from the welcome's last slide and from
+    Settings, help, The basics: the ring the right size and about 620px to
+    the right, then 620px to the left, and no card. A shift that flips sign
+    is a correction computed from a box read mid-move: `tourPlaceFixed` wrote
+    a position, read the element straight back and added the difference, so
+    anything that makes the box lag its style doubles the move. Replaced: the
+    frame's origin is read from `#tour-origin`, a 0x0 fixed probe nothing
+    moves, and the element is read back once a frame later and nudged only if
+    it is still elsewhere (with a `Tour:` log line when it is). Headless
+    walks of all 15 steps at 1.25x scale, with and without real scrollbars,
+    were correct before and after, so the owner's run is the test.
 
 396. **The owner, 2026-09-23 night, verbatim, with two whiteboard
     screenshots.** "on the whiteboard, when Im selected on a textbox I cant

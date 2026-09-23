@@ -9,8 +9,12 @@ Worktree `.claude/worktrees/agent-a8ee39a2ead46f2bd`, cut from
 - INBOX 270 part 4, the guide panel redesign (`8316d5a`), measured and held
   by `scratchpad/ui-sweeps/guidepanel.js` (31 checks at each of 1440, 1024
   and 390, light and dark). INBOX 270 resolved to HISTORY (`c0398ff`).
-- INBOX 266 part 1, the usability and IA read: the click table below, and
-  the fixes it found.
+- INBOX 266 part 1, the usability and IA read (`1b0a79a`): the click table
+  below, and the four fixes it found. INBOX 266 stays open for (3), the MSI,
+  and (5), which are packaging's, not this agent's.
+- OPEN.md's INBOX 393 row (`1283004`): files gained Ask Atlas about this,
+  the reminder's row took the shared glyph, and the consistency table is
+  WORLD_CLASS_PLAN 1.3.
 
 ## The click table (INBOX 266 part 1, the owner's "3 clicks to anything")
 
@@ -71,7 +75,15 @@ undo is one click from the toast.
 
 ## Remaining
 
-- OPEN.md ledger rows in this agent's areas: not started.
+- The rows WORLD_CLASS_PLAN 1.3's table marks open: Remind me beyond notes
+  (needs reminders to point at other kinds, a backend step), Show in graph
+  for a document, the Library note card's Remind me and Link to.
+- OPEN.md's "Glass on every surface" and "Gaps between stacked elements"
+  sweeps: not started. The guide panel is blurred under glass and passes its own sweep in
+  Classic with glass on (`LOOK=default guidepanel.js`, all PASS).
+- Not verified: opening a Library card's ⋯ by pointer in automation (the
+  menu did not open under Playwright's click; the file row was pressed
+  through the DOM and filled the chat correctly).
 
 ## Found, not fixed
 

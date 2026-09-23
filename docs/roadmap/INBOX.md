@@ -137,6 +137,18 @@ with its owner named in the entry.
     after, the mobile view is still bery broken, takes up a lot of the screen
     and the design needs a lot of improvement." Placement: UI_MODERNISATION_PLAN
     phone phases; measure chrome height against content at 390x844 first.
+    Later the same day, verbatim: "make sure the whole of the app ui is
+    repsponsive, not just for mobile but any ui resolution. though mobile-first
+    design is I'm told a good practice" and "when I say mobile and responsive
+    design, I mean actually intentionally deisgning for those resolutions, and
+    not just adapting to them. like actually making the features be intended
+    and designed for those resolutions" (phone agent briefed: a phone intent
+    per surface, tablet widths swept too), with slides asking the software to
+    reduce CPU, RAM, network and storage (standing: measure before claiming,
+    as the pan trace did). Also reported and fixed on the branch: the mind map
+    label drag drifting and starting a selection box; the chat header naming
+    llama3.2 while another model answered; no prompt when search by meaning
+    failed; a picture captioned and read several times over.
 
 317. **The owner, 2026-09-21, verbatim, two messages with screenshots of the
     whiteboard text box context bar:** "the textbox selection popup tools

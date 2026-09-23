@@ -47,7 +47,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import event, or_, select, text
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, Reminder
 from memorymap.search import index as search_index
 from memorymap.search import query as query_understanding
 from memorymap.search import search_manager
@@ -668,6 +668,76 @@ def _has_attachment_ids(session: Session, entry_ids: list[int]) -> set[int]:
     )
 
 
+#: What each `has:` word is answered from (the decision the retrieval brief
+#: left open: "decide each one's source ... and answer them over the
+#: candidates, never with a join on every save"). `file` and `image` read the
+#: attachment table, `link` a connection either way round, `reminder` a
+#: reminder pointing at the note. A word not in this table matches nothing,
+#: which is what an unknown `is:` does too: a filter nobody can satisfy must
+#: not silently become no filter.
+HAS_WORDS = ("file", "image", "link", "reminder")
+
+#: Extensions a `/media/...` upload or an attachment name is a picture by,
+#: for a row whose mime was never recorded.
+_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".heic", ".avif")
+
+
+def _has_ids(session: Session, want: str, entry_ids: list[int]) -> set[int]:
+    """Which of these notes carry `want`. One query per word, candidates only."""
+    if not entry_ids:
+        return set()
+    if want == "file":
+        return _has_attachment_ids(session, entry_ids)
+    if want == "image":
+        rows = session.execute(
+            select(Attachment.entry_id, Attachment.mime, Attachment.filename).where(
+                Attachment.entry_id.in_(entry_ids)
+            )
+        )
+        return {
+            entry_id
+            for entry_id, mime, name in rows
+            if str(mime or "").startswith("image/")
+            or str(name or "").lower().endswith(_IMAGE_SUFFIXES)
+        }
+    if want == "link":
+        rows = session.execute(
+            select(EntryLink.source_entry_id, EntryLink.target_entry_id).where(
+                or_(
+                    EntryLink.source_entry_id.in_(entry_ids),
+                    EntryLink.target_entry_id.in_(entry_ids),
+                )
+            )
+        )
+        wanted = set(entry_ids)
+        return {end for pair in rows for end in pair if end in wanted}
+    if want == "reminder":
+        return set(
+            session.scalars(select(Reminder.entry_id).where(Reminder.entry_id.in_(entry_ids)))
+        )
+    return set()
+
+
+def _row_has(row, want: str, carriers: dict[str, set[int]]) -> bool:  # noqa: ANN001
+    """Does one index row satisfy one `has:` word."""
+    kind = row["kind"]
+    if want == "file":
+        return kind == "file" or row["ref_id"] in carriers["file"]
+    if want == "image":
+        # A picture written into the text counts wherever the text is: a
+        # note, a board or a document. `![` is the markdown for one.
+        if "![" in (row["body"] or ""):
+            return True
+        if kind == "file":
+            return str(row["title"] or "").lower().endswith(_IMAGE_SUFFIXES)
+        return row["ref_id"] in carriers["image"]
+    if want == "reminder":
+        return kind == "reminder" or row["ref_id"] in carriers["reminder"]
+    if want in carriers:
+        return row["ref_id"] in carriers[want]
+    return want in (row["flags"] or "").split()
+
+
 def search(
     session: Session,
     q: str,
@@ -738,18 +808,8 @@ def search(
         rows = [row for row in rows if all(flag in (row["flags"] or "").split() for flag in wanted_is)]
     if wanted_has:
         note_ids = [row["ref_id"] for row in rows if row["kind"] in ("note", "board")]
-        with_file = _has_attachment_ids(session, note_ids) if "file" in wanted_has else set()
-        kept = []
-        for row in rows:
-            ok = True
-            for want in wanted_has:
-                if want == "file":
-                    ok = ok and (row["kind"] == "file" or row["ref_id"] in with_file)
-                else:
-                    ok = ok and want in (row["flags"] or "").split()
-            if ok:
-                kept.append(row)
-        rows = kept
+        carriers = {want: _has_ids(session, want, note_ids) for want in HAS_WORDS if want in wanted_has}
+        rows = [row for row in rows if all(_row_has(row, want, carriers) for want in wanted_has)]
     wanted_tags = [tag.lower() for tag in asked.filters["tag"]]
     if wanted_tags:
         # Substring rather than word equality: the tags column is a space-

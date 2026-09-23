@@ -344,6 +344,59 @@ def test_a_tag_filter_uses_the_indexed_tags(session):
     assert len(hits) == 1
 
 
+def _hit_ids(session, q):
+    from memorymap.search import engine
+
+    return {(hit.kind, hit.ref_id) for hit in engine.search(session, q, ctx=None, hybrid=False)}
+
+
+def test_has_image_finds_a_picture_in_the_text_or_attached(session):
+    """`has:image` parsed and matched nothing: only `file` had a source."""
+    from memorymap.core.database import Attachment
+
+    inline = _note(session, "harbour walk ![the pier](/media/pier.jpg)")
+    attached = _note(session, "harbour walk, photo attached")
+    plain = _note(session, "harbour walk, no pictures")
+    session.add(Attachment(entry_id=attached.id, filename="p.jpg", stored_name="s", mime="image/jpeg"))
+    session.add(Attachment(entry_id=plain.id, filename="p.pdf", stored_name="t", mime="application/pdf"))
+    session.commit()
+    found = _hit_ids(session, "has:image harbour")
+    assert ("note", inline.id) in found
+    assert ("note", attached.id) in found
+    assert ("note", plain.id) not in found
+
+
+def test_has_link_finds_a_note_connected_to_another(session):
+    from memorymap.core.database import EntryLink
+
+    a = _note(session, "tidal times for the bay")
+    b = _note(session, "tidal times for the estuary")
+    alone = _note(session, "tidal times, unconnected")
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
+    session.commit()
+    found = _hit_ids(session, "has:link tidal")
+    assert {("note", a.id), ("note", b.id)} <= found
+    assert ("note", alone.id) not in found
+
+
+def test_has_reminder_finds_a_note_with_one_and_the_reminders_themselves(session):
+    from memorymap.core.database import Reminder
+
+    with_one = _note(session, "renew the passport")
+    without = _note(session, "passport photos, done")
+    session.add(Reminder(text="passport office", due_at=datetime(2026, 10, 1), entry_id=with_one.id))
+    session.commit()
+    found = _hit_ids(session, "has:reminder passport")
+    assert ("note", with_one.id) in found
+    assert ("note", without.id) not in found
+    assert any(kind == "reminder" for kind, _ in found)
+
+
+def test_an_unknown_has_word_still_matches_nothing_rather_than_everything(session):
+    _note(session, "harbour walk")
+    assert _hit_ids(session, "has:unicorn harbour") == set()
+
+
 def test_the_open_note_lifts_what_is_linked_to_it(session):
     """The graph signal, which is the one no amount of text similarity has."""
     from memorymap.core.database import EntryLink

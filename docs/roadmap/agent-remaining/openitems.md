@@ -42,6 +42,7 @@ Phase 8c, the templates preview, outline row height.
 - done 22dbe4b: 1 (INBOX 277), `oi-utilitynote.js` 6 of 6; also the
   routing switch that read unchecked on Models.
 - done b67b068: 2, the two re-filing paths set `auto`.
-- done (this commit): 3, `search_index.forget` on the purge and space-delete
+- done 6ece5af: 3, `search_index.forget` on the purge and space-delete
   paths, plus the lint.
-- next: 4, `has:image`, `has:link`, `has:reminder` (search/engine.py ~739).
+- done (this commit): 4, `has:image`, `has:link`, `has:reminder`.
+- next: 5, FTS reindex as a job (search/index.py `rebuild`, /search/stats).

@@ -933,11 +933,14 @@ being written by running agents stay beside this one.
   score zero and are never returned, but they stay in the array. Next step:
   rebuild when dead rows pass some fraction of the whole, counted rather than
   guessed. [brief11-retrieval-engine.md]
-- **`has:` only knows `file`.** `file: src/memorymap/search/engine.py`, `id:
-  search-has-vocabulary`. `has:image`, `has:link` and `has:reminder` parse and
-  match nothing. Next step: decide each one's source (an attachment mime,
-  `EntryLink`, `Reminder.entry_id`) and answer them over the candidates, never
-  with a join on every save. [brief11-retrieval-engine.md]
+- ~~**`has:` only knows `file`.**~~ **Done 2026-09-23**, on the sources this
+  row named: `image` is an image attachment (mime, or the name for a row with
+  none) or a `![` picture in the text of any kind; `link` is an `EntryLink`
+  either way round; `reminder` is a `Reminder.entry_id`, plus the reminders
+  themselves. One query per word over the candidates (`engine._has_ids`), no
+  join on save; a word outside `HAS_WORDS` still matches nothing.
+  `tests/test_search_engine.py`, four new, three failing before.
+  [brief11-retrieval-engine.md]
 - **The graph signal needs an open note, and the Notes list rarely has one.**
   `file: frontend/app.js`, `id: search-open-note`. The list passes `entry_id`
   only in rows view or while editing; in card view the third signal is zero.

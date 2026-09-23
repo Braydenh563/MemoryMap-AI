@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- `has:image`, `has:link` and `has:reminder` work in Find anything. They were
+  understood and matched nothing; now a picture attached or written into the
+  text, a connection to another note, and a reminder on the note each answer,
+  checked over the matches rather than on every save.
 - Search no longer finds things that are gone. Emptying the bin left each
   purged note in the search index for good (it still answered `is:deleted`),
   and deleting a space left its notes, documents and reminders findable from

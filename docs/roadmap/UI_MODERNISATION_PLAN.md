@@ -1149,11 +1149,10 @@ different problem than the list says.
     44px floor at every width, not only below 820 (supersedes band 2's
     tab-strip-only floor; an iPad in landscape is 1024). A form that fills a
     narrow first screen is a sheet from the list's own filled action (below
-    1100, Reminders).
+    1100, Reminders). Below 600 a ⋯ menu is an action sheet
+    (`openKebabSheet`); a menu at the pointer stays at the pointer.
 
-    Open: every ⋯ menu as a bottom action sheet below 600 (menus are still
-    anchored popovers there; the sheet recipe exists and `kebabMenu` is the
-    one place to change); the selection ticks on Library cards and reminder
+    Open: the selection ticks on Library cards and reminder
     rows draw a 44px box at rest, where a smaller drawn box in a 44px target
     would read lighter; and from 600 to 1099 a toast sits over the chat
     composer's mode segment (touch.js at 768, a due-reminder toast), where

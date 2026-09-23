@@ -63,7 +63,12 @@ bar removed (`border-*: none` resets width to medium, which the new look's
 `.card` border style brought back); the status bar a 44px touch bar from 600
 up on a coarse pointer; and the touch floor following the pointer, not only
 the width (fourteen blocks now `(max-width: 819.98px), (pointer: coarse)`,
-held by a second ratchet). Sweeps after: phonechat, phoneswipe,
+held by a second ratchet); and every ⋯ menu an action sheet below 600
+(`openKebabSheet`, for `kebabMenu` and the note row's `entryOverflowMenu`,
+a third ratchet), which found two bugs: one Escape closed a sheet and the
+sheet under it, and closing the sidebar sheet on a phone sent the focus to
+the body. The header menu leaves Reminders, Ask the agent and Guide to the
+tab bar's More sheet, which already had them. Sweeps after: phonechat, phoneswipe,
 phonenotepage, wbphone, touch.js at 390 and 1024 PASS; touch.js at 768 has
 one finding, a due-reminder toast over the chat composer's mode segment
 (open in the plan's item 12).

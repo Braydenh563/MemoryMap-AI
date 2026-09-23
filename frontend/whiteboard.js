@@ -4302,8 +4302,14 @@ function wbBuildMapNode(el, d) {
     });
     text.on("blur", function () {
       wbEndTextEdit(this);
-      d.data = { ...d.data, content: this.textContent };
-      wbSaveObject(d);
+      const edited = wbEditedText(this);
+      //: A rename is undoable like every other change to a topic, and only a
+      //: real change is saved or recorded.
+      if (d.data.content !== edited) {
+        wbPushUndo({ action: "move", kind: "object", id: d.id, before: WB_KIND_INFO.object.payload(d) });
+        d.data = { ...d.data, content: edited };
+        wbSaveObject(d);
+      }
       // Back to the formatted view: `wbBeginTextEdit` put the raw source in
       // for editing, and without this the markers stay on screen as literal
       // asterisks until something else triggers a render.
@@ -9480,9 +9486,81 @@ function wbBeginTextEdit(contentEl) {
     contentEl.classList.remove("wb-text-md");
     contentEl.textContent = item.data.content || "";
   }
-  contentEl.setAttribute("contenteditable", "true");
+  //: **Plain text, so a line break stays a line break.** With
+  //: `contenteditable="true"` Enter inserts a `<div>`, and the blur handlers
+  //: read `textContent`, which has no line breaks for those: measured,
+  //: "start", Enter, "- item" saved as "start- item". `plaintext-only` keeps
+  //: the box a run of text with real "\n"s (Chromium, WebView2 and WebKit
+  //: all support it); where it is refused the attribute falls back to
+  //: "true" and `wbEditedText` still reads the lines back correctly.
+  contentEl.setAttribute("contenteditable", "plaintext-only");
+  if (contentEl.contentEditable !== "plaintext-only") contentEl.setAttribute("contenteditable", "true");
   contentEl.closest(".wb-object")?.classList.add("wb-text-editing");
   contentEl.focus();
+}
+
+//: What a text box or topic being edited says, with its line breaks. See
+//: `wbBeginTextEdit` for why `textContent` is not it.
+function wbEditedText(contentEl) {
+  return contentEl.innerText.replace(/\r\n?/g, "\n");
+}
+
+//: **Tab and Shift+Tab indent lines on the board too** (INBOX 392:
+//: "indenting and dedenting across the app"). The same rule the note and
+//: document editors apply: whole lines, two spaces, a list item moves as a
+//: block, and Shift+Tab takes off only what is there (returns false when
+//: there is nothing, so the key keeps its ordinary meaning). Done through
+//: `insertText` on a selection of the affected lines, so the browser's own
+//: Ctrl+Z inside the box still undoes it.
+function wbIndentEditableLines(contentEl, outdent) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || !contentEl.contains(sel.anchorNode)) return false;
+  const text = wbEditedText(contentEl);
+  const offsetOf = (node, offset) => {
+    const range = document.createRange();
+    range.selectNodeContents(contentEl);
+    range.setEnd(node, offset);
+    return range.toString().length;
+  };
+  const range = sel.getRangeAt(0);
+  const selStart = offsetOf(range.startContainer, range.startOffset);
+  const selEnd = offsetOf(range.endContainer, range.endOffset);
+  const lineStart = text.lastIndexOf("\n", selStart - 1) + 1;
+  const endBreak = text.indexOf("\n", selEnd > selStart ? selEnd - 1 : selEnd);
+  const lineEnd = endBreak === -1 ? text.length : endBreak;
+  const lines = text.slice(lineStart, lineEnd).split("\n");
+  if (outdent && !lines.some((line) => /^( {1,2}|\t)/.test(line))) return false;
+  const next = lines.map((line) => (outdent ? line.replace(/^( {1,2}|\t)/, "") : `  ${line}`));
+  //: Select exactly the affected lines, by walking text nodes to the two
+  //: offsets, then replace them in one edit.
+  const locate = (target) => {
+    const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT);
+    let seen = 0;
+    let node = walker.nextNode();
+    while (node) {
+      if (seen + node.length >= target) return [node, target - seen];
+      seen += node.length;
+      node = walker.nextNode();
+    }
+    return [contentEl, contentEl.childNodes.length];
+  };
+  const replace = document.createRange();
+  replace.setStart(...locate(lineStart));
+  replace.setEnd(...locate(lineEnd));
+  sel.removeAllRanges();
+  sel.addRange(replace);
+  const replacement = next.join("\n");
+  if (!document.execCommand("insertText", false, replacement)) {
+    replace.deleteContents();
+    replace.insertNode(document.createTextNode(replacement));
+  }
+  const shift = next[0].length - lines[0].length;
+  const after = document.createRange();
+  after.setStart(...locate(Math.max(lineStart, selStart + shift)));
+  after.setEnd(...locate(selEnd + (replacement.length - (lineEnd - lineStart))));
+  sel.removeAllRanges();
+  sel.addRange(after);
+  return true;
 }
 
 function wbEndTextEdit(contentEl) {
@@ -16572,11 +16650,15 @@ function renderWbObjects(canvas) {
       // between two half-typed states.
       content.on("blur", function () {
         wbEndTextEdit(this);
-        if (d.data.content !== this.textContent) {
-          const before = WB_KIND_INFO.object.payload(d);
-          wbPushUndo({ action: "move", kind: "object", id: d.id, before });
+        const edited = wbEditedText(this);
+        //: Unchanged: nothing to save or record, but the box still goes back
+        //: from its raw source to the rendered view.
+        if (d.data.content === edited) {
+          wbScheduleRender();
+          return;
         }
-        d.data = { ...d.data, content: this.textContent };
+        wbPushUndo({ action: "move", kind: "object", id: d.id, before: WB_KIND_INFO.object.payload(d) });
+        d.data = { ...d.data, content: edited };
         wbSaveObject(d);
       });
       // Typing is text-box business, not the canvas's: Delete/Backspace
@@ -16586,7 +16668,11 @@ function renderWbObjects(canvas) {
       // has to let the pointer through to the object's own drag, and its
       // Delete key belongs to the canvas again.
       content.on("keydown", function (event) {
-        if (this.isContentEditable) event.stopPropagation();
+        if (!this.isContentEditable) return;
+        event.stopPropagation();
+        if (event.key === "Tab" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+          if (wbIndentEditableLines(this, event.shiftKey)) event.preventDefault();
+        }
       });
       content.on("pointerdown", function (event) {
         if (this.isContentEditable) event.stopPropagation();

@@ -25,6 +25,11 @@ below). Versioning is `0.x` while the app stabilises.
 - Undo covers text formatting, colours and every mind map style change.
 - The Notes toolbar stays on one line in the desktop window; the dashboard's
   Start tiles fit one row there, and never wrap in compact view.
+- Text boxes, sticky notes and mind map topics keep their line breaks when
+  saved (they were joined into one line), and Tab / Shift+Tab indent lines
+  in them. Note boxes indent with Tab from the first keystroke after a
+  restart, not only once the editor has loaded. Renaming a topic can be
+  undone.
 - A missing search-by-meaning package is reported in words, with
   nomic-embed-text offered as the alternative, instead of a traceback.
 

@@ -122,7 +122,10 @@ with its owner named in the entry.
     bar's link tools must draw what map edges draw); live view and code
     diagnostics join DOCUMENTS_PLAN; indent/dedent (Tab/Shift+Tab on list
     items and selections in every text surface) is a WORLD_CLASS_PLAN
-    consistency rule with a lint.
+    consistency rule with a lint. Added the same hour, verbatim: "also for
+    after, the mobile view is still bery broken, takes up a lot of the screen
+    and the design needs a lot of improvement." Placement: UI_MODERNISATION_PLAN
+    phone phases; measure chrome height against content at 390x844 first.
 
 317. **The owner, 2026-09-21, verbatim, two messages with screenshots of the
     whiteboard text box context bar:** "the textbox selection popup tools

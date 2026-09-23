@@ -110,6 +110,7 @@ REACHED_AFTER_LOAD = {
     "applyGraphHighlight": "graph, called from the Graph tab's own controls",
     "graphNodeById": "graph, called by showNoteInGraph after `await switchTab(\"graph\")`",
     "focusGraphNode": "graph, called by showNoteInGraph after `await switchTab(\"graph\")`",
+    "wbOwnsChord": "library, asked by the global shortcut handler; with the bundle absent no board is open, so no chord can be the board's and the guard's false is the right answer",
     "openLibraryItem": "library, called from a row the Library itself drew",
     "renderDocPreview": "library, called from the document editor's own update path",
     "mountNoteSurface": "library, called once the note engine setting has loaded it",

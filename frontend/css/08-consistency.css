@@ -3211,6 +3211,148 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   background: transparent;
   padding: 0;
   color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.entry-meta > .chip.item-fact + .chip.item-fact::before {
+  content: "·";
+  margin-inline-end: var(--space-2);
+  opacity: 0.7;
+}
+
+.entry-meta > .chip.item-writes {
+  color: var(--warn);
+}
+
+.persona-row > .persona-preview {
+  flex: 1 0 100%;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* A list row's actions sit on its title line, at the end, rather than on a
+   line of their own under the description: hidden until pointed at, that
+   own line was a band of empty space at the foot of every persona and
+   custom skill. The description takes the full width below. */
+:is(.persona-row, .skill-row) > .entry-actions {
+  order: 5;
+  margin-inline-start: auto;
+}
+
+:is(.persona-row, .skill-row) > :is(.persona-preview, .skill-blurb) {
+  order: 10;
+}
+
+/* A group label that sits straight in the pane (Personas' "Dashboard
+   greeting", "Add your own", "Share") carried the 17px inset of a label
+   inside a group box, over text that has none: measured 546 against 529. */
+#settings-modal .settings-section > h3 {
+  padding-inline-start: 0;
+}
+
+/* --- the flat looks carry no glow on a button ---------------------------------
+   Every bare `<button>` drew `0 2px 10px` of 25% accent under itself
+   (01-forms-settings.css), which is the "unprompted glow" of a generated UI
+   and, on a Finder result (a button, so it could be pressed), a blue smear
+   under every row of a list. The flat looks are flat: none. `:where()` keeps
+   this at the base rule's own weight, so a focus ring or any deliberate
+   shadow set by a class still wins. Classic keeps its glow. */
+:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button,
+:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button:hover {
+  box-shadow: none;
+}
+
+/* --- Find anything, de-vibecoded ---------------------------------------------
+   A result is a row in a list, in every look, so it never takes the button
+   glow; its title is 500 (a list of forty 600s is a list of shouts); a kind
+   with nothing in it is dimmed; the dialog's own name is its heading rather
+   than a 12px label; and Sort is the size of the chips beside it (it was
+   the largest text in the header at 16px). */
+.finder-row {
+  box-shadow: none;
+}
+
+.finder-row-title {
+  font-weight: 500;
+}
+
+.finder-chip.is-zero {
+  opacity: 0.55;
+}
+
+.finder-card h3 {
+  font-size: var(--text-body);
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#finder-sort,
+#finder-sort + .select-shell,
+.finder-card .select-shell {
+  font-size: var(--text-sm);
+}
+
+/* The palette painted a hovered row with the same ground as the row the
+   keyboard has chosen (02-chat-graph.css), so with the mouse resting over
+   the list two rows looked selected and Enter's target was a guess. The
+   chosen row keeps the ground; a hovered one gets the lighter hover wash. */
+#palette-list li:hover:not(.active) {
+  background: var(--chip-bg);
+}
+
+/* --- notifications -------------------------------------------------------------
+   1. At 22rem the tools row (label, picker, two buttons) left the picker
+      "Pop-ups + pa…": the panel is a little wider, still well inside a
+      laptop's top-right corner (clamped to the window as before).
+   2. An unread row was marked by a 2px accent stripe down its left edge,
+      the coloured-edge card again. In the flat looks the row is marked the
+      way mail clients mark it: a small accent dot before the title, and the
+      row keeps its alignment with the read ones. */
+.notif-panel {
+  width: 25rem;
+  max-width: min(25rem, calc(100vw - var(--space-8)));
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread {
+  border-left: 0;
+  position: relative;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--space-1) * -1);
+  top: 1.05em;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* --- the lock screen ------------------------------------------------------------
+   The one heading on the screen was the 16px card-title size, a 370px field
+   sat over a 92px button, and the field's own text was 13.6px, smaller than
+   the sentence above it. The title is a title, the field reads at body
+   size, and the button spans the field, the shape of every sign-in form. */
+#lock-title {
+  font-size: var(--text-h3);
+}
+
+.lock-card #lock-password {
+  font-size: var(--text-body);
+}
+
+.lock-card #lock-submit {
+  width: 100%;
+  justify-content: center;
+}
+
 /* --- the Library, second pass: cards in reading order, one anatomy ----------
    docs/roadmap/agent-remaining/pass2.md, findings 1 to 4, measured at 1440 in
    Quiet on a seeded notebook.
@@ -3453,142 +3595,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 400;
 }
 
-.entry-meta > .chip.item-fact + .chip.item-fact::before {
-  content: "·";
-  margin-inline-end: var(--space-2);
-  opacity: 0.7;
-}
-
-.entry-meta > .chip.item-writes {
-  color: var(--warn);
-}
-
-.persona-row > .persona-preview {
-  flex: 1 0 100%;
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* A list row's actions sit on its title line, at the end, rather than on a
-   line of their own under the description: hidden until pointed at, that
-   own line was a band of empty space at the foot of every persona and
-   custom skill. The description takes the full width below. */
-:is(.persona-row, .skill-row) > .entry-actions {
-  order: 5;
-  margin-inline-start: auto;
-}
-
-:is(.persona-row, .skill-row) > :is(.persona-preview, .skill-blurb) {
-  order: 10;
-}
-
-/* A group label that sits straight in the pane (Personas' "Dashboard
-   greeting", "Add your own", "Share") carried the 17px inset of a label
-   inside a group box, over text that has none: measured 546 against 529. */
-#settings-modal .settings-section > h3 {
-  padding-inline-start: 0;
-}
-
-/* --- the flat looks carry no glow on a button ---------------------------------
-   Every bare `<button>` drew `0 2px 10px` of 25% accent under itself
-   (01-forms-settings.css), which is the "unprompted glow" of a generated UI
-   and, on a Finder result (a button, so it could be pressed), a blue smear
-   under every row of a list. The flat looks are flat: none. `:where()` keeps
-   this at the base rule's own weight, so a focus ring or any deliberate
-   shadow set by a class still wins. Classic keeps its glow. */
-:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button,
-:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button:hover {
-  box-shadow: none;
-}
-
-/* --- Find anything, de-vibecoded ---------------------------------------------
-   A result is a row in a list, in every look, so it never takes the button
-   glow; its title is 500 (a list of forty 600s is a list of shouts); a kind
-   with nothing in it is dimmed; the dialog's own name is its heading rather
-   than a 12px label; and Sort is the size of the chips beside it (it was
-   the largest text in the header at 16px). */
-.finder-row {
-  box-shadow: none;
-}
-
-.finder-row-title {
-  font-weight: 500;
-}
-
-.finder-chip.is-zero {
-  opacity: 0.55;
-}
-
-.finder-card h3 {
-  font-size: var(--text-body);
-  color: var(--ink);
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-#finder-sort,
-#finder-sort + .select-shell,
-.finder-card .select-shell {
-  font-size: var(--text-sm);
-}
-
-/* The palette painted a hovered row with the same ground as the row the
-   keyboard has chosen (02-chat-graph.css), so with the mouse resting over
-   the list two rows looked selected and Enter's target was a guess. The
-   chosen row keeps the ground; a hovered one gets the lighter hover wash. */
-#palette-list li:hover:not(.active) {
-  background: var(--chip-bg);
-}
-
-/* --- notifications -------------------------------------------------------------
-   1. At 22rem the tools row (label, picker, two buttons) left the picker
-      "Pop-ups + pa…": the panel is a little wider, still well inside a
-      laptop's top-right corner (clamped to the window as before).
-   2. An unread row was marked by a 2px accent stripe down its left edge,
-      the coloured-edge card again. In the flat looks the row is marked the
-      way mail clients mark it: a small accent dot before the title, and the
-      row keeps its alignment with the read ones. */
-.notif-panel {
-  width: 25rem;
-  max-width: min(25rem, calc(100vw - var(--space-8)));
-}
-
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread {
-  border-left: 0;
-  position: relative;
-}
-
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread::before {
-  content: "";
-  position: absolute;
-  left: calc(var(--space-1) * -1);
-  top: 1.05em;
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-/* --- the lock screen ------------------------------------------------------------
-   The one heading on the screen was the 16px card-title size, a 370px field
-   sat over a 92px button, and the field's own text was 13.6px, smaller than
-   the sentence above it. The title is a title, the field reads at body
-   size, and the button spans the field, the shape of every sign-in form. */
-#lock-title {
-  font-size: var(--text-h3);
-}
-
-.lock-card #lock-password {
-  font-size: var(--text-body);
-}
-
-.lock-card #lock-submit {
-  width: 100%;
-  justify-content: center;
 .library-file-rows .library-image-reading > summary {
   width: fit-content;
 }

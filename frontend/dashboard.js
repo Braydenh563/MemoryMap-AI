@@ -2813,8 +2813,8 @@ async function renderQuickCaptureWidget(body) {
   // Don't promise AI filing when there's no AI to do it; the note still saves.
   textarea.placeholder =
     modelStatus && modelStatus.ollama_running === false
-      ? "Type a thought and press Save."
-      : "Type a thought and press Save, Atlas files it.";
+      ? "Type a thought and press Save (Ctrl+Enter)."
+      : "Type a thought and press Save (Ctrl+Enter), Atlas files it.";
   const row = document.createElement("div");
   row.className = "row";
   const status = document.createElement("span");
@@ -2838,6 +2838,15 @@ async function renderQuickCaptureWidget(body) {
     }, false)
   );
   row.appendChild(status);
+  //: Ctrl+Enter (Cmd+Enter) saves, as it does in the capture box on the
+  //: Notes tab and in every multi-line "post" field people use; plain
+  //: Enter stays a new line.
+  textarea.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.isComposing) {
+      event.preventDefault();
+      row.querySelector("button")?.click();
+    }
+  });
   body.append(textarea, row);
 }
 

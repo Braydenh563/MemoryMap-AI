@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Dashboard: Quick capture saves on Ctrl+Enter (Cmd+Enter), and its placeholder says so.
 - Reminders: Enter adds a reminder from its text field, and in the edit form Enter saves and Escape cancels.
 - Settings: Ctrl+F searches Settings while it is open (it used to search the page hidden behind it), and the arrow keys, Home and End walk the pane list.
 - Settings: Packages no longer shows its heading twice.

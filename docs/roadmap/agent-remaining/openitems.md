@@ -45,5 +45,7 @@ Phase 8c, the templates preview, outline row height.
 - done 6ece5af: 3, `search_index.forget` on the purge and space-delete
   paths, plus the lint.
 - done 2d013e1: 4, `has:image`, `has:link`, `has:reminder`.
-- done (this commit): 5, the keyword index rebuilt by the re-index job.
-- next: 6, store `support` on a saved turn (routes_chat.py grounding event).
+- done 9e0ff43: 5, the keyword index rebuilt by the re-index job.
+- done (this commit): 6, support on both replay paths, CHAT_PLAN Phase 1
+  moved to HISTORY; `oi-replaysupport.js` 3 of 3.
+- next: 7, the dashboard activity strip over `GET /events` (dashboard.js).

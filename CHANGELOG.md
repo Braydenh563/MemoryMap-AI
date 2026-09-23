@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A reopened chat or Ask history answer keeps its "Only 1 of 3 sentences here
+  comes from your notes" line. The line appeared when an answer arrived and
+  was gone once the conversation was reopened, because nothing stored it; the
+  saved turn now carries it, counted on the server by the same rule the live
+  answer used.
 - "Rebuild search index" in Settings, Models rebuilds the word index as well
   as the semantic one. The word index was built once, when its table was
   first made, and could not be rebuilt after a restore, an import or a fault;

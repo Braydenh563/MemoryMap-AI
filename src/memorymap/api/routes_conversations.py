@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from memorymap.core import deps
 from memorymap.core.database import LIKE_ESCAPE, Conversation, like_escape, utcnow
 from memorymap.core.deps import get_session
+from memorymap.ai.grounding import support as grounding_support
 from memorymap.entry.manager import log_action
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -149,6 +150,12 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["connected_ids"] = turn.connected_ids or []
     if turn.sentence_grounding:
         assistant["sentence_grounding"] = turn.sentence_grounding
+        #: How much of the answer the notebook backs, from the one counter
+        #: (`grounding.support`) the live stream used, so a reopened chat keeps
+        #: the notice it had (CHAT_PLAN Phase 1's last line). Computed here
+        #: rather than trusted from the client: the answer and its marks are
+        #: both on the turn, and the frontend must not grow a second counter.
+        assistant["support"] = grounding_support(turn.answer, turn.sentence_grounding)
     if turn.used_tools is not None:
         assistant["used_tools"] = turn.used_tools
     user: dict = {"role": "user", "content": turn.question}

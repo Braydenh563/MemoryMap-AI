@@ -30,7 +30,7 @@ then the plan tails by surface, then the horizon.
 | GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
-| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); Phase 1's fourth gate line, the low-support "I don't know" state, is still open and is written up in the plan; Phase 4's harness items. |
+| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
 | TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. Section 7's third line, the "auto" scale thresholds, wants a real notebook and is left. |
 | AGENT_SKILLS_REFORM | ~~Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first.~~ **Done 2026-09-20.** The runner is `scratchpad/llama-dev.sh` and the gate is `tests/test_skills_evals.py`, four `evals` tests that skip at collection without a model: 3 passed and 1 skipped against Qwen2.5-1.5B-Instruct Q4_K_M through llama.cpp, with the skip itself the finding (the run stalled on step 1's `list_tags` contract and said so, rather than ticking it). Record in HISTORY's "Moved from the plans, 2026-09-20". What is left is breadth, and it sits in WORLD_CLASS_PLAN 9: the same gate at 3B and 4B, and an eval each for the rest of CLAUDE.md section 4's unproven list. |
 
@@ -356,10 +356,10 @@ being written by running agents stay beside this one.
   over the candidate set's pooled passages, and the second-mark ratio is
   calibrated on the set. 18 of 18 supported sentences attributed, up from 17 of
   18; 0 false marks on 5 unsupported sentences; 16 of 16 passage spans. The
-  account is in HISTORY.md, "Moved from the plans, 2026-09-20". Still open:
-  Phase 1's fourth gate line (the "I don't know" state when fewer than half an
-  answer's sentences are supported), written up in CHAT_PLAN Phase 1 with its
-  next steps. [chat-timeline-skills.md, chat-popup-agent.md]
+  account is in HISTORY.md, "Moved from the plans, 2026-09-20". Phase 1's
+  fourth gate line was built 2026-09-21 and its replay tail (a reopened turn
+  keeps the notice) 2026-09-23, so Phase 1 is closed: HISTORY.md, "Moved from
+  the plans, 2026-09-23". [chat-timeline-skills.md, chat-popup-agent.md]
 - **Ask's answer object was measured on the offline branch only.** The sweep
   runs against a server with no model, so `sentences` was empty in every
   measurement and the grounding chips and inline marks under an Ask answer

@@ -14401,7 +14401,10 @@ async function viewAskHistoryTurn(id) {
       historyMeta.raw_results,
       answerBox,
       turn.question,
-      remembered.sources
+      remembered.sources,
+      //: The stored turn's support (`routes_ask_history.py`), so a reopened
+      //: answer keeps the low-support notice the live one had.
+      turn.support || null
     );
   }
   renderAskAnswerFoot(remembered, historyMeta);
@@ -24101,7 +24104,12 @@ async function openConversation(id) {
           handles.groundingHolder,
           message.sentence_grounding,
           message.raw_results || [],
-          handles.bubble?.querySelectorAll(".bubble-answer") || null
+          handles.bubble?.querySelectorAll(".bubble-answer") || null,
+          "",
+          null,
+          //: Saved on the turn by the server from the same counter the live
+          //: stream used, so the notice survives reopening the chat.
+          message.support || null
         );
       }
       // And the same shape again for the "what to ask next" chips, reported

@@ -36,11 +36,19 @@
   checks every control for clipping. **Not reproduced:** the kebab failing
   to open on its own (six paths, three sizes), and Arrange at 230px.
 
+- **WHITEBOARD_PLAN's conventions, the board and map half.** Its last row,
+  Escape during a marquee or lasso, cleared the selection too; it takes back
+  the drag only now (`wbmarqueeescape.js` 8/8, was 4/8). The documents,
+  notes, chat and Library passes are the row's other half, not this agent's.
+- **The coordinator's (a), `mindmap.js` H1** ("a node's edges still follow a
+  drag on a 200-node map", failing on base per `mapux2.md`): passes now,
+  during 0px and after 0px; `mindmap.js` 76/76 on a fresh data dir. On a
+  data dir other sweeps have filled it stops at (42) instead (a new map's
+  child not found; the same step alone works), which is the shared-data-dir
+  fault `mapux2.md` already records.
+
 ## Open
 
-
-- WHITEBOARD_PLAN "Placed from INBOX, 2026-09-23": the micro-conventions
-  still open there.
 - Not culled: freehand and link sketches (a stroke's box has to be parsed from
   its path). Worth it only once a board with many strokes measures slow.
 - `mappan.js`'s fixture posts a `rect` sketch whose data is not a path, and

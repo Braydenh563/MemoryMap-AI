@@ -160,9 +160,12 @@ let wbCancelSelectionDragRef = null;
 //: to find. Deliberately a DOM sweep rather than "remove the element I am
 //: holding", the leak this fixes was precisely an element nothing was
 //: holding any more.
+//: Returns whether a drag was actually in flight, which is what Escape needs
+//: to know: taking back a drag is all the key does then.
 function wbClearSelectionOverlays() {
-  wbCancelSelectionDragRef?.();
+  const inFlight = Boolean(wbCancelSelectionDragRef?.());
   for (const stray of document.querySelectorAll(".wb-marquee, .wb-lasso")) stray.remove();
+  return inFlight;
 }
 // Same shape, for refreshing the "Line ends" control's displayed value when
 // the active tool switches between Line and Arrow (each now has its own
@@ -13450,7 +13453,14 @@ async function initWhiteboard() {
       // A selection drag in flight (or a rectangle a previous one left
       // behind) goes first, Escape is where people reach when something is
       // stuck on the canvas, and it did nothing about this before.
-      wbClearSelectionOverlays();
+      //:
+      //: **And when one was in flight, that is all it does** (the conventions
+      //: pass, `wbmarqueeescape.js`). It went on to clear the selection too,
+      //: so a Shift-drag meant to add to a selection, taken back with Escape,
+      //: lost the selection it was adding to: one key, two things undone.
+      //: The drag's own release then finds nothing to finish, so the rest of
+      //: the pointer's travel selects nothing either.
+      if (wbClearSelectionOverlays()) return;
       if (wbSelectedItem || wbMultiSelection.size > 0) clearWbSelection();
       else selectWbTool("select");
       return;
@@ -13880,6 +13890,10 @@ async function initWhiteboard() {
     wbMarqueeStart = null;
   }
   containerEl.addEventListener("pointerdown", (e) => {
+    //: A new press is a new gesture: a one-shot left by a drag released off
+    //: the board (no click ever reached the canvas to spend it) must not
+    //: swallow this press's click.
+    wbMarqueeJustSelected = false;
     if (window.currentTool !== "select" || !wbIsEmptyCanvasTarget(e.target)) return;
     // Primary button only. A right-click opens the context menu and a middle
     // click pans; neither ends with the pointerup this drag is waiting for,
@@ -14186,8 +14200,17 @@ async function initWhiteboard() {
   }
   //: Both drags, from anywhere in the file, see `wbCancelSelectionDragRef`.
   wbCancelSelectionDragRef = () => {
+    //: In flight means drawn: a press that has not travelled yet is still a
+    //: click (see the marquee's `pending`), and Escape then means what it
+    //: means with nothing in hand.
+    const inFlight = Boolean((wbMarqueeStart && !wbMarqueeStart.pending) || wbLassoEl);
     wbEndMarqueeDrag();
     wbEndLassoDrag();
+    //: The release that ends a taken-back drag still makes a `click` on the
+    //: canvas, and a canvas click clears the selection: the same one-shot a
+    //: finished marquee uses keeps what Escape kept.
+    if (inFlight) wbMarqueeJustSelected = true;
+    return inFlight;
   };
   containerEl.addEventListener("pointerdown", (e) => {
     // Unlike the marquee (`wbIsEmptyCanvasTarget`, above: empty canvas

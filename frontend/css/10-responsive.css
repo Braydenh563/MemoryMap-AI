@@ -1272,9 +1272,28 @@ header#top-bar,
      a dock with a find zone gives its identity `flex: 0 1 auto` and one
      without gives it `flex: 1 1 auto`, and `flex` is a shorthand that sets the
      basis, so a bare `.dock .dock-identity` at (0,2,0) loses to either. */
+  /* Superseded by Phase 11 item 12 (INBOX 392): the identity shares its row
+     with the actions, not with the search, and the search takes the row
+     under it, so the title has the width the actions leave (measured on
+     Notes: 148px for "All notes") and ellipsises past that. The line of its
+     own cost every dock a row: Notes 166px, Reminders two rows for one ⋯. */
   .dock:has(.dock-find) .dock-identity,
   .dock:not(:has(.dock-find)) .dock-identity {
-    flex-basis: 100%;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .dock .dock-identity > :is(h1, h2, h3, .dock-context) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The context line gives way before the name does ("17 notes · by date"
+     beside "Timeline" ran 68px into the Options menu at 390). */
+  .dock .dock-identity > .dock-context {
+    flex: 0 1000 auto;
   }
 }
 
@@ -1688,12 +1707,12 @@ header#top-bar,
     padding-left: 0;
   }
 
-  .dock > .dock-nav ~ .dock-actions {
+  .dock > .dock-actions {
     flex: 0 0 auto;
     margin-left: auto;
   }
 
-  .dock:has(> .dock-nav) > .dock-find {
+  .dock > .dock-find {
     order: 1;
   }
 
@@ -1737,6 +1756,64 @@ header#top-bar,
   #tab-chat .chat-toolbar {
     padding-left: var(--space-3);
   }
+}
+
+/* The Library on a phone is for finding a thing and opening it (INBOX 392).
+   Measured at 390 before: the first card began at y=407, under the sub-tab
+   strip, a framed card holding the dock, a "22 words written" line and the
+   kind chips; and a card's preview ran eight lines, so two cards filled a
+   screen. The controls lose their frame (the page is the frame), the words
+   count goes (it is the dashboard's number, and on a phone this line is the
+   difference between a card on the first screen and none), and a preview
+   is three lines, enough to recognise a thing by, with the whole of it one
+   tap away. */
+@media (max-width: 599.98px) {
+
+  #tab-library .library-controls {
+    padding-inline: 0;
+    padding-top: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  #tab-library .library-overview {
+    display: none;
+  }
+
+  #tab-library .library-card-preview {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+}
+
+/* Reminders on a phone: the list is the page, and the add form is the sheet
+   the floating "New reminder" opens (`openReminderCompose`, app.js). While
+   the form is on the page it is not shown below 600; in the sheet it sheds
+   its card, since the sheet is the card. */
+@media (max-width: 599.98px) {
+
+  #tab-reminders > #reminder-compose {
+    display: none;
+  }
+}
+
+.reminder-compose-card > #reminder-compose {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow-y: auto;
+}
+
+/* The heading duplicates the sheet's own title. */
+.reminder-compose-card > #reminder-compose .reminders-head > h2 {
+  display: none;
 }
 
 /* The chat's "How it answers" panel inside the sheet (`openChatDockMore`):

@@ -20,6 +20,13 @@ below). Versioning is `0.x` while the app stabilises.
   with the search under it; the chat's model, skills, web search and plan
   are in the "How it answers" sheet behind the gear, so the controls under
   the chat box fit on one row and nothing is cut off.
+- On a phone Reminders opens on the list; "New reminder" (the floating
+  button, and a button in the list's header on a computer) opens the add
+  form as a sheet, which closes once the reminder is added.
+- On a phone every list header is one row of title and actions with the
+  search under it, and the Library's cards start on the first screen: the
+  header is unframed, the words-written line is left to the dashboard, and
+  a card's preview is three lines.
 
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window

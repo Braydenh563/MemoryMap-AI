@@ -29345,8 +29345,8 @@ document.addEventListener("click", (event) => {
     // later so the box is visible when the caret lands in it.
     requestAnimationFrame(() => $("entry-content")?.focus());
   } else if (action === "reminder") {
-    const field = $("reminder-text") || $("reminder-magic");
-    if (field) field.focus();
+    // The form is a sheet on a phone; `openReminderCompose` knows which.
+    openReminderCompose();
   } else if (action === "clear-filter") {
     // The same path as typing into the box and deleting it: the handler on
     // #note-search owns `noteSearch`, the Save-filter button and the render.
@@ -41279,7 +41279,13 @@ buildSettingsJumpList();
 // floating action from appearing over a tab it has nothing to do with; parking
 // it on the body would have needed a second mechanism to answer that.
 const PHONE_FAB = "(max-width: 599.98px)";
-const FAB_IDS = ["graph-add-node", "library-new-doc", "timeline-jump-today", "notes-new-note"];
+const FAB_IDS = [
+  "graph-add-node",
+  "library-new-doc",
+  "timeline-jump-today",
+  "notes-new-note",
+  "reminders-new",
+];
 
 function floatPrimaryActions(floating) {
   for (const id of FAB_IDS) {
@@ -43669,8 +43675,54 @@ $("reminder-add").addEventListener("click", async () => {
     $("reminder-recurring").value = "none";
     // A fresh default for the next one, measured from now.
     setDue(defaultDueValue());
+    // On a phone the form was a sheet over the list; the toast says it
+    // landed and the list behind is where it now is.
+    reminderComposeSheetClose?.();
   }
 });
+
+// **What a phone comes to Reminders for is the list** (INBOX 392,
+// UI_MODERNISATION_PLAN Phase 11 item 12): what is due, and ticking it off.
+// Measured at 390 before: the add form (the sentence box, the text, date,
+// time, priority and repeat fields, the quick-set strip and a note) filled
+// the whole first screen and the list began at y=836 of 844. Below 600 the
+// form leaves the page and the dock's "New reminder", floated as the + by
+// `FAB_IDS`, opens it as a sheet: the form itself, moved in and put back on
+// close, so its handlers, its quick-set strip and its clock are the ones the
+// desktop uses. Above 600 the button takes the caret to the form, which is
+// on the page there.
+let reminderComposeSheetClose = null;
+
+function openReminderCompose() {
+  const form = $("reminder-compose");
+  if (!form) return;
+  // The sentence box when the AI that reads it is there, the plain one when
+  // it is not (`data-needs-model` disables the sentence box's Add).
+  const field = () => ($("reminder-magic-add")?.disabled ? $("reminder-text") : $("reminder-magic")) || $("reminder-text");
+  if (!window.matchMedia(PHONE_TABS).matches || typeof openSheet !== "function") {
+    field()?.focus();
+    return;
+  }
+  if (reminderComposeSheetClose) return;
+  const home = form.parentElement;
+  const next = form.nextElementSibling;
+  reminderComposeSheetClose = openSheet({
+    label: "New reminder",
+    name: "reminder-compose",
+    returnFocus: $("reminders-new"),
+    build: (card) => {
+      card.classList.add("reminder-compose-card");
+      card.appendChild(form);
+    },
+    onClose: () => {
+      reminderComposeSheetClose = null;
+      home.insertBefore(form, next && next.parentElement === home ? next : null);
+    },
+  });
+  field()?.focus();
+}
+
+$("reminders-new")?.addEventListener("click", openReminderCompose);
 $("reminder-clear-done").addEventListener("click", clearDoneReminders);
 $("reminders-page-size").value = remindersPageSize;
 $("reminders-page-size").addEventListener("change", (e) => {

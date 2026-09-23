@@ -4248,6 +4248,13 @@
           </div>
         </div>
         <div class="dock-actions">
+          <!-- The dock's one filled action (INBOX 392): above 600 it takes the
+               caret to the add box above; below 600 it is the floating +
+               (FAB_IDS) and opens that box as a sheet, since on a phone the
+               list is the page and the form that filled its first screen is
+               one press away instead. -->
+          <button id="reminders-new" class="small" type="button"
+            title="Add a reminder"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New reminder</button>
           <button id="reminder-clear-done" class="ghost small"
             title="Delete every completed reminder"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear done</button>
           <details class="doc-dock-menu dock-menu dock-more" id="reminders-more-menu">

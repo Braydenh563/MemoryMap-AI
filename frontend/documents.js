@@ -15811,7 +15811,8 @@ function docCodeLintSource(CM) {
       if (ext === "py") {
         //: The compiler's "expected ':'" has one fix, and it is certain.
         found = found.map((d) => {
-          if (!/expected ':'/.test(d.message)) return d;
+          //: Case-blind: `syntaxcheck.py` capitalises the compiler's words.
+          if (!/expected ':'/i.test(d.message)) return d;
           const fix = docPythonColonFix(text, state.doc.lineAt(d.from).number);
           if (!fix) return d;
           return { ...d, actions: [{ name: fix.name, apply: (v, from) => docApplyCodeFix(v, "py-colon", "", fix.name, from) }] };
@@ -17493,8 +17494,17 @@ function docOpenCodeFixes() {
   const state = view.state;
   const pos = state.selection.main.head;
   const items = [];
+  //: The problems under the caret, or failing that the ones on its line: a
+  //: compiler puts "expected ':'" at the end of `def f(x)`, and a caret
+  //: anywhere in that line is asking about it.
+  const here = [];
+  const line = state.doc.lineAt(pos);
   CM.lint.forEachDiagnostic(state, (d, from, to) => {
-    if (pos < from || pos > to) return;
+    if (from <= pos && pos <= to) here.push({ d, from, to, exact: true });
+    else if (from <= line.to && to >= line.from) here.push({ d, from, to, exact: false });
+  });
+  const chosen = here.some((h) => h.exact) ? here.filter((h) => h.exact) : here;
+  for (const { d, from, to } of chosen) {
     for (const action of d.actions || []) {
       items.push({
         group: "fix",
@@ -17503,7 +17513,7 @@ function docOpenCodeFixes() {
         run: () => action.apply(view, from, to),
       });
     }
-  });
+  }
   if (!items.length) {
     items.push({
       group: "fix",

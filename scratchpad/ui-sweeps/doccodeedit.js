@@ -244,6 +244,106 @@ const ok = (n, c, d) => {
   await open("prose3.md", "md", "hello");
   ok("a markdown document does not show Format", !(await button()).visible);
 
+  // --- quick fixes ------------------------------------------------------------------
+  //: The hover card: a JSON trailing comma, fixed by pressing its button.
+  const trailing = '{\n  "a": 1,\n  "b": 2,\n}\n';
+  await open("fix.json", "json", trailing);
+  await page.waitForTimeout(1300);
+  const at = await page.evaluate(() => {
+    const r = document.querySelector("#doc-editor .cm-lintRange-error").getBoundingClientRect();
+    return { x: r.left + 3, y: r.top + r.height / 2 };
+  });
+  await page.mouse.move(at.x, at.y);
+  await page.waitForTimeout(900);
+  const card = await page.evaluate(() => {
+    const b = document.querySelector(".cm-tooltip-lint .cm-diagnosticAction");
+    if (!b) return null;
+    const cs = getComputedStyle(b);
+    return { text: b.textContent, bg: cs.backgroundColor, ink: cs.color };
+  });
+  ok("hovering a JSON error offers its fix as a button", card && /Remove the trailing comma/.test(card.text), J(card));
+  ok("drawn in the app's tokens, not the library's dark slab", card && card.bg !== "rgb(68, 68, 68)", J(card));
+  await page.click(".cm-tooltip-lint .cm-diagnosticAction");
+  await page.waitForTimeout(300);
+  s = await state();
+  ok("pressing it fixes the text", s.text === '{\n  "a": 1,\n  "b": 2\n}\n', J(s.text));
+  await page.waitForTimeout(1300);
+  const left = await page.evaluate(() => document.querySelectorAll("#doc-editor .cm-lintRange-error").length);
+  ok("and the underline goes", left === 0, left);
+  await page.mouse.move(5, 5);
+
+  //: The keyboard: Alt+Enter at the caret, in a C file.
+  await open("fix.c", "c", 'int main() {\n    printf("hi);\n}\n');
+  await page.waitForTimeout(1300);
+  await page.evaluate(() => docCmView.dispatch({ selection: { anchor: docCmView.state.doc.line(2).from + 12 } }));
+  await page.keyboard.press("Alt+Enter");
+  await page.waitForTimeout(300);
+  const menu = await page.evaluate(() => {
+    const m = [...document.querySelectorAll(".action-menu")].find((el) => !el.classList.contains("hidden"));
+    if (!m) return null;
+    const r = m.getBoundingClientRect();
+    return {
+      rows: [...m.querySelectorAll(".menu-item")].map((b) => b.textContent.trim()),
+      focus: m.contains(document.activeElement) ? document.activeElement.textContent.trim() : null,
+      top: Math.round(r.top),
+    };
+  });
+  ok("Alt+Enter opens the fixes at the caret, first row focused",
+    menu && menu.rows[0] === "Close the string" && menu.focus === "Close the string" &&
+    menu.rows.includes("Format the document"), J(menu));
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  s = await state();
+  ok("Enter applies it", s.text === 'int main() {\n    printf("hi");\n}\n', J(s.text));
+  const back = await page.evaluate(() => docCmView.hasFocus);
+  ok("and the caret is back in the editor", back);
+  await page.keyboard.press("Control+z");
+  s = await state();
+  ok("one Ctrl+Z takes the fix back", s.text === 'int main() {\n    printf("hi);\n}\n', J(s.text));
+
+  //: F8 walks to a problem; a missing bracket is added where it belongs.
+  await open("f8.java", "java", "class A {\n    void f() {\n        if (x > 1 {\n            y();\n        }\n    }\n}\n");
+  await page.waitForTimeout(1300);
+  await page.evaluate(() => docCmView.dispatch({ selection: { anchor: 0 } }));
+  await page.keyboard.press("F8");
+  await page.waitForTimeout(200);
+  s = await state();
+  ok("F8 goes to the problem", s.line === 3, J(s));
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => {
+    const l = docCmView.state.doc.line(3);
+    docCmView.dispatch({ selection: { anchor: l.from + 11 } });
+  });
+  await page.keyboard.press("Alt+Enter");
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  s = await state();
+  ok("a missing ) is added before the {",
+    s.text === "class A {\n    void f() {\n        if (x > 1) {\n            y();\n        }\n    }\n}\n", J(s.text));
+
+  //: Python: the compiler's own complaint, with its one certain fix.
+  await open("fix.py", "py", "def f(x)\n    return x\n");
+  await page.waitForTimeout(1800);
+  await page.evaluate(() => docCmView.dispatch({ selection: { anchor: 3 } }));
+  await page.keyboard.press("Alt+Enter");
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  s = await state();
+  ok("a Python def gets its missing colon", s.text === "def f(x):\n    return x\n", J(s.text));
+
+  //: Nothing to fix: the menu still opens, says so, and offers the formats.
+  await open("clean.c", "c", "int x;\n");
+  await page.keyboard.press("Alt+Enter");
+  await page.waitForTimeout(300);
+  const none = await page.evaluate(() => {
+    const m = [...document.querySelectorAll(".action-menu")].find((el) => !el.classList.contains("hidden"));
+    return m ? [...m.querySelectorAll(".menu-item")].map((b) => b.textContent.trim()) : null;
+  });
+  ok("with nothing at the caret the menu says so", none && none[0] === "No quick fix at the caret", J(none));
+  await page.keyboard.press("Escape");
+
   console.log(`\n${good} passed, ${bad} failed; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
   await browser.close();
   process.exit(bad || errors.length ? 1 : 0);

@@ -145,6 +145,14 @@ below). Versioning is `0.x` while the app stabilises.
   exactly as written, and refuses with the reason when the code does not
   parse. Python and YAML keep their indentation, which is their syntax. One
   Ctrl+Z undoes it.
+- Quick fixes for code problems: hovering an underline offers its fix as a
+  button, and Alt+Enter lists the fixes at the caret (with both formats
+  beneath); F8 goes to the next problem. Fixes add a missing bracket or
+  quote, change or remove a stray closer, close a comment, remove a JSON
+  trailing comma, add a missing comma or quotes in JSON, add Python's
+  missing colon, and convert mixed tabs and spaces. C, C++, C#, Java,
+  Kotlin, Go, Rust, Swift, PHP, R and SQL documents are now checked for
+  unbalanced brackets, strings and comments.
 
 ### Changed
 

@@ -423,3 +423,25 @@ def test_format_is_one_undo_step_and_refuses_what_does_not_parse():
     assert "docFormatRemoteRefusal(type.ext, text)" in body
     #: The round trip to the server can outlast a keystroke.
     assert "view.state.doc.toString() !== text" in body
+
+
+def test_quick_fixes_are_recomputed_when_chosen_and_opened_by_the_recipe():
+    """A fix carries which check, which problem and which fix, never offsets:
+    it is asked for again of the text as it is when chosen. The menu is the
+    app's menu-at-a-point recipe, and the chord is not Ctrl+., which the
+    shortcut registry gives to stopping an answer."""
+    source = _source()
+    actions = _function("docCodeActions")
+    assert "docApplyCodeFix(view, source, d.key, fix.name, from)" in actions
+    assert "d.edits" not in actions and "fix.edits" not in actions
+    assert "docCodeFixNow(view, source, key, name, from)" in _function("docApplyCodeFix")
+    menu = _function("docOpenCodeFixes")
+    assert "openMenuAtPoint(items, \"Quick fixes\"" in menu
+    editing = _function("docCodeEditing")
+    assert '{ key: "Alt-Enter", run: () => docOpenCodeFixes() }' in editing
+    assert "Mod-." not in editing and "Ctrl-." not in editing
+    assert 'stopAI: { keys: "Ctrl+."' in (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    #: Python's colon fix matches the server's capitalised message.
+    assert "/expected ':'/i.test(d.message)" in _function("docCodeLintSource")
+    table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]
+    assert 'keys: "Alt+Enter",\n    code: true, run: () => docOpenCodeFixes()' in table

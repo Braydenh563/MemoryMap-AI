@@ -336,10 +336,14 @@ async function api(path, options = {}) {
   // than as an expired session. Change-password answers 401 for "that isn't
   // your current password", a typo there must show a message beside the
   // field, not throw the user out to the lock screen.
-  const { silent, timeoutMs, ownsAuthErrors, ...fetchOptions } = options;
+  // `readOnly`: a POST that writes nothing (the code checker in documents.js
+  // sends a file's text in a body because a query string cannot carry it).
+  // Without it every pause in typing a .py file would empty the read cache
+  // for the whole app, which is a write's job, not a read's.
+  const { silent, timeoutMs, ownsAuthErrors, readOnly, ...fetchOptions } = options;
   refuseStagedUrls(fetchOptions.body);
   // Any write invalidates the read cache above, see clearApiCache().
-  if (fetchOptions.method && fetchOptions.method !== "GET") clearApiCache();
+  if (!readOnly && fetchOptions.method && fetchOptions.method !== "GET") clearApiCache();
   let timer = null;
   if (timeoutMs) {
     const controller = new AbortController();

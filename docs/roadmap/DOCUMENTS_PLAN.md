@@ -1390,3 +1390,6 @@ guessing one from the text would invent a link the person did not make.
 
 - **The live view's markdown rendering: built 2026-09-23.** Moved to
   HISTORY.md ("Moved from the plans, 2026-09-23"); `doclivemd.js` is the gate.
+- **Code documents as a code editor (diagnostics, completions): built
+  2026-09-23.** Moved to HISTORY.md ("Moved from the plans, 2026-09-23");
+  `doccode.js` and `tests/test_syntax_check.py` are the gate.

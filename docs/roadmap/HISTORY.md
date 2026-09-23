@@ -61,6 +61,12 @@ face, past the gate's 90.
   not a page. After: nine gaps in the probe document, every one a token
   tall (8, 32, 8 and six of 16), no blank line left at 25.6px, no margin
   between any two lines.
+  **And not while the line numbers are on** (found by `docgutter.js` in
+  the next step, fixed there): a gutter number keeps the editor's line
+  height, so a 16px gap left its number standing 10px into the line below
+  ("9 paints 10px into 10"). The gap lines stand down with the gutter on,
+  the rule the quiet fence rows already followed (INBOX 262); overlaps back
+  to none.
 
 ### From DOCUMENTS_PLAN.md section 17: 17c, tables, fences and quotations (INBOX 392)
 
@@ -139,6 +145,75 @@ eight of the probe's checks failed before this:
 
 After: `doclivemd.js` all pass, `cm-live.js` all pass, `cm-reveal.js` all
 pass.
+
+### From DOCUMENTS_PLAN.md, placed from INBOX 392: code documents as a code editor
+
+The owner, INBOX 392: "the code document types dont act like a code editor
+with errors, suggestions and that needs to be improved."
+
+**Built.** What was there: the vendored bundle already exported CodeMirror's
+`linter`, `lintGutter`, `autocompletion` and `completeFromList`
+(`frontend/vendor/codemirror/entry.js` exports `@codemirror/lint` and
+`@codemirror/autocomplete` whole), and documents.js used none of them. No
+rebuild was needed, so `build.sh` was not run and the bundle is unchanged.
+
+- **Diagnostics** (`docCodeTools`, `docCodeLintSource` in documents.js),
+  checked where a real parser is. In the browser: JSON by `JSON.parse` plus
+  `docJsonErrorAt`, a small grammar walk that finds *where*, because
+  Chromium's message for a trailing comma before `}` carries no position at
+  all (measured; its offsets are held to Python's `json` module on fourteen
+  cases by `tests/test_syntax_check.py`, run in node from the
+  `DOC-JSON-BEGIN` region); JavaScript, TypeScript and CSS by the error
+  nodes in the Lezer tree the highlighter already built. On the server:
+  `POST /documents/check-syntax` {language, text} returns `[{line, col,
+  message, severity}]` from `src/memorymap/core/syntaxcheck.py`: `ast.parse`
+  for Python (never run: a test proves a file that would write a marker
+  leaves none), `tomllib`, `defusedxml` (an entity bomb is a note, not an
+  expansion), and PyYAML's composer where PyYAML is installed (it is not a
+  declared dependency, so YAML is offered only where the import works).
+  Stateless, never touches the database, 200,000 characters at most (422
+  past it), a 400 for a language it cannot check, pathological nesting and
+  null bytes answered as diagnostics. Sixteen endpoint tests.
+- **Completions**: for the languages whose package brings none, the
+  language's keywords plus every name already in the file, through
+  `completeFromList`. JavaScript, TypeScript, Python, CSS and HTML keep their
+  packages' own scope-aware completion (the source is added beside theirs,
+  not as an `override`). One real bug found by measuring: a source built
+  fresh on each call is a new source to the engine on every keystroke, so
+  the list sat at "pending" forever (`completionStatus` read "pending" 800ms
+  after typing, while the same source called by hand returned fifty
+  options); the source and its language-data entry are now built once.
+- **The look, in the tokens** (`docCmTheme`): the library's lint styles are
+  fixed colours (#d11, a red SVG squiggle as a background, white on #17c for
+  the chosen completion). The underline is now the prose findings' wavy line
+  in `--error` (`--warn`, dotted `--muted` for a note), the SVG switched
+  off; the gutter mark a dot in the same ink, outside the line numbers; the
+  hover and the list on `--modal-bg-opaque`, since `--card` measured 55%
+  opaque and a message laid over code read through; the chosen row
+  `--accent-soft`. Code types only, never in Plain, and never in prose.
+- `api()` in app.js takes `readOnly`, so the checker's POST (a read that
+  needs a body) does not empty the app's read cache on every pause in
+  typing.
+- Recipe row in DESIGN.md's index and its lint
+  (`test_code_diagnostics_are_drawn_in_the_apps_ink`: the selectors
+  restyled, no hex in the block, the squiggle image off, prose and Plain
+  excluded, nothing executed).
+
+Measured with `scratchpad/ui-sweeps/doccode.js`, all pass in light and dark:
+a Python error underlined on line 2 in `rgb(185, 28, 28)` (the light
+`--error`), wavy, no background image, a 8.8px dot in the gutter; the hover
+reads "Invalid syntax" on an opaque ground; fixing the line clears it; JSON,
+JavaScript and TOML errors underlined on the right lines; valid JavaScript
+left alone; Go offers `helperFunction` from the file and `func` from its
+keywords, Enter takes it; Python still offers `print`; a markdown document
+gets neither a list nor a gutter; Plain draws nothing and Source brings the
+diagnostics back.
+
+**Not verified**: real WebView2 on Windows (the owner's desktop window);
+TypeScript and CSS error nodes on real-world files (the Lezer grammars are
+tolerant, so a false positive is possible on unusual syntax and was not
+seen on the files tried); YAML on an install without PyYAML (the 400 path is
+tested at the endpoint, the frontend's fallback is reasoned).
 
 ## Moved from the plans, 2026-09-21
 

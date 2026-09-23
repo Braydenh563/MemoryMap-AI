@@ -37,6 +37,14 @@ below). Versioning is `0.x` while the app stabilises.
 - A missing search-by-meaning package is reported in words, with
   nomic-embed-text offered as the alternative, instead of a traceback.
 
+### Added
+
+- Code documents act like a code editor: a syntax error is underlined with a
+  mark beside its line and says what is wrong on hover (Python, TOML, XML
+  and YAML checked by the app itself, JSON, JavaScript, TypeScript and CSS in
+  the window, nothing sent anywhere), and a list of the language's keywords
+  and the names already in the file appears as you type.
+
 ### Changed
 
 - The documents live view reads as a page: the text sits in a measure of about

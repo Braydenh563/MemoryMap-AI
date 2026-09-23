@@ -2254,3 +2254,44 @@ def test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone() 
     )
     # The whole card is the control, not a link beside a picture.
     assert ".board-embed-open" in css, "the board object's button has no rules of its own"
+
+
+def test_code_diagnostics_are_drawn_in_the_apps_ink() -> None:
+    """A syntax error in a code document is the recipe DESIGN.md names (INBOX
+    392): CodeMirror's linter and completion list, restyled in `docCmTheme`
+    onto the app's tokens. The library's own lint and completion styles are
+    fixed colours (#d11, a red SVG squiggle, white on #17c), right on a white
+    page and wrong on the dark one; the underline is the prose findings'
+    shape so an error in code and a misspelling in prose are one idea."""
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    theme = docs.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
+    for selector in (
+        '".cm-lintRange-error"',
+        '".cm-lint-marker-error"',
+        '".cm-diagnostic-error"',
+        '".cm-tooltip-autocomplete ul li[aria-selected]"',
+    ):
+        assert selector in theme, f"docCmTheme no longer restyles {selector}"
+    # The lint block of the theme, from its heading to the next one, with
+    # its comments taken out: the comments name the library's own colours on
+    # purpose, to say why they are restated.
+    lint = theme.split("a code file's diagnostics and completions", 1)[1].split("--- Live preview", 1)[0]
+    code = "\n".join(line for line in lint.splitlines() if not line.strip().startswith("//"))
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", code), (
+        "a hex colour in the code diagnostics' theme: use the app's tokens"
+    )
+    assert 'backgroundImage: "none"' in code, (
+        "the library's baked-in red squiggle is back under the app's own underline"
+    )
+    # The tools are for code only, and Plain turns them off.
+    tools = docs.split("function docCodeTools(CM) {", 1)[1].split("\n}\n", 1)[0]
+    assert "type.previewable" in tools and 'docView === "plain"' in tools, (
+        "the code tools no longer stand down for prose and for Plain"
+    )
+    # Never by running the file.
+    region = docs.split("// Code documents as a code editor", 1)[1].split("function docCmExtensions(CM)", 1)[0]
+    region = "\n".join(line for line in region.splitlines() if not line.strip().startswith("//"))
+    assert "new Function" not in region and "eval(" not in region, (
+        "a code check that executes the file: the CSP forbids it and it is not a check"
+    )
+

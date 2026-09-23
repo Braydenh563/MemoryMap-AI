@@ -6978,7 +6978,15 @@ function docLivePlugin(CM) {
     //: Never inside a fenced block (a blank line in code is code) or the
     //: frontmatter (hidden above), and only in the documents editor: the note
     //: editors mount this plugin too, and a note card is not a page.
-    if (view.dom.closest(".doc-editor")) {
+    //:
+    //: **And not while the line numbers are on**, the rule the quiet fence
+    //: rows already follow (INBOX 262): a gutter number keeps the editor's
+    //: line height whatever its line's height is, so a 16px gap left its
+    //: number standing 10px into the line below (measured by `docgutter.js`,
+    //: "9 paints 10px into 10"). One row, one number, in line with the text
+    //: it counts is the gutter's contract, and where the two disagree the
+    //: gutter wins and the blank line keeps its full row.
+    if (view.dom.closest(".doc-editor") && !gutterOn) {
       const fence = (pos) => {
         for (let node = tree.resolveInner(pos, 1); node; node = node.parent) {
           if (node.name === "FencedCode") return true;
@@ -14540,6 +14548,9 @@ const docCmParts = {
   //: Whether the *browser's* checker draws squiggles, which is a question with
   //: two answers over the life of one editor: see `docCmSpellcheck`.
   spell: null,
+  //: A code file's diagnostics and completions (`docCodeTools`); empty for
+  //: prose and in Plain.
+  code: null,
 };
 
 //: How the prose findings tell the view to repaint. A `StateEffect` rather
@@ -14755,6 +14766,102 @@ function docCmTheme(CM) {
         border: "1px solid var(--border)",
         color: "var(--text)",
       },
+
+      //: --- a code file's diagnostics and completions (INBOX 392) ----------
+      //: CodeMirror's own lint styles are fixed colours (#d11 for an error,
+      //: a red SVG squiggle, a white-on-#17c selected completion), which is
+      //: the same trap the highlighter fell into (`docCmHighlight`): right on
+      //: a white page, wrong on this app's dark one, and deaf to a custom
+      //: accent. Every one is restated here in the app's tokens.
+      //:
+      //: The underline is the prose findings' own shape, a wavy line in the
+      //: kind's ink (`.cm-finding-spelling`), so an error in code and a
+      //: misspelling in prose are one idea drawn once. The SVG CodeMirror
+      //: paints as a background is switched off rather than recoloured: its
+      //: colour is baked into a data URL.
+      ".cm-lintRange": {
+        backgroundImage: "none",
+        paddingBottom: "0",
+        textDecorationSkipInk: "none",
+        textUnderlineOffset: "0.18em",
+      },
+      ".cm-lintRange-error": {
+        textDecoration: "underline wavy",
+        textDecorationColor: "var(--error)",
+      },
+      ".cm-lintRange-warning": {
+        textDecoration: "underline wavy",
+        textDecorationColor: "var(--warn)",
+      },
+      ".cm-lintRange-info, .cm-lintRange-hint": {
+        textDecoration: "underline dotted",
+        textDecorationThickness: "2px",
+        textDecorationColor: "var(--muted)",
+      },
+      ".cm-lintRange-active": { backgroundColor: "var(--accent-soft)" },
+      //: The gutter mark: a dot in the kind's ink, centred on its line. The
+      //: library's marker is an SVG in its own colours set as `content`, so
+      //: `content: normal` takes it away and the box draws the dot.
+      ".cm-gutter-lint": { width: "1em" },
+      ".cm-gutter-lint .cm-gutterElement": {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0",
+      },
+      ".cm-lint-marker": {
+        content: "normal",
+        width: "0.55em",
+        height: "0.55em",
+        borderRadius: "var(--radius-pill)",
+        backgroundColor: "var(--muted)",
+      },
+      ".cm-lint-marker-error": { backgroundColor: "var(--error)" },
+      ".cm-lint-marker-warning": { backgroundColor: "var(--warn)" },
+      ".cm-diagnostic": {
+        padding: "var(--space-2) var(--space-4)",
+        marginLeft: "0",
+        fontSize: "var(--text-sm)",
+        borderLeft: "3px solid var(--muted)",
+      },
+      ".cm-diagnostic-error": { borderLeftColor: "var(--error)" },
+      ".cm-diagnostic-warning": { borderLeftColor: "var(--warn)" },
+      ".cm-diagnostic-info, .cm-diagnostic-hint": { borderLeftColor: "var(--accent)" },
+      ".cm-tooltip-lint": { padding: "0", borderRadius: "var(--radius-sm, 6px)" },
+      //: **Opaque, where the tooltip above is glass.** `--card` is 55%
+      //: opaque (measured through `doccode.js`), which is right for a panel
+      //: over the page's own ground and wrong for a box of words laid over
+      //: other words: the code under a diagnostic read through its message.
+      //: The ground the selection bar uses for the same reason
+      //: (DESIGN.md's recipe index, "a bar of actions").
+      ".cm-tooltip.cm-tooltip-hover, .cm-tooltip.cm-tooltip-autocomplete": {
+        backgroundColor: "var(--modal-bg-opaque)",
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete": {
+        borderRadius: "var(--radius-sm, 6px)",
+        boxShadow: "var(--shadow-md)",
+        overflow: "hidden",
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete > ul": {
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-sm)",
+        maxHeight: "16em",
+      },
+      ".cm-tooltip.cm-tooltip-autocomplete > ul > li": {
+        padding: "var(--space-1) var(--space-4)",
+        lineHeight: "1.5",
+      },
+      ".cm-tooltip-autocomplete ul li[aria-selected]": {
+        backgroundColor: "var(--accent-soft)",
+        color: "var(--text)",
+      },
+      ".cm-completionMatchedText": {
+        textDecoration: "none",
+        fontWeight: "700",
+        color: "var(--accent)",
+      },
+      ".cm-completionDetail": { color: "var(--muted)", fontStyle: "normal" },
+      ".cm-completionIcon": { color: "var(--muted)", opacity: "1" },
 
       //: --- Live preview -------------------------------------------------
       //: The rendered shapes, in the app's own type scale rather than in a
@@ -15347,6 +15454,378 @@ function docTableCellClick(event, view) {
   return true;
 }
 
+// -----------------------------------------------------------------------------
+// Code documents as a code editor: diagnostics and completions (INBOX 392)
+// -----------------------------------------------------------------------------
+//
+// The owner: "the code document types dont act like a code editor with
+// errors, suggestions and that needs to be improved." Before this the editor
+// mounted no linter and no completion source at all (this file had no use of
+// `CM.lint` or `CM.autocomplete`), in a bundle that already carried
+// CodeMirror's own linter, lint gutter and completion engine, exported by
+// `frontend/vendor/codemirror/entry.js` since it was first built; nothing
+// needed rebuilding.
+//
+// **Where each language is checked, and why there.** The browser checks what
+// it has a real parser for and the server checks the rest, never the other
+// way round, because a round trip per pause in typing is only worth paying
+// where the browser cannot answer:
+//
+// - JSON: `JSON.parse`, whose error names the offset.
+// - JavaScript, TypeScript and CSS: the Lezer tree CodeMirror has already
+//   built to colour the file. A node the grammar could not place is an error
+//   node, so this costs nothing the highlighter had not already spent. Never
+//   `new Function` or `eval`: the CSP forbids both, and running somebody's
+//   file to find out whether it parses is not a check, it is execution.
+// - Python, TOML, XML and YAML: `POST /documents/check-syntax`, which uses
+//   `ast.parse`, `tomllib`, `defusedxml` and PyYAML's composer
+//   (`src/memorymap/core/syntaxcheck.py`). Offline, stateless, capped.
+//
+// Only for code: a markdown document is prose, and its checker is the
+// writing panel's. Plain view turns these off with the highlighting, because
+// Plain is defined as the editor with nothing interpreting the text.
+
+//: The languages the server checks. A 400 from it (PyYAML not installed, say)
+//: takes that language out of this set for the session, so a file is not
+//: asked about again on every pause in typing.
+const DOC_CHECK_REMOTE = new Set(["py", "toml", "xml", "yaml"]);
+//: Mirrors `syntaxcheck.MAX_CHARS`: past it the server answers 422, so the
+//: request is not made.
+const DOC_CHECK_MAX_CHARS = 200000;
+//: How long typing has to pause before a check runs. Long enough that a
+//: half-typed line is not underlined while it is being typed.
+const DOC_CHECK_DELAY_MS = 750;
+//: Languages whose grammar in the bundle is a Lezer grammar with honest
+//: error recovery, so an error node means the text does not parse.
+const DOC_CHECK_TREE = new Set(["js", "ts", "css"]);
+
+//: A 1-based line and column from a checker, as the offsets CodeMirror
+//: underlines. The range runs to the end of the word at that column, so the
+//: underline sits under the token that is wrong rather than under one letter
+//: of it; at the end of a line it takes the last character instead, because
+//: an empty range draws no underline at all.
+function docDiagnosticRange(doc, lineNo, col) {
+  const line = doc.line(Math.max(1, Math.min(lineNo, doc.lines)));
+  let from = Math.min(line.from + Math.max(0, col - 1), line.to);
+  const rest = doc.sliceString(from, line.to);
+  const word = /^[\w$]+|^\S/.exec(rest);
+  let to = from + (word ? word[0].length : 0);
+  if (to === from && from > line.from) from -= 1;
+  if (to === from && from < doc.length) to = from + 1;
+  return { from, to: Math.min(to, doc.length) };
+}
+
+// DOC-JSON-BEGIN (tests/test_syntax_check.py runs this region in node)
+//: **Where a JSON text stops being JSON**, as an offset and a sentence.
+//:
+//: `JSON.parse` says whether, and is the fast path, but not reliably where:
+//: measured in this build of Chromium, a trailing comma before `}` throws
+//: `Unexpected token '}', ..."b": \n}" is not valid JSON` with no position at
+//: all, so the underline had nowhere to go. This walks the grammar once, only
+//: after `JSON.parse` has already failed, and stops at the first character
+//: that cannot continue it. Recursion is bounded by the text's own nesting,
+//: which the size of a document caps.
+function docJsonErrorAt(text) {
+  let i = 0;
+  const fail = (message) => {
+    throw { at: i, message };
+  };
+  const ws = () => {
+    while (i < text.length && " \t\n\r".includes(text[i])) i += 1;
+  };
+  const literal = (word) => {
+    if (text.startsWith(word, i)) i += word.length;
+    else fail("Expected a value");
+  };
+  const string = () => {
+    i += 1;
+    while (i < text.length) {
+      const ch = text[i];
+      if (ch === '"') {
+        i += 1;
+        return;
+      }
+      if (ch === "\\") {
+        i += 1;
+        if (!'"\\/bfnrtu'.includes(text[i] || "")) fail("Not a valid escape in a string");
+        if (text[i] === "u" && !/^[0-9a-fA-F]{4}$/.test(text.slice(i + 1, i + 5))) {
+          fail("A \\u escape needs four hex digits");
+        }
+      } else if (ch === "\n") fail("A string cannot run onto the next line");
+      else if (ch < " ") fail("A control character has to be escaped in a string");
+      i += 1;
+    }
+    fail("This string is never closed");
+  };
+  const number = () => {
+    const match = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?/.exec(text.slice(i, i + 400));
+    if (!match) fail("Expected a value");
+    i += match[0].length;
+  };
+  const value = () => {
+    ws();
+    const ch = text[i];
+    if (ch === "{") return object();
+    if (ch === "[") return array();
+    if (ch === '"') return string();
+    if (ch === "t") return literal("true");
+    if (ch === "f") return literal("false");
+    if (ch === "n") return literal("null");
+    if (ch === "-" || (ch >= "0" && ch <= "9")) return number();
+    return fail(i >= text.length ? "The text ends where a value was expected" : "Expected a value");
+  };
+  const object = () => {
+    i += 1;
+    ws();
+    if (text[i] === "}") {
+      i += 1;
+      return;
+    }
+    for (;;) {
+      ws();
+      if (text[i] !== '"') {
+        fail(text[i] === "}" ? "A comma with nothing after it" : "Expected a property name in double quotes");
+      }
+      string();
+      ws();
+      if (text[i] !== ":") fail("Expected a colon after the property name");
+      i += 1;
+      value();
+      ws();
+      if (text[i] === ",") {
+        i += 1;
+        continue;
+      }
+      if (text[i] === "}") {
+        i += 1;
+        return;
+      }
+      fail("Expected a comma or a closing brace");
+    }
+  };
+  const array = () => {
+    i += 1;
+    ws();
+    if (text[i] === "]") {
+      i += 1;
+      return;
+    }
+    for (;;) {
+      ws();
+      if (text[i] === "]") fail("A comma with nothing after it");
+      value();
+      ws();
+      if (text[i] === ",") {
+        i += 1;
+        continue;
+      }
+      if (text[i] === "]") {
+        i += 1;
+        return;
+      }
+      fail("Expected a comma or a closing bracket");
+    }
+  };
+  try {
+    value();
+    ws();
+    if (i < text.length) fail("There is more text after the value");
+    return null;
+  } catch (error) {
+    if (error && typeof error.at === "number") return error;
+    throw error;
+  }
+}
+
+// DOC-JSON-END
+
+//: JSON, checked in the browser: `JSON.parse` says whether, and
+//: `docJsonErrorAt` says where. If the two ever disagree the error goes on
+//: the last character of the text with the engine's own words, which is
+//: still true and still somewhere a person can find.
+function docJsonDiagnostics(doc) {
+  const text = doc.toString();
+  if (!text.trim()) return [];
+  try {
+    JSON.parse(text);
+    return [];
+  } catch (error) {
+    const found = docJsonErrorAt(text);
+    let offset = found ? found.at : text.trimEnd().length - 1;
+    offset = Math.max(0, Math.min(offset, doc.length));
+    const line = doc.lineAt(offset);
+    const range = docDiagnosticRange(doc, line.number, offset - line.from + 1);
+    const message = found ? found.message : String(error.message || "Not valid JSON");
+    return [{ ...range, severity: "error", message }];
+  }
+}
+
+//: JavaScript, TypeScript and CSS, from the parse tree. The whole document is
+//: parsed first (`ensureSyntaxTree`, with a time budget) because the tree the
+//: highlighter keeps may stop at the viewport, and an error below it would
+//: otherwise appear only when scrolled to. One diagnostic per line: a single
+//: missing bracket can leave several error nodes on one line, and five
+//: underlines for one mistake reads as five mistakes.
+function docTreeDiagnostics(CM, state) {
+  const tree =
+    CM.language.ensureSyntaxTree(state, state.doc.length, 200) || CM.language.syntaxTree(state);
+  const found = [];
+  const lines = new Set();
+  tree.iterate({
+    enter: (node) => {
+      if (!node.type.isError || found.length >= 50) return;
+      const line = state.doc.lineAt(node.from);
+      if (lines.has(line.number)) return;
+      lines.add(line.number);
+      const text = state.doc.sliceString(node.from, Math.min(node.to, node.from + 24)).trim();
+      const range = docDiagnosticRange(state.doc, line.number, node.from - line.from + 1);
+      found.push({
+        ...range,
+        severity: "error",
+        message: text ? `Unexpected “${text.split("\n")[0]}”` : "Something is missing here",
+      });
+    },
+  });
+  return found;
+}
+
+//: The server's checkers. Resolves to `[]` on any failure: an editor that
+//: underlines nothing because the check could not run is honest, one that
+//: underlines the wrong thing is not.
+async function docRemoteDiagnostics(ext, doc) {
+  const text = doc.toString();
+  if (!text.trim() || text.length > DOC_CHECK_MAX_CHARS) return [];
+  let found;
+  try {
+    const response = await api("/documents/check-syntax", {
+      method: "POST",
+      body: JSON.stringify({ language: ext, text }),
+      silent: true,
+      readOnly: true,
+    });
+    found = await response.json();
+  } catch (error) {
+    if (/no checker/.test(String(error.message))) DOC_CHECK_REMOTE.delete(ext);
+    return [];
+  }
+  return (Array.isArray(found) ? found : []).map((d) => ({
+    ...docDiagnosticRange(doc, d.line, d.col),
+    severity: ["error", "warning", "info"].includes(d.severity) ? d.severity : "error",
+    message: String(d.message || "Syntax error"),
+  }));
+}
+
+//: The one lint source, dispatching on the open file's type at the moment it
+//: runs rather than when the extension was built, so a type change between
+//: two checks is answered by the new type.
+function docCodeLintSource(CM) {
+  return async (view) => {
+    const ext = docFileType().ext;
+    if (ext === "json") return docJsonDiagnostics(view.state.doc);
+    if (DOC_CHECK_TREE.has(ext)) return docTreeDiagnostics(CM, view.state);
+    if (DOC_CHECK_REMOTE.has(ext)) return docRemoteDiagnostics(ext, view.state.doc);
+    return [];
+  };
+}
+
+//: The words each language reserves, for the languages whose grammar in the
+//: bundle brings no completions of its own. JavaScript, TypeScript, Python,
+//: CSS and HTML are absent on purpose: their CodeMirror packages already
+//: complete keywords, snippets and the names in scope at the caret, which is
+//: better than a flat list, so this adds nothing there.
+const DOC_CODE_KEYWORDS = {
+  go: "break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var nil true false append cap close copy delete len make new panic print println recover string int int64 float64 bool byte rune error",
+  rs: "as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while Some None Ok Err Vec String Option Result Box println",
+  c: "auto break case char const continue default do double else enum extern float for goto if inline int long register return short signed sizeof static struct switch typedef union unsigned void volatile while NULL include define printf malloc free",
+  cpp: "auto bool break case catch char class const constexpr continue default delete do double else enum explicit false float for friend if inline int long namespace new nullptr operator private protected public return short static struct switch template this throw true try typedef typename using virtual void while std vector string include",
+  cs: "abstract as async await base bool break case catch class const continue decimal default delegate do double else enum event false finally float for foreach get if int interface internal is lock long namespace new null object out override private protected public readonly ref return set static string struct switch this throw true try using var virtual void while",
+  java: "abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for if implements import instanceof int interface long new null package private protected public return short static super switch this throw throws true false try void while String System",
+  kt: "as break class continue do else false for fun if in interface is null object package return super this throw true try typealias val var when while companion data override private public internal open sealed suspend println",
+  rb: "alias and begin break case class def defined do else elsif end ensure false for if in module next nil not or redo rescue retry return self super then true undef unless until when while yield puts require attr_accessor",
+  swift: "associatedtype class deinit enum extension func import init inout internal let operator private protocol public static struct subscript typealias var break case continue default defer do else fallthrough for guard if in repeat return switch where while as false is nil self Self super throw throws true try print",
+  r: "if else repeat while function for in next break TRUE FALSE NULL Inf NaN NA library return print list",
+  php: "abstract and array as break callable case catch class clone const continue declare default do echo else elseif empty extends final finally fn for foreach function global if implements include instanceof interface isset list match namespace new or print private protected public readonly require return static switch throw trait try unset use var while yield true false null",
+  sql: "select from where and or not insert into values update set delete create table drop alter add column index primary key foreign references join left right inner outer on group by order having limit offset as distinct union all null is in like between case when then else end count sum avg min max",
+  bash: "if then else elif fi case esac for while until do done in function select time return exit export local readonly echo printf read cd pwd source shift set unset true false",
+  json: "true false null",
+  yaml: "true false null",
+  toml: "true false",
+};
+
+//: Keywords, then every name already written in the document, through
+//: `completeFromList`. The names are read at the moment the list is asked
+//: for, so a function defined a second ago is offered, and the word being
+//: typed is left out so the list never offers you what you have already got.
+//:
+//: **One function, kept, and it is not a style point.** The completion engine
+//: tells a source it is still waiting on from a new one by identity, and the
+//: language-data callback below runs on every transaction: returning a fresh
+//: closure each time made every keystroke a new source, the answer to the
+//: last one was thrown away as stale, and the list sat at "pending" forever
+//: (measured: `completionStatus` read "pending" 800ms after typing "hel",
+//: while the same source called by hand returned fifty options).
+let docCodeCompletionCache = null;
+
+function docCodeCompletionSource(CM) {
+  if (docCodeCompletionCache) return docCodeCompletionCache;
+  docCodeCompletionCache = (context) => {
+    const word = context.matchBefore(/[A-Za-z_$][\w$]*/);
+    if (!word || (word.from === word.to && !context.explicit)) return null;
+    const ext = docFileType().ext;
+    const keywords = (DOC_CODE_KEYWORDS[ext] || "").split(" ").filter(Boolean);
+    const seen = new Set(keywords);
+    const options = keywords.map((label) => ({ label, type: "keyword" }));
+    const text = context.state.doc.toString();
+    const names = /[A-Za-z_$][\w$]{2,}/g;
+    let match;
+    while ((match = names.exec(text)) !== null && options.length < 2000) {
+      if (match.index === word.from) continue;
+      if (seen.has(match[0])) continue;
+      seen.add(match[0]);
+      options.push({ label: match[0], type: "variable" });
+    }
+    return CM.autocomplete.completeFromList(options)(context);
+  };
+  return docCodeCompletionCache;
+}
+
+//: The language-data entry, built once for the same reason as the source.
+let docCodeCompletionDataCache = null;
+
+function docCodeCompletionData(CM) {
+  if (!docCodeCompletionDataCache) {
+    const entry = [{ autocomplete: docCodeCompletionSource(CM) }];
+    docCodeCompletionDataCache = CM.state.EditorState.languageData.of(() => entry);
+  }
+  return docCodeCompletionDataCache;
+}
+
+//: The code tools for the open document, or nothing. Whether a type counts
+//: as code is the file-type table's own answer (`previewable` is prose);
+//: plain text and CSV have no syntax and no vocabulary, so they get neither.
+function docCodeTools(CM) {
+  const type = docFileType();
+  if (type.previewable || docView === "plain" || ["txt", "csv"].includes(type.ext)) return [];
+  const native = ["js", "ts", "py", "css", "html"].includes(type.ext);
+  return [
+    CM.lint.linter(docCodeLintSource(CM), { delay: DOC_CHECK_DELAY_MS }),
+    CM.lint.lintGutter(),
+    CM.autocomplete.autocompletion({ activateOnTyping: true, maxRenderedOptions: 60 }),
+    //: Beside the language's own sources, not instead of them: `override`
+    //: would switch off the scope-aware completion the JavaScript and
+    //: Python packages bring.
+    native ? [] : docCodeCompletionData(CM),
+  ];
+}
+
+//: The file type or the view changed: the code tools follow, by compartment,
+//: so the caret, the scroll position and the undo history survive.
+function docCmSyncCodeTools() {
+  const CM = window.CM6;
+  if (!docCmView || !CM || !docCmParts.code) return;
+  docCmView.dispatch({ effects: docCmParts.code.reconfigure(docCodeTools(CM)) });
+}
+
 function docCmExtensions(CM) {
   const type = docFileType();
   docCmParts.language = new CM.state.Compartment();
@@ -15356,8 +15835,13 @@ function docCmExtensions(CM) {
   docCmParts.live = new CM.state.Compartment();
   docCmParts.spell = new CM.state.Compartment();
   docCmParts.reading = new CM.state.Compartment();
+  docCmParts.code = new CM.state.Compartment();
   if (!docFindingsEffect) docFindingsEffect = CM.state.StateEffect.define();
   return [
+    //: First, so its gutter is the leftmost: the error mark sits outside the
+    //: line numbers, where every code editor the owner compares this with
+    //: puts it.
+    docCmParts.code.of(docCodeTools(CM)),
     //: Live's decorations, off until `setDocView` turns them on. Findings are
     //: a separate plugin because they are drawn in *every* view: an underline
     //: under a misspelling is not a rendering of the markdown, it is the
@@ -15703,6 +16187,7 @@ function docCmSyncFileType() {
     effects: [
       docCmParts.language.reconfigure(docCmViewLanguage(CM)),
       docCmParts.wrap.reconfigure(type.previewable ? CM.view.EditorView.lineWrapping : []),
+      ...(docCmParts.code ? [docCmParts.code.reconfigure(docCodeTools(CM))] : []),
     ],
   });
 }
@@ -15732,6 +16217,7 @@ function docCmSyncLanguage() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.language) return;
   docCmView.dispatch({ effects: docCmParts.language.reconfigure(docCmViewLanguage(CM)) });
+  docCmSyncCodeTools();
 }
 
 //: The line-number preference, applied to the engine. `applyDocGutter` still

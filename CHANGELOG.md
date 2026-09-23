@@ -28,6 +28,9 @@ below). Versioning is `0.x` while the app stabilises.
 - On a mind map the bottom bar offers one Cross-link tool drawn in the map's
   own line style, instead of a generic straight and curved pair; a map
   line's label drags with the pointer and no longer starts a selection box.
+- Links everywhere use the accent colour (plain links were the browser's own
+  blue and purple); Timeline rows for boards and reminders no longer repeat
+  their title as a snippet; an empty Ollama embedding picker says why.
 - A note's connections are one chip and one ⋯ menu each (edit or clear the
   reason, remove the link), instead of three round buttons inside every chip.
 - The chat header names the model that actually answers (on llama.cpp and

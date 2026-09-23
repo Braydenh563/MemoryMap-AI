@@ -29482,6 +29482,15 @@ function timelineRow(entry) {
   //: now. The map lookup stays because a board's *title* still comes from the
   //: map index rather than from its note text.
   const kind = entry.kind || (board ? "board" : "note");
+  const title = entry.title || (board ? board.title : head) || "Untitled note";
+  //: **A snippet says something the title does not.** For a board the preview
+  //: is its note's own `# Title` line and for a reminder it is the reminder's
+  //: text, so both rows repeated their title underneath it, the board's with
+  //: the markdown hash still on it (measured: "R board" over "# R board").
+  const other = stripMarkdownPreview(entry.preview || "").replace(/\s+/g, " ").trim();
+  const snippet = entry.kind === "note" || !entry.kind
+    ? rest
+    : other && other.replace(/^#+\s*/, "") !== title ? other : "";
   return {
     id: entry.id,
     //: Identity across kinds: note 3 and document 3 are two different things,
@@ -29491,8 +29500,8 @@ function timelineRow(entry) {
     kind,
     board,
     // The first line of a note is what a person calls it, heading or not.
-    title: entry.title || (board ? board.title : head) || "Untitled note",
-    snippet: entry.kind === "note" || !entry.kind ? rest : entry.preview || "",
+    title,
+    snippet,
     when: parseServerTime(entry.at) || new Date(entry.at),
     whenIso: entry.at,
     writtenAt: entry.written_at,
@@ -38312,6 +38321,19 @@ function syncEmbeddingPickerState(offline) {
   const picker = $("embedding-model-select");
   if (!picker) return;
   picker.disabled = down || !usingOllama;
+  //: An empty select says nothing: with Ollama off it drew as a blank 46px
+  //: box beside a pale Apply button. It names why it is empty instead.
+  if (!picker.options.length || picker.options[0].dataset.placeholder) {
+    const note = down ? "Needs Ollama running" : "No embedding models installed";
+    let option = picker.options[0];
+    if (!option) {
+      option = document.createElement("option");
+      option.value = "";
+      option.dataset.placeholder = "1";
+      picker.appendChild(option);
+    }
+    option.textContent = note;
+  }
   picker.title = down
     ? "Ollama is not running, so there are no embedding models to choose from"
     : usingOllama

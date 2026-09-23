@@ -39,6 +39,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The documents live view reads as a page: the text sits in a measure of about
+  75 characters with a margin either side, and the space between blocks comes
+  from one scale (more above a section, less under its heading, one gap
+  however many blank lines were typed).
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label
   prompt no longer deletes it; "Take the label off the line" does.

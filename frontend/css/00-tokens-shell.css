@@ -466,6 +466,16 @@ select optgroup {
      (the recipe most used, so the winner); anything that shows paragraphs in
      a wide column reads this rather than choosing its own. */
   --measure: 54rem;
+  /* **A document's page** (DOCUMENTS_PLAN 17a): the measure its prose is set
+     in and the margin either side of it. The measure is in `ch` so it counts
+     characters of whatever face the editor is drawing in: measured with
+     `scratchpad/ui-sweeps/docpage17.js`, the old 78ch cap put 93 characters
+     of a mixed-alphabet paragraph on a line, past the 60 to 90 the plan's
+     gate allows, and 64ch puts 77. The margin is fluid between a comfortable
+     minimum and 2rem, so the text is never ten pixels from its pane's edge
+     again, which is what 17a measured it at. */
+  --doc-measure: 64ch;
+  --doc-gutter: clamp(var(--space-6), 2.5vw, var(--space-9));
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */

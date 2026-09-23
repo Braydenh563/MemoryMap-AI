@@ -6871,6 +6871,88 @@ function docLivePlugin(CM) {
       }
     }
 
+    //: **The vertical rhythm** (DOCUMENTS_PLAN 17b). Measured before this
+    //: (`scratchpad/ui-sweeps/docpage17.js`): every gap between two blocks was
+    //: the blank line the writer typed, so a paragraph, a heading, a table and
+    //: a fence were all separated by exactly one 25.6px line of nothing, the
+    //: space above a section was the same as the space under it, and two
+    //: blank lines drew twice the gap the rendered view draws. The source's
+    //: blank line is what separates blocks, so it is the blank line that is
+    //: given the gap, from one small scale of tokens:
+    //:
+    //: - `cm-md-gap`: between two blocks, `--space-6`;
+    //: - `cm-md-gap-major` / `-minor`: above an h1 or h2 / an h3 to h6,
+    //:   `--space-9` / `--space-8`, so a section starts visibly apart from
+    //:   the one before it;
+    //: - `cm-md-gap-tight`: under a heading, `--space-3`, so the heading
+    //:   belongs to the text it introduces rather than floating between two;
+    //: - `cm-md-gap-extra`: the second and later blank lines of a run, which
+    //:   the rendered view collapses to one gap and so does this.
+    //:
+    //: **By `line-height`, never by `height`**, and this is the reason the
+    //: caret does not jump. A blank line's only content is the `<br>`, so its
+    //: line height *is* its height, and the caret CodeMirror draws on it is
+    //: that tall: arrowing through a gap moves nothing, and the line grows to
+    //: a text line only when a character is typed into it, which is a
+    //: change the writer made. The one exception is an extra blank line,
+    //: which is zero tall until the caret arrives on it and then takes the
+    //: plain gap, because a caret with no height is a caret nobody can find.
+    //:
+    //: Never inside a fenced block (a blank line in code is code) or the
+    //: frontmatter (hidden above), and only in the documents editor: the note
+    //: editors mount this plugin too, and a note card is not a page.
+    if (view.dom.closest(".doc-editor")) {
+      const fence = (pos) => {
+        for (let node = tree.resolveInner(pos, 1); node; node = node.parent) {
+          if (node.name === "FencedCode") return true;
+        }
+        return false;
+      };
+      const headingLevel = (text) => {
+        const atx = /^ {0,3}(#{1,6})(?:[ \t]|$)/.exec(text);
+        return atx ? atx[1].length : 0;
+      };
+      const blank = (n) => n >= 1 && n <= doc.lines && !doc.line(n).text.trim();
+      const fmEnd =
+        doc.length > 3 && doc.sliceString(0, 4) === "---\n"
+          ? (docFrontmatterParse(source()) || { to: -1 }).to
+          : -1;
+      //: The whole rendered viewport rather than the visible ranges the
+      //: other passes walk: this changes line heights, and a line drawn
+      //: just below the fold at a full line's height would shrink to its gap
+      //: as it scrolled into view, moving the text under the reader's eye.
+      {
+        const first = doc.lineAt(view.viewport.from).number;
+        //: One past the viewport's last line: measured, a document ending in
+        //: a newline reported a viewport ending one character short of its
+        //: length, so its final empty line was drawn and never given a gap.
+        const last = Math.min(doc.lines, doc.lineAt(view.viewport.to).number + 1);
+        for (let n = first; n <= last; n += 1) {
+          if (!blank(n)) continue;
+          const line = doc.line(n);
+          if (line.from <= fmEnd || fence(line.from)) continue;
+          let cls = "cm-md-gap";
+          if (blank(n - 1)) {
+            if (!touched(line.from, line.to)) cls = "cm-md-gap cm-md-gap-extra";
+          } else {
+            let next = n + 1;
+            while (blank(next)) next += 1;
+            const below = next <= doc.lines ? headingLevel(doc.line(next).text) : 0;
+            const above = n > 1 ? doc.line(n - 1).text : "";
+            //: A setext heading's underline is the line above a gap under
+            //: a heading just as surely as a `#` line is.
+            const underHeading =
+              headingLevel(above) ||
+              (/^ {0,3}=+[ \t]*$/.test(above) && n > 2 && !blank(n - 2));
+            if (below === 1 || below === 2) cls = "cm-md-gap cm-md-gap-major";
+            else if (below) cls = "cm-md-gap cm-md-gap-minor";
+            else if (underHeading) cls = "cm-md-gap cm-md-gap-tight";
+          }
+          ranges.push(Decoration.line({ class: cls }).range(line.from));
+        }
+      }
+    }
+
     //: **Properties.** The block is hidden in Live and drawn as the panel
     //: above the editor (`renderDocProperties`), which is the only shape
     //: available: a `Decoration.replace` from a plugin may not contain a line
@@ -14782,6 +14864,14 @@ function docCmTheme(CM) {
         height: "0.6em",
         margin: "0.4em 0",
       },
+      //: The gaps between blocks (17b), one token each; the note beside the
+      //: decoration in `docLivePlugin` says why this is `line-height` and not
+      //: `height`.
+      ".cm-md-gap": { lineHeight: "var(--space-6)" },
+      ".cm-md-gap-major": { lineHeight: "var(--space-9)" },
+      ".cm-md-gap-minor": { lineHeight: "var(--space-8)" },
+      ".cm-md-gap-tight": { lineHeight: "var(--space-3)" },
+      ".cm-md-gap-extra": { lineHeight: "0" },
       //: The callout's kind, in the place its `[!note]` marker was. Set in
       //: `em` so it tracks the editor's own type scale, and in the muted ink
       //: because it labels the block rather than being part of what it says.

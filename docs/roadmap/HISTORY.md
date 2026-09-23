@@ -7,6 +7,61 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-09-23
+
+### From DOCUMENTS_PLAN.md section 17: 17a and 17b, the page and its rhythm (INBOX 392)
+
+The phases as the plan stated them:
+
+- **17a. The page and its measure.** Give the surface a real gutter and a
+  capped measure, and hold both with a probe. The first thing to establish is
+  the one this session could not: `boot()` pins the viewport at 1440, so the
+  behaviour at 1920 and 2560 is unmeasured, and whether the pane is already
+  capped or merely happened to be 794px wide at this width is the first
+  question to answer, not to assume. Gate: the line length stays inside 60 to
+  90 characters at 1280, 1440, 1920 and 2560, the gutter is equal on both
+  sides at each, and no horizontal scroll appears at any of them.
+- **17b. The vertical rhythm.** One spacing scale between a heading and the
+  text under it, between paragraphs, and around a table, a fence and a
+  quotation, taken from the design tokens rather than written per
+  decoration. Gate: every gap between blocks is a token value, proved by
+  reading the computed boxes rather than the stylesheet.
+
+**Built.** Measured first, with `scratchpad/ui-sweeps/docpage17.js` (a
+mixed-alphabet paragraph, characters counted from glyph boxes until the
+line's top moves). The question 17a said to answer first: the editor *was*
+already capped and centred (`max-width: 78ch` on `.cm-editor`), so the
+pane was 1,082px at 1440 and 1,474px at 1920 and 2560 with the column the
+same 774.8px in all of them. What was wrong was inside the cap: 9.6px of
+content padding either side, and 93 characters on a line in the sandbox's
+face, past the gate's 90.
+
+- 17a: two tokens in `00-tokens-shell.css`, `--doc-measure: 64ch` and
+  `--doc-gutter: clamp(var(--space-6), 2.5vw, var(--space-9))`. The prose
+  editor's cap is the measure plus both margins and `.cm-content` takes the
+  gutter as its inline padding (09-editor.css, above 600 only, prose only:
+  a code file keeps its inset beside its line numbers). The properties
+  panel takes the same page so its fields start where the text does.
+  After: 77 characters at 1280, 1440, 1920 and 2560, the margin 32px on both
+  sides of the text inside the editor at each, no horizontal scroll at any.
+  At 820 the 542px pane holds 57 characters with a 20.5px margin, outside
+  the gate's widths and noted rather than forced.
+- 17b: `docLivePlugin` gives every blank line between two blocks a class and
+  the theme gives each class one token as its `line-height`: `cm-md-gap`
+  (`--space-6`), `-major` above an h1 or h2 (`--space-9`), `-minor` above an
+  h3 to h6 (`--space-8`), `-tight` under a heading (`--space-3`), `-extra`
+  for the second and later blank lines of a run (0, and the plain gap while
+  the caret is on it). Line height rather than height, so the caret on a gap
+  is that tall and arrowing through one moves nothing (measured: the content
+  box 963.9px before and after the caret arrived, the caret 19px tall). The
+  whole rendered viewport is decorated, not only the visible ranges, so a
+  line never shrinks as it scrolls into view, plus one line past it because
+  a document ending in a newline reported a viewport one character short.
+  Documents only; the note editors mount the same plugin and a note card is
+  not a page. After: nine gaps in the probe document, every one a token
+  tall (8, 32, 8 and six of 16), no blank line left at 25.6px, no margin
+  between any two lines.
+
 ## Moved from the plans, 2026-09-21
 
 ### From WORLD_CLASS_PLAN.md section 21: every failure names its way out (INBOX 272 part 1)

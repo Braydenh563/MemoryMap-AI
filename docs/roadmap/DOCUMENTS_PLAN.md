@@ -1114,19 +1114,8 @@ compared with.
 
 **Phases, each with the gate it is finished against.**
 
-- **17a. The page and its measure.** Give the surface a real gutter and a
-  capped measure, and hold both with a probe. The first thing to establish is
-  the one this session could not: `boot()` pins the viewport at 1440, so the
-  behaviour at 1920 and 2560 is unmeasured, and whether the pane is already
-  capped or merely happened to be 794px wide at this width is the first
-  question to answer, not to assume. Gate: the line length stays inside 60 to
-  90 characters at 1280, 1440, 1920 and 2560, the gutter is equal on both
-  sides at each, and no horizontal scroll appears at any of them.
-- **17b. The vertical rhythm.** One spacing scale between a heading and the
-  text under it, between paragraphs, and around a table, a fence and a
-  quotation, taken from the design tokens rather than written per
-  decoration. Gate: every gap between blocks is a token value, proved by
-  reading the computed boxes rather than the stylesheet.
+- **17a and 17b: built 2026-09-23.** Moved to HISTORY.md ("Moved from the
+  plans, 2026-09-23"); `scratchpad/ui-sweeps/docpage17.js` is the gate.
 - **17c. The blocks that carry weight.** Tables, fences and quotations are
   the three a reader judges a document by. Each gets one considered
   treatment rather than the minimum that made it render. INBOX 290, the

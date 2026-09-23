@@ -3777,3 +3777,100 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #entry-list > li.selectable {
   user-select: none;
 }
+
+/* --- the page scrollers scroll on the compositor -----------------------------
+   Traced (scratchpad/ui-sweeps/scrolltrace.js, a 30-step wheel scroll at
+   1184x760, the owner's desktop window): RasterTask 2.7 to 3.0s on Notes and
+   1.0s on the Library, against 0.8s and 0.2s with the one change below.
+   Attributed by A/B, one suspect at a time: removing every shadow moved
+   nothing, removing the page's background images took raster to 0.74s. The
+   page's wash (two radial gradients and a linear one, on <html>) sits under
+   scrollers whose own ground is transparent, and on a 1x screen Chromium
+   will not scroll a transparent layer on the compositor, because doing so
+   costs sub-pixel text anti-aliasing: it scrolls on the main thread instead,
+   repainting and re-rasterising the gradients behind every line of text on
+   every frame.
+
+   `will-change: scroll-position` asks for compositor scrolling anyway: the
+   scrolled content is rastered once and moved, and the wash stays. The cost
+   is that text inside these scrollers is grey-scale anti-aliased on a 1x
+   screen rather than sub-pixel (a high-DPI screen already scrolls this way,
+   so nothing changes there). Not verified: how that reads on a 1x Windows
+   display with ClearType, which this sandbox does not have.
+
+   The editor's own scroller is the same case from the other side: typing
+   into a 400-word document re-rasterised the editor behind every keystroke,
+   3.1s over 88 characters, and 0.24s with `.cm-scroller` on this list. */
+main,
+.tab-page,
+.library-view-section,
+#chat-messages,
+.cm-scroller {
+  will-change: scroll-position;
+}
+
+/* The rows' hover transitions stand down while a page scrolls (app.js sets
+   `data-scrolling` on <html> for the length of a scroll gesture; the trace
+   is written there). The rows themselves only: a descendant selector here
+   would restyle every node of every list twice per gesture. */
+:root[data-scrolling] :is(
+  #entry-list > li,
+  .library-card,
+  .doc-list-item,
+  .bookmark-row,
+  .library-image-tile,
+  .timeline-row,
+  .skill-card
+) {
+  transition: none;
+}
+
+/* 19. A Files row's name was muted ink (rgb 102, 100, 95 measured), the
+       colour of the facts under it, so the row had no title; and the name
+       started at x 178 while its facts and its fold started at 191, three
+       left edges in one column. The name is ink, and the column's three
+       blocks share one inset. */
+.library-file-rows .library-image-tile > figcaption {
+  color: var(--ink);
+}
+
+.library-file-rows .library-image-tile > :is(figcaption, .library-file-facts, .library-image-fields) {
+  padding-inline-start: var(--space-2);
+}
+
+/* --- a label that lost its capitals keeps its rank ----------------------------
+   The owner: "there is still missing distinguishing between titles that used
+   to be badges". The first pass set Quiet's section labels in sentence case
+   (the list in "the dashboard and the labels, de-vibecoded" above), which
+   took away the one thing that made them labels: measured, "Background
+   workers" was 12px/600 in muted ink over a 12px muted description, and the
+   Contents index's section name ("Uncategorised") was 13.6px muted over rows
+   of 16px ink, so the heading was the quietest line in its own section.
+
+   Case was carrying the rank; now ink does. A label is small, 600 and in
+   ink, the description under it stays muted and regular, so the two are
+   apart by colour and weight at once (DESIGN.md: weight, colour and case
+   before another size step). Paper and Mono keep their capitals and are
+   untouched. */
+:root[data-palette="utilitarian"] :is(
+  .card h3, .eyebrow, .nav-group-label, .launch-label,
+  #suggested-list .suggested-group-label, .features-group, .reminder-group-head,
+  .dash-widgets-group-label, .connection-heading, .finder-group
+) {
+  color: var(--ink);
+}
+
+/* The Contents index is the one list whose section names are headings over
+   whole sections, so it takes the Timeline's day-head grammar (ink, 600, the
+   accent underline) and its rows step down to the list size, where they had
+   been larger than the heading over them. */
+:root[data-palette="utilitarian"] .contents-heading {
+  color: var(--ink);
+  font-size: var(--text-body);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  box-shadow: inset 0 -2px 0 var(--accent-soft);
+}
+
+.contents-list > li > a {
+  font-size: var(--text-md);
+}

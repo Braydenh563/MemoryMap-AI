@@ -99,9 +99,26 @@ selection to apply the keys to.
 
 ## Performance by trace
 
-Notes scroll (RasterTask about 3.4s over a 30-step wheel scroll at
-1184x760), Library scroll (Layout about 336ms), typing in a long note and a
-long document, opening the Library. Before and after numbers go here.
+`scratchpad/ui-sweeps/scrolltrace.js` (SCENE=notes, library, typing-note,
+typing-doc, library-search, open-library; EXP_CSS for an A/B of one suspect,
+COMPACT=1 for one line). 1184x760, 220 extra seeded notes, 25 documents.
+Before and after are the same script on the same data; ranges are repeat
+runs.
+
+| Scene | Before | After | What it was |
+| --- | --- | --- | --- |
+| Notes, 30-step wheel scroll | raster 2.7 to 3.0s (one run 5.6s), paint 240 to 280ms, commit 320 to 1,460ms, script 530 to 585ms | raster 0.22 to 0.29s, paint 105 to 116ms, commit 120 to 165ms, script 275 to 315ms | the page wash re-rasterised under a transparent scroller that Chromium scrolls on the main thread at 1x (A/B: no background images 0.74s, no shadows no change); each card under the pointer animating its hover border and shadow (A/B: 940 to 280ms) |
+| Library, same scroll | raster 1.04s, script 500ms | raster 0.17 to 0.24s, script 200 to 265ms | the same two; Layout is 10ms (the brief's 336ms was measured before this pass dealt the cards into columns; not an A/B of the same run) |
+| Back-to-top check, per scroll frame | `coversAFormPrimary` 184ms over 84 frames | 12ms | a document-wide descendant selector (1.5ms a call over 10,700 elements) |
+| Menus-open checks, per scroll event | 27ms and 18ms | walked from live collections | `:not(.hidden)` and `[open]` selectors over the document on every scroll event |
+| Typing 88 characters into a 400-word document | style 1,651ms, paint 886ms, layout 344ms, raster 3.25s | style 325 to 369ms, paint 168 to 189ms, layout 156 to 208ms, raster 0.24s | the caret readout's `textContent` write (a node insertion every `:has()` over an ancestor re-checks: 53 subtree invalidations of `.doc-layout` in 20 keys, 14 after); 51 `aria-pressed` writes per key whatever their value; the editor scroller re-rasterised (same cause as Notes) |
+| Typing "design notes" into the Library search | raster 313ms | 109ms | a View Transition of the whole window per keystroke |
+| Typing 88 characters into a note | raster 243ms, input dispatch about 1s | unchanged | CodeMirror's own input handling in a list of 230 notes; found, not fixed |
+| Opening the Library | about 250ms of main thread | unchanged | nothing worth removing found |
+
+Not verified: how grey-scale text in the composited scrollers reads on a 1x
+Windows display with ClearType (the cost of `will-change: scroll-position`
+there); the sandbox has neither.
 
 ## Done
 
@@ -132,6 +149,14 @@ long document, opening the Library. Before and after numbers go here.
   New board, the map icon, refresh, help and the menu need about 450px of a
   358px row); the fix is New board as that sub-tab's own floating action,
   which the Boards sub-tab's rail-overlap rule currently forbids.
+- The owner's "missing distinguishing between titles that used to be
+  badges": Quiet's section labels had lost their capitals and nothing took
+  their place (measured: "Background workers" 12px/600 muted over a 12px
+  muted description; the Contents section name 13.6px muted over 16px ink
+  rows). Labels are ink now, over muted descriptions; Contents section names
+  take the Timeline day-head grammar and its rows step down to `--text-md`.
+  A Files row's name was muted (rgb 102, 100, 95) and 13px left of its
+  facts: ink, one inset. `contrast.js` passes in light and dark.
 - Finding 9 (a board card's date) is not doable client side: `/whiteboard/boards`
   sends no timestamp. Left for a backend step.
 - Finding 11 (the filename band on a picture) is left as it is: it is the

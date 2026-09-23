@@ -3786,8 +3786,16 @@ function inlineActionIs(id, kind) {
 // even when I scroll putting the note I clicked it for off the page"). Any
 // scroll outside the open menu closes it; a scroll inside a long menu is
 // the menu's own and is left alone.
+//: Walked from a live collection rather than asked of the whole document:
+//: this runs on every scroll event on every tab (it is a capturing listener),
+//: nearly always with nothing open, and a `:not(.hidden)` selector over the
+//: app's 10,700 elements was the second-largest script cost of a 30-step
+//: wheel scroll (27ms on the Library). The collection holds only the menus.
+const ACTION_MENUS = document.getElementsByClassName("action-menu");
+
 function closeActionMenusOnScroll(event) {
-  const openMenus = document.querySelectorAll(".action-menu:not(.hidden)");
+  const openMenus = [];
+  for (const menu of ACTION_MENUS) if (!menu.classList.contains("hidden")) openMenus.push(menu);
   if (openMenus.length === 0) return;
 
   // Trackpads send small deltaX values along with deltaY when scrolling vertically.
@@ -23916,10 +23924,15 @@ function clampToolbarMenu(details, { retry = true } = {}) {
 //: anchor-positioning polyfill) and covers the two ways it can happen: the
 //: page scrolls under a sticky toolbar, or the toolbar itself is scrolled
 //: sideways in row mode.
+//: A live collection for the same reason as `ACTION_MENUS`: a capturing
+//: scroll listener on every tab, with nothing open nearly always (18ms of
+//: selector matching over a 30-step scroll, traced).
+const TOOLBAR_MENUS = document.getElementsByClassName("doc-toolbar-menu");
+
 function replaceOpenToolbarMenus() {
-  for (const details of document.querySelectorAll(".doc-toolbar-menu[open]")) {
-    clampToolbarMenu(details);
-  }
+  const open = [];
+  for (const details of TOOLBAR_MENUS) if (details.open) open.push(details);
+  for (const details of open) clampToolbarMenu(details);
 }
 window.addEventListener("resize", replaceOpenToolbarMenus);
 window.addEventListener("scroll", replaceOpenToolbarMenus, true);
@@ -26550,6 +26563,31 @@ function onScrollEdge(event) {
 // hear about the document's own scrolling, which is the one thing this app
 // does not do (the page is its own scroll container, see §36A).
 document.addEventListener("scroll", onScrollEdge, { capture: true, passive: true });
+
+//: **While a list scrolls, its rows change their hover look at once rather
+//: than animating it.** Traced on Notes (a 30-step wheel scroll at
+//: 1184x760): with the pointer resting over the list, every card that slid
+//: under it ran its 120ms hover transition in and out, and a transition of a
+//: card's border or shadow repaints and re-rasterises the whole card every
+//: frame. A/B with the rows' transitions off: raster 940ms to 280ms, paint
+//: 250ms to 100ms. Hover still shows (the row under the pointer still changes
+//: its look); it only stops being animated during the scroll, and the
+//: transitions are back 150ms after the last scroll event. One attribute on
+//: <html>, set on the first event of a gesture and cleared once, so a scroll
+//: costs two style invalidations, not one per frame.
+let pageScrollingTimer = 0;
+document.addEventListener(
+  "scroll",
+  () => {
+    if (pageScrollingTimer) clearTimeout(pageScrollingTimer);
+    else document.documentElement.setAttribute("data-scrolling", "");
+    pageScrollingTimer = setTimeout(() => {
+      pageScrollingTimer = 0;
+      document.documentElement.removeAttribute("data-scrolling");
+    }, 150);
+  },
+  { capture: true, passive: true }
+);
 
 function syncScrollEdges() {
   const page = document.querySelector(".tab-page:not(.hidden)");
@@ -32133,16 +32171,34 @@ function positionScrollTopForNested(button, tab) {
 //: (Discard, Undo, Extract notes), and hiding the back-to-top control every
 //: time one of those drifted underneath would make it flicker in and out on
 //: pages that have no problem at all.
-const FORM_PRIMARY_SELECTOR = [
-  "#capture",
-  "#writing-room",
-  "#ask",
-  ".doc-ai-card",
-  ".extract-card",
-  ".modal-card",
-]
-  .map((scope) => `${scope} button:not(.ghost):not(.icon-only):not(.linklike)`)
-  .join(", ");
+//: **Scopes first, then their buttons, and only the scopes on screen.** This
+//: runs on every scroll frame while the button shows, and it used to be one
+//: descendant selector over the whole document: every button in the app was
+//: matched against six scopes, including the hundreds inside the Settings
+//: dialog, which is in the DOM and hidden nearly all the time. Traced over a
+//: 30-step wheel scroll at 1184x760: this callback was 185ms on the Library
+//: and 203ms on Notes, the largest script cost of the scroll. A scope that is
+//: not rendered (`getClientRects()` is empty) is skipped before any of its
+//: buttons are looked at. And the scopes are found by id and by live
+//: class collections, never by a selector: a `querySelectorAll` of the six
+//: scopes alone measured 1.5ms a call over the app's 10,700 elements, where
+//: the collections below are kept up to date by the engine and cost nothing
+//: to walk (15 elements).
+const FORM_PRIMARY_SCOPE_IDS = ["capture", "writing-room", "ask"];
+const FORM_PRIMARY_SCOPE_CLASSES = ["doc-ai-card", "extract-card", "modal-card"].map((name) =>
+  document.getElementsByClassName(name)
+);
+const FORM_PRIMARY_BUTTON = "button:not(.ghost):not(.icon-only):not(.linklike)";
+
+function formPrimaryButtons() {
+  const out = [];
+  const take = (scope) => {
+    if (scope && scope.getClientRects().length) out.push(...scope.querySelectorAll(FORM_PRIMARY_BUTTON));
+  };
+  for (const id of FORM_PRIMARY_SCOPE_IDS) take(document.getElementById(id));
+  for (const list of FORM_PRIMARY_SCOPE_CLASSES) for (const scope of list) take(scope);
+  return out;
+}
 
 //: `--space-3` is declared in rem and wrapped in the density multiplier, so
 //: it cannot be read as a pixel count directly. Resolving it through a real
@@ -32177,7 +32233,7 @@ function coversAFormPrimary(button) {
   const f = button.getBoundingClientRect();
   if (!f.width || !f.height) return false;
   const pad = spacingPx("--space-3", 8);
-  for (const el of document.querySelectorAll(FORM_PRIMARY_SELECTOR)) {
+  for (const el of formPrimaryButtons()) {
     const s = el.getBoundingClientRect();
     if (!s.width || !s.height) continue;
     //: Off-screen footers cannot be covered, and skipping them keeps this to

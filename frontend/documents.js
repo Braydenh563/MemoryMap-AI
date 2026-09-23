@@ -1464,7 +1464,7 @@ function markDocDirty() {
     return;
   }
   docDirty = true;
-  $("doc-saved").textContent = "Unsaved…";
+  docSetStatusText($("doc-saved"), "Unsaved…");
   clearTimeout(docSaveTimer);
   // Autosave, but not on every keystroke, a pause is the natural moment.
   docSaveTimer = setTimeout(() => saveDocument({ silent: true }), 1200);
@@ -11509,6 +11509,27 @@ function docCaretStats(box) {
   };
 }
 
+//: **A status line's words are changed in place, never replaced.** Traced
+//: while typing into a 400-word document (scratchpad/ui-sweeps/scrolltrace.js,
+//: SCENE=typing-doc): every keystroke restyled the whole editor, 220 elements
+//: at 6 to 9ms a time, and the invalidation tracking named the cause as the
+//: caret readout's `textContent` write. Setting `textContent` removes the
+//: text node and inserts a new one, and an inserted node is a structural
+//: change that every `:has()` rule over an ancestor has to re-check (the
+//: editor sits inside `.card`, which `.card:has(details.dock-menu[open])`
+//: watches), so the check invalidated the `.doc-layout` subtree each time.
+//: Rewriting the existing text node's `data` is not a structural change, and
+//: nothing re-checks.
+function docSetStatusText(el, text) {
+  if (!el) return;
+  const node = el.firstChild;
+  if (node && node.nodeType === Node.TEXT_NODE && !node.nextSibling) {
+    if (node.data !== text) node.data = text;
+  } else if (el.textContent !== text) {
+    el.textContent = text;
+  }
+}
+
 //: The caret half of the status bar: cheap, and so run on every keystroke and
 //: every selection change.
 function renderDocCaret() {
@@ -11533,7 +11554,7 @@ function renderDocCaret() {
           stats.selectedWords === 1 ? "" : "s"
         } selected (${stats.selected.toLocaleString()} char${stats.selected === 1 ? "" : "s"})`
       : ` · ${stats.selected.toLocaleString()} char${stats.selected === 1 ? "" : "s"} selected`;
-  caret.textContent = `Ln ${stats.line}, Col ${stats.column}${selection}`;
+  docSetStatusText(caret, `Ln ${stats.line}, Col ${stats.column}${selection}`);
   //: The breadcrumb follows the caret, so it is drawn from the same stats
   //: rather than from a listener of its own: two things that answer "where am
   //: I" and update on different events are two things that disagree.
@@ -11616,8 +11637,11 @@ function renderDocToolbarState() {
   }
   for (const button of bar.querySelectorAll("button[data-md]")) {
     if (!DOC_TOOLBAR_STATEFUL.has(button.dataset.md)) continue;
-    const on = marks.has(button.dataset.md);
-    button.setAttribute("aria-pressed", on ? "true" : "false");
+    const on = marks.has(button.dataset.md) ? "true" : "false";
+    //: Only on a change: this runs on every keystroke, over 51 buttons (the
+    //: strip and its menus), and an attribute set to the value it already
+    //: had is still a mutation the style engine has to look at.
+    if (button.getAttribute("aria-pressed") !== on) button.setAttribute("aria-pressed", on);
   }
 }
 

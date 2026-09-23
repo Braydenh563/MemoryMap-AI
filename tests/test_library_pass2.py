@@ -119,3 +119,28 @@ def test_selection_keys_stand_down_inside_a_field():
     block = text[text.index("function openSelectionScope") :]
     block = block[: block.index("function renderMarkdown")]
     assert "textarea" in block and "contenteditable" in block
+
+
+# --- the performance work, held by shape (numbers in pass2.md, "Performance
+# by trace"; the trace is scratchpad/ui-sweeps/scrolltrace.js) -------------
+
+CONSISTENCY_CSS = ROOT / "frontend" / "css" / "08-consistency.css"
+DOCUMENTS_JS = ROOT / "frontend" / "documents.js"
+
+
+def test_the_page_scrollers_ask_for_compositor_scrolling():
+    css = CONSISTENCY_CSS.read_text(encoding="utf-8")
+    rule = re.search(r"main,\s*\.tab-page,\s*\.library-view-section,\s*#chat-messages,\s*\.cm-scroller\s*\{\s*will-change: scroll-position;", css)
+    assert rule, "the scrollers lost `will-change: scroll-position` (raster 0.25s to 2.8s on a Notes scroll)"
+
+
+def test_the_caret_readout_rewrites_its_text_in_place():
+    text = DOCUMENTS_JS.read_text(encoding="utf-8")
+    caret = _function_source(text, "renderDocCaret")
+    assert "docSetStatusText(caret" in caret and "caret.textContent =" not in caret
+
+
+def test_the_back_to_top_check_never_matches_the_whole_document():
+    text = APP_JS.read_text(encoding="utf-8")
+    body = _function_source(text, "formPrimaryButtons")
+    assert "document.querySelectorAll" not in body

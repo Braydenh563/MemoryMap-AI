@@ -25,11 +25,15 @@ server on 8798 (`FAKE_STYLE=markdown FAKE_DELAY_MS=30`).
    style with a clock icon. `pills.js` 90 to 5 (allowed). Screens after in
    light and dark, before in light only (`/tmp/a2-scratch/shots`).
 
+3c. Board card date: `updated_at` on `GET /whiteboard/boards` (the later of
+   the note's edit and the last node, sketch or object written), drawn as the
+   Library card foot's `.library-card-when` (relative, full time on hover),
+   not `ph:calendar-blank`: that icon is the note meta's in-text date chip,
+   and the board's neighbours in the Library print their time without one.
+   `seed-libtext.js` reads `filename` (the upload answer's field).
+
 ## Remaining, in order
 
-3. Library leftovers: board cards show no date (`updated` on the boards API, rendered like
-   the notes cards' date); `scratchpad/seed-libtext.js` writes "undefined"
-   alt text.
 4. From `openitems.md` "For the orchestrator": board card Phase 8c, the
    templates preview, the outline row height. Measure each first.
 

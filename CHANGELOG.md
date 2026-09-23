@@ -43,6 +43,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Library, Boards & maps: a board or map card says when it last changed (the later of its own edit and the last thing drawn on it), like every other Library card.
 - Fewer pills: the Library's kind row, the Boards filter, Reminders' Open/All/Done, the Write tab's starters and the dashboard's Jump to row are drawn with a button's corner; category, tag and fact chips with a small one; the dashboard's skill buttons lose their dashed edge; chips no longer rise on hover. On Ask, "Ask again" and "Try asking" questions are one style, a past question marked by a clock.
 - Library, Boards & maps on a phone: the dock is two rows like every other Library dock (was four, 198px to 114px at 390); New mind map and Reload move into the dock's menu there and back out on a wider window.
 - Segmented controls round their corners from one table: a choice control, a tab strip, a control inside a bar, the chat dock's pills and the one full-bleed strip; the OCR rail's Images, Files and Pages switch and the radio-backed toggles outside a bar now match the rest.

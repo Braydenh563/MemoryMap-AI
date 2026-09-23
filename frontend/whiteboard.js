@@ -18368,7 +18368,23 @@ async function renderLibraryBoardsGallery() {
     // surface that says it, `mapCountLabel` in app.js. It used to be nine
     // lines here and four in the dashboard's own widget, which is how the two
     // came to disagree about what to call a map's objects.
-    meta.textContent = mapCountLabel(board);
+    const count = document.createElement("span");
+    count.textContent = mapCountLabel(board);
+    meta.appendChild(count);
+    //: **When it last changed**, which every other Library card says and this
+    //: one did not (pass2.md, Remaining 2: `/whiteboard/boards` sent no time).
+    //: Drawn exactly as the Library's own card foot draws it
+    //: (`.library-card-when` in library.js: relative, the full time on hover),
+    //: so a board and a document side by side in the Library read the same
+    //: way. `updated_at` is the later of the note's edit and the last thing
+    //: drawn on the board (`list_boards`).
+    if (board.updated_at) {
+      const when = document.createElement("span");
+      when.className = "library-card-when";
+      when.textContent = relativeTime(board.updated_at);
+      when.title = `Changed ${(parseServerTime(board.updated_at) || new Date(board.updated_at)).toLocaleString()}`;
+      meta.appendChild(when);
+    }
 
     // **A thumbnail of the board itself**, rather than the same icon on every
     // card. Asked for directly: the Boards & maps sub-tab is "boring and

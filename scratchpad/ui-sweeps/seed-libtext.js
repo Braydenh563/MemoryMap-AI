@@ -73,11 +73,14 @@ function onePagePdf(title) {
     // One reference each for the first image and the first file, so "Used in
     // 1 place" is a real count rather than a staged string.
     const refs = [];
+    //: `POST /media/upload` answers `{id, url, filename}`; `original_name` is
+    //: the listing's field (`MediaUploadOut`), so reading it here wrote
+    //: `![undefined](...)` into every seeded note (pass2.md, Remaining 6).
     for (const up of [shots[0], files[0]]) {
       if (up && up.url) {
         const r = await api('/entries', {
           method: 'POST',
-          body: JSON.stringify({ content: `# Where this came from\n\n![${up.original_name}](${up.url})`, tags: ['library'] }),
+          body: JSON.stringify({ content: `# Where this came from\n\n![${up.filename || up.original_name || 'Attached file'}](${up.url})`, tags: ['library'] }),
         });
         refs.push(r.status);
       }

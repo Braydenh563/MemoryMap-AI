@@ -34,15 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-398. **The owner, 2026-09-23 night, verbatim.** "Ok your guided tour fix
-    worked! though If I want to do the other sections of the tour, I have to
-    go into the help settings and click the other tour section buttons, and
-    they dont guide me through the other main features." Two asks: the
-    sections should chain (the last card of one offers the next), and every
-    main feature should have a section that walks into it rather than
-    pointing at its tab button. Owner: the tourdepth agent
-    (`agent-remaining/tourdepth.md`).
-
 397. **The owner, 2026-09-23 night, verbatim, from the desktop window with a
     screenshot.** "I pressed next on the first panel of the guided tour, and
     it dissappeared while keeping the page dimmed and pushed the top bar down

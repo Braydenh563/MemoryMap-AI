@@ -15859,7 +15859,10 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
             if (sketch._liveD) {
               const finalD = sketch._liveD;
               delete sketch._liveD;
-              await wbSaveSketchD(sketch, finalD);
+              //: A stretch of a turned shape is a new shape: turning it back
+              //: by the old angle would give a skewed one, not an upright one,
+              //: so the kept turn goes with the resize.
+              await wbSaveSketchProps(sketch, { d: finalD, turned: 0 });
               if (before) wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
             }
             wbScheduleRender();
@@ -16849,8 +16852,8 @@ const WB_OBJECT_MIN_SIZE = 40;
 //: shape bakes its turn into its path (see the sketch rotate grip), so it
 //: keeps a running total of the turns it was given in `turned` and is
 //: rotated back by that much about its own centre. A shape turned before
-//: `turned` existed has nothing to go back by, and says so rather than
-//: guessing. A group's grip is not here: a group has no angle of its own,
+//: `turned` existed, or resized since (see the resize grip), has nothing to
+//: go back by, and says so rather than guessing. A group's grip is not here: a group has no angle of its own,
 //: only members that were each turned about its centre.
 async function wbResetRotation(grip) {
   const el = grip.closest(".node-card, .wb-object");
@@ -16872,7 +16875,7 @@ async function wbResetRotation(grip) {
   if (!parsed) return;
   const turned = Number(parsed.turned) || 0;
   if (!turned) {
-    toast("This shape was turned before its angle was kept: turn it back by hand.");
+    toast("This shape has no turn to take back: it is upright, or was resized or turned before its angle was kept.");
     return;
   }
   const box = wbPathBBox(parsed.d);

@@ -3292,6 +3292,14 @@ function indentDocSelection(box, outdent) {
   if (!multiline && !outdent) {
     const at = box.selectionStart;
     docReplaceRange(box, at, box.selectionEnd, unit);
+    //: **After the indent, said rather than assumed.** The textarea's
+    //: `insertText` leaves the caret after what it inserted; the engine's
+    //: `replaceRange` maps a caret sitting exactly at the insertion point to
+    //: *before* it. Measured 2026-09-23 in both a code and a markdown
+    //: document: Tab then "a" at the start of `int x;` gave `a    int x;`,
+    //: so every Tab in the editor since the engine landed put the next
+    //: keystroke on the wrong side of the indent it had just made.
+    box.setSelectionRange(at + unit.length, at + unit.length);
     markDocDirty();
     renderDocGutter();
     return;
@@ -15815,6 +15823,8 @@ function docCodeTools(CM) {
     //: would switch off the scope-aware completion the JavaScript and
     //: Python packages bring.
     native ? [] : docCodeCompletionData(CM),
+    //: Pairs, Enter and the indent unit (`docCodeEditing`, below).
+    docCodeEditing(CM, type),
   ];
 }
 
@@ -17047,6 +17057,87 @@ function docIndentMixFixes(text, unit, tabWidth, ext = null) {
   }));
 }
 // DOC-CODE-END
+
+// --- the editor half: pairs, Enter and the indent unit ----------------------
+//
+// **Pairs.** CodeMirror's own `closeBrackets`, which the bundle has always
+// carried and this editor never mounted: typing `"` gives `""` with the caret
+// between, `(` `[` `{` likewise, typing the closer it inserted steps over it,
+// Backspace between an empty pair takes both, and a pair typed over a
+// selection wraps it. Which characters pair is the language's own answer:
+// the JavaScript, TypeScript, Python, CSS and HTML packages each declare
+// theirs (backticks, triple quotes, string prefixes); for the rest this says,
+// through the same language-data facet, so a Rust lifetime `'a` is not closed
+// into `'a'` and Go's raw-string backtick is.
+//
+// **Enter.** The same packages indent from their grammars. The other
+// seventeen types have a line-at-a-time highlighter, or nothing, and
+// CodeMirror's fallback is "copy the line above's indent", which is why
+// `{` then Enter in a C file gave `{`, a blank line at the same depth, and
+// `}` beside the caret. `docCodeIndentAt` answers from the structure scan
+// instead, so the three-line split every code editor does (`{`, the caret
+// one unit in, `}` back at the opener's depth) happens for every code type,
+// and a typed `}` snaps back to its opener through `indentOnInput`.
+//
+// **Tab** is unchanged, on purpose: `indentDocSelection` already indents the
+// caret or the selected lines by the file type's own unit and Shift+Tab takes
+// it back, in code and prose alike, with Escape then Tab as the way out of
+// the editor (`docTabEscapes`). The unit below is that same `type.indent`, so
+// Enter, Tab and the formatter all indent by one amount.
+
+//: The types whose indentation this file answers, because the bundle has no
+//: grammar for them that could: every code type except the five with Lezer
+//: grammars (and YAML and JSON, whose packages indent) and Ruby and XML,
+//: whose legacy modes do indent by their own keywords and tags.
+const DOC_CODE_INDENT_OWN = new Set(["c", "cpp", "cs", "java", "kt", "go", "rs", "swift", "php", "r", "sql",
+  "bash", "toml", "ini"]);
+
+//: The packages that bring their own pairs and their own indent-on-input.
+const DOC_CODE_NATIVE = new Set(["js", "ts", "py", "css", "html"]);
+
+//: What auto-closes, for the types whose package does not say. A single
+//: quote is a lifetime in Rust and not a string in Swift; a backtick is a raw
+//: string in Go, a command in shell and an identifier in SQL and R.
+function docCodePairs(ext) {
+  if (ext === "rs" || ext === "swift") return ["(", "[", "{", '"'];
+  if (ext === "json") return ["[", "{", '"'];
+  if (["go", "bash", "sql", "r", "rb"].includes(ext)) return ["(", "[", "{", "'", '"', "`"];
+  return ["(", "[", "{", "'", '"'];
+}
+
+//: The indent service. Asked for a line's indent in columns; answers from the
+//: structure scan for the types above and passes (undefined) for the rest, so
+//: a grammar that knows better is never overruled. `null` means "inside a
+//: string or a comment", where the editor then keeps the line above's indent.
+function docCodeIndentAt(cx, pos) {
+  const ext = docFileType().ext;
+  if (!DOC_CODE_INDENT_OWN.has(ext) || docView === "plain") return undefined;
+  const doc = cx.state.doc;
+  //: The scan is linear, measured at a few milliseconds for a long file;
+  //: past the checker's own cap it is not worth a keystroke.
+  if (doc.length > DOC_CHECK_MAX_CHARS) return undefined;
+  const level = docCodeIndentLevel(doc.sliceString(0, pos), cx.textAfterPos(pos, 1), ext);
+  if (level === null || level === undefined) return null;
+  return level * cx.unit;
+}
+
+//: Pairs, Enter and the unit, for the open code document. Part of
+//: `docCodeTools`, so it is in the same compartment and follows the file
+//: type and Plain the same way the diagnostics do.
+function docCodeEditing(CM, type) {
+  const ext = type.ext;
+  const parts = [
+    CM.language.indentUnit.of(type.indent || "  "),
+    CM.autocomplete.closeBrackets(),
+    CM.view.keymap.of(CM.autocomplete.closeBracketsKeymap),
+  ];
+  if (!DOC_CODE_NATIVE.has(ext)) {
+    const data = [{ closeBrackets: { brackets: docCodePairs(ext) }, indentOnInput: /^\s*[}\])]$/ }];
+    parts.push(CM.state.EditorState.languageData.of(() => data));
+  }
+  if (DOC_CODE_INDENT_OWN.has(ext)) parts.push(CM.language.indentService.of(docCodeIndentAt));
+  return parts;
+}
 
 function docCmExtensions(CM) {
   const type = docFileType();

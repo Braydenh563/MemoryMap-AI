@@ -360,3 +360,41 @@ def test_every_message_is_sentence_case_with_no_exclamation():
             assert d["message"][0].isupper() and "!" not in d["message"]
             for name, _ in d["fixes"]:
                 assert name[0].isupper() and "!" not in name
+
+
+# --- the wiring, which the suite can only read -------------------------------
+
+
+def _source() -> str:
+    return DOCUMENTS_JS.read_text(encoding="utf-8")
+
+
+def _function(name: str) -> str:
+    text = _source()
+    start = text.index(f"function {name}(")
+    return text[start : text.index("\n}\n", start)]
+
+
+def test_pairs_and_the_indent_service_are_mounted_for_code_only():
+    """`docCodeEditing` is reached only through `docCodeTools`, which returns
+    nothing for prose, plain text, CSV and Plain view: a `"` typed into a
+    markdown document is a quotation mark, not the start of a string."""
+    tools = _function("docCodeTools")
+    assert "docCodeEditing(CM, type)" in tools
+    assert "type.previewable" in tools and 'docView === "plain"' in tools
+    editing = _function("docCodeEditing")
+    for piece in ("closeBrackets()", "closeBracketsKeymap", "indentUnit.of(type.indent",
+                  "indentService.of(docCodeIndentAt)"):
+        assert piece in editing, piece
+    #: Mounted nowhere else, so there is one place pairs are decided.
+    assert _source().count("closeBrackets()") == 1
+
+
+def test_tab_leaves_the_caret_after_the_indent_it_inserts():
+    """The engine's `replaceRange` maps a caret at the insertion point to
+    before it; the plain-Tab branch has to put it after, or the next key
+    lands on the wrong side of the indent (measured 2026-09-23)."""
+    body = _function("indentDocSelection")
+    branch = body[body.index("if (!multiline && !outdent) {"):]
+    branch = branch[: branch.index("return;")]
+    assert "setSelectionRange(at + unit.length, at + unit.length)" in branch

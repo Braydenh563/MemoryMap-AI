@@ -33128,3 +33128,10 @@ measured, so nobody rebuilds them.
     surface, so DOCUMENTS_PLAN or a Placed from INBOX row in
     UI_MODERNISATION_PLAN.
 
+### From OPEN.md, 2026-09-23 (Chat and popup agent)
+
+- The Agent activity panel closes on Escape when focus is inside it (only
+  from inside: the panel is non-modal). `.monitor-runs` no longer overflows:
+  the panel's rows went from 96 to 57px in the same session's panel redesign
+  (24c6987), so three runs sit inside the 200px cap.
+

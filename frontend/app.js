@@ -47334,6 +47334,15 @@ if (agentMonitorClose) {
     agentMonitorPinned = false;
     setAgentMonitorVisible(false);
   });
+  //: Escape closes it when focus is inside it, as it closes every other
+  //: floating surface (OPEN.md, Chat and popup agent). Only from inside: the
+  //: panel is non-modal and never takes focus, so an Escape meant for the
+  //: editor behind it must not also dismiss it.
+  agentMonitor.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    event.preventDefault();
+    agentMonitorClose.click();
+  });
 }
 
 function appendAgentLog(record) {

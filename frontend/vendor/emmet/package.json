@@ -1,0 +1,14 @@
+{
+  "name": "memorymap-emmet-bundle",
+  "private": true,
+  "description": "Pins the Emmet core bundled into emmet.min.js; see build.sh.",
+  "dependencies": {
+    "@emmetio/abbreviation": "2.3.3",
+    "@emmetio/css-abbreviation": "2.1.8",
+    "@emmetio/scanner": "1.0.4",
+    "emmet": "2.4.11"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

@@ -71,7 +71,7 @@ const TOUR_SECTIONS = [
         target: "#ai-status",
         side: "top",
         title: "Atlas, on this machine",
-        text: "This dot says what the local model is doing. Nothing you write is ever sent anywhere.",
+        text: "This dot says what the local model is doing. It runs on this computer, so your notes are never sent away to be read.",
       },
       {
         target: "#settings-btn",

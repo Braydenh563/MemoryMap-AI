@@ -94,6 +94,18 @@ long document, opening the Library. Before and after numbers go here.
   with a hole on the right); 0 "Uncategorised" feet (was 11); 0 file tiles
   holding a `.media-missing` placeholder (was 3); row titles 14.7px/600 in
   Documents, Files and Links (were 16, 13.6 and 13.6/500).
+- Findings 15, 16, 17, 20, 21, 22 and the owner's two badge quotes
+  (commit "Library second pass: skills, Contents, chips with an edge,
+  timeline facts"). Measured after: a skill title 16px (was 12px, the
+  `.card h3` eyebrow recipe), one filled button on the skills page (was
+  seven), the workers are `label.setting-check` (were accent pills); the
+  Contents labels start at one x per column (87, 544, 1001; one row was
+  pushed right by a 170px missing-image box); the jump chip has no glow and
+  ink at 500. A survey of every visible `.chip` across seven tabs found
+  four kinds still drawn as a 5% ground with no edge (skill facts, a
+  file's "Used in", the jump chips, the read state): three carry a
+  hairline edge now, the read state is text. Timeline rows: category with
+  its dot, #tags, Uncategorised left out.
 - Finding 9 (a board card's date) is not doable client side: `/whiteboard/boards`
   sends no timestamp. Left for a backend step.
 - Finding 11 (the filename band on a picture) is left as it is: it is the

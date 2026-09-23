@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Library, second pass continued: skill cards title at card size (the eyebrow rule had set them at 12px), Built-in as a small label, Run as a ghost button so New skill is the one filled button, and the background workers as the settings switches; the skill log's Clear rests disabled with nothing to clear; the Contents index names a note by its heading, keeps its labels on one edge, and its jump chips lose the accent tint; chips that are still chips carry a hairline edge in the flat looks so they read on a white card; a failed thumbnail (dashboard, Contents, chat sources, timeline) is hidden instead of drawing the missing-image box in its slot; timeline rows show the category with its colour dot and tags as #tag, and leave Uncategorised out.
 - With glass on, the status bar is glass like the top bar instead of an opaque strip.
 - Lock screen: a real title, the password field at body size and the Unlock button as wide as the field.
 - Notifications: the panel is wide enough for its activity picker, and in the flat looks an unread row is marked with a dot instead of a coloured left edge; the palette no longer paints a hovered row like the chosen one.

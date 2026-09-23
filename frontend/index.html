@@ -7660,7 +7660,9 @@
             <textarea id="skill-prompt" rows="2" maxlength="2000"
               placeholder="What it should do, e.g. Summarise everything I saved this week."></textarea>
             <label class="muted" for="skill-steps">Steps: one per line, in order (optional)</label>
-            <textarea id="skill-steps" rows="3"
+            <!-- Four rows: the three-line example plus the "/" hint editor.js
+                 appends as a fourth line; at three the hint was cut in half. -->
+            <textarea id="skill-steps" rows="4"
               placeholder="Find my notes tagged {{tag}}&#10;Give each one a category&#10;Tell me what you filed"></textarea>
             <label class="muted" for="skill-inputs">Ask me for: one per line, as <code>name</code> or <code>name: question</code> (optional)</label>
             <textarea id="skill-inputs" rows="2"

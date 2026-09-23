@@ -43,6 +43,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The skill editor's Steps box is tall enough for its example and hint; the
+  last line was cut in half.
 - The guided tour can no longer leave the page dimmed with no card: a step
   that fails shows its card centred, a card off the window or behind
   something is re-centred, the page is kept from scrolling under it, and

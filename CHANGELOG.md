@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The whiteboard context bar's "More" menu opens against the bar in a short
+  window. When neither side of the bar held the whole menu it was pinned
+  wherever it fitted, which at 947x608 (the 1184x760 window at 125% zoom) put
+  it over the bar it came from, 86px from either edge. It now takes the side
+  with more room, ends 2px from the bar's edge and scrolls inside that height.
+  The Size field and the bar's centre line were measured and already right on
+  this head (Size shows "16" and "128" whole in its 62px; every control
+  centred on one line, 0px spread).
 - Library, Images: a "Kinds" menu beside the search box shows sketches,
   uploaded images or both, and the sort applies to whatever is left. A
   sketch is the PNG the sketch pad saves as `sketch-<stamp>.png`; each kind's

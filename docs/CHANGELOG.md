@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A file's menu in the Library offers Ask Atlas about this, like every other
+  object's menu; the reminder menu's entry uses the same icon as the rest.
 - Files: a description or reading typed while the automatic one was still being written is no longer overwritten when the automatic one lands.
 - Empty states: the Timeline's sits centred in its card instead of at the foot under a blank body, and the Graph's action button is its own width instead of spanning the map.
 - Dashboard: an empty notebook no longer shows a strip of zeros above the welcome card; the figures appear with the first note or reminder.

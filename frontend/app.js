@@ -27288,7 +27288,7 @@ function reminderItem(reminder, label) {
     menuItems.push({ label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" });
   }
   menuItems.push(
-    { label: "ph:sparkle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
+    { label: "ph:chat-circle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
     {
       label: "ph:copy Copy text",
       run: async () => {

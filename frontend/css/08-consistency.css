@@ -3744,12 +3744,14 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 /* 17. The Boards & maps dock at a phone's width was four rows (198px): the
        title, then New board and New mind map, then refresh, help and the
-       menu, then search. "New mind map" keeps its icon and hides its word
-       there, the `.toolbar-word` recipe (DESIGN.md: hidden, not dropped, the
-       title still names it for a pointer), and the actions fit the title's
-       row. */
+       menu, then search. New mind map and refresh fold into the ⋯ there
+       (`foldDockActions`, app.js), and New board keeps its icon and hides
+       its word, the `.toolbar-word` recipe (DESIGN.md: hidden, not dropped;
+       its aria-label and title still name it), so the title, New board, help
+       and the ⋯ share the title's row: 114px, the other Library docks'
+       height. */
 @media (max-width: 599.98px) {
-  #wb-boards-new-map .toolbar-word {
+  #wb-boards-new .toolbar-word {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -3762,12 +3764,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     border: 0;
   }
 
-  #wb-boards-new-map {
+  #wb-boards-new {
     width: var(--target-min);
     padding-inline: 0;
   }
 
-  #wb-boards-new-map > .ph-lead {
+  #wb-boards-new > .ph-lead {
     margin-inline-end: 0;
   }
 }

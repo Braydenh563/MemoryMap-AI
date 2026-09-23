@@ -42409,6 +42409,74 @@ function initDockFolding() {
 }
 
 initDockFolding();
+
+//: **The second fold: a dock's secondary actions, at a phone's width.**
+//: The Boards & maps dock was four rows and 198px at 390, where every other
+//: Library dock is two rows and 114px (pass2.md, Remaining 1). Its title and
+//: its actions need about 480px of a 309px row: New board, New mind map,
+//: refresh, help and the ⋯. The arrange fold above has already emptied the
+//: arrange zone into the ⋯, so what is left is actions, and the grammar says
+//: which of them a narrow row keeps: the one primary, help, and the ⋯ that
+//: holds everything else.
+//:
+//: An action marked `data-fold-narrow` moves into its dock's ⋯ below 600px
+//: and back out above it, by the rule the arrange fold is held to: moved, not
+//: cloned, and never hidden, so it keeps its id, its handler and its title.
+//: In the menu it is a menu row (`.doc-dock-menu-item`), and an icon-only
+//: control gets its accessible name written beside its icon, since a row of
+//: bare icons in a list is a row of guesses.
+const DOCK_ACTIONS_FOLD_BELOW = "(max-width: 599.98px)";
+
+function foldDockActions(fold) {
+  for (const dock of document.querySelectorAll(".dock[data-dock-name]")) {
+    const menu = dock.querySelector(":scope > .dock-actions > .dock-more > .dock-menu-list");
+    if (!menu) continue;
+    if (fold) {
+      const moving = [...dock.querySelectorAll(":scope > .dock-actions > [data-fold-narrow]")];
+      let after = null;
+      for (const control of moving) {
+        const slot = document.createElement("span");
+        slot.className = "dock-action-slot";
+        slot.hidden = true;
+        slot.dataset.for = control.id;
+        control.replaceWith(slot);
+        control.dataset.rowClass = control.className;
+        control.className = "doc-dock-menu-item dock-folded-action";
+        if (!control.querySelector(".toolbar-word, .dock-folded-word")) {
+          const word = document.createElement("span");
+          word.className = "dock-folded-word";
+          word.textContent = control.getAttribute("aria-label") || control.title || "";
+          control.append(" ", word);
+        }
+        if (after) after.after(control);
+        else menu.prepend(control);
+        after = control;
+      }
+    } else {
+      for (const control of menu.querySelectorAll(":scope > .dock-folded-action")) {
+        const slot = dock.querySelector(`:scope > .dock-actions > .dock-action-slot[data-for="${control.id}"]`);
+        if (!slot) continue;
+        control.className = control.dataset.rowClass || "";
+        delete control.dataset.rowClass;
+        control.querySelector(":scope > .dock-folded-word")?.remove();
+        //: The space `append(" ", word)` put before the word, left behind as
+        //: a trailing text node that would widen the icon button by a glyph.
+        if (control.lastChild?.nodeType === Node.TEXT_NODE && !control.lastChild.data.trim()) {
+          control.lastChild.remove();
+        }
+        slot.replaceWith(control);
+      }
+    }
+  }
+}
+
+function initDockActionFolding() {
+  const query = window.matchMedia(DOCK_ACTIONS_FOLD_BELOW);
+  foldDockActions(query.matches);
+  query.addEventListener("change", (event) => foldDockActions(event.matches));
+}
+
+initDockActionFolding();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
 // Used to reopen on whichever tab was last active, with only the very

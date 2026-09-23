@@ -122,7 +122,7 @@ there); the sandbox has neither.
 
 ## Remaining (found, not fixed)
 
-1. Boards & maps dock at 390 is still 198px (four rows): needs New board as
+1. **Fixed 2026-09-23 (askcite)**: 114px via `foldDockActions`. Was: Boards & maps dock at 390 is still 198px (four rows): needs New board as
    that sub-tab's floating action, which the rail-overlap rule in
    07-whiteboard-misc.css currently forbids.
 2. A board card has no date: `/whiteboard/boards` sends no timestamp (a

@@ -15,10 +15,18 @@ server on 8798 (`FAKE_STYLE=markdown FAKE_DELAY_MS=30`).
    `segradius.js` 0 off-table across 28 tracks. The toolbar toggles keep the
    bar's corner (one corner per row), not folded; reason in HISTORY.
 
+3a. Boards & maps dock at 390: 198px to 114px (`libdocks390.js`, all eight
+   Library docks 114px). `foldDockActions` (app.js) moves a dock action
+   marked `data-fold-narrow` into the dock's menu below 600px; New board
+   keeps its icon there. Unfold on resize measured (1440 row restored).
+
 ## Remaining, in order
 
-3. Library leftovers: Boards & maps dock 198px tall at 390px (one compact
-   row); board cards show no date (`updated` on the boards API, rendered like
+0. INBOX 394 (h) pills and (a) Ask chips, from the coordinator: extend the
+   radius table to navigation rows, action chips, the dashed skill pills and
+   filter chips; lint no `--radius-pill` on buttons outside an allowlist;
+   one style for "Ask again" and "Try asking". Screens light and dark.
+3. Library leftovers: board cards show no date (`updated` on the boards API, rendered like
    the notes cards' date); `scratchpad/seed-libtext.js` writes "undefined"
    alt text.
 4. From `openitems.md` "For the orchestrator": board card Phase 8c, the

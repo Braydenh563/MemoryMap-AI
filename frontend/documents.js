@@ -2131,6 +2131,8 @@ const DOC_COMMANDS = [
   //: their wording as being for code.
   { id: "format", icon: "ph:brackets-curly", label: "Format the code, or the selected lines", keys: "Shift+Alt+F",
     code: true, run: () => docRunControl("doc-code-format", "Formatting") },
+  { id: "quick-fix", icon: "ph:wrench", label: "Quick fixes for the problem at the caret", keys: "Alt+Enter",
+    code: true, run: () => docOpenCodeFixes() },
 ];
 
 // DOC-COMMANDS-END
@@ -14857,6 +14859,25 @@ function docCmTheme(CM) {
       ".cm-diagnostic-warning": { borderLeftColor: "var(--warn)" },
       ".cm-diagnostic-info, .cm-diagnostic-hint": { borderLeftColor: "var(--accent)" },
       ".cm-tooltip-lint": { padding: "0", borderRadius: "var(--radius-sm, 6px)" },
+      //: A quick fix on the hover card. The library's own is white on a
+      //: fixed dark grey, a black slab on this app's light page; here it is
+      //: the quiet tinted button, on its own line under the message it
+      //: answers, with the accent edge on hover and on keyboard focus.
+      ".cm-diagnosticAction": {
+        font: "inherit",
+        fontSize: "var(--text-sm)",
+        color: "var(--text)",
+        backgroundColor: "var(--accent-soft)",
+        border: "none",
+        borderRadius: "var(--radius-sm, 6px)",
+        padding: "var(--space-1) var(--space-3)",
+        margin: "var(--space-2) var(--space-2) 0 0",
+        cursor: "pointer",
+      },
+      ".cm-diagnosticAction:hover, .cm-diagnosticAction:focus-visible": {
+        boxShadow: "inset 0 0 0 1px var(--accent)",
+        outline: "none",
+      },
       //: **Opaque, where the tooltip above is glass.** `--card` is 55%
       //: opaque (measured through `doccode.js`), which is right for a panel
       //: over the page's own ground and wrong for a box of words laid over
@@ -15747,15 +15768,68 @@ async function docRemoteDiagnostics(ext, doc) {
 //: The one lint source, dispatching on the open file's type at the moment it
 //: runs rather than when the extension was built, so a type change between
 //: two checks is answered by the new type.
+//:
+//: **With the fixes attached** (the quick fixes, further down this file).
+//: Each checker's diagnostics carry the fixes that follow from them as
+//: CodeMirror actions, which the hover card draws as buttons and Alt+Enter
+//: lists at the caret. For the languages no checker here parses (C, Java, Go,
+//: Rust and the rest of `DOC_CHECK_SCAN`) the structure scan is the check: a
+//: bracket that closes nothing, one never closed, a string or a comment left
+//: open. For JavaScript, TypeScript and CSS the tree still decides *whether*
+//: there is an error and the scan is asked only then, for *which bracket*
+//: and how to fix it, so a construct the scan does not know (a regex it
+//: misreads) can never underline valid code. And for every code type, a note
+//: where the indentation mixes tabs and spaces.
 function docCodeLintSource(CM) {
   return async (view) => {
-    const ext = docFileType().ext;
-    if (ext === "json") return docJsonDiagnostics(view.state.doc);
-    if (DOC_CHECK_TREE.has(ext)) return docTreeDiagnostics(CM, view.state);
-    if (DOC_CHECK_REMOTE.has(ext)) return docRemoteDiagnostics(ext, view.state.doc);
-    return [];
+    const type = docFileType();
+    const ext = type.ext;
+    const state = view.state;
+    const text = state.doc.toString();
+    const unit = type.indent || "  ";
+    let found = [];
+    if (ext === "json") {
+      found = docJsonDiagnostics(state.doc);
+      if (found.length) {
+        const fixes = docJsonFixes(text, docJsonErrorAt(text), unit);
+        found = found.map((d) => ({
+          ...d,
+          actions: fixes.map((fix) => ({
+            name: fix.name,
+            apply: (v, from) => docApplyCodeFix(v, "json", "json", fix.name, from),
+          })),
+        }));
+      }
+    } else if (DOC_CHECK_TREE.has(ext)) {
+      found = docTreeDiagnostics(CM, state);
+      if (found.length && !(ext === "js" && docTreeHasJsx(CM, state))) {
+        const scanned = docCodeFixes(text, ext, unit);
+        if (scanned.length) found = docCodeActions("scan", scanned);
+      }
+    } else if (DOC_CHECK_REMOTE.has(ext)) {
+      found = await docRemoteDiagnostics(ext, state.doc);
+      if (ext === "py") {
+        //: The compiler's "expected ':'" has one fix, and it is certain.
+        found = found.map((d) => {
+          if (!/expected ':'/.test(d.message)) return d;
+          const fix = docPythonColonFix(text, state.doc.lineAt(d.from).number);
+          if (!fix) return d;
+          return { ...d, actions: [{ name: fix.name, apply: (v, from) => docApplyCodeFix(v, "py-colon", "", fix.name, from) }] };
+        });
+      }
+    } else if (DOC_CHECK_SCAN.has(ext)) {
+      found = docCodeActions("scan", docCodeFixes(text, ext, unit));
+    }
+    return found.concat(docCodeActions("indent-mix", docIndentMixFixes(text, unit, state.tabSize, ext)));
   };
 }
+
+//: The languages the structure scan checks, because nothing else in the
+//: bundle or on the server parses them. Shell, Ruby, TOML's neighbours and
+//: the rest are left out: their quoting and bracket rules are loose enough
+//: (a shell `case` pattern's lone `)`) that a scan would underline valid
+//: files, and an underline under valid code teaches a reader to ignore them.
+const DOC_CHECK_SCAN = new Set(["c", "cpp", "cs", "java", "kt", "go", "rs", "swift", "php", "r", "sql"]);
 
 //: The words each language reserves, for the languages whose grammar in the
 //: bundle brings no completions of its own. JavaScript, TypeScript, Python,
@@ -17155,6 +17229,11 @@ function docCodeEditing(CM, type) {
       //: VS Code's chord for Format Document, which formats the selection
       //: when there is one, as the dock's button does.
       { key: "Shift-Alt-f", run: () => { docFormatCode("auto"); return true; } },
+      //: The quick fixes at the caret, on the prose menu's own chord, and the
+      //: problems one at a time on the prose findings' own keys.
+      { key: "Alt-Enter", run: () => docOpenCodeFixes() },
+      { key: "F8", run: CM.lint.nextDiagnostic },
+      { key: "Shift-F8", run: CM.lint.previousDiagnostic },
     ]),
   ];
   if (!DOC_CODE_NATIVE.has(ext)) {
@@ -17328,6 +17407,128 @@ async function docFormatCode(scope = "auto") {
     annotations: [CM.commands.isolateHistory.of("full"), CM.state.Transaction.userEvent.of("format")],
   });
   toast(`${selection ? "Formatted the selection" : "Formatted the document"}. Ctrl+Z undoes it.`);
+  return true;
+}
+
+// --- Quick fixes -------------------------------------------------------------
+//
+// "Recommended fixes to apply like the other autocorrect feature." The prose
+// checker's shape, in code: the underline says where, hovering it says what
+// and offers the fixes as buttons (CodeMirror's own lint tooltip, restyled in
+// `docCmTheme`), and the keyboard reaches the same list with the prose menu's
+// own chord, Alt+Enter, opening at the caret through the app's one
+// menu-at-a-point recipe (`openMenuAtPoint`). F8 and Shift+F8 walk the
+// problems, as they walk the prose findings.
+//
+// **Not Ctrl+.**, which is what VS Code binds: this app already gives that
+// chord to "stop the answer being written" (app.js's shortcut registry), and
+// taking it inside the editor would make the one shortcut whose whole value is
+// being reachable in a hurry stop working exactly when a writer is in a code
+// file. Alt+Enter is the chord the prose menu already uses for the same job,
+// and JetBrains' for this one.
+//
+// **A fix is recomputed at the moment it is chosen.** The list was built
+// against the text of the last check, up to 750ms and any number of
+// keystrokes ago; applying its offsets then would edit the wrong place. So a
+// fix carries only which check it came from, which problem and which fix,
+// and `docCodeFixNow` asks that check again of the text as it is now and
+// applies what it answers. When the problem has gone the fix says so and does
+// nothing.
+
+//: Which of the pure checks a diagnostic came from, so the fix can be asked
+//: for again: "scan" (brackets, strings, comments), "json", "py-colon",
+//: "indent-mix".
+function docCodeFixNow(view, source, key, name, from) {
+  const text = view.state.doc.toString();
+  const type = docFileType();
+  const unit = type.indent || "  ";
+  if (source === "py-colon") {
+    const fix = docPythonColonFix(text, view.state.doc.lineAt(from).number);
+    return fix && fix.name === name ? fix : null;
+  }
+  if (source === "json") {
+    return docJsonFixes(text, docJsonErrorAt(text), unit).find((fix) => fix.name === name) || null;
+  }
+  const found = source === "indent-mix"
+    ? docIndentMixFixes(text, unit, view.state.tabSize, type.ext)
+    : docCodeFixes(text, type.ext, unit);
+  const diag = found.find((d) => d.key === key && d.from === from);
+  return diag ? diag.fixes.find((fix) => fix.name === name) || null : null;
+}
+
+function docApplyCodeFix(view, source, key, name, from) {
+  const CM = window.CM6;
+  const fix = CM && docCodeFixNow(view, source, key, name, from);
+  if (!fix) {
+    toast("That fix no longer applies: the text has changed since it was offered.", true);
+    return;
+  }
+  view.dispatch({
+    changes: fix.edits,
+    annotations: [CM.commands.isolateHistory.of("full"), CM.state.Transaction.userEvent.of("input.fix")],
+  });
+  view.focus();
+}
+
+//: A pure check's answer as CodeMirror diagnostics, each fix an action.
+function docCodeActions(source, list) {
+  return list.map((d) => ({
+    from: d.from,
+    to: d.to,
+    severity: d.severity || "error",
+    message: d.message,
+    actions: (d.fixes || []).map((fix) => ({
+      name: fix.name,
+      apply: (view, from) => docApplyCodeFix(view, source, d.key, fix.name, from),
+    })),
+  }));
+}
+
+//: The quick-fix menu at the caret: the fixes for every problem under it,
+//: then the two formats, so the one chord is also where "tidy this" lives.
+function docOpenCodeFixes() {
+  const CM = window.CM6;
+  const view = docCmView;
+  if (!CM || !view || typeof openMenuAtPoint !== "function") return false;
+  const state = view.state;
+  const pos = state.selection.main.head;
+  const items = [];
+  CM.lint.forEachDiagnostic(state, (d, from, to) => {
+    if (pos < from || pos > to) return;
+    for (const action of d.actions || []) {
+      items.push({
+        group: "fix",
+        label: `ph:wrench ${action.name}`,
+        title: d.message,
+        run: () => action.apply(view, from, to),
+      });
+    }
+  });
+  if (!items.length) {
+    items.push({
+      group: "fix",
+      label: "ph:info No quick fix at the caret",
+      title: "F8 goes to the next problem",
+      disabled: true,
+      run: () => toast("Nothing to fix at the caret. F8 goes to the next problem."),
+    });
+  }
+  items.push({
+    group: "format",
+    label: "ph:brackets-curly Format the document",
+    title: "Shift+Alt+F with nothing selected",
+    run: () => docFormatCode("document"),
+  });
+  if (!state.selection.main.empty) {
+    items.push({
+      group: "format",
+      label: "ph:brackets-curly Format the selection",
+      title: "Shift+Alt+F with text selected",
+      run: () => docFormatCode("selection"),
+    });
+  }
+  const at = view.coordsAtPos(pos) || view.contentDOM.getBoundingClientRect();
+  openMenuAtPoint(items, "Quick fixes", at.left, at.bottom);
   return true;
 }
 

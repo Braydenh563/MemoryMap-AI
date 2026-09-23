@@ -3251,32 +3251,6 @@ kbd {
   z-index: 200;
 }
 
-.wb-ctx-has-submenu {
-  position: relative;
-  display: flex;
-}
-
-.wb-ctx-has-submenu > .menu-item {
-  display: flex;
-  width: 100%;
-  align-items: center;
-}
-
-.wb-ctx-submenu {
-  position: absolute;
-  left: 100%;
-  top: -4px; /* Align with parent padding */
-  display: none;
-  min-width: 12.5rem;
-  z-index: 51;
-}
-
-.wb-ctx-has-submenu:hover > .wb-ctx-submenu,
-.wb-ctx-has-submenu:focus-within > .wb-ctx-submenu {
-  display: flex;
-  flex-direction: column;
-}
-
 /* **One menu row, everywhere.** Reported: "make the documents ellipse kebab
    button dropdown menu the same ui style as the one in the chat tab", with
    both screenshots side by side. The difference was never the panel -- that

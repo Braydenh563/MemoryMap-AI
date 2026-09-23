@@ -9360,11 +9360,20 @@ function renderEditForm(li, entry) {
   //: returns it to the list renderer), and `applyDocGutter` walks the
   //: document to set the strip button's pressed state: measured, the button
   //: opened with no state and no title until the first click without this.
+  //:
+  //: **`mountGutterFor` may be a stand-in** (`LAZY_ENTRY_POINTS`): before the
+  //: Library bundle has loaded it returns a promise that loads documents.js
+  //: first, and `applyDocGutter` does not exist until then. Calling it by name
+  //: here threw a ReferenceError in the middle of `renderEntries`, which left
+  //: the list half drawn: the owner's "the first time I try editing a note
+  //: after a restart, the notes page goes blank". So wait for the mount,
+  //: then look the function up.
   if (typeof mountGutterFor === "function") {
-    mountGutterFor(textarea);
-    if (typeof applyDocGutter === "function") {
-      requestAnimationFrame(applyDocGutter);
-    }
+    Promise.resolve(mountGutterFor(textarea)).then(() => {
+      requestAnimationFrame(() => {
+        if (typeof applyDocGutter === "function") applyDocGutter();
+      });
+    });
   }
   renderEntryAttachmentChips(textarea, chipsHost);
   textarea.addEventListener("input", () => renderEntryAttachmentChips(textarea, chipsHost));
@@ -11138,6 +11147,12 @@ function toggleRowExpanded(id) {
 $("notes-expand-all")?.addEventListener("click", toggleExpandAllRows);
 $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
 $("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
+
+function noteCountExcludingDrafts() {
+  let n = 0;
+  for (const e of allEntries) if (!e.is_draft) n += 1;
+  return n;
+}
 
 function libraryVisibleRows() {
   let visible = draftsOnly
@@ -36496,8 +36511,11 @@ function renderStatusBar() {
   // second it is up.
   paintStatusItem("status-notes", {
     icon: "ph:note-pencil",
-    value: entriesEverLoaded ? allEntries.length : "–",
-    label: allEntries.length === 1 && entriesEverLoaded ? "note" : "notes",
+    //: Drafts left out, as the Notes list and its sidebar count leave them
+    //: out: three places saying three numbers was the owner's "do I have
+    //: 29, 30, or 31 notes?".
+    value: entriesEverLoaded ? noteCountExcludingDrafts() : "–",
+    label: noteCountExcludingDrafts() === 1 && entriesEverLoaded ? "note" : "notes",
     title: "Your notebook: click to browse it",
   });
 

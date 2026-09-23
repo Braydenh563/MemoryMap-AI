@@ -7704,10 +7704,12 @@ async function wbMapLabelEdge(id) {
     current,
     { confirmLabel: current ? "Change the label" : "Add the label" }
   );
-  //: Same rule as the strip's link: `promptDialog` cannot tell Escape from an
-  //: empty field, so `answer` is `null` on escape and `""` on empty submit.
-  if (answer === null) return;
-  const text = String(answer).trim();
+  //: **An empty answer changes nothing.** `promptDialog` resolves `""` for
+  //: Escape, Cancel and an empty field alike, so "empty removes it" would
+  //: make Escape destructive. Removing is its own row in the node menu
+  //: ("Take the label off the line"), the way Unlink is for a link.
+  const text = String(answer ?? "").trim();
+  if (!text) return;
   await wbMapSetNodeStyle(node, { edge_label: text.slice(0, 80) });
   renderWhiteboardNow();
 }
@@ -9033,36 +9035,23 @@ function wbBuildContextMenu(kind) {
     });
     menu.appendChild(button);
   };
+  //: **A long menu is grouped, not nested** (DESIGN.md, the recipe index:
+  //: "past five rows it is grouped"). The node menu had grown to sixteen
+  //: rows; hover flyouts were tried and cannot be reached by touch or
+  //: keyboard, so each group is a run of ordinary rows with a hairline
+  //: (`.menu-sep`) before it. `label` is kept for the reader of this code;
+  //: a printed heading over every three rows would make the menu taller.
   const subItem = (label, buildSubItems) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "wb-ctx-has-submenu";
-    wrapper.setAttribute("role", "menuitem");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "menu-item";
-    button.innerHTML = `${label} <i class="ph ph-caret-right" aria-hidden="true" style="margin-left: auto;"></i>`;
-    wrapper.appendChild(button);
-    const submenu = document.createElement("div");
-    submenu.className = "action-menu wb-ctx-submenu";
-    submenu.setAttribute("role", "menu");
-    const subMenuItem = (subLabel, title, fn) => {
-      const subBtn = document.createElement("button");
-      subBtn.type = "button";
-      subBtn.className = "menu-item";
-      subBtn.setAttribute("role", "menuitem");
-      subBtn.textContent = subLabel;
-      if (title) subBtn.title = title;
-      subBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        wbCloseContextMenu();
-        fn();
-      });
-      submenu.appendChild(subBtn);
-    };
-    buildSubItems(subMenuItem);
-    if (submenu.children.length === 0) return; // don't render empty submenus
-    wrapper.appendChild(submenu);
-    menu.appendChild(wrapper);
+    const rows = [];
+    buildSubItems((subLabel, title, fn) => rows.push([subLabel, title, fn]));
+    if (!rows.length) return;
+    if (menu.children.length) {
+      const sep = document.createElement("div");
+      sep.className = "menu-sep";
+      sep.setAttribute("role", "separator");
+      menu.appendChild(sep);
+    }
+    for (const row of rows) item(...row);
   };
   if (kind !== "node") {
     item("Copy", "Ctrl/Cmd+C", () => wbCopySelection());
@@ -9085,7 +9074,7 @@ function wbBuildContextMenu(kind) {
     const kids = (index.childrenOf.get(mapNode.id) || []).length;
     const rooted = mapNode.parent_id == null || !index.byId.has(mapNode.parent_id);
     
-    subItem("Add...", sub => {
+    subItem("Add", sub => {
       sub("A child topic", "Tab", () => wbMapAddChild(mapNode.id));
       sub("A topic beside this one", "Enter", () => wbMapAddSibling(mapNode.id));
       sub("From the library…", "Point a new child at a note, document, file or link", () =>
@@ -9093,7 +9082,7 @@ function wbBuildContextMenu(kind) {
       );
     });
 
-    subItem("Content...", sub => {
+    subItem("Content", sub => {
       sub(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
         "An http, https or mailto address", () => wbMapEditLink(mapNode));
       if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
@@ -9107,7 +9096,13 @@ function wbBuildContextMenu(kind) {
       }
     });
 
-    subItem("Lines...", sub => {
+    subItem("Lines", sub => {
+      if (!rooted && mapNode.data?.edge_label) {
+        sub("Take the label off the line", "The line into this topic keeps its shape", async () => {
+          await wbMapSetNodeStyle(mapNode, { edge_label: null, edge_label_dx: null, edge_label_dy: null });
+          renderWhiteboardNow();
+        });
+      }
       if (!rooted && (mapNode.data?.edge_bend || mapNode.data?.edge_slide)) {
         sub("Straighten the line into this topic", "Or double-click the dot on the line", () =>
           wbMapStraightenEdge(mapNode)
@@ -9119,7 +9114,7 @@ function wbBuildContextMenu(kind) {
       });
     });
 
-    subItem("Branch...", sub => {
+    subItem("Branch", sub => {
       if (kids) sub(folded ? "Open this branch again" : "Fold this branch away", "C", () =>
         wbMapToggleCollapse(mapNode.id)
       );
@@ -9148,9 +9143,11 @@ function wbBuildContextMenu(kind) {
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
   // own comment has the full reasoning for that split).
-  item("Bring to Front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
-  item("Send to Back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
-  item("Delete", "Delete", () => deleteWbSelection());
+  subItem("Order", (sub) => {
+    sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
+    sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
+    sub("Delete", "Delete", () => deleteWbSelection());
+  });
   return menu;
 }
 

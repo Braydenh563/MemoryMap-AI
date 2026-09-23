@@ -15909,7 +15909,16 @@ function docCodeCompletionData(CM) {
 //: plain text and CSV have no syntax and no vocabulary, so they get neither.
 function docCodeTools(CM) {
   const type = docFileType();
-  if (type.previewable || docView === "plain" || ["txt", "csv"].includes(type.ext)) return [];
+  if (type.previewable || docView === "plain" || ["txt", "csv"].includes(type.ext)) {
+    //: **An inert completer, so the field always exists.** The bundled
+    //: autocomplete (6.20.3) has no `destroy` that clears its debounce
+    //: timer, and `docResetDocument` swaps states on one view: a keystroke in
+    //: a code file followed within ~100ms by opening a markdown one fired
+    //: the old timer into a state with no completion field, which throws
+    //: "Field is not present in this state" (found by the code editor pass).
+    //: No sources and no typing trigger, so prose behaves exactly as before.
+    return [CM.autocomplete.autocompletion({ override: [], activateOnTyping: false })];
+  }
   const native = ["js", "ts", "py", "css", "html"].includes(type.ext);
   return [
     CM.lint.linter(docCodeLintSource(CM), { delay: DOC_CHECK_DELAY_MS }),

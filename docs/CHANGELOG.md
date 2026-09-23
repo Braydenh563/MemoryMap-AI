@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Documents: opening a markdown document right after typing in a code file no longer throws a stale completion error.
 - A plain toast can be dismissed by tapping its text, as well as by its close button.
 - A confirmation's button names its action ("Delete", "Remove", "Clear"...) read from the question, instead of a red "OK".
 - Reminders: a reminder's row keeps its two snoozes and Edit, and gains a menu with Open its note, Ask Atlas about this, Copy text and Delete (still undoable), in place of a fourth icon.

@@ -25,7 +25,9 @@ The full record is HISTORY.md's "code documents as a code editor, part two".
 
 Nothing from the brief. Found and not fixed, for the orchestrator:
 
-1. The bundled `@codemirror/autocomplete` 6.20.3 completion plugin has no
+1. ~~Fixed by the orchestrator: prose documents carry an inert completer
+   (`override: []`, no typing trigger) so the field always exists across a
+   state swap.~~ The bundled `@codemirror/autocomplete` 6.20.3 completion plugin has no
    `destroy` that clears its debounce timers, so switching from a code
    document to a markdown one within ~100ms of typing throws "Field is not
    present in this state" from a stale timer (seen once in a probe that

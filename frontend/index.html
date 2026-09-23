@@ -1486,6 +1486,17 @@
           <div class="row space-between">
             <h2>Ask your notebook</h2>
             <span class="row ask-header-actions">
+              <!-- The model this box answers on: the Ask tab row of Settings,
+                   Models, read and written through the same call, so picking
+                   here moves that row and the reverse. Filled by
+                   `syncFeatureModelSelects` from the status poll. In the
+                   header, not the query row: there it and the length select
+                   left the question box 290px of an 810px row at the desktop
+                   window, and it is a choice about the surface, not the
+                   question (the same move Write with Atlas made). -->
+              <select id="ask-feature-model" class="small-select feature-model-select"
+                aria-label="Model for the Ask tab"
+                title="The model that answers here, the same choice as the Ask tab row in Settings, Models"><option value="">Inherited</option></select>
               <button id="ask-history-toggle" class="ghost small" type="button"
                 aria-expanded="false" aria-controls="ask-history-panel"
                 title="Browse every question you've asked and its answer">
@@ -1513,13 +1524,6 @@
             <select id="ask-mode-select" class="small-select"
               aria-label="Answer length"
               title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
-            <!-- The model this box answers on: the Ask tab row of Settings,
-                 Models, read and written through the same call, so picking
-                 here moves that row and the reverse. Filled by
-                 `syncFeatureModelSelects` from the status poll. -->
-            <select id="ask-feature-model" class="small-select feature-model-select"
-              aria-label="Model for the Ask tab"
-              title="The model that answers here, the same choice as the Ask tab row in Settings, Models"><option value="">Inherited</option></select>
             <!-- Tuning lives here, beside Ask, and not next to the results.
                  Asked for directly: "I want the tune semantic search to show
                  at all times and not just when I put in a query." It used to

@@ -1273,6 +1273,15 @@
               <h2 id="writing-room-heading">Write with Atlas</h2>
             </div>
             <div class="dock-actions">
+              <!-- Which model writes it: the Write with Atlas row of
+                   Settings, Models, the same preference through the same
+                   call (`syncFeatureModelSelects`), so the two agree. In the
+                   dock rather than with the draft's own options: it is a
+                   choice about the surface, not about this draft, and beside
+                   them it pushed "Use notes" onto a second row at 1440. -->
+              <select id="draft-feature-model" class="small-select feature-model-select"
+                aria-label="Model for Write with Atlas"
+                title="The model that writes here, the same choice as the Write with Atlas row in Settings, Models"><option value="">Inherited</option></select>
               <button id="draft-compose" data-needs-model="Drafting needs a model connected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft</button>
               <button id="draft-cancel" class="ghost hidden" type="button"
                 title="Stop Atlas: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
@@ -1396,12 +1405,6 @@
                   <option value="medium" selected>Medium</option>
                   <option value="long">Long</option>
                 </select>
-                <!-- Which model writes it: the Write with Atlas row of
-                     Settings, Models, the same preference through the same
-                     call (`syncFeatureModelSelects`), so the two agree. -->
-                <select id="draft-feature-model" class="small-select feature-model-select"
-                  aria-label="Model for Write with Atlas"
-                  title="The model that writes here, the same choice as the Write with Atlas row in Settings, Models"><option value="">Inherited</option></select>
                 <button id="draft-add-source" class="ghost small" type="button"
                   title="Write from notes you already have, up to six of them"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Use notes</button>
               </div>

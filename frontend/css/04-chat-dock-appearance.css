@@ -3012,8 +3012,20 @@ span > .chip {
 /* The three selects and the adder are one family on one line, so they take
    the column's control height rather than the global form-field height (the
    same mismatch `.draft-controls` above was written for). */
-.draft-desk-controls {
+/* Two classes: `.draft-controls` in 08-consistency.css comes later in the
+   cascade and sets `flex-wrap: wrap`. */
+.draft-controls.draft-desk-controls {
   gap: 0.4rem;
+  flex-wrap: nowrap;
+}
+
+/* The flex item is the enhanced select's shell, not the select inside it,
+   so the shrink rule below has to be stated here too: measured at the
+   1200px desktop window, the three shells held 144/118/111px and pushed
+   "Use notes" onto a second row. */
+.draft-desk-controls > .select-shell {
+  flex: 1 1 6rem;
+  min-width: 0;
 }
 
 .draft-desk-controls select,

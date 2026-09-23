@@ -38122,17 +38122,23 @@ function syncFeatureModelSelects() {
     if (!row) continue;
     const names = [...featureModelNames];
     if (row.overridden && !names.includes(row.model)) names.unshift(row.model);
+    //: **Never name a model that will not run as if it will** (INBOX 277).
+    //: With no backend connected the inherited name is only the configured
+    //: default: measured, the picker said "Inherited: llama3.2" under a banner
+    //: saying no model is connected.
+    const inherited = featureModelNames.includes(row.inherits)
+      ? `Inherited: ${row.inherits}`
+      : `Inherited: ${row.inherits} (not installed)`;
     fillModelSelect(
       select,
       names,
-      { value: "", label: `Inherited: ${row.inherits}` },
+      { value: "", label: inherited },
       row.overridden ? row.model : ""
     );
     //: The inherited name moves when the chat model is changed in Settings,
     //: and `fillModelSelect` only rebuilds when the *values* change, which
     //: the first option's never does. Its words are kept current here.
     const first = select.options[0];
-    const inherited = `Inherited: ${row.inherits}`;
     if (first && first.value === "" && first.textContent !== inherited) {
       first.textContent = inherited;
     }

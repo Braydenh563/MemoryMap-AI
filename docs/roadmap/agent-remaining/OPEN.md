@@ -20,13 +20,13 @@ measured; "partial" names what is left.
 | Map node menu grouped; radial ring stays open | Done |
 | Pan and drag smoothness on the board and map | Done (style recalc 2439 to 29 ms) |
 | "Do that optimisation on the rest of the app" | Partial: scroll handlers fixed (back-to-top, scroll edge, graph wheel); left: Notes raster cost during scroll, Library layout during scroll, a trace per interaction (typing, drag, dialogs) |
-| Efficiency: CPU, RAM, network, storage | Partial: CPU on scroll and pan; left: network (polling, payloads), RAM (lazy bundles, caches), storage |
+| Efficiency: CPU, RAM, network, storage | Measured 2026-09-23: idle network 2 requests and 1.9KB a minute; boot 25 requests, 1.0s to load; JS heap 25MB and 11,001 elements, flat over three rounds of every tab (no leak); CPU on scroll and pan fixed. Left: per-interaction traces for typing and dialogs (Library agent has scroll and typing), 217 document-level listeners worth consolidating |
 | Mind map professional refinement: controls findability, View menu size, hint strip over the canvas | Partial: node menu, cross-link tool, label drag, cross-links drawn like branches done; left: View menu (714px), hint strip, discoverability pass |
 | Cross-links look the same as branches | Done |
 | Live view markdown rendering and table editing | Done (documents agent) |
 | Code documents as a code editor: errors, suggestions | Done (diagnostics, completions) |
 | Auto-closing pairs, Enter indentation, format document or selection, quick fixes | Done (code editor agent: 48 of 48 in `doccodeedit.js`, 39 tests; HISTORY "code documents as a code editor, part two") |
-| Indent and dedent across the app | Partial: notes textareas, board text; left: verify documents, chat, captions, every textarea |
+| Indent and dedent across the app | Done: note surfaces (Tab bridge), board and map text, documents (code: indent unit and Shift+Tab; prose: the editor's own Tab); chat and single-line fields keep Tab as focus movement on purpose (a keyboard user's way out) |
 | Phone designed on purpose; responsive at every resolution | Done for 390, 768 and 1024 (`phonechrome.js`, 0 findings; touch.js clean); left: a sweep at 1280, 1920 and 2560 |
 | De-vibecode all the UI, surface by surface, not one fix and stop | In progress: Notes meta line redesigned; left: every other surface in the audit order below |
 | Note metadata, badges and links redesigned everywhere | Done: one line of facts with a category pill and stable colour dot, #tags, dates as days, connection pills with their menu inside; Settings lists (skills, personas, templates) have title, label and facts |

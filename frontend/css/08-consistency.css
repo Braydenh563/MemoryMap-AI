@@ -714,6 +714,27 @@
   margin-left: 0;
 }
 
+/* **The Notes dock's search zone wraps at desktop widths on the packaged
+   app.** The dock holds identity + find + arrange + actions — eight visible
+   controls — and the default 14rem flex-basis for `.dock-find` is wide
+   enough that arrange and actions fall to a second row at ~900–1000 px,
+   which is the typical packaged-app window width at 100 % zoom.
+
+   Reducing the basis to 10rem keeps the field readable (its own `min-width:
+   8rem` is the floor) while making room for the sort select and the view
+   toggle to stay on the same line. At wide viewports the field still grows
+   into the available space, so nothing is lost there.
+
+   The sort select also gets a hard maximum: without it the select claims any
+   slack the reduced search basis leaves and the view-toggle gets no room. */
+[data-dock-name="notes"] .dock-find {
+  flex: 1 1 10rem;
+}
+
+[data-dock-name="notes"] #note-sort {
+  max-width: 10rem;
+}
+
 /* The documents editor's head already *is* a bar - `.doc-toolbar`
    (05-sidebars-themes.css) has carried a `--card` fill, an edge and a radius
    since the "fix the toolbar" round, so there is nothing to build here, only
@@ -1338,6 +1359,7 @@ summary > .ph-lead,
   background: none;
   box-shadow: none;
   color: var(--ink);
+  white-space: nowrap;
 }
 
 .dash-toolbar button:hover,

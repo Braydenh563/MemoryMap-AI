@@ -546,6 +546,13 @@
   }
 }
 
+body.wb-panning .wb-card,
+body.wb-panning .library-chip {
+  /* Prevent expensive hover hit-testing and will-change repaints during panning */
+  pointer-events: none !important;
+}
+
+
 /* **A dragged card must track the cursor, not ease after it.** The transition
    above is for the hover lift; while a card is actually being dragged its
    transform is being set every pointer move, so a 0.2s ease means the card
@@ -8158,9 +8165,10 @@ button.connection-row {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  align-self: stretch;
 }
 
-.wb-context-group + .wb-context-group:not(.hidden) {
+.wb-context-group:not(.hidden) ~ .wb-context-group:not(.hidden) {
   border-left: 1px solid var(--divider);
   padding-left: var(--space-2);
   margin-left: var(--space-1);
@@ -8168,7 +8176,7 @@ button.connection-row {
 
 .wb-context-divider {
   width: 1px;
-  height: 1rem;
+  align-self: stretch;
   background: var(--divider);
   flex: none;
 }
@@ -8186,6 +8194,17 @@ button.connection-row {
   font-size: var(--text-xs);
   color: var(--muted);
   white-space: nowrap;
+}
+
+#wb-prop-fontsize {
+  width: 4rem;
+  margin: 0;
+  padding: 0 var(--space-1);
+  text-align: center;
+}
+
+#wb-prop-align {
+  display: contents;
 }
 
 /* One control height across the bar, from `--target-min`, which is the
@@ -9976,27 +9995,20 @@ input[type="file"] {
   margin-left: calc((var(--wb-radial-r) + var(--wb-radial-band) / 2) * -1);
   margin-top: calc((var(--wb-radial-r) + var(--wb-radial-band) / 2) * -1);
   border: var(--wb-radial-band) solid
-    color-mix(in srgb, var(--ink) 7%, var(--modal-bg-opaque));
+    color-mix(in srgb, var(--ink) 5%, var(--modal-bg-opaque));
   border-radius: 50%;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md),
+    inset 0 0 0 1px color-mix(in srgb, var(--glass-border) 40%, transparent);
   pointer-events: none;
 }
 
-/* **A slot you can see** (INBOX 177: "fix and redesign the style of the item
-   radials in the mindmap as they are hard to see"). The slots were the
-   canvas's own tonal button on a dark board: a grey circle on a grey ground
-   with no edge. They carry the node's branch colour as a ring and an opaque
-   ground now, so the ring reads as a ring of controls around the topic
-   rather than as smudges. */
-/* Written as two classes: the slot is a `.ghost.small.icon-only` button and
-   those rules live in a later stylesheet, so a single class here would lose
-   on file order rather than on specificity (measured: the slot kept the
-   tonal button's own translucent ground). */
+
+/* **A slot you can see** — redesigned for a premium, modern feel. Each slot
+   uses frosted glass (backdrop-filter blur) over the ring band, a refined
+   border, and smooth micro-interactions on hover and press. The slot recipe
+   keeps the same positional logic (left/top from the radius, never translate)
+   so the press cue still works. */
 .wb-map-radial .wb-map-radial-slot {
-  /* 0.866 is sin 60 degrees and 0.5 is cos 60: six slots on one circle, which
-     is what makes the ring read as a ring. Six rather than the eight it began
-     with (MINDMAP_PLAN §12.5): a labelled slot is 7rem wide, and eight of
-     those overlap each other at any radius a topic leaves room for. */
   --wb-radial-diag: calc(var(--wb-radial-r) * 0.866);
   --wb-radial-mid: calc(var(--wb-radial-r) * 0.5);
   --wb-radial-halfw: calc(var(--wb-radial-slot-w) / 2);
@@ -10014,7 +10026,50 @@ input[type="file"] {
   padding-inline: var(--space-2);
   border-radius: var(--radius-pill);
   pointer-events: auto;
+  /* Frosted glass surface */
+  background: color-mix(in srgb, var(--modal-bg-opaque) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+  color: var(--ink);
+  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+  cursor: pointer;
 }
+
+@media (hover: hover) {
+  .wb-map-radial .wb-map-radial-slot:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-md),
+      0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+    transform: scale(1.06);
+  }
+
+  .wb-map-radial .wb-map-radial-slot:hover i {
+    color: var(--accent);
+  }
+}
+
+.wb-map-radial .wb-map-radial-slot:active {
+  transform: scale(0.95);
+  transition-duration: 0.06s;
+}
+
+.wb-map-radial .wb-map-radial-slot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wb-map-radial .wb-map-radial-slot[disabled] {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
 
 /* **The word, drawn, not hovered for** (MINDMAP_PLAN §12.5, INBOX 200: "how
    the item radials are used is confusing and doesnt feel clean"). Eight
@@ -10024,11 +10079,19 @@ input[type="file"] {
    name, at rest, in the slot. */
 .wb-map-radial-name {
   font-size: var(--text-sm);
+  font-weight: 500;
   line-height: 1;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.wb-map-radial-slot i {
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
 
 /* Clockwise from the top. The order in the markup is the order in the ring,
    so a reader of either can find the other. */
@@ -10134,7 +10197,22 @@ input[type="file"] {
 .wb-map-radial-slot.wb-map-radial-danger {
   color: var(--error);
   border-color: color-mix(in srgb, var(--error) 45%, transparent);
+  background: color-mix(in srgb, var(--error) 8%, var(--modal-bg-opaque));
 }
+
+@media (hover: hover) {
+  .wb-map-radial-slot.wb-map-radial-danger:hover {
+    background: color-mix(in srgb, var(--error) 16%, var(--modal-bg-opaque));
+    border-color: var(--error);
+    box-shadow: var(--shadow-md),
+      0 0 0 2px color-mix(in srgb, var(--error) 18%, transparent);
+  }
+
+  .wb-map-radial-slot.wb-map-radial-danger:hover i {
+    color: var(--error);
+  }
+}
+
 
 /* What the line into a topic says (§12.1 items 3 and 4). Drawn in the edge
    layer, which takes no pointer events, so the label is a caption rather than
@@ -12836,11 +12914,23 @@ button.finder-row:hover,
     flex: 0 0 7rem;
   }
 
-  #tab-dashboard[data-density="compact"] .launch-row {
+  #tab-dashboard[data-density="compact"] .launch-row,
+  #tab-dashboard[data-density="compact"] .launch-row-start {
+    display: flex;
     flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  /* Each tile shrinks to fit the row without overflowing. The 8rem floor
+     keeps them readable; below that they wrap to a second line. */
+  #tab-dashboard[data-density="compact"] .launch-row-start > * {
+    flex: 1 1 8rem;
     min-width: 0;
   }
 }
+
 
 /* Focused: the search and the widgets. Everything hidden here is one press
    away, from the search field itself (which finds actions as well as content)

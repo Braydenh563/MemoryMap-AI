@@ -2358,6 +2358,8 @@
   height: 100%;
   flex: 1;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 /* Full screen. Mirrors `.graph-fullscreen` deliberately: the graph and the

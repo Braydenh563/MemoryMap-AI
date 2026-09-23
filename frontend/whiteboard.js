@@ -436,7 +436,6 @@ window.addEventListener(
 );
 
 function handleWbZoom(e) {
-  wbApplyZoomTransform(e.transform);
   wbZoomPending = e.transform;
   if (wbZoomFrame) return;
   wbZoomFrame = requestAnimationFrame(() => {
@@ -444,6 +443,7 @@ function handleWbZoom(e) {
     const t = wbZoomPending;
     wbZoomPending = null;
     if (!t) return;
+    wbApplyZoomTransform(t);
     wbSyncGridToTransform(t);
     wbUpdateSelectionBar();
     // The navigator's viewport rectangle is only true for one transform, so
@@ -2476,10 +2476,14 @@ function wbApplyContextRow(row) {
   const bar = new Set(row?.bar || []);
   const more = new Set(row?.more || []);
   for (const name of WB_CONTEXT_GROUPS) {
-    document.querySelector(`#wb-context [data-wb-ctx="${name}"]`)?.classList.toggle("hidden", !bar.has(name));
+    for (const el of document.querySelectorAll(`#wb-context [data-wb-ctx="${name}"]`)) {
+      el.classList.toggle("hidden", !bar.has(name));
+    }
   }
   for (const name of WB_CONTEXT_MENU_SECTIONS) {
-    document.querySelector(`#wb-context-menu [data-wb-ctx="${name}"]`)?.classList.toggle("hidden", !more.has(name));
+    for (const el of document.querySelectorAll(`#wb-context-menu [data-wb-ctx="${name}"]`)) {
+      el.classList.toggle("hidden", !more.has(name));
+    }
   }
   // The rows inside the Style section that only some kinds can use.
   for (const id of ["wb-prop-nostroke-row", "wb-prop-md-row", "wb-prop-bullets-row", "wb-fill-opacity-row", "wb-stroke-none-row"]) {
@@ -3180,7 +3184,7 @@ function wbMapSetPerspective(key) {
     // for this session; it just will not be remembered.
   }
   wbSyncMapChrome();
-  renderWhiteboardNow();
+  wbScheduleRender();
 }
 
 //: The categories and ages the tree endpoint resolved, by node id. Empty for
@@ -3412,14 +3416,14 @@ function wbMapSetFocus(id, depth = WB_MAP_FOCUS_DEFAULT_DEPTH) {
   if (!index.byId.has(id)) return;
   wbMapFocusState = { id, depth: Math.max(1, Math.min(WB_MAP_FOCUS_MAX_DEPTH, depth)) };
   wbSyncMapFocusChrome();
-  renderWhiteboardNow();
+  wbScheduleRender();
 }
 
 function wbMapClearFocus() {
   if (!wbMapFocusState) return;
   wbMapFocusState = null;
   wbSyncMapFocusChrome();
-  renderWhiteboardNow();
+  wbScheduleRender();
 }
 
 function wbMapStepFocus(by) {
@@ -3582,7 +3586,7 @@ async function wbMapSetTheme(patch) {
       else theme[key] = value;
     }
     window.wbMapState = { ...window.wbMapState, theme };
-    renderWhiteboardNow();
+    wbScheduleRender();
     const selected = wbSelectedMapNode();
     if (selected) wbSyncMapStrip(selected);
     return true;
@@ -3615,7 +3619,7 @@ async function wbMapClearEveryTopic() {
     //: a key from every topic's data in one transaction, and the objects this
     //: tab is holding are now wrong about all of them.
     await fetchWhiteboardState();
-    renderWhiteboardNow();
+    wbScheduleRender();
     toast(count
       ? `${count} topic${count === 1 ? "" : "s"} back to following this map.`
       : "Every topic was already following this map.");
@@ -3994,7 +3998,7 @@ async function wbApplyMapTemplate(key) {
   wbDismissMapTemplates();
   await wbRefreshMapState();
   await wbMapTidy({ quiet: true });
-  renderWhiteboardNow();
+  wbScheduleRender();
   toast(`Started from the ${template.label.toLowerCase()} template: ${made} nodes.`);
 }
 
@@ -4781,7 +4785,7 @@ async function wbMapExpandAll() {
     node.data = { ...node.data, collapsed: false };
     await wbSaveObject(node);
   }
-  renderWhiteboardNow();
+  wbScheduleRender();
   wbSyncMapToolState();
   toast(`Opened ${folded.length} branch${folded.length === 1 ? "" : "es"}.`);
 }
@@ -4894,7 +4898,7 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag" } = {}) {
   }
   await wbMapTidyBranch(targetId);
   if (oldParent != null) await wbMapTidyBranch(oldParent);
-  renderWhiteboardNow();
+  wbScheduleRender();
   //: A line drawn between two topics and a branch dragged onto one are the
   //: same move and want different words: the first connected something, the
   //: second moved it.
@@ -4936,16 +4940,15 @@ async function wbMapJoinByLink(source, target) {
   //: would have let a line drawn from the root to a branch hang the whole map
   //: under one of its own children.
   const mainRoot = index.roots[0] || null;
-  const inTree = (node) => index.byId.has(node.parent_id) || node.id === mainRoot?.id;
   //: A node cannot be adopted by its own descendant: the server's `/move`
   //: refuses the ring, and an offer it will reject is worse than no offer.
   const subtreeOf = (node) => new Set(wbMapSubtree(index, node.id).map((o) => o.id));
   let parent = null;
   let child = null;
-  if (!inTree(target) && !subtreeOf(target).has(source.id)) {
+  if (!subtreeOf(target).has(source.id) && target.id !== mainRoot?.id) {
     parent = source;
     child = target;
-  } else if (!inTree(source) && !subtreeOf(source).has(target.id)) {
+  } else if (!subtreeOf(source).has(target.id) && source.id !== mainRoot?.id) {
     parent = target;
     child = source;
   }
@@ -5897,7 +5900,7 @@ async function wbMapInsertBetween(parentId, childId) {
   }
   selectWbItem("object", created.id);
   await wbMapTidyBranch(parentId);
-  renderWhiteboardNow();
+  wbScheduleRender();
   wbMapEditNode(created.id);
 }
 
@@ -5971,7 +5974,7 @@ async function wbMapAddChild(parentId) {
   }
   selectWbItem("object", created.id);
   await wbMapTidyBranch(parentId);
-  renderWhiteboardNow();
+  wbScheduleRender();
   wbMapEditNode(created.id);
   return created;
 }
@@ -5996,7 +5999,7 @@ async function wbMapAddRootAt(x, y) {
   created.data = { ...created.data, pinned: true };
   await wbSaveObject(created);
   selectWbItem("object", created.id);
-  renderWhiteboardNow();
+  wbScheduleRender();
   wbMapEditNode(created.id);
   return created;
 }
@@ -6036,7 +6039,7 @@ async function wbMapAddReference(parentId) {
   await wbRefreshMapState();
   selectWbItem("object", created.id);
   await wbMapTidyBranch(parentId);
-  renderWhiteboardNow();
+  wbScheduleRender();
   toast(`Added “${chosen.label}” to the map.`);
   return created;
 }
@@ -6081,7 +6084,7 @@ async function wbMapOutdent(id) {
     });
     Object.assign(node, moved);
     await wbMapTidyBranch(moved.parent_id ?? null);
-    renderWhiteboardNow();
+    wbScheduleRender();
   } catch (err) {
     toast(err.message || "Couldn't move that node.", true);
   }
@@ -6280,7 +6283,7 @@ async function wbMapDeleteSubtree(id) {
         }
       }
       await wbRefreshMapState();
-      renderWhiteboardNow();
+      wbScheduleRender();
     }
   );
 }
@@ -6675,7 +6678,7 @@ async function wbMapTidy({ onlyBranch = null, quiet = false } = {}) {
   // the destinations and no delta is how one shared helper does a per-node
   // layout as well as a rigid drag.
   wbApplyBulkMove(origin, 0, 0);
-  renderWhiteboardNow();
+  wbScheduleRender();
   //: **A tidy that pushed the map off the canvas frames it again.** Recorded
   //: by the seventh run and left as a decision rather than a bug: measured at
   //: 390x844 after a tidy, the trunk's own box sat at x=-95 and
@@ -7089,7 +7092,7 @@ async function wbMapTakePicture(file) {
       body: formData,
     });
     await wbMapSetNodeStyle(node, { image: uploaded.url });
-    renderWhiteboardNow();
+    wbScheduleRender();
   } catch (err) {
     toast(err.message || "Couldn't add that picture.", true);
   }
@@ -7102,7 +7105,7 @@ async function wbMapTakePicture(file) {
 async function wbMapRemovePicture(node) {
   if (!node || !node.data?.image) return;
   await wbMapSetNodeStyle(node, { image: null });
-  renderWhiteboardNow();
+  wbScheduleRender();
   toast("Picture removed from the topic.");
 }
 
@@ -7433,7 +7436,7 @@ async function wbMapCopyBranch(id) {
     mapped.set(node.id, created.id);
   }
   await wbMapTidy({ quiet: true });
-  renderWhiteboardNow();
+  wbScheduleRender();
   const rootCopy = mapped.get(id);
   if (rootCopy) selectWbItem("object", rootCopy);
   toast(`Copied ${mapped.size} topic${mapped.size === 1 ? "" : "s"}.`);
@@ -7553,7 +7556,7 @@ async function wbMapSever(id) {
   // it starts the palette again like every other trunk's children do.
   if (node.data?.color) await wbMapSetNodeStyle(node, { color: null });
   await wbMapTidyBranch(oldParent);
-  renderWhiteboardNow();
+  wbScheduleRender();
   toastAction("Cut free as its own trunk.", "Put it back", async () => {
     try {
       const back = await apiJson(`/whiteboard/boards/${boardId}/nodes/${id}/move`, {
@@ -7562,7 +7565,7 @@ async function wbMapSever(id) {
       });
       Object.assign(node, back);
       await wbMapTidyBranch(oldParent);
-      renderWhiteboardNow();
+      wbScheduleRender();
     } catch (err) {
       toast(err.message || "Couldn't put it back.", true);
     }
@@ -7592,7 +7595,7 @@ async function wbMapLabelEdge(id) {
   // "Back to the branch" on this same ring.
   if (!text) return;
   await wbMapSetNodeStyle(node, { edge_label: text.slice(0, 80) });
-  renderWhiteboardNow();
+  wbScheduleRender();
 }
 
 //: "Back to the branch" (§12.0: "'Reset to branch' on any node"). Drops every
@@ -7605,7 +7608,7 @@ async function wbMapResetToBranch(id) {
   const patch = {};
   for (const key of WB_MAP_STYLE_KEYS) patch[key] = null;
   await wbMapSetNodeStyle(node, patch);
-  renderWhiteboardNow();
+  wbScheduleRender();
   //: What it goes back to depends on whether the map says anything (§13e):
   //: on a themed map a reset topic follows the map, and a toast that said
   //: "the branch's own look" over a topic that just took the map's would be
@@ -7754,7 +7757,7 @@ function wbWireMapEdgeHandle(handle, parentId, childId) {
       };
       if (patch.edge_bend === before.edge_bend && patch.edge_slide === before.edge_slide) return;
       await wbMapSetNodeStyle(child, patch);
-      renderWhiteboardNow();
+      wbScheduleRender();
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", done);
@@ -7778,7 +7781,7 @@ async function wbMapStraightenEdge(node) {
   if (!node) return;
   if (!node.data?.edge_bend && !node.data?.edge_slide) return;
   await wbMapSetNodeStyle(node, { edge_bend: null, edge_slide: null });
-  renderWhiteboardNow();
+  wbScheduleRender();
 }
 
 //: The gestures on one edge, bound to the group that holds its stroke, its
@@ -7926,7 +7929,7 @@ async function wbMapReverseCrossLink(sketchId) {
     toast(err.message || "Couldn't turn that cross-link around.", true);
     return;
   }
-  renderWhiteboardNow();
+  wbScheduleRender();
   toast("Turned the cross-link around.");
 }
 
@@ -7954,7 +7957,7 @@ async function wbMapCrossLinkToBranch(sketchId) {
     toast(err.message || "The branch was made, but the cross-link is still there.", true);
   }
   await wbRefreshMapState();
-  renderWhiteboardNow();
+  wbScheduleRender();
 }
 
 //: Cut a cross-link: the row goes and neither topic is touched, which is the
@@ -7970,7 +7973,7 @@ async function wbMapCutCrossLink(sketchId) {
   }
   wbState.sketches = (wbState.sketches || []).filter((x) => x.id !== sketchId);
   await wbRefreshMapState();
-  renderWhiteboardNow();
+  wbScheduleRender();
   toast("Cut the cross-link. Both topics kept their branches.");
 }
 
@@ -8000,7 +8003,7 @@ async function wbMapReverseEdge(childId) {
     return;
   }
   await wbMapTidy({ quiet: true });
-  renderWhiteboardNow();
+  wbScheduleRender();
   toast("Turned the line around.");
 }
 
@@ -8082,7 +8085,7 @@ async function wbMapSetLayout(layout) {
     window.wbMapState = { ...window.wbMapState, layout };
     wbSyncMapChrome();
     const moved = await wbMapTidy({ quiet: true });
-    renderWhiteboardNow();
+    wbScheduleRender();
     toast(layout === "free"
       ? "Layout set to Free, nodes stay where you put them."
       : `Laid out ${moved} node${moved === 1 ? "" : "s"}.`);
@@ -9292,6 +9295,8 @@ function wbPaintTextContent(contentEl, d) {
 function wbWrapTextSelection(marker) {
   const item = wbSelectedTextObjectOrNull();
   if (!item) return;
+  const before = WB_KIND_INFO.object.payload(item);
+  wbPushUndo({ action: "move", kind: "object", id: item.id, before });
   const el = document.querySelector(`.wb-object[data-id="${item.id}"] .wb-text-content`);
   const raw = item.data.content || "";
   const sel = window.getSelection();
@@ -9310,6 +9315,8 @@ function wbWrapTextSelection(marker) {
 function wbBulletTextLines() {
   const item = wbSelectedTextObjectOrNull();
   if (!item) return;
+  const before = WB_KIND_INFO.object.payload(item);
+  wbPushUndo({ action: "move", kind: "object", id: item.id, before });
   const lines = (item.data.content || "").split("\n");
   const allBulleted = lines.every((line) => !line.trim() || line.trimStart().startsWith("- "));
   item.data = {
@@ -10698,21 +10705,26 @@ async function initWhiteboard() {
   window.addEventListener("auxclick", (event) => {
     if (event.button === 1 && event.target?.closest?.("#library-view-whiteboard")) event.preventDefault();
   }, true);
-  container.call(wbZoom).on("dblclick.zoom", null);
-  // Plain wheel pans (Shift+wheel pans sideways); Ctrl/⌘+wheel is left to
-  // d3-zoom's own handler by `wbZoomFilter`. `passive: false` so the page
-  // behind the board does not scroll as well.
+  container.call(wbZoom).on("dblclick.zoom", null).on("wheel.zoom", null);
+  // Plain wheel pans (Shift+wheel pans sideways); Ctrl/⌘+wheel zooms.
+  // We handle both natively with `passive: true` to avoid blocking the browser
+  // scrolling thread. (CSS touch-action: none prevents the page from zooming).
   if (!container.node().dataset.wbWheelPan) {
     container.node().dataset.wbWheelPan = "1";
     container.node().addEventListener("wheel", (e) => {
-      if (e.ctrlKey || e.metaKey) return;
-      e.preventDefault();
       const k = d3.zoomTransform(container.node()).k || 1;
+      if (e.ctrlKey || e.metaKey) {
+        const unit = e.deltaMode === 1 ? 0.05 : e.deltaMode === 2 ? 1 : 0.002;
+        const scaleBy = Math.pow(2, -e.deltaY * unit);
+        const point = d3.pointer(e, container.node());
+        container.call(wbZoom.scaleBy, scaleBy, point);
+        return;
+      }
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
       let dx = e.deltaX * unit, dy = e.deltaY * unit;
       if (e.shiftKey && !dx) { dx = dy; dy = 0; }
       container.call(wbZoom.translateBy, -dx / k, -dy / k);
-    }, { passive: false });
+    }, { passive: true });
   }
   
   // Toolbar hooks
@@ -11045,13 +11057,13 @@ async function initWhiteboard() {
     const node = wbSelectedMapNode();
     if (!node) return;
     await wbMapSetNodeStyle(node, { edge_width: e.target.value || null });
-    renderWhiteboardNow();
+    wbScheduleRender();
   });
   $("wb-map-edge-dashed")?.addEventListener("click", async () => {
     const node = wbSelectedMapNode();
     if (!node) return;
     await wbMapSetNodeStyle(node, { edge_dashed: wbMapToggleValue(node, "edge_dashed") });
-    renderWhiteboardNow();
+    wbScheduleRender();
   });
   $("wb-map-edge-arrow")?.addEventListener("click", async () => {
     const node = wbSelectedMapNode();
@@ -11064,7 +11076,7 @@ async function initWhiteboard() {
     await wbMapSetNodeStyle(node, {
       edge_arrow: want === fallback ? null : (want ? "on" : "off"),
     });
-    renderWhiteboardNow();
+    wbScheduleRender();
   });
   //: The line's shape, from the link ring (§12.5). `curve` is stored as no
   //: value at all, the way the strip's "M" is: the default has to stay the
@@ -11075,7 +11087,7 @@ async function initWhiteboard() {
     const node = wbSelectedMapNode();
     if (!node) return;
     await wbMapSetNodeStyle(node, { edge_style: e.target.value || null });
-    renderWhiteboardNow();
+    wbScheduleRender();
   });
   //: Back to the branch, from the node ring (§12.5): it drops every choice the
   //: rest of this strip makes, so it is the last control in it.
@@ -11090,7 +11102,7 @@ async function initWhiteboard() {
     // every descendant's card and every edge below it changes with it.
     node.data = { ...node.data, color: e.target.value };
     await wbSaveObject(node);
-    renderWhiteboardNow();
+    wbScheduleRender();
   });
   $("wb-map-tidy")?.addEventListener("click", async () => {
     const moved = await wbMapTidy({ quiet: true });
@@ -11561,6 +11573,8 @@ async function initWhiteboard() {
     const button = event.target.closest("button[data-align]");
     const item = wbSelectedTextObjectOrNull();
     if (!button || !item) return;
+    const before = WB_KIND_INFO.object.payload(item);
+    wbPushUndo({ action: "move", kind: "object", id: item.id, before });
     item.data = { ...item.data, align: button.dataset.align };
     wbSaveObject(item);
     wbScheduleRender();
@@ -11569,6 +11583,8 @@ async function initWhiteboard() {
   document.getElementById("wb-prop-md")?.addEventListener("change", (event) => {
     const item = wbSelectedTextObjectOrNull();
     if (!item) return;
+    const before = WB_KIND_INFO.object.payload(item);
+    wbPushUndo({ action: "move", kind: "object", id: item.id, before });
     item.data = { ...item.data, md: event.target.checked };
     wbSaveObject(item);
     wbScheduleRender();
@@ -11610,12 +11626,16 @@ async function initWhiteboard() {
   document.getElementById("wb-prop-color")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (sketch) {
+      const before = WB_KIND_INFO.sketch.payload(sketch);
+      wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
       await wbSaveSketchProps(sketch, { color: e.target.value });
       wbScheduleRender();
       return;
     }
     const obj = wbSelectedTextObjectOrNull();
     if (obj) {
+      const before = WB_KIND_INFO.object.payload(obj);
+      wbPushUndo({ action: "move", kind: "object", id: obj.id, before });
       obj.data = { ...obj.data, color: e.target.value };
       await wbSaveObject(obj);
       wbScheduleRender();
@@ -11625,6 +11645,8 @@ async function initWhiteboard() {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
     const width = Math.max(1, Math.min(40, Number(e.target.value) || 3));
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
     await wbSaveSketchProps(sketch, { width });
     wbScheduleRender();
   });
@@ -11637,6 +11659,8 @@ async function initWhiteboard() {
   async function wbSetCap(which, value) {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
     let linkParsed = null;
     try {
       const candidate = JSON.parse(sketch.data);
@@ -11668,6 +11692,8 @@ async function initWhiteboard() {
   document.getElementById("wb-prop-bg")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
+    const before = WB_KIND_INFO.object.payload(obj);
+    wbPushUndo({ action: "move", kind: "object", id: obj.id, before });
     obj.data = { ...obj.data, bg: e.target.value };
     document.getElementById("wb-prop-bg-none").checked = false;
     await wbSaveObject(obj);
@@ -11676,6 +11702,8 @@ async function initWhiteboard() {
   document.getElementById("wb-prop-bg-none")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
+    const before = WB_KIND_INFO.object.payload(obj);
+    wbPushUndo({ action: "move", kind: "object", id: obj.id, before });
     // "transparent" is a real, distinguishable value, `bg || ""` (the
     // render path) would otherwise fall back to the CSS default translucent
     // panel look for an empty string, not the "no fill at all" this asks
@@ -11687,6 +11715,8 @@ async function initWhiteboard() {
   document.getElementById("wb-prop-border")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
+    const before = WB_KIND_INFO.object.payload(obj);
+    wbPushUndo({ action: "move", kind: "object", id: obj.id, before });
     obj.data = { ...obj.data, border_color: e.target.value };
     document.getElementById("wb-prop-border-none").checked = false;
     await wbSaveObject(obj);
@@ -11695,6 +11725,8 @@ async function initWhiteboard() {
   document.getElementById("wb-prop-border-none")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
+    const before = WB_KIND_INFO.object.payload(obj);
+    wbPushUndo({ action: "move", kind: "object", id: obj.id, before });
     obj.data = { ...obj.data, border_color: e.target.checked ? "transparent" : document.getElementById("wb-prop-border").value };
     await wbSaveObject(obj);
     wbScheduleRender();
@@ -11702,18 +11734,24 @@ async function initWhiteboard() {
   document.getElementById("wb-prop-dash")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
     await wbSaveSketchProps(sketch, { dash: e.target.value === "solid" ? undefined : e.target.value });
     wbScheduleRender();
   });
   document.getElementById("wb-prop-nostroke")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
     await wbSaveSketchProps(sketch, { noStroke: e.target.checked || undefined });
     wbScheduleRender();
   });
   document.getElementById("wb-prop-shapefill")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
     document.getElementById("wb-prop-shapefill-on").checked = true;
     document.getElementById("wb-prop-shapefill").disabled = false;
     await wbSaveSketchProps(sketch, { fill: e.target.value, fillOpacity: 1 });
@@ -11722,6 +11760,8 @@ async function initWhiteboard() {
   document.getElementById("wb-prop-shapefill-on")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
     document.getElementById("wb-prop-shapefill").disabled = !e.target.checked;
     await wbSaveSketchProps(sketch, { fill: e.target.checked ? document.getElementById("wb-prop-shapefill").value : undefined });
     wbScheduleRender();
@@ -11729,6 +11769,8 @@ async function initWhiteboard() {
   document.getElementById("wb-prop-fontsize")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
+    const before = WB_KIND_INFO.object.payload(obj);
+    wbPushUndo({ action: "move", kind: "object", id: obj.id, before });
     const fontSize = Math.max(8, Math.min(200, Number(e.target.value) || 16));
     obj.data = { ...obj.data, font_size: fontSize };
     await wbSaveObject(obj);
@@ -13804,7 +13846,7 @@ async function createNewBoard(preset = null) {
       // thing about the feature in its first five seconds.
       const root = (wbState.objects || []).find((o) => WB_MAP_KINDS.has(o.kind));
       if (root) selectWbItem("object", root.id);
-      renderWhiteboardNow();
+      wbScheduleRender();
       //: **Centred on the actual canvas, not wherever the server's own
       //: `tree-right` placement happened to land it.** Reported: a new map's
       //: first node opened under the top bar. The root is real DOM now
@@ -16391,6 +16433,10 @@ function renderWbObjects(canvas) {
       // between two half-typed states.
       content.on("blur", function () {
         wbEndTextEdit(this);
+        if (d.data.content !== this.textContent) {
+          const before = WB_KIND_INFO.object.payload(d);
+          wbPushUndo({ action: "move", kind: "object", id: d.id, before });
+        }
         d.data = { ...d.data, content: this.textContent };
         wbSaveObject(d);
       });
@@ -17313,8 +17359,14 @@ async function openWhiteboardBoard(boardId) {
   //: measures the nodes it is about to fit (a map node is `height: auto`, so
   //: its real size only exists once it is in the document).
   if (wbIsMap()) {
-    renderWhiteboardNow();
-    wbFrameMapOnOpen();
+    // Avoid blocking the UI thread (tab transition) by rendering on the next frame.
+    requestAnimationFrame(() => {
+      // wbScheduleRender already requested a frame, so we request another to
+      // ensure the DOM is updated before framing the map.
+      requestAnimationFrame(() => {
+        wbFrameMapOnOpen();
+      });
+    });
   }
   //: **A board is a place, so opening one is a navigation.** Asked as part of
   //: "is everythign wired to the nav history and universal undo/redo": it was

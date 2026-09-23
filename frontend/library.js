@@ -7646,6 +7646,16 @@ function createLibrarySelectbar(idPrefix, ariaLabel) {
   const count = document.createElement("span");
   count.id = `${idPrefix}-selected-count`;
   count.className = "library-selected-count";
+  const selAll = document.createElement("button");
+  selAll.id = `${idPrefix}-select-all`;
+  selAll.className = "ghost small";
+  selAll.type = "button";
+  selAll.textContent = "Select all";
+  const deselAll = document.createElement("button");
+  deselAll.id = `${idPrefix}-deselect-all`;
+  deselAll.className = "ghost small";
+  deselAll.type = "button";
+  deselAll.textContent = "Deselect all";
   const end = document.createElement("span");
   end.className = "library-contextbar-end";
   const del = document.createElement("button");
@@ -7659,7 +7669,7 @@ function createLibrarySelectbar(idPrefix, ariaLabel) {
   clear.type = "button";
   clear.textContent = "Done";
   end.append(del, clear);
-  bar.append(count, end);
+  bar.append(count, selAll, deselAll, end);
   return bar;
 }
 

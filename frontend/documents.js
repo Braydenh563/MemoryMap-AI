@@ -6064,6 +6064,7 @@ function docLivePlugin(CM) {
     toDOM() {
       const cell = document.createElement("span");
       cell.className = this.cls;
+      cell.contentEditable = "false";
       return cell;
     }
   }
@@ -15158,8 +15159,32 @@ function docCmExtensions(CM) {
         }
         return false;
       },
-      mousedown: () => {
+      mousedown: (event, view) => {
         docTabEscapes = false;
+        // CodeMirror struggles to map coordinates inside a CSS Grid back to
+        // document positions, which is how table cells (.cm-md-td) are laid out.
+        // It always snaps to the start of the cell. This bypasses CodeMirror's
+        // coordinate mapping and uses the browser's native caret resolver.
+        if (event.target.closest(".cm-md-td")) {
+          let range = null;
+          if (document.caretPositionFromPoint) {
+            const pos = document.caretPositionFromPoint(event.clientX, event.clientY);
+            if (pos && pos.offsetNode) {
+              range = document.createRange();
+              range.setStart(pos.offsetNode, pos.offset);
+              range.collapse(true);
+            }
+          } else if (document.caretRangeFromPoint) {
+            range = document.caretRangeFromPoint(event.clientX, event.clientY);
+          }
+          if (range) {
+            const domPos = view.posAtDOM(range.startContainer, range.startOffset);
+            if (domPos !== null) {
+              view.dispatch({ selection: { anchor: domPos } });
+              return true;
+            }
+          }
+        }
         return false;
       },
     }),

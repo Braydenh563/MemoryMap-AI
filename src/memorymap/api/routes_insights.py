@@ -383,7 +383,9 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
 
 DIGEST_QUESTION = (
     "Give me a short digest of what I saved this week, group by topic and "
-    "call out anything that looks important or unfinished."
+    "call out anything that looks important or unfinished. "
+    "Respond directly with the digest. Do not use conversational filler (e.g. 'Here is your digest') "
+    "and do not use time references (e.g. 'this week' or 'recently') as the UI already provides this context."
 )
 
 

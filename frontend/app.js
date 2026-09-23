@@ -3131,6 +3131,7 @@ function entryItem(entry, options = {}) {
         editingId = entry.id;
         focusTagsAfterRender = entry.id;
         renderEntries();
+        requestAnimationFrame(() => scrollEditingEntryIntoView(entry.id));
       })
       : chip("ph:tag No tags yet", "untagged");
     untagged.title = options.actions
@@ -3342,6 +3343,11 @@ function entryItem(entry, options = {}) {
       smallButton("ph:pencil-simple", "Edit this entry", () => {
         editingId = entry.id;
         renderEntries();
+        //: Scroll the edit form into view after renderEntries rebuilds the
+        //: list, otherwise the list resets to the top and the editing note
+        //: may be off screen. Nearest scroller, not scrollIntoView: DESIGN.md
+        //: rule, scrollIntoView walks every ancestor to the page.
+        requestAnimationFrame(() => scrollEditingEntryIntoView(entry.id));
       })
     );
     // Publishing already worked via the "draft" chip below (click it to
@@ -9328,7 +9334,9 @@ function renderEditForm(li, entry) {
   //: opened with no state and no title until the first click without this.
   if (typeof mountGutterFor === "function") {
     mountGutterFor(textarea);
-    requestAnimationFrame(applyDocGutter);
+    if (typeof applyDocGutter === "function") {
+      requestAnimationFrame(applyDocGutter);
+    }
   }
   renderEntryAttachmentChips(textarea, chipsHost);
   textarea.addEventListener("input", () => renderEntryAttachmentChips(textarea, chipsHost));
@@ -11103,6 +11111,17 @@ $("notes-expand-all")?.addEventListener("click", toggleExpandAllRows);
 $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
 $("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
 
+function libraryVisibleRows() {
+  let visible = draftsOnly
+    ? allEntries.filter((e) => e.is_draft)
+    : favouritesOnly
+      ? allEntries.filter((e) => e.pinned && !e.is_draft)
+      : activeCategory
+        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
+        : allEntries.filter((e) => !e.is_draft);
+  return visible.filter(matchesSearch);
+}
+
 function renderEntries() {
   closeNotePageIfGone();
   // A cleared box clears its reasons here rather than at each of the five
@@ -11121,14 +11140,7 @@ function renderEntries() {
 
   // Drafts stay out of All/category views entirely, user-reported: they
   // should only show up in the Drafts filter until saved as a real note.
-  let visible = draftsOnly
-    ? allEntries.filter((e) => e.is_draft)
-    : favouritesOnly
-      ? allEntries.filter((e) => e.pinned && !e.is_draft)
-      : activeCategory
-        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
-        : allEntries.filter((e) => !e.is_draft);
-  visible = visible.filter(matchesSearch);
+  const visible = libraryVisibleRows();
 
   // "Notes" everywhere else on this tab ("Your notes", "notebook", the
   // status-bar note count): this heading used to say "entries" (the API's
@@ -12579,6 +12591,37 @@ function announce(message) {
 //: wiki link), which is why the tracking sits here rather than at the dozen
 //: call sites.
 let lastOpenedEntryId = null;
+
+//: Bring the currently-open edit form into view within its nearest scrolling
+//: ancestor, without moving the page scroll position. Called after
+//: `renderEntries()` rebuilds the list from scratch, which resets the notes
+//: pane's scroll to the top: the editing note might then be off screen.
+//: Nearest-scroller pattern per DESIGN.md: `scrollIntoView` walks every
+//: ancestor to the page, including the page itself, which is not what we want.
+function scrollEditingEntryIntoView(id) {
+  const li = document.querySelector(`#entry-list li[data-id="${id}"]`);
+  if (!li) return;
+  let node = li.parentElement;
+  while (node && node !== document.body) {
+    const style = getComputedStyle(node);
+    if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) {
+      const liTop = li.getBoundingClientRect().top;
+      const nodeTop = node.getBoundingClientRect().top;
+      const liBottom = liTop + li.offsetHeight;
+      const nodeBottom = nodeTop + node.clientHeight;
+      if (liTop < nodeTop) {
+        node.scrollTop += liTop - nodeTop - 8;
+      } else if (liBottom > nodeBottom) {
+        node.scrollTop += liBottom - nodeBottom + 8;
+      }
+      return;
+    }
+    node = node.parentElement;
+  }
+  // Fallback: page-level scroll, only if no scrolling ancestor found.
+  const rect = li.getBoundingClientRect();
+  if (rect.top < 0) window.scrollBy(0, rect.top - 8);
+}
 
 function flashEntry(id) {
   lastOpenedEntryId = id;
@@ -42921,6 +42964,51 @@ $("notes-new-note").addEventListener("click", () => {
 $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );
+
+$("batch-select-all").addEventListener("click", () => {
+  const visible = libraryVisibleRows();
+  let changed = false;
+  for (const row of visible) {
+    if (!selectedIds.has(row.id)) {
+      selectedIds.add(row.id);
+      changed = true;
+    }
+  }
+  if (changed) {
+    updateBatchCount();
+    renderEntries();
+  }
+});
+$("batch-deselect-all").addEventListener("click", () => {
+  if (selectedIds.size > 0) {
+    selectedIds.clear();
+    updateBatchCount();
+    renderEntries();
+  }
+});
+
+$("timeline-batch-select-all")?.addEventListener("click", () => {
+  const visible = timelineVisibleRows();
+  let changed = false;
+  for (const row of visible) {
+    if (!selectedIds.has(row.id)) {
+      selectedIds.add(row.id);
+      changed = true;
+    }
+  }
+  if (changed) {
+    updateBatchCount();
+    paintTimeline();
+  }
+});
+$("timeline-batch-deselect-all")?.addEventListener("click", () => {
+  if (selectedIds.size > 0) {
+    selectedIds.clear();
+    updateBatchCount();
+    paintTimeline();
+  }
+});
+
 $("batch-tag").addEventListener("click", batchTag);
 $("batch-delete").addEventListener("click", batchDelete);
 $("batch-cancel").addEventListener("click", exitSelectMode);
@@ -48945,7 +49033,7 @@ $("notif-mark-all-read")?.addEventListener("click", () => {
 const FINDER_KINDS = [
   { key: "note", icon: "ph:note-pencil", one: "note", many: "notes" },
   { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
-  { key: "board", icon: "ph:squares-four", one: "board", many: "boards" },
+  { key: "board", icon: "ph:tree-structure", one: "board or map", many: "boards & maps" },
   { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
   { key: "bookmark", icon: "ph:bookmark-simple", one: "link", many: "links" },
   { key: "reminder", icon: "ph:alarm", one: "reminder", many: "reminders" },

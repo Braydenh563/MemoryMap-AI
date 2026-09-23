@@ -615,18 +615,20 @@ def _boot_and_swap(window) -> None:
         # rather than a tick bought to fill the bar. It is on screen for the
         # navigation only, but it is the difference between a launch that
         # ends on a finished list and one that ends on four of five.
-        # Ticked, then swapped immediately. A quarter-second hold was tried
-        # here first, to make this window's own finished list visible, and the
-        # owner asked for it back: "remove the delay on the other splash
-        # loading screen in the main window". They are right, and the reason is
-        # that the hold was solving the wrong window's problem. The list a
-        # person actually watches finish is the launcher's splash, which now
-        # ticks its own last step before it closes
-        # (`_finish_splash_start_step`); by the time this page could show
-        # anything, the app is what they are waiting for. Nothing is lost: the
-        # step is still marked done, so a `Details` pane or a log read after
-        # the fact tells the truth about what happened.
+        #
+        # A quarter-second hold was tried here first on source builds to make
+        # this window's list visible, and was removed because the list a person
+        # actually watches finish is the launcher's splash (`scripts/splash.ps1`);
+        # by the time this page shows anything, the app is what they are waiting for.
+        #
+        # BUT: A packaged/frozen build has no launcher splash! It boots so fast
+        # that the window flashes a white screen for 100ms and swaps, which looks
+        # broken ("Still no splash on the windows exe packaged application"). For
+        # packaged builds only, we guarantee a short minimum display time so the
+        # user actually sees the logo and knows the app is starting.
         _mark_start_step_done(window)
+        if getattr(sys, "frozen", False):
+            time.sleep(1.5)
         window.load_url(f"http://{HOST}:{PORT}")
         _focus_window(window)
     else:

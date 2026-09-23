@@ -4552,7 +4552,7 @@
             </details>
           </div>
         </div>
-        <p class="muted">
+        <p class="muted library-lede">
           Everything you have written long-form. Open one to keep writing, or
           start a new one, the editor is the same either way.
         </p>
@@ -6237,9 +6237,13 @@
           </details>
         </div>
       </div>
-      <p class="muted">Save links to websites you visit often: a bookmark
+      <p class="muted library-lede">Save links to websites you visit often: a bookmark
         shelf that lives in the notebook instead of the browser.</p>
-      <form id="bookmark-form" class="row">
+      <!-- Folded until "Add link" asks for it (pass2.md finding 18): a
+           three-field form open above every list duplicated the dock's own
+           "Add link", and was the heaviest thing on the page for a job done
+           now and then. Escape or Done folds it again. -->
+      <form id="bookmark-form" class="row hidden">
         <input id="bookmark-url-input" type="text" class="library-search"
           placeholder="example.com" aria-label="Bookmark URL" required>
         <input id="bookmark-title-input" type="text"
@@ -6248,6 +6252,7 @@
           placeholder="Group (optional, e.g. Work/Reading)" aria-label="Bookmark group">
         <datalist id="bookmark-group-options"></datalist>
         <button type="submit" class="small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add</button>
+        <button type="button" id="bookmark-form-done" class="ghost small" title="Fold the form away (Esc)">Done</button>
       </form>
       <div id="bookmark-group-chips" class="row bookmark-group-chips"></div>
       <div id="bookmark-list" class="bookmark-list"></div>

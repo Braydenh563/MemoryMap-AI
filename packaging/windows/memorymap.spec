@@ -112,8 +112,26 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# **A splash from the bootloader, before Python exists** (owner: "still no
+# splash on the windows exe packaged application"). start.bat has
+# scripts/splash.ps1 for its pre-Python phase; the packaged exe had nothing
+# on screen from the double-click until pywebview's window, which is the
+# whole cold import of this folder (seconds on a first launch with a virus
+# scanner reading every DLL). PyInstaller's Splash is drawn by the
+# bootloader itself, so it is up before any of that; `__main__.py`
+# (`_close_bootloader_splash`) takes it down when the app window is shown.
+# splash.png is the launcher splash's own look, rendered once.
+splash = Splash(
+    str(Path(SPECPATH) / "splash.png"),
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=None,
+    always_on_top=False,
+)
+
 exe = EXE(
     pyz,
+    splash,
     a.scripts,
     [],
     exclude_binaries=True,
@@ -139,6 +157,7 @@ exe = EXE(
 # ship for v1.
 coll = COLLECT(
     exe,
+    splash.binaries,
     a.binaries,
     a.zipfiles,
     a.datas,

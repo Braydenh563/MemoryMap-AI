@@ -15085,6 +15085,43 @@ function docCmKeymap(CM) {
 
 //: Everything the view is built from. Split out so the mount and a later
 //: rebuild (`docResetDocument`) cannot drift.
+//: **A click in a live-view table cell lands where it was pressed** (owner:
+//: "I can't edit specific boxes in tables in the document editor live
+//: view"). The cells are laid out as a CSS grid over one line of source, and
+//: CodeMirror's own coordinate mapping reads that line as if it were flowing
+//: text: measured, a click at the end of "r2b" put the caret at the cell's
+//: start and a click inside "r1a" put it in the next cell. The browser's own
+//: caret resolver does know the grid, so the press is resolved with it and
+//: handed to the view as a position. Focus is taken explicitly because a
+//: handled mousedown skips CodeMirror's own focus step: the first version of
+//: this returned `true` without it, and every keystroke after the click went
+//: nowhere. A drag, a Shift or Alt click, and anything but the main button
+//: stay CodeMirror's.
+function docTableCellClick(event, view) {
+  if (event.button !== 0 || event.shiftKey || event.altKey || event.detail > 1) return false;
+  if (!event.target.closest?.(".cm-md-td, .cm-md-th")) return false;
+  let node = null;
+  let offset = 0;
+  if (document.caretPositionFromPoint) {
+    const hit = document.caretPositionFromPoint(event.clientX, event.clientY);
+    if (hit) ({ offsetNode: node, offset } = hit);
+  } else if (document.caretRangeFromPoint) {
+    const hit = document.caretRangeFromPoint(event.clientX, event.clientY);
+    if (hit) ({ startContainer: node, startOffset: offset } = hit);
+  }
+  if (!node || !view.contentDOM.contains(node)) return false;
+  let pos;
+  try {
+    pos = view.posAtDOM(node, offset);
+  } catch {
+    return false;
+  }
+  event.preventDefault();
+  view.focus();
+  view.dispatch({ selection: { anchor: pos }, scrollIntoView: false, userEvent: "select.pointer" });
+  return true;
+}
+
 function docCmExtensions(CM) {
   const type = docFileType();
   docCmParts.language = new CM.state.Compartment();
@@ -15161,31 +15198,7 @@ function docCmExtensions(CM) {
       },
       mousedown: (event, view) => {
         docTabEscapes = false;
-        // CodeMirror struggles to map coordinates inside a CSS Grid back to
-        // document positions, which is how table cells (.cm-md-td) are laid out.
-        // It always snaps to the start of the cell. This bypasses CodeMirror's
-        // coordinate mapping and uses the browser's native caret resolver.
-        if (event.target.closest(".cm-md-td")) {
-          let range = null;
-          if (document.caretPositionFromPoint) {
-            const pos = document.caretPositionFromPoint(event.clientX, event.clientY);
-            if (pos && pos.offsetNode) {
-              range = document.createRange();
-              range.setStart(pos.offsetNode, pos.offset);
-              range.collapse(true);
-            }
-          } else if (document.caretRangeFromPoint) {
-            range = document.caretRangeFromPoint(event.clientX, event.clientY);
-          }
-          if (range) {
-            const domPos = view.posAtDOM(range.startContainer, range.startOffset);
-            if (domPos !== null) {
-              view.dispatch({ selection: { anchor: domPos } });
-              return true;
-            }
-          }
-        }
-        return false;
+        return docTableCellClick(event, view);
       },
     }),
     CM.view.EditorView.updateListener.of(docCmUpdate),

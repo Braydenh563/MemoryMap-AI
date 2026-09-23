@@ -134,3 +134,24 @@ def test_auto_install_retries_the_load_once_the_background_install_finishes(
         time.sleep(0.05)
 
     assert service._load_failed_at is None, "the watcher never cleared the retry cooldown"
+
+
+def test_a_missing_package_is_a_sentence_not_a_traceback(app_state, monkeypatch, caplog):
+    """Owner's packaged-app log carried a full traceback for
+    `No module named 'sentence_transformers'`, an optional package the app
+    was already installing. It is a state: one warning line, and a reason in
+    Settings a person can act on."""
+    service = deps.get_embeddings()
+    monkeypatch.setattr(
+        service,
+        "_load_st_model",
+        lambda: (_ for _ in ()).throw(ModuleNotFoundError("No module named 'sentence_transformers'")),
+    )
+    monkeypatch.setattr(extras, "start", lambda extra_id, reinstall=False: (False, "unavailable"))
+
+    with caplog.at_level("WARNING"):
+        service.embed_text("something to embed")
+
+    assert "ModuleNotFoundError" not in (service.last_error or "")
+    assert "Search by meaning" in service.last_error
+    assert not any(record.exc_info for record in caplog.records)

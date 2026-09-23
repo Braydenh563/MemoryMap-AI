@@ -29,13 +29,16 @@ HEATMAP_DAYS = 371  # 53 whole weeks, the contribution-style heatmap
 
 @router.get("/stats")
 def stats(session: Session = Depends(get_session)) -> dict:
+    # Drafts are not counted: the Notes list and its sidebar leave them out
+    # until they are saved as real notes, and the owner asked "do I have 29,
+    # 30 or 31 notes?" when this said one number and the list another.
     total = session.scalar(
-        select(func.count(Entry.id)).where(Entry.is_deleted == False)  # noqa: E712
+        select(func.count(Entry.id)).where(Entry.is_deleted == False, Entry.is_draft == False)  # noqa: E712
     )
     by_category = session.execute(
         select(Category.name, func.count(Entry.id))
         .join(Entry, Entry.category_id == Category.id)
-        .where(Entry.is_deleted == False)  # noqa: E712
+        .where(Entry.is_deleted == False, Entry.is_draft == False)  # noqa: E712
         .group_by(Category.name)
         .order_by(func.count(Entry.id).desc())
     ).all()
@@ -45,6 +48,7 @@ def stats(session: Session = Depends(get_session)) -> dict:
     recent = session.scalars(
         select(Entry).where(
             Entry.is_deleted == False,  # noqa: E712
+            Entry.is_draft == False,  # noqa: E712
             Entry.created_at >= start.replace(hour=0, minute=0, second=0),
         )
     )

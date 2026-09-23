@@ -3684,12 +3684,40 @@ function inlineActionIs(id, kind) {
 // scroll outside the open menu closes it; a scroll inside a long menu is
 // the menu's own and is left alone.
 function closeActionMenusOnScroll(event) {
-  const open = document.querySelector(".action-menu:not(.hidden)");
-  if (!open) return;
-  if (event.target instanceof Node && open.contains(event.target)) return;
+  const openMenus = document.querySelectorAll(".action-menu:not(.hidden)");
+  if (openMenus.length === 0) return;
+
+  // Trackpads send small deltaX values along with deltaY when scrolling vertically.
+  // If a dropdown lacks horizontal scroll, browsers often chain the deltaX to the 
+  // nearest horizontally scrollable ancestor. If that ancestor scrolls, this function
+  // fires. By ignoring the scroll while the user is actively hovering the menu, we 
+  // prevent the menu from abruptly closing during trackpad scrolling.
+  // We also track the last wheel event time, as :hover is often lost during 
+  // momentum scrolling on touchpads.
+  const timeSinceLastMenuWheel = Date.now() - (window._lastMenuWheelTime || 0);
+  if (
+    timeSinceLastMenuWheel < 500 || 
+    document.querySelector(".select-menu:hover, .action-menu:hover, .doc-dock-menu-list:hover, .library-image-menu-list:hover, .wb-board-menu:hover")
+  ) {
+    return;
+  }
+
+  if (event.target instanceof Node) {
+    for (const open of openMenus) {
+      if (open.contains(event.target)) return;
+    }
+  }
   closeActionMenus();
 }
 window.addEventListener("scroll", closeActionMenusOnScroll, true);
+
+// Track recent wheel events over menus to prevent them from closing during 
+// momentum scrolls where the :hover state might temporarily detach.
+window.addEventListener("wheel", (event) => {
+  if (event.target.closest(".select-menu, .action-menu, .doc-dock-menu-list, .library-image-menu-list, .wb-board-menu")) {
+    window._lastMenuWheelTime = Date.now();
+  }
+}, { passive: true, capture: true });
 
 function closeActionMenus() {
   for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
@@ -9332,12 +9360,14 @@ function renderEditForm(li, entry) {
   //: returns it to the list renderer), and `applyDocGutter` walks the
   //: document to set the strip button's pressed state: measured, the button
   //: opened with no state and no title until the first click without this.
-  if (typeof mountGutterFor === "function") {
-    mountGutterFor(textarea);
-    if (typeof applyDocGutter === "function") {
-      requestAnimationFrame(applyDocGutter);
-    }
-  }
+  //:
+  //: **Both are lazy entry points** (`LAZY_ENTRY_POINTS`). `applyDocGutter`
+  //: was not, so before the Library bundle had loaded this line threw a
+  //: ReferenceError in the middle of `renderEntries` and left the list half
+  //: drawn: the owner's "the first time I try editing a note after a restart,
+  //: the notes page goes blank". The mount is awaited so the strip exists
+  //: when the pressed state is set.
+  Promise.resolve(mountGutterFor(textarea)).then(() => requestAnimationFrame(() => applyDocGutter()));
   renderEntryAttachmentChips(textarea, chipsHost);
   textarea.addEventListener("input", () => renderEntryAttachmentChips(textarea, chipsHost));
   renderRelatedWhileEditing(li, entry);
@@ -11110,6 +11140,12 @@ function toggleRowExpanded(id) {
 $("notes-expand-all")?.addEventListener("click", toggleExpandAllRows);
 $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
 $("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
+
+function noteCountExcludingDrafts() {
+  let n = 0;
+  for (const e of allEntries) if (!e.is_draft) n += 1;
+  return n;
+}
 
 function libraryVisibleRows() {
   let visible = draftsOnly
@@ -16693,6 +16729,9 @@ function wheelScrollsHorizontally(element) {
     "wheel",
     (event) => {
       if (event.deltaX !== 0 || event.shiftKey) return;
+      // Do not steal vertical scroll if the target is inside a scrollable dropdown/menu
+      if (event.target.closest(".select-menu, .action-menu, .doc-dock-menu-list, .library-image-menu-list, .wb-board-menu")) return;
+      
       const room = element.scrollWidth - element.clientWidth;
       if (room <= 1) return;
       const atStart = element.scrollLeft <= 0 && event.deltaY < 0;
@@ -16705,6 +16744,14 @@ function wheelScrollsHorizontally(element) {
   );
 }
 window.wheelScrollsHorizontally = wheelScrollsHorizontally;
+
+// Trackpads send small deltaX values along with deltaY when scrolling vertically.
+// If a dropdown lacks horizontal scroll, browsers often ignore `overscroll-behavior` 
+// on that axis and chain the deltaX to the nearest horizontally scrollable ancestor.
+// When the ancestor scrolls, `closeActionMenusOnScroll` fires and closes the menu.
+// [REMOVED] The manual wheel event handler was removed because `menu.scrollTop += event.deltaY`
+// breaks two-finger trackpad scrolling. Instead, `closeActionMenusOnScroll` now checks 
+// if the cursor is actively hovering the menu, and if so, it ignores the ancestor scroll event.
 
 //: Every horizontal strip in the app, in one list. A strip added later gets
 //: this by being added here, which is cheaper than each surface remembering.
@@ -25630,6 +25677,15 @@ function updateBatchCount() {
   // The Timeline's table selects into the same set through the same actions
   // (TIMELINE_PLAN decision 6), so there are two bars showing one count.
   $("timeline-batch-count").textContent = `${n} selected`;
+  //: The Select all toggles say what pressing them would do.
+  const label = (rows) =>
+    rows.length > 0 && rows.every((row) => selectedIds.has(row.id))
+      ? "ph:x-square Select none"
+      : "ph:checks Select all";
+  const notesAll = $("batch-select-all");
+  if (notesAll) setLabel(notesAll, label(libraryVisibleRows()));
+  const timelineAll = $("timeline-batch-select-all");
+  if (timelineAll) setLabel(timelineAll, label(timelineSelectableRows()));
 }
 
 // **One step, not three.** This used to be a `<select>` of categories beside
@@ -36235,6 +36291,13 @@ function syncModelGatedControls(status = modelStatus) {
     }
     control.classList.toggle("ai-unavailable", off);
   }
+  //: The badge is a span, not a button, so `disabled` does nothing to it
+  //: (see its own comment in `renderTimelineEntry`). Explicitly hidden here so
+  //: a badge drawn while the model was online doesn't sit on screen as a
+  //: broken promise once it drops.
+  for (const badge of document.querySelectorAll(".untagged-ai")) {
+    badge.style.display = off ? "none" : "";
+  }
   //: The link half of decision 11. A tooltip on a disabled control is read by
   //: somebody who already suspects the answer; a person who does not know why
   //: half the app went quiet needs a sentence they can act on, in the place
@@ -36508,8 +36571,11 @@ function renderStatusBar() {
   // second it is up.
   paintStatusItem("status-notes", {
     icon: "ph:note-pencil",
-    value: entriesEverLoaded ? allEntries.length : "–",
-    label: allEntries.length === 1 && entriesEverLoaded ? "note" : "notes",
+    //: Drafts left out, as the Notes list and its sidebar count leave them
+    //: out: three places saying three numbers was the owner's "do I have
+    //: 29, 30, or 31 notes?".
+    value: entriesEverLoaded ? noteCountExcludingDrafts() : "–",
+    label: noteCountExcludingDrafts() === 1 && entriesEverLoaded ? "note" : "notes",
     title: "Your notebook: click to browse it",
   });
 
@@ -36796,7 +36862,19 @@ function renderSettings() {
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);
-  if (status.embedding_error) {
+  //: A missing optional package arrives as a sentence the backend wrote for
+  //: people ("Search by meaning is being installed..."), not an exception, so
+  //: it is shown as it is with the one alternative that needs no install: an
+  //: Ollama embedding model. Said even when Ollama is not running, because
+  //: the owner's report was exactly that case ("no nomic-embed-text
+  //: suggested") and the button below only exists while it is.
+  if (status.embedding_error && /^Search by meaning/.test(status.embedding_error)) {
+    embeddingError.textContent =
+      `${status.embedding_error}. ` +
+      (status.ollama_running
+        ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
+        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`);
+  } else if (status.embedding_error) {
     embeddingError.textContent =
       `Search engine problem: ${status.embedding_error}: semantic search is ` +
       "falling back to keywords. Quick fix: switch the search engine below to " +
@@ -39636,6 +39714,7 @@ const LAZY_ENTRY_POINTS = {
     "syncGraphPopupSave",
   ],
   library: [
+    "applyDocGutter",
     "applyMarkdown",
     "closeBinnedReader",
     "closeDocAiPanel",
@@ -43023,49 +43102,31 @@ $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );
 
-$("batch-select-all").addEventListener("click", () => {
-  const visible = libraryVisibleRows();
-  let changed = false;
-  for (const row of visible) {
-    if (!selectedIds.has(row.id)) {
-      selectedIds.add(row.id);
-      changed = true;
-    }
+//: **Select all, as one toggle** (owner: "no select all option??"). Every
+//: note the current filter shows, across pages, since the batch actions act
+//: on `selectedIds` rather than on what is painted; pressed again with all
+//: of them ticked it clears. One button rather than a Select all and a
+//: Deselect all pair: the bar already has Cancel to leave select mode.
+function toggleSelectAllRows(rows, repaint) {
+  const all = rows.length > 0 && rows.every((row) => selectedIds.has(row.id));
+  for (const row of rows) {
+    if (all) selectedIds.delete(row.id);
+    else selectedIds.add(row.id);
   }
-  if (changed) {
-    updateBatchCount();
-    renderEntries();
-  }
-});
-$("batch-deselect-all").addEventListener("click", () => {
-  if (selectedIds.size > 0) {
-    selectedIds.clear();
-    updateBatchCount();
-    renderEntries();
-  }
-});
-
-$("timeline-batch-select-all")?.addEventListener("click", () => {
-  const visible = timelineVisibleRows();
-  let changed = false;
-  for (const row of visible) {
-    if (!selectedIds.has(row.id)) {
-      selectedIds.add(row.id);
-      changed = true;
-    }
-  }
-  if (changed) {
-    updateBatchCount();
-    paintTimeline();
-  }
-});
-$("timeline-batch-deselect-all")?.addEventListener("click", () => {
-  if (selectedIds.size > 0) {
-    selectedIds.clear();
-    updateBatchCount();
-    paintTimeline();
-  }
-});
+  updateBatchCount();
+  repaint();
+}
+$("batch-select-all").addEventListener("click", () => toggleSelectAllRows(libraryVisibleRows(), renderEntries));
+//: Notes and boards only, the rule `timelineRowEl` applies to its ticks: the
+//: bar's actions are actions on an Entry, and a document or reminder id in
+//: `selectedIds` would be handed to the wrong table (a delete of the wrong
+//: row). The first version of this button selected every visible row.
+function timelineSelectableRows() {
+  return timelineVisibleRows().filter((row) => row.kind === "note" || row.kind === "board");
+}
+$("timeline-batch-select-all")?.addEventListener("click", () =>
+  toggleSelectAllRows(timelineSelectableRows(), paintTimeline)
+);
 
 $("batch-tag").addEventListener("click", batchTag);
 $("batch-delete").addEventListener("click", batchDelete);

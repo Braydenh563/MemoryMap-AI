@@ -1778,8 +1778,7 @@
           <!-- Batch actions bar: appears in select mode -->
           <div id="batch-bar" class="row library-contextbar selectbar hidden">
             <span id="batch-count" class="library-selected-count" role="status">0 selected</span>
-            <button id="batch-select-all" class="ghost small">Select all</button>
-            <button id="batch-deselect-all" class="ghost small">Deselect all</button>
+            <button id="batch-select-all" class="ghost small" type="button" title="Tick every note this list shows, or untick them all"><i class="ph ph-checks ph-lead" aria-hidden="true"></i> Select all</button>
             <!-- The move menu is built by fillBatchCategories(); its items are
                  the categories themselves, so picking one performs the move.
                  That replaced a <select> plus a separate "Move" button, which
@@ -2686,8 +2685,7 @@
            from the Notes tab take exactly the same path. -->
       <div id="timeline-batch-bar" class="row library-contextbar selectbar hidden">
         <span id="timeline-batch-count" class="library-selected-count" role="status">0 selected</span>
-        <button id="timeline-batch-select-all" class="ghost small">Select all</button>
-        <button id="timeline-batch-deselect-all" class="ghost small">Deselect all</button>
+        <button id="timeline-batch-select-all" class="ghost small" type="button" title="Tick every row this view shows, or untick them all"><i class="ph ph-checks ph-lead" aria-hidden="true"></i> Select all</button>
         <!-- Built by the same `fillBatchCategories()` the Notes bar uses, into
              this host: its items are the categories themselves, so picking one
              performs the move. -->
@@ -4405,6 +4403,7 @@
         <div id="library-selectbar" class="library-contextbar selectbar hidden" role="group"
           aria-label="Actions for the selected items">
           <span id="library-selected-count" class="library-selected-count"></span>
+          <button class="ghost small" type="button" data-select-all-for="library-grid" title="Tick everything shown, or untick it all"><i class="ph ph-checks ph-lead" aria-hidden="true"></i> Select all</button>
           <span class="library-contextbar-end">
             <button id="library-bulk-open" class="ghost small" type="button"><i class="ph ph-arrow-square-out ph-lead" aria-hidden="true"></i> Open</button>
             <button id="library-bulk-restore" class="ghost small hidden" type="button"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Restore</button>
@@ -4520,8 +4519,7 @@
         <div id="library-docs-selectbar" class="library-contextbar selectbar hidden" role="group"
           aria-label="Actions for the selected documents">
           <span id="library-docs-selected-count" class="library-selected-count"></span>
-          <button id="library-docs-select-all" class="ghost small" type="button">Select all</button>
-          <button id="library-docs-deselect-all" class="ghost small" type="button">Deselect all</button>
+          <button class="ghost small" type="button" data-select-all-for="library-docs-list" title="Tick everything shown, or untick it all"><i class="ph ph-checks ph-lead" aria-hidden="true"></i> Select all</button>
           <span class="library-contextbar-end">
             <button id="library-docs-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
             <button id="library-docs-clear-selection" class="ghost small" type="button">Done</button>
@@ -6098,6 +6096,7 @@
       <div id="library-media-selectbar" class="library-contextbar selectbar hidden" role="group"
         aria-label="Actions for the selected files">
         <span id="library-media-selected-count" class="library-selected-count"></span>
+        <button class="ghost small" type="button" data-select-all-for="library-images-grid" title="Tick everything shown, or untick it all"><i class="ph ph-checks ph-lead" aria-hidden="true"></i> Select all</button>
         <span class="library-contextbar-end">
           <button id="library-media-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
           <button id="library-media-clear-selection" class="ghost small" type="button">Done</button>

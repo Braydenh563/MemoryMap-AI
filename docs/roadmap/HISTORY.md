@@ -7,6 +7,67 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-09-23
+
+### From UI_MODERNISATION_PLAN.md Phase 11 item 12: content gets the screen (INBOX 392)
+
+The owner: "the mobile view is still very broken, takes up a lot of the
+screen and the design needs a lot of improvement", and then: "actually
+intentionally designing for those resolutions, and not just adapting to
+them". Measured first with a new gate, `scratchpad/ui-sweeps/phonechrome.js`:
+per tab, the union of every band that does not scroll with the content (the
+shell's bars, anything fixed or sticky, anything outside the content's own
+scroller) against 25% of the height; where the content begins at rest
+against 40%; sideways overflow; a picker cut by its strip; 44px targets; a
+list row drawing its own controls over its text; anything fixed on the tab
+bar (it raises a toast on every tab and the agent activity panel on one).
+
+Before, at 390x844 (the old default look): chat chrome 266px (32%), notes
+206, library 206, the other four 152; `#ai-status` 28x28 and the status bar's
+reminders count 82x28 on every tab; the chat model picker cut at the strip's
+edge ("Inherited: llam", the strip 767px in 312); the reminders list first
+shown at y=836 of 844; the library's first card at 407; each note row's four
+action buttons over its chips and a 10px blue and red strip at its edges. At
+768x1024 the page scrolled sideways (812 in 768, the status bar) and at
+1024x768 with a touch context every dock control was 36px and the status
+items 28.
+
+After, in the new default look (all three sizes PASS, 0 findings):
+
+| 390x844 | chrome | content at |
+| --- | --- | --- |
+| dashboard | 112 (13%) | 61 |
+| notes | 164 (19%) | 235 |
+| chat | 170 (20%) | 135 |
+| library | 164 (19%) | 304 |
+| timeline | 112 (13%) | 186 |
+| reminders | 112 (13%) | 188 |
+| board | 112 (13%) | 61 |
+
+What moved, each in its own commit: the status bar below 600 (Back, Undo and
+the AI dot into the header by `dockPhoneStatus`, every other control a row of
+the header menu through `PHONE_STATUS_ROWS`, the bar back only for a job,
+activity, offline or power saver; a ratchet in `tests/test_ui_recipes.py`
+that every status-bar control has a phone way in); a note row that is the
+note (the ⋯ at the end of the meta line, the underlays inset only inside
+their gap, the list unframed, long notes five lines); every dock head one row
+of title and actions with the search under it; the chat head one row and its
+model, skills, web and plan in the gear's "How it answers" panel, which is a
+sheet below 600 (`dockChatTools`, `openChatDockMore`); Reminders' form a
+sheet from a new filled "New reminder" below 1100 (`openReminderCompose`,
+`FAB_IDS`); the Library unframed with its chips in one row below 1100; toasts
+and the agent panel standing on the tab bar; the board's menu toggles given
+icons where their words go, the sub-tabs hidden while a board is open on a
+phone, the map's key hint left to keyboards, and a 3px ink frame on the tool
+bar removed (`border-*: none` resets width to medium, which the new look's
+`.card` border style brought back); the status bar a 44px touch bar from 600
+up on a coarse pointer; and the touch floor following the pointer, not only
+the width (fourteen blocks now `(max-width: 819.98px), (pointer: coarse)`,
+held by a second ratchet). Sweeps after: phonechat, phoneswipe,
+phonenotepage, wbphone, touch.js at 390 and 1024 PASS; touch.js at 768 has
+one finding, a due-reminder toast over the chat composer's mode segment
+(open in the plan's item 12).
+
 ## Moved from the plans, 2026-09-21
 
 ### From WORLD_CLASS_PLAN.md section 21: every failure names its way out (INBOX 272 part 1)

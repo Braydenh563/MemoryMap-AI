@@ -491,9 +491,14 @@ function renderLibrary() {
   }
 
   const updateDOM = () => {
+    //: Measured before the grid is emptied, never after: reading its width
+    //: forces a layout, and a layout of an empty grid clamps the section's
+    //: scroll to 0, which is how the Library came back from another tab at
+    //: the top every time (traced: the offset was still 400 when the tab
+    //: showed, then 0 on the re-render's first layout).
+    const cols = libraryColumnCount(grid);
     grid.replaceChildren();
     grid.classList.toggle("library-list", libraryView() === "list");
-    const cols = libraryColumnCount(grid);
     libraryColumnsShown = cols;
     grid.classList.toggle("library-columns", cols > 1);
     const columns = [];
@@ -531,6 +536,7 @@ function renderLibrary() {
 
     const empty = $("library-empty");
     empty.classList.toggle("hidden", items.length > 0);
+    $("library-empty-clear")?.classList.toggle("hidden", !(query && !items.length));
     if (!items.length) {
       $("library-empty-title").textContent = !libraryItems.length
         ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
@@ -557,6 +563,38 @@ function renderLibrary() {
 // and the chat list already make: three buttons on a card this size is most of
 // the card, and the actions are things you do occasionally to a thing you are
 // mostly here to open.
+// **Copy title, and copy a link to it** (pass2.md, micro-conventions: "copy
+// link/copy title on items"). Measured: of the Library's menus only a saved
+// link could be copied. A title is what you paste into a message; a
+// `[[link]]` is what you paste into a note or a document to point at a
+// document, the same reference the "/" menu writes and `resolveWikiTarget`
+// opens. A note is left out of the second: an untitled note is named by its
+// first sixty characters, which is not a name a link can be trusted to find.
+function libraryCopyActions(kind, title) {
+  const name = String(title || "").replace(/^#{1,6}\s+/, "").trim();
+  if (!name || kind === "activity" || kind === "tag") return [];
+  const out = [
+    makeMenuItem("ph:copy Copy title", "Copy the name to the clipboard", () => copyToClipboard(name)),
+  ];
+  if (kind === "document") {
+    out.push(
+      makeMenuItem("ph:link Copy link", "Copy a [[link]] to paste into a note or a document", () =>
+        copyToClipboard(`[[${name}]]`)
+      )
+    );
+  }
+  return out;
+}
+
+//: Before the first destructive row, so Delete stays the last thing in the
+//: menu, where every menu in the app keeps it.
+function withLibraryCopyActions(items, kind, title) {
+  const copies = libraryCopyActions(kind, title);
+  const at = items.findIndex((it) => /\b(Delete|Move to bin|Remove)\b/.test(it.label || ""));
+  if (at === -1) return [...items, ...copies];
+  return [...items.slice(0, at), ...copies, ...items.slice(at)];
+}
+
 function libraryActions(item) {
   const reload = () => loadLibrary();
   if (item.kind === "chat") {
@@ -861,6 +899,58 @@ function toggleLibrarySelection(item, on) {
 const LIBRARY_TITLE_SENTENCE_MAX = 140;
 const LIBRARY_CLIPPED_TITLE = 60;
 
+// **A sub-tab keeps its place.** Measured: scrolled 400px down the All view,
+// over to Notes and back, and the Library was at the top again (the Notes
+// list, whose scroller is <main>, kept its 500px). Each sub-tab scrolls in its
+// own section, and a section that is hidden with its tab loses its offset, then
+// comes back empty while its list is fetched and rebuilt.
+//
+// So the offset a person scrolled to is remembered per section and put back
+// once the section is showing and its content is tall enough to hold it. Only
+// a scroll a person made counts: the one the browser makes when a list is
+// emptied and refilled (the offset clamps to 0 on the way) is not somebody
+// choosing the top.
+function keepLibraryScroll() {
+  const saved = new Map();
+  const pending = new Set();
+  const sections = [...document.querySelectorAll("#tab-library .library-view-section")];
+  const restore = () => {
+    for (const el of sections) {
+      if (!el.clientHeight) {
+        if (saved.get(el.id)) pending.add(el.id);
+        continue;
+      }
+      if (!pending.has(el.id)) continue;
+      const want = saved.get(el.id) || 0;
+      if (el.scrollHeight - el.clientHeight >= want) {
+        el.scrollTop = want;
+        pending.delete(el.id);
+      }
+    }
+  };
+  const observer = typeof ResizeObserver === "function" ? new ResizeObserver(restore) : null;
+  for (const el of sections) {
+    let userAt = 0;
+    const mark = () => {
+      userAt = performance.now();
+    };
+    for (const name of ["wheel", "touchmove", "keydown", "pointerdown"]) {
+      el.addEventListener(name, mark, { passive: true });
+    }
+    el.addEventListener(
+      "scroll",
+      () => {
+        if (performance.now() - userAt > 1000) return;
+        saved.set(el.id, el.scrollTop);
+        pending.delete(el.id);
+      },
+      { passive: true }
+    );
+    observer?.observe(el);
+    for (const child of el.children) observer?.observe(child);
+  }
+}
+
 function libraryTitleAndPreview(title, preview, mayBeClipped = true) {
   const text = String(preview || "").trim();
   const bare = String(title || "").replace(/…$/, "").trim();
@@ -1053,7 +1143,7 @@ function libraryCard(item) {
   card.title = `${kindWord} · ${item.title}`;
   card.setAttribute("aria-label", `${kindWord}: ${item.title}. ${item.detail}.`);
 
-  const actions = libraryActions(item);
+  const actions = withLibraryCopyActions(libraryActions(item), item.kind, item.title);
   if (actions.length) {
     const menu = kebabMenu(actions, `Actions for ${item.title}`);
     menu.classList.add("library-card-menu");
@@ -2390,7 +2480,7 @@ async function renderLibraryDocuments() {
     // "All" view's own data), which would leave this list showing a document
     // that was just renamed or deleted until something else refreshed it.
     const menu = kebabMenu(
-      [
+      withLibraryCopyActions([
         // **A read-only showcase, not the editor.** Asked for directly:
         // "make a way to view documents in the documents tab in the
         // lightbox." The row's own click already opens the full editor, 
@@ -2457,7 +2547,7 @@ async function renderLibraryDocuments() {
           libraryDocsSelection.delete(doc.id);
           renderLibraryDocuments();
         }),
-      ],
+      ], "document", doc.title),
       `Actions for "${doc.title || "Untitled"}"`
     );
     menu.classList.add("doc-list-menu");
@@ -7832,6 +7922,14 @@ onDomReady(() => {
     event.preventDefault();
     event.stopPropagation();
     foldBookmarkForm();
+  });
+  keepLibraryScroll();
+  $("library-empty-clear")?.addEventListener("click", () => {
+    const search = $("library-search");
+    if (!search) return;
+    search.value = "";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    search.focus();
   });
   $("bookmark-search")?.addEventListener("input", filterBookmarks);
   $("bookmark-group-new")?.addEventListener("click", newBookmarkGroup);

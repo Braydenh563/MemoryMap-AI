@@ -3768,3 +3768,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     margin-inline-end: 0;
   }
 }
+
+/* 18. In the Notes list's select mode a card is the checkbox, so a
+       Shift+click on it is a range (app.js, "the conventions a list is
+       expected to keep"), not the start of a text selection: measured
+       before, Shift+click selected the words between the two clicks and the
+       card's own handler then stood down because text was selected. */
+#entry-list > li.selectable {
+  user-select: none;
+}

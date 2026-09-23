@@ -79,6 +79,24 @@ double-click to rename, Ctrl+S never a browser dialog, right-click equals
 the kebab, focus back to the opener, list scroll kept, "no results for X"
 with a clear action, copy link and copy title.
 
+Measured (`scratchpad/ui-sweeps/listconventions.js`, 18 checks, all pass
+after): already present before this pass and left alone: Ctrl+S prevented
+on Notes, Chat, Library and Dashboard; Ctrl+F in scope (the documents
+editor's own find, the global find elsewhere, chat included); ArrowUp and
+ArrowDown with Enter in the Notes list; the Notes list's no-match state with
+"Clear the filter"; the Notes list keeping its scroll across tabs. Built:
+right-click and hold open the row's own menu (Library cards, Documents rows,
+links, files, notes, chats); F2 rename; arrows, Home and End on Library
+cards, rows and tiles; Shift+click ranges; Escape, Ctrl+A and Delete on a
+selection (Library sub-tabs and Notes select mode); Library scroll kept
+(400 to 0 before, 400 to 400 after; the cause was a width read after the
+grid was emptied); "Clear the search" on an empty Library search; Copy title
+and Copy link on Library menus; shortcut keys in five tooltips. Still open:
+drag to reorder where order is user-owned (no user-owned order found in the
+Library's lists: every list is sorted by a chosen key); Ctrl+Z/Y is the
+app's undo stack (status bar), not extended here; chat has no list
+selection to apply the keys to.
+
 ## Performance by trace
 
 Notes scroll (RasterTask about 3.4s over a 30-step wheel scroll at

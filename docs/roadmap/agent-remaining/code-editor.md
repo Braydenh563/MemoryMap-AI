@@ -18,13 +18,12 @@ autocorrect feature." Builds on the diagnostics and completions of b5d05f4
 | 1 | The pure half, `DOC-CODE` region in documents.js: one structure scan per language (strings, comments, heredocs, raw strings, regexes, PHP tags), the indent a new line gets, the formatter (brackets, markup, whitespace-only for Python and YAML), JSON re-printed from its own tokens, the quick fixes as edits | `tests/test_code_editing.py`, 34 cases in node |
 | 2 | Pairs and Enter wired (`docCodeEditing`): `closeBrackets`, its keymap, `indentUnit` from the file type, `docCodeIndentAt` for the fourteen types with no indenting grammar, per-language pairs. Found and fixed: Tab left the caret before the indent it inserted, in prose and code, since the engine landed | `doccodeedit.js`, 24 of 24 |
 
+| 3 | Format: `#doc-code-format` in the dock (code types only), Shift+Alt+F, the palette row; refused by the Lezer tree (JS, TS, CSS), the server's check (Python, TOML, YAML) or the scan; one undo step; JSX parsed in `.js` | `doccodeedit.js`, 36 of 36 |
+
 ## Remaining, in order
 
-1. Format: the dock button, Shift+Alt+F, the palette rows, the refusal
-   checks (the Lezer tree for JavaScript, TypeScript and CSS; the server's
-   check for Python, TOML and YAML), one undo step.
-2. Quick fixes: actions on the diagnostics, the Alt+Enter menu at the caret
+1. Quick fixes: actions on the diagnostics, the Alt+Enter menu at the caret
    (`openMenuAtPoint`), F8 through the problems, the tooltip's buttons in
    the tokens.
-3. `scratchpad/ui-sweeps/doccodeedit.js` in Chromium; DESIGN.md row, HISTORY,
+2. `scratchpad/ui-sweeps/doccodeedit.js` in Chromium; DESIGN.md row, HISTORY,
    DOCUMENTS_PLAN pointer, CHANGELOG.

@@ -398,3 +398,28 @@ def test_tab_leaves_the_caret_after_the_indent_it_inserts():
     branch = body[body.index("if (!multiline && !outdent) {"):]
     branch = branch[: branch.index("return;")]
     assert "setSelectionRange(at + unit.length, at + unit.length)" in branch
+
+
+def test_format_has_one_command_behind_every_door():
+    """The dock button, Shift+Alt+F, the palette row and the Alt+Enter menu
+    all reach `docFormatCode`; none carries a copy of it."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    button = html[html.index('id="doc-code-format"') - 20 : html.index('id="doc-code-format"') + 400]
+    assert 'class="ghost small hidden"' in button and "Shift+Alt+F" in button
+    source = _source()
+    assert '$("doc-code-format").addEventListener("click"' in source
+    assert '{ key: "Shift-Alt-f", run: () => { docFormatCode("auto"); return true; } }' in _function("docCodeEditing")
+    table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]
+    assert 'keys: "Shift+Alt+F",\n    code: true, run: () => docRunControl("doc-code-format"' in table
+    assert "!command.code || code" in _function("docPaletteCommands")
+    #: The button is for code types only, swapped with the markdown strip.
+    assert '$("doc-code-format")?.classList.toggle("hidden", type.previewable' in _function("syncDocFileType")
+
+
+def test_format_is_one_undo_step_and_refuses_what_does_not_parse():
+    body = _function("docFormatCode")
+    assert "isolateHistory.of(\"full\")" in body
+    assert "docFormatTreeRefusal(CM, state, type.ext)" in body
+    assert "docFormatRemoteRefusal(type.ext, text)" in body
+    #: The round trip to the server can outlast a keystroke.
+    assert "view.state.doc.toString() !== text" in body

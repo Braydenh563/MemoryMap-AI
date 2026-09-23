@@ -11,6 +11,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Tab in the documents editor leaves the caret after the indent it inserts;
   what you typed next used to land before it.
+- JSX in a `.js` document is no longer underlined as a syntax error.
 - Scrolling does less per frame everywhere: the back-to-top button updates once per frame and only writes what changed, the bar-over-list edge measures only when a list crosses its top, and the graph's wheel listener lives on the graph canvas instead of every tab.
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window
@@ -96,6 +97,14 @@ below). Versioning is `0.x` while the app stabilises.
   braces opens an indented line with the closer below it, and a typed `}`
   lines up with its opener, in every code type including C, Java, Go, Rust
   and PHP.
+- Format for code documents, from a Format button in the document's dock,
+  Shift+Alt+F or the command palette: the selected lines, or the whole file
+  when nothing is selected. It re-indents by the brackets (by the elements
+  for HTML and XML), removes trailing spaces and ends the file with one line
+  break, never touches the inside of a string, keeps every JSON number
+  exactly as written, and refuses with the reason when the code does not
+  parse. Python and YAML keep their indentation, which is their syntax. One
+  Ctrl+Z undoes it.
 
 ### Changed
 

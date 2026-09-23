@@ -133,6 +133,10 @@ function syncDocFileType() {
   // The formatting toolbar is markdown syntax. In a .py file every button on
   // it inserts something wrong.
   $("doc-toolbar")?.classList.toggle("hidden", !type.previewable);
+  //: And the other way round: Format lays out code, and has nothing to say
+  //: to prose, plain text or a CSV. The pair swap in one place, so a
+  //: document never shows both or neither.
+  $("doc-code-format")?.classList.toggle("hidden", type.previewable || ["txt", "csv"].includes(type.ext));
 
   // Line numbers, and the monospace/tab behaviour that goes with them.
   const code = !type.previewable;
@@ -2122,6 +2126,11 @@ const DOC_COMMANDS = [
     run: () => docRunControl("doc-export-docx", "The Word export") },
   { id: "export-pdf", icon: "ph:file-pdf", label: "Print or save as PDF", keys: "",
     run: () => docRunControl("doc-export-pdf", "The PDF export") },
+  //: `code: true` rows are offered by the palette only while a code
+  //: document is open; the shortcut sheet lists them always, marked by
+  //: their wording as being for code.
+  { id: "format", icon: "ph:brackets-curly", label: "Format the code, or the selected lines", keys: "Shift+Alt+F",
+    code: true, run: () => docRunControl("doc-code-format", "Formatting") },
 ];
 
 // DOC-COMMANDS-END
@@ -2144,7 +2153,8 @@ function docPaletteCommands() {
     return [];
   }
   if (tab !== "documents" || !currentDoc) return [];
-  return DOC_COMMANDS.filter((command) => command.run).map((command) => ({
+  const code = !docFileType().previewable;
+  return DOC_COMMANDS.filter((command) => command.run && (!command.code || code)).map((command) => ({
     group: "This document",
     label: `${command.icon} ${command.label}`,
     keys: command.keys,
@@ -10932,6 +10942,13 @@ $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);
 $("doc-attach-bookmark").addEventListener("click", attachBookmarkToDocument);
 $("doc-ai").addEventListener("click", openDocAiPanel);
+//: A code document's Format: the selection when there is one, else the
+//: whole file (`docFormatCode`). The press takes the focus from the editor,
+//: so it is handed back: formatting is a step in the middle of typing.
+$("doc-code-format").addEventListener("click", async () => {
+  await docFormatCode("auto");
+  docCmView?.focus();
+});
 $("doc-ai-close").addEventListener("click", closeDocAiPanel);
 $("doc-ai-cancel").addEventListener("click", closeDocAiPanel);
 $("doc-ai-run").addEventListener("click", runDocAiEdit);
@@ -14584,7 +14601,11 @@ function docCmLanguageFor(CM, ext) {
     //: never been told about them. `markdownLanguage` is the GitHub dialect,
     //: which is the one this app's own renderer and its toolbar both speak.
     case "md": return CM.markdown.markdown({ base: CM.markdown.markdownLanguage });
-    case "js": return CM.javascript.javascript();
+    //: `jsx: true` because a React file is a `.js` file as often as not,
+    //: and without it every `<div>` in one was an error node, underlined as
+    //: a syntax error in code that runs. TypeScript stays without it: TSX
+    //: reads `<T>(x) => x` as a tag, which would break valid `.ts`.
+    case "js": return CM.javascript.javascript({ jsx: true });
     case "ts": return CM.javascript.javascript({ typescript: true });
     case "py": return CM.python.python();
     case "css": return CM.css.css();
@@ -17129,7 +17150,12 @@ function docCodeEditing(CM, type) {
   const parts = [
     CM.language.indentUnit.of(type.indent || "  "),
     CM.autocomplete.closeBrackets(),
-    CM.view.keymap.of(CM.autocomplete.closeBracketsKeymap),
+    CM.view.keymap.of([
+      ...CM.autocomplete.closeBracketsKeymap,
+      //: VS Code's chord for Format Document, which formats the selection
+      //: when there is one, as the dock's button does.
+      { key: "Shift-Alt-f", run: () => { docFormatCode("auto"); return true; } },
+    ]),
   ];
   if (!DOC_CODE_NATIVE.has(ext)) {
     const data = [{ closeBrackets: { brackets: docCodePairs(ext) }, indentOnInput: /^\s*[}\])]$/ }];
@@ -17137,6 +17163,172 @@ function docCodeEditing(CM, type) {
   }
   if (DOC_CODE_INDENT_OWN.has(ext)) parts.push(CM.language.indentService.of(docCodeIndentAt));
   return parts;
+}
+
+// --- Format: the dock button, Shift+Alt+F and the palette -------------------
+//
+// One command with two scopes, VS Code's: with text selected it formats the
+// lines the selection touches, with nothing selected the whole document. The
+// dock's Format button, Shift+Alt+F and the palette's row all call
+// `docFormatCode`, and the Alt+Enter menu offers both scopes by name.
+//
+// **Refused before it is attempted** wherever the file does not parse,
+// because the layout is computed from structure and a structure that is not
+// there gives a layout that scatters the text: the Lezer tree's errors for
+// JavaScript, TypeScript and CSS, the server's own check for Python, TOML and
+// YAML (the same `POST /documents/check-syntax` the underline uses, so no new
+// endpoint), `JSON.parse` for JSON, and the scan's own balance for the rest.
+// A refusal says which line and why, in a toast, and changes nothing.
+//
+// **One undo step.** The result goes in as one transaction, isolated in the
+// history, and only the lines that changed are touched, so the caret and the
+// scroll position stay where they were.
+
+//: Whether a JavaScript file's tree holds JSX. The structure scan reads
+//: JSX's text as code (an apostrophe in `<p>Don't</p>` would open a
+//: string), so neither the formatter nor the bracket fixes go near one.
+function docTreeHasJsx(CM, state) {
+  const tree = CM.language.ensureSyntaxTree(state, state.doc.length, 200) || CM.language.syntaxTree(state);
+  let jsx = false;
+  tree.iterate({
+    enter: (node) => {
+      if (/^JSX/.test(node.name)) jsx = true;
+      return !jsx;
+    },
+  });
+  return jsx;
+}
+
+//: The first line the Lezer tree could not place, or null. JavaScript with
+//: JSX in it is parsed (the package is mounted with `jsx: true`) and then
+//: refused by name, because nothing here lays out markup inside code.
+function docFormatTreeRefusal(CM, state, ext) {
+  if (ext === "js" && docTreeHasJsx(CM, state)) {
+    return "Not formatted: this file has JSX in it, which the formatter leaves as written.";
+  }
+  const found = docTreeDiagnostics(CM, state);
+  if (!found.length) return null;
+  const line = state.doc.lineAt(found[0].from).number;
+  return `Not formatted: line ${line} does not parse (${found[0].message.toLowerCase()}).`;
+}
+
+//: The server's word on a Python, TOML or YAML file, or null when it has no
+//: complaint or could not be asked. Could-not-ask formats anyway: the scan
+//: itself still refuses an open string, and whitespace outside strings is
+//: all these three ever have changed.
+async function docFormatRemoteRefusal(ext, text) {
+  if (!DOC_CHECK_REMOTE.has(ext) || !text.trim() || text.length > DOC_CHECK_MAX_CHARS) return null;
+  try {
+    const response = await api("/documents/check-syntax", {
+      method: "POST",
+      body: JSON.stringify({ language: ext, text }),
+      silent: true,
+      readOnly: true,
+    });
+    const found = await response.json();
+    const error = (Array.isArray(found) ? found : []).find((d) => d.severity !== "info" && d.severity !== "warning");
+    return error ? `Not formatted: line ${error.line}, ${String(error.message || "does not parse").replace(/\.$/, "")}.` : null;
+  } catch {
+    return null;
+  }
+}
+
+//: The change set that turns `before` into `after`, line by line, touching
+//: only what differs within each line. The formatter keeps the line count
+//: everywhere but the end of the file, so lines are paired from the top and
+//: whatever is left at the bottom is one change.
+function docFormatChanges(before, after, offset = 0) {
+  const a = before.split("\n");
+  const b = after.split("\n");
+  const changes = [];
+  const diff = (x, y, at) => {
+    if (x === y) return;
+    let p = 0;
+    while (p < x.length && p < y.length && x[p] === y[p]) p += 1;
+    let s = 0;
+    while (s < x.length - p && s < y.length - p && x[x.length - 1 - s] === y[y.length - 1 - s]) s += 1;
+    changes.push({ from: at + p, to: at + x.length - s, insert: y.slice(p, y.length - s) });
+  };
+  const paired = a.length === b.length ? a.length : Math.min(a.length, b.length) - 1;
+  let at = offset;
+  for (let k = 0; k < paired; k += 1) {
+    diff(a[k], b[k], at);
+    at += a[k].length + 1;
+  }
+  if (paired < a.length) diff(a.slice(paired).join("\n"), b.slice(paired).join("\n"), at);
+  return changes;
+}
+
+//: `scope` is "auto" (the selection if there is one, else the document),
+//: "document" or "selection". Resolves to whether anything was done.
+async function docFormatCode(scope = "auto") {
+  const CM = window.CM6;
+  const type = docFileType();
+  const view = docCmView;
+  if (type.previewable || ["txt", "csv"].includes(type.ext)) {
+    toast("Formatting is for code documents.", true);
+    return false;
+  }
+  if (!view || !CM) {
+    toast("Formatting needs the code editor, which has not loaded.", true);
+    return false;
+  }
+  const state = view.state;
+  const text = state.doc.toString();
+  const sel = state.selection.main;
+  const selection = scope === "selection" || (scope === "auto" && !sel.empty);
+  if (selection && sel.empty) {
+    toast("Select the lines to format first.", true);
+    return false;
+  }
+  const refusal = DOC_CHECK_TREE.has(type.ext)
+    ? docFormatTreeRefusal(CM, state, type.ext)
+    : await docFormatRemoteRefusal(type.ext, text);
+  if (refusal) {
+    toast(refusal, true);
+    return false;
+  }
+  //: The server check is a round trip; typing during it would make the
+  //: result a format of text that is no longer there.
+  if (docCmView !== view || view.state.doc.toString() !== text) {
+    toast("The text changed while it was being checked. Format again.", true);
+    return false;
+  }
+  const unit = type.indent || "  ";
+  const first = state.doc.lineAt(sel.from);
+  //: A selection that ends at the very start of a line does not take that
+  //: line with it, as in every editor's "indent the selected lines".
+  const last = state.doc.lineAt(sel.to > sel.from && sel.to === state.doc.lineAt(sel.to).from ? sel.to - 1 : sel.to);
+  const range = selection ? [first.number - 1, last.number - 1] : null;
+  let result;
+  let changes;
+  if (type.ext === "json" && selection) {
+    //: A JSON selection has to be a whole value on its own; its lines
+    //: keep the indent of the line it starts on.
+    const piece = state.sliceDoc(sel.from, sel.to);
+    result = docFormatJsonText(piece, unit, /^[ \t]*/.exec(first.text)[0], false);
+    if (result.error) result.error = result.error.replace("Not formatted:", "Not formatted, the selection is not a whole JSON value:");
+    if (!result.error) changes = docFormatChanges(piece, result.text, sel.from);
+  } else {
+    if (type.ext === "json") result = docFormatJsonText(text, unit);
+    else if (type.ext === "html" || type.ext === "xml") result = docFormatMarkupText(text, type.ext, unit, range);
+    else result = docFormatCodeText(text, type.ext, unit, range);
+    if (!result.error) changes = docFormatChanges(text, result.text);
+  }
+  if (result.error) {
+    toast(result.error, true);
+    return false;
+  }
+  if (!changes.length) {
+    toast(selection ? "The selection is already formatted." : "Already formatted.");
+    return true;
+  }
+  view.dispatch({
+    changes,
+    annotations: [CM.commands.isolateHistory.of("full"), CM.state.Transaction.userEvent.of("format")],
+  });
+  toast(`${selection ? "Formatted the selection" : "Formatted the document"}. Ctrl+Z undoes it.`);
+  return true;
 }
 
 function docCmExtensions(CM) {

@@ -3643,6 +3643,14 @@
                  button here, one strip that appears below only while on. -->
             <button id="doc-ai" data-needs-model="AI editing needs the local AI" class="ghost small" type="button"
               title="Ask Atlas to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
+            <!-- A code document's Format (the owner, 2026-09-23: "a button
+                 to automatically format the whole document, ot just a
+                 selection"). One button for both, as Shift+Alt+F is: the
+                 selection when there is one, else the file. Shown only for a
+                 code type, where the markdown strip above is hidden
+                 (syncDocFileType swaps the two). -->
+            <button id="doc-code-format" class="ghost small hidden" type="button"
+              title="Format the selected lines, or the whole file when nothing is selected (Shift+Alt+F)"><i class="ph ph-brackets-curly ph-lead" aria-hidden="true"></i> Format</button>
             <!-- Export and delete, folded away. Same `<details>` disclosure
                  the Library's image tiles use, for the same reason: the
                  browser gives the open/close, the keyboard handling and the

@@ -162,6 +162,88 @@ const ok = (n, c, d) => {
   s = await state();
   ok("Tab in prose leaves the caret after the indent too", s.text === "  ahello", J(s));
 
+  // --- format ---------------------------------------------------------------------
+  const lastToast = () =>
+    page.evaluate(() => {
+      const all = [...document.querySelectorAll("#toast-box .toast")];
+      const t = all[all.length - 1];
+      return t ? { text: t.querySelector("span").textContent, error: t.classList.contains("error") } : null;
+    });
+  const clearToasts = () => page.evaluate(() => document.querySelectorAll("#toast-box .toast").forEach((t) => t.remove()));
+  const button = () =>
+    page.evaluate(() => {
+      const b = document.getElementById("doc-code-format");
+      const r = b.getBoundingClientRect();
+      return { visible: !b.classList.contains("hidden") && r.width > 0, text: b.textContent.trim() };
+    });
+
+  const messyJson = '{"name":"x","big":12345678901234567890,"list":[1,2,{"a":1.0e5}],"empty":{}}';
+  await open("messy.json", "json", messyJson);
+  ok("a JSON document shows Format in its dock", (await button()).visible, J(await button()));
+  await clearToasts();
+  await page.click("#doc-code-format");
+  await page.waitForTimeout(300);
+  s = await state();
+  const wantJson = '{\n  "name": "x",\n  "big": 12345678901234567890,\n  "list": [\n    1,\n    2,\n    {\n      "a": 1.0e5\n    }\n  ],\n  "empty": {}\n}\n';
+  ok("Format lays out messy JSON, every number exactly as written", s.text === wantJson, J(s.text));
+  let t = await lastToast();
+  ok("and says so", t && !t.error && /Formatted the document/.test(t.text), J(t));
+  const focused = await page.evaluate(() => docCmView.hasFocus);
+  ok("the editor has the focus back after the press", focused);
+  await page.keyboard.press("Control+z");
+  s = await state();
+  ok("one Ctrl+Z gives back the text as it was", s.text === messyJson, J(s.text));
+
+  const messyJs = "function f(a){\nif(a){\n      return 1;   \n}else{\nreturn 2;}\n  }\n";
+  await open("messy.js", "js", messyJs);
+  await page.keyboard.press("Shift+Alt+F");
+  await page.waitForTimeout(300);
+  s = await state();
+  ok("Shift+Alt+F re-indents messy JavaScript by its braces",
+    s.text === "function f(a){\n  if(a){\n    return 1;\n  }else{\n    return 2;}\n}\n", J(s.text));
+
+  await open("sel.c", "c", "int f() {\nint a;\nint b;\nint c;\n}\n");
+  await page.evaluate(() => {
+    const l = docCmView.state.doc.line(3);
+    docCmView.dispatch({ selection: { anchor: l.from + 1, head: l.to - 1 } });
+  });
+  await page.click("#doc-code-format");
+  await page.waitForTimeout(300);
+  s = await state();
+  ok("with a selection, only its lines move", s.text === "int f() {\nint a;\n    int b;\nint c;\n}\n", J(s.text));
+
+  await open("broken.c", "c", 'int main() {\n    printf("hi);\n}\n');
+  await clearToasts();
+  await page.keyboard.press("Shift+Alt+F");
+  await page.waitForTimeout(300);
+  s = await state();
+  t = await lastToast();
+  ok("broken code is refused, untouched, with the reason",
+    s.text === 'int main() {\n    printf("hi);\n}\n' && t && t.error && /line 2, this string is never closed/.test(t.text), J(t));
+
+  await open("broken.js", "js", "function (a {\n        return a;\n}\n");
+  await clearToasts();
+  await page.keyboard.press("Shift+Alt+F");
+  await page.waitForTimeout(300);
+  t = await lastToast();
+  ok("JavaScript that does not parse is refused by its own grammar", t && t.error && /does not parse/.test(t.text), J(t));
+
+  await open("broken.py", "py", "def f(x)\n    return x   \n");
+  await clearToasts();
+  await page.keyboard.press("Shift+Alt+F");
+  await page.waitForTimeout(900);
+  s = await state();
+  t = await lastToast();
+  ok("Python the compiler rejects is refused, by the server's check", s.text === "def f(x)\n    return x   \n" && t && t.error, J(t));
+
+  await open("jsx.js", "js", "const A = () => (\n<div>\n<p>Don't</p>\n</div>\n);\n");
+  await page.waitForTimeout(900);
+  const jsxErrors = await page.evaluate(() => document.querySelectorAll("#doc-editor .cm-lintRange-error").length);
+  ok("JSX in a .js file is not underlined as an error", jsxErrors === 0, jsxErrors);
+
+  await open("prose3.md", "md", "hello");
+  ok("a markdown document does not show Format", !(await button()).visible);
+
   console.log(`\n${good} passed, ${bad} failed; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
   await browser.close();
   process.exit(bad || errors.length ? 1 : 0);

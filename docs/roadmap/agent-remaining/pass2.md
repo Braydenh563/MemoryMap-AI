@@ -79,6 +79,24 @@ double-click to rename, Ctrl+S never a browser dialog, right-click equals
 the kebab, focus back to the opener, list scroll kept, "no results for X"
 with a clear action, copy link and copy title.
 
+Measured (`scratchpad/ui-sweeps/listconventions.js`, 18 checks, all pass
+after): already present before this pass and left alone: Ctrl+S prevented
+on Notes, Chat, Library and Dashboard; Ctrl+F in scope (the documents
+editor's own find, the global find elsewhere, chat included); ArrowUp and
+ArrowDown with Enter in the Notes list; the Notes list's no-match state with
+"Clear the filter"; the Notes list keeping its scroll across tabs. Built:
+right-click and hold open the row's own menu (Library cards, Documents rows,
+links, files, notes, chats); F2 rename; arrows, Home and End on Library
+cards, rows and tiles; Shift+click ranges; Escape, Ctrl+A and Delete on a
+selection (Library sub-tabs and Notes select mode); Library scroll kept
+(400 to 0 before, 400 to 400 after; the cause was a width read after the
+grid was emptied); "Clear the search" on an empty Library search; Copy title
+and Copy link on Library menus; shortcut keys in five tooltips. Still open:
+drag to reorder where order is user-owned (no user-owned order found in the
+Library's lists: every list is sorted by a chosen key); Ctrl+Z/Y is the
+app's undo stack (status bar), not extended here; chat has no list
+selection to apply the keys to.
+
 ## Performance by trace
 
 Notes scroll (RasterTask about 3.4s over a 30-step wheel scroll at
@@ -94,6 +112,26 @@ long document, opening the Library. Before and after numbers go here.
   with a hole on the right); 0 "Uncategorised" feet (was 11); 0 file tiles
   holding a `.media-missing` placeholder (was 3); row titles 14.7px/600 in
   Documents, Files and Links (were 16, 13.6 and 13.6/500).
+- Findings 15, 16, 17, 20, 21, 22 and the owner's two badge quotes
+  (commit "Library second pass: skills, Contents, chips with an edge,
+  timeline facts"). Measured after: a skill title 16px (was 12px, the
+  `.card h3` eyebrow recipe), one filled button on the skills page (was
+  seven), the workers are `label.setting-check` (were accent pills); the
+  Contents labels start at one x per column (87, 544, 1001; one row was
+  pushed right by a 170px missing-image box); the jump chip has no glow and
+  ink at 500. A survey of every visible `.chip` across seven tabs found
+  four kinds still drawn as a 5% ground with no edge (skill facts, a
+  file's "Used in", the jump chips, the read state): three carry a
+  hairline edge now, the read state is text. Timeline rows: category with
+  its dot, #tags, Uncategorised left out.
+- Finding 14 (commit "Library on a phone: two-row media dock, one
+  floating action"). At 390 the Files and Images dock is 114px (was 166),
+  the same as All, Documents, Skills, Links and Contents. The All view's
+  floating Create no longer floats over Files, Images, Skills, Links or
+  Contents. Not fixed: the Boards & maps dock is still 198px at 390 (title,
+  New board, the map icon, refresh, help and the menu need about 450px of a
+  358px row); the fix is New board as that sub-tab's own floating action,
+  which the Boards sub-tab's rail-overlap rule currently forbids.
 - Finding 9 (a board card's date) is not doable client side: `/whiteboard/boards`
   sends no timestamp. Left for a backend step.
 - Finding 11 (the filename band on a picture) is left as it is: it is the

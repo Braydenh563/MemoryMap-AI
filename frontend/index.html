@@ -4467,6 +4467,10 @@
         <div id="library-empty" class="empty-state library-empty hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-books ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title" id="library-empty-title"></p>
+          <!-- "Nothing matching X" with the one way out beside it (pass2.md,
+               micro-conventions): the Notes list's own no-match state has
+               had "Clear the filter" for a long time; this one had none. -->
+          <button id="library-empty-clear" class="ghost small hidden" type="button"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear the search</button>
         </div>
 
         <!-- Inject the Skills section here -->
@@ -4728,7 +4732,7 @@
             <!-- A map is a board with a `type` (MINDMAP_PLAN.md §4 option B),
                  so this is the same dialog with the Mind map segment already
                  chosen, not a second creation path. -->
-            <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> New mind map</button>
+            <button id="wb-boards-new-map" class="ghost small" type="button" title="Start a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New mind map</span></button>
             <!-- MINDMAP_PLAN.md §5 item 17. `POST /whiteboard/boards/import`
                  has existed since Phase 1 and §10.4 recorded it as having no
                  UI at all, so a map written anywhere else could not come in.
@@ -6152,6 +6156,15 @@
             aria-label="What is this?">
             <i class="ph ph-question" aria-hidden="true"></i>
           </button>
+          <!-- The overflow the other Library docks already have, so
+               `foldDockArrange` (app.js) has somewhere to put sort and view
+               below 1100 (pass2.md finding 14: at 390 this dock was three
+               rows, 166px, where All and Documents are two). It holds only
+               the folded zone, so it is hidden while it is empty. -->
+          <details class="doc-dock-menu dock-menu dock-more" id="library-media-more-menu">
+            <summary class="ghost small icon-only doc-dock-menu-btn" title="Sort and view" aria-label="Sort and view"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list"></div>
+          </details>
         </div>
       </div>
       <p class="muted graph-help-panel hidden" id="library-images-intro" role="dialog" aria-label="What is this?">Every image pasted, dropped, or uploaded, in a note, a document, or on a whiteboard, or added directly here, then attachable to any note from its own "Attach from Library" action.</p>

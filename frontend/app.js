@@ -286,6 +286,18 @@ function replaceMissingMedia(img) {
     img.classList.add("hidden");
     return;
   }
+  //: **A thumbnail is hidden too.** A picture beside a row's own words (the
+  //: dashboard's recent notes, the Contents index, a chat source, a
+  //: timeline row: every class here ending in `-thumb`) is a hint, and the
+  //: words beside it already name the thing. The placeholder, a 170px dashed
+  //: box of "Image no longer in this notebook", was drawn into a 2.5rem slot
+  //: and pushed the row's title off its column (measured on the dashboard's
+  //: Recently added and the Contents index). An attachment's own thumbnail is
+  //: the exception: it is the attachment, so saying it is gone is the point.
+  if (/-thumb\b/.test(img.className) && !img.classList.contains("attachment-thumb")) {
+    img.classList.add("hidden");
+    return;
+  }
   if (img.dataset.mediaMissing) return;
   img.dataset.mediaMissing = "1";
   const gone = document.createElement("span");
@@ -23740,6 +23752,10 @@ function kebabMenu(items, ariaLabel) {
   }
   wireMenuKeyboard(menu, opener);
   wrap.append(opener, menu);
+  //: What a right-click on the row this menu belongs to opens at the pointer
+  //: (`openRowMenu`), and what F2 looks through for Rename: the same items,
+  //: so the two ways in cannot disagree about what the row can do.
+  wrap.rowMenu = { items, ariaLabel };
   //: **Every ⋯ menu escapes its container, not just the ones somebody
   //: remembered.** Reported three times across three surfaces, the documents
   //: list, the gallery, and then the lightbox, always the same shape: the
@@ -28609,6 +28625,260 @@ wireLongPress(
   { selector: "a[href], .wiki-link" }
 );
 
+// --- the conventions a list is expected to keep (pass2.md, micro-conventions)
+//
+// Measured in the running app before any of this existed (1440, Quiet, a
+// seeded notebook): a right-click on a Library card, a Documents row or a
+// note opened the browser's own menu; the arrow keys did nothing on a
+// Library card; Shift+click ticked one box, not the run between two; Ctrl+A
+// with a selection open selected the page's text (1,876 characters) instead
+// of the rows; Escape left the selection where it was. Every file manager,
+// mail client and photo library does all five, so their absence reads as
+// the app being unfinished rather than as a choice.
+//
+// One section, delegated from the document, for the same reason the link
+// menu above is one listener: the lists are rebuilt on every render and a
+// listener per row is a listener some render forgets.
+
+//: The rows that carry their own ⋯. A right-click (or a hold, on a phone)
+//: anywhere on one opens that same menu, so what the row can do is found the
+//: way people look for it first.
+const ROW_MENU_HOSTS = [
+  ".library-card",
+  ".doc-list-item",
+  ".bookmark-row",
+  ".library-image-tile",
+  "#entry-list > li[data-id]",
+  "#conversation-list > li",
+].join(", ");
+
+function rowMenuAtEvent(event) {
+  const target = event.target;
+  if (!(target instanceof Element)) return null;
+  //: Where the browser's menu is the right one, it stays: a field (spelling,
+  //: paste), a link (the link menu above), a menu already open, and a
+  //: selection somebody made to copy.
+  if (target.closest("input, textarea, select, [contenteditable='true'], a[href], .wiki-link, .action-menu")) {
+    return null;
+  }
+  if (String(window.getSelection?.() || "").trim()) return null;
+  const host = target.closest(ROW_MENU_HOSTS);
+  if (!host) return null;
+  const opener = [...host.querySelectorAll('.menu-wrap > [aria-haspopup="menu"]')].find(
+    (button) => button.closest(ROW_MENU_HOSTS) === host
+  );
+  return opener ? { host, opener } : null;
+}
+
+//: At the pointer when the menu's items are known (every `kebabMenu`), and
+//: from the row's own ⋯ otherwise (a note's menu builds its rows on first
+//: open and carries flyouts, so it is opened the way its button opens it).
+function openRowMenu(opener, x, y) {
+  const wrap = opener.closest(".menu-wrap");
+  if (wrap && wrap.rowMenu) openMenuAtPoint(wrap.rowMenu.items, wrap.rowMenu.ariaLabel, x, y);
+  else opener.click();
+}
+
+document.addEventListener("contextmenu", (event) => {
+  if (event.defaultPrevented) return;
+  const found = rowMenuAtEvent(event);
+  if (!found) return;
+  event.preventDefault();
+  openRowMenu(found.opener, event.clientX, event.clientY);
+});
+
+wireLongPress(
+  document,
+  (event, point) => {
+    const found = rowMenuAtEvent(event);
+    if (found) openRowMenu(found.opener, point.x, point.y);
+  },
+  { selector: ROW_MENU_HOSTS }
+);
+
+//: **F2 renames**, the desktop convention for "rename the thing I am on",
+//: here because a double-click cannot: a single click on every one of these
+//: rows opens it, so the first half of a double-click would already have
+//: left the list. Runs the row's own Rename item, so there is one rename.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "F2" || event.defaultPrevented) return;
+  const host = event.target instanceof Element ? event.target.closest(ROW_MENU_HOSTS) : null;
+  if (!host) return;
+  const wrap = host.querySelector(".menu-wrap");
+  const item = wrap?.rowMenu?.items.find((it) => /^ph:\S+ Rename\b/.test(it.label || ""));
+  if (!item) return;
+  event.preventDefault();
+  item.run();
+});
+
+//: **Arrow keys between cards and rows, Home and End to the ends.** Chosen by
+//: where the items are drawn rather than by their order in the DOM: the
+//: Library's cards are dealt into columns (library.js), so the card beside
+//: this one is in another column element, and a Rows list and a grid of
+//: tiles are the same code. Only when the focus is on an item itself, so a
+//: field or a button inside one keeps its own keys.
+const ARROW_NAV_LISTS = [
+  ["#library-grid", ".library-card"],
+  ["#library-boards-grid", ".library-card"],
+  ["#library-docs-list", ".doc-list-item"],
+  ["#library-images-grid", ".library-image-tile [role='button'][tabindex='0']"],
+  ["#bookmark-list", ".bookmark-title"],
+];
+
+function arrowNavTarget(items, current, key) {
+  if (key === "Home") return items[0];
+  if (key === "End") return items[items.length - 1];
+  const from = current.getBoundingClientRect();
+  const cx = from.left + from.width / 2;
+  const cy = from.top + from.height / 2;
+  let best = null;
+  let bestScore = Infinity;
+  for (const item of items) {
+    if (item === current) continue;
+    const r = item.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const dx = x - cx;
+    const dy = y - cy;
+    //: In the direction pressed, past the current item's own edge, and
+    //: nearest along that axis first, then across it.
+    let along;
+    let across;
+    if (key === "ArrowRight") { if (r.left < from.right - 1) continue; along = dx; across = Math.abs(dy); }
+    else if (key === "ArrowLeft") { if (r.right > from.left + 1) continue; along = -dx; across = Math.abs(dy); }
+    else if (key === "ArrowDown") { if (r.top < from.bottom - 1) continue; along = dy; across = Math.abs(dx); }
+    else { if (r.bottom > from.top + 1) continue; along = -dy; across = Math.abs(dx); }
+    const score = across * 2 + along;
+    if (score < bestScore) { bestScore = score; best = item; }
+  }
+  return best;
+}
+
+document.addEventListener("keydown", (event) => {
+  if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  for (const [listSel, itemSel] of ARROW_NAV_LISTS) {
+    const list = target.closest(listSel);
+    if (!list || !target.matches(itemSel)) continue;
+    const items = [...list.querySelectorAll(itemSel)].filter((el) => el.offsetParent);
+    const next = arrowNavTarget(items, target, event.key);
+    event.preventDefault();
+    if (next) {
+      next.focus({ preventScroll: true });
+      next.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+    return;
+  }
+});
+
+//: **Shift+click ticks the run.** The second tick of a Shift+click sets every
+//: tick between it and the one ticked before it to its own state, through
+//: each tick's own `change` handler, so every list's own set stays the one
+//: place that owns its selection. Works on the tick and on a note card in
+//: select mode alike, because both end in the tick's `change`.
+const RANGE_TICKS = ".library-card-tick, .doc-list-tick, .library-tile-tick, #entry-list .select-check";
+const RANGE_LISTS = "#library-grid, #library-boards-grid, #library-docs-list, #library-images-grid, #bookmark-list, #entry-list";
+let rangeShiftHeld = false;
+let rangeAnchor = null;
+let rangeApplying = false;
+
+document.addEventListener("click", (event) => { rangeShiftHeld = event.shiftKey; }, true);
+//: A tick toggled from the keyboard is never a range, whatever the last
+//: click held.
+document.addEventListener("keydown", () => { rangeShiftHeld = false; }, true);
+
+document.addEventListener("change", (event) => {
+  const tick = event.target;
+  if (rangeApplying || !(tick instanceof HTMLInputElement) || !tick.matches(RANGE_TICKS)) return;
+  const list = tick.closest(RANGE_LISTS);
+  if (!list) return;
+  const anchor = rangeAnchor;
+  rangeAnchor = tick;
+  if (!rangeShiftHeld || !anchor || !anchor.isConnected || anchor.closest(RANGE_LISTS) !== list) return;
+  //: In the order the rows are drawn, not the DOM's: the Library's columns
+  //: put its cards in column order.
+  const ticks = [...list.querySelectorAll(RANGE_TICKS)].filter((t) => t.closest(RANGE_LISTS) === list);
+  const pos = (t) => {
+    const r = t.getBoundingClientRect();
+    return [Math.round(r.top), Math.round(r.left)];
+  };
+  ticks.sort((a, b) => {
+    const [at, al] = pos(a);
+    const [bt, bl] = pos(b);
+    return Math.abs(at - bt) > 8 ? at - bt : al - bl;
+  });
+  const from = ticks.indexOf(anchor);
+  const to = ticks.indexOf(tick);
+  if (from === -1 || to === -1) return;
+  rangeApplying = true;
+  try {
+    for (const other of ticks.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+      if (other === tick || other.checked === tick.checked) continue;
+      other.checked = tick.checked;
+      other.dispatchEvent(new Event("change", { bubbles: true }));
+      other.closest("li")?.classList.toggle("is-selected", other.checked);
+    }
+  } finally {
+    rangeApplying = false;
+  }
+});
+
+//: **Escape, Ctrl+A and Delete while a selection is open.** The Library's
+//: sub-tabs each show a select bar while anything is ticked; the Notes list
+//: has its select mode. Each key presses the bar's own control (Done, Select
+//: all, Delete), so the keyboard does exactly what the pointer does, the
+//: same confirm or the same Undo included. Never from inside a field, where
+//: all three keys already mean something.
+function openSelectionScope() {
+  const bar = [...document.querySelectorAll("#tab-library .selectbar:not(.hidden)")].find((b) => b.offsetParent);
+  if (bar) {
+    return {
+      clear: () => bar.querySelector('[id$="-clear-selection"]')?.click(),
+      selectAll: () => {
+        const listId = bar.querySelector("[data-select-all-for]")?.dataset.selectAllFor;
+        const list = listId ? document.getElementById(listId) : bar.parentElement;
+        const ticks = list ? [...list.querySelectorAll(RANGE_TICKS)] : [];
+        if (ticks.some((t) => !t.checked)) bar.querySelector("[data-select-all-for]")?.click();
+      },
+      remove: () => bar.querySelector('[id$="-bulk-delete"]')?.click(),
+    };
+  }
+  if (typeof selectMode !== "undefined" && selectMode && $("tab-notes") && !$("tab-notes").classList.contains("hidden")) {
+    return {
+      clear: () => exitSelectMode(),
+      selectAll: () => {
+        const rows = libraryVisibleRows();
+        if (rows.some((row) => !selectedIds.has(row.id))) toggleSelectAllRows(rows, renderEntries);
+      },
+      remove: () => batchDelete(),
+    };
+  }
+  return null;
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented || event.altKey) return;
+  const el = event.target;
+  if (el instanceof Element && (el.closest("input:not([type='checkbox']), textarea, select, [contenteditable='true']") || el.closest(".modal-overlay:not(.hidden)"))) {
+    return;
+  }
+  const mod = event.ctrlKey || event.metaKey;
+  const isSelectAll = mod && !event.shiftKey && event.key.toLowerCase() === "a";
+  const isEscape = event.key === "Escape" && !mod;
+  const isDelete = (event.key === "Delete" || (event.key === "Backspace" && event.metaKey)) && !event.shiftKey;
+  if (!isSelectAll && !isEscape && !isDelete) return;
+  //: An open menu or popover owns Escape first.
+  if (isEscape && document.querySelector(".action-menu:not(.hidden), details[open].dock-menu")) return;
+  const scope = openSelectionScope();
+  if (!scope) return;
+  event.preventDefault();
+  if (isSelectAll) scope.selectAll();
+  else if (isEscape) scope.clear();
+  else scope.remove();
+});
+
 function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
   const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
@@ -30667,9 +30937,20 @@ function timelineRowElement(row, density) {
   if (density !== "dense") {
     // The note row's own chips (`chip()`), not a second chip recipe for the
     // same facts: a tag should look the same here as in the Notes list.
-    if (row.category) meta.appendChild(chip(row.category));
+    //: **Which word is the category and which are tags.** Flattened to
+    //: muted text in the first de-vibecoding pass, a row's facts read as one
+    //: run of words ("Uncategorised personal health"), the owner's "missing
+    //: distinguishing between titles that used to be badges". They take the
+    //: note meta row's grammar now, so the three surfaces agree: the
+    //: category leads with its colour dot in ink, a tag reads #tag, and an
+    //: unset category is left out rather than printed on every row.
+    if (row.category && row.category !== "Uncategorised") {
+      const cat = chip(row.category, "category");
+      cat.style.setProperty("--category-dot", categoryDotColour(row.category));
+      meta.appendChild(cat);
+    }
     for (const tag of row.tags.slice(0, density === "full" ? 3 : 2)) {
-      meta.appendChild(chip(tag, "tag"));
+      meta.appendChild(chip(tag, "tag hashtag"));
     }
   }
   const when = document.createElement("time");
@@ -45883,6 +46164,34 @@ function loadShortcuts() {
 }
 
 let shortcuts = loadShortcuts();
+
+//: **A button says its key.** Measured: of the buttons that have a chord in
+//: this registry (New note, New document, New chat, Settings, light and
+//: dark), none said so in its tooltip, so the chord could only be learned
+//: from the shortcuts sheet. The tooltip is where people look while their
+//: hand is already on the mouse. Stamped from the registry, the current
+//: binding rather than the default, and again whenever a binding changes;
+//: `aria-keyshortcuts` says the same to a screen reader.
+const SHORTCUT_BUTTONS = {
+  "notes-new-note": "newNote",
+  "library-docs-new": "newDocument",
+  "chat-new": "newChat",
+  "settings-btn": "settings",
+  "theme-btn": "toggleTheme",
+};
+
+function stampShortcutTitles() {
+  for (const [id, key] of Object.entries(SHORTCUT_BUTTONS)) {
+    const button = document.getElementById(id);
+    const combo = shortcuts[key]?.keys;
+    if (!button || !combo) continue;
+    if (button.dataset.titleBase === undefined) button.dataset.titleBase = button.title || "";
+    const base = button.dataset.titleBase;
+    button.title = base ? `${base} (${combo})` : combo;
+    button.setAttribute("aria-keyshortcuts", combo.replace(/\bCtrl\b/g, "Control"));
+  }
+}
+stampShortcutTitles();
 // Sets the status-bar Undo/Redo buttons' icons and "nothing to undo yet"
 // tooltips on load: both stacks are empty at this point, so this only
 // establishes the disabled state the HTML already carries, not a real render.
@@ -46097,6 +46406,7 @@ function saveShortcutOverrides() {
     if (shortcuts[id].keys !== def.keys) overrides[id] = shortcuts[id].keys;
   }
   localStorage.setItem(SHORTCUT_STORE, JSON.stringify(overrides));
+  stampShortcutTitles();
 }
 
 // A keyboard event -> the canonical string we compare against, e.g. "Ctrl+K".

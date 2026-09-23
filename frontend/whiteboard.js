@@ -465,6 +465,8 @@ const WB_GRID_SPACING = 24;
 //: assumed all along (see the drop handler and `dragStart`'s own comments).
 const WB_CARD_DEFAULT_SIZE = { w: 250, h: 150 };
 
+let wbInvZoomTimer = 0;
+
 function wbSyncGridToTransform(transform) {
   const el = document.getElementById("whiteboard-container");
   if (!el) return;
@@ -486,7 +488,17 @@ function wbSyncGridToTransform(transform) {
   //: `d3.zoomTransform` per handle would put work back into the pan path this
   //: file has twice been cleared of, and one custom property reaches all
   //: twenty-odd of them through inheritance.
-  el.style.setProperty("--wb-inv-zoom", String(1 / (t.k || 1)));
+  //: **Only when the scale has changed, and once the zoom has come to rest.**
+  //: This one inherits (every grip reads it), so each write re-styles the
+  //: whole board: traced on a 60-topic map, a ctrl-wheel zoom spent 1,448ms
+  //: re-styling 1,713 elements per step. A pan does not change `k` and
+  //: writes nothing; a zoom writes once, 120ms after its last step, so the
+  //: grips ride the board's scale for the length of the gesture and snap to
+  //: their true size when it stops.
+  const inv = String(1 / (t.k || 1));
+  if (el.style.getPropertyValue("--wb-inv-zoom") === inv) return;
+  clearTimeout(wbInvZoomTimer);
+  wbInvZoomTimer = setTimeout(() => el.style.setProperty("--wb-inv-zoom", inv), 120);
 }
 
 function wbGridType() {

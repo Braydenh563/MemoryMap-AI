@@ -21,6 +21,35 @@
    its own here: Chromium still drew the popup with this app's own
    (light, inherited-from-`select`) text colour, so `option`/`optgroup`
    get their background/text set directly below too, belt and suspenders. */
+/* **The board's grid tokens do not inherit** (INBOX 392 and 312: "really
+   slow to pan and move around", on maps and plain boards alike). They are
+   rewritten on `#whiteboard-container` on every pan and zoom frame, and an
+   ordinary custom property inherits, so each write re-styled every element
+   on the board: traced on a 60-topic map, a wheel pan spent 2,439ms in
+   style recalculation over 50 steps (1,713 elements per frame) against 67ms
+   of script. Registered as non-inheriting, a write re-styles the container
+   alone (3 elements per frame, 16ms over the same gesture). Only the
+   container reads them, for its own background. `--wb-inv-zoom` has to
+   inherit (the grips read it), so it is written only when the zoom level
+   changes, never on a pan (`wbSyncGridToTransform`). */
+@property --wb-grid-size {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 24px;
+}
+
+@property --wb-grid-offset-x {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --wb-grid-offset-y {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 :root {
   color-scheme: light;
 }

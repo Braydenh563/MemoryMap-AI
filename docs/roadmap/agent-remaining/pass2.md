@@ -106,6 +106,14 @@ long document, opening the Library. Before and after numbers go here.
   file's "Used in", the jump chips, the read state): three carry a
   hairline edge now, the read state is text. Timeline rows: category with
   its dot, #tags, Uncategorised left out.
+- Finding 14 (commit "Library on a phone: two-row media dock, one
+  floating action"). At 390 the Files and Images dock is 114px (was 166),
+  the same as All, Documents, Skills, Links and Contents. The All view's
+  floating Create no longer floats over Files, Images, Skills, Links or
+  Contents. Not fixed: the Boards & maps dock is still 198px at 390 (title,
+  New board, the map icon, refresh, help and the menu need about 450px of a
+  358px row); the fix is New board as that sub-tab's own floating action,
+  which the Boards sub-tab's rail-overlap rule currently forbids.
 - Finding 9 (a board card's date) is not doable client side: `/whiteboard/boards`
   sends no timestamp. Left for a backend step.
 - Finding 11 (the filename band on a picture) is left as it is: it is the

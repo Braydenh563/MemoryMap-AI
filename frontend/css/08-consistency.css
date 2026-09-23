@@ -3720,3 +3720,51 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   content: "#";
   opacity: 0.6;
 }
+
+/* 16. The Files and Images dock at a phone's width (finding 14): three rows,
+       166px, where every other Library dock is two. It has an overflow menu
+       now, for `foldDockArrange` to move sort and view into, and that menu
+       holds nothing else, so it is not drawn while it is empty. The Library's
+       floating Create belongs to the All view: every other sub-tab has its
+       own filled action in its own dock (Upload, New board, New skill, Add
+       link), so a second one floating over it was two primaries on one
+       screen. Hidden, like the Boards sub-tab already hid it. */
+#library-media-more-menu:not(:has(.dock-menu-list > *)) {
+  display: none;
+}
+
+@media (max-width: 599.98px) {
+  .tab-page:has(#library-view-documents.hidden) > #library-new-doc.dock-fab {
+    display: none;
+  }
+}
+
+/* 17. The Boards & maps dock at a phone's width was four rows (198px): the
+       title, then New board and New mind map, then refresh, help and the
+       menu, then search. "New mind map" keeps its icon and hides its word
+       there, the `.toolbar-word` recipe (DESIGN.md: hidden, not dropped, the
+       title still names it for a pointer), and the actions fit the title's
+       row. */
+@media (max-width: 599.98px) {
+  #wb-boards-new-map .toolbar-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  #wb-boards-new-map {
+    width: var(--target-min);
+    padding-inline: 0;
+  }
+
+  #wb-boards-new-map > .ph-lead {
+    margin-inline-end: 0;
+  }
+}

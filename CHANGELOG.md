@@ -243,6 +243,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- On the Full dashboard the first screen ends on the "Your dashboard" bar:
+  the day's start at the top, the numbers sitting on the bar at the bottom of
+  the window, and the widgets below it as you scroll (`dashfold.js`, within
+  1px at 1280x720, 1440x900 and 1920x1080). Compact, Focused and phones are
+  unchanged.
 - The flat looks' background wash has a soft accent light in the bottom right
   corner as well as the top left, as Classic does.
 - Capture's "Add to this note" tools (Attach, From library, Sketch, Dictate,

@@ -3117,7 +3117,10 @@ function entryItem(entry, options = {}) {
   }
 
   const meta = document.createElement("div");
-  meta.className = "entry-meta";
+  //: `note-meta` scopes the one-line facts styling (08-consistency.css) to a
+  //: note card: `.entry-meta` alone is also the chip row of the skills, the
+  //: personas and the extras in Settings, which that styling flattened.
+  meta.className = "entry-meta note-meta";
   // A note saved with filing deferred is in its holding category, not its
   // real one, and saying "Uncategorised" for the second or two before the
   // background pass lands reads as the AI having failed. Say what is
@@ -24631,14 +24634,14 @@ async function renderPersonas() {
     }
 
     const row = document.createElement("div");
-    row.className = "entry-meta";
-    row.appendChild(chip(persona.name));
+    row.className = "entry-meta persona-row";
+    row.appendChild(chip(persona.name, "item-title"));
     if (persona.builtin) {
-      row.appendChild(chip(persona.overridden ? "edited" : "built-in", "tag"));
+      row.appendChild(chip(persona.overridden ? "Edited" : "Built-in", "item-label"));
     }
     const note = document.createElement("span");
     note.className = "muted persona-preview";
-    note.textContent = persona.prompt.slice(0, 70);
+    note.textContent = persona.prompt;
     row.appendChild(note);
 
     const actions = document.createElement("span");
@@ -25455,16 +25458,20 @@ function skillRow(skill) {
   const li = document.createElement("li");
   const row = document.createElement("div");
   row.className = "entry-meta skill-row";
-  row.appendChild(chip(skill.name));
-  if (skill.builtin) row.appendChild(chip("built-in", "tag"));
-  if (skill.changes) row.appendChild(chip("changes notes", "tag"));
+  //: A title, a label and facts, not six pills of one weight (owner: "there
+  //: is still missing distinguishing between titles that used to be
+  //: badges"). The recipe is `.item-title`, `.item-label` and `.item-fact`
+  //: in 08-consistency.css, shared with the personas.
+  row.appendChild(chip(skill.name, "item-title"));
+  if (skill.builtin) row.appendChild(chip("Built-in", "item-label"));
+  if (skill.changes) row.appendChild(chip("ph:pencil-simple Changes notes", "item-fact item-writes"));
   if ((skill.steps || []).length) {
-    row.appendChild(chip(`${skill.steps.length} steps`, "tag"));
+    row.appendChild(chip(`${skill.steps.length} steps`, "item-fact"));
   }
   if ((skill.tools || []).length) {
-    row.appendChild(chip(`${skill.tools.length} tools`, "tag"));
+    row.appendChild(chip(`${skill.tools.length} tools`, "item-fact"));
   }
-  for (const item of skill.inputs || []) row.appendChild(chip(`asks: ${item.name}`, "tag"));
+  for (const item of skill.inputs || []) row.appendChild(chip(`Asks for ${item.name}`, "item-fact"));
   // Its own class, not `persona-preview`. That one is `white-space: nowrap`
   // with an ellipsis, which is right for a persona (one line of voice) and
   // wrong here: a skill's description is the only thing that says what it
@@ -49837,8 +49844,8 @@ function templateRow(template, builtin) {
   const li = document.createElement("li");
   const row = document.createElement("div");
   row.className = "entry-meta skill-row";
-  row.appendChild(chip(template.name));
-  if (builtin) row.appendChild(chip("built-in", "tag"));
+  row.appendChild(chip(template.name, "item-title"));
+  if (builtin) row.appendChild(chip("Built-in", "item-label"));
   const note = document.createElement("span");
   note.className = "muted skill-blurb";
   note.textContent = template.description || template.content;

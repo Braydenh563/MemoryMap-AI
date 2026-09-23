@@ -37,6 +37,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Reminder alerts no longer miss a reminder that is due when the notebook
+  holds many finished ones. The minute-by-minute check read one page of
+  reminders ordered oldest first with the ticked-off ones included, so the
+  page could be all done reminders; it now asks for open ones only, soonest
+  first. And two requests the app made twice at every start (recent
+  questions and most-used notes, once for the Notes tab and once for the
+  dashboard) are made once, because a request already in flight is now
+  shared by whoever asks for the same thing (measured with
+  `scratchpad/ui-sweeps/oi-dupfetch.js`: 6 boot requests to 4).
 - Similar-notes lists can no longer contain a note that was deleted or made
   private in the same session. Its vector was blanked in place, and a blank
   row outranked every genuinely unrelated note, so a short list could come

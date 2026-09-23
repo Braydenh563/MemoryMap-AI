@@ -527,10 +527,26 @@ async function apiJson(path, options = {}) {
   const { cacheMs, ...rest } = options;
   if (cacheMs && (!rest.method || rest.method === "GET")) {
     const hit = _apiCache.get(path);
-    if (hit && Date.now() - hit.at < cacheMs) return hit.data;
-    const data = await (await api(path, rest)).json();
-    _apiCache.set(path, { data, at: Date.now() });
-    return data;
+    if (hit && Date.now() - hit.at < cacheMs) return hit.pending || hit.data;
+    //: **A request already in flight is shared, not repeated.** Measured at
+    //: boot (`scratchpad/ui-sweeps/oi-dupfetch.js`): the Notes tab's "Ask
+    //: again" row and the dashboard's Recent questions widget both asked for
+    //: `/chat/recent` within the same second, and the same for
+    //: `/entries/most-accessed`, because the second caller arrived before the
+    //: first answer did and the cache only held finished answers. The promise
+    //: is cached with the entry and replaced by the data when it lands; a
+    //: failure is dropped from the cache so the next caller asks again.
+    const pending = api(path, rest).then((response) => response.json());
+    const entry = { pending, at: Date.now() };
+    _apiCache.set(path, entry);
+    try {
+      const data = await pending;
+      if (_apiCache.get(path) === entry) _apiCache.set(path, { data, at: entry.at });
+      return data;
+    } catch (error) {
+      if (_apiCache.get(path) === entry) _apiCache.delete(path);
+      throw error;
+    }
   }
   return (await api(path, options)).json();
 }
@@ -35364,7 +35380,13 @@ async function checkDueReminders() {
   // on every load: visible in the browser's network log, and in the server's
   // own log, where it looks like an auth failure worth investigating.
   if (!authToken()) return;
-  const all = await apiJson("/reminders", { silent: true }).catch(() => null);
+  //: Open ones only. The route orders by `due_at` ascending with ticked-off
+  //: rows included by default, so this poll's one page was the *oldest*
+  //: reminders, done or not: a notebook whose oldest two hundred were done
+  //: never heard about the one due now. Without the done rows the page is
+  //: the soonest open reminders, which is exactly what "is anything due"
+  //: asks, and it is smaller.
+  const all = await apiJson("/reminders?include_done=false", { silent: true }).catch(() => null);
   if (!all) return; // server asleep or locked, say nothing rather than guess
   const now = Date.now();
   const due = all.filter((r) => !r.done && new Date(r.due_at).getTime() <= now);
@@ -35873,7 +35895,9 @@ document.addEventListener("mousedown", (event) => {
 
 async function loadRecentQuestions() {
   const box = $("recent-questions");
-  const questions = await apiJson("/chat/recent").catch(() => []);
+  //: Shared with the dashboard's Recent questions widget (`cacheMs`), which
+  //: asks for the same list in the same second at boot. Any write clears it.
+  const questions = await apiJson("/chat/recent", { cacheMs: 30000 }).catch(() => []);
   box.replaceChildren();
   box.classList.toggle("hidden", questions.length === 0);
   if (questions.length === 0) return;
@@ -35894,7 +35918,7 @@ async function loadRecentQuestions() {
 async function loadMostUsed() {
   const box = $("most-used-box");
   const list = $("most-used");
-  const entries = await apiJson("/entries/most-accessed").catch(() => []);
+  const entries = await apiJson("/entries/most-accessed", { cacheMs: 30000 }).catch(() => []);
   list.replaceChildren();
   box.classList.toggle("hidden", entries.length === 0);
   for (const entry of entries) {

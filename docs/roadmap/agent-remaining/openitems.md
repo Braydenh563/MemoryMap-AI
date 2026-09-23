@@ -65,5 +65,11 @@ Phase 8c, the templates preview, outline row height.
   model, 774MB after; no heavy import at startup) and said in Settings.
 - done (this commit): 11, INBOX 321 decided and built, `Ctrl+D` opens or
   starts today's page; `oi-ctrld.js` 3 of 3.
-- next: D6's calendar strip on the Timeline dock (reads
-  `GET /entries/daily?through=&days=`), then the tour measurement.
+- measured: the tour (`tour.js`) 339 checks ok; its 7 failures are exactly
+  the doors `TOUR_ENABLED = false` closes, so what the owner calls broken is
+  not something the sweep sees (INBOX 272 annotated).
+- done (this commit): H7's boot duplicates, `/chat/recent` and
+  `/entries/most-accessed` asked twice at every start (6 boot requests to 4,
+  `oi-dupfetch.js`), and the reminder alert's one page read open reminders.
+- next: the Settings fold summary at 390 (`help-popovers.js`, new: 81
+  popovers, 1 finding, the skill tools '?' unreachable).

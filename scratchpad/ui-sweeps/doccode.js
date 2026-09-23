@@ -88,7 +88,11 @@ const ok = (n, c, d) => {
       visible: r.width > 0 && r.top >= 0 && r.bottom <= innerHeight,
     };
   });
-  ok("hovering the underline says what is wrong, on a solid card", !!hover && hover.visible && hover.text.length > 3 && /^rgb\(/.test(hover.bg),
+  // Solid means no alpha below 1, in whichever notation the look's tokens
+  // compute to: `rgb(...)` in Classic, `color(srgb r g b)` in the looks whose
+  // tokens are mixed (2026-09-23), and never `rgba`/`/ 0.x` with a fraction.
+  const solid = (bg) => /^(rgb\(|color\(srgb )/.test(bg) && !/(,\s*0?\.\d+\)|\/\s*0?\.\d+\))$/.test(bg);
+  ok("hovering the underline says what is wrong, on a solid card", !!hover && hover.visible && hover.text.length > 3 && solid(hover.bg),
     JSON.stringify(hover));
   await page.mouse.move(5, 5);
   // Fix it.

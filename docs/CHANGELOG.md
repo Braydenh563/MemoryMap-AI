@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The weekly digest no longer opens with a greeting or a sentence announcing
+  itself, and no longer turns "tonight" in yesterday's note into tonight.
+  Each note reaches the model with the day it was written and the prompt
+  names today, with an instruction to read relative words against the note's
+  own day and to say past ones as past; the previous "use no time
+  references" instruction is gone. The answer trim the Ask tab uses now runs
+  on the digest too, and also recognises "Based on the notes you provided,
+  here is a quick digest...".
 - Mind maps show in the Find anything search as mind maps, with their own
   filter chip and glyph, and are found by the words written on their topics,
   not only by their title (a board's text boxes likewise find the board).

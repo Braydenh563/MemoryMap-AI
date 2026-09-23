@@ -34,6 +34,47 @@ with its owner named in the entry.
 
 ## Open items
 
+396. **The owner, 2026-09-23 night, verbatim, with two whiteboard
+    screenshots.** "on the whiteboard, when Im selected on a textbox I cant
+    open the meatball button dropdown menu in the popup tools. also the
+    arrange topbar dropdown menu is very and overly short in height for how
+    many items it contains" The screenshot shows Arrange open at about 230px
+    tall with a scrollbar, two rows visible. Placed with the map agent,
+    beside INBOX 317 (the same bar's kebab placement).
+
+394. **The owner, 2026-09-23 night, verbatim, with screenshots of the Ask
+    tab, the map's radial menu, the dashboard, a connection pill, the Write
+    tab's action chips, the dashboard's Jump to and Run a skill rows, the
+    Library tabs, the Boards filter and the Contents chips.** "are those chips
+    the right colour?? also I was wondering if we migth be able to give atlas
+    a tinsy little bit more personality?? idk. also on the document editor
+    code files I want ALL THE PREFILL SUGGESTIONS AND POPUP BOXES FOR
+    OPTIONS. like if I do just '!' on a document and press enter it does base
+    html code, or for all the available css properties for that css feature,
+    or doinf inline suggestions. also when I press the more button on a mind
+    map node tool radial, the dropdown menu doesnt appear next to it but the
+    bottom right. Also I was wondering if the \"your dashboard line\" should
+    always sti neatly at the bottom of the user's screen when on the \"full\"
+    view and then when the user scrolls the dashboard will show as normal, the
+    line wont move up top the content above it will just scroll like a
+    regular page. also the square top right and bottom right corners of the
+    meatball buttons in the note links goes out of the badge borders a bit"
+    and "can you also put a bit of the background shine in the bottom right
+    corner as well like the classic view??" and "also are these pills a sign
+    of ai vibe coding?? if they arent it's fine. just keep devibecoding and
+    improving the design to be more modern and professional. keep doing
+    anything else you were doing and keep bug fixing and more."
+    Placed: (a) Ask's "Ask again" chips filled while "Try asking" are
+    outlined, orchestrator; (b) Atlas's voice, orchestrator (prompt budget);
+    (c) code completions (Emmet `!`, every CSS property and value, inline
+    suggestions), an agent; (d) the radial More menu, the map agent; (e) the
+    dashboard's head at the fold, orchestrator; (f) the connection pill's
+    kebab corners and its raw markdown title (`# ... ![...]`), orchestrator;
+    (g) the page shine's second corner, orchestrator; (h) pills: yes, a
+    fully round pill on every control is a tell (dashed pills most of all);
+    the segmented-track table (the Ask citations agent) is the start, and
+    nav rows become tabs, actions `--radius-md` buttons.
+
 320. **The owner, 2026-09-21, verbatim:** "the numbers only appear after the
     ai response is finished" (in the Ask tab's Matching records column). Open,
     and it is closer to a design question than a bug: the numbers are the
@@ -377,64 +418,6 @@ with its owner named in the entry.
     `DEFAULT_SHORTCUTS` as "Find anything"). (4) partly: INBOX 274 fixed the
     guide panel's title, model, thinking and streaming; a redesign as such has
     not been done and is the one part left.
-
-272. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also make sure
-    all features and alternatives are easily knoticable by and offered for the
-    user. like if the embedding model fails or has an error, it suggests to
-    download nomic-embed-text. if duck duck go is rate limiting it
-    automatically tries searxng and if it isnt installed it suggests it. and
-    same for many other instances. I guess the only other really big gap is
-    that there is no guided tour and introduction, with positioned popup cards
-    with back, next, skip, card tutorial tour numbers 1/?, dimmed background,
-    guide on making a note and showing various controlsa and features etc.
-    maybe a way for the user to replay it and to even only rerun certain
-    sections of the tour for specific main features?? the tour cant be too
-    long because I dont want users skipping it or finding it too hard and
-    giving up on trying the application.  maximised ui and ux."
-    Two things. (1) **Every failure names its way out.** A named class of bug
-    rather than a list: when something cannot work, the app says what would
-    make it work and offers it, and where an alternative exists it is tried
-    first. The owner's two examples are the embedding model (suggest
-    `nomic-embed-text`) and web search (fall back from DuckDuckGo to SearXNG,
-    and suggest installing it when it is absent). Survey every such point
-    before writing any of them: there will be more than the two named.
-    (2) **A guided tour.** Positioned cards with back, next, skip, a 1 of N
-    counter and a dimmed backdrop; short by design, because a tour long
-    enough to skip teaches nothing; replayable whole or by section, so a
-    feature can be re-learned without sitting through the rest. There is an
-    `#onboarding-overlay` already (the sweeps disable it), so check what it
-    does before building beside it. Open.
-
-    **Part 1, done 2026-09-21.** Surveyed first (`WORLD_CLASS_PLAN.md`
-    section 21's table, 14 points, grepped against the running app before any
-    fix): the two named examples, and most of the class around them, were
-    already built across several earlier sessions (`core/extras.py`'s
-    install-from-Settings registry, DuckDuckGo-to-SearXNG with a local
-    auto-discovery probe, scanned-PDF and OCR remedies). Two real gaps
-    remained and are fixed: Agent mode silently downgraded to a plain answer
-    when the model couldn't call tools, with nothing shown and no way to fix
-    it (`routes_chat.py` used to `pass` on the event); it now shows a
-    `.notice.notice-warn` line naming the model with a "Change the model"
-    button straight to Settings, Models, and a skill run that stops mid-way
-    for the same reason names the same fix in its step card. A doc gap too:
-    `requirements.txt`'s "Optional extras" comment had drifted behind
-    `core/extras.py`'s own allowlist, missing three installable extras; both
-    fixes are held in place by `tests/test_failure_remedies.py`. Two points
-    read as still weak and are not fixed (a wrong custom provider URL reads
-    identically to "not installed"; the embedding-error box uses `.status
-    .error` rather than the `.notice.notice-warn` recipe), recorded in the
-    table rather than guessed at. Part 2 (the guided tour) stays open above;
-    `tour.js` was read for the survey and not touched.
-    **Checked 2026-09-23.** Part 2 was built (`frontend/tour.js`, INBOX 274
-    fixed three faults in it) and then switched off by the owner on
-    2026-09-21 ("disable the start the tour button ... until we enable it
-    again when the guided tour isnt broken"; `TOUR_ENABLED` in tour.js,
-    `4beba07`). What is still broken was not written down. Run on the head
-    the same day: `scratchpad/ui-sweeps/tour.js` passes 339 checks, and its
-    7 failures are exactly the doors the flag closes (the welcome's last
-    Next, a section button, the settings modal step), so the sweep does not
-    see what the owner does. The next step is the owner's words on which
-    step fails; the switch stays the owner's.
 
 302. **Found by the repository read, 2026-09-21 (the session, not the owner):
     a decision for the owner.** needle (cactus-compute, Apache-2.0 for both

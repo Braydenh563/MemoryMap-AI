@@ -65,7 +65,7 @@ Phase 8c, the templates preview, outline row height.
 - done c475278: 11, INBOX 321 decided and built, `Ctrl+D` opens or starts
   today's page; `oi-ctrld.js` 3 of 3.
 - measured: the tour (`tour.js`) 339 checks ok; its 7 failures are exactly
-  the doors `TOUR_ENABLED = false` closes (INBOX 272 annotated).
+  the doors `TOUR_ENABLED = false` closed then; the flag is true since the tour agent's merge (INBOX 272 resolved).
 - done 1d737a9: H7's boot duplicates (6 boot requests to 4,
   `oi-dupfetch.js`), and the reminder alert's page reads open reminders.
 - done 4a1b230: `help-popovers.js` built, 81 popovers and 1 finding (the
@@ -108,3 +108,5 @@ For the orchestrator (another agent's surface, or the owner's call):
 Verified since: Ctrl+D inside the documents editor stays in the editor (a
 probe typed, selected and pressed it: tab still documents). Not verified: a real Ollama embedding
 backend's memory; Windows and macOS anything.
+
+Full suite at ed95c64: exit 0 (pytest -n 3, own basetemp; the gate's own `--full` run was killed at 64% by memory pressure from the other agents' servers, with no failure before it); `scripts/gate.sh` lints, node-check and ruff pass.

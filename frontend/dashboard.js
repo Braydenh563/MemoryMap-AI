@@ -639,7 +639,9 @@ async function renderDashStats() {
       title: stats ? "" : why,
       go: () => { switchTab("notes"); showNotesSection("browse"); } },
     { icon: "ph:flame", value: stats ? streak : unknown, label: "day streak",
-      title: stats ? "" : why, go: () => switchTab("dashboard") },
+      //: The days a streak counts are the Timeline's days; this tile used to
+      //: "go" to the dashboard it sits on, a button that did nothing.
+      title: stats ? "" : why, go: () => switchTab("timeline") },
     {
       icon: due ? "ph:alarm" : "ph:check-circle",
       value: reminders ? due || open.length : unknown,

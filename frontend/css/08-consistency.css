@@ -3218,9 +3218,13 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 400;
 }
 
-.entry-meta > .chip.item-fact + .chip.item-fact::before {
+/* The separator rides the fact before it, not the one after: a row that
+   wraps (a long skill name at 1440 did) then ends its first line on "4 steps
+   ·" and starts the next on "3 tools", where a leading dot opened the second
+   line on "· 3 tools". */
+.entry-meta > .chip.item-fact:has(+ .chip.item-fact)::after {
   content: "·";
-  margin-inline-end: var(--space-2);
+  margin-inline-start: var(--space-2);
   opacity: 0.7;
 }
 
@@ -4012,4 +4016,155 @@ main,
 
 .contents-list > li > a {
   font-size: var(--text-md);
+}
+
+/* --- Timeline rows with a snippet: mark and time on the title's line --- */
+/* A row with a second line (a file's first line of code, a note's snippet)
+   centred its kind mark and its time against both lines, so each sat 10px
+   below the title it labels, between the two lines and against neither.
+   They belong to the title: start aligned, centred on its line box. A one
+   line row is unchanged, since there the title's line is the row. */
+.timeline-feed .timeline-row {
+  --timeline-title-line: calc(var(--text-md) * 1.25);
+}
+
+.timeline-feed .timeline-row-title {
+  line-height: 1.25;
+}
+
+.timeline-feed .timeline-row > .timeline-row-mark {
+  align-self: start;
+  margin-top: calc((var(--timeline-title-line) - var(--timeline-mark)) / 2);
+}
+
+.timeline-feed .timeline-row > .timeline-row-meta {
+  align-self: start;
+  min-height: var(--timeline-title-line);
+}
+
+/* --- Graph options: one section-head style --- */
+/* Measured: the panel's four section heads wore three styles. Physics 12px
+   600 muted, Show and Time 12px 400 muted, Groups 16px 600 ink (its summary
+   had no label span, so it took the body size). Four heads of one rank now
+   read as one: the small 600 label in ink, the utilitarian look's label
+   grammar (see the sentence case block above). */
+#graph-options .dock-menu-label,
+#graph-options .graph-options-fold > summary {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* --- Reminders: the time at the row's end, actions over it on hover --- */
+/* The action strip (two snoozes, edit, the menu) is invisible until hover
+   but kept its 193px in the row, so every reminder's time stood 200px short
+   of the edge with a hole after it, measured at 1280. With a pointer the
+   strip now lies over the time instead (the mail-list convention: the date
+   gives way to what you can do to the row), and the time sits at the end.
+   Touch keeps the strip in the row and always shown, as before. */
+@media (hover: hover) {
+  #reminder-groups li {
+    position: relative;
+  }
+
+  #reminder-groups li .entry-meta > .entry-actions {
+    position: absolute;
+    top: 50%;
+    right: var(--space-3);
+    transform: translateY(-50%);
+    padding-left: var(--space-2);
+    /* Opaque, so the time under it does not show through: the row's own
+       tint over the card it sits on. */
+    background: linear-gradient(var(--surface-2), var(--surface-2)), var(--card);
+    border-radius: var(--radius-md);
+    pointer-events: none;
+  }
+
+  #reminder-groups li:is(:hover, :focus-within) .entry-meta > .entry-actions {
+    pointer-events: auto;
+  }
+}
+
+/* An overdue reminder said so twice: a 3px amber edge and an amber frame
+   round the whole row, two rows stacked read as a warning banner. The edge
+   carries it; the frame goes back to the row's own. */
+#reminder-groups li.overdue {
+  border-top-color: var(--divider);
+  border-right-color: var(--divider);
+  border-bottom-color: var(--divider);
+}
+
+/* --- Settings: a section's intro sits under its heading, not above it --- */
+/* Each Settings section is a 12px 600 heading and a one-line intro, and the
+   intro was a bare `<p class="muted">` at the body's 16px: the description
+   out-sized the heading it describes (60 of them across the panes). One
+   step above the rows' own 12.8px descriptions, below nothing it explains. */
+#settings-modal .settings-group > p.muted {
+  font-size: var(--text-md);
+}
+
+/* --- Capture: the add tools as a quiet toolbar (INBOX 395) --- */
+/* The owner, of the Capture card's "Add to this note" and "Filing" rows: "is
+   there a cleaner way to show/redesign/structure these elements??" Measured:
+   seven 40px slabs, each a filled tint with a border, so five optional tools
+   and a menu drew as heavily as the Save the card exists for, and the eye
+   had nothing to rank. They are tools beside a text box, so they take a
+   composer toolbar's grammar: no fill, no frame, muted ink, the tint only
+   under the pointer; one hairline sets Improve (it rewrites) apart from the
+   four that add. The Filing row's "Add to document" is the same kind of
+   thing and is drawn the same way, beside the one real field on that row. */
+.capture-tools-row {
+  gap: var(--space-1);
+}
+
+/* One label column for every Capture row: "Add to this note" is wider than
+   the 7rem the others fit in, so its row started 28px right of Tags and
+   Filing. The column takes the longest label; the row's own gap is the
+   toolbar's tighter one, so the label keeps the others' distance by margin. */
+#capture .capture-field-label {
+  min-width: 8.5rem;
+}
+
+/* On a phone the column costs a third of the width (the tags field was left
+   150px), so each label goes above its controls, as a form's does there. */
+@media (max-width: 599.98px) {
+  #capture .capture-field-label {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  #capture .capture-field-row > input {
+    flex: 1 1 100%;
+  }
+}
+
+.capture-tools-row > .capture-field-label {
+  margin-inline-end: var(--space-2);
+}
+
+:is(.capture-tools-row, .capture-filing-row) button.ghost:not(.menu-item) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-md);
+  padding-inline: var(--space-3);
+}
+
+:is(.capture-tools-row, .capture-filing-row) button.ghost:not(.menu-item):is(:hover, :focus-visible, [aria-expanded="true"]) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+:is(.capture-tools-row, .capture-filing-row) button.ghost:not(.menu-item):disabled {
+  background: transparent;
+  opacity: 0.5;
+}
+
+.capture-tools-sep {
+  align-self: center;
+  width: 1px;
+  height: 1.25rem;
+  margin-inline: var(--space-1);
+  background: var(--divider);
 }

@@ -1159,7 +1159,7 @@
                the label described a fifth of its own row. The picker moved
                down to the filing row, where it belongs with the category,
                and the label now names what is actually here. -->
-          <div class="row capture-field-row">
+          <div class="row capture-field-row capture-tools-row">
             <span class="muted capture-field-label">Add to this note</span>
             <!-- Moved up from the "File under" row below (reported live: that
                  row was crowded: Save/Save as draft/Improve/Sketch/mic/Attach/
@@ -1190,6 +1190,9 @@
                  ones beside it. -->
             <button id="sketch-btn" class="ghost" type="button" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
             <button id="mic-note" class="ghost" type="button" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Dictate</button>
+            <!-- Improve rewrites what is typed; the four before it add a
+                 thing. Two families, one hairline between them. -->
+            <span class="capture-tools-sep" aria-hidden="true"></span>
             <button id="improve-btn" data-needs-model="Proofreading needs the local AI" class="ghost" type="button" title="Let Atlas proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
           </div>
           <!-- Files waiting to go onto this note when it saves. Reported
@@ -1208,7 +1211,7 @@
                set and shows it as chips (see the decision in
                UI_MODERNISATION_PLAN). Splitting them across two rows was
                what left the commit row holding a picker and two buttons. -->
-          <div class="row capture-field-row">
+          <div class="row capture-field-row capture-filing-row">
             <span class="muted capture-field-label">Filing</span>
             <select id="entry-category" aria-label="File under a category"
               title="File under a category"></select>

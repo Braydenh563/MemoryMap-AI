@@ -40324,19 +40324,54 @@ initBottomTabBar();
 // calling the same four functions the buttons call. Built once at boot and
 // shown by the stylesheet, which is the same arrangement the phone tab
 // dock uses: no listener, no second copy of the media query in JS.
+// **The status bar's rows** (INBOX 392, UI_MODERNISATION_PLAN Phase 11 item
+// 12). Below 600 the status bar is no longer a second bar stacked on the tab
+// bar: measured at 390, the two together were 95px of the 844 on every tab,
+// the bar's AI dot was 28x28 and its reminders count 82x28, and three of its
+// controls were scrolled off the end of a bar that scrolls sideways.
+// `dockPhoneStatus` moves the three a phone reaches for without looking (the
+// AI dot, Back and Undo) into this header, and every other control the bar
+// holds is a row here that presses the bar's own button, so the handler, the
+// disabled state and the switched-off slot all stay where they are (the
+// pattern `mountPhoneSidebarOpeners` uses). A row whose button is switched
+// off in Settings or hidden right now is hidden; one whose button is disabled
+// is shown muted, the way the menu marks any row that cannot run.
+const PHONE_STATUS_ROWS = [
+  { id: "status-forward", label: "ph:caret-right Forward" },
+  { id: "status-nav-history", label: "ph:clock-counter-clockwise Recent places" },
+  { id: "status-redo", label: "ph:arrow-clockwise Redo" },
+  { id: "status-reminders", label: "ph:check-circle Reminders" },
+  { id: "status-task", label: "ph:gear Background tasks" },
+  { id: "status-find", label: "ph:magnifying-glass Find" },
+  { id: "status-agent", label: "ph:magic-wand Ask the agent" },
+  { id: "status-guide", label: "ph:compass Guide" },
+];
+
 function initPhoneHeaderMore() {
   const home = document.querySelector("#top-bar .header-cluster-end");
   if (!home || typeof kebabMenu !== "function") return;
   const menu = kebabMenu(
     [
-      { label: "ph:circle-half Light or dark", title: "Toggle light or dark theme", run: () => toggleTheme() },
-      { label: "ph:gear Settings", title: "Settings", run: () => openSettingsModal() },
-      { label: "ph:lock Lock", title: "Lock the app", run: () => lockNow() },
+      ...PHONE_STATUS_ROWS.map((row) => ({
+        label: row.label,
+        title: row.label.replace(/^ph:\S+\s*/, ""),
+        run: () => $(row.id)?.click(),
+        group: "status",
+      })),
+      {
+        label: "ph:circle-half Light or dark",
+        title: "Toggle light or dark theme",
+        run: () => toggleTheme(),
+        group: "app",
+      },
+      { label: "ph:gear Settings", title: "Settings", run: () => openSettingsModal(), group: "app" },
+      { label: "ph:lock Lock", title: "Lock the app", run: () => lockNow(), group: "app" },
       {
         label: "ph:power Quit MemoryMap",
         title: "Quit MemoryMap: stops the app and its server",
         run: () => quitApp(),
         danger: true,
+        group: "app",
       },
     ],
     "More"
@@ -40345,12 +40380,35 @@ function initPhoneHeaderMore() {
   // Lock is only offered once a password exists, which is what shows the
   // desktop's `#lock-btn`; the row follows that button's own state each time
   // the menu opens rather than freezing it at boot, when no session exists.
-  const rows = menu.querySelectorAll(".menu-item");
-  const lockRow = rows[2];
+  // The status rows follow their buttons the same way, and the reminders row
+  // carries the count the bar would have shown.
+  const rows = [...menu.querySelectorAll(".menu-item")];
+  const lockRow = rows[PHONE_STATUS_ROWS.length + 2];
   menu.addEventListener(
     "click",
     () => {
       if (lockRow) lockRow.hidden = $("lock-btn")?.classList.contains("hidden") ?? true;
+      PHONE_STATUS_ROWS.forEach((spec, index) => {
+        const source = $(spec.id);
+        const row = rows[index];
+        if (!row) return;
+        row.hidden =
+          !source ||
+          source.classList.contains("hidden") ||
+          source.classList.contains("status-slot-off");
+        const unavailable = Boolean(source?.disabled);
+        row.classList.toggle("menu-item-unavailable", unavailable);
+        if (unavailable) row.setAttribute("aria-disabled", "true");
+        else row.removeAttribute("aria-disabled");
+        if (spec.id === "status-reminders" && source) {
+          // The bar's own words ("2 open", "1 due"), read off the button.
+          const said = [...source.querySelectorAll("b, span")]
+            .map((part) => part.textContent.trim())
+            .filter(Boolean)
+            .join(" ");
+          setLabel(row, said ? `ph:check-circle Reminders, ${said}` : spec.label);
+        }
+      });
     },
     true
   );
@@ -40358,6 +40416,58 @@ function initPhoneHeaderMore() {
 }
 
 initPhoneHeaderMore();
+
+// The three status-bar controls that move into the phone header, and back
+// above 600. Moved, never copied: a marker holds each one's place in the bar,
+// as `floatPrimaryActions` does for the floating +. Back and Undo sit after
+// the space switcher, where a phone keeps its back chevron (the HIG's
+// navigation-bar order); the AI dot sits before the bell, since both say
+// what the app is doing rather than go anywhere.
+const PHONE_STATUS = "(max-width: 599.98px)";
+
+function dockPhoneStatus(phone) {
+  const bar = $("top-bar");
+  const switcher = bar?.querySelector(".space-switcher");
+  const bellCluster = bar?.querySelector(".header-controls > .header-cluster:not(.header-cluster-end)");
+  if (!bar || !switcher || !bellCluster) return;
+  let nav = bar.querySelector(".header-cluster-nav");
+  if (phone && !nav) {
+    nav = document.createElement("span");
+    nav.className = "header-cluster header-cluster-nav";
+    switcher.after(nav);
+  }
+  const moves = [
+    { el: $("status-back"), into: nav, first: false },
+    { el: $("status-undo"), into: nav, first: false },
+    { el: $("ai-status")?.closest(".ai-status-wrap"), into: bellCluster, first: true },
+  ];
+  for (const { el, into, first } of moves) {
+    if (!el) continue;
+    const key = el.id || "ai-status-wrap";
+    if (phone) {
+      if (el.closest("#top-bar")) continue;
+      const slot = document.createElement("span");
+      slot.className = "status-home-slot";
+      slot.dataset.statusFor = key;
+      slot.hidden = true;
+      el.replaceWith(slot);
+      if (first) into.prepend(el);
+      else into.append(el);
+    } else {
+      const slot = document.querySelector(`.status-home-slot[data-status-for="${CSS.escape(key)}"]`);
+      if (slot) slot.replaceWith(el);
+    }
+  }
+  if (!phone) nav?.remove();
+}
+
+function initPhoneStatus() {
+  const query = window.matchMedia(PHONE_STATUS);
+  dockPhoneStatus(query.matches);
+  query.addEventListener("change", (event) => dockPhoneStatus(event.matches));
+}
+
+initPhoneStatus();
 
 // --- the phone's sidebar opener: a button in the head, not a rail ------------
 // UI_MODERNISATION_PLAN Phase 11 item 2 ("the list as full-width rows") and

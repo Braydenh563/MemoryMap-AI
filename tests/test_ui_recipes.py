@@ -2254,3 +2254,42 @@ def test_an_embedded_board_is_the_one_preview_renderer_and_leaves_a_tombstone() 
     )
     # The whole card is the control, not a link beside a picture.
     assert ".board-embed-open" in css, "the board object's button has no rules of its own"
+
+
+def test_every_status_bar_control_has_a_way_in_on_a_phone() -> None:
+    """Below 600 the status bar is not on screen (INBOX 392, UI_MODERNISATION_PLAN
+    Phase 11 item 12): `dockPhoneStatus` moves Back, Undo and the AI dot into
+    the header and every other control is a row of the header's menu
+    (`PHONE_STATUS_ROWS`). A control added to the bar later with neither would
+    exist on a desktop and not on a phone, which Phase 11's decision forbids
+    ("nothing is hidden that the desktop has"). The notes count and the
+    palette hint, hidden below 720 by the bar's own band, and the clock, a
+    desktop opt-in, are the named exceptions."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    footer = re.search(r'<footer[^>]*id="status-bar".*?</footer>', html, flags=re.S)
+    assert footer, "the status bar is gone from index.html"
+    ids = set(re.findall(r'<button[^>]*\bid="([^"]+)"', footer.group(0)))
+    rows = re.search(r"const PHONE_STATUS_ROWS = \[(.*?)\];", app, flags=re.S)
+    assert rows, "PHONE_STATUS_ROWS is gone from app.js"
+    in_menu = set(re.findall(r'id: "([^"]+)"', rows.group(1)))
+    docker = app.split("function dockPhoneStatus", 1)[1][:2000]
+    for name in ("status-back", "status-undo", "ai-status"):
+        assert f'$("{name}")' in docker, f"{name} is no longer moved into the phone header"
+    moved = {"status-back", "status-undo", "ai-status"}
+    exceptions = {"status-notes", "status-command", "status-clock"}
+    # The transient ones bring the bar itself back while they show.
+    responsive_css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    transient = {name for name in ids if f"#{name}:not(.hidden" in responsive_css}
+    assert {"status-task", "status-activity"} <= transient, (
+        "a running job or an activity no longer brings the phone's status bar back"
+    )
+    missing = sorted(ids - in_menu - moved - exceptions - transient)
+    assert not missing, (
+        f"status-bar controls with no way in on a phone: {missing}; add each to "
+        "PHONE_STATUS_ROWS (app.js), which makes it a row of the header menu"
+    )
+    responsive = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    assert "--status-bar-h: 0px" in responsive, (
+        "the phone band no longer takes the status bar's height back"
+    )

@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- On a phone the foot of the screen is one bar, not two: Back, Undo and the
+  AI status sit in the top bar, and the status bar's other controls are in
+  the top bar's menu. The status bar comes back only while a job is running,
+  or when offline or on power saver.
+
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window
   appears. Not verified on a Windows build from this sandbox.

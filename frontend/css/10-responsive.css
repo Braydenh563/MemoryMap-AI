@@ -1364,6 +1364,54 @@ header#top-bar,
   }
 }
 
+/* --- Phase 11 item 12: one bar at the foot of a phone, not two ---------------
+   Measured at 390x844 (scratchpad/ui-sweeps/phonechrome.js, INBOX 392): the
+   status bar sat on the tab bar on every tab, 37px over 58, with its AI dot
+   at 28x28 and its reminders count at 82x28, and three of its controls
+   scrolled off the end of a strip that scrolls sideways. Below 600 the three
+   controls a phone reaches for without looking move into the header
+   (`dockPhoneStatus`, app.js: Back and Undo after the space switcher, the AI
+   dot before the bell) and the rest are rows of the header's own menu. The
+   bar keeps its place in the flow at 0px, because its bottom margin is what
+   reserves the tab bar's height, and it comes back as a bar only while it
+   has something transient to say: a running job, an activity, offline, or
+   power saver, which are things a person has to see without asking. */
+@media (max-width: 599.98px) {
+
+  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #status-activity:not(.hidden), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) {
+    --status-bar-h: 0px;
+  }
+
+  :root:not(:has(#status-task:not(.hidden, .status-slot-off), #status-activity:not(.hidden), #offline-indicator:not(.hidden), #power-saver-indicator:not(.hidden))) #status-bar {
+    visibility: hidden;
+    overflow: hidden;
+    padding-block: 0;
+    border-width: 0;
+  }
+
+  #top-bar .header-cluster-nav {
+    gap: 0;
+  }
+
+  /* The status bar's own item style, at the header's height and the band's
+     floor, so the two moved squares match the bell beside them. */
+  #top-bar .header-cluster-nav > .status-item,
+  #top-bar .ai-status-wrap > .ai-status {
+    width: var(--target-min);
+    height: var(--target-min);
+    min-height: var(--target-min);
+  }
+
+  /* The AI message hung upward from the dot at the foot of the window; in the
+     header it hangs down, and from the right, since the dot is at that end. */
+  #top-bar .ai-status-popup {
+    top: calc(100% + var(--space-2));
+    bottom: auto;
+    left: auto;
+    right: 0;
+  }
+}
+
 /* The two header controls that live inside a wrapper (`.notif-wrap` for the
    bell's unread dot, `.menu-wrap` for the menu above) declare `min-height: 0`
    in 06-timeline-dialogs.css so the desktop levels them with the tabs, and

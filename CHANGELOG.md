@@ -32,6 +32,8 @@ below). Versioning is `0.x` while the app stabilises.
   does.
 - Notes, documents, boards and maps can be taken straight to a chat with
   Atlas from their menus, and a note to the graph (centred and lit).
+- Theme and palette cards in Appearance keep their text inside the card and
+  line up: swatches and names on one line per row, descriptions in body weight.
 - Links everywhere use the accent colour (plain links were the browser's own
   blue and purple); Timeline rows for boards and reminders no longer repeat
   their title as a snippet; an empty Ollama embedding picker says why.

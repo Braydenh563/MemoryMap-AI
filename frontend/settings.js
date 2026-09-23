@@ -2142,6 +2142,7 @@ function renderThemePresets() {
     swatch.style.background = page;
     swatch.style.borderBottom = `6px solid ${accent}`;
     const caption = document.createElement("span");
+    caption.className = "theme-card-name";
     caption.textContent = preset.label;
     button.append(swatch, caption);
     button.addEventListener("click", () => {

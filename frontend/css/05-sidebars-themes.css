@@ -3214,6 +3214,36 @@ button.outline-twist:focus-visible {
   }
 }
 
+/* **The words stay inside the card** (owner: "make sure the text in the theme
+   cards doesnt overflow"). A card is a grid cell as narrow as 8.5rem, and a
+   look's name at 16px bold ran edge to edge ("Manuscript" to within the
+   padding at 1184, measured) and would have crossed it at the larger font
+   sizes Appearance offers. The name is the app's small title size, wraps
+   between words and, for a single long word, inside it, never past the edge. */
+.theme-card {
+  min-width: 0;
+  /* Top, never centred: a card is a button, and a button centres its
+     content, so in a row of equal-height cells a one-line name sat its swatch
+     8px lower than a two-line one beside it (presets 9 vs 17px, palettes 9 vs
+     24px, measured). Every swatch now starts on one line and every name under
+     it on another. */
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.theme-card > span,
+.theme-card :is(strong, small, p) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.theme-card-name {
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
 /* A ghost button that is currently *on*. Peek is the first of these: it is an
    action you hold rather than a setting you leave, so it needs to look pressed
    while it is doing something and ordinary the rest of the time. Both signals,
@@ -3262,15 +3292,21 @@ button.is-on {
   background: var(--sw-accent);
 }
 
+/* The palette card's title matches a look card's (`.theme-card-name`), and
+   its description is body text: regular weight, not the bold every settings
+   button inherits, which made four lines of description read as a second
+   title (measured, 600 on every `.theme-note`). */
 .theme-name {
-  font-size: 0.8rem;
+  font-size: var(--text-md);
   font-weight: 600;
+  line-height: 1.25;
 }
 
 .theme-note {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--muted);
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 @media (prefers-reduced-motion: reduce) {

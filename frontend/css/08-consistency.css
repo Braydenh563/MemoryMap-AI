@@ -4393,3 +4393,10 @@ main,
     min-height: 0;
   }
 }
+
+/* Centred by its ink, not its box: Phosphor's x sits 0.14em high in its
+   own em square, measured as a 1.6px lift in the 16px circle at 8x scale
+   (the boxes were centred to 0.01px, the glyph was not; the owner saw it). */
+.chip > .unlink:last-child > .ph {
+  translate: 0 0.14em;
+}

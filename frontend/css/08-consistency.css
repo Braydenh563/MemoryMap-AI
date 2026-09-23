@@ -2816,10 +2816,22 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     position: relative;
   }
 
+  /* **Beside the ⋯, never on it.** This corner was the ⋯ menu's corner too
+     (`.menu-wrap.library-card-menu`, the same `top` and `right`), so the
+     tick, at `z-index: 1`, sat exactly on the menu button: measured at 1440,
+     `elementsFromPoint` at the ⋯'s centre answered the tick first on every
+     card, a press on ⋯ ticked the card instead of opening its menu, and on
+     hover the two drew over each other. Found by the guided tour, whose
+     "a card's menu" step judged the button covered. The title keeps room for
+     both, reserved rather than taken. */
+  .library-card .library-card-top {
+    padding-right: calc(var(--space-8) + var(--target-min) + var(--space-1));
+  }
+
   .library-card .library-card-tick {
     position: absolute;
     top: var(--space-3);
-    right: var(--space-3);
+    right: calc(var(--space-3) + var(--target-min) + var(--space-1));
     margin: 0;
     z-index: 1;
     opacity: 0;

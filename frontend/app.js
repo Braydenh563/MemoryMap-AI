@@ -38222,9 +38222,20 @@ function syncFeatureModelSelects() {
     //: With no backend connected the inherited name is only the configured
     //: default: measured, the picker said "Inherited: llama3.2" under a banner
     //: saying no model is connected.
-    const inherited = featureModelNames.includes(row.inherits)
-      ? `Inherited: ${row.inherits}`
-      : `Inherited: ${row.inherits} (not installed)`;
+    //: Installed by the server's own rule (`_name_matches`: "llama3.2" is an
+    //: installed "llama3.2:latest"), and the server's own verdict on the chat
+    //: model wins over this list: measured, an installed
+    //: `hf.co/...:UD-Q4_K_XL` read "(not installed)" from a literal compare.
+    //: The short name in the label, the full id in the tooltip: the long
+    //: form made the Ask header's picker 1,200px wide.
+    const installedNames = new Set(featureModelNames.flatMap((n) => [n, String(n).split(":")[0]]));
+    const serverSaysInstalled = row.inherits === modelStatus?.chat_model
+      && modelStatus?.chat_model_installed === true;
+    const isInstalled = serverSaysInstalled || installedNames.has(row.inherits)
+      || modelStatus?.chat_model_installed == null;
+    const inherited = isInstalled
+      ? `Inherited: ${shortModelName(row.inherits)}`
+      : `Inherited: ${shortModelName(row.inherits)} (not installed)`;
     fillModelSelect(
       select,
       names,
@@ -39606,7 +39617,7 @@ function seedUiStateFromServer(state) {
 // the UI so "why isn't the theme's colour showing?" has a visible answer.
 const OVERRIDABLE_KEYS = [
   "theme", "palette", "accent", "accent-custom", "page-bg", "font", "fontsize",
-  "density", "radius", "glass", "glass-blur", "glass-opacity", "glass-sheen",
+  "density", "radius", "glass", "glass-blur", "glass-opacity", "glass-sheen", "page-wash",
   "glass-sheen-strength", "bg-style", "bg-motion", "bg-intensity", "zoom",
 ];
 

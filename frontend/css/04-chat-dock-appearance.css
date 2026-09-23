@@ -5114,3 +5114,21 @@ input.doc-title-input::placeholder {
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
+
+/* **A model picker is as wide as a short name, not as the id** (owner: "fix
+   how big this model selection dropdown box is"). Model ids run to fifty
+   characters (`hf.co/unsloth/gemma-...:UD-Q4_K_XL`); the label shows the short
+   name and the box stops at 14rem, ellipsising the rest, with the full id in
+   its tooltip. */
+.select-shell:has(> .feature-model-select),
+.feature-model-select {
+  max-width: 14rem;
+  min-width: 0;
+}
+
+.select-shell:has(> .feature-model-select) .select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

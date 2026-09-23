@@ -3080,8 +3080,8 @@ button.outline-twist:focus-visible {
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
   --ink: #ecebe8;
   --muted: #a09e98;
-  --accent: #8aa7f7;
-  --accent-soft: rgba(138, 167, 247, 0.16);
+  --accent: #5b95ff;
+  --accent-soft: rgba(91, 149, 255, 0.16);
   --border: rgba(236, 235, 232, 0.1);
   --chip-bg: rgba(236, 235, 232, 0.06);
 }
@@ -3163,6 +3163,52 @@ button.outline-twist:focus-visible {
   --accent-soft: rgba(66, 214, 127, 0.14);
   --border: rgba(230, 234, 238, 0.11);
   --chip-bg: rgba(230, 234, 238, 0.06);
+}
+
+/* **Every palette's opaque surface is its own.** `--modal-bg-opaque` (menus,
+   docks, popovers, the graph toolbar) was only ever set by the base theme, so
+   under any palette it stayed the Classic navy, rgb(24, 27, 37) measured in
+   dark (owner: "some popup ui's havent followed the theme change ... the
+   graph top bar, dropdown menus"). Derived here from the palette's own
+   `--modal-bg` with its alpha dropped, so every palette, old and new, carries
+   it without a line per palette. */
+:root[data-palette] {
+  --modal-bg-opaque: rgb(from var(--modal-bg) r g b);
+}
+
+/* **The background wash, a choice** (owner: "the background doesnt have that
+   shine or slight colour gradient the blue one did (maybe it can be
+   togglable??)"). The flat looks paint a solid ground; with the wash on
+   (Appearance, "Background wash", on by default) they get a soft light from
+   the top left and a faint tint of their own accent in the far corner, never
+   the Classic lavender. */
+:root[data-page-wash="on"]:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) {
+  --blob-a: color-mix(in srgb, var(--accent) 9%, transparent);
+  --blob-b: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+:root[data-page-wash="on"][data-palette="utilitarian"]:not([data-mode="dark"]) {
+  --page: linear-gradient(160deg, #f8f7f5 0%, #f4f3f1 45%, #efeeea 100%);
+}
+
+:root[data-page-wash="on"][data-palette="utilitarian"][data-mode="dark"] {
+  --page: linear-gradient(160deg, #1b1b1a 0%, #161615 45%, #121211 100%);
+}
+
+:root[data-page-wash="on"][data-palette="paper"]:not([data-mode="dark"]) {
+  --page: linear-gradient(160deg, #fdfcfa 0%, #faf9f6 50%, #f4f2ec 100%);
+}
+
+:root[data-page-wash="on"][data-palette="paper"][data-mode="dark"] {
+  --page: linear-gradient(160deg, #191817 0%, #141312 50%, #100f0e 100%);
+}
+
+:root[data-page-wash="on"][data-palette="mono"]:not([data-mode="dark"]) {
+  --page: linear-gradient(160deg, #f3f5f7 0%, #eceff2 50%, #e5e9ed 100%);
+}
+
+:root[data-page-wash="on"][data-palette="mono"][data-mode="dark"] {
+  --page: linear-gradient(160deg, #141820 0%, #0f1215 50%, #0b0d10 100%);
 }
 
 /* The three flat looks draw no wash on the dashboard hero: its accent glow

@@ -302,6 +302,54 @@ _LOADING_HTML = """<!doctype html>
 </body></html>"""
 
 
+#: The loading page's six colours, per look and mode: ground, text, faint
+#: text, secondary text, accent, bar track. The page's own stylesheet is
+#: written in the Classic set, which is the fallback for any other palette.
+_LOADING_CLASSIC = ("#12141c", "#e7e9ee", "#5d6472", "#9aa1ad", "#4664f0", "#262b3a")
+_LOADING_LOOKS = {
+    ("utilitarian", "dark"): ("#161615", "#ecebe8", "#75736e", "#a09e98", "#5b95ff", "#2a2a27"),
+    ("utilitarian", "light"): ("#f4f3f1", "#1c1c1a", "#8a8883", "#66645f", "#2f5bd3", "#e3e1dd"),
+    ("paper", "dark"): ("#141312", "#f2efe9", "#77726a", "#a49f95", "#ff7a4d", "#2a2826"),
+    ("paper", "light"): ("#faf9f6", "#111111", "#8a867e", "#57544e", "#c63d17", "#e6e3dc"),
+    ("mono", "dark"): ("#0f1215", "#e6eaee", "#5f6a75", "#8f9aa6", "#42d67f", "#232a31"),
+    ("mono", "light"): ("#eceff2", "#15191e", "#7b8591", "#56606b", "#1a7f45", "#d5dae0"),
+}
+_LOOK_PALETTES = {"utilitarian": "utilitarian", "paper": "paper", "mono": "mono", "default": "default"}
+
+
+def _recolour_loading_page(html: str, data_dir: str | None) -> str:
+    """The loading page in the look the app will open in (owner: "some popup
+    ui's havent followed the theme change like the loading screen").
+
+    The page is shown before the app, from `html=`, so it cannot read the
+    browser storage the look lives in; the look is mirrored to the server's
+    preferences (`ui_state`), which this reads from the data folder. Only the
+    page's stylesheet is recoloured; the logo keeps its own colours. Any
+    failure leaves the page as written, which is a loading screen in the
+    Classic colours rather than no loading screen.
+    """
+    try:
+        from memorymap.core.config import ConfigManager
+
+        state = ConfigManager(data_dir or None).get_preference("ui_state", {}) or {}
+    except Exception:  # noqa: BLE001  # a cosmetic read must never stop the launch
+        return html
+    # The same order as `appearancePref` (settings.js): a palette chosen by
+    # hand, then the chosen look's palette, then the default look's.
+    preset = state.get("themePreset")
+    palette = state.get("palette") or (_LOOK_PALETTES.get(preset, "") if preset else "utilitarian")
+    mode = "light" if state.get("theme") == "light" else "dark"
+    colours = _LOADING_LOOKS.get((palette, mode))
+    if not colours:
+        return html
+    head, sep, rest = html.partition("</style>")
+    if not sep:
+        return html
+    for old, new in zip(_LOADING_CLASSIC, colours):
+        head = head.replace(old, new)
+    return head + sep + rest
+
+
 def _loading_html(steps=None, data_dir: str | None = None) -> str:
     """`_LOADING_HTML` with the launcher's step history seeded into it.
 
@@ -318,7 +366,7 @@ def _loading_html(steps=None, data_dir: str | None = None) -> str:
     if data_dir is None:
         data_dir = os.environ.get("MEMORYMAP_DATA_DIR") or ""
 
-    html = _LOADING_HTML
+    html = _recolour_loading_page(_LOADING_HTML, data_dir)
     if steps:
         seed = [
             {

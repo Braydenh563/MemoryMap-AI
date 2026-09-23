@@ -32,6 +32,12 @@ below). Versioning is `0.x` while the app stabilises.
   does.
 - Notes, documents, boards and maps can be taken straight to a chat with
   Atlas from their menus, and a note to the graph (centred and lit).
+- Menus, docks, popovers and the graph toolbar follow the chosen look in
+  every palette (they stayed navy in dark), the desktop loading page and the
+  packaged splash wear the look too, and a new Background wash setting gives
+  the flat looks a soft light across the page. Classic is second in the list.
+- Model pickers show the short model name and stop at 14rem, and no longer
+  call an installed model "not installed".
 - Theme and palette cards in Appearance keep their text inside the card and
   line up: swatches and names on one line per row, descriptions in body weight.
 - Links everywhere use the accent colour (plain links were the browser's own

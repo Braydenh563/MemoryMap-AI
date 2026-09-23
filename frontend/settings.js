@@ -1318,6 +1318,8 @@ const APPEARANCE_DEFAULTS = {
   // up without a second trip to Settings; unchecking #glass-sheen-toggle
   // afterward turns just the sheen back off without touching glass itself.
   "glass-sheen": "off",
+  // The flat looks' soft ground light (owner: "maybe it can be togglable").
+  "page-wash": "on",
   // 0-100, how strong the sheen reads when it's on: its own dial, separate
   // from whether it's on at all.
   "glass-sheen-strength": "100",
@@ -1385,6 +1387,10 @@ const THEME_PRESETS = {
     label: "Quiet utilitarian",
     values: { palette: "utilitarian", glass: "off", radius: "8", density: "compact" },
   },
+  default: {
+    label: "Classic",
+    values: { palette: "default", glass: "on", radius: "14" },
+  },
   paper: {
     label: "Editorial paper",
     values: { palette: "paper", glass: "off", radius: "4" },
@@ -1392,10 +1398,6 @@ const THEME_PRESETS = {
   mono: {
     label: "Technical mono",
     values: { palette: "mono", glass: "off", radius: "2", density: "compact" },
-  },
-  default: {
-    label: "Classic",
-    values: { palette: "default", glass: "on", radius: "14" },
   },
   manuscript: {
     label: "Manuscript",
@@ -1996,6 +1998,7 @@ function applyAppearance() {
   // what the page shows, not what the person chose.
   root.dataset.glass = perf ? "off" : appearancePref("glass");
   root.dataset.glassSheen = appearancePref("glass-sheen");
+  root.dataset.pageWash = appearancePref("page-wash");
   root.style.setProperty("--glass-sheen-strength", Number(appearancePref("glass-sheen-strength")) / 100);
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = perf ? "reduced" : appearancePref("motion");
@@ -2220,6 +2223,7 @@ function renderAppearance() {
   $("glass-row").classList.toggle("disabled-row", perfModeOn());
   $("reduce-motion-row").classList.toggle("disabled-row", perfModeOn());
   $("glass-sheen-toggle").checked = appearancePref("glass-sheen") === "on";
+  if ($("page-wash-toggle")) $("page-wash-toggle").checked = appearancePref("page-wash") === "on";
   $("glass-sheen-row").classList.toggle("disabled-row", appearancePref("glass") !== "on" || perfModeOn());
   $("glass-sheen-strength").value = appearancePref("glass-sheen-strength");
   $("glass-sheen-strength-value").textContent = `${appearancePref("glass-sheen-strength")}%`;
@@ -2309,7 +2313,14 @@ const PALETTES = [
     name: "Quiet",
     note: "The default. A warm grey ground, solid panels and one ink-blue accent.",
     light: { page: "#f4f3f1", card: "#ffffff", accent: "#2f5bd3", border: "rgba(28,28,26,0.12)" },
-    dark: { page: "#161615", card: "#1e1e1c", accent: "#8aa7f7", border: "rgba(236,235,232,0.12)" },
+    dark: { page: "#161615", card: "#1e1e1c", accent: "#5b95ff", border: "rgba(236,235,232,0.12)" },
+  },
+  {
+    id: "default",
+    name: "Classic",
+    note: "The original look: indigo glass over a soft gradient.",
+    light: { page: "linear-gradient(135deg,#e9edfb,#f6f2ec 45%,#e6f1f2)", card: "rgba(255,255,255,0.75)", accent: "#4664f0", border: "rgba(31,36,48,0.12)" },
+    dark: { page: "linear-gradient(135deg,#0e1017,#171a26 45%,#0f1720)", card: "rgba(29,33,46,0.85)", accent: "#8b9df8", border: "rgba(255,255,255,0.14)" },
   },
   {
     id: "paper",
@@ -2324,13 +2335,6 @@ const PALETTES = [
     note: "Cool graphite, monospace numbers and a green signal accent.",
     light: { page: "#eceff2", card: "#f8f9fa", accent: "#1a7f45", border: "rgba(21,25,30,0.15)" },
     dark: { page: "#0f1215", card: "#161a1f", accent: "#42d67f", border: "rgba(230,234,238,0.13)" },
-  },
-  {
-    id: "default",
-    name: "Classic",
-    note: "The original look: indigo glass over a soft gradient.",
-    light: { page: "linear-gradient(135deg,#e9edfb,#f6f2ec 45%,#e6f1f2)", card: "rgba(255,255,255,0.75)", accent: "#4664f0", border: "rgba(31,36,48,0.12)" },
-    dark: { page: "linear-gradient(135deg,#0e1017,#171a26 45%,#0f1720)", card: "rgba(29,33,46,0.85)", accent: "#8b9df8", border: "rgba(255,255,255,0.14)" },
   },
   {
     id: "parchment",
@@ -2446,7 +2450,7 @@ function resetAppearance() {
   for (const key of [
     "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
-    "glass-sheen", "glass-sheen-strength", "bg-style", "bg-motion", "palette", "themePreset",
+    "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
   ]) {
     localStorage.removeItem(key);
@@ -2898,6 +2902,10 @@ $("glass-toggle").addEventListener("change", (e) => {
   if (turningOn) localStorage.setItem("glass-sheen", "on");
   applyAppearance();
   renderAppearance();
+});
+$("page-wash-toggle")?.addEventListener("change", (e) => {
+  localStorage.setItem("page-wash", e.target.checked ? "on" : "off");
+  applyAppearance();
 });
 $("glass-sheen-toggle").addEventListener("change", (e) => {
   localStorage.setItem("glass-sheen", e.target.checked ? "on" : "off");

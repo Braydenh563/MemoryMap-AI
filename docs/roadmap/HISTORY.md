@@ -69,9 +69,12 @@ a third ratchet), which found two bugs: one Escape closed a sheet and the
 sheet under it, and closing the sidebar sheet on a phone sent the focus to
 the body. The header menu leaves Reminders, Ask the agent and Guide to the
 tab bar's More sheet, which already had them. Sweeps after: phonechat, phoneswipe,
-phonenotepage, wbphone, touch.js at 390 and 1024 PASS; touch.js at 768 has
-one finding, a due-reminder toast over the chat composer's mode segment
-(open in the plan's item 12).
+phonenotepage, wbphone, sheetdismiss, phonehead PASS. A due-reminder toast,
+once lifted off the tab bar, sat on the chat composer's Send at 390 and its
+mode switch at 768 (touch.js); below 1100 toasts now come from under the
+header. And the status bar, when a restart's model load brought it back on a
+phone, came back as the desktop strip of 28px items; it returns as a 52px
+touch bar holding only the transient item, gated by phonechrome.js.
 
 ### From DOCUMENTS_PLAN.md section 17: 17a and 17b, the page and its rhythm (INBOX 392)
 

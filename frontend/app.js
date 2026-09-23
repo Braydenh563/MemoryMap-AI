@@ -3658,6 +3658,41 @@ function entryItem(entry, options = {}) {
   return li;
 }
 
+//: Take a note to the graph and put it in the middle, lit. The graph is its
+//: own lazy bundle and lays itself out after the tab opens, so this waits for
+//: the node to exist and to have a position rather than guessing a delay.
+async function showNoteInGraph(id) {
+  await switchTab("graph");
+  const deadline = Date.now() + 4000;
+  let node = null;
+  while (Date.now() < deadline) {
+    node = graphNodeById(id);
+    if (node && Number.isFinite(node.x)) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (!node || !Number.isFinite(node.x)) {
+    toast("That note is not on the graph right now: a filter or the view may be hiding it.", true);
+    return;
+  }
+  focusGraphNode(node);
+  if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
+    graphSvg.transition().duration(400).call(graphZoom.translateTo, node.x, node.y);
+  }
+}
+
+//: Start a chat about one note. Named by its title in the words a person
+//: would use, so the agent's own search tools find it, rather than pasting the
+//: whole note into the box.
+function askAtlasAboutNote(entry) {
+  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim().slice(0, 80);
+  switchTab("chat");
+  const input = $("chat-input");
+  if (!input) return;
+  input.value = `Tell me about my note "${name}" and what it connects to.`;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.focus();
+}
+
 function inlineActionIs(id, kind) {
   return inlineAction && inlineAction.id === id && inlineAction.kind === kind;
 }
@@ -5421,6 +5456,21 @@ function entryOverflowMenu(entry) {
         title: "Notes you have not looked at in a long time that are close to this one",
         run: () => toggleFaded(entry),
       },
+      //: **The note's two other homes, one press away** (INBOX 393: "there
+      //: needs to be more integration between all the main features"). The
+      //: menu could put a note on a board, in a document and in a reminder,
+      //: and could not take it to the graph that draws it or to the chat that
+      //: answers about it.
+      {
+        label: "ph:graph Show in graph",
+        title: "Open the graph centred on this note, its links lit",
+        run: () => showNoteInGraph(entry.id),
+      },
+      {
+        label: "ph:chat-circle Ask Atlas about this note",
+        title: "Start a chat about this note and what it connects to",
+        run: () => askAtlasAboutNote(entry),
+      },
     ];
 
     const addItems = [
@@ -5461,7 +5511,7 @@ function entryOverflowMenu(entry) {
         },
       },
       {
-        label: "⤵ Continue thought",
+        label: "ph:arrow-bend-down-right Continue thought",
         title: "Start or extend a thread from this note",
         run: () => {
           inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };

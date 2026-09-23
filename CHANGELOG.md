@@ -28,6 +28,8 @@ below). Versioning is `0.x` while the app stabilises.
 - On a mind map the bottom bar offers one Cross-link tool drawn in the map's
   own line style, instead of a generic straight and curved pair; a map
   line's label drags with the pointer and no longer starts a selection box.
+- A note's menu can show it in the graph (centred and lit) or start a chat
+  about it with Atlas.
 - Links everywhere use the accent colour (plain links were the browser's own
   blue and purple); Timeline rows for boards and reminders no longer repeat
   their title as a snippet; an empty Ollama embedding picker says why.

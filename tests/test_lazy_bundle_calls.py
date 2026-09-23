@@ -108,6 +108,8 @@ REACHED_AFTER_LOAD = {
     "fitGraphToView": "graph, called from the Graph tab's own dispatch",
     "setGraphPhysicsEnabled": "graph, called from the Graph tab's own dispatch",
     "applyGraphHighlight": "graph, called from the Graph tab's own controls",
+    "graphNodeById": "graph, called by showNoteInGraph after `await switchTab(\"graph\")`",
+    "focusGraphNode": "graph, called by showNoteInGraph after `await switchTab(\"graph\")`",
     "openLibraryItem": "library, called from a row the Library itself drew",
     "renderDocPreview": "library, called from the document editor's own update path",
     "mountNoteSurface": "library, called once the note engine setting has loaded it",

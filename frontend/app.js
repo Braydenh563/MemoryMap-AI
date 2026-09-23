@@ -3688,11 +3688,18 @@ async function showNoteInGraph(id) {
 //: would use, so the agent's own search tools find it, rather than pasting the
 //: whole note into the box.
 function askAtlasAboutNote(entry) {
-  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim().slice(0, 80);
+  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim();
+  askAtlasAboutThing("note", name);
+}
+
+//: One door into the chat for any object: a note, a document, a board, a
+//: file. Named, so the agent's own tools find it.
+function askAtlasAboutThing(kind, name) {
+  const label = String(name || "").trim().slice(0, 80) || `this ${kind}`;
   switchTab("chat");
   const input = $("chat-input");
   if (!input) return;
-  input.value = `Tell me about my note "${name}" and what it connects to.`;
+  input.value = `Tell me about my ${kind} "${label}" and what it connects to.`;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.focus();
 }
@@ -40029,9 +40036,13 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
     emblemObservers.get(holder)?.disconnect();
     emblemObservers.delete(holder);
   }
-  const accentHex =
-    localStorage.getItem("accent-custom") ||
-    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  //: The colour the page is actually wearing (`currentAccentHex`, settings.js),
+  //: not the accent picker's stored name: a look's palette sets the accent
+  //: too, and the emblem stayed the old indigo on the Quiet default.
+  const accentHex = typeof currentAccentHex === "function"
+    ? currentAccentHex()
+    : localStorage.getItem("accent-custom") ||
+      (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
   // The emblem spins unless the user has explicitly asked for a still UI in
   // Settings → Appearance. We deliberately don't freeze it on the OS-level
   // prefers-reduced-motion hint alone: this mark has always turned, the app

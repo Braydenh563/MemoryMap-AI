@@ -1888,3 +1888,32 @@ header#top-bar,
     display: none;
   }
 }
+
+/* --- The surface model pickers on a phone ---------------------------------
+   Write with Atlas and Ask carry their model picker in their header now (a
+   choice about the surface, not the request). On a phone the header has no
+   room for it beside its buttons: measured at 390, the Write with Atlas
+   dock's picker and Ask's History button were pushed off screen. Below 600
+   the picker takes its own full-width line under the header's buttons. */
+@media (max-width: 599.98px) {
+
+  #ask > .row.space-between {
+    flex-wrap: wrap;
+  }
+
+  #ask .ask-header-actions,
+  [data-dock-name="writing-room"] .dock-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  #ask .ask-header-actions > .select-shell:has(#ask-feature-model),
+  [data-dock-name="writing-room"] .dock-actions > .select-shell:has(#draft-feature-model) {
+    order: 9;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}
+

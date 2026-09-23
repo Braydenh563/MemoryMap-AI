@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings: every pane opens with its name as a heading (eleven of eighteen began mid-thought), a list row's actions sit on its title line instead of leaving an empty band under it, and labels straight in a pane line up with their text.
 - Settings: every section help "?" sits on one right edge (five positions before) with no filled ground in the flat looks; a pane's title is a real heading flush with its text; skills, personas and templates show a title, a hairline Built-in label, dot-separated facts and "Changes notes" in the warn colour instead of rows of identical pills; a persona's voice is clamped to two lines instead of cut mid-word.
 - Graph: the Documents switch now shows every live document (unattached ones alone, hidden by Hide unlinked like any lone node) instead of only documents attached to notes, which left the switch doing nothing on most notebooks; the options panel's folds are inset from the edge and the Groups field matches its Add button's height.
 - Note meta line, second pass: the category is a soft pill with its own stable colour dot, tags read #work, a date reads as the day alone (the note's own phrase on hover), and each connection is one pill with its menu inside it, so hidden menus no longer leave gaps between connections; image markdown no longer shows raw in a connection's label. Settings no longer scrolls sideways at 768.

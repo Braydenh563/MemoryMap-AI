@@ -3106,3 +3106,249 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     opacity: 1;
   }
 }
+
+/* --- the Library, second pass: cards in reading order, one anatomy ----------
+   docs/roadmap/agent-remaining/pass2.md, findings 1 to 4, measured at 1440 in
+   Quiet on a seeded notebook.
+
+   1. The cards are dealt into columns in order (library.js
+      `libraryColumnCount`): the grid is a row of `.library-col`s, each a
+      column of cards with the grid's own gap, and the incremental
+      renderer's sentinel takes a line of its own under them, or it would
+      sit at the top of the row and ask for the next chunk forever.
+   2. The picture on a card bleeds to the card's three top edges. Two rules
+      had disagreed: one bled it with a negative margin, a later one set its
+      width to 100%, and together they drew it 48px narrower than the card,
+      flush left, with a hole on the right.
+   3. A category is the note meta row's: a dot in the category's colour and
+      the name in ink. An unset one is left out (library.js). */
+#library-grid.library-columns {
+  columns: unset;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  row-gap: 0;
+}
+
+#library-grid.library-columns > .library-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+#library-grid.library-columns > .library-col > .library-card {
+  margin-bottom: 0;
+}
+
+#library-grid.library-columns > .list-window-sentinel {
+  flex: 0 0 100%;
+  list-style: none;
+}
+
+.library-grid:not(.library-list) .library-card > .library-card-thumb {
+  width: calc(100% + var(--space-6) * 2);
+  max-width: none;
+  height: 8rem;
+  margin: calc(var(--space-6) * -1) calc(var(--space-6) * -1) 0;
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.library-card-meta > .library-card-category {
+  --category-dot: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--ink);
+}
+
+.library-card-meta > .library-card-category::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--category-dot);
+}
+
+/* 4. A board or map card put its kind icon on a row of its own above the
+      title, a 20px line that said nothing the picture under it does not.
+      The icon leads the title, as it does on every other card. */
+.library-grid:not(.library-list) .library-board-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--space-3);
+}
+
+.library-grid:not(.library-list) .library-board-card > .library-card-top {
+  padding-right: 0;
+}
+
+.library-grid:not(.library-list) .library-board-card > .library-card-title {
+  padding-right: var(--space-8);
+}
+
+.library-grid:not(.library-list) .library-board-card > :is(svg, .library-card-meta) {
+  grid-column: 1 / -1;
+}
+
+/* 5. The boards grid is the same reading order by the simpler means: its
+      cards are one height (a picture of fixed size and a line of facts), so
+      a row-major grid packs them as tightly as the masonry did. */
+#library-boards-grid:not(.library-list) {
+  columns: unset;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--space-6);
+}
+
+#library-boards-grid:not(.library-list) > .library-card {
+  margin-bottom: 0;
+}
+
+/* 6. A note whose words are all in its title (a one-sentence note with no
+      heading) has no preview under it, so its title may take the room the
+      preview would have: four lines rather than two. */
+.library-card-whole .library-card-title {
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+/* 7. One selection grammar in every sub-tab (finding 6). The All view's
+      cards learned it in the first pass: a tick shows when its row is
+      pointed at or focused, when it is ticked, and on every row once any
+      row in the list is ticked (the list is then in selection, so every
+      tick is an answer). Documents, Links and Files still drew a 28px empty
+      square on every row at rest, forty on a screen, for a gesture most
+      visits never make.
+
+      Where a row has a kind mark (a document's page, a link's chain), the
+      tick takes the mark's place rather than a column of its own, the Gmail
+      and Linear shape: at rest the row shows what it is, and under the
+      pointer the same spot becomes the control. The row keeps one leading
+      column either way, so nothing moves when the tick arrives. A touch
+      screen has no hover, so there every tick stays, as it did. */
+@media (hover: hover) {
+  .doc-list-top {
+    position: relative;
+    justify-content: center;
+    min-width: var(--target-min);
+  }
+
+  .doc-list-top > .doc-list-tick {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .bookmark-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .bookmark-row > .doc-list-tick,
+  .bookmark-row > .bookmark-mark {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: center;
+  }
+
+  .bookmark-row > .bookmark-main {
+    grid-column: 2;
+  }
+
+  .bookmark-row > .bookmark-actions {
+    grid-column: 3;
+  }
+
+  :is(.doc-list-top, .bookmark-row) > .doc-list-tick,
+  .library-image-tile > .library-tile-tick {
+    opacity: 0;
+    transition: opacity var(--motion-fast) ease;
+  }
+
+  :is(.doc-list-top, .bookmark-row) > :is(.doc-list-icon, .bookmark-mark) {
+    transition: opacity var(--motion-fast) ease;
+  }
+
+  :is(.doc-list-item, .bookmark-row):is(:hover, :focus-within) .doc-list-tick,
+  .doc-list-tick:checked,
+  :is(#library-docs-list, #bookmark-list):has(.doc-list-tick:checked) .doc-list-tick,
+  .library-image-tile:is(:hover, :focus-within) > .library-tile-tick,
+  .library-image-tile > .library-tile-tick:checked,
+  body:has(#library-media-selectbar:not(.hidden)) .library-image-tile > .library-tile-tick {
+    opacity: 1;
+  }
+
+  :is(.doc-list-item, .bookmark-row):is(:hover, :focus-within) :is(.doc-list-icon, .bookmark-mark),
+  :is(.doc-list-top, .bookmark-row):has(> .doc-list-tick:checked) > :is(.doc-list-icon, .bookmark-mark),
+  :is(#library-docs-list, #bookmark-list):has(.doc-list-tick:checked) :is(.doc-list-icon, .bookmark-mark) {
+    opacity: 0;
+  }
+}
+
+/* 8. A sub-tab's one line of description (Documents, Links) was body size,
+      a step larger than the rows it introduces; it is a lede, one step
+      down, with the dock's own gap under it. */
+.library-lede {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+
+/* 9. A link's mark was the tinted accent square, the metric-card tell the
+      first pass took off the chat list and the dashboard. In the flat looks
+      it is the glyph in muted ink, and a row's pin and menu arrive with the
+      pointer as every other Library row's menu does (the mark already says
+      which links are pinned). */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .bookmark-mark {
+  background: transparent;
+  color: var(--muted);
+}
+
+@media (hover: hover) {
+  .bookmark-row > .bookmark-actions {
+    opacity: 0;
+    transition: opacity var(--motion-fast) ease;
+  }
+
+  .bookmark-row:is(:hover, :focus-within) > .bookmark-actions,
+  .bookmark-row > .bookmark-actions:has([aria-expanded="true"]) {
+    opacity: 1;
+  }
+}
+
+/* 10. One title and one facts voice for every Library row (finding 13, and
+       the owner's "plain and hard to read"). Measured at 1440: a Files row's
+       name was 13.6px, a link's 13.6px at 500, a document's 16px, so three
+       lists in one tab set their titles at three ranks. A row's title is
+       `--text-lg` at 600 in ink, and the facts under it are `--text-sm`
+       muted: the split between the two is weight, size and ink at once,
+       which is what makes a title read as one without a badge around it.
+
+       A Files row also said one thing in four registers: a bordered "Not
+       read" pill, "Read this", "Not used yet" and a full-width filled bar
+       for the fold. Whether a file has been read is a fact, so it is set as
+       one (muted, `--ok` once read), and the fold keeps its tonal ground,
+       which is the app's rule for a disclosure, at the width of its words
+       rather than as a 1,200px bar. */
+:is(.doc-list-title, .bookmark-title),
+.library-file-rows .library-image-tile > figcaption {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .library-read-badge {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.library-file-rows .library-image-reading > summary {
+  width: fit-content;
+}

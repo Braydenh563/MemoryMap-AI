@@ -87,4 +87,14 @@ long document, opening the Library. Before and after numbers go here.
 
 ## Done
 
-Nothing yet.
+- Findings 1 to 8, 12, 13, 18, 19 (commit "Library second pass: reading
+  order, one card anatomy, one tick grammar"). Measured after, 1440 Quiet
+  light: 4 columns, the first row of cards is items 1 to 4 of the sort; a
+  card's picture is 338px in a 340px card, 1px from each edge (was flush left
+  with a hole on the right); 0 "Uncategorised" feet (was 11); 0 file tiles
+  holding a `.media-missing` placeholder (was 3); row titles 14.7px/600 in
+  Documents, Files and Links (were 16, 13.6 and 13.6/500).
+- Finding 9 (a board card's date) is not doable client side: `/whiteboard/boards`
+  sends no timestamp. Left for a backend step.
+- Finding 11 (the filename band on a picture) is left as it is: it is the
+  outcome of INBOX 174 and two earlier owner reports, a decision, not a slip.

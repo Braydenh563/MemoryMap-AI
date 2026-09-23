@@ -427,6 +427,38 @@ const near = (a, b, tol = 1.5) => a != null && b != null && Math.abs(a - b) <= t
     t = await obj(ids.t);
     check("Ctrl+Shift+G ungroups it", t.g == null, `group ${t.g}`);
 
+    // --- 14b. a group's resize: Escape puts it back, Ctrl+Z takes it back ---
+    await selectMany([`object:${ids.t}`, `node:${ids.n}`]);
+    await wait(400);
+    //: The text box and the note card: the second text box was deleted and
+    //: brought back above, under a new id.
+    const groupBox = () => page.evaluate(([a, b]) => [["objects", a], ["nodes", b]].map(([list, id]) => {
+      const o = wbState[list].find((x) => x.id === id);
+      return `${Math.round(o.x)},${Math.round(o.y)},${Math.round(o.width)}x${Math.round(o.height)}`;
+    }).join(" "), [ids.t, ids.n]);
+    const g0 = await groupBox();
+    const groupSe = await page.evaluate(() => {
+      const all = [...document.querySelectorAll('.wb-sketch-resize-handle[data-handle="se"]')];
+      const el = all[all.length - 1];
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    });
+    let gDepth = await undoDepth();
+    if (groupSe) await drag(groupSe, { x: groupSe.x + 90, y: groupSe.y + 40 }, { after: async () => { await page.keyboard.press("Escape"); await wait(100); } });
+    const g1 = await groupBox();
+    check("Escape during a group's resize puts every member back", groupSe && g1 === g0 && (await undoDepth()) === gDepth, `${g0} to ${g1}`);
+    await selectMany([`object:${ids.t}`, `node:${ids.n}`]);
+    await wait(400);
+    if (groupSe) await drag(groupSe, { x: groupSe.x + 90, y: groupSe.y + 40 });
+    await wait(600);
+    const g2 = await groupBox();
+    await page.evaluate(() => wbUndo());
+    await wait(900);
+    const g3 = await groupBox();
+    check("and one Ctrl+Z takes a group's resize back", g2 !== g0 && g3 === g0, `${g0} to ${g2}, undone ${g3}`);
+    await clickEmpty();
+
     // --- 15. the camera: Space-drag, Ctrl+0, Shift+1, Ctrl+wheel at the pointer ---
     await clickEmpty();
     const cam = () => page.evaluate(() => {

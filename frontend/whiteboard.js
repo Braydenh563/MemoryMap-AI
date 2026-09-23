@@ -15408,13 +15408,36 @@ function wbMultiSnapshot(boxes) {
     box: row.box,
     d: row.entry.kind === "sketch" ? row.entry.parsed.d : null,
     rotation: row.entry.kind === "sketch" ? 0 : (row.entry.item.rotation || 0),
+    //: The whole row as it was, for the undo step and for Escape.
+    before: WB_KIND_INFO[row.entry.kind].payload(row.entry.item),
   }));
+}
+
+//: Escape during a group's resize or turn: every member back as the grip
+//: found it, on screen only (nothing was saved yet).
+function wbRestoreMultiSnapshot(rows) {
+  for (const row of rows || []) {
+    const item = row.entry.item;
+    if (row.entry.kind === "sketch") {
+      delete item._liveD;
+      const selector = `.sketch-group[data-id="${item.id}"]`;
+      document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", row.d);
+      document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", row.d);
+      continue;
+    }
+    wbRestoreBox(row.entry.kind, item, row.before);
+  }
 }
 
 //: Saving a whole group, one write at a time. Each write is the item's whole
 //: row and the board's stale-client recovery reloads everything, which a
 //: burst of simultaneous writes would race.
 async function wbSaveMultiSnapshot(rows) {
+  //: One undo step for the whole group (it had none: Ctrl+Z after resizing
+  //: or turning a selection put nothing back).
+  wbPushDragUndo(rows.map((row) => ({
+    action: "move", kind: row.entry.kind, id: row.entry.item.id, before: row.before,
+  })));
   for (const row of rows) {
     if (row.entry.kind === "sketch") {
       const live = row.entry.item._liveD;
@@ -15544,6 +15567,7 @@ function wbRenderMultiSelectionHandles() {
   //: frame's rounding into a shape that drifts while you hold the mouse
   //: still, the accumulation bug the single-shape handles document.
   let start = null;
+  let groupGesture = null;
   for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
     const hx = handle.includes("w") ? bbox.minX : handle.includes("e") ? bbox.maxX : (bbox.minX + bbox.maxX) / 2;
     const hy = handle.includes("n") ? bbox.minY : handle.includes("s") ? bbox.maxY : (bbox.minY + bbox.maxY) / 2;
@@ -15561,9 +15585,14 @@ function wbRenderMultiSelectionHandles() {
             rawDX = 0;
             rawDY = 0;
             start = wbMultiSnapshot(boxes);
+            const rows = start;
+            groupGesture = wbBeginGesture(() => {
+              wbRestoreMultiSnapshot(rows);
+              layoutGroupChrome(bbox);
+            });
           })
           .on("drag", (event) => {
-            if (!start) return;
+            if (!start || groupGesture?.cancelled) return;
             const zoom = d3.zoomTransform(document.getElementById("whiteboard-container"));
             rawDX += event.dx / zoom.k;
             rawDY += event.dy / zoom.k;
@@ -15620,6 +15649,9 @@ function wbRenderMultiSelectionHandles() {
             if (!start) return;
             const rows = start;
             start = null;
+            const cancelled = wbEndGesture(groupGesture);
+            groupGesture = null;
+            if (cancelled) return;
             await wbSaveMultiSnapshot(rows);
           })
       );
@@ -15653,9 +15685,14 @@ function wbRenderMultiSelectionHandles() {
         .on("start", (event) => {
           event.sourceEvent.stopPropagation();
           spin = wbMultiSnapshot(boxes);
+          const rows = spin;
+          groupGesture = wbBeginGesture(() => {
+            wbRestoreMultiSnapshot(rows);
+            group.attr("transform", null);
+          });
         })
         .on("drag", (event) => {
-          if (!spin) return;
+          if (!spin || groupGesture?.cancelled) return;
           const angle = wbSketchAngleFromCenterDeg(
             centerX, centerY, event.sourceEvent, event.sourceEvent.shiftKey
           );
@@ -15703,6 +15740,9 @@ function wbRenderMultiSelectionHandles() {
           //: whole group from the items' new positions, and a transform left
           //: on it would be applied a second time on top of them.
           group.attr("transform", null);
+          const cancelled = wbEndGesture(groupGesture);
+          groupGesture = null;
+          if (cancelled) return;
           await wbSaveMultiSnapshot(rows);
         })
     );

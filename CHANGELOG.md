@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Resizing or turning a group of selected items is one undo step (Ctrl+Z put nothing back before), and Escape during it puts every member back.
 - The board's help, the map rail's help, the rotate and resize grips and the map's canvas menu now name the new gestures and keys (Alt-drag, Shift to constrain, Escape to take back a drag, double-click a grip or a line, Ctrl+0 and Shift+1), so they can be found without being told.
 - On a touch screen the Library card ticks and the reminder ticks keep their 44px target but draw a 22px box in the middle of it, instead of a bordered, shadowed 44px square beside every row at rest.
 - The keyboard hint strip no longer stands over the bottom of every new mind map (it counted note cards, which a map has none of): a map's selected topic already names the keys on its ring and the rail's ? lists them, and on a whiteboard the strip shows only while a single note card is selected, the only time Tab and Enter act, and never over that card.

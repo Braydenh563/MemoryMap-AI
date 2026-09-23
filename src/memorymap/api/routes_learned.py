@@ -16,6 +16,8 @@ they are one answer to "what has this app decided about my notes".
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -206,6 +208,52 @@ def forget_everything(body: ForgetBody, session: Session = Depends(get_session))
     facts.forget(session)
     session.commit()
     return Response(status_code=204)
+
+
+class BulkBody(BaseModel):
+    #: At most one page of the table and a bit: the Settings list shows fifty
+    #: rows, and a request for thousands is not a selection anyone made.
+    ids: list[int] = Field(min_length=1, max_length=500)
+    action: Literal["delete", "reset"]
+
+
+@router.post("/bulk")
+def bulk_action(body: BulkBody, session: Session = Depends(get_session)) -> dict:
+    """Delete or reset several facts in one request (the plan's `{ids, action}`).
+
+    The reason this is a route and not a loop in the browser is written at the
+    top of the Settings section that calls it: N requests can half fail, and a
+    selection that half happened is worse than one that did not. So every row
+    is changed in one transaction, and each one exactly as its single-row
+    route changes it, correction included, because a bulk delete that the
+    learning loop could not see would teach it nothing.
+
+    Declared before `/{fact_id}`, or that path would swallow "bulk". A reset
+    of a row nobody edited is a no-op and is not counted; an id that is gone
+    or not visible (a private note's fact) comes back in `missing`, so the
+    Settings list can say what it could not do rather than claim it all.
+    """
+    done = 0
+    missing: list[int] = []
+    for fact_id in dict.fromkeys(body.ids):
+        row = facts.visible(session, fact_id)
+        if row is None:
+            missing.append(fact_id)
+            continue
+        if body.action == "delete":
+            learning.record(
+                session,
+                kind="delete_fact",
+                subject={"entry_id": row.entry_id, "fact_id": row.id, "kind": row.kind},
+                excerpt=row.original_text or row.text,
+            )
+            facts.remove(session, row)
+            done += 1
+        elif row.edited_by_user:
+            facts.reset(session, row)
+            done += 1
+    session.commit()
+    return {"action": body.action, "done": done, "missing": missing}
 
 
 @router.get("/{fact_id}")

@@ -33569,3 +33569,98 @@ measured, so nobody rebuilds them.
     switching routing off rewrites the line to name it, switching back
     restores it.
 
+## Moved from the plans, 2026-09-23
+
+### From CHAT_PLAN.md
+
+### Built: CHAT_PLAN Phase 1, grounding and marks, the four gate lines and the replay tail, 2026-09-23
+
+**Three of the four gate lines are green, 2026-09-20**, and the fixture set
+they are scored on now exists: `tests/fixtures/chat/grounding_cases.json`,
+sixteen cases, scored by `tests/test_grounding_fixtures.py`. Which note
+grounds a sentence is decided by the passage score (decision 2's open half);
+the account and the numbers moved to
+[HISTORY.md](HISTORY.md), "Moved from the plans, 2026-09-20". A skill run
+citing what it read is decision 1 and has been covered since it landed
+(`tests/test_grounding.py`, the tool-read cases); hover highlighting the
+passage is measured in the browser by
+`scratchpad/ui-sweeps/citepassage.js`.
+
+**Phase 1's fourth gate line, the low-support state: built 2026-09-21.**
+`grounding.support(answer, grounded)` counts from the same `split_sentences`
+and `MIN_SENTENCE_WORDS` rules `ground_answer_sentences` uses to decide what
+it will even try to mark, so the denominator cannot disagree with the thing it
+is a denominator of, and it counts distinct sentences rather than rows (a
+sentence about two notes emits two). It rides on the `grounding` event as
+`{supported, sentences, ratio, low}`, **including the judgement**: two places
+each choosing when an answer is thin is two places to disagree, and the copy
+would then describe a different answer from the one the marks describe.
+Brief 12's threshold kept (< 50%), with a floor of two scoreable sentences,
+because calling a single unmarked sentence "0% supported" would put a warning
+over every honest one-line answer and teach people to ignore it.
+
+The line is placed **above** the answer, not beside the chips below it: the
+chips are a key to marks somebody has already read, this is a thing to know
+before reading. It uses `.notice.notice-warn`, a recipe added to DESIGN.md in
+the same commit (standing order 11) because the app had exactly one
+notice-shaped box, `.reindex-stale`, built inline; that box now uses the
+recipe too, which is what keeps a recipe from being a private box with a
+general name. The warn tone is an edge, not a fill: measured, background alpha
+0.14 against a `--warn` border, because a filled warning band over an answer
+reads as a failed answer and it is not one.
+
+Gates: `tests/test_answer_support.py` (six, including one that reads
+`routes_chat.py` and fails if a grounding event ships without support, and one
+that fails if a threshold appears in app.js) and
+`scratchpad/ui-sweeps/answersupport.js` (six, all green: placed above the
+answer, a Phosphor icon, the copy agreeing with itself at n=1, the edge tone,
+one box 34.8px tall, and nothing at all on a fully supported answer).
+
+**The replay tail, built 2026-09-23.** A remembered turn showed no notice: the
+two live paths carried `support` on the event and the two replay paths read a
+stored turn that did not have it. Both now get it from the server, from the
+same `grounding.support` counter and never a second one in the frontend: a
+saved chat turn carries `support` beside its `sentence_grounding`
+(`routes_conversations._turn_messages`, computed from the answer and marks it
+is handed rather than trusted from the client), and a reopened Ask history turn
+returns it computed from its stored answer and its marks as written
+(`routes_ask_history.get_ask_turn`). `tests/test_answer_support.py`, four new;
+`scratchpad/ui-sweeps/oi-replaysupport.js`, 3 of 3: a chat saved with one
+sentence in three backed and reopened through `openConversation` draws one
+34.8px notice, "Only 1 of 3 sentences", directly above the answer.
+
+**Superseded, the original note:**
+Brief 12 decided it ("unsupported sentences get a hollow mark and the 'I
+don't know' copy is triggered when < 50% of sentences are supported") and
+nothing in the app reads a support ratio: `grep` for `answer-citation` finds
+the marks, and there is no unsupported variant of one and no notice above an
+answer that came from the model rather than from the notebook. The empty case
+is designed already (`librarian.NO_RESULTS_MESSAGE` plus the "Elsewhere in
+your notebook" chips), so what is missing is only the partly-supported one.
+The fixture set can gate it as it stands: `recipe-and-general-knowledge` is
+one supported sentence of two, and the two `unanswerable-*` cases are zero of
+two. Next step, in order: the ratio on the `grounding` event
+(`routes_chat.py`, where `sentence_grounding` is assembled), one notice line
+above the answer on the app's own recipe, and a sweep that asserts it appears
+on an answer whose sentences are half marked and not on one that is fully
+marked.
+
+### From GRAPH_PLAN.md
+
+### Built: the graph's lasso selection drags as one, 2026-09-23
+
+The group drag this entry left open (a lasso selection moving together
+the same way): the canvas renderer dragged one node at a time, so the
+selection's other notes stayed frozen where they were while the one in
+hand moved. Now grabbing a note that is part of a selection of two or more
+carries the rest at their offsets (`s.dragGroup`, graph-canvas.js), each
+under the same rule as the note in hand: a plain drag places and releases,
+Shift pins, a note already pinned stays pinned at its new place and only a
+real pin is written to `/graph/pin`. Drag-to-link is off while a group is
+carried, because dropping a selection on a note is not "link these two". A
+note outside the selection drags alone, as before. The SVG renderer, a
+debug fallback behind `localStorage["graph-renderer"]`, was not changed.
+Measured with `scratchpad/ui-sweeps/oi-groupdrag.js` (three of eight notes
+selected, a 134px drag on one): before, the note in hand moved 107.7 world
+units and the other two 1.2 and 1.4; after, 87.9 against 88.0 and 85.0,
+with an unselected note moving 1.7 and no pins written.

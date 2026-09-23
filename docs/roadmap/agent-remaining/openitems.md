@@ -45,5 +45,15 @@ Phase 8c, the templates preview, outline row height.
 - done 6ece5af: 3, `search_index.forget` on the purge and space-delete
   paths, plus the lint.
 - done 2d013e1: 4, `has:image`, `has:link`, `has:reminder`.
-- done (this commit): 5, the keyword index rebuilt by the re-index job.
-- next: 6, store `support` on a saved turn (routes_chat.py grounding event).
+- done 9e0ff43: 5, the keyword index rebuilt by the re-index job.
+- done 3129aa8: 6, support on both replay paths, CHAT_PLAN Phase 1
+  moved to HISTORY; `oi-replaysupport.js` 3 of 3.
+- done 513324c: 7, the Recent activity widget; `oi-activity.js` 6 of 6.
+- done 5f2e0ca: 8, `POST /learned/bulk` plus the selection bar;
+  `oi-learnedbulk.js` 7 of 7.
+- done 47d34a3: 9, dead matrix rows skipped and compacted (and the -1
+  answer they could produce).
+- done (this commit): GRAPH_PLAN's open line, the lasso selection drags as
+  one; `oi-groupdrag.js` 1 finding before, 0 after.
+- next: 10, Settings, Extras at 820 (measured clean: `oi-extras820.js` 492 in
+  492, `errors.js` 0 findings at 820), close it with the stale rows.

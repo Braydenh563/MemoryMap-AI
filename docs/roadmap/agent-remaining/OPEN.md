@@ -79,7 +79,7 @@ then the plan tails by surface, then the horizon.
 | GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
-| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); Phase 1's fourth gate line, the low-support "I don't know" state, is still open and is written up in the plan; Phase 4's harness items. |
+| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
 | TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. Section 7's third line, the "auto" scale thresholds, wants a real notebook and is left. |
 | AGENT_SKILLS_REFORM | ~~Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first.~~ **Done 2026-09-20.** The runner is `scratchpad/llama-dev.sh` and the gate is `tests/test_skills_evals.py`, four `evals` tests that skip at collection without a model: 3 passed and 1 skipped against Qwen2.5-1.5B-Instruct Q4_K_M through llama.cpp, with the skip itself the finding (the run stalled on step 1's `list_tags` contract and said so, rather than ticking it). Record in HISTORY's "Moved from the plans, 2026-09-20". What is left is breadth, and it sits in WORLD_CLASS_PLAN 9: the same gate at 3B and 4B, and an eval each for the rest of CLAUDE.md section 4's unproven list. |
 
@@ -405,10 +405,10 @@ being written by running agents stay beside this one.
   over the candidate set's pooled passages, and the second-mark ratio is
   calibrated on the set. 18 of 18 supported sentences attributed, up from 17 of
   18; 0 false marks on 5 unsupported sentences; 16 of 16 passage spans. The
-  account is in HISTORY.md, "Moved from the plans, 2026-09-20". Still open:
-  Phase 1's fourth gate line (the "I don't know" state when fewer than half an
-  answer's sentences are supported), written up in CHAT_PLAN Phase 1 with its
-  next steps. [chat-timeline-skills.md, chat-popup-agent.md]
+  account is in HISTORY.md, "Moved from the plans, 2026-09-20". Phase 1's
+  fourth gate line was built 2026-09-21 and its replay tail (a reopened turn
+  keeps the notice) 2026-09-23, so Phase 1 is closed: HISTORY.md, "Moved from
+  the plans, 2026-09-23". [chat-timeline-skills.md, chat-popup-agent.md]
 - **Ask's answer object was measured on the offline branch only.** The sweep
   runs against a server with no model, so `sentences` was empty in every
   measurement and the grounding chips and inline marks under an Ask answer
@@ -974,11 +974,15 @@ being written by running agents stay beside this one.
   fix, pass after). The two bulk `update`s left (`Reminder.entry_id`,
   `Entry.parent_id` on a purge) touch no indexed column.
   [brief11-retrieval-engine.md]
-- **The vector matrix forgets by zeroing a row.** `file:
-  src/memorymap/search/engine.py`, `id: search-matrix-compaction`. Dead rows
-  score zero and are never returned, but they stay in the array. Next step:
-  rebuild when dead rows pass some fraction of the whole, counted rather than
-  guessed. [brief11-retrieval-engine.md]
+- ~~**The vector matrix forgets by zeroing a row.**~~ **Done 2026-09-23**,
+  and the row's "are never returned" was false: a zeroed row scores 0, which
+  outranks every negative cosine, so `top_k` over a few live vectors pointing
+  away from the query returned id -1 (a test reproduced it before the fix).
+  Dead rows are counted on the matrix, skipped by `top_k` with the partition
+  widened by their number, and compacted once they are a quarter of the array
+  (floor 8), one O(n) copy amortised over n/4 forgets. `/search/stats`'s
+  `vectors` counts live rows only. `tests/test_search_engine.py`, three new.
+  [brief11-retrieval-engine.md]
 - ~~**`has:` only knows `file`.**~~ **Done 2026-09-23**, on the sources this
   row named: `image` is an image attachment (mime, or the name for a row with
   none) or a `![` picture in the text of any kind; `link` is an `EntryLink`
@@ -1001,13 +1005,15 @@ being written by running agents stay beside this one.
   (`events.is_compacted`); a deleted board item is the one case with nothing
   to put back, since the whiteboard tables have no soft delete.
   [brief7-event-log.md]
-- **The Timeline and Dashboard activity strips.** `file:
-  frontend/dashboard.js`, `id: events-strip`. `GET /events?since=` exists and
-  nothing reads it. The "Recently added" widget was deliberately left alone.
-  Next step: a strip that polls `/events` with the cursor, rendering actor and
-  action; the feed's shape is settled (`changed`, `snapshot`, `compacted`), so
-  a folded run renders as one line rather than a burst of edits.
-  [brief7-event-log.md]
+- ~~**The Timeline and Dashboard activity strips.**~~ **The Dashboard half
+  built 2026-09-23**: a Recent activity widget, opt-in (`DASH_OPT_IN`, so
+  existing dashboards do not grow a widget), reading `/events?tail=8` once
+  and `?since=<cursor>` on every later render, with no timer (an idle tab
+  polling a log is the cost INBOX 266 (7) removed). Actor and action per row,
+  a folded run as one line with its count. The feed grew `tail` and a comma
+  list for `entity_type` (`tests/test_events.py`, two new);
+  `scratchpad/ui-sweeps/oi-activity.js`, 6 of 6. The Timeline half is left
+  on purpose: see WORLD_CLASS_PLAN's dead-routes triage. [brief7-event-log.md]
 - **Sync (B6) as log shipping.** `id: events-sync`. Unstarted and no longer
   blocked: it needed the retention rule, which now exists. A compacted
   snapshot ships as a snapshot. [brief7-event-log.md]
@@ -1035,8 +1041,15 @@ being written by running agents stay beside this one.
   is wrong at 200 documents and 200 uploads; all are wrong at some size.
   `apiPagedList(path, pageSize, options)` in `documents.js` is already global.
   [list-paging.md]
-- **`POST /learned/bulk`** (`{ids, action}`) is in the plan and not built: no
-  caller exists until the Settings table does. [learning-loop.md]
+- ~~**`POST /learned/bulk`**~~ **Done 2026-09-23**, route and caller
+  together: `{ids, action}` with `delete` (each writes its `delete_fact`
+  correction, as the single route does) or `reset` (edited rows only), one
+  transaction, unknown ids named in `missing`. Settings, What it learned has a
+  box per row and the DESIGN.md selection bar (`#learned-selectbar`), Reset
+  shown only over a selection with an edited row.
+  `tests/test_learned_spec.py`, three new; `oi-learnedbulk.js`, 7 of 7 (two
+  ticked, "2 selected", sticky, one request for both, 4 rows to 2).
+  [learning-loop.md]
 - **I1's later passes**: tensions, duplicates, entities and dates as kinds in
   the same table. `ai/tensions.py` and `ai/entities.py` already produce the
   first two in their own shapes; folding them in means giving each a span and

@@ -7,6 +7,24 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- Dragging a note that is part of a lasso selection on the graph carries the
+  whole selection with it, at the same offsets. Before, only the note in hand
+  moved and the rest of the selection stayed put. The usual rules hold for
+  every note carried: a plain drag places, Shift pins, and a pinned note stays
+  pinned where it lands.
+- Settings, What it learned can delete or reset several rows at once: tick
+  them and the selection bar offers Delete, and Reset when a ticked row was
+  edited by you. One request changes them all or none, and each deletion is
+  still remembered so the next run does not derive it again.
+- A Recent activity widget for the dashboard, in the widget picker: what
+  changed in the notebook lately (notes, documents, boards and reminders),
+  and whether you, Atlas or a skill changed it. Off until added, so no
+  existing dashboard grows a widget. It reads the event log's newest rows
+  once and then only what came after, with no timer running while the tab
+  sits idle.
+
 ### Fixed
 
 - Dashboard: Quick capture saves on Ctrl+Enter (Cmd+Enter), and its placeholder says so.
@@ -209,6 +227,16 @@ below). Versioning is `0.x` while the app stabilises.
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label
   prompt no longer deletes it; "Take the label off the line" does.
+- Similar-notes lists can no longer contain a note that was deleted or made
+  private in the same session. Its vector was blanked in place, and a blank
+  row outranked every genuinely unrelated note, so a short list could come
+  back with a hole in it; blanked rows are now skipped, and dropped from
+  memory once they are a quarter of the total.
+- A reopened chat or Ask history answer keeps its "Only 1 of 3 sentences here
+  comes from your notes" line. The line appeared when an answer arrived and
+  was gone once the conversation was reopened, because nothing stored it; the
+  saved turn now carries it, counted on the server by the same rule the live
+  answer used.
 - "Rebuild search index" in Settings, Models rebuilds the word index as well
   as the semantic one. The word index was built once, when its table was
   first made, and could not be rebuilt after a restore, an import or a fault;

@@ -316,10 +316,8 @@ drag is still a click, and only a real pin is written to
 appears only on real pins, which is the last line of the owner's own
 description of what they wanted.
 
-Still open from that entry: a dragged cluster (a lasso selection) moving
-together the same way. The canvas renderer drags one node at a time
-(`gcDragNode` is a single reference), so multi-drag is a piece of work in
-its own right and is not part of this change.
+The group drag this entry left open is built: moved to HISTORY.md ("Moved
+from the plans, 2026-09-23", GRAPH_PLAN.md).
 
 ## Placed from INBOX, 2026-09-13
 

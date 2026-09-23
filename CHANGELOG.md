@@ -240,6 +240,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Capture's "Add to this note" tools (Attach, From library, Sketch, Dictate,
+  Improve) and "Add to document" are a quiet toolbar rather than a row of
+  heavy buttons, with Improve set apart; every Capture row shares one label
+  column, and on a phone the labels sit above their fields.
 - **A new default look, Quiet utilitarian**: a warm grey ground, solid
   panels, one ink-blue accent and tighter spacing. Two new looks, Editorial
   paper and Technical mono, sit beside it in Appearance, and the previous

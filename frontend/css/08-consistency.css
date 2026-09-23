@@ -4102,3 +4102,69 @@ main,
 #settings-modal .settings-group > p.muted {
   font-size: var(--text-md);
 }
+
+/* --- Capture: the add tools as a quiet toolbar (INBOX 395) --- */
+/* The owner, of the Capture card's "Add to this note" and "Filing" rows: "is
+   there a cleaner way to show/redesign/structure these elements??" Measured:
+   seven 40px slabs, each a filled tint with a border, so five optional tools
+   and a menu drew as heavily as the Save the card exists for, and the eye
+   had nothing to rank. They are tools beside a text box, so they take a
+   composer toolbar's grammar: no fill, no frame, muted ink, the tint only
+   under the pointer; one hairline sets Improve (it rewrites) apart from the
+   four that add. The Filing row's "Add to document" is the same kind of
+   thing and is drawn the same way, beside the one real field on that row. */
+.capture-tools-row {
+  gap: var(--space-1);
+}
+
+/* One label column for every Capture row: "Add to this note" is wider than
+   the 7rem the others fit in, so its row started 28px right of Tags and
+   Filing. The column takes the longest label; the row's own gap is the
+   toolbar's tighter one, so the label keeps the others' distance by margin. */
+#capture .capture-field-label {
+  min-width: 8.5rem;
+}
+
+/* On a phone the column costs a third of the width (the tags field was left
+   150px), so each label goes above its controls, as a form's does there. */
+@media (max-width: 599.98px) {
+  #capture .capture-field-label {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  #capture .capture-field-row > input {
+    flex: 1 1 100%;
+  }
+}
+
+.capture-tools-row > .capture-field-label {
+  margin-inline-end: var(--space-2);
+}
+
+:is(.capture-tools-row, .capture-filing-row) button.ghost:not(.menu-item) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-md);
+  padding-inline: var(--space-3);
+}
+
+:is(.capture-tools-row, .capture-filing-row) button.ghost:not(.menu-item):is(:hover, :focus-visible, [aria-expanded="true"]) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+:is(.capture-tools-row, .capture-filing-row) button.ghost:not(.menu-item):disabled {
+  background: transparent;
+  opacity: 0.5;
+}
+
+.capture-tools-sep {
+  align-self: center;
+  width: 1px;
+  height: 1.25rem;
+  margin-inline: var(--space-1);
+  background: var(--divider);
+}

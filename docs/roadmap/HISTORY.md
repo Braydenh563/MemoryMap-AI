@@ -33711,6 +33711,17 @@ measured, so nobody rebuilds them.
     (`archive/agent-remaining/tour.md`, `tour.js` 118 of 118 on its own
     checks, 1,581 of 1,581 on the sweep refresh) and `TOUR_ENABLED` is true.
 
+395. **The owner, 2026-09-23 night, verbatim, with a screenshot of the
+    Capture card's "Add to this note" and "Filing" rows.** "is there a
+    cleaner way to show/redesign/structure these elements??" **Fixed
+    2026-09-23.** Seven 40px filled, framed slabs became a composer
+    toolbar: no fill or frame, muted ink, the tint only under the pointer, a
+    hairline setting Improve (it rewrites) apart from the four that add, and
+    "Add to document" drawn the same way beside the Filing select. One label
+    column (8.5rem) for every row, so the three rows start at x 461 within
+    2px at 1440; on a phone each label sits above its controls (the tags
+    field 150 to 320px wide at 390). No overflow at 1440, 1024 or 390.
+
 ## Moved from the plans, 2026-09-23
 
 ### From CHAT_PLAN.md

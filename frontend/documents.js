@@ -6393,9 +6393,64 @@ function docLivePlugin(CM) {
             );
             return false;
           }
+          //: **A bare address and an `<address>` are links too** (INBOX 392's
+          //: inventory, `scratchpad/ui-sweeps/doclivemd.js`). The GitHub
+          //: dialect parses both, as a `URL` on its own and as an `Autolink`
+          //: holding one, and the view drew neither: a pasted address was
+          //: plain text you could not open, and `<https://…>` kept its
+          //: brackets. Both now wear the link chip and open on Ctrl+click
+          //: through the same `data-doc-href` a `[text](url)` link uses. A
+          //: `URL` inside a `Link` or an `Image` never reaches here: those
+          //: two branches return false and the walk skips their children.
+          if (name === "Autolink") {
+            const url = node.node.getChild("URL");
+            if (!url) return false;
+            const href = doc.sliceString(url.from, url.to);
+            ranges.push(
+              Decoration.mark({
+                class: "cm-md-link",
+                attributes: { "data-doc-href": href, title: `Ctrl+click to open ${href}` },
+              }).range(url.from, url.to)
+            );
+            if (!rangeRevealed(node.from, node.to)) {
+              hide(node.from, url.from);
+              hide(url.to, node.to);
+            }
+            return false;
+          }
+          if (name === "URL") {
+            const href = doc.sliceString(node.from, node.to);
+            ranges.push(
+              Decoration.mark({
+                class: "cm-md-link",
+                attributes: { "data-doc-href": href, title: `Ctrl+click to open ${href}` },
+              }).range(node.from, node.to)
+            );
+            return false;
+          }
+          //: `\*` is how a writer says "a star, not emphasis", and the
+          //: backslash is syntax like every other marker here: hidden while
+          //: the caret is elsewhere, back when it is on the line.
+          if (name === "Escape") {
+            if (!lineTouched(node.from)) hide(node.from, node.from + 1);
+            return false;
+          }
           if (name === "TaskMarker") {
-            if (lineTouched(node.from)) return false;
             const marker = doc.sliceString(node.from, node.to);
+            //: **A finished task reads as finished**, struck through in the
+            //: muted ink, which is what every task list the plan compares
+            //: against does and what the rendered view now does too
+            //: (09-editor.css). Drawn whether or not the caret is on the
+            //: line: the `[x]` coming back is a reveal, the item being done
+            //: is a fact about it.
+            if (/[xX]/.test(marker)) {
+              const task = node.node.parent;
+              const end = Math.min(task ? task.to : node.to, doc.lineAt(node.from).to);
+              if (end > node.to) {
+                ranges.push(Decoration.mark({ class: "cm-md-task-done" }).range(node.to, end));
+              }
+            }
+            if (lineTouched(node.from)) return false;
             ranges.push(
               Decoration.replace({
                 widget: new DocTaskWidget(/[xX]/.test(marker), node.from, node.to),
@@ -14611,6 +14666,32 @@ function docTableGridRules() {
   return rules;
 }
 
+//: **Indent guides under a nested list** (INBOX 392). A nested item was
+//: told apart from its parent by its indent alone, and three levels deep a
+//: reader was counting em widths to know which item a line belonged to. One
+//: hairline per ancestor, down the column of that ancestor's own marker, is
+//: what every outliner draws; it is a background rather than a border or a
+//: widget because a line decoration can carry it without adding a node, and
+//: it cannot move the text. The marker of level `k` sits at `k * 1.6em` (the
+//: hanging indent in the theme), so the guide for level `j` is at that plus
+//: 0.3em, under the bullet's middle.
+function docListGuides(depth) {
+  const tone = "color-mix(in srgb, var(--muted) 35%, transparent)";
+  const ink = `linear-gradient(${tone}, ${tone})`;
+  const layers = [];
+  const places = [];
+  for (let j = 0; j < depth; j += 1) {
+    layers.push(ink);
+    places.push(`${(j * 1.6 + 0.3).toFixed(2)}em 0`);
+  }
+  return {
+    backgroundImage: layers.join(", "),
+    backgroundPosition: places.join(", "),
+    backgroundSize: "1px 100%",
+    backgroundRepeat: "no-repeat",
+  };
+}
+
 function docCmTheme(CM) {
   const dark = document.documentElement.dataset.mode === "dark";
   return CM.view.EditorView.theme(
@@ -14795,10 +14876,15 @@ function docCmTheme(CM) {
       //: measured rather than chosen: a `-` plus a space is 2 characters of a
       //: 0.8em-per-character face.
       ".cm-md-li": { paddingLeft: "1.6em", textIndent: "-1.6em" },
-      ".cm-md-li-1": { paddingLeft: "3.2em", textIndent: "-1.6em" },
-      ".cm-md-li-2": { paddingLeft: "4.8em", textIndent: "-1.6em" },
-      ".cm-md-li-3": { paddingLeft: "6.4em", textIndent: "-1.6em" },
-      ".cm-md-li-4": { paddingLeft: "8em", textIndent: "-1.6em" },
+      ".cm-md-li-1": { paddingLeft: "3.2em", textIndent: "-1.6em", ...docListGuides(1) },
+      ".cm-md-li-2": { paddingLeft: "4.8em", textIndent: "-1.6em", ...docListGuides(2) },
+      ".cm-md-li-3": { paddingLeft: "6.4em", textIndent: "-1.6em", ...docListGuides(3) },
+      ".cm-md-li-4": { paddingLeft: "8em", textIndent: "-1.6em", ...docListGuides(4) },
+      ".cm-md-task-done": {
+        color: "var(--muted)",
+        textDecoration: "line-through",
+        textDecorationColor: "color-mix(in srgb, var(--muted) 70%, transparent)",
+      },
       //: The marker itself: the muted ink, so the eye reads the words rather
       //: than the punctuation, and left in the document so it can be
       //: selected, deleted and typed over like any other character.

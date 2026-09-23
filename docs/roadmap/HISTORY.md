@@ -107,6 +107,39 @@ then edits a table by click, Tab and Shift+Tab.
   16px of chrome with the reason written beside it (the new inset is 12.8px
   of it); all 24 of its checks pass.
 
+### From DOCUMENTS_PLAN.md, placed from INBOX 392: the live view's markdown rendering
+
+The owner, INBOX 392: "the live view needs a lot better md rendering".
+
+**Built.** An inventory first, rather than a list of wishes:
+`scratchpad/ui-sweeps/doclivemd.js` checks what the live view draws, with
+the caret elsewhere, for each common construct `cm-live.js` and
+`cm-reveal.js` did not already cover. Headings (sizes identical to the
+rendered view's to the digit, `doclive.js`), emphasis, inline code, links,
+images, tasks with working checkboxes, quotations, callouts, fences, rules,
+tables, footnotes and math were all already drawn. Five were not, and
+eight of the probe's checks failed before this:
+
+- Nested lists had no guides: a third-level item was told from its parent
+  by indent alone. `docListGuides(depth)` gives each `.cm-md-li-N` one
+  hairline per ancestor, a background layer at `j * 1.6em + 0.3em`, which is
+  under the ancestor's own bullet (measured 0.1px off its centre).
+- A finished task looked like an open one. `cm-md-task-done` marks the
+  item's text muted and struck through, whether or not the caret is on the
+  line; the rendered view gets the same (`#doc-preview .md-task:has(>
+  input:checked)`), where it had nothing.
+- A bare address (`URL`) and an `<address>` (`Autolink`) were plain text:
+  both are now the link chip with `data-doc-href`, so Ctrl+click opens them
+  like any `[text](url)`, and the autolink's brackets hide off the line.
+- A backslash escape showed its backslash: `\*star\*` now reads `*star*`
+  until the caret is on the line, and comes back when it is (checked).
+- `cm-reveal.js` had two stale expectations (`- a bullet` and `- [ ] a task`
+  wanting the dash) that predated the bullet widget and failed on every
+  head since; updated with the reason beside them, all checks pass.
+
+After: `doclivemd.js` all pass, `cm-live.js` all pass, `cm-reveal.js` all
+pass.
+
 ## Moved from the plans, 2026-09-21
 
 ### From WORLD_CLASS_PLAN.md section 21: every failure names its way out (INBOX 272 part 1)

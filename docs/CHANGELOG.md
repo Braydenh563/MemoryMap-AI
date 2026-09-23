@@ -48,6 +48,10 @@ below). Versioning is `0.x` while the app stabilises.
   and a new row from Tab puts the caret where you would type. Code blocks
   have an inset, and quotations have a visible bar in both the live and the
   rendered view.
+- The documents live view draws more of markdown: indent guides under
+  nested lists, finished tasks struck through (in the rendered view too),
+  bare web addresses and `<address>` links as links, and a backslash escape
+  without its backslash until you are on the line.
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label
   prompt no longer deletes it; "Take the label off the line" does.

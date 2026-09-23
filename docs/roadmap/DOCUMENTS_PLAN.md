@@ -1385,3 +1385,8 @@ recommendation, each was taken).
 reminders made before the link was drawn: there is nothing to backfill from.
 A reminder written by hand in the Reminders tab never named a note, and
 guessing one from the text would invent a link the person did not make.
+
+## Placed from INBOX, 2026-09-23 (392)
+
+- **The live view's markdown rendering: built 2026-09-23.** Moved to
+  HISTORY.md ("Moved from the plans, 2026-09-23"); `doclivemd.js` is the gate.

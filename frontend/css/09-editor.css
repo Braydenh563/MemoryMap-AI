@@ -246,6 +246,15 @@
   color: var(--muted);
 }
 
+/* A finished task in the rendered view, struck through in the muted ink the
+   live view gives it (`.cm-md-task-done`), so the two views agree about
+   which items are done. `:has` on the box the renderer writes first. */
+#doc-preview .md-task:has(> input:checked) {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
 #tab-documents.doc-wide .doc-props {
   max-width: none;
 }

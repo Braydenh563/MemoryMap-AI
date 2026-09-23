@@ -43,6 +43,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The guided tour can no longer leave the page dimmed with no card: a step
+  that fails shows its card centred, a card off the window or behind
+  something is re-centred, the page is kept from scrolling under it, and
+  each case leaves a "Tour:" line in Settings, Logs.
 - A connection pill's ⋯ is round, so its hover no longer pokes past the
   pill's border, and a linked note whose first line is a heading or a
   clipped image reads as its words (no `#` or half an `![...`).
@@ -243,6 +247,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The m guide is one panel of key-and-label rows over a darker backdrop,
+  rather than glowing pills over the page's own text, and its "Atlas" entry
+  is called Guide, which is what it opens.
 - Atlas has a little more personality: the default Friendly style is warm,
   a little curious and points out a link between notes when it spots one,
   and the empty chat greets you in Atlas's own voice. The grounding rules are

@@ -839,6 +839,86 @@ async function tourNavigate(step) {
   await tourFrame();
 }
 
+//: **The tour never leaves a dim with no card** (the owner, 2026-09-23 night,
+//: from the desktop window: "I pressed next on the first panel of the guided
+//: tour, and it dissappeared while keeping the page dimmed and pushed the top
+//: bar down by a couple pixels", started from Settings, help). Not reproduced
+//: in a headless run at 1333, 1440, 1600 or 2000 wide, which says the fault is
+//: in something this machine does not have, not that there is no fault. So
+//: whatever the walk runs into, the outcome is bounded: an exception becomes
+//: the centred card, a card that ends up off the window or behind something
+//: is re-centred, and both say what happened in Settings, Logs (console
+//: output is captured there), so the next report carries its own numbers.
+async function tourStep() {
+  const run = tourRun;
+  if (!run) return;
+  tourPinShell();
+  try {
+    await tourShow();
+  } catch (error) {
+    console.warn("Tour: a step failed, showing the card centred", error);
+    if (tourRun !== run) return;
+    tourStrand(run);
+  }
+  if (tourRun === run) tourVerifyCard();
+}
+
+//: The centred card for a step with nothing it can point at, the same state
+//: the last-step case below reaches (INBOX 315), reachable from anywhere.
+function tourStrand(run) {
+  run.el = null;
+  run.step = run.step || run.steps[Math.max(0, Math.min(run.index, run.steps.length - 1))];
+  run.alt = false;
+  run.stranded = true;
+  document.getElementById("tour-card")?.removeAttribute("aria-busy");
+  tourRender();
+  tourPosition();
+  document.getElementById("tour-next")?.focus();
+}
+
+//: The app is a fixed shell: the tabs scroll inside themselves and the page
+//: never does (`body { overflow: hidden }`). Hidden is not unscrollable,
+//: though: a focus or a scroll aimed at an element near an edge can still
+//: move the document a few pixels, and every fixed-position box the tour
+//: measured moves with it. "The top bar pushed down by a couple pixels" is
+//: that movement. Pinned back to the top before each step.
+function tourPinShell() {
+  for (const el of [document.scrollingElement, document.documentElement, document.body]) {
+    if (el && (el.scrollTop || el.scrollLeft)) {
+      console.warn(`Tour: the page itself was scrolled (${el.tagName} ${el.scrollLeft},${el.scrollTop}); put back`);
+      el.scrollTop = 0;
+      el.scrollLeft = 0;
+    }
+  }
+}
+
+//: Placed is not shown: the card must be inside the window and be the thing
+//: drawn at its own centre. When it is not, it goes to the middle, where
+//: nothing but the tour's own dim can be.
+function tourVerifyCard() {
+  const card = document.getElementById("tour-card");
+  if (!card || card.classList.contains("hidden") || card.getAttribute("aria-busy") === "true") return;
+  const box = card.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const inside = box.width > 0 && box.height > 0 && box.left >= -1 && box.top >= -1 &&
+    box.right <= vw + 1 && box.bottom <= vh + 1;
+  const hit = inside && document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+  if (inside && hit && card.contains(hit)) return;
+  console.warn(
+    `Tour: the card was not on screen (box ${Math.round(box.left)},${Math.round(box.top)} ` +
+      `${Math.round(box.width)}x${Math.round(box.height)} in ${vw}x${vh}, ` +
+      `front ${hit ? hit.id || hit.className || hit.tagName : "none"}); centred`
+  );
+  const size = card.getBoundingClientRect();
+  card.dataset.side = "centre";
+  tourPlaceFixed(
+    card,
+    tourClamp((vw - size.width) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vw - TOUR_EDGE - size.width)),
+    tourClamp((vh - size.height) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vh - TOUR_EDGE - size.height))
+  );
+}
+
 async function tourShow() {
   const run = tourRun;
   //: **One walk at a time.** Next pressed twice while a tab is loading used to
@@ -974,7 +1054,7 @@ function openTour(sectionId) {
     returnFocus: document.activeElement,
   };
   for (const id of TOUR_LAYERS) document.getElementById(id).classList.remove("hidden");
-  tourShow();
+  tourStep();
 }
 
 function tourClose(finished) {
@@ -1007,14 +1087,14 @@ function tourNext() {
   }
   tourRun.index += 1;
   tourRun.direction = 1;
-  tourShow();
+  tourStep();
 }
 
 function tourBack() {
   if (!tourRun || tourRun.index === 0) return;
   tourRun.index -= 1;
   tourRun.direction = -1;
-  tourShow();
+  tourStep();
 }
 
 // --- wiring -----------------------------------------------------------------
@@ -1097,7 +1177,7 @@ function tourReflow() {
     // that shows it, a panel scrolled it out of the window). The step goes
     // with it rather than the card hanging on beside a rectangle that is not
     // there any more.
-    tourShow();
+    tourStep();
     return;
   }
   tourPosition();

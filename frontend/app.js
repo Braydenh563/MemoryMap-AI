@@ -46376,7 +46376,10 @@ const CHORD_ACTIONS = {
   //: as well as an 'm' key navigation to open the atlas window and popup
   //: agent??"). Ctrl+Shift+A and Ctrl+Shift+H are theirs in the registry
   //: above; these are the chord's spellings of the same two.
-  a: { label: "Atlas", run: () => askAtlasAbout("") },
+  //: Named for what it opens, the Guide (the owner: "the option for atlas
+  //: leads to the guide, I think it should be called guide instead"),
+  //: the same word the status bar's button uses. The key stays `a`.
+  a: { label: "Guide", run: () => askAtlasAbout("") },
   p: { label: "Popup agent", run: () => toggleAgentPalette() },
 };
 const TAB_JUMP_WINDOW_MS = 900;
@@ -46521,8 +46524,16 @@ function showTabJumpHint() {
     tabJumpArmedAt = 0;
     hideChordGuide();
   });
-  guide.replaceChildren(
-    close,
+  //: **One panel, not pills scattered over the page** (the owner's
+  //: screenshot, 2026-09-23 night: fourteen glowing pills drawn straight
+  //: over the dashboard's own text, which read through them, because the
+  //: flat looks turn the blur off and a 55% scrim alone does not separate
+  //: two layers of text). The lead and both groups sit on one opaque panel,
+  //: the command palette's shape, and the rows are plain key-and-label rows.
+  const panel = document.createElement("div");
+  panel.className = "chord-guide-panel";
+  guide.replaceChildren(close, panel);
+  panel.append(
     lead,
     chordGuideGroup(
       "Go to",

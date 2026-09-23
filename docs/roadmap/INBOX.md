@@ -34,6 +34,23 @@ with its owner named in the entry.
 
 ## Open items
 
+397. **The owner, 2026-09-23 night, verbatim, from the desktop window with a
+    screenshot.** "I pressed next on the first panel of the guided tour, and
+    it dissappeared while keeping the page dimmed and pushed the top bar down
+    by a couple pixels. I begun the tour from the settings help page." and
+    "you previously said to me multiple times that you werent able to
+    reproduce it, but the bug is real so it has to be something". Read from
+    the screenshot: the dim stays on step 1's hole, so step 2 never drew.
+    Headless runs from Settings, help at 1333x740, 1440x900, 1600x890 and
+    2000x1100 reach "2 of 15" every time, so the cause is in something the
+    desktop window has and this sandbox does not. **Guarded 2026-09-23**
+    (tour.js): an exception in a step becomes the centred card, a card
+    that is off the window or behind something is re-centred, the page's own
+    scroll is pinned at 0 before each step (the top bar moving is the
+    document scrolling), and each of the three writes a `Tour:` line to
+    Settings, Logs. Open until the owner's next run: if it recurs, those
+    lines name the cause.
+
 396. **The owner, 2026-09-23 night, verbatim, with two whiteboard
     screenshots.** "on the whiteboard, when Im selected on a textbox I cant
     open the meatball button dropdown menu in the popup tools. also the

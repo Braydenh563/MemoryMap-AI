@@ -4171,3 +4171,76 @@ main,
   margin-inline: var(--space-1);
   background: var(--divider);
 }
+
+/* --- The m guide: one panel of key rows --- */
+/* Owner's screenshot: the rows were fourteen pills with accent glow rings,
+   floating over the dashboard's own text at a 55% scrim with the blur off
+   (the flat looks), so the page read through between them. The guide is a
+   panel now, the command palette's shape: opaque, one radius, one shadow,
+   the two groups as columns of key-and-label rows. The page behind is
+   dimmed further so it recedes rather than competes. */
+.chord-guide {
+  background: color-mix(in srgb, var(--scrim) 75%, transparent);
+}
+
+.chord-guide-panel {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: min(40rem, calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100dvh - 2 * var(--space-6));
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-6);
+  background: var(--modal-bg-opaque);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.chord-guide-panel > .chord-guide-lead {
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.chord-guide-panel .chord-guide-group {
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.chord-guide-panel .chord-guide-title {
+  text-align: start;
+}
+
+.chord-guide-panel .chord-guide-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  justify-content: stretch;
+  gap: var(--space-1) var(--space-3);
+  max-width: none;
+}
+
+.chord-guide-panel .chord-guide-row {
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 500;
+  transform: none;
+}
+
+.chord-guide-panel .chord-guide-row:is(:hover, :focus-visible) {
+  background: var(--surface-2);
+  border-color: var(--divider);
+  transform: none;
+}
+
+/* Every key chip one width, so the labels start on one line whatever the
+   letter ("r" drew 3px narrower than "g"). */
+.chord-guide-panel .chord-guide-row > kbd {
+  min-width: 1.5rem;
+  text-align: center;
+}

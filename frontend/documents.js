@@ -2166,6 +2166,10 @@ const DOC_COMMANDS = [
     code: true, run: () => docRunControl("doc-code-format", "Formatting") },
   { id: "quick-fix", icon: "ph:wrench", label: "Quick fixes for the problem at the caret", keys: "Alt+Enter",
     code: true, run: () => docOpenCodeFixes() },
+  //: CodeMirror's default keymap has always bound this chord; the row is what
+  //: puts it in the palette and the shortcut sheet (INBOX 402).
+  { id: "block-comment", icon: "ph:brackets-angle", label: "Block comment around the selection", keys: "Shift+Alt+A",
+    code: true, run: () => docCodeCommentAtCaret(docSurface(), true) },
 ];
 
 // DOC-COMMANDS-END
@@ -3380,6 +3384,7 @@ function indentDocSelection(box, outdent) {
 }
 
 function toggleDocComment(box) {
+  if (docCodeCommentAtCaret(box)) return;
   docUndoBreak();
   const type = docFileType();
   const { start, end, text } = docSelectedLines(box);
@@ -3428,6 +3433,33 @@ function toggleDocComment(box) {
   }
   markDocDirty();
   renderDocGutter();
+}
+
+//: **A code document comments by the language at the caret** (INBOX 402),
+//: as VS Code does: one HTML file is three languages, so a line inside its
+//: `<script>` takes `//`, inside `<style>` `/* */`, and the markup
+//: `<!-- -->`; a JSX child takes `{/* */}`. The file-type table above has one
+//: marker per file and cannot know that; CodeMirror's own command reads the
+//: `commentTokens` of the grammar at the cursor. It keeps this function's
+//: rules (uncomment only when every non-blank line is commented, the marker
+//: after the indentation, a round trip exact; `tests/test_code_vscode.py`),
+//: with one difference, VS Code's: a block of lines takes its marker at the
+//: block's own indent, so the block keeps its shape. A grammar with no tokens
+//: falls through to the file-type marker; prose, Plain and the textarea
+//: fallback never come here.
+function docCodeCommentRun(CM, target, block) {
+  return block ? CM.commands.toggleBlockComment(target) : CM.commands.toggleComment(target);
+}
+
+function docCodeCommentAtCaret(box, block = false) {
+  const CM = window.CM6;
+  const type = docFileType();
+  if (!CM || !docCmView || box?.view !== docCmView || type.previewable || docView === "plain") return false;
+  const view = docCmView;
+  const target = { state: view.state, dispatch: (tr) => view.dispatch(tr) };
+  if (!docCodeCommentRun(CM, target, block)) return false;
+  markDocDirty();
+  return true;
 }
 
 // --- Live preview: the same editor, with decorations on -----------------------
@@ -10388,7 +10420,10 @@ function noteSurfaceKeymap(host) {
     { key: "Mod-1", run: () => { applyMarkdown("h1", host.id); return true; } },
     { key: "Mod-2", run: () => { applyMarkdown("h2", host.id); return true; } },
     { key: "Mod-3", run: () => { applyMarkdown("h3", host.id); return true; } },
-    { key: "Mod-/", run: () => { toggleDocComment(surface()); return true; } },
+    //: No Ctrl+/ here: in a note it is the blocks menu (the registry's
+    //: `editorMenu`), and a comment toggle bound here as well wrapped the
+    //: line in the *document's* comment marker before the menu wrote "/"
+    //: over it (INBOX 402).
   ];
 }
 
@@ -14681,7 +14716,10 @@ function docCmLanguageFor(CM, ext) {
     case "json": return CM.json.json();
     case "yaml": return CM.yaml.yaml();
     case "bash": return stream(CM.shell);
-    case "sql": return stream(CM.sql);
+    //: `standardSQL`, the mode: `sql` is the factory that makes one, and
+    //: mounting it threw "i is not a function" from the parser, so opening a
+    //: .sql document failed outright (found by tests/test_code_vscode.py).
+    case "sql": return stream(CM.standardSQL);
     case "toml": return stream(CM.toml);
     case "go": return stream(CM.go);
     case "rs": return stream(CM.rust);

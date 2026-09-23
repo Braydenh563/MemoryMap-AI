@@ -45804,6 +45804,13 @@ document.addEventListener("keydown", (e) => {
       //: editor binds Ctrl+D to "select the next match" (CodeMirror's search
       //: keymap), handles it at the target and marks it `defaultPrevented`.
       if (id === "todaysNote" && (boardHistoryActive() || e.defaultPrevented)) continue;
+      //: The same handoff for Ctrl+/ (INBOX 402): the documents editor's
+      //: keymap answers it with the comment toggle and marks it handled, and
+      //: this then wrote a "/" over the selection the toggle had just made,
+      //: so Ctrl+/ on a line of prose left a lone "/" where the line was
+      //: (measured, `doccodevs.js`). In a note box nothing answers it first,
+      //: so the blocks menu still opens there.
+      if (id === "editorMenu" && e.defaultPrevented) continue;
       if (matchesShortcut(e, def.keys)) {
         e.preventDefault();
         //: The chord goes through the same `performUndo`/`performRedo` the

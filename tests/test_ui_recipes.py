@@ -1523,10 +1523,13 @@ def test_every_tour_step_points_at_an_element_that_exists() -> None:
     """
     markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     ids = set(re.findall(r'\sid="([^"]+)"', markup))
+    # The leading id of a compound selector is checked too: a step pointing
+    # into a list the tab draws ("#library-grid .library-card-menu > button")
+    # has no stable id of its own, but the list it lives in has to exist.
     missing = [
         target
         for target, _side, _rest in _tour_steps()
-        if target.startswith("#") and target[1:] not in ids
+        if (lead := re.match(r"#([\w-]+)", target)) and lead.group(1) not in ids
     ]
     assert not missing, (
         "tour steps name elements that are not in index.html: "
@@ -1795,7 +1798,10 @@ def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:
     """A control hidden by a responsive rule, or gone from the markup, must
     cost its step rather than leave a card anchored to a zero-sized box in the
     corner of the window. Dropping it is also what keeps "3 of 7" true: the
-    counter is drawn from the run's own length, which shrinks with it."""
+    counter is drawn from the run's own steps, which shrink with it. Since
+    the sections chain (the owner, 2026-09-23), it counts the current
+    section's steps in the run, so "Graph, 2 of 4" is still a count of cards
+    that will really be shown."""
     js = TOUR_JS.read_text(encoding="utf-8")
     show = _function_body(js, "tourShow")
     assert "tourVisible(" in show and "splice(" in show, (
@@ -1803,9 +1809,14 @@ def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:
         "is not (DESIGN.md, the recipe index)"
     )
     render = _function_body(js, "tourRender")
-    assert "run.steps.length" in render, (
-        "the counter must be drawn from the run's own length, or it promises "
+    assert "tourSectionPlace(run)" in render, (
+        "the counter must be drawn from the run's own steps, or it promises "
         "steps the tour has already dropped"
+    )
+    place = _function_body(js, "tourSectionPlace")
+    assert "run.steps.filter(" in place and "sectionId" in place, (
+        "the per-section count is the run's steps in this section, not the "
+        "table's: a dropped step must leave its section's count"
     )
 
 
@@ -1830,7 +1841,11 @@ def test_a_tour_steps_second_control_exists_and_says_where_it_went() -> None:
         assert selector.startswith("#") and selector[1:] in ids, (
             f"the `or` control {selector} is not in index.html"
         )
-        assert "More" in text, f"{selector}'s words must say the control is in More: {text!r}"
+        # More for the phone's tab overflow and a dock's ⋯; the others (the
+        # whiteboard's Tools opener, the reminder form's sheet) are checked by
+        # the sweep, which reads each card's words beside the control it lit.
+        if selector in ("#phone-more-btn", "#library-boards-more"):
+            assert "More" in text, f"{selector}'s words must say the control is in More: {text!r}"
     assert "run.step.orText" in _function_body(js, "tourRender"), (
         "tourRender shows `orText` when the step is pointing at its `or` control"
     )
@@ -1851,7 +1866,7 @@ def test_the_tour_closes_what_is_open_and_will_not_point_under_it() -> None:
     clear = _function_body(js, "tourClearTheWay")
     for closer in ("closeSettingsModal", "closePalette", "closeFeatures", "closeShortcuts", ".sheet-close"):
         assert closer in clear, f"tourClearTheWay must close what {closer} closes"
-    assert "tourClearTheWay()" in _function_body(js, "tourNavigate"), "every step clears the way first"
+    assert "tourClearTheWay(step)" in _function_body(js, "tourNavigate"), "every step clears the way first (keeping Settings only for a Settings step)"
     assert "tourClearTheWay()" in _function_body(js, "openTour"), "and so does opening the tour"
     usable = _function_body(js, "tourUsable")
     assert "tourCovered(el)" in usable, "a control with something drawn over it is not usable"
@@ -1907,6 +1922,79 @@ def test_a_new_tour_section_needs_no_new_code() -> None:
             f"{name} must build itself from TOUR_SECTIONS, so a section added "
             "to that table arrives with no markup and no handler to write"
         )
+
+
+def _tour_sections() -> dict[str, list[tuple[str, str, str]]]:
+    """Each section's id, mapped to its steps as `_tour_steps` reads them."""
+    table = TOUR_TABLE.search(TOUR_JS.read_text(encoding="utf-8")).group(1)
+    starts = [(m.start(), m.group(1)) for m in re.finditer(r'\n  \{\n    id: "([a-z]+)",', table)]
+    out = {}
+    for i, (start, section_id) in enumerate(starts):
+        end = starts[i + 1][0] if i + 1 < len(starts) else len(table)
+        out[section_id] = TOUR_STEP.findall(table[start:end])
+    return out
+
+
+def test_every_main_feature_has_a_tour_section_that_walks_into_it() -> None:
+    """The owner, 2026-09-23: "they dont guide me through the other main
+    features". A section per feature, three to five cards on its own
+    controls, and a section that names a tab has to switch to it: the old
+    sections pointed at the tab *buttons* and described what was behind
+    them."""
+    sections = _tour_sections()
+    for wanted in ("basics", "notes", "chat", "graph", "library", "boards", "maps",
+                   "timeline", "reminders", "settings", "status"):
+        assert wanted in sections, f"the tour has no {wanted!r} section"
+    for section_id, steps in sections.items():
+        # A pair of `media` steps is one card on either side of a breakpoint.
+        wide = [s for s in steps if "(max-width" not in s[2]]
+        assert 3 <= len(wide) <= 5, f"{section_id} has {len(wide)} cards; a section is three to five"
+        for target, _side, rest in steps:
+            assert "#tab-btn-" not in target, (
+                f"{section_id} points at a tab button ({target}); a section "
+                "walks into its feature and points at the feature's controls"
+            )
+            text = re.search(r'\btext: "([^"]+)"', rest).group(1)
+            assert len(text) <= 140, f"{target}: one or two short sentences, not {len(text)} characters"
+
+
+def test_the_tours_sections_chain_into_each_other() -> None:
+    """The owner: "If I want to do the other sections of the tour, I have to
+    go into the help settings and click the other tour section buttons". A
+    run starts at a section and carries on through every later one; the last
+    card of a section says "Next: <section>" beside a Finish."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    steps_for = _function_body(js, "tourStepsFor")
+    assert "TOUR_SECTIONS.slice(from)" in steps_for, (
+        "a run started at a section includes every section after it"
+    )
+    render = _function_body(js, "tourRender")
+    assert "`Next: ${place.next}`" in render and '"Finish"' in render, (
+        "the last card of a section offers the next one by name, and Finish"
+    )
+    skip = js[js.index('getElementById("tour-skip").addEventListener'):]
+    skip = skip[: skip.index(");\n") + 3]
+    assert "atSectionEnd" in skip and "tourClose(" in skip, (
+        "Finish ends the tour as finished (remembered, with its toast), Skip as skipped"
+    )
+
+
+def test_the_tour_never_makes_a_board_or_a_map() -> None:
+    """Never create data: a tour that walks into mind maps opens the newest
+    one there is, and in a notebook with none it points at New mind map and
+    says what that makes. So nothing on the tour's way to a board writes."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    for name in ("tourWhiteboard", "tourContext", "tourPrepareSection", "tourNavigate"):
+        body = _function_body(js, name)
+        for writer in ("method:", "POST", "wbCreateBoard", "createBoard"):
+            assert writer not in body, f"{name} must only read ({writer!r} found)"
+    sections = _tour_sections()
+    map_steps = [rest for target, _side, rest in sections["maps"] if 'wb: "map"' in rest]
+    assert map_steps and all('need: "map"' in rest for rest in map_steps), (
+        "every step that opens a map needs one to exist"
+    )
+    needs = _function_body(js, "tourPrepareSection")
+    assert "TOUR_NEEDS" in needs, "a section's needs are settled before its first card"
 
 
 # --- the phone top bar (UI_MODERNISATION_PLAN Phase 11 item 1) ---------------

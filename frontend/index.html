@@ -4354,7 +4354,7 @@
            thing, and it sat here as a tab only because the filter row did not
            exist yet when it was added. -->
       <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">All</button>
-      <button role="tab" aria-selected="false" data-target="library-view-docs">Documents</button>
+      <button role="tab" id="library-subtab-docs" aria-selected="false" data-target="library-view-docs">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Boards &amp; maps</button>
       <!-- **Two sub-tabs, not one.** Asked for directly: "I want the images
            and files to be in a separate section. I want files to have their
@@ -7123,7 +7123,7 @@
             role="status"></p>
           <p class="nav-group-label" id="nav-group-ai">Atlas</p>
           <div role="group" aria-labelledby="nav-group-ai">
-            <button data-section="models" class="active">Models</button>
+            <button id="settings-nav-models" data-section="models" class="active">Models</button>
             <button data-section="personas">Personas</button>
             <button data-section="skills">Skills</button>
             <button data-section="tools">Tools it can use</button>
@@ -7134,7 +7134,7 @@
 
           <p class="nav-group-label" id="nav-group-you">Your notebook</p>
           <div role="group" aria-labelledby="nav-group-you">
-            <button data-section="appearance">Appearance</button>
+            <button id="settings-nav-appearance" data-section="appearance">Appearance</button>
             <button data-section="templates">Templates</button>
             <button data-section="shortcuts">Keyboard shortcuts</button>
             <button data-section="preferences">Preferences</button>
@@ -7151,7 +7151,7 @@
 
           <p class="nav-group-label" id="nav-group-about">Getting help</p>
           <div role="group" aria-labelledby="nav-group-about">
-            <button data-section="help">Help</button>
+            <button id="settings-nav-help" data-section="help">Help</button>
             <button data-section="about">About</button>
           </div>
         </nav>

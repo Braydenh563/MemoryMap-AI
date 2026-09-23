@@ -15649,7 +15649,15 @@ function renderChatEmptyState() {
   //: No trailing space: the '?' that used to follow this sentence is in the
   //: corner now (INBOX 236), and a line ending in a space is a line that
   //: centres a pixel off.
-  blurb.append(document.createTextNode("Ask anything; the answers come from your saved notes."));
+  //: In Atlas's own voice (INBOX 394 b), and still the same promise: the
+  //: answers come from the notes, with the notes they came from.
+  blurb.append(
+    document.createTextNode(
+      activePersona === aiName
+        ? "I've read everything you've saved. Ask me anything and I'll show you where the answer came from."
+        : "Ask anything; the answers come from your saved notes."
+    )
+  );
   //: **The '?' goes to the corner** (INBOX 236, the owner: "the about this
   //: chat '?' tooltip button in the chat empty interface ... shouldnt be
   //: there, its right in the middle of everything, move it somewhere else

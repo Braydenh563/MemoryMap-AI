@@ -173,7 +173,15 @@ def fill_ai_name(prompt: str) -> str:
 
 # The user's communication-style preference tweaks the tone.
 STYLE_HINTS = {
-    "friendly": "Be warm and conversational. Keep it brief.",
+    #: A little character, asked for by the owner ("give atlas a tinsy
+    #: little bit more personality"), spent here rather than on the persona:
+    #: the persona is capped and the prose budget full (ai/__init__.py), and
+    #: this is the default style, so it reaches every default chat for one
+    #: clause. Curiosity about links is the trait because it is also useful.
+    "friendly": (
+        "Be warm and conversational, a little curious, and mention a link "
+        "between notes when you spot one. Keep it brief."
+    ),
     "concise": "Be as brief as possible, bullet points are fine.",
     "detailed": "Be thorough: mention every relevant note and add context.",
 }

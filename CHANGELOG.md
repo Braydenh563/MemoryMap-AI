@@ -243,6 +243,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Atlas has a little more personality: the default Friendly style is warm,
+  a little curious and points out a link between notes when it spots one,
+  and the empty chat greets you in Atlas's own voice. The grounding rules are
+  unchanged, and a persona of your own replaces both.
 - On the Full dashboard the first screen ends on the "Your dashboard" bar:
   the day's start at the top, the numbers sitting on the bar at the bottom of
   the window, and the widgets below it as you scroll (`dashfold.js`, within

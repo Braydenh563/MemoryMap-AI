@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- On a touch screen the Library card ticks and the reminder ticks keep their 44px target but draw a 22px box in the middle of it, instead of a bordered, shadowed 44px square beside every row at rest.
 - The keyboard hint strip no longer stands over the bottom of every new mind map (it counted note cards, which a map has none of): a map's selected topic already names the keys on its ring and the rail's ? lists them, and on a whiteboard the strip shows only while a single note card is selected, the only time Tab and Enter act, and never over that card.
 - The board and mind map View menu: groups are told apart by a hairline instead of a printed heading (DESIGN.md's menu rule), Zoom in and Zoom out leave it (the zoom bar has both), Zoom to 100% and the keys for it and for Fit join it, the Toolbar row moves in with the panels, the columns break before Panels so no rule sits at the head of a column, and a whiteboard no longer shows an empty "Map" group: 453px to 357px on a map at 1440.
 - Lock screen: a real title, the password field at body size and the Unlock button as wide as the field.

@@ -34,7 +34,9 @@ Left, in order (struck when built):
 - ~~Job B: the hint strip.~~ Built: never on a map (the ring caption and
   the rail's ? teach the same keys when they apply), on a board only while
   one note card is selected and never over it. `mapviewmenu.js` 8/8.
-- Job B: discoverability pass, the 44px ticks.
+- ~~Job B: the 44px ticks.~~ Built: 22px drawn box in a 44px target on a
+  coarse pointer, Library cards and reminders; `touchticks.js` 7/7.
+- Job B: the discoverability pass.
 
 ## Done
 

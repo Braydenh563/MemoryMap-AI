@@ -419,6 +419,55 @@ def test_a_category_with_no_corrections_adds_nothing_to_the_prompt(app_state, se
     assert "corrected" not in librarian.filing_prompt(session, "a note", ["Ideas"])
 
 
+# --- the two re-filing paths mark the AI's choice too -------------------------
+#
+# `filing_state = auto` was set on the two create paths only. Adding context
+# and re-evaluating both re-file with the AI, and neither said so, so moving
+# one of those notes by hand afterwards recorded no correction: the AI's
+# second guess was invisible to the loop that exists to learn from it.
+
+
+def _refile_as(monkeypatch, category: str, method: str) -> None:
+    from memorymap.api import routes_entries
+
+    monkeypatch.setattr(
+        routes_entries.janitor, "categorise", lambda *a, **k: (category, 81, method)
+    )
+
+
+def test_adding_context_marks_an_ai_refiling_as_auto(client, session, monkeypatch):
+    entry = manager.create_entry(session, "call the plumber", "Work", [])
+    session.commit()
+    _refile_as(monkeypatch, "House", "llm")
+    response = client.post(f"/entries/{entry.id}/context", json={"text": "about the leak"})
+    assert response.status_code == 200
+    session.expire_all()
+    assert manager.get_entry(session, entry.id).filing_state == manager.AUTO_FILED
+    manager.update_entry(session, manager.get_entry(session, entry.id), category_name="Work")
+    session.commit()
+    assert "correction" in _actions(session)
+
+
+def test_reevaluating_marks_an_ai_refiling_as_auto(client, session, monkeypatch):
+    entry = manager.create_entry(session, "call the plumber", "Work", [])
+    session.commit()
+    _refile_as(monkeypatch, "House", "semantic-match")
+    assert client.post(f"/entries/{entry.id}/reevaluate").status_code == 200
+    session.expire_all()
+    assert manager.get_entry(session, entry.id).filing_state == manager.AUTO_FILED
+
+
+def test_a_refiling_that_was_not_the_ai_leaves_the_state_alone(client, session, monkeypatch):
+    """A keyword fallback is not the AI's judgement, so moving the note later
+    is an ordinary edit, the same rule the create paths follow."""
+    entry = manager.create_entry(session, "call the plumber", "Work", [])
+    session.commit()
+    _refile_as(monkeypatch, "House", "keyword")
+    client.post(f"/entries/{entry.id}/context", json={"text": "about the leak"})
+    session.expire_all()
+    assert manager.get_entry(session, entry.id).filing_state == "done"
+
+
 def test_only_the_last_few_corrections_ride_in_the_prompt(app_state, session):
     """A prompt made of examples has no room left for the note being filed."""
     from memorymap.ai import librarian

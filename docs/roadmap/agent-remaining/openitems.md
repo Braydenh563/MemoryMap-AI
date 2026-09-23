@@ -39,3 +39,7 @@ Phase 8c, the templates preview, outline row height.
 
 ## Log
 
+- done 22dbe4b: 1 (INBOX 277), `oi-utilitynote.js` 6 of 6; also the
+  routing switch that read unchecked on Models.
+- done (this commit): 2, the two re-filing paths set `auto`.
+- next: 3, `search_index.forget` on the purge and space-delete paths.

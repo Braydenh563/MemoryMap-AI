@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A note the AI re-files, by adding context to it or by re-evaluating it, is
+  marked as the AI's choice, the same as a note it files on save. Moving one
+  of those by hand afterwards now records the correction the filing loop
+  learns from; before, only the two create paths set the mark, so a second
+  guess by the AI was invisible to it.
 - Settings, Models says which model background jobs actually run on, and why
   (INBOX 277). The utility picker shows the stored choice, and that choice is
   not the model in use while smart model routing is off or nothing has been

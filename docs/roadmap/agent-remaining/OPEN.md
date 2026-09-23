@@ -958,13 +958,12 @@ being written by running agents stay beside this one.
 - **Sync (B6) as log shipping.** `id: events-sync`. Unstarted and no longer
   blocked: it needed the retention rule, which now exists. A compacted
   snapshot ships as a snapshot. [brief7-event-log.md]
-- **`filing_state = "auto"` is set on the two create paths only.** The
-  recategorise-on-add-context path (`src/memorymap/api/routes_entries.py`, the
-  `exclude_entry_id` call into `janitor.categorise`) files with the AI and
-  does not set it, so moving one of those notes by hand records no correction.
-  Next step: grep `categorise(` and set `manager.AUTO_FILED` wherever
-  `janitor.is_ai_method` holds, the same two lines as the create paths.
-  [brief-13-harness.md]
+- ~~**`filing_state = "auto"` is set on the two create paths only.**~~
+  **Done 2026-09-23.** Two paths, not one: adding context and re-evaluating
+  both re-file with the AI, and both now set `manager.AUTO_FILED` when
+  `janitor.is_ai_method` holds (a keyword fallback still leaves `done`).
+  `tests/test_harness_verifier.py`, three new, one of which moves the note by
+  hand afterwards and finds the `correction` row. [brief-13-harness.md]
 - **The Reminders tab still reads one page.** `loadReminders` draws the tab
   from `GET /reminders`, ordered `due_at` ascending, so the first page is the
   oldest rows, ticked-off ones included: a notebook whose oldest two hundred

@@ -7634,7 +7634,48 @@ function syncSelectbarCount(idPrefix, n) {
 //: and `#library-media-selectbar` already are in index.html, so a sub-tab
 //: that never had one gets the identical bar rather than a fourth visual
 //: treatment for "items are selected".
-function createLibrarySelectbar(idPrefix, ariaLabel) {
+//: **One "Select all" for every Library selection bar** (owner: "no select
+//: all option??"). A bar names the list it governs (`data-select-all-for`),
+//: and the button works through that list's own tick boxes, dispatching the
+//: `change` each tick already listens for, so every list's own selection set
+//: and count stay the single source of truth and no list needs its own
+//: select-all code. It toggles: when everything shown is ticked it reads
+//: "Select none". Only what is rendered is ticked, which on a paged list is
+//: this page, the same thing a person can see and check before a delete.
+const SELECT_ALL_TICKS = "input.doc-list-tick, input.library-card-tick, input.library-tile-tick";
+
+function shownTicksIn(list) {
+  return [...list.querySelectorAll(SELECT_ALL_TICKS)].filter((t) => t.getClientRects().length);
+}
+
+function syncSelectAllLabels() {
+  for (const button of document.querySelectorAll("button[data-select-all-for]")) {
+    const list = document.getElementById(button.dataset.selectAllFor);
+    const ticks = list ? shownTicksIn(list) : [];
+    const all = ticks.length > 0 && ticks.every((t) => t.checked);
+    setLabel(button, all ? "ph:x-square Select none" : "ph:checks Select all");
+  }
+}
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest?.("button[data-select-all-for]");
+  if (!button) return;
+  const list = document.getElementById(button.dataset.selectAllFor);
+  if (!list) return;
+  const ticks = shownTicksIn(list);
+  const want = ticks.some((t) => !t.checked);
+  for (const tick of ticks) {
+    if (tick.checked === want) continue;
+    tick.checked = want;
+    tick.dispatchEvent(new Event("change"));
+  }
+  syncSelectAllLabels();
+});
+document.addEventListener("change", (event) => {
+  if (event.target.matches?.(SELECT_ALL_TICKS)) syncSelectAllLabels();
+});
+
+function createLibrarySelectbar(idPrefix, ariaLabel, listId = null) {
   const bar = document.createElement("div");
   bar.id = `${idPrefix}-selectbar`;
   //: `selectbar` is the recipe's sticky half (DESIGN.md, "A bar of actions
@@ -7647,15 +7688,11 @@ function createLibrarySelectbar(idPrefix, ariaLabel) {
   count.id = `${idPrefix}-selected-count`;
   count.className = "library-selected-count";
   const selAll = document.createElement("button");
-  selAll.id = `${idPrefix}-select-all`;
   selAll.className = "ghost small";
   selAll.type = "button";
-  selAll.textContent = "Select all";
-  const deselAll = document.createElement("button");
-  deselAll.id = `${idPrefix}-deselect-all`;
-  deselAll.className = "ghost small";
-  deselAll.type = "button";
-  deselAll.textContent = "Deselect all";
+  selAll.title = "Tick everything shown, or untick it all";
+  if (listId) selAll.dataset.selectAllFor = listId;
+  setLabel(selAll, "ph:checks Select all");
   const end = document.createElement("span");
   end.className = "library-contextbar-end";
   const del = document.createElement("button");
@@ -7669,7 +7706,7 @@ function createLibrarySelectbar(idPrefix, ariaLabel) {
   clear.type = "button";
   clear.textContent = "Done";
   end.append(del, clear);
-  bar.append(count, selAll, deselAll, end);
+  bar.append(count, selAll, end);
   return bar;
 }
 
@@ -7803,7 +7840,7 @@ onDomReady(() => {
   // Documents/Files sub-tabs' own bars have in index.html.
   const boardsGrid = document.getElementById("library-boards-grid");
   if (boardsGrid && !document.getElementById("library-boards-selectbar")) {
-    const bar = createLibrarySelectbar("library-boards", "Actions for the selected boards");
+    const bar = createLibrarySelectbar("library-boards", "Actions for the selected boards", "library-boards-grid");
     boardsGrid.parentNode.insertBefore(bar, boardsGrid);
     document.getElementById("library-boards-bulk-delete").addEventListener("click", bulkDeleteLibraryBoards);
     document.getElementById("library-boards-clear-selection").addEventListener("click", clearLibraryBoardsSelection);
@@ -7817,7 +7854,7 @@ onDomReady(() => {
 
   const linksList = document.getElementById("bookmark-list");
   if (linksList && !document.getElementById("library-links-selectbar")) {
-    const bar = createLibrarySelectbar("library-links", "Actions for the selected links");
+    const bar = createLibrarySelectbar("library-links", "Actions for the selected links", "bookmark-list");
     linksList.parentNode.insertBefore(bar, linksList);
     document.getElementById("library-links-bulk-delete").addEventListener("click", bulkDeleteLibraryLinks);
     document.getElementById("library-links-clear-selection").addEventListener("click", clearLibraryLinksSelection);

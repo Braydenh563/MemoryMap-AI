@@ -25684,6 +25684,15 @@ function updateBatchCount() {
   // The Timeline's table selects into the same set through the same actions
   // (TIMELINE_PLAN decision 6), so there are two bars showing one count.
   $("timeline-batch-count").textContent = `${n} selected`;
+  //: The Select all toggles say what pressing them would do.
+  const label = (rows) =>
+    rows.length > 0 && rows.every((row) => selectedIds.has(row.id))
+      ? "ph:x-square Select none"
+      : "ph:checks Select all";
+  const notesAll = $("batch-select-all");
+  if (notesAll) setLabel(notesAll, label(libraryVisibleRows()));
+  const timelineAll = $("timeline-batch-select-all");
+  if (timelineAll) setLabel(timelineAll, label(timelineSelectableRows()));
 }
 
 // **One step, not three.** This used to be a `<select>` of categories beside
@@ -43029,49 +43038,31 @@ $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );
 
-$("batch-select-all").addEventListener("click", () => {
-  const visible = libraryVisibleRows();
-  let changed = false;
-  for (const row of visible) {
-    if (!selectedIds.has(row.id)) {
-      selectedIds.add(row.id);
-      changed = true;
-    }
+//: **Select all, as one toggle** (owner: "no select all option??"). Every
+//: note the current filter shows, across pages, since the batch actions act
+//: on `selectedIds` rather than on what is painted; pressed again with all
+//: of them ticked it clears. One button rather than a Select all and a
+//: Deselect all pair: the bar already has Cancel to leave select mode.
+function toggleSelectAllRows(rows, repaint) {
+  const all = rows.length > 0 && rows.every((row) => selectedIds.has(row.id));
+  for (const row of rows) {
+    if (all) selectedIds.delete(row.id);
+    else selectedIds.add(row.id);
   }
-  if (changed) {
-    updateBatchCount();
-    renderEntries();
-  }
-});
-$("batch-deselect-all").addEventListener("click", () => {
-  if (selectedIds.size > 0) {
-    selectedIds.clear();
-    updateBatchCount();
-    renderEntries();
-  }
-});
-
-$("timeline-batch-select-all")?.addEventListener("click", () => {
-  const visible = timelineVisibleRows();
-  let changed = false;
-  for (const row of visible) {
-    if (!selectedIds.has(row.id)) {
-      selectedIds.add(row.id);
-      changed = true;
-    }
-  }
-  if (changed) {
-    updateBatchCount();
-    paintTimeline();
-  }
-});
-$("timeline-batch-deselect-all")?.addEventListener("click", () => {
-  if (selectedIds.size > 0) {
-    selectedIds.clear();
-    updateBatchCount();
-    paintTimeline();
-  }
-});
+  updateBatchCount();
+  repaint();
+}
+$("batch-select-all").addEventListener("click", () => toggleSelectAllRows(libraryVisibleRows(), renderEntries));
+//: Notes and boards only, the rule `timelineRowEl` applies to its ticks: the
+//: bar's actions are actions on an Entry, and a document or reminder id in
+//: `selectedIds` would be handed to the wrong table (a delete of the wrong
+//: row). The first version of this button selected every visible row.
+function timelineSelectableRows() {
+  return timelineVisibleRows().filter((row) => row.kind === "note" || row.kind === "board");
+}
+$("timeline-batch-select-all")?.addEventListener("click", () =>
+  toggleSelectAllRows(timelineSelectableRows(), paintTimeline)
+);
 
 $("batch-tag").addEventListener("click", batchTag);
 $("batch-delete").addEventListener("click", batchDelete);

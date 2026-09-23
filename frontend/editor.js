@@ -185,6 +185,14 @@ function editorOpenMenuByShortcut() {
 //: per-box. Appended to whatever the box already says, once.
 function editorHintPlaceholder(box) {
   if (!box || !(box.id in EDITOR_SURFACES)) return;
+  //: **Not on the phone's short placeholder.** Below 600 the chat box's
+  //: placeholder is cut to "Ask anything…" (`dockChatAttachments`, app.js)
+  //: so that autogrow sizes an empty box to one line; the hint appended to
+  //: it on focus made it three (measured at 390: "Ask anything… Press / for
+  //: blocks and commands." over three lines, 90px of empty box). The
+  //: `placeholderHome` it keeps already carries the hint, and comes back
+  //: with the width.
+  if (box.dataset.placeholderHome) return;
   const current = box.getAttribute("placeholder") || "";
   if (current.includes(EDITOR_MENU_HINT)) return;
   //: **A second line only where there is a second line to spare** (the owner,

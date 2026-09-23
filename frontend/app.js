@@ -20882,12 +20882,44 @@ function chatDockMoreOpen() {
   return !$("chat-dock-more-panel").classList.contains("hidden");
 }
 
+// **On a phone the panel is a sheet** (UI_MODERNISATION_PLAN Phase 11 item
+// 12). A popover hanging above a composer at the foot of a 390px window has
+// the keyboard under it and the transcript over it; the sheet recipe is the
+// phone's dialog. The panel itself moves into the sheet and back on close,
+// never a copy, so its selects, its persona peek and every handler on them
+// are the ones the desktop uses. `dockChatTools` has already moved the model
+// picker and the tool toggles into it at that width.
+let chatDockMoreSheetClose = null;
+
 function openChatDockMore() {
-  $("chat-dock-more-panel").classList.remove("hidden");
-  $("chat-dock-more-btn").setAttribute("aria-expanded", "true");
+  const panel = $("chat-dock-more-panel");
+  const button = $("chat-dock-more-btn");
+  panel.classList.remove("hidden");
+  button.setAttribute("aria-expanded", "true");
+  if (!window.matchMedia(PHONE_TABS).matches || typeof openSheet !== "function") return;
+  const home = panel.parentElement;
+  chatDockMoreSheetClose = openSheet({
+    label: "How it answers",
+    name: "chat-answers",
+    returnFocus: button,
+    build: (card) => {
+      card.classList.add("chat-answers-sheet");
+      card.appendChild(panel);
+    },
+    onClose: () => {
+      chatDockMoreSheetClose = null;
+      home.appendChild(panel);
+      panel.classList.add("hidden");
+      button.setAttribute("aria-expanded", "false");
+    },
+  });
 }
 
 function closeChatDockMore() {
+  if (chatDockMoreSheetClose) {
+    chatDockMoreSheetClose();
+    return;
+  }
   $("chat-dock-more-panel").classList.add("hidden");
   $("chat-dock-more-btn").setAttribute("aria-expanded", "false");
 }
@@ -40837,10 +40869,81 @@ function dockChatAttachments(toStrip) {
   }
 }
 
+// **The strip under the box is one row that fits** (INBOX 392). Measured at
+// 390 after the attachments joined it: 767px of controls in a 312px strip
+// that scrolled sideways, the model picker cut at the strip's edge
+// ("Inherited: llam"), and the skills, web search and plan toggles off
+// screen to the right with nothing saying they were there. What a phone
+// sends a message with is the mode and an attachment; which model answers,
+// and what Atlas may use, are settings of the conversation, and the gear
+// beside them already opens "How it answers". So below 600 those three
+// groups move into that panel (a sheet at that width, `openChatDockMore`)
+// and the strip is the mode, the two attachments and the gear, 298px in
+// 312. Moved with a marker each, back above 600, the same elements and
+// handlers; the header's subline still names the model at a glance.
+function dockChatTools(phone) {
+  const panel = $("chat-dock-more-panel");
+  if (!panel) return;
+  // The picker's shell when `enhanceSelect` has built it, the bare select
+  // when it has not yet (it runs from a MutationObserver, and wraps the
+  // select wherever it then is). Either way, what goes back is the shell.
+  const model = $("chat-feature-model");
+  const movers = [
+    model?.closest(".select-shell") || model,
+    $("chat-skills"),
+    $("web-search-toggle")?.closest(".chat-tool-group"),
+  ];
+  let group = panel.querySelector(":scope > .chat-dock-more-tools");
+  if (phone) {
+    // A labelled row for the model, the way Length and Persona are labelled
+    // below it, and one wrapping row for the toggles.
+    if (!group) {
+      group = document.createElement("div");
+      group.className = "chat-dock-more-tools";
+      const modelRow = document.createElement("div");
+      modelRow.className = "chat-dock-more-row chat-dock-more-model";
+      const word = document.createElement("span");
+      word.className = "muted";
+      word.textContent = "Model";
+      modelRow.appendChild(word);
+      const toggles = document.createElement("div");
+      toggles.className = "chat-dock-more-toggles";
+      group.append(modelRow, toggles);
+      panel.prepend(group);
+    }
+    const homes = [
+      group.querySelector(".chat-dock-more-model"),
+      group.querySelector(".chat-dock-more-toggles"),
+      group.querySelector(".chat-dock-more-toggles"),
+    ];
+    movers.forEach((el, index) => {
+      if (!el || panel.contains(el)) return;
+      const slot = document.createElement("span");
+      slot.className = "chat-tool-home-slot";
+      slot.hidden = true;
+      el.replaceWith(slot);
+      el._chatToolHome = slot;
+      homes[index].appendChild(el);
+    });
+  } else {
+    for (const el of [model, ...movers]) {
+      if (!el?._chatToolHome) continue;
+      const slot = el._chatToolHome;
+      delete el._chatToolHome;
+      slot.replaceWith(el.parentElement?.classList.contains("select-shell") ? el.parentElement : el);
+    }
+    group?.remove();
+  }
+}
+
 function initPhoneChatRow() {
   const query = window.matchMedia(PHONE_TABS);
   dockChatAttachments(query.matches);
-  query.addEventListener("change", (event) => dockChatAttachments(event.matches));
+  dockChatTools(query.matches);
+  query.addEventListener("change", (event) => {
+    dockChatAttachments(event.matches);
+    dockChatTools(event.matches);
+  });
 }
 
 initPhoneChatRow();
@@ -42274,7 +42377,7 @@ $("chat-dock-more-btn").addEventListener("click", () => {
 });
 document.addEventListener("click", (event) => {
   if (!chatDockMoreOpen()) return;
-  if (event.target.closest(".chat-dock-more, .action-menu")) return;
+  if (event.target.closest(".chat-dock-more, .action-menu, .select-menu, .sheet-overlay")) return;
   closeChatDockMore();
 });
 $("chat-dock-more-panel").addEventListener("keydown", (event) => {

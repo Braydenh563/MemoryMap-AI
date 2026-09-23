@@ -13,6 +13,13 @@ below). Versioning is `0.x` while the app stabilises.
   AI status sit in the top bar, and the status bar's other controls are in
   the top bar's menu. The status bar comes back only while a job is running,
   or when offline or on power saver.
+- On a phone a note row is the note: no action buttons sitting on its tags,
+  no coloured strips at its edges, and the list runs the full width. Swipe
+  to favourite or bin, tap to open, or use the row's menu.
+- On a phone the Notes and Chat headers are one row (title and actions),
+  with the search under it; the chat's model, skills, web search and plan
+  are in the "How it answers" sheet behind the gear, so the controls under
+  the chat box fit on one row and nothing is cut off.
 
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window

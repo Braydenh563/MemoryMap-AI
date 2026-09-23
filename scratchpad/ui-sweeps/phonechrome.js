@@ -22,18 +22,25 @@
 //      scroller of its own);
 //   3. nothing clipped: a control whose text is wider than its box;
 //   4. no control under 44px (touch.js's exclusions, copied).
-// It also prints where the content starts at rest (informational: a dock
-// that scrolls away is not chrome, but it is what the first screen shows).
+//   5. the content begins in the top 40% at rest (a dock that scrolls away
+//      is not chrome, but it is what the first screen shows);
+//   6. a list row at rest draws nothing of its own over its text.
+// `WIDTH=768 HEIGHT=1024` and `WIDTH=1024 HEIGHT=768` run the same gate on a
+// tablet.
 const { boot } = require('./lib.js');
 
 const W = Number(process.env.WIDTH || 390);
 const H = Number(process.env.HEIGHT || 844);
 const MAX_CHROME = 0.25;
+// Where the thing a person came to the tab for begins, at rest. A dock that
+// scrolls away is not chrome, but a list first shown at y=836 in 844 (the
+// reminders tab, measured) is a first screen of nothing but controls.
+const MAX_CONTENT_TOP = 0.4;
 const MIN = 44;
 
 // The content of each tab: the thing chrome is measured against.
 const TABS = [
-  ['dashboard', '#dash-grid'],
+  ['dashboard', '#dash-hero'],
   ['notes', '#entry-list'],
   ['chat', '.chat-transcript'],
   ['library', '#library-grid'],
@@ -158,7 +165,30 @@ const TABS = [
       const wide = [...document.querySelectorAll('.tab-page:not(.hidden) *, #top-bar *, #phone-tab-dock *')]
         .filter((el) => vis(el) && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible' && el.clientWidth > 0)
         .slice(0, 4).map((el) => `${name(el)} ${el.scrollWidth}>${el.clientWidth}`);
+      // A row designed for touch: nothing of a row's own drawn over its text
+      // at rest. Two shapes were reported on Notes at 390: the row's action
+      // strip sitting on its chips, and a red and a blue strip at the row's
+      // edges, which are the swipe underlays showing their padding at 0px.
+      const rowFaults = [];
+      for (const li of [...content.querySelectorAll(':scope > li')].filter(vis).slice(0, 4)) {
+        for (const pe of ['::before', '::after']) {
+          const cs = getComputedStyle(li, pe);
+          if (cs.content === 'none' || cs.display === 'none' || cs.visibility === 'hidden') continue;
+          const w = parseFloat(cs.width) + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+          if (cs.position === 'absolute' && w > 0.5) rowFaults.push(`${pe} ${round(w)}px wide at rest`);
+        }
+        const texts = [...li.querySelectorAll('.entry-content, .entry-title, .chip, .entry-date')].filter(vis);
+        for (const btn of [...li.querySelectorAll('button')].filter(vis)) {
+          const b = btn.getBoundingClientRect();
+          const hit = texts.find((t) => !t.contains(btn) && !btn.contains(t) && (() => {
+            const a = t.getBoundingClientRect();
+            return Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
+          })());
+          if (hit) rowFaults.push(`${name(btn)} ${btn.getAttribute('aria-label') || ''} over ${name(hit)}`);
+        }
+      }
       return {
+        rowFaults: [...new Set(rowFaults)].slice(0, 4),
         chrome: round(total),
         bands: outer.map((a) => `${name(a.el)} ${round(a.bottom - a.top)}`),
         contentTop: round(firstItem.getBoundingClientRect().top),
@@ -177,6 +207,8 @@ const TABS = [
       if (r.wide.length) bad.push('wider than its box: ' + r.wide.join(', '));
       if (r.clipped.length) bad.push('clipped: ' + r.clipped.join(', '));
       if (r.small.length) bad.push(`under ${MIN}px: ` + r.small.join(', '));
+      if (r.rowFaults.length) bad.push('row at rest: ' + r.rowFaults.join(', '));
+      if (r.contentTop > H * MAX_CONTENT_TOP) bad.push(`content starts at y=${r.contentTop}, below ${Math.round(H * MAX_CONTENT_TOP)}`);
     }
     failures += bad.length;
     console.log(`  ${tab.padEnd(10)} chrome ${String(r.chrome ?? '-').padStart(3)}px (${r.chrome ? Math.round(r.chrome / H * 100) : '-'}%)  content at y=${r.contentTop ?? '-'}  [${(r.bands || []).join(', ')}]`);

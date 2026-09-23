@@ -1517,14 +1517,9 @@ header#top-bar,
     min-width: 0;
   }
 
-  /* A dock with an opener and no find zone (Chat) put its actions on the
-     title's row and left the title 34px for 148px of text (`phone.js`:
-     "wider than its box with no scroller"). The actions take the next row,
-     kept to the right as everywhere. */
-  .dock > .dock-nav ~ .dock-actions {
-    flex: 1 1 100%;
-    justify-content: flex-end;
-  }
+  /* The actions share the title's row now (item 12, below): the Chat title
+     that was left 34px for 148px of text when they first did is two lines,
+     the name over the model, and ellipsises (item 12's block below). */
 
   .dock .dock-find > input[type="search"],
   .dock .dock-find > .library-search {
@@ -1594,12 +1589,25 @@ header#top-bar,
     color: var(--error);
   }
 
+  /* **Nothing at rest.** The underlays were `width: 0` with the words' inset
+     as padding, so at rest each was a 10px strip of its colour down the
+     row's edge, a blue one on the left and a red one on the right of every
+     note (INBOX 392, measured by phonechrome.js). The inset is only there
+     while there is a gap to put it in, and never wider than the gap. */
+  .entry-list li::before,
+  .entry-list li::after {
+    box-sizing: border-box;
+    padding-inline: 0;
+  }
+
   .entry-list li.swipe-right::before {
     width: var(--swipe-x);
+    padding-left: min(var(--space-4), var(--swipe-x));
   }
 
   .entry-list li.swipe-left::after {
     width: calc(-1 * var(--swipe-x));
+    padding-right: min(var(--space-4), calc(-1 * var(--swipe-x)));
   }
 
   .entry-list li.swipe-armed.swipe-right::before {
@@ -1609,6 +1617,180 @@ header#top-bar,
   .entry-list li.swipe-armed.swipe-left::after {
     background: color-mix(in srgb, var(--error) 32%, transparent);
   }
+}
+
+/* --- Phase 11 item 12: a note row designed for a thumb ----------------------
+   What a phone comes to Notes for is to find a note and read it, so the row
+   is the note: its title, its opening lines, and one line of where and when.
+   Measured at 390 before (phonechrome.js, INBOX 392): the row's four action
+   buttons sat on its chips, because the swipe's `transform` on the row's
+   children made `.entry-meta` the strip's containing block, so `top: 12px`
+   was 12px into the chips rather than into the row; and every row still
+   reserved the 44px lane above its text that the strip used to sit in.
+   On a phone each of those four already has a better way in: a swipe right
+   is Favourite, a swipe left is Bin, a tap opens the note page whose thumb
+   bar holds these same buttons (moved there, not copied), and the favourite
+   state is the row's own "favourite" chip. So the row keeps one control, its
+   ⋯ menu, at the end of its meta line, in the flow and at 44px, and the lane
+   goes. The note page's list is `.note-page-list`, not `#entry-list`, so
+   none of this reaches the page. */
+@media (max-width: 599.98px) {
+
+  #entry-list > li:not(:has(textarea)) {
+    padding-top: var(--space-4);
+  }
+
+  #entry-list > li .entry-actions {
+    position: static;
+    margin-left: auto;
+    background: none;
+    opacity: 1;
+  }
+
+  #entry-list > li .entry-actions > :not(.menu-wrap) {
+    display: none;
+  }
+
+  /* The list is the page: the card that framed it on a desktop is a second
+     frame inside the window's own, and cost each row 33px of its width. */
+  #tab-notes #browse,
+  #tab-chat #chat-main {
+    padding-inline: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  #tab-notes #browse {
+    padding-block: 0;
+  }
+
+  #tab-notes .layout > main {
+    padding-right: 0;
+  }
+}
+
+/* --- Phase 11 item 12: a dock's head is one row on a phone --------------------
+   A phone's navigation bar is one row: the way back or the drawer at the
+   leading edge, the title, and at most three icons at the trailing edge,
+   with the search field under it (the HIG's navigation bar, and what Mail,
+   Notes and Files draw). The docks here drew three rows (Notes, measured at
+   390: 166px for an opener, a title, a search box and three icons), because
+   the actions zone was sent to a row of its own and its hairline divider
+   was drawn at the start of every row it wrapped to. Now the actions share
+   the title's row and the find zone takes the second; a zone divider is a
+   boundary on one line, so on a phone, where the zones stack, there is
+   none. */
+@media (max-width: 599.98px) {
+
+  .dock > * + * {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .dock > .dock-nav ~ .dock-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .dock:has(> .dock-nav) > .dock-find {
+    order: 1;
+  }
+
+  /* Chat's title is the conversation's name over the model it runs on, the
+     way a phone's navigation bar puts a subtitle under its title, so the two
+     share the width the three actions leave rather than each wanting it. */
+  .chat-toolbar .chat-headline {
+    flex-direction: column;
+    align-items: flex-start;
+    row-gap: 0;
+  }
+
+  .chat-toolbar .chat-headline > :first-child,
+  .chat-toolbar #chat-title {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .chat-toolbar .chat-subline {
+    flex: 0 1 auto;
+    max-width: 100%;
+    font-size: var(--text-xs);
+    overflow: hidden;
+  }
+
+  /* The model and the turn count leave the head: both are the model's
+     business, and the model is named and chosen in the "How it answers"
+     sheet a phone opens from the gear (`dockChatTools`). Measured with them
+     stacked under the title, the head was 86px for a 24px title, since the
+     model's name is a button at the band's 44px floor. The "reading a
+     summary" pill stays, since it is about this conversation and shows only
+     when it is true. */
+  .chat-toolbar #chat-active-model,
+  .chat-toolbar #chat-turns {
+    display: none;
+  }
+
+  /* The lane the toolbar kept for the sidebar's own toggle: below 600 that
+     toggle is not on the page (the opener in the head stands for it), so the
+     lane was 42px of nothing before the opener. */
+  #tab-chat .chat-toolbar {
+    padding-left: var(--space-3);
+  }
+}
+
+/* The chat's "How it answers" panel inside the sheet (`openChatDockMore`):
+   the sheet is the surface, so the panel sheds the popover it is at every
+   other width, and the model picker and the tool toggles `dockChatTools`
+   moved into it stack as full-width rows at the band's floor. */
+.chat-answers-sheet > #chat-dock-more-panel {
+  position: static;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow-y: auto;
+  gap: var(--space-3);
+}
+
+.chat-dock-more-tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--divider);
+}
+
+.chat-dock-more-toggles,
+.chat-dock-more-toggles > .chat-tool-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.chat-dock-more-model > .select-shell {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.chat-dock-more-model > .select-shell > .select-opener {
+  max-width: 100%;
+}
+
+.chat-dock-more-tools button,
+.chat-answers-sheet .chat-dock-more-row select,
+.chat-answers-sheet #persona-peek,
+.chat-answers-sheet #chat-tune-search {
+  min-height: var(--target-min);
 }
 
 /* --- Phase 11 item 2: the note page, the sheet recipe's `page` variant -------

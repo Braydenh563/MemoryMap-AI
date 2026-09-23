@@ -122,6 +122,10 @@ function ensureSettingsPaneTitle(box, name) {
   if (!box || box.querySelector(":scope > .help-head > h3, :scope > .settings-pane-title")) return;
   const label = document.querySelector(`#settings-nav [data-section="${name}"]`)?.textContent.trim();
   if (!label) return;
+  //: A pane whose first group is already named the same (Packages) would
+  //: say it twice, one heading straight over the other.
+  const firstHeading = box.querySelector("h3")?.textContent.trim().toLowerCase();
+  if (firstHeading === label.toLowerCase()) return;
   const head = document.createElement("div");
   head.className = "row help-head settings-pane-title";
   const title = document.createElement("h3");

@@ -19,7 +19,8 @@ tab bar and the composer. Numbers in HISTORY.
 
 ## Left, in the order to build it
 
-1. **The selection ticks** on Library cards and reminder rows draw a 44px box
+1. ~~**The selection ticks**~~ Built 2026-09-23 (agent M, `touchticks.js`
+   7/7: a 22px box inside the 44px target). Was: on Library cards and reminder rows draw a 44px box
    at rest on a touch screen; a smaller drawn box inside a 44px target would
    read lighter (the recipe is the `appearance: none` tick block in
    07-whiteboard-misc.css).

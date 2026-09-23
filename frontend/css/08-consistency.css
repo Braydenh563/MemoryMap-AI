@@ -3662,3 +3662,61 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .dash-reminder-when {
   font-size: var(--text-sm);
 }
+
+/* The View menu's two columns break before Panels, by name rather than by
+   wherever the column balancing happens to fall, so the second column
+   starts with a group and not with a hairline over nothing (measured: the
+   balanced columns put the Panels group's top rule at the head of column
+   two). Look and the map's own group are one column, the panels and the
+   camera the other. One column below 600, where the rule comes back. */
+@media (min-width: 600px) {
+  #wb-view-menu .wb-menu-section[aria-label="Panels"] {
+    break-before: column;
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
+/* **A 44px target, a lighter box** (the phone pass's first open item). On a
+   coarse pointer `--target-min` is the 44px floor, and the tick recipe in
+   07-whiteboard-misc.css draws its box at the full target size: a bordered,
+   shadowed 44px square beside every Library card and every reminder, at
+   rest, heavier than the words it selects. The target has to stay 44px; the
+   drawing does not. So the input keeps its size and loses its own frame,
+   and the box is drawn half that size in its middle, where the checkmark
+   already sits. */
+@media (pointer: coarse) {
+  .library-card-tick,
+  #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only),
+  .library-card-tick:checked,
+  #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only):checked {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .library-card-tick::before,
+  #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only)::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: calc(var(--target-min) / 2);
+    height: calc(var(--target-min) / 2);
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+    border: 1px solid var(--muted);
+    border-radius: calc(var(--radius) * 0.4);
+    background: var(--modal-bg-opaque);
+    box-shadow: inset 0 1px 2px var(--field-inset);
+    transition:
+      background var(--motion-fast) ease,
+      border-color var(--motion-fast) ease;
+  }
+
+  .library-card-tick:checked::before,
+  #reminder-groups .entry-list input[type="checkbox"]:not(.sr-only):checked::before {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+}

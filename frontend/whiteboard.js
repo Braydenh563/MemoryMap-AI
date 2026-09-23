@@ -8415,6 +8415,10 @@ function wbSyncMapChrome() {
   if (expandRow) expandRow.hidden = !isMap;
   const themeRow = document.getElementById("wb-map-theme-item");
   if (themeRow) themeRow.hidden = !isMap;
+  //: The group itself as well as its rows: on a board it held nothing but
+  //: its own heading, a group of zero rows drawn between two that have some.
+  const mapSection = document.getElementById("wb-view-map-section");
+  if (mapSection) mapSection.hidden = !isMap;
   if (!isMap && wbMapFocusState) wbMapFocusState = null;
   wbSyncMapViews();
 }
@@ -8456,6 +8460,8 @@ async function wbMapPinOnDrag(d) {
 }
 
 function wbApplySelectionHighlight() {
+  //: After this frame's selection is settled (see `renderWbGestureHints`).
+  requestAnimationFrame(renderWbGestureHints);
   document
     .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
     .forEach((el) => el.classList.remove("wb-selected", "wb-in-group"));
@@ -11618,6 +11624,9 @@ async function initWhiteboard() {
   $("wb-map-perspective")?.addEventListener("change", (e) => wbMapSetPerspective(e.target.value));
   $("wb-map-theme-item")?.addEventListener("click", wbMapThemeDialog);
   $("wb-map-stats-item")?.addEventListener("click", wbShowMapStats);
+  $("wb-zoom-actual")?.addEventListener("click", () =>
+    d3.select(document.getElementById("whiteboard-container")).transition().duration(160).call(wbZoom.scaleTo, 1)
+  );
   $("wb-map-expand-all")?.addEventListener("click", wbMapExpandAll);
   $("wb-map-focus-less")?.addEventListener("click", () => wbMapStepFocus(-1));
   $("wb-map-focus-more")?.addEventListener("click", () => wbMapStepFocus(1));
@@ -13829,14 +13838,14 @@ async function initWhiteboard() {
     const index = wbMapIndex();
     const folded = index.nodes.filter((n) => n.data?.collapsed).length;
     const items = [
-      makeMenuItem("ph:plus-circle Add a topic here", "A new trunk, where you pressed", () => wbMapAddRootAt(x, y)),
+      makeMenuItem("ph:plus-circle Add a topic here", "A new trunk, where you pressed: or double-click the canvas", () => wbMapAddRootAt(x, y)),
       makeMenuItem("ph:broom Tidy the map", "Lay every unpinned topic out again", () => wbMapTidy()),
       makeMenuItem(
         folded ? `ph:arrows-out-line-vertical Open every folded branch (${folded})` : "ph:arrows-out-line-vertical Open every folded branch",
         folded ? "This map has folded branches" : "Nothing is folded on this map",
         () => wbMapExpandAll()
       ),
-      makeMenuItem("ph:frame-corners Fit everything", "Show the whole map", () =>
+      makeMenuItem("ph:frame-corners Fit everything", "Show the whole map (Shift+1)", () =>
         document.getElementById("wb-zoom-fit")?.click()
       ),
     ];
@@ -15399,13 +15408,36 @@ function wbMultiSnapshot(boxes) {
     box: row.box,
     d: row.entry.kind === "sketch" ? row.entry.parsed.d : null,
     rotation: row.entry.kind === "sketch" ? 0 : (row.entry.item.rotation || 0),
+    //: The whole row as it was, for the undo step and for Escape.
+    before: WB_KIND_INFO[row.entry.kind].payload(row.entry.item),
   }));
+}
+
+//: Escape during a group's resize or turn: every member back as the grip
+//: found it, on screen only (nothing was saved yet).
+function wbRestoreMultiSnapshot(rows) {
+  for (const row of rows || []) {
+    const item = row.entry.item;
+    if (row.entry.kind === "sketch") {
+      delete item._liveD;
+      const selector = `.sketch-group[data-id="${item.id}"]`;
+      document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", row.d);
+      document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", row.d);
+      continue;
+    }
+    wbRestoreBox(row.entry.kind, item, row.before);
+  }
 }
 
 //: Saving a whole group, one write at a time. Each write is the item's whole
 //: row and the board's stale-client recovery reloads everything, which a
 //: burst of simultaneous writes would race.
 async function wbSaveMultiSnapshot(rows) {
+  //: One undo step for the whole group (it had none: Ctrl+Z after resizing
+  //: or turning a selection put nothing back).
+  wbPushDragUndo(rows.map((row) => ({
+    action: "move", kind: row.entry.kind, id: row.entry.item.id, before: row.before,
+  })));
   for (const row of rows) {
     if (row.entry.kind === "sketch") {
       const live = row.entry.item._liveD;
@@ -15535,6 +15567,7 @@ function wbRenderMultiSelectionHandles() {
   //: frame's rounding into a shape that drifts while you hold the mouse
   //: still, the accumulation bug the single-shape handles document.
   let start = null;
+  let groupGesture = null;
   for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
     const hx = handle.includes("w") ? bbox.minX : handle.includes("e") ? bbox.maxX : (bbox.minX + bbox.maxX) / 2;
     const hy = handle.includes("n") ? bbox.minY : handle.includes("s") ? bbox.maxY : (bbox.minY + bbox.maxY) / 2;
@@ -15552,9 +15585,14 @@ function wbRenderMultiSelectionHandles() {
             rawDX = 0;
             rawDY = 0;
             start = wbMultiSnapshot(boxes);
+            const rows = start;
+            groupGesture = wbBeginGesture(() => {
+              wbRestoreMultiSnapshot(rows);
+              layoutGroupChrome(bbox);
+            });
           })
           .on("drag", (event) => {
-            if (!start) return;
+            if (!start || groupGesture?.cancelled) return;
             const zoom = d3.zoomTransform(document.getElementById("whiteboard-container"));
             rawDX += event.dx / zoom.k;
             rawDY += event.dy / zoom.k;
@@ -15611,6 +15649,9 @@ function wbRenderMultiSelectionHandles() {
             if (!start) return;
             const rows = start;
             start = null;
+            const cancelled = wbEndGesture(groupGesture);
+            groupGesture = null;
+            if (cancelled) return;
             await wbSaveMultiSnapshot(rows);
           })
       );
@@ -15644,9 +15685,14 @@ function wbRenderMultiSelectionHandles() {
         .on("start", (event) => {
           event.sourceEvent.stopPropagation();
           spin = wbMultiSnapshot(boxes);
+          const rows = spin;
+          groupGesture = wbBeginGesture(() => {
+            wbRestoreMultiSnapshot(rows);
+            group.attr("transform", null);
+          });
         })
         .on("drag", (event) => {
-          if (!spin) return;
+          if (!spin || groupGesture?.cancelled) return;
           const angle = wbSketchAngleFromCenterDeg(
             centerX, centerY, event.sourceEvent, event.sourceEvent.shiftKey
           );
@@ -15694,6 +15740,9 @@ function wbRenderMultiSelectionHandles() {
           //: whole group from the items' new positions, and a transform left
           //: on it would be applied a second time on top of them.
           group.attr("transform", null);
+          const cancelled = wbEndGesture(groupGesture);
+          groupGesture = null;
+          if (cancelled) return;
           await wbSaveMultiSnapshot(rows);
         })
     );
@@ -15810,7 +15859,10 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
             if (sketch._liveD) {
               const finalD = sketch._liveD;
               delete sketch._liveD;
-              await wbSaveSketchD(sketch, finalD);
+              //: A stretch of a turned shape is a new shape: turning it back
+              //: by the old angle would give a skewed one, not an upright one,
+              //: so the kept turn goes with the resize.
+              await wbSaveSketchProps(sketch, { d: finalD, turned: 0 });
               if (before) wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
             }
             wbScheduleRender();
@@ -15844,7 +15896,7 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
   // same "the handle follows your cursor" feel `nodeRotateDrag` above
   // already established for cards.
   let rotateOriginalD = null, rotateLiveD = null, rotateLiveAngle = 0;
-  group.append("circle")
+  const shapeGrip = group.append("circle")
     .attr("class", "wb-sketch-rotate-handle")
     // r 6, not 7: the card and text-box grip is 12px across
     // (`.wb-rotate-handle`), and 14 against 12 was the one measured difference
@@ -15894,6 +15946,9 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
           }
         })
     );
+  //: The grip's two gestures, written on it: an SVG shape's tooltip is its
+  //: `<title>`, the same way the map's line grip says what it does.
+  shapeGrip.append("title").text("Drag to rotate: Shift snaps to 15°, double-click stands it upright");
 }
 
 // Coalesce a burst of state changes into one paint.
@@ -16711,12 +16766,12 @@ function renderWhiteboard() {
       .attr("data-handle", handle)
       //: The same title the object handles carry, for the same reason: the
       //: double-click-to-fit gesture had nothing on screen saying it existed.
-      .attr("title", "Drag to resize: double click to fit the text")
+      .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the text")
       .call(nodeResizeDrag(handle));
   }
   nodeEnter.append("div")
     .attr("class", "wb-rotate-handle")
-    .attr("title", "Drag to rotate: hold Shift to snap to 15°")
+    .attr("title", "Drag to rotate: Shift snaps to 15°, double-click stands it upright")
     .call(nodeRotateDrag());
 
   wbWireContextMenu(nodeEnter, "node");
@@ -16797,8 +16852,8 @@ const WB_OBJECT_MIN_SIZE = 40;
 //: shape bakes its turn into its path (see the sketch rotate grip), so it
 //: keeps a running total of the turns it was given in `turned` and is
 //: rotated back by that much about its own centre. A shape turned before
-//: `turned` existed has nothing to go back by, and says so rather than
-//: guessing. A group's grip is not here: a group has no angle of its own,
+//: `turned` existed, or resized since (see the resize grip), has nothing to
+//: go back by, and says so rather than guessing. A group's grip is not here: a group has no angle of its own,
 //: only members that were each turned about its centre.
 async function wbResetRotation(grip) {
   const el = grip.closest(".node-card, .wb-object");
@@ -16820,7 +16875,7 @@ async function wbResetRotation(grip) {
   if (!parsed) return;
   const turned = Number(parsed.turned) || 0;
   if (!turned) {
-    toast("This shape was turned before its angle was kept: turn it back by hand.");
+    toast("This shape has no turn to take back: it is upright, or was resized or turned before its angle was kept.");
     return;
   }
   const box = wbPathBBox(parsed.d);
@@ -17527,12 +17582,12 @@ function renderWbObjects(canvas) {
         //: these had none, so double-tapping to fit was real and invisible,
         //: which is indistinguishable from missing and was duly reported as
         //: missing.
-        .attr("title", "Drag to resize: double click to fit the text")
+        .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the text")
         .call(resizeDrag(handle));
     }
     el.append("div")
       .attr("class", "wb-rotate-handle")
-      .attr("title", "Drag to rotate: hold Shift to snap to 15°")
+      .attr("title", "Drag to rotate: Shift snaps to 15°, double-click stands it upright")
       .call(objectRotateDrag());
   });
 
@@ -18477,18 +18532,43 @@ const WB_GESTURES_DISMISSED = "wbGesturesDismissed";
 //: something else with the board.
 const WB_GESTURE_CARD_LIMIT = 4;
 
+//: **Only while a card is selected, and never on a mind map** (the map UX
+//: remainder, OPEN.md: "the keyboard hint strip sits over the canvas across
+//: the bottom and covers content"). Measured before: on a map it counted
+//: note cards, of which a map has none, so it stood over the bottom of every
+//: new map (it said "the selected card" with nothing selected) until someone
+//: found its x. Two things now teach the same keys at the moment they apply:
+//: a selected topic's ring prints "Tab adds a child, Enter one beside, C
+//: folds, Delete removes", and the rail's ? lists every key. So on a map the
+//: strip is the third copy and goes; on a board it shows only while exactly
+//: one note card is selected, which is the only time Tab and Enter do
+//: anything, and never over the card it is about.
+//: Read from storage once: this runs on every selection change.
+let wbGesturesDismissed = null;
+
 function renderWbGestureHints() {
   const strip = document.getElementById("wb-gestures");
   if (!strip) return;
-  let dismissed = false;
-  try {
-    dismissed = localStorage.getItem(WB_GESTURES_DISMISSED) === "1";
-  } catch {
-    //: A browser with storage blocked shows the hint every time, which is the
-    //: safe direction to fail in: an extra reminder beats a silent feature.
+  if (wbGesturesDismissed === null) {
+    try {
+      wbGesturesDismissed = localStorage.getItem(WB_GESTURES_DISMISSED) === "1";
+    } catch {
+      //: A browser with storage blocked shows the hint every time, which is the
+      //: safe direction to fail in: an extra reminder beats a silent feature.
+      wbGesturesDismissed = false;
+    }
   }
   const cards = (wbState && wbState.nodes ? wbState.nodes.length : 0);
-  strip.classList.toggle("hidden", dismissed || cards > WB_GESTURE_CARD_LIMIT);
+  const card = !wbIsMap() && wbMultiSelection.size === 0 && wbSelectedItem?.kind === "node"
+    ? document.querySelector(`.node-card[data-id="${wbSelectedItem.id}"]`)
+    : null;
+  const wanted = Boolean(card) && !wbGesturesDismissed && cards <= WB_GESTURE_CARD_LIMIT;
+  strip.classList.toggle("hidden", !wanted);
+  if (!wanted) return;
+  const a = strip.getBoundingClientRect();
+  const b = card.getBoundingClientRect();
+  const over = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  if (over) strip.classList.add("hidden");
 }
 window.renderWbGestureHints = renderWbGestureHints;
 
@@ -18498,6 +18578,7 @@ document.getElementById("wb-gestures-dismiss")?.addEventListener("click", () => 
   } catch {
     /* nothing to persist to, hiding it for this session is still correct */
   }
+  wbGesturesDismissed = true;
   document.getElementById("wb-gestures")?.classList.add("hidden");
 });
 

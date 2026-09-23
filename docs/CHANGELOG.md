@@ -41,6 +41,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A reminder's time sits at the end of its row; with a mouse, its actions
+  appear over the time on hover instead of holding an empty 193px gap. An
+  overdue reminder keeps its amber edge without the amber frame as well.
+- Settings section intros step down to sit under their headings (they were
+  larger than the headings they describe).
 - Resizing the window across the phone width no longer leaves the Timeline's
   previous view in the page: the rows counted twice (113 read as 226), which
   broke arrow-key walking, the pinned day head and Enter's detail.

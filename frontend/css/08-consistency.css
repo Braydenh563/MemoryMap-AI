@@ -4050,3 +4050,51 @@ main,
   font-weight: 600;
   color: var(--ink);
 }
+
+/* --- Reminders: the time at the row's end, actions over it on hover --- */
+/* The action strip (two snoozes, edit, the menu) is invisible until hover
+   but kept its 193px in the row, so every reminder's time stood 200px short
+   of the edge with a hole after it, measured at 1280. With a pointer the
+   strip now lies over the time instead (the mail-list convention: the date
+   gives way to what you can do to the row), and the time sits at the end.
+   Touch keeps the strip in the row and always shown, as before. */
+@media (hover: hover) {
+  #reminder-groups li {
+    position: relative;
+  }
+
+  #reminder-groups li .entry-meta > .entry-actions {
+    position: absolute;
+    top: 50%;
+    right: var(--space-3);
+    transform: translateY(-50%);
+    padding-left: var(--space-2);
+    /* Opaque, so the time under it does not show through: the row's own
+       tint over the card it sits on. */
+    background: linear-gradient(var(--surface-2), var(--surface-2)), var(--card);
+    border-radius: var(--radius-md);
+    pointer-events: none;
+  }
+
+  #reminder-groups li:is(:hover, :focus-within) .entry-meta > .entry-actions {
+    pointer-events: auto;
+  }
+}
+
+/* An overdue reminder said so twice: a 3px amber edge and an amber frame
+   round the whole row, two rows stacked read as a warning banner. The edge
+   carries it; the frame goes back to the row's own. */
+#reminder-groups li.overdue {
+  border-top-color: var(--divider);
+  border-right-color: var(--divider);
+  border-bottom-color: var(--divider);
+}
+
+/* --- Settings: a section's intro sits under its heading, not above it --- */
+/* Each Settings section is a 12px 600 heading and a one-line intro, and the
+   intro was a bare `<p class="muted">` at the body's 16px: the description
+   out-sized the heading it describes (60 of them across the panes). One
+   step above the rows' own 12.8px descriptions, below nothing it explains. */
+#settings-modal .settings-group > p.muted {
+  font-size: var(--text-md);
+}

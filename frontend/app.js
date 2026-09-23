@@ -7806,7 +7806,11 @@ function openLightbox(items, startIndex = 0, opts = {}) {
 // stealing focus would fight) and the popup's own text is simpler than
 // naming every readable surface in the app and it can't silently miss one
 // that gets added later.
-const SELECTION_POPUP_EXCLUDED = "input, textarea, [contenteditable], .selection-popup";
+//: Overlays are out too: the Finder, the palette and a dialog are about the
+//: thing they show, and a popup offering to turn their text into a note
+//: would sit over the controls a person is using.
+const SELECTION_POPUP_EXCLUDED =
+  "input, textarea, [contenteditable], .selection-popup, .lock-overlay, .modal-overlay, .command-palette";
 
 let selectionPopupEl = null;
 let selectionPopupText = "";
@@ -8521,6 +8525,13 @@ function fieldSelection() {
   // `selectionStart` is null on input types that do not support it (number,
   // email, colour…), which is exactly the set we should not offer this on.
   if (el.selectionStart == null || el.selectionStart === el.selectionEnd) return null;
+  //: A search box's selected query is not writing (the Finder and the
+  //: palette open with their query selected so typing replaces it), and a
+  //: field inside an overlay belongs to that overlay: the popup drew its
+  //: menu over the Finder's own results. Writing fields only.
+  if (el.type === "search" || el.closest(".lock-overlay, .modal-overlay, .command-palette, [role='combobox']")) {
+    return null;
+  }
   const text = el.value.slice(el.selectionStart, el.selectionEnd);
   return text.trim() ? { el, start: el.selectionStart, end: el.selectionEnd, text } : null;
 }
@@ -50151,6 +50162,9 @@ function finderRenderFilters() {
     //: no query they mean nothing. Reported with a screenshot.
     const showCount = row.count != null && finderQuery.trim();
     chip.textContent = showCount ? `${row.label} ${row.count}` : row.label;
+    //: Kept, by the decision above ("there are no files" is an answer), but
+    //: quieter: a zero is a fact, not a filter worth reaching for.
+    chip.classList.toggle("is-zero", Boolean(showCount && row.count === 0 && finderKind !== row.key));
     //: `aria-pressed`, not a class alone: this is a filter that is on or off
     //: and a screen reader has to hear which. `.active` is the class the
     //: chip recipe paints from, and it is painted from the same fact rather
@@ -50247,7 +50261,17 @@ function finderRender() {
     if (hit.written) {
       const when = document.createElement("span");
       when.className = "finder-row-when muted text-xs";
-      when.textContent = hit.written;
+      //: A day the way the rest of the app writes one ("23 Sept"), not the
+      //: ISO date the API sends; the year only when it is not this one.
+      const day = /^\d{4}-\d\d-\d\d$/.test(hit.written) ? new Date(`${hit.written}T00:00:00`) : null;
+      when.textContent = day && !Number.isNaN(day.getTime())
+        ? day.toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "short",
+          year: day.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+        })
+        : hit.written;
+      if (day) when.title = day.toLocaleDateString(undefined, { dateStyle: "full" });
       head.appendChild(when);
     }
     row.appendChild(head);

@@ -3254,3 +3254,46 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #settings-modal .settings-section > h3 {
   padding-inline-start: 0;
 }
+
+/* --- the flat looks carry no glow on a button ---------------------------------
+   Every bare `<button>` drew `0 2px 10px` of 25% accent under itself
+   (01-forms-settings.css), which is the "unprompted glow" of a generated UI
+   and, on a Finder result (a button, so it could be pressed), a blue smear
+   under every row of a list. The flat looks are flat: none. `:where()` keeps
+   this at the base rule's own weight, so a focus ring or any deliberate
+   shadow set by a class still wins. Classic keeps its glow. */
+:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button,
+:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button:hover {
+  box-shadow: none;
+}
+
+/* --- Find anything, de-vibecoded ---------------------------------------------
+   A result is a row in a list, in every look, so it never takes the button
+   glow; its title is 500 (a list of forty 600s is a list of shouts); a kind
+   with nothing in it is dimmed; the dialog's own name is its heading rather
+   than a 12px label; and Sort is the size of the chips beside it (it was
+   the largest text in the header at 16px). */
+.finder-row {
+  box-shadow: none;
+}
+
+.finder-row-title {
+  font-weight: 500;
+}
+
+.finder-chip.is-zero {
+  opacity: 0.55;
+}
+
+.finder-card h3 {
+  font-size: var(--text-body);
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#finder-sort,
+#finder-sort + .select-shell,
+.finder-card .select-shell {
+  font-size: var(--text-sm);
+}

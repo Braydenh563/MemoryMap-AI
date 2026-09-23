@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Find anything: the text-selection menu no longer appears over the Finder (a search field's selected query is not writing; fields inside overlays are excluded); result rows lose the button glow, titles step to 500, dates read "Sep 23", a zero-count kind is dimmed, the dialog's name is its heading and Sort matches the chips. In the flat looks no button carries the accent glow.
 - Settings: every pane opens with its name as a heading (eleven of eighteen began mid-thought), a list row's actions sit on its title line instead of leaving an empty band under it, and labels straight in a pane line up with their text.
 - Settings: every section help "?" sits on one right edge (five positions before) with no filled ground in the flat looks; a pane's title is a real heading flush with its text; skills, personas and templates show a title, a hairline Built-in label, dot-separated facts and "Changes notes" in the warn colour instead of rows of identical pills; a persona's voice is clamped to two lines instead of cut mid-word.
 - Graph: the Documents switch now shows every live document (unattached ones alone, hidden by Hide unlinked like any lone node) instead of only documents attached to notes, which left the switch doing nothing on most notebooks; the options panel's folds are inset from the edge and the Groups field matches its Add button's height.

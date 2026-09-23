@@ -3647,7 +3647,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   display: inline-block;
   width: 0.7rem;
   height: 0.7rem;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .heat-legend > span:not(.heat-cell) {

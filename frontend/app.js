@@ -27238,8 +27238,7 @@ function reminderItem(reminder, label) {
     {
       label: "ph:copy Copy text",
       run: async () => {
-        await navigator.clipboard.writeText(reminder.text);
-        toast("Copied.");
+        if (await copyToClipboard(reminder.text)) toast("Copied.");
       },
       group: "go",
     },

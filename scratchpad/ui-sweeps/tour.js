@@ -1,20 +1,25 @@
-// The guided tour, measured: every card inside the window, beside the control
-// it names and never on top of it, the counter true, the buttons doing what
-// they say, a hidden control costing its step, and the dim falling on the page
-// and not on the thing being pointed at.
+// The guided tour, measured: every step of every section at 1440x900,
+// 1184x760 and 390x844, each one judged on the things that made the owner
+// call it "completely broken on all the slides except the first one"
+// (2026-09-23): the control it names is laid out, inside the window and NOT
+// under anything else; the cut-out sits on it; the card is on screen and clear
+// of it; the tab and Notes sub-tab the step needs are the ones showing; the
+// counter says the same total from the first card to the last.
 //
-//   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BASE=http://127.0.0.1:8901 \
-//     node scratchpad/ui-sweeps/tour.js
+//   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BASE=http://127.0.0.1:8797 \
+//     node scratchpad/ui-sweeps/tour.js            # all three sizes
+//   SIZES=390x844 node scratchpad/ui-sweeps/tour.js  # one
 //
-// Every line it prints is a number or a comparison of two numbers. The one
-// visual claim in the whole surface, "the highlighted control is the one
-// bright thing on screen", is settled with scratchpad/pngpixel.py on a capture
-// rather than by looking at it: the same rule that exists because six rounds
-// were spent on one popup that was eyeballed every time.
+// Then the cases that broke it and that no clean walk sees: the tour started
+// with an overlay open (the Atlas guide, the command palette, the features
+// browser, the shortcut sheet), a resize across the phone breakpoint mid-step,
+// typing in the lit control, Next pressed twice while a tab loads, and every
+// door into the tour being live. Every line printed is a number or a
+// comparison; the one visual claim ("the lit control is the bright thing") is
+// settled with scratchpad/pngpixel.py on a capture.
 //
 // `lib.js` marks the welcome AND the tour as done before the app boots, so
-// neither opens by itself mid-sweep; this sweep opens the tour itself, which
-// is also the path a person takes from Settings, help and guide.
+// neither opens by itself mid-sweep; this sweep opens the tour itself.
 const { boot } = require("./lib.js");
 const { execFileSync } = require("child_process");
 const path = require("path");
@@ -24,450 +29,446 @@ const SHOTS = (process.env.SCRATCH || "/tmp") + "/tour-shots";
 require("fs").mkdirSync(SHOTS, { recursive: true });
 
 const failures = [];
+let stepsPassed = 0;
+let stepsSeen = 0;
 function check(ok, line) {
   if (!ok) failures.push(line);
   console.log(`${ok ? "ok  " : "FAIL"}  ${line}`);
+  return ok;
 }
 
-// What one step looks like from outside: the card, the control it is anchored
-// to, and the three relationships between them that decide whether the step
-// works at all.
+// One step, from outside. Everything the step's pass or fail depends on.
 const STEP_PROBE = () => {
   const card = document.getElementById("tour-card");
   const spot = document.getElementById("tour-spot");
-  const text = document.getElementById("tour-text");
-  const title = document.getElementById("tour-title");
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
   const c = card.getBoundingClientRect();
   const s = spot.getBoundingClientRect();
-  const t = tourRun.el.getBoundingClientRect();
+  const el = tourRun.el;
+  const t = el ? el.getBoundingClientRect() : { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
   const overlapW = Math.min(c.right, t.right) - Math.max(c.left, t.left);
   const overlapH = Math.min(c.bottom, t.bottom) - Math.max(c.top, t.top);
-  // The clear distance between the card and the control, along the axis the
-  // card was placed on. Negative would mean they touch or overlap.
   const gaps = [t.left - c.right, c.left - t.right, t.top - c.bottom, c.top - t.bottom];
+  // What is actually on top of the control, at five points, ignoring the
+  // tour's own layers (they are drawn around the hole, never in it).
+  let covered = 0;
+  let counted = 0;
+  const coveredBy = [];
+  if (el) {
+    for (const [fx, fy] of [[0.5, 0.5], [0.2, 0.3], [0.8, 0.3], [0.2, 0.7], [0.8, 0.7]]) {
+      const x = t.left + t.width * fx;
+      const y = t.top + t.height * fy;
+      if (x < 0 || y < 0 || x >= vw || y >= vh) continue;
+      counted += 1;
+      const top = document
+        .elementsFromPoint(x, y)
+        .find((n) => !n.closest("#tour-block, #tour-spot, #tour-card"));
+      if (!top || !(el.contains(top) || top.contains(el))) {
+        covered += 1;
+        coveredBy.push(top ? top.id || String(top.className).slice(0, 30) : "nothing");
+      }
+    }
+  }
+  const style = el ? getComputedStyle(el) : null;
+  const step = tourRun.step;
+  const notesShown = step.notes
+    ? !document.getElementById(step.notes)?.classList.contains("hidden")
+    : true;
   return {
-    target: tourRun.step.target,
+    target: step.target,
+    shownTarget: el ? (el.id ? `#${el.id}` : el.className) : "none",
+    alt: Boolean(tourRun.alt),
     counter: document.getElementById("tour-count").textContent,
     section: document.getElementById("tour-section").textContent,
-    title: title.textContent,
+    title: document.getElementById("tour-title").textContent,
+    text: document.getElementById("tour-text").textContent,
     side: card.dataset.side,
+    stranded: Boolean(tourRun.stranded),
     card: [Math.round(c.left), Math.round(c.top), Math.round(c.width), Math.round(c.height)],
     spot: [Math.round(s.left), Math.round(s.top), Math.round(s.width), Math.round(s.height)],
     anchor: [Math.round(t.left), Math.round(t.top), Math.round(t.width), Math.round(t.height)],
+    vw,
+    vh,
+    exists: Boolean(el && el.isConnected),
+    laidOut: Boolean(el) && t.width >= 1 && t.height >= 1 && style.visibility !== "hidden" && style.display !== "none",
+    // Inside the window: the whole control when it fits, and at least the
+    // tour's own 8px each way when it is bigger than the window.
+    inWindow:
+      Boolean(el) &&
+      (t.width <= vw && t.height <= vh
+        ? t.left >= -0.5 && t.top >= -0.5 && t.right <= vw + 0.5 && t.bottom <= vh + 0.5
+        : Math.min(t.right, vw) - Math.max(t.left, 0) >= 8 && Math.min(t.bottom, vh) - Math.max(t.top, 0) >= 8),
+    covered: counted === 0 || covered * 2 > counted,
+    coveredBy,
+    spotHidden: spot.classList.contains("hidden"),
+    spotCovers:
+      s.left <= Math.max(0, t.left) + 1 &&
+      s.top <= Math.max(0, t.top) + 1 &&
+      s.right >= Math.min(vw, t.right) - 1 &&
+      s.bottom >= Math.min(vh, t.bottom) - 1,
     overlap: overlapW > 0 && overlapH > 0 ? Math.round(overlapW * overlapH) : 0,
     gap: Math.round(Math.max(...gaps)),
-    inside:
-      c.left >= 0 &&
-      c.top >= 0 &&
-      c.right <= window.innerWidth + 0.5 &&
-      c.bottom <= window.innerHeight + 0.5,
-    textClipped: text.scrollHeight > text.clientHeight + 1,
-    cardClipped: card.scrollHeight > card.clientHeight + 1,
+    cardInside: c.left >= -0.5 && c.top >= -0.5 && c.right <= window.innerWidth + 0.5 && c.bottom <= window.innerHeight + 0.5,
+    cardOpaque: getComputedStyle(card).opacity === "1" && c.width > 40 && c.height > 40,
+    textClipped:
+      document.getElementById("tour-text").scrollHeight > document.getElementById("tour-text").clientHeight + 1 ||
+      card.scrollHeight > card.clientHeight + 1,
     focus: document.activeElement ? document.activeElement.id : "",
     index: tourRun.index,
     total: tourRun.steps.length,
-    // The cut-out has to sit on the control, or the bright area is somewhere
-    // else on the page and the dim is over the control after all.
-    spotCoversAnchor:
-      s.left <= t.left + 1 && s.top <= t.top + 1 && s.right >= t.right - 1 && s.bottom >= t.bottom - 1,
+    wantTab: step.tab || "",
+    tab: tourActiveTab(),
+    notesShown,
+    busy: card.getAttribute("aria-busy") === "true",
   };
 };
 
-async function walkTour(page, label) {
+// Wait until the walk in progress has drawn its card (the busy flag is set
+// while a step navigates and waits for its control, and cleared when it is
+// drawn), then a frame more for the placement.
+async function settled(page) {
+  await page.waitForFunction(
+    () => !tourRun || document.getElementById("tour-card").getAttribute("aria-busy") !== "true",
+    null,
+    { timeout: 8000 }
+  );
+  await page.waitForTimeout(120);
+}
+
+// Every check a step must pass. Returns whether all did.
+function judge(label, m, phone) {
+  const tag = `${label} ${m.counter} ${m.target}${m.alt ? `->${m.shownTarget}` : ""}`;
+  let ok = true;
+  ok = check(!m.stranded, `${tag} is not stranded (it has a control to point at)`) && ok;
+  ok = check(m.exists && m.laidOut, `${tag} target exists and is laid out ${JSON.stringify(m.anchor)}`) && ok;
+  ok = check(m.inWindow, `${tag} target is inside the window ${JSON.stringify(m.anchor)} in ${m.vw}x${m.vh}`) && ok;
+  ok = check(!m.covered, `${tag} nothing is drawn over the target (${m.coveredBy.join(",") || "clear"})`) && ok;
+  ok = check(!m.spotHidden && m.spotCovers, `${tag} the cut-out sits on the target spot=${JSON.stringify(m.spot)}`) && ok;
+  ok = check(m.cardInside && m.cardOpaque, `${tag} the card is on screen ${JSON.stringify(m.card)}`) && ok;
+  ok = check(m.overlap === 0 && m.gap >= 8, `${tag} the card is clear of the target (overlap ${m.overlap}, gap ${m.gap})`) && ok;
+  ok = check(!m.textClipped, `${tag} no clipped text`) && ok;
+  ok = check(!m.wantTab || m.tab === m.wantTab, `${tag} the ${m.wantTab || "current"} tab is showing (${m.tab})`) && ok;
+  ok = check(m.notesShown, `${tag} its Notes sub-tab is showing`) && ok;
+  ok = check(m.counter === `${m.index + 1} of ${m.total}`, `${tag} counter matches step ${m.index + 1}/${m.total}`) && ok;
+  ok = check(m.focus === "tour-next", `${tag} focus is on Next (${m.focus})`) && ok;
+  if (m.alt) ok = check(/More/.test(m.text), `${tag} the card says the control is in More`) && ok;
+  if (phone) {
+    // A sheet: the window's width less its gutters, docked to an edge.
+    const docked = m.card[1] <= 20 || m.card[1] + m.card[3] >= m.vh - 20;
+    ok = check(m.card[2] >= m.vw - 40 && docked, `${tag} the card is a docked sheet (${m.side})`) && ok;
+  }
+  stepsSeen += 1;
+  if (ok) stepsPassed += 1;
+  return ok;
+}
+
+async function walk(page, label, phone) {
   const seen = [];
   for (let guard = 0; guard < 40; guard += 1) {
-    const open = await page.evaluate(() => !!tourRun);
-    if (!open) break;
+    if (!(await page.evaluate(() => !!tourRun))) break;
+    await settled(page);
+    if (!(await page.evaluate(() => !!tourRun))) break;
     const m = await page.evaluate(STEP_PROBE);
     seen.push(m);
     console.log(
-      `${label} ${m.counter.padEnd(7)} ${m.target.padEnd(22)} side=${(m.side || "").padEnd(6)} ` +
-        `card=${JSON.stringify(m.card).padEnd(24)} anchor=${JSON.stringify(m.anchor).padEnd(24)} ` +
-        `overlap=${m.overlap} gap=${m.gap}`
+      `${label} ${m.counter.padEnd(8)} ${m.target.padEnd(20)} shown=${m.shownTarget.padEnd(20)} tab=${m.tab.padEnd(9)} ` +
+        `side=${(m.side || "").padEnd(11)} card=${JSON.stringify(m.card)} anchor=${JSON.stringify(m.anchor)}`
     );
-    check(m.inside, `${label} ${m.counter} card fully inside the window`);
-    check(m.overlap === 0, `${label} ${m.counter} card does not cover ${m.target} (overlap ${m.overlap}px2)`);
-    check(m.gap >= 8, `${label} ${m.counter} card is beside ${m.target}, clear gap ${m.gap}px`);
-    check(!m.textClipped && !m.cardClipped, `${label} ${m.counter} no clipped text`);
-    check(m.spotCoversAnchor, `${label} ${m.counter} cut-out covers ${m.target}`);
-    check(
-      m.counter === `${m.index + 1} of ${m.total}`,
-      `${label} ${m.counter} counter matches step ${m.index + 1}/${m.total}`
-    );
-    check(m.focus === "tour-next", `${label} ${m.counter} focus is in the card (${m.focus})`);
+    judge(label, m, phone);
     await page.click("#tour-next");
-    await page.waitForTimeout(450);
+    await page.waitForTimeout(150);
   }
+  const totals = seen.map((s) => s.total);
+  check(
+    seen.length > 0 && totals.every((t) => t === totals[0]) && totals[0] === seen.length,
+    `${label} the counter's total never changes and is the number of cards shown (${totals.join("/")}, ${seen.length} shown)`
+  );
+  check(
+    await page.evaluate(() => !tourRun && document.getElementById("tour-card").classList.contains("hidden")),
+    `${label} Done closes the tour`
+  );
   return seen;
 }
 
+const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
+  .split(",")
+  .map((s) => s.split("x").map(Number));
+
 (async () => {
-  for (const [width, height] of [
-    //: 2000x1140 is here because INBOX 280 was reported there and nothing had
-    //: ever driven the tour at a window that wide. The failure it found was
-    //: not about the width itself, but a sweep that only ever ran at two
-    //: sizes could not say that.
-    [2000, 1140],
-    [1440, 900],
-    [390, 844],
-  ]) {
-    const { browser, page } = await boot({ viewport: { width, height } });
+  for (const [width, height] of SIZES) {
+    const phone = width < 600;
+    const { browser, page } = await boot({
+      viewport: { width, height },
+      isMobile: phone,
+      hasTouch: phone,
+    });
     const label = `${width}x${height}`;
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
 
-    // --- the welcome tour, the way a first run reaches it --------------------
-    //
-    // INBOX 280: "this happens when I press next on the welcome tour", and the
-    // screenshot was the whole page dimmed with a bright strip at the right
-    // edge, no card. Everything below this drives `openTour` directly, which
-    // is the Settings path; the welcome reaches it through the last Next of
-    // `#onboarding-overlay` (`onboardingNext` in app.js), and that hand-off
-    // had never been driven by anything.
-    //
-    // The two things asserted on every step are the two the report says were
-    // missing: a card you can see, and a cut-out inside the window. A cut-out
-    // outside it is the fault itself, because the dim is the cut-out's own
-    // box-shadow, so a hole in the wrong place darkens the page and highlights
-    // nothing.
+    // --- every door is live --------------------------------------------------
+    const doors = await page.evaluate(() => {
+      renderTourReplay();
+      const replay = [...document.querySelectorAll("#tour-replay-buttons button")];
+      const about = document.getElementById("about-take-tour");
+      return {
+        enabled: typeof TOUR_ENABLED !== "undefined" && TOUR_ENABLED,
+        replay: replay.length,
+        replayDisabled: replay.filter((b) => b.disabled).length,
+        about: Boolean(about),
+        aboutDisabled: Boolean(about && about.disabled),
+      };
+    });
+    console.log(`${label} doors: ${JSON.stringify(doors)}`);
+    check(doors.enabled, `${label} TOUR_ENABLED is on`);
+    check(doors.replay === 5 && doors.replayDisabled === 0, `${label} the five replay buttons are live`);
+    check(doors.about && !doors.aboutDisabled, `${label} About's take-the-tour button is live`);
+
+    // --- the welcome's hand-off ----------------------------------------------
     await page.evaluate(() => {
       localStorage.removeItem("onboardingDone");
       localStorage.removeItem("tourDone");
       switchTab("dashboard");
     });
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(700);
     await page.evaluate(() => openOnboarding());
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(400);
     const slides = await page.evaluate(() => ONBOARDING_SLIDES.length);
-    for (let slide = 0; slide < slides; slide += 1) {
+    for (let slide = 0; slide < slides - 1; slide += 1) {
       await page.click("#onboarding-next");
-      await page.waitForTimeout(700);
+      await page.waitForTimeout(250);
     }
-    const handoff = await page.evaluate(() => !!tourRun);
-    check(handoff, `${label} the welcome's last Next starts the tour`);
-    for (let step = 0; step < 12 && (await page.evaluate(() => !!tourRun)); step += 1) {
-      const m = await page.evaluate(() => {
-        const vw = document.documentElement.clientWidth;
-        const vh = document.documentElement.clientHeight;
-        const spot = document.getElementById("tour-spot");
-        const card = document.getElementById("tour-card");
-        const sr = spot.getBoundingClientRect();
-        const cr = card.getBoundingClientRect();
-        const inside = (r) => r.left < vw && r.right > 0 && r.top < vh && r.bottom > 0;
-        const target = tourRun.el.getBoundingClientRect();
-        return {
-          counter: document.getElementById("tour-count").textContent,
-          step: tourRun.step.target,
-          spotHidden: spot.classList.contains("hidden"),
-          spot: [Math.round(sr.left), Math.round(sr.top), Math.round(sr.width), Math.round(sr.height)],
-          spotInside: inside(sr) && sr.width >= 1 && sr.height >= 1,
-          card: [Math.round(cr.left), Math.round(cr.top), Math.round(cr.width), Math.round(cr.height)],
-          cardVisible:
-            cr.width > 0 && cr.height > 0 && inside(cr) && getComputedStyle(card).display !== "none",
-          targetInside: inside(target),
-          //: The target has to be worth pointing at, not merely touching the
-          //: window: a control with two pixels inside the edge gives a cut-out
-          //: nobody can see the point of.
-          targetOverlap: Math.round(
-            Math.min(
-              Math.min(target.right, vw) - Math.max(target.left, 0),
-              Math.min(target.bottom, vh) - Math.max(target.top, 0)
-            )
-          ),
-        };
-      });
-      console.log(
-        `${label} welcome ${m.counter.padEnd(7)} ${m.step.padEnd(22)} ` +
-          `spot=${JSON.stringify(m.spot)} card=${JSON.stringify(m.card)}`
-      );
-      check(m.cardVisible, `${label} welcome ${m.counter} the card is on screen`);
-      check(m.targetInside, `${label} welcome ${m.counter} ${m.step} is on screen`);
-      check(
-        m.targetOverlap >= 8,
-        `${label} welcome ${m.counter} ${m.step} has a usable amount on screen (${m.targetOverlap}px)`
-      );
-      //: A step is either pointing at something, with the cut-out on it and
-      //: inside the window, or pointing at nothing, with no cut-out at all and
-      //: the card centred. The broken third state, a cut-out placed outside
-      //: the window, is what INBOX 280 was.
-      check(
-        m.spotHidden || m.spotInside,
-        `${label} welcome ${m.counter} the cut-out is inside the window or absent ` +
-          `(${JSON.stringify(m.spot)})`
-      );
-      await page.evaluate(() => tourNext());
-      await page.waitForTimeout(800);
-    }
-    await page.evaluate(() => {
-      if (tourRun) tourClose(false);
-    });
+    check(
+      (await page.textContent("#onboarding-next")).trim() === "Start the tour",
+      `${label} the welcome's last button says Start the tour`
+    );
+    await page.click("#onboarding-next");
     await page.waitForTimeout(300);
+    check(await page.evaluate(() => !!tourRun), `${label} the welcome's last button starts the tour`);
+    await walk(page, `${label} welcome`, phone);
 
-    // --- every step of the whole tour, at this width -------------------------
-    await page.evaluate(() => {
-      localStorage.removeItem("tourDone");
-      openTour();
-    });
-    await page.waitForTimeout(900);
-    const seen = await walkTour(page, label);
-    // What the table holds, against what this width could actually show. The
-    // difference is the point rather than a fault: a step whose control is not
-    // on screen at this width is dropped and the run renumbers, which is why
-    // the total falls as the tour goes on instead of promising steps that are
-    // never coming.
-    const planned = await page.evaluate(() =>
-      TOUR_SECTIONS.flatMap((s) => s.steps.map((step) => step.target))
-    );
-    const shown = seen.map((s) => s.target);
+    // --- every section on its own, then the whole tour ----------------------
+    const sections = await page.evaluate(() => TOUR_SECTIONS.map((s) => s.id));
+    for (const section of sections) {
+      await page.evaluate(() => switchTab("dashboard"));
+      await page.waitForTimeout(300);
+      await page.evaluate((id) => openTour(id), section);
+      await walk(page, `${label} ${section}`, phone);
+    }
+    await page.evaluate(() => switchTab("reminders"));
+    await page.waitForTimeout(500);
+    await page.evaluate(() => openTour());
+    const whole = await walk(page, `${label} all (from reminders)`, phone);
+    const planned = await page.evaluate(() => TOUR_SECTIONS.flatMap((s) => s.steps.map((x) => x.target)));
     console.log(
-      `${label} steps shown: ${seen.length} of ${planned.length} in the table, ` +
-        `dropped: ${JSON.stringify(planned.filter((t) => !shown.includes(t)))}, sections: ` +
-        JSON.stringify([...new Set(seen.map((s) => s.section))])
-    );
-    check(seen.length > 0, `${label} the tour ran`);
-    // The denominator may only fall, and the last card must say the truth
-    // about the run that just happened.
-    const totals = seen.map((s) => s.total);
-    check(
-      totals.every((total, i) => i === 0 || total <= totals[i - 1]),
-      `${label} the counter's total only falls (${totals.join("/")})`
-    );
-    check(
-      totals[totals.length - 1] === seen.length,
-      `${label} the last card's total (${totals[totals.length - 1]}) is the number of steps shown (${seen.length})`
-    );
-    check(
-      await page.evaluate(() => !tourRun && document.getElementById("tour-card").classList.contains("hidden")),
-      `${label} Done closes the tour`
+      `${label} whole tour: ${whole.length} of ${planned.length} steps shown, left out at this size: ` +
+        JSON.stringify(planned.filter((t) => !whole.some((s) => s.target === t)))
     );
     check(
       await page.evaluate(() => localStorage.getItem("tourDone") === "1"),
       `${label} finishing is remembered (tourDone)`
     );
 
-    // --- Back, Skip, Escape --------------------------------------------------
+    // --- with an overlay open, the tour closes it first ----------------------
+    for (const opener of ["openHelpChat()", "openPalette()", "openFeatures()", "openShortcuts()"]) {
+      await page.evaluate((src) => new Function(src)(), opener);
+      await page.waitForTimeout(700);
+      await page.evaluate(() => openTour("basics"));
+      await settled(page);
+      const m = await page.evaluate(STEP_PROBE);
+      const open = await page.evaluate(() =>
+        [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')]
+          .filter((el) => el.id !== "tour-card" && !el.classList.contains("hidden") && el.getClientRects().length)
+          .map((el) => el.id || el.className)
+      );
+      judge(`${label} over ${opener}`, m, phone);
+      check(open.length === 0, `${label} ${opener} was closed by the tour (${JSON.stringify(open)})`);
+      await page.evaluate(() => tourClose(false));
+      await page.waitForTimeout(200);
+    }
+
+    // --- a resize across the phone breakpoint, mid-step ----------------------
+    if (!phone) {
+      await page.evaluate(() => openTour("basics"));
+      for (let i = 0; i < 3; i += 1) {
+        await settled(page);
+        await page.click("#tour-next");
+      }
+      await settled(page);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForTimeout(600);
+      const narrow = await page.evaluate(STEP_PROBE);
+      console.log(`${label} resized to 390: showing ${narrow.shownTarget} card=${JSON.stringify(narrow.card)}`);
+      check(narrow.shownTarget === "#phone-more-btn" && narrow.alt, `${label} at 390 the Settings step moves to More`);
+      check(narrow.cardInside && narrow.overlap === 0 && !narrow.covered, `${label} at 390 the card is on screen and clear`);
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(600);
+      const wide = await page.evaluate(STEP_PROBE);
+      check(wide.shownTarget === "#settings-btn" && !wide.alt, `${label} back at ${width} it points at the gear again`);
+      check(wide.cardInside && wide.overlap === 0 && wide.spotCovers, `${label} back at ${width} the card and cut-out follow`);
+      await page.evaluate(() => tourClose(false));
+    }
+
+    // --- typing in the lit control is typing ---------------------------------
+    await page.evaluate(() => openTour("note"));
+    await settled(page);
+    await page.click("#entry-content");
+    await page.keyboard.type("ab");
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Enter");
+    const typed = await page.evaluate(() => ({
+      index: tourRun && tourRun.index,
+      value: document.getElementById("entry-content").value,
+    }));
+    check(typed.index === 0 && typed.value === "a\nb", `${label} arrows and Enter in the lit box edit it (${JSON.stringify(typed)})`);
+    await page.evaluate(() => {
+      document.getElementById("entry-content").value = "";
+      document.getElementById("tour-next").focus();
+    });
+    await page.keyboard.press("ArrowRight");
+    await settled(page);
+    check(await page.evaluate(() => tourRun && tourRun.index === 1), `${label} ArrowRight on the card moves the tour on`);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => !tourRun), `${label} Escape ends the tour`);
+
+    // --- Next twice while a tab loads ----------------------------------------
+    await page.evaluate(() => switchTab("dashboard"));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => openTour("finding"));
+    await settled(page);
+    await page.evaluate(() => {
+      tourNext();
+      tourNext();
+    });
+    await settled(page);
+    await page.waitForTimeout(400);
+    const twice = await page.evaluate(STEP_PROBE);
+    check(twice.index === 2 && twice.counter === `3 of ${twice.total}`, `${label} two quick Nexts land on step 3 once (${twice.counter})`);
+    judge(`${label} after two quick Nexts`, twice, phone);
+    await page.evaluate(() => tourClose(false));
+
+    // --- Back, Skip, the X, the Tab trap, focus handed back -------------------
     await page.evaluate(() => openTour("basics"));
-    await page.waitForTimeout(700);
-    const first = await page.evaluate(STEP_PROBE);
-    check(
-      await page.evaluate(() => document.getElementById("tour-back").disabled),
-      `${label} Back is disabled on the first step (${first.counter})`
-    );
-    // Tab stays inside the card. The trap is app.js's own (the card is a
-    // `[role="dialog"][aria-modal="true"]`), so this is a check that the tour
-    // is wearing the shape that trap looks for, not a second implementation.
+    await settled(page);
+    check(await page.evaluate(() => document.getElementById("tour-back").disabled), `${label} Back is disabled on the first step`);
     const tabbed = [];
     for (let i = 0; i < 6; i += 1) {
       await page.keyboard.press("Tab");
-      tabbed.push(
-        await page.evaluate(() => {
-          const el = document.activeElement;
-          return `${el && el.id ? el.id : el.tagName}:${document
-            .getElementById("tour-card")
-            .contains(el)}`;
-        })
-      );
+      tabbed.push(await page.evaluate(() => document.getElementById("tour-card").contains(document.activeElement)));
     }
-    console.log(`${label} tab cycle: ${JSON.stringify(tabbed)}`);
-    check(
-      tabbed.every((entry) => entry.endsWith(":true")),
-      `${label} Tab stays inside the card`
-    );
+    check(tabbed.every(Boolean), `${label} Tab stays inside the card`);
     await page.evaluate(() => document.getElementById("tour-next").focus());
-
     await page.click("#tour-next");
-    await page.waitForTimeout(450);
+    await settled(page);
     await page.click("#tour-next");
-    await page.waitForTimeout(450);
-    const third = await page.evaluate(STEP_PROBE);
+    await settled(page);
     await page.click("#tour-back");
-    await page.waitForTimeout(450);
-    const back = await page.evaluate(STEP_PROBE);
-    console.log(`${label} back: ${third.counter} -> ${back.counter} (${back.title})`);
-    check(back.index === third.index - 1, `${label} Back goes one step back`);
+    await settled(page);
+    check(await page.evaluate(() => tourRun.index === 1), `${label} Back goes one step back`);
     await page.click("#tour-skip");
-    await page.waitForTimeout(450);
+    await page.waitForTimeout(200);
     check(
       await page.evaluate(
         () =>
           !tourRun &&
-          document.getElementById("tour-card").classList.contains("hidden") &&
-          document.getElementById("tour-spot").classList.contains("hidden") &&
-          document.getElementById("tour-block").classList.contains("hidden")
+          ["tour-card", "tour-spot", "tour-block"].every((id) => document.getElementById(id).classList.contains("hidden"))
       ),
       `${label} Skip closes the tour and its dim`
     );
-
-    // Escape, and the focus handed back to whatever opened the tour. The
-    // opener is the space switcher rather than the gear, because the gear is
-    // `display: none` below 600 (it is behind `#header-more`, and that host is
-    // a SPAN, which does not take focus either). Focusing an element that
-    // cannot hold focus left `document.activeElement` on `<body>`, and this
-    // check then read a sweep bug as a tour bug for as long as it ran. The
-    // space switcher is a real button at both widths.
-    const opener = "space-switcher-btn";
-    await page.evaluate((id) => {
-      document.getElementById(id).focus();
+    await page.evaluate(() => {
+      document.getElementById("space-switcher-btn").focus();
       openTour("basics");
-    }, opener);
-    await page.waitForTimeout(700);
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(400);
-    const afterEscape = await page.evaluate(() => ({
-      open: !!tourRun,
-      focus: document.activeElement ? document.activeElement.id : "",
-    }));
-    check(!afterEscape.open, `${label} Escape skips the tour`);
-    check(
-      afterEscape.focus === opener,
-      `${label} focus returns to the opener ${opener} (${afterEscape.focus})`
-    );
+    });
+    await settled(page);
+    await page.click("#tour-close");
+    await page.waitForTimeout(200);
+    const afterClose = await page.evaluate(() => ({ open: !!tourRun, focus: document.activeElement?.id }));
+    check(!afterClose.open && afterClose.focus === "space-switcher-btn", `${label} the X closes it and focus returns to the opener (${afterClose.focus})`);
 
-    // --- a step whose element is hidden is skipped ---------------------------
+    // --- a control hidden for good is left out before the count --------------
     const hidden = await page.evaluate(async () => {
       const el = document.getElementById("space-switcher-btn");
       el.style.display = "none";
       openTour("basics");
-      await new Promise((r) => setTimeout(r, 600));
-      const titles = [];
-      while (tourRun) {
-        titles.push(tourRun.step.title);
-        const total = tourRun.steps.length;
-        tourNext();
-        await new Promise((r) => setTimeout(r, 350));
-        if (!tourRun) {
-          titles.push(`total=${total}`);
-          break;
-        }
-      }
+      const first = tourRun.steps.length;
       el.style.display = "";
-      return titles;
+      return first;
     });
-    console.log(`${label} with #space-switcher-btn hidden: ${JSON.stringify(hidden)}`);
-    check(!hidden.includes("Spaces"), `${label} the hidden control's step is skipped`);
-    check(hidden.includes("total=3"), `${label} the counter renumbers to 3 after the drop`);
+    await settled(page);
+    await page.evaluate(() => tourClose(false));
+    check(hidden === 3, `${label} a hidden chrome control is left out before the count (3, got ${hidden})`);
 
-    // --- the dim is on the page and not on the highlighted control -----------
-    // Two captures of the same pixels, one with the tour open and one without.
-    // The highlighted control must be unchanged and the page around it must be
-    // darker: that is what "a cut-out" means, and no computed style can say it.
-    const probePoints = await page.evaluate(() => {
-      const tab = document.getElementById("tab-btn-notes").getBoundingClientRect();
-      const body = document.body.getBoundingClientRect();
+    // --- the dim is on the page and not on the lit control -------------------
+    await page.evaluate(() => switchTab("dashboard"));
+    await page.waitForTimeout(500);
+    const points = await page.evaluate(() => {
+      const bar = document.getElementById("space-switcher-btn").getBoundingClientRect();
       return {
-        bright: [Math.round(tab.left + tab.width / 2), Math.round(tab.top + tab.height / 2)],
-        dim: [Math.round(body.width / 2), Math.round(Math.min(body.height - 40, 500))],
+        bright: [Math.round(bar.left + bar.width / 2), Math.round(bar.top + bar.height / 2)],
+        dim: [Math.round(window.innerWidth / 2), Math.round(window.innerHeight / 2)],
       };
     });
     const plain = `${SHOTS}/${label}-plain.png`;
     const dimmed = `${SHOTS}/${label}-tour.png`;
     await page.screenshot({ path: plain });
     await page.evaluate(() => openTour("basics"));
-    await page.waitForTimeout(800);
+    await settled(page);
+    await page.click("#tour-next");
+    await settled(page);
+    // The card is somewhere; the page point is moved off it if it landed there.
+    const cardBox = await page.evaluate(() => document.getElementById("tour-card").getBoundingClientRect().toJSON());
+    if (points.dim[0] >= cardBox.left && points.dim[0] <= cardBox.right && points.dim[1] >= cardBox.top && points.dim[1] <= cardBox.bottom) {
+      points.dim[1] = cardBox.top > height / 2 ? Math.round(cardBox.top / 2) : Math.round((cardBox.bottom + height) / 2);
+    }
     await page.screenshot({ path: dimmed });
     await page.evaluate(() => tourClose(false));
     const pixel = (file, [x, y]) =>
       execFileSync("python3", [path.join(ROOT, "scratchpad/pngpixel.py"), file, String(x), String(y)], {
         encoding: "utf-8",
       }).trim();
-    const brightBefore = pixel(plain, probePoints.bright);
-    const brightAfter = pixel(dimmed, probePoints.bright);
-    const dimBefore = pixel(plain, probePoints.dim);
-    const dimAfter = pixel(dimmed, probePoints.dim);
-    console.log(`${label} highlighted pixel ${JSON.stringify(probePoints.bright)}: ${brightBefore} -> ${brightAfter}`);
-    console.log(`${label} page pixel ${JSON.stringify(probePoints.dim)}: ${dimBefore} -> ${dimAfter}`);
     const lum = (line) => {
-      const m = line.match(/(\d+),\s*(\d+),\s*(\d+)/);
+      const m = line.match(/\((\d+),\s*(\d+),\s*(\d+)/);
       return m ? (Number(m[1]) + Number(m[2]) + Number(m[3])) / 3 : NaN;
     };
-    check(
-      Math.abs(lum(brightBefore) - lum(brightAfter)) < 3,
-      `${label} the highlighted control is not dimmed (${lum(brightBefore)} -> ${lum(brightAfter)})`
-    );
-    // Relative, not a fixed number of levels: the dark theme's page is already
-    // at luminance 22 out of 255, so a scrim that takes 40% of it off can only
-    // ever be an 8-level drop, and an absolute threshold fails a dim that is
-    // working perfectly well. Measured: light 239.7 to 142 (41% off), dark
-    // 21.7 to 13 (40% off), which is the same scrim doing the same job.
-    check(
-      lum(dimAfter) <= lum(dimBefore) * 0.8,
-      `${label} the page around it is dimmed (${lum(dimBefore)} -> ${lum(dimAfter)}, ` +
-        `${Math.round((1 - lum(dimAfter) / lum(dimBefore)) * 100)}% off)`
-    );
+    const b0 = lum(pixel(plain, points.bright));
+    const b1 = lum(pixel(dimmed, points.bright));
+    const d0 = lum(pixel(plain, points.dim));
+    const d1 = lum(pixel(dimmed, points.dim));
+    check(Math.abs(b0 - b1) < 3, `${label} the lit control is not dimmed (${b0} -> ${b1})`);
+    check(d1 <= d0 * 0.8, `${label} the page around it is dimmed (${d0} -> ${d1})`);
 
-    // --- the way back in: Settings, help and guide ---------------------------
-    // The replay strip is built from TOUR_SECTIONS, so this is also the check
-    // that the table and the buttons agree, and that pressing one closes the
-    // settings modal before measuring a control the modal was covering.
-    // Not `page.click("#settings-btn")`: below 600 the four desktop header
-    // buttons are hidden behind `#header-more` (DESIGN.md, "The top bar on a
-    // phone"), so that click waited 30s for a control the phone does not draw
-    // and took the whole sweep down at 390x844. The opener itself is the same
-    // on both, and it is what the kebab row calls.
+    // --- the replay strip plays one section, with Settings out of the way ----
     await page.evaluate(() => openSettingsModal());
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(500);
     await page.evaluate(() => showSettingsSection("help"));
-    await page.waitForTimeout(400);
-    const replay = await page.evaluate(() => {
-      const box = document.getElementById("tour-replay-buttons");
-      const buttons = [...box.querySelectorAll("button")];
-      return {
-        labels: buttons.map((b) => b.textContent),
-        filled: buttons.filter((b) => !b.classList.contains("ghost")).length,
-        height: Math.round(box.getBoundingClientRect().height),
-      };
-    });
-    console.log(`${label} replay strip: ${JSON.stringify(replay)}`);
-    check(
-      replay.labels.length === 5 && replay.labels[0] === "Start the tour",
-      `${label} the replay strip offers the whole tour and each section`
-    );
-    check(replay.filled === 1, `${label} one filled button in the strip (${replay.filled})`);
+    await page.waitForTimeout(300);
     await page.evaluate(() =>
-      [...document.getElementById("tour-replay-buttons").querySelectorAll("button")]
-        .find((b) => b.textContent === "Finding things")
-        .click()
+      [...document.querySelectorAll("#tour-replay-buttons button")].find((b) => b.textContent === "Finding things").click()
     );
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(300);
+    await settled(page);
     const fromSettings = await page.evaluate(() => ({
       open: !!tourRun,
       settingsOpen: !document.getElementById("settings-modal").classList.contains("hidden"),
       section: document.getElementById("tour-section").textContent,
-      counter: document.getElementById("tour-count").textContent,
     }));
-    console.log(`${label} from Settings: ${JSON.stringify(fromSettings)}`);
-    check(
-      fromSettings.open && fromSettings.section === "Finding things",
-      `${label} a section button plays that section alone`
-    );
+    check(fromSettings.open && fromSettings.section === "Finding things", `${label} a section button plays that section`);
     check(!fromSettings.settingsOpen, `${label} the settings modal is out of the way first`);
+    judge(`${label} from Settings`, await page.evaluate(STEP_PROBE), phone);
     await page.evaluate(() => tourClose(false));
 
-    // --- the card's own text, in rendered pixels -----------------------------
-    // contrast.js walks the app's surfaces with nothing open, so the card is
-    // `display: none` while it runs and none of its text has ever been
-    // measured. It is measured here from the capture rather than from computed
-    // styles, and the first draft of this check is why: composited from
-    // `getComputedStyle`, it reported 1.21:1 in the dark theme, because the
-    // page's background is a gradient (a background-IMAGE, with a transparent
-    // background-COLOR), so the walk up the ancestors found nothing opaque and
-    // fell back to white behind light text. The pixels have no such opinion:
-    // inside a line of text the darkest pixel is the ink and the lightest is
-    // the surface it is on, whatever painted either of them.
+    // --- the card's text as rendered ------------------------------------------
     await page.evaluate(() => openTour("basics"));
-    await page.waitForTimeout(800);
+    await settled(page);
     const inkShot = `${SHOTS}/${label}-card.png`;
     await page.screenshot({ path: inkShot });
     const inkBoxes = await page.evaluate(() => {
       const out = {};
       for (const id of ["tour-title", "tour-text", "tour-count", "tour-section"]) {
         const box = document.getElementById(id).getBoundingClientRect();
-        out[id] = [
-          Math.round(box.left),
-          Math.round(box.top),
-          Math.max(1, Math.round(box.width)),
-          Math.max(1, Math.round(box.height)),
-        ];
+        out[id] = [Math.round(box.left), Math.round(box.top), Math.max(1, Math.round(box.width)), Math.max(1, Math.round(box.height))];
       }
       return out;
     });
@@ -475,23 +476,18 @@ async function walkTour(page, label) {
     const ink = {};
     for (const [id, box] of Object.entries(inkBoxes)) {
       ink[id] = Number(
-        execFileSync(
-          "python3",
-          [path.join(__dirname, "rectcontrast.py"), inkShot, ...box.map(String)],
-          { encoding: "utf-8" }
-        ).trim()
+        execFileSync("python3", [path.join(__dirname, "rectcontrast.py"), inkShot, ...box.map(String)], {
+          encoding: "utf-8",
+        }).trim()
       );
     }
-    console.log(`${label} card text contrast (rendered pixels): ${JSON.stringify(ink)}`);
-    check(
-      Object.values(ink).every((ratio) => ratio >= 4.5),
-      `${label} every piece of the card's text is at least 4.5:1 as rendered`
-    );
+    check(Object.values(ink).every((r) => r >= 4.5), `${label} the card's text is at least 4.5:1 as rendered ${JSON.stringify(ink)}`);
 
     check(errors.length === 0, `${label} no page errors (${errors.join("; ")})`);
     await browser.close();
   }
 
-  console.log(failures.length ? `\n${failures.length} FAILURES:\n  ` + failures.join("\n  ") : "\nall checks passed");
+  console.log(`\nsteps: ${stepsPassed} of ${stepsSeen} passed every check`);
+  console.log(failures.length ? `${failures.length} FAILURES:\n  ` + failures.join("\n  ") : "all checks passed");
   process.exit(failures.length ? 1 : 0);
 })();

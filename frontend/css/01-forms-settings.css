@@ -5146,8 +5146,8 @@ select {
 #settings-modal .settings-group > summary:not(.icon-only):not(.icon-button)::before {
   position: absolute;
   inset-inline-start: calc(-1 * (0.32rem + var(--space-2)));
-  top: 50%;
-  margin-top: -0.24rem;
+  /* Centred on the row by its own half height (the 0.24rem borders above). */
+  top: calc(50% - 0.24rem);
 }
 
 /* The heading gives its own vertical margins up to the row, so the row is one

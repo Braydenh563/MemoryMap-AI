@@ -30,8 +30,11 @@ Left, in order (struck when built):
 - ~~Job B: the View menu.~~ Built: 453px on this head (the columns had
   already taken it down from 714) to 357px on a map at 1440; no printed
   headings, hairlines between groups, no second copy of the zoom bar's
-  buttons, no empty Map group on a board. `mapviewmenu.js` 4/4, 0/4 before.
-- Job B: the hint strip, discoverability, the 44px ticks.
+  buttons, no empty Map group on a board. `mapviewmenu.js` 4/4, 1/4 before.
+- ~~Job B: the hint strip.~~ Built: never on a map (the ring caption and
+  the rail's ? teach the same keys when they apply), on a board only while
+  one note card is selected and never over it. `mapviewmenu.js` 8/8.
+- Job B: discoverability pass, the 44px ticks.
 
 ## Done
 

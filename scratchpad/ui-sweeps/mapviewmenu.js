@@ -74,6 +74,23 @@ const CEILING = 450;
     await openWhiteboardBoard(board.id);
     await new Promise((r) => setTimeout(r, 1200));
   });
+  // The gesture strip: never over a map (the ring and the ? say the same).
+  const strip = () => page.evaluate(() => {
+    const s = document.getElementById("wb-gestures");
+    const b = s.getBoundingClientRect();
+    return { shown: !s.classList.contains("hidden") && b.width > 0, box: [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] };
+  });
+  await page.evaluate(() => { try { localStorage.removeItem("wbGesturesDismissed"); } catch {} wbGesturesDismissed = false; clearWbSelection(); });
+  await page.waitForTimeout(300);
+  const onMap = await strip();
+  await page.evaluate(() => selectWbItem("object", wbMapIndex().roots[0].id));
+  await page.waitForTimeout(500);
+  const onMapSelected = await strip();
+  const caption = await page.evaluate(() => document.querySelector(".wb-map-radial-caption")?.dataset.rest || "");
+  check("no gesture strip over a map, selected topic or not", !onMap.shown && !onMapSelected.shown, JSON.stringify([onMap, onMapSelected]));
+  check("the selected topic's ring names the keys instead", /Tab/.test(caption) && /Enter/.test(caption), caption);
+  await page.evaluate(() => clearWbSelection());
+
   const map = await measure();
   console.log("    " + JSON.stringify(map));
   check(`the map's View menu is under ${CEILING}px`, map.height > 0 && map.height <= CEILING && !map.scroll, `${map.height}px, ${map.rows} rows`);
@@ -86,6 +103,30 @@ const CEILING = 450;
     await openWhiteboardBoard(board.id);
     await new Promise((r) => setTimeout(r, 900));
   });
+  // On a board: only while a single note card is selected, and not over it.
+  const cardId = await page.evaluate(async () => {
+    const e = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "Hint card", category: "General" }) });
+    const n = await apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify({ entry_id: e.id, board_id: window.currentBoardId, x: 200, y: 200, z: 1 }) });
+    await fetchWhiteboardState();
+    renderWhiteboardNow();
+    clearWbSelection();
+    return n.id;
+  });
+  await page.waitForTimeout(400);
+  const idle = await strip();
+  await page.evaluate((id) => selectWbItem("node", id), cardId);
+  await page.waitForTimeout(500);
+  const withCard = await strip();
+  const cardBox = await page.evaluate((id) => {
+    const b = document.querySelector(`.node-card[data-id="${id}"]`).getBoundingClientRect();
+    return [b.left, b.top, b.right, b.bottom];
+  }, cardId);
+  const [sx, sy, sw, sh] = withCard.box;
+  const overlaps = sx < cardBox[2] && sx + sw > cardBox[0] && sy < cardBox[3] && sy + sh > cardBox[1];
+  check("on a board the strip waits for a selected card", !idle.shown && withCard.shown, JSON.stringify([idle, withCard]));
+  check("and does not cover the card it is about", !overlaps, `strip ${withCard.box}, card ${cardBox.map(Math.round)}`);
+  await page.evaluate(() => clearWbSelection());
+
   const board = await measure();
   console.log("    " + JSON.stringify(board));
   check(`a board's View menu is under ${CEILING}px too`, board.height > 0 && board.height <= CEILING && !board.scroll, `${board.height}px, ${board.rows} rows`);

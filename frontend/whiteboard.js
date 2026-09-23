@@ -8460,6 +8460,8 @@ async function wbMapPinOnDrag(d) {
 }
 
 function wbApplySelectionHighlight() {
+  //: After this frame's selection is settled (see `renderWbGestureHints`).
+  requestAnimationFrame(renderWbGestureHints);
   document
     .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
     .forEach((el) => el.classList.remove("wb-selected", "wb-in-group"));
@@ -18484,18 +18486,43 @@ const WB_GESTURES_DISMISSED = "wbGesturesDismissed";
 //: something else with the board.
 const WB_GESTURE_CARD_LIMIT = 4;
 
+//: **Only while a card is selected, and never on a mind map** (the map UX
+//: remainder, OPEN.md: "the keyboard hint strip sits over the canvas across
+//: the bottom and covers content"). Measured before: on a map it counted
+//: note cards, of which a map has none, so it stood over the bottom of every
+//: new map (it said "the selected card" with nothing selected) until someone
+//: found its x. Two things now teach the same keys at the moment they apply:
+//: a selected topic's ring prints "Tab adds a child, Enter one beside, C
+//: folds, Delete removes", and the rail's ? lists every key. So on a map the
+//: strip is the third copy and goes; on a board it shows only while exactly
+//: one note card is selected, which is the only time Tab and Enter do
+//: anything, and never over the card it is about.
+//: Read from storage once: this runs on every selection change.
+let wbGesturesDismissed = null;
+
 function renderWbGestureHints() {
   const strip = document.getElementById("wb-gestures");
   if (!strip) return;
-  let dismissed = false;
-  try {
-    dismissed = localStorage.getItem(WB_GESTURES_DISMISSED) === "1";
-  } catch {
-    //: A browser with storage blocked shows the hint every time, which is the
-    //: safe direction to fail in: an extra reminder beats a silent feature.
+  if (wbGesturesDismissed === null) {
+    try {
+      wbGesturesDismissed = localStorage.getItem(WB_GESTURES_DISMISSED) === "1";
+    } catch {
+      //: A browser with storage blocked shows the hint every time, which is the
+      //: safe direction to fail in: an extra reminder beats a silent feature.
+      wbGesturesDismissed = false;
+    }
   }
   const cards = (wbState && wbState.nodes ? wbState.nodes.length : 0);
-  strip.classList.toggle("hidden", dismissed || cards > WB_GESTURE_CARD_LIMIT);
+  const card = !wbIsMap() && wbMultiSelection.size === 0 && wbSelectedItem?.kind === "node"
+    ? document.querySelector(`.node-card[data-id="${wbSelectedItem.id}"]`)
+    : null;
+  const wanted = Boolean(card) && !wbGesturesDismissed && cards <= WB_GESTURE_CARD_LIMIT;
+  strip.classList.toggle("hidden", !wanted);
+  if (!wanted) return;
+  const a = strip.getBoundingClientRect();
+  const b = card.getBoundingClientRect();
+  const over = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+  if (over) strip.classList.add("hidden");
 }
 window.renderWbGestureHints = renderWbGestureHints;
 
@@ -18505,6 +18532,7 @@ document.getElementById("wb-gestures-dismiss")?.addEventListener("click", () => 
   } catch {
     /* nothing to persist to, hiding it for this session is still correct */
   }
+  wbGesturesDismissed = true;
   document.getElementById("wb-gestures")?.classList.add("hidden");
 });
 

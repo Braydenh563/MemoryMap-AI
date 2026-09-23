@@ -6913,8 +6913,8 @@ const WB_BOARD_ONLY_TOOLS = new Set([
 const WB_CONNECT_WORDS = {
   map: {
     section: ["Cross-link", "Join two branches without changing the tree. A branch itself is Tab, or the topic's own +"],
-    "link-straight": ["Straight cross-link (C)", "Straight cross-link (C): drag from one topic to another. It joins two branches without changing the tree"],
-    "link-curved": ["Curved cross-link (Shift+C)", "Curved cross-link (Shift+C): drag from one topic to another. It joins two branches without changing the tree"],
+    "link-straight": ["Cross-link (C)", "Cross-link (C): drag from one topic to another. It is drawn in this map's own line style, dashed, and joins two branches without changing the tree"],
+    "link-curved": ["Cross-link (C)", "Cross-link (C): drag from one topic to another"],
   },
   board: {
     section: ["Connect", "Join two things together"],
@@ -6923,9 +6923,52 @@ const WB_CONNECT_WORDS = {
   },
 };
 
+//: **On a map, one connection tool that looks like the map's own lines**
+//: (INBOX 392, the owner: "the connections in the bottom bar are different
+//: from the ones the mind map nodes use"). A board offers a straight and a
+//: curved link because a board has no line style of its own; a map does
+//: (Straight, Curve or Elbow, `edge_style`), and offering two generic shapes
+//: beside it said a cross-link was a different kind of drawing. So a map
+//: shows one tool, drawn in the map's style and dashed (a cross-link's own
+//: mark, §13c), and what it draws follows the same style.
+function wbMapCrossLinkType() {
+  const style = window.wbMapState?.theme?.edge_style || "curve";
+  return style === "straight" ? "link-straight" : "link-curved";
+}
+
+const WB_MAP_LINK_GLYPH = {
+  curve: "M4 20 C4 11 20 13 20 4",
+  straight: "M4 20 L20 4",
+  elbow: "M4 20 L12 20 L12 4 L20 4",
+};
+
+function wbSyncMapLinkGlyph(button, isMap) {
+  const svg = button?.querySelector("svg");
+  if (!svg) return;
+  let glyph = svg.querySelector("path.wb-map-link-glyph");
+  for (const child of svg.children) {
+    if (child !== glyph) child.classList.toggle("hidden", isMap);
+  }
+  if (!isMap) {
+    glyph?.remove();
+    return;
+  }
+  if (!glyph) {
+    glyph = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    glyph.setAttribute("class", "wb-map-link-glyph");
+    glyph.setAttribute("stroke-dasharray", "3 3");
+    svg.appendChild(glyph);
+  }
+  glyph.setAttribute("d", WB_MAP_LINK_GLYPH[window.wbMapState?.theme?.edge_style] || WB_MAP_LINK_GLYPH.curve);
+}
+
 function wbSyncConnectWords(isMap) {
   const words = WB_CONNECT_WORDS[isMap ? "map" : "board"];
-  const section = document.querySelector('#wb-tool-group .wb-tool-section[role="group"][aria-label="Connect"]');
+  //: Found by its role in the rail, not by its label: the label is what this
+  //: function rewrites, so a lookup by `aria-label="Connect"` found nothing
+  //: once a map had renamed it, and a board opened after a map kept the map's
+  //: words.
+  const section = document.querySelector("#wb-tool-group [data-tool=\"link-straight\"]")?.closest(".wb-tool-section");
   if (section) {
     const label = section.querySelector(".wb-tool-section-label");
     if (label) {
@@ -6945,6 +6988,10 @@ function wbSyncConnectWords(isMap) {
     button.setAttribute("aria-label", words[tool][0]);
     button.title = words[tool][1];
   }
+  const straight = document.querySelector('#wb-tool-group [data-tool="link-straight"]');
+  const curved = document.querySelector('#wb-tool-group [data-tool="link-curved"]');
+  if (curved) curved.hidden = isMap;
+  wbSyncMapLinkGlyph(straight, isMap);
 }
 
 function wbSyncToolSurfaces(isMap) {
@@ -8157,6 +8204,8 @@ async function wbMapReverseEdge(childId) {
 }
 
 function wbSyncMapChrome() {
+  //: The map's line style can change here, and the cross-link tool draws it.
+  if (wbIsMap()) wbSyncConnectWords(true);
   const isMap = wbIsMap();
   wbSyncToolSurfaces(isMap);
   wbSyncMapToolState();
@@ -17063,7 +17112,7 @@ function dragging(event, d) {
     //: while it is dragged; anything else keeps the tool the person picked
     //: (the first version of this curved every link from a text box, sticky
     //: or image on a plain board too).
-    const tool = (wbIsMap() && WB_MAP_KINDS.has(d.kind)) ? "link-curved" : window.currentTool;
+    const tool = (wbIsMap() && WB_MAP_KINDS.has(d.kind)) ? wbMapCrossLinkType() : window.currentTool;
     d.linkingPath.setAttribute("d", wbLinkPathD(tool, start, { x: mx, y: my }));
 
     // Anchor hints follow whichever card, text box, sticky or shape the
@@ -17177,7 +17226,7 @@ async function dragEndNode(event, d) {
        // source got at drag-start, `null` (nothing near enough) persists
        // as a free/floating end, same as the source's own case.
        const targetAnchor = wbNearestAnchor(targetKind, targetNode, mx, my);
-       const tool = (wbIsMap() && WB_MAP_KINDS.has(d.kind) && WB_MAP_KINDS.has(targetNode.kind)) ? "link-curved" : window.currentTool;
+       const tool = (wbIsMap() && WB_MAP_KINDS.has(d.kind) && WB_MAP_KINDS.has(targetNode.kind)) ? wbMapCrossLinkType() : window.currentTool;
        const sketchData = {
          data: JSON.stringify({
             type: tool,

@@ -25,6 +25,9 @@ below). Versioning is `0.x` while the app stabilises.
 - Undo covers text formatting, colours and every mind map style change.
 - The Notes toolbar stays on one line in the desktop window; the dashboard's
   Start tiles fit one row there, and never wrap in compact view.
+- On a mind map the bottom bar offers one Cross-link tool drawn in the map's
+  own line style, instead of a generic straight and curved pair; a map
+  line's label drags with the pointer and no longer starts a selection box.
 - Panning and zooming the whiteboard and mind maps no longer re-styles every
   item on the board each frame (traced: 2.4 s of style work over a 50-step
   pan on a 60-topic map, now 29 ms; zoom 1.4 s to 18 ms). Worst frame at 50

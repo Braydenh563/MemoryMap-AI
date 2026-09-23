@@ -3334,3 +3334,21 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   border-radius: 50%;
   background: var(--accent);
 }
+
+/* --- the lock screen ------------------------------------------------------------
+   The one heading on the screen was the 16px card-title size, a 370px field
+   sat over a 92px button, and the field's own text was 13.6px, smaller than
+   the sentence above it. The title is a title, the field reads at body
+   size, and the button spans the field, the shape of every sign-in form. */
+#lock-title {
+  font-size: var(--text-h3);
+}
+
+.lock-card #lock-password {
+  font-size: var(--text-body);
+}
+
+.lock-card #lock-submit {
+  width: 100%;
+  justify-content: center;
+}

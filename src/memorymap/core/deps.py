@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -157,7 +158,23 @@ def build_llm_client(config: ConfigManager) -> Provider:
     return OllamaClient(base_url=base_url or config.ollama_url)
 
 
+#: One builder at a time. The singletons are built lazily by whichever
+#: caller asks first, and a background thread (the embedding warm-up, a job
+#: on the pool) can ask at the same moment as a request or a test fixture:
+#: two `DatabaseManager`s on one file then both run `create_all`, and the
+#: loser fails with "table spaces already exists" (seen on CI once the suite
+#: ran in parallel and a leftover thread from one test met the next test's
+#: fixture). Re-entrant, because building one singleton can ask for another.
+_state_lock = threading.RLock()
+
+
 def init_app_state(data_dir: str | Path | None = None) -> None:
+    """Build the singletons once, under `_state_lock` (see its comment)."""
+    with _state_lock:
+        _init_app_state(data_dir)
+
+
+def _init_app_state(data_dir: str | Path | None = None) -> None:
     """Build the singletons once. Safe to call twice (later calls no-op),
     so tests can initialise with a temp dir before the app starts."""
     global _config, _db, _ollama, _model_manager, _embeddings
@@ -222,6 +239,11 @@ def register_cache_reset(drop) -> None:  # noqa: ANN001  # any zero-arg callable
 
 def reset_app_state() -> None:
     """Throw the singletons away, used between tests, never in the app."""
+    with _state_lock:
+        _reset_app_state()
+
+
+def _reset_app_state() -> None:
     global _config, _db, _ollama, _model_manager, _embeddings
     if _db is not None:
         _db.engine.dispose()

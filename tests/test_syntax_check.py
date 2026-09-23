@@ -187,7 +187,16 @@ def test_the_json_locator_agrees_with_python_about_where():
         try:
             json.loads(case)
         except json.JSONDecodeError as error:
-            assert at == error.pos, f"{case!r}: node says {at}, python says {error.pos} ({error.msg})"
+            # Python 3.13 names a trailing comma itself ("Illegal trailing
+            # comma", the comma's index); 3.11 and 3.12 name the closer that
+            # follows it. Both point at the fault, so either is agreement.
+            allowed = {error.pos}
+            if "trailing comma" in error.msg.lower():
+                after = error.pos + 1
+                while after < len(case) and case[after].isspace():
+                    after += 1
+                allowed.add(after)
+            assert at in allowed, f"{case!r}: node says {at}, python says {error.pos} ({error.msg})"
         else:
             assert at is None, f"{case!r} is valid JSON and the locator found an error at {at}"
 

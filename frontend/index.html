@@ -7323,6 +7323,15 @@
                   sense, it runs in the background and search falls back to
                   keywords until it finishes.
                 </p>
+                <!-- INBOX 266 (5), measured: 104MB before the built-in model
+                     loads, 774MB after. The only memory lever left once the
+                     imports were lazy, so it is said where the choice is. -->
+                <p>
+                  The built-in engine runs inside MemoryMap, so the app holds
+                  it in memory while it is open: about 650 MB with the default
+                  model. With Ollama the model lives in Ollama instead and
+                  MemoryMap itself stays near 100 MB.
+                </p>
               </div>
               <!-- Same treatment as the tool-focus group in Settings → Tools:
                    one control with one answer, rather than two loose dots

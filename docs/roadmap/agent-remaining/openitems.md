@@ -60,5 +60,7 @@ Phase 8c, the templates preview, outline row height.
   Settings section, Settings Extras at 820 (not reproduced), the D6 row
   re-read. INBOX: 269 and both 271s resolved to HISTORY; 266, 268, 270 and
   272 annotated with which parts are built and which are left.
-- next: 11, a decision for D6's chord (INBOX, one-line recommendation), then
-  INBOX 266 (5) lazy imports measured.
+- done c8c4296: the stale-row pass.
+- done (this commit): INBOX 266 (5) measured (104MB before the embedding
+  model, 774MB after; no heavy import at startup) and said in Settings.
+- next: 11, a decision for D6's chord (INBOX, one-line recommendation).

@@ -230,6 +230,20 @@ with its owner named in the entry.
     MSI and both Linux archives in `release.yml`). Left: (1), the usability
     and information-architecture read, and (5), lightweight, whose decided
     shape is lazy imports (268).
+    **(5) measured 2026-09-23**, and the lazy-import work is already done
+    where it pays. `python -X importtime` over `create_app()`
+    (`scratchpad/oi_importtime.py` reads the output): the process imports
+    fastapi (402ms), SQLAlchemy (172ms), alembic (129ms) and requests (49ms)
+    and nothing heavier; numpy, torch, Pillow, pypdf and python-docx are not
+    in `sys.modules` after `create_app`, and peak RSS is 104MB. What makes a
+    running server large is the built-in embedding model: 774MB resident on
+    a notebook with notes, once `start_warmup` has loaded
+    sentence-transformers, and it already waits for the first page, for an
+    idle moment and for the notebook to have a note at all. The one lever
+    left is which backend embeds, a Settings choice that exists: Ollama's
+    `nomic-embed-text` keeps the model out of this process, and the search
+    engine's '?' on Settings, Models now says so with the number. So (5) is
+    answered; (1) is the one part of this entry left.
 
 268. **Mid-work drop, 2026-09-20, verbatim (the owner), with two
     screenshots.** "what is the difference between the exe and msi installer??

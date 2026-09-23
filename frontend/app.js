@@ -1388,8 +1388,31 @@ function buildSelect(options, selected) {
 //: Callers that pass no checkbox still get a plain boolean, because thirty of
 //: them read the result directly and widening that contract for all of them
 //: would be a rewrite in service of one feature.
+//: **The button says what it does.** A confirmation whose question is
+//: "Delete the 'Audit link reasons' skill?" answered with a red "OK", which
+//: is the one label that names no action (every platform's guidelines ask
+//: for the verb). Most call sites pass no label, so the default is read off
+//: the question itself: its first word, when that word is one of the
+//: actions the app asks about. Anything else keeps "OK".
+const CONFIRM_VERBS = new Set([
+  "delete", "remove", "clear", "discard", "reset", "replace", "archive", "leave",
+  "disconnect", "overwrite", "restore", "empty", "forget", "unlink", "stop",
+  "merge", "move", "rename", "revert", "undo", "lock",
+]);
+function confirmVerb(message) {
+  const first = String(message || "").trim().split(/\s+/)[0]?.replace(/[^A-Za-z]/g, "") || "";
+  return CONFIRM_VERBS.has(first.toLowerCase())
+    ? first[0].toUpperCase() + first.slice(1).toLowerCase()
+    : "OK";
+}
+
 function confirmDialog(message, options = {}) {
-  const { confirmLabel = "OK", cancelLabel = "Cancel", danger = true, checkbox = null } = options;
+  const {
+    confirmLabel = confirmVerb(message),
+    cancelLabel = "Cancel",
+    danger = true,
+    checkbox = null,
+  } = options;
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay confirm-overlay";

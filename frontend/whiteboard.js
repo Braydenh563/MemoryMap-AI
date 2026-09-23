@@ -16909,7 +16909,11 @@ function dragging(event, d) {
     // uses, not the old fixed centre-point.
     const fixedStart = wbAnchorPoint(d._linkKind || "node", d, d.linkSourceAnchor);
     const start = fixedStart || wbEdgePoint(d._linkKind || "node", d, mx, my);
-    const tool = (d._linkKind === "object") ? "link-curved" : window.currentTool;
+    //: A cross-link between two map topics is drawn in the map's own curve
+    //: while it is dragged; anything else keeps the tool the person picked
+    //: (the first version of this curved every link from a text box, sticky
+    //: or image on a plain board too).
+    const tool = (wbIsMap() && WB_MAP_KINDS.has(d.kind)) ? "link-curved" : window.currentTool;
     d.linkingPath.setAttribute("d", wbLinkPathD(tool, start, { x: mx, y: my }));
 
     // Anchor hints follow whichever card, text box, sticky or shape the
@@ -17023,7 +17027,7 @@ async function dragEndNode(event, d) {
        // source got at drag-start, `null` (nothing near enough) persists
        // as a free/floating end, same as the source's own case.
        const targetAnchor = wbNearestAnchor(targetKind, targetNode, mx, my);
-       const tool = (sourceKind === "object") ? "link-curved" : window.currentTool;
+       const tool = (wbIsMap() && WB_MAP_KINDS.has(d.kind) && WB_MAP_KINDS.has(targetNode.kind)) ? "link-curved" : window.currentTool;
        const sketchData = {
          data: JSON.stringify({
             type: tool,

@@ -4013,3 +4013,40 @@ main,
 .contents-list > li > a {
   font-size: var(--text-md);
 }
+
+/* --- Timeline rows with a snippet: mark and time on the title's line --- */
+/* A row with a second line (a file's first line of code, a note's snippet)
+   centred its kind mark and its time against both lines, so each sat 10px
+   below the title it labels, between the two lines and against neither.
+   They belong to the title: start aligned, centred on its line box. A one
+   line row is unchanged, since there the title's line is the row. */
+.timeline-feed .timeline-row {
+  --timeline-title-line: calc(var(--text-md) * 1.25);
+}
+
+.timeline-feed .timeline-row-title {
+  line-height: 1.25;
+}
+
+.timeline-feed .timeline-row > .timeline-row-mark {
+  align-self: start;
+  margin-top: calc((var(--timeline-title-line) - var(--timeline-mark)) / 2);
+}
+
+.timeline-feed .timeline-row > .timeline-row-meta {
+  align-self: start;
+  min-height: var(--timeline-title-line);
+}
+
+/* --- Graph options: one section-head style --- */
+/* Measured: the panel's four section heads wore three styles. Physics 12px
+   600 muted, Show and Time 12px 400 muted, Groups 16px 600 ink (its summary
+   had no label span, so it took the body size). Four heads of one rank now
+   read as one: the small 600 label in ink, the utilitarian look's label
+   grammar (see the sentence case block above). */
+#graph-options .dock-menu-label,
+#graph-options .graph-options-fold > summary {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}

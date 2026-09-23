@@ -1743,7 +1743,7 @@ header#top-bar,
    the sheet is the surface, so the panel sheds the popover it is at every
    other width, and the model picker and the tool toggles `dockChatTools`
    moved into it stack as full-width rows at the band's floor. */
-.chat-answers-sheet > #chat-dock-more-panel {
+.chat-answers-card > #chat-dock-more-panel {
   position: static;
   width: auto;
   min-width: 0;
@@ -1787,9 +1787,9 @@ header#top-bar,
 }
 
 .chat-dock-more-tools button,
-.chat-answers-sheet .chat-dock-more-row select,
-.chat-answers-sheet #persona-peek,
-.chat-answers-sheet #chat-tune-search {
+.chat-answers-card .chat-dock-more-row select,
+.chat-answers-card #persona-peek,
+.chat-answers-card #chat-tune-search {
   min-height: var(--target-min);
 }
 

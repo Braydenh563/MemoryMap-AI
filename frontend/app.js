@@ -20903,7 +20903,7 @@ function openChatDockMore() {
     name: "chat-answers",
     returnFocus: button,
     build: (card) => {
-      card.classList.add("chat-answers-sheet");
+      card.classList.add("chat-answers-card");
       card.appendChild(panel);
     },
     onClose: () => {

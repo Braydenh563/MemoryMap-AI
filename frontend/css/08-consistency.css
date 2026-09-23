@@ -3881,3 +3881,17 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     border-color: var(--accent);
   }
 }
+
+/* --- the boot splash: one progress indicator, not two -----------------------------
+   The splash drew three animated dots and, under them, a progress bar: two
+   indicators for one wait, the dots saying "busy" and the bar saying "this
+   far". The bar is the one that tells more, so the dots leave the screen
+   and stay only as the screen reader's "Loading" status they carry. */
+.boot-splash-dots {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

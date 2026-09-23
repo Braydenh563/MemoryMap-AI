@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The loading screen shows one progress indicator (the bar) instead of animated dots above a bar; the dots stay as the screen reader's loading status.
 - Dragging a note that is part of a lasso selection on the graph carries the
   whole selection with it, at the same offsets. Before, only the note in hand
   moved and the rest of the selection stayed put. The usual rules hold for

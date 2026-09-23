@@ -35276,7 +35276,7 @@ async function openNotifications({ keepWatermark = false } = {}) {
     row.append(readToggle);
 
     // A notification you cannot act on is a notification you learn to ignore.
-    if (item.action && (item.action.tab || item.action.exports || item.action.panel)) {
+    if (item.action && (item.action.tab || item.action.exports || item.action.panel || item.action.settings)) {
       row.classList.add("notif-actionable");
       row.tabIndex = 0;
       row.title = item.action.exports ? "Open the exports folder" : "Open";
@@ -35284,6 +35284,10 @@ async function openNotifications({ keepWatermark = false } = {}) {
         closeNotifications();
         if (item.action.panel) {
           reopenAnswerPanel(item.action);
+          return;
+        }
+        if (item.action.settings) {
+          openSettingsModal(item.action.settings);
           return;
         }
         if (item.action.exports) {
@@ -36492,6 +36496,36 @@ function renderAiPill() {
   $("ai-status-title").textContent = state.title;
   $("ai-status-detail").textContent = state.detail;
   renderChatActiveModelBadge();
+  nudgeEmbeddingProblem();
+}
+
+//: **A broken search engine is said where the person is, once** (owner,
+//: packaged app: "I didnt have sentence transformers installed ... I
+//: encountered errors and I saw no popup or anything to suggest that I
+//: switch to nomic-embed-text or install sentence transformers"). The fix
+//: sentence and its one-click button lived only in Settings, Models, which
+//: nobody opens to find out why search feels dull. So the first poll that
+//: carries `embedding_error` raises a toast with the way to fix it and leaves
+//: the same in the bell, keyed by the error so it is said once per problem,
+//: not once per poll.
+let embeddingNudgeSaid = "";
+function nudgeEmbeddingProblem() {
+  const error = modelStatus?.embedding_error;
+  if (!error || error === embeddingNudgeSaid) return;
+  embeddingNudgeSaid = error;
+  const installing = /being installed/.test(error);
+  const title = installing ? "Search by meaning is being installed" : "Search by meaning is not working";
+  const detail = installing
+    ? "Search uses keywords until it finishes. Or pick nomic-embed-text in Settings, Models."
+    : `${error}. Settings, Models can switch it to ${EMBEDDING_FALLBACK_MODEL} or install the package.`;
+  recordNotification({
+    kind: "assist",
+    title,
+    detail,
+    key: `embedding:${error}`,
+    action: { settings: "models" },
+  });
+  if (!installing) toastAction(`${title}. Search is using keywords for now.`, "Fix it", () => openSettingsModal("models", "embedding-model-select"));
 }
 
 // --- the status bar (§36D) ---------------------------------------------------
@@ -37685,16 +37719,27 @@ function renderChatActiveModelBadge() {
   const pinned = (modelStatus && modelStatus.feature_models || []).find(
     (row) => row.key === "chat" && row.overridden
   );
-  const name = (pinned && pinned.model) || (modelStatus && modelStatus.chat_model);
+  //: `chat_model_effective`, not `chat_model`: on a llama.cpp or LM Studio
+  //: server the configured name is not what answers when that server has a
+  //: different model loaded (owner: the header said llama3.2, which was not
+  //: installed, while another model answered). On Ollama a missing model
+  //: is said to be missing rather than named as if it ran.
+  const name = (pinned && pinned.model)
+    || (modelStatus && (modelStatus.chat_model_effective || modelStatus.chat_model));
+  const missing = !pinned && modelStatus?.chat_model_installed === false
+    && name === modelStatus.chat_model;
   badge.hidden = !name;
+  badge.classList.toggle("is-missing", Boolean(missing));
   //: The short form in the badge, the full id in the tooltip below, the
   //: badge is 22ch wide and a HuggingFace id is routinely longer than that.
-  badge.textContent = shortModelName(name);
+  badge.textContent = missing ? `${shortModelName(name)} (not installed)` : shortModelName(name);
   // The badge itself ellipsis-truncates a long id (a full HuggingFace path
   // easily runs past the header), the full name is still one hover away.
-  badge.title = name
-    ? `${aiNameNow()} is answering with ${name}: click for what it is and what it can do`
-    : "";
+  badge.title = !name
+    ? ""
+    : missing
+      ? `${name} is set for chat but is not installed: click to pick a model you have`
+      : `${aiNameNow()} is answering with ${name}: click for what it is and what it can do`;
 }
 
 //: **What this model actually is.** Asked for: "in chat I want more details in

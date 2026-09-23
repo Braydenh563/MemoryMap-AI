@@ -28,6 +28,10 @@ below). Versioning is `0.x` while the app stabilises.
 - On a mind map the bottom bar offers one Cross-link tool drawn in the map's
   own line style, instead of a generic straight and curved pair; a map
   line's label drags with the pointer and no longer starts a selection box.
+- The chat header names the model that actually answers (on llama.cpp and
+  LM Studio, the loaded one), or says a set model is not installed, instead
+  of the configured default. A broken search by meaning now says so in a
+  toast and the bell, with a Fix it button, not only inside Settings.
 - A picture is described once and its text read once: repeat saves no
   longer queue repeat jobs, Tesseract stands down when a vision model reads
   the text, and a running caption shows as one row in Agent activity, not

@@ -11906,9 +11906,12 @@ header#top-bar {
     max-width: none;
     margin: 0;
     border-radius: 0;
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
+    /* Widths, not `border-*: none`. `none` resets the width to `medium`
+       (3px) and the colour to `currentColor`, and the moment any rule sets a
+       border style back, which the new default look's `.card` recipe does
+       through `--border-style`, those come back as a 3px ink frame on three
+       sides of the tool bar (measured at 390 on an open board, INBOX 392). */
+    border-width: 1px 0 0;
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;

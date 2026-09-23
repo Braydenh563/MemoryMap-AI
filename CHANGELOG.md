@@ -30,6 +30,10 @@ below). Versioning is `0.x` while the app stabilises.
 - On a phone toasts and the agent activity panel no longer cover the tab
   bar (a toast also clears the floating button), and a long note shows five
   lines in the list rather than eight.
+- A board's top bar menus keep an icon when their words are dropped on a
+  narrow window, instead of five identical arrows; on a phone an open board
+  takes the Library's sub-tabs' space, the map's keyboard hint is left to
+  keyboards, and the tool bar at the foot has lost a stray dark frame.
 
 - The packaged Windows app shows a splash from the moment it is opened, drawn
   by the launcher itself before Python starts, and closes it when the window

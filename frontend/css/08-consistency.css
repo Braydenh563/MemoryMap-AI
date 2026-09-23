@@ -2947,3 +2947,20 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--muted);
   font-weight: 400;
 }
+
+/* --- reminders, de-vibecoded -------------------------------------------------
+   1. The due readout ("in 2 min: Wed, Sep 23, 3:25 PM") is a confirmation
+      of the fields beside it, and it was set at 600 in full ink at body
+      size, the loudest line in the card after its heading. It is a note on
+      the form: regular weight, muted, small.
+   2. A reminder's own words were 12px beside a 28px checkbox, the smallest
+      text in its own row (smaller than "in 22 hours" beside it). The thing
+      you have to do is the row's title, at body size. */
+#reminder-due-readout {
+  font-weight: 400;
+  font-size: var(--text-sm);
+}
+
+#tab-reminders .reminder-text {
+  font-size: var(--text-body);
+}

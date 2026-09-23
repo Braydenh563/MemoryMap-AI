@@ -336,6 +336,18 @@ FEATURES: tuple[Feature, ...] = (
         role="chat",
         note="Answers in the Chat tab, including agent mode.",
     ),
+    #: The Notes tab's Ask box. It shares `/chat/stream` with the Chat tab
+    #: and ran on the row above without saying so; a model picker on the Ask
+    #: box (the owner, 2026-09-23: "a model dropdown which pairs with the
+    #: feature-specific model selections in settings") would then have moved
+    #: the Chat tab too. Told apart by `notes_only`, which only the Ask box
+    #: sends (`routes_chat._feature_for`).
+    Feature(
+        key="ask",
+        label="Ask tab",
+        role="chat",
+        note="Answers to questions about your notes in the Ask tab.",
+    ),
     Feature(
         key="writing",
         label="Write with Atlas",

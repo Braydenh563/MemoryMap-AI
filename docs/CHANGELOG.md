@@ -235,6 +235,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The Chat tab, the Ask tab and Write with Atlas each have a model dropdown
+  beside where you type, the same setting as that feature's row in Settings,
+  Models: change either and the other follows on the next status tick. It
+  names the model that will actually run ("Inherited: llama3.2", resolved
+  through the role and smart routing), and keeps showing a chosen model that
+  is not installed. The Ask tab is its own row now (it had been running on
+  the Chat tab's choice without saying so), and the feature rows ride every
+  status poll, so the Chat tab's and the documents assistant's model sheets
+  no longer say "Models aren't available yet" until Settings has been opened.
 - A lint on the release artifact naming scheme (INBOX 266, item 4).
   `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
   `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses

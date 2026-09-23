@@ -36034,6 +36034,15 @@ async function refreshModelStatus() {
   } catch {
     modelStatus = null; // locked or unreachable: pill shows the worst case
   }
+  //: **The feature rows ride every poll, not only Settings.** They used to be
+  //: read only when Settings rendered, so until Settings had been opened once
+  //: the ⋯ sheet said "Models aren't available yet" and a picker in a
+  //: surface had nothing to show. The poll already carries them.
+  if (modelStatus && Array.isArray(modelStatus.feature_models)) {
+    featureModelRows = modelStatus.feature_models;
+    featureModelNames = (modelStatus.installed_models || []).map((m) => m.name);
+  }
+  syncFeatureModelSelects();
   renderAiPill();
   syncModelGatedControls();
   // The status bar's job slot rides this loop rather than starting one of its
@@ -37780,6 +37789,7 @@ async function applyFeatureModel(key, name) {
 function renderFeatureModels(status) {
   featureModelRows = status.feature_models || [];
   featureModelNames = (status.installed_models || []).map((m) => m.name);
+  syncFeatureModelSelects();
   const list = $("feature-models-list");
   if (!list) return;
   list.replaceChildren();
@@ -37940,6 +37950,79 @@ function featureModelMenuItem(key) {
     title: "Pick the model this feature runs on",
     run: () => openFeatureModelSheet(key),
   };
+}
+
+//: **The model picker inside a surface.** The owner, 2026-09-23: "I want to be
+//: able to change the model I use within the features themselves using a model
+//: dropdown which pairs with the feature-specific model selections in
+//: settings". The sheet above, behind the Chat tab's ⋯, was the only way in
+//: there, and the Ask box had none. A plain `<select>` in the surface's own
+//: composer (DESIGN.md: a dropdown of values is a `<select>`, and
+//: `enhanceSelect` styles it), written through `applyFeatureModel`, the one
+//: call Settings' own list makes, and redrawn from the same rows on every
+//: status poll: changing either moves the other on the next tick, and
+//: neither keeps a copy of its own.
+//:
+//: **It names the model that will run** (INBOX 277: "a role can say one model
+//: and silently run another"). The first option is "Inherited: <name>", the
+//: name the server resolves through the role, smart routing included, rather
+//: than a bare "Default"; and an override that is not in the installed list
+//: (the model server is down, or the model was removed) is still offered, so
+//: the control never shows one model while the turn runs on another.
+const FEATURE_MODEL_SELECTS = [
+  ["chat-feature-model", "chat"],
+  ["ask-feature-model", "ask"],
+  ["draft-feature-model", "writing"],
+];
+
+function syncFeatureModelSelects() {
+  for (const [id, key] of FEATURE_MODEL_SELECTS) {
+    const select = $(id);
+    if (!select) continue;
+    const row = featureModelRow(key);
+    //: No rows yet (the first poll has not answered, or the app is locked):
+    //: a control that would write a guess is worse than a disabled one.
+    select.disabled = !row;
+    if (!row) continue;
+    const names = [...featureModelNames];
+    if (row.overridden && !names.includes(row.model)) names.unshift(row.model);
+    fillModelSelect(
+      select,
+      names,
+      { value: "", label: `Inherited: ${row.inherits}` },
+      row.overridden ? row.model : ""
+    );
+    //: The inherited name moves when the chat model is changed in Settings,
+    //: and `fillModelSelect` only rebuilds when the *values* change, which
+    //: the first option's never does. Its words are kept current here.
+    const first = select.options[0];
+    const inherited = `Inherited: ${row.inherits}`;
+    if (first && first.value === "" && first.textContent !== inherited) {
+      first.textContent = inherited;
+    }
+    //: Always the stored choice, not whatever the control last showed:
+    //: `fillModelSelect` prefers the live selection so a poll cannot undo a
+    //: pick in flight, which is right for Settings and would leave this one
+    //: stale after the other side changed it.
+    const wanted = row.overridden ? row.model : "";
+    if (select.value !== wanted) select.value = wanted;
+    select.title = row.overridden
+      ? `${row.label} runs on ${row.model}, its own choice. The same setting as Settings, Models.`
+      : `${row.label} runs on ${row.inherits}, inherited. The same setting as Settings, Models.`;
+  }
+}
+
+function wireFeatureModelSelects() {
+  for (const [id, key] of FEATURE_MODEL_SELECTS) {
+    const select = $(id);
+    if (!select || select.dataset.wired) continue;
+    select.dataset.wired = "1";
+    select.addEventListener("change", () => {
+      const row = featureModelRow(key);
+      const wanted = row && row.overridden ? row.model : "";
+      if (select.value !== wanted) applyFeatureModel(key, select.value);
+    });
+  }
 }
 
 // Separate from the vision picker above because the jobs are separate, see
@@ -43850,6 +43933,7 @@ $("llm-provider-select").addEventListener("change", () => {
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
 $("feature-models-reset").addEventListener("click", resetAllFeatureModels);
 $("draft-model").addEventListener("click", () => openFeatureModelSheet("writing"));
+wireFeatureModelSelects();
 $("vision-model-apply").addEventListener("click", applyVisionModel);
 $("ocr-model-apply")?.addEventListener("click", applyOcrModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);

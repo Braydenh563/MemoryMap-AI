@@ -3250,6 +3250,14 @@ dialog::backdrop {
   min-width: 9.5rem;
 }
 
+/* The model picker beside it (`#ask-feature-model`) is a name rather than a
+   word from a short list, and a model id runs past thirty characters: capped,
+   so the field you type into keeps its width, with the name ellipsising
+   inside the opener and whole on its title and in the open list. */
+.ask-composer .select-shell:has(> .feature-model-select) {
+  max-width: 12rem;
+}
+
 /* A section head with its own icon, matching every other panel head in the
    app rather than being a bare <h3>, the "consistent in how it looks" half
    of the same instruction. */

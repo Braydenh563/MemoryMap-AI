@@ -881,6 +881,26 @@ body.scroll-top-visible #tab-notes .layout > main {
   flex: 1 1 auto;
 }
 
+/* **The model picker in the strip** (`#chat-feature-model`, app.js
+   `syncFeatureModelSelects`). Enhanced like every select, so the thing on
+   screen is `.select-opener`, which carries the form field's `--target-min`
+   floor: measured 39px tall beside the 30px seg and gear it sits with, the
+   one control on the line out of step. It takes the strip's one height, and
+   a cap, because a model id runs past thirty characters and the name
+   ellipsises inside the opener (whole on its title and in the open list). */
+.chat-dock-controls .select-shell:has(> .feature-model-select) {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 12rem;
+}
+
+.chat-dock-controls .select-shell:has(> .feature-model-select) .select-opener {
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding-block: 0;
+  font-size: var(--text-md);
+}
+
 .chat-dock-controls select,
 .chat-dock-controls>.chat-tool-group>button,
 .chat-dock-controls .chat-dock-more>button,

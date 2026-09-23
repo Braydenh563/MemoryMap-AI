@@ -1635,6 +1635,19 @@ header#top-bar,
     min-height: var(--target-min);
     align-items: stretch;
   }
+
+  /* The model picker keeps the touch floor too (measured 30px beside the
+     44px segment), and goes after the segment and the gear rather than
+     before them: the mode is the control that must be on screen when the
+     strip opens, and with the picker first it pushed Agent past the edge. */
+  .chat-dock-controls .select-shell:has(> .feature-model-select) {
+    order: 1;
+  }
+
+  .chat-dock-controls .select-shell:has(> .feature-model-select) .select-opener {
+    height: var(--target-min);
+    min-height: var(--target-min);
+  }
 }
 
 /* --- Phase 11 item 9: no hover-only affordance -----------------------------

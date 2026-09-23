@@ -206,6 +206,35 @@ below). Versioning is `0.x` while the app stabilises.
 - The mind map node menu is grouped with dividers instead of hover
   submenus, so it works by touch and keyboard. Clearing a line's label
   prompt no longer deletes it; "Take the label off the line" does.
+- "Rebuild search index" in Settings, Models rebuilds the word index as well
+  as the semantic one. The word index was built once, when its table was
+  first made, and could not be rebuilt after a restore, an import or a fault;
+  `/search/stats` now also says when it was last rebuilt and with how many
+  rows.
+- `has:image`, `has:link` and `has:reminder` work in Find anything. They were
+  understood and matched nothing; now a picture attached or written into the
+  text, a connection to another note, and a reminder on the note each answer,
+  checked over the matches rather than on every save.
+- Search no longer finds things that are gone. Emptying the bin left each
+  purged note in the search index for good (it still answered `is:deleted`),
+  and deleting a space left its notes, documents and reminders findable from
+  All spaces, because both delete in bulk and the index only follows ordinary
+  saves. Both now take their rows out, and a lint fails any new bulk delete
+  of a searchable kind that does not.
+- A note the AI re-files, by adding context to it or by re-evaluating it, is
+  marked as the AI's choice, the same as a note it files on save. Moving one
+  of those by hand afterwards now records the correction the filing loop
+  learns from; before, only the two create paths set the mark, so a second
+  guess by the AI was invisible to it.
+- Settings, Models says which model background jobs actually run on, and why
+  (INBOX 277). The utility picker shows the stored choice, and that choice is
+  not the model in use while smart model routing is off or nothing has been
+  chosen; a line under it now reads, for example, "Background jobs run on
+  llama3.2, the chat model, because smart model routing is off", from one
+  server function (`utility_resolution`) that `utility_model()` itself uses.
+  The routing switch beside it also showed unchecked whenever Settings was
+  opened on Models, because only Background tasks ever filled it in; it now
+  reads the stored value when Models opens. Label in sentence case.
 
 ## [0.3.2] - 2026-09-21
 

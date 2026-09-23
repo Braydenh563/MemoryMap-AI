@@ -202,6 +202,21 @@ function showSettingsSection(name) {
       })
       .catch(() => {});
   }
+  //: `#pref-smart-model-routing` sits in Models, beside the utility picker it
+  //: governs, and was only ever filled by `renderAutonomousSettings`, which
+  //: runs when *Background tasks* opens. So Settings opened on Models showed
+  //: the raw HTML default, unchecked, over a preference that ships on:
+  //: measured, the box read false while `/preferences` said true, and the
+  //: first click "turned on" a switch that was already on. The same shape the
+  //: comment on `renderAutonomousSettings` records, one section over.
+  if (name === "models") {
+    apiJson("/preferences")
+      .then((prefs) => {
+        prefsCache = prefs;
+        $("pref-smart-model-routing").checked = prefs.smart_model_routing_enabled ?? true;
+      })
+      .catch(() => {});
+  }
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});

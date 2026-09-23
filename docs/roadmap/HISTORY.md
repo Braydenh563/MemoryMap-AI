@@ -33535,3 +33535,37 @@ measured, so nobody rebuilds them.
   the panel's rows went from 96 to 57px in the same session's panel redesign
   (24c6987), so three runs sit inside the 200px cap.
 
+
+277. **Found while fixing 274 (the session, not the owner): a role can say one
+    model and run another, everywhere, silently.** 274's "it doesnt use the
+    utility model and instead uses the chat model" was not a bug in the Guide:
+    `ModelManager.utility_model()` answers the **chat** model whenever no
+    utility model has been chosen (the preference ships empty) or smart model
+    routing is off, and both are the documented design. The trouble is that
+    nothing on screen says so. Four places around the Guide alone print "your
+    utility model" as a statement of fact, and the janitor, the weekly digest,
+    tidy suggestions and the writing fixes take the same role and say the same
+    thing in their own copy. A reader who has set a small utility model and
+    then turned smart routing off is told, in five places, something that is
+    not true of their notebook, which is exactly how 274 came to be filed
+    against the Guide. Recommendation: Settings, Models shows what each role
+    **resolves to** rather than what is stored, "Utility model: same as chat
+    (llama3.2), because smart model routing is off" beside the picker, from
+    one endpoint that reports the resolved name and the reason per role; the
+    surfaces that name a role in prose then say "your utility model" and mean
+    it. `tests/test_help_chat.py` already pins which model each of the three
+    cases takes for the Guide, so the facts are written down; what is missing
+    is the app saying them.
+    **Fixed 2026-09-23 (the open-items pass).** `ModelManager.utility_resolution`
+    returns the model and the reason (`override`, `routing_off`, `unset`,
+    `chosen`), `utility_model()` is its first half, and `/models/status`
+    carries both as `utility_model_resolved` and `utility_model_reason`
+    (`tests/test_models_api.py`, four new). Settings, Models draws them as one
+    line under the picker. Found on the way: the routing switch read unchecked
+    whenever Settings opened on Models, over a preference that ships on,
+    because only Background tasks filled it in. Measured,
+    `scratchpad/ui-sweeps/oi-utilitynote.js`, 6 of 6: the line is drawn
+    (48px), the box shows the stored value, the label is sentence case,
+    switching routing off rewrites the line to name it, switching back
+    restores it.
+

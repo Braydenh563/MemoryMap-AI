@@ -952,30 +952,41 @@ being written by running agents stay beside this one.
   query carries an operator the client parser does not know, and render the
   returned order; then the Library, then the command palette. One surface per
   commit, each with a sweep. [brief11-retrieval-engine.md]
-- **No FTS index rebuild job.** `file: src/memorymap/search/index.py`, `id:
-  search-reindex-job`. `rebuild()` runs once, at the startup that first
-  creates the table; there is no way to ask for a rebuild after a restore, an
-  import or a bug. Next step: a `reindex` job kind once Brief 9's runtime
-  lands, with `/search/stats` showing the row counts it is working towards. Do
-  not add a route that rebuilds inline. [brief11-retrieval-engine.md]
-- **A bulk write can leave the index stale.** `file:
-  src/memorymap/search/index.py`, `id: search-bulk-writes`. The hook sees the
-  ORM's unit of work; `session.execute(update(Entry)...)` or raw SQL bypasses
-  it, and `touch(session, source, ref_id)` has no caller. Next step: grep for
-  bulk `update(` and `delete(` over the six indexed models (the importer and
-  the space reassignment in `routes_spaces.py` are the likely two) and call
-  `touch` there, or add a lint that fails on a bulk statement against an
-  indexed model. [brief11-retrieval-engine.md]
+- ~~**No FTS index rebuild job.**~~ **Done 2026-09-23**, in the job that
+  already existed rather than a new kind: `model_manager._run_reindex`, behind
+  Settings' "Rebuild search index", now rebuilds the keyword index first (the
+  fast half, and the one search answers from while vectors are redone), and
+  `/search/stats` carries `last_rebuild: {at, rows}` beside the live `index`
+  counts so a drift reads as two numbers. No route rebuilds inline.
+  `tests/test_models_api.py::test_a_rebuild_also_rebuilds_the_keyword_index`
+  drifts the index both ways (a note's row gone, a ghost row added) and finds
+  it whole after. The Settings copy says both halves now.
+  [brief11-retrieval-engine.md]
+- ~~**A bulk write can leave the index stale.**~~ **Done 2026-09-23**, and
+  it was worse than stale. Grepped over the six indexed models: two bulk
+  paths, both deletes. Emptying the bin (`manager._hard_delete`) left every
+  purged note's row behind flagged `deleted`, and deleting a space
+  (`routes_spaces.delete_space`) left its notes, documents and reminders
+  findable from All spaces. `search_index.forget(session, model, ids)` is the
+  bulk half of `touch`, both paths call it, and a lint in
+  `tests/test_search_engine.py` fails any file that issues a statement-level
+  delete against an indexed model without it (three tests failed before the
+  fix, pass after). The two bulk `update`s left (`Reminder.entry_id`,
+  `Entry.parent_id` on a purge) touch no indexed column.
+  [brief11-retrieval-engine.md]
 - **The vector matrix forgets by zeroing a row.** `file:
   src/memorymap/search/engine.py`, `id: search-matrix-compaction`. Dead rows
   score zero and are never returned, but they stay in the array. Next step:
   rebuild when dead rows pass some fraction of the whole, counted rather than
   guessed. [brief11-retrieval-engine.md]
-- **`has:` only knows `file`.** `file: src/memorymap/search/engine.py`, `id:
-  search-has-vocabulary`. `has:image`, `has:link` and `has:reminder` parse and
-  match nothing. Next step: decide each one's source (an attachment mime,
-  `EntryLink`, `Reminder.entry_id`) and answer them over the candidates, never
-  with a join on every save. [brief11-retrieval-engine.md]
+- ~~**`has:` only knows `file`.**~~ **Done 2026-09-23**, on the sources this
+  row named: `image` is an image attachment (mime, or the name for a row with
+  none) or a `![` picture in the text of any kind; `link` is an `EntryLink`
+  either way round; `reminder` is a `Reminder.entry_id`, plus the reminders
+  themselves. One query per word over the candidates (`engine._has_ids`), no
+  join on save; a word outside `HAS_WORDS` still matches nothing.
+  `tests/test_search_engine.py`, four new, three failing before.
+  [brief11-retrieval-engine.md]
 - **The graph signal needs an open note, and the Notes list rarely has one.**
   `file: frontend/app.js`, `id: search-open-note`. The list passes `entry_id`
   only in rows view or while editing; in card view the third signal is zero.
@@ -1000,13 +1011,12 @@ being written by running agents stay beside this one.
 - **Sync (B6) as log shipping.** `id: events-sync`. Unstarted and no longer
   blocked: it needed the retention rule, which now exists. A compacted
   snapshot ships as a snapshot. [brief7-event-log.md]
-- **`filing_state = "auto"` is set on the two create paths only.** The
-  recategorise-on-add-context path (`src/memorymap/api/routes_entries.py`, the
-  `exclude_entry_id` call into `janitor.categorise`) files with the AI and
-  does not set it, so moving one of those notes by hand records no correction.
-  Next step: grep `categorise(` and set `manager.AUTO_FILED` wherever
-  `janitor.is_ai_method` holds, the same two lines as the create paths.
-  [brief-13-harness.md]
+- ~~**`filing_state = "auto"` is set on the two create paths only.**~~
+  **Done 2026-09-23.** Two paths, not one: adding context and re-evaluating
+  both re-file with the AI, and both now set `manager.AUTO_FILED` when
+  `janitor.is_ai_method` holds (a keyword fallback still leaves `done`).
+  `tests/test_harness_verifier.py`, three new, one of which moves the note by
+  hand afterwards and finds the `correction` row. [brief-13-harness.md]
 - **The Reminders tab still reads one page.** `loadReminders` draws the tab
   from `GET /reminders`, ordered `due_at` ascending, so the first page is the
   oldest rows, ticked-off ones included: a notebook whose oldest two hundred

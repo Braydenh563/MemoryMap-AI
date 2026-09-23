@@ -9,6 +9,7 @@ saved preferences and falls back to the defaults.
 
 from __future__ import annotations
 
+import logging
 import re
 import threading
 import time
@@ -520,12 +521,29 @@ class ModelManager:
         #: routing switch. Routing off means "background jobs use the chat
         #: model", which is a default about jobs nobody chose a model for; a
         #: surface the user pointed at a model by hand is not one of those.
+        return self.utility_resolution()[0]
+
+    def utility_resolution(self) -> tuple[str, str]:
+        """The utility model in use, and why it is that one.
+
+        The reason is one of `override` (this feature's own choice),
+        `routing_off` (smart model routing is off, so background jobs share
+        the chat model whatever is stored), `unset` (nothing chosen, so the
+        chat model) or `chosen`. INBOX 277: Settings used to show only the
+        stored preference, and a role that says one model and runs another,
+        silently, is how a correct Guide got a bug filed against it. Kept as
+        the one place the decision is made, so `utility_model()` and what
+        Settings prints cannot disagree.
+        """
         override = self._override_for_role("utility")
         if override:
-            return override
+            return override, "override"
         if not self._config.get_preference("smart_model_routing_enabled", True):
-            return self.chat_model()
-        return self._config.get_preference("utility_model", "") or self.chat_model()
+            return self.chat_model(), "routing_off"
+        chosen = self._config.get_preference("utility_model", "")
+        if not chosen:
+            return self.chat_model(), "unset"
+        return chosen, "chosen"
 
     def set_utility_model(self, name: str) -> None:
         # Empty string means "same as chat model".
@@ -785,6 +803,21 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
     started = time.monotonic()
     session = db.session()
     try:
+        # The keyword index first: it is the fast half (no model call per
+        # note), it is what search answers from while the vectors below are
+        # being redone, and until this it could not be rebuilt at all short of
+        # deleting its table. A failure here is logged and the re-embed still
+        # runs, because half a rebuild is better than none.
+        from memorymap.search import index as search_index
+
+        try:
+            search_index.rebuild(session)
+            session.commit()
+        except Exception:  # noqa: BLE001  # see above
+            session.rollback()
+            logging.getLogger("memorymap.search").warning(
+                "keyword index rebuild failed", exc_info=True
+            )
         entries = list(
             session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
         )

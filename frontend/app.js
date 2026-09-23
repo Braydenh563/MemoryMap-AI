@@ -38289,6 +38289,19 @@ function renderUtilityModelPicker(status) {
     { value: "", label: "Same as chat model" },
     status.utility_model || ""
   );
+  //: INBOX 277. The select shows what is stored; this line says what runs.
+  //: The two differ exactly when smart model routing is off, and the server
+  //: decides which (`ModelManager.utility_resolution`), so this only words
+  //: the reason it was given rather than repeating the rule.
+  const note = $("utility-model-note");
+  if (!note) return;
+  const resolved = status.utility_model_resolved || status.chat_model || "";
+  const reasons = {
+    routing_off: `Background jobs run on ${resolved}, the chat model, because smart model routing is off.`,
+    unset: `Background jobs run on ${resolved}, the chat model, until you choose another.`,
+    chosen: `Background jobs run on ${resolved}.`,
+  };
+  note.textContent = resolved ? reasons[status.utility_model_reason] || `Background jobs run on ${resolved}.` : "";
 }
 
 function renderVisionModelPicker(status) {
@@ -38309,7 +38322,7 @@ function renderVisionModelPicker(status) {
   if (status.vision_model) {
     note.textContent = `Active: ${status.vision_model}`;
   } else if (status.vision_model_resolved) {
-    note.textContent = `Auto-detect: currently: ${status.vision_model_resolved}`;
+    note.textContent = `Auto-detect, currently ${status.vision_model_resolved}`;
   } else {
     note.textContent =
       "Auto-detect: no installed model reports it can see images yet.";
@@ -38639,7 +38652,7 @@ function renderOcrModelPicker(status) {
   if (status.ocr_model) {
     note.textContent = `Active: ${status.ocr_model}`;
   } else if (status.ocr_model_resolved) {
-    note.textContent = `Automatic: currently: ${status.ocr_model_resolved}`;
+    note.textContent = `Automatic, currently ${status.ocr_model_resolved}`;
   } else {
     note.textContent =
       "Automatic: nothing installed can read text off a page yet.";
@@ -42300,9 +42313,13 @@ $("pref-autonomous-interval").addEventListener("change", (e) =>
 $("pref-autonomous-model").addEventListener("change", (e) =>
   setPreference("autonomous_tasks_model", e.target.value.trim())
 );
-$("pref-smart-model-routing").addEventListener("change", (e) =>
-  setPreference("smart_model_routing_enabled", e.target.checked)
-);
+//: The switch changes which model background jobs run on, so the line under
+//: the utility picker (INBOX 277) is re-read once the preference has landed
+//: rather than left describing the old state until the next poll.
+$("pref-smart-model-routing").addEventListener("change", async (e) => {
+  await setPreference("smart_model_routing_enabled", e.target.checked);
+  refreshModelStatus();
+});
 
 $("semantic-search-toggle")?.addEventListener("change", () => {
   // `loadEntries`, which is what re-runs the list with the toggle's new

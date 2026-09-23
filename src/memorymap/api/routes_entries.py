@@ -723,6 +723,11 @@ def add_context(
                     )
                 entry.category_id = category_row.id
                 entry.ai_confidence = confidence
+                # The same two lines as the create paths: a category the AI
+                # chose here is one a later move by hand corrects, and without
+                # the flag that correction went unrecorded (Brief 13).
+                if janitor.is_ai_method(filed_by):
+                    entry.filing_state = manager.AUTO_FILED
                 session.commit()
         except Exception:
             filed_by = None  # AI down, the note keeps its old category
@@ -777,6 +782,10 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
                         session, "edited", "entry", entry.id, f"re-evaluated -> {category}"
                     )
                 entry.category_id = category_row.id
+                # As on adding context: the AI owns this category now, so a
+                # move by hand is a correction the filing loop should read.
+                if janitor.is_ai_method(filed_by):
+                    entry.filing_state = manager.AUTO_FILED
             session.commit()
     except Exception:
         filed_by = None  # AI down, keep the note exactly as it was

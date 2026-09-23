@@ -7,7 +7,7 @@ were measured at.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 from sqlalchemy import text as sa_text
@@ -167,6 +167,79 @@ def test_deleting_takes_the_row_out(session):
     assert _counts(session)["bookmark"] == 0
 
 
+def _indexed(session, kind, ref_id) -> bool:
+    return bool(
+        session.execute(
+            sa_text("SELECT count(*) FROM search_index WHERE kind = :k AND ref_id = :r"),
+            {"k": kind, "r": ref_id},
+        ).scalar()
+    )
+
+
+def test_a_purged_note_leaves_no_row_behind(session):
+    """Emptying the bin is a bulk DELETE, which the flush hook never sees: the
+    note's row stayed, flagged `deleted`, for ever (`is:deleted` still found
+    a note that no longer existed anywhere else)."""
+    from memorymap.entry import manager
+
+    entry = manager.create_entry(session, "the old boiler manual", tags=[])
+    session.commit()
+    manager.soft_delete_entry(session, entry)
+    session.commit()
+    ref = entry.id
+    manager.purge_entries(session, [entry])
+    assert not _indexed(session, "note", ref)
+
+
+def test_deleting_a_space_takes_its_rows_out_of_the_index(client, session):
+    """The space delete is all bulk statements, so every note, document and
+    reminder in it stayed searchable from All spaces after the space was gone."""
+    from memorymap.core.database import Document, Entry, Reminder
+
+    space_id = client.post("/spaces", json={"name": "Doomed"}).json()["id"]
+    entry = Entry(content="lighthouse keeper rota", workspace_id=space_id)
+    doc = Document(title="lighthouse plans", content="lamp", workspace_id=space_id)
+    session.add_all([entry, doc])
+    session.flush()
+    reminder = Reminder(text="lighthouse oil", due_at=datetime(2026, 9, 30), workspace_id=space_id)
+    session.add(reminder)
+    session.commit()
+    ids = {"note": entry.id, "document": doc.id, "reminder": reminder.id}
+    assert all(_indexed(session, kind, ref) for kind, ref in ids.items())
+    assert client.delete(f"/spaces/{space_id}").status_code == 200
+    session.expire_all()
+    for kind, ref in ids.items():
+        assert not _indexed(session, kind, ref), f"a {kind} outlived its space in the index"
+
+
+def test_a_bulk_delete_of_an_indexed_model_forgets_its_rows():
+    """The lint half: a statement-level DELETE against an indexed model is
+    invisible to the flush hook, so a file that issues one must also call
+    `forget`. Found by hand twice (the bin and the space delete); this is so a
+    third is found by the build."""
+    import re
+    from pathlib import Path
+
+    indexed = "Entry|Document|Attachment|MediaUpload|Bookmark|Reminder"
+    bulk = re.compile(
+        rf"delete\((?:{indexed})\)|query\((?:{indexed})\)[^\n]*\.delete\("
+    )
+    src = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+    offenders = []
+    for path in src.rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        if bulk.search(text) and "forget(" not in text:
+            offenders.append(str(path.relative_to(src)))
+    assert not offenders, f"bulk deletes with no search_index.forget: {offenders}"
+
+
+def test_forget_is_a_no_op_for_nothing(session):
+    from memorymap.core.database import Entry
+    from memorymap.search import index
+
+    index.forget(session, Entry, [])  # must not raise or issue a bad IN ()
+
+
 def test_every_kind_lands_in_one_index(session):
     from memorymap.core.database import (
         Attachment,
@@ -269,6 +342,59 @@ def test_a_tag_filter_uses_the_indexed_tags(session):
     _note(session, "planting notes for work", tags=["work"])
     hits = engine.search(session, "tag:garden planting", ctx=None)
     assert len(hits) == 1
+
+
+def _hit_ids(session, q):
+    from memorymap.search import engine
+
+    return {(hit.kind, hit.ref_id) for hit in engine.search(session, q, ctx=None, hybrid=False)}
+
+
+def test_has_image_finds_a_picture_in_the_text_or_attached(session):
+    """`has:image` parsed and matched nothing: only `file` had a source."""
+    from memorymap.core.database import Attachment
+
+    inline = _note(session, "harbour walk ![the pier](/media/pier.jpg)")
+    attached = _note(session, "harbour walk, photo attached")
+    plain = _note(session, "harbour walk, no pictures")
+    session.add(Attachment(entry_id=attached.id, filename="p.jpg", stored_name="s", mime="image/jpeg"))
+    session.add(Attachment(entry_id=plain.id, filename="p.pdf", stored_name="t", mime="application/pdf"))
+    session.commit()
+    found = _hit_ids(session, "has:image harbour")
+    assert ("note", inline.id) in found
+    assert ("note", attached.id) in found
+    assert ("note", plain.id) not in found
+
+
+def test_has_link_finds_a_note_connected_to_another(session):
+    from memorymap.core.database import EntryLink
+
+    a = _note(session, "tidal times for the bay")
+    b = _note(session, "tidal times for the estuary")
+    alone = _note(session, "tidal times, unconnected")
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
+    session.commit()
+    found = _hit_ids(session, "has:link tidal")
+    assert {("note", a.id), ("note", b.id)} <= found
+    assert ("note", alone.id) not in found
+
+
+def test_has_reminder_finds_a_note_with_one_and_the_reminders_themselves(session):
+    from memorymap.core.database import Reminder
+
+    with_one = _note(session, "renew the passport")
+    without = _note(session, "passport photos, done")
+    session.add(Reminder(text="passport office", due_at=datetime(2026, 10, 1), entry_id=with_one.id))
+    session.commit()
+    found = _hit_ids(session, "has:reminder passport")
+    assert ("note", with_one.id) in found
+    assert ("note", without.id) not in found
+    assert any(kind == "reminder" for kind, _ in found)
+
+
+def test_an_unknown_has_word_still_matches_nothing_rather_than_everything(session):
+    _note(session, "harbour walk")
+    assert _hit_ids(session, "has:unicorn harbour") == set()
 
 
 def test_the_open_note_lifts_what_is_linked_to_it(session):

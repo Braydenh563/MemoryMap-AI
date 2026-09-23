@@ -424,15 +424,60 @@ def touch(session: Session, source_name: str, ref_id: int) -> None:
     _write(session.connection(), source, ref_id, row)
 
 
+def forget(session: Session, model: type, ids: Iterable[int]) -> int:
+    """Take rows out for things a bulk statement is about to delete, or has.
+
+    `touch` above re-reads one object; this is its bulk half, for the deletes
+    that never reach the flush hook: emptying the bin (`manager._hard_delete`
+    runs `DELETE FROM entries WHERE id IN (...)`) and deleting a space (every
+    table in `routes_spaces.delete_space` goes by a query-level delete). Both
+    left their rows here for good, measured: a purged note stayed findable
+    with `is:deleted`, and a deleted space's notes, documents and reminders
+    stayed findable from All spaces. Every source of the model is cleared,
+    because a note and a board share `Entry` and the caller cannot know
+    which of the two a row was indexed as. Returns rows removed.
+    """
+    wanted = [int(ref_id) for ref_id in ids]
+    if not wanted or _table_missing(session):
+        return 0
+    rowids = [_rowid(source, ref_id) for source in _BY_MODEL.get(model, ()) for ref_id in wanted]
+    removed = 0
+    connection = session.connection()
+    # In chunks: SQLite's default bound-parameter ceiling is 999 on older
+    # builds, and a bin can hold more notes than that.
+    for start in range(0, len(rowids), 500):
+        chunk = rowids[start : start + 500]
+        result = connection.exec_driver_sql(
+            f"DELETE FROM search_index WHERE rowid IN ({', '.join('?' * len(chunk))})",
+            tuple(chunk),
+        )
+        removed += max(result.rowcount or 0, 0)
+    return removed
+
+
+#: When the index was last rebuilt from scratch in this process, and with how
+#: many rows per kind, for `/search/stats`. None until the first rebuild: a
+#: notebook whose index has only ever been kept up by the flush hook has no
+#: "last rebuilt" to report, and inventing one would say it was checked.
+_last_rebuild: dict | None = None
+
+
+def last_rebuild() -> dict | None:
+    return dict(_last_rebuild) if _last_rebuild else None
+
+
 def rebuild(session: Session, only: str | None = None) -> dict[str, int]:
     """Index everything from scratch. Returns rows written per kind.
 
-    The one caller is a database that has never had the table (a notebook from
+    Two callers. A database that has never had the table (a notebook from
     before this existed): `DatabaseManager` runs it once at startup when
-    `ensure_table` reports it created the table. On a large notebook this is
-    work for the job runtime (Brief 9), never for a request, which is why
-    nothing routes to it.
+    `ensure_table` reports it created the table. And the re-index job
+    (`model_manager._run_reindex`, behind Settings' "Rebuild search index"),
+    which is the way to ask for one after a restore, an import or a bug; it
+    was the one thing that could not be asked for (the `search-reindex-job`
+    row). Never a request's own work: on a large notebook it is a job.
     """
+    global _last_rebuild
     if _table_missing(session):
         return {}
     connection = session.connection()
@@ -447,6 +492,8 @@ def rebuild(session: Session, only: str | None = None) -> dict[str, int]:
         for ref_id, row in source.scan(session):
             _write(connection, source, ref_id, row)
             written[source.kind] += 1
+    if not only:
+        _last_rebuild = {"at": datetime.now().astimezone().isoformat(timespec="seconds"), "rows": dict(written)}
     return written
 
 

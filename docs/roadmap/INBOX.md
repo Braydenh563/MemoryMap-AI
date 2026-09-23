@@ -93,6 +93,9 @@ with its owner named in the entry.
     extended to each new shape; (2) an architecture review written into
     ANALYSIS.md: what is sound, what a professional app would do instead,
     cost and order of each change.
+    **(2) written 2026-09-24**: ANALYSIS.md "Architecture review"; the three
+    that matter most are the embedding model out of the main process, ES
+    modules surface by surface, and cascade layers folding 08 back.
 
 399. **The owner, 2026-09-23 night, verbatim.** "what is left in the world
     class plan?? can you poke more holes in the application for bugs,

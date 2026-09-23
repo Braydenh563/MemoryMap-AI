@@ -5793,7 +5793,56 @@ function wbMapEdgeElement(parentId, childId) {
 //: it, and `el.style` sits above the stylesheet where the attribute sat
 //: below. Removed as well as set, which a rebuilt element never had to do:
 //: a branch that loses its colour has to lose it on the line too.
-let edgeLabelDrag;
+//: **A line's label follows the pointer, in board units.** The first
+//: version rode d3-drag's `dx`, which is measured in the edge layer's SVG
+//: space; that layer is scaled by the board's CSS zoom, which Chromium's
+//: `getScreenCTM` does not see, so at any zoom but 1x the label ran ahead of
+//: or behind the hand (owner: "it goes a bit off my mouse"). It also stopped
+//: only the mouse event, after the canvas had already taken the pointerdown
+//: and started a selection box. This takes the pointer itself: the screen
+//: delta divided by the zoom, captured so a fast drag cannot lose it, and a
+//: stopped pointerdown so nothing behind the label reacts. One undo step,
+//: through `wbMapSetNodeStyle`, on release.
+function wbWireEdgeLabelDrag(text, wrap) {
+  text.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    const childId = Number(wrap.querySelector(".wb-map-edge")?.dataset.child);
+    const node = wbMapIndex().byId.get(childId);
+    if (!node) return;
+    event.stopPropagation();
+    event.preventDefault();
+    const container = document.getElementById("whiteboard-container");
+    const k = d3.zoomTransform(container).k || 1;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const fromDx = Number(node.data?.edge_label_dx) || 0;
+    const fromDy = Number(node.data?.edge_label_dy) || 0;
+    const baseX = Number(text.getAttribute("x")) - fromDx;
+    const baseY = Number(text.getAttribute("y")) - fromDy;
+    let dx = fromDx;
+    let dy = fromDy;
+    text.setPointerCapture(event.pointerId);
+    text.classList.add("is-dragging");
+    const move = (e) => {
+      dx = fromDx + (e.clientX - startX) / k;
+      dy = fromDy + (e.clientY - startY) / k;
+      text.setAttribute("x", String(baseX + dx));
+      text.setAttribute("y", String(baseY + dy));
+    };
+    const done = async () => {
+      text.removeEventListener("pointermove", move);
+      text.removeEventListener("pointerup", done);
+      text.removeEventListener("pointercancel", done);
+      text.classList.remove("is-dragging");
+      if (Math.round(dx) === fromDx && Math.round(dy) === fromDy) return;
+      await wbMapSetNodeStyle(node, { edge_label_dx: Math.round(dx), edge_label_dy: Math.round(dy) });
+      wbScheduleRender();
+    };
+    text.addEventListener("pointermove", move);
+    text.addEventListener("pointerup", done);
+    text.addEventListener("pointercancel", done);
+  });
+}
 
 function wbMapEdgeApply(wrap, geom) {
   //: By class, not by position: the group's order is the hit test's (the
@@ -5829,41 +5878,7 @@ function wbMapEdgeApply(wrap, geom) {
       if (childId) wbMapLabelEdge(childId);
     });
 
-    if (!edgeLabelDrag) {
-      edgeLabelDrag = d3.drag()
-        .on("start", function(event) {
-          event.sourceEvent.stopPropagation();
-          const pWrap = this.closest(".wb-map-edge-group");
-          const childId = Number(pWrap.querySelector(".wb-map-edge").dataset.child);
-          const node = wbMapIndex().byId.get(childId);
-          if (!node) return;
-          this._dragNode = node;
-          this._dragStartX = Number(node.data?.edge_label_dx) || 0;
-          this._dragStartY = Number(node.data?.edge_label_dy) || 0;
-        })
-        .on("drag", function(event) {
-          if (!this._dragNode) return;
-          // event.dx is already in the coordinate space of the parent group
-          this._dragStartX += event.dx;
-          this._dragStartY += event.dy;
-          const pWrap = this.closest(".wb-map-edge-group");
-          const pHandle = pWrap.querySelector(".wb-map-edge-handle");
-          const hx = Number(pHandle.getAttribute("cx"));
-          const hy = Number(pHandle.getAttribute("cy"));
-          this.setAttribute("x", String(hx + this._dragStartX));
-          this.setAttribute("y", String(hy + this._dragStartY));
-        })
-        .on("end", async function(event) {
-          if (!this._dragNode) return;
-          await wbMapSetNodeStyle(this._dragNode, { 
-            edge_label_dx: Math.round(this._dragStartX), 
-            edge_label_dy: Math.round(this._dragStartY)
-          });
-          this._dragNode = null;
-          wbScheduleRender();
-        });
-    }
-    d3.select(text).call(edgeLabelDrag);
+    wbWireEdgeLabelDrag(text, wrap);
 
     wrap.appendChild(text);
   }

@@ -91,12 +91,23 @@ with its owner named in the entry.
     whiteboard undo for formatting and map styles (fixed); mind maps missing from
     Find anything, weekly digest filler and "tonight", per-feature model
     picker, agent activity panel alignment, image filter sketches/uploads,
-    notification when a closed panel's answer finishes (agents running). Open
-    decisions, recommendation beneath each: "incorporate laya (jev opensource
-    alternative)?" (unclear which project is meant; ask once, with the licence
-    check ANALYSIS names), "finetune a model to come packaged with the app?"
-    (no: a stock small instruct model plus this app's prompts is cheaper to
-    keep current; revisit only with an eval set that shows a gap).
+    notification when a closed panel's answer finishes (agents running).
+    Decisions, taken 2026-09-23 with the owner: **no fine-tuned bundled model**
+    (the owner agreed: a stock small instruct model plus this app's prompts is
+    cheaper to keep current; revisit only with an eval set that shows a gap).
+    **Laya** (Convai's open-weight decision model, the open alternative to
+    Jev: ModernBERT-large, 421M params, Apache 2.0 so AGPL-compatible, typed
+    choice/score/boolean outputs with probabilities) **is not adopted now**,
+    for three measured reasons from the published benchmarks: zero-shot it
+    scores below a plain baseline (0.362 vs 0.461) and only wins after
+    per-domain fine-tuning, which this app cannot do for each person's own
+    categories; it degrades past about 20 labels (0.425 on Banking77's 77),
+    and notebooks grow past that; its context is 512 tokens, shorter than many
+    notes. Filing stays on embeddings plus the chat model. Where it could earn
+    a place later: small fixed-choice decisions (intent routing in chat, "is
+    this a reminder") as an optional extra on the same torch install as
+    search by meaning, gated on an eval set showing it beats the current
+    prompt on those questions.
 
 392. **The owner, 2026-09-23, verbatim, for after 391:** "poke holes in the
     application as in find bugs, security flaws places where there is

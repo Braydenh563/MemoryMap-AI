@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Note meta line, second pass: the category is a soft pill with its own stable colour dot, tags read #work, a date reads as the day alone (the note's own phrase on hover), and each connection is one pill with its menu inside it, so hidden menus no longer leave gaps between connections; image markdown no longer shows raw in a connection's label. Settings no longer scrolls sideways at 768.
 - De-vibecoding, settings: switch labels at 500 instead of bold, a healthy status is a green dot before muted text instead of a green sentence, section help is a bare glyph in the flat looks, number fields share one short width, and the name placeholders no longer carry a real person's name.
 - De-vibecoding, reminders: the due readout is a small muted note on the form, and a reminder's own words are body size instead of 12px.
 - De-vibecoding, timeline: row titles at 500 and the category as muted text, instead of a column of bold accent pills.

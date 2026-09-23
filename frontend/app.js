@@ -1272,6 +1272,20 @@ function settingsModalOpen() {
   return Boolean(modal) && !modal.classList.contains("hidden");
 }
 
+//: A category's own colour, the same for the same name on every card and
+//: every visit: a hash of the name into ten hues chosen to read on both
+//: grounds (the Tableau 10 set the graph's legend already draws from). A dot
+//: carries it, never the text, so the name stays at full contrast.
+const CATEGORY_DOT_COLOURS = [
+  "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
+  "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#8cd17d",
+];
+function categoryDotColour(name) {
+  let h = 0;
+  for (const ch of String(name || "")) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return CATEGORY_DOT_COLOURS[h % CATEGORY_DOT_COLOURS.length];
+}
+
 function chip(text, extraClass = "", onClick = null) {
   const span = document.createElement("span");
   span.className = `chip ${extraClass}`.trim();
@@ -3118,7 +3132,9 @@ function entryItem(entry, options = {}) {
     //: category rule was "a chip with none of these variants", which caught
     //: every variant added after it and drew "No tags yet" and "Linked by 5
     //: notes" as accent pills too.
-    meta.appendChild(chip(entry.category, "category"));
+    const categoryEl = chip(entry.category, "category");
+    categoryEl.style.setProperty("--category-dot", categoryDotColour(entry.category));
+    meta.appendChild(categoryEl);
   }
   //: `hashtag` marks a real tag: `tag` alone is also the quiet look the
   //: documents, the source and the space borrow, and only a tag gets the #.
@@ -3268,7 +3284,11 @@ function entryItem(entry, options = {}) {
       when.precision === "day"
         ? day.toLocaleDateString(undefined, { day: "numeric", month: "short" })
         : `${when.precision} of ${day.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
-    const mark = chip(`ph:clock ${when.phrase} → ${label}`, "when");
+    //: The date alone, the phrase on hover (owner, with a screenshot of
+    //: "Tonight → 21 Sept on Friday → 25 Sept" in one meta line: "clean up
+    //: the notes metadata and badges a bit more"). What a reader scans for is
+    //: the day; the words the note used for it are the explanation.
+    const mark = chip(`ph:calendar-blank ${label}`, "when");
     mark.title =
       `“${when.phrase}” meant ${day.toLocaleDateString(undefined, {
         weekday: "long", day: "numeric", month: "long", year: "numeric",
@@ -3561,7 +3581,14 @@ function entryItem(entry, options = {}) {
       //
       // Clipped to a glanceable length, quiet by default, with the full text
       // on hover for when the clip is not enough.
-      const label = link.preview || "";
+      //: An image in the other note's first line is markdown a chip cannot
+      //: draw, and it showed as its raw `![...](...)` (owner's screenshot:
+      //: "Gary The Moss Monster :D ![Gary The Moss Monst..."). The picture
+      //: is dropped from the label; the words around it stay.
+      const label = (link.preview || "")
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
       const short = label.length > LINK_CHIP_CHARS
         ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
         : label;

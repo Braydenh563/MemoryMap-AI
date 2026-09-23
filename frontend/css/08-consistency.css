@@ -2703,8 +2703,18 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 400;
 }
 
+/* The category is the one fact that names where the note lives, so it is
+   the one chip on the line: a soft neutral pill with the category's own
+   colour as a dot (app.js `categoryDotColour`, stable per name). Revised
+   on the owner's "improve the look of the category chips". */
 .entry-meta > .chip.category {
-  background: transparent;
+  --category-dot: var(--accent);
+  background: var(--chip-bg);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  margin-inline: 0;
+  gap: var(--space-2);
   color: var(--ink);
   font-weight: 500;
 }
@@ -2715,7 +2725,13 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   width: 0.5em;
   height: 0.5em;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--category-dot);
+}
+
+/* "#work", not "# work": the chip's own gap sat between the mark and the
+   word (owner's screenshot). */
+.entry-meta > .chip.hashtag {
+  gap: 0;
 }
 
 .entry-meta > .chip.hashtag::before {
@@ -3014,4 +3030,79 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #settings-modal :is(#pref-bin-days, #pref-chat-retention, #pref-search-min-sim, #pref-search-z-margin) {
   width: 7rem;
   flex: 0 0 auto;
+}
+
+/* 5. Settings scrolled sideways at 768 (the phone agent's find, measured
+      477px of content in a 446px pane on Appearance and Preferences): the
+      rows are the generic `.row`, which never wraps, so "Reset theme to
+      default" beside "Clear my changes, keep the theme", and a label beside
+      its field and its unit, pushed past the edge. In a pane a row wraps,
+      and a field never outgrows the pane. */
+#settings-modal .modal-content .row {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+#settings-modal .modal-content .row > :is(input, select, textarea) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* --- a note's connections: one pill each, its menu inside it -----------------
+   Owner, with two screenshots: "the popup meatball buttons for connected
+   notes leave awkward gaps between the connected note chips". The ⋯ was a
+   36px filled button beside every chip, invisible until the card was
+   hovered but always holding its place, so two connections sat a button's
+   width apart, and on hover every ⋯ on the card appeared at once. The
+   connection is now the pill; the chip inside it is borderless and the ⋯
+   is a small bare glyph at its end, shown when that connection is pointed
+   at or focused (always on touch). Its reserved room is the pill's own end
+   padding, so nothing between the pills is empty. */
+#entry-list .entry-links {
+  gap: var(--space-2);
+}
+
+#entry-list .link-connection {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  max-width: 100%;
+}
+
+#entry-list .link-connection > .chip.link {
+  border: 0;
+  background: transparent;
+  min-width: 0;
+}
+
+#entry-list .link-connection > .menu-wrap > button {
+  width: 1.5rem;
+  height: 1.5rem;
+  min-height: 0;
+  padding: 0;
+  margin-inline-end: var(--space-1);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+#entry-list .link-connection > .menu-wrap > button:hover {
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+#entry-list li:is(:hover, :focus-within) .link-connection > .menu-wrap {
+  opacity: 0;
+}
+
+#entry-list li .link-connection:is(:hover, :focus-within) > .menu-wrap,
+#entry-list li .link-connection > .menu-wrap:has([aria-expanded="true"]) {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  #entry-list .link-connection > .menu-wrap {
+    opacity: 1;
+  }
 }

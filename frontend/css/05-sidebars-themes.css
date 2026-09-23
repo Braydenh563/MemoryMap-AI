@@ -3248,7 +3248,10 @@ button.outline-twist:focus-visible {
    the Classic lavender. */
 :root[data-page-wash="on"]:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) {
   --blob-a: color-mix(in srgb, var(--accent) 9%, transparent);
-  --blob-b: color-mix(in srgb, var(--ink) 4%, transparent);
+  /* The far corner answers the near one, as Classic's does (owner: "put a
+     bit of the background shine in the bottom right corner as well like the
+     classic view"). It was 4% of the ink: on dark, a grey nobody could see. */
+  --blob-b: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
 :root[data-page-wash="on"][data-palette="utilitarian"]:not([data-mode="dark"]) {

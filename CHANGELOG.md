@@ -243,6 +243,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The flat looks' background wash has a soft accent light in the bottom right
+  corner as well as the top left, as Classic does.
 - Capture's "Add to this note" tools (Attach, From library, Sketch, Dictate,
   Improve) and "Add to document" are a quiet toolbar rather than a row of
   heavy buttons, with Improve set apart; every Capture row shares one label

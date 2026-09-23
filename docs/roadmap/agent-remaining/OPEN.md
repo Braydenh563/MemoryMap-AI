@@ -38,7 +38,7 @@ measured; "partial" names what is left.
 | CI red on Python 3.13 | Done: vault key leak between tests, a create_all race (a lock on the singletons), 3.13's JSON trailing-comma position |
 | Graph: Documents switch did nothing; options panel arrows and field height | Done |
 | Settings: "?" buttons misaligned and missed; pane titles; section headers; flattened badges hard to read | Done: one right edge for every "?", a title on every pane, item rows with a hierarchy |
-| Guided tour broken past slide one | In progress (tour agent) |
+| Guided tour broken past slide one | Done: re-enabled; overlays closed before each step, phone steps point at More, a fixed counter, typing left alone; `tour.js` 118 of 118 steps at 1440, 1184 and 390 (`archive/agent-remaining/tour.md`) |
 | Second de-vibecoding pass of the whole app, especially the Library; micro-conventions everywhere; optimisation | In progress: orchestrator did Settings, Finder, palette, notifications, lock screen; Library/documents/notes/chat agent and canvas agent running |
 | Agents commit often so nothing is lost | Done (agents told; the hourly check-in merges gated agent commits and pushes) |
 

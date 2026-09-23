@@ -16432,6 +16432,58 @@ function docEmmetWrapText(text, indent, abbr) {
   const lines = text.split("\n").map((line, i) => (i && line.startsWith(indent) ? line.slice(indent.length) : line));
   return lines.length > 1 && /\*(?!\d)/.test(abbr) ? lines.filter((l) => l.trim()) : lines.join("\n");
 }
+
+//: **Rename the matching tag** (VS Code's linked editing): an edit inside
+//: one tag's name, made to `oldText` as `fromA`..`toA` becoming `insert`,
+//: and the same rename for its partner, as `{ from, to, insert }` in the
+//: edited document's positions; null when the edit is not inside a paired
+//: tag's name, or makes something that is no longer a name (a space starts
+//: the attributes, and the partner is then left alone).
+function docTagRename(E, oldText, fromA, toA, insert, xml) {
+  let tag = null;
+  try {
+    tag = E.matchTag(oldText, fromA, { xml });
+  } catch {
+    return null;
+  }
+  if (!tag || !tag.close) return null;
+  const open = [tag.open[0] + 1, tag.open[0] + 1 + tag.name.length];
+  const close = [tag.close[0] + 2, tag.close[0] + 2 + tag.name.length];
+  const inside = ([a, b]) => fromA >= a && toA <= b;
+  const edited = inside(open) ? open : inside(close) ? close : null;
+  if (!edited) return null;
+  const name = tag.name.slice(0, fromA - edited[0]) + insert + tag.name.slice(toA - edited[0]);
+  if (!/^[\w:.-]*$/.test(name)) return null;
+  const partner = edited === open ? close : open;
+  const shift = partner[0] > fromA ? insert.length - (toA - fromA) : 0;
+  return { from: partner[0] + shift, to: partner[1] + shift, insert: name };
+}
+
+//: XML's auto-close, which the stream mode does not have and HTML's and
+//: JSX's grammars do: the name of the tag a `>` typed now would open, or
+//: null (a self-closing `/>`, a comment, a declaration, a closing tag).
+function docXmlOpenedBy(before) {
+  const match = /<([A-Za-z_][\w:.-]*)(?:\s[^<>]*)?$/.exec(before);
+  return match && !before.endsWith("/") ? match[1] : null;
+}
+
+//: The innermost element still open at the end of `before`, for `</`: the
+//: close it should be finished with, or null.
+function docXmlUnclosed(before) {
+  const stack = [];
+  const tags = /<(\/?)([A-Za-z_][\w:.-]*)(?:\s[^<>]*?)?(\/?)>/g;
+  const text = before.replace(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>/g, "");
+  let match;
+  while ((match = tags.exec(text)) !== null) {
+    if (match[3]) continue;
+    if (!match[1]) stack.push(match[2]);
+    else {
+      const at = stack.lastIndexOf(match[2]);
+      if (at >= 0) stack.length = at;
+    }
+  }
+  return stack.length ? stack[stack.length - 1] : null;
+}
 // DOC-COMPLETE-END
 
 //: Where Emmet comes from. Loaded the first time a document it serves is
@@ -16769,6 +16821,77 @@ function docGhostPlugin(CM) {
 
 //: Everything above, for a code document: the list opening as you type,
 //: Emmet where the type has it, the ghost text and Tab.
+//: **Rename the matching tag, as you type** (INBOX 402). A transaction
+//: filter rather than a second dispatch, so the partner's rename rides in
+//: the same transaction as the keystroke: one undo step takes both back.
+//: Only a user's own typing or deleting inside a tag's name is followed, and
+//: in a `.js` file only inside JSX, where the tree says the caret is in a
+//: JSX tag (the matcher reads text, and `a <b` in JavaScript is not a tag).
+const docTagLinkCache = {};
+
+function docTagLink(CM, syntax) {
+  if (docTagLinkCache[syntax]) return docTagLinkCache[syntax];
+  docTagLinkCache[syntax] = CM.state.EditorState.transactionFilter.of((tr) => {
+    if (!tr.docChanged || !(tr.isUserEvent("input.type") || tr.isUserEvent("delete"))) return tr;
+    const E = window.EMMET;
+    if (!E) return tr;
+    const edits = [];
+    tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => edits.push([fromA, toA, inserted.toString()]));
+    if (edits.length !== 1) return tr;
+    const [fromA, toA, insert] = edits[0];
+    const start = tr.startState;
+    const line = start.doc.lineAt(fromA);
+    //: The cheap test first: the edit touches `<name` or `</name` on its
+    //: line. Only then is the whole text handed to the matcher.
+    if (!/<\/?[\w:.-]*$/.test(line.text.slice(0, fromA - line.from))) return tr;
+    if (syntax === "jsx") {
+      let inTag = false;
+      for (let node = CM.language.syntaxTree(start).resolveInner(fromA, -1), k = 0; node && k < 4; node = node.parent, k += 1) {
+        if (/^JSX(OpenTag|CloseTag)$/.test(node.name)) inTag = true;
+      }
+      if (!inTag) return tr;
+    }
+    const partner = docTagRename(E, start.doc.toString(), fromA, toA, insert, syntax !== "html");
+    if (!partner) return tr;
+    return [tr, { changes: partner, sequential: true }];
+  });
+  return docTagLinkCache[syntax];
+}
+
+//: XML's auto-close and `</` completion, as an input handler: `>` after
+//: `<item` writes `></item>` with the caret between, and `/` after `<`
+//: finishes the innermost open element's close. HTML and JSX already have
+//: both from their grammars (`autoCloseTags`).
+let docXmlCloseCache = null;
+
+function docXmlAutoClose(CM) {
+  if (docXmlCloseCache) return docXmlCloseCache;
+  docXmlCloseCache = CM.view.EditorView.inputHandler.of((view, from, to, text) => {
+    if ((text !== ">" && text !== "/") || from !== to || view.state.readOnly) return false;
+    const before = view.state.sliceDoc(Math.max(0, from - 20000), from);
+    if (text === ">") {
+      const name = docXmlOpenedBy(before);
+      if (!name) return false;
+      view.dispatch({
+        changes: { from, insert: `></${name}>` },
+        selection: { anchor: from + 1 },
+        userEvent: "input.type",
+      });
+      return true;
+    }
+    if (!before.endsWith("<")) return false;
+    const name = docXmlUnclosed(before.slice(0, -1));
+    if (!name) return false;
+    view.dispatch({
+      changes: { from, insert: `/${name}>` },
+      selection: { anchor: from + name.length + 2 },
+      userEvent: "input.type",
+    });
+    return true;
+  });
+  return docXmlCloseCache;
+}
+
 //: XML's Emmet source, as language data for the stream mode: one stable
 //: array, for the identity reason above.
 let docEmmetXmlData = null;
@@ -16785,6 +16908,8 @@ function docCompletionExtras(CM, type) {
     //: `.js` file; the source itself answers only inside JSX.
     type.ext === "js" ? CM.javascript.javascriptLanguage.data.of({ autocomplete: docEmmetSource(CM, "jsx") }) : [],
     type.ext === "xml" ? CM.state.EditorState.languageData.of(() => docEmmetXmlData) : [],
+    type.ext === "xml" ? docXmlAutoClose(CM) : [],
+    ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],
     docGhostPlugin(CM),
     CM.state.Prec.highest(CM.view.keymap.of([{ key: "Tab", run: (view) => docCompleteTab(view, CM) }])),
   ];

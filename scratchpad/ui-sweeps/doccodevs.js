@@ -152,6 +152,53 @@ const ok = (n, c, d) => {
   const back = await page.evaluate(() => [docCmView.state.selection.main.from, docCmView.state.selection.main.to]);
   ok("and inward steps back", J(back) === J([5, 31]), J(back));
 
+  // --- 3. auto-close and rename the matching tag ----------------------------------
+  await open("close.html", "html", "");
+  await page.keyboard.type("<section>");
+  await settle();
+  await page.keyboard.press("Escape");
+  t = await text();
+  ok("HTML closes a tag on >", t === "<section></section>", J(t));
+
+  await open("rename.html", "html", "<div>\n  x\n</div>");
+  await select(1, 4);
+  await page.keyboard.type("main");
+  await settle();
+  await page.keyboard.press("Escape");
+  t = await text();
+  ok("typing over the open tag's name renames the close", t === "<main>\n  x\n</main>", J(t));
+  await page.evaluate(() => docCmView.dispatch({ selection: { anchor: docCmView.state.doc.toString().lastIndexOf("main") + 4 } }));
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Backspace");
+  t = await text();
+  ok("deleting in the close tag's name renames the open", t === "<ma>\n  x\n</ma>", J(t));
+  await page.keyboard.press("Control+z");
+  await page.waitForTimeout(150);
+  t = await text();
+  ok("and one undo takes both back", t === "<main>\n  x\n</main>" || t === "<mai>\n  x\n</mai>", J(t));
+
+  await open("rename.js", "js", "const A = () => (\n  <div>x</div>\n);");
+  await page.evaluate(() => docCmView.dispatch({ selection: { anchor: 24 } }));
+  await page.keyboard.type("s");
+  await settle();
+  await page.keyboard.press("Escape");
+  t = await text();
+  ok("JSX renames its partner too", t.includes("<divs>x</divs>"), J(t));
+
+  await open("close.xml", "xml", "<root>\n  |\n</root>");
+  await page.keyboard.type("<item id=\"1\">");
+  await settle();
+  await page.keyboard.press("Escape");
+  t = await text();
+  ok("XML closes a tag on >", t === '<root>\n  <item id="1"></item>\n</root>', J(t));
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("</");
+  await settle();
+  await page.keyboard.press("Escape");
+  t = await text();
+  ok("and </ finishes the open element", /<\/item>\n\s*<\/root>\n<\/root>$/.test(t), J(t));
+
 
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`\n${good} passed, ${bad} failed`);

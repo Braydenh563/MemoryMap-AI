@@ -387,3 +387,70 @@ def test_emmet_commands_are_in_the_palette_for_code():
     extras = _function("docCompletionExtras")
     assert 'CM.javascript.javascriptLanguage.data.of({ autocomplete: docEmmetSource(CM, "jsx") })' in extras
     assert "docJsxChildAt(CM, state, pos)" in _function("docEmmetPlace")
+
+
+def _region_call(expr: str, arg) -> object:
+    """`expr` evaluated after the region and the bundle, `ARG` its argument."""
+    script = (
+        EMMET_JS.read_text(encoding="utf-8")
+        + "\n"
+        + _region()
+        + "\nconst E = EMMET;\nconst ARG = JSON.parse(process.argv[1]);\n"
+        + f"console.log(JSON.stringify({expr}));\n"
+    )
+    out = subprocess.run(["node", "-e", script, json.dumps(arg)], capture_output=True, text=True, check=True, timeout=60)
+    return json.loads(out.stdout)
+
+
+@node
+@pytest.mark.parametrize(
+    ("text", "edit", "partner"),
+    [
+        # Typing in the open tag's name renames the close, shifted by the edit.
+        ("<div>\n  x\n</div>", [1, 4, "section"], {"from": 16, "to": 19, "insert": "section"}),
+        ("<div>x</div>", [4, 4, "s"], {"from": 9, "to": 12, "insert": "divs"}),
+        # And in the close tag's name, the open, which does not move.
+        ("<div>x</div>", [8, 11, "p"], {"from": 1, "to": 4, "insert": "p"}),
+        # Deleting a letter.
+        ("<span>x</span>", [4, 5, ""], {"from": 8, "to": 12, "insert": "spa"}),
+        # A space starts the attributes: the partner is left alone.
+        ("<div>x</div>", [4, 4, " "], None),
+        # Not in a name, or no partner.
+        ("<div>x</div>", [5, 6, "y"], None),
+        ("<br>", [1, 3, "hr"], None),
+        # XML names with a prefix.
+        ("<a:b>x</a:b>", [3, 4, "c"], {"from": 8, "to": 11, "insert": "a:c"}),
+    ],
+)
+def test_rename_the_matching_tag(text, edit, partner):
+    got = _region_call("docTagRename(E, ARG[0], ARG[1], ARG[2], ARG[3], true)", [text, *edit])
+    assert got == partner
+
+
+@node
+@pytest.mark.parametrize(
+    ("fn", "before", "name"),
+    [
+        ("docXmlOpenedBy", "<root>\n  <item", "item"),
+        ("docXmlOpenedBy", '<item id="1"', "item"),
+        ("docXmlOpenedBy", "<br/", None),
+        ("docXmlOpenedBy", "<!-- x", None),
+        ("docXmlOpenedBy", "<?xml version", None),
+        ("docXmlOpenedBy", "</item", None),
+        ("docXmlUnclosed", "<root>\n  <item>x", "item"),
+        ("docXmlUnclosed", "<root>\n  <item>x</item>\n", "root"),
+        ("docXmlUnclosed", "<root><br/><!-- <x> -->", "root"),
+        ("docXmlUnclosed", "<root></root>", None),
+    ],
+)
+def test_xml_auto_close(fn, before, name):
+    assert _region_call(f"{fn}(ARG)", before) == name
+
+
+def test_tag_link_is_one_undo_step_and_mounted_where_there_are_tags():
+    link = _function("docTagLink")
+    assert "transactionFilter" in link and "sequential: true" in link
+    assert 'tr.isUserEvent("input.type") || tr.isUserEvent("delete")' in link
+    extras = _function("docCompletionExtras")
+    assert '["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : []' in extras
+    assert 'type.ext === "xml" ? docXmlAutoClose(CM) : []' in extras

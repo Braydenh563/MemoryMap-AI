@@ -10789,7 +10789,7 @@ async function refreshNoteSearchWhy() {
     // box shows a page, not a notebook, and a note past the fiftieth best
     // match simply carries no reason chip rather than a wrong one.
     body = await apiJson(
-      `/search?q=${encodeURIComponent(asked)}&kind=note,board&limit=50` +
+      `/search?q=${encodeURIComponent(asked)}&kind=note,board,map&limit=50` +
         (open ? `&entry_id=${open}` : "")
     );
   } catch {
@@ -49033,7 +49033,15 @@ $("notif-mark-all-read")?.addEventListener("click", () => {
 const FINDER_KINDS = [
   { key: "note", icon: "ph:note-pencil", one: "note", many: "notes" },
   { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
-  { key: "board", icon: "ph:tree-structure", one: "board or map", many: "boards & maps" },
+  { key: "board", icon: "ph:squares-four", one: "board", many: "boards" },
+  //: Its own kind since the index learned to tell a map from a board.
+  //: Reported: "Mind maps don't show in the Find anything universal search".
+  //: A previous pass renamed the board chip "boards & maps" and left the
+  //: map filed as a board, so a map still wore a board's meaning and could
+  //: not be asked for on its own; `search/index.py` now indexes it as `map`,
+  //: with the words on its topics, and it wears the glyph a map wears in the
+  //: Library and the tab strip.
+  { key: "map", icon: "ph:tree-structure", one: "mind map", many: "mind maps" },
   { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
   { key: "bookmark", icon: "ph:bookmark-simple", one: "link", many: "links" },
   { key: "reminder", icon: "ph:alarm", one: "reminder", many: "reminders" },
@@ -49061,6 +49069,7 @@ const FINDER_OPEN = {
   note: (hit) => { switchTab("notes"); flashEntry(hit.id); },
   document: (hit) => { switchTab("documents"); openDocument(hit.id); },
   board: (hit) => openLibraryItem({ kind: "board", id: hit.id }),
+  map: (hit) => openLibraryItem({ kind: "map", id: hit.id }),
   file: (hit) => flashLibraryItem("file", hit.id),
   bookmark: (hit) => flashLibraryItem("link", hit.id),
   reminder: () => switchTab("reminders"),
@@ -49183,7 +49192,7 @@ function finderRenderEmpty() {
   title.textContent = "Search everything you keep";
   const body = document.createElement("p");
   body.textContent =
-    "Notes, documents, boards, files, links and reminders at once, by your words and by what they mean. Type to begin.";
+    "Notes, documents, boards, mind maps, files, links and reminders at once, by your words and by what they mean. Type to begin.";
   box.append(icon, title, body);
   results.appendChild(box);
   finderRenderFilters();

@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Mind maps show in the Find anything search as mind maps, with their own
+  filter chip and glyph, and are found by the words written on their topics,
+  not only by their title (a board's text boxes likewise find the board).
+  Maps had been indexed as boards, and only the `# Title` line of either was
+  indexed. An existing index is put right at the next start by a diff over
+  the boards, a no-op once done.
 - The packaged Windows app now says what is wrong when it cannot show its
   window, instead of a blank or missing graphic with nothing in any log.
   Reported directly on the .exe build: pywebview's Windows backend needs the

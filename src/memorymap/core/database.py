@@ -1596,6 +1596,12 @@ class DatabaseManager:
         with self.engine.begin() as connection:
             created = search_index.ensure_table(connection)
         if not created:
+            # A table from before maps had their own kind, or before a
+            # board's row held the words on it: a diff over the boards, a
+            # read-only no-op once it has run (`reconcile_boards`).
+            with self.session() as session:
+                if search_index.reconcile_boards(session):
+                    session.commit()
             return
         # Only on the one startup that creates the table: every write after
         # this keeps itself in step (see the module's `after_flush` hook), so

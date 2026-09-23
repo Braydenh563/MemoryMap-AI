@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: code files complete as you type, as VS Code does. In HTML, `!` then Enter writes the HTML5 page and Emmet abbreviations (`div.card>ul>li*3`, `a[href]`, `p{text}`) expand from the list or with Tab; in CSS, a property is followed by its own values (`display: ` offers `flex` and `grid`, `color: ` the colours) and `m10` or `df` expand; the chosen suggestion's rest shows after the caret in muted ink and Tab takes it.
 - A file's menu in the Library offers Ask Atlas about this, like every other
   object's menu; the reminder menu's entry uses the same icon as the rest.
 - Files: a description or reading typed while the automatic one was still being written is no longer overwritten when the automatic one lands.

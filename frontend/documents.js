@@ -14978,6 +14978,29 @@ function docCmTheme(CM) {
       },
       ".cm-completionDetail": { color: "var(--muted)", fontStyle: "normal" },
       ".cm-completionIcon": { color: "var(--muted)", opacity: "1" },
+      //: The detail pane beside the list (an Emmet row's expansion): the
+      //: list's own opaque ground and code type, because it is code laid
+      //: over code.
+      ".cm-tooltip.cm-completionInfo": {
+        backgroundColor: "var(--modal-bg-opaque)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-sm, 6px)",
+        boxShadow: "var(--shadow-md)",
+        padding: "var(--space-2) var(--space-3)",
+        maxWidth: "min(480px, 60vw)",
+      },
+      ".cm-emmet-preview": {
+        margin: "0",
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-sm)",
+        lineHeight: "1.5",
+        color: "var(--text)",
+        whiteSpace: "pre",
+        tabSize: "2",
+      },
+      //: The ghost text: the rest of the chosen row after the caret, in the
+      //: muted ink the placeholder uses, so it reads as offered, not typed.
+      ".cm-ghostText": { color: "var(--muted)", opacity: "0.85", pointerEvents: "none" },
 
       //: --- Live preview -------------------------------------------------
       //: The rendered shapes, in the app's own type scale rather than in a
@@ -15989,7 +16012,9 @@ function docCodeTools(CM) {
   return [
     CM.lint.linter(docCodeLintSource(CM), { delay: DOC_CHECK_DELAY_MS }),
     CM.lint.lintGutter(),
-    CM.autocomplete.autocompletion({ activateOnTyping: true, maxRenderedOptions: 60 }),
+    //: The list, opening as you type; Emmet, the CSS values, the ghost text
+    //: and Tab (`docCompletionExtras`, part three below).
+    docCompletionExtras(CM, type),
     //: Beside the language's own sources, not instead of them: `override`
     //: would switch off the scope-aware completion the JavaScript and
     //: Python packages bring.
@@ -16005,6 +16030,559 @@ function docCmSyncCodeTools() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.code) return;
   docCmView.dispatch({ effects: docCmParts.code.reconfigure(docCodeTools(CM)) });
+}
+
+// -----------------------------------------------------------------------------
+// Code documents as a code editor, part three: completions, Emmet and the
+// ghost text
+// -----------------------------------------------------------------------------
+//
+// The owner, 2026-09-23 (INBOX 394 (c)): "on the document editor code files I
+// want ALL THE PREFILL SUGGESTIONS AND POPUP BOXES FOR OPTIONS. like if I do
+// just '!' on a document and press enter it does base html code, or for all
+// the available css properties for that css feature, or doinf inline
+// suggestions."
+//
+// Three things, each on the editor's own machinery rather than beside it:
+//
+// - **Emmet**, the abbreviation language VS Code expands (`!`, `ul>li*3`,
+//   `a[href]`, `m10`), vendored as its core expander (frontend/vendor/emmet,
+//   MIT, loaded the first time an HTML or CSS document opens) and offered as
+//   a row in the completion list, so Enter takes it exactly as it takes any
+//   other row, and Tab expands it with the list closed.
+// - **Each CSS property's own values.** The CSS package completes every
+//   property, but a value from one flat list of four hundred keywords;
+//   `display: ` should offer `flex` and `grid`, not `dashed`. The values are
+//   read out of Emmet's own CSS snippet table (the `display:block|flex|...`
+//   rows it expands from), so there is no second table here to fall behind.
+// - **Ghost text**: the rest of the chosen row after the caret, in muted ink,
+//   taken with Tab. Enter stays the list's key, as it is in VS Code.
+//
+// The pure half is the region below; `tests/test_code_completion.py` runs it
+// in node against the vendored bundle. The wiring after it is measured in
+// Chromium by `scratchpad/ui-sweeps/doccomplete.js`.
+
+// DOC-COMPLETE-BEGIN (tests/test_code_completion.py runs this region in node)
+//: The element names of HTML's living standard (and `svg`), which is the test
+//: for whether a bare word on its own line is an element being written or a
+//: word of the page's text. Emmet itself would expand any word into a tag.
+const DOC_HTML_TAGS = new Set((
+  "a abbr address area article aside audio b base bdi bdo blockquote body br button canvas caption " +
+  "cite code col colgroup data datalist dd del details dfn dialog div dl dt em embed fieldset figcaption " +
+  "figure footer form h1 h2 h3 h4 h5 h6 head header hgroup hr html i iframe img input ins kbd label " +
+  "legend li link main map mark menu meta meter nav noscript object ol optgroup option output p picture " +
+  "pre progress q rp rt ruby s samp script search section select slot small source span strong style " +
+  "sub summary sup table tbody td template textarea tfoot th thead time title tr track u ul var video wbr svg"
+).split(" "));
+
+//: CSS's named colours, for any property whose value is a colour. Emmet's
+//: table gives `color` a `#000` placeholder and no names.
+const DOC_CSS_COLORS = (
+  "transparent currentcolor aliceblue antiquewhite aqua aquamarine azure beige bisque black " +
+  "blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue " +
+  "cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki " +
+  "darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue " +
+  "darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue " +
+  "firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow " +
+  "grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon " +
+  "lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink " +
+  "lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime " +
+  "limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen " +
+  "mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose " +
+  "moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen " +
+  "paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red " +
+  "rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue " +
+  "slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white " +
+  "whitesmoke yellow yellowgreen"
+).split(" ");
+
+//: The properties whose value is, or may begin with, a colour.
+const DOC_CSS_COLOR_PROPERTY = /(^|-)color$|^(fill|stroke|background|border(-(top|right|bottom|left))?|outline|text-decoration|column-rule)$/;
+
+//: The four every property takes, offered last.
+const DOC_CSS_GLOBALS = ["inherit", "initial", "unset", "revert"];
+
+//: **What Emmet's table is missing, and what in it is dead.** Its rows are
+//: the abbreviations it expands, not a reference, so it predates `sticky`,
+//: `flow-root` and `fit-content`, has no list at all for `width` or
+//: `font-size`, and still carries IE's `hand` cursor and the pre-standard
+//: `lr-tb` writing modes. Measured against its 2.4.11 table; each row here is
+//: added after that property's own.
+const DOC_CSS_VALUES_EXTRA = {
+  position: "sticky",
+  display: "flow-root",
+  cursor: "grab grabbing not-allowed wait progress context-menu copy alias zoom-in zoom-out col-resize row-resize ew-resize ns-resize none",
+  overflow: "clip",
+  "overflow-x": "clip",
+  "overflow-y": "clip",
+  "overflow-wrap": "normal break-word anywhere",
+  "word-break": "break-word",
+  "white-space": "break-spaces",
+  "text-align": "start end",
+  "font-size": "xx-small x-small small medium large x-large xx-large smaller larger",
+  "font-weight": "100 200 300 400 500 600 700 800 900",
+  "font-family": "system-ui ui-sans-serif ui-serif ui-monospace",
+  "line-height": "normal",
+  "writing-mode": "horizontal-tb vertical-rl vertical-lr",
+  "object-fit": "fill contain cover none scale-down",
+  "object-position": "center top bottom left right",
+  "pointer-events": "auto none",
+  "user-select": "auto text all",
+  "scroll-behavior": "auto smooth",
+  isolation: "auto isolate",
+  "mix-blend-mode": "normal multiply screen overlay darken lighten difference",
+  "place-items": "center start end stretch",
+  "place-content": "center start end stretch space-between space-around space-evenly",
+  "transition-timing-function": "linear ease ease-in ease-out ease-in-out step-start step-end",
+  "transition-property": "all none opacity transform",
+  "animation-fill-mode": "none",
+  "background-repeat": "repeat",
+  "background-size": "auto",
+  "background-position": "center top bottom left right",
+  "list-style-type": "none",
+  "list-style": "none",
+  "table-layout": "auto",
+  "aspect-ratio": "auto",
+  "will-change": "auto transform opacity scroll-position",
+  "z-index": "auto",
+  flex: "none auto",
+  border: "none",
+  outline: "none",
+  content: "none",
+  gap: "normal",
+  "row-gap": "normal",
+  "column-gap": "normal",
+  "grid-template-columns": "none subgrid",
+  "grid-template-rows": "none subgrid",
+  ...Object.fromEntries(["top", "right", "bottom", "left", "margin", "margin-top", "margin-right", "margin-bottom", "margin-left"].map((p) => [p, "auto"])),
+  ...Object.fromEntries(["width", "height", "min-width", "min-height", "inline-size", "block-size"].map((p) => [p, "auto fit-content max-content min-content"])),
+  ...Object.fromEntries(["max-width", "max-height"].map((p) => [p, "none fit-content max-content min-content"])),
+};
+
+const DOC_CSS_VALUES_DEAD = new Set(["time", "hand", "no-clip", "lr-tb", "lr-bt", "rl-tb", "rl-bt", "tb-rl", "tb-lr", "bt-lr", "bt-rl"]);
+
+//: Emmet's snippet table for "markup" or "stylesheet", resolved once per
+//: bundle: it is read on every keystroke that could be an abbreviation.
+const docEmmetSnippetCache = new Map();
+
+function docEmmetSnippets(E, type) {
+  const cached = docEmmetSnippetCache.get(type);
+  if (cached?.E === E) return cached.snippets;
+  const snippets = E.resolveConfig({ type }).snippets;
+  docEmmetSnippetCache.set(type, { E, snippets });
+  return snippets;
+}
+
+//: Whether `abbr` reads as an abbreviation someone meant, rather than a word
+//: Emmet would happily make a tag of. Markup: it starts with an element name,
+//: one of Emmet's own snippet names (`link:css`, `!`), or an operator that
+//: only means Emmet (`.card`, `#main`, `(`, `[`, `{`). CSS: one of Emmet's
+//: shorthands of two letters or more that expand to a declaration with a
+//: value (`df`, `bgc`, `m10`, `p10-20`). A property name being typed (`col`,
+//: `pos`, the start of the property it becomes) is left to the language's
+//: own list, which does it better, and so is anything Emmet can only turn
+//: into an empty `columns: ;`.
+function docEmmetIntended(abbr, syntax, E) {
+  if (!abbr || /^\d/.test(abbr)) return false;
+  if (syntax === "css") {
+    if (abbr.length < 2 || !/^[a-z]/i.test(abbr)) return false;
+    let out = "";
+    try {
+      out = E.expand(abbr, { type: "stylesheet" });
+    } catch {
+      return false;
+    }
+    const declaration = /^([a-z-]+): (.+);$/.exec(out);
+    return Boolean(declaration) && !declaration[1].startsWith(abbr.toLowerCase());
+  }
+  const snippets = docEmmetSnippets(E, "markup");
+  const name = (/^[a-zA-Z][\w-]*(?::[\w-]+)*/.exec(abbr) || [""])[0];
+  if (!name) return /^[.#!([{]/.test(abbr);
+  return DOC_HTML_TAGS.has(name.toLowerCase()) || Object.hasOwn(snippets, name);
+}
+
+//: The abbreviation that ends at column `col` of `line`, as `{ abbr, start,
+//: end }` in the line's own columns, or null. `end` can pass `col`: the
+//: closers `closeBrackets` typed ahead of the caret (`a[href|]`) are part of
+//: what was written, and Emmet's `lookAhead` takes them in.
+//:
+//: **Where, as well as what.** On typing (`anywhere` false) an abbreviation
+//: is offered only where markup starts a line or follows a tag (`<p>ul>li`),
+//: and in CSS only where a declaration starts; mid-sentence in a paragraph,
+//: every "a" and "p" would open a list and Enter would take it. Tab passes
+//: `anywhere`, because a Tab on a word is a request.
+function docEmmetAt(line, col, syntax, E, anywhere) {
+  if (/^[\w$-]/.test(line.slice(col))) return null;
+  const css = syntax === "css";
+  let found = null;
+  try {
+    found = E.extract(line, col, { type: css ? "stylesheet" : "markup", lookAhead: !css });
+  } catch {
+    return null;
+  }
+  if (!found || !found.abbreviation) return null;
+  const before = line.slice(0, found.start);
+  if (!anywhere) {
+    const place = css ? /(^|[{;])\s*$/ : /(^|>)\s*$/;
+    if (!place.test(before)) return null;
+  }
+  if (!docEmmetIntended(found.abbreviation, syntax, E)) return null;
+  return { abbr: found.abbreviation, start: found.start, end: Math.max(found.end, col) };
+}
+
+//: An abbreviation's expansion twice over: `preview`, the text as it will
+//: read (for the row's detail pane), and `template`, the same text in
+//: CodeMirror's snippet syntax so Tab walks Emmet's own stops. Null when
+//: Emmet cannot read it. The parser takes `${n}` and `#{n}` as fields and
+//: `\{` `\}` as braces, so every brace that is text is escaped first and
+//: the fields are written after, from markers no text contains.
+//:
+//: **A default inside an attribute is text, not a stop.** Emmet's `!` makes
+//: the viewport's `device-width` and `1.0` its first two stops, so Enter
+//: left `device-width` selected and the title third; nobody writing a page
+//: starts there. An empty attribute (`a[href]`) keeps its stop, because
+//: that is the thing to fill in.
+function docEmmetExpansion(E, abbr, syntax) {
+  const type = syntax === "css" ? "stylesheet" : "markup";
+  try {
+    const preview = E.expand(abbr, { type });
+    if (!preview.trim()) return null;
+    const field = (index, placeholder) => `\u0001${index}\u0002${placeholder || ""}\u0003`;
+    const marked = E.expand(abbr, { type, options: { "output.field": field } });
+    const template = marked
+      .replace(/[{}]/g, "\\$&")
+      .replace(/\u0001(\d+)\u0002([^\u0003]*)\u0003/g, (_, index, placeholder, offset, whole) => {
+        const text = placeholder.replace(/\\?[{}]/g, "");
+        const head = whole.slice(0, offset);
+        const tag = head.slice(head.lastIndexOf("<"));
+        const inValue = type === "markup" && head.lastIndexOf("<") > head.lastIndexOf(">") && tag.split('"').length % 2 === 0;
+        if (inValue && text) return text;
+        return text ? `\${${index}:${text}}` : `\${${index}}`;
+      });
+    return { preview, template };
+  } catch {
+    return null;
+  }
+}
+
+//: The property a value is being typed for, and the word typed so far, from
+//: the text before the caret; null anywhere but a value. Whether the caret
+//: is inside a rule at all is the tree's question, asked by the caller.
+function docCssValueContext(before) {
+  const cut = Math.max(before.lastIndexOf("{"), before.lastIndexOf(";"), before.lastIndexOf("}"));
+  const match = /^\s*(-{0,2}[a-zA-Z][\w-]*)\s*:\s*([^:]*)$/.exec(before.slice(cut + 1));
+  if (!match) return null;
+  return { property: match[1].toLowerCase(), word: /[\w-]*$/.exec(match[2])[0] };
+}
+
+//: Property to its keyword values, read once per bundle out of Emmet's CSS
+//: table, whose rows are `property:value|value|...` (a row with a field in
+//: it, `color:${1:#000}`, is a placeholder and has no keywords to give).
+let docCssValueTableCache = null;
+
+function docCssValueTable(E) {
+  if (docCssValueTableCache?.E === E) return docCssValueTableCache.table;
+  const table = new Map();
+  const snippets = E ? docEmmetSnippets(E, "stylesheet") : {};
+  for (const row of Object.values(snippets)) {
+    const colon = row.indexOf(":");
+    if (colon < 1 || row.includes("$")) continue;
+    const property = row.slice(0, colon).trim();
+    if (!/^[a-z-]+$/.test(property)) continue;
+    const values = row.slice(colon + 1).split("|").map((v) => v.trim()).filter((v) => /^[\w-]+$/.test(v));
+    if (!values.length) continue;
+    const known = table.get(property) || [];
+    for (const value of values) if (!known.includes(value)) known.push(value);
+    table.set(property, known);
+  }
+  for (const [property, extra] of Object.entries(DOC_CSS_VALUES_EXTRA)) {
+    const known = table.get(property) || [];
+    for (const value of extra.split(" ")) if (!known.includes(value)) known.push(value);
+    table.set(property, known);
+  }
+  for (const [property, known] of table) {
+    table.set(property, known.filter((v) => !DOC_CSS_VALUES_DEAD.has(v) && !DOC_CSS_GLOBALS.includes(v)));
+  }
+  docCssValueTableCache = { E, table };
+  return table;
+}
+
+//: The rows for a property's value: its own keywords first, then colours
+//: where it takes one, then the four global keywords, each once.
+function docCssValueOptions(property, table) {
+  const labels = [...(table.get(property) || [])];
+  if (DOC_CSS_COLOR_PROPERTY.test(property)) labels.push(...DOC_CSS_COLORS);
+  labels.push(...DOC_CSS_GLOBALS);
+  const own = new Set(table.get(property) || []);
+  //: Boosts, because the list sorts by match and then by name: a
+  //: property's own words first, then `currentcolor` and `transparent`
+  //: above the named colours, the global four last.
+  const boost = (label) =>
+    own.has(label) ? 2 : label === "currentcolor" || label === "transparent" ? 1 : DOC_CSS_GLOBALS.includes(label) ? -2 : 0;
+  return [...new Set(labels)].map((label) => ({ label, boost: boost(label) }));
+}
+
+//: The ghost text for the chosen row: the rest of `label` after the part of
+//: it already typed, or "". Only when the caret ends a word (`after` does
+//: not continue it), only when what was typed is the start of `label` from
+//: the start of a word (a fuzzy match, `bgc` for `background-color`, has no
+//: "rest"), and never for a row of more than one line.
+function docGhostSuffix(before, after, label) {
+  if (!label || label.includes("\n") || /^[\w$-]/.test(after)) return "";
+  for (let k = Math.min(label.length - 1, before.length); k >= 1; k -= 1) {
+    const typed = before.slice(before.length - k);
+    if (typed.toLowerCase() !== label.slice(0, k).toLowerCase()) continue;
+    const prev = before[before.length - k - 1];
+    if (prev !== undefined && /[\w$-]/.test(prev) && /[\w$-]/.test(typed[0])) continue;
+    return label.slice(k);
+  }
+  return "";
+}
+// DOC-COMPLETE-END
+
+//: Where Emmet comes from. Loaded the first time an HTML or CSS document is
+//: opened, never at boot, as the editor bundle is; like it, the vendor URL
+//: carries no `?v=` stamp (the version is the pin in package.json there).
+const DOC_EMMET_BUNDLE = "/vendor/emmet/emmet.min.js";
+const DOC_EMMET_TYPES = new Set(["html", "css"]);
+let docEmmetLoad = null;
+
+//: Fire and forget. The sources read `window.EMMET` when they are asked, so
+//: nothing has to be reconfigured when it lands; until then the lists are
+//: the language's own, and if it never loads they stay that way.
+function docLoadEmmet() {
+  if (window.EMMET || docEmmetLoad) return;
+  docEmmetLoad = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = DOC_EMMET_BUNDLE;
+    script.async = true;
+    script.addEventListener("load", () => resolve(true));
+    script.addEventListener("error", () => {
+      console.warn("MemoryMap: the Emmet bundle could not be loaded; completions are the language's own.");
+      resolve(false);
+    });
+    document.head.appendChild(script);
+  });
+}
+
+//: Whether the caret is where markup's text goes, rather than inside a tag,
+//: an attribute, a comment or a doctype. Inside `<script>` and `<style>` the
+//: source is not asked at all: it is mounted on HTML's own language data.
+function docHtmlTextAt(CM, state, pos) {
+  for (let node = CM.language.syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
+    if (/Tag$|^(TagName|Attribute|AttributeName|AttributeValue|Comment|DoctypeDecl|ProcessingInst)$/.test(node.name)) return false;
+  }
+  return true;
+}
+
+//: Whether the caret is inside a CSS rule's braces.
+function docCssInBlock(CM, state, pos) {
+  for (let node = CM.language.syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
+    if (node.name === "Block") return true;
+  }
+  return false;
+}
+
+//: The Emmet row at the caret, or null: `{ from, to, template, preview, abbr }`
+//: in document positions.
+function docEmmetMatch(CM, state, pos, syntax, anywhere) {
+  const E = window.EMMET;
+  if (!E) return null;
+  if (syntax === "css" ? !docCssInBlock(CM, state, pos) : !docHtmlTextAt(CM, state, pos)) return null;
+  const line = state.doc.lineAt(pos);
+  const found = docEmmetAt(line.text, pos - line.from, syntax, E, anywhere);
+  if (!found) return null;
+  const expansion = docEmmetExpansion(E, found.abbr, syntax);
+  if (!expansion) return null;
+  return { from: line.from + found.start, to: line.from + found.end, abbr: found.abbr, ...expansion };
+}
+
+//: The detail pane for an Emmet row: the expansion as it will read, cut at
+//: twenty lines.
+function docEmmetInfo(preview) {
+  const pre = document.createElement("pre");
+  pre.className = "cm-emmet-preview";
+  const lines = preview.split("\n");
+  pre.textContent = lines.length > 20 ? [...lines.slice(0, 20), "..."].join("\n") : preview;
+  return pre;
+}
+
+//: One stable function per syntax, for the reason `docCodeCompletionSource`
+//: gives: the engine tells sources apart by identity.
+const docEmmetSourceCache = {};
+
+function docEmmetSource(CM, syntax) {
+  if (docEmmetSourceCache[syntax]) return docEmmetSourceCache[syntax];
+  docEmmetSourceCache[syntax] = (context) => {
+    const found = docEmmetMatch(CM, context.state, context.pos, syntax, context.explicit);
+    if (!found) return null;
+    return {
+      from: found.from,
+      to: found.to,
+      filter: false,
+      options: [{
+        label: found.abbr,
+        detail: "Emmet",
+        type: "keyword",
+        boost: 50,
+        info: () => docEmmetInfo(found.preview),
+        apply: CM.autocomplete.snippet(found.template),
+      }],
+    };
+  };
+  return docEmmetSourceCache[syntax];
+}
+
+//: Tab with the list closed: expand the abbreviation before the caret, as
+//: VS Code's `emmet.triggerExpansionOnTab` does. False when there is none,
+//: so Tab goes on to indent.
+function docEmmetExpandAtCaret(view, CM) {
+  const ext = docFileType().ext;
+  const range = view.state.selection.main;
+  if (!DOC_EMMET_TYPES.has(ext) || !range.empty) return false;
+  const found = docEmmetMatch(CM, view.state, range.head, ext, true);
+  if (!found) return false;
+  CM.autocomplete.snippet(found.template)(view, null, found.from, found.to);
+  return true;
+}
+
+//: A CSS property's row, taken: the name, then `: `, then the value list
+//: opened straight away, VS Code's order. Not where a colon already follows.
+function docCssPropertyApply(CM) {
+  return (view, completion, from, to) => {
+    const colon = /^\s*:/.test(view.state.sliceDoc(to, to + 40));
+    const insert = colon ? completion.label : `${completion.label}: `;
+    view.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor: from + insert.length },
+      userEvent: "input.complete",
+      annotations: CM.autocomplete.pickedCompletion.of(completion),
+    });
+    if (!colon) CM.autocomplete.startCompletion(view);
+  };
+}
+
+//: The CSS document's list: the package's own properties, pseudo-classes and
+//: at-rules, with each property's own values in place of its flat list.
+let docCssCompletionCache = null;
+
+function docCssCompletionSource(CM) {
+  if (docCssCompletionCache) return docCssCompletionCache;
+  const applyProperty = docCssPropertyApply(CM);
+  docCssCompletionCache = (context) => {
+    const { state, pos } = context;
+    const native = CM.css.cssCompletionSource(context);
+    const value = docCssInBlock(CM, state, pos)
+      ? docCssValueContext(state.sliceDoc(Math.max(0, pos - 400), pos))
+      : null;
+    if (value) {
+      const table = docCssValueTable(window.EMMET);
+      const own = docCssValueOptions(value.property, table);
+      //: A property whose values are known gets those and nothing else:
+      //: `display: f` offering `fantasy` and `firebrick` is the flat list
+      //: this replaces. One that is not known (`width`, a custom property)
+      //: keeps the package's list after its own, as a fallback.
+      const known = table.has(value.property) || DOC_CSS_COLOR_PROPERTY.test(value.property);
+      const seen = new Set(own.map((o) => o.label));
+      const rest = known ? [] : (native?.options || []).filter((o) => !seen.has(o.label)).map((o) => ({ ...o, boost: -5 }));
+      return {
+        from: pos - value.word.length,
+        options: [...own.map((o) => ({ ...o, type: "constant" })), ...rest],
+        validFor: /^[\w-]*$/,
+      };
+    }
+    if (!native) return null;
+    return {
+      ...native,
+      options: native.options.map((o) => (o.type === "property" ? { ...o, apply: applyProperty } : o)),
+    };
+  };
+  return docCssCompletionCache;
+}
+
+let docCssSourcesCache = null;
+
+function docCssSources(CM) {
+  if (!docCssSourcesCache) docCssSourcesCache = [docCssCompletionSource(CM), docEmmetSource(CM, "css")];
+  return docCssSourcesCache;
+}
+
+//: Tab: the chosen row when the list is open (the ghost text shows which),
+//: else an Emmet abbreviation, else nothing, so the editor's own Tab
+//: indents. Enter is not here: it is the list's, in its own keymap.
+function docCompleteTab(view, CM) {
+  const ac = CM.autocomplete;
+  if (ac.completionStatus(view.state) === "active" && ac.selectedCompletion(view.state)) {
+    return ac.acceptCompletion(view);
+  }
+  return docEmmetExpandAtCaret(view, CM);
+}
+
+//: The ghost text: a widget after the caret holding the rest of the chosen
+//: row, rebuilt on every update (the list's choice moves with the arrows).
+let docGhostPluginCache = null;
+
+function docGhostPlugin(CM) {
+  if (docGhostPluginCache) return docGhostPluginCache;
+  const { Decoration, ViewPlugin, WidgetType } = CM.view;
+  class Ghost extends WidgetType {
+    constructor(text) {
+      super();
+      this.text = text;
+    }
+    eq(other) {
+      return other.text === this.text;
+    }
+    toDOM() {
+      const span = document.createElement("span");
+      span.className = "cm-ghostText";
+      span.setAttribute("aria-hidden", "true");
+      span.textContent = this.text;
+      return span;
+    }
+    ignoreEvent() {
+      return true;
+    }
+  }
+  const build = (state) => {
+    const ac = CM.autocomplete;
+    const range = state.selection.main;
+    if (!range.empty || ac.completionStatus(state) !== "active") return Decoration.none;
+    const chosen = ac.selectedCompletion(state);
+    if (!chosen) return Decoration.none;
+    const line = state.doc.lineAt(range.head);
+    const col = range.head - line.from;
+    const rest = docGhostSuffix(line.text.slice(0, col), line.text.slice(col), chosen.label);
+    if (!rest) return Decoration.none;
+    return Decoration.set([Decoration.widget({ widget: new Ghost(rest), side: 1 }).range(range.head)]);
+  };
+  docGhostPluginCache = ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.decorations = build(view.state);
+      }
+      update(update) {
+        this.decorations = build(update.state);
+      }
+    },
+    { decorations: (plugin) => plugin.decorations }
+  );
+  return docGhostPluginCache;
+}
+
+//: Everything above, for a code document: the list opening as you type,
+//: Emmet where the type has it, the ghost text and Tab.
+function docCompletionExtras(CM, type) {
+  const emmet = DOC_EMMET_TYPES.has(type.ext);
+  if (emmet) docLoadEmmet();
+  const config = { activateOnTyping: true, maxRenderedOptions: 60 };
+  if (type.ext === "css") config.override = docCssSources(CM);
+  return [
+    CM.autocomplete.autocompletion(config),
+    type.ext === "html" ? CM.html.htmlLanguage.data.of({ autocomplete: docEmmetSource(CM, "html") }) : [],
+    docGhostPlugin(CM),
+    CM.state.Prec.highest(CM.view.keymap.of([{ key: "Tab", run: (view) => docCompleteTab(view, CM) }])),
+  ];
 }
 
 // -----------------------------------------------------------------------------

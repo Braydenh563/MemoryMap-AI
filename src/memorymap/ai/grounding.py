@@ -55,7 +55,12 @@ MIN_SENTENCE_WORDS = 4
 DISTINCTIVE_MIN_RATIO = 0.2
 DISTINCTIVE_MIN_TERMS = 2
 
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\d])")
+#: One space, not `\s+`: `split_sentences` collapses every whitespace run to a
+#: single space first (one linear pass), so the split itself has no
+#: quantifier to backtrack over. CodeQL (alert 425) flagged the `\s+` form as
+#: polynomial on an answer with a long run of tabs.
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?]) (?=[A-Z\d])")
+_WHITESPACE_RUN = re.compile(r"\s+")
 
 #: **How long a passage is** (CHAT_PLAN decision 2). Forty words is about two
 #: sentences of prose: long enough that a paraphrased claim and its source
@@ -348,7 +353,7 @@ def split_sentences(text: str) -> list[str]:
     return [
         s.strip()
         for block in _blocks(cleaned)
-        for s in _SENTENCE_SPLIT.split(block)
+        for s in _SENTENCE_SPLIT.split(_WHITESPACE_RUN.sub(" ", block))
         if s.strip()
     ]
 

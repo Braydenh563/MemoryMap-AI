@@ -1417,11 +1417,44 @@ function openDocTemplateDialog() {
       dialog.close();
       await createDocument(template);
     });
+    for (const type of ["mouseenter", "focus"]) {
+      button.addEventListener(type, () => showDocTemplatePreview(template));
+    }
     li.appendChild(button);
     list.appendChild(li);
   }
   dialog.showModal();
   list.querySelector("button")?.focus();
+  //: The first row is Blank, which has nothing to picture: the preview opens
+  //: on the first template with a body, so the dialog shows what a template
+  //: is before anything is pointed at.
+  showDocTemplatePreview(DOC_TEMPLATES.find((template) => template.content) || DOC_TEMPLATES[0]);
+}
+
+//: **The page a template makes, before it is made** (DOCUMENTS_PLAN Phase 4:
+//: templates "offered with a preview"). The gallery offered a sentence per
+//: row ("Brief, criteria, sections, sources, timeline."), which says what a
+//: template is about and not what it looks like. This is the filled body,
+//: through the same `docTemplateFill` the button uses and the same
+//: `renderMarkdown` the document's own preview uses, shrunk to a page in the
+//: dialog's second column, so what is shown is exactly what would be created.
+function showDocTemplatePreview(template) {
+  const pane = $("doc-template-preview");
+  if (!pane || !template) return;
+  if (pane.dataset.template === template.id) return;
+  pane.dataset.template = template.id;
+  const page = document.createElement("div");
+  page.className = "doc-template-page md";
+  const filled = docTemplateFill(template);
+  if (filled.content) {
+    renderMarkdown(page, filled.content);
+  } else {
+    const empty = document.createElement("p");
+    empty.className = "muted doc-template-empty";
+    empty.textContent = template.hint;
+    page.appendChild(empty);
+  }
+  pane.replaceChildren(page);
 }
 
 // Guards against creating several documents from one fast burst of typing.

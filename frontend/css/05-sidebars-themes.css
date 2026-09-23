@@ -2441,6 +2441,25 @@ body.resizing-sidebar {
   color: var(--ink);
 }
 
+/* **The row floor follows the density, and the pointer.** The rows were
+   25.2px at every setting, under DESIGN.md's 28px `--target-min`, which was
+   left on purpose because a table of contents is a dense list you scan and
+   24px is WCAG 2.2 AA's own floor. That reasoning is the compact density's,
+   so compact keeps it; comfortable and spacious are the settings a person
+   picks to get room, and there the rows take the floor every other control
+   has. A coarse pointer takes it at every density, because on a touch screen
+   `--target-min` is 44px and a 25px row is a row you miss
+   (`scratchpad/ui-sweeps/outlinerows.js`). */
+:root:not([data-density="compact"]) .outline-link {
+  min-height: var(--target-min);
+}
+
+@media (pointer: coarse) {
+  .outline-link {
+    min-height: var(--target-min);
+  }
+}
+
 /* **The fold gutter** (DOCUMENTS_PLAN Phase 4 item 3). One column, the same
    width on every row whether or not that row has anything to fold, because
    the thing this outline's indent rules spend three paragraphs protecting is
@@ -4915,6 +4934,85 @@ button.ghost.doc-template-choice:focus-visible {
 
 .doc-template-choice > strong {
   font-weight: 600;
+}
+
+/* **The template picker with its preview** (`showDocTemplatePreview`). The
+   list keeps its own width and the page takes the rest; below 44rem there is
+   no room for two columns and the preview is left out, since every row still
+   carries its one-line hint. The page is the document's own reading
+   typography at the small step, on the inset surface every other "a picture
+   of something" in the app uses, clipped with a fade rather than scrolled:
+   it is a glimpse of the shape, and a second scroller inside a dialog is a
+   thing to fight with. */
+.doc-ai-history-dialog.doc-template-dialog {
+  width: min(46rem, calc(100vw - var(--space-8)));
+}
+
+.doc-template-body {
+  display: grid;
+  grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.doc-template-preview {
+  margin-top: var(--space-4);
+  height: min(24rem, 60vh);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  mask-image: linear-gradient(to bottom, #000 80%, transparent);
+  pointer-events: none;
+}
+
+.doc-template-page {
+  padding: var(--space-5) var(--space-6);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.doc-template-page :is(.md-h1, .md-h2, .md-h3) {
+  margin: var(--space-3) 0 var(--space-1);
+  line-height: 1.25;
+}
+
+/* A page at about two thirds of the document's own scale: the title one step
+   over the section heads, the heads one step over the text, so the shape of
+   the template (a title, then its sections) is what the eye gets first. */
+/* `renderMarkdown` draws `#` as `h3.md-h1` and `##` as `h4.md-h2` (a note's
+   headings sit under the page's own), so the classes are what to aim at. */
+.doc-template-page .md-h1 {
+  margin-top: 0;
+  font-size: var(--text-h3);
+}
+
+.doc-template-page :is(.md-h2, .md-h3) {
+  font-size: var(--text-md);
+}
+
+/* A task box is a 28px control in a note; in a picture of a page it is a
+   glyph, at the size of the text beside it. */
+.doc-template-page input[type="checkbox"] {
+  width: 0.9em;
+  height: 0.9em;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.doc-template-empty {
+  margin: 0;
+}
+
+@media (max-width: 43.99rem) {
+  .doc-template-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .doc-template-preview {
+    display: none;
+  }
 }
 
 /* The note edit form's meta row: tags take the slack, the category sits

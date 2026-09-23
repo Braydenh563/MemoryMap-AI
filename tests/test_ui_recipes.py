@@ -2622,6 +2622,19 @@ def test_no_control_marks_itself_with_a_dashed_edge() -> None:
             assert "dashed" not in body, f"{selector} is dashed again"
 
 
+def test_a_template_preview_is_the_page_the_row_would_make() -> None:
+    """DESIGN.md's recipe for a dialog of choices that each make something:
+    the preview is drawn by the function that creates the thing, so it cannot
+    describe a template differently from what it is, and it is inert and
+    hidden from a screen reader, which has each row's own hint."""
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    body = _function_body(docs, "showDocTemplatePreview")
+    assert "docTemplateFill(template)" in body and "renderMarkdown(" in body
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    pane = re.search(r'<div id="doc-template-preview"[^>]*>', page)
+    assert pane and 'aria-hidden="true"' in pane.group(0) and "inert" in pane.group(0)
+
+
 def test_the_table_s_two_named_radii_are_tokens() -> None:
     tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
     assert "--radius-choice:" in tokens and "--radius-strip:" in tokens

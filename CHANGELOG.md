@@ -9,6 +9,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Agent activity panel is laid out on one grid. Its head is the app's
+  panel-head recipe (the title, then three icon buttons with tooltips, all on
+  one centre line), and every run row is four columns: fold marker, icon,
+  name, state pill. The detail line and the bar start under the name rather
+  than 33px to the left of it, a long name or detail truncates to one line
+  with the whole text on hover, the state is a tinted pill whose right edge
+  is the same on every row, and a run's steps start under its icon. Measured
+  at 1184x760 by `scratchpad/ui-sweeps/monitorgrid.js`: header centres
+  within 0px, name, detail and bar left edges all at 80.4px, pills all
+  ending at 388.4px, the first row 57px rather than 96px.
 - The packaged Windows app now says what is wrong when it cannot show its
   window, instead of a blank or missing graphic with nothing in any log.
   Reported directly on the .exe build: pywebview's Windows backend needs the

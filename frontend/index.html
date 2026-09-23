@@ -622,15 +622,22 @@
        log, with exactly the same content, that is the "it should still be
        accessible though" half of the same report. -->
   <aside id="agent-monitor" class="card glass agent-monitor hidden">
-    <div class="row space-between monitor-header">
-      <h3 class="monitor-title"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent activity</h3>
-      <div class="row monitor-header-actions">
-        <button id="agent-monitor-clear" class="ghost small" type="button">Clear</button>
-        <button id="agent-monitor-log-toggle" class="ghost small" type="button"
-          aria-controls="agent-monitor-logs" aria-expanded="false">Show log</button>
-        <button id="agent-monitor-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
-      </div>
-    </div>
+    <!-- The head is the `h3.panel-head` recipe (DESIGN.md): identity, then
+         one all-icon group. It was two worded buttons beside an icon X, three
+         widths and two baselines in one row, which is what the owner called
+         "not aligned and unprofessional" (2026-09-23). -->
+    <h3 class="panel-head monitor-header">
+      <span class="monitor-title"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent activity</span>
+      <span class="row monitor-header-actions">
+        <button id="agent-monitor-clear" class="ghost small icon-only" type="button"
+          aria-label="Clear finished runs" title="Clear finished runs"><i class="ph ph-broom" aria-hidden="true"></i></button>
+        <button id="agent-monitor-log-toggle" class="ghost small icon-only" type="button"
+          aria-controls="agent-monitor-logs" aria-expanded="false"
+          aria-label="Show the log" title="Show the log"><i class="ph ph-terminal-window" aria-hidden="true"></i></button>
+        <button id="agent-monitor-close" class="ghost small icon-only" type="button"
+          aria-label="Close" title="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </span>
+    </h3>
     <div id="agent-monitor-runs" class="monitor-runs"></div>
     <p id="agent-monitor-empty" class="muted monitor-empty">Nothing has run yet this session.</p>
     <div id="agent-monitor-logs" class="monitor-logs hidden"></div>

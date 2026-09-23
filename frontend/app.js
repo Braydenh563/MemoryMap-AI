@@ -46624,7 +46624,14 @@ function runStateLabel(state) {
 
 function renderAgentRunSummary(run) {
   if (!run) return;
-  setLabel(run.nameEl, run.icon ? `${run.icon} ${run.name}` : run.name);
+  //: The icon is its own grid column rather than part of the name, so the
+  //: name, the detail line and the bar under it all start on one edge
+  //: (measured before: the name's text at 76px, the detail at 43.6px). The
+  //: name ellipsises in one line and carries the whole of itself on `title`.
+  const iconName = /^ph:([\w-]+)$/.exec(run.icon || "")?.[1] || "circle";
+  run.iconEl.className = `ph ph-${iconName} agent-run-icon`;
+  run.nameEl.textContent = run.name;
+  run.nameEl.title = run.name;
   // "Step 2 of 5" only when the run declared steps. A background job knows how
   // far along it is as a fraction and not as a step number; an agent turn with
   // no plan has no steps at all, and inventing one for either would be the
@@ -46637,6 +46644,7 @@ function renderAgentRunSummary(run) {
   } else {
     run.metaEl.textContent = run.detail || "";
   }
+  run.metaEl.title = run.metaEl.textContent;
   //: **A counter is a label on the bar beside it; a detail is a sentence.**
   //: Both go in the same slot, and the slot is allowed to wrap because of the
   //: sentence: so "Step 2 of 3" broke across two lines next to the bar, which
@@ -46700,6 +46708,8 @@ function addAgentRun({ kind, name, icon = "", steps = [], detail = "" }) {
   el.className = "agent-step step-plan agent-run-row";
   const summary = document.createElement("summary");
   summary.className = "agent-run-summary";
+  run.iconEl = document.createElement("i");
+  run.iconEl.setAttribute("aria-hidden", "true");
   run.nameEl = document.createElement("span");
   run.nameEl.className = "agent-run-name";
   run.metaEl = document.createElement("span");
@@ -46724,7 +46734,7 @@ function addAgentRun({ kind, name, icon = "", steps = [], detail = "" }) {
   run.progressWrap = document.createElement("span");
   run.progressWrap.className = "agent-run-progress";
   run.progressWrap.append(run.metaEl, run.bar);
-  summary.append(run.nameEl, run.stateEl, run.progressWrap);
+  summary.append(run.iconEl, run.nameEl, run.stateEl, run.progressWrap);
   run.body = document.createElement("div");
   run.body.className = "agent-run-body";
   el.append(summary, run.body);
@@ -46932,7 +46942,13 @@ function setAgentMonitorLogVisible(show) {
   agentMonitorLogs.classList.toggle("hidden", !show);
   agentMonitorRuns.classList.toggle("hidden", show);
   agentMonitorEmpty?.classList.toggle("hidden", show || agentRuns.length > 0);
-  agentMonitorLogToggle.textContent = show ? "Show runs" : "Show log";
+  //: An icon button now (the head is the panel-head recipe), so what it
+  //: will do is said in its name and its tooltip, and the glyph is the view
+  //: it switches to.
+  const words = show ? "Show the runs" : "Show the log";
+  agentMonitorLogToggle.setAttribute("aria-label", words);
+  agentMonitorLogToggle.title = words;
+  setLabel(agentMonitorLogToggle, show ? "ph:list-checks" : "ph:terminal-window");
   agentMonitorLogToggle.setAttribute("aria-expanded", String(show));
 }
 

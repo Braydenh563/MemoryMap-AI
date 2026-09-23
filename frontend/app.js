@@ -300,11 +300,23 @@ function replaceMissingMedia(img) {
   img.replaceWith(gone);
 }
 
+//: **After the image's own handler, never before it.** A capturing listener
+//: on the document runs ahead of every listener on the image itself, so an
+//: image that had its own answer to a failure (a Library file tile's first
+//: page, which removes itself and leaves the file glyph underneath) was
+//: already swapped for "Image no longer in this notebook" by the time its
+//: own handler ran, and that handler then removed a detached element.
+//: Measured on the Files sub-tab: the placeholder drawn inside all three PDF
+//: tiles, under the tick. A task later, an image its owner removed (or whose
+//: tile its owner removed) is no longer connected, and is left alone.
 document.addEventListener(
   "error",
   (event) => {
     const img = event.target;
-    if (img instanceof HTMLImageElement) replaceMissingMedia(img);
+    if (!(img instanceof HTMLImageElement)) return;
+    setTimeout(() => {
+      if (img.isConnected) replaceMissingMedia(img);
+    }, 0);
   },
   true,
 );
@@ -29596,6 +29608,7 @@ document.addEventListener("click", (event) => {
   } else if (action === "new-board") {
     $("wb-boards-new")?.click();
   } else if (action === "add-link") {
+    $("bookmark-form")?.classList.remove("hidden");
     $("bookmark-url-input")?.focus();
   }
 });

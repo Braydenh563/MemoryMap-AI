@@ -376,9 +376,51 @@ async function refreshLibrarySemantic() {
   }
 }
 
+// **Cards in reading order.** The card grid was CSS column masonry
+// (`column-width: 17rem`), which packs well and reads top to bottom one
+// column at a time: under "Newest first" the second newest thing was the
+// first card of the *second screenful* of column one, not the card beside the
+// newest, and every tag (sorted last) landed in the rightmost column, which
+// is how the seeded screen looked (four columns, the fourth all tags). The
+// order a sort promises is left to right, then down, as in Finder, Photos and
+// every gallery. So the cards are dealt across n columns in order, card i to
+// column i mod n: the top row is exactly the n newest, the columns still pack
+// their own cards with no row gaps (a note card is up to eight lines and a
+// tag card is two, so a row-aligned grid would leave a hole under every tag),
+// and the arrow keys can move by one card or by n.
+//
+// n comes from the grid's own width against the 17rem card the masonry used,
+// so the count of columns at every width is what it was. One column in Rows,
+// and below 600, where the phone band has always drawn a single column.
+const LIBRARY_CARD_MIN_REM = 17;
+let libraryColumnsShown = 1;
+let libraryColumnsObserver = null;
+
+function libraryColumnCount(grid) {
+  if (libraryView() === "list" || window.innerWidth < 600) return 1;
+  const width = grid.clientWidth;
+  if (!width) return 1;
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const gap = parseFloat(getComputedStyle(grid).columnGap) || rem * 1.5;
+  return Math.max(1, Math.floor((width + gap) / (LIBRARY_CARD_MIN_REM * rem + gap)));
+}
+
+// Re-deals the cards when the width changes the column count (a resize, the
+// sidebar folding, the sub-tab becoming visible after measuring 0 wide), and
+// only then: a resize that keeps the count moves nothing.
+function watchLibraryColumns(grid) {
+  if (libraryColumnsObserver || typeof ResizeObserver !== "function") return;
+  libraryColumnsObserver = new ResizeObserver(() => {
+    if (!grid.clientWidth) return;
+    if (libraryColumnCount(grid) !== libraryColumnsShown) renderLibrary();
+  });
+  libraryColumnsObserver.observe(grid);
+}
+
 function renderLibrary() {
   const grid = $("library-grid");
   if (!grid) return;
+  watchLibraryColumns(grid);
   const query = ($("library-search")?.value || "").trim().toLowerCase();
   let items = libraryItems;
   // "meeting" isn't a real kind (item.kind is still "note"), a meeting note
@@ -451,10 +493,28 @@ function renderLibrary() {
   const updateDOM = () => {
     grid.replaceChildren();
     grid.classList.toggle("library-list", libraryView() === "list");
+    const cols = libraryColumnCount(grid);
+    libraryColumnsShown = cols;
+    grid.classList.toggle("library-columns", cols > 1);
+    const columns = [];
+    for (let c = 0; c < cols && cols > 1; c++) {
+      const col = document.createElement("div");
+      col.className = "library-col";
+      columns.push(col);
+    }
+    grid.append(...columns);
     // Same incremental renderer the Notes list uses. The Library holds notes,
     // documents, images, chats and skills together, so it is the one list that
     // can be larger than any single collection in the app.
-    renderIncrementally(grid, items, (item) => libraryCard(item), {
+    //: In columns, card i goes to column i mod n and the renderer is handed an
+    //: empty fragment for it, so a chunk that lands later still deals its
+    //: cards across the same columns in the same order.
+    renderIncrementally(grid, items, (item, i) => {
+      const card = libraryCard(item);
+      if (!columns.length) return card;
+      columns[i % columns.length].appendChild(card);
+      return document.createDocumentFragment();
+    }, {
       afterChunk: () => {
         renderLibraryContextBars();
         //: **The thumbnail column is only reserved when a thumbnail exists.**
@@ -781,6 +841,48 @@ function toggleLibrarySelection(item, on) {
   renderLibraryContextBars();
 }
 
+// **A title and a preview that say the same words twice.** A note with no
+// heading is titled by its own first 60 characters, and its preview is the
+// same text from the start, so the card printed "Call the dentist about the
+// appointment on Thursday;…" in bold and then "Call the dentist about the
+// appointment on Thursday; ask about the retainer." under it: the one
+// sentence twice, measured on four of eleven seeded note cards. A document's
+// preview repeats its title the same way ("Design system notes Surface
+// tiers…"). What Apple Notes and Bear draw is the first line as the title and
+// the rest as the preview, and that is the rule here:
+// - the preview begins with the whole title: the preview is what follows it;
+// - the title was cut short (it ends in "…") and the preview carries on from
+//   it: the title becomes the whole first sentence when that is short enough
+//   to be a title (the title's own two-line clamp ellipsises it where it has
+//   to), and the preview is the sentences after it; a first sentence too
+//   long to be a title keeps the cut title, and the preview carries on from
+//   the cut with a leading "…", so no word is printed twice either way.
+// Anything else is left exactly as it was.
+const LIBRARY_TITLE_SENTENCE_MAX = 140;
+const LIBRARY_CLIPPED_TITLE = 60;
+
+function libraryTitleAndPreview(title, preview, mayBeClipped = true) {
+  const text = String(preview || "").trim();
+  const bare = String(title || "").replace(/…$/, "").trim();
+  if (!text || !bare || !text.startsWith(bare)) return { title, preview: text };
+  //: Cut short: the server clips an untitled note's first line at 60
+  //: characters with no ellipsis of its own (routes_library.py), so a cut is
+  //: a title that long, or one the text carries on from mid-word.
+  const cut =
+    mayBeClipped &&
+    (/…$/.test(title) || bare.length >= LIBRARY_CLIPPED_TITLE - 1 || /\w/.test(text[bare.length] || ""));
+  if (!cut) {
+    return { title, preview: text.slice(bare.length).replace(/^[\s:.,;·-]+/, "").trim() };
+  }
+  const end = text.slice(bare.length).search(/[.?!](\s|$)/);
+  const sentenceEnd = end === -1 ? text.length : bare.length + end + 1;
+  if (sentenceEnd <= LIBRARY_TITLE_SENTENCE_MAX) {
+    return { title: text.slice(0, sentenceEnd).trim(), preview: text.slice(sentenceEnd).trim() };
+  }
+  const rest = text.slice(bare.length).trim();
+  return { title, preview: rest ? `…${rest}` : "" };
+}
+
 function libraryCard(item) {
   // An `<article>` rather than a `<button>`: the card carries its own ⋯ menu,
   // and a button inside a button is invalid markup that browsers resolve by
@@ -866,7 +968,13 @@ function libraryCard(item) {
   // same call, which is harmless.
   // Strip block markdown (like headings) from the title before inline rendering,
   // so a note starting with `# Title` doesn't show the raw `# `.
-  const cleanTitle = item.title.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+  let cleanTitle = item.title.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+  const { title: shownTitle, preview: shownPreview } = libraryTitleAndPreview(
+    cleanTitle,
+    item.preview,
+    item.kind === "note" || item.kind === "shelved" || item.kind === "archived" || item.kind === "draft"
+  );
+  cleanTitle = shownTitle;
   renderInlineMarkdown(title, cleanTitle, []);
   // The 2-line clamp above cuts a long title off mid-word with no way to read
   // the rest short of opening the card, a native tooltip costs nothing.
@@ -896,13 +1004,12 @@ function libraryCard(item) {
   // every note card lost its preview entirely, leaving 60 characters of a
   // 420-character card. The question is not whether the preview begins with
   // the title, it is whether it goes on to say anything more.
-  const bare = cleanTitle.replace(/…$/, "").trim();
-  const sameAsTitle =
-    item.preview &&
-    bare &&
-    item.preview.startsWith(bare) &&
-    item.preview.trim().length <= bare.length + 1;
-  if (item.preview && !sameAsTitle) {
+  //: The repeat itself is now taken out by `libraryTitleAndPreview` above:
+  //: what reaches here is only what the preview says beyond the title. A
+  //: card whose words are all in its title gets two more lines of title
+  //: (`.library-card-whole`), so a one-sentence note is read to its end.
+  card.classList.toggle("library-card-whole", !shownPreview && cleanTitle !== item.title);
+  if (shownPreview) {
     const preview = document.createElement("p");
     preview.className = "library-card-preview";
     // Inline markdown, the same renderer the note list uses (§22): a note
@@ -910,16 +1017,33 @@ function libraryCard(item) {
     // backticks here, which is the Library rendering the *source* of a note
     // while every other surface renders the note. Inline only: block elements
     // would turn a card into a document, which is what the clamp is for.
-    const cleanPreview = item.preview.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+    const cleanPreview = shownPreview.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
     renderInlineMarkdown(preview, cleanPreview, []);
     card.appendChild(preview);
   }
 
   const foot = document.createElement("div");
   foot.className = "library-card-meta";
+  //: **"Uncategorised" is not a fact.** It was printed on the foot of every
+  //: note card that has no category, eleven identical copies on one seeded
+  //: screen, each as loud as a real category on the card beside it. An
+  //: unset property is left out, which is how Linear and Notion draw one; a
+  //: real category is drawn the way the note's own meta row draws it (a dot
+  //: in the category's colour, then its name in ink), so a note reads the
+  //: same in the Library as in the list.
+  const isNoteKind = item.kind === "note" || item.kind === "shelved" || item.kind === "archived";
   const detail = document.createElement("span");
-  setLabel(detail, item.detail);
+  if (item.detail === "Uncategorised") {
+    detail.classList.add("library-card-detail-none");
+  } else {
+    setLabel(detail, item.detail);
+    if (isNoteKind && item.detail) {
+      detail.className = "library-card-category";
+      detail.style.setProperty("--category-dot", categoryDotColour(item.detail));
+    }
+  }
   const when = document.createElement("span");
+  when.className = "library-card-when";
   when.textContent = relativeTime(item.updated_at);
   when.title = new Date(item.updated_at).toLocaleString();
   foot.append(detail, when);
@@ -2234,10 +2358,14 @@ async function renderLibraryDocuments() {
     // have previews". Served by the list endpoint as a flattened 240-character
     // snippet (`routes_documents._preview`) rather than by shipping every
     // document's full text to draw a list.
-    if (doc.preview) {
+    //: What follows the title, not the title again: a document's body starts
+    //: with its own "# Title" line, so the snippet began with the title the
+    //: row prints in bold one line up (`libraryTitleAndPreview`).
+    const docPreview = libraryTitleAndPreview(doc.title || "", doc.preview || "", false).preview;
+    if (docPreview) {
       const preview = document.createElement("span");
       preview.className = "doc-list-preview";
-      preview.textContent = doc.preview;
+      preview.textContent = docPreview;
       body.append(preview);
     }
 
@@ -7675,6 +7803,20 @@ onDomReady(() => {
     } catch (error) {
       toast(error.message, true);
     }
+  });
+  //: The add form folds away again the way a popover does: Escape from any
+  //: of its fields, or Done, and the focus goes back to the button that
+  //: opened it rather than to the top of the page.
+  const foldBookmarkForm = () => {
+    $("bookmark-form")?.classList.add("hidden");
+    $("bookmark-add")?.focus();
+  };
+  $("bookmark-form-done")?.addEventListener("click", foldBookmarkForm);
+  $("bookmark-form")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    foldBookmarkForm();
   });
   $("bookmark-search")?.addEventListener("input", filterBookmarks);
   $("bookmark-group-new")?.addEventListener("click", newBookmarkGroup);

@@ -245,12 +245,21 @@ def test_graph_include_documents_adds_a_prefixed_node_and_edge(client):
     assert "Document" not in body["categories"]
 
 
-def test_graph_include_documents_ignores_a_document_with_no_linked_notes(client):
+def test_graph_include_documents_shows_a_document_with_no_linked_notes(client):
+    """The owner: "the documents toggle in the graph doesnt do anything". A
+    notebook whose documents are not attached to notes got no document nodes,
+    so the switch changed nothing. A lone document is now drawn alone, with
+    no edges, and an archived one is not drawn at all."""
     _save(client, "first note", category="Alpha")
     client.post("/documents", json={"title": "Untouched", "content": ""})
+    archived = client.post("/documents", json={"title": "Old", "content": ""}).json()
+    client.put(f"/documents/{archived['id']}/archive")
 
     body = client.get("/graph?include_documents=true").json()
-    assert all(n.get("type") != "document" for n in body["nodes"])
+    docs = [n for n in body["nodes"] if n.get("type") == "document"]
+    assert [n["preview"] for n in docs] == ["Untouched"]
+    assert not [e for e in body["edges"] if e.get("kind") == "document"]
+    assert all(n.get("type") != "document" for n in client.get("/graph").json()["nodes"])
 
 
 def test_graph_thread_edges(client):

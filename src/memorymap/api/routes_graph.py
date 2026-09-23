@@ -267,6 +267,9 @@ def _add_entity_nodes(
                 )
 
 
+GRAPH_DOCUMENT_CAP = 500
+
+
 def _add_document_nodes(
     session: Session, nodes: list[dict], edges: list[dict], node_ids: set[int]
 ) -> None:
@@ -286,14 +289,28 @@ def _add_document_nodes(
             )
         )
     )
-    document_ids = {link.document_id for link in doc_links}
-    if document_ids:
-        documents = {
-            d.id: d
-            for d in session.scalars(
-                select(Document).where(Document.id.in_(document_ids))
-            )
-        }
+    #: **Every live document, not only the attached ones** (the owner: "the
+    #: documents toggle in the graph doesnt do anything"). It used to add a
+    #: document only when a note was linked to it, so a notebook whose
+    #: documents stand alone, which is most of them, got no document nodes
+    #: at all and the switch changed nothing on screen. An unattached
+    #: document is drawn alone (the "Hide unlinked" switch hides it like any
+    #: other lone node); the attached ones keep their edges. Capped, newest
+    #: first, so a large library cannot swamp the map or the payload.
+    documents = {
+        d.id: d
+        for d in session.scalars(
+            select(Document)
+            .where(Document.archived_at.is_(None))
+            .order_by(Document.updated_at.desc())
+            .limit(GRAPH_DOCUMENT_CAP)
+        )
+    }
+    for extra in {link.document_id for link in doc_links} - set(documents):
+        linked = session.get(Document, extra)
+        if linked is not None and linked.archived_at is None:
+            documents[extra] = linked
+    if documents:
         for document_id, document in documents.items():
             nodes.append(
                 {

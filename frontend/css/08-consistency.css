@@ -3106,3 +3106,26 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     opacity: 1;
   }
 }
+
+/* --- the graph's options panel -----------------------------------------------
+   Owner, with a screenshot: "the arrows in this graph dropdown are right
+   against the edge of the rows and the text box is a different height to
+   the button next to it." Measured: every fold's summary had 0px of inline
+   padding, so its disclosure triangle sat on the row's edge (and on the
+   open fold's filled ground, flush against its left side); the Groups row
+   centred a 36px input beside a taller button. The summary gets the same
+   inset as the rows under it, and the row stretches its two controls to
+   one height. */
+#graph-options .graph-options-fold > summary {
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.graph-group-add-row {
+  align-items: stretch;
+}
+
+.graph-group-add-row > :is(input, button) {
+  height: auto;
+  min-height: var(--control-h);
+}

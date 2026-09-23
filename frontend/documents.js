@@ -15826,6 +15826,1228 @@ function docCmSyncCodeTools() {
   docCmView.dispatch({ effects: docCmParts.code.reconfigure(docCodeTools(CM)) });
 }
 
+// -----------------------------------------------------------------------------
+// Code documents as a code editor, part two: pairs, indentation, formatting
+// and quick fixes
+// -----------------------------------------------------------------------------
+//
+// The owner, 2026-09-23: "on the code document types as well, can you add
+// the things like with vs code how if I write a \" it automatically does \"\"
+// and puts my cursor position in between them ... if Im writing in a c
+// language or java or smth where I write var_name { and it automatically
+// does {} and then if I press enter it automatically indents and code
+// structures them?? also a button to automatically format the whole
+// document, ot just a selection ... also recommended fixes to apply like the
+// other autocorrect feature."
+//
+// The pure half first: everything here is string work with no editor in
+// it, so `tests/test_code_editing.py` runs it in node and holds every
+// indent, every format and every fix to the exact text it must produce.
+
+// DOC-CODE-BEGIN (tests/test_code_editing.py runs this region in node)
+//: **What the editor has to know about a language to leave its strings and
+//: comments alone**, per file type. Not a grammar: the four things a
+//: bracket, an indent or a trailing space depends on, which are where a
+//: comment starts, where a string starts and ends, whether a string may run
+//: onto the next line, and the handful of oddities (a C++ raw string, a
+//: Rust lifetime, a JavaScript regex) that would otherwise be read as an
+//: unclosed quote or an unmatched bracket. The Lezer grammars in the bundle
+//: know more than this for five languages; the other seventeen have a
+//: highlighter that colours a line at a time and cannot answer "which `{`
+//: does this `}` close", so this is the one answer all of them share.
+//:
+//: Each quote is `[open, close, multi, escape, doubled]`: `multi` is whether
+//: the string may cross a line break, `escape` whether a backslash escapes
+//: the next character, `doubled` whether writing the quote twice is how the
+//: language escapes it (SQL's `'it''s'`). Longer openers come first, so a
+//: `"""` is never read as three empty strings.
+function docCodeProfile(ext) {
+  const q = (open, close, multi, escape = true, doubled = false) => ({ open, close, multi, escape, doubled });
+  const dq = q('"', '"', false);
+  const sq = q("'", "'", false);
+  const slash = { line: ["//"], block: ["/*", "*/"] };
+  const cLike = { ...slash, quotes: [dq, sq], stmt: true, caseStyle: "indent" };
+  switch (ext) {
+    case "c": return { ...cLike, preproc: true };
+    case "cpp": return { ...cLike, preproc: true, rawCpp: true, digitSep: true };
+    case "cs": return { ...cLike, quotes: [q('"""', '"""', true, false), dq, sq], verbatimCs: true };
+    case "java": return { ...cLike, quotes: [q('"""', '"""', true), dq, sq] };
+    case "kt": return { ...cLike, nest: true, quotes: [q('"""', '"""', true, false), dq, sq], caseStyle: null };
+    case "go": return { ...cLike, quotes: [dq, sq, q("`", "`", true, false)], caseStyle: "flush" };
+    case "rs": return { ...cLike, nest: true, quotes: [q('"', '"', true)], rustChars: true, rustRaw: true, caseStyle: null };
+    case "swift": return { ...cLike, nest: true, quotes: [q('"""', '"""', true), dq], caseStyle: "flush" };
+    case "php":
+      return { ...cLike, line: ["//", "#"], quotes: [q('"', '"', true), q("'", "'", true)], phpTags: true,
+        heredoc: /^<<<[ \t]*(['"]?)([A-Za-z_]\w*)\1/ };
+    case "js":
+    case "ts":
+      return { ...cLike, quotes: [dq, sq, q("`", "`", true)], template: true, regex: true };
+    case "css": return { line: [], block: ["/*", "*/"], quotes: [dq, sq] };
+    case "json": return { line: [], block: null, quotes: [dq] };
+    case "r": return { line: ["#"], block: null, quotes: [q('"', '"', true), q("'", "'", true), q("`", "`", true)], stmt: true };
+    case "sql":
+      return { line: ["--"], block: ["/*", "*/"],
+        quotes: [q("'", "'", true, false, true), q('"', '"', true, false, true), q("`", "`", true, false, true)] };
+    case "bash":
+      return { line: ["#"], hashAtWord: true, block: null, heredoc: /^<<-?[ \t]*(['"]?)([A-Za-z_]\w*)\1/,
+        quotes: [q('"', '"', true), q("'", "'", true, false), q("`", "`", true)] };
+    case "toml":
+      return { line: ["#"], block: null,
+        quotes: [q('"""', '"""', true), q("'''", "'''", true, false), dq, q("'", "'", false, false)] };
+    case "ini": return { line: [";", "#"], block: null, quotes: [] };
+    case "py":
+      return { line: ["#"], block: null,
+        quotes: [q('"""', '"""', true), q("'''", "'''", true), dq, sq] };
+    case "rb":
+      return { line: ["#"], block: null, heredoc: /^<<[-~]?(['"]?)([A-Z_]\w*)\1/,
+        quotes: [q('"', '"', true), q("'", "'", true), q("`", "`", true)] };
+    //: No quotes for YAML: a quote only opens a string at the start of a
+    //: value there, so `note: don't` is an apostrophe, and reading it as a
+    //: string that never closes would refuse to tidy a valid file. What YAML
+    //: does have that matters here is the block scalar, handled by the
+    //: formatter itself.
+    case "yaml": return { line: ["#"], hashAtWord: true, block: null, quotes: [] };
+    default: return null;
+  }
+}
+
+const DOC_CODE_OPEN = { "(": ")", "[": "]", "{": "}" };
+const DOC_CODE_CLOSE = { ")": "(", "]": "[", "}": "{" };
+
+//: **One pass over the text: where every string and comment is, which
+//: bracket each closer closes, and how deep every line sits.** Everything
+//: this section does (the indent on Enter, the formatter, the bracket
+//: diagnostics and their fixes) reads this one answer, so the three cannot
+//: disagree about whether a `{` inside a string counts.
+//:
+//: Each line comes back with:
+//:
+//: - `startsIn`: `null` when it starts in code, else `"string"`,
+//:   `"comment"`, `"preproc"` (the continuation of a C `#define`) or
+//:   `"outside"` (HTML around a PHP block). Such a line is never re-indented,
+//:   because its leading spaces are part of something else.
+//: - `endsIn`: the same question asked at its end, which is what decides
+//:   whether its trailing spaces are content.
+//: - `level`: how many indent units deep it belongs, or `null` when
+//:   `startsIn` says it is not code's to move.
+//: - `code`: the line with every comment removed and every string reduced
+//:   to its quotes, which is what the rules below match against.
+//:
+//: And `problems`: an unmatched or wrong closer, an opener never closed, a
+//: string or a comment that never ends, each with its offset.
+//:
+//: **How deep a line is.** A frame's lines sit one unit in from the line
+//: that opened it, however many brackets that line opened (`foo(bar, {`
+//: indents its body once, not twice), and a line that starts by closing
+//: frames sits where the line that opened the last of them sat. That is the
+//: rule every editor's "increase indent after an opener" pattern
+//: approximates, stated structurally, so it gives the same answer for a
+//: line typed now and for the same line reformatted later. Three further
+//: rules for statement languages: a `case` label and its body (indented
+//: under a C, Java or JavaScript `switch`, flush under Go's and Swift's, as
+//: their own formatters put them); the one statement under a brace-less
+//: `if`, `for`, `while` or `else`; and a line that continues an expression
+//: (the previous line ended on an operator, or this one starts with `.`,
+//: `?`, `:`, `&&` or `||`), each one unit further in.
+function docCodeScan(text, ext) {
+  const profile = docCodeProfile(ext);
+  const lines = [];
+  const problems = [];
+  if (!profile) return { lines: text.split("\n").map(() => ({ level: null })), problems, profile };
+  const stack = [];
+  const n = text.length;
+  //: `mode` is what the scanner is inside: code, a string (`quote` says
+  //: which), a block comment, a preprocessor line, or HTML outside `<?php`.
+  let mode = profile.phpTags ? "outside" : "code";
+  let quote = null;
+  let quoteAt = 0;
+  let commentAt = 0;
+  let commentDepth = 0;
+  let rawClose = "";
+  let heredoc = null;
+  //: The last significant code character and word, across lines, which is
+  //: what tells a regex from a division in JavaScript.
+  let lastSig = "";
+  let lastWord = "";
+  let prevCode = null;
+  let i = 0;
+  let lineNo = 0;
+
+  const newLine = (from) => {
+    const startsIn = mode === "code" ? null : mode;
+    const line = {
+      from, to: from, startsIn, endsIn: null, level: null, code: "",
+      commentOpenLine: startsIn === "comment" ? commentOpenLine : null,
+      preproc: startsIn === "preproc",
+      pending: startsIn === null,
+      lastPopped: null,
+    };
+    lines.push(line);
+    return line;
+  };
+  let commentOpenLine = null;
+  let line = newLine(0);
+
+  const top = () => stack[stack.length - 1] || null;
+  const labelRe = profile.caseStyle === "flush"
+    ? /^(case\b[^\n]*|default\s*):\s*(\/\/.*)?$/
+    : /^(case\b|default\s*:)/;
+  const bracelessRe = /^(\}\s*)?(else\s+)?(if|for|foreach|while)\b.*\)$|^(\}\s*)?else$|^do$/;
+  const endOpRe = /(?:[*/%=&|^?]|(?<!\+)\+|(?<!-)-)$/;
+  const startOpRe = /^(\.(?!\.)|\?|:(?!:)|&&|\|\|)/;
+
+  //: The level of the line in hand, decided at its first character that is
+  //: not a leading closer: that is the first moment all of the above is
+  //: known.
+  const settle = (at) => {
+    if (!line.pending) return;
+    line.pending = false;
+    const rest = text.slice(at, text.indexOf("\n", at) === -1 ? n : text.indexOf("\n", at));
+    const t = top();
+    if (line.lastPopped) {
+      line.level = line.lastPopped.lineLevel;
+      return;
+    }
+    let level = t ? t.inner : 0;
+    if (profile.stmt) {
+      const inBraces = !t || t.ch === "{";
+      if (t && t.ch === "{" && profile.caseStyle && labelRe.test(rest)) {
+        t.inCase = true;
+        level += profile.caseStyle === "flush" ? -1 : 0;
+      } else if (t && t.inCase) {
+        level += profile.caseStyle === "flush" ? 0 : 1;
+      }
+      const sameFrame = prevCode && prevCode.frame === t;
+      const prev = sameFrame ? prevCode.code.trim() : "";
+      if (sameFrame && inBraces && bracelessRe.test(prev) && !rest.startsWith("{")) level += 1;
+      else if (sameFrame && inBraces && endOpRe.test(prev)) level += 1;
+      else if (startOpRe.test(rest)) level += 1;
+    }
+    line.level = Math.max(0, level);
+  };
+
+  const push = (ch, at, extra = {}) => {
+    const level = line.level === null ? (top() ? top().inner : 0) : line.level;
+    stack.push({ ch, at, line: lineNo, lineLevel: level, inner: level + 1, inCase: false, ...extra });
+  };
+
+  const close = (ch, at) => {
+    const want = DOC_CODE_CLOSE[ch];
+    let k = stack.length - 1;
+    while (k >= 0 && stack[k].ch !== want) k -= 1;
+    if (k < 0 || (k < stack.length - 1 && stack.length - 1 - k > 3)) {
+      const t = top();
+      problems.push({ kind: "stray", at, ch, expect: t ? DOC_CODE_OPEN[t.ch] : null, line: lineNo });
+      return null;
+    }
+    while (stack.length - 1 > k) {
+      const lost = stack.pop();
+      problems.push({ kind: "unclosed", at: lost.at, ch: lost.ch, line: lost.line, before: at });
+    }
+    return stack.pop();
+  };
+
+  const startsWithAt = (s, at) => text.startsWith(s, at);
+
+  while (i < n) {
+    const ch = text[i];
+    if (ch === "\n") {
+      if (mode === "string" && !quote.multi) {
+        problems.push({ kind: "string", at: quoteAt, ch: quote.open, line: lineNo });
+        mode = "code";
+      }
+      if (mode === "preproc" && text[i - 1] !== "\\" && !(text[i - 1] === "\r" && text[i - 2] === "\\")) mode = "code";
+      if (mode === "line") mode = "code";
+      //: A heredoc's body starts on the line after its `<<EOF`, and is a
+      //: string until a line that is just the word.
+      if (heredoc && mode === "code") {
+        mode = "string";
+        quote = { open: "<<", close: "\n", multi: true, escape: false, heredoc };
+        quoteAt = i;
+        heredoc = null;
+      }
+      line.to = i;
+      line.endsIn = mode === "code" ? null : mode;
+      if (line.pending) {
+        //: A blank line, or one that was nothing but closers.
+        settle(i);
+        line.blank = true;
+      }
+      if (line.code.trim() && !line.preproc) prevCode = { code: line.code, frame: top() };
+      i += 1;
+      lineNo += 1;
+      line = newLine(i);
+      continue;
+    }
+    if (mode === "outside") {
+      if (startsWithAt("<?php", i) || startsWithAt("<?=", i) || startsWithAt("<?", i)) {
+        mode = "code";
+        i += startsWithAt("<?php", i) ? 5 : startsWithAt("<?=", i) ? 3 : 2;
+        line.pending = false;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+    if (mode === "line") {
+      i += 1;
+      continue;
+    }
+    if (mode === "preproc") {
+      i += 1;
+      continue;
+    }
+    if (mode === "comment") {
+      if (profile.nest && startsWithAt(profile.block[0], i)) {
+        commentDepth += 1;
+        i += profile.block[0].length;
+        continue;
+      }
+      if (startsWithAt(profile.block[1], i)) {
+        i += profile.block[1].length;
+        commentDepth -= 1;
+        if (commentDepth <= 0) mode = "code";
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+    if (mode === "string") {
+      if (quote.heredoc) {
+        let end = text.indexOf("\n", i);
+        if (end === -1) end = n;
+        const body = text.slice(i, end);
+        const word = body.indexOf(quote.heredoc);
+        if (i === line.from && word !== -1 && body.trim().replace(/[;,)]+$/, "") === quote.heredoc) {
+          mode = "code";
+          i += word + quote.heredoc.length;
+          lastSig = "0";
+          continue;
+        }
+        i = end;
+        continue;
+      }
+      if (rawClose) {
+        if (startsWithAt(rawClose, i)) {
+          i += rawClose.length;
+          rawClose = "";
+          mode = "code";
+          line.code += '"';
+          lastSig = "0";
+          continue;
+        }
+        i += 1;
+        continue;
+      }
+      if (quote.escape && ch === "\\") {
+        i += 2;
+        continue;
+      }
+      if (quote.template && ch === "$" && text[i + 1] === "{") {
+        push("{", i, { template: quote });
+        mode = "code";
+        i += 2;
+        lastSig = "{";
+        continue;
+      }
+      if (startsWithAt(quote.close, i)) {
+        if (quote.doubled && startsWithAt(quote.close, i + quote.close.length)) {
+          i += quote.close.length * 2;
+          continue;
+        }
+        i += quote.close.length;
+        mode = "code";
+        line.code += quote.close;
+        lastSig = "0";
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    // --- code ---
+    if (ch === " " || ch === "\t" || ch === "\r") {
+      line.code += ch;
+      i += 1;
+      continue;
+    }
+    if (profile.phpTags && startsWithAt("?>", i)) {
+      mode = "outside";
+      i += 2;
+      continue;
+    }
+    if (line.pending && profile.preproc && ch === "#") {
+      line.pending = false;
+      line.level = 0;
+      line.preproc = true;
+      mode = "preproc";
+      i += 1;
+      continue;
+    }
+    if (profile.block && startsWithAt(profile.block[0], i)) {
+      mode = "comment";
+      commentAt = i;
+      commentDepth = 1;
+      commentOpenLine = lineNo;
+      i += profile.block[0].length;
+      continue;
+    }
+    const lineComment = profile.line.find((tok) => startsWithAt(tok, i));
+    if (lineComment && (!profile.hashAtWord || i === 0 || /\s/.test(text[i - 1]))) {
+      mode = "line";
+      line.commentAt = i;
+      i += lineComment.length;
+      continue;
+    }
+    if (line.pending && DOC_CODE_CLOSE[ch]) {
+      const popped = close(ch, i);
+      if (popped) line.lastPopped = popped;
+      line.code += ch;
+      lastSig = ch;
+      if (popped && popped.template) {
+        //: The `}` of a `${ }` goes back into the template string.
+        quote = popped.template;
+        mode = "string";
+        quoteAt = i;
+      }
+      i += 1;
+      continue;
+    }
+    settle(i);
+    //: A C++ raw string, `R"delim( ... )delim"`, which may hold anything.
+    if (profile.rawCpp && ch === "R" && text[i + 1] === '"' && !/[\w]/.test(text[i - 1] || "")) {
+      const open = /^R"([^()\\\s]{0,16})\(/.exec(text.slice(i, i + 20));
+      if (open) {
+        rawClose = `)${open[1]}"`;
+        mode = "string";
+        quote = { open: '"', close: rawClose, multi: true, escape: false };
+        quoteAt = i;
+        line.code += '"';
+        i += open[0].length;
+        continue;
+      }
+    }
+    //: Rust's raw strings (`r"…"`, `r#"…"#`) and its lifetimes and chars.
+    if (profile.rustRaw && (ch === "r" || ch === "b") && !/[\w]/.test(text[i - 1] || "")) {
+      const open = /^b?r(#*)"/.exec(text.slice(i, i + 20));
+      if (open) {
+        rawClose = `"${open[1]}`;
+        mode = "string";
+        quote = { open: '"', close: rawClose, multi: true, escape: false };
+        quoteAt = i;
+        line.code += '"';
+        i += open[0].length;
+        continue;
+      }
+    }
+    if (profile.rustChars && ch === "'") {
+      const lit = /^'(?:\\(?:u\{[0-9a-fA-F]{1,6}\}|x[0-9a-fA-F]{2}|.)|[^\\'\n])'/.exec(text.slice(i, i + 12));
+      i += lit ? lit[0].length : 1;
+      line.code += lit ? "''" : "'";
+      lastSig = "0";
+      continue;
+    }
+    if (profile.digitSep && ch === "'" && /[0-9A-Za-z]/.test(text[i - 1] || "") && /[0-9A-Fa-f]/.test(text[i + 1] || "")) {
+      i += 1;
+      continue;
+    }
+    //: C#'s verbatim strings, `@"…"`, where `""` is a quote and a line
+    //: break is content.
+    if (profile.verbatimCs && (startsWithAt('@"', i) || startsWithAt('$@"', i) || startsWithAt('@$"', i))) {
+      const len = text[i] === "@" && text[i + 1] === '"' ? 2 : 3;
+      mode = "string";
+      quote = { open: '"', close: '"', multi: true, escape: false, doubled: true };
+      quoteAt = i;
+      line.code += '"';
+      i += len;
+      continue;
+    }
+    if (profile.heredoc && ch === "<") {
+      const doc = profile.heredoc.exec(text.slice(i, i + 80));
+      if (doc) {
+        heredoc = doc[2];
+        line.code += "<<";
+        i += doc[0].length;
+        continue;
+      }
+    }
+    const opened = profile.quotes.find((qq) => startsWithAt(qq.open, i));
+    if (opened) {
+      mode = "string";
+      quote = profile.template && opened.open === "`" ? { ...opened, template: true } : opened;
+      quoteAt = i;
+      line.code += opened.open;
+      i += opened.open.length;
+      continue;
+    }
+    //: A JavaScript regex literal, whose brackets and quotes are not code.
+    //: A `/` is a regex where a value may start: after an operator, an
+    //: opener, a comma, a keyword that takes a value, or at the start.
+    if (profile.regex && ch === "/" && (!lastSig || "(,=:[!&|?{};+-*%<>~^".includes(lastSig) ||
+      /^(return|typeof|case|do|else|in|of|new|delete|void|throw|yield|await)$/.test(lastWord))) {
+      let j = i + 1;
+      let inClass = false;
+      let ok = false;
+      while (j < n && text[j] !== "\n") {
+        const c = text[j];
+        if (c === "\\") {
+          j += 2;
+          continue;
+        }
+        if (c === "[") inClass = true;
+        else if (c === "]") inClass = false;
+        else if (c === "/" && !inClass) {
+          ok = true;
+          break;
+        }
+        j += 1;
+      }
+      if (ok) {
+        j += 1;
+        while (j < n && /[a-z]/i.test(text[j])) j += 1;
+        line.code += "/r/";
+        lastSig = "0";
+        lastWord = "";
+        i = j;
+        continue;
+      }
+    }
+    if (DOC_CODE_OPEN[ch]) {
+      push(ch, i);
+      line.code += ch;
+      lastSig = ch;
+      lastWord = "";
+      i += 1;
+      continue;
+    }
+    if (DOC_CODE_CLOSE[ch]) {
+      const popped = close(ch, i);
+      line.code += ch;
+      lastSig = ch;
+      lastWord = "";
+      if (popped && popped.template) {
+        quote = popped.template;
+        mode = "string";
+        quoteAt = i;
+      }
+      i += 1;
+      continue;
+    }
+    const word = /^[A-Za-z_$][\w$]*/.exec(text.slice(i, i + 64));
+    if (word) {
+      line.code += word[0];
+      lastSig = "a";
+      lastWord = word[0];
+      i += word[0].length;
+      continue;
+    }
+    line.code += ch;
+    lastSig = ch;
+    lastWord = "";
+    i += 1;
+  }
+  line.to = n;
+  line.endsIn = mode === "code" ? null : mode;
+  if (line.pending) {
+    settle(n);
+    line.blank = true;
+  }
+  if (mode === "string" && (quote.multi || rawClose)) {
+    problems.push({ kind: "string", at: quoteAt, ch: quote.open, line: docCodeLineOf(text, quoteAt), eof: true });
+  } else if (mode === "string") {
+    problems.push({ kind: "string", at: quoteAt, ch: quote.open, line: lineNo });
+  }
+  if (mode === "comment") {
+    problems.push({ kind: "comment", at: commentAt, ch: profile.block[0], line: docCodeLineOf(text, commentAt) });
+  }
+  while (stack.length) {
+    const lost = stack.pop();
+    problems.push({ kind: "unclosed", at: lost.at, ch: lost.ch, line: lost.line, before: n });
+  }
+  //: **One mistake, one report.** A string left open on its line swallows
+  //: the `)` and `;` after it, so the `(` before it then reads as unclosed
+  //: too: two underlines for one missing quote, and a second "fix" that
+  //: would add a bracket the code never lacked. The string is the cause, so
+  //: a bracket opened earlier on the same line is not reported beside it.
+  const open = problems.filter((p) => p.kind === "string");
+  const kept = problems.filter((p) => !(p.kind === "unclosed" && open.some((s) => s.line === p.line && p.at < s.at)));
+  kept.sort((a, b) => a.at - b.at);
+  return { lines, problems: kept, profile };
+}
+
+//: The 0-based line an offset is on.
+function docCodeLineOf(text, at) {
+  let count = 0;
+  for (let k = text.indexOf("\n"); k !== -1 && k < at; k = text.indexOf("\n", k + 1)) count += 1;
+  return count;
+}
+
+//: **How deep a new line belongs, for Enter and for a typed closer.**
+//: `before` is everything above the line, `lineText` the text that will be
+//: on it; `null` means the line is inside a string or a comment and is not
+//: this function's to place, which hands the choice back to the editor
+//: (it keeps the line above's indent, which is what a comment wants).
+function docCodeIndentLevel(before, lineText, ext) {
+  const joined = before && !before.endsWith("\n") ? `${before}\n${lineText}` : `${before}${lineText}`;
+  const scan = docCodeScan(joined, ext);
+  const last = scan.lines[scan.lines.length - 1];
+  return last ? last.level : null;
+}
+
+//: The file types whose indentation is the brackets' business, so the
+//: formatter re-indents them. Everything else with a profile has its
+//: whitespace tidied and its indentation left exactly as written: Python's
+//: and YAML's indentation *is* their syntax, and shell, SQL, Ruby, TOML and
+//: INI have no bracket structure an indent could be derived from.
+const DOC_FORMAT_REINDENT = new Set(["c", "cpp", "cs", "java", "kt", "go", "rs", "swift", "php", "js", "ts", "css", "r"]);
+
+//: What a scanner problem says, in words, for a toast or an underline.
+function docCodeProblemMessage(problem) {
+  const q = (ch) => `“${ch}”`;
+  switch (problem.kind) {
+    case "unclosed": return `This ${q(problem.ch)} is never closed`;
+    case "stray":
+      return problem.expect
+        ? `Expected ${q(problem.expect)} here, found ${q(problem.ch)}`
+        : `Nothing is open for this ${q(problem.ch)} to close`;
+    case "string": return "This string is never closed";
+    case "comment": return "This comment is never closed";
+    default: return "This does not parse";
+  }
+}
+
+//: **Format: the brackets decide the indentation, and nothing else moves.**
+//: `unit` is the file type's indent (four spaces, two, or a tab). `range`,
+//: when given, is the first and last 0-based line to touch, which is how
+//: "format the selection" is the same function as "format the document".
+//:
+//: What it does to each line, and only this:
+//:
+//: - a code line gets `level` units of indent in place of whatever it had
+//:   (for the types in `DOC_FORMAT_REINDENT`);
+//: - trailing spaces and tabs go, unless the line ends inside a string,
+//:   where they are the string's, or ends in a backslash, where removing
+//:   them would turn the next line into a continuation;
+//: - a line that is only whitespace becomes empty;
+//: - a line inside a block comment moves by exactly as much as the line the
+//:   comment opened on, so a ` * ` column stays under its `/*`;
+//: - a line inside a string (a template literal, a heredoc, a raw string)
+//:   is not touched at all, not its indent and not its end;
+//: - the document ends in exactly one line break (whole-document only).
+//:
+//: It never adds, removes or reorders a token, which is the whole of what
+//: "conservative" means here, and it refuses outright when the brackets or
+//: strings do not balance, because a re-indent computed from a structure
+//: that is not there would scatter the text rather than tidy it.
+function docFormatCodeText(text, ext, unit, range = null) {
+  const scan = docCodeScan(text, ext);
+  if (!scan.profile) return { error: `There is no formatter for .${ext} files yet.` };
+  if (scan.problems.length) {
+    //: The cause before its consequences: an open string or comment
+    //: explains the brackets after it, not the other way round.
+    const first = scan.problems.find((p) => p.kind === "string" || p.kind === "comment") ||
+      scan.problems.find((p) => p.kind === "stray") || scan.problems[0];
+    return { error: `Not formatted: line ${first.line + 1}, ${docCodeProblemMessage(first).toLowerCase()}.`, problem: first };
+  }
+  const reindent = DOC_FORMAT_REINDENT.has(ext);
+  const lines = text.split("\n");
+  const from = range ? Math.max(0, range[0]) : 0;
+  const to = range ? Math.min(lines.length - 1, range[1]) : lines.length - 1;
+  const oldLead = [];
+  const newLead = [];
+  const keep = ext === "yaml" ? docYamlBlockLines(lines) : null;
+  const out = lines.map((raw, k) => {
+    const info = scan.lines[k] || { level: null, startsIn: null, endsIn: null };
+    if (keep && keep.has(k)) return raw;
+    const lead = /^[ \t]*/.exec(raw)[0];
+    oldLead[k] = lead;
+    newLead[k] = lead;
+    if (k < from || k > to) return raw;
+    let head = lead;
+    let body = raw.slice(lead.length);
+    if (info.startsIn === "string") {
+      //: The string's line: its start is content, whatever it looks like.
+      head = "";
+      body = raw;
+    } else if (info.startsIn === "comment") {
+      const open = info.commentOpenLine;
+      if (open !== null && open !== undefined && oldLead[open] !== newLead[open] && lead.startsWith(oldLead[open])) {
+        head = newLead[open] + lead.slice(oldLead[open].length);
+      }
+    } else if (reindent && info.level !== null && info.startsIn === null) {
+      head = unit.repeat(info.level);
+    }
+    if (info.endsIn !== "string") {
+      const trimmed = body.replace(/[ \t]+$/, "");
+      if (!trimmed.endsWith("\\")) body = trimmed;
+    }
+    if (!body) head = "";
+    newLead[k] = info.startsIn === "string" ? lead : head;
+    return head + body;
+  });
+  let result = out.join("\n");
+  if (!range || to === lines.length - 1) {
+    if (!range) result = result.replace(/\n*$/, "") + (result.trim() ? "\n" : "");
+  }
+  return { text: result, changed: result !== text };
+}
+
+//: HTML's elements that never hold anything, the ones whose end tag may be
+//: left out (a `<li>` ends at the next `<li>`), and the ones whose text is
+//: not markup at all.
+const DOC_HTML_VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
+  "param", "source", "track", "wbr"]);
+const DOC_HTML_OPTIONAL = new Set(["li", "dt", "dd", "p", "tr", "td", "th", "option", "optgroup", "thead",
+  "tbody", "tfoot", "colgroup", "caption", "rt", "rp", "html", "head", "body"]);
+const DOC_HTML_RAW = new Set(["script", "style", "textarea", "pre", "title"]);
+//: Opening one of these closes the element on the left of each pair, as a
+//: browser's parser does, so a list written without `</li>` still nests.
+const DOC_HTML_IMPLIED = {
+  li: ["li"], dt: ["dt", "dd"], dd: ["dt", "dd"], tr: ["tr", "td", "th"], td: ["td", "th"], th: ["td", "th"],
+  option: ["option"], optgroup: ["optgroup", "option"], thead: ["tbody", "tfoot", "tr", "td", "th"],
+  tbody: ["thead", "tbody", "tr", "td", "th"], tfoot: ["thead", "tbody", "tr", "td", "th"],
+};
+const DOC_HTML_BLOCK = new Set(["address", "article", "aside", "blockquote", "div", "dl", "fieldset", "footer",
+  "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "main", "nav", "ol", "p", "pre", "section",
+  "table", "ul", "figure", "details"]);
+
+//: **HTML and XML, indented by their elements.** The same contract as
+//: `docFormatCodeText` (only whitespace moves, the refusal when the
+//: structure does not balance), with elements where the other has brackets:
+//: a line sits one unit inside the element that holds it, a line that
+//: starts by closing an element sits where that element opened. A line
+//: that starts inside a comment, a tag whose attributes run across lines,
+//: or the text of a `<pre>`, `<script>`, `<style>` or `<textarea>` is not
+//: touched, because its leading spaces are part of what it is.
+function docFormatMarkupText(text, ext, unit, range = null) {
+  const html = ext === "html";
+  const lines = text.split("\n");
+  const levels = [];
+  const verbatim = [];
+  //: Whether a line *ends* inside something whose spaces are content (a
+  //: `<pre>`, a comment, an attribute value), so its trailing spaces stay.
+  const endsInside = [];
+  //: For a line inside a comment or a script, the line whose move it follows.
+  const shiftWith = [];
+  let shiftFrom = -1;
+  const stack = [];
+  let tagInHand = null;
+  let mode = "text";
+  let rawEnd = "";
+  let i = 0;
+  let lineNo = 0;
+  let pending = true;
+  let lastPopped = null;
+  let lineLevel = 0;
+  const fail = (message) => ({ error: `Not formatted: line ${lineNo + 1}, ${message}.` });
+  const settle = () => {
+    if (!pending) return;
+    pending = false;
+    lineLevel = lastPopped ? lastPopped.lineLevel : stack.length ? stack[stack.length - 1].inner : 0;
+    levels[lineNo] = lineLevel;
+  };
+  const popTo = (name) => {
+    let k = stack.length - 1;
+    while (k >= 0 && stack[k].name !== name) {
+      if (!html || !DOC_HTML_OPTIONAL.has(stack[k].name)) return null;
+      k -= 1;
+    }
+    if (k < 0) return null;
+    const frame = stack[k];
+    stack.length = k;
+    return frame;
+  };
+  verbatim[0] = false;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === "\n") {
+      if (pending) settle();
+      endsInside[lineNo] = mode !== "text";
+      i += 1;
+      lineNo += 1;
+      pending = mode === "text";
+      lastPopped = null;
+      verbatim[lineNo] = mode !== "text";
+      shiftWith[lineNo] = mode === "comment" || mode === "tag" || (mode === "raw" && shiftFrom >= 0) ? shiftFrom : -1;
+      //: A `</script>` or `</style>` that starts its line is markup again,
+      //: and lines up with its `<script>` like any other end tag.
+      if (mode === "raw" && shiftFrom >= 0 && text.slice(i, i + 200).trimStart().toLowerCase().startsWith(rawEnd)) {
+        verbatim[lineNo] = false;
+        shiftWith[lineNo] = -1;
+        pending = true;
+      }
+      continue;
+    }
+    if (mode === "comment") {
+      if (text.startsWith("-->", i)) {
+        mode = "text";
+        i += 3;
+      } else i += 1;
+      continue;
+    }
+    if (mode === "cdata") {
+      if (text.startsWith("]]>", i)) {
+        mode = "text";
+        i += 3;
+      } else i += 1;
+      continue;
+    }
+    if (mode === "raw") {
+      if (text.slice(i, i + rawEnd.length).toLowerCase() === rawEnd) {
+        mode = "text";
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+    if (mode === "tag") {
+      //: Inside `<name …>`: quotes may hold a `>`.
+      if (ch === '"' || ch === "'") {
+        const close = text.indexOf(ch, i + 1);
+        if (close === -1) return fail("an attribute's quote is never closed");
+        //: A value that runs across lines: those lines are the value's.
+        const crossed = (text.slice(i, close).match(/\n/g) || []).length;
+        for (let k = 1; k <= crossed; k += 1) {
+          verbatim[lineNo + k] = true;
+          endsInside[lineNo + k - 1] = true;
+        }
+        lineNo += crossed;
+        i = close + 1;
+        continue;
+      }
+      if (ch === ">") {
+        mode = "text";
+        const tag = tagInHand;
+        tagInHand = null;
+        const selfClosed = text[i - 1] === "/";
+        i += 1;
+        if (tag && !selfClosed && !(html && DOC_HTML_VOID.has(tag.name))) {
+          stack.push(tag);
+          if (html && DOC_HTML_RAW.has(tag.name)) {
+            mode = "raw";
+            rawEnd = `</${tag.name}`;
+            //: A script's or a style's lines move with their tag; a
+            //: `<pre>`'s and a `<textarea>`'s spaces are their text.
+            shiftFrom = tag.name === "script" || tag.name === "style" ? lineNo : -1;
+          }
+        }
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+    // --- text ---
+    if (ch === " " || ch === "\t" || ch === "\r") {
+      i += 1;
+      continue;
+    }
+    if (text.startsWith("<!--", i)) {
+      settle();
+      mode = "comment";
+      shiftFrom = lineNo;
+      i += 4;
+      continue;
+    }
+    if (text.startsWith("<![CDATA[", i)) {
+      settle();
+      mode = "cdata";
+      i += 9;
+      continue;
+    }
+    if (text.startsWith("<!", i) || text.startsWith("<?", i)) {
+      settle();
+      const end = text.indexOf(">", i);
+      if (end === -1) return fail("a declaration is never closed");
+      i = end + 1;
+      continue;
+    }
+    const close = /^<\/([A-Za-z][\w:.-]*)\s*>/.exec(text.slice(i, i + 200));
+    if (close) {
+      const name = html ? close[1].toLowerCase() : close[1];
+      const frame = popTo(name);
+      if (!frame) return fail(`nothing is open for “</${close[1]}>” to close`);
+      if (pending) lastPopped = frame;
+      i += close[0].length;
+      continue;
+    }
+    const open = /^<([A-Za-z][\w:.-]*)/.exec(text.slice(i, i + 200));
+    if (open) {
+      const name = html ? open[1].toLowerCase() : open[1];
+      if (html) {
+        //: What a browser closes for you before this element opens.
+        const implied = DOC_HTML_IMPLIED[name] || [];
+        while (stack.length && (implied.includes(stack[stack.length - 1].name) ||
+          (DOC_HTML_BLOCK.has(name) && stack[stack.length - 1].name === "p"))) {
+          const frame = stack.pop();
+          if (pending) lastPopped = frame;
+        }
+      }
+      settle();
+      tagInHand = { name, lineLevel, inner: lineLevel + 1 };
+      shiftFrom = lineNo;
+      mode = "tag";
+      i += open[0].length;
+      continue;
+    }
+    settle();
+    i += 1;
+  }
+  if (pending) settle();
+  endsInside[lineNo] = mode !== "text";
+  if (mode === "tag") return fail("a tag is never closed");
+  if (mode === "comment") return fail("a comment is never closed");
+  const left = stack.filter((frame) => !(html && DOC_HTML_OPTIONAL.has(frame.name)));
+  if (left.length) {
+    return { error: `Not formatted: “<${left[left.length - 1].name}>” is never closed.` };
+  }
+  const from = range ? Math.max(0, range[0]) : 0;
+  const to = range ? Math.min(lines.length - 1, range[1]) : lines.length - 1;
+  const oldLead = [];
+  const newLead = [];
+  const out = lines.map((raw, k) => {
+    const lead = /^[ \t]*/.exec(raw)[0];
+    oldLead[k] = lead;
+    newLead[k] = lead;
+    if (k < from || k > to) return raw;
+    if (verbatim[k]) {
+      const open = shiftWith[k];
+      if (open >= 0 && oldLead[open] !== newLead[open] && lead.startsWith(oldLead[open]) && raw.trim()) {
+        newLead[k] = newLead[open] + lead.slice(oldLead[open].length);
+        return newLead[k] + raw.slice(lead.length);
+      }
+      return raw;
+    }
+    const body = endsInside[k] ? raw.replace(/^[ \t]+/, "") : raw.trim();
+    newLead[k] = body ? unit.repeat(levels[k] || 0) : "";
+    return newLead[k] + body;
+  });
+  let result = out.join("\n");
+  if (!range) result = result.replace(/\n*$/, "") + (result.trim() ? "\n" : "");
+  return { text: result, changed: result !== text };
+}
+
+//: The lines of a YAML block scalar (`key: |`, `- >-`): every line more
+//: indented than its key, blank ones included, is the value's text, and a
+//: `|` value keeps its trailing spaces, so none of it is touched.
+function docYamlBlockLines(lines) {
+  const keep = new Set();
+  let owner = -1;
+  lines.forEach((raw, k) => {
+    const indent = /^ */.exec(raw)[0].length;
+    if (owner >= 0) {
+      if (!raw.trim() || indent > owner) {
+        keep.add(k);
+        return;
+      }
+      owner = -1;
+    }
+    if (/(^|[:-])\s*[|>][+-]?\d*[+-]?\s*(#.*)?$/.test(raw)) owner = indent;
+  });
+  return keep;
+}
+
+//: **JSON, re-printed from its own tokens rather than from `JSON.parse`.**
+//: Parsing and stringifying would be shorter and would quietly change the
+//: data: a number past 2^53 loses digits (`12345678901234567890` comes back
+//: as `12345678901234567000`), `1.0` becomes `1`, `1e5` becomes `100000`, a
+//: repeated key loses all but its last value, and `é` becomes `é`.
+//: This keeps every token exactly as written and only decides the space
+//: between them, in `JSON.stringify`'s layout. `JSON.parse` still runs
+//: first, as the gate: a text that is not JSON is refused, not guessed at.
+//: `base` is prepended to every line after the first, which is how a
+//: selection nested inside a larger document keeps its place.
+function docFormatJsonText(text, unit, base = "", whole = true) {
+  const body = text.trim();
+  if (!body) return { text, changed: false };
+  try {
+    JSON.parse(body);
+  } catch {
+    const found = docJsonErrorAt(body);
+    const line = found ? docCodeLineOf(body, found.at) + 1 : null;
+    return { error: `Not formatted: ${found ? `line ${line}, ${found.message.toLowerCase()}` : "this is not valid JSON"}.` };
+  }
+  const tokens = [];
+  for (let i = 0; i < body.length;) {
+    const ch = body[i];
+    if (" \t\n\r".includes(ch)) {
+      i += 1;
+    } else if (ch === '"') {
+      let j = i + 1;
+      while (j < body.length && body[j] !== '"') j += body[j] === "\\" ? 2 : 1;
+      tokens.push(body.slice(i, j + 1));
+      i = j + 1;
+    } else if ("{}[],:".includes(ch)) {
+      tokens.push(ch);
+      i += 1;
+    } else {
+      const word = /^[^\s{}[\],:"]+/.exec(body.slice(i))[0];
+      tokens.push(word);
+      i += word.length;
+    }
+  }
+  let out = "";
+  let depth = 0;
+  const pad = () => `\n${base}${unit.repeat(depth)}`;
+  for (let k = 0; k < tokens.length; k += 1) {
+    const t = tokens[k];
+    if (t === "{" || t === "[") {
+      const shut = t === "{" ? "}" : "]";
+      if (tokens[k + 1] === shut) {
+        out += t + shut;
+        k += 1;
+        continue;
+      }
+      depth += 1;
+      out += t + pad();
+    } else if (t === "}" || t === "]") {
+      depth -= 1;
+      out += pad() + t;
+    } else if (t === ",") {
+      out += `,${pad()}`;
+    } else if (t === ":") {
+      out += ": ";
+    } else {
+      out += t;
+    }
+  }
+  //: The whole document ends in one line break; a selection keeps the space
+  //: it had around it, so the lines on either side do not move.
+  const final = whole ? `${out}\n` : `${/^\s*/.exec(text)[0]}${out}${/\s*$/.exec(text)[0]}`;
+  return { text: final, changed: final !== text };
+}
+
+//: **The quick fixes, as edits on the text.** Each problem the checks find
+//: comes back as a diagnostic with the fixes that are certain enough to
+//: offer: a fix here is a small, mechanical edit whose result can be stated
+//: before it is made ("add the missing `}`"), never a guess at what the code
+//: meant. Every fix is a list of `{from, to, insert}` against the text it
+//: was computed from, so the editor recomputes them against the text at the
+//: moment one is chosen rather than applying offsets that have gone stale.
+//:
+//: `key` names the problem so the editor can find the same one again after
+//: the text has moved.
+
+//: Where a missing closer goes on a line: before the run of `;` and `{` the
+//: line ends with, and before its trailing comment, so `foo(a;` becomes
+//: `foo(a);` and `if (x > 1 {` becomes `if (x > 1) {`.
+function docCodeInsertPoint(text, info, floor) {
+  let end = info.commentAt !== undefined ? info.commentAt : info.to;
+  while (end > info.from && /[ \t]/.test(text[end - 1])) end -= 1;
+  let at = end;
+  while (at > info.from && /[;{ \t]/.test(text[at - 1])) at -= 1;
+  if (at <= floor) at = end;
+  return at;
+}
+
+function docCodeFixes(text, ext, unit) {
+  const scan = docCodeScan(text, ext);
+  const out = [];
+  const q = (ch) => `“${ch}”`;
+  for (const p of scan.problems.slice(0, 50)) {
+    const info = scan.lines[p.line];
+    const diag = {
+      from: p.at,
+      to: p.at + (p.ch ? p.ch.length : 1),
+      severity: "error",
+      message: docCodeProblemMessage(p),
+      key: `${p.kind}:${p.ch}`,
+      fixes: [],
+    };
+    if (p.kind === "stray") {
+      if (p.expect) {
+        diag.fixes.push({ name: `Change it to ${q(p.expect)}`, edits: [{ from: p.at, to: p.at + 1, insert: p.expect }] });
+      }
+      diag.fixes.push({ name: `Remove this ${q(p.ch)}`, edits: [{ from: p.at, to: p.at + 1, insert: "" }] });
+    } else if (p.kind === "unclosed") {
+      const shut = DOC_CODE_OPEN[p.ch];
+      const level = info.level !== null ? info.level : 0;
+      const rest = text.slice(p.at + 1, info.commentAt !== undefined ? info.commentAt : info.to);
+      let edit;
+      if (p.ch !== "{" && /\{[ \t]*$/.test(rest)) {
+        //: `if (x > 1 {`: the bracket closes where the block opens.
+        const at = docCodeInsertPoint(text, info, p.at);
+        edit = { from: at, to: at, insert: shut };
+      } else {
+        //: Otherwise after the last code before whatever gave it away: the
+        //: closer that closed its parent, or the end of the file. A brace
+        //: gets a line of its own at the opener's indent; a bracket that
+        //: spans lines does too; a parenthesis closes inline, before the
+        //: `;` its statement ends with.
+        const end = docCodeLastCodeBefore(scan, text, p.before, p.line, p.at);
+        const multi = docCodeLineOf(text, end) > p.line;
+        if (p.ch === "{" || (p.ch === "[" && multi)) {
+          edit = { from: end, to: end, insert: `\n${unit.repeat(level)}${shut}` };
+        } else {
+          let at = end;
+          while (at > p.at + 1 && /[;{ \t]/.test(text[at - 1])) at -= 1;
+          edit = { from: at, to: at, insert: shut };
+        }
+      }
+      diag.fixes.push({ name: `Add the missing ${q(shut)}`, edits: [edit] });
+    } else if (p.kind === "string" && !p.eof) {
+      const at = docCodeInsertPointForString(text, info, p.at);
+      diag.fixes.push({ name: "Close the string", edits: [{ from: at, to: at, insert: p.ch }] });
+    } else if (p.kind === "comment") {
+      const end = text.replace(/\s+$/, "").length;
+      diag.fixes.push({ name: "Close the comment", edits: [{ from: end, to: end, insert: ` ${scan.profile.block[1]}` }] });
+    }
+    out.push(diag);
+  }
+  return out;
+}
+
+//: The offset just after the last code at or before `before`, looking no
+//: higher than line `minLine` and no earlier than the opener at `floor`.
+//: Comments and blank lines are stepped over, so a fix never lands inside a
+//: `// note` at the end of the line it belongs on.
+function docCodeLastCodeBefore(scan, text, before, minLine, floor) {
+  for (let k = docCodeLineOf(text, before); k >= minLine; k -= 1) {
+    const info = scan.lines[k];
+    if (!info || (info.startsIn && k !== minLine)) continue;
+    let end = info.commentAt !== undefined ? info.commentAt : info.to;
+    if (before < end) end = before;
+    const start = k === minLine ? floor + 1 : info.from;
+    while (end > start && /[ \t]/.test(text[end - 1])) end -= 1;
+    if (end > start) return end;
+  }
+  return floor + 1;
+}
+
+//: A string left open on its line closes before the `);` or `;` the line
+//: ends with, which is where it was meant to end in every case that is not
+//: a string with a bracket inside it: `printf("hi);` becomes
+//: `printf("hi");`.
+function docCodeInsertPointForString(text, info, openAt) {
+  let end = info.to;
+  while (end > openAt + 1 && /[ \t]/.test(text[end - 1])) end -= 1;
+  let at = end;
+  while (at > openAt + 1 && /[;,)\] \t]/.test(text[at - 1])) at -= 1;
+  return at;
+}
+
+//: The JSON checker's own messages, with the fixes that follow from each.
+//: `found` is `docJsonErrorAt`'s answer for the text.
+function docJsonFixes(text, found, unit) {
+  const fixes = [];
+  if (!found) return fixes;
+  const at = found.at;
+  const back = (from) => {
+    let k = from;
+    while (k > 0 && " \t\n\r".includes(text[k - 1])) k -= 1;
+    return k;
+  };
+  if (found.message === "A comma with nothing after it") {
+    const comma = back(at) - 1;
+    if (text[comma] === ",") fixes.push({ name: "Remove the trailing comma", edits: [{ from: comma, to: comma + 1, insert: "" }] });
+  } else if (/^Expected a comma/.test(found.message) && at < text.length && /["{[\-0-9tfn]/.test(text[at])) {
+    const end = back(at);
+    fixes.push({ name: "Add the missing comma", edits: [{ from: end, to: end, insert: "," }] });
+  } else if (found.message === "Expected a property name in double quotes") {
+    const single = /^'([^'"\\\n]*)'/.exec(text.slice(at));
+    const bare = /^([A-Za-z_$][\w$]*)(?=\s*:)/.exec(text.slice(at));
+    if (single) {
+      fixes.push({ name: "Use double quotes", edits: [{ from: at, to: at + single[0].length, insert: `"${single[1]}"` }] });
+    } else if (bare) {
+      fixes.push({ name: "Put the name in double quotes", edits: [{ from: at, to: at + bare[0].length, insert: `"${bare[1]}"` }] });
+    }
+  } else if (found.message === "Expected a value" && text[at] === "'") {
+    const single = /^'([^'"\\\n]*)'/.exec(text.slice(at));
+    if (single) fixes.push({ name: "Use double quotes", edits: [{ from: at, to: at + single[0].length, insert: `"${single[1]}"` }] });
+  }
+  //: At the end of the text with brackets still open: close them all, each
+  //: on its own line, innermost first.
+  if (at >= text.trimEnd().length) {
+    const scan = docCodeScan(text, "json");
+    const open = scan.problems.filter((p) => p.kind === "unclosed").sort((a, b) => b.at - a.at);
+    if (open.length && !scan.problems.some((p) => p.kind !== "unclosed")) {
+      let end = text.trimEnd().length;
+      let insert = "";
+      if (text[end - 1] === ",") {
+        end -= 1;
+        insert = "";
+      }
+      const from = end;
+      for (const p of open) {
+        const level = Math.max(0, (scan.lines[p.line] && scan.lines[p.line].level) || 0);
+        insert += `\n${unit.repeat(level)}${DOC_CODE_OPEN[p.ch]}`;
+      }
+      fixes.push({ name: "Close what is still open", edits: [{ from, to: text.trimEnd().length, insert }] });
+    }
+  }
+  return fixes;
+}
+
+//: **Python's missing colon.** The compiler says "expected ':'" and points
+//: at the line; the fix is the colon, at the end of the line's code and
+//: before any comment, and only on a line that opens a block.
+function docPythonColonFix(text, lineNo) {
+  const lines = text.split("\n");
+  const raw = lines[lineNo - 1];
+  if (raw === undefined) return null;
+  const head = /^\s*(async\s+)?(def|class|if|elif|else|for|while|try|except|finally|with|match|case)\b/;
+  if (!head.test(raw)) return null;
+  const scan = docCodeScan(raw, "py");
+  const info = scan.lines[0];
+  let end = info.commentAt !== undefined ? info.commentAt : raw.length;
+  while (end > 0 && /[ \t]/.test(raw[end - 1])) end -= 1;
+  if (raw[end - 1] === ":") return null;
+  let from = 0;
+  for (let k = 0; k < lineNo - 1; k += 1) from += lines[k].length + 1;
+  return { name: "Add the missing colon", edits: [{ from: from + end, to: from + end, insert: ":" }] };
+}
+
+//: **Indentation that mixes tabs and spaces**, reported only where the file
+//: really is mixed: a line whose indent holds the character the rest of the
+//: file does not use. A file indented wholly with tabs is somebody's
+//: choice, not a mistake, and is left alone. Offered for every code type,
+//: as a note rather than an error, with the conversion of this line and of
+//: every line as its two fixes. `tabWidth` is how many columns a tab counts
+//: for when it becomes spaces.
+function docIndentMixFixes(text, unit, tabWidth, ext = null) {
+  const lines = text.split("\n");
+  const wantTabs = unit === "\t";
+  const leads = lines.map((l) => /^[ \t]*/.exec(l)[0]);
+  //: A line inside a string or a comment is somebody's content.
+  const scan = ext ? docCodeScan(text, ext) : null;
+  const content = (k) => Boolean(scan && scan.lines[k] && scan.lines[k].startsIn);
+  const good = leads.some((lead, k) => lead && !content(k) && !lead.includes(wantTabs ? " " : "\t"));
+  if (!good) return [];
+  const convert = (lead) => {
+    let cols = 0;
+    for (const ch of lead) cols = ch === "\t" ? cols + tabWidth - (cols % tabWidth) : cols + 1;
+    return wantTabs ? "\t".repeat(Math.floor(cols / tabWidth)) + " ".repeat(cols % tabWidth) : " ".repeat(cols);
+  };
+  const bad = [];
+  let at = 0;
+  lines.forEach((line, k) => {
+    const lead = leads[k];
+    //: In a tab-indented file, spaces *after* the tabs are alignment (Go's
+    //: own formatter writes them); spaces before a tab, or a whole indent of
+    //: spaces, are the mix.
+    const wrong = wantTabs
+      ? / \t/.test(lead) || (/^ +$/.test(lead) && lead.length >= tabWidth)
+      : lead.includes("\t");
+    if (wrong && line.trim() && !content(k)) bad.push({ from: at, to: at + lead.length, lead });
+    at += line.length + 1;
+  });
+  const all = bad.map((b) => ({ from: b.from, to: b.to, insert: convert(b.lead) }));
+  const word = wantTabs ? "tabs" : "spaces";
+  return bad.slice(0, 50).map((b) => ({
+    from: b.from,
+    to: Math.max(b.to, b.from + 1),
+    severity: "info",
+    message: wantTabs
+      ? "Indented with spaces, where the rest of the file uses tabs"
+      : "Indented with tabs, where the rest of the file uses spaces",
+    key: "indent-mix",
+    fixes: [
+      { name: `Convert this line to ${word}`, edits: [{ from: b.from, to: b.to, insert: convert(b.lead) }] },
+      ...(bad.length > 1 ? [{ name: `Convert every line to ${word}`, edits: all }] : []),
+    ],
+  }));
+}
+// DOC-CODE-END
+
 function docCmExtensions(CM) {
   const type = docFileType();
   docCmParts.language = new CM.state.Compartment();

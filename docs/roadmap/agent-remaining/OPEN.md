@@ -25,16 +25,21 @@ measured; "partial" names what is left.
 | Cross-links look the same as branches | Done |
 | Live view markdown rendering and table editing | Done (documents agent) |
 | Code documents as a code editor: errors, suggestions | Done (diagnostics, completions) |
-| Auto-closing pairs, Enter indentation, format document or selection, quick fixes | In progress (code editor agent) |
+| Auto-closing pairs, Enter indentation, format document or selection, quick fixes | Done (code editor agent: 48 of 48 in `doccodeedit.js`, 39 tests; HISTORY "code documents as a code editor, part two") |
 | Indent and dedent across the app | Partial: notes textareas, board text; left: verify documents, chat, captions, every textarea |
-| Phone designed on purpose; responsive at every resolution | In progress (phone agent); left after it: a sweep at 390, 768, 1024, 1280, 1440, 1920, 2560 |
+| Phone designed on purpose; responsive at every resolution | Done for 390, 768 and 1024 (`phonechrome.js`, 0 findings; touch.js clean); left: a sweep at 1280, 1920 and 2560 |
 | De-vibecode all the UI, surface by surface, not one fix and stop | In progress: Notes meta line redesigned; left: every other surface in the audit order below |
-| Note metadata, badges and links redesigned everywhere | In progress |
+| Note metadata, badges and links redesigned everywhere | Done: one line of facts with a category pill and stable colour dot, #tags, dates as days, connection pills with their menu inside; Settings lists (skills, personas, templates) have title, label and facts |
 | More integration between features (INBOX 393) | Partial: Ask Atlas and Show in graph on notes, documents, boards; left: files, reminders, a consistency table |
-| Glass on every surface when glass is on | Partial: graph dock and chat composer; left: a sweep of every floating surface |
+| Glass on every surface when glass is on | Partial: graph dock and panels, chat composer; left: a sweep of every floating surface |
 | Gaps between stacked elements | Partial: offline notices; left: a sweep for flush siblings |
 | Micro-conventions (double-click rotate handle to reset, and the rest) on board, map, documents and every surface | Placed (WHITEBOARD_PLAN, Placed from INBOX 2026-09-23); next agent |
 | Suite too slow | Done (parallel, 25 to under 9 minutes) |
+| CI red on Python 3.13 | Done: vault key leak between tests, a create_all race (a lock on the singletons), 3.13's JSON trailing-comma position |
+| Graph: Documents switch did nothing; options panel arrows and field height | Done |
+| Settings: "?" buttons misaligned and missed; pane titles; section headers; flattened badges hard to read | Done: one right edge for every "?", a title on every pane, item rows with a hierarchy |
+| Guided tour broken past slide one | In progress (tour agent) |
+| Second de-vibecoding pass of the whole app, especially the Library; micro-conventions everywhere; optimisation | In progress: orchestrator did Settings, Finder, palette, notifications, lock screen; Library/documents/notes/chat agent and canvas agent running |
 | Agents commit often so nothing is lost | Done (agents told; the hourly check-in merges gated agent commits and pushes) |
 
 **De-vibecode audit order** (each surface: list every finding first, then

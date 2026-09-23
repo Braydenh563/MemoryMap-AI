@@ -8,6 +8,27 @@
 > `/tmp/mm-mapux2`. Every figure below was taken in a real Chromium against
 > the running app at 1440x900 in light unless another width is named.
 
+## 2026-09-23: canvas conventions and the map UX remainder (agent M)
+
+Port 8795, data dir `/tmp/mm-agentM`. Sweep:
+`scratchpad/ui-sweeps/canvasconventions.js` (board and map, every check a
+number). Baseline on the branch head: 20/47; now 48/48.
+
+Left, in order (struck when built):
+
+- ~~Double-click a rotate handle resets to 0 (card, text box, shape).~~ Built.
+- ~~Shift-resize keeps the aspect ratio (was: squares the box).~~ Built.
+- ~~Escape cancels a move, resize, rotate, link draw in flight.~~ Built.
+- ~~Shift-drag keeps to one axis; Alt-drag leaves a copy behind.~~ Built.
+- ~~Arrow nudges: one undo step per burst (and the race that dropped presses).~~ Built.
+- ~~Ctrl+D and copy/paste of several items, paste at the pointer.~~ Built.
+- ~~Board canvas: right-click menu, double-click adds a text box.~~ Built.
+- ~~Keyboard zoom: Ctrl+0, Shift+1, Ctrl+= and Ctrl+-.~~ Built.
+- ~~Map: double-click a branch line asks for its label (it made a topic).~~ Built.
+- Found on the way and fixed: a click on a shape's grip deselected it;
+  Ctrl+Shift+G ungrouped and also switched to Chat (agent mode).
+- Job B: View menu 714px, the hint strip, discoverability, the 44px ticks.
+
 ## Done
 
 - **13b, the topic strip is sized like a topic.** 959.4 x 38 to 314 x 38 at

@@ -2687,12 +2687,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    states (filing, Atlas reading) in accent. Scoped to `.entry-meta`, which
    is every place a note card is drawn (the list, search results, the
    timeline's expanded note), so the note looks the same everywhere. */
-.entry-meta {
+.entry-meta.note-meta {
   gap: var(--space-1) var(--space-5);
   font-size: var(--text-sm);
 }
 
-.entry-meta > .chip {
+.entry-meta.note-meta > .chip {
   background: transparent;
   border: 0;
   padding: 0 var(--space-1);
@@ -2707,7 +2707,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    the one chip on the line: a soft neutral pill with the category's own
    colour as a dot (app.js `categoryDotColour`, stable per name). Revised
    on the owner's "improve the look of the category chips". */
-.entry-meta > .chip.category {
+.entry-meta.note-meta > .chip.category {
   --category-dot: var(--accent);
   background: var(--chip-bg);
   border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
@@ -2719,7 +2719,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-weight: 500;
 }
 
-.entry-meta > .chip.category::before {
+.entry-meta.note-meta > .chip.category::before {
   content: "";
   flex: 0 0 auto;
   width: 0.5em;
@@ -2730,29 +2730,29 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 /* "#work", not "# work": the chip's own gap sat between the mark and the
    word (owner's screenshot). */
-.entry-meta > .chip.hashtag {
+.entry-meta.note-meta > .chip.hashtag {
   gap: 0;
 }
 
-.entry-meta > .chip.hashtag::before {
+.entry-meta.note-meta > .chip.hashtag::before {
   content: "#";
   opacity: 0.6;
 }
 
-.entry-meta > .chip-interactive:hover {
+.entry-meta.note-meta > .chip-interactive:hover {
   background: var(--chip-bg);
   color: var(--ink);
   filter: none;
 }
 
-.entry-meta > .chip.review {
+.entry-meta.note-meta > .chip.review {
   color: var(--warn);
   font-weight: 500;
 }
 
-.entry-meta > .chip.filing,
-.entry-meta > .chip.chip-busy,
-.entry-meta > .chip.untagged-ai {
+.entry-meta.note-meta > .chip.filing,
+.entry-meta.note-meta > .chip.chip-busy,
+.entry-meta.note-meta > .chip.untagged-ai {
   color: var(--accent);
 }
 
@@ -3107,6 +3107,252 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   }
 }
 
+/* --- the graph's options panel -----------------------------------------------
+   Owner, with a screenshot: "the arrows in this graph dropdown are right
+   against the edge of the rows and the text box is a different height to
+   the button next to it." Measured: every fold's summary had 0px of inline
+   padding, so its disclosure triangle sat on the row's edge (and on the
+   open fold's filled ground, flush against its left side); the Groups row
+   centred a 36px input beside a taller button. The summary gets the same
+   inset as the rows under it, and the row stretches its two controls to
+   one height. */
+#graph-options .graph-options-fold > summary {
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.graph-group-add-row {
+  align-items: stretch;
+}
+
+.graph-group-add-row > :is(input, button) {
+  height: auto;
+  min-height: var(--control-h);
+}
+
+/* --- settings: one column for every "?", and a pane title that is a title ---
+   Owner, with screenshots: "some of the settings items were missed like one
+   or more of the '?' tooltip buttons, also they arent aligned" and "section
+   headers like the one in the skills settings page are ugly and horrendously
+   designed, sized, postioned". Measured across Models and Skills at 1440:
+   the "?" buttons ended at five different x positions (1103, 1104, 1112,
+   1121, 1129), because each sat at the edge of a different box (a group's
+   content, a summary with its own 6.4px, a switch row with its own 8px, the
+   bare pane with none), and the switch row's "?" still had the filled
+   ground the flat looks had taken off the others. And the pane's own title
+   ("Skills") was the 12px muted section label, set 16px in from the text
+   under it.
+
+   Now every "?" ends on the group content edge (16px inside the pane), and
+   the pane title is the pane's heading: ink, one step above body, flush
+   with the description and the groups below it. */
+#settings-modal .settings-section > .help-head {
+  padding-inline: 0 var(--space-6);
+}
+
+#settings-modal .settings-section > .help-head > h3 {
+  padding: 0;
+  font-size: var(--text-h3);
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#settings-modal .settings-group > summary {
+  padding-inline-end: 0;
+}
+
+#settings-modal .settings-section > details.settings-fold > summary {
+  padding-inline-end: var(--space-6);
+}
+
+#settings-modal .setting-check .setting-hint-toggle {
+  margin-inline-end: calc(-1 * var(--space-3));
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .setting-hint-toggle:not(:hover):not([aria-expanded="true"]) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+/* --- a named item in a Settings list: title, label, facts --------------------
+   The skills, personas and templates lists (app.js `skillRow`, the persona
+   rows, `templateRow`). Every part used to be the same pill, so a skill's
+   name was one more chip beside "built-in" and "2 steps"; flattened, it was
+   one more grey word (owner: "there is still missing distinguishing between
+   titles that used to be badges"). Three roles now: the name is the row's
+   title; provenance ("Built-in", "Edited") is a hairline label, a fact about
+   where the item came from rather than about what it does; the counts are
+   muted facts separated by a dot; "Changes notes" keeps the warn colour
+   because it says the skill writes to your notebook. The description has
+   its own line under them (`.skill-blurb`); a persona's voice is clamped to
+   two lines rather than cut at a fixed 70 characters mid-word. */
+.entry-meta > .chip.item-title {
+  background: transparent;
+  padding: 0;
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.entry-meta > .chip.item-label {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.entry-meta > .chip.item-fact {
+  background: transparent;
+  padding: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.entry-meta > .chip.item-fact + .chip.item-fact::before {
+  content: "·";
+  margin-inline-end: var(--space-2);
+  opacity: 0.7;
+}
+
+.entry-meta > .chip.item-writes {
+  color: var(--warn);
+}
+
+.persona-row > .persona-preview {
+  flex: 1 0 100%;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* A list row's actions sit on its title line, at the end, rather than on a
+   line of their own under the description: hidden until pointed at, that
+   own line was a band of empty space at the foot of every persona and
+   custom skill. The description takes the full width below. */
+:is(.persona-row, .skill-row) > .entry-actions {
+  order: 5;
+  margin-inline-start: auto;
+}
+
+:is(.persona-row, .skill-row) > :is(.persona-preview, .skill-blurb) {
+  order: 10;
+}
+
+/* A group label that sits straight in the pane (Personas' "Dashboard
+   greeting", "Add your own", "Share") carried the 17px inset of a label
+   inside a group box, over text that has none: measured 546 against 529. */
+#settings-modal .settings-section > h3 {
+  padding-inline-start: 0;
+}
+
+/* --- the flat looks carry no glow on a button ---------------------------------
+   Every bare `<button>` drew `0 2px 10px` of 25% accent under itself
+   (01-forms-settings.css), which is the "unprompted glow" of a generated UI
+   and, on a Finder result (a button, so it could be pressed), a blue smear
+   under every row of a list. The flat looks are flat: none. `:where()` keeps
+   this at the base rule's own weight, so a focus ring or any deliberate
+   shadow set by a class still wins. Classic keeps its glow. */
+:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button,
+:where(:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"])) button:hover {
+  box-shadow: none;
+}
+
+/* --- Find anything, de-vibecoded ---------------------------------------------
+   A result is a row in a list, in every look, so it never takes the button
+   glow; its title is 500 (a list of forty 600s is a list of shouts); a kind
+   with nothing in it is dimmed; the dialog's own name is its heading rather
+   than a 12px label; and Sort is the size of the chips beside it (it was
+   the largest text in the header at 16px). */
+.finder-row {
+  box-shadow: none;
+}
+
+.finder-row-title {
+  font-weight: 500;
+}
+
+.finder-chip.is-zero {
+  opacity: 0.55;
+}
+
+.finder-card h3 {
+  font-size: var(--text-body);
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#finder-sort,
+#finder-sort + .select-shell,
+.finder-card .select-shell {
+  font-size: var(--text-sm);
+}
+
+/* The palette painted a hovered row with the same ground as the row the
+   keyboard has chosen (02-chat-graph.css), so with the mouse resting over
+   the list two rows looked selected and Enter's target was a guess. The
+   chosen row keeps the ground; a hovered one gets the lighter hover wash. */
+#palette-list li:hover:not(.active) {
+  background: var(--chip-bg);
+}
+
+/* --- notifications -------------------------------------------------------------
+   1. At 22rem the tools row (label, picker, two buttons) left the picker
+      "Pop-ups + pa…": the panel is a little wider, still well inside a
+      laptop's top-right corner (clamped to the window as before).
+   2. An unread row was marked by a 2px accent stripe down its left edge,
+      the coloured-edge card again. In the flat looks the row is marked the
+      way mail clients mark it: a small accent dot before the title, and the
+      row keeps its alignment with the read ones. */
+.notif-panel {
+  width: 25rem;
+  max-width: min(25rem, calc(100vw - var(--space-8)));
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread {
+  border-left: 0;
+  position: relative;
+}
+
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--space-1) * -1);
+  top: 1.05em;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* --- the lock screen ------------------------------------------------------------
+   The one heading on the screen was the 16px card-title size, a 370px field
+   sat over a 92px button, and the field's own text was 13.6px, smaller than
+   the sentence above it. The title is a title, the field reads at body
+   size, and the button spans the field, the shape of every sign-in form. */
+#lock-title {
+  font-size: var(--text-h3);
+}
+
+.lock-card #lock-password {
+  font-size: var(--text-body);
+}
+
+.lock-card #lock-submit {
+  width: 100%;
+  justify-content: center;
+}
+
 /* --- the Library, second pass: cards in reading order, one anatomy ----------
    docs/roadmap/agent-remaining/pass2.md, findings 1 to 4, measured at 1440 in
    Quiet on a seeded notebook.
@@ -3351,6 +3597,16 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 
 .library-file-rows .library-image-reading > summary {
   width: fit-content;
+}
+
+/* The status bar is the top bar's twin at the other edge, and with glass on
+   it was the one opaque strip of chrome (96% ground, no blur) under a glass
+   top bar: the same recipe now, keyed on glass being on, so glass off and
+   Performance mode keep the solid bar. */
+:root:not([data-glass="off"]) #status-bar {
+  background: var(--card);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 /* 11. A skill card (findings 15 to 17). The title was `--text-md`, the same

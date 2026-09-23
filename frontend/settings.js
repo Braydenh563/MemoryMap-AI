@@ -111,6 +111,25 @@ const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "l
 // it is open, and needs to know that it is.
 let currentSettingsSection = "models";
 
+//: **Every pane opens with its own name** (the owner's de-vibecoding pass:
+//: seven panes began with a title and eleven began mid-thought, with a
+//: description, a status line or a group's small label). The ones without a
+//: head get the nav's own label as the same heading the others use
+//: (`.help-head > h3`, styled as the pane title in 08-consistency.css), made
+//: once and kept, so the word in the list and the word over the pane can
+//: never disagree.
+function ensureSettingsPaneTitle(box, name) {
+  if (!box || box.querySelector(":scope > .help-head > h3, :scope > .settings-pane-title")) return;
+  const label = document.querySelector(`#settings-nav [data-section="${name}"]`)?.textContent.trim();
+  if (!label) return;
+  const head = document.createElement("div");
+  head.className = "row help-head settings-pane-title";
+  const title = document.createElement("h3");
+  title.textContent = label;
+  head.appendChild(title);
+  box.prepend(head);
+}
+
 function showSettingsSection(name) {
   //: Reported: reopening Settings lands on Models "but the scroll doesn't
   //: reset", so the first section opened halfway down. The section's own
@@ -134,6 +153,7 @@ function showSettingsSection(name) {
   for (const section of SETTINGS_SECTIONS) {
     $(`settings-${section}`).classList.toggle("hidden", section !== name);
   }
+  ensureSettingsPaneTitle(box, name);
   for (const button of document.querySelectorAll("#settings-nav button")) {
     button.classList.toggle("active", button.dataset.section === name);
   }

@@ -3141,7 +3141,10 @@ function entryItem(entry, options = {}) {
   }
 
   const meta = document.createElement("div");
-  meta.className = "entry-meta";
+  //: `note-meta` scopes the one-line facts styling (08-consistency.css) to a
+  //: note card: `.entry-meta` alone is also the chip row of the skills, the
+  //: personas and the extras in Settings, which that styling flattened.
+  meta.className = "entry-meta note-meta";
   // A note saved with filing deferred is in its holding category, not its
   // real one, and saying "Uncategorised" for the second or two before the
   // background pass lands reads as the AI having failed. Say what is
@@ -7827,7 +7830,11 @@ function openLightbox(items, startIndex = 0, opts = {}) {
 // stealing focus would fight) and the popup's own text is simpler than
 // naming every readable surface in the app and it can't silently miss one
 // that gets added later.
-const SELECTION_POPUP_EXCLUDED = "input, textarea, [contenteditable], .selection-popup";
+//: Overlays are out too: the Finder, the palette and a dialog are about the
+//: thing they show, and a popup offering to turn their text into a note
+//: would sit over the controls a person is using.
+const SELECTION_POPUP_EXCLUDED =
+  "input, textarea, [contenteditable], .selection-popup, .lock-overlay, .modal-overlay, .command-palette";
 
 let selectionPopupEl = null;
 let selectionPopupText = "";
@@ -8542,6 +8549,13 @@ function fieldSelection() {
   // `selectionStart` is null on input types that do not support it (number,
   // email, colour…), which is exactly the set we should not offer this on.
   if (el.selectionStart == null || el.selectionStart === el.selectionEnd) return null;
+  //: A search box's selected query is not writing (the Finder and the
+  //: palette open with their query selected so typing replaces it), and a
+  //: field inside an overlay belongs to that overlay: the popup drew its
+  //: menu over the Finder's own results. Writing fields only.
+  if (el.type === "search" || el.closest(".lock-overlay, .modal-overlay, .command-palette, [role='combobox']")) {
+    return null;
+  }
   const text = el.value.slice(el.selectionStart, el.selectionEnd);
   return text.trim() ? { el, start: el.selectionStart, end: el.selectionEnd, text } : null;
 }
@@ -24655,14 +24669,14 @@ async function renderPersonas() {
     }
 
     const row = document.createElement("div");
-    row.className = "entry-meta";
-    row.appendChild(chip(persona.name));
+    row.className = "entry-meta persona-row";
+    row.appendChild(chip(persona.name, "item-title"));
     if (persona.builtin) {
-      row.appendChild(chip(persona.overridden ? "edited" : "built-in", "tag"));
+      row.appendChild(chip(persona.overridden ? "Edited" : "Built-in", "item-label"));
     }
     const note = document.createElement("span");
     note.className = "muted persona-preview";
-    note.textContent = persona.prompt.slice(0, 70);
+    note.textContent = persona.prompt;
     row.appendChild(note);
 
     const actions = document.createElement("span");
@@ -25479,16 +25493,20 @@ function skillRow(skill) {
   const li = document.createElement("li");
   const row = document.createElement("div");
   row.className = "entry-meta skill-row";
-  row.appendChild(chip(skill.name));
-  if (skill.builtin) row.appendChild(chip("built-in", "tag"));
-  if (skill.changes) row.appendChild(chip("changes notes", "tag"));
+  //: A title, a label and facts, not six pills of one weight (owner: "there
+  //: is still missing distinguishing between titles that used to be
+  //: badges"). The recipe is `.item-title`, `.item-label` and `.item-fact`
+  //: in 08-consistency.css, shared with the personas.
+  row.appendChild(chip(skill.name, "item-title"));
+  if (skill.builtin) row.appendChild(chip("Built-in", "item-label"));
+  if (skill.changes) row.appendChild(chip("ph:pencil-simple Changes notes", "item-fact item-writes"));
   if ((skill.steps || []).length) {
-    row.appendChild(chip(`${skill.steps.length} steps`, "tag"));
+    row.appendChild(chip(`${skill.steps.length} steps`, "item-fact"));
   }
   if ((skill.tools || []).length) {
-    row.appendChild(chip(`${skill.tools.length} tools`, "tag"));
+    row.appendChild(chip(`${skill.tools.length} tools`, "item-fact"));
   }
-  for (const item of skill.inputs || []) row.appendChild(chip(`asks: ${item.name}`, "tag"));
+  for (const item of skill.inputs || []) row.appendChild(chip(`Asks for ${item.name}`, "item-fact"));
   // Its own class, not `persona-preview`. That one is `white-space: nowrap`
   // with an ellipsis, which is right for a persona (one line of voice) and
   // wrong here: a skill's description is the only thing that says what it
@@ -45086,7 +45104,14 @@ document.addEventListener("keydown", (e) => {
   // otherwise fixing a typo in the note box would silently restore a
   // deleted note instead of undoing the keystroke.
   const chorded = e.ctrlKey || e.metaKey || e.altKey;
-  if (chorded) {
+  //: **A chord the open board answers itself is the board's** (the
+  //: conventions pass, 2026-09-23). Ctrl+Shift+G is Ungroup on every canvas
+  //: people know and agent mode here, and both listeners ran: ungrouping a
+  //: selection on a board also threw you out to Chat (measured: the board's
+  //: container measured 0 x 0 straight after). `wbOwnsChord` names the
+  //: board's own chords; the same handoff undo already makes
+  //: (`boardHistoryActive`), one owner for one shortcut.
+  if (chorded && !(typeof wbOwnsChord === "function" && wbOwnsChord(e))) {
     const inTextField =
       ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName) ||
       document.activeElement?.isContentEditable;
@@ -49873,8 +49898,8 @@ function templateRow(template, builtin) {
   const li = document.createElement("li");
   const row = document.createElement("div");
   row.className = "entry-meta skill-row";
-  row.appendChild(chip(template.name));
-  if (builtin) row.appendChild(chip("built-in", "tag"));
+  row.appendChild(chip(template.name, "item-title"));
+  if (builtin) row.appendChild(chip("Built-in", "item-label"));
   const note = document.createElement("span");
   note.className = "muted skill-blurb";
   note.textContent = template.description || template.content;
@@ -50180,6 +50205,9 @@ function finderRenderFilters() {
     //: no query they mean nothing. Reported with a screenshot.
     const showCount = row.count != null && finderQuery.trim();
     chip.textContent = showCount ? `${row.label} ${row.count}` : row.label;
+    //: Kept, by the decision above ("there are no files" is an answer), but
+    //: quieter: a zero is a fact, not a filter worth reaching for.
+    chip.classList.toggle("is-zero", Boolean(showCount && row.count === 0 && finderKind !== row.key));
     //: `aria-pressed`, not a class alone: this is a filter that is on or off
     //: and a screen reader has to hear which. `.active` is the class the
     //: chip recipe paints from, and it is painted from the same fact rather
@@ -50276,7 +50304,17 @@ function finderRender() {
     if (hit.written) {
       const when = document.createElement("span");
       when.className = "finder-row-when muted text-xs";
-      when.textContent = hit.written;
+      //: A day the way the rest of the app writes one ("23 Sept"), not the
+      //: ISO date the API sends; the year only when it is not this one.
+      const day = /^\d{4}-\d\d-\d\d$/.test(hit.written) ? new Date(`${hit.written}T00:00:00`) : null;
+      when.textContent = day && !Number.isNaN(day.getTime())
+        ? day.toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "short",
+          year: day.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+        })
+        : hit.written;
+      if (day) when.title = day.toLocaleDateString(undefined, { dateStyle: "full" });
       head.appendChild(when);
     }
     row.appendChild(head);

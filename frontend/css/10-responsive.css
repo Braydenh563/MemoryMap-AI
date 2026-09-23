@@ -1746,7 +1746,11 @@ header#top-bar,
    own `#wb-tool-group`. Nothing is removed and nothing is rebuilt: the group
    goes into the sheet and comes back, which is why a tool added to the rail
    needs no second edit here. */
-.wb-tools-opener {
+/* By id: the opener is also `.ghost.small`, whose `display: inline-flex`
+   comes later in the cascade and won, so above 600 the phone's opener sat
+   under the full rail as a second row ("Select (V)"), measured at 947x608
+   (the desktop window at 125%): the rail 86 to 126px tall instead of 46. */
+#wb-tools-opener {
   display: none;
 }
 
@@ -1756,7 +1760,7 @@ header#top-bar,
     display: none;
   }
 
-  .wb-tools-opener {
+  #wb-tools-opener {
     display: inline-flex;
     align-items: center;
     justify-content: center;

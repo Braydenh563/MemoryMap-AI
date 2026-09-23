@@ -4080,6 +4080,9 @@ input[type="url"]:hover:not(:focus) {
   max-width: min(24rem, 80vw);
   max-height: 18rem;
   overflow-y: auto;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 /* Reported in the same breath: "the text in the options is right up against

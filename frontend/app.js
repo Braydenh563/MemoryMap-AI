@@ -40741,6 +40741,7 @@ const NOTE_SURFACE_IDS = new Set([
   "graph-new-content",
   "draft-text",
   "draft-thoughts",
+  "wb-card-editor",
 ]);
 
 //: Mount the editor on one note box now, fetching the bundle if it is not in

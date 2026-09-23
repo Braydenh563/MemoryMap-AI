@@ -32,10 +32,21 @@ server on 8798 (`FAKE_STYLE=markdown FAKE_DELAY_MS=30`).
    and the board's neighbours in the Library print their time without one.
    `seed-libtext.js` reads `filename` (the upload answer's field).
 
+4a. Outline row height: density-aware (compact 25.2px kept, comfortable and
+   spacious 28px, coarse pointer 44px at any density). `outlinerows.js` 4 of 4.
+
+4b. Templates preview: two columns at 44rem and over, the page each row
+   makes (`doctplpreview.js`, 7 of 7 rows, light and dark), recipe row and
+   lint added.
+
+4c. Phase 8c, the board's note card: `wb-card-editor` is a `NOTE_SURFACES`
+   row; its Enter/Escape/blur/guard contract moved onto the engine first
+   (`host.noteSurfaceKeys`, content-element listeners). `wbcardeditor.js` 3
+   findings before, 0 after.
+
 ## Remaining, in order
 
-4. From `openitems.md` "For the orchestrator": board card Phase 8c, the
-   templates preview, the outline row height. Measure each first.
+(none)
 
 ## Not verified
 

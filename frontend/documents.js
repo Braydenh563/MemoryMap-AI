@@ -10274,6 +10274,11 @@ const NOTE_SURFACES = {
   //: rendering, which is the plan's own split.
   "draft-text": { size: "box", live: true },
   "draft-thoughts": { size: "box", live: false },
+  //: A concept map card's text (Phase 8c, the board half), opened by
+  //: `wbEditNodeText` in whiteboard.js. It is a single idea, so Enter
+  //: commits and Escape abandons: the card hands those in as
+  //: `host.noteSurfaceKeys`, which go ahead of every other chord here.
+  "wb-card-editor": { size: "inline", live: true },
 };
 
 //: element -> view. Weak, because the edit form's textarea is thrown away and
@@ -10338,6 +10343,10 @@ function noteSurfaceExtensions(CM, host, options) {
     //: This app's chords first, so Ctrl+B is bold in a note for the same
     //: reason it is bold in a document.
     CM.view.keymap.of([
+      //: The host's own keys first (Phase 8c): a box whose Enter means "done"
+      //: says so on the element, and a table row cannot carry a closure over
+      //: the one card being edited.
+      ...(Array.isArray(host.noteSurfaceKeys) ? host.noteSurfaceKeys : []),
       ...noteSurfaceKeymap(host),
       ...CM.commands.historyKeymap,
       ...CM.commands.defaultKeymap,

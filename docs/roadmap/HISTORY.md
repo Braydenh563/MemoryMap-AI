@@ -9,6 +9,60 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-23
 
+### From OPEN.md, 2026-09-23 (askcite agent): Phase 8c, the board's note card
+
+- **Phase 8c: the skill editor's steps box is built; the board's note card is
+  not, and is not one row.** The steps box landed 2026-09-20 with its own
+  command set (`skillCommands` in editor.js: the form's `{{placeholders}}` and
+  its ticked tools, read off the form so neither goes stale), because the note
+  commands are all wrong in a box whose contract is one instruction per line.
+  Measured, `scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: "/" opens a
+  304x165 menu with two groups and 0 note commands in it.
+  **The board's card is the open half, and adding a `NOTE_SURFACES` row for it
+  would break it**: `wbEditNodeText` (`frontend/whiteboard.js` ~2760) hangs
+  Enter-commits, Escape-abandons, blur-commits and an `event.stopPropagation()`
+  off that textarea's own `keydown`, and all four stop firing once a view is
+  mounted over it. The last one is the guard that keeps Tab and Enter out of
+  the board's branch gestures, so losing it grows a branch from a keystroke
+  meant for the text. The work item is "move the commit keymap and the gesture
+  guard onto the surface, then add the row", for whoever owns whiteboard.js.
+  [documents-phases.md]
+
+  **Built 2026-09-23, in the order the row asked.** The contract moved first:
+  Enter, Shift+Enter and Escape are `host.noteSurfaceKeys`, which the note
+  engine now runs ahead of its own chords (`noteSurfaceExtensions`), and the
+  stopPropagation guard and blur-commit are listeners on the card's content
+  element, so they hold for the textarea and the mounted view alike (blur
+  judged a tick later, because mounting moves the textarea and blurs it).
+  Then the row: `"wb-card-editor"` in `NOTE_SURFACES` and in app.js's
+  `NOTE_SURFACE_IDS`. The textarea's own fallback also stops Tab walking the
+  focus out of the card, which was committing the placeholder. Measured with
+  `scratchpad/ui-sweeps/wbcardeditor.js`: before, a bare textarea and 3
+  findings (Enter after a Tab left the editor open and saved "New branch");
+  after, the engine mounted, 0 findings (Enter saves both lines, Tab makes no
+  branch, Escape discards, a click away saves, the editor inside its card).
+  `test_the_board_card_keeps_its_contract_on_the_engine` holds the shape.
+
+### From OPEN.md, 2026-09-23 (askcite agent): the templates gallery's preview
+
+- **The templates gallery offers a description, not a preview of the page.**
+  Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
+  sections, sources, timeline." The plan's words are "offered with a preview",
+  and a sentence about the template is a fair reading of that; a thumbnail of
+  the body is not built and may not be worth it. Left as a row here rather
+  than built, so the next session does not build it twice.
+  [documents-phase4.md]
+
+  **Built 2026-09-23.** The dialog is two columns at 44rem and over: the
+  rows, and a preview of the page the pointed-at row would make, drawn by
+  `showDocTemplatePreview` through the same `docTemplateFill` the button
+  uses and `renderMarkdown`, inert and `aria-hidden`, clipped with a fade.
+  Below 44rem it is left out and the rows keep their hints. DESIGN.md has the
+  recipe row, `test_a_template_preview_is_the_page_the_row_would_make` holds
+  it. `scratchpad/ui-sweeps/doctplpreview.js`: dialog 480 to 736px at 1440,
+  preview 401px, 7 of 7 rows show their own page on hover, none at 390, no
+  sideways scroll; light and dark.
+
 ### From OPEN.md, 2026-09-23 (askcite agent): the segmented-control radius table
 
 - **`.segmented-control` is only conformed where it was reported, and the

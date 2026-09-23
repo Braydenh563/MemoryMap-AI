@@ -43,6 +43,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Boards: a concept map card's text is edited in the same editor as every other note box (live formatting, the "/" menu, Ctrl+B), with Enter to finish, Shift+Enter for a new line and Escape to discard; Tab in a card no longer jumps out of it.
+- Documents: New from a template shows a preview of the page each template makes beside the list, on a window wide enough for two columns.
+- Documents: the outline's rows take the app's 28px control floor under the comfortable and spacious densities and 44px on a touch screen; compact keeps the dense 25px list.
 - Library, Boards & maps: a board or map card says when it last changed (the later of its own edit and the last thing drawn on it), like every other Library card.
 - Fewer pills: the Library's kind row, the Boards filter, Reminders' Open/All/Done, the Write tab's starters and the dashboard's Jump to row are drawn with a button's corner; category, tag and fact chips with a small one; the dashboard's skill buttons lose their dashed edge; chips no longer rise on hover. On Ask, "Ask again" and "Try asking" questions are one style, a past question marked by a clock.
 - Library, Boards & maps on a phone: the dock is two rows like every other Library dock (was four, 198px to 114px at 390); New mind map and Reload move into the dock's menu there and back out on a wider window.

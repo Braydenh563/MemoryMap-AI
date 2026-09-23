@@ -98,7 +98,8 @@ For the orchestrator (another agent's surface, or the owner's call):
 - INBOX 312, 317 (whiteboard and mind map), 319 (notes connections row),
   318 and 320 (Ask citations: the grounding is backend, the numbering and
   markers are the Ask UI), the board card's Phase 8c, the templates preview,
-  the outline row height.
+  the outline row height (318, 320 and the outline row: built by the askcite
+  agent, 2026-09-23).
 - The segmented-control radius table and lint (OPEN.md, App wide): the
   recommendation is written and taken, but it restyles toggles on the notes,
   library and documents surfaces, three of which are owned right now.

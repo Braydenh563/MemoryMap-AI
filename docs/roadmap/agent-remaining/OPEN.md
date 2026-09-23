@@ -139,35 +139,12 @@ being written by running agents stay beside this one.
   before the row is clicked, so this cannot rot silently again. Measured
   against a live app on the branch head: 7 of 7 pass, 0 console errors.
   [documents-phases.md]
-- **The templates gallery offers a description, not a preview of the page.**
-  Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
-  sections, sources, timeline." The plan's words are "offered with a preview",
-  and a sentence about the template is a fair reading of that; a thumbnail of
-  the body is not built and may not be worth it. Left as a row here rather
-  than built, so the next session does not build it twice.
-  [documents-phase4.md]
 - **The document surface's aliases have no lint.** A call site that hands the
   surface to something expecting a DOM element reads as correct and fails at
   runtime (`autoGrow` wrote `style.height` on it and every "/" command in the
   capture box threw). Next step: fail on `autoGrow(`, `mountGutterFor(`,
   `syncDocGutterMetrics(` or `watchDocGutter(` called with an identifier the
   same function received as a surface. [documents-engine.md]
-- **Phase 8c: the skill editor's steps box is built; the board's note card is
-  not, and is not one row.** The steps box landed 2026-09-20 with its own
-  command set (`skillCommands` in editor.js: the form's `{{placeholders}}` and
-  its ticked tools, read off the form so neither goes stale), because the note
-  commands are all wrong in a box whose contract is one instruction per line.
-  Measured, `scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: "/" opens a
-  304x165 menu with two groups and 0 note commands in it.
-  **The board's card is the open half, and adding a `NOTE_SURFACES` row for it
-  would break it**: `wbEditNodeText` (`frontend/whiteboard.js` ~2760) hangs
-  Enter-commits, Escape-abandons, blur-commits and an `event.stopPropagation()`
-  off that textarea's own `keydown`, and all four stop firing once a view is
-  mounted over it. The last one is the guard that keeps Tab and Enter out of
-  the board's branch gestures, so losing it grows a branch from a keystroke
-  meant for the text. The work item is "move the commit keymap and the gesture
-  guard onto the surface, then add the row", for whoever owns whiteboard.js.
-  [documents-phases.md]
 - ~~**The table cell menu is a `kebabMenu` with ten items and no grouping.**~~
   **Built 2026-09-20, as the change to the shared recipe this row said it was.**
   An item may carry `group`, a name, and `kebabMenu` draws a hairline wherever

@@ -365,7 +365,8 @@ def test_a_fixed_filter_set_is_one_well_rather_than_a_row_of_chips() -> None:
 # rows, where the state is the checkbox's own and the browser announces it, and
 # the caption on the closed button is what says it when the menu is shut.
 def test_a_multi_toggle_filter_set_says_which_of_its_members_are_on() -> None:
-    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    #: timeline.js since the Timeline tab was split out of app.js.
+    app = (ROOT / "frontend" / "timeline.js").read_text(encoding="utf-8")
     start = app.index("function renderTimelineKinds(")
     body = app[start : app.index("\n}\n", start)]
     assert 'type = "checkbox"' in body, (
@@ -1388,7 +1389,8 @@ def test_one_writing_finding_is_drawn_by_one_builder() -> None:
 #: too, and this fails the moment one is unwired, which is the direction that
 #: matters. The names are here so a rename has to come past this test.
 FAILING_SURFACES = {
-    "frontend/app.js": ("notes", "timeline", "reminders"),
+    "frontend/app.js": ("notes", "reminders"),
+    "frontend/timeline.js": ("timeline",),
     "frontend/graph.js": ("map",),
     "frontend/graph-canvas.js": ("map",),
     "frontend/library.js": ("library",),

@@ -242,6 +242,7 @@ MemoryMap-AI/
 │   ├── app.js               # the shell, notes, chat, palette, settings glue
 │   ├── settings.js          # Settings, appearance, the background art
 │   ├── dashboard.js         # the dashboard's widgets
+│   ├── timeline.js          # the Timeline tab: feed, table, scrubber
 │   ├── library.js           # Library: files, images, the OCR workspace
 │   ├── documents.js · editor.js # the long-form editor and its CodeMirror
 │   ├── graph.js · graph-canvas.js · graph-worker.js # the graph, its
@@ -931,8 +932,8 @@ branching off the note they answer) and a **radial tree**, drawn with D3
 vendored locally in `frontend/vendor/`, and a sketch pad (p5, also vendored,
 loaded on demand by `ensureP5` the first time something draws). No asset
 is ever loaded from a CDN, consistent with the offline-first rule. The
-JavaScript is split by surface (`dashboard.js`, `library.js`,
-`documents.js`, `graph.js`, `whiteboard.js`, `settings.js`); `app.js`
+JavaScript is split by surface (`dashboard.js`, `timeline.js`,
+`library.js`, `documents.js`, `graph.js`, `whiteboard.js`, `settings.js`); `app.js`
 holds the shell and everything shared. Every local CSS and JS URL carries
 `?v=<version>` plus a per-process boot token, so no browser or desktop
 window can keep a stale file (`RevalidatedStatic` in `api/app.py`).

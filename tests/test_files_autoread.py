@@ -139,8 +139,6 @@ def test_a_description_typed_while_the_model_ran_is_kept(client, session, monkey
     from memorymap.ai import captioning
     from memorymap.core import deps
 
-    from memorymap.api import routes_files
-
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)
     # The upload route starts the same pass on a thread of its own, and with

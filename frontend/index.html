@@ -1396,6 +1396,12 @@
                   <option value="medium" selected>Medium</option>
                   <option value="long">Long</option>
                 </select>
+                <!-- Which model writes it: the Write with Atlas row of
+                     Settings, Models, the same preference through the same
+                     call (`syncFeatureModelSelects`), so the two agree. -->
+                <select id="draft-feature-model" class="small-select feature-model-select"
+                  aria-label="Model for Write with Atlas"
+                  title="The model that writes here, the same choice as the Write with Atlas row in Settings, Models"><option value="">Inherited</option></select>
                 <button id="draft-add-source" class="ghost small" type="button"
                   title="Write from notes you already have, up to six of them"><i class="ph ph-note ph-lead" aria-hidden="true"></i> Use notes</button>
               </div>
@@ -1504,6 +1510,13 @@
             <select id="ask-mode-select" class="small-select"
               aria-label="Answer length"
               title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
+            <!-- The model this box answers on: the Ask tab row of Settings,
+                 Models, read and written through the same call, so picking
+                 here moves that row and the reverse. Filled by
+                 `syncFeatureModelSelects` from the status poll. -->
+            <select id="ask-feature-model" class="small-select feature-model-select"
+              aria-label="Model for the Ask tab"
+              title="The model that answers here, the same choice as the Ask tab row in Settings, Models"><option value="">Inherited</option></select>
             <!-- Tuning lives here, beside Ask, and not next to the results.
                  Asked for directly: "I want the tune semantic search to show
                  at all times and not just when I put in a query." It used to
@@ -2319,6 +2332,13 @@
                    mode is a stance and changes rarely, which is why it sits
                    opposite rather than mixed in with them. -->
               <div class="chat-tool-group chat-tool-group-mode" role="group" aria-label="How it answers">
+                <!-- The model this tab answers on, beside the mode it answers
+                     in: the Chat tab row of Settings, Models, the same
+                     preference read and written through the same call, so the
+                     two cannot disagree. Filled by `syncFeatureModelSelects`. -->
+                <select id="chat-feature-model" class="small-select feature-model-select"
+                  aria-label="Model for the Chat tab"
+                  title="The model that answers here, the same choice as the Chat tab row in Settings, Models"><option value="">Inherited</option></select>
                 <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
                   <!-- Named for the difference between them: one reads your
                        notes and answers, the other goes and does something to
@@ -7321,6 +7341,11 @@
                   changing your chat model changes it too. Give one a model of
                   its own when the job is different: a bigger model for drafting,
                   a small quick one for the Guide.
+                </p>
+                <p>
+                  The Chat tab, the Ask tab and Write with Atlas each have the
+                  same choice in a dropdown beside where you type. It is the
+                  same setting: change it in either place and the other follows.
                 </p>
                 <p>
                   Reset on a row hands that feature back to what it inherits.

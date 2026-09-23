@@ -2706,6 +2706,12 @@ async function streamDigest(onDelta) {
       if (event.type === "answer") {
         text += event.delta;
         if (onDelta) onDelta(text);
+      } else if (event.type === "answer_final") {
+        //: The server took a greeting or an announcement off the digest
+        //: (`routes_insights`, `trim_assistant_padding`). The words already
+        //: drawn are replaced once, and the trimmed text is what is cached.
+        text = event.text || text;
+        if (onDelta) onDelta(text);
       } else if (event.type === "done") {
         cacheable = event.cacheable !== false;
       }

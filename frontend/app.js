@@ -3588,85 +3588,70 @@ function entryItem(entry, options = {}) {
       linkChip.title = reasonNote
         ? `${wayRound}: ${label}\nReason: ${reasonNote}`
         : `${wayRound}: ${label}`;
-      if (options.actions) {
-        const editReason = document.createElement("span");
-        editReason.className = "unlink reason-edit";
-        setLabel(editReason, "ph:pencil-simple");
-        editReason.title = link.reason ? "Edit this link's reason" : "Add a reason for this link";
-        editReason.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          // promptDialog resolves "" for both Cancel and an empty Save, so it
-          // can only ever *set* a reason here, clearing one that already
-          // exists goes through the ⊘ below instead, where the intent is
-          // unambiguous.
-          const next = await promptDialog(
-            "Why are these notes connected?",
-            link.reason || ""
-          );
-          if (!next) return;
-          await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
-            method: "PUT",
-            body: JSON.stringify({ reason: next }),
-          });
-          await loadEntries();
+      //: **One chip and one menu per connection** (INBOX 319, the owner: "the
+      //: buttons in these connections in notes need a redesign and look").
+      //: Edit reason, clear reason and unlink were three round buttons of one
+      //: size inside every chip, so three connections were nine identical
+      //: circles with the labels reading as captions between them. They are
+      //: the `kebabMenu` recipe now (DESIGN.md, standing order 11), which also
+      //: gives the label the width the buttons took.
+      const editReason = async () => {
+        const next = await promptDialog("Why are these notes connected?", link.reason || "");
+        if (!next) return;
+        await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+          method: "PUT",
+          body: JSON.stringify({ reason: next }),
         });
-        linkChip.appendChild(editReason);
-
-        if (link.reason) {
-          const clearReason = document.createElement("span");
-          clearReason.className = "unlink reason-clear";
-          // A Phosphor icon, not the "⊘" character: that glyph comes from
-          // the system font and sits at a different vertical offset than
-          // Phosphor's: .ph's `vertical-align: -0.12em` tuning (and the
-          // flex centring around it) only lines up glyphs sharing one font.
-          // Mixing "⊘"/"×" with a Phosphor pencil icon here is exactly what
-          // made these three actions look vertically staggered.
-          setLabel(clearReason, "ph:prohibit");
-          clearReason.title = "Remove this link's reason";
-          clearReason.addEventListener("click", async (e) => {
-            e.stopPropagation();
-            await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
-              method: "PUT",
-              body: JSON.stringify({ reason: null }),
+        await loadEntries();
+      };
+      const clearReason = async () => {
+        await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+          method: "PUT",
+          body: JSON.stringify({ reason: null }),
+        });
+        await loadEntries();
+      };
+      const unlink = async () => {
+        const otherId = link.entry_id;
+        const reason = link.reason;
+        let liveLinkId = link.link_id;
+        await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+        await loadEntries();
+        pushUndo(
+          "Removed a link between notes",
+          async () => {
+            const updated = await apiJson(`/entries/${entry.id}/links`, {
+              method: "POST",
+              body: JSON.stringify({ target_id: otherId, reason }),
             });
+            liveLinkId = updated.links.find((l) => l.entry_id === otherId)?.link_id ?? liveLinkId;
             await loadEntries();
-          });
-          linkChip.appendChild(clearReason);
+          },
+          async () => {
+            await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+            await loadEntries();
+          }
+        );
+      };
+      const connection = document.createElement("span");
+      connection.className = "link-connection";
+      connection.appendChild(linkChip);
+      if (options.actions) {
+        const items = [
+          {
+            label: link.reason ? "ph:pencil-simple Edit the reason" : "ph:pencil-simple Add a reason",
+            title: link.reason ? "Edit why these notes are connected" : "Say why these notes are connected",
+            run: editReason,
+            group: "reason",
+          },
+        ];
+        if (link.reason) {
+          items.push({ label: "ph:eraser Clear the reason", title: "Keep the link, drop its reason", run: clearReason, group: "reason" });
         }
-
-        const unlink = document.createElement("span");
-        unlink.className = "unlink";
-        // Phosphor's "x", not the "×" character: see the reason-clear icon
-        // above for why: a mixed-font row of action icons never lines up,
-        // no matter how the flex box around each one is centred.
-        setLabel(unlink, "ph:x");
-        unlink.title = "Remove this link";
-        unlink.addEventListener("click", async () => {
-          const otherId = link.entry_id;
-          const reason = link.reason;
-          let liveLinkId = link.link_id;
-          await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
-          await loadEntries();
-          pushUndo(
-            "Removed a link between notes",
-            async () => {
-              const updated = await apiJson(`/entries/${entry.id}/links`, {
-                method: "POST",
-                body: JSON.stringify({ target_id: otherId, reason }),
-              });
-              liveLinkId = updated.links.find((l) => l.entry_id === otherId)?.link_id ?? liveLinkId;
-              await loadEntries();
-            },
-            async () => {
-              await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
-              await loadEntries();
-            }
-          );
-        });
-        makeUnlinkAccessible(unlink);
-        linkChip.appendChild(unlink);
+        items.push({ label: "ph:link-break Remove the link", title: "Remove this link (undoable)", run: unlink, group: "remove" });
+        connection.appendChild(kebabMenu(items, `Actions for the link to ${label}`));
       }
-      linkRow.appendChild(linkChip);
+      linkRow.appendChild(connection);
     }
     li.appendChild(linkRow);
   }

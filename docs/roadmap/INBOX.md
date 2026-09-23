@@ -47,22 +47,6 @@ with its owner named in the entry.
     appears), because both live in `ground_answer_sentences` and both want it
     incremental. Measure `askgrounding.js` before and after.
 
-319. **The owner, 2026-09-21, verbatim, with two screenshots of a note
-    card's connections row:** "also the buttons in these connections in notes
-    need a redesign and look". Open. Each connection is a chip carrying a
-    direction arrow and a truncated label, followed by three round icon
-    buttons (edit, block, remove) of the same size and weight as each other,
-    so a row of three connections is nine identical circles and the labels
-    read as captions between them. The label's cut is fixed separately (the
-    character cap rose from 28 to 48), but the shape is the ask here.
-    Recommendation, to measure before building: the three actions belong
-    behind the `kebabMenu` recipe the rest of the app uses for exactly this
-    (DESIGN.md's recipe index, standing order 11), leaving one chip and one
-    ⋯ per connection, which also gives the label the width the three buttons
-    were taking. Owner: WHITEBOARD_PLAN is the wrong home; this is the notes
-    surface, so DOCUMENTS_PLAN or a Placed from INBOX row in
-    UI_MODERNISATION_PLAN.
-
 318. **The owner, 2026-09-21, verbatim, with a screenshot of an Ask answer:**
     "not all inline reference number links show, only one showed in the
     response". The answer carries one superscript marker against a paragraph

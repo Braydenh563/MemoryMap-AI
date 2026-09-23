@@ -28,6 +28,8 @@ below). Versioning is `0.x` while the app stabilises.
 - On a mind map the bottom bar offers one Cross-link tool drawn in the map's
   own line style, instead of a generic straight and curved pair; a map
   line's label drags with the pointer and no longer starts a selection box.
+- A note's connections are one chip and one ⋯ menu each (edit or clear the
+  reason, remove the link), instead of three round buttons inside every chip.
 - The chat header names the model that actually answers (on llama.cpp and
   LM Studio, the loaded one), or says a set model is not installed, instead
   of the configured default. A broken search by meaning now says so in a

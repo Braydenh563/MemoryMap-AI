@@ -171,9 +171,44 @@ const TABS = [
       }
       // 3px of slack: the bell's unread dot hangs 2px over its button's corner
       // by design (measured), and that is not a box too narrow for its text.
+      // **What overflows has to be content, not a grip placed on the edge.**
+      // A board's card and text box carry eight resize grips centred on their
+      // border (10px, `-5px` offsets), which is where a grip goes in every
+      // drawing app: they made a fresh text box read as 203>198 and a card as
+      // 253>248 here (measured: the grips on the right edge and nothing else,
+      // at opacity 1 because the emulated tap leaves the pointer hovering the
+      // card). That is placement, not a box too narrow for what it holds, which
+      // is this check's question. So an overflow counts when what runs past
+      // the edge is drawn and is either in flow or carries text: an
+      // absolutely placed piece with no text of its own is a grip, a badge or
+      // a dot, and hangs over the edge on purpose.
+      // Returns what is drawn past the edge (named in the finding), or null.
+      const drawnPast = (el) => {
+        const right = el.getBoundingClientRect().right;
+        const child = [...el.querySelectorAll('*')].find((d) => {
+          if (d.getBoundingClientRect().right <= right + 1) return false;
+          const own = getComputedStyle(d);
+          if ((own.position === 'absolute' || own.position === 'fixed') && !d.textContent.trim()) return false;
+          for (let p = d; p && p !== el; p = p.parentElement) {
+            const cs = getComputedStyle(p);
+            if (Number(cs.opacity) === 0 || cs.visibility === 'hidden' || cs.display === 'none') return false;
+          }
+          return true;
+        });
+        if (child) return name(child);
+        const text = [...el.childNodes].some((n) => {
+          if (n.nodeType !== 3 || !n.textContent.trim()) return false;
+          const range = document.createRange();
+          range.selectNodeContents(n);
+          return range.getBoundingClientRect().right > right + 1;
+        });
+        return text ? 'its text' : null;
+      };
       const wide = [...document.querySelectorAll('.tab-page:not(.hidden) *, #top-bar *, #phone-tab-dock *')]
         .filter((el) => vis(el) && el.scrollWidth > el.clientWidth + 3 && getComputedStyle(el).overflowX === 'visible' && el.clientWidth > 0)
-        .slice(0, 4).map((el) => `${name(el)} ${el.scrollWidth}>${el.clientWidth}`);
+        .map((el) => [el, drawnPast(el)])
+        .filter(([, past]) => past)
+        .slice(0, 4).map(([el, past]) => `${name(el)} ${el.scrollWidth}>${el.clientWidth} (${past})`);
       // A row designed for touch: nothing of a row's own drawn over its text
       // at rest. Two shapes were reported on Notes at 390: the row's action
       // strip sitting on its chips, and a red and a blue strip at the row's

@@ -19,11 +19,18 @@
   after every member moves (77 of 81 frames up to 12px behind, now 0);
   `tests/test_css_invalidation.py` in the lint set; `mapedgelag.js` new.
 
+- **The text box 5px wide at 390** (coordinator's (b)). Measured: the only
+  thing past the box is its right-edge resize grips, centred on the border
+  by design (a card reads 253>248 the same way). `phonechrome.js` now counts
+  an overflow only when what runs past is drawn and in flow or carries
+  text, and names it in the finding. No app change.
+
 ## Open
 
-- The coordinator's (b): a freshly created text box at 390 overflows its box
-  by 5px (`phonechrome.js`, clientWidth 198 vs scrollWidth 203). Not yet
-  measured.
+- INBOX 396: the context bar's kebab does not open; the top bar's Arrange
+  menu opens 230px tall with a scrollbar (and Insert, Edit, View).
+- INBOX 394 (d): the map ring's More opens its menu at the bottom right.
+
 - INBOX 317: the whiteboard text box context bar (items clipped, icon groups
   off one centre line, kebab menu far from its opener).
 - WHITEBOARD_PLAN "Placed from INBOX, 2026-09-23": the micro-conventions

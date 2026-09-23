@@ -137,6 +137,7 @@ def test_a_description_typed_while_the_model_ran_is_kept(client, session, monkey
     The fake model call writes the typed value mid-call, which is exactly the
     window the real one leaves open."""
     from memorymap.ai import captioning
+    from memorymap.api import routes_files
     from memorymap.core import deps
 
     monkeypatch.setattr(deps, "get_ollama", _Ollama)

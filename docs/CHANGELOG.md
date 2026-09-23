@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Reminders: Enter adds a reminder from its text field, and in the edit form Enter saves and Escape cancels.
 - Settings: Ctrl+F searches Settings while it is open (it used to search the page hidden behind it), and the arrow keys, Home and End walk the pane list.
 - Settings: Packages no longer shows its heading twice.
 - Dashboard widgets: a map in Boards & maps reads as a title like a board beside it (not an accent pill), the heatmap legend shows its swatches, and a reminder shows its time on a line of its own.

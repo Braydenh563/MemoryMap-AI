@@ -27499,6 +27499,19 @@ function reminderEditForm(reminder) {
     })
   );
   wrap.append(textInput, dueInput, prioritySelect, recurringSelect, row);
+  //: Enter saves and Escape cancels, from any field in the form: the two
+  //: keys every inline editor answers. Only the buttons did before.
+  wrap.addEventListener("keydown", (event) => {
+    if (event.isComposing) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      row.querySelectorAll("button")[1]?.click();
+    } else if (event.key === "Enter" && event.target.tagName === "INPUT") {
+      event.preventDefault();
+      row.querySelector("button")?.click();
+    }
+  });
   setTimeout(() => textInput.focus(), 0);
   return wrap;
 }
@@ -44097,6 +44110,14 @@ $("web-reader-ask").addEventListener("click", () => {
 // Reminders (Wave D). The dashboard's own wiring (dash-edit,
 // dash-widgets-open/search) moved to dashboard.js along with the code it
 // drives; this comment used to cover both.
+//: Enter adds it, the way a one-line "add" field works everywhere; a
+//: reminder had to be clicked in with the mouse after typing it. Skipped
+//: while an input method is composing, where Enter picks a candidate.
+$("reminder-text")?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  $("reminder-add").click();
+});
 $("reminder-add").addEventListener("click", async () => {
   const ok = await addReminder($("reminder-text").value.trim(), $("reminder-due").value, null, {
     priority: $("reminder-priority").value,

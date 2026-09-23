@@ -166,6 +166,20 @@ def status() -> dict:
         "chat_model": chat_model,
         # None = unknown because Ollama is off (don't warn about nothing)
         "chat_model_installed": _name_matches(chat_model, installed) if running else None,
+        # **The model that actually answers** (owner, packaged app: "it said in
+        # the chat header that I had llama3.2 set when it was a completely
+        # different model and I didnt even have llama3.2 installed"). An
+        # OpenAI-dialect server (llama.cpp, LM Studio, Jan) answers with the
+        # model it has loaded whatever name is asked for, so when the
+        # configured name is not one it serves, the loaded one is what runs.
+        # Ollama has no such fallback: there the configured name stands, and
+        # `chat_model_installed` says it will fail.
+        "chat_model_effective": (
+            installed[0]["name"]
+            if running and provider != "ollama" and installed
+            and not _name_matches(chat_model, installed)
+            else chat_model
+        ),
         # "" means "same as chat model" (utility model).
         "utility_model": manager._config.get_preference("utility_model", ""),
         # "" means "auto-detect" (vision model). The resolved field is what

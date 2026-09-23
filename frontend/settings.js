@@ -1375,9 +1375,26 @@ const APPEARANCE_DEFAULTS = {
 // which is what makes "apply manual colour changes over a selected theme"
 // work. Picking a theme never erases a manual setting, and clearing a manual
 // setting falls back to the theme rather than to the app default.
+const DEFAULT_THEME_PRESET = "utilitarian";
+
 const THEME_PRESETS = {
+  //: **Quiet utilitarian is the default look** (UI_MODERNISATION_PLAN
+  //: decisions, 2026-09-23): used whenever no look has been chosen, see
+  //: `activeThemePreset`. The old default is "Classic", kept exactly.
+  utilitarian: {
+    label: "Quiet utilitarian",
+    values: { palette: "utilitarian", glass: "off", radius: "8", density: "compact" },
+  },
+  paper: {
+    label: "Editorial paper",
+    values: { palette: "paper", glass: "off", radius: "4" },
+  },
+  mono: {
+    label: "Technical mono",
+    values: { palette: "mono", glass: "off", radius: "2", density: "compact" },
+  },
   default: {
-    label: "Default",
+    label: "Classic",
     values: { palette: "default", glass: "on", radius: "14" },
   },
   manuscript: {
@@ -1440,7 +1457,10 @@ function themeSwatch(preset) {
 }
 
 function activeThemePreset() {
-  const name = localStorage.getItem("themePreset");
+  //: No look chosen yet means the default look, not "no look": the default is
+  //: a look like any other now (Quiet utilitarian), and theme-boot.js reads
+  //: the same fallback so the first paint agrees.
+  const name = localStorage.getItem("themePreset") ?? DEFAULT_THEME_PRESET;
   return THEME_PRESETS[name] ? name : "";
 }
 
@@ -2284,9 +2304,30 @@ function renderBgMotionHint() {
 // can only ever report the active one.
 const PALETTES = [
   {
+    id: "utilitarian",
+    name: "Quiet",
+    note: "The default. A warm grey ground, solid panels and one ink-blue accent.",
+    light: { page: "#f4f3f1", card: "#ffffff", accent: "#2f5bd3", border: "rgba(28,28,26,0.12)" },
+    dark: { page: "#161615", card: "#1e1e1c", accent: "#8aa7f7", border: "rgba(236,235,232,0.12)" },
+  },
+  {
+    id: "paper",
+    name: "Paper",
+    note: "Off-white paper, black type and hairlines, one red-orange for actions.",
+    light: { page: "#faf9f6", card: "#faf9f6", accent: "#c63d17", border: "rgba(17,17,17,0.18)" },
+    dark: { page: "#141312", card: "#141312", accent: "#ff7a4d", border: "rgba(242,239,233,0.18)" },
+  },
+  {
+    id: "mono",
+    name: "Mono",
+    note: "Cool graphite, monospace numbers and a green signal accent.",
+    light: { page: "#eceff2", card: "#f8f9fa", accent: "#1a7f45", border: "rgba(21,25,30,0.15)" },
+    dark: { page: "#0f1215", card: "#161a1f", accent: "#42d67f", border: "rgba(230,234,238,0.13)" },
+  },
+  {
     id: "default",
-    name: "Aurora",
-    note: "The original: indigo glass over a soft gradient.",
+    name: "Classic",
+    note: "The original look: indigo glass over a soft gradient.",
     light: { page: "linear-gradient(135deg,#e9edfb,#f6f2ec 45%,#e6f1f2)", card: "rgba(255,255,255,0.75)", accent: "#4664f0", border: "rgba(31,36,48,0.12)" },
     dark: { page: "linear-gradient(135deg,#0e1017,#171a26 45%,#0f1720)", card: "rgba(29,33,46,0.85)", accent: "#8b9df8", border: "rgba(255,255,255,0.14)" },
   },

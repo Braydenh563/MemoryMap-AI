@@ -25,6 +25,26 @@ below). Versioning is `0.x` while the app stabilises.
 - Undo covers text formatting, colours and every mind map style change.
 - The Notes toolbar stays on one line in the desktop window; the dashboard's
   Start tiles fit one row there, and never wrap in compact view.
+- On a mind map the bottom bar offers one Cross-link tool drawn in the map's
+  own line style, instead of a generic straight and curved pair; a map
+  line's label drags with the pointer and no longer starts a selection box.
+- The dashboard's note count leaves out boards and maps, as the Notes list
+  does.
+- A note's menu can show it in the graph (centred and lit) or start a chat
+  about it with Atlas.
+- Links everywhere use the accent colour (plain links were the browser's own
+  blue and purple); Timeline rows for boards and reminders no longer repeat
+  their title as a snippet; an empty Ollama embedding picker says why.
+- A note's connections are one chip and one ⋯ menu each (edit or clear the
+  reason, remove the link), instead of three round buttons inside every chip.
+- The chat header names the model that actually answers (on llama.cpp and
+  LM Studio, the loaded one), or says a set model is not installed, instead
+  of the configured default. A broken search by meaning now says so in a
+  toast and the bell, with a Fix it button, not only inside Settings.
+- A picture is described once and its text read once: repeat saves no
+  longer queue repeat jobs, Tesseract stands down when a vision model reads
+  the text, and a running caption shows as one row in Agent activity, not
+  two.
 - Panning and zooming the whiteboard and mind maps no longer re-styles every
   item on the board each frame (traced: 2.4 s of style work over a 50-step
   pan on a 60-topic map, now 29 ms; zoom 1.4 s to 18 ms). Worst frame at 50
@@ -47,6 +67,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- **A new default look, Quiet utilitarian**: a warm grey ground, solid
+  panels, one ink-blue accent and tighter spacing. Two new looks, Editorial
+  paper and Technical mono, sit beside it in Appearance, and the previous
+  look is kept as Classic. A look you already chose is kept.
 - The documents live view reads as a page: the text sits in a measure of about
   75 characters with a margin either side, and the space between blocks comes
   from one scale (more above a section, less under its heading, one gap
@@ -94,6 +118,20 @@ below). Versioning is `0.x` while the app stabilises.
   at 1184x760 by `scratchpad/ui-sweeps/monitorgrid.js`: header centres
   within 0px, name, detail and bar left edges all at 80.4px, pills all
   ending at 388.4px, the first row 57px rather than 96px.
+- The weekly digest no longer opens with a greeting or a sentence announcing
+  itself, and no longer turns "tonight" in yesterday's note into tonight.
+  Each note reaches the model with the day it was written and the prompt
+  names today, with an instruction to read relative words against the note's
+  own day and to say past ones as past; the previous "use no time
+  references" instruction is gone. The answer trim the Ask tab uses now runs
+  on the digest too, and also recognises "Based on the notes you provided,
+  here is a quick digest...".
+- Mind maps show in the Find anything search as mind maps, with their own
+  filter chip and glyph, and are found by the words written on their topics,
+  not only by their title (a board's text boxes likewise find the board).
+  Maps had been indexed as boards, and only the `# Title` line of either was
+  indexed. An existing index is put right at the next start by a diff over
+  the boards, a no-op once done.
 - The packaged Windows app now says what is wrong when it cannot show its
   window, instead of a blank or missing graphic with nothing in any log.
   Reported directly on the .exe build: pywebview's Windows backend needs the
@@ -315,6 +353,15 @@ below). Versioning is `0.x` while the app stabilises.
   "Panel only" switches still apply. Verified in a browser with both streams
   held for two seconds (`scratchpad/ui-sweeps/unwatched.js`); not verified
   against a real model.
+- The Chat tab, the Ask tab and Write with Atlas each have a model dropdown
+  beside where you type, the same setting as that feature's row in Settings,
+  Models: change either and the other follows on the next status tick. It
+  names the model that will actually run ("Inherited: llama3.2", resolved
+  through the role and smart routing), and keeps showing a chosen model that
+  is not installed. The Ask tab is its own row now (it had been running on
+  the Chat tab's choice without saying so), and the feature rows ride every
+  status poll, so the Chat tab's and the documents assistant's model sheets
+  no longer say "Models aren't available yet" until Settings has been opened.
 - A lint on the release artifact naming scheme (INBOX 266, item 4).
   `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
   `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses

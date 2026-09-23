@@ -41,7 +41,14 @@ _OPENERS = re.compile(
         # of their own sentence, so the punctuation is where they stop.
         (?:
             i(?:'ve|\s+have)\s+(?:taken\s+a\s+look\s+at|looked\s+(?:at|through)|reviewed|gone\s+through|read)\s+(?:your|the)\s+notes
-            | here(?:'s|\s+is)\s+(?:a\s+)?(?:summary|overview|rundown|breakdown)
+            # "Here is a quick digest", and the same announcement behind a
+            # qualifier: "Based on the notes you provided, here is a quick
+            # digest of..." (the weekly digest, reported 2026-09-23). The
+            # qualifier only goes when an announcement follows it; "Based on
+            # your notes, here is the plan: ..." is content and stays.
+            | (?:(?:based\s+on|according\s+to|looking\s+at)\s+(?:the|your)\s+notes[^,.!?]{0,40},\s*)?
+              here(?:'s|\s+is)\s+(?:(?:a|an|your|the)\s+)?(?:(?:quick|short|brief|concise|weekly)\s+){0,2}
+              (?:summary|overview|rundown|breakdown|digest|recap)
             | let(?:'s|\s+us)\s+(?:take\s+a\s+look|dive\s+in|see)
         )[^.!?]*[.!?:]+
     )\s*""",

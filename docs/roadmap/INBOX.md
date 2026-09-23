@@ -47,22 +47,6 @@ with its owner named in the entry.
     appears), because both live in `ground_answer_sentences` and both want it
     incremental. Measure `askgrounding.js` before and after.
 
-319. **The owner, 2026-09-21, verbatim, with two screenshots of a note
-    card's connections row:** "also the buttons in these connections in notes
-    need a redesign and look". Open. Each connection is a chip carrying a
-    direction arrow and a truncated label, followed by three round icon
-    buttons (edit, block, remove) of the same size and weight as each other,
-    so a row of three connections is nine identical circles and the labels
-    read as captions between them. The label's cut is fixed separately (the
-    character cap rose from 28 to 48), but the shape is the ask here.
-    Recommendation, to measure before building: the three actions belong
-    behind the `kebabMenu` recipe the rest of the app uses for exactly this
-    (DESIGN.md's recipe index, standing order 11), leaving one chip and one
-    ⋯ per connection, which also gives the label the width the three buttons
-    were taking. Owner: WHITEBOARD_PLAN is the wrong home; this is the notes
-    surface, so DOCUMENTS_PLAN or a Placed from INBOX row in
-    UI_MODERNISATION_PLAN.
-
 318. **The owner, 2026-09-21, verbatim, with a screenshot of an Ask answer:**
     "not all inline reference number links show, only one showed in the
     response". The answer carries one superscript marker against a paragraph
@@ -75,6 +59,25 @@ with its owner named in the entry.
     are sentences it declined to attribute or markers it attributed and the
     renderer dropped. `scratchpad/ui-sweeps/askgrounding.js` against
     `scratchpad/fake_answer_server.py` is the probe that already counts them.
+
+393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
+    improvements, remove any trace of vibe coded stuff in elements, designs,
+    aesthetics styles, form, function, layout, structure. vendor and use skills
+    to help with ui and ux design. find bugs in usability. improve and expand
+    learnability and information architecture. further modernise and
+    professionalise the app. I lose trust in and refuse to use applications
+    with poor ui design and ui/ux issues as they make me feel like the app is
+    unreliable ... there needs to be more integration between all the main
+    features. and there needs to be more optimisiation." Placed: the identity
+    half is a decision in UI_MODERNISATION_PLAN ("The default look is Quiet
+    utilitarian"), built by a theme agent with the vendored design skills and
+    unslop-ui. Recommendation for the integration half, taken: one "act on
+    this" vocabulary for every object (note, document, board, map, file,
+    reminder): Open, Ask about it, Add to a map, Show in graph, Remind me,
+    Link to, reached the same way from its card menu, the command palette and
+    a right-click, audited surface by surface against a table in
+    WORLD_CLASS_PLAN's consistency contract, with a lint that every object
+    menu carries the shared rows.
 
 391. **The owner, 2026-09-23, with the Gemini/Antigravity pass on
     `fix/gemini-fixes-5` (1e63d87, 2c3e16e): "fix and refine the changes
@@ -137,6 +140,18 @@ with its owner named in the entry.
     after, the mobile view is still bery broken, takes up a lot of the screen
     and the design needs a lot of improvement." Placement: UI_MODERNISATION_PLAN
     phone phases; measure chrome height against content at 390x844 first.
+    Later the same day, verbatim: "make sure the whole of the app ui is
+    repsponsive, not just for mobile but any ui resolution. though mobile-first
+    design is I'm told a good practice" and "when I say mobile and responsive
+    design, I mean actually intentionally deisgning for those resolutions, and
+    not just adapting to them. like actually making the features be intended
+    and designed for those resolutions" (phone agent briefed: a phone intent
+    per surface, tablet widths swept too), with slides asking the software to
+    reduce CPU, RAM, network and storage (standing: measure before claiming,
+    as the pan trace did). Also reported and fixed on the branch: the mind map
+    label drag drifting and starting a selection box; the chat header naming
+    llama3.2 while another model answered; no prompt when search by meaning
+    failed; a picture captioned and read several times over.
 
 317. **The owner, 2026-09-21, verbatim, two messages with screenshots of the
     whiteboard text box context bar:** "the textbox selection popup tools

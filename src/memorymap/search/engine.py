@@ -737,7 +737,7 @@ def search(
     if wanted_is:
         rows = [row for row in rows if all(flag in (row["flags"] or "").split() for flag in wanted_is)]
     if wanted_has:
-        note_ids = [row["ref_id"] for row in rows if row["kind"] in ("note", "board")]
+        note_ids = [row["ref_id"] for row in rows if row["kind"] in search_index.ENTRY_KINDS]
         with_file = _has_attachment_ids(session, note_ids) if "file" in wanted_has else set()
         kept = []
         for row in rows:
@@ -769,16 +769,16 @@ def search(
     hops: dict[int, int] = {}
     open_entry = context.get("entry_id")
     if open_entry:
-        note_ids = {row["ref_id"] for row in rows if row["kind"] in ("note", "board")}
+        note_ids = {row["ref_id"] for row in rows if row["kind"] in search_index.ENTRY_KINDS}
         if note_ids:
             hops = _hops_from(session, int(open_entry), note_ids)
 
     hits: list[Hit] = []
     for row in rows:
-        hop = hops.get(row["ref_id"]) if row["kind"] in ("note", "board") else None
+        hop = hops.get(row["ref_id"]) if row["kind"] in search_index.ENTRY_KINDS else None
         scores = {
             "bm25": _normalised_bm25(row["score"], best_raw),
-            "cosine": max(0.0, cosines.get(row["ref_id"], 0.0)) if row["kind"] in ("note", "board") else 0.0,
+            "cosine": max(0.0, cosines.get(row["ref_id"], 0.0)) if row["kind"] in search_index.ENTRY_KINDS else 0.0,
             "graph": (1.0 / (1 + hop)) if hop else 0.0,
         }
         blended = sum(WEIGHTS[name] * value for name, value in scores.items())
@@ -841,7 +841,7 @@ def _cosine_scores(session: Session, subject: str, rows: list[dict]) -> dict[int
         return {}
     import numpy as np
 
-    wanted = [row["ref_id"] for row in rows if row["kind"] in ("note", "board")]
+    wanted = [row["ref_id"] for row in rows if row["kind"] in search_index.ENTRY_KINDS]
     return matrix.scores_for(np.asarray(vector, dtype="float32"), wanted)
 
 

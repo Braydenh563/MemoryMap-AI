@@ -322,6 +322,13 @@ def build_conversational_messages(
     return messages
 
 
+def _written_hint(note: dict) -> str:
+    """" (written Tuesday 22 September 2026)", or "" when the caller did not
+    date the note. See the comment where `build_messages` uses it."""
+    written = str(note.get("written") or "").strip()
+    return f" (written {written})" if written else ""
+
+
 def _match_info_hint(match_info: dict | None) -> str:
     """" (similarity: 0.81)" or " (matched: gym, membership)", a short,
     honest note on *why* this result showed up, the same reasoning the
@@ -467,6 +474,12 @@ def build_messages(
         # though it did is telling the user their search found something it
         # did not.
         f"{i}. [{note['category']}]"
+        # The day the note was written, when the caller knows it matters: a
+        # note that says "tonight" means the night it was written, and a
+        # model that cannot see that date reads it as tonight (the weekly
+        # digest, reported 2026-09-23). Optional, so every other caller's
+        # prompt is exactly what it was.
+        f"{_written_hint(note)}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{_match_info_hint(note.get('match_info'))} "

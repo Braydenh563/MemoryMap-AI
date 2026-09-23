@@ -3592,89 +3592,109 @@ function entryItem(entry, options = {}) {
       linkChip.title = reasonNote
         ? `${wayRound}: ${label}\nReason: ${reasonNote}`
         : `${wayRound}: ${label}`;
-      if (options.actions) {
-        const editReason = document.createElement("span");
-        editReason.className = "unlink reason-edit";
-        setLabel(editReason, "ph:pencil-simple");
-        editReason.title = link.reason ? "Edit this link's reason" : "Add a reason for this link";
-        editReason.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          // promptDialog resolves "" for both Cancel and an empty Save, so it
-          // can only ever *set* a reason here, clearing one that already
-          // exists goes through the ⊘ below instead, where the intent is
-          // unambiguous.
-          const next = await promptDialog(
-            "Why are these notes connected?",
-            link.reason || ""
-          );
-          if (!next) return;
-          await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
-            method: "PUT",
-            body: JSON.stringify({ reason: next }),
-          });
-          await loadEntries();
+      //: **One chip and one menu per connection** (INBOX 319, the owner: "the
+      //: buttons in these connections in notes need a redesign and look").
+      //: Edit reason, clear reason and unlink were three round buttons of one
+      //: size inside every chip, so three connections were nine identical
+      //: circles with the labels reading as captions between them. They are
+      //: the `kebabMenu` recipe now (DESIGN.md, standing order 11), which also
+      //: gives the label the width the buttons took.
+      const editReason = async () => {
+        const next = await promptDialog("Why are these notes connected?", link.reason || "");
+        if (!next) return;
+        await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+          method: "PUT",
+          body: JSON.stringify({ reason: next }),
         });
-        linkChip.appendChild(editReason);
-
-        if (link.reason) {
-          const clearReason = document.createElement("span");
-          clearReason.className = "unlink reason-clear";
-          // A Phosphor icon, not the "⊘" character: that glyph comes from
-          // the system font and sits at a different vertical offset than
-          // Phosphor's: .ph's `vertical-align: -0.12em` tuning (and the
-          // flex centring around it) only lines up glyphs sharing one font.
-          // Mixing "⊘"/"×" with a Phosphor pencil icon here is exactly what
-          // made these three actions look vertically staggered.
-          setLabel(clearReason, "ph:prohibit");
-          clearReason.title = "Remove this link's reason";
-          clearReason.addEventListener("click", async (e) => {
-            e.stopPropagation();
-            await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
-              method: "PUT",
-              body: JSON.stringify({ reason: null }),
+        await loadEntries();
+      };
+      const clearReason = async () => {
+        await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+          method: "PUT",
+          body: JSON.stringify({ reason: null }),
+        });
+        await loadEntries();
+      };
+      const unlink = async () => {
+        const otherId = link.entry_id;
+        const reason = link.reason;
+        let liveLinkId = link.link_id;
+        await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+        await loadEntries();
+        pushUndo(
+          "Removed a link between notes",
+          async () => {
+            const updated = await apiJson(`/entries/${entry.id}/links`, {
+              method: "POST",
+              body: JSON.stringify({ target_id: otherId, reason }),
             });
+            liveLinkId = updated.links.find((l) => l.entry_id === otherId)?.link_id ?? liveLinkId;
             await loadEntries();
-          });
-          linkChip.appendChild(clearReason);
+          },
+          async () => {
+            await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+            await loadEntries();
+          }
+        );
+      };
+      const connection = document.createElement("span");
+      connection.className = "link-connection";
+      connection.appendChild(linkChip);
+      if (options.actions) {
+        const items = [
+          {
+            label: link.reason ? "ph:pencil-simple Edit the reason" : "ph:pencil-simple Add a reason",
+            title: link.reason ? "Edit why these notes are connected" : "Say why these notes are connected",
+            run: editReason,
+            group: "reason",
+          },
+        ];
+        if (link.reason) {
+          items.push({ label: "ph:eraser Clear the reason", title: "Keep the link, drop its reason", run: clearReason, group: "reason" });
         }
-
-        const unlink = document.createElement("span");
-        unlink.className = "unlink";
-        // Phosphor's "x", not the "×" character: see the reason-clear icon
-        // above for why: a mixed-font row of action icons never lines up,
-        // no matter how the flex box around each one is centred.
-        setLabel(unlink, "ph:x");
-        unlink.title = "Remove this link";
-        unlink.addEventListener("click", async () => {
-          const otherId = link.entry_id;
-          const reason = link.reason;
-          let liveLinkId = link.link_id;
-          await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
-          await loadEntries();
-          pushUndo(
-            "Removed a link between notes",
-            async () => {
-              const updated = await apiJson(`/entries/${entry.id}/links`, {
-                method: "POST",
-                body: JSON.stringify({ target_id: otherId, reason }),
-              });
-              liveLinkId = updated.links.find((l) => l.entry_id === otherId)?.link_id ?? liveLinkId;
-              await loadEntries();
-            },
-            async () => {
-              await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
-              await loadEntries();
-            }
-          );
-        });
-        makeUnlinkAccessible(unlink);
-        linkChip.appendChild(unlink);
+        items.push({ label: "ph:link-break Remove the link", title: "Remove this link (undoable)", run: unlink, group: "remove" });
+        connection.appendChild(kebabMenu(items, `Actions for the link to ${label}`));
       }
-      linkRow.appendChild(linkChip);
+      linkRow.appendChild(connection);
     }
     li.appendChild(linkRow);
   }
   return li;
+}
+
+//: Take a note to the graph and put it in the middle, lit. The graph is its
+//: own lazy bundle and lays itself out after the tab opens, so this waits for
+//: the node to exist and to have a position rather than guessing a delay.
+async function showNoteInGraph(id) {
+  await switchTab("graph");
+  const deadline = Date.now() + 4000;
+  let node = null;
+  while (Date.now() < deadline) {
+    node = graphNodeById(id);
+    if (node && Number.isFinite(node.x)) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (!node || !Number.isFinite(node.x)) {
+    toast("That note is not on the graph right now: a filter or the view may be hiding it.", true);
+    return;
+  }
+  focusGraphNode(node);
+  if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
+    graphSvg.transition().duration(400).call(graphZoom.translateTo, node.x, node.y);
+  }
+}
+
+//: Start a chat about one note. Named by its title in the words a person
+//: would use, so the agent's own search tools find it, rather than pasting the
+//: whole note into the box.
+function askAtlasAboutNote(entry) {
+  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim().slice(0, 80);
+  switchTab("chat");
+  const input = $("chat-input");
+  if (!input) return;
+  input.value = `Tell me about my note "${name}" and what it connects to.`;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.focus();
 }
 
 function inlineActionIs(id, kind) {
@@ -5440,6 +5460,21 @@ function entryOverflowMenu(entry) {
         title: "Notes you have not looked at in a long time that are close to this one",
         run: () => toggleFaded(entry),
       },
+      //: **The note's two other homes, one press away** (INBOX 393: "there
+      //: needs to be more integration between all the main features"). The
+      //: menu could put a note on a board, in a document and in a reminder,
+      //: and could not take it to the graph that draws it or to the chat that
+      //: answers about it.
+      {
+        label: "ph:graph Show in graph",
+        title: "Open the graph centred on this note, its links lit",
+        run: () => showNoteInGraph(entry.id),
+      },
+      {
+        label: "ph:chat-circle Ask Atlas about this note",
+        title: "Start a chat about this note and what it connects to",
+        run: () => askAtlasAboutNote(entry),
+      },
     ];
 
     const addItems = [
@@ -5480,7 +5515,7 @@ function entryOverflowMenu(entry) {
         },
       },
       {
-        label: "⤵ Continue thought",
+        label: "ph:arrow-bend-down-right Continue thought",
         title: "Start or extend a thread from this note",
         run: () => {
           inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };
@@ -10823,7 +10858,7 @@ async function refreshNoteSearchWhy() {
     // box shows a page, not a notebook, and a note past the fiftieth best
     // match simply carries no reason chip rather than a wrong one.
     body = await apiJson(
-      `/search?q=${encodeURIComponent(asked)}&kind=note,board&limit=50` +
+      `/search?q=${encodeURIComponent(asked)}&kind=note,board,map&limit=50` +
         (open ? `&entry_id=${open}` : "")
     );
   } catch {
@@ -29501,6 +29536,15 @@ function timelineRow(entry) {
   //: now. The map lookup stays because a board's *title* still comes from the
   //: map index rather than from its note text.
   const kind = entry.kind || (board ? "board" : "note");
+  const title = entry.title || (board ? board.title : head) || "Untitled note";
+  //: **A snippet says something the title does not.** For a board the preview
+  //: is its note's own `# Title` line and for a reminder it is the reminder's
+  //: text, so both rows repeated their title underneath it, the board's with
+  //: the markdown hash still on it (measured: "R board" over "# R board").
+  const other = stripMarkdownPreview(entry.preview || "").replace(/\s+/g, " ").trim();
+  const snippet = entry.kind === "note" || !entry.kind
+    ? rest
+    : other && other.replace(/^#+\s*/, "") !== title ? other : "";
   return {
     id: entry.id,
     //: Identity across kinds: note 3 and document 3 are two different things,
@@ -29510,8 +29554,8 @@ function timelineRow(entry) {
     kind,
     board,
     // The first line of a note is what a person calls it, heading or not.
-    title: entry.title || (board ? board.title : head) || "Untitled note",
-    snippet: entry.kind === "note" || !entry.kind ? rest : entry.preview || "",
+    title,
+    snippet,
     when: parseServerTime(entry.at) || new Date(entry.at),
     whenIso: entry.at,
     writtenAt: entry.written_at,
@@ -35280,7 +35324,7 @@ async function openNotifications({ keepWatermark = false } = {}) {
     row.append(readToggle);
 
     // A notification you cannot act on is a notification you learn to ignore.
-    if (item.action && (item.action.tab || item.action.exports || item.action.panel)) {
+    if (item.action && (item.action.tab || item.action.exports || item.action.panel || item.action.settings)) {
       row.classList.add("notif-actionable");
       row.tabIndex = 0;
       row.title = item.action.exports ? "Open the exports folder" : "Open";
@@ -35288,6 +35332,10 @@ async function openNotifications({ keepWatermark = false } = {}) {
         closeNotifications();
         if (item.action.panel) {
           reopenAnswerPanel(item.action);
+          return;
+        }
+        if (item.action.settings) {
+          openSettingsModal(item.action.settings);
           return;
         }
         if (item.action.exports) {
@@ -36152,6 +36200,15 @@ async function refreshModelStatus() {
   } catch {
     modelStatus = null; // locked or unreachable: pill shows the worst case
   }
+  //: **The feature rows ride every poll, not only Settings.** They used to be
+  //: read only when Settings rendered, so until Settings had been opened once
+  //: the ⋯ sheet said "Models aren't available yet" and a picker in a
+  //: surface had nothing to show. The poll already carries them.
+  if (modelStatus && Array.isArray(modelStatus.feature_models)) {
+    featureModelRows = modelStatus.feature_models;
+    featureModelNames = (modelStatus.installed_models || []).map((m) => m.name);
+  }
+  syncFeatureModelSelects();
   renderAiPill();
   syncModelGatedControls();
   // The status bar's job slot rides this loop rather than starting one of its
@@ -36487,6 +36544,36 @@ function renderAiPill() {
   $("ai-status-title").textContent = state.title;
   $("ai-status-detail").textContent = state.detail;
   renderChatActiveModelBadge();
+  nudgeEmbeddingProblem();
+}
+
+//: **A broken search engine is said where the person is, once** (owner,
+//: packaged app: "I didnt have sentence transformers installed ... I
+//: encountered errors and I saw no popup or anything to suggest that I
+//: switch to nomic-embed-text or install sentence transformers"). The fix
+//: sentence and its one-click button lived only in Settings, Models, which
+//: nobody opens to find out why search feels dull. So the first poll that
+//: carries `embedding_error` raises a toast with the way to fix it and leaves
+//: the same in the bell, keyed by the error so it is said once per problem,
+//: not once per poll.
+let embeddingNudgeSaid = "";
+function nudgeEmbeddingProblem() {
+  const error = modelStatus?.embedding_error;
+  if (!error || error === embeddingNudgeSaid) return;
+  embeddingNudgeSaid = error;
+  const installing = /being installed/.test(error);
+  const title = installing ? "Search by meaning is being installed" : "Search by meaning is not working";
+  const detail = installing
+    ? "Search uses keywords until it finishes. Or pick nomic-embed-text in Settings, Models."
+    : `${error}. Settings, Models can switch it to ${EMBEDDING_FALLBACK_MODEL} or install the package.`;
+  recordNotification({
+    kind: "assist",
+    title,
+    detail,
+    key: `embedding:${error}`,
+    action: { settings: "models" },
+  });
+  if (!installing) toastAction(`${title}. Search is using keywords for now.`, "Fix it", () => openSettingsModal("models", "embedding-model-select"));
 }
 
 // --- the status bar (§36D) ---------------------------------------------------
@@ -37680,16 +37767,27 @@ function renderChatActiveModelBadge() {
   const pinned = (modelStatus && modelStatus.feature_models || []).find(
     (row) => row.key === "chat" && row.overridden
   );
-  const name = (pinned && pinned.model) || (modelStatus && modelStatus.chat_model);
+  //: `chat_model_effective`, not `chat_model`: on a llama.cpp or LM Studio
+  //: server the configured name is not what answers when that server has a
+  //: different model loaded (owner: the header said llama3.2, which was not
+  //: installed, while another model answered). On Ollama a missing model
+  //: is said to be missing rather than named as if it ran.
+  const name = (pinned && pinned.model)
+    || (modelStatus && (modelStatus.chat_model_effective || modelStatus.chat_model));
+  const missing = !pinned && modelStatus?.chat_model_installed === false
+    && name === modelStatus.chat_model;
   badge.hidden = !name;
+  badge.classList.toggle("is-missing", Boolean(missing));
   //: The short form in the badge, the full id in the tooltip below, the
   //: badge is 22ch wide and a HuggingFace id is routinely longer than that.
-  badge.textContent = shortModelName(name);
+  badge.textContent = missing ? `${shortModelName(name)} (not installed)` : shortModelName(name);
   // The badge itself ellipsis-truncates a long id (a full HuggingFace path
   // easily runs past the header), the full name is still one hover away.
-  badge.title = name
-    ? `${aiNameNow()} is answering with ${name}: click for what it is and what it can do`
-    : "";
+  badge.title = !name
+    ? ""
+    : missing
+      ? `${name} is set for chat but is not installed: click to pick a model you have`
+      : `${aiNameNow()} is answering with ${name}: click for what it is and what it can do`;
 }
 
 //: **What this model actually is.** Asked for: "in chat I want more details in
@@ -37920,6 +38018,7 @@ async function applyFeatureModel(key, name) {
 function renderFeatureModels(status) {
   featureModelRows = status.feature_models || [];
   featureModelNames = (status.installed_models || []).map((m) => m.name);
+  syncFeatureModelSelects();
   const list = $("feature-models-list");
   if (!list) return;
   list.replaceChildren();
@@ -38082,6 +38181,85 @@ function featureModelMenuItem(key) {
   };
 }
 
+//: **The model picker inside a surface.** The owner, 2026-09-23: "I want to be
+//: able to change the model I use within the features themselves using a model
+//: dropdown which pairs with the feature-specific model selections in
+//: settings". The sheet above, behind the Chat tab's ⋯, was the only way in
+//: there, and the Ask box had none. A plain `<select>` in the surface's own
+//: composer (DESIGN.md: a dropdown of values is a `<select>`, and
+//: `enhanceSelect` styles it), written through `applyFeatureModel`, the one
+//: call Settings' own list makes, and redrawn from the same rows on every
+//: status poll: changing either moves the other on the next tick, and
+//: neither keeps a copy of its own.
+//:
+//: **It names the model that will run** (INBOX 277: "a role can say one model
+//: and silently run another"). The first option is "Inherited: <name>", the
+//: name the server resolves through the role, smart routing included, rather
+//: than a bare "Default"; and an override that is not in the installed list
+//: (the model server is down, or the model was removed) is still offered, so
+//: the control never shows one model while the turn runs on another.
+const FEATURE_MODEL_SELECTS = [
+  ["chat-feature-model", "chat"],
+  ["ask-feature-model", "ask"],
+  ["draft-feature-model", "writing"],
+];
+
+function syncFeatureModelSelects() {
+  for (const [id, key] of FEATURE_MODEL_SELECTS) {
+    const select = $(id);
+    if (!select) continue;
+    const row = featureModelRow(key);
+    //: No rows yet (the first poll has not answered, or the app is locked):
+    //: a control that would write a guess is worse than a disabled one.
+    select.disabled = !row;
+    if (!row) continue;
+    const names = [...featureModelNames];
+    if (row.overridden && !names.includes(row.model)) names.unshift(row.model);
+    //: **Never name a model that will not run as if it will** (INBOX 277).
+    //: With no backend connected the inherited name is only the configured
+    //: default: measured, the picker said "Inherited: llama3.2" under a banner
+    //: saying no model is connected.
+    const inherited = featureModelNames.includes(row.inherits)
+      ? `Inherited: ${row.inherits}`
+      : `Inherited: ${row.inherits} (not installed)`;
+    fillModelSelect(
+      select,
+      names,
+      { value: "", label: inherited },
+      row.overridden ? row.model : ""
+    );
+    //: The inherited name moves when the chat model is changed in Settings,
+    //: and `fillModelSelect` only rebuilds when the *values* change, which
+    //: the first option's never does. Its words are kept current here.
+    const first = select.options[0];
+    if (first && first.value === "" && first.textContent !== inherited) {
+      first.textContent = inherited;
+    }
+    //: Always the stored choice, not whatever the control last showed:
+    //: `fillModelSelect` prefers the live selection so a poll cannot undo a
+    //: pick in flight, which is right for Settings and would leave this one
+    //: stale after the other side changed it.
+    const wanted = row.overridden ? row.model : "";
+    if (select.value !== wanted) select.value = wanted;
+    select.title = row.overridden
+      ? `${row.label} runs on ${row.model}, its own choice. The same setting as Settings, Models.`
+      : `${row.label} runs on ${row.inherits}, inherited. The same setting as Settings, Models.`;
+  }
+}
+
+function wireFeatureModelSelects() {
+  for (const [id, key] of FEATURE_MODEL_SELECTS) {
+    const select = $(id);
+    if (!select || select.dataset.wired) continue;
+    select.dataset.wired = "1";
+    select.addEventListener("change", () => {
+      const row = featureModelRow(key);
+      const wanted = row && row.overridden ? row.model : "";
+      if (select.value !== wanted) applyFeatureModel(key, select.value);
+    });
+  }
+}
+
 // Separate from the vision picker above because the jobs are separate, see
 // ModelManager.ocr_model. "Automatic" here means something more specific than
 // the vision picker's "Auto-detect": it prefers an installed document reader
@@ -38197,6 +38375,19 @@ function syncEmbeddingPickerState(offline) {
   const picker = $("embedding-model-select");
   if (!picker) return;
   picker.disabled = down || !usingOllama;
+  //: An empty select says nothing: with Ollama off it drew as a blank 46px
+  //: box beside a pale Apply button. It names why it is empty instead.
+  if (!picker.options.length || picker.options[0].dataset.placeholder) {
+    const note = down ? "Needs Ollama running" : "No embedding models installed";
+    let option = picker.options[0];
+    if (!option) {
+      option = document.createElement("option");
+      option.value = "";
+      option.dataset.placeholder = "1";
+      picker.appendChild(option);
+    }
+    option.textContent = note;
+  }
   picker.title = down
     ? "Ollama is not running, so there are no embedding models to choose from"
     : usingOllama
@@ -44010,6 +44201,7 @@ $("llm-provider-select").addEventListener("change", () => {
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
 $("feature-models-reset").addEventListener("click", resetAllFeatureModels);
 $("draft-model").addEventListener("click", () => openFeatureModelSheet("writing"));
+wireFeatureModelSelects();
 $("vision-model-apply").addEventListener("click", applyVisionModel);
 $("ocr-model-apply")?.addEventListener("click", applyOcrModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
@@ -47218,6 +47410,15 @@ if (agentMonitorClose) {
     agentMonitorPinned = false;
     setAgentMonitorVisible(false);
   });
+  //: Escape closes it when focus is inside it, as it closes every other
+  //: floating surface (OPEN.md, Chat and popup agent). Only from inside: the
+  //: panel is non-modal and never takes focus, so an Escape meant for the
+  //: editor behind it must not also dismiss it.
+  agentMonitor.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    event.preventDefault();
+    agentMonitorClose.click();
+  });
 }
 
 function appendAgentLog(record) {
@@ -49221,7 +49422,15 @@ $("notif-mark-all-read")?.addEventListener("click", () => {
 const FINDER_KINDS = [
   { key: "note", icon: "ph:note-pencil", one: "note", many: "notes" },
   { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
-  { key: "board", icon: "ph:tree-structure", one: "board or map", many: "boards & maps" },
+  { key: "board", icon: "ph:squares-four", one: "board", many: "boards" },
+  //: Its own kind since the index learned to tell a map from a board.
+  //: Reported: "Mind maps don't show in the Find anything universal search".
+  //: A previous pass renamed the board chip "boards & maps" and left the
+  //: map filed as a board, so a map still wore a board's meaning and could
+  //: not be asked for on its own; `search/index.py` now indexes it as `map`,
+  //: with the words on its topics, and it wears the glyph a map wears in the
+  //: Library and the tab strip.
+  { key: "map", icon: "ph:tree-structure", one: "mind map", many: "mind maps" },
   { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
   { key: "bookmark", icon: "ph:bookmark-simple", one: "link", many: "links" },
   { key: "reminder", icon: "ph:alarm", one: "reminder", many: "reminders" },
@@ -49249,6 +49458,7 @@ const FINDER_OPEN = {
   note: (hit) => { switchTab("notes"); flashEntry(hit.id); },
   document: (hit) => { switchTab("documents"); openDocument(hit.id); },
   board: (hit) => openLibraryItem({ kind: "board", id: hit.id }),
+  map: (hit) => openLibraryItem({ kind: "map", id: hit.id }),
   file: (hit) => flashLibraryItem("file", hit.id),
   bookmark: (hit) => flashLibraryItem("link", hit.id),
   reminder: () => switchTab("reminders"),
@@ -49371,7 +49581,7 @@ function finderRenderEmpty() {
   title.textContent = "Search everything you keep";
   const body = document.createElement("p");
   body.textContent =
-    "Notes, documents, boards, files, links and reminders at once, by your words and by what they mean. Type to begin.";
+    "Notes, documents, boards, mind maps, files, links and reminders at once, by your words and by what they mean. Type to begin.";
   box.append(icon, title, body);
   results.appendChild(box);
   finderRenderFilters();

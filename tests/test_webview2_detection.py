@@ -145,9 +145,12 @@ def test_warn_never_raises_even_with_no_ctypes_support(monkeypatch, main_module)
     process it is trying to explain something to.
     """
 
+    # AttributeError, the error `ctypes.windll` really raises off Windows, and
+    # the one `__getattr__` is expected to raise (CodeQL
+    # py/unexpected-raise-in-special-method, alert 423).
     class _BoomModule:
         def __getattr__(self, name):
-            raise RuntimeError(f"no {name} here")
+            raise AttributeError(f"no {name} here")
 
     monkeypatch.setitem(sys.modules, "ctypes", _BoomModule())
     main_module._warn_webview2_missing()

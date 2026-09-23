@@ -139,7 +139,16 @@ def collect() -> list[dict]:
     # document reads a bulk upload starts. Before the bounded pool these were
     # loose threads that the panel could not see at all, so a folder of 200
     # pictures looked exactly like an idle app (WORLD_CLASS_PLAN A3).
-    tasks.extend(bgpool.pending())
+    #: A caption that is running is already a row above, with the picture's
+    #: own name ("Captioning sketch-..."); the pool's row for the same job
+    #: ("Describing an image") made one caption look like two (owner's
+    #: screenshot, INBOX 392). Queued captions stay: nothing else lists them.
+    captioning_now = bool(captioning.running_captions())
+    tasks.extend(
+        row
+        for row in bgpool.pending()
+        if not (captioning_now and row["kind"] == "job-caption" and not row.get("queued"))
+    )
 
     # Autonomous optimization task
     from memorymap.ai import autonomous

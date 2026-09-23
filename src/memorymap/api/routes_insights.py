@@ -7,7 +7,7 @@ import json
 import random
 import re
 from collections.abc import Iterator
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -15,8 +15,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import librarian
+from memorymap.ai.answer_trim import trim_assistant_padding
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
+from memorymap.core.config import user_now
 from memorymap.core.database import Category, Entry, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
@@ -29,16 +31,17 @@ HEATMAP_DAYS = 371  # 53 whole weeks, the contribution-style heatmap
 
 @router.get("/stats")
 def stats(session: Session = Depends(get_session)) -> dict:
-    # Drafts are not counted: the Notes list and its sidebar leave them out
-    # until they are saved as real notes, and the owner asked "do I have 29,
-    # 30 or 31 notes?" when this said one number and the list another.
+    # Drafts and boards are not counted: the Notes list and its sidebar leave
+    # both out (a board is an Entry row, MINDMAP_PLAN §2), and the owner asked
+    # "do I have 29, 30 or 31 notes?" when this said one number and the list
+    # another. Measured again after boards: dashboard 75, list 40.
     total = session.scalar(
-        select(func.count(Entry.id)).where(Entry.is_deleted == False, Entry.is_draft == False)  # noqa: E712
+        select(func.count(Entry.id)).where(Entry.is_deleted == False, Entry.is_draft == False, Entry.is_board == False)  # noqa: E712
     )
     by_category = session.execute(
         select(Category.name, func.count(Entry.id))
         .join(Entry, Entry.category_id == Category.id)
-        .where(Entry.is_deleted == False, Entry.is_draft == False)  # noqa: E712
+        .where(Entry.is_deleted == False, Entry.is_draft == False, Entry.is_board == False)  # noqa: E712
         .group_by(Category.name)
         .order_by(func.count(Entry.id).desc())
     ).all()
@@ -49,6 +52,7 @@ def stats(session: Session = Depends(get_session)) -> dict:
         select(Entry).where(
             Entry.is_deleted == False,  # noqa: E712
             Entry.is_draft == False,  # noqa: E712
+            Entry.is_board == False,  # noqa: E712
             Entry.created_at >= start.replace(hour=0, minute=0, second=0),
         )
     )
@@ -385,12 +389,55 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
     return matches[:5]
 
 
+#: The digest's own instruction. `{today}` is filled in per request by
+#: `digest_question`, on the user's own clock.
+#:
+#: **Dates, not a ban on time words.** Reported 2026-09-23: a note written the
+#: day before that said "tonight" came back as "you have work tonight". The
+#: model was never told when a note was written or what today is, so
+#: "tonight" could only mean tonight. A previous pass told it to use no time
+#: references at all, which a small model cannot do while summarising notes
+#: that are full of them. Each note now carries its date
+#: (`librarian._written_hint`) and this names today, so the words can be read
+#: against the right day and a past one said as past.
+#:
+#: The greeting is asked against here and taken off afterwards
+#: (`answer_trim`), because a small model writes it anyway.
 DIGEST_QUESTION = (
-    "Give me a short digest of what I saved this week, group by topic and "
-    "call out anything that looks important or unfinished. "
-    "Respond directly with the digest. Do not use conversational filler (e.g. 'Here is your digest') "
-    "and do not use time references (e.g. 'this week' or 'recently') as the UI already provides this context."
+    "Today is {today}. Give me a short digest of what I saved in the last "
+    "seven days, grouped by topic, calling out anything that looks important "
+    "or unfinished. Each note shows the day it was written: read words like "
+    "'tonight', 'tomorrow' or 'next week' against the day it was written, not "
+    "today, and say anything that has already happened in the past tense or "
+    "by its date. Start with the digest itself: no greeting, and no sentence "
+    "announcing it."
 )
+
+
+def _long_date(when: datetime) -> str:
+    """"Wednesday 23 September 2026". Spelled out, because a small model
+    reasons about "Tuesday" far more reliably than about "2026-09-22", and
+    built by hand because `%-d` does not exist on Windows."""
+    return f"{when:%A} {when.day} {when:%B %Y}"
+
+
+def _written_label(created_at: datetime | None, zone) -> str:  # noqa: ANN001
+    """The day a note was written, on the user's own clock.
+
+    Stored in UTC (SQLite hands a naive value back), shown in the zone the
+    user reads: a note saved at 11pm is that day's note, not tomorrow's.
+    """
+    if created_at is None:
+        return ""
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    return _long_date(created_at.astimezone(zone))
+
+
+def digest_question(session: Session) -> str:
+    """The digest instruction for right now, with its structure sentence."""
+    today = user_now(deps.get_config())
+    return DIGEST_QUESTION.format(today=_long_date(today)) + digest_structure_note(session)
 
 
 def _digest_notes(session: Session) -> list[dict]:
@@ -415,8 +462,13 @@ def _digest_notes(session: Session) -> list[dict]:
         )
     )
     category_names = manager.bulk_category_names(session, entries)
+    zone = user_now(deps.get_config()).tzinfo
     return [
-        {"content": e.content, "category": category_names.get(e.category_id, manager.UNCATEGORISED)}
+        {
+            "content": e.content,
+            "category": category_names.get(e.category_id, manager.UNCATEGORISED),
+            "written": _written_label(e.created_at, zone),
+        }
         for e in entries
     ]
 
@@ -493,7 +545,7 @@ def weekly_digest_stream(session: Session = Depends(get_session)) -> StreamingRe
         digest_style = config.get_preference("communication_style", "friendly")
         digest_persona = librarian.resolve_persona_prompt(None, config)
         messages = librarian.build_messages(
-            DIGEST_QUESTION + digest_structure_note(session),
+            digest_question(session),
             notes,
             style=digest_style,
             profile="",
@@ -507,9 +559,11 @@ def weekly_digest_stream(session: Session = Depends(get_session)) -> StreamingRe
                 model_manager.utility_model(), ollama, digest_style, "", digest_persona
             ),
         )
+        answer = []
         try:
             for piece in ollama.chat_stream(model_manager.utility_model(), messages):
                 if "content_delta" in piece:
+                    answer.append(piece["content_delta"])
                     yield event({"type": "answer", "delta": piece["content_delta"]})
                 elif "thinking_delta" in piece:
                     yield event({"type": "thinking", "delta": piece["thinking_delta"]})
@@ -517,6 +571,15 @@ def weekly_digest_stream(session: Session = Depends(get_session)) -> StreamingRe
             yield event({"type": "answer", "delta": f"\n\n{librarian.OFFLINE_MESSAGE}"})
             yield event({"type": "done", "cacheable": False})
             return
+        #: The greeting and the announcement come off, the same trim and the
+        #: same event the chat stream sends (`routes_chat`): the widget has
+        #: already drawn the untrimmed words, so it gets the finished text
+        #: once and repaints, rather than a filter on every delta. Only when
+        #: something was taken, so an ordinary digest costs no extra event.
+        raw = "".join(answer)
+        trimmed = trim_assistant_padding(raw)
+        if trimmed != raw:
+            yield event({"type": "answer_final", "text": trimmed})
         yield event({"type": "done", "cacheable": True})
 
     return StreamingResponse(lines(), media_type="application/x-ndjson")
@@ -533,22 +596,8 @@ def weekly_digest(session: Session = Depends(get_session)) -> dict:
     because the two share `_digest_notes` below, so it costs a function call
     to keep and a second code path to reimplement later.
     """
-    cutoff = utcnow() - timedelta(days=7)
-    # See _digest_notes' comment above: a private note's `content` is
-    # ciphertext at rest and must never reach the model's prompt.
-    entries = list(
-        session.scalars(
-            select(Entry)
-            .where(
-                Entry.is_deleted == False,  # noqa: E712
-                Entry.is_private == False,  # noqa: E712
-                Entry.created_at >= cutoff,
-            )
-            .order_by(Entry.created_at)
-            .limit(30)
-        )
-    )
-    if not entries:
+    notes = _digest_notes(session)
+    if not notes:
         # A real, stable fact, safe for the UI to cache for the day.
         return {
             "digest": "Nothing was saved in the last 7 days.",
@@ -556,18 +605,13 @@ def weekly_digest(session: Session = Depends(get_session)) -> dict:
             "cacheable": True,
         }
 
-    category_names = manager.bulk_category_names(session, entries)
-    notes = [
-        {"content": e.content, "category": category_names.get(e.category_id, manager.UNCATEGORISED)}
-        for e in entries
-    ]
     config = deps.get_config()
     # Only a genuine AI answer is worth caching, if Ollama is down the
     # digest is just the offline notice, which should be retried, not
     # frozen for the day.
     ollama_running = deps.get_ollama().is_running()
     digest, thinking = librarian.answer(
-        DIGEST_QUESTION + digest_structure_note(session),
+        digest_question(session),
         notes,
         deps.get_model_manager(),
         deps.get_ollama(),
@@ -575,4 +619,9 @@ def weekly_digest(session: Session = Depends(get_session)) -> dict:
         persona_prompt=None,
         use_utility_model=True,  # a background job, keep the chat model free
     )
-    return {"digest": digest, "thinking": thinking, "cacheable": ollama_running}
+    # The same trim the stream applies (see there).
+    return {
+        "digest": trim_assistant_padding(digest),
+        "thinking": thinking,
+        "cacheable": ollama_running,
+    }

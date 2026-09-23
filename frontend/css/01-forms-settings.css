@@ -2452,6 +2452,32 @@ progress {
   color: var(--ink);
 }
 
+/* A connection is its chip and one quiet menu (INBOX 319). The menu's
+   opener is the recipe's own `.icon-only` small button, shown on approach
+   like the rest of a card's actions and always on touch. */
+.link-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+#entry-list .link-connection > .menu-wrap {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+#entry-list li:hover .link-connection > .menu-wrap,
+#entry-list li:focus-within .link-connection > .menu-wrap {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  #entry-list .link-connection > .menu-wrap {
+    opacity: 1;
+  }
+}
+
 .chip.link .unlink {
   cursor: pointer;
   margin-left: 0.25rem;

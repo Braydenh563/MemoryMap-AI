@@ -189,3 +189,80 @@ def test_digest_stream_degrades_when_ai_is_down(ai_client, fake_ollama):
     events = _ndjson(ai_client.post("/insights/digest/stream"))
     # An offline notice must never be cached as if it were a real digest.
     assert events[-1]["cacheable"] is False
+
+
+# --- dates, and the preamble (reported 2026-09-23) --------------------------
+#
+# The owner got "Hello there! Based on the notes you provided, here is a quick
+# digest..." and "you have work tonight" for a note written the day before
+# that said "tonight". The model was never told when a note was written or
+# what today is, so "tonight" could only mean tonight.
+
+
+def _backdate(entry_id, days):
+    """Move a note to noon on the user's own clock, `days` ago."""
+    from memorymap.core import deps
+    from memorymap.core.config import user_now
+
+    local = user_now(deps.get_config()).replace(hour=12, minute=0, second=0, microsecond=0)
+    when = local - timedelta(days=days)
+    session = deps.get_db().session()
+    entry = session.get(Entry, entry_id)
+    entry.created_at = when
+    session.commit()
+    session.close()
+    return when
+
+
+def _long_date(when):
+    return f"{when:%A} {when.day} {when:%B %Y}"
+
+
+def test_the_digest_prompt_dates_each_note_and_names_today(ai_client, fake_ollama):
+    from memorymap.core import deps
+    from memorymap.core.config import user_now
+
+    saved = _save(ai_client, "I have work tonight")
+    written = _backdate(saved["id"], 1)
+    ai_client.post("/insights/digest")
+    prompt = fake_ollama.chat_calls[-1][-1]["content"]
+    note_line = next(line for line in prompt.splitlines() if "work tonight" in line)
+    assert f"written {_long_date(written)}" in note_line
+    assert f"Today is {_long_date(user_now(deps.get_config()))}" in prompt
+
+
+def test_the_digest_resolves_relative_time_against_the_note(ai_client, fake_ollama):
+    saved = _save(ai_client, "dinner tomorrow")
+    _backdate(saved["id"], 2)
+    ai_client.post("/insights/digest/stream")
+    prompt = fake_ollama.chat_calls[-1][-1]["content"]
+    assert "tonight" in prompt and "the day it was written" in prompt
+    assert "past" in prompt
+    # The previous pass's instruction, which forbade the one thing that
+    # makes a dated digest readable, is gone.
+    assert "do not use time references" not in prompt.lower()
+
+
+def test_the_digest_takes_the_greeting_off(ai_client, fake_ollama):
+    _save(ai_client, "a shift at the cafe")
+    fake_ollama.librarian_reply = (
+        "Hello there! Based on the notes you provided, here is a quick digest "
+        "of what you saved:\n\n- Work: a shift at the cafe."
+    )
+    assert ai_client.post("/insights/digest").json()["digest"] == "- Work: a shift at the cafe."
+
+
+def test_the_streamed_digest_sends_the_trimmed_text_once(ai_client, fake_ollama):
+    _save(ai_client, "a shift at the cafe")
+    fake_ollama.librarian_reply = "Hello there!\n\n- Work: a shift at the cafe."
+    events = _ndjson(ai_client.post("/insights/digest/stream"))
+    finals = [e for e in events if e["type"] == "answer_final"]
+    assert finals == [{"type": "answer_final", "text": "- Work: a shift at the cafe."}]
+    assert events[-1] == {"type": "done", "cacheable": True}
+
+
+def test_an_untrimmed_digest_sends_no_final(ai_client, fake_ollama):
+    _save(ai_client, "bought milk")
+    fake_ollama.librarian_reply = "You saved a shopping note."
+    events = _ndjson(ai_client.post("/insights/digest/stream"))
+    assert not [e for e in events if e["type"] == "answer_final"]

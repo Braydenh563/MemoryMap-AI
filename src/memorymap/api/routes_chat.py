@@ -98,6 +98,16 @@ ASK_SURFACE = "chat"
 AGENT_SURFACE = "agent"
 
 
+def _feature_for(body: "ChatRequest") -> str:
+    """Which feature row a turn runs under: the Ask box or the Chat tab.
+
+    Both post here. `notes_only` is set by the Notes tab's Ask box and never
+    by the Chat tab (see the field), so it is the one fact that already tells
+    the two apart without a second flag to keep in step.
+    """
+    return "ask" if body.notes_only else "chat"
+
+
 def _recent_questions(session: Session, limit: int = 5) -> list[str]:
     """The last `limit` distinct questions asked at the Ask box, newest first.
     Read straight from the audit log, no extra bookkeeping.
@@ -1128,11 +1138,11 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         # else: so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
     )
-    #: The Chat tab's own model, if one is set (model_manager.FEATURES).
+    #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent
     #: loop included, goes on asking for `chat_model()` and gets this
-    #: tab's answer without knowing features exist.
-    model_manager = deps.get_model_manager().for_feature("chat")
+    #: surface's answer without knowing features exist.
+    model_manager = deps.get_model_manager().for_feature(_feature_for(body))
     ollama = deps.get_ollama()
     ollama_running = ollama.is_running()
     conversational = not intent.needs_retrieval(prepared["intent"])
@@ -1860,11 +1870,11 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     {"type":"done"}
     """
     ollama = deps.get_ollama()
-    #: The Chat tab's own model, if one is set (model_manager.FEATURES).
+    #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent
     #: loop included, goes on asking for `chat_model()` and gets this
-    #: tab's answer without knowing features exist.
-    model_manager = deps.get_model_manager().for_feature("chat")
+    #: surface's answer without knowing features exist.
+    model_manager = deps.get_model_manager().for_feature(_feature_for(body))
     history = [turn.model_dump() for turn in body.history]
     persona_prompt = _resolve_persona(body.persona, session)
     mode = _resolve_mode(body.mode)

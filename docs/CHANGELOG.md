@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The Atlas guide panel is redesigned as one surface: the chat sits straight on the card instead of in a tinted box inside it, the head is one row (35px, was 63) with its subtitle on one line and three quiet, equal controls, the empty panel greets you like the Chat tab does (a title, one line, and the three questions as centred chips), and an answer's first line no longer sits 25px below the top of its bubble. The Settings, Help row's questions wear the same chip.
 - Files: a description or reading typed while the automatic one was still being written is no longer overwritten when the automatic one lands.
 - Empty states: the Timeline's sits centred in its card instead of at the foot under a blank body, and the Graph's action button is its own width instead of spanning the map.
 - Dashboard: an empty notebook no longer shows a strip of zeros above the welcome card; the figures appear with the first note or reminder.

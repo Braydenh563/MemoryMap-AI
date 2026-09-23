@@ -1907,20 +1907,106 @@ summary > .ph-lead,
   text-align: left;
 }
 
-/* The hairline belongs above whatever the foot of the panel is (INBOX 270).
-   With the starters under the transcript, the foot is the chips plus the
-   composer, and drawing the line under the chips would put the transcript and
-   three things you can send on one side of it. `.hidden` is the class
-   `helpChatAppendRow` and `helpChatNewChat` already toggle, so the line
-   follows them without a third place to keep in step. */
-.atlas-starters:not(.hidden) {
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-light);
+/* --- The guide panel as one surface (INBOX 270 part 4, the redesign) --------
+   Measured at 1440x900 before this block (`scratchpad/ui-sweeps/guidepanel.js`):
+   the whole chat sat in a `.settings-group` inside the card, so the panel was a
+   box in a box: a tinted 398x349 rectangle with its own 16px padding and 8px
+   radius, the text starting 41px in from the card's edge and the composer
+   ending 36px above its foot against 20px of air over the head. Neither panel
+   it is meant to match does that: the agent activity panel and the popup agent
+   both draw their rows straight onto the card, and DESIGN.md's surface tiers
+   give a group its tint only to set it apart from its neighbours, and this one
+   has none. So the group stands down to layout only while it is docked. */
+.atlas-chat.atlas-docked {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
 }
 
-.atlas-starters:not(.hidden) + .atlas-composer {
-  padding-top: 0;
-  border-top: 0;
+/* The welcome, centred in the transcript's own space the way the Chat tab's
+   is in its pane (`.chat-empty`): a title, one line, the questions
+   (the mark is the head's, and is not drawn twice).
+   `margin-block: auto` in the log's flex column is what centres it, and the
+   log keeps its full height either way, so the composer does not move when the
+   first answer arrives. */
+.atlas-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: auto;
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+}
+
+.atlas-welcome > p {
+  margin: 0;
+}
+
+.atlas-welcome-line {
+  max-width: 44ch;
+  font-size: var(--text-sm);
+}
+
+.atlas-welcome .atlas-starters {
+  justify-content: center;
+  margin-top: var(--space-3);
+}
+
+/* The Chat tab's suggestion chip (`#chat-suggest > .chip`, "de-vibecoded"
+   below): regular weight, ink, a hairline and a hover ground, on the chip's
+   own pill. They stay `<button>`s, because pressing one sends it (DESIGN.md: a
+   chip is a fact, an action is a button); only the paint is shared. The
+   Settings, Help row offers the same three questions, so it wears the same
+   chip: one question, one look, wherever it is offered. */
+:is(#help-chat-starters, #atlas-row-starters) > .atlas-starter {
+  height: auto;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  text-align: center;
+}
+
+:is(#help-chat-starters, #atlas-row-starters) > .atlas-starter:hover,
+:is(#help-chat-starters, #atlas-row-starters) > .atlas-starter:focus-visible {
+  background: var(--chip-bg);
+}
+
+/* The head, on the agent activity panel's terms: the controls beside the title
+   are quiet until the pointer or the focus reaches them, because the card is
+   already the frame (the same rule `.monitor-header-actions` takes, 08 above),
+   and all three are one size. Before: a 32px round bordered '?', then a 28px
+   filled kebab and a 28px filled X, centres 2px apart and three shapes in one
+   row. */
+.sheet-card-corner .sheet-head > button.ghost,
+.sheet-card-corner .sheet-head .atlas-menu button.ghost {
+  width: var(--target-min);
+  height: var(--target-min);
+  min-height: var(--target-min);
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.sheet-card-corner .sheet-head > button.ghost:hover,
+.sheet-card-corner .sheet-head > button.ghost:focus-visible,
+.sheet-card-corner .sheet-head > button.ghost[aria-expanded="true"],
+.sheet-card-corner .sheet-head .atlas-menu button.ghost:hover,
+.sheet-card-corner .sheet-head .atlas-menu button.ghost:focus-visible,
+.sheet-card-corner .sheet-head .atlas-menu button.ghost[aria-expanded="true"] {
+  background: var(--ghost-btn-bg);
+}
+
+.sheet-card-corner .sheet-head .atlas-menu {
+  display: inline-flex;
 }
 
 /* The composer along the foot, and the one thing it needs that the form did
@@ -1992,6 +2078,11 @@ summary > .ph-lead,
 .atlas-head-line {
   font-size: var(--text-sm);
   font-weight: 400;
+  /* One line whatever the copy (INBOX 270 part 4): a wrapped subtitle is what
+     made this head two rows tall. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* **On a phone the head keeps its one line** (INBOX 270). With the '?' beside
@@ -2014,6 +2105,10 @@ summary > .ph-lead,
    every other pair of icons in the app. */
 .sheet-card-corner .sheet-title {
   flex: 1 1 auto;
+  /* `.card h2`'s bottom margin reached this title through the sheet recipe and
+     added 12.8px under a row whose controls are centred on it, so the head
+     was taller than its content and the name sat above the icons' line. */
+  margin: 0;
 }
 
 /* The line that offers Atlas a question, under a help popover and in an empty

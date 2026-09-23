@@ -3604,7 +3604,14 @@ const GUIDE_TITLE = `${GUIDE_NAME} guide`;
 //: the '?' popover, the empty state and the composer's own hint all carry
 //: too. What it says instead is where the answers come from, which is the
 //: fact that makes the panel worth opening.
-const GUIDE_LINE = "How this app works, from its own help text";
+//:
+//: **One line, and it has to fit on one** (INBOX 270 part 4). The previous
+//: wording was 41 characters in a 251px column at `--text-sm` and wrapped at
+//: 1440 and 1024 both, leaving "text" alone on a second line and the head
+//: 63px tall against the agent activity panel's 37. Thirty characters says
+//: the same thing and fits with room to spare; the CSS still ellipsises it,
+//: so a longer translation cannot put the second line back.
+const GUIDE_LINE = "Answers from the app's own help";
 //: The persona hint's "(Atlas)" follows the name too.
 {
   const hint = document.getElementById("persona-placeholder-hint");

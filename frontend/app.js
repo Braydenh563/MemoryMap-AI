@@ -27145,8 +27145,11 @@ function reminderItem(reminder, label) {
       loadReminders();
     })
   );
-  actions.appendChild(
-    smallButton("ph:x", "Delete this reminder", async () => {
+  //: Delete joins the row's other connections in one menu (INBOX 393, the
+  //: integration vocabulary every object already speaks: its note, Atlas,
+  //: copy). The two snoozes and Edit stay on the row, being what a reminder
+  //: is touched for; four same-sized icons were one more than a row reads.
+  const deleteReminder = async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
       // Deleting a reminder is as undo-able as binning a note. There's no
@@ -27178,8 +27181,24 @@ function reminderItem(reminder, label) {
         await recreate().catch((e) => toast(e.message, true));
         toast("Reminder restored.");
       });
-    })
+    };
+  const menuItems = [];
+  if (reminder.entry_id) {
+    menuItems.push({ label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" });
+  }
+  menuItems.push(
+    { label: "ph:sparkle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
+    {
+      label: "ph:copy Copy text",
+      run: async () => {
+        await navigator.clipboard.writeText(reminder.text);
+        toast("Copied.");
+      },
+      group: "go",
+    },
+    { label: "ph:trash Delete", run: deleteReminder, group: "remove", danger: true }
   );
+  actions.appendChild(kebabMenu(menuItems, `Actions for the reminder “${reminder.text}”`));
   row.appendChild(actions);
   li.appendChild(row);
 

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Reminders: a reminder's row keeps its two snoozes and Edit, and gains a menu with Open its note, Ask Atlas about this, Copy text and Delete (still undoable), in place of a fourth icon.
 - With glass on, the status bar is glass like the top bar instead of an opaque strip.
 - Lock screen: a real title, the password field at body size and the Unlock button as wide as the field.
 - Notifications: the panel is wide enough for its activity picker, and in the flat looks an unread row is marked with a dot instead of a coloured left edge; the palette no longer paints a hovered row like the chosen one.

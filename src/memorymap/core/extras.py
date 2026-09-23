@@ -35,6 +35,7 @@ import re
 import shutil
 import subprocess  # noqa: S404  # fixed args, no shell; see _install below
 import sys
+import sysconfig
 import tempfile
 import threading
 import time
@@ -137,6 +138,63 @@ def find_system_python() -> str | None:
     if not getattr(sys, "frozen", False):
         return sys.executable
     return shutil.which("python") or shutil.which("python3")
+
+
+def frozen_extras_dir() -> Path | None:
+    """Where a packaged (frozen) build keeps the extras it installs, or
+    `None` outside one.
+
+    **Why a packaged build needs its own folder.** `find_system_python`
+    lets pip run, but pip then installs into *that* Python's site-packages,
+    which a PyInstaller build never looks in: its `sys.path` is its own
+    bundle. So on the Windows installer every extra "installed" and none
+    ever imported (owner's packaged-app log: `ModuleNotFoundError: No module
+    named 'sentence_transformers'` after the auto-install had run). The
+    folder sits in the data directory, beside the notes, and is named for
+    the bundled interpreter's version, because a compiled wheel is only
+    good for the Python it was built for.
+    """
+    if not getattr(sys, "frozen", False):
+        return None
+    from memorymap.core.config import ConfigManager
+
+    tag = f"cp{sys.version_info.major}{sys.version_info.minor}"
+    return ConfigManager().data_dir / "python-extras" / tag
+
+
+def activate_frozen_extras() -> None:
+    """Put `frozen_extras_dir()` on `sys.path`, last, so the bundle's own
+    copy of a shared library (numpy, say) still wins over the one an extra
+    pulled in. Called at start-up and again when an install finishes, so a
+    new extra is importable without a restart."""
+    target = frozen_extras_dir()
+    if target is None:
+        return
+    target.mkdir(parents=True, exist_ok=True)
+    if str(target) not in sys.path:
+        sys.path.append(str(target))
+    importlib.invalidate_caches()
+
+
+def _frozen_target_args() -> list[str]:
+    """pip's arguments for installing into `frozen_extras_dir()`: binary
+    wheels built for the *bundled* interpreter and platform, whatever
+    version the system Python that runs pip happens to be. `--only-binary`
+    is what pip requires before it will honour `--python-version`, and it is
+    right here anyway: a packaged build has no compiler to build a source
+    distribution with."""
+    target = frozen_extras_dir()
+    if target is None:
+        return []
+    platform = sysconfig.get_platform().replace("-", "_").replace(".", "_")
+    return [
+        "--target", str(target),
+        "--upgrade",
+        "--only-binary=:all:",
+        "--implementation", "cp",
+        "--python-version", f"{sys.version_info.major}.{sys.version_info.minor}",
+        "--platform", platform,
+    ]
 
 
 def _pip_base_command() -> list[str] | None:
@@ -553,6 +611,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             # helps nobody. `--no-cache-dir` for the same reason: a corrupt
             # cached wheel would otherwise be reinstalled faithfully.
             *(["--force-reinstall", "--no-cache-dir"] if reinstall else []),
+            *_frozen_target_args(),
             *extra.packages,
             *constraint,
         ]
@@ -591,6 +650,8 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             _state.step = f"{extra.label} installed: restart MemoryMap to use it. {binary_message}"
         else:
             _state.step = f"{extra.label} installed: restart MemoryMap to use it."
+        if code == 0:
+            activate_frozen_extras()
     except (OSError, subprocess.SubprocessError):
         # See `_run_uninstall`'s except block: same CodeQL
         # `py/stack-trace-exposure` shape, same fix: full detail to the log,
@@ -732,3 +793,24 @@ def reset_for_tests() -> None:
     one test's install leaks into the next one's assertions."""
     global _state
     _state = InstallState()
+
+
+def install_blocking(extra_ids: list[str]) -> int:
+    """Install each extra in turn and wait: the packaged installer's
+    optional-packages page runs `MemoryMap AI.exe --install-extras ...`
+    (installer.iss), so the wizard and Settings -> Packages are one code
+    path rather than a PowerShell copy that installed somewhere the app
+    could not import from. Returns the number that failed."""
+    failed = 0
+    for extra_id in extra_ids:
+        started, message = start(extra_id)
+        if not started:
+            _logger.warning("extra %s not installed: %s", extra_id, message)
+            failed += 1
+            continue
+        while current().running:
+            time.sleep(0.5)
+        if current().outcome != "completed":
+            _logger.warning("extra %s failed: %s", extra_id, current().step)
+            failed += 1
+    return failed

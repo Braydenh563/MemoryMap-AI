@@ -9361,20 +9361,13 @@ function renderEditForm(li, entry) {
   //: document to set the strip button's pressed state: measured, the button
   //: opened with no state and no title until the first click without this.
   //:
-  //: **`mountGutterFor` may be a stand-in** (`LAZY_ENTRY_POINTS`): before the
-  //: Library bundle has loaded it returns a promise that loads documents.js
-  //: first, and `applyDocGutter` does not exist until then. Calling it by name
-  //: here threw a ReferenceError in the middle of `renderEntries`, which left
-  //: the list half drawn: the owner's "the first time I try editing a note
-  //: after a restart, the notes page goes blank". So wait for the mount,
-  //: then look the function up.
-  if (typeof mountGutterFor === "function") {
-    Promise.resolve(mountGutterFor(textarea)).then(() => {
-      requestAnimationFrame(() => {
-        if (typeof applyDocGutter === "function") applyDocGutter();
-      });
-    });
-  }
+  //: **Both are lazy entry points** (`LAZY_ENTRY_POINTS`). `applyDocGutter`
+  //: was not, so before the Library bundle had loaded this line threw a
+  //: ReferenceError in the middle of `renderEntries` and left the list half
+  //: drawn: the owner's "the first time I try editing a note after a restart,
+  //: the notes page goes blank". The mount is awaited so the strip exists
+  //: when the pressed state is set.
+  Promise.resolve(mountGutterFor(textarea)).then(() => requestAnimationFrame(() => applyDocGutter()));
   renderEntryAttachmentChips(textarea, chipsHost);
   textarea.addEventListener("input", () => renderEntryAttachmentChips(textarea, chipsHost));
   renderRelatedWhileEditing(li, entry);
@@ -36811,7 +36804,19 @@ function renderSettings() {
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);
-  if (status.embedding_error) {
+  //: A missing optional package arrives as a sentence the backend wrote for
+  //: people ("Search by meaning is being installed..."), not an exception, so
+  //: it is shown as it is with the one alternative that needs no install: an
+  //: Ollama embedding model. Said even when Ollama is not running, because
+  //: the owner's report was exactly that case ("no nomic-embed-text
+  //: suggested") and the button below only exists while it is.
+  if (status.embedding_error && /^Search by meaning/.test(status.embedding_error)) {
+    embeddingError.textContent =
+      `${status.embedding_error}. ` +
+      (status.ollama_running
+        ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
+        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`);
+  } else if (status.embedding_error) {
     embeddingError.textContent =
       `Search engine problem: ${status.embedding_error}: semantic search is ` +
       "falling back to keywords. Quick fix: switch the search engine below to " +
@@ -39651,6 +39656,7 @@ const LAZY_ENTRY_POINTS = {
     "syncGraphPopupSave",
   ],
   library: [
+    "applyDocGutter",
     "applyMarkdown",
     "closeBinnedReader",
     "closeDocAiPanel",

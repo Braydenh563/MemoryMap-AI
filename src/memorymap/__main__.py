@@ -450,6 +450,25 @@ def _wait_for_server(timeout: float = 20.0) -> bool:
     return False
 
 
+def _close_bootloader_splash() -> None:
+    """Take down the packaged exe's bootloader splash (memorymap.spec's
+    `Splash`), if this is a packaged build that has one.
+
+    `pyi_splash` exists only inside a PyInstaller build made with a splash,
+    so its absence is the normal case everywhere else, not an error. Closed
+    once the app window is shown rather than when it is created: between the
+    two there is nothing on screen, which is the gap the splash is for.
+    """
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    try:
+        pyi_splash.close()
+    except Exception as exc:  # noqa: BLE001  # a splash that won't close must not stop the app
+        logger.debug("couldn't close the bootloader splash: %s", exc)
+
+
 def _close_launch_splash() -> None:
     """Take down start.bat's pre-Python splash, if there is one.
 
@@ -616,19 +635,15 @@ def _boot_and_swap(window) -> None:
         # navigation only, but it is the difference between a launch that
         # ends on a finished list and one that ends on four of five.
         #
-        # A quarter-second hold was tried here first on source builds to make
-        # this window's list visible, and was removed because the list a person
-        # actually watches finish is the launcher's splash (`scripts/splash.ps1`);
-        # by the time this page shows anything, the app is what they are waiting for.
-        #
-        # BUT: A packaged/frozen build has no launcher splash! It boots so fast
-        # that the window flashes a white screen for 100ms and swaps, which looks
-        # broken ("Still no splash on the windows exe packaged application"). For
-        # packaged builds only, we guarantee a short minimum display time so the
-        # user actually sees the logo and knows the app is starting.
+        # Ticked, then swapped immediately. A quarter-second hold was tried
+        # here first and the owner asked for it back ("remove the delay on the
+        # other splash loading screen in the main window"): the list a person
+        # watches finish is the launcher's splash (`scripts/splash.ps1`), or on
+        # a packaged build the bootloader's (`_close_bootloader_splash`). A
+        # later pass added a 1.5s sleep here for packaged builds; it only made
+        # every launch 1.5s slower, and the missing splash it was aimed at is
+        # the pre-Python one, which this page cannot be.
         _mark_start_step_done(window)
-        if getattr(sys, "frozen", False):
-            time.sleep(1.5)
         window.load_url(f"http://{HOST}:{PORT}")
         _focus_window(window)
     else:
@@ -1196,6 +1211,10 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     # returned, so this window is the one the user is about to be looking at;
     # the splash's job is over the moment it is.
     _close_launch_splash()
+    try:
+        window.events.shown += _close_bootloader_splash
+    except AttributeError:  # an older pywebview without window events
+        _close_bootloader_splash()
     # `private_mode` defaults to True in pywebview, which throws away
     # localStorage and cookies when the window closes. The browser build keeps
     # a great deal in localStorage, the theme and every appearance key, the
@@ -1861,16 +1880,32 @@ def main() -> None:
     # relaunch itself again. Not something a person should ever type, hence
     # SUPPRESS rather than a documented flag.
     parser.add_argument("--hidden-relaunch", action="store_true", help=argparse.SUPPRESS)
+    # Internal: the Windows installer's optional-packages page (installer.iss)
+    # runs this after copying the app, with the ids the person ticked.
+    parser.add_argument("--install-extras", metavar="IDS", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    from memorymap.core import extras
+
+    extras.activate_frozen_extras()
+    if args.install_extras:
+        _close_bootloader_splash()
+        ids = [part.strip() for part in args.install_extras.split(",") if part.strip()]
+        raise SystemExit(1 if extras.install_blocking(ids) else 0)
+    # Only the desktop window takes the bootloader splash down when it shows;
+    # every other mode of a packaged build closes it here, or it would stay on
+    # screen for as long as the process runs.
     if args.export:
+        _close_bootloader_splash()
         raise SystemExit(_export_markdown(args.export))
     if args.reset_password:
+        _close_bootloader_splash()
         raise SystemExit(_reset_password())
     if args.reinstall:
         _repair_install()
     if args.desktop:
         _run_desktop(hidden_relaunch=args.hidden_relaunch)
     else:
+        _close_bootloader_splash()
         _run_server()
 
 

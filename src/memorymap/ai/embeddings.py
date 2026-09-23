@@ -619,9 +619,26 @@ class EmbeddingService:
             # No semantic features right now; the rest of the app must
             # keep working: but record and LOG why, or a broken install
             # looks like it's "warming up" forever (user-reported bug).
-            self.last_error = f"{type(exc).__name__}: {exc}"
             self._load_failed_at = time.monotonic()
             self._maybe_auto_install_missing_package(exc)
+            if isinstance(exc, ModuleNotFoundError) and "sentence_transformers" in str(exc):
+                #: **Not installed is a state, not a crash** (owner's packaged-app
+                #: log: a full traceback for `No module named
+                #: 'sentence_transformers'`). The package is optional and the
+                #: line above has already started installing it, so the log
+                #: gets one sentence and Settings gets a reason a person can act
+                #: on, rather than a Python exception name.
+                from memorymap.core import extras
+
+                installing = extras.current().running
+                self.last_error = (
+                    "Search by meaning is being installed; search uses keywords until it finishes"
+                    if installing
+                    else "Search by meaning is not installed; search uses keywords"
+                )
+                logger.warning("sentence-transformers is not installed (%s)", self.last_error)
+                return None
+            self.last_error = f"{type(exc).__name__}: {exc}"
             logger.exception("embedding backend failed")
             return None
 

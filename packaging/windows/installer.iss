@@ -71,7 +71,6 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Source: "..\..\dist\MemoryMap AI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; The post-install script for optional packages. Placed in {app} so it is
 ; available alongside the installed app, and uninstalled with it.
-Source: "install-extras.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; --desktop: the installed app always opens in its own window, never the
@@ -91,12 +90,12 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameter
 Name: "{autoprograms}\{#MyAppName}\Repair {#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop --reinstall"; IconFilename: "{app}\{#MyAppExeName}"
 
 [Run]
-; Install selected optional packages. Only runs when the user ticked at
-; least one checkbox on the custom wizard page; the Check function below
-; returns false when nothing was selected, skipping this step entirely.
-; -ExecutionPolicy Bypass is required because the user's machine may have a
-; restricted policy, and this script is part of our own installer.
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\install-extras.ps1"" -Packages ""{code:GetSelectedExtras}"""; StatusMsg: "Installing optional packages..."; Flags: runhidden; Check: HasSelectedExtras
+; The optional packages ticked on the wizard page, installed by the app
+; itself (`--install-extras`, core/extras.py `install_blocking`): the same
+; code Settings > Packages runs, which installs where a packaged build can
+; import from. As the person who ran the installer, not the elevated
+; account, because the packages go in their data folder.
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-extras {code:GetSelectedExtras}"; StatusMsg: "Installing the optional packages you picked..."; Flags: runhidden waituntilterminated runasoriginaluser; Check: HasSelectedExtras
 ; Launch the app after installation (existing behaviour).
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch {#MyAppName} now"; Flags: nowait postinstall skipifsilent
 
@@ -110,8 +109,9 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch
 [Code]
 { Custom wizard page: optional package selection.
 
-  Three checkboxes, all unchecked by default (these are large downloads and
-  the app works without them). The page appears between the Task selection
+  Three checkboxes. Search by meaning starts ticked, because it is the
+  default search engine and the app would otherwise install it on first
+  use anyway; the other two start unticked. The page appears between the Task selection
   page and the Ready to Install page, matching the Inno Setup wizard flow.
 
   The IDs match core/extras.py's EXTRAS allowlist, so the same packages are
@@ -130,9 +130,9 @@ var
 begin
   ExtrasPage := CreateCustomPage(
     wpSelectTasks,
-    'Optional Packages',
-    'Select optional features to install. These require Python on your PATH.'
-    + #13#10 + 'You can also install them later from Settings > Packages.'
+    'Optional packages',
+    'Pick the extra features to download now. This needs Python on your PATH.'
+    + #13#10 + 'You can add or remove them later in Settings > Packages.'
   );
 
   Y := 8;
@@ -154,8 +154,7 @@ begin
   ChkSemantic.Left := 0;
   ChkSemantic.Top := Y;
   ChkSemantic.Width := ExtrasPage.SurfaceWidth;
-  ChkSemantic.Caption := 'Search by meaning (sentence-transformers) — ~2 GB'
-    + ' [Recommended]';
+  ChkSemantic.Caption := 'Search by meaning (about 2 GB, recommended)';
   ChkSemantic.Checked := True;
   Y := Y + 24;
 
@@ -175,7 +174,7 @@ begin
   ChkVoice.Left := 0;
   ChkVoice.Top := Y;
   ChkVoice.Width := ExtrasPage.SurfaceWidth;
-  ChkVoice.Caption := 'Voice notes (faster-whisper) — ~50 MB';
+  ChkVoice.Caption := 'Voice notes (about 50 MB)';
   ChkVoice.Checked := False;
   Y := Y + 24;
 
@@ -194,7 +193,7 @@ begin
   ChkDocuments.Left := 0;
   ChkDocuments.Top := Y;
   ChkDocuments.Width := ExtrasPage.SurfaceWidth;
-  ChkDocuments.Caption := 'Import documents (markitdown) — ~20 MB';
+  ChkDocuments.Caption := 'Import documents (about 20 MB)';
   ChkDocuments.Checked := False;
   Y := Y + 24;
 
@@ -208,18 +207,18 @@ begin
 end;
 
 function GetSelectedExtras(Param: String): String;
-{ Returns a comma-separated list of package names for the selected extras.
+{ Returns a comma-separated list of core/extras.py ids for the ticked boxes.
   Called from the [Run] section's {code:GetSelectedExtras} reference. }
 var
   Packages: String;
 begin
   Packages := '';
   if ChkSemantic.Checked then
-    Packages := Packages + 'sentence-transformers,';
+    Packages := Packages + 'semantic,';
   if ChkVoice.Checked then
-    Packages := Packages + 'faster-whisper,';
+    Packages := Packages + 'voice,';
   if ChkDocuments.Checked then
-    Packages := Packages + 'markitdown,';
+    Packages := Packages + 'documents,';
   { Strip trailing comma }
   if Length(Packages) > 0 then
     Packages := Copy(Packages, 1, Length(Packages) - 1);
@@ -227,8 +226,8 @@ begin
 end;
 
 function HasSelectedExtras: Boolean;
-{ Check function for the [Run] entry: only run install-extras.ps1 when
-  at least one checkbox was ticked. }
+{ Check function for the [Run] entry: only run the install when at least
+  one box was ticked. }
 begin
   Result := (GetSelectedExtras('') <> '');
 end;

@@ -629,3 +629,53 @@ def test_the_word_export_501_points_at_the_settings_button(client):
     assert response.status_code == 501
     detail = response.json()["detail"]
     assert "Settings" in detail and "extras" in detail.lower(), detail
+
+
+# --- a packaged (frozen) build installs where it can import from ------------------
+
+
+def test_a_frozen_build_installs_extras_into_its_own_folder(monkeypatch, tmp_path):
+    """Owner's packaged-app log: `No module named 'sentence_transformers'`
+    after an install that reported success. pip had installed into the system
+    Python's site-packages, which a PyInstaller build never reads. A frozen
+    build targets a folder in the data directory instead, with wheels for its
+    own interpreter, and puts that folder on `sys.path`."""
+    import sys
+
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    target = extras.frozen_extras_dir()
+    assert target == (tmp_path / "python-extras" / f"cp{sys.version_info.major}{sys.version_info.minor}").resolve()
+
+    args = extras._frozen_target_args()
+    assert args[args.index("--target") + 1] == str(target)
+    assert "--only-binary=:all:" in args
+    assert args[args.index("--python-version") + 1] == f"{sys.version_info.major}.{sys.version_info.minor}"
+
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    extras.activate_frozen_extras()
+    assert sys.path[-1] == str(target)
+    extras.activate_frozen_extras()
+    assert sys.path.count(str(target)) == 1
+
+
+def test_a_source_install_is_untouched(monkeypatch):
+    import sys
+
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    assert extras.frozen_extras_dir() is None
+    assert extras._frozen_target_args() == []
+
+
+def test_the_installer_page_runs_the_apps_own_installer():
+    """The wizard's optional-packages page and Settings > Packages are one
+    code path: installer.iss calls the exe with extras ids, never a separate
+    script that installs somewhere else."""
+    from pathlib import Path
+
+    iss = (Path(__file__).resolve().parents[1] / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
+    assert "--install-extras {code:GetSelectedExtras}" in iss
+    assert "install-extras.ps1" not in iss
+    for extra_id in ("semantic", "voice", "documents"):
+        assert f"'{extra_id},'" in iss
+        assert extra_id in extras.EXTRAS_BY_ID

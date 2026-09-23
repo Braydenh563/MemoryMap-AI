@@ -32,3 +32,17 @@ def test_every_searxng_facade_module_is_a_hidden_import():
             "__getattr__ and must be listed in the spec's hiddenimports, "
             "or a frozen build can't import it"
         )
+
+
+def test_the_packaged_exe_shows_a_splash_before_python_starts():
+    """Owner: "still no splash on the windows exe packaged application". The
+    bootloader draws it (PyInstaller's Splash), and __main__ closes it when
+    the window is shown; a sleep in the in-window page was the wrong fix."""
+    text = SPEC_PATH.read_text(encoding="utf-8")
+    assert "splash = Splash(" in text
+    assert "    splash,\n    a.scripts," in text
+    assert "splash.binaries," in text
+    assert (SPEC_PATH.parent / "splash.png").is_file()
+    main = (SPEC_PATH.parents[2] / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8")
+    assert "window.events.shown += _close_bootloader_splash" in main
+    assert "time.sleep(1.5)" not in main

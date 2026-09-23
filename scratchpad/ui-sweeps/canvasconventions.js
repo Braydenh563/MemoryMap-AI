@@ -560,7 +560,7 @@ const near = (a, b, tol = 1.5) => a != null && b != null && Math.abs(a - b) <= t
     if (lineAt) await page.mouse.dblclick(lineAt.x, lineAt.y);
     await wait(700);
     const prompt = await page.evaluate(() => {
-      const d = [...document.querySelectorAll("dialog[open], .modal:not(.hidden), .prompt-dialog:not(.hidden)")]
+      const d = [...document.querySelectorAll(".prompt-card, dialog[open]")]
         .find((el) => el.getBoundingClientRect().width > 0);
       return d ? (d.textContent || "").trim().slice(0, 80) : null;
     });

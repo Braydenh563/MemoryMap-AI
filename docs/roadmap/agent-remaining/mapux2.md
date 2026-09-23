@@ -12,7 +12,7 @@
 
 Port 8795, data dir `/tmp/mm-agentM`. Sweep:
 `scratchpad/ui-sweeps/canvasconventions.js` (board and map, every check a
-number). Baseline on the branch head: 20/47.
+number). Baseline on the branch head: 20/47; now 48/48.
 
 Left, in order (struck when built):
 
@@ -22,9 +22,9 @@ Left, in order (struck when built):
 - ~~Shift-drag keeps to one axis; Alt-drag leaves a copy behind.~~ Built.
 - ~~Arrow nudges: one undo step per burst (and the race that dropped presses).~~ Built.
 - ~~Ctrl+D and copy/paste of several items, paste at the pointer.~~ Built.
-- Board canvas: right-click menu, double-click adds a text box.
-- Keyboard zoom: Ctrl+0, Shift+1, Ctrl+= and Ctrl+-.
-- Map: double-click a branch line asks for its label (it made a topic).
+- ~~Board canvas: right-click menu, double-click adds a text box.~~ Built.
+- ~~Keyboard zoom: Ctrl+0, Shift+1, Ctrl+= and Ctrl+-.~~ Built.
+- ~~Map: double-click a branch line asks for its label (it made a topic).~~ Built.
 - Found on the way and fixed: a click on a shape's grip deselected it;
   Ctrl+Shift+G ungrouped and also switched to Chat (agent mode).
 - Job B: View menu 714px, the hint strip, discoverability, the 44px ticks.

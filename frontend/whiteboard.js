@@ -8139,6 +8139,18 @@ function wbWireMapEdgeGestures(hit, childId) {
   //: for itself, plus the one thing the hand-rolled version could not do,
   //: swallowing the click the lift synthesises.
   wireLongPress(hit, (event, point) => wbOpenMapLinkRadial(childId, point.x, point.y));
+  //: **Double-click a line to say what it means** (the conventions pass:
+  //: Miro, tldraw and XMind all label a connector this way). The label
+  //: itself already answered a double-click; a line with no label yet had
+  //: only the ring's middle slot, and a double-click on it made a new trunk
+  //: on top of it. The bend grip is part of this group and keeps its own
+  //: double-click (straighten), which stops here first.
+  hit.addEventListener("dblclick", (event) => {
+    if (event.target.closest?.(".wb-map-edge-handle, .wb-map-edge-label")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    wbMapLabelEdge(childId);
+  });
 }
 
 function wbOpenMapLinkRadial(childId, clientX, clientY) {
@@ -13385,6 +13397,37 @@ async function initWhiteboard() {
       wbPasteClipboard();
       return;
     }
+    //: **The camera from the keyboard** (the conventions pass: Figma, Miro,
+    //: tldraw and Excalidraw share these). Ctrl+0 is 100%, Ctrl+= and Ctrl+-
+    //: step in and out by the zoom buttons' own factors, Shift+1 fits the
+    //: board. Ctrl+0 and Ctrl+= are also the browser's page zoom; on a board
+    //: the board's zoom is the one people mean, so they are taken here and
+    //: left to the browser everywhere else. `e.code` for the digits and the
+    //: plus key, because Shift+1 arrives as "!" and Ctrl+= as "+" or "="
+    //: depending on the layout.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      const camera = d3.select(document.getElementById("whiteboard-container"));
+      if (e.code === "Digit0" || e.code === "Numpad0") {
+        e.preventDefault();
+        camera.transition().duration(160).call(wbZoom.scaleTo, 1);
+        return;
+      }
+      if (e.code === "Equal" || e.code === "NumpadAdd") {
+        e.preventDefault();
+        camera.transition().duration(160).call(wbZoom.scaleBy, 1.2);
+        return;
+      }
+      if (e.code === "Minus" || e.code === "NumpadSubtract") {
+        e.preventDefault();
+        camera.transition().duration(160).call(wbZoom.scaleBy, 0.8);
+        return;
+      }
+    }
+    if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && e.code === "Digit1") {
+      e.preventDefault();
+      wbZoomToFit();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbUngroupSelection();
@@ -13755,12 +13798,25 @@ async function initWhiteboard() {
   //: Neither adds a resting affordance to the canvas (§13's decision 5); both
   //: are the app's own recipes, `openMenuAtPoint` for the menu and the map's
   //: own create for the topic.
+  //:
+  //: **A board answers the double-click too** (the conventions pass,
+  //: 2026-09-23): a text box where you pressed, ready to type, which is what
+  //: Excalidraw and tldraw do on bare canvas. Measured doing nothing before.
+  //: A sticky is one key away (N) and in the canvas menu below; the text box
+  //: is the plainer of the two, and the one both of those apps make.
+  //:
+  //: A branch line is not bare canvas here, whatever `wbIsEmptyCanvasTarget`
+  //: says for a marquee: a double-click on a line asks for its label (see
+  //: `wbWireMapEdgeGestures`), and it used to fall through to this and make a
+  //: new trunk on top of the line.
   containerEl.addEventListener("dblclick", (e) => {
-    if (!wbIsMap() || window.currentTool !== "select") return;
+    if (window.currentTool !== "select") return;
     if (!wbIsEmptyCanvasTarget(e.target) || wbIsEditingTarget(e.target)) return;
+    if (e.target.closest?.(".wb-map-edge-group, .sketch-group")) return;
     e.preventDefault();
     const [x, y] = getLogicalMouse(e);
-    wbMapAddRootAt(x, y);
+    if (wbIsMap()) wbMapAddRootAt(x, y);
+    else wbCreateTextBox(x, y);
   });
 
   //: One builder for the canvas menu, because the right-click and the hold
@@ -13787,21 +13843,51 @@ async function initWhiteboard() {
     openMenuAtPoint(items, "This map", clientX, clientY);
   };
 
-  const wbMapCanvasMenuWanted = (target) =>
-    wbIsMap() && wbIsEmptyCanvasTarget(target) && !wbIsEditingTarget(target);
+  //: **And a board's canvas has its own menu** (the conventions pass): the
+  //: browser's page menu is what a right-click on bare board canvas used to
+  //: open, where Figma, Miro and tldraw all give paste, select all and the
+  //: zoom. Each row names its key, so the menu is also where the keys are
+  //: learnt.
+  const openBoardCanvasMenu = (clientX, clientY) => {
+    const [x, y] = getLogicalMouse({ clientX, clientY });
+    const camera = d3.select(containerEl);
+    const items = [];
+    if (wbClipboard) {
+      const count = wbClipboard.items.length;
+      items.push(makeMenuItem(
+        count > 1 ? `ph:clipboard-text Paste ${count} items here` : "ph:clipboard-text Paste here",
+        "Ctrl+V pastes at the pointer", () => wbPasteClipboard([x, y])
+      ));
+    }
+    items.push(
+      makeMenuItem("ph:text-t Add a text box here", "Or double-click the canvas", () => wbCreateTextBox(x, y)),
+      makeMenuItem("ph:note Add a sticky note here", "N", () => wbCreateSticky(x, y)),
+      makeMenuItem("ph:selection-all Select all", "Ctrl+A", () => wbSelectAllItems()),
+      makeMenuItem("ph:magnifying-glass Zoom to 100%", "Ctrl+0", () => camera.transition().duration(160).call(wbZoom.scaleTo, 1)),
+      makeMenuItem("ph:frame-corners Fit everything", "Shift+1", () => wbZoomToFit()),
+    );
+    openMenuAtPoint(items, "This board", clientX, clientY);
+  };
+
+  const wbCanvasMenuWanted = (target) =>
+    wbIsEmptyCanvasTarget(target) && !wbIsEditingTarget(target)
+    && !target.closest?.(".wb-map-edge-group, .sketch-group");
+  const openCanvasMenu = (clientX, clientY) => (wbIsMap()
+    ? openMapCanvasMenu(clientX, clientY)
+    : openBoardCanvasMenu(clientX, clientY));
 
   containerEl.addEventListener("contextmenu", (e) => {
     //: A topic and a line have rings of their own, and both stop the event
     //: before it reaches here; this is the canvas itself, which had nothing.
-    if (!wbMapCanvasMenuWanted(e.target)) return;
+    if (!wbCanvasMenuWanted(e.target)) return;
     e.preventDefault();
-    openMapCanvasMenu(e.clientX, e.clientY);
+    openCanvasMenu(e.clientX, e.clientY);
   });
 
   //: The same menu from a hold, which is the right-click a phone has.
   wireLongPress(containerEl, (event, point) => {
-    if (!wbMapCanvasMenuWanted(event.target)) return;
-    openMapCanvasMenu(point.x, point.y);
+    if (!wbCanvasMenuWanted(event.target)) return;
+    openCanvasMenu(point.x, point.y);
   });
 
   //: Where a keyboard paste lands (`wbPointerOnBoard`).

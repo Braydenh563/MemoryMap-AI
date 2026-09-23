@@ -7365,10 +7365,11 @@
               </div>
               <div class="help-body hidden" id="reindex-help" role="dialog" aria-label="About the search index">
                 <p>
-                  Rebuilds what semantic search matches on. Worth doing
-                  after an update, or if searching stops finding notes you
-                  know are there, it re-reads every note with its category,
-                  tags and attached text included.
+                  Rebuilds both halves of search: the word index that finds
+                  exact words, and what semantic search matches on. Worth
+                  doing after an update or a restore, or if searching stops
+                  finding notes you know are there. It re-reads every note
+                  with its category, tags and attached text included.
                 </p>
               </div>
               <progress id="reindex-progress" class="hidden" value="0" max="1"></progress>
@@ -7379,7 +7380,7 @@
                    day you import a vault is one that means something. -->
               <p id="reindex-stale" class="status notice notice-warn reindex-stale hidden" role="status"></p>
               <div class="row space-between reindex-action">
-                <p id="reindex-blurb" class="muted text-sm">Rebuilds what semantic search matches on.</p>
+                <p id="reindex-blurb" class="muted text-sm">Rebuilds the word index and what semantic search matches on.</p>
                 <button id="reindex-start" class="ghost small" type="button">Rebuild search index</button>
               </div>
             </div>

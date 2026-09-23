@@ -347,15 +347,29 @@ def forget(session: Session, model: type, ids: Iterable[int]) -> int:
     return removed
 
 
+#: When the index was last rebuilt from scratch in this process, and with how
+#: many rows per kind, for `/search/stats`. None until the first rebuild: a
+#: notebook whose index has only ever been kept up by the flush hook has no
+#: "last rebuilt" to report, and inventing one would say it was checked.
+_last_rebuild: dict | None = None
+
+
+def last_rebuild() -> dict | None:
+    return dict(_last_rebuild) if _last_rebuild else None
+
+
 def rebuild(session: Session, only: str | None = None) -> dict[str, int]:
     """Index everything from scratch. Returns rows written per kind.
 
-    The one caller is a database that has never had the table (a notebook from
+    Two callers. A database that has never had the table (a notebook from
     before this existed): `DatabaseManager` runs it once at startup when
-    `ensure_table` reports it created the table. On a large notebook this is
-    work for the job runtime (Brief 9), never for a request, which is why
-    nothing routes to it.
+    `ensure_table` reports it created the table. And the re-index job
+    (`model_manager._run_reindex`, behind Settings' "Rebuild search index"),
+    which is the way to ask for one after a restore, an import or a bug; it
+    was the one thing that could not be asked for (the `search-reindex-job`
+    row). Never a request's own work: on a large notebook it is a job.
     """
+    global _last_rebuild
     if _table_missing(session):
         return {}
     connection = session.connection()
@@ -370,6 +384,8 @@ def rebuild(session: Session, only: str | None = None) -> dict[str, int]:
         for ref_id, row in source.scan(session):
             _write(connection, source, ref_id, row)
             written[source.kind] += 1
+    if not only:
+        _last_rebuild = {"at": datetime.now().astimezone().isoformat(timespec="seconds"), "rows": dict(written)}
     return written
 
 

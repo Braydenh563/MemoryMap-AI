@@ -910,12 +910,16 @@ being written by running agents stay beside this one.
   query carries an operator the client parser does not know, and render the
   returned order; then the Library, then the command palette. One surface per
   commit, each with a sweep. [brief11-retrieval-engine.md]
-- **No FTS index rebuild job.** `file: src/memorymap/search/index.py`, `id:
-  search-reindex-job`. `rebuild()` runs once, at the startup that first
-  creates the table; there is no way to ask for a rebuild after a restore, an
-  import or a bug. Next step: a `reindex` job kind once Brief 9's runtime
-  lands, with `/search/stats` showing the row counts it is working towards. Do
-  not add a route that rebuilds inline. [brief11-retrieval-engine.md]
+- ~~**No FTS index rebuild job.**~~ **Done 2026-09-23**, in the job that
+  already existed rather than a new kind: `model_manager._run_reindex`, behind
+  Settings' "Rebuild search index", now rebuilds the keyword index first (the
+  fast half, and the one search answers from while vectors are redone), and
+  `/search/stats` carries `last_rebuild: {at, rows}` beside the live `index`
+  counts so a drift reads as two numbers. No route rebuilds inline.
+  `tests/test_models_api.py::test_a_rebuild_also_rebuilds_the_keyword_index`
+  drifts the index both ways (a note's row gone, a ghost row added) and finds
+  it whole after. The Settings copy says both halves now.
+  [brief11-retrieval-engine.md]
 - ~~**A bulk write can leave the index stale.**~~ **Done 2026-09-23**, and
   it was worse than stale. Grepped over the six indexed models: two bulk
   paths, both deletes. Emptying the bin (`manager._hard_delete`) left every

@@ -9,6 +9,7 @@ saved preferences and falls back to the defaults.
 
 from __future__ import annotations
 
+import logging
 import re
 import threading
 import time
@@ -790,6 +791,21 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
     started = time.monotonic()
     session = db.session()
     try:
+        # The keyword index first: it is the fast half (no model call per
+        # note), it is what search answers from while the vectors below are
+        # being redone, and until this it could not be rebuilt at all short of
+        # deleting its table. A failure here is logged and the re-embed still
+        # runs, because half a rebuild is better than none.
+        from memorymap.search import index as search_index
+
+        try:
+            search_index.rebuild(session)
+            session.commit()
+        except Exception:  # noqa: BLE001  # see above
+            session.rollback()
+            logging.getLogger("memorymap.search").warning(
+                "keyword index rebuild failed", exc_info=True
+            )
         entries = list(
             session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
         )

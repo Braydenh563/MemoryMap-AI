@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- "Rebuild search index" in Settings, Models rebuilds the word index as well
+  as the semantic one. The word index was built once, when its table was
+  first made, and could not be rebuilt after a restore, an import or a fault;
+  `/search/stats` now also says when it was last rebuilt and with how many
+  rows.
 - `has:image`, `has:link` and `has:reminder` work in Find anything. They were
   understood and matched nothing; now a picture attached or written into the
   text, a connection to another note, and a reminder on the note each answer,

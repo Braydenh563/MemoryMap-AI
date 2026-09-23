@@ -242,6 +242,42 @@ def test_a_rebuild_can_be_asked_for_directly(ai_client, fake_embeddings):
         session.close()
 
 
+def test_a_rebuild_also_rebuilds_the_keyword_index(ai_client, fake_embeddings):
+    """The keyword index (`search_index`) was built once, at the startup that
+    created its table, and never again: after a restore, an import or a bug
+    there was no way to ask for it. "Rebuild search index" now rebuilds both
+    halves of search, in the job it already ran, and `/search/stats` says
+    when and with how many rows."""
+    from sqlalchemy import text as sa_text
+
+    ai_client.post("/entries", json={"content": "the lighthouse keeper's log"})
+    session = deps.get_db().session()
+    try:
+        # A drifted index: one row taken out behind the flush hook's back,
+        # and one row for a note that does not exist.
+        session.execute(sa_text("DELETE FROM search_index WHERE kind = 'note'"))
+        from memorymap.search import index
+
+        ghost = index._rowid(index.source_for("notes"), 999999)
+        session.execute(
+            sa_text(
+                "INSERT INTO search_index(rowid, title, body, tags, kind, ref_id, source, "
+                "space, flags, written) VALUES (:rowid, 'ghost', 'ghost', '', 'note', 999999, "
+                "'notes', 'default', '', '')"
+            ),
+            {"rowid": ghost},
+        )
+        session.commit()
+    finally:
+        session.close()
+    assert ai_client.post("/models/reindex").status_code == 200
+    _wait_for(ai_client, lambda b: (b["reindex"] or {}).get("status") == "success")
+    stats = ai_client.get("/search/stats").json()
+    assert stats["index"]["note"] == 1
+    assert stats["last_rebuild"]["rows"]["note"] == 1
+    assert stats["last_rebuild"]["at"]
+
+
 def test_a_rebuild_does_not_change_which_backend_is_in_use(ai_client, fake_embeddings):
     """It re-embeds with the *current* backend. A rebuild that quietly moved
     the user to a different one would be a settings change wearing a

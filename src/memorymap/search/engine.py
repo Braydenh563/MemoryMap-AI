@@ -976,4 +976,7 @@ def stats(session: Session) -> dict:
         "vectors": len(matrix.ids) if matrix else 0,
         "vectors_warm": matrix is not None,
         "weights": dict(WEIGHTS),
+        #: `{at, rows}` from the last full rebuild in this process, or None.
+        #: Beside `index` so a drift is readable: rows now against rows then.
+        "last_rebuild": search_index.last_rebuild(),
     }

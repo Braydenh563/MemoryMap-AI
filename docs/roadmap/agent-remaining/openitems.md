@@ -44,5 +44,6 @@ Phase 8c, the templates preview, outline row height.
 - done b67b068: 2, the two re-filing paths set `auto`.
 - done 6ece5af: 3, `search_index.forget` on the purge and space-delete
   paths, plus the lint.
-- done (this commit): 4, `has:image`, `has:link`, `has:reminder`.
-- next: 5, FTS reindex as a job (search/index.py `rebuild`, /search/stats).
+- done 2d013e1: 4, `has:image`, `has:link`, `has:reminder`.
+- done (this commit): 5, the keyword index rebuilt by the re-index job.
+- next: 6, store `support` on a saved turn (routes_chat.py grounding event).

@@ -326,4 +326,4 @@ def caption_in_background(upload_id: int, image_path: Path) -> None:
     even more here than for `ocr.extract_in_background`, the upload is
     already done by the time this runs, and there is nothing about it that
     should make the person who just attached a photo wait."""
-    jobs.enqueue("caption", caption_and_store, upload_id, image_path, name=image_path.name)
+    jobs.enqueue("caption", caption_and_store, upload_id, image_path, name=image_path.name, dedupe_key=("caption", upload_id))

@@ -28,6 +28,10 @@ below). Versioning is `0.x` while the app stabilises.
 - On a mind map the bottom bar offers one Cross-link tool drawn in the map's
   own line style, instead of a generic straight and curved pair; a map
   line's label drags with the pointer and no longer starts a selection box.
+- A picture is described once and its text read once: repeat saves no
+  longer queue repeat jobs, Tesseract stands down when a vision model reads
+  the text, and a running caption shows as one row in Agent activity, not
+  two.
 - Panning and zooming the whiteboard and mind maps no longer re-styles every
   item on the board each frame (traced: 2.4 s of style work over a 50-step
   pan on a 60-topic map, now 29 ms; zoom 1.4 s to 18 ms). Worst frame at 50

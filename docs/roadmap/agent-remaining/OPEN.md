@@ -879,7 +879,13 @@ being written by running agents stay beside this one.
   backend's list lives with `resolve_persona_prompt`), keeping the id
   "Librarian" so stored preferences still resolve. Test in
   `tests/test_personas*`. [chrome2.md]
-- **"Advanced response settings" sits 20.8px right of its siblings.** It is
+- ~~**"Advanced response settings" sits 20.8px right of its siblings.**~~
+  **Done 2026-09-23, keeping the mark**: measured still 566.8 against the
+  other 54 headings' 546 at 1440. The chevron now hangs in the gutter (the
+  summary drops its start padding and the mark is positioned just left of
+  it), so the heading is at 547, 291 and 59 against the column's 546, 290 and
+  58 at 1440, 820 and 390, the mark inside the card at all three
+  (`scratchpad/ui-sweeps/oi-hangmark.js`, 3 of 3). The original row: It is
   inside a `<summary>` (`#sampling-box`, `frontend/index.html` ~line 5326) and
   the disclosure marker precedes it; 54 of the 55 Settings headings share one
   left edge at 546px. Fixing it means hiding the native marker, and hiding it

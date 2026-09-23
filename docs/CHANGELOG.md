@@ -37,6 +37,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- "Advanced response settings" in Settings, Models lines up with every other
+  heading. Its disclosure arrow pushed it 20.8px to the right; the arrow now
+  hangs in the margin beside the heading instead of being removed.
 - On a phone, the '?' beside "Tools this skill may use" in Settings, Skills
   can be pressed again. The fold's heading wrapped onto two lines inside a
   box pinned to one line's height, which left the '?' outside the box it

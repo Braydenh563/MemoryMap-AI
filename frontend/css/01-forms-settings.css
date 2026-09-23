@@ -5128,6 +5128,28 @@ select {
   flex: 1 1 auto;
 }
 
+/* **The disclosure mark hangs in the gutter.** "Advanced response settings"
+   stood 20.8px right of the other 54 Settings headings (566.8 against 546,
+   measured at 1440), the summary's inline padding plus the chevron plus the
+   gap before the text. Hiding the chevron would buy the alignment with the
+   affordance, which OPEN.md said to decide rather than do; hanging it keeps
+   both, the way a list marker hangs: the summary starts that far left of the
+   column, so the heading lands on the column's edge and the chevron sits in
+   the margin beside it. Only a `.settings-group` summary, the one kind whose
+   text is a section heading; a fold's summary is a sentence inside a group
+   and keeps its indent. */
+#settings-modal .settings-group > summary:not(.icon-only):not(.icon-button) {
+  position: relative;
+  padding-inline-start: 0;
+}
+
+#settings-modal .settings-group > summary:not(.icon-only):not(.icon-button)::before {
+  position: absolute;
+  inset-inline-start: calc(-1 * (0.32rem + var(--space-2)));
+  top: 50%;
+  margin-top: -0.24rem;
+}
+
 /* The heading gives its own vertical margins up to the row, so the row is one
    box in the flow and the flex centring has nothing asymmetric to centre
    (DESIGN.md, "And zero the margins, not just the heights"). The Settings

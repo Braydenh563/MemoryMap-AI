@@ -25,6 +25,10 @@ below). Versioning is `0.x` while the app stabilises.
 - Undo covers text formatting, colours and every mind map style change.
 - The Notes toolbar stays on one line in the desktop window; the dashboard's
   Start tiles fit one row there, and never wrap in compact view.
+- Panning and zooming the whiteboard and mind maps no longer re-styles every
+  item on the board each frame (traced: 2.4 s of style work over a 50-step
+  pan on a 60-topic map, now 29 ms; zoom 1.4 s to 18 ms). Worst frame at 50
+  topics is one frame for pan, drag and zoom alike.
 - Text boxes, sticky notes and mind map topics keep their line breaks when
   saved (they were joined into one line), and Tab / Shift+Tab indent lines
   in them. Note boxes indent with Tab from the first keystroke after a

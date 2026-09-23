@@ -40011,9 +40011,13 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
     emblemObservers.get(holder)?.disconnect();
     emblemObservers.delete(holder);
   }
-  const accentHex =
-    localStorage.getItem("accent-custom") ||
-    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  //: The colour the page is actually wearing (`currentAccentHex`, settings.js),
+  //: not the accent picker's stored name: a look's palette sets the accent
+  //: too, and the emblem stayed the old indigo on the Quiet default.
+  const accentHex = typeof currentAccentHex === "function"
+    ? currentAccentHex()
+    : localStorage.getItem("accent-custom") ||
+      (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
   // The emblem spins unless the user has explicitly asked for a still UI in
   // Settings → Appearance. We deliberately don't freeze it on the OS-level
   // prefers-reduced-motion hint alone: this mark has always turned, the app

@@ -72,4 +72,6 @@ def test_the_side_with_more_room_wins_and_the_menu_scrolls_in_it():
 
 
 def test_the_bar_menu_toggle_calls_it():
-    assert 'if (menu.id === "wb-context-menu") wbKeepMenuBesideBar(menu, document.getElementById("wb-context"));' in SOURCE
+    # Since INBOX 396 every board menu hangs from its opener; the context
+    # bar's menu still takes the bar as its opener, which is what this pins.
+    assert 'wbKeepMenuBesideBar(menu, menu.id === "wb-context-menu" ? document.getElementById("wb-context") : toggle);' in SOURCE

@@ -37,6 +37,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- On a phone, the '?' beside "Tools this skill may use" in Settings, Skills
+  can be pressed again. The fold's heading wrapped onto two lines inside a
+  box pinned to one line's height, which left the '?' outside the box it
+  belonged to; a fold heading now grows with its words. Found by a new sweep,
+  `scratchpad/ui-sweeps/help-popovers.js`, which opens every '?' in Settings
+  at 1440 and 390 and checks each one lands inside the window (82 of 82).
 - Reminder alerts no longer miss a reminder that is due when the notebook
   holds many finished ones. The minute-by-minute check read one page of
   reminders ordered oldest first with the ticked-off ones included, so the

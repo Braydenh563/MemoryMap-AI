@@ -4871,6 +4871,31 @@ select {
   white-space: nowrap;
 }
 
+/* **A fold's summary is a sentence, so its height is a floor, not a pin.**
+   07-whiteboard-misc.css lets `.settings-fold summary` wrap, because "Tools
+   this skill may use (optional)" ran 26px past the column at 390px; the pin
+   above then held that wrapped sentence, and the '?' beside it, in a 44px
+   box. Measured at 390 (`scratchpad/ui-sweeps/help-popovers.js`): the head
+   inside the summary was 100px tall, the '?' sat at y=572 to 616 against a
+   summary ending at 588, and it could not be pressed at all ("div.help-head
+   intercepts pointer events"). The summary grows with its sentence now, and
+   the '?' keeps the end of the row while the words wrap beside it. */
+#settings-modal .settings-section .settings-fold > summary {
+  height: auto;
+  min-height: var(--settings-control-h);
+}
+
+#settings-modal .settings-section .settings-fold > summary > .help-head {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+#settings-modal .settings-section .settings-fold > summary > .help-head > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* And nothing inside a card wraps by that rule either. Reported: "the palette
    ui is still broken and text overflows". `nowrap` was added to stop a
    two-word *control* label breaking onto a second line inside a fixed-height

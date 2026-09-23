@@ -375,9 +375,12 @@ with its owner named in the entry.
     fixed three faults in it) and then switched off by the owner on
     2026-09-21 ("disable the start the tour button ... until we enable it
     again when the guided tour isnt broken"; `TOUR_ENABLED` in tour.js,
-    `4beba07`). What is still broken was not written down, so the next step
-    is to run `scratchpad/ui-sweeps/tour.js` and ask the owner which step
-    fails, and the switch stays the owner's.
+    `4beba07`). What is still broken was not written down. Run on the head
+    the same day: `scratchpad/ui-sweeps/tour.js` passes 339 checks, and its
+    7 failures are exactly the doors the flag closes (the welcome's last
+    Next, a section button, the settings modal step), so the sweep does not
+    see what the owner does. The next step is the owner's words on which
+    step fails; the switch stays the owner's.
 
 302. **Found by the repository read, 2026-09-21 (the session, not the owner):
     a decision for the owner.** needle (cactus-compute, Apache-2.0 for both

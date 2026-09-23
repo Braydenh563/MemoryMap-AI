@@ -892,9 +892,15 @@ being written by running agents stay beside this one.
   paragraphs, then convert or decide it. [help-popovers.md]
 - **Toggle rows onto one recipe (no lavender-filled bars): not started.**
   [help-popovers.md]
-- **`scratchpad/ui-sweeps/help-popovers.js` is not built**: open every '?' on
-  Settings, assert each popover rect is inside the viewport at 1440 and 390.
-  It would also have caught the shortcuts-overlay overflow. [help-popovers.md]
+- ~~**`scratchpad/ui-sweeps/help-popovers.js` is not built**~~ **Built
+  2026-09-23**, and its first run found a real fault: every Settings section,
+  every visible '?', a trusted press, the panel measured inside the window
+  and closed by a second press, at 1440 and 390. 81 popovers, 1 finding: at
+  390 the skill form's "Tools this skill may use" '?' could not be pressed,
+  because the fold's summary was pinned to 44px while its wrapped sentence
+  made the head inside it 100px tall. The summary's height is a floor now and
+  the '?' keeps the row's end (01-forms-settings.css); re-run, 82 popovers, 0
+  findings. [help-popovers.md]
 - **Not one of the seven tabs carries a `data-help-for` popover.** All 41 are
   in the Settings modal or a dialog; the Guide sends the tab's control labels
   instead, and a tab that grows a popover is picked up with no further change.

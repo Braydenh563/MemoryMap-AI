@@ -105,6 +105,6 @@ For the orchestrator (another agent's surface, or the owner's call):
 - INBOX 272 part 2: the owner's words on which tour step fails.
 - INBOX 266 (1) and 270 (4): an IA read and a guide panel redesign.
 
-Not verified: the documents editor keeping `Ctrl+D` for "select next match"
-(reasoned from `defaultPrevented`, not driven); a real Ollama embedding
+Verified since: Ctrl+D inside the documents editor stays in the editor (a
+probe typed, selected and pressed it: tab still documents). Not verified: a real Ollama embedding
 backend's memory; Windows and macOS anything.

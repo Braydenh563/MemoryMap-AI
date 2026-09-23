@@ -279,3 +279,122 @@ def test_the_spans_are_offsets_into_the_note_that_was_sent():
     assert "strong white flour" in LONG_NOTE[first["start"] : first["end"]]
     assert "paper bag" in LONG_NOTE[second["start"] : second["end"]]
     assert first["start"] < second["start"]
+
+
+# --- formatted answers and grounding as the answer streams (INBOX 318, 320) ---
+
+
+#: The shape a real instruct model answers in, and the shape the Ask sweep
+#: measured with no marker placed at all: a lead-in ending in a colon, a list
+#: whose items open with a bold label, a closing sentence with emphasis in it.
+MARKDOWN_ANSWER = (
+    "Here is what your notes say:\n\n"
+    "- **Boots:** My hiking boots need resoling before the Snowdon trip in October.\n"
+    "- **Starter:** The sourdough starter is fed with rye flour every morning at seven.\n\n"
+    "Also, the garage *door* opener responds to the blue remote but not the grey one."
+)
+THREE_NOTES = [
+    {"id": 1, "content": "My hiking boots need resoling before the Snowdon trip in October."},
+    {"id": 2, "content": "The sourdough starter is fed with rye flour every morning at seven."},
+    {"id": 3, "content": "The garage door opener responds to the blue remote but not the grey one."},
+]
+
+
+def test_a_sentence_never_runs_across_two_blocks():
+    """INBOX 318, measured: the lead-in and the first list item came back as
+    one "sentence", because a colon does not end one and a list marker is not
+    a capital letter. That string exists in no single paragraph on screen, so
+    the client could never place its marker, and the owner saw one marker
+    where the grounding had found three notes."""
+    sentences = split_sentences(MARKDOWN_ANSWER)
+    assert sentences[0] == "Here is what your notes say:"
+    assert not any("\n" in s for s in sentences), sentences
+    assert len(sentences) == 4
+
+
+def test_list_and_heading_markers_are_not_part_of_the_sentence():
+    """The rendered list item has no "- " and no "1. " in its text, so a
+    sentence that kept them could never be matched against it."""
+    text = (
+        "## Plans\n\n1. Resole the hiking boots before October.\n"
+        "2. Feed the rye starter at seven.\n> Quoted line from a note here."
+    )
+    assert split_sentences(text) == [
+        "Plans",
+        "Resole the hiking boots before October.",
+        "Feed the rye starter at seven.",
+        "Quoted line from a note here.",
+    ]
+
+
+def test_a_hard_wrapped_paragraph_is_still_one_sentence():
+    """A line break inside a paragraph is a soft break when rendered, so it
+    must not cut the sentence in half either."""
+    text = "The sourdough starter is fed with rye\nflour every morning at seven."
+    assert split_sentences(text) == [
+        "The sourdough starter is fed with rye flour every morning at seven."
+    ]
+
+
+def test_every_note_a_formatted_answer_draws_on_is_grounded():
+    rows = ground_answer_sentences(MARKDOWN_ANSWER, THREE_NOTES)
+    assert {row["note_id"] for row in rows} == {1, 2, 3}
+
+
+def test_an_unclosed_code_fence_is_not_grounded():
+    """Mid-stream the closing fence has not arrived yet; code is still not a
+    claim, whichever half of it has streamed."""
+    text = "Here is the fix for the hiking boots.\n```python\ndef resole_the_hiking_boots(): pass"
+    assert "def" not in " ".join(split_sentences(text))
+
+
+def test_the_live_grounder_marks_each_sentence_once_it_is_complete():
+    """INBOX 320: the Matching records numbers arrived with the finished
+    answer, because grounding ran once, at the end. Fed the answer as it
+    streams, the grounder names a note as soon as the sentence citing it is
+    complete, never for a sentence still being written, and never twice."""
+    from memorymap.ai.grounding import SentenceGrounder
+
+    grounder = SentenceGrounder(THREE_NOTES)
+    second_item = MARKDOWN_ANSWER.index("- **Starter")
+    # The first list item is complete once the second one has begun.
+    assert grounder.feed(MARKDOWN_ANSWER[: second_item - 30]) == []
+    rows = grounder.feed(MARKDOWN_ANSWER[: second_item + 14])
+    assert [row["note_id"] for row in rows] == [1]
+    # Nothing new until another sentence completes.
+    assert grounder.feed(MARKDOWN_ANSWER[: second_item + 30]) == []
+    assert [row["note_id"] for row in grounder.feed(MARKDOWN_ANSWER)] == [2]
+    # The last sentence has nothing after it, so only the end of the answer
+    # says it is complete.
+    assert [row["note_id"] for row in grounder.finish(MARKDOWN_ANSWER)] == [3]
+    assert grounder.rows == ground_answer_sentences(MARKDOWN_ANSWER, THREE_NOTES)
+
+
+def test_the_stream_numbers_a_note_before_the_answer_is_finished(ai_client, fake_ollama):
+    """The event the Ask tab numbers its records from arrives between the
+    answer's deltas, not after the last one; and the final grounding event,
+    which the saved turn and the support line read, is unchanged by it."""
+    boots = ai_client.post("/entries", json={"content": THREE_NOTES[0]["content"]}).json()
+    starter = ai_client.post("/entries", json={"content": THREE_NOTES[1]["content"]}).json()
+    #: The fake streams its reply in two halves, so the second sentence is
+    #: longer than the first: the split then falls inside it, and the first
+    #: sentence is complete (another has begun) before the last delta.
+    fake_ollama.librarian_reply = (
+        "My hiking boots need resoling before the Snowdon trip in October. "
+        "The sourdough starter is fed with rye flour every morning at seven, "
+        "before anyone else in the house is awake."
+    )
+    events = _stream_events(
+        ai_client,
+        "what about the hiking boots and the sourdough starter",
+        notes_only=True,
+        use_tools=False,
+    )
+    kinds = [e["type"] for e in events]
+    last_answer = max(i for i, kind in enumerate(kinds) if kind == "answer")
+    live = [i for i, kind in enumerate(kinds) if kind == "grounding_live"]
+    assert live and live[0] < last_answer, kinds
+    assert {row["note_id"] for row in events[live[0]]["sentences"]} == {boots["id"]}
+    final = [e for e in events if e["type"] == "grounding"]
+    assert len(final) == 1
+    assert {row["note_id"] for row in final[0]["sentences"]} == {boots["id"], starter["id"]}

@@ -292,18 +292,65 @@ def note_passage_scores(sentence: str, notes: list[dict]) -> dict[int, float]:
 
 
 
+#: A line that opens a new block when rendered: a heading, a quote, a list
+#: item. Its marker is not part of any sentence, because the rendered block
+#: does not print it.
+_BLOCK_START = re.compile(r"^ {0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+|\d{1,3}[.)]\s+)")
+
+
+def _blocks(text: str) -> list[str]:
+    """The answer's rendered blocks, as plain lines of prose.
+
+    **A sentence never runs across two of them** (INBOX 318). The splitter
+    below cuts on `.!?` followed by a capital, and a model's answer is not
+    shaped like that at its block edges: "Here is what your notes say:"
+    followed by a list is a colon and then a `-`, so the lead-in and the first
+    item came back as one "sentence". That string exists in no single
+    paragraph on screen, and the client, which places a marker by finding the
+    sentence in the rendered text, could never find it: measured, a formatted
+    answer grounded to three notes and showed no marker at all.
+
+    A blank line ends a block, and so does a line that starts one (a heading,
+    a quote, a list item), whose marker is dropped because the rendered block
+    does not print it. Any other line break is a soft break inside a
+    paragraph and is joined with a space, as the renderer joins it.
+    """
+    blocks: list[str] = []
+    current: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        start = _BLOCK_START.match(line)
+        if not stripped or start:
+            if current:
+                blocks.append(" ".join(current))
+            current = []
+            if start:
+                stripped = line[start.end() :].strip()
+        if stripped:
+            current.append(stripped)
+    if current:
+        blocks.append(" ".join(current))
+    return blocks
+
+
 def split_sentences(text: str) -> list[str]:
-    """Plain sentences, code fences and bullet markers stripped least-
-    invasively: split on `.!?` followed by whitespace and a capital/digit,
-    which misses some abbreviations but never merges two real sentences, 
-    the safer direction for a feature that would rather ground too little
-    than mis-ground something."""
+    """Plain sentences, block by block: split on `.!?` followed by whitespace
+    and a capital/digit, which misses some abbreviations but never merges two
+    real sentences, the safer direction for a feature that would rather
+    ground too little than mis-ground something."""
     if not text:
         return []
     # Skip fenced code blocks entirely, grounding a line of code against
-    # note *prose* is a category error, not a claim.
-    cleaned = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
-    return [s.strip() for s in _SENTENCE_SPLIT.split(cleaned) if s.strip()]
+    # note *prose* is a category error, not a claim. An unclosed fence runs to
+    # the end: mid-stream the closing one has simply not arrived yet
+    # (`SentenceGrounder`), and half a code block is still code.
+    cleaned = re.sub(r"```.*?(?:```|\Z)", "", text, flags=re.DOTALL)
+    return [
+        s.strip()
+        for block in _blocks(cleaned)
+        for s in _SENTENCE_SPLIT.split(block)
+        if s.strip()
+    ]
 
 
 def _word_set(text: str) -> set[str]:
@@ -335,28 +382,75 @@ def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
     """
     if not answer or not notes:
         return []
-    contents = {
-        note.get("id"): (note.get("content") or "") for note in notes if note.get("id") is not None
-    }
-    note_words = [(note.get("id"), _word_set(note.get("content") or "")) for note in notes]
-    note_words = [(nid, words) for nid, words in note_words if nid is not None and words]
-    if not note_words:
-        return []
-    counts = Counter(word for _, words in note_words for word in words)
-    distinctive = (
-        [{w for w in words if counts[w] == 1} for _, words in note_words]
-        if len(note_words) >= 2
-        else [set() for _ in note_words]
-    )
+    return SentenceGrounder(notes).finish(answer)
 
-    pool = _pool_passages(notes)
-    grounded: list[dict] = []
-    for sentence in split_sentences(answer):
+
+class SentenceGrounder:
+    """`ground_answer_sentences`, one completed sentence at a time.
+
+    **INBOX 320**: the Ask tab's Matching records column numbered its rows
+    only once the answer had finished, because grounding ran once, over the
+    whole text, after the last token. The numbers are the answer's own
+    citations, so a record can be numbered no earlier than the sentence citing
+    it exists; this is what lets it be numbered no later either. Each sentence
+    is scored on its own against the candidate set (nothing in the rules looks
+    at a neighbouring sentence), so grounding them as they complete gives the
+    same rows as grounding them all at the end, which
+    `test_the_live_grounder_marks_each_sentence_once_it_is_complete` holds.
+
+    Everything that depends only on the candidate notes (their word sets, the
+    words only one of them has, the pooled passages) is computed once here
+    rather than once per call, since `feed` is called every time a sentence
+    may have ended.
+
+    A sentence is complete once another has started after it, which is the
+    only evidence a stream gives: `feed` grounds every sentence but the last,
+    and `finish` grounds the rest when the stream says there is no more.
+    """
+
+    def __init__(self, notes: list[dict]) -> None:
+        self.rows: list[dict] = []
+        self._consumed = 0
+        self._contents = {
+            note.get("id"): (note.get("content") or "")
+            for note in notes
+            if note.get("id") is not None
+        }
+        note_words = [(note.get("id"), _word_set(note.get("content") or "")) for note in notes]
+        self._note_words = [(nid, words) for nid, words in note_words if nid is not None and words]
+        counts = Counter(word for _, words in self._note_words for word in words)
+        self._distinctive = (
+            [{w for w in words if counts[w] == 1} for _, words in self._note_words]
+            if len(self._note_words) >= 2
+            else [set() for _ in self._note_words]
+        )
+        self._pool = _pool_passages(notes) if self._note_words else ([], Counter(), 0.0)
+
+    def feed(self, text: str) -> list[dict]:
+        """The rows for every sentence completed since the last call."""
+        return self._consume(split_sentences(text)[:-1])
+
+    def finish(self, text: str) -> list[dict]:
+        """The rows for the sentences `feed` had not yet counted complete."""
+        return self._consume(split_sentences(text))
+
+    def _consume(self, sentences: list[str]) -> list[dict]:
+        new: list[dict] = []
+        for sentence in sentences[self._consumed :]:
+            new.extend(self.ground(sentence))
+        self._consumed = max(self._consumed, len(sentences))
+        self.rows.extend(new)
+        return new
+
+    def ground(self, sentence: str) -> list[dict]:
+        """The rows for one sentence: none, its best note, or two notes."""
+        if not self._note_words:
+            return []
         sentence_words = _word_set(sentence)
         if len(sentence_words) < MIN_SENTENCE_WORDS:
-            continue
+            return []
         scored: list[tuple[float, int, int]] = []
-        for (note_id, words), unique in zip(note_words, distinctive):
+        for (note_id, words), unique in zip(self._note_words, self._distinctive):
             ratio = len(sentence_words & words) / len(sentence_words)
             hits = len(sentence_words & unique)
             if ratio >= MIN_OVERLAP_RATIO or (
@@ -364,23 +458,23 @@ def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
             ):
                 scored.append((ratio, hits, note_id))
         if not scored:
-            continue
-        passage_scores = _note_passage_scores(sentence, pool)
+            return []
+        passage_scores = _note_passage_scores(sentence, self._pool)
         #: Passage score first, the word ratio behind it: a note with no
         #: passage score at all (nothing in it matched, which happens when the
         #: word rules passed on distinctive terms alone) keeps its old place in
         #: the order rather than being dropped.
         scored.sort(key=lambda row: (passage_scores.get(row[2], 0.0), row[0], row[1]), reverse=True)
         primary = scored[0][2]
-        grounded.append(_mark(sentence, primary, contents))
+        rows = [_mark(sentence, primary, self._contents)]
         top = passage_scores.get(primary, 0.0)
         for _ratio, hits, note_id in scored[1:]:
             if hits < DISTINCTIVE_MIN_TERMS:
                 continue
             if top and passage_scores.get(note_id, 0.0) < top * PASSAGE_SECOND_RATIO:
                 continue
-            grounded.append(_mark(sentence, note_id, contents))
-    return grounded
+            rows.append(_mark(sentence, note_id, self._contents))
+        return rows
 
 
 #: Below this, an answer is mostly the model talking rather than the notebook

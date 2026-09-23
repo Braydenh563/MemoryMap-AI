@@ -37,6 +37,30 @@ DUMP = os.environ.get("FAKE_DUMP") or ""
 #: small model takes seconds per sentence, so pacing the fixture is the
 #: honest fixture, not a slower one.
 STREAM_DELAY_MS = float(os.environ.get("FAKE_DELAY_MS") or 0)
+#: `markdown` answers the way a real instruct model does (INBOX 318): a
+#: lead-in ending in a colon, a bullet list whose items open with a bold
+#: label, and a closing paragraph with emphasis inside a sentence. The plain
+#: style (one bare sentence per note) is the easiest possible case for the
+#: citation markers and hid every way they fail against formatted prose.
+STYLE = os.environ.get("FAKE_STYLE") or "plain"
+
+
+def _markdown_answer(sentences: list[str]) -> str:
+    """The same sentences, dressed the way a model dresses them."""
+    if len(sentences) < 2:
+        return " ".join(sentences)
+    lead = "Here is what your notes say:"
+    items = []
+    for sentence in sentences[:-1]:
+        words = sentence.split()
+        label = words[1].strip(".,").capitalize() if len(words) > 1 else "Note"
+        items.append(f"- **{label}:** {sentence}")
+    last = sentences[-1].split()
+    #: Emphasis mid-sentence, so the sentence spans three text nodes once
+    #: rendered: the shape a marker matched per text node can never find.
+    if len(last) > 4:
+        last[2] = f"*{last[2]}*"
+    return lead + "\n\n" + "\n".join(items) + "\n\nAlso, " + " ".join(last)
 
 
 def _sentences_from_prompt(prompt: str) -> list[str]:
@@ -95,7 +119,8 @@ class Handler(BaseHTTPRequestHandler):
         if DUMP:
             with open(DUMP, "a", encoding="utf-8") as fh:
                 fh.write("=== prompt ===\n" + prompt + "\n")
-        answer = " ".join(_sentences_from_prompt(prompt))
+        sentences = _sentences_from_prompt(prompt)
+        answer = _markdown_answer(sentences) if STYLE == "markdown" else " ".join(sentences)
         if body.get("stream"):
             self._sse(answer)
         else:

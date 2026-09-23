@@ -102,6 +102,27 @@ const NOTES = [
     box.value = 'What do my notes say about the starter and the boots?';
     const btn = document.getElementById('ask-btn');
     if (!btn) return { ok: false, why: 'no ask button' };
+    //: INBOX 320: when does the first number reach the Matching records
+    //: column, against when the answer stops generating? Polled per frame
+    //: from the click, because both moments are gone by the time the probe
+    //: reads the page.
+    window.__timing = { firstNumber: null, firstMarker: null, done: null, t0: performance.now() };
+    const tick = () => {
+      const t = performance.now() - window.__timing.t0;
+      const box = document.getElementById('ai-answer');
+      if (window.__timing.firstNumber == null && document.querySelector('#raw-results .record-index')) {
+        window.__timing.firstNumber = t;
+      }
+      if (window.__timing.firstMarker == null && box?.querySelector('.answer-citation')) {
+        window.__timing.firstMarker = t;
+      }
+      if (box && !box.classList.contains('is-generating') && t > 300) {
+        window.__timing.done = t;
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
     btn.click();
     return { ok: true };
   });
@@ -110,7 +131,11 @@ const NOTES = [
   // The answer streams; wait for it to settle rather than for a fixed time.
   await page.waitForFunction(() => {
     const a = document.getElementById('ai-answer');
-    return a && a.textContent.trim().length > 20 && !a.classList.contains('is-streaming');
+    //: `is-generating` rather than `is-streaming`: the second only goes on
+    //: with the first answer token, so during the retrieval wait the box was
+    //: already "not streaming" and the probe read the progress line as the
+    //: answer (it did, 2026-09-23, and reported no markers for that reason).
+    return a && a.textContent.trim().length > 20 && !a.classList.contains('is-generating');
   }, { timeout: 90000 }).catch(() => {});
   await page.waitForTimeout(2500);
 
@@ -118,8 +143,7 @@ const NOTES = [
     const answer = document.getElementById('ai-answer');
     const markers = [...(answer?.querySelectorAll('.answer-citation') || [])].map((m) => ({
       n: m.textContent.replace(/\D/g, ''),
-      noteId: m.querySelector('[data-entry-id]')?.dataset.entryId
-        || m.querySelector('a')?.dataset?.entryId || null,
+      noteId: m.dataset.noteId || null,
       // The sentence the marker sits at the end of, for "the wrong spot".
       before: (m.previousSibling?.textContent || '').trim().slice(-60),
     }));
@@ -156,7 +180,25 @@ const NOTES = [
   console.log(`chips:   ${read.chips.length}`, JSON.stringify(read.chips.slice(0, 6)));
   console.log(`sources: ${read.sources.length}`, JSON.stringify(read.sources.slice(0, 6)));
 
+  const timing = await page.evaluate(() => window.__timing || {});
+  const fmt = (v) => (v == null ? 'never' : `${Math.round(v)} ms`);
+  console.log(`timing: first record number ${fmt(timing.firstNumber)}, first marker ${fmt(timing.firstMarker)}, answer done ${fmt(timing.done)}`);
+  //: INBOX 318's question, answered with numbers: how many (sentence, note)
+  //: rows the backend attributed, against how many of them reached the prose.
+  const last = ground[ground.length - 1] || { sentences: [] };
+  const groundedNotes = new Set(last.sentences.map((g) => String(g.note_id)));
+  const markedNotes = new Set(read.markers.map((m) => m.noteId).filter(Boolean));
+  const groundedSentences = new Set(last.sentences.map((g) => g.sentence));
+  console.log(`grounded: ${last.sentences.length} rows, ${groundedSentences.size} sentences, ${groundedNotes.size} notes; placed: ${read.markers.length} markers, ${markedNotes.size} notes`);
   const findings = [];
+  const unplaced = [...groundedNotes].filter((id) => !markedNotes.has(id));
+  if (unplaced.length) findings.push(`grounded note(s) ${unplaced.join(', ')} have no marker in the prose`);
+  if (read.markers.length < last.sentences.length) {
+    findings.push(`${last.sentences.length - read.markers.length} grounded row(s) never became a marker`);
+  }
+  if (process.env.EXPECT_LIVE && timing.done != null && (timing.firstNumber == null || timing.firstNumber >= timing.done)) {
+    findings.push('no Matching records number appeared before the answer finished');
+  }
   if (!read.answer || read.answer.length < 20) findings.push('no answer came back, so nothing could be grounded');
   else if (!read.markers.length) findings.push('the answer has no inline citation markers at all');
   if (read.markers.length && !read.chips.length) findings.push('markers are in the prose but nothing is listed under "Grounded in"');

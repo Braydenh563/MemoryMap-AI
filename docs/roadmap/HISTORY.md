@@ -33649,6 +33649,55 @@ measured, so nobody rebuilds them.
     chord (the documents editor's CodeMirror binds it to "select the next
     match"). `scratchpad/ui-sweeps/oi-ctrld.js`, 3 of 3.
 
+320. **The owner, 2026-09-21, verbatim:** "the numbers only appear after the
+    ai response is finished" (in the Ask tab's Matching records column). Open,
+    and it is closer to a design question than a bug: the numbers are the
+    answer's own citation markers, so a record can only be numbered once the
+    sentence citing it exists. `numberMatchingRecords` runs from the grounding
+    pass, which runs when the answer is complete. Two honest options: number
+    each record the moment the first marker naming it is placed, which needs
+    grounding to run per sentence as it streams rather than once at the end,
+    or say in the column that the numbers arrive with the finished answer.
+    Recommendation: the first, and it pairs with INBOX 318 (not every marker
+    appears), because both live in `ground_answer_sentences` and both want it
+    incremental. Measure `askgrounding.js` before and after.
+
+    **Fixed 2026-09-23 (the askcite pass), the first option.**
+    `grounding.SentenceGrounder` grounds each sentence once another has begun
+    after it, and `/chat/stream` sends the rows so far as `grounding_live`
+    (plain answers only: an agent turn's candidates grow with each tool read);
+    the Ask tab numbers the column from them and re-places the markers after
+    every live paint. The final `grounding` event is unchanged and still
+    authoritative. Measured with `askgrounding.js` against the fake at 30 ms a
+    word: first record number 1201 ms (the moment the answer finished) before,
+    1435 ms against the answer finishing at 1688 ms after; a real model's gap
+    is the seconds a sentence takes.
+
+318. **Fixed 2026-09-23 (the askcite pass).** Measured first: the markers
+    were attributed and then dropped by the renderer, not declined. With the
+    fake answering the way a model formats (`FAKE_STYLE=markdown`: a lead-in
+    with a colon, a list with bold labels, a word in italics), grounding
+    returned 2 rows for 2 notes and 0 markers were placed. Two causes: the
+    backend split the lead-in and the first list item into one "sentence"
+    (a colon and a `- ` are not a sentence boundary), and the client searched
+    for the raw markdown inside one text node, which a bold label or an
+    italic word splits. `split_sentences` now works block by block with list,
+    heading and quote markers dropped, and `addInlineCitations` matches on
+    letters and digits across the block. After: 3 rows, 3 notes, 3 markers.
+    The owner's report:
+    **The owner, 2026-09-21, verbatim, with a screenshot of an Ask answer:**
+    "not all inline reference number links show, only one showed in the
+    response". The answer carries one superscript marker against a paragraph
+    that draws on several records, and the Grounded in row below it lists
+    three notes (1, 4 and 10) while the column holds five. So the grounding
+    found more than the answer shows. Open, and worth measuring before
+    theorising: `ground_answer_sentences` marks a sentence only when it can
+    attribute it (`MIN_SENTENCE_WORDS`, the distinct-sentence rule in
+    `grounding.support`), so the first question is whether the missing markers
+    are sentences it declined to attribute or markers it attributed and the
+    renderer dropped. `scratchpad/ui-sweeps/askgrounding.js` against
+    `scratchpad/fake_answer_server.py` is the probe that already counts them.
+
 ## Moved from the plans, 2026-09-23
 
 ### From CHAT_PLAN.md

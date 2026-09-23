@@ -34,32 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-320. **The owner, 2026-09-21, verbatim:** "the numbers only appear after the
-    ai response is finished" (in the Ask tab's Matching records column). Open,
-    and it is closer to a design question than a bug: the numbers are the
-    answer's own citation markers, so a record can only be numbered once the
-    sentence citing it exists. `numberMatchingRecords` runs from the grounding
-    pass, which runs when the answer is complete. Two honest options: number
-    each record the moment the first marker naming it is placed, which needs
-    grounding to run per sentence as it streams rather than once at the end,
-    or say in the column that the numbers arrive with the finished answer.
-    Recommendation: the first, and it pairs with INBOX 318 (not every marker
-    appears), because both live in `ground_answer_sentences` and both want it
-    incremental. Measure `askgrounding.js` before and after.
-
-318. **The owner, 2026-09-21, verbatim, with a screenshot of an Ask answer:**
-    "not all inline reference number links show, only one showed in the
-    response". The answer carries one superscript marker against a paragraph
-    that draws on several records, and the Grounded in row below it lists
-    three notes (1, 4 and 10) while the column holds five. So the grounding
-    found more than the answer shows. Open, and worth measuring before
-    theorising: `ground_answer_sentences` marks a sentence only when it can
-    attribute it (`MIN_SENTENCE_WORDS`, the distinct-sentence rule in
-    `grounding.support`), so the first question is whether the missing markers
-    are sentences it declined to attribute or markers it attributed and the
-    renderer dropped. `scratchpad/ui-sweeps/askgrounding.js` against
-    `scratchpad/fake_answer_server.py` is the probe that already counts them.
-
 393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
     improvements, remove any trace of vibe coded stuff in elements, designs,
     aesthetics styles, form, function, layout, structure. vendor and use skills

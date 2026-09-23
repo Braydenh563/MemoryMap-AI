@@ -41,6 +41,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Ask: every sentence the notes back gets its citation number in the answer, including sentences in a list, after a bold label or with a word in italics (a formatted answer grounded to three notes used to show none); the Matching records column is numbered as each sentence completes instead of after the answer finishes.
 - Labels that lost their capitals in Quiet keep their rank: a section label is small, bold and in ink over a muted description, and the Contents index's section names are headings with the Timeline's underline over rows one step smaller; a Files row's name is in ink and lines up with its facts.
 - Scrolling and typing, traced and cut: the page scrollers and the editor scroll on the compositor (Notes scroll raster 2.7s to 0.25s, Library 1.0s to 0.2s, typing in a long document 3.2s to 0.24s over a 30-step scroll or 88 characters at 1184x760); a card's hover animation stands down while a list scrolls; the back-to-top check no longer matches every button in the app on every scroll frame (184ms to 12ms); the open-menu checks on every scroll event walk only the menus; typing in a document no longer restyles the whole editor per keystroke (style 1.65s to 0.35s) or rewrites 51 toolbar states; the Library search no longer cross-fades the window on every letter.
 - Dashboard: Quick capture saves on Ctrl+Enter (Cmd+Enter), and its placeholder says so.

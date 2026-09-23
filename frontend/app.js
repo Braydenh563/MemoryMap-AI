@@ -3113,9 +3113,16 @@ function entryItem(entry, options = {}) {
     filing.title = "Atlas is deciding where this note goes. It's already saved.";
     meta.appendChild(filing);
   } else {
-    meta.appendChild(chip(entry.category));
+    //: `category` names the chip for the meta line's own styles (08-
+    //: consistency.css, "one line of facts"): before it had a class, the
+    //: category rule was "a chip with none of these variants", which caught
+    //: every variant added after it and drew "No tags yet" and "Linked by 5
+    //: notes" as accent pills too.
+    meta.appendChild(chip(entry.category, "category"));
   }
-  for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
+  //: `hashtag` marks a real tag: `tag` alone is also the quiet look the
+  //: documents, the source and the space borrow, and only a tag gets the #.
+  for (const tag of entry.tags) meta.appendChild(chip(tag, "tag hashtag"));
   //: **A note with no tags says so, where the tags would be** (INBOX 162:
   //: "notes with no tags or other things arent highlighted"). Only on a real
   //: note in a list that offers actions: a board is not filed by tag and a
@@ -3130,7 +3137,7 @@ function entryItem(entry, options = {}) {
     //: surface a search result is being read on, so wiring it here would be a
     //: chip that looks pressable and does nothing visible (INBOX 297).
     const untagged = options.actions
-      ? chip("ph:tag No tags yet", "untagged", (event) => {
+      ? chip("ph:tag Add tags", "untagged", (event) => {
         event.stopPropagation();
         editingId = entry.id;
         focusTagsAfterRender = entry.id;
@@ -3186,17 +3193,28 @@ function entryItem(entry, options = {}) {
   // Plain-language explanation on hover, "confidence" is jargon otherwise,
   // and the number alone doesn't say what it's confident *about*.
   const confidenceHint = "How sure Atlas was when it picked this note's category.";
-  const confidenceChip = aiDidFile
-    ? entry.ai_confidence >= REVIEW_THRESHOLD
-      ? chip(`AI ${entry.ai_confidence}%`, "confidence")
-      : // Low confidence from a real attempt, worth a human look (Phase 3).
-        chip(`AI ${entry.ai_confidence}%: check this`, "review")
+  //: **Confident filing is a fact about the category, not a line item.**
+  //: A score above the review line asks nothing of anyone, and as its own
+  //: pill it was one more badge on every card (owner: "a better ui/ux and
+  //: more modern and professional way to ... display all the metadata,
+  //: links, badges"). It rides on the category's tooltip instead; the low
+  //: score keeps its own mark, because that one is a request to check.
+  const categoryChip = meta.querySelector(".chip.category");
+  if (aiDidFile && categoryChip && entry.ai_confidence >= REVIEW_THRESHOLD) {
+    categoryChip.title = `Filed by Atlas, ${entry.ai_confidence}% sure`;
+  }
+  const confidenceChip = aiDidFile && entry.ai_confidence < REVIEW_THRESHOLD
+    ? // Low confidence from a real attempt, worth a human look (Phase 3).
+      chip(`AI ${entry.ai_confidence}%: check this`, "review")
     : null;
   if (confidenceChip) confidenceChip.title = confidenceHint;
   // Flash the badge once when this note's confidence just changed, so the
   // update after a re-evaluation is actually noticeable (user request).
-  if (confidenceChip && entry.id === flashConfidenceId) {
-    confidenceChip.classList.add("badge-flash");
+  //: The category flashes when the score went to its tooltip, since the
+  //: category is what a re-evaluation actually answered.
+  const flashed = confidenceChip || categoryChip;
+  if (flashed && entry.id === flashConfidenceId) {
+    flashed.classList.add("badge-flash");
     flashConfidenceId = null;
   }
   if (confidenceChip) meta.appendChild(confidenceChip);

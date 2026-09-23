@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- De-vibecoding, Notes and Library: a note's facts are one quiet line (category with a dot, #tags, space, links, date) instead of five pills, and confident AI filing moves to the category's tooltip; in the flat looks a selected tab, segment or filter chip is a neutral ground so the accent marks only actions; the Library hides empty kinds, shows a card's tick on hover (always on touch), drops the per-kind colour stripe in the flat looks, and titles step down to 600; the notes filter placeholder no longer truncates.
 - The "No model is connected" notices keep a gap below their button, so the draft chips and the agent's description no longer sit flush against it.
 - A cross-link on a mind map is drawn like the map's own branches: the same ribbon or line style, facing anchors, weight and taper, in its branch's colour, instead of a straight pen-coloured line.
 - With glass on, the graph's floating dock and panels and the chat composer are frosted panes like the rest of the glass chrome, instead of an opaque bar and a near-black well.

@@ -1,5 +1,49 @@
 # OPEN: everything still open from the agent files, in one place
 
+## The owner's requests on fix/gemini-fixes-5 (PR 157), 2026-09-23: the ledger
+
+Every ask from that session, verbatim in spirit, with its state. The owner:
+"make sure you havent missed anything from any of my requests and make sure
+all are fullfilled." A row leaves this table only when it is done and
+measured; "partial" names what is left.
+
+| Ask | State |
+| --- | --- |
+| Review and refine Gemini's pass: revert the risky, redo the attempted fixes better | Done |
+| Packaged .exe splash; installer optional packages; embedding model missing with no nudge; wrong model in the chat header | Done |
+| Toolbars wrapping at 100% zoom; Capture toolbar wrap | Done (notes dock, Capture toolbar) |
+| Notes page blank or jumping to the top on edit; mind maps in Find anything; digest filler and "tonight" | Done |
+| Per-feature model pickers (and "too big"); agent activity alignment; image filter by kind; done notification for a closed panel; Select all; 29/30/31 note counts | Done |
+| Duplicate caption and OCR jobs; CodeQL #423 | Done |
+| Themes: Quiet utilitarian default, Paper, Mono, Classic second; card text and alignment; loading screen, graph bar and menus follow the look; page shine toggle | Done |
+| Dashboard top calmer; then "squished" and Full the same as Compact | Done (density fix, Full restored) |
+| Map node menu grouped; radial ring stays open | Done |
+| Pan and drag smoothness on the board and map | Done (style recalc 2439 to 29 ms) |
+| "Do that optimisation on the rest of the app" | Partial: scroll handlers fixed (back-to-top, scroll edge, graph wheel); left: Notes raster cost during scroll, Library layout during scroll, a trace per interaction (typing, drag, dialogs) |
+| Efficiency: CPU, RAM, network, storage | Partial: CPU on scroll and pan; left: network (polling, payloads), RAM (lazy bundles, caches), storage |
+| Mind map professional refinement: controls findability, View menu size, hint strip over the canvas | Partial: node menu, cross-link tool, label drag, cross-links drawn like branches done; left: View menu (714px), hint strip, discoverability pass |
+| Cross-links look the same as branches | Done |
+| Live view markdown rendering and table editing | Done (documents agent) |
+| Code documents as a code editor: errors, suggestions | Done (diagnostics, completions) |
+| Auto-closing pairs, Enter indentation, format document or selection, quick fixes | In progress (code editor agent) |
+| Indent and dedent across the app | Partial: notes textareas, board text; left: verify documents, chat, captions, every textarea |
+| Phone designed on purpose; responsive at every resolution | In progress (phone agent); left after it: a sweep at 390, 768, 1024, 1280, 1440, 1920, 2560 |
+| De-vibecode all the UI, surface by surface, not one fix and stop | In progress: Notes meta line redesigned; left: every other surface in the audit order below |
+| Note metadata, badges and links redesigned everywhere | In progress |
+| More integration between features (INBOX 393) | Partial: Ask Atlas and Show in graph on notes, documents, boards; left: files, reminders, a consistency table |
+| Glass on every surface when glass is on | Partial: graph dock and chat composer; left: a sweep of every floating surface |
+| Gaps between stacked elements | Partial: offline notices; left: a sweep for flush siblings |
+| Micro-conventions (double-click rotate handle to reset, and the rest) on board, map, documents and every surface | Placed (WHITEBOARD_PLAN, Placed from INBOX 2026-09-23); next agent |
+| Suite too slow | Done (parallel, 25 to under 9 minutes) |
+| Agents commit often so nothing is lost | Done (agents told; the hourly check-in merges gated agent commits and pushes) |
+
+**De-vibecode audit order** (each surface: list every finding first, then
+fix them all, then the next): Notes (list, capture, write, ask), dashboard,
+chat, graph, Library (every sub-tab), documents editor, board, map,
+timeline, reminders, settings (every pane), dialogs and menus, the finder
+and command palette, the status bar and notifications, the lock screen and
+loading page.
+
 ## What is left after PR 144, in the order to build it (written 2026-09-14)
 
 The owner's brief for the next session is one line: "here's what's left,

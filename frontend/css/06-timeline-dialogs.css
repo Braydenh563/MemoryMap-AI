@@ -1576,7 +1576,7 @@
 
 /* 1. Category. The bare `.chip` with no variant is the category, it earns the
       accent because it is the answer to "where does this note live?". */
-.entry-meta>.chip:not(.tag):not(.confidence):not(.review):not(.when):not(.link) {
+.entry-meta>.chip.category {
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 600;

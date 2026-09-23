@@ -436,6 +436,7 @@ window.addEventListener(
 );
 
 function handleWbZoom(e) {
+  wbApplyZoomTransform(e.transform);
   wbZoomPending = e.transform;
   if (wbZoomFrame) return;
   wbZoomFrame = requestAnimationFrame(() => {
@@ -443,7 +444,6 @@ function handleWbZoom(e) {
     const t = wbZoomPending;
     wbZoomPending = null;
     if (!t) return;
-    wbApplyZoomTransform(t);
     wbSyncGridToTransform(t);
     wbUpdateSelectionBar();
     // The navigator's viewport rectangle is only true for one transform, so
@@ -3184,7 +3184,7 @@ function wbMapSetPerspective(key) {
     // for this session; it just will not be remembered.
   }
   wbSyncMapChrome();
-  wbScheduleRender();
+  renderWhiteboardNow();
 }
 
 //: The categories and ages the tree endpoint resolved, by node id. Empty for
@@ -3416,14 +3416,14 @@ function wbMapSetFocus(id, depth = WB_MAP_FOCUS_DEFAULT_DEPTH) {
   if (!index.byId.has(id)) return;
   wbMapFocusState = { id, depth: Math.max(1, Math.min(WB_MAP_FOCUS_MAX_DEPTH, depth)) };
   wbSyncMapFocusChrome();
-  wbScheduleRender();
+  renderWhiteboardNow();
 }
 
 function wbMapClearFocus() {
   if (!wbMapFocusState) return;
   wbMapFocusState = null;
   wbSyncMapFocusChrome();
-  wbScheduleRender();
+  renderWhiteboardNow();
 }
 
 function wbMapStepFocus(by) {
@@ -3586,7 +3586,7 @@ async function wbMapSetTheme(patch) {
       else theme[key] = value;
     }
     window.wbMapState = { ...window.wbMapState, theme };
-    wbScheduleRender();
+    renderWhiteboardNow();
     const selected = wbSelectedMapNode();
     if (selected) wbSyncMapStrip(selected);
     return true;
@@ -3619,7 +3619,7 @@ async function wbMapClearEveryTopic() {
     //: a key from every topic's data in one transaction, and the objects this
     //: tab is holding are now wrong about all of them.
     await fetchWhiteboardState();
-    wbScheduleRender();
+    renderWhiteboardNow();
     toast(count
       ? `${count} topic${count === 1 ? "" : "s"} back to following this map.`
       : "Every topic was already following this map.");
@@ -3998,7 +3998,7 @@ async function wbApplyMapTemplate(key) {
   wbDismissMapTemplates();
   await wbRefreshMapState();
   await wbMapTidy({ quiet: true });
-  wbScheduleRender();
+  renderWhiteboardNow();
   toast(`Started from the ${template.label.toLowerCase()} template: ${made} nodes.`);
 }
 
@@ -4761,7 +4761,9 @@ function wbMapStartResizeDrag(grip, event, d) {
     if (width === startW && height === startH) return;
     // One write for both halves: `wbMapSetNodeStyle` saves the whole object,
     // and `width`/`height` are already on it.
-    await wbMapSetNodeStyle(d, { sized: true });
+    // `undo: false`: the size was already live on `d`, so the helper's own
+    // snapshot would hold the new size; `before` below is the true one.
+    await wbMapSetNodeStyle(d, { sized: true }, { undo: false });
     wbPushUndo({ action: "move", kind: "object", id: d.id, before });
     wbScheduleRender();
   };
@@ -4785,7 +4787,7 @@ async function wbMapExpandAll() {
     node.data = { ...node.data, collapsed: false };
     await wbSaveObject(node);
   }
-  wbScheduleRender();
+  renderWhiteboardNow();
   wbSyncMapToolState();
   toast(`Opened ${folded.length} branch${folded.length === 1 ? "" : "es"}.`);
 }
@@ -4898,7 +4900,7 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag" } = {}) {
   }
   await wbMapTidyBranch(targetId);
   if (oldParent != null) await wbMapTidyBranch(oldParent);
-  wbScheduleRender();
+  renderWhiteboardNow();
   //: A line drawn between two topics and a branch dragged onto one are the
   //: same move and want different words: the first connected something, the
   //: second moved it.
@@ -4940,15 +4942,16 @@ async function wbMapJoinByLink(source, target) {
   //: would have let a line drawn from the root to a branch hang the whole map
   //: under one of its own children.
   const mainRoot = index.roots[0] || null;
+  const inTree = (node) => index.byId.has(node.parent_id) || node.id === mainRoot?.id;
   //: A node cannot be adopted by its own descendant: the server's `/move`
   //: refuses the ring, and an offer it will reject is worse than no offer.
   const subtreeOf = (node) => new Set(wbMapSubtree(index, node.id).map((o) => o.id));
   let parent = null;
   let child = null;
-  if (!subtreeOf(target).has(source.id) && target.id !== mainRoot?.id) {
+  if (!inTree(target) && !subtreeOf(target).has(source.id)) {
     parent = source;
     child = target;
-  } else if (!subtreeOf(source).has(target.id) && source.id !== mainRoot?.id) {
+  } else if (!inTree(source) && !subtreeOf(source).has(target.id)) {
     parent = target;
     child = source;
   }
@@ -5900,7 +5903,7 @@ async function wbMapInsertBetween(parentId, childId) {
   }
   selectWbItem("object", created.id);
   await wbMapTidyBranch(parentId);
-  wbScheduleRender();
+  renderWhiteboardNow();
   wbMapEditNode(created.id);
 }
 
@@ -5974,7 +5977,7 @@ async function wbMapAddChild(parentId) {
   }
   selectWbItem("object", created.id);
   await wbMapTidyBranch(parentId);
-  wbScheduleRender();
+  renderWhiteboardNow();
   wbMapEditNode(created.id);
   return created;
 }
@@ -5999,7 +6002,7 @@ async function wbMapAddRootAt(x, y) {
   created.data = { ...created.data, pinned: true };
   await wbSaveObject(created);
   selectWbItem("object", created.id);
-  wbScheduleRender();
+  renderWhiteboardNow();
   wbMapEditNode(created.id);
   return created;
 }
@@ -6039,7 +6042,7 @@ async function wbMapAddReference(parentId) {
   await wbRefreshMapState();
   selectWbItem("object", created.id);
   await wbMapTidyBranch(parentId);
-  wbScheduleRender();
+  renderWhiteboardNow();
   toast(`Added “${chosen.label}” to the map.`);
   return created;
 }
@@ -6084,7 +6087,7 @@ async function wbMapOutdent(id) {
     });
     Object.assign(node, moved);
     await wbMapTidyBranch(moved.parent_id ?? null);
-    wbScheduleRender();
+    renderWhiteboardNow();
   } catch (err) {
     toast(err.message || "Couldn't move that node.", true);
   }
@@ -6283,7 +6286,7 @@ async function wbMapDeleteSubtree(id) {
         }
       }
       await wbRefreshMapState();
-      wbScheduleRender();
+      renderWhiteboardNow();
     }
   );
 }
@@ -6678,7 +6681,7 @@ async function wbMapTidy({ onlyBranch = null, quiet = false } = {}) {
   // the destinations and no delta is how one shared helper does a per-node
   // layout as well as a rigid drag.
   wbApplyBulkMove(origin, 0, 0);
-  wbScheduleRender();
+  renderWhiteboardNow();
   //: **A tidy that pushed the map off the canvas frames it again.** Recorded
   //: by the seventh run and left as a decision rather than a bug: measured at
   //: 390x844 after a tidy, the trunk's own box sat at x=-95 and
@@ -7002,8 +7005,13 @@ const WB_MAP_TEXT_MAX = 44;
 //: every card and sketch, the "glitchy and slow to update" report this file
 //: already carries) and re-places the strip, whose width changes with what it
 //: now says.
-async function wbMapSetNodeStyle(node, patch) {
+async function wbMapSetNodeStyle(node, patch, { undo = true } = {}) {
   if (!node) return;
+  //: Every map-topic look goes through here (the strip, the rings, edge
+  //: bends, reset to branch), so undo is recorded once here rather than at
+  //: each of its dozen callers. The owner: "the undo and redo needs to work
+  //: for absolutely everything".
+  if (undo) wbPushUndo({ action: "move", kind: "object", id: node.id, before: WB_KIND_INFO.object.payload(node) });
   node.data = { ...node.data, ...patch };
   const el = document.querySelector(`.wb-object[data-id="${node.id}"]`);
   if (el) wbPaintMapNodeStyle(el, node);
@@ -7092,7 +7100,7 @@ async function wbMapTakePicture(file) {
       body: formData,
     });
     await wbMapSetNodeStyle(node, { image: uploaded.url });
-    wbScheduleRender();
+    renderWhiteboardNow();
   } catch (err) {
     toast(err.message || "Couldn't add that picture.", true);
   }
@@ -7105,7 +7113,7 @@ async function wbMapTakePicture(file) {
 async function wbMapRemovePicture(node) {
   if (!node || !node.data?.image) return;
   await wbMapSetNodeStyle(node, { image: null });
-  wbScheduleRender();
+  renderWhiteboardNow();
   toast("Picture removed from the topic.");
 }
 
@@ -7436,7 +7444,7 @@ async function wbMapCopyBranch(id) {
     mapped.set(node.id, created.id);
   }
   await wbMapTidy({ quiet: true });
-  wbScheduleRender();
+  renderWhiteboardNow();
   const rootCopy = mapped.get(id);
   if (rootCopy) selectWbItem("object", rootCopy);
   toast(`Copied ${mapped.size} topic${mapped.size === 1 ? "" : "s"}.`);
@@ -7556,7 +7564,7 @@ async function wbMapSever(id) {
   // it starts the palette again like every other trunk's children do.
   if (node.data?.color) await wbMapSetNodeStyle(node, { color: null });
   await wbMapTidyBranch(oldParent);
-  wbScheduleRender();
+  renderWhiteboardNow();
   toastAction("Cut free as its own trunk.", "Put it back", async () => {
     try {
       const back = await apiJson(`/whiteboard/boards/${boardId}/nodes/${id}/move`, {
@@ -7565,7 +7573,7 @@ async function wbMapSever(id) {
       });
       Object.assign(node, back);
       await wbMapTidyBranch(oldParent);
-      wbScheduleRender();
+      renderWhiteboardNow();
     } catch (err) {
       toast(err.message || "Couldn't put it back.", true);
     }
@@ -7595,7 +7603,7 @@ async function wbMapLabelEdge(id) {
   // "Back to the branch" on this same ring.
   if (!text) return;
   await wbMapSetNodeStyle(node, { edge_label: text.slice(0, 80) });
-  wbScheduleRender();
+  renderWhiteboardNow();
 }
 
 //: "Back to the branch" (§12.0: "'Reset to branch' on any node"). Drops every
@@ -7608,7 +7616,7 @@ async function wbMapResetToBranch(id) {
   const patch = {};
   for (const key of WB_MAP_STYLE_KEYS) patch[key] = null;
   await wbMapSetNodeStyle(node, patch);
-  wbScheduleRender();
+  renderWhiteboardNow();
   //: What it goes back to depends on whether the map says anything (§13e):
   //: on a themed map a reset topic follows the map, and a toast that said
   //: "the branch's own look" over a topic that just took the map's would be
@@ -7757,7 +7765,7 @@ function wbWireMapEdgeHandle(handle, parentId, childId) {
       };
       if (patch.edge_bend === before.edge_bend && patch.edge_slide === before.edge_slide) return;
       await wbMapSetNodeStyle(child, patch);
-      wbScheduleRender();
+      renderWhiteboardNow();
     };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", done);
@@ -7781,7 +7789,7 @@ async function wbMapStraightenEdge(node) {
   if (!node) return;
   if (!node.data?.edge_bend && !node.data?.edge_slide) return;
   await wbMapSetNodeStyle(node, { edge_bend: null, edge_slide: null });
-  wbScheduleRender();
+  renderWhiteboardNow();
 }
 
 //: The gestures on one edge, bound to the group that holds its stroke, its
@@ -7929,7 +7937,7 @@ async function wbMapReverseCrossLink(sketchId) {
     toast(err.message || "Couldn't turn that cross-link around.", true);
     return;
   }
-  wbScheduleRender();
+  renderWhiteboardNow();
   toast("Turned the cross-link around.");
 }
 
@@ -7957,7 +7965,7 @@ async function wbMapCrossLinkToBranch(sketchId) {
     toast(err.message || "The branch was made, but the cross-link is still there.", true);
   }
   await wbRefreshMapState();
-  wbScheduleRender();
+  renderWhiteboardNow();
 }
 
 //: Cut a cross-link: the row goes and neither topic is touched, which is the
@@ -7973,7 +7981,7 @@ async function wbMapCutCrossLink(sketchId) {
   }
   wbState.sketches = (wbState.sketches || []).filter((x) => x.id !== sketchId);
   await wbRefreshMapState();
-  wbScheduleRender();
+  renderWhiteboardNow();
   toast("Cut the cross-link. Both topics kept their branches.");
 }
 
@@ -8003,7 +8011,7 @@ async function wbMapReverseEdge(childId) {
     return;
   }
   await wbMapTidy({ quiet: true });
-  wbScheduleRender();
+  renderWhiteboardNow();
   toast("Turned the line around.");
 }
 
@@ -8085,7 +8093,7 @@ async function wbMapSetLayout(layout) {
     window.wbMapState = { ...window.wbMapState, layout };
     wbSyncMapChrome();
     const moved = await wbMapTidy({ quiet: true });
-    wbScheduleRender();
+    renderWhiteboardNow();
     toast(layout === "free"
       ? "Layout set to Free, nodes stay where you put them."
       : `Laid out ${moved} node${moved === 1 ? "" : "s"}.`);
@@ -10705,26 +10713,21 @@ async function initWhiteboard() {
   window.addEventListener("auxclick", (event) => {
     if (event.button === 1 && event.target?.closest?.("#library-view-whiteboard")) event.preventDefault();
   }, true);
-  container.call(wbZoom).on("dblclick.zoom", null).on("wheel.zoom", null);
-  // Plain wheel pans (Shift+wheel pans sideways); Ctrl/⌘+wheel zooms.
-  // We handle both natively with `passive: true` to avoid blocking the browser
-  // scrolling thread. (CSS touch-action: none prevents the page from zooming).
+  container.call(wbZoom).on("dblclick.zoom", null);
+  // Plain wheel pans (Shift+wheel pans sideways); Ctrl/⌘+wheel is left to
+  // d3-zoom's own handler by `wbZoomFilter`. `passive: false` so the page
+  // behind the board does not scroll as well.
   if (!container.node().dataset.wbWheelPan) {
     container.node().dataset.wbWheelPan = "1";
     container.node().addEventListener("wheel", (e) => {
+      if (e.ctrlKey || e.metaKey) return;
+      e.preventDefault();
       const k = d3.zoomTransform(container.node()).k || 1;
-      if (e.ctrlKey || e.metaKey) {
-        const unit = e.deltaMode === 1 ? 0.05 : e.deltaMode === 2 ? 1 : 0.002;
-        const scaleBy = Math.pow(2, -e.deltaY * unit);
-        const point = d3.pointer(e, container.node());
-        container.call(wbZoom.scaleBy, scaleBy, point);
-        return;
-      }
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
       let dx = e.deltaX * unit, dy = e.deltaY * unit;
       if (e.shiftKey && !dx) { dx = dy; dy = 0; }
       container.call(wbZoom.translateBy, -dx / k, -dy / k);
-    }, { passive: true });
+    }, { passive: false });
   }
   
   // Toolbar hooks
@@ -11057,13 +11060,13 @@ async function initWhiteboard() {
     const node = wbSelectedMapNode();
     if (!node) return;
     await wbMapSetNodeStyle(node, { edge_width: e.target.value || null });
-    wbScheduleRender();
+    renderWhiteboardNow();
   });
   $("wb-map-edge-dashed")?.addEventListener("click", async () => {
     const node = wbSelectedMapNode();
     if (!node) return;
     await wbMapSetNodeStyle(node, { edge_dashed: wbMapToggleValue(node, "edge_dashed") });
-    wbScheduleRender();
+    renderWhiteboardNow();
   });
   $("wb-map-edge-arrow")?.addEventListener("click", async () => {
     const node = wbSelectedMapNode();
@@ -11076,7 +11079,7 @@ async function initWhiteboard() {
     await wbMapSetNodeStyle(node, {
       edge_arrow: want === fallback ? null : (want ? "on" : "off"),
     });
-    wbScheduleRender();
+    renderWhiteboardNow();
   });
   //: The line's shape, from the link ring (§12.5). `curve` is stored as no
   //: value at all, the way the strip's "M" is: the default has to stay the
@@ -11087,7 +11090,7 @@ async function initWhiteboard() {
     const node = wbSelectedMapNode();
     if (!node) return;
     await wbMapSetNodeStyle(node, { edge_style: e.target.value || null });
-    wbScheduleRender();
+    renderWhiteboardNow();
   });
   //: Back to the branch, from the node ring (§12.5): it drops every choice the
   //: rest of this strip makes, so it is the last control in it.
@@ -11100,9 +11103,10 @@ async function initWhiteboard() {
     if (!node) return;
     // A colour carries down the branch, so this one *does* redraw the board:
     // every descendant's card and every edge below it changes with it.
+    wbPushUndo({ action: "move", kind: "object", id: node.id, before: WB_KIND_INFO.object.payload(node) });
     node.data = { ...node.data, color: e.target.value };
     await wbSaveObject(node);
-    wbScheduleRender();
+    renderWhiteboardNow();
   });
   $("wb-map-tidy")?.addEventListener("click", async () => {
     const moved = await wbMapTidy({ quiet: true });
@@ -13846,7 +13850,7 @@ async function createNewBoard(preset = null) {
       // thing about the feature in its first five seconds.
       const root = (wbState.objects || []).find((o) => WB_MAP_KINDS.has(o.kind));
       if (root) selectWbItem("object", root.id);
-      wbScheduleRender();
+      renderWhiteboardNow();
       //: **Centred on the actual canvas, not wherever the server's own
       //: `tree-right` placement happened to land it.** Reported: a new map's
       //: first node opened under the top bar. The root is real DOM now
@@ -17359,14 +17363,8 @@ async function openWhiteboardBoard(boardId) {
   //: measures the nodes it is about to fit (a map node is `height: auto`, so
   //: its real size only exists once it is in the document).
   if (wbIsMap()) {
-    // Avoid blocking the UI thread (tab transition) by rendering on the next frame.
-    requestAnimationFrame(() => {
-      // wbScheduleRender already requested a frame, so we request another to
-      // ensure the DOM is updated before framing the map.
-      requestAnimationFrame(() => {
-        wbFrameMapOnOpen();
-      });
-    });
+    renderWhiteboardNow();
+    wbFrameMapOnOpen();
   }
   //: **A board is a place, so opening one is a navigation.** Asked as part of
   //: "is everythign wired to the nav history and universal undo/redo": it was

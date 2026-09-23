@@ -1329,12 +1329,15 @@ header#top-bar select,
 }
 
 /* The action tiles are the one part that still wants equal columns: they are
-   four things of the same kind, and a ragged row of differently-sized tiles is
+   five things of the same kind, and a ragged row of differently-sized tiles is
    what "equal columns" was originally introduced to fix. `auto-fit` collapses
-   them to two, then one, without a breakpoint. */
+   them without a breakpoint. 11rem rather than the 14rem it was: at the
+   desktop window's 1200px the row is 1154px, which fits four 14rem tracks and
+   left Meeting notes alone on a second line (owner: "buttons wrap on
+   dashboard 100% zoom"). Five 11rem tracks need 944px. */
 .launch-row-start {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
 }
 
 .quick-link {

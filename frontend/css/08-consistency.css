@@ -714,25 +714,35 @@
   margin-left: 0;
 }
 
-/* **The Notes dock's search zone wraps at desktop widths on the packaged
-   app.** The dock holds identity + find + arrange + actions — eight visible
-   controls — and the default 14rem flex-basis for `.dock-find` is wide
-   enough that arrange and actions fall to a second row at ~900–1000 px,
-   which is the typical packaged-app window width at 100 % zoom.
+/* **The Notes dock on one line at the packaged window's width** (owner:
+   "all notes topbar wraps elements onto new line on 100% zoom"). The desktop
+   window opens at 1200 wide, which leaves this dock about 813px, and its nine
+   controls wanted about 970: the actions zone fell to a second row. Measured
+   with `scratchpad/ui-sweeps` at 1184x760: 98px tall before, one row after.
 
-   Reducing the basis to 10rem keeps the field readable (its own `min-width:
-   8rem` is the floor) while making room for the sort select and the view
-   toggle to stay on the same line. At wide viewports the field still grows
-   into the available space, so nothing is lost there.
-
-   The sort select also gets a hard maximum: without it the select claims any
-   slack the reduced search basis leaves and the view-toggle gets no room. */
+   Four moves, none of which drops a control: Reload goes into the More menu
+   (index.html), the search basis comes down to its own 8rem floor (it still
+   grows into any slack), the sort select stops taking the slack, and below
+   1400 the Filter and Select words go visually hidden, the
+   way `.seg-multi`'s words do below 1200 (10-responsive.css), so each keeps
+   its accessible name and its tooltip while the glyph carries the row. */
 [data-dock-name="notes"] .dock-find {
-  flex: 1 1 10rem;
+  flex: 1 1 8rem;
 }
 
-[data-dock-name="notes"] #note-sort {
-  max-width: 10rem;
+[data-dock-name="notes"] .dock-arrange .select-shell {
+  max-width: 9rem;
+}
+
+@media (max-width: 1399.98px) {
+  [data-dock-name="notes"] .dock-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 /* The documents editor's head already *is* a bar - `.doc-toolbar`

@@ -1683,7 +1683,7 @@
                 aria-label="Filter notes. Supports tag:, cat:, is:favourite, -exclude and quoted phrases"
                 aria-describedby="search-help-hint">
               <details class="doc-dock-menu dock-menu" id="notes-filter-menu">
-                <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, save this filter"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> Filter <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+                <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, save this filter"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> <span class="dock-word">Filter</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
                   <label class="dock-menu-check semantic-toggle" title="Search by concept instead of exact keywords">
                     <input type="checkbox" id="semantic-search-toggle"> <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Semantic: match by meaning
@@ -1714,7 +1714,7 @@
               </div>
             </div>
             <div class="dock-actions">
-              <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
+              <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="dock-word">Select</span></button>
               <!-- The dock's one primary, which this dock never had: Capture is
                    a sub-tab, so "new note" was a tab press away and looked
                    like navigation rather than the thing the Notes tab is for.
@@ -1725,8 +1725,6 @@
                    section showing. -->
               <button id="notes-new-note" class="small" type="button"
                 title="Start a new note (opens Capture)"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
-              <button id="notes-refresh" class="ghost small icon-only" type="button"
-                title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
               <button id="search-help" class="icon-only ghost small graph-help-toggle" type="button"
                 aria-expanded="false" aria-controls="search-help-hint"
                 title="What can I type here?" aria-label="What can I type here?">
@@ -1750,6 +1748,11 @@
                        used sometimes. `updateExpandAllButton` still hides it
                        outside rows view and still writes both its label and its
                        icon, so nothing about app.js changes. -->
+                  <!-- Reload lives here rather than as a ninth control in the
+                       row: at the desktop window's 1200px the row wrapped with it
+                       in (owner, "all notes topbar wraps ... at 100% zoom"). -->
+                  <button type="button" id="notes-refresh" class="doc-dock-menu-item"
+                    title="Fetch the list again from the notebook"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Reload notes</button>
                   <button type="button" id="notes-expand-all" class="doc-dock-menu-item hidden"
                     title="Open every note in this list" aria-label="Open every note in this list"></button>
                   <div class="dock-menu-section">

@@ -546,13 +546,6 @@
   }
 }
 
-body.wb-panning .wb-card,
-body.wb-panning .library-chip {
-  /* Prevent expensive hover hit-testing and will-change repaints during panning */
-  pointer-events: none !important;
-}
-
-
 /* **A dragged card must track the cursor, not ease after it.** The transition
    above is for the hover lift; while a card is actually being dragged its
    transform is being set every pointer move, so a 0.2s ease means the card
@@ -10003,11 +9996,14 @@ input[type="file"] {
 }
 
 
-/* **A slot you can see** — redesigned for a premium, modern feel. Each slot
-   uses frosted glass (backdrop-filter blur) over the ring band, a refined
-   border, and smooth micro-interactions on hover and press. The slot recipe
-   keeps the same positional logic (left/top from the radius, never translate)
-   so the press cue still works. */
+/* **A slot you can see** (INBOX 177, 200). An opaque ground and an edge, so
+   the ring reads as controls around the topic rather than smudges on a dark
+   board. Opaque, not blurred: a blurred surface must be on the glass-off
+   list, and the slot sits on its own opaque band anyway. Hover answers with
+   the accent ring and colour, never a transform: the slot is placed by
+   `left`/`top` and the press cue owns `translate` (DESIGN.md recipe index).
+   Written as two classes because the slot is also `.ghost.small.icon-only`,
+   whose rules come later in the cascade. */
 .wb-map-radial .wb-map-radial-slot {
   --wb-radial-diag: calc(var(--wb-radial-r) * 0.866);
   --wb-radial-mid: calc(var(--wb-radial-r) * 0.5);
@@ -10026,18 +10022,11 @@ input[type="file"] {
   padding-inline: var(--space-2);
   border-radius: var(--radius-pill);
   pointer-events: auto;
-  /* Frosted glass surface */
-  background: color-mix(in srgb, var(--modal-bg-opaque) 82%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--modal-bg-opaque);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-sm),
-    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+  box-shadow: var(--shadow-sm);
   color: var(--ink);
-  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.15s ease,
-    border-color 0.15s ease,
-    background 0.15s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
   cursor: pointer;
 }
 
@@ -10047,17 +10036,11 @@ input[type="file"] {
     border-color: var(--accent);
     box-shadow: var(--shadow-md),
       0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
-    transform: scale(1.06);
   }
 
   .wb-map-radial .wb-map-radial-slot:hover i {
     color: var(--accent);
   }
-}
-
-.wb-map-radial .wb-map-radial-slot:active {
-  transform: scale(0.95);
-  transition-duration: 0.06s;
 }
 
 .wb-map-radial .wb-map-radial-slot:focus-visible {
@@ -12919,15 +12902,26 @@ button.finder-row:hover,
     display: flex;
     flex: 1 1 auto;
     min-width: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--space-2);
   }
 
-  /* Each tile shrinks to fit the row without overflowing. The 8rem floor
-     keeps them readable; below that they wrap to a second line. */
+  /* **One line, always** (owner: "when the dashboard is on the compact view,
+     I still want all these buttons to be on the same line and not wrap").
+     Equal shares of the row from a zero basis, and a label that ellipsises
+     rather than pushing a tile onto a second line; the tile's title carries
+     the whole name. */
   #tab-dashboard[data-density="compact"] .launch-row-start > * {
-    flex: 1 1 8rem;
+    flex: 1 1 0;
     min-width: 0;
+  }
+
+  #tab-dashboard[data-density="compact"] .launch-row .quick-link-text,
+  #tab-dashboard[data-density="compact"] .launch-row .quick-link-text > * {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

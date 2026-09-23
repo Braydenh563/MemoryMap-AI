@@ -5,6 +5,20 @@ based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows a "waves and phases" development history (see the milestones
 below). Versioning is `0.x` while the app stabilises.
 
+## [Unreleased]
+
+### Fixed
+
+- Settings, Models says which model background jobs actually run on, and why
+  (INBOX 277). The utility picker shows the stored choice, and that choice is
+  not the model in use while smart model routing is off or nothing has been
+  chosen; a line under it now reads, for example, "Background jobs run on
+  llama3.2, the chat model, because smart model routing is off", from one
+  server function (`utility_resolution`) that `utility_model()` itself uses.
+  The routing switch beside it also showed unchecked whenever Settings was
+  opened on Models, because only Background tasks ever filled it in; it now
+  reads the stored value when Models opens. Label in sentence case.
+
 ## [0.3.2] - 2026-09-21
 
 ### Fixed

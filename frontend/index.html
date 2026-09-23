@@ -7175,10 +7175,14 @@
                 <select id="utility-model-select" aria-label="Model used for background jobs" title="Model used for background jobs"></select>
                 <button id="utility-model-apply" class="small">Use this model</button>
               </div>
+              <!-- What background jobs actually run on, and why (INBOX 277):
+                   the picker shows the stored choice, which is not the model
+                   in use while smart model routing is off. -->
+              <p id="utility-model-note" class="muted" aria-live="polite"></p>
               <div class="stack-top-gap">
                 <label class="checkbox-label row align-center">
                   <input type="checkbox" id="pref-smart-model-routing">
-                  <span>Use Smart Model Routing for Background Tasks</span>
+                  <span>Use smart model routing for background jobs</span>
                 </label>
               </div>
               <p class="muted">A small fast model handles background jobs, so the chat model stays free to answer.</p>

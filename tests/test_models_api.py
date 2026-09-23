@@ -269,3 +269,49 @@ def test_a_second_rebuild_while_one_runs_is_refused(ai_client, fake_embeddings, 
     response = ai_client.post("/models/reindex")
     assert response.status_code == 409
     assert "already running" in response.json()["detail"]
+
+
+# --- INBOX 277: what the utility role resolves to, and why ------------------
+#
+# A role can say one model and run another: the utility preference ships
+# empty, and smart model routing off sends every background job to the chat
+# model whatever the preference says. Settings used to show only the stored
+# name, so a person who picked a small model and then turned routing off was
+# told something untrue about their own notebook. The status poll now reports
+# the resolved name and the reason, from the one function that decides it.
+
+
+def test_status_reports_the_utility_model_it_resolves_to(client):
+    body = client.get("/models/status").json()
+    assert body["utility_model_resolved"] == body["chat_model"]
+    assert body["utility_model_reason"] == "unset"
+
+
+def test_status_says_a_chosen_utility_model_is_the_one_in_use(client):
+    deps.get_model_manager().set_utility_model("phi3.5")
+    body = client.get("/models/status").json()
+    assert body["utility_model"] == "phi3.5"
+    assert body["utility_model_resolved"] == "phi3.5"
+    assert body["utility_model_reason"] == "chosen"
+
+
+def test_status_says_routing_off_sends_background_jobs_to_chat(client):
+    manager = deps.get_model_manager()
+    manager.set_utility_model("phi3.5")
+    manager._config.set_preference("smart_model_routing_enabled", False)
+    body = client.get("/models/status").json()
+    # The stored choice is still reported (the picker shows it), and the
+    # resolved name says what actually runs.
+    assert body["utility_model"] == "phi3.5"
+    assert body["utility_model_resolved"] == body["chat_model"]
+    assert body["utility_model_reason"] == "routing_off"
+
+
+def test_resolution_agrees_with_the_getter_in_every_case(app_state):
+    manager = deps.get_model_manager()
+    for chosen in ("", "phi3.5"):
+        for routing in (True, False):
+            manager.set_utility_model(chosen)
+            manager._config.set_preference("smart_model_routing_enabled", routing)
+            model, _reason = manager.utility_resolution()
+            assert model == manager.utility_model()

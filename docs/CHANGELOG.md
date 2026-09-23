@@ -54,6 +54,9 @@ below). Versioning is `0.x` while the app stabilises.
   in them. Note boxes indent with Tab from the first keystroke after a
   restart, not only once the editor has loaded. Renaming a topic can be
   undone.
+- The note Capture box's formatting toolbar stays on one row in the desktop
+  window: the two colour pickers are an icon and a caret, and on a narrow
+  window List, Task and Preview show their icons only.
 - A missing search-by-meaning package is reported in words, with
   nomic-embed-text offered as the alternative, instead of a traceback.
 

@@ -96,7 +96,8 @@ then edits a table by click, Tab and Shift+Tab.
   rule moves and no column narrows) and a 6% accent ground, only while the
   editor has focus, and it follows Tab. The cells take the rendered view's
   inset, `--space-2` by `--space-4` where they had 0.8px by 8px (row 28.2px
-  to 39.4px). The header's last cell reserves the kebab's width so a long
+  to 39.4px; being tokens they follow the density, so 4.8px by 7.2px in the
+  compact default look that landed the same day). The header's last cell reserves the kebab's width so a long
   heading wraps before the menu rather than under it (text now ends 46.8px
   short of the menu). And the caret in a new, empty cell goes one space in:
   before, Tab out of the last cell and a typed word gave `|  Three|`; now
@@ -214,6 +215,30 @@ TypeScript and CSS error nodes on real-world files (the Lezer grammars are
 tolerant, so a false positive is possible on unusual syntax and was not
 seen on the files tried); YAML on an install without PyYAML (the 400 path is
 tested at the endpoint, the frontend's fallback is reasoned).
+
+### The note Capture toolbar at the 1184px desktop window (from the orchestrator, 2026-09-23)
+
+Reported: at 1184x760 the note Capture box's formatting toolbar wrapped
+"Preview" alone onto a second row. Measured first with
+`scratchpad/ui-sweeps/notetoolbar.js`, in both the new default look (Quiet
+utilitarian) and Classic: in Classic the strip was 813px wide and two rows
+(the two colour pickers 120px and 133px, "Highlight…" and "Text colour…"),
+in the default look one row with 39px to spare.
+
+**Built.** The pickers keep their `<select>` and their whole data contract
+(`data-md-colour`, the options `MD_COLOURS` writes) and gain
+`data-select-icon`: `enhanceSelect` (app.js) prepends the icon to the opener
+and `.select-opener-icon` clips the word, so the face is an icon and a caret
+(45px and 46px in Classic) and the name is still the select's `aria-label`.
+List, Task and Preview carry their word in a `.toolbar-word` span that is
+clipped below 820, where the button takes the icon-only square. After: one
+row at 1184 in both looks (126px spare in Classic, 195px in the default), one
+row at 1440, and at 820 one row in the default look; choosing Green from the
+icon picker still writes `==green|word==`. DESIGN.md's recipe index has the
+row and `tests/test_ui_recipes.py` its lint.
+
+**Found, not fixed**: Classic at 820 still wraps Preview (its 36px controls
+and comfortable density need about 30px more than the 530px strip has).
 
 ## Moved from the plans, 2026-09-21
 

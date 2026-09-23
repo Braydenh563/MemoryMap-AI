@@ -2295,3 +2295,31 @@ def test_code_diagnostics_are_drawn_in_the_apps_ink() -> None:
         "a code check that executes the file: the CSP forbids it and it is not a check"
     )
 
+
+def test_an_icon_picker_keeps_its_name_and_hides_its_word_by_clipping() -> None:
+    """The note strip's colour pickers are icons with a caret (the owner, at
+    the 1184px desktop window: "Preview" wrapped alone onto a second row).
+    The word leaves the row but not the accessibility tree: it is clipped,
+    never `display: none`, and the opener's name is the select's own
+    aria-label. The worded buttons follow the same rule where they go
+    icon-only."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    enhance = app.split("function enhanceSelect(select) {", 1)[1].split("\nfunction ", 1)[0]
+    assert "select.dataset.selectIcon" in enhance and "select-opener-icon" in enhance, (
+        "enhanceSelect no longer draws the icon face data-select-icon asks for"
+    )
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    for selector in (".select-opener-icon .select-value {", ".note-toolbar .toolbar-word {"):
+        assert selector in css, f"{selector} has no rule"
+        body = css.split(selector, 1)[1].split("}", 1)[0]
+        assert "clip-path" in body and "display: none" not in body, (
+            f"{selector} must clip the word, not remove it: it is the control's name"
+        )
+    page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    bar = page.split('id="note-toolbar"', 1)[1].split('id="entry-content"', 1)[0]
+    assert bar.count('data-select-icon="') == 2, "the note strip's colour pickers are words again"
+    for select in re.findall(r"<select[^>]*data-select-icon[^>]*>", bar):
+        assert "aria-label=" in select and "title=" in select, (
+            "an icon picker needs an aria-label (its name) and a title (its hover text)"
+        )
+

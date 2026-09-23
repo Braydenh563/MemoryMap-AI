@@ -1127,11 +1127,13 @@ compared with.
   291 was found. Gate: `contrast.js` clean at 390, 820 and 1440 in both, with
   its element count above zero, and `dochighlight.js` still passing.
 
-**Not verified, and to be taken first by whoever opens this.** Everything
-above is measured at 1440 in light only. The wide widths are unmeasured for
-the reason given in 17a, and the phone is untouched by this section: the
-live view on a phone is UI_MODERNISATION_PLAN Phase 11's territory and
-should not be redesigned from here.
+**Not verified, and to be taken first by whoever opens this.** 17a to 17c
+are measured at 1280, 1440, 1920 and 2560, light and dark, in the default
+look and in Classic (`scratchpad/ui-sweeps/doclooks.sh`); 17d and 17e are
+not started. The phone is untouched by this section: the live view on a
+phone is UI_MODERNISATION_PLAN Phase 11's territory and should not be
+redesigned from here, which is why 17a's page margin applies above 600
+only.
 
 ## 18. The slash menus as one system: built 2026-09-21
 

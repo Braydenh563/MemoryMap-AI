@@ -111,7 +111,10 @@ const ok = (n, c, d) => {
   await page.waitForTimeout(900);
 
   ok("the code's first glyph is inset from its slab", rest.codeInset >= 8, `${rest.codeInset.toFixed(1)}px`);
-  ok("a table cell has room around its words", px(rest.cellPad[1]) >= 8 && px(rest.cellPad[0]) >= 2,
+  // The inset is `--space-2` by `--space-4`, so it follows the density: 6.4
+  // by 9.6 at comfortable, 4.8 by 7.2 in the compact default look. Either is
+  // room; the 0.8px by 8px it replaced was not.
+  ok("a table cell has room around its words", px(rest.cellPad[1]) >= 6 && px(rest.cellPad[0]) >= 4,
     rest.cellPad.join(" "));
   ok("the quotation's text is inset from its bar", rest.quoteInset >= 12, `${rest.quoteInset.toFixed(1)}px`);
   // The bar is the only thing that says "quotation", so it is held to the

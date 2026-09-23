@@ -300,7 +300,24 @@ with its owner named in the entry.
     its numbers and where it would stop being right, so it does not have to
     be argued a fourth time. No migration started, and the serverless
     question is answered in a paragraph there rather than left hanging.
-    Still open on this entry: (1), (2), (3), (4) and (5).
+    **(1) done 2026-09-23**, the usability and IA read against the owner's
+    "3 clicks to anything" (INBOX 270): 22 primary tasks driven from a fresh
+    dashboard by `scratchpad/ui-sweeps/clicks.js`, 21 within three clicks and
+    restoring from the bin at four on purpose (the table is in
+    `agent-remaining/guideia.md`). Four trust breakers it found, all fixed:
+    both dashboard "Ask" doors opened a disabled Chat box when no model was
+    running (now Notes, Ask, which answers without one); the Chat tab never
+    said why its box was grey (now the same Connect-a-model line as Ask, the
+    agent and the writing desk); a new notebook's Library said "Nothing of
+    this kind yet" because the activity log counted as things made (now a
+    sentence and a Create button); Create offered no board and no upload
+    (now seven rows).
+    Checked, not built here (packaging is another agent's): (2) the
+    `.tar.gz` ships (`release.yml`, `MemoryMap-AI-<v>-linux-x86_64.tar.gz`);
+    (3) the `.msi` steps exist but are `if: false`, so no MSI ships; (4)
+    every installer name carries version, platform and arch
+    (`installer.iss`: `MemoryMap-AI-Setup-<v>-windows-x86_64`). Still open on
+    this entry: (3) and (5).
     **Checked 2026-09-23.** (2) built: `release.yml` ships
     `MemoryMap-AI-<version>-linux-x86_64.tar.gz` beside the zip. (3) built and
     then switched off (`b7b15c7`, WiX v7's fee terms; see 271, resolved). (4)

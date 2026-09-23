@@ -2145,6 +2145,14 @@
                the top is worse than either arrangement on its own, you press
                it and nothing appears to happen. -->
           <div class="chat-dock">
+            <!-- **Why the box is grey, in the place you are looking** (INBOX
+                 266 part 1). With no model the composer and Send are disabled
+                 (`data-needs-model`) and the only thing that said why was a
+                 tooltip on a control that cannot be pressed; the three other
+                 surfaces that are nothing but the model (Ask, the popup agent,
+                 the writing desk) each carry this line. Filled and hidden by
+                 `renderAiOfflineNotice`, the same one line and one button. -->
+            <div id="chat-offline" class="ai-offline-note hidden"></div>
             <!-- Attached notes are per-message too. They are their own line
                  because they are *content*, a variable number of note chips , 
                  and putting them in the control strip would make its height
@@ -4479,6 +4487,10 @@
                micro-conventions): the Notes list's own no-match state has
                had "Clear the filter" for a long time; this one had none. -->
           <button id="library-empty-clear" class="ghost small hidden" type="button"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear the search</button>
+          <!-- The next step, beside the sentence that names it (INBOX 266
+               part 1): the dock's Create for this kind, relabelled to match
+               it by `renderLibrary`. -->
+          <button id="library-empty-create" class="ghost small hidden" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Create</button>
         </div>
 
         <!-- Inject the Skills section here -->

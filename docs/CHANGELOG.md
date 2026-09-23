@@ -9,6 +9,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Chat: with no model connected, the Chat tab says so above the composer, names Notes, Ask as the place that answers without one, and carries the Connect a model button, as Ask, the popup agent and the writing desk already did. Before, the box was grey and only a tooltip said why.
+- Dashboard: Ask AI and the empty notebook's Ask your notebook go to Notes, Ask when no model is running (it answers from your notes without one) and to Chat when one is, with the caret in the box. Before, both opened a disabled Chat box with the caret nowhere.
+- Library: a new notebook's first screen says what to make and offers Create beside the sentence, instead of "Nothing of this kind yet" (the activity log was being counted as things you had made); a kind with nothing in it names itself ("No meetings yet"). The Create picker now offers a board and a file upload too, seven rows in all.
 - The Atlas guide panel is redesigned as one surface: the chat sits straight on the card instead of in a tinted box inside it, the head is one row (35px, was 63) with its subtitle on one line and three quiet, equal controls, the empty panel greets you like the Chat tab does (a title, one line, and the three questions as centred chips), and an answer's first line no longer sits 25px below the top of its bubble. The Settings, Help row's questions wear the same chip.
 - Files: a description or reading typed while the automatic one was still being written is no longer overwritten when the automatic one lands.
 - Empty states: the Timeline's sits centred in its card instead of at the foot under a blank body, and the Graph's action button is its own width instead of spanning the map.

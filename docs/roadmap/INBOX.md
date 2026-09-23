@@ -60,6 +60,25 @@ with its owner named in the entry.
     renderer dropped. `scratchpad/ui-sweeps/askgrounding.js` against
     `scratchpad/fake_answer_server.py` is the probe that already counts them.
 
+393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
+    improvements, remove any trace of vibe coded stuff in elements, designs,
+    aesthetics styles, form, function, layout, structure. vendor and use skills
+    to help with ui and ux design. find bugs in usability. improve and expand
+    learnability and information architecture. further modernise and
+    professionalise the app. I lose trust in and refuse to use applications
+    with poor ui design and ui/ux issues as they make me feel like the app is
+    unreliable ... there needs to be more integration between all the main
+    features. and there needs to be more optimisiation." Placed: the identity
+    half is a decision in UI_MODERNISATION_PLAN ("The default look is Quiet
+    utilitarian"), built by a theme agent with the vendored design skills and
+    unslop-ui. Recommendation for the integration half, taken: one "act on
+    this" vocabulary for every object (note, document, board, map, file,
+    reminder): Open, Ask about it, Add to a map, Show in graph, Remind me,
+    Link to, reached the same way from its card menu, the command palette and
+    a right-click, audited surface by surface against a table in
+    WORLD_CLASS_PLAN's consistency contract, with a lint that every object
+    menu carries the shared rows.
+
 391. **The owner, 2026-09-23, with the Gemini/Antigravity pass on
     `fix/gemini-fixes-5` (1e63d87, 2c3e16e): "fix and refine the changes
     attempted by gemini ... fix the ui, fix the ux, fix bugs, revert and refine

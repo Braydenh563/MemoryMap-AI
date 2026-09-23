@@ -33210,6 +33210,21 @@ measured, so nobody rebuilds them.
     **Resolved, checked 2026-09-23.** The named half is built as stated, and
     the standing half is standing order 1's "Continue", not a report.
 
+321. **Found by the open-items pass, 2026-09-23 (the session, not the
+    owner): a missing decision.** WORLD_CLASS_PLAN D6 names `Ctrl+D` for
+    "open today's note", and the board already binds `Ctrl+D` to duplicate
+    the selection (whiteboard.js, the Figma, Miro and tldraw chord), so one of
+    the two has to give where both apply. Recommendation, taken: `Ctrl+D` is
+    today's note everywhere except while a board is open, where the board's
+    duplicate keeps it, decided by the same `boardHistoryActive()` the
+    undo handoff already uses, so the two chords never both fire.
+    **Resolved 2026-09-23, built on the decision.** `todaysNote` in
+    `DEFAULT_SHORTCUTS` (so it is rebindable, collision-checked by
+    `tests/test_frontend_shortcuts.py` and in the shortcuts sheet), stepping
+    aside on an open board and for any editor that has already answered the
+    chord (the documents editor's CodeMirror binds it to "select the next
+    match"). `scratchpad/ui-sweeps/oi-ctrld.js`, 3 of 3.
+
 ## Moved from the plans, 2026-09-23
 
 ### From CHAT_PLAN.md

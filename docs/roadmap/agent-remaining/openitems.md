@@ -61,6 +61,9 @@ Phase 8c, the templates preview, outline row height.
   re-read. INBOX: 269 and both 271s resolved to HISTORY; 266, 268, 270 and
   272 annotated with which parts are built and which are left.
 - done c8c4296: the stale-row pass.
-- done (this commit): INBOX 266 (5) measured (104MB before the embedding
+- done f3f8dd7: INBOX 266 (5) measured (104MB before the embedding
   model, 774MB after; no heavy import at startup) and said in Settings.
-- next: 11, a decision for D6's chord (INBOX, one-line recommendation).
+- done (this commit): 11, INBOX 321 decided and built, `Ctrl+D` opens or
+  starts today's page; `oi-ctrld.js` 3 of 3.
+- next: D6's calendar strip on the Timeline dock (reads
+  `GET /entries/daily?through=&days=`), then the tour measurement.

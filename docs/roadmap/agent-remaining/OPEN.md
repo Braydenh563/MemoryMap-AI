@@ -574,9 +574,10 @@ being written by running agents stay beside this one.
   first step is superseded, not missing. `startTodaysNote` deliberately opens
   the composer with the day's title and saves nothing until Save (INBOX 199,
   the comment above it in app.js), which is what removed the duplicate, and
-  the POST stays for the agent's own tool. Still open: `Ctrl+D` (the board
-  already binds it to duplicate, so the chord needs a decision first), the
-  calendar strip and the yesterday and tomorrow pair.
+  the POST stays for the agent's own tool. `Ctrl+D` built 2026-09-23 on the
+  decision in INBOX 321 (now in HISTORY). Still open: the calendar strip and
+  the yesterday and tomorrow pair (the pair sits in the note head, which is
+  the notes surface's owner's).
   [chat-timeline-skills.md]
 - **The strip's threshold: measured and replaced, 2026-09-20.** A note count
   is the wrong variable (it showed a comb of 200 notes over 18 days and hid a

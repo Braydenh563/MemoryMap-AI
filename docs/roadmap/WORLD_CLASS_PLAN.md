@@ -307,8 +307,10 @@ writes sits outside the CSRF defence, which judges methods) (which is what makes
 `startTodaysNote` posted a new note every time, so a day opened twice had two
 notes and its writing split between them), and `GET /entries/daily?through=&days=`
 answers the calendar strip and the streak in one query.
-`tests/test_daily_journal.py`. What is left is frontend: Ctrl+D from every
-tab, the strip itself, and the yesterday/tomorrow pair in the note head.
+`tests/test_daily_journal.py`. `Ctrl+D` from every tab is built (2026-09-23,
+`todaysNote` in `DEFAULT_SHORTCUTS`, stepping aside on an open board by the
+decision in HISTORY's INBOX 321; `oi-ctrld.js`). What is left is the strip
+itself and the yesterday/tomorrow pair in the note head.
 
 Exists: the daily-note convention (a note whose first line is `# <ISO date>`)
 and the Today action, from timeline Phase 4; and now the endpoints above.

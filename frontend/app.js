@@ -30137,6 +30137,30 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
 //: the duplicate guard unnecessary: five presses now fill the same two fields
 //: five times rather than making five notes (INBOX 199). The endpoint stays
 //: for the agent's own `add to today's note` tool, which has no composer.
+//: `Ctrl+D` (WORLD_CLASS_PLAN D6): today's page if the day has one, else the
+//: composer with the day's title, exactly what the Timeline's own button does
+//: on today's bucket. Asked of `/timeline` for today, so the answer is the one
+//: the Timeline itself would give (a note or a document titled with the day,
+//: `timelineDailyNote`), and opened where that kind lives.
+async function openTodaysPage() {
+  const key = timelineBucketKey(new Date(), "day");
+  const body = await apiJson("/timeline?scale=day&days=1&kind=note,document", { silent: true }).catch(
+    () => null
+  );
+  const existing = body ? timelineDailyNote(key, (body.rows || []).map(timelineRow)) : null;
+  if (!existing) {
+    startTodaysNote();
+    return;
+  }
+  const id = Number(String(existing.key).split(":")[1]);
+  if (existing.kind === "document") {
+    switchTab("documents");
+    openDocument(id);
+    return;
+  }
+  flashEntry(id);
+}
+
 function startTodaysNote() {
   const title = dailyNoteTitle(timelineBucketKey(new Date(), "day"));
   switchTab("notes");
@@ -44137,6 +44161,11 @@ document.addEventListener("keydown", (e) => {
       document.activeElement?.isContentEditable;
     for (const [id, def] of Object.entries(shortcuts)) {
       if ((id === "undo" || id === "redo") && inTextField) continue;
+      //: INBOX 321: on an open board the same chord duplicates the selection.
+      //: And an editor that already answered it keeps it: the documents
+      //: editor binds Ctrl+D to "select the next match" (CodeMirror's search
+      //: keymap), handles it at the target and marks it `defaultPrevented`.
+      if (id === "todaysNote" && (boardHistoryActive() || e.defaultPrevented)) continue;
       if (matchesShortcut(e, def.keys)) {
         e.preventDefault();
         //: The chord goes through the same `performUndo`/`performRedo` the
@@ -44729,6 +44758,11 @@ const DEFAULT_SHORTCUTS = {
   help: { keys: "?", label: "Show this shortcuts list" },
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
+  //: WORLD_CLASS_PLAN D6. Opens today's page wherever it is (a note or a
+  //: document titled with the day), or starts one in the composer. Not while a
+  //: board is open: there `Ctrl+D` is the board's duplicate (INBOX 321), and
+  //: the chorded loop in the keydown handler steps aside for it.
+  todaysNote: { keys: "Ctrl+D", label: "Open today's note, or start it" },
   // A recording is started the moment a meeting starts, and anything that
   // makes you navigate first is what makes it not get started at all, the
   // reason this is a shortcut as well as a palette entry and a tray item.
@@ -45098,6 +45132,7 @@ function runShortcut(id) {
       switchTab("documents");
       createDocument();
     },
+    todaysNote: () => openTodaysPage(),
     recordMeeting: openMeetingRecorder,
     forceReload: forceReloadApp,
     toggleTheme,

@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Ctrl+D opens today's note from any tab, or starts it in the composer with
+  the day as its title when the day has none (a document titled with the day
+  counts too). It is in the shortcuts list and can be rebound. On an open
+  board Ctrl+D still duplicates the selection, and inside the documents editor
+  it still selects the next match.
 - Settings, Models says what the built-in search engine costs in memory
   (about 650 MB while the app is open, measured) and that choosing Ollama for
   embeddings keeps MemoryMap itself near 100 MB. Measured with the imports at

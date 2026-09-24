@@ -190,8 +190,8 @@ class AttachmentGalleryOut(BaseModel):
     """
 
     id: int
-    #: `/files/{id}`, token-gated the same way as `/media/{name}`, see
-    #: `mediaSrc()` (app.js) and `require_unlock_media` (routes_auth.py).
+    #: `/files/{id}`, gated the same way as `/media/{name}` (the media
+    #: cookie, see `require_unlock_media` in routes_auth.py).
     #: Deliberately has no file extension (an attachment is served by id,
     #: not by stored name), which is why the gallery classifies Images vs.
     #: Files from `mime` here rather than sniffing the url the way it does
@@ -806,7 +806,7 @@ def attached_file_html_preview(
 
     On `media_router` because an `<iframe src>` is a declarative load and
     cannot attach a header: `require_unlock_media` is the gate that accepts
-    the token as a query parameter, the same way `<img src>` already does.
+    the media cookie, the same way `<img src>` already does.
     """
     attachment = _existing_attachment(session, attachment_id)
     if Path(attachment.filename).suffix.lower() not in {".html", ".htm"}:

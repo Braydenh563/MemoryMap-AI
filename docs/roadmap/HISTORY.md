@@ -12,6 +12,257 @@ that answers "has this been done?" before anyone starts.
 INBOX 399 ("what is left in the world class plan??"): every row of
 WORLD_CLASS_PLAN.md read against the code, and what was built moved here.
 
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S1
+
+**Built 2026-09-24: S1, the session token out of media URLs.** The review
+offered two fixes, a signed short-lived ticket in the URL or an HttpOnly
+cookie read only by `/media` and `/files`; the cookie was taken, because it
+puts no credential in any URL at all (history, the access log, a pasted
+address, an exported SVG) and needs no per-URL work where markdown renders an
+`<img>`, whereas a ticket in the URL would still be a credential in all four
+places, only a weaker one. Unlocking (and setup, a password change, a key
+rotation) sets `memorymap_media`: HttpOnly, SameSite=Strict, `Path=/media`
+and `Path=/files`, Max-Age the session ceiling, holding a random ticket that
+names the session rather than the session token itself, so a copy of it
+opens pictures and files and never the API. `require_unlock_media` reads the
+header or the cookie and **no longer reads `?token=`**. The ticket dies with
+its session (expiry, lock, lock-all, a password change); `POST
+/auth/media-session` sets it again for a token the frontend restores from
+localStorage, and the boot path awaits it before `startApp`. `mediaSrc` now
+returns the path unchanged (it still resolves staged pictures); the Library's
+two downloads go through `downloadFromApi`, since a `window.open` in the
+desktop window reaches the system browser, which holds neither credential.
+The access-log scrubber stays as the second layer for old addresses.
+
+Tests: `tests/test_media_cookie.py` (the cookie's attributes and paths, a
+picture with the cookie alone, `?token=` refused, the cookie opening no API
+route, lock, session death, the re-ask, a password change, no token in any
+frontend URL, the boot order). Verified in headless Chromium against a
+running server (`scratchpad/s1_browser.js`): a `/media` picture and a
+`/files` PDF in an iframe load (200, `application/pdf`), `document.cookie`
+cannot see the cookie, a reload keeps working, a profile with its cookies
+cleared fails a fresh load and loads again after the boot path's re-ask, the
+Library download saves `doc.pdf`, and no request URL and no server log line
+carried `token=`. **Not verified: the pywebview window** (WebView2, WKWebView,
+WebKitGTK), which cannot run here; the cookie is a plain same-origin
+Set-Cookie on a fetch response, which all three honour by specification.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S1 | The session token travels in `?token=` on every `/media` and `/files` URL (`mediaSrc`, `frontend/app.js` ~215), so it lands in browser history, in uvicorn's access log, and in any note a person pastes an image URL into (the code already notes a doubled `?token=`). `Referrer-Policy: no-referrer` stops the Referer leak only. | `app.js` mediaSrc; `core/security.py` query-token path | low / high | A media-scoped, short-lived HMAC token (path + expiry, signed with a per-session key) or an HttpOnly cookie set at unlock and read only by `/media` and `/files`; the API keeps the header. Log scrubbing for `token=` either way. |
+
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S2
+
+**Built 2026-09-24: S2, the unlock throttle per client.** Each client
+address (`request.client.host`, which already honours uvicorn's
+`--forwarded-allow-ips` and reads no forwarding header itself) earns its own
+waits at the old allowance of five; the global list `_failed_unlocks` stays
+as the backstop at fifty across every client, so a guesser rotating
+addresses still slows down with the rest. The client table is capped at
+1,024 (the quietest is dropped; the global list still counts its guesses).
+A right password clears that client's bucket and the backstop; other
+clients' buckets are kept, so a guesser is still waiting after the owner
+unlocks. On loopback every request is 127.0.0.1, so the local behaviour is
+unchanged. Tests: `tests/test_unlock_throttle_per_client.py` (one address's
+guesses do not lock out another, the guesser stays throttled after the owner
+unlocks, twenty addresses hit a lowered global ceiling, the table stays
+bounded); `tests/test_account.py`'s forgiveness test ages both layers.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S2 | Unlock throttling is one global list (`routes_auth.py` `_failed_unlocks`), not per client. | `routes_auth.py` ~93 | none / medium (five wrong tries from anyone locks the owner out for up to five minutes) | Key the throttle by client address once the bind is not loopback; keep the global ceiling as a second layer. |
+
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S3
+
+**Built 2026-09-24: S3, the folder-path import confined.** `import_markdown`
+turned out to take uploaded files, not a path, so the finding was
+`POST /import/directory` alone. `_validated_import_directory` now requires
+the folder, after `resolve` (so a symlink in home pointing at `/etc` is
+judged by where it lands), to be inside `Path.home()` or the notebook's data
+folder, and refuses anything else with "Choose a folder that exists inside
+your home folder or the notebook's data folder." The walk checks every
+`.md` it reaches by where it resolves, so a symlinked file or folder inside
+the vault that points out of it is skipped and counted, not read. The
+background job re-checks, so the job is safe on its own as well as behind the
+route. A vault outside home (a second drive) is now refused by the path
+field; Settings' folder picker (`import-md-folder`, an upload) still reads
+one from anywhere, because the browser hands over the files the person
+chose rather than a path. Tests: `tests/test_import_directory_roots.py`
+(home and the data folder import; outside is refused; a symlink out, as the
+chosen folder, as a file and as a folder inside it, is refused or skipped;
+the job re-checks). `tests/test_vault_import.py` and one test in
+`tests/test_markdown_export_import.py` now point `HOME` at `tmp_path`, where
+they build their vaults. Not done: the review's other half, a native picker
+in the desktop shell passing a handle rather than a path.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S3 | `import_directory` and `import_markdown` take a filesystem path from the request body and read it. Correct for the single user on localhost; on LAN it is arbitrary directory read for any holder of a token. | `routes_settings.py` ~1750 | none / high | Refuse when the bind is not loopback; or restrict to the user's home; the desktop shell should use a native picker and pass a handle, not a path. |
+
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S5
+
+**Built 2026-09-24: the rest of S5.** What the row had left was "the
+callers that do not exist yet", which only the lint can hold, and the lint
+had a hole: `tests/test_outbound_fetch_guard.py` counted the five
+`requests.` calls and nothing else, so two modules already fetched from the
+network without a line in `REACHES_THE_NETWORK`: `core/extra_downloads.py`
+(`urllib.request.urlopen`) and `core/embedmodels.py` (Hugging Face's
+`snapshot_download`). The scan now matches every call by its dotted name
+(`urllib.request.urlopen`, a bare `snapshot_download`) against the standard
+library's, httpx's, requests' and Hugging Face's ways out; it failed on
+exactly those two, and both are written down as "configured" (pinned URLs
+with pinned hashes; a model repo from the app's own list). A new pin,
+`test_the_scan_sees_fetchers_that_do_not_use_requests`, holds the widening.
+Bookmarks still fetch nothing; the clipper (row 24, D9) inherits the rule
+that an untrusted fetcher must call `core.security.public_addresses`, which
+`test_the_untrusted_fetcher_goes_through_the_shared_guard` enforces the day it
+lands.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S5 | **Half done, 2026-09-13 evening: the guard is one function and it is in `core/security.py`.** `public_addresses(url)` (and `assert_public_url` for a caller that does not pin) refuses anything that is not plain http(s), carries credentials, does not resolve, or resolves to **any** address on this machine or the local network; `search/websearch.py` now calls it and keeps only the connection pinning, which is the half that is about fetching rather than judging. `is_internal_address` is the one definition of internal, asked in both directions (refused for an untrusted URL, required of a self-hosted SearXNG). `tests/test_outbound_fetch_guard.py` walks `src/` for outbound calls and fails on a module that is not written down as untrusted or configured, which is what makes the clipper unable to arrive unreviewed. What is left of this row is the callers that do not exist yet: bookmarks still fetch nothing. Original finding: bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
+
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): `/debug/health`'s absolute paths
+
+**Built 2026-09-24.** `GET /debug/health` handed back the absolute
+`data_dir` and database path (INBOX 310: harmless behind the unlock gate on
+localhost, a map of the server's disk with the account name in it for anyone
+holding a token once other devices can connect). `routes_debug.shown_path`
+now says a folder under home as `~/...` and anything else as its own name
+after an ellipsis; `db.path` is the database's path relative to the data
+folder. Settings, About paints the same field, so it still says where the
+notebook lives. Tests: `tests/test_debug_health.py` (the shape test asserts
+no absolute path; home-relative and outside-home forms pinned). The support
+bundle (`routes_settings.py`) and the backups route still carry the absolute
+path; both are downloads the owner makes on purpose, not a page any token
+holder reads at a glance, and are left as they are. The paragraph as it
+stood in section 12:
+
+**Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5, and
+`GET /debug/health`'s absolute `data_dir`/`db_path` paths (INBOX 310:
+harmless behind the unlock gate on localhost today, a full server path
+handed to anyone holding the session token once this ships) as one change
+set with a `tests/test_lan_mode.py` that starts the app bound to 0.0.0.0
+in a subprocess and asserts each behaviour; only after it passes does
+Settings offer "Allow other devices on this network".
+
+The row as it stood in section 8:
+
+| 2 | §12, Brief 15 | S1 media token in the URL, S2 per-client throttle, S3 path imports, the rest of S5, S6, `/debug/health` paths; blocks LAN mode | M | `core/security.py`, `routes_auth.py`, `routes_settings.py` |
+
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S6
+
+**Built 2026-09-24: S6's redirect half.** The two provider clients import
+`ai/provider_http.py` in place of `requests`: the same `get`, `post`,
+`delete` and exceptions, with one response hook on every call that refuses a
+redirect whose target is not the same scheme, host and port as the response
+that sent it (`OffHostRedirect`, a `RequestException`, so every existing
+`except` reads it as a failed call and the message says why). A redirect on
+the same address is still followed. A module rather than a keyword at the
+fifteen call sites, so the call sites read as before and the tests' fakes,
+which patch `openai_client.requests.post` with fixed signatures, patch the
+shim the same way. Tests: `tests/test_provider_redirects.py`, on real sockets
+(the hook lives inside `requests`' redirect loop, which a patched call would
+skip): Ollama refuses a redirect to another host (`localhost` against
+`127.0.0.1`) and to another port, and never reaches the target; a same-host
+redirect is followed; the OpenAI-compatible client reports not running
+rather than following. `ai/provider_http.py` is written down in
+`REACHES_THE_NETWORK`. **Left open, with no code to hang it on:** "show the
+configured URL in the privacy receipt on LAN mode". Neither LAN mode nor the
+privacy receipt exists (row 35 is the receipt); that half belongs to them.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S6 | The model provider base URL is user-set and fetched from the server; by design it points at localhost, so SSRF to the LAN is "the feature". | `ai/provider.py` | none / low | On LAN mode, show the configured URL in the privacy receipt; never follow redirects off the configured host. |
+
+### From WORLD_CLASS_PLAN.md row 9 (§16): `similar_pairs` cached for link suggestions and tensions
+
+**Built 2026-09-24.** `/entries/link-suggestions` and `/entries/tensions`
+read `engine.cached_similar_pairs(session, threshold, only=...)` instead of
+running the O(n²) comparison per request. One slot per threshold (0.55 and
+0.45), keyed by the matrix's `(key, version)`; the version moves on every
+change to a row, from the flush hook or from `current_matrix` catching up
+with a bulk delete (row 1), so there is no second fingerprint to keep in
+step. The comparison runs over the whole matrix and `only` is applied to the
+result, which is the same set of pairs (a pair of a subset is a pair of the
+whole with both ends in it) and lets the two callers share it. The per
+request filters (already linked, dismissed, duplicates, the per-note cap)
+stay per request, because they move without a vector changing.
+
+Measured with `scratchpad/bench_pairs.py` (the route bodies, synthetic
+384-float vectors, the median of ten repeats after a first call), base tree
+against this one in the same sandbox: link suggestions 16.0 to 6.5 ms at 400
+notes, 114 to 28 ms at 2,000, 322 to 104 ms at 5,000; tensions 20.0 to 6.0,
+120 to 29 and 354 to 105 ms. The first call after a change still pays the
+comparison (526 ms at 5,000). What is left of a repeat request is the rest of
+the route, mostly `manager.list_entries` loading every note. Pinned by
+`tests/test_similar_pairs_cache.py`. The graph's own cache
+(`routes_graph._cached`) is unchanged.
+
+The section 16 lag bullet as it stood:
+
+- `similar_pairs` is O(n²) and is called from three routes (link
+  suggestions, tensions, graph edges) on each request; the graph route
+  caches it, the other two do not. Move: one cached pair table computed by
+  the night shift (I1) or on the graph fingerprint. Size S, Sonnet.
+
+### From WORLD_CLASS_PLAN.md row 1 (F3, §16): `semantic_search` on the engine's matrix
+
+**Built 2026-09-24.** `search_manager.semantic_search` scores against the
+retrieval engine's process-level matrix (`engine.vector_view`) instead of
+selecting and parsing every `EmbeddingRecord` on each Ask and chat request.
+The matrix stays correct three ways: the flush hook applies every ORM write
+(and now respects `model_version`); `engine.current_matrix` asks the table
+for `(count, max(id), total(entry_id))` first, from the index, and when that
+has moved diffs the table's `(entry_id, id)` pairs against what the matrix
+has seen and fetches only the rows that differ, which is what catches a bulk
+`delete()` (the purge, a category re-embed, a failed re-embed) and a flush
+that was rolled back; and a reindex to a new width moves the matrix once
+most rows are at it. The table scan stays as `_score_from_table`, the
+fallback for a query at a width the matrix does not hold (the minority side
+of a half-finished reindex) or a matrix that cannot be had. `vectors_by_id`
+goes through `current_matrix` too, so link suggestions and tensions see the
+same writes. The product runs through `einsum` rather than `@`: under load
+the BLAS thread pool's wake-up cost 12 ms median on a 5,000 x 384
+matrix-vector product that takes 0.3 to 0.45 ms on one core.
+
+Measured with `scratchpad/bench_semantic.py` (synthetic 384-float vectors,
+60 queries, median), before on the base tree and after on this one, in the
+same sandbox: 400 notes 1.6 to 1.9 ms before, 0.2 to 0.3 ms after; 5,000
+notes 19.2 ms before with one BLAS thread and 24.5 to 73.7 ms with the
+default pool on a loaded machine, 1.0 to 1.2 ms after. The first query after
+a write pays one diff: 6.0 ms at 5,000 after an ORM write, 5.0 ms after a
+bulk delete, 0.7 to 0.9 ms at 400. Pinned by
+`tests/test_semantic_search_matrix.py` (no vector read per request once
+warm, the same answers as the scan, a new note, an edited note, a bulk
+delete, a rollback, mixed widths, a reindex to a new width, another
+backend's vectors, the fallback). Not measured: a real embedding model's
+vectors, and 50k notes.
+
+The F3 row as it stood in section 10:
+
+| F3 | **Measured, 2026-09-12, and smaller than this row assumed at a realistic size.** `search_manager.semantic_search` still reads and parses every vector row per request, and it is on the Ask and chat path. At 2,000 notes and 384 dimensions that read and parse is 5.6 ms per request against 5.3 ms for the matmul over the same vectors already in memory, so it is about half the cost of a search at that size and grows linearly: about 56 ms at 20k and 140 ms at 50k. The three whole-notebook features (link suggestions, tensions, graph edges) already read `engine.vectors_by_id`, which serves the process-level matrix, so the fix is to point `semantic_search` at the same matrix. **Not done here, deliberately**: it is the most important path in the app and the swap has to keep the mixed-width behaviour this function grew (a model swap inside one backend leaves rows at the old width, and stacking them raised and took every search down with it), so it wants its own brief and its own tests rather than a late-night edit. | `search/search_manager.py` ~279, `search/engine.py` `vectors_by_id` | still open, sized |
+
+The section 16 lag bullet as it stood:
+
+- `semantic_search` loads every vector blob from SQLite and decodes it on
+  every query (`select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding)`).
+  At 10k notes of 384 floats that is 15 MB decoded per Ask. Move: a
+  process-level matrix cache keyed by `(backend_id, max(EmbeddingRecord.
+  updated_at), count)`, invalidated by the same fingerprint trick
+  `routes_graph._cached` already uses. Gate: Ask retrieval under 30ms at
+  10k notes. Size S, Sonnet.
+
 ### From WORLD_CLASS_PLAN.md, placed from INBOX: 285, indexless tool-call fragments
 
 **Fixed 2026-09-24.** `OpenAICompatClient._accumulate_tool_calls` no longer

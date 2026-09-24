@@ -19,6 +19,9 @@ and left in that one, which has no latency budget at all.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -40,6 +43,37 @@ ERROR_TAIL = 20
 #: and DEBUG lines, which would drown the two levels anyone actually opens
 #: this page to check for.
 _ERROR_LEVELS = frozenset({"ERROR", "WARNING"})
+
+
+def shown_path(path) -> str:  # noqa: ANN001  # a Path or a str
+    """Where a folder is, said without the server's absolute path.
+
+    WORLD_CLASS_PLAN §12, Brief 15 (INBOX 310): this route handed back the
+    full `data_dir` and database path. Harmless behind the unlock gate on
+    localhost; for anyone holding a token once other devices can connect, a
+    map of the server's disk with the account name in it. Settings, About
+    only needs to say where the notebook lives, so a folder under home is
+    `~/...` and anything else is its own name after an ellipsis.
+    """
+    folder = Path(path)
+    try:
+        resolved = folder.resolve()
+        home = Path.home().resolve()
+    except (OSError, RuntimeError):
+        return "\u2026" + os.sep + folder.name
+    if resolved == home:
+        return "~"
+    if resolved.is_relative_to(home):
+        return "~" + os.sep + str(resolved.relative_to(home))
+    return "\u2026" + os.sep + folder.name
+
+
+def _db_name(config) -> str:  # noqa: ANN001
+    """The database file relative to the data folder, never absolute."""
+    try:
+        return str(Path(config.db_path).resolve().relative_to(Path(config.data_dir).resolve()))
+    except (OSError, ValueError):
+        return Path(config.db_path).name
 
 
 @router.get("/health")
@@ -97,8 +131,8 @@ def debug_health(session: Session = Depends(get_session)) -> dict:
 
     return {
         "app_version": __version__,
-        "data_dir": str(config.data_dir),
-        "db": {"path": str(config.db_path), "size_bytes": db_size_bytes},
+        "data_dir": shown_path(config.data_dir),
+        "db": {"path": _db_name(config), "size_bytes": db_size_bytes},
         "counts": counts,
         "jobs": {"queue_depth": len(running_jobs), "running": running_jobs},
         "latency_ms_by_kind": taskhistory.latency_percentiles(),

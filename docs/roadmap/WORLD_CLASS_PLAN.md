@@ -797,15 +797,15 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
-| 1 | F3, §16 | `semantic_search` reads and parses every vector per request on the Ask and chat path; point it at the engine's matrix, keeping mixed widths | S to M | `search/search_manager.py` ~305 |
-| 2 | §12, Brief 15 | S1 media token in the URL, S2 per-client throttle, S3 path imports, the rest of S5, S6, `/debug/health` paths; blocks LAN mode | M | `core/security.py`, `routes_auth.py`, `routes_settings.py` |
+| 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24 (a test per item, each failing before); left: `tests/test_lan_mode.py` and the LAN offer, S6's receipt half (row 35) | S | HISTORY; §12 |
 | 3 | B2 | durable jobs: a table, leases, resume after a kill, `/jobs/stream` | L | `core/jobs.py` |
 | 4 | D2, 261 | the connections rail always visible on desktop, which is also where `GET /resurface/near` would show | M | `app.js` `openConnections` |
 | 5 | I1, H1 | `night_runs`, `GET /night/latest`, the morning card, the tension and answered-question passes | L | `ai/facts.py`, `routes_night.py` |
 | 6 | §14.3, I6, H2 | chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view | M + M | `ai/embeddings.py`, `ai/grounding.py`, app.js |
 | 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
-| 9 | §16 | cache `similar_pairs` for link suggestions and tensions as the graph does | S | `routes_entries.py` ~960, ~1068 |
+| 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
 | 11 | §17 | review queue, filing style, explain this note, `.ics` export, most opened this month (S each); tidy proposals, charts from questions (M each) | S to M | §17 |
 | 12 | D6 | the calendar strip and the yesterday/tomorrow pair | S | `timeline.js`, the note head |
@@ -865,7 +865,6 @@ should fix the class and add the lint that keeps it fixed.
 | --- | --- | --- | --- | --- |
 | F1 | 57 distinct `localStorage` keys read ad hoc, 14 of them `JSON.parse`d | `grep -o 'localStorage.getItem("[^"]*")' frontend/*.js \| sort -u \| wc -l` | This is the shape of the worst UI bug in the project's history (two settings missing from `APPEARANCE_DEFAULTS` wrote `NaN` into CSS): a value invalid where it is used, set somewhere else. Corrupt or missing storage throws inside JSON.parse and takes the caller's whole init with it. | One `prefs` module: a schema with defaults and a version per key, `prefs.get(key)` never throws and never returns undefined, migration on version bump. Lint: no direct `localStorage.getItem` outside `prefs.js`. |
 | F2 | 25 list endpoints, 3 accept `limit` | `grep -n "^def list_" -A 6 src/memorymap/api/routes_*.py \| grep -c limit` | Every list is O(notebook). A 5k-note notebook makes the Library, Timeline and Graph tabs multi-second. (MODERNISATION_AUDIT D4.) | Cursor pagination on all 25 with one helper, `?limit=&cursor=`, `next_cursor` in the body; the frontend's list renderers page on scroll. Lint: a test enumerates routers and asserts every `list_*` takes `limit`. |
-| F3 | **Measured, 2026-09-12, and smaller than this row assumed at a realistic size.** `search_manager.semantic_search` still reads and parses every vector row per request, and it is on the Ask and chat path. At 2,000 notes and 384 dimensions that read and parse is 5.6 ms per request against 5.3 ms for the matmul over the same vectors already in memory, so it is about half the cost of a search at that size and grows linearly: about 56 ms at 20k and 140 ms at 50k. The three whole-notebook features (link suggestions, tensions, graph edges) already read `engine.vectors_by_id`, which serves the process-level matrix, so the fix is to point `semantic_search` at the same matrix. **Not done here, deliberately**: it is the most important path in the app and the swap has to keep the mixed-width behaviour this function grew (a model swap inside one backend leaves rows at the old width, and stacking them raised and took every search down with it), so it wants its own brief and its own tests rather than a late-night edit. | `search/search_manager.py` ~279, `search/engine.py` `vectors_by_id` | still open, sized |
 | F4 | **Re-measured 2026-09-13: 147 broad handlers, of which 52 say nothing at all.** `scratchpad/probe_excepts.py` reports both numbers, because the grep below counts every handler and the ones that cost something are the silent subset: a handler that logs with `exc_info` is the fix, not the flaw. Original figure: 88 `except Exception:` / bare `except:` in `src/` | `grep -rn "except Exception:\|except:" src/memorymap --include=*.py \| wc -l` | Failures become silence (the "features that never ran once" shape). | Each one either re-raises as the error contract, logs with `exc_info` to the logbuffer, or is narrowed. Lint: ruff `BLE001` enabled with a per-site `# noqa: BLE001 <reason>`. |
 | F5 | 13 raw `fetch()` calls beside `api()` | `grep -n 'fetch(\`\|fetch("' frontend/*.js \| grep -v "api\b"` | Each re-implements the auth header, the error contract and the offline path; one is `/chat/stream`, the most important call in the app. | `api.stream()` and `api.upload()` helpers; the 13 sites move onto them. Lint: no bare `fetch(` outside `api.js`. |
 | F7 | Threads in 16 modules share SQLAlchemy sessions created per call | `grep -rln "threading.Thread" src/memorymap` | SQLite is fine with this only while each thread opens its own session and nobody passes ORM objects across; nothing enforces it, and the "Could not refresh instance" 500 seen this session was exactly that shape. | B2 job runtime: one worker, jobs get a fresh session, results are plain dicts. Lint: `Thread(` allowed only in `core/jobs.py`. |
@@ -873,7 +872,7 @@ should fix the class and add the lint that keeps it fixed.
 | F11 | The graph, dashboard constellation and map thumbnails are three renderers | `grep -c "forceSimulation" frontend/graph.js frontend/dashboard.js frontend/whiteboard.js` | Three physics, three colour maps, three sets of bugs. | GRAPH_PLAN §3: one renderer with `size: "pane" | "tile" | "full"`. |
 | F12 | Frontend state lives in module globals, DOM and localStorage with no single owner | MODERNISATION_AUDIT C2 | Every "the list did not refresh" bug. | A small store: `state.get/set/subscribe` per slice, renderers subscribe; introduced slice by slice (notes list first). |
 
-F6, F8 and F9 are done and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
+F3, F6, F8 and F9 are done and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
 
 Two flaws this session found by driving the app, recorded here so they are
 fixed as classes: a new board was created through a path that also created
@@ -888,8 +887,6 @@ in `docks.js`).
 - F2 (b) every list takes `limit` (`tests/test_list_limits.py`); cursors and
   the frontend's paging are not built (`/files/gallery`'s half was built
   2026-09-24). M.
-- F3 (b) still open as sized: `semantic_search` selects every
-  `EmbeddingRecord` per request (`search/search_manager.py` ~305). S to M.
 - F4 (b) `# noqa: BLE001` sits at dozens of sites but the rule is not enabled
   (`pyproject.toml` selects E4, E7, E9 and F only). S to M.
 - F5 (b) every bare `fetch` must carry the auth header
@@ -918,23 +915,17 @@ The threat model matters: the app binds 127.0.0.1 by default, so most of
 these are "fine on localhost, real the day LAN mode ships". They are
 listed so LAN mode cannot ship without them (Brief 15).
 
-| # | Finding | Where | Severity now / on LAN | Fix |
-| --- | --- | --- | --- | --- |
-| S1 | The session token travels in `?token=` on every `/media` and `/files` URL (`mediaSrc`, `frontend/app.js` ~215), so it lands in browser history, in uvicorn's access log, and in any note a person pastes an image URL into (the code already notes a doubled `?token=`). `Referrer-Policy: no-referrer` stops the Referer leak only. | `app.js` mediaSrc; `core/security.py` query-token path | low / high | A media-scoped, short-lived HMAC token (path + expiry, signed with a per-session key) or an HttpOnly cookie set at unlock and read only by `/media` and `/files`; the API keeps the header. Log scrubbing for `token=` either way. |
-| S2 | Unlock throttling is one global list (`routes_auth.py` `_failed_unlocks`), not per client. | `routes_auth.py` ~93 | none / medium (five wrong tries from anyone locks the owner out for up to five minutes) | Key the throttle by client address once the bind is not loopback; keep the global ceiling as a second layer. |
-| S3 | `import_directory` and `import_markdown` take a filesystem path from the request body and read it. Correct for the single user on localhost; on LAN it is arbitrary directory read for any holder of a token. | `routes_settings.py` ~1750 | none / high | Refuse when the bind is not loopback; or restrict to the user's home; the desktop shell should use a native picker and pass a handle, not a path. |
-| S5 | **Half done, 2026-09-13 evening: the guard is one function and it is in `core/security.py`.** `public_addresses(url)` (and `assert_public_url` for a caller that does not pin) refuses anything that is not plain http(s), carries credentials, does not resolve, or resolves to **any** address on this machine or the local network; `search/websearch.py` now calls it and keeps only the connection pinning, which is the half that is about fetching rather than judging. `is_internal_address` is the one definition of internal, asked in both directions (refused for an untrusted URL, required of a self-hosted SearXNG). `tests/test_outbound_fetch_guard.py` walks `src/` for outbound calls and fails on a module that is not written down as untrusted or configured, which is what makes the clipper unable to arrive unreviewed. What is left of this row is the callers that do not exist yet: bookmarks still fetch nothing. Original finding: bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
-| S6 | The model provider base URL is user-set and fetched from the server; by design it points at localhost, so SSRF to the LAN is "the feature". | `ai/provider.py` | none / low | On LAN mode, show the configured URL in the privacy receipt; never follow redirects off the configured host. |
+S1 to S15 are fixed, tested or recorded, and moved to HISTORY.md, "Moved
+from the plans, 2026-09-24": S1 (the media cookie), S2 (the per-client
+throttle), S3 (imports confined to home and the data folder), the rest of S5
+(the fetch lint sees every way out) and S6's redirect half were built that
+day. What is left: S6's other half, the configured model address shown in the
+privacy receipt on LAN mode (neither exists yet; the receipt is row 35), and
+the rest of Brief 15 below.
 
-S4 and S7 to S15 are fixed, tested or recorded, and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
-State 2026-09-24: S1, S2, S3, the rest of S5 and S6 are open, all Brief 15.
-
-**Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5, and
-`GET /debug/health`'s absolute `data_dir`/`db_path` paths (INBOX 310:
-harmless behind the unlock gate on localhost today, a full server path
-handed to anyone holding the session token once this ships) as one change
-set with a `tests/test_lan_mode.py` that starts the app bound to 0.0.0.0
-in a subprocess and asserts each behaviour; only after it passes does
+**Brief 15, what is left (the rest built 2026-09-24, in HISTORY.md):** a
+`tests/test_lan_mode.py` that starts the app bound to 0.0.0.0 in a
+subprocess and asserts each behaviour end to end; only after it passes does
 Settings offer "Allow other devices on this network".
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
@@ -1554,17 +1545,10 @@ The embed-cache lock fixed 2026-09-08 moved to HISTORY.md, "Moved from the plans
 
 **Lag, measured by reading, to be measured by running.**
 
-- `semantic_search` loads every vector blob from SQLite and decodes it on
-  every query (`select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding)`).
-  At 10k notes of 384 floats that is 15 MB decoded per Ask. Move: a
-  process-level matrix cache keyed by `(backend_id, max(EmbeddingRecord.
-  updated_at), count)`, invalidated by the same fingerprint trick
-  `routes_graph._cached` already uses. Gate: Ask retrieval under 30ms at
-  10k notes. Size S, Sonnet.
-- `similar_pairs` is O(n²) and is called from three routes (link
-  suggestions, tensions, graph edges) on each request; the graph route
-  caches it, the other two do not. Move: one cached pair table computed by
-  the night shift (I1) or on the graph fingerprint. Size S, Sonnet.
+- `semantic_search` reading every vector per query: built 2026-09-24, moved
+  to HISTORY.md, "Moved from the plans, 2026-09-24".
+- `similar_pairs` computed per request for link suggestions and tensions:
+  built 2026-09-24, moved to HISTORY.md, "Moved from the plans, 2026-09-24".
 - The frontend runs nine `setInterval` polls; MODERNISATION_AUDIT measured
   14 idle requests a minute. Move: one `/events` SSE stream (B1's log is
   the natural source) and the polls become subscriptions. Size M, Opus.
@@ -1579,10 +1563,8 @@ behind a feature flag. Not worth a session.
 
 **State 2026-09-24:** the split is done
 (audit A5, in HISTORY); the silent `pass` handlers were narrowed (audit A6)
-and the rule is F4 above; the lag items: `semantic_search` is F3 (open);
-`similar_pairs` is still computed per request for link suggestions and
-tensions (`routes_entries.py` ~960 and ~1068; only the graph caches it), (c),
-S; the polls-to-SSE move is (d), superseded by F6's idle gate being met at 2
+and the rule is F4 above; the lag items: `semantic_search` (F3) is built 2026-09-24;
+`similar_pairs` for link suggestions and tensions is built 2026-09-24; the polls-to-SSE move is (d), superseded by F6's idle gate being met at 2
 requests a minute; the route-file sizes are a standing rule, not a row.
 
 ## Placed from INBOX, 2026-09-09

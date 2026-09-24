@@ -901,8 +901,6 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     already-correct shape: fetch every stored vector once, compare all
     pairs in memory: which turns O(n) queries plus O(n) re-embeddings into
     one query and zero re-embedding calls."""
-    from memorymap.ai.embeddings import similar_pairs
-
     entries = manager.list_entries(session)
     entries_by_id = {e.id: e for e in entries if not e.is_private}
     already_linked: set[frozenset[int]] = set()
@@ -925,10 +923,15 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     embeddings = deps.get_embeddings()
     if not embeddings.is_ready():
         return []
-    # From the engine's matrix (Brief 11), not a fresh `SELECT` of every
-    # vector plus a `bytes_to_vector` per row: this process already holds the
-    # array, and the pairs pass below wants exactly it.
-    vectors = search_engine.vectors_by_id(session, only=set(entries_by_id))
+    # From the engine's matrix (Brief 11), and compared once per version of
+    # it (WORLD_CLASS_PLAN row 9): the all-pairs pass is O(n²) and ran on
+    # every request here while the graph cached its own. The cache is keyed
+    # by the matrix's version, so a new, edited or deleted vector is a new
+    # comparison; the filters below are per request because what is linked
+    # or dismissed moves without any vector changing.
+    pairs = search_engine.cached_similar_pairs(
+        session, LINK_SUGGESTION_THRESHOLD, only=set(entries_by_id)
+    )
 
     # `similar_pairs` hands these back best-first and blocks the matrix
     # multiply, so a big notebook costs one block of memory rather than an
@@ -957,7 +960,7 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     #     notebook and becomes a survey of one note.
     suggestions = []
     appearances: dict[int, int] = {}
-    for a, b, score in similar_pairs(vectors, LINK_SUGGESTION_THRESHOLD):
+    for a, b, score in pairs:
         if frozenset((a, b)) in already_linked:
             continue
         if (
@@ -1036,7 +1039,6 @@ def find_tensions(
     a bare `[]` renders them identically, which is how a feature that never
     ran gets reported as a feature that found nothing.
     """
-    from memorymap.ai.embeddings import similar_pairs
     from memorymap.ai import tensions as tensions_module
 
     ollama = deps.get_ollama()
@@ -1052,7 +1054,10 @@ def find_tensions(
     if len(by_id) < 2:
         return {"tensions": [], "status": "too_few_notes"}
 
-    vectors = search_engine.vectors_by_id(session, only=set(by_id))
+    # Cached per version of the matrix, as link suggestions are (row 9).
+    pairs = search_engine.cached_similar_pairs(
+        session, TENSION_CANDIDATE_THRESHOLD, only=set(by_id)
+    )
 
     # A pair already marked as contradicting is a finding the person has
     # already accepted, not one to re-propose. Every other link type is left
@@ -1065,7 +1070,7 @@ def find_tensions(
     models = deps.get_model_manager()
     found: list[dict] = []
     checked = 0
-    for a_id, b_id, score in similar_pairs(vectors, TENSION_CANDIDATE_THRESHOLD):
+    for a_id, b_id, score in pairs:
         if checked >= tensions_module.MAX_PAIRS_PER_PASS or len(found) >= limit:
             break
         if _tension_key(a_id, b_id) in known:

@@ -198,10 +198,10 @@ def test_a_file_row_can_hand_over_the_file():
     """The one verb a file list must have and this one did not: nothing in
     the Library could get a file back out of the notebook. Both tables are
     served by routes that already exist and already carry the right filename;
-    `mediaSrc` puts the token on the url, the way every other direct link to
-    media here is authorised."""
+    since §12 S1 the save goes through `downloadFromApi` (a fetch with the
+    header, then the app's own save path), which also works in the desktop
+    window where a clicked `<a download>` is swallowed."""
     block = LIBRARY.split("const save = document.createElement(\"button\")")[1].split("const menuActions")[0]
-    assert "link.download" in block
+    assert "downloadFromApi(" in block
     assert "`/files/${image.id}`" in block and "image.url" in block
-    assert "mediaSrc(" in block
     assert '{ button: save, label: "ph:download-simple Save a copy" }' in LIBRARY

@@ -1278,11 +1278,12 @@ function gcDraw(s = gcTab) {
     for (const node of labelled) {
       const text = gcLabelText(node, s);
       // `measureText` is cheap but not free at a few hundred labels a frame,
-      // and the answer only changes when the text or the zoom does.
+      // and the answer only changes when the text or the zoom does. The zoom
+      // is only a scale: see `gcLabelWidth` for why that is not a re-measure.
       if (node._labelText !== text || node._labelSize !== size) {
         node._labelText = text;
         node._labelSize = size;
-        node._labelWidth = ctx.measureText(text).width;
+        node._labelWidth = gcLabelWidth(text, size);
       }
       const width = node._labelWidth;
       const x = beside ? node.x + node.r + 7 : node.x;
@@ -1385,6 +1386,40 @@ function gcDraw(s = gcTab) {
   //: is scheduled once `gcHoverStep` reports it has arrived, so an idle graph
   //: costs no frames at all.
   if (easing) gcRequestDraw(s);
+}
+
+//: **A label's width, measured once per text, not once per zoom step**
+//: (INBOX 424c). The label font is `12 / k` px so a label keeps its size on
+//: screen, which made every frame of a wheel zoom a new font size, and the
+//: per-node cache beside the call (text and size) a miss for every label:
+//: measured at 4x CPU, sixteen wheel steps on a 400-note graph spent 152ms in
+//: `measureText` alone. A glyph advance is proportional to the font size, so
+//: the width is measured once at a fixed reference size and scaled. Keyed by
+//: the text, and dropped whenever the font the tokens name changes (a theme
+//: with its own typeface), so a width can never be for another font.
+const GC_LABEL_REF_PX = 100;
+const gcLabelWidths = new Map();
+let gcLabelWidthFont = "";
+let gcLabelMeasureCtx = null;
+
+function gcLabelWidth(text, size) {
+  const font = `500 ${GC_LABEL_REF_PX}px ${gcTokens.font}`;
+  if (font !== gcLabelWidthFont || !gcLabelMeasureCtx) {
+    gcLabelWidths.clear();
+    gcLabelWidthFont = font;
+    if (!gcLabelMeasureCtx) gcLabelMeasureCtx = document.createElement("canvas").getContext("2d");
+    gcLabelMeasureCtx.font = font;
+  }
+  let width = gcLabelWidths.get(text);
+  if (width === undefined) {
+    width = gcLabelMeasureCtx.measureText(text).width;
+    //: A bound, not an eviction policy: a notebook's labels are a few
+    //: thousand strings at most, and this only stops a pathological one
+    //: (labels that change on every frame) from growing without end.
+    if (gcLabelWidths.size > 20000) gcLabelWidths.clear();
+    gcLabelWidths.set(text, width);
+  }
+  return (width * size) / GC_LABEL_REF_PX;
 }
 
 function gcLabelText(node, s = gcTab) {
@@ -2331,6 +2366,9 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
           if (graphMinimapTick % 8 === 0) graphMinimapQueuePaint();
         }
       } else if (message.type === "end") {
+        //: What just came to rest, so the next render of exactly these
+        //: inputs can hold it instead of settling it again (`gcStartWorker`).
+        s.settledSig = s.layoutSig;
         if (s.size === "full") graphMinimapQueuePaint();
         if (!gcAutoFitDone(s) && s.nodes.length) {
           gcSetAutoFitDone(s, true);
@@ -2355,7 +2393,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     };
   }
   s.fittedOnce = false;
-  gcPost({
+  const init = {
     type: "init",
     epoch: s.epoch,
     // Performance mode (settings.js): the physics yields twice as long
@@ -2388,7 +2426,32 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     // at rest instead of relaxing it (see the decision on `viewSeed` above),
     // 1 is every other caller's unchanged behaviour.
     alpha: viewSeed ? viewSeed.alpha : 1,
-  }, s);
+  };
+  //: **A layout that already settled is held, not settled again** (INBOX
+  //: 424c/d). Every visit to the Graph tab refetched the map and restarted
+  //: the simulation at full heat from the positions it had already come to
+  //: rest in, so each visit paid a whole settle for a picture that ended up
+  //: where it started: measured at 4x CPU on a 400-note, 1,200-link graph,
+  //: about 7s of main-thread work in the eight seconds after arriving, and
+  //: the map visibly shuffling the whole time. The signature is everything
+  //: the worker's answer depends on apart from where the notes start (which
+  //: notes, their pins and sizes, every line, the forces, the world); when
+  //: it is the signature of the layout that last came to rest, and every
+  //: note is starting from where that layout left it (`holdIfSettled`, from
+  //: the render), the layout starts at rest, exactly the way a restored
+  //: view does. Anything that changes an input changes the signature, and
+  //: that render heats the layout as it always did.
+  const sig = JSON.stringify([
+    init.perf,
+    init.nodes.map((n) => [n.id, n.fx, n.fy, n.r]),
+    init.edges.map((e) => [e.source, e.target, e.kind, e.score]),
+    init.params,
+    world,
+  ]);
+  if (init.alpha && viewSeed?.holdIfSettled && s.settledSig === sig) init.alpha = 0;
+  s.layoutSig = sig;
+  s.settledSig = null;
+  gcPost(init, s);
   // Freeze the view's own notes *after* init, so the worker reads their
   // current (just-seeded) x/y as the position to hold, exactly the "freeze
   // holds where a note already is" contract `freeze` has for a drag.
@@ -2673,6 +2736,9 @@ async function renderGraphCanvas(s = gcTab) {
 
   if (s.tree) {
     gcStop(s);
+    //: The positions a tree leaves behind are the tree's, not a force
+    //: layout's, so nothing may be held from them afterwards.
+    s.settledSig = null;
     if (!gcAutoFitDone(s)) {
       gcSetAutoFitDone(s, true);
       frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial);
@@ -2681,6 +2747,9 @@ async function renderGraphCanvas(s = gcTab) {
     gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height), s, {
       alpha: viewPositions && !unplacedByView ? 0 : 1,
       freezeIds: seededUnpinnedIds,
+      //: Every note is where the last layout left it: see the hold in
+      //: `gcStartWorker`. A saved view's own seeding is its own decision.
+      holdIfSettled: !viewPositions && visibleNodes.every((n) => Number.isFinite(prior.get(n.id)?.x)),
     });
   }
 

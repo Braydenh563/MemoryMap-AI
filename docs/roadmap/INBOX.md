@@ -106,11 +106,20 @@ with its owner named in the entry.
     (c) Graph wheel zoom at 4x: 31 long tasks, 13.7s, p95 frame 583ms;
     `gcDraw` re-measures every label (`measureText` 152ms) per frame;
     recommend caching label widths per node and font size.
+    (fixed: `measureText` 165ms → 0 over 16 wheel steps at 4x; a label is
+    measured once per text at a reference size and scaled with the zoom,
+    dropped when the font changes.)
     (d) Graph tab switch at 1x: 25 long tasks, 1.6s, 50 of 59 frames over
     33ms; each visit refetches `/graph` and restarts the layout, and
     idle on Graph at 4x is still 3.7s of main-thread work per 10s
     (worker ticks plus minimap); recommend reusing the last settled layout
     when the notes' version has not changed.
+    (fixed for the layout, not the fetch: main-thread task time in the 12s
+    after a revisit at 4x 6,746ms → 1,382ms; a layout whose inputs, pins,
+    lines, forces and world match the last one to settle, with every note
+    where it left off, starts at rest and is framed as before; any change of
+    input heats it as before. Idle once settled was already ~5ms per 2s: the
+    cost was the re-settle. Still refetched each visit.)
     (e) Mind map expand of the root (120 topics) at 4x: one 1,336ms task;
     `renderWbObjects` rebuilds every node through `wbBuildMapNode`
     (`setAttribute` 354ms); recommend keyed updates so an expand only

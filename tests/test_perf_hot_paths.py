@@ -10,6 +10,8 @@ does this do per frame now", not "how do I word the rule differently".
 
     gesture at 4x CPU            the cost                      before   after
     graph node drag, 40 moves    graphMinimapPaint             1,502ms  514ms
+    graph wheel zoom, 16 steps   measureText                     165ms    0ms
+    graph revisit, first 12s     main-thread task time         6,746ms  1,382ms
 """
 
 from __future__ import annotations
@@ -77,3 +79,39 @@ def test_a_paint_moves_the_dots_it_has() -> None:
     assert 'graphMinimapChildren(edgesGroup,' in paint
     assert "createElementNS" not in paint.split("const here")[0]
     assert "el[key] === value" in _body(_source("graph.js"), "graphMinimapSet")
+
+
+# --- 424c: the graph's labels on a wheel zoom ----------------------------------
+
+
+def test_a_label_is_measured_once_per_text_not_per_zoom_step() -> None:
+    """The label font is `12 / k` px, so a zoom makes every size new: the
+    width is measured at one reference size and scaled, and the cache is
+    dropped when the font changes."""
+    canvas = _source("graph-canvas.js")
+    assert "node._labelWidth = gcLabelWidth(text, size);" in canvas
+    assert "node._labelWidth = ctx.measureText(" not in canvas
+    width = _body(canvas, "gcLabelWidth")
+    assert "GC_LABEL_REF_PX" in width
+    assert "gcLabelWidths.clear();" in width
+    assert "font !== gcLabelWidthFont" in width
+
+
+# --- 424c/d: a settled layout on a revisit -----------------------------------
+
+
+def test_a_settled_layout_is_held_when_nothing_it_depends_on_changed() -> None:
+    """A visit to Graph refetched and re-settled a map that had already come
+    to rest (about 7s of main-thread work per visit at 4x CPU). The layout's
+    inputs are signed; the same signature as the last layout to settle, with
+    every note starting where it left off, starts at rest."""
+    canvas = _source("graph-canvas.js")
+    start = _body(canvas, "gcStartWorker")
+    assert "viewSeed?.holdIfSettled && s.settledSig === sig" in start
+    assert "s.settledSig = null;" in start
+    # Only a layout that really came to rest may be held.
+    assert "s.settledSig = s.layoutSig;" in start
+    render = _body(canvas, "renderGraphCanvas")
+    assert "holdIfSettled: !viewPositions &&" in render
+    # A tree leaves tree positions behind: nothing is held from them.
+    assert render.index("s.settledSig = null;") > render.index("if (s.tree) {")

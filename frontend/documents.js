@@ -2504,6 +2504,21 @@ function renderDocOutline() {
     if (!wanted && filterBox.value) filterBox.value = "";
     filterBox.classList.toggle("hidden", !wanted);
   }
+  //: **Nothing the rows show has changed, so the rows stay.** This runs on
+  //: every pause in the typing, and typing inside a paragraph changes no
+  //: heading: rebuilding every row and then re-marking and re-scrolling the
+  //: current one (two forced layouts) was the largest cost of typing in a
+  //: long document (INBOX 424). Anything a row is drawn from is in the key.
+  const outlineKey = JSON.stringify([
+    headings.map((h) => [h.level, h.line, h.text, h.tasks && h.tasks.done, h.tasks && h.tasks.total, Boolean(h.symbol)]),
+    needle, [...folds], visible.map((row) => [row.shown, row.foldable]),
+  ]);
+  if (outlineKey === docOutlineKey && docOutlineRows.length === headings.length && list.isConnected) {
+    docOutlineHeadingList = headings;
+    renderDocCrumbs(docCaretLine());
+    return;
+  }
+  docOutlineKey = outlineKey;
   list.replaceChildren();
   const empty = $("doc-outline-empty");
   if (empty) {
@@ -2676,6 +2691,8 @@ function renderDocOutline() {
 //: document, and rebuilding the outline per scroll was the obvious wrong
 //: answer this avoids.
 let docOutlineRows = [];
+//: What the rows were last drawn from; see the early return in renderDocOutline.
+let docOutlineKey = "";
 let docOutlineMarked = -1;
 //: The row a move asked to keep the focus ring on, as a fold key (level and
 //: text), because that is the one name for a heading that survives the

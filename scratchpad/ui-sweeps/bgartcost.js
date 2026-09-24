@@ -252,7 +252,6 @@ async function rafCount(page) {
         __cpu: process.env.CPU === '1', __fast: process.env.FAST === '1',
       });
       await throttle(page);
-      if (process.env.SKIP) await page.evaluate((k) => { window.__mbSkip = Object.fromEntries(k.split('+').map((x) => [x, true])); }, process.env.SKIP);
       const cost = await drawCost(page, SECONDS);
       const busyMs = await busy(page, SECONDS);
       const cpuMs = pid ? await browserCpu(page, pid, SECONDS) : '?';

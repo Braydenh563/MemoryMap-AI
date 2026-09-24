@@ -558,10 +558,17 @@ const BG_ART_BUILDERS = {
     const LAYERS = [
       { z: 0.35, link: 95, width: 0.6, alpha: ctx.dark ? 0.2 : 0.24, light: ctx.dark ? 72 : 55, size: 1.3, share: 0.45 },
       { z: 0.65, link: 130, width: 0.8, alpha: ctx.dark ? 0.32 : 0.36, light: ctx.dark ? 78 : 46, size: 1.9, share: 0.35 },
-      { z: 1, link: 165, width: 1.1, alpha: ctx.dark ? 0.48 : 0.5, light: ctx.dark ? 86 : 38, size: 2.8, share: 0.2 },
+      { z: 1, link: 165, width: 1, alpha: ctx.dark ? 0.48 : 0.5, light: ctx.dark ? 86 : 38, size: 2.8, share: 0.2 },
     ];
     const BUCKETS = 4;
     const HUES = [-24, -10, 0, 12, 26];
+    const STAR_SIZES = [0.85, 1.15];
+    // The far layer's four twinkle steps: the sprites' 0.62 + 0.38 sin at
+    // the middle of each quarter of the swing, times the layer's base
+    // strength (0.5 + 0.5z), times 0.8 because a hard square of a given
+    // alpha reads brighter than a soft dot of the same.
+    const FAR_ALPHA = [0.335, 0.525, 0.715, 0.905].map((a) => a * 0.675 * 0.8);
+    let farFill = "", farStep = null;
     let W = 0, H = 0, n = 0;
     let sx, sy, sjx, sjy, ssize, sph, stw, shue;
     const lFrom = [], lTo = [], grids = [], strokes = [], dots = [];
@@ -577,7 +584,7 @@ const BG_ART_BUILDERS = {
         n = bgClamp(Math.round((W * H) / 6000 * ctx.density), 40, 260);
         sx = new Float32Array(n); sy = new Float32Array(n);
         sjx = new Float32Array(n); sjy = new Float32Array(n);
-        ssize = new Float32Array(n); sph = new Float32Array(n);
+        ssize = new Uint8Array(n); sph = new Float32Array(n);
         stw = new Float32Array(n); shue = new Uint8Array(n);
         const heading = p.random(Math.PI * 2);
         driftX = Math.cos(heading); driftY = Math.sin(heading);
@@ -591,7 +598,8 @@ const BG_ART_BUILDERS = {
           for (let i = at; i < at + count; i++) {
             sx[i] = p.random(W); sy[i] = p.random(H);
             sjx[i] = p.random(-0.05, 0.05); sjy[i] = p.random(-0.05, 0.05);
-            ssize[i] = L.size * p.random(0.7, 1.3);
+            // Which of the two painted sizes (see the sprites below).
+            ssize[i] = p.random() < 0.5 ? 0 : 1;
             sph[i] = p.random(Math.PI * 2); stw[i] = p.random(0.5, 1.5);
             shue[i] = Math.floor(p.random(HUES.length));
           }
@@ -607,18 +615,27 @@ const BG_ART_BUILDERS = {
           for (let k = 0; k < BUCKETS; k++) row.push(bgHsla(ctx.baseHue, 55, L.light, L.alpha * ((k + 1) / BUCKETS)));
           strokes.push(row);
           if (cap) bgLumCap = 0.4;
+          // Two sizes per hue, each painted at the size it is drawn (three
+          // star radii), so a frame copies it unscaled: 216 scaled copies a
+          // frame were a third of this style's cost.
           const drow = [];
           for (const off of HUES) {
-            drow.push(bgGlowSprite(ctx.baseHue + off, ctx.dark ? 60 : 72, L.light + (ctx.dark ? 6 : -4), 1, 16, 0.6));
+            for (const k of STAR_SIZES) {
+              drow.push(bgGlowSprite(ctx.baseHue + off, ctx.dark ? 60 : 72, L.light + (ctx.dark ? 6 : -4), 1,
+                Math.max(3, Math.round(L.size * k * 3)), 0.6));
+            }
           }
           dots.push(drow);
+          if (li === 0) farFill = bgHsla(ctx.baseHue, ctx.dark ? 60 : 72, L.light + (ctx.dark ? 6 : -4), 1);
           bgLumCap = cap;
         }
+        farStep = new Uint8Array(n);
         segMax = n * 10;
         seg = new Float32Array(segMax * 4);
         segB = new Uint8Array(segMax);
         if (bgLumCap) bgLumCap = 0.4;
-        halo = bgGlowSprite(ctx.baseHue, 70, ctx.dark ? 80 : 55, ctx.dark ? 0.5 : 0.28);
+        halo = bgGlowSprite(ctx.baseHue, 70, ctx.dark ? 80 : 55, ctx.dark ? 0.5 : 0.28,
+          Math.round(LAYERS[2].size * STAR_SIZES[1] * 9));
         if (bgLumCap) bgLumCap = 0.12;
         // The nebula: three soft clouds painted once, small, and set as the
         // canvas element's own CSS background, so the compositor scales it
@@ -656,7 +673,7 @@ const BG_ART_BUILDERS = {
       frame(t) {
         const g = p.drawingContext;
         if (ctx.still) g.drawImage(nebula, 0, 0, W, H);
-        g.lineCap = "round";
+        g.lineCap = "butt";
         for (let li = 0; li < LAYERS.length; li++) {
           const L = LAYERS[li];
           const from = lFrom[li], to = lTo[li];
@@ -714,23 +731,42 @@ const BG_ART_BUILDERS = {
             g.stroke();
           }
         }
-        // Stars, far to near, as soft dot sprites; halos on the near layer.
+        // Stars, far to near. The far layer, the most numerous and each
+        // under two pixels across, is squares in one path per twinkle step
+        // (four fills, not a hundred image copies); the nearer two are soft
+        // dot sprites, with halos on the near layer.
         if (ctx.dark) g.globalCompositeOperation = "lighter";
-        for (let li = 0; li < LAYERS.length; li++) {
+        g.fillStyle = farFill;
+        for (let i = lFrom[0]; i < lTo[0]; i++) {
+          const tw = Math.sin(t * 9 * stw[i] + sph[i]);
+          farStep[i] = tw > 0.5 ? 3 : tw > 0 ? 2 : tw > -0.5 ? 1 : 0;
+        }
+        for (let k = 0; k < 4; k++) {
+          g.globalAlpha = FAR_ALPHA[k];
+          g.beginPath();
+          for (let i = lFrom[0]; i < lTo[0]; i++) {
+            if (farStep[i] === k) g.rect((sx[i] - 1) | 0, (sy[i] - 1) | 0, 2, 2);
+          }
+          g.fill();
+        }
+        for (let li = 1; li < LAYERS.length; li++) {
           const L = LAYERS[li];
           const base = 0.5 + 0.5 * L.z;
           const sprites = dots[li];
+          const hh = halo.width / 2;
           for (let i = lFrom[li]; i < lTo[li]; i++) {
             const tw = 0.62 + 0.38 * Math.sin(t * 9 * stw[i] + sph[i]);
-            const s = ssize[i];
-            if (li === 2 && s > 2.4) {
-              const hs = s * 9;
+            const big = ssize[i];
+            // Whole pixels, like the microbes: a copy at a fractional place
+            // is resampled, and a star drifting a fifth of a pixel a frame
+            // shows no step.
+            if (li === 2 && big) {
               g.globalAlpha = tw * 0.8;
-              g.drawImage(halo, sx[i] - hs / 2, sy[i] - hs / 2, hs, hs);
+              g.drawImage(halo, (sx[i] - hh) | 0, (sy[i] - hh) | 0);
             }
             g.globalAlpha = base * tw;
-            const ds = s * 3;
-            g.drawImage(sprites[shue[i]], sx[i] - ds / 2, sy[i] - ds / 2, ds, ds);
+            const spr = sprites[shue[i] * 2 + big];
+            g.drawImage(spr, (sx[i] - spr.width / 2) | 0, (sy[i] - spr.width / 2) | 0);
           }
         }
         g.globalAlpha = 1;

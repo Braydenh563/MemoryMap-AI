@@ -349,3 +349,16 @@ def test_microbes_copy_prerendered_bodies_and_glows():
     assert "g.drawImage(sp.glowSprite, (X[i] - sp.glowHalf) | 0, (Y[i] - sp.glowHalf) | 0);" in frame
     # The outlines are no longer built a frame, only the flagella.
     assert "bodies(g, si, q, 0)" not in frame and "bodies(g, si, q, 2)" in frame
+
+
+def test_constellation_stars_are_copied_unscaled():
+    """Stars are painted at the sizes they are drawn and copied on whole
+    pixels; the far layer, the most numerous, is squares batched per
+    twinkle step rather than an image copy each."""
+    body = _chunks()["constellation"]
+    frame = body[body.index("      frame(t) {") :]
+    assert "g.drawImage(spr, (sx[i] - spr.width / 2) | 0, (sy[i] - spr.width / 2) | 0);" in frame
+    assert "g.drawImage(halo, (sx[i] - hh) | 0, (sy[i] - hh) | 0);" in frame
+    assert "g.rect((sx[i] - 1) | 0, (sy[i] - 1) | 0, 2, 2)" in frame
+    # No scaled copies of a star left in the frame.
+    assert ", ds, ds)" not in frame and ", hs, hs)" not in frame

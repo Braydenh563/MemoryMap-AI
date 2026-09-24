@@ -127,6 +127,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Library, Boards and maps: Map from notes works again with no model running. It was disabled with the AI-only controls, but it proposes an outline from how your notes are filed when no model answers, and says so.
 - Mind map ring: every action's icon and word sits in the middle of its sector with at least 10px to both edges and both dividers ("Add beside" and "Cross-link" were 1.4px from both edges); the ring is as thick as its longest word needs.
 - Mind map ring, More: its menu opens beside the More sector wherever the ring was when you pressed it, even if the board re-renders before the click; it can no longer open in the window's top-left corner, and says so in the console if anything tries. Focusing a sector no longer scrolls the board, which also closed the menu Enter had just opened.
 - Graph, Trace: the strip ends in an X that leaves trace mode (Escape too). Its old Done only cleared the two ends.

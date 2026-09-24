@@ -275,7 +275,6 @@ MODEL_GATED_CONTROLS = {
     "doc-ai-run": "/documents/<id>/ai-edit",
     "doc-extract": "/entries/extract/preview",
     "wb-extract-notes": "/entries/extract/preview",
-    "wb-boards-generate": "/whiteboard/boards/propose",
     "reminder-magic-add": "/reminders/parse",
     "chat-send": "/chat/stream",
     "chat-input": "/chat/stream",
@@ -288,6 +287,21 @@ MODEL_GATED_CONTROLS = {
     #: so the two entries were removed rather than the paragraph amended.
     #: Measured in a browser with no model: the composer was disabled, so the
     #: one AI feature written to work without a model could not be typed into.
+}
+
+#: **Controls that reach an AI route and still work without a model**, so
+#: they must never carry the gate. Each is the rule above applied, with the
+#: route's own fallback named, so the next inventory pass that greps for "the
+#: handler reaches an AI route" finds the reason it is not gated here instead
+#: of adding it again. `wb-boards-generate` was gated by INBOX 203's pass, and
+#: that disabled a feature built to run offline: `/whiteboard/boards/propose`
+#: falls back to the notebook's own filing with no model running
+#: (`reason: "offline"`), and the dialog says "Grouped by how they are filed,
+#: because no local model is running". Measured with no model: the Library's
+#: "Map from notes" was disabled, so the offline half could not be reached
+#: (`scratchpad/ui-sweeps/mindmap3.js` timed out on it).
+WORKS_WITHOUT_A_MODEL = {
+    "wb-boards-generate": "/whiteboard/boards/propose",
 }
 
 
@@ -308,6 +322,22 @@ def test_every_ai_only_control_says_it_needs_a_model():
         "These controls call an AI route but do not carry data-needs-model in "
         f"index.html, so nothing disables them when no model is running: {missing}"
     )
+
+
+def test_a_control_with_an_offline_fallback_is_not_gated():
+    """Disabling a control whose route answers without a model hides the half that works."""
+    markup = _markup()
+    gated = sorted(
+        ident
+        for ident in WORKS_WITHOUT_A_MODEL
+        if re.search(r'\sid="%s"[^>]*\sdata-needs-model=' % re.escape(ident), markup)
+    )
+    assert not gated, (
+        "These controls work without a model (their route falls back) but carry "
+        f"data-needs-model, so the offline path cannot be reached: {gated}"
+    )
+    present = sorted(ident for ident in WORKS_WITHOUT_A_MODEL if 'id="%s"' % ident in markup)
+    assert present == sorted(WORKS_WITHOUT_A_MODEL), "a listed control is gone from index.html"
 
 
 def test_every_model_gated_control_gives_a_reason_and_is_in_the_inventory():

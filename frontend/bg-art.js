@@ -8,15 +8,12 @@
 //
 // **Three kinds of style, cheapest first.**
 //
-// 1. CSS styles (`dom: true`: the mesh and the bubbles). Everything they
-//    move is a pre-rendered image or gradient on its own element, animated
-//    by CSS transforms, so the compositor moves them and the page's own
-//    thread does no per-frame work at all. A drift, a rise and a sway are
-//    what CSS animation is for; redrawing them from script every frame was
-//    the expensive way to get the same picture.
-// 2. Canvas styles (the aurora, the constellation, the waves, the microbes,
-//    the mycelium): the ones whose motion depends on noise or on the other
-//    particles, which CSS cannot express. They draw on a plain canvas with
+// 1. CSS styles (`dom: true`; none at present). The mesh and the bubbles
+//    were CSS animations: no page work, but the compositor redrew their
+//    large layers at the display's full rate, and the whole browser spent
+//    about a core on them (bgartcost.js's browser CPU), more than any
+//    canvas style, so both became canvas styles. The runtime keeps the path.
+// 2. Canvas styles (every style now): they draw on a plain canvas with
 //    a loop of their own (no p5; see the runtime below). Their per-frame
 //    rules: particles live in typed arrays, not an object each; nothing is
 //    allocated per frame (colour strings, gradients, sprites and grids are
@@ -850,150 +847,200 @@ const BG_ART_BUILDERS = {
     };
   },
 
-  // Glass bubbles rising at three depths, pure CSS: each bubble is a
-  // pre-rendered image (made once, here, from a canvas) on its own element,
-  // and the rise, the sway and the wobble are three nested CSS animations,
-  // so the compositor moves them and the page does no work per frame. Near
-  // bubbles are large, quick and out of focus, far ones small, slow and
-  // soft, the middle ones in focus: a coloured rim, a clear centre, a
-  // highlight and a reflection.
-  bubbles: {
-    dom: true,
-    lightFloor: 0.3,
-    mount(layer, ctx, still) {
-      const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 7);
-      const L = ctx.dark ? 62 : 52;
-      const SPRITE = 160;
-      const glass = (hue) => bgSprite(SPRITE, SPRITE, (g, w) => {
-        const r = w / 2;
-        const body = g.createRadialGradient(r, r, r * 0.1, r, r, r);
-        body.addColorStop(0, bgHsla(hue, 70, L, 0.04));
-        body.addColorStop(0.62, bgHsla(hue, 70, L, 0.1));
-        body.addColorStop(0.86, bgHsla(hue + 18, 75, L, 0.34));
-        body.addColorStop(0.96, bgHsla(hue + 30, 80, L - 6, 0.55));
-        body.addColorStop(1, bgHsla(hue + 30, 80, L, 0));
-        g.fillStyle = body;
-        g.beginPath(); g.arc(r, r, r, 0, Math.PI * 2); g.fill();
-        // The iridescent side: a second tint pooled at the lower right.
-        const film = g.createRadialGradient(r * 1.35, r * 1.35, 0, r * 1.35, r * 1.35, r * 0.9);
-        film.addColorStop(0, bgHsla(hue + 60, 75, L + 8, 0.22));
-        film.addColorStop(1, bgHsla(hue + 60, 75, L + 8, 0));
-        g.fillStyle = film;
-        g.beginPath(); g.arc(r, r, r * 0.97, 0, Math.PI * 2); g.fill();
-        const hx = r * 0.62, hy = r * 0.56;
-        const spec = g.createRadialGradient(hx, hy, 0, hx, hy, r * 0.32);
-        spec.addColorStop(0, `rgba(255,255,255,${ctx.dark ? 0.7 : 0.9})`);
-        spec.addColorStop(1, "rgba(255,255,255,0)");
-        g.fillStyle = spec;
-        g.beginPath(); g.arc(hx, hy, r * 0.32, 0, Math.PI * 2); g.fill();
-        g.strokeStyle = `rgba(255,255,255,${ctx.dark ? 0.28 : 0.5})`;
-        g.lineWidth = r * 0.04;
-        g.beginPath(); g.arc(r, r, r * 0.8, Math.PI * 0.15, Math.PI * 0.45); g.stroke();
-      }).toDataURL();
-      const bokeh = (hue) => bgSprite(SPRITE / 2, SPRITE / 2, (g, w) => {
-        const r = w / 2;
-        const body = g.createRadialGradient(r, r, 0, r, r, r);
-        body.addColorStop(0, bgHsla(hue, 70, L, 0.3));
-        body.addColorStop(0.7, bgHsla(hue, 70, L, 0.22));
-        body.addColorStop(0.9, bgHsla(hue, 70, L, 0.1));
-        body.addColorStop(1, bgHsla(hue, 70, L, 0));
-        g.fillStyle = body;
-        g.fillRect(0, 0, w, w);
-      }).toDataURL();
-      const hues = [0, 32, -34].map((o) => ctx.baseHue + o);
-      const glassUrls = hues.map(glass), bokehUrls = hues.map(bokeh);
-      const H = window.innerHeight || 900;
-      const n = Math.max(6, Math.round(24 * ctx.density));
-      for (let i = 0; i < n; i++) {
-        // Far to near in document order, so near bubbles paint on top.
-        const z = i / n;
-        const r = 10 + z * z * 88;
-        const blurred = z < 0.3 || z > 0.86;
-        const kind = Math.floor(rand() * 3);
-        // The same speeds as the canvas version: 0.12 to 0.72 pixels a
-        // frame at 30 frames a second.
-        const pxPerSec = (0.12 + z * 0.6) * 30;
-        const rise = (H + r * 2) / pxPerSec;
-        const riseEl = document.createElement("div");
-        riseEl.className = "bg-bubble bg-rise";
-        riseEl.style.left = `${(rand() * 104 - 2).toFixed(2)}%`;
-        riseEl.style.top = still ? `${(rand() * 100).toFixed(2)}%` : "100%";
-        riseEl.style.width = `${(r * 2).toFixed(1)}px`;
-        riseEl.style.height = `${(r * 2).toFixed(1)}px`;
-        riseEl.style.setProperty("--dur-r", `${rise.toFixed(1)}s`);
-        riseEl.style.setProperty("--delay-r", `${(-rand() * rise).toFixed(1)}s`);
-        const sway = document.createElement("div");
-        sway.className = "bg-bubble-part bg-drift-x";
-        const swayDur = 4 + rand() * 5;
-        sway.style.setProperty("--dx", `${((8 + rand() * 26) * (0.4 + z)).toFixed(1)}px`);
-        sway.style.setProperty("--dur-x", `${swayDur.toFixed(2)}s`);
-        sway.style.setProperty("--delay-x", `${(-rand() * swayDur).toFixed(2)}s`);
-        const body = document.createElement("div");
-        body.className = "bg-bubble-part bg-wobble";
-        body.style.setProperty("--dur-w", `${(1.3 + rand() * 0.6).toFixed(2)}s`);
-        body.style.setProperty("--delay-w", `${(-rand() * 2).toFixed(2)}s`);
-        body.style.backgroundImage = `url("${blurred ? bokehUrls[kind] : glassUrls[kind]}")`;
-        body.style.opacity = (blurred ? (z < 0.3 ? 0.55 + z : 0.6) : 0.95).toFixed(2);
-        sway.appendChild(body);
-        riseEl.appendChild(sway);
-        layer.appendChild(riseEl);
-      }
-    },
+  // Glass bubbles rising at three depths. Each bubble is a pre-rendered
+  // image (made once, here); near bubbles are large, quick and out of
+  // focus, far ones small, slow and soft, the middle ones in focus: a
+  // coloured rim, a clear centre, a highlight and a reflection. Each rises,
+  // sways on its own period and wobbles.
+  //
+  // **Cost.** A frame clears only where each bubble was (its last box, not
+  // the window) and copies two dozen images: under a millisecond in a
+  // software canvas at 1440x900. The version before this was the same
+  // images as seventy-two CSS-animated elements, which cost the page
+  // nothing but kept the compositor redrawing at the display's full rate:
+  // the whole browser spent about a core on it (1,000ms of CPU a second
+  // against 150 with the art off, in software compositing, bgartcost.js),
+  // more than any canvas style.
+  bubbles(p, ctx) {
+    let W = 0, H = 0, n = 0, secs = 0;
+    let bx, by, br, bspeed, bdx, bsw, bsp, bww, bwp, balpha, bimg;
+    let last = null; // each bubble's last drawn box: x, y, w, h
+    const images = [];
+    return {
+      background: "keep",
+      lightFloor: 0.3,
+      init() {
+        W = p.width; H = p.height;
+        const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 7);
+        const L = ctx.dark ? 62 : 52;
+        const SPRITE = 160;
+        const glass = (hue) => bgSprite(SPRITE, SPRITE, (g, w) => {
+          const r = w / 2;
+          const body = g.createRadialGradient(r, r, r * 0.1, r, r, r);
+          body.addColorStop(0, bgHsla(hue, 70, L, 0.04));
+          body.addColorStop(0.62, bgHsla(hue, 70, L, 0.1));
+          body.addColorStop(0.86, bgHsla(hue + 18, 75, L, 0.34));
+          body.addColorStop(0.96, bgHsla(hue + 30, 80, L - 6, 0.55));
+          body.addColorStop(1, bgHsla(hue + 30, 80, L, 0));
+          g.fillStyle = body;
+          g.beginPath(); g.arc(r, r, r, 0, Math.PI * 2); g.fill();
+          // The iridescent side: a second tint pooled at the lower right.
+          const film = g.createRadialGradient(r * 1.35, r * 1.35, 0, r * 1.35, r * 1.35, r * 0.9);
+          film.addColorStop(0, bgHsla(hue + 60, 75, L + 8, 0.22));
+          film.addColorStop(1, bgHsla(hue + 60, 75, L + 8, 0));
+          g.fillStyle = film;
+          g.beginPath(); g.arc(r, r, r * 0.97, 0, Math.PI * 2); g.fill();
+          const hx = r * 0.62, hy = r * 0.56;
+          const spec = g.createRadialGradient(hx, hy, 0, hx, hy, r * 0.32);
+          spec.addColorStop(0, `rgba(255,255,255,${ctx.dark ? 0.7 : 0.9})`);
+          spec.addColorStop(1, "rgba(255,255,255,0)");
+          g.fillStyle = spec;
+          g.beginPath(); g.arc(hx, hy, r * 0.32, 0, Math.PI * 2); g.fill();
+          g.strokeStyle = `rgba(255,255,255,${ctx.dark ? 0.28 : 0.5})`;
+          g.lineWidth = r * 0.04;
+          g.beginPath(); g.arc(r, r, r * 0.8, Math.PI * 0.15, Math.PI * 0.45); g.stroke();
+        });
+        const bokeh = (hue) => bgSprite(SPRITE / 2, SPRITE / 2, (g, w) => {
+          const r = w / 2;
+          const body = g.createRadialGradient(r, r, 0, r, r, r);
+          body.addColorStop(0, bgHsla(hue, 70, L, 0.3));
+          body.addColorStop(0.7, bgHsla(hue, 70, L, 0.22));
+          body.addColorStop(0.9, bgHsla(hue, 70, L, 0.1));
+          body.addColorStop(1, bgHsla(hue, 70, L, 0));
+          g.fillStyle = body;
+          g.fillRect(0, 0, w, w);
+        });
+        const hues = [0, 32, -34].map((o) => ctx.baseHue + o);
+        for (const h of hues) images.push(glass(h));
+        for (const h of hues) images.push(bokeh(h));
+        n = Math.max(6, Math.round(24 * ctx.density));
+        const f = () => new Float32Array(n);
+        bx = f(); by = f(); br = f(); bspeed = f(); bdx = f(); bsw = f(); bsp = f();
+        bww = f(); bwp = f(); balpha = f(); bimg = new Uint8Array(n);
+        last = new Float32Array(n * 4);
+        for (let i = 0; i < n; i++) {
+          // Far to near in order, so near bubbles paint on top.
+          const z = i / n;
+          const r = 10 + z * z * 88;
+          const blurred = z < 0.3 || z > 0.86;
+          const kind = Math.floor(rand() * 3);
+          br[i] = r;
+          bx[i] = (rand() * 1.04 - 0.02) * W;
+          // Anywhere on its way up, so the window starts full.
+          by[i] = rand() * (H + r * 2) - r;
+          // 0.12 to 0.72 pixels a frame at 30 frames a second.
+          bspeed[i] = (0.12 + z * 0.6) * 30;
+          bdx[i] = (8 + rand() * 26) * (0.4 + z);
+          bsw[i] = Math.PI / (4 + rand() * 5);
+          bsp[i] = rand() * Math.PI * 2;
+          bww[i] = Math.PI / (1.3 + rand() * 0.6);
+          bwp[i] = rand() * Math.PI * 2;
+          bimg[i] = blurred ? 3 + kind : kind;
+          balpha[i] = blurred ? (z < 0.3 ? 0.55 + z : 0.6) : 0.95;
+        }
+      },
+      frame() {
+        const g = p.drawingContext;
+        const dt = 1 / bgArtFrameRate();
+        secs += dt;
+        // Clear each bubble's last box (a pixel wider for the smoothing).
+        for (let i = 0; i < n; i++) {
+          const o = i * 4;
+          if (last[o + 2]) g.clearRect(last[o] - 1, last[o + 1] - 1, last[o + 2] + 2, last[o + 3] + 2);
+        }
+        for (let i = 0; i < n; i++) {
+          const r = br[i];
+          by[i] -= bspeed[i] * dt;
+          if (by[i] < -r * 1.1) { by[i] = H + r * 1.1; bx[i] = (bgRand() * 1.04 - 0.02) * W; }
+          const x = bx[i] + Math.sin(secs * bsw[i] + bsp[i]) * bdx[i];
+          // The wobble: wider as it is shorter and back, 3.5% each way.
+          const wob = Math.sin(secs * bww[i] + bwp[i]) * 0.035;
+          const w = r * 2 * (1 + wob), h = r * 2 * (1 - wob);
+          const left = x - w / 2, top = by[i] - h / 2;
+          g.globalAlpha = balpha[i];
+          g.drawImage(images[bimg[i]], left, top, w, h);
+          const o = i * 4;
+          last[o] = left; last[o + 1] = top; last[o + 2] = w; last[o + 3] = h;
+        }
+        g.globalAlpha = 1;
+      },
+    };
   },
 
-  // A living mesh gradient, pure CSS: a handful of large soft colour fields
-  // (CSS radial gradients) drifting on slow crossed paths, the horizontal
-  // and vertical halves of each path on two nested elements with different
-  // periods, so each field traces a Lissajous-like loop. The compositor
-  // moves them; the page draws nothing per frame. The old version stacked
-  // six translucent circles per blob on the canvas every frame, and the
-  // rings showed.
-  mesh: {
-    dom: true,
-    darkCap: 0.05,
-    lightFloor: 0.55,
-    mount(layer, ctx, still) {
-      const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 3);
-      layer.style.backgroundColor = bgHsla(ctx.baseHue, ctx.dark ? 35 : 45, ctx.dark ? 13 : 95, 1);
-      const offsets = [0, 38, -34, 74, -68, 16, 150];
-      const n = bgClamp(Math.round(4 + 3 * ctx.density), 4, offsets.length);
-      const l = ctx.dark ? 42 : 70;
-      for (let i = 0; i < n; i++) {
-        const hue = ctx.baseHue + offsets[i];
-        // The far hues are quieter, so the accent stays the lead.
-        const sat = Math.abs(offsets[i]) > 60 ? 50 : 75;
-        const r = 38 + rand() * 22; // radius, in vmax
-        const cx = 20 + rand() * 60, cy = 20 + rand() * 60; // centre, in %
-        const ax = 18 + rand() * 20, ay = 16 + rand() * 18; // reach, vw / vh
-        // Half a period each way, 20 to 45 seconds: the canvas version's
-        // Lissajous frequencies, as durations.
-        const durX = 20 + rand() * 25, durY = 22 + rand() * 25;
-        const phase = rand();
-        const drift = document.createElement("div");
-        drift.className = "bg-mesh-field bg-drift-x";
-        // A still frame is a moment mid-path rather than every field at
-        // its centre.
-        const sx = still ? Math.sin(phase * Math.PI * 2) * ax : 0;
-        const sy = still ? Math.sin(phase * Math.PI * 3.4) * ay : 0;
-        drift.style.left = `calc(${cx.toFixed(1)}% + ${sx.toFixed(1)}vw - ${r.toFixed(1)}vmax)`;
-        drift.style.top = `calc(${cy.toFixed(1)}% + ${sy.toFixed(1)}vh - ${r.toFixed(1)}vmax)`;
-        drift.style.width = `${(r * 2).toFixed(1)}vmax`;
-        drift.style.height = `${(r * 2).toFixed(1)}vmax`;
-        drift.style.setProperty("--dx", `${ax.toFixed(1)}vw`);
-        drift.style.setProperty("--dur-x", `${durX.toFixed(1)}s`);
-        drift.style.setProperty("--delay-x", `${(-phase * durX * 2).toFixed(1)}s`);
-        const field = document.createElement("div");
-        field.className = "bg-mesh-field-body bg-drift-y";
-        field.style.setProperty("--dy", `${ay.toFixed(1)}vh`);
-        field.style.setProperty("--dur-y", `${durY.toFixed(1)}s`);
-        field.style.setProperty("--delay-y", `${(-rand() * durY * 2).toFixed(1)}s`);
-        field.style.backgroundImage =
-          `radial-gradient(closest-side, ${bgHsla(hue, sat, l, ctx.dark ? 0.75 : 0.8)} 0%, `
-          + `${bgHsla(hue, sat, l, ctx.dark ? 0.3 : 0.32)} 50%, ${bgHsla(hue, sat, l, 0)} 100%)`;
-        drift.appendChild(field);
-        layer.appendChild(drift);
-      }
-    },
+  // A living mesh gradient: a handful of large soft colour fields drifting
+  // on slow crossed paths (each axis its own period, so each field traces a
+  // Lissajous-like loop) over a tinted ground.
+  //
+  // **Cost.** Everything here is soft, so it is drawn on a canvas at a
+  // fifth of the pixel density (288 by 180 backing pixels at 1440x900; an
+  // eighth showed the upscale's grid) and the compositor's upscale is the
+  // blur the fields want anyway: a frame is one tinted fill and seven small
+  // sprite copies into fifty thousand pixels. And it moves so slowly (a field crosses a few pixels a frame at
+  // most) that fifteen frames a second look the same as sixty. The version
+  // before this was seven CSS-animated elements up to 120vmax across,
+  // composited at the display's full rate: no page work, but the whole
+  // browser spent a core on it (1,000ms of CPU a second against 150 with the
+  // art off, measured in software compositing by bgartcost.js), more than
+  // any canvas style.
+  mesh(p, ctx) {
+    const offsets = [0, 38, -34, 74, -68, 16, 150];
+    const fields = [];
+    let ground = "", W = 0, H = 0, secs = 0;
+    return {
+      background: "keep",
+      pixelDensity: 0.2,
+      fps: 15,
+      darkCap: 0.05,
+      lightFloor: 0.55,
+      init() {
+        W = p.width; H = p.height;
+        const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 3);
+        ground = bgHsla(ctx.baseHue, ctx.dark ? 35 : 45, ctx.dark ? 13 : 95, 1);
+        const n = bgClamp(Math.round(4 + 3 * ctx.density), 4, offsets.length);
+        const l = ctx.dark ? 42 : 70;
+        const vmax = Math.max(W, H) / 100;
+        for (let i = 0; i < n; i++) {
+          const hue = ctx.baseHue + offsets[i];
+          // The far hues are quieter, so the accent stays the lead.
+          const sat = Math.abs(offsets[i]) > 60 ? 50 : 75;
+          const r = (38 + rand() * 22) * vmax; // radius
+          const cx = (0.2 + rand() * 0.6) * W, cy = (0.2 + rand() * 0.6) * H; // centre
+          const ax = (0.18 + rand() * 0.2) * W, ay = (0.16 + rand() * 0.18) * H; // reach
+          // A full swing each way takes 20 to 45 seconds.
+          const wx = Math.PI / (20 + rand() * 25), wy = Math.PI / (22 + rand() * 25);
+          const px = rand() * Math.PI * 2, py = rand() * Math.PI * 2;
+          // The field: a radial gradient, strong at the centre, half way at
+          // half the radius, gone at the edge, painted once at about the
+          // size it is drawn (from 64 pixels, the upscale showed a grid).
+          const sprite = bgSprite(256, 256, (g, w) => {
+            const c = w / 2;
+            const grad = g.createRadialGradient(c, c, 0, c, c, c);
+            grad.addColorStop(0, bgHsla(hue, sat, l, ctx.dark ? 0.75 : 0.8));
+            grad.addColorStop(0.5, bgHsla(hue, sat, l, ctx.dark ? 0.3 : 0.32));
+            grad.addColorStop(1, bgHsla(hue, sat, l, 0));
+            g.fillStyle = grad;
+            g.fillRect(0, 0, w, w);
+          });
+          fields.push({ sprite, r, cx, cy, ax, ay, wx, wy, px, py });
+        }
+      },
+      frame() {
+        const g = p.drawingContext;
+        // Seconds, at whatever rate the loop runs, so the drift keeps its
+        // speed at 20 frames a second as at 30.
+        secs += 1 / Math.min(15, bgArtFrameRate());
+        g.fillStyle = ground;
+        // Past the edges: the backing size is rounded, and a part-covered
+        // last row showed as a line along the bottom.
+        g.fillRect(0, 0, W + 10, H + 10);
+        for (let i = 0; i < fields.length; i++) {
+          const f = fields[i];
+          const x = f.cx + Math.sin(secs * f.wx + f.px) * f.ax;
+          const y = f.cy + Math.sin(secs * f.wy + f.py) * f.ay;
+          g.drawImage(f.sprite, x - f.r, y - f.r, f.r * 2, f.r * 2);
+        }
+      },
+    };
   },
 
   // An ecosystem grown from a name (the helixlabs idea, see bgArtGenome).
@@ -2134,7 +2181,9 @@ function bgArtRun(o) {
   function tick(now) {
     if (!looping) return;
     raf = requestAnimationFrame(tick);
-    const interval = 1000 / bgArtFrameRate();
+    // A style may ask for fewer (the mesh moves too slowly to need more
+    // than fifteen), never more.
+    const interval = 1000 / Math.min(style.fps || 30, bgArtFrameRate());
     if (last && now - last < interval - 1) return;
     last = last && now - last < interval * 2 ? last + interval : now;
     handle.draw();

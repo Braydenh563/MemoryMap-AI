@@ -82,17 +82,21 @@ def test_every_style_says_how_its_frame_begins():
         assert re.search(r'background: "(wash|clear|keep)"', chunk) or "dom: true" in chunk, name
 
 
-def test_the_css_styles_draw_nothing_per_frame():
-    """The mesh and the bubbles are CSS animations of pre-rendered images:
-    no p5, no frame function, nothing drawn per frame."""
+def test_mesh_and_bubbles_are_cheap_canvases_not_css_animations():
+    """The mesh and the bubbles were CSS animations: no page work, but the
+    compositor redrew them at the display's full rate, and the whole browser
+    spent about a core on them (1,000ms of CPU a second against 150 with the
+    art off, bgartcost.js), more than any canvas style. Now the mesh is a
+    fifth-density canvas at fifteen frames a second and the bubbles clear
+    only their own boxes."""
     chunks = _chunks()
     for name in ("mesh", "bubbles"):
-        assert "dom: true" in chunks[name], name
-        assert "frame(" not in chunks[name], name
-        assert not re.search(r"\bp\.", chunks[name]), name
-    css = CSS.read_text(encoding="utf-8")
-    for anim in ("bg-drift-x", "bg-drift-y", "bg-rise", "bg-wobble"):
-        assert f"@keyframes {anim}" in css, anim
+        assert "dom: true" not in chunks[name], name
+        assert "frame(" in chunks[name], name
+    assert "pixelDensity: 0.2" in chunks["mesh"] and "fps: 15" in chunks["mesh"]
+    assert "g.clearRect(last[o]" in chunks["bubbles"]
+    runtime = BG_ART.read_text(encoding="utf-8")
+    assert "Math.min(style.fps || 30, bgArtFrameRate())" in runtime
 
 
 def test_no_colour_or_gradient_is_built_per_frame():
@@ -267,7 +271,7 @@ def test_the_art_runs_at_30_or_20_frames_a_second():
     rate = rate[: rate.index("\n}\n")]
     assert "? 20 : 30" in rate
     assert "hardwareConcurrency" in text and "deviceMemory" in text and "getBattery" in text
-    assert "1000 / bgArtFrameRate()" in text
+    assert "1000 / Math.min(style.fps || 30, bgArtFrameRate())" in text
 
 
 def test_the_art_needs_no_p5():

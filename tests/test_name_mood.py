@@ -357,19 +357,27 @@ def test_everyday_clothes(tmp_path: Path) -> None:
 def test_atlas_has_a_face_of_its_own() -> None:
     # The owner: "should we make a very very impressive avatar for Atlas
     # that embodies the core of the application ... maybe with the logo
-    # mixed in". The assistant's name draws the hand-made face, never a
-    # face generated from the letters "Atlas".
+    # mixed in". The assistant's name draws the hand-made character, never a
+    # face generated from the letters "Atlas": atlas.js registers it through
+    # the character interface, and `atlasMark` (the old name) delegates to it.
     body = APP[APP.index("function nameMark(seed") :][:600]
     assert "return atlasMark(size);" in body
-    atlas = APP[APP.index("function atlasMark(") : APP.index("function nameMark(seed")]
+    assert "return atlasDraw(size, mood);" in APP
+    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
+    assert "registerCharacter({" in atlas
     # And its moods follow the app: thinking while a turn runs, happy or
-    # surprised when it ends.
+    # surprised when it ends, and the rest of the fifteen from events.
     app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'setAtlasMood("thinking")' in app
     assert 'endState === "done" ? "happy"' in app
-    for mood in ("thinking", "happy", "surprised", "sleepy"):
-        assert f'mood === "{mood}"' in atlas, mood
-    assert "currentAccentHex" in atlas, "Atlas's colours follow the accent"
+    moods = ("calm", "happy", "delighted", "laughing", "thinking", "curious", "surprised",
+             "confused", "sleepy", "sad", "proud", "shy", "determined", "love", "worried")
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    for mood in moods:
+        assert f"  {mood}: {{ words:" in atlas, mood
+        if mood != "calm":
+            assert f'[data-atlas-mood="{mood}"]' in css, mood
+    assert "oklch(from var(--accent)" in css, "Atlas's colours follow the accent"
     assert "watchNameMark(svg)" in atlas
 
 

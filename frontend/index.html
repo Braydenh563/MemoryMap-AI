@@ -11097,6 +11097,9 @@
        declarations at top level, and it must load before any boot file that
        paints a face, so it sits straight after app.js. -->
   <script src="/avatars.js?v=0.3.2"></script>
+  <!-- Atlas, the assistant's own character (`atlasDraw`, its moods): after
+       avatars.js, whose `registerCharacter` it answers through. -->
+  <script src="/atlas.js?v=0.3.2"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js, and it stays at boot: every cross-file call it

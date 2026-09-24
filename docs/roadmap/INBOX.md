@@ -154,7 +154,12 @@ with its owner named in the entry.
     writing, is the only section with its own Save button, and repeats a
     "Web search" heading that only links to the Web search section;
     recommend "Profile" under Atlas, a "General" section under Your
-    notebook, save on change, and the pointer heading removed.
+    notebook, save on change, and the pointer heading removed. (Fixed:
+    Profile keeps the name, look and About me; General, first under Your
+    notebook, holds the bin, chat history, answer style, search relevance,
+    notifications and writing; both save on change; the Web search pointer
+    heading is gone; the Ask tab's relevance link and the catalogue go to
+    General.)
     (m) Settings sections are long: Tools 7,592px tall at 1440 (12,058px at
     390), Appearance 4,537px with 105 controls, Logs 515 controls;
     recommend collapsed groups (`details`) with the first open, per

@@ -3049,8 +3049,9 @@ mark.global-find-hit.global-find-current {
      lines at 61px tall beside 37px neighbours, so the nav read as a ragged
      list. 13rem holds the longest at --text-lg with the button's own
      padding; the guard below keeps a future longer label on one line. */
-  /* 14.5rem since "Preferences" became "Profile & preferences", which 13rem
-     cut to "Profile & preferenc" at 1440. */
+  /* 14.5rem: "Profile & preferences" (since split into Profile and General,
+     INBOX 424 l) was cut to "Profile & preferenc" at 13rem, and the longest
+     labels left ("What it remembers", "Keyboard shortcuts") want the room. */
   grid-template-columns: 14.5rem 1fr;
   /* An implicit `auto` row sizes to its CONTENT, so the scroll pane inside
      grew past the dialog and .modal-body's overflow:hidden simply clipped it

@@ -19188,19 +19188,27 @@ function chatSourcesPanel(input) {
       //: Wiki links are unwrapped first, renderInlineMarkdown is inline-only
       //: and does not know `[[…]]`, so without this a linked note printed its
       //: own brackets.
-      renderInlineMarkdown(
-        snippet,
-        source.snippet.replace(/\[\[([^[\]]{1,120})\]\]/g, "$1"),
-        null,
-        true
-      );
+      //: Block markers stripped wherever one starts a word (a heading's `#`
+      //: printed as text, owner's screenshot), and a snippet that opens with
+      //: the note's own title, which is the card's title line already, starts
+      //: after it instead of saying it twice.
+      let text = source.snippet
+        .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
+        .replace(/(^|\s)#{1,6}\s+/g, "$1")
+        .replace(/(^|\s)>\s+/g, "$1")
+        .trim();
+      const label = String(source.label || "").trim();
+      if (label && text.toLowerCase().startsWith(label.toLowerCase())) {
+        text = text.slice(label.length).replace(/^[\s:.,-]+/, "");
+      }
+      renderInlineMarkdown(snippet, text, null, true);
       //: **The card is itself a control**, so nothing inside it may be one.
       //: renderInlineMarkdown emits real `<a>`s and file chips for links, and
       //: an anchor nested inside this card's own `<a>`/`<button>` is both
       //: invalid and unreachable by keyboard, the outer control swallows it.
       //: The formatting is what was asked for; the second click target was not.
       deactivateControls(snippet);
-      card.appendChild(snippet);
+      if (text) card.appendChild(snippet);
     }
     const files = (source.entry?.attachments || []).filter((file) => !file.is_image);
     if (files.length) {

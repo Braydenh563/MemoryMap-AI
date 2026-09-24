@@ -97,6 +97,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A chat answer's source cards read from the top (they centred their content,
+  so cards in a row started on different lines), keep the kind at the foot,
+  and no longer print a heading's `#` or repeat the title in the snippet.
 - Settings, Preferences: the chat history row keeps its unit on one line
   (its note moved under it), units match their labels' size, and the answer
   style is a labelled row on the pane's grid.

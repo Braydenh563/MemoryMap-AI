@@ -4540,3 +4540,18 @@ main,
 #settings-modal .settings-group .row > input + span.muted {
   font-size: var(--text-lg);
 }
+
+/* --- Chat sources: every card reads from the top --- */
+/* Owner's screenshot: "the content in sources below ai chat responses is
+   centered and the elements arent aligned". A card that opens something is
+   a `<button>`, and the global button rule centres its column, so in a row
+   of unequal cards the shorter one floated its title down to the middle.
+   Top-anchored, with the kind line pinned to the foot, every card in a row
+   starts its title and ends its kind on the same lines. */
+.chat-source-card {
+  justify-content: flex-start;
+}
+
+.chat-source-card > .chat-source-foot {
+  margin-top: auto;
+}

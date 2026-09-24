@@ -37405,7 +37405,10 @@ document.addEventListener("visibilitychange", () => {
 //: is the point and the AI is a helper; Ask in particular falls back to the
 //: search results beside it and says so, and the meeting save summarises when
 //: it can and files the note either way (`saveMeetingNote`), so disabling
-//: either would take away the working half.
+//: either would take away the working half. The Library's "Map from notes"
+//: (`wb-boards-generate`) was gated by the pass above and is not any more:
+//: its route proposes an outline from the notebook's own filing with no model
+//: running, and says so (`WORKS_WITHOUT_A_MODEL` in test_frontend_ids.py).
 
 //: **The one sentence a disabled AI control says** (CHAT_PLAN.md decision 11:
 //: "every AI control is visible, disabled, with a tooltip 'Connect a model in

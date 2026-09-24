@@ -370,11 +370,21 @@ const VIEWPORT = (() => {
     // (border: 0, the divider is the ring's shared ::before annulus), so
     // "the slot's own edge" is read from that annulus, over the slot's own
     // fill, over the canvas.
+    // **The boundary, not the divider.** The annulus colour is the hairline
+    // between sectors, read against the sectors either side of it; what
+    // WCAG 1.4.11 asks 3:1 of is where the control meets the canvas, and the
+    // ring draws that as two 1px shadows on the same `::before` (outer
+    // spread, inner inset, `--wb-radial-edge`). This read the divider as the
+    // edge and measured 1.39:1 light, 1.58:1 dark. Both edge colours are
+    // read from the computed `box-shadow`, and the weaker one is reported.
     const before = getComputedStyle(ring, "::before");
     const slotFill = over(parse(cs.backgroundColor), canvas);
+    const shadowColours = (before.boxShadow.match(/color\(srgb[^)]*\)|rgba?\([^)]*\)/g) || []).slice(0, 2);
+    const edges = shadowColours.map((c) => Math.round(ratio(over(parse(c), canvas), canvas) * 100) / 100);
     return {
       ringOpen: !ring.classList.contains("hidden"),
-      slotEdge: Math.round(ratio(over(parse(before.borderTopColor), slotFill), canvas) * 100) / 100,
+      slotEdge: edges.length === 2 && /inset/.test(before.boxShadow) ? Math.min(...edges) : 0,
+      divider: Math.round(ratio(over(parse(before.borderTopColor), slotFill), slotFill) * 100) / 100,
       slotInk: Math.round(ratio(over(parse(getComputedStyle(slot.querySelector("i")).color), slotFill), slotFill) * 100) / 100,
     };
   });

@@ -10161,7 +10161,9 @@ input[type="file"] {
    radius. Clipping also clips hit-testing, so a sector takes the pointer
    exactly where it is drawn and the hole takes none. The band under them
    (`::before`) shows through a 1.5px gap between neighbours and a 1px rim,
-   which is what draws the hairline dividers and the edge: one surface, cut.
+   which is what draws the hairline dividers: one surface, cut. The ring's
+   own boundary is a stronger line round both rims (`--wb-radial-edge`),
+   because a hairline that quiet is not an edge a canvas can see.
 
    **The hole shows the node.** The ring is centred on the topic and
    `wbSizeMapRadial` sets its inner radius from the topic's own box (half its
@@ -10183,6 +10185,15 @@ input[type="file"] {
   --wb-radial-band: 4.5rem;
   --wb-radial-inner: 2.75rem;
   --wb-radial-outer: calc(var(--wb-radial-inner) + var(--wb-radial-band));
+  /* The ring's boundary, outer and inner: the line that says where the
+     control is, so it owes 3:1 against the canvas (WCAG 1.4.11), which the
+     dividers' 16% ground does not reach (1.39:1 light, 1.58:1 dark,
+     measured). The same ink-into-surface mix as that ground, one step to
+     where every palette clears 3:1 with room: across all eleven palettes,
+     55% measured 3.52 to 4.11:1 light and 5.12 to 5.68:1 dark, where 50%
+     fell to 3.07:1 on parchment. `--muted` would pass too, at 5.6 to 8.5:1,
+     which is a heavier line than a boundary needs. */
+  --wb-radial-edge: color-mix(in srgb, var(--ink) 55%, var(--modal-bg-opaque));
   position: absolute;
   z-index: 23;
   width: 0;
@@ -10209,7 +10220,15 @@ input[type="file"] {
   border: calc(var(--wb-radial-outer) - var(--wb-radial-inner)) solid
     color-mix(in srgb, var(--ink) 16%, var(--modal-bg-opaque));
   border-radius: 50%;
-  box-shadow: var(--shadow-md);
+  /* The edge is two 1px circles, drawn as shadows so the dividers keep the
+     band's quiet colour: the spread one just outside the outer rim, the
+     inset one just inside the hole (an inset shadow paints the padding box,
+     which on an annulus is the hole). The sectors are clipped to the band,
+     so neither line is ever under one. */
+  box-shadow:
+    0 0 0 1px var(--wb-radial-edge),
+    inset 0 0 0 1px var(--wb-radial-edge),
+    var(--shadow-md);
   pointer-events: none;
 }
 

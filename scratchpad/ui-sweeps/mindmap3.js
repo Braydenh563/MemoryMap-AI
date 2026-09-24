@@ -447,20 +447,35 @@ async function openBoardsMore(page) {
   // --- the timeline ---------------------------------------------------------
   await page.click('[data-tab="timeline"]');
   await page.waitForTimeout(3000);
+  // **The feed, not the dot grid** (TIMELINE_PLAN Phase 4). `#timeline-grid
+  // .timeline-dot` went with the SVG view, so this read 0 dots on a timeline
+  // that was drawing the map fine. A map is now a row of kind `board`, marked
+  // with the tree glyph, and opening the row shows the map's own chip
+  // (`openTimelineRowDetail`, `mapChip(row.board, { interactive: false })`).
+  const boardRow = page.locator('#timeline-scroll .timeline-row[data-kind="board"]').first();
+  const boardRows = await page.locator('#timeline-scroll .timeline-row[data-kind="board"]').count();
+  if (boardRows) {
+    await boardRow.locator(".timeline-row-title").click();
+    await page.waitForTimeout(600);
+  }
   const timeline = await page.evaluate(() => {
-    const chips = [...document.querySelectorAll("#timeline-grid .timeline-dot .map-chip")];
+    const rows = [...document.querySelectorAll('#timeline-scroll .timeline-row[data-kind="board"]')];
+    const open = rows.find((r) => r.getAttribute("aria-expanded") === "true");
+    const chips = open ? [...open.querySelectorAll(".timeline-row-detail .map-chip")] : [];
     return {
+      rows: rows.length,
+      glyph: rows[0]?.querySelector(".timeline-row-mark i")?.className || "",
+      open: Boolean(open),
       chips: chips.length,
       first: chips[0] ? chips[0].textContent.trim() : "",
-      // A chip inside a <button> dot must not itself be a button: nested
-      // interactive controls are invalid HTML that browsers silently reflow.
+      // A chip inside a row that is itself the control must not be a button:
+      // nested interactive controls are invalid HTML that browsers reflow.
       nested: chips.filter((c) => c.tagName === "BUTTON").length,
-      dots: document.querySelectorAll("#timeline-grid .timeline-dot").length,
     };
   });
   check(
     "a map on the timeline reads as a map chip, not as a note",
-    timeline.chips >= 1 && timeline.nested === 0,
+    timeline.rows >= 1 && /ph-tree-structure/.test(timeline.glyph) && timeline.chips >= 1 && timeline.nested === 0,
     JSON.stringify(timeline)
   );
 
@@ -801,10 +816,16 @@ async function openBoardsMore(page) {
 
   // Tick the two notes by their labels, so this cannot pass by ticking
   // whatever happened to be first in the list.
+  // One row per title: a second run on the same data dir leaves the first
+  // run's two notes in the picker too, and ticking all four read as a failure
+  // of the picker ("4") when it was the sweep counting its own leftovers.
   const ticked = await page.evaluate(() => {
     let on = 0;
+    const seen = new Set();
     for (const row of document.querySelectorAll(".entry-pick-check")) {
-      if (!/Kolmogorov complexity|Entropy/.test(row.textContent)) continue;
+      const title = (row.textContent.match(/Kolmogorov complexity|Entropy/) || [])[0];
+      if (!title || seen.has(title)) continue;
+      seen.add(title);
       const box = row.querySelector("input");
       box.checked = true;
       box.dispatchEvent(new Event("change", { bubbles: true }));

@@ -1464,3 +1464,17 @@ avatars.js.
   short constellation tail, star-dust inside the body), plus a male and a
   female version of Atlas and of the companions, chosen in Appearance. With
   the Atlas agent.
+
+- The owner, 2026-09-24 evening, verbatim in parts, for the companion
+  agent: "the surfaces I can drag atlas onto are either at the top or
+  bottom and nowhere else ... why can atlas only be on some panels or hang
+  from some areas and not on other areas of the page or other panels??";
+  "I can only drag atlas around by the head, not the body"; "the x button
+  being on the companion the whole time is kinda annoying. keep it in the
+  right click or hold popup menu"; "let the companions appear smoothly not
+  just appear suddenly in different locations"; "atlas startles a lot and
+  it's kinda distracting at times because I navigate through the notebook
+  so fast"; "the popup menu when right clicking on the companion doesnt
+  appear next to the companion or cursor"; "atlas and the companions need
+  better ai and behaviour and abilities. they need to be cleaned and
+  refined."

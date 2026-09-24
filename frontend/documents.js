@@ -12486,7 +12486,11 @@ function renderDocProse() {
   //: The rule findings, then the ones from the prose tools below (grammar,
   //: accessibility), which never claim a span a rule already holds.
   const text = docText();
-  docProseFound = isCode ? [] : docProseExtras(text, docProseFindings(text));
+  //: And Check with AI's findings (`docAiFindings`), located afresh in the
+  //: text as it is now, so an applied or edited-away one simply goes.
+  docProseFound = isCode
+    ? []
+    : docProseExtras(text, docProseFindings(text)).concat(docAiFindings(text)).sort((a, b) => a.start - b.start);
   chip.hidden = isCode;
   count.textContent = docProseFound.length
     ? `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`
@@ -12538,6 +12542,7 @@ const DOC_FINDING_SKIP = new Set(["long-sentence"]);
 function docFindingKind(finding) {
   if (finding.rule === "spelling") return "spelling";
   if (finding.rule === "grammar") return "grammar";
+  if (finding.rule === "ai") return "ai";
   if (DOC_ACCESS_RULES.has(finding.rule)) return "access";
   if (finding.rule === "repeat") return "repeat";
   return "style";
@@ -12558,7 +12563,9 @@ function docProseHeader() {
 
   const tools = document.createElement("span");
   tools.className = "row doc-prose-tools";
-  const fixable = docProseFound.filter((f) => f.replacement !== null);
+  //: A model's fix is a judgement to read, never one of "every suggestion that
+  //: has one clear answer", so Fix all leaves the `ai` kind alone.
+  const fixable = docProseFound.filter((f) => f.replacement !== null && f.rule !== "ai");
   if (fixable.length) {
     const all = document.createElement("button");
     all.type = "button";
@@ -12578,11 +12585,15 @@ function docProseHeader() {
   //: editor into one that visibly stutters while you type. On request, it
   //: costs nothing until asked for; as a pass, it would cost something on
   //: every single character.
+  const running = docAiCheck.state === "running";
   const aiReview = smallButton(
-    "ph:sparkle Check with AI",
-    "Ask the local model to read for things spelling and grammar rules can't catch: its/it's, agreement, tense, tone, clarity",
+    running ? "ph:stop Stop" : "ph:sparkle Check with AI",
+    running
+      ? "Stop checking; what it found so far stays"
+      : "Ask the model to read for what spelling and grammar rules can't catch: its/it's, agreement, tense, tone, clarity. Findings appear here",
     () => docAiReview()
   );
+  aiReview.classList.add("doc-prose-ai-run");
   tools.appendChild(aiReview);
   //: The dictionary is reachable from the thing that uses it. A word list you
   //: can add to and never see again is a list nobody trusts.
@@ -12590,6 +12601,12 @@ function docProseHeader() {
     openDocDictionary()
   );
   tools.appendChild(dict);
+  //: Where the panel sits, bottom or right (`applyDocProseDock`), beside the
+  //: way out: both are about the panel itself rather than its findings.
+  const dock = smallButton("ph:square-split-horizontal", "Dock the suggestions on the right", () => toggleDocProseDock());
+  dock.classList.add("icon-only", "doc-prose-dock");
+  docProseDockLabel(dock, docProseDockSide() === "right");
+  tools.appendChild(dock);
   const close = smallButton("ph:x", "Close the suggestions", () => closeDocProsePanel());
   close.classList.add("icon-only", "doc-prose-close");
   close.setAttribute("aria-label", "Close the suggestions");
@@ -12614,8 +12631,10 @@ function renderDocProsePanel() {
   //: "there's no close x button." A panel whose only exit is the control that
   //: opened it is a panel you have to remember how to leave, and the empty
   //: state was the one view where that was most likely.
+  const aiStatus = docAiCheckStatus();
   if (!docProseFound.length) {
     panel.appendChild(docProseHeader());
+    if (aiStatus) panel.appendChild(aiStatus);
     const empty = document.createElement("p");
     empty.className = "muted doc-prose-empty";
     empty.textContent =
@@ -12626,6 +12645,7 @@ function renderDocProsePanel() {
     return;
   }
   panel.appendChild(docProseHeader());
+  if (aiStatus) panel.appendChild(aiStatus);
 
   //: **Grouped by kind, with a count on each group** (DOCUMENTS_PLAN Phase 0
   //: item 3). A flat list of twenty rows is twenty separate decisions in
@@ -12660,6 +12680,9 @@ const DOC_FINDING_GROUPS = [
   ["repeat", "Repeated words"],
   ["style", "Style and spacing"],
   ["access", "Accessibility"],
+  //: Last: a model's reading is the weakest claim in the panel, and it says
+  //: so by where it sits.
+  ["ai", "Checked with AI"],
 ];
 
 //: Sixty rows, over all the groups rather than per group: the cap is there so
@@ -12809,6 +12832,19 @@ function docProseGroupList(findings) {
       fix.addEventListener("click", () => docProseFix(finding));
       head.appendChild(fix);
     }
+    //: A model's finding can be wrong, so it can be put away: Dismiss takes it
+    //: out of this check's list (Ignore, in the answers, is the standing
+    //: "never flag this wording here").
+    if (finding.rule === "ai") {
+      const dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "ghost small doc-prose-fix doc-prose-dismiss";
+      setLabel(dismiss, "ph:x");
+      dismiss.title = "Dismiss this finding";
+      dismiss.setAttribute("aria-label", dismiss.title);
+      dismiss.addEventListener("click", () => docAiDismiss(finding));
+      head.appendChild(dismiss);
+    }
     li.appendChild(head);
     const answers = document.createElement("div");
     answers.className = "doc-prose-answers hidden";
@@ -12910,7 +12946,7 @@ function docProseFixAll() {
   //: Back to front, so each replacement cannot move the offsets of the ones
   //: still to be applied.
   const fixable = docProseFound
-    .filter((f) => f.replacement !== null)
+    .filter((f) => f.replacement !== null && f.rule !== "ai")
     .sort((a, b) => b.start - a.start);
   let text = box.value;
   let applied = 0;
@@ -13009,42 +13045,112 @@ function hideDocComplete() {
   docReturnFromViewport(list);
   docCompleteMatches = [];
   docCompleteBox = null;
+  if (typeof docProseGhostSet === "function") docProseGhostSet(null, "");
+}
+
+//: **The autofill rows for the caret, if it is at a trigger** (the owner,
+//: 2026-09-24: "if I type lorem and press enter ... it will autofill the lorem
+//: ipsum filler text"). The token and the rows are documents-prose.js's pure
+//: `PROSE-FILL` region; this is the part that knows the editor: the caret's
+//: line, the name in Settings, the renderer's heading ids. Prose only: a code
+//: file has its own list (`docCodeTools`), and two lists at one caret is the
+//: thing this file keeps refusing.
+function docFillAt(box) {
+  if (typeof docFillToken !== "function" || !docProseFillOn()) return null;
+  const range = box.selection();
+  if (range.from !== range.to) return null;
+  const line = box.lineAt(range.from);
+  const column = range.from - line.from;
+  const tok = docFillToken(line.text.slice(0, column), line.text.slice(column));
+  if (!tok) return null;
+  //: The "/" menu and the `[[` menu own their keystrokes while open.
+  if (typeof editorMenuState === "object" && editorMenuState?.open) return null;
+  const options = docFillOptions(tok, {
+    now: new Date(),
+    locale: undefined,
+    name: (typeof prefsCache === "object" && prefsCache?.display_name) || "",
+    doc: tok.kind === "toc" ? docText() : "",
+    slug: typeof mdHeadingId === "function" ? mdHeadingId : (t) => t,
+  });
+  if (!options.length) return null;
+  return { start: line.from + tok.start, options };
 }
 
 function renderDocComplete(box) {
   const list = $("doc-complete-list");
-  if (!list || !docCompleteEnabled()) return hideDocComplete();
-  const at = docWordFragment(box);
-  if (!at) return hideDocComplete();
-  if (!docCompleteWords) docBuildVocabulary();
-  const needle = at.fragment.toLowerCase();
-  docCompleteMatches = docCompleteWords
-    .filter(([word]) => word.toLowerCase().startsWith(needle) && word.toLowerCase() !== needle)
-    .slice(0, DOC_COMPLETE_MAX)
-    .map(([word]) => word);
+  if (!list) return hideDocComplete();
+  //: The expansions first, and whatever the word switch says: they answer a
+  //: trigger the writer typed on purpose, where word suggestions are a guess.
+  const fill = docFillAt(box);
+  const at = docCompleteEnabled() ? docWordFragment(box) : null;
+  let words = [];
+  if (at) {
+    if (!docCompleteWords) docBuildVocabulary();
+    const needle = at.fragment.toLowerCase();
+    words = docCompleteWords
+      .filter(([word]) => word.toLowerCase().startsWith(needle) && word.toLowerCase() !== needle)
+      .slice(0, DOC_COMPLETE_MAX)
+      .map(([word]) => ({ word, typed: at.fragment.length }));
+  }
+  //: A row is `{word, typed}` (the rest of a word) or `{fill, start}` (an
+  //: expansion that replaces from `start` to the caret).
+  docCompleteMatches = [
+    ...(fill ? fill.options.map((option) => ({ fill: option, start: fill.start })) : []),
+    ...words,
+  ];
   if (!docCompleteMatches.length) return hideDocComplete();
 
   docCompleteBox = box;
   docCompleteIndex = Math.min(docCompleteIndex, docCompleteMatches.length - 1);
   list.replaceChildren();
-  docCompleteMatches.forEach((word, index) => {
+  docCompleteMatches.forEach((match, index) => {
     const li = document.createElement("li");
     li.setAttribute("role", "option");
     li.setAttribute("aria-selected", String(index === docCompleteIndex));
     li.classList.toggle("active", index === docCompleteIndex);
-    const head = document.createElement("b");
-    head.textContent = word.slice(0, at.fragment.length);
-    const rest = document.createElement("span");
-    rest.textContent = word.slice(at.fragment.length);
-    li.append(head, rest);
+    if (match.fill) {
+      //: The trigger in full strength, what it writes quieter: the same two
+      //: inks a word row uses for typed and suggested. A shortcode leads with
+      //: its glyph, which is the picker.
+      li.classList.add("doc-complete-fill");
+      if (match.fill.glyph) {
+        const glyph = document.createElement("span");
+        glyph.className = "doc-complete-glyph";
+        glyph.textContent = match.fill.glyph;
+        li.appendChild(glyph);
+      }
+      const head = document.createElement("b");
+      head.textContent = match.fill.label;
+      li.appendChild(head);
+      if (match.fill.detail) {
+        const detail = document.createElement("span");
+        detail.className = "doc-complete-detail";
+        detail.textContent = match.fill.detail;
+        li.appendChild(detail);
+      }
+    } else {
+      const head = document.createElement("b");
+      head.textContent = match.word.slice(0, match.typed);
+      const rest = document.createElement("span");
+      rest.textContent = match.word.slice(match.typed);
+      li.append(head, rest);
+    }
     li.addEventListener("mousedown", (event) => {
       //: mousedown, not click: the textarea must not lose focus first, or the
       //: selection this writes into is gone by the time it runs.
       event.preventDefault();
-      applyDocComplete(box, word);
+      applyDocComplete(box, match);
     });
     list.appendChild(li);
   });
+  //: The ghost after the caret, on the engine only: the chosen row's rest, as
+  //: the code side draws it (`.cm-ghostText`).
+  if (box.kind === "codemirror" && typeof docProseGhostSet === "function") {
+    const chosen = docCompleteMatches[docCompleteIndex];
+    const caret = box.selection().from;
+    const ghost = chosen.fill ? docFillGhost(chosen.fill) : chosen.word.slice(chosen.typed);
+    docProseGhostSet(caret, ghost);
+  }
   const point = docCaretPoint(box);
   //: Kept on screen: a popup at the caret near the right edge or the bottom of
   //: the window would otherwise open off it, which is the app-wide rule for
@@ -13070,15 +13176,31 @@ function renderDocComplete(box) {
   docPlaceFixed(list, Math.max(8, left), top);
 }
 
-function applyDocComplete(box, word) {
-  const at = docWordFragment(box);
-  if (!at) return hideDocComplete();
+function applyDocComplete(box, match) {
+  if (!match) return hideDocComplete();
   //: A range edit rather than a whole-value rewrite: on the engine that keeps
   //: the completion as one undo step over the fragment it replaced, and it
   //: costs the length of the word rather than the length of the document.
   const caret = box.selection().from;
-  box.replaceRange(at.start, caret, word);
-  box.setSelection(at.start + word.length);
+  if (match.fill) {
+    //: Read again at the moment of taking it, the rule `docProseFix` keeps: the
+    //: row was drawn a keystroke ago, and a trigger that is no longer before
+    //: the caret is not one to replace.
+    const now = docFillAt(box);
+    if (!now || now.start !== match.start) return hideDocComplete();
+    const text = match.fill.text;
+    box.replaceRange(match.start, caret, text);
+    if (match.fill.select) {
+      box.setSelection(match.start + match.fill.select[0], match.start + match.fill.select[1]);
+    } else {
+      box.setSelection(match.start + text.length);
+    }
+  } else {
+    const at = docWordFragment(box);
+    if (!at) return hideDocComplete();
+    box.replaceRange(at.start, caret, match.word);
+    box.setSelection(at.start + match.word.length);
+  }
   hideDocComplete();
   box.focus();
   box.dispatchEvent(new Event("input", { bubbles: true }));
@@ -13097,11 +13219,16 @@ function docCompleteKeydown(event, box) {
     renderDocComplete(box);
     return true;
   }
-  //: **Tab, not Enter.** Enter in a document is a new line, and stealing it
-  //: for a suggestion is how an autocomplete becomes the thing you fight.
-  if (event.key === "Tab") {
+  //: **Tab for a word, and Enter only for an expansion.** Enter in a document
+  //: is a new line, and stealing it for a guessed word is how an autocomplete
+  //: becomes the thing you fight. An expansion is different: it answers a
+  //: trigger typed on purpose (`lorem`, `today` on its own line, `:smile`),
+  //: and "type lorem and press enter" is the ask it exists for. Escape, then
+  //: Enter, is still a plain new line.
+  const chosen = docCompleteMatches[docCompleteIndex];
+  if (event.key === "Tab" || (event.key === "Enter" && chosen?.fill && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey)) {
     event.preventDefault();
-    applyDocComplete(box, docCompleteMatches[docCompleteIndex]);
+    applyDocComplete(box, chosen);
     return true;
   }
   if (event.key === "Escape") {
@@ -13685,11 +13812,31 @@ $("doc-grammar-check")?.addEventListener("change", async (event) => {
   docGrammarCache = { text: null, findings: [] };
   renderDocProse();
 });
-$("doc-dictionary-add")?.addEventListener("click", async () => {
-  const word = await promptDialog("Add a word to your dictionary:", "");
-  if (!word) return;
-  await docDictionaryAdd(word.trim());
-  openDocDictionary();
+//: The field finds and adds (`renderDocDictionary`, `docDictionaryAddTyped`);
+//: Add beside it is the same as Enter, for a pointer.
+$("doc-dictionary-add")?.addEventListener("click", () => docDictionaryAddTyped());
+$("doc-dictionary-search")?.addEventListener("input", () => renderDocDictionary());
+$("doc-dictionary-search")?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  docDictionaryAddTyped();
+});
+$("doc-dictionary-import")?.addEventListener("click", () => $("doc-dictionary-file")?.click());
+$("doc-dictionary-file")?.addEventListener("change", async (event) => {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  //: Cleared first, so choosing the same file again still raises a change.
+  input.value = "";
+  await docDictionaryImport(file);
+});
+$("doc-dictionary-export")?.addEventListener("click", () => docDictionaryExport());
+//: The same preference Settings, Preferences sets (`smart_punctuation`), here
+//: beside the other writing checks; saved on the change, as the two above are.
+$("doc-smart-punctuation")?.addEventListener("change", async (event) => {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ smart_punctuation: event.currentTarget.checked }),
+  }).catch(() => prefsCache);
 });
 
 $("doc-prose")?.addEventListener("click", () => {
@@ -13701,6 +13848,166 @@ $("doc-prose")?.addEventListener("click", () => {
   chip.setAttribute("aria-expanded", String(open));
   if (open) renderDocProsePanel();
 });
+
+// --- where the suggestions panel sits (INBOX 410) ---------------------------
+//
+// The owner, 2026-09-24: "allow the suggestions panel to be docked on the
+// right instead if the user wishes." Under the editor it takes height from a
+// document that is usually taller than it is wide; beside it, on a wide
+// window, it takes width the text column was not using. So both, the writer's
+// choice from the panel's own head, remembered per browser (a layout
+// preference about this screen, not about the notebook), and a column that
+// resizes by the sidebars' own handle (`makeSidebarResizable` in app.js: a
+// `role="separator"` grip, drag, arrow keys, Home or a double click to reset).
+//
+// **Right means a column in `#doc-panes`**, beside the source and the preview,
+// so split view and the right dock share one row and the editor gives up
+// width rather than height. The panel element moves; nothing is rebuilt, so
+// an open row and its scroll position survive the move. At 720px and below
+// (where the sidebars' own handles stop, there being no room beside anything)
+// it is always under the editor, whatever was chosen.
+const DOC_PROSE_DOCK_KEY = "docProseDock";
+const DOC_PROSE_WIDTH_KEY = "docProseWidth";
+const DOC_PROSE_WIDTH_DEFAULT = 320;
+const DOC_PROSE_WIDTH_MIN = 240;
+const DOC_PROSE_NARROW = "(max-width: 720px)";
+
+function docProseDockChoice() {
+  try {
+    return localStorage.getItem(DOC_PROSE_DOCK_KEY) === "right" ? "right" : "bottom";
+  } catch {
+    return "bottom";
+  }
+}
+
+//: The side in effect: the choice, except where there is no room for it.
+function docProseDockSide() {
+  return window.matchMedia(DOC_PROSE_NARROW).matches ? "bottom" : docProseDockChoice();
+}
+
+//: Clamped against the room there is: never under the floor, never more than
+//: half the editor's row, so the text column is always the larger of the two.
+function docProseApplyWidth(width) {
+  const panel = $("doc-prose-panel");
+  const panes = $("doc-panes");
+  if (!panel || !panes) return DOC_PROSE_WIDTH_DEFAULT;
+  const room = panes.getBoundingClientRect().width || window.innerWidth;
+  const max = Math.max(DOC_PROSE_WIDTH_MIN, Math.round(room * 0.5));
+  const clamped = Math.min(Math.max(Math.round(width), DOC_PROSE_WIDTH_MIN), max);
+  panel.style.setProperty("--doc-prose-w", `${clamped}px`);
+  try {
+    localStorage.setItem(DOC_PROSE_WIDTH_KEY, String(clamped));
+  } catch {
+    /* private mode: it just won't be remembered */
+  }
+  return clamped;
+}
+
+function docProseSavedWidth() {
+  try {
+    return Number(localStorage.getItem(DOC_PROSE_WIDTH_KEY)) || DOC_PROSE_WIDTH_DEFAULT;
+  } catch {
+    return DOC_PROSE_WIDTH_DEFAULT;
+  }
+}
+
+//: The grip, built once and moved with the panel: the sidebars' handle
+//: (`.sidebar-resize`, the same role, keys and double click), on the panel's
+//: leading edge because the panel grows away from the text, as the web panel's
+//: does in chat.
+let docProseGrip = null;
+
+function docProseResizeHandle() {
+  let handle = docProseGrip;
+  if (handle) return handle;
+  handle = document.createElement("div");
+  docProseGrip = handle;
+  handle.className = "sidebar-resize doc-prose-resize";
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("aria-orientation", "vertical");
+  handle.setAttribute("tabindex", "0");
+  handle.setAttribute("aria-label", "Resize the suggestions: arrow keys, or drag");
+  handle.title = "Drag to resize, double-click to reset";
+  const panel = () => $("doc-prose-panel");
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = panel().getBoundingClientRect().width;
+    document.body.classList.add("resizing-sidebar");
+    //: Dragging left (a negative delta) widens it: the mirror of a sidebar.
+    const move = (e) => docProseApplyWidth(startWidth - (e.clientX - startX));
+    const stop = () => {
+      document.body.classList.remove("resizing-sidebar");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  });
+  handle.addEventListener("keydown", (event) => {
+    const step = event.shiftKey ? 40 : 12;
+    const current = panel().getBoundingClientRect().width;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      docProseApplyWidth(current + step);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      docProseApplyWidth(current - step);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      docProseApplyWidth(DOC_PROSE_WIDTH_DEFAULT);
+    }
+  });
+  handle.addEventListener("dblclick", () => docProseApplyWidth(DOC_PROSE_WIDTH_DEFAULT));
+  return handle;
+}
+
+//: Put the panel where the side in effect says, and say so on the head's
+//: toggle. Safe to call any number of times: a panel already in place is not
+//: moved again.
+function applyDocProseDock() {
+  const panel = $("doc-prose-panel");
+  const panes = $("doc-panes");
+  const bar = $("doc-statusbar");
+  if (!panel || !panes || !bar) return;
+  const right = docProseDockSide() === "right";
+  const handle = docProseResizeHandle();
+  if (right) {
+    if (panel.parentElement !== panes) panes.append(handle, panel);
+    docProseApplyWidth(docProseSavedWidth());
+  } else if (panel.previousElementSibling !== bar) {
+    bar.after(panel);
+    handle.remove();
+  }
+  panes.classList.toggle("doc-prose-right", right);
+  panel.classList.toggle("doc-prose-right", right);
+  const toggle = panel.querySelector(".doc-prose-dock");
+  if (toggle) docProseDockLabel(toggle, right);
+}
+
+function docProseDockLabel(button, right) {
+  const words = right ? "Dock the suggestions at the bottom" : "Dock the suggestions on the right";
+  setLabel(button, right ? "ph:square-split-vertical" : "ph:square-split-horizontal");
+  button.title = words;
+  button.setAttribute("aria-label", words);
+  button.setAttribute("aria-pressed", String(right));
+}
+
+function toggleDocProseDock() {
+  const next = docProseDockChoice() === "right" ? "bottom" : "right";
+  try {
+    localStorage.setItem(DOC_PROSE_DOCK_KEY, next);
+  } catch {
+    /* private mode: it moves for this session only */
+  }
+  applyDocProseDock();
+  //: Focus stays on the toggle, which moved with the panel: the press that
+  //: moved it should not lose the reader's place.
+  $("doc-prose-panel")?.querySelector(".doc-prose-dock")?.focus();
+}
+
+window.matchMedia(DOC_PROSE_NARROW).addEventListener("change", applyDocProseDock);
+applyDocProseDock();
 
 for (const [name, id] of Object.entries(DOC_TOOL_KEYS)) {
   const input = $(id);
@@ -14580,74 +14887,242 @@ let docLastTranslateLanguage = "";
 //: in the document's id to say which part of it was meant.
 const DOC_AI_REVIEW_SELECTION_CHARS = 1200;
 
-async function docAiReview() {
+//: **Discuss in chat, the secondary way now** (INBOX 410). Everything above
+//: about the badge still holds; what changed is the prompt. The long ask that
+//: used to go with it ("Read this for the things a spellchecker can't
+//: catch...") shared enough words with a proofreading skill to raise "You have
+//: a skill for this" over the composer, which the owner reported as not
+//: accurate (INBOX 413). The check itself runs in place now (`docAiReview`),
+//: so this opens the conversation and leaves the question to the writer: the
+//: document as a chip, a selection as a quote, and nothing else typed for them.
+function docAiDiscussInChat() {
   const box = docSurface();
   const text = (box?.text || "").trim();
-  if (!text) return toast("Nothing to review yet.", true);
+  if (!text) return toast("Nothing to discuss yet.", true);
   const input = document.getElementById("chat-input");
   if (!input) return toast("The chat isn't available right now.", true);
-
   const range = box ? box.selection() : null;
   const selection = range ? box.text.slice(range.from, range.to).trim() : "";
-  const ask =
-    "Read this for the things a spellchecker can't catch: its/it's and other " +
-    "agreement mistakes, tense that shifts partway through, unclear or awkward " +
-    "sentences, and tone. List each one as a numbered point naming the exact " +
-    "wording and a one-line fix, don't rewrite it.";
-
   switchTab("chat");
   if (selection) {
     const quoted =
       selection.length > DOC_AI_REVIEW_SELECTION_CHARS
         ? `${selection.slice(0, DOC_AI_REVIEW_SELECTION_CHARS)}…`
         : selection;
-    input.value = `${ask}\n\n${quoted}`;
+    input.value = `${quoted.split("\n").map((line) => `> ${line}`).join("\n")}\n\n`;
   } else {
-    input.value = ask;
-    //: The badge, via the composer's own staging list, the same chip an
-    //: imported file gets, removable by the same ✕, and read by the backend
-    //: from the document itself rather than from a snapshot pasted here.
     const attached = attachDocumentToChat(currentDoc && currentDoc.id, (currentDoc && currentDoc.title) || $("doc-title")?.value || "This document");
     if (!attached) {
       //: The one case where pasting is still the honest answer: the chip
       //: cannot be added (four already staged, or an unsaved document with no
       //: id yet), and silently asking about nothing would be worse.
-      input.value = `${ask}\n\n${text.slice(0, 6000)}${text.length > 6000 ? "…" : ""}`;
+      input.value = `${text.slice(0, 6000)}${text.length > 6000 ? "…" : ""}\n\n`;
     }
   }
   input.focus();
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+// --- Check with AI, in place (INBOX 410) -----------------------------------
+//
+// The owner, 2026-09-24: "improve how the 'check with ai' feature works in the
+// documents editor." It used to leave the editor for the Chat tab, answer in a
+// bubble with nothing to apply, and raise a skill suggestion that did not fit
+// (INBOX 413). Now it stays: `POST /documents/{id}/ai-check` streams findings
+// (the exact words, a one-line reason, a one-line fix) and each becomes a
+// finding of kind `ai`, so it is underlined in the text, listed in the panel
+// under its own group, and answered by the same row and the same answers every
+// other finding has (`docFindingLine`, `docSuggestAnswers`), with Apply (the
+// row's check) and Dismiss. Stop is the button that started it. The model is
+// the documents feature's (Settings, Models, per feature).
+
+//: `state` is idle, running, done, stopped, offline or failed; `items` are
+//: `{text, message, replacement, near}` as they arrived, located afresh on every
+//: pass (`docAiFindings`) because the writer may keep typing while it runs.
+const docAiCheck = { state: "idle", items: [], message: "", controller: null, docId: null };
+
+//: The streamed items as findings against the text as it is now. An item whose
+//: words are gone (applied, or edited away) is simply not drawn; one dismissed
+//: is gone from `items` itself.
+function docAiFindings(text) {
+  if (!docAiCheck.items.length || docAiCheck.docId !== (currentDoc?.id ?? null)) return [];
+  const out = [];
+  for (const item of docAiCheck.items) {
+    let start = text.indexOf(item.text, Math.max(0, item.near - 200));
+    if (start === -1) start = text.indexOf(item.text);
+    if (start === -1) continue;
+    const finding = {
+      rule: "ai",
+      start,
+      end: start + item.text.length,
+      text: item.text,
+      message: item.message,
+      replacement: item.replacement || null,
+      aiItem: item,
+    };
+    if (docProseIgnored.has(docProseKey(finding))) continue;
+    out.push(finding);
+  }
+  return out;
+}
+
+function docAiDismiss(finding) {
+  docAiCheck.items = docAiCheck.items.filter((item) => item !== finding.aiItem);
+  renderDocProse();
+}
+
+async function docAiReview() {
+  if (docAiCheck.state === "running") {
+    docAiCheck.controller?.abort();
+    return;
+  }
+  const box = docSurface();
+  const full = box?.text || "";
+  if (!full.trim()) return toast("Nothing to check yet.", true);
+  const doc = currentDoc || (await ensureDocumentExists().catch(() => null));
+  if (!doc) return toast("Nothing to check yet.", true);
+  const range = box.selection();
+  const selection = range.to > range.from ? full.slice(range.from, range.to) : "";
+  const controller = new AbortController();
+  Object.assign(docAiCheck, {
+    state: "running", items: [], message: "", controller, docId: doc.id,
+  });
+  //: The panel opens on the check, so the findings land where the writer
+  //: can see them arrive.
+  $("doc-prose-panel")?.classList.remove("hidden");
+  $("doc-prose")?.setAttribute("aria-expanded", "true");
+  renderDocProse();
+  const offset = selection ? range.from : 0;
+  try {
+    const response = await fetch(`/documents/${doc.id}/ai-check`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Auth-Token": authToken(),
+        "X-Workspace-ID": activeSpaceId(),
+      },
+      //: The text as it is on screen, not as last saved: the autosave is a
+      //: second behind the typing, and a finding about words that are no
+      //: longer there is one the panel cannot find.
+      body: JSON.stringify({ selection: selection || full }),
+      signal: controller.signal,
+    });
+    if (response.status === 401) {
+      showLockScreen(false);
+      throw new Error("Locked");
+    }
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(detail.detail || `Request failed (${response.status})`);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = "";
+    const onEvent = (event) => {
+      if (event.type === "item") {
+        docAiCheck.items.push({
+          text: event.quote,
+          message: event.reason,
+          replacement: event.fix || "",
+          near: offset + Math.max(0, (selection || full).indexOf(event.quote)),
+        });
+        renderDocProse();
+      } else if (event.type === "done") {
+        docAiCheck.state = event.ollama_running === false ? "offline" : event.message ? "failed" : "done";
+        docAiCheck.message = event.message || "";
+      }
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffered += decoder.decode(value, { stream: true });
+      const lines = buffered.split("\n");
+      buffered = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          onEvent(JSON.parse(line));
+        } catch {
+          recordBrowserLog("WARN", [`[AI check] Unparseable line: ${line.slice(0, 80)}`]);
+        }
+      }
+    }
+    if (docAiCheck.state === "running") docAiCheck.state = "done";
+  } catch (error) {
+    if (error.name === "AbortError") {
+      docAiCheck.state = "stopped";
+    } else {
+      docAiCheck.state = "failed";
+      docAiCheck.message = error.message || "The check did not finish.";
+    }
+  } finally {
+    if (docAiCheck.controller === controller) docAiCheck.controller = null;
+    renderDocProse();
+  }
+}
+
+//: **The check's own line in the panel**: what it is doing or did, and the
+//: two ways on (again, or Discuss in chat). No model is a `.notice-warn` with
+//: the way to connect one, rather than a toast that is gone before it is read.
+function docAiCheckStatus() {
+  if (docAiCheck.state === "idle" || docAiCheck.docId !== (currentDoc?.id ?? null)) return null;
+  const wrap = document.createElement("div");
+  wrap.className = "doc-prose-ai";
+  wrap.setAttribute("role", "status");
+  const n = docAiCheck.items.length;
+  const found = `${n} finding${n === 1 ? "" : "s"}`;
+  if (docAiCheck.state === "offline") {
+    const notice = document.createElement("p");
+    notice.className = "notice notice-warn doc-prose-ai-notice";
+    const icon = document.createElement("i");
+    icon.className = "ph ph-plug";
+    icon.setAttribute("aria-hidden", "true");
+    const words = document.createElement("span");
+    words.textContent = "No AI model is connected, so Check with AI cannot read this yet.";
+    notice.append(icon, words);
+    const open = smallButton("ph:gear Open Settings, Models", "Connect or choose the model documents use", () => {
+      if (typeof openSettingsModal === "function") openSettingsModal("models");
+    });
+    open.classList.add("doc-prose-ai-settings");
+    wrap.append(notice, open);
+  } else {
+    const line = document.createElement("span");
+    line.className = "doc-prose-ai-line";
+    if (docAiCheck.state === "running") {
+      line.textContent = n ? `Checking with AI, ${found} so far…` : "Checking with AI…";
+    } else if (docAiCheck.state === "stopped") {
+      line.textContent = `Stopped. ${n ? `${found} before it stopped.` : "Nothing found before it stopped."}`;
+    } else if (docAiCheck.state === "failed") {
+      line.textContent = docAiCheck.message || "The check did not finish.";
+      line.classList.add("error");
+    } else {
+      line.textContent = n ? `Checked with AI: ${found}.` : "Checked with AI: nothing to flag.";
+    }
+    wrap.appendChild(line);
+  }
+  const chat = smallButton("ph:chat-circle Discuss in chat", "Open this document in a chat, to ask about it in your own words", () => docAiDiscussInChat());
+  chat.classList.add("doc-prose-ai-chat");
+  wrap.appendChild(chat);
+  return wrap;
+}
+
 //: **Managing the dictionary.** Asked for by name. A list you can add to and
 //: never see again is a list nobody trusts, and a wrongly added word would
 //: otherwise silence a real typo forever with no way to find out why.
+//:
+//: **Redesigned as a settings sheet** (INBOX 410: "ugly and needs a proper
+//: professional modern redesign"). One field finds and adds: typing filters
+//: the list, Enter (or the field's Add) adds what is typed when it is not
+//: there already. The list is quiet rows whose remove shows on the row under
+//: the pointer or focus, with an empty state that says what the list is for
+//: and a no-match state that says Enter adds. The count is a fact by the
+//: title, in muted text rather than a boxed chip.
 async function openDocDictionary() {
-  const words = [...docDictionary()].sort();
   const dialog = $("doc-dictionary-dialog");
-  const list = $("doc-dictionary-list");
-  if (!dialog || !list) return;
-  list.replaceChildren();
-  if (!words.length) {
-    const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent =
-      "Nothing here yet. Add a word from a suggestion and it stops being flagged everywhere.";
-    list.appendChild(empty);
-  }
-  for (const word of words) {
-    const row = document.createElement("li");
-    row.className = "doc-dictionary-row";
-    const label = document.createElement("span");
-    label.textContent = word;
-    const remove = smallButton("ph:x", `Remove “${word}”`, async () => {
-      await docDictionaryWrite(words.filter((other) => other !== word));
-      openDocDictionary();
-    });
-    remove.classList.add("icon-only");
-    row.append(label, remove);
-    list.appendChild(row);
-  }
+  if (!dialog) return;
+  const search = $("doc-dictionary-search");
+  if (search) search.value = "";
+  renderDocDictionary();
   const variant = $("doc-spelling-variant");
   if (variant) variant.value = docSpellingVariant();
   const grammar = $("doc-grammar-check");
@@ -14662,17 +15137,112 @@ async function openDocDictionary() {
         : "Grammar and style rules, checked on this computer by Harper"
     );
   }
-  //: The count as a fact beside the title, not as a sentence in the copy: a
-  //: dictionary you cannot see the size of is one nobody believes is being kept
-  //: (the report this whole surface answers was "I swear I added 'idk' to the
-  //: dictionary last night").
+  const smart = $("doc-smart-punctuation");
+  if (smart) smart.checked = !!(prefsCache && prefsCache.smart_punctuation === true);
+  if (!dialog.open) dialog.showModal();
+  search?.focus();
+}
+
+//: The words matching the field, and the list drawn from them. Called on
+//: open, on every keystroke in the field, and after every add or remove.
+function renderDocDictionary() {
+  const list = $("doc-dictionary-list");
+  if (!list) return;
+  const words = [...docDictionary()].sort((a, b) => a.localeCompare(b));
+  const query = ($("doc-dictionary-search")?.value || "").trim().toLowerCase();
+  const shown = query ? words.filter((word) => word.includes(query)) : words;
   const count = $("doc-dictionary-count");
   if (count) {
-    count.textContent = words.length
-      ? `${words.length} word${words.length === 1 ? "" : "s"}`
-      : "empty";
+    count.textContent = words.length ? `${words.length} word${words.length === 1 ? "" : "s"}` : "Empty";
   }
-  dialog.showModal();
+  //: Add is offered only when there is something new to add: a word typed
+  //: that is not already in the list.
+  const add = $("doc-dictionary-add");
+  if (add) {
+    const addable = !!query && !docDictionary().has(query) && docDictionaryWordOk(query);
+    add.hidden = !addable;
+    if (addable) setLabel(add, `ph:plus Add “${query}”`);
+  }
+  list.replaceChildren();
+  if (!shown.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty-state doc-dictionary-empty";
+    empty.textContent = query
+      ? docDictionary().has(query)
+        ? ""
+        : `No word here matches “${query}”. Press Enter to add it.`
+      : "No words yet. Type one above and press Enter, or add one from a flagged word.";
+    if (empty.textContent) list.appendChild(empty);
+    return;
+  }
+  for (const word of shown) {
+    const row = document.createElement("li");
+    row.className = "doc-dictionary-row";
+    const label = document.createElement("span");
+    label.className = "doc-dictionary-word";
+    label.textContent = word;
+    const remove = smallButton("ph:x", `Remove “${word}”`, async () => {
+      await docDictionaryWrite([...docDictionary()].filter((other) => other !== word));
+      renderDocDictionary();
+      renderDocProse();
+      $("doc-dictionary-search")?.focus();
+    });
+    remove.classList.add("icon-only", "doc-dictionary-remove");
+    remove.setAttribute("aria-label", `Remove “${word}”`);
+    row.append(label, remove);
+    list.appendChild(row);
+  }
+}
+
+//: A dictionary entry is one word as the checker reads words: letters, with
+//: an apostrophe or a hyphen inside. Anything else would never match a
+//: finding, so it would sit in the list doing nothing.
+function docDictionaryWordOk(word) {
+  return /^[\p{L}][\p{L}\p{N}'’-]{0,59}$/u.test(word);
+}
+
+async function docDictionaryAddTyped() {
+  const search = $("doc-dictionary-search");
+  const word = (search?.value || "").trim();
+  if (!word) return;
+  if (!docDictionaryWordOk(word)) return toast("One word at a time: letters, with an apostrophe or hyphen inside.", true);
+  if (!docDictionary().has(word.toLowerCase())) await docDictionaryAdd(word);
+  if (search) search.value = "";
+  renderDocDictionary();
+  renderDocProse();
+  search?.focus();
+}
+
+//: **In and out as a .txt file, one word per line.** Import adds and never
+//: removes: a file from another machine merged into this one is the common
+//: case, and replacing would silently drop every word only this one had.
+async function docDictionaryImport(file) {
+  if (!file) return;
+  const text = await file.text().catch(() => "");
+  const incoming = [...new Set(text.split(/[\r\n,;\t]+/).map((w) => w.trim().toLowerCase()).filter(docDictionaryWordOk))];
+  const have = docDictionary();
+  const fresh = incoming.filter((word) => !have.has(word));
+  if (!incoming.length) return toast("No words found in that file. One word per line.", true);
+  if (fresh.length) await docDictionaryWrite([...have, ...fresh]);
+  renderDocDictionary();
+  renderDocProse();
+  toast(fresh.length
+    ? `Added ${fresh.length} word${fresh.length === 1 ? "" : "s"}${incoming.length > fresh.length ? `; ${incoming.length - fresh.length} were already here` : ""}.`
+    : "Every word in that file is already here.");
+}
+
+function docDictionaryExport() {
+  const words = [...docDictionary()].sort((a, b) => a.localeCompare(b));
+  if (!words.length) return toast("The dictionary is empty, so there is nothing to export.", true);
+  const blob = new Blob([`${words.join("\n")}\n`], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "writing-dictionary.txt";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 //: Last line, deliberately: everything above has to exist before the first
@@ -15736,6 +16306,10 @@ function docCmTheme(CM) {
         backgroundColor: "color-mix(in srgb, var(--warn) 14%, transparent)",
         borderRadius: "3px",
       },
+      ".cm-finding-ai:hover": {
+        backgroundColor: "color-mix(in srgb, var(--accent) 12%, transparent)",
+        borderRadius: "3px",
+      },
       ".cm-finding-access:hover": {
         backgroundColor: "color-mix(in srgb, var(--accent) 12%, transparent)",
         borderRadius: "3px",
@@ -15762,6 +16336,14 @@ function docCmTheme(CM) {
       },
       //: Accessibility (INBOX 404): dashed, the one line shape left, in the
       //: accent, because it is about structure rather than a mistake.
+      //: Check with AI (INBOX 410): dotted accent, a lighter mark than the
+      //: style note's wavy accent, because a model's reading is a suggestion
+      //: to consider rather than a rule broken.
+      ".cm-finding-ai": {
+        textDecoration: "underline dotted",
+        textDecorationThickness: "2px",
+        textDecorationColor: "color-mix(in srgb, var(--accent) 80%, transparent)",
+      },
       ".cm-finding-access": {
         textDecoration: "underline dashed",
         textDecorationThickness: "2px",

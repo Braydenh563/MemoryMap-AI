@@ -585,3 +585,128 @@ def _parse_rephrasings(reply: str, original: str, count: int) -> list[str]:
             break
     return out
 
+
+#: **Check with AI, in place** (INBOX 410). One finding per line in a shape a
+#: small model keeps: the exact words, why, the replacement, split by pipes.
+#: Told to quote exactly because the panel can only show, jump to and apply a
+#: finding it can find in the text; a paraphrase is dropped by
+#: `parse_review_line`. Named the kinds of problem the rule checks miss, so the
+#: model spends itself on meaning rather than on what spelling already flags.
+REVIEW_PROMPT = (
+    "You proofread writing for things a spellchecker cannot catch: its/it's "
+    "and other agreement mistakes, tense that shifts, wrong words, unclear or "
+    "awkward sentences, and tone. List each problem on its own line as:\n"
+    "exact words from the text | a short reason | the corrected words\n"
+    "Copy the words exactly as they appear, a few words to one sentence. "
+    "Keep the reason under ten words. No numbering, no preamble, no summary. "
+    "If nothing is wrong, reply with nothing."
+)
+
+#: Enough of a document for a local model's context with room to answer, and
+#: a cap on findings, so one runaway reply cannot fill the panel.
+REVIEW_CHARS = 12000
+REVIEW_MAX_ITEMS = 30
+
+_REVIEW_LABEL = re.compile(
+    r"^\s*(?:quote|text|words|why|reason|fix|correction|suggestion)\s*:\s*", re.I
+)
+_REVIEW_QUOTES = "\"'`“”‘’"
+
+
+def parse_review_line(line: str, text: str) -> dict | None:
+    """One line of the model's reply as a finding, or None.
+
+    Forgiving about the shape (a leading number or bullet, `QUOTE:` style
+    labels, quotation marks around the words) and strict about the one thing
+    that matters: the quoted words must be in the text, matched without regard
+    to case and returned as the text spells them, or there is nothing to point
+    at. A "fix" identical to the words is no fix and comes back empty.
+    """
+    raw = re.sub(r"^\s*(?:\d+\s*[.)]|[-*•])\s*", "", line or "").strip()
+    parts = [p.strip() for p in raw.split("|")]
+    if len(parts) < 2:
+        return None
+    quote, reason = parts[0], parts[1]
+    fix = parts[2] if len(parts) > 2 else ""
+    quote, reason, fix = (_REVIEW_LABEL.sub("", p).strip() for p in (quote, reason, fix))
+    quote = quote.strip(_REVIEW_QUOTES).strip()
+    fix = fix.strip(_REVIEW_QUOTES).strip()
+    if len(quote) < 2 or not reason:
+        return None
+    at = text.find(quote)
+    if at == -1:
+        at = text.lower().find(quote.lower())
+    if at == -1:
+        return None
+    quote = text[at : at + len(quote)]
+    if fix == quote:
+        fix = ""
+    return {"quote": quote, "reason": reason[:160], "fix": fix[:400]}
+
+
+def review_stream(
+    text: str, model_manager: ModelManager, ollama: OllamaClient
+) -> Iterator[dict]:
+    """Findings about `text`, one event at a time, as the model writes them.
+
+    Yields `{"type": "item", "quote", "reason", "fix"}` for each usable line,
+    `{"type": "thinking"}` while a thinking model thinks (so the panel can say
+    it is working), and exactly one `{"type": "done", "count", "message",
+    "ollama_running"}`. Never raises: an outage or an error part way through
+    ends with a done event that says so, and every finding already sent stands.
+    """
+    body = (text or "")[:REVIEW_CHARS]
+    if not ollama.is_running():
+        yield {
+            "type": "done",
+            "count": 0,
+            "message": offline.offline_message(
+                "No model is connected, so there is nothing to check with."
+            ),
+            "ollama_running": False,
+        }
+        return
+    model = model_manager.chat_model()
+    messages = [
+        {"role": "system", "content": REVIEW_PROMPT},
+        {"role": "user", "content": f"Text:\n{body}"},
+    ]
+    count = 0
+    seen: set[str] = set()
+    pending = ""
+
+    def take(line: str) -> dict | None:
+        nonlocal count
+        item = parse_review_line(line, body)
+        if not item or count >= REVIEW_MAX_ITEMS or item["quote"].lower() in seen:
+            return None
+        seen.add(item["quote"].lower())
+        count += 1
+        return {"type": "item", **item}
+
+    try:
+        for piece in ollama.chat_stream(model, messages):
+            if piece.get("thinking_delta"):
+                yield {"type": "thinking"}
+            delta = piece.get("content_delta")
+            if not delta:
+                continue
+            pending += delta
+            while "\n" in pending:
+                line, pending = pending.split("\n", 1)
+                event = take(line)
+                if event:
+                    yield event
+        event = take(pending)
+        if event:
+            yield event
+    except OllamaError as error:
+        yield {
+            "type": "done",
+            "count": count,
+            "message": librarian.model_error_message(model, error),
+            "ollama_running": True,
+        }
+        return
+    yield {"type": "done", "count": count, "message": "", "ollama_running": True}
+

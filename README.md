@@ -262,7 +262,7 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 ## Developing
 
 ```
-pytest                          # 3,600+ tests, fifteen to eighteen minutes, fully offline
+pytest                          # 4,600+ tests, about ten minutes on four cores (-n auto), fully offline
 bash scripts/gate.sh --changed  # the routine local gate: lints, node --check, ruff, the tests that name your files
 ruff check .                    # what CI lints with
 node --check frontend/app.js    # the frontend has no build step

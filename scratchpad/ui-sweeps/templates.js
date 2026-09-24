@@ -20,13 +20,13 @@ async function pane(page) {
       buttons: [...li.querySelectorAll("button")].map((b) => b.textContent.trim()),
       wide: li.scrollWidth > li.clientWidth + 1,
     }));
-    const option = [...document.querySelectorAll("#entry-template option")].find(
-      (o) => o.value === "Journal"
-    );
+    //: The Capture box's picker is a dialog now (INBOX 410), built from
+    //: `templateCatalogue()` when it opens, so the catalogue is what it offers.
+    const journal = templateCatalogue().builtin.find((t) => t.name === "Journal");
     return {
       rows,
-      journalGroup: option?.parentElement.label,
-      journalContent: option?.dataset.content,
+      journalGroup: journal ? "Built-in" : undefined,
+      journalContent: journal?.content,
       nameReadOnly: document.getElementById("template-name").readOnly,
       status: document.getElementById("template-status").textContent,
       overflowX: document.documentElement.scrollWidth > window.innerWidth,

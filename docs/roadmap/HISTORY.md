@@ -35038,3 +35038,14 @@ with an unselected note moving 1.7 and no pins written.
     scrollers in the reader 2 to 1, overflow 0, low contrast 0.
     `webpanelflow.js` drives the keys, Stop, find, and Cite in chat.
 
+420. **The owner, 2026-09-24, verbatim.** "I want cool features for autofill
+    and easy life stuff in the documents editor like if I type lorem and press
+    enter or a popup that appears, then it will autofill the lorem ipsum filler
+    text and stuff." **Built 2026-09-24** (the documents agent): expansions in
+    the prose completion list (`lorem`, `loremN`, `table NxM`, and on a line of
+    their own `today`, `date`, `now`, `time`, `iso`, `todo`, `callout`, `hr`,
+    `toc`, `sig`), `:emoji:` shortcodes, pairs for `**`, `_`, backticks and
+    brackets, Enter on an empty list item ending the list, smart quotes and
+    dashes in Settings, Preferences (off by default); `tests/test_prose_autofill.py`
+    (25), sweep `proseautofill.js` 31 of 31 light and dark.
+

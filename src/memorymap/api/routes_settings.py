@@ -178,6 +178,11 @@ class PreferencesBody(BaseModel):
     #: default: it costs nothing until a prose document or note box is open,
     #: and nothing on the main thread even then.
     grammar_check: bool | None = None
+    #: Curly quotes and a dash from two hyphens as you type in a prose
+    #: document (the autofill ask, 2026-09-24). Off by default: software that
+    #: changes what was typed without being asked is the thing people turn off
+    #: first, so this one asks.
+    smart_punctuation: bool | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian.
@@ -467,6 +472,7 @@ def get_preferences() -> dict:
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),
+        "smart_punctuation": config.get_preference("smart_punctuation", False),
         "display_name": config.get_preference("display_name", ""),
         #: Echoed so Settings can draw the boxes with what is in them rather
         #: than empty, which is the bug this file's other comments keep

@@ -747,6 +747,24 @@
       <button type="button" class="accent" id="doc-template-use">Use this template</button>
     </div>
   </dialog>
+  <!-- The Capture box's own template picker (INBOX 410), the same recipe as
+       the dialog above: radio rows, the chosen template's text beside them
+       (`showNoteTemplatePreview`, through the `noteTemplateFill` the button
+       uses), and only Use this template, Enter or a double click fills the
+       box. Built by `openNoteTemplateDialog` in app.js. -->
+  <dialog id="note-template-dialog" class="card space-dialog doc-ai-history-dialog doc-template-dialog"
+    aria-labelledby="note-template-title">
+    <h3 id="note-template-title">Start from a template</h3>
+    <p class="muted">Fills the Capture box; every line is yours to change. Today's date is filled in.</p>
+    <div class="doc-template-body">
+      <ul id="note-template-list" class="doc-ai-history-list" role="radiogroup" aria-label="Templates"></ul>
+      <div id="note-template-preview" class="doc-template-preview" aria-hidden="true" inert></div>
+    </div>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="note-template-dialog">Cancel</button>
+      <button type="button" class="accent" id="note-template-use">Use this template</button>
+    </div>
+  </dialog>
   <!-- **These two live here, beside the other dialogs, and not inside
        `#tab-documents` where they were written.** A modal `<dialog>` is drawn
        in the top layer and centres itself with the UA's `position: fixed;
@@ -1021,9 +1039,11 @@
                 title="What can I type in a note?" aria-label="What can I type in a note?">
                 <i class="ph ph-question" aria-hidden="true"></i>
               </button>
-              <select id="entry-template" aria-label="Start from a template" title="Start from a template" class="small-select">
-                <option value="">No template</option>
-              </select>
+              <!-- A button that opens the picker (`openNoteTemplateDialog`),
+                   not a select that fills the box on every name it passes
+                   (INBOX 410: choosing is not making). -->
+              <button id="entry-template" class="ghost small" type="button" aria-haspopup="dialog"
+                title="Start from a template"><i class="ph ph-layout ph-lead" aria-hidden="true"></i> Template</button>
             </span>
           </div>
           <!-- Syntax that exists is useless if nobody knows it does. Every
@@ -7154,12 +7174,23 @@
        the app that had never joined the class: top 686 for a 198px box in a
        900px window, against the 351 a centred one takes. The same bug
        07-whiteboard-misc.css records fixing for every other dialog. -->
+  <!-- **Redesigned as a settings sheet** (INBOX 410, the owner: "redesign the
+       dictionary panel as it is ugly and needs a proper professional modern
+       redesign"). The screenshot's pieces were each their own recipe: a count
+       as a boxed chip, a select and a boxed "+ Add a word" crammed on one
+       row, the grammar switch in a full-width accent pill, every word in its
+       own bordered box with a boxed x. Now: the count is muted text by the
+       title; one field both finds and adds (Enter adds, typing filters); the
+       words are a quiet list whose remove appears on the row under the
+       pointer or focus; the two checks and smart punctuation are standard
+       settings rows (`.setting-check`, `.doc-dictionary-setting`) with a line
+       each; and the list goes in and out as a .txt file. -->
   <dialog id="doc-dictionary-dialog" class="card space-dialog doc-dictionary-dialog"
-    aria-label="Writing dictionary">
-    <div class="row space-between">
+    aria-labelledby="doc-dictionary-title">
+    <div class="row space-between doc-dictionary-head">
       <div class="row help-head">
-        <h2>Writing dictionary</h2>
-        <span id="doc-dictionary-count" class="chip"></span>
+        <h2 id="doc-dictionary-title">Writing dictionary</h2>
+        <span id="doc-dictionary-count" class="muted doc-dictionary-count"></span>
         <button type="button" class="icon-only ghost small graph-help-toggle"
           data-help-for="doc-dictionary-help" aria-controls="doc-dictionary-help"
           aria-expanded="false" title="About the writing suggestions"
@@ -7168,9 +7199,9 @@
         </button>
       </div>
       <button id="doc-dictionary-close" class="ghost small icon-only" type="button"
-        aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+        aria-label="Close" title="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
-    <p class="muted">
+    <p class="muted doc-dictionary-lead">
       Words here are never flagged as typos, in any document.
     </p>
     <div class="help-body hidden" id="doc-dictionary-help" role="dialog"
@@ -7192,24 +7223,52 @@
       </p>
       <p>
         Autocorrect as you type and word suggestions are per document, in the
-        editor's ⋯ menu.
+        editor's ⋯ menu. Import takes a .txt file with one word per line and
+        adds to the list; it never removes a word.
       </p>
     </div>
-    <div class="row doc-dictionary-controls">
-      <label class="doc-dictionary-variant" for="doc-spelling-variant">Spelling</label>
-      <select id="doc-spelling-variant"
-        title="Which spelling this notebook prefers. Off means no opinion either way.">
+    <div class="doc-dictionary-field">
+      <i class="ph ph-magnifying-glass doc-dictionary-field-icon" aria-hidden="true"></i>
+      <input id="doc-dictionary-search" type="search" autocomplete="off" spellcheck="false"
+        placeholder="Find or add a word" aria-label="Find or add a word"
+        aria-describedby="doc-dictionary-field-hint" maxlength="60">
+      <button id="doc-dictionary-add" class="ghost small" type="button" hidden>Add</button>
+    </div>
+    <p id="doc-dictionary-field-hint" class="visually-hidden">Typing filters the list. Enter adds the word.</p>
+    <ul id="doc-dictionary-list" class="doc-dictionary-list" aria-label="Words in your dictionary"></ul>
+    <div class="row doc-dictionary-files">
+      <button id="doc-dictionary-import" class="ghost small" type="button"
+        title="Add the words in a .txt file, one per line"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import .txt</button>
+      <button id="doc-dictionary-export" class="ghost small" type="button"
+        title="Save the list as a .txt file, one word per line"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export .txt</button>
+      <input id="doc-dictionary-file" type="file" accept=".txt,text/plain" hidden>
+    </div>
+    <h3 class="doc-dictionary-section">Checks</h3>
+    <div class="doc-dictionary-setting">
+      <span class="doc-dictionary-setting-text">
+        <label for="doc-spelling-variant">Spelling</label>
+        <small class="muted">Which spelling to prefer; no preference flags neither.</small>
+      </span>
+      <select id="doc-spelling-variant">
         <option value="off">No preference</option>
         <option value="uk">British (colour, organise)</option>
         <option value="us">American (color, organize)</option>
       </select>
-      <button id="doc-dictionary-add" class="ghost small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add a word</button>
     </div>
-    <label class="checkbox-label doc-grammar-row" title="Grammar and style rules, checked on this computer by Harper">
+    <label class="setting-check doc-grammar-row">
       <input type="checkbox" id="doc-grammar-check" checked>
-      <span>Check grammar in documents and notes</span>
+      <span>
+        Check grammar
+        <small class="muted">In documents and notes, on this computer (Harper).</small>
+      </span>
     </label>
-    <ul id="doc-dictionary-list" class="doc-dictionary-list"></ul>
+    <label class="setting-check">
+      <input type="checkbox" id="doc-smart-punctuation">
+      <span>
+        Smart quotes and dashes
+        <small class="muted">Curly quotes as you type, and two hyphens make a dash.</small>
+      </span>
+    </label>
   </dialog>
 
   <div id="extract-panel" class="modal-overlay hidden" role="dialog"
@@ -9059,6 +9118,12 @@
                   reminder still gets through either way.
                 </p>
               </div>
+              <h3>Writing</h3>
+              <label class="check-row">
+                <input type="checkbox" id="pref-smart-punctuation">
+                <span>Smart quotes and dashes in documents</span>
+              </label>
+              <p class="muted">Curly quotes as you type, and two hyphens become a dash; never inside code.</p>
               <h3>Web search</h3>
               <p class="muted">
                 Web search is one of the two features that can go online, with

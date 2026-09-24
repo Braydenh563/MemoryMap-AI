@@ -1118,3 +1118,33 @@
   background: var(--accent-soft);
   color: var(--ink);
 }
+
+/* --- the block bar (INBOX 421 b) ----------------------------------------------
+   A rendered block's own actions, at its top right while the pointer is on it
+   (`docBlockBarShow`, documents.js): the kind, Edit, Copy, Delete. Fixed and a
+   child of body (`docPlaceFixed` corrects its frame), solid rather than
+   blurred so it is not one more surface for the glass-off list, and the
+   height of one small button so it sits on the block's edge without covering
+   its first line. */
+.doc-block-bar {
+  position: fixed;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+
+.doc-block-bar.hidden {
+  display: none;
+}
+
+/* The callout's kind, as its own tile: the same ink the block wears. */
+.doc-block-bar .doc-block-kind {
+  background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
+  color: var(--callout-accent);
+}

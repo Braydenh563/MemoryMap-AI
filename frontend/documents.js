@@ -2979,22 +2979,29 @@ function docRenderBody(container, text) {
     return;
   }
   container.replaceChildren();
+  //: The line an offset is on, for the pieces' `lineBase`.
+  const lineOf = (offset) => {
+    let count = 0;
+    for (let i = text.indexOf("\n"); i !== -1 && i < offset; i = text.indexOf("\n", i + 1)) count += 1;
+    return count;
+  };
   let at = 0;
   for (const block of blocks) {
-    if (block.from > at) docRenderFlow(container, text.slice(at, block.from));
+    if (block.from > at) docRenderFlow(container, text.slice(at, block.from), lineOf(at));
     const box = document.createElement("div");
     box.className = `doc-cols md-cols md-cols-${block.columns.length}`;
+    box.dataset.srcLine = String(block.openLine);
     box.style.setProperty("--doc-cols", String(Math.max(1, block.columns.length)));
     for (const column of block.columns) {
       const col = document.createElement("div");
       col.className = "doc-col";
-      docRenderFlow(col, column.text);
+      docRenderFlow(col, column.text, lineOf(column.from));
       box.appendChild(col);
     }
     container.appendChild(box);
     at = block.to;
   }
-  if (at < text.length) docRenderFlow(container, text.slice(at));
+  if (at < text.length) docRenderFlow(container, text.slice(at), lineOf(at));
   mdFillTocs(container);
 }
 
@@ -3015,26 +3022,38 @@ const DOC_BLOCK_EMBED_LINE =
 //: view while the same line drew the block in Live, which is the two panes
 //: disagreeing about what the document says. Split out here and handed to the
 //: same filler the Live view's widget uses, so they cannot.
-function docRenderFlow(container, text) {
+//:
+//: `lineBase` is the line this piece starts on in the whole rendered text.
+//: **Every block's `data-src-line` is a line of the whole text, not of its
+//: piece.** `renderMarkdown` counts from the start of the string it is given,
+//: and this renders the page in pieces (around block embeds and columns), so
+//: every block after the first piece carried a line counted from the wrong
+//: zero: the split view's anchors dropped them (`docScrollAnchors` skips a
+//: line that goes backwards) and the block bar could not find them in the
+//: text at all (INBOX 421 b's "change it from the rendered block").
+function docRenderFlow(container, text, lineBase = 0) {
   const lines = String(text == null ? "" : text).split("\n");
   let buffer = [];
+  let bufferStart = 0;
   const flush = () => {
     if (!buffer.length) return;
-    docAppendRendered(container, buffer.join("\n"));
+    docAppendRendered(container, buffer.join("\n"), lineBase + bufferStart);
     buffer = [];
   };
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     const match = DOC_BLOCK_EMBED_LINE.exec(line);
     if (!match) {
+      if (!buffer.length) bufferStart = index;
       buffer.push(line);
-      continue;
+      return;
     }
     flush();
     const host = document.createElement("div");
     host.className = "doc-embed-host";
+    host.dataset.srcLine = String(lineBase + index);
     docEmbedFill(host, match[1].trim());
     container.appendChild(host);
-  }
+  });
   flush();
 }
 
@@ -3042,9 +3061,14 @@ function docRenderFlow(container, text) {
 //: the same one would take the first's work away. Rendered into a spare
 //: element and moved across, which is also what keeps every piece in document
 //: order.
-function docAppendRendered(container, text) {
+function docAppendRendered(container, text, lineBase = 0) {
   const spare = document.createElement("div");
   renderMarkdown(spare, text);
+  if (lineBase) {
+    for (const block of spare.children) {
+      if (block.dataset.srcLine !== undefined) block.dataset.srcLine = String(Number(block.dataset.srcLine) + lineBase);
+    }
+  }
   while (spare.firstChild) container.appendChild(spare.firstChild);
 }
 
@@ -7673,6 +7697,10 @@ function docEmbedNode(target, name) {
     list.appendChild(entryItem(target.entry));
     return list;
   }
+  //: A document is a card (`mdDocumentCard`, app.js), the one the Read view
+  //: draws for the same line; it used to be a chip saying there was no
+  //: preview for a document yet.
+  if (target.kind === "document" && target.doc) return mdDocumentCard(target.doc, name);
   if (target.kind === "board" && typeof mapChip === "function") {
     const box = document.createElement("span");
     box.className = "doc-embed-map";
@@ -17402,6 +17430,169 @@ function docSetCalloutHead(at, kind, fold) {
   markDocDirty();
   renderDocPreview();
 }
+
+//: **The block bar: act on a block from where it is drawn** (INBOX 421 b:
+//: "a block hover toolbar (change kind, fold, delete)"). In the Read and
+//: Split views, the rendered block under the pointer gets a small bar at its
+//: top right: the kind (a callout's, as its own icon tile, opening the kinds
+//: and folding menu), Edit (the block's first line, in the editor), Copy (its
+//: markdown) and Delete (with Undo). Everything it does is written to the
+//: text through the surface, so it is the editor's own undo step as well.
+//:
+//: Found from the block's `data-src-line` (a line of the rendered string,
+//: `docRenderFlow`) less `docPreviewLineShift` (the title and properties the
+//: preview adds or leaves out), and **checked against the text before
+//: anything is written**: a callout's first line has to be a callout head.
+//: A drag handle was left out: reordering by drag needs a drop model for the
+//: preview, which is not cheap, and Cut and paste in the editor does it.
+//: Pointer only: a phone has no hover, and its Live view carries the kind
+//: button on the callout itself.
+let docBlockBarFor = null;
+let docBlockBarHide = 0;
+
+function docBlockBarEl() {
+  let bar = document.getElementById("doc-block-bar");
+  if (bar) return bar;
+  bar = document.createElement("div");
+  bar.id = "doc-block-bar";
+  bar.className = "doc-block-bar hidden";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "This block");
+  bar.addEventListener("mouseenter", () => clearTimeout(docBlockBarHide));
+  bar.addEventListener("mouseleave", () => docBlockBarSoon());
+  document.body.appendChild(bar);
+  return bar;
+}
+
+function docBlockBarSoon() {
+  clearTimeout(docBlockBarHide);
+  docBlockBarHide = setTimeout(docBlockBarClose, 250);
+}
+
+function docBlockBarClose() {
+  clearTimeout(docBlockBarHide);
+  docBlockBarFor = null;
+  document.getElementById("doc-block-bar")?.classList.add("hidden");
+}
+
+//: The source lines a rendered block came from, as [first, last] (0-based
+//: lines of `docText()`), trailing blank lines left out.
+function docBlockLines(block) {
+  const preview = $("doc-preview");
+  const stamp = Number(block.dataset.srcLine);
+  if (!preview || !Number.isFinite(stamp)) return null;
+  const lines = docText().split("\n");
+  const first = stamp - docPreviewLineShift;
+  if (first < 0 || first >= lines.length) return null;
+  const blocks = [...preview.children].filter((b) => b.dataset.srcLine !== undefined);
+  const next = blocks[blocks.indexOf(block) + 1];
+  let last = next ? Number(next.dataset.srcLine) - docPreviewLineShift - 1 : lines.length - 1;
+  last = Math.min(Math.max(first, last), lines.length - 1);
+  while (last > first && !lines[last].trim()) last -= 1;
+  return { first, last, lines };
+}
+
+function docLineOffset(lines, index) {
+  let at = 0;
+  for (let i = 0; i < index; i += 1) at += lines[i].length + 1;
+  return at;
+}
+
+function docBlockBarShow(block) {
+  if (docBlockBarFor === block) return;
+  const span = docBlockLines(block);
+  if (!span) return;
+  const bar = docBlockBarEl();
+  docBlockBarFor = block;
+  bar.replaceChildren();
+  const isCallout = block.classList.contains("callout");
+  const head = isCallout && typeof mdCalloutHead === "function"
+    ? mdCalloutHead(span.lines[span.first].replace(/^\s*>\s?/, ""))
+    : null;
+  if (head) {
+    const meta = CALLOUT_KINDS[head.kind] || CALLOUT_KINDS.note;
+    const kind = smallButton(meta.icon, `Change the kind: ${meta.label}`, (event) => {
+      const box = event.currentTarget.getBoundingClientRect();
+      const lineStart = docLineOffset(span.lines, span.first);
+      openMenuAtPoint(
+        calloutMenuItems(head.kind, head.fold, (k, fold) => docSetCalloutHead(lineStart, k, fold)),
+        "Callout kind",
+        box.left,
+        box.bottom + 4
+      );
+    });
+    kind.classList.add("doc-block-kind", `doc-block-kind-${head.kind}`);
+    bar.appendChild(kind);
+  }
+  bar.appendChild(smallButton("ph:pencil-simple", "Edit this block", () => docBlockEdit(span)));
+  bar.appendChild(smallButton("ph:copy", "Copy this block's markdown", (event) => {
+    copyToClipboard(span.lines.slice(span.first, span.last + 1).join("\n"), event.currentTarget);
+  }));
+  bar.appendChild(smallButton("ph:trash", "Delete this block", () => docBlockDelete(span)));
+  bar.classList.remove("hidden");
+  const rect = block.getBoundingClientRect();
+  const host = $("doc-preview").getBoundingClientRect();
+  const width = bar.offsetWidth;
+  const left = Math.min(rect.right, host.right) - width;
+  const top = Math.max(host.top, rect.top) - bar.offsetHeight / 2;
+  docPlaceFixed(bar, Math.max(host.left, left), Math.max(4, top));
+}
+
+function docBlockEdit(span) {
+  docBlockBarClose();
+  if (docView === "rendered") setDocView("live");
+  const box = docSurface();
+  if (!box) return;
+  const at = docLineOffset(docText().split("\n"), span.first);
+  requestAnimationFrame(() => {
+    box.focus();
+    box.setSelectionRange(at, at);
+    if (typeof box.scrollIntoView === "function") box.scrollIntoView(at);
+  });
+}
+
+function docBlockDelete(span) {
+  docBlockBarClose();
+  const box = docSurface();
+  if (!box) return;
+  const lines = docText().split("\n");
+  //: The block and the blank line after it, so the paragraphs either side do
+  //: not end up glued together or two blank lines apart.
+  let last = span.last;
+  if (last + 1 < lines.length && !lines[last + 1].trim()) last += 1;
+  const from = docLineOffset(lines, span.first);
+  const to = Math.min(docText().length, docLineOffset(lines, last) + lines[last].length + 1);
+  const removed = docText().slice(from, to);
+  box.replaceRange(from, to, "");
+  markDocDirty();
+  renderDocPreview();
+  toastAction("Block deleted.", "Undo", () => {
+    const now = docSurface();
+    if (!now) return;
+    now.replaceRange(from, from, removed);
+    markDocDirty();
+    renderDocPreview();
+  });
+}
+
+//: The top-level block under the pointer, in the preview only.
+document.addEventListener("mouseover", (event) => {
+  const preview = $("doc-preview");
+  if (!preview || preview.classList.contains("hidden")) return;
+  if (!(event.target instanceof Element)) return;
+  if (event.target.closest("#doc-block-bar")) return;
+  if (!preview.contains(event.target)) {
+    if (docBlockBarFor) docBlockBarSoon();
+    return;
+  }
+  if (window.matchMedia("(hover: none)").matches) return;
+  let block = event.target;
+  while (block && block.parentElement !== preview) block = block.parentElement;
+  if (!block || block.dataset.srcLine === undefined) return;
+  clearTimeout(docBlockBarHide);
+  docBlockBarShow(block);
+});
+$("doc-preview")?.addEventListener("scroll", docBlockBarClose);
 
 function docCalloutKindMenu(at, x, y) {
   const box = docSurface();

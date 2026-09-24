@@ -10993,7 +10993,16 @@ function resolveWikiTarget(name) {
   }
   note = note || titleMatch;
   if (note) return { kind: "note", entry: note };
-  const documents = typeof editorDocumentCache !== "undefined" ? editorDocumentCache : null;
+  //: **The document list the documents editor holds, when this one is
+  //: empty.** `editorDocumentCache` is filled only once the `[[` picker has
+  //: been opened, so until then every `![[A document]]` in the Read view said
+  //: "Nothing called A document yet" while the Live view of the same line,
+  //: which resolves through documents.js's own `docs`, drew it: two views of
+  //: one line disagreeing (found by `scratchpad/ui-sweeps/blockbar.js`).
+  const cached = typeof editorDocumentCache !== "undefined" && editorDocumentCache && editorDocumentCache.length
+    ? editorDocumentCache
+    : null;
+  const documents = cached || (typeof docs !== "undefined" && Array.isArray(docs) ? docs : null);
   const docList = documents || [];
   const doc =
     docList.find((d) => (d.title || "").trim().toLowerCase() === needle) ||
@@ -28999,6 +29008,57 @@ function mdFillTocs(container) {
   }
 }
 
+//: **An embedded document is a card, not a link** (INBOX 421 b: "embed of a
+//: note/document/board by link (renders a card)"). It was one underlined
+//: title. Now: the document's tile, its title, one facts line (words, when it
+//: was last edited) and the first words of it, from the list payload the app
+//: already holds (`_summary` carries `preview`), so drawing it costs no
+//: request. The whole card is one button, the board embed's rule: the card is
+//: what the eye and the finger both go for. The Live view draws the same card
+//: (`docEmbedNode`, documents.js).
+function mdDocumentCard(doc, name = "") {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "embed-card";
+  card.title = "Open this document";
+  const tile = document.createElement("span");
+  tile.className = "embed-card-tile";
+  tile.setAttribute("aria-hidden", "true");
+  const glyph = document.createElement("i");
+  glyph.className = "ph ph-file-text";
+  tile.appendChild(glyph);
+  const text = document.createElement("span");
+  text.className = "embed-card-text";
+  const title = document.createElement("span");
+  title.className = "embed-card-title";
+  title.textContent = (doc && doc.title) || wikiLinkLabel(name) || "Untitled";
+  const facts = document.createElement("span");
+  facts.className = "embed-card-meta";
+  const bits = ["Document"];
+  if (doc && Number.isFinite(doc.words)) bits.push(`${doc.words.toLocaleString()} words`);
+  if (doc && doc.updated_at) {
+    const when = new Date(doc.updated_at);
+    if (!Number.isNaN(when.getTime())) bits.push(`edited ${when.toLocaleDateString()}`);
+  }
+  facts.textContent = bits.join(" · ");
+  text.append(title, facts);
+  if (doc && doc.preview) {
+    const preview = document.createElement("span");
+    preview.className = "embed-card-preview";
+    preview.textContent = String(doc.preview).replace(/[#>*_`[\]]/g, "").slice(0, 180);
+    text.appendChild(preview);
+  }
+  const go = document.createElement("i");
+  go.className = "ph ph-arrow-square-out embed-card-go";
+  go.setAttribute("aria-hidden", "true");
+  card.append(tile, text, go);
+  card.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (doc && doc.id != null) openDocument(doc.id);
+  });
+  return card;
+}
+
 // A `.note-embed` element for `![[name]]`.
 function mdEmbedElement(name, depth) {
   //: **A board or a map is not text to transclude, it is a picture** (INBOX
@@ -29049,16 +29109,7 @@ function mdEmbedElement(name, depth) {
     // Documents have no content in the list payload (routes_documents._summary),
     // so this is a way in rather than an inline copy. See renderMarkdown's own
     // note on why a fetch does not belong in this path.
-    const open = document.createElement("button");
-    open.type = "button";
-    open.className = "wiki-link";
-    open.textContent = target.doc.title || wikiLinkLabel(name);
-    open.title = "Open this document";
-    open.addEventListener("click", (event) => {
-      event.stopPropagation();
-      openDocument(target.doc.id);
-    });
-    body.appendChild(open);
+    body.appendChild(mdDocumentCard(target.doc, name));
   } else {
     body.textContent = `Nothing called \u{201C}${name}\u{201D} yet.`;
   }

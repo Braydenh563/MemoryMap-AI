@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
   existing dashboard grows a widget. It reads the event log's newest rows
   once and then only what came after, with no timer running while the tab
   sits idle.
+- The document editor's dock starts with a "Documents" breadcrumb back to the Library's Documents list, since the editor has no tab of its own.
 
 ### Fixed
 

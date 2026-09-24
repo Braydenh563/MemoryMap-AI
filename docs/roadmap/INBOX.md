@@ -188,7 +188,9 @@ with its owner named in the entry.
     at 1440; recommend the chips be the only kind filter in All.
     (p) Documents have a tab page with no tab-bar button: the way in is the
     Library's Documents sub-tab, and the tab bar then highlights Library;
-    recommend a breadcrumb back to the Library in the editor's dock.
+    recommend a breadcrumb back to the Library in the editor's dock. (Fixed:
+    a "Documents" breadcrumb opens the dock, back to the Library's
+    Documents list, measured at the title's height.)
     (q) Notes tab: 109 visible controls at 1440, 19 of them under 24px
     (the link chips on each card); recommend the link chips behind a count
     ("6 links") on the card, expanded on hover or focus.

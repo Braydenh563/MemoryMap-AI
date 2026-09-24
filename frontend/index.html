@@ -3699,6 +3699,12 @@
                which was 20px too wide to fit on one line with the select
                still in it, measured rather than guessed at. -->
           <span class="doc-dock-identity">
+            <!-- The way back (INBOX 424 p): the editor has no tab of its own,
+                 you arrive from the Library's Documents list and the tab bar
+                 lights Library, so the dock starts with the place you came
+                 from, as a breadcrumb does. -->
+            <button type="button" id="doc-back" class="ghost small doc-back" title="Back to your documents in the Library"
+              aria-label="Back to your documents in the Library"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i>Documents</button>
             <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
               aria-label="Document title" class="doc-title-input">
             <!-- What kind of file this document is. Asked for directly: the

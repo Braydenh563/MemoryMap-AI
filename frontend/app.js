@@ -25906,7 +25906,13 @@ function renderDashboardPersonaSelect(names) {
   //: "Same as Chat", which is what the server falls back to as well.
   const wanted = personaDisplayName(current) === current || current === "Librarian" ? personaDisplayName(current) : current;
   select.value = names.includes(wanted) ? wanted : "";
+  paintDashboardPersonaMark();
 }
+
+//: "Same as Chat" follows Chat's picker, so its face does too.
+document.addEventListener("change", (event) => {
+  if (event.target?.id === "persona-select") paintDashboardPersonaMark();
+});
 
 async function addPersona() {
   const name = $("persona-name").value.trim();
@@ -33428,7 +33434,9 @@ async function setPreference(key, value) {
   }
 }
 
-async function savePrefs() {
+async function savePrefs(options = {}) {
+  const quiet = options?.quiet === true;
+  clearTimeout(prefsAutoSaveTimer);
   try {
     const binDaysRaw = Number($("pref-bin-days").value);
     const recycleBinDays = Number.isFinite(binDaysRaw) && binDaysRaw >= 1
@@ -33500,7 +33508,7 @@ async function savePrefs() {
     //: confirmation and it is the same one every other save in the app uses,
     //: so this also stops Preferences being the one place a save says
     //: nothing.
-    toast("Preferences saved.");
+    if (!quiet) toast("Preferences saved.");
 
     // Reflect a name change immediately if the dashboard is showing.
     if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
@@ -33525,7 +33533,17 @@ async function savePrefs() {
 //: have to press is the thing that changed.
 let prefsDirty = false;
 
+//: **The profile saves itself** (the owner: "remove the need for saving
+//: preferences in the settings and just have it auto save like the rest of
+//: the settings, it is too unintuitive for it to be the only settings page
+//: in which you need to do that", and "my shuffled avatar reset and didnt
+//: persist", which is the same cause: a shuffle nobody pressed Save after).
+//: Every change schedules one quiet save a moment later, the same save the
+//: button used to run, so a burst of typing is one request, not one per key.
+let prefsAutoSaveTimer = 0;
 function markPrefsDirty() {
+  clearTimeout(prefsAutoSaveTimer);
+  prefsAutoSaveTimer = setTimeout(() => savePrefs({ quiet: true }), 700);
   if (prefsDirty) return;
   prefsDirty = true;
   const button = $("prefs-save");
@@ -44463,23 +44481,45 @@ $("entry-preview")?.addEventListener("keydown", (event) => {
 // while it is hidden) must still repaint it.
 $("entry-content")?.addEventListener("input", paintEntryPreview);
 
+//: The persona the greeting speaks as: the override, or Chat's own when the
+//: override is "Same as Chat", or the assistant's name when Chat has none.
+function dashboardGreetingPersona() {
+  return (prefsCache && prefsCache.dashboard_persona) || $("persona-select")?.value || aiNameNow();
+}
+
+//: Its face beside the picker (the owner: "I want the persona avatar to
+//: appear next to where you set the persona for the dashboard greeting").
+function paintDashboardPersonaMark() {
+  fillPersonaMark($("dashboard-persona-mark"), dashboardGreetingPersona(), 28);
+}
+
 $("dashboard-persona-select").addEventListener("change", async () => {
   const persona = $("dashboard-persona-select").value;
+  //: Set before the save, not after it: the mark and the dashboard's face
+  //: read it, and a second change while the first save was in flight was
+  //: drawn from the old value (the owner: "when I changed the persona
+  //: again, it didnt change again").
+  if (prefsCache) prefsCache.dashboard_persona = persona;
+  paintDashboardPersonaMark();
+  if (typeof paintDashEmblem === "function") paintDashEmblem();
   await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ dashboard_persona: persona }),
   }).catch(() => {});
-  if (prefsCache) prefsCache.dashboard_persona = persona;
   toast(persona ? `Dashboard greeting now speaks as ${persona}.` : "Dashboard greeting back to matching Chat.");
 });
 $("dashboard-greeting-regenerate")?.addEventListener("click", async () => {
   const btn = $("dashboard-greeting-regenerate");
   const status = $("dashboard-greeting-status");
   btn.disabled = true;
-  if (status) status.textContent = "Asking Atlas…";
+  //: The persona actually asked, not always Atlas (the owner: "I set the
+  //: dashboard greeting to another persona, but when I hit regenerate, it
+  //: said asking Atlas").
+  const who = dashboardGreetingPersona();
+  if (status) status.textContent = `Asking ${who}…`;
   const ok = await refreshAiGreeting(true).catch(() => false);
   btn.disabled = false;
-  if (status) status.textContent = ok ? "New greeting set." : "Couldn't reach Atlas, kept the current one.";
+  if (status) status.textContent = ok ? "New greeting set." : `Couldn't reach ${who}, kept the current one.`;
   setTimeout(() => { if (status) status.textContent = ""; }, 3000);
 });
 for (const id of RESPONSE_MODE_SELECTS) {

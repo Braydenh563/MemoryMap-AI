@@ -4773,12 +4773,13 @@ main,
   }
 
   :root[data-avatar-follow="on"]:not([data-motion="reduced"]) .name-mark .nm-eyes {
-    translate: calc(var(--nm-lx) * 1.1px) calc(var(--nm-ly) * 0.9px);
+    translate: calc(var(--nm-lx) * 2.1px) calc(var(--nm-ly) * 1.6px);
     transition: translate var(--motion-fast) var(--ease-out);
   }
 
   :root[data-avatar-follow="on"]:not([data-motion="reduced"]) .name-mark .nm-body {
-    rotate: calc(var(--nm-lx) * 6deg);
+    rotate: calc(var(--nm-lx) * 10deg);
+  translate: calc(var(--nm-lx) * 0.8px) calc(var(--nm-ly) * 0.5px);
     transition: rotate var(--motion-base) var(--ease-out);
   }
 }
@@ -5492,3 +5493,21 @@ main,
     min-height: var(--target-min);
   }
 }
+
+/* No companion while the app is locked (the owner: "the avatar shows even
+   when the app is on the lock screen. it should only show when the app is
+   unlocked"). */
+body:has(#lock-overlay:not(.hidden)) #nm-buddy {
+  display: none;
+}
+
+/* The greeting persona's face beside its picker. */
+.dashboard-persona-row > .dashboard-persona-mark {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+/* The companion's chosen corner (its menu), when it has not been dragged. */
+#nm-buddy[data-corner="bl"]:not(.nm-buddy-placed) { right: auto; left: var(--space-4); }
+#nm-buddy[data-corner="tr"]:not(.nm-buddy-placed) { bottom: auto; top: calc(var(--header-h) + var(--space-4)); }
+#nm-buddy[data-corner="tl"]:not(.nm-buddy-placed) { bottom: auto; right: auto; top: calc(var(--header-h) + var(--space-4)); left: var(--space-4); }

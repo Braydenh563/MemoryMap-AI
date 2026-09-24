@@ -814,6 +814,13 @@ let nameMarkSerial = 0;
 //: on screen by definition.
 let nameMarkObserver = null;
 function watchNameMark(svg) {
+  //: Faces under 28px (a chat bubble's corner mark, a picker's glyph) are
+  //: never watched: no always-on loop, no pointer-follow. At that size the
+  //: motion is noise and a long chat has hundreds of them (the owner: "i
+  //: dont think the really small faces on the message bubble corners should
+  //: move even if it is selected as that might be too heavy"). Hover still
+  //: wakes one.
+  if ((Number(svg.getAttribute("width")) || 0) < 28) return;
   if (typeof IntersectionObserver !== "function") {
     svg.dataset.nmOn = "";
     return;
@@ -2541,18 +2548,7 @@ function syncNameMarkBuddy() {
     hide.appendChild(x);
     buddy.append(face, hide);
     document.body.appendChild(buddy);
-    try {
-      const saved = JSON.parse(localStorage.getItem("nm-buddy-pos") || "null");
-      if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-        buddy.style.left = `${Math.min(Math.max(0, saved.x), innerWidth - 72)}px`;
-        buddy.style.top = `${Math.min(Math.max(0, saved.y), innerHeight - 72)}px`;
-        buddy.style.right = "auto";
-        buddy.style.bottom = "auto";
-        buddy.classList.add("nm-buddy-placed");
-      }
-    } catch (e) {
-      // A bad saved place falls back to the corner.
-    }
+    placeNameMarkBuddy(buddy);
     //: **A smooth drag** (the owner: "dragging the corner companion is jerky
     //: and kinda like a grid snap"). Every move used to rewrite `left`/`top`,
     //: a layout per event, while the face kept animating under it. Now the
@@ -2618,6 +2614,51 @@ function syncNameMarkBuddy() {
       nameMarkSay(buddy, nameMarkLine(buddy.dataset.seed || ""));
     });
     face.addEventListener("dblclick", () => openNameMarkViewer(buddy.dataset.seed || ""));
+    //: **Its own menu**, on right-click or a long press (the owner: "right
+    //: click or touch hold down on the corner companion to have options like
+    //: interact, and resetting its position or setting its default position
+    //: to a specific part of the screen").
+    const openBuddyMenu = (x, y) => {
+      if (typeof openMenuAtPoint !== "function") return;
+      const corner = (c) => () => {
+        try {
+          localStorage.setItem("nm-buddy-corner", c);
+          localStorage.removeItem("nm-buddy-pos");
+        } catch (e) {
+          // The corner still applies for this session.
+        }
+        placeNameMarkBuddy(buddy);
+      };
+      openMenuAtPoint([
+        { label: "ph:hand-waving Say hello", run: () => face.click() },
+        { label: "ph:arrows-out Enlarge", run: () => openNameMarkViewer(buddy.dataset.seed || "") },
+        { label: "ph:arrow-counter-clockwise Back to its corner", run: () => { try { localStorage.removeItem("nm-buddy-pos"); } catch (e) { /* session only */ } placeNameMarkBuddy(buddy); } },
+        { label: "ph:arrow-down-right Keep it bottom right", run: corner("br") },
+        { label: "ph:arrow-down-left Keep it bottom left", run: corner("bl") },
+        { label: "ph:arrow-up-right Keep it top right", run: corner("tr") },
+        { label: "ph:arrow-up-left Keep it top left", run: corner("tl") },
+        { label: "ph:eye-slash Hide", run: () => hide.click() },
+      ], "Companion", x, y);
+    };
+    face.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      openBuddyMenu(event.clientX, event.clientY);
+    });
+    let hold = 0;
+    face.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse") return;
+      clearTimeout(hold);
+      hold = setTimeout(() => {
+        drag = null;
+        face.dataset.dragged = "1";
+        openBuddyMenu(event.clientX, event.clientY);
+      }, 550);
+    });
+    for (const type of ["pointerup", "pointercancel", "pointermove"]) {
+      face.addEventListener(type, (event) => {
+        if (type !== "pointermove" || (drag && drag.moved)) clearTimeout(hold);
+      });
+    }
     hide.addEventListener("click", () => {
       try {
         localStorage.setItem("avatar-buddy", "off");
@@ -2792,3 +2833,27 @@ document.addEventListener("transitionend", (event) => {
   if (event.target?.closest?.("#scroll-top, .chat-jump-latest")) queueNameMarkBuddyAvoid();
 });
 window.addEventListener("resize", queueNameMarkBuddyAvoid, { passive: true });
+
+
+//: Where the companion sits: a place it was dragged to, else its chosen
+//: corner (bottom right unless the menu said otherwise).
+function placeNameMarkBuddy(buddy) {
+  buddy.style.left = buddy.style.top = buddy.style.right = buddy.style.bottom = "";
+  buddy.classList.remove("nm-buddy-placed");
+  let corner = "br";
+  try {
+    corner = localStorage.getItem("nm-buddy-corner") || "br";
+    const saved = JSON.parse(localStorage.getItem("nm-buddy-pos") || "null");
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      buddy.style.left = `${Math.min(Math.max(0, saved.x), innerWidth - 72)}px`;
+      buddy.style.top = `${Math.min(Math.max(0, saved.y), innerHeight - 72)}px`;
+      buddy.style.right = "auto";
+      buddy.style.bottom = "auto";
+      buddy.classList.add("nm-buddy-placed");
+    }
+  } catch (e) {
+    // A bad saved place falls back to the corner.
+  }
+  buddy.dataset.corner = corner;
+  queueNameMarkBuddyAvoid();
+}

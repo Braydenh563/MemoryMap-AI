@@ -34935,7 +34935,7 @@ with an unselected note moving 1.7 and no pins written.
     its box (`scratchpad/ui-sweeps/graphsim.js`, `graphreset.js`,
     `tests/test_graph_similarity.py`).
 
-414. **The owner, 2026-09-24, verbatim.** "make sure that the tools and
+421. **The owner, 2026-09-24, verbatim.** "make sure that the tools and
     features panel options, as well as the command palatte and find anything
     search actually show what they are. like I clicked on the "suggested
     links" option in the tools and features panel and all it did was take me

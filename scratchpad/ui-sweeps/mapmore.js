@@ -47,9 +47,23 @@ async function newMap(page, name) {
   console.log('ring', JSON.stringify(ring));
   if (!ring.open) fails.push('ring did not open on right-click');
   await page.screenshot({path: OUT + '/mapmore-ring.png'});
-  const more = await page.$('#wb-radial-more');
-  const box = await more.boundingBox();
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  // The pie-ring rewrite (ccd1b48) made #wb-radial-more's own box the whole
+  // ring's square (clip-path only clips the paint), so boundingBox()'s
+  // centre is now the ring's centre, over the hole where the topic sits, not
+  // over the More sector. Click the middle of its own wedge instead, from
+  // _sector (wbFitMapRadialBand) and the ring's own rect (width:0 height:0,
+  // positioned at the ring's centre).
+  const more = await page.evaluate(() => {
+    const el = document.getElementById('wb-radial-more');
+    const ring = document.getElementById('wb-map-radial');
+    const s = el?._sector;
+    if (!s) return null;
+    const o = ring.getBoundingClientRect();
+    const mid = (s.inner + s.outer) / 2;
+    return {x: o.left + mid * Math.cos(s.at), y: o.top + mid * Math.sin(s.at)};
+  });
+  if (!more) fails.push('the More slot has no _sector (wbFitMapRadialBand did not run)');
+  else await page.mouse.click(more.x, more.y);
   await page.waitForTimeout(600);
   const menu = await page.evaluate(() => {
     const open = [...document.querySelectorAll('.action-menu:not(.hidden), [role="menu"]:not(.hidden)')]

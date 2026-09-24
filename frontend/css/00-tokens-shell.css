@@ -3773,6 +3773,14 @@ header#top-bar.tabs-wrapped #tab-bar {
   }
 }
 
+/* On the Dashboard the banner's facts line says how many notes and reminders
+   there are, and each of its facts opens the list (dashboard.js,
+   `renderDashFacts`); the bar saying it again made one number three
+   statements on one screen. `data-page` is written by `revealTab`. */
+#status-bar[data-page="dashboard"] :is(#status-notes, #status-reminders) {
+  display: none;
+}
+
 /* --- the status bar on a small phone --------------------------------------
    Measured at 320x844, after the header was made to fit: the page still
    scrolled sideways, 355 in 320, and the bar was the cause. Its six surviving

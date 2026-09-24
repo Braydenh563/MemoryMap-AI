@@ -4565,23 +4565,30 @@ mark.lightbox-hit {
   padding: var(--space-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--modal-bg);
+  /* Opaque, and the fade on the map inside it rather than on the panel: at
+     0.45 opacity the whole panel was see-through, so the labels of the
+     nodes under it printed across the minimap ("Seed note one about a..."
+     over its dots), the busiest-looking corner of the tab. */
+  background: var(--modal-bg-opaque);
   box-shadow: var(--shadow-sm);
   cursor: crosshair;
   color: var(--accent);
-  opacity: 0.45;
+}
+
+.graph-minimap > * {
+  opacity: 0.55;
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
-.graph-minimap:hover,
-.graph-minimap:focus-within {
+.graph-minimap:hover > *,
+.graph-minimap:focus-within > * {
   opacity: 1;
 }
 
 /* Someone who asked for less motion still gets the full-strength panel on
    hover: only the fade between the two states goes. */
 @media (prefers-reduced-motion: reduce) {
-  .graph-minimap {
+  .graph-minimap > * {
     transition: none;
   }
 }

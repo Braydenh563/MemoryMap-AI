@@ -126,6 +126,31 @@
   cursor: pointer;
 }
 
+/* Under a finger the row's floor is the finger's (DESIGN.md, "Hit targets"):
+   measured at 390 in a touch context, the reminders' Quick set rows stood at
+   36px, the control height above, under the 44px every `button.small` beside
+   them already took. Same query as every touch-floor block. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  :is(
+    .action-menu,
+    .select-menu,
+    .doc-dock-menu-list,
+    .nav-history-menu,
+    .library-image-menu-list,
+    .wb-board-menu
+  ) :is(
+    .menu-item,
+    .doc-dock-menu-item,
+    .nav-history-item,
+    .library-image-menu-item,
+    .action-menu-item,
+    .wb-menu-item,
+    .select-option
+  ) {
+    min-height: var(--target-min);
+  }
+}
+
 /* Hover is a ghost tint; accent-soft is reserved for *selected*.
    Before this they were the same colour, which is why an open select listbox
    could not show you which option you were already on once the pointer
@@ -1980,6 +2005,36 @@ summary > .ph-lead,
   background: var(--chip-bg);
 }
 
+/* The empty states' "Ask Atlas: ..." offer (app.js, `atlasSuggestion`): the
+   same chip, so an offer to ask looks like an offer to ask wherever it is,
+   and not like a link out of the app, which is what its underlined accent
+   line read as. */
+.help-atlas > .atlas-suggest {
+  display: inline-flex;
+  align-items: center;
+  height: auto;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+
+.help-atlas > .atlas-suggest .ph {
+  color: var(--accent);
+}
+
+.help-atlas > .atlas-suggest:hover,
+.help-atlas > .atlas-suggest:focus-visible {
+  background: var(--chip-bg);
+}
+
 /* The head, on the agent activity panel's terms: the controls beside the title
    are quiet until the pointer or the focus reaches them, because the card is
    already the frame (the same rule `.monitor-header-actions` takes, 08 above),
@@ -3292,6 +3347,55 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   padding-inline-end: 0;
 }
 
+/* A whole group folded (settings.js, `wireSettingsFolds`): closed, it is one
+   row, the group's heading with its chevron, not a 92px box holding a 12px
+   word (measured: the group's 16px top padding, the summary's 16px bottom
+   padding and the heading's own 16px top margin, all around one line). The
+   heading keeps the group heading's type; only the space around it goes.
+   Open, the rule under the summary is the gap the heading used to have. */
+#settings-modal details.settings-group[data-fold-key] {
+  padding-block: var(--space-2);
+}
+
+#settings-modal details.settings-group[data-fold-key] > summary {
+  min-height: var(--control-h-lg);
+  margin-block: 0;
+  padding-block: var(--space-2);
+}
+
+#settings-modal details.settings-group[data-fold-key] > summary h3,
+#settings-modal details.settings-group[data-fold-key] > summary > .help-head {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+#settings-modal details.settings-group[data-fold-key][open] {
+  padding-bottom: var(--space-6);
+}
+
+#settings-modal details.settings-group[data-fold-key][open] > summary {
+  margin-bottom: var(--space-4);
+}
+
+/* Under a finger a fold head is a tap target like any other: 44px, the touch
+   floor, which the '?' inside some of them already took (36px heads beside
+   46px ones at 390). Equal specificity to the pin above and later, so it
+   wins only inside the query. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  #settings-modal .settings-section details[data-fold-key] > summary,
+  #settings-modal .settings-section .settings-fold > summary {
+    min-height: var(--target-min);
+  }
+}
+
+/* The shortcut rows are ruled rows, so the divider is their separation: the
+   6.4px margin 02-chat-graph.css gives every `.shortcut-list li` (written
+   for the unruled overlay list) stacked on the rule and the row's own
+   padding, 56px a row where 49 reads the same. */
+#settings-modal .shortcut-list li {
+  margin-bottom: 0;
+}
+
 #settings-modal .settings-section > details.settings-fold > summary {
   padding-inline-end: var(--space-6);
 }
@@ -3450,6 +3554,21 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .notif-panel {
   width: 25rem;
   max-width: min(25rem, calc(100vw - var(--space-8)));
+}
+
+/* On a phone the panel hangs from a bell that is not at the window's right
+   edge, so right-aligned to it, 366px wide, it started 34px off the left of a
+   390px window (measured: left -34). Below 600 it takes the window's width
+   less the gutter on both sides instead, under the header. */
+@media (max-width: 599.98px) {
+  .notif-panel {
+    position: fixed;
+    top: calc(var(--header-h) + var(--space-2));
+    left: var(--space-4);
+    right: var(--space-4);
+    width: auto;
+    max-width: none;
+  }
 }
 
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread {
@@ -4978,11 +5097,21 @@ main,
   border-radius: var(--radius);
   cursor: grab;
   touch-action: none;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
-#nm-buddy :is(.nm-figure > .name-mark, .nmb-body, .nm-buddy-head .name-mark) {
-  pointer-events: auto;
+/* **The whole of it is the handle** (the owner: "I can only drag atlas
+   around by the head, not the body"): the button's own box, the figure's
+   64 by 92, and a transparent margin round it (more below when it hangs,
+   since it hangs 12px lower), whatever the figure's drawing leaves empty. */
+#nm-buddy .nm-buddy-face::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+#nm-buddy[data-pose="hang"] .nm-buddy-face::after {
+  bottom: -18px;
 }
 
 #nm-buddy .nm-buddy-face:active { cursor: grabbing; }
@@ -5189,6 +5318,7 @@ main,
 #nm-buddy.nmb-music .nmp-headphones,
 #nm-buddy.nmb-night .nmp-nightcap,
 #nm-buddy.nmb-reading .nmp-glasses,
+#nm-buddy.nmb-act-carry .nmp-note,
 #nm-buddy.nmb-act-bell .nmp-bell,
 #nm-buddy.nmb-act-lantern .nmp-lantern,
 #nm-buddy.nmb-offline .nmp-cable {
@@ -5197,6 +5327,7 @@ main,
 
 /* Holding up a bell or a lantern: the right arm raised. */
 #nm-buddy:is(.nmb-act-bell, .nmb-act-lantern) .nmb-arm-r { transform: rotate(-125deg); }
+#nm-buddy.nmb-act-carry .nmb-arm-r { transform: rotate(-70deg); }
 
 /* Late at night its eyes are heavier; reading, it looks down the page. */
 #nm-buddy.nmb-night .name-mark .nm-blinks { transform: scaleY(0.72); }
@@ -5293,25 +5424,6 @@ main,
   translate: -50% var(--space-2);
 }
 
-/* The x that hides it, beside its head, shown on hover or focus. */
-#nm-buddy .nm-buddy-hide {
-  position: absolute;
-  top: var(--space-2);
-  right: calc(-1 * var(--space-4));
-  opacity: 0;
-  pointer-events: auto;
-  transition: opacity var(--motion-fast) var(--ease-out);
-}
-
-#nm-buddy:hover .nm-buddy-hide,
-#nm-buddy:focus-within .nm-buddy-hide {
-  opacity: 1;
-}
-
-@media (hover: none) {
-  #nm-buddy .nm-buddy-hide { opacity: 1; }
-}
-
 /* While carried: the move on the compositor and the face holding still. */
 #nm-buddy.nm-buddy-dragging { will-change: translate; }
 
@@ -5368,6 +5480,7 @@ main,
     &.nmb-act-shift .nm-buddy-char { animation: nmb-shift 1.8s ease-in-out; }
     &.nmb-watch.nmb-nod .nm-figure { animation: nmb-nod 0.45s ease-in-out infinite alternate; }
     &.nmb-music .nm-char .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
+    &.nmb-act-carry .nm-buddy-char { animation: nmb-hop 0.75s var(--ease-out); }
     &.nmb-act-bell .nmp-bell { animation: nmb-ring 0.18s ease-in-out 12 alternate; }
     &.nmb-act-lantern .nmp-lantern-glow { animation: nmb-glow 1.2s ease-in-out infinite alternate; }
   }
@@ -5461,9 +5574,10 @@ main,
   70% { translate: 0 -4px; }
   100% { translate: 0 0; }
 }
+/* Arriving: it fades in with a small drop onto its perch. */
 @keyframes nmb-arrive {
-  0% { transform: translateY(14px) scale(0.6); opacity: 0; }
-  60% { transform: translateY(-4px) scale(1.04); opacity: 1; }
+  0% { transform: translateY(-14px); opacity: 0; }
+  70% { transform: translateY(2px) scale(1.03, 0.97); opacity: 1; }
   100% { transform: none; }
 }
 @keyframes nmb-bob {
@@ -6345,6 +6459,16 @@ main,
   margin: 0;
   line-height: 1.6rem;
   pointer-events: none;
+}
+
+/* The corner lets a press through to the card, but not past the card's own
+   buttons: `.entry-actions` is built inside `.entry-meta-end` (app.js,
+   `entryCard`), and `pointer-events` is inherited, so the rule above made
+   Favourite, Copy and the ⋯ menu on every note unpressable, with a mouse and
+   on touch alike (measured: `elementFromPoint` at the ⋯'s centre returned the
+   card, and the menus sweep could not click "More actions" at 1440 or 390). */
+#entry-list > li .entry-meta-end > .entry-actions {
+  pointer-events: auto;
 }
 
 #entry-list > li .entry-date {

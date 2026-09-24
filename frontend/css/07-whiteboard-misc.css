@@ -11541,6 +11541,23 @@ input[type="file"] {
   :root {
     --target-min: 2.75rem;
   }
+
+  /* A dialog's own buttons and a dock menu's rows meet the floor too. Measured
+     at 390 in a touch context (`popups.js`): the confirm dialog's Delete and
+     Cancel and the meeting recorder's and the widget picker's buttons stood
+     at 36px, under a 44px floor that every `button.small` already took;
+     `touch.js` walks the tabs' docks, never a dialog, so none of these had
+     been measured. A menu's rows take theirs in 08-consistency.css. */
+  :is(.modal-card, .space-dialog, #sketch-overlay, #dash-widgets-dialog) button:not(.icon-only):not(.icon-button) {
+    min-height: var(--target-min);
+  }
+
+  /* Their square icon buttons too (the widget picker's move and remove stood
+     at 36px at 390): the floor on both sides, so the square stays square. */
+  :is(.modal-card, .space-dialog, #sketch-overlay, #dash-widgets-dialog) button:is(.icon-only, .icon-button) {
+    min-width: var(--target-min);
+    min-height: var(--target-min);
+  }
 }
 
 /* --- 2. the safe area ----------------------------------------------------

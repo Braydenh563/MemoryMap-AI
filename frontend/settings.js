@@ -1389,7 +1389,7 @@ const APPEARANCE_DEFAULTS = {
   //: its visible rows cost. On hover and Off remain one click away.
   "avatar-motion": "always", // always | hover | off
   "avatar-follow": "on", // on | off
-  "avatar-buddy": "off", // off | me | persona
+  "avatar-buddy": "off", // off | me | persona | atlas
   //: How Atlas is drawn everywhere (atlas.js): the character, or the classic
   //: globe the owner asked to keep as a choice.
   "atlas-style": "character", // character | classic
@@ -4575,3 +4575,47 @@ async function renderLearned() {
 }
 
 wireLearnedSection();
+
+//: **Long Settings panes fold their tuned-once groups** (INBOX 424 m:
+//: Appearance was 4,115px with 151 controls). Each group is a
+//: `details.settings-fold` carrying a `data-fold-key` (DESIGN.md, the recipe
+//: index): the markup says which one starts open (the first), and after
+//: that the reader's own choice is kept, per group, in this browser. Open is
+//: a property of how the pane is used rather than of one visit, which is the
+//: recipe's own rule. A deep link opens the fold it lands in
+//: (`openSettingsModal`), and that counts as opening it.
+const SETTINGS_FOLDS_KEY = "settingsFolds";
+
+function settingsFoldState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_FOLDS_KEY) || "{}");
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function wireSettingsFolds() {
+  const state = settingsFoldState();
+  for (const fold of document.querySelectorAll("#settings-modal details.settings-fold[data-fold-key]")) {
+    const key = fold.dataset.foldKey;
+    if (typeof state[key] === "boolean") fold.open = state[key];
+    fold.addEventListener("toggle", () => {
+      const now = settingsFoldState();
+      now[key] = fold.open;
+      try {
+        localStorage.setItem(SETTINGS_FOLDS_KEY, JSON.stringify(now));
+      } catch {
+        // A private window: the fold still works, it just is not remembered.
+      }
+    });
+    //: A '?' in a folded group's head explains what is inside it, and its
+    //: popover lives inside the fold, so pressing it opens the group too
+    //: (the popover's own handler keeps the press from toggling it shut).
+    fold.querySelector(":scope > summary [data-help-for]")?.addEventListener("click", () => {
+      fold.open = true;
+    });
+  }
+}
+
+wireSettingsFolds();

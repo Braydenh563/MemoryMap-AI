@@ -101,43 +101,57 @@ def _serve_one_sync_request_then_shut_down(app) -> None:
 #: a callback for the event loop's *next* iteration
 #: (`root_task.add_done_callback`), and whether `uvicorn.run()` tears the
 #: loop down before that iteration runs depends on exact scheduling, not on
-#: anything this test controls. It reproduced on the first attempt in most
-#: manual runs, so this retries a bounded number of times rather than
-#: asserting on one attempt: a false "the bug isn't real" from unlucky
-#: scheduling is worse than a test that occasionally takes a few seconds
-#: longer to prove it.
-#:
-#: **One test, not two.** A `create_app()`/`Server.run()` cycle that has
-#: already reproduced the race once measurably changes the odds of the next
-#: one in the same process (reliable alone, essentially never reproduced a
-#: second time back to back in manual runs, almost certainly anyio's own
-#: per-thread `RunVar` caching warming up). Splitting "the bug reproduces"
-#: and "the fix clears it" into separate test functions made the second one
-#: flaky for a reason that has nothing to do with what it is testing, so
-#: both live in the one attempt below instead.
-_REPRODUCE_ATTEMPTS = 8
+#: anything this test controls. It used to be asserted here that a real
+#: server reproduces it within eight attempts; on CI (2026-09-24, a docs-only
+#: commit) it did not, because the odds move with how much else the app does
+#: at startup. So the real server is still run, and any leftover it does
+#: produce is still checked, but the fix is proven against a leftover built
+#: directly (`_leftover_worker`): the exact state the race leaves, an alive
+#: non-daemon `WorkerThread` whose event loop is already closed and whose
+#: done-callback never ran. That half is deterministic.
+_REPRODUCE_ATTEMPTS = 3
 
 
-def test_a_real_uvicorn_server_leaves_a_non_daemon_worker_thread_behind_and_the_fix_clears_it(
-    app_state,
-) -> None:
-    """The bug, reproduced directly, so a future anyio/Starlette release that
-    stops doing this is a visible change here rather than a silently
-    untested assumption; then the fix, proven against that same thread
-    rather than a stand-in. If this ever starts failing on the first half,
-    `_stop_lingering_worker_threads` (called from `_run_server`) has become
-    a no-op, not a broken test."""
+def _leftover_worker() -> threading.Thread:
+    """An anyio `WorkerThread` in the state the race leaves behind: started,
+    waiting on its queue, `daemon=False`, its loop closed before anything told
+    it to stop. Built from anyio's own class so the fix is exercised against
+    the real type and its real `stop()`, not a stand-in."""
+    import asyncio
+    from collections import deque
+
+    from anyio._backends._asyncio import WorkerThread
+
+    #: Built inside a running loop (its constructor reads the loop's clock),
+    #: then the loop is closed with nothing ever calling `stop()`.
+    async def build() -> threading.Thread:
+        worker = WorkerThread(asyncio.current_task(), set(), deque())
+        worker.start()
+        return worker
+
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(build())
+    finally:
+        loop.close()
+
+
+def test_a_leftover_non_daemon_worker_thread_is_cleared_by_the_fix(app_state) -> None:
+    """The fix, proven against a leftover worker: first any the real server
+    left (the race, when it lands), then one built in exactly that state, so
+    the proof never depends on scheduling luck. If this fails,
+    `_stop_lingering_worker_threads` (called from `_run_server`) has become a
+    no-op, not a broken test."""
     from memorymap.api.app import create_app
 
-    after: list[threading.Thread] = []
     for _ in range(_REPRODUCE_ATTEMPTS):
         before = _anyio_worker_threads()
         _serve_one_sync_request_then_shut_down(create_app())
-        after = [t for t in _anyio_worker_threads() if t not in before]
-        if after:
+        if [t for t in _anyio_worker_threads() if t not in before]:
             break
-    assert after, f"expected a leftover AnyIO worker thread within {_REPRODUCE_ATTEMPTS} attempts"
-    assert any(not t.daemon for t in after), "the leftover worker is expected to be non-daemon"
+
+    worker = _leftover_worker()
+    assert worker.is_alive() and not worker.daemon, "the built leftover should match the race's state"
 
     started = time.monotonic()
     _stop_lingering_worker_threads(timeout=1.0)

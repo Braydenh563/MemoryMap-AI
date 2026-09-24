@@ -23,7 +23,12 @@ from memorymap.core import security
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 HARPER = FRONTEND / "vendor" / "harper"
-DOCUMENTS = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+#: documents.js and documents-prose.js joined: the prose tools moved into
+#: documents-prose.js verbatim on 2026-09-24, and the panel and dock wiring
+#: that reaches them stayed in documents.js.
+DOCUMENTS = "\n".join(
+    (FRONTEND / name).read_text(encoding="utf-8") for name in ("documents.js", "documents-prose.js")
+)
 WORKER = (FRONTEND / "harper-worker.js").read_text(encoding="utf-8")
 
 

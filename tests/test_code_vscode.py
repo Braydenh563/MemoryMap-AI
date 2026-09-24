@@ -21,14 +21,25 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCUMENTS_JS = ROOT / "frontend" / "documents.js"
+#: documents.js and the two files split out of it on 2026-09-24, joined:
+#: the code side (documents-code.js) and the prose tools (documents-prose.js)
+#: moved there verbatim, and the wiring that mounts them stayed in
+#: documents.js, so a test that reads "the documents editor" reads all three.
+DOCUMENTS_JS = tuple(
+    ROOT / "frontend" / name
+    for name in ("documents.js", "documents-code.js", "documents-prose.js")
+)
+
+
+def _documents_text() -> str:
+    return "\n".join(path.read_text(encoding="utf-8") for path in DOCUMENTS_JS)
 CM_JS = ROOT / "frontend" / "vendor" / "codemirror" / "codemirror.min.js"
 
 node = pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 
 
 def _source() -> str:
-    return DOCUMENTS_JS.read_text(encoding="utf-8")
+    return _documents_text()
 
 
 def _function(name: str) -> str:

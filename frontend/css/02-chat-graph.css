@@ -3672,6 +3672,8 @@ html {
 
 /* One column: the picture, then what it is, then what it says. */
 .lightbox-column {
+  /* The width the toolbar and the info card share, capped by the column. */
+  --lightbox-panel-w: min(48rem, 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3705,6 +3707,10 @@ html {
   justify-content: center;
   gap: var(--space-2);
   margin-top: var(--space-2);
+  /* The info card under it takes the same width (see `.lightbox-info`), so
+     the two stack edge to edge; the buttons stay centred inside it. */
+  box-sizing: border-box;
+  width: var(--lightbox-panel-w);
 }
 
 .lightbox-actions.hidden {
@@ -4182,7 +4188,14 @@ mark.lightbox-hit {
      otherwise, and this one is text to read and fields to click into, not
      a second way to close the dialog. */
   cursor: default;
-  max-width: min(48rem, 90vw);
+  /* **One width, the toolbar's** (the owner, 2026-09-24: the card was 680px
+     wide in one screenshot and 1200px in another). It was a `max-width`, so
+     the card shrank to its words: measured on three pictures at 1440 it came
+     out 383, 768 and 314px wide under a 350px toolbar. A set width, the same
+     one `.lightbox-actions` has, so the card is one size on every item and
+     its edges are the toolbar's. */
+  box-sizing: border-box;
+  width: var(--lightbox-panel-w);
   /* No inner scrollbar and no height cap. The overlay scrolls now, so a long
      transcription makes the dialog longer instead of hiding itself behind a
      second scrollbar inside a box that was already cut off, which is what
@@ -4388,6 +4401,30 @@ mark.lightbox-hit {
   position: relative;
   display: flex;
   justify-content: center;
+  /* The width each arrow takes from its edge: its inset, its own 2.5rem, and
+     a gap before the picture may start. */
+  --lightbox-nav-room: calc(var(--space-6) + 2.5rem + var(--space-2));
+}
+
+/* **The picture never goes under an arrow** (the owner, 2026-09-24: "the
+   image clashes with the side left and right arrow buttons on the
+   lightbox"). The stage was the wrap's full width, so a wide picture at Fit
+   ran under both arrows (measured at 1440: 976px2 of picture under each)
+   and a zoomed one scrolled under them at every width. With more than one
+   item the stage, which is the scrollport, is narrowed by the arrows' room
+   on both sides: at Fit the picture is capped to it, and zoomed it scrolls
+   inside it, so nothing of it can reach an arrow. One item has no arrows
+   and keeps the full width. */
+.lightbox-stage-wrap.lightbox-paged > .lightbox-stage {
+  width: calc(100% - 2 * var(--lightbox-nav-room));
+}
+
+/* Capped by the stage as well as by the window: `92vw` alone is wider than a
+   stage that leaves the arrows their room. A document in the stage is
+   capped the same way. */
+.lightbox-stage > img,
+.lightbox-stage > .lightbox-doc {
+  max-width: min(92vw, 100%);
 }
 
 .lightbox-prev {

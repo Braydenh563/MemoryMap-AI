@@ -4442,8 +4442,18 @@ main,
    row that scrolls with nothing to say so hid its last chips under the Sort
    label ("Link" cut in half, owner's screenshot). The row fades at the edge
    it can still scroll toward, so the cut reads as "more", not as a fault. */
-.finder-filters {
+.finder-filters.fade-end {
   mask-image: linear-gradient(to right, #000 calc(100% - var(--space-6)), transparent);
+}
+
+/* Only an edge with more behind it fades (`finderSyncFilterEdges`): at the
+   end of the row the last chip is whole, at the start the first one is. */
+.finder-filters.fade-start {
+  mask-image: linear-gradient(to left, #000 calc(100% - var(--space-6)), transparent);
+}
+
+.finder-filters.fade-start.fade-end {
+  mask-image: linear-gradient(to right, transparent, #000 var(--space-6), #000 calc(100% - var(--space-6)), transparent);
 }
 
 /* --- Chat: the user's bubble as a quiet surface, not an accent slab --- */
@@ -4507,7 +4517,6 @@ main,
    through, with no filter. */
 .scroll-top:hover,
 .chat-jump-latest:hover {
-  filter: none;
   background: color-mix(in srgb, var(--accent) 18%, var(--modal-bg-opaque));
   border-color: var(--accent);
   color: var(--accent);
@@ -4608,7 +4617,7 @@ main,
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 #entry-list > li > .entry-content::before {
@@ -4714,7 +4723,7 @@ main,
    much" row wears the same tiles so the two questions read as one form. */
 .wb-export-overlay .seg.wb-export-seg {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
   gap: var(--space-2);
   padding: 0;
   background: none;
@@ -4724,11 +4733,21 @@ main,
 .wb-export-overlay .seg.wb-export-seg > button {
   justify-content: center;
   min-height: var(--target-min);
+  min-width: 0;
+  padding-inline: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: transparent;
   box-shadow: none;
   color: var(--ink);
+  /* One line per tile (the owner: "the image library text clashes with the
+     button card borders"): a wrapped label sat on the tile's edge. */
+  white-space: nowrap;
+}
+
+/* A row of three fills three columns rather than leaving a fourth empty. */
+.wb-export-overlay .seg.wb-export-seg:has(> button:nth-child(3):last-child) {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .wb-export-overlay .seg.wb-export-seg > button:not(.active):not(:disabled):hover {
@@ -4869,4 +4888,36 @@ main,
   display: inline-block;
   width: 1.25em;
   text-align: center;
+}
+
+/* The transcript keeps its scrollbar's room whether or not it scrolls (the
+   owner, 2026-09-24: a new chat "viciously stuttering jumping up and down"
+   after a hint above the composer closed). A scrollbar that appears narrows
+   the text, the welcome re-wraps to a new height, and anything sized from
+   that height can hand the scrollbar back: a loop only real scrollbars show
+   (the desktop window, not headless). A stable gutter takes the width out
+   of it. */
+#chat-messages {
+  scrollbar-gutter: stable;
+}
+
+/* The owner: "are they signs of being vibe coded??" Partly: nine filled
+   grey capsules in a row, the chosen one told apart by a darker fill plus an
+   edge, is the generated-filter-bar look. A filter row reads as tabs here:
+   the kinds rest as plain text, the pointer brings a ground, the chosen one
+   is the only filled chip. Counts and keyboard behaviour are unchanged. */
+.finder-filters .library-chip:not(.active) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.finder-filters .library-chip:not(.active):hover {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+.finder-filters .library-chip.active {
+  border-color: transparent;
+  box-shadow: none;
 }

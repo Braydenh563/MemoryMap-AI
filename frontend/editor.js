@@ -1579,6 +1579,14 @@ function selectionBarShow(textarea) {
   //: broken, the second that it belongs to documents.
   const magic = bar.querySelector("[data-inline-ai]");
   if (magic) magic.hidden = !inlineAiAvailable(textarea);
+  //: **No prose formatting over code** (the owner, 2026-09-24, INBOX 409:
+  //: bold, italic, highlight, heading and quote drawn over a .json file,
+  //: where every one of them would write markdown into the code). A code
+  //: document keeps the two actions that mean something there, ask Atlas and
+  //: rewrite in place; the formatting eight and their rule are hidden.
+  const code = editorSurfaceKind(textarea) === "document"
+    && typeof docFileType === "function" && docFileType().previewable === false;
+  for (const button of bar.querySelectorAll("[data-md], .selection-bar-rule")) button.hidden = code;
   bar.classList.remove("hidden");
   //: Anchored to the *start* of the selection, which is where the eye is when
   //: a selection is made left-to-right, and measured after the bar is visible

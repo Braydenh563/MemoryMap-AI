@@ -24,15 +24,26 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCUMENTS_JS = ROOT / "frontend" / "documents.js"
+#: documents.js and the two files split out of it on 2026-09-24, joined:
+#: the code side (documents-code.js) and the prose tools (documents-prose.js)
+#: moved there verbatim, and the wiring that mounts them stayed in
+#: documents.js, so a test that reads "the documents editor" reads all three.
+DOCUMENTS_JS = tuple(
+    ROOT / "frontend" / name
+    for name in ("documents.js", "documents-code.js", "documents-prose.js")
+)
+
+
+def _documents_text() -> str:
+    return "\n".join(path.read_text(encoding="utf-8") for path in DOCUMENTS_JS)
 
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 
 
 def _region(begin: str, end: str) -> str:
-    text = DOCUMENTS_JS.read_text(encoding="utf-8")
+    text = _documents_text()
     start, stop = text.find(begin), text.find(end)
-    assert start != -1 and stop > start, f"the {begin} markers are missing from documents.js"
+    assert start != -1 and stop > start, f"the {begin} markers are missing from documents-code.js"
     return text[start:stop]
 
 
@@ -366,7 +377,7 @@ def test_every_message_is_sentence_case_with_no_exclamation():
 
 
 def _source() -> str:
-    return DOCUMENTS_JS.read_text(encoding="utf-8")
+    return _documents_text()
 
 
 def _function(name: str) -> str:

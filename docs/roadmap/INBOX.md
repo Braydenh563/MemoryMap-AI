@@ -124,6 +124,13 @@ with its owner named in the entry.
     `renderWbObjects` rebuilds every node through `wbBuildMapNode`
     (`setAttribute` 354ms); recommend keyed updates so an expand only
     builds the nodes it reveals.
+    (fixed: the join was already keyed, so an expand of the root does reveal
+    all 119; what it no longer does is build them. A folded topic's element
+    is kept and taken back, for the same datum only. Two runs each at 4x:
+    longest task 899/1,115ms → 597/442ms, profile busy 781/1,016ms →
+    456/319ms, `wbBuildMapNode` 321/419ms → 0. Markup after a fold round
+    trip identical to base apart from attribute order, and a taken-back
+    topic's chevron still folds it, `perf5/mapreuse.js`.)
     (f) Lightbox next/previous at 4x: 13 long tasks for 5 presses (p95
     350ms); `show` calls `applyZoom`, which calls `scrollTo` (375ms of
     forced layout) even when already at fit; recommend scrolling only when

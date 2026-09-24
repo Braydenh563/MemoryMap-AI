@@ -115,3 +115,25 @@ def test_a_settled_layout_is_held_when_nothing_it_depends_on_changed() -> None:
     assert "holdIfSettled: !viewPositions &&" in render
     # A tree leaves tree positions behind: nothing is held from them.
     assert render.index("s.settledSig = null;") > render.index("if (s.tree) {")
+
+
+# --- 424e: a mind map expand -------------------------------------------------
+
+
+def test_a_folded_topic_is_taken_back_not_rebuilt() -> None:
+    """A collapse takes the branch out of the DOM; the expand used to build
+    every topic in it again. The exit keeps the elements of folded topics,
+    the enter takes them back (only for the very datum they were built for,
+    since the node's controls close over it), and a taken-back element skips
+    the build and repaints in full."""
+    wb = _source("whiteboard.js")
+    render = _body(wb, "renderWbObjects")
+    assert ".append((d) => wbMapNodeTakeBack(d) || document.createElement(\"div\"))" in render
+    assert "wbMapNodePool.set(d.id, this)" in render
+    assert "if (this._wbTakenBack) {" in render
+    assert "this._wbPaintKey = undefined;" in render
+    # The pool is trimmed after the enter, never before it: trimming first
+    # dropped every element the expand was about to take back.
+    assert render.index("wbMapNodePool.delete(id)") > render.index("wbMapNodePool.set(d.id, this)")
+    take = _body(wb, "wbMapNodeTakeBack")
+    assert "kept.__data__ !== d" in take

@@ -12563,6 +12563,30 @@ async function wbSaveObject(d) {
   }
 }
 
+//: **A folded topic's element is kept for the expand that brings it back**
+//: (INBOX 424e). A collapse takes a branch out of the DOM (see the note on
+//: `objectData` in `renderWbObjects` for why it is removed rather than
+//: hidden), and the expand that followed built every one of those topics
+//: again from nothing: measured at 4x CPU, expanding the root of a 120-topic
+//: map was one 1,207ms task, `wbBuildMapNode` and the `setAttribute`s under
+//: it the largest part. The elements are kept here, by id, while their topic
+//: is folded away, and the expand takes each one back instead of building it.
+//:
+//: Only for the very datum it was built for: the node's own controls close
+//: over `d`, so an element built for an object that has since been replaced
+//: (the board refetched) would act on a row the board no longer holds. That
+//: one is built fresh, exactly as before.
+const wbMapNodePool = new Map();
+
+function wbMapNodeTakeBack(d) {
+  const kept = wbMapNodePool.get(d.id);
+  if (!kept) return null;
+  wbMapNodePool.delete(d.id);
+  if (kept.__data__ !== d) return null;
+  kept._wbTakenBack = true;
+  return kept;
+}
+
 // Cards and sketches each render in their own function, inlined into
 // renderWhiteboard directly; objects get their own function instead, two
 // genuinely different element shapes (an <img>, a contenteditable <div>)
@@ -12984,7 +13008,7 @@ function renderWbObjects(canvas) {
   const objectHeight = (d) => (WB_MAP_KINDS.has(d.kind) ? "auto" : `${d.height}px`);
 
   const objectEnter = objectSelection.enter()
-    .append("div")
+    .append((d) => wbMapNodeTakeBack(d) || document.createElement("div"))
     .attr("class", (d) => `wb-object wb-object-${d.kind}`)
     .attr("data-id", (d) => d.id)
     .style("transform", wbItemTransform)
@@ -13011,6 +13035,16 @@ function renderWbObjects(canvas) {
 
   objectEnter.each(function (d) {
     const el = d3.select(this);
+    //: A topic coming back out of a fold keeps the body it was built with
+    //: (`wbMapNodeTakeBack`): its handlers close over this same datum. The
+    //: class line above reset its classes, so the one the build adds goes
+    //: back on, and the paint below runs in full because its key is gone.
+    if (this._wbTakenBack) {
+      delete this._wbTakenBack;
+      el.classed("wb-map-node", true);
+      this._wbPaintKey = undefined;
+      return;
+    }
     if (d.kind === "image") {
       // Asked for directly: an image deleted out from under a board (via
       // the Library gallery's own delete, or by hand off disk) left a
@@ -13198,7 +13232,18 @@ function renderWbObjects(canvas) {
     }
   });
 
-  objectSelection.exit().remove();
+  objectSelection.exit()
+    .each(function (d) {
+      //: Folded away, not deleted: kept for the expand that brings it back.
+      if (mapHidden?.has(d.id) && WB_MAP_KINDS.has(d.kind)) wbMapNodePool.set(d.id, this);
+    })
+    .remove();
+  //: After the enter has taken back what it wanted: a kept element whose
+  //: topic is no longer folded away and was not taken back (deleted, or the
+  //: board changed under it) is let go.
+  for (const id of wbMapNodePool.keys()) {
+    if (!mapHidden?.has(id)) wbMapNodePool.delete(id);
+  }
 
   //: **Every topic measured in one pass, after every write, never between
   //: them** (MINDMAP_PLAN.md §13a). This loop used to be the last two lines

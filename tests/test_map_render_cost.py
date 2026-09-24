@@ -88,7 +88,7 @@ def test_every_topic_is_measured_after_the_writes_never_between_them() -> None:
     superlinearity lived. The reads happen once, after the last write."""
     body = _code("renderWbObjects")
     last_write = body.rindex("wbPaintMapNode(")
-    exits = body.index("objectSelection.exit().remove()")
+    exits = body.index("objectSelection.exit()")
     measure = body.index("this.offsetHeight")
     assert last_write < exits < measure
     # And the same reads fill the size cache, because `wbRenderMapEdges` runs

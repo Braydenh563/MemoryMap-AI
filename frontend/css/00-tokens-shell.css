@@ -431,6 +431,14 @@ select optgroup {
      once, on this very row, before it moved here. A shared measurement
      belongs at the root; the header now reads this token too. */
   --control-h-lg: 2.25rem;
+  /* The shared control height, at the root (2026-09-24 polish pass). It was
+     declared only on four containers (.library-controls, .library-head,
+     .library-toolbar, .dock), and 70 rules read it, so everywhere outside
+     those four a `height: var(--control-h)` was invalid at use and simply
+     dropped: the Reminders filter chips measured 22px against the Library's
+     36px, and the Write with AI popup's buttons came out at 20px. The four
+     containers still set their own value; everything else gets this one. */
+  --control-h: var(--control-h-lg);
   /* The settings sheet's own row height. It is `--control-h-lg` everywhere a
      pointer is a mouse, and it exists as a token of its own for one reason:
      below 820 it steps to `--target-min` (01-forms-settings.css, "the
@@ -2046,7 +2054,12 @@ header#top-bar.tabs-wrapped #tab-bar {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--control-h);
+  /* The root-level fallback: `--control-h` is declared on a few containers
+     (the Library's controls among them), not on the root, so a chip row
+     anywhere else (Reminders' Open / All / Done, Boards & maps' kind chips)
+     read an undefined token, dropped the height and measured 22px against
+     36px here. */
+  height: var(--control-h, var(--control-h-lg));
   padding: 0 var(--space-5);
   margin: 0;
   /* **The interactive filter chip** (UI_MODERNISATION_PLAN Phase 2): a

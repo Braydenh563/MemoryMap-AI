@@ -18130,6 +18130,9 @@ function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
   const bubble = document.createElement("div");
   bubble.className = `msg ${role}`;
+  //: The words as sent, so ArrowUp in an empty composer can reopen the last
+  //: question for editing without reading them back out of the rendered DOM.
+  if (role === "user" && typeof text === "string") bubble.dataset.sent = text;
 
   const label = document.createElement("div");
   label.className = "msg-role";
@@ -43085,6 +43088,20 @@ $("chat-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     sendChatMessage();
+    return;
+  }
+  //: **ArrowUp in an empty composer edits your last message**, the Slack and
+  //: ChatGPT habit (the owner, 2026-09-24: the small things every user
+  //: expects). Only when the box is empty, so it never takes the key from
+  //: typing (and the "/" menu cannot be open over an empty box).
+  if (e.key === "ArrowUp" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !e.target.value) {
+    const mine = [...document.querySelectorAll("#chat-messages .msg.user")];
+    const last = mine[mine.length - 1];
+    if (last?.dataset.sent) {
+      e.preventDefault();
+      editAndResend(last, last.dataset.sent);
+      last.querySelector(".msg-edit textarea, .msg-edit [contenteditable]")?.focus();
+    }
   }
 });
 $("persona-select").addEventListener("change", async () => {

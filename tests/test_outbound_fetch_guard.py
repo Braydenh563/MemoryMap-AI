@@ -61,6 +61,9 @@ REACHES_THE_NETWORK = {
     # refused is the cloud metadata address, by `security.check_backend_url`.
     "ai/ollama_client.py": "configured",
     "ai/openai_client.py": "configured",
+    # Configured: the two clients above go through this, which is `requests`
+    # with a redirect off the configured host and port refused (S6).
+    "ai/provider_http.py": "configured",
     # Configured: the app's own SearXNG, which it downloads and starts itself.
     "search/searxng_install.py": "configured",
     # Configured: the update feed and the installer download, both pinned to an

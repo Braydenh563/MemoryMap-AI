@@ -915,12 +915,13 @@ The threat model matters: the app binds 127.0.0.1 by default, so most of
 these are "fine on localhost, real the day LAN mode ships". They are
 listed so LAN mode cannot ship without them (Brief 15).
 
-| # | Finding | Where | Severity now / on LAN | Fix |
-| --- | --- | --- | --- | --- |
-| S6 | The model provider base URL is user-set and fetched from the server; by design it points at localhost, so SSRF to the LAN is "the feature". | `ai/provider.py` | none / low | On LAN mode, show the configured URL in the privacy receipt; never follow redirects off the configured host. |
-
-S4 and S7 to S15 are fixed, tested or recorded, and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
-State 2026-09-24: S1 (the media cookie), S2 (the per-client throttle), S3 (imports confined to home and the data folder) and the rest of S5 (the fetch lint sees every way out) built, moved to HISTORY.md; S6 is open, Brief 15.
+S1 to S15 are fixed, tested or recorded, and moved to HISTORY.md, "Moved
+from the plans, 2026-09-24": S1 (the media cookie), S2 (the per-client
+throttle), S3 (imports confined to home and the data folder), the rest of S5
+(the fetch lint sees every way out) and S6's redirect half were built that
+day. What is left: S6's other half, the configured model address shown in the
+privacy receipt on LAN mode (neither exists yet; the receipt is row 35), and
+the rest of Brief 15 below.
 
 **Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5, and
 `GET /debug/health`'s absolute `data_dir`/`db_path` paths (INBOX 310:

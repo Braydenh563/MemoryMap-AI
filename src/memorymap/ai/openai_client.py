@@ -45,7 +45,8 @@ import time
 from collections.abc import Iterator
 from urllib.parse import urlparse, urlunparse
 
-import requests
+# `requests` with redirects held to the configured address (§12, S6).
+from memorymap.ai import provider_http as requests
 
 from memorymap.ai import sampling
 from memorymap.ai.provider import (

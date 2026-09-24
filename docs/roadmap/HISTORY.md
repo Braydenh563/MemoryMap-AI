@@ -130,6 +130,33 @@ The row as it stood in section 12:
 | --- | --- | --- | --- | --- |
 | S5 | **Half done, 2026-09-13 evening: the guard is one function and it is in `core/security.py`.** `public_addresses(url)` (and `assert_public_url` for a caller that does not pin) refuses anything that is not plain http(s), carries credentials, does not resolve, or resolves to **any** address on this machine or the local network; `search/websearch.py` now calls it and keeps only the connection pinning, which is the half that is about fetching rather than judging. `is_internal_address` is the one definition of internal, asked in both directions (refused for an untrusted URL, required of a self-hosted SearXNG). `tests/test_outbound_fetch_guard.py` walks `src/` for outbound calls and fails on a module that is not written down as untrusted or configured, which is what makes the clipper unable to arrive unreviewed. What is left of this row is the callers that do not exist yet: bookmarks still fetch nothing. Original finding: bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
 
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S6
+
+**Built 2026-09-24: S6's redirect half.** The two provider clients import
+`ai/provider_http.py` in place of `requests`: the same `get`, `post`,
+`delete` and exceptions, with one response hook on every call that refuses a
+redirect whose target is not the same scheme, host and port as the response
+that sent it (`OffHostRedirect`, a `RequestException`, so every existing
+`except` reads it as a failed call and the message says why). A redirect on
+the same address is still followed. A module rather than a keyword at the
+fifteen call sites, so the call sites read as before and the tests' fakes,
+which patch `openai_client.requests.post` with fixed signatures, patch the
+shim the same way. Tests: `tests/test_provider_redirects.py`, on real sockets
+(the hook lives inside `requests`' redirect loop, which a patched call would
+skip): Ollama refuses a redirect to another host (`localhost` against
+`127.0.0.1`) and to another port, and never reaches the target; a same-host
+redirect is followed; the OpenAI-compatible client reports not running
+rather than following. `ai/provider_http.py` is written down in
+`REACHES_THE_NETWORK`. **Left open, with no code to hang it on:** "show the
+configured URL in the privacy receipt on LAN mode". Neither LAN mode nor the
+privacy receipt exists (row 35 is the receipt); that half belongs to them.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S6 | The model provider base URL is user-set and fetched from the server; by design it points at localhost, so SSRF to the LAN is "the feature". | `ai/provider.py` | none / low | On LAN mode, show the configured URL in the privacy receipt; never follow redirects off the configured host. |
+
 ### From WORLD_CLASS_PLAN.md row 9 (§16): `similar_pairs` cached for link suggestions and tensions
 
 **Built 2026-09-24.** `/entries/link-suggestions` and `/entries/tensions`

@@ -22,6 +22,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The app no longer follows a model server's redirect to a different address: a request to your configured model stays on that address, and a redirect elsewhere is reported instead of followed. A redirect within the same server still works.
 - Internal: the check that every module reaching the network is reviewed now sees downloads made without the requests library too (the optional extras and embedding models), and both are recorded as fetching only addresses the app ships.
 - Import from path reads only folders inside your home folder or the notebook's data folder, and skips any file in the folder that links somewhere outside it. A folder elsewhere can still be imported with Import folder, which uploads the files you choose.
 - Wrong passwords from one device no longer lock the owner out: each address earns its own wait after five wrong tries, and a much larger limit across every address together still slows a guesser who keeps changing address.

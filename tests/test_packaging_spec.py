@@ -14,17 +14,24 @@ named 'memorymap.search.searxng_docker'" on a packaged Windows install.
 
 from __future__ import annotations
 
+import re
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from memorymap.search import searxng_manager
 
-SPEC_PATH = (
-    Path(__file__).resolve().parents[1] / "packaging" / "windows" / "memorymap.spec"
-)
+ROOT = Path(__file__).resolve().parents[1]
+SPEC_PATH = ROOT / "packaging" / "windows" / "memorymap.spec"
+LINUX_SPEC_PATH = ROOT / "packaging" / "linux" / "memorymap.spec"
+ISS_PATH = ROOT / "packaging" / "windows" / "installer.iss"
+FRONTEND = ROOT / "frontend"
 
 
-def test_every_searxng_facade_module_is_a_hidden_import():
-    spec_text = SPEC_PATH.read_text(encoding="utf-8")
+@pytest.mark.parametrize("spec", [SPEC_PATH, LINUX_SPEC_PATH], ids=["windows", "linux"])
+def test_every_searxng_facade_module_is_a_hidden_import(spec):
+    spec_text = spec.read_text(encoding="utf-8")
     for module_name in searxng_manager._FACADE_NAMES:
         needle = f"memorymap.search.{module_name}"
         assert needle in spec_text, (
@@ -32,6 +39,211 @@ def test_every_searxng_facade_module_is_a_hidden_import():
             "__getattr__ and must be listed in the spec's hiddenimports, "
             "or a frozen build can't import it"
         )
+
+
+# --- every file the page asks for is in the bundle ---------------------------
+
+
+def _page_references() -> set[str]:
+    """Every local file the running page fetches, as a path under frontend/:
+    the tags in index.html, the lazy bundles in app.js's LAZY_MODULES, the
+    URLs written as strings in any frontend script (workers, the service
+    worker, vendored libraries), the manifest's icons, the module imports
+    the grammar worker makes, and the fonts the icon stylesheet names."""
+    found: set[str] = set()
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    for url in re.findall(r'(?:src|href)="(/[^"#?]+)', html):
+        found.add(url.lstrip("/"))
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    lazy = re.search(r"const LAZY_MODULES = \{(.*?)\n\};", app, re.S)
+    assert lazy, "LAZY_MODULES moved; this test reads it by name"
+    for url in re.findall(r'"(/[a-z0-9-]+\.js)"', lazy.group(1)):
+        found.add(url.lstrip("/"))
+    for script in FRONTEND.glob("*.js"):
+        text = script.read_text(encoding="utf-8")
+        for url in re.findall(
+            r"[\"'`](/(?:vendor/[^\"'`?$]+|[a-z0-9-]+\.(?:js|wasm|css|json|webmanifest|png|svg|ico)))[\"'`?]",
+            text,
+        ):
+            found.add(url.lstrip("/"))
+        for rel in re.findall(r'^import .* from "\./([^"]+)";', text, re.M):
+            found.add(rel)
+    manifest = (FRONTEND / "manifest.webmanifest").read_text(encoding="utf-8")
+    for url in re.findall(r'"src":\s*"(/[^"]+)"', manifest):
+        found.add(url.lstrip("/"))
+    for css in [*FRONTEND.glob("css/*.css"), *FRONTEND.glob("vendor/*/style.css")]:
+        for rel in re.findall(r'url\("?\./([^")]+)"?\)', css.read_text(encoding="utf-8")):
+            found.add(str(css.parent.relative_to(FRONTEND) / rel))
+    harper = FRONTEND / "vendor" / "harper" / "slimBinary.js"
+    for rel in re.findall(r'new URL\("([^"]+)", import\.meta\.url\)', harper.read_text(encoding="utf-8")):
+        found.add(f"vendor/harper/{rel}")
+    return found
+
+
+def _tracked_frontend_files() -> set[str]:
+    """What CI's checkout has, which is what the bundle is built from: a
+    file present here only because it is ignored would pass an existence
+    check and still be missing from every release."""
+    out = subprocess.run(
+        ["git", "ls-files", "frontend"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout
+    return {line.removeprefix("frontend/") for line in out.splitlines() if line}
+
+
+def test_the_reference_walk_finds_the_files_it_exists_for():
+    """A walk that silently matched nothing would pass everything below."""
+    refs = _page_references()
+    for expected in (
+        "app.js",
+        "documents-code.js",
+        "documents-prose.js",
+        "whiteboard-map.js",
+        "harper-worker.js",
+        "graph-worker.js",
+        "sw.js",
+        "vendor/harper/harper_wasm_slim_bg.wasm",
+        "vendor/harper/BinaryModule-BmeyZWwZ.js",
+        "vendor/emmet/emmet.min.js",
+        "vendor/phosphor/Phosphor.woff2",
+        "css/00-tokens-shell.css",
+        "icon-512.png",
+    ):
+        assert expected in refs, expected
+
+
+def test_every_file_the_page_loads_is_committed_and_bundled():
+    """The spec bundles frontend/ whole, so a file is in the build exactly
+    when it is in CI's checkout. Checked from both ends: the spec still
+    takes the whole folder (a narrowed datas list is how a split file like
+    documents-prose.js would go missing), and every file the page asks for
+    is committed."""
+    for spec in (SPEC_PATH, LINUX_SPEC_PATH):
+        assert '(str(FRONTEND_DIR), "frontend")' in spec.read_text(encoding="utf-8"), spec
+    tracked = _tracked_frontend_files()
+    missing = sorted(ref for ref in _page_references() if ref not in tracked)
+    assert not missing, f"referenced by the page but not committed under frontend/: {missing}"
+
+
+@pytest.mark.parametrize("spec", [SPEC_PATH, LINUX_SPEC_PATH], ids=["windows", "linux"])
+def test_the_bundle_carries_its_data_files(spec):
+    """Alembic's migrations, and the About panel's release notes, which
+    api/app.py reads from the bundle root once frozen."""
+    text = spec.read_text(encoding="utf-8")
+    assert '(str(MIGRATIONS_DIR), "migrations")' in text
+    assert '(str(ALEMBIC_INI), ".")' in text
+    assert "CHANGELOG" in text and 'CHANGELOG.md' in text
+
+
+def test_the_windows_build_carries_the_time_zone_database():
+    """Windows has no IANA zone files; zoneinfo reads the `tzdata` package
+    there. Imported by the spec so a build without it fails, not ships."""
+    text = SPEC_PATH.read_text(encoding="utf-8")
+    assert "import tzdata" in text
+    assert 'collect_data_files("tzdata")' in text and "*TZDATA_FILES" in text
+
+
+# --- the build installs what the app imports ---------------------------------
+
+#: In requirements.txt and deliberately not in a packaged build: the two
+#: optional-install giants (Settings > Packages fetches them) and the test tools.
+NOT_BUNDLED = {"sentence-transformers", "torch", "pytest", "httpx", "pytest-xdist"}
+
+
+def _runtime_requirements() -> set[str]:
+    names = set()
+    for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line or line.startswith("-"):
+            continue
+        names.add(re.split(r"[\[<>=!~;\s]", line, maxsplit=1)[0].lower())
+    return names - NOT_BUNDLED
+
+
+def _build_installs(workflow: str) -> list[set[str]]:
+    """Each `pip install ...` line block in a workflow, as package names."""
+    text = (ROOT / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
+    blocks = []
+    for match in re.finditer(r"pip install ((?:[^\n]*\\\n)*[^\n]*)", text):
+        words = match.group(1).replace("\\\n", " ").split()
+        names = {
+            re.split(r"[\[<>=!~;]", w.strip('"'), maxsplit=1)[0].lower()
+            for w in words
+            if not w.startswith("-")
+        }
+        if "pyinstaller" in names:
+            blocks.append(names)
+    return blocks
+
+
+@pytest.mark.parametrize("workflow, jobs", [("release.yml", 2), ("package-check.yml", 1)])
+def test_every_runtime_requirement_is_in_the_build(workflow, jobs):
+    """A requirement the build does not install is a module the frozen app
+    does not have. `tzdata` was missing from every packaged build (the
+    Windows app could not name a single time zone), and `defusedxml` from
+    the Linux one."""
+    blocks = _build_installs(workflow)
+    assert len(blocks) == jobs, blocks
+    wanted = _runtime_requirements()
+    assert {"tzdata", "defusedxml", "fastapi"} <= wanted
+    for names in blocks:
+        assert not wanted - names, f"{workflow} does not install {sorted(wanted - names)}"
+
+
+# --- installer.iss ------------------------------------------------------------
+
+
+def _code_section() -> str:
+    text = ISS_PATH.read_text(encoding="utf-8")
+    return text[text.index("[Code]") :]
+
+
+def test_no_comment_in_the_wizard_code_nests_a_brace():
+    """Pascal's `{ }` comments do not nest: the first `}` ends the comment
+    and the rest is read as code. A comment naming `{code:GetSelectedExtras}`
+    did exactly that, in a section nothing but a release ever compiled."""
+    code = re.sub(r"'[^'\n]*'", "''", _code_section())  # string literals hold constants
+    depth_one = False
+    for index, char in enumerate(code):
+        if char == "{":
+            assert not depth_one, f"a brace inside a comment at: {code[index - 60 : index + 20]!r}"
+            depth_one = True
+        elif char == "}":
+            depth_one = False
+
+
+def test_a_silent_install_downloads_nothing_it_was_not_asked_for():
+    """The in-app updater runs the installer with /VERYSILENT; the page's
+    defaults must not start a 2 GB download inside every update."""
+    code = _code_section()
+    body = code[code.index("function GetSelectedExtras") :]
+    body = body[: body.index("\nend;")]
+    assert "if WizardSilent then" in body
+    assert "{param:EXTRAS|}" in body
+
+
+def test_the_installer_only_runs_where_the_exe_can():
+    text = ISS_PATH.read_text(encoding="utf-8")
+    assert "ArchitecturesAllowed=x64compatible" in text
+    assert "ArchitecturesInstallIn64BitMode=x64compatible" in text
+
+
+def test_the_app_id_never_changes():
+    """Inno finds the install to upgrade by AppId. A new one would install a
+    second copy beside the first, with two uninstall entries."""
+    assert "AppId={{B4C6E3F1-6E6A-4B7E-9C1D-3F6A2E8D9C40}" in ISS_PATH.read_text(encoding="utf-8")
+
+
+def test_uninstall_never_names_the_notes_folder():
+    """Notes live in %APPDATA%\\MemoryMap AI; INSTALL.md promises the
+    uninstaller leaves them. Only {app} paths may be deleted."""
+    text = ISS_PATH.read_text(encoding="utf-8")
+    section = text[text.index("[UninstallDelete]") : text.index("[Code]")]
+    for line in section.splitlines():
+        if line.startswith("Type:"):
+            assert 'Name: "{app}\\' in line, line
+    assert "{userappdata}" not in section
+    # The old in-folder `data` is emptied by name, never swept whole.
+    assert 'filesandordirs; Name: "{app}\\data"' not in section
 
 
 def test_the_packaged_exe_shows_a_splash_before_python_starts():

@@ -112,6 +112,29 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The installed Windows app keeps its launch log and window cache beside your
+  notes in `%APPDATA%\MemoryMap AI`, not in a `data` folder wherever Windows
+  started it, and the Start Menu's "Repair MemoryMap AI" now clears the cache
+  the window really uses (it cleared an empty folder before).
+- The installed Windows app knows time zones: the build now carries the zone
+  database Windows lacks, so your zone is saved and "today" is your day.
+- Settings' Restart relaunches the installed Windows app instead of closing it
+  for good, and Remove on an optional package deletes it from the app's own
+  folder (it used to run against your own Python and leave the package).
+- Optional packages on the installed app find Python installed the usual way
+  from python.org (the `py` launcher), and no longer mistake the Microsoft
+  Store's placeholder `python.exe` for one.
+- Import documents installs markitdown's PDF, Word and slides readers; bare
+  markitdown reads none of the three.
+- An app update run from Settings > About no longer starts the optional
+  packages download inside the installer, and accepts the download host GitHub
+  is moving release files to; the installer's packages page starts unticked,
+  and says why, when Python is not on the computer.
+- The desktop window opens on a free port when another program holds 8000,
+  instead of showing that program's page; the About panel's release notes are
+  in the packaged app; scripts are served as JavaScript even where the Windows
+  registry says otherwise; the installer refuses 32-bit Windows, which cannot
+  run the 64-bit app.
 - The Windows installer's Documents box also installs scanned-PDF reading and
   Word export (one box, the page has no room for more).
 - The selection bar's "Rewrite this with AI" opens its bar again: the press that

@@ -26,6 +26,22 @@ MIGRATIONS_DIR = REPO_ROOT / "migrations"
 ALEMBIC_INI = REPO_ROOT / "alembic.ini"
 ENTRY_SCRIPT = REPO_ROOT / "src" / "memorymap" / "__main__.py"
 ICON = str(FRONTEND_DIR / "icon.ico")
+CHANGELOG = REPO_ROOT / "CHANGELOG.md"
+
+# **The IANA time zone database, which Windows does not have.** zoneinfo
+# reads the system's zone files on Linux and macOS and the `tzdata` package
+# on Windows, and nothing in the build installed that package: the packaged
+# app refused the timezone the window reports on every start (the
+# `/preferences` validator raised ZoneInfoNotFoundError for every zone name,
+# "Europe/London" included) and read "today" and "in ten minutes" on the
+# machine's zone instead of the person's. Imported here, not just listed,
+# so a build environment without it fails at this line rather than shipping
+# a build that quietly lacks it; PyInstaller's own zoneinfo hook then bundles
+# the data on Windows.
+import tzdata  # noqa: E402,F401
+from PyInstaller.utils.hooks import collect_data_files  # noqa: E402
+
+TZDATA_FILES = collect_data_files("tzdata")
 
 a = Analysis(
     [str(ENTRY_SCRIPT)],
@@ -44,6 +60,11 @@ a = Analysis(
         # stays on the pre-Alembic additive-only path.
         (str(MIGRATIONS_DIR), "migrations"),
         (str(ALEMBIC_INI), "."),
+        # The About panel's release notes (api/app.py `/changelog`, which
+        # reads it from the bundle root when frozen). Without it the panel
+        # was empty on every packaged build.
+        (str(CHANGELOG), "."),
+        *TZDATA_FILES,
     ],
     hiddenimports=[
         # uvicorn picks its event loop / protocol implementations at
@@ -60,6 +81,8 @@ a = Analysis(
         # SQLAlchemy's sqlite dialect, same "picked by name at runtime"
         # shape as the uvicorn entries above.
         "sqlalchemy.dialects.sqlite",
+        # zoneinfo finds this package by name at run time (see TZDATA_FILES).
+        "tzdata",
         # pywebview's Windows backends. edgechromium is the modern
         # (WebView2) one and what a current Windows ships; mshtml is the
         # legacy IE-engine fallback pywebview itself falls back to. Neither

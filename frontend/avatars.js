@@ -2597,6 +2597,7 @@ function syncNameMarkBuddy() {
         buddy.style.right = "auto";
         buddy.style.bottom = "auto";
         buddy.classList.remove("nm-buddy-dragging");
+        queueNameMarkBuddyAvoid();
         try {
           localStorage.setItem("nm-buddy-pos", JSON.stringify({ x: Math.round(box.left), y: Math.round(box.top) }));
         } catch (e) {
@@ -2635,6 +2636,7 @@ function syncNameMarkBuddy() {
     face.replaceChildren(nameMarkLive(seed, 60));
     face.setAttribute("aria-label", `${seed}, your companion. Click to say hello, double-click to enlarge, drag to move.`);
   }
+  queueNameMarkBuddyAvoid();
 }
 
 //: The dashboard's mark, when Appearance swaps the logo for a face: yours,
@@ -2736,3 +2738,57 @@ function syncProfileLook() {
     if (select) select.value = style[key] || "";
   }
 }
+
+
+//: **The companion never sits on a corner button** (the owner, twice: "the
+//: corner companion still blocks the back to top button"). The first answer
+//: moved only a companion still in its default place; one the person had
+//: dragged kept its saved spot on top of the button, and the chat's own
+//: jump pill was never considered. Now: whenever one of those buttons shows
+//: or moves, a companion that actually overlaps it steps to its left, by a
+//: translate that leaves its saved place alone, and steps back when the
+//: button goes. Measured, not assumed: rects, with a small margin.
+const NAME_MARK_BUDDY_AVOID = ["#scroll-top.visible", ".chat-jump-latest:not(.hidden)"];
+
+function nameMarkBuddyAvoid() {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy || buddy.classList.contains("nm-buddy-dragging")) return;
+  //: Its layout box, not its rendered one: `getBoundingClientRect` would
+  //: include the translate this sets, mid-transition, and the check would
+  //: chase its own tail. A fixed element's offsets are the viewport's.
+  const left = buddy.offsetLeft;
+  const top = buddy.offsetTop;
+  const mine = { left, top, right: left + buddy.offsetWidth, bottom: top + buddy.offsetHeight };
+  for (const selector of NAME_MARK_BUDDY_AVOID) {
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    const box = el.getBoundingClientRect();
+    if (!box.width || !box.height) continue;
+    const gap = 6;
+    const hit = !(mine.right <= box.left - gap || mine.left >= box.right + gap || mine.bottom <= box.top - gap || mine.top >= box.bottom + gap);
+    if (!hit) continue;
+    const dx = box.left - gap - mine.right;
+    buddy.style.translate = `${Math.round(mine.left + dx < 0 ? box.right + gap - mine.left : dx)}px 0`;
+    return;
+  }
+  buddy.style.translate = "";
+}
+
+//: Re-checked when the body's classes change (the button toggles
+//: `scroll-top-visible`), when the chat pill toggles, and on resize; a
+//: frame later, so the button has its final place.
+let nameMarkAvoidFrame = 0;
+function queueNameMarkBuddyAvoid() {
+  if (!document.getElementById("nm-buddy") || nameMarkAvoidFrame) return;
+  nameMarkAvoidFrame = requestAnimationFrame(() => {
+    nameMarkAvoidFrame = 0;
+    nameMarkBuddyAvoid();
+  });
+}
+if (typeof MutationObserver === "function") {
+  new MutationObserver(queueNameMarkBuddyAvoid).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+}
+document.addEventListener("transitionend", (event) => {
+  if (event.target?.closest?.("#scroll-top, .chat-jump-latest")) queueNameMarkBuddyAvoid();
+});
+window.addEventListener("resize", queueNameMarkBuddyAvoid, { passive: true });

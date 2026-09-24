@@ -4682,7 +4682,13 @@ main,
   transform-box: view-box;
 }
 
-@media (prefers-reduced-motion: no-preference) {
+/* `@media all`, not `(prefers-reduced-motion: no-preference)`, on purpose:
+   the same call renderEmblem makes for the logo (app.js). These faces are
+   the app's own decoration with its own switches (Avatar animation, Reduce
+   motion); with the system hint as the gate, Windows' "Animation effects"
+   switch froze every face while the logo beside them kept turning. The
+   system hint still gets its answer: the reduce block below calms them. */
+@media all {
   :is(
     :root[data-avatar-motion="always"]:not([data-motion="reduced"]) .name-mark[data-nm-on],
     :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live .name-mark,
@@ -4755,7 +4761,13 @@ main,
    than replacing it. */
 .name-mark { cursor: pointer; }
 
-@media (prefers-reduced-motion: no-preference) {
+/* `@media all`, not `(prefers-reduced-motion: no-preference)`, on purpose:
+   the same call renderEmblem makes for the logo (app.js). These faces are
+   the app's own decoration with its own switches (Avatar animation, Reduce
+   motion); with the system hint as the gate, Windows' "Animation effects"
+   switch froze every face while the logo beside them kept turning. The
+   system hint still gets its answer: the reduce block below calms them. */
+@media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .name-mark.nm-react .nm-body {
     animation: nm-hop 0.75s cubic-bezier(0.3, 1.6, 0.5, 1);
   }
@@ -4845,22 +4857,14 @@ main,
   touch-action: none;
 }
 
-/* The back-to-top button lives in the same corner (`.scroll-top`, fixed
-   1.5rem from the right, 2.75rem wide; its height from the bottom varies by
-   tab, so "above it" has no one answer). While it shows, a companion still
-   in its default place steps to its left instead. One the person has
-   dragged somewhere stays where they put it. */
+/* The back-to-top button lives in the same corner (`.scroll-top`). */
 #nm-buddy {
   transition: translate var(--motion-base) var(--ease-out);
 }
 
-body.scroll-top-visible #nm-buddy:not(.nm-buddy-placed) {
-  /* Measured: the button's right edge sits up to 50px in (scrollbar and
-     gutter), so its left edge can be ~94px from the window's; standing
-     7rem in clears it with a gap on every tab. A translate, not `right`,
-     so the step is the compositor's and not a layout per frame. */
-  translate: calc(var(--space-4) - 7rem) 0;
-}
+/* Stepping aside for a corner button is avatars.js's
+   (`nameMarkBuddyAvoid`): it measures the overlap wherever the companion
+   is, dragged or not, and sets a `translate` this transition animates. */
 
 #nm-buddy .nm-buddy-face {
   padding: 0;
@@ -4902,15 +4906,12 @@ body.scroll-top-visible #nm-buddy:not(.nm-buddy-placed) {
   #nm-buddy .nm-buddy-hide { opacity: 1; }
 }
 
-/* The explicit off, beside the `no-preference` gate above: the gate already
-   declares nothing under reduced motion, and this says so in the place the
-   motion lint (and a reader) looks for it. A face keeps its expression; only
-   the movement goes. */
+/* The system's reduced-motion hint: the faces keep moving but every loop
+   slows right down. A face keeps its expression either way. */
 @media (prefers-reduced-motion: reduce) {
   .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil, .nm-wave, .nm-steam, .nm-table, .nm-balloon, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-foot-l, .nm-foot-r, .nm-earring, .nm-tails, .nm-bow, .nm-pompom, .nm-gem, .nm-flame, .nm-tail, .nm-starfield, .nm-aura) {
-    animation: none;
-    translate: none;
-    rotate: none;
+    /* Calmer, not still: every loop takes six seconds. */
+    animation-duration: 6s;
   }
 }
 

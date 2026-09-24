@@ -204,7 +204,7 @@ function editorHintPlaceholder(box) {
   //: bar is one row by design, and there the hint joins the sentence.
   const tall = (Number(box.getAttribute("rows")) || 1) > 2;
   const joined = tall
-    ? (current ? `${current}\n  ${EDITOR_MENU_HINT}.` : `${EDITOR_MENU_HINT}.`)
+    ? (current ? `${current}\n${EDITOR_MENU_HINT}.` : `${EDITOR_MENU_HINT}.`)
     : (current ? `${current}  ${EDITOR_MENU_HINT}.` : `${EDITOR_MENU_HINT}.`);
   box.setAttribute("placeholder", joined);
 }

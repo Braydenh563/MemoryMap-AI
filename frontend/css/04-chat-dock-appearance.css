@@ -5193,3 +5193,16 @@ input.doc-title-input::placeholder {
 .tour-replay-row > .tour-replay-buttons {
   display: contents;
 }
+
+/* A formatting toolbar's icon buttons are flat like its text buttons (B, I,
+   List, Task): `.icon-only` carries the tonal ground everywhere else, so in
+   the note composer's toolbar Highlight, Remove highlight and Link looked
+   pressed while nothing was on (2026-09-24 polish pass, measured
+   rgba(255,255,255,0.16) on three of twelve). The hover and pressed states
+   still fill them. Scoped by the two tab ids because
+   07-whiteboard-misc.css's generic icon-only ground carries eight
+   :not()s, which outrank a class-only selector. */
+:is(#tab-notes, #tab-documents) .doc-toolbar button.icon-only:not(:hover):not(:focus-visible):not([aria-pressed="true"]):not(.active) {
+  background: transparent;
+  border-color: transparent;
+}

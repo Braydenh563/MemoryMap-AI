@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
   edited by you. One request changes them all or none, and each deletion is
   still remembered so the next run does not derive it again.
 - A Recent activity widget for the dashboard, in the widget picker: what
+- The note composer: its placeholder's second and third lines no longer start with a stray indent, and the Highlight, Remove highlight and Link buttons are flat like the rest of the toolbar instead of looking pressed.
   changed in the notebook lately (notes, documents, boards and reminders),
   and whether you, Atlas or a skill changed it. Off until added, so no
 - Confirm dialogs set their question as a title above the consequence ("Quit MemoryMap?" over "The app and its server will stop").

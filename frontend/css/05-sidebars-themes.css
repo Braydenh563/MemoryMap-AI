@@ -4589,6 +4589,13 @@ textarea.autogrow {
   color: var(--muted);
 }
 
+/* The sentence being read aloud (INBOX 404): a ground, not an ink, so every
+   underline a finding or a suggestion draws stays readable on top of it. */
+.cm-read-aloud {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: var(--radius-sm);
+}
+
 /* The words carry the identity, so they hold the weight and they are the half
    that ellipsises: the reason is a sentence and can be read from the title. */
 .doc-finding-words {

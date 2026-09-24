@@ -13104,7 +13104,236 @@ $("doc-suggest-reject-all")?.addEventListener("click", () => docSuggestAll(false
 $("doc-suggest-status")?.addEventListener("click", () => docSuggestNext());
 //: The rows are brought up to date as the menu opens, not only as the text
 //: changes: opening a different document changes the answer without an edit.
-$("doc-dock-menu")?.addEventListener("toggle", () => renderDocSuggestState());
+$("doc-dock-menu")?.addEventListener("toggle", () => {
+  renderDocSuggestState();
+  renderDocReadAloudState();
+});
+
+// --- read aloud (INBOX 404) -----------------------------------------------------
+//
+// The browser's own `speechSynthesis`, with the voices the operating system
+// already has: nothing to download and nothing leaves the machine, so it is
+// offline by construction. One sentence per utterance, for two reasons: the
+// sentence being spoken can be highlighted (an utterance has no reliable
+// "where am I" for markdown the voice never sees), and Chromium cuts a long
+// utterance off after about fifteen seconds with no event, which a sentence
+// never reaches. Voices marked `localService` are preferred: Chrome also
+// lists network voices, and a network voice is exactly what this app does
+// not use.
+
+//: Markdown read as words: the syntax is not said, a deletion suggested in
+//: suggestion mode is not said, a link says its text and a comment nothing.
+function docSpeakable(text) {
+  return String(text || "")
+    .replace(/\{--[\s\S]*?--\}/g, "")
+    .replace(/\{\+\+|\+\+\}/g, "")
+    .replace(/%%[^%\n]*%%/g, "")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}(?:#{1,6}|>|[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, "")
+    .replace(/\^[A-Za-z0-9-]+$/, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/[*_~=`|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+//: The sentences of `text` between `from` and `to`, each with its span in
+//: the document. Per line, because a heading or a list item has no full
+//: stop and would otherwise run into the paragraph under it; fenced code is
+//: not read.
+function docReadAloudSentences(text, from, to) {
+  const out = [];
+  const segmenter =
+    typeof Intl === "object" && typeof Intl.Segmenter === "function"
+      ? new Intl.Segmenter(undefined, { granularity: "sentence" })
+      : null;
+  let fence = false;
+  let at = 0;
+  for (const line of text.split("\n")) {
+    const start = at;
+    at += line.length + 1;
+    if (/^\s*(```|~~~)/.test(line)) {
+      fence = !fence;
+      continue;
+    }
+    if (fence || start + line.length < from || start >= to) continue;
+    const pieces = segmenter
+      ? [...segmenter.segment(line)].map((s) => [s.index, s.segment])
+      : (line.match(/[^.!?]+[.!?]*\s*/g) || []).reduce((list, s) => {
+          const index = list.length ? list[list.length - 1][0] + list[list.length - 1][1].length : 0;
+          list.push([index, s]);
+          return list;
+        }, []);
+    for (const [index, segment] of pieces) {
+      const lead = segment.length - segment.trimStart().length;
+      const s = start + index + lead;
+      const e = start + index + segment.trimEnd().length;
+      if (e <= s || e <= from || s >= to || !docSpeakable(segment)) continue;
+      out.push({ from: Math.max(s, from), to: Math.min(e, to) });
+    }
+  }
+  return out;
+}
+
+let docReadAloud = null;
+let docReadAloudEffect = null;
+
+function docReadAloudVoice(lang) {
+  if (!window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices() || [];
+  const local = voices.filter((voice) => voice.localService !== false);
+  const prefix = String(lang || "en").slice(0, 2).toLowerCase();
+  return (
+    local.find((voice) => voice.default && voice.lang.toLowerCase().startsWith(prefix)) ||
+    local.find((voice) => voice.lang.toLowerCase().startsWith(prefix)) ||
+    local.find((voice) => voice.default) ||
+    local[0] ||
+    null
+  );
+}
+
+//: From the selection, or from the start of the sentence the caret is in to
+//: the end of the document.
+function docReadAloudStart() {
+  const view = docCmView;
+  if (!view) return;
+  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance !== "function") {
+    return toast("This window has no speech voices to read with.", true);
+  }
+  docReadAloudStop();
+  const text = view.state.doc.toString();
+  const selection = view.state.selection.main;
+  const from = selection.empty ? view.state.doc.lineAt(selection.head).from : selection.from;
+  const to = selection.empty ? text.length : selection.to;
+  const queue = docReadAloudSentences(text, from, to).filter(
+    (sentence) => !selection.empty || sentence.to > selection.head || sentence.to === text.length
+  );
+  if (!queue.length) return toast("Nothing to read from here.");
+  docReadAloud = { queue, index: 0, docId: currentDoc && currentDoc.id, utterance: null };
+  renderDocReadAloudState();
+  docReadAloudNext();
+}
+
+function docReadAloudNext() {
+  const state = docReadAloud;
+  const view = docCmView;
+  if (!state || !view) return;
+  if (state.index >= state.queue.length || (currentDoc && currentDoc.id) !== state.docId) {
+    return docReadAloudStop();
+  }
+  const sentence = state.queue[state.index];
+  const words = docSpeakable(view.state.doc.sliceString(sentence.from, sentence.to));
+  if (!words) {
+    state.index += 1;
+    return docReadAloudNext();
+  }
+  const utterance = new SpeechSynthesisUtterance(words);
+  utterance.lang = document.documentElement.lang || navigator.language || "en";
+  const voice = docReadAloudVoice(utterance.lang);
+  try {
+    if (voice) utterance.voice = voice;
+  } catch {
+    //: Not a voice this engine will take: its own default speaks instead.
+  }
+  utterance.onend = () => {
+    if (docReadAloud !== state) return;
+    state.index += 1;
+    docReadAloudNext();
+  };
+  utterance.onerror = (event) => {
+    if (docReadAloud !== state) return;
+    if (event.error === "canceled" || event.error === "interrupted") return;
+    toast(`Reading stopped: ${event.error || "the voice did not answer"}.`, true);
+    docReadAloudStop();
+  };
+  //: Held on the state, not only in a closure: Chromium collects an
+  //: utterance nothing references and then never fires its `end`.
+  state.utterance = utterance;
+  view.dispatch({
+    effects: [
+      docReadAloudEffect.of(sentence),
+      window.CM6.view.EditorView.scrollIntoView(sentence.from, { y: "nearest" }),
+    ],
+  });
+  try {
+    window.speechSynthesis.speak(utterance);
+  } catch (error) {
+    toast(`Reading stopped: ${error && error.message ? error.message : "the voice did not answer"}.`, true);
+    docReadAloudStop();
+  }
+}
+
+function docReadAloudStop() {
+  const was = docReadAloud;
+  docReadAloud = null;
+  if (was && window.speechSynthesis) window.speechSynthesis.cancel();
+  if (was && docCmView && docReadAloudEffect) docCmView.dispatch({ effects: docReadAloudEffect.of(null) });
+  renderDocReadAloudState();
+}
+
+function renderDocReadAloudState() {
+  const on = Boolean(docReadAloud);
+  const row = $("doc-read-aloud");
+  if (row) {
+    setLabel(row, on ? "ph:stop Stop reading" : "ph:speaker-high Read aloud");
+    row.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+  const stop = $("doc-read-stop");
+  if (stop) stop.hidden = !on;
+}
+
+//: The highlight, and the queue kept in step with typing while it reads: the
+//: sentences still to come are moved through each edit, so reading carries
+//: on over the words as they now are.
+function docReadAloudExtension(CM) {
+  const { Decoration, EditorView } = CM.view;
+  if (!docReadAloudEffect) docReadAloudEffect = CM.state.StateEffect.define();
+  const effect = docReadAloudEffect;
+  const field = CM.state.StateField.define({
+    create: () => Decoration.none,
+    update(deco, tr) {
+      let next = deco.map(tr.changes);
+      for (const e of tr.effects) {
+        if (!e.is(effect)) continue;
+        next = e.value && e.value.to > e.value.from
+          ? Decoration.set([Decoration.mark({ class: "cm-read-aloud" }).range(e.value.from, e.value.to)])
+          : Decoration.none;
+      }
+      return next;
+    },
+    provide: (f) => EditorView.decorations.from(f),
+  });
+  return [
+    field,
+    EditorView.updateListener.of((update) => {
+      if (!update.docChanged || !docReadAloud) return;
+      for (const sentence of docReadAloud.queue) {
+        sentence.from = update.changes.mapPos(sentence.from, 1);
+        sentence.to = update.changes.mapPos(sentence.to, -1);
+      }
+    }),
+    CM.state.Prec.high(
+      CM.view.keymap.of([{ key: "Escape", run: () => (docReadAloud ? (docReadAloudStop(), true) : false) }])
+    ),
+  ];
+}
+
+$("doc-read-aloud")?.addEventListener("click", () => {
+  const menu = $("doc-dock-menu");
+  if (menu) menu.open = false;
+  if (docReadAloud) docReadAloudStop();
+  else docReadAloudStart();
+});
+$("doc-read-stop")?.addEventListener("click", () => docReadAloudStop());
+//: Leaving the page stops the voice: speech outlives the tab otherwise.
+window.addEventListener("pagehide", () => docReadAloudStop());
+
+//: One hook in `docCmExtensions` for every tool in this region.
+function docProseToolExtensions(CM) {
+  return [docSuggestExtensions(CM), docReadAloudExtension(CM)];
+}
 // PROSE-TOOLS-END
 
 // =============================================================================
@@ -18442,8 +18671,8 @@ function docCmExtensions(CM) {
     //: is not a reason to stop being told.
     docCmParts.live.of(docView === "live" ? docLiveExtensions(CM) : []),
     CM.state.Prec.high(docFindingsPlugin(CM)),
-    //: Suggestion mode (PROSE-TOOLS): the filter is inert until it is on.
-    docSuggestExtensions(CM),
+    //: Suggestion mode and read aloud (PROSE-TOOLS), inert until asked for.
+    docProseToolExtensions(CM),
     //: The dimming is a compartment because it is a preference that changes
     //: while the view is live; the typewriter listener is not, because it is
     //: inert until its flag is on and reconfiguring an extension to say

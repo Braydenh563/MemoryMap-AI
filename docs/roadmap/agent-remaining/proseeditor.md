@@ -31,7 +31,10 @@ agent wrote there sits between `// PROSE-TOOLS-BEGIN` and `// PROSE-TOOLS-END`
    `test_prose_tools.py`. Not tracked by design: command edits (toolbar,
    word-menu fixes, AI). Export of pending marks to .docx as Word revisions
    is step 5's.
-3. Read aloud. Open.
+3. Read aloud. Done: see git log ("Read aloud"). `p2-readaloud.js` 6 of 6
+   against a stand-in voice (headless Chromium lists 0 voices), node tests
+   for what is said. **Not verified:** a real system voice speaking, in the
+   desktop window (WebView2) or a browser.
 4. Accessibility check in the suggestions panel. Open.
 5. .docx round trip. Export exists (`core/docexport.to_docx`, python-docx
    extra `docx`); missing: tables and links on export, tables, links and

@@ -3829,6 +3829,8 @@
                   title="Accept every suggested change in this document"><i class="ph ph-checks ph-lead" aria-hidden="true"></i> Accept all changes</button>
                 <button id="doc-suggest-reject-all" class="menu-item doc-dock-menu-item" type="button" hidden
                   title="Reject every suggested change in this document"><i class="ph ph-x-circle ph-lead" aria-hidden="true"></i> Reject all changes</button>
+                <button id="doc-read-aloud" class="menu-item doc-dock-menu-item" type="button" aria-pressed="false"
+                  title="Read from the caret, or the selection, in this computer's own voice (Esc stops)"><i class="ph ph-speaker-high ph-lead" aria-hidden="true"></i> Read aloud</button>
                 <button id="doc-delete" class="menu-item menu-danger doc-dock-menu-item" type="button"
                   title="Delete this document"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete document</button>
               </div>
@@ -4048,6 +4050,9 @@
                changes what typing does has to be visible while it is on. -->
           <button id="doc-suggest-status" class="doc-statusbar-item doc-statusbar-button" type="button" hidden
             title="Review the next suggested change"><i class="ph ph-pencil-simple-line ph-lead" aria-hidden="true"></i> Suggesting</button>
+          <!-- Read aloud's way out, on screen for as long as it speaks. -->
+          <button id="doc-read-stop" class="doc-statusbar-item doc-statusbar-button" type="button" hidden
+            title="Stop reading aloud (Esc)"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop reading</button>
           <span class="doc-statusbar-spacer"></span>
           <span id="doc-caret" class="doc-statusbar-item doc-statusbar-fact"
             title="Where the caret is, and what is selected">Ln 1, Col 1</span>

@@ -22,6 +22,10 @@ below). Versioning is `0.x` while the app stabilises.
   says the mode is on and counts the changes. The marks are CriticMarkup in
   the text (`{++added++}`, `{--removed--}`), so they save, sync, show in
   history and survive a .md download like any other words (INBOX 404).
+- Read aloud, in a document's ⋯ menu: reads from the caret, or just the
+  selection, in this computer's own voice, one sentence at a time with that
+  sentence highlighted; Stop on the status bar or Esc. Markdown is read as
+  words, fenced code and suggested deletions are skipped (INBOX 404).
 - The guided tour walks through every main feature, one section after
   another: Notes, Chat, Graph, Library, Boards, Mind maps, Timeline,
   Reminders, Settings and the status bar each open the feature and point at

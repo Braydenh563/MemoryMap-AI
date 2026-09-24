@@ -158,5 +158,46 @@ def test_suggestion_mode_is_wired_and_reachable() -> None:
     for element in ("doc-suggest-mode", "doc-suggest-next", "doc-suggest-accept-all", "doc-suggest-reject-all", "doc-suggest-status"):
         assert f'id="{element}"' in html, element
         assert f'$("{element}")' in DOCUMENTS, element
-    assert "docSuggestExtensions(CM)" in _body("docCmExtensions")
+    assert "docProseToolExtensions(CM)" in _body("docCmExtensions")
     assert "docSuggestForRead(" in _body("renderDocPreview")
+
+
+# --- read aloud ----------------------------------------------------------------
+
+READ_DRIVER = r"""
+const results = [];
+const eq = (name, got, want) => results.push({ name, ok: JSON.stringify(got) === JSON.stringify(want), detail: JSON.stringify(got) });
+eq('speak/syntax is not said', docSpeakable('## A **bold** [link](http://x) and `code`'), 'A bold link and code');
+eq('speak/a suggested deletion is not said', docSpeakable('Keep {--this --}{++that++} word'), 'Keep that word');
+eq('speak/a task box is not said', docSpeakable('- [x] Done it'), 'Done it');
+eq('speak/a comment is not said', docSpeakable('Words %%note to self%% here.'), 'Words here.');
+const text = '# Title\n\nOne. Two!\n\n```\nnot read.\n```\n';
+const spans = docReadAloudSentences(text, 0, text.length).map((s) => text.slice(s.from, s.to));
+eq('sentences/per line, fences skipped', spans, ['# Title', 'One.', 'Two!']);
+const part = docReadAloudSentences(text, text.indexOf('Two'), text.indexOf('Two') + 4).map((s) => text.slice(s.from, s.to));
+eq('sentences/clipped to the range', part, ['Two!']);
+process.stdout.write(JSON.stringify(results));
+"""
+
+
+def test_read_aloud_says_words_not_markdown(tmp_path) -> None:
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    start = DOCUMENTS.index("function docSpeakable(")
+    stop = DOCUMENTS.index("let docReadAloud = null;")
+    script = tmp_path / "read.js"
+    script.write_text(DOCUMENTS[start:stop] + READ_DRIVER, encoding="utf-8")
+    out = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=60, check=False)
+    assert out.returncode == 0, out.stderr
+    failed = [f"{r['name']}: {r['detail']}" for r in json.loads(out.stdout) if not r["ok"]]
+    assert not failed, "\n".join(failed)
+
+
+def test_read_aloud_is_reachable_and_stoppable() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    for element in ("doc-read-aloud", "doc-read-stop"):
+        assert f'id="{element}"' in html and f'$("{element}")' in DOCUMENTS, element
+    #: Local voices first: a network voice is the one thing this app avoids.
+    assert "localService !== false" in _body("docReadAloudVoice")
+    assert "docReadAloudExtension(CM)" in _body("docProseToolExtensions")

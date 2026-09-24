@@ -17,9 +17,10 @@
 //             off or ellipsised is a finding, and so is a menu more than twice
 //             as wide as what it holds.
 //   rows      one height among single-line rows, one left padding.
-//   labels    the first letter of every label on one x (1px), whether or not
-//             the row has an icon: a row without one must still start where
-//             the others' words start, or the column reads ragged.
+//   column    per column of the menu (the board's View has two): every
+//             command row starts (icon or first letter) on one x, the labels
+//             after an icon on one x, and a section label or a select in a
+//             section on the rows' x, all within 1px.
 //   groups    a menu (not a listbox) past five rows draws a separator.
 //   place     within 8px of its opener on the axis it opens along, lined up
 //             with an edge of it on the other, and never past the window.
@@ -206,6 +207,9 @@ function measure(opIdx) {
     natural: Math.round(natural), vw: innerWidth, vh: innerHeight,
     overflowX: menu.scrollWidth > menu.clientWidth + 1 && getComputedStyle(menu).overflowX !== 'visible',
     rows: rowInfo, heads, seps, sections,
+    //: A menu of switches or an icon grid (the board's shapes) has no
+    //: command rows to line up, and is not empty for it.
+    controls: [...menu.querySelectorAll('button, input, a[href], [tabindex="0"]')].filter((e) => e.getClientRects().length).length,
     sig: `bg=${cs.backgroundColor} r=${cs.borderTopLeftRadius} bd=${cs.borderTopWidth}`,
     focusIn: menu.contains(document.activeElement),
   };
@@ -214,7 +218,7 @@ function measure(opIdx) {
 function judge(m) {
   const f = [];
   const rows = m.rows;
-  if (!rows.length && !m.heads.length) { f.push('no rows found'); return f; }
+  if (!rows.length && !m.heads.length && !m.controls) { f.push('nothing in it to press'); return f; }
   const clipped = rows.filter((r) => r.clipped).map((r) => r.text);
   if (clipped.length) f.push(`clipped labels: ${JSON.stringify(clipped.slice(0, 4))}`);
   if (m.overflowX) f.push('menu scrolls sideways');

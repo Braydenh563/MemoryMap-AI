@@ -89,6 +89,10 @@ with its owner named in the entry.
     Harper (INBOX 401), suggestion mode (tracked changes), read aloud with
     the system's own voices, an accessibility check (heading order, alt
     text, link text), and a .docx round trip if export is missing.
+    **Prose side built 2026-09-24** (`agent-remaining/proseeditor.md`):
+    Harper db64249, suggestion mode 1706972, read aloud c3af0d3,
+    accessibility be76070, Word round trip 2a9f407. Open here: the code side
+    only, the completions agent's.
 
 403. **The owner, 2026-09-23 night, verbatim.** "for me, trust in the
     application isn't just the information it shows but that is very much a

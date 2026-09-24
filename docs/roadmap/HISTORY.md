@@ -34219,5 +34219,5 @@ with an unselected note moving 1.7 and no pins written.
     **Fixed db64249.** Harper vendored (slim, 15.9 MB) and lazy, not an
     extra: nothing fetched at boot, 1.75 s cold, 100 to 160 ms per
     1,400-word check in a worker, 3 ms main-thread merge; documents and note
-    boxes; `p2-harper.js` 17 of 17.
+    boxes; `p2-harper.js` 16 of 16.
 

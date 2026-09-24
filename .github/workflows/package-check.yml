@@ -166,17 +166,17 @@ jobs:
             | python -c "import json,sys; print(json.load(sys.stdin)['token'])")
           failed=0
           curl -sf -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/extras > extras.json || failed=1
-          python -c "import json; rows={r['id']: r for r in json.load(open('extras.json'))['extras']}; assert rows['docx']['installed'], rows['docx']; print('docx installed:', rows['docx']['installed'])" || failed=1
+          python -c "import json; rows={r['id']: r for r in json.load(open('extras.json', encoding='utf-8'))['extras']}; assert rows['docx']['installed'], rows['docx']; print('docx installed:', rows['docx']['installed'])" || failed=1
           curl -sf -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/changelog > changelog.json || failed=1
-          python -c "import json; md=json.load(open('changelog.json'))['markdown']; assert len(md) > 1000, len(md); print('changelog chars:', len(md))" || failed=1
+          python -c "import json; md=json.load(open('changelog.json', encoding='utf-8'))['markdown']; assert len(md) > 1000, len(md); print('changelog chars:', len(md))" || failed=1
           # The Remove button on a packaged build (extras._remove_from_frozen_target).
           curl -sf -X POST -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/extras/docx/uninstall > /dev/null || failed=1
           for i in $(seq 1 30); do
             curl -sf -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/extras > extras.json
-            python -c "import json,sys; sys.exit(0 if not json.load(open('extras.json'))['running'] else 1)" && break
+            python -c "import json,sys; sys.exit(0 if not json.load(open('extras.json', encoding='utf-8'))['running'] else 1)" && break
             sleep 1
           done
-          python -c "import json; d=json.load(open('extras.json')); print('remove:', d['outcome'], d['step']); assert d['outcome'] == 'completed', d" || failed=1
+          python -c "import json; d=json.load(open('extras.json', encoding='utf-8')); print('remove:', d['outcome'], d['step']); assert d['outcome'] == 'completed', d" || failed=1
           ls "$MEMORYMAP_DATA_DIR"/python-extras/*/docx 2>/dev/null && { echo "docx is still on disk after Remove"; failed=1; }
           kill $pid || true
           exit $failed

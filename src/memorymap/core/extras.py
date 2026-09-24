@@ -138,7 +138,63 @@ def find_system_python() -> str | None:
     """
     if not getattr(sys, "frozen", False):
         return sys.executable
-    return shutil.which("python") or shutil.which("python3")
+    for command in _python_candidates():
+        real = _interpreter_behind(command)
+        if real:
+            return real
+    return None
+
+
+def _python_candidates() -> list[list[str]]:
+    """Every command that might start a Python, in the order to try them.
+
+    `py -3` last and not least: python.org's Windows installer leaves "Add
+    python.exe to PATH" unticked by default and installs the `py` launcher
+    instead, so the ordinary way of installing Python leaves `python` off
+    PATH and `py` on it.
+    """
+    found = []
+    for name in ("python", "python3"):
+        path = shutil.which(name)
+        if path:
+            found.append([path])
+    launcher = shutil.which("py")
+    if launcher:
+        found.append([launcher, "-3"])
+    return found
+
+
+#: Asked of each candidate: prints the interpreter's own path, or nothing for
+#: a Python too old to run a current pip.
+_PROBE = "import sys; print(sys.executable if sys.version_info >= (3, 8) else '')"
+
+
+def _interpreter_behind(command: list[str]) -> str | None:
+    """The real interpreter a command starts, or None when it starts none.
+
+    **Run, not just found.** Windows 10 and 11 put a `python.exe` on PATH
+    before any Python is installed: an App Execution Alias in
+    `WindowsApps` that opens the Store and exits 9009. `which` finds it like
+    any other file, so the packaged app used to hand it to pip and report a
+    pip failure instead of `NO_PYTHON_FOUND_MESSAGE`. And the `py` launcher
+    is not an interpreter to pass `-m pip` to on its own terms, so what comes
+    back is the path the interpreter reports for itself.
+    """
+    try:
+        done = subprocess.run(  # noqa: S603  # fixed args, no shell
+            [*command, "-c", _PROBE],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            creationflags=NO_WINDOW,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    lines = (done.stdout or "").strip().splitlines()
+    path = lines[-1].strip() if lines else ""
+    return path if path and os.path.isfile(path) else None
 
 
 def frozen_extras_dir() -> Path | None:
@@ -210,10 +266,9 @@ def _pip_base_command() -> list[str] | None:
 #: since "install Python" is not the answer most error messages in this
 #: no-terminal-required app would ever need to give.
 NO_PYTHON_FOUND_MESSAGE = (
-    "No Python interpreter found on this system, and the packaged app can't "
-    "install a package without one. Install Python from python.org (any "
-    "recent version, tick \"Add python.exe to PATH\" during setup), then "
-    "try again."
+    "No Python found on this computer, and the packaged app needs one to "
+    "download a package. Install Python from python.org (any recent version, "
+    "the default options are fine), then try again."
 )
 
 
@@ -327,7 +382,12 @@ EXTRAS: tuple[Extra, ...] = (
         label="Import documents (markitdown)",
         enables="Turns PDFs, Word files and slides into notes, the "
         "'Import a document' button in Settings → Import & export.",
-        packages=("markitdown",),
+        # The three converter groups, not bare markitdown: since 0.1 a plain
+        # `pip install markitdown` reads HTML and text and raises on exactly
+        # the PDFs, Word files and slides this card (and the installer's
+        # Documents box) promises. `xlsx`, `outlook` and the rest are left
+        # out: nothing here offers them, and `all` pulls in Azure clients.
+        packages=("markitdown[pdf,docx,pptx]",),
         module="markitdown",
         size="~20 MB",
     ),
@@ -658,6 +718,84 @@ def cancel() -> tuple[bool, str]:
     return True, "Stopping the install."
 
 
+def _requirement_name(spec: str) -> str:
+    """`markitdown[pdf,docx]>=0.1` -> `markitdown`: the project a requirement
+    names, which is what an uninstall takes."""
+    return re.split(r"[\[<>=!~;\s]", spec, maxsplit=1)[0]
+
+
+def _canonical(name: str) -> str:
+    """PEP 503's normal form, so `python-docx` finds `python_docx`."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _remove_from_frozen_target(extra: Extra, target: Path) -> None:
+    """Remove an extra from a packaged build's own folder, without pip.
+
+    **Why not pip.** `pip uninstall` has no `--target`: it removes from the
+    site-packages of the Python running it. On the packaged app that is the
+    borrowed system Python (`find_system_python`), which does not have the
+    extra, because `_frozen_target_args` put it in the data folder instead.
+    So it warned, exited 0, and the card said "removed" over a package that
+    still imported; or, for someone who had the same package in their own
+    Python, it removed *that* one. The folder's own metadata says exactly
+    what each wheel put there (its RECORD), so this deletes that list and
+    nothing else, and needs no Python at all.
+
+    Only files inside `target` are touched, whatever a RECORD says, and only
+    the projects the entry names, never their dependencies: the same rule
+    `_run_uninstall` states for pip.
+    """
+    from importlib import metadata
+
+    root = target.resolve()
+    wanted = {_canonical(_requirement_name(package)) for package in extra.packages}
+    removed: list[str] = []
+    stuck: list[str] = []
+    touched_dirs: set[Path] = set()
+    for dist in metadata.distributions(path=[str(root)]):
+        name = str(dist.metadata.get("Name") or "")
+        if _canonical(name) not in wanted:
+            continue
+        _state.step = f"Removing {name}"
+        for entry in dist.files or []:
+            path = Path(str(dist.locate_file(entry))).resolve()
+            if root not in path.parents or not path.is_file():
+                continue
+            try:
+                path.unlink()
+                touched_dirs.add(path.parent)
+            except OSError:
+                stuck.append(str(path.relative_to(root)))
+        info_dir = getattr(dist, "_path", None)
+        if info_dir is not None and root in Path(info_dir).resolve().parents:
+            shutil.rmtree(info_dir, ignore_errors=True)
+        removed.append(name)
+    # A package's folder is left holding the `__pycache__` Python wrote after
+    # the install, which no RECORD lists. Deepest first, up to the root.
+    for folder in sorted(touched_dirs, key=lambda p: len(p.parts), reverse=True):
+        while folder != root and root in folder.parents and folder.is_dir():
+            leftovers = [child for child in folder.iterdir() if child.name != "__pycache__"]
+            if leftovers:
+                break
+            shutil.rmtree(folder, ignore_errors=True)
+            folder = folder.parent
+    _state.log.extend(f"Removed {name}" for name in removed)
+    if stuck:
+        _state.log.extend(f"In use: {path}" for path in stuck[:20])
+        _state.outcome = "failed"
+        _state.step = (
+            f"Some of {extra.label} is still in use. Restart MemoryMap and "
+            "remove it again: Windows keeps files that are open."
+        )
+    elif removed:
+        _state.outcome = "completed"
+        _state.step = f"{extra.label} removed: restart MemoryMap to free it."
+    else:
+        _state.outcome = "completed"
+        _state.step = f"{extra.label} was not installed, so there was nothing to remove."
+
+
 def _run_uninstall(extra: Extra) -> None:
     """pip uninstall, with the same bookkeeping the install has.
 
@@ -667,6 +805,10 @@ def _run_uninstall(extra: Extra) -> None:
     thing" must not quietly take five.
     """
     try:
+        target = frozen_extras_dir()
+        if target is not None:
+            _remove_from_frozen_target(extra, target)
+            return
         pip_base = _pip_base_command()
         if pip_base is None:
             _state.outcome = "failed"
@@ -677,7 +819,7 @@ def _run_uninstall(extra: Extra) -> None:
             "uninstall",
             "-y",
             "--disable-pip-version-check",
-            *extra.packages,
+            *(_requirement_name(package) for package in extra.packages),
         ]
         _state.step = f"pip uninstall {' '.join(extra.packages)}"
         process = subprocess.Popen(  # noqa: S603  # fixed args from the allowlist, no shell
@@ -1055,6 +1197,12 @@ def install_blocking(extra_ids: list[str]) -> int:
     could not import from. Returns the number that failed."""
     failed = 0
     for extra_id in extra_ids:
+        # Already there is done, not failed: an upgrade runs the wizard again
+        # with the same boxes ticked, and `start` refuses an installed extra.
+        extra = EXTRAS_BY_ID.get(extra_id)
+        if extra is not None and not extra.unavailable and is_installed(extra):
+            _logger.info("extra %s is already installed", extra_id)
+            continue
         started, message = start(extra_id)
         if not started:
             _logger.warning("extra %s not installed: %s", extra_id, message)

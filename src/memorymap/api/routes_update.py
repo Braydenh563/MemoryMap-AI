@@ -68,9 +68,18 @@ ASSET_SUFFIX = ".exe"
 #: notice (the download is checked for truncation, not for a signature).
 #:
 #: Both names are needed: the API hands back `github.com/...` release links,
-#: which redirect to `objects.githubusercontent.com` for the bytes.
+#: which redirect to `objects.githubusercontent.com` for the bytes (measured
+#: 2026-09-24 on this repo's v0.3.2 installer). `release-assets.
+#: githubusercontent.com` is the host GitHub announced it is moving release
+#: downloads to; without it here, the day that redirect changes every in-app
+#: update would stop at "couldn't download", with nothing wrong on our side.
 ALLOWED_DOWNLOAD_HOSTS = frozenset(
-    {"github.com", "api.github.com", "objects.githubusercontent.com"}
+    {
+        "github.com",
+        "api.github.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+    }
 )
 
 

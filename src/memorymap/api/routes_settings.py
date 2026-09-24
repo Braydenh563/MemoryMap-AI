@@ -758,13 +758,29 @@ def set_console_mode(
         # CodeQL py/cyclic-import loop: and deferring it into the function
         # body does not clear that, only dropping the statement does. The
         # desktop entry point is the caller here, not a dependency.
-        restart_in_console_mode = importlib.import_module(
-            "memorymap.__main__"
-        ).restart_in_console_mode
+        restart_in_console_mode = _desktop_entry().restart_in_console_mode
 
         restarting = True
         background_tasks.add_task(restart_in_console_mode, not show_console)
     return {"show_console_on_startup": show_console, "restarting": restarting}
+
+
+def _desktop_entry():
+    """The desktop entry module, the one actually running.
+
+    `sys.modules["__main__"]` first: a packaged build runs `__main__.py` as
+    `__main__`, and PyInstaller bundles no second copy under the name
+    `memorymap.__main__` (nothing imports it by that name, so its analysis
+    never sees it), so `import_module` alone raised there and Settings'
+    Restart answered 500. From source, `python -m memorymap` is the same
+    module under the same key, and reusing it avoids importing a second copy
+    of the launcher. The import is the fallback for everything else (tests,
+    `uvicorn --factory`), where the running `__main__` is not ours.
+    """
+    running = sys.modules.get("__main__")
+    if running is not None and hasattr(running, "restart_in_console_mode"):
+        return running
+    return importlib.import_module("memorymap.__main__")
 
 
 @router.post("/system/restart")
@@ -785,9 +801,7 @@ def restart_app(background_tasks: BackgroundTasks) -> dict:
     """
     if os.getenv("MEMORYMAP_DESKTOP") != "1" or sys.platform != "win32":
         return {"restarting": False}
-    restart_in_console_mode = importlib.import_module(
-        "memorymap.__main__"
-    ).restart_in_console_mode  # same cycle break as above
+    restart_in_console_mode = _desktop_entry().restart_in_console_mode  # same cycle break
 
     show_console = bool(deps.get_config().get_preference("show_console_on_startup", True))
     background_tasks.add_task(restart_in_console_mode, not show_console)

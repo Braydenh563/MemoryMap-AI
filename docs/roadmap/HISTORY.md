@@ -34999,3 +34999,42 @@ with an unselected note moving 1.7 and no pins written.
     agent route asks when the backend is down. Items a and b of the read
     are still open (ANALYSIS.md).
 
+
+418. **The owner, 2026-09-24, verbatim, four reports from the desktop
+    window.** "I clicked the more button on a mind map node and it appeared
+    ip the top left middle section"; "the radial buttons are still clearly
+    separate, I want them to be part of the radial, not just buttons sitting
+    ontop of it"; middle-button panning "jerks repeatedly to the left side
+    of the screen until i let go"; "I cant drag to create a custom sized
+    textbox on the whiteboard when selected on the textbox tool", "same with
+    the sticky notes". **Fixed.** The rings are pie menus (sectors clipped
+    from one ring, the topic in the hole, arrows, Enter, Escape;
+    `mapradialfit.js` 39/39 light and dark at 1440, 1184, 390); More hangs
+    from its sector and falls back to the topic's box, never the corner
+    (`mapradialmore.js`); the middle-button pan ignores the pressed wheel's
+    own wheel events (3300 to 3600px of drift over a 300px drag, now 0) and
+    item drags take the primary button only (a press on a topic panned 0px,
+    now 200 of 200; `midpanwheel.js`); the text and sticky tools draw a box
+    at the dragged size (`wbplacedrag.js` 16/16).
+
+414. **The owner, 2026-09-24, verbatim:** "the web browser sidebar needs a
+    major improved modern and professional redesign and feature
+    improvement". With a screenshot of the chat tab's Web panel: a boxed
+    close, a field and a big filled Search button, a "SearXNG: running" box
+    and a boxed Stop, and in the reader three stacked worded buttons over the
+    page text in a bordered scroll box. **Fixed, 2026-09-24**: the panel is
+    the `h3.panel-head` recipe with the engine state as a dot (words on its
+    title) and a kebab for the engine's commands; one field with the glyph
+    inside, Enter to search, Stop only while loading; results on the
+    list-row recipe with a letter tile, ArrowDown/Up/Enter, a right-click
+    menu, Copy link and Cite in chat; recent searches as rows; a reader that
+    is the pane's one scroller, with a back link, find, copy and open in
+    browser beside it, one action row (Ask, Cite in chat, Save, Bookmark) and
+    the page as prose at `--doc-measure`. Ctrl+F in the reader counts the
+    page. Measured with `scratchpad/ui-sweeps/webpanel.js` at 280, the
+    default and the maximum, light and dark: header controls 4 to 3, radii 2
+    to 1, heights 28/42 to 28/36, the default width 280 to 349 (it had sat on
+    its floor), the maximum 864 to 732 (it had left the chat 210px), nested
+    scrollers in the reader 2 to 1, overflow 0, low contrast 0.
+    `webpanelflow.js` drives the keys, Stop, find, and Cite in chat.
+

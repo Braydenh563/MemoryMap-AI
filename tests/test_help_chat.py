@@ -597,21 +597,19 @@ def test_the_guide_falls_back_to_the_chat_model_when_no_utility_model_is_chosen(
     assert _guide_model(ai_client, fake_ollama) == "big-chat-model"
 
 
-def test_the_guide_falls_back_to_the_chat_model_when_smart_routing_is_off(
+def test_the_guide_keeps_the_utility_model_when_smart_routing_is_off(
     ai_client, fake_ollama
 ):
-    """Fallback two, and the one that looks like a bug from outside: a utility
-    model IS chosen and shown in Settings, and the Guide still runs the chat
-    model, because "smart model routing" off means every role collapses onto
-    the chat model. `ModelManager.utility_model()` is where that is decided,
-    for the janitor and the digest as much as for the Guide."""
+    """The owner's decision, 2026-09-24 (WORLD_CLASS_PLAN section 20): the
+    routing switch moves background jobs onto the chat model; the Guide is a
+    panel you type into, so it keeps the utility model either way."""
     from memorymap.core import deps
 
     manager = deps.get_model_manager()
     manager.set_chat_model("big-chat-model")
     manager.set_utility_model("small-utility-model")
     deps.get_config().set_preference("smart_model_routing_enabled", False)
-    assert _guide_model(ai_client, fake_ollama) == "big-chat-model"
+    assert _guide_model(ai_client, fake_ollama) == "small-utility-model"
 
 
 def test_the_streamed_guide_turn_does_not_turn_thinking_off(ai_client, fake_ollama):

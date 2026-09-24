@@ -205,6 +205,25 @@ def _default_data_dir() -> str:
     return str(Path(base) / "MemoryMap AI")
 
 
+def resolved_data_dir() -> Path:
+    """The data directory, for code that runs before (or without) a
+    `ConfigManager`: the launcher's log file, the desktop window's profile,
+    the Repair shortcut. The same answer `ConfigManager` gives, without
+    creating anything.
+
+    **Why this exists.** Those three read `MEMORYMAP_DATA_DIR` with a bare
+    `"data"` fallback, which is right for a source checkout and wrong for the
+    installed Windows app, where the notes are in `%APPDATA%\\MemoryMap AI`
+    and nothing sets the variable. The packaged build's log and window
+    profile landed in `data\\` under whatever folder Windows started it in
+    (the install folder, or `System32`, which a standard account cannot
+    write), and the Start Menu's "Repair MemoryMap AI" cleared a folder that
+    held nothing, so the repair repaired nothing. Every packaging smoke set
+    the variable, which is why none of them saw it.
+    """
+    return Path(os.getenv("MEMORYMAP_DATA_DIR") or _default_data_dir()).resolve()
+
+
 class ConfigManager:
     """Knows the app's folders, files, and saved preferences."""
 

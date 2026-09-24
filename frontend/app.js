@@ -41222,6 +41222,17 @@ const NAME_MOOD_LEXICON = {
     penguin: "penguin* pingu",
     ghost: "ghost* spook* boo",
     alien: "alien* ufo martian*",
+    octopus: "octopus* octo octopi squid* kraken* cthulhu*",
+    bat: "bat bats",
+  },
+  //: Not every character has hands (the owner: "some can have feet or
+  //: tentacles or wings some none at all"). None is the default.
+  limbs: {
+    "wings-feather": "angel* bird* birb* cherub* pegasus* seraph* dove* feather*",
+    "wings-bat": "bat bats dragon* demon* gargoyle* wyvern*",
+    "wings-bug": "fairy fairies faerie* bee bees bumble* butterfl* moth moths pixie* sprite* wasp*",
+    tentacles: "octopus* octo octopi squid* kraken* cthulhu* tentacle* jellyfish* eldritch",
+    feet: "walker* runner* hiker* dancer* jogger* feet foot* toes sneaker* stomp*",
   },
   props: {
     hat: "wizard* witch* mage magi magician* sorcer* warlock* druid* necroman* enchant* merlin gandalf",
@@ -41275,7 +41286,7 @@ const NAME_MOOD_LEXICON = {
 function nameMood(name) {
   const raw = String(name || "").trim();
   const result = {
-    mood: null, intense: false, animal: null, props: [], flavours: [], hand: null, mutant: null,
+    mood: null, intense: false, animal: null, props: [], flavours: [], hand: null, limbs: null, mutant: null,
     style: { smile: "smile", features: [], nose: null }, source: "seed",
   };
   if (!raw) return result;
@@ -41295,6 +41306,7 @@ function nameMood(name) {
       props: group(NAME_MOOD_LEXICON.props),
       flavours: group(NAME_MOOD_LEXICON.flavours),
       hands: group(NAME_MOOD_LEXICON.hands),
+      limbs: group(NAME_MOOD_LEXICON.limbs),
       intensifiers: new Set(NAME_MOOD_LEXICON.intensifiers.split(/\s+/)),
     };
   }
@@ -41347,6 +41359,7 @@ function nameMood(name) {
   };
   result.mood = find(table.moods);
   result.hand = find(table.hands);
+  result.limbs = find(table.limbs);
   result.animal = find(table.animals);
   result.props = findAll(table.props);
   //: One hat per head: "Party wizard" wears the party hat, the one named
@@ -41512,6 +41525,9 @@ function nameMood(name) {
         spotAt: pick(6),
         fangs: pick(3) === 0,
       };
+      //: And its own limbs, or none: a mutant is the one character the
+      //: letters alone may give wings.
+      result.limbs = [null, "feet", "tentacles", "wings-bug", "wings-bat", null][pick(6)];
       result.source = "nonsense";
     }
   }
@@ -41609,10 +41625,12 @@ const NAME_MARK_CREATURES = {
   frog: { head: "#59a14f", eyesUp: true },
   pig: { head: "#ff9da7", ears: "pointy", snout: "#f07a8e" },
   owl: { head: "#9c755f", ears: "tufts", rings: "#f5f4ef", beak: "#f28e2c" },
-  chick: { head: "#edc949", beak: "#f28e2c", tuft: true },
-  penguin: { head: "#2b2a28", mask: "#f5f4ef", beak: "#f28e2c" },
+  chick: { head: "#edc949", beak: "#f28e2c", tuft: true, limbs: "feet", foot: "#f28e2c" },
+  penguin: { head: "#2b2a28", mask: "#f5f4ef", beak: "#f28e2c", limbs: "feet", foot: "#f28e2c" },
   ghost: { head: "#f5f4ef", shape: "ghost" },
   alien: { head: "#8cd17d", eyes: "alien", antenna: true },
+  octopus: { head: "#af7aa1", limbs: "tentacles" },
+  bat: { head: "#6b5b73", ears: "pointy", limbs: "wings-bat", inner: "#ff9da7" },
 };
 
 //: Which palette colours each mood's ground leans to, when the name said
@@ -41784,6 +41802,16 @@ function nameMark(seed, size = 20) {
     offX = 0;
     offY = 1.6;
   }
+  //: Limbs need somewhere to stand out from: wings and feet lift and shrink
+  //: the head a little; tentacles lift it more, since they hang the
+  //: furthest.
+  const limbs = reading.limbs || creature?.limbs || null;
+  if (limbs) {
+    grow = Math.min(grow, limbs.startsWith("wings") ? 0.64 : limbs === "tentacles" ? 0.7 : 0.78);
+    offX *= 0.4;
+    offY = limbs === "tentacles" ? -2.2 : limbs === "feet" ? Math.min(offY, 0) : 3;
+    round = true;
+  }
   const mutant = reading.mutant;
   if (reading.props.length || creature || face || mutant) eyeSpread = Math.min(eyeSpread, 1.6);
   if (face) mouthDrop = Math.min(mouthDrop, 1.2);
@@ -41800,6 +41828,8 @@ function nameMark(seed, size = 20) {
     return el;
   };
   const f = (n) => n.toFixed(2);
+  const stroke = (d, width = 1.4, colour = ink) =>
+    make("path", { d, fill: "none", stroke: colour, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round" });
   const svg = make("svg", {
     viewBox: "0 0 36 36",
     width: size,
@@ -41869,6 +41899,50 @@ function nameMark(seed, size = 20) {
       behind.appendChild(make("ellipse", { cx, cy: 3.6, rx: 1.4, ry: 5.8, fill: creature.inner || shade, transform: `rotate(${rot} ${cx} 10)` }));
     }
   }
+  //: Wings come off the upper sides, angled up into the ground the head
+  //: leaves free; feet and tentacles from below it. All behind the head,
+  //: so it sits on them. Each side is one path, mirrored for the other.
+  const mirror = (el, side) => {
+    if (side > 0) el.setAttribute("transform", "translate(36 0) scale(-1 1)");
+    return el;
+  };
+  const wingLine = { stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" };
+  if (limbs && limbs.startsWith("wings")) {
+    for (const side of [-1, 1]) {
+      const beat = make("g", { class: `nm-wing nm-wing-${side < 0 ? "l" : "r"}` });
+      //: Drawn small in the corner, then set lower and a third larger about
+      //: the joint, so the wing stands clear of the head at its side.
+      const jx = side < 0 ? 10 : 26;
+      const wing = make("g", { transform: `translate(${jx} 21) scale(1.3) translate(${-jx} -16)` });
+      beat.appendChild(wing);
+      if (limbs === "wings-feather") {
+        wing.appendChild(mirror(make("path", { d: "M10 16C4.6 14.2 1.6 9.8 2 3.8c1.4 2 2.7 2.6 3.8 2.4-.1 1.9.9 3 2.2 3.3-.2 1.7.6 2.9 1.9 3.4z", fill: "#f5f4ef", ...wingLine }), side));
+        wing.appendChild(mirror(stroke("M4.4 7.4c1 2.4 2.6 4.2 4.8 5.4", 0.4, "#1c1c1a"), side));
+      } else if (limbs === "wings-bat") {
+        wing.appendChild(mirror(make("path", { d: "M10.4 16L1.4 4.6q1.9 2.9 4.1 2.3.1 2.8 2.3 3.1.2 2.4 2.4 2.8z", fill: "#3b3440", ...wingLine }), side));
+      } else {
+        wing.appendChild(mirror(make("ellipse", { cx: 5.8, cy: 8.6, rx: 4.2, ry: 2.6, transform: "rotate(-38 5.8 8.6)", fill: "#d6ecff", "fill-opacity": 0.8, ...wingLine, "stroke-width": 0.4 }), side));
+        wing.appendChild(mirror(make("ellipse", { cx: 6, cy: 13.8, rx: 2.8, ry: 1.7, transform: "rotate(22 6 13.8)", fill: "#d6ecff", "fill-opacity": 0.8, ...wingLine, "stroke-width": 0.4 }), side));
+      }
+      behind.appendChild(beat);
+    }
+  }
+  if (limbs === "feet") {
+    const foot = creature?.foot || head;
+    for (const side of [-1, 1]) {
+      behind.appendChild(make("ellipse", { cx: 18 + side * 4.4, cy: 33.2, rx: 3, ry: 1.6, fill: foot, class: `nm-foot nm-foot-${side < 0 ? "l" : "r"}`, ...wingLine }));
+    }
+  }
+  if (limbs === "tentacles") {
+    for (const [i, x] of [10.6, 14.4, 18.2, 22, 25.8].entries()) {
+      const bend = i % 2 ? -1 : 1;
+      const d = `M${f(x)} 24q${f(bend * -1.6)} 3 0 5.6q${f(bend * 1.6)} 2.4-.6 4.6`;
+      const t = make("g", { class: `nm-tentacle${i % 2 ? " nm-tentacle-late" : ""}` });
+      t.appendChild(stroke(d, 3.2, "#1c1c1a"));
+      t.appendChild(stroke(d, 2.2, head));
+      behind.appendChild(t);
+    }
+  }
   if (creature?.tuft) {
     behind.appendChild(make("path", { d: "M18 7.5c-1.2-2.6-.4-4.6 1.4-5.3-.3 1.6.4 2.7 1.6 3.3-1.1.2-2 .9-3 2z", fill: head }));
   }
@@ -41918,8 +41992,6 @@ function nameMark(seed, size = 20) {
   const L = 13.7 - eyeSpread;
   const R = 22.3 + eyeSpread;
   const eyes = make("g", { class: "nm-eyes", fill: ink });
-  const stroke = (d, width = 1.4, colour = ink) =>
-    make("path", { d, fill: "none", stroke: colour, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round" });
 
   if (creature?.mask) onFace.appendChild(make("ellipse", { cx: 18, cy: 18.6, rx: 8.6, ry: 8.2, fill: creature.mask }));
   if (creature?.muzzle && creature.ears !== "side") onFace.appendChild(make("ellipse", { cx: 18, cy: 21, rx: 5.2, ry: 3.8, fill: creature.muzzle }));

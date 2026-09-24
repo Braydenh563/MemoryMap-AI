@@ -4648,11 +4648,22 @@ main,
   transform-origin: center;
 }
 
-/* A wave turns at the wrist. */
+/* A wave turns at the wrist; a wing beats from where it joins the head,
+   which is the inner lower corner of its box; a tentacle sways from the
+   top, where it leaves the head. */
 .name-mark .nm-wave {
   transform-box: fill-box;
   transform-origin: 50% 100%;
 }
+
+.name-mark :is(.nm-wing, .nm-tentacle, .nm-foot) {
+  transform-box: fill-box;
+}
+
+.name-mark .nm-wing-l { transform-origin: 100% 100%; }
+.name-mark .nm-wing-r { transform-origin: 0% 100%; }
+.name-mark .nm-tentacle { transform-origin: 50% 0%; }
+.name-mark .nm-foot { transform-origin: 50% 100%; }
 
 /* A googly pupil rolls round its eye, not round itself: its origin is the
    eye's centre, set per pupil in SVG units (`nameMark`). */
@@ -4699,6 +4710,12 @@ main,
     & .nm-steam { animation: nm-drift 2.4s ease-out infinite; }
     & .nm-table { animation: nm-throw 1.3s ease-in-out infinite; }
     & .nm-balloon { animation: nm-float 2.4s ease-in-out infinite; }
+    & .nm-wing-l { animation: nm-flap-l 0.5s ease-in-out infinite; }
+    & .nm-wing-r { animation: nm-flap-r 0.5s ease-in-out infinite; }
+    & .nm-tentacle { animation: nm-sway 1.6s ease-in-out infinite; }
+    & .nm-tentacle-late { animation-delay: -0.8s; }
+    & .nm-foot-l { animation: nm-step 0.8s ease-in-out infinite; }
+    & .nm-foot-r { animation: nm-step 0.8s ease-in-out -0.4s infinite; }
     &.nm-evil .nm-body { animation: nm-cackle 0.6s ease-in-out infinite; }
     &.nm-drunk .nm-body { animation: nm-swoon 3.4s ease-in-out infinite; }
     &.nm-sick .nm-body { animation: nm-sigh 2.4s ease-in-out infinite; }
@@ -4713,7 +4730,7 @@ main,
    motion lint (and a reader) looks for it. A face keeps its expression; only
    the movement goes. */
 @media (prefers-reduced-motion: reduce) {
-  .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil, .nm-wave, .nm-steam, .nm-table, .nm-balloon) {
+  .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil, .nm-wave, .nm-steam, .nm-table, .nm-balloon, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-foot-l, .nm-foot-r) {
     animation: none;
   }
 }
@@ -4754,6 +4771,10 @@ main,
 @keyframes nm-pulse { 50% { transform: scale(1.06); } }
 @keyframes nm-sigh { 40%, 60% { transform: translateY(0.8px) scaleY(0.98); } }
 @keyframes nm-roll { to { transform: rotate(360deg); } }
+@keyframes nm-flap-l { 50% { transform: rotate(-16deg); } }
+@keyframes nm-flap-r { 50% { transform: rotate(16deg); } }
+@keyframes nm-sway { 25% { transform: skewX(10deg); } 75% { transform: skewX(-10deg); } }
+@keyframes nm-step { 50% { transform: translateY(-1px) rotate(-8deg); } }
 @keyframes nm-wave { 25% { transform: rotate(-16deg); } 75% { transform: rotate(12deg); } }
 @keyframes nm-throw { 50% { transform: translate(1px, -1.4px) rotate(-12deg); } }
 @keyframes nm-cackle { 30% { transform: translateY(-0.8px) rotate(-3deg); } 60% { transform: translateY(0.3px) rotate(2deg); } }

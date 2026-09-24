@@ -230,3 +230,29 @@ def test_plain_faces_vary_their_smiles_and_features(tmp_path: Path) -> None:
     extras = {e for m in got for e in m["style"]["features"]}
     assert len(smiles) >= 5, smiles
     assert len(extras) >= 3, extras
+
+
+def test_limbs_are_not_always_hands(tmp_path: Path) -> None:
+    # The owner: "not all of them have to have hands btw, some can have feet
+    # or tentacles or wings some none at all."
+    cases = {
+        "Angel": "wings-feather",
+        "Dragon": "wings-bat",
+        "Bat": "wings-bat",
+        "Fairy": "wings-bug",
+        "Busy bee": "wings-bug",
+        "Kraken": "tentacles",
+        "Tentacle monster": "tentacles",
+        "Speed walker": "feet",
+        "Alice": None,
+    }
+    got = _moods(list(cases), tmp_path)
+    for (name, limbs), reading in zip(cases.items(), got):
+        assert reading["limbs"] == limbs, (name, reading)
+    octo, bat = _moods(["Octopus", "Bat"], tmp_path)
+    assert octo["animal"] == "octopus" and bat["animal"] == "bat"
+    # Mutants roll their own: across a handful, more than one kind, and some
+    # with none at all.
+    mutants = _moods(["xqzvbrrt", "zzkrrptt", "bcdfgh", "qwxz", "k7x9q", "brrrt", "pfft", "grrr", "hmph", "xkcd"], tmp_path)
+    kinds = {m["limbs"] for m in mutants if m["mutant"]}
+    assert len(kinds) >= 2, kinds

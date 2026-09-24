@@ -289,10 +289,9 @@ def test_tag_rename_merge_delete(client):
 
 
 def test_custom_templates_roundtrip(client):
-    # Not "Journal", that's one of the four built-in names (BUILTIN_TEMPLATE_NAMES
-    # in routes_settings.py, kept in sync by hand with BUILTIN_TEMPLATES in
-    # app.js) and a custom template can no longer claim it; see
-    # test_custom_template_cannot_shadow_a_builtin below.
+    # Not "Journal": that is one of the four built-in names, and a saved
+    # template carrying one of those is that built-in's edit rather than a
+    # template of its own; see test_a_builtin_template_is_edited_by_saving_its_name.
     updated = client.put(
         "/preferences",
         json={"custom_templates": [{"name": "Reading log", "content": "Today I…"}]},
@@ -331,17 +330,52 @@ def test_custom_template_add_edit_delete(client):
     assert deleted["custom_templates"] == []
 
 
-def test_custom_template_cannot_shadow_a_builtin(client):
-    """Deleting a built-in isn't a real operation (it never lived in
-    `custom_templates`), but saving a custom one *named* like a built-in
-    would let it silently win wherever the merged list is drawn, so the
-    server refuses the name outright."""
-    response = client.put(
+def test_a_builtin_template_is_edited_by_saving_its_name(client):
+    """INBOX 409, "templates cant be edited". The persona shape: a saved
+    template that carries a built-in's name is that built-in's edit, drawn
+    under the shipped name wherever the merged list is drawn, and removing
+    it is the reset. The server used to refuse the name outright, which is
+    what made the built-ins uneditable."""
+    saved = client.put(
         "/preferences",
         json={"custom_templates": [{"name": "Journal", "content": "Dear diary…"}]},
     )
-    assert response.status_code == 422
-    assert "built-in" in response.json()["detail"]
+    assert saved.status_code == 200
+    assert saved.json()["custom_templates"] == [
+        {"name": "Journal", "content": "Dear diary…", "description": ""}
+    ]
+    reset = client.put("/preferences", json={"custom_templates": []}).json()
+    assert reset["custom_templates"] == []
+    # One edit per built-in: a second "Journal" in the same list is the same
+    # collision two customs make, and it is refused rather than de-duped.
+    twice = client.put(
+        "/preferences",
+        json={
+            "custom_templates": [
+                {"name": "Journal", "content": "Dear diary…"},
+                {"name": "Journal", "content": "Captain's log…"},
+            ]
+        },
+    )
+    assert twice.status_code == 422
+    assert "already used" in twice.json()["detail"]
+
+
+def test_builtin_template_names_match_the_frontend():
+    """The server's set of built-in names was "kept in sync by hand" with
+    `BUILTIN_TEMPLATES` in app.js. Checked here instead, so a template added
+    to one side without the other fails the build."""
+    import re
+    from pathlib import Path
+
+    from memorymap.api.routes_settings import BUILTIN_TEMPLATE_NAMES
+
+    app_js = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    block = app_js[app_js.index("const BUILTIN_TEMPLATES = [") :]
+    block = block[: block.index("];")]
+    assert set(re.findall(r'name: "([^"]+)"', block)) == BUILTIN_TEMPLATE_NAMES
 
 
 def test_custom_template_name_collision_is_rejected_not_deduped(client):

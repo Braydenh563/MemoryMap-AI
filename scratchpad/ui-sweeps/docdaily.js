@@ -58,7 +58,9 @@ const ok = (n, c, d) => {
     await new Promise((r) => setTimeout(r, 500));
     const button = document.querySelector('#doc-template-list [data-template="daily"]');
     if (!button) return { error: "no daily choice in the dialog" };
+    //: A click chooses the row; Use this template makes it (INBOX 410).
     button.click();
+    document.getElementById("doc-template-use").click();
     await new Promise((r) => setTimeout(r, 2200));
     return { title: document.getElementById("doc-title").value, ms: Date.now() - before };
   });

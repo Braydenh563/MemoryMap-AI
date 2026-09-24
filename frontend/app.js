@@ -1101,6 +1101,29 @@ const BUILTIN_TEMPLATES = [
   { name: "Meeting", content: "Meeting about \nWho: \nDecisions: \nTo do: " },
 ];
 
+//: **Built-ins and the person's own, as one catalogue** (INBOX 409, "templates
+//: cant be edited"). The persona shape: a saved template that carries a
+//: built-in's name is that built-in's edit, kept in `custom_templates` beside
+//: the templates that are wholly the person's, so the Built-in group shows
+//: the edit's text under the shipped name, Yours shows only their own, and
+//: removing the edit is the reset. Nothing else is stored, and the built-in's
+//: original text never leaves this file. Both readers (the Capture dropdown
+//: and the Settings list) draw from this one function, so they cannot
+//: disagree about which templates exist.
+function templateCatalogue() {
+  const saved = (prefsCache && prefsCache.custom_templates) || [];
+  const edits = new Map(saved.map((t) => [t.name, t]));
+  const builtin = BUILTIN_TEMPLATES.map((t) => {
+    const edit = edits.get(t.name);
+    return { ...(edit || t), builtin: true, overridden: Boolean(edit) };
+  });
+  const shipped = new Set(BUILTIN_TEMPLATES.map((t) => t.name));
+  const custom = saved
+    .filter((t) => !shipped.has(t.name))
+    .map((t) => ({ ...t, builtin: false, overridden: false }));
+  return { builtin, custom };
+}
+
 async function loadTemplates() {
   // Built-ins + the user's own (kept in preferences). Shared with the two
   // other boot readers (A2): at boot this joins the one request in flight, and
@@ -1109,7 +1132,7 @@ async function loadTemplates() {
   await loadPreferences().catch(() => prefsCache);
   // Saved filters live in the same payload, so draw them while it's fresh.
   renderSavedSearches();
-  const custom = (prefsCache && prefsCache.custom_templates) || [];
+  const { builtin, custom } = templateCatalogue();
   const select = $("entry-template");
   select.replaceChildren();
   const none = document.createElement("option");
@@ -1119,7 +1142,7 @@ async function loadTemplates() {
   // Grouped the same way the chat skill picker groups "Yours" ahead of
   // "Built-in" (§entry-template extension): one recognisable shape for
   // "your stuff first, then what shipped" instead of a flat, unsorted list.
-  for (const [templates, title] of [[custom, "Yours"], [BUILTIN_TEMPLATES, "Built-in"]]) {
+  for (const [templates, title] of [[custom, "Yours"], [builtin, "Built-in"]]) {
     if (!templates.length) continue;
     const group = document.createElement("optgroup");
     group.label = title;
@@ -16765,6 +16788,24 @@ async function setResponseMode(chosen) {
   }).catch(() => {});
 }
 
+//: A persona's mark into its holder: the generated face for every persona
+//: but the app's own voice, which keeps the app's emblem. Shared by the
+//: persona rows in Settings and the chat's persona picker, so the two
+//: cannot draw one persona two ways.
+function fillPersonaMark(holder, name, size = 20) {
+  if (!holder) return;
+  if (name === aiNameNow()) {
+    //: The app's own mark as an image, not the live p5 emblem: that one is
+    //: a canvas that wants a mounted holder, and a list row is neither.
+    const logo = document.createElement("img");
+    logo.src = "/favicon.svg";
+    logo.alt = "";
+    logo.width = size;
+    logo.height = size;
+    holder.replaceChildren(logo);
+  } else holder.replaceChildren(nameMark(name, size));
+}
+
 function personaOptions() {
   // Built-ins + the user's custom personas (deduped: an edited built-in
   // is stored under the same name); the active one pre-selected.
@@ -16802,9 +16843,13 @@ function personaOptions() {
       fullPrompt(name).replaceAll("{ai_name}", aiNameNow()) || "This persona adds no instructions of its own.";
   };
   showPrompt(active);
+  //: A native select cannot draw a picture in an option, so the chosen
+  //: persona's mark sits beside it and follows the choice.
+  fillPersonaMark($("persona-select-mark"), select.value);
   select.onchange = () => {
     select.title = describe(select.value);
     showPrompt(select.value);
+    fillPersonaMark($("persona-select-mark"), select.value);
   };
 }
 
@@ -17773,6 +17818,11 @@ function chatAttachmentStrip(attachments) {
   return strip;
 }
 
+//: The seed for the person's own mark: their profile name, or "You".
+function userMarkSeed() {
+  return ((prefsCache && prefsCache.display_name) || "").trim() || "You";
+}
+
 function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
   const bubble = document.createElement("div");
@@ -17780,21 +17830,14 @@ function addBubble(role, text, attachments = null) {
 
   const label = document.createElement("div");
   label.className = "msg-role";
-  // **The user gets an avatar too.** Asked for directly: "I feel like the
-  // user needs a little icon in the theme of the application in the chat as
-  // well." The assistant has had one since `addAssistantBubble` started
-  // drawing the app's emblem; a one-sided transcript reads as though only
-  // one participant is really there. Same `.msg-avatar` box, so the two
-  // columns line up down the thread, the app's own accent and glyph rather
-  // than a photo, since this app has no accounts and never asks who you are.
+  // **The user's turn is named for a screen reader only.** The owner once
+  // asked for a user avatar in the label row, then later had the row hidden
+  // (08-consistency.css: on your own side of your own conversation "You"
+  // said nothing the alignment did not), so the label is read, not seen.
   if (role === "user") {
-    const avatar = document.createElement("span");
-    avatar.className = "msg-avatar msg-avatar-user";
-    avatar.setAttribute("aria-hidden", "true");
-    setLabel(avatar, "ph:user");
     const name = document.createElement("span");
     name.textContent = "You";
-    label.append(avatar, name);
+    label.append(name);
   } else {
     label.textContent = assistantLabel();
   }
@@ -17802,6 +17845,20 @@ function addBubble(role, text, attachments = null) {
   body.className = "msg-body";
   body.textContent = text;
   bubble.append(label, body);
+  //: **The person's own mark** (INBOX 409: "auto generate other icons in
+  //: other places like potentially the user chat bubbles"). Generated from
+  //: the profile name the way a persona's is, so it is theirs and the same
+  //: every time; "You" when no name is set. It sits on the bubble's top
+  //: right corner, positioned rather than in the flow, so the bubble's size,
+  //: padding and text are exactly what they were (chatmarks.js measures
+  //: that): the label row that used to hold an avatar is hidden on purpose.
+  if (role === "user") {
+    const mark = document.createElement("span");
+    mark.className = "msg-user-mark";
+    mark.setAttribute("aria-hidden", "true");
+    mark.appendChild(nameMark(userMarkSeed(), 18));
+    bubble.appendChild(mark);
+  }
   const strip = chatAttachmentStrip(attachments);
   if (strip) bubble.appendChild(strip);
 
@@ -25115,16 +25172,7 @@ async function renderPersonas() {
     //: glance; the app's own emblem for its own voice.
     const mark = document.createElement("span");
     mark.className = "persona-mark";
-    if (persona.name === aiNameNow()) {
-      //: The app's own mark as an image, not the live p5 emblem: that one is
-      //: a canvas that wants a mounted holder, and a list row is neither.
-      const logo = document.createElement("img");
-      logo.src = "/favicon.svg";
-      logo.alt = "";
-      logo.width = 20;
-      logo.height = 20;
-      mark.appendChild(logo);
-    } else mark.appendChild(nameMark(persona.name, 20));
+    fillPersonaMark(mark, persona.name);
     row.append(mark, chip(persona.name, "item-title"));
     if (persona.builtin) {
       row.appendChild(chip(persona.overridden ? "Edited" : "Built-in", "item-label"));
@@ -39598,21 +39646,41 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
   }
 }
 
-//: **A mark generated from a name** (INBOX 405, the owner: "there was a repo
-//: I got you to analyse which can generate unique avatars and I was
-//: wondering if we could utilise a similar concept"; ANALYSIS.md read
-//: blobatar and recommended the idea, not the code). The same name always
-//: draws the same mark, with nothing stored: a hash of the name seeds a
-//: small generator, which picks two related hues and a soft six-point
-//: shape over a round ground. Muted saturation and mid lightness, so a mark
-//: sits beside the app's flat looks rather than on top of them. Decorative:
+//: **A mark generated from a name** (INBOX 405, then 409: "I want the
+//: generation of persona icons to be improved"). The same name always draws
+//: the same mark, with nothing stored: a hash of the name seeds a small
+//: generator. The first version drew a soft blob on a flat disc in two
+//: related hues, and at 20px the marks read as one colour patch each, too
+//: alike to tell a list apart by (the owner's screenshot). This one is the
+//: "beam" idea from boring-avatars (the idea, not its code): a face, a
+//: rounded head in one colour set at an angle over a ground in another,
+//: with two eyes and a mouth, each part moved by the seed. Four things vary
+//: at once (two colours, the head's place, angle and shape, the face's
+//: expression), so two names that share a colour still differ in outline,
+//: and a face is what a persona, a voice with a character, is.
+//: Measured by `scratchpad/ui-sweeps/namemarks.js` (every pair of 23 marks
+//: at 40px, the share of pixels that differ): the blob's closest pair
+//: differed in 5.6% and eleven pairs were under 15%; this one's closest pair
+//: differs in 29.8%. The head is drawn a little smaller than the ground
+//: (`grow` under 1.05) because that is what put the floor there: a head
+//: that covers the disc leaves two marks of one head colour nearly alike.
+//:
+//: The colours are `CATEGORY_DOT_COLOURS`, the categorical palette the
+//: category dots already use, so a mark is drawn from the app's own ten
+//: colours rather than from a hue wheel; the ground and the head are always
+//: two different ones. The features are ink or white by the head's own
+//: luminance, so a face never vanishes into a light head. Decorative:
 //: `aria-hidden`, because the name beside it is what a screen reader says.
+let nameMarkSerial = 0;
+
 function nameMark(seed, size = 20) {
   let h = 2166136261;
   for (const ch of String(seed || "?").trim().toLowerCase()) {
     h ^= ch.codePointAt(0);
     h = Math.imul(h, 16777619) >>> 0;
   }
+  //: FNV alone leaves short, similar names close together in the low bits;
+  //: a few xorshift rounds spread them before anything is drawn from it.
   const rnd = () => {
     h ^= h << 13;
     h >>>= 0;
@@ -39621,48 +39689,88 @@ function nameMark(seed, size = 20) {
     h >>>= 0;
     return h / 4294967296;
   };
-  const hue = Math.floor(rnd() * 360);
-  const hue2 = Math.floor((hue + 35 + rnd() * 70) % 360);
+  for (let i = 0; i < 4; i += 1) rnd();
+  const palette = CATEGORY_DOT_COLOURS;
+  const groundIndex = Math.floor(rnd() * palette.length);
+  const headIndex = (groundIndex + 1 + Math.floor(rnd() * (palette.length - 1))) % palette.length;
+  const ground = palette[groundIndex];
+  const head = palette[headIndex];
+  //: Relative luminance of the head, for the features' ink.
+  const lum = [1, 3, 5]
+    .map((i) => parseInt(head.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const light = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2] > 0.4;
+  const ink = light ? "#1c1c1a" : "#ffffff";
+
+  //: The head: pushed off the middle towards a corner (never centred, so it
+  //: always has an edge against the ground), turned, and either round or a
+  //: rounded square.
+  const offX = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 7);
+  const offY = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 7);
+  const turn = Math.floor(rnd() * 360);
+  const grow = 0.85 + rnd() * 0.2;
+  const round = rnd() < 0.5;
+  //: The face follows the head part of the way, so it stays on it, and tilts
+  //: on its own a little; eyes and mouth spread by the seed.
+  const faceX = offX * 0.5;
+  const faceY = offY * 0.5;
+  const tilt = Math.round((rnd() * 2 - 1) * 12);
+  const eyeSpread = rnd() * 3.5;
+  const mouthDrop = rnd() * 2.5;
+  const mouthOpen = rnd() < 0.5;
+
   const svgNs = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(svgNs, "svg");
-  svg.setAttribute("viewBox", "0 0 32 32");
-  svg.setAttribute("width", String(size));
-  svg.setAttribute("height", String(size));
-  svg.setAttribute("class", "name-mark");
-  svg.setAttribute("aria-hidden", "true");
-  const ground = document.createElementNS(svgNs, "circle");
-  ground.setAttribute("cx", "16");
-  ground.setAttribute("cy", "16");
-  ground.setAttribute("r", "16");
-  ground.setAttribute("fill", `hsl(${hue} 42% 46%)`);
-  //: Six points round an off-centre middle, each at its own radius, joined
-  //: by quadratic curves through their midpoints: a closed, smooth blob.
-  const cx = 13 + rnd() * 6;
-  const cy = 13 + rnd() * 6;
-  const pts = Array.from({ length: 6 }, (_, i) => {
-    const a = (i / 6) * Math.PI * 2 + rnd() * 0.5;
-    const r = 6 + rnd() * 7;
-    return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+  const make = (tag, attrs) => {
+    const el = document.createElementNS(svgNs, tag);
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+    return el;
+  };
+  const svg = make("svg", {
+    viewBox: "0 0 36 36",
+    width: size,
+    height: size,
+    class: "name-mark",
+    "aria-hidden": "true",
   });
-  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-  const start = mid(pts[5], pts[0]);
-  let d = `M${start[0].toFixed(2)} ${start[1].toFixed(2)}`;
-  pts.forEach((p, i) => {
-    const m = mid(p, pts[(i + 1) % 6]);
-    d += ` Q${p[0].toFixed(2)} ${p[1].toFixed(2)} ${m[0].toFixed(2)} ${m[1].toFixed(2)}`;
+  //: A serial rather than the hash for the clip's id: the same name drawn
+  //: twice on one page (a persona row and the chat picker) would otherwise
+  //: put two elements with one id in the document.
+  nameMarkSerial += 1;
+  const clipId = `nm-${nameMarkSerial.toString(36)}`;
+  const clip = make("clipPath", { id: clipId });
+  clip.appendChild(make("circle", { cx: 18, cy: 18, r: 18 }));
+  const group = make("g", { "clip-path": `url(#${clipId})` });
+  group.appendChild(make("rect", { width: 36, height: 36, fill: ground }));
+  const f = (n) => n.toFixed(2);
+  group.appendChild(
+    make("rect", {
+      width: 36,
+      height: 36,
+      rx: round ? 18 : 7,
+      fill: head,
+      //: Scaled about the middle, written out: SVG scales about the corner.
+      transform: `translate(${f(offX)} ${f(offY)}) rotate(${turn} 18 18) translate(18 18) scale(${f(grow)}) translate(-18 -18)`,
+    })
+  );
+  const face = make("g", {
+    transform: `translate(${f(faceX)} ${f(faceY)}) rotate(${tilt} 18 18)`,
+    fill: ink,
   });
-  const blob = document.createElementNS(svgNs, "path");
-  blob.setAttribute("d", `${d} Z`);
-  blob.setAttribute("fill", `hsl(${hue2} 58% 72%)`);
-  blob.setAttribute("fill-opacity", "0.9");
-  const clip = document.createElementNS(svgNs, "clipPath");
-  const clipId = `nm-${(h >>> 0).toString(36)}`;
-  clip.setAttribute("id", clipId);
-  const clipCircle = ground.cloneNode();
-  clip.appendChild(clipCircle);
-  const group = document.createElementNS(svgNs, "g");
-  group.setAttribute("clip-path", `url(#${clipId})`);
-  group.append(ground, blob);
+  face.appendChild(make("rect", { x: f(12.5 - eyeSpread), y: 13.5, width: 2.4, height: 3, rx: 1.2 }));
+  face.appendChild(make("rect", { x: f(21.1 + eyeSpread), y: 13.5, width: 2.4, height: 3, rx: 1.2 }));
+  const my = 20.5 + mouthDrop;
+  face.appendChild(
+    mouthOpen
+      ? make("path", { d: `M13.5 ${f(my)}a4.5 3.4 0 0 0 9 0z` })
+      : make("path", {
+          d: `M14.5 ${f(my)}c2 1.6 5 1.6 7 0`,
+          fill: "none",
+          stroke: ink,
+          "stroke-width": 1.8,
+          "stroke-linecap": "round",
+        })
+  );
+  group.appendChild(face);
   svg.append(clip, group);
   return svg;
 }
@@ -49321,31 +49429,42 @@ initSpaceSwitcher();
 
 // --- capture templates, Settings pane (extends Wave B) ------------------------------
 //
-// Built-ins (BUILTIN_TEMPLATES, declared near the Capture form) are read-only
-// here: same shape as skills, where a built-in shows in the list but never
-// grows Edit/Delete buttons because there is genuinely nothing in
-// `custom_templates` to remove. The server enforces the name-collision half
-// of that (routes_settings._validated_templates); this pane just avoids
-// offering an action that would only come back as a 422.
+// Every template is editable, the built-ins included (INBOX 409, "templates
+// cant be edited"): the persona pane's shape, where editing a built-in saves
+// a copy under the same name into the same preference the person's own live
+// in (`templateCatalogue`, near the Capture form, is where that copy wins),
+// the row then says "Edited" and grows Reset, and Reset removes the copy.
+// The server's only refusal is two saved templates with one name
+// (routes_settings._validated_templates).
 
-// Which custom template (by name) the editor is currently editing, if any, 
+// Which template (by name) the editor is currently editing, if any,
 // same tracking `editingSkillName` does, so Save updates in place on a
 // rename instead of leaving a duplicate behind.
 let editingTemplateName = null;
 
+// The saved list as stored: the person's own templates and the edited
+// built-ins together, which is what every PUT writes back.
 function customTemplates() {
   return (prefsCache && prefsCache.custom_templates) || [];
 }
 
 function startEditingTemplate(template) {
   editingTemplateName = template.name;
-  $("template-name").value = template.name;
+  const name = $("template-name");
+  name.value = template.name;
+  //: A built-in's edit keeps the built-in's name: the name is what makes the
+  //: saved copy an edit of it rather than a fifth template beside it, so the
+  //: field is shown but not for typing. A person who wants a "Journal" of a
+  //: different name adds their own.
+  name.readOnly = Boolean(template.builtin);
   $("template-description").value = template.description || "";
   $("template-body").value = template.content;
   $("template-add").textContent = "Save changes";
   $("template-cancel").classList.remove("hidden");
-  $("template-status").textContent = `Editing “${template.name}”…`;
-  $("template-name").focus();
+  $("template-status").textContent = template.builtin
+    ? `Editing the built-in “${template.name}”…`
+    : `Editing “${template.name}”…`;
+  (template.builtin ? $("template-body") : name).focus();
 }
 
 function stopEditingTemplate() {
@@ -49353,6 +49472,7 @@ function stopEditingTemplate() {
   for (const id of ["template-name", "template-description", "template-body"]) {
     $(id).value = "";
   }
+  $("template-name").readOnly = false;
   $("template-add").textContent = "Add template";
   $("template-cancel").classList.add("hidden");
   $("template-status").textContent = "";
@@ -49378,10 +49498,12 @@ async function addTemplate() {
     return;
   }
   // Only the entry being edited is dropped before the push, a genuine
-  // rename. A name that instead collides with a DIFFERENT template, custom
-  // or built-in, is left in place and the save is rejected server-side
-  // (§_validated_templates) rather than silently replacing someone else's
-  // saved text the way a same-named skill would.
+  // rename (or, for a built-in, the previous edit of it). A name that
+  // instead collides with a DIFFERENT saved template is left in place and
+  // the save is rejected server-side (§_validated_templates) rather than
+  // silently replacing someone else's saved text the way a same-named skill
+  // would. A new template given a built-in's name becomes that built-in's
+  // edit, which is what the name means now.
   const custom = customTemplates().filter((t) => t.name !== editingTemplateName);
   custom.push({
     name,
@@ -49405,30 +49527,44 @@ async function addTemplate() {
 // that manage a "named, user-editable list of markdown" read as one pattern
 // rather than two. `textContent` throughout: template bodies are untrusted
 // user text and are never rendered as HTML.
-function templateRow(template, builtin) {
+function templateRow(template) {
   const li = document.createElement("li");
   const row = document.createElement("div");
   row.className = "entry-meta skill-row";
   row.appendChild(chip(template.name, "item-title"));
-  if (builtin) row.appendChild(chip("Built-in", "item-label"));
+  //: The persona row's two words: a shipped template that has been edited
+  //: says so, and the word is what tells the reader the Reset beside it
+  //: has something to restore.
+  if (template.builtin) {
+    row.appendChild(chip(template.overridden ? "Edited" : "Built-in", "item-label"));
+  }
   const note = document.createElement("span");
   note.className = "muted skill-blurb";
   note.textContent = template.description || template.content;
   row.appendChild(note);
-  if (!builtin) {
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
+  const actions = document.createElement("span");
+  actions.className = "entry-actions";
+  actions.appendChild(
+    smallButton("Edit", "Edit this template", () => startEditingTemplate(template))
+  );
+  if (template.builtin && template.overridden) {
     actions.appendChild(
-      smallButton("Edit", "Edit this template", () => startEditingTemplate(template))
-    );
-    actions.appendChild(
-      smallButton("Delete", "Remove this template", async () => {
-        if (!(await confirmDialog(`Delete the “${template.name}” template?`))) return;
+      smallButton("Reset", "Restore the original template", async () => {
+        if (editingTemplateName === template.name) stopEditingTemplate();
         await saveTemplateList(customTemplates().filter((t) => t.name !== template.name));
       })
     );
-    row.appendChild(actions);
   }
+  if (!template.builtin) {
+    actions.appendChild(
+      smallButton("Delete", "Remove this template", async () => {
+        if (!(await confirmDialog(`Delete the “${template.name}” template?`))) return;
+        if (editingTemplateName === template.name) stopEditingTemplate();
+        await saveTemplateList(customTemplates().filter((t) => t.name !== template.name));
+      })
+    );
+  }
+  row.appendChild(actions);
   li.appendChild(row);
   return li;
 }
@@ -49437,8 +49573,8 @@ async function renderTemplateSettings() {
   await loadTemplates();
   const list = $("template-list");
   list.replaceChildren();
-  for (const template of customTemplates()) list.appendChild(templateRow(template, false));
-  for (const template of BUILTIN_TEMPLATES) list.appendChild(templateRow(template, true));
+  const { builtin, custom } = templateCatalogue();
+  for (const template of [...custom, ...builtin]) list.appendChild(templateRow(template));
 }
 
 $("template-add")?.addEventListener("click", addTemplate);

@@ -730,18 +730,21 @@
   <dialog id="doc-template-dialog" class="card space-dialog doc-ai-history-dialog doc-template-dialog">
     <h3>New from a template</h3>
     <p class="muted">A starting shape, not a form, every line is yours to change. Today's date is filled in.</p>
-    <!-- The list and a picture of the page the pointed-at row makes
+    <!-- The list and a picture of the page the chosen row makes
          (`showDocTemplatePreview`, documents.js). The picture is the same
          text the button would create, rendered, so it cannot describe a
          template differently from what it is. Decorative for a screen
          reader, which has each row's own hint, and inert so a task box drawn
-         in it cannot be ticked. -->
+         in it cannot be ticked. The rows are radios (`openDocTemplateDialog`
+         builds them): a click chooses, and only Use this template, Enter or
+         a double click makes the document (INBOX 410). -->
     <div class="doc-template-body">
-      <ul id="doc-template-list" class="doc-ai-history-list" role="list"></ul>
+      <ul id="doc-template-list" class="doc-ai-history-list" role="radiogroup" aria-label="Templates"></ul>
       <div id="doc-template-preview" class="doc-template-preview" aria-hidden="true" inert></div>
     </div>
     <div class="row right space-dialog-actions">
       <button type="button" class="ghost" data-close-dialog="doc-template-dialog">Cancel</button>
+      <button type="button" class="accent" id="doc-template-use">Use this template</button>
     </div>
   </dialog>
   <!-- **These two live here, beside the other dialogs, and not inside
@@ -2453,7 +2456,10 @@
                   </label>
                   <label class="chat-dock-more-row">
                     <span class="muted">Persona</span>
-                    <select id="persona-select" class="small-select" aria-label="Persona"></select>
+                    <span class="persona-picker">
+                      <span id="persona-select-mark" class="persona-mark" aria-hidden="true"></span>
+                      <select id="persona-select" class="small-select" aria-label="Persona"></select>
+                    </span>
                   </label>
                   <!-- You could pick a persona but never see what it actually
                        told the model to do. -->
@@ -7906,8 +7912,9 @@
             <div class="help-body hidden" id="templates-help" role="dialog" aria-label="About templates">
               <p>
                 A template fills the Capture box with a starting shape, a
-                recipe's ingredient list, a meeting's agenda. The built-in
-                ones can't be edited or removed; your own can. Picking one
+                recipe's ingredient list, a meeting's agenda. A built-in one
+                can be edited, and Reset brings the original back; your own
+                can also be removed. Picking one
                 from the Capture tab's dropdown never throws away text
                 you've already typed there without asking first.
               </p>

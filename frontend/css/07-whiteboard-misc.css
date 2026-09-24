@@ -141,7 +141,7 @@
      whole of "objects are difficult and annoying to move", since a small
      object's clickable area is mostly covered by its own 8 handles. */
   pointer-events: none;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 /* Interactive (and visible) only in the Select tool, `:hover` alone fires
@@ -187,7 +187,7 @@
   opacity: 0;
   pointer-events: none;
   /* see .wb-resize-handle's own comment above */
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .wb-rotate-handle::before {
@@ -398,7 +398,7 @@
   justify-content: center;
   /* Explicit properties, not `all`, only `background`/`color` change, on
      `:hover` just below. */
-  transition: background var(--motion-slow) ease, color var(--motion-slow) ease;
+  transition: background var(--motion-slow) var(--ease-out), color var(--motion-slow) var(--ease-out);
   padding: 0;
 }
 
@@ -449,7 +449,7 @@
      instantly by applySidebarWidth, so animating the aside's own width
      only made it lag its track. Opacity and transform are the only
      animated properties in the shell (Phase 4). */
-  transition: box-shadow var(--motion-slow) ease;
+  transition: box-shadow var(--motion-slow) var(--ease-out);
   box-shadow: none;
   border-right: 1px solid var(--border);
 }
@@ -457,7 +457,7 @@
 .sidebar-collapsed>*:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 /* Hover-peek */
@@ -487,7 +487,7 @@
 .layout-sidebar-collapsed>.sidebar-collapsed:hover>*:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
   opacity: 1;
   pointer-events: auto;
-  transition: opacity var(--motion-slow) ease var(--motion-fast);
+  transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast);
 }
 
 /* The toggle moves back to `right: 1.25rem` on hover-peek (above): the same
@@ -534,9 +534,9 @@
    transform actually animates. */
 .wb-card,
 .library-chip {
-  transition: transform var(--motion-slow) cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
-    border-color 0.2s ease;
+  transition: transform var(--motion-slow) var(--ease-out),
+    box-shadow var(--motion-slow) var(--ease-out),
+    border-color var(--motion-slow) var(--ease-out);
 }
 
 @media (hover: hover) {
@@ -617,6 +617,20 @@
   contain-intrinsic-size: auto 2.6rem;
 }
 
+/* Each list's placeholders are its own rows' shape (`showSkeletons`,
+   app.js; the look is `.skeleton`, 02-chat-graph.css): a Library card's
+   height in the grid's columns, a Timeline row's in the feed. */
+.library-grid > .skeleton {
+  height: 6.5rem;
+  break-inside: avoid;
+  margin-bottom: var(--space-6);
+}
+
+.timeline-feed > .skeleton {
+  height: 2.6rem;
+  margin-bottom: var(--row-gap);
+}
+
 @media (hover: hover) {
   .card.interactive:hover,
   .wb-card:hover:not(.dragging) {
@@ -657,7 +671,7 @@
   background: var(--inner);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  transition: transform var(--motion-slow) ease, border-color var(--motion-slow) ease;
+  transition: transform var(--motion-slow) var(--ease-out), border-color var(--motion-slow) var(--ease-out);
 }
 
 @media (hover: hover) {
@@ -1954,7 +1968,7 @@ body.has-agent-monitor #tab-library .library-view-section {
      sets this same value explicitly for the same reason. Reported
      directly as "more rounded than the ones in the Notes tab", correct. */
   border-radius: var(--radius-md);
-  transition: background var(--motion-slow), color var(--motion-slow), transform var(--motion-fast), box-shadow var(--motion-slow);
+  transition: background var(--motion-slow) var(--ease-out), color var(--motion-slow) var(--ease-out), transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
 }
 
 .library-view-section {
@@ -2814,7 +2828,7 @@ body.scroll-top-visible .skills-split > main {
   gap: var(--space-1);
   flex: 0 0 auto;
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .space-option:hover .space-option-actions,
@@ -3853,7 +3867,7 @@ button.setting-hint-toggle {
    so the browser's own disclosure triangle stays where it is. */
 summary:not(.icon-only):not(.icon-button) {
   border-radius: var(--radius-md);
-  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+  transition: background var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
 }
 
 summary:not(.icon-only):not(.icon-button):hover {
@@ -4356,7 +4370,7 @@ input[type="url"]:hover:not(:focus) {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(-45deg);
-  transition: transform var(--motion-fast) ease;
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 details[open] > .about-whats-new::before,
@@ -4453,6 +4467,16 @@ button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not
   border: 1px solid transparent;
 }
 
+/* And its hover, which it never had (INBOX 405): every one of these took its
+   hover from `button:hover`'s brightness filter, so with the filter gone the
+   graph's zoom buttons measured the same colour hovered as at rest. One step
+   up the same tonal pair `.ghost` uses. The document toolbar paints its own
+   (below), so it is left to it. */
+button.icon-only:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary):not(.doc-toolbar *):hover:not(:disabled),
+button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not(.wb-tool):not(.graph-popup-tool-primary):not(.icon-primary):not(.doc-toolbar *):hover:not(:disabled) {
+  background: var(--ghost-btn-bg-hover);
+}
+
 /* **The formatting strip is another of those grouped sets, and it took a
    report to notice.** "the expand toolbar and hide formatting tools dont have
    curved corners like they look like when hovered over", a complaint about
@@ -4539,7 +4563,7 @@ button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not
   justify-content: center;
   border-radius: var(--radius-pill);
   background: var(--ghost-btn-bg);
-  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+  transition: background var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
 }
 
 .unlink:hover {
@@ -4763,8 +4787,8 @@ summary:not(.icon-only):not(.icon-button) {
     0 1px 2px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   transition:
-    background var(--motion-fast) ease,
-    border-color var(--motion-fast) ease;
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
 }
 
 .library-card-tick:hover,
@@ -5716,7 +5740,7 @@ summary:not(.icon-only):not(.icon-button) {
      same carve-out `.library-image-actions` already carries. */
 .library-image-tile:has(> .library-image-frame) > .library-tile-tick {
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .library-image-tile:has(> .library-image-frame):hover > .library-tile-tick,
@@ -8220,8 +8244,10 @@ button.connection-row {
   cursor: crosshair;
 }
 
+/* The stroke takes the accent, the same answer the cards' outline gives; a
+   `drop-shadow` glow here was a filter on hover (INBOX 405). */
 #whiteboard-container[data-current-tool^="link-"] .sketch-group:hover .sketch-path {
-  filter: drop-shadow(0 0 3px var(--accent));
+  stroke: var(--accent);
   cursor: crosshair;
 }
 
@@ -10192,7 +10218,7 @@ input[type="file"] {
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-sm);
   color: var(--ink);
-  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition: box-shadow var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out);
   cursor: pointer;
 }
 
@@ -10237,7 +10263,7 @@ input[type="file"] {
 }
 
 .wb-map-radial-slot i {
-  transition: color 0.15s ease;
+  transition: color var(--motion-base) var(--ease-out);
   flex-shrink: 0;
 }
 
@@ -10520,7 +10546,7 @@ input[type="file"] {
   z-index: 1;
   opacity: 0;
   pointer-events: auto;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .wb-map-edge-plus:hover,
@@ -10568,7 +10594,7 @@ input[type="file"] {
   stroke-width: 2px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 /* Two ways of opening, and the first is the one that always works: pointing
@@ -11549,7 +11575,7 @@ header#top-bar {
     overflow-y: auto;
     border-radius: 0 var(--radius) var(--radius) 0;
     transform: translateX(calc(var(--sheet-rail) - 100%));
-    transition: transform var(--motion-slow) ease, box-shadow var(--motion-slow) ease;
+    transition: transform var(--motion-slow) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
     box-shadow: none;
   }
 

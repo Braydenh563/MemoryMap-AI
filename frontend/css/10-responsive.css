@@ -269,7 +269,7 @@ header#top-bar,
 .dock,
 .notes-subtabs,
 .library-subtabs {
-  transition: box-shadow var(--motion-base) ease;
+  transition: box-shadow var(--motion-base) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -687,7 +687,7 @@ header#top-bar,
   color: var(--ink);
   font-weight: 600;
   white-space: nowrap;
-  transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease;
+  transition: transform var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
 /* Hover and focus say the same thing, because half the point of this sheet is
@@ -959,7 +959,7 @@ header#top-bar,
        targets. What shrinks here is a real box with real content in it, so
        it is a real layout change.
        The reduced-motion block in this file turns every transition off. */
-    transition: height var(--motion-slow) ease;
+    transition: height var(--motion-slow) var(--ease-out);
   }
 
   /* Four parts to the strip against one to More is five equal columns: the
@@ -1657,7 +1657,7 @@ header#top-bar,
   }
 
   .entry-list li.is-settling > * {
-    transition: transform var(--motion-base) ease;
+    transition: transform var(--motion-base) var(--ease-out);
   }
 
   .entry-list li::before,

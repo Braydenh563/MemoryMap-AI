@@ -137,6 +137,17 @@ select optgroup {
   --motion-fast: 0.12s;   /* hover/press feedback, checkbox/toggle state */
   --motion-base: 0.16s;   /* the default: colour, background, border, opacity */
   --motion-slow: 0.2s;    /* a bigger move: panel/sidebar open, card lift */
+  /* The curves (INBOX 399 (4)). `ease` was the curve of 125 of the app's
+     transitions and `ease-out` or a hand-written cubic-bezier of the rest,
+     five curves for one kind of motion. A control that answers the pointer
+     should arrive at once and settle, which is what `--ease-out` does: most
+     of the change in the first third. `--ease-in-out` is for a thing that
+     travels between two resting places; `--ease-spring` overshoots once, for
+     a knob or a pop, never for a surface. Every transition names one of the
+     three (`tests/test_motion_tokens.py`). */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --space-1: calc(0.25rem * var(--density));
   --space-2: calc(0.4rem * var(--density));
   --space-3: calc(0.5rem * var(--density));
@@ -1444,7 +1455,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      run. `hidden` would also fight the hover rule below. */
   visibility: hidden;
   opacity: 0;
-  transition: opacity var(--motion-fast) ease, visibility var(--motion-fast);
+  transition: opacity var(--motion-fast) var(--ease-out), visibility var(--motion-fast) var(--ease-out);
 }
 
 .ai-status-wrap:hover .ai-status-popup,
@@ -2163,7 +2174,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   top: var(--space-3);
   right: var(--space-3);
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .library-card:hover .library-card-menu,
@@ -2646,7 +2657,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   /* See the visibility rule further down: this used to be 0, so the kebab did
      not exist until the pointer found it. */
   opacity: 0.6;
-  transition: opacity var(--motion-base) ease;
+  transition: opacity var(--motion-base) var(--ease-out);
 }
 
 /* **The row above now holds exactly one control, and that is the point.**
@@ -3137,7 +3148,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   content: "▸";
   flex: 0 0 auto;
   opacity: 0.7;
-  transition: transform var(--motion-base) ease;
+  transition: transform var(--motion-base) var(--ease-out);
 }
 
 .library-image-reading[open] > summary::before {
@@ -3840,6 +3851,14 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-weight: 600;
 }
 
+/* The tabs you are not on answer the pointer (INBOX 405): full ink and the
+   veil, where they used to get only `button:hover`'s 7% brightness, which on
+   muted text on a light bar made the label paler, not stronger. */
+#tab-bar button:not(.active):hover {
+  color: var(--ink);
+  background: var(--hover-veil);
+}
+
 :root[data-mode="dark"] #tab-bar button.active {
   color: #0e1017;
 }
@@ -4435,7 +4454,7 @@ summary.small.icon-button {
      once that transition ends, so nothing sits behind it accepting clicks
      after this. */
   opacity: 1;
-  transition: opacity 220ms ease-out;
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .boot-splash.hidden {
@@ -4502,7 +4521,7 @@ summary.small.icon-button {
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: left center;
-  transition: transform 220ms ease-out;
+  transition: transform var(--motion-slow) var(--ease-out);
   animation: boot-splash-progress-crawl 2.4s ease-out forwards;
 }
 

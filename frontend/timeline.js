@@ -508,7 +508,10 @@ async function renderTimeline() {
   const url = `${timelineQuery()}&limit=${TIMELINE_PAGE}`;
   //: Which of these entries are maps, awaited alongside the timeline rather
   //: than before it, because neither needs the other's answer.
+  const feed = $("timeline-feed");
+  if (!feed.closest(".hidden")) showSkeletons(feed, 5);
   const [body] = await Promise.all([apiJson(url).catch(() => null), loadMapBoardIndex()]);
+  clearSkeletons(feed);
   //: A null here is a request that failed, not a notebook with nothing in it,
   //: and the two used to look identical on screen: "Nothing to plot yet" over
   //: a notebook full of dated notes. See `surfaceFailed`.

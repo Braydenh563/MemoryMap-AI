@@ -194,6 +194,27 @@ were deliberately left alone rather than mechanically swept, since a
 keyframe's duration is part of what makes that specific effect read right,
 not a value drifting for no reason.
 
+**The curves, and the rule that holds all of this (INBOX 399 (4)).** Three
+curves beside the three durations: `--ease-out` (`cubic-bezier(0.2, 0.8, 0.2,
+1)`, the default: a control that answers the pointer arrives at once and
+settles), `--ease-in-out` (a thing that travels between two resting places)
+and `--ease-spring` (one overshoot, for a knob or a pop, never a surface; the
+switches' knob uses it). Every `transition` names a duration token and a curve
+token, or `linear`; never `transition: all`; an item with no curve runs on
+`ease` and fails the lint too. `tests/test_motion_tokens.py`. Measured before:
+125 transitions on `ease`, eleven raw durations, four hand-written curves.
+
+**A hover is a colour, never a `filter`** (INBOX 405). `button:hover` was
+`filter: brightness(1.07)` on every button: too small to read as a state, and a
+compositing layer per hover that re-rasterised the text (the chat's "Jump to
+latest" pill flickered in the desktop window). A solid button goes one step
+deeper, `--accent-surface-hover`, through `--button-ground` so only buttons
+that kept the solid ground receive it; any other ground takes `--hover-veil` as
+a `background-image` or a background. `scratchpad/ui-sweeps/f2-hover.js` forces
+`:hover` on every drawn button of every tab and lists those that change
+nothing: 101 of 571 with the filter gone, 0 after (the selected segment and
+tab excepted, which need none).
+
 **Not done, said plainly:** motion is a user setting (`prefers-reduced-motion`)
 that only some components still honour, each with its own `@media` block,
 see "What is not done yet" below. There is no gesture-driven motion anywhere
@@ -382,6 +403,9 @@ this table and its lint in the same commit as the feature, never after.
 | Two panes showing one document (a source pane beside its rendered pane) | the two are kept on the same place by a **line-to-block map**, never by a scroll fraction. `renderMarkdown` (app.js) stamps every block it draws with the source line it came from (`data-src-line`); `docScrollAnchors` (documents.js) pairs each stamp with that line's top in the editor (CodeMirror's `lineBlockAt`, which answers for the whole document, not `coordsAtPos`, which answers null off screen) and the block's own **rect, corrected by the pane's rect and scroll**, in the preview, never `offsetTop`, which is taken from the nearest positioned ancestor and ran 218px past the truth at 1440, 230px at 1024 and 146px with the sidebar collapsed (INBOX 281); the sync interpolates between the two nearest pairs and carries the end segments' slopes outwards. The stamps count lines in the string the preview rendered, so the title prefix and the stripped frontmatter are undone through `docPreviewLineShift`. A fraction is exact at both ends and wrong in the middle, because a picture is one line of source and four hundred pixels of preview and every such block shifts everything below it in one pane only: measured on a five-section document, the preview was 282, 292, 266, 404 and 550px out at the five headings, growing downwards. With the map: 0, 75, 0, 0, 0. The fraction stays as the fallback for a surface with no line map of its own | `tests/test_ui_recipes.py` |
 | A syntax error or a completion list in a code document | CodeMirror's own linter, lint gutter and completion list, mounted by `docCodeTools` (documents.js) for code types only and never in Plain, and restyled in `docCmTheme` onto the tokens: the underline is the prose findings' wavy line in the kind's ink (`--error`, `--warn`, dotted `--muted` for a note), the gutter mark a dot in the same ink outside the line numbers, the hover and the list on `--modal-bg-opaque` because words laid over code must not read through, the chosen row `--accent-soft`. Checked where a real parser is: the browser for JSON (`docJsonErrorAt`), JavaScript, TypeScript and CSS (the Lezer tree), the server for Python, TOML, XML and YAML (`POST /documents/check-syntax`); never by running the file. **A fix for one** is an `action` on its diagnostic: drawn by the hover card as a `.cm-diagnosticAction` button on `--accent-soft` (never the library's dark slab), and listed at the caret by Alt+Enter through `openMenuAtPoint` with the two formats beneath, fixes first; never on Ctrl+., which the shortcut registry gives to stopping an answer. A fix is recomputed from the text when chosen (`docCodeFixNow`), never applied from offsets taken at lint time. **Pairs and Enter** are `closeBrackets` and the indent service in the same compartment (`docCodeEditing`), so they follow the file type and Plain exactly as the diagnostics do. **Format** is one ghost `#doc-code-format` button in the document's dock, shown for code types where the markdown strip is hidden (the two swap in `syncDocFileType`), with Shift+Alt+F and a palette row reaching the same `docFormatCode`: refused with a toast naming the line when the file does not parse, one undo step when it does | `tests/test_ui_recipes.py`, `tests/test_syntax_check.py`, `tests/test_code_editing.py`, `scratchpad/ui-sweeps/doccode.js`, `scratchpad/ui-sweeps/doccodeedit.js` |
 | Spacing, type, radius, shadow, motion | the tokens above; a px in a stylesheet is a lint failure | `tests/test_style_scale.py` |
+| A transition, a hover | a `--motion-*` duration and an `--ease-*` curve on every transition, never `all`; a hover is a colour (`--accent-surface-hover` for a solid button, `--hover-veil` over any other ground), never a `filter` | `tests/test_motion_tokens.py`, `scratchpad/ui-sweeps/f2-hover.js` |
+| A notification (toast) | `toast`, `toastAction` or `toastProgress` in app.js; it arrives and leaves by fading with 4px of travel (`toast-in`, `toast-out`, on `translate`), and every way out goes through `dismissToast`, never `note.remove()`, so none of them vanishes between two frames | `scratchpad/ui-sweeps/f2-skel.js` |
+| A list whose first rows are on their way | `showSkeletons(list, n)` before the fetch and `clearSkeletons(list)` after it (app.js): the `.skeleton` placeholders at the height of the list's own rows, `aria-busy` while they show, only ever into an empty list; the list's own render replaces them. Never a spinner or a blank card where the shape of the content is known | `scratchpad/ui-sweeps/f2-skel.js` |
 | An animation of anything | `transform` and `opacity`, never `width`, `height`, `top`, `left`, `margin` or `padding`. A bar that fills is a full-width box scaled from a left origin inside a track that clips (`.boot-splash-progress-fill`, 00-tokens-shell.css), never a box that grows: measured, the width version cost 121 layouts for one 2.4s crawl and the scaled one costs none. A box that genuinely does change size with content in it keeps its transition and states the reason in a comment on the line above, as `#phone-tab-dock` does | `tests/test_cheap_animations.py`, `scratchpad/ui-sweeps/animcost.js` |
 | Copy | sentence case, no em-dashes, no exclamation marks, one line per section | `tests/test_no_em_dashes.py` |
 

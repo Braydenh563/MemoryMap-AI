@@ -4320,6 +4320,21 @@ function openActionMenu(menu, opener) {
   if (menu.getBoundingClientRect().bottom > bound.bottom) {
     menu.classList.add("action-menu-flip");
   }
+  //: **A select's list starts under its own box** (the owner, with a
+  //: screenshot: the Corner companion list opened out to the left of its
+  //: select, over the section nav). Menus hang from their opener's right
+  //: edge, which suits a ⋯ at the end of a row; a select's list is read
+  //: down from the value it replaces, so it takes the opener's left edge
+  //: whenever it fits that way, and keeps the right edge only when it
+  //: would otherwise run past its container.
+  menu.classList.remove("action-menu-start");
+  if (opener.closest(".select-shell")) {
+    const openerBox = opener.getBoundingClientRect();
+    const width = menu.getBoundingClientRect().width;
+    if (openerBox.left + width <= Math.min(bound.right, window.innerWidth) - 4) {
+      menu.classList.add("action-menu-start");
+    }
+  }
   //: **And if flipping is not enough, leave the box entirely.** Asked for
   //: app-wide: "make sure the popup menus dont get clipped or go off the
   //: screen." Measured on the live app: **21** absolutely-positioned menus sit

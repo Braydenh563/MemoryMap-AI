@@ -6093,3 +6093,9 @@ button.ghost.danger:hover {
     display: none;
   }
 }
+
+/* A select's list hung from its box's left edge (openActionMenu). */
+.action-menu.action-menu-start {
+  left: 0;
+  right: auto;
+}

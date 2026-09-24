@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
   it still selects the next match.
 - Settings, Models says what the built-in search engine costs in memory
   (about 650 MB while the app is open, measured) and that choosing Ollama for
+- A dropdown's list opens under its own box, left edges aligned, and only hangs from the right edge when it would otherwise run past its container (the Corner companion list opened out to the left over the Settings nav).
   embeddings keeps MemoryMap itself near 100 MB. Measured with the imports at
   startup, which were already lazy: nothing heavier than FastAPI, SQLAlchemy
   and alembic loads before the embedding model does.

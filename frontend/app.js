@@ -42649,6 +42649,19 @@ $("about-restart")?.addEventListener("click", async () => {
 // Takes effect on the next close, not on a restart, the handler reads the
 // preference each time the window is closed rather than at launch, precisely
 // so this switch is not a "restart to apply" one.
+//: Read by the launcher on the next launch, before any window opens, so this
+//: is not a "restart to apply" switch either: it decides what the *next*
+//: double-click does.
+$("pref-new-window-on-launch")?.addEventListener("change", (e) => {
+  const checked = e.target.checked;
+  setPreference("new_window_on_launch", checked);
+  toast(
+    checked
+      ? "Launching again will open another window onto this notebook."
+      : "Launching again will bring this window forward."
+  );
+});
+
 $("pref-close-to-tray")?.addEventListener("change", (e) => {
   const checked = e.target.checked;
   setPreference("close_to_tray", checked);

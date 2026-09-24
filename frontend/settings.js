@@ -292,6 +292,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   // a browser tab, and a setting whose effect is unreachable reads as broken.
   $("desktop-tray-row")?.classList.toggle("hidden", !isDesktop);
   $("desktop-tray-hint")?.classList.toggle("hidden", !isDesktop);
+  $("desktop-advanced-fold")?.classList.toggle("hidden", !isDesktop);
   // Same reasoning as the tray/console rows above: /system/restart can only
   // ever do something in the packaged desktop app on Windows specifically
   // (the one platform _spawn_desktop knows how to relaunch), not desktop in
@@ -314,6 +315,8 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     // install that has never touched this has no stored value, and Boolean()
     // of undefined would render the default as off.
     $("pref-close-to-tray").checked = prefsCache?.close_to_tray ?? true;
+    //: Off unless chosen: a second launch brings the open window forward.
+    $("pref-new-window-on-launch").checked = Boolean(prefsCache?.new_window_on_launch);
   }
   // Rebuilt each open rather than once at startup: the list reflects saved
   // preferences, and those can change from another window or a restore.

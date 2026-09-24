@@ -10366,6 +10366,21 @@
                 stops any background work). With it off, closing the window
                 quits.
               </p>
+              <!-- The owner's decision: one running copy per notebook, and a
+                   second launch brings its window forward. This switch is the
+                   one exception, and only for windows: on, each launch opens
+                   another window onto the SAME running server, never a second
+                   server on the same data directory (core/instance_lock.py).
+                   Folded under Advanced because almost nobody wants it, and
+                   desktop-only like its neighbours. -->
+              <details class="settings-fold hidden" id="desktop-advanced-fold">
+                <summary>Advanced</summary>
+                <label class="check-row">
+                  <input type="checkbox" id="pref-new-window-on-launch">
+                  <span>Open a new window on each launch</span>
+                </label>
+                <p class="muted">Off: launching again brings the open window forward. On: each launch opens another window onto the same running app.</p>
+              </details>
               <!-- What changed, read from CHANGELOG.md rather than kept as a
                    second in-app list that would drift from it (§36E). Folded
                    shut: it is long, and About is not where you go to read it

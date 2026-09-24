@@ -9,6 +9,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- One running copy per notebook. Launching the desktop app while it is
+  already open now brings the open window forward instead of starting a
+  second server on the same data folder, which used to run the migrations
+  and background work against the SQLite file the first copy had open before
+  failing to bind the port. A running server writes `instance.lock` (port,
+  pid, a token) into the data folder; a launch checks it against `/health`
+  and asks the running copy to focus its window (`POST /instance/focus`,
+  guarded by that token). A lock whose port is silent and whose process is
+  gone, or past a 90 second boot grace, is stale and is taken over. Settings,
+  About, Advanced has "Open a new window on each launch", off by default: on,
+  a second launch opens another window onto the same running server, never a
+  second server. The rules are pure functions tested in
+  `tests/test_instance_lock.py` (24 tests, launcher driven with a fake
+  pywebview); not verified against a real pywebview window, Windows'
+  foreground rules or two windows sharing one WebView2 profile.
 - Settings, Preferences is now Profile & preferences, your own local
   profile, and sits second in the settings list, right after Models. It opens
   on a head with your mark (the same generated face your chat bubbles wear,

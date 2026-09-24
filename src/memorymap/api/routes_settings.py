@@ -258,6 +258,10 @@ class PreferencesBody(BaseModel):
     #: Pydantic does not know about is silently dropped, so a setting that is
     #: never declared is a switch that never saves.
     close_to_tray: bool | None = None
+    #: Whether a second desktop launch opens another window onto the running
+    #: server rather than bringing the running window forward. Read by
+    #: __main__.py before any window opens (core/instance_lock.py).
+    new_window_on_launch: bool | None = None
     #: Which status-bar slots the user has switched off. **The list of what is
     #: hidden, not what is shown**, see `STATUS_SLOTS` in app.js: a slot added
     #: in a later version then appears by default for everyone, instead of
@@ -579,6 +583,8 @@ def get_preferences() -> dict:
         # Default True, matching `_on_closing` in __main__.py: the two must
         # agree or the checkbox shows the opposite of what the window does.
         "close_to_tray": config.get_preference("close_to_tray", True),
+        # Default False, matching `_run_desktop` in __main__.py.
+        "new_window_on_launch": config.get_preference("new_window_on_launch", False),
         "status_bar_hidden": config.get_preference("status_bar_hidden", []),
         "status_bar_clock": config.get_preference("status_bar_clock", False),
     }

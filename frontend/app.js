@@ -31591,6 +31591,15 @@ async function switchTab(name) {
   }
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
+  // The Library's Images/Files sub-tab polls `/media` every six seconds
+  // (library.js), and only another Library *sub-tab* stopped it: leaving the
+  // Library itself left it fetching on every other tab until the person came
+  // back (INBOX 424 d). Stopped on leaving; restarted on return when that
+  // sub-tab is still the one showing.
+  if (typeof stopLibraryImagesPoll === "function") {
+    if (name !== "library") stopLibraryImagesPoll();
+    else if ($("library-view-media") && !$("library-view-media").classList.contains("hidden")) startLibraryImagesPoll();
+  }
   //: **The page is revealed first and its data loaded second, with the tab's
   //: own code fetched in between** (WORLD_CLASS_PLAN A1). Everything above
   //: this line is DOM and it stays synchronous, so a tab press still paints

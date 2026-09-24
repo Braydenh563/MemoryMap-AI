@@ -1132,55 +1132,150 @@ async function loadTemplates() {
   await loadPreferences().catch(() => prefsCache);
   // Saved filters live in the same payload, so draw them while it's fresh.
   renderSavedSearches();
+  //: The Capture box's picker reads `templateCatalogue()` when it opens
+  //: (`openNoteTemplateDialog`), so there is nothing to pre-build here: a
+  //: template saved in Settings is in the next opening without a redraw.
+}
+
+// --- the Capture box's template picker (INBOX 410) ---------------------------
+//
+// **Choosing is not making**, for notes as for documents. The owner decided it
+// on 2026-09-24: the Capture box's templates get the confirm step the
+// documents' New from a template has (`openDocTemplateDialog` in documents.js).
+// The picker was a native `<select>` whose `change` filled the box the moment
+// a name was touched, so arrowing down the list to read the names wrote the
+// note once per name, and a template picked by mistake asked "replace what
+// you've written?" before you had seen what it was. Now it is DESIGN.md's
+// recipe for a dialog of choices that each make something: radio rows (yours
+// first, then the built-in ones), the chosen row's text beside them, and one
+// filled button, Use this template, that fills the box. Enter on the list and a
+// double click also make it; the first row is chosen on open so one Enter still
+// works. This file, not documents.js, because the Capture box is always loaded
+// and the documents bundle is not.
+let noteTemplateChoice = null;
+let noteTemplateMade = false;
+
+//: The text a template puts in the Capture box. One function for the preview
+//: and the fill, so the preview cannot show something the button would not
+//: write (the recipe's rule, `docTemplateFill`'s for documents).
+function noteTemplateFill(template) {
+  return String(template?.content || "").replace("{date}", new Date().toLocaleDateString());
+}
+
+//: Yours first, then the built-in ones, as the old dropdown's groups were:
+//: one recognisable shape for "your stuff first, then what shipped".
+function noteTemplateRows() {
   const { builtin, custom } = templateCatalogue();
-  const select = $("entry-template");
-  select.replaceChildren();
-  const none = document.createElement("option");
-  none.value = "";
-  none.textContent = "No template";
-  select.appendChild(none);
-  // Grouped the same way the chat skill picker groups "Yours" ahead of
-  // "Built-in" (§entry-template extension): one recognisable shape for
-  // "your stuff first, then what shipped" instead of a flat, unsorted list.
-  for (const [templates, title] of [[custom, "Yours"], [builtin, "Built-in"]]) {
-    if (!templates.length) continue;
-    const group = document.createElement("optgroup");
-    group.label = title;
-    for (const template of templates) {
-      const option = document.createElement("option");
-      option.value = template.name;
-      option.textContent = template.name;
-      option.dataset.content = template.content;
-      if (template.description) option.title = template.description;
-      group.appendChild(option);
-    }
-    select.appendChild(group);
+  return [...custom, ...builtin];
+}
+
+function chooseNoteTemplate(template, { focus = false } = {}) {
+  if (!template) return;
+  noteTemplateChoice = template;
+  for (const row of document.querySelectorAll("#note-template-list .doc-template-choice")) {
+    const on = row.dataset.template === template.name;
+    row.setAttribute("aria-checked", String(on));
+    //: The radio pattern's roving tab stop, as in the documents' dialog.
+    row.tabIndex = on ? 0 : -1;
+    if (on && focus) row.focus();
+  }
+  showNoteTemplatePreview(template);
+}
+
+//: The chosen template's text as it will land in the box, inert and hidden
+//: from a screen reader (each row already says what it is). A note is plain
+//: text in the box, so the preview is the text itself, wrapped as it would be.
+function showNoteTemplatePreview(template) {
+  const pane = $("note-template-preview");
+  if (!pane || !template) return;
+  const page = document.createElement("div");
+  page.className = "doc-template-page note-template-page";
+  const text = document.createElement("p");
+  text.className = "note-template-text";
+  text.textContent = noteTemplateFill(template);
+  page.appendChild(text);
+  pane.replaceChildren(page);
+}
+
+async function useNoteTemplate() {
+  //: A double click is a click and then a dblclick, and Enter can follow
+  //: either: one fill per opening, whichever way it was confirmed.
+  if (noteTemplateMade || !noteTemplateChoice) return;
+  noteTemplateMade = true;
+  const template = noteTemplateChoice;
+  $("note-template-dialog")?.close();
+  const box = $("entry-content");
+  if (!box) return;
+  //: Never silently overwrite what has already been typed: asked after the
+  //: choice is confirmed, so the question names a template the writer has
+  //: seen rather than one the list happened to land on.
+  if (box.value.trim()) {
+    const replace = await confirmDialog(
+      `Replace what you've already written with the “${template.name}” template?`,
+      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
+    );
+    if (!replace) return;
+  }
+  box.value = noteTemplateFill(template);
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  box.focus();
+}
+
+function noteTemplateListKeys(event) {
+  const rows = [...event.currentTarget.querySelectorAll(".doc-template-choice")];
+  if (!rows.length) return;
+  const index = rows.findIndex((row) => row.getAttribute("aria-checked") === "true");
+  const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+  let next = null;
+  if (step) next = rows[(index + step + rows.length) % rows.length];
+  else if (event.key === "Home") next = rows[0];
+  else if (event.key === "End") next = rows[rows.length - 1];
+  const find = (row) => noteTemplateRows().find((t) => t.name === row.dataset.template);
+  if (next) {
+    event.preventDefault();
+    chooseNoteTemplate(find(next), { focus: true });
+  } else if (event.key === "Enter") {
+    //: Enter on a focused row would fire its click, which only chooses; on
+    //: this list Enter is the confirmation, as it is on a form.
+    event.preventDefault();
+    useNoteTemplate();
   }
 }
 
-async function applyTemplate() {
-  const select = $("entry-template");
-  const option = select.selectedOptions[0];
-  if (!option || !option.dataset.content) return;
-  const box = $("entry-content");
-  // Never silently overwrite what's already been typed, ask first, and put
-  // the dropdown back to blank on "keep my text" so it doesn't sit there
-  // showing a template name that was never actually applied.
-  if (box.value.trim()) {
-    const replace = await confirmDialog(
-      `Replace what you've already written with the “${option.textContent}” template?`,
-      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
-    );
-    if (!replace) {
-      select.value = "";
-      return;
-    }
+function openNoteTemplateDialog() {
+  const dialog = $("note-template-dialog");
+  const list = $("note-template-list");
+  if (!dialog || !list) return;
+  noteTemplateMade = false;
+  const templates = noteTemplateRows();
+  list.replaceChildren();
+  for (const template of templates) {
+    const li = document.createElement("li");
+    li.setAttribute("role", "presentation");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost doc-template-choice";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", "false");
+    button.dataset.template = template.name;
+    const name = document.createElement("strong");
+    name.textContent = template.name;
+    //: The row's one line: the template's own description when it has one,
+    //: else which group it is in, so a row never repeats its preview.
+    const hint = document.createElement("span");
+    hint.className = "muted text-sm";
+    hint.textContent = template.description || (template.builtin ? (template.overridden ? "Built-in, edited" : "Built-in") : "Yours");
+    const check = document.createElement("i");
+    check.className = "ph ph-check doc-template-check";
+    check.setAttribute("aria-hidden", "true");
+    button.append(name, hint, check);
+    button.addEventListener("click", () => chooseNoteTemplate(template));
+    button.addEventListener("dblclick", useNoteTemplate);
+    li.appendChild(button);
+    list.appendChild(li);
   }
-  box.value = option.dataset.content.replace(
-    "{date}",
-    new Date().toLocaleDateString()
-  );
-  box.focus();
+  dialog.showModal();
+  chooseNoteTemplate(templates[0], { focus: true });
 }
 
 //: Autocomplete for the tags box, from `GET /tags`.
@@ -12652,7 +12747,6 @@ function resetCaptureForm(contentBox, titleBox) {
   $("entry-category").value = "";
   captureDocuments.clear();
   renderCaptureDocuments();
-  $("entry-template").value = "";
   clearCaptureTagSuggestions();
   // NOT cleared here: `captureStagedFiles`. `saveEntry` hands the list to
   // `uploadStagedFiles`, which takes ownership of it and empties it itself.
@@ -41912,7 +42006,9 @@ $("autonomous-trigger").addEventListener("click", () => {
 // second door in a sidebar that is meant to be a category list is exactly the
 // "too much in one place, clashing with the text beside it" this app has been
 // asked to stop doing.
-$("entry-template").addEventListener("change", applyTemplate);
+$("entry-template")?.addEventListener("click", openNoteTemplateDialog);
+$("note-template-list")?.addEventListener("keydown", noteTemplateListKeys);
+$("note-template-use")?.addEventListener("click", useNoteTemplate);
 
 // Chat tab (Wave C).
 $("chat-send").addEventListener("click", () => sendChatMessage());

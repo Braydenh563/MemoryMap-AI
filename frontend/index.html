@@ -747,6 +747,24 @@
       <button type="button" class="accent" id="doc-template-use">Use this template</button>
     </div>
   </dialog>
+  <!-- The Capture box's own template picker (INBOX 410), the same recipe as
+       the dialog above: radio rows, the chosen template's text beside them
+       (`showNoteTemplatePreview`, through the `noteTemplateFill` the button
+       uses), and only Use this template, Enter or a double click fills the
+       box. Built by `openNoteTemplateDialog` in app.js. -->
+  <dialog id="note-template-dialog" class="card space-dialog doc-ai-history-dialog doc-template-dialog"
+    aria-labelledby="note-template-title">
+    <h3 id="note-template-title">Start from a template</h3>
+    <p class="muted">Fills the Capture box; every line is yours to change. Today's date is filled in.</p>
+    <div class="doc-template-body">
+      <ul id="note-template-list" class="doc-ai-history-list" role="radiogroup" aria-label="Templates"></ul>
+      <div id="note-template-preview" class="doc-template-preview" aria-hidden="true" inert></div>
+    </div>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="note-template-dialog">Cancel</button>
+      <button type="button" class="accent" id="note-template-use">Use this template</button>
+    </div>
+  </dialog>
   <!-- **These two live here, beside the other dialogs, and not inside
        `#tab-documents` where they were written.** A modal `<dialog>` is drawn
        in the top layer and centres itself with the UA's `position: fixed;
@@ -1021,9 +1039,11 @@
                 title="What can I type in a note?" aria-label="What can I type in a note?">
                 <i class="ph ph-question" aria-hidden="true"></i>
               </button>
-              <select id="entry-template" aria-label="Start from a template" title="Start from a template" class="small-select">
-                <option value="">No template</option>
-              </select>
+              <!-- A button that opens the picker (`openNoteTemplateDialog`),
+                   not a select that fills the box on every name it passes
+                   (INBOX 410: choosing is not making). -->
+              <button id="entry-template" class="ghost small" type="button" aria-haspopup="dialog"
+                title="Start from a template"><i class="ph ph-layout ph-lead" aria-hidden="true"></i> Template</button>
             </span>
           </div>
           <!-- Syntax that exists is useless if nobody knows it does. Every

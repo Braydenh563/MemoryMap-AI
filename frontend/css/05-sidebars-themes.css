@@ -5184,6 +5184,14 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   line-height: 1.5;
 }
 
+/* A note template's page (INBOX 410) is its text as the Capture box will hold
+   it: plain, with its own line breaks, not rendered markdown. */
+.note-template-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .doc-template-page :is(.md-h1, .md-h2, .md-h3) {
   margin: var(--space-3) 0 var(--space-1);
   line-height: 1.25;

@@ -4650,6 +4650,9 @@ function wbSizeMapRadial(ring, hostRect, clear) {
   const fits = Math.min(hostRect.width, hostRect.height) / 2 - 8 - band;
   inner = Math.round(Math.max(Math.min(inner, fits), Math.min(floor, fits)));
   ring._radial = { inner, outer: inner + band };
+  //: What the band fit may spend if the words need a thicker band: the
+  //: canvas's own limit on the outer edge, and the hole's floor.
+  ring._radialRoom = { floor, maxOuter: Math.min(hostRect.width, hostRect.height) / 2 - 8 };
   ring.style.setProperty("--wb-radial-inner", `${inner}px`);
   ring.style.setProperty("--wb-radial-outer", `${inner + band}px`);
 }
@@ -4680,7 +4683,7 @@ function wbMapRadialSectorPath(inner, outer, a0, a1, gap = 0, rim = 0) {
 //: square; `_sector` keeps the angles for the edge a focused sector wears and
 //: for the menu More opens beside it.
 function wbFitMapRadialBand(ring) {
-  const { inner, outer } = ring._radial || {
+  let { inner, outer } = ring._radial || {
     inner: wbMapRadialPx(ring, "--wb-radial-inner") || 44,
     outer: (wbMapRadialPx(ring, "--wb-radial-inner") || 44) + (wbMapRadialPx(ring, "--wb-radial-band") || 56),
   };
@@ -4689,10 +4692,27 @@ function wbFitMapRadialBand(ring) {
   const n = slots.length;
   if (!n) return;
   const step = (2 * Math.PI) / n;
-  //: The band's middle. The band is 4.5rem rather than the 3.5 an icon over a
-  //: word needs, because on the four slanted sectors of six a word lies across
-  //: the band, not along it: measured at 3.5 and 4rem, "Add beside" put a
-  //: corner into the hole and "Cross-link" one past the rim (6.4px at worst).
+  //: **Thick enough for the widest word, measured** (INBOX 421 a: "the items
+  //: like "add beside" and "cross-link" are very close to the edges (inner
+  //: and outer) of the radial and arent centered nicely"). The stylesheet's
+  //: 4.5rem is the floor, not the answer: on a slanted sector a word lies
+  //: across the band, not along it, so its reach towards both arcs is its
+  //: width times the sine of the slant plus its height times the cosine. A
+  //: fixed band left "Add beside" and "Cross-link" 1.4px from both arcs at
+  //: the same time (mapradialfit.js), and a guessed bigger one only moves
+  //: the problem to the next longer word or a larger text size.
+  const size = wbMapRadialLabelSizes(slots);
+  const { inner: fitInner, outer: fitOuter } = wbMapRadialBandFor(ring, inner, outer, size, step);
+  if (fitOuter !== outer || fitInner !== inner) {
+    inner = fitInner;
+    outer = fitOuter;
+    ring._radial = { inner, outer };
+    ring.style.setProperty("--wb-radial-inner", `${inner}px`);
+    ring.style.setProperty("--wb-radial-outer", `${outer}px`);
+  }
+  //: The band's middle, which is where each label's box is centred: the
+  //: face is a fixed box centred on this point and its icon and word are
+  //: centred in the face, so the drawn label's middle is the sector's.
   const mid = (inner + outer) / 2;
   slots.forEach((slot, i) => {
     const at = -Math.PI / 2 + i * step;
@@ -4703,6 +4723,64 @@ function wbFitMapRadialBand(ring) {
     slot._sector = { a0, a1, at, inner, outer };
   });
   wbMarkMapRadialSector(ring, null);
+}
+
+//: The drawn size of each sector's label: the union of its icon and its
+//: word, which the face centres. Zero for a ring not yet shown (a rect read
+//: under `display: none` is all zeroes), which the band fit then ignores.
+function wbMapRadialLabelSizes(slots) {
+  return slots.map((slot) => {
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (const el of slot.querySelectorAll(".wb-map-radial-face > *")) {
+      const box = el.getBoundingClientRect();
+      if (!box.width && !box.height) continue;
+      l = Math.min(l, box.left); t = Math.min(t, box.top);
+      r = Math.max(r, box.right); b = Math.max(b, box.bottom);
+    }
+    return Number.isFinite(l) ? { w: r - l, h: b - t } : { w: 0, h: 0 };
+  });
+}
+
+//: How far a label box centred at `rc` along `at` stays from the inner arc,
+//: the outer arc and the two dividers of a sector `step` wide. The box point
+//: nearest the centre measures the inner arc, its farthest corner the outer
+//: one; the dividers are measured from the corners (the box is convex), as a
+//: signed distance so a corner past a divider counts as negative.
+function wbMapRadialClearance(inner, outer, rc, at, step, { w, h }) {
+  const cx = rc * Math.cos(at), cy = rc * Math.sin(at);
+  const xs = [cx - w / 2, cx + w / 2], ys = [cy - h / 2, cy + h / 2];
+  const near = Math.hypot(Math.min(Math.max(0, xs[0]), xs[1]), Math.min(Math.max(0, ys[0]), ys[1]));
+  let far = 0, div = Infinity;
+  for (const x of xs) for (const y of ys) {
+    far = Math.max(far, Math.hypot(x, y));
+    for (const [a, side] of [[at - step / 2, 1], [at + step / 2, -1]]) {
+      div = Math.min(div, side * (x * Math.sin(a) - y * Math.cos(a)) * -1);
+    }
+  }
+  return Math.min(near - inner, outer - far, div);
+}
+
+//: The narrowest band at or above the stylesheet's that keeps every label
+//: `WB_MAP_RADIAL_CLEAR` from both arcs and both dividers with each label
+//: centred on its sector's middle radius. When the thicker band would pass
+//: the canvas, the hole gives the room back down to its floor first (a
+//: ring whose words touch its edges is worse than one that overlaps a
+//: long topic's ends); past that the best band the canvas allows stands.
+const WB_MAP_RADIAL_CLEAR = 10;
+function wbMapRadialBandFor(ring, inner, outer, sizes, step) {
+  if (!sizes.some((s) => s.w && s.h)) return { inner, outer };
+  //: One pixel over the clearance, for the hairline and the rim the sectors
+  //: give up to the band (`wbMapRadialSectorPath`'s gap and rim).
+  const ok = (ri, ro) => sizes.every((s, i) => !s.w || wbMapRadialClearance(ri, ro, (ri + ro) / 2, -Math.PI / 2 + i * step, step, s) >= WB_MAP_RADIAL_CLEAR + 1);
+  const room = ring._radialRoom;
+  const band0 = outer - inner;
+  let band = band0;
+  while (!ok(inner, inner + band) && band < band0 + 96) band += 1;
+  if (room && inner + band > room.maxOuter) {
+    const ri = Math.min(inner, Math.max(Math.min(room.floor, inner), Math.round(room.maxOuter - band)));
+    return { inner: ri, outer: Math.max(ri + band0, Math.min(ri + band, room.maxOuter)) };
+  }
+  return { inner, outer: inner + band };
 }
 
 //: **The edge on the sector the keyboard is on.** An outline on a clipped

@@ -54,12 +54,16 @@ class TemplateItem(BaseModel):
     description: str = Field(default="", max_length=200)
 
 
-# Kept in sync by hand with BUILTIN_TEMPLATES in app.js. The templates
-# themselves (their markdown bodies) only ever lived in the frontend, Wave
-# B never gave the server a reason to know their content, but the NAMES
-# have to be known here too, or a custom template called "Journal" would
-# save fine and only collide with the shipped one client-side, in whichever
-# session happens to render the <select> next.
+# The names BUILTIN_TEMPLATES in app.js ships (tests/test_notes_extras_api.py
+# pins the two sets to each other). The templates themselves (their markdown
+# bodies) only ever lived in the frontend; Wave B never gave the server a
+# reason to know their content. A `custom_templates` item carrying one of
+# these names is that built-in's *edit* (INBOX 409, "templates cant be
+# edited"): the persona shape, where an override lives under the shipped
+# name in the same list as the person's own and removing it is the reset.
+# `_validated_templates` used to refuse these names outright, which is what
+# made the built-ins uneditable; now the only collision it refuses is two
+# items with one name.
 BUILTIN_TEMPLATE_NAMES = {"Journal", "Recipe", "Contact", "Meeting"}
 
 
@@ -814,26 +818,21 @@ def _validated_skills(raw: list[dict]) -> list[dict]:
 
 
 def _validated_templates(raw: list[dict]) -> list[dict]:
-    """Every custom template, name-checked, or a 422 naming the collision.
+    """Every saved template, name-checked, or a 422 naming the collision.
 
-    Mirrors `_validated_skills` immediately above: a name that shadows a
-    built-in is refused rather than silently allowed to win wherever the
-    merged list is drawn next, and two customs can't collide with each other
-    either. Rejecting (rather than de-duping, the way `addSkill` on the
-    frontend quietly does for skills) was the deliberate choice here, 
-    silently dropping a *different* saved template because its name was
-    reused would be a surprise deletion of someone's own text, which a
-    skill's shorter prompt doesn't risk in the same way.
+    Two items cannot share a name. Rejecting (rather than de-duping, the way
+    `addSkill` on the frontend quietly does for skills) was the deliberate
+    choice here: silently dropping a *different* saved template because its
+    name was reused would be a surprise deletion of someone's own text,
+    which a skill's shorter prompt doesn't risk in the same way. A name that
+    is a built-in's is not a collision: it is how a built-in is edited
+    (`BUILTIN_TEMPLATE_NAMES` above), and there can be one such edit per
+    built-in for the same reason there can be one template per name.
     """
     seen: set[str] = set()
     out = []
     for item in raw:
         name = (item.get("name") or "").strip()
-        if name in BUILTIN_TEMPLATE_NAMES:
-            raise HTTPException(
-                status_code=422,
-                detail=f"“{name}” is a built-in template, pick another name",
-            )
         if name in seen:
             raise HTTPException(
                 status_code=422,

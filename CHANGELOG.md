@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Settings, Templates: every template can be edited, the built-in ones included. An edited built-in keeps its name, says Edited, and Reset brings the original back; the Capture dropdown offers the edited text.
 - Graph: Similarity draws each note's two closest matches rather than every pair (200 lines to 58 and 1,701 crossings to 39 on a 42-note notebook), darker and wider for a closer match, dashed and beneath the links, with a Strength slider to keep only the closest, a legend key and the scores on the note you point at. Length by similarity now works on the default renderer. Labels no longer sit on another note's dot. The options panel has Reset to defaults, with Undo.
 - A note's menu has Translate: it opens the note in Write with Atlas, set to
   translate into the last language you picked.

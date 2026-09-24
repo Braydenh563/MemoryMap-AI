@@ -1101,6 +1101,29 @@ const BUILTIN_TEMPLATES = [
   { name: "Meeting", content: "Meeting about \nWho: \nDecisions: \nTo do: " },
 ];
 
+//: **Built-ins and the person's own, as one catalogue** (INBOX 409, "templates
+//: cant be edited"). The persona shape: a saved template that carries a
+//: built-in's name is that built-in's edit, kept in `custom_templates` beside
+//: the templates that are wholly the person's, so the Built-in group shows
+//: the edit's text under the shipped name, Yours shows only their own, and
+//: removing the edit is the reset. Nothing else is stored, and the built-in's
+//: original text never leaves this file. Both readers (the Capture dropdown
+//: and the Settings list) draw from this one function, so they cannot
+//: disagree about which templates exist.
+function templateCatalogue() {
+  const saved = (prefsCache && prefsCache.custom_templates) || [];
+  const edits = new Map(saved.map((t) => [t.name, t]));
+  const builtin = BUILTIN_TEMPLATES.map((t) => {
+    const edit = edits.get(t.name);
+    return { ...(edit || t), builtin: true, overridden: Boolean(edit) };
+  });
+  const shipped = new Set(BUILTIN_TEMPLATES.map((t) => t.name));
+  const custom = saved
+    .filter((t) => !shipped.has(t.name))
+    .map((t) => ({ ...t, builtin: false, overridden: false }));
+  return { builtin, custom };
+}
+
 async function loadTemplates() {
   // Built-ins + the user's own (kept in preferences). Shared with the two
   // other boot readers (A2): at boot this joins the one request in flight, and
@@ -1109,7 +1132,7 @@ async function loadTemplates() {
   await loadPreferences().catch(() => prefsCache);
   // Saved filters live in the same payload, so draw them while it's fresh.
   renderSavedSearches();
-  const custom = (prefsCache && prefsCache.custom_templates) || [];
+  const { builtin, custom } = templateCatalogue();
   const select = $("entry-template");
   select.replaceChildren();
   const none = document.createElement("option");
@@ -1119,7 +1142,7 @@ async function loadTemplates() {
   // Grouped the same way the chat skill picker groups "Yours" ahead of
   // "Built-in" (§entry-template extension): one recognisable shape for
   // "your stuff first, then what shipped" instead of a flat, unsorted list.
-  for (const [templates, title] of [[custom, "Yours"], [BUILTIN_TEMPLATES, "Built-in"]]) {
+  for (const [templates, title] of [[custom, "Yours"], [builtin, "Built-in"]]) {
     if (!templates.length) continue;
     const group = document.createElement("optgroup");
     group.label = title;
@@ -49246,31 +49269,42 @@ initSpaceSwitcher();
 
 // --- capture templates, Settings pane (extends Wave B) ------------------------------
 //
-// Built-ins (BUILTIN_TEMPLATES, declared near the Capture form) are read-only
-// here: same shape as skills, where a built-in shows in the list but never
-// grows Edit/Delete buttons because there is genuinely nothing in
-// `custom_templates` to remove. The server enforces the name-collision half
-// of that (routes_settings._validated_templates); this pane just avoids
-// offering an action that would only come back as a 422.
+// Every template is editable, the built-ins included (INBOX 409, "templates
+// cant be edited"): the persona pane's shape, where editing a built-in saves
+// a copy under the same name into the same preference the person's own live
+// in (`templateCatalogue`, near the Capture form, is where that copy wins),
+// the row then says "Edited" and grows Reset, and Reset removes the copy.
+// The server's only refusal is two saved templates with one name
+// (routes_settings._validated_templates).
 
-// Which custom template (by name) the editor is currently editing, if any, 
+// Which template (by name) the editor is currently editing, if any,
 // same tracking `editingSkillName` does, so Save updates in place on a
 // rename instead of leaving a duplicate behind.
 let editingTemplateName = null;
 
+// The saved list as stored: the person's own templates and the edited
+// built-ins together, which is what every PUT writes back.
 function customTemplates() {
   return (prefsCache && prefsCache.custom_templates) || [];
 }
 
 function startEditingTemplate(template) {
   editingTemplateName = template.name;
-  $("template-name").value = template.name;
+  const name = $("template-name");
+  name.value = template.name;
+  //: A built-in's edit keeps the built-in's name: the name is what makes the
+  //: saved copy an edit of it rather than a fifth template beside it, so the
+  //: field is shown but not for typing. A person who wants a "Journal" of a
+  //: different name adds their own.
+  name.readOnly = Boolean(template.builtin);
   $("template-description").value = template.description || "";
   $("template-body").value = template.content;
   $("template-add").textContent = "Save changes";
   $("template-cancel").classList.remove("hidden");
-  $("template-status").textContent = `Editing “${template.name}”…`;
-  $("template-name").focus();
+  $("template-status").textContent = template.builtin
+    ? `Editing the built-in “${template.name}”…`
+    : `Editing “${template.name}”…`;
+  (template.builtin ? $("template-body") : name).focus();
 }
 
 function stopEditingTemplate() {
@@ -49278,6 +49312,7 @@ function stopEditingTemplate() {
   for (const id of ["template-name", "template-description", "template-body"]) {
     $(id).value = "";
   }
+  $("template-name").readOnly = false;
   $("template-add").textContent = "Add template";
   $("template-cancel").classList.add("hidden");
   $("template-status").textContent = "";
@@ -49303,10 +49338,12 @@ async function addTemplate() {
     return;
   }
   // Only the entry being edited is dropped before the push, a genuine
-  // rename. A name that instead collides with a DIFFERENT template, custom
-  // or built-in, is left in place and the save is rejected server-side
-  // (§_validated_templates) rather than silently replacing someone else's
-  // saved text the way a same-named skill would.
+  // rename (or, for a built-in, the previous edit of it). A name that
+  // instead collides with a DIFFERENT saved template is left in place and
+  // the save is rejected server-side (§_validated_templates) rather than
+  // silently replacing someone else's saved text the way a same-named skill
+  // would. A new template given a built-in's name becomes that built-in's
+  // edit, which is what the name means now.
   const custom = customTemplates().filter((t) => t.name !== editingTemplateName);
   custom.push({
     name,
@@ -49330,30 +49367,44 @@ async function addTemplate() {
 // that manage a "named, user-editable list of markdown" read as one pattern
 // rather than two. `textContent` throughout: template bodies are untrusted
 // user text and are never rendered as HTML.
-function templateRow(template, builtin) {
+function templateRow(template) {
   const li = document.createElement("li");
   const row = document.createElement("div");
   row.className = "entry-meta skill-row";
   row.appendChild(chip(template.name, "item-title"));
-  if (builtin) row.appendChild(chip("Built-in", "item-label"));
+  //: The persona row's two words: a shipped template that has been edited
+  //: says so, and the word is what tells the reader the Reset beside it
+  //: has something to restore.
+  if (template.builtin) {
+    row.appendChild(chip(template.overridden ? "Edited" : "Built-in", "item-label"));
+  }
   const note = document.createElement("span");
   note.className = "muted skill-blurb";
   note.textContent = template.description || template.content;
   row.appendChild(note);
-  if (!builtin) {
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
+  const actions = document.createElement("span");
+  actions.className = "entry-actions";
+  actions.appendChild(
+    smallButton("Edit", "Edit this template", () => startEditingTemplate(template))
+  );
+  if (template.builtin && template.overridden) {
     actions.appendChild(
-      smallButton("Edit", "Edit this template", () => startEditingTemplate(template))
-    );
-    actions.appendChild(
-      smallButton("Delete", "Remove this template", async () => {
-        if (!(await confirmDialog(`Delete the “${template.name}” template?`))) return;
+      smallButton("Reset", "Restore the original template", async () => {
+        if (editingTemplateName === template.name) stopEditingTemplate();
         await saveTemplateList(customTemplates().filter((t) => t.name !== template.name));
       })
     );
-    row.appendChild(actions);
   }
+  if (!template.builtin) {
+    actions.appendChild(
+      smallButton("Delete", "Remove this template", async () => {
+        if (!(await confirmDialog(`Delete the “${template.name}” template?`))) return;
+        if (editingTemplateName === template.name) stopEditingTemplate();
+        await saveTemplateList(customTemplates().filter((t) => t.name !== template.name));
+      })
+    );
+  }
+  row.appendChild(actions);
   li.appendChild(row);
   return li;
 }
@@ -49362,8 +49413,8 @@ async function renderTemplateSettings() {
   await loadTemplates();
   const list = $("template-list");
   list.replaceChildren();
-  for (const template of customTemplates()) list.appendChild(templateRow(template, false));
-  for (const template of BUILTIN_TEMPLATES) list.appendChild(templateRow(template, true));
+  const { builtin, custom } = templateCatalogue();
+  for (const template of [...custom, ...builtin]) list.appendChild(templateRow(template));
 }
 
 $("template-add")?.addEventListener("click", addTemplate);

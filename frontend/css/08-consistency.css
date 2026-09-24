@@ -5351,12 +5351,15 @@ main,
 
 /* The skill logs folded (`setSkillLogsCollapsed`, library.js): the column is
    a rail holding its button and a sideways title, the skills take the rest. */
+/* 48px and the toggle's own inset, the folded sidebars' numbers, so the four
+   rails in the app are one width with the button in one place. */
 .skills-split.skills-logs-collapsed {
-  grid-template-columns: minmax(0, 1fr) var(--target-min);
+  grid-template-columns: minmax(0, 1fr) 48px;
 }
 
 .skills-logs-collapsed #skills-sidebar {
   padding-inline: 0;
+  padding-top: var(--sidebar-toggle-inset);
   align-items: center;
 }
 
@@ -5369,6 +5372,15 @@ main,
 .skills-logs-collapsed #skills-logs-heading {
   writing-mode: vertical-rl;
   font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* The same rail as a folded sidebar (.sidebar-rail-name, 07-whiteboard-misc.css):
+   the accent wash at the top instead of a plain column. */
+.skills-logs-collapsed #skills-sidebar {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 45%);
 }
 
 .skills-logs-collapsed #skills-logs-list,

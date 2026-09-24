@@ -24051,6 +24051,13 @@ function initSidebarSheetDismissal() {
   });
 }
 
+//: The name a folded sidebar shows on its rail (see makeSidebarResizable).
+const SIDEBAR_RAIL_NAMES = {
+  sidebar: "Categories",
+  "chat-sidebar": "Chats",
+  "doc-sidebar": "Documents",
+};
+
 function makeSidebarResizable(aside) {
   if (!aside || aside.dataset.resizable) return;
   aside.dataset.resizable = "1";
@@ -24108,6 +24115,23 @@ function makeSidebarResizable(aside) {
     }
   });
   aside.appendChild(collapseBtn);
+
+  //: What a folded sidebar shows (INBOX 425, the owner: the collapsed
+  //: sidebars were "white plain"). A 48px column with one button in it read
+  //: as an empty panel rather than as the sidebar, put away. Its name, set
+  //: sideways under the button, says which sidebar it is and is a second way
+  //: to open it; the same recipe as the skill logs' folded column.
+  const railName = SIDEBAR_RAIL_NAMES[aside.id];
+  if (railName) {
+    const rail = document.createElement("button");
+    rail.type = "button";
+    rail.className = "sidebar-rail-name";
+    rail.textContent = railName;
+    rail.title = `Show ${railName.toLowerCase()}`;
+    rail.tabIndex = -1; // the toggle above is the keyboard's way in
+    rail.addEventListener("click", () => collapseBtn.click());
+    aside.appendChild(rail);
+  }
 
   const startDrag = (event) => {
     event.preventDefault();

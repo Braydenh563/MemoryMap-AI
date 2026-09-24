@@ -460,7 +460,7 @@
   border-right: 1px solid var(--border);
 }
 
-.sidebar-collapsed>*:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
+.sidebar-collapsed>*:not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--motion-fast) var(--ease-out);
@@ -506,6 +506,54 @@
    always-expanded and always-collapsed states would not have caught. */
 .layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-head {
   padding-right: var(--sidebar-toggle-lane);
+}
+
+/* The folded sidebar as a rail, not an empty panel (INBOX 425, the owner:
+   the collapsed sidebars were "white plain"). A faint wash of the accent at
+   the top, fading out, so the column reads as a place things are kept; the
+   sidebar's name set sideways under its button, muted, the skill logs'
+   folded column's recipe (08-consistency.css) so the four rails match. The
+   name is hidden while the rail is peeked open, where the real head shows. */
+.sidebar-rail-name {
+  display: none;
+}
+
+.sidebar-collapsed {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 45%);
+}
+
+.sidebar-collapsed > .sidebar-rail-name {
+  position: absolute;
+  top: calc(var(--sidebar-toggle-inset) + var(--sidebar-toggle-size) + var(--space-3));
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  display: block;
+  width: var(--sidebar-toggle-size);
+  padding: var(--space-2) 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  writing-mode: vertical-rl;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sidebar-collapsed > .sidebar-rail-name:hover {
+  color: var(--ink);
+  background: var(--ghost-btn-bg);
+}
+
+.layout-sidebar-collapsed > .sidebar-collapsed:hover {
+  background-image: none;
+}
+
+.layout-sidebar-collapsed > .sidebar-collapsed:hover > .sidebar-rail-name {
+  display: none;
 }
 
 /* Ensure the layout container creates a positioning context for the absolute peek */

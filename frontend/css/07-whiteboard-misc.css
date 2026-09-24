@@ -460,7 +460,7 @@
   border-right: 1px solid var(--border);
 }
 
-.sidebar-collapsed>*:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
+.sidebar-collapsed>*:not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--motion-fast) var(--ease-out);
@@ -506,6 +506,54 @@
    always-expanded and always-collapsed states would not have caught. */
 .layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-head {
   padding-right: var(--sidebar-toggle-lane);
+}
+
+/* The folded sidebar as a rail, not an empty panel (INBOX 425, the owner:
+   the collapsed sidebars were "white plain"). A faint wash of the accent at
+   the top, fading out, so the column reads as a place things are kept; the
+   sidebar's name set sideways under its button, muted, the skill logs'
+   folded column's recipe (08-consistency.css) so the four rails match. The
+   name is hidden while the rail is peeked open, where the real head shows. */
+.sidebar-rail-name {
+  display: none;
+}
+
+.sidebar-collapsed {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 45%);
+}
+
+.sidebar-collapsed > .sidebar-rail-name {
+  position: absolute;
+  top: calc(var(--sidebar-toggle-inset) + var(--sidebar-toggle-size) + var(--space-3));
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  display: block;
+  width: var(--sidebar-toggle-size);
+  padding: var(--space-2) 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  writing-mode: vertical-rl;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sidebar-collapsed > .sidebar-rail-name:hover {
+  color: var(--ink);
+  background: var(--ghost-btn-bg);
+}
+
+.layout-sidebar-collapsed > .sidebar-collapsed:hover {
+  background-image: none;
+}
+
+.layout-sidebar-collapsed > .sidebar-collapsed:hover > .sidebar-rail-name {
+  display: none;
 }
 
 /* Ensure the layout container creates a positioning context for the absolute peek */
@@ -11187,6 +11235,14 @@ input[type="file"] {
   margin-bottom: var(--space-4);
 }
 
+/* The same chip height as the Library's (--control-h): they measured 22.4px
+   here against 36px there, the one set of filter chips in the app half the
+   size of the others. */
+#reminder-filter .library-chip {
+  height: auto;
+  min-height: var(--control-h);
+}
+
 /* A card whose menu is open comes to the front. A glass card is a stacking
    context (its backdrop filter makes it one), so a menu's own z-index cannot
    climb out of the card it sits in, and the card *after* it paints over the
@@ -12937,7 +12993,11 @@ button.finder-row:hover,
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface-2);
+  /* The tint alone is 4% ink over whatever is behind it, so with glass off
+     the page art showed straight through and the field still read as glass
+     (INBOX 425 m). The tint now sits on the card ground, which glass off
+     swaps for a solid colour like every other surface. */
+  background: linear-gradient(var(--surface-2), var(--surface-2)), var(--card);
   color: var(--muted);
   font: inherit;
   font-size: var(--text-base);
@@ -13146,8 +13206,7 @@ button.finder-row:hover,
 #tab-dashboard[data-density="focused"] .dash-quicklinks,
 #tab-dashboard[data-density="focused"] .dash-stats,
 #tab-dashboard[data-density="focused"] .dash-hero-emblem,
-#tab-dashboard[data-density="focused"] .dash-wordmark,
-#tab-dashboard[data-density="focused"] .dash-clock {
+#tab-dashboard[data-density="focused"] .dash-wordmark {
   display: none;
 }
 
@@ -13188,54 +13247,81 @@ button.finder-row:hover,
    `flex-wrap` with a basis on the field rather than a width query, so a narrow
    window puts them back in two bands without a second rule deciding where
    narrow starts. */
+/* **Two rows again, decided by the owner (INBOX 425 follow-up, 2026-09-24):**
+   "the hero section row is ugly and needs improvement and I dont agree with
+   the search bar being on the same line and changing width depending on how
+   long the welcome message is." The one-row head of INBOX 296 made the
+   search field's width a function of the greeting's length, so the one
+   control on the page moved every time the greeting changed. Do not remake
+   the one-row head.
+
+   Focused is now Full's head at a smaller scale: a compact banner (greeting
+   and the name nudge on one line, the one-line summary under it, the time on
+   the right) and the search field full width beneath it, one step apart. */
 #tab-dashboard[data-density="focused"] .dash-head {
   display: flex;
-  align-items: stretch;
-  flex-wrap: wrap;
-  gap: var(--space-4);
+  flex-direction: column;
+  gap: var(--space-3);
   margin-bottom: var(--space-6);
 }
 
-/* The banner's own bottom margin is the gap between two bands; inside the row
-   it would be the row's own height plus 16px of nothing. The wrapper carries
-   it instead. */
 #tab-dashboard[data-density="focused"] .dash-head > .dash-hero {
-  flex: 0 1 auto;
   margin-bottom: 0;
 }
 
-#tab-dashboard[data-density="focused"] .dash-head > .dash-find {
-  flex: 1 1 20rem;
-  width: auto;
-  border-radius: var(--radius);
-}
-
-/* **And the banner is a line, not a panel.** Focused kept a 133px hero, which
-   was more than Compact's, because it dropped bands around a banner it never
-   touched. Here the greeting and the one number share a baseline and the
-   padding comes down to a row's worth: the level that shows least has the
-   smallest hero, which is the only order the three levels can be read in.
-   `flex-wrap` rather than a width query, so a narrow window gets the two ranks
-   stacked back up without a second rule deciding where narrow starts. */
 #tab-dashboard[data-density="focused"] .dash-hero {
-  padding: var(--space-3) var(--space-5);
+  display: flex;
+  align-items: center;
   gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
 }
 
 #tab-dashboard[data-density="focused"] .dash-hero-text {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-4);
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
 }
 
 #tab-dashboard[data-density="focused"] .dash-greeting {
   font-size: var(--text-h3);
+  margin: 0;
+}
+
+#tab-dashboard[data-density="focused"] .dash-hero-text > .name-nudge {
+  justify-self: start;
 }
 
 #tab-dashboard[data-density="focused"] .dash-submessage {
+  grid-column: 1 / -1;
   font-size: var(--text-sm);
-  margin-top: 0;
+  margin: 0;
+}
+
+/* The time, at the banner's scale: one line, right-aligned, the date under it
+   in the summary's size, so the banner has a right edge rather than ending
+   wherever the greeting does. */
+#tab-dashboard[data-density="focused"] .dash-clock {
+  flex: none;
+  text-align: right;
+}
+
+#tab-dashboard[data-density="focused"] .dash-clock-time {
+  font-size: var(--text-h3);
+  color: var(--ink); /* as on Full: the time is information, not an accent */
+}
+
+#tab-dashboard[data-density="focused"] .dash-clock-date {
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 600px) {
+  #tab-dashboard[data-density="focused"] .dash-clock {
+    display: none;
+  }
 }
 
 /* The picker sits in the toolbar with Widgets and Edit layout, so it lines up

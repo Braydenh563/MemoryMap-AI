@@ -104,6 +104,15 @@ let libraryCounts = {};
 let libraryOverview = {};
 let libraryKind = "all";
 
+//: The kinds the server cut at its per-kind page (`truncated` in GET
+//: /library), and the full payload as it came, so a search can swap in the
+//: server's own matches for those kinds and clearing it can put the page
+//: back. INBOX 424: at 400 notes a search for the oldest one said "Nothing
+//: matching", because the client filtered a list that never held it.
+let libraryTruncated = {};
+let libraryBaseItems = [];
+let libraryServerQuery = "";
+
 //: Same pattern as Notes' and the Library Documents sub-tab's own paging: 
 //: "all" (the default) leaves renderIncrementally's chunked scroll untouched;
 //: a number slices the already-filtered/sorted list to one flat page instead.
@@ -198,6 +207,10 @@ async function loadLibrary() {
   }
   surfaceRecovered(document.getElementById("library-empty"));
   libraryItems = (body && body.items) || [];
+  libraryBaseItems = libraryItems;
+  libraryTruncated = (body && body.truncated) || {};
+  libraryServerQuery = "";
+  await refreshLibraryServerSearch();
   libraryCounts = (body && body.counts) || {};
   libraryOverview = (body && body.overview) || {};
   // A selection that survives a reload is a selection that can act on
@@ -258,7 +271,10 @@ function renderLibraryFilters() {
     // included it disagreed with what pressing the chip actually shows.
     const count =
       kind.key === "all"
-        ? libraryItems.length - (libraryCounts.activity || 0) - (libraryCounts.draft || 0)
+        ? Object.entries(libraryCounts).reduce(
+            (sum, [key, n]) => sum + (key === "activity" || key === "draft" ? 0 : n),
+            0,
+          )
         : kind.key === "meeting"
           ? libraryItems.filter((i) => i.kind === "note" && (i.tags || []).includes("meeting")).length
           : libraryCounts[kind.key] || 0;
@@ -473,6 +489,7 @@ function renderLibrary(options) {
     // message text: you remember what a thing was about far more often than
     // what it ended up being called.
     const wordMatch = (i) =>
+      i.serverMatch === query ||
       (i.title || "").toLowerCase().includes(query) ||
       (i.preview || "").toLowerCase().includes(query);
     // With Semantic on, a note also matches if the meaning search returned it,
@@ -483,6 +500,21 @@ function renderLibrary(options) {
       : items.filter(wordMatch);
   }
   items = librarySorted(items);
+
+  // The server sends the newest page of a big kind; say so under the grid
+  // rather than let 200 cards pass for all of them. A search reaches the
+  // rest, so the line only shows while there is no search.
+  const cutNote = $("library-truncated");
+  if (cutNote) {
+    const cut = Object.keys(libraryTruncated).filter((k) => libraryKind === "all" || libraryKind === k);
+    const shown = (k) => libraryBaseItems.filter((i) => i.kind === k).length;
+    cutNote.classList.toggle("hidden", Boolean(query) || !cut.length);
+    cutNote.textContent = cut.length
+      ? `Showing the newest ${cut
+          .map((k) => `${shown(k)} of ${libraryTruncated[k]} ${LIBRARY_KINDS.find((x) => x.key === k)?.label.toLowerCase() || k}`)
+          .join(", ")}. Search to reach the rest.`
+      : "";
+  }
 
   // Sliced after filtering/sorting and before the render loop below, same
   // point renderLibraryDocuments() slices at.
@@ -1432,8 +1464,31 @@ $("skills-add-new")?.addEventListener("click", async () => {
 // afterthought, so they are wired like controls: every change re-renders from
 // the list already in memory, with no round trip.
 let librarySearchDebounceTimeout;
+//: A search in a notebook bigger than one page asks the server, which
+//: matches before it cuts; the kinds it did not cut stay filtered here, as
+//: they always were. Each match is flagged so the local word filter, which
+//: sees only a clipped preview, does not drop it again.
+async function refreshLibraryServerSearch() {
+  const query = ($("library-search")?.value || "").trim();
+  const kinds = Object.keys(libraryTruncated);
+  if (!query || !kinds.length) {
+    if (libraryServerQuery) libraryItems = libraryBaseItems;
+    libraryServerQuery = "";
+    return;
+  }
+  if (query === libraryServerQuery) return;
+  const body = await apiJson(`/library?q=${encodeURIComponent(query)}`).catch(() => null);
+  // A later keystroke has already moved on; its own call will land.
+  if (!body || ($("library-search")?.value || "").trim() !== query) return;
+  const matches = (body.items || [])
+    .filter((i) => kinds.includes(i.kind))
+    .map((i) => ({ ...i, serverMatch: query.toLowerCase() }));
+  libraryItems = libraryBaseItems.filter((i) => !kinds.includes(i.kind)).concat(matches);
+  libraryServerQuery = query;
+}
+
 async function runLibrarySearch() {
-  await refreshLibrarySemantic();
+  await Promise.all([refreshLibrarySemantic(), refreshLibraryServerSearch()]);
   libraryCurrentPage = 1; // a new search can move an item off whatever page it was on
   renderLibrary();
 }

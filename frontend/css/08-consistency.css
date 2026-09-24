@@ -3117,6 +3117,17 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--muted);
 }
 
+#settings-modal .status.off::before {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-inline-end: var(--space-2);
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  vertical-align: 0.1em;
+}
+
 #settings-modal .status.ok::before {
   content: "";
   display: inline-block;
@@ -5845,12 +5856,15 @@ main,
 
 /* The skill logs folded (`setSkillLogsCollapsed`, library.js): the column is
    a rail holding its button and a sideways title, the skills take the rest. */
+/* 48px and the toggle's own inset, the folded sidebars' numbers, so the four
+   rails in the app are one width with the button in one place. */
 .skills-split.skills-logs-collapsed {
-  grid-template-columns: minmax(0, 1fr) var(--target-min);
+  grid-template-columns: minmax(0, 1fr) 48px;
 }
 
 .skills-logs-collapsed #skills-sidebar {
   padding-inline: 0;
+  padding-top: var(--sidebar-toggle-inset);
   align-items: center;
 }
 
@@ -5863,6 +5877,15 @@ main,
 .skills-logs-collapsed #skills-logs-heading {
   writing-mode: vertical-rl;
   font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* The same rail as a folded sidebar (.sidebar-rail-name, 07-whiteboard-misc.css):
+   the accent wash at the top instead of a plain column. */
+.skills-logs-collapsed #skills-sidebar {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 45%);
 }
 
 .skills-logs-collapsed #skills-logs-list,
@@ -6001,3 +6024,48 @@ body:has(#lock-overlay:not(.hidden)) #nm-buddy {
   height: 1.75rem;
 }
 
+/* --- the file picker, in the app's own clothes --------------------------------
+   Fourteen `<input type="file">` in the app drew the browser's own grey
+   "Choose Files" slab and a "No file chosen" in the system font, the one
+   control in Settings that looked like a form from 2005 (Import & export,
+   2026-09-24 polish pass). The button takes the ghost button recipe and
+   the file name takes the muted small voice beside it, so the control reads
+   as a button plus a caption, which is what it is. */
+input[type="file"] {
+  max-width: 100%;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+input[type="file"]::file-selector-button {
+  margin-inline-end: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--ghost-btn-bg-hover);
+  border-color: var(--ghost-btn-border-hover);
+}
+
+/* Account & security's facts as a two-column list: the label muted in a
+   fixed column, the value in ink beside it, the shape every settings pane
+   uses for a label and its field. */
+.account-facts > li {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.account-fact-label {
+  color: var(--muted);
+}

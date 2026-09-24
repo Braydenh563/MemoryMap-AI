@@ -8,15 +8,12 @@
 //
 // **Three kinds of style, cheapest first.**
 //
-// 1. CSS styles (`dom: true`: the mesh and the bubbles). Everything they
-//    move is a pre-rendered image or gradient on its own element, animated
-//    by CSS transforms, so the compositor moves them and the page's own
-//    thread does no per-frame work at all. A drift, a rise and a sway are
-//    what CSS animation is for; redrawing them from script every frame was
-//    the expensive way to get the same picture.
-// 2. Canvas styles (the aurora, the constellation, the waves, the microbes,
-//    the mycelium): the ones whose motion depends on noise or on the other
-//    particles, which CSS cannot express. They draw on a plain canvas with
+// 1. CSS styles (`dom: true`; none at present). The mesh and the bubbles
+//    were CSS animations: no page work, but the compositor redrew their
+//    large layers at the display's full rate, and the whole browser spent
+//    about a core on them (bgartcost.js's browser CPU), more than any
+//    canvas style, so both became canvas styles. The runtime keeps the path.
+// 2. Canvas styles (every style now): they draw on a plain canvas with
 //    a loop of their own (no p5; see the runtime below). Their per-frame
 //    rules: particles live in typed arrays, not an object each; nothing is
 //    allocated per frame (colour strings, gradients, sprites and grids are
@@ -214,7 +211,11 @@ function bgSprite(w, h, paint) {
   const c = document.createElement("canvas");
   c.width = Math.max(1, Math.round(w));
   c.height = Math.max(1, Math.round(h));
-  paint(c.getContext("2d"), c.width, c.height);
+  // Under the cost sweep's CPU-canvas hook (see bgArtSurface) the sprites
+  // are CPU-backed as well, as they would be on a machine with no GPU
+  // canvas: a GPU sprite drawn into a CPU canvas is a readback per draw,
+  // which no real frame pays and which would swamp the measurement.
+  paint(c.getContext("2d", window.__bgArtCpu === true ? { willReadFrequently: true } : undefined), c.width, c.height);
   return c;
 }
 
@@ -554,10 +555,17 @@ const BG_ART_BUILDERS = {
     const LAYERS = [
       { z: 0.35, link: 95, width: 0.6, alpha: ctx.dark ? 0.2 : 0.24, light: ctx.dark ? 72 : 55, size: 1.3, share: 0.45 },
       { z: 0.65, link: 130, width: 0.8, alpha: ctx.dark ? 0.32 : 0.36, light: ctx.dark ? 78 : 46, size: 1.9, share: 0.35 },
-      { z: 1, link: 165, width: 1.1, alpha: ctx.dark ? 0.48 : 0.5, light: ctx.dark ? 86 : 38, size: 2.8, share: 0.2 },
+      { z: 1, link: 165, width: 1, alpha: ctx.dark ? 0.48 : 0.5, light: ctx.dark ? 86 : 38, size: 2.8, share: 0.2 },
     ];
     const BUCKETS = 4;
     const HUES = [-24, -10, 0, 12, 26];
+    const STAR_SIZES = [0.85, 1.15];
+    // The far layer's four twinkle steps: the sprites' 0.62 + 0.38 sin at
+    // the middle of each quarter of the swing, times the layer's base
+    // strength (0.5 + 0.5z), times 0.8 because a hard square of a given
+    // alpha reads brighter than a soft dot of the same.
+    const FAR_ALPHA = [0.335, 0.525, 0.715, 0.905].map((a) => a * 0.675 * 0.8);
+    let farFill = "", farStep = null;
     let W = 0, H = 0, n = 0;
     let sx, sy, sjx, sjy, ssize, sph, stw, shue;
     const lFrom = [], lTo = [], grids = [], strokes = [], dots = [];
@@ -573,7 +581,7 @@ const BG_ART_BUILDERS = {
         n = bgClamp(Math.round((W * H) / 6000 * ctx.density), 40, 260);
         sx = new Float32Array(n); sy = new Float32Array(n);
         sjx = new Float32Array(n); sjy = new Float32Array(n);
-        ssize = new Float32Array(n); sph = new Float32Array(n);
+        ssize = new Uint8Array(n); sph = new Float32Array(n);
         stw = new Float32Array(n); shue = new Uint8Array(n);
         const heading = p.random(Math.PI * 2);
         driftX = Math.cos(heading); driftY = Math.sin(heading);
@@ -587,7 +595,8 @@ const BG_ART_BUILDERS = {
           for (let i = at; i < at + count; i++) {
             sx[i] = p.random(W); sy[i] = p.random(H);
             sjx[i] = p.random(-0.05, 0.05); sjy[i] = p.random(-0.05, 0.05);
-            ssize[i] = L.size * p.random(0.7, 1.3);
+            // Which of the two painted sizes (see the sprites below).
+            ssize[i] = p.random() < 0.5 ? 0 : 1;
             sph[i] = p.random(Math.PI * 2); stw[i] = p.random(0.5, 1.5);
             shue[i] = Math.floor(p.random(HUES.length));
           }
@@ -603,18 +612,27 @@ const BG_ART_BUILDERS = {
           for (let k = 0; k < BUCKETS; k++) row.push(bgHsla(ctx.baseHue, 55, L.light, L.alpha * ((k + 1) / BUCKETS)));
           strokes.push(row);
           if (cap) bgLumCap = 0.4;
+          // Two sizes per hue, each painted at the size it is drawn (three
+          // star radii), so a frame copies it unscaled: 216 scaled copies a
+          // frame were a third of this style's cost.
           const drow = [];
           for (const off of HUES) {
-            drow.push(bgGlowSprite(ctx.baseHue + off, ctx.dark ? 60 : 72, L.light + (ctx.dark ? 6 : -4), 1, 16, 0.6));
+            for (const k of STAR_SIZES) {
+              drow.push(bgGlowSprite(ctx.baseHue + off, ctx.dark ? 60 : 72, L.light + (ctx.dark ? 6 : -4), 1,
+                Math.max(3, Math.round(L.size * k * 3)), 0.6));
+            }
           }
           dots.push(drow);
+          if (li === 0) farFill = bgHsla(ctx.baseHue, ctx.dark ? 60 : 72, L.light + (ctx.dark ? 6 : -4), 1);
           bgLumCap = cap;
         }
+        farStep = new Uint8Array(n);
         segMax = n * 10;
         seg = new Float32Array(segMax * 4);
         segB = new Uint8Array(segMax);
         if (bgLumCap) bgLumCap = 0.4;
-        halo = bgGlowSprite(ctx.baseHue, 70, ctx.dark ? 80 : 55, ctx.dark ? 0.5 : 0.28);
+        halo = bgGlowSprite(ctx.baseHue, 70, ctx.dark ? 80 : 55, ctx.dark ? 0.5 : 0.28,
+          Math.round(LAYERS[2].size * STAR_SIZES[1] * 9));
         if (bgLumCap) bgLumCap = 0.12;
         // The nebula: three soft clouds painted once, small, and set as the
         // canvas element's own CSS background, so the compositor scales it
@@ -652,7 +670,7 @@ const BG_ART_BUILDERS = {
       frame(t) {
         const g = p.drawingContext;
         if (ctx.still) g.drawImage(nebula, 0, 0, W, H);
-        g.lineCap = "round";
+        g.lineCap = "butt";
         for (let li = 0; li < LAYERS.length; li++) {
           const L = LAYERS[li];
           const from = lFrom[li], to = lTo[li];
@@ -710,23 +728,42 @@ const BG_ART_BUILDERS = {
             g.stroke();
           }
         }
-        // Stars, far to near, as soft dot sprites; halos on the near layer.
+        // Stars, far to near. The far layer, the most numerous and each
+        // under two pixels across, is squares in one path per twinkle step
+        // (four fills, not a hundred image copies); the nearer two are soft
+        // dot sprites, with halos on the near layer.
         if (ctx.dark) g.globalCompositeOperation = "lighter";
-        for (let li = 0; li < LAYERS.length; li++) {
+        g.fillStyle = farFill;
+        for (let i = lFrom[0]; i < lTo[0]; i++) {
+          const tw = Math.sin(t * 9 * stw[i] + sph[i]);
+          farStep[i] = tw > 0.5 ? 3 : tw > 0 ? 2 : tw > -0.5 ? 1 : 0;
+        }
+        for (let k = 0; k < 4; k++) {
+          g.globalAlpha = FAR_ALPHA[k];
+          g.beginPath();
+          for (let i = lFrom[0]; i < lTo[0]; i++) {
+            if (farStep[i] === k) g.rect((sx[i] - 1) | 0, (sy[i] - 1) | 0, 2, 2);
+          }
+          g.fill();
+        }
+        for (let li = 1; li < LAYERS.length; li++) {
           const L = LAYERS[li];
           const base = 0.5 + 0.5 * L.z;
           const sprites = dots[li];
+          const hh = halo.width / 2;
           for (let i = lFrom[li]; i < lTo[li]; i++) {
             const tw = 0.62 + 0.38 * Math.sin(t * 9 * stw[i] + sph[i]);
-            const s = ssize[i];
-            if (li === 2 && s > 2.4) {
-              const hs = s * 9;
+            const big = ssize[i];
+            // Whole pixels, like the microbes: a copy at a fractional place
+            // is resampled, and a star drifting a fifth of a pixel a frame
+            // shows no step.
+            if (li === 2 && big) {
               g.globalAlpha = tw * 0.8;
-              g.drawImage(halo, sx[i] - hs / 2, sy[i] - hs / 2, hs, hs);
+              g.drawImage(halo, (sx[i] - hh) | 0, (sy[i] - hh) | 0);
             }
             g.globalAlpha = base * tw;
-            const ds = s * 3;
-            g.drawImage(sprites[shue[i]], sx[i] - ds / 2, sy[i] - ds / 2, ds, ds);
+            const spr = sprites[shue[i] * 2 + big];
+            g.drawImage(spr, (sx[i] - spr.width / 2) | 0, (sy[i] - spr.width / 2) | 0);
           }
         }
         g.globalAlpha = 1;
@@ -810,150 +847,200 @@ const BG_ART_BUILDERS = {
     };
   },
 
-  // Glass bubbles rising at three depths, pure CSS: each bubble is a
-  // pre-rendered image (made once, here, from a canvas) on its own element,
-  // and the rise, the sway and the wobble are three nested CSS animations,
-  // so the compositor moves them and the page does no work per frame. Near
-  // bubbles are large, quick and out of focus, far ones small, slow and
-  // soft, the middle ones in focus: a coloured rim, a clear centre, a
-  // highlight and a reflection.
-  bubbles: {
-    dom: true,
-    lightFloor: 0.3,
-    mount(layer, ctx, still) {
-      const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 7);
-      const L = ctx.dark ? 62 : 52;
-      const SPRITE = 160;
-      const glass = (hue) => bgSprite(SPRITE, SPRITE, (g, w) => {
-        const r = w / 2;
-        const body = g.createRadialGradient(r, r, r * 0.1, r, r, r);
-        body.addColorStop(0, bgHsla(hue, 70, L, 0.04));
-        body.addColorStop(0.62, bgHsla(hue, 70, L, 0.1));
-        body.addColorStop(0.86, bgHsla(hue + 18, 75, L, 0.34));
-        body.addColorStop(0.96, bgHsla(hue + 30, 80, L - 6, 0.55));
-        body.addColorStop(1, bgHsla(hue + 30, 80, L, 0));
-        g.fillStyle = body;
-        g.beginPath(); g.arc(r, r, r, 0, Math.PI * 2); g.fill();
-        // The iridescent side: a second tint pooled at the lower right.
-        const film = g.createRadialGradient(r * 1.35, r * 1.35, 0, r * 1.35, r * 1.35, r * 0.9);
-        film.addColorStop(0, bgHsla(hue + 60, 75, L + 8, 0.22));
-        film.addColorStop(1, bgHsla(hue + 60, 75, L + 8, 0));
-        g.fillStyle = film;
-        g.beginPath(); g.arc(r, r, r * 0.97, 0, Math.PI * 2); g.fill();
-        const hx = r * 0.62, hy = r * 0.56;
-        const spec = g.createRadialGradient(hx, hy, 0, hx, hy, r * 0.32);
-        spec.addColorStop(0, `rgba(255,255,255,${ctx.dark ? 0.7 : 0.9})`);
-        spec.addColorStop(1, "rgba(255,255,255,0)");
-        g.fillStyle = spec;
-        g.beginPath(); g.arc(hx, hy, r * 0.32, 0, Math.PI * 2); g.fill();
-        g.strokeStyle = `rgba(255,255,255,${ctx.dark ? 0.28 : 0.5})`;
-        g.lineWidth = r * 0.04;
-        g.beginPath(); g.arc(r, r, r * 0.8, Math.PI * 0.15, Math.PI * 0.45); g.stroke();
-      }).toDataURL();
-      const bokeh = (hue) => bgSprite(SPRITE / 2, SPRITE / 2, (g, w) => {
-        const r = w / 2;
-        const body = g.createRadialGradient(r, r, 0, r, r, r);
-        body.addColorStop(0, bgHsla(hue, 70, L, 0.3));
-        body.addColorStop(0.7, bgHsla(hue, 70, L, 0.22));
-        body.addColorStop(0.9, bgHsla(hue, 70, L, 0.1));
-        body.addColorStop(1, bgHsla(hue, 70, L, 0));
-        g.fillStyle = body;
-        g.fillRect(0, 0, w, w);
-      }).toDataURL();
-      const hues = [0, 32, -34].map((o) => ctx.baseHue + o);
-      const glassUrls = hues.map(glass), bokehUrls = hues.map(bokeh);
-      const H = window.innerHeight || 900;
-      const n = Math.max(6, Math.round(24 * ctx.density));
-      for (let i = 0; i < n; i++) {
-        // Far to near in document order, so near bubbles paint on top.
-        const z = i / n;
-        const r = 10 + z * z * 88;
-        const blurred = z < 0.3 || z > 0.86;
-        const kind = Math.floor(rand() * 3);
-        // The same speeds as the canvas version: 0.12 to 0.72 pixels a
-        // frame at 30 frames a second.
-        const pxPerSec = (0.12 + z * 0.6) * 30;
-        const rise = (H + r * 2) / pxPerSec;
-        const riseEl = document.createElement("div");
-        riseEl.className = "bg-bubble bg-rise";
-        riseEl.style.left = `${(rand() * 104 - 2).toFixed(2)}%`;
-        riseEl.style.top = still ? `${(rand() * 100).toFixed(2)}%` : "100%";
-        riseEl.style.width = `${(r * 2).toFixed(1)}px`;
-        riseEl.style.height = `${(r * 2).toFixed(1)}px`;
-        riseEl.style.setProperty("--dur-r", `${rise.toFixed(1)}s`);
-        riseEl.style.setProperty("--delay-r", `${(-rand() * rise).toFixed(1)}s`);
-        const sway = document.createElement("div");
-        sway.className = "bg-bubble-part bg-drift-x";
-        const swayDur = 4 + rand() * 5;
-        sway.style.setProperty("--dx", `${((8 + rand() * 26) * (0.4 + z)).toFixed(1)}px`);
-        sway.style.setProperty("--dur-x", `${swayDur.toFixed(2)}s`);
-        sway.style.setProperty("--delay-x", `${(-rand() * swayDur).toFixed(2)}s`);
-        const body = document.createElement("div");
-        body.className = "bg-bubble-part bg-wobble";
-        body.style.setProperty("--dur-w", `${(1.3 + rand() * 0.6).toFixed(2)}s`);
-        body.style.setProperty("--delay-w", `${(-rand() * 2).toFixed(2)}s`);
-        body.style.backgroundImage = `url("${blurred ? bokehUrls[kind] : glassUrls[kind]}")`;
-        body.style.opacity = (blurred ? (z < 0.3 ? 0.55 + z : 0.6) : 0.95).toFixed(2);
-        sway.appendChild(body);
-        riseEl.appendChild(sway);
-        layer.appendChild(riseEl);
-      }
-    },
+  // Glass bubbles rising at three depths. Each bubble is a pre-rendered
+  // image (made once, here); near bubbles are large, quick and out of
+  // focus, far ones small, slow and soft, the middle ones in focus: a
+  // coloured rim, a clear centre, a highlight and a reflection. Each rises,
+  // sways on its own period and wobbles.
+  //
+  // **Cost.** A frame clears only where each bubble was (its last box, not
+  // the window) and copies two dozen images: under a millisecond in a
+  // software canvas at 1440x900. The version before this was the same
+  // images as seventy-two CSS-animated elements, which cost the page
+  // nothing but kept the compositor redrawing at the display's full rate:
+  // the whole browser spent about a core on it (1,000ms of CPU a second
+  // against 150 with the art off, in software compositing, bgartcost.js),
+  // more than any canvas style.
+  bubbles(p, ctx) {
+    let W = 0, H = 0, n = 0, secs = 0;
+    let bx, by, br, bspeed, bdx, bsw, bsp, bww, bwp, balpha, bimg;
+    let last = null; // each bubble's last drawn box: x, y, w, h
+    const images = [];
+    return {
+      background: "keep",
+      lightFloor: 0.3,
+      init() {
+        W = p.width; H = p.height;
+        const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 7);
+        const L = ctx.dark ? 62 : 52;
+        const SPRITE = 160;
+        const glass = (hue) => bgSprite(SPRITE, SPRITE, (g, w) => {
+          const r = w / 2;
+          const body = g.createRadialGradient(r, r, r * 0.1, r, r, r);
+          body.addColorStop(0, bgHsla(hue, 70, L, 0.04));
+          body.addColorStop(0.62, bgHsla(hue, 70, L, 0.1));
+          body.addColorStop(0.86, bgHsla(hue + 18, 75, L, 0.34));
+          body.addColorStop(0.96, bgHsla(hue + 30, 80, L - 6, 0.55));
+          body.addColorStop(1, bgHsla(hue + 30, 80, L, 0));
+          g.fillStyle = body;
+          g.beginPath(); g.arc(r, r, r, 0, Math.PI * 2); g.fill();
+          // The iridescent side: a second tint pooled at the lower right.
+          const film = g.createRadialGradient(r * 1.35, r * 1.35, 0, r * 1.35, r * 1.35, r * 0.9);
+          film.addColorStop(0, bgHsla(hue + 60, 75, L + 8, 0.22));
+          film.addColorStop(1, bgHsla(hue + 60, 75, L + 8, 0));
+          g.fillStyle = film;
+          g.beginPath(); g.arc(r, r, r * 0.97, 0, Math.PI * 2); g.fill();
+          const hx = r * 0.62, hy = r * 0.56;
+          const spec = g.createRadialGradient(hx, hy, 0, hx, hy, r * 0.32);
+          spec.addColorStop(0, `rgba(255,255,255,${ctx.dark ? 0.7 : 0.9})`);
+          spec.addColorStop(1, "rgba(255,255,255,0)");
+          g.fillStyle = spec;
+          g.beginPath(); g.arc(hx, hy, r * 0.32, 0, Math.PI * 2); g.fill();
+          g.strokeStyle = `rgba(255,255,255,${ctx.dark ? 0.28 : 0.5})`;
+          g.lineWidth = r * 0.04;
+          g.beginPath(); g.arc(r, r, r * 0.8, Math.PI * 0.15, Math.PI * 0.45); g.stroke();
+        });
+        const bokeh = (hue) => bgSprite(SPRITE / 2, SPRITE / 2, (g, w) => {
+          const r = w / 2;
+          const body = g.createRadialGradient(r, r, 0, r, r, r);
+          body.addColorStop(0, bgHsla(hue, 70, L, 0.3));
+          body.addColorStop(0.7, bgHsla(hue, 70, L, 0.22));
+          body.addColorStop(0.9, bgHsla(hue, 70, L, 0.1));
+          body.addColorStop(1, bgHsla(hue, 70, L, 0));
+          g.fillStyle = body;
+          g.fillRect(0, 0, w, w);
+        });
+        const hues = [0, 32, -34].map((o) => ctx.baseHue + o);
+        for (const h of hues) images.push(glass(h));
+        for (const h of hues) images.push(bokeh(h));
+        n = Math.max(6, Math.round(24 * ctx.density));
+        const f = () => new Float32Array(n);
+        bx = f(); by = f(); br = f(); bspeed = f(); bdx = f(); bsw = f(); bsp = f();
+        bww = f(); bwp = f(); balpha = f(); bimg = new Uint8Array(n);
+        last = new Float32Array(n * 4);
+        for (let i = 0; i < n; i++) {
+          // Far to near in order, so near bubbles paint on top.
+          const z = i / n;
+          const r = 10 + z * z * 88;
+          const blurred = z < 0.3 || z > 0.86;
+          const kind = Math.floor(rand() * 3);
+          br[i] = r;
+          bx[i] = (rand() * 1.04 - 0.02) * W;
+          // Anywhere on its way up, so the window starts full.
+          by[i] = rand() * (H + r * 2) - r;
+          // 0.12 to 0.72 pixels a frame at 30 frames a second.
+          bspeed[i] = (0.12 + z * 0.6) * 30;
+          bdx[i] = (8 + rand() * 26) * (0.4 + z);
+          bsw[i] = Math.PI / (4 + rand() * 5);
+          bsp[i] = rand() * Math.PI * 2;
+          bww[i] = Math.PI / (1.3 + rand() * 0.6);
+          bwp[i] = rand() * Math.PI * 2;
+          bimg[i] = blurred ? 3 + kind : kind;
+          balpha[i] = blurred ? (z < 0.3 ? 0.55 + z : 0.6) : 0.95;
+        }
+      },
+      frame() {
+        const g = p.drawingContext;
+        const dt = 1 / bgArtFrameRate();
+        secs += dt;
+        // Clear each bubble's last box (a pixel wider for the smoothing).
+        for (let i = 0; i < n; i++) {
+          const o = i * 4;
+          if (last[o + 2]) g.clearRect(last[o] - 1, last[o + 1] - 1, last[o + 2] + 2, last[o + 3] + 2);
+        }
+        for (let i = 0; i < n; i++) {
+          const r = br[i];
+          by[i] -= bspeed[i] * dt;
+          if (by[i] < -r * 1.1) { by[i] = H + r * 1.1; bx[i] = (bgRand() * 1.04 - 0.02) * W; }
+          const x = bx[i] + Math.sin(secs * bsw[i] + bsp[i]) * bdx[i];
+          // The wobble: wider as it is shorter and back, 3.5% each way.
+          const wob = Math.sin(secs * bww[i] + bwp[i]) * 0.035;
+          const w = r * 2 * (1 + wob), h = r * 2 * (1 - wob);
+          const left = x - w / 2, top = by[i] - h / 2;
+          g.globalAlpha = balpha[i];
+          g.drawImage(images[bimg[i]], left, top, w, h);
+          const o = i * 4;
+          last[o] = left; last[o + 1] = top; last[o + 2] = w; last[o + 3] = h;
+        }
+        g.globalAlpha = 1;
+      },
+    };
   },
 
-  // A living mesh gradient, pure CSS: a handful of large soft colour fields
-  // (CSS radial gradients) drifting on slow crossed paths, the horizontal
-  // and vertical halves of each path on two nested elements with different
-  // periods, so each field traces a Lissajous-like loop. The compositor
-  // moves them; the page draws nothing per frame. The old version stacked
-  // six translucent circles per blob on the canvas every frame, and the
-  // rings showed.
-  mesh: {
-    dom: true,
-    darkCap: 0.05,
-    lightFloor: 0.55,
-    mount(layer, ctx, still) {
-      const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 3);
-      layer.style.backgroundColor = bgHsla(ctx.baseHue, ctx.dark ? 35 : 45, ctx.dark ? 13 : 95, 1);
-      const offsets = [0, 38, -34, 74, -68, 16, 150];
-      const n = bgClamp(Math.round(4 + 3 * ctx.density), 4, offsets.length);
-      const l = ctx.dark ? 42 : 70;
-      for (let i = 0; i < n; i++) {
-        const hue = ctx.baseHue + offsets[i];
-        // The far hues are quieter, so the accent stays the lead.
-        const sat = Math.abs(offsets[i]) > 60 ? 50 : 75;
-        const r = 38 + rand() * 22; // radius, in vmax
-        const cx = 20 + rand() * 60, cy = 20 + rand() * 60; // centre, in %
-        const ax = 18 + rand() * 20, ay = 16 + rand() * 18; // reach, vw / vh
-        // Half a period each way, 20 to 45 seconds: the canvas version's
-        // Lissajous frequencies, as durations.
-        const durX = 20 + rand() * 25, durY = 22 + rand() * 25;
-        const phase = rand();
-        const drift = document.createElement("div");
-        drift.className = "bg-mesh-field bg-drift-x";
-        // A still frame is a moment mid-path rather than every field at
-        // its centre.
-        const sx = still ? Math.sin(phase * Math.PI * 2) * ax : 0;
-        const sy = still ? Math.sin(phase * Math.PI * 3.4) * ay : 0;
-        drift.style.left = `calc(${cx.toFixed(1)}% + ${sx.toFixed(1)}vw - ${r.toFixed(1)}vmax)`;
-        drift.style.top = `calc(${cy.toFixed(1)}% + ${sy.toFixed(1)}vh - ${r.toFixed(1)}vmax)`;
-        drift.style.width = `${(r * 2).toFixed(1)}vmax`;
-        drift.style.height = `${(r * 2).toFixed(1)}vmax`;
-        drift.style.setProperty("--dx", `${ax.toFixed(1)}vw`);
-        drift.style.setProperty("--dur-x", `${durX.toFixed(1)}s`);
-        drift.style.setProperty("--delay-x", `${(-phase * durX * 2).toFixed(1)}s`);
-        const field = document.createElement("div");
-        field.className = "bg-mesh-field-body bg-drift-y";
-        field.style.setProperty("--dy", `${ay.toFixed(1)}vh`);
-        field.style.setProperty("--dur-y", `${durY.toFixed(1)}s`);
-        field.style.setProperty("--delay-y", `${(-rand() * durY * 2).toFixed(1)}s`);
-        field.style.backgroundImage =
-          `radial-gradient(closest-side, ${bgHsla(hue, sat, l, ctx.dark ? 0.75 : 0.8)} 0%, `
-          + `${bgHsla(hue, sat, l, ctx.dark ? 0.3 : 0.32)} 50%, ${bgHsla(hue, sat, l, 0)} 100%)`;
-        drift.appendChild(field);
-        layer.appendChild(drift);
-      }
-    },
+  // A living mesh gradient: a handful of large soft colour fields drifting
+  // on slow crossed paths (each axis its own period, so each field traces a
+  // Lissajous-like loop) over a tinted ground.
+  //
+  // **Cost.** Everything here is soft, so it is drawn on a canvas at a
+  // fifth of the pixel density (288 by 180 backing pixels at 1440x900; an
+  // eighth showed the upscale's grid) and the compositor's upscale is the
+  // blur the fields want anyway: a frame is one tinted fill and seven small
+  // sprite copies into fifty thousand pixels. And it moves so slowly (a field crosses a few pixels a frame at
+  // most) that fifteen frames a second look the same as sixty. The version
+  // before this was seven CSS-animated elements up to 120vmax across,
+  // composited at the display's full rate: no page work, but the whole
+  // browser spent a core on it (1,000ms of CPU a second against 150 with the
+  // art off, measured in software compositing by bgartcost.js), more than
+  // any canvas style.
+  mesh(p, ctx) {
+    const offsets = [0, 38, -34, 74, -68, 16, 150];
+    const fields = [];
+    let ground = "", W = 0, H = 0, secs = 0;
+    return {
+      background: "keep",
+      pixelDensity: 0.2,
+      fps: 15,
+      darkCap: 0.05,
+      lightFloor: 0.55,
+      init() {
+        W = p.width; H = p.height;
+        const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 3);
+        ground = bgHsla(ctx.baseHue, ctx.dark ? 35 : 45, ctx.dark ? 13 : 95, 1);
+        const n = bgClamp(Math.round(4 + 3 * ctx.density), 4, offsets.length);
+        const l = ctx.dark ? 42 : 70;
+        const vmax = Math.max(W, H) / 100;
+        for (let i = 0; i < n; i++) {
+          const hue = ctx.baseHue + offsets[i];
+          // The far hues are quieter, so the accent stays the lead.
+          const sat = Math.abs(offsets[i]) > 60 ? 50 : 75;
+          const r = (38 + rand() * 22) * vmax; // radius
+          const cx = (0.2 + rand() * 0.6) * W, cy = (0.2 + rand() * 0.6) * H; // centre
+          const ax = (0.18 + rand() * 0.2) * W, ay = (0.16 + rand() * 0.18) * H; // reach
+          // A full swing each way takes 20 to 45 seconds.
+          const wx = Math.PI / (20 + rand() * 25), wy = Math.PI / (22 + rand() * 25);
+          const px = rand() * Math.PI * 2, py = rand() * Math.PI * 2;
+          // The field: a radial gradient, strong at the centre, half way at
+          // half the radius, gone at the edge, painted once at about the
+          // size it is drawn (from 64 pixels, the upscale showed a grid).
+          const sprite = bgSprite(256, 256, (g, w) => {
+            const c = w / 2;
+            const grad = g.createRadialGradient(c, c, 0, c, c, c);
+            grad.addColorStop(0, bgHsla(hue, sat, l, ctx.dark ? 0.75 : 0.8));
+            grad.addColorStop(0.5, bgHsla(hue, sat, l, ctx.dark ? 0.3 : 0.32));
+            grad.addColorStop(1, bgHsla(hue, sat, l, 0));
+            g.fillStyle = grad;
+            g.fillRect(0, 0, w, w);
+          });
+          fields.push({ sprite, r, cx, cy, ax, ay, wx, wy, px, py });
+        }
+      },
+      frame() {
+        const g = p.drawingContext;
+        // Seconds, at whatever rate the loop runs, so the drift keeps its
+        // speed at 20 frames a second as at 30.
+        secs += 1 / Math.min(15, bgArtFrameRate());
+        g.fillStyle = ground;
+        // Past the edges: the backing size is rounded, and a part-covered
+        // last row showed as a line along the bottom.
+        g.fillRect(0, 0, W + 10, H + 10);
+        for (let i = 0; i < fields.length; i++) {
+          const f = fields[i];
+          const x = f.cx + Math.sin(secs * f.wx + f.px) * f.ax;
+          const y = f.cy + Math.sin(secs * f.wy + f.py) * f.ay;
+          g.drawImage(f.sprite, x - f.r, y - f.r, f.r * 2, f.r * 2);
+        }
+      },
+    };
   },
 
   // An ecosystem grown from a name (the helixlabs idea, see bgArtGenome).
@@ -1142,6 +1229,46 @@ const BG_ART_BUILDERS = {
       }
     };
 
+    // **The bodies are pre-rendered.** Each species' outline, fill and
+    // organelles are painted once into an atlas: one cell per heading (48
+    // for a body that points where it swims, 16 for one that only turns, 8
+    // for a round one) and, for the amoeba, per step of its wobble. A frame
+    // copies one cell per organism, upright, the cheap kind of image draw,
+    // where it used to build, fill and stroke every outline: 0.9ms of the
+    // frame, measured, for sixty bodies. The flagella still draw as lines,
+    // since their beat changes every frame and they are thin.
+    const atlasOf = (sp) => {
+      const r = sp.size;
+      const cell = Math.ceil(r * 4.4 + 4);
+      const angles = sp.form === "coccus" ? 8 : sp.turns ? 16 : 48;
+      const phases = sp.form === "amoeba" ? 8 : 1;
+      const img = bgSprite(cell * angles, cell * phases, (g) => {
+        g.lineWidth = 1;
+        g.lineJoin = "round";
+        for (let ph = 0; ph < phases; ph++) {
+          for (let a = 0; a < angles; a++) {
+            const th = (a / angles) * Math.PI * 2;
+            const c = Math.cos(th), sn = Math.sin(th);
+            const x = a * cell + cell / 2, y = ph * cell + cell / 2;
+            const phase = (ph / phases) * Math.PI * 2;
+            g.beginPath();
+            outline(g, sp, x, y, c, sn, r, phase);
+            g.fillStyle = sp.cFill;
+            g.strokeStyle = sp.cStroke;
+            g.fill();
+            g.stroke();
+            if (sp.form !== "vibrio") {
+              g.beginPath();
+              organelles(g, sp, x, y, c, sn, r);
+              g.fillStyle = sp.cCore;
+              g.fill();
+            }
+          }
+        }
+      });
+      return { img, cell, half: cell / 2, angles, phases };
+    };
+
     const step = () => {
       frameNo++;
       for (const sp of species) {
@@ -1317,10 +1444,17 @@ const BG_ART_BUILDERS = {
             cFill: bgHsla(hue, 62, fillL, 0.28),
             cStroke: bgHsla(hue, 70, ink, 0.8),
             cCore: bgHsla(hue + 12, 72, ink, 0.75),
-            glowSprite: bgGlowSprite(hue, 70, ctx.dark ? 66 : 55, ctx.dark ? 0.55 : 0.3),
+            glowSprite: null,
+            glowHalf: 0,
             cWake: bgHsla(hue, 60, ink, 0.18),
             cDots: bgHsla(hue, 60, ink, 0.3),
           });
+          // The glow, painted at the size it is drawn (five body radii).
+          const sp = species[species.length - 1];
+          const gs = Math.round(sp.size * 5);
+          sp.glowSprite = bgGlowSprite(hue, 70, ctx.dark ? 66 : 55, ctx.dark ? 0.55 : 0.3, gs);
+          sp.glowHalf = gs / 2;
+          sp.atlas = atlasOf(sp);
         });
         cap = bgClamp(Math.round((W * H) / 22000 * ctx.density), 14, 80);
         const f = () => new Float32Array(cap);
@@ -1412,38 +1546,59 @@ const BG_ART_BUILDERS = {
           const sp = species[SP[i]];
           if (sp.glow === "none" || a <= 0.01) continue;
           const pulse = sp.glow === "pulse" ? 0.55 + 0.45 * Math.sin(frameNo * 0.06 + OFF[i]) : 0.8;
-          const gs = sp.size * 5;
           g.globalAlpha = pulse * a;
           if (ctx.dark) g.globalCompositeOperation = "lighter";
-          g.drawImage(sp.glowSprite, X[i] - gs / 2, Y[i] - gs / 2, gs, gs);
+          // At its own size and on whole pixels, the plain copy: no
+          // resampling and no boxed coordinates.
+          g.drawImage(sp.glowSprite, (X[i] - sp.glowHalf) | 0, (Y[i] - sp.glowHalf) | 0);
         }
         g.globalCompositeOperation = "source-over";
-        // Bodies: per species and per quarter of opacity, one outline path
-        // (filled and stroked), one organelle path, one flagellum path.
+        // Bodies: one atlas cell each, at the organism's own strength; a
+        // dividing organism is two, a little smaller, pulling apart. On
+        // whole pixels: at a fractional place every copy is resampled, which
+        // measured twice the cost (1.3ms against 0.6ms for sixty bodies in a
+        // CPU canvas), and a body crawling under a pixel a frame shows no
+        // step.
+        const TAU = Math.PI * 2;
+        for (let i = 0; i < n; i++) {
+          const sp = species[SP[i]];
+          const at = sp.atlas;
+          const a = BORN[i] * (1 - Math.min(1, DYING[i]));
+          if (a <= 0.01) continue;
+          g.globalAlpha = a;
+          let turn = ANG[i] % TAU;
+          if (turn < 0) turn += TAU;
+          const col = Math.round((turn / TAU) * at.angles) % at.angles;
+          let row = 0;
+          if (at.phases > 1) {
+            let ph = (frameNo * (PHASE_RATE[sp.form] || 0) + OFF[i]) % TAU;
+            if (ph < 0) ph += TAU;
+            row = Math.floor((ph / TAU) * at.phases) % at.phases;
+          }
+          const sx = col * at.cell, sy = row * at.cell, cell = at.cell;
+          if (DIV[i] >= 0) {
+            const c = Math.cos(ANG[i]), sn = Math.sin(ANG[i]);
+            const d = DIV[i] * sp.size * 1.1;
+            const k = 1 - 0.18 * Math.sin(DIV[i] * Math.PI);
+            const w = cell * k, hw = w / 2;
+            g.drawImage(at.img, sx, sy, cell, cell, X[i] - c * d - hw, Y[i] - sn * d - hw, w, w);
+            g.drawImage(at.img, sx, sy, cell, cell, X[i] + c * d - hw, Y[i] + sn * d - hw, w, w);
+          } else {
+            g.drawImage(at.img, sx, sy, cell, cell, (X[i] - at.half) | 0, (Y[i] - at.half) | 0, cell, cell);
+          }
+        }
+        // Flagella: per species and per quarter of opacity, one path each.
         g.lineWidth = 1;
         for (let si = 0; si < species.length; si++) {
           const sp = species[si];
-          const lashes = sp.form === "vibrio" || sp.form === "flagellate";
+          if (sp.form !== "vibrio" && sp.form !== "flagellate") continue;
+          g.strokeStyle = sp.cStroke;
           for (let q = 1; q <= 4; q++) {
             if (!AQN[si * 5 + q]) continue;
             g.globalAlpha = q / 4;
             g.beginPath();
-            bodies(g, si, q, 0);
-            g.fillStyle = sp.cFill;
-            g.strokeStyle = sp.cStroke;
-            g.fill();
+            bodies(g, si, q, 2);
             g.stroke();
-            if (sp.form !== "vibrio") {
-              g.beginPath();
-              bodies(g, si, q, 1);
-              g.fillStyle = sp.cCore;
-              g.fill();
-            }
-            if (lashes) {
-              g.beginPath();
-              bodies(g, si, q, 2);
-              g.stroke();
-            }
           }
         }
         g.globalAlpha = 1;
@@ -1455,35 +1610,83 @@ const BG_ART_BUILDERS = {
   // each colony is a strain of the display name, and its hue, how often it
   // branches, how wide the branches split, how much the threads curl, how
   // fast they grow, how thick they are and whether it sets nodes where it
-  // forks are all read from the strain's letters. Colonies germinate from
-  // spores, spread, rest, fade and grow again somewhere else. Growth is
-  // drawn once and kept (only the new segment of each thread is drawn a
-  // frame), so a frame costs the growing tips and nothing else. Tips live in
-  // typed arrays, and each frame's new segments go into preallocated
-  // buffers, one per colony and thickness, stroked as one path each.
+  // forks are all read from the strain's letters. Growth is drawn once and
+  // kept (only the new segment of each thread is drawn a frame), so a frame
+  // costs the growing tips and nothing else. Tips live in typed arrays, and
+  // each frame's new segments go into preallocated buffers, one per colony
+  // and thickness, stroked as one path each.
+  //
+  // **Where it starts and how it ends** (the owner: "the start points need
+  // to be more organic and also the transition between them disappearing
+  // and reappearing needs to be smoother and maybe faded"). A colony's
+  // spores are scattered with a minimum distance between them (never a grid,
+  // never a ring), each sends out two to five threads at uneven angles from
+  // a few pixels apart, and each thread waits its own moment to start, so a
+  // colony wakes up rather than bursting out of a point. A generation's
+  // first strokes are laid down faint and strengthen over two seconds, so
+  // every thread fades in from its spore. And a generation does not vanish:
+  // the next one germinates on a second canvas (`twin`, from the runtime)
+  // while the old canvas fades out over about two seconds by its own
+  // opacity, which the compositor does for free; the old one is cleared only
+  // once it is invisible. The fade used to be `destination-out` over the
+  // whole window for 75 frames, then a hard clear and every colony at once.
   mycelium(p, ctx) {
     const FORMS = ["hyphae", "rhizome", "lace"];
     const WIDTHS = [0.55, 1, 1.7];
+    const FADE_IN = 60; // frames over which a generation's strokes reach full strength
+    const FADE_OUT = 56; // frames over which the old generation's canvas fades
     let W = 0, H = 0, maxTips = 0, n = 0;
-    let TX, TY, TA, TW, TL, TG, TC;
+    let TX, TY, TA, TW, TL, TG, TC, TD;
     let SEG, SEGN, NODE, NODEC, nNodes = 0;
     const colonies = [];
-    let phase = "grow", phaseFrame = 0;
+    let phase = "grow", phaseFrame = 0, growFrame = 0;
     let tipFill = "";
     const ink = ctx.dark ? 68 : 40;
+    // The two canvases a moving mycelium alternates between, and the
+    // opacity strings a fade steps through (built once: a fade is a string
+    // assignment a frame, not a string built a frame).
+    let layers = null, cur = 0, fading = -1, fadeFrame = 0;
+    const FADE_STEPS = 24;
+    const fadeOpacity = [];
+    for (let k = 0; k <= FADE_STEPS; k++) {
+      fadeOpacity.push(`calc(var(--bg-art-opacity, 0.9) * ${(k / FADE_STEPS).toFixed(3)})`);
+    }
+    // The spores placed this generation, x and y (a buffer made once).
+    let spores = null;
 
     const germinate = () => {
       n = 0;
+      growFrame = 0;
+      let ns = 0;
+      const gap = Math.min(W, H) * 0.2;
       for (let ci = 0; ci < colonies.length; ci++) {
         const col = colonies[ci];
-        const spores = 1 + (p.random() < 0.5 ? 1 : 0);
-        for (let s = 0; s < spores; s++) {
-          const x = p.random(W * 0.08, W * 0.92), y = p.random(H * 0.1, H * 0.9);
-          const count = 3 + Math.floor(p.random(3));
+        const count = 1 + (p.random() < 0.6 ? 1 : 0) + (p.random() < 0.2 ? 1 : 0);
+        for (let s = 0; s < count && ns < spores.length / 2; s++) {
+          // The first place far enough from every spore so far, from a
+          // dozen tries; the last try stands if none is (a crowded window
+          // still gets its colonies).
+          let x = 0, y = 0;
+          for (let tries = 0; tries < 12; tries++) {
+            x = p.random(W * 0.05, W * 0.95);
+            y = p.random(H * 0.07, H * 0.93);
+            let clear = true;
+            for (let k = 0; k < ns; k++) {
+              const dx = spores[k * 2] - x, dy = spores[k * 2 + 1] - y;
+              if (dx * dx + dy * dy < gap * gap) { clear = false; break; }
+            }
+            if (clear) break;
+          }
+          spores[ns * 2] = x; spores[ns * 2 + 1] = y; ns++;
+          const threads = 2 + Math.floor(p.random(4));
           const turn = p.random(Math.PI * 2);
-          for (let k = 0; k < count && n < maxTips; k++) {
-            TX[n] = x; TY[n] = y; TA[n] = turn + (k / count) * Math.PI * 2;
-            TW[n] = col.weight; TL[n] = p.random(260, 420); TG[n] = 0; TC[n] = ci;
+          for (let k = 0; k < threads && n < maxTips; k++) {
+            TX[n] = x + p.random(-7, 7); TY[n] = y + p.random(-7, 7);
+            TA[n] = turn + ((k + p.random(-0.38, 0.38)) / threads) * Math.PI * 2;
+            TW[n] = col.weight * p.random(0.75, 1.1);
+            TL[n] = p.random(220, 440); TG[n] = 0; TC[n] = ci;
+            // Each thread starts in its own time, the first at once.
+            TD[n] = k === 0 ? 0 : Math.floor(p.random(8, 90));
             n++;
           }
         }
@@ -1501,8 +1704,10 @@ const BG_ART_BUILDERS = {
     const grow = (g) => {
       SEGN.fill(0);
       nNodes = 0;
+      growFrame++;
       const count = n;
       for (let i = 0; i < count; i++) {
+        if (TD[i] > 0) { TD[i]--; continue; }
         const ci = TC[i], col = colonies[ci];
         TA[i] += (bgFlow(TX[i] * 0.008 + col.seed, TY[i] * 0.008) - 0.5) * col.curl * 2.2;
         const nx = TX[i] + Math.cos(TA[i]) * col.step;
@@ -1523,9 +1728,9 @@ const BG_ART_BUILDERS = {
         }
         if (n < maxTips && TG[i] < 7 && p.random() < col.branch) {
           const side = p.random() < 0.5 ? -1 : 1;
-          TX[n] = nx; TY[n] = ny; TA[n] = TA[i] + side * col.angle;
+          TX[n] = nx; TY[n] = ny; TA[n] = TA[i] + side * col.angle * p.random(0.7, 1.3);
           TW[n] = TW[i] * 0.78; TL[n] = TL[i] * p.random(0.55, 0.85);
-          TG[n] = TG[i] + 1; TC[n] = ci;
+          TG[n] = TG[i] + 1; TC[n] = ci; TD[n] = 0;
           n++;
           if (col.form === "lace") addNode(ci, nx, ny, TW[i] * 1.6);
         }
@@ -1535,9 +1740,12 @@ const BG_ART_BUILDERS = {
         n--;
         if (i !== n) {
           TX[i] = TX[n]; TY[i] = TY[n]; TA[i] = TA[n]; TW[i] = TW[n];
-          TL[i] = TL[n]; TG[i] = TG[n]; TC[i] = TC[n];
+          TL[i] = TL[n]; TG[i] = TG[n]; TC[i] = TC[n]; TD[i] = TD[n];
         }
       }
+      // The fade in: a generation's first strokes are faint and the later
+      // ones full, so each thread strengthens away from its spore.
+      g.globalAlpha = growFrame < FADE_IN ? 0.15 + 0.85 * (growFrame / FADE_IN) : 1;
       g.lineCap = "round";
       for (let ci = 0; ci < colonies.length; ci++) {
         const col = colonies[ci];
@@ -1562,11 +1770,13 @@ const BG_ART_BUILDERS = {
         g.arc(NODE[k * 3], NODE[k * 3 + 1], Math.max(1.2, NODE[k * 3 + 2]), 0, Math.PI * 2);
         g.fill();
       }
+      g.globalAlpha = 1;
     };
 
     return {
       background: "keep",
       seeded: true,
+      twin: true,
       darkCap: 0.1,
       lightFloor: 0.3,
       init() {
@@ -1594,10 +1804,14 @@ const BG_ART_BUILDERS = {
         TX = new Float32Array(maxTips); TY = new Float32Array(maxTips);
         TA = new Float32Array(maxTips); TW = new Float32Array(maxTips);
         TL = new Float32Array(maxTips); TG = new Uint8Array(maxTips); TC = new Uint8Array(maxTips);
+        TD = new Uint8Array(maxTips);
         SEG = new Float32Array(colonies.length * 3 * maxTips * 4);
         SEGN = new Int32Array(colonies.length * 3);
         NODE = new Float32Array(maxTips * 2 * 3);
         NODEC = new Uint8Array(maxTips * 2);
+        spores = new Float32Array(colonies.length * 3 * 2);
+        layers = [{ canvas: p.canvas, g: p.drawingContext, clear: () => p.clear() }];
+        if (p.twin) layers.push(p.twin);
         p.clear();
         germinate();
       },
@@ -1606,29 +1820,46 @@ const BG_ART_BUILDERS = {
         for (let i = 0; i < 420 && n; i++) grow(g);
       },
       frame() {
-        const g = p.drawingContext;
+        const layer = layers[cur];
+        const g = layer.g;
         phaseFrame++;
+        if (fading >= 0) {
+          // The old generation fades by its canvas's opacity, then is
+          // cleared and put back to full strength, empty, for next time.
+          fadeFrame++;
+          const old = layers[fading];
+          const k = Math.max(0, FADE_STEPS - Math.round((fadeFrame / FADE_OUT) * FADE_STEPS));
+          old.canvas.style.opacity = fadeOpacity[k];
+          if (fadeFrame >= FADE_OUT) {
+            old.clear();
+            old.canvas.style.opacity = "";
+            fading = -1;
+          }
+        }
         if (phase === "grow") {
           grow(g);
           // Growing tips glow faintly: the living front of the colony.
           if (ctx.dark) g.globalCompositeOperation = "lighter";
           g.fillStyle = tipFill;
-          for (let i = 0; i < n; i++) g.fillRect(TX[i] - 1, TY[i] - 1, 2, 2);
+          // Whole pixels: every fractional argument to a canvas call is
+          // boxed, an allocation each, and a tip needs no finer place.
+          for (let i = 0; i < n; i++) if (!TD[i]) g.fillRect((TX[i] - 1) | 0, (TY[i] - 1) | 0, 2, 2);
           g.globalCompositeOperation = "source-over";
           if (!n || phaseFrame > 1500) { phase = "rest"; phaseFrame = 0; }
-        } else if (phase === "rest") {
-          if (phaseFrame > 240) { phase = "fade"; phaseFrame = 0; }
-        } else if (phaseFrame > 75) {
-          // The last few alpha levels do not round away in eight bits, so
-          // the end of the fade clears outright before the next colonies
-          // germinate.
-          p.clear();
-          germinate();
-        } else {
-          g.globalCompositeOperation = "destination-out";
-          g.fillStyle = "rgba(0,0,0,0.06)";
-          g.fillRect(0, 0, W, H);
-          g.globalCompositeOperation = "source-over";
+        } else if (phase === "rest" && phaseFrame > 240 && fading < 0) {
+          if (layers.length > 1) {
+            // Hand over: this generation fades while the next grows on the
+            // other canvas.
+            fading = cur;
+            fadeFrame = 0;
+            cur = 1 - cur;
+            germinate();
+          } else {
+            // No second canvas (a moving mycelium always has one): clear
+            // and start again.
+            layer.clear();
+            germinate();
+          }
         }
       },
     };
@@ -1790,12 +2021,13 @@ function bgArtHalt(handingOver = false) {
     else bgArtInstance.remove();
     bgArtInstance = null;
   }
-  if (canvas) {
+  for (const el of [canvas, document.getElementById("bg-art-twin")]) {
+    if (!el) continue;
     if (handingOver) {
-      canvas.id = "";
-      bgArtRetiring.push([canvas, ""]);
+      el.id = "";
+      bgArtRetiring.push([el, ""]);
     } else {
-      canvas.remove();
+      el.remove();
     }
   }
   if (bgArtLayer) bgArtRetiring.push([bgArtLayer, bgArtStillUrl]);
@@ -1854,6 +2086,19 @@ function bgArtRun(o) {
   // Getters rather than copies: the frame counter moves.
   Object.defineProperty(shim, "frameCount", { get: () => surface.frameCount });
   bgArtSeedUsed = style.seeded ? bgArtSeedOf(o.seedText) : null;
+  // A second canvas the same size, for a style that cross-fades one
+  // picture into the next (the mycelium's generations): the old picture
+  // fades by its element's opacity, which costs the page nothing a frame.
+  // Only while moving; a still frame is one picture.
+  let twin = null;
+  if (style.twin && !o.still) {
+    const t = bgArtSurface(pd, Math.min(style.pixelDensityY || pd, pd));
+    t.canvas.id = "bg-art-twin";
+    t.canvas.className = "bg-art-canvas";
+    t.canvas.setAttribute("aria-hidden", "true");
+    twin = { canvas: t.canvas, g: t.drawingContext, clear: t.clear };
+  }
+  shim.twin = twin;
   const { canvas, drawingContext: g } = surface;
   canvas.id = "bg-art-canvas";
   canvas.className = "bg-art-canvas";
@@ -1893,6 +2138,7 @@ function bgArtRun(o) {
   }
 
   document.body.appendChild(canvas);
+  if (twin) document.body.appendChild(twin.canvas);
   retire();
   let raf = 0, looping = false, last = 0;
   const handle = {
@@ -1925,6 +2171,7 @@ function bgArtRun(o) {
     remove() {
       handle.noLoop();
       canvas.remove();
+      if (twin) twin.canvas.remove();
     },
   };
   // A timestamp gate: the browser offers every display frame, and a frame
@@ -1934,7 +2181,9 @@ function bgArtRun(o) {
   function tick(now) {
     if (!looping) return;
     raf = requestAnimationFrame(tick);
-    const interval = 1000 / bgArtFrameRate();
+    // A style may ask for fewer (the mesh moves too slowly to need more
+    // than fifteen), never more.
+    const interval = 1000 / Math.min(style.fps || 30, bgArtFrameRate());
     if (last && now - last < interval - 1) return;
     last = last && now - last < interval * 2 ? last + interval : now;
     handle.draw();

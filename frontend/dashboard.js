@@ -1299,7 +1299,9 @@ async function renderContinueLink(row) {
     .sort((a, b) => touched(b) - touched(a))[0];
   if (!newest) return;
   // One line of the note, short enough to sit in a pill beside three others.
-  const preview = notePreviewText(newest.content || "").trim().slice(0, 42) || "your last note";
+  // Cut at a word with an ellipsis: a bare 42-character slice ended the pill
+  // on "responds to the blu", which reads as a typo rather than as more text.
+  const preview = clipText(notePreviewText(newest.content || ""), 42) || "your last note";
   //: **The note's own line is the label, not the hint.** 10-responsive.css
   //: gives this pill `flex: 2 1 0` against its neighbours' `1 1 0` and says
   //: why: "Continue is the one pill whose text is a note's own first line, so
@@ -3479,6 +3481,9 @@ async function renderFocusTimerWidget(body) {
 $("dash-edit").addEventListener("click", () => {
   dashEditMode = !dashEditMode;
   $("dash-edit").textContent = dashEditMode ? "Done" : "Edit layout";
+  // Done is the way out of a mode, so it is the one filled button in the
+  // bar while the mode is on (the badge beside it says which mode).
+  $("dash-edit").classList.toggle("ghost", !dashEditMode);
   renderDashboard();
 });
 // Widget picker modal (roadmap §26): a dedicated surface alongside "Edit
@@ -3673,7 +3678,7 @@ async function renderActivityWidget(body) {
   for (const item of [...items].reverse()) {
     const entry = item.entity_type === "entry" || item.entity_type === "board" ? byId.get(item.entity_id) : null;
     const noun = DASH_ACTIVITY_NOUNS[item.entity_type] || "Item";
-    const name = entry ? notePreviewText(entry.content || "").split("\n")[0].slice(0, 60) : "";
+    const name = entry ? clipText(notePreviewText(entry.content || "").split("\n")[0], 60) : "";
     const verb = HISTORY_ACTION_WORDS[item.action] || item.action.replace(/_/g, " ");
     //: A compacted run is one line, not a burst of edits (the feed's own
     //: `snapshot` count says how many it stands for).

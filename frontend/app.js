@@ -5678,7 +5678,7 @@ function entryOverflowMenu(entry) {
           openConnections(
             "entries",
             entry.id,
-            entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80)
+            entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
           ),
       },
       {
@@ -8380,7 +8380,7 @@ function pickEntryDialog(message) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "entry-pick-row";
-        button.textContent = entry.title || notePreviewText(entry.content).slice(0, 90);
+        button.textContent = entry.title || clipText(notePreviewText(entry.content), 90);
         button.addEventListener("click", () => close(entry));
         list.appendChild(button);
       }
@@ -12365,7 +12365,7 @@ function referenceCountChip(entry, options = {}) {
     openConnections(
       "entries",
       entry.id,
-      entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80)
+      entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
     );
   });
   refChip.title = "Everything this note is joined to. Open Connections";
@@ -20873,7 +20873,7 @@ const EXTRACT_LINK_KIND_LABEL = { sibling: "new note", source: "source", related
 function extractRefLabel(ref, notes) {
   if (ref.startsWith("existing:")) return "an existing note";
   const note = notes.find((n) => n.ref === ref);
-  return note ? note.title || note.content.slice(0, 30) : ref;
+  return note ? note.title || clipText(notePreviewText(note.content), 30) : ref;
 }
 
 function renderExtractPreview(body) {
@@ -24054,6 +24054,13 @@ function initSidebarSheetDismissal() {
   });
 }
 
+//: The name a folded sidebar shows on its rail (see makeSidebarResizable).
+const SIDEBAR_RAIL_NAMES = {
+  sidebar: "Categories",
+  "chat-sidebar": "Chats",
+  "doc-sidebar": "Documents",
+};
+
 function makeSidebarResizable(aside) {
   if (!aside || aside.dataset.resizable) return;
   aside.dataset.resizable = "1";
@@ -24070,7 +24077,11 @@ function makeSidebarResizable(aside) {
 
   const collapseBtn = document.createElement("button");
   collapseBtn.className = "sidebar-collapse-toggle";
-  collapseBtn.title = "Toggle Sidebar";
+  // Sentence case (DESIGN.md copy rules), and a name that is not the
+  // whitespace between the three icons (INBOX 424).
+  collapseBtn.type = "button";
+  collapseBtn.title = "Hide or show the sidebar";
+  collapseBtn.setAttribute("aria-label", "Hide or show the sidebar");
   collapseBtn.innerHTML = `
     <svg class="icon-expanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -24107,6 +24118,23 @@ function makeSidebarResizable(aside) {
     }
   });
   aside.appendChild(collapseBtn);
+
+  //: What a folded sidebar shows (INBOX 425, the owner: the collapsed
+  //: sidebars were "white plain"). A 48px column with one button in it read
+  //: as an empty panel rather than as the sidebar, put away. Its name, set
+  //: sideways under the button, says which sidebar it is and is a second way
+  //: to open it; the same recipe as the skill logs' folded column.
+  const railName = SIDEBAR_RAIL_NAMES[aside.id];
+  if (railName) {
+    const rail = document.createElement("button");
+    rail.type = "button";
+    rail.className = "sidebar-rail-name";
+    rail.textContent = railName;
+    rail.title = `Show ${railName.toLowerCase()}`;
+    rail.tabIndex = -1; // the toggle above is the keyboard's way in
+    rail.addEventListener("click", () => collapseBtn.click());
+    aside.appendChild(rail);
+  }
 
   const startDrag = (event) => {
     event.preventDefault();
@@ -27963,6 +27991,19 @@ function wikiLinkLabel(name) {
   return clean || name;
 }
 
+//: Text shortened for display: cut at the last whole word inside `limit`
+//: with an ellipsis, never mid-word. A bare `.slice(0, n)` left labels such
+//: as "responds to the blu" all over the app, which reads as a typo rather
+//: than as "there is more". A single word longer than the limit is cut hard,
+//: still with the ellipsis. Text that fits comes back unchanged.
+function clipText(text, limit) {
+  const full = String(text ?? "").trim();
+  if (full.length <= limit) return full;
+  const hard = full.slice(0, Math.max(1, limit - 1));
+  const soft = hard.replace(/\s+\S*$/, "");
+  return `${(soft.length >= limit / 2 ? soft : hard).replace(/[\s,.;:!?-]+$/, "")}…`;
+}
+
 function notePreviewText(content) {
   return (content || "")
     .replace(/^#{1,6}\s+/gm, "")
@@ -29277,7 +29318,7 @@ function mdDocumentCard(doc, name = "") {
   if (doc && doc.preview) {
     const preview = document.createElement("span");
     preview.className = "embed-card-preview";
-    preview.textContent = String(doc.preview).replace(/[#>*_`[\]]/g, "").slice(0, 180);
+    preview.textContent = clipText(String(doc.preview).replace(/[#>*_`[\]]/g, ""), 180);
     text.appendChild(preview);
   }
   const go = document.createElement("i");
@@ -31682,6 +31723,15 @@ async function switchTab(name) {
   }
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
+  // The Library's Images/Files sub-tab polls `/media` every six seconds
+  // (library.js), and only another Library *sub-tab* stopped it: leaving the
+  // Library itself left it fetching on every other tab until the person came
+  // back (INBOX 424 d). Stopped on leaving; restarted on return when that
+  // sub-tab is still the one showing.
+  if (typeof stopLibraryImagesPoll === "function") {
+    if (name !== "library") stopLibraryImagesPoll();
+    else if ($("library-view-media") && !$("library-view-media").classList.contains("hidden")) startLibraryImagesPoll();
+  }
   //: **The page is revealed first and its data loaded second, with the tab's
   //: own code fetched in between** (WORLD_CLASS_PLAN A1). Everything above
   //: this line is DOM and it stays synchronous, so a tab press still paints
@@ -32900,7 +32950,7 @@ async function renderAccount() {
     ["Password", info.configured ? "Set" : "Not set yet"],
     [
       "Created",
-      info.created_at ? new Date(info.created_at).toLocaleDateString() : ", ",
+      info.created_at ? new Date(info.created_at).toLocaleDateString() : "Unknown",
     ],
     [
       "Private notes",
@@ -32913,10 +32963,15 @@ async function renderAccount() {
     ["Open sessions", String(info.active_sessions)],
   ];
   for (const [label, value] of rows) {
+    //: A label column and a value column (`.account-facts`), not "Label: value"
+    //: in bold run-in: four facts read as a table, so they are laid out as one.
     const li = document.createElement("li");
-    const name = document.createElement("strong");
-    name.textContent = `${label}: `;
-    li.append(name, document.createTextNode(value));
+    const name = document.createElement("span");
+    name.className = "account-fact-label";
+    name.textContent = label;
+    const text = document.createElement("span");
+    text.textContent = value;
+    li.append(name, text);
     facts.appendChild(li);
   }
 }
@@ -38230,9 +38285,12 @@ function renderSettings() {
   // when the app was pointed at LM Studio sends people to install the wrong
   // thing (§6).
   const backend = backendLabel(status);
+  //: The dot is the line's class, as on the search engine line under it,
+  //: not a typed "●"/"○" beside a CSS dot: two alphabets for one signal.
   ollamaLine.textContent = status.ollama_running
-    ? `● ${backend} is running`
-    : `○ ${backend} not detected`;
+    ? `${backend} is running`
+    : `${backend} isn't running`;
+  ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);
@@ -39449,19 +39507,18 @@ function openFeatureModelSheet(key) {
   }
   openSheet({
     label: `Model for ${row.label}`,
+    sub: featureModelState(row),
     name: `feature-model-${key}`,
     build: (card, close) => {
-      const state = document.createElement("p");
-      state.className = "muted";
-      state.textContent = featureModelState(row);
-      card.appendChild(state);
 
       const list = document.createElement("div");
       list.className = "sheet-list";
       list.appendChild(
         sheetRow(
           row.overridden ? "ph ph-arrow-counter-clockwise" : "ph ph-check",
-          `Inherited: ${row.inherits}`,
+          // The choice, not the state: the line under the title already says
+          // which model is in use, so this row names what pressing it does.
+          `Default (${row.inherits})`,
           () => {
             close();
             if (row.overridden) applyFeatureModel(key, "");
@@ -42108,7 +42165,7 @@ function openNotePage(entry, returnFocus = null) {
   if (!entry || notePageOpenId === entry.id) return;
   expandedNotes.add(entry.id);
   notePageOpenId = entry.id;
-  const title = entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80) || "Note";
+  const title = entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80) || "Note";
   notePageClose = openSheet({
     label: title,
     name: "note",
@@ -42409,7 +42466,7 @@ initPhoneChatRow();
 //: is a class rather than a second recipe so everything else about a sheet,
 //: the scrim, the tier, the head with its X, Escape and the backdrop press,
 //: stays the one thing it already is.
-function openSheet({ label, name, build, variant = "", returnFocus = document.activeElement, onClose = null }) {
+function openSheet({ label, sub = "", name, build, variant = "", returnFocus = document.activeElement, onClose = null }) {
   const overlay = document.createElement("div");
   overlay.className = `modal-overlay sheet-overlay${variant ? ` sheet-${variant}` : ""}`;
   overlay.dataset.sheet = name || "";
@@ -42439,6 +42496,15 @@ function openSheet({ label, name, build, variant = "", returnFocus = document.ac
   closeButton.appendChild(closeIcon);
   head.append(title, closeButton);
   card.appendChild(head);
+  //: One line of state under the title (the model picker's "Its own model:
+  //: granite4.1:3b"): part of the head, in the recipe, so a sheet that needs
+  //: it does not hand-build a paragraph with its own margins.
+  if (sub) {
+    const subLine = document.createElement("p");
+    subLine.className = "muted sheet-sub";
+    subLine.textContent = sub;
+    card.appendChild(subLine);
+  }
 
   let settled = false;
   const close = () => {
@@ -43563,7 +43629,7 @@ $("draft-add-source").addEventListener("click", async () => {
   if (draftSources.some((s) => s.id === entry.id)) return;
   draftSources.push({
     id: entry.id,
-    label: (entry.title || notePreviewText(entry.content) || "Untitled note").slice(0, 60),
+    label: clipText(entry.title || notePreviewText(entry.content) || "Untitled note", 60),
   });
   renderDraftSources();
   saveDraftLocally();
@@ -43574,7 +43640,7 @@ $("draft-continue-note").addEventListener("click", async () => {
   if ($("draft-text").value.trim()) pushDraftUndo();
   $("draft-text").value = entry.content || "";
   draftNoteId = entry.id;
-  draftNoteLabel = (entry.title || notePreviewText(entry.content) || "a note").slice(0, 40);
+  draftNoteLabel = clipText(entry.title || notePreviewText(entry.content) || "a note", 40);
   $("draft-kind").value = "continue";
   markDraftQuickstart("continue");
   renderDraftTarget();
@@ -45647,7 +45713,7 @@ function renderDuplicateGroups(groups) {
         merge.disabled = chosen.size < 2;
       });
       const text = document.createElement("span");
-      text.textContent = notePreviewText(entry.content).slice(0, 160);
+      text.textContent = clipText(notePreviewText(entry.content), 160);
       label.append(box2, text);
       card.appendChild(label);
     }

@@ -82,17 +82,21 @@ def test_every_style_says_how_its_frame_begins():
         assert re.search(r'background: "(wash|clear|keep)"', chunk) or "dom: true" in chunk, name
 
 
-def test_the_css_styles_draw_nothing_per_frame():
-    """The mesh and the bubbles are CSS animations of pre-rendered images:
-    no p5, no frame function, nothing drawn per frame."""
+def test_mesh_and_bubbles_are_cheap_canvases_not_css_animations():
+    """The mesh and the bubbles were CSS animations: no page work, but the
+    compositor redrew them at the display's full rate, and the whole browser
+    spent about a core on them (1,000ms of CPU a second against 150 with the
+    art off, bgartcost.js), more than any canvas style. Now the mesh is a
+    fifth-density canvas at fifteen frames a second and the bubbles clear
+    only their own boxes."""
     chunks = _chunks()
     for name in ("mesh", "bubbles"):
-        assert "dom: true" in chunks[name], name
-        assert "frame(" not in chunks[name], name
-        assert not re.search(r"\bp\.", chunks[name]), name
-    css = CSS.read_text(encoding="utf-8")
-    for anim in ("bg-drift-x", "bg-drift-y", "bg-rise", "bg-wobble"):
-        assert f"@keyframes {anim}" in css, anim
+        assert "dom: true" not in chunks[name], name
+        assert "frame(" in chunks[name], name
+    assert "pixelDensity: 0.2" in chunks["mesh"] and "fps: 15" in chunks["mesh"]
+    assert "g.clearRect(last[o]" in chunks["bubbles"]
+    runtime = BG_ART.read_text(encoding="utf-8")
+    assert "Math.min(style.fps || 30, bgArtFrameRate())" in runtime
 
 
 def test_no_colour_or_gradient_is_built_per_frame():
@@ -267,7 +271,7 @@ def test_the_art_runs_at_30_or_20_frames_a_second():
     rate = rate[: rate.index("\n}\n")]
     assert "? 20 : 30" in rate
     assert "hardwareConcurrency" in text and "deviceMemory" in text and "getBattery" in text
-    assert "1000 / bgArtFrameRate()" in text
+    assert "1000 / Math.min(style.fps || 30, bgArtFrameRate())" in text
 
 
 def test_the_art_needs_no_p5():
@@ -315,3 +319,50 @@ def test_the_contrast_guards_bound_every_colour_a_style_builds(genome):
     for name in ("aurora", "constellation", "mycelium", "mesh"):
         assert "darkCap:" in _chunks()[name], name
     assert "bgLumCap = 0;" in styles and "bgLumFloor = 0;" in styles
+
+
+def test_mycelium_cross_fades_its_generations():
+    """The owner: the hand-over "needs to be smoother and maybe faded". A
+    generation fades out on its own canvas while the next grows on the twin
+    the runtime gives it, instead of a window-wide `destination-out` and a
+    hard clear; and its spores are scattered, never a ring of even angles."""
+    body = _chunks()["mycelium"]
+    assert "twin: true" in body
+    assert "destination-out" not in body
+    assert "canvas.style.opacity = fadeOpacity[" in body
+    # Uneven angles and staggered starts.
+    assert "p.random(-0.38, 0.38)" in body and "TD[n] =" in body
+    runtime = BG_ART.read_text(encoding="utf-8")
+    run = runtime[runtime.index("function bgArtRun(") :]
+    assert 'id = "bg-art-twin"' in run and "style.twin && !o.still" in run
+    # Removed with the canvas, and handed over with it.
+    assert "twin.canvas.remove()" in run
+    halt = runtime[runtime.index("function bgArtHalt(") :]
+    assert 'getElementById("bg-art-twin")' in halt[: halt.index("\n}\n")]
+
+
+def test_microbes_copy_prerendered_bodies_and_glows():
+    """The owner: "optimise the microbes animation as well". Bodies are
+    painted once into an atlas per species and copied a cell per organism;
+    glows are painted at the size they are drawn and copied unscaled, both
+    on whole pixels, so neither is resampled a frame."""
+    body = _chunks()["microbes"]
+    frame = body[body.index("      frame() {") :]
+    assert "atlasOf(sp)" in body and "bgSprite(cell * angles, cell * phases" in body
+    assert "g.drawImage(at.img, sx, sy, cell, cell, (X[i] - at.half) | 0" in frame
+    assert "g.drawImage(sp.glowSprite, (X[i] - sp.glowHalf) | 0, (Y[i] - sp.glowHalf) | 0);" in frame
+    # The outlines are no longer built a frame, only the flagella.
+    assert "bodies(g, si, q, 0)" not in frame and "bodies(g, si, q, 2)" in frame
+
+
+def test_constellation_stars_are_copied_unscaled():
+    """Stars are painted at the sizes they are drawn and copied on whole
+    pixels; the far layer, the most numerous, is squares batched per
+    twinkle step rather than an image copy each."""
+    body = _chunks()["constellation"]
+    frame = body[body.index("      frame(t) {") :]
+    assert "g.drawImage(spr, (sx[i] - spr.width / 2) | 0, (sy[i] - spr.width / 2) | 0);" in frame
+    assert "g.drawImage(halo, (sx[i] - hh) | 0, (sy[i] - hh) | 0);" in frame
+    assert "g.rect((sx[i] - 1) | 0, (sy[i] - 1) | 0, 2, 2)" in frame
+    # No scaled copies of a star left in the frame.
+    assert ", ds, ds)" not in frame and ", hs, hs)" not in frame

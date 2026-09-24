@@ -813,6 +813,10 @@ let nameMarkSerial = 0;
 //: animates a marked face. Hover mode needs none of this: a hovered face is
 //: on screen by definition.
 let nameMarkObserver = null;
+//: The same faces as `[data-nm-on]`, kept as a set so the pointer-follow
+//: frame below reads them without a document-wide `querySelectorAll` per
+//: frame (INBOX 424: that query was the largest cost of a graph drag).
+const nameMarkOnScreen = new Set();
 function watchNameMark(svg) {
   //: Faces under 28px (a chat bubble's corner mark, a picker's glyph) are
   //: never watched: no always-on loop, no pointer-follow. At that size the
@@ -823,11 +827,14 @@ function watchNameMark(svg) {
   if ((Number(svg.getAttribute("width")) || 0) < 28) return;
   if (typeof IntersectionObserver !== "function") {
     svg.dataset.nmOn = "";
+    nameMarkOnScreen.add(svg);
     return;
   }
   if (!nameMarkObserver) {
     nameMarkObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
+        if (entry.isIntersecting) nameMarkOnScreen.add(entry.target);
+        else nameMarkOnScreen.delete(entry.target);
         if (entry.isIntersecting) entry.target.dataset.nmOn = "";
         else delete entry.target.dataset.nmOn;
         if (!entry.target.isConnected) nameMarkObserver.unobserve(entry.target);
@@ -2066,15 +2073,22 @@ document.addEventListener("pointermove", (event) => {
   nameMarkFollowFrame = requestAnimationFrame(() => {
     nameMarkFollowFrame = 0;
     const [px, py] = nameMarkPointer;
-    const faces = document.querySelectorAll(".name-mark[data-nm-on]");
-    for (let i = 0; i < faces.length && i < 40; i += 1) {
-      const box = faces[i].getBoundingClientRect();
+    const faces = [];
+    for (const face of nameMarkOnScreen) {
+      if (!face.isConnected) nameMarkOnScreen.delete(face);
+      else if (faces.length < 40) faces.push(face);
+    }
+    //: Every box read first, then every property written: a write between
+    //: two reads forces a style and layout pass per face.
+    const boxes = faces.map((face) => face.getBoundingClientRect());
+    faces.forEach((face, i) => {
+      const box = boxes[i];
       const dx = px - (box.left + box.width / 2);
       const dy = py - (box.top + box.height / 2);
       const reach = Math.max(160, box.width * 3);
-      faces[i].style.setProperty("--nm-lx", Math.max(-1, Math.min(1, dx / reach)).toFixed(2));
-      faces[i].style.setProperty("--nm-ly", Math.max(-1, Math.min(1, dy / reach)).toFixed(2));
-    }
+      face.style.setProperty("--nm-lx", Math.max(-1, Math.min(1, dx / reach)).toFixed(2));
+      face.style.setProperty("--nm-ly", Math.max(-1, Math.min(1, dy / reach)).toFixed(2));
+    });
   });
 }, { passive: true });
 

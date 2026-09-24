@@ -106,6 +106,11 @@ REACHED_AFTER_LOAD = {
     "renderLibrary": "library, called from the Library tab's own dispatch",
     "renderLibraryFilters": "library, called from the Library tab's own dispatch",
     "loadLibrary": "library, called from the Library tab's own dispatch",
+    #: switchTab stops the media poll on leaving the Library (INBOX 424). The
+    #: poll can only have been started by library.js, so while the bundle is
+    #: not loaded there is nothing to stop and the guarded no-op is correct.
+    "stopLibraryImagesPoll": "library, a poll only library.js can have started",
+    "startLibraryImagesPoll": "library, restarted only when its sub-tab (drawn by library.js) is showing",
     "graphLayout": "graph, called from the Graph tab's own dispatch",
     "fitGraphToView": "graph, called from the Graph tab's own dispatch",
     "setGraphPhysicsEnabled": "graph, called from the Graph tab's own dispatch",

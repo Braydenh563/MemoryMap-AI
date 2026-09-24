@@ -121,6 +121,22 @@ def test_an_empty_version_string_still_counts_as_missing(monkeypatch, main_modul
     assert main_module._webview2_runtime_missing() is True
 
 
+def test_the_uninstalled_version_counts_as_missing(monkeypatch, main_module):
+    """Microsoft's detection page: a `pv` of 0.0.0.0 is a runtime that was
+    removed and left its key behind."""
+    monkeypatch.setattr(sys, "platform", "win32")
+    fake = _fake_winreg(
+        present_at=(
+            "HKCU",
+            "SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\"
+            "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+        )
+    )
+    fake.QueryValueEx = lambda key, name: ("0.0.0.0", 1)
+    monkeypatch.setitem(sys.modules, "winreg", fake)
+    assert main_module._webview2_runtime_missing() is True
+
+
 def test_a_broken_registry_call_answers_false_not_a_crash(monkeypatch, main_module):
     """The detector's own job is to add a clear message, never a new way to
     fail to start; an unexpected exception from the registry call must fall

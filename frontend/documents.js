@@ -12552,10 +12552,14 @@ function docProseExtras(text, found) {
       extra.push(...docProseRemap(docGrammarCache.findings, docGrammarCache.text, text));
     }
   }
-  if (!extra.length) return found;
+  //: Accessibility is about the document's structure rather than its words,
+  //: so it neither yields to a rule's finding on the same span nor is
+  //: skipped where a link's address or a tag starts: that is where it looks.
+  const access = docAccessFindings(text).filter((finding) => !docProseIgnored.has(docProseKey(finding)));
+  if (!extra.length && !access.length) return found;
   const skip = docProseSkipMask(text);
   const taken = found.filter((finding) => !DOC_FINDING_SKIP.has(finding.rule));
-  const merged = found.slice();
+  const merged = found.concat(access);
   for (const finding of extra) {
     if (skip[finding.start] === 1) continue;
     if (text.slice(finding.start, finding.end) !== finding.text) continue;
@@ -12888,6 +12892,89 @@ function docSuggestForRead(text) {
   return out;
 }
 // DOC-SUGGEST-END
+
+// --- the accessibility check (INBOX 404) ----------------------------------------
+//
+// Three things a screen reader user meets in a document and a sighted writer
+// never sees: a heading level skipped (the outline a screen reader navigates
+// by has a hole in it), an image with no description (it is read as its file
+// name), and a link whose text means nothing out of context ("click here",
+// read in a list of links). Each is a finding in the suggestions panel under
+// Accessibility, with the same underline, menu and "Ignore" as the rest.
+
+// DOC-A11Y-BEGIN
+//: Link texts that say nothing on their own. Compared lowercased, with the
+//: sentence's closing punctuation off.
+const DOC_VAGUE_LINKS = new Set([
+  "click here", "click", "here", "this", "this link", "link", "read more",
+  "more", "learn more", "see here", "go", "this page", "page", "details",
+]);
+
+const DOC_ACCESS_RULES = new Set(["heading-order", "image-alt", "link-text"]);
+
+function docAccessFindings(text) {
+  const src = String(text == null ? "" : text);
+  const code = docSuggestCodeMask(src);
+  const out = [];
+  //: Headings, by line: outside fences and the frontmatter block.
+  let fence = false;
+  let front = src.startsWith("---\n");
+  let last = 0;
+  let at = 0;
+  src.split("\n").forEach((line, index) => {
+    const start = at;
+    at += line.length + 1;
+    if (front) {
+      if (index > 0 && /^---\s*$/.test(line)) front = false;
+      return;
+    }
+    if (/^\s*(```|~~~)/.test(line)) {
+      fence = !fence;
+      return;
+    }
+    const heading = !fence && /^(#{1,6})\s+\S/.exec(line);
+    if (!heading) return;
+    const level = heading[1].length;
+    if (last && level > last + 1) {
+      out.push({
+        rule: "heading-order",
+        message: `A level ${level} heading under a level ${last}: level ${last + 1} is skipped, which leaves a hole in the outline a screen reader moves by`,
+        start,
+        end: start + line.length,
+        text: line,
+        replacement: null,
+        alternatives: [`${"#".repeat(last + 1)}${line.slice(level)}`],
+      });
+    }
+    last = level;
+  });
+  const push = (rule, match, message) => {
+    if (code[match.index] === 1) return;
+    out.push({ rule, message, start: match.index, end: match.index + match[0].length, text: match[0], replacement: null });
+  };
+  let match;
+  //: Links and images in one pass: `!` in front makes it an image.
+  const links = /(!?)\[([^\]\n]*)\]\(([^)\s]+)[^)\n]*\)/g;
+  while ((match = links.exec(src)) !== null) {
+    const words = match[2].trim();
+    if (match[1] === "!") {
+      if (!words) push("image-alt", match, "An image with no description: a screen reader says only its file name. Write what it shows between the brackets");
+      continue;
+    }
+    const plain = words.toLowerCase().replace(/[.!?:,;]+$/, "");
+    if (!plain) push("link-text", match, "A link with no text: a screen reader has nothing to say for it");
+    else if (DOC_VAGUE_LINKS.has(plain)) push("link-text", match, `“${words}” says nothing on its own, and a screen reader lists links out of context: name where it goes`);
+    else if (/^(https?:\/\/|www\.)\S+$/i.test(words)) push("link-text", match, "A web address as the link's text is read out a character at a time: name the page instead");
+  }
+  const images = /<img\b[^>]*>/gi;
+  while ((match = images.exec(src)) !== null) {
+    if (!/\balt\s*=\s*("[^"]*\S[^"]*"|'[^']*\S[^']*')/i.test(match[0])) {
+      push("image-alt", match, "An image with no alt text: a screen reader says only its file name");
+    }
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+// DOC-A11Y-END
 
 //: Per document and per viewer, like the reading width: whether *this*
 //: reader is suggesting in *this* document is not a fact about the text.
@@ -13369,6 +13456,7 @@ const DOC_FINDING_SKIP = new Set(["long-sentence"]);
 function docFindingKind(finding) {
   if (finding.rule === "spelling") return "spelling";
   if (finding.rule === "grammar") return "grammar";
+  if (DOC_ACCESS_RULES.has(finding.rule)) return "access";
   if (finding.rule === "repeat") return "repeat";
   return "style";
 }
@@ -13450,8 +13538,8 @@ function renderDocProsePanel() {
     empty.className = "muted doc-prose-empty";
     empty.textContent =
       docGrammarEnabled()
-        ? "Nothing to flag. These checks are spelling, grammar, spacing and sentence length, they read the text, not its meaning."
-        : "Nothing to flag. These checks are spelling, spacing and sentence length, they read the text, not its meaning.";
+        ? "Nothing to flag. These checks are spelling, grammar, spacing, sentence length and accessibility, they read the text, not its meaning."
+        : "Nothing to flag. These checks are spelling, spacing, sentence length and accessibility, they read the text, not its meaning.";
     panel.appendChild(empty);
     return;
   }
@@ -13489,6 +13577,7 @@ const DOC_FINDING_GROUPS = [
   ["grammar", "Grammar"],
   ["repeat", "Repeated words"],
   ["style", "Style and spacing"],
+  ["access", "Accessibility"],
 ];
 
 //: Sixty rows, over all the groups rather than per group: the cap is there so
@@ -16407,6 +16496,10 @@ function docCmTheme(CM) {
         backgroundColor: "color-mix(in srgb, var(--warn) 14%, transparent)",
         borderRadius: "3px",
       },
+      ".cm-finding-access:hover": {
+        backgroundColor: "color-mix(in srgb, var(--accent) 12%, transparent)",
+        borderRadius: "3px",
+      },
       ".cm-finding-spelling": {
         textDecoration: "underline wavy",
         textDecorationColor: "color-mix(in srgb, var(--error) 80%, transparent)",
@@ -16426,6 +16519,13 @@ function docCmTheme(CM) {
       ".cm-finding-grammar": {
         textDecoration: "underline double",
         textDecorationColor: "var(--warn)",
+      },
+      //: Accessibility (INBOX 404): dashed, the one line shape left, in the
+      //: accent, because it is about structure rather than a mistake.
+      ".cm-finding-access": {
+        textDecoration: "underline dashed",
+        textDecorationThickness: "2px",
+        textDecorationColor: "color-mix(in srgb, var(--accent) 80%, transparent)",
       },
     },
     { dark }

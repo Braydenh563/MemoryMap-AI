@@ -4563,6 +4563,13 @@ textarea.autogrow {
   background: var(--warn);
 }
 
+/* Accessibility: the accent as a ring, so it is not read as a style note's
+   filled accent dot. */
+.doc-finding-dot-access {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
 /* Suggestion mode (INBOX 404). An insertion is underlined on a green ground,
    a deletion struck through in the error ink, the pair every editor with
    tracked changes uses; the ink of the words themselves is left alone, so

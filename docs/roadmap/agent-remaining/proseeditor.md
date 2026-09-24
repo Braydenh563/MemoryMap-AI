@@ -35,7 +35,10 @@ agent wrote there sits between `// PROSE-TOOLS-BEGIN` and `// PROSE-TOOLS-END`
    against a stand-in voice (headless Chromium lists 0 voices), node tests
    for what is said. **Not verified:** a real system voice speaking, in the
    desktop window (WebView2) or a browser.
-4. Accessibility check in the suggestions panel. Open.
+4. Accessibility check in the suggestions panel. Done: see git log
+   ("Accessibility check"). A fifth finding kind, `access` (dashed accent
+   underline, ring dot), pure model `DOC-A11Y` with node tests;
+   `p2-a11y.js` 6 of 6, light and dark.
 5. .docx round trip. Export exists (`core/docexport.to_docx`, python-docx
    extra `docx`); missing: tables and links on export, tables, links and
    numbered lists on the fallback import (`core/docview.docx_to_markdown`).

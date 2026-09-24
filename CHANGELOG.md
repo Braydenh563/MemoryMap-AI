@@ -26,6 +26,10 @@ below). Versioning is `0.x` while the app stabilises.
   selection, in this computer's own voice, one sentence at a time with that
   sentence highlighted; Stop on the status bar or Esc. Markdown is read as
   words, fenced code and suggested deletions are skipped (INBOX 404).
+- An accessibility check in the suggestions panel: a skipped heading level
+  (with the right level offered as the fix), an image with no description,
+  and link text that says nothing on its own ("click here", a bare web
+  address), each underlined with a dashed line (INBOX 404).
 - The guided tour walks through every main feature, one section after
   another: Notes, Chat, Graph, Library, Boards, Mind maps, Timeline,
   Reminders, Settings and the status bar each open the feature and point at

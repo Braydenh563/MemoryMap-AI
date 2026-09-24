@@ -201,3 +201,42 @@ def test_read_aloud_is_reachable_and_stoppable() -> None:
     #: Local voices first: a network voice is the one thing this app avoids.
     assert "localService !== false" in _body("docReadAloudVoice")
     assert "docReadAloudExtension(CM)" in _body("docProseToolExtensions")
+
+
+# --- accessibility -------------------------------------------------------------
+
+A11Y_DRIVER = r"""
+const results = [];
+const eq = (name, got, want) => results.push({ name, ok: JSON.stringify(got) === JSON.stringify(want), detail: JSON.stringify(got) });
+const rules = (text) => docAccessFindings(text).map((f) => [f.rule, f.text]);
+eq('heading/a skipped level', rules('# A\n\n### C\n'), [['heading-order', '### C']]);
+eq('heading/the fix is one level down', docAccessFindings('## A\n#### B\n')[0].alternatives, ['### B']);
+eq('heading/going back up is fine', rules('# A\n## B\n### C\n# D\n## E\n'), []);
+eq('heading/the first heading sets no rule', rules('### Start deep\n'), []);
+eq('heading/fences and frontmatter are not headings', rules('---\ntitle: x\n---\n# A\n```\n### not a heading\n```\n'), []);
+eq('image/no alt', rules('See ![](pic.png) and ![a cat](cat.png)'), [['image-alt', '![](pic.png)']]);
+eq('image/html without alt', rules('<img src="a.png"> <img src="b.png" alt="A chart">'), [['image-alt', '<img src="a.png">']]);
+eq('link/vague text', rules('[Click here](http://x). [the report](http://y) and [more](z)'), [['link-text', '[Click here](http://x)'], ['link-text', '[more](z)']]);
+eq('link/an address as its text', rules('[https://example.com](https://example.com)'), [['link-text', '[https://example.com](https://example.com)']]);
+eq('link/code is not checked', rules('`[here](x)` and\n```\n![](y)\n```\n'), []);
+process.stdout.write(JSON.stringify(results));
+"""
+
+
+def test_accessibility_findings_as_decided(tmp_path) -> None:
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    a11y = DOCUMENTS[DOCUMENTS.index("// DOC-A11Y-BEGIN") : DOCUMENTS.index("// DOC-A11Y-END")]
+    script = tmp_path / "a11y.js"
+    script.write_text(_suggest_source() + a11y + A11Y_DRIVER, encoding="utf-8")
+    out = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=60, check=False)
+    assert out.returncode == 0, out.stderr
+    failed = [f"{r['name']}: {r['detail']}" for r in json.loads(out.stdout) if not r["ok"]]
+    assert not failed, "\n".join(failed)
+
+
+def test_accessibility_is_its_own_group_in_the_panel() -> None:
+    assert 'return "access";' in _body("docFindingKind")
+    assert '["access", "Accessibility"]' in DOCUMENTS
+    assert "docAccessFindings(text)" in _body("docProseExtras")

@@ -57,6 +57,18 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Menus, every one of them: the arrow keys work in every select, every dock
+  menu and the board's menus, Escape closes the menu (not Settings around it)
+  and gives the focus back to its button, and nothing opens with the focus
+  lost. Section labels, selects and icons stand on one left edge; long menus
+  (a note's, a chat's, a Library card's, Quick set) are grouped; Quick set
+  opens beside its button; the Timeline's Options no longer has two
+  sections called Show; the board's shapes open from the keyboard and its
+  View menu scrolls instead of growing sideways on a short window or a phone.
+- The dashboard's streak counts yesterday while today is still empty, like
+  the journal, instead of saying 0.
+- Contrast: the default look's dark muted and accent text, the warning chip
+  and the dark danger buttons now reach 4.5:1 on their own grounds.
 - A chip's x (detach a document, remove a file or a reference) is a round
   target the same distance from the chip's top, bottom and right edge, not
   a glyph with a stray gap after it.

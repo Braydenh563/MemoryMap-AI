@@ -17398,6 +17398,14 @@ async function setResponseMode(chosen) {
 //: cannot draw one persona two ways.
 function fillPersonaMark(holder, name, size = 20) {
   if (!holder) return;
+  //: Nothing to draw a face from (no name yet, or the faces script not
+  //: loaded): the app's own animated mark, never an empty box (the owner:
+  //: "the default for no avatar selected should be the animated app logo
+  //: everywhere").
+  if (!name || typeof nameMark !== "function") {
+    renderEmblem(holder, size, { animate: true });
+    return;
+  }
   //: Atlas has a face of its own now (`atlasMark`, avatars.js): the logo's
   //: ring of linked notes orbiting a globe in the accent colour. `nameMark`
   //: draws it for the assistant's name. The chat's reply label keeps the
@@ -25804,7 +25812,20 @@ async function savePersonaList(personas) {
   personaOptions();
 }
 
+//: The names the pickers offer, from what is already in memory.
+function personaNamesNow() {
+  const custom = ((prefsCache && prefsCache.personas) || []).map((p) => p.name);
+  return [...new Set([...Object.keys(builtinPersonas()), ...custom])];
+}
+
 async function renderPersonas() {
+  //: The greeting picker is filled before the wait, not after it (the owner:
+  //: "the dashboard greeting persona selection box is broken and there is no
+  //: avatar next to it ... it sometimes works and sometimes doesnt"). It was
+  //: filled at the end of this function, after `GET /preferences` and after
+  //: the whole persona list was built, so on a busy server, or if anything in
+  //: the list threw, the section showed an empty select and an empty face.
+  renderDashboardPersonaSelect(personaNamesNow());
   prefsCache = await apiJson("/preferences").catch(() => prefsCache);
   const custom = (prefsCache && prefsCache.personas) || [];
   const overrides = new Map(custom.map((p) => [p.name, p]));
@@ -25822,6 +25843,8 @@ async function renderPersonas() {
       .filter((p) => !(p.name in builtinPersonas()))
       .map((p) => ({ ...p, builtin: false, overridden: false })),
   ];
+
+  renderDashboardPersonaSelect(rows.map((p) => p.name));
 
   for (const persona of rows) {
     const li = document.createElement("li");
@@ -25906,7 +25929,6 @@ async function renderPersonas() {
     li.appendChild(row);
     list.appendChild(li);
   }
-  renderDashboardPersonaSelect(rows.map((p) => p.name));
 }
 
 // A second, independent picker (asked for directly): the dashboard greeting

@@ -70,6 +70,9 @@ with its owner named in the entry.
     suggestions, dictionary), templates (confirm), the Guide's per-surface
     controls reference, map (radial fit, relink layout, marquee lag), in
     agent briefs as slots free.
+    **Templates (confirm) built 2026-09-24** (bf54953): a click chooses,
+    Use this template, Enter or a double click makes it; sweep
+    `templatepick.js`. Open here: the rest of the list above.
 
 409. **The owner, 2026-09-24, verbatim, with screenshots of Settings,
     Templates, the persona list, a .json document with the formatting bar
@@ -85,6 +88,12 @@ with its owner named in the entry.
     I, S, highlight, code, link, H, quote) draws over a code document, where
     none of it applies; the indent guides step 2 spaces; the AI assistant
     control is a filled segmented pill. Placed: orchestrator, in this order.
+    **Built 2026-09-24**: templates editable, built-ins included (3a769ed,
+    sweep `templates.js`); persona marks a generated face, closest pair of
+    23 at 40px 5.6% before, 29.8% after (259b743, `namemarks.js`); the
+    user's own mark on their chat bubbles and the persona picker's
+    (0e88b6e, `chatmarks.js`, bubble box unchanged). Open here: the
+    indent guides, the formatting bubble over code, the AI assistant bar.
 
 404. **The owner, 2026-09-23 night, verbatim.** "also does emmet workf for
     other languages like python, c#, java and more??" and "what about code

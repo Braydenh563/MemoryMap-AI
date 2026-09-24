@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Library images and files: the search box rebuilds the grid once when typing pauses instead of on every keystroke.
   whole selection with it, at the same offsets. Before, only the note in hand
   moved and the rest of the selection stayed put. The usual rules hold for
+- Settings rows keep their control at the end of the row and wrap the description instead (Corner companion put its select on a line of its own).
 - Dashboard: the Full view is back to how it was (the owner: it looked too close to Compact, and the Jump to buttons wrapped inside the toolbar row).
   every note carried: a plain drag places, Shift pins, and a pinned note stays
   pinned where it lands.

@@ -5206,3 +5206,18 @@ input.doc-title-input::placeholder {
   background: transparent;
   border-color: transparent;
 }
+
+/* A setting's words wrap before its control does (the owner, with a
+   screenshot: the Corner companion row put its select on a line of its own
+   under a long description). The label column takes the slack and shrinks
+   to its text; the control keeps its own width at the row's end, as every
+   other row in the section does. The row still wraps where the pane is too
+   narrow for both. */
+.setting-row > .setting-label {
+  flex: 1 1 14rem;
+}
+
+.setting-row > .setting-control,
+.setting-row > .select-shell {
+  flex: 0 0 auto;
+}

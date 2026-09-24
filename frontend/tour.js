@@ -503,6 +503,13 @@ const TOUR_SECTIONS = [
         text: "Themes, colours, fonts and the look of every surface.",
       },
       {
+        target: "#avatar-buddy-row",
+        side: "left",
+        settings: "appearance",
+        title: "A companion",
+        text: "Turn on a small character that finds a free spot on each page and reacts to what you do.",
+      },
+      {
         target: "#settings-nav-models",
         side: "right",
         media: "(min-width: 640.02px)",

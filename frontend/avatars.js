@@ -4000,3 +4000,49 @@ window.addEventListener("resize", () => {
   clearTimeout(nameMarkBuddyResize);
   nameMarkBuddyResize = setTimeout(() => placeNameMarkBuddy(), 250);
 }, { passive: true });
+
+// --- being found ------------------------------------------------------------------
+//: **A one-time nudge** (the owner: "the companion should be advertised or
+//: made more learnable that it is a feature in some places"). Besides its
+//: catalogue row, its Help line and its tour card: once, after three days
+//: of use or the first time Appearance is opened, a toast asks whether you
+//: want one, with Turn on; its own x is "not now". Either way it is never
+//: shown again, and never while the companion is already on or the app is
+//: locked.
+const NMB_HINT_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
+function nameMarkBuddyHint(fromAppearance = false) {
+  let since = 0;
+  try {
+    if (localStorage.getItem("nm-buddy-hint") === "done") return;
+    since = Number(localStorage.getItem("nm-buddy-first-seen")) || 0;
+    if (!since) {
+      since = Date.now();
+      localStorage.setItem("nm-buddy-first-seen", String(since));
+    }
+  } catch (e) {
+    return;
+  }
+  if (!fromAppearance && Date.now() - since < NMB_HINT_AFTER_MS) return;
+  if (nameMarkBuddySeed() || typeof toastAction !== "function") return;
+  const lock = document.getElementById("lock-overlay");
+  if (lock && !lock.classList.contains("hidden")) return;
+  try {
+    localStorage.setItem("nm-buddy-hint", "done");
+  } catch (e) {
+    // Shown this once at least.
+  }
+  toastAction("Want a companion on screen? It finds a free spot on each page and reacts to what you do.", "Turn on", () => {
+    try {
+      localStorage.setItem("avatar-buddy", "me");
+    } catch (e) {
+      // On for this visit.
+    }
+    const select = document.getElementById("avatar-buddy");
+    if (select) select.value = "me";
+    syncNameMarkBuddy();
+  });
+}
+//: Checked once a little after start, and again a minute later in case the
+//: app was still locked.
+setTimeout(() => nameMarkBuddyHint(), 20000);
+setTimeout(() => nameMarkBuddyHint(), 80000);

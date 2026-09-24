@@ -34585,6 +34585,7 @@ const REVEAL_TARGETS = {
   "set-typography": { settings: "appearance", el: "fontsize-seg" },
   "set-radius": { settings: "appearance", el: "radius-slider" },
   "set-background": { settings: "appearance", el: "bg-art-toggle" },
+  "set-companion": { settings: "appearance", el: "avatar-buddy-row" },
   "set-contrast": { settings: "appearance", el: "contrast-toggle" },
   "set-custom-css": { settings: "appearance", el: "custom-css" },
   "set-search-relevance": { settings: "general", el: "search-relevance-group" },

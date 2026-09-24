@@ -3724,6 +3724,24 @@ span > .chip {
   border-color: var(--accent);
 }
 
+/* Focus mode's button (INBOX 425 i) is the third icon-only utility on this
+   row, after the view chevron and before the kebab, so it wears what they
+   wear: measured, the ghost ramp's tonal fill made it the one filled square
+   between two outlined ones, and it read as a button already pressed. */
+.doc-dock .doc-focus-toggle.ghost {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  width: var(--control-h);
+  padding-inline: 0;
+  justify-content: center;
+}
+
+.doc-dock .doc-focus-toggle.ghost:hover {
+  background: var(--chip-bg);
+  border-color: var(--accent);
+}
+
 .doc-dock .seg button {
   padding-block: 0;
 }
@@ -3735,8 +3753,22 @@ span > .chip {
    and three buttons, which wrapped onto two more rows. Giving the title the
    full row costs one line of height and buys the actions the space to sit on
    one, which is what the screenshot behind this was asking for. */
+/* **One row again, now that there is room for one** (INBOX 425 i: "maybe
+   the top bar needs a bit of redesigning ... to allow for more room").
+   The reason above was true of a row holding a status group, a select, a
+   four-way segment and three buttons. Since DOCUMENTS_PLAN Phase 1 the
+   actions are Saved, Edit/Read and its chevron, AI edit, Focus and the
+   kebab, about 480px; measured at 1440x900 the second row cost 42px of
+   height for nothing but a title with 700px of empty space beside it.
+
+   So the identity asks for 22rem and grows into whatever is left, and the
+   actions keep their own width: where both fit (1034px of dock at 1440,
+   960px at 1366) they share one 36px row; where they do not (a narrow
+   window, the chat dock open, a phone) flex-wrap drops the actions onto
+   their own line whole, pushed to the right edge, which is the old layout
+   and never a control split from its group. */
 .doc-dock > .doc-dock-identity {
-  flex: 1 1 100%;
+  flex: 1 1 22rem;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -3755,7 +3787,10 @@ span > .chip {
    HISTORY). */
 .card > .row.space-between > .row.doc-actions,
 .doc-dock > .doc-actions {
-  flex: 1 1 100%;
+  /* Its own width, on the title's row when both fit (see the identity rule
+     above), and on the right edge when it wraps onto a line of its own. */
+  flex: 0 1 auto;
+  margin-left: auto;
   /* **A flex item does not shrink past its own content unless it is told
      it may.** `min-width` defaults to `auto` on a flex item, which is its
      min-content width, so this row refused to go below the width its

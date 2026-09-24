@@ -335,6 +335,12 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     requestAnimationFrame(() => {
       const found = $(scrollToId);
       if (!found) return;
+      //: A deep link into a folded group opens the fold first (a closed
+      //: `details.settings-fold` has no box, so the jump below would be
+      //: skipped and the link would land on the section's top).
+      for (let fold = found.closest("details"); fold; fold = fold.parentElement?.closest("details")) {
+        fold.open = true;
+      }
       // **Scroll to what the user can see, not to the element that holds the
       // value.** Every `<select>` in this app is replaced at runtime by an
       // opener button plus a menu (`enhanceSelect`), and the native control

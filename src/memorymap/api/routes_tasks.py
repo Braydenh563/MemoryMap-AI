@@ -416,7 +416,13 @@ def shutdown() -> dict:
     import signal
     import threading
 
+    from memorymap.core import quit_hook
+
     def _stop() -> None:
+        # The desktop window registers its own close (see quit_hook's
+        # docstring for why SIGINT alone did nothing there).
+        if quit_hook.request_quit():
+            return
         os.kill(os.getpid(), signal.SIGINT)
 
     threading.Timer(0.35, _stop).start()

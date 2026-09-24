@@ -1522,6 +1522,20 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         # app once loaded; the loading page has nothing worth selecting.
         text_select=True,
     )
+    # The in-app Quit (POST /shutdown) closes this window and ends the
+    # process the way the tray's Quit does; SIGINT, the server-mode path,
+    # never reaches a main thread inside the window's event loop.
+    from memorymap.core import quit_hook
+
+    def _quit_from_app() -> None:
+        _stop_background_work()
+        try:
+            window.destroy()
+        except Exception:  # noqa: BLE001 - the exit below is the guarantee
+            logger.debug("window.destroy failed during quit", exc_info=True)
+        os._exit(0)
+
+    quit_hook.set_quit_handler(_quit_from_app)
     # The handoff from start.bat's splash to this window. create_window has
     # returned, so this window is the one the user is about to be looking at;
     # the splash's job is over the moment it is.

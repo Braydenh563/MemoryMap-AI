@@ -1457,3 +1457,10 @@ avatars.js.
    which replaces decision 4's 4 to 12s), a shy peek that never flashes,
    and discoverability (catalogue, Help, tour card, one nudge). Built: the
    two commits after row 2.
+
+- The owner, 2026-09-24, with four generated reference sheets: Atlas
+  redesigned as a glossy gel water-drop spirit (teardrop head flowing into a
+  swept crest, almond eyes, blush, chest star, one or two orbiting rings,
+  short constellation tail, star-dust inside the body), plus a male and a
+  female version of Atlas and of the companions, chosen in Appearance. With
+  the Atlas agent.

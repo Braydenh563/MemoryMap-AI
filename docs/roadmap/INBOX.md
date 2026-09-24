@@ -34,6 +34,18 @@ with its owner named in the entry.
 
 ## Open items
 
+406. **The owner, 2026-09-24, verbatim.** "can you also massively expand and
+    diversify the help information available to the guide as well as
+    improve the answers and accuracy of responses when no ai model is
+    available??" Measured first: `help_chat.HELP_TOPICS` is 33 topics; with
+    no model, `offline_answer` pastes whole bodies of keyword-matched topics.
+    Placed as the next agent brief: every feature a topic (tasks as steps,
+    synonyms), docs/*.md (INSTALL, TROUBLESHOOTING, PRIVACY, MODELS) chunked
+    as a second source, ranked retrieval (BM25 plus synonyms and typo
+    tolerance) that answers with the matching section or steps rather than
+    whole bodies, related topics as chips, and a bank of about 100 real
+    questions with expected topics, top-1 accuracy measured before and after.
+
 405. **The owner, 2026-09-24, verbatim, with chat screenshots.** "the sub
     headings in the find anything search are all lowercase and hard to see"
     (fixed, 8a2b5c1 and after), "the back to top hover state is too

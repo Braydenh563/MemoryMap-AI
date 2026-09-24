@@ -97,6 +97,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings, Preferences: the chat history row keeps its unit on one line
+  (its note moved under it), units match their labels' size, and the answer
+  style is a labelled row on the pane's grid.
 - Chat: your messages are a quiet tinted bubble in the page's own ink, at
   the same size as Atlas's, rather than a bright accent block with a "You"
   header; the header says "No model connected" (and opens Settings) instead

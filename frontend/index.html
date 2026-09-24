@@ -8885,15 +8885,24 @@
               <div class="row">
                 <label for="pref-chat-retention" class="muted">Delete saved chats after</label>
                 <input id="pref-chat-retention" type="number" min="0" max="3650">
-                <span class="muted">days (0 = keep forever)</span>
+                <span class="muted">days</span>
               </div>
-              <p class="muted text-sm">Pinned chats are never deleted, however old they are.</p>
+              <!-- The "0 = keep forever" aside moved here: beside the field it
+                   was the one unit too long for the row, and it wrapped onto a
+                   line of its own under the input. -->
+              <p class="muted text-sm">0 keeps every chat. Pinned chats are never deleted, however old they are.</p>
               <h3>AI answer style</h3>
-              <select id="pref-style" aria-label="Writing style Atlas uses" title="Writing style Atlas uses">
-                <option value="friendly">Friendly (default)</option>
-                <option value="concise">Concise</option>
-                <option value="detailed">Detailed</option>
-              </select>
+              <!-- A labelled row like every other field in this pane: the
+                   select sat alone under its heading, off the pane's
+                   label-left, field-right grid. -->
+              <div class="row">
+                <label for="pref-style" class="muted">How Atlas writes its answers</label>
+                <select id="pref-style" title="Writing style Atlas uses">
+                  <option value="friendly">Friendly (default)</option>
+                  <option value="concise">Concise</option>
+                  <option value="detailed">Detailed</option>
+                </select>
+              </div>
               <!-- Asked for directly, after a live report of an unrelated note
                    scoring 57% "similar", see search_manager.py's own comment
                    on why a flat floor isn't enough for the current embedding

@@ -1448,3 +1448,12 @@ avatars.js.
    too often it is grumpy for half a minute, ignored long it waves.
    Companion agent. Built: see the commit "Companion: attention, stirring,
    grogginess and a slow mood".
+2. Caching (the owner: "can caching be used to reduce the load of
+   companion, bg, and other animations??"). Faces drawn once, cut into
+   parts, cached as pictures and moved on the compositor; the logo emblem
+   already was (a canvas turned by CSS). Built: "Faces are drawn once and
+   moved on the compositor".
+3. Movable at all times, settling after a drop, calmer (every 20 to 60s,
+   which replaces decision 4's 4 to 12s), a shy peek that never flashes,
+   and discoverability (catalogue, Help, tour card, one nudge). Built: the
+   two commits after row 2.

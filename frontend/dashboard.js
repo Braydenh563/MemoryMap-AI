@@ -1475,6 +1475,8 @@ function featureCatalog() {
       { name: "Typography & density", desc: "Font, text size, and how roomy the layout feels.", reveal: "set-typography" },
       { name: "Corner rounding & glass", desc: "Tune the shape and blur of every surface.", reveal: "set-radius" },
       { name: "Animated background", desc: "Aurora, constellations, blobs or particles behind the app.", reveal: "set-background" },
+      { name: "A companion on screen", desc: "A small character that finds a free spot on each page and reacts to what you do.", reveal: "set-companion" },
+      { name: "Your look", desc: "Shuffle the face drawn from your name, or choose its parts yourself.", reveal: "settings:preferences" },
       { name: "Accessibility", desc: "High-contrast mode and reduce-motion.", reveal: "set-contrast" },
       { name: "Custom CSS", desc: "For tinkerers: your own style overrides.", reveal: "set-custom-css" },
       { name: "Zoom the whole app", desc: "Ctrl with plus or minus scales every surface, and Ctrl+0 puts it back.", act: () => nudgeZoom(1) },

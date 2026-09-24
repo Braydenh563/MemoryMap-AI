@@ -4842,6 +4842,50 @@ main,
 
 .nm-live { display: inline-block; line-height: 0; }
 
+/* --- a face drawn once (avatars.js, `nameMarkCompose`) -----------------------
+   A face is a few cached pictures in HTML elements that carry the SVG
+   parts' own classes, so every rule above moves them the same way, now on
+   the compositor. The pictures are placed in percentages of the part they
+   sit in; a head-only mark is cropped to its square, a figure is not. */
+.name-mark.nm-cached {
+  position: relative;
+  overflow: hidden;
+}
+
+.nm-cached .nmk,
+.nm-cached img {
+  position: absolute;
+  display: block;
+}
+
+.nm-cached img {
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.nm-figure > .nm-cached,
+.nm-cached.nmb-body {
+  overflow: visible;
+  border-radius: 0;
+}
+
+/* Where a drawing is measured before it is cut up: out of sight, and still,
+   so no animation moves a part while it is measured. */
+.nm-measure {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.nm-measure * {
+  animation: none;
+  transition: none;
+}
+
 .nm-viewer-card {
   display: grid;
   justify-items: center;
@@ -4937,7 +4981,7 @@ main,
   pointer-events: none;
 }
 
-#nm-buddy :is(.nmb-torso, .nmb-arm, .nmb-leg, .nmb-hold, .nm-buddy-head .name-mark) {
+#nm-buddy :is(.nm-figure > .name-mark, .nmb-body, .nm-buddy-head .name-mark) {
   pointer-events: auto;
 }
 
@@ -4992,14 +5036,11 @@ main,
 
 /* The contact shadow is for standing on something; hanging, sitting over
    an edge or floating, there is nothing under its feet to cast it on. */
-#nm-buddy:not([data-pose="stand"]) .nmc-shadow { opacity: 0; }
+#nm-buddy .nmc-shadow { opacity: 0; }
+#nm-buddy[data-pose="stand"] .nmc-shadow { opacity: 1; }
 
-.nm-figure :is(.nmb-arm, .nmb-leg) { transform-box: view-box; }
-
-.nm-figure .nmb-arm-r.nmc-raised {
-  transform-origin: 50.5px 56px;
-  rotate: -115deg;
-}
+/* Its origin is its shoulder (`data-pivot`, set by avatars.js). */
+.nm-figure .nmb-arm-r.nmc-raised { rotate: -115deg; }
 
 /* The large view shows the whole character at 2.2 times its companion
    size (64 by 92). */
@@ -5022,21 +5063,18 @@ main,
   transform-origin: 0 0;
 }
 
-/* Limbs turn where they join the body, in the drawing's own units. */
+/* Limbs turn where they join the body: each carries its hip or shoulder
+   as its `transform-origin` (avatars.js, `data-pivot`). */
 #nm-buddy :is(.nmb-arm, .nmb-leg) {
-  transform-box: view-box;
   transition: transform var(--motion-slow) var(--ease-out), opacity var(--motion-base) var(--ease-out);
 }
 
-#nm-buddy .nmb-arm-l { transform-origin: 13.5px 56px; }
-#nm-buddy .nmb-arm-r { transform-origin: 50.5px 56px; }
 #nm-buddy .nmb-leg-l {
   --nmb-side: 1;
-  transform-origin: 25.5px 68px;
 }
+
 #nm-buddy .nmb-leg-r {
   --nmb-side: -1;
-  transform-origin: 38.5px 68px;
 }
 
 #nm-buddy .nmb-hold {
@@ -5116,7 +5154,14 @@ main,
 #nm-buddy:is(.nmb-act-peek, .nmb-act-emerge) .nm-buddy-face {
   clip-path: inset(-80px -80px calc(92px - var(--nmb-edge)) -80px);
 }
-#nm-buddy.nmb-act-peek .nm-buddy-char { translate: 0 calc(var(--nmb-edge) + 4px); }
+
+/* Shy (the pointer came close and stayed a moment): it sinks a little more,
+   to its eyes, and never out of sight. A transition on `transform`, which
+   composes with the peek's own `translate`, so nothing restarts. */
+#nm-buddy .nm-buddy-char {
+  transition: transform var(--motion-slow) var(--ease-out);
+}
+#nm-buddy.nmb-duck .nm-buddy-char { transform: translateY(10px); }
 
 /* Tucked behind the bottom bar (the last resort in a small window): only
    its eyes over the edge, ducking out of sight when the pointer is near. */
@@ -5127,7 +5172,6 @@ main,
   translate: 0 calc(var(--nmb-edge) - 34px);
   transition: translate var(--motion-slow) var(--ease-out);
 }
-#nm-buddy[data-legs="peek"].nmb-duck .nm-buddy-char { translate: 0 calc(var(--nmb-edge) + 4px); }
 
 /* Hanging by one hand (or scratching its head while it hangs): the other
    hand lets go and hangs free. */
@@ -5135,15 +5179,6 @@ main,
 #nm-buddy:is(.nmb-act-onehand, [data-pose="hang"].nmb-act-scratch) .nmb-arm-r { opacity: 1; }
 #nm-buddy.nmb-act-onehand .nm-buddy-char { transform-origin: 6px -6px; }
 #nm-buddy.nmb-act-feet .nm-buddy-char { transform-origin: 32px 40px; }
-
-/* **The face's own loops are off in the companion.** An SVG group that
-   animates is laid out and painted on the main thread every frame; in the
-   companion the breathing is the figure's own `scale`, on the compositor,
-   and blinking is one of its timed behaviours (avatars.js). Measured with
-   `scratchpad`'s cost probe: see the CHANGELOG line for the numbers. */
-#nm-buddy .name-mark :is(.nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-steam, .nm-balloon, .nm-bow, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-tail, .nm-tails, .nm-pupil, .nm-gem, .nm-flame, .nm-aura, .nm-starfield) {
-  animation: none;
-}
 
 /* The prop slots (avatars.js, the character interface): drawn hidden,
    shown by what is going on around it. */
@@ -5291,10 +5326,11 @@ main,
 @media all {
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
     &.nmb-arrive .nm-buddy-char { animation: nmb-arrive 0.55s var(--ease-spring); }
+    &[data-pose="float"] .nm-buddy-char { animation: nmb-float 3.2s ease-in-out infinite; }
     &.nmb-walking .nm-buddy-char { animation: nmb-bob 0.34s ease-in-out infinite alternate; }
+    &.nm-buddy-dragging .nm-buddy-char { animation: none; }
     &.nmb-walking .nmb-leg-l { animation: nmb-step 0.34s ease-in-out infinite alternate; }
     &.nmb-walking .nmb-leg-r { animation: nmb-step 0.34s ease-in-out -0.34s infinite alternate; }
-    &[data-pose="float"]:not(.nmb-walking, .nm-buddy-dragging) .nm-buddy-char { animation: nmb-float 3.2s ease-in-out infinite; }
     &.nm-buddy-dragging .nmb-leg-l { animation: nmb-kick 0.42s ease-in-out infinite alternate; }
     &.nm-buddy-dragging .nmb-leg-r { animation: nmb-kick 0.42s ease-in-out -0.42s infinite alternate; }
     &.nmb-act-look .nm-buddy-head { animation: nmb-look 2.4s ease-in-out; }
@@ -5307,11 +5343,11 @@ main,
     &.nmb-act-yawn .name-mark .nm-blinks { animation: nmb-shut 2.2s ease-in-out; }
     &.nmb-act-kick .nmb-leg-l { animation: nmb-kick 0.6s ease-in-out 4 alternate; }
     &.nmb-act-kick .nmb-leg-r { animation: nmb-kick 0.6s ease-in-out -0.6s 4 alternate; }
+    &.nmb-act-cheer .nm-buddy-char { animation: nmb-hop 0.65s var(--ease-out) 2; }
     &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nm-buddy-char { animation: nmb-swing 2.6s ease-in-out; }
     &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nmb-leg-l { animation: nmb-kick 0.65s ease-in-out 4 alternate; }
     &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nmb-leg-r { animation: nmb-kick 0.65s ease-in-out -0.65s 4 alternate; }
     &.nmb-act-wave .nmb-arm-r { animation: nmb-wave 1.5s ease-in-out; }
-    &:not([data-pose="hang"]).nmb-act-cheer .nm-buddy-char { animation: nmb-hop 0.65s var(--ease-out) 2; }
     &.nmb-think .nm-buddy-think i { animation: nmb-dot 1.2s ease-in-out infinite; }
     &.nmb-think .nm-buddy-think i:nth-child(2) { animation-delay: 0.2s; }
     &.nmb-think .nm-buddy-think i:nth-child(3) { animation-delay: 0.4s; }
@@ -5325,9 +5361,7 @@ main,
     &.nmb-act-sloth .nm-buddy-char { animation: nmb-sloth 9s ease-in-out; }
     &.nmb-act-sloth .name-mark .nm-blinks { animation: nmb-drowse 9s ease-in-out; }
     &.nmb-act-land .nm-buddy-char { animation: nmb-land 0.45s var(--ease-out); }
-    &.nmb-act-peek .nm-buddy-char { animation: nmb-peek-sink 0.45s ease-in, nmb-peek-up 0.9s ease-out 1.6s forwards; }
-    &.nmb-act-peek.nmb-peeked:not(.nmb-duck) .nm-buddy-char { animation: nmb-peek-up 0.8s ease-out 0.2s forwards; }
-    &.nmb-act-peek.nmb-duck .nm-buddy-char { animation: nmb-peek-duck 0.22s ease-in forwards; }
+    &.nmb-act-peek .nm-buddy-char { animation: nmb-peek-in 1.1s ease-in-out forwards; }
     &.nmb-act-emerge .nm-buddy-char { animation: nmb-emerge 0.8s var(--ease-out) both; }
     &.nmb-act-wake .nm-buddy-char { animation: nmb-stretch 0.9s ease-in-out, nmb-hop 0.6s var(--ease-out) 0.8s; }
     &.nmb-stir .nm-buddy-char { animation: nmb-stir 0.7s ease-in-out; }
@@ -5415,20 +5449,15 @@ main,
   60% { transform: scale(0.96, 1.05); }
   100% { transform: none; }
 }
-@keyframes nmb-peek-sink {
-  from { translate: 0 0; }
-  to { translate: 0 calc(var(--nmb-edge) + 4px); }
-}
-@keyframes nmb-peek-up {
-  from { translate: 0 calc(var(--nmb-edge) + 4px); }
-  to { translate: 0 calc(var(--nmb-edge) - 34px); }
-}
-@keyframes nmb-peek-duck {
-  from { translate: 0 calc(var(--nmb-edge) - 34px); }
-  to { translate: 0 calc(var(--nmb-edge) + 4px); }
+/* Down behind the edge to eyes and nose, with a little dip below and back
+   up, as something hiding does. */
+@keyframes nmb-peek-in {
+  0% { translate: 0 0; }
+  55% { translate: 0 calc(var(--nmb-edge) - 36px); }
+  100% { translate: 0 calc(var(--nmb-edge) - 44px); }
 }
 @keyframes nmb-emerge {
-  0% { translate: 0 calc(var(--nmb-edge) + 4px); }
+  0% { translate: 0 calc(var(--nmb-edge) - 44px); }
   70% { translate: 0 -4px; }
   100% { translate: 0 0; }
 }

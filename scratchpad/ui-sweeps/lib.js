@@ -60,6 +60,10 @@ async function boot(opts={}) {
       localStorage.setItem('theme', t);
       localStorage.setItem('onboardingDone', '1');
       localStorage.setItem('tourDone', '1');
+      // The companion's one-time nudge is a toast too (avatars.js,
+      // `nameMarkBuddyHint`): marked seen for the same reason. A sweep that
+      // wants it clears this key.
+      if (!localStorage.getItem('nm-buddy-hint-sweep')) localStorage.setItem('nm-buddy-hint', 'done');
     } catch (e) {}
   }, process.env.THEME || 'light');
   // OVERRIDE_JS="whiteboard.js=/tmp/base/whiteboard.js" serves that file in

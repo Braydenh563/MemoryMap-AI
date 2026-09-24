@@ -2605,11 +2605,22 @@ kbd {
   margin: -0.4rem 0 0.5rem;
 }
 
+/* The ghost button's own ground and ink: the old white wash was for a dark
+   toast, and on today's light toast it drew white text on white, so every
+   toast's action (Undo, Turn on) was invisible in the light theme. */
 .toast-action {
   margin-left: 0.8rem;
   padding: 0.15rem 0.6rem;
   font-size: 0.8rem;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.toast-action:hover {
+  background: var(--ghost-btn-bg-hover);
 }
 
 /* Asked for directly: a way to dismiss a toast faster than its own timer. */

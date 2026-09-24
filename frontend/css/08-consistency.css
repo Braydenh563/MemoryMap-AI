@@ -4689,6 +4689,12 @@ main,
     &.nm-dizzy .nm-body { animation: nm-ponder 0.9s ease-in-out infinite alternate; }
     &.nm-unimpressed .nm-body { animation: nm-sigh 4.8s ease-in-out var(--nm-delay) infinite; }
     & .nm-pupil { animation: nm-roll 2.6s linear var(--nm-delay) infinite; }
+    &.nm-evil .nm-body { animation: nm-cackle 0.6s ease-in-out infinite; }
+    &.nm-drunk .nm-body { animation: nm-swoon 3.4s ease-in-out infinite; }
+    &.nm-sick .nm-body { animation: nm-sigh 2.4s ease-in-out infinite; }
+    &.nm-starstruck .nm-body { animation: nm-pulse 1s ease-in-out infinite; }
+    &.nm-cute .nm-body { animation: nm-bounce 1.6s ease-in-out infinite; }
+    &.nm-dead .nm-body { animation: nm-float 5s ease-in-out infinite; }
   }
 }
 
@@ -4738,6 +4744,7 @@ main,
 @keyframes nm-pulse { 50% { transform: scale(1.06); } }
 @keyframes nm-sigh { 40%, 60% { transform: translateY(0.8px) scaleY(0.98); } }
 @keyframes nm-roll { to { transform: rotate(360deg); } }
+@keyframes nm-cackle { 30% { transform: translateY(-0.8px) rotate(-3deg); } 60% { transform: translateY(0.3px) rotate(2deg); } }
 
 /* The chat's persona picker: a native select cannot hold a picture, so the
    chosen persona's mark stands just before it (`fillPersonaMark`). */

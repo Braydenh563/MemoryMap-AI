@@ -40760,7 +40760,13 @@ const NAME_MOOD_LEXICON = {
     surprised: "surpris* shock* astonish* amaz* startl* stunned gobsmack* flabbergast* awestruck ghost* spook* boo",
     sleepy: "sleep* tired drowsy lazy yawn* bored boring weary exhaust* sluggish nap napping snooz* lethargic moon* night* midnight* dream* insomnia* pillow* sloth*",
     nervous: "nervous anxious anxiet* worri* worry panic* paranoi* jitter* shy timid awkward neurotic scared fright* coward* skittish frazzled",
-    sly: "sly sneak* mischiev* cunning sarcas* snark* smug cheeky devious villain* evil trickster rogue sassy cynic* scheming shady ninja* spy spies agent hacker* shadow* gremlin* goblin* raccoon* thief",
+    sly: "sly sneak* mischiev* cunning sarcas* snark* smug cheeky devious trickster rogue sassy cynic* scheming shady ninja* spy spies agent hacker* shadow* gremlin* goblin* raccoon* thief",
+    evil: "evil villain* sinister menac* maniac* muaha* mwaha* bwaha* mwuaha* cackl* diabolic* wicked malic* overlord* mastermind* nefarious dastard* supervillain*",
+    sick: "sick sickly ill nause* queasy flu covid sneez* feverish fever germ* poorly",
+    dead: "dead ded deceased skull* zombie* undead corpse* ghoul* lich skeleton*",
+    starstruck: "starstruck star stars superstar* famous celeb* fangirl* fanboy* fan fans idol*",
+    cute: "cute cutie smol tiny baby babies bby lil kawaii precious chibi bean",
+    drunk: "drunk tipsy wasted hungover boozy sloshed",
     calm: "calm* wise zen serene stoic* sage patient gentle mellow relax* peace* tranquil tea monk* yoga",
     serious: "serious stern strict formal pedant* logical deadpan dry grave solemn business* lawyer* accountant* judge* doom* void abyss",
     confused: "confus* baffl* bewild* puzzl* clueless perplex* muddled ditzy lost hm hmm um umm uh uhh erm huh",
@@ -40769,7 +40775,7 @@ const NAME_MOOD_LEXICON = {
     dizzy: "dizzy woozy spinning chaos* chaotic random* glitch* scrambl*",
     hungry: "hungry hunger* starv* sushi* pizza* taco* burger* cake* cookie* donut* doughnut* noodle* ramen* pasta* cheese* bacon* snack* candy candies choco* waffle* pancake* muffin* cupcake* fries dumpling* boba mochi* sandwich* burrito* nacho* bagel* pie toast* peach* mango* banana* berry cherry* foodie* yum yummy nom nomnom",
     cool: "cool coolest chill* rad dude swag boss suave slick shades",
-    love: "love* lovely romantic* crush* heart* cupid* valentin* adorable cute cutie darling sweetheart",
+    love: "love* lovely romantic* crush* heart* cupid* valentin* adorable darling sweetheart",
     uwu: "uwu owo nya nyaa rawr",
   },
   animals: {
@@ -40804,6 +40810,12 @@ const NAME_MOOD_LEXICON = {
     antenna: "robot* bot bots android* cyborg* droid* machine* automaton* ai",
     moustache: "butler* gentleman gentlemen baron* mustach* moustach* walrus* sir",
     headphones: "headphone* headset* dj music* gamer* gaming podcast* singer* rapper* audio* beats",
+    fangs: "vampire* vamp dracula* nosferatu",
+    rednose: "clown* rudolph reindeer*",
+    cowboy: "cowboy* cowgirl* sheriff* yeehaw rodeo* ranch* wrangler*",
+    partyhat: "party partying birthday* bday celebrat* fiesta*",
+    ninjamask: "ninja*",
+    helmet: "astronaut* cosmonaut* space spaceman* rocketman",
   },
   //: Flavours stack on whatever mood the name set: "wink" winks, "ahhhh"
   //: screams, "cooked" sweats. A name that says five things gets all five.
@@ -40888,6 +40900,13 @@ function nameMood(name) {
   result.mood = find(table.moods);
   result.animal = find(table.animals);
   result.props = findAll(table.props);
+  //: One hat per head: "Party wizard" wears the party hat, the one named
+  //: first, rather than a cone stacked through a cone.
+  const hats = ["hat", "chefhat", "cowboy", "partyhat", "crown"];
+  if (result.props.filter((prop) => hats.includes(prop)).length > 1) {
+    const first = find(table.props.filter(({ key }) => hats.includes(key)));
+    result.props = result.props.filter((prop) => !hats.includes(prop) || prop === first);
+  }
   //: A flavour the mood already is (a scream on a scream) says nothing new.
   result.flavours = findAll(table.flavours);
   if (/;-?\)/.test(raw) && !result.flavours.includes("wink")) result.flavours.push("wink");
@@ -40903,14 +40922,21 @@ function nameMood(name) {
   const emoji = [
     [/[\u{1F634}\u{1F4A4}\u{1F971}]/u, "sleepy"],
     [/[\u{1F60D}\u{1F970}\u{1F618}\u{2764}\u{1F495}\u{1F496}]/u, "love"],
-    [/[\u{1F622}\u{1F62D}\u{1F61E}\u{1F614}\u{2639}\u{1F641}\u{1F97A}]/u, "sad"],
+    [/[\u{1F622}\u{1F62D}\u{1F61E}\u{1F614}\u{2639}\u{1F641}]/u, "sad"],
     [/[\u{1F620}\u{1F621}\u{1F92C}\u{1F4A2}]/u, "angry"],
     [/[\u{1F62E}\u{1F632}\u{1F631}\u{1F92F}]/u, "surprised"],
     [/\u{1F60E}/u, "cool"],
-    [/[\u{1F60F}\u{1F608}]/u, "sly"],
+    [/\u{1F608}/u, "evil"],
+    [/[\u{1F480}\u{2620}]/u, "dead"],
+    [/[\u{1F922}\u{1F92E}\u{1F912}\u{1F927}]/u, "sick"],
+    [/[\u{1F602}\u{1F923}\u{1F921}]/u, "laughing"],
+    [/[\u{1F31F}\u{2B50}]/u, "starstruck"],
+    [/\u{1F97A}/u, "cute"],
+    [/\u{1F60F}/u, "sly"],
     [/[\u{1F60B}\u{1F924}\u{1F363}\u{1F355}\u{1F354}\u{1F369}\u{1F370}]/u, "hungry"],
     [/[\u{1F914}\u{1F615}\u{2753}]/u, "confused"],
-    [/[\u{1F929}\u{1F389}\u{2728}\u{26A1}]/u, "excited"],
+    [/\u{1F929}/u, "starstruck"],
+    [/[\u{1F389}\u{2728}\u{26A1}\u{1F973}]/u, "excited"],
     [/[\u{1F600}\u{1F603}\u{1F604}\u{1F601}\u{1F642}\u{1F60A}\u{263A}]/u, "happy"],
   ];
   for (const [pattern, mood] of emoji) if (pattern.test(raw)) hint(mood);
@@ -40927,7 +40953,11 @@ function nameMood(name) {
       }
     }
   }
-  const emojiProps = [[/\u{1F916}/u, "antenna"], [/\u{1F451}/u, "crown"], [/\u{1F9D9}/u, "hat"], [/\u{1F913}/u, "glasses"], [/\u{1F608}/u, "horns"]];
+  const emojiProps = [
+    [/\u{1F916}/u, "antenna"], [/\u{1F451}/u, "crown"], [/\u{1F9D9}/u, "hat"], [/\u{1F913}/u, "glasses"],
+    [/\u{1F608}/u, "horns"], [/\u{1F921}/u, "rednose"], [/\u{1F9DB}/u, "fangs"], [/\u{1F920}/u, "cowboy"],
+    [/\u{1F973}/u, "partyhat"], [/\u{1F977}/u, "ninjamask"],
+  ];
   for (const [pattern, prop] of emojiProps) if (pattern.test(raw) && !result.props.includes(prop)) result.props.push(prop);
   const emoticons = [
     [/>:\(|>:-\(/, "angry"],
@@ -41057,6 +41087,12 @@ const NAME_MARK_FACES = {
   unimpressed: { eyes: "halflid", brows: "flat", mouth: "flat" },
   dizzy: { eyes: "spiral", mouth: "wavy", extras: ["stars"] },
   uwu: { eyes: "closed", mouth: "cat", extras: ["blush"], louder: ["heart"] },
+  evil: { eyes: "evil", brows: "angry", mouth: "evil", extras: ["glint"], louder: ["glint2"] },
+  sick: { eyes: "halflid", brows: "sad", mouth: "wavy", extras: ["greenblush", "thermometer"] },
+  dead: { eyes: "x", mouth: "tongue" },
+  starstruck: { eyes: "star", brows: "raised", mouth: "grin", extras: ["spark"] },
+  cute: { eyes: "sparkle", mouth: "cat", extras: ["blush"], louder: ["heart"] },
+  drunk: { eyes: "halflid", mouth: "smirk", extras: ["blush", "bubble"] },
 };
 
 //: The creatures a name can ask for. `head` fixes the head's colour where
@@ -41092,17 +41128,19 @@ const NAME_MARK_MOOD_GROUNDS = {
   sly: [6, 4, 8], calm: [3, 4, 9, 0], serious: [0, 8, 3], confused: [9, 6, 3],
   hungry: [1, 5, 7], cool: [0, 6, 3], love: [7, 2, 6],
   laughing: [5, 1, 7], unimpressed: [8, 0, 3], dizzy: [9, 6, 5], uwu: [7, 6, 9],
+  evil: [6, 2, 8], sick: [9, 4, 3], dead: [8, 0, 6], starstruck: [5, 1, 7], cute: [7, 9, 5], drunk: [2, 7, 1],
 };
 
 //: A sentence for the tooltip: what the mark was read as, so the joke can be
 //: found by hovering ("Very dramatic face", "Hungry panda").
 const NAME_MARK_MOOD_WORDS = {
-  angry: "grumpy", love: "smitten", sly: "sly", cool: "cool",
+  angry: "grumpy", love: "smitten", sly: "sly", cool: "cool", drunk: "tipsy",
 };
 const NAME_MARK_PROP_WORDS = {
   hat: "a wizard hat", chefhat: "a chef's hat", glasses: "glasses", eyepatch: "an eyepatch",
   crown: "a crown", halo: "a halo", horns: "horns", antenna: "an antenna",
-  moustache: "a moustache", headphones: "headphones",
+  moustache: "a moustache", headphones: "headphones", fangs: "fangs", rednose: "a clown nose",
+  cowboy: "a cowboy hat", partyhat: "a party hat", ninjamask: "a ninja mask", helmet: "a space helmet",
 };
 
 function nameMarkTitle(reading) {
@@ -41215,7 +41253,7 @@ function nameMark(seed, size = 20) {
   const mouthOpen = rnd() < 0.5;
   const delay = rnd();
 
-  const topProps = ["hat", "chefhat", "crown", "halo", "horns", "antenna", "headphones"];
+  const topProps = ["hat", "chefhat", "crown", "halo", "horns", "antenna", "headphones", "cowboy", "partyhat"];
   const wearsTop = reading.props.some((prop) => topProps.includes(prop)) || creature?.antenna;
   const hasEars = Boolean(creature?.ears || creature?.mane || creature?.eyesUp || creature?.tuft);
   //: A plain face rides half the head's offset, which is the beam look; a
@@ -41398,15 +41436,19 @@ function nameMark(seed, size = 20) {
     for (const x of [L - 1, R + 1]) onFace.appendChild(make("ellipse", { cx: f(x), cy: f(eyeY + 3.6), rx: 1.9, ry: 1.05, fill: "#ff5f7e", opacity: 0.5 }));
   }
 
-  //: The eye ink over a panda's patches or an owl's rings is the other ink.
-  const eyeInk = creature?.patches ? "#ffffff" : creature?.rings ? "#1c1c1a" : ink;
+  if (reading.props.includes("ninjamask")) {
+    onFace.appendChild(make("path", { d: `M5 ${f(eyeY - 2.8)}H31v5.4H5zM30.4 ${f(eyeY - 1.6)}l4.6-2.6-.6 3.6 1.4 2.8-5.4-1.4z`, fill: "#2b2a28" }));
+  }
+  //: The eye ink over a panda's patches, an owl's rings or a ninja's mask
+  //: is the other ink.
+  const eyeInk = creature?.patches || reading.props.includes("ninjamask") ? "#ffffff" : creature?.rings ? "#1c1c1a" : ink;
   const glint = creature?.patches ? "#1c1c1a" : paper;
   eyes.setAttribute("fill", eyeInk);
   let eyeStyle = face?.eyes || "dot";
   if (creature?.eyes === "alien") eyeStyle = "alien";
   if (reading.props.includes("antenna") && !face && !creature) eyeStyle = "square";
   if (mutant?.googly && !["shades", "heart", "happy", "closed", "content", "squeeze", "spiral"].includes(eyeStyle)) eyeStyle = "googly";
-  const blinkers = ["dot", "glossy", "sparkle", "wide", "narrow", "mismatch", "alien", "square", "googly", "halflid"];
+  const blinkers = ["dot", "glossy", "sparkle", "wide", "narrow", "mismatch", "alien", "square", "googly", "halflid", "evil"];
   if (blinkers.includes(eyeStyle)) eyes.classList.add("nm-blinks");
   //: A wink closes the right eye and makes sure the left one is open, or a
   //: face whose eyes were already shut would wink with nothing.
@@ -41461,6 +41503,20 @@ function nameMark(seed, size = 20) {
       const pupil = make("circle", { cx: f(x + Math.cos(angle) * 1.2), cy: f(y + Math.sin(angle) * 1.2), r: 1.15, fill: "#1c1c1a", class: "nm-pupil" });
       pupil.style.transformOrigin = `${f(x)}px ${f(y)}px`;
       eyes.appendChild(pupil);
+    } else if (eyeStyle === "evil") {
+      //: A slanted lid: the inner end low, so the eye looks down its nose.
+      const d = side < 0 ? 1 : -1;
+      eyes.appendChild(make("path", { d: `M${f(x - d * 1.9)} ${f(y - 1)}L${f(x + d * 1.9)} ${f(y + 0.6)}L${f(x + d * 1.3)} ${f(y + 1.7)}L${f(x - d * 1.5)} ${f(y + 1.2)}z` }));
+    } else if (eyeStyle === "x") {
+      eyes.appendChild(stroke(`M${f(x - 1.5)} ${f(y - 1.5)}l3 3m0-3l-3 3`, 1.4, eyeInk));
+    } else if (eyeStyle === "star") {
+      const p = [];
+      for (let i = 0; i < 10; i += 1) {
+        const r = i % 2 ? 1.2 : 2.9;
+        const a = -Math.PI / 2 + (i * Math.PI) / 5;
+        p.push(`${f(x + Math.cos(a) * r)} ${f(y + Math.sin(a) * r)}`);
+      }
+      eyes.appendChild(make("path", { d: `M${p.join("L")}z`, fill: "#ffd84a", stroke: "#1c1c1a", "stroke-width": 0.45, "stroke-linejoin": "round" }));
     } else if (eyeStyle === "squeeze") {
       const d = side < 0 ? 1 : -1;
       eyes.appendChild(stroke(`M${f(x - d * 1.4)} ${f(y - 1.6)}l${f(d * 2.6)} 1.6l${f(-d * 2.6)} 1.6`, 1.5, eyeInk));
@@ -41578,11 +41634,23 @@ function nameMark(seed, size = 20) {
   } else if (mouthStyle === "tongue") {
     mouth.appendChild(stroke(`M14.2 ${f(my)}c2.2 2 5.4 2 7.6 0`, 1.7));
     mouth.appendChild(make("path", { d: `M17.9 ${f(my + 1.2)}v1.4a1.6 1.6 0 0 0 3.2 0v-2.1z`, fill: "#ff6b8a", stroke: "#1c1c1a", "stroke-width": 0.4 }));
+  } else if (mouthStyle === "evil") {
+    //: The villain's grin: a crescent wider than the face's own smile,
+    //: turned up at both ends, with a saw of teeth along its top.
+    const e = loud ? 1.2 : 1;
+    mouth.appendChild(fillPath(`M${f(18 - 6 * e)} ${f(my - 1)}Q18 ${f(my + 6 * e)} ${f(18 + 6 * e)} ${f(my - 1)}Q18 ${f(my + 2.4 * e)} ${f(18 - 6 * e)} ${f(my - 1)}z`));
+    const teeth = [];
+    for (let i = 0; i <= 6; i += 1) teeth.push(`${f(18 - 4.2 * e + i * 1.4 * e)} ${f(my + 0.7 + (i % 2 ? 1.1 : 0) + Math.abs(i - 3) * -0.28)}`);
+    mouth.appendChild(stroke(`M${teeth.join("L")}`, 0.6, paper));
   } else if (mouthStyle === "cat") {
     mouth.appendChild(stroke(`M15 ${f(my)}q1.5 1.7 3 0q1.5 1.7 3 0`, 1.4));
   } else if (mouthStyle === "grille") {
     mouth.appendChild(make("rect", { x: 14, y: f(my - 0.2), width: 8, height: 2.8, rx: 0.8, fill: ink }));
     mouth.appendChild(stroke(`M16 ${f(my)}v2.4M18 ${f(my)}v2.4M20 ${f(my)}v2.4`, 0.6, paper));
+  }
+  if (reading.props.includes("rednose")) {
+    onFace.appendChild(make("circle", { cx: 18, cy: f(my - 2.4), r: 2, fill: "#e8364f", stroke: "#1c1c1a", "stroke-width": 0.4 }));
+    onFace.appendChild(make("circle", { cx: 17.4, cy: f(my - 3), r: 0.55, fill: "#ffffff", opacity: 0.8 }));
   }
   if (creature?.nose) onFace.appendChild(make("ellipse", { cx: 18, cy: f(my - 2), rx: 1.5, ry: 1.05, fill: "#2b2a28" }));
   if (creature?.whiskers) {
@@ -41596,7 +41664,7 @@ function nameMark(seed, size = 20) {
     onFace.appendChild(make("path", { d: `M16.2 ${f(eyeY + 3)}h3.6l-1.8 2.9z`, fill: creature.beak, stroke: "#1c1c1a", "stroke-width": 0.4, "stroke-linejoin": "round" }));
   }
   if (mouth.childNodes.length) onFace.appendChild(mouth);
-  if (mutant?.fangs && mouthStyle) {
+  if ((mutant?.fangs || reading.props.includes("fangs")) && mouthStyle) {
     for (const x of [16.2, 19.8]) {
       onFace.appendChild(make("path", { d: `M${f(x - 0.8)} ${f(my + 0.5)}l.8 2.1.8-2.1z`, fill: "#ffffff", stroke: "#1c1c1a", "stroke-width": 0.35, "stroke-linejoin": "round" }));
     }
@@ -41638,6 +41706,20 @@ function nameMark(seed, size = 20) {
     hat.appendChild(make("rect", { x: 12.9, y: 4.8, width: 10.2, height: 3.6, stroke: "none" }));
     onFace.appendChild(hat);
   }
+  if (reading.props.includes("cowboy")) {
+    const hat = make("g", { fill: "#9c755f", stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" });
+    hat.appendChild(make("path", { d: "M11.8 9.4Q11.6 2.6 15.2 3.2Q18 4.8 20.8 3.2Q24.4 2.6 24.2 9.4z" }));
+    hat.appendChild(make("path", { d: "M4.6 8.4Q18 14.2 31.4 8.4Q28.6 11.6 18 11.8Q7.4 11.6 4.6 8.4z" }));
+    hat.appendChild(make("path", { d: "M12 8.2Q18 9.6 24 8.2", fill: "none", stroke: "#2b2a28", "stroke-width": 1.1 }));
+    onFace.appendChild(hat);
+  }
+  if (reading.props.includes("partyhat")) {
+    const cone = make("g", { class: "nm-partyhat" });
+    cone.appendChild(make("path", { d: "M12.8 9.6L18.4.2L23.4 9.6z", fill: "#e15759", stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" }));
+    cone.appendChild(stroke("M15.2 5.4l4.6 2M16.9 2.6l3 1.3", 1.1, "#ffd84a"));
+    cone.appendChild(make("circle", { cx: 18.4, cy: 0.9, r: 1.6, fill: "#ffd84a", stroke: "#1c1c1a", "stroke-width": 0.4 }));
+    onFace.appendChild(cone);
+  }
   if (reading.props.includes("crown")) {
     onFace.appendChild(make("path", { d: "M11.6 9.6L11.1 3.6l3.7 3 3.2-4.4 3.2 4.4 3.7-3-.5 6z", fill: "#edc949", stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" }));
     onFace.appendChild(make("circle", { cx: 18, cy: 7.4, r: 0.9, fill: "#e15759" }));
@@ -41671,6 +41753,13 @@ function nameMark(seed, size = 20) {
     }
   }
 
+  if (reading.props.includes("helmet")) {
+    //: A glass bowl over the whole head, with the one highlight that makes
+    //: a circle read as glass.
+    onFace.appendChild(make("circle", { cx: 18, cy: 17.4, r: 13.4, fill: "#dff1ff", "fill-opacity": 0.18, stroke: "#dfe3e8", "stroke-width": 1.8 }));
+    onFace.appendChild(stroke("M8.4 13.2a10.6 10.6 0 0 1 6-6.4", 1.2, "rgba(255,255,255,0.85)"));
+  }
+
   // the extras that carry the joke
   const drop = (x, y, cls) =>
     make("path", { d: `M${f(x)} ${f(y)}q-1.4 2.1 0 3.1 1.4-1 0-3.1z`, fill: "#6cb8ff", stroke: "#1c1c1a", "stroke-width": 0.35, class: cls });
@@ -41689,6 +41778,22 @@ function nameMark(seed, size = 20) {
   if (extrasList.includes("spark")) {
     extras.appendChild(star(R + 4.4, eyeY - 6.2, 2.3, "#ffd84a"));
     extras.appendChild(star(L - 4.2, eyeY - 4.6, 1.4, "#ffd84a")).classList.add("nm-spark-late");
+  }
+  if (extrasList.includes("glint")) extras.appendChild(star(R + 2.6, eyeY - 1.8, 1.3, "#ffffff"));
+  if (extrasList.includes("glint2")) extras.appendChild(star(L - 2.4, eyeY - 1.4, 1, "#ffffff")).classList.add("nm-spark-late");
+  if (extrasList.includes("greenblush")) {
+    for (const x of [L - 1, R + 1]) extras.appendChild(make("ellipse", { cx: f(x), cy: f(eyeY + 3.6), rx: 2, ry: 1.1, fill: "#59a14f", opacity: 0.55 }));
+  }
+  if (extrasList.includes("thermometer")) {
+    const t = make("g", { class: "nm-thermo" });
+    t.appendChild(stroke(`M${f(20.2)} ${f(my + 0.9)}l5.2-2.4`, 2.2, "#1c1c1a"));
+    t.appendChild(stroke(`M${f(20.2)} ${f(my + 0.9)}l5.2-2.4`, 1.2, "#ffffff"));
+    t.appendChild(make("circle", { cx: f(25.6), cy: f(my - 1.6), r: 1.1, fill: "#e8364f", stroke: "#1c1c1a", "stroke-width": 0.35 }));
+    extras.appendChild(t);
+  }
+  if (extrasList.includes("bubble")) {
+    extras.appendChild(make("circle", { cx: f(R + 3.8), cy: f(eyeY - 5), r: 1.3, fill: "#ffffff", "fill-opacity": 0.6, stroke: ink, "stroke-width": 0.4, class: "nm-z" }));
+    extras.appendChild(make("circle", { cx: f(R + 5.4), cy: f(eyeY - 8), r: 0.9, fill: "#ffffff", "fill-opacity": 0.6, stroke: ink, "stroke-width": 0.4, class: "nm-z nm-z-late" }));
   }
   if (extrasList.includes("stars")) {
     extras.appendChild(star(11.4, 6.2, 1.7, "#ffd84a"));

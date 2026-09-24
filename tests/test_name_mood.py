@@ -151,3 +151,35 @@ def test_a_name_that_says_several_things_gets_all_of_them(tmp_path: Path) -> Non
     assert {"wink", "scream", "doomed"} <= set(chaos["flavours"])
     (plain,) = _moods(["Alice"], tmp_path)
     assert plain["flavours"] == []
+
+
+def test_evil_smiles_and_the_rest_of_the_cast(tmp_path: Path) -> None:
+    # The owner: "what about evil smiles and other things haha".
+    cases = {
+        "Evil overlord": ("evil", None),
+        "muahahaha": ("evil", None),
+        "Vampire": (None, "fangs"),
+        "Sick of mondays": ("sick", None),
+        "dead inside": ("dead", None),
+        "\U0001F480": ("dead", None),
+        "Clown": ("laughing", "rednose"),
+        "Space cowboy": (None, "cowboy"),
+        "birthday girl": (None, "partyhat"),
+        "Ninja": ("sly", "ninjamask"),
+        "Astronaut": (None, "helmet"),
+        "smol bean": ("cute", None),
+        "starstruck fan": ("starstruck", None),
+        "tipsy": ("drunk", None),
+    }
+    got = _moods(list(cases), tmp_path)
+    for (name, (mood, prop)), reading in zip(cases.items(), got):
+        if mood:
+            assert reading["mood"] == mood, (name, reading)
+        if prop:
+            assert prop in reading["props"], (name, reading)
+
+
+def test_one_hat_per_head(tmp_path: Path) -> None:
+    party, king = _moods(["Party wizard", "Wizard king"], tmp_path)
+    assert "partyhat" in party["props"] and "hat" not in party["props"]
+    assert "hat" in king["props"] and "crown" not in king["props"]

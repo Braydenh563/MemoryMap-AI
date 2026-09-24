@@ -2054,12 +2054,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  /* The root-level fallback: `--control-h` is declared on a few containers
-     (the Library's controls among them), not on the root, so a chip row
-     anywhere else (Reminders' Open / All / Done, Boards & maps' kind chips)
-     read an undefined token, dropped the height and measured 22px against
-     36px here. */
-  height: var(--control-h, var(--control-h-lg));
+  height: var(--control-h);
   padding: 0 var(--space-5);
   margin: 0;
   /* **The interactive filter chip** (UI_MODERNISATION_PLAN Phase 2): a

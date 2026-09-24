@@ -275,6 +275,17 @@ def test_after_the_tools_ran_their_results_are_the_answer(fake_engine):
     assert fake_engine == [] or fake_engine[0].completes == []
 
 
+def test_a_json_result_is_not_pasted_into_the_reply(fake_engine):
+    from memorymap.ai import needle_provider
+
+    messages = [
+        {"role": "user", "content": "what is in my notebook"},
+        {"role": "tool", "tool_name": "notebook_overview", "content": '{"total_notes": 0}'},
+    ]
+    reply = needle_provider.NeedleProvider().chat_tools("any", messages, TOOLS)
+    assert "{" not in reply["content"] and "notebook_overview" in reply["content"]
+
+
 def test_prose_is_refused_plainly(fake_engine):
     from memorymap.ai import needle_provider
 

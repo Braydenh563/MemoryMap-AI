@@ -249,12 +249,20 @@ class NeedleProvider(Provider):
         last = messages[-1] if messages else {}
         if last.get("role") == "tool":
             # The tools have run. There is no model to write the reply, so the
-            # reply is what they said, in order, since the last request.
+            # reply is what they said, in order, since the last request. A
+            # tool that answers in JSON (most of the read tools) is not shown
+            # raw: measured end to end, `notebook_overview`'s result came out
+            # as a JSON blob in the chat bubble. Its step row above already
+            # carries the result, so the reply names the step instead.
             said = []
             for message in reversed(messages):
                 if message.get("role") != "tool":
                     break
-                said.append(_text(message.get("content")).strip()[:600])
+                words = _text(message.get("content")).strip()
+                if words[:1] in ("{", "["):
+                    step = message.get("tool_name") or "the step"
+                    words = f"Done: {step} ran, and its result is in the step above."
+                said.append(words[:600])
             return self._reply("\n".join(reversed([s for s in said if s])) or "Done.", [], started)
 
         text = next(

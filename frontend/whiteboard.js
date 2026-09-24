@@ -5139,11 +5139,15 @@ async function wbCreateObject(kind, data, x, y, width, height) {
 //: that fits a thought rather than a paragraph. Kept as `kind: "text"` on
 //: purpose: no schema change, and every text feature (copy style, AI, undo)
 //: works on a sticky the day it exists.
-async function wbCreateSticky(x, y) {
+//: `box`, when given, is the rectangle a press-drag drew with the tool
+//: (`wbPlaceBox`): the note takes that size and corner instead of the default
+//: one centred on the click.
+async function wbCreateSticky(x, y, box = null) {
+  const at = box || { x: x - 90, y: y - 70, w: 180, h: 140 };
   const created = await wbCreateObject(
     "text",
     { content: "", bg: "#fff4a3", border_color: "#e8d56a", color: "#2a2a1f", font_size: 16 },
-    x - 90, y - 70, 180, 140
+    at.x, at.y, at.w, at.h
   );
   if (!created) return;
   wbSelectToolRef?.("select");
@@ -5153,11 +5157,12 @@ async function wbCreateSticky(x, y) {
   });
 }
 
-async function wbCreateTextBox(x, y) {
+async function wbCreateTextBox(x, y, box = null) {
+  const at = box || { x: x - 100, y: y - 40, w: 200, h: 80 };
   const created = await wbCreateObject(
     "text",
     { content: "" },
-    x - 100, y - 40, 200, 80
+    at.x, at.y, at.w, at.h
   );
   if (!created) return;
   wbSelectToolRef?.("select");
@@ -5169,6 +5174,33 @@ async function wbCreateTextBox(x, y) {
     const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
     if (el) wbBeginTextEdit(el);
   });
+}
+
+//: **The box a text or sticky drag draws** (the owner, 2026-09-24: a drag
+//: with either tool should make a box that size). From the press to the
+//: pointer, in board units, never smaller than `WB_PLACE_MIN` for its kind:
+//: a box smaller than one line of its own text is a box nobody can type into,
+//: so a short drag grows the box away from the press, in the direction the
+//: drag went, rather than refusing it.
+const WB_PLACE_MIN = { text: { w: 60, h: 32 }, sticky: { w: 80, h: 60 } };
+
+function wbPlaceBox(start, x, y) {
+  const min = WB_PLACE_MIN[start.place] || WB_PLACE_MIN.text;
+  const w = Math.max(min.w, Math.abs(x - start.x));
+  const h = Math.max(min.h, Math.abs(y - start.y));
+  return {
+    x: Math.round(x < start.x ? start.x - w : start.x),
+    y: Math.round(y < start.y ? start.y - h : start.y),
+    w: Math.round(w),
+    h: Math.round(h),
+  };
+}
+
+//: The corner that makes the box square, on the side the pointer is on: the
+//: longer of the two travels, in both directions.
+function wbSquareCorner(start, x, y) {
+  const side = Math.max(Math.abs(x - start.x), Math.abs(y - start.y));
+  return [start.x + Math.sign(x - start.x || 1) * side, start.y + Math.sign(y - start.y || 1) * side];
 }
 
 // Asked for directly. Deletes every card and sketch on the *current* board
@@ -8692,6 +8724,10 @@ async function initWhiteboard() {
     // on an item's own click handler having already called stopPropagation()
     // if the click actually landed on a card/sketch/object, a click that
     // reaches here bubbled up from truly empty canvas either way.
+    if (wbPlaceJustDrawn) {
+      wbPlaceJustDrawn = false;
+      return;
+    }
     if (window.currentTool === "text") {
       const [x, y] = getLogicalMouse(e);
       wbCreateTextBox(x, y);
@@ -8739,6 +8775,9 @@ async function initWhiteboard() {
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
   }
   let wbMarqueeStart = null;
+  //: One-shot, the placing twin of `wbMarqueeJustSelected`: a drawn text box
+  //: or sticky spends the canvas click its own release makes.
+  let wbPlaceJustDrawn = false;
   let wbMarqueeEl = null;
   let wbMarqueeJustSelected = false;
   //: The latest pointer position (board units) and the frame that will draw
@@ -8763,7 +8802,17 @@ async function initWhiteboard() {
     //: the board (no click ever reached the canvas to spend it) must not
     //: swallow this press's click.
     wbMarqueeJustSelected = false;
-    if (window.currentTool !== "select" || !wbIsEmptyCanvasTarget(e.target)) return;
+    wbPlaceJustDrawn = false;
+    //: **The text and sticky tools draw their box too** (the owner,
+    //: 2026-09-24: "I cant drag to create a custom sized textbox on the
+    //: whiteboard when selected on the textbox tool", "same with the sticky
+    //: notes"). A click still drops the default size (the canvas `click`
+    //: below); a press that travels draws the box it will make, with the
+    //: marquee's own dashed rectangle and the same 4-unit threshold, so the
+    //: two gestures cannot disagree about where a click ends and a drag
+    //: begins.
+    const place = window.currentTool === "text" || window.currentTool === "sticky" ? window.currentTool : null;
+    if ((window.currentTool !== "select" && !place) || !wbIsEmptyCanvasTarget(e.target)) return;
     // Primary button only. A right-click opens the context menu and a middle
     // click pans; neither ends with the pointerup this drag is waiting for,
     // so both used to start a rectangle that nothing would ever remove.
@@ -8783,7 +8832,7 @@ async function initWhiteboard() {
     //: Deferring both to the first real movement keeps the press a press: a
     //: click reaches whatever was under it, and a drag is still a drag from
     //: the point it started at.
-    wbMarqueeStart = { x, y, shiftKey: e.shiftKey, pointerId: e.pointerId, pending: true };
+    wbMarqueeStart = { x, y, shiftKey: e.shiftKey, pointerId: e.pointerId, pending: true, place };
     //: **The overlay layer, above the cards.** INBOX 84: "whiteboard
     //: rectangle selection draws behind objects." `#wb-zoom-group` lives in
     //: `#wb-svg-layer`, which is *under* `#wb-html-layer` by DOM order, on
@@ -8844,7 +8893,10 @@ async function initWhiteboard() {
   }
   window.addEventListener("pointermove", (e) => {
     if (!wbMarqueeStart) return;
-    const [x, y] = getLogicalMouse(e);
+    let [x, y] = getLogicalMouse(e);
+    //: Shift makes a drawn box square, read live rather than from the press
+    //: (on the marquee the press's Shift means "add to the selection").
+    if (wbMarqueeStart.place && e.shiftKey) [x, y] = wbSquareCorner(wbMarqueeStart, x, y);
     if (wbMarqueeStart.pending) {
       // The same 4 units the completed gesture is measured against below, so
       // a press that never becomes a drag draws nothing and claims nothing.
@@ -8866,8 +8918,11 @@ async function initWhiteboard() {
     wbMarqueeFrame = 0;
     if (!wbMarqueeEl || !wbMarqueeStart || !wbMarqueeAt) return;
     const t = d3.zoomTransform(containerEl);
-    const x0 = t.applyX(wbMarqueeStart.x), y0 = t.applyY(wbMarqueeStart.y);
-    const x1 = t.applyX(wbMarqueeAt[0]), y1 = t.applyY(wbMarqueeAt[1]);
+    //: A box being placed is drawn at the size it will be made, minimum and
+    //: all, so what the dashed edge shows is what the release creates.
+    const box = wbMarqueeStart.place ? wbPlaceBox(wbMarqueeStart, wbMarqueeAt[0], wbMarqueeAt[1]) : null;
+    const x0 = t.applyX(box ? box.x : wbMarqueeStart.x), y0 = t.applyY(box ? box.y : wbMarqueeStart.y);
+    const x1 = t.applyX(box ? box.x + box.w : wbMarqueeAt[0]), y1 = t.applyY(box ? box.y + box.h : wbMarqueeAt[1]);
     const l = Math.round(Math.min(x0, x1)), top = Math.round(Math.min(y0, y1));
     const w = Math.round(Math.abs(x1 - x0)), h = Math.round(Math.abs(y1 - y0));
     const ratio = window.devicePixelRatio || 1;
@@ -9037,14 +9092,26 @@ async function initWhiteboard() {
   window.addEventListener("lostpointercapture", () => wbEndMarqueeDrag());
   window.addEventListener("pointerup", (e) => {
     if (!wbMarqueeStart) return;
-    const [x, y] = getLogicalMouse(e);
-    const mx = Math.min(wbMarqueeStart.x, x), my = Math.min(wbMarqueeStart.y, y);
-    const mw = Math.abs(x - wbMarqueeStart.x), mh = Math.abs(y - wbMarqueeStart.y);
-    const shiftKey = wbMarqueeStart.shiftKey;
+    let [x, y] = getLogicalMouse(e);
+    const start = wbMarqueeStart;
+    if (start.place && e.shiftKey) [x, y] = wbSquareCorner(start, x, y);
+    const mx = Math.min(start.x, x), my = Math.min(start.y, y);
+    const mw = Math.abs(x - start.x), mh = Math.abs(y - start.y);
+    const shiftKey = start.shiftKey;
     wbEndMarqueeDrag();
     // Too small to be a deliberate drag, the plain "click" listener above
-    // already handles this as a click-to-clear-selection instead.
+    // already handles this as a click-to-clear-selection instead (or, with
+    // the text and sticky tools, as a click that drops the default size).
     if (mw < 4 && mh < 4) return;
+    if (start.place) {
+      //: The release makes a `click` on the canvas as well, which would drop
+      //: a second, default-sized box where the drag ended.
+      wbPlaceJustDrawn = true;
+      const box = wbPlaceBox(start, x, y);
+      if (start.place === "sticky") wbCreateSticky(x, y, box);
+      else wbCreateTextBox(x, y, box);
+      return;
+    }
     if (!shiftKey) wbMultiSelection.clear();
     for (const node of wbState.nodes) {
       const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));
@@ -9130,7 +9197,12 @@ async function initWhiteboard() {
     //: The release that ends a taken-back drag still makes a `click` on the
     //: canvas, and a canvas click clears the selection: the same one-shot a
     //: finished marquee uses keeps what Escape kept.
-    if (inFlight) wbMarqueeJustSelected = true;
+    if (inFlight) {
+      wbMarqueeJustSelected = true;
+      //: And a text or sticky box taken back is not then dropped at its
+      //: default size by the same release.
+      wbPlaceJustDrawn = true;
+    }
     return inFlight;
   };
   containerEl.addEventListener("pointerdown", (e) => {

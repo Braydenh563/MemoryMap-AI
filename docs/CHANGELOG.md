@@ -111,6 +111,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Whiteboard: with the Text or Sticky tool, a press-drag draws the box at the dragged size (a dashed preview while dragging, Shift for a square, a minimum of one line) and opens it for typing; a click still places the default size, and one undo takes a drawn box away.
 - Whiteboard and mind map: panning with the middle button follows the pointer. A pressed wheel's own wheel events no longer move the board mid-drag (they pushed it 3300 to 3600px sideways over a 300px drag), and a middle press on a topic or a card pans instead of dragging the item (it moved the board 0px of 200).
 - The attachment gallery answers a page of 200 rather than 1,000 by default,
   and every reader of it (the Library's Files and Images, the pickers, the

@@ -41587,6 +41587,7 @@ const NAME_MARK_FACES = {
   starstruck: { eyes: "star", brows: "raised", mouth: "grin", extras: ["spark"] },
   cute: { eyes: "sparkle", mouth: "cat", extras: ["blush"], louder: ["heart"] },
   drunk: { eyes: "halflid", mouth: "smirk", extras: ["blush", "bubble"] },
+  greedy: { eyes: "dollar", mouth: "grin", extras: ["spark"] },
 };
 
 //: The creatures a name can ask for. `head` fixes the head's colour where
@@ -41623,12 +41624,13 @@ const NAME_MARK_MOOD_GROUNDS = {
   hungry: [1, 5, 7], cool: [0, 6, 3], love: [7, 2, 6],
   laughing: [5, 1, 7], unimpressed: [8, 0, 3], dizzy: [9, 6, 5], uwu: [7, 6, 9],
   evil: [6, 2, 8], sick: [9, 4, 3], dead: [8, 0, 6], starstruck: [5, 1, 7], cute: [7, 9, 5], drunk: [2, 7, 1],
+  greedy: [4, 9, 5],
 };
 
 //: A sentence for the tooltip: what the mark was read as, so the joke can be
 //: found by hovering ("Very dramatic face", "Hungry panda").
 const NAME_MARK_MOOD_WORDS = {
-  angry: "grumpy", love: "smitten", sly: "sly", cool: "cool", drunk: "tipsy",
+  angry: "grumpy", love: "smitten", sly: "sly", cool: "cool", drunk: "tipsy", greedy: "money-eyed",
 };
 const NAME_MARK_PROP_WORDS = {
   hat: "a wizard hat", chefhat: "a chef's hat", glasses: "glasses", eyepatch: "an eyepatch",
@@ -41637,8 +41639,16 @@ const NAME_MARK_PROP_WORDS = {
   cowboy: "a cowboy hat", partyhat: "a party hat", ninjamask: "a ninja mask", helmet: "a space helmet",
 };
 
+const NAME_MARK_HAND_WORDS = {
+  thumbsup: "giving a thumbs up", middlefinger: "flipping you off", peace: "throwing a peace sign",
+  wave: "waving", beer: "with a beer", wine: "with a glass of wine", mug: "with a hot drink",
+  sword: "with a sword", magnifier: "with a magnifying glass", mic: "with a microphone",
+  book: "with a book", phone: "on their phone", flower: "with a flower", pizza: "with pizza",
+  donut: "with a donut", balloon: "with a balloon", tableflip: "flipping a table",
+};
+
 function nameMarkTitle(reading) {
-  if (!reading.mood && !reading.animal && !reading.props.length && !reading.mutant && !reading.flavours?.length) return "";
+  if (!reading.mood && !reading.animal && !reading.props.length && !reading.mutant && !reading.flavours?.length && !reading.hand) return "";
   const mood = reading.mood ? NAME_MARK_MOOD_WORDS[reading.mood] || reading.mood : "";
   const mutant = reading.mutant;
   const creatureWord = mutant
@@ -41652,7 +41662,8 @@ function nameMarkTitle(reading) {
   const also = flavours.length
     ? `, ${flavours.length > 1 ? `${flavours.slice(0, -1).join(", ")} and ${flavours.at(-1)}` : flavours[0]}`
     : "";
-  const text = `${words.join(" ")}${tail}${also}`;
+  const hand = reading.hand ? `, ${NAME_MARK_HAND_WORDS[reading.hand]}` : "";
+  const text = `${words.join(" ")}${tail}${also}${hand}`;
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
@@ -41777,6 +41788,8 @@ function nameMark(seed, size = 20) {
   if (reading.props.length || creature || face || mutant) eyeSpread = Math.min(eyeSpread, 1.6);
   if (face) mouthDrop = Math.min(mouthDrop, 1.2);
   if (reading.mood === "dramatic" && loud) tilt = tilt < 0 ? -20 : 20;
+  //: A hand comes up at the lower right, so the face steps left for it.
+  if (reading.hand && reading.hand !== "tableflip") offX = Math.min(offX, 0) - 2.4;
   const faceX = offX * follow;
   const faceY = offY * follow;
 
@@ -41791,7 +41804,7 @@ function nameMark(seed, size = 20) {
     viewBox: "0 0 36 36",
     width: size,
     height: size,
-    class: `name-mark nm-${reading.mood || "plain"}${creature ? ` nm-${reading.animal}` : ""}${reading.mutant ? " nm-mutant" : ""}`,
+    class: `name-mark nm-${reading.mood || "plain"}${creature ? ` nm-${reading.animal}` : ""}${reading.mutant ? " nm-mutant" : ""}${reading.hand ? ` nm-hand-${reading.hand}` : ""}`,
     "aria-hidden": "true",
   });
   svg.style.setProperty("--nm-delay", `${f(-delay * 6)}s`);
@@ -41997,6 +42010,10 @@ function nameMark(seed, size = 20) {
       const pupil = make("circle", { cx: f(x + Math.cos(angle) * 1.2), cy: f(y + Math.sin(angle) * 1.2), r: 1.15, fill: "#1c1c1a", class: "nm-pupil" });
       pupil.style.transformOrigin = `${f(x)}px ${f(y)}px`;
       eyes.appendChild(pupil);
+    } else if (eyeStyle === "dollar") {
+      const dollar = make("text", { x: f(x), y: f(y + 2.3), "text-anchor": "middle", "font-size": 6.4, "font-weight": 800, fill: "#2f9e44", stroke: "#1c1c1a", "stroke-width": 0.35, "font-family": "system-ui, sans-serif" });
+      dollar.textContent = "$";
+      eyes.appendChild(dollar);
     } else if (eyeStyle === "evil") {
       //: A slanted lid: the inner end low, so the eye looks down its nose.
       const d = side < 0 ? 1 : -1;
@@ -42088,6 +42105,27 @@ function nameMark(seed, size = 20) {
   }
   if (brows.childNodes.length) onFace.appendChild(brows);
 
+  //: The name's own small features. Not on a creature, which has its own
+  //: markings, and not where a costume already covers the spot.
+  const features = creature ? [] : reading.style?.features || [];
+  if (features.includes("freckles")) {
+    for (const [x, dir] of [[L, -1], [R, 1]]) {
+      for (const [dx, dy] of [[0, 0], [dir * 1.1, 0.5], [dir * 0.3, 1.1]]) {
+        onFace.appendChild(make("circle", { cx: f(x + dir * 0.4 + dx), cy: f(eyeY + 3.2 + dy), r: 0.34, fill: ink, "fill-opacity": 0.45 }));
+      }
+    }
+  }
+  if (features.includes("mole")) onFace.appendChild(make("circle", { cx: f(R + 0.6), cy: f(eyeY + 6.4), r: 0.45, fill: ink, "fill-opacity": 0.8 }));
+  if (features.includes("lashes") && ["dot", "glossy", "sparkle"].includes(eyeStyle)) {
+    for (const [x, dir] of [[L, -1], [R, 1]]) onFace.appendChild(stroke(`M${f(x + dir * 1.2)} ${f(eyeY - 1.3)}l${f(dir * 0.9)}-.8M${f(x + dir * 0.4)} ${f(eyeY - 1.7)}l${f(dir * 0.4)}-.9`, 0.55, eyeInk));
+  }
+  if (features.includes("blush") && !extrasList.includes("blush") && !extrasList.includes("greenblush")) {
+    for (const x of [L - 1, R + 1]) onFace.appendChild(make("ellipse", { cx: f(x), cy: f(eyeY + 3.6), rx: 1.8, ry: 1, fill: "#ff5f7e", opacity: 0.4 }));
+  }
+  const nose = creature || reading.props.includes("rednose") ? null : reading.style?.nose;
+  if (nose === "dot") onFace.appendChild(make("ellipse", { cx: 18, cy: f(eyeY + 3.4), rx: 0.75, ry: 0.55, fill: ink, "fill-opacity": 0.55 }));
+  if (nose === "button") onFace.appendChild(stroke(`M17 ${f(eyeY + 3.1)}q1 1.1 2 0`, 0.85, ink)).setAttribute("stroke-opacity", "0.6");
+
   // mouth
   let my = 20.5 + mouthDrop + (wearsTop ? 0.6 : 0);
   if (reading.props.includes("moustache")) my += 1.2;
@@ -42095,7 +42133,12 @@ function nameMark(seed, size = 20) {
   const k = loud ? 1.3 : 1;
   const mouth = make("g", { class: "nm-mouth" });
   const fillPath = (d, colour = ink) => make("path", { d, fill: colour });
-  let mouthStyle = face ? (loud && face.loud ? face.loud : face.mouth) : mouthOpen ? "grin" : "smile";
+  //: A plain face, and a happy one, smile the name's own way (toothy,
+  //: lopsided, a big D, buck teeth, a gap); every other mood keeps its own.
+  const ownSmile = reading.style?.smile || (mouthOpen ? "grin" : "smile");
+  let mouthStyle = face ? (loud && face.loud ? face.loud : face.mouth) : ownSmile;
+  if (reading.mood === "happy" && !loud) mouthStyle = ownSmile;
+  if (mouthStyle === "cat3") mouthStyle = "cat";
   if (creature?.mouth === "cat" && (!face || ["smile", "grin"].includes(mouthStyle))) mouthStyle = "cat";
   if (creature?.beak || creature?.rings) mouthStyle = face && ["gasp", "o", "tongue"].includes(face.mouth) ? face.mouth : null;
   if (reading.props.includes("antenna") && !face && !creature) mouthStyle = "grille";
@@ -42128,6 +42171,22 @@ function nameMark(seed, size = 20) {
   } else if (mouthStyle === "tongue") {
     mouth.appendChild(stroke(`M14.2 ${f(my)}c2.2 2 5.4 2 7.6 0`, 1.7));
     mouth.appendChild(make("path", { d: `M17.9 ${f(my + 1.2)}v1.4a1.6 1.6 0 0 0 3.2 0v-2.1z`, fill: "#ff6b8a", stroke: "#1c1c1a", "stroke-width": 0.4 }));
+  } else if (mouthStyle === "toothy" || mouthStyle === "gap") {
+    mouth.appendChild(fillPath(`M13.5 ${f(my)}a4.5 3.6 0 0 0 9 0z`));
+    if (mouthStyle === "toothy") {
+      mouth.appendChild(make("rect", { x: 14.2, y: f(my + 0.2), width: 7.6, height: 1.3, rx: 0.4, fill: "#ffffff" }));
+    } else {
+      mouth.appendChild(make("rect", { x: 14.4, y: f(my + 0.2), width: 3.2, height: 1.3, rx: 0.4, fill: "#ffffff" }));
+      mouth.appendChild(make("rect", { x: 18.5, y: f(my + 0.2), width: 3.1, height: 1.3, rx: 0.4, fill: "#ffffff" }));
+    }
+  } else if (mouthStyle === "lopsided") {
+    mouth.appendChild(stroke(`M14.2 ${f(my + 0.4)}q3.6 2.6 7.6-1.6`, 1.7));
+  } else if (mouthStyle === "bigD") {
+    mouth.appendChild(fillPath(`M12.8 ${f(my - 0.4)}h10.4a5.2 4.6 0 0 1-10.4 0z`));
+    mouth.appendChild(fillPath(`M15.4 ${f(my + 2.8)}q2.6-1.6 5.2 0q-2.6 1.4-5.2 0z`, "#ff6b8a"));
+  } else if (mouthStyle === "buck") {
+    mouth.appendChild(stroke(`M14.5 ${f(my)}c2 1.6 5 1.6 7 0`, 1.8));
+    for (const x of [16.9, 18.1]) mouth.appendChild(make("rect", { x, y: f(my + 1.05), width: 1.1, height: 1.5, rx: 0.3, fill: "#ffffff", stroke: "#1c1c1a", "stroke-width": 0.3 }));
   } else if (mouthStyle === "evil") {
     //: The villain's grin: a crescent wider than the face's own smile,
     //: turned up at both ends, with a saw of teeth along its top.
@@ -42308,6 +42367,127 @@ function nameMark(seed, size = 20) {
   if (extras.childNodes.length) onFace.appendChild(extras);
 
   body.appendChild(onFace);
+
+  // --- the hand, and what is in it ---
+  if (reading.hand) {
+    //: The character's own hand, in the head's colour with an ink outline,
+    //: coming up at the lower right; what it holds stands behind the fist,
+    //: so the fist reads as gripping it.
+    const hand = make("g", { class: `nm-hand${reading.hand === "wave" ? " nm-wave" : ""}` });
+    const line = { stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" };
+    const part = (tag, attrs) => hand.appendChild(make(tag, { ...line, ...attrs }));
+    const skin = head;
+    const fist = (x, y) => {
+      part("rect", { x: f(x - 2.8), y: f(y - 2.2), width: 5.6, height: 4.6, rx: 1.8, fill: skin });
+      hand.appendChild(stroke(`M${f(x - 0.9)} ${f(y - 2.1)}v1.1M${f(x + 0.9)} ${f(y - 2.1)}v1.1`, 0.4, "#1c1c1a"));
+    };
+    const cx = 27.4;
+    const cy = 29.2;
+    const kind = reading.hand;
+    if (kind === "thumbsup") {
+      part("rect", { x: f(cx - 2.8), y: f(cy - 6.4), width: 2.1, height: 4.8, rx: 1.05, fill: skin });
+      fist(cx, cy);
+    } else if (kind === "middlefinger") {
+      part("rect", { x: f(cx - 0.9), y: f(cy - 7.6), width: 1.8, height: 6, rx: 0.9, fill: skin });
+      fist(cx, cy);
+    } else if (kind === "peace") {
+      part("rect", { x: f(cx - 2.1), y: f(cy - 7.2), width: 1.6, height: 5.6, rx: 0.8, fill: skin, transform: `rotate(-13 ${f(cx - 1.3)} ${f(cy - 2)})` });
+      part("rect", { x: f(cx + 0.5), y: f(cy - 7.2), width: 1.6, height: 5.6, rx: 0.8, fill: skin, transform: `rotate(13 ${f(cx + 1.3)} ${f(cy - 2)})` });
+      fist(cx, cy);
+    } else if (kind === "wave") {
+      for (const [dx, tall] of [[-2.7, 3.4], [-1.35, 4], [0, 4.1], [1.35, 3.6]]) {
+        part("rect", { x: f(cx + dx), y: f(cy - 2.6 - tall), width: 1.25, height: tall + 1, rx: 0.62, fill: skin });
+      }
+      part("rect", { x: f(cx - 2.9), y: f(cy - 3), width: 5.8, height: 5.2, rx: 1.9, fill: skin });
+      hand.appendChild(stroke(`M${f(cx + 3.8)} ${f(cy - 6.6)}q1.2 1.6 0 3.2M${f(cx + 5.2)} ${f(cy - 7.6)}q1.9 2.6 0 5.2`, 0.6, "#1c1c1a"));
+    } else if (kind === "beer") {
+      part("path", { d: `M${f(cx - 0.8)} ${f(cy - 8.2)}v-2.6h1.6v2.6z`, fill: "#8a5a2b" });
+      part("rect", { x: f(cx - 1.9), y: f(cy - 8.6), width: 3.8, height: 7.4, rx: 1.1, fill: "#8a5a2b" });
+      part("rect", { x: f(cx - 0.95), y: f(cy - 11.7), width: 1.9, height: 1.1, rx: 0.3, fill: "#edc949" });
+      part("rect", { x: f(cx - 1.9), y: f(cy - 7), width: 3.8, height: 2.2, fill: "#f5f4ef", "stroke-width": 0.3 });
+      fist(cx, cy);
+    } else if (kind === "wine") {
+      hand.appendChild(stroke(`M${f(cx)} ${f(cy - 6)}V${f(cy - 1.2)}`, 0.9, "#1c1c1a"));
+      part("path", { d: `M${f(cx - 2.5)} ${f(cy - 10.4)}h5q0 3.9-2.5 4.1-2.5-.2-2.5-4.1z`, fill: "#ffffff", "fill-opacity": 0.55 });
+      hand.appendChild(make("path", { d: `M${f(cx - 2.3)} ${f(cy - 8.7)}h4.6q-.3 2.2-2.3 2.3-2-.1-2.3-2.3z`, fill: "#9b1b30" }));
+      fist(cx, cy + 0.4);
+    } else if (kind === "mug") {
+      part("path", { d: `M${f(cx + 2.1)} ${f(cy - 6.4)}q2.4 0 2.4 1.9t-2.4 1.9`, fill: "none", "stroke-width": 0.9 });
+      part("rect", { x: f(cx - 2.9), y: f(cy - 7.6), width: 5.2, height: 5.8, rx: 0.9, fill: "#f5f4ef" });
+      hand.appendChild(make("rect", { x: f(cx - 2.5), y: f(cy - 7.2), width: 4.4, height: 1, fill: "#6b4a2f" }));
+      const steam = stroke(`M${f(cx - 1.2)} ${f(cy - 8.4)}q-.8-1 0-2q.8-1 0-2M${f(cx + 0.9)} ${f(cy - 8.6)}q-.8-1 0-2`, 0.6, "#1c1c1a");
+      steam.classList.add("nm-steam");
+      hand.appendChild(steam);
+      fist(cx - 0.3, cy + 0.6);
+    } else if (kind === "sword") {
+      part("path", { d: `M${f(cx - 0.7)} ${f(cy - 3.4)}V${f(cy - 14.4)}L${f(cx)} ${f(cy - 16)}L${f(cx + 0.7)} ${f(cy - 14.4)}V${f(cy - 3.4)}z`, fill: "#dfe3e8" });
+      part("rect", { x: f(cx - 2.9), y: f(cy - 3.7), width: 5.8, height: 1.2, rx: 0.5, fill: "#b0703a" });
+      fist(cx, cy);
+    } else if (kind === "magnifier") {
+      hand.appendChild(stroke(`M${f(cx - 0.2)} ${f(cy - 1.4)}L${f(cx - 2.2)} ${f(cy - 5.4)}`, 1.6, "#6b4a2f"));
+      part("circle", { cx: f(cx - 3.4), cy: f(cy - 8), r: 2.9, fill: "#bfe3ff", "fill-opacity": 0.6, "stroke-width": 0.9 });
+      hand.appendChild(stroke(`M${f(cx - 5)} ${f(cy - 8.6)}a1.8 1.8 0 0 1 1.4-1.3`, 0.6, "#ffffff"));
+      fist(cx, cy);
+    } else if (kind === "mic") {
+      part("rect", { x: f(cx - 0.75), y: f(cy - 6.6), width: 1.5, height: 4.8, fill: "#2b2a28" });
+      part("circle", { cx: f(cx), cy: f(cy - 8), r: 2.1, fill: "#8e9aa6" });
+      hand.appendChild(stroke(`M${f(cx - 1.4)} ${f(cy - 8.4)}h2.8M${f(cx - 1.2)} ${f(cy - 7.4)}h2.4`, 0.4, "#1c1c1a"));
+      fist(cx, cy);
+    } else if (kind === "book") {
+      part("path", { d: `M${f(cx - 4.4)} ${f(cy - 7.8)}q2.2-1.2 4.4 0v5.2q-2.2-1.2-4.4 0z`, fill: "#f5f4ef" });
+      part("path", { d: `M${f(cx)} ${f(cy - 7.8)}q2.2-1.2 4.4 0v5.2q-2.2-1.2-4.4 0z`, fill: "#f5f4ef" });
+      hand.appendChild(stroke(`M${f(cx - 3.6)} ${f(cy - 6.4)}q1.4-.6 2.8 0M${f(cx + 0.8)} ${f(cy - 6.4)}q1.4-.6 2.8 0M${f(cx - 3.6)} ${f(cy - 5)}q1.4-.6 2.8 0`, 0.35, "#1c1c1a"));
+      hand.appendChild(stroke(`M${f(cx - 4.8)} ${f(cy - 2.2)}q2.4-1 4.8 0q2.4-1 4.8 0`, 1, "#4e79a7"));
+      fist(cx, cy + 0.6);
+    } else if (kind === "phone") {
+      part("rect", { x: f(cx - 1.9), y: f(cy - 8.8), width: 3.8, height: 7, rx: 0.9, fill: "#2b2a28" });
+      hand.appendChild(make("rect", { x: f(cx - 1.4), y: f(cy - 8.2), width: 2.8, height: 5.4, rx: 0.4, fill: "#76b7b2" }));
+      fist(cx, cy);
+    } else if (kind === "flower") {
+      hand.appendChild(stroke(`M${f(cx)} ${f(cy - 2)}V${f(cy - 8)}`, 0.9, "#3f7f3a"));
+      hand.appendChild(make("ellipse", { cx: f(cx + 1.2), cy: f(cy - 5), rx: 1.2, ry: 0.6, fill: "#59a14f", transform: `rotate(-30 ${f(cx + 1.2)} ${f(cy - 5)})` }));
+      for (let i = 0; i < 5; i += 1) {
+        const a = (i / 5) * Math.PI * 2;
+        part("circle", { cx: f(cx + Math.cos(a) * 1.5), cy: f(cy - 9.4 + Math.sin(a) * 1.5), r: 1.25, fill: "#ff9da7", "stroke-width": 0.35 });
+      }
+      part("circle", { cx: f(cx), cy: f(cy - 9.4), r: 0.9, fill: "#edc949", "stroke-width": 0.35 });
+      fist(cx, cy);
+    } else if (kind === "pizza") {
+      part("path", { d: `M${f(cx - 3.2)} ${f(cy - 8.4)}Q${f(cx)} ${f(cy - 9.6)} ${f(cx + 3.2)} ${f(cy - 8.4)}L${f(cx)} ${f(cy - 1.8)}z`, fill: "#edc949" });
+      hand.appendChild(stroke(`M${f(cx - 3.1)} ${f(cy - 8.3)}Q${f(cx)} ${f(cy - 9.5)} ${f(cx + 3.1)} ${f(cy - 8.3)}`, 1.3, "#d9a066"));
+      for (const [dx, dy] of [[-1.2, -6.9], [1, -6.3], [-0.1, -4.6]]) hand.appendChild(make("circle", { cx: f(cx + dx), cy: f(cy + dy), r: 0.7, fill: "#e15759" }));
+      fist(cx, cy);
+    } else if (kind === "donut") {
+      part("circle", { cx: f(cx), cy: f(cy - 6.2), r: 3.2, fill: "#d9a066" });
+      hand.appendChild(make("circle", { cx: f(cx), cy: f(cy - 6.4), r: 2.6, fill: "#ff9da7" }));
+      part("circle", { cx: f(cx), cy: f(cy - 6.2), r: 0.95, fill: ground, "stroke-width": 0.4 });
+      for (const [dx, dy, c] of [[-1.6, -7.6, "#4e79a7"], [1.4, -7.8, "#edc949"], [1.6, -5.4, "#59a14f"], [-1.4, -5, "#ffffff"]]) {
+        hand.appendChild(stroke(`M${f(cx + dx)} ${f(cy + dy)}l.5.3`, 0.45, c));
+      }
+      fist(cx, cy + 0.2);
+    } else if (kind === "balloon") {
+      hand.appendChild(stroke(`M${f(cx)} ${f(cy - 1.8)}q1-3-.2-5.4`, 0.5, "#1c1c1a"));
+      const balloon = make("g", { class: "nm-balloon" });
+      balloon.appendChild(make("ellipse", { cx: f(cx - 0.2), cy: f(cy - 10.6), rx: 2.8, ry: 3.4, fill: "#e15759", ...line }));
+      balloon.appendChild(stroke(`M${f(cx - 1.6)} ${f(cy - 11.8)}a1.6 1.6 0 0 1 1-1.2`, 0.5, "#ffffff"));
+      hand.appendChild(balloon);
+      fist(cx, cy);
+    } else if (kind === "tableflip") {
+      //: (╯°□°)╯︵ ┻━┻ : both fists up at the head's shoulders, and the
+      //: table already upside down and on its way.
+      fist(7.2, 13.2);
+      fist(28.8, 13.2);
+      hand.appendChild(stroke("M9.6 8.4q2.8-2.8 5.6 0", 0.7, "#1c1c1a"));
+      const table = make("g", { class: "nm-table" });
+      const inner = make("g", { transform: "translate(21.4 6.4) rotate(-16)" });
+      inner.appendChild(make("rect", { x: -5.4, y: -0.9, width: 10.8, height: 1.9, rx: 0.4, fill: "#9c755f", ...line }));
+      inner.appendChild(make("rect", { x: -4.6, y: -4, width: 1.1, height: 3.2, fill: "#9c755f", ...line }));
+      inner.appendChild(make("rect", { x: 3.5, y: -4, width: 1.1, height: 3.2, fill: "#9c755f", ...line }));
+      table.appendChild(inner);
+      hand.appendChild(table);
+    }
+    body.appendChild(hand);
+  }
   svg.append(clip, sheen, group);
   return svg;
 }

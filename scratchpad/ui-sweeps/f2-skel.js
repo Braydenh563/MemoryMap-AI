@@ -43,6 +43,29 @@ const { boot } = require('./lib.js');
   await page.waitForTimeout(450);
   const gone = await page.evaluate(() => document.querySelectorAll('.toast').length);
   check('toast fades out, then is removed', typeof leaving === 'number' && leaving < 1 && gone === 0, `opacity ${leaving} at 60ms, ${gone} left at 510ms`);
+  // A '?' popover: fades in from its button, and settles where it was placed.
+  await page.evaluate(() => openSettingsModal('appearance'));
+  await page.waitForTimeout(1500);
+  const opened = await page.evaluate(() => {
+    const t = [...document.querySelectorAll('[data-help-for]')].find((e) => e.checkVisibility());
+    if (!t) return false;
+    t.click();
+    return true;
+  });
+  if (opened) {
+    await page.waitForTimeout(30);
+    const p30 = await page.evaluate(() => +getComputedStyle(document.querySelector('.help-popover')).opacity);
+    await page.waitForTimeout(400);
+    const settled = await page.evaluate(() => {
+      const p = document.querySelector('.help-popover');
+      const cs = getComputedStyle(p);
+      return { opacity: +cs.opacity, translate: cs.translate, top: p.getBoundingClientRect().top, styleTop: parseFloat(p.style.top) };
+    });
+    check('help popover fades in and settles where it was placed', p30 < 1 && settled.opacity === 1 && Math.abs(settled.top - settled.styleTop) < 0.5,
+      `opacity ${p30.toFixed(2)} at 30ms; ${JSON.stringify(settled)}`);
+  } else {
+    check('help popover found', false);
+  }
   console.log(`${results.filter(Boolean).length}/${results.length} passed`);
   await browser.close();
 })();

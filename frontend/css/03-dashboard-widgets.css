@@ -3494,6 +3494,29 @@ p.graph-help-panel {
      the trigger's own centre. Declared rather than left to a `var()`
      fallback so `test_style_scale.py` can tell a real token from a typo. */
   --help-caret-x: 50%;
+  /* Arrives from its '?' (INBOX 399 (4)): a fade and 4px of travel away from
+     the button, the toasts' and menus' distance, where it used to appear
+     between two frames. `translate`, so `placeHelpPopover`'s own placement
+     is not replaced. */
+  animation: help-popover-in var(--motion-base) var(--ease-out);
+}
+
+.help-popover.help-popover-above {
+  animation-name: help-popover-in-above;
+}
+
+@keyframes help-popover-in {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
+@keyframes help-popover-in-above {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
 }
 
 /* The caret. Two squares rotated 45°, the back one carries the border, the

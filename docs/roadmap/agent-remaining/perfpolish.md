@@ -19,12 +19,27 @@ interaction), `f2-dom.js`, `f2-shape.js`, `f2-cv.js`, `f2-heights.js`.
   cross-fade, Timeline formatters made once, dashboard measured in one pass;
   four lints in `tests/test_css_invalidation.py` (d6e9cb3).
 - Part 1, step 2: the interaction table (median of three) in HISTORY.md,
-  "INBOX 400 part (1)", and the INBOX note.
+  "INBOX 400 part (1)", and the INBOX note (8ef9c42).
+- Part 2, step 1 (c3bbefc): `--ease-out`, `--ease-in-out`, `--ease-spring`;
+  132 transitions onto the tokens; `tests/test_motion_tokens.py` (no
+  `transition: all`, no raw duration, no untokened or missing curve, no
+  `filter` on hover); INBOX 405's hover filters replaced by
+  `--accent-surface-hover` and `--hover-veil`, the tab bar and the tonal
+  icon buttons given the hover they never had (`f2-hover.js`: 101 of 571
+  buttons unchanged on hover, 0 after, the selected segment and tab
+  excepted); switch knob on the spring; toast fade in and out through
+  `dismissToast`; skeletons in the Library and the Timeline.
+- Part 2, step 2: the '?' popover fades in from its button (`f2-skel.js`
+  7/7).
 
 ## Left
 
-- Part 2: tokens for easing, `transition: all` and raw-duration lint, press
-  and focus states, menu and toast enter and exit, skeletons, INBOX 405.
+- Menus leave instantly (`.hidden`, display none) though they enter with a
+  160ms reveal; an exit needs every close path (`closeActionMenus`,
+  Escape, outside click, the escaped-menu restore) to wait for it. Left for
+  the menu and a11y agent that owns those paths.
+- INBOX 405: the coordinator's `.chat-jump-latest` and back-to-top fixes in
+  08-consistency.css merge beside this; resolve 405 once both are in.
 
 ## Found, not fixed
 

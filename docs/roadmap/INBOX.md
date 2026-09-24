@@ -123,6 +123,11 @@ with its owner named in the entry.
     (About's updater, `start-*.bat`/`.sh` auto-update), tested in a scratch
     copy per CLAUDE.md's trap; (4) component refinement against motion.dev,
     kokonut and bklit patterns (motion, hover, focus, press states).
+    Part (4) built c3bbefc: every transition on `--motion-*` and `--ease-*`
+    (`tests/test_motion_tokens.py`), a hover is a colour never a filter
+    (with INBOX 405), toasts and '?' popovers fade in with 4px of travel,
+    toasts fade out, skeletons in the Library and Timeline. Menus' exit left
+    to the menu agent (agent-remaining/perfpolish.md).
 
 397. **The owner, 2026-09-23 night, verbatim, from the desktop window with a
     screenshot.** "I pressed next on the first panel of the guided tour, and

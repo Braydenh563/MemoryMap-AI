@@ -4952,48 +4952,77 @@ textarea.autogrow {
   font-size: var(--text-xs);
 }
 
+/* **The writing dictionary as a settings sheet** (INBOX 410: "ugly and needs a
+   proper professional modern redesign"). One column: the head (title, the count
+   as muted text, the '?', close), a line, one field that finds and adds, a
+   quiet list of words, the file actions, then the checks as settings rows. No
+   boxed chip, no boxed rows, no accent pill: the only edges are the field's and
+   the list's hairline, and the only fill is the row under the pointer. */
 .doc-dictionary-dialog {
-  width: min(30rem, 92vw);
-  max-height: 80vh;
+  width: min(32rem, 92vw);
+  max-height: 85vh;
   overflow-y: auto;
 }
 
-.doc-dictionary-controls {
+.doc-dictionary-head {
+  align-items: center;
+}
+
+.doc-dictionary-head h2 {
+  margin: 0;
+}
+
+.doc-dictionary-count {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.doc-dictionary-lead {
+  margin: var(--space-1) 0 var(--space-4);
+}
+
+/* The field: the magnifier inside its leading edge, Add at its trailing edge
+   only while what is typed is a new word. */
+.doc-dictionary-field {
+  position: relative;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-3);
 }
 
-/* Same recipe as `.note-edit-meta`'s own row a few hundred lines up:
-   `.select-opener`'s `min-height: var(--target-min)` (28px) and a plain
-   `button.small`'s own height never agreed, reported here as "the
-   preferences combobox and add a word button arent the same height". */
-.doc-dictionary-controls .select-opener,
-.doc-dictionary-controls #doc-dictionary-add {
-  height: var(--control-h-lg);
-  min-height: 0;
-  padding-block: 0;
-  box-sizing: border-box;
+.doc-dictionary-field-icon {
+  position: absolute;
+  left: var(--space-3);
+  color: var(--muted);
+  pointer-events: none;
 }
 
-.doc-dictionary-variant {
+.doc-dictionary-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: var(--space-7);
+}
+
+.doc-dictionary-field #doc-dictionary-add {
   flex: none;
+  white-space: nowrap;
 }
 
-/* The grammar switch (INBOX 401) under the spelling row, one row of its own:
-   it is a second checker, not a setting of the first. */
-.doc-grammar-row {
-  margin-bottom: var(--space-3);
-}
-
+/* The list: rows at the list-row height, a hairline above and below so the
+   list reads as one object, and its own scroller past a dozen words so the
+   checks below stay in reach. */
 .doc-dictionary-list {
   list-style: none;
-  margin: 0;
-  padding: 0;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-1) 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--row-gap);
+  max-height: 16rem;
+  overflow-y: auto;
+  border-top: 1px solid var(--divider);
+  border-bottom: 1px solid var(--divider);
 }
 
 .doc-dictionary-row {
@@ -5001,9 +5030,90 @@ textarea.autogrow {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
+  min-height: var(--row-h);
+  padding: 0 var(--space-1) 0 var(--space-3);
   border-radius: var(--radius-sm);
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.doc-dictionary-row:hover,
+.doc-dictionary-row:focus-within {
+  background: var(--hover-veil);
+}
+
+.doc-dictionary-word {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Remove shows on the row under the pointer or with focus in it; on a touch
+   screen, where nothing hovers, it is always there. */
+.doc-dictionary-remove {
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.doc-dictionary-row:hover .doc-dictionary-remove,
+.doc-dictionary-row:focus-within .doc-dictionary-remove {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .doc-dictionary-remove {
+    opacity: 1;
+  }
+}
+
+.doc-dictionary-empty {
+  padding: var(--space-5) var(--space-3);
+  text-align: center;
+  color: var(--muted);
+}
+
+.doc-dictionary-files {
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.doc-dictionary-section {
+  margin: var(--space-5) 0 var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* A setting with a value: the name over its one line on the left, the control
+   on the right, on the same padding `.setting-check` rows keep so the three
+   rows share one left edge. */
+.doc-dictionary-setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.doc-dictionary-setting-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.doc-dictionary-setting-text small,
+.doc-dictionary-dialog .setting-check small {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc-dictionary-row,
+  .doc-dictionary-remove {
+    transition: none;
+  }
 }
 
 /* The suggestions panel: a real panel now, with room for its list. Reported:

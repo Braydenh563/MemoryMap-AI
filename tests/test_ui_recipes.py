@@ -1014,6 +1014,8 @@ LIST_ROWS = {
     #: The popup agent's starters (INBOX 231). The grid is both the list and
     #: the rows' only selector, so the container it is spaced by is itself.
     ".command-palette-examples": ".command-palette-examples",
+    #: The writing dictionary's words (INBOX 410, the settings-sheet redesign).
+    ".doc-dictionary-row": ".doc-dictionary-list",
 }
 
 

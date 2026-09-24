@@ -13812,11 +13812,31 @@ $("doc-grammar-check")?.addEventListener("change", async (event) => {
   docGrammarCache = { text: null, findings: [] };
   renderDocProse();
 });
-$("doc-dictionary-add")?.addEventListener("click", async () => {
-  const word = await promptDialog("Add a word to your dictionary:", "");
-  if (!word) return;
-  await docDictionaryAdd(word.trim());
-  openDocDictionary();
+//: The field finds and adds (`renderDocDictionary`, `docDictionaryAddTyped`);
+//: Add beside it is the same as Enter, for a pointer.
+$("doc-dictionary-add")?.addEventListener("click", () => docDictionaryAddTyped());
+$("doc-dictionary-search")?.addEventListener("input", () => renderDocDictionary());
+$("doc-dictionary-search")?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  docDictionaryAddTyped();
+});
+$("doc-dictionary-import")?.addEventListener("click", () => $("doc-dictionary-file")?.click());
+$("doc-dictionary-file")?.addEventListener("change", async (event) => {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  //: Cleared first, so choosing the same file again still raises a change.
+  input.value = "";
+  await docDictionaryImport(file);
+});
+$("doc-dictionary-export")?.addEventListener("click", () => docDictionaryExport());
+//: The same preference Settings, Preferences sets (`smart_punctuation`), here
+//: beside the other writing checks; saved on the change, as the two above are.
+$("doc-smart-punctuation")?.addEventListener("change", async (event) => {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ smart_punctuation: event.currentTarget.checked }),
+  }).catch(() => prefsCache);
 });
 
 $("doc-prose")?.addEventListener("click", () => {
@@ -15089,32 +15109,20 @@ function docAiCheckStatus() {
 //: **Managing the dictionary.** Asked for by name. A list you can add to and
 //: never see again is a list nobody trusts, and a wrongly added word would
 //: otherwise silence a real typo forever with no way to find out why.
+//:
+//: **Redesigned as a settings sheet** (INBOX 410: "ugly and needs a proper
+//: professional modern redesign"). One field finds and adds: typing filters
+//: the list, Enter (or the field's Add) adds what is typed when it is not
+//: there already. The list is quiet rows whose remove shows on the row under
+//: the pointer or focus, with an empty state that says what the list is for
+//: and a no-match state that says Enter adds. The count is a fact by the
+//: title, in muted text rather than a boxed chip.
 async function openDocDictionary() {
-  const words = [...docDictionary()].sort();
   const dialog = $("doc-dictionary-dialog");
-  const list = $("doc-dictionary-list");
-  if (!dialog || !list) return;
-  list.replaceChildren();
-  if (!words.length) {
-    const empty = document.createElement("p");
-    empty.className = "muted";
-    empty.textContent =
-      "Nothing here yet. Add a word from a suggestion and it stops being flagged everywhere.";
-    list.appendChild(empty);
-  }
-  for (const word of words) {
-    const row = document.createElement("li");
-    row.className = "doc-dictionary-row";
-    const label = document.createElement("span");
-    label.textContent = word;
-    const remove = smallButton("ph:x", `Remove “${word}”`, async () => {
-      await docDictionaryWrite(words.filter((other) => other !== word));
-      openDocDictionary();
-    });
-    remove.classList.add("icon-only");
-    row.append(label, remove);
-    list.appendChild(row);
-  }
+  if (!dialog) return;
+  const search = $("doc-dictionary-search");
+  if (search) search.value = "";
+  renderDocDictionary();
   const variant = $("doc-spelling-variant");
   if (variant) variant.value = docSpellingVariant();
   const grammar = $("doc-grammar-check");
@@ -15129,17 +15137,112 @@ async function openDocDictionary() {
         : "Grammar and style rules, checked on this computer by Harper"
     );
   }
-  //: The count as a fact beside the title, not as a sentence in the copy: a
-  //: dictionary you cannot see the size of is one nobody believes is being kept
-  //: (the report this whole surface answers was "I swear I added 'idk' to the
-  //: dictionary last night").
+  const smart = $("doc-smart-punctuation");
+  if (smart) smart.checked = !!(prefsCache && prefsCache.smart_punctuation === true);
+  if (!dialog.open) dialog.showModal();
+  search?.focus();
+}
+
+//: The words matching the field, and the list drawn from them. Called on
+//: open, on every keystroke in the field, and after every add or remove.
+function renderDocDictionary() {
+  const list = $("doc-dictionary-list");
+  if (!list) return;
+  const words = [...docDictionary()].sort((a, b) => a.localeCompare(b));
+  const query = ($("doc-dictionary-search")?.value || "").trim().toLowerCase();
+  const shown = query ? words.filter((word) => word.includes(query)) : words;
   const count = $("doc-dictionary-count");
   if (count) {
-    count.textContent = words.length
-      ? `${words.length} word${words.length === 1 ? "" : "s"}`
-      : "empty";
+    count.textContent = words.length ? `${words.length} word${words.length === 1 ? "" : "s"}` : "Empty";
   }
-  dialog.showModal();
+  //: Add is offered only when there is something new to add: a word typed
+  //: that is not already in the list.
+  const add = $("doc-dictionary-add");
+  if (add) {
+    const addable = !!query && !docDictionary().has(query) && docDictionaryWordOk(query);
+    add.hidden = !addable;
+    if (addable) setLabel(add, `ph:plus Add “${query}”`);
+  }
+  list.replaceChildren();
+  if (!shown.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty-state doc-dictionary-empty";
+    empty.textContent = query
+      ? docDictionary().has(query)
+        ? ""
+        : `No word here matches “${query}”. Press Enter to add it.`
+      : "No words yet. Type one above and press Enter, or add one from a flagged word.";
+    if (empty.textContent) list.appendChild(empty);
+    return;
+  }
+  for (const word of shown) {
+    const row = document.createElement("li");
+    row.className = "doc-dictionary-row";
+    const label = document.createElement("span");
+    label.className = "doc-dictionary-word";
+    label.textContent = word;
+    const remove = smallButton("ph:x", `Remove “${word}”`, async () => {
+      await docDictionaryWrite([...docDictionary()].filter((other) => other !== word));
+      renderDocDictionary();
+      renderDocProse();
+      $("doc-dictionary-search")?.focus();
+    });
+    remove.classList.add("icon-only", "doc-dictionary-remove");
+    remove.setAttribute("aria-label", `Remove “${word}”`);
+    row.append(label, remove);
+    list.appendChild(row);
+  }
+}
+
+//: A dictionary entry is one word as the checker reads words: letters, with
+//: an apostrophe or a hyphen inside. Anything else would never match a
+//: finding, so it would sit in the list doing nothing.
+function docDictionaryWordOk(word) {
+  return /^[\p{L}][\p{L}\p{N}'’-]{0,59}$/u.test(word);
+}
+
+async function docDictionaryAddTyped() {
+  const search = $("doc-dictionary-search");
+  const word = (search?.value || "").trim();
+  if (!word) return;
+  if (!docDictionaryWordOk(word)) return toast("One word at a time: letters, with an apostrophe or hyphen inside.", true);
+  if (!docDictionary().has(word.toLowerCase())) await docDictionaryAdd(word);
+  if (search) search.value = "";
+  renderDocDictionary();
+  renderDocProse();
+  search?.focus();
+}
+
+//: **In and out as a .txt file, one word per line.** Import adds and never
+//: removes: a file from another machine merged into this one is the common
+//: case, and replacing would silently drop every word only this one had.
+async function docDictionaryImport(file) {
+  if (!file) return;
+  const text = await file.text().catch(() => "");
+  const incoming = [...new Set(text.split(/[\r\n,;\t]+/).map((w) => w.trim().toLowerCase()).filter(docDictionaryWordOk))];
+  const have = docDictionary();
+  const fresh = incoming.filter((word) => !have.has(word));
+  if (!incoming.length) return toast("No words found in that file. One word per line.", true);
+  if (fresh.length) await docDictionaryWrite([...have, ...fresh]);
+  renderDocDictionary();
+  renderDocProse();
+  toast(fresh.length
+    ? `Added ${fresh.length} word${fresh.length === 1 ? "" : "s"}${incoming.length > fresh.length ? `; ${incoming.length - fresh.length} were already here` : ""}.`
+    : "Every word in that file is already here.");
+}
+
+function docDictionaryExport() {
+  const words = [...docDictionary()].sort((a, b) => a.localeCompare(b));
+  if (!words.length) return toast("The dictionary is empty, so there is nothing to export.", true);
+  const blob = new Blob([`${words.join("\n")}\n`], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "writing-dictionary.txt";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 //: Last line, deliberately: everything above has to exist before the first

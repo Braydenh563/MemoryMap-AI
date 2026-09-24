@@ -97,8 +97,16 @@ with its owner named in the entry.
     1385b0e; a freshness test against every bound key a164dc2; the caps
     (a 422 after a long answer and on the fifth question, the reply cut
     mid-list) 5cb7f8f. Map part built (radial fit 13c41d7, relink b449623, marquee 18b8c15).
-    Open here: the documents' Check with AI, dockable suggestions and the
-    dictionary redesign.
+    **The documents' part built 2026-09-24** (the documents agent): Check
+    with AI runs in place, streamed into the suggestions panel with Apply,
+    Dismiss and Stop, a no-model notice with Settings, Models, and Discuss in
+    chat with no long prompt (so no skill nudge, the INBOX 413 half)
+    (cd5dec1, `aicheck.js`); the panel docks at the bottom or on the right,
+    resizable, remembered, always bottom at 720px and below (a8c822a,
+    `prosedock.js`); the dictionary as a settings sheet (this commit,
+    `dictsheet.js`); the Capture box's templates confirm too (26e8d9b,
+    `notetemplatepick.js`). Nothing of 410 is open now; it stays for the
+    orchestrator to resolve with 413.
 
 409. **The owner, 2026-09-24, verbatim, with screenshots of Settings,
     Templates, the persona list, a .json document with the formatting bar

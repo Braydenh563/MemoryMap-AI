@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: the writing dictionary is a cleaner settings sheet. One field finds a word as you type and adds it on Enter, the list is quiet rows whose remove appears when you point at one, the list can be exported and imported as a .txt file (import only adds), and spelling, grammar and smart quotes are ordinary settings rows with a line each.
 - Notes, Capture: Template opens a picker like the documents' one. A click chooses a template and shows its text; Use this template (or Enter, or a double click) fills the box, and only then asks before replacing what you have typed. Picking used to fill the box on every name the dropdown passed.
 - Documents: the suggestions panel can sit on the right of the editor instead of under it: the button in its head switches, the column resizes by dragging its edge (or with the arrow keys, double-click to reset), and both are remembered. On a narrow window it stays under the editor.
 - Documents: Check with AI works in place. Its findings arrive in the suggestions panel as the model writes them (the exact words, why, and a fix), underlined in the text, each with Apply and Dismiss, and the button is Stop while it runs. With no model connected the panel says so, with a button to Settings, Models. Discuss in chat opens the chat with the document attached and nothing typed for you.

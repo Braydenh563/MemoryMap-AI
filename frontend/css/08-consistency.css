@@ -3322,6 +3322,36 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   padding-inline-end: 0;
 }
 
+/* A whole group folded (settings.js, `wireSettingsFolds`): closed, it is one
+   row, the group's heading with its chevron, not a 92px box holding a 12px
+   word (measured: the group's 16px top padding, the summary's 16px bottom
+   padding and the heading's own 16px top margin, all around one line). The
+   heading keeps the group heading's type; only the space around it goes.
+   Open, the rule under the summary is the gap the heading used to have. */
+#settings-modal details.settings-group[data-fold-key] {
+  padding-block: var(--space-2);
+}
+
+#settings-modal details.settings-group[data-fold-key] > summary {
+  min-height: var(--control-h-lg);
+  margin-block: 0;
+  padding-block: var(--space-2);
+}
+
+#settings-modal details.settings-group[data-fold-key] > summary h3,
+#settings-modal details.settings-group[data-fold-key] > summary > .help-head {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+#settings-modal details.settings-group[data-fold-key][open] {
+  padding-bottom: var(--space-6);
+}
+
+#settings-modal details.settings-group[data-fold-key][open] > summary {
+  margin-bottom: var(--space-4);
+}
+
 #settings-modal .settings-section > details.settings-fold > summary {
   padding-inline-end: var(--space-6);
 }

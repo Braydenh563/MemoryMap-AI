@@ -22,6 +22,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings, Appearance: its eight groups fold (the Themes group open, each group's open state remembered in this browser), and the companion, Atlas style and look, face looks and dashboard mark rows have their own "Atlas and faces" group, one click from the top. The pane is 1,298px tall with the rest folded, was 4,022; a closed group is one 51px row, and a "?" in a closed head opens its group.
 - Chat: with no model running, "No model connected" was said by the header badge and again by the composer notice under it; the notice (what still works, and the button that connects one) is the one statement now, and the badge returns with the model. The "Ask Atlas: ..." offer in empty states and help popovers is a suggestion chip like the chat starters, not an underlined link (28px tall, ink on a hairline pill, the compass in front).
 - A toast's action button (Undo, Turn on) drew white text on white in the light theme; it is a ghost button now.
 - Documents: the AI assistant's head is one row (the title and its help on the left, History and Close as quiet icon buttons on the right), and Edit / Write / Remove is a full-width control of three equal segments: the unchosen verbs are in the normal ink rather than the grey that read as disabled, and the chosen one is bold with an accent ring and icon.

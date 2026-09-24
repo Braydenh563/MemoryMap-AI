@@ -8401,15 +8401,15 @@ Link to another note with [[its first few words]]."></textarea>
           <section class="settings-section hidden" id="settings-appearance">
 
             <!-- ---------- Curated themes ---------- -->
-            <div class="settings-group">
-              <div class="row help-head">
-                <h3>Themes</h3>
+            <details class="settings-group settings-fold" data-fold-key="appearance-themes" open>
+              <summary><div class="row help-head">
+                <h3 class="inline-h3">Themes</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="themes-help" aria-controls="themes-help" aria-expanded="false"
                   title="About themes" aria-label="About themes">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
-              </div>
+              </div></summary>
               <p class="muted">A theme sets everything below in one go, and you can still override any of it.</p>
               <div class="help-body hidden" id="themes-help" role="dialog" aria-label="About themes">
                 <p>
@@ -8464,11 +8464,11 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Drop your manual changes and show the theme on its own">
                   Clear my changes, keep the theme</button>
               </div>
-            </div>
+            </details>
 
             <!-- ---------- Theme & colour ---------- -->
-            <div class="settings-group">
-              <h3>Theme &amp; colour</h3>
+            <details class="settings-group settings-fold" data-fold-key="appearance-colour">
+              <summary><h3 class="inline-h3">Theme &amp; colour</h3></summary>
 
               <!-- Curated palettes. Each ships both a light and a dark set,
                    so choosing one is independent of the Mode buttons below. -->
@@ -8549,11 +8549,11 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <p class="muted" id="harmony-note"></p>
               </div>
-            </div>
+            </details>
 
             <!-- ---------- Typography & layout ---------- -->
-            <div class="settings-group">
-              <h3>Typography &amp; layout</h3>
+            <details class="settings-group settings-fold" data-fold-key="appearance-type">
+              <summary><h3 class="inline-h3">Typography &amp; layout</h3></summary>
 
               <div class="setting-row">
                 <div class="setting-label"><span>Text size</span></div>
@@ -8655,11 +8655,11 @@ Link to another note with [[its first few words]]."></textarea>
                   <span class="slider-value" id="shadow-intensity-value">5%</span>
                 </div>
               </div>
-            </div>
+            </details>
 
             <!-- ---------- Effects & accessibility ---------- -->
-            <div class="settings-group">
-              <h3>Effects &amp; accessibility</h3>
+            <details class="settings-group settings-fold" data-fold-key="appearance-effects">
+              <summary><h3 class="inline-h3">Effects &amp; accessibility</h3></summary>
 
               <div class="setting-row" id="perf-mode-row">
                 <div class="setting-label">
@@ -8772,6 +8772,17 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </label>
 
+            </details>
+
+            <!-- ---------- Atlas and faces ----------
+                 Its own fold rather than the tail of Effects & accessibility
+                 (1,101px tall with these in it): the companion, Atlas's look
+                 and the generated faces are what people come to Appearance
+                 to change, so they are one named click from the top of the
+                 pane rather than the last rows of the longest group. -->
+            <details class="settings-group settings-fold" data-fold-key="appearance-faces">
+              <summary><h3 class="inline-h3">Atlas and faces</h3></summary>
+
               <div class="setting-row" id="avatar-motion-row">
                 <div class="setting-label">
                   <span>Avatar animation</span>
@@ -8851,11 +8862,11 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="persona">Greeting persona</option>
                 </select>
               </div>
-            </div>
+            </details>
 
             <!-- ---------- Animated background ---------- -->
-            <div class="settings-group">
-              <h3>Animated background</h3>
+            <details class="settings-group settings-fold" data-fold-key="appearance-background">
+              <summary><h3 class="inline-h3">Animated background</h3></summary>
 
               <label class="setting-check">
                 <input type="checkbox" id="bg-art-toggle">
@@ -8917,7 +8928,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
               <p class="muted">It automatically stays still if your system prefers reduced motion.</p>
-            </div>
+            </details>
 
             <!-- ---------- Status bar ---------- -->
             <!-- Asked for: "allow more stuff to be added and removed to the
@@ -8931,15 +8942,15 @@ Link to another note with [[its first few words]]."></textarea>
                  Stored as the list of things *hidden*, not the list shown, so
                  a slot added in a later version appears by default instead of
                  being invisible to everyone who ever touched this screen. -->
-            <div class="settings-group">
-              <div class="row help-head">
-                <h3>Status bar</h3>
+            <details class="settings-group settings-fold" data-fold-key="appearance-statusbar">
+              <summary><div class="row help-head">
+                <h3 class="inline-h3">Status bar</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="statusbar-help" aria-controls="statusbar-help" aria-expanded="false"
                   title="About the status bar" aria-label="About the status bar">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
-              </div>
+              </div></summary>
               <p class="muted">What shows in the strip along the bottom of every screen.</p>
               <div class="help-body hidden" id="statusbar-help" role="dialog" aria-label="About the status bar">
                 <p>
@@ -8967,11 +8978,11 @@ Link to another note with [[its first few words]]."></textarea>
                   <span>Clock <small class="muted">, the current time, bottom right</small></span>
                 </label>
               </div>
-            </div>
+            </details>
 
             <!-- ---------- Advanced ---------- -->
-            <div class="settings-group">
-              <h3>Advanced</h3>
+            <details class="settings-group settings-fold" data-fold-key="appearance-advanced">
+              <summary><h3 class="inline-h3">Advanced</h3></summary>
               <details class="advanced-css">
                 <summary>
                   <div class="row help-head">
@@ -8999,7 +9010,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <span id="custom-css-status" class="status" role="status"></span>
                 </div>
               </details>
-            </div>
+            </details>
 
             <div class="row">
               <button id="appearance-reset" class="ghost small">Reset appearance to defaults</button>

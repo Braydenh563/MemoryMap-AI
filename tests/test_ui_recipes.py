@@ -2175,6 +2175,31 @@ def _fold_families(css: str, marker: str) -> set[str]:
     return set(re.findall(r"\.([a-z-]+)(?=(?:\[open\])? (?:details )?> summary)", block))
 
 
+def test_a_folded_settings_group_is_keyed_and_remembered() -> None:
+    """A whole Settings group that folds carries a unique key (DESIGN.md).
+
+    `wireSettingsFolds` keeps each fold's open state under its
+    `data-fold-key`, so a key used twice would open and close two groups
+    together, and a keyed `<details>` outside the fold recipe would have no
+    chevron. Each long pane's first group starts open, so a pane never opens
+    on nothing but closed rows.
+    """
+    raw = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    markup = re.sub(r"<!--.*?-->", "", raw, flags=re.S)
+    keyed = re.findall(r"<details([^>]*data-fold-key=\"([^\"]+)\"[^>]*)>", markup)
+    keys = [key for _, key in keyed]
+    assert len(keys) == len(set(keys)), f"a fold key used twice: {sorted(keys)}"
+    for attrs, key in keyed:
+        assert "settings-fold" in attrs, f"{key}: a keyed fold is `details.settings-fold`"
+    firsts: dict[str, bool] = {}
+    for attrs, key in keyed:
+        pane = key.split("-")[0]
+        firsts.setdefault(pane, " open" in attrs)
+    assert all(firsts.values()), f"a pane whose first fold starts closed: {firsts}"
+    js = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "wireSettingsFolds();" in js, "the folds' open state is remembered by wireSettingsFolds"
+
+
 def test_a_folded_group_of_settings_is_the_shared_disclosure_recipe() -> None:
     """One fold, dressed in one place (DESIGN.md, the recipe index).
 

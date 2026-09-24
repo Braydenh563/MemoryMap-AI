@@ -15818,6 +15818,9 @@ function docCmTheme(CM) {
       ".cm-run-row.is-info, .cm-run-row.is-debug": { color: "var(--muted)" },
       ".cm-run-text": { flex: "1", whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
       ".cm-run-line": { color: "var(--muted)", fontSize: "var(--text-xs)", whiteSpace: "nowrap" },
+      //: Run on a .py file before the Pyodide extra is installed: the row's
+      //: one action, kept whole beside the sentence it answers.
+      ".cm-run-install": { flex: "none", whiteSpace: "nowrap" },
       //: Sticky scroll: the enclosing scopes' first lines over the top of the
       //: scroller, on the opaque ground words laid over words take, with the
       //: hairline and small shadow of a bar that sits above content.

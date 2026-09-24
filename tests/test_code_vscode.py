@@ -487,7 +487,28 @@ def test_run_goes_through_the_sandbox_and_trusts_only_its_frame():
     row = _function("docRunRow")
     assert "textContent" in row and "innerHTML" not in row
     #: Stop, the timeout and the line cap all end a run.
-    assert "DOC_RUN_TIMEOUT_MS" in _function("docRunCode") and "DOC_RUN_MAX_ROWS" in listener
+    assert "docRunArmTimeout(id)" in _function("docRunCode") and "DOC_RUN_MAX_ROWS" in listener
+    assert "DOC_RUN_TIMEOUT_MS" in _function("docRunArmTimeout")
+
+
+def test_python_runs_in_its_own_runner_once_the_extra_is_installed():
+    """The owner, 2026-09-24: "Run Python files: yes, as an opt-in extra"."""
+    source = _source()
+    assert 'const DOC_RUN_KINDS = { js: "js", html: "html", py: "py" };' in source
+    assert 'const DOC_RUN_SANDBOX_PY_URL = "/documents/run-sandbox/python";' in source
+    run = _function("docRunCode")
+    #: Not installed: the panel says so and offers the Settings row, rather
+    #: than a frame that fails to load a runtime.
+    assert "await docRunPythonReady()" in run and "docRunPythonMissing();" in run
+    assert "docRunOpenPythonExtra()" in _function("docRunPythonMissing")
+    assert 'getElementById("extra-row-pyodide")' in _function("docRunOpenPythonExtra")
+    #: The ten seconds count the script, not the runtime's start-up.
+    listener = source[source.index('window.addEventListener("message", (event) => {\n  if (!docRun') :]
+    listener = listener[: listener.index("\n});\n")]
+    assert 'data.t === "started"' in listener and "docRunArmTimeout(docRun.id)" in listener
+    #: The row id the button looks for is the one Settings draws.
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert 'li.id = `extra-row-${extra.id}`;' in app
 
 
 def test_run_is_on_a_free_chord_and_in_the_dock_for_code():

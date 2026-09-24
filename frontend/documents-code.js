@@ -2393,23 +2393,57 @@ function docFindInDocuments() {
 // What comes back is `console.*` and uncaught errors as text, each with the
 // line it came from, into a panel under the editor. Stop ends the run; so do
 // ten seconds of a top level that never finishes, and five hundred lines of
-// output. Nothing is compiled, so TypeScript and Python say what they would
-// need rather than pretending.
+// output. Nothing is compiled, so TypeScript says what it would need rather
+// than pretending.
+//
+// A `.py` file runs too, once the Pyodide extra is installed (the owner,
+// 2026-09-24: "Run Python files: yes, as an opt-in extra"): in the same
+// sandbox's Python twin, `/documents/run-sandbox/python`, which may read the
+// runtime's own files and nothing else. Until it is installed, Run says so
+// and offers the button that installs it.
 
-const DOC_RUN_KINDS = { js: "js", html: "html" };
+const DOC_RUN_KINDS = { js: "js", html: "html", py: "py" };
 const DOC_RUN_SANDBOX_URL = "/documents/run-sandbox";
+const DOC_RUN_SANDBOX_PY_URL = "/documents/run-sandbox/python";
 const DOC_RUN_TIMEOUT_MS = 10000;
+//: Python's first run loads the runtime (a 10 MB WebAssembly compile) before
+//: the script starts; the ten seconds start when the script does, and this
+//: bounds the load.
+const DOC_RUN_START_MS = 60000;
 const DOC_RUN_MAX_ROWS = 500;
 
 //: Why a type shows Run and cannot run, in the panel, in one line.
 const DOC_RUN_CANNOT = {
   ts: "TypeScript runs once it is compiled to JavaScript, and this editor does not compile. Save it as a .js file to run it here.",
-  py: "Running Python needs Pyodide, which is not part of MemoryMap yet: it is planned as an optional extra, offline once installed.",
 };
 
-//: Whether a type shows Run: the two that run, and the two that say why not.
+//: Whether a type shows Run: the three that run, and the one that says why not.
 function docRunnable(type) {
   return Boolean(DOC_RUN_KINDS[type.ext] || DOC_RUN_CANNOT[type.ext]);
+}
+
+//: Is the Pyodide extra installed? Asked on each Python run (one small
+//: request), so an install in Settings counts at the next Run without a
+//: reload.
+async function docRunPythonReady() {
+  if (typeof apiJson !== "function") return false;
+  const body = await apiJson("/extras", { silent: true }).catch(() => null);
+  return Boolean(body?.extras?.find((e) => e.id === "pyodide")?.installed);
+}
+
+//: Settings, Packages, with the Python row in view and its button focused.
+async function docRunOpenPythonExtra() {
+  if (typeof openSettingsModal !== "function") return;
+  await openSettingsModal("extras");
+  for (let i = 0; i < 30; i += 1) {
+    const row = document.getElementById("extra-row-pyodide");
+    if (row) {
+      row.scrollIntoView({ block: "center" });
+      row.querySelector("button")?.focus();
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 }
 
 //: The run in flight and the panel it writes to, or null.
@@ -2457,6 +2491,7 @@ function docRunPanel(view) {
   frame.setAttribute("sandbox", "allow-scripts");
   frame.title = "The page this file makes";
   frame.src = DOC_RUN_SANDBOX_URL;
+  frame.dataset.runner = DOC_RUN_SANDBOX_URL;
   const log = document.createElement("ol");
   log.className = "cm-run-log";
   log.setAttribute("role", "log");
@@ -2558,9 +2593,39 @@ function docRunClose() {
   docCmView?.focus();
 }
 
+//: The Python prompt, in place of output: what is missing, and the button
+//: that installs it. The button is the Settings row's own, reached.
+function docRunPythonMissing() {
+  if (!docRun) return;
+  docRunRow("info", "Running Python needs the Pyodide extra: a one-time download of about 7 MB, and it works offline from then on.", null);
+  const row = docRun.log.lastElementChild;
+  const install = document.createElement("button");
+  install.type = "button";
+  install.className = "ghost small cm-run-install";
+  const icon = document.createElement("i");
+  icon.className = "ph ph-download-simple ph-lead";
+  icon.setAttribute("aria-hidden", "true");
+  install.append(icon, " Install Python");
+  install.title = "Open Settings, Packages, at Run Python files";
+  install.addEventListener("click", () => docRunOpenPythonExtra());
+  row?.appendChild(install);
+  docRunSetStatus("Not run.", false);
+}
+
+//: The ten seconds, from now, for run `id`.
+function docRunArmTimeout(id) {
+  if (!docRun) return;
+  clearTimeout(docRun.timer);
+  docRun.timer = setTimeout(() => {
+    if (docRun && docRun.id === id && docRun.running) {
+      docRunStop("Stopped after 10 seconds: the script was still running.");
+    }
+  }, DOC_RUN_TIMEOUT_MS);
+}
+
 //: Run the open file: the panel opens (or is reused), the output is
 //: cleared, and the text as it is now goes to the sandbox.
-function docRunCode() {
+async function docRunCode() {
   const CM = window.CM6;
   const type = docFileType();
   if (!docCmView || !CM || !docRunToggle) return false;
@@ -2575,15 +2640,39 @@ function docRunCode() {
     docRunSetStatus("Not run.", false);
     return false;
   }
+  const code = docCmView.state.doc.toString();
   const id = ++docRunSeq;
   docRun.id = id;
-  docRunSetStatus("Running", true);
-  docRunSend({ type: "run", kind, code: docCmView.state.doc.toString(), mmRun: id });
-  docRun.timer = setTimeout(() => {
-    if (docRun && docRun.id === id && docRun.running) {
-      docRunStop("Stopped after 10 seconds: the script was still running.");
+  if (kind === "py") {
+    docRunSetStatus("Checking for Python", true);
+    const ready = await docRunPythonReady();
+    //: Another Run, a Stop or a closed panel while that was asked: this run
+    //: is not the current one any more.
+    if (!docRun || docRun.id !== id) return false;
+    if (!ready) {
+      docRunPythonMissing();
+      return false;
     }
-  }, DOC_RUN_TIMEOUT_MS);
+  }
+  //: One frame, two runners: the Python page for .py, the other for the
+  //: rest. A switch reloads the frame, and the run waits for its `ready`.
+  const runner = kind === "py" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
+  if (docRun.frame.dataset.runner !== runner) {
+    docRun.ready = false;
+    docRun.frame.dataset.runner = runner;
+    docRun.frame.src = runner;
+  }
+  docRunSetStatus(kind === "py" ? "Starting Python" : "Running", true);
+  docRunSend({ type: "run", kind, code, mmRun: id });
+  if (kind === "py") {
+    docRun.timer = setTimeout(() => {
+      if (docRun && docRun.id === id && docRun.running) {
+        docRunStop("Stopped: Python did not start within a minute.");
+      }
+    }, DOC_RUN_START_MS);
+  } else {
+    docRunArmTimeout(id);
+  }
   return true;
 }
 
@@ -2602,6 +2691,17 @@ window.addEventListener("message", (event) => {
     return;
   }
   if (data.mmRun !== docRun.id) return;
+  //: Python's runner says when its runtime is loading and when the script
+  //: itself begins; the ten seconds start then.
+  if (data.t === "status") {
+    if (docRun.running) docRunSetStatus(String(data.text || "Running"), true);
+    return;
+  }
+  if (data.t === "started") {
+    if (docRun.running) docRunSetStatus("Running", true);
+    docRunArmTimeout(docRun.id);
+    return;
+  }
   if (data.t === "done") {
     clearTimeout(docRun.timer);
     if (docRun.running) docRunSetStatus(docRun.dom.classList.contains("is-page") ? "Page loaded." : "Finished.", true);

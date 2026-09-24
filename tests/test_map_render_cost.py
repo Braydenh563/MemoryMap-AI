@@ -174,5 +174,5 @@ def test_the_fit_reads_the_boxes_the_render_just_measured() -> None:
     boxes the render had measured in one pass moments earlier."""
     body = _code("wbItemBBox")
     cache_at = body.index("wbMapNodeSizeCache")
-    query_at = body.index('document.querySelector(`.wb-object')
+    query_at = body.index('wbItemElement("object"')
     assert cache_at < query_at, "the cache has to be consulted before the DOM"

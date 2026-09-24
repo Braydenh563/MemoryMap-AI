@@ -88,6 +88,11 @@ with its owner named in the entry.
     every move, and `wbItemBBox` runs a document-wide
     `querySelector('.node-card[data-id=...]')` per item (2.6s); recommend an
     id-to-element map from the render pass and the bar updated once a frame.
+    (fixed: `objDragMove` 5,167ms → 167ms, profile busy 6.1s → 1.0s, longest
+    task 901ms → 213ms, same harness and fixture at 4x; element cache in
+    `wbItemBBox`, the bar queued once a frame, the chrome groups found once
+    per gesture, the editing check scoped to the board. Bar position mid-drag
+    identical to base over 10 moves, `perf5/barcheck.js`.)
     (b) Graph node drag at 4x: 137 long tasks, every frame over 33ms (max
     550ms); `graphMinimapPaint` rebuilds the minimap's SVG on every worker
     tick (1.56s of `createElementNS`/`setAttribute`/`replaceChildren`);

@@ -181,7 +181,10 @@ with its owner named in the entry.
     the same would also keep the selection, which a reload clears on
     purpose, and leave relative dates as they were drawn. Recommend: keep
     the cards on screen during the refetch, skip the rebuild when the answer
-    is identical, and clear the selection either way.)
+    is identical, and clear the selection either way.) (Fixed with that
+    recommendation: an identical answer drawn under five minutes ago is not
+    redrawn unless something is selected; 189 grid mutations over three
+    revisits before, 0 after.)
     (h) Every tab switch at 4x: `revealTab` 70 to 110ms self time, mostly
     `querySelectorAll("textarea.autogrow")` then `autoGrow` on each visible
     one (forced layout per box); recommend autogrowing only the new tab's

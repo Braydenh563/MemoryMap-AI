@@ -110,6 +110,9 @@ let libraryKind = "all";
 //: back. INBOX 424: at 400 notes a search for the oldest one said "Nothing
 //: matching", because the client filtered a list that never held it.
 let libraryTruncated = {};
+//: What the last draw showed, and when (see loadLibrary).
+let librarySignature = "";
+let libraryDrawnAt = 0;
 let libraryBaseItems = [];
 let libraryServerQuery = "";
 
@@ -206,6 +209,20 @@ async function loadLibrary() {
     return;
   }
   surfaceRecovered(document.getElementById("library-empty"));
+  //: **The same answer is not drawn twice** (INBOX 424 g, decided with its
+  //: recorded recommendation): every visit to Library rebuilt every card
+  //: (580ms of long tasks at 1x on a 400-note notebook) even when nothing
+  //: had changed. When `/library` answers exactly what is on screen, drawn
+  //: under five minutes ago, and nothing is selected, the cards stay as they
+  //: are; relative dates are then at most five minutes old. A selection
+  //: still forces the rebuild, since clearing it is what a reload is for.
+  const signature = JSON.stringify(body);
+  const fresh = Date.now() - libraryDrawnAt < 5 * 60 * 1000;
+  if (signature === librarySignature && fresh && !librarySelection.size && $("library-grid")?.children.length) {
+    return;
+  }
+  librarySignature = signature;
+  libraryDrawnAt = Date.now();
   libraryItems = (body && body.items) || [];
   libraryBaseItems = libraryItems;
   libraryTruncated = (body && body.truncated) || {};

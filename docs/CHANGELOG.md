@@ -9,6 +9,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Notes and documents: the "/" menu is a block inserter. Grouped (Recent, Basic, Structure, Callouts, Media, Embeds, Advanced, AI, Templates), each row an icon tile, a name, one line of what it does and the markdown it writes; a preview of the block beside the list on wider windows; letters-in-order search; Tab and Shift+Tab jump between groups; the blocks you used last come first. New blocks: headings 1 to 3, quote with attribution, toggle, two and three columns, table of contents, section break and strong divider, every callout kind, maths block, link card, date and time; a code block asks for its language next.
+- Notes and documents: blocks render as blocks everywhere. Callouts come in Obsidian's thirteen kinds plus a toggle, each with its own icon and colour in light and dark; columns sit side by side in notes and chat answers too; `[TOC]` lists the headings as links; `***` and `___` draw a section break and a strong rule; a quote ending `-- Name` shows its attribution; `$$ ... $$` is typeset in Read view and notes; an embedded document is a card. The HTML export styles all of them.
+- Documents: a rendered block has a small bar while you point at it: change a callout's kind or folding, jump to the block in the editor, copy its markdown, or delete it (with Undo). In Live view the callout's icon changes its kind.
 - Documents: the writing dictionary is a cleaner settings sheet. One field finds a word as you type and adds it on Enter, the list is quiet rows whose remove appears when you point at one, the list can be exported and imported as a .txt file (import only adds), and spelling, grammar and smart quotes are ordinary settings rows with a line each.
 - Notes, Capture: Template opens a picker like the documents' one. A click chooses a template and shows its text; Use this template (or Enter, or a double click) fills the box, and only then asks before replacing what you have typed. Picking used to fill the box on every name the dropdown passed.
 - Documents: the suggestions panel can sit on the right of the editor instead of under it: the button in its head switches, the column resizes by dragging its edge (or with the arrow keys, double-click to reset), and both are remembered. On a narrow window it stays under the editor.
@@ -124,6 +127,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Documents: the spelling menu could open at the top of the window, or not at all, when the click that opened it made the editor redraw the line (a right-click, a long-press, a double-click on a word in a line with formatting). It is placed from the word itself now, follows it when the line shifts, and a "/" typed near the bottom of the editor no longer closes its own menu by scrolling.
+- Documents: an embedded document said "Nothing called ... yet" in Read view while Live view showed it; Ctrl+/ in a note wrote `<!--  -->` instead of opening the blocks menu.
 - View toggles (Notes rows/cards, Library list/cards): only the chosen half is
   filled; the other rests clear.
 - The OCR workspace's Delete reading works again (it threw after the confirm).

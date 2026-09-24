@@ -13267,6 +13267,11 @@ function docFillAt(box) {
 function renderDocComplete(box) {
   const list = $("doc-complete-list");
   if (!list) return hideDocComplete();
+  //: **One popup at the caret.** While the "/" menu is open, what is typed
+  //: after the slash is its query, not a word to complete: measured, "/warn"
+  //: drew the word list's "warning" over the top of the block menu's first
+  //: group (INBOX 421 b's screenshot pass).
+  if (typeof editorMenuState === "object" && editorMenuState?.open) return hideDocComplete();
   //: The expansions first, and whatever the word switch says: they answer a
   //: trigger the writer typed on purpose, where word suggestions are a guess.
   const fill = docFillAt(box);

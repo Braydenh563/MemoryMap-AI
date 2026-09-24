@@ -850,6 +850,12 @@ button.map-chip:focus-visible {
   font-size: var(--text-lg);
 }
 
+.editor-menu-tile.doc-block-kind {
+  border-color: color-mix(in srgb, var(--callout-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--callout-accent) 14%, transparent);
+  color: var(--callout-accent);
+}
+
 .editor-menu-text {
   display: flex;
   flex-direction: column;
@@ -895,8 +901,10 @@ button.map-chip:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.editor-menu-item.active,
-.editor-menu-item:hover {
+/* One highlighted row, never two: the pointer sets `.active` itself when it
+   moves (`editorSetActive`), so a `:hover` fill here drew a second row lit
+   wherever the pointer happened to rest while the keyboard walked away. */
+.editor-menu-item.active {
   background: var(--accent-soft);
 }
 

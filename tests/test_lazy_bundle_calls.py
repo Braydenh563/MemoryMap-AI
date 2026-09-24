@@ -123,6 +123,7 @@ REACHED_AFTER_LOAD = {
     "gcStop": "graph, the canvas renderer's own teardown",
     "renderDocShortcutSheet": "library, the document editor's own sheet",
     "wireMdFormatShortcuts": "library, wired when the document editor mounts",
+    "hideDocComplete": "library, the document editor's word list; with the bundle absent there is no list on screen to hide, so the guard's no-op is the right answer",
     "docMathRender": "library; `mdMathElement` (app.js) shows the formula's source when it is absent and calls `ensureModule(\"library\")` to redraw the block once the bundle lands, so the guard is a first frame, not a silent no-op",
     #: Generic names that a lazy file happens to declare too. The call in the
     #: boot file is to its own local of the same name, not across the bundle.

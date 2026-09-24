@@ -792,6 +792,7 @@ function editorBlockRows(context) {
       id: `callout-${kind}`,
       group: "Callouts",
       icon: meta.icon,
+      tint: kind,
       label: meta.label,
       about: meta.about,
       keys: `> [!${kind}]`,
@@ -1272,6 +1273,10 @@ function editorRenderMenu() {
     //: draws it: the eye finds the kind of block by shape before it reads.
     const tile = document.createElement("span");
     tile.className = "editor-menu-tile";
+    //: A callout's tile wears its kind's ink, the same `--callout-accent`
+    //: the block itself will (05-sidebars-themes.css), so the colour is
+    //: chosen before the block exists.
+    if (item.tint) tile.classList.add("doc-block-kind", `doc-block-kind-${item.tint}`);
     tile.setAttribute("aria-hidden", "true");
     const glyph = document.createElement("i");
     glyph.className = `ph ph-${editorMenuIcon(item).replace(/^ph:/, "")}`;
@@ -1347,6 +1352,7 @@ function editorRenderPreview(item) {
   head.className = "editor-menu-preview-head";
   const tile = document.createElement("span");
   tile.className = "editor-menu-tile";
+  if (item.tint) tile.classList.add("doc-block-kind", `doc-block-kind-${item.tint}`);
   const glyph = document.createElement("i");
   glyph.className = `ph ph-${editorMenuIcon(item).replace(/^ph:/, "")}`;
   tile.appendChild(glyph);
@@ -1404,6 +1410,17 @@ function editorSetActive(position, reveal) {
 //: Scrolled within the list only: `scrollIntoView` would also scroll the page
 //: behind a fixed popup, and a page scroll closes this menu.
 function editorRevealRow(list, row) {
+  //: The first row of a group (a Tab jump lands on one) brings its heading
+  //: to the top with it, so the jump shows the whole group opening rather
+  //: than one row at the bottom edge.
+  const before = row.previousElementSibling;
+  if (before && before.classList.contains("editor-menu-group")) {
+    //: Measured by rects from the row, not `offsetTop` of the heading: a
+    //: pinned (sticky) heading reports where it is stuck, not where it sits.
+    const inList = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    list.scrollTop = Math.max(0, inList - before.offsetHeight - list.clientTop);
+    return;
+  }
   const header = list.querySelector(".editor-menu-group");
   const pad = header ? header.offsetHeight : 0;
   const top = row.offsetTop - pad;
@@ -1482,6 +1499,8 @@ function editorRunItem(position) {
 }
 
 function editorOpenMenu(textarea, trigger) {
+  //: The word list the documents editor draws at the caret gives way.
+  if (typeof hideDocComplete === "function") hideDocComplete();
   editorMenuState.open = true;
   editorMenuState.textarea = textarea;
   editorMenuState.trigger = trigger;

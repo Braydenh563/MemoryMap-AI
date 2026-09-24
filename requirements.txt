@@ -104,8 +104,10 @@ pytest-xdist>=3.8.0,<4.0
 #   pip install pypdfium2 Pillow # read scanned PDFs (core/pdfpages.py): turns
 #     pages with no text layer into images a vision/OCR model can read;
 #     without it a scanned PDF is only ever reported as one.
-#   pip install markitdown        # import Word/PowerPoint/etc as notes
+#   pip install "markitdown[pdf,docx,pptx]"  # import PDF/Word/PowerPoint as notes
 #   pip install python-docx       # export a document to real Word (.docx)
+#   Run Python files (Pyodide) and needle are downloads, not pip packages:
+#     Settings → Packages fetches and checks them.
 #
 # Every one of the four above (and voice/desktop above them) also has an
 # install button in Settings → Extras (`core/extras.py`), which is the

@@ -34,6 +34,47 @@ with its owner named in the entry.
 
 ## Open items
 
+424. **Audit of 2026-09-24 (performance measured in Playwright on a
+    400-note, 1,200-link, 250-object board, 120-topic map fixture; UX walked
+    at 1440 and 390). One line each: measurement, cause, recommendation.**
+    (a) Graph tab switch at 1x CPU: 25 long tasks, 1,593ms of them, 50 of
+    59 frames over 33ms (max 150ms); cause: every visit refetches `/graph`
+    and rebuilds the canvas scene (`renderGraphCanvas`); recommend keeping
+    the last scene and refetching only when the notes' version changed.
+    (b) Library tab switch at 1x: 10 long tasks, 580ms, max frame 100ms;
+    cause: `loadLibrary` refetches `/library` and rebuilds every card on
+    each visit; recommend the same version check.
+    (c) Library shows at most 200 of each kind (`PER_KIND_LIMIT`,
+    routes_library.py) and its chip counts are the count *returned*: with
+    400 notes the chip reads "Notes 198", and a plain Library search for
+    the oldest note ("Note 17 summary") says "Nothing matching" while
+    `/entries` has it; recommend true counts from the server and a server
+    search (or paging) once a kind passes the cap.
+    (d) Images sub-tab poll (`startLibraryImagesPoll`, every 6s) is stopped
+    only by another Library sub-tab, not by leaving the Library tab, so it
+    refetches `/media` on every other tab until the Library is revisited;
+    recommend stopping it in `switchTab` when leaving `library`.
+    (e) Typing with nothing focused opens the "Agent command palette"
+    (a sweep that typed into a hidden editor landed in it); recommend
+    checking this is intended and, if so, saying so in the shortcuts list.
+    (f) Settings has 18 sections in 4 groups; "Profile & preferences" sits
+    under Atlas but holds the recycle bin, chat history, notifications and
+    writing options, and is the only section with its own Save button
+    (others save on change); recommend splitting it into "Profile" (Atlas)
+    and "General" (Your notebook) and saving on change.
+    (g) One thing, four names: Chat (tab), Ask (a Notes sub-tab), "Write
+    with Atlas" (a Notes sub-tab) and "Ask Atlas a question" (help); and
+    Skills (Settings) vs "AI skills" (Library sub-tab); recommend one noun
+    per thing, per DESIGN.md's copy rules.
+    (h) Library: 8 sub-tabs plus 13 chips in the All view, several the same
+    filter twice (Documents chip and Documents sub-tab; Boards and Mind maps
+    chips and the "Boards & maps" sub-tab; Files chip and Files sub-tab);
+    recommend the chips be the only kind filter in All.
+    (i) Documents have a tab page (`#tab-documents`) with no tab-bar button:
+    the only way in is the Library's Documents sub-tab or a link;
+    recommend the Library sub-tab say it opens the editor, or a breadcrumb
+    back to it from the editor.
+
 423. **Found, not fixed, by the agents of 2026-09-24 (placed for the next
     pass; one line each, recommendation first).** (a) The mind map's pie
     ring does not take focus when it opens, so Enter and the arrows still

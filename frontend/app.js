@@ -34561,7 +34561,7 @@ const REVEAL_TARGETS = {
   "set-background": { settings: "appearance", el: "bg-art-toggle" },
   "set-contrast": { settings: "appearance", el: "contrast-toggle" },
   "set-custom-css": { settings: "appearance", el: "custom-css" },
-  "set-search-relevance": { settings: "preferences", el: "search-relevance-group" },
+  "set-search-relevance": { settings: "general", el: "search-relevance-group" },
   "set-export": { settings: "data", el: "export-json" },
   "set-import-md": { settings: "data", el: "import-md" },
   "set-backups": { settings: "data", el: "backup-now" },
@@ -34830,8 +34830,9 @@ function paletteCommands() {
     { label: "ph:lightning Settings → Skills", reveal: "settings:skills" },
     { label: "ph:toolbox Settings → Tools it can use", reveal: "settings:tools" },
     { label: "ph:palette Settings → Appearance", reveal: "settings:appearance" },
-    { label: "ph:sliders Settings → Profile & preferences", reveal: "settings:preferences" },
-    { label: "ph:floppy-disk Settings → Data & backups", reveal: "settings:data" },
+    { label: "ph:user-circle Settings → Profile", reveal: "settings:preferences" },
+    { label: "ph:sliders Settings → General", reveal: "settings:general" },
+    { label: "ph:floppy-disk Settings → Import & export", reveal: "settings:data" },
     { label: "ph:brain Settings → What it remembers", reveal: "settings:memory" },
     { label: "ph:note-blank Settings → Templates", reveal: "settings:templates" },
     { label: "ph:shield-check Settings → Account & security", reveal: "settings:account" },
@@ -44008,7 +44009,7 @@ $("chat-new").addEventListener("click", newChatConversation);
 $("persona-peek").addEventListener("click", togglePersonaPrompt);
 $("chat-tune-search").addEventListener("click", () => {
   closeChatDockMore();
-  openSettingsModal("preferences", "search-relevance-group");
+  openSettingsModal("general", "search-relevance-group");
 });
 // Searching your chats lives in the Library now (§36F): with the documents,
 // the files and the bin, and with sort beside it. This is the way there, said
@@ -45902,7 +45903,7 @@ document.addEventListener(
   (event) => {
     if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
     if (event.key !== "s" && event.key !== "S") return;
-    if (!settingsOpen() || currentSettingsSection !== "preferences") return;
+    if (!settingsOpen() || !["preferences", "general"].includes(currentSettingsSection)) return;
     event.preventDefault();
     savePrefs();
   },
@@ -46233,7 +46234,7 @@ $("ask-btn").addEventListener("click", () => askQuestion()); // no event as pres
 // it. Same destination as the other two quick-access links into this
 // preferences group (Chat's per-turn tune button, the Dashboard catalog).
 $("ask-search-tune").addEventListener("click", () => {
-  openSettingsModal("preferences", "search-relevance-group");
+  openSettingsModal("general", "search-relevance-group");
 });
 $("stop-btn").addEventListener("click", stopAnswer);
 $("retry-btn").addEventListener("click", retryAnswer);

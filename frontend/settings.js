@@ -105,7 +105,7 @@
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "preferences", "personas", "skills", "tools", "memory", "learned", "websearch", "appearance", "templates", "shortcuts", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "preferences", "personas", "skills", "tools", "memory", "learned", "websearch", "general", "appearance", "templates", "shortcuts", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
@@ -185,7 +185,7 @@ function showSettingsSection(name) {
   // the only one that has to be told it is no longer being looked at.
   if (name !== "logs") closeLogs();
   if (name === "logs") renderLogs();
-  if (name === "preferences") renderPrefs().catch(() => {});
+  if (name === "preferences" || name === "general") renderPrefs().catch(() => {});
   if (name === "websearch") renderWebSearch().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();

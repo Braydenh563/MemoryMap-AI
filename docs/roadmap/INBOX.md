@@ -34,6 +34,21 @@ with its owner named in the entry.
 
 ## Open items
 
+409. **The owner, 2026-09-24, verbatim, with screenshots of Settings,
+    Templates, the persona list, a .json document with the formatting bar
+    over it, and the Write tab's AI assistant bar.** "templates cant be
+    edited, I want the generation of persona icons to be improved and I also
+    want to auto generate other icons in other places like potentially the
+    user chat bubbles?? idk. also the degree of indenting is shallow, I think
+    it should be more prominent. also this edit/write/remove bar is ugly and
+    doesnt suit a modern app, it needs to be restructured/redesigned or
+    transformed somehow to be better." Read from the screenshots: built-in
+    templates have no edit (only added ones do); the persona marks are a
+    blob on a flat disc, too alike at 20px; the prose formatting bubble (B,
+    I, S, highlight, code, link, H, quote) draws over a code document, where
+    none of it applies; the indent guides step 2 spaces; the AI assistant
+    control is a filled segmented pill. Placed: orchestrator, in this order.
+
 404. **The owner, 2026-09-23 night, verbatim.** "also does emmet workf for
     other languages like python, c#, java and more??" and "what about code
     errors, debugging console or smth?? what is the doc editor missing for

@@ -398,3 +398,44 @@ def test_the_stream_numbers_a_note_before_the_answer_is_finished(ai_client, fake
     final = [e for e in events if e["type"] == "grounding"]
     assert len(final) == 1
     assert {row["note_id"] for row in final[0]["sentences"]} == {boots["id"], starter["id"]}
+
+
+# --- a note the answer names by its number (the owner, 2026-09-24) ----------
+#: "the ask subtab search ai in-text number referencing didnt pick up note 6":
+#: the answer said "(Notes 1, 5, and 6 all reinforce these specific
+#: examples)" and was marked 5 only, because two notes holding the same
+#: question score within a hair of each other and the single-best rule keeps
+#: one. The prompt numbers the notes 1..n in this list's order, so a number
+#: the model wrote is a citation it made, and it is honoured when the named
+#: note shares the sentence's words (a stray "note 3" in prose about
+#: something else is not).
+
+_SPICE = [
+    {"id": 11, "content": "The complete social skills guide: openers, rapport, the ask, follow up."},
+    {"id": 12, "content": "Gym routine overview: squats on Monday, rows on Thursday."},
+    {"id": 13, "content": "Weekly groceries: oats, milk, coffee beans."},
+    {"id": 14, "content": "Reading list for the winter, three novels."},
+    {"id": 15, "content": 'Ice breakers: ask "If you were a spice, which one would you be and why?" to ease tension.'},
+    {"id": 16, "content": 'Ice breakers: "If you were a spice, which one would you be and why?"'},
+]
+
+
+def test_a_note_the_answer_names_by_number_is_cited():
+    sentence = (
+        'Ask "If you were a spice, which one would you be and why?" '
+        "(Notes 1, 5, and 6 all reinforce these specific examples)."
+    )
+    cited = {row["note_id"] for row in ground_answer_sentences(sentence, _SPICE)}
+    assert {15, 16} <= cited
+
+
+def test_a_named_number_with_nothing_in_common_is_not_cited():
+    sentence = 'Ask "If you were a spice, which one would you be and why?" as note 3 says.'
+    cited = {row["note_id"] for row in ground_answer_sentences(sentence, _SPICE)}
+    assert 13 not in cited
+
+
+def test_a_named_number_past_the_prompt_list_is_ignored():
+    sentence = 'Ask "If you were a spice, which one would you be and why?" (note 9).'
+    rows = ground_answer_sentences(sentence, _SPICE)
+    assert all(row["note_id"] in {n["id"] for n in _SPICE} for row in rows)

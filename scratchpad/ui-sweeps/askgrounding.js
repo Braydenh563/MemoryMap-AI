@@ -193,7 +193,11 @@ const NOTES = [
   const findings = [];
   const unplaced = [...groundedNotes].filter((id) => !markedNotes.has(id));
   if (unplaced.length) findings.push(`grounded note(s) ${unplaced.join(', ')} have no marker in the prose`);
-  if (read.markers.length < last.sentences.length) {
+  //: Runs of sentences on the same notes in one paragraph share one mark
+  //: since 2026-09-24 (`collapseCitationRuns`), so fewer marks than rows is
+  //: by design; what must hold is at least one mark per paragraph-run, which
+  //: the note-level check above and this lower bound (one per note) cover.
+  if (read.markers.length < groundedNotes.size) {
     findings.push(`${last.sentences.length - read.markers.length} grounded row(s) never became a marker`);
   }
   if (process.env.EXPECT_LIVE && timing.done != null && (timing.firstNumber == null || timing.firstNumber >= timing.done)) {

@@ -61,6 +61,14 @@ DISTINCTIVE_MIN_TERMS = 2
 #: polynomial on an answer with a long run of tabs.
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?]) (?=[A-Z\d])")
 _WHITESPACE_RUN = re.compile(r"\s+")
+#: A note the answer names by the number the prompt gave it: "note 6",
+#: "Notes 1, 5, and 6", "[6]". Bounded repeats of plain separators only, so
+#: the pattern stays linear however the answer is written.
+_NAMED_NOTES = re.compile(
+    r"\b[Nn]otes?\s{1,3}#?(\d{1,2}(?:(?:\s{0,3},\s{0,3}(?:and\s{1,3})?|\s{1,3}and\s{1,3}|\s{0,3}&\s{0,3})#?\d{1,2}){0,9})"
+)
+_BRACKET_NUMBER = re.compile(r"\[(\d{1,2})\]")
+_DIGITS = re.compile(r"\d{1,2}")
 
 #: **How long a passage is** (CHAT_PLAN decision 2). Forty words is about two
 #: sentences of prose: long enough that a paraphrased claim and its source
@@ -362,7 +370,9 @@ def _word_set(text: str) -> set[str]:
     return set(_meaningful_terms(text))
 
 
-def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
+def ground_answer_sentences(
+    answer: str, notes: list[dict], numbered: int | None = None
+) -> list[dict]:
     """One entry per (sentence, supporting note): `{"sentence": str,
     "note_id": int}`. Sentences with no note clearing either threshold, or
     too short to score meaningfully, are omitted: the caller (and the
@@ -387,7 +397,7 @@ def ground_answer_sentences(answer: str, notes: list[dict]) -> list[dict]:
     """
     if not answer or not notes:
         return []
-    return SentenceGrounder(notes).finish(answer)
+    return SentenceGrounder(notes, numbered).finish(answer)
 
 
 class SentenceGrounder:
@@ -413,8 +423,19 @@ class SentenceGrounder:
     and `finish` grounds the rest when the stream says there is no more.
     """
 
-    def __init__(self, notes: list[dict]) -> None:
+    def __init__(self, notes: list[dict], numbered: int | None = None) -> None:
         self.rows: list[dict] = []
+        #: The prompt numbers its notes 1..n in this order (librarian and
+        #: agent both enumerate from 1, and `fit_notes` only ever drops the
+        #: tail), so number k in the answer is `notes[k - 1]`. `numbered` is
+        #: how many of these the prompt showed; the rest (notes a tool read
+        #: mid-turn) have no number the model could have written.
+        count = len(notes) if numbered is None else min(numbered, len(notes))
+        self._by_number = {
+            index: note.get("id")
+            for index, note in enumerate(notes[:count], start=1)
+            if note.get("id") is not None
+        }
         self._consumed = 0
         self._contents = {
             note.get("id"): (note.get("content") or "")
@@ -430,6 +451,17 @@ class SentenceGrounder:
             else [set() for _ in self._note_words]
         )
         self._pool = _pool_passages(notes) if self._note_words else ([], Counter(), 0.0)
+        self._words_by_id = dict(self._note_words)
+
+    def _named_notes(self, sentence: str) -> list[int]:
+        """The notes this sentence names by their prompt number, in order."""
+        numbers: list[int] = []
+        for match in _NAMED_NOTES.finditer(sentence):
+            numbers.extend(int(d) for d in _DIGITS.findall(match.group(1)))
+        numbers.extend(int(d) for d in _BRACKET_NUMBER.findall(sentence))
+        return [
+            self._by_number[n] for n in dict.fromkeys(numbers) if n in self._by_number
+        ]
 
     def feed(self, text: str) -> list[dict]:
         """The rows for every sentence completed since the last call."""
@@ -454,6 +486,27 @@ class SentenceGrounder:
         sentence_words = _word_set(sentence)
         if len(sentence_words) < MIN_SENTENCE_WORDS:
             return []
+        rows = self._rank(sentence, sentence_words)
+        #: **A note the answer names by number is cited** (the owner,
+        #: 2026-09-24: "(Notes 1, 5, and 6 all reinforce these specific
+        #: examples)" was marked 5 only). Two notes holding the same words
+        #: score within a hair of each other, and the rule above keeps one;
+        #: the model saying which it used is better evidence than that hair.
+        #: Still only a note that shares the sentence's words, at the same
+        #: floor the distinctive-word rule uses, so "as note 3 says" about
+        #: something note 3 does not hold marks nothing.
+        cited = {row["note_id"] for row in rows}
+        for note_id in self._named_notes(sentence):
+            words = self._words_by_id.get(note_id)
+            if note_id in cited or not words:
+                continue
+            if len(sentence_words & words) / len(sentence_words) >= DISTINCTIVE_MIN_RATIO:
+                rows.append(_mark(sentence, note_id, self._contents))
+                cited.add(note_id)
+        return rows
+
+    def _rank(self, sentence: str, sentence_words: set[str]) -> list[dict]:
+        """The word and passage rules: none, the best note, or two notes."""
         scored: list[tuple[float, int, int]] = []
         for (note_id, words), unique in zip(self._note_words, self._distinctive):
             ratio = len(sentence_words & words) / len(sentence_words)

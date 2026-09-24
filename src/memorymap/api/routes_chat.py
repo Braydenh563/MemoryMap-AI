@@ -1857,7 +1857,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     #: that answer rather than a gap.
     grounding: list[dict] = []
     if not conversational and candidates and answer_text:
-        grounding = ground_answer_sentences(answer_text, candidates) or []
+        grounding = (
+            ground_answer_sentences(answer_text, candidates, numbered=len(prepared["notes"]))
+            or []
+        )
         if grounding:
             # A touched note is not in `raw_results`, so the client has
             # no text to name it by; the label rides on each entry.

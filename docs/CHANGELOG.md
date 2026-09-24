@@ -105,6 +105,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Answer citations: a note the answer names by number ("Notes 1, 5, and 6")
+  is marked, and a run of sentences from the same notes in one paragraph
+  carries one mark at its end instead of one per sentence.
 - With no model server answering, the chat's model picker says "(not connected)"
   after the inherited model instead of naming it as if it would run.
 - A new chat no longer opens on a scrollbar: the suggested questions take the

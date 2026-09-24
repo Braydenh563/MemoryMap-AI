@@ -34342,3 +34342,13 @@ with an unselected note moving 1.7 and no pins written.
     top-1 49% to 99%, top-3 63% to 100%, unmatched 20 to 0 on 122 questions
     (`tests/test_help_retrieval.py`). Left: docs/*.md as a second source.
 
+408. **The owner, 2026-09-24, verbatim, with Ask screenshots.** "the ask
+    subtab search ai in-text number referencing didnt pick up note 6. it is
+    a lot better than before though, but the amount of intext referencing
+    like with the 1's is a little excessive..." Fixed 2026-09-24: a note the
+    answer names by its prompt number ("Notes 1, 5, and 6", "[6]") is cited
+    when it shares the sentence's words (`SentenceGrounder._named_notes`,
+    three tests); a run of sentences in one paragraph on the same notes
+    carries one mark, at its end (`collapseCitationRuns`): a paragraph of
+    four sentences from one note went from four 1s to one.
+

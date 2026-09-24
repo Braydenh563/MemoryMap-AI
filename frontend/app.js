@@ -13216,6 +13216,42 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
     rows.sort((a, b) => (numberFor.get(a.note_id) || 0) - (numberFor.get(b.note_id) || 0));
     for (const g of rows) parent.insertBefore(citationMarker(g, byId, numberFor), before);
   }
+  collapseCitationRuns(targets);
+}
+
+//: **One mark per run, at its end** (the owner, 2026-09-24: "the amount of
+//: intext referencing like with the 1's is a little excessive"). Measured on
+//: that answer: a paragraph of three sentences from the one guide carried
+//: three 1s in a row, and one of four carried four. A run of sentences in one
+//: paragraph backed by the same notes is one claim to the reader, and the
+//: convention (and every answer engine's) is one mark where the run ends.
+//: A mark stays where the set of notes changes or the paragraph does, so no
+//: sentence loses the source it came from; its hover passage moves to the
+//: run's last mark, which is the one still drawn.
+const CITATION_BLOCK = "p, li, blockquote, td, th, h1, h2, h3, h4, h5, h6, dd";
+function collapseCitationRuns(targets) {
+  for (const target of targets) {
+    const groups = [];
+    for (const marker of target.querySelectorAll(".answer-citation")) {
+      const prev = marker.previousSibling;
+      const last = groups[groups.length - 1];
+      if (last && prev === last.markers[last.markers.length - 1]) {
+        last.markers.push(marker);
+      } else {
+        groups.push({ markers: [marker], block: marker.closest(CITATION_BLOCK) || target });
+      }
+    }
+    for (const group of groups) {
+      group.key = group.markers.map((m) => m.dataset.noteId).sort().join(",");
+    }
+    for (let i = 0; i < groups.length - 1; i += 1) {
+      const here = groups[i];
+      const next = groups[i + 1];
+      if (here.block === next.block && here.key === next.key) {
+        for (const marker of here.markers) marker.remove();
+      }
+    }
+  }
 }
 
 function citationMarker(g, byId, numberFor) {

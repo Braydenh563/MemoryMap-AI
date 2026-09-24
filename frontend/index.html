@@ -3143,6 +3143,13 @@
                 to, and Boards adds one for each mind map or whiteboard, joined
                 to the notes on it.
               </p>
+              <p>
+                Similarity joins each note to its two closest matches in
+                meaning with a faint dashed line: the stronger the match, the
+                darker the line. Solid lines are links you or Atlas made. Point
+                at a note to see how close each match is, and raise Match
+                strength to keep only the closest.
+              </p>
             </div>
             <!-- Two columns, not one (graph.md section 2, beyond its own two
                  named candidates: those two rows plus the tightened section
@@ -3154,7 +3161,7 @@
                  switch is still the same 30px `.graph-option-row`) or
                  touching a single word of copy. -->
             <div class="graph-toggle-grid">
-              <label class="graph-option-row tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+              <label class="graph-option-row tools-toggle" title="Join each note to its two closest matches in meaning with a faint dashed line (needs semantic search)">
                 <span>Similarity</span>
                 <input type="checkbox" id="graph-similarity">
               </label>
@@ -3195,6 +3202,16 @@
                 <span>Length by similarity</span>
                 <input type="checkbox" id="graph-length-score" checked>
               </label>
+            </div>
+            <!-- INBOX 407: the cutoff for similarity lines, shown only while
+                 Similarity is on (graph.js, `graphSyncSimilarityRow`), so the
+                 panel pays for the row only when it means something. At the
+                 far left it adds no cutoff: each note keeps its two closest
+                 matches, which is the backbone `gcPruneSimilarity` draws. -->
+            <div class="graph-option-row hidden" id="graph-similarity-min-row">
+              <label for="graph-similarity-min">Match strength</label>
+              <input id="graph-similarity-min" type="range" min="55" max="95" value="55"
+                title="Hide similarity lines weaker than this. At the left, each note keeps its two closest matches">
             </div>
           </div>
           <div class="dock-menu-section graph-temporal" id="graph-temporal"

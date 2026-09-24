@@ -4849,3 +4849,44 @@ $("graph-length-score")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-length-score", event.target.checked ? "1" : "0");
   renderGraph();
 });
+
+//: The Match strength row shows only while Similarity is on (INBOX 407): a
+//: cutoff for lines that are not drawn is a control that does nothing. Its
+//: value is remembered like the other Show settings and read by the render
+//: (`gcSimilarityCutoff`), so a change is a relayout: fewer lines means
+//: fewer springs, and the clusters should move apart when they go.
+function graphSyncSimilarityRow() {
+  const row = document.getElementById("graph-similarity-min-row");
+  const box = document.getElementById("graph-similarity");
+  if (row && box) row.classList.toggle("hidden", !box.checked);
+  const slider = document.getElementById("graph-similarity-min");
+  if (slider) {
+    const value = Number(slider.value);
+    slider.setAttribute(
+      "aria-valuetext",
+      value <= 55 ? "Each note's two closest matches" : `Matches of ${value}% and above`
+    );
+  }
+}
+(() => {
+  const slider = document.getElementById("graph-similarity-min");
+  if (!slider) return;
+  let stored = null;
+  try {
+    stored = localStorage.getItem("graph-similarity-min");
+  } catch (error) {
+    stored = null;
+  }
+  if (stored && Number.isFinite(Number(stored))) slider.value = stored;
+  slider.addEventListener("input", graphSyncSimilarityRow);
+  slider.addEventListener("change", () => {
+    try {
+      localStorage.setItem("graph-similarity-min", slider.value);
+    } catch (error) {
+      /* A browser with storage refused still filters, it just forgets. */
+    }
+    renderGraph();
+  });
+  document.getElementById("graph-similarity")?.addEventListener("change", graphSyncSimilarityRow);
+  graphSyncSimilarityRow();
+})();

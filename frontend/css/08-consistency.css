@@ -4847,54 +4847,192 @@ main,
   translate: none;
 }
 
-/* The companion: fixed above the status bar at the lower right until it is
-   dragged somewhere else (avatars.js keeps the place). Under the agent
-   panel (1000) and every dialog (1010). */
+/* The companion (avatars.js, "the companion"): a character on a perch.
+   Placed by `left`/`top` from avatars.js, one layout per move and never per
+   frame; the walk between perches is a `translate` avatars.js animates on
+   the compositor. Above the top bar (40) so its hands can hold that edge,
+   and under toasts (60), menus and dialogs. Only the drawn parts take the
+   pointer: the box's empty corners are not a dead zone over the page. The
+   box is the body's own 64 by 92 drawing, in px because avatars.js
+   measures perches in those px. */
 #nm-buddy {
+  --nmb-lean: 0;
   position: fixed;
-  right: var(--space-4);
-  bottom: calc(var(--status-bar-h) + var(--space-4));
-  z-index: 900;
-  touch-action: none;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  width: 64px;
+  height: 92px;
+  pointer-events: none;
 }
-
-/* The back-to-top button lives in the same corner (`.scroll-top`). */
-#nm-buddy {
-  transition: translate var(--motion-base) var(--ease-out);
-}
-
-/* Stepping aside for a corner button is avatars.js's
-   (`nameMarkBuddyAvoid`): it measures the overlap wherever the companion
-   is, dragged or not, and sets a `translate` this transition animates. */
 
 #nm-buddy .nm-buddy-face {
+  position: relative;
+  display: block;
+  width: 64px;
+  height: 92px;
   padding: 0;
   border: 0;
   background: none;
   box-shadow: none;
+  border-radius: var(--radius);
   cursor: grab;
-  border-radius: var(--radius-pill);
-  filter: drop-shadow(0 4px 10px rgb(0 0 0 / 0.22));
+  touch-action: none;
+  pointer-events: none;
+}
+
+#nm-buddy :is(.nmb-torso, .nmb-arm, .nmb-leg, .nmb-hold, .nm-buddy-head .name-mark) {
+  pointer-events: auto;
 }
 
 #nm-buddy .nm-buddy-face:active { cursor: grabbing; }
 
-/* While dragged: no transition to lag behind the pointer, the move on the
-   compositor, and the face holding still. */
-#nm-buddy.nm-buddy-dragging {
-  transition: none;
-  will-change: translate;
+.nm-buddy-char {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 0.2));
 }
 
-#nm-buddy.nm-buddy-dragging .name-mark * {
-  animation-play-state: paused;
+/* Hanging, it drops below the ledge by its arms' reach (avatars.js's
+   `NMB_DROP`), and swings from its hands. */
+#nm-buddy[data-pose="hang"] .nm-buddy-char {
+  top: 12px;
+  bottom: -12px;
+  transform-origin: 50% -7px;
 }
 
+.nm-buddy-char .nmb-body {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+
+/* The head turns at the neck. */
+.nm-buddy-head {
+  position: absolute;
+  left: 6px;
+  top: 0;
+  line-height: 0;
+  transform-origin: 50% 92%;
+  transition: rotate var(--motion-slow) var(--ease-out);
+}
+
+/* Limbs turn where they join the body, in the drawing's own units. */
+#nm-buddy :is(.nmb-arm, .nmb-leg) {
+  transform-box: view-box;
+  transition: transform var(--motion-slow) var(--ease-out), opacity var(--motion-base) var(--ease-out);
+}
+
+#nm-buddy .nmb-arm-l { transform-origin: 21.5px 54px; }
+#nm-buddy .nmb-arm-r { transform-origin: 42.5px 54px; }
+#nm-buddy .nmb-leg-l {
+  --nmb-side: 1;
+  transform-origin: 27.5px 68px;
+}
+#nm-buddy .nmb-leg-r {
+  --nmb-side: -1;
+  transform-origin: 36.5px 68px;
+}
+
+#nm-buddy .nmb-hold {
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+/* Hanging, carried, stretching or cheering: the arms that reach up show
+   and the resting ones go. */
+#nm-buddy:is([data-pose="hang"], .nm-buddy-dragging, .nmb-act-stretch, .nmb-act-yawn, .nmb-act-cheer) .nmb-hold { opacity: 1; }
+#nm-buddy:is([data-pose="hang"], .nm-buddy-dragging, .nmb-act-stretch, .nmb-act-yawn, .nmb-act-cheer) .nmb-arm { opacity: 0; }
+
+/* Sitting on an edge: legs over it, a little apart and shorter from the
+   front, hands resting at its sides. */
+#nm-buddy[data-pose="sit"] .nmb-leg-l { transform: rotate(6deg) scaleY(0.9); }
+#nm-buddy[data-pose="sit"] .nmb-leg-r { transform: rotate(-6deg) scaleY(0.9); }
+#nm-buddy[data-pose="sit"] .nmb-arm-l { transform: rotate(16deg); }
+#nm-buddy[data-pose="sit"] .nmb-arm-r { transform: rotate(-16deg); }
+
+/* Hanging: legs together and limp. */
+#nm-buddy[data-pose="hang"] .nmb-leg-l { transform: rotate(-4deg); }
+#nm-buddy[data-pose="hang"] .nmb-leg-r { transform: rotate(4deg); }
+
+/* Floating where it was left: legs tucked, arms out. */
+#nm-buddy[data-pose="float"] .nmb-leg-l { transform: rotate(14deg) scaleY(0.82); }
+#nm-buddy[data-pose="float"] .nmb-leg-r { transform: rotate(-14deg) scaleY(0.82); }
+#nm-buddy[data-pose="float"] .nmb-arm-l { transform: rotate(30deg); }
+#nm-buddy[data-pose="float"] .nmb-arm-r { transform: rotate(-30deg); }
+
+/* States that say something, so they hold still under Reduce motion too:
+   watching a field being typed in, thinking through a chat turn, asleep. */
+#nm-buddy:is(.nmb-act-glance, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
+  translate: calc(var(--nm-lx) * 2.4px) calc(var(--nm-ly) * 2px);
+  transition: translate var(--motion-slow) var(--ease-out);
+}
+
+#nm-buddy:is(.nmb-act-glance, .nmb-watch) .nm-buddy-head { rotate: calc(var(--nm-lx) * 7deg); }
+#nm-buddy.nmb-think .nm-buddy-head { rotate: 8deg; }
+#nm-buddy.nmb-sleep .nm-buddy-head { rotate: 10deg; }
+
+#nm-buddy.nmb-sleep .name-mark .nm-blinks {
+  animation: none;
+  transform: scaleY(0.12);
+}
+
+.nm-buddy-think,
+.nm-buddy-z {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+}
+
+.nm-buddy-think {
+  right: -8px;
+  top: -6px;
+  gap: var(--space-1);
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-sm);
+}
+
+.nm-buddy-think i {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+}
+
+#nm-buddy.nmb-think .nm-buddy-think { display: flex; }
+
+.nm-buddy-z {
+  right: 0;
+  top: -8px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1;
+}
+
+#nm-buddy.nmb-sleep .nm-buddy-z { display: block; }
+
+/* Hanging, its speech comes from under it: above would be the top bar. */
+#nm-buddy[data-pose="hang"] > .nm-say {
+  bottom: auto;
+  top: 100%;
+  translate: -50% var(--space-2);
+}
+
+/* The x that hides it, beside its head, shown on hover or focus. */
 #nm-buddy .nm-buddy-hide {
   position: absolute;
-  top: calc(-1 * var(--space-2));
-  right: calc(-1 * var(--space-2));
+  top: var(--space-2);
+  right: calc(-1 * var(--space-4));
   opacity: 0;
+  pointer-events: auto;
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
@@ -4905,6 +5043,127 @@ main,
 
 @media (hover: none) {
   #nm-buddy .nm-buddy-hide { opacity: 1; }
+}
+
+/* While carried: the move on the compositor and the face holding still. */
+#nm-buddy.nm-buddy-dragging { will-change: translate; }
+
+#nm-buddy.nm-buddy-dragging .name-mark * {
+  animation-play-state: paused;
+}
+
+/* Its behaviours: a class at a time from avatars.js's one timer, acted out
+   on transforms only. Off and Reduce motion keep it still (avatars.js does
+   not even run the timer then). `@media all` for the same reason as the
+   faces above. */
+@media all {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy {
+    &.nmb-arrive .nm-buddy-char { animation: nmb-arrive 0.55s var(--ease-spring); }
+    &.nmb-walking .nm-buddy-char { animation: nmb-bob 0.34s ease-in-out infinite alternate; }
+    &.nmb-walking .nmb-leg-l { animation: nmb-step 0.34s ease-in-out infinite alternate; }
+    &.nmb-walking .nmb-leg-r { animation: nmb-step 0.34s ease-in-out -0.34s infinite alternate; }
+    &[data-pose="float"]:not(.nmb-walking, .nm-buddy-dragging) .nm-buddy-char { animation: nmb-float 3.2s ease-in-out infinite; }
+    &.nm-buddy-dragging .nmb-leg-l { animation: nmb-kick 0.42s ease-in-out infinite alternate; }
+    &.nm-buddy-dragging .nmb-leg-r { animation: nmb-kick 0.42s ease-in-out -0.42s infinite alternate; }
+    &.nmb-act-look .nm-buddy-head { animation: nmb-look 2.4s ease-in-out; }
+    &.nmb-act-look .name-mark .nm-eyes { animation: nmb-look-eyes 2.4s ease-in-out; }
+    &.nmb-act-blink .name-mark .nm-blinks { animation: nmb-blink-twice 0.7s linear; }
+    &:is(.nmb-act-hop, .nmb-act-startle) .nm-buddy-char { animation: nmb-hop 0.75s var(--ease-out); }
+    &.nmb-act-stretch .nm-buddy-char { animation: nmb-stretch 1.6s ease-in-out; }
+    &.nmb-act-yawn .nm-buddy-char { animation: nmb-stretch 2.2s ease-in-out; }
+    &.nmb-act-yawn .nm-buddy-head { animation: nmb-yawn 2.2s ease-in-out; }
+    &.nmb-act-yawn .name-mark .nm-blinks { animation: nmb-shut 2.2s ease-in-out; }
+    &.nmb-act-kick .nmb-leg-l { animation: nmb-kick 0.6s ease-in-out 4 alternate; }
+    &.nmb-act-kick .nmb-leg-r { animation: nmb-kick 0.6s ease-in-out -0.6s 4 alternate; }
+    &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nm-buddy-char { animation: nmb-swing 2.6s ease-in-out; }
+    &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nmb-leg-l { animation: nmb-kick 0.65s ease-in-out 4 alternate; }
+    &:is(.nmb-act-swing, [data-pose="hang"].nmb-act-cheer) .nmb-leg-r { animation: nmb-kick 0.65s ease-in-out -0.65s 4 alternate; }
+    &.nmb-act-wave .nmb-arm-r { animation: nmb-wave 1.5s ease-in-out; }
+    &:not([data-pose="hang"]).nmb-act-cheer .nm-buddy-char { animation: nmb-hop 0.65s var(--ease-out) 2; }
+    &.nmb-think .nm-buddy-think i { animation: nmb-dot 1.2s ease-in-out infinite; }
+    &.nmb-think .nm-buddy-think i:nth-child(2) { animation-delay: 0.2s; }
+    &.nmb-think .nm-buddy-think i:nth-child(3) { animation-delay: 0.4s; }
+    &.nmb-sleep .nm-buddy-z { animation: nmb-z 2.6s ease-out infinite; }
+  }
+}
+
+/* The system's reduced-motion hint: no walking (avatars.js moves it at
+   once), and every loop here slows right down, as the faces' do. */
+@media (prefers-reduced-motion: reduce) {
+  #nm-buddy :is(.nm-buddy-char, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z) {
+    animation-duration: 6s;
+  }
+}
+
+@keyframes nmb-arrive {
+  0% { transform: translateY(14px) scale(0.6); opacity: 0; }
+  60% { transform: translateY(-4px) scale(1.04); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes nmb-bob {
+  from { transform: translateY(0) rotate(calc(var(--nmb-lean) * 3deg)); }
+  to { transform: translateY(-3px) rotate(calc(var(--nmb-lean) * 6deg)); }
+}
+@keyframes nmb-step {
+  from { transform: scaleY(1); }
+  to { transform: rotate(calc(var(--nmb-side) * 8deg)) scaleY(0.7); }
+}
+@keyframes nmb-float { 50% { transform: translateY(-4px); } }
+@keyframes nmb-kick {
+  from { transform: rotate(calc(var(--nmb-side) * 5deg)) scaleY(0.92); }
+  to { transform: rotate(calc(var(--nmb-side) * 12deg)) scaleY(0.5); }
+}
+@keyframes nmb-look {
+  0%, 100% { rotate: 0deg; }
+  18%, 40% { rotate: -9deg; }
+  60%, 82% { rotate: 9deg; }
+}
+@keyframes nmb-look-eyes {
+  0%, 100% { translate: 0 0; }
+  18%, 40% { translate: -2.4px 0; }
+  60%, 82% { translate: 2.4px 0; }
+}
+@keyframes nmb-blink-twice {
+  0%, 38%, 78%, 100% { transform: scaleY(1); }
+  12%, 24%, 52%, 64% { transform: scaleY(0.1); }
+}
+@keyframes nmb-hop {
+  0%, 100% { transform: none; }
+  18% { transform: scale(1.1, 0.88); }
+  48% { transform: translateY(-14px) scale(0.94, 1.08); }
+  78% { transform: scale(1.06, 0.94); }
+}
+@keyframes nmb-stretch {
+  0%, 100% { transform: none; }
+  30%, 70% { transform: scale(0.95, 1.08); }
+}
+@keyframes nmb-yawn {
+  0%, 100% { rotate: 0deg; }
+  30%, 70% { rotate: -10deg; }
+}
+@keyframes nmb-shut {
+  0%, 100% { transform: scaleY(1); }
+  30%, 70% { transform: scaleY(0.12); }
+}
+@keyframes nmb-swing {
+  0%, 100% { rotate: 0deg; }
+  25% { rotate: 6deg; }
+  50% { rotate: -5deg; }
+  75% { rotate: 3deg; }
+}
+@keyframes nmb-wave {
+  0%, 100% { transform: rotate(0deg); }
+  16%, 48%, 80% { transform: rotate(-98deg); }
+  32%, 64% { transform: rotate(-128deg); }
+}
+@keyframes nmb-dot {
+  0%, 100% { opacity: 0.35; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
+@keyframes nmb-z {
+  0% { opacity: 0; transform: translate(0, 4px) scale(0.7); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(8px, -14px) scale(1.2); }
 }
 
 /* The system's reduced-motion hint: the faces keep moving but every loop
@@ -5507,7 +5766,3 @@ body:has(#lock-overlay:not(.hidden)) #nm-buddy {
   height: 1.75rem;
 }
 
-/* The companion's chosen corner (its menu), when it has not been dragged. */
-#nm-buddy[data-corner="bl"]:not(.nm-buddy-placed) { right: auto; left: var(--space-4); }
-#nm-buddy[data-corner="tr"]:not(.nm-buddy-placed) { bottom: auto; top: calc(var(--header-h) + var(--space-4)); }
-#nm-buddy[data-corner="tl"]:not(.nm-buddy-placed) { bottom: auto; right: auto; top: calc(var(--header-h) + var(--space-4)); left: var(--space-4); }

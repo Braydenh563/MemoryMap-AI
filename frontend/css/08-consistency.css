@@ -4619,7 +4619,125 @@ main,
 .name-mark {
   display: block;
   border-radius: var(--radius-pill);
+  /* Where in its loop this face starts; `nameMark` sets it per face from
+     the seed, and a face drawn anywhere else starts at the top. */
+  --nm-delay: 0s;
 }
+
+/* --- a generated face that moves (the owner: "can they be animated as a
+   togglable option??") ----------------------------------------------------
+   Settings > Appearance > Avatar animation: off, on hover (the default:
+   a list of faces that all move at once is a list nobody can read), or
+   always. Reduce motion wins over both, and so does the system's own
+   setting. "On hover" means the row the face stands for (a persona's list
+   item, a chat message, the picker), not any ancestor: every container up
+   to `body` is `:hover` while the pointer is inside it, and an ancestor rule
+   had every face on the page moving at once. Nothing moves until the mark is live: a paused animation would
+   freeze some faces mid-blink or with a tear halfway down the cheek, so the
+   animations are only declared on a live mark rather than paused on every
+   one. `--nm-delay` (from the seed) starts each face at its own point in the
+   loop, so a column of faces never blinks in unison.
+
+   The parts carry their own transforms as SVG attributes, and a CSS
+   transform replaces an attribute rather than adding to it, so the motion
+   is on groups that have none: `.nm-body` (the head and everything on it),
+   `.nm-blinks` (the eyes), and the extras. `transform-box: fill-box` makes
+   each one turn and scale about its own middle, not the SVG's corner. */
+.name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo) {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* A googly pupil rolls round its eye, not round itself: its origin is the
+   eye's centre, set per pupil in SVG units (`nameMark`). */
+.name-mark .nm-pupil {
+  transform-box: view-box;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(
+    :root[data-avatar-motion="always"]:not([data-motion="reduced"]) .name-mark,
+    :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) :is(li, .msg, .persona-picker, button, label, [role="option"]):hover .name-mark,
+    :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .name-mark:hover
+  ) {
+    & .nm-body { animation: nm-breathe 3.6s ease-in-out var(--nm-delay) infinite; }
+    & .nm-blinks { animation: nm-blink 5.2s linear var(--nm-delay) infinite; }
+    & .nm-tear { animation: nm-fall 2.4s ease-in var(--nm-delay) infinite; }
+    & .nm-tear-late { animation-delay: calc(var(--nm-delay) - 1.2s); }
+    & .nm-sweat { animation: nm-fall 1.8s ease-in var(--nm-delay) infinite; }
+    & .nm-z { animation: nm-drift 2.8s ease-out var(--nm-delay) infinite; }
+    & .nm-z-late { animation-delay: calc(var(--nm-delay) - 1.4s); }
+    & .nm-spark { animation: nm-twinkle 1.6s ease-in-out var(--nm-delay) infinite; }
+    & .nm-spark-late { animation-delay: calc(var(--nm-delay) - 0.8s); }
+    & .nm-vein { animation: nm-throb 0.9s ease-in-out infinite; }
+    & .nm-heart { animation: nm-drift 2.2s ease-out var(--nm-delay) infinite; }
+    & .nm-q { animation: nm-wobble 1.4s ease-in-out infinite; }
+    & .nm-bulb { animation: nm-bulb 1.2s steps(2, jump-none) infinite; }
+    & .nm-halo { animation: nm-float 2.6s ease-in-out infinite; }
+
+    /* Each mood's own move replaces the breath. */
+    &.nm-angry .nm-body { animation: nm-shake 0.5s linear infinite; }
+    &.nm-excited .nm-body { animation: nm-bounce 0.8s ease-in-out infinite; }
+    &.nm-dramatic .nm-body { animation: nm-swoon 2.8s ease-in-out infinite; }
+    &.nm-sleepy .nm-body { animation: nm-nod 4.4s ease-in-out var(--nm-delay) infinite; }
+    &.nm-nervous .nm-body { animation: nm-jitter 0.35s linear infinite; }
+    &.nm-confused .nm-body { animation: nm-ponder 2.4s ease-in-out infinite; }
+    &.nm-love .nm-body { animation: nm-pulse 1.1s ease-in-out infinite; }
+    &.nm-hungry .nm-body { animation: nm-bounce 1.3s ease-in-out infinite; }
+    &.nm-ghost .nm-body { animation: nm-float 2.2s ease-in-out infinite; }
+    &.nm-laughing .nm-body { animation: nm-bounce 0.45s ease-in-out infinite; }
+    &.nm-dizzy .nm-body { animation: nm-ponder 0.9s ease-in-out infinite alternate; }
+    &.nm-unimpressed .nm-body { animation: nm-sigh 4.8s ease-in-out var(--nm-delay) infinite; }
+    & .nm-pupil { animation: nm-roll 2.6s linear var(--nm-delay) infinite; }
+  }
+}
+
+/* The explicit off, beside the `no-preference` gate above: the gate already
+   declares nothing under reduced motion, and this says so in the place the
+   motion lint (and a reader) looks for it. A face keeps its expression; only
+   the movement goes. */
+@media (prefers-reduced-motion: reduce) {
+  .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil) {
+    animation: none;
+  }
+}
+
+@keyframes nm-breathe { 50% { transform: translateY(-0.6px) scale(1.015); } }
+@keyframes nm-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes nm-fall {
+  0% { transform: translateY(-1px); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(6px); opacity: 0; }
+}
+@keyframes nm-drift {
+  0% { transform: translate(0, 2px) scale(0.7); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(2px, -4px) scale(1.1); opacity: 0; }
+}
+@keyframes nm-twinkle { 50% { transform: scale(0.4) rotate(45deg); opacity: 0.4; } }
+@keyframes nm-throb { 50% { transform: scale(1.35); } }
+@keyframes nm-wobble { 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+@keyframes nm-bulb { 50% { opacity: 0.35; } }
+@keyframes nm-float { 50% { transform: translateY(-1.2px); } }
+@keyframes nm-shake {
+  25% { transform: translateX(-0.7px) rotate(-2deg); }
+  75% { transform: translateX(0.7px) rotate(2deg); }
+}
+@keyframes nm-bounce { 50% { transform: translateY(-1.8px) scale(1.03, 0.98); } }
+@keyframes nm-swoon {
+  30% { transform: rotate(-9deg) translateX(-0.6px); }
+  60% { transform: rotate(6deg); }
+}
+@keyframes nm-nod { 50% { transform: translateY(1.2px) rotate(4deg); } }
+@keyframes nm-jitter {
+  25% { transform: translate(0.4px, -0.3px); }
+  50% { transform: translate(-0.4px, 0.3px); }
+  75% { transform: translate(0.3px, 0.4px); }
+}
+@keyframes nm-ponder { 50% { transform: rotate(-8deg); } }
+@keyframes nm-pulse { 50% { transform: scale(1.06); } }
+@keyframes nm-sigh { 40%, 60% { transform: translateY(0.8px) scaleY(0.98); } }
+@keyframes nm-roll { to { transform: rotate(360deg); } }
 
 /* The chat's persona picker: a native select cannot hold a picture, so the
    chosen persona's mark stands just before it (`fillPersonaMark`). */

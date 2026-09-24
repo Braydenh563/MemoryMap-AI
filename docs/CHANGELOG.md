@@ -221,6 +221,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Two sweeps for the background art. `scratchpad/ui-sweeps/bgartcost.js`
+  times each style's frame inside the page (the draw plus the raster it
+  forces, over five seconds), samples its allocations over ten seconds with
+  the heap profiler, and checks that "Still" leaves no loop and no canvas
+  behind; `bgart.js` timed the frame interval, which sits on the 16.7ms
+  vsync floor for any style that fits in a frame and so could not tell a
+  2ms style from a 12ms one. `scratchpad/ui-sweeps/bgartcontrast.js`
+  measures text contrast against the real pixels behind each text element
+  with the art on, which `contrast.js` cannot see through glass.
 - A lint on the release artifact naming scheme (INBOX 266, item 4).
   `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
   `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses

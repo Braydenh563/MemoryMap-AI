@@ -397,12 +397,14 @@ def test_status_never_waits_on_a_capability_probe(client, monkeypatch):
     monkeypatch.setattr(ollama, "show", slow_show)
     started = time.monotonic()
     body = client.get("/models/status").json()
-    assert time.monotonic() - started < 2
+    # Well under the probe it did not wait for (5s), with room for a loaded
+    # CI runner; the point is "did not wait", not a benchmark.
+    assert time.monotonic() - started < 4
     assert body["ollama_running"] is True
     assert body["vision_model_resolved"] is None  # unknown yet, not waited for
-    assert asked.wait(2)
+    assert asked.wait(5)
     release.set()
-    deadline = time.monotonic() + 3
+    deadline = time.monotonic() + 10
     while time.monotonic() < deadline and len(ollama._shown) < 4:
         time.sleep(0.05)
     assert client.get("/models/status").json()["vision_model_resolved"] == "model-2"

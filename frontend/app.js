@@ -24867,7 +24867,21 @@ async function renderPersonas() {
 
     const row = document.createElement("div");
     row.className = "entry-meta persona-row";
-    row.appendChild(chip(persona.name, "item-title"));
+    //: Each persona its own mark, so a list of them is told apart at a
+    //: glance; the app's own emblem for its own voice.
+    const mark = document.createElement("span");
+    mark.className = "persona-mark";
+    if (persona.name === aiNameNow()) {
+      //: The app's own mark as an image, not the live p5 emblem: that one is
+      //: a canvas that wants a mounted holder, and a list row is neither.
+      const logo = document.createElement("img");
+      logo.src = "/favicon.svg";
+      logo.alt = "";
+      logo.width = 20;
+      logo.height = 20;
+      mark.appendChild(logo);
+    } else mark.appendChild(nameMark(persona.name, 20));
+    row.append(mark, chip(persona.name, "item-title"));
     if (persona.builtin) {
       row.appendChild(chip(persona.overridden ? "Edited" : "Built-in", "item-label"));
     }
@@ -39129,6 +39143,75 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
       });
     window[name] = standIn;
   }
+}
+
+//: **A mark generated from a name** (INBOX 405, the owner: "there was a repo
+//: I got you to analyse which can generate unique avatars and I was
+//: wondering if we could utilise a similar concept"; ANALYSIS.md read
+//: blobatar and recommended the idea, not the code). The same name always
+//: draws the same mark, with nothing stored: a hash of the name seeds a
+//: small generator, which picks two related hues and a soft six-point
+//: shape over a round ground. Muted saturation and mid lightness, so a mark
+//: sits beside the app's flat looks rather than on top of them. Decorative:
+//: `aria-hidden`, because the name beside it is what a screen reader says.
+function nameMark(seed, size = 20) {
+  let h = 2166136261;
+  for (const ch of String(seed || "?").trim().toLowerCase()) {
+    h ^= ch.codePointAt(0);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  const rnd = () => {
+    h ^= h << 13;
+    h >>>= 0;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    h >>>= 0;
+    return h / 4294967296;
+  };
+  const hue = Math.floor(rnd() * 360);
+  const hue2 = Math.floor((hue + 35 + rnd() * 70) % 360);
+  const svgNs = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNs, "svg");
+  svg.setAttribute("viewBox", "0 0 32 32");
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.setAttribute("class", "name-mark");
+  svg.setAttribute("aria-hidden", "true");
+  const ground = document.createElementNS(svgNs, "circle");
+  ground.setAttribute("cx", "16");
+  ground.setAttribute("cy", "16");
+  ground.setAttribute("r", "16");
+  ground.setAttribute("fill", `hsl(${hue} 42% 46%)`);
+  //: Six points round an off-centre middle, each at its own radius, joined
+  //: by quadratic curves through their midpoints: a closed, smooth blob.
+  const cx = 13 + rnd() * 6;
+  const cy = 13 + rnd() * 6;
+  const pts = Array.from({ length: 6 }, (_, i) => {
+    const a = (i / 6) * Math.PI * 2 + rnd() * 0.5;
+    const r = 6 + rnd() * 7;
+    return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+  });
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const start = mid(pts[5], pts[0]);
+  let d = `M${start[0].toFixed(2)} ${start[1].toFixed(2)}`;
+  pts.forEach((p, i) => {
+    const m = mid(p, pts[(i + 1) % 6]);
+    d += ` Q${p[0].toFixed(2)} ${p[1].toFixed(2)} ${m[0].toFixed(2)} ${m[1].toFixed(2)}`;
+  });
+  const blob = document.createElementNS(svgNs, "path");
+  blob.setAttribute("d", `${d} Z`);
+  blob.setAttribute("fill", `hsl(${hue2} 58% 72%)`);
+  blob.setAttribute("fill-opacity", "0.9");
+  const clip = document.createElementNS(svgNs, "clipPath");
+  const clipId = `nm-${(h >>> 0).toString(36)}`;
+  clip.setAttribute("id", clipId);
+  const clipCircle = ground.cloneNode();
+  clip.appendChild(clipCircle);
+  const group = document.createElementNS(svgNs, "g");
+  group.setAttribute("clip-path", `url(#${clipId})`);
+  group.append(ground, blob);
+  svg.append(clip, group);
+  return svg;
 }
 
 function renderEmblem(holder, size = 34, { animate = false } = {}) {

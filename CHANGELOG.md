@@ -9,6 +9,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Personas each get a mark generated from their name (the same name always
+  draws the same mark, nothing stored), so a list of them is told apart at
+  a glance; Atlas keeps the app's own emblem.
 - The guided tour walks through every main feature, one section after
   another: Notes, Chat, Graph, Library, Boards, Mind maps, Timeline,
   Reminders, Settings and the status bar each open the feature and point at

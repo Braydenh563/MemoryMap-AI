@@ -4520,3 +4520,17 @@ main,
 .msg.user .msg-body {
   font-size: inherit;
 }
+
+/* A persona's generated mark, the row's leading glyph. */
+.persona-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.name-mark {
+  display: block;
+  border-radius: var(--radius-pill);
+}

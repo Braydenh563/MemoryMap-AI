@@ -189,7 +189,9 @@ function measure(opIdx) {
       const t = h.matches('.select-opener, .segmented-control') ? { x: h.getBoundingClientRect().left, text: '[' + (h.getAttribute('aria-label') || h.className.split(' ')[0]).slice(0, 18) + ']' } : textStart(h);
       return t ? { text: t.text, x: r1(t.x), left: Math.round(h.getBoundingClientRect().left) } : null;
     }).filter(Boolean);
-  const seps = [...menu.querySelectorAll('[role="separator"], .menu-sep, hr, .doc-dock-menu-sep, [class*="-sep"], [class*="divider"]')].filter(visible).length;
+  const seps = [...menu.querySelectorAll('[role="separator"], .menu-sep, hr, .doc-dock-menu-sep, [class*="-sep"], [class*="divider"]')]
+    // A hairline is 1px tall, which `visible` (more than 2px) would drop.
+    .filter((e) => e.checkVisibility && e.checkVisibility({ visibilityProperty: true }) && e.getBoundingClientRect().width > 2).length;
   const sections = [...menu.querySelectorAll('[role="group"], .wb-menu-section, [class*="section"], [class*="heading"], [class*="-label"]')].filter(visible).length;
   // natural width
   const saved = [menu.style.width, menu.style.minWidth, menu.style.maxWidth];
@@ -302,12 +304,37 @@ async function sweepSurface(page, where, scope, out, restore) {
     await closeAll(page);
     if (restore) await restore();
     await page.evaluate(markOpen, MENU_SEL_IN_PAGE());
+    //: Scrolled to and settled first: Playwright's own scroll-into-view lands
+    //: its scroll event after the click, and every menu here closes on a
+    //: scroll, so an opener below the fold read as "nothing opened". A person
+    //: scrolls, stops, then clicks. A disabled opener is not a menu to open.
+    const state = await page.evaluate((n) => {
+      const el = document.querySelector(`[data-mm-op="${n}"]`);
+      if (!el) return 'gone';
+      if (el.disabled || el.getAttribute('aria-disabled') === 'true') return 'disabled';
+      el.scrollIntoView({ block: 'center' });
+      return el.getBoundingClientRect().width ? 'ok' : 'no box';
+    }, op.n);
+    if (state !== 'ok') { if (VERBOSE) out.push(`${where} :: ${op.kind} "${op.label}": ${state}`); continue; }
+    await page.waitForTimeout(250);
+    //: A row's ⋯ that shows on hover (the reminder rows) takes no clicks
+    //: until the pointer is over its row, which is how a person reaches it.
+    await page.hover(`[data-mm-op="${op.n}"]`, { force: true, timeout: 1500 }).catch(() => {});
+    await page.waitForTimeout(150);
     const clicked = await page.click(`[data-mm-op="${op.n}"]`, { timeout: 2500 }).then(() => true).catch((e) => String(e).split('\n')[0].slice(0, 90));
     const name = `${where} :: ${op.kind} "${op.label}"${op.host ? ' in #' + op.host : ''}`;
     if (clicked !== true) { out.push(`${name}: could not click (${clicked})`); continue; }
     await page.waitForTimeout(350);
     await page.mouse.move(2, 2);
-    const m = await page.evaluate(measure, op.n);
+    let m = await page.evaluate(measure, op.n);
+    if (m.none) {
+      //: A split button (the board's shape tool) picks its tool on a click
+      //: and opens from its caret or the keyboard: try the keyboard's way.
+      await page.evaluate((n) => document.querySelector(`[data-mm-op="${n}"]`)?.focus(), op.n);
+      await page.keyboard.press('ArrowDown');
+      await page.waitForTimeout(300);
+      m = await page.evaluate(measure, op.n);
+    }
     if (m.none) {
       out.push(`${name}: nothing opened (aria-expanded=${m.expanded})`);
       continue;
@@ -330,6 +357,15 @@ async function sweepSurface(page, where, scope, out, restore) {
     //: Already in the menu (a select opens on its chosen row) is not proof
     //: the arrows work: with two rows or more, ArrowDown has to move.
     else if (k1.inMenu && !k1.moved && m.rows.length > 1) f.push(`ArrowDown does not move (stays on ${k1.a})`);
+    //: And a second press walks on: the first can land by the opener's
+    //: rule, the second is the menu's own.
+    if (k1.inMenu && m.rows.length > 2) {
+      await page.evaluate(() => { window.__mmFocus = document.activeElement; });
+      await page.keyboard.press('ArrowDown');
+      await page.waitForTimeout(100);
+      const moved = await page.evaluate(() => document.activeElement !== window.__mmFocus && !document.activeElement.matches('body'));
+      if (!moved) f.push('a second ArrowDown does not walk the menu');
+    }
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
     const k2 = await page.evaluate((n) => {

@@ -233,8 +233,35 @@ const NAME_MOOD_LEXICON = {
   intensifiers: "overly very extremely super ultra really totally too so mega incredibly absurdly wildly insanely ridiculously deeply utterly perpetually chronically hella terribly awfully massively most",
 };
 
+//: **Your own face, your way** (the owner: "what if i dont like how the
+//: avatar it looks on my name??"). The profile saves a `variant` (which take
+//: on the name; each Shuffle moves it on) and per-part overrides. They apply
+//: to the person's own name only (`userMarkSeed`, app.js), so renaming keeps
+//: the choices and every other name keeps its own reading.
+//: `null` means "what is saved" (`prefsCache.avatar_style`); the profile's
+//: controls set a draft while the form is unsaved.
+let nameMarkOwn = null;
+const NAME_MARK_HAT_KINDS = ["hat", "chefhat", "cowboy", "partyhat", "crown", "tiara", "tricorn", "cap", "beanie", "flowercrown", "bandana", "headband"];
+const NAME_MARK_EYEWEAR_KINDS = ["glasses", "squareglasses", "monocle", "goggles", "threed", "starglasses", "heartglasses", "visor"];
+
+function setOwnNameMarkStyle(style) {
+  nameMarkOwn = style && typeof style === "object" ? { ...style } : {};
+}
+
+function ownNameMarkStyle() {
+  return { ...(nameMarkOwn ?? ((typeof prefsCache !== "undefined" && prefsCache?.avatar_style) || {})) };
+}
+
+function nameMarkOwnFor(name) {
+  if (typeof userMarkSeed !== "function") return null;
+  const own = String(userMarkSeed() || "").trim().toLowerCase();
+  return own && String(name || "").trim().toLowerCase() === own ? ownNameMarkStyle() : null;
+}
+
 function nameMood(name) {
   const raw = String(name || "").trim();
+  const own = nameMarkOwnFor(raw);
+  const variant = Number(own?.variant) || 0;
   const result = {
     mood: null, intense: false, animal: null, props: [], flavours: [], hand: null, limbs: null, mutant: null,
     wing: null, look: null,
@@ -512,7 +539,7 @@ function nameMood(name) {
   //: family `nameMark` uses, seeded differently so the two draws are
   //: independent of each other.
   if (!result.mood) {
-    let h = 2166136261 ^ 0x9e3779b9;
+    let h = (2166136261 ^ 0x9e3779b9 ^ Math.imul(variant, 0x27d4eb2d)) >>> 0;
     for (const ch of raw.toLowerCase()) {
       h ^= ch.codePointAt(0);
       h = Math.imul(h, 16777619) >>> 0;
@@ -530,7 +557,7 @@ function nameMood(name) {
   //: features (the owner: "there can be variations of types of smiles and
   //: other features as well"). A third hash of the name, so it is stable
   //: and independent of both the colours and the personality.
-  let sh = 2166136261 ^ 0x85ebca6b;
+  let sh = (2166136261 ^ 0x85ebca6b ^ Math.imul(variant, 0x165667b1)) >>> 0;
   for (const ch of raw.toLowerCase()) {
     sh ^= ch.codePointAt(0);
     sh = Math.imul(sh, 16777619) >>> 0;
@@ -581,6 +608,25 @@ function nameMood(name) {
   const wear = result.look === "feminine" ? feminineWear : result.look === "masculine" ? masculineWear : anyWear;
   result.style.outfit = worded || wear[roll(wear.length)];
   result.style.outfitColour = roll(10);
+  //: The person's own overrides, last, so they win over every reading.
+  //: A key the drawing code does not know is ignored rather than drawn.
+  if (own) {
+    const pick = (value, known) => (value === "none" ? "none" : known.includes(value) ? value : "");
+    const mood = pick(own.mood, Object.keys(NAME_MOOD_LEXICON.moods).concat(["dizzy", "uwu", "laughing", "unimpressed"]));
+    if (mood) result.mood = mood === "none" ? null : mood;
+    const hair = pick(own.hair, ["long", "bob", "pigtails", "buns", "ponytail", "curly", "short", "spiky", "quiff", "buzz"]);
+    if (hair) result.style.hair = hair === "none" ? null : hair;
+    const outfit = pick(own.outfit, ["tee", "hoodie", "scoop", "collar", "sweater", "blazer", "suit", "dress"]);
+    if (outfit) result.style.outfit = outfit === "none" ? null : outfit;
+    for (const [key, kinds] of [["hat", NAME_MARK_HAT_KINDS], ["eyewear", NAME_MARK_EYEWEAR_KINDS]]) {
+      const chosen = pick(own[key], kinds);
+      if (!chosen) continue;
+      result.props = result.props.filter((prop) => !kinds.includes(prop));
+      if (chosen !== "none") result.props.push(chosen);
+    }
+    const hand = pick(own.hand, Object.keys(NAME_MOOD_LEXICON.hands));
+    if (hand) result.hand = hand === "none" ? null : hand;
+  }
   return result;
 }
 
@@ -968,6 +1014,8 @@ function nameMark(seed, size = 20) {
     h >>>= 0;
     return h / 4294967296;
   };
+  const ownStyle = nameMarkOwnFor(seed);
+  if (ownStyle?.variant) h = (h ^ Math.imul(Number(ownStyle.variant), 0x2545f491)) >>> 0;
   for (let i = 0; i < 4; i += 1) rnd();
   const reading = nameMood(seed);
   const creature = reading.animal ? NAME_MARK_CREATURES[reading.animal] : null;
@@ -2455,12 +2503,18 @@ document.addEventListener("pointermove", (event) => {
 function nameMarkBuddySeed() {
   const choice = typeof appearancePref === "function" ? appearancePref("avatar-buddy", "off") : "off";
   if (choice === "me") return typeof userMarkSeed === "function" ? userMarkSeed() : "You";
-  if (choice === "persona") {
-    const persona = document.getElementById("persona-select")?.value || "";
-    return persona && persona !== "Atlas" ? persona : typeof userMarkSeed === "function" ? userMarkSeed() : "You";
-  }
+  //: The chat's persona, and Atlas when the chat speaks as the default
+  //: voice (an empty picker value). Falling back to the person was the old
+  //: rule from before Atlas had a face, and it put you in the corner when
+  //: you had asked for the persona.
+  if (choice === "persona") return document.getElementById("persona-select")?.value || "Atlas";
   return null;
 }
+
+//: The companion follows the chat's picker when it is showing the persona.
+document.addEventListener("change", (event) => {
+  if (event.target?.id === "persona-select" && typeof syncNameMarkBuddy === "function") syncNameMarkBuddy();
+});
 
 function syncNameMarkBuddy() {
   const seed = nameMarkBuddySeed();
@@ -2494,31 +2548,55 @@ function syncNameMarkBuddy() {
         buddy.style.top = `${Math.min(Math.max(0, saved.y), innerHeight - 72)}px`;
         buddy.style.right = "auto";
         buddy.style.bottom = "auto";
+        buddy.classList.add("nm-buddy-placed");
       }
     } catch (e) {
       // A bad saved place falls back to the corner.
     }
+    //: **A smooth drag** (the owner: "dragging the corner companion is jerky
+    //: and kinda like a grid snap"). Every move used to rewrite `left`/`top`,
+    //: a layout per event, while the face kept animating under it. Now the
+    //: move is a `translate` (compositor only), applied once a frame from the
+    //: latest pointer, with the face's own motion paused; the place is
+    //: written back to `left`/`top` once, on release.
     let drag = null;
+    let dragFrame = 0;
     face.addEventListener("pointerdown", (event) => {
       const box = buddy.getBoundingClientRect();
-      drag = { dx: event.clientX - box.left, dy: event.clientY - box.top, sx: event.clientX, sy: event.clientY, moved: false };
+      drag = { box, sx: event.clientX, sy: event.clientY, x: event.clientX, y: event.clientY, moved: false };
       face.setPointerCapture(event.pointerId);
     });
+    const place = () => {
+      dragFrame = 0;
+      if (!drag?.moved) return;
+      const dx = Math.min(Math.max(-drag.box.left, drag.x - drag.sx), innerWidth - drag.box.right);
+      const dy = Math.min(Math.max(-drag.box.top, drag.y - drag.sy), innerHeight - drag.box.bottom);
+      buddy.style.translate = `${dx}px ${dy}px`;
+    };
     face.addEventListener("pointermove", (event) => {
       if (!drag) return;
-      const x0 = Math.min(Math.max(0, event.clientX - drag.dx), innerWidth - buddy.offsetWidth);
-      const y0 = Math.min(Math.max(0, event.clientY - drag.dy), innerHeight - buddy.offsetHeight);
+      drag.x = event.clientX;
+      drag.y = event.clientY;
       //: A click wobbles a pixel or two; only a real pull is a drag.
-      if (!drag.moved && Math.hypot(event.clientX - drag.sx, event.clientY - drag.sy) < 4) return;
-      drag.moved = true;
-      buddy.style.left = `${x0}px`;
-      buddy.style.top = `${y0}px`;
-      buddy.style.right = "auto";
-      buddy.style.bottom = "auto";
+      if (!drag.moved && Math.hypot(drag.x - drag.sx, drag.y - drag.sy) < 4) return;
+      if (!drag.moved) {
+        drag.moved = true;
+        buddy.classList.add("nm-buddy-placed", "nm-buddy-dragging");
+      }
+      if (!dragFrame) dragFrame = requestAnimationFrame(place);
     });
-    face.addEventListener("pointerup", () => {
+    const release = () => {
       if (drag?.moved) {
+        cancelAnimationFrame(dragFrame);
+        dragFrame = 0;
+        place();
         const box = buddy.getBoundingClientRect();
+        buddy.style.translate = "";
+        buddy.style.left = `${Math.round(box.left)}px`;
+        buddy.style.top = `${Math.round(box.top)}px`;
+        buddy.style.right = "auto";
+        buddy.style.bottom = "auto";
+        buddy.classList.remove("nm-buddy-dragging");
         try {
           localStorage.setItem("nm-buddy-pos", JSON.stringify({ x: Math.round(box.left), y: Math.round(box.top) }));
         } catch (e) {
@@ -2527,7 +2605,9 @@ function syncNameMarkBuddy() {
         face.dataset.dragged = "1";
       }
       drag = null;
-    });
+    };
+    face.addEventListener("pointerup", release);
+    face.addEventListener("pointercancel", release);
     face.addEventListener("click", () => {
       if (face.dataset.dragged) {
         delete face.dataset.dragged;
@@ -2564,8 +2644,95 @@ function dashboardMarkSeed() {
   const choice = typeof appearancePref === "function" ? appearancePref("dash-mark", "logo") : "logo";
   if (choice === "me") return typeof userMarkSeed === "function" ? userMarkSeed() : "You";
   if (choice === "persona") {
-    const persona = (typeof prefsCache !== "undefined" && prefsCache?.dashboard_persona) || document.getElementById("persona-select")?.value || "";
-    return persona && persona !== "Atlas" ? persona : null;
+    return (typeof prefsCache !== "undefined" && prefsCache?.dashboard_persona) || document.getElementById("persona-select")?.value || "Atlas";
   }
   return null;
+}
+
+
+// --- the profile's "Your look" controls ------------------------------------
+//: Shuffle, back to the name's own, and six pickers (mood, hair, clothes,
+//: headwear, eyewear, holding), each "From your name" by default. Every
+//: change redraws your face everywhere at once and marks the profile form
+//: unsaved; Save preferences keeps it (`avatar_style`).
+const PROFILE_LOOK_PARTS = [
+  ["mood", "Mood", () => ["happy", "excited", "calm", "cool", "cute", "sly", "evil", "sleepy", "dramatic", "love", "laughing", "unimpressed", "surprised", "serious", "nervous", "confused", "hungry", "greedy", "sad", "angry", "starstruck", "uwu", "dizzy", "sick", "dead", "drunk"]],
+  ["hair", "Hair", () => ["long", "bob", "pigtails", "buns", "ponytail", "curly", "short", "spiky", "quiff", "buzz"]],
+  ["outfit", "Clothes", () => ["tee", "hoodie", "scoop", "collar", "sweater", "blazer", "suit", "dress"]],
+  ["hat", "Headwear", () => NAME_MARK_HAT_KINDS],
+  ["eyewear", "Eyewear", () => NAME_MARK_EYEWEAR_KINDS],
+  ["hand", "Holding", () => Object.keys(NAME_MOOD_LEXICON.hands)],
+];
+const PROFILE_LOOK_WORDS = {
+  hat: "wizard hat", chefhat: "chef's hat", partyhat: "party hat", flowercrown: "flower crown", tricorn: "pirate hat",
+  squareglasses: "square glasses", threed: "3D glasses", starglasses: "star shades", heartglasses: "heart shades", visor: "cyber visor",
+  thumbsup: "thumbs up", middlefinger: "middle finger", mug: "hot drink", fishingrod: "fishing rod", tableflip: "table flip",
+  tee: "T-shirt", scoop: "scoop neck", collar: "shirt and tie", sweater: "jumper", uwu: "uwu",
+};
+
+function repaintOwnFace() {
+  if (typeof paintUserMarks === "function") paintUserMarks();
+  const buddy = document.getElementById("nm-buddy");
+  if (buddy) {
+    delete buddy.dataset.seed;
+    syncNameMarkBuddy();
+  }
+  if (typeof paintDashEmblem === "function") paintDashEmblem();
+}
+
+function mountProfileLook() {
+  const host = document.getElementById("profile-look-parts");
+  if (!host) return;
+  if (!host.childElementCount) {
+    for (const [key, label, options] of PROFILE_LOOK_PARTS) {
+      const row = document.createElement("label");
+      row.className = "profile-look-part";
+      const text = document.createElement("span");
+      text.className = "muted";
+      text.textContent = label;
+      const select = document.createElement("select");
+      select.className = "small-select";
+      select.id = `profile-look-${key}`;
+      select.dataset.part = key;
+      const auto = new Option("From your name", "");
+      const none = new Option("None", "none");
+      select.append(auto, none);
+      for (const value of options()) {
+        const word = PROFILE_LOOK_WORDS[value] || value.replace(/([a-z])([A-Z])/g, "$1 $2");
+        select.append(new Option(word.charAt(0).toUpperCase() + word.slice(1), value));
+      }
+      if (key === "mood") none.textContent = "Plain";
+      select.addEventListener("change", () => {
+        const style = ownNameMarkStyle();
+        style[key] = select.value;
+        setOwnNameMarkStyle(style);
+        repaintOwnFace();
+        if (typeof markPrefsDirty === "function") markPrefsDirty();
+      });
+      row.append(text, select);
+      host.appendChild(row);
+    }
+    document.getElementById("profile-look-shuffle")?.addEventListener("click", () => {
+      const style = ownNameMarkStyle();
+      style.variant = ((Number(style.variant) || 0) + 1) % 10000;
+      setOwnNameMarkStyle(style);
+      repaintOwnFace();
+      if (typeof markPrefsDirty === "function") markPrefsDirty();
+    });
+    document.getElementById("profile-look-reset")?.addEventListener("click", () => {
+      setOwnNameMarkStyle({});
+      syncProfileLook();
+      repaintOwnFace();
+      if (typeof markPrefsDirty === "function") markPrefsDirty();
+    });
+  }
+  syncProfileLook();
+}
+
+function syncProfileLook() {
+  const style = ownNameMarkStyle();
+  for (const [key] of PROFILE_LOOK_PARTS) {
+    const select = document.getElementById(`profile-look-${key}`);
+    if (select) select.value = style[key] || "";
+  }
 }

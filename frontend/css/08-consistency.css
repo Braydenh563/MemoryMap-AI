@@ -4811,8 +4811,12 @@ main,
   translate: -50% calc(-1 * var(--space-2));
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
-  background: var(--ink);
-  color: var(--bg);
+  /* The opaque card colour, not the page's `--bg`, which some looks make
+     transparent or a gradient: the bubble came out blank on the owner's
+     screen, its text the same colour as nothing. */
+  background: var(--modal-bg-opaque);
+  color: var(--ink);
+  border: 1px solid var(--border);
   font-size: var(--text-sm);
   line-height: 1.35;
   white-space: nowrap;
@@ -4841,6 +4845,23 @@ main,
   touch-action: none;
 }
 
+/* The back-to-top button lives in the same corner (`.scroll-top`, fixed
+   1.5rem from the right, 2.75rem wide; its height from the bottom varies by
+   tab, so "above it" has no one answer). While it shows, a companion still
+   in its default place steps to its left instead. One the person has
+   dragged somewhere stays where they put it. */
+#nm-buddy {
+  transition: translate 0.2s var(--ease-out);
+}
+
+body.scroll-top-visible #nm-buddy:not(.nm-buddy-placed) {
+  /* Measured: the button's right edge sits up to 50px in (scrollbar and
+     gutter), so its left edge can be ~94px from the window's; standing
+     7rem in clears it with a gap on every tab. A translate, not `right`,
+     so the step is the compositor's and not a layout per frame. */
+  translate: calc(var(--space-4) - 7rem) 0;
+}
+
 #nm-buddy .nm-buddy-face {
   padding: 0;
   border: 0;
@@ -4852,6 +4873,17 @@ main,
 }
 
 #nm-buddy .nm-buddy-face:active { cursor: grabbing; }
+
+/* While dragged: no transition to lag behind the pointer, the move on the
+   compositor, and the face holding still. */
+#nm-buddy.nm-buddy-dragging {
+  transition: none;
+  will-change: translate;
+}
+
+#nm-buddy.nm-buddy-dragging .name-mark * {
+  animation-play-state: paused;
+}
 
 #nm-buddy .nm-buddy-hide {
   position: absolute;
@@ -5435,4 +5467,19 @@ main,
   color: var(--ink);
   font-size: var(--text-sm);
   text-align: center;
+}
+
+/* The profile's "Your look" pickers: two columns of label and select, one
+   on a phone. */
+.profile-look-parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+  padding-top: var(--space-2);
+}
+
+#profile-look .profile-look-part {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
 }

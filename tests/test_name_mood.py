@@ -371,3 +371,50 @@ def test_atlas_has_a_face_of_its_own() -> None:
         assert f'mood === "{mood}"' in atlas, mood
     assert "currentAccentHex" in atlas, "Atlas's colours follow the accent"
     assert "watchNameMark(svg)" in atlas
+
+
+def _own(style: dict, names: list[str], tmp_path: Path) -> list[dict]:
+    node = shutil.which("node")
+    if not node:  # pragma: no cover
+        pytest.skip("node is not available")
+    script = tmp_path / "own.js"
+    script.write_text(
+        'function userMarkSeed() { return "Brayden"; }\n'
+        + _mood_source()
+        + f"\nsetOwnNameMarkStyle({json.dumps(style)});\n"
+        + f"console.log(JSON.stringify({json.dumps(names)}.map(nameMood)));\n",
+        encoding="utf-8",
+    )
+    out = subprocess.run([node, str(script)], capture_output=True, text=True, check=True)
+    return json.loads(out.stdout)
+
+
+def test_your_own_face_can_be_shuffled_and_customised(tmp_path: Path) -> None:
+    # The owner: "what if i dont like how the avatar it looks on my name??"
+    (base,) = _own({}, ["Brayden"], tmp_path)
+    shuffles = [_own({"variant": v}, ["Brayden"], tmp_path)[0] for v in (1, 2, 3, 4)]
+    looks = {json.dumps([m["mood"], m["style"]], sort_keys=True) for m in [base, *shuffles]}
+    assert len(looks) >= 4, "a shuffle is a different take on the name"
+    mine, other = _own(
+        {"mood": "evil", "hair": "none", "outfit": "suit", "hat": "cowboy", "eyewear": "monocle", "hand": "wand"},
+        ["Brayden", "Alice"],
+        tmp_path,
+    )
+    assert mine["mood"] == "evil" and mine["style"]["hair"] is None and mine["style"]["outfit"] == "suit"
+    assert "cowboy" in mine["props"] and "monocle" in mine["props"] and mine["hand"] == "wand"
+    # Only your own name: everyone else keeps theirs.
+    assert other == _own({}, ["Alice"], tmp_path)[0]
+    # "none" takes a part away; an unknown key is ignored, never drawn.
+    (bare,) = _own({"hat": "none", "hand": "none", "mood": "nonsense"}, ["Cowboy Brayden"], tmp_path)
+    assert bare["hand"] is None
+
+
+def test_the_companion_and_dashboard_fall_back_to_atlas_not_to_you() -> None:
+    # The owner: "i set the corner companion to be the chat persona and it set
+    # it to me instead" and "the dashboard mark didnt change from the logo
+    # when I selected the greeting persona". The default voice is Atlas, who
+    # has a face of its own now.
+    buddy = APP[APP.index("function nameMarkBuddySeed(") :][:900]
+    assert 'document.getElementById("persona-select")?.value || "Atlas"' in buddy
+    dash = APP[APP.index("function dashboardMarkSeed(") :][:700]
+    assert '|| "Atlas"' in dash

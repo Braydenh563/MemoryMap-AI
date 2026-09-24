@@ -46,6 +46,25 @@ open_router = APIRouter(tags=["settings"])
 # Preferences the user may change from the UI, a deliberate allowlist
 # so a stray request can't scribble on model settings (those have their
 # own validated endpoints in routes_models).
+class AvatarStyle(BaseModel):
+    """How the person's own generated face is drawn, beyond their name.
+
+    `variant` is which take on the name (0 is the name's own; each shuffle
+    moves it on), and the rest override one part each: an empty string
+    leaves the part to the name, "none" takes it away, and anything else is
+    the part's own key in avatars.js. Short lower-case words only, so a value
+    can never be more than a key the drawing code looks up.
+    """
+
+    variant: int = Field(default=0, ge=0, le=9999)
+    mood: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    hair: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    outfit: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    hat: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    eyewear: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    hand: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+
+
 class TemplateItem(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     content: str = Field(max_length=2000)
@@ -262,6 +281,8 @@ class PreferencesBody(BaseModel):
     #: server rather than bringing the running window forward. Read by
     #: __main__.py before any window opens (core/instance_lock.py).
     new_window_on_launch: bool | None = None
+    #: The person's own face: a shuffle and per-part overrides (AvatarStyle).
+    avatar_style: AvatarStyle | None = None
     #: Which status-bar slots the user has switched off. **The list of what is
     #: hidden, not what is shown**, see `STATUS_SLOTS` in app.js: a slot added
     #: in a later version then appears by default for everyone, instead of
@@ -585,6 +606,7 @@ def get_preferences() -> dict:
         "close_to_tray": config.get_preference("close_to_tray", True),
         # Default False, matching `_run_desktop` in __main__.py.
         "new_window_on_launch": config.get_preference("new_window_on_launch", False),
+        "avatar_style": config.get_preference("avatar_style", {}),
         "status_bar_hidden": config.get_preference("status_bar_hidden", []),
         "status_bar_clock": config.get_preference("status_bar_clock", False),
     }

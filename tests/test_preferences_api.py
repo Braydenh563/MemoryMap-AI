@@ -353,3 +353,16 @@ def test_saving_an_autonomous_preference_wakes_the_scheduler(client, monkeypatch
     woken.clear()
     client.put("/preferences", json={"display_name": "unrelated change"})
     assert woken == []
+
+
+def test_the_avatar_style_round_trips_and_refuses_anything_but_names(client):
+    # The owner: "what if i dont like how the avatar it looks on my name??"
+    # A shuffle (`variant`) and per-part overrides, saved with the profile.
+    style = {"variant": 3, "mood": "happy", "hair": "bob", "outfit": "hoodie", "hat": "none", "eyewear": "", "hand": "controller"}
+    assert client.put("/preferences", json={"avatar_style": style}).status_code == 200
+    got = client.get("/preferences").json()["avatar_style"]
+    assert got == style
+    # Only short lower-case words: nothing a style value could smuggle into
+    # the SVG it names a part of.
+    for bad in ({"mood": "<script>"}, {"hair": "x" * 30}, {"variant": -1}, {"variant": 100000}):
+        assert client.put("/preferences", json={"avatar_style": bad}).status_code == 422, bad

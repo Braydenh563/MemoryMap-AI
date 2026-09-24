@@ -32932,6 +32932,11 @@ async function renderPrefs() {
   if (prefsSaveInFlight) await prefsSaveInFlight.catch(() => {});
   prefsCache = await apiJson("/preferences");
   $("pref-display-name").value = prefsCache.display_name || "";
+  //: The saved look, and its controls (avatars.js).
+  if (typeof setOwnNameMarkStyle === "function") {
+    setOwnNameMarkStyle(prefsCache.avatar_style || {});
+    mountProfileLook();
+  }
   $("pref-bin-days").value = prefsCache.recycle_bin_days;
   $("pref-chat-retention").value = prefsCache.conversation_retention_days ?? 0;
   $("pref-search-min-sim").value = prefsCache.search_min_similarity;
@@ -33364,6 +33369,7 @@ async function savePrefs() {
     // session, and sending its stale defaults back overwrote real values.
     const payload = {
       display_name: $("pref-display-name").value.trim(),
+      avatar_style: typeof ownNameMarkStyle === "function" ? ownNameMarkStyle() : undefined,
       recycle_bin_days: recycleBinDays,
       conversation_retention_days: Number($("pref-chat-retention").value) || 0,
       search_min_similarity: searchMinSim,

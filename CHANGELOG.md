@@ -168,6 +168,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Opening the Agent activity panel no longer shrinks the page under it. On the Graph and the Timeline the card lost 18rem the moment the panel opened (the graph card went from 767px to 479px tall at 1440x900, leaving empty page below it), and the boards list grew 40px past the bottom of the Library. The panel floats over every tab now; the scroll room it adds goes only to the lists that scroll (Dashboard, Reminders, the Notes list, the Library and Documents lists, the Timeline feed).
 - Documents: the spelling menu could open at the top of the window, or not at all, when the click that opened it made the editor redraw the line (a right-click, a long-press, a double-click on a word in a line with formatting). It is placed from the word itself now, follows it when the line shifts, and a "/" typed near the bottom of the editor no longer closes its own menu by scrolling.
 - Documents: an embedded document said "Nothing called ... yet" in Read view while Live view showed it; Ctrl+/ in a note wrote `<!--  -->` instead of opening the blocks menu.
 - Mind map ring: the ring has a visible edge. A thin line round its outside and round the hole marks where it is against the board (3.8:1 in light, 5.1:1 in dark; it was 1.4:1 and 1.6:1), and the dividers between its actions stay hairlines.

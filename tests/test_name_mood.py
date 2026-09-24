@@ -309,3 +309,30 @@ def test_hair_and_accessories_vary_and_lean_feminine(tmp_path: Path) -> None:
     feminine = sum(h in {"long", "pigtails", "buns", "bob", "ponytail"} for h in hair)
     masculine = sum(h in {"short", "spiky", "quiff", "buzz"} for h in hair)
     assert feminine > masculine, (feminine, masculine)
+
+
+def test_tools_and_toys(tmp_path: Path) -> None:
+    # The owner: "are there also some tools and utilities like guns, bows,
+    # swords, axes, hammers etc?? My xbox gamertag is Sushicraft563. and my
+    # gaming is sometimes sushilord563 gaming".
+    cases = {
+        "Sushicraft563": "pickaxe",
+        "sushilord563 gaming": "controller",
+        "Xbox fiend": "controller",
+        "Axe murderer": "axe",
+        "Thor": "hammer",
+        "Sniper elite": "blaster",
+        "Archer": "bow",
+        "Wizard": "wand",
+        "Gone fishing": "fishingrod",
+        "Artist": "paintbrush",
+        "Spartan": "spear",
+        "Poseidon": "trident",
+        "\U0001F3AE": "controller",
+    }
+    got = _moods(list(cases), tmp_path)
+    for (name, held), reading in zip(cases.items(), got):
+        assert reading["hand"] == held, (name, reading)
+    craft, lord = got[0], got[1]
+    assert craft["mood"] == "hungry"
+    assert "monocle" in lord["props"] and "headphones" in lord["props"]

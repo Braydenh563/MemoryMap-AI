@@ -173,6 +173,17 @@ const NAME_MOOD_LEXICON = {
     donut: "donut* doughnut*",
     balloon: "balloon*",
     tableflip: "tableflip* flip flipping ragequit",
+    controller: "gamer* gaming xbox* playstation* ps5 nintendo* switch controller* joystick* gamepad* esports",
+    pickaxe: "craft* miner* mining minecraft* pickaxe* digger*",
+    axe: "axe axes lumberjack* woodcutter*",
+    hammer: "hammer* thor builder* carpenter* blacksmith* smith mjolnir",
+    blaster: "blaster* sniper* gunner* gunslinger* shooter* fps pewpew gun guns trigger* laser*",
+    bow: "archer* archery hunter* legolas robinhood katniss arrow*",
+    wand: "wand* wizard* spellcaster* sorcer* harrypotter hogwarts",
+    fishingrod: "fisher* fishing angler* fisherman",
+    paintbrush: "artist* painter* paint* picasso bobross",
+    spear: "spear* spartan* lancer* pike pikeman javelin* hoplite*",
+    trident: "trident* poseidon neptune merman mermaid* aquaman",
   },
   //: A look the name asks for in so many words. Never guessed from a first
   //: name: "Alice" gets whatever her hash gives her, like everyone else.
@@ -311,6 +322,9 @@ function nameMood(name) {
     [/[\u2694\u{1F5E1}]/u, "sword"], [/[\u{1F50D}\u{1F50E}]/u, "magnifier"], [/\u{1F3A4}/u, "mic"],
     [/[\u{1F4DA}\u{1F4D6}]/u, "book"], [/\u{1F4F1}/u, "phone"], [/[\u{1F338}\u{1F339}\u{1F337}\u{1F33B}]/u, "flower"],
     [/\u{1F355}/u, "pizza"], [/\u{1F369}/u, "donut"], [/\u{1F388}/u, "balloon"],
+    [/\u{1F3AE}/u, "controller"], [/\u26CF/u, "pickaxe"], [/\u{1FA93}/u, "axe"], [/\u{1F528}/u, "hammer"],
+    [/\u{1F52B}/u, "blaster"], [/\u{1F3F9}/u, "bow"], [/\u{1FA84}/u, "wand"], [/\u{1F3A3}/u, "fishingrod"],
+    [/[\u{1F58C}\u{1F3A8}]/u, "paintbrush"],
   ];
   if (!result.hand) {
     for (const [pattern, hand] of emojiHands) {
@@ -642,6 +656,9 @@ const NAME_MARK_HAND_WORDS = {
   sword: "with a sword", magnifier: "with a magnifying glass", mic: "with a microphone",
   book: "with a book", phone: "on their phone", flower: "with a flower", pizza: "with pizza",
   donut: "with a donut", balloon: "with a balloon", tableflip: "flipping a table",
+  controller: "with a controller", pickaxe: "with a pickaxe", axe: "with an axe", hammer: "with a hammer",
+  blaster: "with a blaster", bow: "with a bow and arrow", wand: "with a wand", fishingrod: "with a fishing rod",
+  paintbrush: "with a paintbrush", spear: "with a spear", trident: "with a trident",
 };
 
 function nameMarkTitle(reading) {
@@ -1894,6 +1911,55 @@ function nameMark(seed, size = 20) {
       balloon.appendChild(make("ellipse", { cx: f(cx - 0.2), cy: f(cy - 10.6), rx: 2.8, ry: 3.4, fill: "#e15759", ...line }));
       balloon.appendChild(stroke(`M${f(cx - 1.6)} ${f(cy - 11.8)}a1.6 1.6 0 0 1 1-1.2`, 0.5, "#ffffff"));
       hand.appendChild(balloon);
+      fist(cx, cy);
+    } else if (kind === "controller") {
+      fist(cx, cy + 0.8);
+      part("path", { d: `M${f(cx - 5.4)} ${f(cy - 5.4)}h10.8q2.3 0 2.3 2.5 0 2.7-2.1 2.7-1.4 0-2.2-1.4h-6.9q-.8 1.4-2.2 1.4-2.1 0-2.1-2.7 0-2.5 2.2-2.5z`, fill: "#2b2a28" });
+      hand.appendChild(stroke(`M${f(cx - 4.2)} ${f(cy - 3.4)}h2M${f(cx - 3.2)} ${f(cy - 4.4)}v2`, 0.6, "#f5f4ef"));
+      for (const [dx, dy, c] of [[2.6, -4, "#e15759"], [3.8, -3, "#59a14f"], [2.6, -2.2, "#4e79a7"]]) {
+        hand.appendChild(make("circle", { cx: f(cx + dx), cy: f(cy + dy), r: 0.5, fill: c }));
+      }
+    } else if (["pickaxe", "axe", "hammer"].includes(kind)) {
+      part("rect", { x: f(cx - 0.7), y: f(cy - 12.6), width: 1.4, height: 11.6, rx: 0.5, fill: "#8a5a2b" });
+      if (kind === "pickaxe") {
+        part("path", { d: `M${f(cx - 5.6)} ${f(cy - 10.2)}Q${f(cx)} ${f(cy - 14.8)} ${f(cx + 5.6)} ${f(cy - 10.2)}Q${f(cx)} ${f(cy - 12.6)} ${f(cx - 5.6)} ${f(cy - 10.2)}z`, fill: "#56d4d0" });
+      } else if (kind === "axe") {
+        part("path", { d: `M${f(cx + 0.6)} ${f(cy - 12.4)}q4.8-.8 5 3.4-2.8 1.8-5 .2z`, fill: "#dfe3e8" });
+      } else {
+        part("rect", { x: f(cx - 3.6), y: f(cy - 14), width: 7.2, height: 3.2, rx: 0.6, fill: "#8e9aa6" });
+      }
+      fist(cx, cy);
+    } else if (kind === "blaster") {
+      fist(cx, cy);
+      part("rect", { x: f(cx - 7.2), y: f(cy - 4.8), width: 8.6, height: 3.2, rx: 1.5, fill: "#59c3f0" });
+      part("rect", { x: f(cx - 9.6), y: f(cy - 4.2), width: 2.6, height: 2, rx: 0.5, fill: "#edc949" });
+      hand.appendChild(make("circle", { cx: f(cx - 2.2), cy: f(cy - 3.2), r: 0.6, fill: "#e15759" }));
+    } else if (kind === "bow") {
+      hand.appendChild(stroke(`M${f(cx - 1)} ${f(cy - 11.4)}Q${f(cx - 7)} ${f(cy - 5)} ${f(cx - 1)} ${f(cy + 1.4)}`, 1.3, "#8a5a2b"));
+      hand.appendChild(stroke(`M${f(cx - 1)} ${f(cy - 11.4)}V${f(cy + 1.4)}`, 0.35, "#f5f4ef"));
+      hand.appendChild(stroke(`M${f(cx - 7.4)} ${f(cy - 5)}H${f(cx + 3.4)}`, 0.7, "#6b4a2f"));
+      part("path", { d: `M${f(cx - 8.6)} ${f(cy - 5)}l1.6-1.1v2.2z`, fill: "#8e9aa6", "stroke-width": 0.3 });
+      fist(cx, cy - 4.6);
+    } else if (kind === "wand") {
+      hand.appendChild(stroke(`M${f(cx)} ${f(cy - 1.6)}L${f(cx - 4.4)} ${f(cy - 10.4)}`, 1.1, "#3b3440"));
+      hand.appendChild(star(cx - 4.8, cy - 11.4, 2, "#ffd84a"));
+      fist(cx, cy);
+    } else if (kind === "fishingrod") {
+      hand.appendChild(stroke(`M${f(cx)} ${f(cy - 1.2)}L${f(cx - 8)} ${f(cy - 15)}`, 0.9, "#6b4a2f"));
+      hand.appendChild(stroke(`M${f(cx - 8)} ${f(cy - 15)}Q${f(cx - 11)} ${f(cy - 9)} ${f(cx - 10.4)} ${f(cy - 4.4)}`, 0.3, "#1c1c1a"));
+      part("circle", { cx: f(cx - 10.4), cy: f(cy - 3.8), r: 1, fill: "#e15759", "stroke-width": 0.3 });
+      fist(cx, cy);
+    } else if (kind === "paintbrush") {
+      part("rect", { x: f(cx - 0.55), y: f(cy - 10), width: 1.1, height: 8.6, rx: 0.4, fill: "#b0703a" });
+      part("path", { d: `M${f(cx - 1)} ${f(cy - 10)}q1-3.4 1-3.6.1.2 1 3.6z`, fill: "#e15759" });
+      fist(cx, cy);
+    } else if (kind === "spear" || kind === "trident") {
+      part("rect", { x: f(cx - 0.55), y: f(cy - 15), width: 1.1, height: 14, rx: 0.4, fill: "#8a5a2b" });
+      if (kind === "spear") {
+        part("path", { d: `M${f(cx)} ${f(cy - 19)}l1.7 4.2h-3.4z`, fill: "#dfe3e8" });
+      } else {
+        part("path", { d: `M${f(cx - 2.8)} ${f(cy - 15)}h5.6M${f(cx - 2.8)} ${f(cy - 15)}v-3.2M${f(cx)} ${f(cy - 15)}v-4.2M${f(cx + 2.8)} ${f(cy - 15)}v-3.2`, fill: "none", stroke: "#edc949", "stroke-width": 1.1, "stroke-linecap": "round" });
+      }
       fist(cx, cy);
     } else if (kind === "tableflip") {
       //: (╯°□°)╯︵ ┻━┻ : both fists up at the head's shoulders, and the

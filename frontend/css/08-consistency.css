@@ -5483,3 +5483,11 @@ body.scroll-top-visible #nm-buddy:not(.nm-buddy-placed) {
   justify-items: start;
   gap: var(--space-1);
 }
+
+/* The reader's page-range box is a control like its neighbours: the touch
+   floor on a phone (libreader.js measured it at 36px against 44). */
+@media (pointer: coarse), (max-width: 599.98px) {
+  .ocr-read-range .ocr-read-pages {
+    min-height: var(--target-min);
+  }
+}

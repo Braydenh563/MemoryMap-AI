@@ -2521,6 +2521,7 @@ function nameMarkBuddyObstacles(tab) {
 //: and the body (down to its seat when its legs are tucked), and the hands
 //: above the head when it hangs.
 function nameMarkBuddyShape(x, y, pose, legs = "") {
+  if (legs === "peek") return [{ left: x + 8, top: y + NMB_SEAT - 36, right: x + 56, bottom: y + NMB_SEAT }];
   const drop = pose === "hang" ? NMB_DROP : 0;
   let bottom = y + drop + NMB_FEET;
   if (pose === "stand") bottom -= 4;
@@ -2553,6 +2554,11 @@ function nameMarkBuddyCovers(x, y, pose, legs = "") {
   for (const fx of [10, 24, 40, 54]) for (const fy of [8, 22, 36, 48]) points.push([x + fx, y + drop + fy]);
   points.push([x + 32, y + drop + 58], [x + 24, y + drop + 72], [x + 40, y + drop + 72]);
   if (legs !== "tuck") points.push([x + 32, y + drop + 84]);
+  //: Tucked behind the bar only its eyes show.
+  if (legs === "peek") {
+    points.length = 0;
+    for (const fx of [10, 24, 40, 54]) for (const fy of [NMB_SEAT - 30, NMB_SEAT - 14]) points.push([x + fx, y + fy]);
+  }
   let covered = 0;
   for (const [px, py] of points) {
     if (px < 0 || py < 0 || px >= innerWidth || py >= innerHeight) continue;
@@ -2639,6 +2645,10 @@ function nameMarkBuddyStances(edge, x) {
     { pose: "sit", legs: "", x, y: edge.y - NMB_SEAT },
     { pose: "sit", legs: "tuck", x, y: edge.y - NMB_SEAT, alt: 0.2 },
     { pose: "stand", legs: "", x, y: edge.y - NMB_FEET + 1, alt: 0.4 },
+    //: The last resort on the bottom bar, for a small window with nowhere
+    //: free: tucked behind the bar with only its eyes over the edge
+    //: (`legs: "peek"`), ducking when the pointer comes near.
+    ...(edge.kind === "bar" ? [{ pose: "sit", legs: "peek", x, y: edge.y - NMB_SEAT, alt: 7 }] : []),
   ];
 }
 
@@ -3034,7 +3044,9 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
   let total = 0;
   for (const [act, spec] of Object.entries(NAME_MARK_BUDDY_ACTS)) {
     if (!spec.poses.includes(nmb.pose)) continue;
-    if (spec.legs === "out" && nmb.legs === "tuck") continue;
+    if (spec.legs === "out" && nmb.legs) continue;
+    //: Tucked behind the bottom bar, only what its eyes can do.
+    if (nmb.legs === "peek" && !["blink", "look", "glance", "yawn", "nap"].includes(act)) continue;
     if (spec.edge && nmb.edgeType !== spec.edge) continue;
     if ((nmb.cool[act] || 0) > now || act === nmb.lastAct) continue;
     let w = spec.w;
@@ -3201,7 +3213,7 @@ document.addEventListener("pointermove", (event) => {
   nmb.pointer = [event.clientX, event.clientY];
   const now = Date.now();
   if (now - nmb.lastInput > 1000) nameMarkBuddyAwake();
-  if (nmb.act !== "peek") return;
+  if (nmb.act !== "peek" && nmb.legs !== "peek") return;
   if (now - nmb.shyAt < 100) return;
   nmb.shyAt = now;
   const buddy = document.getElementById("nm-buddy");

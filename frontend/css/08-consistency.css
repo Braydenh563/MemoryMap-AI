@@ -4964,13 +4964,15 @@ main,
   position: relative;
   display: block;
   width: 141px;
-  height: 203px;
+  height: 229px;
 }
 
+/* 26px of headroom: ears, horns and hats stand above the 64 by 92 box,
+   and the card clips anything outside itself. */
 .nm-viewer-figure > .nm-figure {
   position: absolute;
   left: 0;
-  top: 0;
+  top: 26px;
   width: 64px;
   height: 92px;
   transform: scale(2.2);
@@ -5072,6 +5074,17 @@ main,
   clip-path: inset(-80px -80px calc(92px - var(--nmb-edge)) -80px);
 }
 #nm-buddy.nmb-act-peek .nm-buddy-char { translate: 0 calc(var(--nmb-edge) + 4px); }
+
+/* Tucked behind the bottom bar (the last resort in a small window): only
+   its eyes over the edge, ducking out of sight when the pointer is near. */
+#nm-buddy[data-legs="peek"] .nm-buddy-face {
+  clip-path: inset(-80px -80px calc(92px - var(--nmb-edge)) -80px);
+}
+#nm-buddy[data-legs="peek"] .nm-buddy-char {
+  translate: 0 calc(var(--nmb-edge) - 34px);
+  transition: translate var(--motion-slow) var(--ease-out);
+}
+#nm-buddy[data-legs="peek"].nmb-duck .nm-buddy-char { translate: 0 calc(var(--nmb-edge) + 4px); }
 
 /* Hanging by one hand (or scratching its head while it hangs): the other
    hand lets go and hangs free. */

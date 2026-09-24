@@ -10920,6 +10920,62 @@ function wbSelectedKeys() {
   return new Set();
 }
 
+//: **An export is painted in the colours on screen** (the owner, 2026-09-24:
+//: "I exported a mindmap selection as an image to the library, the mindmap
+//: nodes turned white??"). The node and card fills below were hard-coded
+//: `#ffffffee` with `#1f2430` ink, which is the light theme's look: in dark
+//: mode, and on any map whose look was changed, the export drew white boxes
+//: on the board's dark ground. So each box reads its fill, edge and ink off
+//: the live element's computed style, which is what the renderer painted.
+//:
+//: Through a 1px canvas rather than passed on as the computed string: a
+//: surface here is a `color-mix()`, which a computed style reports in the
+//: `color(srgb ...)` form, and whether a rasterised SVG's `fill` attribute
+//: takes that form is the browser's business. A canvas pixel is plain sRGB
+//: in every engine, and it is what the picture ends up as anyway.
+let wbExportColourCtx = null;
+function wbExportColour(value) {
+  if (!value) return null;
+  const srgb = /^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/.exec(value.trim());
+  if (srgb) {
+    const [r, g, b] = srgb.slice(1, 4).map((v) => Math.round(Math.min(1, Math.max(0, Number(v))) * 255));
+    const a = srgb[4] == null ? 1 : Math.min(1, Math.max(0, Number(srgb[4])));
+    if (a === 0) return "none";
+    return a === 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
+  }
+  if (!wbExportColourCtx) {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    wbExportColourCtx = canvas.getContext("2d", { willReadFrequently: true });
+  }
+  const ctx = wbExportColourCtx;
+  ctx.clearRect(0, 0, 1, 1);
+  //: A value the canvas cannot parse leaves `fillStyle` unchanged, so a
+  //: sentinel says "not understood" rather than painting the sentinel.
+  ctx.fillStyle = "#010203";
+  ctx.fillStyle = value;
+  if (ctx.fillStyle === "#010203" && !/^#010203$/i.test(value)) return null;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+  if (a === 0) return "none";
+  return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
+}
+
+//: The fill, edge and ink of one drawn box. `inkEl` is the element that holds
+//: its words, which is not the box itself on a map topic. `null` for an
+//: element that is not drawn (a topic culled off screen), so the caller can
+//: fall back to one that is.
+function wbExportPaint(el, inkEl) {
+  if (!el) return null;
+  const style = getComputedStyle(el);
+  const edgeWidth = parseFloat(style.borderTopWidth) || 0;
+  return {
+    fill: wbExportColour(style.backgroundColor) || "none",
+    edge: edgeWidth > 0 ? wbExportColour(style.borderTopColor) : null,
+    ink: wbExportColour(getComputedStyle(inkEl || el).color) || "#1f2430",
+  };
+}
+
 function wbBuildExportSvg(scope) {
   const bounds = scope === "selection" ? wbSelectionBounds()
     : scope === "visible" ? wbVisibleBounds() : wbBoardBounds();
@@ -10946,9 +11002,20 @@ function wbBuildExportSvg(scope) {
     for (const edge of document.querySelectorAll(".wb-map-edges .wb-map-edge")) {
       const clone = edge.cloneNode(true);
       clone.removeAttribute("class");
-      clone.setAttribute("fill", "none");
-      if (!clone.getAttribute("stroke")) clone.setAttribute("stroke", "#8888aa");
-      clone.setAttribute("stroke-width", "2");
+      //: Painted as drawn, the same rule as the boxes below: a branch is a
+      //: filled, tapered ribbon in its branch's colour (a stylesheet rule
+      //: over an inline custom property), and the export used to force
+      //: `fill="none"` and a grey stroke, so every branch came out as a pair
+      //: of thin grey outlines. The class and the custom property do not
+      //: survive the clone, so the computed paint goes on as attributes.
+      const look = getComputedStyle(edge);
+      const paint = (value) => (value && !value.startsWith("url(") ? wbExportColour(value) : null);
+      clone.removeAttribute("style");
+      clone.setAttribute("fill", paint(look.fill) || "none");
+      clone.setAttribute("stroke", paint(look.stroke) || "none");
+      clone.setAttribute("stroke-width", look.strokeWidth || "2");
+      if (look.opacity && look.opacity !== "1") clone.setAttribute("opacity", look.opacity);
+      if (look.strokeDasharray && look.strokeDasharray !== "none") clone.setAttribute("stroke-dasharray", look.strokeDasharray);
       parts.push(clone.outerHTML);
     }
   }
@@ -10970,6 +11037,14 @@ function wbBuildExportSvg(scope) {
   // card, matching what the live card itself shows (raw content, truncated;
   // it has no private-note masking of its own to match either).
   const exportEntriesById = new Map(allEntries.map((e) => [String(e.id), e]));
+  //: A card or topic that is not in the DOM (culled off screen) takes the
+  //: paint of one that is, which is the theme's own card look. The last topic
+  //: in the layer rather than the first, because the first is usually the
+  //: trunk, which wears its branch colour as a fill.
+  let cardFallback = wbExportPaint(document.querySelector("#wb-html-layer .node-card"));
+  const topics = document.querySelectorAll("#wb-html-layer .wb-object.wb-map-node");
+  const lastTopic = topics[topics.length - 1];
+  const topicFallback = wbExportPaint(lastTopic, lastTopic?.querySelector(".wb-map-text"));
   for (const node of wbState.nodes) {
     if (onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) continue;
     const entry = exportEntriesById.get(String(node.entry_id));
@@ -10977,9 +11052,11 @@ function wbBuildExportSvg(scope) {
     const w = el ? el.offsetWidth : 250;
     const h = el ? el.offsetHeight : 150;
     const label = entry ? notePreviewText(entry.content || "") : `Note ${node.entry_id}`;
+    const cardPaint = wbExportPaint(el) || cardFallback;
     parts.push(`<g transform="translate(${node.x}, ${node.y})">`);
     parts.push(
-      `<rect width="${w}" height="${h}" rx="10" fill="#ffffffcc" stroke="#8888aa" stroke-width="1.5" />`
+      `<rect width="${w}" height="${h}" rx="10" fill="${cardPaint?.fill || "#ffffffcc"}" ` +
+        `stroke="${cardPaint?.edge || "#8888aa"}" stroke-width="1.5" />`
     );
     //: **As many lines as the card itself is showing**, from the card's own
     //: measured height. This used to take the first 160 characters and then
@@ -10992,7 +11069,8 @@ function wbBuildExportSvg(scope) {
     //: uses at font size 13, and 12 leaves the last line clear of the rounded
     //: bottom edge.
     const cardLines = Math.max(1, Math.floor((h - 24 - 12) / 16));
-    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28, cardLines));
+    parts.push(wbSvgText(wbSvgWrapLines(label || "Empty note", w - 28, cardLines), 14, 24,
+      { fill: cardPaint?.ink || "#1f2430" }));
     parts.push("</g>");
   }
 
@@ -11022,9 +11100,11 @@ function wbBuildExportSvg(scope) {
       // and not drawn" gap this whole section exists to close, one layer down.
       const size = wbMapNodeSize(obj);
       const colour = exportMapColors?.get(obj.id) || "#8888aa";
+      const topicEl = document.querySelector(`#wb-html-layer .wb-object[data-id="${obj.id}"]`);
+      const topicPaint = wbExportPaint(topicEl, topicEl?.querySelector(".wb-map-text")) || topicFallback;
       parts.push(
-        `<rect width="${size.w}" height="${size.h}" rx="8" fill="#ffffffee" ` +
-          `stroke="${wbSvgEscape(colour)}" stroke-width="1.5" />`
+        `<rect width="${size.w}" height="${size.h}" rx="8" fill="${topicPaint?.fill || "#ffffffee"}" ` +
+          `stroke="${wbSvgEscape(topicPaint?.edge || colour)}" stroke-width="1.5" />`
       );
       parts.push(
         `<rect width="4" height="${size.h}" rx="2" fill="${wbSvgEscape(colour)}" />`
@@ -11062,14 +11142,18 @@ function wbBuildExportSvg(scope) {
         labelTop = py + ph + 16;
       }
       const lines = wbSvgWrapLines(wbMapLabel(obj), size.w - 28, 4, 7.5);
-      parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: "#1f2430", lineHeight: 17 }));
+      parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
+      //: A text box with no colour of its own writes in the theme's ink, which
+      //: is near-white on a dark board: read it off the box, as above.
+      const textEl = obj.data.color ? null : document.querySelector(`#wb-html-layer .wb-object[data-id="${obj.id}"] .wb-text-content`);
+      const textInk = textEl ? wbExportColour(getComputedStyle(textEl).color) : null;
       parts.push(
         wbSvgText(lines, 10, fontSize + 8, {
           fontSize,
-          fill: obj.data.color || "#1f2430",
+          fill: obj.data.color || textInk || "#1f2430",
           lineHeight: fontSize * 1.25,
         })
       );

@@ -4275,26 +4275,32 @@
     <div id="doc-ai-panel" class="modal-overlay hidden" role="dialog"
       aria-modal="true" aria-label="AI assistant">
       <div class="card modal-card doc-ai-card">
-        <div class="row space-between">
-          <div class="row help-head">
-            <h2>AI assistant</h2>
-            <!-- One line of description under the verbs, the rest behind the
-                 '?' (DESIGN.md's help recipe): what each of the three does to
-                 the document is three sentences, and three sentences above a
-                 text field is a wall. -->
-            <button type="button" class="icon-only ghost small graph-help-toggle"
-              data-help-for="doc-ai-verb-help" aria-controls="doc-ai-verb-help"
-              aria-expanded="false" title="About the three verbs"
-              aria-label="About the three verbs">
-              <i class="ph ph-question" aria-hidden="true"></i>
-            </button>
-          </div>
-          <div class="row">
-            <button id="doc-ai-history" class="ghost small" type="button" title="See and undo past AI edits to this document">
-              <i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History
-            </button>
-            <button id="doc-ai-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
-          </div>
+        <!-- **One head row, three quiet controls** (the owner, 2026-09-24:
+             "redesign the top section of this panel, it is poorly
+             structured"). Measured before: a 32px round bordered '?', a 97px
+             tonal "History" and a 28px bordered close, three shapes at two
+             heights in one row. The title and its help sit together on the
+             left; History and Close are the same 28px quiet icon button on
+             the right, History's words in its tooltip and its label. -->
+        <div class="doc-ai-head">
+          <h2 id="doc-ai-title">AI assistant</h2>
+          <!-- One line of description under the verbs, the rest behind the
+               '?' (DESIGN.md's help recipe): what each of the three does to
+               the document is three sentences, and three sentences above a
+               text field is a wall. -->
+          <button type="button" class="icon-only ghost small doc-ai-head-btn"
+            data-help-for="doc-ai-verb-help" aria-controls="doc-ai-verb-help"
+            aria-expanded="false" title="About the three verbs"
+            aria-label="About the three verbs">
+            <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
+          <span class="doc-ai-head-actions">
+            <button id="doc-ai-history" class="icon-only ghost small doc-ai-head-btn" type="button"
+              title="History: see and undo past AI edits to this document"
+              aria-label="History: see and undo past AI edits to this document"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button>
+            <button id="doc-ai-close" class="icon-only ghost small doc-ai-head-btn" type="button"
+              title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+          </span>
         </div>
         <!-- **The three verbs, with the icon each one already has elsewhere in
              the app** (INBOX 158, "redesign the edit write remove toggle, it is

@@ -4333,6 +4333,98 @@ span > .chip {
   gap: var(--space-3);
 }
 
+/* --- the assistant's head and its three verbs (the owner, 2026-09-24:
+   "redesign the top section of this panel, it is poorly structured and
+   there's definitely a better, more modern and professional way").
+
+   Measured before (scratchpad/ui-sweeps/docaihead.js, 1440x900): the head
+   held a 32px round bordered '?', a 97px tonal "History" and a 28px bordered
+   close, three shapes at two heights; the verb control was 318px of a 688px
+   column, its segments 30px tall in a 40px track; the unchosen verbs were
+   drawn in the muted ink, which is the colour this app gives a disabled
+   control, so "Write" read as unavailable; and the chosen one differed from
+   them by an 11% ink tint alone.
+
+   Now the head is one row: the title and its '?' on the left, History and
+   Close on the right, all three the same quiet 28px icon button. The verbs
+   are the panel's full width in three equal segments that fill the track;
+   an unchosen verb is in the body ink, and the chosen one keeps the
+   segmented recipe's fill and ink (no lift: a segment sits in its track,
+   INBOX 101) and adds weight and a ring in the accent, so which mode is on
+   reads at a glance without any segment looking switched off. */
+.doc-ai-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-lg);
+}
+
+.doc-ai-head > h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.doc-ai-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.doc-ai-card .doc-ai-head-btn.ghost {
+  width: var(--target-min);
+  height: var(--target-min);
+  min-height: 0;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.doc-ai-card .doc-ai-head-btn.ghost:hover,
+.doc-ai-card .doc-ai-head-btn.ghost[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--chip-bg);
+}
+
+.doc-ai-card > #doc-ai-verb {
+  display: flex;
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+}
+
+.doc-ai-card > #doc-ai-verb label {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  color: var(--ink);
+}
+
+.doc-ai-card > #doc-ai-verb label > .ph {
+  color: var(--muted);
+}
+
+.doc-ai-card > #doc-ai-verb label:has(input:checked) {
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.doc-ai-card > #doc-ai-verb label:has(input:checked) > .ph {
+  color: var(--accent);
+}
+
+/* The keyboard's place in the group, drawn on the segment: the radio itself
+   is clipped to a pixel, so its own focus ring is never seen. */
+.doc-ai-card > #doc-ai-verb label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* Extract notes (BACKLOG.md §62): another "read the AI's proposal before
    anything is saved" dialog, same family as .doc-ai-card above, just wider
    and scrollable: it can hold several stacked note cards rather than one

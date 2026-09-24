@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: F12 goes to where the name at the caret is defined in a code file, Shift+F12 lists every use of it (not the ones in strings or comments), and Ctrl+Shift+F opens Find anything on documents with the selection or the word.
 - Documents: Run (Ctrl+Shift+Enter) for a .js or .html file: the script runs in a sandbox with no network and none of the notebook's storage, its console and its errors come back in an Output panel under the editor with a link to each line, an HTML file's page shows above them, and Stop (or ten seconds of a script that never finishes) ends it. TypeScript and Python say what they would need.
 - Documents: snippets for Java, C#, C, C++, Go, Rust, Kotlin, Swift, Ruby, PHP, R, SQL and shell (main, sout, prop, fori, iferr, match, sel and more), and a few more for JavaScript, TypeScript and Python, offered in the completion list and written in the file's own indent.
 - Documents: sticky scroll in JavaScript, TypeScript, Python and CSS files: scrolled into a function, class or rule, its first line (and its parents') stays pinned at the top of the pane, and a click on it goes there.

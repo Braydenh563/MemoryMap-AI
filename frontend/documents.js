@@ -2186,6 +2186,12 @@ const DOC_COMMANDS = [
   //: new chat. The outline panel lists the same symbols.
   { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "",
     code: true, run: () => docOpenSymbols() },
+  { id: "definition", icon: "ph:arrow-square-in", label: "Go to where the name at the caret is defined", keys: "F12",
+    code: true, run: () => docGoToDefinition() },
+  { id: "references", icon: "ph:list-magnifying-glass", label: "List every use of the name at the caret", keys: "Shift+F12",
+    code: true, run: () => docShowReferences() },
+  { id: "find-documents", icon: "ph:magnifying-glass", label: "Find in every document", keys: "Ctrl+Shift+F",
+    run: () => docFindInDocuments() },
   { id: "run", icon: "ph:play", label: "Run this file and show its output", keys: "Ctrl+Shift+Enter",
     code: true, run: () => docRunCode() },
   { id: "code-wrap", icon: "ph:text-align-left", label: "Wrap long lines in a code file", keys: "Alt+Z",
@@ -15742,6 +15748,8 @@ function docCmKeymap(CM) {
     //: panel here and the app's own bar on the fallback, so this binding does
     //: not have to know which is on screen.
     { key: "Mod-f", run: () => { toggleDocFindBar(true); return true; } },
+    //: Find in every document (INBOX 404), VS Code's search across files.
+    { key: "Mod-Shift-f", run: () => docFindInDocuments() },
   ];
 }
 
@@ -17961,6 +17969,166 @@ function docStickyScroll(CM) {
   return docStickyCache;
 }
 
+// --- Go to definition, references, find in documents (INBOX 404) ---------------
+//
+// Within one file, from the tree: F12 goes to where the name at the caret is
+// defined, Shift+F12 lists every place it is used. A name in a string or a
+// comment is text, not a use (the bracket colours' own test, so the two
+// cannot disagree about what is code). Across documents, Ctrl+Shift+F opens
+// the app's own Find anything on documents, with the selection or the word.
+
+//: The identifier at `pos`, as `{ from, to, name }`, or null.
+function docWordAt(state, pos) {
+  const line = state.doc.lineAt(pos);
+  const col = pos - line.from;
+  const before = /[\w$]*$/.exec(line.text.slice(0, col))[0];
+  const after = /^[\w$]*/.exec(line.text.slice(col))[0];
+  const name = before + after;
+  if (!name || /^\d/.test(name)) return null;
+  return { from: pos - before.length, to: pos + after.length, name };
+}
+
+//: Every use of `name` as a whole word in code, as `{ from, to }`.
+function docReferencesOf(CM, state, name) {
+  const text = state.doc.toString();
+  if (text.length > DOC_CHECK_MAX_CHARS) return [];
+  const tree = CM.language.ensureSyntaxTree(state, state.doc.length, 200) || CM.language.syntaxTree(state);
+  const found = [];
+  const escaped = name.replace(/\$/g, "\\$");
+  const re = new RegExp(`(?<![\\w$])${escaped}(?![\\w$])`, "g");
+  let match;
+  while ((match = re.exec(text)) !== null) {
+    if (DOC_BRACKET_NOT_CODE.test(tree.resolveInner(match.index, 1).name)) continue;
+    found.push({ from: match.index, to: match.index + name.length });
+  }
+  return found;
+}
+
+//: The node names that define a name, by grammar, and the scopes a
+//: definition belongs to; a definition in a scope around the caret wins
+//: over one elsewhere, the innermost first.
+const DOC_DEFINING = /^(VariableDefinition|TypeDefinition|PropertyDefinition|PrivatePropertyDefinition)$/;
+const DOC_SCOPES = /^(Script|Block|ClassBody|FunctionDeclaration|FunctionExpression|ArrowFunction|MethodDeclaration|FunctionDefinition|ClassDefinition|Body)$/;
+
+//: Whether the Python name at `node` is being defined: a def's or a class's
+//: name, a parameter, an assignment's target, a for loop's variable, an
+//: import.
+function docPythonDefines(node) {
+  const parent = node.parent;
+  if (!parent) return false;
+  if (/^(FunctionDefinition|ClassDefinition)$/.test(parent.name)) return parent.getChild("VariableName")?.from === node.from;
+  if (parent.name === "ParamList" || parent.name === "ImportStatement" || parent.name === "ForStatement") return true;
+  if (parent.name === "AssignStatement") return parent.firstChild?.from === node.from;
+  return false;
+}
+
+//: The definitions of `name`, as `{ from, to, scope }`; the scope is the
+//: range the definition is visible in, for choosing among several.
+function docDefinitionsOf(CM, state, name, ext) {
+  const refs = docReferencesOf(CM, state, name);
+  const tree = CM.language.syntaxTree(state);
+  const defs = [];
+  if (["js", "ts", "py"].includes(ext)) {
+    for (const ref of refs) {
+      const node = tree.resolveInner(ref.from, 1);
+      const defining = ext === "py" ? node.name === "VariableName" && docPythonDefines(node) : DOC_DEFINING.test(node.name);
+      if (!defining) continue;
+      let scope = node.parent;
+      //: A function's own name belongs to the scope around the function, its
+      //: parameters to the function.
+      if (scope && /^(FunctionDeclaration|ClassDeclaration|FunctionDefinition|ClassDefinition)$/.test(scope.name)) scope = scope.parent;
+      while (scope && !DOC_SCOPES.test(scope.name)) scope = scope.parent;
+      defs.push({ ...ref, scope: scope ? [scope.from, scope.to] : [0, state.doc.length] });
+    }
+    return defs;
+  }
+  //: A grammar with no tree to ask: a definition is the name after a word
+  //: that defines one, or a C-family type in front of it.
+  const keyword = /\b(func|fn|def|class|struct|interface|enum|type|trait|impl|var|let|const|val|fun|function|module|record|typedef|sub|proc)\s+[*&]?$/;
+  const cType = /\b(int|void|char|float|double|bool|long|short|auto|unsigned|static|String|string|[A-Z][\w<>[\],]*)\s+[*&]?$/;
+  for (const ref of refs) {
+    const line = state.doc.lineAt(ref.from);
+    const before = line.text.slice(0, ref.from - line.from);
+    if (keyword.test(before) || cType.test(before)) defs.push({ ...ref, scope: [0, state.doc.length] });
+  }
+  return defs;
+}
+
+//: The definition F12 should go to from `pos`: among those whose scope holds
+//: the caret, the innermost, and the nearest before the caret within it;
+//: else the first there is.
+function docPickDefinition(defs, pos) {
+  const visible = defs.filter((d) => d.scope[0] <= pos && pos <= d.scope[1]);
+  const pool = visible.length ? visible : defs;
+  if (!pool.length) return null;
+  const width = (d) => d.scope[1] - d.scope[0];
+  const inner = Math.min(...pool.map(width));
+  const inScope = pool.filter((d) => width(d) === inner);
+  const before = inScope.filter((d) => d.from <= pos);
+  return before.length ? before[before.length - 1] : inScope[0];
+}
+
+function docGoToDefinition() {
+  const CM = window.CM6;
+  const view = docCmView;
+  if (!CM || !view) return false;
+  const pos = view.state.selection.main.head;
+  const word = docWordAt(view.state, pos);
+  if (!word) return false;
+  const def = docPickDefinition(docDefinitionsOf(CM, view.state, word.name, docFileType().ext), pos);
+  if (!def) {
+    toast(`No definition of ${word.name} in this file.`);
+    return true;
+  }
+  if (def.from <= pos && pos <= def.to) {
+    toast(`This is where ${word.name} is defined. Shift+F12 lists its uses.`);
+    return true;
+  }
+  view.dispatch({ selection: { anchor: def.from, head: def.to }, scrollIntoView: true });
+  view.focus();
+  return true;
+}
+
+function docShowReferences() {
+  const CM = window.CM6;
+  const view = docCmView;
+  if (!CM || !view || typeof openMenuAtPoint !== "function") return false;
+  const pos = view.state.selection.main.head;
+  const word = docWordAt(view.state, pos);
+  if (!word) return false;
+  const refs = docReferencesOf(CM, view.state, word.name);
+  const items = refs.slice(0, 200).map((ref) => {
+    const line = view.state.doc.lineAt(ref.from);
+    return {
+      label: `ph:arrow-right Line ${line.number}: ${line.text.trim().slice(0, 70)}`,
+      title: `Go to this use of ${word.name}`,
+      run: () => {
+        view.dispatch({ selection: { anchor: ref.from, head: ref.to }, scrollIntoView: true });
+        view.focus();
+      },
+    };
+  });
+  const at = view.coordsAtPos(pos) || view.contentDOM.getBoundingClientRect();
+  openMenuAtPoint(items, `${refs.length} ${refs.length === 1 ? "use" : "uses"} of ${word.name}`, at.left, at.bottom);
+  return true;
+}
+
+//: Ctrl+Shift+F: the app's Find anything, on documents, with the selection
+//: (one line of it) or the word at the caret.
+function docFindInDocuments() {
+  const view = docCmView;
+  let query = "";
+  if (view) {
+    const range = view.state.selection.main;
+    if (!range.empty) query = view.state.sliceDoc(range.from, range.to).split("\n")[0].slice(0, 100);
+    else query = docWordAt(view.state, range.head)?.name || "";
+  }
+  if (typeof openFinder !== "function") return false;
+  if (typeof finderKind !== "undefined") finderKind = "document";
+  openFinder(query);
+  return true;
+}
+
 // --- Run, and its output (INBOX 404) ------------------------------------------
 //
 // The owner: "what about code errors, debugging console or smth??" A `.js`
@@ -19548,6 +19716,9 @@ function docCodeEditing(CM, type) {
       //: Run (INBOX 404). Not F5, which reloads the page in a browser, and
       //: not Ctrl+Alt+R, which the registry gives to a forced reload.
       { key: "Mod-Shift-Enter", run: () => { if (!docRunnable(docFileType())) return false; docRunCode(); return true; } },
+      //: VS Code's own keys for these two (INBOX 404), free in the registry.
+      { key: "F12", run: () => docGoToDefinition() },
+      { key: "Shift-F12", run: () => docShowReferences() },
       //: The quick fixes at the caret, on the prose menu's own chord, and the
       //: problems one at a time on the prose findings' own keys.
       { key: "Alt-Enter", run: () => docOpenCodeFixes() },

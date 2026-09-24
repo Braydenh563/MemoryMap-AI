@@ -13150,8 +13150,7 @@ button.finder-row:hover,
 #tab-dashboard[data-density="focused"] .dash-quicklinks,
 #tab-dashboard[data-density="focused"] .dash-stats,
 #tab-dashboard[data-density="focused"] .dash-hero-emblem,
-#tab-dashboard[data-density="focused"] .dash-wordmark,
-#tab-dashboard[data-density="focused"] .dash-clock {
+#tab-dashboard[data-density="focused"] .dash-wordmark {
   display: none;
 }
 
@@ -13192,54 +13191,81 @@ button.finder-row:hover,
    `flex-wrap` with a basis on the field rather than a width query, so a narrow
    window puts them back in two bands without a second rule deciding where
    narrow starts. */
+/* **Two rows again, decided by the owner (INBOX 425 follow-up, 2026-09-24):**
+   "the hero section row is ugly and needs improvement and I dont agree with
+   the search bar being on the same line and changing width depending on how
+   long the welcome message is." The one-row head of INBOX 296 made the
+   search field's width a function of the greeting's length, so the one
+   control on the page moved every time the greeting changed. Do not remake
+   the one-row head.
+
+   Focused is now Full's head at a smaller scale: a compact banner (greeting
+   and the name nudge on one line, the one-line summary under it, the time on
+   the right) and the search field full width beneath it, one step apart. */
 #tab-dashboard[data-density="focused"] .dash-head {
   display: flex;
-  align-items: stretch;
-  flex-wrap: wrap;
-  gap: var(--space-4);
+  flex-direction: column;
+  gap: var(--space-3);
   margin-bottom: var(--space-6);
 }
 
-/* The banner's own bottom margin is the gap between two bands; inside the row
-   it would be the row's own height plus 16px of nothing. The wrapper carries
-   it instead. */
 #tab-dashboard[data-density="focused"] .dash-head > .dash-hero {
-  flex: 0 1 auto;
   margin-bottom: 0;
 }
 
-#tab-dashboard[data-density="focused"] .dash-head > .dash-find {
-  flex: 1 1 20rem;
-  width: auto;
-  border-radius: var(--radius);
-}
-
-/* **And the banner is a line, not a panel.** Focused kept a 133px hero, which
-   was more than Compact's, because it dropped bands around a banner it never
-   touched. Here the greeting and the one number share a baseline and the
-   padding comes down to a row's worth: the level that shows least has the
-   smallest hero, which is the only order the three levels can be read in.
-   `flex-wrap` rather than a width query, so a narrow window gets the two ranks
-   stacked back up without a second rule deciding where narrow starts. */
 #tab-dashboard[data-density="focused"] .dash-hero {
-  padding: var(--space-3) var(--space-5);
+  display: flex;
+  align-items: center;
   gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
 }
 
 #tab-dashboard[data-density="focused"] .dash-hero-text {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-4);
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
 }
 
 #tab-dashboard[data-density="focused"] .dash-greeting {
   font-size: var(--text-h3);
+  margin: 0;
+}
+
+#tab-dashboard[data-density="focused"] .dash-hero-text > .name-nudge {
+  justify-self: start;
 }
 
 #tab-dashboard[data-density="focused"] .dash-submessage {
+  grid-column: 1 / -1;
   font-size: var(--text-sm);
-  margin-top: 0;
+  margin: 0;
+}
+
+/* The time, at the banner's scale: one line, right-aligned, the date under it
+   in the summary's size, so the banner has a right edge rather than ending
+   wherever the greeting does. */
+#tab-dashboard[data-density="focused"] .dash-clock {
+  flex: none;
+  text-align: right;
+}
+
+#tab-dashboard[data-density="focused"] .dash-clock-time {
+  font-size: var(--text-h3);
+  color: var(--ink); /* as on Full: the time is information, not an accent */
+}
+
+#tab-dashboard[data-density="focused"] .dash-clock-date {
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 600px) {
+  #tab-dashboard[data-density="focused"] .dash-clock {
+    display: none;
+  }
 }
 
 /* The picker sits in the toolbar with Widgets and Edit layout, so it lines up

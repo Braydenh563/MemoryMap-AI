@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Dashboard, Focused view: the search field has its own full-width row again instead of sharing a line with the greeting (its width changed with the greeting's length), and the banner is a compact version of the Full one, with the time on the right.
 - Shortened note text across the app (the dashboard's last-note pill, pickers, link labels, previews) is cut at a whole word with an ellipsis instead of mid-word.
 - The Library counted only the newest 200 of each kind, so a notebook of 400 notes read "Notes 198" and a Library search could not find an older note. Counts are the real totals, a search asks the server (which matches before it pages), and a line under the grid says when only the newest page is shown.
 - Saved looks in Appearance get room for their names (two lines before any truncation) and the delete button is a small badge on the card corner instead of crowding the name. The dashboard search field no longer lets the background art show through when glass is off.

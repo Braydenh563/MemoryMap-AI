@@ -75,6 +75,14 @@ with its owner named in the entry.
     organic, smoother faded transitions; (o) optimise Microbes (both sent to
     the backgrounds agent). (p) "see if there are any more areas to reduce
     lag ... like the avatars and other animations" (the audit agent, 424).
+    (q) "on the dashboard when on the focused view, the hero section row is
+    ugly and needs improvement and I dont agree with the search bar being on
+    the same line and changing width depending on how long the welcome
+    message is" (fixed: the owner's decision reverses INBOX 296's one-row
+    head; Focused is Full's head at a smaller scale, a 71px banner with the
+    greeting and name nudge, the summary under them and the time on the
+    right, and the search full width beneath it at 1408px whatever the
+    greeting says; measured at 1440 and 390).
 424. **Audit of 2026-09-24 (performance measured in Playwright on a
     400-note, 1,200-link, 250-object board, 120-topic map, 30-image
     fixture, at 1440x900, 1x and 4x CPU with CDP profiles; UX walked at

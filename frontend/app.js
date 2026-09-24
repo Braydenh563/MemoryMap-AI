@@ -15865,6 +15865,11 @@ function renderChatEmptyState() {
   // Animated like the ai-mark: a new chat is the AI waiting, and the slow
   // turn says so. Stills itself under Settings → Appearance → reduced motion.
   renderEmblem(emblem, 52, { animate: true }); // after insertion: see addAssistantBubble
+  fitChatEmpty();
+  if (!fitChatEmpty.watching && typeof ResizeObserver === "function") {
+    fitChatEmpty.watching = true;
+    new ResizeObserver(() => fitChatEmpty()).observe(box);
+  }
 }
 
 function clearChatEmptyState() {
@@ -17401,7 +17406,10 @@ function syncChatJumpLatest() {
   const scrolledAway = distance > SCROLL_STICK_SLACK;
   pane.dataset.stuck = scrolledAway ? "0" : "1";
   const overflowing = pane.scrollHeight - pane.clientHeight > SCROLL_STICK_SLACK;
-  button.classList.toggle("hidden", !(scrolledAway && overflowing));
+  //: And never on a transcript with no messages: the owner's screenshot of a
+  //: new chat had the pill under the welcome, which is "latest" of nothing.
+  const hasMessages = Boolean(pane.querySelector(".msg"));
+  button.classList.toggle("hidden", !(scrolledAway && overflowing && hasMessages));
   const streaming = Boolean(chatStreaming);
   button.classList.toggle("is-generating-pill", streaming);
   const label = $("chat-jump-latest-label");
@@ -31231,6 +31239,26 @@ function fitComposerToDock(box) {
 function refitComposer() {
   const box = document.getElementById("chat-input");
   if (box) autoGrow(box);
+  fitChatEmpty();
+}
+
+//: **The welcome fits its pane, or it gets smaller** (the owner, 2026-09-24:
+//: "the new chat page has a scrollbar as the suggested try asking stuff makes
+//: it scroll"). Measured at 1440x720 with no model connected: the pane is
+//: 295px and the welcome 350px, so a new chat opened on a scrollbar. Below
+//: its own natural height the welcome drops the emblem and tightens its
+//: spacing (`.chat-empty.is-short`, 08-consistency.css), which is 110px back.
+//: The choice is made against the welcome's *full* height, read with the
+//: class off, so going compact can never shrink it under the line and flip
+//: it back; read every time, because the chips arrive after the welcome is
+//: drawn and a figure kept from before them was 110px short (measured).
+function fitChatEmpty() {
+  const pane = document.getElementById("chat-messages");
+  const empty = pane && pane.querySelector(".chat-empty");
+  if (!empty) return;
+  empty.classList.remove("is-short");
+  const full = empty.offsetHeight;
+  empty.classList.toggle("is-short", pane.clientHeight > 0 && pane.clientHeight < full);
 }
 
 //: `ring-held` holds `.chat-dock:focus-within`'s accent ring off while the

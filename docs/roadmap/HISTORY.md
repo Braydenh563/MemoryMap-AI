@@ -34247,3 +34247,13 @@ with an unselected note moving 1.7 and no pins written.
     over prose it had just commented, a .sql document threw on open, and a
     Python file's outline listed its `#` comments as headings.
 
+407. **The owner, 2026-09-24, verbatim.** "also the new chat page has a
+    scrollbar as the sugested try asking stuff makes it scroll. it isnt too
+    much of an issue but it could potentially be improved somehow." Fixed
+    2026-09-24: measured 55px over at 1440x720, 41px at 1440x640, 24px at
+    390x844; the questions take the pane's width (one row at 1440), the
+    welcome compacts only when its pane is shorter than it (`fitChatEmpty`),
+    phone starters scroll sideways, the '?' no longer sits on the title, and
+    "Jump to latest" never shows on a transcript with no messages. After:
+    scrollHeight equals clientHeight at all four sizes.
+

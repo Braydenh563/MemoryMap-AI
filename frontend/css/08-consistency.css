@@ -4630,3 +4630,58 @@ main,
     display: none;
   }
 }
+
+/* The welcome on a short pane (`fitChatEmpty`, app.js): no emblem, tighter
+   rhythm, the questions closer to the line above them. Only when the pane is
+   shorter than the welcome's own height, so a tall window keeps the full one. */
+.chat-empty.is-short {
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+}
+
+.chat-empty.is-short #chat-empty-emblem {
+  display: none;
+}
+
+.chat-empty.is-short #chat-suggest {
+  margin-top: var(--space-2);
+}
+
+/* The questions take the pane's width, the sentences keep their measure.
+   Inside the 52ch column four questions wrapped two to a line, a row of
+   height the welcome did not need (measured at 1440 wide: two rows, 93px). */
+.chat-empty {
+  max-width: min(100%, 100ch);
+}
+
+.chat-empty > p {
+  max-width: 52ch;
+}
+
+/* On a phone the welcome is a narrow column and its questions stacked one to
+   a line, four lines under a scrollbar (measured at 390x844: 24px over). The
+   title leaves the corner '?' its room, and the questions become one row
+   that scrolls sideways, the pattern phone chat apps use for starters, with
+   the edge fading to say there is more. */
+@media (max-width: 600px) {
+  .chat-empty .empty-title {
+    padding-inline: calc(var(--target-min) + var(--space-1));
+  }
+
+  .chat-empty #chat-suggest {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--space-6)), transparent);
+  }
+
+  .chat-empty #chat-suggest > .muted {
+    display: none;
+  }
+
+  .chat-empty #chat-suggest > .chip {
+    flex: 0 0 auto;
+  }
+}

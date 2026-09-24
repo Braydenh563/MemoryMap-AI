@@ -4370,6 +4370,8 @@ textarea.autogrow {
 /* The findings themselves. A list, under the bar that counts them, so opening
    it does not cover the document it is about. */
 .doc-prose-panel {
+  /* The right dock's width (`applyDocProseDock`); the grip writes it inline. */
+  --doc-prose-w: 20rem;
   margin-top: var(--space-2);
   padding: var(--space-3);
   border: 1px solid var(--border);
@@ -4442,6 +4444,53 @@ textarea.autogrow {
    text is not an edge case, it is the accessibility setting. */
 .doc-prose-panel:has(.doc-prose-row[aria-current]) {
   max-height: min(24vh, 15rem);
+}
+
+/* **Docked on the right** (INBOX 410, `applyDocProseDock`): the panel is a
+   column in `#doc-panes`, beside the source and the preview, so the editor
+   gives up width instead of height. Its height is the row's, with no ceiling:
+   the ceilings above exist to keep the editor's height, and here none of it is
+   being taken. The width is `--doc-prose-w`, set by the grip, and the text
+   column keeps at least half (clamped in script). */
+#doc-panes.doc-prose-right {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+#doc-panes.doc-prose-right>.doc-source-wrap,
+#doc-panes.doc-prose-right>.doc-preview {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.doc-prose-panel.doc-prose-right,
+.doc-prose-panel.doc-prose-right:has(.doc-prose-row[aria-current]) {
+  flex: 0 0 var(--doc-prose-w);
+  width: var(--doc-prose-w);
+  max-height: none;
+  margin-top: 0;
+}
+
+/* The sidebars' grip as a flex item between the text and the column rather
+   than absolutely placed inside a box that scrolls, where it would scroll away
+   with the list. Gone with the panel when the panel is closed. */
+.doc-prose-resize.sidebar-resize {
+  position: static;
+  flex: 0 0 var(--space-3);
+  height: auto;
+  align-self: stretch;
+}
+
+.doc-prose-resize:has(+ .doc-prose-panel.hidden) {
+  display: none;
+}
+
+/* Where there is no room beside the editor the panel is under it whatever was
+   chosen (`DOC_PROSE_NARROW`), so the toggle that chooses is not offered. */
+@media (max-width: 720px) {
+  .doc-prose-panel .doc-prose-tools .doc-prose-dock {
+    display: none;
+  }
 }
 
 .doc-prose-head {

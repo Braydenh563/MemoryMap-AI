@@ -12601,6 +12601,12 @@ function docProseHeader() {
     openDocDictionary()
   );
   tools.appendChild(dict);
+  //: Where the panel sits, bottom or right (`applyDocProseDock`), beside the
+  //: way out: both are about the panel itself rather than its findings.
+  const dock = smallButton("ph:square-split-horizontal", "Dock the suggestions on the right", () => toggleDocProseDock());
+  dock.classList.add("icon-only", "doc-prose-dock");
+  docProseDockLabel(dock, docProseDockSide() === "right");
+  tools.appendChild(dock);
   const close = smallButton("ph:x", "Close the suggestions", () => closeDocProsePanel());
   close.classList.add("icon-only", "doc-prose-close");
   close.setAttribute("aria-label", "Close the suggestions");
@@ -13822,6 +13828,166 @@ $("doc-prose")?.addEventListener("click", () => {
   chip.setAttribute("aria-expanded", String(open));
   if (open) renderDocProsePanel();
 });
+
+// --- where the suggestions panel sits (INBOX 410) ---------------------------
+//
+// The owner, 2026-09-24: "allow the suggestions panel to be docked on the
+// right instead if the user wishes." Under the editor it takes height from a
+// document that is usually taller than it is wide; beside it, on a wide
+// window, it takes width the text column was not using. So both, the writer's
+// choice from the panel's own head, remembered per browser (a layout
+// preference about this screen, not about the notebook), and a column that
+// resizes by the sidebars' own handle (`makeSidebarResizable` in app.js: a
+// `role="separator"` grip, drag, arrow keys, Home or a double click to reset).
+//
+// **Right means a column in `#doc-panes`**, beside the source and the preview,
+// so split view and the right dock share one row and the editor gives up
+// width rather than height. The panel element moves; nothing is rebuilt, so
+// an open row and its scroll position survive the move. At 720px and below
+// (where the sidebars' own handles stop, there being no room beside anything)
+// it is always under the editor, whatever was chosen.
+const DOC_PROSE_DOCK_KEY = "docProseDock";
+const DOC_PROSE_WIDTH_KEY = "docProseWidth";
+const DOC_PROSE_WIDTH_DEFAULT = 320;
+const DOC_PROSE_WIDTH_MIN = 240;
+const DOC_PROSE_NARROW = "(max-width: 720px)";
+
+function docProseDockChoice() {
+  try {
+    return localStorage.getItem(DOC_PROSE_DOCK_KEY) === "right" ? "right" : "bottom";
+  } catch {
+    return "bottom";
+  }
+}
+
+//: The side in effect: the choice, except where there is no room for it.
+function docProseDockSide() {
+  return window.matchMedia(DOC_PROSE_NARROW).matches ? "bottom" : docProseDockChoice();
+}
+
+//: Clamped against the room there is: never under the floor, never more than
+//: half the editor's row, so the text column is always the larger of the two.
+function docProseApplyWidth(width) {
+  const panel = $("doc-prose-panel");
+  const panes = $("doc-panes");
+  if (!panel || !panes) return DOC_PROSE_WIDTH_DEFAULT;
+  const room = panes.getBoundingClientRect().width || window.innerWidth;
+  const max = Math.max(DOC_PROSE_WIDTH_MIN, Math.round(room * 0.5));
+  const clamped = Math.min(Math.max(Math.round(width), DOC_PROSE_WIDTH_MIN), max);
+  panel.style.setProperty("--doc-prose-w", `${clamped}px`);
+  try {
+    localStorage.setItem(DOC_PROSE_WIDTH_KEY, String(clamped));
+  } catch {
+    /* private mode: it just won't be remembered */
+  }
+  return clamped;
+}
+
+function docProseSavedWidth() {
+  try {
+    return Number(localStorage.getItem(DOC_PROSE_WIDTH_KEY)) || DOC_PROSE_WIDTH_DEFAULT;
+  } catch {
+    return DOC_PROSE_WIDTH_DEFAULT;
+  }
+}
+
+//: The grip, built once and moved with the panel: the sidebars' handle
+//: (`.sidebar-resize`, the same role, keys and double click), on the panel's
+//: leading edge because the panel grows away from the text, as the web panel's
+//: does in chat.
+let docProseGrip = null;
+
+function docProseResizeHandle() {
+  let handle = docProseGrip;
+  if (handle) return handle;
+  handle = document.createElement("div");
+  docProseGrip = handle;
+  handle.className = "sidebar-resize doc-prose-resize";
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("aria-orientation", "vertical");
+  handle.setAttribute("tabindex", "0");
+  handle.setAttribute("aria-label", "Resize the suggestions: arrow keys, or drag");
+  handle.title = "Drag to resize, double-click to reset";
+  const panel = () => $("doc-prose-panel");
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = panel().getBoundingClientRect().width;
+    document.body.classList.add("resizing-sidebar");
+    //: Dragging left (a negative delta) widens it: the mirror of a sidebar.
+    const move = (e) => docProseApplyWidth(startWidth - (e.clientX - startX));
+    const stop = () => {
+      document.body.classList.remove("resizing-sidebar");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  });
+  handle.addEventListener("keydown", (event) => {
+    const step = event.shiftKey ? 40 : 12;
+    const current = panel().getBoundingClientRect().width;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      docProseApplyWidth(current + step);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      docProseApplyWidth(current - step);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      docProseApplyWidth(DOC_PROSE_WIDTH_DEFAULT);
+    }
+  });
+  handle.addEventListener("dblclick", () => docProseApplyWidth(DOC_PROSE_WIDTH_DEFAULT));
+  return handle;
+}
+
+//: Put the panel where the side in effect says, and say so on the head's
+//: toggle. Safe to call any number of times: a panel already in place is not
+//: moved again.
+function applyDocProseDock() {
+  const panel = $("doc-prose-panel");
+  const panes = $("doc-panes");
+  const bar = $("doc-statusbar");
+  if (!panel || !panes || !bar) return;
+  const right = docProseDockSide() === "right";
+  const handle = docProseResizeHandle();
+  if (right) {
+    if (panel.parentElement !== panes) panes.append(handle, panel);
+    docProseApplyWidth(docProseSavedWidth());
+  } else if (panel.previousElementSibling !== bar) {
+    bar.after(panel);
+    handle.remove();
+  }
+  panes.classList.toggle("doc-prose-right", right);
+  panel.classList.toggle("doc-prose-right", right);
+  const toggle = panel.querySelector(".doc-prose-dock");
+  if (toggle) docProseDockLabel(toggle, right);
+}
+
+function docProseDockLabel(button, right) {
+  const words = right ? "Dock the suggestions at the bottom" : "Dock the suggestions on the right";
+  setLabel(button, right ? "ph:square-split-vertical" : "ph:square-split-horizontal");
+  button.title = words;
+  button.setAttribute("aria-label", words);
+  button.setAttribute("aria-pressed", String(right));
+}
+
+function toggleDocProseDock() {
+  const next = docProseDockChoice() === "right" ? "bottom" : "right";
+  try {
+    localStorage.setItem(DOC_PROSE_DOCK_KEY, next);
+  } catch {
+    /* private mode: it moves for this session only */
+  }
+  applyDocProseDock();
+  //: Focus stays on the toggle, which moved with the panel: the press that
+  //: moved it should not lose the reader's place.
+  $("doc-prose-panel")?.querySelector(".doc-prose-dock")?.focus();
+}
+
+window.matchMedia(DOC_PROSE_NARROW).addEventListener("change", applyDocProseDock);
+applyDocProseDock();
 
 for (const [name, id] of Object.entries(DOC_TOOL_KEYS)) {
   const input = $(id);

@@ -12937,7 +12937,11 @@ button.finder-row:hover,
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface-2);
+  /* The tint alone is 4% ink over whatever is behind it, so with glass off
+     the page art showed straight through and the field still read as glass
+     (INBOX 425 m). The tint now sits on the card ground, which glass off
+     swaps for a solid colour like every other surface. */
+  background: linear-gradient(var(--surface-2), var(--surface-2)), var(--card);
   color: var(--muted);
   font: inherit;
   font-size: var(--text-base);

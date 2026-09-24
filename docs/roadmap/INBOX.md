@@ -61,10 +61,17 @@ with its owner named in the entry.
     view". Settings: (j) "remove the need for saving preferences in the
     settings and just have it auto save like the rest of the settings";
     (k) "should these text boxes be aligned to the right??" (the
-    Preferences number fields); (l) "Improve how custom theme cards are
-    displayed" (name truncated "Sea of P...", delete button crowding it).
+    Preferences number fields; answered, no change: measured, all four
+    sit on the pane's one field column at x=812, the same left edge as
+    Display name and the answer-style select, and flushing them right
+    would give each a different left edge because their units differ); (l) "Improve how custom theme cards are
+    displayed" (name truncated "Sea of P...", delete button crowding it; fixed: saved looks get a 10rem track,
+    the name wraps to two lines before it truncates, delete is a badge on
+    the card corner; measured 183px cards, no name clipped at 1440).
     Dashboard: (m) "the search bar on the dashboard has a glass aesthetic
-    even when it is off". Backgrounds: (n) Mycelium start points more
+    even when it is off"
+    (fixed: its ground was a 4% tint over the page art; the tint now sits
+    on `--card`, which glass off makes solid). Backgrounds: (n) Mycelium start points more
     organic, smoother faded transitions; (o) optimise Microbes (both sent to
     the backgrounds agent). (p) "see if there are any more areas to reduce
     lag ... like the avatars and other animations" (the audit agent, 424).

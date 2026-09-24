@@ -3588,6 +3588,42 @@ aside[data-resizable="1"] {
   }
 }
 
+/* INBOX 425 (l), with a screenshot: "Sea of P..." and a delete button
+   crowding it. The cards shared the 104px track of the built-in presets, a
+   width sized for a swatch, not for a name a person typed; and the delete
+   button took a third of the footer, so the name got what was left. A saved
+   look gets a track a name fits in, the name wraps to two lines before it
+   truncates, and delete becomes a badge on the card's own corner, where it
+   covers neither the name nor the preview's accent dot (it sat on the dot
+   when it was inside the preview). */
+#custom-themes:not(.theme-presets-empty) {
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+}
+
+.saved-look {
+  position: relative;
+}
+
+.saved-look-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+
+.saved-look-delete {
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  right: calc(-1 * var(--space-2));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg-opaque);
+  color: var(--ink);
+}
+
 /* ===================== TENSIONS: THE DISAGREEMENT REVIEW ==================
    Where the notebook disagrees with itself, see `ai/tensions.py`. Two notes
    side by side with what the model thinks they disagree about, and the two

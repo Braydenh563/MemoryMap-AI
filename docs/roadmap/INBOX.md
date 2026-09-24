@@ -41,7 +41,12 @@ with its owner named in the entry.
     from the keyboard only. (b) DOCX export writes `:::columns`, `[TOC]` and
     `[!kind]` as plain text: map them to Word columns, a TOC field and a
     shaded box. (c) Inline `$x$` maths is plain symbols in Read view: render
-    it through the same TeX-to-MathML path as `$$`. (d) The OCR workspace's
+    it through the same TeX-to-MathML path as `$$`. (fixed: `INLINE_MATH_RE`
+    (app.js) now claims a `$…$` span with no space inside either delimiter
+    and no digit right after the close; `unlatex` carries it through
+    untouched instead of symbol-swapping it, and `renderInlineMarkdown` cuts
+    it out and draws it with `mdInlineMathElement`, the same `docMathRender`
+    the `$$` blocks use. `tests/test_inline_math.py`.) (d) The OCR workspace's
     message for a vision reading still suggests installing Tesseract: word
     it by reader. (e) At 150% zoom the lightbox picture overlaps its caption
     line. (f) Stored readings that already contain a repeated-line loop are

@@ -51,6 +51,11 @@ with its owner named in the entry.
     2026-09-24 always show Atlas's mark (their persona was never stored).
     (i) The server-mode process takes 5 to 9s to exit after uvicorn
     finishes: find the thread that holds it.
+    (j) `gate.sh --sweeps` on 25d7d56 (fixture data dir /tmp/mm-me):
+    asktab.js 3 findings, libreadingfoot.js "reading visible: false" and
+    "no card with a reading", tagoffer.js 2 failures (manual route and the
+    empty tag row flag). Triage each as app bug or stale sweep before
+    fixing; the reader's 36px page box is fixed (25d7d56).
 
 421. **The owner, 2026-09-24, verbatim, with screenshots (placed in agent
     briefs, two at a time).** (a) "in the radials on the mind map, the items

@@ -358,7 +358,7 @@ def test_saving_an_autonomous_preference_wakes_the_scheduler(client, monkeypatch
 def test_the_avatar_style_round_trips_and_refuses_anything_but_names(client):
     # The owner: "what if i dont like how the avatar it looks on my name??"
     # A shuffle (`variant`) and per-part overrides, saved with the profile.
-    style = {"variant": 3, "mood": "happy", "hair": "bob", "outfit": "hoodie", "hat": "none", "eyewear": "", "hand": "controller"}
+    style = {"variant": 3, "mood": "happy", "hair": "bob", "outfit": "hoodie", "hat": "none", "eyewear": "", "hand": "controller", "look": "feminine"}
     assert client.put("/preferences", json={"avatar_style": style}).status_code == 200
     got = client.get("/preferences").json()["avatar_style"]
     assert got == style

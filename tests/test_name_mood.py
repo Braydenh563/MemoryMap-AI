@@ -438,7 +438,7 @@ def test_atlas_style_is_a_choice_that_every_atlas_follows() -> None:
     settings = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert '"atlas-style": "character"' in settings
-    assert '"avatar-buddy", "atlas-style", "dash-mark"' in settings, "Reset forgets the choice"
+    assert "\"avatar-buddy\", \"atlas-style\", \"atlas-look\", \"face-look\", \"dash-mark\"" in settings, "Reset forgets the choice"
     assert 'id="atlas-style"' in index and '<option value="classic">Classic globe</option>' in index
     assert 'atlasStyle() === "classic") return atlasClassicMark(size, mood);' in atlas
     assert 'if (atlasStyle() === "classic") return atlasClassicFigure();' in atlas
@@ -457,3 +457,38 @@ def test_atlas_hears_a_saved_note_and_a_streak() -> None:
     assert "atlasStreak(streak)" in dashboard
     streak = atlas[atlas.index("function atlasStreak(") :][:400]
     assert "atlas-streak-seen" in streak and "toDateString()" in streak
+
+
+def _leaning(lean: str, style: dict, names: list[str], tmp_path: Path) -> list[dict]:
+    node = shutil.which("node")
+    if not node:  # pragma: no cover
+        pytest.skip("node is not available")
+    script = tmp_path / "lean.js"
+    script.write_text(
+        f'function appearancePref(key, fallback) {{ return key === "face-look" ? {json.dumps(lean)} : fallback; }}\n'
+        'function userMarkSeed() { return "Brayden"; }\n'
+        + _mood_source()
+        + f"\nsetOwnNameMarkStyle({json.dumps(style)});\n"
+        + f"console.log(JSON.stringify({json.dumps(names)}.map(nameMood)));\n",
+        encoding="utf-8",
+    )
+    out = subprocess.run([node, str(script)], capture_output=True, text=True, check=True)
+    return json.loads(out.stdout)
+
+
+def test_faces_lean_to_the_chosen_look_unless_the_name_says(tmp_path: Path) -> None:
+    # The owner: "the male and female choice avatars generation". Settings,
+    # Appearance, Face looks leans every name that says nothing either way;
+    # a name that does say keeps its own look, and your own face's chosen
+    # look (Your look, Look) wins over both.
+    names = [f"Pal {i}" for i in range(12)] + ["Dude Bob", "Queen Mary"]
+    mixed = _leaning("mixed", {}, names, tmp_path)
+    assert {m["look"] for m in mixed[:12]} == {None}
+    feminine = _leaning("feminine", {}, names, tmp_path)
+    assert all(m["look"] == "feminine" for m in feminine[:12])
+    assert feminine[12]["look"] == "masculine" and feminine[13]["look"] == "feminine"
+    masculine = _leaning("masculine", {}, names, tmp_path)
+    assert all(m["look"] == "masculine" for m in masculine[:12])
+    assert masculine[13]["look"] == "feminine"
+    (mine,) = _leaning("masculine", {"look": "feminine"}, ["Brayden"], tmp_path)
+    assert mine["look"] == "feminine"

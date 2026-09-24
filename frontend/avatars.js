@@ -258,6 +258,22 @@ function nameMarkOwnFor(name) {
   return own && String(name || "").trim().toLowerCase() === own ? ownNameMarkStyle() : null;
 }
 
+//: The look a generated face takes when its name gives no cue: null for
+//: Mixed (the name's own hash decides, as before), or one of the two.
+function nameMarkLookLean() {
+  const lean = typeof appearancePref === "function" ? appearancePref("face-look", "mixed") : "mixed";
+  return lean === "feminine" || lean === "masculine" ? lean : null;
+}
+
+//: Every generated face on the page drawn again (a change of Face looks):
+//: every size read first, then every face replaced, so it costs one layout.
+function nameMarkRepaintAll() {
+  const faces = [...document.querySelectorAll(".name-mark[data-nm-seed]:not(.nm-atlas)")].filter((el) => !el.closest("#nm-buddy"));
+  const sizes = faces.map((el) => Math.round(el.getBoundingClientRect().width) || 20);
+  faces.forEach((el, i) => el.replaceWith(nameMark(el.dataset.nmSeed, sizes[i])));
+  if (typeof repaintOwnFace === "function") repaintOwnFace();
+}
+
 function nameMood(name) {
   const raw = String(name || "").trim();
   const own = nameMarkOwnFor(raw);
@@ -344,6 +360,13 @@ function nameMood(name) {
   result.limbs = find(table.limbs);
   result.wing = find(table.wings);
   result.look = find(table.looks);
+  //: Your own face's chosen look wins; any other name that says nothing
+  //: either way takes the look Settings, Appearance, Face looks leans to
+  //: (the owner: "the male and female choice avatars generation"). A name
+  //: that does say ("Queen Mary", "Dude") keeps its own.
+  const ownLook = own && ["feminine", "masculine"].includes(own.look) ? own.look : null;
+  if (ownLook) result.look = ownLook;
+  else if (!result.look) result.look = nameMarkLookLean();
   const wingLimbs = { angel: "wings-feather", bird: "wings-feather", dragon: "wings-bat", bat: "wings-bat", fairy: "wings-bug", bee: "wings-bug", butterfly: "wings-bug" };
   if (result.wing && !result.limbs) result.limbs = wingLimbs[result.wing];
   result.animal = find(table.animals);
@@ -1151,7 +1174,7 @@ function nameMark(seed, size = 20) {
   //: Under 28px a face never moves, so it is one picture; above, its parts.
   const moving = size >= 28;
   const style = JSON.stringify(nameMarkOwnFor(seed) || {});
-  const face = nameMarkCompose(`gen|${moving ? "p" : "f"}|${seed}|${style}`, () => drawCharacter(seed, 100, "mark"), { parts: moving ? NM_MARK_PARTS : "", size });
+  const face = nameMarkCompose(`gen|${moving ? "p" : "f"}|${seed}|${style}|${nameMarkLookLean() || ""}`, () => drawCharacter(seed, 100, "mark"), { parts: moving ? NM_MARK_PARTS : "", size });
   watchNameMark(face);
   return face;
 }
@@ -2177,6 +2200,7 @@ function dashboardMarkSeed() {
 //: change redraws your face everywhere at once and marks the profile form
 //: unsaved; Save preferences keeps it (`avatar_style`).
 const PROFILE_LOOK_PARTS = [
+  ["look", "Look", () => ["feminine", "masculine"]],
   ["mood", "Mood", () => ["happy", "excited", "calm", "cool", "cute", "sly", "evil", "sleepy", "dramatic", "love", "laughing", "unimpressed", "surprised", "serious", "nervous", "confused", "hungry", "greedy", "sad", "angry", "starstruck", "uwu", "dizzy", "sick", "dead", "drunk"]],
   ["hair", "Hair", () => ["long", "bob", "pigtails", "buns", "ponytail", "curly", "short", "spiky", "quiff", "buzz"]],
   ["outfit", "Clothes", () => ["tee", "hoodie", "scoop", "collar", "sweater", "blazer", "suit", "dress"]],
@@ -2508,7 +2532,7 @@ function nameCharacterFigure(seed) {
   const figure = document.createElement("span");
   figure.className = "nm-figure nm-live";
   const own = JSON.stringify(nameMarkOwnFor(seed) || {});
-  figure.appendChild(nameMarkCompose(`fig|${seed}|${own}`, () => drawCharacter(seed, NMB_W, "figure"), { parts: NM_FIGURE_PARTS, pad: 24, size: NMB_W, height: NMB_H }));
+  figure.appendChild(nameMarkCompose(`fig|${seed}|${own}|${nameMarkLookLean() || ""}`, () => drawCharacter(seed, NMB_W, "figure"), { parts: NM_FIGURE_PARTS, pad: 24, size: NMB_W, height: NMB_H }));
   return figure;
 }
 

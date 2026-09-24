@@ -824,10 +824,11 @@ function watchNameMark(svg) {
   //: dont think the really small faces on the message bubble corners should
   //: move even if it is selected as that might be too heavy"). Hover still
   //: wakes one.
-  if ((Number(svg.getAttribute("width")) || 0) < 28) return;
+  if ((Number(svg.dataset.nmSize || svg.getAttribute("width")) || 0) < 28) return;
   if (typeof IntersectionObserver !== "function") {
     svg.dataset.nmOn = "";
     nameMarkOnScreen.add(svg);
+    nameMarkKeyboard(svg);
     return;
   }
   if (!nameMarkObserver) {
@@ -836,6 +837,7 @@ function watchNameMark(svg) {
         if (entry.isIntersecting) nameMarkOnScreen.add(entry.target);
         else nameMarkOnScreen.delete(entry.target);
         if (entry.isIntersecting) entry.target.dataset.nmOn = "";
+        if (entry.isIntersecting) nameMarkKeyboard(entry.target);
         else delete entry.target.dataset.nmOn;
         if (!entry.target.isConnected) nameMarkObserver.unobserve(entry.target);
       }
@@ -843,6 +845,28 @@ function watchNameMark(svg) {
   }
   nameMarkObserver.observe(svg);
 }
+
+//: **A face you can reach from the keyboard** (INBOX 425 h): one that is not
+//: inside a control takes a tab stop and says what Enter does; one inside a
+//: control (the Settings head button) stays the control's decoration.
+function nameMarkKeyboard(face) {
+  if (face.dataset.nmKb) return;
+  face.dataset.nmKb = "1";
+  if (!face.isConnected || face.closest("button, a, [role='button'], label, select, summary, #nm-buddy, .nm-viewer")) return;
+  face.tabIndex = 0;
+  face.setAttribute("role", "button");
+  face.removeAttribute("aria-hidden");
+  face.setAttribute("aria-label", `${face.dataset.nmSeed || "Atlas"}: open the large view`);
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const face = event.target;
+  if (!(face instanceof Element) || !face.matches(".name-mark[role='button']")) return;
+  event.preventDefault();
+  nameMarkReact(face);
+  openNameMarkViewer(face.dataset.nmSeed || "");
+});
 
 //: **Atlas's own face** (the owner: "should we make a very very impressive
 //: avatar for Atlas that embodies the core of the application and who atlas
@@ -870,9 +894,9 @@ function setAtlasMood(mood, forMs = 0) {
   //: The companion reads the same events: it thinks while a turn runs,
   //: cheers when it lands and starts when it fails.
   nameMarkBuddyCue(mood === "thinking" ? "think" : mood === "happy" ? "cheer" : mood === "surprised" ? "startle" : "rest");
-  for (const svg of document.querySelectorAll("svg.nm-atlas")) {
-    const size = Number(svg.getAttribute("width")) || 20;
-    svg.replaceWith(atlasMark(size));
+  for (const face of document.querySelectorAll(".name-mark.nm-atlas")) {
+    const size = Number(face.dataset.nmSize || face.getAttribute("width")) || 20;
+    face.replaceWith(atlasMark(size));
   }
   if (forMs) atlasMoodTimer = setTimeout(() => setAtlasMood(atlasRestingMood()), forMs);
 }
@@ -895,6 +919,14 @@ setInterval(() => {
 }, 60 * 1000);
 
 function atlasMark(size = 20, mood = atlasMoodNow) {
+  const accent = (typeof currentAccentHex === "function" && currentAccentHex()) || "#6d5dfc";
+  const moving = size >= 28;
+  const svg = nameMarkCompose(`atlas|${moving ? "p" : "f"}|${mood}|${accent}`, () => atlasMarkSvg(100, mood), { parts: moving ? NM_MARK_PARTS : "", size });
+  watchNameMark(svg);
+  return svg;
+}
+
+function atlasMarkSvg(size, mood) {
   const svgNs = "http://www.w3.org/2000/svg";
   const make = (tag, attrs) => {
     const el = document.createElementNS(svgNs, tag);
@@ -1007,7 +1039,6 @@ function atlasMark(size = 20, mood = atlasMoodNow) {
   }
   g.appendChild(body);
   svg.append(defs, g);
-  watchNameMark(svg);
   return svg;
 }
 
@@ -1106,6 +1137,183 @@ function characterFor(seed) {
   };
 }
 
+// --- faces drawn once, moved on the compositor ------------------------------------
+//: **Why every face is a few cached pictures, not a live SVG** (the owner:
+//: "can caching be used to reduce the load of companion, bg, and other
+//: animations??"). An SVG group that animates is restyled, laid out and
+//: repainted on the main thread every frame: measured, the companion at
+//: rest cost 106 layouts and 107 style recalcs a minute. So a face is drawn
+//: once as SVG, cut into its moving parts, and each part (and each run of
+//: still drawing between them, so the paint order holds) becomes a small
+//: image in an HTML element that carries the part's own class. The CSS that
+//: moved the SVG groups moves those elements instead, with transform and
+//: opacity only, which the compositor runs without the main thread.
+//:
+//: - `nameMarkCompose(key, build, options)` keeps one cut-up template per
+//:   key in `nameMarkFaceCache` (the least recently used goes past 160) and
+//:   hands back a clone. The key names everything the drawing depends on
+//:   (the name, your own style, the accent, Atlas's mood), so a new theme,
+//:   accent or character simply asks for a new key; nothing runs on a timer.
+//: - The pictures are vector (`data:` SVG), so one template serves every
+//:   size; positions are percentages of the part they sit in.
+//: - A part's pivot (`data-pivot="x y"` in drawing units, for a hip or a
+//:   shoulder) becomes its `transform-origin`; every other part turns about
+//:   its own middle, as `transform-box: fill-box` made it do in the SVG.
+//: - An expression is part of the key, so a change of mood swaps pictures
+//:   rather than attributes; a blink is a squash of the eyes' picture.
+const NM_MARK_PARTS = [
+  ".nm-body", ".nm-eyes", ".nm-blinks", ".nm-tear", ".nm-sweat", ".nm-z", ".nm-spark", ".nm-vein", ".nm-heart",
+  ".nm-q", ".nm-bulb", ".nm-halo", ".nm-steam", ".nm-table", ".nm-balloon", ".nm-bow", ".nm-pompom", ".nm-gem",
+  ".nm-wave", ".nm-wing", ".nm-tentacle", ".nm-foot", ".nm-flame", ".nm-tail", ".nm-tails", ".nm-starfield",
+  ".nm-aura", ".nm-earring",
+].join(", ");
+const NM_FIGURE_PARTS = `${NM_MARK_PARTS}, .nmb-leg, .nmb-arm, .nmb-hold, .nm-buddy-head, .nmp, .nmp-lantern-glow, .nmc-shadow`;
+const NM_FACE_CACHE_CAP = 160;
+const nameMarkFaceCache = new Map();
+let nameMarkMeasureHost = null;
+
+function nameMarkCompose(key, build, { parts = "", pad = 0, size = 20, height = 0 } = {}) {
+  let template = nameMarkFaceCache.get(key);
+  if (template) {
+    nameMarkFaceCache.delete(key);
+  } else {
+    template = nameMarkRasterise(build(), parts, pad);
+    if (nameMarkFaceCache.size >= NM_FACE_CACHE_CAP) nameMarkFaceCache.delete(nameMarkFaceCache.keys().next().value);
+  }
+  nameMarkFaceCache.set(key, template);
+  const face = template.cloneNode(true);
+  face.style.width = `${size}px`;
+  face.style.height = `${height || size}px`;
+  face.dataset.nmSize = String(size);
+  return face;
+}
+
+//: Cuts a drawn SVG into its parts (see above). The SVG is laid out once,
+//: out of sight, to measure where each part is; everything after that is
+//: string work.
+function nameMarkRasterise(svg, parts, pad) {
+  if (!nameMarkMeasureHost) {
+    nameMarkMeasureHost = document.createElement("div");
+    nameMarkMeasureHost.className = "nm-measure";
+    nameMarkMeasureHost.setAttribute("aria-hidden", "true");
+    document.body.appendChild(nameMarkMeasureHost);
+  }
+  nameMarkMeasureHost.appendChild(svg);
+  const [vx, vy, vw, vh] = (svg.getAttribute("viewBox") || "0 0 36 36").split(/[\s,]+/).map(Number);
+  const frame = svg.getBoundingClientRect();
+  const unit = vw / (frame.width || vw);
+  //: Document order, and where each element's subtree ends in it.
+  const all = [];
+  const end = [];
+  const walk = (el) => {
+    const at = all.length;
+    all.push(el);
+    end.push(at);
+    for (const child of el.children) walk(child);
+    end[at] = all.length - 1;
+  };
+  walk(svg);
+  const order = new Map(all.map((el, i) => [el, i]));
+  const isDef = (el) => Boolean(el.closest("defs, clipPath, linearGradient, radialGradient, mask, filter, pattern, symbol, title"));
+  const drawable = (i) => all[i].children.length === 0 && !isDef(all[i]) && all[i] !== svg;
+  const nodes = [{ el: svg, i: 0, parent: -1, box: { x: vx - pad, y: vy - pad, w: vw + pad * 2, h: vh + pad * 2 }, frame: { x: vx, y: vy, w: vw, h: vh } }];
+  const nodeOf = new Map([[svg, 0]]);
+  if (parts) {
+    for (const el of svg.querySelectorAll(parts)) {
+      const r = el.getBoundingClientRect();
+      if (!r.width && !r.height) continue;
+      let up = el.parentElement;
+      while (up && !nodeOf.has(up)) up = up.parentElement;
+      const box = { x: vx + (r.left - frame.left) * unit - 2, y: vy + (r.top - frame.top) * unit - 2, w: r.width * unit + 4, h: r.height * unit + 4 };
+      nodeOf.set(el, nodes.length);
+      nodes.push({ el, i: order.get(el), parent: nodeOf.get(up) ?? 0, box, frame: box });
+    }
+  }
+  //: One picture of the ordinals [from, to] of the drawing, framed on `box`.
+  const serializer = new XMLSerializer();
+  const picture = (from, to, box) => {
+    let any = false;
+    for (let i = from; i <= to && !any; i += 1) any = drawable(i);
+    if (!any) return "";
+    const copy = svg.cloneNode(true);
+    const copies = [];
+    const collect = (el) => {
+      copies.push(el);
+      for (const child of el.children) collect(child);
+    };
+    collect(copy);
+    for (let i = copies.length - 1; i > 0; i -= 1) {
+      const el = copies[i];
+      if (el.tagName === "title") {
+        el.remove();
+        continue;
+      }
+      if (isDef(all[i])) continue;
+      if (end[i] < from || i > to) el.remove();
+    }
+    for (const name of ["class", "style", "width", "height", "aria-hidden", "focusable", "overflow"]) copy.removeAttribute(name);
+    copy.setAttribute("viewBox", `${box.x} ${box.y} ${box.w} ${box.h}`);
+    copy.setAttribute("preserveAspectRatio", "none");
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serializer.serializeToString(copy))}`;
+  };
+  const pct = (v) => `${(v * 100).toFixed(3)}%`;
+  const place = (el, box, within) => {
+    el.style.left = pct((box.x - within.x) / within.w);
+    el.style.top = pct((box.y - within.y) / within.h);
+    el.style.width = pct(box.w / within.w);
+    el.style.height = pct(box.h / within.h);
+  };
+  const image = (url, box, within) => {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.draggable = false;
+    img.decoding = "sync";
+    img.src = url;
+    place(img, box, within);
+    return img;
+  };
+  const elements = nodes.map((node, n) => {
+    if (n === 0) {
+      const top = document.createElement("span");
+      top.className = `${svg.getAttribute("class") || ""} nm-cached`;
+      top.setAttribute("aria-hidden", "true");
+      const title = svg.querySelector("title")?.textContent;
+      if (title) top.title = title;
+      for (const [k, v] of Object.entries(svg.dataset)) top.dataset[k] = v;
+      const delay = svg.style.getPropertyValue("--nm-delay");
+      if (delay) top.style.setProperty("--nm-delay", delay);
+      return top;
+    }
+    const span = document.createElement("span");
+    span.className = `${node.el.getAttribute("class") || ""} nmk`;
+    place(span, node.box, nodes[node.parent].frame);
+    const pivot = (node.el.getAttribute("data-pivot") || "").split(/\s+/).map(Number);
+    if (pivot.length === 2 && pivot.every(Number.isFinite)) {
+      span.style.transformOrigin = `${pct((pivot[0] - node.box.x) / node.box.w)} ${pct((pivot[1] - node.box.y) / node.box.h)}`;
+    }
+    return span;
+  });
+  //: Each element: its own drawing in runs, with its parts between them in
+  //: the order the SVG painted them.
+  nodes.forEach((node, n) => {
+    const kids = nodes.map((k, m) => [k, m]).filter(([k]) => k.parent === n && k !== node).sort((a, b) => a[0].i - b[0].i);
+    //: From the part itself: a part may be one shape (a star, a drop).
+    let from = node.i;
+    const own = node.box;
+    const within = node.frame;
+    for (const [kid, m] of kids) {
+      const url = picture(from, kid.i - 1, own);
+      if (url) elements[n].appendChild(image(url, own, within));
+      elements[n].appendChild(elements[m]);
+      from = end[kid.i] + 1;
+    }
+    const url = picture(from, end[node.i], own);
+    if (url) elements[n].appendChild(image(url, own, within));
+  });
+  svg.remove();
+  return elements[0];
+}
+
 function nameMark(seed, size = 20) {
   //: A registered renderer (a character drawn by hand) answers first.
   const own = characterRendererFor(seed);
@@ -1114,7 +1322,12 @@ function nameMark(seed, size = 20) {
   const named = String(seed || "").trim().toLowerCase();
   const ai = typeof aiNameNow === "function" ? String(aiNameNow() || "").toLowerCase() : "atlas";
   if (named && (named === ai || named === "atlas")) return atlasMark(size);
-  return drawCharacter(seed, size, "mark");
+  //: Under 28px a face never moves, so it is one picture; above, its parts.
+  const moving = size >= 28;
+  const style = JSON.stringify(nameMarkOwnFor(seed) || {});
+  const face = nameMarkCompose(`gen|${moving ? "p" : "f"}|${seed}|${style}`, () => drawCharacter(seed, 100, "mark"), { parts: moving ? NM_MARK_PARTS : "", size });
+  watchNameMark(face);
+  return face;
 }
 
 // --- the generated characters ------------------------------------------------------
@@ -1156,6 +1369,13 @@ function nmMix(hex, other, t) {
   const a = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const b = [1, 3, 5].map((i) => parseInt(other.slice(i, i + 2), 16));
   return `#${a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join("")}`;
+}
+
+//: The one outline colour for a fill: half its lightness, except on a fill
+//: that is nearly black already (dark hair, a pirate's hat, a suit), where a
+//: darker line vanished into a dark page; there it is a lighter rim.
+function nmLineFor(hex) {
+  return nmLuma(hex) < 0.045 ? nmMix(hex, "#ffffff", 0.38) : nmMix(hex, "#000000", 0.5);
 }
 
 function nmLuma(hex) {
@@ -1206,7 +1426,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   const base = nmHex(creature && !creature.human ? creature.head : null) || palette[colourIndex];
   const light = nmMix(base, "#ffffff", 0.28);
   const shade = nmMix(base, "#000000", 0.16);
-  const line = nmMix(base, "#000000", 0.5);
+  const line = nmLineFor(base);
   const spread = 9 + rnd() * 2.2;
   const delay = rnd();
   const tailRoll = rnd();
@@ -1288,7 +1508,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     }
   }
   const hairColour = creature?.hairTone || NM_CHAR_HAIR[(style.hairColour || 0) % NM_CHAR_HAIR.length];
-  const hairLine = nmMix(hairColour, "#000000", 0.45);
+  const hairLine = nmLineFor(hairColour);
   const hairShape = (d, parent) => make("path", { d, fill: hairColour, stroke: hairLine, "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, parent);
   const hair = beast ? null : creature?.hairFixed || style.hair;
   if (hair === "long") hairShape("M3 30 C2 10 16 0 32 0 C48 0 62 10 61 30 L63 60 C58 65 53 63 51 58 L13 58 C11 63 6 65 1 60 Z", back);
@@ -1346,7 +1566,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   if (beast?.spikes) for (const x of [18, 32, 46]) shape("path", { d: `M${x - 6} ${x === 32 ? 5 : 8} L${x} ${x === 32 ? -6 : -2} L${x + 6} ${x === 32 ? 5 : 8} Z`, fill: beast.spikes }, back);
   if (full) {
     for (const [side, d] of [["l", "M14 56 C-2 52 -6 18 6 -6"], ["r", "M50 56 C66 52 70 18 58 -6"]]) {
-      outlined(d, base, 6, back, { class: `nmb-hold nmb-hold-${side}` });
+      outlined(d, base, 6, back, { class: `nmb-hold nmb-hold-${side}`, "data-pivot": side === "l" ? "14 56" : "50 56" });
     }
   }
 
@@ -1359,15 +1579,15 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       // A ghost has no legs to stand on; its hem is its feet.
     } else if (limbs === "tentacles") {
       for (const [side, x] of [["l", 22], ["l", 29], ["r", 35], ["r", 42]]) {
-        outlined(`M${x} 66 C${x - 3} 76 ${x + 3} 82 ${x - 1} 89`, legColour, 5, body, { class: `nmb-leg nmb-leg-${side} nm-tentacle` });
+        outlined(`M${x} 66 C${x - 3} 76 ${x + 3} 82 ${x - 1} 89`, legColour, 5, body, { class: `nmb-leg nmb-leg-${side} nm-tentacle`, "data-pivot": `${x} 66` });
       }
     } else if (limbs === "tail") {
-      const g = make("g", { class: "nmb-leg nmb-leg-l nmb-leg-r" }, body);
+      const g = make("g", { class: "nmb-leg nmb-leg-l nmb-leg-r", "data-pivot": "32 66" }, body);
       shape("path", { d: "M20 66 C22 80 30 84 32 86 C34 84 42 80 44 66 Z", fill: hairColour === base ? "#3fb8a8" : "#3fb8a8" }, g);
       shape("path", { d: "M32 84 L22 91 L32 88 L42 91 Z", fill: "#3fb8a8" }, g);
     } else {
       for (const [side, x] of [["l", 25.5], ["r", 38.5]]) {
-        const leg = make("g", { class: `nmb-leg nmb-leg-${side}` }, body);
+        const leg = make("g", { class: `nmb-leg nmb-leg-${side}`, "data-pivot": `${x} 68` }, body);
         outlined(`M${x} 68 L${x} 84`, legColour, 7, leg);
         shape("ellipse", { cx: x + (side === "l" ? -1.4 : 1.4), cy: 87, rx: 5.6, ry: 3.3, fill: footColour }, leg);
       }
@@ -1382,7 +1602,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     let cloth = NM_CHAR_CLOTHES[(style.outfitColour || 0) % NM_CHAR_CLOTHES.length];
     if (outfit === "suit") cloth = "#33323a";
     if (cloth.toLowerCase() === base.toLowerCase()) cloth = NM_CHAR_CLOTHES[((style.outfitColour || 0) + 3) % NM_CHAR_CLOTHES.length];
-    const clothLine = nmMix(cloth, "#000000", 0.4);
+    const clothLine = nmLineFor(cloth);
     make("path", { d: "M0 52 C12 56 52 56 64 52 L64 92 L0 92 Z", fill: cloth }, clip);
     make("path", { d: "M0 52 C12 56 52 56 64 52", fill: "none", stroke: clothLine, "stroke-width": NM_CHAR_LINE }, clip);
     if (outfit === "collar" || outfit === "suit" || outfit === "blazer") {
@@ -1670,7 +1890,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     make("ellipse", { cx: x, cy: y, rx: 5.6, ry: 5, fill: "#1c1b22" }, top);
   }
   if (props.includes("ninjamask")) {
-    make("path", { d: `M6 ${my - 5} C12 ${my - 7} 52 ${my - 7} 58 ${my - 5} L56 ${my + 12} C44 ${my + 18} 20 ${my + 18} 8 ${my + 12} Z`, fill: "#2b2a33", stroke: "#111", "stroke-width": NM_CHAR_LINE }, top);
+    make("path", { d: `M6 ${my - 5} C12 ${my - 7} 52 ${my - 7} 58 ${my - 5} L56 ${my + 12} C44 ${my + 18} 20 ${my + 18} 8 ${my + 12} Z`, fill: "#2b2a33", stroke: nmLineFor("#2b2a33"), "stroke-width": NM_CHAR_LINE }, top);
     make("path", { d: "M6 14 C16 10 48 10 58 14 L58 19 C48 16 16 16 6 19 Z", fill: "#2b2a33" }, top);
   }
   const headwear = props.find((p) => NAME_MARK_HAT_KINDS.includes(p) || ["halo", "horns", "antenna", "headphones", "helmet"].includes(p));
@@ -1698,7 +1918,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     const kind = creature?.gnomeHat ? "gnome" : headwear;
     const hat = make("g", { class: "nm-hat" }, top);
     const hatColour = palette[(colourIndex + 5) % palette.length];
-    const hatLine = nmMix(hatColour, "#000000", 0.45);
+    const hatLine = nmLineFor(hatColour);
     const fill = (d, colour = hatColour, lineColour = hatLine) => make("path", { d, fill: colour, stroke: lineColour, "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, hat);
     if (kind === "hat") {
       fill("M18 8 C24 -4 30 -18 40 -22 C36 -12 44 -2 48 8 Z", "#5b4bb5", "#2d2366");
@@ -1725,7 +1945,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       fill("M20 8 C22 2 28 -2 32 -6 C36 -2 42 2 44 8 C40 5 24 5 20 8 Z", "#dfe6ee", "#7a8796");
       make("circle", { cx: 32, cy: 0, r: 1.8, fill: "#e36fa6" }, hat);
     } else if (kind === "tricorn") {
-      fill("M4 8 C14 -6 22 -8 32 -4 C42 -8 50 -6 60 8 C48 4 16 4 4 8 Z", "#2b2a33", "#000000");
+      fill("M4 8 C14 -6 22 -8 32 -4 C42 -8 50 -6 60 8 C48 4 16 4 4 8 Z", "#2b2a33", nmLineFor("#2b2a33"));
       make("circle", { cx: 32, cy: 1, r: 2.4, fill: "#f5f4ef" }, hat);
     } else if (kind === "cap") {
       fill("M9 12 C9 -2 20 -6 32 -6 C44 -6 55 -2 55 12 Z");
@@ -1771,7 +1991,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     const claw = beast?.claws;
     const arms = [["l", "M13.5 56 Q9 61 7.5 67"], ["r", "M50.5 56 Q55 61 56.5 67"]];
     for (const [side, d] of arms) {
-      const arm = outlined(d, armColour, 6, body, { class: `nmb-arm nmb-arm-${side}` });
+      const arm = outlined(d, armColour, 6, body, { class: `nmb-arm nmb-arm-${side}`, "data-pivot": side === "l" ? "13.5 56" : "50.5 56" });
       if (claw) shape("path", { d: side === "l" ? "M7.5 67 L2 70 L6 72 L3 75 L10 72 Z" : "M56.5 67 L62 70 L58 72 L61 75 L54 72 Z", fill: nmMix(base, "#000000", 0.1) }, arm);
       if (side === "r" && reading.hand) nameCharacterHeld(reading.hand, arm, { make, shape, stroke, outlined, star, heart, base, line });
       //: The hand slots: a bell and a lantern held up in the right hand,
@@ -1807,7 +2027,6 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     }
   }
   svg.dataset.nmChar = "1";
-  if (typeof watchNameMark === "function") watchNameMark(svg);
   return svg;
 }
 
@@ -2437,19 +2656,19 @@ function nameMarkBuddyBody(coat, skin) {
   const limb = (d, colour, width, parent) =>
     make("path", { d, fill: "none", stroke: colour, "stroke-width": width, "stroke-linecap": "round" }, parent);
   for (const [side, hip, foot] of [["l", 27.5, 26], ["r", 36.5, 38]]) {
-    const leg = make("g", { class: `nmb-leg nmb-leg-${side}` }, svg);
+    const leg = make("g", { class: `nmb-leg nmb-leg-${side}`, "data-pivot": `${hip} 68` }, svg);
     limb(`M${hip} 68 L${foot} 84.5`, deep, 5.5, leg);
     make("ellipse", { cx: foot + (side === "l" ? -1.5 : 1.5), cy: 86.5, rx: 5.2, ry: 3.2, fill: deep }, leg);
   }
   for (const [side, d, hx] of [["l", "M22 54 C 0 52, -6 16, 6 -6", 6], ["r", "M42 54 C 64 52, 70 16, 58 -6", 58]]) {
-    const hold = make("g", { class: `nmb-hold nmb-hold-${side}` }, svg);
+    const hold = make("g", { class: `nmb-hold nmb-hold-${side}`, "data-pivot": side === "l" ? "22 54" : "42 54" }, svg);
     limb(d, coat, 5, hold);
     make("circle", { cx: hx, cy: NMB_GRIP - NMB_DROP, r: 4.4, fill: skin, stroke: deep, "stroke-width": 0.8 }, hold);
   }
   make("rect", { class: "nmb-torso", x: 19, y: 43, width: 26, height: 31, rx: 12, fill: coat, stroke: deep, "stroke-width": 1 }, svg);
   make("ellipse", { cx: 32, cy: 63, rx: 7.5, ry: 6.5, fill: "#ffffff", "fill-opacity": 0.22 }, svg);
   for (const [side, d, hx, hy] of [["l", "M21.5 54 Q 14.5 59.5 13.8 66.5", 13.8, 68.2], ["r", "M42.5 54 Q 49.5 59.5 50.2 66.5", 50.2, 68.2]]) {
-    const arm = make("g", { class: `nmb-arm nmb-arm-${side}` }, svg);
+    const arm = make("g", { class: `nmb-arm nmb-arm-${side}`, "data-pivot": side === "l" ? "21.5 54" : "42.5 54" }, svg);
     limb(d, coat, 5, arm);
     make("circle", { cx: hx, cy: hy, r: 3.9, fill: skin, stroke: deep, "stroke-width": 0.8 }, arm);
   }
@@ -2462,7 +2681,8 @@ function nameMarkBuddyBody(coat, skin) {
 function nameCharacterFigure(seed) {
   const figure = document.createElement("span");
   figure.className = "nm-figure nm-live";
-  figure.appendChild(drawCharacter(seed, NMB_W, "figure"));
+  const own = JSON.stringify(nameMarkOwnFor(seed) || {});
+  figure.appendChild(nameMarkCompose(`fig|${seed}|${own}`, () => drawCharacter(seed, NMB_W, "figure"), { parts: NM_FIGURE_PARTS, pad: 24, size: NMB_W, height: NMB_H }));
   return figure;
 }
 
@@ -2474,7 +2694,8 @@ function nameMarkFigure(seed) {
   const live = nameMarkLive(seed, NMB_HEAD);
   head.appendChild(live);
   const { coat, skin } = nameMarkBuddyColours(live.querySelector(".name-mark"));
-  figure.append(nameMarkBuddyBody(coat, skin), head);
+  const body = nameMarkCompose(`body|${coat}|${skin}`, () => nameMarkBuddyBody(coat, skin), { parts: ".nmb-leg, .nmb-arm, .nmb-hold", pad: 16, size: NMB_W, height: NMB_H });
+  figure.append(body, head);
   return figure;
 }
 
@@ -3000,13 +3221,15 @@ function nameMarkBuddyAct(act, ms) {
     const lx = act === "glance" && nmb.pointer ? nmb.pointer[0] - (nmb.x + NMB_W / 2) : Math.random() - 0.5;
     buddy.dataset.turn = lx < 0 ? "l" : "r";
   }
-  //: A class removed and added in one frame does not restart its animation.
-  void buddy.offsetWidth;
+  //: A class removed and added in one frame does not restart its animation,
+  //: so the same act twice in a row (a second cheer) forces one style pass;
+  //: any other act does not, since each style pass here is measurable.
+  if (act === was) void buddy.offsetWidth;
   buddy.classList.add(`nmb-act-${act}`);
   nmb.act = act;
   nmb.lastAct = act;
   if (spec?.cool) nmb.cool[act] = Date.now() + spec.cool;
-  nmb.timer = setTimeout(() => nameMarkBuddyAct(act !== "blink" && act !== "nap" && Math.random() < 0.7 ? "blink" : ""), (ms || spec?.ms || 1200) * (1 + Math.random() * 0.3));
+  nmb.timer = setTimeout(() => nameMarkBuddyAct(""), (ms || spec?.ms || 1200) * (1 + Math.random() * 0.3));
 }
 
 //: **Looks at a place: a saccade, then the head.** The eyes jump there at
@@ -3123,7 +3346,8 @@ function nameMarkBuddyTick() {
     nameMarkBuddySchedule();
     return;
   }
-  nameMarkBuddyCheck();
+  nmb.ticks = (nmb.ticks || 0) + 1;
+  if (nmb.ticks % 3 === 0) nameMarkBuddyCheck();
   const idle = Date.now() - nmb.lastInput;
   nameMarkBuddyContext(buddy);
   if (idle > NMB_SLEEP_MS) {

@@ -1300,9 +1300,10 @@ def _keyword_pattern(keyword: str) -> re.Pattern[str]:
 #: A chord as people type it ("ctrl shift f", "Cmd-K", "control k") spelt the
 #: way the entries spell it ("ctrl+shift+f"), so a chord keyword can match.
 #: The lookahead insists on a key after the modifier, so "shift and drag" and
-#: "the control panel" are left alone.
+#: "the control panel" are left alone. The separator is one bounded choice
+#: (CodeQL 426: `\s*(?:\+|-|\s)\s*` let a run of tabs split three ways).
 _MODIFIER = re.compile(
-    r"\b(ctrl|control|cmd|shift|alt|option)\s*(?:\+|-|\s)\s*"
+    r"\b(ctrl|control|cmd|shift|alt|option)(?:\s{0,3}[+\-]\s{0,3}|\s{1,3})"
     r"(?=(?:ctrl|control|cmd|shift|alt|option)\b|f\d{1,2}\b|enter\b|tab\b|up\b|down\b|"
     r"left\b|right\b|[a-z0-9](?![a-z0-9])|[/.,=\-\[\]])"
 )

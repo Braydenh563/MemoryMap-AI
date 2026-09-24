@@ -16295,10 +16295,16 @@ function regenerateLastAnswer() {
 function atlasSuggestion(question) {
   const line = document.createElement("p");
   line.className = "muted help-atlas";
+  //: **An offer, drawn as the app's other offers.** It was a `.linklike`, an
+  //: underlined accent line that read as a web link out of the app (the
+  //: owner, of the empty chat: styled "as an underlined web link"). It wears
+  //: the suggestion chip the chat's own starters wear (08-consistency.css,
+  //: `.atlas-starter`), with Atlas's compass in front, because pressing it
+  //: asks a question the same way theirs do.
   const ask = document.createElement("button");
   ask.type = "button";
-  ask.className = "linklike";
-  ask.textContent = `Ask Atlas: ${question}`;
+  ask.className = "atlas-suggest";
+  setLabel(ask, `ph:compass Ask Atlas: ${question}`);
   ask.title = "Opens Atlas with this question";
   ask.addEventListener("click", () => askAtlasAbout(question));
   line.appendChild(ask);
@@ -39284,11 +39290,18 @@ function renderChatActiveModelBadge() {
   //: directly above the composer's own "No model is connected". Same signal
   //: the composer and Ask use (`syncModelGatedControls`), so the three can
   //: never disagree; pressing it goes straight to connecting one.
+  //:
+  //: **And then said once, not twice** (the owner, 2026-09-24: "No model
+  //: connected" in this badge and again in the composer's notice under it).
+  //: The composer's notice (`#chat-offline`, `renderAiOfflineNotice`) is the
+  //: statement that says what still works and carries the button that
+  //: connects one, so it is the one kept; the badge steps aside while no
+  //: model is running, and names the model again the moment one is.
   if (modelStatus && modelStatus.ollama_running === false) {
-    badge.hidden = false;
+    badge.hidden = true;
     badge.classList.add("is-missing");
-    badge.textContent = "No model connected";
-    badge.title = "No model is connected: click to connect one in Settings, Models";
+    badge.textContent = "";
+    badge.title = "";
     badge.dataset.offline = "1";
     return;
   }
@@ -43997,16 +44010,9 @@ function addAtlasLine(panel) {
   const question = ATLAS_PROMPTS[panel.id];
   if (!question || panel.dataset.atlasLine) return;
   panel.dataset.atlasLine = "1";
-  const line = document.createElement("p");
-  line.className = "help-atlas";
-  const ask = document.createElement("button");
-  ask.type = "button";
-  ask.className = "linklike";
-  ask.textContent = `Ask Atlas: ${question}`;
-  ask.title = "Opens Atlas with this question";
-  ask.addEventListener("click", () => askAtlasAbout(question));
-  line.appendChild(ask);
-  panel.appendChild(line);
+  // The one builder, so the offer looks the same in a popover as in an
+  // empty state (`atlasSuggestion`).
+  panel.appendChild(atlasSuggestion(question));
 }
 
 function initHelpToggles(root = document) {

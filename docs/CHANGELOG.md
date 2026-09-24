@@ -22,6 +22,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Chat: with no model running, "No model connected" was said by the header badge and again by the composer notice under it; the notice (what still works, and the button that connects one) is the one statement now, and the badge returns with the model. The "Ask Atlas: ..." offer in empty states and help popovers is a suggestion chip like the chat starters, not an underlined link (28px tall, ink on a hairline pill, the compass in front).
 - A toast's action button (Undo, Turn on) drew white text on white in the light theme; it is a ghost button now.
 - Documents: the AI assistant's head is one row (the title and its help on the left, History and Close as quiet icon buttons on the right), and Edit / Write / Remove is a full-width control of three equal segments: the unchosen verbs are in the normal ink rather than the grey that read as disabled, and the chosen one is bold with an accent ring and icon.
 - Documents, tables in Live view: the arrow keys keep the column from row to row, Enter goes to the cell below (adding a row at the end, in the same column), and the arrows leave a table at the start or end of the document, making the blank line markdown needs. Rows pasted from a spreadsheet fill the cells from the caret, adding rows and columns as needed, in one undo step; pasted outside a table they become a new table. The table's menu (rows, columns, alignment, delete) now sits on the row you are editing instead of on the header.

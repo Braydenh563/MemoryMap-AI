@@ -1980,6 +1980,36 @@ summary > .ph-lead,
   background: var(--chip-bg);
 }
 
+/* The empty states' "Ask Atlas: ..." offer (app.js, `atlasSuggestion`): the
+   same chip, so an offer to ask looks like an offer to ask wherever it is,
+   and not like a link out of the app, which is what its underlined accent
+   line read as. */
+.help-atlas > .atlas-suggest {
+  display: inline-flex;
+  align-items: center;
+  height: auto;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+
+.help-atlas > .atlas-suggest .ph {
+  color: var(--accent);
+}
+
+.help-atlas > .atlas-suggest:hover,
+.help-atlas > .atlas-suggest:focus-visible {
+  background: var(--chip-bg);
+}
+
 /* The head, on the agent activity panel's terms: the controls beside the title
    are quiet until the pointer or the focus reaches them, because the card is
    already the frame (the same rule `.monitor-header-actions` takes, 08 above),

@@ -116,8 +116,8 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch
 ; when sys.frozen — see that function's own comment), not under {app} —
 ; deliberately outside this section. Uninstalling removes the *program*;
 ; someone's notebook is not a build artifact and does not go with it.
-; That includes the optional packages (python-extras in the same folder):
-; they are the person's downloads, and a reinstall finds them again.
+; The optional packages (python-extras in the same folder) are asked about
+; at the end instead (CurUninstallStepChanged, below), never deleted silently.
 ;
 ; What does go: a `data` folder inside the install folder, which builds
 ; before 0.3.3 wrote the window's cache and the launch log into when Windows
@@ -301,4 +301,27 @@ function HasSelectedExtras: Boolean;
   one box was ticked. }
 begin
   Result := (GetSelectedExtras('') <> '');
+end;
+
+// The optional packages on uninstall (the owner, 2026-09-24: "yes" to
+// offering to delete them). They live beside the notebook in the user's
+// AppData, and search by meaning alone can be about 2 GB, so a program that
+// is gone should not quietly keep them. Asked, never assumed: a reinstall
+// would find them again, and a silent uninstall (the updater's) keeps them.
+// The notebook itself is never touched.
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Extras: String;
+begin
+  if CurUninstallStep <> usPostUninstall then
+    Exit;
+  Extras := ExpandConstant('{userappdata}\{#MyAppName}\python-extras');
+  if not DirExists(Extras) then
+    Exit;
+  if UninstallSilent then
+    Exit;
+  if MsgBox('Also delete the optional packages you downloaded (such as search by meaning)?'
+      + #13#10 + #13#10 + 'Your notes are kept either way.',
+      mbConfirmation, MB_YESNO) = IDYES then
+    DelTree(Extras, True, True, True);
 end;

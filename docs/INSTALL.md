@@ -238,10 +238,10 @@ in place, your notes are never touched. You do not need to delete
 
 **Installed with the Windows installer:** Windows Settings → Apps → MemoryMap
 AI → Uninstall. That removes the program and its Start Menu entries and
-leaves `%APPDATA%\MemoryMap AI` alone: your notes, your settings and the
-optional packages you downloaded (in its `python-extras` folder, which can be
-large; delete that folder if you will not reinstall). To take your notes
-with you first, use Settings → Import & export.
+leaves your notes and settings in `%APPDATA%\MemoryMap AI` alone. At the
+end it asks whether to delete the optional packages you downloaded too (its
+`python-extras` folder, which can be large); a silent uninstall keeps them.
+To take your notes with you first, use Settings → Import & export.
 
 **Run from a source checkout:** run `./uninstall.sh` (or `uninstall.bat`). It removes the virtual
 environment the launcher built, and the caches that came with it, and leaves

@@ -47,12 +47,16 @@
 //: SushiLord'"). Each is enforced here or in `drawCharacter`, and pinned by
 //: tests/test_name_mood.py:
 //:
-//: - **A plain first name is a clean default.** One hairstyle, one colour
-//:   pair, a friendly face, no costume, no animal, nothing held, and at most
-//:   one subtle accessory. Its look (masculine or feminine) is the Profile
-//:   look for your own name or Settings, Appearance, Face looks; never
-//:   guessed from the first name. With neither, the styles that read as
-//:   either, and no accessory at all.
+//: - **A plain first name is a character, not a costume.** One hairstyle,
+//:   a friendly face, no animal, nothing held, and two traits from the
+//:   hash (headwear, eyewear, a small accent, attitude, facial hair), each
+//:   from its own family (the owner, after the first clean defaults: "they
+//:   look a bit too mundane now ... more character, less stock").
+//: - **Presentation is the person's choice.** Masculine, feminine or
+//:   neutral comes from Profile, Your look for your own name and Settings,
+//:   Appearance, Face looks for every other; never from the name, first
+//:   name or any word in it. It picks the hair set, brow weight, jaw and
+//:   cheeks, lashes and whether facial hair is on offer.
 //: - **Words drive at most two visual cues**, chosen by salience: a species
 //:   first, then what is worn and held in the order the name says it, then
 //:   food. "Sushicraft563" holds a pickaxe with sushi in its hair;
@@ -234,12 +238,6 @@ const NAME_MOOD_LEXICON = {
     hoodie: "street* hoodie* hypebeast* drip urban* skater* rapper* gamer* hacker* coder*",
     dress: "dress* gown* prom ball elegant fancy",
   },
-  //: A look the name asks for in so many words. Never guessed from a first
-  //: name: "Alice" gets whatever her hash gives her, like everyone else.
-  looks: {
-    feminine: "girl girls girly gal gals queen* princess* lady ladies miss mrs ms she her woman women sis sister* mom mum mama mother* aunt* grandma* granny babe bestie* diva wifey bride* goddess* empress* witch* waifu",
-    masculine: "guy guys dude* bro bros brother* king kings man men mr he him dad dads papa father* uncle* grandpa* lad lads chap gentleman gentlemen husband* groom* lord lords sir",
-  },
   //: Which wings, when a name has them: seven kinds, each drawn its own way.
   wings: {
     angel: "angel angels angelic cherub* seraph* dove* pegasus* holy",
@@ -271,19 +269,19 @@ const NAME_MOOD_LEXICON = {
 //: controls set a draft while the form is unsaved.
 let nameMarkOwn = null;
 const NAME_MARK_HAT_KINDS = ["hat", "chefhat", "cowboy", "partyhat", "crown", "tiara", "tricorn", "cap", "beanie", "flowercrown", "bandana", "headband"];
-const NAME_MARK_EYEWEAR_KINDS = ["glasses", "squareglasses", "monocle", "goggles", "threed", "starglasses", "heartglasses", "visor"];
+const NAME_MARK_EYEWEAR_KINDS = ["glasses", "squareglasses", "monocle", "goggles", "threed", "starglasses", "heartglasses", "visor", "shades"];
 
 //: The slots a character has room for, one thing each (see the budget in
 //: `nameMood`): what sits on the head, what sits on the face, what the
 //: hand holds, and what the body wears.
-const NAME_MARK_HEAD_KINDS = [...NAME_MARK_HAT_KINDS, "halo", "horns", "antenna", "headphones", "helmet", "bow", "sushiclip", "flowerclip"];
-const NAME_MARK_FACE_KINDS = [...NAME_MARK_EYEWEAR_KINDS, "eyepatch", "ninjamask", "rednose", "moustache", "beard", "fangs", "stubble", "earrings", "lipstick"];
+const NAME_MARK_HEAD_KINDS = [...NAME_MARK_HAT_KINDS, "halo", "horns", "antenna", "headphones", "helmet", "bow", "sushiclip", "flowerclip", "hood"];
+const NAME_MARK_FACE_KINDS = [...NAME_MARK_EYEWEAR_KINDS, "eyepatch", "ninjamask", "rednose", "moustache", "beard", "fangs", "stubble", "earrings", "lipstick", "shortbeard"];
 const NAME_MARK_FOODS = ["sushi", "pizza", "donut"];
 //: The hair styles, skins and hair colours by name (drawn from
 //: `NM_HAIR_STYLES`, `NM_CHAR_SKINS` and `NM_CHAR_HAIR_TONES` below), and
 //: the first styles' names, which a saved Profile choice may still carry.
-const NAME_MARK_HAIR_KINDS = ["crop", "sweep", "quiff", "curtains", "messy", "curls", "wavy", "long", "waves", "bob", "bun", "ponytail", "locs"];
-const NAME_MARK_HAIR_ALIASES = { short: "crop", spiky: "messy", curly: "curls", buns: "bun", buzz: "crop", pigtails: "ponytail" };
+const NAME_MARK_HAIR_KINDS = ["crop", "sweep", "quiff", "curtains", "messy", "curls", "wavy", "long", "waves", "bob", "bun", "ponytail", "locs", "undercut", "spiky", "mohawk", "fringe", "slick", "longcurls", "buzzline"];
+const NAME_MARK_HAIR_ALIASES = { short: "crop", curly: "curls", buns: "bun", buzz: "buzzline", pigtails: "ponytail" };
 const NAME_MARK_SKIN_KINDS = ["porcelain", "fair", "peach", "tan", "olive", "brown", "deep"];
 const NAME_MARK_HAIR_TONE_KINDS = ["black", "espresso", "brown", "chestnut", "auburn", "copper", "honey", "blond", "platinum"];
 
@@ -309,7 +307,7 @@ function nameMarkOwnFor(name) {
 }
 
 //: The look a generated face takes when its name gives no cue: null for
-//: Mixed (the name's own hash decides, as before), or one of the two.
+//: Neutral (stored as "mixed"), or one of the two.
 function nameMarkLookLean() {
   const lean = typeof appearancePref === "function" ? appearancePref("face-look", "mixed") : "mixed";
   return lean === "feminine" || lean === "masculine" ? lean : null;
@@ -353,7 +351,6 @@ function nameMood(name) {
       hands: group(NAME_MOOD_LEXICON.hands),
       limbs: group(NAME_MOOD_LEXICON.limbs),
       wings: group(NAME_MOOD_LEXICON.wings),
-      looks: group(NAME_MOOD_LEXICON.looks),
       outfits: group(NAME_MOOD_LEXICON.outfits),
       intensifiers: new Set(NAME_MOOD_LEXICON.intensifiers.split(/\s+/)),
     };
@@ -434,14 +431,15 @@ function nameMood(name) {
   for (const hit of findAll(table.hands)) hear("hand", hit.key, hit.order);
   const limbsHit = find(table.limbs);
   const wingHit = find(table.wings);
-  result.look = find(table.looks)?.key || null;
-  //: Your own face's chosen look wins; any other name that says nothing
-  //: either way takes the look Settings, Appearance, Face looks leans to
-  //: (the owner: "the male and female choice avatars generation"). A name
-  //: that does say ("Queen Mary", "Dude") keeps its own.
-  const ownLook = own && ["feminine", "masculine"].includes(own.look) ? own.look : null;
-  if (ownLook) result.look = ownLook;
-  else if (!result.look) result.look = nameMarkLookLean();
+  //: **Presentation is your choice, never read from a name** (the owner:
+  //: "for my own name 'Brayden' the face reads as feminine, which I don't
+  //: want"; before that, "Queen" and "Dude" set it). Your own face takes
+  //: Profile, Your look (masculine, feminine or neutral); every other face
+  //: takes Settings, Appearance, Face looks; Neutral until either is set.
+  //: It picks the hair set, the brows' weight, the jaw and cheeks, lashes,
+  //: and whether facial hair is on offer.
+  if (own && ["feminine", "masculine"].includes(own.look)) result.look = own.look;
+  else if (!(own && own.look === "neutral")) result.look = nameMarkLookLean();
   const animalHit = find(table.animals);
   if (animalHit) hear("animal", animalHit.key, animalHit.order);
   if (wingHit) hear("wing", wingHit.key, wingHit.order);
@@ -721,34 +719,59 @@ function nameMood(name) {
   };
   const smiles = ["smile", "grin", "toothy", "lopsided", "bigD", "cat3", "smile", "grin"];
   result.style.smile = smiles[roll(smiles.length)];
-  //: One small feature at most: freckles, a beauty mark or a blush.
-  const feature = [null, null, "freckles", "blush", "mole", null, "freckles", "blush"][roll(8)];
+  //: One small feature at most: a beauty mark or a blush.
+  const feature = [null, null, "blush", "mole", null, "blush"][roll(6)];
   if (feature) result.style.features.push(feature);
   result.style.nose = [null, null, "dot", "button"][roll(4)];
   result.style.eyes = ["dot", "dot", "oval", "anime", "button", "starry", "dot", "sparkle"][roll(8)];
   //: Hair (the owner: "some feminine ones definitely (a lot more ones), and
-  //: masculine ones as well"), always one style: a bald bean read as
-  //: unfinished. The look decides the pool, and the look is never guessed
-  //: from a first name: it is a word the name says ("Queen", "Dude"), your
-  //: own Profile look, or Settings, Appearance, Face looks. With none of
-  //: those (Mixed), the styles that read as either: a crop, a side sweep,
-  //: tousled, curtains, curls, waves to the chin, locs, a soft quiff.
-  const feminineHair = ["long", "waves", "bob", "bun", "ponytail", "wavy", "curls", "curtains"];
-  const masculineHair = ["crop", "sweep", "quiff", "curtains", "messy", "curls", "locs"];
-  const anyHair = ["crop", "sweep", "curtains", "messy", "curls", "wavy", "locs", "quiff"];
+  //: masculine ones as well", then "they look a bit too mundane now"),
+  //: always one style, and the presentation picks the set: bold cuts
+  //: (an undercut, spikes, a mohawk, slicked back, a buzz with a line) for
+  //: masculine, long, waves, curls and a messy fringe for feminine, and
+  //: for Neutral the ones that read as either.
+  const feminineHair = ["long", "waves", "bob", "bun", "ponytail", "longcurls", "curtains", "fringe", "wavy", "locs"];
+  const masculineHair = ["crop", "sweep", "quiff", "messy", "undercut", "spiky", "mohawk", "slick", "buzzline", "curls", "locs"];
+  const anyHair = ["crop", "sweep", "curtains", "messy", "curls", "wavy", "locs", "undercut", "fringe", "spiky"];
   const pool = result.look === "feminine" ? feminineHair : result.look === "masculine" ? masculineHair : anyHair;
   result.style.hair = pool[roll(pool.length)];
   //: Which of the skin's hair colours (`NM_CHAR_SKINS`), by index.
   result.style.hairColour = roll(12);
-  //: At most one subtle accessory, and only while the words left room
-  //: (fewer than two cues) and its slot is free: earrings, a flower clip or
-  //: a bow for a feminine look, light stubble for a masculine one, nothing
-  //: for Mixed. A beard, a moustache or lipstick is a costume, which only a
-  //: word asks for.
   if (result.look === "feminine") result.style.features.push("lashes");
-  const bits = result.look === "feminine" ? ["earrings", "flowerclip", "bow", null] : result.look === "masculine" ? ["stubble", null, null] : [null];
-  const bit = bits[roll(bits.length)];
-  if (bit && kept.length < 2 && !taken[nameMarkSlot("accessory", bit)]) result.style.accessories.push(bit);
+  //: **Character** (the owner: "more character, less stock ... no two
+  //: sample names should read the same"). Beside the hair, a face gets
+  //: traits from the name's hash, each from its own family and each only
+  //: where the budget has room: something on the head (a beanie, a cap,
+  //: headphones, a hood), eyewear (round glasses, shades), a small accent
+  //: (freckles, a scar through one brow, one earring, a plaster on the
+  //: nose), attitude (a smirk, a raised brow) and, for a masculine face,
+  //: facial hair (stubble, a short beard, a moustache). A name the words
+  //: said nothing about gets two; a name whose words already dressed it
+  //: gets one more at most, and never one that takes a slot.
+  const families = [
+    ["head", 0.45, ["beanie", "cap", "headphones", "hood"]],
+    ["face", 0.5, ["glasses", "shades"]],
+    ["accent", 0.8, ["freckles", "scar", "earring", "plaster"]],
+    ["attitude", 0.85, ["smirk", "raisedbrow"]],
+    ["facial", result.look === "masculine" ? 0.7 : 0, ["stubble", "shortbeard", "moustache"]],
+  ];
+  const drawn = families
+    .map(([family, weight, kinds]) => ({ family, score: weight * (roll(1000) + 1), kind: kinds[roll(kinds.length)] }))
+    .filter((t) => t.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const traitRoom = kept.length ? 1 : 2;
+  result.style.traits = [];
+  for (const trait of drawn) {
+    if (result.style.traits.length >= traitRoom) break;
+    const slot = trait.family === "head" ? "head" : trait.family === "face" || trait.family === "facial" ? "face" : null;
+    if (slot && (kept.length || taken[slot] || result.animal || result.mutant)) continue;
+    if (slot) taken[slot] = { kind: "trait", key: trait.kind };
+    if (trait.family === "head" || trait.family === "face") result.props.push(trait.kind);
+    else if (trait.family === "facial") result.style.accessories.push(trait.kind);
+    else if (trait.kind === "freckles" && !result.style.features.includes("freckles")) result.style.features.push("freckles");
+    else if (trait.family === "accent" || trait.family === "attitude") result.style.features.push(trait.kind);
+    result.style.traits.push(trait.kind);
+  }
   //: Everyday clothes for everyone a word does not dress: a T-shirt, a
   //: hoodie, a shirt and tie, a blazer, a jumper, a scoop neck with a
   //: necklace. The pool leans the way the hair does.
@@ -900,6 +923,7 @@ const NAME_MARK_PROP_WORDS = {
   moustache: "a moustache", headphones: "headphones", fangs: "fangs", rednose: "a clown nose",
   cowboy: "a cowboy hat", partyhat: "a party hat", ninjamask: "a ninja mask", helmet: "a space helmet",
   sushiclip: "sushi in its hair", tricorn: "a pirate hat", tiara: "a tiara", monocle: "a monocle",
+  shades: "shades", hood: "a hood", beanie: "a beanie", cap: "a cap",
 };
 
 const NAME_MARK_HAND_WORDS = {
@@ -1405,7 +1429,10 @@ const NM_CHAR_HAIR_TONES = {
 //: - `part`: the parting, a line in the shade.
 //: - `strands`: a few strokes of texture in the shade (left out at 28px).
 //: - `shine`: the one highlight sweep, in the tone lifted towards white.
-//: - `curls`, `locs`, `bun`, `tail`: the parts a style adds.
+//: - `curls`, `backCurls`, `locs`, `bun`, `tail`: the parts a style adds;
+//:   `sides` is a shaved layer under the top (an undercut, a mohawk),
+//:   `shaved` draws the whole style as close-cropped, `line` is a line
+//:   clipped into it, and `tall` marks a style that rises off the crop.
 //:
 //: Every style must look right on its own; the name only picks among them.
 const NM_HAIR_STYLES = {
@@ -1489,6 +1516,47 @@ const NM_HAIR_STYLES = {
     strands: ["M30 4 C26 10 20 14 13 18", "M34 4 C38 10 44 14 51 18", "M26 1 C21 5 15 9 10 14", "M38 1 C43 5 49 9 54 14"],
     shine: "M12 11 Q17 4 25 1",
   },
+  undercut: {
+    sides: "M5 31 C3 22 5 13 11 9 L53 9 C59 13 61 22 59 31 L56.5 31 C56 26 55 22 52.5 20 L11.5 20 C9.5 22 8 26 7.5 31 Z",
+    front: "M9 17 C6 6 16 -4 32 -5 C47 -6 59 0 60 10 C61 16 57 20 50 19.5 C42 19.5 31 17 23 12 C19 15.5 13 18.5 9 17 Z",
+    strands: ["M14 8 C22 2 34 0 46 1", "M24 11 C32 12 42 14 52 14", "M18 4 C28 -2 40 -3 52 1"],
+    shine: "M18 1 C25 -3 34 -4 42 -3",
+  },
+  spiky: {
+    front: "M5 31 C3 24 3 17 6 12 L3 5 L11 7 L10 -2 L18 3 L20 -7 L27 0 L32 -9 L37 0 L44 -7 L46 3 L54 -2 L53 7 L61 5 L58 12 C61 19 61 25 59 31 L56.5 31 C56 26 54.5 22 52 19.5 L49 16 L45 19 L41 15 L37 18.5 L32 15 L27 18.5 L23 15 L19 19 L15 16 L12.5 19.5 C9.5 22 8 26 7.5 31 Z",
+    strands: ["M20 10 L19 2", "M32 9 L32 -3", "M44 10 L45 2"],
+    shine: "M13 9 L19 3",
+  },
+  mohawk: {
+    sides: "M5 31 C3 22 5 11 12 6 C20 1 44 1 52 6 C59 11 61 22 59 31 L56.5 31 C56 26 55 22 52.5 20 L11.5 20 C9.5 22 8 26 7.5 31 Z",
+    front: "M24 17 C22 8 23 -2 27 -9 L30 -5 L32 -13 L35 -5 L38 -10 C42 -2 42 8 40 17 C37 18.5 27 18.5 24 17 Z",
+    strands: ["M32 -8 L32 14", "M28 -2 L29 14", "M36 -2 L35 14"],
+    shine: "M28 -4 C29 2 29 8 28 14",
+    tall: true,
+  },
+  fringe: {
+    front: "M4 36 C1 22 4 8 14 3 C22 -1 42 -1 50 3 C60 8 63 22 60 36 L56.5 36 C56 30 55 25 53 21 L50 18.5 L47 21 L43 18 L39 21 L35 18 L31 21 L27 18 L23 21 L19 18 L15 21 L11.5 21 C9 25 7.5 30 7.5 36 Z",
+    strands: ["M19 8 L20 17", "M27 6 L27 17", "M35 6 L35 17", "M43 8 L43 17"],
+    shine: "M13 10 Q18 4 26 2",
+  },
+  slick: {
+    front: "M5 29 C3 17 12 3 32 2 C52 1 61 15 59 29 L56.5 29 C56 22 53 16 47 13 C40 10 24 10 17 13 C11 16 8 22 7.5 29 Z",
+    strands: ["M18 11 C22 6 28 3 34 3", "M26 11 C30 6 36 4 42 4", "M36 11 C40 7 45 6 50 8"],
+    shine: "M14 13 C18 6 26 3 36 3",
+  },
+  longcurls: {
+    back: "M3 30 C1 10 16 -1 32 -1 C48 -1 63 10 61 30 L62 58 L2 58 Z",
+    backCurls: [[4, 22, 6], [3, 32, 6.5], [4, 42, 6.5], [6, 52, 6], [11, 59, 5.5], [60, 22, 6], [61, 32, 6.5], [60, 42, 6.5], [58, 52, 6], [53, 59, 5.5], [20, 61, 5], [44, 61, 5], [32, 62, 5]],
+    front: "M5 30 C3 16 14 3 32 3 C50 3 61 16 59 30 L56.5 30 C55 24 52 20 48 19 L16 19 C12 20 9 24 7.5 30 Z",
+    curls: [[6.5, 40, 4.6], [6, 32, 4.8], [8, 24, 4.6], [8.5, 15.5, 5.4], [14.5, 8, 6], [23, 3.5, 6], [32, 2, 6.2], [41, 3.5, 6], [49.5, 8, 6], [55.5, 15.5, 5.4], [56, 24, 4.6], [58, 32, 4.8], [57.5, 40, 4.6], [15, 15.5, 4.2], [23, 14, 4.2], [31.5, 13.5, 4.2], [40, 14, 4.2], [48, 15.5, 4.2]],
+    shine: "M11 10 Q15 4 21 1",
+  },
+  buzzline: {
+    shaved: true,
+    front: "M6 24 C6 10 18 2 32 2 C46 2 58 10 58 24 C55 19 51 16.5 46 16 C38 15 26 15 18 16 C13 16.5 9 19 6 24 Z",
+    line: "M11 14 L19 10",
+    shine: "M13 10 Q18 5 25 4",
+  },
 };
 const NM_CHAR_INK = "#2a2330";
 //: The body's outline, in one place: a figure reads as designed when every
@@ -1496,6 +1564,10 @@ const NM_CHAR_INK = "#2a2330";
 const NM_CHAR_LINE = 1.6;
 //: The silhouette: head, neck and body in one path.
 const NM_CHAR_BODY = "M32 4 C48 4 59 14 59 29 C59 40 55 46 50.5 50 C55 55 56.5 65 53 71.5 C48 76.5 16 76.5 11 71.5 C7.5 65 9 55 13.5 50 C9 46 5 40 5 29 C5 14 16 4 32 4 Z";
+//: The jaw and cheeks by presentation: a squarer, wider jaw for masculine,
+//: a softer, narrower chin for feminine; the same head above the cheeks.
+const NM_CHAR_BODY_MASCULINE = "M32 4 C48 4 59 14 59 29 C59.5 39 58 45.5 51.5 50 C55 55 56.5 65 53 71.5 C48 76.5 16 76.5 11 71.5 C7.5 65 9 55 12.5 50 C6 45.5 4.5 39 5 29 C5 14 16 4 32 4 Z";
+const NM_CHAR_BODY_FEMININE = "M32 4 C48 4 59 14 59 29 C59 39 55.5 45 50 49.5 C55 55 56.5 65 53 71.5 C48 76.5 16 76.5 11 71.5 C7.5 65 9 55 14 49.5 C8.5 45 5 39 5 29 C5 14 16 4 32 4 Z";
 const NM_CHAR_GHOST = "M32 4 C48 4 59 14 59 29 C59 40 56 48 55 56 C56 66 58 76 56 84 C52 80 49 86 45 82 C41 88 37 82 32 86 C27 82 23 88 19 82 C15 86 12 80 8 84 C6 76 8 66 9 56 C8 48 5 40 5 29 C5 14 16 4 32 4 Z";
 
 function nmHex(value) {
@@ -1571,9 +1643,12 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   const mini = mode === "mini";
   const LW = mini ? 2.4 : NM_CHAR_LINE;
   const worn = mini && beast ? reading.props.filter((p) => !NAME_MARK_HEAD_KINDS.includes(p)) : reading.props;
-  const hairKey = beast ? null : NAME_MARK_HAIR_ALIASES[creature?.hairFixed || style.hair] || creature?.hairFixed || style.hair;
+  const hatOn = Boolean(creature?.gnomeHat) || worn.some((p) => NAME_MARK_HAT_KINDS.includes(p) || p === "helmet" || p === "hood");
+  //: Under a hat or a hood a style that rises off the head (a quiff, a
+  //: mohawk, spikes) is pressed flat: drawn as the crop.
+  let hairKey = beast ? null : NAME_MARK_HAIR_ALIASES[creature?.hairFixed || style.hair] || creature?.hairFixed || style.hair;
+  if (hatOn && ["quiff", "mohawk", "spiky"].includes(hairKey)) hairKey = "crop";
   const hairStyle = (hairKey && NM_HAIR_STYLES[hairKey]) || null;
-  const hatOn = Boolean(creature?.gnomeHat) || worn.some((p) => NAME_MARK_HAT_KINDS.includes(p) || p === "helmet");
   const face = reading.mood ? NAME_MARK_FACES[reading.mood] || {} : {};
   const bias = reading.source !== "seed" && reading.mood ? NAME_MARK_MOOD_GROUNDS[reading.mood] : null;
   const colourRoll = rnd();
@@ -1595,7 +1670,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
 
   //: A head-only mark is cropped to the head and what stands on it; a tall
   //: hat, long ears or a horn widen the crop rather than lose their tops.
-  const tall = worn.some((p) => ["hat", "partyhat", "chefhat", "halo", "antenna", "crown"].includes(p)) || (hairStyle?.bun && !hatOn)
+  const tall = worn.some((p) => ["hat", "partyhat", "chefhat", "halo", "antenna", "crown"].includes(p)) || (hairStyle?.bun && !hatOn) || hairStyle?.tall
     || creature?.gnomeHat || creature?.unihorn || creature?.ears === "long" || creature?.antenna || creature?.flameCrest;
   const svg = make("svg", {
     class: `name-mark nm-char${reading.mood ? ` nm-${reading.mood}` : ""}`,
@@ -1615,7 +1690,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   make("stop", { offset: 0, "stop-color": light }, grad);
   make("stop", { offset: 0.55, "stop-color": base }, grad);
   make("stop", { offset: 1, "stop-color": shade }, grad);
-  const bodyPath = creature?.shape === "ghost" ? NM_CHAR_GHOST : NM_CHAR_BODY;
+  const bodyPath = creature?.shape === "ghost" ? NM_CHAR_GHOST : !person ? NM_CHAR_BODY : reading.look === "masculine" ? NM_CHAR_BODY_MASCULINE : reading.look === "feminine" ? NM_CHAR_BODY_FEMININE : NM_CHAR_BODY;
   make("path", { d: bodyPath }, make("clipPath", { id: id("c") }, defs));
 
   const outlined = (d, colour, width, parent, extra = {}) => {
@@ -1685,6 +1760,10 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   if (hairStyle?.back) hairShape(hairStyle.back, back, hairShade);
   if (hairStyle?.tail) hairShape(hairStyle.tail, back);
   if (hairStyle?.locs) for (const [x, y0, y1] of hairStyle.locs) lock(x, y0, y1, hairShade, back);
+  if (hairStyle?.backCurls) {
+    for (const [cx, cy, r] of hairStyle.backCurls) make("circle", { cx, cy, r, fill: hairLine, stroke: hairLine, "stroke-width": LW * 2 }, back);
+    for (const [cx, cy, r] of hairStyle.backCurls) make("circle", { cx, cy, r, fill: hairShade }, back);
+  }
   if (hairStyle?.bun && !hatOn) {
     const [cx, cy, r] = hairStyle.bun;
     make("circle", { cx, cy, r, fill: hairColour, stroke: hairLine, "stroke-width": LW }, back);
@@ -1824,8 +1903,10 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   if (hairStyle) {
     //: The fringe's shadow on the forehead: its own shape two units
     //: lower, in the skin's shade, clipped to the head.
-    make("path", { d: hairStyle.front, transform: "translate(0 2)", fill: nmMix(base, "#000000", 0.22), "fill-opacity": 0.45 }, make("g", { "clip-path": `url(#${id("c")})` }, torso));
-    hairShape(hairStyle.front, torso);
+    make("path", { d: hairStyle.sides || hairStyle.front, transform: "translate(0 2)", fill: nmMix(base, "#000000", 0.22), "fill-opacity": 0.45 }, make("g", { "clip-path": `url(#${id("c")})` }, torso));
+    //: A shaved layer reads as the hair colour thinned over the skin.
+    if (hairStyle.sides) make("path", { d: hairStyle.sides, fill: nmMix(hairColour, base, 0.35), stroke: hairLine, "stroke-width": LW * 0.6, "stroke-linejoin": "round" }, torso);
+    hairShape(hairStyle.front, torso, hairStyle.shaved ? nmMix(hairColour, base, 0.3) : hairColour);
     const texture = (d, colour, width, opacity) => make("path", { d, fill: "none", stroke: colour, "stroke-width": width, "stroke-opacity": opacity, "stroke-linecap": "round", "stroke-linejoin": "round" }, torso);
     if (hairStyle.curls) {
       //: One cloud of curls with one outline round the outside: every
@@ -1845,6 +1926,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       }
     }
     if (hairStyle.part) texture(hairStyle.part, hairShade, 1.1, 0.9);
+    if (hairStyle.line) texture(hairStyle.line, base, 1.4, 1);
     if (!mini) for (const d of hairStyle.strands || []) texture(d, hairShade, 0.9, 0.7);
     if (hairStyle.bun && !hatOn) make("ellipse", { cx: 32, cy: 2.4, rx: 4.4, ry: 1.8, fill: pair.cloth[0], stroke: nmLineFor(pair.cloth[0]), "stroke-width": 0.8 }, torso);
     if (hairStyle.tail) make("ellipse", { cx: 52, cy: 10, rx: 2.2, ry: 3, transform: "rotate(-30 52 10)", fill: pair.cloth[0], stroke: nmLineFor(pair.cloth[0]), "stroke-width": 0.8 }, torso);
@@ -1974,11 +2056,30 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     sly: (x, i) => (i === 0 ? `M${x - 3.5} ${browY + 1} L${x + 3.5} ${browY + 1}` : `M${x - 3.5} ${browY} Q${x} ${browY - 3} ${x + 3.5} ${browY - 1}`),
     confused: (x, i) => (i === 0 ? `M${x - 3.5} ${browY - 1.5} Q${x} ${browY - 4} ${x + 3.5} ${browY - 1.5}` : `M${x - 3.5} ${browY + 1.5} L${x + 3.5} ${browY + 0.5}`),
   };
-  if (face.brows && browPaths[face.brows] && eyes.length === 2) eyes.forEach(([x], i) => stroke(browPaths[face.brows](x, i), head, 1.6));
+  //: A person always has brows, weighted by presentation (heavy and
+  //: straight, fine and arched, or between), in the hair's own colour
+  //: taken darker; a mood's brows keep their shape and take the weight.
+  browPaths.soft = (x) => `M${x - 3.6} ${browY + 0.8} Q${x} ${browY - 1.2} ${x + 3.6} ${browY + 0.8}`;
+  browPaths.straight = (x, i) => (i === 0 ? `M${x - 4} ${browY + 0.6} L${x + 3.6} ${browY - 0.3}` : `M${x - 3.6} ${browY - 0.3} L${x + 4} ${browY + 0.6}`);
+  browPaths.arched = (x) => `M${x - 3.8} ${browY + 1.2} Q${x - 0.5} ${browY - 2.4} ${x + 3.8} ${browY + 0.2}`;
+  const browKind = face.brows || (person ? { masculine: "straight", feminine: "arched" }[reading.look] || "soft" : null);
+  const browWeight = !person ? 1.6 : reading.look === "masculine" ? 2.5 : reading.look === "feminine" ? 1.3 : 1.9;
+  const browInk = person ? nmMix(hairColour, "#000000", nmLuma(hairColour) > 0.2 ? 0.45 : 0.2) : NM_CHAR_INK;
+  if (browKind && browPaths[browKind] && eyes.length === 2) {
+    eyes.forEach(([x], i) => {
+      const brow = stroke(browPaths[browKind](x, i), head, browWeight, browInk);
+      //: Attitude: one brow up.
+      if (i === 1 && style.features?.includes("raisedbrow")) brow.setAttribute("transform", `translate(0 -2.4) rotate(-8 ${x} ${browY})`);
+    });
+    //: A scar through the right brow: a pale nick that breaks it.
+    if (style.features?.includes("scar")) stroke(`M${eyes[1][0] + 1.2} ${browY - 3.2} L${eyes[1][0] + 3.2} ${browY + 2.6}`, head, 1.3, nmMix(base, "#ffffff", 0.5));
+  }
   // Cheeks: always a little blush; more when the mood or the name says so.
   const flushed = face.extras?.includes("blush") || style.features?.includes("blush") || reading.flavours?.includes("blush");
   const cheek = face.extras?.includes("greenblush") ? "#7fbf6a" : "#ff6f91";
-  for (const sx of [-1, 1]) make("ellipse", { cx: 32 + sx * 16, cy: eyeY + 7.5, rx: 3.8, ry: 2.3, fill: cheek, "fill-opacity": flushed ? 0.55 : 0.28 }, head);
+  const cheekSize = reading.look === "feminine" ? 4.4 : 3.8;
+  const cheekLift = reading.look === "masculine" && !flushed ? 0.14 : flushed ? 0.55 : 0.28;
+  for (const sx of [-1, 1]) make("ellipse", { cx: 32 + sx * 16, cy: eyeY + 7.5, rx: cheekSize, ry: cheekSize * 0.6, fill: cheek, "fill-opacity": cheekLift }, head);
   if (!mini && style.features?.includes("freckles")) for (const sx of [-1, 1]) for (const [dx, dy] of [[0, 0], [2.4, 1], [-2, 1.4]]) make("circle", { cx: 32 + sx * 16 + dx, cy: eyeY + 6 + dy, r: 0.55, fill: nmMix(base, "#000000", 0.4) }, head);
   if (!mini && style.features?.includes("mole")) make("circle", { cx: 41, cy: eyeY + 13, r: 0.8, fill: NM_CHAR_INK }, head);
   if (beast?.whiskers) for (const sx of [-1, 1]) for (const dy of [-1.5, 1.5]) stroke(`M${32 + sx * 12} ${40 + dy} L${32 + sx * 20} ${39 + dy * 2}`, head, 0.8, line);
@@ -1994,6 +2095,8 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   if (face.loud && reading.intense) mouth = face.loud;
   if (reading.flavours?.includes("scream")) mouth = "gasp";
   if (beast?.mouth && !face.mouth) mouth = beast.mouth;
+  //: Attitude: a smirk in place of a plain smile.
+  if (style.features?.includes("smirk") && ["smile", "grin", "toothy", "lopsided", "cat"].includes(mouth)) mouth = "smirk";
   const inner = "#6b2238";
   const openMouth = (d) => {
     make("path", { d, fill: inner, stroke: NM_CHAR_INK, "stroke-width": 1.4, "stroke-linejoin": "round" }, head);
@@ -2029,6 +2132,16 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     make("path", { d: `M12 ${my + 1.5} C13 ${my + 19} 51 ${my + 19} 52 ${my + 1.5} C45 ${my + 6} 38 ${my + 5} 32 ${my + 7} C26 ${my + 5} 19 ${my + 6} 12 ${my + 1.5} Z`, fill: beard, stroke: nmMix(beard, "#000000", 0.4), "stroke-width": LW, "stroke-linejoin": "round" }, head);
   }
   if (worn.includes("moustache") || style.accessories?.includes("moustache")) make("path", { d: `M32 ${my - 2.4} C29 ${my - 4.6} 24 ${my - 3.6} 23.5 ${my - 0.6} C26 ${my - 2} 29 ${my - 1} 32 ${my - 1.2} C35 ${my - 1} 38 ${my - 2} 40.5 ${my - 0.6} C40 ${my - 3.6} 35 ${my - 4.6} 32 ${my - 2.4} Z`, fill: hairColour === base ? "#2b2a33" : hairColour }, head);
+  //: One earring, a small hoop low on the left.
+  if (!mini && style.features?.includes("earring")) make("circle", { cx: 6.5, cy: 39, r: 1.9, fill: "none", stroke: "#e0b43a", "stroke-width": 1.2 }, head);
+  //: A plaster across the bridge of the nose.
+  if (style.features?.includes("plaster")) {
+    const plaster = make("g", { transform: "rotate(-16 32 34.5)" }, head);
+    make("rect", { x: 27.8, y: 33, width: 8.4, height: 3.2, rx: 1.3, fill: "#f3dcb8", stroke: "#b89a6c", "stroke-width": 0.6 }, plaster);
+    for (const dx of [-1.2, 1.2]) make("circle", { cx: 32 + dx, cy: 34.6, r: 0.35, fill: "#b89a6c" }, plaster);
+  }
+  //: A short beard along the jaw, leaving the mouth clear.
+  if (style.accessories?.includes("shortbeard")) make("path", { d: `M10.5 ${my - 7} C10 ${my + 6} 20 ${my + 11} 32 ${my + 11} C44 ${my + 11} 54 ${my + 6} 53.5 ${my - 7} C51 ${my + 1} 46 ${my + 5.5} 41 ${my + 7.5} C37 ${my + 9} 27 ${my + 9} 23 ${my + 7.5} C18 ${my + 5.5} 13 ${my + 1} 10.5 ${my - 7} Z`, fill: hairColour, stroke: hairLine, "stroke-width": LW * 0.7, "stroke-linejoin": "round" }, head);
   if (!mini && (style.accessories?.includes("earrings") || creature?.earrings)) for (const sx of [-1, 1]) make("circle", { cx: 32 + sx * 27, cy: 38, r: 1.6, fill: "#f5c518", stroke: "#8a6d00", "stroke-width": 0.6 }, head);
 
   // --- the extras a mood brings ----------------------------------------------------
@@ -2126,6 +2239,15 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   }
   if (beast?.tuft) outlined("M30 5 C28 -2 34 -3 32 -7", base, 2.4, top);
   if (creature?.flameCrest) for (const [x, hgt, c] of [[26, -6, "#f28e2c"], [32, -12, "#edc949"], [38, -6, "#e15759"]]) make("path", { d: `M${x - 4} 6 C${x - 4} ${hgt + 6} ${x} ${hgt + 2} ${x} ${hgt} C${x + 2} ${hgt + 4} ${x + 4} ${hgt + 6} ${x + 4} 6 Z`, fill: c }, top);
+  if (worn.includes("hood")) {
+    //: A hood: its shell behind the head (drawn into the back layer, so it
+    //: covers long hair), its rim in front over the hair's edge.
+    const hood = pair.cloth[((style.outfitColour || 0) + 1) % pair.cloth.length];
+    const hoodLine = nmLineFor(hood);
+    back.appendChild(make("path", { d: "M-1 38 C-3 10 14 -5 32 -5 C50 -5 67 10 65 38 C64 47 58 53 52 55 L12 55 C6 53 0 47 -1 38 Z", fill: nmMix(hood, "#000000", 0.12), stroke: hoodLine, "stroke-width": LW, "stroke-linejoin": "round" }));
+    make("path", { class: "nm-hat", d: "M3 46 C-1 14 14 -1 32 -1 C50 -1 65 14 61 46", fill: "none", stroke: hoodLine, "stroke-width": 5 + LW * 2, "stroke-linecap": "round" }, top);
+    make("path", { d: "M3 46 C-1 14 14 -1 32 -1 C50 -1 65 14 61 46", fill: "none", stroke: hood, "stroke-width": 5, "stroke-linecap": "round" }, top);
+  }
   if (creature?.gnomeHat || headwear) {
     const kind = creature?.gnomeHat ? "gnome" : headwear;
     const hat = make("g", { class: "nm-hat" }, top);
@@ -2590,7 +2712,7 @@ function dashboardMarkSeed() {
 //: change redraws your face everywhere at once and marks the profile form
 //: unsaved; Save preferences keeps it (`avatar_style`).
 const PROFILE_LOOK_PARTS = [
-  ["look", "Look", () => ["feminine", "masculine"]],
+  ["look", "Look", () => ["masculine", "feminine", "neutral"]],
   ["mood", "Mood", () => ["happy", "excited", "calm", "cool", "cute", "sly", "evil", "sleepy", "dramatic", "love", "laughing", "unimpressed", "surprised", "serious", "nervous", "confused", "hungry", "greedy", "sad", "angry", "starstruck", "uwu", "dizzy", "sick", "dead", "drunk"]],
   ["hair", "Hair", () => NAME_MARK_HAIR_KINDS],
   ["hairtone", "Hair colour", () => NAME_MARK_HAIR_TONE_KINDS],

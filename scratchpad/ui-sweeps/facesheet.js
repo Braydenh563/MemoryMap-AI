@@ -72,10 +72,24 @@ const DEFAULT_NAMES = [
       const mark = row.children[1];
       //: The space helmet is a glass bubble round the whole head, by design.
       const eyes = r.props.includes("helmet") ? null : mark.querySelector(".nm-eyes")?.getBBox();
+      //: Measured by geometry, not boxes: a hood's rim or headphones' band
+      //: wraps the face without touching the eyes, so each shape is asked
+      //: whether its fill or stroke covers any of nine points on each eye.
+      const points = [];
+      if (eyes) {
+        for (const cx of [eyes.x + eyes.width * 0.2, eyes.x + eyes.width * 0.8]) {
+          for (const [dx, dy] of [[0, 0], [2.5, 0], [-2.5, 0], [0, 3], [0, -3], [1.8, 2], [-1.8, 2], [1.8, -2], [-1.8, -2]]) {
+            points.push(new DOMPoint(cx + dx, eyes.y + eyes.height / 2 + dy));
+          }
+        }
+      }
       for (const worn of mark.querySelectorAll(".nm-hat, .nm-clip, .nm-bow")) {
-        const box = worn.getBBox();
-        if (eyes && box.y + box.height > eyes.y + 0.5 && box.x < eyes.x + eyes.width && box.x + box.width > eyes.x) {
-          readings[name].overEyes = (readings[name].overEyes || []).concat(worn.getAttribute("class"));
+        for (const shape of worn.querySelectorAll("path, circle, ellipse, rect, polygon")) {
+          const fills = shape.getAttribute("fill") !== "none";
+          if (points.some((pt) => (fills && shape.isPointInFill(pt)) || shape.isPointInStroke(pt))) {
+            readings[name].overEyes = (readings[name].overEyes || []).concat(worn.getAttribute("class"));
+            break;
+          }
         }
       }
     }

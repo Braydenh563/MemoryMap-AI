@@ -1396,7 +1396,7 @@ const APPEARANCE_DEFAULTS = {
   //: Atlas's look (atlas.js, `atlasLook`), and the look a generated face
   //: takes when its name says nothing either way (`nameMarkLookLean`).
   "atlas-look": "masculine", // masculine | feminine
-  "face-look": "mixed", // mixed | masculine | feminine
+  "face-look": "mixed", // mixed (shown as Neutral) | masculine | feminine
   "dash-mark": "logo", // logo | me | persona
   // Half strength (was 90): a professional product has a quiet page
   // (UI_MODERNISATION_PLAN Phase 3). theme-boot.js and index.html carry the

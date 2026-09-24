@@ -195,7 +195,14 @@ def test_ctrl_slash_has_one_owner_per_surface():
     app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'if (id === "editorMenu" && e.defaultPrevented) continue;' in app
     notes = _function("noteSurfaceKeymap")
-    assert '"Mod-/"' not in notes, "a note box's Ctrl+/ is the blocks menu, not a comment"
+    # A note binds Ctrl+/ itself now, ahead of the engine's defaultKeymap,
+    # whose own comment toggle wrote `<!--  -->` into a markdown note. The
+    # rule is unchanged: in a note the chord opens the blocks menu and never
+    # comments.
+    assert "toggleDocComment" not in notes, "a note box's Ctrl+/ is the blocks menu, not a comment"
+    if '"Mod-/"' in notes:
+        bound = notes[notes.index('"Mod-/"') :][:200]
+        assert "editorOpenMenuByShortcut" in bound, bound
     assert '{ key: "Mod-/", run: () => { toggleDocComment(surface()); return true; } }' in _function("docCmKeymap")
 
 

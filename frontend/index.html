@@ -11033,6 +11033,11 @@
        stood in for at all (a `const` in a classic script is a lexical
        global), so they moved into app.js. -->
   <script src="/app.js?v=0.3.2"></script>
+  <!-- Generated faces (`nameMood`, `nameMark`): split out of app.js on
+       2026-09-24 when they took the gzipped app.js over its size bound. Only
+       declarations at top level, and it must load before any boot file that
+       paints a face, so it sits straight after app.js. -->
+  <script src="/avatars.js?v=0.3.2"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js, and it stays at boot: every cross-file call it

@@ -2853,9 +2853,11 @@ def test_the_persons_mark_is_one_builder_and_one_painter() -> None:
     """
     app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    assert app.count("function nameMark(") == 1, "the name mark is no longer drawn in one place"
+    #: The builder is avatars.js's since the faces were split out of app.js.
+    avatars = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
+    assert avatars.count("function nameMark(") == 1, "the name mark is no longer drawn in one place"
     for path in JS:
-        if path.name != "app.js":
+        if path.name != "avatars.js":
             assert "function nameMark(" not in path.read_text(encoding="utf-8"), (
                 f"{path.name} draws a second name mark"
             )

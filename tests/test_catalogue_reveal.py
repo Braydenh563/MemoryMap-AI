@@ -54,6 +54,7 @@ SCRIPTS = (
     "editor.js",
     "timeline.js",
     "palette.js",
+    "avatars.js",
 )
 
 

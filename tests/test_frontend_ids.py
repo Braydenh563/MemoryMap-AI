@@ -74,12 +74,13 @@ def _frontend_js() -> str:
     settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
     timeline = (INDEX.parent / "timeline.js").read_text(encoding="utf-8")
     palette = (INDEX.parent / "palette.js").read_text(encoding="utf-8")
+    avatars = (INDEX.parent / "avatars.js").read_text(encoding="utf-8")
     documents_code = (INDEX.parent / "documents-code.js").read_text(encoding="utf-8")
     documents_prose = (INDEX.parent / "documents-prose.js").read_text(encoding="utf-8")
     whiteboard_map = (INDEX.parent / "whiteboard-map.js").read_text(encoding="utf-8")
     return (
         app + "\n" + whiteboard + "\n" + graph + "\n" + documents + "\n" + library
-        + "\n" + dashboard + "\n" + settings + "\n" + timeline + "\n" + palette
+        + "\n" + dashboard + "\n" + settings + "\n" + timeline + "\n" + palette + "\n" + avatars
         + "\n" + documents_code + "\n" + documents_prose + "\n" + whiteboard_map
     )
 

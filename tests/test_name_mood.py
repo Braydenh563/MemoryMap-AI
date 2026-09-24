@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+APP = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
 
 
 def _mood_source() -> str:

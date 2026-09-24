@@ -4924,21 +4924,61 @@ main,
   transition: rotate var(--motion-slow) var(--ease-out);
 }
 
+/* The one-piece characters (avatars.js, `drawCharacter`): the face turns
+   where it sits on the head, the raised arms stay hidden until a pose asks
+   for them, and a waving or thumbs-up hand is raised at the shoulder. */
+.nm-char .nm-buddy-head {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.nm-figure .nmb-hold { opacity: 0; }
+
+/* The contact shadow is for standing on something; hanging, sitting over
+   an edge or floating, there is nothing under its feet to cast it on. */
+#nm-buddy:not([data-pose="stand"]) .nmc-shadow { opacity: 0; }
+
+.nm-figure :is(.nmb-arm, .nmb-leg) { transform-box: view-box; }
+
+.nm-figure .nmb-arm-r.nmc-raised {
+  transform-origin: 50.5px 56px;
+  rotate: -115deg;
+}
+
+/* The large view shows the whole character at 2.2 times its companion
+   size (64 by 92). */
+.nm-viewer-figure {
+  position: relative;
+  display: block;
+  width: 141px;
+  height: 203px;
+}
+
+.nm-viewer-figure > .nm-figure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 92px;
+  transform: scale(2.2);
+  transform-origin: 0 0;
+}
+
 /* Limbs turn where they join the body, in the drawing's own units. */
 #nm-buddy :is(.nmb-arm, .nmb-leg) {
   transform-box: view-box;
   transition: transform var(--motion-slow) var(--ease-out), opacity var(--motion-base) var(--ease-out);
 }
 
-#nm-buddy .nmb-arm-l { transform-origin: 21.5px 54px; }
-#nm-buddy .nmb-arm-r { transform-origin: 42.5px 54px; }
+#nm-buddy .nmb-arm-l { transform-origin: 13.5px 56px; }
+#nm-buddy .nmb-arm-r { transform-origin: 50.5px 56px; }
 #nm-buddy .nmb-leg-l {
   --nmb-side: 1;
-  transform-origin: 27.5px 68px;
+  transform-origin: 25.5px 68px;
 }
 #nm-buddy .nmb-leg-r {
   --nmb-side: -1;
-  transform-origin: 36.5px 68px;
+  transform-origin: 38.5px 68px;
 }
 
 #nm-buddy .nmb-hold {

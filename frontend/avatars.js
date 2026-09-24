@@ -2225,34 +2225,96 @@ const NAME_MARK_BUDDY_NEVER_COVER = [
 //: fills the screen (the graph, the timeline); standing on a dock a page
 //: whose toolbar has room at its end.
 const NAME_MARK_BUDDY_ORDER = {
-  dashboard: ["hang", "card", "sit", "dock"],
-  notes: ["dock", "sit", "hang", "card"],
-  chat: ["hang", "sit", "dock", "card"],
-  graph: ["sit", "hang", "dock"],
-  library: ["dock", "sit", "hang", "card"],
-  documents: ["dock", "sit", "hang", "card"],
-  timeline: ["sit", "hang", "dock", "card"],
-  reminders: ["card", "hang", "sit", "dock"],
+  dashboard: ["hang", "card", "bar", "under", "dock"],
+  notes: ["dock", "under", "bar", "hang", "card"],
+  chat: ["hang", "bar", "dock", "card", "under"],
+  graph: ["bar", "hang", "dock"],
+  library: ["dock", "under", "bar", "hang", "card"],
+  documents: ["dock", "bar", "hang", "card", "under"],
+  timeline: ["bar", "hang", "dock", "card", "under"],
+  reminders: ["card", "under", "hang", "bar", "dock"],
 };
 
-//: How long each behaviour runs (ms), and which poses it suits.
+//: **Its behaviours, as a small game AI** (the owner: "more diverse
+//: movement and actions, maybe they hang from the roof like a sloth or
+//: with one hand or from their feet, maybe they are shy and hiding with
+//: their eyes peeking behind some ui panels ... just like a game ai").
+//: A weighted pick, one decision every 4 to 12 seconds from the one timer:
+//: `ms` is how long a behaviour runs, `w` its base weight, `cool` how long
+//: before it may run again, `poses` where it makes sense (`legs: "out"`
+//: only with its legs over the edge, `edge: "top"` only on a panel's top
+//: edge, which is what it hides behind to peek). `nameMarkBuddyDecide`
+//: multiplies the weights by the moment: how long since you last did
+//: anything, the hour, what the app just did, and the character's own mood
+//: and species (`NAME_MARK_BUDDY_MOODS`, `NAME_MARK_BUDDY_KINDS`). A weight
+//: of 0 is a behaviour only an event starts.
 const NAME_MARK_BUDDY_ACTS = {
-  look: { ms: 2400, poses: ["stand", "sit", "hang", "float"], weight: 3 },
-  blink: { ms: 700, poses: ["stand", "sit", "hang", "float"], weight: 3 },
-  glance: { ms: 1800, poses: ["stand", "sit", "hang", "float"], weight: 2 },
-  hop: { ms: 800, poses: ["stand", "float"], weight: 2 },
-  stretch: { ms: 1600, poses: ["stand", "sit", "float"], weight: 1 },
-  kick: { ms: 2400, poses: ["sit"], weight: 4 },
-  swing: { ms: 2600, poses: ["hang"], weight: 4 },
-  yawn: { ms: 2200, poses: ["stand", "sit", "float"], weight: 0 },
-  wave: { ms: 1500, poses: ["stand", "sit", "float"], weight: 0 },
-  cheer: { ms: 1300, poses: ["stand", "sit", "hang", "float"], weight: 0 },
-  startle: { ms: 700, poses: ["stand", "sit", "hang", "float"], weight: 0 },
+  blink: { ms: 700, w: 3, cool: 5000, poses: ["stand", "sit", "hang", "float", "lean"] },
+  look: { ms: 2600, w: 3, cool: 12000, poses: ["stand", "sit", "hang", "float", "lean"] },
+  turn: { ms: 3400, w: 2, cool: 14000, poses: ["stand", "sit", "float", "lean"] },
+  glance: { ms: 1800, w: 2, cool: 8000, poses: ["stand", "sit", "hang", "float", "lean"] },
+  stretch: { ms: 1600, w: 1, cool: 45000, poses: ["stand", "sit", "float"] },
+  yawn: { ms: 2200, w: 0, cool: 40000, poses: ["stand", "sit", "hang", "float", "lean"] },
+  nap: { ms: 30000, w: 0, cool: 150000, poses: ["stand", "sit", "hang", "float", "lean"] },
+  hop: { ms: 800, w: 2, cool: 10000, poses: ["stand", "float"] },
+  wave: { ms: 1500, w: 1, cool: 30000, poses: ["stand", "sit", "float", "lean"] },
+  scratch: { ms: 2600, w: 1, cool: 30000, poses: ["stand", "sit", "hang", "lean"] },
+  dangle: { ms: 6000, w: 5, cool: 5000, poses: ["sit"], legs: "out" },
+  kick: { ms: 1600, w: 2, cool: 12000, poses: ["sit"], legs: "out" },
+  peek: { ms: 14000, w: 2, cool: 70000, poses: ["sit", "stand"], edge: "top" },
+  swing: { ms: 2600, w: 3, cool: 8000, poses: ["hang"] },
+  sloth: { ms: 9000, w: 2, cool: 30000, poses: ["hang"] },
+  onehand: { ms: 4200, w: 2, cool: 20000, poses: ["hang"] },
+  feet: { ms: 7000, w: 1, cool: 45000, poses: ["hang"] },
+  emerge: { ms: 800, w: 0, cool: 0, poses: ["sit", "stand"] },
+  cheer: { ms: 1300, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
+  startle: { ms: 700, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
+  land: { ms: 450, w: 0, cool: 0, poses: ["stand", "sit", "float"] },
+};
+
+//: How a character's mood leans its choices (multipliers on the weights).
+const NAME_MARK_BUDDY_MOODS = {
+  sleepy: { yawn: 3, nap: 3, sloth: 3, hop: 0.3 },
+  sick: { yawn: 2, nap: 2, hop: 0.3, kick: 0.5 },
+  drunk: { sloth: 2, swing: 2, hop: 0.5 },
+  excited: { hop: 2.5, wave: 2, kick: 2 },
+  happy: { hop: 1.5, wave: 1.5, dangle: 1.5 },
+  laughing: { hop: 2, kick: 2 },
+  cute: { wave: 2, peek: 1.5, dangle: 1.5 },
+  uwu: { wave: 2, peek: 2 },
+  love: { wave: 2, glance: 2 },
+  nervous: { peek: 3, look: 2, hop: 0.5 },
+  sad: { peek: 2, nap: 1.5, hop: 0.3 },
+  confused: { look: 2, scratch: 3 },
+  sly: { peek: 2.5, feet: 2, onehand: 2 },
+  evil: { peek: 2, feet: 2.5 },
+  cool: { onehand: 2.5, feet: 1.5, turn: 2 },
+  dramatic: { stretch: 2.5, wave: 2 },
+  starstruck: { hop: 2, glance: 2 },
+  serious: { hop: 0.4, kick: 0.5 },
+  unimpressed: { turn: 2, yawn: 2 },
+  hungry: { scratch: 1.5, look: 1.5 },
+};
+
+//: And its species.
+const NAME_MARK_BUDDY_KINDS = {
+  sloth: { sloth: 5, nap: 2, hop: 0.2 },
+  monkey: { onehand: 3, feet: 2, swing: 2 },
+  bat: { feet: 6 },
+  cat: { stretch: 3, nap: 2, peek: 2 },
+  owl: { look: 3 },
+  bunny: { hop: 3 },
+  frog: { hop: 3 },
+  koala: { sloth: 3, nap: 2 },
+  hedgehog: { peek: 3 },
+  mouse: { peek: 3 },
+  ghost: { peek: 2 },
 };
 
 const nmb = {
-  x: NaN, y: NaN, pose: "", perch: "", tab: "", act: "", timer: 0,
-  lastInput: Date.now(), pointer: null, watchTimer: 0, watchAt: 0,
+  x: NaN, y: NaN, pose: "", legs: "", perch: "", tab: "", act: "", lastAct: "", timer: 0,
+  lastInput: Date.now(), lastCheer: 0, lastPoke: 0, pointer: null, watchTimer: 0, watchAt: 0,
+  shyAt: 0, shyTimer: 0, edgeType: "", edgeLine: 72, reading: null, cool: {},
   anim: null, hopAnim: null, anchor: null, anchorTop: 0, settle: [], checkFrame: 0,
 };
 
@@ -2397,21 +2459,25 @@ function nameMarkBuddyObstacles(tab) {
 }
 
 //: The parts of the character that are actually drawn, as boxes: the head
-//: and the body, and the hands above the head when it hangs.
-function nameMarkBuddyShape(x, y, pose) {
+//: and the body (down to its seat when its legs are tucked), and the hands
+//: above the head when it hangs.
+function nameMarkBuddyShape(x, y, pose, legs = "") {
   const drop = pose === "hang" ? NMB_DROP : 0;
+  let bottom = y + drop + NMB_FEET;
+  if (pose === "stand") bottom -= 4;
+  if (pose === "sit" && legs === "tuck") bottom = y + NMB_SEAT + 2;
   const shape = [
-    { left: x + 6, top: y + drop, right: x + 58, bottom: y + drop + NMB_HEAD },
-    { left: x + 12, top: y + drop + 43, right: x + 52, bottom: y + drop + NMB_FEET - (pose === "stand" ? 4 : 0) },
+    { left: x + 5, top: y + drop, right: x + 59, bottom: y + drop + NMB_HEAD },
+    { left: x + 8, top: y + drop + 43, right: x + 56, bottom },
   ];
   //: The arms that hold on, from just under the ledge.
   if (pose === "hang") shape.push({ left: x - 4, top: y + NMB_GRIP + 1, right: x + 68, bottom: y + drop + 30 });
   return shape;
 }
 
-function nameMarkBuddyHits(x, y, pose, obstacles) {
+function nameMarkBuddyHits(x, y, pose, obstacles, legs = "") {
   const gap = 4;
-  for (const part of nameMarkBuddyShape(x, y, pose)) {
+  for (const part of nameMarkBuddyShape(x, y, pose, legs)) {
     for (const box of obstacles) {
       if (part.right > box.left - gap && part.left < box.right + gap && part.bottom > box.top - gap && part.top < box.bottom + gap) return true;
     }
@@ -2422,11 +2488,12 @@ function nameMarkBuddyHits(x, y, pose, obstacles) {
 //: The share of the character that would sit over words or pictures,
 //: sampled at a dozen points of its shape: a perch over an empty stretch
 //: of card beats one over a paragraph.
-function nameMarkBuddyCovers(x, y, pose) {
+function nameMarkBuddyCovers(x, y, pose, legs = "") {
   const drop = pose === "hang" ? NMB_DROP : 0;
   const points = [];
   for (const fx of [10, 24, 40, 54]) for (const fy of [8, 22, 36, 48]) points.push([x + fx, y + drop + fy]);
-  points.push([x + 32, y + drop + 58], [x + 24, y + drop + 72], [x + 40, y + drop + 72], [x + 32, y + drop + 84]);
+  points.push([x + 32, y + drop + 58], [x + 24, y + drop + 72], [x + 40, y + drop + 72]);
+  if (legs !== "tuck") points.push([x + 32, y + drop + 84]);
   let covered = 0;
   for (const [px, py] of points) {
     if (px < 0 || py < 0 || px >= innerWidth || py >= innerHeight) continue;
@@ -2469,47 +2536,86 @@ function nameMarkBuddyTextBoxes(el) {
   return boxes;
 }
 
-//: The tab's candidate perches, in its own order of preference, each at a
-//: few places along its ledge from the right-hand end.
-function nameMarkBuddyPerches(tab) {
+//: **Surfaces and their edges** (the owner: "sit on panels and dangle their
+//: legs, if the user moves them around they interact with the ui
+//: environment"). Every panel on the tab, and the two bars, as edges: a
+//: top edge to sit or stand on, an underside to hang from, a side to lean
+//: against. Measured once per placement.
+const NAME_MARK_BUDDY_SURFACES = ".card, .dock, .dash-hero, .settings-group, aside";
+
+function nameMarkBuddyEdges(tab) {
   const { top, bottom } = nameMarkBuddyLedges();
-  const page = document.getElementById(`tab-${tab}`);
-  const lo = NMB_GUTTER;
-  const hi = innerWidth - NMB_GUTTER - NMB_W;
   const floor = top ? top.bottom : 0;
   const ceiling = bottom ? bottom.top : innerHeight;
-  const along = (from, to, step = 40) => {
+  const edges = [];
+  if (top) edges.push({ el: document.getElementById("top-bar"), type: "under", kind: "hang", y: top.bottom, left: top.left, right: top.right, top: top.top, bottom: top.bottom });
+  if (bottom) {
+    const dock = document.getElementById("phone-tab-dock");
+    const el = nameMarkBuddyShown(dock) ? dock : document.getElementById("status-bar");
+    edges.push({ el, type: "top", kind: "bar", y: bottom.top, left: bottom.left, right: bottom.right, top: bottom.top, bottom: bottom.bottom });
+  }
+  const page = document.getElementById(`tab-${tab}`);
+  let count = 0;
+  for (const el of page ? page.querySelectorAll(NAME_MARK_BUDDY_SURFACES) : []) {
+    const box = nameMarkBuddyShown(el);
+    if (!box || box.width < 150 || box.height < 36) continue;
+    const kind = el.matches(".dock") ? "dock" : "card";
+    const span = { el, left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+    if (box.top > floor + 20 && box.top < ceiling - 20) edges.push({ ...span, type: "top", kind, y: box.top });
+    if (box.bottom > floor + 20 && box.bottom + NMB_H + 8 < ceiling) edges.push({ ...span, type: "under", kind: "under", y: box.bottom });
+    edges.push({ ...span, type: "side", kind: "side" });
+    count += 1;
+    if (count >= 30) break;
+  }
+  return edges;
+}
+
+//: What it can do at a place on an edge: on a top edge sit with its legs
+//: over (the owner's "dangle their legs"), sit with them tucked where they
+//: would cover something, or stand; under one, hang.
+function nameMarkBuddyStances(edge, x) {
+  if (edge.type === "under") return [{ pose: "hang", legs: "", x, y: edge.y - NMB_GRIP }];
+  if (edge.type !== "top") return [];
+  return [
+    { pose: "sit", legs: "", x, y: edge.y - NMB_SEAT },
+    { pose: "sit", legs: "tuck", x, y: edge.y - NMB_SEAT, alt: 0.2 },
+    { pose: "stand", legs: "", x, y: edge.y - NMB_FEET + 1, alt: 0.4 },
+  ];
+}
+
+//: The tab's candidate perches, in its own order of preference: each edge
+//: kind at a few places along it from the right-hand end, every stance.
+function nameMarkBuddyPerches(tab) {
+  const { top } = nameMarkBuddyLedges();
+  const floor = top ? top.bottom : 0;
+  const lo = NMB_GUTTER;
+  const hi = innerWidth - NMB_GUTTER - NMB_W;
+  const along = (from, to, step, limit) => {
     const xs = [];
-    for (let x = to; x >= from; x -= step) xs.push(Math.round(x));
+    for (let x = to; x >= from && xs.length < limit; x -= step) xs.push(Math.round(x));
     return xs;
   };
-  const edges = (selector, limit) => {
-    const out = [];
-    for (const el of page ? page.querySelectorAll(selector) : []) {
-      const box = nameMarkBuddyShown(el);
-      if (!box || box.width < 180 || box.top - NMB_FEET < floor + 2 || box.top > ceiling - 24) continue;
-      out.push({ el, box });
-      if (out.length >= limit) break;
+  const edges = nameMarkBuddyEdges(tab);
+  const order = NAME_MARK_BUDDY_ORDER[tab] || ["bar", "hang", "dock", "card", "under"];
+  const out = [];
+  order.forEach((kind, rank) => {
+    let i = 0;
+    for (const edge of edges) {
+      if (edge.kind !== kind) continue;
+      const wide = kind === "bar" || kind === "hang";
+      const xs = along(Math.max(lo, edge.left + (wide ? 0 : 8)), Math.min(hi, edge.right - (wide ? 0 : 8) - NMB_W), wide ? 40 : 48, wide ? 40 : 5);
+      for (const x of xs) {
+        for (const stance of nameMarkBuddyStances(edge, x)) {
+          //: Nothing but the top bar's own underside may put it over the
+          //: top bar.
+          if (stance.y < floor + 2 && !(kind === "hang")) continue;
+          out.push({ ...stance, kind, edge, anchor: kind === "bar" || kind === "hang" ? null : edge.el, rank, i });
+          i += 1;
+        }
+      }
     }
-    return out;
-  };
-  const make = {
-    //: On the bottom bar: sitting with its legs over the edge, or, where
-    //: its legs would be in front of the bar's own buttons, standing on it.
-    sit: () => (bottom ? along(lo, hi).flatMap((x) => [
-      { kind: "sit", pose: "sit", x, y: bottom.top - NMB_SEAT, ledge: "bottom" },
-      { kind: "sit", pose: "stand", x, y: bottom.top - NMB_FEET + 1, ledge: "bottom", alt: 0.3 },
-    ]) : []),
-    hang: () => (top ? along(lo, hi).map((x) => ({ kind: "hang", pose: "hang", x, y: top.bottom - NMB_GRIP, ledge: "top" })) : []),
-    dock: () => edges(".dock", 3).flatMap(({ el, box }) =>
-      along(Math.max(lo, box.left + 8), Math.min(hi, box.right - 8 - NMB_W), 48).slice(0, 5)
-        .map((x) => ({ kind: "dock", pose: "stand", x, y: box.top - NMB_FEET + 1, anchor: el }))),
-    card: () => edges(".card", 4).flatMap(({ el, box }) =>
-      along(Math.max(lo, box.left + 12), Math.min(hi, box.right - 12 - NMB_W), 56).slice(0, 4)
-        .map((x) => ({ kind: "card", pose: "stand", x, y: box.top - NMB_FEET + 1, anchor: el }))),
-  };
-  const order = NAME_MARK_BUDDY_ORDER[tab] || ["sit", "hang", "dock", "card"];
-  return order.flatMap((kind, rank) => make[kind]().map((perch, i) => ({ ...perch, rank, i })));
+  });
+  return out;
 }
 
 //: The best free perch: never over a control, then the least text hidden,
@@ -2521,21 +2627,21 @@ function nameMarkBuddyChoose(tab, obstacles) {
   let scored = 0;
   for (const perch of nameMarkBuddyPerches(tab)) {
     if (perch.x < 0 || perch.y < 0 || perch.y + NMB_H > innerHeight + 2) continue;
-    if (nameMarkBuddyHits(perch.x, perch.y, perch.pose, obstacles)) continue;
-    const covers = nameMarkBuddyCovers(perch.x, perch.y, perch.pose);
-    const here = perch.kind === nmb.perch && Math.abs(perch.x - nmb.x) < 24 && Math.abs(perch.y - nmb.y) < 24;
+    if (nameMarkBuddyHits(perch.x, perch.y, perch.pose, obstacles, perch.legs)) continue;
+    const covers = nameMarkBuddyCovers(perch.x, perch.y, perch.pose, perch.legs);
+    const here = perch.kind === nmb.perch && perch.pose === nmb.pose && Math.abs(perch.x - nmb.x) < 24 && Math.abs(perch.y - nmb.y) < 24;
     //: Any words under it at all cost more than a step along the ledge:
     //: sampling is sparse, and one hit is usually a word half hidden.
-    perch.score = 100 - (covers ? 25 + covers * 120 : 0) - perch.rank * 9 - perch.i * 0.6 - (perch.alt || 0) + (here ? 4 : 0);
+    perch.score = 100 - (covers ? 25 + covers * 120 : 0) - perch.rank * 9 - perch.i * 0.2 - (perch.alt || 0) * 3 + (here ? 4 : 0);
     if (!best || perch.score > best.score) best = perch;
     scored += 1;
-    if ((covers === 0 && perch.rank === 0) || scored >= 24) break;
+    if ((covers === 0 && perch.rank === 0) || scored >= 36) break;
   }
   if (best) return best;
   //: Nothing is free (a small window full of controls): the bottom corner,
-  //: as before, standing clear of the bar.
+  //: standing clear of the bar.
   const { bottom } = nameMarkBuddyLedges();
-  return { kind: "corner", pose: "stand", x: innerWidth - NMB_GUTTER - NMB_W, y: (bottom ? bottom.top : innerHeight) - NMB_FEET - NMB_GUTTER };
+  return { kind: "corner", pose: "stand", legs: "", x: innerWidth - NMB_GUTTER - NMB_W, y: (bottom ? bottom.top : innerHeight) - NMB_FEET - NMB_GUTTER };
 }
 
 function nameMarkBuddySpots() {
@@ -2555,56 +2661,131 @@ function nameMarkBuddyKeepSpots(spots) {
   }
 }
 
-//: A spot you chose, redrawn for the window as it is now: held to the
-//: nearer edge (a companion left at the right stays at the right when the
-//: window widens), and on the same ledge when it was on one.
+//: A path back to a panel from the nearest ancestor with an id, so a spot
+//: kept on it finds the same panel after a reload.
+function nameMarkBuddySelector(el) {
+  if (!el) return "";
+  const parts = [];
+  for (let node = el; node && node !== document.body; node = node.parentElement) {
+    if (node.id) {
+      parts.unshift(`#${CSS.escape(node.id)}`);
+      break;
+    }
+    let nth = 1;
+    for (let sib = node.previousElementSibling; sib; sib = sib.previousElementSibling) {
+      if (sib.tagName === node.tagName) nth += 1;
+    }
+    parts.unshift(`${node.tagName.toLowerCase()}:nth-of-type(${nth})`);
+  }
+  return parts.join(" > ");
+}
+
+//: **What is kept of a spot you chose: the surface, not the pixels.** The
+//: panel's selector, which of its edges, and how far along it from the
+//: nearer end, so it stays on that panel when the layout moves or the
+//: window resizes; a spot in open air keeps its place held to the nearer
+//: window edges.
+function nameMarkBuddySpotFor(spot) {
+  const edge = spot.edge;
+  if (edge?.el && ["top", "under", "side"].includes(edge.type)) {
+    const fromRight = spot.x + NMB_W / 2 > (edge.left + edge.right) / 2;
+    return {
+      sel: nameMarkBuddySelector(edge.el), type: edge.type, side: spot.side || "", pose: spot.pose, legs: spot.legs || "",
+      fromRight, along: Math.round(fromRight ? edge.right - spot.x : spot.x - edge.left), dy: Math.round(spot.y - edge.top),
+    };
+  }
+  return { x: Math.round(spot.x), y: Math.round(spot.y), pose: spot.pose, legs: spot.legs || "", w: innerWidth, h: innerHeight };
+}
+
+//: A kept spot, for the page as it is now; null when its panel is gone,
+//: and the tab's own best perch is used instead.
 function nameMarkBuddyRestore(spot) {
-  const { top, bottom } = nameMarkBuddyLedges();
+  const clampX = (x) => Math.min(Math.max(0, x), innerWidth - NMB_W);
+  const clampY = (y) => Math.min(Math.max(0, y), innerHeight - NMB_H);
+  if (spot.sel) {
+    let el = null;
+    try {
+      el = document.querySelector(spot.sel);
+    } catch (e) {
+      el = null;
+    }
+    const box = nameMarkBuddyShown(el);
+    if (!box) return null;
+    const edge = { el, type: spot.type, left: box.left, right: box.right, top: box.top, bottom: box.bottom, y: spot.type === "under" ? box.bottom : box.top };
+    let x = spot.fromRight ? box.right - Number(spot.along) : box.left + Number(spot.along);
+    let y = box.top + Number(spot.dy);
+    if (spot.type === "under") y = box.bottom - NMB_GRIP;
+    else if (spot.type === "top") y = box.top - (spot.pose === "sit" ? NMB_SEAT : NMB_FEET - 1);
+    else x = spot.side === "left" ? box.left - NMB_W + 6 : box.right - 6;
+    return { kind: "yours", pose: spot.pose, legs: spot.legs || "", side: spot.side || "", x: clampX(x), y: clampY(y), edge, anchor: el };
+  }
   const w = Number(spot.w) || innerWidth;
   const h = Number(spot.h) || innerHeight;
-  let x = Number(spot.x) + NMB_W / 2 > w / 2 ? innerWidth - (w - Number(spot.x)) : Number(spot.x);
-  let y = Number(spot.y) + NMB_H / 2 > h / 2 ? innerHeight - (h - Number(spot.y)) : Number(spot.y);
-  if (spot.ledge === "top" && top) y = top.bottom - NMB_GRIP;
-  if (spot.ledge === "bottom" && bottom) y = bottom.top - (spot.pose === "sit" ? NMB_SEAT : NMB_FEET);
-  x = Math.min(Math.max(0, x), innerWidth - NMB_W);
-  y = Math.min(Math.max(0, y), innerHeight - NMB_H);
-  return { kind: "yours", pose: ["stand", "sit", "hang", "float"].includes(spot.pose) ? spot.pose : "float", x, y, ledge: spot.ledge || "" };
+  const x = Number(spot.x) + NMB_W / 2 > w / 2 ? innerWidth - (w - Number(spot.x)) : Number(spot.x);
+  const y = Number(spot.y) + NMB_H / 2 > h / 2 ? innerHeight - (h - Number(spot.y)) : Number(spot.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { kind: "yours", pose: "float", legs: "", x: clampX(x), y: clampY(y) };
 }
 
 //: Your spot, unless something has come up under it since (the back-to-top
 //: button, a toast): then the nearest free place along the same line, for
 //: as long as it is there. The spot itself is kept.
 function nameMarkBuddyStepAside(spot, obstacles) {
-  if (!nameMarkBuddyHits(spot.x, spot.y, spot.pose, obstacles)) return spot;
+  if (!nameMarkBuddyHits(spot.x, spot.y, spot.pose, obstacles, spot.legs)) return spot;
   for (let d = 16; d <= 320; d += 16) {
     for (const x of [spot.x - d, spot.x + d]) {
       if (x < 0 || x > innerWidth - NMB_W) continue;
-      if (!nameMarkBuddyHits(x, spot.y, spot.pose, obstacles)) return { ...spot, x };
+      if (!nameMarkBuddyHits(x, spot.y, spot.pose, obstacles, spot.legs)) return { ...spot, x };
     }
   }
   return spot;
 }
 
-//: Where it lands when you let go: hanging if you let go of it just under
-//: the top bar, else on the first edge within reach under its feet (sitting
-//: when that is the bottom bar), else floating where you left it.
-function nameMarkBuddyLand(x, y) {
-  const { top, bottom } = nameMarkBuddyLedges();
-  if (top && Math.abs(y - top.bottom) <= 36) return { pose: "hang", x, y: top.bottom - NMB_GRIP, ledge: "top" };
-  const feet = y + NMB_FEET;
-  if (bottom && bottom.top - feet <= 64 && bottom.top - (y + NMB_SEAT) >= -24) return { pose: "sit", x, y: bottom.top - NMB_SEAT, ledge: "bottom" };
-  for (let py = feet - 6; py <= feet + 56 && py < innerHeight; py += 4) {
-    for (const px of [x + 24, x + 40]) {
-      const el = document.elementsFromPoint(px, py).find((node) => !node.closest("#nm-buddy"));
-      if (!el || el === document.body || el === document.documentElement) continue;
-      for (let node = el; node && node !== document.body; node = node.parentElement) {
-        const box = node.getBoundingClientRect();
-        if (box.top >= feet - 8 && box.top <= py && box.width >= 72) return { pose: "stand", x, y: Math.round(box.top) - NMB_FEET + 1, ledge: "" };
-        if (box.top < feet - 8) break;
-      }
+//: **Where it lands when you let go**: the nearest surface edge in reach
+//: that it can take without covering a control (sitting on a top edge,
+//: standing on one, hanging from an underside, leaning on a side); over
+//: open space it falls to the first top edge under it; with nothing under
+//: it at all it floats where it was left.
+function nameMarkBuddyDrop(x, y) {
+  const tab = nameMarkBuddyTab();
+  const obstacles = nameMarkBuddyObstacles(tab);
+  const edges = nameMarkBuddyEdges(tab);
+  const cx = x + NMB_W / 2;
+  const fits = (spot) => spot.x >= 0 && spot.x <= innerWidth - NMB_W && spot.y >= 0 && spot.y <= innerHeight - NMB_H + 8
+    && !nameMarkBuddyHits(spot.x, spot.y, spot.pose, obstacles, spot.legs);
+  let best = null;
+  const consider = (spot, d) => {
+    if (fits(spot) && (!best || d < best.d)) best = { ...spot, d };
+  };
+  for (const edge of edges) {
+    if (edge.type === "side") {
+      const middle = y + 46;
+      if (middle < edge.top + 8 || middle > edge.bottom - 8) continue;
+      const toLeft = Math.abs(x + NMB_W - 6 - edge.left);
+      const toRight = Math.abs(x + 6 - edge.right);
+      if (toLeft <= 22) consider({ kind: "yours", pose: "lean", side: "left", legs: "", x: edge.left - NMB_W + 6, y, edge }, toLeft + 6);
+      if (toRight <= 22) consider({ kind: "yours", pose: "lean", side: "right", legs: "", x: edge.right - 6, y, edge }, toRight + 6);
+      continue;
+    }
+    if (cx < edge.left - 4 || cx > edge.right + 4) continue;
+    const sx = Math.min(Math.max(x, edge.left - 16), edge.right - NMB_W + 16);
+    for (const stance of nameMarkBuddyStances(edge, sx)) {
+      const d = Math.abs(stance.y - y) + (stance.alt || 0) * 10;
+      if (d <= 48) consider({ kind: "yours", ...stance, edge }, d);
     }
   }
-  return { pose: "float", x, y, ledge: "" };
+  if (best) return best;
+  let fall = null;
+  for (const edge of edges) {
+    if (edge.type !== "top" || cx < edge.left || cx > edge.right) continue;
+    const sx = Math.min(Math.max(x, edge.left - 16), edge.right - NMB_W + 16);
+    for (const stance of nameMarkBuddyStances(edge, sx)) {
+      if (stance.y < y) continue;
+      const d = stance.y - y + (stance.alt || 0) * 10;
+      if ((!fall || d < fall.d) && fits(stance)) fall = { kind: "yours", ...stance, edge, d, falls: true };
+    }
+  }
+  return fall || { kind: "yours", pose: "float", legs: "", x, y };
 }
 
 //: Moves it, walking when it has somewhere to go: the move is a
@@ -2618,14 +2799,22 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   nmb.x = x;
   nmb.y = y;
   nmb.perch = spot.kind || "";
+  nmb.spot = spot;
   nmb.anchor = spot.anchor || null;
   nmb.anchorTop = spot.anchor ? spot.anchor.getBoundingClientRect().top : 0;
+  nmb.edgeType = spot.edge?.type || "";
+  //: Where its panel's top edge crosses it, for peeking from behind it.
+  nmb.edgeLine = spot.pose === "sit" ? NMB_SEAT : NMB_FEET - 1;
+  buddy.style.setProperty("--nmb-edge", `${nmb.edgeLine}px`);
   buddy.dataset.perch = nmb.perch;
   buddy.style.left = `${x}px`;
   buddy.style.top = `${y}px`;
   const poseChanged = buddy.dataset.pose !== spot.pose;
   buddy.dataset.pose = spot.pose;
+  buddy.dataset.legs = spot.legs || "";
+  buddy.dataset.side = spot.side || "";
   nmb.pose = spot.pose;
+  nmb.legs = spot.legs || "";
   const dx = was.x - x;
   const dy = was.y - y;
   if (!Number.isFinite(dx) || !Number.isFinite(dy) || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) return;
@@ -2633,15 +2822,27 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   nmb.hopAnim?.cancel();
   if (instant || nameMarkBuddyNoTravel() || typeof buddy.animate !== "function") return;
   const distance = Math.hypot(dx, dy);
-  const duration = Math.round(Math.min(1500, 360 + distance * 0.85));
   nameMarkBuddyAct("");
+  const char = buddy.querySelector(".nm-buddy-char");
+  //: Let go over open space, it falls: gravity's curve, straight down,
+  //: and a squash where it lands.
+  if (spot.falls) {
+    const duration = Math.round(Math.min(700, 180 + Math.sqrt(Math.abs(dy)) * 30));
+    nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.55, 0, 1, 0.45)" });
+    nmb.anim.onfinish = () => nameMarkBuddyAct("land");
+    return;
+  }
+  const duration = Math.round(Math.min(1500, 360 + distance * 0.85));
   buddy.style.setProperty("--nmb-lean", dx > 0 ? "-1" : "1");
+  buddy.dataset.turn = dx > 0 ? "l" : "r";
   buddy.classList.add("nmb-walking");
   nmb.anim = buddy.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration, easing: "cubic-bezier(0.4, 0, 0.2, 1)" });
-  const done = () => buddy.classList.remove("nmb-walking");
+  const done = () => {
+    buddy.classList.remove("nmb-walking");
+    delete buddy.dataset.turn;
+  };
   nmb.anim.onfinish = done;
   nmb.anim.oncancel = done;
-  const char = buddy.querySelector(".nm-buddy-char");
   const arc = Math.abs(dy) > 36 || poseChanged ? Math.min(80, 24 + Math.abs(dy) * 0.12) : 0;
   if (arc && char) {
     nmb.hopAnim = char.animate(
@@ -2651,7 +2852,9 @@ function nameMarkBuddyMoveTo(buddy, spot, instant = false) {
   }
 }
 
-//: Chooses where it belongs on this tab now and goes there.
+//: Chooses where it belongs on this tab now and goes there: your spot on
+//: this tab (or everywhere) while its panel is there, else the tab's best
+//: perch.
 function placeNameMarkBuddy(buddy = document.getElementById("nm-buddy"), instant = false) {
   if (!buddy || buddy.classList.contains("nm-buddy-dragging")) return;
   const tab = nameMarkBuddyTab();
@@ -2659,18 +2862,19 @@ function placeNameMarkBuddy(buddy = document.getElementById("nm-buddy"), instant
   const spots = nameMarkBuddySpots();
   const own = spots[tab] || spots["*"];
   nmb.tab = tab;
-  const spot = own ? nameMarkBuddyStepAside(nameMarkBuddyRestore(own), obstacles) : nameMarkBuddyChoose(tab, obstacles);
+  const restored = own ? nameMarkBuddyRestore(own) : null;
+  const spot = restored ? nameMarkBuddyStepAside(restored, obstacles) : nameMarkBuddyChoose(tab, obstacles);
   nameMarkBuddyMoveTo(buddy, spot, instant);
 }
 
 //: The cheap check (a placement's worth of rects, no sampling unless it
-//: has to move): still on this tab, still clear, still on its card.
+//: has to move): still on this tab, still clear, still on its panel.
 function nameMarkBuddyCheck() {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")) return;
   const tab = nameMarkBuddyTab();
   const anchorMoved = nmb.anchor && (!nmb.anchor.isConnected || Math.abs(nmb.anchor.getBoundingClientRect().top - nmb.anchorTop) > 2);
-  if (tab !== nmb.tab || anchorMoved || nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, nameMarkBuddyObstacles(tab))) placeNameMarkBuddy(buddy);
+  if (tab !== nmb.tab || anchorMoved || nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, nameMarkBuddyObstacles(tab), nmb.legs)) placeNameMarkBuddy(buddy);
 }
 
 function queueNameMarkBuddyCheck() {
@@ -2700,20 +2904,33 @@ function nameMarkBuddyTabChanged() {
 function nameMarkBuddyAct(act, ms) {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
-  if (nmb.act) buddy.classList.remove(`nmb-act-${nmb.act}`);
+  const was = nmb.act;
+  if (was) buddy.classList.remove(`nmb-act-${was}`);
+  buddy.classList.remove("nmb-duck", "nmb-peeked");
+  if (was === "turn" || was === "glance") delete buddy.dataset.turn;
   nmb.act = "";
   clearTimeout(nmb.timer);
+  clearTimeout(nmb.shyTimer);
   nmb.timer = 0;
+  //: Out from behind the panel before anything else.
+  if (was === "peek" && act !== "emerge" && !nameMarkBuddyStill()) act = act || "emerge";
   if (!act) {
     nameMarkBuddySchedule();
     return;
   }
-  if (act === "glance" || act === "look") nameMarkBuddyAim(act === "glance" ? nmb.pointer : null);
+  const spec = NAME_MARK_BUDDY_ACTS[act];
+  if (act === "glance") nameMarkBuddyAim(nmb.pointer);
+  if (act === "turn" || act === "glance") {
+    const lx = act === "glance" && nmb.pointer ? nmb.pointer[0] - (nmb.x + NMB_W / 2) : Math.random() - 0.5;
+    buddy.dataset.turn = lx < 0 ? "l" : "r";
+  }
   //: A class removed and added in one frame does not restart its animation.
   void buddy.offsetWidth;
   buddy.classList.add(`nmb-act-${act}`);
   nmb.act = act;
-  nmb.timer = setTimeout(() => nameMarkBuddyAct(""), ms || NAME_MARK_BUDDY_ACTS[act]?.ms || 1200);
+  nmb.lastAct = act;
+  if (spec?.cool) nmb.cool[act] = Date.now() + spec.cool;
+  nmb.timer = setTimeout(() => nameMarkBuddyAct(""), ms || spec?.ms || 1200);
 }
 
 //: Points its eyes (and a little of its head) at a place on the screen.
@@ -2742,11 +2959,48 @@ function nameMarkBuddySchedule() {
   nmb.timer = 0;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || document.hidden || nameMarkBuddyStill() || buddy.classList.contains("nmb-sleep")) return;
-  nmb.timer = setTimeout(nameMarkBuddyTick, 5000 + Math.random() * 9000);
+  nmb.timer = setTimeout(nameMarkBuddyTick, 4000 + Math.random() * 8000);
 }
 
-//: The one timer: every few seconds, one small thing, and a check that
-//: its perch is still clear.
+//: The weighted pick: every behaviour that suits where it is and is off
+//: its cooldown, weighted by the moment. No layout is read here: the pose,
+//: the perch and the times are all kept in `nmb`.
+function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
+  const idle = now - nmb.lastInput;
+  const night = hour >= 22 || hour < 6;
+  const reading = nmb.reading || {};
+  const byMood = NAME_MARK_BUDDY_MOODS[reading.mood] || {};
+  const byKind = NAME_MARK_BUDDY_KINDS[reading.animal] || {};
+  const pool = [];
+  let total = 0;
+  for (const [act, spec] of Object.entries(NAME_MARK_BUDDY_ACTS)) {
+    if (!spec.poses.includes(nmb.pose)) continue;
+    if (spec.legs === "out" && nmb.legs === "tuck") continue;
+    if (spec.edge && nmb.edgeType !== spec.edge) continue;
+    if ((nmb.cool[act] || 0) > now || act === nmb.lastAct) continue;
+    let w = spec.w;
+    if (act === "yawn") w = idle > NMB_YAWN_MS ? 4 : night ? 2 : 0;
+    if (act === "nap") w = idle > 90 * 1000 ? 3 : night ? 1 : 0;
+    if (act === "glance" && !nmb.pointer) w = 0;
+    w *= (byMood[act] || 1) * (byKind[act] || 1);
+    if (night && ["hop", "wave", "kick"].includes(act)) w *= 0.5;
+    if (now - nmb.lastCheer < 60000 && ["hop", "wave", "kick", "dangle"].includes(act)) w *= 2;
+    if (now - nmb.lastPoke < 20000 && ["glance", "wave", "look"].includes(act)) w *= 2;
+    if (w > 0) {
+      pool.push([act, w]);
+      total += w;
+    }
+  }
+  let roll = Math.random() * total;
+  for (const [act, w] of pool) {
+    roll -= w;
+    if (roll <= 0) return act;
+  }
+  return pool.length ? pool[pool.length - 1][0] : "blink";
+}
+
+//: The one timer: every few seconds, one decision, and a check that its
+//: perch is still clear.
 function nameMarkBuddyTick() {
   nmb.timer = 0;
   const buddy = document.getElementById("nm-buddy");
@@ -2757,19 +3011,11 @@ function nameMarkBuddyTick() {
     return;
   }
   nameMarkBuddyCheck();
-  const idle = Date.now() - nmb.lastInput;
-  if (idle > NMB_SLEEP_MS) {
+  if (Date.now() - nmb.lastInput > NMB_SLEEP_MS) {
     buddy.classList.add("nmb-sleep");
     return;
   }
-  const pool = [];
-  for (const [act, { poses, weight }] of Object.entries(NAME_MARK_BUDDY_ACTS)) {
-    let w = poses.includes(nmb.pose) ? weight : 0;
-    if (act === "glance" && !nmb.pointer) w = 0;
-    if (act === "yawn" && idle > NMB_YAWN_MS && poses.includes(nmb.pose)) w = 5;
-    for (let i = 0; i < w; i += 1) pool.push(act);
-  }
-  nameMarkBuddyAct(pool[Math.floor(Math.random() * pool.length)] || "blink");
+  nameMarkBuddyAct(nameMarkBuddyDecide());
 }
 
 //: The app's own events, for the companion to react to: `think` while a
@@ -2779,13 +3025,13 @@ function nameMarkBuddyCue(cue) {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
   buddy.classList.toggle("nmb-think", cue === "think");
+  if (cue === "cheer") nmb.lastCheer = Date.now();
   if (cue === "think" || cue === "rest" || nameMarkBuddyStill() || document.hidden) return;
   buddy.classList.remove("nmb-sleep");
   if (NAME_MARK_BUDDY_ACTS[cue]) nameMarkBuddyAct(cue);
 }
 
-//: Input keeps it awake (and wakes it with a start); the pointer's place is
-//: kept for a glance, which is the whole of the work done per move.
+//: Input keeps it awake (and wakes it with a start).
 for (const type of ["pointerdown", "keydown"]) {
   document.addEventListener(type, () => {
     nmb.lastInput = Date.now();
@@ -2796,8 +3042,30 @@ for (const type of ["pointerdown", "keydown"]) {
     }
   }, { passive: true, capture: true });
 }
+
+//: The pointer's place is kept for a glance; while it peeks, at most ten
+//: times a second, a pointer within reach sends it ducking behind its
+//: panel, and a moment after the pointer leaves it peeks out again. No
+//: layout is read: its own place is in `nmb`.
 document.addEventListener("pointermove", (event) => {
   nmb.pointer = [event.clientX, event.clientY];
+  if (nmb.act !== "peek") return;
+  const now = Date.now();
+  if (now - nmb.shyAt < 100) return;
+  nmb.shyAt = now;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  const near = Math.hypot(event.clientX - (nmb.x + NMB_W / 2), event.clientY - (nmb.y + nmb.edgeLine - 16)) < 130;
+  if (near) {
+    clearTimeout(nmb.shyTimer);
+    nmb.shyTimer = 0;
+    buddy.classList.add("nmb-duck", "nmb-peeked");
+  } else if (buddy.classList.contains("nmb-duck") && !nmb.shyTimer) {
+    nmb.shyTimer = setTimeout(() => {
+      nmb.shyTimer = 0;
+      buddy.classList.remove("nmb-duck");
+    }, 1200);
+  }
 }, { passive: true });
 
 //: Typing near it: it watches the field, for as long as the typing goes on
@@ -2847,8 +3115,7 @@ function nameMarkBuddyMenu(buddy, x, y) {
     { label: "ph:hand-waving Say hello", run: () => face.click() },
     { label: "ph:arrows-out Enlarge", run: () => openNameMarkViewer(buddy.dataset.seed || "") },
     { label: "ph:push-pin Stay here on every page", run: () => {
-      const spot = { x: nmb.x, y: nmb.y, pose: nmb.pose, ledge: nmb.pose === "hang" ? "top" : nmb.pose === "sit" ? "bottom" : "", w: innerWidth, h: innerHeight };
-      nameMarkBuddyKeepSpots({ "*": spot });
+      nameMarkBuddyKeepSpots({ "*": nameMarkBuddySpotFor(nmb.spot || { x: nmb.x, y: nmb.y, pose: nmb.pose }) });
     } },
   ];
   if (spots[tab]) items.push({ label: "ph:sparkle Let it choose its spot here", run: forget(false) });
@@ -2902,6 +3169,15 @@ function nameMarkBuddyBuild() {
     const dx = Math.min(Math.max(-drag.box.left, drag.x - drag.sx), innerWidth - drag.box.right);
     const dy = Math.min(Math.max(-drag.box.top, drag.y - drag.sy), innerHeight - drag.box.bottom);
     buddy.style.translate = `${dx}px ${dy}px`;
+    //: Carried, it swings with the pull: its legs and body lean against
+    //: the way it is moved, by how fast, and settle when the pull stops.
+    const vx = drag.x - (drag.lastX ?? drag.x);
+    drag.lastX = drag.x;
+    const sway = Math.max(-28, Math.min(28, -vx * 1.4));
+    buddy.style.setProperty("--nmb-sway", sway.toFixed(1));
+    if (Math.abs(vx) > 1) buddy.dataset.turn = vx < 0 ? "l" : "r";
+    clearTimeout(drag.settle);
+    drag.settle = setTimeout(() => buddy.style.setProperty("--nmb-sway", "0"), 120);
   };
   face.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
@@ -2932,15 +3208,18 @@ function nameMarkBuddyBuild() {
       const box = buddy.getBoundingClientRect();
       buddy.style.translate = "";
       buddy.classList.remove("nm-buddy-dragging");
+      clearTimeout(drag.settle);
+      buddy.style.setProperty("--nmb-sway", "0");
+      delete buddy.dataset.turn;
       nmb.x = Math.round(box.left);
       nmb.y = Math.round(box.top);
       buddy.style.left = `${nmb.x}px`;
       buddy.style.top = `${nmb.y}px`;
-      const landed = nameMarkBuddyLand(nmb.x, nmb.y);
-      nameMarkBuddyMoveTo(buddy, { ...landed, kind: "yours" });
+      const landed = nameMarkBuddyDrop(nmb.x, nmb.y);
+      nameMarkBuddyMoveTo(buddy, landed);
       const spots = nameMarkBuddySpots();
       delete spots["*"];
-      spots[nameMarkBuddyTab()] = { x: nmb.x, y: nmb.y, pose: landed.pose, ledge: landed.ledge, w: innerWidth, h: innerHeight };
+      spots[nameMarkBuddyTab()] = nameMarkBuddySpotFor(landed);
       nameMarkBuddyKeepSpots(spots);
       face.dataset.dragged = "1";
     }
@@ -2954,6 +3233,7 @@ function nameMarkBuddyBuild() {
       return;
     }
     buddy.classList.remove("nmb-sleep");
+    nmb.lastPoke = Date.now();
     nameMarkReact(face.querySelector(".name-mark"));
     if (!nameMarkBuddyStill()) nameMarkBuddyAct(nmb.pose === "hang" ? "swing" : "wave");
     nameMarkSay(buddy, nameMarkLine(buddy.dataset.seed || ""));
@@ -3026,6 +3306,8 @@ function syncNameMarkBuddy() {
   if (fresh) buddy = nameMarkBuddyBuild();
   if (buddy.dataset.seed !== seed) {
     buddy.dataset.seed = seed;
+    //: Its mood and species lean its choices (`nameMarkBuddyDecide`).
+    nmb.reading = nameMood(seed);
     const char = buddy.querySelector(".nm-buddy-char");
     char.querySelector(".nm-figure")?.remove();
     char.prepend(characterFor(seed).figure());

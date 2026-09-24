@@ -4857,6 +4857,8 @@ main,
    measures perches in those px. */
 #nm-buddy {
   --nmb-lean: 0;
+  --nmb-sway: 0;
+  --nmb-edge: 72px;
   position: fixed;
   left: 0;
   top: 0;
@@ -5008,6 +5010,65 @@ main,
 #nm-buddy[data-pose="float"] .nmb-arm-l { transform: rotate(30deg); }
 #nm-buddy[data-pose="float"] .nmb-arm-r { transform: rotate(-30deg); }
 
+/* Sitting with its legs tucked (where dangling ones would cover something):
+   folded out to the sides at the seat, cross-legged from the front. */
+#nm-buddy[data-pose="sit"][data-legs="tuck"] .nmb-leg-l { transform: rotate(62deg) scaleY(0.62); }
+#nm-buddy[data-pose="sit"][data-legs="tuck"] .nmb-leg-r { transform: rotate(-62deg) scaleY(0.62); }
+
+/* Leaning on a panel's side: tipped towards it, a hand flat on it, legs
+   crossed. `data-side` is the panel edge it leans on. */
+#nm-buddy .nm-figure {
+  transform-origin: 50% 100%;
+  transition: transform var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
+}
+#nm-buddy[data-pose="lean"][data-side="left"] .nm-figure { rotate: 8deg; }
+#nm-buddy[data-pose="lean"][data-side="right"] .nm-figure { rotate: -8deg; }
+#nm-buddy[data-pose="lean"][data-side="left"] .nmb-arm-r { transform: rotate(-75deg); }
+#nm-buddy[data-pose="lean"][data-side="right"] .nmb-arm-l { transform: rotate(75deg); }
+#nm-buddy[data-pose="lean"] .nmb-leg-l { transform: rotate(-12deg); }
+#nm-buddy[data-pose="lean"] .nmb-leg-r { transform: rotate(12deg); }
+
+/* A three-quarter turn (`data-turn`, while it walks, glances or turns):
+   the face slides towards that side and the body narrows a touch, which
+   is how a flat mascot turns. */
+#nm-buddy .nm-char .nm-buddy-head {
+  transition: translate var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
+}
+#nm-buddy[data-turn="l"] .nm-char .nm-buddy-head { translate: -3.5px 0; }
+#nm-buddy[data-turn="r"] .nm-char .nm-buddy-head { translate: 3.5px 0; }
+#nm-buddy[data-turn] .nm-figure { transform: scaleX(0.95); }
+
+/* Carried: it swings against the pull (`--nmb-sway`, from the drag's
+   speed) and its eyes go wide. */
+#nm-buddy.nm-buddy-dragging .nm-figure {
+  transform-origin: 50% 0;
+  rotate: calc(var(--nmb-sway) * 0.4deg);
+}
+#nm-buddy.nm-buddy-dragging .nmb-leg {
+  rotate: calc(var(--nmb-sway) * 1deg);
+  transition: rotate var(--motion-slow) var(--ease-out);
+}
+#nm-buddy.nm-buddy-dragging .name-mark .nm-eyes {
+  scale: 1.2;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Peeking from behind its panel: everything below the panel's top edge is
+   cut away (`--nmb-edge`, where the edge crosses it), and it sinks behind
+   it; the motion itself is in the behaviours below. */
+#nm-buddy:is(.nmb-act-peek, .nmb-act-emerge) .nm-buddy-face {
+  clip-path: inset(-80px -80px calc(92px - var(--nmb-edge)) -80px);
+}
+#nm-buddy.nmb-act-peek .nm-buddy-char { translate: 0 calc(var(--nmb-edge) + 4px); }
+
+/* Hanging by one hand (or scratching its head while it hangs): the other
+   hand lets go and hangs free. */
+#nm-buddy:is(.nmb-act-onehand, [data-pose="hang"].nmb-act-scratch) .nmb-hold-r { opacity: 0; }
+#nm-buddy:is(.nmb-act-onehand, [data-pose="hang"].nmb-act-scratch) .nmb-arm-r { opacity: 1; }
+#nm-buddy.nmb-act-onehand .nm-buddy-char { transform-origin: 6px -6px; }
+#nm-buddy.nmb-act-feet .nm-buddy-char { transform-origin: 32px 40px; }
+
 /* States that say something, so they hold still under Reduce motion too:
    watching a field being typed in, thinking through a chat turn, asleep. */
 #nm-buddy:is(.nmb-act-glance, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
@@ -5017,9 +5078,9 @@ main,
 
 #nm-buddy:is(.nmb-act-glance, .nmb-watch) .nm-buddy-head { rotate: calc(var(--nm-lx) * 7deg); }
 #nm-buddy.nmb-think .nm-buddy-head { rotate: 8deg; }
-#nm-buddy.nmb-sleep .nm-buddy-head { rotate: 10deg; }
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-buddy-head { rotate: 10deg; }
 
-#nm-buddy.nmb-sleep .name-mark .nm-blinks {
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .name-mark .nm-blinks {
   animation: none;
   transform: scaleY(0.12);
 }
@@ -5062,7 +5123,7 @@ main,
   line-height: 1;
 }
 
-#nm-buddy.nmb-sleep .nm-buddy-z { display: block; }
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-buddy-z { display: block; }
 
 /* Hanging, its speech comes from under it: above would be the top bar. */
 #nm-buddy[data-pose="hang"] > .nm-say {
@@ -5128,7 +5189,20 @@ main,
     &.nmb-think .nm-buddy-think i { animation: nmb-dot 1.2s ease-in-out infinite; }
     &.nmb-think .nm-buddy-think i:nth-child(2) { animation-delay: 0.2s; }
     &.nmb-think .nm-buddy-think i:nth-child(3) { animation-delay: 0.4s; }
-    &.nmb-sleep .nm-buddy-z { animation: nmb-z 2.6s ease-out infinite; }
+    &:is(.nmb-sleep, .nmb-act-nap) .nm-buddy-z { animation: nmb-z 2.6s ease-out infinite; }
+    &.nmb-act-dangle .nmb-leg-l { animation: nmb-dangle 1.5s ease-in-out 4 alternate; }
+    &.nmb-act-dangle .nmb-leg-r { animation: nmb-dangle 1.5s ease-in-out -1.5s 4 alternate; }
+    &.nmb-act-scratch .nmb-arm-r { animation: nmb-scratch 2.6s ease-in-out; }
+    &.nmb-act-onehand .nm-buddy-char { animation: nmb-onehand 4.2s ease-in-out; }
+    &.nmb-act-onehand .nmb-arm-r { animation: nmb-wave 1.4s ease-in-out 3; }
+    &.nmb-act-feet .nm-buddy-char { animation: nmb-feet 7s ease-in-out; }
+    &.nmb-act-sloth .nm-buddy-char { animation: nmb-sloth 9s ease-in-out; }
+    &.nmb-act-sloth .name-mark .nm-blinks { animation: nmb-drowse 9s ease-in-out; }
+    &.nmb-act-land .nm-buddy-char { animation: nmb-land 0.45s var(--ease-out); }
+    &.nmb-act-peek .nm-buddy-char { animation: nmb-peek-sink 0.45s ease-in, nmb-peek-up 0.9s ease-out 1.6s forwards; }
+    &.nmb-act-peek.nmb-peeked:not(.nmb-duck) .nm-buddy-char { animation: nmb-peek-up 0.8s ease-out 0.2s forwards; }
+    &.nmb-act-peek.nmb-duck .nm-buddy-char { animation: nmb-peek-duck 0.22s ease-in forwards; }
+    &.nmb-act-emerge .nm-buddy-char { animation: nmb-emerge 0.8s var(--ease-out) both; }
   }
 }
 
@@ -5140,6 +5214,61 @@ main,
   }
 }
 
+@keyframes nmb-dangle {
+  from { transform: rotate(calc(var(--nmb-side) * 8deg)) scaleY(0.9); }
+  to { transform: rotate(calc(var(--nmb-side) * -10deg)) scaleY(0.8); }
+}
+@keyframes nmb-scratch {
+  0%, 100% { transform: rotate(0deg); }
+  15%, 35%, 55%, 75% { transform: rotate(-150deg); }
+  25%, 45%, 65% { transform: rotate(-138deg); }
+}
+@keyframes nmb-onehand {
+  0%, 100% { rotate: 0deg; }
+  20%, 80% { rotate: 16deg; }
+  50% { rotate: 12deg; }
+}
+@keyframes nmb-feet {
+  0%, 100% { rotate: 0deg; }
+  12% { rotate: 196deg; }
+  18% { rotate: 172deg; }
+  24% { rotate: 184deg; }
+  30%, 84% { rotate: 180deg; }
+  50% { rotate: 176deg; }
+  70% { rotate: 183deg; }
+  94% { rotate: -6deg; }
+}
+@keyframes nmb-sloth {
+  0%, 100% { rotate: 0deg; }
+  25% { rotate: 3deg; }
+  75% { rotate: -3deg; }
+}
+@keyframes nmb-drowse {
+  0%, 100% { transform: scaleY(1); }
+  15%, 85% { transform: scaleY(0.45); }
+}
+@keyframes nmb-land {
+  0% { transform: scale(1.14, 0.84); }
+  60% { transform: scale(0.96, 1.05); }
+  100% { transform: none; }
+}
+@keyframes nmb-peek-sink {
+  from { translate: 0 0; }
+  to { translate: 0 calc(var(--nmb-edge) + 4px); }
+}
+@keyframes nmb-peek-up {
+  from { translate: 0 calc(var(--nmb-edge) + 4px); }
+  to { translate: 0 calc(var(--nmb-edge) - 34px); }
+}
+@keyframes nmb-peek-duck {
+  from { translate: 0 calc(var(--nmb-edge) - 34px); }
+  to { translate: 0 calc(var(--nmb-edge) + 4px); }
+}
+@keyframes nmb-emerge {
+  0% { translate: 0 calc(var(--nmb-edge) + 4px); }
+  70% { translate: 0 -4px; }
+  100% { translate: 0 0; }
+}
 @keyframes nmb-arrive {
   0% { transform: translateY(14px) scale(0.6); opacity: 0; }
   60% { transform: translateY(-4px) scale(1.04); opacity: 1; }

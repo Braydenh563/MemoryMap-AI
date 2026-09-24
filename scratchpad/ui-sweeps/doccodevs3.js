@@ -98,6 +98,87 @@ const ok = (n, c, d) => {
   const line = await page.evaluate(() => docCmView.state.doc.lineAt(docCmView.state.selection.main.head).number);
   ok("a click on a pinned line goes to it", line === 2, `line ${line}`);
 
+  // --- INBOX 404 (1): snippets through the list -----------------------------------
+  const typeIn = async (title, fileType, typed) => {
+    await page.evaluate(async ([t, f]) => {
+      const d = await apiJson("/documents", { method: "POST", body: JSON.stringify({ title: t, content: "", file_type: f }) });
+      await loadDocuments(d.id);
+    }, [title, fileType]);
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => docCmView.focus());
+    await page.keyboard.type(typed);
+    await page.waitForTimeout(450);
+    return page.evaluate(() =>
+      [...document.querySelectorAll(".cm-tooltip-autocomplete li")].map((li) => [
+        li.querySelector(".cm-completionLabel")?.textContent,
+        li.querySelector(".cm-completionDetail")?.textContent || "",
+        li.getAttribute("aria-selected") === "true",
+      ])
+    );
+  };
+  const docText = () => page.evaluate(() => docCmView.state.doc.toString());
+  let rows = await typeIn("Main.java", "java", "main");
+  ok("main in a .java file offers the snippet, chosen", rows.some((r) => r[0] === "main" && r[1] === "public static void main" && r[2]), J(rows));
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(250);
+  let t2 = await docText();
+  ok("and Enter writes it in the file's indent", t2 === "public static void main(String[] args) {\n    \n}", J(t2));
+  rows = await typeIn("err.go", "go", "iferr");
+  await page.keyboard.press("Tab");
+  await page.waitForTimeout(250);
+  t2 = await docText();
+  ok("Tab takes a Go snippet too", t2 === "if err != nil {\n\treturn err\n}", J(t2));
+  rows = await typeIn("log.js", "js", "log");
+  ok("JavaScript gains log beside the package's own", rows.some((r) => r[0] === "log" && r[1] === "console.log"), J(rows));
+  await page.keyboard.press("Escape");
+  rows = await typeIn("q2.sql", "sql", "sel");
+  ok("SQL offers SELECT", rows.some((r) => r[0] === "sel" && r[1].startsWith("SELECT")), J(rows));
+  await page.keyboard.press("Escape");
+
+  // --- INBOX 404 (4): F12, Shift+F12, Ctrl+Shift+F ------------------------------
+  await page.evaluate(async () => {
+    const d = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title: "defs.js", content: 'function total(a) {\n  return a;\n}\n// total\nconst x = total(1) + total(2);', file_type: "js" }),
+    });
+    await loadDocuments(d.id);
+  });
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => {
+    docCmView.focus();
+    const s = docCmView.state.doc.toString();
+    docCmView.dispatch({ selection: { anchor: s.lastIndexOf("total(1)") + 2 } });
+  });
+  await page.keyboard.press("F12");
+  await page.waitForTimeout(250);
+  const def = await page.evaluate(() => {
+    const r = docCmView.state.selection.main;
+    return { line: docCmView.state.doc.lineAt(r.from).number, text: docCmView.state.sliceDoc(r.from, r.to) };
+  });
+  ok("F12 goes to the definition and selects the name", def.line === 1 && def.text === "total", J(def));
+  await page.keyboard.press("Shift+F12");
+  await page.waitForTimeout(300);
+  const uses = await page.evaluate(() => {
+    const m = [...document.querySelectorAll(".action-menu")].find((el) => !el.classList.contains("hidden"));
+    return m ? [...m.querySelectorAll(".menu-item")].map((b) => b.textContent.trim()) : [];
+  });
+  ok("Shift+F12 lists the uses in code, not the comment", uses.length === 3 && uses.every((u) => !u.includes("// total")), J(uses));
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => {
+    docCmView.focus();
+    const s = docCmView.state.doc.toString();
+    docCmView.dispatch({ selection: { anchor: s.indexOf("total"), head: s.indexOf("total") + 5 } });
+  });
+  await page.keyboard.press("Control+Shift+F");
+  await page.waitForTimeout(700);
+  const finder = await page.evaluate(() => ({
+    open: !document.getElementById("finder-overlay").classList.contains("hidden"),
+    query: document.getElementById("finder-input").value,
+    kind: document.querySelector('[data-kind="document"]')?.getAttribute("aria-pressed"),
+  }));
+  ok("Ctrl+Shift+F opens Find anything on documents with the selection", finder.open && finder.query === "total" && finder.kind === "true", J(finder));
+  await page.keyboard.press("Escape");
+
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`\n${good} passed, ${bad} failed`);
   await browser.close();

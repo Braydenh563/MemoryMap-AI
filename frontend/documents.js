@@ -137,6 +137,7 @@ function syncDocFileType() {
   //: to prose, plain text or a CSV. The pair swap in one place, so a
   //: document never shows both or neither.
   $("doc-code-format")?.classList.toggle("hidden", type.previewable || ["txt", "csv"].includes(type.ext));
+  $("doc-code-run")?.classList.toggle("hidden", !docRunnable(type));
   //: Wrapping and whitespace are about a file that does not wrap by itself:
   //: every type but prose, plain text and CSV included (INBOX 402).
   for (const id of ["doc-code-wrap-row", "doc-whitespace-row"]) $(id)?.classList.toggle("hidden", type.previewable);
@@ -2185,6 +2186,14 @@ const DOC_COMMANDS = [
   //: new chat. The outline panel lists the same symbols.
   { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "",
     code: true, run: () => docOpenSymbols() },
+  { id: "definition", icon: "ph:arrow-square-in", label: "Go to where the name at the caret is defined", keys: "F12",
+    code: true, run: () => docGoToDefinition() },
+  { id: "references", icon: "ph:list-magnifying-glass", label: "List every use of the name at the caret", keys: "Shift+F12",
+    code: true, run: () => docShowReferences() },
+  { id: "find-documents", icon: "ph:magnifying-glass", label: "Find in every document", keys: "Ctrl+Shift+F",
+    run: () => docFindInDocuments() },
+  { id: "run", icon: "ph:play", label: "Run this file and show its output", keys: "Ctrl+Shift+Enter",
+    code: true, run: () => docRunCode() },
   { id: "code-wrap", icon: "ph:text-align-left", label: "Wrap long lines in a code file", keys: "Alt+Z",
     code: true, run: () => docToggleCodeDraw("codeWrap") },
   { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "",
@@ -11056,6 +11065,8 @@ $("doc-ai").addEventListener("click", openDocAiPanel);
 //: A code document's Format: the selection when there is one, else the
 //: whole file (`docFormatCode`). The press takes the focus from the editor,
 //: so it is handed back: formatting is a step in the middle of typing.
+$("doc-code-run")?.addEventListener("click", () => docRunCode());
+
 $("doc-code-format").addEventListener("click", async () => {
   await docFormatCode("auto");
   docCmView?.focus();
@@ -16183,6 +16194,53 @@ function docCmTheme(CM) {
       //: The ghost text: the rest of the chosen row after the caret, in the
       //: muted ink the placeholder uses, so it reads as offered, not typed.
       ".cm-ghostText": { color: "var(--muted)", opacity: "0.85", pointerEvents: "none" },
+      //: Run's output, under the editor: a head row of the dock's own
+      //: small ghost buttons, then the page (an HTML file) above the log.
+      //: The log is code type, a hairline between rows, errors and
+      //: warnings in their own inks on their soft grounds.
+      ".cm-run-panel": {
+        display: "flex",
+        flexDirection: "column",
+        height: "min(40vh, 320px)",
+        borderTop: "1px solid var(--border)",
+        backgroundColor: "var(--modal-bg-opaque)",
+      },
+      ".cm-run-head": {
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-2)",
+        padding: "var(--space-1) var(--space-2)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-run-title": { fontWeight: "600", color: "var(--text)" },
+      ".cm-run-status": { color: "var(--muted)", fontSize: "var(--text-sm)" },
+      ".cm-run-spacer": { flex: "1" },
+      ".cm-run-body": { flex: "1", minHeight: "0", display: "flex", flexDirection: "column" },
+      ".cm-run-frame": { display: "none", border: "0", width: "100%", flex: "3", minHeight: "0" },
+      ".cm-run-panel.is-page .cm-run-frame": { display: "block", borderBottom: "1px solid var(--border)" },
+      ".cm-run-log": {
+        flex: "2",
+        minHeight: "0",
+        overflow: "auto",
+        margin: "0",
+        padding: "0",
+        listStyle: "none",
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-sm)",
+      },
+      ".cm-run-row": {
+        display: "flex",
+        alignItems: "baseline",
+        gap: "var(--space-2)",
+        padding: "var(--space-1) var(--space-3)",
+        borderBottom: "1px solid var(--border)",
+        color: "var(--text)",
+      },
+      ".cm-run-row.is-error": { color: "var(--error)", backgroundColor: "var(--error-soft)" },
+      ".cm-run-row.is-warn": { color: "var(--warn)", backgroundColor: "var(--warn-soft)" },
+      ".cm-run-row.is-info, .cm-run-row.is-debug": { color: "var(--muted)" },
+      ".cm-run-text": { flex: "1", whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+      ".cm-run-line": { color: "var(--muted)", fontSize: "var(--text-xs)", whiteSpace: "nowrap" },
       //: Sticky scroll: the enclosing scopes' first lines over the top of the
       //: scroller, on the opaque ground words laid over words take, with the
       //: hairline and small shadow of a bar that sits above content.
@@ -16821,6 +16879,8 @@ function docCmKeymap(CM) {
     //: panel here and the app's own bar on the fallback, so this binding does
     //: not have to know which is on screen.
     { key: "Mod-f", run: () => { toggleDocFindBar(true); return true; } },
+    //: Find in every document (INBOX 404), VS Code's search across files.
+    { key: "Mod-Shift-f", run: () => docFindInDocuments() },
   ];
 }
 
@@ -17227,6 +17287,181 @@ const DOC_CODE_KEYWORDS = {
 //: last one was thrown away as stale, and the list sat at "pending" forever
 //: (measured: `completionStatus` read "pending" 800ms after typing "hel",
 //: while the same source called by hand returned fifty options).
+//: **Snippets, per language** (INBOX 404): the short words VS Code expands
+//: into a statement's whole shape, through the same completion list, Enter
+//: or Tab to take, Tab to walk the stops. `[label, detail, template]`, the
+//: template in CodeMirror's snippet syntax (`${name}` a stop, `${}` the
+//: last), a tab at a line's start being one indent unit of the file's own.
+//: JavaScript, TypeScript and Python already have the packages' own set
+//: (function, for, if, try, class, import); these add what they lack.
+const DOC_CODE_SNIPPETS = {
+  java: [
+    ["main", "public static void main", "public static void main(String[] args) {\n\t${}\n}"],
+    ["sout", "System.out.println", "System.out.println(${});"],
+    ["fori", "for loop with an index", "for (int ${i} = 0; ${i} < ${n}; ${i}++) {\n\t${}\n}"],
+    ["foreach", "for each item", "for (${Type} ${item} : ${items}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["ifelse", "if, else", "if (${condition}) {\n\t${}\n} else {\n\t\n}"],
+    ["while", "while loop", "while (${condition}) {\n\t${}\n}"],
+    ["try", "try, catch", "try {\n\t${}\n} catch (${Exception} ${e}) {\n\t\n}"],
+    ["class", "class", "public class ${Name} {\n\t${}\n}"],
+    ["switch", "switch", "switch (${value}) {\n\tcase ${a}:\n\t\t${}\n\t\tbreak;\n\tdefault:\n\t\tbreak;\n}"],
+  ],
+  cs: [
+    ["svm", "static void Main", "static void Main(string[] args)\n{\n\t${}\n}"],
+    ["cw", "Console.WriteLine", "Console.WriteLine(${});"],
+    ["prop", "property", "public ${int} ${Name} { get; set; }"],
+    ["ctor", "constructor", "public ${Name}()\n{\n\t${}\n}"],
+    ["for", "for loop", "for (int ${i} = 0; ${i} < ${n}; ${i}++)\n{\n\t${}\n}"],
+    ["foreach", "foreach", "foreach (var ${item} in ${items})\n{\n\t${}\n}"],
+    ["if", "if block", "if (${condition})\n{\n\t${}\n}"],
+    ["while", "while loop", "while (${condition})\n{\n\t${}\n}"],
+    ["try", "try, catch", "try\n{\n\t${}\n}\ncatch (${Exception} ${e})\n{\n\t\n}"],
+    ["class", "class", "public class ${Name}\n{\n\t${}\n}"],
+  ],
+  c: [
+    ["main", "int main", "int main(void) {\n\t${}\n\treturn 0;\n}"],
+    ["include", "#include", "#include <${stdio.h}>"],
+    ["printf", "printf", "printf(\"${}\\n\");"],
+    ["for", "for loop", "for (int ${i} = 0; ${i} < ${n}; ${i}++) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["while", "while loop", "while (${condition}) {\n\t${}\n}"],
+    ["struct", "struct", "struct ${name} {\n\t${}\n};"],
+  ],
+  cpp: [
+    ["main", "int main", "int main() {\n\t${}\n\treturn 0;\n}"],
+    ["include", "#include", "#include <${iostream}>"],
+    ["cout", "std::cout", "std::cout << ${} << std::endl;"],
+    ["for", "for loop", "for (int ${i} = 0; ${i} < ${n}; ++${i}) {\n\t${}\n}"],
+    ["forr", "range for", "for (auto& ${item} : ${items}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["while", "while loop", "while (${condition}) {\n\t${}\n}"],
+    ["class", "class", "class ${Name} {\npublic:\n\t${Name}();\n\t${}\n};"],
+    ["struct", "struct", "struct ${Name} {\n\t${}\n};"],
+  ],
+  go: [
+    ["main", "package main", "package main\n\nimport \"fmt\"\n\nfunc main() {\n\t${}\n}"],
+    ["func", "function", "func ${name}(${params}) ${error} {\n\t${}\n}"],
+    ["fp", "fmt.Println", "fmt.Println(${})"],
+    ["for", "for loop", "for ${i} := 0; ${i} < ${n}; ${i}++ {\n\t${}\n}"],
+    ["forr", "for range", "for ${_}, ${v} := range ${items} {\n\t${}\n}"],
+    ["if", "if block", "if ${condition} {\n\t${}\n}"],
+    ["iferr", "if err != nil", "if err != nil {\n\treturn ${err}\n}"],
+    ["struct", "struct type", "type ${Name} struct {\n\t${}\n}"],
+  ],
+  rs: [
+    ["main", "fn main", "fn main() {\n\t${}\n}"],
+    ["fn", "function", "fn ${name}(${params}) -> ${Type} {\n\t${}\n}"],
+    ["println", "println!", "println!(\"${}\");"],
+    ["for", "for loop", "for ${item} in ${items} {\n\t${}\n}"],
+    ["if", "if block", "if ${condition} {\n\t${}\n}"],
+    ["match", "match", "match ${value} {\n\t${pattern} => ${},\n\t_ => {}\n}"],
+    ["struct", "struct", "struct ${Name} {\n\t${}\n}"],
+    ["impl", "impl block", "impl ${Name} {\n\t${}\n}"],
+  ],
+  kt: [
+    ["main", "fun main", "fun main() {\n\t${}\n}"],
+    ["fun", "function", "fun ${name}(${params}): ${Unit} {\n\t${}\n}"],
+    ["println", "println", "println(${})"],
+    ["for", "for loop", "for (${item} in ${items}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["when", "when", "when (${value}) {\n\t${a} -> ${}\n\telse -> {}\n}"],
+    ["class", "class", "class ${Name} {\n\t${}\n}"],
+  ],
+  swift: [
+    ["func", "function", "func ${name}(${params}) -> ${Void} {\n\t${}\n}"],
+    ["print", "print", "print(${})"],
+    ["for", "for loop", "for ${item} in ${items} {\n\t${}\n}"],
+    ["if", "if block", "if ${condition} {\n\t${}\n}"],
+    ["guard", "guard", "guard ${condition} else {\n\treturn${}\n}"],
+    ["struct", "struct", "struct ${Name} {\n\t${}\n}"],
+    ["class", "class", "class ${Name} {\n\t${}\n}"],
+  ],
+  rb: [
+    ["def", "method", "def ${name}(${params})\n\t${}\nend"],
+    ["class", "class", "class ${Name}\n\t${}\nend"],
+    ["each", "each block", "${items}.each do |${item}|\n\t${}\nend"],
+    ["if", "if block", "if ${condition}\n\t${}\nend"],
+    ["puts", "puts", "puts ${}"],
+  ],
+  php: [
+    ["function", "function", "function ${name}(${params}) {\n\t${}\n}"],
+    ["foreach", "foreach", "foreach (${$items} as ${$item}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["class", "class", "class ${Name} {\n\t${}\n}"],
+    ["echo", "echo", "echo ${};"],
+  ],
+  r: [
+    ["function", "function", "${name} <- function(${params}) {\n\t${}\n}"],
+    ["for", "for loop", "for (${i} in ${seq}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+  ],
+  sql: [
+    ["sel", "SELECT ... FROM", "SELECT ${*} FROM ${table};"],
+    ["selw", "SELECT ... WHERE", "SELECT ${*} FROM ${table} WHERE ${condition};"],
+    ["ins", "INSERT INTO", "INSERT INTO ${table} (${columns}) VALUES (${values});"],
+    ["upd", "UPDATE ... SET", "UPDATE ${table} SET ${column} = ${value} WHERE ${condition};"],
+    ["del", "DELETE FROM", "DELETE FROM ${table} WHERE ${condition};"],
+    ["ct", "CREATE TABLE", "CREATE TABLE ${name} (\n\t${id} INTEGER PRIMARY KEY,\n\t${}\n);"],
+    ["join", "JOIN ... ON", "JOIN ${table} ON ${a} = ${b}"],
+  ],
+  bash: [
+    ["shebang", "#!/usr/bin/env bash", "#!/usr/bin/env bash\nset -euo pipefail\n${}"],
+    ["if", "if block", "if [ ${condition} ]; then\n\t${}\nfi"],
+    ["for", "for loop", "for ${item} in ${items}; do\n\t${}\ndone"],
+    ["while", "while loop", "while ${condition}; do\n\t${}\ndone"],
+    ["func", "function", "${name}() {\n\t${}\n}"],
+    ["case", "case", "case ${value} in\n\t${pattern})\n\t\t${}\n\t\t;;\n\t*)\n\t\t;;\nesac"],
+  ],
+  py: [
+    ["main", "if __name__ == \"__main__\"", "if __name__ == \"__main__\":\n\t${main()}"],
+    ["with", "with block", "with ${open(path)} as ${f}:\n\t${}"],
+    ["adef", "async def", "async def ${name}(${params}):\n\t${}"],
+    ["elif", "elif", "elif ${condition}:\n\t${}"],
+  ],
+  js: [
+    ["log", "console.log", "console.log(${});"],
+    ["arrow", "arrow function", "const ${name} = (${params}) => {\n\t${}\n};"],
+    ["afn", "async function", "async function ${name}(${params}) {\n\t${}\n}"],
+    ["switch", "switch", "switch (${value}) {\n\tcase ${a}:\n\t\t${}\n\t\tbreak;\n\tdefault:\n\t\tbreak;\n}"],
+  ],
+};
+DOC_CODE_SNIPPETS.ts = DOC_CODE_SNIPPETS.js;
+
+//: The snippet rows for a file type, built once per type (the engine tells
+//: options apart by identity too, and a list rebuilt per keystroke resets
+//: the chosen row). Above the keywords, so `for` offers the loop's shape
+//: before the bare word.
+const docCodeSnippetCache = new Map();
+
+function docCodeSnippetOptions(CM, ext) {
+  if (docCodeSnippetCache.has(ext)) return docCodeSnippetCache.get(ext);
+  const options = (DOC_CODE_SNIPPETS[ext] || []).map(([label, detail, template]) =>
+    CM.autocomplete.snippetCompletion(template, { label, detail, type: "keyword", boost: 1 })
+  );
+  docCodeSnippetCache.set(ext, options);
+  return options;
+}
+
+//: For JavaScript, TypeScript and Python, whose packages bring their own
+//: snippets and sources: the rows they lack, as language data on their own
+//: language, never inside a string or a comment.
+let docNativeSnippetCache = null;
+
+function docNativeSnippets(CM, ext) {
+  if (!docNativeSnippetCache) {
+    const quiet = ["String", "FormatString", "TemplateString", "Comment", "LineComment", "BlockComment", "RegExp"];
+    const source = (key) => CM.autocomplete.ifNotIn(quiet, CM.autocomplete.completeFromList(docCodeSnippetOptions(CM, key)));
+    docNativeSnippetCache = {
+      py: CM.python.pythonLanguage.data.of({ autocomplete: source("py") }),
+      js: CM.javascript.javascriptLanguage.data.of({ autocomplete: source("js") }),
+    };
+  }
+  if (ext === "py") return docNativeSnippetCache.py;
+  if (ext === "js" || ext === "ts") return docNativeSnippetCache.js;
+  return [];
+}
+
 let docCodeCompletionCache = null;
 
 function docCodeCompletionSource(CM) {
@@ -17235,9 +17470,12 @@ function docCodeCompletionSource(CM) {
     const word = context.matchBefore(/[A-Za-z_$][\w$]*/);
     if (!word || (word.from === word.to && !context.explicit)) return null;
     const ext = docFileType().ext;
+    const snippets = docCodeSnippetOptions(CM, ext);
     const keywords = (DOC_CODE_KEYWORDS[ext] || "").split(" ").filter(Boolean);
     const seen = new Set(keywords);
-    const options = keywords.map((label) => ({ label, type: "keyword" }));
+    const snipped = new Set(snippets.map((o) => o.label));
+    for (const label of snipped) seen.add(label);
+    const options = [...snippets, ...keywords.filter((k) => !snipped.has(k)).map((label) => ({ label, type: "keyword" }))];
     const text = context.state.doc.toString();
     const names = /[A-Za-z_$][\w$]{2,}/g;
     let match;
@@ -18862,6 +19100,400 @@ function docStickyScroll(CM) {
   return docStickyCache;
 }
 
+// --- Go to definition, references, find in documents (INBOX 404) ---------------
+//
+// Within one file, from the tree: F12 goes to where the name at the caret is
+// defined, Shift+F12 lists every place it is used. A name in a string or a
+// comment is text, not a use (the bracket colours' own test, so the two
+// cannot disagree about what is code). Across documents, Ctrl+Shift+F opens
+// the app's own Find anything on documents, with the selection or the word.
+
+//: The identifier at `pos`, as `{ from, to, name }`, or null.
+function docWordAt(state, pos) {
+  const line = state.doc.lineAt(pos);
+  const col = pos - line.from;
+  const before = /[\w$]*$/.exec(line.text.slice(0, col))[0];
+  const after = /^[\w$]*/.exec(line.text.slice(col))[0];
+  const name = before + after;
+  if (!name || /^\d/.test(name)) return null;
+  return { from: pos - before.length, to: pos + after.length, name };
+}
+
+//: Every use of `name` as a whole word in code, as `{ from, to }`.
+function docReferencesOf(CM, state, name) {
+  const text = state.doc.toString();
+  if (text.length > DOC_CHECK_MAX_CHARS) return [];
+  const tree = CM.language.ensureSyntaxTree(state, state.doc.length, 200) || CM.language.syntaxTree(state);
+  const found = [];
+  const escaped = name.replace(/\$/g, "\\$");
+  const re = new RegExp(`(?<![\\w$])${escaped}(?![\\w$])`, "g");
+  let match;
+  while ((match = re.exec(text)) !== null) {
+    if (DOC_BRACKET_NOT_CODE.test(tree.resolveInner(match.index, 1).name)) continue;
+    found.push({ from: match.index, to: match.index + name.length });
+  }
+  return found;
+}
+
+//: The node names that define a name, by grammar, and the scopes a
+//: definition belongs to; a definition in a scope around the caret wins
+//: over one elsewhere, the innermost first.
+const DOC_DEFINING = /^(VariableDefinition|TypeDefinition|PropertyDefinition|PrivatePropertyDefinition)$/;
+const DOC_SCOPES = /^(Script|Block|ClassBody|FunctionDeclaration|FunctionExpression|ArrowFunction|MethodDeclaration|FunctionDefinition|ClassDefinition|Body)$/;
+
+//: Whether the Python name at `node` is being defined: a def's or a class's
+//: name, a parameter, an assignment's target, a for loop's variable, an
+//: import.
+function docPythonDefines(node) {
+  const parent = node.parent;
+  if (!parent) return false;
+  if (/^(FunctionDefinition|ClassDefinition)$/.test(parent.name)) return parent.getChild("VariableName")?.from === node.from;
+  if (parent.name === "ParamList" || parent.name === "ImportStatement" || parent.name === "ForStatement") return true;
+  if (parent.name === "AssignStatement") return parent.firstChild?.from === node.from;
+  return false;
+}
+
+//: The definitions of `name`, as `{ from, to, scope }`; the scope is the
+//: range the definition is visible in, for choosing among several.
+function docDefinitionsOf(CM, state, name, ext) {
+  const refs = docReferencesOf(CM, state, name);
+  const tree = CM.language.syntaxTree(state);
+  const defs = [];
+  if (["js", "ts", "py"].includes(ext)) {
+    for (const ref of refs) {
+      const node = tree.resolveInner(ref.from, 1);
+      const defining = ext === "py" ? node.name === "VariableName" && docPythonDefines(node) : DOC_DEFINING.test(node.name);
+      if (!defining) continue;
+      let scope = node.parent;
+      //: A function's own name belongs to the scope around the function, its
+      //: parameters to the function.
+      if (scope && /^(FunctionDeclaration|ClassDeclaration|FunctionDefinition|ClassDefinition)$/.test(scope.name)) scope = scope.parent;
+      while (scope && !DOC_SCOPES.test(scope.name)) scope = scope.parent;
+      defs.push({ ...ref, scope: scope ? [scope.from, scope.to] : [0, state.doc.length] });
+    }
+    return defs;
+  }
+  //: A grammar with no tree to ask: a definition is the name after a word
+  //: that defines one, or a C-family type in front of it.
+  const keyword = /\b(func|fn|def|class|struct|interface|enum|type|trait|impl|var|let|const|val|fun|function|module|record|typedef|sub|proc)\s+[*&]?$/;
+  const cType = /\b(int|void|char|float|double|bool|long|short|auto|unsigned|static|String|string|[A-Z][\w<>[\],]*)\s+[*&]?$/;
+  for (const ref of refs) {
+    const line = state.doc.lineAt(ref.from);
+    const before = line.text.slice(0, ref.from - line.from);
+    if (keyword.test(before) || cType.test(before)) defs.push({ ...ref, scope: [0, state.doc.length] });
+  }
+  return defs;
+}
+
+//: The definition F12 should go to from `pos`: among those whose scope holds
+//: the caret, the innermost, and the nearest before the caret within it;
+//: else the first there is.
+function docPickDefinition(defs, pos) {
+  const visible = defs.filter((d) => d.scope[0] <= pos && pos <= d.scope[1]);
+  const pool = visible.length ? visible : defs;
+  if (!pool.length) return null;
+  const width = (d) => d.scope[1] - d.scope[0];
+  const inner = Math.min(...pool.map(width));
+  const inScope = pool.filter((d) => width(d) === inner);
+  const before = inScope.filter((d) => d.from <= pos);
+  return before.length ? before[before.length - 1] : inScope[0];
+}
+
+function docGoToDefinition() {
+  const CM = window.CM6;
+  const view = docCmView;
+  if (!CM || !view) return false;
+  const pos = view.state.selection.main.head;
+  const word = docWordAt(view.state, pos);
+  if (!word) return false;
+  const def = docPickDefinition(docDefinitionsOf(CM, view.state, word.name, docFileType().ext), pos);
+  if (!def) {
+    toast(`No definition of ${word.name} in this file.`);
+    return true;
+  }
+  if (def.from <= pos && pos <= def.to) {
+    toast(`This is where ${word.name} is defined. Shift+F12 lists its uses.`);
+    return true;
+  }
+  view.dispatch({ selection: { anchor: def.from, head: def.to }, scrollIntoView: true });
+  view.focus();
+  return true;
+}
+
+function docShowReferences() {
+  const CM = window.CM6;
+  const view = docCmView;
+  if (!CM || !view || typeof openMenuAtPoint !== "function") return false;
+  const pos = view.state.selection.main.head;
+  const word = docWordAt(view.state, pos);
+  if (!word) return false;
+  const refs = docReferencesOf(CM, view.state, word.name);
+  const items = refs.slice(0, 200).map((ref) => {
+    const line = view.state.doc.lineAt(ref.from);
+    return {
+      label: `ph:arrow-right Line ${line.number}: ${line.text.trim().slice(0, 70)}`,
+      title: `Go to this use of ${word.name}`,
+      run: () => {
+        view.dispatch({ selection: { anchor: ref.from, head: ref.to }, scrollIntoView: true });
+        view.focus();
+      },
+    };
+  });
+  const at = view.coordsAtPos(pos) || view.contentDOM.getBoundingClientRect();
+  openMenuAtPoint(items, `${refs.length} ${refs.length === 1 ? "use" : "uses"} of ${word.name}`, at.left, at.bottom);
+  return true;
+}
+
+//: Ctrl+Shift+F: the app's Find anything, on documents, with the selection
+//: (one line of it) or the word at the caret.
+function docFindInDocuments() {
+  const view = docCmView;
+  let query = "";
+  if (view) {
+    const range = view.state.selection.main;
+    if (!range.empty) query = view.state.sliceDoc(range.from, range.to).split("\n")[0].slice(0, 100);
+    else query = docWordAt(view.state, range.head)?.name || "";
+  }
+  if (typeof openFinder !== "function") return false;
+  if (typeof finderKind !== "undefined") finderKind = "document";
+  openFinder(query);
+  return true;
+}
+
+// --- Run, and its output (INBOX 404) ------------------------------------------
+//
+// The owner: "what about code errors, debugging console or smth??" A `.js`
+// file runs in a worker and an `.html` file renders in a frame, both inside
+// `/documents/run-sandbox`, a page served under its own policy (an opaque
+// origin with no network; `api/run_sandbox.py` says why each line is there).
+// What comes back is `console.*` and uncaught errors as text, each with the
+// line it came from, into a panel under the editor. Stop ends the run; so do
+// ten seconds of a top level that never finishes, and five hundred lines of
+// output. Nothing is compiled, so TypeScript and Python say what they would
+// need rather than pretending.
+
+const DOC_RUN_KINDS = { js: "js", html: "html" };
+const DOC_RUN_SANDBOX_URL = "/documents/run-sandbox";
+const DOC_RUN_TIMEOUT_MS = 10000;
+const DOC_RUN_MAX_ROWS = 500;
+
+//: Why a type shows Run and cannot run, in the panel, in one line.
+const DOC_RUN_CANNOT = {
+  ts: "TypeScript runs once it is compiled to JavaScript, and this editor does not compile. Save it as a .js file to run it here.",
+  py: "Running Python needs Pyodide, which is not part of MemoryMap yet: it is planned as an optional extra, offline once installed.",
+};
+
+//: Whether a type shows Run: the two that run, and the two that say why not.
+function docRunnable(type) {
+  return Boolean(DOC_RUN_KINDS[type.ext] || DOC_RUN_CANNOT[type.ext]);
+}
+
+//: The run in flight and the panel it writes to, or null.
+let docRun = null;
+let docRunSeq = 0;
+let docRunPanelField = null;
+let docRunToggle = null;
+
+//: The panel's DOM, built when it opens; the sandbox frame lives in it, so
+//: closing the panel removes the frame and whatever was running with it.
+function docRunPanel(view) {
+  const dom = document.createElement("div");
+  dom.className = "cm-run-panel";
+  const head = document.createElement("div");
+  head.className = "cm-run-head";
+  const title = document.createElement("span");
+  title.className = "cm-run-title";
+  title.textContent = "Output";
+  const status = document.createElement("span");
+  status.className = "cm-run-status";
+  status.setAttribute("role", "status");
+  const spacer = document.createElement("span");
+  spacer.className = "cm-run-spacer";
+  const button = (label, icon, action, hint) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ghost small";
+    b.title = hint;
+    const i = document.createElement("i");
+    i.className = `ph ${icon} ph-lead`;
+    i.setAttribute("aria-hidden", "true");
+    b.append(i, ` ${label}`);
+    b.addEventListener("click", action);
+    return b;
+  };
+  const again = button("Run again", "ph-play", () => docRunCode(), "Run the file again (Ctrl+Shift+Enter)");
+  const stopButton = button("Stop", "ph-stop", () => docRunStop("Stopped."), "Stop the run");
+  const clear = button("Clear", "ph-eraser", () => docRunClear(), "Clear the output");
+  const close = button("Close", "ph-x", () => docRunClose(), "Close the output");
+  head.append(title, status, spacer, again, stopButton, clear, close);
+  const body = document.createElement("div");
+  body.className = "cm-run-body";
+  const frame = document.createElement("iframe");
+  frame.className = "cm-run-frame";
+  frame.setAttribute("sandbox", "allow-scripts");
+  frame.title = "The page this file makes";
+  frame.src = DOC_RUN_SANDBOX_URL;
+  const log = document.createElement("ol");
+  log.className = "cm-run-log";
+  log.setAttribute("role", "log");
+  log.setAttribute("aria-label", "Output");
+  body.append(frame, log);
+  dom.append(head, body);
+  docRun = { view, dom, frame, log, status, stopButton, ready: false, pending: null, id: 0, rows: 0, timer: null, running: false };
+  return {
+    dom,
+    top: false,
+    destroy: () => {
+      if (docRun && docRun.dom === dom) {
+        clearTimeout(docRun.timer);
+        docRun = null;
+      }
+    },
+  };
+}
+
+//: The field that says whether the panel is open, and the effect that
+//: flips it; the panel follows it through `showPanel`.
+function docRunExtension(CM) {
+  if (!docRunPanelField) {
+    docRunToggle = CM.state.StateEffect.define();
+    docRunPanelField = CM.state.StateField.define({
+      create: () => false,
+      update: (open, tr) => {
+        for (const e of tr.effects) if (e.is(docRunToggle)) open = e.value;
+        return open;
+      },
+      provide: (field) => CM.view.showPanel.from(field, (open) => (open ? docRunPanel : null)),
+    });
+  }
+  return docRunPanelField;
+}
+
+function docRunSetStatus(text, running) {
+  if (!docRun) return;
+  docRun.status.textContent = text;
+  docRun.running = running;
+  docRun.stopButton.disabled = !running;
+}
+
+function docRunClear() {
+  if (!docRun) return;
+  docRun.log.replaceChildren();
+  docRun.rows = 0;
+}
+
+//: One row of output: its text, and the line it came from as a link back to
+//: the editor. Text only, never markup: this is the one place in the app
+//: that shows words a program chose.
+function docRunRow(level, text, line) {
+  if (!docRun) return;
+  const row = document.createElement("li");
+  row.className = `cm-run-row is-${["error", "warn", "info", "debug"].includes(level) ? level : "log"}`;
+  const words = document.createElement("span");
+  words.className = "cm-run-text";
+  words.textContent = String(text).slice(0, 4000);
+  row.appendChild(words);
+  if (Number.isInteger(line) && line > 0) {
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "linklike cm-run-line";
+    link.textContent = `Line ${line}`;
+    link.title = `Go to line ${line}`;
+    link.addEventListener("click", () => {
+      jumpToDocLine(line - 1);
+      docCmView?.focus();
+    });
+    row.appendChild(link);
+  }
+  docRun.log.appendChild(row);
+  docRun.rows += 1;
+  row.scrollIntoView({ block: "nearest" });
+}
+
+function docRunSend(message) {
+  if (!docRun) return;
+  if (!docRun.ready) {
+    docRun.pending = message;
+    return;
+  }
+  docRun.frame.contentWindow?.postMessage(message, "*");
+}
+
+function docRunStop(why) {
+  if (!docRun) return;
+  clearTimeout(docRun.timer);
+  docRunSend({ type: "stop", mmRun: docRun.id });
+  //: A later message from this run is dropped: the id no longer matches.
+  docRun.id = -1;
+  docRunSetStatus(why, false);
+}
+
+function docRunClose() {
+  const CM = window.CM6;
+  if (docCmView && CM && docRunToggle) docCmView.dispatch({ effects: docRunToggle.of(false) });
+  docCmView?.focus();
+}
+
+//: Run the open file: the panel opens (or is reused), the output is
+//: cleared, and the text as it is now goes to the sandbox.
+function docRunCode() {
+  const CM = window.CM6;
+  const type = docFileType();
+  if (!docCmView || !CM || !docRunToggle) return false;
+  const kind = DOC_RUN_KINDS[type.ext];
+  if (!docRun) docCmView.dispatch({ effects: docRunToggle.of(true) });
+  if (!docRun) return false;
+  docRunClear();
+  clearTimeout(docRun.timer);
+  docRun.dom.classList.toggle("is-page", kind === "html");
+  if (!kind) {
+    docRunRow("info", DOC_RUN_CANNOT[type.ext] || "This kind of file does not run here.", null);
+    docRunSetStatus("Not run.", false);
+    return false;
+  }
+  const id = ++docRunSeq;
+  docRun.id = id;
+  docRunSetStatus("Running", true);
+  docRunSend({ type: "run", kind, code: docCmView.state.doc.toString(), mmRun: id });
+  docRun.timer = setTimeout(() => {
+    if (docRun && docRun.id === id && docRun.running) {
+      docRunStop("Stopped after 10 seconds: the script was still running.");
+    }
+  }, DOC_RUN_TIMEOUT_MS);
+  return true;
+}
+
+//: The sandbox's messages. Only from the panel's own frame, only for the run
+//: in flight; everything in them is treated as text.
+window.addEventListener("message", (event) => {
+  if (!docRun || event.source !== docRun.frame.contentWindow) return;
+  const data = event.data && typeof event.data === "object" ? event.data : {};
+  if (data.t === "ready" && data.mmRun === 0) {
+    docRun.ready = true;
+    if (docRun.pending) {
+      const message = docRun.pending;
+      docRun.pending = null;
+      docRunSend(message);
+    }
+    return;
+  }
+  if (data.mmRun !== docRun.id) return;
+  if (data.t === "done") {
+    clearTimeout(docRun.timer);
+    if (docRun.running) docRunSetStatus(docRun.dom.classList.contains("is-page") ? "Page loaded." : "Finished.", true);
+    return;
+  }
+  if (data.t !== "log") return;
+  docRunRow(String(data.level || "log"), String(data.text ?? ""), Number(data.line) || null);
+  //: An uncaught error ends a script's top level as surely as its last line
+  //: does: the run is over, not still going for the timeout to find.
+  if (data.uncaught && docRun.running && !docRun.dom.classList.contains("is-page")) {
+    clearTimeout(docRun.timer);
+    docRunSetStatus("Stopped by an error.", false);
+  }
+  if (docRun.rows >= DOC_RUN_MAX_ROWS) docRunStop(`Stopped after ${DOC_RUN_MAX_ROWS} lines of output.`);
+});
+
 //: Go to a symbol, from the palette: the file's symbols in the menu at the
 //: caret, VS Code's Ctrl+Shift+O list. Not on that chord: this app's
 //: registry gives Ctrl+Shift+O to starting a new chat.
@@ -18903,6 +19535,8 @@ function docCompletionExtras(CM, type) {
     ["css", "html"].includes(type.ext) ? docHoverDocs(CM) : [],
     docIndentGuides(CM, type.indent || "  "),
     DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : [],
+    docNativeSnippets(CM, type.ext),
+    docRunnable(type) ? docRunExtension(CM) : [],
     docBracketColours(CM),
     ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],
     docGhostPlugin(CM),
@@ -20210,6 +20844,12 @@ function docCodeEditing(CM, type) {
       { key: "Shift-Alt-f", run: () => { docFormatCode("auto"); return true; } },
       //: VS Code's word-wrap toggle (INBOX 402); free in the registry.
       { key: "Alt-z", run: () => { docToggleCodeDraw("codeWrap"); return true; } },
+      //: Run (INBOX 404). Not F5, which reloads the page in a browser, and
+      //: not Ctrl+Alt+R, which the registry gives to a forced reload.
+      { key: "Mod-Shift-Enter", run: () => { if (!docRunnable(docFileType())) return false; docRunCode(); return true; } },
+      //: VS Code's own keys for these two (INBOX 404), free in the registry.
+      { key: "F12", run: () => docGoToDefinition() },
+      { key: "Shift-F12", run: () => docShowReferences() },
       //: The quick fixes at the caret, on the prose menu's own chord, and the
       //: problems one at a time on the prose findings' own keys.
       { key: "Alt-Enter", run: () => docOpenCodeFixes() },

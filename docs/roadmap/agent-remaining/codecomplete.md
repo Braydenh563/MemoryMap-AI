@@ -36,14 +36,29 @@ Sweeps, light and dark: `doccomplete.js` 35/35, `doccodevs.js` 25/25,
 - Ctrl+Shift+O (Go to symbol): `newChat`. The palette row has no chord.
 - Emmet wrap and balance: no chord (VS Code has none either).
 
-## Next (INBOX 404, after merging fix/gemini-fixes-5)
+## INBOX 404, code side
 
-1. Per-language snippets through the completion list.
-2. Run with an output console: JS/TS in a sandboxed Worker, HTML in a
-   sandboxed iframe, console piped to one panel.
-3. Python via Pyodide only as an opt-in extra (core/extras.py).
-4. F12 go to definition, Shift+F12 references in a file; Ctrl+Shift+F
-   across documents through the search endpoint.
+- ff219d2 merged fix/gemini-fixes-5 (INBOX and CHANGELOG kept both sides).
+- b1c7339 (1) snippets: tables for Java, C#, C, C++, Go, Rust, Kotlin,
+  Swift, Ruby, PHP, R, SQL and shell; extra rows for JS, TS and Python.
+- bbaccfc (2) Run: `/documents/run-sandbox` (`api/run_sandbox.py`, its own
+  CSP: opaque origin, `connect-src 'none'`), JS in a blob worker, HTML in a
+  srcdoc frame, console and uncaught errors by line in `.cm-run-panel`;
+  Stop, 10 s and 500-line limits. `docrun.js` 18/18 light and dark;
+  `tests/test_run_sandbox.py` holds the policy. Route added to
+  `test_every_route_is_locked.py`'s OPEN list with its reason.
+- f07b5bc (4) F12 definition (scope-aware for JS/TS/Python, a defining
+  word for the stream modes), Shift+F12 uses, Ctrl+Shift+F Find anything on
+  documents.
+
+## Next
+
+1. (3) Python via Pyodide: not built, a decision is missing (INBOX 404 has
+   the recommendation: a "download" kind of extra, pinned `pyodide-core`
+   with its sha256, served beside the run sandbox). The Run button on a .py
+   file says so today (`DOC_RUN_CANNOT.py`).
+2. TypeScript Run: vendor sucrase (MIT) to strip types, then run as JS;
+   `DOC_RUN_CANNOT.ts` says it needs compiling today.
 
 ## Found, not fixed
 
@@ -54,7 +69,9 @@ Sweeps, light and dark: `doccomplete.js` 35/35, `doccodevs.js` 25/25,
 
 ## Not verified
 
-- The desktop window (WebView2): all sweeps run in headless Chromium.
+- The desktop window (WebView2): all sweeps run in headless Chromium,
+  including the run sandbox (WebView2's handling of a `sandbox` CSP on a
+  framed response is assumed to match Chromium's).
 - The native colour picker's own window: the sweep sets the input's value
   and fires its events; the OS picker never opens headless.
 - Ctrl+/ in a note box opening the blocks menu: the binding was removed and

@@ -49,8 +49,14 @@ const parse = (marked) => {
 const stateFor = (ext, marked, extra = []) => {
   const { doc, anchor, head } = parse(marked);
   const state = CM.state.EditorState.create({ doc, selection: { anchor, head }, extensions: [docCmLanguageFor(CM, ext), extra] });
+  //: `ensureSyntaxTree` finishes the parse in the language field's context,
+  //: but `syntaxTree(state)` reads the field's own tree, which is only as far
+  //: as the 20ms first pass got (under load, not far): one empty transaction
+  //: moves the finished tree into the field. Flaked under `-n 4` without it.
   CM.language.ensureSyntaxTree(state, state.doc.length, 5000);
-  return state;
+  const settled = state.update({}).state;
+  if (CM.language.syntaxTree(settled).length !== settled.doc.length) throw new Error("the parse did not finish");
+  return settled;
 };
 const target = (state) => {
   const t = { state, dispatch: (tr) => { t.state = tr.state; } };
@@ -384,3 +390,184 @@ def test_sticky_is_an_opaque_overlay_not_a_panel():
     assert "DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : []" in _function("docCompletionExtras")
     theme = _source().split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
     assert "var(--modal-bg-opaque)" in theme.split('".cm-sticky"', 1)[1].split("}", 1)[0]
+
+
+# --- INBOX 404 (1): snippets per language ----------------------------------------
+
+_SNIPPETS = """
+//: The file types' own indent units (core/filetypes.py), as the app mounts them.
+const UNITS = { java: "    ", cs: "    ", c: "    ", cpp: "    ", go: "\t", rs: "    ", kt: "    ", swift: "    ", php: "    ", py: "    ", sql: "    " };
+const expandIn = (ext, template) => {
+  const t = target(stateFor(ext, "|", CM.language.indentUnit.of(UNITS[ext] || "  ")));
+  CM.autocomplete.snippet(template)(t, null, 0, 0);
+  return t.state.doc.toString();
+};
+const fns = {
+  every: () => {
+    const bad = [];
+    for (const [ext, rows] of Object.entries(DOC_CODE_SNIPPETS)) {
+      for (const [label, detail, template] of rows) {
+        let out = "";
+        try { out = expandIn(ext, template); } catch (e) { bad.push(`${ext} ${label}: ${e.message}`); continue; }
+        if (/[$#]\\{/.test(out) || !detail || !/^[a-z!]+$/i.test(label)) bad.push(`${ext} ${label}: ${JSON.stringify(out)}`);
+      }
+    }
+    return bad;
+  },
+  one: (ext, label) => {
+    const row = DOC_CODE_SNIPPETS[ext].find((r) => r[0] === label);
+    return expandIn(ext, row[2]);
+  },
+};
+"""
+
+
+def _snippet_table() -> str:
+    text = _source()
+    start = text.index("const DOC_CODE_SNIPPETS = {")
+    end = text.index("DOC_CODE_SNIPPETS.ts = DOC_CODE_SNIPPETS.js;", start)
+    return text[start:end] + "DOC_CODE_SNIPPETS.ts = DOC_CODE_SNIPPETS.js;\n"
+
+
+@node
+def test_every_snippet_expands_cleanly_in_its_own_language():
+    assert run([], _snippet_table() + _SNIPPETS, [["every"]])[0] == []
+
+
+@node
+@pytest.mark.parametrize(
+    ("ext", "label", "text"),
+    [
+        ("java", "main", "public static void main(String[] args) {\n    \n}"),
+        ("java", "sout", "System.out.println();"),
+        ("cs", "prop", "public int Name { get; set; }"),
+        ("go", "iferr", "if err != nil {\n\treturn err\n}"),
+        ("rs", "println", 'println!("");'),
+        ("py", "main", 'if __name__ == "__main__":\n    main()'),
+        ("sql", "sel", "SELECT * FROM table;"),
+        ("bash", "for", "for item in items; do\n  \ndone"),
+    ],
+)
+def test_snippets_write_the_statement_in_the_files_own_indent(ext, label, text):
+    assert run([], _snippet_table() + _SNIPPETS, [["one", ext, label]])[0] == text
+
+
+def test_snippets_reach_the_list():
+    source = _function("docCodeCompletionSource")
+    assert "docCodeSnippetOptions(CM, ext)" in source and "for (const label of snipped) seen.add(label);" in source
+    assert "docNativeSnippets(CM, type.ext)" in _function("docCompletionExtras")
+    assert "CM.autocomplete.ifNotIn(quiet" in _function("docNativeSnippets")
+
+
+# --- INBOX 404 (2): Run and its output -----------------------------------------------
+
+
+def test_run_goes_through_the_sandbox_and_trusts_only_its_frame():
+    source = _source()
+    assert 'const DOC_RUN_SANDBOX_URL = "/documents/run-sandbox";' in source
+    panel = _function("docRunPanel")
+    assert 'frame.setAttribute("sandbox", "allow-scripts")' in panel
+    assert "allow-same-origin" not in panel
+    listener = source[source.index('window.addEventListener("message", (event) => {\n  if (!docRun') :]
+    listener = listener[: listener.index("\n});\n")]
+    assert "event.source !== docRun.frame.contentWindow" in listener
+    assert "data.mmRun !== docRun.id" in listener
+    #: What a program printed is shown as text, never as markup.
+    row = _function("docRunRow")
+    assert "textContent" in row and "innerHTML" not in row
+    #: Stop, the timeout and the line cap all end a run.
+    assert "DOC_RUN_TIMEOUT_MS" in _function("docRunCode") and "DOC_RUN_MAX_ROWS" in listener
+
+
+def test_run_is_on_a_free_chord_and_in_the_dock_for_code():
+    assert '{ key: "Mod-Shift-Enter", run: () => { if (!docRunnable(docFileType())) return false; docRunCode(); return true; } }' in _function("docCodeEditing")
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert '"Ctrl+Shift+Enter"' not in app
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<button id="doc-code-run" class="ghost small hidden" type="button"' in html
+    assert '$("doc-code-run")?.classList.toggle("hidden", !docRunnable(type));' in _function("syncDocFileType")
+    source = _source()
+    table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]
+    assert 'keys: "Ctrl+Shift+Enter",\n    code: true, run: () => docRunCode() }' in table
+
+
+# --- INBOX 404 (4): go to definition, references ------------------------------------
+
+_DEFS = """
+const at = (marked) => marked.indexOf("|");
+const fns = {
+  def: (ext, marked) => {
+    const state = stateFor(ext, marked);
+    const pos = state.selection.main.head;
+    const word = docWordAt(state, pos);
+    const d = docPickDefinition(docDefinitionsOf(CM, state, word.name, ext), pos);
+    return d ? state.doc.lineAt(d.from).number : null;
+  },
+  refs: (ext, marked) => {
+    const state = stateFor(ext, marked);
+    const word = docWordAt(state, state.selection.main.head);
+    return docReferencesOf(CM, state, word.name).map((r) => state.doc.lineAt(r.from).number);
+  },
+};
+"""
+
+_FUNCS = ["docWordAt", "docReferencesOf", "docPythonDefines", "docDefinitionsOf", "docPickDefinition"]
+
+
+def _defs_body() -> str:
+    return "".join(_const(n) for n in ("DOC_CHECK_MAX_CHARS", "DOC_BRACKET_NOT_CODE", "DOC_DEFINING", "DOC_SCOPES")) + _DEFS
+
+
+@node
+@pytest.mark.parametrize(
+    ("ext", "marked", "line"),
+    [
+        # A function, used below its definition.
+        ("js", "function total(a) {\n  return a;\n}\nconst x = tot|al(1);", 1),
+        # A parameter shadows the outer name inside its function.
+        ("js", "const a = 1;\nfunction f(a) {\n  return a| + 1;\n}", 2),
+        # And outside it, the outer one.
+        ("js", "const a = 1;\nfunction f(a) {\n  return a;\n}\nconsole.log(a|);", 1),
+        # A method, by its name.
+        ("ts", "class A {\n  run(): void {}\n}\nnew A().ru|n();", 2),
+        # Python: a def, a parameter, an assignment.
+        ("py", "def area(r):\n    return r * r\n\nx = are|a(2)", 1),
+        ("py", "n = 1\ndef f(n):\n    return n| + 1", 2),
+        ("py", "total = 0\nfor i in range(3):\n    total += i\nprint(tot|al)", 1),
+        # A grammar with no tree: the name after a defining word.
+        ("go", "func add(a int) int {\n\treturn a\n}\n\nfunc main() {\n\tad|d(1)\n}", 1),
+        ("c", "int square(int x) {\n    return x * x;\n}\nint y = squ|are(3);", 1),
+        # A name only in a string has no definition.
+        ("js", 'const s = "total";\nto|tal;', None),
+    ],
+)
+def test_go_to_definition(ext, marked, line):
+    assert run(_FUNCS, _defs_body(), [["def", ext, marked]])[0] == line
+
+
+@node
+@pytest.mark.parametrize(
+    ("ext", "marked", "lines"),
+    [
+        # Every use in code; the string and the comment are not uses.
+        ("js", 'const total = 1;\n// total\nconst s = "total";\nf(tot|al, total);', [1, 4, 4]),
+        ("py", "x = 1\n# x\nprint(x|)", [1, 3]),
+        # A longer name that contains it is not it.
+        ("js", "let item = 1;\nlet items = [ite|m];", [1, 2]),
+    ],
+)
+def test_references(ext, marked, lines):
+    assert run(_FUNCS, _defs_body(), [["refs", ext, marked]])[0] == lines
+
+
+def test_definition_keys_and_find_in_documents():
+    editing = _function("docCodeEditing")
+    assert '{ key: "F12", run: () => docGoToDefinition() }' in editing
+    assert '{ key: "Shift-F12", run: () => docShowReferences() }' in editing
+    assert '{ key: "Mod-Shift-f", run: () => docFindInDocuments() }' in _function("docCmKeymap")
+    find = _function("docFindInDocuments")
+    assert 'finderKind = "document"' in find and "openFinder(query)" in find
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    for chord in ('"F12"', '"Shift+F12"', '"Ctrl+Shift+F"'):
+        assert f"keys: {chord}" not in app, f"{chord} is taken in the registry"
+    assert '{ key: "document", icon: "ph:file-text"' in app

@@ -34221,3 +34221,29 @@ with an unselected note moving 1.7 and no pins written.
     1,400-word check in a worker, 3 ms main-thread merge; documents and note
     boxes; `p2-harper.js` 16 of 16.
 
+402. **The owner, 2026-09-23 night, verbatim:** "are there any other vscode
+    features we can add to the document editor like emmet for other
+    languages or file types??" And, on Ctrl+/: it exists
+    (`toggleDocComment`); two VS Code gaps. Placed with the code-completion
+    agent (`agent-remaining/codecomplete.md`), in this order: the comment
+    toggle made language-aware at the caret (`<script>` takes `//`,
+    `<style>` `/* */`, JSX children `{/* */}`) with Shift+Alt+A for a block
+    comment if the key is free; Emmet beyond HTML (JSX/TSX `className`,
+    XML/SVG) with wrap-with-abbreviation and balance; auto-close and
+    rename-matching-tag; CSS colour swatches with the native picker; hover
+    docs for CSS properties and HTML tags from the packages' own data;
+    indentation guides and bracket-pair colours on tokens; an outline jump
+    (Ctrl+Shift+O); Alt+Z wrap and a render-whitespace option; sticky scroll.
+    Already present and not rebuilt: move/copy line, find and replace, select
+    next occurrence, go to line, folding, bracket matching, rectangular
+    selection, the lint gutter. Each key checked against the shortcut
+    registry; a taken key is skipped and named.
+    **Fixed 929dd76, 66a0948, cbaaad9, c190d2e, cd8f69a, 96108c5, 57a7cfd,
+    bd16f93, e7d1776** (codecomplete agent, all nine). Measured:
+    `doccodevs.js` 25/25, `doccodevs2.js` 32/32, `doccodevs3.js` 16/16,
+    light and dark; `test_code_vscode.py` runs the real CodeMirror bundle in
+    node. Ctrl+Shift+O is the registry's new chat, so Go to a symbol is a
+    palette row without a chord. Found on the way and fixed: Ctrl+/ wrote "/"
+    over prose it had just commented, a .sql document threw on open, and a
+    Python file's outline listed its `#` comments as headings.
+

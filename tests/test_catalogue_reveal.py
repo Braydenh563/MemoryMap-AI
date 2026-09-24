@@ -52,6 +52,8 @@ SCRIPTS = (
     "dashboard.js",
     "settings.js",
     "editor.js",
+    "timeline.js",
+    "palette.js",
 )
 
 

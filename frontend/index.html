@@ -10954,8 +10954,14 @@
        styles and one listbox for a screen reader to track. Positioned at the
        caret from script (see editor.js), which is why it sits here at the end
        of <body> instead of inside either editor. -->
-  <ul id="editor-menu" class="editor-menu hidden" role="listbox"
-      aria-label="Insert a block, or link to a note"></ul>
+  <!-- Two columns (INBOX 421 b): the listbox, and a preview of the row it is
+       on, drawn by the page's own renderer. The preview is aria-hidden and
+       inert; every row already says what it does. -->
+  <div id="editor-menu" class="editor-menu hidden">
+    <ul id="editor-menu-list" class="editor-menu-list" role="listbox"
+        aria-label="Insert a block, or link to a note"></ul>
+    <div id="editor-menu-preview" class="editor-menu-preview hidden" aria-hidden="true"></div>
+  </div>
 
   <!-- D3 v7 + p5.js, both vendored locally, the offline rule: no CDNs, ever -->
   <script src="/vendor/d3.v7.min.js"></script>

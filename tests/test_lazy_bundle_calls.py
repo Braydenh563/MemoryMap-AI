@@ -123,6 +123,8 @@ REACHED_AFTER_LOAD = {
     "gcStop": "graph, the canvas renderer's own teardown",
     "renderDocShortcutSheet": "library, the document editor's own sheet",
     "wireMdFormatShortcuts": "library, wired when the document editor mounts",
+    "hideDocComplete": "library, the document editor's word list; with the bundle absent there is no list on screen to hide, so the guard's no-op is the right answer",
+    "docMathRender": "library; `mdMathElement` (app.js) shows the formula's source when it is absent and calls `ensureModule(\"library\")` to redraw the block once the bundle lands, so the guard is a first frame, not a silent no-op",
     #: The catalogue reveals (app.js, REVEAL_TARGETS): each is called only
     #: after `revealBoard` or the target itself has awaited the bundle.
     "wbIsMap": "library, asked by revealBoard after `await ensureModule(\"library\")`",

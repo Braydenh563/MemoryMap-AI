@@ -11069,7 +11069,16 @@ function resolveWikiTarget(name) {
   }
   note = note || titleMatch;
   if (note) return { kind: "note", entry: note };
-  const documents = typeof editorDocumentCache !== "undefined" ? editorDocumentCache : null;
+  //: **The document list the documents editor holds, when this one is
+  //: empty.** `editorDocumentCache` is filled only once the `[[` picker has
+  //: been opened, so until then every `![[A document]]` in the Read view said
+  //: "Nothing called A document yet" while the Live view of the same line,
+  //: which resolves through documents.js's own `docs`, drew it: two views of
+  //: one line disagreeing (found by `scratchpad/ui-sweeps/blockbar.js`).
+  const cached = typeof editorDocumentCache !== "undefined" && editorDocumentCache && editorDocumentCache.length
+    ? editorDocumentCache
+    : null;
+  const documents = cached || (typeof docs !== "undefined" && Array.isArray(docs) ? docs : null);
   const docList = documents || [];
   const doc =
     docList.find((d) => (d.title || "").trim().toLowerCase() === needle) ||
@@ -11114,6 +11123,57 @@ function renderNoteText(element, text, terms) {
     if (embedded) {
       flush();
       element.appendChild(mdEmbedElement(embedded[1].trim(), 0));
+      i++;
+      continue;
+    }
+
+    //: The structural blocks the "/" menu writes (INBOX 421 b: they had to
+    //: work "in documents and notes"), through the same builders the page
+    //: renderer uses. A column is rendered by this function, so it keeps the
+    //: card's search highlighting.
+    const columns = mdColumnsFrom(lines, i);
+    if (columns) {
+      flush();
+      element.appendChild(mdColumnsElement(columns.columns, (host, body) => renderNoteText(host, body, terms)));
+      i = columns.end;
+      continue;
+    }
+    const maths = mdMathBlockFrom(lines, i);
+    if (maths) {
+      flush();
+      element.appendChild(mdMathElement(maths.tex));
+      i = maths.end;
+      continue;
+    }
+    const rule = mdDividerKind(line);
+    if (rule) {
+      flush();
+      element.appendChild(mdRuleElement(rule));
+      i++;
+      continue;
+    }
+    //: A card's headings are not elements to jump to (the card is one
+    //: paragraph of text), so its contents block is the outline itself: the
+    //: note's headings, indented by level, as a list to read.
+    if (MD_TOC_LINE.test(line)) {
+      flush();
+      const toc = mdTocElement();
+      const list = toc.querySelector(".md-toc-list");
+      const entries = mdTocEntries(lines.join("\n"));
+      const top = entries.length ? Math.min(...entries.map((e) => e.level)) : 1;
+      for (const entry of entries) {
+        const item = document.createElement("li");
+        item.className = `md-toc-item md-toc-depth-${Math.min(3, entry.level - top)}`;
+        renderInlineMarkdown(item, entry.text, terms);
+        list.appendChild(item);
+      }
+      if (!entries.length) {
+        const empty = document.createElement("li");
+        empty.className = "md-toc-empty";
+        empty.textContent = "Headings you add appear here.";
+        list.appendChild(empty);
+      }
+      element.appendChild(toc);
       i++;
       continue;
     }
@@ -28696,6 +28756,125 @@ function mdHeadingId(text, taken) {
   return id;
 }
 
+// === The block vocabulary, as spellings ======================================
+//
+// INBOX 421 b: the "/" blocks had to become "an actual proper thing the
+// user's can use to properly structure out their documents and notes". The
+// storage format stays markdown, so every block below is a spelling in the
+// text that any other markdown reader shows as something legible: a fenced
+// div (`:::columns`, Pandoc's and markdown-it-container's), a rule, a quote,
+// `[TOC]` (Typora's and Python-Markdown's), `$$` (every maths extension's).
+// The parsing is pure string work in this marked region, so
+// `tests/test_md_blocks.py` runs it in node, and every renderer (the note
+// card, `renderMarkdown`, the document's Live view) asks the same functions
+// rather than growing a dialect of its own.
+//
+// `docColumnsBlocks` in documents.js is the offset-keeping twin of
+// `mdColumnsFrom` that the Live view needs (it maps columns back onto the
+// editor's positions); both accept exactly the same three fence lines, which
+// `tests/test_doc_columns.py` and this region's test each pin.
+
+// MD-BLOCKS-BEGIN
+const MD_COLS_OPEN = /^[ \t]*:::[ \t]*columns\b[ \t]*\d*[ \t]*$/i;
+const MD_COLS_BREAK = /^[ \t]*:::[ \t]*column[ \t]*$/i;
+const MD_COLS_CLOSE = /^[ \t]*:::[ \t]*$/;
+const MD_CODE_FENCE = /^[ \t]*(?:```|~~~)/;
+//: `[TOC]` alone on its line, any case. Not `[[toc]]`, which is a wiki link
+//: to a note called "toc" and has to stay one.
+const MD_TOC_LINE = /^[ \t]*\[toc\][ \t]*$/i;
+const MD_RULE_LINE = /^\s*([-*_])(\s*\1){2,}\s*$/;
+//: A quote's attribution is its last line, opened by `--`, an en dash or an
+//: em dash (the last two written as escapes: the copy lint reads this file).
+const MD_QUOTE_CITE = /^\s*(?:--|\u2014|\u2013)\s*(\S.*)$/;
+
+//: The columns block that opens on `lines[start]`, or null. `columns` holds
+//: each column's own text, `end` the index after the closing `:::`. An
+//: unclosed block is somebody halfway through typing one and is not a block,
+//: and a code fence wins: a `:::` inside one is an example of the syntax.
+function mdColumnsFrom(lines, start) {
+  if (!MD_COLS_OPEN.test(lines[start] || "")) return null;
+  const columns = [[]];
+  let fenced = false;
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (MD_CODE_FENCE.test(line)) fenced = !fenced;
+    else if (!fenced && MD_COLS_BREAK.test(line)) {
+      columns.push([]);
+      continue;
+    } else if (!fenced && MD_COLS_CLOSE.test(line)) {
+      return { columns: columns.map((col) => col.join("\n")), end: i + 1 };
+    } else if (!fenced && MD_COLS_OPEN.test(line)) {
+      return null;
+    }
+    columns[columns.length - 1].push(line);
+  }
+  return null;
+}
+
+//: Which rule a divider line is: `---` a hairline, `***` (or `* * *`) the
+//: three-dot section break, `___` the strong rule. All three are the one
+//: `<hr>` everywhere else, so the variant costs nothing to take away.
+function mdDividerKind(line) {
+  const match = MD_RULE_LINE.exec(String(line || ""));
+  if (!match) return null;
+  return match[1] === "*" ? "dots" : match[1] === "_" ? "thick" : "line";
+}
+
+//: A quote's words and the name it is attributed to, when its last line is
+//: `-- Name` and there is something before it to attribute.
+function mdQuoteAttribution(quoted) {
+  const lines = [...quoted];
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  const last = lines.length > 1 ? MD_QUOTE_CITE.exec(lines[lines.length - 1]) : null;
+  if (!last) return { body: quoted, cite: null };
+  return { body: lines.slice(0, -1), cite: last[1].trim() };
+}
+
+//: The headings a `[TOC]` lists, outside code fences, as level and text.
+function mdTocEntries(text) {
+  const entries = [];
+  let fenced = false;
+  for (const line of String(text || "").split("\n")) {
+    if (MD_CODE_FENCE.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    const heading = /^(#{1,6})\s+(.*\S)\s*$/.exec(line);
+    if (heading) entries.push({ level: heading[1].length, text: heading[2].replace(/\s+#+$/, "") });
+  }
+  return entries;
+}
+
+//: A display maths block opening on `lines[start]`: `$$` alone on its line
+//: down to the next `$$`, or `$$ ... $$` on one line. Prices (`$5 and $10`)
+//: never open one: the opener is two dollars, alone or around the whole line.
+function mdMathBlockFrom(lines, start) {
+  const line = String(lines[start] || "").trim();
+  const single = /^\$\$(.+)\$\$$/.exec(line);
+  if (single && single[1].trim()) return { tex: single[1].trim(), end: start + 1 };
+  if (line !== "$$") return null;
+  const body = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (lines[i].trim() === "$$") return { tex: body.join("\n").trim(), end: i + 1 };
+    body.push(lines[i]);
+  }
+  return null;
+}
+
+//: A callout's first quoted line, `[!kind]` with its fold flag and title, or
+//: null. The kind is resolved through `calloutKindOf` (editor.js), so
+//: Obsidian's aliases (`caution`, `tldr`, `done`) land on their kind; an
+//: unknown kind is still a box, drawn as a note, because a typo should look
+//: slightly wrong rather than broken.
+function mdCalloutHead(line) {
+  const match = /^\s*\[!([\w-]+)\]([-+])?\s*(.*)$/.exec(String(line || ""));
+  if (!match) return null;
+  const known = typeof calloutKindOf === "function" ? calloutKindOf(match[1]) : null;
+  return { kind: known || "note", raw: match[1], fold: match[2] || "", title: match[3].trim() };
+}
+// MD-BLOCKS-END
+
 // The two block-level constructs the "/" menu inserts, built once and shared.
 //
 // They live outside renderMarkdown because **notes do not go through
@@ -28722,11 +28901,13 @@ function mdCalloutElement(quoted, depth) {
   //     > [!note]-  collapsed, click to open
   //     > [!note]+  a real fold, but open to begin with
   //     > [!note]   not foldable at all, unchanged
-  const callout = quoted.length && quoted[0].match(/^\s*\[!(\w+)\]([-+])?\s*(.*)$/);
+  const callout = quoted.length ? mdCalloutHead(quoted[0]) : null;
   if (!callout || depth >= MD_MAX_DEPTH) return null;
 
-  const kind = callout[1].toLowerCase();
-  const fold = callout[2] || "";
+  const kind = callout.kind;
+  //: A toggle is a fold by definition: written without a flag it starts
+  //: closed, the way Notion's does.
+  const fold = callout.fold || (kind === "toggle" ? "-" : "");
   const meta = (typeof CALLOUT_KINDS !== "undefined" && CALLOUT_KINDS[kind]) || null;
   // `<details>`/`<summary>` rather than a div and a click handler: the
   // browser gives the open/close, the keyboard operation and the ARIA for
@@ -28735,20 +28916,29 @@ function mdCalloutElement(quoted, depth) {
   if (fold === "+") box.open = true;
   // An unrecognised kind still renders as a box rather than as literal
   // "[!whatever]" text: a typo should look slightly wrong, not broken.
-  box.className = `callout callout-${meta ? kind : "note"}${fold ? " callout-foldable" : ""}`;
+  box.className = `callout callout-${kind}${fold ? " callout-foldable" : ""}`;
+  //: What the block toolbar reads to change the kind or the fold in place
+  //: (`docBlockBar`, documents.js): the kind as the text spells it is not
+  //: needed, only what it resolved to.
+  box.dataset.calloutKind = kind;
+  box.dataset.calloutFold = callout.fold;
 
   const head = document.createElement(fold ? "summary" : "p");
   head.className = "callout-head";
   //: The kind's icon, drawn from the vendored set like every other icon in
-  //: the app. `CALLOUT_KINDS` holds a `ph:` token (editor.js); this was a
-  //: `<span>` carrying the emoji itself until 2026-09-21.
-  const icon = document.createElement("i");
-  icon.className = `ph ph-${String((meta ? meta.icon : "ph:note")).replace(/^ph:/, "")}`;
+  //: the app, in a tile of the kind's own tint so the head reads as the
+  //: block's badge rather than as a glyph in the sentence.
+  const icon = document.createElement("span");
+  icon.className = "callout-icon";
   icon.setAttribute("aria-hidden", "true");
+  const glyph = document.createElement("i");
+  glyph.className = `ph ph-${String(meta ? meta.icon : "ph:note").replace(/^ph:/, "")}`;
+  icon.appendChild(glyph);
   head.appendChild(icon);
   const title = document.createElement("span");
+  title.className = "callout-title";
   // The title after the marker wins; failing that, the kind's own name.
-  title.textContent = callout[3].trim() || (meta ? meta.label : kind);
+  appendInline(title, callout.title || (meta ? meta.label : kind));
   head.appendChild(title);
   box.appendChild(head);
 
@@ -28759,6 +28949,199 @@ function mdCalloutElement(quoted, depth) {
   renderMarkdown(body, quoted.slice(1).join("\n"), depth + 1);
   box.appendChild(body);
   return box;
+}
+
+//: **The other blocks, one builder each, shared by every renderer.** The note
+//: card (`renderNoteText`), `renderMarkdown` and the document's Read view all
+//: call these, each passing the function that renders a piece of text *its*
+//: way (the note card keeps its search highlighting, the page renderer its
+//: full grammar), so a block cannot look one way in a note and another in a
+//: document.
+
+//: Columns: the same `.doc-cols` grid the document editor's Live view draws
+//: (09-editor.css), so all three places agree about what a column is.
+function mdColumnsElement(columns, renderInto) {
+  const box = document.createElement("div");
+  //: The count as a class as well as the variable: an exported file loses
+  //: every style attribute (`docExportClean`), and its stylesheet reads this.
+  box.className = `doc-cols md-cols md-cols-${columns.length}`;
+  box.style.setProperty("--doc-cols", String(Math.max(1, columns.length)));
+  for (const text of columns) {
+    const col = document.createElement("div");
+    col.className = "doc-col";
+    renderInto(col, text);
+    box.appendChild(col);
+  }
+  return box;
+}
+
+//: A rule of the kind `mdDividerKind` read.
+function mdRuleElement(kind) {
+  const hr = document.createElement("hr");
+  hr.className = `md-rule md-rule-${kind}`;
+  return hr;
+}
+
+//: A quote, or a figure of a quote and its attribution.
+function mdQuoteElement(quoted, fillBody) {
+  const cited = mdQuoteAttribution(quoted);
+  const bq = document.createElement("blockquote");
+  fillBody(bq, cited.body);
+  if (!cited.cite) return bq;
+  const figure = document.createElement("figure");
+  figure.className = "md-quote";
+  const caption = document.createElement("figcaption");
+  caption.className = "md-quote-cite";
+  appendInline(caption, cited.cite);
+  figure.append(bq, caption);
+  return figure;
+}
+
+//: Display maths. The TeX goes to `docMathRender` when the documents bundle is
+//: loaded; otherwise the source is shown, set as maths, and the bundle is
+//: asked for so the next render draws it.
+function mdMathElement(tex) {
+  const box = document.createElement("div");
+  box.className = "md-math-block";
+  box.dataset.tex = tex;
+  if (typeof docMathRender === "function") {
+    try {
+      box.appendChild(docMathRender(tex, true));
+      return box;
+    } catch {
+      // A formula the renderer cannot parse shows as its source below.
+    }
+  }
+  const source = document.createElement("code");
+  source.className = "md-math-source";
+  source.textContent = tex;
+  box.appendChild(source);
+  //: Not a silent guard: the bundle that draws maths is asked for, and the
+  //: block redraws itself in place once it lands (a note card or a chat
+  //: answer can be the first thing on screen with a formula in it).
+  if (typeof ensureModule === "function") {
+    ensureModule("library")
+      .then(() => {
+        if (!box.isConnected || typeof docMathRender !== "function") return;
+        try {
+          box.replaceChildren(docMathRender(tex, true));
+        } catch {
+          // The source stays.
+        }
+      })
+      .catch(() => {});
+  }
+  return box;
+}
+
+//: `[TOC]`, drawn empty and filled by `mdFillTocs` once the headings exist.
+function mdTocElement() {
+  const nav = document.createElement("nav");
+  nav.className = "md-toc";
+  nav.setAttribute("aria-label", "Contents");
+  const head = document.createElement("p");
+  head.className = "md-toc-head";
+  setLabel(head, "ph:list-dashes Contents");
+  nav.appendChild(head);
+  const list = document.createElement("ol");
+  list.className = "md-toc-list";
+  nav.appendChild(list);
+  return nav;
+}
+
+//: **Fill every contents block from the headings actually rendered around
+//: it.** Read from the page rather than from the text, because the page is
+//: what the links have to land on: the ids are the ones `mdHeadingId` gave,
+//: including the `-2` a second "Notes" heading gets. A link is a real
+//: `#id` (so it still works in an exported file) that scrolls its heading
+//: into view here rather than changing the address the app runs at.
+function mdFillTocs(container) {
+  const tocs = container.querySelectorAll(".md-toc");
+  if (!tocs.length) return;
+  const headings = [...container.querySelectorAll("h3, h4, h5, h6")].filter(
+    (h) => h.id && !h.closest(".md-toc, .note-embed, .callout")
+  );
+  const levelOf = (h) => {
+    const typed = /md-h(\d)/.exec(h.className);
+    return typed ? Number(typed[1]) : Number(h.tagName[1]) - 2;
+  };
+  const top = headings.length ? Math.min(...headings.map(levelOf)) : 1;
+  for (const toc of tocs) {
+    const list = toc.querySelector(".md-toc-list");
+    if (!list) continue;
+    list.replaceChildren();
+    for (const heading of headings) {
+      const item = document.createElement("li");
+      item.className = `md-toc-item md-toc-depth-${Math.min(3, levelOf(heading) - top)}`;
+      const link = document.createElement("a");
+      link.href = `#${heading.id}`;
+      link.textContent = heading.textContent;
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        const target = container.querySelector(`#${CSS.escape(heading.id)}`) || heading;
+        target.scrollIntoView({ block: "start", behavior: reducedMotionWanted() ? "auto" : "smooth" });
+      });
+      item.appendChild(link);
+      list.appendChild(item);
+    }
+    if (!headings.length) {
+      const empty = document.createElement("li");
+      empty.className = "md-toc-empty";
+      empty.textContent = "Headings you add appear here.";
+      list.appendChild(empty);
+    }
+  }
+}
+
+//: **An embedded document is a card, not a link** (INBOX 421 b: "embed of a
+//: note/document/board by link (renders a card)"). It was one underlined
+//: title. Now: the document's tile, its title, one facts line (words, when it
+//: was last edited) and the first words of it, from the list payload the app
+//: already holds (`_summary` carries `preview`), so drawing it costs no
+//: request. The whole card is one button, the board embed's rule: the card is
+//: what the eye and the finger both go for. The Live view draws the same card
+//: (`docEmbedNode`, documents.js).
+function mdDocumentCard(doc, name = "") {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "embed-card";
+  card.title = "Open this document";
+  const tile = document.createElement("span");
+  tile.className = "embed-card-tile";
+  tile.setAttribute("aria-hidden", "true");
+  const glyph = document.createElement("i");
+  glyph.className = "ph ph-file-text";
+  tile.appendChild(glyph);
+  const text = document.createElement("span");
+  text.className = "embed-card-text";
+  const title = document.createElement("span");
+  title.className = "embed-card-title";
+  title.textContent = (doc && doc.title) || wikiLinkLabel(name) || "Untitled";
+  const facts = document.createElement("span");
+  facts.className = "embed-card-meta";
+  const bits = ["Document"];
+  if (doc && Number.isFinite(doc.words)) bits.push(`${doc.words.toLocaleString()} words`);
+  if (doc && doc.updated_at) {
+    const when = new Date(doc.updated_at);
+    if (!Number.isNaN(when.getTime())) bits.push(`edited ${when.toLocaleDateString()}`);
+  }
+  facts.textContent = bits.join(" · ");
+  text.append(title, facts);
+  if (doc && doc.preview) {
+    const preview = document.createElement("span");
+    preview.className = "embed-card-preview";
+    preview.textContent = String(doc.preview).replace(/[#>*_`[\]]/g, "").slice(0, 180);
+    text.appendChild(preview);
+  }
+  const go = document.createElement("i");
+  go.className = "ph ph-arrow-square-out embed-card-go";
+  go.setAttribute("aria-hidden", "true");
+  card.append(tile, text, go);
+  card.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (doc && doc.id != null) openDocument(doc.id);
+  });
+  return card;
 }
 
 // A `.note-embed` element for `![[name]]`.
@@ -28811,16 +29194,7 @@ function mdEmbedElement(name, depth) {
     // Documents have no content in the list payload (routes_documents._summary),
     // so this is a way in rather than an inline copy. See renderMarkdown's own
     // note on why a fetch does not belong in this path.
-    const open = document.createElement("button");
-    open.type = "button";
-    open.className = "wiki-link";
-    open.textContent = target.doc.title || wikiLinkLabel(name);
-    open.title = "Open this document";
-    open.addEventListener("click", (event) => {
-      event.stopPropagation();
-      openDocument(target.doc.id);
-    });
-    body.appendChild(open);
+    body.appendChild(mdDocumentCard(target.doc, name));
   } else {
     body.textContent = `Nothing called \u{201C}${name}\u{201D} yet.`;
   }
@@ -29886,6 +30260,10 @@ document.addEventListener("keydown", (event) => {
 function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
   const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
+  //: The text before `unlatex` swapped its symbols, line for line (it never
+  //: crosses a newline): a `$$` block is handed to the maths renderer as it
+  //: was written, not with `\alpha` already turned into a letter.
+  const rawLines = String(text ?? "").replace(/\r\n/g, "\n").split("\n");
   let i = 0;
   let list = null; // the <ul>/<ol> currently being filled, or null
   const headingIds = new Set(); // so two "Notes" headings get distinct anchors
@@ -30049,10 +30427,50 @@ function renderMarkdown(container, text, depth = 0) {
       continue;
     }
 
-    // Horizontal rule: ---, ***, or ___ on their own line.
-    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+    //: **Columns, side by side, in every view** (INBOX 421 b). This used to
+    //: be the document editor's alone (`docRenderBody` splits them before
+    //: this renderer runs), so the same text was two columns in a document
+    //: and three lines of `:::` in a note or a chat answer. Each column is
+    //: rendered by this function, one level deeper, so a column holds lists,
+    //: callouts and code like the page around it.
+    const columns = depth < MD_MAX_DEPTH ? mdColumnsFrom(lines, i) : null;
+    if (columns) {
       closeList();
-      container.appendChild(document.createElement("hr"));
+      container.appendChild(
+        mdColumnsElement(columns.columns, (host, body) => renderMarkdown(host, body, depth + 1))
+      );
+      i = columns.end;
+      continue;
+    }
+
+    //: `[TOC]`: a placeholder, filled once the whole text is rendered
+    //: (`mdFillTocs`), because the headings it lists are below it.
+    if (MD_TOC_LINE.test(line)) {
+      closeList();
+      container.appendChild(mdTocElement());
+      i++;
+      continue;
+    }
+
+    //: Display maths, `$$` to `$$`. Drawn by the document editor's own TeX to
+    //: MathML renderer (`docMathRender`, documents.js) when it is loaded,
+    //: which it always is under a document; elsewhere the source stands in a
+    //: maths-set block rather than being mangled.
+    const maths = mdMathBlockFrom(rawLines, i);
+    if (maths) {
+      closeList();
+      container.appendChild(mdMathElement(maths.tex));
+      i = maths.end;
+      continue;
+    }
+
+    // Horizontal rule: ---, ***, or ___ on their own line. The three draw
+    // differently here (a hairline, a three-dot section break, a strong
+    // rule) and are one `<hr>` to every other reader.
+    const rule = mdDividerKind(line);
+    if (rule) {
+      closeList();
+      container.appendChild(mdRuleElement(rule));
       i++;
       continue;
     }
@@ -30126,9 +30544,10 @@ function renderMarkdown(container, text, depth = 0) {
         continue;
       }
 
-      const bq = document.createElement("blockquote");
-      appendInline(bq, quoted.join(" "));
-      container.appendChild(bq);
+      //: `-- Name` as the quote's last line is its attribution: a figure
+      //: with the words and a caption, which is how a pull quote is marked
+      //: up, and still a quote with a signature line to any other reader.
+      container.appendChild(mdQuoteElement(quoted, (host, body) => appendInline(host, body.join(" "))));
       continue;
     }
 
@@ -30196,6 +30615,9 @@ function renderMarkdown(container, text, depth = 0) {
       !lines[i].match(/^(#{1,6})\s+/) &&
       !lines[i].match(/^\s*>\s?/) &&
       !/^\s*([-*_])(\s*\1){2,}\s*$/.test(lines[i]) &&
+      !MD_COLS_OPEN.test(lines[i]) &&
+      !MD_TOC_LINE.test(lines[i]) &&
+      lines[i].trim() !== "$$" &&
       !lines[i].match(/^\s*[-*+]\s+/) &&
       !lines[i].match(/^\s*\d+\.\s+/) &&
       !(lines[i].includes("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1]))
@@ -30231,6 +30653,7 @@ function renderMarkdown(container, text, depth = 0) {
   //: and then the list the document may have ended in the middle of.
   stampNewBlocks();
   closeList();
+  if (depth === 0) mdFillTocs(container);
 }
 
 // --- tabs (Wave A) ----------------------------------------------------------------

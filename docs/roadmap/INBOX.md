@@ -49,10 +49,15 @@ with its owner named in the entry.
     redesign, expansion and improvement, the icons dont render in the live
     view in the documents editor ... they need ot be impressive and an actual
     proper thing the user's can use to properly structure out their
-    documents and notes." (live-view callout icon fixed 6e072b2.) (c)
+    documents and notes." (live-view callout icon fixed 6e072b2; built
+    2026-09-24: the grouped block inserter, 14 callout kinds, columns in
+    notes, contents, rules, cited quotes, maths, the block bar and document
+    cards, `slashmenu.js`, `blocksrender.js`, `blockbar.js`.) (c)
     "sometimes document editor dropdowns appear at the top of the screen and
     other times it is fine, sometimes it doesnt open at all" (the spelling
-    menu, top of the window). (d) "there's no 'x' close button on the trace
+    menu, top of the window; fixed 2026-09-24: placed from the
+    finding, never a detached element's empty box; the double-click's first
+    press; the "/" menu follows a scroll; `menuanchor.js` 15/15). (d) "there's no 'x' close button on the trace
     popup row in the graph" (**built**: an X at the strip's end that leaves
     trace mode; Done only cleared the ends; graphtraceclose.js). (e) OCR: "I cant delete the ocr entry in the
     workspace or the lightbox and the text in the lightbox doesnt even appear

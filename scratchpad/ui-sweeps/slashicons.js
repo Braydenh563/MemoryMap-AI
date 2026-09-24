@@ -49,16 +49,19 @@ function ok(label, pass, detail) {
   await page.waitForTimeout(500);
   const menu = await page.evaluate(() => {
     const rows = [...document.querySelectorAll(".editor-menu-item")];
+    //: The icon sits in the row's tile since the block menu's redesign
+    //: (INBOX 421 b), the name beside it; both are read from the row.
     const labels = rows.map((r) => r.querySelector(".editor-menu-label"));
+    const tiles = rows.map((r) => r.querySelector(".editor-menu-tile"));
     return {
       rows: rows.length,
-      withIcon: labels.filter((l) => l && l.querySelector("i.ph")).length,
+      withIcon: tiles.filter((l) => l && l.querySelector("i.ph")).length,
       literal: labels.filter((l) => l && /ph:[a-z-]/.test(l.textContent)).length,
       //: Every row in this menu is an icon and words. A row whose text opens
       //: with a character outside ASCII is drawing its own icon, which is the
       //: thing DOCUMENTS_PLAN 18b took out of thirty-eight of them.
       glyph: labels.filter((l) => l && /^[^\x20-\x7e]/.test(l.textContent.trim())).length,
-      sample: labels.slice(0, 5).map((l) => (l ? `${l.querySelector("i.ph")?.className || "-"}|${l.textContent.trim()}` : "-")),
+      sample: labels.slice(0, 5).map((l, i) => (l ? `${tiles[i]?.querySelector("i.ph")?.className || "-"}|${l.textContent.trim()}` : "-")),
     };
   });
   if (menu.error) {

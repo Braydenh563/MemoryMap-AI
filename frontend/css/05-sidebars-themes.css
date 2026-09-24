@@ -778,29 +778,46 @@ button.map-chip:focus-visible {
   top: -9999px;
   left: -9999px;
   z-index: 60;
-  list-style: none;
-  margin: 0;
-  padding: var(--space-1);
-  width: 19rem;
+  display: flex;
+  align-items: stretch;
   max-width: calc(100vw - var(--space-9));
-  max-height: 17rem;
-  overflow-y: auto;
-  /* Scrolling the menu must not chain to the page behind it, a wheel event
-     that reaches the page moves the caret this menu is anchored to. */
-  overscroll-behavior: contain;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--modal-bg, var(--card));
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(var(--glass-blur));
+  overflow: hidden;
 }
 
 .editor-menu.hidden {
   display: none;
 }
 
+/* The list: the block menu's one scroller. 22rem holds a tile, a name over a
+   one-line description and a short key hint without the description being
+   cut on the common rows (measured: the longest `about` is 49 characters). */
+.editor-menu-list {
+  flex: 0 0 auto;
+  width: 22rem;
+  max-width: 100%;
+  max-height: min(24rem, 60vh);
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  overflow-y: auto;
+  /* Scrolling the menu must not chain to the page behind it, a wheel event
+     that reaches the page moves the caret this menu is anchored to. */
+  overscroll-behavior: contain;
+}
+
+/* The heading of a group stays in view while its rows scroll under it, so
+   the reader always knows which part of the catalogue they are in. */
 .editor-menu-group {
+  position: sticky;
+  top: calc(var(--space-1) * -1);
+  z-index: 1;
   padding: var(--space-2) var(--space-3) var(--space-1);
+  background: var(--modal-bg, var(--card));
   font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -809,35 +826,160 @@ button.map-chip:focus-visible {
 }
 
 .editor-menu-item {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
-  font-size: var(--text-md);
   cursor: pointer;
+}
+
+/* The icon's tile: one size for every row, so the names line up on one edge
+   and the kinds read by shape before they are read by word. */
+.editor-menu-tile {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--ink);
+  font-size: var(--text-lg);
+}
+
+.editor-menu-tile.doc-block-kind {
+  border-color: color-mix(in srgb, var(--callout-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--callout-accent) 14%, transparent);
+  color: var(--callout-accent);
+}
+
+.editor-menu-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .editor-menu-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--text-md);
+  color: var(--ink);
 }
 
-/* The hint is the syntax the command inserts. It is the part that teaches the
-   markdown behind the menu, so it stays legible rather than decorative, but
-   it must never win space from the label it annotates. */
-.editor-menu-hint {
+.editor-menu-about {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.editor-menu-hit {
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* The markdown the row writes. It teaches the syntax behind the menu, so it
+   stays legible rather than decorative, and never wins space from the name. */
+.editor-menu-keys {
   flex: 0 0 auto;
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono, ui-monospace, monospace);
   font-size: var(--text-xs);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
-.editor-menu-item.active,
-.editor-menu-item:hover {
+/* One highlighted row, never two: the pointer sets `.active` itself when it
+   moves (`editorSetActive`), so a `:hover` fill here drew a second row lit
+   wherever the pointer happened to rest while the keyboard walked away. */
+.editor-menu-item.active {
   background: var(--accent-soft);
+}
+
+.editor-menu-item.active .editor-menu-tile {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent);
+}
+
+/* The preview: the chosen row's block, drawn by the page's own renderer, in
+   a column beside the list. Clipped with a fade rather than scrolled, the
+   same rule the template dialog's preview keeps: one scroller per popup. */
+.editor-menu-preview {
+  position: relative;
+  flex: 0 0 auto;
+  width: 16rem;
+  max-height: min(24rem, 60vh);
+  padding: var(--space-3) var(--space-4);
+  border-left: 1px solid var(--border);
+  background: var(--inner);
+  overflow: hidden;
+}
+
+.editor-menu-preview.hidden {
+  display: none;
+}
+
+.editor-menu-preview::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--space-7);
+  background: linear-gradient(to bottom, transparent, var(--inner));
+  pointer-events: none;
+}
+
+.editor-menu-preview-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  font-weight: 700;
+  font-size: var(--text-md);
+}
+
+.editor-menu-preview-about {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.editor-menu-preview-keys {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* The sample is a real render at a reading size a little under the page's,
+   so a callout or two columns fit the pane without being a thumbnail. */
+.editor-menu-sample {
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+
+.editor-menu-sample > :first-child {
+  margin-top: 0;
+}
+
+.editor-menu-sample .callout,
+.editor-menu-sample .md-toc,
+.editor-menu-sample .doc-cols {
+  margin-block: 0;
+}
+
+.editor-menu-sample .doc-cols {
+  gap: var(--space-4);
 }
 
 /* --- callouts ("specialised boxes and frames") -------------------------------
@@ -851,14 +993,16 @@ button.map-chip:focus-visible {
    theme change moves callouts with everything else instead of stranding them
    at a hard-coded hue. */
 .callout {
-  /* The defaults live here rather than as fallbacks inside each var(), 
+  /* The defaults live here rather than as fallbacks inside each var(),
      a declared token read with a fallback makes the fallback dead code, which
      test_style_scale.py fails the build over, and rightly: two places stating
      the same default is how they drift apart. The .callout-{kind} rules below
-     override these; same specificity, later in source, so they win. */
+     set only the ink; the tint, the edge and the icon tile are all mixed from
+     it, so fourteen kinds are fourteen one-line rules and every one of them
+     has a light and a dark value because its ink does (INBOX 421 b). */
   --callout-accent: var(--accent);
-  --callout-tint: var(--accent-soft);
-  --callout-edge: var(--border);
+  --callout-tint: color-mix(in srgb, var(--callout-accent) 8%, transparent);
+  --callout-edge: color-mix(in srgb, var(--callout-accent) 26%, transparent);
   margin: var(--space-4) 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--callout-edge);
@@ -867,6 +1011,17 @@ button.map-chip:focus-visible {
   background: var(--callout-tint);
 }
 
+/* The Live view's callout lines and label chips, and the block toolbar's kind
+   swatches, start from the same default ink as the rendered box. */
+.cm-md-callout,
+.cm-md-callout-label,
+.doc-block-kind {
+  --callout-accent: var(--accent);
+}
+
+/* The title is the ink, not the kind's colour: an amber or a green title on
+   its own tint is the pair that fails contrast first, and the kind is already
+   said twice, by the edge and by the tile. */
 .callout-head {
   display: flex;
   align-items: center;
@@ -874,7 +1029,26 @@ button.map-chip:focus-visible {
   margin: 0 0 var(--space-2);
   font-weight: 700;
   font-size: var(--text-md);
+  color: var(--ink);
+}
+
+/* The kind's badge: its icon on a square of its own tint, one size for every
+   kind, so a column of callouts lines its titles up on one edge. */
+.callout-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
   color: var(--callout-accent);
+  font-size: var(--text-md);
+}
+
+.callout-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* --- a callout that folds (REDESIGN.md §R7.3 item 3) -----------------------
@@ -932,32 +1106,198 @@ button.map-chip:focus-visible {
   display: none;
 }
 
-.callout-note,
-.callout-info,
-.callout-question {
+/* The kinds, by the ink each one means elsewhere in the app. Three are mixed
+   from two palette tokens rather than given a hue of their own (cyan from the
+   accent and the green, violet from the accent and the red), so a palette
+   change still moves every callout with the rest of the page. The Live view's
+   line classes (`.cm-md-callout-{kind}`) and label chips read the same ink,
+   so a kind is one colour in all three views. */
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-note"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-info"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-todo"] {
   --callout-accent: var(--accent);
-  --callout-tint: var(--accent-soft);
 }
 
-.callout-tip,
-.callout-todo {
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-abstract"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-tip"] {
+  --callout-accent: color-mix(in oklab, var(--accent) 45%, var(--ok));
+}
+
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-success"] {
   --callout-accent: var(--ok);
-  --callout-tint: var(--ok-soft);
 }
 
-.callout-warning {
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-question"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-warning"] {
   --callout-accent: var(--warn);
-  --callout-tint: var(--warn-soft);
 }
 
-.callout-danger {
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-failure"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-danger"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-bug"] {
   --callout-accent: var(--error);
-  --callout-tint: var(--error-soft);
 }
 
-.callout-quote {
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-example"] {
+  --callout-accent: color-mix(in oklab, var(--accent) 55%, var(--error));
+}
+
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-quote"],
+:is(.callout, .cm-md-callout, .cm-md-callout-label, .doc-block-kind)[class*="-toggle"] {
   --callout-accent: var(--muted);
+}
+
+/* A toggle is a disclosure, not a box: no tint, no edge, only the caret and
+   an indent that says what belongs to it (Notion's toggle, spelled as a
+   callout so it stays a quote anywhere else). */
+.callout-toggle {
   --callout-tint: transparent;
+  --callout-edge: transparent;
+  padding: var(--space-1) 0;
+  border-left-color: transparent;
+}
+
+.callout-toggle > .callout-head {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.callout-toggle > .callout-head .callout-icon {
+  display: none;
+}
+
+.callout-toggle > .callout-head::after {
+  margin-left: 0;
+  transform: rotate(-45deg);
+}
+
+.callout-toggle[open] > .callout-head::after {
+  transform: rotate(45deg);
+}
+
+.callout-toggle > .callout-body {
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--border);
+  margin-left: var(--space-1);
+}
+
+/* --- the structural blocks (INBOX 421 b) ------------------------------------
+   Columns wear `.doc-cols` (09-editor.css), one rule for all three views. */
+
+/* Three rules, one `<hr>` each in any other reader. The hairline is the
+   plain divider; the dots are a section break inside one topic; the strong
+   rule ends one. */
+.md-rule {
+  height: 1px;
+  margin: var(--space-6) 0;
+  border: 0;
+  background: var(--border);
+}
+
+.md-rule-thick {
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+.md-rule-dots {
+  height: auto;
+  background: none;
+  text-align: center;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.md-rule-dots::before {
+  content: "\2022\2003\2022\2003\2022";
+  font-size: var(--text-md);
+  letter-spacing: 0.1em;
+}
+
+/* A quote with its attribution: the words, then the name on its own line,
+   set small and muted, under the quote's own edge. */
+.md-quote {
+  margin: var(--space-4) 0;
+}
+
+.md-quote > blockquote {
+  margin-bottom: var(--space-1);
+}
+
+.md-quote-cite {
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.md-quote-cite::before {
+  content: "\2013\2002";
+}
+
+/* Contents: a quiet panel of links, indented by heading level. */
+.md-toc {
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.md-toc-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.md-toc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.md-toc-item {
+  margin: 0;
+  padding: var(--space-1) 0;
+  font-size: var(--text-md);
+}
+
+.md-toc-item a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.md-toc-item a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.md-toc-depth-1 { padding-left: var(--space-5); }
+.md-toc-depth-2 { padding-left: var(--space-7); }
+.md-toc-depth-3 { padding-left: var(--space-9); }
+
+.md-toc-empty {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+/* Display maths, centred on its own line; the source, when the renderer is
+   not loaded, set in the code face so it reads as notation. */
+.md-math-block {
+  margin: var(--space-4) 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.md-math-source {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-md);
+  color: var(--muted);
 }
 
 /* --- transcluded notes (![[note]]) -------------------------------------------
@@ -5656,4 +5996,78 @@ button.ghost.doc-template-choice[aria-checked="true"] {
     display: inline-flex;
     align-items: center;
   }
+}
+
+/* --- an embedded document, drawn as a card (INBOX 421 b) ---------------------
+   One button: the document's tile, its title over one facts line and its
+   first words, and the "opens elsewhere" mark at the end. Inside the
+   `.note-embed` frame in a note or a document's Read view, on its own in the
+   Live view. */
+.embed-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 32rem;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  box-shadow: none;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+.embed-card:hover {
+  background: var(--hover-veil);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.embed-card-tile {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-lg);
+}
+
+.embed-card-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.embed-card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: var(--text-md);
+}
+
+.embed-card-meta {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.embed-card-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.embed-card-go {
+  color: var(--muted);
 }

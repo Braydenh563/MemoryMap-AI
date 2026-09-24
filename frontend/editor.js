@@ -248,16 +248,130 @@ document.addEventListener(
 //: of this table take a token now (the "/" menu row through `setLabel`, the
 //: renderer through an `<i class="ph ...">`), and `tests/test_no_glyph_icons.py`
 //: carries the eight so they cannot come back.
+//:
+//: **Obsidian's whole set, with its aliases** (INBOX 421 b: the blocks were
+//: "limited in what they can do"). Eight kinds became fourteen: the thirteen
+//: Obsidian ships, so a vault's callouts arrive here looking the way they were
+//: written, and `toggle`, this app's plain disclosure (a fold with no colour,
+//: Notion's toggle) spelled as a callout so it degrades to a quote elsewhere.
+//: `about` is the "/" menu's one line for the row and its preview; `aliases`
+//: are the other names Obsidian accepts for the same kind. The colour is the
+//: stylesheet's (`.callout-{kind}`, `.cm-md-callout-{kind}`), keyed off the
+//: palette tokens so every kind has a light and a dark value.
+// EDITOR-BLOCKS-BEGIN
 const CALLOUT_KINDS = {
-  note: { icon: "ph:note", label: "Note" },
-  tip: { icon: "ph:lightbulb", label: "Tip" },
-  info: { icon: "ph:info", label: "Info" },
-  warning: { icon: "ph:warning", label: "Warning" },
-  danger: { icon: "ph:warning-octagon", label: "Danger" },
-  question: { icon: "ph:question", label: "Question" },
-  quote: { icon: "ph:quotes", label: "Quote" },
-  todo: { icon: "ph:check-square", label: "To do" },
+  note: { icon: "ph:note", label: "Note", about: "A point worth setting apart" },
+  abstract: { icon: "ph:clipboard-text", label: "Summary", about: "The short version, up front", aliases: ["summary", "tldr"] },
+  info: { icon: "ph:info", label: "Info", about: "Background the reader may need" },
+  todo: { icon: "ph:check-square", label: "To do", about: "Something still to be done" },
+  tip: { icon: "ph:lightbulb", label: "Tip", about: "A better way to do it", aliases: ["hint", "important"] },
+  success: { icon: "ph:check-circle", label: "Success", about: "What worked, or what is done", aliases: ["check", "done"] },
+  question: { icon: "ph:question", label: "Question", about: "An open question", aliases: ["help", "faq"] },
+  warning: { icon: "ph:warning", label: "Warning", about: "Careful: this can go wrong", aliases: ["caution", "attention"] },
+  failure: { icon: "ph:x-circle", label: "Failure", about: "What did not work", aliases: ["fail", "missing"] },
+  danger: { icon: "ph:warning-octagon", label: "Danger", about: "Stop: this does harm", aliases: ["error"] },
+  bug: { icon: "ph:bug", label: "Bug", about: "A known fault and its symptoms" },
+  example: { icon: "ph:flask", label: "Example", about: "A worked case" },
+  quote: { icon: "ph:quotes", label: "Quote", about: "Somebody else's words, set apart", aliases: ["cite"] },
+  toggle: { icon: "ph:caret-circle-right", label: "Toggle", about: "Folded away until clicked, no colour" },
 };
+
+//: The canonical kind for a name as written (`Warning`, `caution`, `tldr`),
+//: or null for a name that is not one.
+function calloutKindOf(raw) {
+  const name = String(raw || "").toLowerCase();
+  if (!name) return null;
+  if (Object.prototype.hasOwnProperty.call(CALLOUT_KINDS, name)) return name;
+  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
+    if ((meta.aliases || []).includes(name)) return kind;
+  }
+  return null;
+}
+
+//: A callout's first line with its kind and fold flag changed and nothing
+//: else: the quote marker, the title and anything after them stay exactly as
+//: written. `fold` is "" (always open), "-" (folded) or "+" (foldable, open).
+//: A line with no `[!kind]` marker comes back unchanged.
+function calloutRewriteHead(line, kind, fold = "") {
+  return String(line).replace(/\[![\w-]+\][-+]?/, `[!${kind}]${fold}`);
+}
+
+//: **Letters in order, anywhere** (the "/" menu's search). Returns the
+//: indexes of the label's characters that matched, for the highlight, or null.
+//: Greedy from the left, which is what a reader scanning the label expects to
+//: see lit up.
+function editorFuzzyMatch(label, query) {
+  const hay = String(label || "").toLowerCase();
+  const needle = String(query || "").toLowerCase();
+  if (!needle) return [];
+  const hits = [];
+  let from = 0;
+  for (const ch of needle) {
+    const at = hay.indexOf(ch, from);
+    if (at === -1) return null;
+    hits.push(at);
+    from = at + 1;
+  }
+  return hits;
+}
+
+//: Rank rows for a query, best first, stable within a tier: a label that
+//: starts with it, a word in the label that does, a keyword that does, the
+//: label containing it, a keyword containing it, and last the letters in
+//: order anywhere in the label ("twcl" finds Two columns). No query keeps the
+//: table's own order, which is the grouped menu.
+function editorFuzzyRank(rows, query) {
+  const needle = String(query || "").toLowerCase().trim();
+  if (!needle) return rows.slice();
+  const scored = [];
+  rows.forEach((row, index) => {
+    const label = String(row.label || "").toLowerCase();
+    const keywords = (row.keywords || []).map((k) => String(k).toLowerCase());
+    let score = -1;
+    if (label.startsWith(needle)) score = 0;
+    else if (label.split(/[\s-]+/).some((word) => word.startsWith(needle))) score = 1;
+    else if (keywords.some((k) => k.startsWith(needle))) score = 2;
+    else if (label.includes(needle)) score = 3;
+    else if (keywords.some((k) => k.includes(needle))) score = 4;
+    else if (needle.length > 1 && editorFuzzyMatch(label, needle)) score = 5;
+    if (score >= 0) scored.push({ row, score, index });
+  });
+  scored.sort((a, b) => a.score - b.score || a.index - b.index);
+  return scored.map((s) => s.row);
+}
+// EDITOR-BLOCKS-END
+
+//: **The menu that changes a callout from where it is drawn** (INBOX 421 b).
+//: One list for both places a rendered callout offers it (the icon in the
+//: Live view, the block bar in the Read view), so the two cannot offer
+//: different kinds. `apply(kind, fold)` writes the change; the rows are the
+//: app's own menu rows (`kebabMenu` groups), with the current kind and fold
+//: marked by a check glyph rather than by colour alone.
+function calloutMenuItems(current, fold, apply) {
+  const items = [];
+  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
+    items.push({
+      group: "Kind",
+      label: `${kind === current ? "ph:check" : meta.icon} ${meta.label}`,
+      title: meta.about,
+      run: () => apply(kind, fold),
+    });
+  }
+  const folds = [
+    ["", "ph:rows", "Always open"],
+    ["-", "ph:caret-right", "Folded until clicked"],
+    ["+", "ph:caret-down", "Foldable, starts open"],
+  ];
+  for (const [flag, icon, label] of folds) {
+    items.push({
+      group: "Folding",
+      label: `${flag === fold ? "ph:check" : icon} ${label}`,
+      title: label,
+      run: () => apply(current, flag),
+    });
+  }
+  return items;
+}
 
 // ---------------------------------------------------------------------------
 // Inserting text into an arbitrary textarea
@@ -419,21 +533,6 @@ async function editorInsertBoardObject(textarea) {
   editorInsertBlock(textarea, boardEmbedMarkdown(chosen.row || { id: chosen.id, title: chosen.label }));
 }
 
-// A callout block, ready to type into.
-//
-// Every line of the body needs its own "> ", a blockquote ends at the first
-// line that does not start with one, so a two-line callout written without the
-// prefix on line two silently becomes a one-line callout followed by a
-// paragraph. Getting that wrong is invisible until it renders.
-function calloutTemplate(kind, fold = "") {
-  const meta = CALLOUT_KINDS[kind] || CALLOUT_KINDS.note;
-  return {
-    block: `\n> [!${kind}]${fold} ${meta.label}\n> `,
-    suffix: "\n",
-    placeholder: "What matters about this?",
-  };
-}
-
 // ---------------------------------------------------------------------------
 // The command table
 // ---------------------------------------------------------------------------
@@ -535,7 +634,8 @@ function skillCommands() {
       id: `skill-tool-${tool}`,
       primary: true,
       group: "Tools this skill may use",
-      label: `\u{1F527} ${tool}`,
+      icon: "ph:wrench",
+      label: tool,
       hint: "name it in a step",
       keywords: ["tool", "use", tool],
       run: insert(tool),
@@ -558,310 +658,198 @@ function skillCommands() {
   return commands;
 }
 
+//: **The block catalogue** (INBOX 421 b, the owner: the "/" blocks were
+//: "confusing to use, and limited in what they can do and how to use them.
+//: they need ot be impressive and an actual proper thing").
+//:
+//: Read against five tools that do this well. Notion's "/" menu is grouped
+//: (Basic blocks, Media, Embeds, Advanced), every row a tile, a name and one
+//: line of what it does, with a preview of the block beside the list. Craft
+//: and Heptabase lean on the same tile-and-line row. Coda puts "Suggested"
+//: (what you used last) first and lets Tab jump between sections. Obsidian's
+//: command search is fuzzy (letters in order, anywhere) and shows the key
+//: that does the same thing. This table is those five ideas, in this app's
+//: own components: groups in a fixed order, a tile, a name, a line and the
+//: markdown it writes; "Recent" first; fuzzy search (`editorFuzzyRank`);
+//: Tab to the next group; a preview drawn by the renderer that will draw the
+//: block (`renderMarkdown`), so the preview cannot disagree with the page.
+//:
+//: **One table for notes and documents.** A row is left out of the capture
+//: box only when what it writes needs a document to mean anything (the
+//: properties block, a block reference, an anchored comment, the document
+//: AI); every block that renders in a note is offered in a note.
+const EDITOR_GROUP_ORDER = [
+  "Recent", "Basic", "Structure", "Callouts", "Media", "Embeds", "Advanced", "AI", "Templates",
+];
+
+//: How many recent blocks lead the menu, and how many are remembered.
+const EDITOR_RECENT_SHOWN = 4;
+const EDITOR_RECENT_KEPT = 8;
+const EDITOR_RECENT_KEY = "editorRecentBlocks";
+
+//: Per viewer, in this browser only: a convenience, never a record, so it
+//: is read and written behind try/catch and an empty answer is fine.
+function editorRecentIds() {
+  try {
+    const ids = JSON.parse(localStorage.getItem(EDITOR_RECENT_KEY) || "[]");
+    return Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function editorRememberBlock(id) {
+  if (!id) return;
+  try {
+    const ids = [id, ...editorRecentIds().filter((other) => other !== id)].slice(0, EDITOR_RECENT_KEPT);
+    localStorage.setItem(EDITOR_RECENT_KEY, JSON.stringify(ids));
+  } catch {
+    // Storage blocked: the menu simply has no Recent group.
+  }
+}
+
+//: **Put a block on lines of its own and select what to type over.**
+//: `before` and `after` wrap the placeholder (or the selection, when there is
+//: one); blank lines are added only where they are missing, so a block
+//: inserted into an empty box does not start it with two empty lines and one
+//: inserted between paragraphs does not glue itself to either. A block with
+//: nothing to type (a rule, `[TOC]`) leaves the caret on the line after it.
+function editorBlock(textarea, before, placeholder = "", after = "") {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const value = String(textarea.value || "");
+  const body = value.slice(start, end) || placeholder;
+  const prior = value.slice(0, start);
+  const next = value.slice(end);
+  const lead = !prior.length || prior.endsWith("\n\n") ? "" : prior.endsWith("\n") ? "\n" : "\n\n";
+  const trail = next.startsWith("\n\n") ? "" : next.startsWith("\n") ? "\n" : "\n\n";
+  const text = lead + before + body + after + trail;
+  const from = lead.length + before.length;
+  if (!body && !after) {
+    editorSplice(textarea, start, end, text, { from: text.length, to: text.length });
+    return;
+  }
+  editorSplice(textarea, start, end, text, { from, to: from + body.length });
+}
+
+//: The languages the code block's second step offers, in the order people
+//: reach for them; the fence word is what GitHub, Obsidian and the Live
+//: view's highlighter all key off. Typing after the fence filters them.
+const EDITOR_CODE_LANGS = [
+  ["Plain text", "text"], ["JavaScript", "js"], ["TypeScript", "ts"], ["Python", "python"],
+  ["HTML", "html"], ["CSS", "css"], ["JSON", "json"], ["Shell", "bash"], ["SQL", "sql"],
+  ["Markdown", "markdown"], ["YAML", "yaml"], ["Rust", "rust"], ["Go", "go"], ["Java", "java"],
+  ["C", "c"], ["C++", "cpp"], ["C#", "csharp"], ["PHP", "php"], ["Ruby", "ruby"],
+  ["Swift", "swift"], ["Kotlin", "kotlin"], ["Mermaid diagram", "mermaid"],
+];
+
+function editorCodeLanguageRows() {
+  return EDITOR_CODE_LANGS.map(([name, fence]) => ({
+    id: `code-${fence}`,
+    group: "Language",
+    icon: "ph:code",
+    label: name,
+    keys: fence,
+    keywords: [fence],
+    fence,
+  }));
+}
+
+function editorBlockRows(context) {
+  const inDocument = context === "document";
+  const rows = [];
+  const add = (row) => rows.push(row);
+  const act = (kind) => (t) => editorApplyAction(t, MD_ACTIONS[kind]);
+
+  // --- Basic: the blocks every page is made of. ---------------------------
+  add({ id: "h1", group: "Basic", icon: "ph:text-h-one", label: "Heading 1", about: "The title of the page", keys: "#", keywords: ["h1", "title", "heading", "big"], sample: "# A page title", run: act("h1") });
+  add({ id: "heading", group: "Basic", icon: "ph:text-h-two", label: "Heading 2", about: "A section, and a place the contents can jump to", keys: "##", keywords: ["h2", "section", "heading", "anchor"], sample: "## A section", run: act("h2") });
+  add({ id: "h3", group: "Basic", icon: "ph:text-h-three", label: "Heading 3", about: "A sub-section", keys: "###", keywords: ["h3", "sub", "heading", "small"], sample: "### A sub-section", run: act("h3") });
+  add({ id: "bullets", group: "Basic", icon: "ph:list-bullets", label: "Bulleted list", about: "Points in no particular order", keys: "-", keywords: ["list", "bullet", "ul", "points"], sample: "- First point\n- Second point", run: act("ul") });
+  add({ id: "numbered", group: "Basic", icon: "ph:list-numbers", label: "Numbered list", about: "Steps, in order", keys: "1.", keywords: ["ordered", "numbered", "list", "ol", "steps"], sample: "1. First step\n2. Second step", run: act("ol") });
+  add({ id: "checklist", group: "Basic", icon: "ph:check-square", label: "To-do list", about: "Tick things off as they are done", keys: "- [ ]", keywords: ["task", "todo", "check", "checklist", "list"], sample: "- [x] Research\n- [ ] Draft\n- [ ] Send", run: act("task") });
+  add({ id: "quote", group: "Basic", icon: "ph:quotes", label: "Quote", about: "Somebody else's words, set apart", keys: ">", keywords: ["quote", "blockquote", "cite"], sample: "> Words worth keeping.", run: act("quote") });
+  add({ id: "quote-cite", group: "Basic", icon: "ph:quotes", label: "Quote with attribution", about: "The words, and who said them", keys: "> ... -- Name", keywords: ["quote", "cite", "attribution", "author", "pull quote", "source"], sample: "> Stay hungry, stay foolish.\n> -- Stewart Brand", run: (t) => editorBlock(t, "> ", "Words worth keeping", "\n> -- Who said it") });
+  add({ id: "divider", group: "Basic", icon: "ph:minus", label: "Divider", about: "A hairline between two parts", keys: "---", keywords: ["divider", "rule", "hr", "separator", "line"], sample: "Above\n\n---\n\nBelow", run: (t) => editorBlock(t, "---") });
+
+  // --- Structure: what turns a page of text into a document. ---------------
+  add({ id: "toggle", group: "Structure", icon: "ph:caret-circle-right", label: "Toggle", about: "A title that folds its contents away", keys: "> [!toggle]-", keywords: ["toggle", "fold", "collapse", "collapsible", "details", "disclosure", "hide", "accordion"], sample: "> [!toggle]+ What is inside\n> Shown on a click, folded otherwise.", run: (t) => editorBlock(t, "> [!toggle]- ", "Title", "\n> What is inside") });
+  add({ id: "callout-fold", group: "Structure", icon: "ph:folder-open", label: "Collapsible callout", about: "A coloured box, folded until clicked", keys: "> [!note]-", keywords: ["fold", "collapse", "collapsible", "callout", "section", "hide"], sample: "> [!note]+ A foldable note\n> Click the title to fold it.", run: (t) => editorBlock(t, "> [!note]- ", "Title", "\n> What is inside") });
+  add({ id: "columns", group: "Structure", icon: "ph:columns", label: "Two columns", about: "Side by side, stacked on a phone", keys: ":::columns", keywords: ["columns", "column", "two", "side by side", "split", "layout", "grid"], sample: ":::columns\n**Before**\n\nThe old way.\n:::column\n**After**\n\nThe new way.\n:::", run: (t) => editorBlock(t, ":::columns\n", "Left column", "\n:::column\nRight column\n:::") });
+  add({ id: "columns-3", group: "Structure", icon: "ph:squares-four", label: "Three columns", about: "Three side by side, stacked on a phone", keys: ":::columns", keywords: ["columns", "three", "3", "layout", "grid", "side by side"], sample: ":::columns\nOne\n:::column\nTwo\n:::column\nThree\n:::", run: (t) => editorBlock(t, ":::columns\n", "First column", "\n:::column\nSecond column\n:::column\nThird column\n:::") });
+  add({ id: "toc", group: "Structure", icon: "ph:list-dashes", label: "Table of contents", about: "Every heading, as links, kept up to date", keys: "[TOC]", keywords: ["toc", "contents", "outline", "index", "headings", "navigation"], sample: "[TOC]\n\n## Introduction\n## Method\n### Results", run: (t) => editorBlock(t, "[TOC]") });
+  add({ id: "table", group: "Structure", icon: "ph:table", label: "Table", about: "Rows and columns you can sort and export", keys: "| |", keywords: ["table", "grid", "columns", "rows", "spreadsheet"], sample: "| Task | Owner |\n| --- | --- |\n| Draft | Sam |\n| Review | Ana |", run: (t) => editorApplyNamed(t, "table") });
+  add({ id: "break-dots", group: "Structure", icon: "ph:dots-three", label: "Section break", about: "Three dots: a pause inside one topic", keys: "***", keywords: ["break", "section", "dots", "asterism", "divider", "pause"], sample: "End of one part.\n\n***\n\nStart of the next.", run: (t) => editorBlock(t, "***") });
+  add({ id: "break-strong", group: "Structure", icon: "ph:equals", label: "Strong divider", about: "A heavy rule: one part ends here", keys: "___", keywords: ["divider", "rule", "thick", "strong", "heavy", "end"], sample: "Part one.\n\n___\n\nPart two.", run: (t) => editorBlock(t, "___") });
+  if (inDocument) {
+    add({ id: "properties", group: "Structure", icon: "ph:tag", label: "Properties", about: "Tags, status and dates at the top of the document", keys: "---", keywords: ["properties", "frontmatter", "metadata", "tags", "yaml", "status", "aliases"], run: (t) => editorApplyNamed(t, "properties") });
+  }
+
+  // --- Callouts: one row per kind, the kind's own line as its description. -
+  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
+    if (kind === "toggle") continue;
+    add({
+      id: `callout-${kind}`,
+      group: "Callouts",
+      icon: meta.icon,
+      tint: kind,
+      label: meta.label,
+      about: meta.about,
+      keys: `> [!${kind}]`,
+      keywords: ["callout", "box", "frame", "admonition", "panel", kind, meta.label, ...(meta.aliases || [])],
+      sample: `> [!${kind}] ${meta.label}\n> ${meta.about}.`,
+      run: (t) => editorBlock(t, `> [!${kind}] ${meta.label}\n> `, "What matters about this?"),
+    });
+  }
+
+  // --- Media ----------------------------------------------------------------
+  add({ id: "image", group: "Media", icon: "ph:image", label: "Image", about: "From a file or a link; pasting or dropping works too", keys: "![](url)", keywords: ["image", "picture", "photo", "figure", "screenshot"], run: (t) => editorApplyNamed(t, "image") });
+  if (inDocument) {
+    add({ id: "image-caption", group: "Media", icon: "ph:image-square", label: "Image with caption", about: "Centred, with a line under it", keys: "![Caption|center](url)", keywords: ["image", "caption", "figure", "photo", "centre", "center"], run: (t) => editorBlock(t, "![A caption|center](", "https://", ")") });
+  }
+  add({ id: "codeblock", group: "Media", icon: "ph:code", label: "Code block", about: "Pick a language next; highlighted and copyable", keys: "```", keywords: ["code", "fence", "snippet", "program", "language", "syntax"], sample: "```js\nconst answer = 42;\n```", run: (t) => { editorBlock(t, "```", "", ""); editorBackOverTrail(t); editorOpenMenu(t, "```"); } });
+  add({ id: "math", group: "Media", icon: "ph:function", label: "Maths block", about: "A formula on its own line, typeset", keys: "$$ ... $$", keywords: ["math", "maths", "formula", "equation", "latex", "tex", "block"], sample: "$$ e^{i\\pi} + 1 = 0 $$", run: (t) => editorBlock(t, "$$ ", "x^2 + y^2 = z^2", " $$") });
+  add({ id: "math-inline", group: "Media", icon: "ph:math-operations", label: "Inline maths", about: "A formula inside a sentence", keys: "$ ... $", keywords: ["math", "inline", "formula", "latex", "tex"], run: act("math") });
+
+  // --- Embeds: other things in this notebook, and the web. ------------------
+  add({ id: "wikilink", group: "Embeds", icon: "ph:link", label: "Link to a note", about: "Pick a note, document or board to link", keys: "[[", keywords: ["link", "note", "wiki", "reference", "connect", "document"], run: (t) => { editorApplyAction(t, { insert: "[[" }); editorOpenMenu(t, "[["); } });
+  add({ id: "embed", group: "Embeds", icon: "ph:paperclip", label: "Embed a note or document", about: "Its content, or a card for it, shown here", keys: "![[", keywords: ["embed", "transclude", "include", "inline", "note", "document", "card"], run: (t) => { editorApplyAction(t, { insert: "![[" }); editorOpenMenu(t, "[["); } });
+  add({ id: "board-object", group: "Embeds", icon: "ph:squares-four", label: "Board or mind map", about: "A live preview of it, here in the text", keys: "![[board:]]", keywords: ["board", "whiteboard", "map", "mindmap", "canvas", "object", "embed", "attach", "diagram"], run: (t) => editorInsertBoardObject(t) });
+  add({ id: "link-card", group: "Embeds", icon: "ph:cursor-click", label: "Link card", about: "A web link drawn as a card you press", keys: "[Title](url)", keywords: ["link", "card", "button", "bookmark", "url", "web", "preview"], run: (t) => editorBlock(t, "[", "Title", "](https://)") });
+  add({ id: "weblink", group: "Embeds", icon: "ph:globe", label: "Web link", about: "A link inside the sentence", keys: "[text](url)", keywords: ["url", "web", "href", "external", "link"], run: (t) => { const { selectionStart: s, selectionEnd: e, value } = t; const label = value.slice(s, e) || "link text"; editorSplice(t, s, e, `[${label}](https://)`, { from: label.length + 3, to: label.length + 11 }); } });
+  if (inDocument) {
+    add({ id: "blockref", group: "Embeds", icon: "ph:link-simple", label: "Link to this block", about: "Copies [[Title#^id]] for this paragraph", keys: "#^", keywords: ["block", "reference", "anchor", "paragraph", "permalink", "copy link", "^"], run: (t) => editorApplyNamed(t, "blockref") });
+  }
+
+  // --- Advanced --------------------------------------------------------------
+  add({ id: "footnote", group: "Advanced", icon: "ph:push-pin", label: "Footnote", about: "A reference here, its text at the foot", keys: "[^1]", keywords: ["footnote", "reference", "cite", "aside", "note"], run: (t) => editorApplyNamed(t, "footnote") });
+  add({ id: "comment", group: "Advanced", icon: "ph:eye-slash", label: "Private comment", about: "Kept in the file, never shown", keys: "%% %%", keywords: ["comment", "private", "hidden", "note to self"], run: (t) => editorApplyNamed(t, "comment") });
+  if (inDocument) {
+    add({ id: "annotate", group: "Advanced", icon: "ph:chat-circle", label: "Comment on this", about: "A remark on these words, listed in the sidebar", keys: "==text== %%", keywords: ["comment", "annotate", "remark", "review", "feedback", "margin"], run: (t) => editorApplyNamed(t, "annotate") });
+  }
+  const now = new Date();
+  const date = now.toLocaleDateString();
+  const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  add({ id: "stamp-date", group: "Advanced", icon: "ph:calendar-blank", label: "Today's date", about: date, keys: "", keywords: ["date", "today", "stamp", "day"], run: (t) => editorApplyAction(t, { insert: date }) });
+  add({ id: "stamp-time", group: "Advanced", icon: "ph:clock", label: "Time now", about: time, keys: "", keywords: ["time", "now", "stamp", "clock"], run: (t) => editorApplyAction(t, { insert: time }) });
+  add({ id: "stamp-datetime", group: "Advanced", icon: "ph:calendar-dots", label: "Date and time", about: `${date} ${time}`, keys: "", keywords: ["date", "time", "timestamp", "stamp", "now", "log"], run: (t) => editorApplyAction(t, { insert: `${date} ${time}` }) });
+
+  return rows;
+}
+
+//: After `editorBlock` wrote "```" and its trailing blank line, the caret is
+//: past the blank line; the language menu belongs on the fence itself.
+function editorBackOverTrail(textarea) {
+  const value = String(textarea.value || "");
+  let at = textarea.selectionStart;
+  while (at > 0 && value[at - 1] === "\n") at -= 1;
+  textarea.setSelectionRange(at, at);
+}
+
 function editorCommands(context) {
   if (context === "chat") return chatCommands();
   if (context === "skill") return skillCommands();
-  const commands = [];
-
-  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
-    commands.push({
-      id: `callout-${kind}`,
-      group: "Blocks & frames",
-      // Eight callout kinds would fill the whole menu on their own and push
-      // Links, AI and Templates below the fold, which is exactly what a live
-      // browser check caught. Four show by default; typing finds the rest.
-      primary: ["note", "tip", "warning", "danger"].includes(kind),
-      icon: meta.icon,
-      label: `${meta.label} box`,
-      hint: `> [!${kind}]`,
-      keywords: ["callout", "box", "frame", "admonition", kind, meta.label],
-      run: (textarea) => editorApplyAction(textarea, calloutTemplate(kind)),
-    });
-  }
-
-  // **Typed collapsible blocks**: REDESIGN.md §R7.3 item 3, and the last
-  // piece of it. Asked for directly: "I want the structured note features and
-  // elements from kortex with the slash commands to be rendered and easier
-  // for the user to use."
-  //
-  // One command rather than eight more (a foldable variant of every callout
-  // kind would double this menu, which a live browser check already caught
-  // once as pushing Links and Templates below the fold). The kind is easy to
-  // change afterwards, it is one word in the text, and "fold this away" is
-  // the thing being asked for, not "fold this away, in orange".
-  commands.push({
-    id: "callout-fold",
-    primary: true,
-    group: "Blocks & frames",
-    icon: "ph:folder-open", label: "Collapsible section",
-    hint: "> [!note]-: folded until clicked",
-    keywords: ["fold", "collapse", "collapsible", "toggle", "details", "section", "hide"],
-    run: (textarea) => editorApplyAction(textarea, calloutTemplate("note", "-")),
-  });
-
-  commands.push(
-    {
-      id: "table",
-      primary: true,
-      group: "Blocks & frames",
-      icon: "ph:table", label: "Table",
-      hint: "3 columns",
-      keywords: ["table", "grid", "columns"],
-      //: `editorApplyNamed`, not `editorApplyAction`: the table is a `custom`
-      //: action now (it places the caret in the first header cell), and
-      //: `editorApplyAction` knows only the four insertion shapes, so it would
-      //: have matched nothing and inserted nothing, silently. Its own comment
-      //: says so.
-      run: (textarea) => editorApplyNamed(textarea, "table"),
-    },
-    {
-      id: "codeblock",
-      primary: true,
-      group: "Blocks & frames",
-      icon: "ph:code", label: "Code block",
-      hint: "```",
-      keywords: ["code", "fence", "snippet"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.codeblock),
-    },
-    {
-      id: "checklist",
-      primary: true,
-      group: "Blocks & frames",
-      icon: "ph:check-square", label: "Checklist",
-      hint: "- [ ]",
-      keywords: ["task", "todo", "check", "list"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.task),
-    },
-    {
-      id: "bullets",
-      group: "Blocks & frames",
-      icon: "ph:list-bullets", label: "Bullet list",
-      hint: "-",
-      keywords: ["list", "bullet", "ul"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.ul),
-    },
-    {
-      id: "math",
-      group: "Blocks & frames",
-      icon: "ph:math-operations", label: "Math",
-      hint: "$\u2026$, rendered where you write it",
-      keywords: ["math", "formula", "equation", "latex", "tex", "mathml"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.math),
-    },
-    {
-      id: "divider",
-      primary: true,
-      group: "Blocks & frames",
-      icon: "ph:minus", label: "Divider",
-      hint: "---",
-      keywords: ["divider", "rule", "hr", "separator", "break"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.hr),
-    },
-    {
-      id: "heading",
-      primary: true,
-      group: "Blocks & frames",
-      icon: "ph:bookmark-simple", label: "Section heading",
-      hint: "##, becomes a jump target",
-      keywords: ["heading", "section", "anchor", "title", "h2"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h2),
-    },
-    //: **The rest of the block vocabulary.** The toolbar has had these since
-    //: the Obsidian-toolbar pass; the "/" menu had a subset, which makes the
-    //: two disagree about what the editor can do, and "/" is the one people
-    //: reach for once they stop reading the toolbar. Every one of them runs
-    //: the same MD_ACTIONS entry the toolbar button runs, so there is no
-    //: second dialect of the markdown to keep in step.
-    {
-      id: "h1",
-      group: "Blocks & frames",
-      icon: "ph:text-h", label: "Title heading",
-      hint: "#",
-      keywords: ["h1", "title", "heading", "big"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h1),
-    },
-    {
-      id: "h3",
-      group: "Blocks & frames",
-      icon: "ph:text-h-two", label: "Sub-heading",
-      hint: "###",
-      keywords: ["h3", "sub", "heading", "small"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h3),
-    },
-    {
-      id: "numbered",
-      group: "Blocks & frames",
-      icon: "ph:list-numbers", label: "Numbered list",
-      hint: "1.",
-      keywords: ["ordered", "numbered", "list", "ol", "steps"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.ol),
-    },
-    {
-      id: "quote",
-      group: "Blocks & frames",
-      icon: "ph:quotes", label: "Quote",
-      hint: ">",
-      keywords: ["quote", "blockquote", "cite"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.quote),
-    }
-  );
-
-  // --- links & references ---
-  commands.push(
-    {
-      id: "wikilink",
-      primary: true,
-      group: "Links & references",
-      icon: "ph:link", label: "Link to a note",
-      hint: "[[…]]",
-      keywords: ["link", "note", "wiki", "reference", "connect"],
-      // Insert the opening brackets and hand straight over to the [[ menu,
-      // so "/" and "[[" are one continuous gesture rather than two lookups.
-      run: (textarea) => {
-        editorApplyAction(textarea, { insert: "[[" });
-        editorOpenMenu(textarea, "[[");
-      },
-    },
-    {
-      id: "embed",
-      primary: true,
-      group: "Links & references",
-      icon: "ph:paperclip", label: "Embed a note inline",
-      hint: "![[…]], shows its text here",
-      keywords: ["embed", "transclude", "include", "inline", "note"],
-      run: (textarea) => {
-        editorApplyAction(textarea, { insert: "![[" });
-        editorOpenMenu(textarea, "[[");
-      },
-    },
-    {
-      //: **A board or a map as an object in the note** (INBOX 309, the owner:
-      //: "there is also no way to attach a whiteboard or mindmap to a note as
-      //: like an object in the notes"). Two doorways were asked for and this
-      //: is the one inside the writing: the other is "Add to a note" on the
-      //: board itself, and a feature with only one of them is a feature
-      //: nobody finds.
-      //:
-      //: Not the `[[` menu's route, which the two rows above take. That menu
-      //: inserts a *name*, and a name-addressed board breaks the moment it is
-      //: renamed (see `boardEmbedRef` in app.js on why this one is an id), so
-      //: this command picks the board itself and writes the reference.
-      id: "board-object",
-      primary: true,
-      group: "Links & references",
-      //: An icon, like every other row (the owner, 2026-09-21: "the boards or
-      //: maps option is the only one with a wrong emoji and not an icon"). It
-      //: was a typed U+1F5FA world map, which the system font drew in colour
-      //: beside a column of monochrome Phosphor glyphs, and which is not what
-      //: this app calls a map anyway. `ph:squares-four` is the board's own
-      //: mark everywhere else in the app (the card chip, the Library row, the
-      //: finder), and the row covers both kinds, so it takes the one a person
-      //: will already have seen.
-      icon: "ph:squares-four",
-      label: "Board or mind map",
-      hint: "a preview of it, here in the note",
-      keywords: ["board", "whiteboard", "map", "mindmap", "canvas", "object", "embed", "attach", "diagram"],
-      run: (textarea) => editorInsertBoardObject(textarea),
-    },
-    {
-      id: "image",
-      group: "Links & references",
-      icon: "ph:image", label: "Image",
-      hint: "![alt](url): or paste a file into the editor",
-      keywords: ["image", "picture", "photo", "figure", "screenshot"],
-      run: (textarea) => editorApplyNamed(textarea, "image"),
-    },
-    {
-      id: "footnote",
-      group: "Links & references",
-      icon: "ph:push-pin", label: "Footnote",
-      hint: "[^1]: with its text at the foot",
-      keywords: ["footnote", "reference", "cite", "aside"],
-      run: (textarea) => editorApplyNamed(textarea, "footnote"),
-    },
-    {
-      id: "comment",
-      group: "Links & references",
-      icon: "ph:eye-slash", label: "Private comment",
-      hint: "%%…%%, kept in the file, never rendered",
-      keywords: ["comment", "private", "hidden", "todo", "note to self"],
-      run: (textarea) => editorApplyNamed(textarea, "comment"),
-    },
-    {
-      id: "weblink",
-      primary: true,
-      group: "Links & references",
-      icon: "ph:globe", label: "Web link",
-      hint: "[text](url)",
-      keywords: ["url", "web", "href", "external"],
-      run: (textarea) => {
-        const { selectionStart: s, selectionEnd: e, value } = textarea;
-        const label = value.slice(s, e) || "link text";
-        editorSplice(textarea, s, e, `[${label}](https://)`, {
-          from: label.length + 3,
-          to: label.length + 11,
-        });
-      },
-    }
-  );
-
-  //: **Properties**, the one block whose position is not the caret's:
-  //: `docInsertProperties` puts it at the top of the document, or puts the
-  //: caret in the block that is already there. Documents only, and pushed here
-  //: rather than declared with a `contexts` field, because the filter the
-  //: comment above describes is this `if`: nothing reads `contexts`.
-  if (context === "document") {
-    commands.push({
-      id: "properties",
-      primary: true,
-      group: "Blocks & frames",
-      icon: "ph:tag", label: "Properties",
-      hint: "tags, status, dates",
-      keywords: ["properties", "frontmatter", "metadata", "tags", "yaml", "status", "aliases"],
-      run: (textarea) => editorApplyNamed(textarea, "properties"),
-    });
-    //: Columns, for the same reason: the `:::columns` fence renders as columns
-    //: in this editor and as three lines of literal text anywhere else, so
-    //: offering it in the capture box would be offering a block that only
-    //: looks like one somewhere the writer cannot see.
-    //: **Link to this block**, the copy half of a block reference. It inserts
-    //: nothing where the caret is: it gives the caret's own paragraph an id
-    //: (if it has none yet) and puts `[[Title#^id]]` on the clipboard, which
-    //: is the form you paste into a note, a map node or a chat. Documents
-    //: only, because the id has to be written into a document's text and the
-    //: capture box has no document to write it into.
-    commands.push({
-      id: "blockref",
-      group: "Links & references",
-      icon: "ph:link", label: "Link to this block",
-      hint: "copies [[Title#^id]]",
-      keywords: ["block", "reference", "anchor", "paragraph", "permalink", "copy link", "^"],
-      run: (textarea) => editorApplyNamed(textarea, "blockref"),
-    });
-    commands.push({
-      id: "columns",
-      primary: true,
-      group: "Blocks & frames",
-      icon: "ph:columns", label: "Two columns",
-      hint: ":::columns",
-      keywords: ["columns", "column", "two", "side", "split", "grid", "layout"],
-      run: (textarea) => editorApplyNamed(textarea, "columns"),
-    });
-    //: **Comment on this**, the anchored form of "Private comment" above, and
-    //: documents only for the same reason `blockref` is: what makes it worth
-    //: more than a bare `%%…%%` is the panel that lists it, jumps to it and
-    //: resolves it, and that panel is the document sidebar's third tab. In the
-    //: capture box the remark would be written into a note with nothing
-    //: anywhere to show it again.
-    commands.push({
-      id: "annotate",
-      group: "Links & references",
-      icon: "ph:chat-circle", label: "Comment on this",
-      hint: "==words== %%remark%%, listed in the sidebar",
-      keywords: ["comment", "annotate", "remark", "review", "note on", "feedback", "margin"],
-      run: (textarea) => editorApplyNamed(textarea, "annotate"),
-    });
-  }
+  const commands = editorBlockRows(context);
 
   // --- AI actions ---
   // Document-only, because these route to the document editor's own AI panel
@@ -872,69 +860,43 @@ function editorCommands(context) {
     commands.push(
       {
         //: **The one AI command that does not open a panel.** First in the
-        //: group and `primary`, because it is the one that answers the ask
-        //: ("the agent or ai needs to be more directly integrated into the
-        //: documents"), the other two below are doors to the side pane, which
-        //: is the right place for "review the whole document" and the wrong
-        //: place for "make this shorter".
+        //: group, because it is the one that answers the ask ("the agent or
+        //: ai needs to be more directly integrated into the documents"); the
+        //: other two are doors to the side pane, which is the right place for
+        //: "review the whole document" and the wrong place for "make this
+        //: shorter".
         id: "ai-inline",
-        primary: true,
         group: "AI",
         icon: "ph:sparkle", label: "Ask Atlas to write here",
-        hint: "at the cursor \u{2014} Ctrl+J",
+        about: "Writes at the cursor, for you to keep or undo",
+        keys: "Ctrl+J",
         keywords: ["ai", "write", "inline", "here", "cursor", "ask", "generate", "continue"],
         run: (textarea) => inlineAiOpen(textarea),
       },
       {
         id: "ai-edit",
-      primary: true,
         group: "AI",
         icon: "ph:sparkle", label: "AI edit this selection",
-        hint: "rewrite, expand, tighten",
+        about: "Rewrite, expand or tighten what is selected",
         keywords: ["ai", "rewrite", "improve", "expand", "edit"],
         run: () => $("doc-ai")?.click(),
       },
       {
         id: "ai-extract",
-      primary: true,
         group: "AI",
         icon: "ph:scissors", label: "Extract notes from here",
-        hint: "split into linked notes",
+        about: "Split the document into linked notes",
         keywords: ["ai", "extract", "split", "notes"],
         run: () => $("doc-extract")?.click(),
       }
     );
   }
 
-  // --- templates & stamps ---
-  const now = new Date();
-  commands.push(
-    {
-      id: "stamp-date",
-      primary: true,
-      group: "Templates",
-      icon: "ph:calendar", label: "Today's date",
-      hint: now.toLocaleDateString(),
-      keywords: ["date", "today", "stamp"],
-      run: (textarea) => editorApplyAction(textarea, { insert: now.toLocaleDateString() }),
-    },
-    {
-      id: "stamp-time",
-      group: "Templates",
-      icon: "ph:clock", label: "Time now",
-      hint: now.toLocaleTimeString(),
-      keywords: ["time", "now", "stamp", "clock"],
-      run: (textarea) =>
-        editorApplyAction(textarea, {
-          insert: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        }),
-    }
-  );
-
   // The user's own templates first, then the built-ins, the same "yours
   // before ours" ordering loadTemplates() already uses for the dropdown.
   const custom = (typeof prefsCache !== "undefined" && prefsCache?.custom_templates) || [];
   const builtin = typeof BUILTIN_TEMPLATES !== "undefined" ? BUILTIN_TEMPLATES : [];
+  const today = new Date().toLocaleDateString();
   for (const template of [...custom, ...builtin]) {
     if (!template?.name || !template?.content) continue;
     commands.push({
@@ -942,13 +904,14 @@ function editorCommands(context) {
       group: "Templates",
       icon: "ph:file-text",
       label: `${template.name}`,
-      hint: "template",
+      about: "Insert this template",
       keywords: ["template", template.name],
+      sample: template.content.replace("{date}", today).split("\n").slice(0, 8).join("\n"),
       run: (textarea) =>
         editorApplyAction(textarea, {
           // Same {date} substitution applyTemplate() does, so a template
           // behaves identically whichever way it was reached.
-          insert: template.content.replace("{date}", now.toLocaleDateString()),
+          insert: template.content.replace("{date}", today),
         }),
     });
   }
@@ -963,10 +926,11 @@ function editorCommands(context) {
 const editorMenuState = {
   open: false,
   textarea: null,
-  trigger: null, // "/" or "[["
+  trigger: null, // "/", "[[" or "```" (the code block's language step)
   items: [],
   index: 0,
   start: 0, // index in textarea.value where the trigger token begins
+  query: "", // what was typed after the trigger, for the highlight
 };
 
 // Where the caret is, in page coordinates.
@@ -985,15 +949,29 @@ const editorMenuState = {
 // caret's line and needs to know how tall the line is.
 function editorCaretPoint(textarea) {
   const at = textarea.coordsAt(textarea.selectionStart);
-  return { top: at.top, left: at.left, lineHeight: at.lineHeight };
+  return { top: at.top, left: at.left, lineHeight: at.lineHeight, offscreen: Boolean(at.offscreen) };
 }
 
 // Put the menu at the caret, then pull it back on screen if it would hang off
 // the bottom or the right, a menu you have to scroll the page to read is the
 // same as no menu.
-function editorPositionMenu(textarea) {
+//: **Never at a caret the editor has not drawn** (INBOX 421 c). The engine
+//: answers "no coordinates" for a position outside the lines it has laid
+//: out, and the adapter's fallback for that is the editor's own top left
+//: corner, which is the menu "at the top of the screen". The caret is
+//: scrolled into view and the menu placed on the next frame; a caret that is
+//: still not drawn after that closes the menu rather than parking it.
+function editorPositionMenu(textarea, retried = false) {
   const menu = $("editor-menu");
-  const { top, left, lineHeight } = editorCaretPoint(textarea);
+  const { top, left, lineHeight, offscreen } = editorCaretPoint(textarea);
+  if (offscreen) {
+    if (retried || typeof textarea.scrollIntoView !== "function") return editorCloseMenu();
+    textarea.scrollIntoView(textarea.selectionStart);
+    requestAnimationFrame(() => {
+      if (editorMenuState.open && editorMenuState.textarea === textarea) editorPositionMenu(textarea, true);
+    });
+    return;
+  }
   menu.style.top = "0px";
   menu.style.left = "0px";
   const size = menu.getBoundingClientRect();
@@ -1010,11 +988,32 @@ function editorPositionMenu(textarea) {
   menu.style.left = `${Math.round(x)}px`;
 }
 
-function editorCloseMenu() {
+function editorCloseMenu(reason = "") {
+  const { textarea, trigger } = editorMenuState;
   editorMenuState.open = false;
   editorMenuState.textarea = null;
   editorMenuState.items = [];
   $("editor-menu")?.classList.add("hidden");
+  //: **A code fence is never left open.** The language step starts from a
+  //: written "```", and an unclosed fence turns the rest of the page into
+  //: code in every view. Closed any way but by choosing (Escape, a click
+  //: elsewhere), the block is finished with whatever language was typed.
+  if (trigger === "```" && reason !== "ran" && textarea && editorTokenAt(textarea, "```")) {
+    editorFinishFence(textarea, editorTokenAt(textarea, "```").fragment.trim());
+  }
+}
+
+//: Write the rest of a code block after "```lang" and put the caret on its
+//: first line.
+function editorFinishFence(textarea, fence) {
+  const token = editorTokenAt(textarea, "```");
+  if (!token) return;
+  const at = token.start + 3;
+  const word = String(fence || "").replace(/[^\w#+.-]/g, "");
+  editorSplice(textarea, at, textarea.selectionStart, `${word}\n\n\`\`\``, {
+    from: word.length + 1,
+    to: word.length + 1,
+  });
 }
 
 // The half-typed token immediately before the caret, or null.
@@ -1036,29 +1035,18 @@ function editorTokenAt(textarea, trigger) {
     // A slash command is one word. Once a space is typed it is prose.
     if (/\s/.test(fragment)) return null;
   }
+  //: The fence is only ever its own line's start, and a language is a word.
+  if (trigger === "```") {
+    if (open > 0 && upto[open - 1] !== "\n") return null;
+    if (/\s/.test(fragment)) return null;
+  }
   return { start: open, fragment };
 }
 
-// Rank matches: a label that starts with what was typed beats one that merely
-// contains it, which beats a keyword hit. Without the ordering, typing "no"
-// offers "Bullet list" (it contains no "no"… but "Note box" and "Today's
-// date" both match on keywords) in an order that looks arbitrary.
+//: Ranked by `editorFuzzyRank` (EDITOR-BLOCKS, tested in node): a label
+//: prefix, a word in the label, a keyword, then the letters in order anywhere.
 function editorRankCommands(commands, needle) {
-  if (!needle) return commands;
-  const query = needle.toLowerCase();
-  const scored = [];
-  for (const command of commands) {
-    const label = command.label.toLowerCase();
-    const keywords = (command.keywords || []).map((k) => String(k).toLowerCase());
-    let score = -1;
-    if (label.startsWith(query)) score = 0;
-    else if (keywords.some((k) => k.startsWith(query))) score = 1;
-    else if (label.includes(query)) score = 2;
-    else if (keywords.some((k) => k.includes(query))) score = 3;
-    if (score >= 0) scored.push({ command, score });
-  }
-  scored.sort((a, b) => a.score - b.score);
-  return scored.map((s) => s.command);
+  return editorFuzzyRank(commands, needle);
 }
 
 // The notes a "[[" token could mean. Private notes are excluded for the same
@@ -1072,6 +1060,7 @@ function editorLinkMatches(needle) {
     .map((entry) => ({
       id: `note-${entry.id}`,
       group: "Notes",
+      icon: "ph:note",
       label: noteLabel(entry, 60),
       hint: "note",
       // Link by the note's opening words: that is what resolution matches
@@ -1095,6 +1084,7 @@ function editorLinkMatches(needle) {
     .map((doc) => ({
       id: `doc-${doc.id}`,
       group: "Documents",
+      icon: "ph:file-text",
       label: doc.title || "Untitled",
       hint: "document",
       value: (doc.title || "").replace(/\[\[|\]\]/g, "").trim().slice(0, 60),
@@ -1111,6 +1101,7 @@ function editorLinkMatches(needle) {
     .map((file) => ({
       id: `file-${file._isAttachment ? "a" : "m"}-${file.id}`,
       group: file._isImage ? "Images" : "Files",
+      icon: file._isImage ? "ph:image" : "ph:paperclip",
       label: file.original_name || "File",
       hint: file._isImage ? "image" : "file",
       markdown: `${file._isImage ? "!" : ""}[${(file.original_name || "file").replace(/[[\]]/g, "")}](${file.url})`,
@@ -1138,6 +1129,7 @@ function editorLinkMatches(needle) {
     .map((board) => ({
       id: `board-${board.id}`,
       group: "Boards",
+      icon: board.type === "map" ? "ph:tree-structure" : "ph:squares-four",
       label: String(board.title || "Untitled board").slice(0, 60),
       hint: board.type === "map" ? "mind map" : "board",
       //: **The board's title, not its first raw line.** A board's content is
@@ -1193,12 +1185,74 @@ async function editorLoadFiles() {
 // Documents are fetched once per menu session rather than per keystroke.
 let editorDocumentCache = null;
 
+//: **The menu, drawn** (INBOX 421 b). Two columns inside one popup: the list
+//: (`#editor-menu-list`, the listbox) and, where the window has room for it,
+//: a preview of the row the keyboard or the pointer is on
+//: (`#editor-menu-preview`). A row is a tile holding the block's icon, its
+//: name over one line of what it does, and the markdown it writes as a key
+//: hint on the right: the same three facts a Notion or Craft row carries, in
+//: this app's tokens. Group headings stay pinned while their rows scroll.
+//:
+//: Built with createElement throughout: a row's label can be a note's own
+//: title (the `[[` picker), and note text is never parsed as markup.
+function editorMenuIcon(item) {
+  if (item.icon) return item.icon;
+  return "ph:dot-outline";
+}
+
+//: The label with the letters that matched the query marked, contiguous when
+//: the query is a substring, the fuzzy letters otherwise.
+function editorFillLabel(el, label, query) {
+  const text = String(label || "");
+  const needle = String(query || "").toLowerCase();
+  let hits = [];
+  if (needle) {
+    const at = text.toLowerCase().indexOf(needle);
+    hits = at >= 0
+      ? Array.from({ length: needle.length }, (_, i) => at + i)
+      : editorFuzzyMatch(text, needle) || [];
+  }
+  if (!hits.length) {
+    el.textContent = text;
+    return;
+  }
+  const lit = new Set(hits);
+  let run = "";
+  let runLit = false;
+  const flush = () => {
+    if (!run) return;
+    if (runLit) {
+      const mark = document.createElement("mark");
+      mark.className = "editor-menu-hit";
+      mark.textContent = run;
+      el.appendChild(mark);
+    } else {
+      el.appendChild(document.createTextNode(run));
+    }
+    run = "";
+  };
+  for (let i = 0; i < text.length; i += 1) {
+    const on = lit.has(i);
+    if (on !== runLit) {
+      flush();
+      runLit = on;
+    }
+    run += text[i];
+  }
+  flush();
+}
+
+function editorMenuList() {
+  return $("editor-menu-list") || $("editor-menu");
+}
+
 function editorRenderMenu() {
   const menu = $("editor-menu");
-  const { items, index } = editorMenuState;
+  const list = editorMenuList();
+  const { items, index, trigger, query } = editorMenuState;
   if (!items.length) return editorCloseMenu();
 
-  menu.replaceChildren();
+  list.replaceChildren();
   let lastGroup = null;
   items.forEach((item, position) => {
     if (item.group && item.group !== lastGroup) {
@@ -1206,32 +1260,51 @@ function editorRenderMenu() {
       heading.className = "editor-menu-group";
       heading.setAttribute("role", "presentation");
       heading.textContent = item.group;
-      menu.appendChild(heading);
+      list.appendChild(heading);
       lastGroup = item.group;
     }
     const row = document.createElement("li");
     row.setAttribute("role", "option");
-    row.setAttribute("aria-selected", String(position === index));
+    row.id = `editor-menu-row-${position}`;
+    row.dataset.index = String(position);
     row.className = "editor-menu-item";
-    if (position === index) row.classList.add("active");
 
+    //: The icon in a tile of its own, the way every block menu worth copying
+    //: draws it: the eye finds the kind of block by shape before it reads.
+    const tile = document.createElement("span");
+    tile.className = "editor-menu-tile";
+    //: A callout's tile wears its kind's ink, the same `--callout-accent`
+    //: the block itself will (05-sidebars-themes.css), so the colour is
+    //: chosen before the block exists.
+    if (item.tint) tile.classList.add("doc-block-kind", `doc-block-kind-${item.tint}`);
+    tile.setAttribute("aria-hidden", "true");
+    const glyph = document.createElement("i");
+    glyph.className = `ph ph-${editorMenuIcon(item).replace(/^ph:/, "")}`;
+    tile.appendChild(glyph);
+    row.appendChild(tile);
+
+    const text = document.createElement("span");
+    text.className = "editor-menu-text";
     const label = document.createElement("span");
     label.className = "editor-menu-label";
-    //: `setLabel`, not `textContent`: a command row carries its icon as a
-    //: `ph:` token in its own `icon` field, and `textContent` would print the
-    //: token. Every other menu in the app builds its rows this way; this one
-    //: did not, which is why the eight callout commands were the only rows in
-    //: the app that could not carry a real icon and reached for emoji instead.
-    //: The two fields are joined here rather than stored joined, so the table
-    //: stays a table of objects (DOCUMENTS_PLAN 18a) and a row can be read for
-    //: its icon without parsing its label.
-    setLabel(label, item.icon ? `${item.icon} ${item.label}` : item.label);
-    row.appendChild(label);
-    if (item.hint) {
-      const hint = document.createElement("span");
-      hint.className = "editor-menu-hint";
-      hint.textContent = item.hint;
-      row.appendChild(hint);
+    editorFillLabel(label, item.label, trigger === "/" ? query : "");
+    text.appendChild(label);
+    const about = item.about || item.hint;
+    if (about) {
+      const line = document.createElement("span");
+      line.className = "editor-menu-about";
+      line.textContent = about;
+      text.appendChild(line);
+    }
+    row.appendChild(text);
+
+    //: The markdown the row writes, or its key: the part that teaches the
+    //: syntax behind the menu, so the next time it can simply be typed.
+    if (item.keys) {
+      const keys = document.createElement("kbd");
+      keys.className = "editor-menu-keys";
+      keys.textContent = item.keys;
+      row.appendChild(keys);
     }
     // mousedown, not click: the textarea must not lose focus first, or the
     // caret position the insertion depends on is already gone.
@@ -1239,11 +1312,144 @@ function editorRenderMenu() {
       event.preventDefault();
       editorRunItem(position);
     });
-    menu.appendChild(row);
+    //: The pointer chooses what the preview shows, without redrawing the
+    //: list under it. `mousemove`, not `mouseenter`: a menu that opens under
+    //: a pointer resting where the last click was gets an enter event on
+    //: whatever row lands there, and took the highlight off the best match
+    //: before a key was pressed (measured: Recent's first row lost to the
+    //: fourth row down). Only a pointer that moves is choosing.
+    row.addEventListener("mousemove", () => {
+      if (editorMenuState.index !== position) editorSetActive(position, false);
+    });
+    list.appendChild(row);
   });
 
   menu.classList.remove("hidden");
+  editorSetActive(Math.min(index, items.length - 1), true);
   editorPositionMenu(editorMenuState.textarea);
+}
+
+//: **The preview**, only for "/" rows and only with room for it (44rem, the
+//: width the template dialog's preview also needs before it shows). What it
+//: renders is the row's `sample`, through `renderMarkdown`, the renderer the
+//: page itself uses, so the preview is the block and not a picture of it.
+//: Inert and hidden from assistive tech: the row already says what it is.
+const EDITOR_PREVIEW_MIN = 704;
+
+function editorRenderPreview(item) {
+  const menu = $("editor-menu");
+  const pane = $("editor-menu-preview");
+  if (!menu || !pane) return;
+  const show = Boolean(item) && editorMenuState.trigger === "/" && window.innerWidth >= EDITOR_PREVIEW_MIN;
+  menu.classList.toggle("editor-menu-wide", show);
+  pane.classList.toggle("hidden", !show);
+  if (!show) return;
+  if (pane.dataset.for === item.id) return;
+  pane.dataset.for = item.id || "";
+  pane.replaceChildren();
+
+  const head = document.createElement("p");
+  head.className = "editor-menu-preview-head";
+  const tile = document.createElement("span");
+  tile.className = "editor-menu-tile";
+  if (item.tint) tile.classList.add("doc-block-kind", `doc-block-kind-${item.tint}`);
+  const glyph = document.createElement("i");
+  glyph.className = `ph ph-${editorMenuIcon(item).replace(/^ph:/, "")}`;
+  tile.appendChild(glyph);
+  const name = document.createElement("span");
+  name.textContent = item.label;
+  head.append(tile, name);
+  pane.appendChild(head);
+
+  const about = item.about || item.hint;
+  if (about) {
+    const line = document.createElement("p");
+    line.className = "editor-menu-preview-about";
+    line.textContent = about;
+    pane.appendChild(line);
+  }
+  if (item.sample && typeof renderMarkdown === "function") {
+    const sample = document.createElement("div");
+    sample.className = "editor-menu-sample";
+    sample.inert = true;
+    renderMarkdown(sample, item.sample);
+    pane.appendChild(sample);
+  }
+  if (item.keys) {
+    const syntax = document.createElement("p");
+    syntax.className = "editor-menu-preview-keys";
+    syntax.append("Type ");
+    const code = document.createElement("code");
+    code.textContent = item.keys;
+    syntax.append(code, " to write it without the menu.");
+    pane.appendChild(syntax);
+  }
+}
+
+//: Move the highlight without redrawing the list: the row's classes, the
+//: listbox's `aria-activedescendant`, the preview, and (from the keyboard)
+//: the row scrolled into the list's view.
+function editorSetActive(position, reveal) {
+  const list = editorMenuList();
+  const { items } = editorMenuState;
+  if (!items.length || !list) return;
+  const next = Math.max(0, Math.min(position, items.length - 1));
+  editorMenuState.index = next;
+  for (const row of list.querySelectorAll(".editor-menu-item")) {
+    const on = Number(row.dataset.index) === next;
+    row.classList.toggle("active", on);
+    row.setAttribute("aria-selected", String(on));
+    if (on) {
+      list.setAttribute("aria-activedescendant", row.id);
+      if (reveal) editorRevealRow(list, row);
+    }
+  }
+  editorRenderPreview(items[next]);
+}
+
+//: Scrolled within the list only: `scrollIntoView` would also scroll the page
+//: behind a fixed popup, and a page scroll closes this menu.
+function editorRevealRow(list, row) {
+  //: The first row of a group (a Tab jump lands on one) brings its heading
+  //: to the top with it, so the jump shows the whole group opening rather
+  //: than one row at the bottom edge.
+  const before = row.previousElementSibling;
+  if (before && before.classList.contains("editor-menu-group")) {
+    //: Measured by rects from the row, not `offsetTop` of the heading: a
+    //: pinned (sticky) heading reports where it is stuck, not where it sits.
+    const inList = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    list.scrollTop = Math.max(0, inList - before.offsetHeight - list.clientTop);
+    return;
+  }
+  const header = list.querySelector(".editor-menu-group");
+  const pad = header ? header.offsetHeight : 0;
+  const top = row.offsetTop - pad;
+  const bottom = row.offsetTop + row.offsetHeight;
+  if (top < list.scrollTop) list.scrollTop = Math.max(0, top);
+  else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+  //: The first row of the list also shows its group's heading.
+  if (Number(row.dataset.index) === 0) list.scrollTop = 0;
+}
+
+//: The index of the first row of each group, in order.
+function editorGroupStarts() {
+  const starts = [];
+  let last = null;
+  editorMenuState.items.forEach((item, i) => {
+    if (i === 0 || item.group !== last) starts.push(i);
+    last = item.group;
+  });
+  return starts;
+}
+
+function editorNextGroupStart(step) {
+  const starts = editorGroupStarts();
+  const at = editorMenuState.index;
+  let current = 0;
+  starts.forEach((start, i) => {
+    if (start <= at) current = i;
+  });
+  return starts[(current + step + starts.length) % starts.length];
 }
 
 // Apply the highlighted item: drop the trigger token that summoned the menu,
@@ -1253,6 +1459,14 @@ function editorRunItem(position) {
   const item = items[position];
   if (!item || !textarea) return editorCloseMenu();
 
+  //: The language step: the fence and the typed word stay, and the rest of
+  //: the block is written after them.
+  if (item.fence !== undefined) {
+    editorCloseMenu("ran");
+    editorFinishFence(textarea, item.fence);
+    return;
+  }
+
   const token = editorTokenAt(textarea, trigger);
   if (token) {
     // Remove "/table" (or "[[part") so the command's own text replaces it.
@@ -1261,7 +1475,9 @@ function editorRunItem(position) {
       textarea.value.slice(0, keep) + textarea.value.slice(textarea.selectionStart);
     textarea.setSelectionRange(keep, keep);
   }
-  editorCloseMenu();
+  editorCloseMenu("ran");
+  //: Remembered under its own id, not its "Recent" copy's.
+  if (trigger === "/" && item.id && typeof item.run === "function") editorRememberBlock(item.recentOf || item.id);
 
   if (item.markdown !== undefined) {
     //: **A file is not a `[[wiki link]]`.** Wiki links resolve by *name*
@@ -1283,10 +1499,14 @@ function editorRunItem(position) {
 }
 
 function editorOpenMenu(textarea, trigger) {
+  //: The word list the documents editor draws at the caret gives way.
+  if (typeof hideDocComplete === "function") hideDocComplete();
   editorMenuState.open = true;
   editorMenuState.textarea = textarea;
   editorMenuState.trigger = trigger;
   editorMenuState.index = 0;
+  const pane = $("editor-menu-preview");
+  if (pane) delete pane.dataset.for;
   editorRefreshMenu();
 }
 
@@ -1298,26 +1518,47 @@ function editorRefreshMenu() {
   const token = editorTokenAt(textarea, trigger);
   if (!token) return editorCloseMenu();
 
+  const changed = editorMenuState.query !== token.fragment;
   editorMenuState.start = token.start;
+  editorMenuState.query = token.fragment;
   const context = editorSurfaceKind(textarea) || "note";
   let items;
   if (trigger === "/") {
     const all = editorCommands(context);
-    // With nothing typed, show a curated shortlist so that every group is
-    // represented and reachable; once there is a query, search the full set.
-    // Found the hard way: a flat cap over an alphabetically-grouped list meant
-    // Links, AI and Templates were unreachable without already knowing to type
-    // for them, which defeats the point of a discovery menu.
-    const pool = token.fragment ? all : all.filter((c) => c.primary);
-    items = editorRankCommands(pool, token.fragment);
+    if (token.fragment) {
+      items = editorRankCommands(all, token.fragment).slice(0, 40);
+    } else {
+      //: **Everything, grouped, with what you used last first.** The old
+      //: menu showed a curated shortlist with nothing typed, which is how
+      //: most of its blocks went unfound ("limited in what they can do and
+      //: how to use them"); with pinned group headings and Tab between
+      //: groups the whole catalogue is one keystroke per group away.
+      const byId = new Map(all.map((row) => [row.id, row]));
+      const recent = editorRecentIds()
+        .map((id) => byId.get(id))
+        .filter(Boolean)
+        .slice(0, EDITOR_RECENT_SHOWN)
+        .map((row) => ({ ...row, group: "Recent", recentOf: row.id }));
+      const order = (row) => {
+        const at = EDITOR_GROUP_ORDER.indexOf(row.group);
+        return at === -1 ? EDITOR_GROUP_ORDER.length : at;
+      };
+      const grouped = all
+        .map((row, i) => ({ row, i }))
+        .sort((a, b) => order(a.row) - order(b.row) || a.i - b.i)
+        .map((entry) => entry.row);
+      items = [...recent, ...grouped];
+    }
+  } else if (trigger === "```") {
+    items = editorRankCommands(editorCodeLanguageRows(), token.fragment);
   } else {
-    items = editorLinkMatches(token.fragment);
+    items = editorLinkMatches(token.fragment).slice(0, 20);
   }
 
-  // The menu scrolls (max-height in CSS), so the cap only exists to stop a
-  // pathological list, not to fit the viewport.
-  editorMenuState.items = items.slice(0, 20);
-  editorMenuState.index = Math.min(editorMenuState.index, Math.max(0, editorMenuState.items.length - 1));
+  editorMenuState.items = items;
+  //: A new query starts at the best match; the same query (a redraw) keeps
+  //: the row the reader was on.
+  editorMenuState.index = changed ? 0 : Math.min(editorMenuState.index, Math.max(0, items.length - 1));
   editorRenderMenu();
 }
 
@@ -1403,15 +1644,41 @@ document.addEventListener(
     if (!editorMenuState.open) return;
     //: Compared as *surfaces*: the event target inside CodeMirror is whichever
     //: line element the caret is in, never the object the menu was opened on.
-    if (editorSurfaceFor(event.target) !== editorMenuState.textarea) return;
+    const surface = editorSurfaceFor(event.target);
+    if (surface !== editorMenuState.textarea) {
+      //: **The same box under a new engine.** The note capture box is a
+      //: textarea until the note engine mounts over it, which happens when
+      //: the bundle lands after the first focus: a "/" typed in that gap
+      //: opened the menu on the textarea, and every key after the mount came
+      //: from the engine and was ignored here (measured: Tab wrote two
+      //: spaces into the note with the menu still open). Same id, same box:
+      //: the menu follows it.
+      if (!surface || !editorMenuState.textarea || !surface.id || surface.id !== editorMenuState.textarea.id) return;
+      editorMenuState.textarea = surface;
+    }
     const { items } = editorMenuState;
 
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    //: Arrows walk the rows (wrapping), Home and End jump to the ends, Tab
+    //: and Shift+Tab jump to the first row of the next or previous group
+    //: (Coda's gesture, and the only fast way through a menu of sixty rows),
+    //: Enter chooses, Escape closes. Tab chooses instead in a list with one
+    //: group, where there is nowhere to jump, which is what it always did in
+    //: the `[[` picker.
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
       if (!items.length) return;
       event.preventDefault();
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      editorMenuState.index = (editorMenuState.index + step + items.length) % items.length;
-      editorRenderMenu();
+      const last = items.length - 1;
+      const next =
+        event.key === "Home" ? 0
+          : event.key === "End" ? last
+            : (editorMenuState.index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+      editorSetActive(next, true);
+      return;
+    }
+    if (event.key === "Tab" && editorGroupStarts().length > 1) {
+      event.preventDefault();
+      event.stopPropagation();
+      editorSetActive(editorNextGroupStart(event.shiftKey ? -1 : 1), true);
       return;
     }
     if (event.key === "Enter" || event.key === "Tab") {
@@ -1427,7 +1694,7 @@ document.addEventListener(
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      editorCloseMenu();
+      editorCloseMenu("escape");
     }
   },
   true // capture phase, so the menu answers before the surface's own handlers
@@ -1447,13 +1714,31 @@ document.addEventListener("mousedown", (event) => {
 // the menu's own wheel-scroll before it reached the menu and shut it every
 // time, which is exactly the shape of bug that makes a list look un-scrollable
 // rather than merely short.
+//:
+//: **And it follows the caret rather than closing on every scroll** (INBOX
+//: 421 c: "sometimes it doesnt open at all"). Typing the "/" that opens the
+//: menu can itself scroll: the editor keeps the caret in view, so a "/" on
+//: the last visible line scrolls the editor by a line, and that scroll closed
+//: the menu the keystroke had just opened (measured at 390 wide: a "/" at the
+//: end of a document opened nothing). The menu is re-placed at the caret on
+//: the next frame, and closes only when the caret has left the window.
+let editorFollowFrame = 0;
 document.addEventListener(
   "scroll",
   (event) => {
     if (!editorMenuState.open) return;
     const menu = $("editor-menu");
     if (menu && (event.target === menu || menu.contains(event.target))) return;
-    editorCloseMenu();
+    if (editorFollowFrame) return;
+    editorFollowFrame = requestAnimationFrame(() => {
+      editorFollowFrame = 0;
+      const { textarea } = editorMenuState;
+      if (!editorMenuState.open || !textarea) return;
+      const at = editorCaretPoint(textarea);
+      const gone = at.offscreen || at.top + at.lineHeight < 0 || at.top > window.innerHeight;
+      if (gone) editorCloseMenu();
+      else editorPositionMenu(textarea, true);
+    });
   },
   true
 );

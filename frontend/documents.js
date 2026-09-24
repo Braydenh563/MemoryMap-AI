@@ -6217,7 +6217,11 @@ function docLivePlugin(CM) {
         (typeof CALLOUT_KINDS === "object" && CALLOUT_KINDS[this.kind]) || null;
       const chip = document.createElement("span");
       chip.className = `cm-md-callout-label cm-md-callout-label-${this.kind}`;
-      chip.textContent = meta ? `${meta.icon} ${meta.label}` : this.kind;
+      //: The icon is a `ph:` token (CALLOUT_KINDS, editor.js), which
+      //: `setLabel` turns into the glyph; written as text it printed
+      //: "ph:warning Warning" in the live view (the owner, 2026-09-24).
+      if (meta && typeof setLabel === "function") setLabel(chip, `${meta.icon} ${meta.label}`);
+      else chip.textContent = meta ? meta.label : this.kind;
       //: **A callout written `[!note]-` or `[!note]+` is a toggle**, which is
       //: the syntax Obsidian uses and the "toggles" half of Phase 3 item 2.
       //: The marker is the *initial* state and clicking does not rewrite it,

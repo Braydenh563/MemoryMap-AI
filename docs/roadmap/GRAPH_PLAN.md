@@ -354,3 +354,32 @@ Read this where the code carries it out: `graphCaptureView`/`graphApplyView`
 (`frontend/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
 (`frontend/graph-canvas.js`, the default renderer).
 
+
+## Decision made, 2026-09-24: similarity is each note's two closest matches
+
+INBOX 407 (the owner: "when I tick similarity on the graph, this happens, is
+there a way to make it more visually understandable or parsable??"). What was
+read first: Gephi and InfraNodus thin a weighted network by weight and map the
+weight onto the stroke; Kumu scales a connection's width by its strength and
+focuses a selection's neighbourhood; Obsidian and Logseq fade what a hovered
+note is not joined to; Heptabase draws no inferred relations and lists them
+beside the card. Decided, and measured on 42 notes over six topics with
+vectors shaped like bge-small's (`scratchpad/ui-sweeps/graphsim.js`):
+
+- **k = 2.** Each note keeps its two strongest similarity lines above the
+  cutoff; a line survives if it is in either end's two. 200 lines became 58
+  and 1,701 crossings 39; k = 3 gave 80 lines and 84 crossings with the same
+  six clusters, so the fewer lines win. Pruned before the layout, so the
+  springs stop pulling the topics into one ball.
+- **Three strengths, relative to the range drawn**, in opacity and width, one
+  dash, the strongest still under a link's opacity, stroked beneath the links.
+- **Scores on demand**: the note in focus writes a percentage on each of its
+  lines where there is room and lists all of them in its tooltip; a pill with
+  no room is left out, never stacked.
+- **One cutoff control**, Strength (55 to 95), in the Show grid's free cell,
+  shown only while Similarity is on, so the panel stays 451px in its 451px box.
+- **Reset to defaults** covers the layout, the colour rule, the physics, every
+  Show switch, the cutoff, the time filter, the minimap and the legend's
+  hidden kinds; it keeps groups and saved views (things somebody made and
+  named) and which folds are open. It shares the panel's last row with
+  Suggest links, and its toast carries the Undo.

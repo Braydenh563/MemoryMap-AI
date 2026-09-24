@@ -34,20 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-407. **The owner, 2026-09-24, verbatim, with a screenshot of the graph with
-    Similarity on.** "when I tick similarity on the graph, this happens, is
-    there a way to make it more visually understandable or parsable??" and
-    "there is no reset the graph settings to default option either".
-    Measured first (42 notes over six topics, 24 links, vectors shaped like
-    bge-small's, 1440x900, `scratchpad/ui-sweeps/graphsim.js`): 200
-    similarity lines (the server's cap) against 24 links, up to 20 per note,
-    10.67 lines per note, 1,701 crossings, every one the same dotted blue
-    whatever its score and drawn over the links; the 200 springs pull the six
-    topics into one ball, 18 of 42 labels placed and 13 of those on another
-    note's disc. Length by similarity was a no-op on the canvas renderer (the
-    worker never received a score). No reset exists anywhere on the graph.
-    Placed as the graph agent's brief.
-
 406. **The owner, 2026-09-24, verbatim.** "can you also massively expand and
     diversify the help information available to the guide as well as
     improve the answers and accuracy of responses when no ai model is

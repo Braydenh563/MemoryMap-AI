@@ -4733,7 +4733,20 @@ function graphApplyView(view) {
     view.positions && Object.keys(view.positions).length ? view.positions : null;
   localStorage.setItem("graph-layout", view.layout);
   if (view.colour) localStorage.setItem("graph-colour", view.colour);
-  set("graph-layout", view.layout);
+  //: The layout is a radio group, not one control: `set()` on the group's
+  //: `<div>` wrote a `value` expando and fired "change" from the div, which
+  //: the listener read back as the layout, so the map was right and the View
+  //: menu still showed the old layout ticked (measured: a radial view
+  //: restored with Force still checked). The radio is what a person presses.
+  //: Looked up among the radios rather than by a selector built from the
+  //: saved string, which is whatever the stored JSON says.
+  const layoutRadio = [...document.querySelectorAll('input[name="graph-layout"]')].find(
+    (radio) => radio.value === view.layout
+  );
+  if (layoutRadio) {
+    layoutRadio.checked = true;
+    layoutRadio.dispatchEvent(new Event("change", { bubbles: true }));
+  }
   set("graph-colour", view.colour);
   // Real controls, not the section div: `set()` dispatches "change" on each,
   // which is exactly what the gravity/spread listener (app.js, "Physics
@@ -4969,7 +4982,9 @@ function graphSettingsEqual(a, b) {
 //: The redraws that pile up are cheap: `renderGraphCanvas` drops every
 //: render but the last by its sequence number.
 function graphApplySettings(settings) {
-  const layout = document.querySelector(`input[name="graph-layout"][value="${settings.layout}"]`);
+  const layout = [...document.querySelectorAll('input[name="graph-layout"]')].find(
+    (radio) => radio.value === settings.layout
+  );
   if (layout && !layout.checked) {
     layout.checked = true;
     layout.dispatchEvent(new Event("change", { bubbles: true }));

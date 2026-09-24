@@ -492,7 +492,13 @@ body.scroll-top-visible #tab-notes .layout > main {
    wider"), still well inside the drag range's own ceiling
    (`WEB_PANEL_MAX` = 900px = 56.25rem in app.js). */
 #web-panel {
-  flex: 0 1 clamp(21rem, 32%, 30rem);
+  /* `flex-shrink: 0` (was 1): measured with `scratchpad/ui-sweeps/webpanel.js`
+     at 1440, the conversation's auto basis took the room and the panel sat on
+     its 280px floor, so the default width this clamp describes never once
+     applied. The floor below and the 1100px band that gives the panel the
+     whole of <main> are what keep the conversation usable; a shrink that
+     always ends at the floor was only a second, silent minimum. */
+  flex: 0 0 clamp(21rem, 32%, 30rem);
   /* Was 0: with #chat-main's own auto flex-basis competing for room in a
      moderate-width window, flex-shrink took the panel well below its own
      clamp() minimum (measured 259px against a 336px floor at 1400px wide),

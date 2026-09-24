@@ -4970,3 +4970,15 @@ main,
     writing-mode: horizontal-tb;
   }
 }
+
+/* **Toasts at the bottom on a phone** (the owner's decision, 2026-09-24): at
+   the top a due-reminder toast sat over the Notes sub-tabs for its whole
+   life. Above the bottom tab bar instead, full width. The one exception is
+   the Chat tab, where the bottom is the composer (Send and the microphone,
+   the reason the top was chosen in the first place): there it stays up. */
+@media (max-width: 599.98px) {
+  body:not(:has(#tab-chat:not(.hidden))) #toast-box {
+    top: auto;
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px) + var(--space-2));
+  }
+}

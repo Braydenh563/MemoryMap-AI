@@ -2230,6 +2230,10 @@
                  collect. -->
             <div id="chat-selection-attachment" class="chat-attachments hidden"
               role="group" aria-label="The selection attached to your next message"></div>
+            <!-- A web page cited from the Web panel's reader (Cite in chat):
+                 one chip, for the same reason as the selection above. -->
+            <div id="chat-web-attachment" class="chat-attachments hidden"
+              role="group" aria-label="The web page attached to your next message"></div>
             <!-- Two capabilities that only ever helped the people who already
                  knew they were there. Agent mode is the mode that can
                  actually *do* the thing you just typed, and a saved skill
@@ -2553,53 +2557,86 @@
              column: `.layout`'s columns are written inline by the sidebar
              resizer, and a third track would mean teaching that code about
              this panel. <main> is already a flex row. -->
+        <!-- **A reading pane, not a form** (INBOX, the owner 2026-09-24: "the
+             web browser sidebar needs a major improved modern and professional
+             redesign"). Measured before (`scratchpad/ui-sweeps/webpanel.js`):
+             four separately boxed controls in the rows above the results, in
+             two heights (28 and 42px) and two radii, an engine state drawn as
+             a box with its own boxed Stop, and the page text in a bordered
+             scroll box inside a scrolling column. Now: the `h3.panel-head`
+             recipe (identity, one quiet fact as a dot, an all-icon group),
+             one search field with the glyph inside it, and a reader that is
+             the pane's one scroller. -->
         <aside id="web-panel" class="card web-panel hidden"
           aria-label="Web search">
-          <div class="row space-between web-panel-head">
-            <strong id="web-panel-title"><i class="ph ph-globe ph-lead" aria-hidden="true"></i> Web</strong>
-            <button id="web-panel-close" class="ghost small icon-only" aria-label="Close web panel"><i class="ph ph-x" aria-hidden="true"></i></button>
+          <h3 class="panel-head web-panel-head">
+            <span id="web-panel-title" class="web-panel-title"><i class="ph ph-globe ph-lead" aria-hidden="true"></i> Web</span>
+            <!-- The engine's state as a dot with its words on the title, not a
+                 boxed "SearXNG: running" chip and a boxed Stop under the
+                 search field. It is context for a search, never the reason
+                 for opening the panel, so it takes the least room a fact can.
+                 Starting and stopping moved to the kebab beside it. -->
+            <span id="web-engine-dot" class="web-engine-dot" role="img"
+              data-state="unknown" aria-label="Search engine: checking"
+              title="Search engine: checking"></span>
+            <span class="row web-panel-actions">
+              <span id="web-panel-menu" class="web-panel-menu"></span>
+              <button id="web-panel-close" class="ghost small icon-only" type="button"
+                aria-label="Close web panel" title="Close web panel"><i class="ph ph-x" aria-hidden="true"></i></button>
+            </span>
+          </h3>
+          <!-- One field: the glyph inside it, Enter searches (there is no
+               Search button to press), and the one control it grows is Stop,
+               only while a search or a page is on its way. -->
+          <div class="web-search-field" role="search">
+            <i class="ph ph-magnifying-glass web-search-icon" aria-hidden="true"></i>
+            <input id="web-query" type="search" enterkeyhint="search" autocomplete="off"
+              placeholder="Search the web" aria-label="Search the web"
+              aria-controls="web-results">
+            <button id="web-stop" class="ghost small icon-only hidden" type="button"
+              aria-label="Stop" title="Stop"><i class="ph ph-stop" aria-hidden="true"></i></button>
           </div>
-          <div class="row web-panel-search">
-            <input id="web-query" type="search" placeholder="Search the web…"
-              aria-label="Search the web">
-            <button id="web-go" class="small">Search</button>
-          </div>
-          <!-- Feedforward, not just the after-the-fact "answered by SearXNG"
-               line results already carry: whether the private local instance
-               is even running is otherwise invisible until a search silently
-               falls back to DuckDuckGo. Hidden unless the chosen provider
-               (Settings → Web search) can actually use SearXNG.
-
-               **Under the search box, not above it.** It used to be the first
-               thing in the panel, so opening Web to look something up put an
-               engine's installation state ahead of the box you came to type
-               in. It is context for the search, not the reason for the
-               panel. -->
-          <div id="web-searxng-strip" class="row space-between web-panel-searxng hidden">
-            <span id="web-searxng-chip" class="chip">Checking…</span>
-            <button id="web-searxng-toggle" class="ghost small" type="button"></button>
-          </div>
-          <!-- Recent searches: a way back in, not a permanent fixture: hidden
-               the moment there's a query typed or a result on screen. -->
-          <div id="web-search-history" class="row web-search-history hidden"
-            aria-label="Recent web searches"></div>
-          <p id="web-status" class="status" role="status"></p>
-          <div id="web-results" class="web-results"></div>
+          <p id="web-status" class="status web-status" role="status"></p>
+          <!-- Recent searches: a way back in, not a permanent fixture: shown
+               only while the field is empty and nothing is on screen. Rows,
+               not chips: a chip is a fact and these are actions. -->
+          <div id="web-search-history" class="web-search-history hidden"
+            role="group" aria-label="Recent web searches"></div>
+          <div id="web-results" class="web-results" aria-label="Web results"></div>
           <div id="web-reader" class="web-reader hidden">
-            <div class="row space-between web-reader-head">
-              <strong id="web-reader-title"></strong>
-              <button id="web-reader-back" class="ghost small"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> Results</button>
+            <!-- The page's address bar: the way back on the left, and the
+                 three things you do with the *address* on the right. What you
+                 do with the *content* is the action row under the title. -->
+            <div class="web-reader-bar">
+              <button id="web-reader-back" class="link-button web-reader-back" type="button"
+                title="Back to the results"><i class="ph ph-arrow-left ph-lead" aria-hidden="true"></i> Results</button>
+              <span class="row web-reader-tools">
+                <button id="web-reader-find" class="ghost small icon-only" type="button"
+                  aria-label="Find in this page" title="Find in this page (Ctrl+F)"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+                <button id="web-reader-copy" class="ghost small icon-only" type="button"
+                  aria-label="Copy link" title="Copy link"><i class="ph ph-link" aria-hidden="true"></i></button>
+                <button id="web-reader-open" class="ghost small icon-only" type="button"
+                  aria-label="Open in your browser" title="Open in your browser"><i class="ph ph-arrow-square-out" aria-hidden="true"></i></button>
+              </span>
             </div>
-            <p class="muted" id="web-reader-source"></p>
-            <div class="row web-reader-actions">
-              <button id="web-reader-ask" class="ghost small"
-                title="Ask Atlas about this page"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask about this</button>
-              <button id="web-reader-save" class="ghost small"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Save as note</button>
+            <h4 id="web-reader-title" class="web-reader-title"></h4>
+            <p class="muted web-reader-source" id="web-reader-source"></p>
+            <div class="row web-reader-actions" role="toolbar" aria-label="Use this page">
+              <button id="web-reader-ask" class="small" type="button"
+                title="Ask Atlas about this page"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask<span class="toolbar-word"> about this</span></button>
+              <!-- Cite: the page rides on your next message as a chip in the
+                   composer, the way a selection or a note does, so you can
+                   ask your own question about it rather than the canned one
+                   Ask about this sends. -->
+              <button id="web-reader-cite" class="ghost small icon-only" type="button"
+                aria-label="Cite in chat" title="Cite in chat: attach this page to your next message"><i class="ph ph-quotes" aria-hidden="true"></i></button>
+              <button id="web-reader-save" class="ghost small icon-only" type="button"
+                aria-label="Save as note" title="Save as note"><i class="ph ph-note-pencil" aria-hidden="true"></i></button>
               <!-- The third thing you can do with a page you have just read,
                    and the one the panel never offered: keep the link. The app
                    has bookmarks; a page worth reading twice belongs in them. -->
-              <button id="web-reader-bookmark" class="ghost small"
-                title="Keep this link in your bookmarks"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Bookmark</button>
+              <button id="web-reader-bookmark" class="ghost small icon-only" type="button"
+                aria-label="Bookmark" title="Keep this link in your bookmarks"><i class="ph ph-bookmark-simple" aria-hidden="true"></i></button>
             </div>
             <div id="web-reader-text" class="web-reader-text"></div>
           </div>

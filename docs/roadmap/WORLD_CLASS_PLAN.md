@@ -2324,8 +2324,9 @@ added against, and what is still open.
   model routing off silently moves the Guide, an interactive panel, onto the
   chat model, because the switch is written for background jobs. Either the
   switch's copy should say which surfaces it moves, or the Guide should stop
-  being one of them. A decision, not a bug fix, so it is written down here
-  rather than taken.
+  being one of them. **Decided by the owner 2026-09-24: the Guide stays on
+  the utility model whatever the switch says** (`utility_resolution`,
+  `test_with_smart_routing_off_the_guide_keeps_the_utility_model`).
 - **A per-feature model is shown on the Chat tab and nowhere else.** The
   chat pill (`#chat-active-model`) reads the pinned model now, but the
   writing desk and the documents assistant say which model they are on only

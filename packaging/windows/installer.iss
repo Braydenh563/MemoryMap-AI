@@ -34,6 +34,11 @@ AppSupportURL={#MyAppURL}/issues
 AppUpdatesURL={#MyAppURL}/releases
 ; Per-user, not per-machine — see the header comment above.
 PrivilegesRequired=lowest
+; The frozen app is a 64-bit build (PyInstaller on 64-bit Python). Without
+; these, 32-bit Windows could install an exe that cannot start. x64compatible
+; also admits Windows on ARM, which runs x64 programs under emulation.
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 ; The installer's own .exe icon, and the icon shown in Add/Remove Programs.
@@ -95,6 +100,12 @@ Name: "{autoprograms}\{#MyAppName}\Repair {#MyAppName}"; Filename: "{app}\{#MyAp
 ; code Settings > Packages runs, which installs where a packaged build can
 ; import from. As the person who ran the installer, not the elevated
 ; account, because the packages go in their data folder.
+;
+; Not in a silent install unless asked for (GetSelectedExtras): the app's
+; own updater runs this installer with /VERYSILENT, and with the page's
+; defaults that re-ran a 2 GB search-by-meaning download, hidden, inside
+; every update, while the person was told to reopen the app in a minute.
+; A scripted install names what it wants: /EXTRAS=documents,docx.
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-extras {code:GetSelectedExtras}"; StatusMsg: "Installing the optional packages you picked..."; Flags: runhidden waituntilterminated runasoriginaluser; Check: HasSelectedExtras
 ; Launch the app after installation (existing behaviour).
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch {#MyAppName} now"; Flags: nowait postinstall skipifsilent
@@ -105,6 +116,18 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch
 ; when sys.frozen — see that function's own comment), not under {app} —
 ; deliberately outside this section. Uninstalling removes the *program*;
 ; someone's notebook is not a build artifact and does not go with it.
+; That includes the optional packages (python-extras in the same folder):
+; they are the person's downloads, and a reinstall finds them again.
+;
+; What does go: a `data` folder inside the install folder, which builds
+; before 0.3.3 wrote the window's cache and the launch log into when Windows
+; started them there (__main__.py read MEMORYMAP_DATA_DIR with a bare "data"
+; fallback; core/config.resolved_data_dir replaced it). Never notes: the
+; database always went to AppData. Only the two folders by name, so anything
+; else someone put there stays.
+Type: filesandordirs; Name: "{app}\data\webview"
+Type: filesandordirs; Name: "{app}\data\logs"
+Type: dirifempty; Name: "{app}\data"
 
 [Code]
 { Custom wizard page: optional package selection.
@@ -123,16 +146,50 @@ var
   ChkVoice: TNewCheckBox;
   ChkDocuments: TNewCheckBox;
 
+function HasPythonCore(RootKey: Integer): Boolean;
+{ PEP 514: every python.org and Microsoft Store Python registers itself
+  under Software\Python\PythonCore, in the user's hive or the machine's. }
+var
+  Names: TArrayOfString;
+begin
+  Result := RegGetSubkeyNames(RootKey, 'Software\Python\PythonCore', Names)
+    and (GetArrayLength(Names) > 0);
+end;
+
+function PythonFound: Boolean;
+{ Whether the app will find a Python to download packages with
+  (core/extras.py find_system_python: python, python3, then the py
+  launcher). The packaged app carries its own Python, but pip cannot run
+  from inside it, so the downloads borrow the system's. Read, never run:
+  the registry, and the launcher's two standard places. }
+begin
+  Result := HasPythonCore(HKCU) or HasPythonCore(HKLM)
+    or FileExists(ExpandConstant('{win}\py.exe'))
+    or FileExists(ExpandConstant('{localappdata}\Programs\Python\Launcher\py.exe'));
+  if (not Result) and IsWin64 then
+    Result := HasPythonCore(HKLM64);
+end;
+
 procedure InitializeWizard;
 var
   Lbl: TNewStaticText;
   Y: Integer;
+  HavePython: Boolean;
+  PageNote: String;
 begin
+  HavePython := PythonFound;
+  { The page's own line says what the downloads need. With no Python the
+    boxes start unticked: the install step runs hidden, so a ticked box
+    would download nothing and say nothing. }
+  if HavePython then
+    PageNote := 'Pick the extra features to download now.'
+  else
+    PageNote := 'Python was not found, and these downloads need it. Install'
+      + ' it from python.org first, or add these later.';
   ExtrasPage := CreateCustomPage(
     wpSelectTasks,
     'Optional packages',
-    'Pick the extra features to download now. This needs Python on your PATH.'
-    + #13#10 + 'You can add or remove them later in Settings > Packages.'
+    PageNote + #13#10 + 'You can add or remove them later in Settings > Packages.'
   );
 
   Y := 8;
@@ -145,7 +202,8 @@ begin
   Lbl.Width := ExtrasPage.SurfaceWidth;
   Lbl.WordWrap := True;
   Lbl.Caption := 'All of these are optional. The app works without them,'
-    + ' and each can be installed or removed at any time from inside the app.';
+    + ' and each can be installed or removed at any time from inside the app.'
+    + ' Downloading them needs Python from python.org on this computer.';
   Y := Y + 48;
 
   { Semantic search }
@@ -155,7 +213,7 @@ begin
   ChkSemantic.Top := Y;
   ChkSemantic.Width := ExtrasPage.SurfaceWidth;
   ChkSemantic.Caption := 'Search by meaning (about 2 GB, recommended)';
-  ChkSemantic.Checked := True;
+  ChkSemantic.Checked := HavePython;
   Y := Y + 24;
 
   Lbl := TNewStaticText.Create(ExtrasPage);
@@ -193,7 +251,7 @@ begin
   ChkDocuments.Left := 0;
   ChkDocuments.Top := Y;
   ChkDocuments.Width := ExtrasPage.SurfaceWidth;
-  ChkDocuments.Caption := 'Import documents (about 20 MB)';
+  ChkDocuments.Caption := 'Documents in and out (about 40 MB)';
   ChkDocuments.Checked := False;
   Y := Y + 24;
 
@@ -203,22 +261,35 @@ begin
   Lbl.Top := Y;
   Lbl.Width := ExtrasPage.SurfaceWidth - 24;
   Lbl.WordWrap := True;
-  Lbl.Caption := 'Import PDFs, Word files and slides as notes.';
+  Lbl.Caption := 'Import PDFs (scanned ones too), Word files and slides as'
+    + ' notes, and export documents to Word.';
 end;
 
 function GetSelectedExtras(Param: String): String;
 { Returns a comma-separated list of core/extras.py ids for the ticked boxes.
-  Called from the [Run] section's {code:GetSelectedExtras} reference. }
+  Called from the [Run] section's code:GetSelectedExtras reference.
+
+  A silent install (the in-app updater's /VERYSILENT) never reads the
+  boxes, whose defaults would start a 2 GB download inside every update; it
+  installs only what /EXTRAS= names, which is nothing unless a script asks. }
 var
   Packages: String;
 begin
+  if WizardSilent then
+  begin
+    Result := ExpandConstant('{param:EXTRAS|}');
+    exit;
+  end;
   Packages := '';
   if ChkSemantic.Checked then
     Packages := Packages + 'semantic,';
   if ChkVoice.Checked then
     Packages := Packages + 'voice,';
+  { One box, three extras: the page has room for three rows and no scroll, and
+    reading scanned PDFs and writing .docx are the same user's wish as
+    importing documents (the owner, 2026-09-24). }
   if ChkDocuments.Checked then
-    Packages := Packages + 'documents,';
+    Packages := Packages + 'documents,pdfpages,docx,';
   { Strip trailing comma }
   if Length(Packages) > 0 then
     Packages := Copy(Packages, 1, Length(Packages) - 1);

@@ -429,7 +429,9 @@ def _ensure_std_streams() -> None:
         return
     stream = None
     try:
-        log_dir = Path(os.environ.get("MEMORYMAP_DATA_DIR") or "data").resolve() / "logs"
+        from memorymap.core.config import resolved_data_dir
+
+        log_dir = resolved_data_dir() / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         stream = open(log_dir / "desktop-stdio.log", "a", encoding="utf-8", buffering=1)  # noqa: SIM115
     except OSError:
@@ -632,6 +634,71 @@ def _mark_start_step_done(window) -> None:
         logger.debug("couldn't tick the last step in the loading window: %s", exc)
 
 
+def _port_holder(port: int) -> str:
+    """Who has `port` on HOST: "free", "memorymap" (another copy of this
+    app, which answers `/health` with its name) or "other".
+
+    A bind first, not a connect: on Windows a connect to a closed local port
+    is retried for about two seconds before it is refused, and this runs on
+    every launch. A port that cannot be bound but does not answer (a socket
+    in TIME_WAIT, say) counts as free, since uvicorn's own bind, which sets
+    SO_REUSEADDR, will manage where this plain one did not.
+    """
+    import socket
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind((HOST, port))
+        return "free"
+    except OSError:
+        pass
+    import json
+    import urllib.request
+
+    # No proxy: a system proxy setting must never be asked about loopback.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(f"http://{HOST}:{port}/health", timeout=2) as response:
+            body = json.loads(response.read(4096).decode("utf-8", "replace"))
+    except (OSError, ValueError):
+        try:
+            with socket.create_connection((HOST, port), timeout=0.5):
+                return "other"
+        except OSError:
+            return "free"
+    if isinstance(body, dict) and body.get("app") == "MemoryMap AI":
+        return "memorymap"
+    return "other"
+
+
+def _desktop_port() -> int:
+    """The port the desktop window's server should use: `PORT`, unless
+    another program already has it.
+
+    **Why.** The window waits for *something* to answer on the port and then
+    opens it. Port 8000 is the default of half the development servers in
+    existence, and with one of them running, the MemoryMap window opened that
+    program's page, with the MemoryMap server failing to bind behind it and
+    nothing on screen saying so. Another copy of this app on the port is
+    left alone: a second launch opening a window onto the first copy's
+    server is what a second double-click has always done.
+
+    The next free port up is used instead, the same one on every launch while
+    the other program keeps 8000, because the window's saved settings belong
+    to one address (`http://127.0.0.1:<port>`): a different port each launch
+    would be a signed-out window with the default theme each time.
+    """
+    if _port_holder(PORT) != "other":
+        return PORT
+    for candidate in range(PORT + 1, min(PORT + 51, 65536)):
+        if _port_holder(candidate) == "free":
+            logger.warning(
+                "port %s belongs to another program; using %s instead", PORT, candidate
+            )
+            return candidate
+    return PORT
+
+
 def _wait_for_server_with_progress(window, timeout: float = 45.0) -> bool:
     """Same poll `_wait_for_server` does, plus pushing `startup_status`'s
     current phase to the loading window whenever it changes, see that
@@ -672,7 +739,10 @@ def _boot_and_swap(window) -> None:
     window's whole lifecycle rather than opening a second one and tearing
     down the first: simpler, and no flicker from a close/reopen.
     """
+    global PORT
     os.environ["MEMORYMAP_DESKTOP"] = "1"
+    PORT = _desktop_port()
+    os.environ["MEMORYMAP_PORT"] = str(PORT)
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
     if _wait_for_server_with_progress(window):
@@ -779,6 +849,19 @@ def _spawn_desktop(hidden: bool):
     try:
         import subprocess
 
+        if getattr(sys, "frozen", False):
+            # The packaged exe is the interpreter and the app at once: no
+            # `-m memorymap` (its argparse exits on `-m`, so Settings'
+            # Restart closed the app and nothing came back), no pythonw.exe
+            # beside it, and no console to show or hide either way.
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            return subprocess.Popen(
+                [sys.executable, "--desktop"],
+                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                close_fds=True,
+                cwd=os.getcwd(),
+            )
         if hidden:
             pythonw = _pythonw_path()
             if pythonw is None:
@@ -1114,7 +1197,9 @@ def _webview2_runtime_missing() -> bool:
             try:
                 with winreg.OpenKey(hive, subkey) as key:
                     version, _ = winreg.QueryValueEx(key, "pv")
-                    if str(version).strip():
+                    # Microsoft's page: a `pv` of "0.0.0.0" is an uninstalled
+                    # runtime whose key was left behind, like an empty one.
+                    if str(version).strip() not in ("", "0.0.0.0"):
                         return False
             except OSError:
                 continue
@@ -1395,7 +1480,9 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
 
         window.events.closing += _on_closing
 
-    storage = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve() / "webview"
+    from memorymap.core.config import resolved_data_dir
+
+    storage = resolved_data_dir() / "webview"
     storage.mkdir(parents=True, exist_ok=True)
     try:
         webview.start(  # blocks until the window closes; daemon dies with us
@@ -1887,7 +1974,9 @@ def _repair_install() -> None:
     """
     import shutil
 
-    data_dir = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve()
+    from memorymap.core.config import resolved_data_dir
+
+    data_dir = resolved_data_dir()
     storage = data_dir / "webview"
     if storage.exists():
         shutil.rmtree(storage, ignore_errors=True)

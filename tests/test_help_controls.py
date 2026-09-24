@@ -184,3 +184,90 @@ def test_every_whiteboard_tool_key_is_in_the_whiteboard_entry():
     missing = [k.upper() for k in tools + actions if not re.search(rf"\b{k.upper()}\b", listed)]
     missing += [f"Shift+{k.upper()}" for k in shifted if f"Shift+{k.upper()}" not in listed]
     assert not missing, f"the whiteboard entry's tool list does not name: {missing}"
+
+
+# --- The caps fit a controls answer -------------------------------------------
+#
+# A controls entry is long by design, and three caps were set when the
+# longest entry was a few hundred characters. Measured when the entries
+# landed: the offline answer to "what are all the whiteboard shortcuts" is
+# 1,627 characters, and the route refused any history turn over 1,000, so the
+# question *after* it failed with a 422 ("Something went wrong asking that").
+# The client also sends its whole transcript (settings.js never trims
+# `helpChatHistory`), and the route refused more than six turns, so the fifth
+# question of any conversation failed the same way.
+
+
+def _longest_offline_answer() -> str:
+    return max(
+        (help_chat.offline_answer(t["id"].replace("-", " ") + " shortcuts")["content"] for t in help_chat.HELP_TOPICS),
+        key=len,
+    )
+
+
+@pytest.mark.parametrize("route", ["/help/ask", "/help/ask/stream"])
+def test_the_question_after_a_controls_answer_is_still_answered(client, route):
+    first = client.post("/help/ask", json={"question": "what are all the whiteboard shortcuts"}).json()
+    assert len(first["content"]) > help_chat.MAX_MESSAGE_CHARS, "the case this guards is a long answer"
+    history = [
+        {"role": "user", "content": "what are all the whiteboard shortcuts"},
+        {"role": "assistant", "content": _longest_offline_answer()},
+    ]
+    response = client.post(route, json={"question": "and on the mind map?", "history": history})
+    assert response.status_code == 200, response.text
+
+
+@pytest.mark.parametrize("route", ["/help/ask", "/help/ask/stream"])
+def test_a_long_conversation_keeps_being_answered(ai_client, fake_ollama, route):
+    """Ten turns, as the panel sends them after five questions: the route
+    keeps the most recent `MAX_HISTORY_TURNS`, which is all the prompt ever
+    used, rather than refusing the question."""
+    fake_ollama.librarian_reply = "Tab adds a child."
+    history = [
+        {"role": "user" if n % 2 == 0 else "assistant", "content": f"turn {n}"} for n in range(10)
+    ]
+    response = ai_client.post(route, json={"question": "how do I add a branch?", "history": history})
+    assert response.status_code == 200, response.text
+    sent = [m["content"] for m in fake_ollama.chat_calls[-1] if m["role"] in ("user", "assistant")]
+    assert "turn 9" in sent and "turn 3" not in sent
+    assert len(sent) == help_chat.MAX_HISTORY_TURNS + 1
+
+
+def test_a_history_turn_is_still_bounded(client):
+    over = "x" * (help_chat.MAX_HISTORY_TURN_CHARS + 1)
+    response = client.post(
+        "/help/ask", json={"question": "q", "history": [{"role": "assistant", "content": over}]}
+    )
+    assert response.status_code == 422
+
+
+def test_the_history_cap_holds_the_longest_answer_the_guide_gives():
+    assert len(_longest_offline_answer()) <= help_chat.MAX_HISTORY_TURN_CHARS
+
+
+def test_the_guide_can_write_out_a_whole_controls_entry():
+    """Online, the reply cap decides whether "list the whiteboard keys" ends
+    mid-list. Four characters a token is the usual English estimate; keys and
+    punctuation run denser, so three is the conservative one."""
+    from memorymap.ai import presets
+
+    longest = max(len(t["body"]) for t in help_chat.HELP_TOPICS)
+    assert presets.resolve(presets.GUIDE_MODE).max_output_tokens >= longest / 3
+
+
+def test_both_guide_routes_answer_in_the_guide_preset(ai_client, fake_ollama, monkeypatch):
+    """`answer` asked for "quick" while `answer_stream` asked for the Guide's
+    own preset, so the fallback path had Quick's cap and no thinking."""
+    from memorymap.ai import presets
+
+    modes: list[str | None] = []
+    original = type(fake_ollama).chat
+
+    def recording(self, model, messages, mode=None):
+        modes.append(mode)
+        return original(self, model, messages, mode=mode)
+
+    monkeypatch.setattr(type(fake_ollama), "chat", recording)
+    fake_ollama.librarian_reply = "Tab adds a child."
+    assert ai_client.post("/help/ask", json={"question": "mind map keys"}).status_code == 200
+    assert modes and modes[-1] == presets.GUIDE_MODE

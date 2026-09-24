@@ -5,10 +5,12 @@ separate from `librarian.converse`/`librarian.answer`, because those two
 answer from the user's notes or hold a general conversation, and this one
 must do neither: it only explains the app. Uses the utility model (not the
 main chat model), its own system prompt, and a preset that is Quick's shape
-(low temperature, a 256-token cap) with one difference: thinking is left to
+(low temperature) with two differences: thinking is left to
 the model rather than turned off, because the panel draws the thinking while
 it happens and Quick's `think: False` made that box dead markup
-(`presets.GUIDE_MODE`, which is off the user-facing picker on purpose).
+(`presets.GUIDE_MODE`, which is off the user-facing picker on purpose), and
+the reply cap is 640 tokens rather than 256, so a controls reference listed
+in full is not cut off mid-list (INBOX 410).
 
 **The model is the utility model, and it is the utility model's own
 fallbacks that decide what that means.** `ModelManager.utility_model()`
@@ -1209,6 +1211,13 @@ _CHORD = re.compile(
 #: A tight window: this is guidance, not a conversation to reminisce in.
 MAX_HISTORY_TURNS = 6
 MAX_MESSAGE_CHARS = 1000
+#: **A history turn is the Guide's own answer handed back**, so its bound is
+#: what the Guide writes, not what a person types (INBOX 410): an offline
+#: controls answer runs past 1,600 characters, and the route refused any turn
+#: over `MAX_MESSAGE_CHARS`, so the question after one failed with a 422.
+#: The prompt still cuts each turn to `MAX_MESSAGE_CHARS` (`_prompt_for`):
+#: this bound is what the route accepts, not what the model is sent.
+MAX_HISTORY_TURN_CHARS = 4000
 #: **Where the question was asked from** (INBOX 190: "maybe give it more
 #: knowledge and capabilitie/function"). The Guide is reachable from every tab
 #: now, so "how do I do this" is asked with something specific on screen, and
@@ -1722,7 +1731,10 @@ def answer(
     #: only when a stream could not be opened, and it returns one object at the
     #: end. There is nowhere for thinking to be shown on this path, so paying
     #: a reasoning model to produce it would buy the reader nothing but a wait.
-    reply = ollama.chat(model_manager.utility_model(), messages, mode="quick")
+    #: The Guide's own preset, as `answer_stream` uses: this is the fallback
+    #: path for the same panel, and it asked for "quick" (Quick's cap, no
+    #: thinking) until INBOX 410's cap test caught the two disagreeing.
+    reply = ollama.chat(model_manager.utility_model(), messages, mode=presets.GUIDE_MODE)
     content = reply["content"].strip()
     return {
         "content": content,

@@ -4507,7 +4507,6 @@ main,
    through, with no filter. */
 .scroll-top:hover,
 .chat-jump-latest:hover {
-  filter: none;
   background: color-mix(in srgb, var(--accent) 18%, var(--modal-bg-opaque));
   border-color: var(--accent);
   color: var(--accent);
@@ -4600,7 +4599,7 @@ main,
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 #entry-list > li > .entry-content::before {

@@ -106,6 +106,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- An OpenAI-compatible backend with nothing listening at its address is
+  reported as not running, rather than as running with no models, so every
+  control that needs a model is disabled before it is pressed instead of
+  failing after.
 - An OpenAI-compatible server that streams tool calls without an `index`
   field (OpenAI always sends one; some local servers do not) no longer folds
   every call into one and loses them all: a fragment that opens a call opens

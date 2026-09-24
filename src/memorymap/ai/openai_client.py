@@ -181,9 +181,16 @@ class OpenAICompatClient(Provider):
         if self._catalog is not None and not refresh:
             return self._catalog
         catalog: list[dict] = []
+        #: Whether either endpoint answered at all, a 404 included. Kept apart
+        #: from the catalogue because "nothing is listening" and "listening,
+        #: no models installed" are different facts (WORLD_CLASS_PLAN 283):
+        #: `list_models` raises on the first, so `/models/status` stops
+        #: calling an absent backend running.
+        self._catalog_answered = False
         for url in (f"{self._origin()}/api/v0/models", f"{self.base_url}/models"):
             try:
                 response = requests.get(url, headers=self._headers(), timeout=5)
+                self._catalog_answered = True
                 response.raise_for_status()
                 entries = response.json().get("data") or []
             except (requests.RequestException, ValueError, AttributeError):
@@ -203,7 +210,13 @@ class OpenAICompatClient(Provider):
         size still gets to show it.
         """
         models = []
-        for entry in self._fetch_catalog(refresh=True):
+        catalog = self._fetch_catalog(refresh=True)
+        if not getattr(self, "_catalog_answered", True):
+            raise ProviderError(
+                f"Nothing answered at {self.base_url}. Check the address in "
+                "Settings, Models, and that the server is running."
+            )
+        for entry in catalog:
             model_id = entry.get("id") or entry.get("name")
             if not model_id:
                 continue

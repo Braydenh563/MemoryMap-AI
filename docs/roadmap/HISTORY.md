@@ -40,6 +40,35 @@ as it was placed:
     than to a collision. Owner: the models/chat agent, with a fake-transport
     test that sends two indexless calls.
 
+### From WORLD_CLASS_PLAN.md, placed from INBOX: 283, an absent backend reported as running
+
+**Fixed 2026-09-24**, as the entry recommended. `_fetch_catalog` records
+whether either endpoint answered at all (a 404 counts as an answer), and
+`list_models` raises `ProviderError` naming the address when nothing did, so
+`/models/status` reports `running: false` and `data-needs-model` disables
+the controls up front. Every caller of `list_models` already caught that
+error. Pinned by `tests/test_providers.py`
+(`test_a_backend_that_is_not_there_is_not_reported_as_running`, and its
+pair for a server that answers with no models). Not re-measured against the
+live `/models/status` on :8999; the unit pair is the proof. The entry as
+placed:
+
+283. **Found while measuring the writing desk, 2026-09-20 (WORLD_CLASS_PLAN
+    D16).** An OpenAI-dialect backend that is not there is still reported as
+    running, so every model-gated control in the app stays enabled and fails
+    only once it has been pressed, which is the exact failure
+    `data-needs-model` exists to prevent. Measured: `POST /models/provider`
+    with `base_url: http://127.0.0.1:8999/v1` (nothing listening),
+    `reload_llm_client` runs, and `GET /models/status` answers
+    `ollama_running: true` twelve seconds later with the new base_url in the
+    same body. Cause: `OpenAIClient._fetch_catalog` swallows every
+    `requests.RequestException` and returns `[]`, `list_models` then returns
+    `[]` rather than raising, and the status route decides `running` on
+    whether `list_models` raised. Recommendation: `_fetch_catalog` raises
+    `OllamaError` when no endpoint answered at all (distinct from one that
+    answered with an empty list), so "unreachable" and "no models installed"
+    stop being the same fact. Owner: the models/chat agent.
+
 ## Moved from the plans, 2026-09-23
 
 ### INBOX 400 part (1): the style-invalidation hunt, every surface (perfpolish agent, d6e9cb3)

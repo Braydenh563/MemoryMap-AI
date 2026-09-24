@@ -168,6 +168,39 @@ def test_an_unknown_model_on_a_silent_server_is_budgeted_at_the_default():
     assert c.usable_context("mystery-model") == c.DEFAULT_CONTEXT_TOKENS
 
 
+def test_a_backend_that_is_not_there_is_not_reported_as_running(monkeypatch):
+    """WORLD_CLASS_PLAN 283. `_fetch_catalog` swallowed every connection
+    error and returned `[]`, so `list_models` answered "no models" for a
+    server that is not listening, and `/models/status` (which decides
+    `running` on whether `list_models` raised) called it running. Nothing
+    answering and an empty catalogue are different facts."""
+    c = OpenAICompatClient(base_url="http://127.0.0.1:8999/v1")
+
+    def refused(url, headers=None, timeout=None):
+        raise requests.ConnectionError("refused")
+
+    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", refused)
+    with pytest.raises(ProviderError):
+        c.list_models()
+
+
+def test_a_backend_that_answers_with_no_models_is_running_and_empty(monkeypatch):
+    """The other half of 283: a server that answers (here a 404 from LM
+    Studio's extra endpoint and an empty list from `/models`) is up with no
+    models installed, which is not an error."""
+    from fakes_http import FakeResponse
+
+    c = OpenAICompatClient(base_url="http://127.0.0.1:8999/v1")
+
+    def answers(url, headers=None, timeout=None):
+        if "/api/v0/" in url:
+            return FakeResponse(status=404)
+        return FakeResponse(payload={"data": []})
+
+    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", answers)
+    assert c.list_models() == []
+
+
 def test_llama_server_props_beats_the_name_guess(monkeypatch):
     """ROADMAP.md item A.2: `llama-server`'s own `/props` reports the `-c`
     it was actually started with, which beats this app's guess-from-name

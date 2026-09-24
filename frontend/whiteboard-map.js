@@ -4543,12 +4543,12 @@ function wbPlaceMapRadial(ring, host, x, y, clear) {
   const margin = 8;
   ring.style.left = `${Math.round(x)}px`;
   ring.style.top = `${Math.round(y)}px`;
-  ring.style.removeProperty("--wb-radial-r");
   ring.style.removeProperty("--wb-radial-inner");
   ring.style.removeProperty("--wb-radial-outer");
+  ring._radial = null;
   ring.classList.remove("hidden");
   const hostRect = host.getBoundingClientRect();
-  if (!hostRect.width || !hostRect.height) return;
+  if (!hostRect.width || !hostRect.height) return { dx: 0, dy: 0 };
   wbSizeMapRadial(ring, hostRect, clear);
   wbFitMapRadialBand(ring);
   let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
@@ -4560,7 +4560,7 @@ function wbPlaceMapRadial(ring, host, x, y, clear) {
     right = Math.max(right, box.right);
     bottom = Math.max(bottom, box.bottom);
   }
-  if (!Number.isFinite(left)) return;
+  if (!Number.isFinite(left)) return { dx: 0, dy: 0 };
   //: The window, cut down to the canvas, and then cut down again by the two
   //: panels that float *over* the canvas: on screen is not the same as
   //: reachable. Measured at 1440x900: the host starts at y=128 and the map's
@@ -4606,100 +4606,186 @@ function wbPlaceMapRadial(ring, host, x, y, clear) {
   if (top + dy < loY) dy = loY - top;
   if (dx) ring.style.left = `${Math.round(x + dx)}px`;
   if (dy) ring.style.top = `${Math.round(y + dy)}px`;
+  return { dx, dy };
 }
 
-//: **Push the ring clear of the node's own box, not of its centre.**
+//: **The ring's hole holds the node, and the ring holds in the canvas.**
 //:
-//: The ring was built at a fixed 4.25rem, which is a circle of radius 68 drawn
-//: around the node's centre. A default topic measures 200 by 44 on screen, so
-//: the east and west slots landed 36px *inside* the box, over the node's text
-//: and over its own chevron, and the four diagonals cleared it by 12px. That
-//: is the report ("fix the look of the mindmap item radial"): the maths was
-//: right and the reading was wrong, because a ring centred on a node covers
-//: the node whenever the node is wider than the ring is round.
+//: The ring is a pie menu now (the owner, 2026-09-24: the buttons were "just
+//: buttons sitting ontop of" the ring), so the question this answers changed
+//: from "how far out do the tiles go" to "how big is the hole". The answer is
+//: the node: half its on-screen diagonal plus a little room, so the whole
+//: topic sits inside the hole with its corners clear. The band beyond it is a
+//: fixed thickness (`--wb-radial-band`, an icon over one line of word), so
+//: the outer edge follows.
 //:
-//: So the radius is raised per node to the one that clears its measured box:
-//: half the node's larger side, plus half a slot, plus the same 8px margin
-//: this function already keeps against every edge. The slots stay on one
-//: circle (`mapstrip.js` asserts a spread of 2px or less), the ring stays
-//: centred on the node it belongs to, and nothing about the order or the
-//: directions moves, so a person who learned where Tidy sits still finds it
-//: there.
+//: Three limits. A floor, so a one-word topic still gets sectors wide enough
+//: for their words (at the floor six 60 degree sectors are 84px across their
+//: middle); a ceiling, so a topic resized to 400px wide gets a ring round its
+//: middle rather than a hoop across the board; and the canvas, whose shorter
+//: side the whole ring must fit inside (at 390 the canvas is 364px wide,
+//: which caps the hole at 118px, above the 108px a default topic asks for).
+//: Past the ceiling or the canvas the ring overlaps the topic's ends, which is
+//: the lesser harm than a ring that does not fit.
 //:
-//: Two caps, because a radius taken from a box has no upper bound of its own:
-//: the ring may not grow past 2.5 times its base, beyond which it reads as a
-//: hoop on the canvas rather than as this node's controls (a topic resized
-//: past ~300px wide keeps its slots on its own margin instead, which is empty
-//: on a node that large), and it may not grow past what the canvas can hold.
-//:
-//: Every number here is measured, not assumed: the base radius and the slot
-//: size are read back off the live ring (the ring's own box is a zero-sized
-//: point at its anchor, so a slot centre minus that point *is* the radius),
-//: which is why this runs after the ring is shown and why a change to the
-//: stylesheet's radius or slot size needs no edit here.
+//: Without `clear` (the line ring, opened at the pointer) the stylesheet's
+//: own edges stand: there is no topic to hold.
+function wbMapRadialPx(ring, name) {
+  const raw = getComputedStyle(ring).getPropertyValue(name).trim();
+  const value = parseFloat(raw);
+  if (!Number.isFinite(value)) return 0;
+  if (raw.endsWith("rem")) return value * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+  return value;
+}
+
 function wbSizeMapRadial(ring, hostRect, clear) {
-  if (!clear || !(clear.w > 0) || !(clear.h > 0)) return;
-  const slot = ring.querySelector(".wb-map-radial-slot");
-  if (!slot) return;
-  const box = slot.getBoundingClientRect();
-  if (!box.width) return;
-  const origin = ring.getBoundingClientRect();
-  const base = Math.hypot(box.left + box.width / 2 - origin.left,
-    box.top + box.height / 2 - origin.top);
-  if (!base) return;
-  //: **The clearance is vertical, because a slot is a wide pill** (§12.5). It
-  //: used to be `max(w, h) / 2 + slotWidth / 2 + 8`, which was right for eight
-  //: 28px discs on one circle and is wrong for six 112px pills: taking the
-  //: node's *width* against the slot's width pushed the ring out to 164px
-  //: around an ordinary 200x44 topic, a hoop twice the node's own size.
-  //:
-  //: What a pill has to clear is the node's height, and the binding slot is
-  //: one of the four diagonals, whose centre sits at half the radius: so
-  //: `0.5r - slotHeight / 2 >= clear.h / 2 + 8`, which is the r below. The top
-  //: and bottom slots, at the full radius, then clear it twice over, and the
-  //: diagonals may overlap the node's *columns* without ever touching it,
-  //: which is what keeps the ring tight around a wide topic.
-  const want = clear.h + box.height + 16;
-  //: What the canvas can hold is the band's outer edge, not the radius: a
-  //: tile at a diagonal reaches further out than the radius by more than half
-  //: its own height (INBOX 410), so the reach past the radius is measured off
-  //: the placed tiles rather than assumed from one slot's height.
-  const reach = wbMapRadialBand(ring).outer - base;
-  const fits = Math.min(hostRect.width, hostRect.height) / 2 - reach - 8;
-  const r = Math.min(want, base * 2.5, Math.max(base, fits));
-  if (r > base + 1) ring.style.setProperty("--wb-radial-r", `${Math.round(r)}px`);
-}
-
-//: **The band is cut to the tiles it carries** (INBOX 410). The nearest and
-//: farthest point of every placed tile from the ring's centre, less and plus
-//: a hairline of room: so no tile overhangs the band's outer edge or dips into
-//: its hole, whatever the radius `wbSizeMapRadial` chose, the tile size the
-//: stylesheet sets, or the number of slots (six on a topic, three on a line).
-//: Read off the live boxes for the same reason the radius is: the ring's own
-//: box is a zero-sized point at its centre, so a slot's box minus that point
-//: is its true offset, and a stylesheet change needs no edit here.
-function wbMapRadialBand(ring) {
-  const origin = ring.getBoundingClientRect();
-  let inner = Infinity, outer = 0;
-  for (const slot of ring.querySelectorAll(".wb-map-radial-slot")) {
-    const r = slot.getBoundingClientRect();
-    if (!r.width) continue;
-    const nx = Math.max(r.left - origin.left, 0, origin.left - r.right);
-    const ny = Math.max(r.top - origin.top, 0, origin.top - r.bottom);
-    inner = Math.min(inner, Math.hypot(nx, ny));
-    const fx = Math.max(Math.abs(r.left - origin.left), Math.abs(r.right - origin.left));
-    const fy = Math.max(Math.abs(r.top - origin.top), Math.abs(r.bottom - origin.top));
-    outer = Math.max(outer, Math.hypot(fx, fy));
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const band = wbMapRadialPx(ring, "--wb-radial-band") || 4.5 * rem;
+  const floor = wbMapRadialPx(ring, "--wb-radial-inner") || 2.75 * rem;
+  let inner = floor;
+  if (clear && clear.w > 0 && clear.h > 0) {
+    const holds = Math.hypot(clear.w / 2, clear.h / 2) + 6;
+    inner = Math.min(Math.max(holds, 3.5 * rem), 10 * rem);
   }
-  return { inner: Number.isFinite(inner) ? inner : 0, outer };
+  const fits = Math.min(hostRect.width, hostRect.height) / 2 - 8 - band;
+  inner = Math.round(Math.max(Math.min(inner, fits), Math.min(floor, fits)));
+  ring._radial = { inner, outer: inner + band };
+  ring.style.setProperty("--wb-radial-inner", `${inner}px`);
+  ring.style.setProperty("--wb-radial-outer", `${inner + band}px`);
 }
 
+//: One sector's outline in its own square (the ring's diameter, centre at
+//: `outer, outer`): the outer arc clockwise from `a0` to `a1`, then the inner
+//: arc back. `gap` is half the hairline between neighbours, taken off each
+//: side as a *length* at each radius rather than as one angle, so the
+//: divider is as wide at the rim as at the hole; `rim` comes off both radii
+//: so the band's own colour edges the ring.
+function wbMapRadialSectorPath(inner, outer, a0, a1, gap = 0, rim = 0) {
+  const c = outer;
+  const ro = outer - rim, ri = inner + rim;
+  const go = gap / ro, gi = gap / ri;
+  const pt = (r, a) => `${(c + r * Math.cos(a)).toFixed(2)} ${(c + r * Math.sin(a)).toFixed(2)}`;
+  const large = a1 - a0 - 2 * go > Math.PI ? 1 : 0;
+  const largeIn = a1 - a0 - 2 * gi > Math.PI ? 1 : 0;
+  return `M ${pt(ro, a0 + go)} A ${ro} ${ro} 0 ${large} 1 ${pt(ro, a1 - go)}`
+    + ` L ${pt(ri, a1 - gi)} A ${ri} ${ri} 0 ${largeIn} 0 ${pt(ri, a0 + gi)} Z`;
+}
+
+//: **Cut the ring into its sectors** (the name is the one INBOX 410 gave it,
+//: when the band was cut to its tiles; now the sectors are cut to the band).
+//: Clockwise from the top, in the markup's own order, each sector centred on
+//: its direction: six at 60 degrees round a topic, three at 120 on a line.
+//: Each slot gets its wedge as a clip path and the middle of its wedge as the
+//: point its face is drawn at, both in its own square, which is the ring's
+//: square; `_sector` keeps the angles for the edge a focused sector wears and
+//: for the menu More opens beside it.
 function wbFitMapRadialBand(ring) {
-  const { inner, outer } = wbMapRadialBand(ring);
-  if (!outer) return;
-  const room = 4;
-  ring.style.setProperty("--wb-radial-inner", `${Math.max(0, Math.floor(inner - room))}px`);
-  ring.style.setProperty("--wb-radial-outer", `${Math.ceil(outer + room)}px`);
+  const { inner, outer } = ring._radial || {
+    inner: wbMapRadialPx(ring, "--wb-radial-inner") || 44,
+    outer: (wbMapRadialPx(ring, "--wb-radial-inner") || 44) + (wbMapRadialPx(ring, "--wb-radial-band") || 56),
+  };
+  ring._radial = { inner, outer };
+  const slots = [...ring.querySelectorAll(".wb-map-radial-slot")];
+  const n = slots.length;
+  if (!n) return;
+  const step = (2 * Math.PI) / n;
+  //: The band's middle. The band is 4.5rem rather than the 3.5 an icon over a
+  //: word needs, because on the four slanted sectors of six a word lies across
+  //: the band, not along it: measured at 3.5 and 4rem, "Add beside" put a
+  //: corner into the hole and "Cross-link" one past the rim (6.4px at worst).
+  const mid = (inner + outer) / 2;
+  slots.forEach((slot, i) => {
+    const at = -Math.PI / 2 + i * step;
+    const a0 = at - step / 2, a1 = at + step / 2;
+    slot.style.clipPath = `path("${wbMapRadialSectorPath(inner, outer, a0, a1, 0.75, 1)}")`;
+    slot.style.setProperty("--wb-sector-x", `${(outer + mid * Math.cos(at)).toFixed(1)}px`);
+    slot.style.setProperty("--wb-sector-y", `${(outer + mid * Math.sin(at)).toFixed(1)}px`);
+    slot._sector = { a0, a1, at, inner, outer };
+  });
+  wbMarkMapRadialSector(ring, null);
+}
+
+//: **The edge on the sector the keyboard is on.** An outline on a clipped
+//: button is clipped with everything else outside its wedge, so the ring
+//: draws the focused sector's edge itself: one SVG path over the sectors,
+//: made the first time and rewritten per focus. Hover gets the fill alone,
+//: which is what a pointer needs; the keyboard gets the fill and the edge.
+function wbMarkMapRadialSector(ring, slot) {
+  let svg = ring.querySelector(".wb-map-radial-edge");
+  if (!svg) {
+    svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "wb-map-radial-edge");
+    svg.setAttribute("aria-hidden", "true");
+    svg.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "path"));
+    ring.insertBefore(svg, ring.querySelector(".wb-map-radial-caption"));
+  }
+  const s = slot?._sector;
+  const path = svg.firstChild;
+  if (!s) {
+    path.removeAttribute("d");
+    return;
+  }
+  const size = s.outer * 2;
+  svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+  path.setAttribute("d", wbMapRadialSectorPath(s.inner, s.outer, s.a0, s.a1, 0.75, 2));
+  svg.classList.toggle("wb-map-radial-edge-danger", slot.classList.contains("wb-map-radial-danger"));
+}
+
+//: A sector's own box in the window, from its angles rather than from the
+//: button's rect, which is the whole ring's square for every sector. Sampled
+//: along both arcs and at both edges, which is exact enough for placing a
+//: menu beside it and cannot be fooled by the clip.
+function wbMapRadialSectorRect(slot) {
+  const s = slot?._sector;
+  const ring = slot?.closest(".wb-map-radial");
+  if (!s || !ring) return null;
+  const o = ring.getBoundingClientRect();
+  if (!o.width && !o.height && !o.left && !o.top) return null;
+  let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  for (let k = 0; k <= 12; k++) {
+    const a = s.a0 + ((s.a1 - s.a0) * k) / 12;
+    for (const r of [s.inner, s.outer]) {
+      const x = o.left + r * Math.cos(a), y = o.top + r * Math.sin(a);
+      left = Math.min(left, x); right = Math.max(right, x);
+      top = Math.min(top, y); bottom = Math.max(bottom, y);
+    }
+  }
+  return { left, top, right, bottom, width: right - left, height: bottom - top, outward: Math.cos(s.at) < 0 ? "left" : "right" };
+}
+
+//: **Arrows walk the ring** (the brief: arrows move between sectors, Enter
+//: activates, Escape closes). Right and Down go clockwise, Left and Up
+//: back, Home and End to the first and last; a disabled sector is stepped
+//: over. `role="toolbar"` already promises this: a toolbar is walked with
+//: the arrows and left with Tab.
+function wbMapRadialStep(ring, from, delta) {
+  const slots = [...ring.querySelectorAll(".wb-map-radial-slot")];
+  const live = slots.filter((s) => !s.disabled);
+  if (!live.length) return null;
+  if (delta === "first") return live[0];
+  if (delta === "last") return live[live.length - 1];
+  let i = slots.indexOf(from);
+  for (let k = 0; k < slots.length; k++) {
+    i = (i + delta + slots.length) % slots.length;
+    if (!slots[i].disabled) return slots[i];
+  }
+  return null;
+}
+
+//: The sector nearest a direction, for the first arrow pressed with the ring
+//: open and the focus still on the canvas: Up goes to the top sector, Right to
+//: the one nearest three o'clock, and so on, which is what pointing with a key
+//: at a pie means.
+function wbMapRadialToward(ring, key) {
+  const want = { ArrowUp: -Math.PI / 2, ArrowRight: 0, ArrowDown: Math.PI / 2, ArrowLeft: Math.PI }[key];
+  if (want === undefined) return null;
+  let best = null, bestGap = Infinity;
+  for (const slot of ring.querySelectorAll(".wb-map-radial-slot")) {
+    if (slot.disabled || !slot._sector) continue;
+    const d = Math.abs(Math.atan2(Math.sin(slot._sector.at - want), Math.cos(slot._sector.at - want)));
+    if (d < bestGap - 1e-6) { best = slot; bestGap = d; }
+  }
+  return best;
 }
 
 //: The node whose ring is open wears a class while it is open, because two of
@@ -4717,6 +4803,10 @@ function wbMarkMapRadialNode(id) {
 function wbCloseMapRadial() {
   const ring = document.getElementById("wb-map-radial");
   if (!ring || ring.classList.contains("hidden")) return;
+  //: A sector that held the focus is about to be hidden, and a hidden
+  //: element hands the focus to `body`, where no board key reaches: the board
+  //: takes it back, so the next Tab or Enter still acts on the topic.
+  if (ring.contains(document.activeElement)) document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
   ring.classList.add("hidden");
   wbMapRadialFor = null;
   wbSyncMapRadialAlt(false);
@@ -4777,10 +4867,21 @@ function wbOpenMapRadial(node) {
   //: The node's box on screen, not on the board: the slots are a fixed size in
   //: px whatever the zoom, so what the ring has to clear is what the node
   //: measures at the zoom in force.
-  wbPlaceMapRadial(ring, host, cx, cy, {
+  const shift = wbPlaceMapRadial(ring, host, cx, cy, {
     w: (box.maxX - box.minX) * t.k,
     h: (box.maxY - box.minY) * t.k,
   });
+  //: **The topic goes with its ring.** A ring slid in from an edge is a ring
+  //: whose hole no longer holds its topic, and the hole is the point of a pie
+  //: (measured on a map's first topic, under the top bar: slid 118px down,
+  //: the topic was behind the Add child sector). So the board pans by the
+  //: same amount, once, and the topic is in the middle of the hole wherever
+  //: it was on screen. Not animated: the ring is already drawn at the end
+  //: position, and a board easing towards it would be a topic sliding
+  //: through its own ring.
+  if (shift && (shift.dx || shift.dy)) {
+    d3.select(container).call(wbZoom.translateBy, shift.dx / t.k, shift.dy / t.k);
+  }
   wbSyncMapRadialAlt(false);
   const collapse = document.getElementById("wb-radial-collapse");
   if (collapse) {
@@ -5070,6 +5171,7 @@ let wbMapLinkRadialCross = null;
 function wbCloseMapLinkRadial() {
   const ring = document.getElementById("wb-map-link-radial");
   if (!ring || ring.classList.contains("hidden")) return;
+  if (ring.contains(document.activeElement)) document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
   ring.classList.add("hidden");
   wbMapLinkRadialFor = null;
   wbMapLinkRadialCross = null;

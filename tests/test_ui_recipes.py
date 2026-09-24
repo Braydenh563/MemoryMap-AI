@@ -627,6 +627,30 @@ def test_the_radial_band_is_cut_to_its_tiles() -> None:
     assert "wbFitMapRadialBand(ring)" in place, "placing a ring must fit its band"
 
 
+def test_the_radial_is_one_ring_cut_into_sectors() -> None:
+    """Each action is a sector of the ring, not a button laid on a band.
+
+    The owner, 2026-09-24: "the radial buttons are still clearly separate, I
+    want them to be part of the radial, not just buttons sitting ontop of
+    it". A slot is a button the size of the ring, clipped to its wedge by the
+    path `wbFitMapRadialBand` writes; its face sits at the wedge's middle; the
+    ring's own keys walk the sectors. A rule that goes back to sizing a slot
+    as a tile, or a fit that stops writing the clip, is the old ring again.
+    """
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    js = "".join((ROOT / "frontend" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
+    slot = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial .wb-map-radial-slot"]
+    assert slot, "the sector rule is gone"
+    assert "calc(var(--wb-radial-outer) * 2)" in slot[0], "a sector is the whole ring's square, clipped"
+    fit = js.split("function wbFitMapRadialBand(", 1)[1].split("\n}\n", 1)[0]
+    assert "slot.style.clipPath" in fit and "wbMapRadialSectorPath" in fit, "the fit must cut each slot to its sector"
+    assert "--wb-sector-x" in fit and "--wb-sector-y" in fit, "the fit must place each face at its sector's middle"
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    slots = html.count("wb-map-radial-slot")
+    assert slots and html.count('class="wb-map-radial-face"') == slots, "every sector draws its icon and word in a face"
+    assert 'ring.addEventListener("keydown"' in js, "the ring must answer its own arrows, Enter and Escape"
+
+
 def test_the_radial_is_a_toolbar_rather_than_a_menu() -> None:
     """A ring claims the role a screen reader can do something with.
 

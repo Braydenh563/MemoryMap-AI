@@ -4,8 +4,18 @@
 //
 // A small map, a right-click on a topic (the ring), a real click on More.
 // Pass means the node menu is open, on top at its middle, and its nearest
-// edge is within 8px of the More button's box, at three window sizes and
+// edge is within 8px of the More sector's box, at three window sizes and
 // with the topic in three places on screen (left, centre, near the right).
+//
+// **The More sector, not the More button** (the pie menu, 2026-09-24, and
+// the owner the same day: "I clicked the more button on a mind map node and
+// it appeared ip the top left middle section"). Every sector is a button the
+// size of the whole ring, clipped to its wedge, so the button's own rect is
+// the ring's square: its centre is the hole, and a menu "beside" it is beside
+// the ring. The click goes to the middle of the More wedge and the gap is
+// measured to the wedge's own box (`wbMapRadialSectorRect`). The keyboard
+// door is checked too: the focus on More, Enter, the same menu in the same
+// place (Enter used to reach the board and add a topic instead).
 //
 //   BASE=http://127.0.0.1:8795 SCRATCH=/tmp/mm PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     node scratchpad/ui-sweeps/mapradialmore.js
@@ -61,8 +71,11 @@ function gap(a, b) {
       await page.waitForTimeout(400);
       const more = await page.evaluate(() => {
         const b = document.getElementById("wb-radial-more");
-        const r = b?.getBoundingClientRect();
-        return r && r.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+        const s = b?._sector;
+        const o = b?.closest(".wb-map-radial")?.getBoundingClientRect();
+        if (!s || !o) return null;
+        const m = (s.inner + s.outer) / 2;
+        return { x: o.left + m * Math.cos(s.at), y: o.top + m * Math.sin(s.at) };
       });
       const tag = `${vw}x${vh} topic ${where}`;
       if (!more) { check(`${tag}: the ring opened with More`, false); continue; }
@@ -70,7 +83,7 @@ function gap(a, b) {
       await page.waitForTimeout(400);
       const m = await page.evaluate(() => {
         const menu = document.querySelector(".wb-ctx-menu");
-        const btn = document.getElementById("wb-radial-more").getBoundingClientRect();
+        const btn = wbMapRadialSectorRect(document.getElementById("wb-radial-more"));
         if (!menu) return { none: true };
         const r = menu.getBoundingClientRect();
         const at = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(20, r.height / 2));
@@ -83,6 +96,49 @@ function gap(a, b) {
       const fmt = (b) => `${Math.round(b.left)},${Math.round(b.top)} to ${Math.round(b.right)},${Math.round(b.bottom)}`;
       check(`${tag}: More opens the menu on top`, m.open && m.onTop, `open ${m.open}, on top ${m.onTop}`);
       check(`${tag}: the menu is beside More`, m.open && g <= 8 && m.fits, `gap ${g}px; menu ${fmt(m.menu)}, More ${fmt(m.btn)}`);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(150);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(200);
+      if (where !== "centre") continue;
+      // The keyboard door: the ring again, the focus on More, Enter.
+      await page.mouse.click(pt.x, pt.y, { button: "right" });
+      await page.waitForTimeout(400);
+      await page.evaluate(() => document.getElementById("wb-radial-more").focus());
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(400);
+      const k = await page.evaluate(() => {
+        const menu = document.querySelector(".wb-ctx-menu");
+        const r = menu?.getBoundingClientRect();
+        const s = wbMapRadialSectorRect(document.getElementById("wb-radial-more"));
+        return { open: Boolean(menu && !menu.classList.contains("hidden") && r.height), menu: r && { left: r.left, right: r.right, top: r.top, bottom: r.bottom }, btn: s,
+          topics: wbMapIndex().nodes.length };
+      });
+      check(`${tag}: Enter on More opens the same menu beside it`, k.open && gap(k.menu, k.btn) <= 8 && k.topics === 4,
+        `open ${k.open}, gap ${k.open ? gap(k.menu, k.btn) : "-"}px, topics ${k.topics} (4 means Enter added none)`);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(150);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(200);
+      // The corner: More pressed with nothing measurable left to hang from
+      // (the ring's box gone, a click at 0,0, as a keyboard click carries).
+      // This is the route that clamped to 8,8, over the tab bar.
+      await page.mouse.click(pt.x, pt.y, { button: "right" });
+      await page.waitForTimeout(400);
+      const c = await page.evaluate(() => {
+        const ring = document.getElementById("wb-map-radial");
+        ring.classList.add("hidden");
+        document.getElementById("wb-radial-more").dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        const menu = document.querySelector(".wb-ctx-menu");
+        const r = menu.getBoundingClientRect();
+        const id = wbMapIndex().roots[0].id;
+        const n = document.querySelector(`.wb-object[data-id="${id}"]`).getBoundingClientRect();
+        ring.classList.remove("hidden");
+        return { open: !menu.classList.contains("hidden"), menu: { left: r.left, right: r.right, top: r.top, bottom: r.bottom }, node: { left: n.left, right: n.right, top: n.top, bottom: n.bottom } };
+      });
+      check(`${tag}: More with no box to hang from opens by its topic, not in the corner`,
+        c.open && !(c.menu.left <= 8.5 && c.menu.top <= 8.5) && gap(c.menu, c.node) <= 8,
+        `menu at ${Math.round(c.menu.left)},${Math.round(c.menu.top)}, gap to the topic ${gap(c.menu, c.node)}px`);
       await page.keyboard.press("Escape");
       await page.waitForTimeout(150);
       await page.keyboard.press("Escape");

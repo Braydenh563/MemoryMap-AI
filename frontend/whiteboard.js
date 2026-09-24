@@ -4566,10 +4566,31 @@ function wbOpenMapNodeMenu(node, clientX, clientY, opener = null) {
   const size = menu.getBoundingClientRect();
   let left = clientX;
   let top = clientY;
-  const anchor = opener?.getBoundingClientRect();
+  let anchor = typeof opener?.getBoundingClientRect === "function" ? opener.getBoundingClientRect() : opener;
+  //: **Never the window's corner** (the owner, 2026-09-24: "I clicked the
+  //: more button on a mind map node and it appeared ip the top left middle
+  //: section"). Every route to the corner was one where nothing measurable
+  //: was left to hang the menu from: an opener with no box (a sector read
+  //: while its ring was hidden, or a button whose rect is the whole ring) and
+  //: a point of 0,0, which is what a click made from the keyboard carries and
+  //: what the ring's own zero-sized box gives once hidden. The clamp below
+  //: then turned 0,0 into 8,8, over the tab bar. So a missing anchor falls
+  //: back to the topic's own box, which is always on screen when its menu is
+  //: asked for, and the corner is no longer a place this menu can open.
+  if (!(anchor && anchor.width) && !(clientX > 0 || clientY > 0)) {
+    const el = document.querySelector(`.wb-object[data-id="${node.id}"]`);
+    const box = el?.getBoundingClientRect();
+    anchor = box && box.width ? box : null;
+  }
   if (anchor && anchor.width) {
+    //: The side the sector faces first (a sector on the ring's left half
+    //: opens its menu leftward, away from the ring and the topic in its
+    //: hole), then the other side, then clamped.
     const right = anchor.right + gap;
-    left = right + size.width <= window.innerWidth - margin ? right : anchor.left - gap - size.width;
+    const leftSide = anchor.left - gap - size.width;
+    const fitsRight = right + size.width <= window.innerWidth - margin;
+    const fitsLeft = leftSide >= margin;
+    left = anchor.outward === "left" ? (fitsLeft || !fitsRight ? leftSide : right) : (fitsRight || !fitsLeft ? right : leftSide);
     top = anchor.top;
   }
   left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - size.width - margin));
@@ -4652,6 +4673,25 @@ document.addEventListener("keydown", (e) => {
   // the moment it goes down. `e.altKey` rather than `e.key === "Alt"` so the
   // ring is right even when Alt arrives with another key held.
   if (wbMapRadialFor != null) wbSyncMapRadialAlt(e.altKey);
+  //: **An arrow with a ring open goes into the ring** (the pie menu): the
+  //: sector nearest that direction takes the focus, and from there the ring's
+  //: own keys walk it. Before the board's handler, which would otherwise walk
+  //: the tree and leave the ring open about a topic no longer selected. Not
+  //: while typing, and not with a modifier (Alt+arrow and friends belong to
+  //: whoever has them).
+  if (e.key.startsWith("Arrow") && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    const open = [...document.querySelectorAll(".wb-map-radial:not(.hidden)")][0];
+    const active = document.activeElement;
+    const typing = active && (active.isContentEditable || /^(input|textarea|select)$/i.test(active.tagName));
+    if (open && !typing && !open.contains(active)) {
+      const to = wbMapRadialToward(open, e.key);
+      if (to) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        to.focus();
+      }
+    }
+  }
 });
 document.addEventListener("keyup", (e) => {
   if (wbMapRadialFor != null) wbSyncMapRadialAlt(e.altKey);
@@ -6676,8 +6716,55 @@ async function initWhiteboard() {
     caption.textContent = caption.dataset.rest || "";
     ring.addEventListener("pointerover", (event) => say(event.target));
     ring.addEventListener("pointerout", clear);
-    ring.addEventListener("focusin", (event) => say(event.target));
-    ring.addEventListener("focusout", clear);
+    ring.addEventListener("focusin", (event) => {
+      say(event.target);
+      const slot = event.target?.closest?.(".wb-map-radial-slot");
+      if (slot?.matches(":focus-visible")) wbMarkMapRadialSector(ring, slot);
+    });
+    ring.addEventListener("focusout", () => {
+      clear();
+      wbMarkMapRadialSector(ring, null);
+    });
+    //: **The ring's own keys** (the pie menu, 2026-09-24): the arrows walk
+    //: the sectors, Enter or Space runs the one in hand, Escape closes the
+    //: ring and puts the focus back on the board. Handled here and stopped
+    //: here, because every one of these keys means something else to the
+    //: board's own handler on the document: Enter adds a topic beside,
+    //: Escape drops the selection, the arrows walk the tree, and Tab adds a
+    //: child, so Tab is only stopped (the browser still moves the focus on,
+    //: out of the toolbar, which is what Tab does in one).
+    ring.addEventListener("keydown", (event) => {
+      const slot = event.target?.closest?.(".wb-map-radial-slot");
+      if (!slot) return;
+      const to = {
+        ArrowRight: () => wbMapRadialStep(ring, slot, 1),
+        ArrowDown: () => wbMapRadialStep(ring, slot, 1),
+        ArrowLeft: () => wbMapRadialStep(ring, slot, -1),
+        ArrowUp: () => wbMapRadialStep(ring, slot, -1),
+        Home: () => wbMapRadialStep(ring, slot, "first"),
+        End: () => wbMapRadialStep(ring, slot, "last"),
+      }[event.key];
+      if (event.key === "Tab") {
+        event.stopPropagation();
+        return;
+      }
+      if (to) {
+        to()?.focus();
+      } else if (event.key === "Enter" || event.key === " ") {
+        //: A click the slot's own handler reads exactly as a pointer's,
+        //: Alt included: Alt+Enter on Add child removes the branch, as
+        //: Alt+click does.
+        slot.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, altKey: event.altKey }));
+      } else if (event.key === "Escape") {
+        if (ring.id === "wb-map-radial") wbCloseMapRadial();
+        else wbCloseMapLinkRadial();
+        document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+      } else {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    });
   }
   //: The node radial (§12.1 item 3). Each slot reads the node the ring was
   //: opened for, acts, and closes: a ring that stayed open over a map that has
@@ -6729,9 +6816,16 @@ async function initWhiteboard() {
     //: menu opens beside its More button rather than over the ring (see
     //: `wbOpenMapNodeMenu`); picking anything, or Escape, or a click
     //: elsewhere, closes both.
-    const x = box ? box.right + 8 : event.clientX || 0;
-    const y = box ? box.top : event.clientY || 0;
-    wbOpenMapNodeMenu(node, x, y, event.currentTarget);
+    //: The ring's own box is a zero-sized point at its centre, so "laid out"
+    //: is a position, not a size; a hidden ring reads 0,0, which is no point
+    //: at all (see `wbOpenMapNodeMenu`'s fallback).
+    const laid = box && (box.left || box.top);
+    const x = laid ? box.right + 8 : event.clientX || 0;
+    const y = laid ? box.top : event.clientY || 0;
+    //: The More *sector's* box, not the button's: every sector is a button
+    //: the size of the whole ring, clipped to its wedge, so the button's own
+    //: rect is the ring's square and a menu hung from it hung from the ring.
+    wbOpenMapNodeMenu(node, x, y, wbMapRadialSectorRect(event.currentTarget) || event.currentTarget);
   });
 
   //: The link ring (§12.1 item 4). Same shape as the node ring's slots, one

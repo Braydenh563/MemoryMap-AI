@@ -5591,7 +5591,7 @@ function entryOverflowMenu(entry) {
       {
         label: "ph:download-simple Download .md",
         title: "Save a copy of this note as a markdown file",
-        run: () => window.open(`/entries/${entry.id}/export.md`, "_blank"),
+        run: () => downloadFromApi(`/entries/${entry.id}/export.md`, "note.md"),
       },
     ];
 
@@ -8348,7 +8348,12 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
       }
       if (cache[kind]) return cache[kind];
       const source = available.find((s) => s.kind === kind);
-      const rows = await apiJson(source.path, { silent: true }).catch(() => []);
+      //: The gallery is paged (tests/test_gallery_paging.py); the other
+      //: sources answer in one response.
+      const read = source.path === "/files/gallery"
+        ? apiPagedList(source.path, 200, { silent: true })
+        : apiJson(source.path, { silent: true });
+      const rows = await read.catch(() => []);
       const list = Array.isArray(rows) ? rows : rows.documents || [];
       cache[kind] = source.keep ? list.filter(source.keep) : list;
       return cache[kind];
@@ -21151,9 +21156,9 @@ async function notePickerRows(source) {
     return notePickerCache.maps;
   }
   const path = source === "documents" ? "/documents" : source === "files" ? "/files/gallery" : "/media";
-  //: `/documents` and `/media` are paged; `/files/gallery` is not, and reading
-  //: to the end through `apiPagedList` is correct either way (an unpaged
-  //: endpoint returns everything on the first request and the loop stops).
+  //: All three are paged, and reading to the end through `apiPagedList` is
+  //: correct for each (an unpaged endpoint would return everything on the
+  //: first request and the loop would stop).
   //: A picker that silently cannot reach half the library is worse than a
   //: slow one.
   const rows = await apiPagedList(path, 200).catch(() => []);
@@ -21170,7 +21175,7 @@ async function notePickerRows(source) {
   //: picker's Images list silently omits every picture that arrived through a
   //: note rather than through an upload.
   if (source === "images") {
-    const attachments = await apiJson("/files/gallery").catch(() => []);
+    const attachments = await apiPagedList("/files/gallery", 200).catch(() => []);
     list = [
       ...list,
       ...(Array.isArray(attachments) ? attachments : []).filter((row) =>
@@ -26339,6 +26344,23 @@ function blobToBase64(blob) {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
+}
+
+//: A download from a locked route. `window.open(path)` is a navigation and
+//: sends no `X-Auth-Token` (only `fetch` can), so on any notebook with a
+//: password it opened a tab reading "Locked: unlock first" instead of the
+//: file (tests/test_locked_downloads.py). The server's own
+//: `Content-Disposition` names the file when it sends one, since it knows the
+//: real extension; `fallbackName` covers a route that does not.
+async function downloadFromApi(path, fallbackName) {
+  try {
+    const response = await api(path);
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const named = /filename="([^"]+)"/i.exec(disposition);
+    await saveFile(named ? named[1] : fallbackName, await response.blob());
+  } catch (error) {
+    if (!error?.isLockout) toast(error.message || "Couldn't download that.", true);
+  }
 }
 
 // Save a Blob under `filename`. Resolves once the file is somewhere the user

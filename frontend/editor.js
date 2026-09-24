@@ -1171,7 +1171,7 @@ async function editorLoadFiles() {
     //: offer. A picker missing a file is a file you cannot insert, with
     //: nothing on screen to say it exists.
     apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => []),
-    apiJson("/files/gallery", { silent: true }).catch(() => []),
+    apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []),
   ]);
   const rows = [
     ...(Array.isArray(media) ? media : []).map((row) => ({ ...row, _isAttachment: false })),

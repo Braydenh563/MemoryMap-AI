@@ -111,6 +111,25 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The attachment gallery answers a page of 200 rather than 1,000 by default,
+  and every reader of it (the Library's Files and Images, the pickers, the
+  editor's file list) reads to the end page by page, so a large notebook's
+  files are neither cut off nor sent in one response.
+- Download .md on a note card and on the Library's note and document cards
+  saves the file on a notebook with a password; it opened a tab reading
+  "Locked: unlock first", because a new tab sends no sign-in token.
+- The dashboard's Most used widget says, in the widget picker, that it lists
+  the notes you open and ask about most; it promised categories and tags,
+  which is the Top tags widget.
+- An OpenAI-compatible backend with nothing listening at its address is
+  reported as not running, rather than as running with no models, so every
+  control that needs a model is disabled before it is pressed instead of
+  failing after.
+- An OpenAI-compatible server that streams tool calls without an `index`
+  field (OpenAI always sends one; some local servers do not) no longer folds
+  every call into one and loses them all: a fragment that opens a call opens
+  the next bucket and a nameless one continues the last, so an omitted index
+  degrades to arrival order rather than to a collision.
 - A question reopened from Ask history keeps its numbered records and no longer
   repeats them in a Sources box; the records column's facts have a word's gap.
 - The skill logs fold to a rail beside the skills and remember it.

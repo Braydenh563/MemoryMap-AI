@@ -239,19 +239,14 @@ class AttachmentGalleryOut(BaseModel):
     pages_read: int = 0
 
 
-#: The gallery's page. **The default is the maximum, deliberately, and it is
-#: the only list here where that is true.** The bound is what WORLD_CLASS_PLAN
-#: F2 asks for: the response no longer grows with the notebook. A *small*
-#: default would be better still, and is not taken yet, because five callers
-#: read this endpoint whole through `apiJson` (`app.js` 17875, `editor.js`
-#: 870, `library.js` 3767 and 5403, and the Files picker source at `app.js`
-#: 7073), one of them the Library's own Files sub-tab. Shipping a 200-row
-#: default before those move to `apiPagedList` would silently truncate the
-#: Library at two hundred attachments, which is a worse bug than the one
-#: being fixed. `X-Total-Count` is sent so the paged caller that already
-#: exists (`app.js` 17861) reads to the end, and INBOX 195 carries the
-#: frontend half: once the five move, this default drops to 200.
-GALLERY_PAGE_SIZE = 1000
+#: The gallery's page (WORLD_CLASS_PLAN F2): the response no longer grows with
+#: the notebook. The default was the maximum until 2026-09-24, because five
+#: callers read this endpoint whole through `apiJson`, one of them the
+#: Library's own Files sub-tab, and a 200-row default under them would have
+#: cut the Library off at two hundred attachments. They read to the end
+#: through `apiPagedList` now, by `X-Total-Count`, and
+#: `tests/test_gallery_paging.py` fails on a caller that reads one page.
+GALLERY_PAGE_SIZE = 200
 GALLERY_PAGE_SIZE_MAX = 1000
 
 

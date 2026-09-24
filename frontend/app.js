@@ -16000,9 +16000,27 @@ function renderChatEmptyState() {
   // turn says so. Stills itself under Settings → Appearance → reduced motion.
   renderEmblem(emblem, 52, { animate: true }); // after insertion: see addAssistantBubble
   fitChatEmpty();
+  //: **Watched, but never from inside the observer's own callback** (the
+  //: owner's log, 2026-09-24: "ResizeObserver loop completed with undelivered
+  //: notifications", many a second, with the web panel opened and widened).
+  //: The callback only notes the pane's new size; the fit runs on the next
+  //: frame, only for a change of 2px or more, and flips the welcome at most
+  //: once in 500ms, so no arrangement of panes can make it chase itself.
   if (!fitChatEmpty.watching && typeof ResizeObserver === "function") {
     fitChatEmpty.watching = true;
-    new ResizeObserver(() => fitChatEmpty()).observe(box);
+    let last = { w: 0, h: 0 };
+    let queued = false;
+    new ResizeObserver((entries) => {
+      const rect = entries[entries.length - 1].contentRect;
+      if (Math.abs(rect.width - last.w) < 2 && Math.abs(rect.height - last.h) < 2) return;
+      last = { w: rect.width, h: rect.height };
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        fitChatEmpty();
+      });
+    }).observe(box);
   }
 }
 
@@ -31556,6 +31574,9 @@ function fitChatEmpty() {
   const full = short ? Number(empty.dataset.fullHeight || 0) + (now - Number(empty.dataset.shortHeight || now)) : now;
   const want = room + 4 < full ? true : room >= full + 4 ? false : short;
   if (want === short) return;
+  const now2 = performance.now();
+  if (now2 - (fitChatEmpty.lastFlip || 0) < 500) return;
+  fitChatEmpty.lastFlip = now2;
   if (want) {
     empty.dataset.fullHeight = String(full);
     empty.classList.add("is-short");

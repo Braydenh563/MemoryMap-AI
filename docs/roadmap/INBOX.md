@@ -44,8 +44,12 @@ with its owner named in the entry.
     dismiss gives one flip, not a loop). The one self-feeding path found is
     fixed: `fitChatEmpty` took its own class off to measure inside a
     ResizeObserver; it now reads stored heights with 4px hysteresis, and
-    `#chat-messages` keeps a stable scrollbar gutter. Open until the owner's
-    next run; the skill match being "not entirely accurate" is placed with
+    `#chat-messages` keeps a stable scrollbar gutter. Then the owner's log:
+    "ResizeObserver loop completed with undelivered notifications", many a
+    second, after opening and widening the web panel. The observer now only
+    records the size; the fit runs a frame later, for changes of 2px or more,
+    at most one flip per 500ms (`o-webpanel.js`: 0 loop errors, 1 flip across
+    a 300 to 700px drag, 0 while still). Open until the owner's next run; the skill match being "not entirely accurate" is placed with
     the documents' Check with AI rework (INBOX 410).
 
 411. **The owner, 2026-09-24, verbatim, with the board export dialog and

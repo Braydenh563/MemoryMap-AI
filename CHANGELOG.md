@@ -106,6 +106,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The dashboard's Most used widget says, in the widget picker, that it lists
+  the notes you open and ask about most; it promised categories and tags,
+  which is the Top tags widget.
 - An OpenAI-compatible backend with nothing listening at its address is
   reported as not running, rather than as running with no models, so every
   control that needs a model is disabled before it is pressed instead of

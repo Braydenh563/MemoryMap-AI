@@ -89,7 +89,7 @@ const DASH_WIDGETS = {
   //: this one what *happened*, including what Atlas or a skill changed on
   //: your behalf, which is the one thing no other widget can say.
   activity: { title: "ph:pulse Recent activity", description: "What changed in your notebook lately, and whether you, Atlas or a skill changed it.", render: renderActivityWidget },
-  "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
+  "most-used": { title: "ph:flame Most used", description: "The notes you open and ask about most often.", render: renderMostUsedWidget },
   "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections, the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },

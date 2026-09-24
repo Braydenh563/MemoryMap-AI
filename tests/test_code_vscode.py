@@ -194,3 +194,74 @@ def test_block_comment_is_in_the_palette_on_a_free_key():
     assert 'keys: "Shift+Alt+A",\n    code: true' in table
     app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert '"Shift+Alt+A"' not in app and '"Alt+Shift+A"' not in app, "Shift+Alt+A is taken in the registry"
+
+
+# --- 6. bracket pair colours and indentation guides -------------------------------
+
+_BRACKETS = """
+const fns = {
+  depths: (ext, text) => {
+    const state = stateFor(ext, text + "|");
+    const tree = CM.language.ensureSyntaxTree(state, state.doc.length, 5000);
+    return docBracketDepths(text, 0, (i) => !DOC_BRACKET_NOT_CODE.test(tree.resolveInner(i, 1).name))
+      .map(([i, d]) => text[i] + d).join(" ");
+  },
+};
+"""
+
+
+def _const(name: str) -> str:
+    text = _source()
+    start = text.index(f"const {name} = ")
+    return text[start : text.index("\n", start) + 1]
+
+
+@node
+@pytest.mark.parametrize(
+    ("ext", "text", "depths"),
+    [
+        # Nested pairs take the next tone; a closer takes its opener's.
+        ("js", "f(a[b{c}])", "(0 [1 {2 }2 ]1 )0"),
+        # A bracket in a string, a comment or a regex is not a bracket.
+        ("js", 'f("(", /[(]/)\n// (\ng()', "(0 )0 (0 )0"),
+        ("py", "x = [f(1), '(']  # (", "[0 (1 )1 ]0"),
+        ("css", 'a { b: url("(") }', "{0 (1 )1 }0"),
+        # HTML's text is prose; its script is code.
+        ("html", "<p>(a)</p>\n<script>f([1])</script>", "(0 [1 ]1 )0"),
+        # A stream mode's own string tokens count too.
+        ("c", 'int x = f("(", a[0]);', "(0 [1 ]1 )0"),
+    ],
+)
+def test_bracket_depths_skip_what_is_not_code(ext, text, depths):
+    body = _const("DOC_BRACKET_NOT_CODE") + _BRACKETS
+    assert run(["docBracketDepths"], body, [["depths", ext, text]])[0] == depths
+
+
+def test_guides_and_brackets_are_mounted_for_code_and_drawn_quietly():
+    extras = _function("docCompletionExtras")
+    assert 'docIndentGuides(CM, type.indent || "  ")' in extras and "docBracketColours(CM)" in extras
+    theme = _source().split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
+    guide = theme.split('".cm-indent-guide"', 1)[1].split("}", 1)[0]
+    assert "var(--border)" in guide
+    for k in range(3):
+        rule = theme.split(f'".cm-bracket-{k}"', 1)[1].split("}", 1)[0]
+        assert "color-mix(in srgb, var(--" in rule and "70%, var(--text))" in rule
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+@pytest.mark.parametrize(
+    ("lead", "unit", "steps"),
+    [
+        ("        ", "    ", [[0, 4], [4, 8]]),
+        ("      ", "    ", [[0, 4]]),
+        ("\t\t", "\t", [[0, 1], [1, 2]]),
+        ("  ", "  ", [[0, 2]]),
+        ("", "    ", []),
+        # Tabs and spaces mixed: each tab a step, each full run of spaces one.
+        ("\t    ", "    ", [[0, 1], [1, 5]]),
+    ],
+)
+def test_indent_steps(lead, unit, steps):
+    script = _function("docIndentSteps") + "\nconst a = JSON.parse(process.argv[1]);\nconsole.log(JSON.stringify(docIndentSteps(a[0], a[1])));\n"
+    out = subprocess.run(["node", "-e", script, json.dumps([lead, unit])], capture_output=True, text=True, check=True, timeout=60)
+    assert json.loads(out.stdout) == steps

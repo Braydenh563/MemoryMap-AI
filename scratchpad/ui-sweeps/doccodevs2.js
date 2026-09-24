@@ -128,6 +128,39 @@ const ok = (n, c, d) => {
   card = await hoverAt(18);
   ok("and the same word as text gets nothing", card === null, J(card));
 
+  // --- 6. indentation guides and bracket pair colours ------------------------------
+  await open("guides.py", "py", 'def f():\n    if x:\n        return (a[b({})], "(")\n');
+  await page.mouse.move(5, 5);
+  await page.waitForTimeout(400);
+  const guides = await page.evaluate(() => {
+    const marks = [...document.querySelectorAll(".cm-indent-guide")];
+    const step = (line, col) => {
+      const l = docCmView.state.doc.line(line);
+      return docCmView.coordsAtPos(l.from + col).left - docCmView.coordsAtPos(l.from).left;
+    };
+    const left = (el) => Math.round(el.getBoundingClientRect().left);
+    const origin = Math.round(docCmView.coordsAtPos(docCmView.state.doc.line(3).from).left);
+    return {
+      count: marks.length,
+      lefts: marks.slice(1).map((m) => left(m) - origin),
+      cols: [0, 4].map((c) => Math.round(step(3, c))),
+      ends: Math.round(marks[2].getBoundingClientRect().right) - origin,
+      code: Math.round(step(3, 8)),
+    };
+  });
+  ok("one guide per indent step: one on line 2, two on line 3", guides.count === 3, J(guides));
+  ok("each at the column its step starts", guides.lefts.length === 2 && guides.lefts.every((l, k) => Math.abs(l - guides.cols[k]) <= 1), J(guides));
+  ok("and none past where the code starts", Math.abs(guides.ends - guides.code) <= 1, J(guides));
+  const brackets = await page.evaluate(() => {
+    const colour = (k) => [...document.querySelectorAll(`.cm-bracket-${k}`)].map((e) => [e.textContent, getComputedStyle(e).color]);
+    const text = getComputedStyle(document.querySelector(".cm-content")).color;
+    return { b0: colour(0), b1: colour(1), b2: colour(2), text };
+  });
+  const tones = [brackets.b0, brackets.b1, brackets.b2].map((b) => b[0] && b[0][1]);
+  ok("pairs by depth, three tones in turn", J(brackets.b0.map((b) => b[0])) === J(["(", ")", "(", "{", "}", ")"]) && J(brackets.b1.map((b) => b[0])) === J(["[", "]"]) && J(brackets.b2.map((b) => b[0])) === J(["(", ")"]), J(brackets));
+  ok("three different tones, none the text's", new Set(tones).size === 3 && !tones.includes(brackets.text), J({ tones, text: brackets.text }));
+  ok("the ( in a string is not a bracket", brackets.b0.length + brackets.b1.length + brackets.b2.length === 10, J(brackets));
+
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`\n${good} passed, ${bad} failed`);
   await browser.close();

@@ -15047,6 +15047,18 @@ function docCmTheme(CM) {
       //: The ghost text: the rest of the chosen row after the caret, in the
       //: muted ink the placeholder uses, so it reads as offered, not typed.
       ".cm-ghostText": { color: "var(--muted)", opacity: "0.85", pointerEvents: "none" },
+      //: Indentation guides: a hairline in `--border` at the left edge of
+      //: each step of the whitespace, so it stops where the code starts.
+      ".cm-indent-guide": {
+        backgroundImage: "linear-gradient(to right, var(--border) 0 1px, transparent 1px)",
+        backgroundRepeat: "no-repeat",
+      },
+      //: Bracket pairs by depth: three of the app's own inks, each mixed a
+      //: third of the way back to the text, so the pairs are told apart
+      //: without the brackets shouting over the code between them.
+      ".cm-bracket-0": { color: "color-mix(in srgb, var(--accent) 70%, var(--text))" },
+      ".cm-bracket-1": { color: "color-mix(in srgb, var(--syntax-keyword, var(--ok)) 70%, var(--text))" },
+      ".cm-bracket-2": { color: "color-mix(in srgb, var(--warn) 70%, var(--text))" },
       //: A name's one line on hover: the name in code type, the line in the
       //: body's, the values it takes in muted ink under it.
       ".cm-hover-doc": {
@@ -17348,6 +17360,128 @@ function docHoverDocs(CM) {
   return docHoverDocsCache;
 }
 
+//: **Indentation guides** (INBOX 402): a hairline at each indent step of a
+//: line's leading whitespace, VS Code's guides. One mark per step of the
+//: whitespace (a tab, or the unit's run of spaces), each drawing a
+//: one-pixel line at its own left edge, so a guide sits exactly where the
+//: step starts whatever the face (the code face's space is not its `ch`,
+//: measured: 5.1px against 10.2px, so a background stepped in `ch` drifted
+//: a guide per level) and can never reach past the indentation into the
+//: code. Quiet on purpose: `--border`, the hairline the app uses everywhere.
+const docIndentGuideCache = new Map();
+
+//: The steps of a line's leading whitespace, as `[from, to]` columns: each
+//: tab, and each full run of `unit` spaces; a short run left over is not a
+//: step and gets no guide.
+function docIndentSteps(lead, unit) {
+  const steps = [];
+  const size = unit === "\t" ? 4 : Math.max(1, unit.length);
+  let col = 0;
+  while (col < lead.length) {
+    if (lead[col] === "\t") {
+      steps.push([col, col + 1]);
+      col += 1;
+      continue;
+    }
+    let run = 0;
+    while (col + run < lead.length && lead[col + run] === " " && run < size) run += 1;
+    if (run < size) break;
+    steps.push([col, col + run]);
+    col += run;
+  }
+  return steps;
+}
+
+function docIndentGuides(CM, unit) {
+  if (docIndentGuideCache.has(unit)) return docIndentGuideCache.get(unit);
+  const { Decoration, ViewPlugin } = CM.view;
+  const mark = Decoration.mark({ class: "cm-indent-guide" });
+  const build = (view) => {
+    const found = [];
+    for (const { from, to } of view.visibleRanges) {
+      for (let pos = from; pos <= to; ) {
+        const line = view.state.doc.lineAt(pos);
+        const lead = /^[ \t]*/.exec(line.text)[0];
+        for (const [a, b] of docIndentSteps(lead, unit)) found.push(mark.range(line.from + a, line.from + b));
+        pos = line.to + 1;
+      }
+    }
+    return Decoration.set(found);
+  };
+  const plugin = ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.decorations = build(view);
+      }
+      update(update) {
+        if (update.docChanged || update.viewportChanged) this.decorations = build(update.view);
+      }
+    },
+    { decorations: (p) => p.decorations }
+  );
+  docIndentGuideCache.set(unit, plugin);
+  return plugin;
+}
+
+//: **Bracket pair colours** (INBOX 402): `()`, `[]` and `{}` coloured by how
+//: deep they sit, three tones in turn, VS Code's colouriser. A bracket inside
+//: a string, a comment, a regular expression or HTML's text is not a bracket
+//: and is left alone: the tree says which, for the full grammars and for the
+//: stream modes alike (their tokens are named `string` and `comment`). The
+//: depth is counted from the top of the file to the end of what is shown, so
+//: it is right wherever the view scrolls to; past the checker's own size cap
+//: it is not worth a keystroke and nothing is coloured.
+const DOC_BRACKET_NOT_CODE = /String|string|Comment|comment|RegExp|regexp|^Text$|AttributeValue|^Escape$|^meta$/;
+
+//: `[position, depth]` for each bracket of `text` from `start` on, the depth
+//: counted from the top; `inCode(i)` says whether position `i` is code.
+function docBracketDepths(text, start, inCode) {
+  const found = [];
+  let depth = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const open = "([{".indexOf(text[i]);
+    const close = open < 0 ? ")]}".indexOf(text[i]) : -1;
+    if (open < 0 && close < 0) continue;
+    if (!inCode(i)) continue;
+    if (close >= 0) depth = Math.max(0, depth - 1);
+    if (i >= start) found.push([i, depth]);
+    if (open >= 0) depth += 1;
+  }
+  return found;
+}
+
+let docBracketColourCache = null;
+
+function docBracketColours(CM) {
+  if (docBracketColourCache) return docBracketColourCache;
+  const { Decoration, ViewPlugin } = CM.view;
+  const marks = [0, 1, 2].map((k) => Decoration.mark({ class: `cm-bracket-${k}` }));
+  const build = (view) => {
+    const ranges = view.visibleRanges;
+    if (!ranges.length) return Decoration.none;
+    const end = ranges[ranges.length - 1].to;
+    if (end > DOC_CHECK_MAX_CHARS) return Decoration.none;
+    const tree = CM.language.syntaxTree(view.state);
+    const inCode = (i) => !DOC_BRACKET_NOT_CODE.test(tree.resolveInner(i, 1).name);
+    const found = docBracketDepths(view.state.sliceDoc(0, end), ranges[0].from, inCode);
+    return Decoration.set(found.map(([i, depth]) => marks[depth % 3].range(i, i + 1)));
+  };
+  docBracketColourCache = ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.decorations = build(view);
+      }
+      update(update) {
+        if (update.docChanged || update.viewportChanged || CM.language.syntaxTree(update.startState) !== CM.language.syntaxTree(update.state)) {
+          this.decorations = build(update.view);
+        }
+      }
+    },
+    { decorations: (p) => p.decorations }
+  );
+  return docBracketColourCache;
+}
+
 //: XML's Emmet source, as language data for the stream mode: one stable
 //: array, for the identity reason above.
 let docEmmetXmlData = null;
@@ -17367,6 +17501,8 @@ function docCompletionExtras(CM, type) {
     type.ext === "xml" ? docXmlAutoClose(CM) : [],
     ["css", "html"].includes(type.ext) ? docColorSwatches(CM) : [],
     ["css", "html"].includes(type.ext) ? docHoverDocs(CM) : [],
+    docIndentGuides(CM, type.indent || "  "),
+    docBracketColours(CM),
     ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],
     docGhostPlugin(CM),
     CM.state.Prec.highest(CM.view.keymap.of([{ key: "Tab", run: (view) => docCompleteTab(view, CM) }])),

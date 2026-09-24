@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: code files draw quiet indentation guides at each indent step and colour bracket pairs by depth, as VS Code does; brackets inside strings and comments are left alone.
 - Documents: hovering a CSS property, an HTML element or an HTML attribute in a code file shows one line on what it is for, and a property's values.
 - Documents: a colour in a CSS file (or an HTML file's style block) has a small swatch beside it, and a click on it opens the colour picker; the picked colour is written back as hex or rgb(), whichever it was.
 - Documents: renaming a tag in an HTML, XML or JSX file renames its matching tag as you type (one undo takes both back), and XML files close a tag on `>` and finish `</` as HTML and JSX already did.

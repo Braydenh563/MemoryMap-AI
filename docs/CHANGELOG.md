@@ -111,6 +111,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The selection bar's "Rewrite this with AI" opens its bar again: the press that
+  opened it also counted as a click away and closed it at once.
 - The Guide keeps the utility model when smart routing is off (the switch
   moves background jobs only). On a phone, toasts sit above the bottom tab bar,
   except on Chat, where the composer is.

@@ -35,6 +35,8 @@ from memorymap.core.database import (
     Conversation,
     Document,
     Entry,
+    LIKE_ESCAPE,
+    like_escape,
 )
 from memorymap.core import events
 from memorymap.core.deps import get_session
@@ -48,11 +50,9 @@ router = APIRouter(tags=["library"])
 PER_KIND_LIMIT = 200
 
 def _like(query: str) -> str:
-    """`query` as a literal LIKE pattern: `%` and `_` in what a person typed
-    are characters to find, not wildcards (a search for "100%" is not a
-    search for everything starting with 100)."""
-    escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%{escaped}%"
+    """`query` as a literal LIKE pattern (see `like_escape`): a search for
+    "100%" is not a search for everything starting with 100."""
+    return f"%{like_escape(query)}%"
 
 
 #: Enough of a thing to recognise it, not enough to render a card that scrolls.
@@ -188,8 +188,8 @@ def _documents(session: Session, q: str = "") -> list[dict]:
     if q:
         stmt = stmt.where(
             or_(
-                Document.title.ilike(_like(q), escape="\\"),
-                Document.content.ilike(_like(q), escape="\\"),
+                Document.title.ilike(_like(q), escape=LIKE_ESCAPE),
+                Document.content.ilike(_like(q), escape=LIKE_ESCAPE),
             )
         )
     rows = session.scalars(stmt.order_by(Document.updated_at.desc()).limit(PER_KIND_LIMIT))
@@ -226,8 +226,8 @@ def _chats(session: Session, q: str = "") -> list[dict]:
         # "role" among their chats gets them all, which is what they asked.
         stmt = stmt.where(
             or_(
-                Conversation.title.ilike(_like(q), escape="\\"),
-                Conversation.messages.ilike(_like(q), escape="\\"),
+                Conversation.title.ilike(_like(q), escape=LIKE_ESCAPE),
+                Conversation.messages.ilike(_like(q), escape=LIKE_ESCAPE),
             )
         )
     rows = session.scalars(
@@ -538,7 +538,7 @@ def _notes(session: Session, q: str = "") -> list[dict]:
         # about what the encryption is hiding.
         .where(
             *(
-                (Entry.is_private == False, Entry.content.ilike(_like(q), escape="\\"))  # noqa: E712
+                (Entry.is_private == False, Entry.content.ilike(_like(q), escape=LIKE_ESCAPE))  # noqa: E712
                 if q
                 else ()
             )

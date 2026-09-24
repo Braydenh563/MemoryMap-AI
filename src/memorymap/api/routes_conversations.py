@@ -119,6 +119,16 @@ class TurnBody(BaseModel):
     #: and `steps` are: the client owns its shape, and a schema here would
     #: have to be changed in lockstep with a button's options.
     resume: dict | None = None
+    #: Which persona wrote this reply, by name. The owner: "if different
+    #: personas are used in different chats for the chat messages the avatars
+    #: need to persist for what persona was used." A conversation can switch
+    #: persona between turns, so this is per reply, the same reasoning as
+    #: `used_tools` above: the page draws each bubble's face from it and never
+    #: from the live picker. Kept in the messages JSON rather than a column,
+    #: because a message is not a row here (`Conversation`'s docstring), so
+    #: there is nothing to migrate: a reply saved before this has no key and
+    #: reads as the default assistant. Bounded as a name, not a prompt.
+    persona: str | None = Field(default=None, max_length=80)
 
 
 class RenameBody(BaseModel):
@@ -158,6 +168,9 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["support"] = grounding_support(turn.answer, turn.sentence_grounding)
     if turn.used_tools is not None:
         assistant["used_tools"] = turn.used_tools
+    persona = (turn.persona or "").strip()
+    if persona:
+        assistant["persona"] = persona
     user: dict = {"role": "user", "content": turn.question}
     if turn.image_media_ids:
         user["image_media_ids"] = turn.image_media_ids

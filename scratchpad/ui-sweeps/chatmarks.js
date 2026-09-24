@@ -44,6 +44,17 @@ async function run(width) {
       clipped: a.right > box.right || a.top < box.top,
       seed: typeof userMarkSeed === "function" ? userMarkSeed() : null,
       name: el.querySelector(".msg-role").textContent.trim(),
+      //: The bubble's box with the mark taken out again: equal to the box
+      //: with it, whatever the base layout does to the list's width.
+      without: (() => {
+        const mark = el.querySelector(".msg-user-mark");
+        if (!mark) return null;
+        mark.remove();
+        const b = el.getBoundingClientRect();
+        const t = el.querySelector(".msg-body").getBoundingClientRect();
+        el.appendChild(mark);
+        return [b.width, b.height, t.left - b.left, t.top - b.top].map((n) => Math.round(n * 10) / 10);
+      })(),
     };
   });
   console.log(`${width} bubble: ${JSON.stringify(bubble)}`);
@@ -54,6 +65,9 @@ async function run(width) {
   if (!bubble.mark) findings.push(`${width}: the user's avatar has no generated mark`);
   if (bubble.overText) findings.push(`${width}: the mark covers the message's text`);
   if (bubble.clipped) findings.push(`${width}: the mark is cut off by the list's edge`);
+  if (bubble.without && JSON.stringify(bubble.without) !== JSON.stringify([bubble.w, bubble.h, bubble.bodyX, bubble.bodyY])) {
+    findings.push(`${width}: the mark moves the bubble (${bubble.without} without it)`);
+  }
   const expect = JSON.parse(process.env.EXPECT || "null");
   if (expect) {
     for (const key of ["w", "h", "pad", "labelH", "bodyX", "bodyY"]) {

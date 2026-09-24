@@ -1503,3 +1503,24 @@ avatars.js.
   free), no motion at all while the pointer or typing is active nearby, and
   more surfaces (list rows, cards in grids, chips rows, sidebars, dialogs'
   edges while open).
+  The owner, later the same evening, on how it should feel: "like if a user
+  is on one page mainly the companion will chill there, maybe entertain
+  itself, meditate, fish off a panel, sleep ... if the user goes to a
+  different or other different pages it will start to feel left out and
+  might want to move to the new page, or if it was sleeping or meditating
+  maybe it'll just stay on the other page a bit longer, unless it is
+  disturbed by the user in which it'll move over. if the user stays on the
+  new page long enough atlas or the companion will make its way onto the
+  new page ... flying in, walking or jumping from the side of a screen,
+  coming from the roof of the screen, teleporting in etc. whatever matches
+  the character traits."
+  Plan, added: a settled page gets idle pastimes, cheap and sprite-level
+  (meditate, fish off a panel edge, doze, fidget, look around); leaving it
+  raises a "left out" need that grows with time on the new page, so the
+  follow delay is 8 to 12s awake, longer (about 25 to 40s) while asleep or
+  meditating, and immediate when the user disturbs it (click, drag, or
+  pointer dwell on it); a small visible cue that it noticed (a glance, an
+  ear or crest flick) before it leaves; the arrival picks from the
+  character's own set by trait (a flyer flies in, a light one jumps in from
+  the side, a climber comes down from the top edge or up a panel, a mystic
+  one teleports with a soft fade), never across the user's work area.

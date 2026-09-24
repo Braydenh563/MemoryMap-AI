@@ -90,7 +90,15 @@ with its owner named in the entry.
     agent briefs as slots free.
     **Templates (confirm) built 2026-09-24** (bf54953): a click chooses,
     Use this template, Enter or a double click makes it; sweep
-    `templatepick.js`. Open here: the rest of the list above.
+    `templatepick.js`. 
+    **The Guide's part built 2026-09-24** (guide-controls agent): a controls
+    reference per surface and a hidden features entry, routed by what the
+    question asks c05c684; 55 bank questions (177, top-1 99.4%, top-3 100%)
+    1385b0e; a freshness test against every bound key a164dc2; the caps
+    (a 422 after a long answer and on the fifth question, the reply cut
+    mid-list) 5cb7f8f. Map part built (radial fit 13c41d7, relink b449623, marquee 18b8c15).
+    Open here: the documents' Check with AI, dockable suggestions and the
+    dictionary redesign.
 
 409. **The owner, 2026-09-24, verbatim, with screenshots of Settings,
     Templates, the persona list, a .json document with the formatting bar

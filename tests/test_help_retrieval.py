@@ -6,7 +6,9 @@ alone, so which topic a question reaches *is* the answer. Measured on
 `fixtures/help_questions.json` (122 questions with typos, synonyms and plain
 phrasing): the keyword-count rule it replaced reached the right topic first
 for 49% and nothing at all for 20%; the ranked rule reaches it first for 99%
-and within the top three for all of them. The bar below is lower than the
+and within the top three for all of them. INBOX 410 added 55 questions about
+each surface's keys, controls and hidden features (177 in all): 99.4% first,
+100% within three. The bar below is lower than the
 number so a new topic can shift one question without a false alarm, and high
 enough that a regression in the rule cannot hide.
 """

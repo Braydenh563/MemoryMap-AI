@@ -632,7 +632,9 @@ def test_the_streamed_guide_turn_does_not_turn_thinking_off(ai_client, fake_olla
     assert fake_ollama.chat_modes[-1] == presets.GUIDE_MODE
     mode = presets.resolve(presets.GUIDE_MODE)
     assert mode.think is None, "the Guide must not send think: False, or its thinking box is dead"
-    assert mode.max_output_tokens == presets.MODES["quick"].max_output_tokens
+    #: Not Quick's 256 since INBOX 410: a controls reference listed in full
+    #: needs more (`test_help_controls.py` checks it against the longest).
+    assert mode.max_output_tokens > presets.MODES["quick"].max_output_tokens
     assert mode.temperature == presets.MODES["quick"].temperature
 
 

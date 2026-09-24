@@ -7,7 +7,7 @@ import json
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from memorymap.ai import help_chat
 from memorymap.core import deps
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/help", tags=["help"])
 
 class HistoryTurn(BaseModel):
     role: str
-    content: str = Field(max_length=help_chat.MAX_MESSAGE_CHARS)
+    content: str = Field(max_length=help_chat.MAX_HISTORY_TURN_CHARS)
 
 
 class AskBody(BaseModel):
@@ -25,6 +25,19 @@ class AskBody(BaseModel):
     # Held by the client only (sessionStorage/module state): see
     # `ai/help_chat.py`'s docstring for why nothing here persists it.
     history: list[HistoryTurn] = Field(default_factory=list, max_length=help_chat.MAX_HISTORY_TURNS)
+
+    #: **The window, applied here rather than refused** (INBOX 410). The panel
+    #: sends its whole transcript (`helpChatHistory` in settings.js is never
+    #: trimmed), and `max_length` on its own refused the fifth question of
+    #: every conversation with a 422. The prompt only ever used the last
+    #: `MAX_HISTORY_TURNS` turns, so keeping those is the same answer the model
+    #: would have given, and the bound above still holds for what is kept.
+    @field_validator("history", mode="before")
+    @classmethod
+    def _keep_the_window(cls, value):
+        if isinstance(value, list):
+            return value[-help_chat.MAX_HISTORY_TURNS :]
+        return value
     #: Which surface the question was asked from, and that surface's own help
     #: copy. Both optional: the Guide is reachable from the header on every tab
     #: now (INBOX 190), and a question asked with something on screen is nearly

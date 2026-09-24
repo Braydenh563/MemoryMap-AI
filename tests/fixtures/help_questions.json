@@ -69,7 +69,7 @@
 ],
 [
 "how do I hide unlinked notes on the map of notes",
-"graph"
+"graph-controls"
 ],
 [
 "how do i set a reminder",
@@ -486,5 +486,225 @@
 [
 "i forgot my password",
 "security"
+],
+[
+"what are all the whiteboard shortcuts",
+"whiteboard-controls"
+],
+[
+"whiteboard keyboard shortcuts",
+"whiteboard-controls"
+],
+[
+"what keys do the whiteboard tools use",
+"whiteboard-controls"
+],
+[
+"how do I pan around the board",
+"whiteboard-controls"
+],
+[
+"how do i zoom in on the whiteboard",
+"whiteboard-controls"
+],
+[
+"how do I group things on a board",
+"whiteboard-controls"
+],
+[
+"how do I align shapes on the whiteboard",
+"whiteboard-controls"
+],
+[
+"can I snap to a grid on the whiteboard",
+"whiteboard-controls"
+],
+[
+"what is the lasso tool",
+"whiteboard-controls"
+],
+[
+"whiteboard hidden features",
+"whiteboard-controls"
+],
+[
+"mind map keybinds",
+"mind-map-controls"
+],
+[
+"what are the mind map shortcuts",
+"mind-map-controls"
+],
+[
+"how do I fold a branch in a mind map",
+"mind-map-controls"
+],
+[
+"how do i cross link two topics",
+"mind-map-controls"
+],
+[
+"what is on the radial menu of a mind map topic",
+"mind-map-controls"
+],
+[
+"can I import an opml outline",
+"mind-map-controls"
+],
+[
+"mindmap controls",
+"mind-map-controls"
+],
+[
+"what are the document editor shortcuts",
+"documents-controls"
+],
+[
+"keyboard shortcuts in documents",
+"documents-controls"
+],
+[
+"how do I find and replace in a document",
+"documents-controls"
+],
+[
+"how do i use split view",
+"documents-controls"
+],
+[
+"can the editor track changes",
+"documents-controls"
+],
+[
+"can a document be read aloud",
+"documents-controls"
+],
+[
+"does the editor check grammar",
+"documents-controls"
+],
+[
+"can I open a word document",
+"documents-controls"
+],
+[
+"what does the accessibility check look for",
+"documents-controls"
+],
+[
+"does the doc editor have emmet",
+"code-files"
+],
+[
+"how do I run a javascript file",
+"code-files"
+],
+[
+"what does F12 do",
+"code-files"
+],
+[
+"how do I go to a definition in code",
+"code-files"
+],
+[
+"are there code snippets",
+"code-files"
+],
+[
+"how do i fold code",
+"code-files"
+],
+[
+"what does alt z do",
+"code-files"
+],
+[
+"graph controls",
+"graph-controls"
+],
+[
+"what does the similarity strength slider do",
+"graph-controls"
+],
+[
+"how do I save a graph view",
+"graph-controls"
+],
+[
+"how do I reset the graph options",
+"graph-controls"
+],
+[
+"can I use the keyboard on the graph",
+"graph-controls"
+],
+[
+"how do i pin a note on the graph",
+"graph-controls"
+],
+[
+"chat keyboard shortcuts",
+"chat-controls"
+],
+[
+"how do I fork a conversation",
+"chat-controls"
+],
+[
+"how do i regenerate an answer",
+"chat-controls"
+],
+[
+"what search operators does the notes filter take",
+"notes-controls"
+],
+[
+"how do I tag several notes at once",
+"notes-controls"
+],
+[
+"what are the timeline controls",
+"timeline-controls"
+],
+[
+"how do I change the time bucket on the timeline",
+"timeline-controls"
+],
+[
+"what is magic add",
+"reminders-controls"
+],
+[
+"reminder quick set times",
+"reminders-controls"
+],
+[
+"how do I switch the dashboard to focused view",
+"dashboard-controls"
+],
+[
+"how do I sort the library",
+"library-controls"
+],
+[
+"what hidden features are there",
+"hidden-features"
+],
+[
+"any tips and tricks",
+"hidden-features"
+],
+[
+"what does m then g do",
+"hidden-features"
+],
+[
+"what does ctrl+/ do",
+"shortcuts"
+],
+[
+"list every keyboard shortcut",
+"shortcuts"
 ]
 ]

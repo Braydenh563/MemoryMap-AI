@@ -160,7 +160,8 @@ def test_the_word_export_is_a_real_docx_with_the_words_in_it(client, app_state):
     response = client.get(f"/documents/{created['id']}/export.docx")
 
     assert response.status_code == 200
-    assert "essay.docx" in response.headers["content-disposition"]
+    #: The title keeps its case, as every other export does ("My-Essay.md").
+    assert "Essay.docx" in response.headers["content-disposition"]
     #: A .docx is a zip of XML; reading the document part back is the cheapest
     #: check that this is a real one and that the text survived.
     archive = zipfile.ZipFile(io.BytesIO(response.content))

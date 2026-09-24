@@ -105,6 +105,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- With no model server answering, the chat's model picker says "(not connected)"
+  after the inherited model instead of naming it as if it would run.
 - A new chat no longer opens on a scrollbar: the suggested questions take the
   pane's width, the welcome tightens on a short window, phone starters scroll
   sideways, and "Jump to latest" stays hidden until there are messages.

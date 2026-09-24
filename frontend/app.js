@@ -37460,9 +37460,16 @@ function syncFeatureModelSelects() {
       && modelStatus?.chat_model_installed === true;
     const isInstalled = serverSaysInstalled || installedNames.has(row.inherits)
       || modelStatus?.chat_model_installed == null;
-    const inherited = isInstalled
-      ? `Inherited: ${shortModelName(row.inherits)}`
-      : `Inherited: ${shortModelName(row.inherits)} (not installed)`;
+    //: No model server answering is its own case, and it comes first: the
+    //: install check reads "unknown" as installed, so a disconnected app still
+    //: said "Inherited: llama3.2" under the no-model banner (the owner: "if an
+    //: ai model isnt connected, it shouldnt show a model being used right??").
+    const disconnected = modelStatus?.ollama_running === false;
+    const inherited = disconnected
+      ? `Inherited: ${shortModelName(row.inherits)} (not connected)`
+      : isInstalled
+        ? `Inherited: ${shortModelName(row.inherits)}`
+        : `Inherited: ${shortModelName(row.inherits)} (not installed)`;
     fillModelSelect(
       select,
       names,

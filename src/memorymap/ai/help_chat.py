@@ -301,11 +301,29 @@ HELP_TOPICS: list[dict] = [
     {
         "id": "shortcuts",
         "keywords": ("shortcut", "keyboard", "hotkey", "command palette"),
+        #: Every chord in `DEFAULT_SHORTCUTS` (frontend/app.js) is named here,
+        #: which `tests/test_help_controls.py` checks against the table, so a
+        #: new shortcut fails the build until the guide can answer for it. It
+        #: said "g then a letter" until INBOX 410: the chord had been "m" for
+        #: months, and the guide was the one place still teaching the old key.
         "body": (
-            "Press ? for the full shortcut list, or Ctrl/Cmd+K for the command "
-            "palette (jump anywhere, search notes). Press g then a letter to "
-            "jump straight to a tab; Settings -> Shortcuts lists which letter "
-            "goes where. There are no \"/\" chat commands to learn."
+            "Press ? for the full list; Settings -> Shortcuts rebinds any of "
+            "them, and on a Mac Cmd works in place of Ctrl. Everywhere: Ctrl+K "
+            "the command palette, Ctrl+P find anything, Ctrl+F find on this "
+            "page, / jump to search (the chat box on Chat), Ctrl+Z undo, "
+            "Ctrl+Shift+Z redo, Alt+Left and Alt+Right back and forward, Ctrl+, "
+            "settings, Ctrl+Shift+L light or dark, Ctrl+Alt+R reload clearing "
+            "cached files. Make: Ctrl+Shift+N a new note, Ctrl+Shift+D a new "
+            "document, Ctrl+D today's note, Ctrl+Shift+R record a meeting, "
+            "Ctrl+Shift+K the quick sketch pad, Ctrl+Shift+B the whiteboard. "
+            "Writing: Ctrl+S save, Ctrl+/ the blocks and commands menu (in a "
+            "document it comments the line instead), Ctrl+J Atlas writes at the "
+            "cursor, Ctrl+Shift+E actions for the selected text. AI: "
+            "Ctrl+Shift+A the popup agent, Ctrl+Shift+H ask Atlas about the app, "
+            "Ctrl+Shift+O a new chat, Ctrl+Shift+G agent mode on or off, Ctrl+. "
+            "stop the answer, Ctrl+Shift+P clip a note to your next question. "
+            "Press m then a letter to jump to a tab; the hint that appears shows "
+            "which letter goes where."
         ),
         "badge": {"label": "Shortcuts", "section": "shortcuts"},
     },
@@ -808,11 +826,31 @@ HELP_TOPICS.extend(
         {
             "id": "code-files",
             "keywords": ("code", "coding", "programming", "python", "javascript", "syntax", "format code", "comment out", "emmet", "html", "css", "json", "script"),
+            #: The code editor's controls reference as well as its description
+            #: (INBOX 410): one entry, not two, because a question about a code
+            #: document is nearly always about what it can do. Written from
+            #: `DOC_COMMANDS` (documents.js) and `docCodeEditing`'s keymap
+            #: (documents-code.js); the chords are checked against the first.
             "body": (
                 "A document can be code: give it the extension (fix.py, index.html). "
                 "You get syntax colours, error underlines listed in the Problems "
-                "panel (F8 goes to the next), completions as you type, brackets that "
-                "close themselves, Format (Shift+Alt+F) and Ctrl+/ to comment a line."
+                "panel, hover notes, colour swatches, indent guides and brackets "
+                "that close themselves. Completions open as you type (Enter or Tab "
+                "takes one, and the grey ghost text is taken with Tab); snippets "
+                "expand short words such as for, if, try, class, main or sout, and "
+                "Tab walks their stops. HTML and CSS have Emmet: type ! or ul>li*3 "
+                "and press Enter or Tab; the command palette (Ctrl+K) has Emmet "
+                "wrap and balance inward or outward. Keys: Shift+Alt+F formats, "
+                "Ctrl+/ toggles a line comment, Shift+Alt+A a block comment, Alt+Z "
+                "wraps long lines, F8 and Shift+F8 step through problems, "
+                "Alt+Enter offers quick fixes, F12 goes to a definition, Shift+F12 "
+                "lists every use, Ctrl+Shift+F finds in every document, and Go to "
+                "a symbol is in the palette. Ctrl+Shift+Enter runs a .js file (in "
+                "a sandbox, console output and errors in a panel under the editor) "
+                "or renders an .html file; Stop ends it. Blocks fold from the "
+                "gutter (Ctrl+Shift+[ and Ctrl+Shift+] fold and unfold, Ctrl+Alt+[ "
+                "and Ctrl+Alt+] all of them), sticky scroll pins the enclosing "
+                "function at the top, and Show whitespace draws spaces and tabs."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -828,6 +866,342 @@ HELP_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
     ]
+)
+
+#: **A controls reference per surface** (INBOX 410, the owner: "what if the
+#: user asks the guide for all the hidden features, keybinds, controls,
+#: utility and more for features like the whiteboard, mindmap and documents
+#: editor etc. can it answer those??"). It could not: the entries above say
+#: what each surface is, in a paragraph, and a question about its keys found
+#: that paragraph or the generic shortcuts entry. Each entry below is written
+#: from the surface's own code, not from memory of it: its keydown handlers
+#: and shortcut tables (`WB_TOOL_KEYS` and the board's keydown handler in
+#: whiteboard.js, `DOC_COMMANDS` in documents.js, the graph box's keydown in
+#: graph.js), the menus' own labels in index.html, and the help panels the
+#: surfaces already show. Dense on purpose: offline, the entry *is* the
+#: answer, and a list of keys cut short is a list that is wrong.
+#:
+#: Their keywords are the words only a controls question uses ("lasso",
+#: "emmet", "cross-link", the chords themselves). The surface's own name is
+#: deliberately not among them, so "what is the whiteboard" still reaches the
+#: one-paragraph entry; `_CONTROLS_FOR` and `_CONTROL_INTENT` below are what
+#: send "what are the whiteboard shortcuts" here instead.
+HELP_TOPICS.extend(
+    [
+        {
+            "id": "whiteboard-controls",
+            "keywords": (
+                "lasso", "highlighter", "eraser", "connector", "nudge", "snap to grid",
+                "align", "distribute", "bring forward", "send backward", "group",
+                "ungroup", "copy style", "paste style", "pan", "zoom", "zoom to fit",
+                "board overview", "find a card", "tool",
+            ),
+            "body": (
+                "Whiteboard keys (Library, Boards and maps; Ctrl+Shift+B opens it). "
+                "Tools: V or S select, H hand, K lasso, P pen, M highlighter, E "
+                "eraser, B fill, L line, A arrow, R rectangle, O circle, G "
+                "triangle, D diamond, T text, N sticky note, C connector (Shift+C "
+                "curved), I image, X delete. Moving around: the wheel or two "
+                "fingers pan, Shift+wheel pans sideways, Ctrl+wheel or a pinch "
+                "zooms, Space and drag pans with any tool, Ctrl+= and Ctrl+- zoom, "
+                "Ctrl+0 is 100%, Shift+1 fits everything, Shift+N shows the "
+                "overview, / or Ctrl+F finds a card. Selection: Shift+click adds, "
+                "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
+                "drag, Ctrl+C, Ctrl+X and Ctrl+V paste at the pointer, the arrows "
+                "nudge (Shift for further), Shift and drag keeps to one axis, "
+                "Shift and a corner keeps proportions, [ and ] send back and bring "
+                "forward, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
+                "Ctrl+Alt+V copy and paste a style, Delete removes, Esc cancels a "
+                "drag or goes back to Select. Ctrl+Z undoes and Ctrl+Shift+Z "
+                "redoes. Double-click empty board for a text box, right-click (or "
+                "press and hold on touch) for the menu, double-click a line to bend "
+                "it. The top bar's menus: Insert, Edit, Arrange (align, distribute "
+                "evenly, order), View (background colour or image, grid of lines, "
+                "dots or isometric, snap to grid, fit, 100%, full screen) and "
+                "Board (rename, new, export as PNG, SVG, PDF, the image library or "
+                "Markdown, switch to a mind map, clear, delete)."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "mind-map-controls",
+            "keywords": (
+                "cross-link", "cross link", "outdent", "fold", "unfold", "radial",
+                "ring", "opml", "freemind", "colour by", "color by", "focus on a branch",
+                "tidy", "layout of the map",
+            ),
+            "body": (
+                "Mind map keys (a map lives in the Library under Boards and maps). "
+                "With a topic selected: Tab adds a child, Enter a sibling, "
+                "Shift+Tab outdents it, the arrow keys walk the tree, F2 or "
+                "double-click renames, Delete removes the topic and everything "
+                "under it, C folds or unfolds its branch (or click the chevron), "
+                "Shift+C draws a cross-link to another topic, F shows only this "
+                "branch and its neighbours (F again shows all), and Shift+F10 or "
+                "the context menu key opens every action. Right-click a topic for "
+                "the ring: Add child, Add beside, Fold, Delete, Cross-link and "
+                "More; hold Alt on the ring to remove instead of add. Dragging a "
+                "topic onto another moves its whole branch; double-click a line to "
+                "label it. The layout picker lays the map out as a tree (right, "
+                "left, both sides or downward), radial or free, and Tidy lays "
+                "every unpinned topic out again. The View menu sets Colour by "
+                "(branch, category, age, or whether a note is behind it) and opens "
+                "every folded branch. Start from a template (brainstorm, decision, "
+                "project, cause and effect), import an OPML, FreeMind or Markdown "
+                "outline, let the local AI propose a map from notes you pick, and "
+                "export it as OPML or Markdown as well as a picture."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "documents-controls",
+            "keywords": (
+                "outline", "split view", "live view", "source view", "read view",
+                "suggest changes", "suggestion mode", "track changes", "tracked changes",
+                "read aloud", "accessibility check", "grammar", "word goal",
+                "typewriter", "focus mode", "find and replace", "replace all",
+                "docx", "word document", "microsoft word", "find in every document",
+            ),
+            "body": (
+                "Document editor keys (Library, Documents; Ctrl+Shift+D starts "
+                "one). While a document is open, Ctrl+K lists every document "
+                "command and ? shows the ones with keys. Ctrl+S saves, Ctrl+B bold, "
+                "Ctrl+I italic, Ctrl+E inline code, Ctrl+Shift+S strike through, "
+                "Ctrl+1, Ctrl+2 and Ctrl+3 headings, Tab and Shift+Tab indent and "
+                "outdent, Ctrl+/ comments the selection, Alt+Up / Alt+Down moves a "
+                "section from the outline, and typing / opens the blocks menu. "
+                "Ctrl+F finds and replaces (Enter next, Shift+Enter previous, Esc "
+                "closes), Ctrl+Shift+F finds in every document. Views: Edit, where "
+                "Live renders as you write, Source is the markdown and Split puts a "
+                "preview beside it, or Read. The sidebar's Outline lists the "
+                "headings (with a filter when there are many), and headings fold. "
+                "The document's menus hold History (every version, and a way back "
+                "to any), Connections, Extract notes, AI edit, a word goal, focus "
+                "mode, typewriter scrolling, dim all but this paragraph, serif for "
+                "reading and full width. Writing checks: spelling against your own "
+                "dictionary (Add a word), grammar checked on this machine, an "
+                "accessibility check (a skipped heading level, an image with no "
+                "description, link text like \"click here\"), Suggest changes "
+                "(tracked changes to accept or reject one at a time or all at "
+                "once), Read aloud (Esc stops), autocorrect, and word suggestions "
+                "(Tab accepts). Word: an imported .docx becomes a markdown "
+                "document, and Download as .docx writes one back when the optional "
+                "Word exporter is installed, beside .md, .html, a .zip with images, "
+                "and print or save as PDF."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "graph-controls",
+            "keywords": (
+                "similarity", "strength slider", "gravity", "spread", "saved view",
+                "display options", "trace", "unpin", "pin a note", "cluster glow",
+                "entities", "hide unlinked", "minimap", "export as png", "lasso",
+                "zoom", "pan",
+            ),
+            "body": (
+                "Graph keys and controls. Click the map, then the arrow keys move "
+                "between notes, N steps to the next connected note, Enter or Space "
+                "opens one, + and - zoom, 0 fits the whole map, Shift and the "
+                "arrows pan, Esc leaves. Drag a note to pin it where you put it "
+                "(double-click it to hand it back to the layout), drop one note "
+                "onto another to link them, double-click empty space to add a note "
+                "there, hover to spotlight a note's connections, and click a legend "
+                "colour to hide that category. Shift and drag on empty map lassos "
+                "notes, and the selection bar can Tag, Link together or make a Mind "
+                "map of them. Trace finds how two notes connect. Display options: "
+                "Unpin all, Gravity and Spread, the Show switches (Similarity, "
+                "Entities, Documents, Boards, Hide unlinked, Labels, Curved links, "
+                "Cluster glow, Length by similarity), the similarity Strength "
+                "slider (raise it to keep only the closest matches), a Time filter "
+                "you can play, Groups that paint notes matching some words one "
+                "colour, the minimap's position and size, and Reset, which puts the "
+                "layout, colours, physics, switches, time filter and minimap back "
+                "and keeps groups and saved views. Saved views keep the layout, "
+                "filters and position under a name; Export as PNG saves what is on "
+                "screen."
+            ),
+            "badge": {"label": "Graph", "tab": "graph"},
+        },
+        {
+            "id": "chat-controls",
+            "keywords": (
+                "fork", "compress", "regenerate", "plan first", "attach a note",
+                "context window", "export the chat", "stop the answer",
+            ),
+            "body": (
+                "Chat keys and controls. Enter sends and Shift+Enter starts a new "
+                "line; Ctrl+. stops the answer, Ctrl+Shift+O starts a new chat, "
+                "Ctrl+Shift+G turns agent mode on or off, Ctrl+Shift+P clips a note "
+                "to your next question, and Ctrl+Shift+A opens the same agent over "
+                "any tab. Typing / in the box opens the chat menu: attach a note, a "
+                "document, a file or an image, upload something new, Web search, "
+                "Plan first (the agent shows its steps before it starts), Skills, "
+                "and Agent or Ask mode. Each message's menu can copy it, edit your "
+                "question, regenerate from here, save it as a note or read it "
+                "aloud. The header can fork the conversation, compress the earlier "
+                "messages (Undo goes back), show how full the model's context is, "
+                "switch the model, and export the chat as Markdown."
+            ),
+            "badge": {"label": "Chat", "tab": "chat"},
+        },
+        {
+            "id": "notes-controls",
+            "keywords": (
+                "search syntax", "search operator", "filter syntax", "is:favourite",
+                "tag:", "cat:", "exact phrase", "select several", "batch",
+                "move several", "blocks menu", "slash menu",
+            ),
+            "body": (
+                "Notes keys and controls. In Capture a thought, Ctrl+Enter saves, "
+                "/ (or Ctrl+/) opens the blocks and commands menu, Ctrl+J asks "
+                "Atlas to write at the cursor, and selecting text shows an actions "
+                "menu (Ctrl+Shift+E from the keyboard). From anywhere, Ctrl+Shift+N "
+                "starts a note, Ctrl+D opens today's note and Ctrl+Shift+R records a "
+                "meeting. The filter box understands, with no AI: two words (both, "
+                "in any order), \"a quoted phrase\", tag:work, cat:recipes, "
+                "is:favourite, is:pinned, is:private, is:linked, is:untagged, "
+                "tags:<2 (also <=, > and >=), and -word to leave a word out. Select "
+                "ticks several notes to move to a category, tag or delete together, "
+                "and Select all ticks the whole page."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "library-controls",
+            "keywords": ("sub-tab", "subtab", "sort the library", "select all", "boards and maps"),
+            "body": (
+                "Library controls. The sub-tabs are All (everything you have made), "
+                "Documents, Boards and maps, Images, Files, AI skills, Links and "
+                "Contents. Search, then sort newest first, oldest first, A to Z or "
+                "biggest first, and set how many show per page. Tick a card's box "
+                "to select it: the bar that appears has Select all, Open, Restore "
+                "(for binned items), Delete and Done, and Documents and the gallery "
+                "have bars of their own. New mind map, Generate a map from notes "
+                "and Import an outline sit on Boards and maps; Images takes "
+                "uploads of pictures and PDFs."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "timeline-controls",
+            "keywords": ("time bucket", "feed view", "table view", "jump to today", "density strip", "group by"),
+            "body": (
+                "Timeline controls. Feed shows the newest first, grouped by date; "
+                "Table shows every column, sortable. Pick the time bucket (Auto, "
+                "Day, Week, Month or Year), what rows are grouped by (Category, "
+                "Tag, Thread, None or Everything) and show only one group, how far "
+                "back (the last 3 months, the last year, everything or a custom "
+                "range), and which kinds of thing it shows; Jump to today returns. "
+                "A note that names a date (\"the deadline is next Friday\") sits on "
+                "that day, marked with a clock. The arrow keys walk the rows, Home "
+                "and End jump to the ends, Enter opens a row where it sits and Esc "
+                "closes it; in Select mode Space ticks a row, and the bar moves, "
+                "tags or deletes them. The density strip beside the feed shows how "
+                "much was written when: click or drag it to go there."
+            ),
+            "badge": {"label": "Timeline", "tab": "timeline"},
+        },
+        {
+            "id": "reminders-controls",
+            "keywords": ("magic add", "quick set", "priority", "tonight", "this weekend"),
+            "body": (
+                "Reminders controls. Magic add takes a sentence (\"Call mum "
+                "tomorrow evening, high priority\") and works out the time and the "
+                "priority. Or type the reminder, pick a priority (normal, low or "
+                "high) and a repeat (once, daily, weekly or monthly), and use Quick "
+                "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
+                "tomorrow 2pm, this weekend or next week. A due reminder can be "
+                "snoozed one hour or to tomorrow 9am, edited in place, or ticked "
+                "done; completed ones page at the foot. Press m then r to jump here "
+                "from anywhere."
+            ),
+            "badge": {"label": "Reminders", "tab": "reminders"},
+        },
+        {
+            "id": "dashboard-controls",
+            "keywords": ("quick start", "focused view", "full view", "tools & features", "tools and features"),
+            "body": (
+                "Dashboard controls. View switches between Full, Compact and "
+                "Focused. Widgets and Edit layout show, hide and rearrange widgets, "
+                "remembered per user. The quick start row has New note, Ask AI, "
+                "Sketch, Remind me, Meeting notes, Search notes, Tools & features "
+                "(a searchable list of everything the app can do) and Commands "
+                "(the command palette). Press m then d to come back here from "
+                "anywhere."
+            ),
+            "badge": {"label": "Dashboard", "tab": "dashboard"},
+        },
+        {
+            "id": "hidden-features",
+            "keywords": (
+                "hidden feature", "hidden", "secret", "tips", "tricks", "tips and tricks",
+                "power user", "easter egg", "things i might not know", "didn't know",
+                "chord", "every feature", "all the features",
+            ),
+            #: The "m" chord's two tables (`TAB_JUMP_KEYS` and `CHORD_ACTIONS`,
+            #: app.js) are written out letter by label, and checked against the
+            #: tables, so a letter added there has to be added here.
+            "body": (
+                "Hidden features and power keys. Ctrl+K is the command palette "
+                "(jump anywhere, run an action), Ctrl+P is Find anything (notes, "
+                "files and actions), and ? lists every shortcut, which Settings -> "
+                "Shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
+                "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
+                "(Reminders); or to act: s (Settings), q (Quick sketch), v (Meeting "
+                "notes), a (Guide), p (Popup agent). A second m closes the hint. "
+                "Ctrl+Shift+A opens the agent over any tab, Ctrl+Shift+H asks Atlas "
+                "about the app, Ctrl+J writes at the cursor, Ctrl+Shift+E acts on "
+                "selected text, Ctrl+Shift+K opens the quick sketch pad, and "
+                "Ctrl+Alt+R reloads the app clearing cached files. Every menu works "
+                "from the keyboard: the arrows move, Home and End jump, Enter picks "
+                "and Esc closes. Select in Notes, the Timeline and the Library acts "
+                "on many items at once, the notes filter takes tag:, cat: and is: "
+                "operators, the dashboard's Tools & features lists everything the "
+                "app can do, and each section's ? explains itself."
+            ),
+            "badge": {"label": "Shortcuts", "section": "shortcuts"},
+        },
+    ]
+)
+
+#: **Which entry answers "the keys of" a surface.** A question that names a
+#: surface and asks about its keys, controls or hidden corners is about that
+#: surface's controls entry, and the ranking below cannot see that on words
+#: alone: "whiteboard" belongs to the description and "shortcut" to the global
+#: shortcuts entry, so without this the question landed on one of those two.
+_CONTROLS_FOR: dict[str, str] = {
+    "whiteboard": "whiteboard-controls",
+    "mind-maps": "mind-map-controls",
+    "documents": "documents-controls",
+    "graph": "graph-controls",
+    "ask-chat": "chat-controls",
+    "capture": "notes-controls",
+    "library": "library-controls",
+    "timeline": "timeline-controls",
+    "reminders": "reminders-controls",
+    "dashboard": "dashboard-controls",
+    #: The code editor's entry is its own controls reference (see its body).
+    "code-files": "code-files",
+}
+
+#: The words that make a question about a surface a question about its
+#: controls. Deliberately narrow: "how do I make a mind map" is not one, and
+#: that is the question most people ask.
+_CONTROL_INTENT = re.compile(
+    r"\b(?:shortcuts?|keybinds?|keybindings?|key ?binds?|hotkeys?|keys|keyboard|"
+    r"controls?|gestures?|chords?|hidden|secret|tips|tricks|power user|"
+    r"everything (?:i|you) can do|what can i do|all the (?:features|tools|things))\b"
+)
+
+#: **The chords themselves are keywords.** "What does F12 do" names nothing
+#: but a key, and the entry that documents F12 is the right answer; every
+#: chord a controls entry's body names is added to its keywords, lowercased,
+#: so the table and the prose cannot disagree about which keys an entry
+#: covers. `_normalise_keys` below spells a question's chords the same way.
+_CHORD = re.compile(
+    r"(?<![\w+])(?:(?:Ctrl|Shift|Alt)\+)+(?:F\d{1,2}|Enter|Tab|Up|Down|Left|Right|"
+    r"[A-Za-z0-9]\b|[/.,=\-\[\]])|(?<![\w+])Shift\+F\d{1,2}\b|(?<![\w+])F\d{1,2}\b"
 )
 
 #: A tight window: this is guidance, not a conversation to reminisce in.
@@ -894,16 +1268,53 @@ MAX_TOPICS = 3
 # read, rather than guessed at by a rule loose enough to match it.
 
 
+#
+# **Lookarounds rather than `\b`** (INBOX 410): a keyword can be a chord now
+# ("ctrl+/", "tag:"), and `\b` after a "/" or a ":" asks for a word character
+# to follow it, which "what does ctrl+/ do" does not have. The guards below are
+# `\b` exactly where a keyword starts or ends with a word character, and no
+# guard where it does not; a chord is also refused when it is only the tail
+# of a longer one ("shift+k" inside "ctrl+shift+k").
 def _keyword_pattern(keyword: str) -> re.Pattern[str]:
     if len(keyword) > 3 and keyword.endswith("y") and keyword[-2] not in "aeiou":
         stem = re.escape(keyword[:-1]) + "(?:y|ies)"
     else:
         stem = re.escape(keyword) + "(?:es|'s|s)?"
-    return re.compile(rf"\b{stem}\b")
+    start = r"(?<![\w+])" if "+" in keyword else (r"(?<!\w)" if keyword[0].isalnum() else "")
+    end = r"(?!\w)" if keyword[-1].isalnum() else ""
+    return re.compile(rf"{start}{stem}{end}")
+
+
+#: A chord as people type it ("ctrl shift f", "Cmd-K", "control k") spelt the
+#: way the entries spell it ("ctrl+shift+f"), so a chord keyword can match.
+#: The lookahead insists on a key after the modifier, so "shift and drag" and
+#: "the control panel" are left alone.
+_MODIFIER = re.compile(
+    r"\b(ctrl|control|cmd|shift|alt|option)\s*(?:\+|-|\s)\s*"
+    r"(?=(?:ctrl|control|cmd|shift|alt|option)\b|f\d{1,2}\b|enter\b|tab\b|up\b|down\b|"
+    r"left\b|right\b|[a-z0-9](?![a-z0-9])|[/.,=\-\[\]])"
+)
+_MODIFIER_NAMES = {"control": "ctrl", "cmd": "ctrl", "option": "alt"}
+
+
+def _normalise_keys(lowered: str) -> str:
+    return _MODIFIER.sub(lambda m: _MODIFIER_NAMES.get(m.group(1), m.group(1)) + "+", lowered)
+
+
+#: The chord keywords, added here rather than beside `_CHORD` because they are
+#: compared in `_normalise_keys`'s spelling. **A chord an entry already names
+#: in its own keywords is that entry's**: "ctrl k" is the command palette's,
+#: and the five controls entries that mention Ctrl+K in passing must not
+#: outvote the entry about it.
+_CLAIMED_KEYS = {_normalise_keys(k) for _topic in HELP_TOPICS for k in _topic["keywords"]}
+for _topic in HELP_TOPICS:
+    if _topic["id"] in set(_CONTROLS_FOR.values()) | {"shortcuts", "hidden-features"}:
+        _chords = dict.fromkeys(c.lower() for c in _CHORD.findall(_topic["body"]))
+        _topic["keywords"] = _topic["keywords"] + tuple(c for c in _chords if c not in _CLAIMED_KEYS)
 
 
 _KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
-    keyword: _keyword_pattern(keyword)
+    keyword: _keyword_pattern(_normalise_keys(keyword))
     for topic in HELP_TOPICS
     for keyword in topic["keywords"]
 }
@@ -989,11 +1400,11 @@ def _matching_topics(question: str) -> list[dict]:
       dropped, so the answer is not padded with a topic that matched one
       incidental word.
     """
-    lowered = question.lower()
+    lowered = _normalise_keys(question.lower())
     words = [w for w in _WORD.findall(lowered) if w not in _STOP]
     total = len(HELP_TOPICS)
-    scored: list[tuple[float, int, dict]] = []
-    for order, topic in enumerate(HELP_TOPICS):
+    scores: dict[str, float] = {}
+    for topic in HELP_TOPICS:
         score = 0.0
         for keyword in topic["keywords"]:
             rarity = 1.0 + math.log(total / _KEYWORD_TOPICS.get(keyword, 1))
@@ -1005,13 +1416,38 @@ def _matching_topics(question: str) -> list[dict]:
                 and any(len(w) >= _TYPO_MIN - 1 and _edit_distance_at_most_one(w, keyword) for w in words)
             ):
                 score += 0.8 * rarity
-        if score <= 0:
+        if score > 0:
+            scores[topic["id"]] = score
+    if not scores:
+        return []
+    #: **A surface's controls entry** (INBOX 410, see `_CONTROLS_FOR`). With
+    #: a word asking for keys or controls, the named surface's controls entry
+    #: goes above everything the words alone reached, the surface's own score
+    #: ordering two named surfaces; without one, a controls entry that already
+    #: qualified on its own keywords ("zoom", "lasso") takes the surface's
+    #: score as well, which is what tells the graph's zoom from the board's.
+    intent = bool(_CONTROL_INTENT.search(lowered))
+    top = max(scores.values())
+    for surface, controls in _CONTROLS_FOR.items():
+        named = scores.get(surface)
+        if not named:
+            continue
+        if intent:
+            scores[controls] = max(scores.get(controls, 0.0), top) + named
+        elif controls in scores and controls != surface:
+            scores[controls] += named
+        #: The description stays in the answer as a related entry, so the
+        #: offline reply still names "graph" under the graph's controls.
+        if controls != surface and controls in scores:
+            scores[surface] = max(named, scores[controls] * _RUNNER_UP_SHARE)
+    scored: list[tuple[float, int, dict]] = []
+    for order, topic in enumerate(HELP_TOPICS):
+        score = scores.get(topic["id"])
+        if score is None:
             continue
         body = _BODY_WORDS[topic["id"]]
         score += 0.15 * sum(1 for w in words if w in body)
         scored.append((score, order, topic))
-    if not scored:
-        return []
     scored.sort(key=lambda row: (-row[0], row[1]))
     best = scored[0][0]
     return [topic for score, _, topic in scored[:MAX_TOPICS] if score >= best * _RUNNER_UP_SHARE]

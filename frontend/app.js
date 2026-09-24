@@ -30241,6 +30241,21 @@ document.addEventListener("keydown", (event) => {
   //: A checkbox has no arrow keys of its own, so a tick row in a menu (the
   //: Timeline's kinds) is walked like any other row.
   if (target.matches("input:not([type='checkbox']), textarea, select, [contenteditable='true']")) return;
+  //: A ⋯ menu on a phone is a sheet (`openKebabSheet`), and the sheet opens
+  //: with the focus on its own close button, above the menu: from there the
+  //: arrows go into the menu, as they would from the ⋯ that opened it.
+  //: Measured at 390 (menus.js): ArrowDown left the focus on the close button
+  //: in every sheet menu.
+  const sheetCard = target.closest(".action-menu-card");
+  if (sheetCard && !target.closest('[role="menu"]') && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+    const menu = sheetCard.querySelector('[role="menu"]');
+    const rows = menu ? menuRowsOf(menu) : [];
+    if (rows.length) {
+      event.preventDefault();
+      focusMenuItem(event.key === "ArrowDown" ? rows[0] : rows[rows.length - 1], menu);
+      return;
+    }
+  }
   const opener = target.closest("summary, [aria-haspopup]:not([aria-haspopup='false'])");
   if (opener === target && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
     const menu = menuOfOpener(opener);

@@ -13055,6 +13055,14 @@ async function initWhiteboard() {
     for (const group of menu.querySelectorAll(".wb-shape-menu-group")) group.setAttribute("role", "group");
     for (const item of menu.querySelectorAll("button[data-tool]")) item.setAttribute("role", "menuitem");
     wireMenuKeyboard(menu, toggle);
+    //: `wireMenuKeyboard`'s Escape closes `.action-menu`s, which this is not,
+    //: and it stops the key there, so the board's own Escape never saw it
+    //: either: measured, Escape left the shapes open (menus.js at 1024).
+    menu.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || menu.classList.contains("hidden")) return;
+      wbCloseDockedMenu(menu, toggle);
+      toggle.focus({ preventScroll: true });
+    });
     toggle.addEventListener("keydown", (e) => {
       if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
       if (!menu.classList.contains("hidden")) return;

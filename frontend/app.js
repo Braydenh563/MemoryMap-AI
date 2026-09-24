@@ -47072,7 +47072,7 @@ $("onboarding-next").addEventListener("click", onboardingNext);
 $("onboarding-back").addEventListener("click", onboardingBack);
 $("onboarding-skip").addEventListener("click", closeOnboarding);
 // Two buttons, two behaviours, each the one its own words name. Settings →
-// Help has "Replay welcome tour" and Settings → About has "Take tour again";
+// Help has "Replay the welcome" and Settings → About has "Take tour again";
 // only the first was ever wired, so the About one was a button that did
 // nothing at all (found by listing every id in index.html that no JS file and
 // no stylesheet mentions), and wiring both to the same call then made the

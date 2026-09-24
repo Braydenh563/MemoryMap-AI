@@ -10086,29 +10086,26 @@
           <!-- About -->
           <!-- Help guide (learnability): a feature reference + re-run the tour -->
           <section class="settings-section hidden" id="settings-help">
-            <div class="row space-between">
-              <h3 class="flush">Help &amp; guide</h3>
-              <!-- Ghost, not filled. Measured across all seventeen Settings
-                   sections: this was the only filled button in a section head
-                   row, and the head row directly below it ("Ask the guide" /
-                   New chat) is ghost. Two heads in one section at two weights
-                   is the grammar's "one primary" read at settings scale, and
-                   replaying a tour is not the primary anything. -->
-              <button id="show-guide-btn" class="ghost small" type="button"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Replay welcome tour</button>
-            </div>
-            <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
-            <!-- The guided tour's own door. The welcome above is a card in
-                 the middle of the screen and says what MemoryMap is; the tour
-                 is anchored cards on the real controls and says where things
-                 are, so the two are offered separately rather than one button
-                 meaning both. The buttons are built by tour.js from
-                 TOUR_SECTIONS, so a section added to that table appears here
-                 with no markup and no handler to write (DESIGN.md, "A guided
-                 tour step"). -->
+            <!-- Redesigned (the owner, with a screenshot of this head: "areas
+                 like this in the settings need a redesign"). The section's
+                 own title already says Help, and under it sat a second head,
+                 "Help & guide", beside a lone Replay button, then a sentence,
+                 then the tour buttons in a group of their own. Two groups
+                 now, each built like every other settings group (a heading, a
+                 line, the controls): the welcome and the tours together,
+                 since both are "show me again", then the topics. The tour
+                 buttons are still built by tour.js from TOUR_SECTIONS
+                 (DESIGN.md, "A guided tour step"). -->
             <div class="settings-group tour-replay">
-              <p class="muted">Take the guided tour again, all of it or one part of it.</p>
-              <div id="tour-replay-buttons" class="tour-replay-buttons"></div>
+              <h3>Welcome and tours</h3>
+              <p class="muted">See the welcome again, or take the guided tour of the whole app or one part of it.</p>
+              <div class="row wrap tour-replay-row">
+                <button id="show-guide-btn" class="ghost small" type="button"><i class="ph ph-play ph-lead" aria-hidden="true"></i> Replay the welcome</button>
+                <div id="tour-replay-buttons" class="tour-replay-buttons"></div>
+              </div>
             </div>
+            <h3>What each part does</h3>
+            <p class="muted">Open a topic for what it does and where its settings are.</p>
             <div class="help-accordion">
               <!-- "Related settings" links below each topic reuse the exact
                    cross-link mechanism Preferences already had for one case

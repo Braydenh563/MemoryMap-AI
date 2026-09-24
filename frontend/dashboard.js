@@ -1648,7 +1648,7 @@ function gettingStartedCard() {
       //: "take the tour" and opens a slideshow teaches that the tour is a
       //: slideshow, and there was then no door to the tour on the dashboard
       //: at all. The welcome card keeps its own doors, both correctly
-      //: worded: Settings, help and guide's "Replay welcome tour" and the
+      //: worded: Settings, Help's "Replay the welcome" and the
       //: features browser's "Welcome tour" row.
       note: "Two minutes through what's here.",
       //: Guarded because tour.js is a separate file: a page served without

@@ -494,7 +494,12 @@ select optgroup {
   /* 2rem, the inset five rules had by hand */
   /* Equal to the side gutter -- see `.layout`'s gap for the measurement. */
   --page-top: var(--page-gutter);
-  --page-bottom: var(--space-8);
+  /* The same as the other three edges (INBOX 425, the owner: "there is a lot
+     of space lost because of these margins and floating panels"). Measured
+     at 1440: 16px of gutter at the sides and the top and 24px at the bottom,
+     plus the last card's own padding, so every page ended in a 40px band of
+     nothing above the status bar. One number on all four edges. */
+  --page-bottom: var(--page-gutter);
 
   /* How tall a sticky sidebar may be: the page, minus the page's own padding.
      Both ends of it.
@@ -4045,7 +4050,7 @@ header#top-bar.tabs-wrapped #tab-bar {
        back that the clamp exists to remove. Only the vertical insets,
        which are not viewport-relative, still step. */
     --page-top: var(--space-3);
-    --page-bottom: var(--space-6);
+    --page-bottom: var(--space-3);
   }
 
   .layout {

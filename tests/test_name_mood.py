@@ -301,7 +301,7 @@ def test_looks_come_from_words_never_first_names(tmp_path: Path) -> None:
     girl, bro, alice, james = _moods(["Space girl", "Gym bro", "Alice", "James"], tmp_path)
     assert girl["look"] == "feminine" and bro["look"] == "masculine"
     assert alice["look"] is None and james["look"] is None
-    feminine_hair = {"long", "pigtails", "buns", "bob", "ponytail", "curly"}
+    feminine_hair = {"long", "waves", "bob", "bun", "ponytail", "wavy", "curls", "curtains"}
     assert girl["style"]["hair"] in feminine_hair
 
 
@@ -322,11 +322,11 @@ def test_hair_varies_and_the_look_is_never_guessed(tmp_path: Path) -> None:
     hair = [m["style"]["hair"] for m in got]
     assert None not in hair
     assert len(set(hair)) >= 5, set(hair)
-    assert set(hair) <= {"short", "curly", "bob", "quiff", "ponytail", "spiky"}, set(hair)
+    assert set(hair) <= {"crop", "sweep", "curtains", "messy", "curls", "wavy", "locs", "quiff"}, set(hair)
     assert all(m["style"]["accessories"] == [] and "lashes" not in m["style"]["features"] for m in got)
     # The long, tied-up and decorated styles are there for a feminine look.
     feminine = _leaning("feminine", {}, [f"Friend {i}" for i in range(60)], tmp_path)
-    assert {"long", "pigtails", "buns"} <= {m["style"]["hair"] for m in feminine}
+    assert {"long", "waves", "bun"} <= {m["style"]["hair"] for m in feminine}
 
 
 def test_tools_and_toys(tmp_path: Path) -> None:
@@ -550,7 +550,7 @@ def test_a_plain_name_is_a_clean_default(tmp_path: Path) -> None:
             assert set(reading["style"]["accessories"]) <= {"earrings", "flowerclip", "bow", "stubble"}
     # Your own Profile look wins for your own name.
     (mine,) = _leaning("feminine", {"look": "masculine"}, ["Brayden"], tmp_path)
-    assert mine["look"] == "masculine" and mine["style"]["hair"] in {"short", "spiky", "quiff", "buzz", "curly"}
+    assert mine["look"] == "masculine" and mine["style"]["hair"] in {"crop", "sweep", "quiff", "curtains", "messy", "curls", "locs"}
 
 
 def test_the_owners_handles_wear_two_cues(tmp_path: Path) -> None:
@@ -609,18 +609,37 @@ def _half(hex_colour: str) -> str:
 
 def test_the_colour_pairs_hold_on_both_pages() -> None:
     # "A curated palette ... that works on light and dark, with contrast
-    # checked; no muddy or clashing combinations." Every pair: the body or
-    # its outline at 3:1 on the light page and on the dark one, each hair
-    # tone at 3:1 against the body, and the cloth clearly apart from it.
+    # checked; no muddy or clashing combinations." Every coat: the body or
+    # its outline at 3:1 on the light page and on the dark one, and the
+    # cloth clearly apart from it. Every skin: at 2:1 or its outline at 3:1
+    # on both pages, and each hair colour it lists at 1.8:1 against it (the
+    # owner: "a hair colour picked from a natural, harmonious palette tuned
+    # against the skin tone").
     block = APP[APP.index("const NM_CHAR_PAIRS = [") :]
     block = block[: block.index("];")]
-    pairs = re.findall(r'body: "(#[0-9a-f]{6})", hair: \[([^\]]+)\], cloth: \[([^\]]+)\]', block)
+    pairs = re.findall(r'body: "(#[0-9a-f]{6})", cloth: \[([^\]]+)\]', block)
     assert len(pairs) >= 6, pairs
-    for body, hair, cloth in pairs:
+    skins_block = APP[APP.index("const NM_CHAR_SKINS = [") :]
+    skins_block = skins_block[: skins_block.index("];")]
+    skins = re.findall(r'name: "([a-z]+)", skin: "(#[0-9a-f]{6})", hair: \[([^\]]+)\]', skins_block)
+    tones_block = APP[APP.index("const NM_CHAR_HAIR_TONES = {") :]
+    tones = dict(re.findall(r'([a-z]+): "(#[0-9a-f]{6})"', tones_block[: tones_block.index("};")]))
+    assert len(skins) == 7 and len(tones) >= 8
+    for name, skin, hair in skins:
+        for page in ("#ffffff", "#1c1c1f"):
+            assert max(_contrast(skin, page), _contrast(_half(skin), page)) >= 2, (name, page)
+        for tone in re.findall(r'"([a-z]+)"', hair):
+            assert _contrast(tones[tone], skin) >= 1.8, (name, tone)
+    # The names the profile offers are the ones drawn.
+    listed = lambda const: re.findall(r'"([a-z]+)"', APP[APP.index(const) :].split("\n", 1)[0])  # noqa: E731
+    assert listed("const NAME_MARK_SKIN_KINDS") == [n for n, _, _ in skins]
+    assert sorted(listed("const NAME_MARK_HAIR_TONE_KINDS")) == sorted(tones)
+    styles = APP[APP.index("const NM_HAIR_STYLES = {") :]
+    styles = styles[: styles.index("\n};")]
+    assert sorted(listed("const NAME_MARK_HAIR_KINDS")) == sorted(re.findall(r"^  ([a-z]+): \{", styles, re.M))
+    for body, cloth in pairs:
         for page in ("#ffffff", "#1c1c1f"):
             assert max(_contrast(body, page), _contrast(_half(body), page)) >= 3, (body, page)
-        for tone in re.findall(r"#[0-9a-f]{6}", hair):
-            assert _contrast(tone, body) >= 3, (body, tone)
         for tone in re.findall(r"#[0-9a-f]{6}", cloth):
             apart = sum(abs(int(tone[i : i + 2], 16) - int(body[i : i + 2], 16)) for i in (1, 3, 5))
             assert apart >= 120, (body, tone)

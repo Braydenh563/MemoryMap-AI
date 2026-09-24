@@ -106,6 +106,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A question reopened from Ask history keeps its numbered records and no longer
+  repeats them in a Sources box; the records column's facts have a word's gap.
+- The skill logs fold to a rail beside the skills and remember it.
 - Find anything's kind row fades only on an edge with more behind it, and the
   kinds rest as plain text with only the chosen one filled.
 - Code documents: the selection bar offers only Ask Atlas and Rewrite (no markdown

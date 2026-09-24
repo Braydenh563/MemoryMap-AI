@@ -4407,7 +4407,7 @@ main,
 /* Centred by its ink, not its box: Phosphor's x sits 0.14em high in its
    own em square, measured as a 1.6px lift in the 16px circle at 8x scale
    (the boxes were centred to 0.01px, the glyph was not; the owner saw it). */
-.chip > .unlink:last-child > .ph {
+.chip > .unlink:last-child > .ph-x {
   translate: 0 0.14em;
 }
 
@@ -4912,4 +4912,53 @@ main,
 .finder-filters .library-chip.active {
   border-color: transparent;
   box-shadow: none;
+}
+
+/* The Ask column's facts ("No tags yet", "In 1 document", "Default Space")
+   are icon-and-word items with no ground of their own, so the 4px the
+   column's chips use read as none (the owner, 2026-09-24). Words get a
+   word's gap across; the rows stay close. */
+#raw-results .entry-meta {
+  column-gap: var(--space-3);
+}
+
+/* The skill logs folded (`setSkillLogsCollapsed`, library.js): the column is
+   a rail holding its button and a sideways title, the skills take the rest. */
+.skills-split.skills-logs-collapsed {
+  grid-template-columns: minmax(0, 1fr) var(--target-min);
+}
+
+.skills-logs-collapsed #skills-sidebar {
+  padding-inline: 0;
+  align-items: center;
+}
+
+.skills-logs-collapsed #skills-sidebar .library-head {
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.skills-logs-collapsed #skills-logs-heading {
+  writing-mode: vertical-rl;
+  font-size: var(--text-sm);
+}
+
+.skills-logs-collapsed #skills-logs-list,
+.skills-logs-collapsed #skills-logs-clear {
+  display: none;
+}
+
+.skills-logs-actions {
+  gap: var(--space-1);
+}
+
+@media (max-width: 900px) {
+  .skills-split.skills-logs-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .skills-logs-collapsed #skills-logs-heading {
+    writing-mode: horizontal-tb;
+  }
 }

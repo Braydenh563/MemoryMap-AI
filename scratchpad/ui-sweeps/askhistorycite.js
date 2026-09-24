@@ -42,6 +42,7 @@ const { boot } = require('./lib.js');
       footHidden: foot.classList.contains('hidden'),
       sourcesHidden: sources.classList.contains('hidden'),
       sourceNodes: cards.length,
+      recordNumbers: [...document.querySelectorAll('#raw-results li .record-index')].map((m) => m.textContent.trim()),
     };
   });
   console.log(JSON.stringify(r, null, 1));
@@ -52,7 +53,10 @@ const { boot } = require('./lib.js');
   //: them here (INBOX 241).
   if (r.marks > r.groundingChips) bad.push(`${r.marks} markers for ${r.groundingChips} cited note(s)`);
   if (r.groundingHidden || !r.groundingChips) bad.push('no grounded-in chips');
-  if (r.footHidden || r.sourcesHidden || !r.sourceNodes) bad.push('no sources panel');
+  //: Since INBOX 274 Ask's sources are the numbered Matching records on the
+  //: right, never a second box under the answer (the owner, 2026-09-24).
+  if (!r.sourcesHidden || r.sourceNodes) bad.push('a sources box repeats the records column');
+  if (!r.recordNumbers.length) bad.push('the matching records carry no numbers');
 
   console.log(`console errors ${errs.length}${errs.length ? ' ' + errs.join(' | ') : ''}`);
   await browser.close();

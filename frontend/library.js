@@ -2107,6 +2107,34 @@ async function renderSkillsDashboard() {
 // sub-tab was opened, and it depended on load order: whichever script
 // happened to run last owned the global. See `librarySubtabs` below.
 
+//: **The skill logs fold to a rail** (the owner, 2026-09-24: "make the skill
+//: logs sidebar collapsible"). A class on the split, so the grid's second
+//: column shrinks to the rail and the skills take the room; remembered per
+//: browser, a convenience rather than a setting.
+function setSkillLogsCollapsed(collapsed) {
+  const split = document.querySelector(".skills-split");
+  const button = $("skills-logs-collapse");
+  if (!split || !button) return;
+  split.classList.toggle("skills-logs-collapsed", collapsed);
+  button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  const words = collapsed ? "Show the skill logs" : "Collapse the skill logs";
+  button.title = words;
+  button.setAttribute("aria-label", words);
+  try {
+    localStorage.setItem("mm-skill-logs-collapsed", collapsed ? "1" : "");
+  } catch {
+    // Storage refused (a private window): the fold still works for this visit.
+  }
+}
+$("skills-logs-collapse")?.addEventListener("click", () => {
+  setSkillLogsCollapsed(!document.querySelector(".skills-split")?.classList.contains("skills-logs-collapsed"));
+});
+try {
+  if (localStorage.getItem("mm-skill-logs-collapsed") === "1") setSkillLogsCollapsed(true);
+} catch {
+  // Storage unreadable: start open.
+}
+
 $("skills-logs-clear")?.addEventListener("click", async () => {
   const ok = await confirmDialog("Clear the skill run log? This can't be undone.");
   if (!ok) return;

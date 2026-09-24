@@ -14931,6 +14931,36 @@ async function viewAskHistoryTurn(id) {
   //: line. Both are a fresh model call and a live timing, neither belongs to
   //: the turn being reopened, and `setAnsweredBy` below already says this is
   //: a remembered answer rather than one just written.
+  //: **The records first, then what reads them** (the owner, 2026-09-24: a
+  //: reopened question lost its record numbers and grew a Sources box of
+  //: the same notes). `numberMatchingRecords` and `askNotesOnTheRight`
+  //: both read `#raw-results`, and this used to fill it after both ran.
+  const rawList = $("raw-results");
+  rawList.replaceChildren();
+  // Same badges as a live Ask answer: this turn's own match_info/connected_ids
+  // were saved alongside it (routes_chat.py's _save_ask_turn) for exactly
+  // this reason: browsing back shouldn't lose the "why" a result showed up.
+  const connected = new Set(turn.connected_ids || []);
+  const matchInfo = turn.match_info || {};
+  for (const entry of turn.raw_results) {
+    const row = clickableResult(entry);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
+      row.appendChild(badge);
+    }
+    rawList.appendChild(row);
+  }
+  if (turn.omitted_results) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent =
+      turn.omitted_results === 1
+        ? "1 note from this answer is no longer available (deleted or made private since)."
+        : `${turn.omitted_results} notes from this answer are no longer available (deleted or made private since).`;
+    rawList.appendChild(li);
+  }
   const groundingRows = turn.grounding || [];
   const historyMeta = { raw_results: turn.raw_results || [] };
   //: Built first, for its `sources`: a reopened turn numbers its markers,
@@ -14961,32 +14991,6 @@ async function viewAskHistoryTurn(id) {
   //: same fact spelled out, since the chip is ellipsised.
   setAnsweredBy(`asked ${relativeTime(turn.created_at)}`, `Asked ${relativeTime(turn.created_at)}`);
   $("search-mode").textContent = SEARCH_MODE_LABELS[turn.search_mode] || turn.search_mode;
-  const rawList = $("raw-results");
-  rawList.replaceChildren();
-  // Same badges as a live Ask answer: this turn's own match_info/connected_ids
-  // were saved alongside it (routes_chat.py's _save_ask_turn) for exactly
-  // this reason: browsing back shouldn't lose the "why" a result showed up.
-  const connected = new Set(turn.connected_ids || []);
-  const matchInfo = turn.match_info || {};
-  for (const entry of turn.raw_results) {
-    const row = clickableResult(entry);
-    const badge = matchReasonBadge(matchInfo[entry.id]);
-    if (badge) {
-      if (connected.has(entry.id)) row.classList.add("result-connected");
-      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
-      row.appendChild(badge);
-    }
-    rawList.appendChild(row);
-  }
-  if (turn.omitted_results) {
-    const li = document.createElement("li");
-    li.className = "muted";
-    li.textContent =
-      turn.omitted_results === 1
-        ? "1 note from this answer is no longer available (deleted or made private since)."
-        : `${turn.omitted_results} notes from this answer are no longer available (deleted or made private since).`;
-    rawList.appendChild(li);
-  }
   document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
   $("chat-results").classList.remove("hidden");
   $("ask-idle")?.classList.add("hidden");

@@ -34416,3 +34416,26 @@ with an unselected note moving 1.7 and no pins written.
     ("INBOX 400 part (1)"): Notes 61 to 28ms, Library's 216 to 283ms frame
     gap gone, Timeline 89 to 46ms, theme switch 68 to 31ms. Part (2) written, above.
 
+412. **The owner, 2026-09-24, verbatim, with a screenshot of the graph with
+    Similarity on.** "when I tick similarity on the graph, this happens, is
+    there a way to make it more visually understandable or parsable??" and
+    "there is no reset the graph settings to default option either".
+    Measured first (42 notes over six topics, 24 links, vectors shaped like
+    bge-small's, 1440x900, `scratchpad/ui-sweeps/graphsim.js`): 200
+    similarity lines (the server's cap) against 24 links, up to 20 per note,
+    10.67 lines per note, 1,701 crossings, every one the same dotted blue
+    whatever its score and drawn over the links; the 200 springs pull the six
+    topics into one ball, 18 of 42 labels placed and 13 of those on another
+    note's disc. Length by similarity was a no-op on the canvas renderer (the
+    worker never received a score). No reset exists anywhere on the graph.
+    Placed as the graph agent's brief. **Built 2026-09-24** (graph agent;
+    GRAPH_PLAN "Decision made, 2026-09-24"): each note's two closest matches
+    (k-nearest-neighbour backbone) graded in three strengths, dashed, beneath
+    the links; 200 lines to 58, 20 per note to 6, 1,701 crossings to 39,
+    labels on a dot 13 to 0; scores on the focused note's lines where there
+    is room and all of them in its tooltip; Strength slider (shown with
+    Similarity on) and a legend key; Length by similarity reaches the worker.
+    Reset to defaults beside Suggest links with Undo, the panel still 451px in
+    its box (`scratchpad/ui-sweeps/graphsim.js`, `graphreset.js`,
+    `tests/test_graph_similarity.py`).
+

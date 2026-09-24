@@ -13154,43 +13154,52 @@ async function initWhiteboard() {
   //: these menus keep the position the stylesheet gives them whenever nothing
   //: clips them, and only their height is decided. The reasons are written out
   //: at both functions in app.js.
+  //: The open is one named function rather than the body of each toggle's
+  //: listener: it shows the menu and then measures it, which is one layout
+  //: per click and unavoidable, but written inside the loop that binds the
+  //: listeners it read as a write-then-read per turn to
+  //: `test_no_loop_reads_layout_after_writing_style`, which cannot tell a
+  //: listener body from the loop's own.
+  function toggleBoardMenu(toggle, menu) {
+    const wasHidden = menu.classList.contains("hidden");
+    closeAllWbMenus();
+    if (wasHidden) {
+      menu.classList.remove("hidden");
+      toggle.setAttribute("aria-expanded", "true");
+      // Before the measurement: a switch's own state can change how tall
+      // the list is.
+      syncPanelSwitches();
+      menu.classList.remove("wb-menu-one-col");
+      escapeAndCapMenu(menu, toggle);
+      //: **Hung from what opened it, every one of them** (INBOX 396). A
+      //: top-bar menu escaped to <body> went through `placeEscapedMenu`'s
+      //: last resort when the window could not hold it below or above its
+      //: button, and was pinned across the button instead: measured, Arrange
+      //: at 1440x600 drew from 99 to 592 over its own toggle and the top
+      //: bar, and at 1280x520 Insert, Arrange and Board did the same. The
+      //: context bar's menu already had the fix; the top bar's use it with
+      //: their own toggle as the edge, so each opens under its button and
+      //: scrolls inside the room there (`wbmenuroom.js`).
+      //: **Two columns only while they fit.** The View menu is a two-column
+      //: box, and a multi-column box under a height cap does not scroll its
+      //: overflow: it adds columns beside itself, out past the menu's edge.
+      //: Measured on a mind map's View: at 390 (the phone rule now drops the
+      //: columns) and at 1024x480, 1015px of columns in a 510px menu capped
+      //: to 280px. Overflow sideways is the sign; one scrolling column is
+      //: the answer, placed and capped again at its new size.
+      const edge = menu.id === "wb-context-menu" ? document.getElementById("wb-context") : toggle;
+      wbKeepMenuBesideBar(menu, edge);
+      if (menu.scrollWidth > menu.clientWidth + 1) {
+        menu.classList.add("wb-menu-one-col");
+        escapeAndCapMenu(menu, toggle);
+        wbKeepMenuBesideBar(menu, edge);
+      }
+    }
+  }
   for (const { toggle, menu } of boardMenus) {
     toggle.addEventListener("click", (e) => {
       e.stopPropagation();
-      const wasHidden = menu.classList.contains("hidden");
-      closeAllWbMenus();
-      if (wasHidden) {
-        menu.classList.remove("hidden");
-        toggle.setAttribute("aria-expanded", "true");
-        // Before the measurement: a switch's own state can change how tall
-        // the list is.
-        syncPanelSwitches();
-        menu.classList.remove("wb-menu-one-col");
-        escapeAndCapMenu(menu, toggle);
-        //: **Hung from what opened it, every one of them** (INBOX 396). A
-        //: top-bar menu escaped to <body> went through `placeEscapedMenu`'s
-        //: last resort when the window could not hold it below or above its
-        //: button, and was pinned across the button instead: measured, Arrange
-        //: at 1440x600 drew from 99 to 592 over its own toggle and the top
-        //: bar, and at 1280x520 Insert, Arrange and Board did the same. The
-        //: context bar's menu already had the fix; the top bar's use it with
-        //: their own toggle as the edge, so each opens under its button and
-        //: scrolls inside the room there (`wbmenuroom.js`).
-        //: **Two columns only while they fit.** The View menu is a two-column
-        //: box, and a multi-column box under a height cap does not scroll its
-        //: overflow: it adds columns beside itself, out past the menu's edge.
-        //: Measured on a mind map's View: at 390 (the phone rule now drops the
-        //: columns) and at 1024x480, 1015px of columns in a 510px menu capped
-        //: to 280px. Overflow sideways is the sign; one scrolling column is
-        //: the answer, placed and capped again at its new size.
-        const edge = menu.id === "wb-context-menu" ? document.getElementById("wb-context") : toggle;
-        wbKeepMenuBesideBar(menu, edge);
-        if (menu.scrollWidth > menu.clientWidth + 1) {
-          menu.classList.add("wb-menu-one-col");
-          escapeAndCapMenu(menu, toggle);
-          wbKeepMenuBesideBar(menu, edge);
-        }
-      }
+      toggleBoardMenu(toggle, menu);
     });
   }
   document.addEventListener("click", (e) => {

@@ -1729,6 +1729,47 @@ button.ghost.danger {
   display: inline-block;
 }
 
+/* INBOX 412: what the two kinds of line on the graph mean, drawn as the
+   lines themselves (`gcLegendEdgeKey`). A fact rather than a toggle, so it
+   is muted text and takes none of the toggles' hover ground; the swatches
+   are the canvas recipes in CSS, a link in --muted and solid, a similarity
+   line in --accent and dashed. */
+.legend-item.legend-edge-key {
+  color: var(--muted);
+  font-weight: 500;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .graph-legend-row .legend-item.legend-edge-key:hover,
+  .legend-item.legend-edge-key:hover {
+    background: transparent;
+    border-color: transparent;
+  }
+}
+
+.legend-line {
+  display: inline-block;
+  width: 1.25rem;
+  height: 0;
+  border-top: 2px solid var(--muted);
+}
+
+.legend-line-reasoned {
+  border-top-color: var(--accent);
+}
+
+.legend-line-similar {
+  border-top-style: dashed;
+  border-top-color: var(--accent);
+}
+
+
+.legend-edge-key .legend-line-similar {
+  margin-left: var(--space-2);
+}
+
 /* --- Wave F: command palette --------------------------------------------------- */
 #palette-overlay {
   position: fixed;

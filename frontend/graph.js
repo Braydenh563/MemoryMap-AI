@@ -4733,7 +4733,20 @@ function graphApplyView(view) {
     view.positions && Object.keys(view.positions).length ? view.positions : null;
   localStorage.setItem("graph-layout", view.layout);
   if (view.colour) localStorage.setItem("graph-colour", view.colour);
-  set("graph-layout", view.layout);
+  //: The layout is a radio group, not one control: `set()` on the group's
+  //: `<div>` wrote a `value` expando and fired "change" from the div, which
+  //: the listener read back as the layout, so the map was right and the View
+  //: menu still showed the old layout ticked (measured: a radial view
+  //: restored with Force still checked). The radio is what a person presses.
+  //: Looked up among the radios rather than by a selector built from the
+  //: saved string, which is whatever the stored JSON says.
+  const layoutRadio = [...document.querySelectorAll('input[name="graph-layout"]')].find(
+    (radio) => radio.value === view.layout
+  );
+  if (layoutRadio) {
+    layoutRadio.checked = true;
+    layoutRadio.dispatchEvent(new Event("change", { bubbles: true }));
+  }
   set("graph-colour", view.colour);
   // Real controls, not the section div: `set()` dispatches "change" on each,
   // which is exactly what the gravity/spread listener (app.js, "Physics
@@ -4849,3 +4862,170 @@ $("graph-length-score")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-length-score", event.target.checked ? "1" : "0");
   renderGraph();
 });
+
+//: The Match strength row shows only while Similarity is on (INBOX 412): a
+//: cutoff for lines that are not drawn is a control that does nothing. Its
+//: value is remembered like the other Show settings and read by the render
+//: (`gcSimilarityCutoff`), so a change is a relayout: fewer lines means
+//: fewer springs, and the clusters should move apart when they go.
+function graphSyncSimilarityRow() {
+  const row = document.getElementById("graph-similarity-min-row");
+  const box = document.getElementById("graph-similarity");
+  if (row && box) row.classList.toggle("hidden", !box.checked);
+  const slider = document.getElementById("graph-similarity-min");
+  if (slider) {
+    const value = Number(slider.value);
+    slider.setAttribute(
+      "aria-valuetext",
+      value <= 55 ? "Each note's two closest matches" : `Matches of ${value}% and above`
+    );
+  }
+}
+(() => {
+  const slider = document.getElementById("graph-similarity-min");
+  if (!slider) return;
+  let stored = null;
+  try {
+    stored = localStorage.getItem("graph-similarity-min");
+  } catch (error) {
+    stored = null;
+  }
+  if (stored && Number.isFinite(Number(stored))) slider.value = stored;
+  slider.addEventListener("input", graphSyncSimilarityRow);
+  slider.addEventListener("change", () => {
+    try {
+      localStorage.setItem("graph-similarity-min", slider.value);
+    } catch (error) {
+      /* A browser with storage refused still filters, it just forgets. */
+    }
+    renderGraph();
+  });
+  document.getElementById("graph-similarity")?.addEventListener("change", graphSyncSimilarityRow);
+  graphSyncSimilarityRow();
+})();
+
+// --- reset to defaults ---------------------------------------------------------
+//
+// INBOX 412, the owner: "there is no reset the graph settings to default
+// option either". Obsidian's graph has one in the corner of its settings box
+// ("Restore default settings"); the app's own precedent is Settings >
+// Appearance's "Reset to defaults" and the shortcuts' one, and a reset that
+// can be taken back is `toastAction`'s Undo (DESIGN.md, the recipe index).
+//
+// **What a reset covers.** Every control that changes how the map is drawn:
+// the layout and the colour rule (View menu), the physics, every Show switch,
+// the similarity cutoff, the time filter, the minimap, and the categories or
+// kinds hidden from the legend. **What it leaves alone:** groups and saved
+// views, which are things somebody made and named rather than settings, and
+// which folds of the panel are open, which is where the reader is rather
+// than what the map looks like. `tests/test_graph_similarity.py` fails if a
+// control is added to the panel's persisted set without joining this table.
+//
+// Values are what the markup and the readers default to: `graphLayout()`
+// falls back to force, the colour select's first option is category, the
+// sliders start at 50, the minimap at top left and small, and `"max"` puts
+// the time slider at its "All time" end, which is a number only a render
+// knows.
+const GRAPH_DEFAULTS = {
+  layout: "force",
+  "graph-colour": "category",
+  "graph-gravity": "50",
+  "graph-spread": "50",
+  "graph-similarity": false,
+  "graph-similarity-min": "55",
+  "graph-entities": false,
+  "graph-documents": false,
+  "graph-maps": false,
+  "graph-hide-orphans": false,
+  "graph-labels": true,
+  "graph-curved": false,
+  "graph-nebula": true,
+  "graph-length-score": true,
+  "graph-time-slider": "max",
+  "graph-minimap-corner": "tl",
+  "graph-minimap-size": "sm",
+  hiddenCategories: [],
+  hiddenKeys: [],
+};
+
+//: The same shape as `GRAPH_DEFAULTS`, read off the controls as they stand,
+//: so Undo puts back exactly what the reset replaced.
+function graphCaptureSettings() {
+  const out = {};
+  for (const [key, fallback] of Object.entries(GRAPH_DEFAULTS)) {
+    if (key === "layout") {
+      out.layout = graphLayout();
+    } else if (key === "hiddenCategories") {
+      out.hiddenCategories = [...graphHiddenCategories];
+    } else if (key === "hiddenKeys") {
+      out.hiddenKeys = [...graphHiddenKeys];
+    } else {
+      const el = document.getElementById(key);
+      if (!el) out[key] = fallback;
+      else if (el.type === "checkbox") out[key] = el.checked;
+      else if (key === "graph-time-slider") out[key] = Number(el.value) >= Number(el.max) ? "max" : el.value;
+      else out[key] = el.value;
+    }
+  }
+  return out;
+}
+
+function graphSettingsEqual(a, b) {
+  return Object.keys(GRAPH_DEFAULTS).every(
+    (key) => JSON.stringify(a[key]) === JSON.stringify(b[key])
+  );
+}
+
+//: Every control is set the way a person would set it: its value, then the
+//: event its own handler listens for, so each one persists and redraws
+//: through the path it already has (the same move `graphApplyView` makes).
+//: The redraws that pile up are cheap: `renderGraphCanvas` drops every
+//: render but the last by its sequence number.
+function graphApplySettings(settings) {
+  const layout = [...document.querySelectorAll('input[name="graph-layout"]')].find(
+    (radio) => radio.value === settings.layout
+  );
+  if (layout && !layout.checked) {
+    layout.checked = true;
+    layout.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  graphHiddenCategories = new Set(settings.hiddenCategories || []);
+  graphHiddenKeys = new Set(settings.hiddenKeys || []);
+  for (const [key, value] of Object.entries(settings)) {
+    if (key === "layout" || key === "hiddenCategories" || key === "hiddenKeys") continue;
+    const el = document.getElementById(key);
+    if (!el) continue;
+    if (el.type === "checkbox") {
+      if (el.checked === Boolean(value)) continue;
+      el.checked = Boolean(value);
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    } else if (key === "graph-time-slider") {
+      // The time slider answers `input` (graph-canvas.js, `graphSyncTimeSlider`).
+      el.value = value === "max" ? el.max : value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    } else if (String(el.value) !== String(value)) {
+      el.value = value;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+  graphSyncSimilarityRow();
+  setGraphPhysicsEnabled(settings.layout);
+  // One more, for the legend filters, which have no control of their own to
+  // fire an event on.
+  renderGraph();
+}
+
+function graphResetToDefaults() {
+  const before = graphCaptureSettings();
+  if (graphSettingsEqual(before, GRAPH_DEFAULTS)) {
+    toast("The map is already on its default settings.");
+    return;
+  }
+  graphApplySettings(GRAPH_DEFAULTS);
+  toastAction("Map settings reset to defaults.", "Undo", () => {
+    graphApplySettings(before);
+    toast("Map settings restored.");
+  });
+}
+
+document.getElementById("graph-options-reset")?.addEventListener("click", graphResetToDefaults);

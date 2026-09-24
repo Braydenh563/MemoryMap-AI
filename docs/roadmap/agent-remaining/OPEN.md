@@ -45,13 +45,13 @@ measured; "partial" names what is left.
 | VS Code features: language-aware Ctrl+/, Emmet beyond HTML, rename tag, swatches, hover docs, guides, symbols, Alt+Z, sticky scroll (INBOX 402) | Done (codecomplete agent) |
 | Code files: snippets, Run with a console, go to definition, find across documents (INBOX 404) | Done for JS and HTML. Open: Python Run via a Pyodide download extra and TypeScript via a vendored type-stripper (recommendations taken per standing order 3; next agent slot) |
 | Prose files: grammar (Harper), suggestion mode, read aloud, accessibility check, Word round trip (INBOX 401, 404) | Done (proseeditor agent) |
-| Menus with bad widths, spacing, alignment; the trust bar (INBOX 403) | In progress: every-menu sweep with the hole-poke agent |
-| Pan glitches from style invalidation, app-wide; architecture review (INBOX 400) | Review written (ANALYSIS.md); invalidation hunt with the perf agent |
+| Menus with bad widths, spacing, alignment; the trust bar (INBOX 403) | Done for menus: 325 findings to 0 (`menus.js`), arrow keys and focus in every menu; the bar stands for every pass |
+| Pan glitches from style invalidation, app-wide; architecture review (INBOX 400) | Done: review in ANALYSIS.md; Notes 61 to 28ms, Library 283 to 32ms, Timeline 89 to 46ms; hover filters gone |
 | World class plan rows left; hole poke; installer and update paths; component refinement (INBOX 399) | Update paths verified end to end; package-check workflow added; hole poke and polish agents running; WORLD_CLASS_PLAN row check queued |
 | Finder headings; back-to-top hover; jump-to-latest flicker; user bubble; model chip and picker with no model; avatars; translation (INBOX 405) | Done. Open: avatars beyond personas (graph people, the user's own mark); translate a text selection (queued) |
 | Guide help: more topics, better offline answers (INBOX 406) | Done (top-1 49% to 99%). Open: docs/*.md as a second source, blocked on packaging `docs/` |
 | Empty chat scrolls; jump pill on an empty chat (INBOX 407) | Done |
-| Graph similarity lines unreadable; no reset to defaults | Graph agent running |
+| Graph similarity lines unreadable; no reset to defaults (INBOX 412) | Done: top 2 matches per note, crossings 1,701 to 39, hover scores, a strength slider, Reset to defaults with Undo |
 | Split app.js and other large files further | Splits agent running (documents, whiteboard, one app.js surface) |
 
 **De-vibecode audit order** (each surface: list every finding first, then

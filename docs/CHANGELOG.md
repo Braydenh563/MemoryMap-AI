@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Graph: Similarity draws each note's two closest matches rather than every pair (200 lines to 58 and 1,701 crossings to 39 on a 42-note notebook), darker and wider for a closer match, dashed and beneath the links, with a Strength slider to keep only the closest, a legend key and the scores on the note you point at. Length by similarity now works on the default renderer. Labels no longer sit on another note's dot. The options panel has Reset to defaults, with Undo.
 - A note's menu has Translate: it opens the note in Write with Atlas, set to
   translate into the last language you picked.
 - Documents: F12 goes to where the name at the caret is defined in a code file, Shift+F12 lists every use of it (not the ones in strings or comments), and Ctrl+Shift+F opens Find anything on documents with the selection or the word.

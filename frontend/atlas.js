@@ -124,9 +124,9 @@ function atlasGroup(parent, cls, pivot) {
 //: at the companion's size): the head from 3.6 to 38 (about 42% of the
 //: height), the seat at 72, the soles at 90, the raised hands at -7.
 const ATLAS_GEO = {
-  eyes: [[25.2, 22.4, 1], [38.8, 22.4, -1]],
-  brows: [[24.8, 15.4, 1], [39.2, 15.4, -1]],
-  cheeks: [[19.6, 28.2], [44.4, 28.2]],
+  eyes: [[24.8, 23.6, 1], [39.2, 23.6, -1]],
+  brows: [[24.6, 16.4, 1], [39.4, 16.4, -1]],
+  cheeks: [[19.2, 29.4], [44.8, 29.4]],
   crest: [31, 7],
   tail: [37, 67],
   //: Two rings of stars round the body, crossing: a wide one low and
@@ -143,17 +143,49 @@ const ATLAS_GEO = {
 };
 
 const ATLAS_HEAD_PATH = "M32 3.6C42.4 3.6 49.2 10.6 49.2 20.2C49.2 28.2 44.4 34.8 37.6 37.4C35 38.4 29 38.4 26.4 37.4C19.6 34.8 14.8 28.2 14.8 20.2C14.8 10.6 21.6 3.6 32 3.6Z";
-//: The crest: three swept locks, comet-like, the longest on top (the owner:
-//: "better hair or smth??"), lit on their leading edges from the top left
-//: like the rest of the drawing, with a glint at the tip.
-const ATLAS_CREST_LOCKS = [
-  "M33.6 9.2C35.6 5.6 40 4.6 43.8 5C46.4 5.3 48.8 4.4 50.8 2.2C50.6 6.2 48 9 44.4 10.2C41.8 11 39.6 11.4 38.2 12.6Z",
-  "M25 9.4C23 6.6 22.4 3.8 23.4 1.2C24.6 3.8 26.6 5.2 29 6.2Z",
-  "M25 8.8C24.4 3.4 29 0 35.4 -0.4C40 -0.7 43.6 -1.8 46.6 -4.6C45.8 0.2 42.8 3.6 39 5.4C37.8 6 37 7.2 36.6 8.8Z",
-];
-//: The body: shoulders a little wider than the hips, tapering to a tunic's
-//: V at the front, so the silhouette has angles and not a belly.
-const ATLAS_TORSO_PATH = "M27 34C27.2 38.6 25 40.4 22.2 41.6C19.6 42.8 19.4 46.6 20.6 50C22 54 24.2 58.6 24.8 63C25.2 66.4 25 69.4 25.4 71.6C27.6 72 29.6 72.8 32 75C34.4 72.8 36.4 72 38.6 71.6C39 69.4 38.8 66.4 39.2 63C39.8 58.6 42 54 43.4 50C44.6 46.6 44.4 42.8 41.8 41.6C39 40.4 36.8 38.6 37 34Z";
+//: **Two looks of one character** (the owner: "the male and female choice
+//: avatars generation"): the same head, face, colours, chest star, rings
+//: and tail, so both read as Atlas; what differs is the crest, the brows,
+//: lashes, the shoulders and one ornament. Masculine: a shorter crest with
+//: two swept spikes, straighter brows, broader shoulders, no lashes.
+//: Feminine: a long flowing crest that ends in a curl, arched brows,
+//: lashes, rounder blush, narrower shoulders and a small star clip at the
+//: root of the crest. Settings, Appearance, Atlas look chooses
+//: (`atlasLook`).
+//:
+//: The crest is the head's own shape flowing up and back (the owner's
+//: reference sheet: "a rounded teardrop that flows up into a swept
+//: flame-like crest"), drawn through the edge and fill layers like the
+//: limbs, so head and crest are one silhouette.
+const ATLAS_LOOKS = {
+  masculine: {
+    crest: "M22 8C27 2 35 -1 42 -2.5C47 -3.6 51 -6.6 54 -12C54.6 -7 53 -3.6 50.6 -1.4C54.4 -2 58.2 -4.6 61.4 -8.6C61 -2.8 57 2 52.4 4.6C49.6 6.4 47.6 9 47.2 12C47 14 47.2 15.8 47.6 17Z",
+    light: "M25.4 5.4C30 1.6 36 -0.2 42 -1.2",
+    tip: [61.4, -8.6],
+    torso: "M27 34C27.2 38.4 24.4 40.2 20.8 41.4C17.6 42.6 17.4 46.6 19 50C20.8 54 23.6 58.6 24.4 63C25 66.4 25 69.4 25.4 71.6C27.6 72 29.6 72.8 32 75C34.4 72.8 36.4 72 38.6 71.6C39 69.4 39 66.4 39.6 63C40.4 58.6 43.2 54 45 50C46.6 46.6 46.4 42.6 43.2 41.4C39.6 40.2 36.8 38.4 37 34Z",
+    shoulder: 1.2,
+    brow: "straight",
+    lashes: false,
+  },
+  feminine: {
+    crest: "M22 8C27 2 35 -1 42 -2.5C50 -4 57 -8 62 -13C65 -16 69 -16 71 -13.5C72.4 -11.6 71 -9.4 68.8 -9.6C67.4 -9.8 66.8 -11 67.6 -12C64 -9 60 -4 55 0C51 3.4 48 6.4 47 11C46.6 13.4 46.8 15.4 47.6 17Z",
+    light: "M25.4 5.4C30 1.6 36 -0.2 42 -1.2C48 -2.2 54 -5.4 59 -9.6",
+    tip: [70.2, -13.4],
+    torso: "M27 34C27.2 38.6 25 40.4 22.2 41.6C19.6 42.8 19.4 46.6 20.6 50C22 54 24.2 58.6 24.8 63C25.2 66.4 25 69.4 25.4 71.6C27.6 72 29.6 72.8 32 75C34.4 72.8 36.4 72 38.6 71.6C39 69.4 38.8 66.4 39.2 63C39.8 58.6 42 54 43.4 50C44.6 46.6 44.4 42.8 41.8 41.6C39 40.4 36.8 38.6 37 34Z",
+    shoulder: 0,
+    brow: "arch",
+    lashes: true,
+    clip: [27.6, 4.4],
+  },
+};
+//: At 16 to 24px the crest is a short swept curl, as the reference icon has
+//: it: the full crest would shrink the face to nothing.
+const ATLAS_TINY_CREST = "M22 8C27 2 34.6 -0.6 41.4 -1.6C46 -2.4 49.8 -5 52.6 -9.4C53.8 -4 51.4 1.4 48.6 4.8C47.4 7 47 10 47.6 17Z";
+
+function atlasLook() {
+  return typeof appearancePref === "function" && appearancePref("atlas-look", "masculine") === "feminine" ? "feminine" : "masculine";
+}
+
 //: The tail: one tapering shape (the owner, of a row of beads: "the dotted
 //: tail looks weird and needs a better look"), thick where it grows out
 //: of the hip and fine at the tip, curving low past the hand and up. The
@@ -163,6 +195,9 @@ const ATLAS_TORSO_PATH = "M27 34C27.2 38.6 25 40.4 22.2 41.6C19.6 42.8 19.4 46.6
 const ATLAS_TAIL_PATH = "M32.13 67.27C32.45 67.87 33.34 69.74 34.05 70.87C34.77 71.99 35.58 73.06 36.41 74.01C37.25 74.97 38.15 75.82 39.06 76.57C39.98 77.33 40.94 77.99 41.91 78.55C42.88 79.11 43.88 79.57 44.87 79.94C45.86 80.30 46.86 80.57 47.85 80.74C48.83 80.91 49.82 80.98 50.77 80.94C51.72 80.91 52.66 80.78 53.54 80.54C54.42 80.30 55.28 79.95 56.05 79.51C56.82 79.06 57.62 78.36 58.15 77.87C58.69 77.38 58.93 77.01 59.26 76.57C59.60 76.13 59.90 75.69 60.18 75.24C60.46 74.79 60.71 74.33 60.93 73.86C61.16 73.40 61.35 72.93 61.51 72.45C61.68 71.98 61.81 71.50 61.91 71.03C62.01 70.55 62.08 70.07 62.11 69.60C62.14 69.13 62.14 68.65 62.11 68.18C62.07 67.72 62.00 67.25 61.89 66.80C61.78 66.34 61.63 65.89 61.45 65.45C61.27 65.02 60.90 64.40 60.80 64.19C60.69 63.97 60.80 64.19 60.80 64.19A0.45 0.45 0 0 1 60.00 64.61C60.00 64.61 59.91 64.42 60.00 64.61C60.10 64.81 60.41 65.40 60.55 65.80C60.70 66.20 60.79 66.60 60.86 67.01C60.93 67.41 60.95 67.82 60.95 68.23C60.95 68.63 60.91 69.05 60.84 69.45C60.77 69.86 60.67 70.27 60.54 70.67C60.41 71.07 60.25 71.48 60.06 71.87C59.88 72.26 59.66 72.65 59.42 73.03C59.18 73.41 58.91 73.78 58.62 74.14C58.33 74.50 58.01 74.86 57.68 75.19C57.35 75.52 57.11 75.80 56.65 76.13C56.18 76.46 55.49 76.90 54.88 77.15C54.26 77.40 53.61 77.55 52.95 77.62C52.28 77.70 51.58 77.69 50.88 77.60C50.18 77.51 49.45 77.34 48.74 77.10C48.03 76.85 47.30 76.52 46.61 76.11C45.91 75.71 45.22 75.23 44.56 74.67C43.91 74.12 43.28 73.49 42.69 72.80C42.11 72.11 41.56 71.35 41.08 70.53C40.60 69.70 40.17 68.84 39.80 67.87C39.43 66.91 39.02 65.25 38.87 64.73Z";
 //: The tail ends in a small star glint, the same glint the rings carry.
 const ATLAS_TAIL_TIP = [60.6, 64.9];
+//: Beyond the tip, a little constellation: two more of the logo's notes,
+//: linked to it by threads of light.
+const ATLAS_TAIL_STARS = [[64.2, 60.8, 1], [61.8, 56.4, 0.75]];
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -217,7 +252,7 @@ function atlasAlmond(cx, cy, side) {
 //: One eye: the white, then (clipped to it) the iris that looks about and
 //: the lids that slide over it, the liner on its upper edge, and outside
 //: the clip the three closed shapes a mood can swap the open eye for.
-function atlasEye(parent, id, [cx, cy, side], tiny) {
+function atlasEye(parent, id, [cx, cy, side], tiny, lashes) {
   const eye = atlasGroup(parent, `atl-eye atl-eye-${side > 0 ? "l" : "r"}`, [cx, cy]);
   const open = atlasGroup(eye, "atl-eye-open");
   const blink = atlasGroup(open, "nm-blinks atl-blink", [cx, cy]);
@@ -246,6 +281,10 @@ function atlasEye(parent, id, [cx, cy, side], tiny) {
     const low = atlasGroup(inner, "atl-lid-low", [cx, cy]);
     atlasMake("path", { class: "atl-skin", d: `M${cx - 6} ${cy + 12}H${cx + 6}V${cy + 2.6}Q${cx} ${cy + 1.8} ${cx - 6} ${cy + 2.6}Z` }, low);
     atlasMake("path", { class: "atl-liner", d: shape.upper }, blink);
+    if (lashes) {
+      const ox = cx - 5.5 * side;
+      atlasMake("path", { class: "atl-lashes", d: `M${ox} ${cy - 1.1}l${-1.8 * side} -1M${ox + 1.1 * side} ${cy - 2.7}l${-1.5 * side} -1.5` }, blink);
+    }
   }
   const w = tiny ? 2.8 : 1.9;
   atlasMake("path", { class: "atl-e-happy atl-stroke", "stroke-width": w, d: `M${cx - 4.2} ${cy + 1.4}Q${cx} ${cy - 4} ${cx + 4.2} ${cy + 1.4}` }, eye);
@@ -291,16 +330,17 @@ function atlasExtras(parent) {
 //: The crest, swept back from the crown. It perks up with a good mood and
 //: droops with a low one (`--atl-crest`). Drawn twice, like the body: its
 //: edge under every fill, then its fill.
-function atlasCrest(parent, tiny, edge) {
+function atlasCrest(parent, tiny, edge, look) {
   const crest = atlasGroup(parent, "atl-crest", ATLAS_GEO.crest);
-  for (const d of ATLAS_CREST_LOCKS) atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, crest);
+  const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
+  const d = tiny ? ATLAS_TINY_CREST : spec.crest;
+  atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, crest);
   if (edge || tiny) return crest;
-  //: Where the top lock lies over the one behind it, a crease; on each
-  //: lock's leading edge, the light.
-  atlasMake("path", { class: "atl-crease", d: "M45.8 -1.2C44.4 2 42 4 39 5.4" }, crest);
-  atlasMake("path", { class: "atl-crest-light", d: "M27.4 5.6C28.6 2 32.4 0.8 36.6 0.6" }, crest);
-  atlasMake("path", { class: "atl-crest-light", d: "M38.4 8.6C40.4 6.4 43.2 6 46.4 5.8" }, crest);
-  atlasSpark(crest, 46.8, -4.8, 1.7, "atl-glint");
+  atlasMake("path", { class: "atl-overlay atl-dust-fill", d }, crest);
+  atlasMake("path", { class: "atl-overlay atl-neb-crest", d }, crest);
+  atlasMake("path", { class: "atl-crest-light", d: spec.light }, crest);
+  atlasSpark(crest, spec.tip[0], spec.tip[1], 1.7, "atl-glint");
+  if (spec.clip) atlasSpark(crest, spec.clip[0], spec.clip[1], 2.2, "atl-star-clip");
   return crest;
 }
 
@@ -316,6 +356,9 @@ function atlasTail(layer, edge) {
   const tip = atlasGroup(swish, "atl-tail-core");
   atlasMake("circle", { class: "atl-node-glow", cx: ATLAS_TAIL_TIP[0], cy: ATLAS_TAIL_TIP[1], r: 2.4 }, tip);
   atlasSpark(tip, ATLAS_TAIL_TIP[0], ATLAS_TAIL_TIP[1], 1.6, "atl-glint");
+  const [[x1, y1], [x2, y2]] = ATLAS_TAIL_STARS;
+  atlasMake("path", { class: "atl-thread", d: `M${ATLAS_TAIL_TIP[0]} ${ATLAS_TAIL_TIP[1]}L${x1} ${y1}L${x2} ${y2}` }, tip);
+  for (const [x, y, r] of ATLAS_TAIL_STARS) atlasSpark(tip, x, y, r * 1.5, "atl-glint");
   return tail;
 }
 
@@ -372,28 +415,33 @@ function atlasHandProps(armR, armL) {
 
 //: The head: skin, gloss and rim light, blush, eyes, brows, mouths, the
 //: crest, then the extras.
-function atlasHead(parent, id, level) {
+function atlasHead(parent, id, level, look) {
   const tiny = level === "tiny";
+  const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
   const head = atlasGroup(parent, "atl-head", ATLAS_GEO.neck);
   const sway = atlasGroup(head, "atl-sway", ATLAS_GEO.neck);
-  atlasCrest(sway, tiny, true);
+  atlasCrest(sway, tiny, true, look);
   atlasMake("path", { class: "atl-edge", d: ATLAS_HEAD_PATH }, sway);
-  const crest = atlasCrest(sway, tiny, false);
+  const crest = atlasCrest(sway, tiny, false, look);
   atlasMake("path", { class: "atl-skin", d: ATLAS_HEAD_PATH }, sway);
+  if (!tiny) atlasMake("path", { class: "atl-overlay atl-dust-fill atl-dust-head", d: ATLAS_HEAD_PATH }, sway);
   if (!tiny) {
     atlasMake("ellipse", { class: "atl-sheen", cx: 24.6, cy: 10.6, rx: 6, ry: 2.8, transform: "rotate(-28 24.6 10.6)" }, sway);
     atlasMake("circle", { class: "atl-sheen atl-sheen-dot", cx: 19.6, cy: 15.4, r: 1 }, sway);
     atlasMake("path", { class: "atl-rim", d: "M45.6 9.8C49 14 49.8 21 47.8 27C46.4 31.4 43.4 34.6 39.6 36.4" }, sway);
   }
   for (const [x, y] of ATLAS_GEO.cheeks) atlasMake("ellipse", { class: "atl-cheek", cx: x, cy: y, rx: tiny ? 3.8 : 3, ry: tiny ? 2.2 : 1.6 }, sway);
-  for (const spec of ATLAS_GEO.eyes) atlasEye(sway, id, spec, tiny);
+  for (const eye of ATLAS_GEO.eyes) atlasEye(sway, id, eye, tiny, spec.lashes);
   if (!tiny) {
     for (const [x, y, side] of ATLAS_GEO.brows) {
       const brow = atlasGroup(sway, `atl-brow atl-brow-${side > 0 ? "l" : "r"}`, [x, y]);
-      atlasMake("path", { class: "atl-stroke atl-brow-line", d: `M${x - 2.9 * side} ${y - 0.2}Q${x - 0.3 * side} ${y - 1.5} ${x + 2.9 * side} ${y + 0.8}` }, brow);
+      const d = spec.brow === "straight"
+        ? `M${x - 3.1 * side} ${y - 0.1}Q${x} ${y - 0.7} ${x + 3.1 * side} ${y + 0.5}`
+        : `M${x - 2.9 * side} ${y - 0.2}Q${x - 0.3 * side} ${y - 1.9} ${x + 2.9 * side} ${y + 0.8}`;
+      atlasMake("path", { class: `atl-stroke atl-brow-line atl-brow-${spec.brow}`, d }, brow);
     }
   }
-  const place = atlasMake("g", { transform: tiny ? "translate(32 30.2) scale(0.9) translate(-32 -38)" : "translate(32 30.4) scale(0.72) translate(-32 -38)" }, sway);
+  const place = atlasMake("g", { transform: tiny ? "translate(32 31) scale(0.9) translate(-32 -38)" : "translate(32 31.4) scale(0.66) translate(-32 -38)" }, sway);
   const mouth = atlasGroup(place, "atl-mouth", [32, 38.4]);
   for (const [name, shape] of Object.entries(ATLAS_MOUTHS)) {
     const g = atlasGroup(mouth, `atl-m atl-m-${name}`);
@@ -455,27 +503,29 @@ function atlasRing(parent, id, ring, k, front) {
 //: taper from joints inside the torso; the arms angle out so there is air
 //: between arm and waist and end in mittens with the thumb turned in, and
 //: the legs end in small feet with a toe, a heel and a sole.
+//: Soft stems, rounded at the tip: the references' legs, no feet.
 const ATLAS_LEGS = [
-  ["l", "M26.6 66C26.4 72 26.8 78 27 84C24.8 84.8 22.9 86.4 23.1 88.3C23.2 89.5 24.1 90 25.3 90L29.8 90C30.9 90 31.3 89 31.1 87.8C30.9 86.7 30.7 85.8 30.7 84.6C30.7 78 30.9 72 31.2 66Z", "M24.2 89.2H30.3"],
-  ["r", "M37.4 66C37.6 72 37.2 78 37 84C39.2 84.8 41.1 86.4 40.9 88.3C40.8 89.5 39.9 90 38.7 90L34.2 90C33.1 90 32.7 89 32.9 87.8C33.1 86.7 33.3 85.8 33.3 84.6C33.3 78 33.1 72 32.8 66Z", "M39.8 89.2H33.7"],
+  ["l", "M26.6 66C26.2 72 26 78 25.4 84C25 86.6 25.4 89.6 27.6 89.8C29.6 90 30.4 88.4 30.5 86.4C30.8 79.6 30.9 72.6 31.2 66Z"],
+  ["r", "M37.4 66C37.8 72 38 78 38.6 84C39 86.6 38.6 89.6 36.4 89.8C34.4 90 33.6 88.4 33.5 86.4C33.2 79.6 33.1 72.6 32.8 66Z"],
 ];
-//: Mitten hands with the thumb turned in.
+//: Tapered nubs, as the references draw the arms; `shoulder` moves them out
+//: for the broader masculine torso.
 const ATLAS_ARMS = [
-  ["l", "M20.2 42.4C17.6 47 15.2 53.2 13.5 58.4C12.1 61.2 12.4 64.6 15 65.2C16.8 65.6 18 64.6 18.5 63.4C19.5 63 20 61.6 19.3 60.9C18.8 60.4 18.2 60.6 17.8 60.4C19.8 55 22.2 49.4 24.8 45C25.4 43.4 24.6 41.6 23 41.2C21.8 41 20.8 41.4 20.2 42.4Z"],
-  ["r", "M43.8 42.4C46.4 47 48.8 53.2 50.5 58.4C51.9 61.2 51.6 64.6 49 65.2C47.2 65.6 46 64.6 45.5 63.4C44.5 63 44 61.6 44.7 60.9C45.2 60.4 45.8 60.6 46.2 60.4C44.2 55 41.8 49.4 39.2 45C38.6 43.4 39.4 41.6 41 41.2C42.2 41 43.2 41.4 43.8 42.4Z"],
+  ["l", "M20.6 42C17.8 46.6 15 53 13.2 58.8C12.6 60.8 13.4 62.6 15.2 62.4C16.6 62.2 17.2 61 17.6 59.6C19.4 54.4 22 49.4 24.8 45C25.4 43.4 24.6 41.6 23 41.2C21.8 41 21.2 41.2 20.6 42Z", -1],
+  ["r", "M43.4 42C46.2 46.6 49 53 50.8 58.8C51.4 60.8 50.6 62.6 48.8 62.4C47.4 62.2 46.8 61 46.4 59.6C44.6 54.4 42 49.4 39.2 45C38.6 43.4 39.4 41.6 41 41.2C42.2 41 42.8 41.2 43.4 42Z", 1],
 ];
 const ATLAS_HOLDS = [["l", "M23 44C10 40 3 18 6 -4", 6], ["r", "M41 44C54 40 61 18 58 -4", 58]];
 
-function atlasBody(parent, props) {
+function atlasBody(parent, props, look) {
+  const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
   const layers = { edge: atlasGroup(parent, "atl-edges"), fill: atlasGroup(parent, "atl-fills") };
   const arms = {};
   for (const [kind, layer] of Object.entries(layers)) {
     const edge = kind === "edge";
     atlasTail(layer, edge);
-    for (const [side, d, sole] of ATLAS_LEGS) {
+    for (const [side, d] of ATLAS_LEGS) {
       const leg = atlasGroup(layer, `nmb-leg nmb-leg-${side} atl-leg`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, leg);
-      if (!edge) atlasMake("path", { class: "atl-sole", d: sole }, leg);
     }
     for (const [side, d, hx] of ATLAS_HOLDS) {
       const hold = atlasGroup(layer, `nmb-hold nmb-hold-${side}`);
@@ -483,27 +533,27 @@ function atlasBody(parent, props) {
       atlasMake("circle", { class: edge ? "atl-edge" : "atl-skin", cx: hx, cy: -7, r: 3 }, hold);
     }
     const torso = atlasGroup(layer, "nmb-torso");
-    atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: ATLAS_TORSO_PATH }, torso);
+    atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: spec.torso }, torso);
     if (!edge) {
-      //: The hub, the logo's centre, as light inside the body (the owner,
-      //: of a star drawn on its chest: "looks fake"): a soft glow deep in
-      //: the chest with three faint points linked by a thread, low
-      //: contrast, like light inside a gem. It brightens and dims with the
-      //: mood, and the points light in turn while Atlas thinks.
-      const core = atlasGroup(torso, "atl-core", [32, 52]);
-      atlasMake("ellipse", { class: "atl-core-glow", cx: 32, cy: 52, rx: 8.4, ry: 10.6 }, core);
-      atlasMake("path", { class: "atl-inner-link", d: "M29.2 47.4L34.8 50.8L31.2 56.6" }, core);
-      [[29.2, 47.4, 0.75], [34.8, 50.8, 0.95], [31.2, 56.6, 0.65]].forEach(([x, y, r], i) => {
-        const point = atlasMake("circle", { class: "atl-inner-star", cx: x, cy: y, r }, core);
-        point.style.setProperty("--atl-k", String(i));
-      });
+      //: The gel's inside: star dust and a violet nebula low in the body.
+      atlasMake("path", { class: "atl-overlay atl-dust-fill", d: spec.torso }, torso);
+      atlasMake("path", { class: "atl-overlay atl-neb-body", d: spec.torso }, torso);
+      //: The hub, the logo's centre, as the reference sheet draws it: a
+      //: glowing four-point star in the chest, in a soft glow that follows
+      //: the mood, with four faint rays.
+      const core = atlasGroup(torso, "atl-core", [32, 50]);
+      atlasMake("ellipse", { class: "atl-core-glow", cx: 32, cy: 50, rx: 8.4, ry: 9.6 }, core);
+      atlasMake("path", { class: "atl-rays", d: "M32 42.6V57.4M24.6 50H39.4" }, core);
+      const star = atlasGroup(core, "atl-star", [32, 50]);
+      atlasSpark(star, 32, 50, 4.2, "atl-chest-star");
       //: The gloss on the gel: one specular on the upper left of the body.
       atlasMake("ellipse", { class: "atl-sheen", cx: 25.4, cy: 46.6, rx: 1.3, ry: 3.2, transform: "rotate(18 25.4 46.6)" }, torso);
     }
-    for (const [side, d] of ATLAS_ARMS) {
+    for (const [side, d, out] of ATLAS_ARMS) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);
-      atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, arm);
-      if (!edge) arms[side] = arm;
+      const shoulder = atlasMake("g", spec.shoulder ? { transform: `translate(${out * spec.shoulder} 0)` } : {}, arm);
+      atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, shoulder);
+      if (!edge) arms[side] = shoulder;
     }
   }
   if (props) atlasHandProps(arms.r, arms.l);
@@ -529,6 +579,20 @@ function atlasDefs(svg, id, level) {
       atlasMake("path", { d: atlasAlmond(cx, cy, side).d }, clip);
     }
   }
+  //: Star dust inside the gel: a small tile of specks, in the drawing's
+  //: own space so it does not scale with each part.
+  const dust = atlasMake("pattern", { id: `${id}-dust`, width: 7.3, height: 6.1, patternUnits: "userSpaceOnUse" }, defs);
+  for (const [cx, cy, r] of [[1.2, 1.8, 0.34], [4.9, 4.2, 0.22], [2.9, 5.2, 0.16], [6.2, 0.9, 0.2], [3.6, 2.9, 0.12]]) {
+    atlasMake("circle", { class: "atl-speck", cx, cy, r }, dust);
+  }
+  //: A violet nebula low in the body and toward the crest's tip.
+  const nebBody = atlasMake("radialGradient", { id: `${id}-neb`, cx: 0.4, cy: 0.72, r: 0.55 }, defs);
+  for (const [offset, cls] of [[0, "atl-st-neb0"], [1, "atl-st-neb1"]]) atlasMake("stop", { offset, class: cls }, nebBody);
+  const nebCrest = atlasMake("radialGradient", { id: `${id}-nebc`, cx: 0.85, cy: 0.2, r: 0.7 }, defs);
+  for (const [offset, cls] of [[0, "atl-st-neb0"], [1, "atl-st-neb1"]]) atlasMake("stop", { offset, class: cls }, nebCrest);
+  svg.style.setProperty("--atl-dust", `url(#${id}-dust)`);
+  svg.style.setProperty("--atl-neb", `url(#${id}-neb)`);
+  svg.style.setProperty("--atl-nebc", `url(#${id}-nebc)`);
   //: The rings' front halves, in each ring's own flattened frame.
   const front = atlasMake("clipPath", { id: `${id}-front` }, defs);
   atlasMake("rect", { x: -40, y: 0, width: 80, height: 40 }, front);
@@ -544,10 +608,10 @@ function atlasDefs(svg, id, level) {
 //: head and its crest; `tiny` crops tighter because at 16px every unit
 //: counts.
 const ATLAS_LEVELS = {
-  full: { viewBox: [-8, -14, 80, 106], body: true },
+  full: { viewBox: [-8, -18, 84, 110], body: true },
   figure: { viewBox: [0, 0, 64, 92], body: true },
-  head: { viewBox: [5, -11, 56, 56], body: false },
-  tiny: { viewBox: [11, -9, 48, 48], body: false },
+  head: { viewBox: [7, -15, 62, 62], body: false },
+  tiny: { viewBox: [11, -12, 50, 50], body: false },
 };
 
 function atlasLevelFor(size) {
@@ -574,6 +638,8 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
     focusable: "false",
   });
   svg.dataset.nmSeed = "Atlas";
+  const look = atlasLook();
+  svg.dataset.atlasLook = look;
   svg.style.setProperty("--nm-delay", "-1.3s");
   atlasMake("title", {}, svg);
   atlasDefs(svg, id, level);
@@ -587,7 +653,7 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   const rig = atlasGroup(moodLoop, "atl-rig", anchor);
   if (spec.body) {
     ATLAS_GEO.rings.forEach((ring, k) => atlasRing(rig, id, ring, k, false));
-    atlasBody(rig, figure);
+    atlasBody(rig, figure, look);
     ATLAS_GEO.rings.forEach((ring, k) => atlasRing(rig, id, ring, k, true));
   }
   //: The companion turns the head at the neck (`.nm-buddy-head`) and looks
@@ -597,7 +663,7 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
     host = atlasGroup(rig, "nm-buddy-head", ATLAS_GEO.neck);
     host = atlasGroup(host, "name-mark atl-face");
   }
-  atlasHead(host, id, level);
+  atlasHead(host, id, level, look);
   atlasApply(svg, mood);
   if (!figure) watchNameMark(svg);
   return svg;

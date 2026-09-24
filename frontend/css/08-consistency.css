@@ -5723,6 +5723,16 @@ main,
 }
 .nm-atlas .nmb-arm-l { transform-box: view-box; transform-origin: 22.4px 43.6px; }
 .nm-atlas .nmb-arm-r { transform-box: view-box; transform-origin: 41.6px 43.6px; }
+/* Thinking: a hand at the chin, as the reference sheet draws it. The
+   forearm is drawn in the head's layer (atlas.js), over the face, and the
+   resting right arm steps aside for it; not while the companion sits or
+   hangs, when its arms are busy. */
+.nm-atlas .atl-chin-hand { opacity: 0; transition: opacity var(--motion-base) var(--ease-out); }
+.nm-atlas .nmb-arm-r { transition: opacity var(--motion-base) var(--ease-out); }
+.nm-atlas.atl-full[data-atlas-mood="thinking"] .atl-chin-hand,
+#nm-buddy:not([data-pose="hang"], [data-pose="sit"]) .nm-atlas[data-atlas-mood="thinking"] .atl-chin-hand { opacity: 1; }
+.nm-atlas.atl-full[data-atlas-mood="thinking"] .nmb-arm-r,
+#nm-buddy:not([data-pose="hang"], [data-pose="sit"]) .nm-atlas[data-atlas-mood="thinking"] .nmb-arm-r { opacity: 0; }
 /* The companion turns limbs about its own generic joints; Atlas's are
    higher and narrower, so they are named here, one step more specific. */
 #nm-buddy .atl-figure .nmb-arm-l { transform-origin: 22.4px 43.6px; }

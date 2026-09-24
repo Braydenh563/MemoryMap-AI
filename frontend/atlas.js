@@ -456,6 +456,15 @@ function atlasHead(parent, id, level, look) {
     }
   }
   if (!tiny) atlasExtras(sway);
+  //: Thinking, a hand at the chin (the reference sheet): drawn here, over
+  //: the head, because the body's own arm is drawn under it; the CSS shows
+  //: it and hides the resting right arm while Atlas thinks.
+  if (level === "full" || level === "figure") {
+    const hand = atlasGroup(sway, "atl-chin-hand");
+    const d = "M45.6 44.6C44.8 40.6 43 36.6 40.6 33.4C39.6 32.2 38 32.6 38 34C38.2 35.2 38.8 36 39.4 37C40.8 39.6 41.6 42.4 42 45.4Z";
+    atlasMake("path", { class: "atl-edge", d }, hand);
+    atlasMake("path", { class: "atl-skin", d }, hand);
+  }
   if (level === "figure") atlasHeadProps(sway, crest);
   return head;
 }

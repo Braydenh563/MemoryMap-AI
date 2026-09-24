@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Atlas thinks with a hand at its chin, as the reference sheet draws it.
 - Settings, Appearance, Atlas look: masculine (a shorter swept crest with two spikes, straighter brows, broader shoulders) or feminine (a long flowing crest ending in a curl, lashes, arched brows, rounder blush and a star clip); both are the same Atlas. Face looks: Mixed (as before), Masculine or Feminine, for generated faces whose name says nothing either way; a name that does say keeps its own. Your own face can choose its look in Profile, Your look.
 - Atlas redrawn from the owner's reference sheets: a glossy gel spirit whose round head flows up into one swept crest, a slim soft body with tapered arms and stem legs, star dust and a violet nebula inside the body on a blue to violet gradient, a glowing four-point star in the chest, a short tail ending in a little constellation, and its two rings of stars. The small icon is the head and a short swept curl.
 - Atlas wears two rings of stars that float round its body at crossing tilts, passing behind it and in front: a faint glowing line with star dust drifting along it (slowly at rest, faster when it is pleased or busy) and a few star glints of different sizes twinkling, dimmer when it sleeps. Its tail is plain now, with one glint at the tip.

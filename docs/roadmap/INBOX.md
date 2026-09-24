@@ -92,7 +92,12 @@ with its owner named in the entry.
     task 901ms → 213ms, same harness and fixture at 4x; element cache in
     `wbItemBBox`, the bar queued once a frame, the chrome groups found once
     per gesture, the editing check scoped to the board. Bar position mid-drag
-    identical to base over 10 moves, `perf5/barcheck.js`.)
+    identical to base over 10 moves, `perf5/barcheck.js`.) Still open on the
+    board, a pan: a devtools.timeline trace of 40 moves at 4x is 43 long
+    tasks, 3.5s, of which `Layerize` is 2.4s and script 0.2s; it stays with
+    the grid sync, the cull, the bar, the navigator and both SVG transforms
+    switched off (`perf5/pantrace.js` VARIANT), so it is the compositor's
+    layer assignment of ~250 painted objects per frame, not a handler.
     (b) Graph node drag at 4x: 137 long tasks, every frame over 33ms (max
     550ms); `graphMinimapPaint` rebuilds the minimap's SVG on every worker
     tick (1.56s of `createElementNS`/`setAttribute`/`replaceChildren`);
@@ -143,6 +148,11 @@ with its owner named in the entry.
     (g) Library tab switch at 1x: 10 long tasks, 580ms (4x: 3.4s, max
     683ms); `loadLibrary` refetches `/library` and rebuilds every card each
     visit; recommend the same version check as (d).
+    (open, needs a decision: skipping the rebuild when `/library` answers
+    the same would also keep the selection, which a reload clears on
+    purpose, and leave relative dates as they were drawn. Recommend: keep
+    the cards on screen during the refetch, skip the rebuild when the answer
+    is identical, and clear the selection either way.)
     (h) Every tab switch at 4x: `revealTab` 70 to 110ms self time, mostly
     `querySelectorAll("textarea.autogrow")` then `autoGrow` on each visible
     one (forced layout per box); recommend autogrowing only the new tab's

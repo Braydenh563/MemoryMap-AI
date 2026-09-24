@@ -8097,7 +8097,14 @@ onDomReady(() => {
   $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
   $("library-media-bulk-delete")?.addEventListener("click", bulkDeleteLibraryMedia);
   $("library-media-clear-selection")?.addEventListener("click", clearLibraryMediaSelection);
-  $("library-images-search")?.addEventListener("input", filterLibraryImagesGallery);
+  //: Debounced like the Library's own search: every keystroke rebuilt every
+  //: card (INBOX 424, measured 498ms over seven keys at 4x throttle), so a
+  //: word typed at speed now rebuilds once, when the typing pauses.
+  let libraryImagesSearchTimer = null;
+  $("library-images-search")?.addEventListener("input", () => {
+    clearTimeout(libraryImagesSearchTimer);
+    libraryImagesSearchTimer = setTimeout(filterLibraryImagesGallery, 150);
+  });
   $("library-docs-refresh")?.addEventListener("click", renderLibraryDocuments);
   $("library-docs-new")?.addEventListener("click", async () => {
     const doc = await createDocumentNamed();

@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
   startup, which were already lazy: nothing heavier than FastAPI, SQLAlchemy
   and alembic loads before the embedding model does.
 - Dragging a note that is part of a lasso selection on the graph carries the
+- Library images and files: the search box rebuilds the grid once when typing pauses instead of on every keystroke.
   whole selection with it, at the same offsets. Before, only the note in hand
   moved and the rest of the selection stayed put. The usual rules hold for
   every note carried: a plain drag places, Shift pins, and a pinned note stays

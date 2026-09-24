@@ -84,6 +84,17 @@ with its owner named in the entry.
     Harper (INBOX 401), suggestion mode (tracked changes), read aloud with
     the system's own voices, an accessibility check (heading order, alt
     text, link text), and a .docx round trip if export is missing.
+    Code side built 2026-09-24 (codecomplete): snippets b1c7339, Run for
+    .js and .html in a sandbox with an output panel bbaccfc (`docrun.js`
+    18/18), F12, Shift+F12 and Ctrl+Shift+F f07b5bc. **Python via Pyodide
+    not built, a decision is missing:** Pyodide's runtime is not a pip
+    package and `core/extras.py` installs pip packages only. Recommendation:
+    an extras entry of a new "download" kind, a pinned `pyodide-core`
+    release with its sha256, unpacked into the data dir and served beside
+    `/documents/run-sandbox` under the same policy; until then the Run
+    button on a .py file says so. TypeScript likewise says it needs
+    compiling (a vendored type-stripper, sucrase, MIT, would do it).
+    The prose side is still open.
 
 403. **The owner, 2026-09-23 night, verbatim.** "for me, trust in the
     application isn't just the information it shows but that is very much a
@@ -100,24 +111,6 @@ with its owner named in the entry.
     carry it). Named: the connection pill's x inset, orchestrator; menus
     (widths, spacing, alignment), a sweep of every menu for width, padding
     and row alignment.
-
-402. **The owner, 2026-09-23 night, verbatim:** "are there any other vscode
-    features we can add to the document editor like emmet for other
-    languages or file types??" And, on Ctrl+/: it exists
-    (`toggleDocComment`); two VS Code gaps. Placed with the code-completion
-    agent (`agent-remaining/codecomplete.md`), in this order: the comment
-    toggle made language-aware at the caret (`<script>` takes `//`,
-    `<style>` `/* */`, JSX children `{/* */}`) with Shift+Alt+A for a block
-    comment if the key is free; Emmet beyond HTML (JSX/TSX `className`,
-    XML/SVG) with wrap-with-abbreviation and balance; auto-close and
-    rename-matching-tag; CSS colour swatches with the native picker; hover
-    docs for CSS properties and HTML tags from the packages' own data;
-    indentation guides and bracket-pair colours on tokens; an outline jump
-    (Ctrl+Shift+O); Alt+Z wrap and a render-whitespace option; sticky scroll.
-    Already present and not rebuilt: move/copy line, find and replace, select
-    next occurrence, go to line, folding, bracket matching, rectangular
-    selection, the lint gutter. Each key checked against the shortcut
-    registry; a taken key is skipped and named.
 
 401. **The owner, 2026-09-23 night, verbatim.** "should we vendor any of the
     repos I have had you analyse?? or take anything from them??" Answer from

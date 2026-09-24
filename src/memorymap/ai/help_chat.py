@@ -537,7 +537,10 @@ HELP_TOPICS: list[dict] = [
         ),
         "body": (
             "The document editor checks spelling, spacing and sentence length as "
-            "you write. In Live view a flagged word is underlined: click or "
+            "you write, and grammar (agreement, a or an, its or it's) with Harper, "
+            "a grammar checker that runs on this computer; note boxes get the "
+            "grammar check too, and the dictionary dialog turns it off. In Live "
+            "view a flagged word is underlined: click or "
             "right-click it for corrections, \"Add to dictionary\" or \"Ignore "
             "this for now\". The Suggestions panel lists every finding; clicking "
             "one scrolls to it and highlights it briefly. Where there is no "

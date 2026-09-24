@@ -4559,6 +4559,10 @@ textarea.autogrow {
   background: var(--muted);
 }
 
+.doc-finding-dot-grammar {
+  background: var(--warn);
+}
+
 /* The words carry the identity, so they hold the weight and they are the half
    that ellipsises: the reason is a sentence and can be read from the title. */
 .doc-finding-words {
@@ -4834,6 +4838,12 @@ textarea.autogrow {
 
 .doc-dictionary-variant {
   flex: none;
+}
+
+/* The grammar switch (INBOX 401) under the spelling row, one row of its own:
+   it is a second checker, not a setting of the first. */
+.doc-grammar-row {
+  margin-bottom: var(--space-3);
 }
 
 .doc-dictionary-list {

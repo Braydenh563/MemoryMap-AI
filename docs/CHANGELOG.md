@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Grammar checking in documents and note boxes, on this computer: Harper
+  (Apache-2.0, vendored) underlines agreement, "a" or "an", its or it's and
+  the like with a double line, files them under Grammar in the suggestions
+  panel and offers its fixes in the word's own menu. It loads on the first
+  prose document or note box (nothing at boot; 1.75 s cold, about 100 ms per
+  check of 1,400 words, all in a worker) and the dictionary dialog turns it
+  off (INBOX 401).
 - The guided tour walks through every main feature, one section after
   another: Notes, Chat, Graph, Library, Boards, Mind maps, Timeline,
   Reminders, Settings and the status bar each open the feature and point at

@@ -722,6 +722,12 @@ def create_app() -> FastAPI:
         exclude_content_types=(
             *DEFAULT_EXCLUDED_CONTENT_TYPES,
             "application/x-ndjson",
+            # The grammar checker's 15.9 MB binary (INBOX 401). Measured on
+            # loopback: 755 ms to gzip it on every cold fetch against 60 ms
+            # to send it as it is, so compressing it made the first check
+            # slower by the whole difference. It is fetched once per launch
+            # and revalidated by its ETag after that.
+            "application/wasm",
         ),
     )
     app.add_middleware(security.OriginCheckMiddleware)

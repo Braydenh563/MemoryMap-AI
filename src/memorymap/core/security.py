@@ -199,7 +199,14 @@ def build_csp(script_hashes: list[str]) -> str:
         "default-src": "'self'",
         # No 'unsafe-inline' and no 'unsafe-eval': the frontend has neither an
         # eval nor a new Function anywhere in it, so nothing needs them.
-        "script-src": " ".join(["'self'", *script_hashes]),
+        #
+        # `'wasm-unsafe-eval'` is the one exception, and it is narrower than
+        # its name: it lets the page compile WebAssembly and nothing else.
+        # `eval` and `new Function` stay refused. It is here for the grammar
+        # checker (Harper, vendored, run in `frontend/harper-worker.js`);
+        # without it `WebAssembly.instantiate` throws a CompileError naming
+        # this policy and the check quietly never runs.
+        "script-src": " ".join(["'self'", "'wasm-unsafe-eval'", *script_hashes]),
         # No 'unsafe-inline' either: the eight style attributes that used to
         # be in index.html moved into style.css to make this possible. This is
         # the directive that stops injected markup styling itself into a

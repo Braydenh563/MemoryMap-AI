@@ -147,14 +147,30 @@ with its owner named in the entry.
     `querySelectorAll("textarea.autogrow")` then `autoGrow` on each visible
     one (forced layout per box); recommend autogrowing only the new tab's
     boxes.
+    (fixed, the autogrow part: every check is read in one pass and only a box
+    measured while hidden, or whose text, width, font or cap changed, is
+    grown; 0 to 12ms per switch. Not the 70 to 110ms: split step by step
+    (`perf5/revealsplit2.js`, 14 switches at 4x) it is `button.tabIndex =`
+    796ms, which forces the style recalc of the page just shown, then 203ms
+    of its layout; autogrow was 30ms of revealTab's 1,318ms. That is the new
+    tab's own style and layout, forced early, and moving it was measured to
+    gain nothing (the note on `revealActiveTab`).)
     (i) Typing in a note at 4x: 56 of 204 frames over 33ms; each keystroke
     mirrors the editor into the hidden textarea and dispatches `input`,
     which runs `autoGrow` (448ms self) on a box nobody sees; recommend
     skipping autogrow for a box whose editor is mounted.
+    (fixed: `autoGrow` 492/532ms → 16/17ms over the 50-character run at 4x,
+    profile busy 2,448/2,790ms → 1,874/1,713ms. The mirror is left to the
+    stylesheet's `height: 100%`, which an old inline height had overridden:
+    measured after 14 lines, base mirror 315px under a 398px editor, now
+    398px; the editor and its box are unchanged, `perf5/capcheck.js`.)
     (j) The brand emblem's p5 loop draws at 24fps on every tab while idle
     (`_draw` about 70ms per 8s at 1x on Dashboard and Chat, and it shows up
     inside every drag profile); recommend pausing it after a few seconds
     without input, as the mood timer already tracks.
+    (already fixed by b944d2c, which the audit's worktree predates: the
+    emblem is drawn once and turned by CSS. Measured on this head, 8s idle
+    at 1x: 0ms of script on Dashboard and Chat, `perf5/idleprof.js`.)
     (k) Library shows at most 200 of each kind (`PER_KIND_LIMIT`,
     routes_library.py) and its chip counts are the count returned: with 400
     notes the chip reads "Notes 198", and a plain Library search for the

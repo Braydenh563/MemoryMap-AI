@@ -12,6 +12,9 @@ does this do per frame now", not "how do I word the rule differently".
     graph node drag, 40 moves    graphMinimapPaint             1,502ms  514ms
     graph wheel zoom, 16 steps   measureText                     165ms    0ms
     graph revisit, first 12s     main-thread task time         6,746ms  1,382ms
+    map expand of the root       wbBuildMapNode                  321ms    0ms
+    lightbox next, 5 presses     show (scrollTo inside)          457ms   37ms
+    typing 50 characters         autoGrow                        492ms   16ms
 """
 
 from __future__ import annotations
@@ -157,3 +160,32 @@ def test_fit_scrolls_only_a_scroller_that_is_away_from_its_origin() -> None:
     # A pan marks it at once, not a frame later at its scroll event.
     pan = app[app.index("const movePan = (e) => {") :]
     assert "scrolledAway.add(scroller);" in pan[: pan.index("};")]
+
+
+# --- 424h and 424i: autogrow on a tab switch and while typing ------------------
+
+
+def test_a_mirrored_note_box_is_not_grown() -> None:
+    """Once the capture box's editor has mounted, the textarea is an invisible
+    mirror sized by the stylesheet, and every keystroke's `input` grew it with
+    a forced layout (448ms of a typing run at 4x CPU)."""
+    grow = _body(_source("app.js"), "autoGrow")
+    mirror_at = grow.index('el.classList.contains("note-surface-mirror")')
+    assert mirror_at < grow.index("el.offsetParent"), "the class check comes before any layout read"
+    mount = _source("documents.js")
+    at = mount.index('host.classList.add("note-surface-mirror");')
+    assert 'host.style.height = "";' in mount[at : at + 400]
+
+
+def test_a_tab_switch_grows_only_the_boxes_that_could_be_wrong() -> None:
+    """Every visible box was grown on every switch, write-read-write per box.
+    Now every check is read in one pass and only a box measured while hidden,
+    or whose text, width, font or caps changed, is grown after it."""
+    app = _source("app.js")
+    visible = _body(app, "autoGrowVisible")
+    assert "box._autoGrownValue !== box.value" in visible
+    assert "box._autoGrownFor !== autoGrowInputs(box)" in visible
+    assert visible.index("due.push(box)") < visible.index("for (const box of due) autoGrow(box);")
+    assert "autoGrowVisible();" in _body(app, "revealTab")
+    grow = _body(app, "autoGrow")
+    assert "el._autoGrownFor = autoGrowInputs(el);" in grow

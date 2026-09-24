@@ -797,7 +797,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
-| 1 | F3, §16 | `semantic_search` reads and parses every vector per request on the Ask and chat path; point it at the engine's matrix, keeping mixed widths | S to M | `search/search_manager.py` ~305 |
+| 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
 | 2 | §12, Brief 15 | S1 media token in the URL, S2 per-client throttle, S3 path imports, the rest of S5, S6, `/debug/health` paths; blocks LAN mode | M | `core/security.py`, `routes_auth.py`, `routes_settings.py` |
 | 3 | B2 | durable jobs: a table, leases, resume after a kill, `/jobs/stream` | L | `core/jobs.py` |
 | 4 | D2, 261 | the connections rail always visible on desktop, which is also where `GET /resurface/near` would show | M | `app.js` `openConnections` |
@@ -865,7 +865,6 @@ should fix the class and add the lint that keeps it fixed.
 | --- | --- | --- | --- | --- |
 | F1 | 57 distinct `localStorage` keys read ad hoc, 14 of them `JSON.parse`d | `grep -o 'localStorage.getItem("[^"]*")' frontend/*.js \| sort -u \| wc -l` | This is the shape of the worst UI bug in the project's history (two settings missing from `APPEARANCE_DEFAULTS` wrote `NaN` into CSS): a value invalid where it is used, set somewhere else. Corrupt or missing storage throws inside JSON.parse and takes the caller's whole init with it. | One `prefs` module: a schema with defaults and a version per key, `prefs.get(key)` never throws and never returns undefined, migration on version bump. Lint: no direct `localStorage.getItem` outside `prefs.js`. |
 | F2 | 25 list endpoints, 3 accept `limit` | `grep -n "^def list_" -A 6 src/memorymap/api/routes_*.py \| grep -c limit` | Every list is O(notebook). A 5k-note notebook makes the Library, Timeline and Graph tabs multi-second. (MODERNISATION_AUDIT D4.) | Cursor pagination on all 25 with one helper, `?limit=&cursor=`, `next_cursor` in the body; the frontend's list renderers page on scroll. Lint: a test enumerates routers and asserts every `list_*` takes `limit`. |
-| F3 | **Measured, 2026-09-12, and smaller than this row assumed at a realistic size.** `search_manager.semantic_search` still reads and parses every vector row per request, and it is on the Ask and chat path. At 2,000 notes and 384 dimensions that read and parse is 5.6 ms per request against 5.3 ms for the matmul over the same vectors already in memory, so it is about half the cost of a search at that size and grows linearly: about 56 ms at 20k and 140 ms at 50k. The three whole-notebook features (link suggestions, tensions, graph edges) already read `engine.vectors_by_id`, which serves the process-level matrix, so the fix is to point `semantic_search` at the same matrix. **Not done here, deliberately**: it is the most important path in the app and the swap has to keep the mixed-width behaviour this function grew (a model swap inside one backend leaves rows at the old width, and stacking them raised and took every search down with it), so it wants its own brief and its own tests rather than a late-night edit. | `search/search_manager.py` ~279, `search/engine.py` `vectors_by_id` | still open, sized |
 | F4 | **Re-measured 2026-09-13: 147 broad handlers, of which 52 say nothing at all.** `scratchpad/probe_excepts.py` reports both numbers, because the grep below counts every handler and the ones that cost something are the silent subset: a handler that logs with `exc_info` is the fix, not the flaw. Original figure: 88 `except Exception:` / bare `except:` in `src/` | `grep -rn "except Exception:\|except:" src/memorymap --include=*.py \| wc -l` | Failures become silence (the "features that never ran once" shape). | Each one either re-raises as the error contract, logs with `exc_info` to the logbuffer, or is narrowed. Lint: ruff `BLE001` enabled with a per-site `# noqa: BLE001 <reason>`. |
 | F5 | 13 raw `fetch()` calls beside `api()` | `grep -n 'fetch(\`\|fetch("' frontend/*.js \| grep -v "api\b"` | Each re-implements the auth header, the error contract and the offline path; one is `/chat/stream`, the most important call in the app. | `api.stream()` and `api.upload()` helpers; the 13 sites move onto them. Lint: no bare `fetch(` outside `api.js`. |
 | F7 | Threads in 16 modules share SQLAlchemy sessions created per call | `grep -rln "threading.Thread" src/memorymap` | SQLite is fine with this only while each thread opens its own session and nobody passes ORM objects across; nothing enforces it, and the "Could not refresh instance" 500 seen this session was exactly that shape. | B2 job runtime: one worker, jobs get a fresh session, results are plain dicts. Lint: `Thread(` allowed only in `core/jobs.py`. |
@@ -873,7 +872,7 @@ should fix the class and add the lint that keeps it fixed.
 | F11 | The graph, dashboard constellation and map thumbnails are three renderers | `grep -c "forceSimulation" frontend/graph.js frontend/dashboard.js frontend/whiteboard.js` | Three physics, three colour maps, three sets of bugs. | GRAPH_PLAN §3: one renderer with `size: "pane" | "tile" | "full"`. |
 | F12 | Frontend state lives in module globals, DOM and localStorage with no single owner | MODERNISATION_AUDIT C2 | Every "the list did not refresh" bug. | A small store: `state.get/set/subscribe` per slice, renderers subscribe; introduced slice by slice (notes list first). |
 
-F6, F8 and F9 are done and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
+F3, F6, F8 and F9 are done and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
 
 Two flaws this session found by driving the app, recorded here so they are
 fixed as classes: a new board was created through a path that also created
@@ -888,8 +887,6 @@ in `docks.js`).
 - F2 (b) every list takes `limit` (`tests/test_list_limits.py`); cursors and
   the frontend's paging are not built (`/files/gallery`'s half was built
   2026-09-24). M.
-- F3 (b) still open as sized: `semantic_search` selects every
-  `EmbeddingRecord` per request (`search/search_manager.py` ~305). S to M.
 - F4 (b) `# noqa: BLE001` sits at dozens of sites but the rule is not enabled
   (`pyproject.toml` selects E4, E7, E9 and F only). S to M.
 - F5 (b) every bare `fetch` must carry the auth header
@@ -1554,13 +1551,8 @@ The embed-cache lock fixed 2026-09-08 moved to HISTORY.md, "Moved from the plans
 
 **Lag, measured by reading, to be measured by running.**
 
-- `semantic_search` loads every vector blob from SQLite and decodes it on
-  every query (`select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding)`).
-  At 10k notes of 384 floats that is 15 MB decoded per Ask. Move: a
-  process-level matrix cache keyed by `(backend_id, max(EmbeddingRecord.
-  updated_at), count)`, invalidated by the same fingerprint trick
-  `routes_graph._cached` already uses. Gate: Ask retrieval under 30ms at
-  10k notes. Size S, Sonnet.
+- `semantic_search` reading every vector per query: built 2026-09-24, moved
+  to HISTORY.md, "Moved from the plans, 2026-09-24".
 - `similar_pairs` is O(n²) and is called from three routes (link
   suggestions, tensions, graph edges) on each request; the graph route
   caches it, the other two do not. Move: one cached pair table computed by
@@ -1579,7 +1571,7 @@ behind a feature flag. Not worth a session.
 
 **State 2026-09-24:** the split is done
 (audit A5, in HISTORY); the silent `pass` handlers were narrowed (audit A6)
-and the rule is F4 above; the lag items: `semantic_search` is F3 (open);
+and the rule is F4 above; the lag items: `semantic_search` (F3) is built 2026-09-24;
 `similar_pairs` is still computed per request for link suggestions and
 tensions (`routes_entries.py` ~960 and ~1068; only the graph caches it), (c),
 S; the polls-to-SSE move is (d), superseded by F6's idle gate being met at 2

@@ -12,6 +12,53 @@ that answers "has this been done?" before anyone starts.
 INBOX 399 ("what is left in the world class plan??"): every row of
 WORLD_CLASS_PLAN.md read against the code, and what was built moved here.
 
+### From WORLD_CLASS_PLAN.md row 1 (F3, §16): `semantic_search` on the engine's matrix
+
+**Built 2026-09-24.** `search_manager.semantic_search` scores against the
+retrieval engine's process-level matrix (`engine.vector_view`) instead of
+selecting and parsing every `EmbeddingRecord` on each Ask and chat request.
+The matrix stays correct three ways: the flush hook applies every ORM write
+(and now respects `model_version`); `engine.current_matrix` asks the table
+for `(count, max(id), total(entry_id))` first, from the index, and when that
+has moved diffs the table's `(entry_id, id)` pairs against what the matrix
+has seen and fetches only the rows that differ, which is what catches a bulk
+`delete()` (the purge, a category re-embed, a failed re-embed) and a flush
+that was rolled back; and a reindex to a new width moves the matrix once
+most rows are at it. The table scan stays as `_score_from_table`, the
+fallback for a query at a width the matrix does not hold (the minority side
+of a half-finished reindex) or a matrix that cannot be had. `vectors_by_id`
+goes through `current_matrix` too, so link suggestions and tensions see the
+same writes. The product runs through `einsum` rather than `@`: under load
+the BLAS thread pool's wake-up cost 12 ms median on a 5,000 x 384
+matrix-vector product that takes 0.3 to 0.45 ms on one core.
+
+Measured with `scratchpad/bench_semantic.py` (synthetic 384-float vectors,
+60 queries, median), before on the base tree and after on this one, in the
+same sandbox: 400 notes 1.6 to 1.9 ms before, 0.2 to 0.3 ms after; 5,000
+notes 19.2 ms before with one BLAS thread and 24.5 to 73.7 ms with the
+default pool on a loaded machine, 1.0 to 1.2 ms after. The first query after
+a write pays one diff: 6.0 ms at 5,000 after an ORM write, 5.0 ms after a
+bulk delete, 0.7 to 0.9 ms at 400. Pinned by
+`tests/test_semantic_search_matrix.py` (no vector read per request once
+warm, the same answers as the scan, a new note, an edited note, a bulk
+delete, a rollback, mixed widths, a reindex to a new width, another
+backend's vectors, the fallback). Not measured: a real embedding model's
+vectors, and 50k notes.
+
+The F3 row as it stood in section 10:
+
+| F3 | **Measured, 2026-09-12, and smaller than this row assumed at a realistic size.** `search_manager.semantic_search` still reads and parses every vector row per request, and it is on the Ask and chat path. At 2,000 notes and 384 dimensions that read and parse is 5.6 ms per request against 5.3 ms for the matmul over the same vectors already in memory, so it is about half the cost of a search at that size and grows linearly: about 56 ms at 20k and 140 ms at 50k. The three whole-notebook features (link suggestions, tensions, graph edges) already read `engine.vectors_by_id`, which serves the process-level matrix, so the fix is to point `semantic_search` at the same matrix. **Not done here, deliberately**: it is the most important path in the app and the swap has to keep the mixed-width behaviour this function grew (a model swap inside one backend leaves rows at the old width, and stacking them raised and took every search down with it), so it wants its own brief and its own tests rather than a late-night edit. | `search/search_manager.py` ~279, `search/engine.py` `vectors_by_id` | still open, sized |
+
+The section 16 lag bullet as it stood:
+
+- `semantic_search` loads every vector blob from SQLite and decodes it on
+  every query (`select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding)`).
+  At 10k notes of 384 floats that is 15 MB decoded per Ask. Move: a
+  process-level matrix cache keyed by `(backend_id, max(EmbeddingRecord.
+  updated_at), count)`, invalidated by the same fingerprint trick
+  `routes_graph._cached` already uses. Gate: Ask retrieval under 30ms at
+  10k notes. Size S, Sonnet.
+
 ### From WORLD_CLASS_PLAN.md, placed from INBOX: 285, indexless tool-call fragments
 
 **Fixed 2026-09-24.** `OpenAICompatClient._accumulate_tool_calls` no longer

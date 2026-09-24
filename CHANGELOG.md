@@ -22,6 +22,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Ask and chat find related notes faster on a large notebook: the semantic half of retrieval scores against the vectors already held in memory instead of reading every stored vector from the database for each question (5,000 notes: 19 to 74 ms before, about 1 ms after; 400 notes: 1.6 ms to 0.2 ms). A note edited, deleted or re-indexed a moment ago is scored on what is stored now.
 - A toast's action button (Undo, Turn on) drew white text on white in the light theme; it is a ghost button now.
 - Documents: the AI assistant's head is one row (the title and its help on the left, History and Close as quiet icon buttons on the right), and Edit / Write / Remove is a full-width control of three equal segments: the unchosen verbs are in the normal ink rather than the grey that read as disabled, and the chosen one is bold with an accent ring and icon.
 - Documents, tables in Live view: the arrow keys keep the column from row to row, Enter goes to the cell below (adding a row at the end, in the same column), and the arrows leave a table at the start or end of the document, making the blank line markdown needs. Rows pasted from a spreadsheet fill the cells from the caret, adding rows and columns as needed, in one undo step; pasted outside a table they become a new table. The table's menu (rows, columns, alignment, delete) now sits on the row you are editing instead of on the header.

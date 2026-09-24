@@ -3915,6 +3915,28 @@ function entryItem(entry, options = {}) {
       }
       linkRow.appendChild(connection);
     }
+    //: **Three links, then a count** (INBOX 424 q): a well-linked note drew
+    //: every connection as a chip, measured at 109 controls on the Notes tab
+    //: with 19 under 24px, and the chips outweighed the note. The first
+    //: three show; the rest wait behind "+N more links", which opens them
+    //: in place (and stays open for this render).
+    const LINKS_SHOWN = 3;
+    const connections = [...linkRow.children];
+    if (connections.length > LINKS_SHOWN + 1) {
+      for (const extra of connections.slice(LINKS_SHOWN)) extra.classList.add("entry-link-extra");
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "ghost small entry-links-more";
+      const hidden = connections.length - LINKS_SHOWN;
+      more.textContent = `+${hidden} more link${hidden === 1 ? "" : "s"}`;
+      more.setAttribute("aria-expanded", "false");
+      more.addEventListener("click", (event) => {
+        event.stopPropagation();
+        linkRow.classList.add("show-all");
+        more.remove();
+      });
+      linkRow.appendChild(more);
+    }
     li.appendChild(linkRow);
   }
   return li;

@@ -6722,3 +6722,14 @@ input[type="file"]::file-selector-button:hover {
 .account-fact-label {
   color: var(--muted);
 }
+
+/* A note card's links past the first three wait behind "+N more links"
+   (INBOX 424 q, renderEntry in app.js). */
+.entry-links:not(.show-all) > .entry-link-extra {
+  display: none;
+}
+
+.entry-links > .entry-links-more {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}

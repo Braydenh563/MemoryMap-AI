@@ -251,7 +251,9 @@ with its owner named in the entry.
     Documents list, measured at the title's height.)
     (q) Notes tab: 109 visible controls at 1440, 19 of them under 24px
     (the link chips on each card); recommend the link chips behind a count
-    ("6 links") on the card, expanded on hover or focus.
+    ("6 links") on the card, expanded on hover or focus. (Fixed: the
+    first three links show, the rest wait behind "+N more links", which
+    opens them in place.)
     (r) Memory is clean: 30 tab switches moved the heap 21.7 to 22.3MB,
     DOM nodes 48,888 to 49,297, listeners flat. Idle Chat once measured
     599 layouts per 10s at 4x and did not reproduce (0 in a later 5s

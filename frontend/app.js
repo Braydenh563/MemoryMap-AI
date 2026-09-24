@@ -579,7 +579,10 @@ async function apiJson(path, options = {}) {
       throw error;
     }
   }
-  return (await api(path, options)).json();
+  const data = await (await api(path, options)).json();
+  //: A new note is a small event worth a cheer from the companion.
+  if (path === "/entries" && options.method === "POST" && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("cheer");
+  return data;
 }
 
 // --- auth gate (Phase 4) -----------------------------------------------------
@@ -30893,6 +30896,8 @@ function revealTab(name) {
   // inaccessible" was giving them their own section in the Library instead of
   // leaving them inside a catch-all view called "Documents" that showed
   // everything. Worth the note so the next session does not re-derive it.
+  //: The companion finds its perch on the tab it is now on (avatars.js).
+  if (typeof nameMarkBuddyTabChanged === "function") nameMarkBuddyTabChanged();
   const activeTabName = name === "documents" ? "library" : name;
   for (const button of document.querySelectorAll("#tab-bar button")) {
     const active = button.dataset.tab === activeTabName;
@@ -36233,7 +36238,14 @@ function speakText(text) {
     speechSynthesis.cancel(); // acting as a stop button
     return;
   }
-  if (text.trim()) speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  if (!text.trim()) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  //: Read aloud is sound this app makes, so the companion can hear it.
+  if (typeof nameMarkBuddySound === "function") {
+    utterance.addEventListener("start", () => nameMarkBuddySound("speech", true));
+    for (const type of ["end", "error"]) utterance.addEventListener(type, () => nameMarkBuddySound("speech", false));
+  }
+  speechSynthesis.speak(utterance);
 }
 
 // --- toasts (Phase 5) ---------------------------------------------------------------
@@ -36809,6 +36821,8 @@ async function checkDueReminders() {
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
   playReminderChime();
+  //: The companion holds up a small bell (avatars.js).
+  if (typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("bell");
 
   // Into the centre as well as onto the screen (§36E). A toast and a system
   // notification are both moments; this is the record that outlives them, and
@@ -37048,6 +37062,8 @@ function toast(message, isError = false, { exempt = false } = {}) {
   lastToastKey = key;
   lastToastAt = now;
   const box = $("toast-box");
+  //: An error makes the companion jump (avatars.js).
+  if (isError && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("startle");
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";
   const text = document.createElement("span");

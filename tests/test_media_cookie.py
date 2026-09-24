@@ -163,3 +163,10 @@ def test_the_boot_path_asks_for_the_media_cookie_before_the_app_starts():
     boot = app[app.index("  $(\"lock-btn\").classList.remove(\"hidden\");\n  if (!authToken()) {"):]
     boot = boot[: boot.index("startApp();") + len("startApp();")]
     assert "refreshMediaSession" in boot
+
+
+def test_asking_again_replaces_the_ticket_rather_than_adding_one(client):
+    token = _setup(client)
+    for _ in range(5):
+        client.post("/auth/media-session", headers={"X-Auth-Token": token})
+    assert list(routes_auth._media_tickets.values()).count(token) == 1

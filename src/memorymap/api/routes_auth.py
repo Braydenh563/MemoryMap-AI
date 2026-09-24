@@ -118,6 +118,12 @@ def _forget_dead_tickets() -> None:
 
 def _grant_media(response: Response, token: str) -> None:
     """Set the media cookie for this session (see MEDIA_COOKIE above)."""
+    # One live ticket per session. A browser holds one cookie per path, so a
+    # session's earlier ticket is already gone from the jar it was set in;
+    # keeping it here would only let the table grow by one per reload (the
+    # boot path asks again every time) until the session ends.
+    for stale in [t for t, owner in _media_tickets.items() if owner == token]:
+        del _media_tickets[stale]
     ticket = secrets.token_urlsafe(32)
     _media_tickets[ticket] = token
     for path in MEDIA_COOKIE_PATHS:

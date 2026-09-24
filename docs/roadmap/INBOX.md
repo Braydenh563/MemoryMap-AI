@@ -45,6 +45,11 @@ with its owner named in the entry.
     tolerance) that answers with the matching section or steps rather than
     whole bodies, related topics as chips, and a bank of about 100 real
     questions with expected topics, top-1 accuracy measured before and after.
+    **Built 2026-09-24** (orchestrator): 33 topics to 47, ranked retrieval
+    (keyword phrases by rarity, one-typo tolerance, body words as tie-break,
+    weak runners-up dropped), offline answer = best topic plus related names;
+    top-1 49% to 99%, top-3 63% to 100%, unmatched 20 to 0 on 122 questions
+    (`tests/test_help_retrieval.py`). Left: docs/*.md as a second source.
 
 405. **The owner, 2026-09-24, verbatim, with chat screenshots.** "the sub
     headings in the find anything search are all lowercase and hard to see"

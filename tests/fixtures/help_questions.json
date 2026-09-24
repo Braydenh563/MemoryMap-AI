@@ -1,0 +1,490 @@
+[
+[
+"how do I write a new note",
+"capture"
+],
+[
+"where do I type a quick thought",
+"capture"
+],
+[
+"how do i make a note",
+"capture"
+],
+[
+"can I save something without filing it",
+"capture"
+],
+[
+"how does atlas file my notes into categories",
+"tags-categories"
+],
+[
+"how do I ask a question about my notes",
+"ask-chat"
+],
+[
+"whats the difference between ask and chat",
+"ask-chat"
+],
+[
+"how do i talk to the ai",
+"ask-chat"
+],
+[
+"can atlas answer from my notes",
+"ask-chat"
+],
+[
+"where are the citations in answers",
+"ask-chat"
+],
+[
+"what is a skill",
+"skills"
+],
+[
+"how do I run a skill",
+"skills"
+],
+[
+"can I make my own skill",
+"skills"
+],
+[
+"automate reorganising my categories",
+"skills"
+],
+[
+"what does the graph show",
+"graph"
+],
+[
+"how do i see how my notes connect",
+"graph"
+],
+[
+"what are the dotted lines on the graph",
+"graph"
+],
+[
+"how do I hide unlinked notes on the map of notes",
+"graph"
+],
+[
+"how do i set a reminder",
+"reminders"
+],
+[
+"remind me to call mum tomorrow",
+"reminders"
+],
+[
+"how do I snooze a reminder",
+"reminders"
+],
+[
+"can reminders repeat every week",
+"reminders"
+],
+[
+"how do i change the dashboard widgets",
+"dashboard"
+],
+[
+"can I rearrange my dashboard",
+"dashboard"
+],
+[
+"what is compact view on the dashboard",
+"dashboard"
+],
+[
+"where are all my files and documents",
+"library"
+],
+[
+"how do i find an old chat",
+"library"
+],
+[
+"what is the library",
+"library"
+],
+[
+"how do I write a long document",
+"documents"
+],
+[
+"can I edit code files",
+"documents"
+],
+[
+"how do I export a document to pdf",
+"documents"
+],
+[
+"how do I make a whiteboard",
+"whiteboard"
+],
+[
+"how do i draw on a board",
+"whiteboard"
+],
+[
+"how do I create a mind map",
+"mind-maps"
+],
+[
+"can i add sticky notes to a canvas",
+"whiteboard"
+],
+[
+"how do I upload an image",
+"files-images"
+],
+[
+"where do my pictures go",
+"files-images"
+],
+[
+"can I attach a pdf to a note",
+"files-images"
+],
+[
+"what is the timeline",
+"timeline"
+],
+[
+"how do i see what i wrote last month",
+"timeline"
+],
+[
+"where is my daily journal",
+"timeline"
+],
+[
+"what does atlas remember about me",
+"memory"
+],
+[
+"how do i make it forget something",
+"memory"
+],
+[
+"what are spaces",
+"spaces"
+],
+[
+"how do I keep work and personal notes separate",
+"spaces"
+],
+[
+"how do i change the theme",
+"appearance"
+],
+[
+"can I use dark mode",
+"appearance"
+],
+[
+"how do I change the accent colour",
+"appearance"
+],
+[
+"what does the dot in the bottom corner mean",
+"statusbar"
+],
+[
+"what is the bar at the bottom",
+"statusbar"
+],
+[
+"what are the keyboard shortcuts",
+"shortcuts"
+],
+[
+"is there a hotkey for search",
+"shortcuts"
+],
+[
+"how do I change the ai model",
+"models"
+],
+[
+"how do i install ollama",
+"models"
+],
+[
+"which model should I use",
+"models"
+],
+[
+"the ai isnt working",
+"troubleshooting"
+],
+[
+"how much disk space does it use",
+"storage"
+],
+[
+"where is my data stored",
+"storage"
+],
+[
+"how do i back up my notebook",
+"storage"
+],
+[
+"can atlas search the internet",
+"websearch"
+],
+[
+"how do I turn on web search",
+"websearch"
+],
+[
+"does my data leave my computer",
+"privacy"
+],
+[
+"is it private",
+"privacy"
+],
+[
+"how do I archive a note",
+"archive"
+],
+[
+"how do i undo a delete",
+"undo-bin"
+],
+[
+"where is the recycle bin",
+"undo-bin"
+],
+[
+"i deleted a note by mistake",
+"undo-bin"
+],
+[
+"can I dictate a note",
+"voice"
+],
+[
+"how do i record a meeting",
+"voice"
+],
+[
+"what does atlas do on its own",
+"autonomous"
+],
+[
+"can the ai work in the background",
+"autonomous"
+],
+[
+"what is the guide",
+"guide"
+],
+[
+"how do I open the command palette",
+"command-palette"
+],
+[
+"what does ctrl k do",
+"command-palette"
+],
+[
+"can atlas pull notes out of a chat",
+"extract-notes"
+],
+[
+"how do I favourite a note",
+"favourites"
+],
+[
+"where are my starred notes",
+"favourites"
+],
+[
+"can it read text in a photo",
+"ocr-workspace"
+],
+[
+"how do I scan a document",
+"ocr-workspace"
+],
+[
+"can i see older versions of a document",
+"document-history"
+],
+[
+"how do i restore a previous version",
+"document-history"
+],
+[
+"does it check my spelling",
+"writing-checks"
+],
+[
+"grammar check",
+"writing-checks"
+],
+[
+"how many notes do I have",
+"notebook-questions"
+],
+[
+"do any of my notes contradict each other",
+"contradictions"
+],
+[
+"how do i tag a note",
+"tags-categories"
+],
+[
+"how do I link two notes together",
+"links"
+],
+[
+"how do i serach my notes",
+"search"
+],
+[
+"hwo do i set a remnder",
+"reminders"
+],
+[
+"how do I chnage the theme",
+"appearance"
+],
+[
+"where did my notes go",
+"search"
+],
+[
+"how do I lock the app",
+"security"
+],
+[
+"can I set a password",
+"security"
+],
+[
+"how do i change what atlas sounds like",
+"personas"
+],
+[
+"how do i turn off the ai",
+"models"
+],
+[
+"can i use it without the ai",
+"models"
+],
+[
+"how do I import my obsidian vault",
+"storage"
+],
+[
+"how do i export everything",
+"storage"
+],
+[
+"the app is slow",
+"performance"
+],
+[
+"what do the numbers on the dashboard mean",
+"dashboard"
+],
+[
+"how do i search for a note",
+"search"
+],
+[
+"find a note about bees",
+"search"
+],
+[
+"how do i connect two notes",
+"links"
+],
+[
+"what is a backlink",
+"links"
+],
+[
+"atlas isnt answering",
+"troubleshooting"
+],
+[
+"i get an error when i chat",
+"troubleshooting"
+],
+[
+"it uses too much ram",
+"performance"
+],
+[
+"is there a tutorial",
+"tour"
+],
+[
+"how do i restart the tour",
+"tour"
+],
+[
+"can atlas be more like a coach",
+"personas"
+],
+[
+"translate my note into french",
+"translate"
+],
+[
+"can it translate",
+"translate"
+],
+[
+"how do I make a template",
+"templates"
+],
+[
+"how do i rename a category",
+"tags-categories"
+],
+[
+"how do i move a note to another category",
+"tags-categories"
+],
+[
+"how do i update the app",
+"updates"
+],
+[
+"is there a new version",
+"updates"
+],
+[
+"what does the bell do",
+"notifications"
+],
+[
+"can I write python",
+"code-files"
+],
+[
+"does it support html",
+"code-files"
+],
+[
+"how do I add a branch to a mind map",
+"mind-maps"
+],
+[
+"i forgot my password",
+"security"
+]
+]

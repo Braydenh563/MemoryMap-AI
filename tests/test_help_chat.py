@@ -794,7 +794,9 @@ def test_a_plural_question_finds_what_the_singular_finds():
     for singular, plural in (
         ("how do I set a reminder?", "where do reminders live?"),
         ("open a document", "where do my documents live?"),
-        ("write a note", "where are my notes?"),
+        #: Was ("write a note", "where are my notes?"): two different
+        #: questions, not one in two numbers; the second is a search.
+        ("make a note", "how do I make notes?"),
         ("make a backup", "where are my backups?"),
         ("what is a space?", "how do spaces work?"),
     ):

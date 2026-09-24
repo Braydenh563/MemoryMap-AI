@@ -298,6 +298,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Guide knows much more and finds it more reliably. Fourteen new topics
+  (search, links, security and passwords, troubleshooting, performance, the
+  tour, personas, translation, templates, tags and categories, updates,
+  notifications, code files, mind maps), the words people actually use
+  added to every topic, and a ranked search that forgives a typo. On a bank
+  of 122 real questions it reaches the right topic first 99% of the time
+  (49% before), and with no model it answers with that one topic and names
+  the related ones instead of pasting three together.
 - A package check builds the frozen Windows app on every pull request that
   touches packaging, the entry point or index.html, and weekly, and fetches
   every script and stylesheet the page references plus each lazy bundle,

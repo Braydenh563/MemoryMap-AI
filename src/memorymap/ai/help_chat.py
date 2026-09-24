@@ -41,6 +41,7 @@ handed on each call.
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterator
 
@@ -585,6 +586,228 @@ HELP_TOPICS: list[dict] = [
     },
 ]
 
+#: **The vocabulary people actually use, and the topics they asked about that
+#: had none** (INBOX 406, measured on `tests/fixtures/help_questions.json`).
+#: Kept as edits beside the table rather than rewritten into it, so each
+#: entry above still reads as it was written and this block says what the
+#: question bank taught: words moved to the topic they name (a note's tags
+#: are filing, not capturing), generic words taken off topics they pulled
+#: every question towards ("note", "atlas"), and the ways people phrase a
+#: thing ("talk to the ai", "pictures", "journal") added where they belong.
+_KEYWORDS_ADD: dict[str, tuple[str, ...]] = {
+    "capture": ("take notes", "take a note", "make notes", "write notes", "new note", "quick note", "quick thought", "write a note", "make a note", "jot", "without filing", "save a note"),
+    "ask-chat": ("talk to", "citation", "cite", "sources", "answer from my notes", "ask atlas", "chat with"),
+    "skills": ("automate", "automation", "reorganise", "reorganize", "reorganising", "reorganizing", "workflow", "routine"),
+    "graph": ("see how", "visualise", "visualize", "unlinked", "dotted line", "connections map"),
+    "reminders": ("remind", "remind me", "due", "alarm"),
+    "dashboard": ("home", "home page", "start page", "compact", "rearrange", "numbers on the dashboard"),
+    "library": ("all my files", "old chat", "chats", "everything i have", "my files"),
+    "whiteboard": ("board", "draw", "drawing", "sticky", "sticky note", "pen", "infinite canvas"),
+    "files-images": ("picture", "pic", "attach", "attachment", "upload"),
+    "timeline": ("journal", "diary", "daily note", "today's note", "last month", "last week", "what i wrote"),
+    "memory": ("forget", "remembers", "about me"),
+    "spaces": ("separate", "work and personal", "personal notes", "different notebooks"),
+    "statusbar": ("dot", "bottom corner", "at the bottom"),
+    "models": ("ai model", "llm", "connect a model", "turn off the ai", "without the ai", "no ai", "local model", "which model"),
+    "storage": ("where is my data kept", "back up", "disk space", "disk", "where is my data", "data stored", "export everything", "move my notes"),
+    "websearch": ("internet", "web", "google", "browse the web", "search the internet", "search online"),
+    "privacy": ("private", "leave my computer", "data leave", "sent anywhere", "privacy", "spy"),
+    "undo-bin": ("delete", "by mistake", "bin", "get back", "recover"),
+    "voice": ("speak", "speech", "record", "meeting notes"),
+    "autonomous": ("background", "automatically", "overnight"),
+    "command-palette": ("ctrl k", "commands"),
+    "extract-notes": ("pull notes out", "split into notes", "from a chat", "out of a chat"),
+    "document-history": ("older version",),
+    "ocr-workspace": ("scan a document", "scan a page", "read a scan"),
+    "writing-checks": ("spell",),
+    "guide": ("what is atlas", "who is atlas"),
+}
+
+_KEYWORDS_REMOVE: dict[str, tuple[str, ...]] = {
+    "capture": ("note", "tag", "category", "categorise", "template", "dictate", "write"),
+    "graph": ("mind map", "mindmap"),
+    "library": ("search", "find", "filter", "look for"),
+    "privacy": ("password", "lock", "private note", "encrypt", "security"),
+    "appearance": ("slow", "laggy"),
+    "guide": ("atlas",),
+    "storage": ("where is my",),
+}
+
+for _topic in HELP_TOPICS:
+    _drop = set(_KEYWORDS_REMOVE.get(_topic["id"], ()))
+    _topic["keywords"] = tuple(k for k in _topic["keywords"] if k not in _drop) + tuple(
+        k for k in _KEYWORDS_ADD.get(_topic["id"], ()) if k not in _topic["keywords"]
+    )
+
+HELP_TOPICS.extend(
+    [
+        {
+            "id": "security",
+            "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "idle"),
+            "body": (
+                "Settings, Account and security: set a password and the notebook "
+                "asks for it when it opens. The lock button in the top bar locks it "
+                "now, and it locks itself after the idle time you choose there. "
+                "Private notes are encrypted with that password and are never sent "
+                "to the AI. There is no reset without the password, so keep it safe."
+            ),
+            "badge": {"label": "Account & security", "section": "account"},
+        },
+        {
+            "id": "search",
+            "keywords": ("search", "find", "find anything", "look for", "filter", "where did", "locate", "ctrl p", "operator", "search my notes"),
+            "body": (
+                "Find anything (Ctrl+P, or the search box on the dashboard) looks "
+                "through notes, documents, boards, files, links and reminders at "
+                "once, by your words and by meaning, and the chips narrow it to one "
+                "kind. You can type operators: tag:work, kind:document, before:2026-01, "
+                "has:image, and -word to leave something out. To narrow only the "
+                "notes list, use Filter notes on the Your notes tab."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "links",
+            "keywords": ("link", "linked", "linking", "connect", "connection", "backlink", "wiki link", "link two notes", "related notes"),
+            "body": (
+                "Link one note to another by typing [[ and the start of its title, "
+                "then picking it from the list. The link shows on both notes as a "
+                "connection, with a menu to add a reason, open or remove it. Atlas "
+                "also suggests links as you write, and every note's menu has Link "
+                "to. The Graph draws all of them."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "troubleshooting",
+            "keywords": ("not working", "isnt working", "doesnt work", "broken", "error", "no model", "cant connect", "cannot connect", "stuck", "crash", "fails", "logs", "not answering", "isnt answering", "not replying", "doesnt answer", "get an error"),
+            "body": (
+                "If Atlas does not answer, open Settings, Models: it says whether a "
+                "model is connected. Start Ollama (or LM Studio, or a llama.cpp "
+                "server), pick a model and press Connect. Everything except Chat, "
+                "drafting and skills works without one, and Notes, Ask answers from "
+                "your notes. Settings, Logs shows the last errors, which is what to "
+                "send if you report a problem."
+            ),
+            "badge": {"label": "Models", "section": "models"},
+        },
+        {
+            "id": "performance",
+            "keywords": ("slow", "laggy", "lag", "memory usage", "ram", "cpu", "speed up", "freeze", "freezes"),
+            "body": (
+                "If the app feels slow, turn on Performance mode in Settings, "
+                "Appearance: it switches off the glass, the background art and most "
+                "animation. The built-in search engine uses about 650 MB of memory "
+                "while the app is open; choosing Ollama's nomic-embed-text for "
+                "embeddings in Settings, Models keeps MemoryMap itself near 100 MB."
+            ),
+            "badge": {"label": "Appearance", "section": "appearance"},
+        },
+        {
+            "id": "tour",
+            "keywords": ("tour", "guided tour", "walkthrough", "onboarding", "tutorial", "show me around", "getting started", "learn the app", "new here"),
+            "body": (
+                "The guided tour walks through the whole app a section at a time, "
+                "pointing at the real controls. Start it from Settings, Help and "
+                "guide. Each section's own button starts there and carries on to the "
+                "next; Back and Next move through it, and Finish ends it whenever you "
+                "like."
+            ),
+            "badge": {"label": "Help", "section": "help"},
+        },
+        {
+            "id": "personas",
+            "keywords": ("persona", "personality", "sound like", "sounds like", "character", "coach", "analyst", "voice of atlas", "change atlas"),
+            "body": (
+                "A persona changes how Atlas talks, not what it knows: answers stay "
+                "grounded in your notes whichever one is active. Pick one in the "
+                "Chat tab; edit the built-ins or write your own in Settings, "
+                "Personas, where {ai_name} in your text becomes Atlas's name."
+            ),
+            "badge": {"label": "Personas", "section": "personas"},
+        },
+        {
+            "id": "translate",
+            "keywords": ("translate", "translation", "translator", "language", "another language", "spanish", "french", "german", "chinese", "japanese"),
+            "body": (
+                "Write with Atlas translates: put the text in the box and press "
+                "Translate, or pick a language under Translate into in the menu "
+                "beside Draft. The local model keeps every fact, name, number and "
+                "the markdown, and leaves code and links alone. It needs a model "
+                "connected."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "templates",
+            "keywords": ("template", "templates", "preset", "layout", "meeting template", "journal template", "reuse"),
+            "body": (
+                "Capture has templates: pick one from No template above the box and "
+                "the note starts with its outline. Save your own from Settings, "
+                "Templates. A new document offers its own gallery of templates too."
+            ),
+            "badge": {"label": "Templates", "section": "templates"},
+        },
+        {
+            "id": "tags-categories",
+            "keywords": ("tag", "tagging", "category", "categories", "categorise", "categorize", "filing", "file a note", "file my notes", "files my notes", "refile", "move to category", "rename category", "organise"),
+            "body": (
+                "Atlas files each note into a category and suggests tags. Change "
+                "either from the note's own row (press the category or Add tags), or "
+                "choose a category yourself in Capture's Filing menu. The categories "
+                "are the sidebar of Your notes. Settings, Skills has Reorganise my "
+                "categories and Clean up my tags for a bigger tidy."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "updates",
+            "keywords": ("update", "updates", "upgrade", "new version", "latest version", "release", "changelog", "auto update", "version"),
+            "body": (
+                "Settings, About says which version you have and checks for a newer "
+                "one; the Windows app can download and install it for you. Choose "
+                "Stable (releases only) or Main. A copy started with start.sh or "
+                "start.bat updates itself when it starts, following the same "
+                "setting, and turning automatic updates off stops it."
+            ),
+            "badge": {"label": "About", "section": "about"},
+        },
+        {
+            "id": "notifications",
+            "keywords": ("notification", "bell", "alert", "unread", "pop up", "popup"),
+            "body": (
+                "The bell in the top bar collects what happened while you were "
+                "busy: reminders coming due, background jobs that finished, and "
+                "Atlas's suggestions. The number on it is what you have not seen. "
+                "Reminders also pop up on their own while the app is open."
+            ),
+            "badge": {"label": "Dashboard", "tab": "dashboard"},
+        },
+        {
+            "id": "code-files",
+            "keywords": ("code", "coding", "programming", "python", "javascript", "syntax", "format code", "comment out", "emmet", "html", "css", "json", "script"),
+            "body": (
+                "A document can be code: give it the extension (fix.py, index.html). "
+                "You get syntax colours, error underlines listed in the Problems "
+                "panel (F8 goes to the next), completions as you type, brackets that "
+                "close themselves, Format (Shift+Alt+F) and Ctrl+/ to comment a line."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "mind-maps",
+            "keywords": ("mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm"),
+            "body": (
+                "Mind maps live in the Library, under Boards and maps; New mind map "
+                "starts one. Tab adds a child, Enter a sibling, and dragging a topic "
+                "onto another moves its whole branch. Right-click a topic for the "
+                "ring of actions, where Cross-link joins any two topics."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+    ]
+)
+
 #: A tight window: this is guidance, not a conversation to reminisce in.
 MAX_HISTORY_TURNS = 6
 MAX_MESSAGE_CHARS = 1000
@@ -664,55 +887,114 @@ _KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
 }
 
 
-def _matching_topics(question: str) -> list[dict]:
-    """Which `HELP_TOPICS` entries this question is actually about, ranked by
-    how much of a topic's vocabulary it mentions. Ties keep `HELP_TOPICS`
-    order, so the more commonly-asked-about features (listed first) win a tie
-    over a rarer one.
-
-    **A phrase counts for its words, not for one.** This used to score one per
-    matching keyword, which makes "search" and "web search" equally strong
-    evidence, and the generic one always belongs to the more commonly-asked
-    topic that sits earlier in the list. Measured 2026-09-21, the moment
-    "search" was added to the Library's keywords so that "how do I search my
-    notes" would stop being answered by the capture box: "can it search the
-    web" started answering with the Library, and "how do I turn on web search"
-    put the Library first. Both were one-against-one ties broken by list
-    order.
-
-    Weighting a keyword by its own word count is the smallest rule that says
-    what is actually true: somebody who typed two particular words in a row
-    has told you more than somebody who typed one common one. "web search"
-    now scores 2 against "search"'s 1 and wins on the merits rather than on
-    where it happens to sit in the table."""
-    lowered = question.lower()
-    scored = [
-        (
-            sum(
-                len(keyword.split())
-                for keyword in topic["keywords"]
-                if _KEYWORD_PATTERNS[keyword].search(lowered)
-            ),
-            topic,
+def _edit_distance_at_most_one(a: str, b: str) -> bool:
+    """True when `a` becomes `b` by one insertion, deletion, substitution or
+    swap of two neighbours: the typos a person makes in a help box ("remnder",
+    "serach", "chnage")."""
+    if a == b:
+        return True
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 1:
+        return False
+    if la == lb:
+        diff = [k for k in range(la) if a[k] != b[k]]
+        if len(diff) == 1:
+            return True
+        return (
+            len(diff) == 2
+            and diff[1] == diff[0] + 1
+            and a[diff[0]] == b[diff[1]]
+            and a[diff[1]] == b[diff[0]]
         )
-        for topic in HELP_TOPICS
-    ]
-    scored = [pair for pair in scored if pair[0] > 0]
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [topic for _, topic in scored[:MAX_TOPICS]]
+    if la > lb:
+        a, b = b, a
+    k = 0
+    while k < len(a) and a[k] == b[k]:
+        k += 1
+    return a[k:] == b[k + 1 :]
 
 
-#: **Which help topics an answer was built from, in words** (INBOX 224: "a
-#: scrolling transcript in bubbles with the source help topic under each
-#: answer"). The badge beside an answer names where to *go* ("Reminders", the
-#: tab); this names where the answer came *from*, which is a different claim
-#: and the one that makes the answer checkable: the same topic is on the Help
-#: page in full.
-#:
-#: The name is derived from the id rather than added as a thirty-second field
-#: per topic. The ids are already written as words with hyphens between them
-#: ("command-palette", "files-images"), so one rule here reads better than
-#: thirty-one hand-written titles that can disagree with the ids beside them.
+_WORD = re.compile(r"[a-z0-9]+")
+
+#: Single-word keywords long enough to forgive a typo in (a four-letter word
+#: one letter off is usually a different word).
+_TYPO_MIN = 5
+
+#: How many topics each keyword belongs to, for the rarity weight below.
+_KEYWORD_TOPICS: dict[str, int] = {}
+for _topic in HELP_TOPICS:
+    for _keyword in set(_topic["keywords"]):
+        _KEYWORD_TOPICS[_keyword] = _KEYWORD_TOPICS.get(_keyword, 0) + 1
+
+#: Body vocabulary per topic, for tie-breaking only (see `_matching_topics`).
+_BODY_WORDS: dict[str, set[str]] = {
+    topic["id"]: set(_WORD.findall(topic["body"].lower())) for topic in HELP_TOPICS
+}
+
+#: Words that say nothing about which feature is meant.
+_STOP = frozenset(
+    "a an the i me my you your it its is are am be to of in on at for and or "
+    "how do does did can could would should what whats where which who why "
+    "when this that there here with from into about any all some so if not "
+    "no yes get got make use using used want need way".split()
+)
+
+#: A runner-up worth showing scores at least this share of the best: below
+#: it, the second topic is noise the answer would be padded with.
+_RUNNER_UP_SHARE = 0.4
+
+
+def _matching_topics(question: str) -> list[dict]:
+    """Which `HELP_TOPICS` entries this question is about, best first.
+
+    **Rebuilt 2026-09-24 against a question bank** (INBOX 406,
+    `tests/fixtures/help_questions.json`, 100 questions phrased the way people
+    type them): the old rule, one point per matching keyword weighted by its
+    word count, answered 49 of them first-time right and matched nothing for
+    20 (a typo, "pictures" for image, "talk to the ai" for chat). Four rules
+    now, each measured against the bank:
+
+    * **A topic qualifies on its keywords, never on its body**, so a question
+      about the weather still matches nothing: a keyword is matched as a whole
+      phrase with its plural (`_keyword_pattern`), or, for a single keyword of
+      five letters or more, as a word one typo away.
+    * **A keyword is worth its word count times its rarity**: "web search"
+      still outweighs "search", and a word three topics share ("restore")
+      says less than one only this topic has.
+    * **Body words break ties**: among qualifying topics, one whose own text
+      uses more of the question's words ranks higher.
+    * **A runner-up must earn its place**: under 40% of the best score it is
+      dropped, so the answer is not padded with a topic that matched one
+      incidental word.
+    """
+    lowered = question.lower()
+    words = [w for w in _WORD.findall(lowered) if w not in _STOP]
+    total = len(HELP_TOPICS)
+    scored: list[tuple[float, int, dict]] = []
+    for order, topic in enumerate(HELP_TOPICS):
+        score = 0.0
+        for keyword in topic["keywords"]:
+            rarity = 1.0 + math.log(total / _KEYWORD_TOPICS.get(keyword, 1))
+            if _KEYWORD_PATTERNS[keyword].search(lowered):
+                score += len(keyword.split()) * rarity
+            elif (
+                " " not in keyword
+                and len(keyword) >= _TYPO_MIN
+                and any(len(w) >= _TYPO_MIN - 1 and _edit_distance_at_most_one(w, keyword) for w in words)
+            ):
+                score += 0.8 * rarity
+        if score <= 0:
+            continue
+        body = _BODY_WORDS[topic["id"]]
+        score += 0.15 * sum(1 for w in words if w in body)
+        scored.append((score, order, topic))
+    if not scored:
+        return []
+    scored.sort(key=lambda row: (-row[0], row[1]))
+    best = scored[0][0]
+    return [topic for score, _, topic in scored[:MAX_TOPICS] if score >= best * _RUNNER_UP_SHARE]
+
+
 def source_names(topics: list[dict]) -> list[str]:
     return [topic["id"].replace("-", " ").capitalize() for topic in topics]
 
@@ -876,7 +1158,15 @@ def offline_answer(
                 "sources": [],
             }
         return {"content": OFFLINE_NOTHING_MATCHED, "badges": [], "sources": []}
-    body = "\n\n".join(topic["body"] for topic in topics)
+    #: **One answer, then where else to look** (INBOX 406). Three topics'
+    #: bodies pasted end to end read as a wall where the question's answer
+    #: was one paragraph of three; the best match is the answer, and the
+    #: runners-up (already cut to those worth showing, `_RUNNER_UP_SHARE`)
+    #: are named as related, with their chips below as before.
+    body = topics[0]["body"]
+    related = [name.lower() for name in source_names(topics[1:])]
+    if related:
+        body += "\n\nRelated: " + ", ".join(related) + "."
     return {
         "content": f"{OFFLINE_LEAD}\n\n{body}",
         "badges": badges_for(topics),

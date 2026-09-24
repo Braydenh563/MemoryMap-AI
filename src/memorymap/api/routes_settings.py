@@ -63,6 +63,9 @@ class AvatarStyle(BaseModel):
     hat: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
     eyewear: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
     hand: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
+    # "feminine" or "masculine" chooses the look your face is drawn with;
+    # empty leaves it to the name and to Appearance, Face looks.
+    look: str = Field(default="", max_length=20, pattern=r"^[a-z]*$")
 
 
 class TemplateItem(BaseModel):

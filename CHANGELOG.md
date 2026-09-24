@@ -9,6 +9,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: sticky scroll in JavaScript, TypeScript, Python and CSS files: scrolled into a function, class or rule, its first line (and its parents') stays pinned at the top of the pane, and a click on it goes there.
+- Documents: Alt+Z wraps a code file's long lines (and unwraps them), and the document menu's Editor and layout group has Wrap long lines and Show whitespace for any file that is not prose; both are remembered.
+- Documents: a code file's outline and breadcrumb list its functions, classes and methods (a CSS file's rules), and the palette's Go to a symbol lists them at the caret. Fixed: a Python or shell file's outline showed every `#` comment as a heading.
+- Documents: code files draw quiet indentation guides at each indent step and colour bracket pairs by depth, as VS Code does; brackets inside strings and comments are left alone.
+- Documents: hovering a CSS property, an HTML element or an HTML attribute in a code file shows one line on what it is for, and a property's values.
+- Documents: a colour in a CSS file (or an HTML file's style block) has a small swatch beside it, and a click on it opens the colour picker; the picked colour is written back as hex or rgb(), whichever it was.
+- Documents: renaming a tag in an HTML, XML or JSX file renames its matching tag as you type (one undo takes both back), and XML files close a tag on `>` and finish `</` as HTML and JSX already did.
+- Documents: Emmet in JSX (inside a .js file's JSX, writing `className`) and XML as well as HTML and CSS, and Emmet's own editing commands in the palette for code files: wrap the selection with an abbreviation, and balance outward or inward to select the enclosing tag.
+- Documents: Ctrl+/ in a code file comments by the language at the caret, as VS Code does (`//` inside an HTML file's script, `/* */` in its style, `{/* */}` for a JSX child), and Shift+Alt+A block-comments the selection. Fixed: Ctrl+/ on a line of prose replaced the line with a lone "/", and a .sql document could not be opened at all.
+- Documents: code files complete as you type, as VS Code does. In HTML, `!` then Enter writes the HTML5 page and Emmet abbreviations (`div.card>ul>li*3`, `a[href]`, `p{text}`) expand from the list or with Tab; in CSS, a property is followed by its own values (`display: ` offers `flex` and `grid`, `color: ` the colours) and `m10` or `df` expand; the chosen suggestion's rest shows after the caret in muted ink and Tab takes it.
 - Translation in Write with Atlas: a Translate chip and a "Translate into"
   group of 19 languages in the kind menu. The local model translates
   meaning, keeps every fact, name, number and the markdown, and leaves code

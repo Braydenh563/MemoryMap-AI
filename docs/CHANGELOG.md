@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Internal: the popup agent (Ctrl+K) moved out of app.js into its own palette.js, loaded at boot after timeline.js, which brings the gzipped app.js back under its size bound (752,031 to 730,546 bytes).
+- Library: a file row's facts line is one register. The kind, size, date, reading state, reader link and "Used in" share one size and one line box (they sat on four sizes and three tops), split by the same middot, and "Read this" is an accent link rather than a boxed button.
 - Documents: the writing dictionary is a cleaner settings sheet. One field finds a word as you type and adds it on Enter, the list is quiet rows whose remove appears when you point at one, the list can be exported and imported as a .txt file (import only adds), and spelling, grammar and smart quotes are ordinary settings rows with a line each.
 - Notes, Capture: Template opens a picker like the documents' one. A click chooses a template and shows its text; Use this template (or Enter, or a double click) fills the box, and only then asks before replacing what you have typed. Picking used to fill the box on every name the dropdown passed.
 - Documents: the suggestions panel can sit on the right of the editor instead of under it: the button in its head switches, the column resizes by dragging its edge (or with the arrow keys, double-click to reset), and both are remembered. On a narrow window it stays under the editor.
@@ -129,6 +131,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Graph, Trace: the strip ends in an X that leaves trace mode (Escape too). Its old Done only cleared the two ends.
 - Lightbox: the zoom, Fit, Save and menu buttons read clearly in the light theme (they looked disabled on the dark backdrop, from every place a picture opens).
 - Picture readings: a model stuck repeating itself ("Test, Test, Test, ...") is cut to one copy before the reading is stored, and a reading is capped in length. Each reading in the lightbox can be deleted, and the OCR workspace shows the same readings the lightbox does: the vision model's even when Tesseract is not the chosen reader, and the other one beside it, labelled, with its own delete.
+- Tools and features, the command palette and Find anything's actions land on what they name: Suggested links opens the map's options and runs Suggest links, Export a board opens the export dialog, Theme opens Appearance with the theme control ringed, an AI tool opens its own row in Settings, a widget row shows its widget (or its row in the widget picker when it is off), and a document or board feature opens the newest one first. Before, 50 of the 110 written rows only switched tab, 11 more opened a Settings pane at its top, and the palette's Board overview and Find a card did nothing unless a board was open. A Settings deep link now rings its row (it rang only Search relevance before).
 - View toggles (Notes rows/cards, Library list/cards): only the chosen half is
   filled; the other rests clear.
 - The OCR workspace's Delete reading works again (it threw after the confirm).
@@ -469,6 +472,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The packaged app's startup splash is a still card without the progress bar it
+  could never move; a status line under it says what is loading.
 - A note's time sits in the same place on every card, its top-right corner
   on the title's line (it gives way to the note's buttons on hover); the
   dates a note's words mention read as one item ("Mentions 21 Sept, 25

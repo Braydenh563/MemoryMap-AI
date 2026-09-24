@@ -404,16 +404,20 @@ def pyodide_file(name: str) -> FileResponse:
     Pyodide release, nothing of the notebook's. `Access-Control-Allow-Origin`
     because that same opaque origin makes every fetch cross-origin.
     """
-    from memorymap.core import extra_downloads, extras
+    from memorymap.core import extras
 
     extra = extras.EXTRAS_BY_ID["pyodide"]
-    served = {file for download in extra.downloads for _member, file in download.members}
-    folder = extra_downloads.ready("pyodide")
-    if folder is None or name not in served or not (folder / name).is_file():
+    #: The path is built from the release's own list, never from the request:
+    #: `name` only picks an entry, so what reaches the disk is a string this
+    #: file wrote (CodeQL reads a membership test as no guard at all).
+    served = {file: file for download in extra.downloads for _member, file in download.members}
+    folder = extras.download_ready("pyodide")
+    listed = served.get(name)
+    if folder is None or listed is None or not (folder / listed).is_file():
         raise HTTPException(status_code=404, detail="Not installed.")
-    suffix = "." + name.rsplit(".", 1)[-1]
+    suffix = "." + listed.rsplit(".", 1)[-1]
     return FileResponse(
-        folder / name,
+        folder / listed,
         media_type=_PYODIDE_TYPES.get(suffix, "application/octet-stream"),
         headers={
             "Access-Control-Allow-Origin": "*",

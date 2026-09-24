@@ -267,6 +267,9 @@ function renderLibraryFilters() {
     button.className =
       "library-chip" + (libraryKind === kind.key ? " active" : "");
     button.setAttribute("aria-pressed", String(libraryKind === kind.key));
+    //: What the Recycle bin row in Tools and features rings (`recycle-bin`
+    //: in app.js's REVEAL_TARGETS).
+    button.dataset.kind = kind.key;
     // Reported live: "can the activity button be moved somewhere better", 
     // it isn't a *kind of thing you made* the way the ten chips before it
     // are (it is excluded from "Everything"'s own count above for exactly

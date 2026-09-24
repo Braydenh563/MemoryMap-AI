@@ -3721,6 +3721,85 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   width: fit-content;
 }
 
+/* --- a Files row's facts line, one register (INBOX 421 f) -------------------
+   The owner: "this ui needs a bit more modern and ui refinement and the
+   second row elements arent aligned and dont really match". Measured at 1440
+   before this: the line held four sizes (meta 11.2px, state and usage 12px,
+   the button 13.6px), three heights (16.8, 18, 28px) on three tops (y278 to
+   280), and a boxed button in the middle of three plain facts. Now every
+   part is one size on one line box, the groups are split by the same middot
+   the meta uses inside itself, and "Read this" is the line's one link: the
+   accent says it can be clicked, which the box was only saying louder. */
+.library-file-rows .library-image-tile > .library-file-facts {
+  column-gap: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.library-file-rows .library-image-tile > .library-file-facts :is(.library-file-meta, .library-read-strip, .library-read-badge, .library-image-usage, .library-image-usage > .muted) {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Each group's own gap is the space after its dot: the dot is a flex item
+   of the group it opens, so the group's gap already stands between the two,
+   and a symmetric margin put 15px after the dot against 8px before it. */
+.library-file-rows .library-image-tile > .library-file-facts > :is(.library-read-strip, .library-image-usage) {
+  padding-top: 0;
+  column-gap: var(--space-2);
+}
+
+.library-file-rows .library-image-tile > .library-file-facts > * + *::before {
+  content: "\00b7";
+  color: var(--muted);
+  margin-inline: var(--space-2) 0;
+}
+
+.library-file-rows .library-image-tile .chip.library-read-badge {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  font-weight: 400;
+}
+
+.library-file-rows .library-image-tile .library-read-open {
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 500;
+  color: var(--accent);
+  gap: var(--space-1);
+}
+
+.library-file-rows .library-image-tile .library-read-open:hover {
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* On a phone the line wraps at every group (measured at 390: three lines),
+   and a dot that opens a line separates it from nothing. Each group is its
+   own line there, which is separation enough. */
+@media (max-width: 599.98px) {
+  .library-file-rows .library-image-tile > .library-file-facts > * + *::before {
+    content: none;
+  }
+}
+
+/* A finger still needs the target the pointer no longer does; the line
+   grows to hold it rather than the link shrinking under a thumb. */
+@media (pointer: coarse) {
+  .library-file-rows .library-image-tile .library-read-open {
+    min-height: var(--target-min);
+  }
+}
+
 /* The status bar is the top bar's twin at the other edge, and with glass on
    it was the one opaque strip of chrome (96% ground, no blur) under a glass
    top bar: the same recipe now, keyed on glass being on, so glass off and

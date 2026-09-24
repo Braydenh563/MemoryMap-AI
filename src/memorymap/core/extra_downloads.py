@@ -124,6 +124,7 @@ def _is_musl() -> bool:
         if b"/libc.so.6" in blob or b"/ld-linux" in blob:
             return False
     except OSError:
+        # No /proc (not Linux, or locked down): fall through to the libc probe.
         pass
     return not _platform.libc_ver()[0]
 
@@ -192,17 +193,6 @@ def is_installed(extra) -> bool:
     if not isinstance(marker, dict) or marker.get("version") != extra.version:
         return False
     return all((target / name).is_file() for name in marker.get("files") or [])
-
-
-def ready(extra_id: str) -> Path | None:
-    """The installed folder of `extra_id`, or None. What the features that
-    use a download extra ask, so none of them imports anything to find out."""
-    from memorymap.core import extras
-
-    extra = extras.EXTRAS_BY_ID.get(extra_id)
-    if extra is None or extra.kind != "download" or not is_installed(extra):
-        return None
-    return folder(extra)
 
 
 def source(extra) -> str:

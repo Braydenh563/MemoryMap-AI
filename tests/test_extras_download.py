@@ -210,7 +210,7 @@ def test_install_downloads_checks_and_unpacks_then_works_offline(client, monkeyp
     # The server goes away: the extra is still installed, nothing asks again.
     server.close()
     assert _row(client, "pyodide")["installed"] is True
-    assert extra_downloads.ready("pyodide") == folder
+    assert extras.download_ready("pyodide") == folder
 
 
 def test_a_hash_mismatch_is_refused_and_nothing_is_kept(client, monkeypatch, server):

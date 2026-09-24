@@ -64,7 +64,8 @@ with its owner named in the entry.
     is the model; ocrreadings.js 6/6). (f) The file row in the
     Library ("PDF · 121 KB · added ... Read · 808 words, Open reader, Used
     in"): "needs a bit more modern and ui refinement and the second row
-    elements arent aligned and dont really match". (g) "the lightbox buttons
+    elements arent aligned and dont really match" (fixed: one size, one
+    line box, middot groups, "Read this" a link). (g) "the lightbox buttons
     below the image are greyed out?? i opened the image from within a note".
     (**built**: not disabled, the row was the theme's ghost ink on the dark
     scrim, 1.37:1 in light from every door; now the scrim's own recipe,

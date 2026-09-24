@@ -11004,6 +11004,12 @@
        settings.js because settings.js's tail is the one that must run last.
        See timeline.js's own header for what stayed in app.js and why. -->
   <script src="/timeline.js?v=0.3.2"></script>
+  <!-- Popup agent (Ctrl+K): split out of app.js on 2026-09-24, when the
+       gzipped app.js crossed test_static_compression.py's bound a fourth
+       time. Same terms as timeline.js above: its top-level lines only read
+       what the files before it define, and app.js calls into it only from
+       functions and listeners. See palette.js's own header. -->
+  <script src="/palette.js?v=0.3.2"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview): §88.3 of the app.js-split plan, the fourth and LAST file.

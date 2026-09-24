@@ -500,6 +500,22 @@ def _wait_for_server(timeout: float = 20.0) -> bool:
     return False
 
 
+def _splash_status(text: str) -> None:
+    """Say what the app is doing on the packaged exe's bootloader splash.
+
+    The splash is a still card (memorymap.spec); this line under its rule is
+    the part that moves, so a slow first launch reads as work, not a hang.
+    Does nothing outside a PyInstaller build made with a splash."""
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+    except ImportError:
+        return
+    try:
+        pyi_splash.update_text(text)
+    except Exception as exc:  # noqa: BLE001  # the status line is cosmetic
+        logger.debug("couldn't update the bootloader splash: %s", exc)
+
+
 def _close_bootloader_splash() -> None:
     """Take down the packaged exe's bootloader splash (memorymap.spec's
     `Splash`), if this is a packaged build that has one.
@@ -1328,6 +1344,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         _warn_webview2_missing()
         return
 
+    _splash_status("Opening the window...")
     window = webview.create_window(
         "MemoryMap AI",
         html=_loading_html(),
@@ -2021,6 +2038,7 @@ def main() -> None:
     # runs this after copying the app, with the ids the person ticked.
     parser.add_argument("--install-extras", metavar="IDS", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    _splash_status("Loading MemoryMap AI...")
     from memorymap.core import extras
 
     extras.activate_frozen_extras()

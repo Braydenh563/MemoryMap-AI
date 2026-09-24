@@ -72,8 +72,15 @@ with its owner named in the entry.
     even when it is off"
     (fixed: its ground was a 4% tint over the page art; the tint now sits
     on `--card`, which glass off makes solid). Backgrounds: (n) Mycelium start points more
-    organic, smoother faded transitions; (o) optimise Microbes (both sent to
-    the backgrounds agent). (p) "see if there are any more areas to reduce
+    organic, smoother faded transitions; (o) optimise Microbes (fixed, both,
+    e5a8c4b and b8ad914: scattered spores, staggered threads, a 2s
+    cross-fade between generations; Microbes 3.0 to 2.2ms a frame; also
+    Constellation 3.5 to 2.4ms, Mesh and Orbs moved to 15/30fps canvases,
+    whole-browser CPU about halved. Still open: Constellation and Microbes
+    just over the 2ms budget on a loaded machine, 0.3 to 1MB/s of canvas
+    garbage from fractional coordinates, pause on blur only after 30s, the
+    dead CSS path and `bg-*` keyframes in 03-dashboard-widgets.css, a faint
+    upscale texture in the dark mesh, 4x-throttle numbers not re-run). (p) "see if there are any more areas to reduce
     lag ... like the avatars and other animations" (the audit agent, 424).
     (q) "on the dashboard when on the focused view, the hero section row is
     ugly and needs improvement and I dont agree with the search bar being on

@@ -985,15 +985,29 @@ const editorMenuState = {
 // caret's line and needs to know how tall the line is.
 function editorCaretPoint(textarea) {
   const at = textarea.coordsAt(textarea.selectionStart);
-  return { top: at.top, left: at.left, lineHeight: at.lineHeight };
+  return { top: at.top, left: at.left, lineHeight: at.lineHeight, offscreen: Boolean(at.offscreen) };
 }
 
 // Put the menu at the caret, then pull it back on screen if it would hang off
 // the bottom or the right, a menu you have to scroll the page to read is the
 // same as no menu.
-function editorPositionMenu(textarea) {
+//: **Never at a caret the editor has not drawn** (INBOX 421 c). The engine
+//: answers "no coordinates" for a position outside the lines it has laid
+//: out, and the adapter's fallback for that is the editor's own top left
+//: corner, which is the menu "at the top of the screen". The caret is
+//: scrolled into view and the menu placed on the next frame; a caret that is
+//: still not drawn after that closes the menu rather than parking it.
+function editorPositionMenu(textarea, retried = false) {
   const menu = $("editor-menu");
-  const { top, left, lineHeight } = editorCaretPoint(textarea);
+  const { top, left, lineHeight, offscreen } = editorCaretPoint(textarea);
+  if (offscreen) {
+    if (retried || typeof textarea.scrollIntoView !== "function") return editorCloseMenu();
+    textarea.scrollIntoView(textarea.selectionStart);
+    requestAnimationFrame(() => {
+      if (editorMenuState.open && editorMenuState.textarea === textarea) editorPositionMenu(textarea, true);
+    });
+    return;
+  }
   menu.style.top = "0px";
   menu.style.left = "0px";
   const size = menu.getBoundingClientRect();

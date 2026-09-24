@@ -526,10 +526,23 @@ function cmSurface(view, meta = null) {
     coordsAt(pos) {
       const at = view.coordsAtPos(Math.max(0, Math.min(pos, view.state.doc.length)));
       if (!at) {
+        //: `offscreen`, because the corner below is not where the position
+        //: is: the engine has not laid that line out. A popup placed from it
+        //: opens at the top of the editor (INBOX 421 c), so the popups ask
+        //: for the caret to be brought into view instead.
         const box = view.dom.getBoundingClientRect();
-        return { left: box.left, top: box.top, bottom: box.top + 18, lineHeight: 18 };
+        return { left: box.left, top: box.top, bottom: box.top + 18, lineHeight: 18, offscreen: true };
       }
       return { left: at.left, top: at.top, bottom: at.bottom, lineHeight: at.bottom - at.top };
+    },
+    //: Bring a position into the lines the engine has laid out, so
+    //: `coordsAt` can answer for it (the "/" menu's use, `editorPositionMenu`).
+    scrollIntoView(pos) {
+      const CMx = window.CM6;
+      if (!CMx) return;
+      view.dispatch({
+        effects: CMx.view.EditorView.scrollIntoView(Math.max(0, Math.min(pos, view.state.doc.length)), { y: "nearest" }),
+      });
     },
     lineAt(pos) {
       const line = view.state.doc.lineAt(Math.max(0, Math.min(pos, view.state.doc.length)));
@@ -13563,6 +13576,75 @@ function docMarkAnchor(mark, point) {
   return rects[0];
 }
 
+//: **Where a finding is on screen now, asked of the finding rather than of an
+//: element somebody held on to** (INBOX 421 c: "sometimes document editor
+//: dropdowns appear at the top of the screen ... sometimes it doesnt open at
+//: all"). The Live view redraws the line under the pointer the moment a press
+//: puts the caret on it (the line's markup is revealed), so the element a
+//: right-click or a long-press started on can be detached by the time the
+//: menu is placed, and a detached element measures `0,0,0,0`: the clamps then
+//: put the menu in the top left of the window, which is the screenshot. The
+//: live mark first; failing that the engine's own coordinates for the
+//: finding's span; failing that null, and the caller reveals the word or does
+//: not open, never opens at the origin.
+function docRectUsable(rect) {
+  return Boolean(rect) && Number.isFinite(rect.top) && Number.isFinite(rect.left)
+    && !(rect.top === 0 && rect.left === 0 && rect.bottom === 0 && (rect.right || 0) === 0);
+}
+
+function docFindingAnchor(finding, point) {
+  if (!finding) return null;
+  const mark = docFindingMarks().find((el) => el._docFinding === finding);
+  if (mark && mark.isConnected) {
+    const rect = docMarkAnchor(mark, point);
+    if (docRectUsable(rect)) return rect;
+  }
+  if (docCmView && Number.isFinite(finding.start)) {
+    const size = docCmView.state.doc.length;
+    const from = docCmView.coordsAtPos(Math.max(0, Math.min(finding.start, size)), 1);
+    const to = docCmView.coordsAtPos(Math.max(0, Math.min(finding.end ?? finding.start, size)), -1);
+    if (from && docRectUsable(from)) {
+      const sameLine = to && Math.abs(to.top - from.top) < 2;
+      return {
+        left: from.left,
+        right: sameLine ? Math.max(to.right, from.left) : from.left,
+        top: from.top,
+        bottom: from.bottom,
+      };
+    }
+  }
+  return null;
+}
+
+//: The finding a mark element stands for, even after the engine has thrown
+//: the element away: `_docFinding` is only attached to marks that are in the
+//: document when `docFindingMarks` runs, but the index on the element is
+//: still the finding's index.
+function docFindingOfMark(el) {
+  if (!el) return null;
+  if (el._docFinding) return el._docFinding;
+  const index = Number(el.dataset?.docFinding);
+  return Number.isInteger(index) ? docProseFound[index] || null : null;
+}
+
+//: **Where the first press of a double-click landed, in the text.** The press
+//: puts the caret on the line and the Live view reveals its markup, so the
+//: words shift right under a still pointer (measured: 16px for a line with
+//: one `**bold**` span), and the second press lands on whatever slid under
+//: it, not on the word that was double-clicked. Read in the capture phase,
+//: before the engine handles the press and before anything moves.
+let docFirstPress = null;
+document.addEventListener(
+  "mousedown",
+  (event) => {
+    if (!docCmView || event.detail !== 1 || event.button !== 0) return;
+    if (!(event.target instanceof Node) || !docCmView.contentDOM.contains(event.target)) return;
+    const pos = docCmView.posAtCoords({ x: event.clientX, y: event.clientY });
+    docFirstPress = pos == null ? null : { pos, at: performance.now() };
+  },
+  true
+);
+
 function docFindingAtPoint(x, y) {
   if (typeof x !== "number" || typeof y !== "number") return null;
   for (const mark of docFindingMarks()) {
@@ -13599,9 +13681,8 @@ function docRevealForSuggest(anchor, finding) {
 }
 
 function docOpenSuggestFor(finding, focus = true, point = null, revealed = false) {
-  const mark = docFindingMarks().find((el) => el._docFinding === finding);
-  if (mark) {
-    const anchor = docMarkAnchor(mark, point);
+  const anchor = docFindingAnchor(finding, point);
+  if (anchor) {
     //: Once only: a finding the editor cannot bring into view (a folded
     //: construct, a zero-height line) would otherwise ask for a frame forever.
     if (!revealed && docRevealForSuggest(anchor, finding)) {
@@ -13611,15 +13692,26 @@ function docOpenSuggestFor(finding, focus = true, point = null, revealed = false
     openDocSuggest(finding, anchor, focus);
     return true;
   }
-  const box = docActiveBox() || docSurface();
-  if (!box) return false;
-  const at = docCaretPoint(box);
-  openDocSuggest(finding, { left: at.left, top: at.top, bottom: at.bottom }, focus);
-  return true;
+  //: Not drawn at all: the finding is outside the lines the engine has laid
+  //: out. Scrolled to, then asked again on the next frame, once. The caret
+  //: used to be the fallback here, and the caret's own fallback, when the
+  //: engine had no coordinates for it either, was the editor's top left
+  //: corner: a menu about a word, opened at the top of the screen.
+  if (!revealed && docCmView && window.CM6 && Number.isFinite(finding.start)) {
+    docCmView.dispatch({
+      effects: window.CM6.view.EditorView.scrollIntoView(finding.start, { y: "center" }),
+    });
+    requestAnimationFrame(() => docOpenSuggestFor(finding, focus, null, true));
+    return true;
+  }
+  return false;
 }
 
-function docOpenSuggestAtCaret(box, point = null, focus = true) {
+function docOpenSuggestAtCaret(box, point = null, focus = true, pressed = null) {
   let finding = point ? docFindingAtPoint(point.x, point.y) : null;
+  //: The word the first press of a double-click was on, before the line
+  //: shifted under the pointer (`docFirstPress`).
+  if (!finding && pressed != null) finding = docFindingAtOffset(pressed);
   if (!finding) {
     //: The fallback, and it is the right one for a double-click: that gesture
     //: selects the word first, so the caret really is inside it.
@@ -13633,7 +13725,8 @@ function docOpenSuggestAtCaret(box, point = null, focus = true) {
 
 document.addEventListener("dblclick", (event) => {
   const box = docToolsBoxFor(event.target);
-  if (box) docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY });
+  const pressed = docFirstPress && performance.now() - docFirstPress.at < 1000 ? docFirstPress.pos : null;
+  if (box) docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY }, true, pressed);
 });
 
 //: **One click on an underlined word, which is what an underline means
@@ -13687,10 +13780,12 @@ document.addEventListener("click", (event) => {
 function docOpenSuggestAtPoint(target, point) {
   const flag = target instanceof Element ? target.closest(".doc-flag, .cm-finding") : null;
   if (flag) docFindingMarks(); // resolves the engine's marks back to findings
-  if (flag && flag._docFinding) {
-    openDocSuggest(flag._docFinding, docMarkAnchor(flag, point));
-    return true;
-  }
+  //: Resolved to the *finding* and placed from that, never from `flag`'s own
+  //: box: the press that raised this event may already have made the engine
+  //: redraw the line, and then `flag` is a detached element measuring
+  //: `0,0,0,0`, which is the menu at the top of the window (INBOX 421 c).
+  const flagged = docFindingOfMark(flag);
+  if (flagged) return docOpenSuggestFor(flagged, true, point);
   const box = docToolsBoxFor(target);
   if (!box) return false;
   return Boolean(docOpenSuggestAtCaret(box, point));
@@ -14622,6 +14717,11 @@ function docSuggestAnswers(finding, opts = {}) {
 function openDocSuggest(finding, anchorRect, focus = true) {
   const menu = $("doc-suggest-menu");
   if (!menu) return;
+  //: The last guard before the origin: a rect with nothing in it is asked of
+  //: the finding again, and with no answer the menu does not open rather
+  //: than opening at `8,8` (INBOX 421 c).
+  if (!docRectUsable(anchorRect)) anchorRect = docFindingAnchor(finding, null);
+  if (!docRectUsable(anchorRect)) return;
   docSuggestOpenFor = finding;
   menu.replaceChildren();
 
@@ -14810,9 +14910,7 @@ function docSuggestFollowAnchor(event) {
   //: in the capture phase like any other. Following the word because someone
   //: is reading the last row of the menu would be absurd.
   if (event && event.target instanceof Node && menu.contains(event.target)) return;
-  const mark = docFindingMarks().find((el) => el._docFinding === docSuggestOpenFor);
-  if (!mark) return closeDocSuggest();
-  const rect = docMarkAnchor(mark, null);
+  const rect = docFindingAnchor(docSuggestOpenFor, null);
   const host = docCmView ? docCmView.dom.getBoundingClientRect() : docSurface()?.rect?.();
   if (!rect || (host && (rect.bottom <= host.top + 1 || rect.top >= host.bottom - 1))) {
     return closeDocSuggest();
@@ -14824,6 +14922,15 @@ function docSuggestFollowAnchor(event) {
     bottom: rect.bottom,
   };
   placeDocSuggest();
+}
+
+let docSuggestFollowFrame = 0;
+function docScheduleSuggestFollow() {
+  if (docSuggestFollowFrame) return;
+  docSuggestFollowFrame = requestAnimationFrame(() => {
+    docSuggestFollowFrame = 0;
+    docSuggestFollowAnchor(null);
+  });
 }
 
 window.addEventListener("resize", docSuggestFollowAnchor);
@@ -16696,6 +16803,14 @@ function docCmUpdate(update) {
     //: event on a contenteditable and no second pass through this pipeline.
     if (typeof editorHandleInput === "function") editorHandleInput(docSurface());
     if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
+  } else if (!$("doc-suggest-menu")?.classList.contains("hidden")) {
+    //: **The word moved without a scroll.** Putting the caret on a line, or
+    //: taking the focus off the editor, makes the Live view reveal or hide
+    //: that line's markup, and the words after it slide sideways under an
+    //: open menu (measured: 16px, the menu left pointing at the gap before
+    //: the word). No scroll or resize event is raised for that, so the
+    //: engine's own update is the signal, answered once per frame.
+    docScheduleSuggestFollow();
   }
   if (update.selectionSet) {
     renderDocCaret();

@@ -4616,6 +4616,11 @@ main,
   height: 1.25rem;
 }
 
+.persona-row > .persona-mark {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
 .name-mark {
   display: block;
   border-radius: var(--radius-pill);

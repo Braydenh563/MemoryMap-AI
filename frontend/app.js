@@ -25729,7 +25729,10 @@ async function renderPersonas() {
     //: glance; the app's own emblem for its own voice.
     const mark = document.createElement("span");
     mark.className = "persona-mark";
-    fillPersonaMark(mark, persona.name);
+    //: 36px in the Settings list (the owner: "enlarge the avatar icons on
+    //: personas in settings a bit"): a row there has the room, and a face
+    //: at 20px was a coloured dot with a smile.
+    fillPersonaMark(mark, persona.name, 36);
     row.append(mark, chip(persona.name, "item-title"));
     if (persona.builtin) {
       row.appendChild(chip(persona.overridden ? "Edited" : "Built-in", "item-label"));

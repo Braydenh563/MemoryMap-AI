@@ -93,6 +93,9 @@ with its owner named in the entry.
     extended to each new shape; (2) an architecture review written into
     ANALYSIS.md: what is sound, what a professional app would do instead,
     cost and order of each change.
+    Part (1) built d6e9cb3, the table and what was ruled out in HISTORY.md
+    ("INBOX 400 part (1)"): Notes 61 to 28ms, Library's 216 to 283ms frame
+    gap gone, Timeline 89 to 46ms, theme switch 68 to 31ms. Part (2) open.
 
 399. **The owner, 2026-09-23 night, verbatim.** "what is left in the world
     class plan?? can you poke more holes in the application for bugs,

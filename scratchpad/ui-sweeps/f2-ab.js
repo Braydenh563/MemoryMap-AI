@@ -45,6 +45,16 @@ const TAB = process.env.TAB || 'notes';
         const a = document.querySelector('.tab-page:not(.hidden) aside, #sidebar');
         a.style.setProperty('--saved-width', `${200 + Math.round(Math.random() * 100)}px`);
       },
+      // Two hundred children put into a card and taken out again: what the
+      // graph's minimap does on every eighth simulation tick.
+      'insert-under-card': () => {
+        const host = document.querySelector('.tab-page:not(.hidden) .card');
+        const box = document.createElement('div');
+        for (let i = 0; i < 200; i++) box.appendChild(document.createElement('span'));
+        host.appendChild(box);
+        getComputedStyle(document.body).color;
+        box.remove();
+      },
       'settings-nav': () => document.querySelector('#settings-modal .settings-nav button, #settings-modal [data-section]')?.classList.toggle('active'),
     };
     const LAYOUT = false;
@@ -76,6 +86,8 @@ const TAB = process.env.TAB || 'notes';
         const key = one.trim().split(/\s+|\s*[>+~]\s*/).pop();
         return !/[#.]/.test(key.replace(/\([^)]*\)/g, '')) && !/^[a-z]/i.test(key);
       }),
+      // A `:has()` whose argument ends in a universal (`:has(*)`, `> *`).
+      hasuniv: (s) => /:has\([^)]*\*\s*\)/.test(s),
       rootattr: (s) => /^:root\[/.test(s.trim()),
       custom: () => false,
     };

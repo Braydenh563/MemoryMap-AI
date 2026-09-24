@@ -17,7 +17,9 @@ interaction), `f2-dom.js`, `f2-shape.js`, `f2-cv.js`, `f2-heights.js`.
 
 - Part 1, step 1: long lists skip off-screen rows, Library data loads do not
   cross-fade, Timeline formatters made once, dashboard measured in one pass;
-  four lints in `tests/test_css_invalidation.py`.
+  four lints in `tests/test_css_invalidation.py` (d6e9cb3).
+- Part 1, step 2: the interaction table (median of three) in HISTORY.md,
+  "INBOX 400 part (1)", and the INBOX note.
 
 ## Left
 

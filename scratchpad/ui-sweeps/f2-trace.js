@@ -204,7 +204,7 @@ const SCENES = {
     await p.evaluate(async () => {
       const boards = await apiJson('/whiteboard/boards');
       const list = Array.isArray(boards) ? boards : boards.boards || [];
-      const m = list.find((b) => b.name === 'Perf map');
+      const m = list.find((b) => (b.title || b.name) === 'Perf map');
       await openWhiteboardBoard(m.id);
     });
     await wait(p, 4000);

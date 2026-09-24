@@ -9,6 +9,51 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-23
 
+### INBOX 400 part (1): the style-invalidation hunt, every surface (perfpolish agent, d6e9cb3)
+
+The owner: "look for more of those issues like with what were making the
+whiteboard and mindmap pan glitchy". Every interaction traced at 1440x900 on
+a notebook of 500 notes, 50 documents, 40 chats, two boards and a 500-topic
+map (`scratchpad/ui-sweeps/f2-seed.js`, `f2-trace.js`, `REPS=3`). The
+sandbox shares four cores with other work, so each row is the median of
+three runs, and the "before" column is one run on the base commit.
+
+| Interaction | Worst task before | Worst task after (median) | Worst frame after | Cause, and what changed |
+| --- | --- | --- | --- | --- |
+| Switch to Notes | 58 to 61ms | 28ms | 33ms | 1,206 of the list's 1,382 elements were a window below the fold and all restyled on entry (34 to 42ms of style). Rows take `content-visibility: auto`. |
+| Switch to Library | 64 to 83ms, frame gap 216 to 283ms | 32ms | 33ms | A View Transition cross-faded the whole window after every data load, entering the tab included. `loadLibrary` renders `quiet`. |
+| Switch to Timeline | 60 to 89ms | 46ms | 50ms | 300 rows each built two `Intl.DateTimeFormat`s (50ms of script) and a 48ms layout of 3,350 objects. Formatters made once; rows take `content-visibility: auto`. |
+| Switch to Dashboard | 41 to 71ms | 43ms | 50ms | `sizeDashWidgets` wrote a span and read a height per widget, one forced layout each. Read all, then write all. |
+| Switch to Chat, Reminders | 27 to 34ms | 34 to 43ms | 33 to 50ms | Under the bar; nothing found. |
+| Switch to Graph | 39ms | 108ms (36 on a fresh page) | 100ms | Not style: the canvas renderer's draws and its commits to the compositor while the layout settles, in software raster (no GPU in the sandbox). |
+| Scroll Notes, Library, Timeline | 15, 41, 26ms | 24, 42, 43ms | 33 to 50ms | Rows are now styled as they come near rather than on entry; 0 to 3 frames over 25ms in about 190 per scroll either way. Library's worst is a 40-card chunk inserted by the list window. |
+| Scroll a chat, the chat list | 3 to 4ms | 4 to 5ms | 17ms | Nothing found. |
+| Hover over rows | 1 to 14ms | 1 to 14ms | 17ms | Nothing found. |
+| Type in Capture, Chat, a document | not taken | 17, 13, 11ms (a document's worst key 20 to 32ms) | 17 to 33ms | The document's cost is its own input handlers (documents.js, not touched). |
+| Open Settings | 55 to 96ms | 68ms (43 to 139) | 83ms | The shown section's first style and layout, about 1,400 elements, forced by `renderAppearance` reading a computed style and by the focus move. `content-visibility` on the groups was tried and measured no better. Left, with this reason. |
+| Walk Settings sections | 39ms | 35ms | 33ms | Under the bar. |
+| Command palette, a row's menu | 18, 47ms | 10, 16ms | 17ms | Under the bar. |
+| Theme switch | 68ms | 31ms | 33ms | A whole-document restyle by nature; the skipped rows halved it (2,357 to 1,070 elements). |
+| Resize across breakpoints | 105ms | 47ms | 50ms | The same. |
+| Graph pan, zoom | 38ms, not taken | 56, 75ms | 83ms | Canvas commits in software raster, and the minimap rebuilding 500 `<circle>`s on every eighth tick while the layout settles (found, not fixed: GRAPH_PLAN's). |
+| Mind map pan, 500 topics | not taken | 18ms, 119ms on the first pan | 83ms | Style is 3 to 4 elements per frame (13a-view's fix holds); the first pan's 65ms is the compositor's first commit of the board layer. |
+
+What was ruled out, measured with `f2-ab.js` (one class toggled, style forced,
+median of 21): a `.hidden` toggle on a leaf, a class on `<body>` and a class on
+a list row each cost 0.0 to 0.3ms with every `:has()` rule in place, so the
+app has no other selector of the `[class*=...]` shape. A custom property
+written on `<html>` costs 33ms per write at 1,560 drawn elements; the thirteen
+that script writes there are written on a setting change or a resize, never
+per frame, and `test_root_custom_properties_written_from_script_are_known`
+keeps a fourteenth from arriving unexamined. Inserting 200 elements under a
+card: 0.3ms.
+
+Lints added to `tests/test_css_invalidation.py`: the root custom properties
+above; long lists skip off-screen rows; a data load does not cross-fade the
+Library; the Timeline row builder makes no formatter; no loop writes a style
+and then reads a layout (three allowed, each with its reason); the dashboard
+measures in one pass. DESIGN.md's recipe index has the row "A long list".
+
 ### From MINDMAP_PLAN.md section 13a-view: the pan, the lines, and what is on screen (INBOX 312)
 
 The owner, 2026-09-21: "why is the graph soo smooth and clean to move nodes

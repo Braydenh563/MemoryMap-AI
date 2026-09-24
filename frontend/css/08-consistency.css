@@ -5077,3 +5077,37 @@ main,
 :root .seg > button.icon-only:not(.active):not(.ghost):not(.status-item):not(.tool-btn):not(.wb-tool):hover {
   background: var(--ghost-btn-bg);
 }
+
+/* **The person's mark, where it is a holder rather than a badge**: the
+   profile's head and the Settings head (`paintUserMarks` in app.js fills
+   both from `nameMark`). The holder is the mark's own size, so the SVG's
+   width and height attributes decide it and nothing here restates them. */
+.profile-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  line-height: 0;
+}
+
+/* The profile's own head: the large mark, the name, one line. The text
+   column is the one that shrinks, and a long name wraps inside it rather
+   than pushing the section wider than the pane. */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.profile-head-text {
+  min-width: 0;
+}
+
+.profile-head-text > h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-head-text > p {
+  margin: 0;
+}

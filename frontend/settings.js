@@ -105,7 +105,7 @@
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "learned", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "preferences", "personas", "skills", "tools", "memory", "learned", "websearch", "appearance", "templates", "shortcuts", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
@@ -4253,6 +4253,8 @@ function openHelpChat() {
 //: app.js binds that one, because the status bar is its markup and it can
 //: reach this function through `window` by the time a click happens.
 $("settings-guide-btn")?.addEventListener("click", () => openHelpChat());
+//: The avatar in the Settings head is the way to the profile from every pane.
+$("settings-profile-btn")?.addEventListener("click", () => showSettingsSection("preferences"));
 $("atlas-open")?.addEventListener("click", () => openHelpChat());
 
 //: The Settings row's chips are built once, with the modal: the sheet's are

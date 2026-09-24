@@ -1604,7 +1604,7 @@
                  changes how a search behaves could only be reached *after*
                  running one. -->
             <button type="button" id="ask-search-tune" class="ghost small icon-only"
-              title="Tune how strict semantic search is (Settings → Preferences)"
+              title="Tune how strict semantic search is (Settings → Profile &amp; preferences)"
               aria-label="Tune search sensitivity"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
             <button id="ask-btn">Ask</button>
             <button id="stop-btn" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
@@ -7321,6 +7321,11 @@
                than a copy per pane: it is the same sheet the header's '?'
                opens, and the chat itself moves into that sheet rather than
                being built a second time. -->
+          <!-- The person, in the head every pane shares: their mark, and the
+               way to the profile from any pane. Painted by `paintUserMarks`
+               (app.js). -->
+          <button id="settings-profile-btn" class="ghost small icon-only settings-profile-btn" type="button"
+            title="Your profile" aria-label="Your profile"><span class="profile-mark" data-user-mark="18" aria-hidden="true"></span></button>
           <button id="settings-guide-btn" class="ghost small icon-only" type="button"
             title="Ask Atlas how this app works" aria-label="Ask Atlas how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
           <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav" data-status-slot="nav">
@@ -7360,6 +7365,13 @@
           <p class="nav-group-label" id="nav-group-ai">Atlas</p>
           <div role="group" aria-labelledby="nav-group-ai">
             <button id="settings-nav-models" data-section="models" class="active">Models</button>
+            <!-- The owner's decision: Preferences became the person's own
+                 local profile (a name, an "About me" Atlas reads, the mark
+                 drawn from the name) and moved up to sit right after the
+                 first section. Its id stays `preferences`, because every
+                 `openSettingsModal("preferences", ...)` jump in the app names
+                 it. -->
+            <button data-section="preferences">Profile &amp; preferences</button>
             <button data-section="personas">Personas</button>
             <button data-section="skills">Skills</button>
             <button data-section="tools">Tools it can use</button>
@@ -7373,7 +7385,6 @@
             <button id="settings-nav-appearance" data-section="appearance">Appearance</button>
             <button data-section="templates">Templates</button>
             <button data-section="shortcuts">Keyboard shortcuts</button>
-            <button data-section="preferences">Preferences</button>
             <button data-section="data">Import &amp; export</button>
           </div>
 
@@ -9002,8 +9013,19 @@
             </div>
           </section>
 
-          <!-- Preferences -->
+          <!-- Profile & preferences -->
           <section class="settings-section hidden" id="settings-preferences">
+            <!-- The profile's head: the person's mark (`nameMark` seeded by
+                 `userMarkSeed`, the same mark the chat's own bubbles wear),
+                 the name, and one line. Redrawn as the name is typed, so the
+                 mark is a preview before it is a save. -->
+            <div class="profile-head">
+              <span class="profile-mark" id="profile-avatar" data-user-mark="56" aria-hidden="true"></span>
+              <div class="profile-head-text">
+                <h3 id="profile-head-name">Your profile</h3>
+                <p class="muted">Stays on this computer. Your mark is drawn from your name.</p>
+              </div>
+            </div>
             <!-- INBOX 263: "there is no visual indications that the
                  preferences settings are the only settings that dont save
                  automatically." Every other section writes on change, so
@@ -9019,10 +9041,26 @@
             <div class="settings-group">
               <h3>Your name</h3>
               <div class="row">
-                <label for="pref-display-name" class="muted">Name for the dashboard greeting</label>
+                <label for="pref-display-name" class="muted">Shown in the greeting and on your mark</label>
                 <input id="pref-display-name" type="text" maxlength="60"
                   placeholder="Your first name">
               </div>
+              <!-- What Atlas reads about you. Moved up from the foot of the
+                   section, where it sat below notifications, because it is
+                   the half of the profile that changes the answers. The
+                   prompt reads the first 600 characters
+                   (`librarian.PROFILE_ABOUT_CAP_CHARS`), so the box stops
+                   there and the count says so. -->
+              <h3>About me</h3>
+              <label class="check-row">
+                <input type="checkbox" id="pref-profile-enabled">
+                <span>Let Atlas read your name and About me for more personal answers</span>
+              </label>
+              <textarea id="pref-profile" rows="3" maxlength="600" aria-describedby="pref-profile-count"
+                placeholder="e.g. I'm in Leeds. I teach maths and keep bees."></textarea>
+              <p class="muted text-sm" id="pref-profile-count" aria-live="polite"></p>
+            </div>
+            <div class="settings-group">
               <h3>Recycle bin</h3>
               <div class="row">
                 <label for="pref-bin-days" class="muted">Auto-clear binned notes after</label>
@@ -9133,13 +9171,6 @@
               </p>
             </div>
             <div class="settings-group">
-              <h3>About you (optional)</h3>
-              <label class="check-row">
-                <input type="checkbox" id="pref-profile-enabled">
-                <span>Let Atlas use this profile for more personal answers</span>
-              </label>
-              <textarea id="pref-profile" rows="3"
-                placeholder="e.g. I'm Sam, in Leeds. I teach maths and keep bees."></textarea>
               <div class="row align-center">
                 <button id="prefs-save" class="small">Save preferences</button>
                 <span id="prefs-status" class="status" role="status"></span>
@@ -9152,7 +9183,7 @@
                  not beside Save. -->
             <div class="settings-group">
               <h3>Your profile data</h3>
-              <p class="muted">Turn the profile off above or delete it here: answers just get less personal.</p>
+              <p class="muted">Turn the About me switch off above or delete the text here: answers just get less personal.</p>
               <div class="row">
                 <button id="profile-delete" class="ghost small">Delete my profile data</button>
               </div>

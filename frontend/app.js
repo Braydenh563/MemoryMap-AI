@@ -18220,6 +18220,22 @@ function userMarkSeed() {
   return ((prefsCache && prefsCache.display_name) || "").trim() || "You";
 }
 
+//: **Every mark of the person on screen, redrawn at once** (DESIGN.md's
+//: recipe index: "A mark generated from a name"). A holder says it is the
+//: person's by carrying `data-user-mark="<size>"`: the profile's head, the
+//: Settings head and each of the chat's own bubbles. Called when the
+//: preferences arrive and after a save, so a renamed profile redraws the
+//: bubbles already in the thread as well as the next one, and the three
+//: can never show two different people.
+function paintUserMarks() {
+  const seed = userMarkSeed();
+  for (const holder of document.querySelectorAll("[data-user-mark]")) {
+    holder.replaceChildren(nameMark(seed, Number(holder.dataset.userMark) || 18));
+  }
+  const head = $("profile-head-name");
+  if (head) head.textContent = ((prefsCache && prefsCache.display_name) || "").trim() || "Your profile";
+}
+
 function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
   const bubble = document.createElement("div");
@@ -18256,6 +18272,7 @@ function addBubble(role, text, attachments = null) {
     const mark = document.createElement("span");
     mark.className = "msg-user-mark";
     mark.setAttribute("aria-hidden", "true");
+    mark.dataset.userMark = "18";
     mark.appendChild(nameMark(userMarkSeed(), 18));
     bubble.appendChild(mark);
   }
@@ -32356,6 +32373,7 @@ function loadPreferences({ refresh = false } = {}) {
   prefsInflight = apiJson("/preferences", { silent: true })
     .then((prefs) => {
       prefsCache = prefs;
+      paintUserMarks();
       return prefs;
     })
     .finally(() => {
@@ -32375,6 +32393,8 @@ async function renderPrefs() {
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
+  paintUserMarks();
+  updateProfileCount();
   if (prefsCache.session_idle_ttl_minutes) {
     $("account-idle-ttl").value = prefsCache.session_idle_ttl_minutes;
   }
@@ -32849,6 +32869,7 @@ async function savePrefs() {
 
     // Reflect a name change immediately if the dashboard is showing.
     if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
+    paintUserMarks();
   } catch (error) {
     $("prefs-status").textContent = error.message;
     toast(error.message, true);
@@ -32909,6 +32930,31 @@ function wirePrefsDirtyMarks() {
     el.addEventListener("input", markPrefsDirty);
     el.addEventListener("change", markPrefsDirty);
   }
+  //: The profile head previews the name as it is typed; the rest of the app's
+  //: marks wait for the save, since that is when the name is real.
+  $("pref-display-name")?.addEventListener("input", (e) => {
+    const typed = e.target.value.trim();
+    $("profile-avatar")?.replaceChildren(nameMark(typed || "You", 56));
+    const head = $("profile-head-name");
+    if (head) head.textContent = typed || "Your profile";
+  });
+  $("pref-profile")?.addEventListener("input", updateProfileCount);
+}
+
+//: The prompt reads the first 600 characters of About me
+//: (`librarian.PROFILE_ABOUT_CAP_CHARS`); the box stops there, and the count
+//: says how much is left. A profile saved before the cap may be longer, and
+//: then the line says which part Atlas reads rather than hiding the rest.
+const PROFILE_ABOUT_CAP = 600;
+
+function updateProfileCount() {
+  const line = $("pref-profile-count");
+  const box = $("pref-profile");
+  if (!line || !box) return;
+  const used = box.value.length;
+  line.textContent = used > PROFILE_ABOUT_CAP
+    ? `${used} characters; Atlas reads the first ${PROFILE_ABOUT_CAP}.`
+    : `${used} of ${PROFILE_ABOUT_CAP} characters.`;
 }
 
 async function deleteProfile() {
@@ -34071,7 +34117,7 @@ function paletteCommands() {
     { label: "ph:lightning Settings → Skills", reveal: "settings:skills" },
     { label: "ph:toolbox Settings → Tools it can use", reveal: "settings:tools" },
     { label: "ph:palette Settings → Appearance", reveal: "settings:appearance" },
-    { label: "ph:sliders Settings → Preferences", reveal: "settings:preferences" },
+    { label: "ph:sliders Settings → Profile & preferences", reveal: "settings:preferences" },
     { label: "ph:floppy-disk Settings → Data & backups", reveal: "settings:data" },
     { label: "ph:brain Settings → What it remembers", reveal: "settings:memory" },
     { label: "ph:note-blank Settings → Templates", reveal: "settings:templates" },

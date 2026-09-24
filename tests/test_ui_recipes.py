@@ -2840,3 +2840,39 @@ def test_a_search_and_read_pane_is_one_field_one_list_and_one_scroller() -> None
             assert not re.search(r"(?<![\w-])border\s*:\s*(?!0|none)", body), (
                 f"{selector}: the reader text is boxed again; a page is prose, not a field"
             )
+
+
+def test_the_persons_mark_is_one_builder_and_one_painter() -> None:
+    """DESIGN.md's recipe index, "A mark generated from a name".
+
+    The local profile's mark is deterministic from the display name, so the
+    person must draw the same mark in the chat, the Settings head and the
+    profile's head. A second builder, a holder the painter cannot find, or a
+    surface back on a generic glyph is how they would come to disagree after
+    a rename.
+    """
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert app.count("function nameMark(") == 1, "the name mark is no longer drawn in one place"
+    for path in JS:
+        if path.name != "app.js":
+            assert "function nameMark(" not in path.read_text(encoding="utf-8"), (
+                f"{path.name} draws a second name mark"
+            )
+    painter = app.split("function paintUserMarks(", 1)[1].split("\nfunction ", 1)[0]
+    assert "[data-user-mark]" in painter and "nameMark(seed" in painter, (
+        "paintUserMarks no longer redraws every holder of the person's mark"
+    )
+    # Both heads are holders the painter can find.
+    assert 'id="profile-avatar" data-user-mark=' in html, "the profile head's mark is not painted"
+    assert re.search(r'id="settings-profile-btn"[^>]*>\s*<span[^>]*data-user-mark=', html), (
+        "the Settings head's mark is not painted"
+    )
+    # The chat's own bubble is a holder too, and never the old glyph.
+    bubble = app.split("function addBubble(", 1)[1].split("\nfunction ", 1)[0]
+    assert "dataset.userMark" in bubble and "nameMark(userMarkSeed()" in bubble, (
+        "the user's chat bubble no longer carries the profile's mark"
+    )
+    assert '"ph:user"' not in bubble, "the user's chat bubble went back to a generic glyph"
+    # Painted when the preferences arrive and after a save.
+    assert app.count("paintUserMarks();") >= 3, "the person's mark is not repainted on load and save"

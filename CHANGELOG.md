@@ -9,6 +9,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Settings, Preferences is now Profile & preferences, your own local
+  profile, and sits second in the settings list, right after Models. It opens
+  on a head with your mark (the same generated face your chat bubbles wear,
+  drawn from your name), and the name and About me come first; About me stops
+  at the 600 characters Atlas reads, with a count. The Settings head carries
+  your mark too, and pressing it opens the profile from any pane. Renaming
+  yourself repaints every mark at once, including the bubbles already in the
+  chat (`paintUserMarks`, DESIGN.md's new "A mark generated from a name"
+  recipe, with its lint in `tests/test_ui_recipes.py`). Measured by
+  `scratchpad/ui-sweeps/profile.js` at 1440 and 390, light and dark: no
+  overflow with a 52-character name, the head button the guide button's
+  height. The help chat's background librarian answer now points at
+  Background tasks, where that switch has lived for a while.
 - Atlas now knows your name as well as your "About me", while the profile
   switch is on. Both reach the prompt through one function,
   `librarian.profile_from_config`, and the about text is capped at its first

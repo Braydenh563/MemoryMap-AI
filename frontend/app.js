@@ -1582,11 +1582,17 @@ function confirmDialog(message, options = {}) {
     // Blank lines in these messages are deliberate paragraphs, the second is
     // usually the consequence ("This cannot be undone"), which is the part
     // worth reading, so it is not run together with the first.
-    for (const part of String(message).split(/\n{2,}/)) {
-      const line = document.createElement("span");
+    //: With more than one paragraph the first is the question ("Quit
+    //: MemoryMap?", "Delete this note?") and is set as the dialog's title,
+    //: the consequence under it in the body voice, the shape every native
+    //: confirm has. One paragraph stays one paragraph.
+    const parts = String(message).split(/\n{2,}/);
+    parts.forEach((part, index) => {
+      const line = document.createElement(index === 0 && parts.length > 1 ? "strong" : "span");
+      if (index === 0 && parts.length > 1) line.className = "confirm-title";
       line.textContent = part;
       text.append(line, document.createElement("br"));
-    }
+    });
     const row = document.createElement("div");
     row.className = "row confirm-actions";
 

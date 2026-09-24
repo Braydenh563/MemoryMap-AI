@@ -37,10 +37,39 @@
 //:    "..." sleepy; emoticons and emoji say what they say; a few numbers
 //:    mean something to the people who type them (666, 007, 404, 1337).
 //: 4. **Nothing at all.** A personality drawn from the name's own hash, so
-//:    "Alice" is always the same Alice: a plain face about a quarter of the
-//:    time, otherwise one of the milder moods. Never a costume or an animal:
-//:    those only come from a word, so a seeded face never claims something
-//:    about a name that the name did not say.
+//:    "Alice" is always the same Alice: a plain face a quarter of the time,
+//:    otherwise a friendly one (happy, calm, a little excited, cute). Never
+//:    a costume or an animal: those only come from a word, so a seeded face
+//:    never claims something about a name that the name did not say.
+//:
+//: **The design rules** (the owner, 2026-09-24: "refine the avatar
+//: generation as it is still a little messy and I'm not happy with what is
+//: generated when I put in my name 'Brayden' or 'Sushicraft563,
+//: SushiLord'"). Each is enforced here or in `drawCharacter`, and pinned by
+//: tests/test_name_mood.py:
+//:
+//: - **A plain first name is a clean default.** One hairstyle, one colour
+//:   pair, a friendly face, no costume, no animal, nothing held, and at most
+//:   one subtle accessory. Its look (masculine or feminine) is the Profile
+//:   look for your own name or Settings, Appearance, Face looks; never
+//:   guessed from the first name. With neither, the styles that read as
+//:   either, and no accessory at all.
+//: - **Words drive at most two visual cues**, chosen by salience: a species
+//:   first, then what is worn and held in the order the name says it, then
+//:   food. "Sushicraft563" holds a pickaxe with sushi in its hair;
+//:   "SushiLord" wears a crown and holds sushi. Numbers only nudge the
+//:   seeded variety (they are in the hash); the few that mean something
+//:   (666, 404) lean the mood and add nothing to wear.
+//: - **A hard budget**: one head item, one face item, one held item, one
+//:   body item. A second claim on a slot loses to the first; accessories
+//:   only fill a slot the words left free. Nothing is drawn over the eyes
+//:   but eyewear, and a flavour ("wink", "cooked") is drawn only when it
+//:   does not fight the mood for the same features, one at most.
+//: - **A curated palette** (`NM_CHAR_PAIRS`): each character's body, hair and
+//:   clothes come from one of a few pairs chosen to sit together, each
+//:   checked for contrast on the light and the dark page.
+//: - **Readable at 28px**: the head-only mark at that size and under draws
+//:   the face and at most one cue that breaks the outline.
 //:
 //: All local, all instant, nothing stored: the reading is a pure function of
 //: the name, pinned by tests/test_name_mood.py.
@@ -138,14 +167,14 @@ const NAME_MOOD_LEXICON = {
     chefhat: "chef chefs cook cooks baker* cooking",
     glasses: "academic* professor* prof scholar* librarian* teacher* tutor* researcher* historian* editor* critic* analyst* philosoph* linguist* mathemat* boffin* smart",
     squareglasses: "nerd* geek* coder* programmer* developer* dev hipster* techie*",
-    monocle: "monocle* posh aristocrat* lord lords sophisticat* distinguished",
+    monocle: "monocle* posh aristocrat* sophisticat* distinguished",
     goggles: "scientist* chemist* physicist* pilot* aviator* steampunk* welder* inventor* engineer* lab",
     threed: "3d cinema* movie* movies film* retro",
     starglasses: "rockstar* popstar* glam* fabulous",
     heartglasses: "heartbreaker* flirt* casanova",
     visor: "cyber* vr futur* hacker* neon synthwave",
     eyepatch: "pirate* buccaneer* arr arrr",
-    crown: "king kings queen* prince princes royal* emperor* empress* monarch* regal duke duchess",
+    crown: "king kings queen* prince princes royal* emperor* empress* monarch* regal duke duchess lord lords",
     tiara: "princess* tiara* pageant*",
     tricorn: "pirate* buccaneer* captain* corsair*",
     cap: "cap caps baseball* skater* skate* sporty jock* athlete* coach* trucker*",
@@ -155,7 +184,7 @@ const NAME_MOOD_LEXICON = {
     bandana: "bandana* biker* rebel* rambo outlaw* bandit*",
     bow: "bow bows ribbon* coquette",
     beard: "beard* bearded lumberjack* santa hagrid dwarf* grizzled",
-    halo: "angel* saint* guardian* cherub* holy",
+    halo: "angel angels angelic saint* guardian* cherub* holy",
     horns: "devil* demon* imp fiend* satan*",
     antenna: "robot* bot bots android* cyborg* droid* machine* automaton* ai",
     moustache: "butler* gentleman gentlemen baron* mustach* moustach* walrus* sir",
@@ -165,7 +194,7 @@ const NAME_MOOD_LEXICON = {
     cowboy: "cowboy* cowgirl* sheriff* yeehaw rodeo* ranch* wrangler*",
     partyhat: "party partying birthday* bday celebrat* fiesta*",
     ninjamask: "ninja*",
-    helmet: "astronaut* cosmonaut* space spaceman* rocketman",
+    helmet: "astronaut* cosmonaut* spaceman* rocketman",
   },
   //: What the hand does or holds. One hand, one thing: the first named.
   hands: {
@@ -176,7 +205,7 @@ const NAME_MOOD_LEXICON = {
     beer: "beer* brew* ale lager booze* cheers pint* drinks",
     wine: "wine* vino merlot sommelier* classy fancy champagne* prosecco",
     mug: "coffee* espresso* latte* mug cappucc* barista* tea",
-    sword: "knight* warrior* samurai* sword* paladin* viking* gladiator*",
+    sword: "knight* warrior* samurai* sword* paladin* viking* gladiator* slayer*",
     magnifier: "detective* sherlock* investigat* sleuth* inspector*",
     mic: "karaoke* singer* rapper* mic vocal* diva",
     book: "book* reader* novel* poet* writer* author* bookworm* storyteller*",
@@ -184,6 +213,7 @@ const NAME_MOOD_LEXICON = {
     flower: "flower* garden* bloom* blossom* florist* daisy* sunflower* petal*",
     pizza: "pizza*",
     donut: "donut* doughnut*",
+    sushi: "sushi* nigiri* sashimi* onigiri* maki",
     balloon: "balloon*",
     tableflip: "tableflip* flip flipping ragequit",
     controller: "gamer* gaming xbox* playstation* ps5 nintendo* switch controller* joystick* gamepad* esports",
@@ -213,7 +243,7 @@ const NAME_MOOD_LEXICON = {
   },
   //: Which wings, when a name has them: seven kinds, each drawn its own way.
   wings: {
-    angel: "angel* cherub* seraph* dove* pegasus* holy",
+    angel: "angel angels angelic cherub* seraph* dove* pegasus* holy",
     bird: "bird birds birb* feather* parrot* robin*",
     phoenix: "phoenix*",
     dragon: "dragon* wyvern*",
@@ -243,6 +273,20 @@ const NAME_MOOD_LEXICON = {
 let nameMarkOwn = null;
 const NAME_MARK_HAT_KINDS = ["hat", "chefhat", "cowboy", "partyhat", "crown", "tiara", "tricorn", "cap", "beanie", "flowercrown", "bandana", "headband"];
 const NAME_MARK_EYEWEAR_KINDS = ["glasses", "squareglasses", "monocle", "goggles", "threed", "starglasses", "heartglasses", "visor"];
+
+//: The slots a character has room for, one thing each (see the budget in
+//: `nameMood`): what sits on the head, what sits on the face, what the
+//: hand holds, and what the body wears.
+const NAME_MARK_HEAD_KINDS = [...NAME_MARK_HAT_KINDS, "halo", "horns", "antenna", "headphones", "helmet", "bow", "sushiclip", "flowerclip"];
+const NAME_MARK_FACE_KINDS = [...NAME_MARK_EYEWEAR_KINDS, "eyepatch", "ninjamask", "rednose", "moustache", "beard", "fangs", "stubble", "earrings", "lipstick"];
+const NAME_MARK_FOODS = ["sushi", "pizza", "donut"];
+
+function nameMarkSlot(kind, key) {
+  if (kind === "animal") return "species";
+  if (kind === "hand") return "held";
+  if (kind === "prop" || kind === "accessory") return NAME_MARK_FACE_KINDS.includes(key) ? "face" : "head";
+  return "body";
+}
 
 function setOwnNameMarkStyle(style) {
   nameMarkOwn = style && typeof style === "object" ? { ...style } : {};
@@ -280,7 +324,7 @@ function nameMood(name) {
   const variant = Number(own?.variant) || 0;
   const result = {
     mood: null, intense: false, animal: null, props: [], flavours: [], hand: null, limbs: null, mutant: null,
-    wing: null, look: null,
+    wing: null, look: null, cues: [],
     style: { smile: "smile", eyes: "dot", features: [], nose: null, hair: null, hairColour: 0, accessories: [], outfit: null, outfitColour: 0 },
     source: "seed",
   };
@@ -324,42 +368,67 @@ function nameMood(name) {
     return squeezed === word ? [word] : [word, squeezed];
   });
   const letters = raw.toLowerCase().replace(/[^a-z]/g, "");
+  //: Where a group's keywords first hit the name. `at` ranks a whole-word
+  //: match ahead of every glued one (the mood and the hand take the
+  //: earliest); `order` is the plain place in the name, word by word and
+  //: letter by letter, which is what ranks the visual cues below.
+  //:
+  //: The glued-name scan looks inside one word at a time: a prefix stem
+  //: anywhere in it, an exact stem only where the word ends, so
+  //: "sushilord" is a lord and "cooked" is not a cook (the owner's "ur
+  //: cooked buddy" wore a chef's hat until this). Only stems of four
+  //: letters and up, and only three letters or more into the word, which
+  //: is where a second word glued on would start: "Janice" is not "nice"
+  //: and "Clover" is not in love.
+  const hitAt = (entries) => {
+    let best = null;
+    const take = (at, order) => {
+      if (!best || at < best.at) best = { at, order };
+    };
+    for (const { stem, prefix } of entries) {
+      forms.forEach((variants, index) => {
+        for (const word of variants) {
+          if (prefix ? word.startsWith(stem) : word === stem) take(index * 1000, index * 1000);
+          else if (stem.length >= 4 && word.length > stem.length) {
+            const off = prefix ? word.indexOf(stem) : word.endsWith(stem) ? word.length - stem.length : -1;
+            if (off >= 3) take(500000 + index * 1000 + off, index * 1000 + off);
+          }
+        }
+      });
+      //: A keyword typed as two words is still the keyword: "rage quit",
+      //: "good job", "screw you".
+      if (stem.length >= 4 && forms.length > 1 && letters === stem) take(500000, 0);
+    }
+    return best;
+  };
   //: The earliest match wins, by where it sits in the name: "sad happy cat"
   //: is sad, the way a reader takes the first adjective as the character.
   const find = (groups) => {
     let best = null;
     for (const { key, entries } of groups) {
-      for (const { stem, prefix } of entries) {
-        forms.forEach((variants, index) => {
-          const hit = variants.some((word) => (prefix ? word.startsWith(stem) : word === stem));
-          if (hit && (!best || index * 1000 < best.at)) best = { key, at: index * 1000 };
-        });
-        //: The glued-name scan: only stems of four letters and up, and only
-        //: behind every whole-word match (`+ 500000`).
-        if (stem.length >= 4 && letters.length >= stem.length) {
-          const at = letters.indexOf(stem);
-          if (at >= 0 && (!best || at + 500000 < best.at)) best = { key, at: at + 500000 };
-        }
-      }
+      const hit = hitAt(entries);
+      if (hit && (!best || hit.at < best.at)) best = { key, ...hit };
     }
-    return best?.key || null;
+    return best;
   };
-  const findAll = (groups) => {
-    const keys = [];
-    for (const { key, entries } of groups) {
-      const hit = entries.some(({ stem, prefix }) =>
-        forms.some((variants) => variants.some((word) => (prefix ? word.startsWith(stem) : word === stem))) ||
-        (stem.length >= 4 && letters.length >= stem.length && letters.includes(stem))
-      );
-      if (hit) keys.push(key);
-    }
-    return keys;
+  //: Every group that hits, in the order the name says them.
+  const findAll = (groups) =>
+    groups
+      .map(({ key, entries }) => ({ key, ...hitAt(entries) }))
+      .filter((hit) => hit.at !== undefined)
+      .sort((a, b) => a.order - b.order || a.at - b.at);
+  const moodHit = find(table.moods);
+  result.mood = moodHit?.key || null;
+  //: Every thing the words ask to be seen, with where they said it; the
+  //: budget below keeps at most two (`result.cues`).
+  const heard = [];
+  const hear = (kind, key, order) => {
+    if (key && !heard.some((h) => h.kind === kind && h.key === key)) heard.push({ kind, key, order });
   };
-  result.mood = find(table.moods);
-  result.hand = find(table.hands);
-  result.limbs = find(table.limbs);
-  result.wing = find(table.wings);
-  result.look = find(table.looks);
+  for (const hit of findAll(table.hands)) hear("hand", hit.key, hit.order);
+  const limbsHit = find(table.limbs);
+  const wingHit = find(table.wings);
+  result.look = find(table.looks)?.key || null;
   //: Your own face's chosen look wins; any other name that says nothing
   //: either way takes the look Settings, Appearance, Face looks leans to
   //: (the owner: "the male and female choice avatars generation"). A name
@@ -367,53 +436,57 @@ function nameMood(name) {
   const ownLook = own && ["feminine", "masculine"].includes(own.look) ? own.look : null;
   if (ownLook) result.look = ownLook;
   else if (!result.look) result.look = nameMarkLookLean();
-  const wingLimbs = { angel: "wings-feather", bird: "wings-feather", dragon: "wings-bat", bat: "wings-bat", fairy: "wings-bug", bee: "wings-bug", butterfly: "wings-bug" };
-  if (result.wing && !result.limbs) result.limbs = wingLimbs[result.wing];
-  result.animal = find(table.animals);
-  result.props = findAll(table.props);
-  //: One hat per head: "Party wizard" wears the party hat, the one named
-  //: first, rather than a cone stacked through a cone.
-  //: And one pair of eyes' worth of eyewear, by the same rule.
-  for (const kind of [
-    ["hat", "chefhat", "cowboy", "partyhat", "crown", "tiara", "tricorn", "cap", "beanie", "flowercrown", "bandana"],
-    ["glasses", "squareglasses", "monocle", "goggles", "threed", "starglasses", "heartglasses", "visor"],
-  ]) {
-    if (result.props.filter((prop) => kind.includes(prop)).length > 1) {
-      const first = find(table.props.filter(({ key }) => kind.includes(key)));
-      result.props = result.props.filter((prop) => !kind.includes(prop) || prop === first);
-    }
-  }
-  //: A flavour the mood already is (a scream on a scream) says nothing new.
-  result.flavours = findAll(table.flavours);
-  if (/;-?\)/.test(raw) && !result.flavours.includes("wink")) result.flavours.push("wink");
+  const animalHit = find(table.animals);
+  if (animalHit) hear("animal", animalHit.key, animalHit.order);
+  if (wingHit) hear("wing", wingHit.key, wingHit.order);
+  if (limbsHit) hear("limbs", limbsHit.key, limbsHit.order);
+  for (const hit of findAll(table.props)) hear("prop", hit.key, hit.order);
+  const outfitHit = find(table.outfits);
+  if (outfitHit) hear("outfit", outfitHit.key, outfitHit.order);
+  //: Flavours stack on the mood only where they do not fight it for the
+  //: same features, and only one of them is drawn (the owner, on "Uwu wink
+  //: wink ahhhhhh ur cooked buddy": "still a little messy"): a wink needs
+  //: an open eye to close, a scream takes over the eyes and mouth so it
+  //: only draws when no word set the mood, and a sweat drop or a blush
+  //: sits beside anything. The first named that fits wins.
+  const flavoursHeard = findAll(table.flavours).map((hit) => hit.key);
+  if (/;-?\)/.test(raw) && !flavoursHeard.includes("wink")) flavoursHeard.push("wink");
+  const shutEyes = ["happy", "sleepy", "calm", "hungry", "laughing", "uwu", "love", "dead", "dizzy", "starstruck", "greedy", "cool"];
+  const fits = {
+    wink: () => !shutEyes.includes(result.mood),
+    scream: () => !moodHit,
+    doomed: () => true,
+    blush: () => true,
+  };
+  result.flavours = flavoursHeard.filter((flavour) => fits[flavour]?.()).slice(0, 1);
   //: (╯°□°)╯︵ ┻━┻ has no letters at all, and needs none.
-  if (/\u253b\u2501+\u253b|\u256f\u00b0\u25a1\u00b0/.test(raw)) result.hand = "tableflip";
+  const flipped = /┻━+┻|╯°□°/.test(raw);
+  if (flipped) hear("hand", "tableflip", -2);
   const emojiHands = [
-    [/\u{1F44D}/u, "thumbsup"], [/\u{1F595}/u, "middlefinger"], [/\u270C/u, "peace"], [/\u{1F44B}/u, "wave"],
-    [/[\u{1F37A}\u{1F37B}]/u, "beer"], [/[\u{1F377}\u{1F942}]/u, "wine"], [/\u2615/u, "mug"],
-    [/[\u2694\u{1F5E1}]/u, "sword"], [/[\u{1F50D}\u{1F50E}]/u, "magnifier"], [/\u{1F3A4}/u, "mic"],
+    [/\u{1F44D}/u, "thumbsup"], [/\u{1F595}/u, "middlefinger"], [/✌/u, "peace"], [/\u{1F44B}/u, "wave"],
+    [/[\u{1F37A}\u{1F37B}]/u, "beer"], [/[\u{1F377}\u{1F942}]/u, "wine"], [/☕/u, "mug"],
+    [/[⚔\u{1F5E1}]/u, "sword"], [/[\u{1F50D}\u{1F50E}]/u, "magnifier"], [/\u{1F3A4}/u, "mic"],
     [/[\u{1F4DA}\u{1F4D6}]/u, "book"], [/\u{1F4F1}/u, "phone"], [/[\u{1F338}\u{1F339}\u{1F337}\u{1F33B}]/u, "flower"],
-    [/\u{1F355}/u, "pizza"], [/\u{1F369}/u, "donut"], [/\u{1F388}/u, "balloon"],
-    [/\u{1F3AE}/u, "controller"], [/\u26CF/u, "pickaxe"], [/\u{1FA93}/u, "axe"], [/\u{1F528}/u, "hammer"],
+    [/\u{1F355}/u, "pizza"], [/\u{1F369}/u, "donut"], [/\u{1F388}/u, "balloon"], [/\u{1F363}/u, "sushi"],
+    [/\u{1F3AE}/u, "controller"], [/⛏/u, "pickaxe"], [/\u{1FA93}/u, "axe"], [/\u{1F528}/u, "hammer"],
     [/\u{1F52B}/u, "blaster"], [/\u{1F3F9}/u, "bow"], [/\u{1FA84}/u, "wand"], [/\u{1F3A3}/u, "fishingrod"],
     [/[\u{1F58C}\u{1F3A8}]/u, "paintbrush"],
   ];
-  if (!result.hand) {
+  if (!heard.some((h) => h.kind === "hand")) {
     for (const [pattern, hand] of emojiHands) {
       if (pattern.test(raw)) {
-        result.hand = hand;
+        hear("hand", hand, 900000);
         break;
       }
     }
   }
   //: Nobody flips a table calmly.
-  if (result.hand === "tableflip") {
+  if (heard.some((h) => h.key === "tableflip")) {
     result.mood = "angry";
     result.intense = true;
   }
-  if (result.hand && result.source === "seed") result.source = "words";
-  result.intense = forms.some((variants) => variants.some((word) => table.intensifiers.has(word)));
-  if (result.mood || result.animal || result.props.length) result.source = "words";
+  result.intense = result.intense || forms.some((variants) => variants.some((word) => table.intensifiers.has(word)));
+  if (result.mood || heard.length) result.source = "words";
 
   //: Layer three, how it is typed. Read even when the words spoke, for the
   //: intensity ("Happy!!!"), and for the mood only when they did not.
@@ -448,10 +521,10 @@ function nameMood(name) {
     [/\u{1F98A}/u, "fox"], [/\u{1F43B}/u, "bear"], [/\u{1F438}/u, "frog"], [/\u{1F437}/u, "pig"],
     [/\u{1F989}/u, "owl"], [/\u{1F47B}/u, "ghost"], [/\u{1F47D}/u, "alien"], [/\u{1F427}/u, "penguin"],
   ];
-  if (!result.animal) {
+  if (!heard.some((h) => h.kind === "animal")) {
     for (const [pattern, animal] of emojiCreatures) {
       if (pattern.test(raw)) {
-        result.animal = animal;
+        hear("animal", animal, 900000);
         break;
       }
     }
@@ -461,7 +534,9 @@ function nameMood(name) {
     [/\u{1F608}/u, "horns"], [/\u{1F921}/u, "rednose"], [/\u{1F9DB}/u, "fangs"], [/\u{1F920}/u, "cowboy"],
     [/\u{1F973}/u, "partyhat"], [/\u{1F977}/u, "ninjamask"], [/\u{1F97D}/u, "goggles"], [/\u{1F9D0}/u, "monocle"],
   ];
-  for (const [pattern, prop] of emojiProps) if (pattern.test(raw) && !result.props.includes(prop)) result.props.push(prop);
+  emojiProps.forEach(([pattern, prop], i) => {
+    if (pattern.test(raw)) hear("prop", prop, 900001 + i);
+  });
   const emoticons = [
     [/>:\(|>:-\(/, "angry"],
     [/:-?\)|\(:|\^_?\^|=\)/, "happy"],
@@ -476,12 +551,13 @@ function nameMood(name) {
     [/^x+X|X+x+$/, "sly"],
   ];
   for (const [pattern, mood] of emoticons) if (pattern.test(raw)) hint(mood);
-  const numbers = { 666: ["sly", "horns"], "007": ["cool", null], 404: ["confused", null], 1337: ["sly", "glasses"], 9000: ["excited", null], 420: ["calm", null] };
+  //: A number a handle carries only nudges the seeded variety (it is in
+  //: the hash); the few that mean something lean the mood, and none of them
+  //: adds a thing to wear (the owner: "Sushicraft563").
+  const numbers = { 666: "sly", "007": "cool", 404: "confused", 1337: "sly", 9000: "excited", 420: "calm" };
   for (const word of words) {
-    const known = numbers[word];
-    if (!known) continue;
-    hint(known[0]);
-    if (known[1] && !result.props.includes(known[1])) result.props.push(known[1]);
+    if (!numbers[word]) continue;
+    hint(numbers[word]);
     if (word === "9000") result.intense = true;
   }
   if (/\.\.\.|…/.test(raw)) hint("sleepy");
@@ -499,7 +575,7 @@ function nameMood(name) {
   if (!result.mood && hinted) {
     result.mood = hinted;
     if (result.source === "seed") result.source = "hint";
-  } else if (result.source === "seed" && (result.props.length || result.animal || result.intense)) {
+  } else if (result.source === "seed" && (heard.length || result.intense)) {
     result.source = "hint";
   }
 
@@ -514,7 +590,7 @@ function nameMood(name) {
   //: character's code times its position, so order matters, and let that
   //: number decide the species. Here it decides how many eyes, whether they
   //: are googly or on stalks, how many spots, and whether there are fangs.
-  if (!result.mood && !result.animal && !result.props.length && letters.length >= 3) {
+  if (!result.mood && !heard.some((h) => h.kind === "animal" || h.kind === "prop") && letters.length >= 3) {
     const compact = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
     const digits = compact.replace(/[a-z]/g, "").length;
     const mash = /asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwer|wert|erty|rtyu|tyui|yuio|uiop|zxcv|xcvb|cvbn|vbnm|jkjk|fjfj/;
@@ -551,6 +627,51 @@ function nameMood(name) {
     }
   }
 
+  //: **The budget** (the owner: "refine the avatar generation as it is
+  //: still a little messy ... 'Sushicraft563', 'SushiLord'"). What the
+  //: words asked to be seen is ranked by salience (a species first, then
+  //: the things worn and held in the order the name says them, then food)
+  //: and at most two are kept, one per slot: one head item, one face
+  //: item, one held item, one body item (an outfit a word names, wings,
+  //: feet, tentacles). A second claim on a full slot is dropped, except
+  //: sushi, which goes in the hair as a clip when the hand is already
+  //: full. So "Sushicraft563" holds a pickaxe with sushi in its hair,
+  //: "SushiLord" wears a crown and holds sushi, and a handle that names
+  //: five costumes wears two of them. Wings or tentacles that the species'
+  //: own word brought ("Busy bee", "Kraken") are the species, not a cue.
+  const species = heard.find((h) => h.kind === "animal") || null;
+  const implied = (h) => species && (h.kind === "wing" || h.kind === "limbs") && h.order === species.order;
+  const ranked = heard
+    .filter((h) => !implied(h))
+    .map((h) => ({ ...h, slot: nameMarkSlot(h.kind, h.key), rank: h.kind === "animal" ? 0 : h.kind === "hand" && NAME_MARK_FOODS.includes(h.key) ? 2 : 1 }))
+    .sort((a, b) => a.rank - b.rank || a.order - b.order);
+  const taken = {};
+  const kept = [];
+  for (const cue of ranked) {
+    if (kept.length >= 2) break;
+    if (taken[cue.slot]) {
+      if (cue.key === "sushi" && !taken.head) {
+        taken.head = { ...cue, kind: "prop", key: "sushiclip", slot: "head" };
+        kept.push(taken.head);
+      }
+      continue;
+    }
+    taken[cue.slot] = cue;
+    kept.push(cue);
+  }
+  result.animal = taken.species?.key || null;
+  result.props = kept.filter((c) => c.kind === "prop").map((c) => c.key);
+  result.hand = taken.held?.key || null;
+  result.cues = kept.map((c) => c.key);
+  if (!result.mutant) {
+    const worn = (kind) => kept.find((c) => c.kind === kind)?.key || heard.find((h) => h.kind === kind && implied(h))?.key || null;
+    result.wing = worn("wing");
+    result.limbs = worn("limbs");
+    const wingLimbs = { angel: "wings-feather", bird: "wings-feather", dragon: "wings-bat", bat: "wings-bat", fairy: "wings-bug", bee: "wings-bug", butterfly: "wings-bug" };
+    if (result.wing && !result.limbs) result.limbs = wingLimbs[result.wing];
+  }
+  const wornOutfit = kept.find((c) => c.kind === "outfit")?.key || null;
+
   //: Some creatures come with a temperament when the name gives none.
   const temperament = {
     sloth: "sleepy", capybara: "calm", shark: "sly", snake: "sly", hedgehog: "nervous",
@@ -560,7 +681,11 @@ function nameMood(name) {
 
   //: Layer four: the name's own hash picks a personality. FNV-1a, the same
   //: family `nameMark` uses, seeded differently so the two draws are
-  //: independent of each other.
+  //: independent of each other. Only friendly ones (the owner, on his own
+  //: name: a plain name gets "a clean, appealing default character"): plain,
+  //: happy, calm, a little excited or cute. Never sly, sleepy, nervous,
+  //: lovestruck or in sunglasses, which read as a claim about a person that
+  //: their name never made.
   if (!result.mood) {
     let h = (2166136261 ^ 0x9e3779b9 ^ Math.imul(variant, 0x27d4eb2d)) >>> 0;
     for (const ch of raw.toLowerCase()) {
@@ -570,10 +695,7 @@ function nameMood(name) {
     h ^= h >>> 15;
     h = Math.imul(h, 2246822507) >>> 0;
     h ^= h >>> 13;
-    const pool = [
-      null, null, null, null, "happy", "happy", "calm", "sly", "surprised",
-      "sleepy", "serious", "nervous", "excited", "confused", "cool", "love",
-    ];
+    const pool = [null, null, "happy", "happy", "calm", "calm", "excited", "cute"];
     result.mood = pool[(h >>> 0) % pool.length];
   }
   //: **The face's own style**, for every name: which smile, which small
@@ -591,48 +713,50 @@ function nameMood(name) {
     sh = (sh ^ (sh >>> 16)) >>> 0;
     return sh % n;
   };
-  const smiles = ["smile", "grin", "toothy", "lopsided", "bigD", "buck", "gap", "cat3", "smile", "grin"];
+  const smiles = ["smile", "grin", "toothy", "lopsided", "bigD", "cat3", "smile", "grin"];
   result.style.smile = smiles[roll(smiles.length)];
-  for (const feature of ["freckles", "mole", "lashes", "blush"]) {
-    if (roll(4) === 0) result.style.features.push(feature);
-  }
+  //: One small feature at most: freckles, a beauty mark or a blush.
+  const feature = [null, null, "freckles", "blush", "mole", null, "freckles", "blush"][roll(8)];
+  if (feature) result.style.features.push(feature);
   result.style.nose = [null, null, "dot", "button"][roll(4)];
   result.style.eyes = ["dot", "dot", "oval", "anime", "button", "starry", "dot", "sparkle"][roll(8)];
-  //: Hair and the small things worn with it (the owner: "some feminine ones
-  //: definitely (a lot more ones), and masculine ones as well"). A look the
-  //: name states draws from its own pool; every other name draws from one
-  //: pool that leans towards the long, tied-up and decorated styles.
+  //: Hair (the owner: "some feminine ones definitely (a lot more ones), and
+  //: masculine ones as well"), always one style: a bald bean read as
+  //: unfinished. The look decides the pool, and the look is never guessed
+  //: from a first name: it is a word the name says ("Queen", "Dude"), your
+  //: own Profile look, or Settings, Appearance, Face looks. With none of
+  //: those (Mixed), the styles that read as either: short, curly, a quiff,
+  //: spikes, a bob, a ponytail.
   const feminineHair = ["long", "pigtails", "buns", "bob", "ponytail", "long", "curly", "bob"];
-  const masculineHair = ["short", "spiky", "quiff", "buzz", "short", "curly", null];
-  const anyHair = [null, null, "long", "bob", "pigtails", "buns", "ponytail", "long", "curly", "short", "spiky", "quiff", "bob", "buns"];
+  const masculineHair = ["short", "spiky", "quiff", "buzz", "short", "curly"];
+  const anyHair = ["short", "curly", "bob", "quiff", "ponytail", "spiky", "short", "curly"];
   const pool = result.look === "feminine" ? feminineHair : result.look === "masculine" ? masculineHair : anyHair;
   result.style.hair = pool[roll(pool.length)];
-  result.style.hairColour = roll(10);
-  const feminineBits = ["bow", "earrings", "lipstick", "flowerclip", "lashes"];
-  const masculineBits = ["beard", "stubble", "moustache", null];
-  if (result.look === "feminine") {
-    result.style.accessories.push(feminineBits[roll(5)]);
-    if (roll(2) === 0) result.style.accessories.push(feminineBits[roll(5)]);
-    if (!result.style.features.includes("lashes")) result.style.features.push("lashes");
-  } else if (result.look === "masculine") {
-    const bit = masculineBits[roll(4)];
-    if (bit) result.style.accessories.push(bit);
-  } else if (roll(3) === 0) {
-    result.style.accessories.push(["bow", "earrings", "flowerclip", "lipstick", "bow", "stubble", "beard"][roll(7)]);
-  }
-  result.style.accessories = [...new Set(result.style.accessories)];
+  //: Which of the colour pair's hair tones (`NM_CHAR_PAIRS`, three each).
+  result.style.hairColour = roll(3);
+  //: At most one subtle accessory, and only while the words left room
+  //: (fewer than two cues) and its slot is free: earrings, a flower clip or
+  //: a bow for a feminine look, light stubble for a masculine one, nothing
+  //: for Mixed. A beard, a moustache or lipstick is a costume, which only a
+  //: word asks for.
+  if (result.look === "feminine") result.style.features.push("lashes");
+  const bits = result.look === "feminine" ? ["earrings", "flowerclip", "bow", null] : result.look === "masculine" ? ["stubble", null, null] : [null];
+  const bit = bits[roll(bits.length)];
+  if (bit && kept.length < 2 && !taken[nameMarkSlot("accessory", bit)]) result.style.accessories.push(bit);
   //: Everyday clothes for everyone a word does not dress: a T-shirt, a
   //: hoodie, a shirt and tie, a blazer, a jumper, a scoop neck with a
   //: necklace. The pool leans the way the hair does.
-  const worded = find(table.outfits);
   const feminineWear = ["scoop", "scoop", "tee", "sweater", "blazer", "hoodie"];
   const masculineWear = ["tee", "hoodie", "collar", "blazer", "sweater", "suit"];
-  const anyWear = [null, null, "tee", "hoodie", "scoop", "collar", "sweater", "blazer", "scoop", "tee"];
+  const anyWear = ["tee", "hoodie", "scoop", "collar", "sweater", "blazer", "tee", "hoodie"];
   const wear = result.look === "feminine" ? feminineWear : result.look === "masculine" ? masculineWear : anyWear;
-  result.style.outfit = worded || wear[roll(wear.length)];
-  result.style.outfitColour = roll(10);
+  result.style.outfit = wornOutfit || wear[roll(wear.length)];
+  //: Which of the colour pair's two cloth tones.
+  result.style.outfitColour = roll(2);
   //: The person's own overrides, last, so they win over every reading.
   //: A key the drawing code does not know is ignored rather than drawn.
+  //: The budget's one-per-slot still holds: a chosen hat replaces whatever
+  //: else sat on the head, chosen eyewear whatever sat on the face.
   if (own) {
     const pick = (value, known) => (value === "none" ? "none" : known.includes(value) ? value : "");
     const mood = pick(own.mood, Object.keys(NAME_MOOD_LEXICON.moods).concat(["dizzy", "uwu", "laughing", "unimpressed"]));
@@ -641,10 +765,11 @@ function nameMood(name) {
     if (hair) result.style.hair = hair === "none" ? null : hair;
     const outfit = pick(own.outfit, ["tee", "hoodie", "scoop", "collar", "sweater", "blazer", "suit", "dress"]);
     if (outfit) result.style.outfit = outfit === "none" ? null : outfit;
-    for (const [key, kinds] of [["hat", NAME_MARK_HAT_KINDS], ["eyewear", NAME_MARK_EYEWEAR_KINDS]]) {
+    for (const [key, kinds, slot] of [["hat", NAME_MARK_HAT_KINDS, NAME_MARK_HEAD_KINDS], ["eyewear", NAME_MARK_EYEWEAR_KINDS, NAME_MARK_FACE_KINDS]]) {
       const chosen = pick(own[key], kinds);
       if (!chosen) continue;
-      result.props = result.props.filter((prop) => !kinds.includes(prop));
+      result.props = result.props.filter((prop) => !slot.includes(prop));
+      result.style.accessories = result.style.accessories.filter((one) => !slot.includes(one));
       if (chosen !== "none") result.props.push(chosen);
     }
     const hand = pick(own.hand, Object.keys(NAME_MOOD_LEXICON.hands));
@@ -765,6 +890,7 @@ const NAME_MARK_PROP_WORDS = {
   crown: "a crown", halo: "a halo", horns: "horns", antenna: "an antenna",
   moustache: "a moustache", headphones: "headphones", fangs: "fangs", rednose: "a clown nose",
   cowboy: "a cowboy hat", partyhat: "a party hat", ninjamask: "a ninja mask", helmet: "a space helmet",
+  sushiclip: "sushi in its hair", tricorn: "a pirate hat", tiara: "a tiara", monocle: "a monocle",
 };
 
 const NAME_MARK_HAND_WORDS = {
@@ -775,7 +901,7 @@ const NAME_MARK_HAND_WORDS = {
   donut: "with a donut", balloon: "with a balloon", tableflip: "flipping a table",
   controller: "with a controller", pickaxe: "with a pickaxe", axe: "with an axe", hammer: "with a hammer",
   blaster: "with a blaster", bow: "with a bow and arrow", wand: "with a wand", fishingrod: "with a fishing rod",
-  paintbrush: "with a paintbrush", spear: "with a spear", trident: "with a trident",
+  paintbrush: "with a paintbrush", spear: "with a spear", trident: "with a trident", sushi: "with sushi",
 };
 
 function nameMarkTitle(reading) {

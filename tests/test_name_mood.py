@@ -18,6 +18,7 @@ the real function under node and pin what each layer decides.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -78,7 +79,9 @@ def test_the_way_a_name_is_typed_is_read_when_the_words_say_nothing(tmp_path: Pa
     assert smile["mood"] == "happy"
     assert frown["mood"] == "sad"
     assert emoji["mood"] == "sleepy"
-    assert "horns" in beast["props"]
+    # A number leans the mood and nothing more: "numbers only nudge the
+    # seeded variety" (the owner, 2026-09-24), so 666 is sly without horns.
+    assert beast["mood"] == "sly" and not beast["props"]
 
 
 def test_short_words_match_whole_words_only(tmp_path: Path) -> None:
@@ -142,13 +145,20 @@ def test_a_real_name_is_not_mistaken_for_nonsense(tmp_path: Path) -> None:
     assert all(m["source"] == "seed" and not m["mutant"] for m in real[:4])
 
 
-def test_a_name_that_says_several_things_gets_all_of_them(tmp_path: Path) -> None:
+def test_a_name_that_says_several_things_draws_what_fits(tmp_path: Path) -> None:
     # The owner: 'what if a there was a name like "Uwu wink wink ahhhhhh ur
-    # cooked buddy"'. The first mood word sets the face; the rest stack on it
-    # as flavours rather than being thrown away.
+    # cooked buddy"', and then of what it drew: "still a little messy". The
+    # first mood word sets the face; one flavour stacks on it, the first
+    # named that does not fight it: uwu's eyes are already shut (no wink) and
+    # a word set the mood (no scream over it), so it sweats, "cooked". And
+    # "cooked" is not a cook: no chef's hat.
     (chaos,) = _moods(["Uwu wink wink ahhhhhh ur cooked buddy"], tmp_path)
     assert chaos["mood"] == "uwu"
-    assert {"wink", "scream", "doomed"} <= set(chaos["flavours"])
+    assert chaos["flavours"] == ["doomed"]
+    assert chaos["props"] == [] and chaos["cues"] == []
+    wink, scream = _moods(["Nervous wink", "ahhhh"], tmp_path)
+    assert wink["flavours"] == ["wink"]
+    assert scream["flavours"] == ["scream"]
     (plain,) = _moods(["Alice"], tmp_path)
     assert plain["flavours"] == []
 
@@ -271,7 +281,7 @@ def test_the_wider_zoo(tmp_path: Path) -> None:
 def test_eyewear_one_pair_each(tmp_path: Path) -> None:
     cases = {
         "Code nerd": "squareglasses",
-        "Lord Byron": "monocle",
+        "Posh Byron": "monocle",
         "Mad scientist": "goggles",
         "3D movie buff": "threed",
         "Rockstar": "starglasses",
@@ -302,13 +312,21 @@ def test_costumes_pirates_karate_and_friends(tmp_path: Path) -> None:
         assert prop in reading["props"], (name, reading)
 
 
-def test_hair_and_accessories_vary_and_lean_feminine(tmp_path: Path) -> None:
+def test_hair_varies_and_the_look_is_never_guessed(tmp_path: Path) -> None:
+    # The owner, 2026-09-24, on his own name drawing pigtails and lipstick: a
+    # plain name's "look (masculine/feminine) follows the Appearance 'Face
+    # looks' setting or the Profile look, never guessed from the first name".
+    # With neither (Mixed), every face has hair, from the styles that read as
+    # either, and wears nothing that says one or the other.
     got = _moods([f"Friend {i}" for i in range(60)], tmp_path)
     hair = [m["style"]["hair"] for m in got]
-    assert len(set(hair)) >= 6, set(hair)
-    feminine = sum(h in {"long", "pigtails", "buns", "bob", "ponytail"} for h in hair)
-    masculine = sum(h in {"short", "spiky", "quiff", "buzz"} for h in hair)
-    assert feminine > masculine, (feminine, masculine)
+    assert None not in hair
+    assert len(set(hair)) >= 5, set(hair)
+    assert set(hair) <= {"short", "curly", "bob", "quiff", "ponytail", "spiky"}, set(hair)
+    assert all(m["style"]["accessories"] == [] and "lashes" not in m["style"]["features"] for m in got)
+    # The long, tied-up and decorated styles are there for a feminine look.
+    feminine = _leaning("feminine", {}, [f"Friend {i}" for i in range(60)], tmp_path)
+    assert {"long", "pigtails", "buns"} <= {m["style"]["hair"] for m in feminine}
 
 
 def test_tools_and_toys(tmp_path: Path) -> None:
@@ -335,7 +353,10 @@ def test_tools_and_toys(tmp_path: Path) -> None:
         assert reading["hand"] == held, (name, reading)
     craft, lord = got[0], got[1]
     assert craft["mood"] == "hungry"
-    assert "monocle" in lord["props"] and "headphones" in lord["props"]
+    # Two cues, by salience: a lord wears a crown, and the gaming is the
+    # controller; the headphones "gaming" also asks for would be a second
+    # thing on the head, and the sushi a third cue.
+    assert lord["props"] == ["crown"] and lord["cues"] == ["crown", "controller"]
 
 
 def test_mythical_creatures(tmp_path: Path) -> None:
@@ -493,3 +514,88 @@ def test_faces_lean_to_the_chosen_look_unless_the_name_says(tmp_path: Path) -> N
     assert masculine[13]["look"] == "feminine"
     (mine,) = _leaning("masculine", {"look": "feminine"}, ["Brayden"], tmp_path)
     assert mine["look"] == "feminine"
+
+
+# --- the budget (the owner, 2026-09-24: "refine the avatar generation as it
+# is still a little messy and I'm not happy with what is generated when I put
+# in my name 'Brayden' or 'Sushicraft563, SushiLord' etc") -------------------
+
+_HEAD = {
+    "hat", "chefhat", "cowboy", "partyhat", "crown", "tiara", "tricorn", "cap", "beanie", "flowercrown",
+    "bandana", "headband", "halo", "horns", "antenna", "headphones", "helmet", "bow", "sushiclip", "flowerclip",
+}
+_FACE = {
+    "glasses", "squareglasses", "monocle", "goggles", "threed", "starglasses", "heartglasses", "visor",
+    "eyepatch", "ninjamask", "rednose", "moustache", "beard", "fangs", "stubble", "earrings", "lipstick",
+}
+_FRIENDLY = {None, "happy", "calm", "excited", "cute"}
+_PLAIN = ["Brayden", "Sarah", "Mohammed", "Li Wei", "Aroha", "Olivia", "Marcus", "Priya", "Jonah", "Elena", "a", "12345"]
+
+
+def test_a_plain_name_is_a_clean_default(tmp_path: Path) -> None:
+    # One hairstyle, one colour pair, a friendly face; no animal, no costume,
+    # nothing held, and under Mixed nothing that claims a look.
+    for reading in _moods(_PLAIN, tmp_path):
+        assert reading["animal"] is None and reading["props"] == [] and reading["hand"] is None, reading
+        assert reading["cues"] == [] and reading["mutant"] is None, reading
+        assert reading["mood"] in _FRIENDLY, reading
+        assert reading["look"] is None and reading["style"]["hair"], reading
+        assert reading["style"]["accessories"] == [], reading
+        assert len(reading["style"]["features"]) <= 1, reading
+    # The look follows Face looks, and brings at most one subtle accessory.
+    for lean in ("feminine", "masculine"):
+        for reading in _leaning(lean, {}, _PLAIN, tmp_path):
+            assert reading["look"] == lean and not reading["props"] and reading["hand"] is None
+            assert len(reading["style"]["accessories"]) <= 1
+            assert set(reading["style"]["accessories"]) <= {"earrings", "flowerclip", "bow", "stubble"}
+    # Your own Profile look wins for your own name.
+    (mine,) = _leaning("feminine", {"look": "masculine"}, ["Brayden"], tmp_path)
+    assert mine["look"] == "masculine" and mine["style"]["hair"] in {"short", "spiky", "quiff", "buzz", "curly"}
+
+
+def test_the_owners_handles_wear_two_cues(tmp_path: Path) -> None:
+    craft, lord, panda = _moods(["Sushicraft563", "SushiLord", "pandaSushi101"], tmp_path)
+    # A pickaxe for the craft, and the sushi in its hair since the hand is full.
+    assert craft["hand"] == "pickaxe" and craft["props"] == ["sushiclip"] and craft["animal"] is None
+    # A crown for the lord and sushi in the hand, and nothing else.
+    assert lord["props"] == ["crown"] and lord["hand"] == "sushi" and lord["animal"] is None
+    assert lord["cues"] == ["crown", "sushi"] and lord["style"]["accessories"] == [] and lord["wing"] is None
+    # A panda holding sushi.
+    assert panda["animal"] == "panda" and panda["hand"] == "sushi" and panda["props"] == []
+    # The digits only move the seeded variety: the same cues on another number.
+    other_craft, other_lord = _moods(["Sushicraft7", "SushiLord2024"], tmp_path)
+    assert other_craft["cues"] == craft["cues"] and other_lord["cues"] == lord["cues"]
+
+
+def test_the_budget_holds_for_every_name(tmp_path: Path) -> None:
+    # At most two cues from the words; one head item, one face item, one held
+    # item at most, counting the accessories; a name naming five costumes
+    # wears two of them.
+    lexicon = APP[APP.index("const NAME_MOOD_LEXICON") : APP.index("//: **Your own face, your way**")]
+    words = sorted(set(re.findall(r"\b([a-z]{3,})\*?(?=[ \"])", lexicon)))
+    names = [" ".join(words[i : i + 5]) for i in range(0, len(words), 5)]
+    names += ["Pirate wizard king with headphones and a sword", "Nerdy vampire clown astronaut", *_PLAIN]
+    names += ["Angel knight", "Busy bee", "Kraken", "Lumberjack", "Captain Pixel", "xX_DarkSlayer_Xx", "Coffee Queen"]
+    assert len(names) > 100
+    for lean in ("mixed", "feminine", "masculine"):
+        for reading in _leaning(lean, {}, names, tmp_path):
+            worn = reading["props"] + reading["style"]["accessories"]
+            assert len(reading["cues"]) <= 2, reading
+            assert len([p for p in worn if p in _HEAD]) <= 1, reading
+            assert len([p for p in worn if p in _FACE]) <= 1, reading
+            assert set(reading["props"]) <= _HEAD | _FACE, reading
+    (five,) = _moods(["Pirate wizard king with headphones and a sword"], tmp_path)
+    assert sorted(five["cues"]) == ["eyepatch", "tricorn"], five
+
+
+def test_a_glued_word_is_read_only_where_a_word_could_start(tmp_path: Path) -> None:
+    # "sushilord" is sushi and a lord; "cooked" is not a cook, "Janice" is
+    # not "nice", "Clover" is not in love and "Angela" is not an angel.
+    glued, cooked, janice, clover, angela = _moods(["sushilord563", "cooked", "Janice", "Clover", "Angela"], tmp_path)
+    assert glued["props"] == ["crown"] and glued["hand"] == "sushi"
+    assert "chefhat" not in cooked["props"]
+    for plain in (janice, clover, angela):
+        assert plain["source"] == "seed" and plain["cues"] == [], plain
+    # And a keyword typed as two words is still one.
+    (rage,) = _moods(["rage quit"], tmp_path)
+    assert rage["hand"] == "tableflip"

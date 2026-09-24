@@ -5078,6 +5078,30 @@ main,
   animation: none;
 }
 
+/* The prop slots (avatars.js, the character interface): drawn hidden,
+   shown by what is going on around it. */
+.nm-figure .nmp {
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+#nm-buddy.nmb-music .nmp-headphones,
+#nm-buddy.nmb-night .nmp-nightcap,
+#nm-buddy.nmb-reading .nmp-glasses,
+#nm-buddy.nmb-act-bell .nmp-bell,
+#nm-buddy.nmb-act-lantern .nmp-lantern,
+#nm-buddy.nmb-offline .nmp-cable {
+  opacity: 1;
+}
+
+/* Holding up a bell or a lantern: the right arm raised. */
+#nm-buddy:is(.nmb-act-bell, .nmb-act-lantern) .nmb-arm-r { transform: rotate(-125deg); }
+
+/* Late at night its eyes are heavier; reading, it looks down the page. */
+#nm-buddy.nmb-night .name-mark .nm-blinks { transform: scaleY(0.72); }
+#nm-buddy.nmb-reading .name-mark .nm-eyes { translate: 0 1.4px; }
+#nm-buddy .nmp-bell { transform-box: fill-box; transform-origin: 50% 0; }
+#nm-buddy.nmb-music .nm-buddy-head { transform-origin: 50% 100%; }
+
 /* Drowsy (three idle minutes): heavy eyelids. */
 #nm-buddy.nmb-drowsy .name-mark .nm-blinks { transform: scaleY(0.55); }
 
@@ -5221,17 +5245,32 @@ main,
     &.nmb-act-emerge .nm-buddy-char { animation: nmb-emerge 0.8s var(--ease-out) both; }
     &.nmb-act-wake .nm-buddy-char { animation: nmb-stretch 0.9s ease-in-out, nmb-hop 0.6s var(--ease-out) 0.8s; }
     &.nmb-watch.nmb-nod .nm-figure { animation: nmb-nod 0.45s ease-in-out infinite alternate; }
+    &.nmb-music .nm-char .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
+    &.nmb-act-bell .nmp-bell { animation: nmb-ring 0.18s ease-in-out 12 alternate; }
+    &.nmb-act-lantern .nmp-lantern-glow { animation: nmb-glow 1.2s ease-in-out infinite alternate; }
   }
 }
 
 /* The system's reduced-motion hint: no walking (avatars.js moves it at
    once), and every loop here slows right down, as the faces' do. */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy :is(.nm-buddy-char, .nm-figure, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z) {
+  #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z) {
     animation-duration: 6s;
   }
 }
 
+@keyframes nmb-groove {
+  from { rotate: -5deg; translate: 0 0; }
+  to { rotate: 5deg; translate: 0 1px; }
+}
+@keyframes nmb-ring {
+  from { rotate: -14deg; }
+  to { rotate: 14deg; }
+}
+@keyframes nmb-glow {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
 @keyframes nmb-nod {
   from { translate: 0 0; }
   to { translate: 0 1.5px; }

@@ -1047,6 +1047,16 @@ function atlasMark(size = 20, mood = atlasMoodNow) {
 //:                `nm-buddy-dragging`, `nmb-think`, `nmb-watch`,
 //:                `nmb-sleep`, `nmb-duck`, `nmb-arrive`.
 //:
+//: **Prop slots**, each a group of class `nmp nmp-<name>` the figure draws
+//: hidden (the CSS shows it while the class in brackets is on `#nm-buddy`):
+//:   head-top  `nmp-headphones` (`nmb-music`), `nmp-nightcap` (`nmb-night`)
+//:   face      `nmp-glasses` (`nmb-reading`), inside `.nm-buddy-head`
+//:   hand-r    `nmp-bell` (`nmb-act-bell`), `nmp-lantern` (`nmb-act-lantern`,
+//:             with an `nmp-lantern-glow`), inside `.nmb-arm-r`
+//:   hand-l    `nmp-cable` (`nmb-offline`), inside `.nmb-arm-l`
+//: Other states a figure can answer: `nmb-drowsy`, `nmb-nod` (with
+//: `nmb-watch`), `nmb-act-wake`.
+//:
 //: A renderer registers with `registerCharacter({ name, matches(seed),
 //: make(seed) })`; the latest registered that matches wins, and the built-in
 //: two (Atlas, then the generated faces) answer everything else.
@@ -1757,6 +1767,36 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       const arm = outlined(d, armColour, 6, body, { class: `nmb-arm nmb-arm-${side}` });
       if (claw) shape("path", { d: side === "l" ? "M7.5 67 L2 70 L6 72 L3 75 L10 72 Z" : "M56.5 67 L62 70 L58 72 L61 75 L54 72 Z", fill: nmMix(base, "#000000", 0.1) }, arm);
       if (side === "r" && reading.hand) nameCharacterHeld(reading.hand, arm, { make, shape, stroke, outlined, star, heart, base, line });
+      //: The hand slots: a bell and a lantern held up in the right hand,
+      //: the unplugged cable in the left.
+      if (side === "r") {
+        const bell = make("g", { class: "nmp nmp-bell" }, arm);
+        make("path", { d: "M51.5 73 C51.5 64 61.5 64 61.5 73 L63 75 L50 75 Z", fill: "#f5c518", stroke: "#8a6d00", "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, bell);
+        make("circle", { cx: 56.5, cy: 77, r: 1.6, fill: "#8a6d00" }, bell);
+        const lantern = make("g", { class: "nmp nmp-lantern" }, arm);
+        make("circle", { class: "nmp-lantern-glow", cx: 56.5, cy: 74, r: 9, fill: "#ffd84a", "fill-opacity": 0.35 }, lantern);
+        make("rect", { x: 52.5, y: 69, width: 8, height: 10, rx: 2, fill: "#ffe9a3", stroke: "#6b4a2f", "stroke-width": NM_CHAR_LINE }, lantern);
+        make("path", { d: "M54 69 C54 65 59 65 59 69", fill: "none", stroke: "#6b4a2f", "stroke-width": 1.2 }, lantern);
+      } else {
+        const cable = make("g", { class: "nmp nmp-cable" }, arm);
+        make("path", { d: "M7 68 C4 76 12 82 6 90", fill: "none", stroke: "#33323a", "stroke-width": 1.6, "stroke-linecap": "round" }, cable);
+        make("rect", { x: 3, y: 64, width: 8, height: 6, rx: 1.4, fill: "#6b7a8f", stroke: "#33323a", "stroke-width": 1 }, cable);
+        for (const x of [5, 9]) make("path", { d: `M${x} 64 L${x} 61`, stroke: "#9aa0a6", "stroke-width": 1.2 }, cable);
+      }
+    }
+    //: The head slots: headphones and a nightcap on top, reading glasses on
+    //: the face (in the face group, so they follow the eyes).
+    const phones = make("g", { class: "nmp nmp-headphones" }, top);
+    make("path", { d: "M7 30 C5 3 59 3 57 30", fill: "none", stroke: "#2b2a33", "stroke-width": 3.2, "stroke-linecap": "round" }, phones);
+    for (const x of [5, 59]) make("rect", { x: x - 4.5, y: 23, width: 9, height: 14, rx: 4.5, fill: "#e2574c", stroke: "#2b2a33", "stroke-width": NM_CHAR_LINE }, phones);
+    const cap = make("g", { class: "nmp nmp-nightcap" }, top);
+    make("path", { d: "M9 15 C13 1 30 -5 42 -1 C52 3 59 11 63 24 L57 22 C51 12 41 9 31 11 C23 12 16 14 9 15 Z", fill: "#4f7fd9", stroke: "#23407a", "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, cap);
+    make("path", { d: "M8 16 C18 9 46 7 58 14", fill: "none", stroke: "#f5f4ef", "stroke-width": 4, "stroke-linecap": "round" }, cap);
+    make("circle", { cx: 63, cy: 24, r: 3.4, fill: "#f5f4ef", stroke: "#9aa0a6", "stroke-width": 1 }, cap);
+    if (eyes.length === 2) {
+      const glasses = make("g", { class: "nmp nmp-glasses" }, head);
+      for (const [x, y] of eyes) make("circle", { cx: x, cy: y, r: 5.4, fill: "#ffffff", "fill-opacity": 0.18, stroke: "#6b4a2f", "stroke-width": 1.3 }, glasses);
+      stroke(`M${eyes[0][0] + 5.4} ${eyes[0][1]} Q32 ${eyes[0][1] - 2.4} ${eyes[1][0] - 5.4} ${eyes[1][1]}`, glasses, 1.2, "#6b4a2f");
     }
   }
   svg.dataset.nmChar = "1";
@@ -3085,11 +3125,9 @@ document.addEventListener("scroll", () => {
 //: audio, the system mixer and the microphone are not reachable, and no
 //: permission is asked for.
 const nmbSounds = new Set();
-//: **Switched off** until the figure draws its props (headphones, a
-//: nightcap, reading glasses, a bell, a lantern, an unplugged cable): the
-//: events below are wired, but none of them shows anything yet, so none of
-//: them changes the companion.
-const NMB_PROPS_DRAWN = false;
+//: The props these show are drawn by the figure (`drawCharacter`'s prop
+//: slots); a renderer without them simply shows nothing for them.
+const NMB_PROPS_DRAWN = true;
 function nameMarkBuddySound(source, playing) {
   if (playing) nmbSounds.add(source);
   else nmbSounds.delete(source);

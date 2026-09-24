@@ -34935,3 +34935,20 @@ with an unselected note moving 1.7 and no pins written.
     its box (`scratchpad/ui-sweeps/graphsim.js`, `graphreset.js`,
     `tests/test_graph_similarity.py`).
 
+418. **The owner, 2026-09-24, verbatim, four reports from the desktop
+    window.** "I clicked the more button on a mind map node and it appeared
+    ip the top left middle section"; "the radial buttons are still clearly
+    separate, I want them to be part of the radial, not just buttons sitting
+    ontop of it"; middle-button panning "jerks repeatedly to the left side
+    of the screen until i let go"; "I cant drag to create a custom sized
+    textbox on the whiteboard when selected on the textbox tool", "same with
+    the sticky notes". **Fixed.** The rings are pie menus (sectors clipped
+    from one ring, the topic in the hole, arrows, Enter, Escape;
+    `mapradialfit.js` 39/39 light and dark at 1440, 1184, 390); More hangs
+    from its sector and falls back to the topic's box, never the corner
+    (`mapradialmore.js`); the middle-button pan ignores the pressed wheel's
+    own wheel events (3300 to 3600px of drift over a 300px drag, now 0) and
+    item drags take the primary button only (a press on a topic panned 0px,
+    now 200 of 200; `midpanwheel.js`); the text and sticky tools draw a box
+    at the dragged size (`wbplacedrag.js` 16/16).
+

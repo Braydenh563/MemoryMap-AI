@@ -336,3 +336,19 @@ def test_tools_and_toys(tmp_path: Path) -> None:
     craft, lord = got[0], got[1]
     assert craft["mood"] == "hungry"
     assert "monocle" in lord["props"] and "headphones" in lord["props"]
+
+
+def test_mythical_creatures(tmp_path: Path) -> None:
+    names = ["Mermaid", "Elf", "Goblin", "Troll", "Gnome", "Genie", "Mummy", "Zombie", "Minotaur", "Medusa", "Cyclops", "Phoenix", "Yeti"]
+    got = _moods(names, tmp_path)
+    assert [m["animal"] for m in got] == [n.lower() for n in names]
+
+
+def test_everyday_clothes(tmp_path: Path) -> None:
+    office, street, gala = _moods(["Office Karen", "Street Steve", "Prom queen"], tmp_path)
+    assert office["style"]["outfit"] == "suit"
+    assert street["style"]["outfit"] == "hoodie"
+    assert gala["style"]["outfit"] == "dress"
+    got = _moods([f"Pal {i}" for i in range(40)], tmp_path)
+    kinds = {m["style"]["outfit"] for m in got}
+    assert {"tee", "hoodie", "scoop"} <= kinds, kinds

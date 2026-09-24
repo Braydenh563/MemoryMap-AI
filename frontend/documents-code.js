@@ -2490,8 +2490,11 @@ function docRunPanel(view) {
   frame.className = "cm-run-frame";
   frame.setAttribute("sandbox", "allow-scripts");
   frame.title = "The page this file makes";
-  frame.src = DOC_RUN_SANDBOX_URL;
-  frame.dataset.runner = DOC_RUN_SANDBOX_URL;
+  //: The runner this file needs from the start, so a first run is not a
+  //: switch (see the `ready` check in the message listener).
+  const runner = DOC_RUN_KINDS[docFileType().ext] === "py" ? DOC_RUN_SANDBOX_PY_URL : DOC_RUN_SANDBOX_URL;
+  frame.src = runner;
+  frame.dataset.runner = runner;
   const log = document.createElement("ol");
   log.className = "cm-run-log";
   log.setAttribute("role", "log");
@@ -2682,6 +2685,13 @@ window.addEventListener("message", (event) => {
   if (!docRun || event.source !== docRun.frame.contentWindow) return;
   const data = event.data && typeof event.data === "object" ? event.data : {};
   if (data.t === "ready" && data.mmRun === 0) {
+    //: Only the runner the frame is on now. Measured in Chromium: a panel
+    //: opened on a .py file loaded the JavaScript runner, switched to the
+    //: Python one, and the first runner's late `ready` released the run
+    //: into a page already on its way out; the run never started. The
+    //: Python page says which it is; the JavaScript page says nothing.
+    const wanted = docRun.frame.dataset.runner === DOC_RUN_SANDBOX_PY_URL ? "python" : undefined;
+    if (data.runner !== wanted) return;
     docRun.ready = true;
     if (docRun.pending) {
       const message = docRun.pending;

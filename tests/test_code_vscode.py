@@ -506,6 +506,9 @@ def test_python_runs_in_its_own_runner_once_the_extra_is_installed():
     listener = source[source.index('window.addEventListener("message", (event) => {\n  if (!docRun') :]
     listener = listener[: listener.index("\n});\n")]
     assert 'data.t === "started"' in listener and "docRunArmTimeout(docRun.id)" in listener
+    #: A late `ready` from the runner the frame just left releases nothing.
+    assert "if (data.runner !== wanted) return;" in listener
+    assert "frame.src = runner;" in _function("docRunPanel")
     #: The row id the button looks for is the one Settings draws.
     app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'li.id = `extra-row-${extra.id}`;' in app

@@ -2154,6 +2154,9 @@ function nameMarkBuddySeed() {
   //: rule from before Atlas had a face, and it put you in the corner when
   //: you had asked for the persona.
   if (choice === "persona") return document.getElementById("persona-select")?.value || "Atlas";
+  //: Atlas itself, whichever persona the chat is using (the owner: "I want
+  //: atlas to be a companion option regardless").
+  if (choice === "atlas") return "Atlas";
   return null;
 }
 

@@ -57,6 +57,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Chat: your messages are a quiet tinted bubble in the page's own ink, at
+  the same size as Atlas's, rather than a bright accent block with a "You"
+  header; the header says "No model connected" (and opens Settings) instead
+  of naming a model that is not running; and "Jump to latest" and the
+  back-to-top button hover to an opaque, visible state without flickering.
 - Find anything: group headings are capitalised headings with their count
   ("Notes 15"), set a step below the results line; the kind chips count
   what the search found rather than everything indexed (they said "Notes

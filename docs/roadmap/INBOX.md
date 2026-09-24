@@ -34,6 +34,25 @@ with its owner named in the entry.
 
 ## Open items
 
+405. **The owner, 2026-09-24, verbatim, with chat screenshots.** "the sub
+    headings in the find anything search are all lowercase and hard to see"
+    (fixed, 8a2b5c1 and after), "the back to top hover state is too
+    transparent, I want it to be more opaque. also when I hover over the
+    jump to latest button in the chat, it flickers for a second and doesnt
+    change.", "the user message bubbles in the chat still look too, and
+    unprofessional much compared to the assistant bubbles which are fine.
+    maybe it's the brightness of the message bubble colour?? also there was
+    a repo I got you to analyse which can generate unique avatars and I was
+    wondering if we could utilise a similar concept??", "is multilingual
+    translation and text conversion too big of an ask or thing to
+    implement?? like a translation feature??" and "if an ai model isnt
+    connected, it shouldnt show a model being used right??" Placed:
+    back-to-top, jump-to-latest (cause: the global `button:hover` brightness
+    filter, handed to the polish agent app-wide), the user bubble and the
+    model chip, orchestrator; avatars (blobatar's idea, generated here, no
+    vendoring) and translation (through the local model first, an offline
+    translation extra second), agent briefs.
+
 404. **The owner, 2026-09-23 night, verbatim.** "also does emmet workf for
     other languages like python, c#, java and more??" and "what about code
     errors, debugging console or smth?? what is the doc editor missing for

@@ -4447,3 +4447,76 @@ main,
 .finder-filters {
   mask-image: linear-gradient(to right, #000 calc(100% - var(--space-6)), transparent);
 }
+
+/* --- Chat: the user's bubble as a quiet surface, not an accent slab --- */
+/* The owner, twice: "the user message bubbles in the chat still look too,
+   and unprofessional much compared to the assistant bubbles ... maybe it's
+   the brightness of the message bubble colour??" It was the brightest
+   thing on the page: a full accent fill (#7b9cff in dark) with white text,
+   next to an assistant bubble that is a hairline and a whisper of tint.
+   Measured in the same frame, the two sat at opposite ends of the page's
+   luminance range. The way the chat apps people compare this to do it: the
+   person's own turn is a tinted surface in the page's own ink, one step
+   stronger than the assistant's ground, so it reads as "mine" by colour
+   and position without shouting. The "You" label and avatar go too: on
+   your own side of your own conversation they said nothing the alignment
+   did not (still read to a screen reader). */
+.msg.user {
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--ink);
+}
+
+.msg.user .msg-role {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.msg.user :is(.msg-attachment-image, .msg-attachment-note, .msg-attachment-doc) {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.msg.user .msg-attachment-image figcaption,
+.msg.user .msg-attachment-missing p {
+  color: var(--muted);
+}
+
+.msg.user .msg-attachment-actions button {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.msg.user .msg-attachment-actions button:is(:hover, :focus-visible) {
+  background: var(--surface-2);
+}
+
+/* --- Two floating buttons that sit over content: opaque, readable hover --- */
+/* The owner: "the back to top hover state is too transparent" and "when I
+   hover over the jump to latest button in the chat, it flickers for a
+   second and doesnt change". Back-to-top hovered to `--accent-soft`, a 10%
+   tint that let the page through; jump-to-latest took the global
+   `button:hover { filter: brightness(1.07) }`, which makes a compositing
+   layer on hover (the flash, on Windows) for a 7% change (the "doesnt
+   change"). Both hover to an opaque accent-mixed ground with an accent
+   edge and accent ink: a state you can see, over nothing that shows
+   through, with no filter. */
+.scroll-top:hover,
+.chat-jump-latest:hover {
+  filter: none;
+  background: color-mix(in srgb, var(--accent) 18%, var(--modal-bg-opaque));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Your words at the size Atlas's are: the user body was a step smaller
+   (14.7px against 16px), so the question read as a caption to its answer. */
+.msg.user .msg-body {
+  font-size: inherit;
+}

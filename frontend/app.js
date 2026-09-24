@@ -36866,6 +36866,21 @@ function renderChatActiveModelBadge() {
     || (modelStatus && (modelStatus.chat_model_effective || modelStatus.chat_model));
   const missing = !pinned && modelStatus?.chat_model_installed === false
     && name === modelStatus.chat_model;
+  //: **No model connected, no model named** (the owner: "if an ai model
+  //: isnt connected, it shouldnt show a model being used right??"). The
+  //: header named the configured model in accent, as if it were answering,
+  //: directly above the composer's own "No model is connected". Same signal
+  //: the composer and Ask use (`syncModelGatedControls`), so the three can
+  //: never disagree; pressing it goes straight to connecting one.
+  if (modelStatus && modelStatus.ollama_running === false) {
+    badge.hidden = false;
+    badge.classList.add("is-missing");
+    badge.textContent = "No model connected";
+    badge.title = "No model is connected: click to connect one in Settings, Models";
+    badge.dataset.offline = "1";
+    return;
+  }
+  delete badge.dataset.offline;
   badge.hidden = !name;
   badge.classList.toggle("is-missing", Boolean(missing));
   //: The short form in the badge, the full id in the tooltip below, the
@@ -37012,6 +37027,10 @@ async function openChatModelPanel() {
 }
 
 $("chat-active-model")?.addEventListener("click", () => {
+  if ($("chat-active-model").dataset.offline) {
+    openSettingsModal("models");
+    return;
+  }
   const panel = $("chat-model-panel");
   if (panel && !panel.classList.contains("hidden")) {
     panel.classList.add("hidden");

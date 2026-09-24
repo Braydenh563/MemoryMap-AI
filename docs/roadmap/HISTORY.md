@@ -34204,3 +34204,20 @@ Measured with `scratchpad/ui-sweeps/oi-groupdrag.js` (three of eight notes
 selected, a 134px drag on one): before, the note in hand moved 107.7 world
 units and the other two 1.2 and 1.4; after, 87.9 against 88.0 and 85.0,
 with an unselected note moving 1.7 and no pins written.
+## INBOX resolved, 2026-09-24
+
+401. **The owner, 2026-09-23 night, verbatim.** "should we vendor any of the
+    repos I have had you analyse?? or take anything from them??" Answer from
+    ANALYSIS.md ("Six repositories read", 2026-09-20; section 33 and 60 for
+    odysseus): Harper (Apache-2.0, on-device grammar and style in WASM) is
+    the one to vendor, recommended "take, after a measurement pass" and never
+    done; ship it lazy and opt-in through `core/extras.py`'s pattern if its
+    WASM moves the boot budget (H7). Emmet (MIT) comes in with the code
+    completions agent (394 c). blobatar, KnowNote and Deta Surf were ideas,
+    not code; odysseus's worthwhile parts are adopted. Placed: an agent brief
+    when a slot frees.
+    **Fixed db64249.** Harper vendored (slim, 15.9 MB) and lazy, not an
+    extra: nothing fetched at boot, 1.75 s cold, 100 to 160 ms per
+    1,400-word check in a worker, 3 ms main-thread merge; documents and note
+    boxes; `p2-harper.js` 17 of 17.
+

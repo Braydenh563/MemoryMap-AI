@@ -70,17 +70,6 @@ with its owner named in the entry.
     (widths, spacing, alignment), a sweep of every menu for width, padding
     and row alignment.
 
-401. **The owner, 2026-09-23 night, verbatim.** "should we vendor any of the
-    repos I have had you analyse?? or take anything from them??" Answer from
-    ANALYSIS.md ("Six repositories read", 2026-09-20; section 33 and 60 for
-    odysseus): Harper (Apache-2.0, on-device grammar and style in WASM) is
-    the one to vendor, recommended "take, after a measurement pass" and never
-    done; ship it lazy and opt-in through `core/extras.py`'s pattern if its
-    WASM moves the boot budget (H7). Emmet (MIT) comes in with the code
-    completions agent (394 c). blobatar, KnowNote and Deta Surf were ideas,
-    not code; odysseus's worthwhile parts are adopted. Placed: an agent brief
-    when a slot frees.
-
 400. **The owner, 2026-09-23 night, verbatim.** "I also need you to look for
     more of those issues like with what were making the whiteboard and
     mindmap pan glitchy, smth to do with inline css i think?? keep

@@ -10106,62 +10106,43 @@ input[type="file"] {
 }
 
 /* --- the node radial (MINDMAP_PLAN.md §12.1 item 3) -------------------------
-   Eight buttons in a ring around the topic they act on, which is Coggle's own
-   idiom and the point of the whole section: the controls appear on the thing
-   you picked, not only in a bar at the top.
+   The actions for a topic, in a ring around it: Coggle's idiom and the point
+   of the whole section, the controls appear on the thing you picked.
 
-   **No surface behind the ring.** A disc centred on the node covers the node
-   the ring is about; a translucent one covers it and tints it. So the ring's
-   own box is transparent and inert, and only its buttons take the pointer.
-   That also settles which button recipe applies: nothing frames these, so each
-   keeps the base tonal look (fill, hairline, lift) rather than the quieted run
-   a dock or a floating panel gets.
+   **One ring, cut into sectors: a pie menu, not buttons on a band** (the
+   owner, 2026-09-24: "the radial buttons are still clearly separate, I want
+   them to be part of the radial, not just buttons sitting ontop of it"). The
+   ring used to be a band with six tiles laid on it, and a tile on a band
+   reads as a button on a tray however well it is fitted (INBOX 410 fitted
+   them: every tile inside the band, evenly spaced, and still six things).
+   Now each action *is* a sector of the ring: a button the size of the whole
+   ring, clipped to its own wedge by a `clip-path: path()` that
+   `wbFitMapRadialBand` writes from the ring's measured inner and outer
+   radius. Clipping also clips hit-testing, so a sector takes the pointer
+   exactly where it is drawn and the hole takes none. The band under them
+   (`::before`) shows through a 1.5px gap between neighbours and a 1px rim,
+   which is what draws the hairline dividers and the edge: one surface, cut.
+
+   **The hole shows the node.** The ring is centred on the topic and
+   `wbSizeMapRadial` sets its inner radius from the topic's own box (half its
+   diagonal plus a little), so the topic is inside the hole, whole, rather
+   than under a band that covered its ends (the band's hole was 56px on a
+   200px topic).
 
    **Placed with `left`/`top`, never `translate`.** The app's press cue is
    `translate` plus `scale` (01-forms-settings.css, pinned by
-   tests/test_ui_recipes.py), and `translate` is one property holding a list:
-   a slot placed with it would be thrown back to the ring's centre on every
-   press, which is the exact bug that lint exists to stop. Half the button's
-   own width comes off each offset so the *centre* of the button lands on the
-   ring rather than its top-left corner.
-
-   **The radius is the ring's, not the slot's, because the node sets it.** A
-   ring centred on a node's centre at a fixed radius is drawn *over* the node
-   whenever the node is wider than the ring is round, which every default
-   topic is: 200 by 44 on screen against a 68px radius put the east and west
-   slots 36px inside the box, on top of the node's own text and its chevron.
-   Reported as "fix the look of the mindmap item radial". So the radius lives
-   here, on the ring, and `wbPlaceMapRadial` raises it per node to whatever
-   clears that node's measured box; the slots read it and keep their own
-   geometry off it. */
+   tests/test_ui_recipes.py). A sector is a square the size of the ring,
+   centred on it, so the cue's scale presses the sector a hair towards the
+   middle of the ring, which is the right feel for a pie; placing it with
+   `translate` would throw it back to the ring's centre on every press. */
 .wb-map-radial {
-  --wb-radial-r: 6rem;
-  /* **A slot is a tile, icon over word, and the band is cut to the tiles**
-     (INBOX 410: "is there a way to make these mind map item radial options
-     fit better in the radials??"). The slots were 7rem pills laid flat on a
-     fixed 3rem band. Flat is right at the top and bottom of a circle and
-     wrong everywhere else: at the four diagonals a pill runs *across* the
-     band rather than along it. Measured at 1440, 1184 and 390: each diagonal
-     pill hung 32px past the band's outer edge and 28px into its hole, and
-     the three-slot line ring read as one pill on top and two side by side
-     under it. A tile 4.75rem wide is close enough to square that its reach
-     across the band barely changes with the angle it sits at, and the band
-     is no longer a width guessed from one slot: `wbFitMapRadialBand`
-     measures the placed tiles and writes the inner and outer edge that just
-     hold them. The two edges below are that band for the default radius,
-     for the frame before it runs (a 76 by 44 tile at 30 degrees off the
-     horizontal reaches 52px in and 140px out at a 96px radius).
-
-     A fixed size, because the placement below is `left`/`top` from the
-     radius and half the slot's own box has to come off it: an auto width
-     would need a percentage margin, and the ring's box is zero-sized, so a
-     percentage of it is zero. Two lines of word fit in the height, which the
-     two Alt words ("Remove branch", "Remove topic") need at this width;
-     every other word is one line, centred. */
-  --wb-radial-slot-w: 4.75rem;
-  --wb-radial-slot-h: 2.75rem;
-  --wb-radial-inner: calc(var(--wb-radial-r) - 3rem);
-  --wb-radial-outer: calc(var(--wb-radial-r) + 3rem);
+  /* How thick the ring is: an icon over one line of word, with room. The two
+     edges below are the frame before `wbSizeMapRadial` writes the measured
+     ones (the link ring keeps them: it opens at the pointer, not round a
+     topic). */
+  --wb-radial-band: 4.5rem;
+  --wb-radial-inner: 2.75rem;
+  --wb-radial-outer: calc(var(--wb-radial-inner) + var(--wb-radial-band));
   position: absolute;
   z-index: 23;
   width: 0;
@@ -10169,27 +10150,12 @@ input[type="file"] {
   pointer-events: none;
 }
 
-/* **A ground under the ring** (INBOX 191: "can you put an opaque background or
-   smth behind the item radials in the mindmap?? they still feel
-   disconnected"). Eight circles floating over whatever the canvas happens to
-   hold read as eight separate things, and on a busy map the lines behind them
-   run between the slots and through the gap.
-
-   A band, not a disc. A disc would be the obvious reading of "a background
-   behind the radial" and it is the wrong one: the ring is centred on the
-   node's own centre and `wbPlaceMapRadial` raises its radius only far enough
-   to clear that node, so a filled circle of the ring's diameter covers the
-   topic the ring is acting on. A thick border with a 50% radius is an annulus
-   in one element, with the hole exactly where the node is.
-
-   Not `--card`, which is what "a disc in the card colour" would ask for and
-   what this was written as first: measured, `--card` computes to
-   `color-mix(in srgb, rgba(255, 255, 255, 0.55) 100%, transparent)`, an alpha
-   of 0.55, so a band painted in it read 254,254,255 against a canvas of
-   252,253,255, which is two levels and no ground at all. The band is the
-   opaque popover surface the slots and the caption already use, taken one
-   step towards the ink so that a slot sitting on it is still a slot on a
-   surface rather than a hairline on one flat field. */
+/* The ring's own ground, which is also the colour of every divider: an
+   annulus in one element (a thick border with a 50% radius, the hole exactly
+   where the node is), one step towards the ink from the sectors' surface so
+   the 1.5px gaps between them read as hairlines. Opaque, never `--card`
+   (measured, `--card` is 0.55 alpha: a band in it was two levels off the
+   canvas and no ground at all, INBOX 191). */
 .wb-map-radial::before {
   content: "";
   position: absolute;
@@ -10201,79 +10167,113 @@ input[type="file"] {
   margin-left: calc(var(--wb-radial-outer) * -1);
   margin-top: calc(var(--wb-radial-outer) * -1);
   border: calc(var(--wb-radial-outer) - var(--wb-radial-inner)) solid
-    color-mix(in srgb, var(--ink) 5%, var(--modal-bg-opaque));
+    color-mix(in srgb, var(--ink) 16%, var(--modal-bg-opaque));
   border-radius: 50%;
-  box-shadow: var(--shadow-md),
-    inset 0 0 0 1px color-mix(in srgb, var(--glass-border) 40%, transparent);
+  box-shadow: var(--shadow-md);
   pointer-events: none;
 }
 
-
-/* **A slot you can see** (INBOX 177, 200). An opaque ground and an edge, so
-   the ring reads as controls around the topic rather than smudges on a dark
-   board. Opaque, not blurred: a blurred surface must be on the glass-off
-   list, and the slot sits on its own opaque band anyway. Hover answers with
-   the accent ring and colour, never a transform: the slot is placed by
-   `left`/`top` and the press cue owns `translate` (DESIGN.md recipe index).
-   Written as two classes because the slot is also `.ghost.small.icon-only`,
-   whose rules come later in the cascade. */
+/* **A sector.** The whole ring's square, centred on the ring, cut to its
+   wedge by the clip path `wbFitMapRadialBand` writes. Every property a
+   button recipe would otherwise bring (the tonal fill, the hairline, the
+   radius, the small button's height and padding) is set here, because the
+   slot is also `.ghost.small` and a sector with a pill's radius or a 32px
+   min-height is a different shape from the one it is clipped to. Written as
+   two classes so it outranks `.ghost.small`. */
 .wb-map-radial .wb-map-radial-slot {
-  --wb-radial-diag: calc(var(--wb-radial-r) * 0.866);
-  --wb-radial-mid: calc(var(--wb-radial-r) * 0.5);
-  --wb-radial-halfw: calc(var(--wb-radial-slot-w) / 2);
-  --wb-radial-half: calc(var(--wb-radial-slot-h) / 2);
+  /* The face's point before the fit writes the real one: the middle. */
+  --wb-sector-x: 50%;
+  --wb-sector-y: 50%;
   position: absolute;
-  left: calc(50% + var(--wb-radial-dx) - var(--wb-radial-halfw));
-  top: calc(50% + var(--wb-radial-dy) - var(--wb-radial-half));
+  left: calc(var(--wb-radial-outer) * -1);
+  top: calc(var(--wb-radial-outer) * -1);
+  display: block;
+  width: calc(var(--wb-radial-outer) * 2);
+  height: calc(var(--wb-radial-outer) * 2);
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--modal-bg-opaque);
+  box-shadow: none;
+  color: var(--ink);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: background var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out);
+}
+
+/* The icon and the word, at the sector's middle: `--wb-sector-x` and
+   `--wb-sector-y` are that point in the sector's own square, written with
+   its clip path. A fixed box centred on it by half its own size, because the
+   point is the whole placement and a percentage of an auto box is not. */
+.wb-map-radial-face {
+  position: absolute;
+  left: calc(var(--wb-sector-x) - 2.625rem);
+  top: calc(var(--wb-sector-y) - 1.375rem);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  width: var(--wb-radial-slot-w);
-  height: var(--wb-radial-slot-h);
-  min-width: 0;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-md);
-  pointer-events: auto;
-  background: var(--modal-bg-opaque);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-sm);
-  color: var(--ink);
-  transition: box-shadow var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out);
-  cursor: pointer;
+  width: 5.25rem;
+  height: 2.75rem;
+  pointer-events: none;
 }
 
+/* The pointer's sector, and the keyboard's, filled: the one this click or
+   this Enter will run. Opaque, mixed on the surface, so the band under it
+   cannot tint it. */
 @media (hover: hover) {
   .wb-map-radial .wb-map-radial-slot:hover {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-    box-shadow: var(--shadow-md),
-      0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
-  }
-
-  .wb-map-radial .wb-map-radial-slot:hover i {
+    background: color-mix(in srgb, var(--accent) 16%, var(--modal-bg-opaque));
     color: var(--accent);
   }
 }
 
 .wb-map-radial .wb-map-radial-slot:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
+  background: color-mix(in srgb, var(--accent) 22%, var(--modal-bg-opaque));
+  color: var(--accent);
 }
 
-.wb-map-radial .wb-map-radial-slot[disabled] {
-  opacity: 0.38;
+/* The keyboard's sector also gets an edge, because an outline on a clipped
+   box is clipped away with everything else outside the wedge. The ring
+   draws it: one path, the focused sector's own shape, over the sectors
+   (`wbMarkMapRadialSector`). */
+.wb-map-radial-edge {
+  position: absolute;
+  left: calc(var(--wb-radial-outer) * -1);
+  top: calc(var(--wb-radial-outer) * -1);
+  width: calc(var(--wb-radial-outer) * 2);
+  height: calc(var(--wb-radial-outer) * 2);
+  overflow: visible;
   pointer-events: none;
 }
 
+.wb-map-radial-edge path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
 
-/* **The word, drawn, not hovered for** (MINDMAP_PLAN §12.5, INBOX 200: "how
-   the item radials are used is confusing and doesnt feel clean"). Eight
-   icon-only circles were eight guesses: the icon was the only clue at rest and
-   the tooltip arrived a second late, over the slot it described. The caption
-   under the ring still carries the long sentence and the keys; this is the
-   name, at rest, in the slot. */
+/* A sector with nothing to do (Fold on a leaf) stays where it is, so the
+   ring is the same ring on every topic, and says so by fading its face and
+   flattening its ground. */
+.wb-map-radial .wb-map-radial-slot[disabled] {
+  pointer-events: none;
+  background: color-mix(in srgb, var(--ink) 4%, var(--modal-bg-opaque));
+}
+
+.wb-map-radial-slot[disabled] .wb-map-radial-face {
+  opacity: 0.38;
+}
+
+
+/* **The word, drawn, not hovered for** (MINDMAP_PLAN §12.5, INBOX 200). The
+   caption under the ring still carries the long sentence and the keys; this
+   is the name, at rest, in the sector. */
 .wb-map-radial-name {
   max-width: 100%;
   font-size: var(--text-xs);
@@ -10284,91 +10284,27 @@ input[type="file"] {
   overflow: hidden;
 }
 
-.wb-map-radial-slot i {
-  transition: color var(--motion-base) var(--ease-out);
+.wb-map-radial-face i {
   flex-shrink: 0;
+  font-size: var(--text-h3);
 }
 
-
-/* Clockwise from the top. The order in the markup is the order in the ring,
-   so a reader of either can find the other. */
-.wb-map-radial-slot:nth-child(1) {
-  --wb-radial-dx: 0rem;
-  --wb-radial-dy: calc(var(--wb-radial-r) * -1);
-}
-
-.wb-map-radial-slot:nth-child(2) {
-  --wb-radial-dx: var(--wb-radial-diag);
-  --wb-radial-dy: calc(var(--wb-radial-mid) * -1);
-}
-
-.wb-map-radial-slot:nth-child(3) {
-  --wb-radial-dx: var(--wb-radial-diag);
-  --wb-radial-dy: var(--wb-radial-mid);
-}
-
-.wb-map-radial-slot:nth-child(4) {
-  --wb-radial-dx: 0rem;
-  --wb-radial-dy: var(--wb-radial-r);
-}
-
-.wb-map-radial-slot:nth-child(5) {
-  --wb-radial-dx: calc(var(--wb-radial-diag) * -1);
-  --wb-radial-dy: var(--wb-radial-mid);
-}
-
-.wb-map-radial-slot:nth-child(6) {
-  --wb-radial-dx: calc(var(--wb-radial-diag) * -1);
-  --wb-radial-dy: calc(var(--wb-radial-mid) * -1);
-}
-
-/* The line ring carries three (§12.5: the five that were a *look* are in the
-   topic strip now), so its three stand at 120 degrees rather than taking the
-   first three seats of a ring of six, which would leave the whole left side
-   empty. The id wins over the nth-child rules above on specificity. */
-#wb-map-link-radial .wb-map-radial-slot:nth-child(2) {
-  --wb-radial-dx: var(--wb-radial-diag);
-  --wb-radial-dy: var(--wb-radial-mid);
-}
-
-#wb-map-link-radial .wb-map-radial-slot:nth-child(3) {
-  --wb-radial-dx: calc(var(--wb-radial-diag) * -1);
-  --wb-radial-dy: var(--wb-radial-mid);
-}
-
-/* **The ring says what its slots do** (INBOX 180: "the item raials, what
-   options they are and how they work are also soooo annoying and unintuitive
-   to use"). Eight icon-only circles around a node is a ring of guesses: the
-   icons are the only clue, the tooltip arrives a second late and lands over
-   the very slot it describes, and nothing at all is said to a person moving
-   through them with a keyboard.
-
-   So the ring names the slot under the pointer or the focus, in one line
-   under the ring, where it cannot cover the node or the slots. Empty at rest
-   and `display: none` with it, which also keeps it out of the ring's measured
-   overhang until it is actually saying something. */
+/* **The ring says what its sectors do** (INBOX 180). The sector under the
+   pointer or the focus, in one line under the ring, where it cannot cover
+   the node or the ring; at rest, the keys. `display: none` while empty,
+   which also keeps it out of the ring's measured overhang. */
 .wb-map-radial-caption {
   position: absolute;
   left: 50%;
-  /* The caption's *top* edge, a gap below the band's own outer edge (INBOX
-     410: under the band, so it never sits on it), rather than its centre:
-     the caption is one line or two depending on
-     the slot, and centring it on a fixed point put its top edge over the
-     bottom slot as soon as it wrapped (measured: the copy slot's centre at
-     y 594 under a caption starting at 596). */
+  /* The caption's *top* edge, a gap below the ring's outer edge (INBOX 410),
+     rather than its centre: it is one line or two depending on the sector,
+     and centring it on a fixed point put its top edge over the ring as soon
+     as it wrapped. */
   top: calc(50% + var(--wb-radial-outer) + var(--space-2));
   transform: translateX(-50%);
-  /* Wide enough for the longest of them on one line, and wrapping rather
-     than ellipsising past it: a caption that ends in "…" is the tooltip
-     problem again, one word short of the thing it was explaining. Measured:
-     the two Alt slots read 224px, which is exactly where a 14rem cap cut
-     them. The radius is the panel's, not the pill's, because a wrapped two
-     line caption in a pill is a lozenge. */
-  /* `max-content` first, then the cap. The ring is a zero-width point (see
-     its own rule), so an absolutely positioned child shrinks to fit *that*:
-     measured, the caption came out 60px wide and 172px tall, one word per
-     line. A max-width alone cannot fix it, there is nothing to be wide
-     against; the intrinsic width has to be asked for. */
+  /* `max-content` first, then the cap. The ring is a zero-width point, so an
+     absolutely positioned child shrinks to fit *that* (measured: 60px wide,
+     one word per line); the intrinsic width has to be asked for. */
   width: max-content;
   max-width: min(20rem, 60vw);
   padding: var(--space-1) var(--space-3);
@@ -10388,27 +10324,22 @@ input[type="file"] {
   display: none;
 }
 
-/* Alt held: the two add slots are the two remove slots, so they say so. The
-   app's own danger colour, on the button rather than only in the title,
-   because a gesture that deletes a branch must not look like the one that
-   grows it. */
-.wb-map-radial-slot.wb-map-radial-danger {
+/* Alt held: the two add sectors are the two remove sectors, so they say so,
+   in the app's own danger colour on the sector itself: a gesture that
+   deletes a branch must not look like the one that grows it. */
+.wb-map-radial .wb-map-radial-slot.wb-map-radial-danger {
   color: var(--error);
-  border-color: color-mix(in srgb, var(--error) 45%, transparent);
-  background: color-mix(in srgb, var(--error) 8%, var(--modal-bg-opaque));
+  background: color-mix(in srgb, var(--error) 10%, var(--modal-bg-opaque));
 }
 
 @media (hover: hover) {
-  .wb-map-radial-slot.wb-map-radial-danger:hover {
-    background: color-mix(in srgb, var(--error) 16%, var(--modal-bg-opaque));
-    border-color: var(--error);
-    box-shadow: var(--shadow-md),
-      0 0 0 2px color-mix(in srgb, var(--error) 18%, transparent);
+  .wb-map-radial .wb-map-radial-slot.wb-map-radial-danger:hover {
+    background: color-mix(in srgb, var(--error) 20%, var(--modal-bg-opaque));
   }
+}
 
-  .wb-map-radial-slot.wb-map-radial-danger:hover i {
-    color: var(--error);
-  }
+.wb-map-radial-edge.wb-map-radial-edge-danger path {
+  stroke: var(--error);
 }
 
 

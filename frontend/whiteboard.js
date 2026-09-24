@@ -63,6 +63,9 @@
 // tool; a plain left-drag only pans when Pan is genuinely the active tool, so
 // drawing, the marquee and lasso are untouched.
 let wbSpaceHeld = false;
+//: True from a middle-button press inside the boards view to its release (or
+//: the window losing focus), set by the capture listeners in initWhiteboard.
+let wbMidPanHeld = false;
 
 function wbZoomFilter(event) {
   // Wheel: zoom only with Ctrl/⌘ held (which is also what a trackpad pinch
@@ -70,7 +73,9 @@ function wbZoomFilter(event) {
   // initWhiteboard: because that is what Miro, FigJam, Figma and draw.io
   // all do, and reported as "annoying to... pan, navigate the board": a
   // wheel that zooms leaves no fast way to move around at a fixed zoom.
-  if (event.type === "wheel") return event.ctrlKey || event.metaKey;
+  //: Never while the middle button is held: see the plain-wheel listener in
+  //: initWhiteboard, the same stray tilt with Ctrl down would zoom mid-pan.
+  if (event.type === "wheel") return (event.ctrlKey || event.metaKey) && !wbMidPanHeld && (event.buttons & 4) !== 4;
   // Middle button pans from anywhere. `buttons` rather than `button` because
   // mousemove reports the held set, and the drag half of the gesture needs to
   // pass the filter too.
@@ -4561,10 +4566,31 @@ function wbOpenMapNodeMenu(node, clientX, clientY, opener = null) {
   const size = menu.getBoundingClientRect();
   let left = clientX;
   let top = clientY;
-  const anchor = opener?.getBoundingClientRect();
+  let anchor = typeof opener?.getBoundingClientRect === "function" ? opener.getBoundingClientRect() : opener;
+  //: **Never the window's corner** (the owner, 2026-09-24: "I clicked the
+  //: more button on a mind map node and it appeared ip the top left middle
+  //: section"). Every route to the corner was one where nothing measurable
+  //: was left to hang the menu from: an opener with no box (a sector read
+  //: while its ring was hidden, or a button whose rect is the whole ring) and
+  //: a point of 0,0, which is what a click made from the keyboard carries and
+  //: what the ring's own zero-sized box gives once hidden. The clamp below
+  //: then turned 0,0 into 8,8, over the tab bar. So a missing anchor falls
+  //: back to the topic's own box, which is always on screen when its menu is
+  //: asked for, and the corner is no longer a place this menu can open.
+  if (!(anchor && anchor.width) && !(clientX > 0 || clientY > 0)) {
+    const el = document.querySelector(`.wb-object[data-id="${node.id}"]`);
+    const box = el?.getBoundingClientRect();
+    anchor = box && box.width ? box : null;
+  }
   if (anchor && anchor.width) {
+    //: The side the sector faces first (a sector on the ring's left half
+    //: opens its menu leftward, away from the ring and the topic in its
+    //: hole), then the other side, then clamped.
     const right = anchor.right + gap;
-    left = right + size.width <= window.innerWidth - margin ? right : anchor.left - gap - size.width;
+    const leftSide = anchor.left - gap - size.width;
+    const fitsRight = right + size.width <= window.innerWidth - margin;
+    const fitsLeft = leftSide >= margin;
+    left = anchor.outward === "left" ? (fitsLeft || !fitsRight ? leftSide : right) : (fitsRight || !fitsLeft ? right : leftSide);
     top = anchor.top;
   }
   left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - size.width - margin));
@@ -4647,6 +4673,25 @@ document.addEventListener("keydown", (e) => {
   // the moment it goes down. `e.altKey` rather than `e.key === "Alt"` so the
   // ring is right even when Alt arrives with another key held.
   if (wbMapRadialFor != null) wbSyncMapRadialAlt(e.altKey);
+  //: **An arrow with a ring open goes into the ring** (the pie menu): the
+  //: sector nearest that direction takes the focus, and from there the ring's
+  //: own keys walk it. Before the board's handler, which would otherwise walk
+  //: the tree and leave the ring open about a topic no longer selected. Not
+  //: while typing, and not with a modifier (Alt+arrow and friends belong to
+  //: whoever has them).
+  if (e.key.startsWith("Arrow") && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    const open = [...document.querySelectorAll(".wb-map-radial:not(.hidden)")][0];
+    const active = document.activeElement;
+    const typing = active && (active.isContentEditable || /^(input|textarea|select)$/i.test(active.tagName));
+    if (open && !typing && !open.contains(active)) {
+      const to = wbMapRadialToward(open, e.key);
+      if (to) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        to.focus();
+      }
+    }
+  }
 });
 document.addEventListener("keyup", (e) => {
   if (wbMapRadialFor != null) wbSyncMapRadialAlt(e.altKey);
@@ -5134,11 +5179,15 @@ async function wbCreateObject(kind, data, x, y, width, height) {
 //: that fits a thought rather than a paragraph. Kept as `kind: "text"` on
 //: purpose: no schema change, and every text feature (copy style, AI, undo)
 //: works on a sticky the day it exists.
-async function wbCreateSticky(x, y) {
+//: `box`, when given, is the rectangle a press-drag drew with the tool
+//: (`wbPlaceBox`): the note takes that size and corner instead of the default
+//: one centred on the click.
+async function wbCreateSticky(x, y, box = null) {
+  const at = box || { x: x - 90, y: y - 70, w: 180, h: 140 };
   const created = await wbCreateObject(
     "text",
     { content: "", bg: "#fff4a3", border_color: "#e8d56a", color: "#2a2a1f", font_size: 16 },
-    x - 90, y - 70, 180, 140
+    at.x, at.y, at.w, at.h
   );
   if (!created) return;
   wbSelectToolRef?.("select");
@@ -5148,11 +5197,12 @@ async function wbCreateSticky(x, y) {
   });
 }
 
-async function wbCreateTextBox(x, y) {
+async function wbCreateTextBox(x, y, box = null) {
+  const at = box || { x: x - 100, y: y - 40, w: 200, h: 80 };
   const created = await wbCreateObject(
     "text",
     { content: "" },
-    x - 100, y - 40, 200, 80
+    at.x, at.y, at.w, at.h
   );
   if (!created) return;
   wbSelectToolRef?.("select");
@@ -5164,6 +5214,33 @@ async function wbCreateTextBox(x, y) {
     const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
     if (el) wbBeginTextEdit(el);
   });
+}
+
+//: **The box a text or sticky drag draws** (the owner, 2026-09-24: a drag
+//: with either tool should make a box that size). From the press to the
+//: pointer, in board units, never smaller than `WB_PLACE_MIN` for its kind:
+//: a box smaller than one line of its own text is a box nobody can type into,
+//: so a short drag grows the box away from the press, in the direction the
+//: drag went, rather than refusing it.
+const WB_PLACE_MIN = { text: { w: 60, h: 32 }, sticky: { w: 80, h: 60 } };
+
+function wbPlaceBox(start, x, y) {
+  const min = WB_PLACE_MIN[start.place] || WB_PLACE_MIN.text;
+  const w = Math.max(min.w, Math.abs(x - start.x));
+  const h = Math.max(min.h, Math.abs(y - start.y));
+  return {
+    x: Math.round(x < start.x ? start.x - w : start.x),
+    y: Math.round(y < start.y ? start.y - h : start.y),
+    w: Math.round(w),
+    h: Math.round(h),
+  };
+}
+
+//: The corner that makes the box square, on the side the pointer is on: the
+//: longer of the two travels, in both directions.
+function wbSquareCorner(start, x, y) {
+  const side = Math.max(Math.abs(x - start.x), Math.abs(y - start.y));
+  return [start.x + Math.sign(x - start.x || 1) * side, start.y + Math.sign(y - start.y || 1) * side];
 }
 
 // Asked for directly. Deletes every card and sketch on the *current* board
@@ -6403,7 +6480,10 @@ async function initWhiteboard() {
   //: paste. A hand tool drag says "grabbing" the whole time; this now says the
   //: same thing through the same class the held-space pan uses, so the three
   //: ways to pan look identical while they run.
-  const midPanClass = (on) => document.getElementById("whiteboard-container")?.classList.toggle("wb-mid-pan", on);
+  const midPanClass = (on) => {
+    wbMidPanHeld = on;
+    document.getElementById("whiteboard-container")?.classList.toggle("wb-mid-pan", on);
+  };
   window.addEventListener("mousedown", (event) => {
     if (event.button === 1 && event.target?.closest?.("#library-view-whiteboard")) {
       event.preventDefault();
@@ -6431,6 +6511,24 @@ async function initWhiteboard() {
   if (!container.node().dataset.wbWheelPan) {
     container.node().dataset.wbWheelPan = "1";
     container.node().addEventListener("wheel", (e) => {
+      //: **A wheel held down is a pan, not a scroll** (the owner, 2026-09-24,
+      //: from the desktop window: the middle-button pan "jerks repeatedly to
+      //: the left side of the screen until i let go"). Pressing a wheel hard
+      //: enough to click it rocks it on most Windows mice, and a rocked wheel
+      //: is a horizontal wheel event, repeated for as long as it is held.
+      //: Each one panned the board sideways on top of d3-zoom's own drag,
+      //: which keeps the pressed point under the pointer from wherever the
+      //: board then is: measured with a tilt between every move of a 300px
+      //: drag, the board ran 3300 to 3600px sideways whichever way the hand
+      //: went (`midpanwheel.js`). While the middle button is down the drag
+      //: is the only thing that moves the board; the event is still
+      //: prevented so the page behind cannot scroll either. `buttons` for
+      //: the press the event itself reports, the flag for a driver whose
+      //: synthetic wheel events carry no buttons at all.
+      if ((e.buttons & 4) === 4 || wbMidPanHeld) {
+        e.preventDefault();
+        return;
+      }
       if (e.ctrlKey || e.metaKey) return;
       e.preventDefault();
       const k = d3.zoomTransform(container.node()).k || 1;
@@ -6618,8 +6716,55 @@ async function initWhiteboard() {
     caption.textContent = caption.dataset.rest || "";
     ring.addEventListener("pointerover", (event) => say(event.target));
     ring.addEventListener("pointerout", clear);
-    ring.addEventListener("focusin", (event) => say(event.target));
-    ring.addEventListener("focusout", clear);
+    ring.addEventListener("focusin", (event) => {
+      say(event.target);
+      const slot = event.target?.closest?.(".wb-map-radial-slot");
+      if (slot?.matches(":focus-visible")) wbMarkMapRadialSector(ring, slot);
+    });
+    ring.addEventListener("focusout", () => {
+      clear();
+      wbMarkMapRadialSector(ring, null);
+    });
+    //: **The ring's own keys** (the pie menu, 2026-09-24): the arrows walk
+    //: the sectors, Enter or Space runs the one in hand, Escape closes the
+    //: ring and puts the focus back on the board. Handled here and stopped
+    //: here, because every one of these keys means something else to the
+    //: board's own handler on the document: Enter adds a topic beside,
+    //: Escape drops the selection, the arrows walk the tree, and Tab adds a
+    //: child, so Tab is only stopped (the browser still moves the focus on,
+    //: out of the toolbar, which is what Tab does in one).
+    ring.addEventListener("keydown", (event) => {
+      const slot = event.target?.closest?.(".wb-map-radial-slot");
+      if (!slot) return;
+      const to = {
+        ArrowRight: () => wbMapRadialStep(ring, slot, 1),
+        ArrowDown: () => wbMapRadialStep(ring, slot, 1),
+        ArrowLeft: () => wbMapRadialStep(ring, slot, -1),
+        ArrowUp: () => wbMapRadialStep(ring, slot, -1),
+        Home: () => wbMapRadialStep(ring, slot, "first"),
+        End: () => wbMapRadialStep(ring, slot, "last"),
+      }[event.key];
+      if (event.key === "Tab") {
+        event.stopPropagation();
+        return;
+      }
+      if (to) {
+        to()?.focus();
+      } else if (event.key === "Enter" || event.key === " ") {
+        //: A click the slot's own handler reads exactly as a pointer's,
+        //: Alt included: Alt+Enter on Add child removes the branch, as
+        //: Alt+click does.
+        slot.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, altKey: event.altKey }));
+      } else if (event.key === "Escape") {
+        if (ring.id === "wb-map-radial") wbCloseMapRadial();
+        else wbCloseMapLinkRadial();
+        document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+      } else {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    });
   }
   //: The node radial (§12.1 item 3). Each slot reads the node the ring was
   //: opened for, acts, and closes: a ring that stayed open over a map that has
@@ -6671,9 +6816,16 @@ async function initWhiteboard() {
     //: menu opens beside its More button rather than over the ring (see
     //: `wbOpenMapNodeMenu`); picking anything, or Escape, or a click
     //: elsewhere, closes both.
-    const x = box ? box.right + 8 : event.clientX || 0;
-    const y = box ? box.top : event.clientY || 0;
-    wbOpenMapNodeMenu(node, x, y, event.currentTarget);
+    //: The ring's own box is a zero-sized point at its centre, so "laid out"
+    //: is a position, not a size; a hidden ring reads 0,0, which is no point
+    //: at all (see `wbOpenMapNodeMenu`'s fallback).
+    const laid = box && (box.left || box.top);
+    const x = laid ? box.right + 8 : event.clientX || 0;
+    const y = laid ? box.top : event.clientY || 0;
+    //: The More *sector's* box, not the button's: every sector is a button
+    //: the size of the whole ring, clipped to its wedge, so the button's own
+    //: rect is the ring's square and a menu hung from it hung from the ring.
+    wbOpenMapNodeMenu(node, x, y, wbMapRadialSectorRect(event.currentTarget) || event.currentTarget);
   });
 
   //: The link ring (§12.1 item 4). Same shape as the node ring's slots, one
@@ -8666,6 +8818,10 @@ async function initWhiteboard() {
     // on an item's own click handler having already called stopPropagation()
     // if the click actually landed on a card/sketch/object, a click that
     // reaches here bubbled up from truly empty canvas either way.
+    if (wbPlaceJustDrawn) {
+      wbPlaceJustDrawn = false;
+      return;
+    }
     if (window.currentTool === "text") {
       const [x, y] = getLogicalMouse(e);
       wbCreateTextBox(x, y);
@@ -8713,6 +8869,9 @@ async function initWhiteboard() {
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
   }
   let wbMarqueeStart = null;
+  //: One-shot, the placing twin of `wbMarqueeJustSelected`: a drawn text box
+  //: or sticky spends the canvas click its own release makes.
+  let wbPlaceJustDrawn = false;
   let wbMarqueeEl = null;
   let wbMarqueeJustSelected = false;
   //: The latest pointer position (board units) and the frame that will draw
@@ -8737,7 +8896,17 @@ async function initWhiteboard() {
     //: the board (no click ever reached the canvas to spend it) must not
     //: swallow this press's click.
     wbMarqueeJustSelected = false;
-    if (window.currentTool !== "select" || !wbIsEmptyCanvasTarget(e.target)) return;
+    wbPlaceJustDrawn = false;
+    //: **The text and sticky tools draw their box too** (the owner,
+    //: 2026-09-24: "I cant drag to create a custom sized textbox on the
+    //: whiteboard when selected on the textbox tool", "same with the sticky
+    //: notes"). A click still drops the default size (the canvas `click`
+    //: below); a press that travels draws the box it will make, with the
+    //: marquee's own dashed rectangle and the same 4-unit threshold, so the
+    //: two gestures cannot disagree about where a click ends and a drag
+    //: begins.
+    const place = window.currentTool === "text" || window.currentTool === "sticky" ? window.currentTool : null;
+    if ((window.currentTool !== "select" && !place) || !wbIsEmptyCanvasTarget(e.target)) return;
     // Primary button only. A right-click opens the context menu and a middle
     // click pans; neither ends with the pointerup this drag is waiting for,
     // so both used to start a rectangle that nothing would ever remove.
@@ -8757,7 +8926,7 @@ async function initWhiteboard() {
     //: Deferring both to the first real movement keeps the press a press: a
     //: click reaches whatever was under it, and a drag is still a drag from
     //: the point it started at.
-    wbMarqueeStart = { x, y, shiftKey: e.shiftKey, pointerId: e.pointerId, pending: true };
+    wbMarqueeStart = { x, y, shiftKey: e.shiftKey, pointerId: e.pointerId, pending: true, place };
     //: **The overlay layer, above the cards.** INBOX 84: "whiteboard
     //: rectangle selection draws behind objects." `#wb-zoom-group` lives in
     //: `#wb-svg-layer`, which is *under* `#wb-html-layer` by DOM order, on
@@ -8818,7 +8987,10 @@ async function initWhiteboard() {
   }
   window.addEventListener("pointermove", (e) => {
     if (!wbMarqueeStart) return;
-    const [x, y] = getLogicalMouse(e);
+    let [x, y] = getLogicalMouse(e);
+    //: Shift makes a drawn box square, read live rather than from the press
+    //: (on the marquee the press's Shift means "add to the selection").
+    if (wbMarqueeStart.place && e.shiftKey) [x, y] = wbSquareCorner(wbMarqueeStart, x, y);
     if (wbMarqueeStart.pending) {
       // The same 4 units the completed gesture is measured against below, so
       // a press that never becomes a drag draws nothing and claims nothing.
@@ -8840,8 +9012,11 @@ async function initWhiteboard() {
     wbMarqueeFrame = 0;
     if (!wbMarqueeEl || !wbMarqueeStart || !wbMarqueeAt) return;
     const t = d3.zoomTransform(containerEl);
-    const x0 = t.applyX(wbMarqueeStart.x), y0 = t.applyY(wbMarqueeStart.y);
-    const x1 = t.applyX(wbMarqueeAt[0]), y1 = t.applyY(wbMarqueeAt[1]);
+    //: A box being placed is drawn at the size it will be made, minimum and
+    //: all, so what the dashed edge shows is what the release creates.
+    const box = wbMarqueeStart.place ? wbPlaceBox(wbMarqueeStart, wbMarqueeAt[0], wbMarqueeAt[1]) : null;
+    const x0 = t.applyX(box ? box.x : wbMarqueeStart.x), y0 = t.applyY(box ? box.y : wbMarqueeStart.y);
+    const x1 = t.applyX(box ? box.x + box.w : wbMarqueeAt[0]), y1 = t.applyY(box ? box.y + box.h : wbMarqueeAt[1]);
     const l = Math.round(Math.min(x0, x1)), top = Math.round(Math.min(y0, y1));
     const w = Math.round(Math.abs(x1 - x0)), h = Math.round(Math.abs(y1 - y0));
     const ratio = window.devicePixelRatio || 1;
@@ -9011,14 +9186,26 @@ async function initWhiteboard() {
   window.addEventListener("lostpointercapture", () => wbEndMarqueeDrag());
   window.addEventListener("pointerup", (e) => {
     if (!wbMarqueeStart) return;
-    const [x, y] = getLogicalMouse(e);
-    const mx = Math.min(wbMarqueeStart.x, x), my = Math.min(wbMarqueeStart.y, y);
-    const mw = Math.abs(x - wbMarqueeStart.x), mh = Math.abs(y - wbMarqueeStart.y);
-    const shiftKey = wbMarqueeStart.shiftKey;
+    let [x, y] = getLogicalMouse(e);
+    const start = wbMarqueeStart;
+    if (start.place && e.shiftKey) [x, y] = wbSquareCorner(start, x, y);
+    const mx = Math.min(start.x, x), my = Math.min(start.y, y);
+    const mw = Math.abs(x - start.x), mh = Math.abs(y - start.y);
+    const shiftKey = start.shiftKey;
     wbEndMarqueeDrag();
     // Too small to be a deliberate drag, the plain "click" listener above
-    // already handles this as a click-to-clear-selection instead.
+    // already handles this as a click-to-clear-selection instead (or, with
+    // the text and sticky tools, as a click that drops the default size).
     if (mw < 4 && mh < 4) return;
+    if (start.place) {
+      //: The release makes a `click` on the canvas as well, which would drop
+      //: a second, default-sized box where the drag ended.
+      wbPlaceJustDrawn = true;
+      const box = wbPlaceBox(start, x, y);
+      if (start.place === "sticky") wbCreateSticky(x, y, box);
+      else wbCreateTextBox(x, y, box);
+      return;
+    }
     if (!shiftKey) wbMultiSelection.clear();
     for (const node of wbState.nodes) {
       const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));
@@ -9104,7 +9291,12 @@ async function initWhiteboard() {
     //: The release that ends a taken-back drag still makes a `click` on the
     //: canvas, and a canvas click clears the selection: the same one-shot a
     //: finished marquee uses keeps what Escape kept.
-    if (inFlight) wbMarqueeJustSelected = true;
+    if (inFlight) {
+      wbMarqueeJustSelected = true;
+      //: And a text or sticky box taken back is not then dropped at its
+      //: default size by the same release.
+      wbPlaceJustDrawn = true;
+    }
     return inFlight;
   };
   containerEl.addEventListener("pointerdown", (e) => {
@@ -11186,7 +11378,7 @@ function renderWhiteboard() {
   // pan in particular, since the canvas's own zoom/pan drag needs an
   // unclaimed pointerdown to reach it.
   const sketchDrag = d3.drag()
-    .filter(() => window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-")))
+    .filter((event) => !event.button && (window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-"))))
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       // A link tool drags a *link* out of the shape, not the shape, the same
@@ -12394,6 +12586,15 @@ function renderWbObjects(canvas) {
     // below exists precisely because that distinction needs two behaviour
     // objects, not one filter.
     .filter((event) => {
+      //: **The primary button only** (the owner, 2026-09-24: the middle-button
+      //: pan "jerks"). d3-drag's own default filter is `!event.button`, and
+      //: writing a filter replaces it rather than adding to it, so this one
+      //: took every button: a middle press on a topic or a card started a
+      //: drag of that item and stopped the event before the board's pan ever
+      //: saw it (measured, `midpanwheel.js`: a 200px middle drag started on
+      //: the root moved the board 0px). The middle button is the pan from
+      //: anywhere, which is what `wbZoomFilter` promises.
+      if (event.button) return false;
       if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
       if (event.target.closest(
         ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip, .wb-map-size-grip"
@@ -12431,7 +12632,7 @@ function renderWbObjects(canvas) {
   const gripDrag = d3.drag()
     // The grip sits inside the box it moves, see `wbStableDragContainer`.
     .container(wbStableDragContainer(".wb-object"))
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
+    .filter((event) => !event.button && !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       objDragStart.call(this, event, d);

@@ -758,18 +758,6 @@
   font-size: 0.8rem;
 }
 
-/* Which upstream engine found a result. Quiet by design: it is provenance,
-   not part of the result, and should be readable without competing with the
-   title or the domain beside it. */
-.web-result-via {
-  font-size: 0.75rem;
-  opacity: 0.75;
-}
-
-.web-answered-detail {
-  font-size: 0.8rem;
-}
-
 /* Gravity/Spread under a tree layout, where they have nothing to act on.
    Dimmed rather than hidden: a control that vanishes reads as a bug, while
    one that is visibly unavailable teaches what it belongs to. The labels are

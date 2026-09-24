@@ -137,6 +137,9 @@ function syncDocFileType() {
   //: to prose, plain text or a CSV. The pair swap in one place, so a
   //: document never shows both or neither.
   $("doc-code-format")?.classList.toggle("hidden", type.previewable || ["txt", "csv"].includes(type.ext));
+  //: Wrapping and whitespace are about a file that does not wrap by itself:
+  //: every type but prose, plain text and CSV included (INBOX 402).
+  for (const id of ["doc-code-wrap-row", "doc-whitespace-row"]) $(id)?.classList.toggle("hidden", type.previewable);
 
   // Line numbers, and the monospace/tab behaviour that goes with them.
   const code = !type.previewable;
@@ -270,7 +273,7 @@ foldDocMenuGroup("ph:download-simple Download or print", [
   "doc-export-md", "doc-export-html", "doc-export-zip", "doc-export-docx", "doc-export-pdf",
 ]);
 foldDocMenuGroup("ph:layout Editor and layout", [
-  "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode",
+  "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode", "doc-code-wrap-row", "doc-whitespace-row",
 ]);
 foldDocMenuGroup("ph:pencil-simple While you write", [
   "doc-dim-others", "doc-typewriter", "doc-serif", "doc-autocorrect-row", "doc-complete-row",
@@ -2182,6 +2185,10 @@ const DOC_COMMANDS = [
   //: new chat. The outline panel lists the same symbols.
   { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "",
     code: true, run: () => docOpenSymbols() },
+  { id: "code-wrap", icon: "ph:text-align-left", label: "Wrap long lines in a code file", keys: "Alt+Z",
+    code: true, run: () => docToggleCodeDraw("codeWrap") },
+  { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "",
+    code: true, run: () => docToggleCodeDraw("whitespace") },
 ];
 
 // DOC-COMMANDS-END
@@ -13091,7 +13098,13 @@ function docAutocorrectAt(box) {
 // shape that silently accumulates duplicates (tests/test_frontend_handlers.py
 // exists because of exactly that).
 
-const DOC_TOOL_KEYS = { autocorrect: "doc-autocorrect", complete: "doc-complete" };
+const DOC_TOOL_KEYS = {
+  autocorrect: "doc-autocorrect",
+  complete: "doc-complete",
+  //: INBOX 402: VS Code's Alt+Z and "render whitespace", for a code file.
+  codeWrap: "doc-code-wrap",
+  whitespace: "doc-whitespace",
+};
 
 function docToolPref(name, fallback) {
   try {
@@ -15061,6 +15074,17 @@ function docCmTheme(CM) {
       //: The ghost text: the rest of the chosen row after the caret, in the
       //: muted ink the placeholder uses, so it reads as offered, not typed.
       ".cm-ghostText": { color: "var(--muted)", opacity: "0.85", pointerEvents: "none" },
+      //: Shown whitespace (Alt+Z's neighbour in the menu): a dot per space and
+      //: a line through a tab, in muted ink rather than the library's grey.
+      ".cm-highlightSpace": {
+        backgroundImage: "radial-gradient(circle at 50% 55%, var(--muted) 14%, transparent 16%)",
+      },
+      ".cm-highlightTab": {
+        backgroundImage: "linear-gradient(var(--muted), var(--muted))",
+        backgroundSize: "70% 1px",
+        backgroundPosition: "50% 55%",
+        backgroundRepeat: "no-repeat",
+      },
       //: Indentation guides: a hairline in `--border` at the left edge of
       //: each step of the whitespace, so it stops where the code starts.
       ".cm-indent-guide": {
@@ -18924,6 +18948,8 @@ function docCodeEditing(CM, type) {
       //: VS Code's chord for Format Document, which formats the selection
       //: when there is one, as the dock's button does.
       { key: "Shift-Alt-f", run: () => { docFormatCode("auto"); return true; } },
+      //: VS Code's word-wrap toggle (INBOX 402); free in the registry.
+      { key: "Alt-z", run: () => { docToggleCodeDraw("codeWrap"); return true; } },
       //: The quick fixes at the caret, on the prose menu's own chord, and the
       //: problems one at a time on the prose findings' own keys.
       { key: "Alt-Enter", run: () => docOpenCodeFixes() },
@@ -19288,7 +19314,7 @@ function docCmExtensions(CM) {
     CM.search.search({ top: true }),
     CM.view.rectangularSelection(),
     CM.view.crosshairCursor(),
-    docCmParts.wrap.of(type.previewable ? CM.view.EditorView.lineWrapping : []),
+    docCmParts.wrap.of(docCmDrawFor(CM, type)),
     docCmParts.language.of(docCmViewLanguage(CM)),
     docCmParts.theme.of(docCmTheme(CM)),
     docCmHighlight(CM),
@@ -19582,6 +19608,38 @@ function docWatchAppearance() {
   });
 }
 
+//: **How a file's text is drawn, in the wrap compartment** (INBOX 402):
+//: prose wraps always; any other type wraps when Alt+Z (or the menu's row)
+//: says so, and shows its spaces and tabs when "Show whitespace" does. Both
+//: are per-viewer preferences, remembered like the other writing switches.
+function docCmDrawFor(CM, type) {
+  const parts = [];
+  if (type.previewable || docToolPref("codeWrap", false)) parts.push(CM.view.EditorView.lineWrapping);
+  if (!type.previewable && docToolPref("whitespace", false)) parts.push(CM.view.highlightWhitespace());
+  return parts;
+}
+
+//: Flip one of the two, or set it: the preference, the view, the menu's
+//: checkbox, in that order. Refused for prose, which has no such switch.
+function docToggleCodeDraw(name, on) {
+  const type = docFileType();
+  if (type.previewable) return false;
+  const next = on === undefined ? !docToolPref(name, false) : Boolean(on);
+  docSaveToolPref(name, next);
+  const CM = window.CM6;
+  if (docCmView && CM && docCmParts.wrap) {
+    docCmView.dispatch({ effects: docCmParts.wrap.reconfigure(docCmDrawFor(CM, type)) });
+  }
+  const box = $(name === "codeWrap" ? "doc-code-wrap" : "doc-whitespace");
+  if (box) box.checked = next;
+  return true;
+}
+
+$("doc-code-wrap")?.addEventListener("change", (event) => docToggleCodeDraw("codeWrap", event.target.checked));
+$("doc-whitespace")?.addEventListener("change", (event) => docToggleCodeDraw("whitespace", event.target.checked));
+if ($("doc-code-wrap")) $("doc-code-wrap").checked = docToolPref("codeWrap", false);
+if ($("doc-whitespace")) $("doc-whitespace").checked = docToolPref("whitespace", false);
+
 //: The file type changed while the document was open: the language and the
 //: wrapping follow it. Reconfigured rather than rebuilt, so the caret, the
 //: scroll position and the undo history survive.
@@ -19596,7 +19654,7 @@ function docCmSyncFileType() {
   docCmView.dispatch({
     effects: [
       docCmParts.language.reconfigure(docCmViewLanguage(CM)),
-      docCmParts.wrap.reconfigure(type.previewable ? CM.view.EditorView.lineWrapping : []),
+      docCmParts.wrap.reconfigure(docCmDrawFor(CM, type)),
       ...(docCmParts.code ? [docCmParts.code.reconfigure(docCodeTools(CM))] : []),
     ],
   });

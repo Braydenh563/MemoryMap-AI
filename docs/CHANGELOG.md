@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: Alt+Z wraps a code file's long lines (and unwraps them), and the document menu's Editor and layout group has Wrap long lines and Show whitespace for any file that is not prose; both are remembered.
 - Documents: a code file's outline and breadcrumb list its functions, classes and methods (a CSS file's rules), and the palette's Go to a symbol lists them at the caret. Fixed: a Python or shell file's outline showed every `#` comment as a heading.
 - Documents: code files draw quiet indentation guides at each indent step and colour bracket pairs by depth, as VS Code does; brackets inside strings and comments are left alone.
 - Documents: hovering a CSS property, an HTML element or an HTML attribute in a code file shows one line on what it is for, and a property's values.

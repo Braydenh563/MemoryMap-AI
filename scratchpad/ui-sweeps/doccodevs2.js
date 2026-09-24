@@ -182,6 +182,56 @@ const ok = (n, c, d) => {
   const line = await page.evaluate(() => docCmView.state.doc.lineAt(docCmView.state.selection.main.head).number);
   ok("and choosing one goes to its line", line === 2, `line ${line}`);
 
+  // --- 8. Alt+Z and shown whitespace -------------------------------------------------
+  await page.evaluate(() => {
+    try { localStorage.removeItem("doc-code-wrap"); localStorage.removeItem("doc-whitespace"); } catch {}
+  });
+  await open("long.js", "js", `const s = "${"word ".repeat(80)}";\n\tlet t = 1;|`);
+  const lines = () => page.evaluate(() => {
+    const first = docCmView.contentDOM.querySelector(".cm-line");
+    const h = first.getBoundingClientRect().height;
+    const lh = parseFloat(getComputedStyle(first).lineHeight) || 20;
+    return Math.round(h / lh);
+  });
+  const before = await lines();
+  await page.keyboard.press("Alt+z");
+  await page.waitForTimeout(250);
+  const wrapped = await lines();
+  ok("Alt+Z wraps a long line of code", before === 1 && wrapped > 1, J({ before, wrapped }));
+  const rows = await page.evaluate(() => ({
+    wrapBox: document.getElementById("doc-code-wrap").checked,
+    wrapRowHidden: document.getElementById("doc-code-wrap-row").classList.contains("hidden"),
+    stored: localStorage.getItem("doc-code-wrap"),
+  }));
+  ok("the menu's row agrees and it is remembered", rows.wrapBox === true && rows.wrapRowHidden === false && rows.stored === "1", J(rows));
+  await page.keyboard.press("Alt+z");
+  await page.waitForTimeout(250);
+  ok("and Alt+Z again unwraps it", (await lines()) === 1);
+  await page.evaluate(() => {
+    const box = document.getElementById("doc-whitespace");
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForTimeout(250);
+  const ws = await page.evaluate(() => ({
+    spaces: document.querySelectorAll(".cm-highlightSpace").length,
+    tabs: document.querySelectorAll(".cm-highlightTab").length,
+    image: document.querySelector(".cm-highlightSpace") && getComputedStyle(document.querySelector(".cm-highlightSpace")).backgroundImage,
+  }));
+  ok("Show whitespace marks spaces and the tab", ws.spaces > 0 && ws.tabs === 1, J(ws));
+  ok("in muted ink, not the library's grey", !!ws.image && !ws.image.includes("170, 170, 170"), J(ws.image));
+  await page.evaluate(() => {
+    const box = document.getElementById("doc-whitespace");
+    box.checked = false;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await open("prose2.md", "md", "Words");
+  const prose = await page.evaluate(() => ({
+    wrapHidden: document.getElementById("doc-code-wrap-row").classList.contains("hidden"),
+    wsHidden: document.getElementById("doc-whitespace-row").classList.contains("hidden"),
+  }));
+  ok("prose hides both rows", prose.wrapHidden && prose.wsHidden, J(prose));
+
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`\n${good} passed, ${bad} failed`);
   await browser.close();

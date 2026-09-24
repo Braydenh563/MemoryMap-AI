@@ -318,3 +318,25 @@ def test_the_outline_reads_symbols_for_code_and_never_moves_them():
     assert 'label: "Go to a symbol in this file", keys: "",\n    code: true, run: () => docOpenSymbols() }' in table
     app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'newChat: { keys: "Ctrl+Shift+O"' in app, "if the chord is free again, give it to the symbols"
+
+
+# --- 8. Alt+Z and shown whitespace ---------------------------------------------------
+
+
+def test_wrap_and_whitespace_are_code_preferences_in_the_wrap_compartment():
+    draw = _function("docCmDrawFor")
+    assert 'type.previewable || docToolPref("codeWrap", false)' in draw
+    assert '!type.previewable && docToolPref("whitespace", false)' in draw
+    assert "CM.view.highlightWhitespace()" in draw
+    source = _source()
+    assert "docCmParts.wrap.of(docCmDrawFor(CM, type))" in source
+    assert "docCmParts.wrap.reconfigure(docCmDrawFor(CM, type))" in source
+    assert '{ key: "Alt-z", run: () => { docToggleCodeDraw("codeWrap"); return true; } }' in _function("docCodeEditing")
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert '"Alt+Z"' not in app, "Alt+Z is taken in the registry"
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for row in ("doc-code-wrap-row", "doc-whitespace-row"):
+        assert f'<label id="{row}" class="menu-item doc-dock-menu-item doc-dock-menu-check checkbox-label hidden"' in html
+    assert 'for (const id of ["doc-code-wrap-row", "doc-whitespace-row"]) $(id)?.classList.toggle("hidden", type.previewable);' in _function("syncDocFileType")
+    theme = source.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
+    assert "var(--muted)" in theme.split('".cm-highlightSpace"', 1)[1].split("}", 1)[0]

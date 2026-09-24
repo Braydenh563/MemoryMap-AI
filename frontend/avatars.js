@@ -3078,10 +3078,16 @@ function nameMarkBuddyDrop(x, y) {
     for (const stance of nameMarkBuddyStances(edge, sx)) {
       if (stance.y < y) continue;
       const d = stance.y - y + (stance.alt || 0) * 10;
-      if ((!fall || d < fall.d) && fits(stance)) fall = { kind: "yours", ...stance, edge, d, falls: true };
+      //: A little along the edge is still "below": the nearest free place
+      //: within 96px of where it was let go.
+      const spot = fits(stance) ? stance : nameMarkBuddyStepAside({ ...stance }, obstacles);
+      if (Math.abs(spot.x - sx) > 96 || !fits(spot)) continue;
+      if (!fall || d < fall.d) fall = { kind: "yours", ...spot, edge, d, falls: true };
     }
   }
-  return fall || { kind: "yours", pose: "float", legs: "", x, y };
+  //: Nothing under it to stand on: it floats where it was let go, stepped
+  //: aside if that is over a control.
+  return fall || nameMarkBuddyStepAside({ kind: "yours", pose: "float", legs: "", x, y }, obstacles);
 }
 
 //: Moves it, walking when it has somewhere to go: the move is a
@@ -3170,7 +3176,12 @@ function nameMarkBuddyCheck() {
   if (!buddy || buddy.classList.contains("nm-buddy-dragging") || buddy.classList.contains("nmb-walking")) return;
   const tab = nameMarkBuddyTab();
   const anchorMoved = nmb.anchor && (!nmb.anchor.isConnected || Math.abs(nmb.anchor.getBoundingClientRect().top - nmb.anchorTop) > 2);
-  if (tab !== nmb.tab || anchorMoved || nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, nameMarkBuddyObstacles(tab), nmb.legs)) placeNameMarkBuddy(buddy);
+  const justPlaced = Date.now() - (nmb.placedAt || 0) < 30000;
+  if (tab !== nmb.tab || (anchorMoved && !justPlaced) || nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, nameMarkBuddyObstacles(tab), nmb.legs)) {
+    nmb.moves = (nmb.moves || 0) + 1;
+    nmb.moveWhy = tab !== nmb.tab ? "tab" : anchorMoved && !justPlaced ? "panel moved" : "covering a control";
+    placeNameMarkBuddy(buddy);
+  }
 }
 
 function queueNameMarkBuddyCheck() {
@@ -3202,7 +3213,7 @@ function nameMarkBuddyAct(act, ms) {
   if (!buddy) return;
   const was = nmb.act;
   if (was) buddy.classList.remove(`nmb-act-${was}`);
-  buddy.classList.remove("nmb-duck", "nmb-peeked");
+  if (act !== "emerge") buddy.classList.remove("nmb-duck");
   if (was === "turn" || was === "glance") delete buddy.dataset.turn;
   nmb.act = "";
   clearTimeout(nmb.timer);
@@ -3229,7 +3240,11 @@ function nameMarkBuddyAct(act, ms) {
   nmb.act = act;
   nmb.lastAct = act;
   if (spec?.cool) nmb.cool[act] = Date.now() + spec.cool;
-  nmb.timer = setTimeout(() => nameMarkBuddyAct(""), (ms || spec?.ms || 1200) * (1 + Math.random() * 0.3));
+  nmb.timer = setTimeout(() => {
+    const next = act === "land" && nmb.afterLand ? "look" : "";
+    if (act === "land") nmb.afterLand = false;
+    nameMarkBuddyAct(next);
+  }, (ms || spec?.ms || 1200) * (act === "land" ? 1 : 1 + Math.random() * 0.3));
 }
 
 //: **Looks at a place: a saccade, then the head.** The eyes jump there at
@@ -3263,6 +3278,19 @@ function nameMarkBuddyAim(point) {
   }, (groggy ? 450 : 150) + Math.random() * 150);
 }
 
+//: Stops whatever it is doing, at once and without a follow-on: grabbed.
+function nameMarkBuddyHalt(buddy) {
+  if (nmb.act) buddy.classList.remove(`nmb-act-${nmb.act}`);
+  nmb.act = "";
+  nmb.afterLand = false;
+  clearTimeout(nmb.timer);
+  clearTimeout(nmb.shyTimer);
+  nmb.timer = nmb.shyTimer = 0;
+  buddy.classList.remove("nmb-walking", "nmb-sleep", "nmb-drowsy", "nmb-duck", "nmb-stir", "nmb-arrive");
+  delete buddy.dataset.turn;
+  if (buddy.dataset.legs === "peek") buddy.dataset.legs = nmb.legs = "";
+}
+
 //: Lets its attention go: eyes and head drift back to rest.
 function nameMarkBuddyRelease() {
   const buddy = document.getElementById("nm-buddy");
@@ -3282,7 +3310,10 @@ function nameMarkBuddySchedule() {
   nmb.timer = 0;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy || document.hidden || nameMarkBuddyStill() || buddy.classList.contains("nmb-sleep")) return;
-  nmb.timer = setTimeout(nameMarkBuddyTick, 4000 + Math.random() * 8000);
+  //: Calm (the owner: "fewer, longer, calmer behaviours at rest"):
+  //: something every 20 to 60 seconds; between them it breathes and blinks
+  //: on the compositor and nothing runs here.
+  nmb.timer = setTimeout(nameMarkBuddyTick, 20000 + Math.random() * 40000);
 }
 
 //: The weighted pick: every behaviour that suits where it is and is off
@@ -3346,8 +3377,7 @@ function nameMarkBuddyTick() {
     nameMarkBuddySchedule();
     return;
   }
-  nmb.ticks = (nmb.ticks || 0) + 1;
-  if (nmb.ticks % 3 === 0) nameMarkBuddyCheck();
+  nameMarkBuddyCheck();
   const idle = Date.now() - nmb.lastInput;
   nameMarkBuddyContext(buddy);
   if (idle > NMB_SLEEP_MS) {
@@ -3580,19 +3610,64 @@ function nameMarkBuddyPointer(now) {
   const [px, py] = nmb.pointer;
   nmb.shyAt = now;
   nameMarkBuddyNotice(px, py, now);
-  if (nmb.act !== "peek" && nmb.legs !== "peek") return;
+  nameMarkBuddyShy(now);
+}
+
+//: **Shy, with hysteresis** (the owner: "the peeking companion flashes in
+//: and out?? and disappears when I try to move my mouse to it??"). While it
+//: peeks, a pointer that comes within 120px and keeps approaching for 300ms
+//: makes it sink to its eyes (never out of sight); it only comes back up
+//: once the pointer is past 200px for a second; it changes its mind at most
+//: once every three seconds. A pointer that arrives and stays is someone
+//: reaching for it: after a second and a half curiosity wins, and it comes
+//: out, looks at the pointer and can be picked up. One timer re-checks while
+//: the pointer is still.
+function nameMarkBuddyShy(now) {
   const buddy = document.getElementById("nm-buddy");
-  if (!buddy) return;
-  const near = Math.hypot(px - (nmb.x + NMB_W / 2), py - (nmb.y + nmb.edgeLine - 16)) < 130;
-  if (near) {
-    clearTimeout(nmb.shyTimer);
-    nmb.shyTimer = 0;
-    buddy.classList.add("nmb-duck", "nmb-peeked");
-  } else if (buddy.classList.contains("nmb-duck") && !nmb.shyTimer) {
+  if (!buddy || (nmb.act !== "peek" && nmb.legs !== "peek") || !nmb.pointer) return;
+  const [px, py] = nmb.pointer;
+  const dist = Math.hypot(px - (nmb.x + NMB_W / 2), py - (nmb.y + nmb.edgeLine - 16));
+  const shy = buddy.classList.contains("nmb-duck");
+  const settled = now - (nmb.shyChangedAt || 0) >= 3000;
+  clearTimeout(nmb.shyTimer);
+  nmb.shyTimer = 0;
+  const again = (ms) => {
     nmb.shyTimer = setTimeout(() => {
       nmb.shyTimer = 0;
+      nameMarkBuddyShy(Date.now());
+    }, ms);
+  };
+  if (dist < 120) {
+    nmb.farSince = 0;
+    if (!nmb.nearSince) nmb.nearSince = now;
+    const near = now - nmb.nearSince;
+    if (near >= 1500 && nmb.act === "peek") {
+      nmb.nearSince = 0;
       buddy.classList.remove("nmb-duck");
-    }, 1200);
+      nmb.shyChangedAt = now;
+      nameMarkBuddyAct("emerge");
+      nameMarkBuddyAim([px, py]);
+      return;
+    }
+    if (!shy && near >= 300 && settled) {
+      buddy.classList.add("nmb-duck");
+      nmb.shyChangedAt = now;
+    }
+    again(near < 300 ? 300 - near : 1500 - near > 0 ? 1500 - near : 3000);
+    return;
+  }
+  nmb.nearSince = 0;
+  if (dist > 200 && shy) {
+    if (!nmb.farSince) nmb.farSince = now;
+    const far = now - nmb.farSince;
+    const wait = Math.max(1000 - far, 3000 - (now - (nmb.shyChangedAt || 0)));
+    if (wait <= 0) {
+      buddy.classList.remove("nmb-duck");
+      nmb.shyChangedAt = now;
+      nmb.farSince = 0;
+    } else {
+      again(wait);
+    }
   }
 }
 
@@ -3717,8 +3792,18 @@ function nameMarkBuddyBuild() {
   };
   face.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
-    nmb.anim?.finish();
-    nmb.hopAnim?.finish();
+    //: **Movable at all times** (the owner: "it needs to be movable at all
+    //: times"): mid-walk, mid-hop, peeking, hanging or asleep, it is taken
+    //: from where it is drawn this instant and everything it was doing
+    //: stops.
+    const box = buddy.getBoundingClientRect();
+    nmb.anim?.cancel();
+    nmb.hopAnim?.cancel();
+    nameMarkBuddyHalt(buddy);
+    buddy.style.left = `${Math.round(box.left)}px`;
+    buddy.style.top = `${Math.round(box.top)}px`;
+    nmb.x = Math.round(box.left);
+    nmb.y = Math.round(box.top);
     drag = { box: buddy.getBoundingClientRect(), sx: event.clientX, sy: event.clientY, x: event.clientX, y: event.clientY, moved: false };
     face.setPointerCapture(event.pointerId);
   });
@@ -3755,7 +3840,16 @@ function nameMarkBuddyBuild() {
       buddy.style.left = `${nmb.x}px`;
       buddy.style.top = `${nmb.y}px`;
       const landed = nameMarkBuddyDrop(nmb.x, nmb.y);
+      //: **Settling** (the owner: "how it acts and settles down when I move
+      //: it"): it drops onto the surface under gravity's curve, lands with
+      //: a squash and a small overshoot, looks around once, and then stays:
+      //: nothing re-perches it for thirty seconds unless a control comes up
+      //: under it.
+      if (landed.y >= nmb.y - 2) landed.falls = true;
+      nmb.placedAt = Date.now();
+      nmb.afterLand = true;
       nameMarkBuddyMoveTo(buddy, landed);
+      if (!nmb.anim || nmb.anim.playState === "finished" || nmb.anim.playState === "idle") nameMarkBuddyAct("land");
       const spots = nameMarkBuddySpots();
       delete spots["*"];
       spots[nameMarkBuddyTab()] = nameMarkBuddySpotFor(landed);

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Chat: your own messages carry a small mark generated from your profile name (or "You"), on the bubble's corner, so nothing in the bubble moves; the persona picker shows the chosen persona's mark beside it.
 - Persona marks are faces now: a head in one of the category colours over a ground in another, with eyes and a mouth, all drawn from the name. The closest two of 23 differ in 29.8% of their pixels (the old marks: 5.6%).
 - Documents, New from a template: a click chooses a template and shows its page; Use this template (or Enter, or a double click) makes it. The arrow keys move the choice and the first row is chosen when the dialog opens.
 - Settings, Templates: every template can be edited, the built-in ones included. An edited built-in keeps its name, says Edited, and Reset brings the original back; the Capture dropdown offers the edited text.

@@ -2445,27 +2445,27 @@ header#top-bar select,
   flex-direction: row-reverse;
 }
 
-/* The user's own mark. The app's accent in the app's own pill shape, sized
-   to the emblem opposite it, a glyph, not a photo: this app has no accounts
-   and never asks who you are. */
-/* **The user's own mark: and it has to be visible on an accent bubble.**
-   Reported: *"I cant see the user profile icon."* It was `--accent-soft` on
-   `--accent`: a tint of the accent drawn on the accent itself, which is a
-   ~1.1:1 contrast ratio and reads as a slightly different patch of purple.
-   The bubble is a coloured surface, so the mark is drawn the way everything
-   else on a coloured surface in this app is, white, on a white veil, with a
-   white hairline: rather than in the accent it is sitting on. */
-.msg-avatar-user {
-  width: 1.5rem;
-  height: 1.5rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 24%);
-  border: 1px solid rgb(255 255 255 / 55%);
-  color: #fff;
-  font-size: 0.85rem;
-  line-height: 1;
+/* **The person's own mark** (INBOX 409), generated from the profile name
+   (`nameMark`, app.js). It replaced a glyph avatar in the label row, which
+   08-consistency.css hides on the user's side on purpose, so the mark is
+   not in the row and not in the flow: it sits on the bubble's top right
+   corner, a third off, the way a badge sits on a card. 18px at -6px ends
+   12px in from the edge, clear of the text's box (12.8px of padding in:
+   at -5px a full first line's box ran under it), and stays inside the
+   list's 6.4px side padding, which clips sideways.
+   The bubble is `position: relative` already (the action row hangs off
+   it). Measured by scratchpad/ui-sweeps/chatmarks.js: the bubble's width,
+   height, padding and text position are the same with it as without. */
+.msg-user-mark {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  line-height: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+  pointer-events: none;
 }
 
 /* --- chat polish ------------------------------------------------------------ */

@@ -4533,6 +4533,14 @@ main,
   border-radius: var(--radius-pill);
 }
 
+/* The chat's persona picker: a native select cannot hold a picture, so the
+   chosen persona's mark stands just before it (`fillPersonaMark`). */
+.persona-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* A unit after a field ("days") is part of the label's sentence, so it takes
    the label's size: it was the body's 16px beside 14.7px labels. */
 #settings-modal .settings-group .row > input + span.muted {

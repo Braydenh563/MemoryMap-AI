@@ -16746,6 +16746,24 @@ async function setResponseMode(chosen) {
   }).catch(() => {});
 }
 
+//: A persona's mark into its holder: the generated face for every persona
+//: but the app's own voice, which keeps the app's emblem. Shared by the
+//: persona rows in Settings and the chat's persona picker, so the two
+//: cannot draw one persona two ways.
+function fillPersonaMark(holder, name, size = 20) {
+  if (!holder) return;
+  if (name === aiNameNow()) {
+    //: The app's own mark as an image, not the live p5 emblem: that one is
+    //: a canvas that wants a mounted holder, and a list row is neither.
+    const logo = document.createElement("img");
+    logo.src = "/favicon.svg";
+    logo.alt = "";
+    logo.width = size;
+    logo.height = size;
+    holder.replaceChildren(logo);
+  } else holder.replaceChildren(nameMark(name, size));
+}
+
 function personaOptions() {
   // Built-ins + the user's custom personas (deduped: an edited built-in
   // is stored under the same name); the active one pre-selected.
@@ -16783,9 +16801,13 @@ function personaOptions() {
       fullPrompt(name).replaceAll("{ai_name}", aiNameNow()) || "This persona adds no instructions of its own.";
   };
   showPrompt(active);
+  //: A native select cannot draw a picture in an option, so the chosen
+  //: persona's mark sits beside it and follows the choice.
+  fillPersonaMark($("persona-select-mark"), select.value);
   select.onchange = () => {
     select.title = describe(select.value);
     showPrompt(select.value);
+    fillPersonaMark($("persona-select-mark"), select.value);
   };
 }
 
@@ -17754,6 +17776,11 @@ function chatAttachmentStrip(attachments) {
   return strip;
 }
 
+//: The seed for the person's own mark: their profile name, or "You".
+function userMarkSeed() {
+  return ((prefsCache && prefsCache.display_name) || "").trim() || "You";
+}
+
 function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
   const bubble = document.createElement("div");
@@ -17761,21 +17788,14 @@ function addBubble(role, text, attachments = null) {
 
   const label = document.createElement("div");
   label.className = "msg-role";
-  // **The user gets an avatar too.** Asked for directly: "I feel like the
-  // user needs a little icon in the theme of the application in the chat as
-  // well." The assistant has had one since `addAssistantBubble` started
-  // drawing the app's emblem; a one-sided transcript reads as though only
-  // one participant is really there. Same `.msg-avatar` box, so the two
-  // columns line up down the thread, the app's own accent and glyph rather
-  // than a photo, since this app has no accounts and never asks who you are.
+  // **The user's turn is named for a screen reader only.** The owner once
+  // asked for a user avatar in the label row, then later had the row hidden
+  // (08-consistency.css: on your own side of your own conversation "You"
+  // said nothing the alignment did not), so the label is read, not seen.
   if (role === "user") {
-    const avatar = document.createElement("span");
-    avatar.className = "msg-avatar msg-avatar-user";
-    avatar.setAttribute("aria-hidden", "true");
-    setLabel(avatar, "ph:user");
     const name = document.createElement("span");
     name.textContent = "You";
-    label.append(avatar, name);
+    label.append(name);
   } else {
     label.textContent = assistantLabel();
   }
@@ -17783,6 +17803,20 @@ function addBubble(role, text, attachments = null) {
   body.className = "msg-body";
   body.textContent = text;
   bubble.append(label, body);
+  //: **The person's own mark** (INBOX 409: "auto generate other icons in
+  //: other places like potentially the user chat bubbles"). Generated from
+  //: the profile name the way a persona's is, so it is theirs and the same
+  //: every time; "You" when no name is set. It sits on the bubble's top
+  //: right corner, positioned rather than in the flow, so the bubble's size,
+  //: padding and text are exactly what they were (chatmarks.js measures
+  //: that): the label row that used to hold an avatar is hidden on purpose.
+  if (role === "user") {
+    const mark = document.createElement("span");
+    mark.className = "msg-user-mark";
+    mark.setAttribute("aria-hidden", "true");
+    mark.appendChild(nameMark(userMarkSeed(), 18));
+    bubble.appendChild(mark);
+  }
   const strip = chatAttachmentStrip(attachments);
   if (strip) bubble.appendChild(strip);
 
@@ -25096,16 +25130,7 @@ async function renderPersonas() {
     //: glance; the app's own emblem for its own voice.
     const mark = document.createElement("span");
     mark.className = "persona-mark";
-    if (persona.name === aiNameNow()) {
-      //: The app's own mark as an image, not the live p5 emblem: that one is
-      //: a canvas that wants a mounted holder, and a list row is neither.
-      const logo = document.createElement("img");
-      logo.src = "/favicon.svg";
-      logo.alt = "";
-      logo.width = 20;
-      logo.height = 20;
-      mark.appendChild(logo);
-    } else mark.appendChild(nameMark(persona.name, 20));
+    fillPersonaMark(mark, persona.name);
     row.append(mark, chip(persona.name, "item-title"));
     if (persona.builtin) {
       row.appendChild(chip(persona.overridden ? "Edited" : "Built-in", "item-label"));

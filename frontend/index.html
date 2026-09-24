@@ -7956,8 +7956,16 @@ Link to another note with [[its first few words]]."></textarea>
                 Destructive steps still ask for your approval.
               </p>
             </div>
+            <!-- Two folds (DESIGN.md, the settings-fold recipe): the list open,
+                 the form to write one folded until wanted; editing a skill
+                 opens the form (`startEditingSkill`). The pane was 2,615px
+                 with both at full length. -->
+            <details class="settings-group settings-fold" data-fold-key="skills-list" open>
+            <summary><h3 class="inline-h3">Your skills</h3></summary>
             <ul id="skill-list" class="entry-list"></ul>
-            <h3>Add your own</h3>
+            </details>
+            <details class="settings-group settings-fold" data-fold-key="skills-add" id="skill-add-fold">
+            <summary><h3 class="inline-h3">Add your own</h3></summary>
             <input id="skill-name" aria-label="Skill name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
             <input id="skill-description" aria-label="Skill description" type="text" maxlength="200"
               placeholder="One line about what it does (optional)">
@@ -8054,6 +8062,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="skill-cancel" class="ghost small hidden">Cancel edit</button>
               <span id="skill-status" class="status"></span>
             </div>
+            </details>
             <h3>Share</h3>
             <div class="row">
               <button id="skill-export" class="ghost small">Export JSON</button>
@@ -9027,15 +9036,15 @@ Link to another note with [[its first few words]]."></textarea>
                terminal and a README, which for a local-first app is the same
                as not having the feature at all. -->
           <section class="settings-section hidden" id="settings-extras">
-            <div class="settings-group">
-              <div class="row help-head">
-                <h3>Packages</h3>
+            <details class="settings-group settings-fold" data-fold-key="extras-packages" open>
+              <summary><div class="row help-head">
+                <h3 class="inline-h3">Packages</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="packages-help" aria-controls="packages-help" aria-expanded="false"
                   title="About packages" aria-label="About packages">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
-              </div>
+              </div></summary>
               <p class="muted">Things MemoryMap can do with one more package installed.</p>
               <div class="help-body hidden" id="packages-help" role="dialog" aria-label="About packages">
                 <p>
@@ -9065,7 +9074,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="medium">Medium: most accurate, slowest</option>
                 </select>
               </div>
-            </div>
+            </details>
 
             <!-- Embedding models. On this screen rather than its own, because
                  the question it answers, "what has this app put on my disk,
@@ -9076,15 +9085,15 @@ Link to another note with [[its first few words]]."></textarea>
                  Asked for after a look at Settings → Logs, where the hub's
                  cache-validation requests on every start read as a re-download.
                  They are not one; the note below says so where it will be read. -->
-            <div class="settings-group">
-              <div class="row help-head">
-                <h3>Embedding models</h3>
+            <details class="settings-group settings-fold" data-fold-key="extras-embeddings">
+              <summary><div class="row help-head">
+                <h3 class="inline-h3">Embedding models</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="embedding-models-help" aria-controls="embedding-models-help" aria-expanded="false"
                   title="About embedding models" aria-label="About embedding models">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
-              </div>
+              </div></summary>
               <p class="muted">What “search by meaning” uses to understand a note.</p>
               <div class="help-body hidden" id="embedding-models-help" role="dialog" aria-label="About embedding models">
                 <p>
@@ -9098,11 +9107,12 @@ Link to another note with [[its first few words]]."></textarea>
               <ul id="embed-models-list" class="extras-list"></ul>
               <p id="embed-models-cache" class="muted extras-meta"></p>
               <p id="embed-models-status" class="status" role="status"></p>
-            </div>
+            </details>
           </section>
 
           <section class="settings-section hidden" id="settings-shortcuts">
-            <div class="settings-group">
+            <details class="settings-group settings-fold" data-fold-key="shortcuts-yours" open>
+              <summary><h3 class="inline-h3">Your shortcuts</h3></summary>
               <p class="muted">
                 Click <strong>Change</strong> and press the keys you want. Press
                 <kbd>?</kbd> anywhere in the app for the same list as an overlay.
@@ -9114,17 +9124,17 @@ Link to another note with [[its first few words]]."></textarea>
                   <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset to defaults
                 </button>
               </div>
-            </div>
+            </details>
 
-            <div class="settings-group">
-              <div class="row help-head">
-                <h3>Always available</h3>
+            <details class="settings-group settings-fold" data-fold-key="shortcuts-always">
+              <summary><div class="row help-head">
+                <h3 class="inline-h3">Always available</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="always-available-help" aria-controls="always-available-help" aria-expanded="false"
                   title="Why these aren't rebindable" aria-label="Why these aren't rebindable">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
-              </div>
+              </div></summary>
               <p class="muted">These follow the conventions every app shares, so they aren't rebindable.</p>
               <div class="help-body hidden" id="always-available-help" role="dialog" aria-label="Why these aren't rebindable">
                 <p>
@@ -9143,15 +9153,15 @@ Link to another note with [[its first few words]]."></textarea>
                 <li><kbd>↑</kbd> <kbd>↓</kbd><span>Move through the command palette, the note picker and
                   wiki-link suggestions</span></li>
               </ul>
-            </div>
+            </details>
 
             <!-- The "g" chord. Not in the rebindable list above and the reason
                  is in app.js beside TAB_JUMP_KEYS: a two-key chord needs
                  somewhere to hold the first press while it waits for the
                  second, which is state the keydown handler owns regardless.
                  It was also, until now, documented nowhere a user would look. -->
-            <div class="settings-group">
-              <h3>Jump to a tab</h3>
+            <details class="settings-group settings-fold" data-fold-key="shortcuts-jump">
+              <summary><h3 class="inline-h3">Jump to a tab</h3></summary>
               <p class="muted">
                 Press <kbd>m</kbd> and then a letter, the same way GitHub and
                 Gmail do it. Only when you aren't typing in a box.
@@ -9165,7 +9175,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <li><kbd>m</kbd> <kbd>t</kbd><span>Timeline</span></li>
                 <li><kbd>m</kbd> <kbd>r</kbd><span>Reminders</span></li>
               </ul>
-            </div>
+            </details>
           </section>
 
           <!-- Profile -->

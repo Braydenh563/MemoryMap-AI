@@ -26137,6 +26137,9 @@ function textToInputs(text) {
 
 function startEditingSkill(skill) {
   editingSkillName = skill.name;
+  // The form is folded until wanted (index.html, `#skill-add-fold`).
+  const fold = $("skill-add-fold");
+  if (fold) fold.open = true;
   $("skill-name").value = skill.name;
   $("skill-prompt").value = skill.prompt;
   $("skill-description").value = skill.description || "";

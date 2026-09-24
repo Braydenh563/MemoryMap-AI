@@ -3352,6 +3352,14 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   margin-bottom: var(--space-4);
 }
 
+/* The shortcut rows are ruled rows, so the divider is their separation: the
+   6.4px margin 02-chat-graph.css gives every `.shortcut-list li` (written
+   for the unruled overlay list) stacked on the rule and the row's own
+   padding, 56px a row where 49 reads the same. */
+#settings-modal .shortcut-list li {
+  margin-bottom: 0;
+}
+
 #settings-modal .settings-section > details.settings-fold > summary {
   padding-inline-end: var(--space-6);
 }

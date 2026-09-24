@@ -22,6 +22,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings: Keyboard shortcuts, Extras and Skills fold the same way as Appearance (the first group open, the rest remembered): Keyboard shortcuts 2,621 to 1,752px, Extras 2,536 to 2,044px, Skills 2,615 to 2,118px, with the skill form opening itself when a skill is edited. Three package descriptions lost text meant for developers: a raw command line, and a note that read "asked for directly".
 - Settings, Appearance: its eight groups fold (the Themes group open, each group's open state remembered in this browser), and the companion, Atlas style and look, face looks and dashboard mark rows have their own "Atlas and faces" group, one click from the top. The pane is 1,298px tall with the rest folded, was 4,022; a closed group is one 51px row, and a "?" in a closed head opens its group.
 - Chat: with no model running, "No model connected" was said by the header badge and again by the composer notice under it; the notice (what still works, and the button that connects one) is the one statement now, and the badge returns with the model. The "Ask Atlas: ..." offer in empty states and help popovers is a suggestion chip like the chat starters, not an underlined link (28px tall, ink on a hairline pill, the compass in front).
 - A toast's action button (Undo, Turn on) drew white text on white in the light theme; it is a ghost button now.

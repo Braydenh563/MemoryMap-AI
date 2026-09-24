@@ -3,7 +3,7 @@
 `index.html` loads six scripts: app.js, editor.js, dashboard.js, timeline.js,
 settings.js and tour.js. Everything else, graph.js and graph-canvas.js, documents.js
 (with documents-code.js and documents-prose.js, split out of it), whiteboard.js
-and library.js, is in a lazy bundle (`LAZY_MODULES`, app.js) and
+(with whiteboard-map.js) and library.js, is in a lazy bundle (`LAZY_MODULES`, app.js) and
 arrives only when a tab asks for it. So a boot file that calls a function
 defined only in a lazy file is calling something that is not there yet, and
 what happens then depends entirely on how the call is written:

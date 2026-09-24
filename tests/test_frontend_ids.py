@@ -44,8 +44,8 @@ def _markup() -> str:
 
 def _frontend_js() -> str:
     """app.js, whiteboard.js, graph.js, documents.js, library.js,
-    dashboard.js, settings.js, timeline.js, documents-code.js and
-    documents-prose.js concatenated.
+    dashboard.js, settings.js, timeline.js, documents-code.js,
+    documents-prose.js and whiteboard-map.js concatenated.
 
     The whiteboard subsystem (board/card CRUD, sketch drawing, export,
     move/resize) moved out of app.js into its own file, loaded by a second
@@ -60,7 +60,8 @@ def _frontend_js() -> str:
     eighth, timeline.js, when the gzipped app.js crossed its size bound
     (2026-09-23), and the document editor's code side and prose tools moved
     out of documents.js into documents-code.js and documents-prose.js
-    (2026-09-24). See index.html and app.js's LAZY_MODULES. A check that only read
+    (2026-09-24), as did whiteboard.js's mind map layer, into
+    whiteboard-map.js. See index.html and app.js's LAZY_MODULES. A check that only read
     app.js would go on passing while silently covering none of the moved
     files' own $("...") lookups.
     """
@@ -74,10 +75,11 @@ def _frontend_js() -> str:
     timeline = (INDEX.parent / "timeline.js").read_text(encoding="utf-8")
     documents_code = (INDEX.parent / "documents-code.js").read_text(encoding="utf-8")
     documents_prose = (INDEX.parent / "documents-prose.js").read_text(encoding="utf-8")
+    whiteboard_map = (INDEX.parent / "whiteboard-map.js").read_text(encoding="utf-8")
     return (
         app + "\n" + whiteboard + "\n" + graph + "\n" + documents + "\n" + library
         + "\n" + dashboard + "\n" + settings + "\n" + timeline
-        + "\n" + documents_code + "\n" + documents_prose
+        + "\n" + documents_code + "\n" + documents_prose + "\n" + whiteboard_map
     )
 
 

@@ -37,6 +37,7 @@ SETTINGS = Path(__file__).resolve().parents[1] / "frontend" / "settings.js"
 TIMELINE = Path(__file__).resolve().parents[1] / "frontend" / "timeline.js"
 DOCUMENTS_CODE = Path(__file__).resolve().parents[1] / "frontend" / "documents-code.js"
 DOCUMENTS_PROSE = Path(__file__).resolve().parents[1] / "frontend" / "documents-prose.js"
+WHITEBOARD_MAP = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard-map.js"
 
 #: Two listeners on one element for one event is fine when they do different
 #: jobs: the settings overlay has a backdrop-click-to-close and a delegated
@@ -79,7 +80,8 @@ def _source() -> str:
     2026-09-23 when the gzipped app.js crossed its size bound) is the tenth,
     and documents-code.js and documents-prose.js (the document editor's code
     side and prose tools, split out of documents.js on 2026-09-24) are the
-    eleventh and twelfth: the reason this list has to grow with the split rather than
+    eleventh and twelfth, and whiteboard-map.js (the mind map layer, split
+    out of whiteboard.js the same day) is the thirteenth: the reason this list has to grow with the split rather than
     being left at however many files it started with: a lint that cannot
     see a file cannot catch anything in it.
 
@@ -111,6 +113,8 @@ def _source() -> str:
         + DOCUMENTS_CODE.read_text(encoding="utf-8")
         + "\n"
         + DOCUMENTS_PROSE.read_text(encoding="utf-8")
+        + "\n"
+        + WHITEBOARD_MAP.read_text(encoding="utf-8")
     )
     #: Line comments first, then blocks. The other way round, a `/*` written
     #: inside a `//` line is read as a block comment opening and everything to

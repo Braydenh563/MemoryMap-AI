@@ -2079,7 +2079,9 @@ def test_every_right_click_menu_has_a_long_press_twin():
     per render. It is not counted here because the pattern above does not
     match it, which is the honest state of it rather than an oversight.
     """
-    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js"):
+    #: whiteboard-map.js since the mind map layer was split out of
+    #: whiteboard.js (2026-09-24); its node and edge menus came with it.
+    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js", "whiteboard-map.js"):
         text = (ROOT / "frontend" / name).read_text(encoding="utf-8")
         right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
         calls = len(re.findall(r"\bwireLongPress\(", text))

@@ -249,7 +249,9 @@ MemoryMap-AI/
 │   │                        #   prose tools, loaded before documents.js
 │   ├── graph.js · graph-canvas.js · graph-worker.js # the graph, its
 │   │                        #   canvas renderer and its layout worker
-│   ├── whiteboard.js        # boards and mind maps
+│   ├── whiteboard.js        # boards, and the concept map of cards
+│   ├── whiteboard-map.js    # mind maps: nodes, edges, tidy, themes,
+│   │                        #   loaded before whiteboard.js
 │   ├── sw.js · manifest.webmanifest # PWA
 │   ├── css/                 # eleven files, 00-tokens-shell to 10-responsive;
 │   │                        #   index.html's <link> order is load-bearing
@@ -938,9 +940,11 @@ JavaScript is split by surface (`dashboard.js`, `timeline.js`,
 `library.js`, `documents.js`, `graph.js`, `whiteboard.js`, `settings.js`); `app.js`
 holds the shell and everything shared. The two biggest lazy surfaces are split
 further by concern: `documents-code.js` and `documents-prose.js` hold the
-document editor's code and prose tools, and load in the Library bundle
-*before* `documents.js`, because their own top level reads nothing from it
-while its top-level wiring names their functions (`LAZY_MODULES` in `app.js`). Every local CSS and JS URL carries
+document editor's code and prose tools, and `whiteboard-map.js` the mind map
+layer; each loads in the Library bundle *before* the file it came out of
+(`documents.js`, `whiteboard.js`), because its own top level reads nothing from
+that file while that file's top-level wiring names its functions (`LAZY_MODULES` in
+`app.js`). Every local CSS and JS URL carries
 `?v=<version>` plus a per-process boot token, so no browser or desktop
 window can keep a stale file (`RevalidatedStatic` in `api/app.py`).
 

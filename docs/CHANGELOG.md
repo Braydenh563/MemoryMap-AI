@@ -363,6 +363,10 @@ below). Versioning is `0.x` while the app stabilises.
   touches packaging, the entry point or index.html, and weekly, and fetches
   every script and stylesheet the page references plus each lazy bundle,
   so a file missing from the bundle fails before release day.
+- The mind map layer (a map's nodes, edges, themes, tidy, the edit strip
+  and the radial menus) moved out of whiteboard.js into whiteboard-map.js.
+  Nothing it does changed; it still arrives with the Library, and
+  whiteboard.js is about a quarter smaller (212 KB gzipped, was 292 KB).
 - The document editor's code tools (checks, completions, Emmet, hover,
   symbols, sticky scroll, go to definition, Run, format and quick fixes)
   and its prose tools (grammar, suggestion mode, the accessibility check,

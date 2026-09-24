@@ -38968,10 +38968,13 @@ const LAZY_MODULES = {
   //: own top level reads nothing from documents.js, while documents.js's
   //: top-level wiring names their functions, and each file here is followed
   //: by a microtask checkpoint before the next one runs. See their headers.
+  //: whiteboard-map.js (the mind map layer, split out of whiteboard.js the
+  //: same day) goes before whiteboard.js on the same terms.
   library: [
     "/documents-code.js",
     "/documents-prose.js",
     "/documents.js",
+    "/whiteboard-map.js",
     "/whiteboard.js",
     "/library.js",
   ],

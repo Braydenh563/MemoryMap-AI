@@ -13041,6 +13041,38 @@ async function initWhiteboard() {
     //: written to survive, and a latch that is only cleared by the *next*
     //: click is a click lost whenever no click follows.
     wireLongPress(toggle, () => wbOpenDockedMenu(menu, toggle));
+    //: **And from the keyboard.** Enter on the toggle picks the tool it shows
+    //: (the click above), and the caret, the right-click, the double-click
+    //: and the hold are all pointer gestures, so a keyboard had no way into
+    //: the shapes at all (menus.js: "nothing opened"). ArrowDown and ArrowUp
+    //: are the menu button's own keys (WAI-ARIA): open, and land on the
+    //: first or last shape; the menu's own arrows and Escape take it from
+    //: there.
+    toggle.setAttribute("aria-controls", menu.id);
+    //: The roles at boot, never in the markup (the rule `wbStampMenuRoles`
+    //: keeps for the top-bar menus): a `role="menu"` with no menuitems in it
+    //: is announced as an empty menu, and `wireMenuKeyboard` walks menuitems.
+    for (const group of menu.querySelectorAll(".wb-shape-menu-group")) group.setAttribute("role", "group");
+    for (const item of menu.querySelectorAll("button[data-tool]")) item.setAttribute("role", "menuitem");
+    wireMenuKeyboard(menu, toggle);
+    //: `wireMenuKeyboard`'s Escape closes `.action-menu`s, which this is not,
+    //: and it stops the key there, so the board's own Escape never saw it
+    //: either: measured, Escape left the shapes open (menus.js at 1024).
+    menu.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || menu.classList.contains("hidden")) return;
+      wbCloseDockedMenu(menu, toggle);
+      toggle.focus({ preventScroll: true });
+    });
+    toggle.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (!menu.classList.contains("hidden")) return;
+      e.preventDefault();
+      wbOpenDockedMenu(menu, toggle);
+      const items = [...menu.querySelectorAll('[role="menuitem"], button')].filter(
+        (b) => !b.disabled && b.getClientRects().length > 0
+      );
+      (e.key === "ArrowDown" ? items[0] : items[items.length - 1])?.focus();
+    });
 
     // Handled directly rather than relying on the click bubbling up to
     // #wb-tool-group's own delegated listener: once open+side-docked, the
@@ -13133,6 +13165,7 @@ async function initWhiteboard() {
         // Before the measurement: a switch's own state can change how tall
         // the list is.
         syncPanelSwitches();
+        menu.classList.remove("wb-menu-one-col");
         escapeAndCapMenu(menu, toggle);
         //: **Hung from what opened it, every one of them** (INBOX 396). A
         //: top-bar menu escaped to <body> went through `placeEscapedMenu`'s
@@ -13143,7 +13176,20 @@ async function initWhiteboard() {
         //: context bar's menu already had the fix; the top bar's use it with
         //: their own toggle as the edge, so each opens under its button and
         //: scrolls inside the room there (`wbmenuroom.js`).
-        wbKeepMenuBesideBar(menu, menu.id === "wb-context-menu" ? document.getElementById("wb-context") : toggle);
+        //: **Two columns only while they fit.** The View menu is a two-column
+        //: box, and a multi-column box under a height cap does not scroll its
+        //: overflow: it adds columns beside itself, out past the menu's edge.
+        //: Measured on a mind map's View: at 390 (the phone rule now drops the
+        //: columns) and at 1024x480, 1015px of columns in a 510px menu capped
+        //: to 280px. Overflow sideways is the sign; one scrolling column is
+        //: the answer, placed and capped again at its new size.
+        const edge = menu.id === "wb-context-menu" ? document.getElementById("wb-context") : toggle;
+        wbKeepMenuBesideBar(menu, edge);
+        if (menu.scrollWidth > menu.clientWidth + 1) {
+          menu.classList.add("wb-menu-one-col");
+          escapeAndCapMenu(menu, toggle);
+          wbKeepMenuBesideBar(menu, edge);
+        }
       }
     });
   }

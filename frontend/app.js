@@ -3890,6 +3890,10 @@ window.addEventListener("wheel", (event) => {
 
 function closeActionMenus() {
   for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
+    //: Read before the menu hides: a hidden element cannot hold the focus,
+    //: and the browser hands it to `body`, which is nowhere a keyboard user
+    //: can continue from.
+    const held = menu.contains(document.activeElement);
     menu.classList.add("hidden");
     restoreEscapedMenu(menu);
     // `menu._escapedOpener` (set by wireEscapedActionMenu) wins when
@@ -3900,6 +3904,7 @@ function closeActionMenus() {
     // menu, so this changes nothing for them.
     const opener = menu._escapedOpener || menu.parentElement.querySelector("[aria-haspopup]");
     if (opener) opener.setAttribute("aria-expanded", "false");
+    if (held && opener?.isConnected) opener.focus({ preventScroll: true });
   }
   for (const strip of document.querySelectorAll(".menu-open")) {
     strip.classList.remove("menu-open");
@@ -4633,7 +4638,17 @@ function wireEscapedActionMenu(wrap) {
     if (open && menu.parentElement !== target) {
       homeParent = menu.parentElement;
       homeNext = menu.nextSibling;
+      //: **Moving a node takes the focus out of it**, and this runs after the
+      //: open has already put the focus on the first row (`openActionMenu`,
+      //: the select's chosen option): the observer is a microtask, so the
+      //: move lands a tick later and the browser drops the focus to `body`.
+      //: Measured by scratchpad/ui-sweeps/menus.js at 1440: every select in
+      //: the app and every library kebab opened with `document.activeElement`
+      //: on `body`, so ArrowDown did nothing and Escape gave the focus to
+      //: nobody. Held across the move and handed back.
+      const held = menu.contains(document.activeElement) ? document.activeElement : null;
       target.appendChild(menu);
+      if (held && held.isConnected) held.focus({ preventScroll: true });
       menu.classList.add("action-menu-escaped");
       // openActionMenu() may have already set `.action-menu-flip` (`bottom:
       // calc(100% + 4px)`) based on the menu's *pre-escape* position. `place()`
@@ -4652,7 +4667,13 @@ function wireEscapedActionMenu(wrap) {
       // call both expect to find this menu where it started, and a page
       // that never puts an escaped menu back accumulates stray
       // position:fixed nodes at the end of whichever element it escaped to.
+      //: A menu closed with the focus still inside it (Escape handled by
+      //: someone other than `wireMenuKeyboard`, a click on a row that opens
+      //: nothing) would drop it to `body` on this move; the opener is where it
+      //: belongs. Measured on every select: Escape left the focus on `body`.
+      const held = menu.contains(document.activeElement);
       homeParent.insertBefore(menu, homeNext);
+      if (held && opener.isConnected) opener.focus({ preventScroll: true });
       menu.classList.remove("action-menu-escaped");
       menu.style.left = "";
       menu.style.top = "";
@@ -5171,9 +5192,18 @@ async function removeEntryTitle(entry) {
 // driving the new selection menu from the keyboard and watching ArrowDown
 // leave focus where it was.
 function wireMenuKeyboard(menu, opener) {
+  //: Read by the delegated walker for markup menus (search `menuRowsOf`),
+  //: which leaves a menu wired here alone.
+  menu.dataset.menuKeys = "1";
   menu.addEventListener("keydown", (event) => {
     const menuItems = [
       ...menu.querySelectorAll(
+        //: `role="option"` too: an enhanced select's listbox is wired here, and
+        //: with menuitems alone its arrow keys found nothing and returned,
+        //: which left every select in the app without ArrowDown (and without
+        //: this Escape, so inside Settings the Escape went on to close the
+        //: whole Settings window and left the list floating over the page).
+        ':scope > [role="option"], ' +
         ':scope > [role="menuitem"], :scope > .menu-group > [role="menuitem"], ' +
         //: `role="group"` as well as `.menu-group`, so a menu written in
         //: markup can use the wrapper ARIA actually names. `kebabMenu` builds
@@ -5209,6 +5239,10 @@ function wireMenuKeyboard(menu, opener) {
       focusMenuItem(menuItems[menuItems.length - 1], menu);
     } else if (event.key === "Escape") {
       event.preventDefault();
+      //: The menu owns this Escape: without the stop, the document's own
+      //: Escape handler goes on to close whatever the menu is inside (the
+      //: Settings window, a sheet), one key doing two things.
+      event.stopPropagation();
       closeActionMenus();
       opener.focus();
     }
@@ -5730,10 +5764,22 @@ function entryOverflowMenu(entry) {
       run: () => binNoteWithUndo(entry),
     };
 
+    //: Three groups, broken by the same hairline `kebabMenu` draws for a
+    //: grouped menu (DESIGN.md: past five rows a menu is grouped): what you
+    //: do to this note, the three families that open further, and the two
+    //: that put it away. Ten rows read as one list before this (menus.js).
+    const rule = () => {
+      const sep = document.createElement("div");
+      sep.className = "menu-sep";
+      sep.setAttribute("role", "separator");
+      return sep;
+    };
     for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
+    menu.appendChild(rule());
     menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
     menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
     menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
+    menu.appendChild(rule());
     menu.appendChild(buildMenuItemButton(archive));
     menu.appendChild(buildMenuItemButton(danger));
   }
@@ -11533,6 +11579,10 @@ function initEntryListKeyboardNav() {
   const list = $("entry-list");
   list.addEventListener("keydown", (event) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Enter") return;
+    //: A note's own ⋯ menu lives inside its row, so its arrow keys bubble
+    //: here too: ArrowDown in the menu moved to the next item and then this
+    //: moved the focus out of the menu onto the row (measured, menus.js).
+    if (event.target.closest('.action-menu, [role="menu"], [role="listbox"]')) return;
     const items = entryListItems(list);
     const current = event.target.closest("li");
     const index = current ? items.indexOf(current) : -1;
@@ -16780,32 +16830,38 @@ function mountChatActionsMenu() {
   host.appendChild(
     kebabMenu(
       [
-        { label: "ph:pencil-simple Rename this chat", run: () => renameCurrentConversation() },
-        { label: "ph:git-branch Fork this chat", title: $("chat-fork")?.title, run: click("chat-fork") },
+        //: Grouped (DESIGN.md: past five rows a menu is): this chat, a copy of
+        //: it kept somewhere, and the one that ends it. Eight rows read as one
+        //: list before (menus.js).
+        { label: "ph:pencil-simple Rename this chat", group: "chat", run: () => renameCurrentConversation() },
+        { label: "ph:git-branch Fork this chat", group: "chat", title: $("chat-fork")?.title, run: click("chat-fork") },
         {
           label: "ph:arrows-in Compress the earlier messages",
+          group: "chat",
           title: $("chat-compress")?.title,
           run: click("chat-compress"),
         },
-        featureModelMenuItem("chat"),
-        { label: "ph:download-simple Export as Markdown", run: click("chat-export") },
+        { ...featureModelMenuItem("chat"), group: "chat" },
+        { label: "ph:download-simple Export as Markdown", group: "keep", run: click("chat-export") },
         {
           //: Odysseus's "Save to Documents", which lands better here than it
           //: does there: this app *has* a Documents tab, and a conversation
           //: worth keeping is usually worth keeping beside the notes it drew
           //: on rather than as a file in a downloads folder.
           label: "ph:file-text Save this chat as a document",
+          group: "keep",
           run: () => saveChatAsDocument(),
         },
         {
           label: "ph:copy Copy the whole transcript",
+          group: "keep",
           run: async () => {
             const text = chatTranscriptText();
             if (!text) return toast("There is nothing to copy yet.");
             copyToClipboard(text);
           },
         },
-        { label: "ph:trash Delete this chat", danger: true, run: click("chat-delete") },
+        { label: "ph:trash Delete this chat", group: "end", danger: true, run: click("chat-delete") },
       ],
       "More actions for this conversation"
     )
@@ -23602,8 +23658,20 @@ function enhanceSelect(select) {
   select.tabIndex = -1;
   select.setAttribute("aria-hidden", "true");
 
+  //: The name the select already has, wherever it was given: its own
+  //: `aria-label`, the element `aria-labelledby` points at, or the `<label
+  //: for>` beside it. Only the first was read, so a select named the ordinary
+  //: HTML way reached a screen reader as "Choose an option": measured on
+  //: Settings, Account's idle-lock select and the Graph's colour select.
+  const labelledBy = (select.getAttribute("aria-labelledby") || "")
+    .split(/\s+/)
+    .map((id) => id && document.getElementById(id)?.textContent.trim())
+    .filter(Boolean)
+    .join(" ");
   const label =
     select.getAttribute("aria-label") ||
+    labelledBy ||
+    select.labels?.[0]?.textContent.trim().replace(/\s+/g, " ") ||
     select.title ||
     "Choose an option";
   opener.setAttribute("aria-label", label);
@@ -29622,8 +29690,12 @@ const tabHistory = { stack: [], index: -1, navigating: false };
 function closeNavHistoryMenu() {
   const menu = $("status-nav-history-menu");
   if (!menu || menu.classList.contains("hidden")) return;
+  //: Escape from inside the list dropped the focus on `body` (menus.js):
+  //: a closed menu hands it back to the button that opened it.
+  const held = menu.contains(document.activeElement);
   menu.classList.add("hidden");
   $("status-nav-history")?.setAttribute("aria-expanded", "false");
+  if (held) $("status-nav-history")?.focus({ preventScroll: true });
 }
 
 function renderNavHistoryMenu() {
@@ -29658,6 +29730,10 @@ function renderNavHistoryMenu() {
     setLabel(item, `${current ? "ph:map-pin " : ""}${entryLabel(entry)}`);
     if (current) {
       item.title = "You're here";
+      //: Focusable by the arrows only, so a history of one (the page you are
+      //: on) still has a row for ArrowDown to land on.
+      item.tabIndex = -1;
+      item.setAttribute("aria-current", "page");
     } else {
       item.addEventListener("click", () => {
         closeNavHistoryMenu();
@@ -29700,6 +29776,13 @@ function openNavHistoryMenu(anchorEl) {
     left = Math.max(margin, window.innerWidth - margin - box.width);
   }
   menu.style.left = `${Math.round(left)}px`;
+  //: **4px above the button that opened it, like every other menu.** The
+  //: stylesheet's `bottom` is measured from the bar's top edge, and the button
+  //: sits inside the bar, so the menu floated 13px clear of it (menus.js, the
+  //: only menu in the app past 8px from its opener). The bar is at the bottom
+  //: of the window, so this is still "always upward"; it is just from the
+  //: button rather than from the bar.
+  menu.style.bottom = `${Math.round(window.innerHeight - anchor.top + 4)}px`;
 }
 
 function paintTabHistory() {
@@ -30210,11 +30293,18 @@ document.addEventListener(
 //: this codebase once claimed; measured with a keyboard-only probe. Capture
 //: phase, so the graph's own Escape (leave trace mode) and the lock screen's
 //: never see a key that was meant for the menu.
+//:
+//: **Every `details` menu, not only the ones with `.dock-menu`.** The
+//: document's own ⋯ (`#doc-dock-menu`) and the editor toolbars' menus are
+//: `.doc-dock-menu` without it, and Escape left all of them open (measured,
+//: scratchpad/ui-sweeps/menus.js). The class they all share is the one named
+//: here.
+const DETAILS_MENU_OPEN = "details[open]:is(.dock-menu, .doc-dock-menu)";
 document.addEventListener(
   "keydown",
   (event) => {
     if (event.key !== "Escape") return;
-    const open = document.querySelector("details.dock-menu[open]");
+    const open = document.querySelector(DETAILS_MENU_OPEN);
     if (!open) return;
     event.preventDefault();
     event.stopPropagation();
@@ -30223,6 +30313,120 @@ document.addEventListener(
   },
   true
 );
+
+//: **The arrow keys, in every menu that is not built by `kebabMenu`.**
+//: `wireMenuKeyboard` gives a built menu ↑, ↓, Home and End once the focus is
+//: inside it, and nothing gave any of that to the two other shapes: a
+//: `details` dock menu (twenty-odd of them, every ⋯ and Options in every dock)
+//: and a menu button whose menu is written in markup (the board's Insert,
+//: Edit, Arrange, View and Board, the space switcher, navigation history).
+//: Measured by scratchpad/ui-sweeps/menus.js at 1440, before this: ArrowDown
+//: on any of them left the focus on the button that opened it, which is the
+//: one key a person who has just opened a menu will press.
+//:
+//: Two halves, the WAI-ARIA menu button pattern. On the opener of an open
+//: menu, ↓ goes to the first row and ↑ to the last. Inside a `details` menu,
+//: ↑ and ↓ walk its rows and Home and End jump to the ends. A field keeps its
+//: own keys: a radio group, a slider and a text box already mean something by
+//: the arrows, and taking them would break the control to fix the menu.
+//: **Inside a closed `details` is not a row**, though it still has a layout box
+//: (the tour's recipe says the same of a folded dock): the Graph's More at 1024
+//: holds the folded View menu, and ArrowDown from its summary walked onto a
+//: Layout radio inside the closed View, which cannot take the focus, so the
+//: arrows stopped there (menus.js). Its own summary is the one exception.
+function insideClosedDetails(el) {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    if (p.tagName === "DETAILS" && !p.open && !(el.tagName === "SUMMARY" && el.parentElement === p)) return true;
+  }
+  return false;
+}
+
+function menuRowsOf(menu) {
+  return [
+    ...menu.querySelectorAll(
+      '[role^="menuitem"], [role="option"], button, a[href], summary, input:not([type="hidden"]), [tabindex="0"]'
+    ),
+  ].filter(
+    (el) =>
+      !el.disabled &&
+      !el.closest(".select-menu, .hidden, [hidden]") &&
+      !insideClosedDetails(el) &&
+      el.getClientRects().length > 0 &&
+      getComputedStyle(el).visibility !== "hidden"
+  );
+}
+
+function menuOfOpener(opener) {
+  if (opener.tagName === "SUMMARY") {
+    const details = opener.parentElement;
+    if (!details?.open || !details.matches(".dock-menu, .doc-dock-menu")) return null;
+    return (
+      details.querySelector(":scope > .doc-dock-menu-list") ||
+      document.querySelector(".action-menu-escaped.doc-dock-menu-list:not(.hidden)")
+    );
+  }
+  if (opener.getAttribute("aria-expanded") !== "true") return null;
+  const id = opener.getAttribute("aria-controls");
+  return id ? document.getElementById(id) : null;
+}
+
+document.addEventListener("keydown", (event) => {
+  const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+  if (!keys.includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return;
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  //: A checkbox has no arrow keys of its own, so a tick row in a menu (the
+  //: Timeline's kinds) is walked like any other row.
+  if (target.matches("input:not([type='checkbox']), textarea, select, [contenteditable='true']")) return;
+  //: A ⋯ menu on a phone is a sheet (`openKebabSheet`), and the sheet opens
+  //: with the focus on its own close button, above the menu: from there the
+  //: arrows go into the menu, as they would from the ⋯ that opened it.
+  //: Measured at 390 (menus.js): ArrowDown left the focus on the close button
+  //: in every sheet menu.
+  const sheetCard = target.closest(".action-menu-card");
+  if (sheetCard && !target.closest('[role="menu"]') && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+    const menu = sheetCard.querySelector('[role="menu"]');
+    const rows = menu ? menuRowsOf(menu) : [];
+    if (rows.length) {
+      event.preventDefault();
+      focusMenuItem(event.key === "ArrowDown" ? rows[0] : rows[rows.length - 1], menu);
+      return;
+    }
+  }
+  const opener = target.closest("summary, [aria-haspopup]:not([aria-haspopup='false'])");
+  if (opener === target && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+    const menu = menuOfOpener(opener);
+    const rows = menu ? menuRowsOf(menu) : [];
+    //: A closed select standing as a row in a dock menu (the document's
+    //: File type) is a row to walk past, not an opener to stop on.
+    if (rows.length) {
+      event.preventDefault();
+      focusMenuItem(event.key === "ArrowDown" ? rows[0] : rows[rows.length - 1], menu);
+      return;
+    }
+  }
+  //: Inside the menu: a `details` menu's list, or a markup menu an open
+  //: button controls (the space switcher's list). A menu `wireMenuKeyboard`
+  //: already walks is left to it, or every key would move two rows.
+  const list = target.closest('.doc-dock-menu-list, [role="menu"], [role="listbox"]');
+  if (!list || list.dataset.menuKeys || target.closest(".select-menu")) return;
+  if (list.matches(".doc-dock-menu-list")) {
+    const details = list.closest("details") || list._escapedHome?.parent;
+    if (!details?.open) return;
+  } else if (!list.id || !document.querySelector(`[aria-controls="${list.id}"][aria-expanded="true"]`)) {
+    return;
+  }
+  const rows = menuRowsOf(list);
+  const at = rows.indexOf(target);
+  if (at < 0) return;
+  event.preventDefault();
+  const next =
+    event.key === "Home" ? 0
+      : event.key === "End" ? rows.length - 1
+        : event.key === "ArrowDown" ? (at + 1) % rows.length
+          : (at - 1 + rows.length) % rows.length;
+  focusMenuItem(rows[next], list);
+});
 
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-empty-action]");
@@ -48833,8 +49037,12 @@ function renderSpaceMenu() {
 }
 
 function closeSpaceMenu() {
+  //: The same hand-back as `closeNavHistoryMenu`: Escape in the list left
+  //: the focus on `body`.
+  const held = $("space-menu")?.contains(document.activeElement);
   $("space-menu")?.classList.add("hidden");
   $("space-switcher-btn")?.setAttribute("aria-expanded", "false");
+  if (held) $("space-switcher-btn")?.focus({ preventScroll: true });
 }
 
 function openSpaceCreate() {

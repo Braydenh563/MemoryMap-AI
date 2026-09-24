@@ -4735,3 +4735,132 @@ main,
   box-shadow: inset 0 0 0 1px var(--accent);
   color: var(--ink);
 }
+
+/* The same fault in every icon-only button, smaller. Measured by
+   scratchpad/ui-sweeps/inkcentre.js (each button photographed at 4x with its
+   glyph painted red): 46 distinct icon buttons at 1440, their boxes centred
+   to 0.02px, their ink on average 0.61px above centre and 27 of them more
+   than half a pixel high (the lock, the chat header's Fork and Compress, the
+   Timeline's view switch, the status bar's arrows, up to 1.5px). Phosphor
+   draws most glyphs slightly above the middle of their em square, and the
+   rest is baseline rounding. A 0.03em nudge (half a pixel at the 15.6px
+   glyph) brings the mean to -0.1px and halves the count past half a pixel;
+   what is left is glyph-by-glyph shape, not a box a rule can centre.
+   The composer's three 44px buttons already measure low (+0.1 to +0.5px)
+   and are left as they are. */
+.icon-only > .ph:only-child,
+.status-item.icon-only > .ph:first-child {
+  translate: 0 0.03em;
+}
+
+.chat-composer .icon-only > .ph:only-child {
+  translate: none;
+}
+
+/* --- a menu is one column: rows, section labels and icons (INBOX 403) -------
+   The owner: "poorly designed dropdown menus with bad widths, poor spacing,
+   poor alignment". Measured by scratchpad/ui-sweeps/menus.js over every menu
+   in the app at 1440, three ways a menu's left edge came apart:
+
+   1. A dock menu's section label and its select stood 4.6px left of the
+      command rows' icons in the same menu (`.dock-menu-section` padded
+      `--space-3`, the row recipe above pads `--space-5`): Notes, Graph,
+      Library, Reminders, Logs, the document's own ⋯, and a select's group
+      names ("Built-in", "Whiteboards") the same 4.6px left of its options.
+   2. The board's five menus put their group labels ("Align (2+ selected)")
+      and their control rows ("Background", "Context bar") on the menu's own
+      padding edge, 12.4 to 13.3px left of the icons below them.
+   3. Labels after an icon wandered by up to 2.1px, because a Phosphor glyph
+      box is as wide as its own glyph: `align-left` is narrower than
+      `align-center-vertical`, and the board's rows put the icon in an
+      `auto` grid track. A menu reads its labels as one column; the eye
+      sees the ragged one.
+
+   One rule for each, and all three land every left edge in a menu on the
+   same x: the row recipe's own `--space-5`. */
+.doc-dock-menu-list .dock-menu-section,
+.dock-menu-list > .dock-arrange-folded,
+.dock-menu-list > .dock-arrange-label,
+.select-menu .select-group-label {
+  padding-inline: var(--space-5);
+}
+
+/* A dock's controls folded into its ⋯ below 1100 ("Sort and view"): the
+   label and the zone above, and a lone folded control here, on the same
+   column (menus.js at 1024 and 390: 4.6 to 5.2px left of the rows). */
+.dock-menu-list > .dock-folded-control {
+  margin-inline: var(--space-5);
+}
+
+.wb-board-menu .wb-panel-group-label,
+.wb-board-menu .wb-menu-row {
+  padding-inline: var(--space-5);
+}
+
+/* The hairline between sections, when something else stands between them.
+   The source rule is `.dock-menu-section + .dock-menu-section`, and the
+   Timeline's Options puts its (usually hidden) Select row between the group
+   filter and the time range: the two ran together with no break, which read
+   as one section with two labels. */
+.doc-dock-menu-list .dock-menu-section ~ .dock-menu-section {
+  border-top: 1px solid var(--divider);
+}
+
+/* Quick set's list kept the id it had when it was a row of chips, and with it
+   that row's `margin: --space-5 0 --space-4` and `gap: --space-3` (02 and 03):
+   the menu opened 19px below its button instead of 6, and its eight rows
+   stood 8px apart where every other menu's rows touch, 392px of list for
+   eight times (menus.js). The id and the class together outrank the id. */
+#reminder-presets.doc-dock-menu-list {
+  margin: 0;
+  gap: 0;
+}
+
+/* "How to edit" holds four one-word modes (Live, Source, Split, Plain), 113px
+   of content in the 15rem every dock list starts at: a menu twice as wide as
+   anything in it reads as a panel with nothing in it (menus.js, the only
+   menu past 2x). The floor it gets is the width of its longest row plus air,
+   not a new size of its own. */
+.doc-view-menu > .doc-dock-menu-list {
+  min-width: 10rem;
+}
+
+/* The board's View menu on a phone: "one column again" was written as
+   `column-count: 1`, which still makes it a multi-column box, and a
+   multi-column box with a height cap (the menu is capped to the window)
+   does not scroll its overflow, it adds columns beside it. Measured at 390
+   on a mind map (sixteen rows): the Zoom section drew at x 281 to 538 in a
+   menu that ends at 280, reachable only by scrolling the menu sideways
+   (menus.js). No columns at all is what one column means. */
+@media (max-width: 599.98px) {
+  #wb-view-menu {
+    column-count: auto;
+  }
+}
+
+/* The same on a desktop window too short for the two columns: whiteboard.js
+   adds this when the capped menu starts growing sideways. */
+#wb-view-menu.wb-menu-one-col {
+  column-count: auto;
+  width: min(17rem, calc(100vw - var(--space-5) * 2));
+}
+
+/* `kebabMenu`'s group hairline, in a menu written in markup (Quick set). */
+.doc-dock-menu-list > .menu-sep {
+  flex: none;
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--border);
+}
+
+:is(.action-menu, .select-menu, .doc-dock-menu-list, .nav-history-menu, .wb-board-menu)
+  :is(.menu-item, .doc-dock-menu-item, .nav-history-item, .wb-menu-item) > .ph:first-child,
+:is(.action-menu, .doc-dock-menu-list)
+  .menu-item > span:first-child > .ph:first-child {
+  flex: none;
+  /* A group row's icon sits inline in its label span (`buildMenuGroupButton`),
+     where a width means nothing until the box is a block of its own. */
+  display: inline-block;
+  width: 1.25em;
+  text-align: center;
+}

@@ -3162,9 +3162,18 @@ button.outline-twist:focus-visible {
   --modal-bg: #1e1e1c;
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
   --ink: #ecebe8;
-  --muted: #a09e98;
-  --accent: #5b95ff;
-  --accent-soft: rgba(91, 149, 255, 0.16);
+  /* Muted and accent a step lighter than first chosen (#a09e98, #5b95ff),
+     measured by contrast.js once it composited translucent grounds instead
+     of skipping them: the accent on its own soft ground (a picked chip in
+     Appearance, the Library's Contents labels) was 3.98:1, and muted text
+     on the raised greys (a file's extracted-text summary, Data's sizes, a
+     model name on a soft row) 3.76 to 4.34:1, against DESIGN.md's 4.5. Now
+     4.89 and 4.8 at the worst ground measured; on the card 7.0 and 8.0. The
+     text on a solid accent is dark in this mode (`--on-accent`), so the
+     lighter accent raises that pair too (6.2 to 7.6). */
+  --muted: #b5b3ad;
+  --accent: #78a8ff;
+  --accent-soft: rgba(120, 168, 255, 0.16);
   --border: rgba(236, 235, 232, 0.1);
   --chip-bg: rgba(236, 235, 232, 0.06);
 }

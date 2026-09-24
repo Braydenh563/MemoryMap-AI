@@ -634,6 +634,10 @@ function closeSettingsModal() {
   // Always cleared on the way out. A panel that reopens semi-transparent
   // reads as a rendering bug, not as a setting anyone chose.
   setSettingsPeek(false);
+  //: A select's list escapes to <body> while it is open, so it does not go
+  //: away with the window: closing Settings with one open left the list
+  //: floating over the page (measured, scratchpad/ui-sweeps/menus.js).
+  if (typeof closeActionMenus === "function") closeActionMenus();
   $("settings-modal").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
@@ -2388,7 +2392,7 @@ const PALETTES = [
     name: "Quiet",
     note: "The default. A warm grey ground, solid panels and one ink-blue accent.",
     light: { page: "#f4f3f1", card: "#ffffff", accent: "#2f5bd3", border: "rgba(28,28,26,0.12)" },
-    dark: { page: "#161615", card: "#1e1e1c", accent: "#5b95ff", border: "rgba(236,235,232,0.12)" },
+    dark: { page: "#161615", card: "#1e1e1c", accent: "#78a8ff", border: "rgba(236,235,232,0.12)" },
   },
   {
     id: "default",

@@ -5186,22 +5186,42 @@ function wbMapClearDropTarget() {
 //: The node is unpinned on the way: it was dragged, so `wbMapPinOnDrag` would
 //: otherwise fix it exactly where the pointer let go, which is the one place
 //: it should not stay now that it belongs to a different parent.
-async function wbMapTransplant(d, targetId, alone, { via = "drag" } = {}) {
+//:
+//: **Laid out as the new parent's child, branch and all, and one Undo**
+//: (INBOX 410: "when I relink or newly link two mindmap nodes, they clump
+//: together??"). Measured with `scratchpad/ui-sweeps/maprelink.js`: on a map
+//: whose layout is Free the tidy below does nothing, so a dropped branch
+//: stayed exactly where the pointer let go of it, on top of the topic it was
+//: dropped on, and a joined one stayed wherever it had been; a descendant
+//: pinned by an earlier drag kept its old place on every layout, so the branch
+//: arrived without it; and none of it could be undone, because `/move` is the
+//: only write of `parent_id` and the history had no entry that makes one.
+//: `before` is the positions the gesture started from (a drag's own origin),
+//: so Undo puts a dragged branch back where it was picked up rather than
+//: where it was dropped.
+async function wbMapTransplant(d, targetId, alone, { via = "drag", before = null } = {}) {
   const boardId = window.currentBoardId;
   const index = wbMapIndex();
   const target = index.byId.get(targetId);
   if (!boardId || !target) return false;
   if (d.parent_id === targetId && !alone) return false;
   const oldParent = index.byId.has(d.parent_id) ? d.parent_id : null;
+  const movedChildren = alone ? [...(index.childrenOf.get(d.id) || [])] : [];
+  //: Every topic's row as it stands, for the one history entry at the end:
+  //: whatever the layout moves, the undo restores, and nothing else.
+  const payload = WB_KIND_INFO.object.payload;
+  const rows = new Map(index.nodes.map((node) => {
+    const row = payload(node);
+    const from = before?.get(node.id);
+    return [node.id, from ? { ...row, x: from.x, y: from.y } : row];
+  }));
   const move = (id, parentId) => apiJson(
     `/whiteboard/boards/${boardId}/nodes/${id}/move`,
     { method: "PUT", body: JSON.stringify({ parent_id: parentId }) }
   );
   try {
-    if (alone) {
-      for (const child of index.childrenOf.get(d.id) || []) {
-        Object.assign(child, await move(child.id, oldParent));
-      }
+    for (const child of movedChildren) {
+      Object.assign(child, await move(child.id, oldParent));
     }
     Object.assign(d, await move(d.id, targetId));
   } catch (err) {
@@ -5212,8 +5232,45 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag" } = {}) {
     d.data = { ...d.data, pinned: false };
     await wbSaveObject(d);
   }
-  await wbMapTidyBranch(targetId);
-  if (oldParent != null) await wbMapTidyBranch(oldParent);
+  const branch = wbMapSubtree(wbMapIndex(), d.id);
+  const landed = new Map(branch.map((node) => [node.id, { x: node.x, y: node.y }]));
+  if (wbMapLayout() === "free") {
+    await wbMapPlaceAsChild(d, target, branch);
+  } else {
+    await wbMapTidyBranch(targetId);
+    if (oldParent != null) await wbMapTidyBranch(oldParent);
+    //: A tidy leaves a pinned topic where it is, which is right for a topic
+    //: someone placed inside its own branch and wrong for one whose whole
+    //: branch has just moved: it would stay behind. So a pinned descendant
+    //: travels by exactly what its moved topic travelled, which keeps the
+    //: place it was given relative to it.
+    const start = landed.get(d.id);
+    const dx = d.x - start.x, dy = d.y - start.y;
+    const carry = new Map();
+    for (const node of branch) {
+      if (node === d || !node.data?.pinned) continue;
+      const was = landed.get(node.id);
+      if (node.x !== was.x || node.y !== was.y || (!dx && !dy)) continue;
+      carry.set(wbMultiKey("object", node.id), { kind: "object", id: node.id, item: node, x: was.x + dx, y: was.y + dy });
+    }
+    if (carry.size) {
+      wbApplyBulkMove(carry, 0, 0);
+      await wbSaveBulkMove(carry);
+    }
+  }
+  const history = [{ action: "reparent", kind: "object", id: d.id, parentId: oldParent }];
+  for (const child of movedChildren) {
+    history.push({ action: "reparent", kind: "object", id: child.id, parentId: d.id });
+  }
+  for (const node of wbMapIndex().nodes) {
+    const row = rows.get(node.id);
+    if (!row) continue;
+    const pinChanged = node === d && row.data !== node.data;
+    if (row.x !== node.x || row.y !== node.y || pinChanged) {
+      history.push({ action: "move", kind: "object", id: node.id, before: row });
+    }
+  }
+  wbPushUndo({ action: "batch", entries: history });
   renderWhiteboardNow();
   //: A line drawn between two topics and a branch dragged onto one are the
   //: same move and want different words: the first connected something, the
@@ -5224,6 +5281,42 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag" } = {}) {
       ? `Moved this topic under "${wbMapLabel(target)}", its branches stayed.`
       : `Moved this branch under "${wbMapLabel(target)}".`);
   return true;
+}
+
+//: **Where a re-parented branch goes on a Free map** (INBOX 410). Free means
+//: the tidy never runs, so this is the one placement a free map gets: the
+//: branch is moved as a whole so its topic sits where a topic added under the
+//: same parent would, beside the parent and under its last child, or level
+//: with the parent when it is the first. The gaps are
+//: the tidy's own (`WB_MAP_GAP_DEPTH`, `WB_MAP_GAP_BREADTH`), so a free map
+//: and a tidied one space a branch alike. A free map has no growing side, so
+//: "beside" is the right, where the server puts a new child of a topic on a
+//: free map too (`_next_position`). "Under its last child" is under that
+//: child's whole branch, so the new arrival never lands on a grandchild.
+async function wbMapPlaceAsChild(d, target, branch) {
+  const index = wbMapIndex();
+  const moving = new Set(branch.map((node) => node.id));
+  const size = (node) => wbMapNodeSize(node);
+  const targetSize = size(target);
+  const siblings = (index.childrenOf.get(target.id) || []).filter((node) => !moving.has(node.id));
+  let x = target.x + targetSize.w + WB_MAP_GAP_DEPTH;
+  let y = target.y + (targetSize.h - size(d).h) / 2;
+  if (siblings.length) {
+    x = Math.min(...siblings.map((node) => node.x));
+    let bottom = -Infinity;
+    for (const sibling of siblings) {
+      for (const node of wbMapSubtree(index, sibling.id)) bottom = Math.max(bottom, node.y + size(node).h);
+    }
+    y = bottom + WB_MAP_GAP_BREADTH;
+  }
+  const dx = x - d.x, dy = y - d.y;
+  if (!dx && !dy) return;
+  const origin = new Map();
+  for (const node of branch) {
+    origin.set(wbMultiKey("object", node.id), { kind: "object", id: node.id, item: node, x: node.x + dx, y: node.y + dy });
+  }
+  wbApplyBulkMove(origin, 0, 0);
+  await wbSaveBulkMove(origin);
 }
 
 //: **A link tool, on a map, joins the tree** (INBOX 180: "I cant properly
@@ -10429,6 +10522,22 @@ async function wbApplyHistoryEntry(from, to) {
       if (subTo.length) reverse.push(subTo[0]);
     }
     to.push({ action: "batch", entries: reverse });
+    return true;
+  }
+  if (entry.action === "reparent") {
+    //: A map topic's parent (INBOX 410). `PUT /objects/{id}` deliberately
+    //: never writes `parent_id`, so a "move" entry cannot put a branch back
+    //: under its old parent; `/move` can, with the same cycle check a drag
+    //: gets. The reverse is the parent it had a moment ago.
+    const item = (wbState.objects || []).find((i) => i.id === entry.id);
+    if (!item) return true;
+    const current = item.parent_id ?? null;
+    const moved = await apiJson(
+      `/whiteboard/boards/${item.board_id ?? window.currentBoardId}/nodes/${entry.id}/move`,
+      { method: "PUT", body: JSON.stringify({ parent_id: entry.parentId }) }
+    );
+    Object.assign(item, moved);
+    to.push({ action: "reparent", kind: entry.kind, id: entry.id, parentId: current });
     return true;
   }
   const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
@@ -17534,9 +17643,16 @@ function renderWbObjects(canvas) {
     }
     delete d._gesture;
     if (dropTarget) {
+      //: Where the branch was picked up, so the transplant's one Undo puts it
+      //: back there rather than where it was let go (INBOX 410).
+      const before = new Map();
+      if (d._moveUndoBefore) before.set(d.id, { x: d._moveUndoBefore.x, y: d._moveUndoBefore.y });
+      for (const entry of bulkOrigin?.values() || []) {
+        if (entry.kind === "object" && !before.has(entry.id)) before.set(entry.id, { x: entry.x, y: entry.y });
+      }
       delete d._moveUndoBefore;
       if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
-      await wbMapTransplant(d, dropTarget.id, alone);
+      await wbMapTransplant(d, dropTarget.id, alone, { before });
       return;
     }
     const moveBefore = d._moveUndoBefore;

@@ -105,6 +105,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Mind maps: a topic dropped on another topic, or joined to one by a line, is laid out as that topic's child with its own branch beside it, on a Free map as well as a tidied one, and one Undo puts the parent and every place back. It used to land on top of its new parent.
 - Mind maps: the ring of actions on a topic or a line holds its buttons inside its band. Each is a small tile, icon over word, evenly spaced round the circle, and the band is sized to the tiles, so none hangs over its edge or into its hole at any width.
 - The guide answers "Can Atlas write for me?" from a new Write with Atlas topic.
 - Answer citations: a note the answer names by number ("Notes 1, 5, and 6")

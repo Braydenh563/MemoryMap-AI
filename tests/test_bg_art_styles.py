@@ -335,3 +335,17 @@ def test_mycelium_cross_fades_its_generations():
     assert "twin.canvas.remove()" in run
     halt = runtime[runtime.index("function bgArtHalt(") :]
     assert 'getElementById("bg-art-twin")' in halt[: halt.index("\n}\n")]
+
+
+def test_microbes_copy_prerendered_bodies_and_glows():
+    """The owner: "optimise the microbes animation as well". Bodies are
+    painted once into an atlas per species and copied a cell per organism;
+    glows are painted at the size they are drawn and copied unscaled, both
+    on whole pixels, so neither is resampled a frame."""
+    body = _chunks()["microbes"]
+    frame = body[body.index("      frame() {") :]
+    assert "atlasOf(sp)" in body and "bgSprite(cell * angles, cell * phases" in body
+    assert "g.drawImage(at.img, sx, sy, cell, cell, (X[i] - at.half) | 0" in frame
+    assert "g.drawImage(sp.glowSprite, (X[i] - sp.glowHalf) | 0, (Y[i] - sp.glowHalf) | 0);" in frame
+    # The outlines are no longer built a frame, only the flagella.
+    assert "bodies(g, si, q, 0)" not in frame and "bodies(g, si, q, 2)" in frame

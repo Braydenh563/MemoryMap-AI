@@ -214,7 +214,11 @@ function bgSprite(w, h, paint) {
   const c = document.createElement("canvas");
   c.width = Math.max(1, Math.round(w));
   c.height = Math.max(1, Math.round(h));
-  paint(c.getContext("2d"), c.width, c.height);
+  // Under the cost sweep's CPU-canvas hook (see bgArtSurface) the sprites
+  // are CPU-backed as well, as they would be on a machine with no GPU
+  // canvas: a GPU sprite drawn into a CPU canvas is a readback per draw,
+  // which no real frame pays and which would swamp the measurement.
+  paint(c.getContext("2d", window.__bgArtCpu === true ? { willReadFrequently: true } : undefined), c.width, c.height);
   return c;
 }
 
@@ -1142,6 +1146,46 @@ const BG_ART_BUILDERS = {
       }
     };
 
+    // **The bodies are pre-rendered.** Each species' outline, fill and
+    // organelles are painted once into an atlas: one cell per heading (48
+    // for a body that points where it swims, 16 for one that only turns, 8
+    // for a round one) and, for the amoeba, per step of its wobble. A frame
+    // copies one cell per organism, upright, the cheap kind of image draw,
+    // where it used to build, fill and stroke every outline: 0.9ms of the
+    // frame, measured, for sixty bodies. The flagella still draw as lines,
+    // since their beat changes every frame and they are thin.
+    const atlasOf = (sp) => {
+      const r = sp.size;
+      const cell = Math.ceil(r * 4.4 + 4);
+      const angles = sp.form === "coccus" ? 8 : sp.turns ? 16 : 48;
+      const phases = sp.form === "amoeba" ? 8 : 1;
+      const img = bgSprite(cell * angles, cell * phases, (g) => {
+        g.lineWidth = 1;
+        g.lineJoin = "round";
+        for (let ph = 0; ph < phases; ph++) {
+          for (let a = 0; a < angles; a++) {
+            const th = (a / angles) * Math.PI * 2;
+            const c = Math.cos(th), sn = Math.sin(th);
+            const x = a * cell + cell / 2, y = ph * cell + cell / 2;
+            const phase = (ph / phases) * Math.PI * 2;
+            g.beginPath();
+            outline(g, sp, x, y, c, sn, r, phase);
+            g.fillStyle = sp.cFill;
+            g.strokeStyle = sp.cStroke;
+            g.fill();
+            g.stroke();
+            if (sp.form !== "vibrio") {
+              g.beginPath();
+              organelles(g, sp, x, y, c, sn, r);
+              g.fillStyle = sp.cCore;
+              g.fill();
+            }
+          }
+        }
+      });
+      return { img, cell, half: cell / 2, angles, phases };
+    };
+
     const step = () => {
       frameNo++;
       for (const sp of species) {
@@ -1317,10 +1361,17 @@ const BG_ART_BUILDERS = {
             cFill: bgHsla(hue, 62, fillL, 0.28),
             cStroke: bgHsla(hue, 70, ink, 0.8),
             cCore: bgHsla(hue + 12, 72, ink, 0.75),
-            glowSprite: bgGlowSprite(hue, 70, ctx.dark ? 66 : 55, ctx.dark ? 0.55 : 0.3),
+            glowSprite: null,
+            glowHalf: 0,
             cWake: bgHsla(hue, 60, ink, 0.18),
             cDots: bgHsla(hue, 60, ink, 0.3),
           });
+          // The glow, painted at the size it is drawn (five body radii).
+          const sp = species[species.length - 1];
+          const gs = Math.round(sp.size * 5);
+          sp.glowSprite = bgGlowSprite(hue, 70, ctx.dark ? 66 : 55, ctx.dark ? 0.55 : 0.3, gs);
+          sp.glowHalf = gs / 2;
+          sp.atlas = atlasOf(sp);
         });
         cap = bgClamp(Math.round((W * H) / 22000 * ctx.density), 14, 80);
         const f = () => new Float32Array(cap);
@@ -1412,38 +1463,59 @@ const BG_ART_BUILDERS = {
           const sp = species[SP[i]];
           if (sp.glow === "none" || a <= 0.01) continue;
           const pulse = sp.glow === "pulse" ? 0.55 + 0.45 * Math.sin(frameNo * 0.06 + OFF[i]) : 0.8;
-          const gs = sp.size * 5;
           g.globalAlpha = pulse * a;
           if (ctx.dark) g.globalCompositeOperation = "lighter";
-          g.drawImage(sp.glowSprite, X[i] - gs / 2, Y[i] - gs / 2, gs, gs);
+          // At its own size and on whole pixels, the plain copy: no
+          // resampling and no boxed coordinates.
+          g.drawImage(sp.glowSprite, (X[i] - sp.glowHalf) | 0, (Y[i] - sp.glowHalf) | 0);
         }
         g.globalCompositeOperation = "source-over";
-        // Bodies: per species and per quarter of opacity, one outline path
-        // (filled and stroked), one organelle path, one flagellum path.
+        // Bodies: one atlas cell each, at the organism's own strength; a
+        // dividing organism is two, a little smaller, pulling apart. On
+        // whole pixels: at a fractional place every copy is resampled, which
+        // measured twice the cost (1.3ms against 0.6ms for sixty bodies in a
+        // CPU canvas), and a body crawling under a pixel a frame shows no
+        // step.
+        const TAU = Math.PI * 2;
+        for (let i = 0; i < n; i++) {
+          const sp = species[SP[i]];
+          const at = sp.atlas;
+          const a = BORN[i] * (1 - Math.min(1, DYING[i]));
+          if (a <= 0.01) continue;
+          g.globalAlpha = a;
+          let turn = ANG[i] % TAU;
+          if (turn < 0) turn += TAU;
+          const col = Math.round((turn / TAU) * at.angles) % at.angles;
+          let row = 0;
+          if (at.phases > 1) {
+            let ph = (frameNo * (PHASE_RATE[sp.form] || 0) + OFF[i]) % TAU;
+            if (ph < 0) ph += TAU;
+            row = Math.floor((ph / TAU) * at.phases) % at.phases;
+          }
+          const sx = col * at.cell, sy = row * at.cell, cell = at.cell;
+          if (DIV[i] >= 0) {
+            const c = Math.cos(ANG[i]), sn = Math.sin(ANG[i]);
+            const d = DIV[i] * sp.size * 1.1;
+            const k = 1 - 0.18 * Math.sin(DIV[i] * Math.PI);
+            const w = cell * k, hw = w / 2;
+            g.drawImage(at.img, sx, sy, cell, cell, X[i] - c * d - hw, Y[i] - sn * d - hw, w, w);
+            g.drawImage(at.img, sx, sy, cell, cell, X[i] + c * d - hw, Y[i] + sn * d - hw, w, w);
+          } else {
+            g.drawImage(at.img, sx, sy, cell, cell, (X[i] - at.half) | 0, (Y[i] - at.half) | 0, cell, cell);
+          }
+        }
+        // Flagella: per species and per quarter of opacity, one path each.
         g.lineWidth = 1;
         for (let si = 0; si < species.length; si++) {
           const sp = species[si];
-          const lashes = sp.form === "vibrio" || sp.form === "flagellate";
+          if (sp.form !== "vibrio" && sp.form !== "flagellate") continue;
+          g.strokeStyle = sp.cStroke;
           for (let q = 1; q <= 4; q++) {
             if (!AQN[si * 5 + q]) continue;
             g.globalAlpha = q / 4;
             g.beginPath();
-            bodies(g, si, q, 0);
-            g.fillStyle = sp.cFill;
-            g.strokeStyle = sp.cStroke;
-            g.fill();
+            bodies(g, si, q, 2);
             g.stroke();
-            if (sp.form !== "vibrio") {
-              g.beginPath();
-              bodies(g, si, q, 1);
-              g.fillStyle = sp.cCore;
-              g.fill();
-            }
-            if (lashes) {
-              g.beginPath();
-              bodies(g, si, q, 2);
-              g.stroke();
-            }
           }
         }
         g.globalAlpha = 1;

@@ -76,6 +76,12 @@ async function boot(browser, prefs) {
       return raf((ts) => { window.__rafCount++; if (art) window.__rafArt++; cb(ts); });
     };
   }, prefs);
+  // OVERRIDE_JS=/path/bg-art.js serves that file in place of the app's own,
+  // so a "before" is measured on the same server, minutes apart.
+  if (process.env.OVERRIDE_JS) {
+    const body = require('fs').readFileSync(process.env.OVERRIDE_JS, 'utf8');
+    await ctx.route('**/bg-art.js*', (route) => route.fulfill({ body, contentType: 'application/javascript' }));
+  }
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -120,6 +126,9 @@ async function drawCost(page, s) {
         mean: +mean.toFixed(2),
         js: +jsMean.toFixed(2),
         p95: +(times[Math.floor(times.length * 0.95)] || 0).toFixed(2),
+        // The median: this sandbox is shared, and a frame preempted by
+        // another process lands in the mean and the p95, not here.
+        med: +(times[Math.floor(times.length / 2)] || 0).toFixed(2),
       });
     }, secs * 1000);
   }), s);
@@ -243,6 +252,7 @@ async function rafCount(page) {
         __cpu: process.env.CPU === '1', __fast: process.env.FAST === '1',
       });
       await throttle(page);
+      if (process.env.SKIP) await page.evaluate((k) => { window.__mbSkip = Object.fromEntries(k.split('+').map((x) => [x, true])); }, process.env.SKIP);
       const cost = await drawCost(page, SECONDS);
       const busyMs = await busy(page, SECONDS);
       const cpuMs = pid ? await browserCpu(page, pid, SECONDS) : '?';
@@ -287,7 +297,7 @@ async function rafCount(page) {
       }
       console.log(
         `${theme.padEnd(5)} ${style.padEnd(13)} (${actual}) `
-        + (cost ? `script ${cost.js}ms, script+raster ${cost.mean}ms p95 ${cost.p95}ms, ${cost.fps}fps` : 'no canvas loop (CSS)')
+        + (cost ? `script ${cost.js}ms, script+raster ${cost.mean}ms median ${cost.med}ms p95 ${cost.p95}ms, ${cost.fps}fps` : 'no canvas loop (CSS)')
         + `; main thread ${busyMs}ms/s; browser CPU ${cpuMs}ms/s`
         + (alloc ? `; alloc ${alloc.artKB}KB art / ${alloc.totalKB}KB page in ${ALLOC_SECONDS}s` : '')
         + still

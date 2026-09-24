@@ -106,8 +106,9 @@ with its owner named in the entry.
     sweep `templates.js`); persona marks a generated face, closest pair of
     23 at 40px 5.6% before, 29.8% after (259b743, `namemarks.js`); the
     user's own mark on their chat bubbles and the persona picker's
-    (0e88b6e, `chatmarks.js`, bubble box unchanged). Open here: the
-    indent guides, the formatting bubble over code, the AI assistant bar.
+    (0e88b6e, ede4f2a, `chatmarks.js`, bubble box unchanged). The code
+    selection bar and the indent step are 7ab7eec. Open here: the AI
+    assistant bar.
 
 404. **The owner, 2026-09-23 night, verbatim.** "also does emmet workf for
     other languages like python, c#, java and more??" and "what about code

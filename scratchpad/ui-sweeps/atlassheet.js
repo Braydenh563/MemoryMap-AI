@@ -7,7 +7,8 @@
 //     PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node atlassheet.js
 // SCALE=2 for device pixels; BIG=calm,happy draws those moods at 240, 64,
 // 28 and 20px instead (atlas-<theme>-big.png); ACCENT=#hex sets the accent;
-// SIZE=160 draws only that size; TAG=before names the file.
+// SIZE=160 draws only that size; TAG=before names the file; ATLAS_LOOK=feminine
+// or masculine draws that look.
 const { boot } = require("./lib.js");
 
 (async () => {
@@ -15,8 +16,9 @@ const { boot } = require("./lib.js");
   const big = (process.env.BIG || "").split(",").filter(Boolean);
   const { page, browser, OUT } = await boot({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: scale });
   const theme = process.env.THEME || "light";
-  const info = await page.evaluate(([big, accent, only]) => {
+  const info = await page.evaluate(([big, accent, only, look]) => {
     document.documentElement.dataset.avatarMotion = "off";
+    if (look) localStorage.setItem("atlas-look", look);
     if (accent) document.documentElement.style.setProperty("--accent", accent);
     //: The app's own mood changes (the greeting, the resting mood) would
     //: repaint every mark on the sheet; the sheet holds each one still.
@@ -54,9 +56,9 @@ const { boot } = require("./lib.js");
       if (!box.width || !box.height) errors.push("zero box");
     }
     return { moods: moods.length, svgs: sheet.querySelectorAll("svg").length, errors };
-  }, [big, process.env.ACCENT || "", Number(process.env.SIZE || 0)]);
+  }, [big, process.env.ACCENT || "", Number(process.env.SIZE || 0), process.env.ATLAS_LOOK || ""]);
   await page.waitForTimeout(400);
-  const file = `${OUT}/atlas-${theme}${process.env.TAG ? "-" + process.env.TAG : ""}${big.length ? "-big" : ""}${process.env.ACCENT ? "-" + process.env.ACCENT.slice(1) : ""}.png`;
+  const file = `${OUT}/atlas-${theme}${process.env.ATLAS_LOOK ? "-" + process.env.ATLAS_LOOK : ""}${process.env.TAG ? "-" + process.env.TAG : ""}${big.length ? "-big" : ""}${process.env.ACCENT ? "-" + process.env.ACCENT.slice(1) : ""}.png`;
   await (await page.$("#atlas-sheet")).screenshot({ path: file });
   console.log(JSON.stringify(info), file);
   await browser.close();

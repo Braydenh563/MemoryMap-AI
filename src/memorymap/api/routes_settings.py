@@ -170,6 +170,10 @@ class PreferencesBody(BaseModel):
     #: this document is on", the honest default for a notebook that does not
     #: know who is writing in it.
     spelling_variant: Literal["off", "uk", "us"] | None = None
+    #: The grammar checker (Harper, run in the browser; INBOX 401). On by
+    #: default: it costs nothing until a prose document or note box is open,
+    #: and nothing on the main thread even then.
+    grammar_check: bool | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian.
@@ -458,6 +462,7 @@ def get_preferences() -> dict:
         "communication_style": config.get_preference("communication_style", "friendly"),
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
+        "grammar_check": config.get_preference("grammar_check", True),
         "display_name": config.get_preference("display_name", ""),
         #: Echoed so Settings can draw the boxes with what is in them rather
         #: than empty, which is the bug this file's other comments keep

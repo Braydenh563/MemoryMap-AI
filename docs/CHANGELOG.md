@@ -26,6 +26,27 @@ below). Versioning is `0.x` while the app stabilises.
 - Personas each get a mark generated from their name (the same name always
   draws the same mark, nothing stored), so a list of them is told apart at
   a glance; Atlas keeps the app's own emblem.
+- Grammar checking in documents and note boxes, on this computer: Harper
+  (Apache-2.0, vendored) underlines agreement, "a" or "an", its or it's and
+  the like with a double line, files them under Grammar in the suggestions
+  panel and offers its fixes in the word's own menu. It loads on the first
+  prose document or note box (nothing at boot; 1.75 s cold, about 100 ms per
+  check of 1,400 words, all in a worker) and the dictionary dialog turns it
+  off (INBOX 401).
+- Suggest changes, in a document's ⋯ menu: what you type is underlined on
+  green and what you delete is struck through instead of disappearing, each
+  one accepted or rejected from its own menu, or all at once; the status bar
+  says the mode is on and counts the changes. The marks are CriticMarkup in
+  the text (`{++added++}`, `{--removed--}`), so they save, sync, show in
+  history and survive a .md download like any other words (INBOX 404).
+- Read aloud, in a document's ⋯ menu: reads from the caret, or just the
+  selection, in this computer's own voice, one sentence at a time with that
+  sentence highlighted; Stop on the status bar or Esc. Markdown is read as
+  words, fenced code and suggested deletions are skipped (INBOX 404).
+- An accessibility check in the suggestions panel: a skipped heading level
+  (with the right level offered as the fix), an image with no description,
+  and link text that says nothing on its own ("click here", a bare web
+  address), each underlined with a dashed line (INBOX 404).
 - The guided tour walks through every main feature, one section after
   another: Notes, Chat, Graph, Library, Boards, Mind maps, Timeline,
   Reminders, Settings and the status bar each open the feature and point at

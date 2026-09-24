@@ -36156,7 +36156,14 @@ function speakText(text) {
     speechSynthesis.cancel(); // acting as a stop button
     return;
   }
-  if (text.trim()) speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  if (!text.trim()) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  //: Read aloud is sound this app makes, so the companion can hear it.
+  if (typeof nameMarkBuddySound === "function") {
+    utterance.addEventListener("start", () => nameMarkBuddySound("speech", true));
+    for (const type of ["end", "error"]) utterance.addEventListener(type, () => nameMarkBuddySound("speech", false));
+  }
+  speechSynthesis.speak(utterance);
 }
 
 // --- toasts (Phase 5) ---------------------------------------------------------------
@@ -36732,6 +36739,8 @@ async function checkDueReminders() {
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
   playReminderChime();
+  //: The companion holds up a small bell (avatars.js).
+  if (typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("bell");
 
   // Into the centre as well as onto the screen (§36E). A toast and a system
   // notification are both moments; this is the record that outlives them, and
@@ -36971,6 +36980,8 @@ function toast(message, isError = false, { exempt = false } = {}) {
   lastToastKey = key;
   lastToastAt = now;
   const box = $("toast-box");
+  //: An error makes the companion jump (avatars.js).
+  if (isError && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("startle");
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";
   const text = document.createElement("span");

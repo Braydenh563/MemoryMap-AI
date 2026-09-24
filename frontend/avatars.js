@@ -2206,7 +2206,9 @@ const NMB_GRIP = 5;
 //: its head; the hands are drawn this far above the drawing's top.
 const NMB_DROP = 12;
 const NMB_GUTTER = 12;
-const NMB_SLEEP_MS = 3 * 60 * 1000;
+//: Away from the keyboard: drowsy at three minutes, asleep at eight.
+const NMB_DROWSY_MS = 3 * 60 * 1000;
+const NMB_SLEEP_MS = 8 * 60 * 1000;
 const NMB_YAWN_MS = 45 * 1000;
 
 //: What it must never stand in front of. Controls by role and by kind, the
@@ -2270,6 +2272,9 @@ const NAME_MARK_BUDDY_ACTS = {
   cheer: { ms: 1300, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   startle: { ms: 700, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   land: { ms: 450, w: 0, cool: 0, poses: ["stand", "sit", "float"] },
+  wake: { ms: 1400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
+  bell: { ms: 3000, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
+  lantern: { ms: 3000, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
 };
 
 //: How a character's mood leans its choices (multipliers on the weights).
@@ -2314,7 +2319,7 @@ const NAME_MARK_BUDDY_KINDS = {
 const nmb = {
   x: NaN, y: NaN, pose: "", legs: "", perch: "", tab: "", act: "", lastAct: "", timer: 0,
   lastInput: Date.now(), lastCheer: 0, lastPoke: 0, pointer: null, watchTimer: 0, watchAt: 0,
-  shyAt: 0, shyTimer: 0, edgeType: "", edgeLine: 72, reading: null, cool: {},
+  shyAt: 0, shyTimer: 0, readTimer: 0, keyAt: 0, keyRun: 0, edgeType: "", edgeLine: 72, reading: null, cool: {},
   anim: null, hopAnim: null, anchor: null, anchorTop: 0, settle: [], checkFrame: 0,
 };
 
@@ -2930,7 +2935,7 @@ function nameMarkBuddyAct(act, ms) {
   nmb.act = act;
   nmb.lastAct = act;
   if (spec?.cool) nmb.cool[act] = Date.now() + spec.cool;
-  nmb.timer = setTimeout(() => nameMarkBuddyAct(""), ms || spec?.ms || 1200);
+  nmb.timer = setTimeout(() => nameMarkBuddyAct(act !== "blink" && act !== "nap" && Math.random() < 0.7 ? "blink" : ""), ms || spec?.ms || 1200);
 }
 
 //: Points its eyes (and a little of its head) at a place on the screen.
@@ -3011,10 +3016,14 @@ function nameMarkBuddyTick() {
     return;
   }
   nameMarkBuddyCheck();
-  if (Date.now() - nmb.lastInput > NMB_SLEEP_MS) {
+  const idle = Date.now() - nmb.lastInput;
+  nameMarkBuddyContext(buddy);
+  if (idle > NMB_SLEEP_MS) {
+    buddy.classList.remove("nmb-drowsy");
     buddy.classList.add("nmb-sleep");
     return;
   }
+  buddy.classList.toggle("nmb-drowsy", idle > NMB_DROWSY_MS);
   nameMarkBuddyAct(nameMarkBuddyDecide());
 }
 
@@ -3025,22 +3034,111 @@ function nameMarkBuddyCue(cue) {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
   buddy.classList.toggle("nmb-think", cue === "think");
+  //: A long answer: after a few seconds of thinking it puts on its reading
+  //: glasses and follows along until the answer lands.
+  clearTimeout(nmb.readTimer);
+  if (cue === "think" && NMB_PROPS_DRAWN) nmb.readTimer = setTimeout(() => buddy.classList.add("nmb-reading"), 4000);
+  else buddy.classList.remove("nmb-reading");
   if (cue === "cheer") nmb.lastCheer = Date.now();
+  if ((cue === "bell" || cue === "lantern") && !NMB_PROPS_DRAWN) return;
   if (cue === "think" || cue === "rest" || nameMarkBuddyStill() || document.hidden) return;
-  buddy.classList.remove("nmb-sleep");
+  buddy.classList.remove("nmb-sleep", "nmb-drowsy");
   if (NAME_MARK_BUDDY_ACTS[cue]) nameMarkBuddyAct(cue);
 }
 
 //: Input keeps it awake (and wakes it with a start).
 for (const type of ["pointerdown", "keydown"]) {
   document.addEventListener(type, () => {
-    nmb.lastInput = Date.now();
-    const buddy = document.getElementById("nm-buddy");
-    if (buddy?.classList.contains("nmb-sleep")) {
-      buddy.classList.remove("nmb-sleep");
-      nameMarkBuddyAct("startle");
-    }
+    nameMarkBuddyAwake();
   }, { passive: true, capture: true });
+}
+
+//: Any input: the idle clock starts again, and a sleeping or drowsy
+//: companion wakes with a stretch and a start.
+function nameMarkBuddyAwake() {
+  nmb.lastInput = Date.now();
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  const slept = buddy.classList.contains("nmb-sleep");
+  buddy.classList.remove("nmb-drowsy");
+  if (slept || nmb.act === "nap") {
+    buddy.classList.remove("nmb-sleep");
+    if (!nameMarkBuddyStill() && !document.hidden) nameMarkBuddyAct("wake");
+  }
+}
+
+//: A scroll counts as being here, at most once a second.
+document.addEventListener("scroll", () => {
+  if (Date.now() - nmb.lastInput > 1000) nameMarkBuddyAwake();
+}, { passive: true, capture: true });
+
+// --- what is going on around it ---------------------------------------------
+//: **Context, from events only** (the owner: "go to sleep if the user goes
+//: afk for too long, or putting on headphones if music or sound is playing
+//: ... or other things like that"). Each is a class on `#nm-buddy` that
+//: shows a prop the figure carries (`.nmp-*`, see the character interface)
+//: or changes a pose; nothing here polls.
+//:
+//: Sound: a page can only hear itself. What is detected is sound this app
+//: plays: an <audio> or <video> element (a recording, a voice note) through
+//: its play and pause events, and read aloud (`speakText`). Other apps'
+//: audio, the system mixer and the microphone are not reachable, and no
+//: permission is asked for.
+const nmbSounds = new Set();
+//: **Switched off** until the figure draws its props (headphones, a
+//: nightcap, reading glasses, a bell, a lantern, an unplugged cable): the
+//: events below are wired, but none of them shows anything yet, so none of
+//: them changes the companion.
+const NMB_PROPS_DRAWN = false;
+function nameMarkBuddySound(source, playing) {
+  if (playing) nmbSounds.add(source);
+  else nmbSounds.delete(source);
+  for (const media of [...nmbSounds]) {
+    if (media instanceof HTMLMediaElement && (media.paused || media.muted || !media.isConnected)) nmbSounds.delete(media);
+  }
+  if (NMB_PROPS_DRAWN) document.getElementById("nm-buddy")?.classList.toggle("nmb-music", nmbSounds.size > 0);
+}
+for (const type of ["play", "playing"]) {
+  document.addEventListener(type, (event) => {
+    if (event.target instanceof HTMLMediaElement) nameMarkBuddySound(event.target, !event.target.muted);
+  }, true);
+}
+for (const type of ["pause", "ended", "emptied"]) {
+  document.addEventListener(type, (event) => {
+    if (event.target instanceof HTMLMediaElement) nameMarkBuddySound(event.target, false);
+  }, true);
+}
+
+//: The hour (a nightcap and heavier eyes from 23:00 to 05:00) and whether
+//: the machine is online (unplugged, it holds its cable), checked on each
+//: decision and when the network changes.
+function nameMarkBuddyContext(buddy = document.getElementById("nm-buddy")) {
+  if (!buddy || !NMB_PROPS_DRAWN) return;
+  const hour = new Date().getHours();
+  buddy.classList.toggle("nmb-night", hour >= 23 || hour < 5);
+  buddy.classList.toggle("nmb-offline", navigator.onLine === false);
+}
+window.addEventListener("online", () => nameMarkBuddyContext());
+window.addEventListener("offline", () => nameMarkBuddyContext());
+
+//: Back to the window after five minutes away: a wave.
+let nameMarkBuddyBlurAt = 0;
+window.addEventListener("blur", () => {
+  nameMarkBuddyBlurAt = Date.now();
+});
+window.addEventListener("focus", () => {
+  if (nameMarkBuddyBlurAt && Date.now() - nameMarkBuddyBlurAt > 5 * 60 * 1000) nameMarkBuddyCue("wave");
+  nameMarkBuddyBlurAt = 0;
+});
+
+//: The theme turned dark: it lights a little lantern for a moment.
+if (typeof MutationObserver === "function") {
+  let darkBefore = document.documentElement.dataset.theme === "dark";
+  new MutationObserver(() => {
+    const dark = document.documentElement.dataset.theme === "dark";
+    if (dark && !darkBefore) nameMarkBuddyCue("lantern");
+    darkBefore = dark;
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 }
 
 //: The pointer's place is kept for a glance; while it peeks, at most ten
@@ -3049,8 +3147,9 @@ for (const type of ["pointerdown", "keydown"]) {
 //: layout is read: its own place is in `nmb`.
 document.addEventListener("pointermove", (event) => {
   nmb.pointer = [event.clientX, event.clientY];
-  if (nmb.act !== "peek") return;
   const now = Date.now();
+  if (now - nmb.lastInput > 1000) nameMarkBuddyAwake();
+  if (nmb.act !== "peek") return;
   if (now - nmb.shyAt < 100) return;
   nmb.shyAt = now;
   const buddy = document.getElementById("nm-buddy");
@@ -3084,9 +3183,13 @@ document.addEventListener("keydown", (event) => {
     if (Math.hypot(px - (nmb.x + NMB_W / 2), py - (nmb.y + NMB_HEAD / 2)) > 420) return;
     nameMarkBuddyAim([px, py]);
   }
+  //: Typing fast (keys under 180ms apart, five in a row), it nods along.
+  nmb.keyRun = now - nmb.keyAt < 180 ? nmb.keyRun + 1 : 0;
+  nmb.keyAt = now;
   buddy.classList.add("nmb-watch");
+  buddy.classList.toggle("nmb-nod", nmb.keyRun >= 5);
   clearTimeout(nmb.watchTimer);
-  nmb.watchTimer = setTimeout(() => buddy.classList.remove("nmb-watch"), 1800);
+  nmb.watchTimer = setTimeout(() => buddy.classList.remove("nmb-watch", "nmb-nod"), 1800);
 }, { passive: true, capture: true });
 
 document.addEventListener("visibilitychange", () => {
@@ -3094,6 +3197,10 @@ document.addEventListener("visibilitychange", () => {
     clearTimeout(nmb.timer);
     nmb.timer = 0;
   } else {
+    //: Back after a long absence, it is found asleep, and the next input
+    //: wakes it.
+    if (Date.now() - nmb.lastInput > NMB_SLEEP_MS) document.getElementById("nm-buddy")?.classList.add("nmb-sleep");
+    nameMarkBuddyContext();
     nameMarkBuddySchedule();
   }
 });

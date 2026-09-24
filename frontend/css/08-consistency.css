@@ -5069,6 +5069,22 @@ main,
 #nm-buddy.nmb-act-onehand .nm-buddy-char { transform-origin: 6px -6px; }
 #nm-buddy.nmb-act-feet .nm-buddy-char { transform-origin: 32px 40px; }
 
+/* **The face's own loops are off in the companion.** An SVG group that
+   animates is laid out and painted on the main thread every frame; in the
+   companion the breathing is the figure's own `scale`, on the compositor,
+   and blinking is one of its timed behaviours (avatars.js). Measured with
+   `scratchpad`'s cost probe: see the CHANGELOG line for the numbers. */
+#nm-buddy .name-mark :is(.nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-steam, .nm-balloon, .nm-bow, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-tail, .nm-tails, .nm-pupil, .nm-gem, .nm-flame, .nm-aura, .nm-starfield) {
+  animation: none;
+}
+
+/* Drowsy (three idle minutes): heavy eyelids. */
+#nm-buddy.nmb-drowsy .name-mark .nm-blinks { transform: scaleY(0.55); }
+
+/* Woken: the raised arms of a stretch. */
+#nm-buddy.nmb-act-wake .nmb-hold { opacity: 1; }
+#nm-buddy.nmb-act-wake .nmb-arm { opacity: 0; }
+
 /* States that say something, so they hold still under Reduce motion too:
    watching a field being typed in, thinking through a chat turn, asleep. */
 #nm-buddy:is(.nmb-act-glance, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
@@ -5203,17 +5219,23 @@ main,
     &.nmb-act-peek.nmb-peeked:not(.nmb-duck) .nm-buddy-char { animation: nmb-peek-up 0.8s ease-out 0.2s forwards; }
     &.nmb-act-peek.nmb-duck .nm-buddy-char { animation: nmb-peek-duck 0.22s ease-in forwards; }
     &.nmb-act-emerge .nm-buddy-char { animation: nmb-emerge 0.8s var(--ease-out) both; }
+    &.nmb-act-wake .nm-buddy-char { animation: nmb-stretch 0.9s ease-in-out, nmb-hop 0.6s var(--ease-out) 0.8s; }
+    &.nmb-watch.nmb-nod .nm-figure { animation: nmb-nod 0.45s ease-in-out infinite alternate; }
   }
 }
 
 /* The system's reduced-motion hint: no walking (avatars.js moves it at
    once), and every loop here slows right down, as the faces' do. */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy :is(.nm-buddy-char, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z) {
+  #nm-buddy :is(.nm-buddy-char, .nm-figure, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z) {
     animation-duration: 6s;
   }
 }
 
+@keyframes nmb-nod {
+  from { translate: 0 0; }
+  to { translate: 0 1.5px; }
+}
 @keyframes nmb-dangle {
   from { transform: rotate(calc(var(--nmb-side) * 8deg)) scaleY(0.9); }
   to { transform: rotate(calc(var(--nmb-side) * -10deg)) scaleY(0.8); }

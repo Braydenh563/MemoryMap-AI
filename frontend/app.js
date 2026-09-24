@@ -6190,6 +6190,21 @@ async function attachmentObjectUrl(attachment) {
   return url;
 }
 
+//: **Who wrote a caption, in words** (the owner, 2026-09-24). `caption_model` names the
+//: author of a caption: a vision or utility model, or `APP_CAPTION_AUTHOR`
+//: when the app wrote it itself (a board export's "Part of the mind map ...,
+//: exported from MemoryMap", stored with `source: "app"` by routes_files.py).
+//: That one is "Written by", not "Described by": nothing looked at the
+//: picture. The lightbox byline and the Library card both read this, so the
+//: same picture says the same thing in both places. `short` is the Library
+//: card's own shortener for a long model name.
+const APP_CAPTION_AUTHOR = "MemoryMap";
+function captionCredit(model, short = (name) => name) {
+  return model === APP_CAPTION_AUTHOR
+    ? `Written by ${APP_CAPTION_AUTHOR}`
+    : `Described by ${short(model)}`;
+}
+
 // Full-size image viewer: click anywhere or press Esc to close (Wave M).
 // `items` is every image this click can page through, e.g. all the image
 // attachments on the same note, as `{filename, getUrl}`, `getUrl` being a
@@ -6247,7 +6262,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   const captionBylineFor = (row) => {
     if (!row || !row.caption) return "";
     const parts = [];
-    if (row.caption_model) parts.push(`Described by ${row.caption_model}`);
+    if (row.caption_model) parts.push(captionCredit(row.caption_model));
     if (row.caption_edited) parts.push(row.caption_model ? "edited" : "typed by hand");
     return parts.join(" · ");
   };
@@ -7888,7 +7903,12 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   const stageWrap = document.createElement("div");
   stageWrap.className = "lightbox-stage-wrap";
   stageWrap.appendChild(stage);
-  if (items.length > 1) stageWrap.append(prevBtn, nextBtn);
+  //: `lightbox-paged` narrows the stage by the arrows' room, so the picture
+  //: never goes under one (02-chat-graph.css).
+  if (items.length > 1) {
+    stageWrap.append(prevBtn, nextBtn);
+    stageWrap.classList.add("lightbox-paged");
+  }
   const column = document.createElement("div");
   column.className = "lightbox-column";
   column.append(stageWrap, meta, actions, info);

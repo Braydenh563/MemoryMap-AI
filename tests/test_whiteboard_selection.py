@@ -92,7 +92,8 @@ def test_a_swept_shape_gets_its_own_box_and_the_group_keeps_the_grips() -> None:
     )
     #: And a card or a text box in a group hides its own grips by class, since
     #: it carries them as children rather than having them drawn.
-    assert 'el.classList.toggle("wb-in-group", inGroup);' in WB
+    #: Toggled only when it changes (the marquee release touches only what moved, INBOX 410).
+    assert 'el.classList.toggle("wb-in-group", grouped);' in WB
     assert ".node-card.wb-in-group .wb-rotate-handle" in CSS
     assert ".wb-object.wb-in-group .wb-resize-handle" in CSS
 

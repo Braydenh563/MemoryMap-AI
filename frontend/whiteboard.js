@@ -3256,9 +3256,27 @@ async function wbMindMapAddSibling(cardId) {
 function wbApplySelectionHighlight() {
   //: After this frame's selection is settled (see `renderWbGestureHints`).
   requestAnimationFrame(renderWbGestureHints);
+  //: **Only what changed is touched** (INBOX 410, the release of a marquee).
+  //: This took the class off every selected element and put it back on every
+  //: one still selected, so a sweep that grew a selection of 200 restyled all
+  //: 200 twice. The wanted set is worked out first; then an element loses the
+  //: class only if it is leaving and gains it only if it is arriving.
+  const inGroup = wbMultiSelection.size > 1;
+  const wanted = new Map();
+  for (const key of wbMultiSelection) {
+    const sep = key.indexOf(":");
+    const el = document.querySelector(WB_SELECTOR_BY_KIND[key.slice(0, sep)](Number(key.slice(sep + 1))));
+    if (el) wanted.set(el, inGroup);
+  }
+  if (wbSelectedItem) {
+    const el = document.querySelector(WB_SELECTOR_BY_KIND[wbSelectedItem.kind](wbSelectedItem.id));
+    if (el && !wanted.has(el)) wanted.set(el, false);
+  }
   document
     .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
-    .forEach((el) => el.classList.remove("wb-selected", "wb-in-group"));
+    .forEach((el) => {
+      if (!wanted.has(el)) el.classList.remove("wb-selected", "wb-in-group");
+    });
   // A sketch's resize handles have nowhere else to live between renders
   // (unlike a card/object, which always has 8 handle children of its own), 
   // recomputed here so they track a fresh selection or a just-finished move.
@@ -3280,18 +3298,10 @@ function wbApplySelectionHighlight() {
   //: second way and 07-whiteboard-misc.css hides the grips on that class. The
   //: outline stays: the member is still visibly one of the selected things
   //: (INBOX 278, and the earlier report it has to keep answering).
-  const inGroup = wbMultiSelection.size > 1;
-  for (const key of wbMultiSelection) {
-    const sep = key.indexOf(":");
-    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
-    const el = document.querySelector(WB_SELECTOR_BY_KIND[kind](id));
-    if (!el) continue;
-    el.classList.add("wb-selected");
-    el.classList.toggle("wb-in-group", inGroup);
+  for (const [el, grouped] of wanted) {
+    if (!el.classList.contains("wb-selected")) el.classList.add("wb-selected");
+    if (el.classList.contains("wb-in-group") !== grouped) el.classList.toggle("wb-in-group", grouped);
   }
-  if (!wbSelectedItem) return;
-  const selector = WB_SELECTOR_BY_KIND[wbSelectedItem.kind](wbSelectedItem.id);
-  document.querySelector(selector)?.classList.add("wb-selected");
 }
 
 function selectWbItem(kind, id) {
@@ -5007,6 +5017,22 @@ async function wbApplyHistoryEntry(from, to) {
     to.push({ action: "batch", entries: reverse });
     return true;
   }
+  if (entry.action === "reparent") {
+    //: A map topic's parent (INBOX 410). `PUT /objects/{id}` deliberately
+    //: never writes `parent_id`, so a "move" entry cannot put a branch back
+    //: under its old parent; `/move` can, with the same cycle check a drag
+    //: gets. The reverse is the parent it had a moment ago.
+    const item = (wbState.objects || []).find((i) => i.id === entry.id);
+    if (!item) return true;
+    const current = item.parent_id ?? null;
+    const moved = await apiJson(
+      `/whiteboard/boards/${item.board_id ?? window.currentBoardId}/nodes/${entry.id}/move`,
+      { method: "PUT", body: JSON.stringify({ parent_id: entry.parentId }) }
+    );
+    Object.assign(item, moved);
+    to.push({ action: "reparent", kind: entry.kind, id: entry.id, parentId: current });
+    return true;
+  }
   const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
   if (entry.action === "delete") {
     // This entry means "bring back what was deleted". Applying it recreates
@@ -5387,6 +5413,62 @@ function wbSelectedKeys() {
   return new Set();
 }
 
+//: **An export is painted in the colours on screen** (the owner, 2026-09-24:
+//: "I exported a mindmap selection as an image to the library, the mindmap
+//: nodes turned white??"). The node and card fills below were hard-coded
+//: `#ffffffee` with `#1f2430` ink, which is the light theme's look: in dark
+//: mode, and on any map whose look was changed, the export drew white boxes
+//: on the board's dark ground. So each box reads its fill, edge and ink off
+//: the live element's computed style, which is what the renderer painted.
+//:
+//: Through a 1px canvas rather than passed on as the computed string: a
+//: surface here is a `color-mix()`, which a computed style reports in the
+//: `color(srgb ...)` form, and whether a rasterised SVG's `fill` attribute
+//: takes that form is the browser's business. A canvas pixel is plain sRGB
+//: in every engine, and it is what the picture ends up as anyway.
+let wbExportColourCtx = null;
+function wbExportColour(value) {
+  if (!value) return null;
+  const srgb = /^color\(srgb ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)(?: \/ ([\d.e-]+))?\)$/.exec(value.trim());
+  if (srgb) {
+    const [r, g, b] = srgb.slice(1, 4).map((v) => Math.round(Math.min(1, Math.max(0, Number(v))) * 255));
+    const a = srgb[4] == null ? 1 : Math.min(1, Math.max(0, Number(srgb[4])));
+    if (a === 0) return "none";
+    return a === 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
+  }
+  if (!wbExportColourCtx) {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    wbExportColourCtx = canvas.getContext("2d", { willReadFrequently: true });
+  }
+  const ctx = wbExportColourCtx;
+  ctx.clearRect(0, 0, 1, 1);
+  //: A value the canvas cannot parse leaves `fillStyle` unchanged, so a
+  //: sentinel says "not understood" rather than painting the sentinel.
+  ctx.fillStyle = "#010203";
+  ctx.fillStyle = value;
+  if (ctx.fillStyle === "#010203" && !/^#010203$/i.test(value)) return null;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+  if (a === 0) return "none";
+  return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
+}
+
+//: The fill, edge and ink of one drawn box. `inkEl` is the element that holds
+//: its words, which is not the box itself on a map topic. `null` for an
+//: element that is not drawn (a topic culled off screen), so the caller can
+//: fall back to one that is.
+function wbExportPaint(el, inkEl) {
+  if (!el) return null;
+  const style = getComputedStyle(el);
+  const edgeWidth = parseFloat(style.borderTopWidth) || 0;
+  return {
+    fill: wbExportColour(style.backgroundColor) || "none",
+    edge: edgeWidth > 0 ? wbExportColour(style.borderTopColor) : null,
+    ink: wbExportColour(getComputedStyle(inkEl || el).color) || "#1f2430",
+  };
+}
+
 function wbBuildExportSvg(scope) {
   const bounds = scope === "selection" ? wbSelectionBounds()
     : scope === "visible" ? wbVisibleBounds() : wbBoardBounds();
@@ -5413,9 +5495,20 @@ function wbBuildExportSvg(scope) {
     for (const edge of document.querySelectorAll(".wb-map-edges .wb-map-edge")) {
       const clone = edge.cloneNode(true);
       clone.removeAttribute("class");
-      clone.setAttribute("fill", "none");
-      if (!clone.getAttribute("stroke")) clone.setAttribute("stroke", "#8888aa");
-      clone.setAttribute("stroke-width", "2");
+      //: Painted as drawn, the same rule as the boxes below: a branch is a
+      //: filled, tapered ribbon in its branch's colour (a stylesheet rule
+      //: over an inline custom property), and the export used to force
+      //: `fill="none"` and a grey stroke, so every branch came out as a pair
+      //: of thin grey outlines. The class and the custom property do not
+      //: survive the clone, so the computed paint goes on as attributes.
+      const look = getComputedStyle(edge);
+      const paint = (value) => (value && !value.startsWith("url(") ? wbExportColour(value) : null);
+      clone.removeAttribute("style");
+      clone.setAttribute("fill", paint(look.fill) || "none");
+      clone.setAttribute("stroke", paint(look.stroke) || "none");
+      clone.setAttribute("stroke-width", look.strokeWidth || "2");
+      if (look.opacity && look.opacity !== "1") clone.setAttribute("opacity", look.opacity);
+      if (look.strokeDasharray && look.strokeDasharray !== "none") clone.setAttribute("stroke-dasharray", look.strokeDasharray);
       parts.push(clone.outerHTML);
     }
   }
@@ -5437,6 +5530,14 @@ function wbBuildExportSvg(scope) {
   // card, matching what the live card itself shows (raw content, truncated;
   // it has no private-note masking of its own to match either).
   const exportEntriesById = new Map(allEntries.map((e) => [String(e.id), e]));
+  //: A card or topic that is not in the DOM (culled off screen) takes the
+  //: paint of one that is, which is the theme's own card look. The last topic
+  //: in the layer rather than the first, because the first is usually the
+  //: trunk, which wears its branch colour as a fill.
+  let cardFallback = wbExportPaint(document.querySelector("#wb-html-layer .node-card"));
+  const topics = document.querySelectorAll("#wb-html-layer .wb-object.wb-map-node");
+  const lastTopic = topics[topics.length - 1];
+  const topicFallback = wbExportPaint(lastTopic, lastTopic?.querySelector(".wb-map-text"));
   for (const node of wbState.nodes) {
     if (onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) continue;
     const entry = exportEntriesById.get(String(node.entry_id));
@@ -5444,9 +5545,11 @@ function wbBuildExportSvg(scope) {
     const w = el ? el.offsetWidth : 250;
     const h = el ? el.offsetHeight : 150;
     const label = entry ? notePreviewText(entry.content || "") : `Note ${node.entry_id}`;
+    const cardPaint = wbExportPaint(el) || cardFallback;
     parts.push(`<g transform="translate(${node.x}, ${node.y})">`);
     parts.push(
-      `<rect width="${w}" height="${h}" rx="10" fill="#ffffffcc" stroke="#8888aa" stroke-width="1.5" />`
+      `<rect width="${w}" height="${h}" rx="10" fill="${cardPaint?.fill || "#ffffffcc"}" ` +
+        `stroke="${cardPaint?.edge || "#8888aa"}" stroke-width="1.5" />`
     );
     //: **As many lines as the card itself is showing**, from the card's own
     //: measured height. This used to take the first 160 characters and then
@@ -5459,7 +5562,8 @@ function wbBuildExportSvg(scope) {
     //: uses at font size 13, and 12 leaves the last line clear of the rounded
     //: bottom edge.
     const cardLines = Math.max(1, Math.floor((h - 24 - 12) / 16));
-    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28, cardLines));
+    parts.push(wbSvgText(wbSvgWrapLines(label || "Empty note", w - 28, cardLines), 14, 24,
+      { fill: cardPaint?.ink || "#1f2430" }));
     parts.push("</g>");
   }
 
@@ -5489,9 +5593,11 @@ function wbBuildExportSvg(scope) {
       // and not drawn" gap this whole section exists to close, one layer down.
       const size = wbMapNodeSize(obj);
       const colour = exportMapColors?.get(obj.id) || "#8888aa";
+      const topicEl = document.querySelector(`#wb-html-layer .wb-object[data-id="${obj.id}"]`);
+      const topicPaint = wbExportPaint(topicEl, topicEl?.querySelector(".wb-map-text")) || topicFallback;
       parts.push(
-        `<rect width="${size.w}" height="${size.h}" rx="8" fill="#ffffffee" ` +
-          `stroke="${wbSvgEscape(colour)}" stroke-width="1.5" />`
+        `<rect width="${size.w}" height="${size.h}" rx="8" fill="${topicPaint?.fill || "#ffffffee"}" ` +
+          `stroke="${wbSvgEscape(topicPaint?.edge || colour)}" stroke-width="1.5" />`
       );
       parts.push(
         `<rect width="4" height="${size.h}" rx="2" fill="${wbSvgEscape(colour)}" />`
@@ -5529,14 +5635,18 @@ function wbBuildExportSvg(scope) {
         labelTop = py + ph + 16;
       }
       const lines = wbSvgWrapLines(wbMapLabel(obj), size.w - 28, 4, 7.5);
-      parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: "#1f2430", lineHeight: 17 }));
+      parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17 }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
+      //: A text box with no colour of its own writes in the theme's ink, which
+      //: is near-white on a dark board: read it off the box, as above.
+      const textEl = obj.data.color ? null : document.querySelector(`#wb-html-layer .wb-object[data-id="${obj.id}"] .wb-text-content`);
+      const textInk = textEl ? wbExportColour(getComputedStyle(textEl).color) : null;
       parts.push(
         wbSvgText(lines, 10, fontSize + 8, {
           fontSize,
-          fill: obj.data.color || "#1f2430",
+          fill: obj.data.color || textInk || "#1f2430",
           lineHeight: fontSize * 1.25,
         })
       );
@@ -5910,7 +6020,10 @@ async function uploadToLibrary(filename, blob, description = "") {
   if (description && uploaded?.id && !uploaded.caption) {
     await apiJson(`/media/${uploaded.id}/caption`, {
       method: "POST",
-      body: JSON.stringify({ text: description }),
+      //: `source: "app"` (the owner, 2026-09-24): the app wrote this line, nobody typed
+      //: it, so it is stored as written by MemoryMap rather than as a hand
+      //: edit, and the lightbox and the card say so.
+      body: JSON.stringify({ text: description, source: "app" }),
     }).catch(() => {
       // Best effort, exactly like the upload itself: an export that produced a
       // file and a card has not failed because its description did not land.
@@ -8602,6 +8715,11 @@ async function initWhiteboard() {
   let wbMarqueeStart = null;
   let wbMarqueeEl = null;
   let wbMarqueeJustSelected = false;
+  //: The latest pointer position (board units) and the frame that will draw
+  //: it, so a burst of moves inside one frame is one write (`wbDrawMarquee`).
+  let wbMarqueeAt = null;
+  let wbMarqueeFrame = 0;
+  let wbMarqueeInk = "";
   //: End the marquee gesture and take its rectangle off the canvas. Every
   //: exit from the drag goes through here, the completed one, the cancelled
   //: one, and the sweep `wbClearSelectionOverlays` runs, so there is exactly
@@ -8610,6 +8728,9 @@ async function initWhiteboard() {
     wbMarqueeEl?.remove();
     wbMarqueeEl = null;
     wbMarqueeStart = null;
+    if (wbMarqueeFrame) cancelAnimationFrame(wbMarqueeFrame);
+    wbMarqueeFrame = 0;
+    wbMarqueeAt = null;
   }
   containerEl.addEventListener("pointerdown", (e) => {
     //: A new press is a new gesture: a one-shot left by a drag released off
@@ -8649,14 +8770,41 @@ async function initWhiteboard() {
   //: The rectangle itself, made on the first movement past the threshold the
   //: completed gesture is judged by anyway. Split out so both the press and
   //: the move can read it.
+  //: **Drawn on the compositor, once a frame** (INBOX 410: "drag selection on
+  //: the whiteboard and mindmap is laggy as well"). The rectangle was an SVG
+  //: `<rect>` in the overlay layer whose four attributes were rewritten on
+  //: every pointermove. Each rewrite changed a paint chunk's bounds, and a
+  //: changed chunk makes Chrome re-layerize the whole page, whose cost grows
+  //: with everything on the board: traced over one 80-move drag
+  //: (`scratchpad/ui-sweeps/marqueeperf.js`), Layerize took 1275ms on a board
+  //: of 200 text boxes and 616ms on a map of 200 topics, with frames of 50ms
+  //: at the 95th percentile and 83ms at worst.
+  //:
+  //: **Not a DOM change at all: a canvas.** The obvious fix, five 1px boxes
+  //: moved by `transform` on layers of their own, was measured first and
+  //: is not one: on a map of 200 topics, 60 frames of transform writes cost
+  //: 419ms of Layerize, the same as 60 frames of `<rect>` attribute writes
+  //: (445ms), because any style or attribute change re-layerizes a page this
+  //: size. 60 frames of drawing on a canvas cost 8.7ms. So the rectangle is
+  //: drawn on a canvas the size of the container, made when the drag starts
+  //: and removed when it ends, redrawn at most once a frame from the last
+  //: pointer position of that frame. It keeps the dashed accent edge and the
+  //: 12% accent wash the SVG rectangle had.
   function wbBeginMarqueeRect(pointerId) {
-    wbMarqueeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    wbMarqueeEl.setAttribute("class", "wb-marquee");
-    wbMarqueeEl.setAttribute("x", wbMarqueeStart.x);
-    wbMarqueeEl.setAttribute("y", wbMarqueeStart.y);
-    wbMarqueeEl.setAttribute("width", 0);
-    wbMarqueeEl.setAttribute("height", 0);
-    document.getElementById("wb-overlay-zoom-group").appendChild(wbMarqueeEl);
+    wbMarqueeEl = document.createElement("canvas");
+    wbMarqueeEl.className = "wb-marquee";
+    wbMarqueeEl.setAttribute("aria-hidden", "true");
+    const ratio = window.devicePixelRatio || 1;
+    const w = containerEl.clientWidth, h = containerEl.clientHeight;
+    wbMarqueeEl.width = Math.max(1, Math.round(w * ratio));
+    wbMarqueeEl.height = Math.max(1, Math.round(h * ratio));
+    wbMarqueeEl.style.width = `${w}px`;
+    wbMarqueeEl.style.height = `${h}px`;
+    //: Through `wbExportColour`, because a canvas cannot read a `var()` and
+    //: the accent may be a `color-mix()` the canvas does not parse either.
+    const accent = wbExportColour(getComputedStyle(containerEl).getPropertyValue("--accent").trim());
+    wbMarqueeInk = accent && accent !== "none" ? accent : "#3b82f6";
+    containerEl.appendChild(wbMarqueeEl);
     // **The capture is the fix.** Without it every pointermove and pointerup
     // outside the container went to whatever element was under the cursor,
     // so a drag that ended over the top bar, over the left rail or off the
@@ -8677,14 +8825,39 @@ async function initWhiteboard() {
       if (Math.abs(x - wbMarqueeStart.x) < 4 && Math.abs(y - wbMarqueeStart.y) < 4) return;
       wbMarqueeStart.pending = false;
       wbBeginMarqueeRect(wbMarqueeStart.pointerId);
+      // Placed now, before its first paint, so it never shows as a dot at
+      // the container's corner for a frame.
+      wbMarqueeAt = [x, y];
+      wbDrawMarquee();
+      return;
     }
-    const mx = Math.min(wbMarqueeStart.x, x), my = Math.min(wbMarqueeStart.y, y);
-    const w = Math.abs(x - wbMarqueeStart.x), h = Math.abs(y - wbMarqueeStart.y);
-    wbMarqueeEl.setAttribute("x", mx);
-    wbMarqueeEl.setAttribute("y", my);
-    wbMarqueeEl.setAttribute("width", w);
-    wbMarqueeEl.setAttribute("height", h);
+    wbMarqueeAt = [x, y];
+    if (!wbMarqueeFrame) wbMarqueeFrame = requestAnimationFrame(wbDrawMarquee);
   });
+  //: The board point under the pointer, to the container's own pixels: the
+  //: inverse of `getLogicalMouse`, so the box is where the selection is.
+  function wbDrawMarquee() {
+    wbMarqueeFrame = 0;
+    if (!wbMarqueeEl || !wbMarqueeStart || !wbMarqueeAt) return;
+    const t = d3.zoomTransform(containerEl);
+    const x0 = t.applyX(wbMarqueeStart.x), y0 = t.applyY(wbMarqueeStart.y);
+    const x1 = t.applyX(wbMarqueeAt[0]), y1 = t.applyY(wbMarqueeAt[1]);
+    const l = Math.round(Math.min(x0, x1)), top = Math.round(Math.min(y0, y1));
+    const w = Math.round(Math.abs(x1 - x0)), h = Math.round(Math.abs(y1 - y0));
+    const ratio = window.devicePixelRatio || 1;
+    const g = wbMarqueeEl.getContext("2d");
+    g.setTransform(ratio, 0, 0, ratio, 0, 0);
+    g.clearRect(0, 0, wbMarqueeEl.width, wbMarqueeEl.height);
+    if (!w || !h) return;
+    g.fillStyle = wbMarqueeInk;
+    g.strokeStyle = wbMarqueeInk;
+    g.globalAlpha = 0.12;
+    g.fillRect(l, top, w, h);
+    g.globalAlpha = 1;
+    g.lineWidth = 1;
+    g.setLineDash([4, 3]);
+    g.strokeRect(l + 0.5, top + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
+  }
   // Anchor points weren't discoverable until a link drag was already under
   // way: asked for directly: "when I hover over objects, their anchor
   // points should display... so I can connect them." A plain hover with a
@@ -12165,9 +12338,16 @@ function renderWbObjects(canvas) {
     }
     delete d._gesture;
     if (dropTarget) {
+      //: Where the branch was picked up, so the transplant's one Undo puts it
+      //: back there rather than where it was let go (INBOX 410).
+      const before = new Map();
+      if (d._moveUndoBefore) before.set(d.id, { x: d._moveUndoBefore.x, y: d._moveUndoBefore.y });
+      for (const entry of bulkOrigin?.values() || []) {
+        if (entry.kind === "object" && !before.has(entry.id)) before.set(entry.id, { x: entry.x, y: entry.y });
+      }
       delete d._moveUndoBefore;
       if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
-      await wbMapTransplant(d, dropTarget.id, alone);
+      await wbMapTransplant(d, dropTarget.id, alone, { before });
       return;
     }
     const moveBefore = d._moveUndoBefore;

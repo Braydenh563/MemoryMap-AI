@@ -109,6 +109,12 @@ below). Versioning is `0.x` while the app stabilises.
 - The AI assistant's Edit, Write and Remove choice uses the same quiet selected
   state as every other choice control in the flat looks; the board export's
   format and scope are option tiles instead of a wrapping strip.
+- Boards and maps: a drag-selection rectangle keeps up with the pointer on a big board or map. It is drawn on a canvas once a frame instead of rewriting the page each move, and letting go restyles only the items whose selection changed.
+- Lightbox: the picture never runs under the previous and next arrows, at Fit or zoomed, at any width, and the information card under it is one width on every picture, edge to edge with the toolbar.
+- Boards and maps: a picture exported (to a file or to the Library) is painted in the colours on screen, in light and dark: map topics, note cards and text boxes take their own fill, edge and ink, and a branch keeps its colour. In dark mode the topics used to come out white and the text dark on dark.
+- Library and lightbox: a picture exported from a board or map carries the description the app wrote for it as "Written by MemoryMap", not "typed by hand", and a vision model that later describes it is credited alone rather than as an edit.
+- Mind maps: a topic dropped on another topic, or joined to one by a line, is laid out as that topic's child with its own branch beside it, on a Free map as well as a tidied one, and one Undo puts the parent and every place back. It used to land on top of its new parent.
+- Mind maps: the ring of actions on a topic or a line holds its buttons inside its band. Each is a small tile, icon over word, evenly spaced round the circle, and the band is sized to the tiles, so none hangs over its edge or into its hole at any width.
 - The guide answers "Can Atlas write for me?" from a new Write with Atlas topic.
 - Answer citations: a note the answer names by number ("Notes 1, 5, and 6")
   is marked, and a run of sentences from the same notes in one paragraph

@@ -62,6 +62,14 @@ async function boot(opts={}) {
       localStorage.setItem('tourDone', '1');
     } catch (e) {}
   }, process.env.THEME || 'light');
+  // OVERRIDE_JS="whiteboard.js=/tmp/base/whiteboard.js" serves that file in
+  // place of the app's own, so a "before" can be measured against a base
+  // commit's script on the same server and data dir as the "after".
+  if (process.env.OVERRIDE_JS) {
+    const [name, file] = process.env.OVERRIDE_JS.split('=');
+    const body = require('fs').readFileSync(file, 'utf8');
+    await ctx.route(`**/${name}*`, (route) => route.fulfill({ body, contentType: 'application/javascript' }));
+  }
   const page = await ctx.newPage();
   page.on('pageerror', e=>console.log('PAGEERROR:', e.message, '\n', (e.stack||'').split('\n').slice(0,6).join('\n')));
   page.on('console', m=>{ if(m.type()==='error') console.log('CONSOLE-ERR:', m.text().slice(0,160)); });

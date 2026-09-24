@@ -311,12 +311,18 @@
   pointer-events: none;
 }
 
+/* The selection rectangle: a canvas over the whole container, drawn by
+   `wbDrawMarquee` (its dashed accent edge and 12% wash are painted there),
+   because drawing on a canvas is the one per-frame change that does not
+   re-layerize the page (INBOX 410, the numbers are on
+   `wbBeginMarqueeRect`). Last in the container's order, so it draws over
+   the cards it is about to select, and its own layer. */
 .wb-marquee {
-  fill: color-mix(in srgb, var(--accent) 12%, transparent);
-  stroke: var(--accent);
-  stroke-width: 1px;
-  stroke-dasharray: 4 3;
+  position: absolute;
+  left: 0;
+  top: 0;
   pointer-events: none;
+  will-change: transform;
 }
 
 .wb-lasso {
@@ -10129,18 +10135,33 @@ input[type="file"] {
    clears that node's measured box; the slots read it and keep their own
    geometry off it. */
 .wb-map-radial {
-  --wb-radial-r: 5.5rem;
-  /* The band under the slots. A slot is a labelled pill now (1.75rem tall,
-     7rem wide), so the band has to cover its height plus the sag of a straight
-     pill across a curved band: at the top of the ring the circle drops
-     (3.5rem)^2 / (2 * 5.5rem) = 1.1rem by the pill's own end, which a 3rem
-     band centred on the radius still covers. */
-  --wb-radial-band: 3rem;
-  /* A fixed slot width, because the placement below is `left`/`top` from the
-     radius and half the slot's own width has to come off it: an auto width
+  --wb-radial-r: 6rem;
+  /* **A slot is a tile, icon over word, and the band is cut to the tiles**
+     (INBOX 410: "is there a way to make these mind map item radial options
+     fit better in the radials??"). The slots were 7rem pills laid flat on a
+     fixed 3rem band. Flat is right at the top and bottom of a circle and
+     wrong everywhere else: at the four diagonals a pill runs *across* the
+     band rather than along it. Measured at 1440, 1184 and 390: each diagonal
+     pill hung 32px past the band's outer edge and 28px into its hole, and
+     the three-slot line ring read as one pill on top and two side by side
+     under it. A tile 4.75rem wide is close enough to square that its reach
+     across the band barely changes with the angle it sits at, and the band
+     is no longer a width guessed from one slot: `wbFitMapRadialBand`
+     measures the placed tiles and writes the inner and outer edge that just
+     hold them. The two edges below are that band for the default radius,
+     for the frame before it runs (a 76 by 44 tile at 30 degrees off the
+     horizontal reaches 52px in and 140px out at a 96px radius).
+
+     A fixed size, because the placement below is `left`/`top` from the
+     radius and half the slot's own box has to come off it: an auto width
      would need a percentage margin, and the ring's box is zero-sized, so a
-     percentage of it is zero. */
-  --wb-radial-slot-w: 7rem;
+     percentage of it is zero. Two lines of word fit in the height, which the
+     two Alt words ("Remove branch", "Remove topic") need at this width;
+     every other word is one line, centred. */
+  --wb-radial-slot-w: 4.75rem;
+  --wb-radial-slot-h: 2.75rem;
+  --wb-radial-inner: calc(var(--wb-radial-r) - 3rem);
+  --wb-radial-outer: calc(var(--wb-radial-r) + 3rem);
   position: absolute;
   z-index: 23;
   width: 0;
@@ -10175,11 +10196,11 @@ input[type="file"] {
   box-sizing: border-box;
   left: 50%;
   top: 50%;
-  width: calc(var(--wb-radial-r) * 2 + var(--wb-radial-band));
-  height: calc(var(--wb-radial-r) * 2 + var(--wb-radial-band));
-  margin-left: calc((var(--wb-radial-r) + var(--wb-radial-band) / 2) * -1);
-  margin-top: calc((var(--wb-radial-r) + var(--wb-radial-band) / 2) * -1);
-  border: var(--wb-radial-band) solid
+  width: calc(var(--wb-radial-outer) * 2);
+  height: calc(var(--wb-radial-outer) * 2);
+  margin-left: calc(var(--wb-radial-outer) * -1);
+  margin-top: calc(var(--wb-radial-outer) * -1);
+  border: calc(var(--wb-radial-outer) - var(--wb-radial-inner)) solid
     color-mix(in srgb, var(--ink) 5%, var(--modal-bg-opaque));
   border-radius: 50%;
   box-shadow: var(--shadow-md),
@@ -10200,19 +10221,20 @@ input[type="file"] {
   --wb-radial-diag: calc(var(--wb-radial-r) * 0.866);
   --wb-radial-mid: calc(var(--wb-radial-r) * 0.5);
   --wb-radial-halfw: calc(var(--wb-radial-slot-w) / 2);
-  --wb-radial-half: 0.875rem;
+  --wb-radial-half: calc(var(--wb-radial-slot-h) / 2);
   position: absolute;
   left: calc(50% + var(--wb-radial-dx) - var(--wb-radial-halfw));
   top: calc(50% + var(--wb-radial-dy) - var(--wb-radial-half));
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1);
+  gap: 0;
   width: var(--wb-radial-slot-w);
-  height: 1.75rem;
+  height: var(--wb-radial-slot-h);
   min-width: 0;
-  padding-inline: var(--space-2);
-  border-radius: var(--radius-pill);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-md);
   pointer-events: auto;
   background: var(--modal-bg-opaque);
   border: 1px solid var(--glass-border);
@@ -10253,13 +10275,13 @@ input[type="file"] {
    under the ring still carries the long sentence and the keys; this is the
    name, at rest, in the slot. */
 .wb-map-radial-name {
-  font-size: var(--text-sm);
+  max-width: 100%;
+  font-size: var(--text-xs);
   font-weight: 500;
-  line-height: 1;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
+  line-height: 1.1;
+  text-align: center;
+  text-wrap: balance;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .wb-map-radial-slot i {
@@ -10328,12 +10350,13 @@ input[type="file"] {
 .wb-map-radial-caption {
   position: absolute;
   left: 50%;
-  /* The caption's *top* edge, a slot's half (0.875rem) plus a gap below the
-     ring, rather than its centre: the caption is one line or two depending on
+  /* The caption's *top* edge, a gap below the band's own outer edge (INBOX
+     410: under the band, so it never sits on it), rather than its centre:
+     the caption is one line or two depending on
      the slot, and centring it on a fixed point put its top edge over the
      bottom slot as soon as it wrapped (measured: the copy slot's centre at
      y 594 under a caption starting at 596). */
-  top: calc(50% + var(--wb-radial-r) + 1.5rem);
+  top: calc(50% + var(--wb-radial-outer) + var(--space-2));
   transform: translateX(-50%);
   /* Wide enough for the longest of them on one line, and wrapping rather
      than ellipsising past it: a caption that ends in "…" is the tooltip

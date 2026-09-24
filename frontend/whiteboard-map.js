@@ -1963,22 +1963,42 @@ function wbMapClearDropTarget() {
 //: The node is unpinned on the way: it was dragged, so `wbMapPinOnDrag` would
 //: otherwise fix it exactly where the pointer let go, which is the one place
 //: it should not stay now that it belongs to a different parent.
-async function wbMapTransplant(d, targetId, alone, { via = "drag" } = {}) {
+//:
+//: **Laid out as the new parent's child, branch and all, and one Undo**
+//: (INBOX 410: "when I relink or newly link two mindmap nodes, they clump
+//: together??"). Measured with `scratchpad/ui-sweeps/maprelink.js`: on a map
+//: whose layout is Free the tidy below does nothing, so a dropped branch
+//: stayed exactly where the pointer let go of it, on top of the topic it was
+//: dropped on, and a joined one stayed wherever it had been; a descendant
+//: pinned by an earlier drag kept its old place on every layout, so the branch
+//: arrived without it; and none of it could be undone, because `/move` is the
+//: only write of `parent_id` and the history had no entry that makes one.
+//: `before` is the positions the gesture started from (a drag's own origin),
+//: so Undo puts a dragged branch back where it was picked up rather than
+//: where it was dropped.
+async function wbMapTransplant(d, targetId, alone, { via = "drag", before = null } = {}) {
   const boardId = window.currentBoardId;
   const index = wbMapIndex();
   const target = index.byId.get(targetId);
   if (!boardId || !target) return false;
   if (d.parent_id === targetId && !alone) return false;
   const oldParent = index.byId.has(d.parent_id) ? d.parent_id : null;
+  const movedChildren = alone ? [...(index.childrenOf.get(d.id) || [])] : [];
+  //: Every topic's row as it stands, for the one history entry at the end:
+  //: whatever the layout moves, the undo restores, and nothing else.
+  const payload = WB_KIND_INFO.object.payload;
+  const rows = new Map(index.nodes.map((node) => {
+    const row = payload(node);
+    const from = before?.get(node.id);
+    return [node.id, from ? { ...row, x: from.x, y: from.y } : row];
+  }));
   const move = (id, parentId) => apiJson(
     `/whiteboard/boards/${boardId}/nodes/${id}/move`,
     { method: "PUT", body: JSON.stringify({ parent_id: parentId }) }
   );
   try {
-    if (alone) {
-      for (const child of index.childrenOf.get(d.id) || []) {
-        Object.assign(child, await move(child.id, oldParent));
-      }
+    for (const child of movedChildren) {
+      Object.assign(child, await move(child.id, oldParent));
     }
     Object.assign(d, await move(d.id, targetId));
   } catch (err) {
@@ -1989,8 +2009,45 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag" } = {}) {
     d.data = { ...d.data, pinned: false };
     await wbSaveObject(d);
   }
-  await wbMapTidyBranch(targetId);
-  if (oldParent != null) await wbMapTidyBranch(oldParent);
+  const branch = wbMapSubtree(wbMapIndex(), d.id);
+  const landed = new Map(branch.map((node) => [node.id, { x: node.x, y: node.y }]));
+  if (wbMapLayout() === "free") {
+    await wbMapPlaceAsChild(d, target, branch);
+  } else {
+    await wbMapTidyBranch(targetId);
+    if (oldParent != null) await wbMapTidyBranch(oldParent);
+    //: A tidy leaves a pinned topic where it is, which is right for a topic
+    //: someone placed inside its own branch and wrong for one whose whole
+    //: branch has just moved: it would stay behind. So a pinned descendant
+    //: travels by exactly what its moved topic travelled, which keeps the
+    //: place it was given relative to it.
+    const start = landed.get(d.id);
+    const dx = d.x - start.x, dy = d.y - start.y;
+    const carry = new Map();
+    for (const node of branch) {
+      if (node === d || !node.data?.pinned) continue;
+      const was = landed.get(node.id);
+      if (node.x !== was.x || node.y !== was.y || (!dx && !dy)) continue;
+      carry.set(wbMultiKey("object", node.id), { kind: "object", id: node.id, item: node, x: was.x + dx, y: was.y + dy });
+    }
+    if (carry.size) {
+      wbApplyBulkMove(carry, 0, 0);
+      await wbSaveBulkMove(carry);
+    }
+  }
+  const history = [{ action: "reparent", kind: "object", id: d.id, parentId: oldParent }];
+  for (const child of movedChildren) {
+    history.push({ action: "reparent", kind: "object", id: child.id, parentId: d.id });
+  }
+  for (const node of wbMapIndex().nodes) {
+    const row = rows.get(node.id);
+    if (!row) continue;
+    const pinChanged = node === d && row.data !== node.data;
+    if (row.x !== node.x || row.y !== node.y || pinChanged) {
+      history.push({ action: "move", kind: "object", id: node.id, before: row });
+    }
+  }
+  wbPushUndo({ action: "batch", entries: history });
   renderWhiteboardNow();
   //: A line drawn between two topics and a branch dragged onto one are the
   //: same move and want different words: the first connected something, the
@@ -2001,6 +2058,42 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag" } = {}) {
       ? `Moved this topic under "${wbMapLabel(target)}", its branches stayed.`
       : `Moved this branch under "${wbMapLabel(target)}".`);
   return true;
+}
+
+//: **Where a re-parented branch goes on a Free map** (INBOX 410). Free means
+//: the tidy never runs, so this is the one placement a free map gets: the
+//: branch is moved as a whole so its topic sits where a topic added under the
+//: same parent would, beside the parent and under its last child, or level
+//: with the parent when it is the first. The gaps are
+//: the tidy's own (`WB_MAP_GAP_DEPTH`, `WB_MAP_GAP_BREADTH`), so a free map
+//: and a tidied one space a branch alike. A free map has no growing side, so
+//: "beside" is the right, where the server puts a new child of a topic on a
+//: free map too (`_next_position`). "Under its last child" is under that
+//: child's whole branch, so the new arrival never lands on a grandchild.
+async function wbMapPlaceAsChild(d, target, branch) {
+  const index = wbMapIndex();
+  const moving = new Set(branch.map((node) => node.id));
+  const size = (node) => wbMapNodeSize(node);
+  const targetSize = size(target);
+  const siblings = (index.childrenOf.get(target.id) || []).filter((node) => !moving.has(node.id));
+  let x = target.x + targetSize.w + WB_MAP_GAP_DEPTH;
+  let y = target.y + (targetSize.h - size(d).h) / 2;
+  if (siblings.length) {
+    x = Math.min(...siblings.map((node) => node.x));
+    let bottom = -Infinity;
+    for (const sibling of siblings) {
+      for (const node of wbMapSubtree(index, sibling.id)) bottom = Math.max(bottom, node.y + size(node).h);
+    }
+    y = bottom + WB_MAP_GAP_BREADTH;
+  }
+  const dx = x - d.x, dy = y - d.y;
+  if (!dx && !dy) return;
+  const origin = new Map();
+  for (const node of branch) {
+    origin.set(wbMultiKey("object", node.id), { kind: "object", id: node.id, item: node, x: node.x + dx, y: node.y + dy });
+  }
+  wbApplyBulkMove(origin, 0, 0);
+  await wbSaveBulkMove(origin);
 }
 
 //: **A link tool, on a map, joins the tree** (INBOX 180: "I cant properly
@@ -4451,10 +4544,13 @@ function wbPlaceMapRadial(ring, host, x, y, clear) {
   ring.style.left = `${Math.round(x)}px`;
   ring.style.top = `${Math.round(y)}px`;
   ring.style.removeProperty("--wb-radial-r");
+  ring.style.removeProperty("--wb-radial-inner");
+  ring.style.removeProperty("--wb-radial-outer");
   ring.classList.remove("hidden");
   const hostRect = host.getBoundingClientRect();
   if (!hostRect.width || !hostRect.height) return;
   wbSizeMapRadial(ring, hostRect, clear);
+  wbFitMapRadialBand(ring);
   let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
   for (const slot of ring.children) {
     const box = slot.getBoundingClientRect();
@@ -4564,9 +4660,46 @@ function wbSizeMapRadial(ring, hostRect, clear) {
   //: diagonals may overlap the node's *columns* without ever touching it,
   //: which is what keeps the ring tight around a wide topic.
   const want = clear.h + box.height + 16;
-  const fits = Math.min(hostRect.width, hostRect.height) / 2 - box.height / 2 - 8;
+  //: What the canvas can hold is the band's outer edge, not the radius: a
+  //: tile at a diagonal reaches further out than the radius by more than half
+  //: its own height (INBOX 410), so the reach past the radius is measured off
+  //: the placed tiles rather than assumed from one slot's height.
+  const reach = wbMapRadialBand(ring).outer - base;
+  const fits = Math.min(hostRect.width, hostRect.height) / 2 - reach - 8;
   const r = Math.min(want, base * 2.5, Math.max(base, fits));
   if (r > base + 1) ring.style.setProperty("--wb-radial-r", `${Math.round(r)}px`);
+}
+
+//: **The band is cut to the tiles it carries** (INBOX 410). The nearest and
+//: farthest point of every placed tile from the ring's centre, less and plus
+//: a hairline of room: so no tile overhangs the band's outer edge or dips into
+//: its hole, whatever the radius `wbSizeMapRadial` chose, the tile size the
+//: stylesheet sets, or the number of slots (six on a topic, three on a line).
+//: Read off the live boxes for the same reason the radius is: the ring's own
+//: box is a zero-sized point at its centre, so a slot's box minus that point
+//: is its true offset, and a stylesheet change needs no edit here.
+function wbMapRadialBand(ring) {
+  const origin = ring.getBoundingClientRect();
+  let inner = Infinity, outer = 0;
+  for (const slot of ring.querySelectorAll(".wb-map-radial-slot")) {
+    const r = slot.getBoundingClientRect();
+    if (!r.width) continue;
+    const nx = Math.max(r.left - origin.left, 0, origin.left - r.right);
+    const ny = Math.max(r.top - origin.top, 0, origin.top - r.bottom);
+    inner = Math.min(inner, Math.hypot(nx, ny));
+    const fx = Math.max(Math.abs(r.left - origin.left), Math.abs(r.right - origin.left));
+    const fy = Math.max(Math.abs(r.top - origin.top), Math.abs(r.bottom - origin.top));
+    outer = Math.max(outer, Math.hypot(fx, fy));
+  }
+  return { inner: Number.isFinite(inner) ? inner : 0, outer };
+}
+
+function wbFitMapRadialBand(ring) {
+  const { inner, outer } = wbMapRadialBand(ring);
+  if (!outer) return;
+  const room = 4;
+  ring.style.setProperty("--wb-radial-inner", `${Math.max(0, Math.floor(inner - room))}px`);
+  ring.style.setProperty("--wb-radial-outer", `${Math.ceil(outer + room)}px`);
 }
 
 //: The node whose ring is open wears a class while it is open, because two of
@@ -5413,4 +5546,3 @@ async function wbMapPinOnDrag(d) {
   await wbSaveObject(d);
   wbScheduleRender();
 }
-

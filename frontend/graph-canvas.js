@@ -2328,10 +2328,10 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
         s.worker.postMessage({ type: "recycle", buffer: positions.buffer }, [positions.buffer]);
         if (s.size === "full") {
           graphMinimapTick += 1;
-          if (graphMinimapTick % 8 === 0) graphMinimapPaint();
+          if (graphMinimapTick % 8 === 0) graphMinimapQueuePaint();
         }
       } else if (message.type === "end") {
-        if (s.size === "full") graphMinimapPaint();
+        if (s.size === "full") graphMinimapQueuePaint();
         if (!gcAutoFitDone(s) && s.nodes.length) {
           gcSetAutoFitDone(s, true);
           fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);

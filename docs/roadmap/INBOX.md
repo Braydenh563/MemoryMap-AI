@@ -97,6 +97,12 @@ with its owner named in the entry.
     550ms); `graphMinimapPaint` rebuilds the minimap's SVG on every worker
     tick (1.56s of `createElementNS`/`setAttribute`/`replaceChildren`);
     recommend painting the minimap to a canvas, at most once a frame.
+    (fixed: `graphMinimapPaint` 1,502ms → 514ms, profile busy 3.6s → 2.0s
+    for the same 40-move drag at 4x; the ticks queue one paint a frame, the
+    paint moves the existing dots and lines and skips unchanged attributes,
+    and a minimap that is off, on a hidden tab or in a hidden window is not
+    painted. Kept as SVG: the sweeps count its circles. Dots, lines and
+    positions identical to base, `perf5/minicheck.js`, `minimap6b.js`.)
     (c) Graph wheel zoom at 4x: 31 long tasks, 13.7s, p95 frame 583ms;
     `gcDraw` re-measures every label (`measureText` 152ms) per frame;
     recommend caching label widths per node and font size.

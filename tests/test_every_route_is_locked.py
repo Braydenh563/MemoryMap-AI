@@ -37,6 +37,11 @@ OPEN = {
     "/auth/lock",
     # Liveness, deliberately: the launcher polls it before the vault exists.
     "/health",
+    # A second desktop launch asking this one to bring its window forward.
+    # It has no session; it carries the token from this server's own
+    # `instance.lock` in the data directory instead, and a wrong or missing
+    # token is a 403 (`tests/test_instance_lock.py`).
+    "/instance/focus",
     # The browser's own crash reports, which have to reach the log *before*
     # unlock, because that is when the failure they describe happens
     # (`routes_settings.open_router`).

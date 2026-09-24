@@ -424,7 +424,7 @@ HELP_TOPICS: list[dict] = [
             "on its own", "by itself", "without me",
         ),
         "body": (
-            "Turned on in Settings -> Preferences, the background librarian "
+            "Turned on in Settings -> Background tasks, the background librarian "
             "tags, links and flags duplicate notes on an interval you choose "
             ", off by default, since it writes to your notebook without "
             "being asked each time. It never deletes anything and skips "

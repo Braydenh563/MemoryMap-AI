@@ -14,6 +14,41 @@ below). Versioning is `0.x` while the app stabilises.
 - Notes and documents: blocks render as blocks everywhere. Callouts come in Obsidian's thirteen kinds plus a toggle, each with its own icon and colour in light and dark; columns sit side by side in notes and chat answers too; `[TOC]` lists the headings as links; `***` and `___` draw a section break and a strong rule; a quote ending `-- Name` shows its attribution; `$$ ... $$` is typeset in Read view and notes; an embedded document is a card. The HTML export styles all of them.
 - Documents: a rendered block has a small bar while you point at it: change a callout's kind or folding, jump to the block in the editor, copy its markdown, or delete it (with Undo). In Live view the callout's icon changes its kind.
 - Generated avatars read the name they are drawn for. Mood words ("depressed", "overly dramatic", even "exitable"), animals ("panda"), costumes ("wizard" is a hat, "academic" is glasses), typing ("ALL CAPS", "...", ":)", emoji, 666), internet words ("lol", "meh", "uwu") and stacked flavours ("wink", "ahhhh", "cooked") each change the face; a name that makes no sense becomes a small mutant whose eyes, stalks, spots and fangs come from its letters (the helixlabs idea); any other name gets a stable personality of its own. Hover a face for what it was read as. New Appearance setting: Avatar animation (on hover, always, off) makes them blink and act out their mood; Reduce motion stops it.
+- One running copy per notebook. Launching the desktop app while it is
+  already open now brings the open window forward instead of starting a
+  second server on the same data folder, which used to run the migrations
+  and background work against the SQLite file the first copy had open before
+  failing to bind the port. A running server writes `instance.lock` (port,
+  pid, a token) into the data folder; a launch checks it against `/health`
+  and asks the running copy to focus its window (`POST /instance/focus`,
+  guarded by that token). A lock whose port is silent and whose process is
+  gone, or past a 90 second boot grace, is stale and is taken over. Settings,
+  About, Advanced has "Open a new window on each launch", off by default: on,
+  a second launch opens another window onto the same running server, never a
+  second server. The rules are pure functions tested in
+  `tests/test_instance_lock.py` (24 tests, launcher driven with a fake
+  pywebview); not verified against a real pywebview window, Windows'
+  foreground rules or two windows sharing one WebView2 profile.
+- Settings, Preferences is now Profile & preferences, your own local
+  profile, and sits second in the settings list, right after Models. It opens
+  on a head with your mark (the same generated face your chat bubbles wear,
+  drawn from your name), and the name and About me come first; About me stops
+  at the 600 characters Atlas reads, with a count. The Settings head carries
+  your mark too, and pressing it opens the profile from any pane. Renaming
+  yourself repaints every mark at once, including the bubbles already in the
+  chat (`paintUserMarks`, DESIGN.md's new "A mark generated from a name"
+  recipe, with its lint in `tests/test_ui_recipes.py`). Measured by
+  `scratchpad/ui-sweeps/profile.js` at 1440 and 390, light and dark: no
+  overflow with a 52-character name, the head button the guide button's
+  height. The help chat's background librarian answer now points at
+  Background tasks, where that switch has lived for a while.
+- Atlas now knows your name as well as your "About me", while the profile
+  switch is on. Both reach the prompt through one function,
+  `librarian.profile_from_config`, and the about text is capped at its first
+  600 characters there: the API still accepts 2,000 so an older, longer
+  profile keeps saving, but the system message it lands in is resent on every
+  round of every turn. The whole profile context is held to a quarter of the
+  prose budget by `tests/test_user_profile_context.py`.
 - Internal: the popup agent (Ctrl+K) moved out of app.js into its own palette.js, loaded at boot after timeline.js, which brings the gzipped app.js back under its size bound (752,031 to 730,546 bytes).
 - Library: a file row's facts line is one register. The kind, size, date, reading state, reader link and "Used in" share one size and one line box (they sat on four sizes and three tops), split by the same middot, and "Read this" is an accent link rather than a boxed button.
 - Documents: the writing dictionary is a cleaner settings sheet. One field finds a word as you type and adds it on Enter, the list is quiet rows whose remove appears when you point at one, the list can be exported and imported as a .txt file (import only adds), and spelling, grammar and smart quotes are ordinary settings rows with a line each.

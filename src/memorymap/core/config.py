@@ -172,6 +172,11 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     #: launch. Distinct from show_console_on_startup itself so a later
     #: change via Settings/tray doesn't make the intro reappear.
     "console_view_intro_seen": False,
+    #: Single instance by default: a second launch of the desktop app brings
+    #: the running window forward. On, it opens another window onto the SAME
+    #: running server instead (never a second server on one data directory,
+    #: core/instance_lock.py). Advanced, off by default.
+    "new_window_on_launch": False,
 }
 
 

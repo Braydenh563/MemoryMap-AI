@@ -759,6 +759,16 @@ def _boot_and_swap(window) -> None:
     os.environ["MEMORYMAP_DESKTOP"] = "1"
     PORT = _desktop_port()
     os.environ["MEMORYMAP_PORT"] = str(PORT)
+    # **This process now holds the notebook** (core/instance_lock.py): the
+    # port is final, so a second launch can find this server, and the focus
+    # handler is how that launch brings this window forward instead of
+    # starting a second server on the same data directory. Released by
+    # `_run_desktop` once the window is really gone.
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    instance_lock.claim(resolved_data_dir(), PORT)
+    instance_lock.set_focus_handler(lambda: _bring_forward(window))
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
     if _wait_for_server_with_progress(window):
@@ -1259,6 +1269,90 @@ def _warn_webview2_missing() -> None:
         logger.warning("could not open the WebView2 download page: %s", exc)
 
 
+def _bring_forward(window) -> None:
+    """Un-minimise, un-hide and focus the window: what a second launch asks
+    for. `restore` first because a minimised window that is only shown stays
+    minimised on some backends; missing on an older pywebview, and skipped."""
+    try:
+        window.restore()
+    except Exception as exc:  # noqa: BLE001 - optional on older pywebview
+        logger.debug("window.restore() did not work: %s", exc)
+    _focus_window(window)
+
+
+def _existing_instance():
+    """`(state, lock)` for this data directory's `instance.lock`, with a copy
+    that is still starting waited for rather than raced: "live", "stale" or
+    "none" (core/instance_lock.py)."""
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    state, lock = instance_lock.find_running(resolved_data_dir())
+    if state == "starting":
+        _splash_status("MemoryMap is already starting...")
+        state = "live" if instance_lock.wait_until_answering(lock.port) else "stale"
+    return state, lock
+
+
+def _hand_off_to_running(lock, action: str) -> None:
+    """A launch that found this notebook already open: bring its window
+    forward, or open another window onto the same server. Never a second
+    server on one data directory (the owner's decision: single instance by
+    default, with "Open a new window on each launch" in Settings, About).
+
+    A focus that fails (the running copy was started in browser mode and has
+    no window, or it did not answer in time) falls through to a new window,
+    because a second double-click that visibly does nothing reads as the app
+    being broken.
+    """
+    from memorymap.core import instance_lock
+
+    _close_launch_splash()
+    _close_bootloader_splash()
+    if action == "focus":
+        if sys.platform == "win32":
+            # Windows refuses a background process's own focus request;
+            # this process, just launched by the person, may hand its right
+            # to the foreground to the running one.
+            try:
+                import ctypes
+
+                ctypes.windll.user32.AllowSetForegroundWindow(lock.pid)
+            except Exception as exc:  # noqa: BLE001 - best effort
+                logger.debug("AllowSetForegroundWindow failed: %s", exc)
+        if instance_lock.request_focus(lock):
+            print(f"MemoryMap is already running (port {lock.port}); brought its window forward.")
+            return
+    _open_window_onto(lock.port)
+
+
+def _open_window_onto(port: int) -> None:
+    """A window onto a server another process runs: no server thread, no
+    tray, no loading page (the server is already up). Shares the running
+    window's storage, since the saved sign-in and theme belong to the one
+    address both windows open. Closing it ends this process only."""
+    url = f"http://{HOST}:{port}"
+    try:
+        import webview
+    except ImportError:
+        import webbrowser
+
+        print(f"MemoryMap is already running; opening {url}")
+        webbrowser.open(url)
+        return
+    from memorymap.core.config import resolved_data_dir
+
+    window = webview.create_window(
+        "MemoryMap AI", url=url, width=1200, height=800, min_size=(420, 500), text_select=True
+    )
+    storage = resolved_data_dir() / "webview"
+    storage.mkdir(parents=True, exist_ok=True)
+    try:
+        webview.start(_focus_window, window, private_mode=False, storage_path=str(storage))
+    except TypeError:
+        webview.start(_focus_window, window)
+
+
 def _run_desktop(hidden_relaunch: bool = False) -> None:
     """A real app window: uvicorn in a background thread,
     pywebview in front. Closing the window exits the process.
@@ -1275,7 +1369,19 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     # all (deps.init_app_state hasn't run, and doesn't need to), so this is
     # safe before the server thread, or the process's own console, has
     # done anything.
+    from memorymap.core import instance_lock
     from memorymap.core.config import ConfigManager
+
+    # **Single instance first**, before the relaunch and before any window:
+    # a launch that finds this notebook already open hands off to it and is
+    # done, so it never pays for a relaunch, a loading page or a server.
+    state, running = _existing_instance()
+    action = instance_lock.decide(
+        state, new_window=bool(ConfigManager().get_preference("new_window_on_launch", False))
+    )
+    if action != "start":
+        _hand_off_to_running(running, action)
+        return
 
     show_on_startup = ConfigManager().get_preference("show_console_on_startup", True)
     relaunched = _maybe_relaunch_hidden(show_on_startup, hidden_relaunch)
@@ -1290,7 +1396,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
             "  pip install pywebview\n"
             "Starting the normal server instead, open http://localhost:8000"
         )
-        _run_server()
+        _run_server_holding_lock()
         return
 
     # Hide the console before starting anything else, unless the user has
@@ -1528,6 +1634,8 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         # nothing can get back to.
         if tray_icon is not None:
             tray_icon.stop()
+        instance_lock.set_focus_handler(None)
+        instance_lock.release()
 
 
 def _start_tray(
@@ -2061,7 +2169,28 @@ def main() -> None:
         _run_desktop(hidden_relaunch=args.hidden_relaunch)
     else:
         _close_bootloader_splash()
+        state, running = _existing_instance()
+        if state == "live":
+            # One server per data directory in browser mode as well: the
+            # launcher scripts already open a browser onto a copy on their
+            # own port, and this covers a copy on another port.
+            print(f"MemoryMap is already running on this notebook: http://{HOST}:{running.port}")
+            return
+        _run_server_holding_lock()
+
+
+def _run_server_holding_lock() -> None:
+    """`_run_server`, with this data directory's `instance.lock` held for as
+    long as it runs, so a desktop launch finds it and opens a window onto it
+    rather than starting a second server."""
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    instance_lock.claim(resolved_data_dir(), PORT)
+    try:
         _run_server()
+    finally:
+        instance_lock.release()
 
 
 if __name__ == "__main__":

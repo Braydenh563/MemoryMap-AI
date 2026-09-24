@@ -1077,11 +1077,9 @@ def _prepare(
     # Mind maps, likewise: `_attached_boards` builds the outline.
     notes.extend(attached_boards)
     config = deps.get_config()
-    profile = (
-        config.get_preference("user_profile", "")
-        if config.get_preference("profile_enabled", False)
-        else ""
-    )
+    # The name and the capped "About me", or nothing while the profile switch
+    # is off: `librarian.profile_from_config` is the one place that decides.
+    profile = librarian.profile_from_config(config)
 
     # Every entry this question surfaced counts as "used".
     for entry in entries:

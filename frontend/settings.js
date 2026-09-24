@@ -105,7 +105,7 @@
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "learned", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "preferences", "personas", "skills", "tools", "memory", "learned", "websearch", "appearance", "templates", "shortcuts", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
@@ -292,6 +292,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   // a browser tab, and a setting whose effect is unreachable reads as broken.
   $("desktop-tray-row")?.classList.toggle("hidden", !isDesktop);
   $("desktop-tray-hint")?.classList.toggle("hidden", !isDesktop);
+  $("desktop-advanced-fold")?.classList.toggle("hidden", !isDesktop);
   // Same reasoning as the tray/console rows above: /system/restart can only
   // ever do something in the packaged desktop app on Windows specifically
   // (the one platform _spawn_desktop knows how to relaunch), not desktop in
@@ -314,6 +315,8 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     // install that has never touched this has no stored value, and Boolean()
     // of undefined would render the default as off.
     $("pref-close-to-tray").checked = prefsCache?.close_to_tray ?? true;
+    //: Off unless chosen: a second launch brings the open window forward.
+    $("pref-new-window-on-launch").checked = Boolean(prefsCache?.new_window_on_launch);
   }
   // Rebuilt each open rather than once at startup: the list reflects saved
   // preferences, and those can change from another window or a restore.
@@ -4263,6 +4266,8 @@ function openHelpChat() {
 //: app.js binds that one, because the status bar is its markup and it can
 //: reach this function through `window` by the time a click happens.
 $("settings-guide-btn")?.addEventListener("click", () => openHelpChat());
+//: The avatar in the Settings head is the way to the profile from every pane.
+$("settings-profile-btn")?.addEventListener("click", () => showSettingsSection("preferences"));
 $("atlas-open")?.addEventListener("click", () => openHelpChat());
 
 //: The Settings row's chips are built once, with the modal: the sheet's are

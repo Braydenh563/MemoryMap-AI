@@ -10,6 +10,7 @@ core/security.py, which runs alongside the CSP from the same module.
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 import sys
@@ -20,7 +21,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -856,6 +857,26 @@ def create_app() -> FastAPI:
             # instead (§35E). Set by `python -m memorymap --desktop`.
             "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
         }
+
+    @app.post("/instance/focus", include_in_schema=False)
+    def instance_focus(x_instance_token: str | None = Header(default=None)) -> dict[str, bool]:
+        """A second launch asking this one to bring its window forward.
+
+        Open like `/health` because the asking process has no session, and
+        guarded by something better than one: the token in this server's own
+        `instance.lock` (core/instance_lock.py), which only someone who can
+        read the data directory has. Compared in constant time. `focused` is
+        False on a server started in browser mode, which has no window, and
+        the second launch then opens a window onto this server instead.
+        """
+        from memorymap.core import instance_lock
+
+        expected = instance_lock.current_token()
+        if not expected or not x_instance_token or not hmac.compare_digest(
+            expected.encode(), x_instance_token.encode()
+        ):
+            raise HTTPException(status_code=403, detail="Not this instance's token.")
+        return {"focused": instance_lock.focus()}
 
     # GET /update/check, /update/releases, /update/source-status, and
     # POST /update/apply all live in routes_update.py now, this endpoint

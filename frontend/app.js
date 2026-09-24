@@ -397,8 +397,11 @@ async function api(path, options = {}) {
     // so it was always false and no network failure was ever logged. The one
     // case the check exists to skip (our own timeout abort) was being logged
     // and everything else was too.
+    //: A timeout (`AbortSignal.timeout`, name "TimeoutError") is a slow
+    //: answer, not a failure: a warning, so a busy start does not fill the
+    //: log with red for a poll that simply asked again a moment later.
     if (networkErr?.name !== "AbortError") {
-      recordBrowserLog("ERROR", [
+      recordBrowserLog(networkErr?.name === "TimeoutError" ? "WARN" : "ERROR", [
         `[Network] ${fetchOptions.method || 'GET'} ${path}: ${networkErr.message}`
       ]);
     }

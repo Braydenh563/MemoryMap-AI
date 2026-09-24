@@ -366,3 +366,43 @@ def test_resolution_agrees_with_the_getter_in_every_case(app_state):
             manager._config.set_preference("smart_model_routing_enabled", routing)
             model, _reason = manager.utility_resolution()
             assert model == manager.utility_model()
+
+
+def test_status_never_waits_on_a_capability_probe(client, monkeypatch):
+    """The owner's log: `GET /models/status: signal timed out` twice in the
+    first minute after a start. The poll resolved the vision model by asking
+    each installed model its capabilities in turn, up to 5s a model, inside
+    an 8s browser budget. It now answers from the cache and asks in the
+    background, so a slow `/api/show` costs the poll nothing and the next
+    poll has the answer."""
+    import threading
+    import time
+
+    from memorymap.ai.ollama_client import OllamaClient
+    from memorymap.core import deps
+
+    ollama = OllamaClient("http://127.0.0.1:9")
+    monkeypatch.setattr(deps, "get_ollama", lambda: ollama)
+    installed = [{"name": f"model-{i}", "size": 1} for i in range(4)]
+    monkeypatch.setattr(ollama, "list_models", lambda: installed)
+    asked = threading.Event()
+    release = threading.Event()
+
+    def slow_show(model):
+        asked.set()
+        release.wait(5)
+        ollama._shown[model] = {"capabilities": ["vision"] if model == "model-2" else ["completion"]}
+        return ollama._shown[model]
+
+    monkeypatch.setattr(ollama, "show", slow_show)
+    started = time.monotonic()
+    body = client.get("/models/status").json()
+    assert time.monotonic() - started < 2
+    assert body["ollama_running"] is True
+    assert body["vision_model_resolved"] is None  # unknown yet, not waited for
+    assert asked.wait(2)
+    release.set()
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline and len(ollama._shown) < 4:
+        time.sleep(0.05)
+    assert client.get("/models/status").json()["vision_model_resolved"] == "model-2"

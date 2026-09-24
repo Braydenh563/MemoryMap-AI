@@ -19,8 +19,29 @@ below). Versioning is `0.x` while the app stabilises.
 - Documents: Emmet in JSX (inside a .js file's JSX, writing `className`) and XML as well as HTML and CSS, and Emmet's own editing commands in the palette for code files: wrap the selection with an abbreviation, and balance outward or inward to select the enclosing tag.
 - Documents: Ctrl+/ in a code file comments by the language at the caret, as VS Code does (`//` inside an HTML file's script, `/* */` in its style, `{/* */}` for a JSX child), and Shift+Alt+A block-comments the selection. Fixed: Ctrl+/ on a line of prose replaced the line with a lone "/", and a .sql document could not be opened at all.
 - Documents: code files complete as you type, as VS Code does. In HTML, `!` then Enter writes the HTML5 page and Emmet abbreviations (`div.card>ul>li*3`, `a[href]`, `p{text}`) expand from the list or with Tab; in CSS, a property is followed by its own values (`display: ` offers `flex` and `grid`, `color: ` the colours) and `m10` or `df` expand; the chosen suggestion's rest shows after the caret in muted ink and Tab takes it.
+- Translation in Write with Atlas: a Translate chip and a "Translate into"
+  group of 19 languages in the kind menu. The local model translates
+  meaning, keeps every fact, name, number and the markdown, and leaves code
+  and links alone; the chip remembers the last language picked.
+- Personas each get a mark generated from their name (the same name always
+  draws the same mark, nothing stored), so a list of them is told apart at
+  a glance; Atlas keeps the app's own emblem.
+- The guided tour walks through every main feature, one section after
+  another: Notes, Chat, Graph, Library, Boards, Mind maps, Timeline,
+  Reminders, Settings and the status bar each open the feature and point at
+  three to five of its controls. The last card of a section offers the next
+  one by name ("Next: Chat") or Finish, and the count is per section. Nothing
+  is created on the way: with no mind map yet, the tour points at New mind
+  map and says what it makes (INBOX 398).
+- Library cards: the select tick no longer sits on top of the card's menu
+  button, so pressing the menu opens it instead of ticking the card.
 - A file's menu in the Library offers Ask Atlas about this, like every other
   object's menu; the reminder menu's entry uses the same icon as the rest.
+- Files: a file's menu in the Library offers Ask Atlas about this, the last kind of object without it; the reminder row's version wears the same chat icon as every other.
+- Chat: with no model connected, the Chat tab says so above the composer, names Notes, Ask as the place that answers without one, and carries the Connect a model button, as Ask, the popup agent and the writing desk already did. Before, the box was grey and only a tooltip said why.
+- Dashboard: Ask AI and the empty notebook's Ask your notebook go to Notes, Ask when no model is running (it answers from your notes without one) and to Chat when one is, with the caret in the box. Before, both opened a disabled Chat box with the caret nowhere.
+- Library: a new notebook's first screen says what to make and offers Create beside the sentence, instead of "Nothing of this kind yet" (the activity log was being counted as things you had made); a kind with nothing in it names itself ("No meetings yet"). The Create picker now offers a board and a file upload too, seven rows in all.
+- The Atlas guide panel is redesigned as one surface: the chat sits straight on the card instead of in a tinted box inside it, the head is one row (35px, was 63) with its subtitle on one line and three quiet, equal controls, the empty panel greets you like the Chat tab does (a title, one line, and the three questions as centred chips), and an answer's first line no longer sits 25px below the top of its bubble. The Settings, Help row's questions wear the same chip.
 - Files: a description or reading typed while the automatic one was still being written is no longer overwritten when the automatic one lands.
 - Empty states: the Timeline's sits centred in its card instead of at the foot under a blank body, and the Graph's action button is its own width instead of spanning the map.
 - Dashboard: an empty notebook no longer shows a strip of zeros above the welcome card; the figures appear with the first note or reminder.
@@ -53,6 +74,24 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Chat: your messages are a quiet tinted bubble in the page's own ink, at
+  the same size as Atlas's, rather than a bright accent block with a "You"
+  header; the header says "No model connected" (and opens Settings) instead
+  of naming a model that is not running; and "Jump to latest" and the
+  back-to-top button hover to an opaque, visible state without flickering.
+- Find anything: group headings are capitalised headings with their count
+  ("Notes 15"), set a step below the results line; the kind chips count
+  what the search found rather than everything indexed (they said "Notes
+  46" beside 3 results); a snippet no longer prints a heading's `##`; and
+  the chip row fades where more chips scroll.
+- A chip's x (detach a document, remove a file or a reference) is a round
+  target the same distance from the chip's top, bottom and right edge, not
+  a glyph with a stray gap after it.
+- Settings, About counts notes the way the dashboard does: it said "96
+  notes" for 44 notes, 2 drafts and 50 boards and maps, and its header's
+  "46 entries loaded" is gone.
+- The skill editor's Steps box is tall enough for its example and hint; the
+  last line was cut in half.
 - The guided tour can no longer leave the page dimmed with no card: a step
   that fails shows its card centred, a card off the window or behind
   something is re-centred, the page is kept from scrolling under it, and
@@ -269,6 +308,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A package check builds the frozen Windows app on every pull request that
+  touches packaging, the entry point or index.html, and weekly, and fetches
+  every script and stylesheet the page references plus each lazy bundle,
+  so a file missing from the bundle fails before release day.
+- The Timeline tab's code moved out of app.js into its own file,
+  timeline.js, loaded at startup right after the dashboard's. Nothing it
+  does changed; app.js is about 24 KB smaller to download (gzipped), which
+  brings it back under its size bound instead of raising the bound a third
+  time.
 - Atlas has a persona rather than a job title: "the librarian of this
   notebook: warm, curious and a little witty", who knows the notes well,
   likes spotting how they connect, speaks plainly and says so when the notes

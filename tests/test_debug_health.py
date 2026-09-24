@@ -35,6 +35,9 @@ def test_shape_on_an_empty_notebook(client):
     assert body["db"]["size_bytes"] >= 0
     assert body["counts"] == {
         "entries": 0,
+        "notes": 0,
+        "drafts": 0,
+        "boards": 0,
         "documents": 0,
         "media": 0,
         "attachments": 0,
@@ -170,3 +173,15 @@ def test_renders_fast_on_an_empty_notebook(client):
         f"fastest of {len(samples)} samples was {fastest * 1000:.2f}ms, over the "
         f"20ms budget (median {samples[len(samples) // 2] * 1000:.2f}ms)"
     )
+
+
+def test_health_counts_notes_drafts_and_boards_apart(client):
+    """About said "96 notes" beside a dashboard's 44: boards and drafts were
+    folded into the note count. Each kind is its own number now."""
+    client.post("/entries", json={"content": "A plain note about bees"})
+    client.post("/entries", json={"content": "Half a thought", "is_draft": True})
+    counts = client.get("/debug/health").json()["counts"]
+    assert counts["notes"] == 1
+    assert counts["drafts"] == 1
+    assert counts["boards"] == 0
+    assert counts["entries"] == 2

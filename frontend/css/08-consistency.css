@@ -1907,20 +1907,106 @@ summary > .ph-lead,
   text-align: left;
 }
 
-/* The hairline belongs above whatever the foot of the panel is (INBOX 270).
-   With the starters under the transcript, the foot is the chips plus the
-   composer, and drawing the line under the chips would put the transcript and
-   three things you can send on one side of it. `.hidden` is the class
-   `helpChatAppendRow` and `helpChatNewChat` already toggle, so the line
-   follows them without a third place to keep in step. */
-.atlas-starters:not(.hidden) {
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-light);
+/* --- The guide panel as one surface (INBOX 270 part 4, the redesign) --------
+   Measured at 1440x900 before this block (`scratchpad/ui-sweeps/guidepanel.js`):
+   the whole chat sat in a `.settings-group` inside the card, so the panel was a
+   box in a box: a tinted 398x349 rectangle with its own 16px padding and 8px
+   radius, the text starting 41px in from the card's edge and the composer
+   ending 36px above its foot against 20px of air over the head. Neither panel
+   it is meant to match does that: the agent activity panel and the popup agent
+   both draw their rows straight onto the card, and DESIGN.md's surface tiers
+   give a group its tint only to set it apart from its neighbours, and this one
+   has none. So the group stands down to layout only while it is docked. */
+.atlas-chat.atlas-docked {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
 }
 
-.atlas-starters:not(.hidden) + .atlas-composer {
-  padding-top: 0;
-  border-top: 0;
+/* The welcome, centred in the transcript's own space the way the Chat tab's
+   is in its pane (`.chat-empty`): a title, one line, the questions
+   (the mark is the head's, and is not drawn twice).
+   `margin-block: auto` in the log's flex column is what centres it, and the
+   log keeps its full height either way, so the composer does not move when the
+   first answer arrives. */
+.atlas-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: auto;
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+}
+
+.atlas-welcome > p {
+  margin: 0;
+}
+
+.atlas-welcome-line {
+  max-width: 44ch;
+  font-size: var(--text-sm);
+}
+
+.atlas-welcome .atlas-starters {
+  justify-content: center;
+  margin-top: var(--space-3);
+}
+
+/* The Chat tab's suggestion chip (`#chat-suggest > .chip`, "de-vibecoded"
+   below): regular weight, ink, a hairline and a hover ground, on the chip's
+   own pill. They stay `<button>`s, because pressing one sends it (DESIGN.md: a
+   chip is a fact, an action is a button); only the paint is shared. The
+   Settings, Help row offers the same three questions, so it wears the same
+   chip: one question, one look, wherever it is offered. */
+:is(#help-chat-starters, #atlas-row-starters) > .atlas-starter {
+  height: auto;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  text-align: center;
+}
+
+:is(#help-chat-starters, #atlas-row-starters) > .atlas-starter:hover,
+:is(#help-chat-starters, #atlas-row-starters) > .atlas-starter:focus-visible {
+  background: var(--chip-bg);
+}
+
+/* The head, on the agent activity panel's terms: the controls beside the title
+   are quiet until the pointer or the focus reaches them, because the card is
+   already the frame (the same rule `.monitor-header-actions` takes, 08 above),
+   and all three are one size. Before: a 32px round bordered '?', then a 28px
+   filled kebab and a 28px filled X, centres 2px apart and three shapes in one
+   row. */
+.sheet-card-corner .sheet-head > button.ghost,
+.sheet-card-corner .sheet-head .atlas-menu button.ghost {
+  width: var(--target-min);
+  height: var(--target-min);
+  min-height: var(--target-min);
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.sheet-card-corner .sheet-head > button.ghost:hover,
+.sheet-card-corner .sheet-head > button.ghost:focus-visible,
+.sheet-card-corner .sheet-head > button.ghost[aria-expanded="true"],
+.sheet-card-corner .sheet-head .atlas-menu button.ghost:hover,
+.sheet-card-corner .sheet-head .atlas-menu button.ghost:focus-visible,
+.sheet-card-corner .sheet-head .atlas-menu button.ghost[aria-expanded="true"] {
+  background: var(--ghost-btn-bg);
+}
+
+.sheet-card-corner .sheet-head .atlas-menu {
+  display: inline-flex;
 }
 
 /* The composer along the foot, and the one thing it needs that the form did
@@ -1992,6 +2078,11 @@ summary > .ph-lead,
 .atlas-head-line {
   font-size: var(--text-sm);
   font-weight: 400;
+  /* One line whatever the copy (INBOX 270 part 4): a wrapped subtitle is what
+     made this head two rows tall. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* **On a phone the head keeps its one line** (INBOX 270). With the '?' beside
@@ -2014,6 +2105,10 @@ summary > .ph-lead,
    every other pair of icons in the app. */
 .sheet-card-corner .sheet-title {
   flex: 1 1 auto;
+  /* `.card h2`'s bottom margin reached this title through the sheet recipe and
+     added 12.8px under a row whose controls are centred on it, so the head
+     was taller than its content and the name sat above the icons' line. */
+  margin: 0;
 }
 
 /* The line that offers Atlas a question, under a help popover and in an empty
@@ -2816,10 +2911,22 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     position: relative;
   }
 
+  /* **Beside the ⋯, never on it.** This corner was the ⋯ menu's corner too
+     (`.menu-wrap.library-card-menu`, the same `top` and `right`), so the
+     tick, at `z-index: 1`, sat exactly on the menu button: measured at 1440,
+     `elementsFromPoint` at the ⋯'s centre answered the tick first on every
+     card, a press on ⋯ ticked the card instead of opening its menu, and on
+     hover the two drew over each other. Found by the guided tour, whose
+     "a card's menu" step judged the button covered. The title keeps room for
+     both, reserved rather than taken. */
+  .library-card .library-card-top {
+    padding-right: calc(var(--space-8) + var(--target-min) + var(--space-1));
+  }
+
   .library-card .library-card-tick {
     position: absolute;
     top: var(--space-3);
-    right: var(--space-3);
+    right: calc(var(--space-3) + var(--target-min) + var(--space-1));
     margin: 0;
     z-index: 1;
     opacity: 0;
@@ -4252,4 +4359,178 @@ main,
 .chord-guide-panel .chord-guide-row > kbd {
   min-width: 1.5rem;
   text-align: center;
+}
+
+/* --- A chip's x: a round target inset evenly (INBOX 403) --- */
+/* The owner: "that small gap between the edge of the note connection pill
+   chips on the right and the 'x' delete button". The x was a bare glyph set
+   0.25rem after the label, so the chip's own right padding sat outside it
+   and the gap to the edge read as a mistake. Every chip that ends in an x
+   now ends in a round target the same distance from the top, the bottom
+   and the right edge (the tag-input shape), measured 4px on all three on
+   the notes list's 24px chips. The chip's end padding shrinks to match. */
+.chip:has(> .unlink:last-child) {
+  padding-inline-end: var(--space-1);
+}
+
+/* A 1rem square, centred: on the 24px chips the notes list draws, that is
+   4px from the top, the bottom and the end, one number on three sides
+   (`aspect-ratio` with a stretched height measured 12x16 in a flex row, so
+   the square is written out). */
+.chip > .unlink:last-child {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  align-self: center;
+  width: 1rem;
+  height: 1rem;
+  margin-inline-start: var(--space-1);
+  border-radius: var(--radius-pill);
+  font-size: 0.85em;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.chip > .unlink:last-child:hover,
+.chip > .unlink:last-child:focus-visible {
+  background: color-mix(in srgb, var(--error) 14%, transparent);
+  color: var(--error);
+}
+
+/* With a mouse the x is the 1rem square above; a finger keeps the 28px
+   target floor `.unlink` sets, and the chip grows around it there. */
+@media (pointer: fine) {
+  .chip > .unlink:last-child {
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
+/* Centred by its ink, not its box: Phosphor's x sits 0.14em high in its
+   own em square, measured as a 1.6px lift in the 16px circle at 8x scale
+   (the boxes were centred to 0.01px, the glyph was not; the owner saw it). */
+.chip > .unlink:last-child > .ph {
+  translate: 0 0.14em;
+}
+
+/* --- Find anything: group heads read as heads --- */
+/* Owner's screenshot: "notes", "documents" in 11px lowercase, and "24
+   results" sitting directly on the first of them. A head is the small 600
+   label in ink (the section-head grammar used across the app) with its
+   count muted beside it and a hairline under it, and the summary line keeps
+   a step of room above the first group. */
+.finder-group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-2) 0 var(--space-1);
+  border-bottom: 1px solid var(--divider);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.finder-group-count {
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.finder-summary {
+  margin-bottom: var(--space-2);
+}
+
+/* The kind chips scroll sideways when they do not fit (07's decision), and a
+   row that scrolls with nothing to say so hid its last chips under the Sort
+   label ("Link" cut in half, owner's screenshot). The row fades at the edge
+   it can still scroll toward, so the cut reads as "more", not as a fault. */
+.finder-filters {
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--space-6)), transparent);
+}
+
+/* --- Chat: the user's bubble as a quiet surface, not an accent slab --- */
+/* The owner, twice: "the user message bubbles in the chat still look too,
+   and unprofessional much compared to the assistant bubbles ... maybe it's
+   the brightness of the message bubble colour??" It was the brightest
+   thing on the page: a full accent fill (#7b9cff in dark) with white text,
+   next to an assistant bubble that is a hairline and a whisper of tint.
+   Measured in the same frame, the two sat at opposite ends of the page's
+   luminance range. The way the chat apps people compare this to do it: the
+   person's own turn is a tinted surface in the page's own ink, one step
+   stronger than the assistant's ground, so it reads as "mine" by colour
+   and position without shouting. The "You" label and avatar go too: on
+   your own side of your own conversation they said nothing the alignment
+   did not (still read to a screen reader). */
+.msg.user {
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--ink);
+}
+
+.msg.user .msg-role {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.msg.user :is(.msg-attachment-image, .msg-attachment-note, .msg-attachment-doc) {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.msg.user .msg-attachment-image figcaption,
+.msg.user .msg-attachment-missing p {
+  color: var(--muted);
+}
+
+.msg.user .msg-attachment-actions button {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.msg.user .msg-attachment-actions button:is(:hover, :focus-visible) {
+  background: var(--surface-2);
+}
+
+/* --- Two floating buttons that sit over content: opaque, readable hover --- */
+/* The owner: "the back to top hover state is too transparent" and "when I
+   hover over the jump to latest button in the chat, it flickers for a
+   second and doesnt change". Back-to-top hovered to `--accent-soft`, a 10%
+   tint that let the page through; jump-to-latest took the global
+   `button:hover { filter: brightness(1.07) }`, which makes a compositing
+   layer on hover (the flash, on Windows) for a 7% change (the "doesnt
+   change"). Both hover to an opaque accent-mixed ground with an accent
+   edge and accent ink: a state you can see, over nothing that shows
+   through, with no filter. */
+.scroll-top:hover,
+.chat-jump-latest:hover {
+  filter: none;
+  background: color-mix(in srgb, var(--accent) 18%, var(--modal-bg-opaque));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Your words at the size Atlas's are: the user body was a step smaller
+   (14.7px against 16px), so the question read as a caption to its answer. */
+.msg.user .msg-body {
+  font-size: inherit;
+}
+
+/* A persona's generated mark, the row's leading glyph. */
+.persona-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.name-mark {
+  display: block;
+  border-radius: var(--radius-pill);
 }

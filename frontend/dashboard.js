@@ -770,6 +770,29 @@ async function renderDashStats() {
 // only. That was the point of it, the middle of a navigation row is exactly
 // where reordering helps and never surprises, and applying it across the
 // whole strip is what let an action drift into the middle of the navigation.
+//: **"Ask" goes where a question can be answered today** (INBOX 266 part 1).
+//: Both of the dashboard's asking doors went to the Chat tab, and with no
+//: model running the Chat composer is disabled (`data-needs-model`): driven
+//: from a fresh load (`scratchpad/ui-sweeps/clicks.js`), "Ask AI" landed on a
+//: greyed box with the caret nowhere, and the empty notebook's "Ask your
+//: notebook" card promised "Works on keywords even with no AI running" and
+//: then opened the one place that does not. Notes, Ask is the place that
+//: does: it searches without a model and says so. So the door picks: Chat
+//: when a model is up, Notes, Ask when it is not, and the caret goes into
+//: whichever box is shown after the tab has finished arriving (`switchTab`
+//: awaits the tab's module before its own focus handling, so a same-turn
+//: `focus()` could land on a page that is not drawn yet).
+async function openAskFromDashboard() {
+  const offline = typeof aiIsOff === "function" && aiIsOff();
+  await switchTab(offline ? "notes" : "chat");
+  if (offline) {
+    showNotesSection("ask");
+    $("question")?.focus();
+  } else {
+    $("chat-input")?.focus();
+  }
+}
+
 const QUICK_START = [
   {
     icon: "ph:pencil-simple",
@@ -786,10 +809,7 @@ const QUICK_START = [
     icon: "ph:chat-circle",
     label: "Ask AI",
     hint: "Answered from your notes",
-    run: () => {
-      switchTab("chat");
-      $("chat-input").focus();
-    },
+    run: () => openAskFromDashboard(),
   },
   { icon: "ph:palette", label: "Sketch", hint: "Draw, then keep it as a note", run: () => openSketch() },
   {
@@ -1585,10 +1605,7 @@ function gettingStartedCard() {
       icon: "ph:chat-circle",
       label: "Ask your notebook",
       note: "Works on keywords even with no AI running.",
-      run: () => {
-        switchTab("chat");
-        $("chat-input")?.focus();
-      },
+      run: () => openAskFromDashboard(),
     },
     {
       icon: "ph:backpack",

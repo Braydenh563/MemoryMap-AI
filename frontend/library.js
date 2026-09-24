@@ -302,8 +302,9 @@ function renderLibraryFilters() {
       libraryKind = kind.key;
       libraryCurrentPage = 1;
       renderLibraryFilters();
-      renderLibrary();
+      //: The dock's Create first: the empty state copies its label.
       updateLibraryCreateButton();
+      renderLibrary();
     });
     box.appendChild(button);
   }
@@ -537,12 +538,39 @@ function renderLibrary() {
     const empty = $("library-empty");
     empty.classList.toggle("hidden", items.length > 0);
     $("library-empty-clear")?.classList.toggle("hidden", !(query && !items.length));
+    //: **An empty state says the next step, and offers it** (INBOX 266 part
+    //: 1). Measured on a new notebook: the Library's first screen said
+    //: "Nothing of this kind yet." under an "Everything 0" chip, because the
+    //: test for a new notebook was `!libraryItems.length` and the log counts
+    //: as items: 35 activity rows (the unlock, the first settings) on a
+    //: notebook with nothing in it, so the one message written for a new
+    //: person never showed. Activity is a record about the notebook, not a
+    //: thing in it, so it does not count as having made anything. And the
+    //: state now carries the create action beside it, the same one the dock's
+    //: Create button runs for this kind, so the next step is one press from
+    //: the sentence that suggests it rather than a hunt for the dock.
+    const madeAnything = libraryItems.some((i) => i.kind !== "activity");
+    const createBtn = $("library-empty-create");
+    const dockCreate = $("library-new-doc");
+    const offerCreate = !query && !items.length && !["activity", "archived"].includes(libraryKind);
+    if (createBtn) {
+      createBtn.classList.toggle("hidden", !offerCreate || !dockCreate);
+      if (offerCreate && dockCreate) {
+        createBtn.replaceChildren(...[...dockCreate.childNodes].map((n) => n.cloneNode(true)));
+        createBtn.title = dockCreate.title;
+      }
+    }
     if (!items.length) {
-      $("library-empty-title").textContent = !libraryItems.length
-        ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
-        : query
-          ? `Nothing matching “${$("library-search").value.trim()}”.`
-          : "Nothing of this kind yet.";
+      const kindName = LIBRARY_KINDS.find((k) => k.key === libraryKind)?.label;
+      $("library-empty-title").textContent = query
+        ? `Nothing matching “${$("library-search").value.trim()}”.`
+        : !madeAnything
+          ? "Nothing here yet. Make a document, a board or a map, or upload a file."
+          : libraryKind === "archived"
+            ? "The bin is empty."
+            : kindName && libraryKind !== "all"
+              ? `No ${kindName.toLowerCase()} yet.`
+              : "Nothing of this kind yet.";
     }
   };
 
@@ -1584,6 +1612,19 @@ const LIBRARY_CREATE_BY_KIND = {
     label: "ph:graph New concept map",
     run: () => createConceptMap(),
   },
+  //: **A board from the Library's own Create** (INBOX 266 part 1). The
+  //: picker offered notes, documents, maps, chats and meetings, and a board,
+  //: the Library's second sub-tab, was not among them: a person pressing
+  //: Create to make one found no row for it and had to know to go to Boards
+  //: & maps first. The run is that sub-tab's own New board, pressed, so a
+  //: board made here is made exactly the way one made there is.
+  board: {
+    label: "ph:plus New board",
+    run: () => {
+      document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      $("wb-boards-new")?.click();
+    },
+  },
   // Reported directly: "in the library 'all' subtab, the files section has
   // the general create button and not an upload button." It did: `file` had
   // no entry here, so it fell through to the "＋ Create" picker, which asks
@@ -1623,9 +1664,17 @@ const LIBRARY_CREATE_HINTS = {
   note: ["ph:note-pencil", "A quick thought. Atlas files it and links it for you."],
   document: ["ph:file-text", "A long page: headings, an outline, templates, export."],
   map: ["ph:tree-structure", "A mind map: a tree of topics you move and connect."],
+  board: ["ph:squares-four", "A canvas of cards, sketches and links you arrange freely."],
   chat: ["ph:chats", "A conversation grounded in your notes."],
   meeting: ["ph:microphone", "Record a meeting or a voice note and get a transcript."],
+  file: ["ph:upload-simple", "A PDF, an image or any file you already have."],
 };
+
+//: The picker's rows, in order: the things you write, the things you draw,
+//: then the things that arrive from elsewhere. The picker's sentence used to
+//: say "Five kinds of thing", which went stale the day a sixth row was
+//: added; it names no count now, so it cannot drift from the rows under it.
+const LIBRARY_CREATE_ORDER = ["note", "document", "map", "board", "chat", "meeting", "file"];
 
 function openLibraryCreatePicker() {
   const overlay = document.createElement("div");
@@ -1640,7 +1689,7 @@ function openLibraryCreatePicker() {
   title.textContent = "Create";
   const text = document.createElement("p");
   text.className = "muted";
-  text.textContent = "Five kinds of thing live in the library. Pick one and it opens ready to write.";
+  text.textContent = "Pick what to make, or bring a file in. It opens ready to use.";
   const list = document.createElement("ul");
   list.className = "doc-ai-history-list";
   list.setAttribute("role", "list");
@@ -1658,7 +1707,7 @@ function openLibraryCreatePicker() {
     }
   };
 
-  for (const kind of ["note", "document", "map", "chat", "meeting"]) {
+  for (const kind of LIBRARY_CREATE_ORDER) {
     const entry = LIBRARY_CREATE_BY_KIND[kind];
     const [icon, hint] = LIBRARY_CREATE_HINTS[kind];
     const li = document.createElement("li");
@@ -7938,6 +7987,10 @@ onDomReady(() => {
     foldBookmarkForm();
   });
   keepLibraryScroll();
+  //: The empty state's own Create: the dock's button, pressed, so the two can
+  //: never offer different things (`updateLibraryCreateButton` decides what
+  //: that is per kind).
+  $("library-empty-create")?.addEventListener("click", () => $("library-new-doc")?.click());
   $("library-empty-clear")?.addEventListener("click", () => {
     const search = $("library-search");
     if (!search) return;

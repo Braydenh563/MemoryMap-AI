@@ -56,9 +56,30 @@ def debug_health(session: Session = Depends(get_session)) -> dict:
         # process: 0 is the honest answer, not a 500 over a stat() call.
         db_size_bytes = 0
 
+    live = Entry.is_deleted == False  # noqa: E712
     counts = {
-        "entries": session.scalar(
-            select(func.count(Entry.id)).where(Entry.is_deleted == False)  # noqa: E712
+        # Every live row, boards and drafts included: the database's own
+        # number, kept for anything that already reads it.
+        "entries": session.scalar(select(func.count(Entry.id)).where(live)) or 0,
+        #: **The three kinds a person would count separately.** Settings,
+        #: About said "96 notes" for a notebook whose dashboard said 44: the
+        #: other 52 were 50 boards and maps (an Entry with `is_board`) and 2
+        #: drafts. The same split the dashboard's own figure uses
+        #: (routes_insights.py), so the two can never disagree again.
+        "notes": session.scalar(
+            select(func.count(Entry.id)).where(
+                live, Entry.is_board == False, Entry.is_draft == False  # noqa: E712
+            )
+        )
+        or 0,
+        "drafts": session.scalar(
+            select(func.count(Entry.id)).where(
+                live, Entry.is_board == False, Entry.is_draft == True  # noqa: E712
+            )
+        )
+        or 0,
+        "boards": session.scalar(
+            select(func.count(Entry.id)).where(live, Entry.is_board == True)  # noqa: E712
         )
         or 0,
         "documents": session.scalar(select(func.count(Document.id))) or 0,

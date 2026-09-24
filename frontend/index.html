@@ -352,25 +352,33 @@
              script because it is what is true before anything has happened,
              and `renderHelpChatMessage` hides it on the first turn while New
              chat brings it back. -->
-        <p id="help-chat-empty" class="muted help-chat-empty">
-          Ask where a feature lives, what a setting does, or which tab you
-          want. Atlas answers from the app's own help, says so when it is not
-          sure, and cannot read your notes or your documents.
-        </p>
-      </div>
-      <!-- Three, not a wall: the popup agent's starters are the same idea at
-           the same size, and these are the three questions the help topics
-           are asked most often to answer. `renderAtlasStarters` fills both
-           this and the Settings row from one table.
+        <!-- **The Chat tab's welcome, at this panel's size** (INBOX 270 part 4,
+             the redesign). It was a 120px paragraph of muted body text over a
+             column of three grey buttons, which is a settings row rather than
+             a chat, and the app's own chat greets you the other way: a mark, a
+             title, one line, and the questions you might ask centred under
+             them (`renderChatEmptyState`). Same order, same chip look, so the
+             two assistants read as one idea. The mark is the one thing not
+             repeated: the head carries the compass 50px above, and a second
+             one here was the same glyph twice in one panel.
 
-           **Under the transcript, over the composer** (INBOX 270). They stood
-           above the log, so the panel offered three example questions before
-           the sentence that says what this chat is for, and the app's other
-           chat does the opposite: `#chat-suggest` sits between the transcript
-           and the dock, which is also where every chat people have used puts
-           them. They are things you are about to send, so they belong beside
-           the thing you send with. -->
-      <div class="atlas-starters" id="help-chat-starters"></div>
+             The starters live inside the welcome rather than between the log
+             and the composer: the Chat tab moved its own chips into its
+             welcome for the same reason ("two halves of one invitation"), and
+             they retire together, since `helpChatAppendRow` hides both and New
+             chat brings both back. `aria-live="off"` because the log around it
+             is a live region, and `renderAtlasStarters` rebuilds the chips on
+             every open: without it a screen reader read three questions aloud
+             each time the panel appeared. -->
+        <div id="help-chat-empty" class="atlas-welcome" aria-live="off">
+          <p class="empty-title">Ask how anything in the app works</p>
+          <p class="muted atlas-welcome-line">
+            Answers come from the app's own help. Atlas
+            cannot read your notes or your documents.
+          </p>
+          <div class="atlas-starters" id="help-chat-starters"></div>
+        </div>
+      </div>
       <!-- The composer, along the foot, which is where the popup agent puts
            its own: input, an icon-only send at the app's one icon-button size,
            and the '?' that every surface in this app carries for the longer
@@ -1407,6 +1415,30 @@
                   <option value="rewrite">Rewrite the draft</option>
                   <option value="expand">Bullets to prose</option>
                   <option value="bullets">Prose to bullets</option>
+                  <!-- Translation through the same model (INBOX 405); the
+                       codes are drafter.TRANSLATE_LANGUAGES', which drops any
+                       other. -->
+                  <optgroup label="Translate into">
+                    <option value="translate-en">English</option>
+                    <option value="translate-es">Spanish</option>
+                    <option value="translate-fr">French</option>
+                    <option value="translate-de">German</option>
+                    <option value="translate-it">Italian</option>
+                    <option value="translate-pt">Portuguese</option>
+                    <option value="translate-nl">Dutch</option>
+                    <option value="translate-pl">Polish</option>
+                    <option value="translate-sv">Swedish</option>
+                    <option value="translate-tr">Turkish</option>
+                    <option value="translate-ru">Russian</option>
+                    <option value="translate-uk">Ukrainian</option>
+                    <option value="translate-ar">Arabic</option>
+                    <option value="translate-hi">Hindi</option>
+                    <option value="translate-zh">Chinese (Simplified)</option>
+                    <option value="translate-ja">Japanese</option>
+                    <option value="translate-ko">Korean</option>
+                    <option value="translate-vi">Vietnamese</option>
+                    <option value="translate-id">Indonesian</option>
+                  </optgroup>
                 </select>
                 <select id="draft-tone" class="small-select" aria-label="Tone"
                   title="The voice to write in">
@@ -2149,6 +2181,14 @@
                the top is worse than either arrangement on its own, you press
                it and nothing appears to happen. -->
           <div class="chat-dock">
+            <!-- **Why the box is grey, in the place you are looking** (INBOX
+                 266 part 1). With no model the composer and Send are disabled
+                 (`data-needs-model`) and the only thing that said why was a
+                 tooltip on a control that cannot be pressed; the three other
+                 surfaces that are nothing but the model (Ask, the popup agent,
+                 the writing desk) each carry this line. Filled and hidden by
+                 `renderAiOfflineNotice`, the same one line and one button. -->
+            <div id="chat-offline" class="ai-offline-note hidden"></div>
             <!-- Attached notes are per-message too. They are their own line
                  because they are *content*, a variable number of note chips , 
                  and putting them in the control strip would make its height
@@ -4368,7 +4408,7 @@
            thing, and it sat here as a tab only because the filter row did not
            exist yet when it was added. -->
       <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">All</button>
-      <button role="tab" aria-selected="false" data-target="library-view-docs">Documents</button>
+      <button role="tab" id="library-subtab-docs" aria-selected="false" data-target="library-view-docs">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Boards &amp; maps</button>
       <!-- **Two sub-tabs, not one.** Asked for directly: "I want the images
            and files to be in a separate section. I want files to have their
@@ -4497,6 +4537,10 @@
                micro-conventions): the Notes list's own no-match state has
                had "Clear the filter" for a long time; this one had none. -->
           <button id="library-empty-clear" class="ghost small hidden" type="button"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear the search</button>
+          <!-- The next step, beside the sentence that names it (INBOX 266
+               part 1): the dock's Create for this kind, relabelled to match
+               it by `renderLibrary`. -->
+          <button id="library-empty-create" class="ghost small hidden" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Create</button>
         </div>
 
         <!-- Inject the Skills section here -->
@@ -7137,7 +7181,7 @@
             role="status"></p>
           <p class="nav-group-label" id="nav-group-ai">Atlas</p>
           <div role="group" aria-labelledby="nav-group-ai">
-            <button data-section="models" class="active">Models</button>
+            <button id="settings-nav-models" data-section="models" class="active">Models</button>
             <button data-section="personas">Personas</button>
             <button data-section="skills">Skills</button>
             <button data-section="tools">Tools it can use</button>
@@ -7148,7 +7192,7 @@
 
           <p class="nav-group-label" id="nav-group-you">Your notebook</p>
           <div role="group" aria-labelledby="nav-group-you">
-            <button data-section="appearance">Appearance</button>
+            <button id="settings-nav-appearance" data-section="appearance">Appearance</button>
             <button data-section="templates">Templates</button>
             <button data-section="shortcuts">Keyboard shortcuts</button>
             <button data-section="preferences">Preferences</button>
@@ -7165,7 +7209,7 @@
 
           <p class="nav-group-label" id="nav-group-about">Getting help</p>
           <div role="group" aria-labelledby="nav-group-about">
-            <button data-section="help">Help</button>
+            <button id="settings-nav-help" data-section="help">Help</button>
             <button data-section="about">About</button>
           </div>
         </nav>
@@ -7674,7 +7718,9 @@
             <textarea id="skill-prompt" rows="2" maxlength="2000"
               placeholder="What it should do, e.g. Summarise everything I saved this week."></textarea>
             <label class="muted" for="skill-steps">Steps: one per line, in order (optional)</label>
-            <textarea id="skill-steps" rows="3"
+            <!-- Four rows: the three-line example plus the "/" hint editor.js
+                 appends as a fourth line; at three the hint was cut in half. -->
+            <textarea id="skill-steps" rows="4"
               placeholder="Find my notes tagged {{tag}}&#10;Give each one a category&#10;Tell me what you filed"></textarea>
             <label class="muted" for="skill-inputs">Ask me for: one per line, as <code>name</code> or <code>name: question</code> (optional)</label>
             <textarea id="skill-inputs" rows="2"
@@ -10743,6 +10789,19 @@
        documents.js made for `initDocSidebarTabs()`, see dashboard.js's own
        header for the full explanation. -->
   <script src="/dashboard.js?v=0.3.2"></script>
+  <!-- Timeline: the feed, the table view, the density scrubber, the kind
+       chips and the daily page (split out of app.js on 2026-09-23, when the
+       gzipped app.js crossed test_static_compression.py's bound a third
+       time). Loaded after app.js and shares its global scope, the same terms
+       as dashboard.js above: its own top-level lines only register listeners
+       and read what app.js has already defined, and every call app.js makes
+       into it (switchTab's timeline branch, the select-mode toggles, the
+       shortcuts table) runs from a click or a closure, never at parse time.
+       No bare top-level line had to move with it and no `typeof` guard was
+       added, so this position is not load-bearing; it sits before
+       settings.js because settings.js's tail is the one that must run last.
+       See timeline.js's own header for what stayed in app.js and why. -->
+  <script src="/timeline.js?v=0.3.2"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview): §88.3 of the app.js-split plan, the fourth and LAST file.

@@ -6,9 +6,20 @@
 // of it; the tab and Notes sub-tab the step needs are the ones showing; the
 // counter says the same total from the first card to the last.
 //
+// Since INBOX 398 the sections chain: the welcome and Start the tour each walk
+// every section in order (the same cards both ways), every section is also
+// played on its own and ended with Finish, the count is checked per section,
+// the last card of each section must read "Next: <section>" beside Finish,
+// Back across a section boundary is checked, a notebook with no mind map is
+// simulated, and the notebook's boards and entries are counted before and
+// after to prove the tour made nothing. Each walk prints "shown/planned" per
+// section, naming every step it dropped.
+//
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers BASE=http://127.0.0.1:8797 \
-//     node scratchpad/ui-sweeps/tour.js            # all three sizes
+//     node scratchpad/ui-sweeps/tour.js            # all four sizes
 //   SIZES=390x844 node scratchpad/ui-sweeps/tour.js  # one
+//   SIZES=1600x890@1.25 ...                          # with a device scale
+//   FULL=0 ...                                       # skip the second full walk
 //
 // Then the cases that broke it and that no clean walk sees: the tour started
 // with an overlay open (the Atlas guide, the command palette, the features
@@ -63,7 +74,7 @@ const STEP_PROBE = () => {
       counted += 1;
       const top = document
         .elementsFromPoint(x, y)
-        .find((n) => !n.closest("#tour-block, #tour-spot, #tour-card"));
+        .find((n) => !n.closest("#tour-block, #tour-spot, #tour-card, #toast-box"));
       if (!top || !(el.contains(top) || top.contains(el))) {
         covered += 1;
         coveredBy.push(top ? top.id || String(top.className).slice(0, 30) : "nothing");
@@ -121,6 +132,28 @@ const STEP_PROBE = () => {
     tab: tourActiveTab(),
     notesShown,
     busy: card.getAttribute("aria-busy") === "true",
+    // Chaining (the owner, 2026-09-23): the count is per section, and the
+    // last card of a section offers the next one by name.
+    sectionId: (tourRun.steps[tourRun.index] || step).sectionId,
+    sectionAt: tourSectionPlace(tourRun).at,
+    sectionTotal: tourSectionPlace(tourRun).total,
+    nextSection: tourSectionPlace(tourRun).next,
+    last: tourRun.index >= tourRun.steps.length - 1,
+    nextText: document.getElementById("tour-next").textContent,
+    skipText: document.getElementById("tour-skip").textContent,
+    wantSettings: step.settings || "",
+    settingsShown: step.settings
+      ? typeof settingsModalOpen === "function" && settingsModalOpen() &&
+        Boolean(document.querySelector(`#settings-nav button.active[data-section="${step.settings}"]`))
+      : !(typeof settingsModalOpen === "function" && settingsModalOpen()),
+    wantWb: step.wb || "",
+    orText: step.orText || "",
+    ownText: step.text,
+    wbFace: (() => {
+      const canvasView = document.getElementById("wb-canvas-view");
+      if (!canvasView || canvasView.classList.contains("hidden") || !canvasView.getClientRects().length) return "landing";
+      return typeof wbIsMap === "function" && wbIsMap() ? "map" : "board";
+    })(),
   };
 };
 
@@ -150,9 +183,21 @@ function judge(label, m, phone) {
   ok = check(!m.textClipped, `${tag} no clipped text`) && ok;
   ok = check(!m.wantTab || m.tab === m.wantTab, `${tag} the ${m.wantTab || "current"} tab is showing (${m.tab})`) && ok;
   ok = check(m.notesShown, `${tag} its Notes sub-tab is showing`) && ok;
-  ok = check(m.counter === `${m.index + 1} of ${m.total}`, `${tag} counter matches step ${m.index + 1}/${m.total}`) && ok;
+  ok = check(
+    m.counter === `${m.sectionAt + 1} of ${m.sectionTotal}`,
+    `${tag} counter is per section (${m.counter}, step ${m.sectionAt + 1} of ${m.sectionTotal} in ${m.section})`
+  ) && ok;
+  const wantNext = m.nextSection ? `Next: ${m.nextSection}` : m.last ? "Done" : "Next";
+  const wantSkip = m.nextSection ? "Finish" : "Skip";
+  ok = check(
+    m.nextText === wantNext && m.skipText === wantSkip,
+    `${tag} buttons read "${m.skipText}" / "${m.nextText}" (want "${wantSkip}" / "${wantNext}")`
+  ) && ok;
+  ok = check(m.settingsShown, `${tag} Settings is ${m.wantSettings ? `open at ${m.wantSettings}` : "closed"}`) && ok;
+  if (m.wantWb) ok = check(m.wbFace === m.wantWb, `${tag} the boards sub-tab shows ${m.wantWb} (${m.wbFace})`) && ok;
   ok = check(m.focus === "tour-next", `${tag} focus is on Next (${m.focus})`) && ok;
-  if (m.alt) ok = check(/More/.test(m.text), `${tag} the card says the control is in More`) && ok;
+  if (m.alt) ok = check(m.text === m.orText && m.orText !== m.ownText, `${tag} the card says where the control went: "${m.text}"`) && ok;
+  ok = check(m.text.length <= 140, `${tag} short words (${m.text.length} chars)`) && ok;
   if (phone) {
     // A sheet: the window's width less its gutters, docked to an edge.
     const docked = m.card[1] <= 20 || m.card[1] + m.card[3] >= m.vh - 20;
@@ -163,47 +208,100 @@ function judge(label, m, phone) {
   return ok;
 }
 
-async function walk(page, label, phone) {
+// Walk a run card by card, pressing Next, and judge every card. With
+// `oneSection`, stop at the last card of the first section and press Finish
+// there instead, which is how a section is played on its own.
+async function walk(page, label, phone, { oneSection = false } = {}) {
   const seen = [];
-  for (let guard = 0; guard < 40; guard += 1) {
+  for (let guard = 0; guard < 90; guard += 1) {
     if (!(await page.evaluate(() => !!tourRun))) break;
     await settled(page);
     if (!(await page.evaluate(() => !!tourRun))) break;
     const m = await page.evaluate(STEP_PROBE);
     seen.push(m);
     console.log(
-      `${label} ${m.counter.padEnd(8)} ${m.target.padEnd(20)} shown=${m.shownTarget.padEnd(20)} tab=${m.tab.padEnd(9)} ` +
-        `side=${(m.side || "").padEnd(11)} card=${JSON.stringify(m.card)} anchor=${JSON.stringify(m.anchor)}`
+      `${label} ${m.section.padEnd(11)} ${m.counter.padEnd(7)} ${m.target.slice(0, 26).padEnd(26)} shown=${m.shownTarget.slice(0, 22).padEnd(22)} ` +
+        `tab=${m.tab.padEnd(9)} side=${(m.side || "").padEnd(11)} card=${JSON.stringify(m.card)} anchor=${JSON.stringify(m.anchor)}`
     );
     judge(label, m, phone);
+    if (oneSection && m.nextSection) {
+      await page.click("#tour-skip");
+      await page.waitForTimeout(200);
+      check(
+        await page.evaluate(() => !tourRun && localStorage.getItem("tourDone") === "1"),
+        `${label} Finish at the end of ${m.section} ends the tour`
+      );
+      break;
+    }
     await page.click("#tour-next");
     await page.waitForTimeout(150);
   }
-  const totals = seen.map((s) => s.total);
+  // Per section: the total never changes, and it is the number of cards shown.
+  const bySection = new Map();
+  for (const m of seen) {
+    if (!bySection.has(m.sectionId)) bySection.set(m.sectionId, []);
+    bySection.get(m.sectionId).push(m);
+  }
+  for (const [id, cards] of bySection) {
+    const totals = cards.map((c) => c.sectionTotal);
+    check(
+      totals.every((t) => t === cards.length),
+      `${label} ${id}: the count's total never changes and is the cards shown (${totals.join("/")}, ${cards.length} shown)`
+    );
+  }
+  // Sections are played in table order, each once, with no jump back.
+  const table = await page.evaluate(() => TOUR_SECTIONS.map((s) => s.id));
+  const order = [...bySection.keys()];
   check(
-    seen.length > 0 && totals.every((t) => t === totals[0]) && totals[0] === seen.length,
-    `${label} the counter's total never changes and is the number of cards shown (${totals.join("/")}, ${seen.length} shown)`
+    seen.every((m, i) => i === 0 || table.indexOf(m.sectionId) >= table.indexOf(seen[i - 1].sectionId)),
+    `${label} sections play in order (${order.join(" > ")})`
   );
-  check(
-    await page.evaluate(() => !tourRun && document.getElementById("tour-card").classList.contains("hidden")),
-    `${label} Done closes the tour`
-  );
+  if (!oneSection) {
+    check(
+      await page.evaluate(() => !tourRun && document.getElementById("tour-card").classList.contains("hidden")),
+      `${label} Done closes the tour`
+    );
+  }
   return seen;
 }
 
-const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
+// What each section plans at this window size (a `media` step belongs to
+// one side of a breakpoint), against what a walk showed.
+async function sectionReport(page, label, seen) {
+  const planned = await page.evaluate(() =>
+    TOUR_SECTIONS.map((s) => ({
+      id: s.id,
+      targets: s.steps.filter((x) => !x.media || window.matchMedia(x.media).matches).map((x) => x.target),
+    }))
+  );
+  const rows = [];
+  for (const section of planned) {
+    const shown = seen.filter((m) => m.sectionId === section.id).map((m) => m.target);
+    const dropped = section.targets.filter((t) => !shown.includes(t));
+    rows.push(`${section.id} ${shown.length}/${section.targets.length}${dropped.length ? ` dropped ${JSON.stringify(dropped)}` : ""}`);
+  }
+  console.log(`${label} per section, shown/planned: ${rows.join("; ")}`);
+  return planned;
+}
+
+// "WxH" or "WxH@scale" (deviceScaleFactor), comma separated.
+const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844,1600x890@1.25")
   .split(",")
-  .map((s) => s.split("x").map(Number));
+  .map((s) => {
+    const [dims, scale] = s.split("@");
+    return [...dims.split("x").map(Number), Number(scale || 1)];
+  });
 
 (async () => {
-  for (const [width, height] of SIZES) {
+  for (const [width, height, scale] of SIZES) {
     const phone = width < 600;
     const { browser, page } = await boot({
       viewport: { width, height },
       isMobile: phone,
       hasTouch: phone,
+      deviceScaleFactor: scale,
     });
-    const label = `${width}x${height}`;
+    const label = `${width}x${height}${scale !== 1 ? `@${scale}` : ""}`;
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
 
@@ -222,8 +320,22 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
     });
     console.log(`${label} doors: ${JSON.stringify(doors)}`);
     check(doors.enabled, `${label} TOUR_ENABLED is on`);
-    check(doors.replay === 5 && doors.replayDisabled === 0, `${label} the five replay buttons are live`);
+    const sectionCount = await page.evaluate(() => TOUR_SECTIONS.length);
+    check(
+      doors.replay === sectionCount + 1 && doors.replayDisabled === 0,
+      `${label} the ${sectionCount + 1} replay buttons are live (${doors.replay})`
+    );
     check(doors.about && !doors.aboutDisabled, `${label} About's take-the-tour button is live`);
+
+    // What the notebook holds before any tour runs: the tour may open a
+    // board or a map, and must never make one (or anything else).
+    const holdings = () =>
+      page.evaluate(async () => {
+        const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => []);
+        const entries = await apiJson("/entries/count", { silent: true }).catch(() => null);
+        return JSON.stringify({ boards: boards.length, entries });
+      });
+    const before = await holdings();
 
     // --- the welcome's hand-off ----------------------------------------------
     await page.evaluate(() => {
@@ -246,25 +358,70 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
     await page.click("#onboarding-next");
     await page.waitForTimeout(300);
     check(await page.evaluate(() => !!tourRun), `${label} the welcome's last button starts the tour`);
-    await walk(page, `${label} welcome`, phone);
+    // The welcome hands over to the basics, and the basics chain on through
+    // every section to the end.
+    const fromWelcome = await walk(page, `${label} welcome`, phone);
+    await sectionReport(page, `${label} welcome`, fromWelcome);
 
-    // --- every section on its own, then the whole tour ----------------------
+    // --- every section on its own, ending with Finish -------------------------
     const sections = await page.evaluate(() => TOUR_SECTIONS.map((s) => s.id));
     for (const section of sections) {
       await page.evaluate(() => switchTab("dashboard"));
       await page.waitForTimeout(300);
       await page.evaluate((id) => openTour(id), section);
-      await walk(page, `${label} ${section}`, phone);
+      const one = await walk(page, `${label} ${section}`, phone, { oneSection: section !== sections[sections.length - 1] });
+      if (one.length) {
+        check(one[0].sectionId === section, `${label} ${section}'s button starts at ${section} (${one[0].sectionId})`);
+      }
     }
-    await page.evaluate(() => switchTab("reminders"));
-    await page.waitForTimeout(500);
-    await page.evaluate(() => openTour());
-    const whole = await walk(page, `${label} all (from reminders)`, phone);
-    const planned = await page.evaluate(() => TOUR_SECTIONS.flatMap((s) => s.steps.map((x) => x.target)));
-    console.log(
-      `${label} whole tour: ${whole.length} of ${planned.length} steps shown, left out at this size: ` +
-        JSON.stringify(planned.filter((t) => !whole.some((s) => s.target === t)))
+
+    // --- Next: <section> goes straight on; Back comes straight back ----------
+    await page.evaluate(() => openTour("notes"));
+    await settled(page);
+    const first = await page.evaluate(STEP_PROBE);
+    check(first.sectionId === "notes" && first.sectionAt === 0, `${label} a section's button opens its first card`);
+    for (let i = 0; i < 12; i += 1) {
+      const m = await page.evaluate(STEP_PROBE);
+      if (m.nextSection) break;
+      await page.click("#tour-next");
+      await settled(page);
+    }
+    const boundary = await page.evaluate(STEP_PROBE);
+    await page.click("#tour-next");
+    await settled(page);
+    const into = await page.evaluate(STEP_PROBE);
+    check(
+      into.sectionId === "chat" && into.sectionAt === 0 && into.section === boundary.nextSection,
+      `${label} "${boundary.nextText}" goes straight into ${into.section}, card ${into.counter}`
     );
+    await page.click("#tour-back");
+    await settled(page);
+    const back = await page.evaluate(STEP_PROBE);
+    check(
+      back.sectionId === "notes" && back.target === boundary.target,
+      `${label} Back from Chat's first card returns to Notes' last (${back.section} ${back.counter})`
+    );
+    await page.evaluate(() => tourClose(false));
+
+    // --- the whole tour from Settings' Start the tour -------------------------
+    if (process.env.FULL !== "0") {
+      await page.evaluate(() => switchTab("reminders"));
+      await page.waitForTimeout(400);
+      await page.evaluate(() => openSettingsModal());
+      await page.waitForTimeout(500);
+      await page.evaluate(() => showSettingsSection("help"));
+      await page.waitForTimeout(300);
+      await page.evaluate(() =>
+        [...document.querySelectorAll("#tour-replay-buttons button")].find((b) => b.textContent === "Start the tour").click()
+      );
+      await page.waitForTimeout(300);
+      const whole = await walk(page, `${label} start the tour`, phone);
+      await sectionReport(page, `${label} start the tour`, whole);
+      check(
+        JSON.stringify(whole.map((m) => m.target)) === JSON.stringify(fromWelcome.map((m) => m.target)),
+        `${label} Start the tour and the welcome walk the same cards (${whole.length} and ${fromWelcome.length})`
+      );
+    }
     check(
       await page.evaluate(() => localStorage.getItem("tourDone") === "1"),
       `${label} finishing is remembered (tourDone)`
@@ -311,7 +468,7 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
     }
 
     // --- typing in the lit control is typing ---------------------------------
-    await page.evaluate(() => openTour("note"));
+    await page.evaluate(() => openTour("notes"));
     await settled(page);
     await page.click("#entry-content");
     await page.keyboard.type("ab");
@@ -336,7 +493,7 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
     // --- Next twice while a tab loads ----------------------------------------
     await page.evaluate(() => switchTab("dashboard"));
     await page.waitForTimeout(300);
-    await page.evaluate(() => openTour("finding"));
+    await page.evaluate(() => openTour("notes"));
     await settled(page);
     await page.evaluate(() => {
       tourNext();
@@ -345,7 +502,7 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
     await settled(page);
     await page.waitForTimeout(400);
     const twice = await page.evaluate(STEP_PROBE);
-    check(twice.index === 2 && twice.counter === `3 of ${twice.total}`, `${label} two quick Nexts land on step 3 once (${twice.counter})`);
+    check(twice.index === 2 && twice.counter === `3 of ${twice.sectionTotal}`, `${label} two quick Nexts land on step 3 once (${twice.counter})`);
     judge(`${label} after two quick Nexts`, twice, phone);
     await page.evaluate(() => tourClose(false));
 
@@ -392,13 +549,35 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
       const el = document.getElementById("space-switcher-btn");
       el.style.display = "none";
       openTour("basics");
-      const first = tourRun.steps.length;
+      const first = tourRun.steps.filter((x) => x.sectionId === "basics").length;
       el.style.display = "";
       return first;
     });
     await settled(page);
     await page.evaluate(() => tourClose(false));
     check(hidden === 3, `${label} a hidden chrome control is left out before the count (3, got ${hidden})`);
+
+    // --- a notebook with no mind map: pointed at New mind map, nothing made --
+    await page.evaluate(() => {
+      window.__tourNeedsMap = TOUR_NEEDS.map;
+      TOUR_NEEDS.map = () => false;
+      switchTab("dashboard");
+    });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => openTour("maps"));
+    await settled(page);
+    const noMap = await page.evaluate(STEP_PROBE);
+    judge(`${label} no map`, noMap, phone);
+    check(
+      noMap.sectionId === "maps" && noMap.sectionTotal === 1 && /New mind map/.test(noMap.text) && noMap.wbFace === "landing",
+      `${label} with no map, Mind maps is one card on New mind map (${noMap.counter}, ${noMap.shownTarget}, ${noMap.wbFace})`
+    );
+    await page.evaluate(() => {
+      tourClose(false);
+      TOUR_NEEDS.map = window.__tourNeedsMap;
+    });
+    const after = await holdings();
+    check(after === before, `${label} the tours made nothing (before ${before}, after ${after})`);
 
     // --- the dim is on the page and not on the lit control -------------------
     await page.evaluate(() => switchTab("dashboard"));
@@ -425,7 +604,7 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
     await page.screenshot({ path: dimmed });
     await page.evaluate(() => tourClose(false));
     const pixel = (file, [x, y]) =>
-      execFileSync("python3", [path.join(ROOT, "scratchpad/pngpixel.py"), file, String(x), String(y)], {
+      execFileSync("python3", [path.join(ROOT, "scratchpad/pngpixel.py"), file, String(Math.round(x * scale)), String(Math.round(y * scale))], {
         encoding: "utf-8",
       }).trim();
     const lum = (line) => {
@@ -445,7 +624,7 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
     await page.evaluate(() => showSettingsSection("help"));
     await page.waitForTimeout(300);
     await page.evaluate(() =>
-      [...document.querySelectorAll("#tour-replay-buttons button")].find((b) => b.textContent === "Finding things").click()
+      [...document.querySelectorAll("#tour-replay-buttons button")].find((b) => b.textContent === "Graph").click()
     );
     await page.waitForTimeout(300);
     await settled(page);
@@ -454,7 +633,7 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
       settingsOpen: !document.getElementById("settings-modal").classList.contains("hidden"),
       section: document.getElementById("tour-section").textContent,
     }));
-    check(fromSettings.open && fromSettings.section === "Finding things", `${label} a section button plays that section`);
+    check(fromSettings.open && fromSettings.section === "Graph", `${label} a section button plays that section`);
     check(!fromSettings.settingsOpen, `${label} the settings modal is out of the way first`);
     judge(`${label} from Settings`, await page.evaluate(STEP_PROBE), phone);
     await page.evaluate(() => tourClose(false));
@@ -476,7 +655,7 @@ const SIZES = (process.env.SIZES || "1440x900,1184x760,390x844")
     const ink = {};
     for (const [id, box] of Object.entries(inkBoxes)) {
       ink[id] = Number(
-        execFileSync("python3", [path.join(__dirname, "rectcontrast.py"), inkShot, ...box.map(String)], {
+        execFileSync("python3", [path.join(__dirname, "rectcontrast.py"), inkShot, ...box.map((v) => String(Math.round(v * scale)))], {
           encoding: "utf-8",
         }).trim()
       );

@@ -34,6 +34,73 @@ with its owner named in the entry.
 
 ## Open items
 
+406. **The owner, 2026-09-24, verbatim.** "can you also massively expand and
+    diversify the help information available to the guide as well as
+    improve the answers and accuracy of responses when no ai model is
+    available??" Measured first: `help_chat.HELP_TOPICS` is 33 topics; with
+    no model, `offline_answer` pastes whole bodies of keyword-matched topics.
+    Placed as the next agent brief: every feature a topic (tasks as steps,
+    synonyms), docs/*.md (INSTALL, TROUBLESHOOTING, PRIVACY, MODELS) chunked
+    as a second source, ranked retrieval (BM25 plus synonyms and typo
+    tolerance) that answers with the matching section or steps rather than
+    whole bodies, related topics as chips, and a bank of about 100 real
+    questions with expected topics, top-1 accuracy measured before and after.
+
+405. **The owner, 2026-09-24, verbatim, with chat screenshots.** "the sub
+    headings in the find anything search are all lowercase and hard to see"
+    (fixed, 8a2b5c1 and after), "the back to top hover state is too
+    transparent, I want it to be more opaque. also when I hover over the
+    jump to latest button in the chat, it flickers for a second and doesnt
+    change.", "the user message bubbles in the chat still look too, and
+    unprofessional much compared to the assistant bubbles which are fine.
+    maybe it's the brightness of the message bubble colour?? also there was
+    a repo I got you to analyse which can generate unique avatars and I was
+    wondering if we could utilise a similar concept??", "is multilingual
+    translation and text conversion too big of an ask or thing to
+    implement?? like a translation feature??" and "if an ai model isnt
+    connected, it shouldnt show a model being used right??" Placed:
+    back-to-top, jump-to-latest (cause: the global `button:hover` brightness
+    filter, handed to the polish agent app-wide), the user bubble and the
+    model chip, orchestrator; avatars (blobatar's idea, generated here, no
+    vendoring) and translation (through the local model first, an offline
+    translation extra second), agent briefs.
+
+404. **The owner, 2026-09-23 night, verbatim.** "also does emmet workf for
+    other languages like python, c#, java and more??" and "what about code
+    errors, debugging console or smth?? what is the doc editor missing for
+    both text/md/docx/other text files as well as for code files as well??"
+    Answer: Emmet is markup and CSS only (HTML, XML, JSX, CSS family); the
+    equivalent elsewhere is snippets. Present already (grepped): Problems
+    panel and F8, error underlines for JSON/JS/TS/CSS/Python/TOML/XML/YAML,
+    outline, history and diff, comments, footnotes, TOC, spelling, focus
+    mode, split view, word count, export and print. Placed. Code side (the
+    completions agent's queue): per-language snippets (Python, Java, C#, C,
+    C++, Go, Rust, JS/TS, SQL, shell), Run with an output console for JS/TS
+    in a sandboxed worker and HTML in a sandboxed preview frame, Python via
+    Pyodide as an opt-in extra (offline once installed), go to definition
+    and find references within a file, find across documents. Not
+    proposed: breakpoint debugging and compiled languages (a native
+    toolchain per language). Prose side (new agent): grammar and style with
+    Harper (INBOX 401), suggestion mode (tracked changes), read aloud with
+    the system's own voices, an accessibility check (heading order, alt
+    text, link text), and a .docx round trip if export is missing.
+
+403. **The owner, 2026-09-23 night, verbatim.** "for me, trust in the
+    application isn't just the information it shows but that is very much a
+    key point, it is also how cleanly and professionally the application ui
+    is designed and works. the less professional or unclean any part of the
+    ui is, no matter how small, I instantly doubt the applicationa dn wonder
+    if it is worth putting any time into as it feels unreliable. things like
+    having that small gap between the edge of the note connection pill chips
+    on the right and the 'x' delete button, as well as poorly designed
+    dropdown menus with bd widths, poor spacing, poor alignment, poor
+    heirarchy, positioning, poor learnability, not intuitive controls poor
+    information architecture and more. keep doing what you are doing" The
+    standing bar for every pass (INBOX 399's hole-poke and refinement briefs
+    carry it). Named: the connection pill's x inset, orchestrator; menus
+    (widths, spacing, alignment), a sweep of every menu for width, padding
+    and row alignment.
+
 402. **The owner, 2026-09-23 night, verbatim:** "are there any other vscode
     features we can add to the document editor like emmet for other
     languages or file types??" And, on Ctrl+/: it exists
@@ -51,6 +118,60 @@ with its owner named in the entry.
     next occurrence, go to line, folding, bracket matching, rectangular
     selection, the lint gutter. Each key checked against the shortcut
     registry; a taken key is skipped and named.
+
+401. **The owner, 2026-09-23 night, verbatim.** "should we vendor any of the
+    repos I have had you analyse?? or take anything from them??" Answer from
+    ANALYSIS.md ("Six repositories read", 2026-09-20; section 33 and 60 for
+    odysseus): Harper (Apache-2.0, on-device grammar and style in WASM) is
+    the one to vendor, recommended "take, after a measurement pass" and never
+    done; ship it lazy and opt-in through `core/extras.py`'s pattern if its
+    WASM moves the boot budget (H7). Emmet (MIT) comes in with the code
+    completions agent (394 c). blobatar, KnowNote and Deta Surf were ideas,
+    not code; odysseus's worthwhile parts are adopted. Placed: an agent brief
+    when a slot frees.
+
+400. **The owner, 2026-09-23 night, verbatim.** "I also need you to look for
+    more of those issues like with what were making the whiteboard and
+    mindmap pan glitchy, smth to do with inline css i think?? keep
+    optimising, also I need oyou to validate or criticise the app's
+    architectural and structural decisions to see if there are better
+    alternatives." Placed: (1) a style-invalidation hunt, the class the map
+    agent found (`[class*="card"] *` restyling whole subtrees on any class
+    change, 218ms to 0.1ms; inherited custom properties written per frame on
+    a container), across every surface, with `tests/test_css_invalidation.py`
+    extended to each new shape; (2) an architecture review written into
+    ANALYSIS.md: what is sound, what a professional app would do instead,
+    cost and order of each change.
+    **(2) written 2026-09-24**: ANALYSIS.md "Architecture review"; the three
+    that matter most are the embedding model out of the main process, ES
+    modules surface by surface, and cascade layers folding 08 back.
+
+399. **The owner, 2026-09-23 night, verbatim.** "what is left in the world
+    class plan?? can you poke more holes in the application for bugs,
+    security, poor learnaility/utility/usability/accessibility and more??
+    make sure everything works on the windows packaged installer and the
+    version it installs. make sure all the update features in the about
+    settings page as well as the auto updates in the bat and sh files work.
+    keep design consistent, expand professional and modern design. maximise
+    usability and learnability. poke holes in the application as in find
+    bugs, security flaws places where there is unintuitive design, poor
+    information architecture, poor design, poor ui and ux, poor
+    learnability/usability/heirarchy/spacing and more. hit the open items and
+    plans in open.md. finish all unfinished work. majorly optimise at the
+    level of professional applications. make everything feel like it is a
+    professional application and not just a demo. maximise use of affordances
+    and semiotics. look at websites like motion.dev for ui and component
+    refinement, bklit.ui, kokonut ui etc so make sure none of the ui elements
+    are unprofessionally designed or act in a wierd way. ... dont let my
+    additions distract you, add them to the list and continue, never leave
+    anything half finished, not properly done, or untouched."
+    Placed as four agent briefs, run as slots free: (1) WORLD_CLASS_PLAN
+    rows not built, grepped first, with the list reported back; (2) a hole
+    poke (bugs, security, a11y, IA, spacing) with a finding table and fixes;
+    (3) the Windows installer, the installed version and the update paths
+    (About's updater, `start-*.bat`/`.sh` auto-update), tested in a scratch
+    copy per CLAUDE.md's trap; (4) component refinement against motion.dev,
+    kokonut and bklit patterns (motion, hover, focus, press states).
 
 397. **The owner, 2026-09-23 night, verbatim, from the desktop window with a
     screenshot.** "I pressed next on the first panel of the guided tour, and
@@ -123,7 +244,11 @@ with its owner named in the entry.
     question; DESIGN.md "Pills are rare, and never dashed" with
     `test_a_control_is_a_pill_only_where_named`; `pills.js` 90 capsule
     controls in 14 groups before, 5 in 4 after (the chat composer's row, on
-    the allowlist). The rest of 394 is open.
+    the allowlist). (b) built as a persona sentence (the owner: "not just
+    'you are a librarian'"); (d) built (map agent, `mapradialmore.js`); (f)
+    and (g) built; (e) built and reverted at the owner's word ("the user's
+    wont know there are widgets"), so the first widget row stays on the
+    first screen. Left: (c), with the code completions agent.
 
 393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
     improvements, remove any trace of vibe coded stuff in elements, designs,
@@ -326,7 +451,24 @@ with its owner named in the entry.
     its numbers and where it would stop being right, so it does not have to
     be argued a fourth time. No migration started, and the serverless
     question is answered in a paragraph there rather than left hanging.
-    Still open on this entry: (1), (2), (3), (4) and (5).
+    **(1) done 2026-09-23**, the usability and IA read against the owner's
+    "3 clicks to anything" (INBOX 270): 22 primary tasks driven from a fresh
+    dashboard by `scratchpad/ui-sweeps/clicks.js`, 21 within three clicks and
+    restoring from the bin at four on purpose (the table is in
+    `agent-remaining/guideia.md`). Four trust breakers it found, all fixed:
+    both dashboard "Ask" doors opened a disabled Chat box when no model was
+    running (now Notes, Ask, which answers without one); the Chat tab never
+    said why its box was grey (now the same Connect-a-model line as Ask, the
+    agent and the writing desk); a new notebook's Library said "Nothing of
+    this kind yet" because the activity log counted as things made (now a
+    sentence and a Create button); Create offered no board and no upload
+    (now seven rows).
+    Checked, not built here (packaging is another agent's): (2) the
+    `.tar.gz` ships (`release.yml`, `MemoryMap-AI-<v>-linux-x86_64.tar.gz`);
+    (3) the `.msi` steps exist but are `if: false`, so no MSI ships; (4)
+    every installer name carries version, platform and arch
+    (`installer.iss`: `MemoryMap-AI-Setup-<v>-windows-x86_64`). Still open on
+    this entry: (3) and (5).
     **Checked 2026-09-23.** (2) built: `release.yml` ships
     `MemoryMap-AI-<version>-linux-x86_64.tar.gz` beside the zip. (3) built and
     then switched off (`b7b15c7`, WiX v7's fee terms; see 271, resolved). (4)
@@ -373,61 +515,6 @@ with its owner named in the entry.
     `scratchpad/ui-sweeps/graphminimap.js`). (1) and (2) are
     AGENT_SKILLS_REFORM's, whose Phase D was verified against a real small
     model on 2026-09-20; what that plan still holds is its evals breadth.
-
-270. **Mid-work drop, 2026-09-20, verbatim (the owner), with a dashboard
-    screenshot and four MSN/Bing screenshots.** "hit the rest of the open
-    items. make sure you complete all of my requests and flagged items. fix
-    the codeql and ci errors. fix any bugs you might have missed. also is
-    there a way to declutter the dashboard a bit or spread things out a
-    bit?? idk it looks good but a lot is happening on it. maybe something
-    like the feed layout options with msn on microsoft bing?? the user needs
-    to be able to view and access what they want within around 3 clicks and
-    they need to know how to instantly access what they want after loading
-    the app. maybe the dashboard should have a universal searchbar on it??
-    maybe that searchbar can be accessible in a univerally accessible popup
-    window like the popup agent and guide??? also can you improve/redesign
-    the ui and layout of the guide popup panel at all??"
-    **Decisions taken with the owner, 2026-09-20.** (a) The dashboard gets a
-    density switch, the MSN "Feed layout" shape: Full (today), Compact
-    (Start something collapses to icons, the stats become one line) and
-    Focused (search and widgets only, the rest behind More), remembered per
-    device. Nothing is removed, so no feature is lost to a layout choice.
-    (b) The search is not a feature-finder. The owner: "this is a search for
-    any and all content, items, text, files everything. a full application
-    wide semantic search which shows content as well as features and actions
-    etc. absolutely everything and what shows can be filtered, sorted and
-    toggled... similar to the aws search or amazon search bar. a separate
-    dashboard search might be good but also a popup window as well would be
-    good." Both doorways, one engine. (c) macOS: not yet, written up rather
-    than built, because Gatekeeper refuses an unsigned app outright rather
-    than warning about it, and notarising needs an Apple Developer account.
-    **Checked before building, and this is the finding that shapes the work:**
-    `/search` already exists and is exactly what (b) describes.
-    `routes_search.py` over `search/engine.py` searches notes, documents,
-    boards, files, bookmarks and reminders together, hybrid keyword plus
-    semantic, with `tag:`, `kind:`, `in:`, `before:`, `after:`, `has:`, `is:`,
-    quoted phrases and `-exclusions` from `search/query.py`, three scores and
-    an explanation per hit, and per-kind counts so an empty result can say
-    why. **Nothing in the app calls it.** The only reader of anything under
-    `/search` in the whole frontend is `settings.js` asking `/search/stats`
-    for a number. So the work is a front door, not an engine: the popup, the
-    dashboard field, the filters and the sort, over the route already there.
-    Measured from the screenshot: above the fold the dashboard stacks five
-    "Start something" tiles, four "Jump to" pills, three skill chips, four
-    stat tiles and a sparkline, then the widget grid heading, before a single
-    widget is visible. Six bands of chrome before any content. The MSN
-    reference is its "Feed layout" control: full page, partial view,
-    headings, three densities of the same page. Four things: (1) a density or
-    layout choice for the dashboard, (2) a search field on it that is the
-    obvious first thing, (3) that same search reachable from anywhere as a
-    popup, like the command palette already is, (4) a redesign of the guide
-    popup panel. Open.
-    **Checked 2026-09-23.** (1) built: `DASH_DENSITY_KEY` and the Full,
-    Compact and Focused levels in `dashboard.js`. (2) and (3) built: the
-    finder reads `/search` (`app.js`, `finderRun`, `Ctrl+P` in
-    `DEFAULT_SHORTCUTS` as "Find anything"). (4) partly: INBOX 274 fixed the
-    guide panel's title, model, thinking and streaming; a redesign as such has
-    not been done and is the one part left.
 
 302. **Found by the repository read, 2026-09-21 (the session, not the owner):
     a decision for the owner.** needle (cactus-compute, Apache-2.0 for both

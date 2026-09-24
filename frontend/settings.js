@@ -272,9 +272,12 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   // reopening costs nothing.
   collapseLongSettingHints();
   $("settings-close").focus();
+  //: The version alone: "46 entries loaded" was a debugging line (the
+  //: client's cache size, drafts included) sitting beside the Health
+  //: section's own count of the same thing, and the two disagreed.
   $("about-version").textContent = `Version ${
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
-  } · ${allEntries.length} entries loaded`;
+  }`;
   $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
   $("pref-auto-update").checked = Boolean(prefsCache?.auto_update_enabled);
   $("pref-update-channel-main").checked = prefsCache?.update_channel === "main";
@@ -452,9 +455,19 @@ async function renderHealthBlock() {
   }
   dbSize.textContent = `${formatFileSize(health.db?.size_bytes) || "0 B"} · ${health.data_dir}`;
   const c = health.counts || {};
-  counts.textContent =
-    `${c.entries ?? 0} notes · ${c.documents ?? 0} documents · ` +
-    `${c.media ?? 0} files · ${c.attachments ?? 0} attachments · ${c.reminders ?? 0} reminders`;
+  //: Each kind counted as the rest of the app counts it: notes are the
+  //: dashboard's notes (no boards, no drafts), and boards and drafts are
+  //: named rather than folded in (it read "96 notes" beside a dashboard's 44).
+  //: A kind with none is left out, and "1 draft" is singular.
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const parts = [plural(c.notes ?? c.entries ?? 0, "note", "notes")];
+  if (c.drafts) parts.push(plural(c.drafts, "draft", "drafts"));
+  if (c.boards) parts.push(plural(c.boards, "board or map", "boards and maps"));
+  parts.push(plural(c.documents ?? 0, "document", "documents"));
+  if (c.media) parts.push(plural(c.media, "file", "files"));
+  if (c.attachments) parts.push(plural(c.attachments, "attachment", "attachments"));
+  parts.push(plural(c.reminders ?? 0, "reminder", "reminders"));
+  counts.textContent = parts.join(" · ");
   const running = health.jobs?.running || [];
   jobs.textContent = running.length
     ? running.map((job) => job.label).join(", ")
@@ -3604,7 +3617,14 @@ const GUIDE_TITLE = `${GUIDE_NAME} guide`;
 //: the '?' popover, the empty state and the composer's own hint all carry
 //: too. What it says instead is where the answers come from, which is the
 //: fact that makes the panel worth opening.
-const GUIDE_LINE = "How this app works, from its own help text";
+//:
+//: **One line, and it has to fit on one** (INBOX 270 part 4). The previous
+//: wording was 41 characters in a 251px column at `--text-sm` and wrapped at
+//: 1440 and 1024 both, leaving "text" alone on a second line and the head
+//: 63px tall against the agent activity panel's 37. Thirty characters says
+//: the same thing and fits with room to spare; the CSS still ellipsises it,
+//: so a longer translation cannot put the second line back.
+const GUIDE_LINE = "Answers from the app's own help";
 //: The persona hint's "(Atlas)" follows the name too.
 {
   const hint = document.getElementById("persona-placeholder-hint");

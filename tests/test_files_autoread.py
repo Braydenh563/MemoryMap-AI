@@ -137,6 +137,7 @@ def test_a_description_typed_while_the_model_ran_is_kept(client, session, monkey
     The fake model call writes the typed value mid-call, which is exactly the
     window the real one leaves open."""
     from memorymap.ai import captioning
+    from memorymap.api import routes_files
     from memorymap.core import deps
 
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
@@ -145,8 +146,6 @@ def test_a_description_typed_while_the_model_ran_is_kept(client, session, monkey
     # the fakes above it writes "A handout about ..." whenever it gets there:
     # after `caption = None` below on a slow runner (CI, 3.12 and 3.13). This
     # test is about the one call it makes itself, so the route's is held off.
-    from memorymap.api import routes_files
-
     monkeypatch.setattr(routes_files.docreader, "read_in_background", lambda fid: None)
     file_id = _attach(client)
     row = session.get(Attachment, file_id)

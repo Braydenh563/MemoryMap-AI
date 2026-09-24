@@ -351,11 +351,12 @@ EXTRAS: tuple[Extra, ...] = (
     Extra(
         id="desktop",
         label="Desktop window (pywebview)",
-        enables="Runs MemoryMap in its own app window instead of a browser tab "
-        ", `python -m memorymap --desktop`. On Windows this also adds a system "
-        "tray icon (Open / View Logs / Restart / Quit) so closing the window "
-        "minimizes it instead of ending the app; elsewhere the window still "
-        "opens, it just closes for real.",
+        # Copy a reader of Settings sees: no command line (a stray ", `python
+        # -m memorymap --desktop`" printed its backticks raw on the card).
+        enables="Runs MemoryMap in its own app window instead of a browser tab. "
+        "On Windows it also adds a tray icon (open, view logs, restart, quit), "
+        "so closing the window keeps the app running; elsewhere closing the "
+        "window quits.",
         # pystray + Pillow are the tray icon; bundled with the same button
         # because a desktop window with no tray is the "always-open terminal"
         # complaint this was built to fix (see __main__._start_tray). Neither
@@ -380,8 +381,8 @@ EXTRAS: tuple[Extra, ...] = (
     Extra(
         id="documents",
         label="Import documents (markitdown)",
-        enables="Turns PDFs, Word files and slides into notes, the "
-        "'Import a document' button in Settings → Import & export.",
+        enables="Turns PDFs, Word files and slides into notes: the "
+        "Import a document button in Settings, Import & export.",
         # The three converter groups, not bare markitdown: since 0.1 a plain
         # `pip install markitdown` reads HTML and text and raises on exactly
         # the PDFs, Word files and slides this card (and the installer's
@@ -413,8 +414,8 @@ EXTRAS: tuple[Extra, ...] = (
         id="ocr",
         label="Search inside images (Tesseract OCR)",
         enables="Text found in an uploaded image (a whiteboard photo, a "
-        "scanned page) becomes searchable in the Library's Image Gallery: "
-        "asked for directly: 'what was on that whiteboard photo from March.'",
+        "scanned page) becomes searchable in the Library's images, so a search "
+        "for a word on that whiteboard finds the photo.",
         packages=("pytesseract", "Pillow"),
         module="pytesseract",
         size="~10 MB",

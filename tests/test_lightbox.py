@@ -45,6 +45,27 @@ def test_the_arrows_share_a_positioned_box_with_the_image():
     assert "top: 50%" in nav and "translateY(-50%)" in nav
 
 
+def test_the_picture_never_goes_under_an_arrow():
+    """The owner, 2026-09-24: "the image clashes with the side left and right
+    arrow buttons". `scratchpad/ui-sweeps/lightboxfit.js` measured 976px2 of
+    a wide picture under each arrow at Fit at 1440, and a zoomed one under
+    them at every width. The stage (the scrollport) is narrowed by the
+    arrows' room whenever there are arrows, and the picture is capped by it."""
+    assert 'stageWrap.classList.add("lightbox-paged")' in LIGHTBOX
+    rule = re.search(r"\.lightbox-stage-wrap\.lightbox-paged > \.lightbox-stage \{([^}]*)\}", CSS)
+    assert rule and "var(--lightbox-nav-room)" in rule.group(1)
+    capped = re.search(r"\.lightbox-stage > img,\s*\.lightbox-stage > \.lightbox-doc \{([^}]*)\}", CSS)
+    assert capped and "100%" in capped.group(1)
+
+
+def test_the_info_card_is_one_width_under_the_toolbar():
+    """It shrank to its words: 383, 768 and 314px on three pictures at 1440
+    under a 350px toolbar. Both now take the one shared width."""
+    for selector in (r"\.lightbox-info", r"\.lightbox-actions"):
+        rule = re.search(selector + r" \{([^}]*)\}", CSS)
+        assert rule and "width: var(--lightbox-panel-w)" in rule.group(1), selector
+
+
 def test_nothing_measures_the_image_to_place_the_arrows():
     """The measured version had to be re-run on every image change and every
     resize, and was one forgotten call away from being wrong again."""

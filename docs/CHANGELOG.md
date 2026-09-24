@@ -105,6 +105,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Lightbox: the picture never runs under the previous and next arrows, at Fit or zoomed, at any width, and the information card under it is one width on every picture, edge to edge with the toolbar.
 - Boards and maps: a picture exported (to a file or to the Library) is painted in the colours on screen, in light and dark: map topics, note cards and text boxes take their own fill, edge and ink, and a branch keeps its colour. In dark mode the topics used to come out white and the text dark on dark.
 - Library and lightbox: a picture exported from a board or map carries the description the app wrote for it as "Written by MemoryMap", not "typed by hand", and a vision model that later describes it is credited alone rather than as an edit.
 - Mind maps: a topic dropped on another topic, or joined to one by a line, is laid out as that topic's child with its own branch beside it, on a Free map as well as a tidied one, and one Undo puts the parent and every place back. It used to land on top of its new parent.

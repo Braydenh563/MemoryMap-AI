@@ -7857,7 +7857,12 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   const stageWrap = document.createElement("div");
   stageWrap.className = "lightbox-stage-wrap";
   stageWrap.appendChild(stage);
-  if (items.length > 1) stageWrap.append(prevBtn, nextBtn);
+  //: `lightbox-paged` narrows the stage by the arrows' room, so the picture
+  //: never goes under one (02-chat-graph.css).
+  if (items.length > 1) {
+    stageWrap.append(prevBtn, nextBtn);
+    stageWrap.classList.add("lightbox-paged");
+  }
   const column = document.createElement("div");
   column.className = "lightbox-column";
   column.append(stageWrap, meta, actions, info);

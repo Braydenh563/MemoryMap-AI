@@ -5630,6 +5630,11 @@ main,
 .nm-atlas .atl-brow-line { stroke: var(--atl-line); stroke-width: 1.5; opacity: 0.8; }
 .nm-atlas .atl-tongue { fill: var(--atl-tongue); }
 .nm-atlas .atl-crest-light { fill: none; stroke: var(--atl-hi); stroke-width: 1.1; stroke-linecap: round; opacity: 0.7; }
+.nm-atlas .atl-band { fill: none; stroke: var(--atl-hi); stroke-width: 1.1; stroke-linecap: round; }
+.nm-atlas .atl-band-node { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.5; }
+.nm-atlas .atl-sole { fill: none; stroke: var(--atl-line); stroke-width: 1; stroke-linecap: round; opacity: 0.5; }
+.nm-atlas .atl-crease { fill: none; stroke: var(--atl-line); stroke-width: 0.8; stroke-linecap: round; opacity: 0.45; }
+.nm-atlas .atl-glint { fill: white; }
 .nm-atlas .atl-star-major { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.5; stroke-linejoin: round; }
 .nm-atlas .atl-star-minor { fill: var(--atl-hi); opacity: 0.8; }
 .nm-atlas .atl-node-glow { fill: var(--atl-glow-c); opacity: 0.35; }

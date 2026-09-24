@@ -137,20 +137,32 @@ const ATLAS_GEO = {
 };
 
 const ATLAS_HEAD_PATH = "M32 3.6C42.4 3.6 49.2 10.6 49.2 20.2C49.2 28.2 44.4 34.8 37.6 37.4C35 38.4 29 38.4 26.4 37.4C19.6 34.8 14.8 28.2 14.8 20.2C14.8 10.6 21.6 3.6 32 3.6Z";
-//: The crest: a small fin swept back from the crown, plain.
-const ATLAS_CREST_PATH = "M25 8.8C24.4 3.4 29 0 35.4 -0.4C40 -0.7 43.6 -1.8 46.6 -4.6C45.8 0.2 42.8 3.6 39 5.4C37.8 6 37 7.2 36.6 8.8Z";
+//: The crest: three swept locks, comet-like, the longest on top (the owner:
+//: "better hair or smth??"), lit on their leading edges from the top left
+//: like the rest of the drawing, with a glint at the tip.
+const ATLAS_CREST_LOCKS = [
+  "M33.6 9.2C35.6 5.6 40 4.6 43.8 5C46.4 5.3 48.8 4.4 50.8 2.2C50.6 6.2 48 9 44.4 10.2C41.8 11 39.6 11.4 38.2 12.6Z",
+  "M25 9.4C23 6.6 22.4 3.8 23.4 1.2C24.6 3.8 26.6 5.2 29 6.2Z",
+  "M25 8.8C24.4 3.4 29 0 35.4 -0.4C40 -0.7 43.6 -1.8 46.6 -4.6C45.8 0.2 42.8 3.6 39 5.4C37.8 6 37 7.2 36.6 8.8Z",
+];
 //: The body: shoulders a little wider than the hips, tapering to a tunic's
 //: V at the front, so the silhouette has angles and not a belly.
 const ATLAS_TORSO_PATH = "M27 34C27.2 38.6 25 40.4 22.2 41.6C19.6 42.8 19.4 46.6 20.6 50C22 54 24.2 58.6 24.8 63C25.2 66.4 25 69.4 25.4 71.6C27.6 72 29.6 72.8 32 75C34.4 72.8 36.4 72 38.6 71.6C39 69.4 38.8 66.4 39.2 63C39.8 58.6 42 54 43.4 50C44.6 46.6 44.4 42.8 41.8 41.6C39 40.4 36.8 38.6 37 34Z";
 //: The tail: one tapering shape (the owner, of a row of beads: "the dotted
 //: tail looks weird and needs a better look"), thick where it grows out
 //: of the hip and fine at the tip, curving low past the hand and up. The
-//: logo's linked notes are set into it, three of them, joined by the tail
-//: itself, the last at the tip. The path is generated (a centreline of two
+//: logo's notes sit on two thin bands round it, and its tip is bright. The path is generated (a centreline of two
 //: cubics, a half-width easing from 3.6 to 0.45, offset both ways and
 //: smoothed), so it is written out here rather than drawn by hand.
 const ATLAS_TAIL_PATH = "M32.13 67.27C32.45 67.87 33.34 69.74 34.05 70.87C34.77 71.99 35.58 73.06 36.41 74.01C37.25 74.97 38.15 75.82 39.06 76.57C39.98 77.33 40.94 77.99 41.91 78.55C42.88 79.11 43.88 79.57 44.87 79.94C45.86 80.30 46.86 80.57 47.85 80.74C48.83 80.91 49.82 80.98 50.77 80.94C51.72 80.91 52.66 80.78 53.54 80.54C54.42 80.30 55.28 79.95 56.05 79.51C56.82 79.06 57.62 78.36 58.15 77.87C58.69 77.38 58.93 77.01 59.26 76.57C59.60 76.13 59.90 75.69 60.18 75.24C60.46 74.79 60.71 74.33 60.93 73.86C61.16 73.40 61.35 72.93 61.51 72.45C61.68 71.98 61.81 71.50 61.91 71.03C62.01 70.55 62.08 70.07 62.11 69.60C62.14 69.13 62.14 68.65 62.11 68.18C62.07 67.72 62.00 67.25 61.89 66.80C61.78 66.34 61.63 65.89 61.45 65.45C61.27 65.02 60.90 64.40 60.80 64.19C60.69 63.97 60.80 64.19 60.80 64.19A0.45 0.45 0 0 1 60.00 64.61C60.00 64.61 59.91 64.42 60.00 64.61C60.10 64.81 60.41 65.40 60.55 65.80C60.70 66.20 60.79 66.60 60.86 67.01C60.93 67.41 60.95 67.82 60.95 68.23C60.95 68.63 60.91 69.05 60.84 69.45C60.77 69.86 60.67 70.27 60.54 70.67C60.41 71.07 60.25 71.48 60.06 71.87C59.88 72.26 59.66 72.65 59.42 73.03C59.18 73.41 58.91 73.78 58.62 74.14C58.33 74.50 58.01 74.86 57.68 75.19C57.35 75.52 57.11 75.80 56.65 76.13C56.18 76.46 55.49 76.90 54.88 77.15C54.26 77.40 53.61 77.55 52.95 77.62C52.28 77.70 51.58 77.69 50.88 77.60C50.18 77.51 49.45 77.34 48.74 77.10C48.03 76.85 47.30 76.52 46.61 76.11C45.91 75.71 45.22 75.23 44.56 74.67C43.91 74.12 43.28 73.49 42.69 72.80C42.11 72.11 41.56 71.35 41.08 70.53C40.60 69.70 40.17 68.84 39.80 67.87C39.43 66.91 39.02 65.25 38.87 64.73Z";
-const ATLAS_TAIL_NODES = [[43.24, 76.61, 1.7], [53.24, 79.08, 1.25], [60.79, 72.16, 0.95]];
+//: Two bands round it (the celestial ring, worn), each carrying a note, and
+//: a bright tip. The bands are the tail's own normals at 42% and 70% of its
+//: length, bowed a little along it.
+const ATLAS_TAIL_BANDS = [
+  ["M47.73 81.22Q49.46 79.2 48.86 76.61", [49, 78.9, 1.15]],
+  ["M59.64 76.89Q59.26 74.97 57.3 74.87", [59, 75.6, 0.9]],
+];
+const ATLAS_TAIL_TIP = [60.6, 64.9];
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -295,27 +307,37 @@ function atlasExtras(parent) {
 //: edge under every fill, then its fill.
 function atlasCrest(parent, tiny, edge) {
   const crest = atlasGroup(parent, "atl-crest", ATLAS_GEO.crest);
-  atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: ATLAS_CREST_PATH }, crest);
-  if (!edge && !tiny) atlasMake("path", { class: "atl-crest-light", d: "M27.4 5.6C28.6 2 32.4 0.8 36.6 0.6" }, crest);
+  for (const d of ATLAS_CREST_LOCKS) atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, crest);
+  if (edge || tiny) return crest;
+  //: Where the top lock lies over the one behind it, a crease; on each
+  //: lock's leading edge, the light.
+  atlasMake("path", { class: "atl-crease", d: "M45.8 -1.2C44.4 2 42 4 39 5.4" }, crest);
+  atlasMake("path", { class: "atl-crest-light", d: "M27.4 5.6C28.6 2 32.4 0.8 36.6 0.6" }, crest);
+  atlasMake("path", { class: "atl-crest-light", d: "M38.4 8.6C40.4 6.4 43.2 6 46.4 5.8" }, crest);
+  atlasSpark(crest, 46.8, -4.8, 1.7, "atl-glint");
   return crest;
 }
 
 //: The tail, in the edge layer and again in the fill layer like every other
 //: part. `.atl-tail` takes the pose and the mood (tucked, hanging, curled,
 //: lifted, drooping); `.atl-tail-swish` inside it takes the loop (a slow
-//: sway at rest, a wag when pleased). In the fill copy the notes set into
-//: it glow, light in turn while Atlas thinks and pulse to music.
+//: sway at rest, a wag when pleased). In the fill copy the notes on its
+//: bands glow, light in turn while Atlas thinks and pulse to music.
 function atlasTail(layer, edge) {
   const tail = atlasGroup(layer, "atl-tail", ATLAS_GEO.tail);
   const swish = atlasGroup(tail, "atl-tail-swish", ATLAS_GEO.tail);
   atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: ATLAS_TAIL_PATH }, swish);
   if (edge) return tail;
-  ATLAS_TAIL_NODES.forEach(([x, y, r], i) => {
+  ATLAS_TAIL_BANDS.forEach(([band, [x, y, r]], i) => {
     const core = atlasGroup(swish, `atl-tail-core atl-tail-core-${i}`);
     core.style.setProperty("--atl-k", String(i));
-    atlasMake("circle", { class: "atl-node-glow", cx: x, cy: y, r: r + 1.3 }, core);
-    atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r }, core);
+    atlasMake("path", { class: "atl-band", d: band }, core);
+    atlasMake("circle", { class: "atl-node-dot atl-band-node", cx: x, cy: y, r }, core);
   });
+  const tip = atlasGroup(swish, "atl-tail-core atl-tail-core-2");
+  tip.style.setProperty("--atl-k", "2");
+  atlasMake("circle", { class: "atl-node-glow", cx: ATLAS_TAIL_TIP[0], cy: ATLAS_TAIL_TIP[1], r: 2.4 }, tip);
+  atlasSpark(tip, ATLAS_TAIL_TIP[0], ATLAS_TAIL_TIP[1], 1.6, "atl-glint");
   return tail;
 }
 
@@ -417,14 +439,18 @@ function atlasHead(parent, id, level) {
 //: is drawn in the edge layer and again in the fill layer (see the design
 //: note), with the same classes, so the companion moves both copies. Limbs
 //: taper from joints inside the torso; the arms angle out so there is air
-//: between arm and waist, and the legs end in small feet turned out.
+//: between arm and waist and end in mittens with the thumb turned in, and
+//: the legs end in small feet with a toe, a heel and a sole. A thin band of
+//: light at each wrist and ankle carries a note: the celestial ring the
+//: owner liked, worn rather than floating round the body.
 const ATLAS_LEGS = [
-  ["l", "M26.6 66C26.4 72 26.8 78 27.2 84.2C25.4 85.4 23.8 86.8 24 88.6C24.2 89.8 26.6 90 28.6 89.8C30 89.6 30.5 88.8 30.5 87.6C30.5 80 30.8 72 31.2 66Z"],
-  ["r", "M37.4 66C37.6 72 37.2 78 36.8 84.2C38.6 85.4 40.2 86.8 40 88.6C39.8 89.8 37.4 90 35.4 89.8C34 89.6 33.5 88.8 33.5 87.6C33.5 80 33.2 72 32.8 66Z"],
+  ["l", "M26.6 66C26.4 72 26.8 78 27 84C24.8 84.8 22.9 86.4 23.1 88.3C23.2 89.5 24.1 90 25.3 90L29.8 90C30.9 90 31.3 89 31.1 87.8C30.9 86.7 30.7 85.8 30.7 84.6C30.7 78 30.9 72 31.2 66Z", "M26.4 81.6C28.9 83 28.9 83 31.3 81.6", [28.85, 82.3], "M24.2 89.2H30.3"],
+  ["r", "M37.4 66C37.6 72 37.2 78 37 84C39.2 84.8 41.1 86.4 40.9 88.3C40.8 89.5 39.9 90 38.7 90L34.2 90C33.1 90 32.7 89 32.9 87.8C33.1 86.7 33.3 85.8 33.3 84.6C33.3 78 33.1 72 32.8 66Z", "M37.6 81.6C35.1 83 35.1 83 32.7 81.6", [35.15, 82.3], "M39.8 89.2H33.7"],
 ];
+//: Mitten hands with the thumb turned in, and a band at each wrist.
 const ATLAS_ARMS = [
-  ["l", "M20.2 42.4C17.6 47 15.2 53.6 13.2 59.6C12.4 62 13.2 64.2 15.2 64C16.8 63.8 17.4 62 17.4 60.6C19.4 55 22.2 49.4 24.8 45C25.4 43.4 24.6 41.6 23 41.2C21.8 41 20.8 41.4 20.2 42.4Z"],
-  ["r", "M43.8 42.4C46.4 47 48.8 53.6 50.8 59.6C51.6 62 50.8 64.2 48.8 64C47.2 63.8 46.6 62 46.6 60.6C44.6 55 41.8 49.4 39.2 45C38.6 43.4 39.4 41.6 41 41.2C42.2 41 43.2 41.4 43.8 42.4Z"],
+  ["l", "M20.2 42.4C17.6 47 15.2 53.2 13.5 58.4C12.1 61.2 12.4 64.6 15 65.2C16.8 65.6 18 64.6 18.5 63.4C19.5 63 20 61.6 19.3 60.9C18.8 60.4 18.2 60.6 17.8 60.4C19.8 55 22.2 49.4 24.8 45C25.4 43.4 24.6 41.6 23 41.2C21.8 41 20.8 41.4 20.2 42.4Z", "M13.2 57.4C16 59.4 16 59.4 19.2 57.8", [16.1, 58.6]],
+  ["r", "M43.8 42.4C46.4 47 48.8 53.2 50.5 58.4C51.9 61.2 51.6 64.6 49 65.2C47.2 65.6 46 64.6 45.5 63.4C44.5 63 44 61.6 44.7 60.9C45.2 60.4 45.8 60.6 46.2 60.4C44.2 55 41.8 49.4 39.2 45C38.6 43.4 39.4 41.6 41 41.2C42.2 41 43.2 41.4 43.8 42.4Z", "M50.8 57.4C48 59.4 48 59.4 44.8 57.8", [47.9, 58.6]],
 ];
 const ATLAS_HOLDS = [["l", "M23 44C10 40 3 18 6 -4", 6], ["r", "M41 44C54 40 61 18 58 -4", 58]];
 
@@ -434,9 +460,13 @@ function atlasBody(parent, props) {
   for (const [kind, layer] of Object.entries(layers)) {
     const edge = kind === "edge";
     atlasTail(layer, edge);
-    for (const [side, d] of ATLAS_LEGS) {
+    for (const [side, d, band, [nx, ny], sole] of ATLAS_LEGS) {
       const leg = atlasGroup(layer, `nmb-leg nmb-leg-${side} atl-leg`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, leg);
+      if (edge) continue;
+      atlasMake("path", { class: "atl-sole", d: sole }, leg);
+      atlasMake("path", { class: "atl-band", d: band }, leg);
+      atlasMake("circle", { class: "atl-band-node", cx: nx, cy: ny, r: 0.75 }, leg);
     }
     for (const [side, d, hx] of ATLAS_HOLDS) {
       const hold = atlasGroup(layer, `nmb-hold nmb-hold-${side}`);
@@ -453,10 +483,13 @@ function atlasBody(parent, props) {
       const star = atlasGroup(core, "atl-star", [32, 49]);
       atlasCompass(star, 32, 49, 4.6);
     }
-    for (const [side, d] of ATLAS_ARMS) {
+    for (const [side, d, band, [nx, ny]] of ATLAS_ARMS) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, arm);
-      if (!edge) arms[side] = arm;
+      if (edge) continue;
+      atlasMake("path", { class: "atl-band", d: band }, arm);
+      atlasMake("circle", { class: "atl-band-node", cx: nx, cy: ny, r: 0.8 }, arm);
+      arms[side] = arm;
     }
   }
   if (props) atlasHandProps(arms.r, arms.l);

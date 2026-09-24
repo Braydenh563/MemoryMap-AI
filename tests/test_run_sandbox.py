@@ -146,6 +146,9 @@ def test_the_python_runner_keeps_the_javascript_runners_contract():
     #: The document's own line numbers: the code is compiled under a name the
     #: runner looks for in the traceback.
     assert "<document>" in run_sandbox.PY_RUNNER and "PY_RUNNER" not in page
+    #: It says which runner it is, so the app can tell its `ready` apart.
+    assert 't: "ready", runner: "python"' in page
+    assert 'runner: "python"' not in run_sandbox.RUN_SANDBOX_HTML
 
 
 def test_the_python_line_cap_matches_the_apps_and_is_kept_at_the_source():

@@ -356,7 +356,7 @@ RUN_SANDBOX_PY_HTML = (
     worker.postMessage({ run: current, code: String(d.code || "") });
   }
   window.onmessage = handle;
-  parent.postMessage({ mmRun: 0, t: "ready" }, "*");
+  parent.postMessage({ mmRun: 0, t: "ready", runner: "python" }, "*");
 })();
 </script></body></html>
 """

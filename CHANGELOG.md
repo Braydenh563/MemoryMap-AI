@@ -7,10 +7,6 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-### Changed
-
-- Dashboard, Full view: four bands above the widgets instead of six, so the first row of widgets is fully on screen at 1440x900 (the grid starts at 402px, was 594; Compact 350, was 467). The four stat tiles and the sentence above them are one line of facts in the banner, each fact opening its list; the Jump to pills moved into the toolbar where "Your dashboard" was; the name offer sits beside the greeting. The status bar hides its note and reminder counts on the Dashboard, so each number is said once. The 14-day sparkline is gone from the head (the Stats and Activity heatmap widgets carry it). An overdue reminder in the Reminders widget keeps its title in ink and says "Overdue" on its time line, instead of turning the whole row orange.
-
 ### Added
 
 - Atlas wears two rings of stars that float round its body at crossing tilts, passing behind it and in front: a faint glowing line with star dust drifting along it (slowly at rest, faster when it is pleased or busy) and a few star glints of different sizes twinkling, dimmer when it sleeps. Its tail is plain now, with one glint at the tip.
@@ -177,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Library images and files: the search box rebuilds the grid once when typing pauses instead of on every keystroke.
   whole selection with it, at the same offsets. Before, only the note in hand
   moved and the rest of the selection stayed put. The usual rules hold for
+- Dashboard: the Full view is back to how it was (the owner: it looked too close to Compact, and the Jump to buttons wrapped inside the toolbar row).
   every note carried: a plain drag places, Shift pins, and a pinned note stays
   pinned where it lands.
 - Quit from the desktop window closes the window at once; the background cleanup (up to 5s for a scheduler mid-write) now finishes behind it rather than in front of a window that looks frozen.

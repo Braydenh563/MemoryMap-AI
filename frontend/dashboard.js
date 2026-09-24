@@ -449,31 +449,7 @@ function dashEntries() {
   return apiJson("/entries", { cacheMs: 4000 });
 }
 
-//: **The banner's facts line: each fact about the notebook said once, and
-//: each one the way to the list it counts** (the owner, 2026-09-24: "88 notes"
-//: said three times, by this line, a stat tile and the status bar). It used
-//: to be a sentence ("You have 86 notes · 2 reminders coming up") above a
-//: strip of four stat tiles and a 14-day sparkline that repeated it; the
-//: tiles and the sentence are now one line of buttons, and the status bar's
-//: two counts step aside while the Dashboard is showing (`revealTab`, app.js).
-//:
-//: What a fact says when it is worth saying: "this week" only when it is not
-//: the whole notebook (on a young notebook the two numbers were the same),
-//: the streak from two days (a one-day streak is today), reminders as due
-//: when any are. The fortnight's shape went with the sparkline, which on a
-//: young notebook was thirteen empty dashes; it is the Stats and Activity
-//: heatmap widgets' job, both in the Widgets catalogue.
-function dashFactButton(text, go, { title = "", icon = "", due = false } = {}) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "dash-fact" + (due ? " is-due" : "");
-  setLabel(button, icon ? `${icon} ${text}` : text);
-  if (title) button.title = title;
-  button.addEventListener("click", go);
-  return button;
-}
-
-async function renderDashFacts() {
+async function renderDashSubmessage() {
   const el = $("dash-submessage");
   if (!el) return;
   const [stats, reminders] = await Promise.all([
@@ -481,60 +457,27 @@ async function renderDashFacts() {
     // To the end: `/reminders` is `due_at` ascending, so a first page of
     // old, ticked-off rows would hide everything upcoming from this count
     // (`archive/agent-remaining/list-paging.md`); `dashReminders` shares
-    // the one fetch across the widgets that need it. A sentinel rather than
-    // an empty list, so a failed read is not reported as "no reminders".
-    dashReminders().catch(() => null),
+    // the one fetch across the widgets that need it.
+    dashReminders().catch(() => []),
   ]);
-  const perDay = (stats && stats.per_day) || [];
-  const streak = dashStreak(perDay);
-  //: Atlas celebrates a streak of three days or more, once a day at most
-  //: (atlas.js, `atlasStreak`).
-  if (stats && typeof atlasStreak === "function") atlasStreak(streak);
-  const toNotes = () => {
-    switchTab("notes");
-    showNotesSection("browse");
-  };
-  //: **A fact that could not be read says so, instead of saying 0.** A zero
-  //: is a claim about the person's week; a dash is a claim about the app.
-  const why = "This figure could not be read just now. It is not zero.";
-  if (stats && stats.total_entries === 0 && reminders && !reminders.length) {
-    el.textContent = "Your notebook is empty, capture a thought to begin";
-    return;
-  }
-  const facts = [];
+  const bits = [];
   if (stats) {
     const n = stats.total_entries;
-    facts.push(dashFactButton(`${n} note${n === 1 ? "" : "s"}`, toNotes));
-    const week = perDay.slice(-7).reduce((sum, count) => sum + count, 0);
-    if (week && week !== n) facts.push(dashFactButton(`${week} this week`, toNotes));
-    //: The days a streak counts are the Timeline's days.
-    if (streak > 1) facts.push(dashFactButton(`${streak}-day streak`, () => switchTab("timeline")));
-  } else {
-    facts.push(dashFactButton("\u2013 notes", toNotes, { title: why }));
+    bits.push(n === 0 ? "Your notebook is empty, capture a thought to begin" : `You have ${n} note${n === 1 ? "" : "s"}`);
   }
-  if (reminders) {
-    const open = reminders.filter((r) => !r.done);
-    const due = open.filter((r) => new Date(r.due_at) <= new Date()).length;
-    const toReminders = () => switchTab("reminders");
-    if (due) {
-      facts.push(
-        dashFactButton(`${due} reminder${due === 1 ? "" : "s"} due`, toReminders, { icon: "ph:alarm", due: true })
-      );
-    } else if (open.length) {
-      facts.push(dashFactButton(`${open.length} reminder${open.length === 1 ? "" : "s"} coming up`, toReminders));
-    }
+  const due = (reminders || []).filter(
+    (r) => !r.done && new Date(r.due_at) <= new Date()
+  ).length;
+  if (due) bits.push(`${due} reminder${due === 1 ? "" : "s"} due`);
+  else {
+    const open = (reminders || []).filter((r) => !r.done).length;
+    if (open) bits.push(`${open} reminder${open === 1 ? "" : "s"} coming up`);
   }
-  el.replaceChildren();
-  facts.forEach((fact, i) => {
-    if (i) {
-      const dot = document.createElement("span");
-      dot.className = "dash-fact-sep";
-      dot.setAttribute("aria-hidden", "true");
-      dot.textContent = "\u00b7";
-      el.appendChild(dot);
-    }
-    el.appendChild(fact);
-  });
+  if (stats && stats.per_day) {
+    const streak = dashStreak(stats.per_day);
+    if (streak > 1) bits.push(`${streak}-day capture streak`);
+  }
+  el.textContent = bits.join(" · ");
 }
 
 function renderDashboardGreeting() {
@@ -561,7 +504,7 @@ function renderDashboardGreeting() {
   // open (WORLD_CLASS_PLAN section 10, F6: "0 timers while hidden"), and a
   // visible one was doing the same 59 times out of 60.
   startDashClock();
-  renderDashFacts().catch(() => {});
+  renderDashSubmessage().catch(() => {});
 }
 
 // The greeting can address you by name, but the setting for it is one field
@@ -660,6 +603,146 @@ function watchDashWidgets() {
   }
   sizeDashWidgets();
 }
+// --- at-a-glance strip (page furniture, not a hideable widget) ---------------
+
+async function renderDashStats() {
+  const box = $("dash-stats");
+  if (!box) return;
+  const [stats, reminders] = await Promise.all([
+    fetchDashStats().catch(() => null),
+    // To the end, same reason as the widget above. A sentinel rather than an
+    // empty list, for the reason below.
+    dashReminders().catch(() => null),
+  ]);
+  //: **A tile that could not read its number says so, instead of saying 0.**
+  //: Measured with every request failing: the notes tile already fell back to
+  //: an em-dash, and the other three printed a confident "0 this week",
+  //: "0 day streak", "0 reminders" computed from empty arrays. A zero is a
+  //: claim about the person's week; a dash is a claim about the app, and only
+  //: one of them is true here. Same distinction `surfaceFailed` draws for a
+  //: whole surface, at the scale a tile can manage.
+  const unknown = "\u2013";
+
+  const now = new Date();
+  const perDay = (stats && stats.per_day) || [];
+  const streak = dashStreak(perDay);
+  //: Atlas celebrates a streak of three days or more, once a day at most
+  //: (atlas.js, `atlasStreak`).
+  if (stats && typeof atlasStreak === "function") atlasStreak(streak);
+  const thisWeek = perDay.slice(-7).reduce((sum, n) => sum + n, 0);
+  const open = (reminders || []).filter((r) => !r.done);
+  const due = open.filter((r) => new Date(r.due_at) <= now).length;
+  const why = "This figure could not be read just now. It is not zero.";
+
+  const tiles = [
+    // Both of these are counts of notes, so they belong on the list that
+    // shows them: not on whichever Notes sub-tab happened to be open last.
+    { icon: "ph:note-pencil", value: stats ? stats.total_entries : unknown, label: "notes",
+      title: stats ? "" : why,
+      go: () => { switchTab("notes"); showNotesSection("browse"); } },
+    { icon: "ph:calendar", value: stats ? thisWeek : unknown, label: "this week",
+      title: stats ? "" : why,
+      go: () => { switchTab("notes"); showNotesSection("browse"); } },
+    { icon: "ph:flame", value: stats ? streak : unknown, label: "day streak",
+      //: The days a streak counts are the Timeline's days; this tile used to
+      //: "go" to the dashboard it sits on, a button that did nothing.
+      title: stats ? "" : why, go: () => switchTab("timeline") },
+    {
+      icon: due ? "ph:alarm" : "ph:check-circle",
+      value: reminders ? due || open.length : unknown,
+      label: due ? "due now" : "reminders",
+      title: reminders ? "" : why,
+      go: () => switchTab("reminders"),
+      alert: Boolean(due),
+    },
+  ];
+
+  box.replaceChildren();
+  //: **An empty notebook has no figures to show.** A first visit read four
+  //: zeros (notes, this week, day streak, reminders) above the welcome card
+  //: that already says the notebook is empty and what to do first: numbers
+  //: about nothing, before the one thing worth reading. The strip comes back
+  //: with the first note or reminder. A failed read is not empty, so it
+  //: still shows its dashes.
+  const empty = stats && stats.total_entries === 0 && reminders && !reminders.length;
+  box.classList.toggle("hidden", Boolean(empty));
+  for (const tile of tiles) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "stat-tile" + (tile.alert ? " stat-alert" : "");
+    //: Why a dash rather than a number, for anyone who hovers or reads it
+    //: with a screen reader: the tile itself has room for neither.
+    if (tile.title) button.title = tile.title;
+    const icon = document.createElement("span");
+    icon.className = "stat-icon";
+    setLabel(icon, tile.icon);
+    icon.setAttribute("aria-hidden", "true");
+    const value = document.createElement("span");
+    value.className = "stat-value";
+    setLabel(value, tile.value);
+    const label = document.createElement("span");
+    label.className = "stat-label";
+    setLabel(label, tile.label);
+    button.append(icon, value, label);
+    button.addEventListener("click", tile.go);
+    box.appendChild(button);
+  }
+  //: **The four tiles and the sparkline are two independent things to
+  //: render, and one throwing used to take the other down with it.**
+  //: `renderDashStats` is one function with no `try` anywhere in it: an
+  //: exception in the block below (a malformed `per_day` entry, a
+  //: `days.join` on something unexpected) would abort the whole call
+  //: after the tiles loop had already run, leaving exactly four tiles
+  //: and a silently missing fifth chip -- a row that reads as "bland"
+  //: with nothing in the console to say why, reported as "the section
+  //: of the dashboard needs something more". The `try` below cannot make
+  //: bad data good, but it stops one bar chart's problem from being the
+  //: whole row's problem, and a caught failure is at least visible in
+  //: the console rather than a wordless gap.
+  try {
+
+  // **The shape of the fortnight, where the empty half of the strip was.**
+  // Measured before this (`scratchpad/ui-sweeps/dashstart.js`, 1440x900): the
+  // four tiles used 573px of a 1408px strip and left 835px empty, which is
+  // the "most of its width empty" half of INBOX 60. Four numbers cannot say
+  // whether this week was one burst or seven steady days, and that is exactly
+  // what the empty space had room for.
+  //
+  // A figure, not a control: a chip is a fact, and this is a fact. It carries
+  // its own text alternative because fourteen unlabelled bars are nothing at
+  // all to a screen reader.
+  if (perDay.length) {
+    const spark = document.createElement("div");
+    spark.className = "stat-spark";
+    const days = perDay.slice(-14);
+    const peak = Math.max(1, ...days);
+    const bars = document.createElement("div");
+    bars.className = "stat-spark-bars";
+    for (const count of days) {
+      const bar = document.createElement("span");
+      // A percentage, so the strip's own height decides how tall the chart
+      // is and no number here has to know it. The floor is what keeps an
+      // empty day a visible baseline rather than a gap in the row.
+      bar.style.height = `${Math.max(12, Math.round((count / peak) * 100))}%`;
+      bar.classList.toggle("empty", count === 0);
+      bars.appendChild(bar);
+    }
+    const caption = document.createElement("span");
+    caption.className = "stat-spark-label";
+    caption.textContent = `${days.length} days`;
+    spark.replaceChildren(bars, caption);
+    spark.setAttribute("role", "img");
+    spark.setAttribute(
+      "aria-label",
+      `Notes captured on each of the last ${days.length} days: ${days.join(", ")}`
+    );
+    box.appendChild(spark);
+  }
+  } catch (err) {
+    console.error("dashboard sparkline failed to render", err);
+  }
+}
+
 // --- dashboard quick links ---------------------------------------------------
 
 // Anything targeting the Notes tab must name its sub-tab.
@@ -1006,6 +1089,18 @@ function quickLinkButton(link, className) {
   return button;
 }
 
+function launchGroup(label, className) {
+  const group = document.createElement("div");
+  group.className = "launch-group";
+  const heading = document.createElement("p");
+  heading.className = "launch-label";
+  heading.textContent = label;
+  const row = document.createElement("div");
+  row.className = className;
+  group.append(heading, row);
+  return { group, row };
+}
+
 //: **How much of the dashboard is chrome, as the reader's choice.**
 //:
 //: INBOX 270, the owner: *"is there a way to declutter the dashboard a bit or
@@ -1125,37 +1220,34 @@ function renderQuickLinks() {
   if (!box) return;
   box.replaceChildren();
 
-  //: **The launcher is one row; the way elsewhere lives in the toolbar.** The
-  //: three labelled groups ("Start something", "Jump to", "Run a skill") were
-  //: three of the six bands above the first widget. The Start tiles stay the
-  //: page's row of actions, their two-line hints intact; the group heading
-  //: is the container's `aria-label`, because five verbs with a line of
-  //: explanation each already say what the row is. Navigation and recent
-  //: skills are quiet pills in the toolbar's left end, where the words "Your
-  //: dashboard" used to sit.
-  const start = document.createElement("div");
-  start.className = "launch-row launch-row-start";
+  const start = launchGroup("Start something", "launch-row launch-row-start");
   for (const link of QUICK_START) {
-    start.appendChild(quickLinkButton(link, "quick-link quick-action"));
+    start.row.appendChild(quickLinkButton(link, "quick-link quick-action"));
   }
-  box.appendChild(start);
+  box.appendChild(start.group);
 
-  const jump = $("dash-jump");
-  if (!jump) return;
-  jump.replaceChildren();
-  const go = document.createElement("div");
-  go.className = "launch-row launch-row-go";
+  const go = launchGroup("Jump to", "launch-row launch-row-go");
   for (const link of orderedGoLinks()) {
-    go.appendChild(quickLinkButton(link, "quick-link quick-pill"));
+    go.row.appendChild(quickLinkButton(link, "quick-link quick-pill"));
   }
-  // The skills are only drawn when there is a skill to put there: a lone
-  // "All skills" pill is a control that exists to advertise itself.
+  box.appendChild(go.group);
+  // Filled in when the notes arrive; see `renderContinueLink`. The row is
+  // built synchronously because everything else in it is a constant, and a
+  // row that waits for a fetch before drawing anything is a row that flickers
+  // on every dashboard load.
+  renderContinueLink(go.row);
+
+  // The skills group is only drawn when there is a skill to put in it. An
+  // empty "Run a skill" heading over one "Choose a skill…" button is a section
+  // that exists to advertise itself, and this strip is already the busiest
+  // thing on the page.
   const skills = recentSkillLinks();
+  const skillGroup = launchGroup("Run a skill", "launch-row launch-row-skills");
   for (const link of skills) {
-    go.appendChild(quickLinkButton(link, "quick-link quick-pill quick-link-skill"));
+    skillGroup.row.appendChild(quickLinkButton(link, "quick-link quick-pill quick-link-skill"));
   }
   if (skills.length) {
-    go.appendChild(
+    skillGroup.row.appendChild(
       quickLinkButton(
         {
           icon: "ph:lightning",
@@ -1166,13 +1258,8 @@ function renderQuickLinks() {
         "quick-link quick-pill quick-link-more"
       )
     );
+    box.appendChild(skillGroup.group);
   }
-  jump.appendChild(go);
-  // Filled in when the notes arrive; see `renderContinueLink`. The row is
-  // built synchronously because everything else in it is a constant, and a
-  // row that waits for a fetch before drawing anything is a row that flickers
-  // on every dashboard load.
-  renderContinueLink(go);
 }
 
 // **Continue where you left off**, the fourth thing INBOX 60 asked for. The
@@ -1616,6 +1703,7 @@ async function renderDashboard() {
   // start made it every time (WORLD_CLASS_PLAN A2).
   await loadPreferences().catch(() => null);
   renderDashboardGreeting();
+  renderDashStats().catch(() => {});
   renderQuickLinks();
   //: After the quick links, because Compact and Focused are about them; on
   //: every render rather than once at boot, so a density chosen on another
@@ -1625,10 +1713,6 @@ async function renderDashboard() {
   const grid = $("dash-grid");
   grid.replaceChildren();
   $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
-  // The hint takes the toolbar's left end while the layout is being edited:
-  // the Jump to pills are a way to leave, and editing is the one moment
-  // the bar is about the page itself.
-  $("dash-jump")?.classList.toggle("hidden", dashEditMode);
   const layout = dashLayout();
 
   // A brand-new notebook filled this grid with a dozen cards each politely
@@ -2889,17 +2973,10 @@ async function renderRemindersWidget(body) {
     what.textContent = reminder.text;
     const at = document.createElement("span");
     at.className = "dash-reminder-when muted";
-    if (due < new Date()) {
-      li.classList.add("overdue");
-      const word = document.createElement("span");
-      word.className = "dash-reminder-due";
-      word.textContent = "Overdue";
-      at.append(word, ` \u00b7 ${when}`);
-    } else {
-      at.textContent = when;
-    }
+    at.textContent = when;
     li.append(what, at);
     if (typeof relativeWhen === "function") li.title = relativeWhen(reminder.due_at);
+    if (due < new Date()) li.classList.add("overdue");
     li.addEventListener("click", () => switchTab("reminders"));
     ul.appendChild(li);
   }

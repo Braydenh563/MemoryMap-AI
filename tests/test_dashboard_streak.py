@@ -77,6 +77,4 @@ def test_no_call_site_counts_its_own_streak() -> None:
         "a streak counted by hand again; read dashStreak(perDay) so the three "
         "figures and the journal agree"
     )
-    # Two call sites since the stat strip and the greeting line became one
-    # facts line (renderDashFacts); the widget is the other.
-    assert body.count("dashStreak(") >= 2, "the banner facts line and the widget both read dashStreak"
+    assert body.count("dashStreak(") >= 3, "the greeting, the strip and the widget all read dashStreak"

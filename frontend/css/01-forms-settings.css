@@ -76,7 +76,8 @@
    are listed here so their own rules only have to say where they sit. */
 .card h3,
 .eyebrow,
-.nav-group-label {
+.nav-group-label,
+.launch-label {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--muted);
@@ -3491,7 +3492,7 @@ html.modal-open body {
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-4);
-  /* No side inset: .tab-page's --page-gutter is the only one. See .dash-quicklinks. */
+  /* No side inset: .tab-page's --page-gutter is the only one. See .dash-stats. */
   padding: 0 0 var(--space-3);
 }
 
@@ -3697,12 +3698,8 @@ html.modal-open body {
   }
 }
 
-/* An overdue reminder is a thing to do now, not an error: the title stays in
-   ink (it was the whole row in `--warn`, which read as a failure for a
-   reminder that was merely due), and the when line leads with the word. */
-.dash-list li.overdue .dash-reminder-due {
-  color: var(--ink);
-  font-weight: 600;
+.dash-list li.overdue {
+  color: var(--warn);
 }
 
 .activity-strip {

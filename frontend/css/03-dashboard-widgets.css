@@ -564,7 +564,8 @@ header#top-bar select,
 .dash-hero button,
 .dash-hero input,
 .dash-hero select,
-.quick-link {
+.quick-link,
+.stat-tile {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -1481,66 +1482,114 @@ header#top-bar select,
   overflow-x: auto;
 }
 
-/* --- the banner's facts line (dashboard.js, `renderDashFacts`) -------------
-   The four stat tiles and the sentence above them said the same numbers
-   twice (three times with the status bar), so they are one line now: the
-   "one line of facts" recipe at the banner's rank, each fact a button to
-   the list it counts. A fact is text until it is pointed at: no fill and no
-   frame at rest, the ink and an underline on hover, the focus ring on the
-   keyboard. `--target-min` tall, so the line is a row of real targets. */
-.dash-submessage {
+/* --- at-a-glance strip ------------------------------------------------------ */
+.dash-stats {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  column-gap: var(--space-2);
+  gap: var(--space-4);
+  /* Vertical rhythm only. The 2rem side margin this used to carry sat on top
+     of .tab-page's own --page-gutter, so the strip, and the quick links, the
+     toolbar and the widget grid, all of which did the same, began 64px in
+     while the hero banner directly above them began at 32px. Measured, not
+     guessed: hero x=32, everything below it x=64, on one page. That is the
+     "spacing and alignment change per tab" complaint happening *within* a
+     single tab, which is worse, because both edges are on screen together. */
+  margin: var(--space-6) 0 0;
 }
 
-.dash-submessage > .dash-fact {
-  display: inline-flex;
+.stat-tile {
+  display: flex;
   align-items: center;
-  height: auto;
-  min-height: var(--target-min);
-  padding: 0 var(--space-1);
-  margin: 0 calc(-1 * var(--space-1));
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  /* The tile recipe: see `.quick-link`. */
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   box-shadow: none;
-  color: inherit;
-  font: inherit;
-  font-weight: 500;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  text-underline-offset: 0.25em;
   cursor: pointer;
-  transition: color var(--motion-fast) var(--ease-out),
-    text-decoration-color var(--motion-fast) var(--ease-out);
+  font-weight: 500;
+  /* Reported "bland, needs a modern improvement": four flat rows of an
+     icon glyph and two numbers, no depth, nothing that reads as pressable
+     until the pointer is already on it. The lift below is the same
+     hover language `.dash-widget` and `.quick-link` already use
+     elsewhere on this page; this row was the one place on the dashboard
+     that had opted out of it. */
+  transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out);
 }
 
-.dash-submessage > .dash-fact:hover {
-  background: none;
-  color: var(--ink);
-  text-decoration-color: currentColor;
-}
-
-/* Due is a state that wants attention, not an error: ink and weight, the
-   alarm glyph in the accent, never the warning colour. */
-.dash-submessage > .dash-fact.is-due {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.dash-fact.is-due .ph {
-  color: var(--accent);
-}
-
-.dash-fact-sep {
-  color: var(--muted);
+@media (hover: hover) {
+  .stat-tile:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    transform: translateY(-1px);
+    box-shadow: var(--glass-shadow);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dash-submessage > .dash-fact {
+  .stat-tile {
     transition: none;
+  }
+}
+
+/* The icon graduates from a bare glyph to a small tinted chip behind it,
+   the same "icon on a soft circle" language the command palette and the
+   skill cards already use, so this row reads as belonging to the same
+   app rather than as a plainer, earlier design left behind. Colour comes
+   from `currentColor` through `--ink`, so it needs no per-stat palette
+   and stays correct through every theme and accent choice; `.stat-alert`
+   already recolours its whole tile to `--warn`, which this inherits. */
+.stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.92rem;
+  flex: none;
+}
+
+.stat-tile.stat-alert .stat-icon {
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
+}
+
+.stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.stat-tile.stat-alert {
+  border-color: var(--warn);
+}
+
+.stat-tile.stat-alert .stat-value {
+  color: var(--warn);
+}
+
+@media (max-width: 720px) {
+  .dash-stats {
+    gap: var(--space-2);
+  }
+
+  .stat-tile {
+    padding: var(--space-2) var(--space-5);
+  }
+
+  .stat-value {
+    font-size: var(--text-body);
   }
 }
 
@@ -1578,10 +1627,20 @@ header#top-bar select,
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  /* Rhythm only: the gutter belongs to .tab-page, not to a band inside it.
-     No bottom margin: the toolbar under it brings its own, and the two
-     added up to 29px where every other band on the page is 16px apart. */
-  margin: var(--space-6) 0 0;
+  /* Rhythm only: the gutter belongs to .tab-page. See .dash-stats above. */
+  margin: var(--space-6) 0 var(--space-6);
+}
+
+.launch-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* Type comes from the eyebrow recipe (01-forms-settings.css, `.card h3`). */
+.launch-label {
+  margin: 0;
 }
 
 .launch-row {
@@ -1608,7 +1667,7 @@ header#top-bar select,
   padding: 0.8rem 1rem;
   align-items: center;
   gap: var(--space-3);
-  /* **The tile recipe**: shared with `.start-step`: a card
+  /* **The tile recipe**: shared with `.stat-tile` and `.start-step`: a card
      fill, the glass edge, the button radius, no shadow, accent-soft on
      hover. The three used to differ in edge colour (glass-border vs
      border), radius (md / 0.8 / 0.8) and fill (card / inner). */

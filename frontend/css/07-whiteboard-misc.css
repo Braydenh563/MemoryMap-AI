@@ -13117,6 +13117,17 @@ button.finder-row:hover,
   display: none;
 }
 
+#tab-dashboard[data-density="compact"] .dash-stats {
+  gap: var(--space-2);
+}
+
+#tab-dashboard[data-density="compact"] .stat-tile {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
 /* Measured: with only the tiles and the stats folded, Compact saved 50px of
    the 610px above the widget grid, which is not a decluttering anybody would
    notice. The rest of that height is the hero's own banner and the two pill
@@ -13174,11 +13185,27 @@ button.finder-row:hover,
   gap: var(--space-2);
 }
 
-/* The group labels that used to sit beside these rows are gone at every
-   density (the rows name themselves; see `renderQuickLinks`). Above 600 only:
-   a phone's Full is already the compact layout (10-responsive.css), which is
-   why the picker itself is hidden down there. */
+/* **And the group labels move onto their own rows' line.** Measured at 1440:
+   each of "Start something", "Jump to" and "Run a skill" costs 18px of label
+   plus its 8px gap above a row of tiles that already says what it is, so the
+   three eyebrows were 78px of a 480px page head. Beside the row instead of
+   over it, they cost nothing and still name the band.
+
+   Above 600 only: a phone has no room for a 7rem lead column, and its Full is
+   already the compact layout (10-responsive.css), which is why the picker
+   itself is hidden down there. */
 @media (min-width: 37.5625rem) {
+  #tab-dashboard[data-density="compact"] .launch-group {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  #tab-dashboard[data-density="compact"] .launch-label {
+    flex: 0 0 7rem;
+  }
+
+  #tab-dashboard[data-density="compact"] .launch-row,
   #tab-dashboard[data-density="compact"] .launch-row-start {
     display: flex;
     flex: 1 1 auto;
@@ -13211,7 +13238,7 @@ button.finder-row:hover,
    away, from the search field itself (which finds actions as well as content)
    or from the tabs, which is the test a hidden thing has to pass. */
 #tab-dashboard[data-density="focused"] .dash-quicklinks,
-#tab-dashboard[data-density="focused"] .dash-jump,
+#tab-dashboard[data-density="focused"] .dash-stats,
 #tab-dashboard[data-density="focused"] .dash-hero-emblem,
 #tab-dashboard[data-density="focused"] .dash-wordmark {
   display: none;
@@ -13225,41 +13252,6 @@ button.finder-row:hover,
    two bands whose spacing is already right. */
 .dash-head {
   display: contents;
-}
-
-/* The greeting and the "Add your name" offer share a line at every density,
-   as Focused already had them (below): on its own line the offer was 28px of
-   the banner's height for one quiet button. The wordmark and the facts line
-   span both columns. */
-#tab-dashboard:not([data-density="focused"]) .dash-hero-text {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  column-gap: var(--space-3);
-}
-
-#tab-dashboard:not([data-density="focused"]) :is(.dash-wordmark, .dash-submessage) {
-  grid-column: 1 / -1;
-}
-
-#tab-dashboard:not([data-density="focused"]) .dash-hero-text > .name-nudge {
-  justify-self: start;
-}
-
-/* A phone's greeting takes the line; the offer goes under it rather than
-   wrapping "Add your name" onto two lines beside it (measured at 390). */
-@media (max-width: 599.98px) {
-  #tab-dashboard:not([data-density="focused"]) .dash-hero-text {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* Full's banner, one step tighter: `--space-6` above and below rather than
-   `--space-7`. Above the phone band, which sets its own. */
-@media (min-width: 45.0625rem) {
-  #tab-dashboard[data-density="full"] .dash-hero {
-    padding-block: var(--space-6);
-  }
 }
 
 /* **Focused is not less of the hero, it is the one thing you came here for**

@@ -1950,7 +1950,41 @@ def _validated_import_directory(path_value: str) -> Path:
         raise ValueError("Invalid directory path") from exc
     if not p.is_dir():
         raise ValueError("Invalid directory path")
+    # **Inside home or the data folder, judged after `resolve`** (WORLD_CLASS
+    # _PLAN §12, S3). "There is no narrower base directory" above was written
+    # for the owner at their own keyboard; for anyone holding a token over a
+    # network, this route was a read of any folder the server can see. Home
+    # is where a vault lives; the data folder is where the app itself puts
+    # things. Checked on the resolved path, so a symlink in home that points
+    # at `/etc` is judged by where it lands, not by where it sits.
+    if not any(p == root or p.is_relative_to(root) for root in _import_roots()):
+        raise ValueError("Outside the folders an import may read")
     return p
+
+
+def _import_roots() -> list[Path]:
+    """The folders a directory import may read from, resolved."""
+    roots = []
+    for candidate in (Path.home(), deps.get_config().data_dir):
+        try:
+            roots.append(Path(candidate).resolve())
+        except OSError:
+            continue
+    return roots
+
+
+def _inside(root: Path, f: Path) -> bool:
+    """Does `f`, symlinks followed, still lie inside `root`?
+
+    The walk below reads every `.md` under the chosen folder, and a symlink
+    inside it can point anywhere: `innocent.md -> ~/.ssh/config.md`, or a
+    linked folder. The folder was checked; what it links to was not, so
+    each file is checked by where it resolves.
+    """
+    try:
+        return f.resolve(strict=True).is_relative_to(root)
+    except OSError:
+        return False
 
 def _run_directory_import(directory_path: str):
     try:
@@ -1962,6 +1996,9 @@ def _run_directory_import(directory_path: str):
         skipped = 0
         skipped_oversize = 0
         for f in p.rglob("*.md"):
+            if not _inside(p, f):
+                skipped += 1
+                continue
             try:
                 #: `import_markdown` (the upload path just below) has always
                 #: capped a file at `MAX_IMPORT_BYTES` before reading it; this
@@ -2038,7 +2075,10 @@ def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTa
     try:
         p = _validated_import_directory(req.path)
     except ValueError:
-        raise HTTPException(400, "Invalid directory path") from None
+        raise HTTPException(
+            400,
+            "Choose a folder that exists inside your home folder or the notebook's data folder.",
+        ) from None
     # The validated, resolved path, not req.path, is what the background
     # job and the response both carry from here on.
     canonical_path = str(p)

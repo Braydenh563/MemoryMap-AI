@@ -76,6 +76,35 @@ The row as it stood in section 12:
 | --- | --- | --- | --- | --- |
 | S2 | Unlock throttling is one global list (`routes_auth.py` `_failed_unlocks`), not per client. | `routes_auth.py` ~93 | none / medium (five wrong tries from anyone locks the owner out for up to five minutes) | Key the throttle by client address once the bind is not loopback; keep the global ceiling as a second layer. |
 
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S3
+
+**Built 2026-09-24: S3, the folder-path import confined.** `import_markdown`
+turned out to take uploaded files, not a path, so the finding was
+`POST /import/directory` alone. `_validated_import_directory` now requires
+the folder, after `resolve` (so a symlink in home pointing at `/etc` is
+judged by where it lands), to be inside `Path.home()` or the notebook's data
+folder, and refuses anything else with "Choose a folder that exists inside
+your home folder or the notebook's data folder." The walk checks every
+`.md` it reaches by where it resolves, so a symlinked file or folder inside
+the vault that points out of it is skipped and counted, not read. The
+background job re-checks, so the job is safe on its own as well as behind the
+route. A vault outside home (a second drive) is now refused by the path
+field; Settings' folder picker (`import-md-folder`, an upload) still reads
+one from anywhere, because the browser hands over the files the person
+chose rather than a path. Tests: `tests/test_import_directory_roots.py`
+(home and the data folder import; outside is refused; a symlink out, as the
+chosen folder, as a file and as a folder inside it, is refused or skipped;
+the job re-checks). `tests/test_vault_import.py` and one test in
+`tests/test_markdown_export_import.py` now point `HOME` at `tmp_path`, where
+they build their vaults. Not done: the review's other half, a native picker
+in the desktop shell passing a handle rather than a path.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S3 | `import_directory` and `import_markdown` take a filesystem path from the request body and read it. Correct for the single user on localhost; on LAN it is arbitrary directory read for any holder of a token. | `routes_settings.py` ~1750 | none / high | Refuse when the bind is not loopback; or restrict to the user's home; the desktop shell should use a native picker and pass a handle, not a path. |
+
 ### From WORLD_CLASS_PLAN.md row 9 (§16): `similar_pairs` cached for link suggestions and tensions
 
 **Built 2026-09-24.** `/entries/link-suggestions` and `/entries/tensions`

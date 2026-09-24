@@ -1325,3 +1325,117 @@ for its half) before the code; a test that a template survives a round trip and
 that using one leaves the template itself unchanged; the gallery on DESIGN.md's
 recipe index or a new recipe plus its lint in the same commit; and measurements
 in Chromium for the gallery at 1440, 1024 and 390.
+
+## Brief 34 (Opus, two agents): characters, the faces, the companion and Atlas, to the end
+
+**Why this brief exists.** The owner, 2026-09-24, after a day of requests
+about faces: "scope out and plan the whole thing with the avatars and
+companions now then leave it at that for the agents". This brief is the whole
+of that scope. The orchestrator does not add to it; the two agents below work
+it to the end, and anything new the owner asks about characters becomes a row
+in section 6 here, not a new thread of work.
+
+**Goal.** Every face in the app is a designed character rather than a disc
+with things stuck on it; a person can keep a small companion on screen that
+feels alive, reacts to what they do, and is never in the way; Atlas is the
+best-drawn character in the app. All of it cheap enough for a student laptop.
+
+**Where it stands (read the commits, not this line):** built and merged:
+`nameMood` (name reading), the faces, the viewer, pointer-follow, Shuffle and
+per-part overrides (`avatar_style`), the corner companion with its menu,
+persona faces per chat message, Atlas moods on chat events. Built in agent
+worktrees, not yet merged: the character interface (`characterFor`,
+`registerCharacter`, 4741aa8), one-silhouette generated characters (d1e74fd),
+perches, surfaces and edges, the behaviour picker, drag and drop onto the UI
+(4b4f1d4, 39bdb09), Atlas in `frontend/atlas.js` (in progress).
+
+### 1. Decisions made (do not remake)
+
+1. One character interface (`characterFor(seed)`, `registerCharacter`, in
+   avatars.js above `nameMark`). Every surface draws through it. Atlas is a
+   registered character in `frontend/atlas.js`.
+2. One silhouette per character: head flows into body, chibi proportions
+   (head 55 to 60% of height), one outline rule for all parts, features
+   placed on the shape, animals with their own ear, snout and tail cues.
+   Under 40px a head-only mark, still not a flat disc.
+3. The companion is off by default (Appearance, "Corner companion"), shows
+   only when unlocked, is either you or the chat persona (Atlas when the
+   persona is the default voice).
+4. Behaviour is a game-AI picker: one decision every 4 to 12s from a single
+   `setTimeout`, weighted by context (perch type, idle time, time of day,
+   recent events, persona mood), with cooldowns. Every behaviour is a class
+   plus transform/opacity keyframes. No `requestAnimationFrame` loop of its
+   own; pointer proximity reuses the pointer-follow tick.
+5. Perches are computed from the real UI per tab (a bar's top edge to sit on,
+   the header's underside to hang from, a card's top to stand on, a panel's
+   edge to peek from), validated against controls it must never cover (back
+   to top, chat composer and jump pill, docks, dialogs). A dragged-and-dropped
+   spot is remembered per tab, relative to the surface it landed on.
+6. Sound reactions only from what a page can know: this app's own audio and
+   video elements, text-to-speech and the Media Session state. Never the
+   microphone, never other apps.
+7. Cost: nothing runs while the companion is hidden, the window is hidden or
+   the app is locked; reduced motion keeps poses without loops; animation off
+   gives still poses. Target under 1ms of main thread per idle minute beyond
+   the face animation already there.
+
+### 2. Done when
+
+- Every face site renders through the interface: persona list, chat picker,
+  chat bubbles, profile head, the Settings head button, dashboard mark,
+  greeting persona picker, viewer, companion, welcome card.
+- A sheet of 12 generated names and Atlas in every expression, at 104px and
+  28px, light and dark, has been screenshotted and judged against real
+  mascot work, and the judgement is written in the commit or report.
+- The companion: turns, sits and dangles its legs, hangs two-handed,
+  one-handed and by the feet, peeks shyly from behind a panel edge and ducks
+  when the pointer comes near, walks or hops between perches on a tab change,
+  reacts while carried and lands on the nearest surface when dropped.
+- Context reactions: drowsy at 3 idle minutes, asleep at 8 (z bubbles), wakes
+  with a stretch; headphones and a head bob while this app plays sound;
+  reading glasses while a long answer streams; a nightcap after 23:00; a
+  cheer on a saved note; a startle on an error toast; a bell when a reminder
+  is due; an unplugged cable when offline; a wave when the window regains
+  focus after a while.
+- Atlas: at least 12 expressions mapped to app events, its node ring part of
+  its body, an idle layer (breathing, blinks, halo orbit), every companion
+  pose and reaction in Atlas's own style, and a readable 16 to 24px head.
+- Measured and reported: idle main-thread cost with the companion on and off,
+  per 10s with Atlas visible, old against new.
+- `tests/test_name_mood.py` still passes; the lints (motion tokens,
+  reduced-motion, cheap animations, icon gap, ui recipes) pass; no inline
+  `style=`.
+
+### 3. Files
+
+`frontend/avatars.js` (the interface, generated characters, companion,
+picker, perches), `frontend/atlas.js` (Atlas), `frontend/css/08-consistency.css`
+(the `nm-`, `nmb-` and Atlas rules), `frontend/index.html` (script tags with
+`?v=`, Appearance rows), `frontend/settings.js` (Appearance defaults),
+`tests/test_name_mood.py`, plus the SCRIPTS lists in tests that name
+avatars.js.
+
+### 4. Agents
+
+- **Companion agent** (the generated characters, the companion, the picker,
+  perches, drag and drop, context reactions, prop slots). Documents the prop
+  slots (head-top, face, hand-l, hand-r) in the interface comment.
+- **Atlas agent** (atlas.js). Merges the companion agent's commits as they
+  land (merge, not rebase) and draws Atlas's own version of every pose, prop
+  and reaction.
+- The orchestrator merges, gates and pushes; it does not take on character
+  work itself.
+
+### 5. Traps
+
+- A face below 28px must not loop or follow the pointer (the chat bubble
+  marks): cost for nothing visible.
+- The companion's bubble uses `--modal-bg-opaque`; `--bg` is transparent in
+  some looks and made a blank bubble.
+- Measure overlaps with `offsetLeft/Top`, not a rect read mid-transition.
+- `pkill -f "port N"` kills the calling shell here; run it alone.
+- The app.js gzip bound (750KB): character code stays out of app.js.
+
+### 6. Rows added after this brief (the owner's later asks land here)
+
+(none yet)

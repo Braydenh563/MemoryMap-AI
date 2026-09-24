@@ -106,6 +106,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Download .md on a note card and on the Library's note and document cards
+  saves the file on a notebook with a password; it opened a tab reading
+  "Locked: unlock first", because a new tab sends no sign-in token.
 - The dashboard's Most used widget says, in the widget picker, that it lists
   the notes you open and ask about most; it promised categories and tags,
   which is the Top tags widget.

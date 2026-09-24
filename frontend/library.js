@@ -717,7 +717,7 @@ function libraryActions(item) {
         reload();
       }),
       makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
-        window.open(`/documents/${item.id}/export.md`, "_blank");
+        downloadFromApi(`/documents/${item.id}/export.md`, "document.md");
       }),
       //: The shared "act on this" rows (INBOX 393): every object can be taken
       //: to the chat that answers about it.
@@ -804,7 +804,7 @@ function libraryActions(item) {
       // hand one note to someone." Same route shape and menu placement as
       // the Document kind's own "Download .md" a few lines up.
       makeMenuItem("ph:download-simple Download .md", "Save a copy of this note as a markdown file", () => {
-        window.open(`/entries/${item.id}/export.md`, "_blank");
+        downloadFromApi(`/entries/${item.id}/export.md`, "note.md");
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not the bin", async () => {
         await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
@@ -2621,7 +2621,7 @@ async function renderLibraryDocuments() {
           renderLibraryDocuments();
         }),
         makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
-          window.open(`/documents/${doc.id}/export.md`, "_blank");
+          downloadFromApi(`/documents/${doc.id}/export.md`, "document.md");
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
           if (

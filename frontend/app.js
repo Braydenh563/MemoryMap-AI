@@ -5568,7 +5568,7 @@ function entryOverflowMenu(entry) {
       {
         label: "ph:download-simple Download .md",
         title: "Save a copy of this note as a markdown file",
-        run: () => window.open(`/entries/${entry.id}/export.md`, "_blank"),
+        run: () => downloadFromApi(`/entries/${entry.id}/export.md`, "note.md"),
       },
     ];
 
@@ -26249,6 +26249,23 @@ function blobToBase64(blob) {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
+}
+
+//: A download from a locked route. `window.open(path)` is a navigation and
+//: sends no `X-Auth-Token` (only `fetch` can), so on any notebook with a
+//: password it opened a tab reading "Locked: unlock first" instead of the
+//: file (tests/test_locked_downloads.py). The server's own
+//: `Content-Disposition` names the file when it sends one, since it knows the
+//: real extension; `fallbackName` covers a route that does not.
+async function downloadFromApi(path, fallbackName) {
+  try {
+    const response = await api(path);
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const named = /filename="([^"]+)"/i.exec(disposition);
+    await saveFile(named ? named[1] : fallbackName, await response.blob());
+  } catch (error) {
+    if (!error?.isLockout) toast(error.message || "Couldn't download that.", true);
+  }
 }
 
 // Save a Blob under `filename`. Resolves once the file is somewhere the user

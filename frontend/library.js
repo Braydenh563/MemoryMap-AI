@@ -3359,7 +3359,8 @@ function ocrRenderRegions(body) {
     //: typed blocks in order (`ocr.regions_from_reading`), real sections,
     //: real structure, just no rectangles, so the badge says what is true of
     //: it rather than apologising for what it lacks. The missing half is in
-    //: the message underneath, where the offer to install Tesseract lives.
+    //: the message underneath, worded by whether Tesseract is actually
+    //: installed (INBOX 423d): install it, or switch the reader to it.
     reading: "ph:list-bullets Sections from the reading",
     //: Kept only so an older cached response does not render as "Nothing read
     //: yet", which would be wrong in the most alarming direction. Nothing

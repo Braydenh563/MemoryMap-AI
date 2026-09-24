@@ -48,7 +48,11 @@ with its owner named in the entry.
     it out and draws it with `mdInlineMathElement`, the same `docMathRender`
     the `$$` blocks use. `tests/test_inline_math.py`.) (d) The OCR workspace's
     message for a vision reading still suggests installing Tesseract: word
-    it by reader. (e) At 150% zoom the lightbox picture overlaps its caption
+    it by reader. (fixed: `_regions_for` (routes_files.py) checks
+    `ocr.tesseract_available()` before wording the "no page positions"
+    message; installed but not chosen now says "Switch to Tesseract", missing
+    still says "Install Tesseract". `tests/test_ocr_regions.py`.) (e) At
+    150% zoom the lightbox picture overlaps its caption
     line. (f) Stored readings that already contain a repeated-line loop are
     not cleaned: offer "Clean up" in the reading menu. (g) `_desktop_port()`
     treats any MemoryMap on the port as ours, whatever its data dir: compare

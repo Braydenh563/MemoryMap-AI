@@ -2249,15 +2249,24 @@ def _regions_for(
     #: them from their own shape and numbers them, which is what makes "this
     #: text came from section 4 of page 2" answerable with nothing installed.
     blocks = ocr.regions_from_reading(text)
+    #: **Worded by whether Tesseract is actually missing** (INBOX 423d). This
+    #: always said "Install Tesseract", even when it was already on the
+    #: machine and simply was not the reader that produced this text (the
+    #: vision model is the default reader, so that is the common case, not
+    #: the rare one): a program you already have does not need installing,
+    #: it needs choosing. `ocr.tesseract_available()` is the same check the
+    #: "nothing read yet" message above already makes before naming it.
+    positions_offer = (
+        "Install Tesseract to also see where each one sits on the page."
+        if not ocr.tesseract_available()
+        else "Switch to Tesseract as the reader to also see where each one sits on the page."
+    )
     return OcrRegionsOut(
         width=0,
         height=0,
         regions=[OcrRegionOut(**block) for block in blocks],
         source="reading",
-        message=(
-            f"{stored_label}: sections come from the reading itself. "
-            "Install Tesseract to also see where each one sits on the page."
-        ),
+        message=f"{stored_label}: sections come from the reading itself. {positions_offer}",
     )
 
 

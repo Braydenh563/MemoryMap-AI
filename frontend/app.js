@@ -6409,6 +6409,60 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   infoAltText.className = "lightbox-text lightbox-alt-text";
   const infoAltByline = document.createElement("p");
   infoAltByline.className = "lightbox-byline";
+  //: **Each reading can be deleted where it is shown** (INBOX 421 e, the
+  //: owner: "I cant delete the ocr entry in ... the lightbox"). The OCR
+  //: workspace had a Delete reading and this panel, the other place a reading
+  //: is read, had none, so a wrong one (a model's "Test, Test, Test" loop)
+  //: could only be removed by opening the workspace. One trash button at the
+  //: end of each reading's byline, clearing that reading's own field
+  //: (`textSource`/`altSource` from `lightboxReadingsFor`), confirmed first,
+  //: the workspace's own wording. Only for a picture with a media row: a url
+  //: with nothing behind it has nothing to delete.
+  const readingDelete = (which) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small icon-only danger lightbox-reading-delete hidden";
+    button.title = "Delete this reading";
+    button.setAttribute("aria-label", "Delete this reading");
+    setLabel(button, "ph:trash");
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      //: Held before the first `await`: `currentTarget` is gone once the
+      //: click's dispatch ends (the workspace's own Delete reading lost its
+      //: button that way, 6e072b2).
+      const self = event.currentTarget;
+      const item = lightboxInfoItem || items[index];
+      const source = which === "alt" ? item?.altSource : item?.textSource;
+      const id = lightboxMediaId(item);
+      if (!item || !source || !id) return;
+      const whose = source === "vision" ? "the vision model's" : "Tesseract's";
+      if (!(await confirmDialog(`Delete ${whose} reading of this image? You can read it again any time.`))) return;
+      self.disabled = true;
+      try {
+        const updated = await apiJson(`/media/${id}/${source === "vision" ? "vision-ocr" : "ocr"}`, {
+          method: "POST",
+          body: JSON.stringify({ text: "" }),
+        });
+        Object.assign(item, lightboxReadingsFor(updated));
+        if (overlay.isConnected) renderInfo(item, true);
+        if (typeof loadLibrary === "function") loadLibrary();
+        toast("Reading deleted.");
+      } catch (err) {
+        toast(err.message || "Could not delete that reading.", true);
+      } finally {
+        self.disabled = false;
+      }
+    });
+    return button;
+  };
+  const infoTextDelete = readingDelete("text");
+  const infoAltDelete = readingDelete("alt");
+  const bylineRow = (byline, remove) => {
+    const row = document.createElement("div");
+    row.className = "lightbox-byline-row";
+    row.append(byline, remove);
+    return row;
+  };
   // Dimensions, when it was added, the filename, the "other info about it"
   // half of the request. First, because it is the line that says *which*
   // picture this is; the readings below it are about what is in it.
@@ -6434,10 +6488,25 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     infoCaption,
     infoCaptionByline,
     infoText,
-    infoByline,
+    bylineRow(infoByline, infoTextDelete),
     infoAltText,
-    infoAltByline
+    bylineRow(infoAltByline, infoAltDelete)
   );
+  //: The media row a reading can be deleted from: the Library's own items
+  //: carry it as `id` (and a document as `kind`, which has no such row); a
+  //: picture opened from a note or a chat learns it from `/media/meta`.
+  function lightboxMediaId(item) {
+    if (!item || item.kind) return null;
+    return item.id || item.metaId || null;
+  }
+  //: Shown only beside a reading that is on screen and deletable. Not on a
+  //: document's page: that text is the page's own `PageRead`, deleted from
+  //: the workspace, not a field of the file.
+  function syncReadingDeletes(item, { text = "", alt = "", perPage = false } = {}) {
+    const id = lightboxMediaId(item);
+    infoTextDelete.classList.toggle("hidden", perPage || !id || !text || !item?.textSource);
+    infoAltDelete.classList.toggle("hidden", perPage || !id || !alt || !item?.altSource);
+  }
 
   //: Drawn from one place, because both `show()` and `renderInfo` paint this
   //: panel and a second reading left behind by the previous picture is worse
@@ -7804,6 +7873,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     infoByline.textContent = item.byline || "";
     infoByline.classList.toggle("hidden", !item.byline);
     renderAltReading(item.altText, item.altByline);
+    syncReadingDeletes(item, { text, alt: (item.altText || "").trim() });
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     // The picture's own facts, which the app knew and never showed. Asked
     // for: "maybe it can have the image information and other info about it
@@ -7878,7 +7948,11 @@ function openLightbox(items, startIndex = 0, opts = {}) {
 
     const readings = lightboxReadingsFor(row);
     if (!item.caption && row.caption) item.caption = row.caption;
-    if (!item.text) item.text = readings.text;
+    if (row.id && !item.metaId) item.metaId = row.id;
+    if (!item.text) {
+      item.text = readings.text;
+      item.textSource = readings.textSource;
+    }
     if (!item.addedAt && row.created_at) item.addedAt = row.created_at;
     if (!item.byline) item.byline = readings.byline;
     //: The alternate is filled whenever the row has one, rather than only when
@@ -7888,6 +7962,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     if (!item.altText) {
       item.altText = readings.altText;
       item.altByline = readings.altByline;
+      item.altSource = readings.altSource;
     }
     if (!item.captionByline) item.captionByline = captionBylineFor(row);
     // The gallery passes `original_name`; a bare url caller passes the
@@ -7945,6 +8020,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     //: file-level alternate would be a claim about the whole PDF sitting under
     //: page 4's own text.
     renderAltReading(perPage ? "" : item.altText, item.altByline);
+    syncReadingDeletes(item, { text, alt: perPage ? "" : (item.altText || "").trim(), perPage });
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     meta.textContent =
       items.length > 1
@@ -24899,6 +24975,10 @@ function lightboxReadingsFor(row) {
       //: rather than as a footnote to an empty panel.
       altText: tesseract,
       altByline: tesseract ? "Also read with Tesseract OCR" : "",
+      //: Which stored field each one is, so the lightbox can delete the
+      //: reading it shows (INBOX 421 e) rather than guess at the reader.
+      textSource: "vision",
+      altSource: tesseract ? "tesseract" : "",
     };
   }
   return {
@@ -24906,6 +24986,8 @@ function lightboxReadingsFor(row) {
     byline: tesseract ? "Text read with Tesseract OCR" : "",
     altText: "",
     altByline: "",
+    textSource: tesseract ? "tesseract" : "",
+    altSource: "",
   };
 }
 window.lightboxReadingsFor = lightboxReadingsFor;

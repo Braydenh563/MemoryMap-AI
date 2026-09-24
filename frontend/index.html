@@ -7079,6 +7079,10 @@
           </div>
           <p id="ocr-caption" class="ocr-caption hidden"></p>
           <p id="ocr-message" class="muted ocr-message" role="status"></p>
+          <!-- The picture's other stored reading, named by its reader, with its
+               own delete (INBOX 421 e: the lightbox showed a reading this
+               panel did not). Filled by ocrRenderOtherReadings in library.js. -->
+          <div id="ocr-other-readings" class="ocr-other-readings hidden"></div>
           <!-- Asked for directly: "also let the user be able to stop the
                readings." Hidden unless something is actually running
                (ocrSyncStopButton): a Stop that is always on screen and

@@ -4349,6 +4349,31 @@ mark.lightbox-hit {
   color: rgba(255, 255, 255, 0.55);
 }
 
+/* A reading's byline and its delete, on one line (INBOX 421 e). The row takes
+   the byline's gap to the text above; an empty row (no byline, no button)
+   takes no room. */
+.lightbox-byline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.lightbox-byline-row:not(:has(> :not(.hidden))) {
+  display: none;
+}
+
+.lightbox-byline-row > .lightbox-byline {
+  margin: 0;
+}
+
+/* The delete keeps the danger icon button's own red fill, which is drawn
+   for any ground (ocrreadings.js shoots the card in each theme). */
+.lightbox button.lightbox-reading-delete {
+  flex: 0 0 auto;
+}
+
 .lightbox-nav {
   /* Absolute against `.lightbox-stage-wrap`, not fixed against the viewport
      and no longer against the stage itself: the wrapper is exactly the

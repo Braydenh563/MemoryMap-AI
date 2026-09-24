@@ -17544,7 +17544,7 @@ async function saveChatAsDocument() {
 function chatTranscriptText() {
   const parts = [];
   for (const msg of $("chat-messages")?.querySelectorAll(".msg") || []) {
-    const who = msg.classList.contains("user") ? "You" : assistantLabel();
+    const who = msg.classList.contains("user") ? "You" : msg.dataset.persona || aiNameNow();
     const body = msg.querySelector(".msg-body, .bubble-answer");
     const text = (body?.innerText || "").trim();
     if (text) parts.push(`**${who}:** ${text}`);
@@ -18927,20 +18927,48 @@ function agentTimeline(holder) {
   };
 }
 
+//: What a saved turn records as its writer: the persona's name, or null for
+//: the app's own voice. Null rather than "Atlas" so a reply keeps the emblem
+//: after the AI is renamed, and so a turn saved before personas were
+//: recorded (no key at all) and one written by the default read the same.
+function savedPersona(name) {
+  return personaDisplayName(name) === aiNameNow() ? null : name;
+}
+
+//: The avatar in an assistant bubble's label row: the app's live emblem for
+//: its own voice, as it always was, and the persona's generated face for any
+//: other (`fillPersonaMark`, DESIGN.md's recipe index: "A mark generated from
+//: a name"). The holder must be in the DOM already: p5 cannot size a canvas
+//: inside a detached element.
+function paintPersonaAvatar(holder, persona, size = 20) {
+  const name = personaDisplayName(persona);
+  if (name === aiNameNow()) renderEmblem(holder, size);
+  else fillPersonaMark(holder, name, size);
+}
+
 // An assistant bubble: an avatar, the step timeline, and a matching-records slot.
-function addAssistantBubble() {
+//
+// **`persona` is whoever wrote this reply**, never read off the live picker
+// (the owner: "if different personas are used in different chats for the
+// chat messages the avatars need to persist for what persona was used").
+// The live path passes the persona it sent; a reopened chat passes the one
+// saved on the turn, where null (an older turn, or the default) is the app's
+// own voice. Switching persona later repaints nothing already on the page.
+function addAssistantBubble(persona = null) {
   clearChatEmptyState();
   const bubble = document.createElement("div");
   bubble.className = "msg assistant";
+  const writer = personaDisplayName(persona);
+  //: Read back by the transcript copy, so each reply is named by its writer.
+  bubble.dataset.persona = writer;
 
-  // The app's own emblem stands in as the assistant's avatar.
   const label = document.createElement("div");
   label.className = "msg-role msg-role-assistant";
   const avatar = document.createElement("span");
   avatar.className = "msg-avatar";
   avatar.setAttribute("aria-hidden", "true");
   const name = document.createElement("span");
-  name.textContent = assistantLabel();
+  name.textContent = writer;
   label.append(avatar, name);
   bubble.appendChild(label);
   // NB: the emblem is drawn after the bubble is in the DOM, p5 can't size a
@@ -18963,7 +18991,7 @@ function addAssistantBubble() {
 
   bubble.append(stepsHolder, recordsHolder, groundingHolder);
   $("chat-messages").appendChild(bubble);
-  renderEmblem(avatar, 20); // now attached, so p5 can measure and draw
+  paintPersonaAvatar(avatar, writer, 20); // now attached, so p5 can measure and draw
   chatScrollToEnd();
   const timeline = agentTimeline(stepsHolder);
   return { bubble, stepsHolder, recordsHolder, groundingHolder, timeline };
@@ -22388,7 +22416,13 @@ async function sendChatMessage(preset, opts = {}) {
   const userBubble = opts.skipUserBubble
     ? null
     : addBubble("user", opts.displayText || question, sentAttachmentCards);
-  const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble();
+  //: **Who answers this question, captured once**, the way `effectiveUseTools`
+  //: is below: the picker can move on while this reply is still streaming,
+  //: and the bubble's face, the request and the saved turn must all name the
+  //: persona that actually answered (the owner: "the avatars need to persist
+  //: for what persona was used").
+  const sentPersona = $("persona-select").value || aiNameNow();
+  const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble(sentPersona);
   // The live counter rides in the bubble it is timing, and leaves with it.
   mountChatTimer(bubble);
   // A newer answer exists, so the previous one's chips stop being the end of
@@ -22607,6 +22641,7 @@ async function sendChatMessage(preset, opts = {}) {
         document_ids: sentDocuments.length ? sentDocuments : null,
         file_ids: sentFiles.length ? sentFiles : null,
         note_ids: sentAttachments.length ? sentAttachments : null,
+        persona: savedPersona(sentPersona),
       };
       if (convRef.id === null) {
         const created = await apiJson("/conversations", {
@@ -22656,7 +22691,7 @@ async function sendChatMessage(preset, opts = {}) {
     await streamChat({
       question,
       history: chatHistoryToSend(),
-      persona: $("persona-select").value || null,
+      persona: sentPersona,
       mode: $("response-mode-select").value || null,
       useTools: effectiveUseTools,
       noteIds: sentAttachments,
@@ -23192,6 +23227,9 @@ async function sendChatMessage(preset, opts = {}) {
       // conversation can span mode switches, so this has to be per-turn, not
       // read off the toggle's current state on reload.
       used_tools: effectiveUseTools,
+      //: Which persona wrote this reply, so reopening the chat draws its face
+      //: and not whichever persona the picker shows by then.
+      persona: savedPersona(sentPersona),
       //: What the Resume and Edit-step buttons need to exist again after a
       //: reload (`appendRunResumeControls`). Sent only for a turn that has
       //: somewhere to resume *to*: an ordinary answer would otherwise carry
@@ -25414,7 +25452,7 @@ async function openConversation(id) {
       lastQuestionText = message.content;
       addBubble("user", message.content, message.attachments);
     } else {
-      const handles = addAssistantBubble();
+      const handles = addAssistantBubble(message.persona || null);
       // Replay the run in the order it happened when the turn recorded one.
       // Older turns (saved before steps existed) only have the flattened
       // thinking/tools/answer, so they're rebuilt in that fixed order, 

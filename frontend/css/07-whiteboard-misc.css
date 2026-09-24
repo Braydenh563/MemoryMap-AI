@@ -11235,6 +11235,14 @@ input[type="file"] {
   margin-bottom: var(--space-4);
 }
 
+/* The same chip height as the Library's (--control-h): they measured 22.4px
+   here against 36px there, the one set of filter chips in the app half the
+   size of the others. */
+#reminder-filter .library-chip {
+  height: auto;
+  min-height: var(--control-h);
+}
+
 /* A card whose menu is open comes to the front. A glass card is a stacking
    context (its backdrop filter makes it one), so a menu's own z-index cannot
    climb out of the card it sits in, and the card *after* it paints over the

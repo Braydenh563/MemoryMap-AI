@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Account & security lists its facts as a label column and a value column, and a missing creation date says "Unknown" instead of a stray ", ". Chat titles in the sidebar wrap to two lines with an ellipsis instead of being cut at the edge. The Reminders filter chips are the same height as every other filter chip. Import folder and Import from path are secondary buttons, so each import card has one filled action.
 - Settings: the dialog is wider (the backend address was clipped) and its nav fits "Profile & preferences"; the model server line reads "isn't running" with the same dot as the search engine line instead of typed ●/○; the search engine heading loses its parenthetical; the leftover "Changes here save on their own" line is gone; file pickers across the app use the app's button style instead of the browser's grey "Choose Files" slab.
 - The page's bottom inset matches its other three edges (16px at 1440 instead of 24px plus the last card's padding), so pages no longer end in an empty band above the status bar.
 - Sheets (the per-feature model picker and every other bottom sheet) take a reading width on a desktop window instead of the whole screen, their rows start at the icon instead of centring, the state line sits under the title as a subtitle, and the model picker's first row says what it does ("Default (model)").

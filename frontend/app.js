@@ -32945,7 +32945,7 @@ async function renderAccount() {
     ["Password", info.configured ? "Set" : "Not set yet"],
     [
       "Created",
-      info.created_at ? new Date(info.created_at).toLocaleDateString() : ", ",
+      info.created_at ? new Date(info.created_at).toLocaleDateString() : "Unknown",
     ],
     [
       "Private notes",
@@ -32958,10 +32958,15 @@ async function renderAccount() {
     ["Open sessions", String(info.active_sessions)],
   ];
   for (const [label, value] of rows) {
+    //: A label column and a value column (`.account-facts`), not "Label: value"
+    //: in bold run-in: four facts read as a table, so they are laid out as one.
     const li = document.createElement("li");
-    const name = document.createElement("strong");
-    name.textContent = `${label}: `;
-    li.append(name, document.createTextNode(value));
+    const name = document.createElement("span");
+    name.className = "account-fact-label";
+    name.textContent = label;
+    const text = document.createElement("span");
+    text.textContent = value;
+    li.append(name, text);
     facts.appendChild(li);
   }
 }

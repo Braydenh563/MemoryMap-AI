@@ -5566,3 +5566,17 @@ input[type="file"]::file-selector-button:hover {
   background: var(--ghost-btn-bg-hover);
   border-color: var(--ghost-btn-border-hover);
 }
+
+/* Account & security's facts as a two-column list: the label muted in a
+   fixed column, the value in ink beside it, the shape every settings pane
+   uses for a label and its field. */
+.account-facts > li {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.account-fact-label {
+  color: var(--muted);
+}

@@ -4595,11 +4595,8 @@ function wbGuardMenuCorner(menu, why, fallback) {
       menu.classList.add("hidden");
       return;
     }
-    const size = menu.getBoundingClientRect();
-    const left = Math.min(Math.max(8, box.right + 4), Math.max(8, window.innerWidth - size.width - 8));
-    const top = Math.min(Math.max(8, box.top), Math.max(8, window.innerHeight - size.height - 8));
-    menu.style.left = `${Math.round(left)}px`;
-    menu.style.top = `${Math.round(top)}px`;
+    menu.style.maxHeight = "";
+    wbSetMenuSpot(menu, wbMenuSpotBeside(box, menu.getBoundingClientRect()), why);
   };
   fix("placed");
   requestAnimationFrame(() => fix("next frame"));
@@ -4624,8 +4621,10 @@ function wbOpenMapNodeMenu(node, clientX, clientY, opener = null) {
   }
   const menu = wbBuildContextMenu("object");
   menu.classList.remove("hidden");
+  //: A height cap left by the last open that had to scroll is not this
+  //: open's: measured with it the menu reads short and is placed as if it fit.
+  menu.style.maxHeight = "";
   const margin = 8;
-  const gap = 4;
   const size = menu.getBoundingClientRect();
   let left = clientX;
   let top = clientY;
@@ -4639,26 +4638,101 @@ function wbOpenMapNodeMenu(node, clientX, clientY, opener = null) {
   //: then turned 0,0 into 8,8, over the tab bar. So a missing anchor falls
   //: back to the topic's own box, which is always on screen when its menu is
   //: asked for, and the corner is no longer a place this menu can open.
+  let spot;
   if (anchor) {
-    //: The side the sector faces first (a sector on the ring's left half
-    //: opens its menu leftward, away from the ring and the topic in its
-    //: hole), then the other side, then clamped.
-    const right = anchor.right + gap;
-    const leftSide = anchor.left - gap - size.width;
-    const fitsRight = right + size.width <= window.innerWidth - margin;
-    const fitsLeft = leftSide >= margin;
-    left = anchor.outward === "left" ? (fitsLeft || !fitsRight ? leftSide : right) : (fitsRight || !fitsLeft ? right : leftSide);
-    top = anchor.top;
+    spot = wbMenuSpotBeside(anchor, size);
+  } else {
+    left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - size.width - margin));
+    top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - size.height - margin));
+    spot = { left, top, maxHeight: null };
   }
-  left = Math.min(Math.max(margin, left), Math.max(margin, window.innerWidth - size.width - margin));
-  top = Math.min(Math.max(margin, top), Math.max(margin, window.innerHeight - size.height - margin));
+  wbSetMenuSpot(menu, spot, "topic menu");
+  menu.querySelector(".menu-item")?.focus({ preventScroll: true });
+  wbGuardMenuCorner(menu, "topic menu", () => anchor || wbMapNodeScreenBox(node));
+}
+
+//: **Where a menu goes beside a box, when a side can be too small** (INBOX
+//: 421 a, the third report from the desktop window: the topic menu over the
+//: top-left of the window, with the text large). The placement knew two
+//: spots, left or right of the More sector with its top level with the
+//: sector's, and when neither had room it fell back to a clamp into the
+//: window that no longer knew about the sector at all. Nothing in a sweep at
+//: 1440x900 ever reached that fallback. The desktop window does: Windows'
+//: display scale divides the window, so a 1256px window at 150% is an 837px
+//: page and at 200% a 628px one, the app's own zoom (up to 130%) makes the
+//: menu wider and taller, and the pie ring is several hundred px across in
+//: the middle of it. Measured before this (mapmorezoom.js), 1256x1366 at
+//: 200% and zoom 130: neither side of More had room for the 310px menu, the
+//: clamp pushed it to x 8, and it opened over More itself, from 199 to 675.
+//:
+//: So the spots are tried in order, each one only if the whole menu fits in
+//: it: the side the sector faces, the other side (both slid up or down to
+//: stay in the window, which keeps them level with some of the sector),
+//: then below and above the box, lined up with its outer edge. When none
+//: holds the whole menu it goes on whichever of above or below has more
+//: room, capped to that room and scrolling inside it (`.action-menu` already
+//: scrolls), because a menu that fits nowhere whole is still one that must
+//: not cover what opened it. The window's edges are the client area's, so a
+//: real scrollbar (Windows draws one, headless does not) is not counted as
+//: room.
+function wbMenuSpotBeside(anchor, size, margin = 8, gap = 4) {
+  const W = document.documentElement.clientWidth || window.innerWidth;
+  const H = document.documentElement.clientHeight || window.innerHeight;
+  const w = size.width;
+  const h = size.height;
+  //: A menu taller than the whole window can still go on a side: it is
+  //: capped to the window there, which keeps it level with the sector.
+  const tall = Math.max(0, H - 2 * margin);
+  const sideH = Math.min(h, tall);
+  const inX = (x) => Math.min(Math.max(margin, x), Math.max(margin, W - w - margin));
+  const inY = (y) => Math.min(Math.max(margin, y), Math.max(margin, H - sideH - margin));
+  const sides = anchor.outward === "left" ? ["left", "right"] : ["right", "left"];
+  for (const side of sides) {
+    const x = side === "left" ? anchor.left - gap - w : anchor.right + gap;
+    if (x >= margin && x + w <= W - margin) return { left: x, top: inY(anchor.top), maxHeight: sideH < h ? Math.floor(sideH) : null, side };
+  }
+  //: Lined up with the edge the sector faces, so a left sector's menu hangs
+  //: from its left edge outward rather than across the ring.
+  const x = inX(anchor.outward === "left" ? anchor.right - w : anchor.left);
+  const below = H - margin - (anchor.bottom + gap);
+  const above = anchor.top - gap - margin;
+  if (h <= below) return { left: x, top: anchor.bottom + gap, maxHeight: null, side: "below" };
+  if (h <= above) return { left: x, top: anchor.top - gap - h, maxHeight: null, side: "above" };
+  if (below >= above) return { left: x, top: anchor.bottom + gap, maxHeight: Math.floor(below), side: "below" };
+  const room = Math.floor(above);
+  return { left: x, top: anchor.top - gap - room, maxHeight: room, side: "above" };
+}
+
+//: Set, measured and corrected by the difference (DESIGN.md, a popup in the
+//: window's coordinates), with one refusal the corner report asked for: a
+//: correction that would take the menu out of the window is a measurement
+//: gone wrong, not an offset to undo, so the plain placement is kept and the
+//: console says what was read. This is the only line in the node menu that
+//: could ever write a top above the window's own (a read with the menu
+//: somewhere other than where it was just put), which is what the owner's
+//: screenshot showed.
+function wbSetMenuSpot(menu, spot, why) {
+  const { left, top } = spot;
+  menu.style.maxHeight = spot.maxHeight ? `${spot.maxHeight}px` : "";
   menu.style.left = `${Math.round(left)}px`;
   menu.style.top = `${Math.round(top)}px`;
   const got = menu.getBoundingClientRect();
-  if (Math.abs(got.left - left) > 0.5) menu.style.left = `${Math.round(left + (left - got.left))}px`;
-  if (Math.abs(got.top - top) > 0.5) menu.style.top = `${Math.round(top + (top - got.top))}px`;
-  menu.querySelector(".menu-item")?.focus({ preventScroll: true });
-  wbGuardMenuCorner(menu, "topic menu", () => anchor || wbMapNodeScreenBox(node));
+  const dx = got.left - left;
+  const dy = got.top - top;
+  if (Math.abs(dx) <= 0.5 && Math.abs(dy) <= 0.5) return;
+  const W = document.documentElement.clientWidth || window.innerWidth;
+  const H = document.documentElement.clientHeight || window.innerHeight;
+  const fixedLeft = left - dx;
+  const fixedTop = top - dy;
+  if (fixedLeft < 0 || fixedTop < 0 || fixedLeft + got.width > W || fixedTop + got.height > H) {
+    console.warn(`[whiteboard] refused a correction that would put the ${why} outside the window`, {
+      set: { left: Math.round(left), top: Math.round(top) },
+      read: { left: Math.round(got.left), top: Math.round(got.top) },
+    });
+    return;
+  }
+  menu.style.left = `${Math.round(fixedLeft)}px`;
+  menu.style.top = `${Math.round(fixedTop)}px`;
 }
 
 //: Selects whatever the gesture landed on (unless it's already part of a

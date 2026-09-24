@@ -352,3 +352,15 @@ def test_everyday_clothes(tmp_path: Path) -> None:
     got = _moods([f"Pal {i}" for i in range(40)], tmp_path)
     kinds = {m["style"]["outfit"] for m in got}
     assert {"tee", "hoodie", "scoop"} <= kinds, kinds
+
+
+def test_atlas_has_a_face_of_its_own() -> None:
+    # The owner: "should we make a very very impressive avatar for Atlas
+    # that embodies the core of the application ... maybe with the logo
+    # mixed in". The assistant's name draws the hand-made face, never a
+    # face generated from the letters "Atlas".
+    body = APP[APP.index("function nameMark(seed") :][:600]
+    assert "return atlasMark(size);" in body
+    atlas = APP[APP.index("function atlasMark(") : APP.index("function nameMark(seed")]
+    assert "currentAccentHex" in atlas, "Atlas's colours follow the accent"
+    assert "watchNameMark(svg)" in atlas

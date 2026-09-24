@@ -784,7 +784,100 @@ function watchNameMark(svg) {
   nameMarkObserver.observe(svg);
 }
 
+//: **Atlas's own face** (the owner: "should we make a very very impressive
+//: avatar for Atlas that embodies the core of the application and who atlas
+//: is?? maybe with the logo mixed in??"). Not generated: drawn once, by hand,
+//: from what Atlas is. A night-sky ground, because the Titan held up the
+//: heavens; a head that is a small globe in the app's own accent, because an
+//: atlas is a book of the world; round glasses and a warm smile, because
+//: Atlas is the notebook's librarian, "warm, curious and a little witty";
+//: and the logo itself, the ring of linked notes, orbiting the head, its
+//: back half behind the globe and its front half across it. Every colour
+//: follows the accent, so it matches whatever look is on.
+function atlasMark(size = 20) {
+  const svgNs = "http://www.w3.org/2000/svg";
+  const make = (tag, attrs) => {
+    const el = document.createElementNS(svgNs, tag);
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+    return el;
+  };
+  const accent = (typeof currentAccentHex === "function" && currentAccentHex()) || "#6d5dfc";
+  const mix = (hex, other, t) => {
+    const a = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const b = [1, 3, 5].map((i) => parseInt(other.slice(i, i + 2), 16));
+    return `#${a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join("")}`;
+  };
+  const light = mix(accent, "#ffffff", 0.45);
+  const deep = mix(accent, "#000000", 0.35);
+  nameMarkSerial += 1;
+  const id = `nm-atlas-${nameMarkSerial.toString(36)}`;
+  const svg = make("svg", { viewBox: "0 0 36 36", width: size, height: size, class: "name-mark nm-atlas nm-calm", "aria-hidden": "true" });
+  svg.dataset.nmSeed = "Atlas";
+  svg.style.setProperty("--nm-delay", "-1.3s");
+  const title = make("title", {});
+  title.textContent = "Atlas, the librarian of this notebook";
+  svg.appendChild(title);
+  const defs = make("defs", {});
+  const clip = make("clipPath", { id: `${id}-c` });
+  clip.appendChild(make("circle", { cx: 18, cy: 18, r: 18 }));
+  const globe = make("radialGradient", { id: `${id}-g`, cx: "36%", cy: "30%", r: "75%" });
+  for (const [offset, colour] of [[0, light], [0.55, accent], [1, deep]]) globe.appendChild(make("stop", { offset, "stop-color": colour }));
+  const sky = make("radialGradient", { id: `${id}-s`, cx: "50%", cy: "40%", r: "70%" });
+  for (const [offset, colour] of [[0, "#2a2f5a"], [1, "#12142a"]]) sky.appendChild(make("stop", { offset, "stop-color": colour }));
+  defs.append(clip, globe, sky);
+  const g = make("g", { "clip-path": `url(#${id}-c)` });
+  g.appendChild(make("rect", { width: 36, height: 36, fill: `url(#${id}-s)` }));
+  const stars = make("g", { class: "nm-starfield", fill: "#ffffff" });
+  for (const [x, y, r] of [[5, 7, 0.5], [30, 6, 0.4], [8, 28, 0.35], [31, 27, 0.5], [26, 3.6, 0.3], [3.4, 17, 0.3], [33, 16, 0.35]]) {
+    stars.appendChild(make("circle", { cx: x, cy: y, r, opacity: 0.8 }));
+  }
+  g.appendChild(stars);
+  const body = make("g", { class: "nm-body" });
+  //: The orbit: the logo's ring of linked notes, tilted like a planet's.
+  const tilt = "translate(0 6.4) rotate(-14 18 19)";
+  const nodes = [[3.4, 19], [8.4, 14.6], [27.6, 14.6], [32.6, 19], [27.6, 23.4], [8.4, 23.4]];
+  const back = make("g", { transform: tilt });
+  back.appendChild(make("path", { d: "M3.4 19A14.6 4.4 0 0 1 32.6 19", fill: "none", stroke: light, "stroke-width": 0.7, "stroke-opacity": 0.55 }));
+  back.appendChild(make("path", { d: "M8.4 14.6L27.6 14.6M3.4 19L8.4 14.6M27.6 14.6L32.6 19", fill: "none", stroke: light, "stroke-width": 0.45, "stroke-opacity": 0.5 }));
+  for (const [x, y] of nodes.slice(0, 4)) back.appendChild(make("circle", { cx: x, cy: y, r: 1.2, fill: light, class: "nm-spark" }));
+  body.appendChild(back);
+  body.appendChild(make("circle", { cx: 18, cy: 19, r: 11.4, fill: `url(#${id}-g)` }));
+  //: The globe's own lines, faint: a meridian and two parallels.
+  body.appendChild(make("path", { d: "M18 7.6a5.4 11.4 0 0 1 0 22.8a5.4 11.4 0 0 1 0-22.8M7.4 15.4h21.2M7.4 22.6h21.2", fill: "none", stroke: "#ffffff", "stroke-width": 0.35, "stroke-opacity": 0.22 }));
+  const ink = "#1c1c1a";
+  const face = make("g", {});
+  //: Round glasses with a gold rim: the librarian.
+  for (const x of [14.1, 21.9]) face.appendChild(make("circle", { cx: x, cy: 18.2, r: 3.2, fill: "#ffffff", "fill-opacity": 0.28, stroke: "#ffd84a", "stroke-width": 0.8 }));
+  face.appendChild(make("path", { d: "M17.3 18.1q.7-.7 1.4 0", fill: "none", stroke: "#ffd84a", "stroke-width": 0.8 }));
+  const eyes = make("g", { class: "nm-eyes nm-blinks", fill: ink });
+  for (const x of [14.1, 21.9]) {
+    eyes.appendChild(make("circle", { cx: x, cy: 18.3, r: 1.45 }));
+    eyes.appendChild(make("circle", { cx: x + 0.55, cy: 17.7, r: 0.5, fill: "#ffffff" }));
+  }
+  face.appendChild(eyes);
+  face.appendChild(make("path", { d: "M14.6 23.2c1.6 1.9 5.2 1.9 6.8 0", fill: "none", stroke: ink, "stroke-width": 1.3, "stroke-linecap": "round" }));
+  for (const x of [11.6, 24.4]) face.appendChild(make("ellipse", { cx: x, cy: 22.2, rx: 1.6, ry: 0.9, fill: "#ff7aa0", opacity: 0.45 }));
+  body.appendChild(face);
+  const front = make("g", { transform: tilt });
+  front.appendChild(make("path", { d: "M3.4 19A14.6 4.4 0 0 0 32.6 19", fill: "none", stroke: light, "stroke-width": 0.8 }));
+  front.appendChild(make("path", { d: "M3.4 19L8.4 23.4L27.6 23.4L32.6 19M8.4 23.4L18 23.4", fill: "none", stroke: light, "stroke-width": 0.5, "stroke-opacity": 0.75 }));
+  for (const [i, [x, y]] of [...nodes.slice(4), [18, 23.4], [3.4, 19], [32.6, 19]].entries()) {
+    front.appendChild(make("circle", { cx: x, cy: y, r: 1.35, fill: i % 2 ? light : "#ffffff", stroke: deep, "stroke-width": 0.35, class: `nm-spark${i % 2 ? " nm-spark-late" : ""}` }));
+  }
+  body.appendChild(front);
+  //: The north star, over the head: the curiosity.
+  body.appendChild(make("path", { d: "M18 2.4Q18 4.8 20.2 5Q18 5.2 18 7.6Q18 5.2 15.8 5Q18 4.8 18 2.4z", fill: "#ffd84a", class: "nm-spark" }));
+  g.appendChild(body);
+  svg.append(defs, g);
+  watchNameMark(svg);
+  return svg;
+}
+
 function nameMark(seed, size = 20) {
+  //: The assistant's own name draws Atlas, not a face made from the name.
+  const named = String(seed || "").trim().toLowerCase();
+  const ai = typeof aiNameNow === "function" ? String(aiNameNow() || "").toLowerCase() : "atlas";
+  if (named && (named === ai || named === "atlas")) return atlasMark(size);
   let h = 2166136261;
   for (const ch of String(seed || "?").trim().toLowerCase()) {
     h ^= ch.codePointAt(0);

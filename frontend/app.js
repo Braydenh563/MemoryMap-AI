@@ -17327,16 +17327,11 @@ async function setResponseMode(chosen) {
 //: cannot draw one persona two ways.
 function fillPersonaMark(holder, name, size = 20) {
   if (!holder) return;
-  if (name === aiNameNow()) {
-    //: The app's own mark as an image, not the live p5 emblem: that one is
-    //: a canvas that wants a mounted holder, and a list row is neither.
-    const logo = document.createElement("img");
-    logo.src = "/favicon.svg";
-    logo.alt = "";
-    logo.width = size;
-    logo.height = size;
-    holder.replaceChildren(logo);
-  } else holder.replaceChildren(nameMark(name, size));
+  //: Atlas has a face of its own now (`atlasMark`, avatars.js): the logo's
+  //: ring of linked notes orbiting a globe in the accent colour. `nameMark`
+  //: draws it for the assistant's name. The chat's reply label keeps the
+  //: live logo, so the app's mark and Atlas's face both stay in the app.
+  holder.replaceChildren(nameMark(name === aiNameNow() ? "Atlas" : name, size));
 }
 
 function personaOptions() {

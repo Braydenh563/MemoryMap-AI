@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Atlas has a face of its own: a small globe in the accent colour against a night sky, round gold-rimmed librarian glasses and a warm smile, with the logo's ring of linked notes orbiting the head and a north star above. It is Atlas in the persona list, the picker, the large view and the companion; the live logo stays in the status bar, the chat's reply label and everywhere else it was.
 - Faces you can meet: click one for a hop and a line in its own voice, and a face outside a control opens large with what it was read as. New Appearance settings: Faces follow the pointer (eyes and heads turn a little towards the mouse, only faces on screen, one update a frame), Corner companion (you or the chat persona, draggable, remembered, hidden by its own x; off by default) and Dashboard mark (the logo, your face, or the greeting persona; the logo stays everywhere else).
 - Chat: each reply shows the face and name of the persona that wrote it, kept with the saved turn, so switching persona mid-conversation relabels nothing already on the page and a reopened chat shows who answered each message. The default assistant keeps the app's emblem; replies saved before this read as the default. Copying the transcript names each reply by its writer too.
 - Internal: the generated faces moved out of app.js into avatars.js, loaded straight after it, which brings the gzipped app.js back under its size bound (762,903 to 736,191 bytes).

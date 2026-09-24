@@ -105,6 +105,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Boards and maps: a drag-selection rectangle keeps up with the pointer on a big board or map. It is drawn on a canvas once a frame instead of rewriting the page each move, and letting go restyles only the items whose selection changed.
 - Lightbox: the picture never runs under the previous and next arrows, at Fit or zoomed, at any width, and the information card under it is one width on every picture, edge to edge with the toolbar.
 - Boards and maps: a picture exported (to a file or to the Library) is painted in the colours on screen, in light and dark: map topics, note cards and text boxes take their own fill, edge and ink, and a branch keeps its colour. In dark mode the topics used to come out white and the text dark on dark.
 - Library and lightbox: a picture exported from a board or map carries the description the app wrote for it as "Written by MemoryMap", not "typed by hand", and a vision model that later describes it is credited alone rather than as an edit.

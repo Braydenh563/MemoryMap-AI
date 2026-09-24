@@ -8773,9 +8773,27 @@ async function wbMapPinOnDrag(d) {
 function wbApplySelectionHighlight() {
   //: After this frame's selection is settled (see `renderWbGestureHints`).
   requestAnimationFrame(renderWbGestureHints);
+  //: **Only what changed is touched** (INBOX 410, the release of a marquee).
+  //: This took the class off every selected element and put it back on every
+  //: one still selected, so a sweep that grew a selection of 200 restyled all
+  //: 200 twice. The wanted set is worked out first; then an element loses the
+  //: class only if it is leaving and gains it only if it is arriving.
+  const inGroup = wbMultiSelection.size > 1;
+  const wanted = new Map();
+  for (const key of wbMultiSelection) {
+    const sep = key.indexOf(":");
+    const el = document.querySelector(WB_SELECTOR_BY_KIND[key.slice(0, sep)](Number(key.slice(sep + 1))));
+    if (el) wanted.set(el, inGroup);
+  }
+  if (wbSelectedItem) {
+    const el = document.querySelector(WB_SELECTOR_BY_KIND[wbSelectedItem.kind](wbSelectedItem.id));
+    if (el && !wanted.has(el)) wanted.set(el, false);
+  }
   document
     .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
-    .forEach((el) => el.classList.remove("wb-selected", "wb-in-group"));
+    .forEach((el) => {
+      if (!wanted.has(el)) el.classList.remove("wb-selected", "wb-in-group");
+    });
   // A sketch's resize handles have nowhere else to live between renders
   // (unlike a card/object, which always has 8 handle children of its own), 
   // recomputed here so they track a fresh selection or a just-finished move.
@@ -8797,18 +8815,10 @@ function wbApplySelectionHighlight() {
   //: second way and 07-whiteboard-misc.css hides the grips on that class. The
   //: outline stays: the member is still visibly one of the selected things
   //: (INBOX 278, and the earlier report it has to keep answering).
-  const inGroup = wbMultiSelection.size > 1;
-  for (const key of wbMultiSelection) {
-    const sep = key.indexOf(":");
-    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
-    const el = document.querySelector(WB_SELECTOR_BY_KIND[kind](id));
-    if (!el) continue;
-    el.classList.add("wb-selected");
-    el.classList.toggle("wb-in-group", inGroup);
+  for (const [el, grouped] of wanted) {
+    if (!el.classList.contains("wb-selected")) el.classList.add("wb-selected");
+    if (el.classList.contains("wb-in-group") !== grouped) el.classList.toggle("wb-in-group", grouped);
   }
-  if (!wbSelectedItem) return;
-  const selector = WB_SELECTOR_BY_KIND[wbSelectedItem.kind](wbSelectedItem.id);
-  document.querySelector(selector)?.classList.add("wb-selected");
 }
 
 function selectWbItem(kind, id) {
@@ -14167,6 +14177,11 @@ async function initWhiteboard() {
   let wbMarqueeStart = null;
   let wbMarqueeEl = null;
   let wbMarqueeJustSelected = false;
+  //: The latest pointer position (board units) and the frame that will draw
+  //: it, so a burst of moves inside one frame is one write (`wbDrawMarquee`).
+  let wbMarqueeAt = null;
+  let wbMarqueeFrame = 0;
+  let wbMarqueeInk = "";
   //: End the marquee gesture and take its rectangle off the canvas. Every
   //: exit from the drag goes through here, the completed one, the cancelled
   //: one, and the sweep `wbClearSelectionOverlays` runs, so there is exactly
@@ -14175,6 +14190,9 @@ async function initWhiteboard() {
     wbMarqueeEl?.remove();
     wbMarqueeEl = null;
     wbMarqueeStart = null;
+    if (wbMarqueeFrame) cancelAnimationFrame(wbMarqueeFrame);
+    wbMarqueeFrame = 0;
+    wbMarqueeAt = null;
   }
   containerEl.addEventListener("pointerdown", (e) => {
     //: A new press is a new gesture: a one-shot left by a drag released off
@@ -14214,14 +14232,41 @@ async function initWhiteboard() {
   //: The rectangle itself, made on the first movement past the threshold the
   //: completed gesture is judged by anyway. Split out so both the press and
   //: the move can read it.
+  //: **Drawn on the compositor, once a frame** (INBOX 410: "drag selection on
+  //: the whiteboard and mindmap is laggy as well"). The rectangle was an SVG
+  //: `<rect>` in the overlay layer whose four attributes were rewritten on
+  //: every pointermove. Each rewrite changed a paint chunk's bounds, and a
+  //: changed chunk makes Chrome re-layerize the whole page, whose cost grows
+  //: with everything on the board: traced over one 80-move drag
+  //: (`scratchpad/ui-sweeps/marqueeperf.js`), Layerize took 1275ms on a board
+  //: of 200 text boxes and 616ms on a map of 200 topics, with frames of 50ms
+  //: at the 95th percentile and 83ms at worst.
+  //:
+  //: **Not a DOM change at all: a canvas.** The obvious fix, five 1px boxes
+  //: moved by `transform` on layers of their own, was measured first and
+  //: is not one: on a map of 200 topics, 60 frames of transform writes cost
+  //: 419ms of Layerize, the same as 60 frames of `<rect>` attribute writes
+  //: (445ms), because any style or attribute change re-layerizes a page this
+  //: size. 60 frames of drawing on a canvas cost 8.7ms. So the rectangle is
+  //: drawn on a canvas the size of the container, made when the drag starts
+  //: and removed when it ends, redrawn at most once a frame from the last
+  //: pointer position of that frame. It keeps the dashed accent edge and the
+  //: 12% accent wash the SVG rectangle had.
   function wbBeginMarqueeRect(pointerId) {
-    wbMarqueeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    wbMarqueeEl.setAttribute("class", "wb-marquee");
-    wbMarqueeEl.setAttribute("x", wbMarqueeStart.x);
-    wbMarqueeEl.setAttribute("y", wbMarqueeStart.y);
-    wbMarqueeEl.setAttribute("width", 0);
-    wbMarqueeEl.setAttribute("height", 0);
-    document.getElementById("wb-overlay-zoom-group").appendChild(wbMarqueeEl);
+    wbMarqueeEl = document.createElement("canvas");
+    wbMarqueeEl.className = "wb-marquee";
+    wbMarqueeEl.setAttribute("aria-hidden", "true");
+    const ratio = window.devicePixelRatio || 1;
+    const w = containerEl.clientWidth, h = containerEl.clientHeight;
+    wbMarqueeEl.width = Math.max(1, Math.round(w * ratio));
+    wbMarqueeEl.height = Math.max(1, Math.round(h * ratio));
+    wbMarqueeEl.style.width = `${w}px`;
+    wbMarqueeEl.style.height = `${h}px`;
+    //: Through `wbExportColour`, because a canvas cannot read a `var()` and
+    //: the accent may be a `color-mix()` the canvas does not parse either.
+    const accent = wbExportColour(getComputedStyle(containerEl).getPropertyValue("--accent").trim());
+    wbMarqueeInk = accent && accent !== "none" ? accent : "#3b82f6";
+    containerEl.appendChild(wbMarqueeEl);
     // **The capture is the fix.** Without it every pointermove and pointerup
     // outside the container went to whatever element was under the cursor,
     // so a drag that ended over the top bar, over the left rail or off the
@@ -14242,14 +14287,39 @@ async function initWhiteboard() {
       if (Math.abs(x - wbMarqueeStart.x) < 4 && Math.abs(y - wbMarqueeStart.y) < 4) return;
       wbMarqueeStart.pending = false;
       wbBeginMarqueeRect(wbMarqueeStart.pointerId);
+      // Placed now, before its first paint, so it never shows as a dot at
+      // the container's corner for a frame.
+      wbMarqueeAt = [x, y];
+      wbDrawMarquee();
+      return;
     }
-    const mx = Math.min(wbMarqueeStart.x, x), my = Math.min(wbMarqueeStart.y, y);
-    const w = Math.abs(x - wbMarqueeStart.x), h = Math.abs(y - wbMarqueeStart.y);
-    wbMarqueeEl.setAttribute("x", mx);
-    wbMarqueeEl.setAttribute("y", my);
-    wbMarqueeEl.setAttribute("width", w);
-    wbMarqueeEl.setAttribute("height", h);
+    wbMarqueeAt = [x, y];
+    if (!wbMarqueeFrame) wbMarqueeFrame = requestAnimationFrame(wbDrawMarquee);
   });
+  //: The board point under the pointer, to the container's own pixels: the
+  //: inverse of `getLogicalMouse`, so the box is where the selection is.
+  function wbDrawMarquee() {
+    wbMarqueeFrame = 0;
+    if (!wbMarqueeEl || !wbMarqueeStart || !wbMarqueeAt) return;
+    const t = d3.zoomTransform(containerEl);
+    const x0 = t.applyX(wbMarqueeStart.x), y0 = t.applyY(wbMarqueeStart.y);
+    const x1 = t.applyX(wbMarqueeAt[0]), y1 = t.applyY(wbMarqueeAt[1]);
+    const l = Math.round(Math.min(x0, x1)), top = Math.round(Math.min(y0, y1));
+    const w = Math.round(Math.abs(x1 - x0)), h = Math.round(Math.abs(y1 - y0));
+    const ratio = window.devicePixelRatio || 1;
+    const g = wbMarqueeEl.getContext("2d");
+    g.setTransform(ratio, 0, 0, ratio, 0, 0);
+    g.clearRect(0, 0, wbMarqueeEl.width, wbMarqueeEl.height);
+    if (!w || !h) return;
+    g.fillStyle = wbMarqueeInk;
+    g.strokeStyle = wbMarqueeInk;
+    g.globalAlpha = 0.12;
+    g.fillRect(l, top, w, h);
+    g.globalAlpha = 1;
+    g.lineWidth = 1;
+    g.setLineDash([4, 3]);
+    g.strokeRect(l + 0.5, top + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
+  }
   // Anchor points weren't discoverable until a link drag was already under
   // way: asked for directly: "when I hover over objects, their anchor
   // points should display... so I can connect them." A plain hover with a

@@ -311,12 +311,18 @@
   pointer-events: none;
 }
 
+/* The selection rectangle: a canvas over the whole container, drawn by
+   `wbDrawMarquee` (its dashed accent edge and 12% wash are painted there),
+   because drawing on a canvas is the one per-frame change that does not
+   re-layerize the page (INBOX 410, the numbers are on
+   `wbBeginMarqueeRect`). Last in the container's order, so it draws over
+   the cards it is about to select, and its own layer. */
 .wb-marquee {
-  fill: color-mix(in srgb, var(--accent) 12%, transparent);
-  stroke: var(--accent);
-  stroke-width: 1px;
-  stroke-dasharray: 4 3;
+  position: absolute;
+  left: 0;
+  top: 0;
   pointer-events: none;
+  will-change: transform;
 }
 
 .wb-lasso {

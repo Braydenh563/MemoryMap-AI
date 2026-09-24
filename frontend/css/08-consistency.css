@@ -5725,10 +5725,10 @@ main,
    behind `@supports`, not layered). */
 .nm-atlas {
   --nm-delay: 0s;
-  --atl-hi: #d8e9fa;
-  --atl-lt: #c3daf6;
-  --atl-md: #a3bbea;
-  --atl-dp: #7d91cf;
+  --atl-hi: #dcedfd;
+  --atl-lt: #c2dbf9;
+  --atl-md: #9fb8ee;
+  --atl-dp: #7a90d6;
   --atl-rim: #505aac;
   --atl-line: #3f4a95;
   --atl-ink: #0b1344;
@@ -5762,9 +5762,11 @@ main,
   --atl-galaxy: var(--atl-navy);
   --atl-hneb: none;
   --atl-earin: var(--atl-navy);
+  --atl-bneb: none;
+  --atl-belly: none;
   --atl-tip: none;
-  --atl-aura-a: 0.3;
-  --atl-shade-a: 0.45;
+  --atl-aura-a: 0.2;
+  --atl-shade-a: 0.4;
   --atl-k: 0;
   --atl-side: 1;
   /* The face at rest (calm). Every mood below overrides some of these. */
@@ -5835,7 +5837,7 @@ main,
 
 /* The glow has something to glow against in the dark. */
 :root[data-mode="dark"] .nm-atlas {
-  --atl-aura-a: 0.5;
+  --atl-aura-a: 0.3;
 }
 
 /* The companion's box holds the drawing at 1:1; the glow and the halo may
@@ -5853,8 +5855,8 @@ main,
   transform-box: fill-box;
   transform-origin: center;
 }
-.nm-atlas .nmb-arm-l { transform-box: view-box; transform-origin: 22.4px 42.6px; }
-.nm-atlas .nmb-arm-r { transform-box: view-box; transform-origin: 39.6px 42.6px; }
+.nm-atlas .nmb-arm-l { transform-box: view-box; transform-origin: 22.4px 43px; }
+.nm-atlas .nmb-arm-r { transform-box: view-box; transform-origin: 39.6px 43px; }
 /* Thinking: a hand at the chin, as the reference sheet draws it. The
    forearm is drawn in the head's layer (atlas.js), over the face, and the
    resting right arm steps aside for it; not while the companion sits or
@@ -5867,10 +5869,10 @@ main,
 #nm-buddy:not([data-pose="hang"], [data-pose="sit"]) .nm-atlas[data-atlas-mood="thinking"] .nmb-arm-r { opacity: 0; }
 /* The companion turns limbs about its own generic joints; Atlas's are
    higher and narrower, so they are named here, one step more specific. */
-#nm-buddy .atl-figure .nmb-arm-l { transform-origin: 22.4px 42.6px; }
-#nm-buddy .atl-figure .nmb-arm-r { transform-origin: 39.6px 42.6px; }
-#nm-buddy .atl-figure .nmb-leg-l { transform-origin: 24.6px 66px; }
-#nm-buddy .atl-figure .nmb-leg-r { transform-origin: 37.4px 66px; }
+#nm-buddy .atl-figure .nmb-arm-l { transform-origin: 22.4px 43px; }
+#nm-buddy .atl-figure .nmb-arm-r { transform-origin: 39.6px 43px; }
+#nm-buddy .atl-figure .nmb-leg-l { transform-origin: 26.4px 68px; }
+#nm-buddy .atl-figure .nmb-leg-r { transform-origin: 35.6px 68px; }
 /* Atlas's arm is a short nub from a shoulder just under the chin, so the
    companion's generic raise (-125deg, for a long arm from a low shoulder)
    would put its hand over its own cheek; -100deg brings it up beside the
@@ -5900,6 +5902,7 @@ main,
 .nm-atlas .atl-st-core1 { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-st-iris0 { stop-color: var(--atl-ink); }
 .nm-atlas .atl-st-iris1 { stop-color: var(--atl-iris-c); }
+.nm-atlas .atl-st-iris2 { stop-color: var(--atl-glow-c); }
 .nm-atlas .atl-st-neb0 { stop-color: var(--atl-neb-c); stop-opacity: 0.85; }
 .nm-atlas .atl-st-neb1 { stop-color: var(--atl-neb-c); stop-opacity: 0; }
 .nm-atlas .atl-st-neb20 { stop-color: var(--atl-violet); stop-opacity: 0.9; }
@@ -5917,8 +5920,9 @@ main,
 /* One outline rule for every part: drawn under the fills, twice as wide as
    it shows, so where parts overlap the fills close the seam (atlas.js,
    the design note's "Construction"). */
-.nm-atlas .atl-edge { fill: none; stroke: var(--atl-line); stroke-width: 1.2; stroke-linejoin: round; stroke-linecap: round; opacity: 0.7; }
-.nm-atlas.atl-tiny .atl-edge { stroke-width: 2.8; opacity: 0.85; }
+.nm-atlas .atl-edge { fill: none; stroke: var(--atl-dp); stroke-width: 1.1; stroke-linejoin: round; stroke-linecap: round; opacity: 0.6; }
+.nm-atlas.atl-tiny .atl-edge { stroke: var(--atl-line); stroke-width: 2.6; opacity: 0.8; }
+.nm-atlas .atl-belly { fill: var(--atl-belly); }
 .nm-atlas .atl-sheen { fill: var(--atl-sheen); opacity: 0.55; }
 .nm-atlas .atl-sheen-dot { opacity: 0.8; }
 .nm-atlas .atl-sheen-body { opacity: 0.55; }
@@ -5926,7 +5930,8 @@ main,
 .nm-atlas .atl-speck-soft { opacity: 0.6; }
 .nm-atlas .atl-cheek { fill: var(--atl-blush); opacity: var(--atl-cheek); }
 .nm-atlas .atl-sclera { fill: white; }
-.nm-atlas .atl-liner { fill: none; stroke: var(--atl-line); stroke-width: 1; stroke-linecap: round; opacity: 0.9; }
+.nm-atlas .atl-liner { fill: none; stroke: var(--atl-line); stroke-width: 0.9; stroke-linecap: round; opacity: 0.85; }
+.nm-atlas .atl-liner-low { stroke: var(--atl-dp); stroke-width: 0.6; opacity: 0.5; }
 .nm-atlas .atl-ink { fill: var(--atl-ink); }
 .nm-atlas .atl-iris-fill { fill: var(--atl-iris); }
 .nm-atlas .atl-iris-foot { fill: var(--atl-glow-c); opacity: 0.55; }
@@ -5934,17 +5939,19 @@ main,
 .nm-atlas .atl-heart { fill: var(--atl-heart-c); }
 .nm-atlas .atl-lash { fill: none; stroke: var(--atl-line); stroke-width: 1.2; stroke-linecap: round; }
 .nm-atlas .atl-stroke { fill: none; stroke: var(--atl-ink); stroke-linecap: round; stroke-linejoin: round; }
-.nm-atlas .atl-brow-line { stroke: var(--atl-line); stroke-width: 1.4; opacity: 0.38; }
-.nm-atlas .atl-brow-straight { stroke-width: 1.7; }
+.nm-atlas .atl-brow-line { stroke: var(--atl-line); stroke-width: 1.1; opacity: 0.22; }
+.nm-atlas .atl-brow-straight { stroke-width: 1.3; }
 .nm-atlas .atl-lashes { fill: none; stroke: var(--atl-line); stroke-width: 0.9; stroke-linecap: round; }
 .nm-atlas[data-atlas-look="feminine"] .atl-cheek { rx: 4.3px; ry: 2.6px; }
 .nm-atlas .atl-tongue { fill: var(--atl-tongue); }
-/* The ears and the hair: an inner ear of galaxy inside a lighter rim, the
-   nebula gathering toward the hair's ends, a highlight along the first
-   lock, a star at each tip. */
+/* The ears, the wisps and the mane: an inner ear of galaxy inside a
+   lighter rim, the nebula gathering toward the ends, each lock of the
+   mane translucent with a lighter leading edge, a star at each tip. */
 .nm-atlas .atl-ear-in { fill: var(--atl-earin); opacity: 0.85; }
-.nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.55; }
-.nm-atlas .atl-hair-light { fill: none; stroke: white; stroke-width: 0.9; stroke-linecap: round; opacity: 0.5; }
+.nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.45; }
+.nm-atlas .atl-lock { opacity: 0.88; }
+.nm-atlas .atl-mane .atl-hair-neb { opacity: 0.3; }
+.nm-atlas .atl-hair-light { fill: none; stroke: white; stroke-width: 0.8; stroke-linecap: round; opacity: 0.45; }
 .nm-atlas .atl-hair-star { fill: white; }
 /* The rings of light (atlas.js, `atlasRing`): widths are in the ring's
    flattened frame, so a ring is thinnest where it passes in front and
@@ -5968,12 +5975,28 @@ main,
 .nm-atlas .atl-node-dot { fill: white; }
 .nm-atlas .atl-chest-star { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.5; stroke-linejoin: round; }
 .nm-atlas .atl-core-glow { fill: var(--atl-core); }
-/* The tail (atlas.js, `atlasTail`): the body's blue into navy galaxy along
-   its length, a pale glowing edge, star dots and a tuft of white starlight
-   at the tip. */
+/* The tail (atlas.js, `atlasTail`): a flame, the body's blue into navy
+   galaxy along its length, a pale glowing edge, star dots and a bright
+   comet glow at the tip. */
 .nm-atlas .atl-tail-galaxy { fill: var(--atl-galaxy); }
+.nm-atlas .atl-lick { opacity: 0.9; }
 .nm-atlas .atl-tail-edge { fill: none; stroke: white; stroke-width: 0.8; stroke-linejoin: round; opacity: 0.35; }
-.nm-atlas .atl-tip-glow { fill: var(--atl-tip); opacity: 0.9; }
+.nm-atlas .atl-tip-glow { fill: var(--atl-tip); opacity: 0.95; }
+.nm-atlas .atl-tip-core { fill: white; }
+/* The nebula strand (atlas.js, `atlasBand`): deep navy with violet and
+   pink clouds, a pale glowing edge, star dots; lighter than the body. */
+.nm-atlas .atl-band-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 2.6; opacity: 0.3; }
+.nm-atlas .atl-band-fill { fill: var(--atl-navy); opacity: 0.92; }
+.nm-atlas .atl-band-neb { fill: var(--atl-bneb); opacity: 0.8; }
+.nm-atlas .atl-band-edge { fill: none; stroke: white; stroke-width: 0.7; opacity: 0.4; }
+/* Startled: a translucent bubble round the whole figure. */
+.nm-atlas .atl-bubble { fill: white; fill-opacity: 0.1; stroke: var(--atl-glow-c); stroke-width: 0.9; opacity: 0.9; }
+.nm-atlas .atl-bubble-shine { fill: white; opacity: 0.55; }
+#nm-buddy.nmb-act-startle .atl-figure .nmp-bubble { opacity: 1; }
+/* Offline: a dark navy silhouette, the constellation and the eyes faint. */
+#nm-buddy.nmb-offline .atl-figure :is(.atl-skin, .atl-lock) { fill: var(--atl-navy); }
+#nm-buddy.nmb-offline .atl-figure :is(.atl-sheen, .atl-belly, .atl-rim-head, .atl-rim-body, .atl-rim-limb, .atl-ear-in, .atl-hair-neb) { opacity: 0; }
+#nm-buddy.nmb-offline .atl-figure :is(.atl-core, .atl-tail-core) { opacity: 0.4; }
 .nm-atlas .atl-sparkle { fill: var(--atl-gold); }
 .nm-atlas :is(.atl-z, .atl-mark-ink) { stroke: var(--ink); stroke-width: 1.6; }
 .nm-atlas .atl-mark-dot { fill: var(--ink); }
@@ -5989,7 +6012,7 @@ main,
 .nm-atlas .atl-lid-low { transform: translateY(calc(var(--atl-low) * -10px)); }
 /* The ears and the hair perk and droop together: the hair and the right
    ear one way, the left ear mirrored. */
-.nm-atlas :is(.atl-ear-r, .atl-lock) { transform: rotate(var(--atl-crest)); }
+.nm-atlas :is(.atl-ear-r, .atl-mane, .atl-wisps) { transform: rotate(var(--atl-crest)); }
 .nm-atlas .atl-ear-l { transform: rotate(calc(var(--atl-crest) * -1)); }
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
@@ -6172,6 +6195,7 @@ main,
    `atlasHeadProps`, `atlasHandProps`); avatars.js shows each slot. Outside
    the companion they never show. */
 .nm-atlas:not(.atl-figure) .nmp { opacity: 0; }
+.nm-atlas .nmp-bubble { opacity: 0; transition: opacity var(--motion-base) var(--ease-out); }
 .nm-atlas .atl-prop-band { fill: none; stroke: var(--atl-line); stroke-width: 2.4; stroke-linecap: round; }
 .nm-atlas .atl-prop-cup { fill: var(--atl-dp); stroke: var(--atl-line); stroke-width: 1; }
 .nm-atlas .atl-prop-cup-glow { fill: var(--atl-hi); }
@@ -6237,6 +6261,8 @@ main,
     & .atl-blink.nm-blinks { animation: atl-blink 9s linear var(--nm-delay) infinite; }
     & .atl-sway { animation: atl-sway 9.6s ease-in-out var(--nm-delay) infinite; }
     & .atl-tail-swish { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
+    & .atl-tendril-l { animation: atl-drift-l 5.2s ease-in-out var(--nm-delay) infinite; }
+    & .atl-tendril-r { animation: atl-drift-r 5.8s ease-in-out calc(var(--nm-delay) - 1.1s) infinite; }
     /* The dust drifts: slowly at rest, a touch faster when pleased or
        busy; the inner ring turns the other way. */
     & .atl-ring-drift { animation: atl-drift 56s linear infinite; }
@@ -6303,7 +6329,7 @@ main,
    now leaves faces and the companion to this block. */
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy .atl-classic-box { animation-duration: 9s !important; }
-  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
+  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-tendril-l, .atl-tendril-r, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s !important;
   }
 }
@@ -6323,6 +6349,8 @@ main,
   60%, 100% { transform: rotate(90deg); }
 }
 @keyframes atl-drift { to { transform: rotate(360deg); } }
+@keyframes atl-drift-l { 50% { transform: rotate(3deg); } }
+@keyframes atl-drift-r { 50% { transform: rotate(-2.6deg); } }
 @keyframes atl-swish {
   0%, 100% { transform: rotate(0deg); }
   40% { transform: rotate(-5deg); }

@@ -35049,3 +35049,31 @@ with an unselected note moving 1.7 and no pins written.
     dashes in Settings, Preferences (off by default); `tests/test_prose_autofill.py`
     (25), sweep `proseautofill.js` 31 of 31 light and dark.
 
+422. **The owner, 2026-09-24, verbatim.** "make sure that the tools and
+    features panel options, as well as the command palatte and find anything
+    search actually show what they are. like I clicked on the "suggested
+    links" option in the tools and features panel and all it did was take me
+    to the graph page, it didnt actually open the menu option for suggested
+    links in the graph like it should have." **Fixed.** Measured before (a
+    read of every closure): of the 110 written Tools and features rows, 50
+    switched tab or sub-tab and stopped while naming one control there, 11
+    opened a Settings pane at its top while naming one setting in it, all 58
+    AI tool rows opened Settings → Tools at its top, and the palette's Board
+    overview and Find a card did nothing unless a board was open. Now every
+    row in the three lists declares `tab`, `reveal` or `act`
+    (`tests/test_catalogue_reveal.py`); a reveal names one entry in
+    `REVEAL_TARGETS` (app.js) and `revealFeature` switches tab, loads the
+    lazy bundle, opens the menu, panel, sheet or dialog and rings the control
+    (`flashRevealed`, `.feature-reveal`); Suggested links opens the gear panel
+    and runs Suggest links. `scratchpad/ui-sweeps/deeplinks.js` runs every row
+    (226: the 110 written, 58 AI tools, 58 palette): at 1440, light and dark,
+    195 land on the control, 12 on their tab, 6 fall back, 0 fail, 13 are
+    commands with nowhere to land; at 390, 192, 12, 9, 0, 13. Each fallback
+    is a notebook without the thing: no model (AI edit's button is disabled),
+    an empty newest document (no headings for Breadcrumbs, no Properties), no
+    readable file (Page reader), no selection (Context bar); at 390 the board
+    overview and the favourite star are not drawn on a phone by design (the
+    board and the list are rung instead). Found on the way: Settings
+    deep links rang nothing unless the target already carried `flash-target`
+    (only Search relevance did); `openSettingsModal` now uses the same ring.
+

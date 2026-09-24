@@ -1926,6 +1926,46 @@ class OcrRegionOut(BaseModel):
     box: OcrRegionBox | None = None
 
 
+class OcrStoredReadingOut(BaseModel):
+    #: "vision" or "tesseract": which field this is, and so which one a
+    #: delete clears.
+    source: str
+    label: str
+    text: str
+    #: Whether the regions in the same answer were split from this text.
+    in_regions: bool = False
+
+
+def _stored_readings(
+    vision_text: str | None, vision_model: str | None, tesseract_text: str | None, regions_source: str
+) -> list[OcrStoredReadingOut]:
+    vision = (vision_text or "").strip()
+    tesseract = (tesseract_text or "").strip()
+    out: list[OcrStoredReadingOut] = []
+    if vision:
+        out.append(
+            OcrStoredReadingOut(
+                source="vision",
+                label=f"Read by {vision_model or 'a vision model'}",
+                text=vision,
+                in_regions=regions_source == "reading",
+            )
+        )
+    if tesseract:
+        out.append(
+            OcrStoredReadingOut(
+                source="tesseract",
+                label="Read with Tesseract OCR",
+                text=tesseract,
+                #: The sections are split from the vision reading when there
+                #: is one (`stored` prefers it), and are Tesseract's own boxes
+                #: when the source says so.
+                in_regions=regions_source == "tesseract" or (regions_source == "reading" and not vision),
+            )
+        )
+    return out
+
+
 class OcrRegionsOut(BaseModel):
     width: int
     height: int
@@ -1953,6 +1993,14 @@ class OcrRegionsOut(BaseModel):
     #: asked for page 99 of a 3-page PDF must be told which page it actually
     #: got.
     page: int = 0
+    #: **Every stored reading of a picture, named by its reader** (INBOX 421
+    #: e: "the text in the lightbox doesnt even appear in the ocr workspace").
+    #: A picture keeps two: the vision model's and Tesseract's, separate
+    #: fields, and the lightbox shows both (`lightboxReadingsFor`). The
+    #: sections above come from one of them at most (`in_regions`); the
+    #: workspace lists the other beside them, so the two views agree. Empty
+    #: for a PDF, whose readings are per page (`PageRead`).
+    readings: list[OcrStoredReadingOut] = []
 
 
 #: **Reading a PDF page is rasterise-then-read, not a second OCR engine.**
@@ -2159,11 +2207,14 @@ def _regions_for(
     #: came back transcribed by the other one. `auto` is false whenever the
     #: workspace's reader is not Tesseract, and then this returns the honest
     #: empty answer and the "use Read this page" message with it.
-    if not auto:
-        return OcrRegionsOut(
-            width=0, height=0, regions=[], source="none", message=""
-        )
-    found = ocr.extract_regions(path)
+    #:
+    #: **Not reading is not the same as not showing** (INBOX 421 e). This
+    #: used to return the empty answer outright, which skipped the stored
+    #: reading below as well as Tesseract: with the vision model chosen (the
+    #: owner's setting) a picture the model had already read opened on an
+    #: empty panel while the lightbox showed its text. Only the read is
+    #: skipped now; what is stored still becomes the sections.
+    found = ocr.extract_regions(path) if auto else None
     if found is not None:
         out = OcrRegionsOut(
             width=found["width"],
@@ -2238,7 +2289,9 @@ def media_ocr_regions(
     if suffix == ".pdf":
         return _pdf_regions_for(path, page, stored, label, key, auto)
     #: An image is a one page document, and page 0 is where its regions go.
-    return _regions_for(path, stored, label, key, 0, auto)
+    out = _regions_for(path, stored, label, key, 0, auto)
+    out.readings = _stored_readings(upload.vision_ocr_text, upload.vision_ocr_model, upload.ocr_text, out.source)
+    return out
 
 
 @router.get("/files/{attachment_id}/ocr-regions", response_model=OcrRegionsOut)
@@ -2266,7 +2319,11 @@ def attachment_ocr_regions(
     key = _page_read_key(attachment_id, None)
     if suffix == ".pdf":
         return _pdf_regions_for(path, page, stored, label, key, auto)
-    return _regions_for(path, stored, label, key, 0, auto)
+    out = _regions_for(path, stored, label, key, 0, auto)
+    out.readings = _stored_readings(
+        attachment.vision_ocr_text, attachment.vision_ocr_model, attachment.ocr_text, out.source
+    )
+    return out
 
 
 class OcrPageReadOut(BaseModel):

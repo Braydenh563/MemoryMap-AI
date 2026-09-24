@@ -45,6 +45,15 @@
   flex: 0 1 auto;
 }
 
+/* The close sits at the strip's far end, where every popup's X is, and is
+   the icon button's square rather than a stretched strip control. */
+.graph-trace .graph-trace-close {
+  flex: 0 0 auto;
+  width: var(--control-h);
+  margin-left: auto;
+  padding: 0;
+}
+
 .graph-trace-label {
   font-size: var(--text-md);
   font-weight: 600;

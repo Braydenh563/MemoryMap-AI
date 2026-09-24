@@ -4557,8 +4557,71 @@ function wbCloseContextMenu() {
 //: when the right has no room, and is clamped into the window on the other
 //: axis. Set, measured and corrected by the difference, the recipe DESIGN.md
 //: gives a popup placed in the window's coordinates.
+//: **A box worth hanging a menu from** (INBOX 421 a, the owner's desktop
+//: window, again: "when I press the more button the dropdown menu appears in
+//: the top left of my screen"). A detached or hidden element's rect is all
+//: zeroes, and a box whose far corner is at or above the window's own corner
+//: is nowhere the person was looking: both are refused here rather than
+//: trusted, because every earlier corner in this file came from trusting one.
+function wbMenuAnchorOk(r) {
+  return Boolean(r && Number.isFinite(r.left) && Number.isFinite(r.top)
+    && r.width > 0 && r.height > 0 && r.right > 0 && r.bottom > 0);
+}
+
+//: The topic's own box on screen, the last honest anchor a node's menu has.
+function wbMapNodeScreenBox(node) {
+  const box = document.querySelector(`.wb-object[data-id="${node?.id}"]`)?.getBoundingClientRect();
+  return wbMenuAnchorOk(box) ? box : null;
+}
+
+//: **The corner guard.** A menu that ends up at the window's top-left corner
+//: when what opened it was not there is a placement that went wrong, whatever
+//: the route; this says so in the console (which is what the owner can send
+//: back from the desktop window, where no sweep reaches) and puts the menu
+//: back beside `fallback`. Checked once now and once a frame later, because
+//: the report survived every fix to the synchronous path, so if anything
+//: moves the menu after it is placed, the second look is what catches it.
+function wbGuardMenuCorner(menu, why, fallback) {
+  const cornered = () => {
+    if (!menu || menu.classList.contains("hidden")) return false;
+    const r = menu.getBoundingClientRect();
+    return r.left <= 9 && r.top <= 9;
+  };
+  const fix = (when) => {
+    if (!cornered()) return;
+    const box = typeof fallback === "function" ? fallback() : fallback;
+    console.warn(`[whiteboard] refused a menu at the window's corner (${why}, ${when})`, box ? { left: Math.round(box.left), top: Math.round(box.top) } : "no anchor");
+    if (!wbMenuAnchorOk(box)) {
+      menu.classList.add("hidden");
+      return;
+    }
+    const size = menu.getBoundingClientRect();
+    const left = Math.min(Math.max(8, box.right + 4), Math.max(8, window.innerWidth - size.width - 8));
+    const top = Math.min(Math.max(8, box.top), Math.max(8, window.innerHeight - size.height - 8));
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
+  };
+  fix("placed");
+  requestAnimationFrame(() => fix("next frame"));
+}
+
 function wbOpenMapNodeMenu(node, clientX, clientY, opener = null) {
   if (!node) return;
+  let anchor = typeof opener?.getBoundingClientRect === "function" ? opener.getBoundingClientRect() : opener;
+  if (!wbMenuAnchorOk(anchor)) anchor = null;
+  //: **Never from (0,0).** A point of 0,0 is what a click made from the
+  //: keyboard carries and what a zero-sized ring reads once hidden; it is not
+  //: a place anyone pointed at. With no box and no point left, the menu does
+  //: not open at all rather than open in the corner, and says why.
+  if (!(clientX > 0 || clientY > 0)) {
+    clientX = 0;
+    clientY = 0;
+    if (!anchor) anchor = wbMapNodeScreenBox(node);
+    if (!anchor) {
+      console.warn("[whiteboard] refused to open a topic's menu at (0,0): no anchor to place it by", { node: node.id });
+      return;
+    }
+  }
   const menu = wbBuildContextMenu("object");
   menu.classList.remove("hidden");
   const margin = 8;
@@ -4566,7 +4629,6 @@ function wbOpenMapNodeMenu(node, clientX, clientY, opener = null) {
   const size = menu.getBoundingClientRect();
   let left = clientX;
   let top = clientY;
-  let anchor = typeof opener?.getBoundingClientRect === "function" ? opener.getBoundingClientRect() : opener;
   //: **Never the window's corner** (the owner, 2026-09-24: "I clicked the
   //: more button on a mind map node and it appeared ip the top left middle
   //: section"). Every route to the corner was one where nothing measurable
@@ -4577,12 +4639,7 @@ function wbOpenMapNodeMenu(node, clientX, clientY, opener = null) {
   //: then turned 0,0 into 8,8, over the tab bar. So a missing anchor falls
   //: back to the topic's own box, which is always on screen when its menu is
   //: asked for, and the corner is no longer a place this menu can open.
-  if (!(anchor && anchor.width) && !(clientX > 0 || clientY > 0)) {
-    const el = document.querySelector(`.wb-object[data-id="${node.id}"]`);
-    const box = el?.getBoundingClientRect();
-    anchor = box && box.width ? box : null;
-  }
-  if (anchor && anchor.width) {
+  if (anchor) {
     //: The side the sector faces first (a sector on the ring's left half
     //: opens its menu leftward, away from the ring and the topic in its
     //: hole), then the other side, then clamped.
@@ -4600,7 +4657,8 @@ function wbOpenMapNodeMenu(node, clientX, clientY, opener = null) {
   const got = menu.getBoundingClientRect();
   if (Math.abs(got.left - left) > 0.5) menu.style.left = `${Math.round(left + (left - got.left))}px`;
   if (Math.abs(got.top - top) > 0.5) menu.style.top = `${Math.round(top + (top - got.top))}px`;
-  menu.querySelector(".menu-item")?.focus();
+  menu.querySelector(".menu-item")?.focus({ preventScroll: true });
+  wbGuardMenuCorner(menu, "topic menu", () => anchor || wbMapNodeScreenBox(node));
 }
 
 //: Selects whatever the gesture landed on (unless it's already part of a
@@ -4639,6 +4697,18 @@ function wbOpenContextMenuFor(kind, id, clientX, clientY) {
   const menuKind = wbMultiSelection.size > 0
     ? (wbCopyableSelection({ quiet: true }) ? "multi" : "node")
     : kind;
+  //: A gesture with no point (0,0, as a menu key or a synthetic event
+  //: carries) opens by the item it was made on, never in the corner.
+  if (!(clientX > 0 || clientY > 0)) {
+    const el = document.querySelector(`[data-id="${CSS.escape(String(id))}"]`);
+    const box = el?.getBoundingClientRect();
+    if (!wbMenuAnchorOk(box)) {
+      console.warn("[whiteboard] refused to open a context menu at (0,0): no anchor to place it by", { kind, id });
+      return;
+    }
+    clientX = box.left + box.width / 2;
+    clientY = box.bottom + 4;
+  }
   const menu = wbBuildContextMenu(menuKind);
   menu.classList.remove("hidden");
   menu.style.left = `${clientX}px`;
@@ -4651,6 +4721,7 @@ function wbOpenContextMenuFor(kind, id, clientX, clientY) {
   if (rect.bottom > window.innerHeight - margin) {
     menu.style.top = `${Math.max(margin, window.innerHeight - rect.height - margin)}px`;
   }
+  wbGuardMenuCorner(menu, `${kind} context menu`, () => ({ left: clientX, top: clientY, right: clientX, bottom: clientY + 1, width: 1, height: 1 }));
 }
 
 document.addEventListener("click", (e) => {
@@ -6804,8 +6875,28 @@ async function initWhiteboard() {
   //: slots and this is the door to the rest, so nothing is ring-only and the
   //: menu is a list of words rather than a ring of icons for the actions that
   //: are easier to read than to aim at.
+  //: **The sector's box is read when it is pressed** (INBOX 421 a). What the
+  //: person pressed is where the menu belongs, and the press is the one
+  //: moment the sector is certainly on screen: between it and the click the
+  //: board polls, renders and may pan, and a ring that was re-placed or
+  //: hidden in between gave a box of zeroes at click time. Kept for the one
+  //: click that follows (a few seconds at most), and copied, so nothing later
+  //: can change it under the menu.
+  $("wb-radial-more")?.addEventListener("pointerdown", (event) => {
+    const slot = event.currentTarget;
+    const rect = wbMapRadialSectorRect(slot);
+    slot._pressed = {
+      rect: wbMenuAnchorOk(rect) ? { ...rect } : null,
+      x: event.clientX,
+      y: event.clientY,
+      at: Date.now(),
+    };
+  });
   $("wb-radial-more")?.addEventListener("click", (event) => {
     event.stopPropagation();
+    const slot = event.currentTarget;
+    const pressed = slot._pressed && Date.now() - slot._pressed.at < 4000 ? slot._pressed : null;
+    slot._pressed = null;
     const node = wbMapRadialNode();
     const ring = document.getElementById("wb-map-radial");
     const box = ring?.getBoundingClientRect();
@@ -6820,12 +6911,17 @@ async function initWhiteboard() {
     //: is a position, not a size; a hidden ring reads 0,0, which is no point
     //: at all (see `wbOpenMapNodeMenu`'s fallback).
     const laid = box && (box.left || box.top);
-    const x = laid ? box.right + 8 : event.clientX || 0;
-    const y = laid ? box.top : event.clientY || 0;
+    const x = laid ? box.right + 8 : event.clientX || pressed?.x || 0;
+    const y = laid ? box.top : event.clientY || pressed?.y || 0;
     //: The More *sector's* box, not the button's: every sector is a button
     //: the size of the whole ring, clipped to its wedge, so the button's own
     //: rect is the ring's square and a menu hung from it hung from the ring.
-    wbOpenMapNodeMenu(node, x, y, wbMapRadialSectorRect(event.currentTarget) || event.currentTarget);
+    //: In order: the box read at the press, the box now (a keyboard Enter has
+    //: no press), and then nothing, which `wbOpenMapNodeMenu` answers with
+    //: the point or the topic's own box. Never the button itself: its rect
+    //: is the ring's whole square, or zeroes once hidden.
+    const live = wbMapRadialSectorRect(slot);
+    wbOpenMapNodeMenu(node, x, y, pressed?.rect || (wbMenuAnchorOk(live) ? live : null));
   });
 
   //: The link ring (§12.1 item 4). Same shape as the node ring's slots, one

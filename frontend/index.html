@@ -3389,7 +3389,11 @@
                ends are chosen by clicking the map now; this reads back what you
                chose and what the next click will do. -->
           <div class="graph-trace-ends" id="graph-trace-ends"></div>
-          <button id="graph-trace-clear" class="ghost small" title="Leave trace mode (Esc)">Done</button>
+          <!-- The strip's close, the X every other popup ends with (INBOX 421 d:
+               "there's no 'x' close button on the trace popup row"). It was
+               a "Done" that only cleared the two ends and left trace mode on. -->
+          <button id="graph-trace-clear" class="ghost small icon-only graph-trace-close" type="button"
+            title="Leave trace mode (Esc)" aria-label="Leave trace mode"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div id="graph-trace-result" class="graph-trace-result hidden" role="status"></div>
         <div id="link-suggestions" class="hidden"></div>
@@ -7075,6 +7079,10 @@
           </div>
           <p id="ocr-caption" class="ocr-caption hidden"></p>
           <p id="ocr-message" class="muted ocr-message" role="status"></p>
+          <!-- The picture's other stored reading, named by its reader, with its
+               own delete (INBOX 421 e: the lightbox showed a reading this
+               panel did not). Filled by ocrRenderOtherReadings in library.js. -->
+          <div id="ocr-other-readings" class="ocr-other-readings hidden"></div>
           <!-- Asked for directly: "also let the user be able to stop the
                readings." Hidden unless something is actually running
                (ocrSyncStopButton): a Stop that is always on screen and
@@ -8703,6 +8711,19 @@
                   <small class="muted">Turns off animations and transitions.</small>
                 </span>
               </label>
+
+              <div class="setting-row" id="avatar-motion-row">
+                <div class="setting-label">
+                  <span>Avatar animation</span>
+                  <small class="muted">Generated faces blink and act out their mood. Reduce motion stops them.</small>
+                </div>
+                <select id="avatar-motion" class="small-select setting-control"
+                  aria-label="Avatar animation">
+                  <option value="hover">On hover</option>
+                  <option value="always">Always</option>
+                  <option value="off">Off</option>
+                </select>
+              </div>
             </div>
 
             <!-- ---------- Animated background ---------- -->
@@ -11002,6 +11023,12 @@
        settings.js because settings.js's tail is the one that must run last.
        See timeline.js's own header for what stayed in app.js and why. -->
   <script src="/timeline.js?v=0.3.2"></script>
+  <!-- Popup agent (Ctrl+K): split out of app.js on 2026-09-24, when the
+       gzipped app.js crossed test_static_compression.py's bound a fourth
+       time. Same terms as timeline.js above: its top-level lines only read
+       what the files before it define, and app.js calls into it only from
+       functions and listeners. See palette.js's own header. -->
+  <script src="/palette.js?v=0.3.2"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview): §88.3 of the app.js-split plan, the fourth and LAST file.

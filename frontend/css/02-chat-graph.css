@@ -3906,6 +3906,35 @@ mark.lightbox-hit {
   font-variant-numeric: tabular-nums;
 }
 
+/* **The viewer's own buttons are drawn for its scrim, not for the theme**
+   (INBOX 421 g, the owner: "the lightbox buttons below the image are greyed
+   out??"). They were plain `button.ghost`, whose ink and fill are the
+   theme's: in the light theme that is dark ink on a near-transparent fill,
+   laid over the 82% near-black scrim, and it measured 1.37:1 from every door
+   (a note, the Library), which is what a disabled row looks like. The
+   scrim is the same in both themes, so the buttons are too: the close
+   button's and the arrows' own light-on-dark recipe (`.lightbox-close`,
+   `.lightbox-nav`), with the two readouts beside them in the meta line's
+   ink. Every tonal button in the row, the image's own menu (`kebabMenu`'s
+   trigger) included, and not the rows of that menu, which sit on the
+   menu's own surface. */
+.lightbox .lightbox-actions button.ghost:not(.menu-item) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.lightbox .lightbox-actions button.ghost:not(.menu-item):hover,
+.lightbox .lightbox-actions button.ghost:not(.menu-item):focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.lightbox .lightbox-zoom-label,
+.lightbox .lightbox-page-label {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .lightbox img.zoomed {
   cursor: grab;
 }
@@ -4318,6 +4347,31 @@ mark.lightbox-hit {
   margin: var(--space-4) 0 0;
   font-size: var(--text-xs);
   color: rgba(255, 255, 255, 0.55);
+}
+
+/* A reading's byline and its delete, on one line (INBOX 421 e). The row takes
+   the byline's gap to the text above; an empty row (no byline, no button)
+   takes no room. */
+.lightbox-byline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.lightbox-byline-row:not(:has(> :not(.hidden))) {
+  display: none;
+}
+
+.lightbox-byline-row > .lightbox-byline {
+  margin: 0;
+}
+
+/* The delete keeps the danger icon button's own red fill, which is drawn
+   for any ground (ocrreadings.js shoots the card in each theme). */
+.lightbox button.lightbox-reading-delete {
+  flex: 0 0 auto;
 }
 
 .lightbox-nav {

@@ -2348,7 +2348,14 @@
   width: 100%;
   height: 100%;
   flex: 1;
-  overflow: hidden;
+  /* `clip`, not `hidden` (INBOX 421 a): a `hidden` box is still a scroll
+     container, and focusing a map ring's sector (a button the size of the
+     whole ring, so partly past the canvas on a short window) scrolled it by
+     46px at 947x608. The board jumped, and the scroll event that followed a
+     frame later closed the menu More had just opened (every action menu
+     closes on scroll), so Enter on More opened nothing about one run in
+     three. A canvas never scrolls; the board pans. */
+  overflow: clip;
   overscroll-behavior: none;
   touch-action: none;
 }

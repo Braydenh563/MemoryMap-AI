@@ -267,6 +267,9 @@ function renderLibraryFilters() {
     button.className =
       "library-chip" + (libraryKind === kind.key ? " active" : "");
     button.setAttribute("aria-pressed", String(libraryKind === kind.key));
+    //: What the Recycle bin row in Tools and features rings (`recycle-bin`
+    //: in app.js's REVEAL_TARGETS).
+    button.dataset.kind = kind.key;
     // Reported live: "can the activity button be moved somewhere better", 
     // it isn't a *kind of thing you made* the way the ten chips before it
     // are (it is excluded from "Everything"'s own count above for exactly
@@ -3245,7 +3248,64 @@ function ocrSelectRegion(index) {
   }
 }
 
+//: **Every stored reading of a picture, as the lightbox shows them** (INBOX
+//: 421 e: "the text in the lightbox doesnt even appear in the ocr
+//: workspace"). The sections come from one reading at most (`in_regions` on
+//: the server's `readings`); any other one is listed under the message,
+//: labelled by its reader, with its own delete, so the lightbox and this
+//: panel never disagree about what was read. Which field the sections came
+//: from is kept for Delete reading, which clears that one.
+let ocrWorkspaceReadings = [];
+function ocrRenderOtherReadings(body) {
+  const box = $("ocr-other-readings");
+  ocrWorkspaceReadings = Array.isArray(body?.readings) ? body.readings : [];
+  if (!box) return;
+  box.replaceChildren();
+  const others = ocrWorkspaceReadings.filter((r) => !r.in_regions && (r.text || "").trim());
+  for (const reading of others) {
+    const item = document.createElement("section");
+    item.className = "ocr-other-reading";
+    item.dataset.source = reading.source;
+    const head = document.createElement("div");
+    head.className = "ocr-other-reading-head";
+    const label = document.createElement("span");
+    label.className = "ocr-other-reading-label";
+    label.textContent = ocrWorkspaceReadings.some((r) => r.in_regions) ? `Also: ${reading.label}` : reading.label;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost small icon-only danger ocr-other-reading-delete";
+    remove.title = "Delete this reading";
+    remove.setAttribute("aria-label", `Delete this reading (${reading.label})`);
+    setLabel(remove, "ph:trash");
+    remove.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const image = ocrWorkspaceCurrent;
+      if (!image) return;
+      if (!(await confirmDialog(`Delete this reading (${reading.label})? You can read it again any time.`))) return;
+      button.disabled = true;
+      try {
+        await analyseMediaRow(image, reading.source === "tesseract" ? "ocr" : "vision-ocr", { text: "" });
+        renderLibraryImagesGallery();
+        toast("Reading deleted.");
+        await ocrLoadPage(image, ocrWorkspacePage);
+      } catch (error) {
+        toast(error.message || "Could not delete that reading.", true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    head.append(label, remove);
+    const text = document.createElement("p");
+    text.className = "ocr-other-reading-text";
+    text.textContent = reading.text;
+    item.append(head, text);
+    box.appendChild(item);
+  }
+  box.classList.toggle("hidden", !others.length);
+}
+
 function ocrRenderRegions(body) {
+  ocrRenderOtherReadings(body);
   const boxes = $("ocr-boxes");
   const list = $("ocr-region-list");
   const message = $("ocr-message");
@@ -3265,6 +3325,7 @@ function ocrRenderRegions(body) {
   //: took the whole page load down with it ("(body.pages || []).some is not
   //: a function" in the reader's status line, found by measurement).
   const hasReading = body.source !== "text-file" && (ocrWorkspaceRegions.length > 0
+    || ocrWorkspaceReadings.some((r) => r.in_regions)
     || Boolean((body.text || "").trim())
     || (Array.isArray(body.pages) && body.pages.some((page) => (page?.text || "").trim())));
   $("ocr-delete-reading")?.classList.toggle("hidden", !hasReading);
@@ -5544,7 +5605,14 @@ onDomReady(() => {
         //: Same reader-to-field mapping `ocrReadImage` uses for the read
         //: itself, so delete clears the field the *current* reader would
         //: have written rather than guessing at the other one.
-        const kind = ocrReader() === "tesseract" ? "ocr" : "vision-ocr";
+        //: The field the sections on screen came from, when the server said
+        //: (`readings[].in_regions`, INBOX 421 e): with the reader set to the
+        //: model and the sections split from a Tesseract reading, the reader
+        //: alone named the wrong field and Delete removed nothing on screen.
+        const shown = ocrWorkspaceReadings.find((r) => r.in_regions)?.source;
+        const kind = shown
+          ? (shown === "tesseract" ? "ocr" : "vision-ocr")
+          : (ocrReader() === "tesseract" ? "ocr" : "vision-ocr");
         await analyseMediaRow(image, kind, { text: "" });
         //: The gallery tile behind this dialog now claims a reading that is
         //: gone: same repaint `ocrReadImage` triggers after writing one.

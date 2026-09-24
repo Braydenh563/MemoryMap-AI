@@ -6409,6 +6409,60 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   infoAltText.className = "lightbox-text lightbox-alt-text";
   const infoAltByline = document.createElement("p");
   infoAltByline.className = "lightbox-byline";
+  //: **Each reading can be deleted where it is shown** (INBOX 421 e, the
+  //: owner: "I cant delete the ocr entry in ... the lightbox"). The OCR
+  //: workspace had a Delete reading and this panel, the other place a reading
+  //: is read, had none, so a wrong one (a model's "Test, Test, Test" loop)
+  //: could only be removed by opening the workspace. One trash button at the
+  //: end of each reading's byline, clearing that reading's own field
+  //: (`textSource`/`altSource` from `lightboxReadingsFor`), confirmed first,
+  //: the workspace's own wording. Only for a picture with a media row: a url
+  //: with nothing behind it has nothing to delete.
+  const readingDelete = (which) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small icon-only danger lightbox-reading-delete hidden";
+    button.title = "Delete this reading";
+    button.setAttribute("aria-label", "Delete this reading");
+    setLabel(button, "ph:trash");
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      //: Held before the first `await`: `currentTarget` is gone once the
+      //: click's dispatch ends (the workspace's own Delete reading lost its
+      //: button that way, 6e072b2).
+      const self = event.currentTarget;
+      const item = lightboxInfoItem || items[index];
+      const source = which === "alt" ? item?.altSource : item?.textSource;
+      const id = lightboxMediaId(item);
+      if (!item || !source || !id) return;
+      const whose = source === "vision" ? "the vision model's" : "Tesseract's";
+      if (!(await confirmDialog(`Delete ${whose} reading of this image? You can read it again any time.`))) return;
+      self.disabled = true;
+      try {
+        const updated = await apiJson(`/media/${id}/${source === "vision" ? "vision-ocr" : "ocr"}`, {
+          method: "POST",
+          body: JSON.stringify({ text: "" }),
+        });
+        Object.assign(item, lightboxReadingsFor(updated));
+        if (overlay.isConnected) renderInfo(item, true);
+        if (typeof loadLibrary === "function") loadLibrary();
+        toast("Reading deleted.");
+      } catch (err) {
+        toast(err.message || "Could not delete that reading.", true);
+      } finally {
+        self.disabled = false;
+      }
+    });
+    return button;
+  };
+  const infoTextDelete = readingDelete("text");
+  const infoAltDelete = readingDelete("alt");
+  const bylineRow = (byline, remove) => {
+    const row = document.createElement("div");
+    row.className = "lightbox-byline-row";
+    row.append(byline, remove);
+    return row;
+  };
   // Dimensions, when it was added, the filename, the "other info about it"
   // half of the request. First, because it is the line that says *which*
   // picture this is; the readings below it are about what is in it.
@@ -6434,10 +6488,25 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     infoCaption,
     infoCaptionByline,
     infoText,
-    infoByline,
+    bylineRow(infoByline, infoTextDelete),
     infoAltText,
-    infoAltByline
+    bylineRow(infoAltByline, infoAltDelete)
   );
+  //: The media row a reading can be deleted from: the Library's own items
+  //: carry it as `id` (and a document as `kind`, which has no such row); a
+  //: picture opened from a note or a chat learns it from `/media/meta`.
+  function lightboxMediaId(item) {
+    if (!item || item.kind) return null;
+    return item.id || item.metaId || null;
+  }
+  //: Shown only beside a reading that is on screen and deletable. Not on a
+  //: document's page: that text is the page's own `PageRead`, deleted from
+  //: the workspace, not a field of the file.
+  function syncReadingDeletes(item, { text = "", alt = "", perPage = false } = {}) {
+    const id = lightboxMediaId(item);
+    infoTextDelete.classList.toggle("hidden", perPage || !id || !text || !item?.textSource);
+    infoAltDelete.classList.toggle("hidden", perPage || !id || !alt || !item?.altSource);
+  }
 
   //: Drawn from one place, because both `show()` and `renderInfo` paint this
   //: panel and a second reading left behind by the previous picture is worse
@@ -7804,6 +7873,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     infoByline.textContent = item.byline || "";
     infoByline.classList.toggle("hidden", !item.byline);
     renderAltReading(item.altText, item.altByline);
+    syncReadingDeletes(item, { text, alt: (item.altText || "").trim() });
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     // The picture's own facts, which the app knew and never showed. Asked
     // for: "maybe it can have the image information and other info about it
@@ -7878,7 +7948,11 @@ function openLightbox(items, startIndex = 0, opts = {}) {
 
     const readings = lightboxReadingsFor(row);
     if (!item.caption && row.caption) item.caption = row.caption;
-    if (!item.text) item.text = readings.text;
+    if (row.id && !item.metaId) item.metaId = row.id;
+    if (!item.text) {
+      item.text = readings.text;
+      item.textSource = readings.textSource;
+    }
     if (!item.addedAt && row.created_at) item.addedAt = row.created_at;
     if (!item.byline) item.byline = readings.byline;
     //: The alternate is filled whenever the row has one, rather than only when
@@ -7888,6 +7962,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     if (!item.altText) {
       item.altText = readings.altText;
       item.altByline = readings.altByline;
+      item.altSource = readings.altSource;
     }
     if (!item.captionByline) item.captionByline = captionBylineFor(row);
     // The gallery passes `original_name`; a bare url caller passes the
@@ -7945,6 +8020,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     //: file-level alternate would be a claim about the whole PDF sitting under
     //: page 4's own text.
     renderAltReading(perPage ? "" : item.altText, item.altByline);
+    syncReadingDeletes(item, { text, alt: perPage ? "" : (item.altText || "").trim(), perPage });
     info.classList.toggle("hidden", !caption && !text && !item.filename);
     meta.textContent =
       items.length > 1
@@ -24959,6 +25035,10 @@ function lightboxReadingsFor(row) {
       //: rather than as a footnote to an empty panel.
       altText: tesseract,
       altByline: tesseract ? "Also read with Tesseract OCR" : "",
+      //: Which stored field each one is, so the lightbox can delete the
+      //: reading it shows (INBOX 421 e) rather than guess at the reader.
+      textSource: "vision",
+      altSource: tesseract ? "tesseract" : "",
     };
   }
   return {
@@ -24966,6 +25046,8 @@ function lightboxReadingsFor(row) {
     byline: tesseract ? "Text read with Tesseract OCR" : "",
     altText: "",
     altByline: "",
+    textSource: tesseract ? "tesseract" : "",
+    altSource: "",
   };
 }
 window.lightboxReadingsFor = lightboxReadingsFor;
@@ -26669,6 +26751,9 @@ async function renderToolSettings() {
   list.replaceChildren();
   for (const tool of catalog) {
     const li = document.createElement("li");
+    //: What a Tools and features row for this tool lands on (`ai-tool` in
+    //: REVEAL_TARGETS).
+    li.dataset.tool = tool.name;
     const label = document.createElement("label");
     label.className = "tool-row setting-check";
     const check = document.createElement("input");
@@ -33715,6 +33800,618 @@ document.addEventListener(
   true
 );
 
+// --- landing on the feature a catalogue row names ----------------------------
+//
+// The owner, 2026-09-24: "I clicked on the "suggested links" option in the
+// tools and features panel and all it did was take me to the graph page, it
+// didnt actually open the menu option for suggested links in the graph like it
+// should have." Measured: of the 110 written rows in Tools and features, 50
+// switched tab (or opened the Library sub-tab, or a Settings pane) and stopped
+// there while naming one control on it, and the palette's two board rows did
+// nothing at all unless a board was already open. Each row was a hand-written
+// closure, and `switchTab("graph")` is the shortest closure that looks like it
+// works.
+//
+// So a row declares where it goes instead (`tests/test_catalogue_reveal.py`
+// has the three forms), and every row that names something smaller than a
+// tab names one entry here. `revealFeature` does the same five things for
+// each: the tab, the lazy bundle, the menu or panel or dialog the control is
+// in, a wait until the control is really on screen, and the app's own
+// jump-to highlight on it (`flashRevealed`, the ring `flashEntry` and a
+// Settings deep link already wear), so the eye lands where the row said.
+//
+// A target is `{ tab?, settings?, module?, open?, el | sel+built, text?,
+// focus?, flash?, fallback? }`: `el` is an id in index.html, `sel` a selector
+// for something built at runtime by the function `built` names (with `{arg}`
+// filled in from the row), `text` picks a menu row by its words, and
+// `fallback` is what is ringed instead when the feature needs something the
+// notebook does not have yet (a board to find a card on, a document to set a
+// word goal for): the control that makes one, rather than a row that does
+// nothing.
+
+//: Resolves to the element once it is on screen (a layout box, not hidden),
+//: or null when it has not arrived in `ms`. Polled rather than observed: the
+//: things waited for arrive by a tab's module loading, a fetch, a render on
+//: the next frame or a dialog's own animation, and a poll is one answer to
+//: all four.
+function revealWait(find, ms = 3000) {
+  const started = performance.now();
+  return new Promise((resolve) => {
+    const tick = () => {
+      let el = null;
+      try {
+        el = find();
+      } catch {
+        el = null;
+      }
+      if (el && el.getClientRects().length) return resolve(el);
+      if (performance.now() - started > ms) return resolve(null);
+      setTimeout(tick, 60);
+    };
+    tick();
+  });
+}
+
+const revealTimers = new WeakMap();
+
+//: The ring, on what the person can see. An enhanced `<select>` is a 1x1
+//: clipped box behind its opener (`enhanceSelect`, and openSettingsModal's
+//: own comment on the deep link that ringed nothing because of it), and a
+//: checkbox is a square whose meaning is in the label beside it, so both ring
+//: their visible representative.
+function flashRevealed(target) {
+  if (!target) return null;
+  const shown =
+    target.closest(".select-shell") ||
+    (target.matches('input[type="checkbox"], input[type="radio"], input[type="color"], input[type="range"]')
+      ? target.closest("label, .setting-row, .row")
+      : null) ||
+    target;
+  //: Scrolled only when it is not already in the window: a scroll moves the
+  //: page under a resting pointer, and the hover that follows closed a menu
+  //: group the reveal had just opened (measured on the phone's note sheet).
+  const box = shown.getBoundingClientRect();
+  const inView = box.top >= 0 && box.left >= 0 && box.bottom <= window.innerHeight && box.right <= window.innerWidth;
+  //: Inside an open menu only the menu's own list scrolls: a scroll of the
+  //: page closes every open menu (`closeActionMenusOnScroll`), which took the
+  //: document's Export group away the moment it was ringed on a phone.
+  const menu = shown.closest(".action-menu, .dock-menu-list, .doc-dock-menu-list, [role='menu'], .sheet-card");
+  if (!inView && menu) {
+    for (let box = shown.parentElement; box && menu.contains(box); box = box.parentElement) {
+      if (box.scrollHeight > box.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(box).overflowY)) {
+        const offset = shown.getBoundingClientRect().top - box.getBoundingClientRect().top;
+        box.scrollTop += offset - box.clientHeight / 2 + shown.offsetHeight / 2;
+        break;
+      }
+    }
+  } else if (!inView) {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    shown.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center", inline: "nearest" });
+  }
+  shown.classList.remove("feature-reveal");
+  void shown.offsetWidth;
+  shown.classList.add("feature-reveal");
+  //: Taken off again, reduced motion included: under that setting the ring is
+  //: static rather than animated, and a class nothing removes is a ring that
+  //: stays for good (the Search relevance report, openSettingsModal).
+  clearTimeout(revealTimers.get(shown));
+  revealTimers.set(shown, setTimeout(() => shown.classList.remove("feature-reveal"), 2700));
+  return shown;
+}
+
+//: A `<details>` dock menu, opened. Setting `open` is what a press on its
+//: summary does, without the press's chance of closing one already open.
+function revealDetails(id) {
+  const menu = $(id);
+  if (menu && menu.tagName === "DETAILS") menu.open = true;
+}
+
+//: The first visible element matching `sel`, or the first whose text
+//: carries `text` when a menu row is picked by its words.
+function revealQuery(sel, text) {
+  const all = [...document.querySelectorAll(sel)].filter((el) => el.getClientRects().length);
+  if (!text) return all[0] || null;
+  const want = text.toLowerCase();
+  return all.find((el) => (el.textContent || "").toLowerCase().includes(want)) || null;
+}
+
+//: A row's ⋯ menu in the note list, opened, for the features that live in it
+//: (a thread, making a note private, its similar notes). The first note is as
+//: good as any: the row is about the menu, not about a note.
+async function revealEntryMenu() {
+  await switchTab("notes");
+  showNotesSection("browse");
+  //: Pressed until its menu shows, three times at most: the list is fetched
+  //: and drawn again as the tab arrives, and a menu opened on the first
+  //: drawing goes with the row it belonged to (measured: the first press
+  //: alone left no menu on screen).
+  //: And the list is let settle first: a press on a row the next drawing
+  //: replaces opens a menu that goes with it, a moment after it showed.
+  let rows = -1;
+  for (let settle = 0; settle < 12; settle += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const now = document.querySelectorAll("#entry-list li").length;
+    if (now && now === rows) break;
+    rows = now;
+  }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const opener = await revealWait(() => document.querySelector("#entry-list li .menu-wrap > button"));
+    if (!opener) return;
+    opener.click();
+    if (await revealWait(() => revealQuery('[role="menuitem"]'), 700)) break;
+  }
+}
+
+//: A row that sits in one of an open menu's groups ("Connect ›", "Add ›")
+//: is in the page and not on screen until its group is opened, so the group
+//: that holds it is pressed.
+function revealSubmenuFor(text) {
+  const want = text.toLowerCase();
+  for (const group of document.querySelectorAll(".action-menu:not(.hidden) .menu-group")) {
+    const holds = [...group.querySelectorAll('[role="menuitem"]')].some(
+      (item) => !item.classList.contains("has-submenu") && (item.textContent || "").toLowerCase().includes(want)
+    );
+    if (holds) {
+      group.querySelector(".has-submenu")?.click();
+      return;
+    }
+  }
+}
+
+//: The formatting strip, shown. The note editor's and the document editor's
+//: strips start folded to one row (`docToolbarCollapsed`, documents.js), so
+//: a tool that lives in the strip (Insert, the checklist, Find, Focus) is on
+//: the page and not on screen until the strip is opened, which is what a
+//: person would do to reach it; the choice is remembered, as theirs is.
+async function revealStrip() {
+  await ensureModule("library");
+  if (typeof docToolbarCollapsed === "function" && docToolbarCollapsed()) setDocToolbarCollapsed(false);
+}
+
+//: The graph's gear panel, open. Below 600 it is the one sheet the phone
+//: layout gives the map's controls (`openGraphControlsSheet`); above, the
+//: floating panel. Either way the same `#graph-options` is what shows.
+function revealGraphOptions() {
+  if (window.matchMedia(PHONE_TABS).matches) {
+    if (!graphSheetClose) openGraphControlsSheet($("graph-options-toggle"));
+    return;
+  }
+  setGraphOptionsOpen(true);
+}
+
+//: A document open on the Documents tab. Its own load opens the newest when
+//: none is (`loadDocuments`), so this is the tab plus a check.
+async function revealDocument() {
+  await switchTab("documents");
+  await revealWait(() => (typeof currentDoc !== "undefined" && currentDoc ? $("doc-title") : null), 2500);
+  return typeof currentDoc !== "undefined" && Boolean(currentDoc);
+}
+
+//: A board open on its canvas: the one already open, else the newest (a map
+//: when `wantMap`, since growing a map by keyboard means nothing on a board).
+//: No board at all leaves the boards gallery showing, where the target's
+//: `fallback` is the button that makes one.
+async function revealBoard(wantMap = false) {
+  await switchTab("library");
+  document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+  await ensureModule("library");
+  const onCanvas = !$("wb-canvas-view")?.classList.contains("hidden");
+  const isMap = typeof wbIsMap === "function" && wbIsMap();
+  if (window.currentBoardId && onCanvas && (!wantMap || isMap)) return true;
+  const boards = await apiJson("/whiteboard/boards").catch(() => []);
+  const pick = wantMap
+    ? boards.find((board) => board.type === "map")
+    : boards.find((board) => board.id === window.currentBoardId) || boards.find((board) => board.id != null);
+  if (!pick) return false;
+  await openWhiteboardBoard(pick.id);
+  return true;
+}
+
+//: A dashboard widget, or its row in the widget picker when it is switched
+//: off or the notebook is new enough that the dashboard shows its welcome
+//: instead: the picker is where a hidden widget is turned on.
+async function revealDashWidget(name) {
+  await switchTab("dashboard");
+  const card = await revealWait(() => document.querySelector(`#dash-grid [data-widget="${name}"]`), 1500);
+  if (card) return;
+  $("dash-widgets-open")?.click();
+}
+
+const REVEAL_TARGETS = {
+  // Capture & notes
+  "notes-capture": { tab: "notes", open: () => showNotesSection("capture"), el: "entry-content", focus: true },
+  "notes-template": { tab: "notes", open: () => showNotesSection("capture"), el: "entry-template" },
+  "notes-improve": { tab: "notes", open: () => showNotesSection("capture"), el: "improve-btn" },
+  "notes-dictation": { tab: "notes", open: () => showNotesSection("capture"), el: "mic-note" },
+  "notes-attach": { tab: "notes", open: () => showNotesSection("capture"), el: "entry-attach-file" },
+  "notes-checklist": {
+    tab: "notes",
+    open: async () => {
+      showNotesSection("capture");
+      await revealStrip();
+    },
+    sel: '#note-toolbar [data-md="task"]',
+    built: "showNotesSection",
+    fallback: "note-toolbar",
+  },
+  "writing-room": { tab: "notes", open: () => showNotesSection("writing-room"), el: "draft-thoughts", focus: true },
+  "notes-ask": { tab: "notes", open: () => showNotesSection("ask"), el: "question", focus: true },
+  "notes-thread": {
+    open: async () => {
+      await revealEntryMenu();
+      revealSubmenuFor("Continue thought");
+    },
+    sel: '[role="menuitem"]',
+    text: "Continue thought",
+    built: "kebabMenu",
+    fallback: "entry-list",
+  },
+  "notes-private": { open: revealEntryMenu, sel: '[role="menuitem"]', text: "Make private", built: "kebabMenu", fallback: "entry-list" },
+  "notes-related": {
+    open: async () => {
+      await revealEntryMenu();
+      revealSubmenuFor("Similar notes");
+    },
+    sel: '[role="menuitem"]',
+    text: "Similar notes",
+    built: "kebabMenu",
+    fallback: "entry-list",
+  },
+  "notes-favourite": {
+    tab: "notes",
+    open: () => showNotesSection("browse"),
+    sel: "#entry-list .favourite-btn",
+    built: "renderEntries",
+    fallback: "entry-list",
+  },
+  "notes-forgotten": {
+    tab: "notes",
+    open: () => {
+      showNotesSection("browse");
+      const sort = $("note-sort");
+      if (sort.value !== "forgotten") {
+        sort.value = "forgotten";
+        sort.dispatchEvent(new Event("change"));
+      }
+    },
+    el: "note-sort",
+  },
+  "notes-filter-help": {
+    tab: "notes",
+    open: () => {
+      showNotesSection("browse");
+      $("search-help-hint").classList.remove("hidden");
+      $("search-help").setAttribute("aria-expanded", "true");
+    },
+    el: "search-help-hint",
+  },
+  "recycle-bin": {
+    tab: "library",
+    module: "library",
+    open: () => {
+      document.querySelector('#library-subtabs button[data-target="library-view-documents"]')?.click();
+      libraryKind = "archived";
+      const binned = $("library-show-binned");
+      if (binned && !binned.checked) {
+        binned.checked = true;
+        binned.dispatchEvent(new Event("change"));
+      }
+      renderLibraryFilters();
+      renderLibrary();
+    },
+    sel: '#library-filters [data-kind="archived"]',
+    built: "renderLibraryFilters",
+  },
+  sketch: { open: () => openSketch(), el: "sketch-card", flash: false },
+  meeting: { open: () => openMeetingRecorder(), el: "meeting-card", flash: false },
+  "page-reader": { module: "library", open: () => window.openPageReader?.(), el: "ocr-workspace", flash: false, fallback: "library-view-media" },
+
+  // Ask & chat
+  "chat-input": { tab: "chat", el: "chat-input", focus: true, flash: false },
+  "chat-new": { tab: "chat", open: () => newChatConversation(), el: "chat-input", focus: true, flash: false },
+  "chat-attach": { tab: "chat", open: () => $("attach-note").click(), el: "note-picker-panel" },
+  "chat-conversations": { tab: "chat", el: "conversation-list", fallback: "chat-sidebar" },
+  "chat-agent-mode": { tab: "chat", sel: '#chat-mode-seg [data-chat-mode="agent"]', built: "switchTab" },
+  //: Below the dock's width the toggle lives in the How it answers panel
+  //: (a sheet on a phone), so that is opened when the toggle is not on screen.
+  "chat-web-search": {
+    tab: "chat",
+    open: () => {
+      if (!$("web-search-toggle")?.getClientRects().length && !chatDockMoreOpen()) openChatDockMore();
+    },
+    el: "web-search-toggle",
+  },
+  "chat-export": {
+    tab: "chat",
+    open: async () => {
+      //: Export is about a saved chat: with none open, the newest is opened,
+      //: and with none at all the box that starts one is ringed instead.
+      if (!chatConv?.id) {
+        const saved = await apiJson("/conversations").catch(() => []);
+        const newest = (saved.items || saved || [])[0];
+        if (newest) await openConversation(newest.id);
+      }
+      const opener = await revealWait(() => document.querySelector("#chat-actions-menu .menu-wrap > button"), 1500);
+      opener?.click();
+    },
+    sel: '[role="menuitem"]',
+    text: "Export as Markdown",
+    built: "mountChatActionsMenu",
+    fallback: "chat-input",
+  },
+  //: On a phone the agent is the Chat tab (`toggleAgentPalette` says why),
+  //: so either surface is the landing.
+  "agent-palette": {
+    open: () => toggleAgentPalette(),
+    sel: "#command-palette-overlay, #chat-input",
+    built: "toggleAgentPalette",
+    flash: false,
+  },
+  "atlas-help": { open: () => askAtlasAbout(""), sel: '[data-sheet="guide"]', built: "openHelpChat", flash: false },
+
+  // Documents
+  "doc-new": { tab: "documents", open: () => createDocument(), el: "doc-title", focus: true },
+  "doc-templates": { tab: "documents", open: () => openDocTemplateDialog(), el: "doc-template-dialog", flash: false },
+  "doc-insert": {
+    open: async () => (await revealDocument()) && (await revealStrip(), revealDetails("doc-toolbar-insert")),
+    el: "doc-toolbar-insert",
+    fallback: "doc-new",
+  },
+  "doc-tables": {
+    open: async () => (await revealDocument()) && (await revealStrip(), revealDetails("doc-toolbar-insert")),
+    sel: '#doc-toolbar-insert [data-md="table"]',
+    built: "revealDetails",
+    fallback: "doc-new",
+  },
+  "doc-outline": {
+    open: async () => {
+      await switchTab("documents");
+      showDocSidebarSection("outline");
+    },
+    el: "doc-outline-wrap",
+    fallback: "doc-sidebar",
+  },
+  "doc-crumbs": { open: revealDocument, el: "doc-crumbs", fallback: "doc-title" },
+  //: CodeMirror's own search panel where the engine is mounted, the plain
+  //: bar where it is not (`toggleDocFindBar` picks).
+  "doc-find": {
+    open: async () => {
+      if (!(await revealDocument())) return;
+      //: Find and replace is an editing tool: a document open to read (a
+      //: phone opens them that way) is switched to its editing view first.
+      if (typeof docView !== "undefined" && docView === "rendered") setDocView(lastEditView);
+      toggleDocFindBar(true);
+    },
+    sel: "#doc-find-bar, #doc-panes .cm-search",
+    built: "toggleDocFindBar",
+    fallback: "doc-new",
+  },
+  "doc-focus": { open: async () => (await revealDocument()) && revealStrip(), el: "doc-focus-toggle", fallback: "doc-new" },
+  "doc-properties": { open: revealDocument, sel: "#doc-editor .doc-props", built: "renderDocProperties", fallback: "doc-title" },
+  "doc-connections": { open: async () => (await revealDocument()) && $("doc-connections").click(), el: "connections-overlay", flash: false, fallback: "doc-new" },
+  "doc-prose": { open: async () => (await revealDocument()) && $("doc-prose").click(), el: "doc-prose-panel", fallback: "doc-prose" },
+  "doc-dictionary": { module: "library", open: () => openDocDictionary(), el: "doc-dictionary-dialog", flash: false },
+  "doc-word-goal": { open: async () => (await revealDocument()) && $("doc-word-goal").click(), el: "doc-word-goal-dialog", flash: false, fallback: "doc-new" },
+  "doc-history": { open: async () => (await revealDocument()) && $("doc-history").click(), el: "doc-history-dialog", flash: false, fallback: "doc-new" },
+  "doc-ai": { open: async () => (await revealDocument()) && $("doc-ai").click(), el: "doc-ai-panel", fallback: "doc-ai" },
+  //: The exports are a group inside the ⋯ menu (`foldDocMenuGroup`), so the
+  //: group's own row is pressed to open it.
+  "doc-export": {
+    open: async () => {
+      if (!(await revealDocument())) return;
+      revealDetails("doc-dock-menu");
+      $("doc-export-md")?.closest(".menu-group")?.querySelector(".has-submenu")?.click();
+    },
+    el: "doc-export-md",
+    fallback: "doc-new",
+  },
+
+  // Boards and maps
+  "board-new": {
+    open: () => revealBoardsGallery(),
+    el: "wb-boards-new",
+  },
+  "board-create": { open: () => createNewBoard(), sel: ".prompt-card", built: "promptDialog", flash: false },
+  "map-create": { open: () => createConceptMap(), sel: ".prompt-card", built: "promptDialog", flash: false },
+  "map-keyboard": { open: () => revealBoard(true), el: "whiteboard-container", fallback: "wb-boards-new-map" },
+  "map-templates": { open: () => revealBoard(true), el: "wb-map-templates", fallback: "wb-boards-new-map" },
+  //: On a map, where laying the tree out again is one button; on a board
+  //: it is a right-click on a note with links, which no row can press.
+  "board-arrange": {
+    open: async () => {
+      if (!(await revealBoard(true))) return;
+      //: On a phone the rail is a sheet behind the Tools opener.
+      if (!$("wb-map-tidy")?.getClientRects().length && $("wb-tools-opener")?.getClientRects().length) {
+        $("wb-tools-opener").click();
+      }
+    },
+    el: "wb-map-tidy",
+    fallback: "wb-boards-new-map",
+  },
+  //: Below 720 the overview steps aside for the tools (07-whiteboard-misc.css),
+  //: so there the board itself is the landing.
+  "board-overview": { open: async () => (await revealBoard()) && wbToggleNavigator(true), el: "wb-navigator", fallback: "whiteboard-container" },
+  "board-find": { open: async () => (await revealBoard()) && wbOpenBoardSearch(), el: "wb-search-bar", fallback: "wb-boards-new" },
+  "board-tools": { open: () => revealBoard(), el: "wb-tools-panel", fallback: "wb-boards-new" },
+  "board-context": { open: () => revealBoard(), el: "wb-context", fallback: "wb-topbar" },
+  "board-export": {
+    open: async () => (await revealBoard()) && wbExportBoard(),
+    sel: ".wb-export-card",
+    built: "wbExportBoard",
+    flash: false,
+    fallback: "wb-boards-new",
+  },
+
+  // Library
+  "library-docs": { tab: "library", open: () => revealLibrarySub('[data-target="library-view-docs"]'), el: "library-view-docs", flash: false },
+  "library-images": { tab: "library", open: () => revealLibrarySub('[data-media-kind="images"]'), el: "library-view-media", flash: false },
+  "library-files": { tab: "library", open: () => revealLibrarySub('[data-media-kind="files"]'), el: "library-view-media", flash: false },
+  "library-links": { tab: "library", open: () => revealLibrarySub('[data-target="library-view-links"]'), el: "library-view-links", flash: false },
+  "library-skills": { tab: "library", open: () => revealLibrarySub('[data-target="library-view-skills"]'), el: "library-view-skills", flash: false },
+  "library-contents": { tab: "library", open: () => revealLibrarySub('[data-target="library-view-contents"]'), el: "library-view-contents", flash: false },
+
+  // Map and discovery
+  "graph-edit": {
+    tab: "graph",
+    open: async () => {
+      await ensureModule("graph");
+      await revealWait(() => (typeof graphNodesRef !== "undefined" && graphNodesRef.length ? $("graph-box") : null), 2500);
+      const node = typeof graphNodesRef !== "undefined" ? graphNodesRef[0] : null;
+      if (node) openGraphPopup({ ...graphNodeScreenPoint(node), stopPropagation() {} }, node);
+    },
+    el: "graph-popup",
+    flash: false,
+    fallback: "graph-add-node",
+  },
+  "graph-physics": { tab: "graph", open: revealGraphOptions, el: "graph-physics" },
+  "graph-suggest": {
+    tab: "graph",
+    open: () => {
+      revealGraphOptions();
+      loadLinkSuggestions();
+    },
+    el: "link-suggestions",
+    fallback: "link-suggest-btn",
+  },
+  "timeline-zoom": { tab: "timeline", open: () => revealDetails("timeline-options-menu"), el: "timeline-scale-group" },
+  "timeline-bands": { tab: "timeline", open: () => revealDetails("timeline-options-menu"), el: "timeline-band-section" },
+  "global-find": { open: () => openGlobalFind(), el: "global-find-bar", flash: false, fallback: "wb-search-bar" },
+  tensions: { open: () => openTensions(), el: "tensions-dialog", flash: false },
+
+  // Plan and focus: the dashboard's widgets
+  "widget-on-this-day": { open: () => revealDashWidget("on-this-day"), sel: '[data-widget="on-this-day"]', built: "renderDashboard" },
+  "widget-focus": { open: () => revealDashWidget("focus"), sel: '[data-widget="focus"]', built: "renderDashboard" },
+  "widget-digest": { open: () => revealDashWidget("digest"), sel: '[data-widget="digest"]', built: "renderDashboard" },
+  "widget-rediscover": { open: () => revealDashWidget("random"), sel: '[data-widget="random"]', built: "renderDashboard" },
+  "widget-orphans": { open: () => revealDashWidget("orphans"), sel: '[data-widget="orphans"]', built: "renderDashboard" },
+  "widget-unfinished": { open: () => revealDashWidget("unfinished"), sel: '[data-widget="unfinished"]', built: "renderDashboard" },
+  "widget-pace": { open: () => revealDashWidget("pace"), sel: '[data-widget="pace"]', built: "renderDashboard" },
+  "widget-heatmap": { open: () => revealDashWidget("heatmap"), sel: '[data-widget="heatmap"]', built: "renderDashboard" },
+  "widget-streak": { open: () => revealDashWidget("streak"), sel: '[data-widget="streak"]', built: "renderDashboard" },
+  "dash-layout": {
+    tab: "dashboard",
+    open: () => {
+      if (!dashEditMode) $("dash-edit").click();
+    },
+    el: "dash-edit",
+  },
+  //: Below 1100 the form is a sheet opened by New reminder
+  //: (`openReminderCompose`); above, it is on the page.
+  "reminder-magic": { tab: "reminders", open: () => openReminderCompose(), el: "reminder-magic", focus: true },
+
+  // Make it yours: Settings rows, each ringed in its pane
+  "set-theme": { settings: "appearance", el: "theme-seg" },
+  "set-accent": { settings: "appearance", el: "accent-swatches" },
+  "set-typography": { settings: "appearance", el: "fontsize-seg" },
+  "set-radius": { settings: "appearance", el: "radius-slider" },
+  "set-background": { settings: "appearance", el: "bg-art-toggle" },
+  "set-contrast": { settings: "appearance", el: "contrast-toggle" },
+  "set-custom-css": { settings: "appearance", el: "custom-css" },
+  "set-search-relevance": { settings: "preferences", el: "search-relevance-group" },
+  "set-export": { settings: "data", el: "export-json" },
+  "set-import-md": { settings: "data", el: "import-md" },
+  "set-backups": { settings: "data", el: "backup-now" },
+  "set-updates": { settings: "about", el: "update-check-now", fallback: "settings-about" },
+  //: One row per tool the agent can call, built from the backend's own list
+  //: when the features browser opens (`renderFeatures`): the tool's own row
+  //: in Settings → Tools it can use, where it is switched on or off.
+  "ai-tool": { settings: "tools", sel: '#tool-list [data-tool="{arg}"]', built: "renderToolSettings", fallback: "settings-tools" },
+  "workspace-new": { open: () => openSpaceCreate(), el: "space-create-dialog", flash: false },
+
+  // Data and control
+  palette: { open: () => openPalette(), el: "palette-overlay", flash: false },
+  features: { open: () => openFeatures(), el: "features-card", flash: false },
+  shortcuts: { open: () => openShortcuts(), el: "shortcuts-card", flash: false },
+  onboarding: { open: () => openOnboarding(), el: "onboarding-card", flash: false },
+};
+
+//: The Library's gallery of boards, not a board on its canvas.
+function revealBoardsGallery() {
+  return switchTab("library").then(() => {
+    document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+    return ensureModule("library").then(() => wbShowBoardsLanding());
+  });
+}
+
+//: One of the Library's sub-tabs, pressed the way a person presses it, so its
+//: own handler decides what loads.
+function revealLibrarySub(selector) {
+  document.querySelector(`#library-subtabs button${selector}`)?.click();
+}
+
+async function revealFeature(key, arg = "") {
+  let target = REVEAL_TARGETS[key];
+  //: `settings:<section>` is a row that names a whole pane ("Settings →
+  //: Models"): the pane is the feature, so it is shown and not ringed.
+  if (!target && key.startsWith("settings:")) {
+    const section = key.slice("settings:".length);
+    target = { settings: section, el: `settings-${section}`, flash: false };
+  }
+  if (!target) return false;
+  const fill = (text) => (text || "").replace("{arg}", String(arg).replace(/["\\]/g, ""));
+  try {
+    if (target.settings) await openSettingsModal(target.settings);
+    if (target.tab) await switchTab(target.tab);
+    if (target.module) await ensureModule(target.module);
+    //: Raced, not awaited outright: some openers resolve only when a person
+    //: answers the dialog they open (`createNewBoard` asks for a name), and
+    //: what is waited for below is the dialog, which is there long before.
+    if (target.open) await Promise.race([Promise.resolve(target.open(arg)), new Promise((r) => setTimeout(r, 1500))]);
+  } catch (error) {
+    console.warn("revealFeature", key, error);
+  }
+  const find = () => (target.el ? $(target.el) : revealQuery(fill(target.sel), target.text));
+  const land = (el) => {
+    if (target.flash !== false) flashRevealed(el);
+    if (target.focus) el.focus({ preventScroll: true });
+  };
+  const found = await revealWait(find);
+  if (!found) {
+    const fallback = target.fallback ? await revealWait(() => $(target.fallback), 800) : null;
+    if (fallback) flashRevealed(fallback);
+    return false;
+  }
+  land(found);
+  //: **A list drawn twice as it arrives takes the ring with it.** Settings →
+  //: Tools it can use renders its rows on open and again when its own fetch
+  //: lands, so the row ringed first was gone a moment later (measured: every
+  //: AI tool row "visible but not ringed"). So a found element that has left
+  //: the page is found again and ringed again.
+  //: Checked twice, since a slow fetch can land after the first look.
+  let current = found;
+  for (const pause of [350, 550]) {
+    await new Promise((resolve) => setTimeout(resolve, pause));
+    if (current.isConnected) continue;
+    let again = await revealWait(find, 1000);
+    //: A menu goes with the row it was opened on, so a menu row that left
+    //: is opened again rather than looked for.
+    if (!again && target.open) {
+      try {
+        await Promise.race([Promise.resolve(target.open(arg)), new Promise((r) => setTimeout(r, 1500))]);
+      } catch (error) {
+        console.warn("revealFeature", key, error);
+      }
+      again = await revealWait(find, 1500);
+    }
+    if (!again) break;
+    land(again);
+    current = again;
+  }
+  return true;
+}
+
+//: A row's declaration, turned into the `run` the three lists call. The
+//: order matters only for a row that wrongly carries two, which the test
+//: refuses.
+function catalogueRun(row) {
+  if (typeof row.run === "function") return row;
+  let run = () => {};
+  if (row.reveal) run = () => revealFeature(row.reveal, row.arg);
+  else if (row.tab) run = () => switchTab(row.tab);
+  else if (typeof row.act === "function") run = row.act;
+  return { ...row, run };
+}
+
 function paletteCommands() {
   //: **The documents editor's own commands, at the top, while one is open**
   //: (DOCUMENTS_PLAN Phase 4 item 4). The plan named `Ctrl+K` for an editor
@@ -33726,74 +34423,53 @@ function paletteCommands() {
   //: because that file is in the Library's lazy bundle and the palette opens
   //: from every tab, including before it has ever been fetched.
   const editor = typeof docPaletteCommands === "function" ? docPaletteCommands() : [];
+  //: Every row below declares where it goes (tests/test_catalogue_reveal.py)
+  //: and `catalogueRun` makes its `run`; the editor's rows are commands on
+  //: the document already open, so they keep their own.
   return [
     ...editor,
-    { label: "ph:clipboard Go to Dashboard", run: () => switchTab("dashboard") },
-    { label: "ph:magnifying-glass-plus Zoom in", run: () => nudgeZoom(1) },
-    { label: "ph:magnifying-glass-minus Zoom out", run: () => nudgeZoom(-1) },
-    { label: "ph:arrow-counter-clockwise Reset zoom to 100%", run: () => { setZoom(100); hud("Zoom 100%"); } },
-    { label: "ph:note-pencil Go to Notes", run: () => switchTab("notes") },
-    { label: "ph:chat-circle Go to Chat", run: () => switchTab("chat") },
-    { label: "ph:graph Go to Graph", run: () => switchTab("graph") },
-    { label: "ph:file-text Go to Documents", run: () => switchTab("documents") },
+    { label: "ph:clipboard Go to Dashboard", tab: "dashboard" },
+    { label: "ph:magnifying-glass-plus Zoom in", act: () => nudgeZoom(1) },
+    { label: "ph:magnifying-glass-minus Zoom out", act: () => nudgeZoom(-1) },
+    { label: "ph:arrow-counter-clockwise Reset zoom to 100%", act: () => { setZoom(100); hud("Zoom 100%"); } },
+    { label: "ph:note-pencil Go to Notes", tab: "notes" },
+    { label: "ph:chat-circle Go to Chat", tab: "chat" },
+    { label: "ph:graph Go to Graph", tab: "graph" },
+    { label: "ph:file-text Go to Documents", tab: "documents" },
     //: Two tabs the palette could not reach. The Library holds six sub-tabs of
     //: real surfaces (documents, images, files, links, skills, contents) and
     //: the Timeline is a top-level tab, and neither had a command: a jump list
     //: missing two of the seven places you can be is the one kind of gap that
     //: teaches people not to use it.
-    { label: "ph:books Go to Library", run: () => switchTab("library") },
-    { label: "ph:clock-counter-clockwise Go to Timeline", run: () => switchTab("timeline") },
-    { label: "ph:alarm Go to Reminders", run: () => switchTab("reminders") },
+    { label: "ph:books Go to Library", tab: "library" },
+    { label: "ph:clock-counter-clockwise Go to Timeline", tab: "timeline" },
+    { label: "ph:alarm Go to Reminders", tab: "reminders" },
     // Features reachable *only* from inside one surface are exactly the ones a
     // palette has to carry, or they are found by accident or not at all.
     // Tensions lives in a dialog; the board's overview and find bar live on a
     // board you have to be on already.
-    { label: "ph:scales Tensions: find where I disagreed with myself", run: () => openTensions() },
+    { label: "ph:scales Tensions: find where I disagreed with myself", reveal: "tensions" },
     //: Atlas is a surface with no tab of its own, which is exactly what a
     //: command palette is for (INBOX 224).
-    { label: "ph:compass Ask Atlas about the app", run: () => askAtlasAbout("") },
-    {
-      label: "ph:map-trifold Board overview",
-      run: () => {
-        if (typeof wbToggleNavigator === "function") wbToggleNavigator(true);
-      },
-    },
-    {
-      label: "ph:magnifying-glass Find a card on this board",
-      run: () => {
-        if (typeof wbOpenBoardSearch === "function") wbOpenBoardSearch();
-      },
-    },
-    {
-      label: "ph:pencil-simple New note",
-      run: () => {
-        switchTab("notes");
-        $("entry-content").focus();
-      },
-    },
-    {
-      label: "ph:file-text New document",
-      run: () => {
-        switchTab("documents");
-        createDocument();
-      },
-    },
-    {
-      label: "ph:magic-wand Write a note from rough thoughts",
-      run: () => {
-        switchTab("notes");
-        // It's a sub-tab now, so select it rather than unfolding a card.
-        showNotesSection("writing-room");
-        $("draft-thoughts")?.focus();
-      },
-    },
-    { label: "ph:sparkle New chat", run: () => { switchTab("chat"); newChatConversation(); } },
+    { label: "ph:compass Ask Atlas about the app", reveal: "atlas-help" },
+    //: Both did nothing at all unless a board was already on screen: the
+    //: palette opens from every tab, and the two functions act on the board
+    //: that is open. The reveal opens one first (the newest), and with no
+    //: board at all rings the button that makes one.
+    { label: "ph:map-trifold Board overview", reveal: "board-overview" },
+    { label: "ph:magnifying-glass Find a card on this board", reveal: "board-find" },
+    //: Capture is a sub-tab of Notes, and focusing its box while another
+    //: sub-tab was showing did nothing (the dashboard's own New note says so).
+    { label: "ph:pencil-simple New note", reveal: "notes-capture" },
+    { label: "ph:file-text New document", reveal: "doc-new" },
+    { label: "ph:magic-wand Write a note from rough thoughts", reveal: "writing-room" },
+    { label: "ph:sparkle New chat", reveal: "chat-new" },
     // The popup agent (Ctrl+Shift+A) has real capability, it's the same
     // tool-calling agent as Chat's agent mode, just reachable from anywhere
     //, but was reachable only by already knowing that chord. This palette
     // is the app's own "what can I do here" list; it belongs in it.
-    { label: "ph:magic-wand Ask the agent anything", run: toggleAgentPalette },
-    { label: "ph:palette New sketch", run: openSketch },
+    { label: "ph:magic-wand Ask the agent anything", reveal: "agent-palette" },
+    { label: "ph:palette New sketch", reveal: "sketch" },
     {
       // Reachable from anywhere, which is the point. Asked for directly: "I
       // would also like the meeting notes popup to be expanded as a proper
@@ -33802,7 +34478,7 @@ function paletteCommands() {
       // started the moment a meeting starts, and "go to the Dashboard first"
       // is exactly the friction that means it does not get started at all.
       label: "ph:microphone Record a meeting or lecture",
-      run: openMeetingRecorder,
+      reveal: "meeting",
     },
     {
       // The same ask about the page reader, in the same words: "I want an
@@ -33814,7 +34490,7 @@ function paletteCommands() {
       // what was deliberately not built is in UI_MODERNISATION_PLAN.md, "how
       // the page reader is reached".
       label: "ph:book-open-text Read a document or image with AI",
-      run: () => window.openPageReader?.(),
+      reveal: "page-reader",
     },
     {
       // Asked for directly: "add creating a new board to the command
@@ -33822,44 +34498,29 @@ function paletteCommands() {
       // this was the Add button inside the whiteboard's own board-picker
       // panel, unreachable without already being on that tab.
       label: "ph:folders New whiteboard board",
-      run: async () => {
-        switchTab("library");
-        const wbSubtab = document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]');
-        wbSubtab?.click();
-        wbShowCanvasView();
-        await createNewBoard();
-      },
+      reveal: "board-create",
     },
     {
       //: A map is a board with a name people recognise (`createConceptMap`,
       //: whiteboard.js), and it was reachable only from the Library's own
       //: create picker. The same argument as the board row above it.
       label: "ph:tree-structure New concept map",
-      run: () => createConceptMap(),
+      reveal: "map-create",
     },
     {
       //: The Library's sub-tabs, as commands. These are the two halves of the
       //: file gallery, and getting to either meant three clicks through a tab
       //: and a sub-tab strip that scrolls on a narrow window.
       label: "ph:image Browse images",
-      run: () => {
-        switchTab("library");
-        document.querySelector('#library-subtabs button[data-media-kind="images"]')?.click();
-      },
+      reveal: "library-images",
     },
     {
       label: "ph:paperclip Browse files",
-      run: () => {
-        switchTab("library");
-        document.querySelector('#library-subtabs button[data-media-kind="files"]')?.click();
-      },
+      reveal: "library-files",
     },
     {
       label: "ph:link Browse links",
-      run: () => {
-        switchTab("library");
-        document.querySelector('#library-subtabs button[data-target="library-view-links"]')?.click();
-      },
+      reveal: "library-links",
     },
     {
       //: The whole list of what the app can do, from the list of what the app
@@ -33867,48 +34528,33 @@ function paletteCommands() {
       //: and nowhere else, and it is the answer to "what was that thing
       //: called", which is exactly the question the palette is opened with.
       label: "ph:compass Tools and features",
-      run: () => {
-        closePalette();
-        openFeatures();
-      },
+      reveal: "features",
     },
     {
       //: Resurfacing shipped as a sort and a widget and was named in neither
       //: list. The sort is the half a person can act on: it re-ranks the notes
       //: they are already looking at by what is slipping out of reach.
       label: "ph:hourglass Show forgotten notes first",
-      run: () => {
-        switchTab("notes");
-        showNotesSection("browse");
-        const sort = $("note-sort");
-        sort.value = "forgotten";
-        sort.dispatchEvent(new Event("change"));
-      },
+      reveal: "notes-forgotten",
     },
     {
       //: The word list the document spelling check reads, which is otherwise
       //: only reachable from inside a suggestion popup on a flagged word, so
       //: "what have I taught it" had no door at all.
       label: "ph:book-bookmark Words you have taught it",
-      run: () => openDocDictionary(),
+      reveal: "doc-dictionary",
     },
     {
       //: Ctrl+F is bound globally (`openGlobalFind`) and the palette is where
       //: a person looks for a key they have forgotten.
       label: "ph:magnifying-glass Find on this screen",
-      run: () => {
-        closePalette();
-        openGlobalFind();
-      },
+      reveal: "global-find",
     },
     {
       //: Workspaces filter every tab in the app from one control in the top
       //: left, and nothing in the palette mentioned them.
       label: "ph:folders New workspace",
-      run: () => {
-        closePalette();
-        openSpaceCreate();
-      },
+      reveal: "workspace-new",
     },
     // Filters as commands: the fastest route to "the notes I mean" without
     // remembering the operator syntax.
@@ -33919,38 +34565,33 @@ function paletteCommands() {
       ["ph:link Show linked notes", "is:linked"],
     ].map(([label, query]) => ({
       label,
-      run: () => showNotesFilter(query),
+      act: () => showNotesFilter(query),
     })),
     {
       label: "ph:magnifying-glass What can I type in the filter?",
-      run: () => {
-        switchTab("notes");
-        $("search-help-hint").classList.remove("hidden");
-        $("search-help").setAttribute("aria-expanded", "true");
-        $("note-search").focus();
-      },
+      reveal: "notes-filter-help",
     },
-    { label: "ph:gear Settings → Models", run: () => openSettingsModal("models") },
-    { label: "ph:mask-happy Settings → Personas", run: () => openSettingsModal("personas") },
-    { label: "ph:lightning Settings → Skills", run: () => openSettingsModal("skills") },
-    { label: "ph:toolbox Settings → Tools it can use", run: () => openSettingsModal("tools") },
-    { label: "ph:palette Settings → Appearance", run: () => openSettingsModal("appearance") },
-    { label: "ph:sliders Settings → Preferences", run: () => openSettingsModal("preferences") },
-    { label: "ph:floppy-disk Settings → Data & backups", run: () => openSettingsModal("data") },
-    { label: "ph:brain Settings → What it remembers", run: () => openSettingsModal("memory") },
-    { label: "ph:note-blank Settings → Templates", run: () => openSettingsModal("templates") },
-    { label: "ph:shield-check Settings → Account & security", run: () => openSettingsModal("account") },
-    { label: "ph:list-checks Settings → Background tasks", run: () => openSettingsModal("tasks") },
-    { label: "ph:package Settings → Packages", run: () => openSettingsModal("extras") },
-    { label: "ph:tree-evergreen Settings → Logs", run: () => openSettingsModal("logs") },
-    { label: "ph:question Settings → Help", run: () => openSettingsModal("help") },
-    { label: "ph:info Settings → About & updates", run: () => openSettingsModal("about") },
-    { label: "ph:archive Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
-    { label: "ph:export Export markdown", run: () => downloadExport("markdown") },
-    { label: "ph:circle-half Toggle light/dark", run: toggleTheme },
-    { label: "ph:keyboard Keyboard shortcuts", run: () => { closePalette(); openShortcuts(); } },
-    { label: "ph:lock Lock MemoryMap", run: lockNow },
-  ];
+    { label: "ph:gear Settings → Models", reveal: "settings:models" },
+    { label: "ph:mask-happy Settings → Personas", reveal: "settings:personas" },
+    { label: "ph:lightning Settings → Skills", reveal: "settings:skills" },
+    { label: "ph:toolbox Settings → Tools it can use", reveal: "settings:tools" },
+    { label: "ph:palette Settings → Appearance", reveal: "settings:appearance" },
+    { label: "ph:sliders Settings → Preferences", reveal: "settings:preferences" },
+    { label: "ph:floppy-disk Settings → Data & backups", reveal: "settings:data" },
+    { label: "ph:brain Settings → What it remembers", reveal: "settings:memory" },
+    { label: "ph:note-blank Settings → Templates", reveal: "settings:templates" },
+    { label: "ph:shield-check Settings → Account & security", reveal: "settings:account" },
+    { label: "ph:list-checks Settings → Background tasks", reveal: "settings:tasks" },
+    { label: "ph:package Settings → Packages", reveal: "settings:extras" },
+    { label: "ph:tree-evergreen Settings → Logs", reveal: "settings:logs" },
+    { label: "ph:question Settings → Help", reveal: "settings:help" },
+    { label: "ph:info Settings → About & updates", reveal: "settings:about" },
+    { label: "ph:archive Back up now", act: () => { openSettingsModal("data"); backupNow(); } },
+    { label: "ph:export Export markdown", act: () => downloadExport("markdown") },
+    { label: "ph:circle-half Toggle light/dark", act: toggleTheme },
+    { label: "ph:keyboard Keyboard shortcuts", reveal: "shortcuts" },
+    { label: "ph:lock Lock MemoryMap", act: lockNow },
+  ].map(catalogueRun);
 }
 
 let paletteReminders = [];
@@ -40501,31 +41142,440 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
   }
 }
 
-//: **A mark generated from a name** (INBOX 405, then 409: "I want the
-//: generation of persona icons to be improved"). The same name always draws
-//: the same mark, with nothing stored: a hash of the name seeds a small
-//: generator. The first version drew a soft blob on a flat disc in two
-//: related hues, and at 20px the marks read as one colour patch each, too
-//: alike to tell a list apart by (the owner's screenshot). This one is the
-//: "beam" idea from boring-avatars (the idea, not its code): a face, a
-//: rounded head in one colour set at an angle over a ground in another,
-//: with two eyes and a mouth, each part moved by the seed. Four things vary
-//: at once (two colours, the head's place, angle and shape, the face's
-//: expression), so two names that share a colour still differ in outline,
-//: and a face is what a persona, a voice with a character, is.
-//: Measured by `scratchpad/ui-sweeps/namemarks.js` (every pair of 23 marks
-//: at 40px, the share of pixels that differ): the blob's closest pair
-//: differed in 5.6% and eleven pairs were under 15%; this one's closest pair
-//: differs in 29.8%. The head is drawn a little smaller than the ground
-//: (`grow` under 1.05) because that is what put the floor there: a head
-//: that covers the disc leaves two marks of one head colour nearly alike.
+//: **What a name says about the face it gets** (the owner: "would it be funny
+//: if ... the application detects the intent or mood from the name ... like
+//: I have personas called 'overly dramatic narrator', and 'depressed
+//: wizard'", then "most people wont do that ... if I put in the word
+//: pandaSushi101, what would that generate"). `nameMood` reads a name in
+//: four layers, most specific first, and `nameMark` draws what it found:
 //:
-//: The colours are `CATEGORY_DOT_COLOURS`, the categorical palette the
-//: category dots already use, so a mark is drawn from the app's own ten
-//: colours rather than from a hue wheel; the ground and the head are always
-//: two different ones. The features are ink or white by the head's own
-//: luminance, so a face never vanishes into a light head. Decorative:
-//: `aria-hidden`, because the name beside it is what a screen reader says.
+//: 1. **Words.** A mood word ("depressed", "grumpy", "dramatic") or a noun
+//:    that carries one ("coffee" is wired, "moon" is sleepy, "sushi" is
+//:    hungry), an animal ("panda" draws a panda), and a costume ("wizard"
+//:    is a hat, "academic" is glasses). camelCase, digits and underscores
+//:    split a handle into words, so "pandaSushi101" is panda, sushi, 101;
+//:    and a name typed as one lower-case run is scanned for the longer
+//:    keywords (four letters and up) inside it, so "pandasushi" reads the
+//:    same. A keyword of three letters only ever matches a whole word:
+//:    "mad" is a mood and "Madison" is a name, "cat" is an animal and
+//:    "education" is not a cat. A prefix (the `*`) only ever stands on four
+//:    letters or more, for the same reason ("Sadie" is not sad).
+//: 2. **Intensity.** "overly", "very", "extremely" and their friends turn the
+//:    face up (a bigger gasp, steeper brows, a second tear).
+//: 3. **How it is typed.** ALL CAPS shouts; "!" is excited, "?" confused,
+//:    "..." sleepy; emoticons and emoji say what they say; a few numbers
+//:    mean something to the people who type them (666, 007, 404, 1337).
+//: 4. **Nothing at all.** A personality drawn from the name's own hash, so
+//:    "Alice" is always the same Alice: a plain face about a quarter of the
+//:    time, otherwise one of the milder moods. Never a costume or an animal:
+//:    those only come from a word, so a seeded face never claims something
+//:    about a name that the name did not say.
+//:
+//: All local, all instant, nothing stored: the reading is a pure function of
+//: the name, pinned by tests/test_name_mood.py.
+const NAME_MOOD_LEXICON = {
+  moods: {
+    happy: "happy happily cheer* jolly joy joyful glad merry upbeat optimis* bubbly friendly kind sweet delight* sunny sunshine smile* smiley smiling cheery chipper jovial rainbow* sun hopeful wholesome",
+    excited: "excit* exita* hyper* eager* enthus* thrill* energ* zeal* manic stoked ecstatic giddy pumped wired peppy coffee* espresso* caffein* rocket* sparkl* glitter* party partying hype hyped yay woo woohoo wahoo yeet",
+    sad: "sad sadly sadness depress* gloom* melanch* mope mopey sorrow* weep* crying cries miser* lonely forlorn glum morose pessim* emo heartbr* tragic* despair* dejected rain rainy raincloud* cloudy drizzl* blues oof rip sob sobbing",
+    angry: "angry anger angrily grump* cranky furious rage raging irate mad grouch* hostile bitter annoy* irritab* livid fuming salty cantankerous storm* thunder* fire fiery flame* blaze* volcan* spicy",
+    dramatic: "dramat* theatric* melodram* overact* flamboy* diva extra histrion* operatic shakespear* bard",
+    surprised: "surpris* shock* astonish* amaz* startl* stunned gobsmack* flabbergast* awestruck ghost* spook* boo",
+    sleepy: "sleep* tired drowsy lazy yawn* bored boring weary exhaust* sluggish nap napping snooz* lethargic moon* night* midnight* dream* insomnia* pillow* sloth*",
+    nervous: "nervous anxious anxiet* worri* worry panic* paranoi* jitter* shy timid awkward neurotic scared fright* coward* skittish frazzled",
+    sly: "sly sneak* mischiev* cunning sarcas* snark* smug cheeky devious villain* evil trickster rogue sassy cynic* scheming shady ninja* spy spies agent hacker* shadow* gremlin* goblin* raccoon* thief",
+    calm: "calm* wise zen serene stoic* sage patient gentle mellow relax* peace* tranquil tea monk* yoga",
+    serious: "serious stern strict formal pedant* logical deadpan dry grave solemn business* lawyer* accountant* judge* doom* void abyss",
+    confused: "confus* baffl* bewild* puzzl* clueless perplex* muddled ditzy lost hm hmm um umm uh uhh erm huh",
+    laughing: "lol lolol lols lmao* lmfao rofl haha* hehe* hihi* jaja* kek xd funny funnie* joke* joking jester* clown* comed* silly goof* giggl* laugh* chuckl* prank*",
+    unimpressed: "meh ugh bleh bruh whatever unimpress* sceptic* skeptic* jaded blase fine okay ok",
+    dizzy: "dizzy woozy spinning chaos* chaotic random* glitch* scrambl*",
+    hungry: "hungry hunger* starv* sushi* pizza* taco* burger* cake* cookie* donut* doughnut* noodle* ramen* pasta* cheese* bacon* snack* candy candies choco* waffle* pancake* muffin* cupcake* fries dumpling* boba mochi* sandwich* burrito* nacho* bagel* pie toast* peach* mango* banana* berry cherry* foodie* yum yummy nom nomnom",
+    cool: "cool coolest chill* rad dude swag boss suave slick shades",
+    love: "love* lovely romantic* crush* heart* cupid* valentin* adorable cute cutie darling sweetheart",
+    uwu: "uwu owo nya nyaa rawr",
+  },
+  animals: {
+    panda: "panda*",
+    bear: "bear bears teddy grizzl*",
+    koala: "koala*",
+    mouse: "mouse mice",
+    monkey: "monkey* chimp* ape",
+    cat: "cat cats kitty kitten* kitteh meow* catto neko",
+    fox: "fox foxy foxes",
+    wolf: "wolf wolves",
+    tiger: "tiger*",
+    lion: "lion lions",
+    bunny: "bunny bunnies rabbit* hare",
+    dog: "dog dogs doggo* puppy puppies pup pupper* woof* corgi*",
+    frog: "frog* toad*",
+    pig: "pig pigs piggy piglet* oink",
+    owl: "owl owls",
+    chick: "chick chicks duck ducks duckling* chicken*",
+    penguin: "penguin* pingu",
+    ghost: "ghost* spook* boo",
+    alien: "alien* ufo martian*",
+  },
+  props: {
+    hat: "wizard* witch* mage magi magician* sorcer* warlock* druid* necroman* enchant* merlin gandalf",
+    chefhat: "chef chefs cook cooks baker* cooking",
+    glasses: "academic* professor* prof scholar* scientist* nerd* librarian* teacher* tutor* researcher* historian* editor* critic* geek* analyst* detective* philosoph* linguist* mathemat* physicist* chemist* boffin* smart",
+    eyepatch: "pirate* buccaneer* arr arrr",
+    crown: "king kings queen* prince* princess* royal* emperor* empress* monarch* regal duke duchess",
+    halo: "angel* saint* guardian* cherub* holy",
+    horns: "devil* demon* imp fiend* satan*",
+    antenna: "robot* bot bots android* cyborg* droid* machine* automaton* ai",
+    moustache: "butler* gentleman gentlemen baron* mustach* moustach* walrus* sir",
+    headphones: "headphone* headset* dj music* gamer* gaming podcast* singer* rapper* audio* beats",
+  },
+  //: Flavours stack on whatever mood the name set: "wink" winks, "ahhhh"
+  //: screams, "cooked" sweats. A name that says five things gets all five.
+  flavours: {
+    wink: "wink winks winking winky",
+    scream: "ah aah ahh scream* yell* shriek* help",
+    doomed: "cooked doomed cursed rip finished panick* yikes",
+    blush: "blush* flustered shy",
+  },
+  intensifiers: "overly very extremely super ultra really totally too so mega incredibly absurdly wildly insanely ridiculously deeply utterly perpetually chronically hella terribly awfully massively most",
+};
+
+function nameMood(name) {
+  const raw = String(name || "").trim();
+  const result = { mood: null, intense: false, animal: null, props: [], flavours: [], mutant: null, source: "seed" };
+  if (!raw) return result;
+  //: One parsed table per page, not per mark: the lexicon is fixed.
+  if (!nameMood.table) {
+    const parse = (text) =>
+      text.split(/\s+/).filter(Boolean).map((entry) => {
+        const stem = entry.replace(/\*$/, "");
+        //: A prefix needs four letters under it; a shorter one is exact.
+        return { stem, prefix: entry.endsWith("*") && stem.length >= 4 };
+      });
+    const group = (table) =>
+      Object.entries(table).map(([key, text]) => ({ key, entries: parse(text) }));
+    nameMood.table = {
+      moods: group(NAME_MOOD_LEXICON.moods),
+      animals: group(NAME_MOOD_LEXICON.animals),
+      props: group(NAME_MOOD_LEXICON.props),
+      flavours: group(NAME_MOOD_LEXICON.flavours),
+      intensifiers: new Set(NAME_MOOD_LEXICON.intensifiers.split(/\s+/)),
+    };
+  }
+  const table = nameMood.table;
+  const words = raw
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([A-Za-z])(\d)/g, "$1 $2")
+    .replace(/(\d)([A-Za-z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  //: A stretched word is still the word: "happyyyy" is happy, "sooo" is so,
+  //: "hmmmm" is hm. Only a run of three or more is squeezed, so "cool" and
+  //: "happy" keep their own double letters.
+  const forms = words.map((word) => {
+    const squeezed = word.replace(/(.)\1{2,}/g, "$1");
+    return squeezed === word ? [word] : [word, squeezed];
+  });
+  const letters = raw.toLowerCase().replace(/[^a-z]/g, "");
+  //: The earliest match wins, by where it sits in the name: "sad happy cat"
+  //: is sad, the way a reader takes the first adjective as the character.
+  const find = (groups) => {
+    let best = null;
+    for (const { key, entries } of groups) {
+      for (const { stem, prefix } of entries) {
+        forms.forEach((variants, index) => {
+          const hit = variants.some((word) => (prefix ? word.startsWith(stem) : word === stem));
+          if (hit && (!best || index * 1000 < best.at)) best = { key, at: index * 1000 };
+        });
+        //: The glued-name scan: only stems of four letters and up, and only
+        //: behind every whole-word match (`+ 500000`).
+        if (stem.length >= 4 && letters.length > stem.length) {
+          const at = letters.indexOf(stem);
+          if (at >= 0 && (!best || at + 500000 < best.at)) best = { key, at: at + 500000 };
+        }
+      }
+    }
+    return best?.key || null;
+  };
+  const findAll = (groups) => {
+    const keys = [];
+    for (const { key, entries } of groups) {
+      const hit = entries.some(({ stem, prefix }) =>
+        forms.some((variants) => variants.some((word) => (prefix ? word.startsWith(stem) : word === stem))) ||
+        (stem.length >= 4 && letters.length > stem.length && letters.includes(stem))
+      );
+      if (hit) keys.push(key);
+    }
+    return keys;
+  };
+  result.mood = find(table.moods);
+  result.animal = find(table.animals);
+  result.props = findAll(table.props);
+  //: A flavour the mood already is (a scream on a scream) says nothing new.
+  result.flavours = findAll(table.flavours);
+  if (/;-?\)/.test(raw) && !result.flavours.includes("wink")) result.flavours.push("wink");
+  result.intense = forms.some((variants) => variants.some((word) => table.intensifiers.has(word)));
+  if (result.mood || result.animal || result.props.length) result.source = "words";
+
+  //: Layer three, how it is typed. Read even when the words spoke, for the
+  //: intensity ("Happy!!!"), and for the mood only when they did not.
+  let hinted = null;
+  const hint = (mood) => {
+    if (!hinted) hinted = mood;
+  };
+  const emoji = [
+    [/[\u{1F634}\u{1F4A4}\u{1F971}]/u, "sleepy"],
+    [/[\u{1F60D}\u{1F970}\u{1F618}\u{2764}\u{1F495}\u{1F496}]/u, "love"],
+    [/[\u{1F622}\u{1F62D}\u{1F61E}\u{1F614}\u{2639}\u{1F641}\u{1F97A}]/u, "sad"],
+    [/[\u{1F620}\u{1F621}\u{1F92C}\u{1F4A2}]/u, "angry"],
+    [/[\u{1F62E}\u{1F632}\u{1F631}\u{1F92F}]/u, "surprised"],
+    [/\u{1F60E}/u, "cool"],
+    [/[\u{1F60F}\u{1F608}]/u, "sly"],
+    [/[\u{1F60B}\u{1F924}\u{1F363}\u{1F355}\u{1F354}\u{1F369}\u{1F370}]/u, "hungry"],
+    [/[\u{1F914}\u{1F615}\u{2753}]/u, "confused"],
+    [/[\u{1F929}\u{1F389}\u{2728}\u{26A1}]/u, "excited"],
+    [/[\u{1F600}\u{1F603}\u{1F604}\u{1F601}\u{1F642}\u{1F60A}\u{263A}]/u, "happy"],
+  ];
+  for (const [pattern, mood] of emoji) if (pattern.test(raw)) hint(mood);
+  const emojiCreatures = [
+    [/\u{1F43C}/u, "panda"], [/\u{1F431}/u, "cat"], [/\u{1F436}/u, "dog"], [/\u{1F430}/u, "bunny"],
+    [/\u{1F98A}/u, "fox"], [/\u{1F43B}/u, "bear"], [/\u{1F438}/u, "frog"], [/\u{1F437}/u, "pig"],
+    [/\u{1F989}/u, "owl"], [/\u{1F47B}/u, "ghost"], [/\u{1F47D}/u, "alien"], [/\u{1F427}/u, "penguin"],
+  ];
+  if (!result.animal) {
+    for (const [pattern, animal] of emojiCreatures) {
+      if (pattern.test(raw)) {
+        result.animal = animal;
+        break;
+      }
+    }
+  }
+  const emojiProps = [[/\u{1F916}/u, "antenna"], [/\u{1F451}/u, "crown"], [/\u{1F9D9}/u, "hat"], [/\u{1F913}/u, "glasses"], [/\u{1F608}/u, "horns"]];
+  for (const [pattern, prop] of emojiProps) if (pattern.test(raw) && !result.props.includes(prop)) result.props.push(prop);
+  const emoticons = [
+    [/>:\(|>:-\(/, "angry"],
+    [/:-?\)|\(:|\^_?\^|=\)/, "happy"],
+    [/:-?\(|T_T|;_;|=\(/, "sad"],
+    [/:-?D|\bx-?D\b/i, "excited"],
+    [/:-?[Pp]\b|:-?[Pp]$/, "hungry"],
+    [/:-?[Oo]\b|:-?[Oo]$|\b[oO]_[oO]\b/, "surprised"],
+    [/-_-|\bz{3,}\b/i, "sleepy"],
+    [/;-?\)/, "sly"],
+    [/<3/, "love"],
+    [/\b[B8]-?\)/, "cool"],
+    [/^x+X|X+x+$/, "sly"],
+  ];
+  for (const [pattern, mood] of emoticons) if (pattern.test(raw)) hint(mood);
+  const numbers = { 666: ["sly", "horns"], "007": ["cool", null], 404: ["confused", null], 1337: ["sly", "glasses"], 9000: ["excited", null], 420: ["calm", null] };
+  for (const word of words) {
+    const known = numbers[word];
+    if (!known) continue;
+    hint(known[0]);
+    if (known[1] && !result.props.includes(known[1])) result.props.push(known[1]);
+    if (word === "9000") result.intense = true;
+  }
+  if (/\.\.\.|…/.test(raw)) hint("sleepy");
+  if (/\?\s*$/.test(raw)) hint("confused");
+  const bangs = (raw.match(/!/g) || []).length;
+  if (bangs) hint("excited");
+  if (bangs >= 2) result.intense = true;
+  const capitals = raw.replace(/[^A-Za-z]/g, "");
+  //: Shouting is three capitals or more and no lower case at all; "AI" and
+  //: "DJ" are initials, not raised voices.
+  if (capitals.length >= 3 && capitals === capitals.toUpperCase()) {
+    result.intense = true;
+    hint("excited");
+  }
+  if (!result.mood && hinted) {
+    result.mood = hinted;
+    if (result.source === "seed") result.source = "hint";
+  } else if (result.source === "seed" && (result.props.length || result.animal || result.intense)) {
+    result.source = "hint";
+  }
+
+  //: **Names that make no sense** (the owner: "can you improve or expand it
+  //: even more for names which just make no sence haha??"). When neither the
+  //: words nor the typing said anything, the letters themselves still can:
+  //: a held key is a scream ("aaaaaaa"), a run along one keyboard row is a
+  //: dizzy mash ("asdfgh"), and a handle nobody could pronounce (no vowels,
+  //: five consonants in a row, or letters and digits shuffled together) is
+  //: a little mutant whose traits come from its characters. That last idea
+  //: is helixlabs's (the owner's own MIT project, sketch.js): sum each
+  //: character's code times its position, so order matters, and let that
+  //: number decide the species. Here it decides how many eyes, whether they
+  //: are googly or on stalks, how many spots, and whether there are fangs.
+  if (!result.mood && !result.animal && !result.props.length && letters.length >= 3) {
+    const compact = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const digits = compact.replace(/[a-z]/g, "").length;
+    const mash = /asdf|sdfg|dfgh|fghj|ghjk|hjkl|qwer|wert|erty|rtyu|tyui|yuio|uiop|zxcv|xcvb|cvbn|vbnm|jkjk|fjfj/;
+    const unsayable =
+      !/[aeiouy]/.test(letters) || /[^aeiouy]{5,}/.test(letters) || (digits >= 2 && compact.length <= 8 && /[a-z]\d[a-z]/.test(compact));
+    if (/([a-z])\1{3,}/.test(letters) && new Set(letters).size <= 2) {
+      result.mood = "surprised";
+      result.intense = true;
+      result.source = "nonsense";
+    } else if (mash.test(letters)) {
+      result.mood = "dizzy";
+      result.source = "nonsense";
+    } else if (unsayable) {
+      let mix = 0;
+      for (let i = 0; i < compact.length; i += 1) mix += compact.charCodeAt(i) * (i + 1);
+      const pick = (n) => {
+        mix = Math.imul(mix ^ (mix >>> 7), 2654435761) >>> 0;
+        return mix % n;
+      };
+      result.mutant = {
+        eyes: [1, 2, 3, 1, 3, 2][pick(6)],
+        googly: pick(3) === 0,
+        stalks: pick(4) === 0,
+        spots: pick(5),
+        spotAt: pick(6),
+        fangs: pick(3) === 0,
+      };
+      result.source = "nonsense";
+    }
+  }
+
+  //: Layer four: the name's own hash picks a personality. FNV-1a, the same
+  //: family `nameMark` uses, seeded differently so the two draws are
+  //: independent of each other.
+  if (!result.mood) {
+    let h = 2166136261 ^ 0x9e3779b9;
+    for (const ch of raw.toLowerCase()) {
+      h ^= ch.codePointAt(0);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    h ^= h >>> 15;
+    h = Math.imul(h, 2246822507) >>> 0;
+    h ^= h >>> 13;
+    const pool = [
+      null, null, null, null, "happy", "happy", "calm", "sly", "surprised",
+      "sleepy", "serious", "nervous", "excited", "confused", "cool", "love",
+    ];
+    result.mood = pool[(h >>> 0) % pool.length];
+  }
+  return result;
+}
+
+//: How each mood draws: eyes, brows, mouth, and the small things around a
+//: face that carry the joke (a tear, a sweat drop, a "zz", a vein). An
+//: intense reading swaps in the louder mouth and adds the louder extras.
+const NAME_MARK_FACES = {
+  happy: { eyes: "happy", mouth: "smile", loud: "grin", extras: ["blush"] },
+  excited: { eyes: "sparkle", brows: "raised", mouth: "grin", extras: ["blush"], louder: ["spark"] },
+  sad: { eyes: "glossy", brows: "sad", mouth: "frown", extras: ["tear"], louder: ["tear2"] },
+  angry: { eyes: "narrow", brows: "angry", mouth: "frown", loud: "teeth", louder: ["vein"] },
+  dramatic: { eyes: "wide", brows: "dramatic", mouth: "gasp", louder: ["tear", "spark"] },
+  surprised: { eyes: "wide", brows: "raised", mouth: "o", louder: ["sweat"] },
+  sleepy: { eyes: "closed", mouth: "yawn", extras: ["zz"] },
+  nervous: { eyes: "dot", brows: "sad", mouth: "wavy", extras: ["sweat"], louder: ["sweat2"] },
+  sly: { eyes: "narrow", brows: "sly", mouth: "smirk" },
+  calm: { eyes: "content", mouth: "smile" },
+  serious: { eyes: "dot", brows: "flat", mouth: "flat" },
+  confused: { eyes: "mismatch", brows: "confused", mouth: "wavy", extras: ["question"] },
+  hungry: { eyes: "happy", mouth: "tongue", extras: ["blush"], louder: ["drool"] },
+  cool: { eyes: "shades", mouth: "smirk" },
+  love: { eyes: "heart", mouth: "smile", extras: ["blush"], louder: ["heart"] },
+  laughing: { eyes: "squeeze", mouth: "grin", extras: ["tear", "tear2"], louder: ["spark"] },
+  unimpressed: { eyes: "halflid", brows: "flat", mouth: "flat" },
+  dizzy: { eyes: "spiral", mouth: "wavy", extras: ["stars"] },
+  uwu: { eyes: "closed", mouth: "cat", extras: ["blush"], louder: ["heart"] },
+};
+
+//: The creatures a name can ask for. `head` fixes the head's colour where
+//: the animal has one (a panda is white, a fox is orange); the others keep
+//: the name's own palette colour, so two cats still differ.
+const NAME_MARK_CREATURES = {
+  panda: { head: "#f5f4ef", ears: "round", ear: "#2b2a28", patches: "#2b2a28" },
+  bear: { head: "#9c755f", ears: "round", muzzle: "#d9b38c" },
+  koala: { head: "#a9aaa4", ears: "round", earSize: 4.6, inner: "#f3c6cf", nose: true },
+  mouse: { head: "#b9b9b3", ears: "round", earSize: 5, inner: "#ff9da7" },
+  monkey: { head: "#9c755f", ears: "side", muzzle: "#e8c9a4" },
+  cat: { ears: "pointy", mouth: "cat", whiskers: true },
+  fox: { head: "#f28e2c", ears: "pointy", mouth: "cat", muzzle: "#f5f4ef" },
+  wolf: { head: "#8e9aa6", ears: "pointy", mouth: "cat", muzzle: "#dfe3e8" },
+  tiger: { head: "#f28e2c", ears: "round", stripes: true, mouth: "cat", whiskers: true },
+  lion: { head: "#edc949", mane: "#b0703a", ears: "round", mouth: "cat" },
+  bunny: { ears: "long", inner: "#ff9da7", mouth: "cat" },
+  dog: { head: "#d9b38c", ears: "floppy", ear: "#9c755f", nose: true },
+  frog: { head: "#59a14f", eyesUp: true },
+  pig: { head: "#ff9da7", ears: "pointy", snout: "#f07a8e" },
+  owl: { head: "#9c755f", ears: "tufts", rings: "#f5f4ef", beak: "#f28e2c" },
+  chick: { head: "#edc949", beak: "#f28e2c", tuft: true },
+  penguin: { head: "#2b2a28", mask: "#f5f4ef", beak: "#f28e2c" },
+  ghost: { head: "#f5f4ef", shape: "ghost" },
+  alien: { head: "#8cd17d", eyes: "alien", antenna: true },
+};
+
+//: Which palette colours each mood's ground leans to, when the name said
+//: the mood out loud (a seeded mood keeps the name's own colour).
+const NAME_MARK_MOOD_GROUNDS = {
+  happy: [5, 1, 9, 7], excited: [1, 5, 7, 2], sad: [0, 3, 6, 8], angry: [2, 1, 8],
+  dramatic: [6, 2, 7], surprised: [5, 7, 1], sleepy: [6, 0, 3], nervous: [3, 9, 5],
+  sly: [6, 4, 8], calm: [3, 4, 9, 0], serious: [0, 8, 3], confused: [9, 6, 3],
+  hungry: [1, 5, 7], cool: [0, 6, 3], love: [7, 2, 6],
+  laughing: [5, 1, 7], unimpressed: [8, 0, 3], dizzy: [9, 6, 5], uwu: [7, 6, 9],
+};
+
+//: A sentence for the tooltip: what the mark was read as, so the joke can be
+//: found by hovering ("Very dramatic face", "Hungry panda").
+const NAME_MARK_MOOD_WORDS = {
+  angry: "grumpy", love: "smitten", sly: "sly", cool: "cool",
+};
+const NAME_MARK_PROP_WORDS = {
+  hat: "a wizard hat", chefhat: "a chef's hat", glasses: "glasses", eyepatch: "an eyepatch",
+  crown: "a crown", halo: "a halo", horns: "horns", antenna: "an antenna",
+  moustache: "a moustache", headphones: "headphones",
+};
+
+function nameMarkTitle(reading) {
+  if (!reading.mood && !reading.animal && !reading.props.length && !reading.mutant && !reading.flavours?.length) return "";
+  const mood = reading.mood ? NAME_MARK_MOOD_WORDS[reading.mood] || reading.mood : "";
+  const mutant = reading.mutant;
+  const creatureWord = mutant
+    ? mutant.eyes === 1 ? "cyclops" : mutant.eyes === 3 ? "three-eyed critter" : "critter"
+    : "face";
+  const words = [reading.intense && mood ? "very" : "", mood, reading.animal || creatureWord].filter(Boolean);
+  const props = reading.props.map((prop) => NAME_MARK_PROP_WORDS[prop]).filter(Boolean);
+  const tail = props.length ? ` with ${props.join(" and ")}` : "";
+  const doing = { wink: "winking", scream: "screaming", doomed: "sweating", blush: "blushing" };
+  const flavours = (reading.flavours || []).map((flavour) => doing[flavour]).filter(Boolean);
+  const also = flavours.length
+    ? `, ${flavours.length > 1 ? `${flavours.slice(0, -1).join(", ")} and ${flavours.at(-1)}` : flavours[0]}`
+    : "";
+  const text = `${words.join(" ")}${tail}${also}`;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+//: **A mark generated from a name** (INBOX 405, then 409, then the owner's
+//: "make the avatars, their generation and use very impressive ... funny
+//: ... cute ... can they be animated as a togglable option"). The same name
+//: always draws the same mark, with nothing stored: a hash of the name seeds
+//: the geometry, and `nameMood` reads the name for what the face should be.
+//:
+//: The base is the "beam" idea from boring-avatars (the idea, not its code):
+//: a rounded head in one colour set at an angle over a ground in another,
+//: moved by the seed. Measured by `scratchpad/ui-sweeps/namemarks.js` (23
+//: everyday names at 40px): the closest pair differs in 19.1% of pixels and
+//: the mean pair in 71.9% (the floor is 15%). On top of it
+//: sit the reading's face (nineteen moods, each with its own eyes, brows,
+//: mouth and extras), a creature when the name names one (nineteen, from
+//: ears and patches to a ghost's hem), a costume when it names one (ten),
+//: flavours stacked on top (a wink, a scream, a sweat), and for a name that
+//: makes no sense, a mutant with one, two or three eyes.
+//:
+//: Motion is CSS only, keyed off classes set here: the eyes blink, the face
+//: breathes, and each mood has its own move (the tear falls, the "zz"
+//: drifts, the vein throbs, an excited face bounces). Settings > Appearance >
+//: Avatar animation chooses off, on hover, or always; Reduce motion wins.
+//: Each mark starts its loop at its own point (`--nm-delay`, from the seed),
+//: so a list of faces does not blink in unison.
+//:
+//: Colours are `CATEGORY_DOT_COLOURS`, the app's own ten, plus a creature's
+//: fixed coat. The features are ink or white by the head's own luminance, so
+//: a face never vanishes into a light head. Decorative (`aria-hidden`): the
+//: name beside it is what a screen reader says; the `<title>` is for a
+//: pointer's tooltip.
 let nameMarkSerial = 0;
 
 function nameMark(seed, size = 20) {
@@ -40545,34 +41595,81 @@ function nameMark(seed, size = 20) {
     return h / 4294967296;
   };
   for (let i = 0; i < 4; i += 1) rnd();
+  const reading = nameMood(seed);
+  const creature = reading.animal ? NAME_MARK_CREATURES[reading.animal] : null;
+  const face = reading.mood ? NAME_MARK_FACES[reading.mood] : null;
+  const loud = reading.intense;
   const palette = CATEGORY_DOT_COLOURS;
-  const groundIndex = Math.floor(rnd() * palette.length);
-  const headIndex = (groundIndex + 1 + Math.floor(rnd() * (palette.length - 1))) % palette.length;
-  const ground = palette[groundIndex];
-  const head = palette[headIndex];
-  //: Relative luminance of the head, for the features' ink.
-  const lum = [1, 3, 5]
-    .map((i) => parseInt(head.slice(i, i + 2), 16) / 255)
-    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  const light = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2] > 0.4;
-  const ink = light ? "#1c1c1a" : "#ffffff";
 
-  //: The head: pushed off the middle towards a corner (never centred, so it
-  //: always has an edge against the ground), turned, and either round or a
-  //: rounded square.
-  const offX = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 7);
-  const offY = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 7);
+  //: The draws happen in the order the plain mark always made them, so a
+  //: name the reading leaves plain draws exactly the mark it drew before.
+  const groundRoll = rnd();
+  const headRoll = rnd();
+  const bias = reading.source !== "seed" && reading.mood ? NAME_MARK_MOOD_GROUNDS[reading.mood] : null;
+  const groundIndex = bias
+    ? bias[Math.floor(groundRoll * bias.length)]
+    : Math.floor(groundRoll * palette.length);
+  const headIndex = (groundIndex + 1 + Math.floor(headRoll * (palette.length - 1))) % palette.length;
+  let ground = palette[groundIndex];
+  const head = creature?.head || palette[headIndex];
+  //: A creature's fixed coat can land on its own ground colour (a fox on the
+  //: orange); the next colour round keeps the head against something.
+  if (ground.toLowerCase() === head.toLowerCase()) ground = palette[(groundIndex + 3) % palette.length];
+  const luminance = (hex) => {
+    const channels = [1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  };
+  const faceGround = creature?.mask || head;
+  const ink = luminance(faceGround) > 0.4 ? "#1c1c1a" : "#ffffff";
+  //: The one colour a feature can take that always stands off the ink:
+  //: the head's own (a catchlight in an ink eye, the teeth in an ink mouth).
+  const paper = faceGround;
+
+  let offX = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 7);
+  let offY = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 7);
   const turn = Math.floor(rnd() * 360);
-  const grow = 0.85 + rnd() * 0.2;
-  const round = rnd() < 0.5;
-  //: The face follows the head part of the way, so it stays on it, and tilts
-  //: on its own a little; eyes and mouth spread by the seed.
-  const faceX = offX * 0.5;
-  const faceY = offY * 0.5;
-  const tilt = Math.round((rnd() * 2 - 1) * 12);
-  const eyeSpread = rnd() * 3.5;
-  const mouthDrop = rnd() * 2.5;
+  let grow = 0.85 + rnd() * 0.2;
+  let round = rnd() < 0.5;
+  let tilt = Math.round((rnd() * 2 - 1) * 12);
+  let eyeSpread = rnd() * 3.5;
+  let mouthDrop = rnd() * 2.5;
   const mouthOpen = rnd() < 0.5;
+  const delay = rnd();
+
+  const topProps = ["hat", "chefhat", "crown", "halo", "horns", "antenna", "headphones"];
+  const wearsTop = reading.props.some((prop) => topProps.includes(prop)) || creature?.antenna;
+  const hasEars = Boolean(creature?.ears || creature?.mane || creature?.eyesUp || creature?.tuft);
+  //: A plain face rides half the head's offset, which is the beam look; a
+  //: face with a mood has more to show, so it sits most of the way on.
+  let follow = face ? 0.8 : 0.5;
+  //: A creature or a hat needs room above the face: the head shrinks a
+  //: little, drops, turns round, and the face follows it all the way.
+  if (creature || wearsTop) {
+    grow = Math.min(grow, hasEars || wearsTop ? 0.78 : 0.86);
+    offX *= 0.35;
+    offY = 2.4 + Math.abs(offY) * 0.18;
+    round = creature ? true : round;
+    follow = 1;
+  }
+  //: A face with a mood has brows and extras that need the head under them;
+  //: the beam's far corners are for a plain face.
+  if (face && !creature && !wearsTop) {
+    offX *= 0.6;
+    offY *= 0.6;
+  }
+  if (creature?.ears === "long") offY = 4.2;
+  if (creature?.shape === "ghost") {
+    offX = 0;
+    offY = 1.6;
+  }
+  const mutant = reading.mutant;
+  if (reading.props.length || creature || face || mutant) eyeSpread = Math.min(eyeSpread, 1.6);
+  if (face) mouthDrop = Math.min(mouthDrop, 1.2);
+  if (reading.mood === "dramatic" && loud) tilt = tilt < 0 ? -20 : 20;
+  const faceX = offX * follow;
+  const faceY = offY * follow;
 
   const svgNs = "http://www.w3.org/2000/svg";
   const make = (tag, attrs) => {
@@ -40580,13 +41677,21 @@ function nameMark(seed, size = 20) {
     for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
     return el;
   };
+  const f = (n) => n.toFixed(2);
   const svg = make("svg", {
     viewBox: "0 0 36 36",
     width: size,
     height: size,
-    class: "name-mark",
+    class: `name-mark nm-${reading.mood || "plain"}${creature ? ` nm-${reading.animal}` : ""}${reading.mutant ? " nm-mutant" : ""}`,
     "aria-hidden": "true",
   });
+  svg.style.setProperty("--nm-delay", `${f(-delay * 6)}s`);
+  const title = nameMarkTitle(reading);
+  if (title) {
+    const titleEl = make("title", {});
+    titleEl.textContent = title;
+    svg.appendChild(titleEl);
+  }
   //: A serial rather than the hash for the clip's id: the same name drawn
   //: twice on one page (a persona row and the chat picker) would otherwise
   //: put two elements with one id in the document.
@@ -40596,37 +41701,438 @@ function nameMark(seed, size = 20) {
   clip.appendChild(make("circle", { cx: 18, cy: 18, r: 18 }));
   const group = make("g", { "clip-path": `url(#${clipId})` });
   group.appendChild(make("rect", { width: 36, height: 36, fill: ground }));
-  const f = (n) => n.toFixed(2);
-  group.appendChild(
-    make("rect", {
+
+  //: Everything that belongs to the face moves with it: one transform for
+  //: the layer behind the head (ears, a mane) and one for the face on it.
+  const faceTransform = `translate(${f(faceX)} ${f(faceY)}) rotate(${tilt} 18 18)`;
+  const behind = make("g", { transform: faceTransform, class: "nm-behind" });
+  const onFace = make("g", { transform: faceTransform, class: "nm-face" });
+  const shade = "rgba(0,0,0,0.22)";
+
+  // --- behind the head: ears, a mane, a frog's eye bulges ---
+  if (creature?.mane) {
+    for (let i = 0; i < 12; i += 1) {
+      const a = (i / 12) * Math.PI * 2;
+      behind.appendChild(make("circle", { cx: f(18 + Math.cos(a) * 12.6), cy: f(18 + Math.sin(a) * 12.6), r: 4.4, fill: creature.mane }));
+    }
+  }
+  const earFill = creature?.ear || head;
+  if (creature?.ears === "round") {
+    const r = creature.earSize || 3.8;
+    for (const side of [-1, 1]) {
+      const cx = 18 + side * 8;
+      const cy = 7.8;
+      behind.appendChild(make("circle", { cx, cy, r, fill: earFill }));
+      behind.appendChild(make("circle", { cx, cy, r: f(r * 0.48), fill: creature.inner || shade }));
+    }
+  } else if (creature?.ears === "side") {
+    for (const side of [-1, 1]) {
+      behind.appendChild(make("circle", { cx: 18 + side * 13.2, cy: 16.5, r: 4, fill: earFill }));
+      behind.appendChild(make("circle", { cx: 18 + side * 13.2, cy: 16.5, r: 2.2, fill: creature.muzzle || shade }));
+    }
+  } else if (creature?.ears === "pointy" || creature?.ears === "tufts") {
+    const tall = creature.ears === "tufts" ? 4.4 : 0;
+    for (const side of [-1, 1]) {
+      const x = (n) => f(18 + side * n);
+      behind.appendChild(make("path", { d: `M${x(10)} 12.5L${x(9.6)} ${f(1.8 + tall)}L${x(3.6)} 7.6z`, fill: earFill }));
+      if (creature.ears === "pointy") {
+        behind.appendChild(make("path", { d: `M${x(8.9)} 10.2L${x(8.8)} 4.6L${x(5.4)} 7.6z`, fill: creature.inner || shade }));
+      }
+    }
+  } else if (creature?.ears === "long") {
+    for (const side of [-1, 1]) {
+      const cx = 18 + side * 4.8;
+      const rot = side * 11;
+      behind.appendChild(make("ellipse", { cx, cy: 3.4, rx: 2.9, ry: 8, fill: earFill, transform: `rotate(${rot} ${cx} 10)` }));
+      behind.appendChild(make("ellipse", { cx, cy: 3.6, rx: 1.4, ry: 5.8, fill: creature.inner || shade, transform: `rotate(${rot} ${cx} 10)` }));
+    }
+  }
+  if (creature?.tuft) {
+    behind.appendChild(make("path", { d: "M18 7.5c-1.2-2.6-.4-4.6 1.4-5.3-.3 1.6.4 2.7 1.6 3.3-1.1.2-2 .9-3 2z", fill: head }));
+  }
+  if (creature?.eyesUp) {
+    for (const side of [-1, 1]) behind.appendChild(make("circle", { cx: 18 + side * 5.2, cy: 8.8, r: 4.6, fill: head }));
+  }
+  //: Everything that moves as one when the face is animated: the ears, the
+  //: head, the sheen and the face. A group with no transform attribute of
+  //: its own, so the CSS transform has nothing to overwrite.
+  const body = make("g", { class: "nm-body" });
+  body.appendChild(behind);
+
+  // --- the head, over its own shadow ---
+  //: The shadow is the head again, darker and nudged down and right, which
+  //: is what lifts a flat disc into a thing sitting on the ground. The same
+  //: light falls on the sheen below.
+  const headShape = (fill, dx = 0, dy = 0) => {
+    if (creature?.shape === "ghost") {
+      return make("path", {
+        d: "M7 33V17.5a11 11 0 0 1 22 0V33l-2.75-2.4-2.75 2.4-2.75-2.4L18 33l-2.75-2.4-2.75 2.4-2.75-2.4L7 33z",
+        fill,
+        transform: `translate(${f(faceX + dx)} ${f(faceY + dy)})`,
+      });
+    }
+    return make("rect", {
       width: 36,
       height: 36,
       rx: round ? 18 : 7,
-      fill: head,
+      fill,
       //: Scaled about the middle, written out: SVG scales about the corner.
-      transform: `translate(${f(offX)} ${f(offY)}) rotate(${turn} 18 18) translate(18 18) scale(${f(grow)}) translate(-18 -18)`,
-    })
-  );
-  const face = make("g", {
-    transform: `translate(${f(faceX)} ${f(faceY)}) rotate(${tilt} 18 18)`,
-    fill: ink,
-  });
-  face.appendChild(make("rect", { x: f(12.5 - eyeSpread), y: 13.5, width: 2.4, height: 3, rx: 1.2 }));
-  face.appendChild(make("rect", { x: f(21.1 + eyeSpread), y: 13.5, width: 2.4, height: 3, rx: 1.2 }));
-  const my = 20.5 + mouthDrop;
-  face.appendChild(
-    mouthOpen
-      ? make("path", { d: `M13.5 ${f(my)}a4.5 3.4 0 0 0 9 0z` })
-      : make("path", {
-          d: `M14.5 ${f(my)}c2 1.6 5 1.6 7 0`,
-          fill: "none",
-          stroke: ink,
-          "stroke-width": 1.8,
-          "stroke-linecap": "round",
-        })
-  );
-  group.appendChild(face);
-  svg.append(clip, group);
+      transform: `translate(${f(offX + dx)} ${f(offY + dy)}) rotate(${turn} 18 18) translate(18 18) scale(${f(grow)}) translate(-18 -18)`,
+    });
+  };
+  group.appendChild(headShape("rgba(0,0,0,0.16)", 1.2, 1.8));
+  body.appendChild(headShape(head));
+  const sheenId = `${clipId}-l`;
+  const sheen = make("radialGradient", { id: sheenId, cx: "32%", cy: "24%", r: "80%" });
+  for (const [offset, colour, opacity] of [[0, "#ffffff", 0.3], [0.45, "#ffffff", 0], [1, "#000000", 0.14]]) {
+    sheen.appendChild(make("stop", { offset, "stop-color": colour, "stop-opacity": opacity }));
+  }
+  group.appendChild(make("circle", { cx: 18, cy: 18, r: 18, fill: `url(#${sheenId})`, class: "nm-sheen" }));
+  group.appendChild(body);
+
+  // --- the face ---
+  const lift = creature?.eyesUp ? -6.2 : wearsTop ? 1 : 0;
+  const eyeY = 15 + lift;
+  const L = 13.7 - eyeSpread;
+  const R = 22.3 + eyeSpread;
+  const eyes = make("g", { class: "nm-eyes", fill: ink });
+  const stroke = (d, width = 1.4, colour = ink) =>
+    make("path", { d, fill: "none", stroke: colour, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round" });
+
+  if (creature?.mask) onFace.appendChild(make("ellipse", { cx: 18, cy: 18.6, rx: 8.6, ry: 8.2, fill: creature.mask }));
+  if (creature?.muzzle && creature.ears !== "side") onFace.appendChild(make("ellipse", { cx: 18, cy: 21, rx: 5.2, ry: 3.8, fill: creature.muzzle }));
+  if (creature?.ears === "side") onFace.appendChild(make("ellipse", { cx: 18, cy: 19.6, rx: 7.6, ry: 6.4, fill: creature.muzzle }));
+  if (creature?.stripes) {
+    for (const d of ["M18 6.4v3.4", "M13.6 7.4l1.3 2.6", "M22.4 7.4l-1.3 2.6", "M8.6 16h2.6", "M27.4 16h-2.6"]) onFace.appendChild(stroke(d, 1.3, "#2b2a28"));
+  }
+  if (creature?.patches) {
+    for (const [x, rot] of [[L, 22], [R, -22]]) {
+      onFace.appendChild(make("ellipse", { cx: f(x), cy: f(eyeY + 0.4), rx: 2.9, ry: 3.6, fill: creature.patches, transform: `rotate(${rot} ${f(x)} ${f(eyeY)})` }));
+    }
+  }
+  if (creature?.rings) {
+    for (const x of [L, R]) onFace.appendChild(make("circle", { cx: f(x), cy: f(eyeY), r: 3.5, fill: creature.rings }));
+  }
+  const flavours = reading.flavours || [];
+  const extrasList = face ? [...(face.extras || []), ...(loud ? face.louder || [] : [])] : [];
+  if (flavours.includes("doomed")) extrasList.push("sweat", "sweat2");
+  if (flavours.includes("blush") && !extrasList.includes("blush")) extrasList.push("blush");
+  if (extrasList.includes("blush")) {
+    for (const x of [L - 1, R + 1]) onFace.appendChild(make("ellipse", { cx: f(x), cy: f(eyeY + 3.6), rx: 1.9, ry: 1.05, fill: "#ff5f7e", opacity: 0.5 }));
+  }
+
+  //: The eye ink over a panda's patches or an owl's rings is the other ink.
+  const eyeInk = creature?.patches ? "#ffffff" : creature?.rings ? "#1c1c1a" : ink;
+  const glint = creature?.patches ? "#1c1c1a" : paper;
+  eyes.setAttribute("fill", eyeInk);
+  let eyeStyle = face?.eyes || "dot";
+  if (creature?.eyes === "alien") eyeStyle = "alien";
+  if (reading.props.includes("antenna") && !face && !creature) eyeStyle = "square";
+  if (mutant?.googly && !["shades", "heart", "happy", "closed", "content", "squeeze", "spiral"].includes(eyeStyle)) eyeStyle = "googly";
+  const blinkers = ["dot", "glossy", "sparkle", "wide", "narrow", "mismatch", "alien", "square", "googly", "halflid"];
+  if (blinkers.includes(eyeStyle)) eyes.classList.add("nm-blinks");
+  //: A wink closes the right eye and makes sure the left one is open, or a
+  //: face whose eyes were already shut would wink with nothing.
+  const winks = flavours.includes("wink") && eyeStyle !== "shades";
+  if (winks && ["closed", "content", "happy", "squeeze", "heart"].includes(eyeStyle)) eyeStyle = "glossy";
+  const drawEye = (x, side, y = eyeY) => {
+    if (reading.props.includes("eyepatch") && side === 1) return;
+    if (winks && side === 1) {
+      eyes.appendChild(stroke(`M${f(x - 1.7)} ${f(y + 1)}q1.7-2.8 3.4 0`, 1.5, eyeInk));
+      return;
+    }
+    if (eyeStyle === "dot") {
+      eyes.appendChild(make("rect", { x: f(x - 1.2), y: f(y - 1.5), width: 2.4, height: 3, rx: 1.2 }));
+    } else if (eyeStyle === "square") {
+      eyes.appendChild(make("rect", { x: f(x - 1.4), y: f(y - 1.4), width: 2.8, height: 2.8, rx: 0.4 }));
+    } else if (eyeStyle === "glossy" || eyeStyle === "sparkle") {
+      const r = eyeStyle === "sparkle" && loud ? 2.4 : 2;
+      eyes.appendChild(make("circle", { cx: f(x), cy: f(y), r }));
+      eyes.appendChild(make("circle", { cx: f(x + 0.7), cy: f(y - 0.7), r: 0.75, fill: glint }));
+      eyes.appendChild(make("circle", { cx: f(x - 0.6), cy: f(y + 0.8), r: 0.35, fill: glint }));
+    } else if (eyeStyle === "wide") {
+      const r = loud ? 2.8 : 2.4;
+      eyes.appendChild(make("circle", { cx: f(x), cy: f(y), r, fill: "#ffffff", stroke: "#1c1c1a", "stroke-width": 0.7 }));
+      eyes.appendChild(make("circle", { cx: f(x + side * 0.3), cy: f(y + 0.2), r: loud ? 0.9 : 1.1, fill: "#1c1c1a" }));
+    } else if (eyeStyle === "narrow") {
+      eyes.appendChild(make("rect", { x: f(x - 1.5), y: f(y - 0.4), width: 3, height: 1.4, rx: 0.7 }));
+    } else if (eyeStyle === "mismatch") {
+      if (side < 0) {
+        eyes.appendChild(make("circle", { cx: f(x), cy: f(y), r: 2.3, fill: "#ffffff", stroke: "#1c1c1a", "stroke-width": 0.7 }));
+        eyes.appendChild(make("circle", { cx: f(x), cy: f(y), r: 1, fill: "#1c1c1a" }));
+      } else {
+        eyes.appendChild(make("rect", { x: f(x - 1), y: f(y - 1), width: 2, height: 2.2, rx: 1 }));
+      }
+    } else if (eyeStyle === "happy") {
+      eyes.appendChild(stroke(`M${f(x - 1.7)} ${f(y + 1)}q1.7-2.8 3.4 0`, 1.5, eyeInk));
+    } else if (eyeStyle === "closed") {
+      eyes.appendChild(stroke(`M${f(x - 1.7)} ${f(y + 0.2)}q1.7 1.7 3.4 0`, 1.4, eyeInk));
+    } else if (eyeStyle === "content") {
+      eyes.appendChild(stroke(`M${f(x - 1.6)} ${f(y)}q1.6 1.3 3.2 0`, 1.3, eyeInk));
+    } else if (eyeStyle === "heart") {
+      eyes.appendChild(make("path", {
+        d: `M${f(x)} ${f(y + 2)}c-2.6-1.8-3.1-3.3-2.3-4.2.7-.8 1.8-.6 2.3.3.5-.9 1.6-1.1 2.3-.3.8.9.3 2.4-2.3 4.2z`,
+        fill: "#e8364f",
+        stroke: "#1c1c1a",
+        "stroke-width": 0.35,
+      }));
+    } else if (eyeStyle === "googly") {
+      eyes.appendChild(make("circle", { cx: f(x), cy: f(y), r: 2.6, fill: "#ffffff", stroke: "#1c1c1a", "stroke-width": 0.6 }));
+      //: The pupil sits off-centre at an angle of its own, and when the
+      //: face is animated it rolls round the eye it sits in.
+      const angle = ((x * 7.3 + y * 3.1) % 6.28);
+      const pupil = make("circle", { cx: f(x + Math.cos(angle) * 1.2), cy: f(y + Math.sin(angle) * 1.2), r: 1.15, fill: "#1c1c1a", class: "nm-pupil" });
+      pupil.style.transformOrigin = `${f(x)}px ${f(y)}px`;
+      eyes.appendChild(pupil);
+    } else if (eyeStyle === "squeeze") {
+      const d = side < 0 ? 1 : -1;
+      eyes.appendChild(stroke(`M${f(x - d * 1.4)} ${f(y - 1.6)}l${f(d * 2.6)} 1.6l${f(-d * 2.6)} 1.6`, 1.5, eyeInk));
+    } else if (eyeStyle === "halflid") {
+      eyes.appendChild(make("rect", { x: f(x - 1.2), y: f(y - 0.2), width: 2.4, height: 1.9, rx: 0.9 }));
+      eyes.appendChild(stroke(`M${f(x - 1.9)} ${f(y - 0.4)}h3.8`, 1.2, eyeInk));
+    } else if (eyeStyle === "spiral") {
+      eyes.appendChild(stroke(`M${f(x)} ${f(y)}m-.3 0a.5 .5 0 1 1 .7.6a1.2 1.2 0 1 1-1.5-1.4a1.9 1.9 0 1 1 2.3 2.4`, 0.8, eyeInk));
+    } else if (eyeStyle === "alien") {
+      eyes.appendChild(make("ellipse", { cx: f(x), cy: f(y + 0.4), rx: 2.1, ry: 3, fill: "#1c1c1a", transform: `rotate(${side * -24} ${f(x)} ${f(y)})` }));
+      eyes.appendChild(make("circle", { cx: f(x + 0.5), cy: f(y - 0.6), r: 0.6, fill: "#ffffff" }));
+    }
+  };
+  //: Where the eyes go: two, or a mutant's one or three, or up on stalks.
+  const eyeCount = mutant?.eyes || 2;
+  const eyeAt = eyeCount === 1 ? [[18, 0, eyeY]] : eyeCount === 3 ? [[L - 0.6, -1, eyeY + 0.6], [18, 0, eyeY - 2.4], [R + 0.6, 1, eyeY + 0.6]] : [[L, -1, eyeY], [R, 1, eyeY]];
+  if (mutant?.stalks) {
+    for (const spot of eyeAt) {
+      onFace.appendChild(stroke(`M${f(spot[0])} ${f(spot[2] - 1)}L${f(spot[0] + spot[1] * 0.8)} ${f(spot[2] - 6.4)}`, 1.1, ink));
+      spot[0] += spot[1] * 0.8;
+      spot[2] -= 7.4;
+    }
+  }
+  if (mutant?.spots) {
+    const places = [[9.4, 21.6], [26.6, 22.4], [11.2, 9.8], [25, 10.4], [20.6, 27], [8.4, 15.2]];
+    for (let i = 0; i < mutant.spots; i += 1) {
+      const [cx, cy] = places[(mutant.spotAt + i) % places.length];
+      onFace.appendChild(make("circle", { cx, cy, r: 1 + (i % 2) * 0.5, fill: ink, "fill-opacity": 0.22 }));
+    }
+  }
+  if (eyeStyle !== "shades") {
+    for (const [x, side, y] of eyeAt) {
+      //: A cyclops's one eye is the face's whole expression: half as big again.
+      if (eyeCount === 1) {
+        const before = eyes.childNodes.length;
+        drawEye(x, side, y);
+        const big = make("g", { transform: `translate(${f(x)} ${f(y)}) scale(1.55) translate(${f(-x)} ${f(-y)})` });
+        while (eyes.childNodes.length > before) big.prepend(eyes.lastChild);
+        eyes.appendChild(big);
+      } else {
+        drawEye(x, side, y);
+      }
+    }
+  }
+  onFace.appendChild(eyes);
+
+  // brows
+  const browY = eyeY - 4;
+  const brows = make("g", { class: "nm-brows" });
+  const browStyle = creature?.eyesUp || eyeCount !== 2 || mutant?.stalks ? null : face?.brows;
+  const steep = loud ? 0.6 : 0;
+  const bl = (x0, y0, x1, y1) => brows.appendChild(stroke(`M${f(x0)} ${f(y0)}L${f(x1)} ${f(y1)}`, 1.3));
+  const arc = (x, y) => brows.appendChild(stroke(`M${f(x - 1.9)} ${f(y)}q1.9-1.9 3.8 0`, 1.3));
+  if (browStyle === "angry") {
+    bl(L - 1.9, browY - 0.6 - steep, L + 1.9, browY + 1.2 + steep);
+    bl(R - 1.9, browY + 1.2 + steep, R + 1.9, browY - 0.6 - steep);
+  } else if (browStyle === "sad") {
+    bl(L - 1.9, browY + 1, L + 1.9, browY - 0.6 - steep);
+    bl(R - 1.9, browY - 0.6 - steep, R + 1.9, browY + 1);
+  } else if (browStyle === "raised") {
+    arc(L, browY - (loud ? 1 : 0.3));
+    arc(R, browY - (loud ? 1 : 0.3));
+  } else if (browStyle === "dramatic") {
+    arc(L, browY - (loud ? 2 : 1.2));
+    bl(R - 1.9, browY + 1, R + 1.9, browY - 0.2);
+  } else if (browStyle === "sly") {
+    bl(L - 1.9, browY + 0.8, L + 1.9, browY + 0.8);
+    arc(R, browY - 0.6);
+  } else if (browStyle === "flat") {
+    bl(L - 1.9, browY + 0.4, L + 1.9, browY + 0.4);
+    bl(R - 1.9, browY + 0.4, R + 1.9, browY + 0.4);
+  } else if (browStyle === "confused") {
+    arc(L, browY - 0.8);
+    bl(R - 1.9, browY + 0.2, R + 1.9, browY + 1.2);
+  }
+  if (brows.childNodes.length) onFace.appendChild(brows);
+
+  // mouth
+  let my = 20.5 + mouthDrop + (wearsTop ? 0.6 : 0);
+  if (reading.props.includes("moustache")) my += 1.2;
+  if (creature?.snout) my += 2.2;
+  const k = loud ? 1.3 : 1;
+  const mouth = make("g", { class: "nm-mouth" });
+  const fillPath = (d, colour = ink) => make("path", { d, fill: colour });
+  let mouthStyle = face ? (loud && face.loud ? face.loud : face.mouth) : mouthOpen ? "grin" : "smile";
+  if (creature?.mouth === "cat" && (!face || ["smile", "grin"].includes(mouthStyle))) mouthStyle = "cat";
+  if (creature?.beak || creature?.rings) mouthStyle = face && ["gasp", "o", "tongue"].includes(face.mouth) ? face.mouth : null;
+  if (reading.props.includes("antenna") && !face && !creature) mouthStyle = "grille";
+  if (flavours.includes("scream") && mouthStyle !== "o") mouthStyle = "gasp";
+  const w = 7 * k;
+  if (mouthStyle === "smile") {
+    mouth.appendChild(stroke(`M${f(18 - w / 2)} ${f(my)}c${f(w * 0.29)} ${f(1.6 * k)} ${f(w * 0.71)} ${f(1.6 * k)} ${f(w)} 0`, 1.8));
+  } else if (mouthStyle === "grin") {
+    const r = 4.5 * (face ? k : 1);
+    mouth.appendChild(fillPath(`M${f(18 - r)} ${f(my)}a${f(r)} ${f(3.4 * (face ? k : 1))} 0 0 0 ${f(r * 2)} 0z`));
+    if (face) mouth.appendChild(fillPath(`M${f(18 - r * 0.55)} ${f(my + 2.1 * k)}q${f(r * 0.55)}-1.3 ${f(r * 1.1)} 0q${f(-r * 0.55)} 1.1 ${f(-r * 1.1)} 0z`, "#ff6b8a"));
+  } else if (mouthStyle === "frown") {
+    mouth.appendChild(stroke(`M${f(18 - w / 2)} ${f(my + 1.6)}c${f(w * 0.29)} ${f(-1.7 * k)} ${f(w * 0.71)} ${f(-1.7 * k)} ${f(w)} 0`, 1.8));
+  } else if (mouthStyle === "teeth") {
+    mouth.appendChild(make("rect", { x: 14, y: f(my - 0.4), width: 8, height: 3, rx: 1.2, fill: ink }));
+    mouth.appendChild(stroke(`M14.6 ${f(my + 1.1)}h6.8M16.7 ${f(my - 0.2)}v2.6M19.3 ${f(my - 0.2)}v2.6`, 0.6, paper));
+  } else if (mouthStyle === "flat") {
+    mouth.appendChild(stroke(`M15 ${f(my + 0.8)}h6`, 1.7));
+  } else if (mouthStyle === "o") {
+    mouth.appendChild(make("ellipse", { cx: 18, cy: f(my + 1), rx: f(1.6 * k), ry: f(2 * k), fill: ink }));
+  } else if (mouthStyle === "gasp") {
+    mouth.appendChild(make("ellipse", { cx: 18, cy: f(my + 1.4), rx: f(2.3 * k), ry: f(3 * k), fill: ink }));
+    mouth.appendChild(make("ellipse", { cx: 18, cy: f(my + 1.4 + 1.6 * k), rx: f(1.3 * k), ry: f(0.9 * k), fill: "#ff6b8a" }));
+  } else if (mouthStyle === "yawn") {
+    mouth.appendChild(make("ellipse", { cx: 18, cy: f(my + 1), rx: 1.4, ry: 1.8, fill: ink }));
+  } else if (mouthStyle === "wavy") {
+    mouth.appendChild(stroke(`M13.6 ${f(my + 0.8)}q1.47-1.4 2.93 0t2.93 0t2.93 0`, 1.4));
+  } else if (mouthStyle === "smirk") {
+    mouth.appendChild(stroke(`M14.8 ${f(my + 1.1)}q3.6 1.2 6.6-1.8`, 1.7));
+  } else if (mouthStyle === "tongue") {
+    mouth.appendChild(stroke(`M14.2 ${f(my)}c2.2 2 5.4 2 7.6 0`, 1.7));
+    mouth.appendChild(make("path", { d: `M17.9 ${f(my + 1.2)}v1.4a1.6 1.6 0 0 0 3.2 0v-2.1z`, fill: "#ff6b8a", stroke: "#1c1c1a", "stroke-width": 0.4 }));
+  } else if (mouthStyle === "cat") {
+    mouth.appendChild(stroke(`M15 ${f(my)}q1.5 1.7 3 0q1.5 1.7 3 0`, 1.4));
+  } else if (mouthStyle === "grille") {
+    mouth.appendChild(make("rect", { x: 14, y: f(my - 0.2), width: 8, height: 2.8, rx: 0.8, fill: ink }));
+    mouth.appendChild(stroke(`M16 ${f(my)}v2.4M18 ${f(my)}v2.4M20 ${f(my)}v2.4`, 0.6, paper));
+  }
+  if (creature?.nose) onFace.appendChild(make("ellipse", { cx: 18, cy: f(my - 2), rx: 1.5, ry: 1.05, fill: "#2b2a28" }));
+  if (creature?.whiskers) {
+    for (const side of [-1, 1]) onFace.appendChild(stroke(`M${f(18 + side * 5.5)} ${f(my - 1.2)}l${side * 3.4}-.8M${f(18 + side * 5.5)} ${f(my - 0.2)}l${side * 3.4}.5`, 0.6));
+  }
+  if (creature?.snout) {
+    onFace.appendChild(make("ellipse", { cx: 18, cy: f(my - 2.6), rx: 3.2, ry: 2.2, fill: creature.snout, stroke: "#1c1c1a", "stroke-width": 0.4 }));
+    for (const x of [16.9, 19.1]) onFace.appendChild(make("ellipse", { cx: x, cy: f(my - 2.6), rx: 0.55, ry: 0.8, fill: "#1c1c1a" }));
+  }
+  if (creature?.beak) {
+    onFace.appendChild(make("path", { d: `M16.2 ${f(eyeY + 3)}h3.6l-1.8 2.9z`, fill: creature.beak, stroke: "#1c1c1a", "stroke-width": 0.4, "stroke-linejoin": "round" }));
+  }
+  if (mouth.childNodes.length) onFace.appendChild(mouth);
+  if (mutant?.fangs && mouthStyle) {
+    for (const x of [16.2, 19.8]) {
+      onFace.appendChild(make("path", { d: `M${f(x - 0.8)} ${f(my + 0.5)}l.8 2.1.8-2.1z`, fill: "#ffffff", stroke: "#1c1c1a", "stroke-width": 0.35, "stroke-linejoin": "round" }));
+    }
+  }
+
+  // costumes that sit on the face
+  if (reading.props.includes("moustache")) {
+    onFace.appendChild(fillPath(`M18 ${f(my - 1.6)}c-1.3-1.5-4.1-1.4-5.5 1 2.1-.2 3.9 0 5.5-1zM18 ${f(my - 1.6)}c1.3-1.5 4.1-1.4 5.5 1-2.1-.2-3.9 0-5.5-1z`, "#2b2a28"));
+  }
+  if (reading.props.includes("glasses") && eyeStyle !== "shades") {
+    for (const x of [L, R]) onFace.appendChild(make("circle", { cx: f(x), cy: f(eyeY), r: 3.1, fill: "#ffffff", "fill-opacity": 0.16, stroke: ink, "stroke-width": 0.9 }));
+    onFace.appendChild(stroke(`M${f(L + 3.1)} ${f(eyeY)}q${f((R - L - 6.2) / 2)}-1.1 ${f(R - L - 6.2)} 0`, 0.9));
+  }
+  if (eyeStyle === "shades") {
+    const lens = (x) => make("path", { d: `M${f(x - 3.1)} ${f(eyeY - 1.8)}h6.2v1.6a2.4 2.4 0 0 1-2.4 2.4h-1.4a2.4 2.4 0 0 1-2.4-2.4z`, fill: "#1c1c1a" });
+    onFace.appendChild(lens(L));
+    onFace.appendChild(lens(R));
+    onFace.appendChild(stroke(`M${f(L + 3.1)} ${f(eyeY - 1.4)}H${f(R - 3.1)}`, 0.9, "#1c1c1a"));
+    onFace.appendChild(stroke(`M${f(L - 2)} ${f(eyeY - 0.8)}l1.4 0`, 0.7, "rgba(255,255,255,0.85)"));
+  }
+  if (reading.props.includes("eyepatch")) {
+    onFace.appendChild(stroke(`M${f(L - 5)} ${f(eyeY - 4.5)}Q18 ${f(eyeY - 3.2)} ${f(R + 5)} ${f(eyeY - 1)}`, 0.9, "#1c1c1a"));
+    onFace.appendChild(make("ellipse", { cx: f(R), cy: f(eyeY), rx: 2.8, ry: 2.5, fill: "#1c1c1a" }));
+  }
+
+  // costumes on top
+  const hatColour = palette[[6, 0, 2, 4].find((i) => palette[i] !== head && palette[i] !== ground)];
+  if (reading.props.includes("hat")) {
+    const hat = make("g", { class: "nm-hat" });
+    hat.appendChild(make("path", { d: "M9.6 9.4L21.6-.6 26.4 9.4z", fill: hatColour, stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" }));
+    hat.appendChild(make("ellipse", { cx: 18, cy: 9.6, rx: 10.6, ry: 1.9, fill: hatColour, stroke: "#1c1c1a", "stroke-width": 0.5 }));
+    hat.appendChild(make("path", { d: "M19.6 3.2l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z", fill: "#edc949" }));
+    onFace.appendChild(hat);
+  }
+  if (reading.props.includes("chefhat")) {
+    const hat = make("g", { fill: "#f5f4ef", stroke: "#1c1c1a", "stroke-width": 0.5 });
+    hat.appendChild(make("rect", { x: 12.4, y: 5.2, width: 11.2, height: 4.6, rx: 0.8 }));
+    for (const [cx, cy, r] of [[13.6, 4.6, 3.2], [18, 3, 3.6], [22.4, 4.6, 3.2]]) hat.appendChild(make("circle", { cx, cy, r }));
+    hat.appendChild(make("rect", { x: 12.9, y: 4.8, width: 10.2, height: 3.6, stroke: "none" }));
+    onFace.appendChild(hat);
+  }
+  if (reading.props.includes("crown")) {
+    onFace.appendChild(make("path", { d: "M11.6 9.6L11.1 3.6l3.7 3 3.2-4.4 3.2 4.4 3.7-3-.5 6z", fill: "#edc949", stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" }));
+    onFace.appendChild(make("circle", { cx: 18, cy: 7.4, r: 0.9, fill: "#e15759" }));
+  }
+  if (reading.props.includes("halo")) {
+    const halo = make("g", { class: "nm-halo", fill: "none" });
+    halo.appendChild(make("ellipse", { cx: 18, cy: 3.4, rx: 6.4, ry: 1.9, stroke: "#1c1c1a", "stroke-width": 2.4 }));
+    halo.appendChild(make("ellipse", { cx: 18, cy: 3.4, rx: 6.4, ry: 1.9, stroke: "#ffd84a", "stroke-width": 1.4 }));
+    onFace.appendChild(halo);
+  }
+  if (reading.props.includes("horns")) {
+    for (const side of [-1, 1]) {
+      const x = (n) => f(18 + side * n);
+      onFace.appendChild(make("path", { d: `M${x(6.4)} 9.2Q${x(9.4)} 5.4 ${x(7.6)} 1.6Q${x(5)} 5.6 ${x(3)} 7.6z`, fill: "#e15759", stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" }));
+    }
+  }
+  if (reading.props.includes("antenna") || creature?.antenna) {
+    const antenna = make("g", { class: "nm-antenna" });
+    antenna.appendChild(stroke("M18 8.6V3.8", 1.1, "#1c1c1a"));
+    antenna.appendChild(make("circle", { cx: 18, cy: 3.2, r: 1.6, fill: "#e15759", stroke: "#1c1c1a", "stroke-width": 0.4, class: "nm-bulb" }));
+    onFace.appendChild(antenna);
+  }
+  if (reading.props.includes("headphones")) {
+    onFace.appendChild(stroke("M8.6 16.5a9.4 9.4 0 0 1 18.8 0", 1.6, "#1c1c1a"));
+    for (const x of [6.8, 26]) onFace.appendChild(make("rect", { x, y: 14.4, width: 3.2, height: 5.6, rx: 1.4, fill: hatColour, stroke: "#1c1c1a", "stroke-width": 0.5 }));
+  }
+  if (creature?.ears === "floppy") {
+    for (const side of [-1, 1]) {
+      const cx = 18 + side * 9.6;
+      onFace.appendChild(make("ellipse", { cx, cy: 14.4, rx: 3.1, ry: 5.8, fill: earFill, transform: `rotate(${side * -16} ${cx} 10)` }));
+    }
+  }
+
+  // the extras that carry the joke
+  const drop = (x, y, cls) =>
+    make("path", { d: `M${f(x)} ${f(y)}q-1.4 2.1 0 3.1 1.4-1 0-3.1z`, fill: "#6cb8ff", stroke: "#1c1c1a", "stroke-width": 0.35, class: cls });
+  const extras = make("g", { class: "nm-extras" });
+  if (extrasList.includes("tear")) extras.appendChild(drop(L - 0.3, eyeY + 2, "nm-tear"));
+  if (extrasList.includes("tear2")) extras.appendChild(drop(R + 0.3, eyeY + 2, "nm-tear nm-tear-late"));
+  if (extrasList.includes("sweat")) extras.appendChild(drop(R + 4.2, eyeY - 6, "nm-sweat"));
+  if (extrasList.includes("sweat2")) extras.appendChild(drop(L - 4.2, eyeY - 5, "nm-sweat nm-tear-late"));
+  if (extrasList.includes("drool")) extras.appendChild(drop(20.2, my + 3.6, "nm-tear"));
+  if (extrasList.includes("zz")) {
+    extras.appendChild(stroke(`M${f(R + 1.8)} 6.4h2.4l-2.4 2.6h2.4`, 0.9, ink)).classList.add("nm-z");
+    extras.appendChild(stroke(`M${f(R + 4.6)} 2.8h1.8l-1.8 2h1.8`, 0.8, ink)).classList.add("nm-z", "nm-z-late");
+  }
+  const star = (x, y, s, fill) =>
+    make("path", { d: `M${f(x)} ${f(y - s)}Q${f(x)} ${f(y)} ${f(x + s)} ${f(y)}Q${f(x)} ${f(y)} ${f(x)} ${f(y + s)}Q${f(x)} ${f(y)} ${f(x - s)} ${f(y)}Q${f(x)} ${f(y)} ${f(x)} ${f(y - s)}z`, fill, stroke: "#1c1c1a", "stroke-width": 0.3, class: "nm-spark" });
+  if (extrasList.includes("spark")) {
+    extras.appendChild(star(R + 4.4, eyeY - 6.2, 2.3, "#ffd84a"));
+    extras.appendChild(star(L - 4.2, eyeY - 4.6, 1.4, "#ffd84a")).classList.add("nm-spark-late");
+  }
+  if (extrasList.includes("stars")) {
+    extras.appendChild(star(11.4, 6.2, 1.7, "#ffd84a"));
+    extras.appendChild(star(24.8, 4.8, 2, "#ffd84a")).classList.add("nm-spark-late");
+    extras.appendChild(star(18.4, 3.2, 1.2, "#ffffff")).classList.add("nm-spark-late");
+  }
+  if (extrasList.includes("vein")) {
+    extras.appendChild(stroke(`M${f(R + 2.6)} 6.2q.9.9 0 1.8M${f(R + 5)} 6.2q-.9.9 0 1.8M${f(R + 2.9)} 5.9q.9-.9 1.8 0M${f(R + 2.9)} 8.3q.9.9 1.8 0`, 0.9, "#e8364f")).classList.add("nm-vein");
+  }
+  if (extrasList.includes("heart")) {
+    extras.appendChild(make("path", { d: `M${f(R + 4.4)} 8.6c-2-1.4-2.4-2.6-1.8-3.3.5-.6 1.4-.5 1.8.2.4-.7 1.3-.8 1.8-.2.6.7.2 1.9-1.8 3.3z`, fill: "#e8364f", class: "nm-heart" }));
+  }
+  if (extrasList.includes("question")) {
+    const q = make("text", { x: f(R + 3), y: 9.6, "font-size": 8, "font-weight": 700, fill: ink, class: "nm-q", "font-family": "system-ui, sans-serif" });
+    q.textContent = "?";
+    extras.appendChild(q);
+  }
+  if (extras.childNodes.length) onFace.appendChild(extras);
+
+  body.appendChild(onFace);
+  svg.append(clip, sheen, group);
   return svg;
 }
 
@@ -44099,7 +45605,10 @@ $("graph-highlight-clear").addEventListener("click", () => {
   applyGraphHighlight();
   toast("Highlight cleared.");
 });
-$("graph-trace-clear").addEventListener("click", () => clearTrace());
+//: The trace strip's X leaves trace mode, strip and result both, the same
+//: as Escape: it used to be `clearTrace()`, which kept the mode on and only
+//: reset the two ends, under a tooltip that said it left (INBOX 421 d).
+$("graph-trace-clear").addEventListener("click", () => setTracePanelOpen(false));
 // The legend's own collapse: asked for twice: "the categories toggle line
 // needs to be collapsible or redesigned." A fixed row taken from the
 // canvas whether or not anyone reads it; collapsing it reclaims that row
@@ -48689,1339 +50198,9 @@ window.startApp = async function() {
   wireHorizontalWheelScrolling();
 }
 
-// --- Global Command Palette (Ctrl+K) ---
-
-//: **The popup agent's twelve starters** (CHAT_PLAN.md decision 9). Four was
-//: the count before, and the owner's report was not that they were wrong but
-//: that they were all there was: "just defaults to one of the sentence
-//: starters", because the things actually wanted of an agent that floats over
-//: every tab (make a note of this, remind me, find, summarise the open note,
-//: what changed today) were not offered and typing them out is slower than
-//: doing the job by hand.
-//:
-//: Grouped by verb, and each one is a verb with a slot rather than a finished
-//: sentence: CHAT_PLAN's research section, from Raycast, where a starter that
-//: reads "Remind me to ___" is picked far more often than the same action
-//: written as a question. A starter whose text ends in a space is a stem: it
-//: is put in the box with the caret after it and waits. One that does not is
-//: complete and runs on the press.
-const AGENT_STARTERS = [
-  { group: "Capture", label: "Make a note of…", text: "Make a note of " },
-  { group: "Capture", label: "Add to today's note…", text: "Add to today's note: " },
-  { group: "Find", label: "Notes about…", text: "Find my notes about " },
-  { group: "Find", label: "What did I write this week?", text: "What did I write this week?" },
-  { group: "Find", label: "Open the note about…", text: "Open the note about " },
-  { group: "Summarise", label: "The open note", text: "Summarise the note I have open." },
-  { group: "Summarise", label: "My week", text: "Summarise what I wrote this week." },
-  { group: "Summarise", label: "This conversation", text: "Summarise this conversation." },
-  { group: "Remind", label: "Remind me to…", text: "Remind me to " },
-  { group: "Remind", label: "What is due?", text: "What is due?" },
-  { group: "Do", label: "Tag my untagged notes", text: "Tag my untagged notes." },
-  { group: "Do", label: "Link related notes", text: "Link notes that belong together." },
-];
-
-//: One glyph per family, and the two groups that are not families of their own
-//: take the shape of what they are: the tab group is a place, the recents are a
-//: clock. The icons live here rather than on each row of the table above
-//: because an icon belongs to the group, and a table that repeats it twelve
-//: times is a table with twelve chances to disagree with itself.
-const AGENT_STARTER_ICONS = {
-  Capture: "note-pencil",
-  Find: "magnifying-glass",
-  Summarise: "text-align-left",
-  Remind: "bell",
-  Do: "lightning",
-};
-
-//: **And the ones that only make sense where you are** (INBOX 190: "it needs
-//: to be more versatile and usable across the whole app, the user should be
-//: able to use it as the guiding hand"). The twelve above are the agent's
-//: whole repertoire wherever it is opened, which is right for a panel that
-//: floats over everything and wrong as the *first* thing offered: opened over
-//: a document, "Tag my untagged notes" is the least likely thing anybody
-//: wants, and "summarise this document" was not on the list at all.
-//:
-//: So each tab names two, shown first under the tab's own name, and the
-//: twelve follow unchanged. Two rather than five: a starter list long enough
-//: to read is a starter list nobody reads, and the box is right there.
-const AGENT_TAB_STARTERS = {
-  dashboard: [
-    { label: "What changed today?", text: "What changed in my notebook today?" },
-    { label: "What should I pick up?", text: "What loose ends should I pick up next?" },
-  ],
-  notes: [
-    { label: "Summarise what I have open", text: "Summarise the note I have open." },
-    { label: "Tag this note", text: "Suggest tags for the note I have open." },
-  ],
-  chat: [
-    { label: "Summarise this conversation", text: "Summarise this conversation." },
-    { label: "File the last answer", text: "Save the last answer as a note." },
-  ],
-  graph: [
-    { label: "What links to this?", text: "What is linked to the note I have open?" },
-    { label: "Link related notes", text: "Link notes that belong together." },
-  ],
-  library: [
-    { label: "Summarise what I have open", text: "Summarise the document or board I have open." },
-    { label: "What is in here?", text: "What is in the board or map I have open?" },
-  ],
-  documents: [
-    { label: "Summarise this document", text: "Summarise the document I have open." },
-    { label: "Pull out the key points", text: "List the key points of the document I have open." },
-  ],
-  timeline: [
-    { label: "What did I write this week?", text: "What did I write this week?" },
-    { label: "What changed today?", text: "What changed in my notebook today?" },
-  ],
-  reminders: [
-    { label: "What is due?", text: "What is due?" },
-    { label: "Remind me to…", text: "Remind me to " },
-  ],
-};
-
-//: Which tab the palette is floating over. `switchTab` keeps this in
-//: `localStorage` (it is also how the app restores the last tab on a reload),
-//: and Documents is its own surface inside the Library tab, so it is asked
-//: for separately: a starter offering to summarise "the document I have open"
-//: is only sensible where a document actually is open.
-function agentCurrentTab() {
-  if (!$("tab-documents")?.classList.contains("hidden")) return "documents";
-  const tab = (() => {
-    try {
-      return localStorage.getItem("activeTab");
-    } catch {
-      return null;
-    }
-  })();
-  return AGENT_TAB_STARTERS[tab] ? tab : "notes";
-}
-
-//: The tab's own name, taken from the tab strip rather than written out a
-//: second time here: the strip is what the reader is looking at, and two
-//: copies of a name are two names as soon as one is renamed.
-function agentTabLabel(tab) {
-  if (tab === "documents") return "Documents";
-  const label = document.querySelector(`[data-tab="${tab}"] .tab-label`);
-  return (label?.textContent || tab).trim();
-}
-
-//: The three most recently used, offered first (the same research note: a
-//: quick-action panel that does not remember makes you re-find the one thing
-//: you always do). Per browser, in `localStorage`, because it is a habit of
-//: this window rather than a fact about the notebook.
-const AGENT_STARTERS_RECENT_KEY = "agentStartersRecent";
-const AGENT_STARTERS_RECENT_MAX = 3;
-
-function agentStarterRecents() {
-  let texts = [];
-  try {
-    texts = JSON.parse(localStorage.getItem(AGENT_STARTERS_RECENT_KEY) || "[]");
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(texts)) return [];
-  //: Resolved against the table rather than replayed from storage, so a
-  //: starter whose wording changed comes back with the new wording, and one
-  //: that was removed disappears instead of lingering as a dead chip.
-  return texts
-    .map((text) => AGENT_STARTERS.find((starter) => starter.text === text))
-    .filter(Boolean)
-    .slice(0, AGENT_STARTERS_RECENT_MAX);
-}
-
-function rememberAgentStarter(text) {
-  if (!AGENT_STARTERS.some((starter) => starter.text === text)) return;
-  const kept = [text, ...agentStarterRecents().map((s) => s.text).filter((t) => t !== text)];
-  try {
-    localStorage.setItem(
-      AGENT_STARTERS_RECENT_KEY,
-      JSON.stringify(kept.slice(0, AGENT_STARTERS_RECENT_MAX))
-    );
-  } catch {
-    /* a browser refusing storage is not a reason to refuse the starter */
-  }
-}
-
-function renderAgentStarters() {
-  const box = $("command-palette-starters");
-  if (!box) return;
-  box.replaceChildren();
-  const groups = [];
-  //: Where you are, first: see AGENT_TAB_STARTERS for why. `slice()` because
-  //: the loop below appends into whichever group it last pushed, and the tab
-  //: table is a constant: without the copy, opening the palette twice on the
-  //: same tab grew that tab's row permanently.
-  const tab = agentCurrentTab();
-  const here = AGENT_TAB_STARTERS[tab];
-  if (here) groups.push([`On ${agentTabLabel(tab)}`, here.slice(), "map-pin"]);
-  const recent = agentStarterRecents();
-  if (recent.length) groups.push(["Recent", recent, "clock-counter-clockwise"]);
-  for (const starter of AGENT_STARTERS) {
-    const last = groups[groups.length - 1];
-    if (last && last[0] === starter.group) last[1].push(starter);
-    else groups.push([starter.group, [starter], AGENT_STARTER_ICONS[starter.group]]);
-  }
-  for (const [name, items, icon] of groups) {
-    const label = document.createElement("p");
-    //: `.eyebrow` is the app's one small-label recipe (01-forms-settings.css,
-    //: DESIGN.md's recipe index); `.starter-verb` only makes it span the two
-    //: columns of the starter grid and rule a hairline under itself.
-    label.className = "starter-verb eyebrow";
-    label.textContent = name;
-    box.appendChild(label);
-    for (const item of items) {
-      const button = document.createElement("button");
-      button.type = "button";
-      //: **A row, not a pill** (INBOX 231, the owner: "these suggested
-      //: questions in the popup agent are really ugly and that area needs a
-      //: better modern and more professional redesign"). `ghost small` drew
-      //: fourteen bordered pills in two columns, which is fourteen outlines
-      //: competing with each other and with the box above them. `.starter`
-      //: alone is DESIGN.md's row recipe instead: no edge at rest, the ground
-      //: arriving with the pointer. The class stays on the button, so the
-      //: table above, the click handler and the recents are untouched.
-      button.className = "starter";
-      //: **The family's icon, on every one of its members** (INBOX 205, the
-      //: owner: "I want you to improve and redesign the suggestions and quick
-      //: prompts in the popup agent"). Fourteen identical text pills in a
-      //: two-column grid is a wall: the eye has to read every label to find
-      //: the one it wants, and the five verbs the set is built around were
-      //: carried only by a heading three rows up. One glyph per family makes
-      //: the group legible from the chip itself, which is what lets the set be
-      //: scanned by shape rather than read in full.
-      setLabel(button, `ph:${icon} ${item.label}`);
-      button.dataset.example = item.text;
-      button.title = /\s$/.test(item.text)
-        ? `Start a message: ${item.text.trim()}…`
-        : `Ask: ${item.text}`;
-      box.appendChild(button);
-    }
-  }
-}
-
-//: **What "the open note" means** (decision 9's "Use the open note" toggle,
-//: which scopes a run to the entry on screen). In order: the document open in
-//: the editor while the Library's document pane is showing, then the note
-//: being edited, then the last note opened in this session. The palette floats
-//: over every tab, so "on screen" has to be answered from what the app knows
-//: rather than from what happens to be scrolled into view.
-function agentOpenSubject() {
-  const showing = (name) => !$(`tab-${name}`)?.classList.contains("hidden");
-  if (showing("documents") && typeof currentDoc !== "undefined" && currentDoc?.id) {
-    return { kind: "document", id: currentDoc.id, label: currentDoc.title || "this document" };
-  }
-  //: **A board is not a note, and saying so was the whole report** (INBOX
-  //: 189, the owner: "I think the test note the popup agent is referring to
-  //: is the mind map I just made called test"). A board and a mind map are
-  //: `Entry` rows like everything else here, so the last thing opened can be
-  //: one of them, and this called it a note: the toggle offered "Use test",
-  //: the run sent it as `note_ids`, and the model was handed a note whose
-  //: whole content is `# test`. `mapBoardById` is the one place that knows
-  //: which entry ids are boards, and a board row carries its own `type`, so a
-  //: map is named a map and a board a board.
-  const asBoard = (id) => {
-    const board = typeof mapBoardById === "function" ? mapBoardById(id) : null;
-    if (!board) return null;
-    const kind = (board.type || "map") === "map" ? "map" : "board";
-    return { kind, id, label: board.title || `${kind} ${id}` };
-  };
-  //: The canvas first: a board open in front of you is more "the thing on
-  //: screen" than whichever note was last opened before you came here.
-  const wbView = $("library-view-whiteboard");
-  const openBoardId = typeof window !== "undefined" ? window.currentBoardId : null;
-  if (openBoardId && wbView && !wbView.classList.contains("hidden") && showing("library")) {
-    return asBoard(openBoardId) || { kind: "board", id: openBoardId, label: `board ${openBoardId}` };
-  }
-  const noteId = editingId || lastOpenedEntryId;
-  if (!noteId) return null;
-  const board = asBoard(noteId);
-  if (board) return board;
-  const entry = (typeof allEntries !== "undefined" ? allEntries : []).find(
-    (row) => row.id === noteId
-  );
-  return { kind: "note", id: noteId, label: entry ? noteLabel(entry, 40) : `note ${noteId}` };
-}
-
-//: What each kind is called in the toggle's label and its tooltip. A table
-//: rather than a chain of ternaries: five states were asked for by name
-//: (INBOX 190), and a table is what makes it obvious when one is missing.
-const AGENT_SUBJECT_WORDS = {
-  note: "note",
-  document: "document",
-  map: "mind map",
-  board: "board",
-};
-
-//: What the toggle actually sends. A document and a note go to different
-//: fields, because `_attached_documents` and `_attached_notes` read different
-//: tables and a document sent as a note reaches the model as a title.
-function agentScopeForRun() {
-  const box = $("command-palette-use-note");
-  if (!box || !box.checked) return {};
-  const subject = agentOpenSubject();
-  if (!subject) return {};
-  //: **And the kind goes to the server, not just to the label** (INBOX 189).
-  //: `board_ids` has its own reader (`_attached_boards`, routes_chat.py),
-  //: which hands the model the map's outline under "Mind map: <title>"; the
-  //: same id sent as `note_ids` reaches it as an entry whose entire content
-  //: is `# <name>`. Naming it correctly on screen and then sending it as
-  //: something else would have fixed half the report.
-  if (subject.kind === "document") return { documentIds: [subject.id] };
-  if (subject.kind === "map" || subject.kind === "board") return { boardIds: [subject.id] };
-  return { noteIds: [subject.id] };
-}
-
-//: Whether the board index has been asked for since the palette was opened.
-//: See the call below for why it is asked for at all.
-let agentBoardIndexAsked = false;
-
-//: Enabled only when there is something to use, and the label says what that
-//: something is: a tick box offering to scope a run to nothing is the "control
-//: that does nothing when pressed" this app has been told about before.
-function syncAgentOpenNoteToggle() {
-  const box = $("command-palette-use-note");
-  const label = $("command-palette-use-note-label");
-  //: The words live in a span inside the label, not in the label itself: a
-  //: label's `textContent` includes the checkbox, so writing the new wording
-  //: onto the label would delete the control it is labelling.
-  const text = $("command-palette-use-note-text");
-  if (!box || !label || !text) return;
-  //: **The index that tells a map from a note has to be there to be read.**
-  //: `mapBoardById` answers from a cache filled by whichever surface last drew
-  //: board chips, and the palette opens over every tab, including ones that
-  //: have never asked for boards at all. Without this the fix for INBOX 189
-  //: would work on the Library tab and nowhere else, which is worse than not
-  //: working: it would look fixed. Asked for once per opening (the flag is
-  //: cleared by `toggleAgentPalette`), and the repaint is what puts the right
-  //: word on the label when the answer arrives.
-  if (!agentBoardIndexAsked && typeof loadMapBoardIndex === "function") {
-    agentBoardIndexAsked = true;
-    loadMapBoardIndex().then(() => syncAgentOpenNoteToggle()).catch(() => {});
-  }
-  const subject = agentOpenSubject();
-  box.disabled = !subject;
-  if (!subject) box.checked = false;
-  //: **"The open note" answered a question nobody could** (INBOX 190, the
-  //: owner: "what does 'the open note' mean?? what does opening a note even
-  //: entail?? how does one open a note??"). Two faults in one line. It named
-  //: a category where it could name the thing, so the answer to "which note?"
-  //: was a definite article; and with nothing open it still said "the open
-  //: note", which is a checkbox describing something that does not exist.
-  //: Now it says what kind the thing is and what it is called, and when there
-  //: is nothing it says what would count as something.
-  const word = subject ? AGENT_SUBJECT_WORDS[subject.kind] || subject.kind : null;
-  //: **One short line, and the sentence behind it** (INBOX 208). The empty
-  //: state used to carry its own instructions in the label, "Nothing open to
-  //: use (open a note, document, board or map first)", which is a caption for
-  //: a checkbox written as a paragraph: three lines at 390 and two at 1440, on
-  //: a row that is otherwise one control high. A label says what the control
-  //: does; the tooltip below, which has always carried the longer sentence,
-  //: says what to do about it. The open case keeps the thing's name, which is
-  //: the point of INBOX 190, and the CSS ellipsises a long one rather than
-  //: wrapping it, so the title repeats it in full.
-  text.textContent = subject ? `Use this ${word}: ${subject.label}` : "Nothing open to use";
-  label.title = subject
-    ? `Send this ${word}, ${subject.label}, with what you ask, so the agent works on it`
-    : "Open a note, a document, a board or a mind map first, then the agent can work on it";
-}
-
-const cmdPaletteOverlay = $("command-palette-overlay");
-const cmdPaletteInput = $("command-palette-input");
-const cmdPaletteResults = $("command-palette-results");
-
-// Opened and closed by `runShortcut("askAgent")`, see DEFAULT_SHORTCUTS.
-// This deliberately has no `document.addEventListener` chord of its own:
-// binding one here is what let this overlay collide with the navigation
-// palette on Ctrl+K, and then with the sketch pad on Ctrl+Shift+K, twice
-// without anything noticing.
-function toggleAgentPalette() {
-  //: **On a phone the chat is the agent** (UI_MODERNISATION_PLAN Phase 11
-  //: item 3): a second conversation surface floating over a 390px window
-  //: is the Chat tab with less room, so the shortcut, the status dot and
-  //: the More sheet's row all go to Chat there, with the box ready.
-  if (window.matchMedia(PHONE_TABS).matches) {
-    cmdPaletteOverlay.classList.add("hidden");
-    switchTab("chat");
-    // After the tab's own focus handling has settled (it takes the panel
-    // first); measured, a same-turn focus was gone by the next frame.
-    setTimeout(() => $("chat-input")?.focus(), 80);
-    return;
-  }
-  if (cmdPaletteOverlay.classList.contains("hidden")) {
-    cmdPaletteOverlay.classList.remove("hidden");
-    //: Both on open rather than once at boot: which starters are recent and
-    //: what counts as the open note are answers about the moment the palette
-    //: is reached for, and it is reached for from every tab.
-    renderAgentStarters();
-    syncAgentPaletteAvailability();
-    agentBoardIndexAsked = false;
-    syncAgentOpenNoteToggle();
-    cmdPaletteInput.focus();
-  } else {
-    cmdPaletteOverlay.classList.add("hidden");
-  }
-}
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !cmdPaletteOverlay.classList.contains("hidden")) {
-    cmdPaletteOverlay.classList.add("hidden");
-  }
-});
-
-cmdPaletteOverlay.addEventListener("click", (e) => {
-  if (e.target === cmdPaletteOverlay) {
-    cmdPaletteOverlay.classList.add("hidden");
-  }
-});
-
-// The head's Close. Escape and a click on the backdrop both already closed this
-// surface and neither is visible, which is the half of "redesigned with the
-// consistent modern look" that is not paint: every other dialog in the app
-// offers a control you can see and this one asked you to know a key.
-$("command-palette-close").addEventListener("click", () => toggleAgentPalette());
-
-//: The header's wand moved to the status bar with INBOX 207; the slot's own
-//: listener sits beside the rest of the bar's, and the chord is named in its
-//: tooltip, which is how anybody finds out a chord exists.
-
-//: **The agent bar keeps a conversation, and says so.** Reported: "the popup
-//: agent needs more features, capability, and learnability, there's no way to
-//: clear the chat and start over, idk what it can do, and even if it works".
-//: Every one of those was true of the same handler:
-//:
-//: - It sent `history: []` on every turn, so a follow-up ("now file that as a
-//:   note") could not refer to the answer above it. It was a series of
-//:   unrelated one-shot questions in a window that looked like a chat.
-//: - There was no way to clear it, so the only reset was reloading the app.
-//: - Its whole affordance was "Press Enter to send", which says nothing about
-//:   what it can be asked to *do*.
-//: - Every failure came out as "Error communicating with agent.", the one
-//:   message that guarantees "idk if it even works", and it threw away
-//:   `err.message`, which is exactly where `describe_http_error`'s diagnosis
-//:   of a failing model arrives.
-const cmdPaletteTurns = [];
-let cmdPaletteRun = null;
-
-function cmdPaletteReset() {
-  cmdPaletteTurns.length = 0;
-  cmdPaletteResults.replaceChildren();
-  $("command-palette-intro")?.classList.remove("hidden");
-  $("command-palette-status").textContent = "";
-  renderCmdPaletteMenu();
-}
-
-//: **Keeping a conversation that was never meant to be kept** (INBOX 215, the
-//: owner: "I want to be able to save conversations with the popup agent as a
-//: permanent chat session"). The palette holds its turns in `cmdPaletteTurns`
-//: and nothing else: it is a scratch window over whatever tab you are on, and
-//: Start over throws the lot away. This posts them as a real conversation, the
-//: same shape the Chat tab writes, and hands you the thread.
-//:
-//: The first turn creates it (the route makes the title from the question) and
-//: the rest are appended, which is exactly the sequence the Chat tab performs
-//: live; there is no bulk endpoint and adding one to save a round trip per
-//: turn would be a second way to write the same row.
-async function cmdPaletteSaveAsChat() {
-  if (!cmdPaletteTurns.length) return;
-  const status = $("command-palette-status");
-  setLabel(status, "ph:circle-notch Saving…");
-  try {
-    const [first, ...rest] = cmdPaletteTurns;
-    const conversation = await apiJson("/conversations", {
-      method: "POST",
-      body: JSON.stringify({ question: first.question, answer: first.answer }),
-    });
-    for (const turn of rest) {
-      await apiJson(`/conversations/${conversation.id}/turns`, {
-        method: "POST",
-        body: JSON.stringify({ question: turn.question, answer: turn.answer }),
-      });
-    }
-    //: **The confirmation is a toast with an action, not a link in the status
-    //: line.** The status line is one line that ellipsises (it sits in a row
-    //: with a toggle and a menu, INBOX 208), so a title of any length would
-    //: have pushed the way in off the end of it. `toastAction` is the app's
-    //: own recipe for "it is done, and here is the thing": the message names
-    //: the conversation, the button opens it, and nothing switches tab
-    //: underneath a panel that is still open unless it is pressed.
-    setLabel(status, "ph:check-circle Saved as a chat");
-    toastAction(`Saved as "${conversation.title}"`, "Open it", () => {
-      toggleAgentPalette();
-      switchTab("chat");
-      return openConversation(conversation.id);
-    });
-    //: The list behind the Chat tab's sidebar is stale the moment this lands,
-    //: and it is cheap to refresh: without it the new thread is missing until
-    //: something else happens to reload it.
-    loadConversationList().catch(() => {});
-    renderCmdPaletteMenu();
-  } catch (error) {
-    setLabel(status, "ph:warning-circle Could not save this conversation");
-  }
-}
-
-//: The foot's one menu. Rebuilt rather than wired once, because what it offers
-//: depends on whether there is anything to save yet, and a menu that offers a
-//: dead row is the "control that does nothing when pressed" this app keeps
-//: being told about. `kebabMenu` is the recipe (DESIGN.md's index).
-function renderCmdPaletteMenu() {
-  const host = $("command-palette-menu");
-  if (!host || typeof kebabMenu !== "function") return;
-  const saved = cmdPaletteTurns.length;
-  host.replaceChildren(
-    kebabMenu(
-      [
-        {
-          label: "ph:floppy-disk Save as chat",
-          title: saved
-            ? "Keep this conversation in the Chat tab"
-            : "Ask the agent something first, then this can keep the conversation",
-          disabled: !saved,
-          run: () => (saved ? cmdPaletteSaveAsChat() : undefined),
-        },
-        {
-          label: "ph:arrow-counter-clockwise Start over",
-          title: "Forget this conversation and start over",
-          disabled: !saved,
-          run: () => (saved ? cmdPaletteReset() : undefined),
-        },
-      ],
-      "More actions for this conversation"
-    )
-  );
-}
-
-function cmdPaletteBusy(busy) {
-  //: `|| aiIsOff()`: this runs at the end of every turn, and without it the
-  //: field a disconnected model had disabled comes back enabled the first time
-  //: anything ran, which is the "guard removed while the shape around it was
-  //: kept" failure in CLAUDE.md section 6, arriving by accident.
-  cmdPaletteInput.disabled = busy || aiIsOff();
-  $("command-palette-stop")?.classList.toggle("hidden", !busy);
-  $("command-palette-menu")?.classList.toggle("hidden", busy);
-  //: **The state line is written by the run, not by this** (INBOX 190: the
-  //: agent should say "what it is working on and which tool ran"). This used
-  //: to write "Working…" on the way in and blank on the way out, which is a
-  //: status line that has never once said anything a person could not see
-  //: from the spinner. `cmdPaletteAsk` now writes the question, then each
-  //: tool as it runs, then what the turn came to; all this does is clear a
-  //: line left over from the run before.
-  if (busy) setLabel($("command-palette-status"), "ph:circle-notch Working…");
-  if (!busy) cmdPaletteInput.focus();
-}
-
-//: **The palette says what it did, the way the Chat tab does.** Reported:
-//: "the popup agent is still missing many things like the semantic search,
-//: token count, thinking boxes, metadata, persona used, model used... the
-//: popup agent should be an application wide utility tool."
-//:
-//: Every one of those already arrives on the stream, `onMeta` carries the
-//: search mode and what answered, `onStats` the model and the token counts,
-//: `onThinking` the reasoning: and the palette wired all three to `() => {}`.
-//: So this is not new machinery; it is the same events the Chat tab reads,
-//: rendered in the one surface that was throwing them away.
-//:
-//: A quiet footer rather than the Chat tab's full panel, on purpose: the
-//: palette is a 600px overlay you open on top of whatever you were doing, and
-//: reproducing a side panel in it would make the answer harder to read, not
-//: better evidenced. Each fact is a chip, so the row wraps and stays one line
-//: tall when there is little to say.
-function cmdPaletteMetaRow({ meta, stats, persona }) {
-  const facts = [];
-  if (meta?.search_mode && meta.search_mode !== "none") {
-    facts.push([
-      "ph:magnifying-glass",
-      SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode,
-      "How your notes were searched for this answer",
-    ]);
-  }
-  const model = stats?.model || meta?.answered_by;
-  if (model) facts.push(["ph:cpu", model, "The model that answered"]);
-  if (persona) facts.push(["ph:user-circle", persona, "The persona that answered"]);
-  const tokens = (stats?.prompt_tokens || 0) + (stats?.output_tokens || 0);
-  if (tokens) {
-    //: `usage_source` is the difference between a measured count and a guess,
-    //: and reporting a guess as a measurement is the dishonest way round, 
-    //: the same reason the Chat tab's own accumulator propagates it.
-    const estimated = stats.usage_source === "estimated";
-    facts.push([
-      "ph:coins",
-      `${formatTokens(tokens)} tokens${estimated ? " (est.)" : ""}`,
-      estimated
-        ? "Estimated: this model did not report its own usage"
-        : "Counted by the model",
-    ]);
-  }
-  if (stats?.round > 1) {
-    facts.push(["ph:arrows-clockwise", `${stats.round} rounds`, "Tool rounds this turn took"]);
-  }
-  if (!facts.length) return null;
-  const row = document.createElement("div");
-  row.className = "row cmd-palette-meta";
-  for (const [icon, text, title] of facts) {
-    const item = document.createElement("span");
-    item.className = "chip tag cmd-palette-fact";
-    setLabel(item, `${icon} ${text}`);
-    item.title = title;
-    row.appendChild(item);
-  }
-  return row;
-}
-
-//: The model's reasoning, closed. It is long, it is not the answer, and the
-//: palette is the smallest surface in the app, but hiding it entirely is what
-//: made this window feel like it was doing something it would not explain.
-function cmdPaletteThinkingBox(text) {
-  const box = document.createElement("details");
-  box.className = "tool-chip cmd-palette-thinking";
-  const summary = document.createElement("summary");
-  setLabel(summary, "ph:brain Thinking");
-  box.appendChild(summary);
-  const body = document.createElement("div");
-  body.className = "tool-chip-body";
-  const pre = document.createElement("pre");
-  pre.className = "tool-chip-result";
-  pre.textContent = text;
-  body.appendChild(pre);
-  box.appendChild(body);
-  return box;
-}
-
-//: **What the agent found has to be reachable, not recited.** Reported with a
-//: screenshot of the palette answering "You can find your notes about gaming
-//: in notes id 3, 43 and 49": *"i have no clue what the notes numbers are,
-//: there are no links to notes, no way to actually find and navigate to the
-//: things it found, there is no semantic search results that appear."*
-//:
-//: Every word of that was a fair reading of what the code did. `onMeta`, the
-//: event carrying `raw_results`, the notes retrieval actually surfaced, was
-//: wired to `() => {}` here, so the one surface that knew which notes the turn
-//: had found threw them away and left the model to describe them in prose. A
-//: row id is the app's internal handle; printing it at a person is the same
-//: mistake as the audit log's raw `entity_type`, and worse, because there is
-//: nothing they can do with it.
-//:
-//: Two halves, and both are needed. The row below the answer is the *result
-//: set*: it exists even when the model's prose forgets to mention a note, and
-//: it is the semantic search result the report says is missing. The linkifier
-//: is for the prose itself: a model that says "note id 43" is naming something
-//: real, so that phrase becomes the button that opens it rather than a number
-//: to go hunting for.
-const CMD_NOTE_REF = /\bnotes?\s*(?:id|#)?\s*(\d{1,7})\b/gi;
-
-//: Opening a note means leaving the palette, it is an overlay over the app it
-//: is about to navigate. Closing it first is what makes "find it" and "go to
-//: it" one gesture instead of a jump that happens behind a panel.
-function cmdPaletteGoToNote(id) {
-  cmdPaletteOverlay.classList.add("hidden");
-  flashEntry(id);
-}
-
-//: The same gesture for a document. Notes and documents share an id space
-//: only by accident, id 12 is a different object in each table, so this
-//: cannot be folded into the note case: sending a document id through
-//: `flashEntry` opens an unrelated note, silently.
-function cmdPaletteGoToDocument(id) {
-  cmdPaletteOverlay.classList.add("hidden");
-  openDocumentFromNote(id);
-}
-
-//: What the *tools* opened, as opposed to what retrieval found. The report
-//: this answers: "no way to actually find and navigate to the things it
-//: found". Retrieval's row (`cmdPaletteResultRow`) only ever covers notes the
-//: semantic search returned; a turn that read a document, edited a note or
-//: followed a link touched things that row never mentions. The backend already
-//: names them per tool call (`_touched_items`), so the palette accumulates
-//: them across the turn and shows them under one heading.
-function cmdPaletteTouchedRow(items) {
-  if (!items.length) return null;
-  //: Same grid as the retrieved-notes block above, these two lists sat under
-  //: one another in different shapes and different chip sizes, which is what
-  //: made the pair read as clutter rather than as provenance.
-  return cmdSourceList(
-    items.length === 1 ? "Opened 1 item" : `Opened ${items.length} items`,
-    items,
-    (item) => {
-      const spec = TOUCHED_KINDS[item.kind] || TOUCHED_KINDS.note;
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "cmd-source-row";
-      //: INBOX 35, batch B's own next step: `item.label` is a raw title/
-      //: preview from the backend (a document's own title, a note's opening
-      //: words). Reported with a screenshot: a document titled `# CAB432`
-      //: and a note opening `**Ice Breakers:**` printed their own markdown
-      //: markers here. `setNoteLabel` is the one place that both strips a
-      //: label short enough to cut safely and renders one long enough to
-      //: show in full, rather than a plain-text stripper that always
-      //: flattens -- the same badge recipe the grounding/touched chips
-      //: elsewhere in chat already use.
-      setNoteLabel(chip, spec.icon, item.label || `#${item.id}`, 44);
-      chip.title = spec.title;
-      chip.addEventListener("click", () =>
-        item.kind === "document" ? cmdPaletteGoToDocument(item.id) : cmdPaletteGoToNote(item.id),
-      );
-      return chip;
-    }
-  );
-}
-
-//: **A list of what was used, not a drift of pills.**
-//:
-//: Reported with a screenshot of "Found in 10 notes" and "Opened 6 items":
-//: *"refine the ui display of these in the popup agent."* They were inline
-//: chips of whatever width their text happened to be, wrapping into a ragged
-//: block: three on one line, two on the next, each truncated at a different
-//: point, and the second list's chips a different size from the first's
-//: because their labels were longer. Nothing lines up, so nothing scans.
-//:
-//: A fixed grid fixes both halves at once: every row is the same width, so the
-//: eye reads down a column instead of hunting, and the truncation lands in one
-//: place. Past `CMD_SOURCE_PREVIEW` the rest fold behind one "show all", 
-//: eleven rows of provenance under a two-line answer is the panel reporting on
-//: itself rather than answering.
-const CMD_SOURCE_PREVIEW = 6;
-
-function cmdSourceList(labelText, items, render) {
-  const block = document.createElement("div");
-  block.className = "cmd-source-block";
-  const head = document.createElement("p");
-  head.className = "muted cmd-source-head";
-  head.textContent = labelText;
-  block.appendChild(head);
-  const grid = document.createElement("div");
-  grid.className = "cmd-source-grid";
-  items.slice(0, CMD_SOURCE_PREVIEW).forEach((item) => grid.appendChild(render(item)));
-  block.appendChild(grid);
-  const rest = items.slice(CMD_SOURCE_PREVIEW);
-  if (rest.length) {
-    const more = document.createElement("button");
-    more.type = "button";
-    more.className = "link-button cmd-source-more";
-    more.textContent = `Show ${rest.length} more`;
-    more.addEventListener("click", () => {
-      rest.forEach((item) => grid.appendChild(render(item)));
-      more.remove();
-    });
-    block.appendChild(more);
-  }
-  return block;
-}
-
-//: The notes this turn actually retrieved, as things you can open.
-function cmdPaletteResultRow(results) {
-  return cmdSourceList(
-    results.length === 1 ? "Found in 1 note" : `Found in ${results.length} notes`,
-    results,
-    (entry) => {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "cmd-source-row";
-      //: `ph:note`, not `ph:file-text`, that glyph means *document* in the
-      //: touched row below, and the same picture standing for two different
-      //: objects in one panel is exactly the inconsistency this app is being
-      //: pulled out of. `setNoteLabel`, not `noteLabel` plus `setLabel`: the
-      //: latter pair always flattens (INBOX 35's original fix), the former
-      //: renders the note's own Markdown when the label is short enough to
-      //: show in full (chat-b.md's own next step).
-      setNoteLabel(chip, "ph:note", entry.content || "", 44);
-      chip.title = `Open this note${entry.category ? ` (${entry.category})` : ""}`;
-      chip.addEventListener("click", () => cmdPaletteGoToNote(entry.id));
-      return chip;
-    }
-  );
-}
-
-//: One reference, as a control. Extracted because a list of ids builds several
-//: of these and they must be identical, a note you can open should not look
-//: like two different things in the same sentence.
-//: **The link says which note it opens, and that is a correctness feature
-//: rather than a nicety.** Reported: "the bubble tea note it mentioned was
-//: my bubble tea mind map, but the link it gave and grounded was my
-//: shakespeare note". The id in a link comes from the model's own prose
-//: (`CMD_NOTE_REF` matches the "68" in "note #68"), and a model that writes
-//: the wrong id produces a link that goes somewhere the answer never meant.
-//: Nothing here can tell a right id from a wrong one: only the person
-//: reading the sentence knows which note they were promised.
-//:
-//: So the tooltip carries the note's own opening words, labelled the same
-//: way the source chips below the answer are labelled and from the same
-//: retrieved entry. When the model gets it right the tooltip agrees with
-//: the sentence; when it gets it wrong the disagreement is visible before
-//: the click rather than after it. `entry` is optional because a caller
-//: without one is still better off with a working link than none.
-//: **The link says which note it opens, in the sentence, before it is
-//: clicked** (INBOX 112).
-//:
-//: Reported with two screenshots: an answer that read "You only have one note
-//: (note #68) in your notebook, and its content is simply '# bubble tea'",
-//: with both chips labelled "bubble tea", and clicking "note #68" opened a
-//: Shakespeare sonnet parody. Traced: the destination is not wrong.
-//: `flashEntry` selects `li[data-id="${id}"]`, so the button opens exactly the
-//: id the text names, and the run-of-ids walk below only ever links an id this
-//: turn actually retrieved. What went wrong is upstream of the app: the model
-//: wrote an id that belonged to a different note than the one its own sentence
-//: was describing, and the app then dressed that number up as a citation, which
-//: is what made a model's mistake read as the app sending you somewhere at
-//: random.
-//:
-//: A tooltip was the first answer and it is not enough: you have to hover a
-//: thing you have no reason to distrust. So the note's own opening words go
-//: *in* the link, beside the model's own wording, which is left exactly as it
-//: was written. When the model is right the link reads "note #68 · bubble tea"
-//: and confirms itself; when it is wrong it reads "note #68 · Act I, Scene I"
-//: and the mismatch is visible in the sentence without clicking anything. The
-//: app cannot make a small local model cite correctly, and it can stop
-//: repeating the claim as though it had checked it.
-//: The first line of a note, as a name. Empty when there is nothing to show,
-//: so the caller can leave the reference bare rather than print "(empty
-//: note)" in the middle of a sentence.
-function cmdNoteName(entry) {
-  const first = String(entry?.content || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .find((line) => line.length > 0);
-  if (!first) return "";
-  const clean = (typeof notePreviewText === "function" ? notePreviewText(first) : first)
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!clean) return "";
-  return clean.length > 24 ? `${clean.slice(0, 23).trimEnd()}\u2026` : clean;
-}
-
-function cmdNoteLink(text, id, entry = null) {
-  const link = document.createElement("button");
-  link.type = "button";
-  link.className = "cmd-note-link";
-  const said = document.createElement("span");
-  said.textContent = text;
-  link.appendChild(said);
-  //: **The note's first line, not `noteLabel`'s preview of the whole note.**
-  //: `noteLabel` runs the entire content through the markdown stripper and
-  //: collapses it to one line, which is right for a card ("Act I, Scene I A
-  //: sonnet parody") and wrong here: this is a name inside a sentence, and
-  //: what a reader recognises a note by is its heading. 24 characters, not
-  //: `noteLabel`'s 40, for the same reason: three linked ids in one list at 40
-  //: each is a paragraph of titles in the middle of an answer.
-  const preview = cmdNoteName(entry);
-  if (preview) {
-    const name = document.createElement("span");
-    name.className = "cmd-note-link-name";
-    name.textContent = preview;
-    link.appendChild(name);
-  }
-  link.title = preview ? `Open note ${id}: "${preview}"` : `Open note ${id}`;
-  link.addEventListener("click", () => cmdPaletteGoToNote(id));
-  return link;
-}
-
-//: Turns "note id 43" in the rendered answer into a button that opens note 43.
-//:
-//: Walks text nodes and splits them, the same shape `addInlineCitations` uses
-//: for the Ask box's citation markers: and for the same reason: the answer is
-//: already safe DOM built by `renderMarkdown`, and going back to a string to
-//: regex over it would be re-introducing the innerHTML this function's own
-//: neighbourhood was fixed to stop using. Only ids the turn actually retrieved
-//: are linked, so a model inventing "note id 900" leaves plain text behind
-//: rather than a button that goes nowhere.
-function cmdPaletteLinkNotes(root, results) {
-  //: A map rather than a set: every link now carries the note's own opening
-  //: words in its tooltip (see `cmdNoteLink`), so the entry has to travel
-  //: with the id rather than just the fact that the id was retrieved.
-  const known = new Map((results || []).map((entry) => [entry.id, entry]));
-  if (!known.size) return;
-  const queue = [root];
-  while (queue.length) {
-    const node = queue.shift();
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      if (node.classList?.contains("cmd-note-link")) continue;
-      queue.unshift(...node.childNodes);
-      continue;
-    }
-    if (node.nodeType !== Node.TEXT_NODE) continue;
-    CMD_NOTE_REF.lastIndex = 0;
-    const match = CMD_NOTE_REF.exec(node.textContent);
-    if (!match) continue;
-    const id = Number(match[1]);
-    if (!known.has(id)) continue;
-    const tail = node.splitText(match.index);
-    const rest = tail.splitText(match[0].length);
-    tail.replaceWith(cmdNoteLink(match[0], id, known.get(id)));
-    //: **The rest of the list, which is where the report actually lands.** A
-    //: model writes "notes id 3, 43 and 49", one phrase naming the id, then
-    //: bare numbers. Linking only the head leaves two of the three notes as
-    //: unreachable digits, which is the complaint verbatim. So after a match,
-    //: keep eating `, 43` / ` and 49` for as long as the next number is one
-    //: this turn actually retrieved. An unknown id ends the run rather than
-    //: being skipped over: past it the numbers are no longer reliably part of
-    //: this list, and guessing is how "$150 to $68" in the very next sentence
-    //: of that screenshot would have become two note links.
-    let cursor = rest;
-    for (;;) {
-      const more = /^(\s*(?:,|and|,\s*and)\s*)(\d{1,7})\b/i.exec(cursor.textContent);
-      if (!more) break;
-      const nextId = Number(more[2]);
-      if (!known.has(nextId)) break;
-      const numStart = cursor.splitText(more[1].length);
-      const after = numStart.splitText(more[2].length);
-      numStart.replaceWith(cmdNoteLink(more[2], nextId, known.get(nextId)));
-      cursor = after;
-    }
-    //: `cursor` carries everything after the run, including any further
-    //: mentions in the same sentence, re-queueing it is what stops the first
-    //: reference in a paragraph being the only one that becomes a link.
-    queue.unshift(cursor);
-  }
-}
-
-async function cmdPaletteAsk(text) {
-  $("command-palette-intro")?.classList.add("hidden");
-
-  const userMsg = document.createElement("div");
-  userMsg.className = "msg user";
-  userMsg.textContent = text;
-  //: **The same three actions the Chat tab's own bubbles carry.** Reported:
-  //: *"I cant copy edit or resend any messages in the popup agent. it still
-  //: lacks a lot of features."* The palette had none of them, a question you
-  //: mistyped could only be retyped from memory, and an answer could only be
-  //: selected by hand.
-  //:
-  //: `chatMessageActions` is the Chat tab's own row, reused rather than
-  //: rebuilt: the palette is supposed to be the same assistant in a smaller
-  //: window, and two different action rows for one idea is how they drift.
-  //: Edit puts the text back in the box rather than opening an editor, 
-  //: there is one input here and it is right below, so the shortest path to
-  //: "ask that again, differently" is to hand it back.
-  userMsg.appendChild(
-    chatMessageActions([
-      { label: "ph:copy", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
-      {
-        label: "ph:pencil-simple",
-        title: "Edit and ask again",
-        onClick: () => {
-          cmdPaletteInput.value = text;
-          cmdPaletteInput.focus();
-          cmdPaletteInput.setSelectionRange(text.length, text.length);
-          autoGrow(cmdPaletteInput);
-        },
-      },
-      {
-        label: "ph:arrow-clockwise",
-        title: "Ask this again",
-        onClick: () => cmdPaletteAsk(text),
-      },
-    ])
-  );
-  cmdPaletteResults.appendChild(userMsg);
-
-  const agentMsg = document.createElement("div");
-  //: `.is-generating` is the app's one "this is working" signal
-  //: (01-forms-settings.css). It goes on the bubble that is filling, not on a
-  //: spinner parked elsewhere, so what pulses is the thing being waited for.
-  agentMsg.className = "msg assistant is-generating";
-  //: What a notification finds this answer by, if the palette is shut when
-  //: it finishes (`noticeUnwatchedAnswer`).
-  agentMsg.dataset.answerId = `agent-${Date.now()}`;
-  //: **What the tools did, as the same fold the Chat tab shows.** Reported:
-  //: "tool calls dont show" in the popup agent. The palette answered every
-  //: tool event with one word on the status line ("Working…") and threw the
-  //: event away, so a turn that read three notes and edited one looked, once
-  //: it had finished, exactly like a turn that had done nothing. The Chat
-  //: tab's answer bubble folds its calls under "Finished N steps"
-  //: (`agent-step-group`); this is that fold, fed by the same `toolChip`
-  //: builder, so a call reads the same in both places. It is created on the
-  //: first tool event rather than up front: a turn with no calls has nothing
-  //: to fold and should not show an empty one.
-  let stepsFold = null;
-  let stepCount = 0;
-  const foldSummary = (done) => {
-    if (!stepsFold) return;
-    const word = stepCount === 1 ? "step" : "steps";
-    setLabel(
-      stepsFold.querySelector("summary"),
-      done ? `ph:check-circle Finished ${stepCount} ${word}` : `ph:circle-notch Working: ${stepCount} ${word}`,
-    );
-  };
-  const addStep = (event) => {
-    if (!stepsFold) {
-      stepsFold = document.createElement("details");
-      stepsFold.className = "agent-step agent-step-group";
-      const summary = document.createElement("summary");
-      summary.className = "agent-step-group-summary";
-      const body = document.createElement("div");
-      body.className = "agent-step-group-body";
-      stepsFold.append(summary, body);
-      agentMsg.insertBefore(stepsFold, answerBox);
-    }
-    stepCount += 1;
-    stepsFold.querySelector(".agent-step-group-body").appendChild(
-      toolChip(event?.label || "Tool call", event?.ok !== false, event),
-    );
-    foldSummary(false);
-  };
-  //: **The answer has a box of its own, and the caret rides that box.**
-  //: Reported: "there's no writing caret when the message is streaming in
-  //: the popup agent". The Chat tab's caret is `.is-streaming > :last-child
-  //: ::after` (01-forms-settings.css) on the answer's own element; the
-  //: palette rendered its answer straight into the bubble, whose last child
-  //: is the action row, so the class had nowhere to sit that would put the
-  //: caret after the words. The answer box is the last thing before the
-  //: actions, and `is-streaming` comes off with `is-generating` below.
-  //: **The class waits for the first token** (INBOX 187, the owner: "the
-  //: writing carette shows on the popup agent when the 3-dot animation is
-  //: showing and it is waiting for a model response which it shouldnt"). Set
-  //: here, the caret's `> :last-child::after` arm landed on the typing dots
-  //: themselves, so the wait was drawn as three bouncing dots with a blinking
-  //: block beside them: two indicators for one state, and the one that means
-  //: "text is arriving" lit while none was. The dots own the "nothing yet"
-  //: state and the caret owns "writing", which is the rule the Ask box has
-  //: followed since it was built (`onAnswer` there adds the same class on its
-  //: first delta, not before the request).
-  const answerBox = document.createElement("div");
-  answerBox.className = "bubble-answer";
-  answerBox.appendChild(typingDots());
-  agentMsg.appendChild(answerBox);
-  cmdPaletteResults.appendChild(agentMsg);
-  //: The answer's own row, added now and reading `answerRaw` at click time: 
-  //: the text does not exist yet, and binding a copy of an empty string is
-  //: how "Copy" ends up copying nothing on a fast answer.
-  agentMsg.appendChild(
-    chatMessageActions([
-      {
-        label: "ph:copy",
-        title: "Copy this answer",
-        onClick: (e) => copyToClipboard(answerRaw, e.currentTarget),
-      },
-      {
-        label: "ph:arrow-clockwise",
-        title: "Ask again for a different answer",
-        onClick: () => cmdPaletteAsk(text),
-      },
-    ])
-  );
-  cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
-
-  // Was hand-rolled against `/chat` (the non-streaming endpoint, a single
-  // JSON object) as though it were the NDJSON `/chat/stream` shape: so
-  // `msg.type` was never "content" and this never actually rendered an
-  // answer at all (a "feature that never ran once", CLAUDE.md's own
-  // category for this). It also built the answer with
-  // `innerHTML = answerText.replace(...)` and no escaping: a real,
-  // reachable XSS the moment the parsing bug above was fixed, since a
-  // model can echo a note's own text back verbatim. Fixed by reusing this
-  // file's one real streaming client (`streamChat`) and its one safe
-  // renderer (`renderMarkdown`, DOM nodes only, never innerHTML) instead
-  // of a second, parallel, broken implementation of both.
-  let answerRaw = "";
-  let answered = false;
-  //: Stopped by the reader, which is the one ending that needs no notice.
-  let stopped = false;
-  let found = [];
-  //: Keyed on kind *and* id, because a note 3 and a document 3 are two
-  //: different things and both may be touched in one turn.
-  const touched = new Map();
-  let meta = null;
-  let stats = null;
-  let thinkingRaw = "";
-  //: The box the reasoning is written into while it is being produced, made
-  //: on the first delta rather than up front so a turn that never thinks out
-  //: loud does not grow an empty one.
-  let thinkingBox = null;
-  //: Which tool ran last, for the line the run ends on. The label is the
-  //: harness's own (`ph:books Listed notes (…)`), so the icon token has to be
-  //: stripped before it can be quoted inside another label.
-  let lastToolLabel = "";
-  cmdPaletteRun = new AbortController();
-  cmdPaletteBusy(true);
-  //: What it is working on, in the person's own words, cut to a line. A
-  //: status that says "Working…" over a thirty-second run is the app saying
-  //: it is busy; this is the app saying what it is busy with, which is the
-  //: difference between waiting and wondering.
-  const shortAsk = text.length > 48 ? `${text.slice(0, 47).trimEnd()}…` : text;
-  setLabel($("command-palette-status"), `ph:circle-notch Working on: ${shortAsk}`);
-  try {
-    await streamChat({
-      question: text,
-      // The same window the Ask box uses, and for the same reason: enough
-      // for a follow-up to mean something, short enough that a small local
-      // model is not re-reading a transcript every turn.
-      history: cmdPaletteTurns.slice(-MAX_CLIENT_HISTORY),
-      //: **"Use the open note"** (decision 9). The subject is resolved at send
-      //: time, not when the box was ticked: the palette stays open across a
-      //: conversation and the person may well have opened something else
-      //: between turns, and the tick means "whatever I am looking at".
-      ...agentScopeForRun(),
-      useTools: true, // the palette is meant to act on the notebook, like Chat
-      signal: cmdPaletteRun.signal,
-      //: `raw_results` is the notes retrieval surfaced for this turn. It used
-      //: to be discarded here, which is why the palette could only describe
-      //: what it found and never show it.
-      onMeta: (event) => {
-        meta = event;
-        found = event?.raw_results || [];
-      },
-      //: **Written as it is thought.** Reported: "the popup agent doesnt
-      //: stream thinking ... the thinking only shows up after the response is
-      //: finished". It was accumulated here and prepended at the end, on the
-      //: reasoning that the box is closed so nobody could see it: true of the
-      //: box, and beside the point for the wait, which is the part of a turn
-      //: where the reasoning is the only thing there is to show. The box is
-      //: open while the turn runs and closes when the answer arrives, so a
-      //: finished turn still reads answer-first.
-      //:
-      //: `textContent` on one `<pre>`, not a re-render: the cost the old
-      //: comment was avoiding was markdown, and this is plain text.
-      onThinking: (delta) => {
-        thinkingRaw += delta;
-        if (!thinkingBox) {
-          thinkingBox = cmdPaletteThinkingBox("");
-          thinkingBox.open = true;
-          agentMsg.prepend(thinkingBox);
-        }
-        const pre = thinkingBox.querySelector(".tool-chip-result");
-        if (pre) {
-          pre.textContent = thinkingRaw;
-          pre.scrollTop = pre.scrollHeight;
-        }
-      },
-      //: An agent turn reports once per round. Same accumulation the Chat tab
-      //: does: output tokens add up, the prompt is the largest one sent, and
-      //: one estimated round makes the whole figure an estimate.
-      onStats: (event) => {
-        if (!stats) {
-          stats = { ...event };
-          return;
-        }
-        stats.model = event.model || stats.model;
-        stats.prompt_tokens = Math.max(stats.prompt_tokens || 0, event.prompt_tokens || 0);
-        stats.output_tokens = (stats.output_tokens || 0) + (event.output_tokens || 0);
-        stats.round = Math.max(stats.round || 0, event.round || 0);
-        if (event.usage_source === "estimated") stats.usage_source = "estimated";
-      },
-      onTool: (event) => {
-        addStep(event);
-        // Something visible while a tool runs, so a long silence reads as
-        // work rather than as nothing happening.
-        //: `setLabel`, not `textContent`. A tool event's label carries this
-        //: app's icon token, `ph:books Listed notes (…)`, and `setLabel` is
-        //: the one function that turns that into the glyph. Writing it as text
-        //: printed the token itself: reported with a screenshot reading
-        //: "Running ph:books Listed notes ([\"Thoughts & Ideas\"])…". The label
-        //: has to be composed before the icon is resolved, since the token is
-        //: only recognised at the start of the string.
-        setLabel(
-          $("command-palette-status"),
-          event?.label ? `${event.label} …` : "Working…",
-        );
-        lastToolLabel = (event?.label || "").replace(/^ph:[\w-]+\s*/, "");
-        for (const item of event?.touched || []) {
-          touched.set(`${item.kind}:${item.id}`, item);
-        }
-        //: **The rest of the app has to hear about it too.**
-        //:
-        //: Reported: *"the popup agent made a note, but there was no way to
-        //: go to it, it didn't appear in the notes tab and only appeared in
-        //: the library."* Both halves are this one line. The Chat tab has
-        //: called `loadEntries()` on a change event since it was built; the
-        //: palette never did, so `allEntries`, which the Notes tab renders
-        //: from, and which the palette's own chips resolve titles against, 
-        //: still held the notebook as it was before the agent wrote to it.
-        //: The Library looked correct only because it re-fetches when opened.
-        //:
-        //: Not awaited: this runs mid-stream and the answer must keep
-        //: arriving while the list refreshes behind it.
-        if ((event?.changes || []).length) loadEntries();
-      },
-      onAnswer: (delta) => {
-        answered = true;
-        answerRaw += delta;
-        //: Idempotent, and cheap: `classList.add` on a class already there is
-        //: a no-op, so this costs nothing per delta and saves a flag.
-        answerBox.classList.add("is-streaming");
-        renderMarkdown(answerBox, answerRaw);
-        cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
-      },
-    });
-    answerBox.classList.remove("is-streaming");
-    foldSummary(true);
-    if (!answered) answerBox.textContent = "(no answer)";
-    else {
-      //: Linked once, at the end, rather than on every delta: mid-stream the
-      //: text can be "note id 4" on its way to "note id 43", and a link built
-      //: from that half-arrived number would point at the wrong note.
-      //: Retrieval's notes *and* the notes tools opened: an `edit_note` turn
-      //: retrieves nothing, so "note id 43" in its answer had no link at all.
-      cmdPaletteLinkNotes(agentMsg, [
-        ...found,
-        ...[...touched.values()].filter((item) => item.kind === "note"),
-      ]);
-      cmdPaletteTurns.push({ question: text, answer: answerRaw });
-      //: The first turn is what turns "Save as chat" from a dead row into a
-      //: live one, so the menu is rebuilt here rather than only on reset.
-      renderCmdPaletteMenu();
-    }
-    //: Below the answer, and always when there were results, the model's
-    //: prose is free to summarise or to leave a note out, but what retrieval
-    //: found should not depend on whether it got a mention.
-    if (found.length) cmdPaletteResults.appendChild(cmdPaletteResultRow(found));
-    //: Under retrieval's row, not instead of it: "what I searched" and "what I
-    //: opened" are different claims, and a turn can have one without the other.
-    const touchedRow = cmdPaletteTouchedRow([...touched.values()]);
-    if (touchedRow) cmdPaletteResults.appendChild(touchedRow);
-    //: Reasoning above the evidence, evidence above the accounting, the same
-    //: order the Chat tab reads in, so moving between the two surfaces does
-    //: not mean learning a second layout.
-    if (thinkingRaw.trim()) {
-      //: Already on screen if the model thought out loud: closed now, with the
-      //: trailing blank lines trimmed, rather than added a second time.
-      if (thinkingBox) {
-        thinkingBox.open = false;
-        const pre = thinkingBox.querySelector(".tool-chip-result");
-        if (pre) pre.textContent = thinkingRaw.trim();
-      } else {
-        agentMsg.prepend(cmdPaletteThinkingBox(thinkingRaw.trim()));
-      }
-    }
-    const metaRow = cmdPaletteMetaRow({
-      meta,
-      stats,
-      persona: (prefsCache && prefsCache.active_persona) || null,
-    });
-    if (metaRow) cmdPaletteResults.appendChild(metaRow);
-    cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
-  } catch (err) {
-    if (err?.name === "AbortError") {
-      stopped = true;
-      answerBox.textContent = answerRaw || "(stopped)";
-    } else {
-      // The message, not a euphemism for it. A failing model's real reason
-      // arrives here (see `describe_http_error` in ai/ollama_client.py) and
-      // "Error communicating with agent." threw all of it away.
-      answerBox.textContent = err?.message || "The agent could not be reached.";
-      agentMsg.classList.add("error");
-    }
-  } finally {
-    answerBox.classList.remove("is-streaming");
-    foldSummary(true);
-    agentMsg.classList.remove("is-generating");
-    cmdPaletteRun = null;
-    cmdPaletteBusy(false);
-    //: The end of the run, said once and left there: what the turn did is
-    //: still the answer to "what happened" a minute later, and a line that
-    //: blanks itself the moment it could be read is a line nobody reads.
-    const word = stepCount === 1 ? "step" : "steps";
-    setLabel(
-      $("command-palette-status"),
-      stepCount
-        ? `ph:check-circle Done, ${stepCount} ${word}, last: ${lastToolLabel || "a tool"}`
-        : answered
-          ? "ph:check-circle Answered"
-          : "ph:warning-circle Nothing came back",
-    );
-    //: Shut before the answer arrived: say so, once, with the way back to it.
-    if (!stopped && cmdPaletteOverlay.classList.contains("hidden")) {
-      noticeUnwatchedAnswer("agent", text, agentMsg.dataset.answerId, {
-        failed: agentMsg.classList.contains("error"),
-      });
-    }
-  }
-}
-
-// The palette's input is a `<textarea>` (see index.html for why), so it has
-// to be told to behave like a command bar rather than a text box: Enter
-// sends, Shift+Enter, and any of the IME/composition states below, insert a
-// newline. `isComposing` matters for anyone typing Japanese, Chinese or Korean:
-// Enter commits the candidate word there, and sending on it would fire the
-// agent at half a sentence every time.
-function cmdPaletteGrow() {
-  // Reset first: without it the box only ever ratchets taller, because
-  // scrollHeight can never come back below a height already set on it.
-  cmdPaletteInput.style.height = "auto";
-  const max = 9 * 16; // ~9rem, then it scrolls, the palette is not an editor
-  cmdPaletteInput.style.height = `${Math.min(cmdPaletteInput.scrollHeight, max)}px`;
-}
-
-cmdPaletteInput.addEventListener("input", cmdPaletteGrow);
-
-//: **The starters are reachable from the keyboard** (INBOX 190's "more ui, ux
-//: and functionality refinements to be more professional"). A command bar
-//: whose suggestions can only be clicked is a command bar that makes you
-//: reach for the mouse in the middle of typing, which is the one thing this
-//: surface exists to avoid. Down from the box enters the list, Up and Down
-//: walk it, Enter runs the one in hand (a `<button>` does that itself), and
-//: Escape hands the caret back to the box rather than closing the panel from
-//: under a person who was only browsing.
-function agentStarterButtons() {
-  return [...document.querySelectorAll("#command-palette-starters [data-example]:not([disabled])")];
-}
-
-function agentFocusStarter(delta) {
-  const buttons = agentStarterButtons();
-  if (!buttons.length) return false;
-  const at = buttons.indexOf(document.activeElement);
-  //: From the box, Down opens at the top and Up at the bottom, which is what
-  //: every menu in this app does and what a person reaching for the last
-  //: starter expects.
-  const next = at === -1 ? (delta > 0 ? 0 : buttons.length - 1) : at + delta;
-  if (next < 0) {
-    cmdPaletteInput.focus();
-    return true;
-  }
-  buttons[Math.min(next, buttons.length - 1)].focus();
-  return true;
-}
-
-$("command-palette-starters")?.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-    if (agentFocusStarter(e.key === "ArrowDown" ? 1 : -1)) e.preventDefault();
-    return;
-  }
-  if (e.key === "Escape") {
-    //: Not `stopPropagation` on the way out of the panel: Escape twice should
-    //: still close it, and the second press arrives with the caret in the box.
-    e.stopPropagation();
-    cmdPaletteInput.focus();
-  }
-});
-
-cmdPaletteInput.addEventListener("keydown", (e) => {
-  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !e.shiftKey) {
-    //: Only when the box is empty, or the arrows would stop being the arrows
-    //: of a multi-line field halfway through writing a paragraph in it.
-    if (!cmdPaletteInput.value && agentFocusStarter(e.key === "ArrowDown" ? 1 : -1)) {
-      e.preventDefault();
-      return;
-    }
-  }
-  if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229) return;
-  e.preventDefault(); // or the newline lands in the box we are about to clear
-  if (!cmdPaletteInput.value.trim()) return;
-  const text = cmdPaletteInput.value.trim();
-  cmdPaletteInput.value = "";
-  cmdPaletteGrow();
-  cmdPaletteAsk(text);
-});
-
-//: Built at boot and again after every turn: see `renderCmdPaletteMenu`.
-renderCmdPaletteMenu();
-$("command-palette-stop")?.addEventListener("click", () => cmdPaletteRun?.abort());
-$("command-palette-intro")?.addEventListener("click", (e) => {
-  const example = e.target.closest("[data-example]");
-  if (!example) return;
-  const starter = example.dataset.example;
-  rememberAgentStarter(starter);
-  cmdPaletteInput.value = starter;
-  cmdPaletteGrow();
-  cmdPaletteInput.focus();
-  //: A complete starter runs; a stem ("Make a note of ") is left for the
-  //: person to finish, with the caret already after it. The test is the
-  //: trailing space, not the question mark it used to be: half the twelve are
-  //: instructions rather than questions ("Tag my untagged notes."), and every
-  //: one of those sat in the box waiting for an Enter that said nothing.
-  if (!/\s$/.test(starter)) {
-    cmdPaletteInput.value = "";
-    cmdPaletteAsk(starter.trim());
-  }
-});
+// --- Global Command Palette (Ctrl+K): moved to palette.js ---
+// Split out on 2026-09-24 when the gzipped app.js crossed
+// test_static_compression.py's bound; see palette.js's header.
 
 // --- spaces ------------------------------------------------------------------
 //

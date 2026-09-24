@@ -14,7 +14,11 @@ itself is driven in a browser by `scratchpad/ui-sweeps/unwatched.js`.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+#: app.js plus palette.js: the popup agent (Ctrl+K) was split out of app.js
+#: on 2026-09-24, and these tests read it wherever it lives.
+APP = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8") + "\n" + (
+    ROOT / "frontend" / "palette.js"
+).read_text(encoding="utf-8")
 SETTINGS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
 
 

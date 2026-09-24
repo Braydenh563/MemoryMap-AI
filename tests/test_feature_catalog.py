@@ -55,6 +55,8 @@ SCRIPTS = (
     "dashboard.js",
     "settings.js",
     "editor.js",
+    "timeline.js",
+    "palette.js",
 )
 
 #: Names a row may call that are the platform rather than the app. Kept short
@@ -259,12 +261,23 @@ def test_every_catalogue_row_calls_a_function_that_exists():
     person goes looking for the feature and finds that it does nothing.
     """
     declared = _declared_names() | BUILTINS
-    for where, body in _catalogues().items():
+    #: The rows name a target and the target does the calling
+    #: (`REVEAL_TARGETS`, tests/test_catalogue_reveal.py), so the targets are
+    #: read for the same dead names the rows are.
+    tables = {
+        **_catalogues(),
+        "REVEAL_TARGETS (app.js)": _strip_comments(_body(_read("app.js"), "const REVEAL_TARGETS = {")),
+    }
+    for where, body in tables.items():
         code = _without_strings(body)
+        #: A method written in an object literal (`stopPropagation() {}` on
+        #: the stand-in event the graph target hands `openGraphPopup`) is a
+        #: definition, not a call.
+        code = re.sub(r"\b[A-Za-z_$][\w$]*\s*\(\)\s*\{\s*\}", "", code)
         called = set(re.findall(r"(?<![\w.$])([A-Za-z_$][\w$]*)\s*\(", code))
-        #: `run: openSketch,` and `run: toggleTheme,`: handed over rather than
+        #: `act: openSketch,` and `act: toggleTheme,`: handed over rather than
         #: called, and just as dead if the name has moved.
-        called |= set(re.findall(r"run:\s*([A-Za-z_$][\w$]*)\s*[,}]", code))
+        called |= set(re.findall(r"(?:run|act|open):\s*([A-Za-z_$][\w$]*)\s*[,}]", code))
         #: `window.openPageReader?.()`: the optional call is how a row reaches
         #: a function in a file that may not have loaded yet, and the name
         #: still has to be exported somewhere.

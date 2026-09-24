@@ -125,6 +125,14 @@ REACHED_AFTER_LOAD = {
     "wireMdFormatShortcuts": "library, wired when the document editor mounts",
     "hideDocComplete": "library, the document editor's word list; with the bundle absent there is no list on screen to hide, so the guard's no-op is the right answer",
     "docMathRender": "library; `mdMathElement` (app.js) shows the formula's source when it is absent and calls `ensureModule(\"library\")` to redraw the block once the bundle lands, so the guard is a first frame, not a silent no-op",
+    #: The catalogue reveals (app.js, REVEAL_TARGETS): each is called only
+    #: after `revealBoard` or the target itself has awaited the bundle.
+    "wbIsMap": "library, asked by revealBoard after `await ensureModule(\"library\")`",
+    "wbExportBoard": "library, called by the board-export reveal once revealBoard has opened a board",
+    "openGraphPopup": "graph, called by the graph-edit reveal after `await ensureModule(\"graph\")`",
+    "setDocView": "library, called by the doc-find reveal once revealDocument has opened a document",
+    "docToolbarCollapsed": "library, asked by revealStrip after `await ensureModule(\"library\")`",
+    "setDocToolbarCollapsed": "library, called by revealStrip after `await ensureModule(\"library\")`",
     #: Generic names that a lazy file happens to declare too. The call in the
     #: boot file is to its own local of the same name, not across the bundle.
     "build": "a local name in more than one file, not a cross-bundle call",

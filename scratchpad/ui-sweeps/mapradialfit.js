@@ -69,11 +69,24 @@ function measureRing([id, nodeId]) {
       const d = Math.hypot(x - o.left, y - o.top);
       return Math.max(inner - d, d - outer, 0);
     }));
+    // Clearance (INBOX 421 a): the content box's nearest approach to the
+    // inner arc (the box point nearest the centre), the outer arc (its
+    // farthest corner) and the two dividers (the perpendicular distance from
+    // each corner to each edge line; the box is convex and inside the
+    // wedge, so a corner is the nearest point). The divider is the drawn
+    // hairline, so its half-width (0.75px) comes off.
+    const cx = Math.min(Math.max(o.left, box.l), box.r), cy = Math.min(Math.max(o.top, box.t), box.b);
+    const toInner = Math.hypot(cx - o.left, cy - o.top) - inner;
+    const toOuter = outer - Math.max(...corners.map(([x, y]) => Math.hypot(x - o.left, y - o.top)));
+    const toDiv = Math.min(...[sec.a0, sec.a1].flatMap((a) => corners.map(([x, y]) =>
+      Math.abs(-(x - o.left) * Math.sin(a) + (y - o.top) * Math.cos(a)) - 0.75)));
     const mid = (inner + outer) / 2;
+    const bcx = (box.l + box.r) / 2 - o.left, bcy = (box.t + box.b) / 2 - o.top;
+    const offCentre = Math.hypot(bcx - mid * Math.cos(sec.at), bcy - mid * Math.sin(sec.at));
     const px = o.left + mid * Math.cos(sec.at), py = o.top + mid * Math.sin(sec.at);
     const hit = document.elementFromPoint(px, py)?.closest(".wb-map-radial-slot");
     const past = document.elementFromPoint(o.left + (outer + 6) * Math.cos(sec.at), o.top + (outer + 6) * Math.sin(sec.at))?.closest(".wb-map-radial-slot");
-    return { name: s.textContent.trim(), at: (sec.at * 180) / Math.PI, inside, worst, hitsOwn: hit === s, pastHits: Boolean(past), box, faceW: f.width };
+    return { name: s.textContent.trim(), at: (sec.at * 180) / Math.PI, inside, worst, toInner, toOuter, toDiv, offCentre, hitsOwn: hit === s, pastHits: Boolean(past), box, faceW: f.width };
   });
   let overlap = 0;
   for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) {
@@ -105,6 +118,12 @@ function report(label, m) {
   check(`${label}: each sector takes the pointer at its middle`, m.faces.every((f) => f.hitsOwn), m.faces.filter((f) => !f.hitsOwn).map((f) => f.name).join(", "));
   check(`${label}: the hole and the outside take no sector`, !m.holeHit && m.faces.every((f) => !f.pastHits), `hole ${m.holeHit}, past ${m.faces.filter((f) => f.pastHits).length}`);
   check(`${label}: every icon and word inside its own sector`, m.faces.every((f) => f.inside), `worst ${Math.max(...m.faces.map((f) => f.worst)).toFixed(1)}px; ${m.faces.filter((f) => !f.inside).map((f) => f.name).join(", ")}`);
+  const clear = (k) => Math.min(...m.faces.map((f) => f[k]));
+  console.log(`    clearance: ${m.faces.map((f) => `${f.name} in ${f.toInner.toFixed(1)} out ${f.toOuter.toFixed(1)} div ${f.toDiv.toFixed(1)} off ${f.offCentre.toFixed(1)}`).join(" | ")}`);
+  check(`${label}: every label 10px clear of both arcs and both dividers`, clear("toInner") >= 10 && clear("toOuter") >= 10 && clear("toDiv") >= 10,
+    `min inner ${clear("toInner").toFixed(1)}, outer ${clear("toOuter").toFixed(1)}, divider ${clear("toDiv").toFixed(1)}`);
+  check(`${label}: every label centred on its sector's middle`, Math.max(...m.faces.map((f) => f.offCentre)) <= 1.5,
+    `worst ${Math.max(...m.faces.map((f) => f.offCentre)).toFixed(1)}px off`);
   check(`${label}: no two faces overlap`, m.overlap === 0, `largest overlap ${m.overlap.toFixed(0)}px2`);
   check(`${label}: evenly spaced`, spread <= 1, `steps ${m.steps.map((s) => s.toFixed(0)).join("/")}`);
   check(`${label}: caption clear of the ring and readable`, m.capGap >= 0 && m.capFont >= 11 && m.capInView,

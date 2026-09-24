@@ -359,12 +359,14 @@ async function openSettingsModal(section = "models", scrollToId = null) {
       // is still right, it is where the explanation lives, so only the
       // scroll and flash are skipped.
       if (!target.getClientRects().length) return;
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
-      target.classList.remove("flash");
-      void target.offsetWidth;
-      target.classList.add("flash");
-      // Take it off again, the way flashEntry and flashReminder both already
+      //: **The ring is `flashRevealed`'s now** (app.js), the one every
+      //: catalogue row lands with. This used to add `flash` alone, which
+      //: draws only on an element that already carries `flash-target`: the
+      //: one caller whose group did (Search relevance) got a ring, and a deep
+      //: link to anything else scrolled and drew nothing. Measured while
+      //: making the Tools and features rows land on their settings.
+      flashRevealed(target);
+      // The helper takes it off again, the way flashEntry and flashReminder both already
       // do. Reported directly: "the search relevance settings section stays
       // highlighted permanently and doesn't return to normal."
       //
@@ -377,8 +379,6 @@ async function openSettingsModal(section = "models", scrollToId = null) {
       // class that static highlight is permanent. A value that is only wrong
       // under a setting the author does not have on is exactly the shape this
       // codebase keeps getting caught by.
-      clearTimeout(openSettingsModal.flashTimer);
-      openSettingsModal.flashTimer = setTimeout(() => target.classList.remove("flash"), 2700);
     });
   }
 }
@@ -1371,6 +1371,10 @@ const APPEARANCE_DEFAULTS = {
   //: still obeyed (see `progressMotionWanted` in app.js), and the indicator
   //: steps through a colour rather than freezing when it is.
   "progress-motion": "always", // always | auto | still
+  //: Generated faces (`nameMark`, app.js) blink and emote. On hover by
+  //: default: a persona list whose every face moves at once is a list
+  //: nobody can read, and the joke is better found than forced.
+  "avatar-motion": "hover", // hover | always | off
   // Half strength (was 90): a professional product has a quiet page
   // (UI_MODERNISATION_PLAN Phase 3). theme-boot.js and index.html carry the
   // same default: keep the three in step.
@@ -2082,6 +2086,7 @@ function applyAppearance() {
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = perf ? "reduced" : appearancePref("motion");
   root.dataset.progressMotion = appearancePref("progress-motion");
+  root.dataset.avatarMotion = appearancePref("avatar-motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
   // Cards thin out slightly while the art is on, so it reads through the page
   // rather than only in the margins.
@@ -2290,6 +2295,7 @@ function renderAppearance() {
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("progress-motion").value = appearancePref("progress-motion");
+  $("avatar-motion").value = appearancePref("avatar-motion");
   renderProgressMotionHint();
   $("bg-motion").value = appearancePref("bg-motion");
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
@@ -2527,7 +2533,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -3088,6 +3094,10 @@ $("page-bg-clear").addEventListener("click", () => {
 $("bg-art-style").addEventListener("change", (e) => {
   localStorage.setItem("bg-style", e.target.value);
   if (bgArtOn()) startBgArt();
+});
+$("avatar-motion").addEventListener("change", (e) => {
+  localStorage.setItem("avatar-motion", e.target.value);
+  document.documentElement.dataset.avatarMotion = e.target.value;
 });
 $("progress-motion").addEventListener("change", (e) => {
   localStorage.setItem("progress-motion", e.target.value);

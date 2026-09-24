@@ -938,7 +938,7 @@
   flex: 0 0 auto;
   padding: 0 0.25rem;
   line-height: 1.4;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .log-list li:hover .log-copy,
@@ -1258,7 +1258,8 @@
 }
 
 .confirm-actions button.danger:hover {
-  filter: brightness(1.1);
+  background: color-mix(in oklab, var(--error) 86%, #000);
+  border-color: color-mix(in oklab, var(--error) 86%, #000);
 }
 
 /* The library create-picker's actions row has five buttons where every
@@ -1315,7 +1316,7 @@
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  transition: background var(--motion-base) ease, border-color var(--motion-base) ease;
+  transition: background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
   /* Contains the radio-hiding rule's own `position: absolute` below, so
      that 1px box stays inside this row instead of positioning against
      whatever ancestor happens to be positioned. */
@@ -2267,7 +2268,7 @@
   clip-path: none;
   overflow: visible;
   white-space: normal;
-  transition: background-color var(--motion-base) ease, border-color var(--motion-base) ease;
+  transition: background-color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
   /* Optical: centres a 1.15rem control on a line of body text rather than
      sitting it on the baseline. */
   vertical-align: -0.2em;
@@ -2292,7 +2293,9 @@
   transform: translateY(-50%);
   border-radius: var(--radius-pill);
   background: var(--muted);
-  transition: transform var(--motion-base) ease, background-color var(--motion-base) ease;
+  /* The knob travels on the spring curve, one small overshoot at the end of
+     the track, the way a physical switch settles; its colour does not. */
+  transition: transform var(--motion-base) var(--ease-spring), background-color var(--motion-base) var(--ease-out);
 }
 
 /* Hover says it is interactive before it is clicked, the other half of
@@ -3442,8 +3445,8 @@ aside[data-resizable="1"] {
      to bordered buttons like Select, not as a control you could click.
      Reported directly against the Semantic toggle specifically. */
   border: 1px solid var(--border);
-  transition: background var(--motion-base) ease, color var(--motion-base) ease,
-    border-color var(--motion-base) ease;
+  transition: background var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
 }
 
 .checkbox-label:hover {
@@ -3490,8 +3493,8 @@ aside[data-resizable="1"] {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--inner);
-  transition: transform var(--motion-base) ease, box-shadow var(--motion-base) ease,
-    border-color var(--motion-base) ease;
+  transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
 }
 
 .saved-look:hover,
@@ -3575,7 +3578,7 @@ aside[data-resizable="1"] {
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity var(--motion-base) ease;
+  transition: opacity var(--motion-base) var(--ease-out);
 }
 
 .saved-look:hover .saved-look-delete,
@@ -3718,7 +3721,7 @@ aside[data-resizable="1"] {
   flex: 0 0 auto;
   align-self: center;
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .notif-row:hover .notif-read-toggle,

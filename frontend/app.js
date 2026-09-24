@@ -11811,6 +11811,30 @@ function showEntrySkeletons() {
   }
 }
 
+//: The same placeholders for any list that fetches before it can draw
+//: (INBOX 399 (4)): the Library's grid and the Timeline's feed showed a blank
+//: card until their first response, which on a slow disk reads as an empty
+//: notebook. Only into a list with nothing in it, so a refresh never covers
+//: what is already there; the list's own render replaces them, and
+//: `clearSkeletons` takes them out on a path that draws nothing (a failed
+//: request). `aria-busy` tells a screen reader the list is on its way.
+function showSkeletons(container, count = 3, tag = "div") {
+  if (!container || container.children.length > 0) return;
+  container.setAttribute("aria-busy", "true");
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement(tag);
+    el.className = "skeleton";
+    el.setAttribute("aria-hidden", "true");
+    container.appendChild(el);
+  }
+}
+
+function clearSkeletons(container) {
+  if (!container) return;
+  container.removeAttribute("aria-busy");
+  for (const el of container.querySelectorAll(":scope > .skeleton")) el.remove();
+}
+
 // A page of the plain list. Smaller than the backend's own default
 // (`ENTRIES_PAGE_SIZE = 1000` in routes_entries.py, still the cap a caller
 // gets by asking for nothing) on purpose, WORLD_CLASS_PLAN A2: the boot
@@ -35071,6 +35095,19 @@ function renderAgentActivityMode() {
 // already been read is just something left to wait out otherwise, the
 // timer clears when this fires, so a stray late setTimeout can't reach for
 // a note the click already removed.
+//: **A toast leaves the way it came** (INBOX 399 (4)): it fades and drops
+//: 4px on the same curve it arrived on (`.toast.is-leaving`,
+//: 01-forms-settings.css) rather than vanishing between two frames, which
+//: read as the corner of the window glitching. Removed on `animationend`, with
+//: a timer behind it for the case where no animation runs at all.
+function dismissToast(note) {
+  if (!note.isConnected || note.classList.contains("is-leaving")) return;
+  note.classList.add("is-leaving");
+  const done = () => note.remove();
+  note.addEventListener("animationend", done, { once: true });
+  setTimeout(done, 400);
+}
+
 function toastCloseButton(note, timer) {
   const button = document.createElement("button");
   button.type = "button";
@@ -35080,7 +35117,7 @@ function toastCloseButton(note, timer) {
   button.setAttribute("aria-label", "Dismiss this notification");
   button.addEventListener("click", () => {
     clearTimeout(timer);
-    note.remove();
+    dismissToast(note);
   });
   return button;
 }
@@ -35156,12 +35193,12 @@ function toast(message, isError = false, { exempt = false } = {}) {
     help.title = `Save the support bundle and email it to ${SUPPORT_EMAIL}`;
     help.addEventListener("click", () => {
       clearTimeout(timer);
-      note.remove();
+      dismissToast(note);
       emailSupportReport(message);
     });
     note.appendChild(help);
   }
-  const timer = setTimeout(() => note.remove(), isError ? 9000 : 5500);
+  const timer = setTimeout(() => dismissToast(note), isError ? 9000 : 5500);
   note.appendChild(toastCloseButton(note, timer));
   //: A tap on the words dismisses it, the way a phone's own banners go
   //: (below 1100 a toast comes down from the top, over the head of a list,
@@ -35170,7 +35207,7 @@ function toast(message, isError = false, { exempt = false } = {}) {
   note.addEventListener("click", (event) => {
     if (event.target.closest("button")) return;
     clearTimeout(timer);
-    note.remove();
+    dismissToast(note);
   });
   box.appendChild(note);
 }
@@ -35217,11 +35254,11 @@ function toastProgress(message) {
         button.textContent = actionLabel;
         button.addEventListener("click", () => {
           onAction();
-          note.remove();
+          dismissToast(note);
         });
         note.appendChild(button);
       }
-      const timer = setTimeout(() => note.remove(), 5500);
+      const timer = setTimeout(() => dismissToast(note), 5500);
       note.appendChild(toastCloseButton(note, timer));
     },
   };
@@ -35238,10 +35275,10 @@ function toastAction(message, actionLabel, onAction) {
   button.textContent = actionLabel;
   button.addEventListener("click", async () => {
     clearTimeout(timer);
-    note.remove();
+    dismissToast(note);
     await onAction();
   });
-  const timer = setTimeout(() => note.remove(), 8000);
+  const timer = setTimeout(() => dismissToast(note), 8000);
   note.append(text, button, toastCloseButton(note, timer));
   box.appendChild(note);
 }

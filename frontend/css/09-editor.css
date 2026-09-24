@@ -703,7 +703,7 @@
    selection) fades with it rather than surviving into a faded line. */
 .cm-line.cm-doc-dimmed {
   opacity: 0.35;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 /* A serif for the rendered page only, and a little more leading with it: a

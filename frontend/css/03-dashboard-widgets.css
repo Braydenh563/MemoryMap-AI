@@ -186,7 +186,7 @@
   flex: 0 0 auto;
   align-self: center;
   opacity: 0.85;
-  transition: opacity var(--motion-base) ease;
+  transition: opacity var(--motion-base) var(--ease-out);
 }
 
 .emblem-mark:hover {
@@ -1194,8 +1194,8 @@ header#top-bar select,
      hover language `.dash-widget` and `.quick-link` already use
      elsewhere on this page; this row was the one place on the dashboard
      that had opted out of it. */
-  transition: transform var(--motion-base) ease, box-shadow var(--motion-base) ease,
-    border-color var(--motion-base) ease, background var(--motion-base) ease;
+  transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out), background var(--motion-base) var(--ease-out);
 }
 
 @media (hover: hover) {
@@ -1769,7 +1769,7 @@ header#top-bar select,
 /* Card actions stay out of the way until you're looking at a note. */
 .entry-list li .entry-actions {
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .entry-list li:hover .entry-actions,
@@ -1787,7 +1787,7 @@ header#top-bar select,
 
 #entry-list li {
   padding: 0.8rem 1rem;
-  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 
 @media (hover: hover) {
@@ -2338,7 +2338,7 @@ header#top-bar select,
 
 #tab-reminders .entry-actions {
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 #tab-reminders li:hover .entry-actions,
@@ -2628,7 +2628,7 @@ header#top-bar select,
   padding: 0.4rem 0.6rem;
   margin-bottom: 0.15rem;
   border-left: 3px solid transparent;
-  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
 /* **The open chat has to be findable at a glance, not inferred.** Reported:
@@ -2670,7 +2670,7 @@ header#top-bar select,
 
 #conversation-list li .entry-actions {
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 #conversation-list li:hover .entry-actions,
@@ -2831,8 +2831,8 @@ header#top-bar select,
   border-radius: var(--radius-inner);
   /* Explicit properties, not `all`, `color`/`background` change on
      `:hover` below, plus `box-shadow` on the `:checked` state further down. */
-  transition: color var(--motion-slow) ease, background var(--motion-slow) ease,
-    box-shadow var(--motion-slow) ease;
+  transition: color var(--motion-slow) var(--ease-out), background var(--motion-slow) var(--ease-out),
+    box-shadow var(--motion-slow) var(--ease-out);
   user-select: none;
 }
 
@@ -3494,6 +3494,29 @@ p.graph-help-panel {
      the trigger's own centre. Declared rather than left to a `var()`
      fallback so `test_style_scale.py` can tell a real token from a typo. */
   --help-caret-x: 50%;
+  /* Arrives from its '?' (INBOX 399 (4)): a fade and 4px of travel away from
+     the button, the toasts' and menus' distance, where it used to appear
+     between two frames. `translate`, so `placeHelpPopover`'s own placement
+     is not replaced. */
+  animation: help-popover-in var(--motion-base) var(--ease-out);
+}
+
+.help-popover.help-popover-above {
+  animation-name: help-popover-in-above;
+}
+
+@keyframes help-popover-in {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
+@keyframes help-popover-in-above {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
 }
 
 /* The caret. Two squares rotated 45°, the back one carries the border, the

@@ -145,6 +145,8 @@ below). Versioning is `0.x` while the app stabilises.
   the journal, instead of saying 0.
 - Contrast: the default look's dark muted and accent text, the warning chip
   and the dark danger buttons now reach 4.5:1 on their own grounds.
+- Buttons: hovering a solid button deepens its colour instead of brightening it by 7% through a filter, which flickered on floating buttons in the desktop window; the tabs, the graph's zoom buttons and every icon button that had no hover of its own now answer the pointer (before: 101 of 571 buttons changed nothing but a filter). Every transition runs on the same three durations and curves, the switches' knob settles with a small spring, notifications fade in and out instead of popping, and the Library and Timeline show placeholder rows while their first page loads instead of a blank card.
+- Speed with a large notebook (500 notes, 50 documents, 40 chats), measured by trace: switching to Notes restyles only the notes near the window (61ms to about 30), the Timeline builds its rows without making two date formatters per row (a 60 to 90ms switch now about 30), switching to Library no longer cross-fades the whole window after every data load (a 216 to 283ms pause gone), and the dashboard measures its widgets in one pass instead of one page layout per widget.
 - A chip's x (detach a document, remove a file or a reference) is a round
   target the same distance from the chip's top, bottom and right edge, not
   a glyph with a stray gap after it.

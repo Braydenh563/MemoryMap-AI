@@ -169,7 +169,7 @@
 }
 
 .graph-trace-note:hover {
-  filter: brightness(1.08);
+  background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
   text-decoration: none;
 }
 
@@ -224,7 +224,7 @@
 }
 
 .story-mode-btn:hover {
-  filter: brightness(1.07);
+  background: var(--accent-surface-hover);
   text-decoration: none;
 }
 
@@ -766,7 +766,7 @@ body.scroll-top-visible #tab-notes .layout > main {
 }
 
 .link-button:hover {
-  filter: brightness(1.15);
+  color: color-mix(in oklab, var(--accent) 70%, var(--ink));
 }
 
 /* These three followed the controls down into the dock, `select` especially,
@@ -1393,7 +1393,7 @@ body.scroll-top-visible #tab-notes .layout > main {
   stroke: none;
   opacity: 0.16;
   pointer-events: none;
-  transition: opacity var(--motion-base) ease, r var(--motion-base) ease;
+  transition: opacity var(--motion-base) var(--ease-out), r var(--motion-base) var(--ease-out);
 }
 
 .graph-node:hover circle.graph-halo,
@@ -2024,7 +2024,7 @@ label.setting-check,
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  transition: background var(--motion-base) ease, border-color var(--motion-base) ease;
+  transition: background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
   cursor: pointer;
   margin: 0;
 }
@@ -2192,7 +2192,7 @@ label.setting-check,
   height: 0.5rem;
   border-radius: 50%;
   background: var(--border);
-  transition: background var(--motion-slow) ease;
+  transition: background var(--motion-slow) var(--ease-out);
 }
 
 .onboarding-dot.active {
@@ -2521,7 +2521,7 @@ span > .chip {
   opacity: 0;
   visibility: hidden;
   transform: translateY(0.5rem);
-  transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease, visibility var(--motion-slow);
+  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out), visibility var(--motion-slow) var(--ease-out);
 }
 
 .scroll-top.visible {
@@ -2602,7 +2602,7 @@ span > .chip {
      category itself along the right-hand edge of every row. */
   pointer-events: none;
   background: inherit;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 #category-list li:hover .category-actions,
@@ -2637,7 +2637,7 @@ span > .chip {
 #category-list li:has(.category-actions):hover .count,
 #category-list li:has(.category-actions):focus-within .count {
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 /* Touch has no hover, so the controls are simply always there, which used
@@ -3372,7 +3372,7 @@ span > .chip {
   top: 0.3rem;
   right: 0.3rem;
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .doc-item:hover .doc-item-menu,
@@ -3449,7 +3449,7 @@ span > .chip {
   top: var(--space-3);
   right: var(--space-3);
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 .doc-list-item:hover .doc-list-menu,
@@ -4539,7 +4539,7 @@ span > .chip {
   /* The hairline the old dock used to separate itself from the transcript is
      redundant now that it has a border of its own. */
   border-top: 1px solid var(--border);
-  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 
 /* The whole card takes focus, the way a single field would. This is the

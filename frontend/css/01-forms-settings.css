@@ -387,7 +387,12 @@ button {
      `calc(var(--radius) * 0.7)`, which is why buttons measured at 9.8px
      beside 8.4px quick links and 11.2px stat tiles on one page. */
   border-radius: var(--radius-md);
-  background: var(--accent-surface);
+  /* Through a custom property so the hover below reaches only the buttons
+     that kept this ground: a class that paints its own (`.ghost`, a chip,
+     a menu row) sets `background` and never reads `--button-ground`, so it
+     cannot be handed the accent on hover. */
+  --button-ground: var(--accent-surface);
+  background: var(--button-ground);
   color: var(--on-accent);
   font: inherit;
   font-weight: 600;
@@ -411,8 +416,10 @@ button {
   box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-button:hover {
-  filter: brightness(1.07);
+/* One step deeper, not brighter (INBOX 405): see `--accent-surface-hover`
+   (05-sidebars-themes.css) for why a hover is never a `filter`. */
+button:hover:not(:disabled) {
+  --button-ground: var(--accent-surface-hover);
 }
 
 /* Subtle press feedback across every button, a small, consistent tactile
@@ -443,8 +450,8 @@ button:hover {
    the centring is unnecessary, and its `scale(0.985)` would have multiplied
    with this rule's. */
 button {
-  transition: translate var(--motion-fast) ease, scale var(--motion-fast) ease,
-    filter var(--motion-fast) ease;
+  transition: translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
 }
 
 button:active:not(:disabled) {
@@ -653,7 +660,7 @@ input[type="checkbox"] {
 }
 
 .update-dialog-link:hover {
-  filter: brightness(1.07);
+  background: var(--accent-surface-hover);
 }
 
 .row {
@@ -1595,7 +1602,7 @@ progress {
 }
 
 .chip-interactive:hover {
-  filter: brightness(1.05);
+  background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
 }
 
 .chip-interactive:focus-visible {
@@ -2283,7 +2290,7 @@ progress {
 
 .contents-caret {
   flex: 0 0 auto;
-  transition: transform var(--motion-fast) ease;
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .contents-section.is-folded .contents-caret {
@@ -2464,7 +2471,7 @@ progress {
 
 #entry-list .link-connection > .menu-wrap {
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--motion-base) var(--ease-out);
 }
 
 #entry-list li:hover .link-connection > .menu-wrap,
@@ -2489,7 +2496,7 @@ progress {
    covers a tabbed-to chip, and on touch because there is no hover there. */
 #entry-list .chip.link .unlink {
   opacity: 0;
-  transition: opacity var(--motion-fast) ease;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 #entry-list li:hover .chip.link .unlink,
@@ -2555,7 +2562,7 @@ li.link-source {
 }
 
 .recent .chip:hover {
-  filter: brightness(1.08);
+  background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
 }
 
 /* The Capture form's pre-save tag-suggestion row (app.js's
@@ -2646,7 +2653,7 @@ li.link-source {
   border-radius: var(--radius-md);
   background: var(--card-bg);
   cursor: pointer;
-  transition: background-color var(--motion-base) ease, border-color var(--motion-base) ease;
+  transition: background-color var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
 }
 
 .ask-history-item:hover,
@@ -2784,6 +2791,31 @@ li.link-source {
   max-width: 340px;
   box-shadow: var(--glass-shadow);
   font-size: 0.92rem;
+  /* Arrives and leaves: a fade and 4px of travel, the menus' own entrance
+     distance, on `translate` so no transform the toast carries is replaced.
+     `dismissToast` (app.js) adds `.is-leaving` and removes the toast when
+     the animation ends. Under reduced motion the blanket rules cut both to
+     nothing, and the toast simply appears and goes. */
+  animation: toast-in var(--motion-slow) var(--ease-out);
+}
+
+.toast.is-leaving {
+  animation: toast-out var(--motion-base) var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    translate: 0 4px;
+  }
 }
 
 /* Ctrl+F on any tab except Documents (app.js). Docked under the header
@@ -4648,7 +4680,7 @@ select {
      `.is-shown` is what the class swap turns on. */
   opacity: 0;
   transform: translateY(2px);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out);
   /* Long enough for a sentence, short enough that it never becomes a
      paragraph competing with the answer it sits above. */
   max-width: 46ch;
@@ -4664,7 +4696,7 @@ select {
    actually watching. */
 .progress-line-label {
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .progress-line-label.is-shown {
@@ -4727,7 +4759,7 @@ select {
   opacity: 0;
   /* Not interactive, and never a pointer target while invisible. */
   pointer-events: none;
-  transition: opacity var(--motion-slow) ease;
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 
 .typing-dots[data-phase="writing"] .ai-writing-trace {
@@ -4750,7 +4782,7 @@ select {
 }
 
 .typing-dots span {
-  transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease;
+  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out);
 }
 
 /* The connecting edge, drawn and redrawn. `stroke-dasharray` is in the SVG's

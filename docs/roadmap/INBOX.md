@@ -136,22 +136,6 @@ with its owner named in the entry.
     (widths, spacing, alignment), a sweep of every menu for width, padding
     and row alignment.
 
-400. **The owner, 2026-09-23 night, verbatim.** "I also need you to look for
-    more of those issues like with what were making the whiteboard and
-    mindmap pan glitchy, smth to do with inline css i think?? keep
-    optimising, also I need oyou to validate or criticise the app's
-    architectural and structural decisions to see if there are better
-    alternatives." Placed: (1) a style-invalidation hunt, the class the map
-    agent found (`[class*="card"] *` restyling whole subtrees on any class
-    change, 218ms to 0.1ms; inherited custom properties written per frame on
-    a container), across every surface, with `tests/test_css_invalidation.py`
-    extended to each new shape; (2) an architecture review written into
-    ANALYSIS.md: what is sound, what a professional app would do instead,
-    cost and order of each change.
-    **(2) written 2026-09-24**: ANALYSIS.md "Architecture review"; the three
-    that matter most are the embedding model out of the main process, ES
-    modules surface by surface, and cascade layers folding 08 back.
-
 399. **The owner, 2026-09-23 night, verbatim.** "what is left in the world
     class plan?? can you poke more holes in the application for bugs,
     security, poor learnaility/utility/usability/accessibility and more??
@@ -178,6 +162,11 @@ with its owner named in the entry.
     (About's updater, `start-*.bat`/`.sh` auto-update), tested in a scratch
     copy per CLAUDE.md's trap; (4) component refinement against motion.dev,
     kokonut and bklit patterns (motion, hover, focus, press states).
+    Part (4) built c3bbefc: every transition on `--motion-*` and `--ease-*`
+    (`tests/test_motion_tokens.py`), a hover is a colour never a filter
+    (with INBOX 405), toasts and '?' popovers fade in with 4px of travel,
+    toasts fade out, skeletons in the Library and Timeline. Menus' exit left
+    to the menu agent (agent-remaining/perfpolish.md).
 
 397. **The owner, 2026-09-23 night, verbatim, from the desktop window with a
     screenshot.** "I pressed next on the first panel of the guided tour, and

@@ -903,7 +903,7 @@ button.map-chip:focus-visible {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(-45deg);
-  transition: transform var(--motion-fast) ease;
+  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .callout-foldable[open] > .callout-head::after {
@@ -1278,7 +1278,7 @@ button.map-chip:focus-visible {
   background: linear-gradient(to right, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%);
   opacity: 0.5;
   border-radius: var(--radius-sm);
-  transition: background var(--motion-fast) ease, opacity var(--motion-fast) ease;
+  transition: background var(--motion-fast) var(--ease-out), opacity var(--motion-fast) var(--ease-out);
   touch-action: none;
 }
 
@@ -3346,7 +3346,7 @@ button.outline-twist:focus-visible {
   text-align: left;
   box-shadow: none;
   color: var(--ink);
-  transition: border-color var(--motion-base) ease, transform var(--motion-base) ease;
+  transition: border-color var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
 }
 
 @media (hover: hover) {
@@ -3516,7 +3516,7 @@ button.is-on {
   box-shadow: none;
   cursor: pointer;
   text-align: left;
-  transition: background var(--motion-base) ease;
+  transition: background var(--motion-base) var(--ease-out);
 }
 
 .start-step:hover {
@@ -3783,12 +3783,23 @@ button.is-on {
 :root {
   --accent-surface: color-mix(in oklab, var(--accent) 88%, #000 12%);
   --on-accent: #fff;
+  /* **Hover is a colour, never a filter** (INBOX 405). `button:hover` was
+     `filter: brightness(1.07)` on every button in the app: a 7% shift nobody
+     reads as a state change, and on a translucent or floating button a
+     compositing layer per hover that re-rasterised its text (the chat's
+     "Jump to latest" pill flickered in the desktop window). A solid button
+     goes one step deeper on hover; a surface of any colour takes the veil,
+     a wash laid over whatever ground it has. */
+  --accent-surface-hover: color-mix(in oklab, var(--accent-surface) 86%, #000);
+  --hover-veil: rgba(31, 36, 48, 0.07);
 }
 
 :root[data-mode="dark"] {
   /* The accent is light here, so lighten it further and use dark ink on it. */
   --accent-surface: var(--accent);
   --on-accent: #0d1017;
+  --accent-surface-hover: color-mix(in oklab, var(--accent-surface) 84%, #fff);
+  --hover-veil: rgba(255, 255, 255, 0.09);
 }
 
 /* Chips carry 12px text, where AA is least forgiving, and were using the
@@ -3835,7 +3846,7 @@ button.is-on {
   height: var(--control-h-lg);
   padding: 0 1.25rem;
   border-radius: var(--radius-md);
-  transition: background var(--motion-slow), color var(--motion-slow), transform var(--motion-fast), box-shadow var(--motion-slow);
+  transition: background var(--motion-slow) var(--ease-out), color var(--motion-slow) var(--ease-out), transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
 }
 
 .notes-subtabs button.active {

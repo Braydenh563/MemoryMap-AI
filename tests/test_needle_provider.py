@@ -310,7 +310,8 @@ def test_removing_it_while_the_engine_is_loaded_asks_for_a_restart(fake_engine):
     assert started is False and "Restart" in message
     needle_provider.reset_for_tests()
     extras.reset_for_tests()
-    assert extras.remove("needle")[0] is True
+    removed, _message = extras.remove("needle")
+    assert removed is True
 
 
 # --- the route seam -----------------------------------------------------------------------

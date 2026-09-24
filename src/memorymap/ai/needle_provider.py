@@ -91,9 +91,9 @@ def library_name() -> str:
 
 
 def _folder() -> Path | None:
-    from memorymap.core import extra_downloads
+    from memorymap.core import extras
 
-    return extra_downloads.ready("needle")
+    return extras.download_ready("needle")
 
 
 def _load_library(path: str):

@@ -1214,3 +1214,14 @@ def install_blocking(extra_ids: list[str]) -> int:
             _logger.warning("extra %s failed: %s", extra_id, current().step)
             failed += 1
     return failed
+
+
+def download_ready(extra_id: str) -> Path | None:
+    """The installed folder of a download extra, or None. What the features
+    that use one ask (the run sandbox, the needle provider), so none of them
+    imports anything to find out. Here rather than in `extra_downloads` so
+    that module never imports this one (CodeQL 429 to 431: an import cycle)."""
+    extra = EXTRAS_BY_ID.get(extra_id)
+    if extra is None or extra.kind != "download" or not extra_downloads.is_installed(extra):
+        return None
+    return extra_downloads.folder(extra)

@@ -34951,8 +34951,15 @@ with an unselected note moving 1.7 and no pins written.
     `REVEAL_TARGETS` (app.js) and `revealFeature` switches tab, loads the
     lazy bundle, opens the menu, panel, sheet or dialog and rings the control
     (`flashRevealed`, `.feature-reveal`); Suggested links opens the gear panel
-    and runs Suggest links. `scratchpad/ui-sweeps/deeplinks.js` runs every row;
-    the numbers are in HISTORY with this entry. Found on the way: Settings
+    and runs Suggest links. `scratchpad/ui-sweeps/deeplinks.js` runs every row
+    (226: the 110 written, 58 AI tools, 58 palette): at 1440, light and dark,
+    195 land on the control, 12 on their tab, 6 fall back, 0 fail, 13 are
+    commands with nowhere to land; at 390, 192, 12, 9, 0, 13. Each fallback
+    is a notebook without the thing: no model (AI edit's button is disabled),
+    an empty newest document (no headings for Breadcrumbs, no Properties), no
+    readable file (Page reader), no selection (Context bar); at 390 the board
+    overview and the favourite star are not drawn on a phone by design (the
+    board and the list are rung instead). Found on the way: Settings
     deep links rang nothing unless the target already carried `flash-target`
     (only Search relevance did); `openSettingsModal` now uses the same ring.
 

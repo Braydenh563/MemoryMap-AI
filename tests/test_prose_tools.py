@@ -240,3 +240,146 @@ def test_accessibility_is_its_own_group_in_the_panel() -> None:
     assert 'return "access";' in _body("docFindingKind")
     assert '["access", "Accessibility"]' in DOCUMENTS
     assert "docAccessFindings(text)" in _body("docProseExtras")
+
+
+# --- .docx round trip ----------------------------------------------------------
+#
+# The importer is tested on a Word file written here by hand, so it runs in CI
+# where python-docx (an optional extra) is absent; the round trip through the
+# exporter runs wherever the extra is installed.
+
+W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+
+def _word_file(path: Path, body: str, numbering: str = "", rels: str = "") -> Path:
+    import zipfile
+
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            "word/document.xml",
+            f'<w:document xmlns:w="{W_NS}" xmlns:r="{R_NS}"><w:body>{body}</w:body></w:document>',
+        )
+        if numbering:
+            archive.writestr("word/numbering.xml", f'<w:numbering xmlns:w="{W_NS}">{numbering}</w:numbering>')
+        if rels:
+            archive.writestr(
+                "word/_rels/document.xml.rels",
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                f"{rels}</Relationships>",
+            )
+    return path
+
+
+def _p(inner: str, props: str = "") -> str:
+    return f"<w:p>{f'<w:pPr>{props}</w:pPr>' if props else ''}{inner}</w:p>"
+
+
+def _r(text: str, props: str = "", deleted: bool = False) -> str:
+    tag = "w:delText" if deleted else "w:t"
+    rpr = f"<w:rPr>{props}</w:rPr>" if props else ""
+    return f'<w:r>{rpr}<{tag} xml:space="preserve">{text}</{tag}></w:r>'
+
+
+def test_a_word_file_with_tables_links_lists_and_revisions_reads_as_markdown(tmp_path) -> None:
+    from memorymap.core import docview
+
+    numbering = (
+        '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:numFmt w:val="decimal"/></w:lvl></w:abstractNum>'
+        '<w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/></w:lvl>'
+        '<w:lvl w:ilvl="1"><w:numFmt w:val="bullet"/></w:lvl></w:abstractNum>'
+        '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'
+        '<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>'
+    )
+    rels = (
+        '<Relationship Id="rId9" Type="hyperlink" Target="https://example.com/a" TargetMode="External"/>'
+        '<Relationship Id="rId10" Type="hyperlink" Target="javascript:alert(1)" TargetMode="External"/>'
+    )
+    num = lambda n, level=0: f'<w:numPr><w:ilvl w:val="{level}"/><w:numId w:val="{n}"/></w:numPr>'  # noqa: E731
+    body = "".join(
+        [
+            _p(_r("Plan"), '<w:pStyle w:val="Heading1"/>'),
+            _p(_r("First"), num(1)),
+            _p(_r("Second"), num(1)),
+            _p(_r("Point"), num(2)),
+            _p(_r("Sub point"), num(2, 1)),
+            _p(
+                _r("See ")
+                + f'<w:hyperlink r:id="rId9">{_r("the page")}</w:hyperlink>'
+                + _r(" and ")
+                + f'<w:hyperlink r:id="rId10">{_r("this")}</w:hyperlink>'
+                + _r(" with ")
+                + _r("old", "<w:strike/>")
+                + _r(" and ")
+                + _r("x = 1", '<w:rFonts w:ascii="Consolas"/>')
+            ),
+            _p(
+                _r("Keep ")
+                + f'<w:ins w:id="1" w:author="A">{_r("new ")}</w:ins>'
+                + f'<w:del w:id="2" w:author="A">{_r("gone ", deleted=True)}</w:del>'
+                + _r("words.")
+            ),
+            "<w:tbl><w:tr><w:tc>" + _p(_r("Name", "<w:b/>")) + "</w:tc><w:tc>" + _p(_r("Score", "<w:b/>"))
+            + "</w:tc></w:tr><w:tr><w:tc>" + _p(_r("Ann")) + "</w:tc><w:tc>" + _p(_r("9")) + "</w:tc></w:tr></w:tbl>",
+            _p(_r("def f():", '<w:rFonts w:ascii="Consolas"/>')),
+            _p(_r("    return 1", '<w:rFonts w:ascii="Consolas"/>')),
+            _p(_r("Done.")),
+        ]
+    )
+    path = _word_file(tmp_path / "review.docx", body, numbering, rels)
+    text = docview.docx_to_markdown(path)
+    assert "# Plan" in text
+    assert "1. First\n1. Second\n- Point\n  - Sub point" in text
+    assert "See [the page](https://example.com/a) and this with ~~old~~ and `x = 1`" in text
+    assert "javascript" not in text
+    assert "Keep {++new ++}{--gone --}words." in text
+    assert "| Name | Score |\n| --- | --- |\n| Ann | 9 |" in text
+    assert "```\ndef f():\n    return 1\n```" in text
+    assert docview.docx_has_revisions(path)
+    assert not docview.docx_has_revisions(_word_file(tmp_path / "plain.docx", _p(_r("x"))))
+
+
+ROUND_TRIP = """# Heading one
+
+Plain **bold** and *italic* and ~~gone~~ and `code` and [a link](https://example.com).
+
+- one
+  - nested
+- [x] done task
+1. first
+1. second
+
+> a quote
+
+| Name | Score |
+| --- | --- |
+| Ann | **9** |
+
+```
+**not bold**
+```
+
+Suggested {++new words++} and {--old words--} here.
+"""
+
+
+@pytest.mark.skipif(
+    not __import__("memorymap.core.docexport", fromlist=["x"]).docx_available(),
+    reason="python-docx is an optional extra; the suite must not need it",
+)
+def test_a_document_survives_the_trip_through_word(tmp_path) -> None:
+    """Headings, lists (nested, numbered, tasks), quotes, tables, code, bold,
+    italic, strike, links and suggestion mode's marks, out and back."""
+    from memorymap.core import docexport, docview
+
+    path = tmp_path / "trip.docx"
+    path.write_bytes(docexport.to_docx("Trip", ROUND_TRIP))
+    back = docview.docx_to_markdown(path)
+    assert back == "# Trip\n\n" + ROUND_TRIP, back
+    #: Word's own revisions, not characters: the reviewer sees them in Word.
+    import zipfile
+
+    xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
+    assert "<w:ins " in xml and "<w:delText" in xml and "{++" not in xml
+    unsafe = docexport.to_docx("T", "[x](javascript:alert(1))")
+    assert b"javascript" not in zipfile.ZipFile(__import__("io").BytesIO(unsafe)).read("word/_rels/document.xml.rels")

@@ -241,16 +241,33 @@ def docx_available() -> bool:
     return True
 
 
-#: The markdown this converter understands. Deliberately small: a .docx export
-#: is for handing a draft to somebody whose editor is Word, and a converter
-#: that quietly half-renders tables, callouts and embeds would be worse than
-#: one whose limits are written down. Everything it does not know stays as the
-#: paragraph it was.
+#: The markdown this converter understands, and it is written down so its
+#: limits are too: headings, bullet and numbered lists (nested by indent, and
+#: task boxes), quotes, pipe tables, fenced code, and inline bold, italic,
+#: strike, code and links. Suggestion mode's marks (`{++…++}`, `{--…--}`,
+#: documents.js `DOC-SUGGEST`) become Word's own tracked changes, so a draft
+#: under review opens in Word with its revisions to accept or reject there.
+#: Everything else (callouts, embeds, maths) stays the paragraph it was, as
+#: text: a converter that half-renders them would be worse than one whose
+#: limits are said.
 _HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
-_BULLET = re.compile(r"^[-*+]\s+(.*)$")
-_NUMBERED = re.compile(r"^\d+[.)]\s+(.*)$")
+_BULLET = re.compile(r"^(\s*)[-*+]\s+(.*)$")
+_NUMBERED = re.compile(r"^(\s*)\d+[.)]\s+(.*)$")
+_TASK = re.compile(r"^\[([ xX])\]\s+(.*)$")
 _QUOTE = re.compile(r"^>\s?(.*)$")
-_INLINE = re.compile(r"(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)")
+_FENCE = re.compile(r"^\s*(```|~~~)")
+_TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$")
+_INLINE = re.compile(
+    r"(\{\+\+.+?\+\+\}|\{--.+?--\}|\[[^\]\n]+\]\([^)\s]+\)|\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*"
+    r"|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`)"
+)
+_LINK = re.compile(r"^\[([^\]\n]+)\]\(([^)\s]+)\)$")
+#: The only addresses a link in a handed-over file may point at. A relative
+#: path means something inside this notebook and nothing in Word; anything
+#: else (`javascript:`, `file:`) is not something to hand to another program.
+_SAFE_LINK = re.compile(r"^(https?://|mailto:)", re.IGNORECASE)
+#: Who a tracked change is by, as Word shows it in the margin.
+REVISION_AUTHOR = "MemoryMap"
 
 
 def to_docx(title: str, text: str) -> bytes:
@@ -267,56 +284,149 @@ def to_docx(title: str, text: str) -> bytes:
 
     document = docx.Document()
     document.add_heading(title or "Document", level=0)
-    for block in (comments_to_footnotes(text or "")).split("\n"):
-        line = block.rstrip()
+    state = {"revision": 0}
+    lines = (comments_to_footnotes(text or "")).split("\n")
+    index = 0
+    while index < len(lines):
+        line = lines[index].rstrip()
+        index += 1
+        if _FENCE.match(line):
+            #: A fence is code, a line at a time, in a monospace face and
+            #: never read as markdown: `**` in a sample is two asterisks.
+            while index < len(lines) and not _FENCE.match(lines[index]):
+                run = document.add_paragraph(style="No Spacing").add_run(lines[index].rstrip())
+                run.font.name = "Consolas"
+                index += 1
+            index += 1
+            continue
         if not line.strip():
+            continue
+        if "|" in line and index < len(lines) and _TABLE_RULE.match(lines[index]):
+            rows = [_cells(line)]
+            index += 1
+            while index < len(lines) and "|" in lines[index] and lines[index].strip():
+                rows.append(_cells(lines[index]))
+                index += 1
+            _table(document, rows, state)
             continue
         heading = _HEADING.match(line)
         if heading:
             #: Word's own levels stop at 9 and markdown's at 6, so no clamp is
             #: needed beyond the pattern itself.
-            document.add_heading(_plain(heading.group(2)), level=len(heading.group(1)))
+            paragraph = document.add_heading("", level=len(heading.group(1)))
+            _inline(paragraph, heading.group(2), state)
             continue
-        bullet = _BULLET.match(line)
-        if bullet:
-            document.add_paragraph(_plain(bullet.group(1)), style="List Bullet")
-            continue
-        numbered = _NUMBERED.match(line)
-        if numbered:
-            document.add_paragraph(_plain(numbered.group(1)), style="List Number")
+        listed = _BULLET.match(line) or _NUMBERED.match(line)
+        if listed:
+            depth = min(2, len(listed.group(1).replace("\t", "    ")) // 2)
+            kind = "List Bullet" if _BULLET.match(line) else "List Number"
+            body = listed.group(2)
+            task = _TASK.match(body)
+            if task:
+                body = ("☑ " if task.group(1) in "xX" else "☐ ") + task.group(2)
+            paragraph = document.add_paragraph(style=kind if depth == 0 else f"{kind} {depth + 1}")
+            _inline(paragraph, body, state)
             continue
         quoted = _QUOTE.match(line)
         if quoted:
-            document.add_paragraph(_plain(quoted.group(1)), style="Intense Quote")
+            _inline(document.add_paragraph(style="Intense Quote"), quoted.group(1), state)
             continue
-        _rich_paragraph(document, line)
+        _inline(document.add_paragraph(), line, state)
     buffer = io.BytesIO()
     document.save(buffer)
     return buffer.getvalue()
 
 
+def _cells(line: str) -> list[str]:
+    body = line.strip()
+    if body.startswith("|"):
+        body = body[1:]
+    if body.endswith("|"):
+        body = body[:-1]
+    return [cell.strip() for cell in body.split("|")]
+
+
+def _table(document, rows: list[list[str]], state: dict) -> None:
+    """A pipe table as a Word table, its first row the header, in bold."""
+    width = max(len(row) for row in rows)
+    table = document.add_table(rows=len(rows), cols=width)
+    table.style = "Table Grid"
+    for r, row in enumerate(rows):
+        for c in range(width):
+            paragraph = table.cell(r, c).paragraphs[0]
+            _inline(paragraph, row[c] if c < len(row) else "", state, bold=r == 0)
+
+
 def _plain(text: str) -> str:
-    """Markdown's emphasis markers off a run of text that is going into a
-    style that carries the emphasis itself (a heading, a list item)."""
+    """Markdown's emphasis markers off a run of text."""
     return re.sub(r"\*\*|\*|`", "", text)
 
 
-def _rich_paragraph(document, line: str) -> None:
-    """One paragraph, with bold, italic and code as Word runs.
+def _inline(paragraph, text: str, state: dict, bold: bool = False, holder=None, deleted: bool = False) -> None:
+    """One line's inline markdown as Word runs, appended to `paragraph`, or to
+    `holder` (a tracked change or a link) when given."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.shared import RGBColor
 
-    Three marks, not the whole of markdown: these are the ones this app's own
-    toolbar writes and the ones a draft handed to somebody actually carries.
-    """
-    paragraph = document.add_paragraph()
-    for piece in _INLINE.split(line):
+    def add(piece: str, **marks):
+        run = paragraph.add_run(piece)
+        run.bold = marks.get("bold") or bold or None
+        run.italic = marks.get("italic") or None
+        if marks.get("strike"):
+            run.font.strike = True
+        if marks.get("code"):
+            run.font.name = "Consolas"
+        if marks.get("link"):
+            run.font.underline = True
+            run.font.color.rgb = RGBColor(0x05, 0x63, 0xC1)
+        if deleted:
+            #: Deleted text is `w:delText` in a revision, not `w:t`: Word
+            #: shows it struck in the margin rather than as live text.
+            for node in run._r.findall(qn("w:t")):
+                node.tag = qn("w:delText")
+        if holder is not None:
+            holder.append(run._r)
+        return run
+
+    for piece in _INLINE.split(text or ""):
         if not piece:
             continue
-        if piece.startswith("**") and piece.endswith("**") and len(piece) > 4:
-            paragraph.add_run(piece[2:-2]).bold = True
+        if piece.startswith(("{++", "{--")) and piece.endswith(("++}", "--}")) and len(piece) > 6:
+            state["revision"] += 1
+            revision = OxmlElement("w:ins" if piece.startswith("{++") else "w:del")
+            revision.set(qn("w:id"), str(state["revision"]))
+            revision.set(qn("w:author"), REVISION_AUTHOR)
+            (holder if holder is not None else paragraph._p).append(revision)
+            _inline(paragraph, piece[3:-3], state, bold=bold, holder=revision, deleted=piece.startswith("{--"))
+            continue
+        link = _LINK.match(piece)
+        if link and _SAFE_LINK.match(link.group(2)) and holder is None:
+            from docx.opc.constants import RELATIONSHIP_TYPE
+
+            element = OxmlElement("w:hyperlink")
+            element.set(
+                qn("r:id"),
+                paragraph.part.relate_to(link.group(2), RELATIONSHIP_TYPE.HYPERLINK, is_external=True),
+            )
+            (holder if holder is not None else paragraph._p).append(element)
+            run = paragraph.add_run(_plain(link.group(1)))
+            run.bold = bold or None
+            run.font.underline = True
+            run.font.color.rgb = RGBColor(0x05, 0x63, 0xC1)
+            element.append(run._r)
+            continue
+        if link:
+            add(_plain(link.group(1)))
+        elif piece.startswith("***") and piece.endswith("***") and len(piece) > 6:
+            add(piece[3:-3], bold=True, italic=True)
+        elif piece.startswith("**") and piece.endswith("**") and len(piece) > 4:
+            add(piece[2:-2], bold=True)
         elif piece.startswith("*") and piece.endswith("*") and len(piece) > 2:
-            paragraph.add_run(piece[1:-1]).italic = True
+            add(piece[1:-1], italic=True)
+        elif piece.startswith("~~") and piece.endswith("~~") and len(piece) > 4:
+            add(piece[2:-2], strike=True)
         elif piece.startswith("`") and piece.endswith("`") and len(piece) > 2:
-            run = paragraph.add_run(piece[1:-1])
-            run.font.name = "Consolas"
+            add(piece[1:-1], code=True)
         else:
-            paragraph.add_run(piece)
+            add(piece)

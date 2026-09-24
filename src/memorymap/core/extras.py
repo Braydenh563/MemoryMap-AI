@@ -321,8 +321,9 @@ EXTRAS: tuple[Extra, ...] = (
         id="docx",
         label="Export to Word (python-docx)",
         enables="The Word (.docx) item in a document's Export menu: headings, "
-        "lists, quotes and tables written as a real Word file rather than as "
-        "markdown with a different extension.",
+        "lists, quotes, tables, links and code written as a real Word file "
+        "rather than as markdown with a different extension, and suggested "
+        "changes as Word's own tracked changes.",
         packages=("python-docx",),
         module="docx",
         size="~5 MB",

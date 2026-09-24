@@ -1346,19 +1346,37 @@ summary > .ph-lead,
   /* INBOX 32: the bar surface above gave it an edge and a radius but no
      room, so it touched the stats strip above and the widget grid below,
      the one un-spaced pair of neighbours on the page. Measured before this
-     rule: 0px both sides. `--space-5`, not the smaller tokens the bar's own
+     rule: 0px both sides. `--space-6`, the page's band gap, not the smaller tokens the bar's own
      padding uses, because this is the gap *between* two other bars, not
      padding inside one. */
-  margin-block: var(--space-5);
+  margin-block: var(--space-6);
 }
 
-/* The left-side label INBOX 32 asked for: "Your dashboard", quiet, giving
-   the bar an identity zone the way every other dock has one, without
-   opting it into the dock grammar itself (it has no find or arrange zone
-   to declare, see the comment on `.dash-toolbar` above). */
-.dash-toolbar-label {
-  white-space: nowrap;
-  font-weight: 600;
+/* The bar's left end: the Jump to pills and any recent skills, where the
+   words "Your dashboard" (INBOX 32's identity label) used to sit. The bar
+   was a band of its own holding one label and three buttons; with the
+   navigation in it the page loses a band and the label's job, naming the
+   bar, is its `aria-label`. The pills take the bar's own button grammar
+   (below): quiet, one height, the fill only under the pointer. */
+.dash-jump {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dash-jump > .launch-row {
+  gap: var(--space-2);
+}
+
+.dash-toolbar .quick-pill {
+  --quick-h: var(--control-h-lg);
+  padding: 0 var(--space-4);
+  font-weight: 500;
+}
+
+/* The Continue pill carries a note's first line; it may not push the page's
+   own controls off the bar. */
+.dash-toolbar .quick-link-continue {
+  max-width: 22rem;
 }
 
 .dash-toolbar button {
@@ -2965,23 +2983,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
       labels. Paper keeps its small capitals (an editorial convention) and
       Mono its technical capitals, and a code language or a log source tag
       keeps its capitals in every look. */
-#tab-dashboard .dash-quicklinks ~ .dash-stats {
-  margin-top: 0;
-}
-
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .stat-icon {
-  width: auto;
-  height: auto;
-  background: transparent;
-  color: var(--muted);
-}
-
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .dash-wordmark {
   display: none;
 }
 
 :root[data-palette="utilitarian"] :is(
-  .card h3, .eyebrow, .nav-group-label, .launch-label,
+  .card h3, .eyebrow, .nav-group-label,
   #suggested-list .suggested-group-label, .contents-heading, .msg-role,
   #palette-list li.palette-group-header, .features-group, .reminder-group-head,
   .editor-menu-group, .note-embed-head, .doc-prose-group,
@@ -4203,7 +4210,7 @@ main,
    before another size step). Paper and Mono keep their capitals and are
    untouched. */
 :root[data-palette="utilitarian"] :is(
-  .card h3, .eyebrow, .nav-group-label, .launch-label,
+  .card h3, .eyebrow, .nav-group-label,
   #suggested-list .suggested-group-label, .features-group, .reminder-group-head,
   .dash-widgets-group-label, .connection-heading, .finder-group
 ) {

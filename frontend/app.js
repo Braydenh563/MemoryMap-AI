@@ -30965,6 +30965,13 @@ function revealTab(name) {
   //: The companion finds its perch on the tab it is now on (avatars.js).
   if (typeof nameMarkBuddyTabChanged === "function") nameMarkBuddyTabChanged();
   const activeTabName = name === "documents" ? "library" : name;
+  //: The status bar's note and reminder counts step aside on the Dashboard,
+  //: whose banner states both, each as the way to its list (dashboard.js,
+  //: `renderDashFacts`): the owner counted "88 notes" three times on one
+  //: screen. On the bar itself, not the root, so the style change it causes
+  //: is the bar's and not the page's.
+  const statusBar = $("status-bar");
+  if (statusBar) statusBar.dataset.page = activeTabName;
   for (const button of document.querySelectorAll("#tab-bar button")) {
     const active = button.dataset.tab === activeTabName;
     button.classList.toggle("active", active);

@@ -918,13 +918,19 @@
       <span class="dash-find-keys" aria-hidden="true"></span>
     </button>
     </div>
-    <!-- One-tap shortcuts to the things people do most -->
+    <!-- **Four bands, not six** (the owner, 2026-09-24: "six stacked bands
+         before the first widget", and "88 notes" said three times). The
+         Start something tiles are the one launcher row; the Jump to pills
+         and any recent skills moved into the toolbar, where "Your dashboard"
+         used to be a label; the four stat tiles became the banner's facts
+         line (`#dash-submessage`), which was already saying two of them.
+         Every route the tiles and the sparkline had is still one press
+         away: the facts are buttons, the fortnight is the Stats and Activity
+         heatmap widgets. -->
     <div class="dash-quicklinks" id="dash-quicklinks" role="group"
-      aria-label="Quick actions"></div>
-    <!-- At-a-glance numbers: part of the page, not a widget you can hide -->
-    <div class="dash-stats" id="dash-stats" role="group" aria-label="At a glance"></div>
-    <div class="dash-toolbar">
-      <span class="muted dash-toolbar-label">Your dashboard</span>
+      aria-label="Start something"></div>
+    <div class="dash-toolbar" role="group" aria-label="Your dashboard">
+      <div class="dash-jump" id="dash-jump" role="group" aria-label="Jump to"></div>
       <!-- Edit mode's hint (INBOX 425, the owner: the sentence that was here
            "is unprofessional and could be displayed better", and it wrapped
            the whole bar onto two lines). A state badge and three short

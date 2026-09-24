@@ -446,14 +446,15 @@ def test_atlas_style_is_a_choice_that_every_atlas_follows() -> None:
 
 
 def test_atlas_hears_a_saved_note_and_a_streak() -> None:
-    # A saved note makes Atlas proud next to the companion's cheer, and the
+    # A saved note makes Atlas proud while the companion holds up a tiny
+    # note (its "carry" errand, which counts as a cheer), and the
     # dashboard's streak count reaches Atlas, which celebrates it at most
     # once a day.
     app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     dashboard = (ROOT / "frontend" / "dashboard.js").read_text(encoding="utf-8")
     atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
     saved = app[app.index('if (path === "/entries" && options.method === "POST") {') :][:260]
-    assert 'nameMarkBuddyCue("cheer")' in saved and 'atlasOn("saved")' in saved
+    assert 'nameMarkBuddyCue("carry")' in saved and 'atlasOn("saved")' in saved
     assert "atlasStreak(streak)" in dashboard
     streak = atlas[atlas.index("function atlasStreak(") :][:400]
     assert "atlas-streak-seen" in streak and "toDateString()" in streak

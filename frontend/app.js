@@ -583,7 +583,7 @@ async function apiJson(path, options = {}) {
   //: A new note is a small event worth a cheer from the companion, and a
   //: proud look from Atlas (atlas.js).
   if (path === "/entries" && options.method === "POST") {
-    if (typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("cheer");
+    if (typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("carry");
     if (typeof atlasOn === "function") atlasOn("saved");
   }
   return data;
@@ -37179,7 +37179,7 @@ function toast(message, isError = false, { exempt = false } = {}) {
   lastToastAt = now;
   const box = $("toast-box");
   //: An error makes the companion jump (avatars.js).
-  if (isError && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("startle");
+  if (isError && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("startle", "error");
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";
   const text = document.createElement("span");

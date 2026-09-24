@@ -4635,9 +4635,8 @@ main,
 
 /* --- a generated face that moves (the owner: "can they be animated as a
    togglable option??") ----------------------------------------------------
-   Settings > Appearance > Avatar animation: off, on hover (the default:
-   a list of faces that all move at once is a list nobody can read), or
-   always. Reduce motion wins over both, and so does the system's own
+   Settings > Appearance > Avatar animation: always (the default; only the
+   faces on screen, which `watchNameMark` marks), on hover, or off. Reduce motion wins over both, and so does the system's own
    setting. "On hover" means the row the face stands for (a persona's list
    item, a chat message, the picker), not any ancestor: every container up
    to `body` is `:hover` while the pointer is inside it, and an ancestor rule
@@ -5417,4 +5416,23 @@ main,
 
 .profile-head-text > p {
   margin: 0;
+}
+
+/* Atlas greeting a new person on the welcome's first card. */
+.onboarding-atlas {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.onboarding-atlas-say {
+  margin: 0;
+  max-width: 22rem;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  text-align: center;
 }

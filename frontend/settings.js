@@ -1374,10 +1374,11 @@ const APPEARANCE_DEFAULTS = {
   //: still obeyed (see `progressMotionWanted` in app.js), and the indicator
   //: steps through a colour rather than freezing when it is.
   "progress-motion": "always", // always | auto | still
-  //: Generated faces (`nameMark`, app.js) blink and emote. On hover by
-  //: default: a persona list whose every face moves at once is a list
-  //: nobody can read, and the joke is better found than forced.
-  "avatar-motion": "hover", // hover | always | off
+  //: Generated faces (`nameMark`, avatars.js) blink and emote. Always by
+  //: default (the owner: "I want the avatars animated by default"); only
+  //: the faces on screen move (`watchNameMark`), so a long list costs what
+  //: its visible rows cost. On hover and Off remain one click away.
+  "avatar-motion": "always", // always | hover | off
   "avatar-follow": "on", // on | off
   "avatar-buddy": "off", // off | me | persona
   "dash-mark": "logo", // logo | me | persona

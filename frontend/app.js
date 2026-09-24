@@ -46721,6 +46721,24 @@ function renderOnboardingActions(models, notebook) {
 function renderOnboardingSlide() {
   const slide = ONBOARDING_SLIDES[onboardingIndex];
   setLabel($("onboarding-icon"), slide.icon);
+  //: **Atlas says hello on the first card** (the owner: "atlas should also
+  //: be in the welcome tour as well to greet new users"). Its own face,
+  //: pleased and always moving, with one line in its own voice; the later
+  //: cards keep the app's logo, so a new person meets both.
+  const atlas = $("onboarding-atlas");
+  const greet = onboardingIndex === 0 && typeof atlasMark === "function";
+  atlas.classList.toggle("hidden", !greet);
+  $("onboarding-emblem").classList.toggle("hidden", greet);
+  $("onboarding-icon").classList.toggle("hidden", greet);
+  if (greet) {
+    const face = document.createElement("span");
+    face.className = "nm-live";
+    face.appendChild(atlasMark(104, "happy"));
+    const say = document.createElement("p");
+    say.className = "onboarding-atlas-say";
+    say.textContent = `Hi, I'm ${aiNameNow()}. I'll file what you write and find it again when you ask.`;
+    atlas.replaceChildren(face, say);
+  }
   $("onboarding-title").textContent = slide.title;
   if (slide.dynamic) {
     $("onboarding-text").textContent = "Checking Ollama and where your notebook lives…";

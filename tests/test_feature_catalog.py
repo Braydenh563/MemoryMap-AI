@@ -58,6 +58,7 @@ SCRIPTS = (
     "timeline.js",
     "palette.js",
     "avatars.js",
+    "atlas.js",
 )
 
 #: Names a row may call that are the platform rather than the app. Kept short

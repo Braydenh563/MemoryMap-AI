@@ -37,6 +37,7 @@ SETTINGS = Path(__file__).resolve().parents[1] / "frontend" / "settings.js"
 TIMELINE = Path(__file__).resolve().parents[1] / "frontend" / "timeline.js"
 PALETTE = Path(__file__).resolve().parents[1] / "frontend" / "palette.js"
 AVATARS = Path(__file__).resolve().parents[1] / "frontend" / "avatars.js"
+ATLAS = Path(__file__).resolve().parents[1] / "frontend" / "atlas.js"
 DOCUMENTS_CODE = Path(__file__).resolve().parents[1] / "frontend" / "documents-code.js"
 DOCUMENTS_PROSE = Path(__file__).resolve().parents[1] / "frontend" / "documents-prose.js"
 WHITEBOARD_MAP = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard-map.js"
@@ -115,6 +116,8 @@ def _source() -> str:
         + PALETTE.read_text(encoding="utf-8")
         + "\n"
         + AVATARS.read_text(encoding="utf-8")
+        + "\n"
+        + ATLAS.read_text(encoding="utf-8")
         + "\n"
         + DOCUMENTS_CODE.read_text(encoding="utf-8")
         + "\n"

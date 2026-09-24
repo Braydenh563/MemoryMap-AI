@@ -126,6 +126,31 @@
   cursor: pointer;
 }
 
+/* Under a finger the row's floor is the finger's (DESIGN.md, "Hit targets"):
+   measured at 390 in a touch context, the reminders' Quick set rows stood at
+   36px, the control height above, under the 44px every `button.small` beside
+   them already took. Same query as every touch-floor block. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  :is(
+    .action-menu,
+    .select-menu,
+    .doc-dock-menu-list,
+    .nav-history-menu,
+    .library-image-menu-list,
+    .wb-board-menu
+  ) :is(
+    .menu-item,
+    .doc-dock-menu-item,
+    .nav-history-item,
+    .library-image-menu-item,
+    .action-menu-item,
+    .wb-menu-item,
+    .select-option
+  ) {
+    min-height: var(--target-min);
+  }
+}
+
 /* Hover is a ghost tint; accent-soft is reserved for *selected*.
    Before this they were the same colour, which is why an open select listbox
    could not show you which option you were already on once the pointer
@@ -3520,6 +3545,21 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   max-width: min(25rem, calc(100vw - var(--space-8)));
 }
 
+/* On a phone the panel hangs from a bell that is not at the window's right
+   edge, so right-aligned to it, 366px wide, it started 34px off the left of a
+   390px window (measured: left -34). Below 600 it takes the window's width
+   less the gutter on both sides instead, under the header. */
+@media (max-width: 599.98px) {
+  .notif-panel {
+    position: fixed;
+    top: calc(var(--header-h) + var(--space-2));
+    left: var(--space-4);
+    right: var(--space-4);
+    width: auto;
+    max-width: none;
+  }
+}
+
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .notif-row.notif-unread {
   border-left: 0;
   position: relative;
@@ -6345,6 +6385,16 @@ main,
   margin: 0;
   line-height: 1.6rem;
   pointer-events: none;
+}
+
+/* The corner lets a press through to the card, but not past the card's own
+   buttons: `.entry-actions` is built inside `.entry-meta-end` (app.js,
+   `entryCard`), and `pointer-events` is inherited, so the rule above made
+   Favourite, Copy and the ⋯ menu on every note unpressable, with a mouse and
+   on touch alike (measured: `elementFromPoint` at the ⋯'s centre returned the
+   card, and the menus sweep could not click "More actions" at 1440 or 390). */
+#entry-list > li .entry-meta-end > .entry-actions {
+  pointer-events: auto;
 }
 
 #entry-list > li .entry-date {

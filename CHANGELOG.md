@@ -127,6 +127,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Mind map ring: the ring has a visible edge. A thin line round its outside and round the hole marks where it is against the board (3.8:1 in light, 5.1:1 in dark; it was 1.4:1 and 1.6:1), and the dividers between its actions stay hairlines.
 - Library, Boards and maps: Map from notes works again with no model running. It was disabled with the AI-only controls, but it proposes an outline from how your notes are filed when no model answers, and says so.
 - Mind map ring: every action's icon and word sits in the middle of its sector with at least 10px to both edges and both dividers ("Add beside" and "Cross-link" were 1.4px from both edges); the ring is as thick as its longest word needs.
 - Mind map ring, More: its menu opens beside the More sector wherever the ring was when you pressed it, even if the board re-renders before the click; it can no longer open in the window's top-left corner, and says so in the console if anything tries. Focusing a sector no longer scrolls the board, which also closed the menu Enter had just opened.

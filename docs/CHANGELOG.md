@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Dashboard edit mode: the long hint sentence is now an "Editing layout" badge and three short gestures on one line, the bar no longer wraps onto two lines on a desktop window, and Done is the filled button while editing.
 - Folded sidebars (Notes, Chat, Documents) show their name down the rail under the open button, with a faint accent wash, instead of an empty white column; the folded skill logs match them in width, button position and style.
 - Dashboard, Focused view: the search field has its own full-width row again instead of sharing a line with the greeting (its width changed with the greeting's length), and the banner is a compact version of the Full one, with the time on the right.
 - Shortened note text across the app (the dashboard's last-note pill, pickers, link labels, previews) is cut at a whole word with an ellipsis instead of mid-word.

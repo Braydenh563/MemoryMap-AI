@@ -925,7 +925,19 @@
     <div class="dash-stats" id="dash-stats" role="group" aria-label="At a glance"></div>
     <div class="dash-toolbar">
       <span class="muted dash-toolbar-label">Your dashboard</span>
-      <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / <i class="ph ph-x ph-lead" aria-hidden="true"></i>Remove widgets · ▭Wide makes a full-width section, your layout is remembered.</span>
+      <!-- Edit mode's hint (INBOX 425, the owner: the sentence that was here
+           "is unprofessional and could be displayed better", and it wrapped
+           the whole bar onto two lines). A state badge and three short
+           gestures, each with the icon the card's own control carries; the
+           row is one line tall and gestures that do not fit are dropped
+           from the end rather than wrapping the bar. Adding is the Widgets
+           button beside it, and saving is automatic, so neither is said. -->
+      <span class="dash-hint hidden" id="dash-hint" role="status">
+        <span class="dash-hint-badge">Editing layout</span>
+        <span class="dash-hint-item"><i class="ph ph-dots-six-vertical ph-lead" aria-hidden="true"></i>Drag a card to move it</span>
+        <span class="dash-hint-item"><i class="ph ph-arrows-out-line-horizontal ph-lead" aria-hidden="true"></i>Wide or narrow</span>
+        <span class="dash-hint-item"><i class="ph ph-x ph-lead" aria-hidden="true"></i>Remove</span>
+      </span>
       <span id="dash-hint-spacer"></span>
       <div class="dash-toolbar-actions">
         <!-- **How much of the page is chrome** (INBOX 270, the owner: "is

@@ -3498,6 +3498,55 @@ html.modal-open body {
   flex: 1 1 auto;
 }
 
+/* Edit mode's hint: one line, never the reason the bar wraps. The items wrap
+   onto a second line that the fixed height hides, so a narrower bar drops
+   the last gestures instead of growing (INBOX 425). */
+.dash-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-4);
+  height: 1.75rem;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.dash-hint.hidden {
+  display: none;
+}
+
+.dash-hint:not(.hidden) + #dash-hint-spacer {
+  display: none;
+}
+
+.dash-hint-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dash-hint-item {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .dash-toolbar {
+    flex-wrap: nowrap;
+  }
+}
+
 .dash-toolbar-actions {
   display: flex;
   align-items: center;

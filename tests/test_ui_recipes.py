@@ -602,6 +602,31 @@ def test_a_radial_places_its_slots_without_the_transform_properties() -> None:
     )
 
 
+def test_the_radial_band_is_cut_to_its_tiles() -> None:
+    """The band under a ring holds its slots rather than a guessed width.
+
+    INBOX 410: with a fixed 3rem band under 7rem pills, every diagonal pill
+    hung 32px past the band's outer edge and 28px into its hole. The band is
+    now drawn from two edges `wbFitMapRadialBand` measures off the placed
+    slots, and the caption hangs under the outer edge; a rule that goes back
+    to sizing the band from the radius alone brings the overhang back.
+    """
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    #: The map layer is whiteboard-map.js since the split; read both.
+    js = "".join((ROOT / "frontend" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
+    band = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial::before"]
+    assert band, "the radial's band rule is gone"
+    assert "--wb-radial-outer" in band[0] and "--wb-radial-inner" in band[0], (
+        "the band must be drawn from the measured inner and outer edges"
+    )
+    caption = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial-caption"]
+    assert caption and "--wb-radial-outer" in caption[0], (
+        "the ring's caption hangs under the band's outer edge, not the radius"
+    )
+    place = js.split("function wbPlaceMapRadial(", 1)[1].split("\n}\n", 1)[0]
+    assert "wbFitMapRadialBand(ring)" in place, "placing a ring must fit its band"
+
+
 def test_the_radial_is_a_toolbar_rather_than_a_menu() -> None:
     """A ring claims the role a screen reader can do something with.
 
@@ -2079,7 +2104,9 @@ def test_every_right_click_menu_has_a_long_press_twin():
     per render. It is not counted here because the pattern above does not
     match it, which is the honest state of it rather than an oversight.
     """
-    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js"):
+    #: whiteboard-map.js since the mind map layer was split out of
+    #: whiteboard.js (2026-09-24); its node and edge menus came with it.
+    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js", "whiteboard-map.js"):
         text = (ROOT / "frontend" / name).read_text(encoding="utf-8")
         right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
         calls = len(re.findall(r"\bwireLongPress\(", text))
@@ -2522,7 +2549,12 @@ def test_code_diagnostics_are_drawn_in_the_apps_ink() -> None:
     fixed colours (#d11, a red SVG squiggle, white on #17c), right on a white
     page and wrong on the dark one; the underline is the prose findings'
     shape so an error in code and a misspelling in prose are one idea."""
-    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    #: documents.js (the theme) and documents-code.js (docCodeTools, split
+    #: out of documents.js on 2026-09-24), joined.
+    docs = "\n".join(
+        (ROOT / "frontend" / name).read_text(encoding="utf-8")
+        for name in ("documents.js", "documents-code.js")
+    )
     theme = docs.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
     for selector in (
         '".cm-lintRange-error"',

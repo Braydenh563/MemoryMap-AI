@@ -34,6 +34,24 @@ with its owner named in the entry.
 
 ## Open items
 
+413. **The owner, 2026-09-24, verbatim, with a chat screenshot.** "I was in a
+    document in the editor, I opened the suggestions panel and pressed check
+    with ai, it took me to the chat and a popup above the chat suggested that
+    there was a skill available for my requests, it wasnt entirely accurate
+    so I closed it by clicking the 'x' on it and then the whole new chat page
+    started viciously stuttering jumping up and down slightly really fast."
+    Not reproduced headless (with real scrollbars, at 700 to 1048 tall, the
+    dismiss gives one flip, not a loop). The one self-feeding path found is
+    fixed: `fitChatEmpty` took its own class off to measure inside a
+    ResizeObserver; it now reads stored heights with 4px hysteresis, and
+    `#chat-messages` keeps a stable scrollbar gutter. Then the owner's log:
+    "ResizeObserver loop completed with undelivered notifications", many a
+    second, after opening and widening the web panel. The observer now only
+    records the size; the fit runs a frame later, for changes of 2px or more,
+    at most one flip per 500ms (`o-webpanel.js`: 0 loop errors, 1 flip across
+    a 300 to 700px drag, 0 while still). Open until the owner's next run; the skill match being "not entirely accurate" is placed with
+    the documents' Check with AI rework (INBOX 410).
+
 411. **The owner, 2026-09-24, verbatim, with the board export dialog and
     two lightbox screenshots.** "is there a way to better design all
     instances of these menu bar elements in popups and the like?? I think

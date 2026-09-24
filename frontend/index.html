@@ -4781,8 +4781,13 @@
         </main>
         <aside class="card glass" id="skills-sidebar">
         <div class="row space-between library-head">
-          <h2>Skill logs</h2>
-          <button id="skills-logs-clear" class="ghost small" type="button" title="Clear this log">Clear</button>
+          <h2 id="skills-logs-heading">Skill logs</h2>
+          <div class="row skills-logs-actions">
+            <button id="skills-logs-clear" class="ghost small" type="button" title="Clear this log">Clear</button>
+            <button id="skills-logs-collapse" class="icon-only ghost small" type="button"
+              aria-expanded="true" aria-controls="skills-logs-list"
+              title="Collapse the skill logs" aria-label="Collapse the skill logs"><i class="ph ph-sidebar-simple" aria-hidden="true"></i></button>
+          </div>
         </div>
         <div id="skills-logs-list" class="entry-list"></div>
       </aside>

@@ -6190,6 +6190,21 @@ async function attachmentObjectUrl(attachment) {
   return url;
 }
 
+//: **Who wrote a caption, in words** (the owner, 2026-09-24). `caption_model` names the
+//: author of a caption: a vision or utility model, or `APP_CAPTION_AUTHOR`
+//: when the app wrote it itself (a board export's "Part of the mind map ...,
+//: exported from MemoryMap", stored with `source: "app"` by routes_files.py).
+//: That one is "Written by", not "Described by": nothing looked at the
+//: picture. The lightbox byline and the Library card both read this, so the
+//: same picture says the same thing in both places. `short` is the Library
+//: card's own shortener for a long model name.
+const APP_CAPTION_AUTHOR = "MemoryMap";
+function captionCredit(model, short = (name) => name) {
+  return model === APP_CAPTION_AUTHOR
+    ? `Written by ${APP_CAPTION_AUTHOR}`
+    : `Described by ${short(model)}`;
+}
+
 // Full-size image viewer: click anywhere or press Esc to close (Wave M).
 // `items` is every image this click can page through, e.g. all the image
 // attachments on the same note, as `{filename, getUrl}`, `getUrl` being a
@@ -6247,7 +6262,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   const captionBylineFor = (row) => {
     if (!row || !row.caption) return "";
     const parts = [];
-    if (row.caption_model) parts.push(`Described by ${row.caption_model}`);
+    if (row.caption_model) parts.push(captionCredit(row.caption_model));
     if (row.caption_edited) parts.push(row.caption_model ? "edited" : "typed by hand");
     return parts.join(" · ");
   };
@@ -7888,7 +7903,12 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   const stageWrap = document.createElement("div");
   stageWrap.className = "lightbox-stage-wrap";
   stageWrap.appendChild(stage);
-  if (items.length > 1) stageWrap.append(prevBtn, nextBtn);
+  //: `lightbox-paged` narrows the stage by the arrows' room, so the picture
+  //: never goes under one (02-chat-graph.css).
+  if (items.length > 1) {
+    stageWrap.append(prevBtn, nextBtn);
+    stageWrap.classList.add("lightbox-paged");
+  }
   const column = document.createElement("div");
   column.className = "lightbox-column";
   column.append(stageWrap, meta, actions, info);
@@ -14916,6 +14936,36 @@ async function viewAskHistoryTurn(id) {
   //: line. Both are a fresh model call and a live timing, neither belongs to
   //: the turn being reopened, and `setAnsweredBy` below already says this is
   //: a remembered answer rather than one just written.
+  //: **The records first, then what reads them** (the owner, 2026-09-24: a
+  //: reopened question lost its record numbers and grew a Sources box of
+  //: the same notes). `numberMatchingRecords` and `askNotesOnTheRight`
+  //: both read `#raw-results`, and this used to fill it after both ran.
+  const rawList = $("raw-results");
+  rawList.replaceChildren();
+  // Same badges as a live Ask answer: this turn's own match_info/connected_ids
+  // were saved alongside it (routes_chat.py's _save_ask_turn) for exactly
+  // this reason: browsing back shouldn't lose the "why" a result showed up.
+  const connected = new Set(turn.connected_ids || []);
+  const matchInfo = turn.match_info || {};
+  for (const entry of turn.raw_results) {
+    const row = clickableResult(entry);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
+      row.appendChild(badge);
+    }
+    rawList.appendChild(row);
+  }
+  if (turn.omitted_results) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent =
+      turn.omitted_results === 1
+        ? "1 note from this answer is no longer available (deleted or made private since)."
+        : `${turn.omitted_results} notes from this answer are no longer available (deleted or made private since).`;
+    rawList.appendChild(li);
+  }
   const groundingRows = turn.grounding || [];
   const historyMeta = { raw_results: turn.raw_results || [] };
   //: Built first, for its `sources`: a reopened turn numbers its markers,
@@ -14946,32 +14996,6 @@ async function viewAskHistoryTurn(id) {
   //: same fact spelled out, since the chip is ellipsised.
   setAnsweredBy(`asked ${relativeTime(turn.created_at)}`, `Asked ${relativeTime(turn.created_at)}`);
   $("search-mode").textContent = SEARCH_MODE_LABELS[turn.search_mode] || turn.search_mode;
-  const rawList = $("raw-results");
-  rawList.replaceChildren();
-  // Same badges as a live Ask answer: this turn's own match_info/connected_ids
-  // were saved alongside it (routes_chat.py's _save_ask_turn) for exactly
-  // this reason: browsing back shouldn't lose the "why" a result showed up.
-  const connected = new Set(turn.connected_ids || []);
-  const matchInfo = turn.match_info || {};
-  for (const entry of turn.raw_results) {
-    const row = clickableResult(entry);
-    const badge = matchReasonBadge(matchInfo[entry.id]);
-    if (badge) {
-      if (connected.has(entry.id)) row.classList.add("result-connected");
-      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
-      row.appendChild(badge);
-    }
-    rawList.appendChild(row);
-  }
-  if (turn.omitted_results) {
-    const li = document.createElement("li");
-    li.className = "muted";
-    li.textContent =
-      turn.omitted_results === 1
-        ? "1 note from this answer is no longer available (deleted or made private since)."
-        : `${turn.omitted_results} notes from this answer are no longer available (deleted or made private since).`;
-    rawList.appendChild(li);
-  }
   document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
   $("chat-results").classList.remove("hidden");
   $("ask-idle")?.classList.add("hidden");
@@ -15981,9 +16005,27 @@ function renderChatEmptyState() {
   // turn says so. Stills itself under Settings → Appearance → reduced motion.
   renderEmblem(emblem, 52, { animate: true }); // after insertion: see addAssistantBubble
   fitChatEmpty();
+  //: **Watched, but never from inside the observer's own callback** (the
+  //: owner's log, 2026-09-24: "ResizeObserver loop completed with undelivered
+  //: notifications", many a second, with the web panel opened and widened).
+  //: The callback only notes the pane's new size; the fit runs on the next
+  //: frame, only for a change of 2px or more, and flips the welcome at most
+  //: once in 500ms, so no arrangement of panes can make it chase itself.
   if (!fitChatEmpty.watching && typeof ResizeObserver === "function") {
     fitChatEmpty.watching = true;
-    new ResizeObserver(() => fitChatEmpty()).observe(box);
+    let last = { w: 0, h: 0 };
+    let queued = false;
+    new ResizeObserver((entries) => {
+      const rect = entries[entries.length - 1].contentRect;
+      if (Math.abs(rect.width - last.w) < 2 && Math.abs(rect.height - last.h) < 2) return;
+      last = { w: rect.width, h: rect.height };
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        fitChatEmpty();
+      });
+    }).observe(box);
   }
 }
 
@@ -31534,17 +31576,36 @@ function refitComposer() {
 //: 295px and the welcome 350px, so a new chat opened on a scrollbar. Below
 //: its own natural height the welcome drops the emblem and tightens its
 //: spacing (`.chat-empty.is-short`, 08-consistency.css), which is 110px back.
-//: The choice is made against the welcome's *full* height, read with the
-//: class off, so going compact can never shrink it under the line and flip
-//: it back; read every time, because the chips arrive after the welcome is
-//: drawn and a figure kept from before them was 110px short (measured).
+//: The choice is made against the welcome's *full* height, and that is never
+//: read by taking the class off: doing so resized the pane whenever the pane's
+//: own height followed its content, the ResizeObserver fired on it, and the
+//: two chased each other every frame (the owner, 2026-09-24: after closing
+//: the skill hint above the composer "the whole new chat page started
+//: viciously stuttering jumping up and down"). The full height is read while
+//: the welcome is full; while it is compact, the height saved at the switch
+//: plus what the welcome has grown since (the chips arrive late). A change
+//: under 4px, or one this function caused, does nothing.
 function fitChatEmpty() {
   const pane = document.getElementById("chat-messages");
   const empty = pane && pane.querySelector(".chat-empty");
   if (!empty) return;
-  empty.classList.remove("is-short");
-  const full = empty.offsetHeight;
-  empty.classList.toggle("is-short", pane.clientHeight > 0 && pane.clientHeight < full);
+  const room = pane.clientHeight;
+  if (!room) return;
+  const short = empty.classList.contains("is-short");
+  const now = empty.offsetHeight;
+  const full = short ? Number(empty.dataset.fullHeight || 0) + (now - Number(empty.dataset.shortHeight || now)) : now;
+  const want = room + 4 < full ? true : room >= full + 4 ? false : short;
+  if (want === short) return;
+  const now2 = performance.now();
+  if (now2 - (fitChatEmpty.lastFlip || 0) < 500) return;
+  fitChatEmpty.lastFlip = now2;
+  if (want) {
+    empty.dataset.fullHeight = String(full);
+    empty.classList.add("is-short");
+    empty.dataset.shortHeight = String(empty.offsetHeight);
+  } else {
+    empty.classList.remove("is-short");
+  }
 }
 
 //: `ring-held` holds `.chat-dock:focus-within`'s accent ring off while the
@@ -39297,7 +39358,21 @@ const LAZY_MODULES = {
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
-  library: ["/documents.js", "/whiteboard.js", "/library.js"],
+  //: documents-code.js and documents-prose.js were split out of documents.js
+  //: (2026-09-24) and go *before* it, and that position is load-bearing: their
+  //: own top level reads nothing from documents.js, while documents.js's
+  //: top-level wiring names their functions, and each file here is followed
+  //: by a microtask checkpoint before the next one runs. See their headers.
+  //: whiteboard-map.js (the mind map layer, split out of whiteboard.js the
+  //: same day) goes before whiteboard.js on the same terms.
+  library: [
+    "/documents-code.js",
+    "/documents-prose.js",
+    "/documents.js",
+    "/whiteboard-map.js",
+    "/whiteboard.js",
+    "/library.js",
+  ],
 };
 
 //: Which bundle a tab needs before its own dispatch runs. `documents` is the
@@ -49633,9 +49708,24 @@ function finderRenderEmpty() {
 //: itself unpressed to anything reading it, and a keyboard user lost focus to
 //: <body> on every filter change. The row is furniture; only its numbers and
 //: its pressed state change.
+//: Which ends of the kind row can still scroll, so the fade sits only on
+//: an edge with more behind it (the owner, 2026-09-24: the last chip,
+//: Actions, was faded with the row scrolled all the way to it).
+function finderSyncFilterEdges(bar) {
+  const max = bar.scrollWidth - bar.clientWidth;
+  bar.classList.toggle("fade-start", bar.scrollLeft > 1);
+  bar.classList.toggle("fade-end", max - bar.scrollLeft > 1);
+}
+
 function finderRenderFilters() {
   const bar = document.getElementById("finder-filters");
   if (!bar) return;
+  if (!bar.dataset.edgesWired) {
+    bar.dataset.edgesWired = "1";
+    bar.addEventListener("scroll", () => finderSyncFilterEdges(bar), { passive: true });
+    new ResizeObserver(() => finderSyncFilterEdges(bar)).observe(bar);
+  }
+  requestAnimationFrame(() => finderSyncFilterEdges(bar));
   const wanted = [
     { key: "", label: "Everything", count: null },
     ...FINDER_KINDS.map((kind) => ({

@@ -125,9 +125,26 @@ below). Versioning is `0.x` while the app stabilises.
   every call into one and loses them all: a fragment that opens a call opens
   the next bucket and a nameless one continues the last, so an omitted index
   degrades to arrival order rather than to a collision.
+- A question reopened from Ask history keeps its numbered records and no longer
+  repeats them in a Sources box; the records column's facts have a word's gap.
+- The skill logs fold to a rail beside the skills and remember it.
+- Find anything's kind row fades only on an edge with more behind it, and the
+  kinds rest as plain text with only the chosen one filled.
+- Code documents: the selection bar offers only Ask Atlas and Rewrite (no markdown
+  formatting over code), and every indentation step is drawn 2em wide, whatever
+  the file's unit.
+- A new chat could stutter up and down after a hint above the composer closed:
+  the welcome's fit no longer toggles its own class to measure, and the
+  transcript keeps its scrollbar's room.
 - The AI assistant's Edit, Write and Remove choice uses the same quiet selected
   state as every other choice control in the flat looks; the board export's
   format and scope are option tiles instead of a wrapping strip.
+- Boards and maps: a drag-selection rectangle keeps up with the pointer on a big board or map. It is drawn on a canvas once a frame instead of rewriting the page each move, and letting go restyles only the items whose selection changed.
+- Lightbox: the picture never runs under the previous and next arrows, at Fit or zoomed, at any width, and the information card under it is one width on every picture, edge to edge with the toolbar.
+- Boards and maps: a picture exported (to a file or to the Library) is painted in the colours on screen, in light and dark: map topics, note cards and text boxes take their own fill, edge and ink, and a branch keeps its colour. In dark mode the topics used to come out white and the text dark on dark.
+- Library and lightbox: a picture exported from a board or map carries the description the app wrote for it as "Written by MemoryMap", not "typed by hand", and a vision model that later describes it is credited alone rather than as an edit.
+- Mind maps: a topic dropped on another topic, or joined to one by a line, is laid out as that topic's child with its own branch beside it, on a Free map as well as a tidied one, and one Undo puts the parent and every place back. It used to land on top of its new parent.
+- Mind maps: the ring of actions on a topic or a line holds its buttons inside its band. Each is a small tile, icon over word, evenly spaced round the circle, and the band is sized to the tiles, so none hangs over its edge or into its hole at any width.
 - The guide answers "Can Atlas write for me?" from a new Write with Atlas topic.
 - Answer citations: a note the answer names by number ("Notes 1, 5, and 6")
   is marked, and a run of sentences from the same notes in one paragraph
@@ -409,6 +426,17 @@ below). Versioning is `0.x` while the app stabilises.
   touches packaging, the entry point or index.html, and weekly, and fetches
   every script and stylesheet the page references plus each lazy bundle,
   so a file missing from the bundle fails before release day.
+- The mind map layer (a map's nodes, edges, themes, tidy, the edit strip
+  and the radial menus) moved out of whiteboard.js into whiteboard-map.js.
+  Nothing it does changed; it still arrives with the Library, and
+  whiteboard.js is about a quarter smaller (212 KB gzipped, was 292 KB).
+- The document editor's code tools (checks, completions, Emmet, hover,
+  symbols, sticky scroll, go to definition, Run, format and quick fixes)
+  and its prose tools (grammar, suggestion mode, the accessibility check,
+  read aloud) moved out of documents.js into documents-code.js and
+  documents-prose.js. Nothing they do changed; they still arrive with the
+  Library, and documents.js is about a quarter smaller (242 KB gzipped,
+  was 314 KB).
 - The Timeline tab's code moved out of app.js into its own file,
   timeline.js, loaded at startup right after the dashboard's. Nothing it
   does changed; app.js is about 24 KB smaller to download (gzipped), which

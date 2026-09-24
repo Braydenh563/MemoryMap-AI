@@ -9,7 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
-- ArrowUp in an empty chat box reopens your last message for editing.
+- ArrowUp and ArrowDown in an empty chat box step through the messages you
+  sent; Ctrl+Y redoes, as the board's buttons already said.
 - Chat, Web panel: redesigned as a reading pane. The head is the title, a dot for the search engine's state (its words on hover) and a menu to start or stop SearXNG, open Web search settings or clear recent searches; one search field with the icon inside, Enter to search and Stop only while a search or a page is loading; results as a list with the site's letter, arrow keys and Enter, a right-click menu, Copy link and Cite in chat; recent searches as rows. The reader has a Results link, Find in this page (Ctrl+F counts the page, not the tab), Copy link and Open in your browser beside it, one row of Ask about this, Cite in chat, Save as note and Bookmark, and the page as prose with no box round it and one scrollbar. Cite in chat attaches the page to your next message as a chip. The panel opens at its default width rather than its minimum, and cannot be dragged so wide that the conversation is squeezed.
 - Chat: your own messages carry a small mark generated from your profile name (or "You"), on the bubble's corner, so nothing in the bubble moves; the persona picker shows the chosen persona's mark beside it.
 - Persona marks are faces now: a head in one of the category colours over a ground in another, with eyes and a mouth, all drawn from the name. The closest two of 23 differ in 29.8% of their pixels (the old marks: 5.6%).

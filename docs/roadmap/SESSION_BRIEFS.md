@@ -561,6 +561,18 @@ only after this brief merges.
 **Steps.** Test file first (subprocess app on a free port, bound
 0.0.0.0); S1; S2; S3; S5; the log scrubber; the Settings toggle last.
 
+**State 2026-09-24.** S1, S2, S3, the rest of S5, S6's redirect half and
+`/debug/health`'s paths are built, each with its own test (HISTORY.md, "Moved
+from the plans, 2026-09-24"). Two of the decisions above were taken
+differently, and are recorded here rather than silently: S1 is an HttpOnly,
+SameSite=Strict cookie scoped to `/media` and `/files` holding a ticket that
+names the session, not an HMAC token in the URL, because a ticket in the URL
+is still a credential in history, logs and pasted text and `mediaSrc` is
+synchronous at fifty call sites; S3 confines `import_directory` to home and
+the data folder (with symlink escapes checked) rather than refusing it off
+loopback, which holds on loopback too. Left: `tests/test_lan_mode.py` and the
+Settings toggle.
+
 ---
 
 ## The quarter's briefs (shorter; expand each into the shape above when

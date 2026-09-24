@@ -22,6 +22,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings, About no longer receives the full path of the notebook's folder from the server: a folder in your home folder is shown as ~/..., anything else by its name, so the page gives away nothing about the server's disk.
 - The app no longer follows a model server's redirect to a different address: a request to your configured model stays on that address, and a redirect elsewhere is reported instead of followed. A redirect within the same server still works.
 - Internal: the check that every module reaching the network is reviewed now sees downloads made without the requests library too (the optional extras and embedding models), and both are recorded as fetching only addresses the app ships.
 - Import from path reads only folders inside your home folder or the notebook's data folder, and skips any file in the folder that links somewhere outside it. A folder elsewhere can still be imported with Import folder, which uploads the files you choose.

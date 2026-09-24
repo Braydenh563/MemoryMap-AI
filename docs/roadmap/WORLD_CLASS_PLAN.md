@@ -798,7 +798,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | §12, Brief 15 | S1 media token in the URL, S2 per-client throttle, S3 path imports, the rest of S5, S6, `/debug/health` paths; blocks LAN mode | M | `core/security.py`, `routes_auth.py`, `routes_settings.py` |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24 (a test per item, each failing before); left: `tests/test_lan_mode.py` and the LAN offer, S6's receipt half (row 35) | S | HISTORY; §12 |
 | 3 | B2 | durable jobs: a table, leases, resume after a kill, `/jobs/stream` | L | `core/jobs.py` |
 | 4 | D2, 261 | the connections rail always visible on desktop, which is also where `GET /resurface/near` would show | M | `app.js` `openConnections` |
 | 5 | I1, H1 | `night_runs`, `GET /night/latest`, the morning card, the tension and answered-question passes | L | `ai/facts.py`, `routes_night.py` |
@@ -923,12 +923,9 @@ day. What is left: S6's other half, the configured model address shown in the
 privacy receipt on LAN mode (neither exists yet; the receipt is row 35), and
 the rest of Brief 15 below.
 
-**Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5, and
-`GET /debug/health`'s absolute `data_dir`/`db_path` paths (INBOX 310:
-harmless behind the unlock gate on localhost today, a full server path
-handed to anyone holding the session token once this ships) as one change
-set with a `tests/test_lan_mode.py` that starts the app bound to 0.0.0.0
-in a subprocess and asserts each behaviour; only after it passes does
+**Brief 15, what is left (the rest built 2026-09-24, in HISTORY.md):** a
+`tests/test_lan_mode.py` that starts the app bound to 0.0.0.0 in a
+subprocess and asserts each behaviour end to end; only after it passes does
 Settings offer "Allow other devices on this network".
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)

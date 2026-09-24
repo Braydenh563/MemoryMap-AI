@@ -130,6 +130,34 @@ The row as it stood in section 12:
 | --- | --- | --- | --- | --- |
 | S5 | **Half done, 2026-09-13 evening: the guard is one function and it is in `core/security.py`.** `public_addresses(url)` (and `assert_public_url` for a caller that does not pin) refuses anything that is not plain http(s), carries credentials, does not resolve, or resolves to **any** address on this machine or the local network; `search/websearch.py` now calls it and keeps only the connection pinning, which is the half that is about fetching rather than judging. `is_internal_address` is the one definition of internal, asked in both directions (refused for an untrusted URL, required of a self-hosted SearXNG). `tests/test_outbound_fetch_guard.py` walks `src/` for outbound calls and fails on a module that is not written down as untrusted or configured, which is what makes the clipper unable to arrive unreviewed. What is left of this row is the callers that do not exist yet: bookmarks still fetch nothing. Original finding: bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
 
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): `/debug/health`'s absolute paths
+
+**Built 2026-09-24.** `GET /debug/health` handed back the absolute
+`data_dir` and database path (INBOX 310: harmless behind the unlock gate on
+localhost, a map of the server's disk with the account name in it for anyone
+holding a token once other devices can connect). `routes_debug.shown_path`
+now says a folder under home as `~/...` and anything else as its own name
+after an ellipsis; `db.path` is the database's path relative to the data
+folder. Settings, About paints the same field, so it still says where the
+notebook lives. Tests: `tests/test_debug_health.py` (the shape test asserts
+no absolute path; home-relative and outside-home forms pinned). The support
+bundle (`routes_settings.py`) and the backups route still carry the absolute
+path; both are downloads the owner makes on purpose, not a page any token
+holder reads at a glance, and are left as they are. The paragraph as it
+stood in section 12:
+
+**Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5, and
+`GET /debug/health`'s absolute `data_dir`/`db_path` paths (INBOX 310:
+harmless behind the unlock gate on localhost today, a full server path
+handed to anyone holding the session token once this ships) as one change
+set with a `tests/test_lan_mode.py` that starts the app bound to 0.0.0.0
+in a subprocess and asserts each behaviour; only after it passes does
+Settings offer "Allow other devices on this network".
+
+The row as it stood in section 8:
+
+| 2 | §12, Brief 15 | S1 media token in the URL, S2 per-client throttle, S3 path imports, the rest of S5, S6, `/debug/health` paths; blocks LAN mode | M | `core/security.py`, `routes_auth.py`, `routes_settings.py` |
+
 ### From WORLD_CLASS_PLAN.md §12 (Brief 15): S6
 
 **Built 2026-09-24: S6's redirect half.** The two provider clients import

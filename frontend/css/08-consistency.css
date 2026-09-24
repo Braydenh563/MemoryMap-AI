@@ -4444,6 +4444,33 @@ main,
   padding-inline: var(--space-5);
 }
 
+/* The hairline between sections, when something else stands between them.
+   The source rule is `.dock-menu-section + .dock-menu-section`, and the
+   Timeline's Options puts its (usually hidden) Select row between the group
+   filter and the time range: the two ran together with no break, which read
+   as one section with two labels. */
+.doc-dock-menu-list .dock-menu-section ~ .dock-menu-section {
+  border-top: 1px solid var(--divider);
+}
+
+/* Quick set's list kept the id it had when it was a row of chips, and with it
+   that row's `margin: --space-5 0 --space-4` and `gap: --space-3` (02 and 03):
+   the menu opened 19px below its button instead of 6, and its eight rows
+   stood 8px apart where every other menu's rows touch, 392px of list for
+   eight times (menus.js). The id and the class together outrank the id. */
+#reminder-presets.doc-dock-menu-list {
+  margin: 0;
+  gap: 0;
+}
+
+/* `kebabMenu`'s group hairline, in a menu written in markup (Quick set). */
+.doc-dock-menu-list > .menu-sep {
+  flex: none;
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--border);
+}
+
 :is(.action-menu, .select-menu, .doc-dock-menu-list, .nav-history-menu, .wb-board-menu)
   :is(.menu-item, .doc-dock-menu-item, .nav-history-item, .wb-menu-item) > .ph:first-child,
 :is(.action-menu, .doc-dock-menu-list)

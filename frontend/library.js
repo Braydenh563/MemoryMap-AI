@@ -626,9 +626,22 @@ function libraryCopyActions(kind, title) {
 //: menu, where every menu in the app keeps it.
 function withLibraryCopyActions(items, kind, title) {
   const copies = libraryCopyActions(kind, title);
-  const at = items.findIndex((it) => /\b(Delete|Move to bin|Remove)\b/.test(it.label || ""));
-  if (at === -1) return [...items, ...copies];
-  return [...items.slice(0, at), ...copies, ...items.slice(at)];
+  //: Before Archive as well as Delete, so the rows that put a thing away stay
+  //: together at the end rather than the copies splitting them.
+  const put = /\b(Delete|Move to bin|Remove|Archive|Unarchive)\b/;
+  const at = items.findIndex((it) => put.test(it.label || ""));
+  const all = at === -1 ? [...items, ...copies] : [...items.slice(0, at), ...copies, ...items.slice(at)];
+  //: **Grouped past five rows** (DESIGN.md, the recipe index): a note's card
+  //: menu is seven rows, and it read as one list (menus.js). Three groups,
+  //: named by what the rows do rather than listed per kind, so every kind's
+  //: menu gets them from here: what you do with the thing, the two copies,
+  //: and the rows that put it away. `kebabMenu` draws a hairline wherever
+  //: the name changes; a menu of five or fewer declares nothing, as before.
+  if (all.length <= 5) return all;
+  return all.map((it) => ({
+    ...it,
+    group: copies.includes(it) ? "copy" : put.test(it.label || "") ? "end" : "act",
+  }));
 }
 
 function libraryActions(item) {

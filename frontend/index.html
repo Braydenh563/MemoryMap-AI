@@ -2687,7 +2687,7 @@
                    options are built from what is loaded, so the list can never
                    offer a category this range does not contain. -->
               <div class="dock-menu-section" id="timeline-band-section">
-                <label class="muted dock-menu-label" for="timeline-band">Show</label>
+                <label class="muted dock-menu-label" for="timeline-band">Show group</label>
                 <select id="timeline-band" aria-label="Show only one group">
                   <option value="">Everything</option>
                 </select>
@@ -2699,8 +2699,11 @@
                    can tick. -->
               <button id="timeline-select-btn" class="doc-dock-menu-item hidden" type="button"
                 title="Select several notes to move, tag or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
+              <!-- "Time range", not "Show": the group filter above was also
+                   "Show", and two sections with one name in one menu read as
+                   a duplicate (INBOX 403, the menu pass). -->
               <div class="dock-menu-section">
-                <label class="muted dock-menu-label" for="timeline-days">Show</label>
+                <label class="muted dock-menu-label" for="timeline-days">Time range</label>
                 <select id="timeline-days" aria-label="How far back to show">
                   <option value="90">Last 3 months</option>
                   <option value="365" selected>Last year</option>
@@ -4252,9 +4255,14 @@
               <button type="button" class="doc-dock-menu-item" data-preset="30m">In 30 min</button>
               <button type="button" class="doc-dock-menu-item" data-preset="1h">In 1 hour</button>
               <button type="button" class="doc-dock-menu-item" data-preset="3h">In 3 hours</button>
+              <!-- Eight rows in three groups (DESIGN.md: past five rows a menu
+                   is grouped): from now, a named time today or tomorrow, and
+                   further out. The same hairline `kebabMenu` draws. -->
+              <div class="menu-sep" role="separator"></div>
               <button type="button" class="doc-dock-menu-item" data-preset="tonight">Tonight 7pm</button>
               <button type="button" class="doc-dock-menu-item" data-preset="tomorrow">Tomorrow 9am</button>
               <button type="button" class="doc-dock-menu-item" data-preset="tomorrowpm">Tomorrow 2pm</button>
+              <div class="menu-sep" role="separator"></div>
               <button type="button" class="doc-dock-menu-item" data-preset="weekend">This weekend</button>
               <button type="button" class="doc-dock-menu-item" data-preset="nextweek">Next week</button>
             </div>

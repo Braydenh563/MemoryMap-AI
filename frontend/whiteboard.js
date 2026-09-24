@@ -13041,6 +13041,30 @@ async function initWhiteboard() {
     //: written to survive, and a latch that is only cleared by the *next*
     //: click is a click lost whenever no click follows.
     wireLongPress(toggle, () => wbOpenDockedMenu(menu, toggle));
+    //: **And from the keyboard.** Enter on the toggle picks the tool it shows
+    //: (the click above), and the caret, the right-click, the double-click
+    //: and the hold are all pointer gestures, so a keyboard had no way into
+    //: the shapes at all (menus.js: "nothing opened"). ArrowDown and ArrowUp
+    //: are the menu button's own keys (WAI-ARIA): open, and land on the
+    //: first or last shape; the menu's own arrows and Escape take it from
+    //: there.
+    toggle.setAttribute("aria-controls", menu.id);
+    //: The roles at boot, never in the markup (the rule `wbStampMenuRoles`
+    //: keeps for the top-bar menus): a `role="menu"` with no menuitems in it
+    //: is announced as an empty menu, and `wireMenuKeyboard` walks menuitems.
+    for (const group of menu.querySelectorAll(".wb-shape-menu-group")) group.setAttribute("role", "group");
+    for (const item of menu.querySelectorAll("button[data-tool]")) item.setAttribute("role", "menuitem");
+    wireMenuKeyboard(menu, toggle);
+    toggle.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (!menu.classList.contains("hidden")) return;
+      e.preventDefault();
+      wbOpenDockedMenu(menu, toggle);
+      const items = [...menu.querySelectorAll('[role="menuitem"], button')].filter(
+        (b) => !b.disabled && b.getClientRects().length > 0
+      );
+      (e.key === "ArrowDown" ? items[0] : items[items.length - 1])?.focus();
+    });
 
     // Handled directly rather than relying on the click bubbling up to
     // #wb-tool-group's own delegated listener: once open+side-docked, the

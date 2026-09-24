@@ -5177,6 +5177,9 @@ async function removeEntryTitle(entry) {
 // driving the new selection menu from the keyboard and watching ArrowDown
 // leave focus where it was.
 function wireMenuKeyboard(menu, opener) {
+  //: Read by the delegated walker for markup menus (search `menuRowsOf`),
+  //: which leaves a menu wired here alone.
+  menu.dataset.menuKeys = "1";
   menu.addEventListener("keydown", (event) => {
     const menuItems = [
       ...menu.querySelectorAll(
@@ -5741,10 +5744,22 @@ function entryOverflowMenu(entry) {
       run: () => binNoteWithUndo(entry),
     };
 
+    //: Three groups, broken by the same hairline `kebabMenu` draws for a
+    //: grouped menu (DESIGN.md: past five rows a menu is grouped): what you
+    //: do to this note, the three families that open further, and the two
+    //: that put it away. Ten rows read as one list before this (menus.js).
+    const rule = () => {
+      const sep = document.createElement("div");
+      sep.className = "menu-sep";
+      sep.setAttribute("role", "separator");
+      return sep;
+    };
     for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
+    menu.appendChild(rule());
     menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
     menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
     menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
+    menu.appendChild(rule());
     menu.appendChild(buildMenuItemButton(archive));
     menu.appendChild(buildMenuItemButton(danger));
   }
@@ -16754,32 +16769,38 @@ function mountChatActionsMenu() {
   host.appendChild(
     kebabMenu(
       [
-        { label: "ph:pencil-simple Rename this chat", run: () => renameCurrentConversation() },
-        { label: "ph:git-branch Fork this chat", title: $("chat-fork")?.title, run: click("chat-fork") },
+        //: Grouped (DESIGN.md: past five rows a menu is): this chat, a copy of
+        //: it kept somewhere, and the one that ends it. Eight rows read as one
+        //: list before (menus.js).
+        { label: "ph:pencil-simple Rename this chat", group: "chat", run: () => renameCurrentConversation() },
+        { label: "ph:git-branch Fork this chat", group: "chat", title: $("chat-fork")?.title, run: click("chat-fork") },
         {
           label: "ph:arrows-in Compress the earlier messages",
+          group: "chat",
           title: $("chat-compress")?.title,
           run: click("chat-compress"),
         },
-        featureModelMenuItem("chat"),
-        { label: "ph:download-simple Export as Markdown", run: click("chat-export") },
+        { ...featureModelMenuItem("chat"), group: "chat" },
+        { label: "ph:download-simple Export as Markdown", group: "keep", run: click("chat-export") },
         {
           //: Odysseus's "Save to Documents", which lands better here than it
           //: does there: this app *has* a Documents tab, and a conversation
           //: worth keeping is usually worth keeping beside the notes it drew
           //: on rather than as a file in a downloads folder.
           label: "ph:file-text Save this chat as a document",
+          group: "keep",
           run: () => saveChatAsDocument(),
         },
         {
           label: "ph:copy Copy the whole transcript",
+          group: "keep",
           run: async () => {
             const text = chatTranscriptText();
             if (!text) return toast("There is nothing to copy yet.");
             copyToClipboard(text);
           },
         },
-        { label: "ph:trash Delete this chat", danger: true, run: click("chat-delete") },
+        { label: "ph:trash Delete this chat", group: "end", danger: true, run: click("chat-delete") },
       ],
       "More actions for this conversation"
     )
@@ -29545,8 +29566,12 @@ const tabHistory = { stack: [], index: -1, navigating: false };
 function closeNavHistoryMenu() {
   const menu = $("status-nav-history-menu");
   if (!menu || menu.classList.contains("hidden")) return;
+  //: Escape from inside the list dropped the focus on `body` (menus.js):
+  //: a closed menu hands it back to the button that opened it.
+  const held = menu.contains(document.activeElement);
   menu.classList.add("hidden");
   $("status-nav-history")?.setAttribute("aria-expanded", "false");
+  if (held) $("status-nav-history")?.focus({ preventScroll: true });
 }
 
 function renderNavHistoryMenu() {
@@ -30213,20 +30238,32 @@ document.addEventListener("keydown", (event) => {
   if (!keys.includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return;
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
-  if (target.matches("input, textarea, select, [contenteditable='true']")) return;
+  //: A checkbox has no arrow keys of its own, so a tick row in a menu (the
+  //: Timeline's kinds) is walked like any other row.
+  if (target.matches("input:not([type='checkbox']), textarea, select, [contenteditable='true']")) return;
   const opener = target.closest("summary, [aria-haspopup]:not([aria-haspopup='false'])");
   if (opener === target && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
     const menu = menuOfOpener(opener);
     const rows = menu ? menuRowsOf(menu) : [];
-    if (!rows.length) return;
-    event.preventDefault();
-    focusMenuItem(event.key === "ArrowDown" ? rows[0] : rows[rows.length - 1], menu);
+    //: A closed select standing as a row in a dock menu (the document's
+    //: File type) is a row to walk past, not an opener to stop on.
+    if (rows.length) {
+      event.preventDefault();
+      focusMenuItem(event.key === "ArrowDown" ? rows[0] : rows[rows.length - 1], menu);
+      return;
+    }
+  }
+  //: Inside the menu: a `details` menu's list, or a markup menu an open
+  //: button controls (the space switcher's list). A menu `wireMenuKeyboard`
+  //: already walks is left to it, or every key would move two rows.
+  const list = target.closest('.doc-dock-menu-list, [role="menu"], [role="listbox"]');
+  if (!list || list.dataset.menuKeys || target.closest(".select-menu")) return;
+  if (list.matches(".doc-dock-menu-list")) {
+    const details = list.closest("details") || list._escapedHome?.parent;
+    if (!details?.open) return;
+  } else if (!list.id || !document.querySelector(`[aria-controls="${list.id}"][aria-expanded="true"]`)) {
     return;
   }
-  const list = target.closest(".doc-dock-menu-list");
-  if (!list || target.closest(".select-menu")) return;
-  const details = list.closest("details") || list._escapedHome?.parent;
-  if (!details?.open) return;
   const rows = menuRowsOf(list);
   const at = rows.indexOf(target);
   if (at < 0) return;
@@ -48715,8 +48752,12 @@ function renderSpaceMenu() {
 }
 
 function closeSpaceMenu() {
+  //: The same hand-back as `closeNavHistoryMenu`: Escape in the list left
+  //: the focus on `body`.
+  const held = $("space-menu")?.contains(document.activeElement);
   $("space-menu")?.classList.add("hidden");
   $("space-switcher-btn")?.setAttribute("aria-expanded", "false");
+  if (held) $("space-switcher-btn")?.focus({ preventScroll: true });
 }
 
 function openSpaceCreate() {

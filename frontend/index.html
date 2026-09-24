@@ -8735,6 +8735,38 @@
                   <option value="off">Off</option>
                 </select>
               </div>
+
+              <label class="setting-check" id="avatar-follow-row">
+                <input type="checkbox" id="avatar-follow">
+                <span>
+                  Faces follow the pointer
+                  <small class="muted">Eyes and heads turn a little towards your mouse.</small>
+                </span>
+              </label>
+
+              <div class="setting-row" id="avatar-buddy-row">
+                <div class="setting-label">
+                  <span>Corner companion</span>
+                  <small class="muted">A face in the corner to poke. Drag it anywhere; its own x hides it.</small>
+                </div>
+                <select id="avatar-buddy" class="small-select setting-control" aria-label="Corner companion">
+                  <option value="off">Off</option>
+                  <option value="me">You</option>
+                  <option value="persona">The chat's persona</option>
+                </select>
+              </div>
+
+              <div class="setting-row" id="dash-mark-row">
+                <div class="setting-label">
+                  <span>Dashboard mark</span>
+                  <small class="muted">The app's logo, your face, or the face of the persona the greeting speaks as.</small>
+                </div>
+                <select id="dash-mark" class="small-select setting-control" aria-label="Dashboard mark">
+                  <option value="logo">Logo</option>
+                  <option value="me">Your face</option>
+                  <option value="persona">Greeting persona</option>
+                </select>
+              </div>
             </div>
 
             <!-- ---------- Animated background ---------- -->

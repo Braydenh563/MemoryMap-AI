@@ -853,6 +853,7 @@ function nameMark(seed, size = 20) {
     "aria-hidden": "true",
   });
   svg.style.setProperty("--nm-delay", `${f(-delay * 6)}s`);
+  svg.dataset.nmSeed = String(seed || "");
   const title = nameMarkTitle(reading);
   if (title) {
     const titleEl = make("title", {});
@@ -1912,4 +1913,275 @@ function nameMark(seed, size = 20) {
   }
   svg.append(clip, sheen, group);
   return svg;
+}
+
+
+// --- what a face does when you meet it ------------------------------------
+//: The owner: "maybe the eyes and heads can tilt slightly to follow the
+//: user's mouse if toggled?? and they can do something if clicked?? can
+//: there also be a way to expand them or have them sit in the corner of the
+//: screen ... but it has to be movable or hidable ... so it doesnt get
+//: annoying". Four pieces, each behind its own Appearance setting where it
+//: could get in the way: a click reaction, a large viewer, eyes that follow
+//: the pointer, and a companion in the corner (off until asked for).
+
+//: What a face says when it is poked, by mood. No exclamation marks: the
+//: app's copy rule holds for the faces too.
+const NAME_MARK_LINES = {
+  happy: ["Hi there.", "Good to see you."], excited: ["Let's go.", "Ooh, what are we doing?"],
+  sad: ["It's fine. I'm fine.", "..."], angry: ["Hmph.", "What now?"], dramatic: ["Alas.", "The drama of it all."],
+  surprised: ["Oh.", "You startled me."], sleepy: ["Five more minutes.", "zzz..."], nervous: ["Is it the deadline?", "Um. Hi."],
+  sly: ["I know things.", "Heh."], calm: ["Breathe.", "All is well."], serious: ["Focus.", "Back to work."],
+  confused: ["Wait, what?", "Which tab was I on?"], hungry: ["Is it lunch yet?", "Snack break?"], cool: ["Sup.", "Stay cool."],
+  love: ["You're doing great.", "Proud of you."], laughing: ["Ha. Good one.", "Stop, I can't."], unimpressed: ["Meh.", "Sure."],
+  dizzy: ["Everything is spinning.", "Whoa."], uwu: ["Hewwo.", "Hi hi."], evil: ["Muahaha.", "All according to plan."],
+  sick: ["I need soup.", "Achoo."], dead: ["Tell my notes I loved them.", "x_x"], starstruck: ["Wow.", "Amazing."],
+  cute: ["Hi.", "Boop."], drunk: ["Heyyy.", "Who moved the floor."], greedy: ["Time is money.", "Stonks."],
+};
+
+function nameMarkLine(seed) {
+  const reading = nameMood(seed);
+  const lines = NAME_MARK_LINES[reading.mood] || ["Hello.", "Need anything?", "Still here."];
+  return lines[Math.floor(Math.random() * lines.length)];
+}
+
+//: A face drawn to always move (the viewer, the companion, the dashboard):
+//: its wrapper is what the CSS reads, not the Avatar animation setting,
+//: which is for the faces that sit in lists. Off and Reduce motion still win.
+function nameMarkLive(seed, size) {
+  const holder = document.createElement("span");
+  holder.className = "nm-live";
+  holder.appendChild(nameMark(seed, size));
+  return holder;
+}
+
+//: A poke: a hop and a spin. The class comes off when the animation ends.
+function nameMarkReact(svg) {
+  if (!svg) return;
+  svg.classList.remove("nm-react");
+  void svg.getBoundingClientRect();
+  svg.classList.add("nm-react");
+  setTimeout(() => svg.classList.remove("nm-react"), 800);
+}
+
+//: A speech bubble beside a face, for a moment.
+function nameMarkSay(anchor, text) {
+  if (!anchor) return;
+  anchor.querySelector(".nm-say")?.remove();
+  const bubble = document.createElement("span");
+  bubble.className = "nm-say";
+  bubble.setAttribute("role", "status");
+  bubble.textContent = text;
+  anchor.appendChild(bubble);
+  setTimeout(() => bubble.remove(), 2600);
+}
+
+//: **The large view.** A click on a face that is not part of a control
+//: opens it big, animated, with what it was read as, so the joke can be
+//: seen at a size where it lands.
+function openNameMarkViewer(seed) {
+  const opener = document.activeElement;
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay nm-viewer";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", `${seed || "Face"}, enlarged`);
+  const card = document.createElement("div");
+  card.className = "card modal-card nm-viewer-card";
+  const stage = document.createElement("button");
+  stage.type = "button";
+  stage.className = "nm-viewer-stage";
+  stage.title = "Poke it";
+  stage.appendChild(nameMarkLive(seed, 208));
+  const name = document.createElement("h2");
+  name.className = "nm-viewer-name";
+  name.textContent = seed || "Unnamed";
+  const reading = document.createElement("p");
+  reading.className = "muted nm-viewer-reading";
+  reading.textContent = nameMarkTitle(nameMood(seed)) || "A face of its own";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "ghost";
+  close.textContent = "Close";
+  card.append(stage, name, reading, close);
+  overlay.appendChild(card);
+  const shut = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey, true);
+    if (opener && typeof opener.focus === "function") opener.focus();
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      shut();
+    }
+  };
+  stage.addEventListener("click", () => {
+    nameMarkReact(stage.querySelector(".name-mark"));
+    nameMarkSay(stage, nameMarkLine(seed));
+  });
+  close.addEventListener("click", shut);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) shut();
+  });
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  close.focus();
+}
+
+//: One delegated listener for every face in the app: a poke always, and the
+//: large view when the face is not inside a control (a face in the Settings
+//: head's profile button still opens the profile, and hops on the way).
+document.addEventListener("click", (event) => {
+  const svg = event.target.closest?.(".name-mark");
+  if (!svg || svg.closest(".nm-viewer, #nm-buddy")) return;
+  nameMarkReact(svg);
+  if (svg.closest("button, a, [role='button'], label, select, summary")) return;
+  openNameMarkViewer(svg.dataset.nmSeed || "");
+});
+
+//: **Eyes that follow the pointer**, when Appearance says so. One listener,
+//: at most one update a frame, and only the faces on screen (the observer's
+//: `data-nm-on`), each nudged by a pair of custom properties the CSS turns
+//: into a small eye shift and head tilt. Nothing runs while it is off.
+let nameMarkFollowFrame = 0;
+let nameMarkPointer = null;
+document.addEventListener("pointermove", (event) => {
+  if (document.documentElement.dataset.avatarFollow !== "on") return;
+  nameMarkPointer = [event.clientX, event.clientY];
+  if (nameMarkFollowFrame) return;
+  nameMarkFollowFrame = requestAnimationFrame(() => {
+    nameMarkFollowFrame = 0;
+    const [px, py] = nameMarkPointer;
+    const faces = document.querySelectorAll(".name-mark[data-nm-on]");
+    for (let i = 0; i < faces.length && i < 40; i += 1) {
+      const box = faces[i].getBoundingClientRect();
+      const dx = px - (box.left + box.width / 2);
+      const dy = py - (box.top + box.height / 2);
+      const reach = Math.max(160, box.width * 3);
+      faces[i].style.setProperty("--nm-lx", Math.max(-1, Math.min(1, dx / reach)).toFixed(2));
+      faces[i].style.setProperty("--nm-ly", Math.max(-1, Math.min(1, dy / reach)).toFixed(2));
+    }
+  });
+}, { passive: true });
+
+//: **The corner companion.** Off by default; Appearance chooses you, the
+//: chat's persona, or nobody. Draggable anywhere (its place is remembered),
+//: hidden by its own close button, and it says something when poked.
+function nameMarkBuddySeed() {
+  const choice = typeof appearancePref === "function" ? appearancePref("avatar-buddy", "off") : "off";
+  if (choice === "me") return typeof userMarkSeed === "function" ? userMarkSeed() : "You";
+  if (choice === "persona") {
+    const persona = document.getElementById("persona-select")?.value || "";
+    return persona && persona !== "Atlas" ? persona : typeof userMarkSeed === "function" ? userMarkSeed() : "You";
+  }
+  return null;
+}
+
+function syncNameMarkBuddy() {
+  const seed = nameMarkBuddySeed();
+  let buddy = document.getElementById("nm-buddy");
+  if (!seed) {
+    buddy?.remove();
+    return;
+  }
+  if (!buddy) {
+    buddy = document.createElement("div");
+    buddy.id = "nm-buddy";
+    buddy.setAttribute("role", "img");
+    const face = document.createElement("button");
+    face.type = "button";
+    face.className = "nm-buddy-face";
+    const hide = document.createElement("button");
+    hide.type = "button";
+    hide.className = "ghost small icon-only nm-buddy-hide";
+    hide.setAttribute("aria-label", "Hide the companion");
+    hide.title = "Hide the companion (Settings, Appearance brings it back)";
+    const x = document.createElement("i");
+    x.className = "ph ph-x";
+    x.setAttribute("aria-hidden", "true");
+    hide.appendChild(x);
+    buddy.append(face, hide);
+    document.body.appendChild(buddy);
+    try {
+      const saved = JSON.parse(localStorage.getItem("nm-buddy-pos") || "null");
+      if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+        buddy.style.left = `${Math.min(Math.max(0, saved.x), innerWidth - 72)}px`;
+        buddy.style.top = `${Math.min(Math.max(0, saved.y), innerHeight - 72)}px`;
+        buddy.style.right = "auto";
+        buddy.style.bottom = "auto";
+      }
+    } catch (e) {
+      // A bad saved place falls back to the corner.
+    }
+    let drag = null;
+    face.addEventListener("pointerdown", (event) => {
+      const box = buddy.getBoundingClientRect();
+      drag = { dx: event.clientX - box.left, dy: event.clientY - box.top, sx: event.clientX, sy: event.clientY, moved: false };
+      face.setPointerCapture(event.pointerId);
+    });
+    face.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      const x0 = Math.min(Math.max(0, event.clientX - drag.dx), innerWidth - buddy.offsetWidth);
+      const y0 = Math.min(Math.max(0, event.clientY - drag.dy), innerHeight - buddy.offsetHeight);
+      //: A click wobbles a pixel or two; only a real pull is a drag.
+      if (!drag.moved && Math.hypot(event.clientX - drag.sx, event.clientY - drag.sy) < 4) return;
+      drag.moved = true;
+      buddy.style.left = `${x0}px`;
+      buddy.style.top = `${y0}px`;
+      buddy.style.right = "auto";
+      buddy.style.bottom = "auto";
+    });
+    face.addEventListener("pointerup", () => {
+      if (drag?.moved) {
+        const box = buddy.getBoundingClientRect();
+        try {
+          localStorage.setItem("nm-buddy-pos", JSON.stringify({ x: Math.round(box.left), y: Math.round(box.top) }));
+        } catch (e) {
+          // Only the remembered place is lost; the companion stays where it is.
+        }
+        face.dataset.dragged = "1";
+      }
+      drag = null;
+    });
+    face.addEventListener("click", () => {
+      if (face.dataset.dragged) {
+        delete face.dataset.dragged;
+        return;
+      }
+      nameMarkReact(face.querySelector(".name-mark"));
+      nameMarkSay(buddy, nameMarkLine(buddy.dataset.seed || ""));
+    });
+    face.addEventListener("dblclick", () => openNameMarkViewer(buddy.dataset.seed || ""));
+    hide.addEventListener("click", () => {
+      try {
+        localStorage.setItem("avatar-buddy", "off");
+      } catch (e) {
+        // Hidden for this session at least.
+      }
+      const select = document.getElementById("avatar-buddy");
+      if (select) select.value = "off";
+      buddy.remove();
+      if (typeof toast === "function") toast("Companion hidden. Settings, Appearance brings it back.");
+    });
+  }
+  if (buddy.dataset.seed !== seed) {
+    buddy.dataset.seed = seed;
+    const face = buddy.querySelector(".nm-buddy-face");
+    face.replaceChildren(nameMarkLive(seed, 60));
+    face.setAttribute("aria-label", `${seed}, your companion. Click to say hello, double-click to enlarge, drag to move.`);
+  }
+}
+
+//: The dashboard's mark, when Appearance swaps the logo for a face: yours,
+//: or the persona the greeting speaks as (the chat's own when it matches
+//: Chat). Null keeps the logo.
+function dashboardMarkSeed() {
+  const choice = typeof appearancePref === "function" ? appearancePref("dash-mark", "logo") : "logo";
+  if (choice === "me") return typeof userMarkSeed === "function" ? userMarkSeed() : "You";
+  if (choice === "persona") {
+    const persona = (typeof prefsCache !== "undefined" && prefsCache?.dashboard_persona) || document.getElementById("persona-select")?.value || "";
+    return persona && persona !== "Atlas" ? persona : null;
+  }
+  return null;
 }

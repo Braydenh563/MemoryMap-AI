@@ -1378,6 +1378,9 @@ const APPEARANCE_DEFAULTS = {
   //: default: a persona list whose every face moves at once is a list
   //: nobody can read, and the joke is better found than forced.
   "avatar-motion": "hover", // hover | always | off
+  "avatar-follow": "on", // on | off
+  "avatar-buddy": "off", // off | me | persona
+  "dash-mark": "logo", // logo | me | persona
   // Half strength (was 90): a professional product has a quiet page
   // (UI_MODERNISATION_PLAN Phase 3). theme-boot.js and index.html carry the
   // same default: keep the three in step.
@@ -2090,6 +2093,8 @@ function applyAppearance() {
   root.dataset.motion = perf ? "reduced" : appearancePref("motion");
   root.dataset.progressMotion = appearancePref("progress-motion");
   root.dataset.avatarMotion = appearancePref("avatar-motion");
+  root.dataset.avatarFollow = appearancePref("avatar-follow");
+  if (typeof syncNameMarkBuddy === "function") syncNameMarkBuddy();
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
   // Cards thin out slightly while the art is on, so it reads through the page
   // rather than only in the margins.
@@ -2299,6 +2304,9 @@ function renderAppearance() {
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("progress-motion").value = appearancePref("progress-motion");
   $("avatar-motion").value = appearancePref("avatar-motion");
+  $("avatar-follow").checked = appearancePref("avatar-follow") === "on";
+  $("avatar-buddy").value = appearancePref("avatar-buddy");
+  $("dash-mark").value = appearancePref("dash-mark");
   renderProgressMotionHint();
   $("bg-motion").value = appearancePref("bg-motion");
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
@@ -2536,7 +2544,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "dash-mark", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -3097,6 +3105,19 @@ $("page-bg-clear").addEventListener("click", () => {
 $("bg-art-style").addEventListener("change", (e) => {
   localStorage.setItem("bg-style", e.target.value);
   if (bgArtOn()) startBgArt();
+});
+$("avatar-follow").addEventListener("change", (e) => {
+  const value = e.target.checked ? "on" : "off";
+  localStorage.setItem("avatar-follow", value);
+  document.documentElement.dataset.avatarFollow = value;
+});
+$("avatar-buddy").addEventListener("change", (e) => {
+  localStorage.setItem("avatar-buddy", e.target.value);
+  syncNameMarkBuddy();
+});
+$("dash-mark").addEventListener("change", (e) => {
+  localStorage.setItem("dash-mark", e.target.value);
+  if (typeof paintDashEmblem === "function") paintDashEmblem();
 });
 $("avatar-motion").addEventListener("change", (e) => {
   localStorage.setItem("avatar-motion", e.target.value);

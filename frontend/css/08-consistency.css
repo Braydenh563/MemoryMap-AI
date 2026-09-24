@@ -4622,6 +4622,10 @@ main,
   /* Where in its loop this face starts; `nameMark` sets it per face from
      the seed, and a face drawn anywhere else starts at the top. */
   --nm-delay: 0s;
+  /* Where the pointer is, from -1 to 1 each way; avatars.js sets them on the
+     faces on screen while "Faces follow the pointer" is on. */
+  --nm-lx: 0;
+  --nm-ly: 0;
 }
 
 /* --- a generated face that moves (the owner: "can they be animated as a
@@ -4675,6 +4679,7 @@ main,
 @media (prefers-reduced-motion: no-preference) {
   :is(
     :root[data-avatar-motion="always"]:not([data-motion="reduced"]) .name-mark[data-nm-on],
+    :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live .name-mark,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) :is(li, .msg, .persona-picker, button, label, [role="option"]):hover .name-mark,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .name-mark:hover
   ) {
@@ -4731,6 +4736,130 @@ main,
   }
 }
 
+/* --- a poke, a look, a large view and a companion (avatars.js) -----------
+   The poke is the one motion that answers a click, so it runs whatever the
+   Avatar animation setting says, except Off and Reduce motion. The look is
+   two custom properties `avatars.js` sets on the faces on screen, turned
+   into a small eye shift and head tilt with the individual `translate` and
+   `rotate` properties, which compose with the looping `transform` rather
+   than replacing it. */
+.name-mark { cursor: pointer; }
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .name-mark.nm-react .nm-body {
+    animation: nm-hop 0.75s cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+
+  :root[data-avatar-follow="on"]:not([data-motion="reduced"]) .name-mark .nm-eyes {
+    translate: calc(var(--nm-lx) * 1.1px) calc(var(--nm-ly) * 0.9px);
+    transition: translate 0.18s var(--ease-out);
+  }
+
+  :root[data-avatar-follow="on"]:not([data-motion="reduced"]) .name-mark .nm-body {
+    rotate: calc(var(--nm-lx) * 6deg);
+    transition: rotate 0.25s var(--ease-out);
+  }
+}
+
+@keyframes nm-hop {
+  30% { transform: translateY(-3px) scale(1.08, 0.94) rotate(-8deg); }
+  60% { transform: translateY(0) scale(0.96, 1.05) rotate(6deg); }
+}
+
+.nm-live { display: inline-block; line-height: 0; }
+
+.nm-viewer-card {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  max-width: min(92vw, 22rem);
+  text-align: center;
+}
+
+.nm-viewer-stage {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: var(--radius-pill);
+}
+
+.nm-viewer-name {
+  margin: 0;
+  font-size: var(--text-lg);
+  overflow-wrap: anywhere;
+}
+
+.nm-viewer-reading { margin: 0; }
+
+/* The speech bubble a poked face says its line in. */
+.nm-say {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  translate: -50% calc(-1 * var(--space-2));
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--bg);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+}
+
+/* In the large view the card clips anything above it, so the line is said
+   from the face's upper corner instead. */
+.nm-viewer-stage .nm-say {
+  bottom: auto;
+  top: var(--space-2);
+  left: auto;
+  right: calc(-1 * var(--space-2));
+  translate: none;
+}
+
+/* The companion: fixed above the status bar at the lower right until it is
+   dragged somewhere else (avatars.js keeps the place). Under the agent
+   panel (1000) and every dialog (1010). */
+#nm-buddy {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(var(--status-bar-h) + var(--space-4));
+  z-index: 900;
+  touch-action: none;
+}
+
+#nm-buddy .nm-buddy-face {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  cursor: grab;
+  border-radius: var(--radius-pill);
+  filter: drop-shadow(0 4px 10px rgb(0 0 0 / 0.22));
+}
+
+#nm-buddy .nm-buddy-face:active { cursor: grabbing; }
+
+#nm-buddy .nm-buddy-hide {
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  right: calc(-1 * var(--space-2));
+  opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+}
+
+#nm-buddy:hover .nm-buddy-hide,
+#nm-buddy:focus-within .nm-buddy-hide {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  #nm-buddy .nm-buddy-hide { opacity: 1; }
+}
+
 /* The explicit off, beside the `no-preference` gate above: the gate already
    declares nothing under reduced motion, and this says so in the place the
    motion lint (and a reader) looks for it. A face keeps its expression; only
@@ -4738,6 +4867,8 @@ main,
 @media (prefers-reduced-motion: reduce) {
   .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil, .nm-wave, .nm-steam, .nm-table, .nm-balloon, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-foot-l, .nm-foot-r, .nm-earring, .nm-tails, .nm-bow, .nm-pompom, .nm-gem) {
     animation: none;
+    translate: none;
+    rotate: none;
   }
 }
 

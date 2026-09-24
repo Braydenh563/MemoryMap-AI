@@ -1161,6 +1161,22 @@ function paintDashEmblem() {
     holder.replaceChildren();
     return;
   }
+  //: A face instead of the logo when Appearance asks (avatars.js).
+  const face = typeof dashboardMarkSeed === "function" ? dashboardMarkSeed() : null;
+  if (face) {
+    //: The logo's sketch stops first: a p5 loop on a canvas that is no
+    //: longer in the page still draws every frame.
+    const sketch = typeof emblemInstances !== "undefined" ? emblemInstances.get(holder) : null;
+    if (sketch) {
+      sketch.remove();
+      emblemInstances.delete(holder);
+      emblemObservers?.get(holder)?.disconnect();
+      emblemObservers?.delete(holder);
+    }
+    holder.replaceChildren(nameMarkLive(face, size));
+    return;
+  }
+  holder.querySelector(".nm-live")?.remove();
   renderEmblem(holder, size, { animate: true });
 }
 

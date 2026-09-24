@@ -35,45 +35,87 @@ with its owner named in the entry.
 ## Open items
 
 424. **Audit of 2026-09-24 (performance measured in Playwright on a
-    400-note, 1,200-link, 250-object board, 120-topic map fixture; UX walked
-    at 1440 and 390). One line each: measurement, cause, recommendation.**
-    (a) Graph tab switch at 1x CPU: 25 long tasks, 1,593ms of them, 50 of
-    59 frames over 33ms (max 150ms); cause: every visit refetches `/graph`
-    and rebuilds the canvas scene (`renderGraphCanvas`); recommend keeping
-    the last scene and refetching only when the notes' version changed.
-    (b) Library tab switch at 1x: 10 long tasks, 580ms, max frame 100ms;
-    cause: `loadLibrary` refetches `/library` and rebuilds every card on
-    each visit; recommend the same version check.
-    (c) Library shows at most 200 of each kind (`PER_KIND_LIMIT`,
-    routes_library.py) and its chip counts are the count *returned*: with
-    400 notes the chip reads "Notes 198", and a plain Library search for
-    the oldest note ("Note 17 summary") says "Nothing matching" while
-    `/entries` has it; recommend true counts from the server and a server
-    search (or paging) once a kind passes the cap.
-    (d) Images sub-tab poll (`startLibraryImagesPoll`, every 6s) is stopped
-    only by another Library sub-tab, not by leaving the Library tab, so it
-    refetches `/media` on every other tab until the Library is revisited;
-    recommend stopping it in `switchTab` when leaving `library`.
-    (e) Typing with nothing focused opens the "Agent command palette"
-    (a sweep that typed into a hidden editor landed in it); recommend
-    checking this is intended and, if so, saying so in the shortcuts list.
-    (f) Settings has 18 sections in 4 groups; "Profile & preferences" sits
+    400-note, 1,200-link, 250-object board, 120-topic map, 30-image
+    fixture, at 1440x900, 1x and 4x CPU with CDP profiles; UX walked at
+    1440 and 390). Fixed in this pass: the media poll outliving the
+    Library, the outline rebuilt per typing pause (515ms to 12ms), the
+    avatar follow frame's document-wide query (279ms to 20ms per 60 moves),
+    the unnamed "Toggle Sidebar" button. Open, one line each: measurement,
+    cause, recommendation.**
+    (a) Board, dragging a multi-selection: 44 long tasks, 8.6s of them for
+    40 moves at 4x (max 560ms); `objDragMove` calls `wbUpdateSelectionBar`
+    every move, and `wbItemBBox` runs a document-wide
+    `querySelector('.node-card[data-id=...]')` per item (2.6s); recommend an
+    id-to-element map from the render pass and the bar updated once a frame.
+    (b) Graph node drag at 4x: 137 long tasks, every frame over 33ms (max
+    550ms); `graphMinimapPaint` rebuilds the minimap's SVG on every worker
+    tick (1.56s of `createElementNS`/`setAttribute`/`replaceChildren`);
+    recommend painting the minimap to a canvas, at most once a frame.
+    (c) Graph wheel zoom at 4x: 31 long tasks, 13.7s, p95 frame 583ms;
+    `gcDraw` re-measures every label (`measureText` 152ms) per frame;
+    recommend caching label widths per node and font size.
+    (d) Graph tab switch at 1x: 25 long tasks, 1.6s, 50 of 59 frames over
+    33ms; each visit refetches `/graph` and restarts the layout, and
+    idle on Graph at 4x is still 3.7s of main-thread work per 10s
+    (worker ticks plus minimap); recommend reusing the last settled layout
+    when the notes' version has not changed.
+    (e) Mind map expand of the root (120 topics) at 4x: one 1,336ms task;
+    `renderWbObjects` rebuilds every node through `wbBuildMapNode`
+    (`setAttribute` 354ms); recommend keyed updates so an expand only
+    builds the nodes it reveals.
+    (f) Lightbox next/previous at 4x: 13 long tasks for 5 presses (p95
+    350ms); `show` calls `applyZoom`, which calls `scrollTo` (375ms of
+    forced layout) even when already at fit; recommend scrolling only when
+    the zoom actually changed.
+    (g) Library tab switch at 1x: 10 long tasks, 580ms (4x: 3.4s, max
+    683ms); `loadLibrary` refetches `/library` and rebuilds every card each
+    visit; recommend the same version check as (d).
+    (h) Every tab switch at 4x: `revealTab` 70 to 110ms self time, mostly
+    `querySelectorAll("textarea.autogrow")` then `autoGrow` on each visible
+    one (forced layout per box); recommend autogrowing only the new tab's
+    boxes.
+    (i) Typing in a note at 4x: 56 of 204 frames over 33ms; each keystroke
+    mirrors the editor into the hidden textarea and dispatches `input`,
+    which runs `autoGrow` (448ms self) on a box nobody sees; recommend
+    skipping autogrow for a box whose editor is mounted.
+    (j) The brand emblem's p5 loop draws at 24fps on every tab while idle
+    (`_draw` about 70ms per 8s at 1x on Dashboard and Chat, and it shows up
+    inside every drag profile); recommend pausing it after a few seconds
+    without input, as the mood timer already tracks.
+    (k) Library shows at most 200 of each kind (`PER_KIND_LIMIT`,
+    routes_library.py) and its chip counts are the count returned: with 400
+    notes the chip reads "Notes 198", and a plain Library search for the
+    oldest note ("Note 17 summary") says "Nothing matching" while
+    `/entries?q=` finds it; recommend true counts and a server search (or
+    paging) once a kind passes the cap.
+    (l) Settings: 18 sections in 4 groups; "Profile & preferences" sits
     under Atlas but holds the recycle bin, chat history, notifications and
-    writing options, and is the only section with its own Save button
-    (others save on change); recommend splitting it into "Profile" (Atlas)
-    and "General" (Your notebook) and saving on change.
-    (g) One thing, four names: Chat (tab), Ask (a Notes sub-tab), "Write
-    with Atlas" (a Notes sub-tab) and "Ask Atlas a question" (help); and
+    writing, is the only section with its own Save button, and repeats a
+    "Web search" heading that only links to the Web search section;
+    recommend "Profile" under Atlas, a "General" section under Your
+    notebook, save on change, and the pointer heading removed.
+    (m) Settings sections are long: Tools 7,592px tall at 1440 (12,058px at
+    390), Appearance 4,537px with 105 controls, Logs 515 controls;
+    recommend collapsed groups (`details`) with the first open, per
+    DESIGN.md.
+    (n) One thing, several names: Chat (tab), "Ask" (Notes sub-tab and
+    status bar), "Write with Atlas" (Notes sub-tab), Atlas (Settings group);
     Skills (Settings) vs "AI skills" (Library sub-tab); recommend one noun
-    per thing, per DESIGN.md's copy rules.
-    (h) Library: 8 sub-tabs plus 13 chips in the All view, several the same
-    filter twice (Documents chip and Documents sub-tab; Boards and Mind maps
-    chips and the "Boards & maps" sub-tab; Files chip and Files sub-tab);
-    recommend the chips be the only kind filter in All.
-    (i) Documents have a tab page (`#tab-documents`) with no tab-bar button:
-    the only way in is the Library's Documents sub-tab or a link;
-    recommend the Library sub-tab say it opens the editor, or a breadcrumb
-    back to it from the editor.
+    per thing in DESIGN.md's copy rules and a lint.
+    (o) Library: 8 sub-tabs plus 13 chips in All, several the same filter
+    twice (Documents chip and sub-tab; Boards and Mind maps chips and the
+    "Boards & maps" sub-tab; Files chip and sub-tab); 101 visible controls
+    at 1440; recommend the chips be the only kind filter in All.
+    (p) Documents have a tab page with no tab-bar button: the way in is the
+    Library's Documents sub-tab, and the tab bar then highlights Library;
+    recommend a breadcrumb back to the Library in the editor's dock.
+    (q) Notes tab: 109 visible controls at 1440, 19 of them under 24px
+    (the link chips on each card); recommend the link chips behind a count
+    ("6 links") on the card, expanded on hover or focus.
+    (r) Memory is clean: 30 tab switches moved the heap 21.7 to 22.3MB,
+    DOM nodes 48,888 to 49,297, listeners flat. Idle Chat once measured
+    599 layouts per 10s at 4x and did not reproduce (0 in a later 5s
+    check): watch for it.
 
 423. **Found, not fixed, by the agents of 2026-09-24 (placed for the next
     pass; one line each, recommendation first).** (a) The mind map's pie

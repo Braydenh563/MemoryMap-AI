@@ -34935,3 +34935,24 @@ with an unselected note moving 1.7 and no pins written.
     its box (`scratchpad/ui-sweeps/graphsim.js`, `graphreset.js`,
     `tests/test_graph_similarity.py`).
 
+414. **The owner, 2026-09-24, verbatim:** "the web browser sidebar needs a
+    major improved modern and professional redesign and feature
+    improvement". With a screenshot of the chat tab's Web panel: a boxed
+    close, a field and a big filled Search button, a "SearXNG: running" box
+    and a boxed Stop, and in the reader three stacked worded buttons over the
+    page text in a bordered scroll box. **Fixed, 2026-09-24**: the panel is
+    the `h3.panel-head` recipe with the engine state as a dot (words on its
+    title) and a kebab for the engine's commands; one field with the glyph
+    inside, Enter to search, Stop only while loading; results on the
+    list-row recipe with a letter tile, ArrowDown/Up/Enter, a right-click
+    menu, Copy link and Cite in chat; recent searches as rows; a reader that
+    is the pane's one scroller, with a back link, find, copy and open in
+    browser beside it, one action row (Ask, Cite in chat, Save, Bookmark) and
+    the page as prose at `--doc-measure`. Ctrl+F in the reader counts the
+    page. Measured with `scratchpad/ui-sweeps/webpanel.js` at 280, the
+    default and the maximum, light and dark: header controls 4 to 3, radii 2
+    to 1, heights 28/42 to 28/36, the default width 280 to 349 (it had sat on
+    its floor), the maximum 864 to 732 (it had left the chat 210px), nested
+    scrollers in the reader 2 to 1, overflow 0, low contrast 0.
+    `webpanelflow.js` drives the keys, Stop, find, and Cite in chat.
+

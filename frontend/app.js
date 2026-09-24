@@ -36789,6 +36789,9 @@ async function renderExtras() {
   for (const extra of body.extras) {
     const li = document.createElement("li");
     li.className = "extras-row";
+    //: So a feature that needs this extra can open Settings at its row (Run
+    //: on a .py document opens `extra-row-pyodide`).
+    li.id = `extra-row-${extra.id}`;
 
     const head = document.createElement("div");
     head.className = "entry-meta";
@@ -36888,10 +36891,17 @@ async function renderExtras() {
     } else {
       actions.appendChild(
         smallButton("ph:download-simple Install", `Install ${extra.label}`, async () => {
+          //: A download extra (Pyodide, needle) is pinned files checked
+          //: against a written-down hash, and needs no restart; a pip extra
+          //: comes from PyPI and does. Both say where it comes from.
           const ok = await confirmDialog(
-            `Install ${extra.label}?\n\n${extra.size}. It is downloaded from ` +
-              "PyPI to this machine, and MemoryMap needs a restart afterwards " +
-              "before the feature works."
+            extra.kind === "download"
+              ? `Install ${extra.label}?\n\n${extra.size}, downloaded once from ` +
+                `${extra.source} and checked against its pinned checksum. ` +
+                "After that it works offline, with no restart."
+              : `Install ${extra.label}?\n\n${extra.size}. It is downloaded from ` +
+                "PyPI to this machine, and MemoryMap needs a restart afterwards " +
+                "before the feature works."
           );
           if (!ok) return;
           const result = await apiJson(`/extras/${extra.id}/install`, {
@@ -36912,7 +36922,7 @@ async function renderExtras() {
 
     const meta = document.createElement("p");
     meta.className = "muted extras-meta";
-    meta.textContent = `${extra.packages.join(", ")} · ${extra.size}`;
+    meta.textContent = [extra.packages.join(", "), extra.size, extra.licence].filter(Boolean).join(" · ");
     li.appendChild(meta);
 
     // Said before the button is pressed, not after: "this installs the library

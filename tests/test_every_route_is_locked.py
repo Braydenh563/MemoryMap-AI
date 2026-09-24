@@ -52,6 +52,12 @@ OPEN = {
     # policy, and framed by an iframe, which cannot send the token header
     # (`api/run_sandbox.py`; tests/test_run_sandbox.py holds the policy).
     "/documents/run-sandbox",
+    # Its Python twin and the Pyodide runtime files it loads (INBOX 404): the
+    # same opaque origin, so no token; the files are the public Pyodide
+    # release out of the extra's folder, only the names the extra unpacks,
+    # 404 until it is installed (tests/test_run_sandbox.py).
+    "/documents/run-sandbox/python",
+    "/documents/pyodide/{name}",
 }
 
 #: Prefixes, for the same reason, where the path carries a file name.

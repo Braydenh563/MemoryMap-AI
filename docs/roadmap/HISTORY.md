@@ -34935,3 +34935,67 @@ with an unselected note moving 1.7 and no pins written.
     its box (`scratchpad/ui-sweeps/graphsim.js`, `graphreset.js`,
     `tests/test_graph_similarity.py`).
 
+404. **The owner, 2026-09-23 night, verbatim.** "also does emmet workf for
+    other languages like python, c#, java and more??" and "what about code
+    errors, debugging console or smth?? what is the doc editor missing for
+    both text/md/docx/other text files as well as for code files as well??"
+    Answer: Emmet is markup and CSS only (HTML, XML, JSX, CSS family); the
+    equivalent elsewhere is snippets. Present already (grepped): Problems
+    panel and F8, error underlines for JSON/JS/TS/CSS/Python/TOML/XML/YAML,
+    outline, history and diff, comments, footnotes, TOC, spelling, focus
+    mode, split view, word count, export and print. Placed. Code side (the
+    completions agent's queue): per-language snippets (Python, Java, C#, C,
+    C++, Go, Rust, JS/TS, SQL, shell), Run with an output console for JS/TS
+    in a sandboxed worker and HTML in a sandboxed preview frame, Python via
+    Pyodide as an opt-in extra (offline once installed), go to definition
+    and find references within a file, find across documents. Not
+    proposed: breakpoint debugging and compiled languages (a native
+    toolchain per language). Prose side (new agent): grammar and style with
+    Harper (INBOX 401), suggestion mode (tracked changes), read aloud with
+    the system's own voices, an accessibility check (heading order, alt
+    text, link text), and a .docx round trip if export is missing.
+    **Prose side built 2026-09-24** (`agent-remaining/proseeditor.md`):
+    Harper db64249, suggestion mode 1706972, read aloud c3af0d3,
+    accessibility be76070, Word round trip 2a9f407. Open here: the code side
+    only, the completions agent's.
+    Code side built 2026-09-24 (codecomplete): snippets b1c7339, Run for
+    .js and .html in a sandbox with an output panel bbaccfc (`docrun.js`
+    18/18), F12, Shift+F12 and Ctrl+Shift+F f07b5bc. **Python via Pyodide
+    not built, a decision is missing:** Pyodide's runtime is not a pip
+    package and `core/extras.py` installs pip packages only. Recommendation:
+    an extras entry of a new "download" kind, a pinned `pyodide-core`
+    release with its sha256, unpacked into the data dir and served beside
+    `/documents/run-sandbox` under the same policy; until then the Run
+    button on a .py file says so. TypeScript likewise says it needs
+    compiling (a vendored type-stripper, sucrase, MIT, would do it).
+    **Decided and built 2026-09-24** (the owner: "Run Python files: yes,
+    as an opt-in extra"): `core/extra_downloads.py` is the "download" kind
+    (pinned URL, sha256, size, unpack into the data dir, same routes and
+    Settings row); the `pyodide` extra pins pyodide-core 314.0.7;
+    `/documents/run-sandbox/python` runs a .py file in a classic worker
+    under the JS runner's policy plus the runtime's own path; Run before
+    install offers Install Python. `docrunpy.js` in Chromium, installed from
+    a local mirror. TypeScript still says it needs compiling (not asked).
+302. **Found by the repository read, 2026-09-21 (the session, not the owner):
+    a decision for the owner.** needle (cactus-compute, Apache-2.0 for both
+    the code and the Hugging Face weights) is a 14MB tool-calling and
+    extraction model that runs through a prebuilt native engine by `ctypes`,
+    with grammar-constrained output and a calibrated confidence, and no
+    prose. Bundling it would give the agent a tool-calling path on a machine
+    with no Ollama, which is the one thing this app cannot promise today;
+    against it, a third inference path beside the two HTTP providers, a
+    Hugging Face download at first use, and a shipped binary whose telemetry
+    is on unless two environment variables are set. Recommendation: not now,
+    and revisit only if "works with no Ollama installed" is to become a
+    product promise. The cheap half of the same read (ANALYSIS.md, "Twenty-four
+    repositories read for MemoryMap, 2026-09-21", needle items a and b) needs
+    no decision and is worth doing either way.
+    **Decided and built 2026-09-24** (the owner: "Yes, as an extra", opt-in,
+    telemetry forced off): the `needle` download extra (engine 3.0.1 per
+    platform and the weights, pinned at Hugging Face commit b274efc,
+    Apache-2.0 checked in the LICENSE file and the card),
+    `ai/needle_provider.py` over ctypes with NEEDLE_TELEMETRY=0 and
+    DO_NOT_TRACK=1 set before load, `ai/tool_fallback.py` as the seam the
+    agent route asks when the backend is down. Items a and b of the read
+    are still open (ANALYSIS.md).
+

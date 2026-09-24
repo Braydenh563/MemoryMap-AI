@@ -42,7 +42,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from memorymap.core import ocr
+from memorymap.core import extra_downloads, ocr
+from memorymap.core.extra_downloads import Download
 from memorymap.core.subproc import NO_WINDOW
 
 #: Reported: a failed install showed "pip exited with code 1. The log above
@@ -253,6 +254,19 @@ class Extra:
     #: Removal is deliberately *not* blocked: an extra installed before it was
     #: marked unavailable, or installed by hand, still needs its way out.
     unavailable: str = ""
+    #: "pip" (the packages above, through pip) or "download" (the pinned
+    #: files below, checked and unpacked into the data dir by
+    #: `core/extra_downloads.py`). A download entry's `packages` is its
+    #: name and version for the card, never anything handed to pip, and its
+    #: `module` is empty: whether it is installed is a look at its folder.
+    kind: str = "pip"
+    downloads: tuple[extra_downloads.Download, ...] = ()
+    #: The pinned release, recorded in the marker so a bump reinstalls.
+    version: str = ""
+    #: The licence of what is downloaded, said on the card.
+    licence: str = ""
+    #: The name in a progress line ("Downloading Pyodide: 3.1 of 6.8 MB").
+    short_label: str = ""
 
 
 #: The allowlist. Adding an entry here is the only way to make something
@@ -351,6 +365,143 @@ EXTRAS: tuple[Extra, ...] = (
         "by hand (see INSTALL.md). Without it, uploads still work, they just "
         "get no searchable text.",
     ),
+    #: **Pyodide (INBOX 404).** The owner, 2026-09-24: "Run Python files: yes,
+    #: as an opt-in extra". CPython compiled to WebAssembly, run by Run on a
+    #: .py document inside the same sandbox as JavaScript, from these files
+    #: served by `api/run_sandbox.py`. `pyodide-core` is the smallest release
+    #: archive: the runtime and the standard library, no third-party
+    #: packages, so `import numpy` says it is not there rather than
+    #: downloading it. Only the six files the runtime loads are kept (the
+    #: archive also carries a Node launcher and a python.exe nothing here
+    #: runs). Licence: MPL-2.0 (its package.json), CPython's own under the
+    #: PSF licence.
+    #:
+    #: **To bump:** take the newest non-prerelease tag from
+    #: github.com/pyodide/pyodide/releases, download
+    #: `pyodide-core-<tag>.tar.bz2`, and write its tag, size and
+    #: `sha256sum` here; `tar tjf` it to check the six member names still
+    #: exist. The marker records the version, so an installed older copy
+    #: shows as not installed and Install fetches the new one.
+    Extra(
+        id="pyodide",
+        label="Run Python files (Pyodide)",
+        short_label="Pyodide",
+        enables="Run on a .py document: the script runs in the same sandbox as "
+        "JavaScript, with no network and none of your notes, and its print "
+        "output and errors come back in the Output panel with a link to each "
+        "line. Works offline once installed.",
+        packages=("pyodide-core 314.0.7",),
+        module="",
+        size="~7 MB download, 14 MB on disk",
+        caveat="The standard library only: packages such as numpy are not "
+        "included, and input() gets the end of the input.",
+        kind="download",
+        version="314.0.7",
+        licence="MPL-2.0",
+        downloads=(
+            Download(
+                url="https://github.com/pyodide/pyodide/releases/download/314.0.7/"
+                "pyodide-core-314.0.7.tar.bz2",
+                sha256="2abdcc2e35208af406e07724cffa85bc582ced97e9028383ecf5462541393f95",
+                size=6757104,
+                unpack="tar",
+                members=tuple(
+                    (f"pyodide/{name}", name)
+                    for name in (
+                        "pyodide.mjs",
+                        "pyodide.asm.mjs",
+                        "pyodide.asm.wasm",
+                        "python_stdlib.zip",
+                        "pyodide-lock.json",
+                        "package.json",
+                    )
+                ),
+            ),
+        ),
+    ),
+    #: **needle (INBOX 302).** The owner, 2026-09-24: "Yes, as an extra"
+    #: (opt-in, telemetry forced off). A 121M-parameter tool-calling model
+    #: from Cactus Compute: `ai/needle_provider.py` drives its engine through
+    #: `ctypes`, and the agent uses it to pick tools when no Ollama or
+    #: OpenAI-compatible backend answers. It writes no prose.
+    #:
+    #: Licence **Apache-2.0**, checked 2026-09-24 for both halves: the
+    #: LICENSE file at the pinned commit (downloaded with the rest, below)
+    #: and the Hugging Face card's `license: apache-2.0`. The engine is the
+    #: `libneedle3` library out of the per-platform wheels the model repo
+    #: publishes under `python/` (the Python package itself is not used);
+    #: every URL is pinned to commit b274efc, so the files cannot move under
+    #: the hashes. Engine 3.0.1 is the newest published there; needle's
+    #: fetcher names 3.0.2, which the repo does not carry.
+    #:
+    #: **To bump:** `curl https://huggingface.co/api/models/Cactus-Compute/
+    #: needle3/tree/main/python` lists each wheel with its `lfs.oid`, which
+    #: is its sha256; take the new commit from `/api/models/Cactus-Compute/
+    #: needle3` (`sha`) and the weights' hash from the root listing.
+    Extra(
+        id="needle",
+        label="Tool calling without Ollama (needle)",
+        short_label="needle",
+        enables="A small built-in model the assistant uses to pick and fill "
+        "tools (make a note, set a reminder, search) when no Ollama or other "
+        "model server is running. It runs tools; it does not write replies.",
+        packages=("needle 3.0.1",),
+        module="",
+        size="~36 MB",
+        caveat="Telemetry is switched off: MemoryMap sets NEEDLE_TELEMETRY=0 "
+        "and DO_NOT_TRACK=1 before the engine loads.",
+        kind="download",
+        version="3.0.1",
+        licence="Apache-2.0",
+        downloads=(
+            *(
+                Download(
+                    url="https://huggingface.co/Cactus-Compute/needle3/resolve/"
+                    "b274efcb211a9eef48c9a88da4b43bd569696a39/python/"
+                    f"cactus_needle-3.0.1-py3-none-{tag}.whl",
+                    sha256=sha,
+                    size=size,
+                    unpack="zip",
+                    members=((f"needle/libneedle3.{ext}", f"libneedle3.{ext}"),),
+                    platform=key,
+                )
+                for key, tag, ext, sha, size in (
+                    ("linux-x86_64", "manylinux2014_x86_64", "so",
+                     "05770ef9a85686583968ea15f62f9ad44217e078efdaa99559d3208bb8a369b0", 536871),
+                    ("linux-aarch64", "manylinux2014_aarch64", "so",
+                     "fc0c550b64627ed20101d1ac6de736bf0d15fb592d649f24bacba4e7340fc3df", 517746),
+                    ("linux-x86_64-musl", "musllinux_1_2_x86_64", "so",
+                     "1b2f5f560fcf8d2033c0ade7ea48d8f2f228cb17f53331bf844fcceb955440e0", 537929),
+                    ("linux-aarch64-musl", "musllinux_1_2_aarch64", "so",
+                     "ec307274ed14d8a11be448e1546d3a330704a8d76a96a2f99de12ca14ed8ee64", 517367),
+                    ("macos-arm64", "macosx_11_0_arm64", "dylib",
+                     "161c3aacfb6e54443925b389a69eb58a1861e60af19bbdf8f39d89992c5d7436", 387232),
+                    ("macos-x86_64", "macosx_11_0_x86_64", "dylib",
+                     "941883e51fb2530706f1a115a0ea0062bb37501edaad8a6f08b85e12c4f5ca76", 431615),
+                    ("windows-x86_64", "win_amd64", "dll",
+                     "7d4467726814ab18d9ce32a8a5cc23d1198a2c0557c613a00bef738121903e2f", 553581),
+                    ("windows-arm64", "win_arm64", "dll",
+                     "dfa6f8c15ca979bbe7c3e0579efdd8bf7b7afc75355e063cd00e6ac7732c9896", 493234),
+                )
+            ),
+            Download(
+                url="https://huggingface.co/Cactus-Compute/needle3/resolve/"
+                "b274efcb211a9eef48c9a88da4b43bd569696a39/needle3.cact",
+                sha256="c9d915eca282ed42d1a09b143b592adb4cc6744ffe2d294adf5cfc5548170c38",
+                size=35335380,
+                unpack="file",
+                members=(("", "needle3.cact"),),
+            ),
+            Download(
+                url="https://huggingface.co/Cactus-Compute/needle3/resolve/"
+                "b274efcb211a9eef48c9a88da4b43bd569696a39/LICENSE",
+                sha256="cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+                size=11358,
+                unpack="file",
+                members=(("", "LICENSE"),),
+            ),
+        ),
+    ),
     Extra(
         id="localllm",
         label="Built-in model runner (llama-cpp-python)",
@@ -419,7 +570,12 @@ def is_installed(extra: Extra) -> bool:
     `find_spec` rather than a real import: importing torch to answer a status
     question would cost seconds and a great deal of memory on a screen the user
     is only looking at.
+
+    A download extra has no module: it is installed when its folder holds
+    the pinned version (`extra_downloads.is_installed`), a disk look.
     """
+    if extra.kind == "download":
+        return extra_downloads.is_installed(extra)
     try:
         return importlib.util.find_spec(extra.module) is not None
     except (ImportError, ValueError):
@@ -437,14 +593,30 @@ def status() -> list[dict]:
             "enables": extra.enables,
             "size": extra.size,
             "caveat": extra.caveat,
-            "unavailable": extra.unavailable,
+            "unavailable": unavailable_reason(extra),
             "packages": list(extra.packages),
+            "kind": extra.kind,
+            "licence": extra.licence,
+            #: Where a download comes from, for the confirm dialog ("pypi.org"
+            #: for pip, which is what pip reaches by default).
+            "source": extra_downloads.source(extra) if extra.kind == "download" else "pypi.org",
             "installed": is_installed(extra),
             "installing": _state.running and _state.extra_id == extra.id,
             "step": _state.step if _state.running and _state.extra_id == extra.id else "",
         }
         for extra in EXTRAS
     ]
+
+
+def unavailable_reason(extra: Extra) -> str:
+    """Why this cannot be installed here, or "": the entry's own reason, or
+    for a download extra with per-platform files, none built for this
+    computer (`extra_downloads.platform_reason`)."""
+    if extra.unavailable:
+        return extra.unavailable
+    if extra.kind == "download":
+        return extra_downloads.platform_reason(extra)
+    return ""
 
 
 def current() -> InstallState:
@@ -467,6 +639,14 @@ def cancel() -> tuple[bool, str]:
     `is_installed` on its next poll and will simply still say "not installed".
     """
     process = _state.process
+    extra = EXTRAS_BY_ID.get(_state.extra_id)
+    if _state.running and extra is not None and extra.kind == "download":
+        # A download is this app's own loop, so it is stopped the cooperative
+        # way: `extra_downloads._fetch` checks the flag between chunks, and the
+        # staging folder goes with it.
+        _state.cancelled = True
+        _state.step = "Stopping…"
+        return True, "Stopping the download."
     if not _state.running or process is None:
         return False, "Nothing is installing."
     _state.cancelled = True
@@ -696,6 +876,61 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             constraints_copy.unlink(missing_ok=True)
 
 
+def _run_download_install(extra: Extra, reinstall: bool = False) -> None:
+    """A download extra's install, in a worker thread, with the same
+    bookkeeping as pip's: the step line, the log, the outcome, the task
+    history. No restart: the files are read when the feature next runs.
+
+    `reinstall` needs nothing extra here: `extra_downloads.install` always
+    downloads afresh and replaces the folder whole."""
+    try:
+        extra_downloads.install(extra, _state)
+        _state.outcome = "completed"
+        _state.step = f"{extra.label} installed. It works now, offline."
+    except extra_downloads.DownloadFailed as exc:
+        _state.outcome = "failed"
+        _state.step = str(exc)
+    except OSError:
+        # A socket or disk error: the detail can carry a path, so it goes to
+        # the log and the caller gets the fact (the CodeQL shape the pip
+        # workers above already follow).
+        _logger.exception("Couldn't download %s", extra.label)
+        _state.outcome = "failed"
+        _state.step = "Couldn't download it: check the connection, or see Settings → Logs for why."
+    finally:
+        _state.running = False
+        if _state.cancelled:
+            _state.outcome = "cancelled"
+            _state.step = "Stopped before it finished."
+        if _state.outcome == "failed":
+            _logger.error("Installing %s failed: %s", extra.label, _state.step)
+        else:
+            _logger.info("Installed %s: %s", extra.label, _state.outcome)
+        from memorymap.core import taskhistory
+
+        taskhistory.record(
+            "extra",
+            f"Installing {extra.label}",
+            _state.outcome,
+            _state.step,
+            duration_ms=(time.time() - _state.started) * 1000 if _state.started else None,
+        )
+
+
+def _run_download_uninstall(extra: Extra) -> None:
+    """Remove a download extra's folder."""
+    try:
+        extra_downloads.uninstall(extra)
+        _state.outcome = "completed"
+        _state.step = f"{extra.label} removed."
+    except OSError:
+        _logger.exception("Couldn't remove %s", extra.label)
+        _state.outcome = "failed"
+        _state.step = "Couldn't remove it: see Settings → Logs for why."
+    finally:
+        _state.running = False
+
+
 def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
     """Begin an install. Returns (started, message).
 
@@ -713,6 +948,8 @@ def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
     # nothing calls is not made installable by asking twice.
     if extra.unavailable:
         return False, f"{extra.label} isn't ready to install yet. {extra.unavailable}"
+    if unavailable_reason(extra):
+        return False, f"{extra.label} can't be installed here. {unavailable_reason(extra)}"
     if reinstall:
         blocked = _loaded_in_process_reason(extra)
         if blocked:
@@ -725,11 +962,12 @@ def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
         _state.running = True
         _state.extra_id = extra.id
         _state.outcome = ""
-        _state.step = "starting pip…"
+        _state.step = "starting pip…" if extra.kind == "pip" else "Starting the download…"
         _state.log = []
         _state.started = time.time()
         _state.cancelled = False
-    threading.Thread(target=_run_install, args=(extra, reinstall), daemon=True).start()
+    worker = _run_download_install if extra.kind == "download" else _run_install
+    threading.Thread(target=worker, args=(extra, reinstall), daemon=True).start()
     return True, f"{'Reinstalling' if reinstall else 'Installing'} {extra.label}."
 
 
@@ -752,11 +990,12 @@ def remove(extra_id: str) -> tuple[bool, str]:
         _state.running = True
         _state.extra_id = extra.id
         _state.outcome = ""
-        _state.step = "starting pip…"
+        _state.step = "starting pip…" if extra.kind == "pip" else "Removing…"
         _state.log = []
         _state.started = time.time()
         _state.cancelled = False
-    threading.Thread(target=_run_uninstall, args=(extra,), daemon=True).start()
+    worker = _run_download_uninstall if extra.kind == "download" else _run_uninstall
+    threading.Thread(target=worker, args=(extra,), daemon=True).start()
     return True, f"Removing {extra.label}."
 
 
@@ -776,6 +1015,18 @@ def _loaded_in_process_reason(extra: Extra) -> str:
     Only "voice" holds a native model like this today, the other extras
     either aren't native libraries or aren't cached across requests.
     """
+    if extra.id == "needle":
+        # The same Windows lock, on the needle engine: once a turn has used
+        # it, `libneedle3.dll` is mapped for the life of the process. Asked
+        # through `sys.modules` so a status question never imports it.
+        module = sys.modules.get("memorymap.ai.needle_provider")
+        if module is not None and module.loaded():
+            return (
+                "Restart MemoryMap first. The needle engine is loaded from an "
+                "earlier turn, and Windows can't replace or delete it while it "
+                "is in use: a restart releases it."
+            )
+        return ""
     if extra.id != "voice":
         return ""
     from memorymap.ai import voice

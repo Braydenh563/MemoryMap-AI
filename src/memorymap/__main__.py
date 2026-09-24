@@ -469,6 +469,65 @@ def _run_server() -> None:
     from memorymap.api.app import create_app
 
     uvicorn.run(create_app(), host=HOST, port=PORT, log_level="info")
+    # **The process used to sit here for 5 to 9 seconds after "Finished
+    # server process" was already logged** (INBOX 423i). Every synchronous
+    # route in this app (almost all of them: `def`, not `async def`) is run
+    # by Starlette through `anyio.to_thread.run_sync`, which hands the call
+    # to a small pool of "AnyIO worker thread" objects it keeps warm. Each
+    # one is meant to stop itself once the server's own root asyncio task
+    # finishes (`root_task.add_done_callback(worker.stop, ...)`,
+    # anyio/_backends/_asyncio.py), but that callback is scheduled on the
+    # event loop for its *next* iteration, and `uvicorn.run()` can tear the
+    # loop down before that iteration ever runs. A worker left over that way
+    # is not a daemon thread (nothing in anyio asks for one), so Python's own
+    # interpreter shutdown, which joins every non-daemon thread before the
+    # process can actually exit, sits waiting on it, measured here at 1.8 to
+    # 4.6 seconds depending on how much of anyio's `MAX_IDLE_TIME` window had
+    # already passed.
+    #
+    # There is no way to make an already-started thread a daemon (`Thread.
+    # daemon = True` raises once `.start()` has run), so this asks each
+    # leftover worker to stop the same way anyio's own done-callback would
+    # have: its `.stop()` puts a sentinel on its queue, which is a few
+    # microseconds of work, not a wait. `join(1.0)` bounds this function's
+    # own worst case rather than trusting that to be instant everywhere.
+    _stop_lingering_worker_threads()
+
+
+def _stop_lingering_worker_threads(timeout: float = 1.0) -> None:
+    """Ask every still-alive `anyio` thread-pool worker to stop, and wait at
+    most `timeout` for them, instead of leaving Python's interpreter
+    shutdown to join them with no timeout at all (see `_run_server`).
+
+    Matched by class, not merely by "any non-daemon thread": a thread this
+    app does not recognise is left alone rather than told to stop by a
+    method it may not have, or one whose name means something else.
+    `getattr(..., "stop", None)` is the extra caution on top of that: an
+    anyio release that renames or removes the method should make this a
+    silent no-op (the 5 to 9 second wait comes back, not a crash on quit),
+    never an `AttributeError` in the middle of shutting down.
+    """
+    candidates = [
+        thread
+        for thread in threading.enumerate()
+        if thread is not threading.main_thread()
+        and not thread.daemon
+        and thread.is_alive()
+        and type(thread).__module__ == "anyio._backends._asyncio"
+        and type(thread).__name__ == "WorkerThread"
+    ]
+    if not candidates:
+        return
+    for thread in candidates:
+        stop = getattr(thread, "stop", None)
+        if callable(stop):
+            try:
+                stop()
+            except Exception:  # noqa: BLE001 - best-effort, the join below still bounds the wait
+                logger.debug("couldn't ask %s to stop", thread.name, exc_info=True)
+    deadline = time.monotonic() + max(0.0, timeout)
+    for thread in candidates:
+        thread.join(max(0.0, deadline - time.monotonic()))
 
 
 def _wait_for_server(timeout: float = 20.0) -> bool:

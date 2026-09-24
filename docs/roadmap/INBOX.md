@@ -100,7 +100,16 @@ with its owner named in the entry.
     the data dir in `/instance` first. (h) Chat replies saved before
     2026-09-24 always show Atlas's mark (their persona was never stored).
     (i) The server-mode process takes 5 to 9s to exit after uvicorn
-    finishes: find the thread that holds it.
+    finishes: find the thread that holds it. (fixed: every sync route
+    (almost all of them) runs on one of anyio's own "AnyIO worker thread"
+    objects, which is not a daemon thread and only stops itself on a
+    done-callback that can miss `uvicorn.run()` tearing the loop down;
+    measured leaving one alive, `daemon=False`, right after "Finished
+    server process". `_stop_lingering_worker_threads` (`__main__.py`,
+    called right after `uvicorn.run()` returns) asks it to stop and bounds
+    the wait to 1s. `tests/test_server_shutdown.py` reproduces the leftover
+    thread with a real `uvicorn.Server` running `create_app()` and checks
+    the fix clears it.)
     (j) `gate.sh --sweeps` on 25d7d56 (fixture data dir /tmp/mm-me):
     asktab.js 3 findings, libreadingfoot.js "reading visible: false" and
     "no card with a reading", tagoffer.js 2 failures (manual route and the

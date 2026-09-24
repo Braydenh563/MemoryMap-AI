@@ -580,8 +580,12 @@ async function apiJson(path, options = {}) {
     }
   }
   const data = await (await api(path, options)).json();
-  //: A new note is a small event worth a cheer from the companion.
-  if (path === "/entries" && options.method === "POST" && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("cheer");
+  //: A new note is a small event worth a cheer from the companion, and a
+  //: proud look from Atlas (atlas.js).
+  if (path === "/entries" && options.method === "POST") {
+    if (typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("cheer");
+    if (typeof atlasOn === "function") atlasOn("saved");
+  }
   return data;
 }
 

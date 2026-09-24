@@ -80,7 +80,13 @@ const { boot } = require("./lib.js");
   facts.reduced = await page.evaluate(() => {
     const big = document.querySelector("#atl-live .nm-atlas");
     const durations = big.getAnimations({ subtree: true }).map((a) => a.effect.getTiming().duration);
-    return { count: durations.length, min: Math.min(...durations) };
+    //: Something that is not a face keeps the global kill.
+    const probe = document.createElement("div");
+    probe.style.animation = "atl-drift 5s linear infinite";
+    document.body.appendChild(probe);
+    const other = getComputedStyle(probe).animationDuration;
+    probe.remove();
+    return { count: durations.length, min: Math.min(...durations), other };
   });
   console.log(JSON.stringify(facts, null, 1));
   await browser.close();

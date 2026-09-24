@@ -33,17 +33,14 @@
 //:   about a joint inside the torso, and no rotation opens a seam. Crest and
 //:   head are joined the same way.
 //: - **The signature is the logo, worn, twice and no more.** The logo is a
-//:   bright hub with linked notes round it. Atlas's tail is one tapering
-//:   shape with two of those notes on thin bands round it and a bright
-//:   tip, and the hub is light inside its chest: a soft glow with three
+//:   bright hub with linked notes round it. Two rings of stars float round
+//:   Atlas's body at crossing tilts, passing behind it and in front (the
+//:   notes, as a constellation worn loosely), the tail ends in one bright
+//:   glint, and the hub is light inside its chest: a soft glow with three
 //:   faint linked points, glowing brighter when it is happy and dim when it
 //:   sleeps, the points lighting in turn while it thinks. The tail
-//:   was chosen over a ring round the body (the owner liked both; one node
-//:   motif, not two): a tail has a pose of its own (tucked sitting, hanging
-//:   when it hangs, curled asleep, wagging when pleased), joins the
-//:   silhouette the same way the limbs do, and animates with one rotation,
-//:   where a ring needs a front half and a back half round the body and the
-//:   last one read as stray lines. No orbit, no motes, no nodes on the crest.
+//:   stays, plain, next to the rings: it gives the silhouette its line and
+//:   has poses of its own (resting, hanging, curled, wagging).
 //: - **Aura.** One radial gradient glow behind it (no filters), a rim light
 //:   on its right edge and a gloss on the crown. The glow is stronger in
 //:   dark mode, where it has something to glow against.
@@ -132,6 +129,14 @@ const ATLAS_GEO = {
   cheeks: [[19.6, 28.2], [44.4, 28.2]],
   crest: [31, 7],
   tail: [37, 67],
+  //: Two rings of stars round the body, crossing: a wide one low and
+  //: tilted down to the left, a narrower one higher and tilted the other
+  //: way. Each glint is [angle on the ring, size]; unevenly spaced on
+  //: purpose, so they read as stars and not beads.
+  rings: [
+    { cx: 32, cy: 56, r: 27.5, flat: 0.3, tilt: -18, glints: [[18, 2.4], [64, 1.1], [101, 1.7], [158, 0.9], [205, 1.4], [292, 2]] },
+    { cx: 32, cy: 48, r: 23.5, flat: 0.26, tilt: 13, glints: [[36, 1.5], [122, 2.1], [171, 0.8], [248, 1.2], [331, 1.6]] },
+  ],
   neck: [32, 36],
   feet: [32, 90],
   chin: [32, 38],
@@ -152,17 +157,11 @@ const ATLAS_TORSO_PATH = "M27 34C27.2 38.6 25 40.4 22.2 41.6C19.6 42.8 19.4 46.6
 //: The tail: one tapering shape (the owner, of a row of beads: "the dotted
 //: tail looks weird and needs a better look"), thick where it grows out
 //: of the hip and fine at the tip, curving low past the hand and up. The
-//: logo's notes sit on two thin bands round it, and its tip is bright. The path is generated (a centreline of two
+//: tip carries one of the rings' star glints. The path is generated (a centreline of two
 //: cubics, a half-width easing from 3.6 to 0.45, offset both ways and
 //: smoothed), so it is written out here rather than drawn by hand.
 const ATLAS_TAIL_PATH = "M32.13 67.27C32.45 67.87 33.34 69.74 34.05 70.87C34.77 71.99 35.58 73.06 36.41 74.01C37.25 74.97 38.15 75.82 39.06 76.57C39.98 77.33 40.94 77.99 41.91 78.55C42.88 79.11 43.88 79.57 44.87 79.94C45.86 80.30 46.86 80.57 47.85 80.74C48.83 80.91 49.82 80.98 50.77 80.94C51.72 80.91 52.66 80.78 53.54 80.54C54.42 80.30 55.28 79.95 56.05 79.51C56.82 79.06 57.62 78.36 58.15 77.87C58.69 77.38 58.93 77.01 59.26 76.57C59.60 76.13 59.90 75.69 60.18 75.24C60.46 74.79 60.71 74.33 60.93 73.86C61.16 73.40 61.35 72.93 61.51 72.45C61.68 71.98 61.81 71.50 61.91 71.03C62.01 70.55 62.08 70.07 62.11 69.60C62.14 69.13 62.14 68.65 62.11 68.18C62.07 67.72 62.00 67.25 61.89 66.80C61.78 66.34 61.63 65.89 61.45 65.45C61.27 65.02 60.90 64.40 60.80 64.19C60.69 63.97 60.80 64.19 60.80 64.19A0.45 0.45 0 0 1 60.00 64.61C60.00 64.61 59.91 64.42 60.00 64.61C60.10 64.81 60.41 65.40 60.55 65.80C60.70 66.20 60.79 66.60 60.86 67.01C60.93 67.41 60.95 67.82 60.95 68.23C60.95 68.63 60.91 69.05 60.84 69.45C60.77 69.86 60.67 70.27 60.54 70.67C60.41 71.07 60.25 71.48 60.06 71.87C59.88 72.26 59.66 72.65 59.42 73.03C59.18 73.41 58.91 73.78 58.62 74.14C58.33 74.50 58.01 74.86 57.68 75.19C57.35 75.52 57.11 75.80 56.65 76.13C56.18 76.46 55.49 76.90 54.88 77.15C54.26 77.40 53.61 77.55 52.95 77.62C52.28 77.70 51.58 77.69 50.88 77.60C50.18 77.51 49.45 77.34 48.74 77.10C48.03 76.85 47.30 76.52 46.61 76.11C45.91 75.71 45.22 75.23 44.56 74.67C43.91 74.12 43.28 73.49 42.69 72.80C42.11 72.11 41.56 71.35 41.08 70.53C40.60 69.70 40.17 68.84 39.80 67.87C39.43 66.91 39.02 65.25 38.87 64.73Z";
-//: Two bands round it (the celestial ring, worn), each carrying a note, and
-//: a bright tip. The bands are the tail's own normals at 42% and 70% of its
-//: length, bowed a little along it.
-const ATLAS_TAIL_BANDS = [
-  ["M47.73 81.22Q49.46 79.2 48.86 76.61", [49, 78.9, 1.15]],
-  ["M59.64 76.89Q59.26 74.97 57.3 74.87", [59, 75.6, 0.9]],
-];
+//: The tail ends in a small star glint, the same glint the rings carry.
 const ATLAS_TAIL_TIP = [60.6, 64.9];
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
@@ -308,21 +307,13 @@ function atlasCrest(parent, tiny, edge) {
 //: The tail, in the edge layer and again in the fill layer like every other
 //: part. `.atl-tail` takes the pose and the mood (tucked, hanging, curled,
 //: lifted, drooping); `.atl-tail-swish` inside it takes the loop (a slow
-//: sway at rest, a wag when pleased). In the fill copy the notes on its
-//: bands glow, light in turn while Atlas thinks and pulse to music.
+//: sway at rest, a wag when pleased). In the fill copy its tip glints.
 function atlasTail(layer, edge) {
   const tail = atlasGroup(layer, "atl-tail", ATLAS_GEO.tail);
   const swish = atlasGroup(tail, "atl-tail-swish", ATLAS_GEO.tail);
   atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: ATLAS_TAIL_PATH }, swish);
   if (edge) return tail;
-  ATLAS_TAIL_BANDS.forEach(([band, [x, y, r]], i) => {
-    const core = atlasGroup(swish, `atl-tail-core atl-tail-core-${i}`);
-    core.style.setProperty("--atl-k", String(i));
-    atlasMake("path", { class: "atl-band", d: band }, core);
-    atlasMake("circle", { class: "atl-node-dot atl-band-node", cx: x, cy: y, r }, core);
-  });
-  const tip = atlasGroup(swish, "atl-tail-core atl-tail-core-2");
-  tip.style.setProperty("--atl-k", "2");
+  const tip = atlasGroup(swish, "atl-tail-core");
   atlasMake("circle", { class: "atl-node-glow", cx: ATLAS_TAIL_TIP[0], cy: ATLAS_TAIL_TIP[1], r: 2.4 }, tip);
   atlasSpark(tip, ATLAS_TAIL_TIP[0], ATLAS_TAIL_TIP[1], 1.6, "atl-glint");
   return tail;
@@ -421,6 +412,41 @@ function atlasHead(parent, id, level) {
   return head;
 }
 
+//: **The rings of stars** (the owner, of a first ring: "I like the ring it
+//: made, maybe there can be more than one?? and it could be like a rope or
+//: string of stars around him"). Each is a faint glowing line with star
+//: dust drifting along it and a few four-point glints of different sizes,
+//: floating round the body at its own tilt, in a ring frame flattened to
+//: about 0.3 of its height. The dust is very short dashes in a group that
+//: turns inside the frame, so it drifts round the ring with one rotation
+//: and no script; the glints twinkle where they are, placed in the drawing's
+//: own space so they stay four-pointed. Each ring is drawn in two halves:
+//: the whole of it under the body, its front half again over the body
+//: (clipped in the ring's own frame), so it wraps in depth.
+function atlasRing(parent, id, ring, k, front) {
+  const { cx, cy, r, flat, tilt, glints } = ring;
+  const g = atlasGroup(parent, `atl-ring atl-ring-${k} atl-ring-${front ? "front" : "back"}`, [cx, cy]);
+  const frame = atlasMake("g", { transform: `translate(${cx} ${cy}) rotate(${tilt}) scale(1 ${flat})` }, g);
+  if (front) frame.setAttribute("clip-path", `url(#${id}-front)`);
+  atlasMake("circle", { class: "atl-ring-glow", r }, frame);
+  atlasMake("circle", { class: "atl-ring-line", r }, frame);
+  const drift = atlasGroup(frame, "atl-ring-drift", [0, 0]);
+  atlasMake("circle", { class: "atl-dust", r: r - 0.8 }, drift);
+  atlasMake("circle", { class: "atl-dust atl-dust-far", r: r + 0.9 }, drift);
+  const a = (tilt * Math.PI) / 180;
+  glints.forEach(([deg, size], i) => {
+    const t = (deg * Math.PI) / 180;
+    if (Math.sin(t) > 0 !== front) return;
+    const fx = r * Math.cos(t);
+    const fy = r * Math.sin(t) * flat;
+    const x = cx + fx * Math.cos(a) - fy * Math.sin(a);
+    const y = cy + fx * Math.sin(a) + fy * Math.cos(a);
+    const glint = atlasSpark(g, +x.toFixed(2), +y.toFixed(2), size, "atl-ring-glint");
+    glint.style.setProperty("--atl-k", String(i + k * 3));
+  });
+  return g;
+}
+
 //: The body, in the companion's part names so its behaviours can act it
 //: out: legs from the hips, the raised arms it hangs and cheers with, the
 //: torso with the hub's light in its chest, and the resting arms. Each part
@@ -485,8 +511,8 @@ function atlasBody(parent, props) {
 
 //: The gradients, per drawing (ids are per drawing, so two on a page never
 //: share one): the skin in the drawing's own space, so crest, head, arms and
-//: body are one continuous surface; the aura; the chest light; and each
-//: eye's clip.
+//: body are one continuous surface; the aura; the chest light; each eye's
+//: clip; and the rings' front halves.
 function atlasDefs(svg, id, level) {
   const defs = atlasMake("defs", {}, svg);
   const skin = atlasMake("radialGradient", { id: `${id}-skin`, gradientUnits: "userSpaceOnUse", cx: 24, cy: 10, r: 84, fx: 23, fy: 8 }, defs);
@@ -503,6 +529,9 @@ function atlasDefs(svg, id, level) {
       atlasMake("path", { d: atlasAlmond(cx, cy, side).d }, clip);
     }
   }
+  //: The rings' front halves, in each ring's own flattened frame.
+  const front = atlasMake("clipPath", { id: `${id}-front` }, defs);
+  atlasMake("rect", { x: -40, y: 0, width: 80, height: 40 }, front);
   //: The paints name their gradients through custom properties, so the CSS
   //: can say "skin" without knowing this drawing's id.
   svg.style.setProperty("--atl-skin", `url(#${id}-skin)`);
@@ -557,7 +586,9 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   const moodLoop = atlasGroup(pose, "atl-mood", anchor);
   const rig = atlasGroup(moodLoop, "atl-rig", anchor);
   if (spec.body) {
+    ATLAS_GEO.rings.forEach((ring, k) => atlasRing(rig, id, ring, k, false));
     atlasBody(rig, figure);
+    ATLAS_GEO.rings.forEach((ring, k) => atlasRing(rig, id, ring, k, true));
   }
   //: The companion turns the head at the neck (`.nm-buddy-head`) and looks
   //: for its face (`.name-mark`, with `.nm-eyes` and `.nm-blinks` in it).

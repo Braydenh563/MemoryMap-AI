@@ -2522,10 +2522,15 @@ kbd {
   font-size: 0.92rem;
 }
 
-/* Vestibular safety: kill every animation when the OS asks for calm. */
+/* Vestibular safety: kill every animation when the OS asks for calm.
+   Except the faces and the companion (avatars.js, atlas.js): their own
+   reduced-motion blocks in 08-consistency.css slow every loop to a calm
+   pace and keep the expression, which is the rule for them (DESIGN.md,
+   "Motion"); this !important kill froze them all mid-frame instead, and
+   the companion's walk is already skipped in script under the same hint. */
 @media (prefers-reduced-motion: reduce) {
 
-  *,
+  *:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *),
   *::before,
   *::after {
     animation-duration: 0.01ms !important;

@@ -18130,6 +18130,9 @@ function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
   const bubble = document.createElement("div");
   bubble.className = `msg ${role}`;
+  //: The words as sent, so ArrowUp in an empty composer can reopen the last
+  //: question for editing without reading them back out of the rendered DOM.
+  if (role === "user" && typeof text === "string") bubble.dataset.sent = text;
 
   const label = document.createElement("div");
   label.className = "msg-role";
@@ -43079,12 +43082,54 @@ $("chat-input").addEventListener("input", () => {
     else renderChatNudge();
   }, 250);
 });
+//: The composer's recall position: an index into the conversation's sent
+//: messages, or null when the box holds your own typing. `draft` is what was
+//: in the box before the first step, given back past the newest.
+const chatRecall = { index: null, draft: "" };
+
+function chatRecallStep(box, direction) {
+  const sent = [...document.querySelectorAll("#chat-messages .msg.user")]
+    .map((bubble) => bubble.dataset.sent)
+    .filter(Boolean);
+  if (!sent.length) return false;
+  const recalled = chatRecall.index !== null && box.value === sent[chatRecall.index];
+  if (!recalled) {
+    //: Only from an empty box: text you are writing keeps its arrow keys.
+    if (box.value || direction > 0) return false;
+    chatRecall.draft = box.value;
+    chatRecall.index = sent.length;
+  }
+  const next = chatRecall.index + direction;
+  if (next < 0) return true;
+  if (next >= sent.length) {
+    chatRecall.index = null;
+    box.value = chatRecall.draft;
+  } else {
+    chatRecall.index = next;
+    box.value = sent[next];
+  }
+  box.setSelectionRange(box.value.length, box.value.length);
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}
+
 $("chat-input").addEventListener("keydown", (e) => {
   // Enter sends, Shift+Enter (or Ctrl/Cmd+Enter) writes a newline. The box is
   // a textarea now, so "send" has to be chosen rather than inherited.
   if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     sendChatMessage();
+    return;
+  }
+  //: **ArrowUp and ArrowDown step through what you sent**, the way a terminal
+  //: or a chat app's composer does (the owner, 2026-09-24: "the small things
+  //: every user expects", then "include down arrow as well to toggle between
+  //: previous inputs"). Up from an empty box (or from a recalled message you
+  //: have not changed) fills the box with the one before; Down walks back to
+  //: the newest, then to what you had typed. A box you have typed into keeps
+  //: its arrows for moving the caret.
+  if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+    if (chatRecallStep(e.target, e.key === "ArrowUp" ? -1 : 1)) e.preventDefault();
   }
 });
 $("persona-select").addEventListener("change", async () => {
@@ -45073,6 +45118,15 @@ document.addEventListener("keydown", (e) => {
     const inTextField =
       ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName) ||
       document.activeElement?.isContentEditable;
+    //: **Ctrl+Y is redo too**, the Windows habit: the board's own Redo
+    //: button and Edit menu already print "Ctrl+Y" and nothing answered it
+    //: (the Guide agent's finding, 2026-09-24). Same rule as Ctrl+Shift+Z:
+    //: a text field keeps its own.
+    if (!inTextField && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "y") {
+      e.preventDefault();
+      runShortcut("redo");
+      return;
+    }
     for (const [id, def] of Object.entries(shortcuts)) {
       if ((id === "undo" || id === "redo") && inTextField) continue;
       //: INBOX 321: on an open board the same chord duplicates the selection.

@@ -44,16 +44,30 @@ with its owner named in the entry.
     every interface and page. and the companion can even interact with the
     close ui like hand from a top bar, sit on a bottom bar, walk a top a
     feature ... just so I dont move it to one area, and then it is annoying
-    for it to be there on another page"; (c) "may shuffled avatar reset and
+    for it to be there on another page" (fixed: the companion is one
+    drawn character with a body, and per tab it takes a perch measured from
+    the real UI (hanging from the top bar or a panel's underside, sitting on
+    or standing at a top edge with its legs dangling or tucked, tucked behind
+    the bottom bar as a last resort), never over a control; a spot you drop
+    it on is kept per tab against its panel; a weighted behaviour picker
+    with cooldowns runs one decision every 4 to 12s; commits 4b4f1d4 to
+    5c19f45); (c) "may shuffled avatar reset and
     didnt persist"; (d) "how does the shuffle work?? does it still base it
-    on what is entered for the name??"; (e) "I want the persona avatar to
+    on what is entered for the name??" (fixed: Your look says it keeps what
+    the name says and any part you chose and redraws the rest, db38ea1);
+    (e) "I want the persona avatar to
     appear next to where you set the persona for the dashboard greeting";
     (f) "I set the dashboard greeting to another persona, but when I hit
     regenerate, it said asking Atlas"; (g) "I changed personas for the
     dashboard greeting and the avatar/icon changed as I had set it, but when
     I changed the persona again, it didnt change again"; (h) "the whole
     thing with the avatars needs a proper polish and bug fix ... a full ui
-    and ux upgrade to properly fit the application". Documents: (i) "can
+    and ux upgrade to properly fit the application" (fixed: every generated
+    face is one designed character, d1e74fd; swept at 1440 and 390, light
+    and dark: row alignment within 0.5px at every list site, no clipping
+    but the large view's ears (fixed), speech bubbles kept inside the
+    window, the companion no longer over the chat composer's settings or
+    the phone's Library tab). Documents: (i) "can
     there be a document full screen mode so there is more space ... maybe
     the top bar needs a bit of redesigning or the interface on the document
     editor needs a bit of visual adjusting to allow for more room. also

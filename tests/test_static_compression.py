@@ -60,6 +60,10 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
     # where it was: 724,604 bytes after, measured through the live server.
     # The next time this goes red, the answer is the next surface out of
     # app.js, not a fourth number here.
+    #
+    # **The fourth time, the same answer.** 2026-09-24: 752,031 bytes after the
+    # catalogue's deep links. The popup agent (Ctrl+K, about 1,330 lines)
+    # moved into palette.js, loaded after timeline.js: 730,546 bytes after.
     assert len(raw) < 750_000, f"gzipped app.js is {len(raw)} bytes, expected under 750 KB"
 
 

@@ -25,7 +25,11 @@ from pathlib import Path
 from memorymap.entry import manager
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
-APP = (FRONTEND / "app.js").read_text(encoding="utf-8")
+#: app.js plus palette.js: the popup agent (Ctrl+K) was split out of app.js
+#: on 2026-09-24, and these tests read it wherever it lives.
+APP = (FRONTEND / "app.js").read_text(encoding="utf-8") + "\n" + (FRONTEND / "palette.js").read_text(
+    encoding="utf-8"
+)
 INDEX = (FRONTEND / "index.html").read_text(encoding="utf-8")
 MARKUP = re.sub(r"<!--.*?-->", "", INDEX, flags=re.S)
 

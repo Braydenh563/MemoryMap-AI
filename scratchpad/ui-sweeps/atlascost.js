@@ -44,6 +44,7 @@ async function measure(withMarks) {
     if (withMarks) for (const size of [208, 46, 36]) stage.appendChild(nameMarkLive("Atlas", size));
   }, withMarks);
   await page.waitForTimeout(2000);
+  const anims = await page.evaluate(() => document.getElementById("cost-stage").getAnimations({ subtree: true }).length);
   const cdp = await ctx.newCDPSession(page);
   await cdp.send("Performance.enable");
   const read = async () => Object.fromEntries((await cdp.send("Performance.getMetrics")).metrics.map((m) => [m.name, m.value]));
@@ -51,6 +52,7 @@ async function measure(withMarks) {
   await page.waitForTimeout(10000);
   const b = await read();
   await browser.close();
+  measure.anims = Math.max(measure.anims || 0, anims);
   return (b.TaskDuration - a.TaskDuration) * 1000;
 }
 
@@ -62,5 +64,5 @@ async function measure(withMarks) {
     none.push(await measure(false));
   }
   const median = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
-  console.log(JSON.stringify({ mode: MODE, marksMs: median(marks).toFixed(1), noneMs: median(none).toFixed(1), atlasMs: (median(marks) - median(none)).toFixed(1), marks: marks.map((x) => x.toFixed(0)), none: none.map((x) => x.toFixed(0)) }));
+  console.log(JSON.stringify({ mode: MODE, anims: measure.anims, marksMs: median(marks).toFixed(1), noneMs: median(none).toFixed(1), atlasMs: (median(marks) - median(none)).toFixed(1), marks: marks.map((x) => x.toFixed(0)), none: none.map((x) => x.toFixed(0)) }));
 })();

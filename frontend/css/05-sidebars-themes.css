@@ -5922,7 +5922,10 @@ button.ghost.doc-template-choice[aria-checked="true"] {
    every document is a strip that reads as louder than the heading it describes.
    Muted until hovered, which is the same restraint the outline's own rows use. */
 .doc-crumbs {
-  margin-top: var(--space-2);
+  /* No margin of its own (INBOX 425 i): the column's 0.5rem gap already sets
+     it off from the dock, and the two together were 14.4px of a row whose
+     whole job is to be quiet. */
+  margin-top: 0;
   /* **Not shrinkable, and this row is why the rule needs saying.** The editor
      column is a flex column, and a flex item's automatic minimum size (the
      thing that normally stops a column from crushing an item below its own
@@ -5964,6 +5967,13 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 /* The separator belongs to the list, not to the buttons: a crumb rendered
    with a trailing character of its own would put that character inside the
    button's hit area and read it out as part of the heading's name. */
+/* Each crumb and its separator on one line, now that the crumb is a block
+   (see `.doc-crumb`). */
+.doc-crumbs-list > li {
+  display: flex;
+  align-items: center;
+}
+
 .doc-crumbs-list li + li::before {
   content: "\203A";
   color: var(--muted);
@@ -5983,6 +5993,13 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* A block, started at its own left edge. As the app's buttons are, it was
+     an inline flex box centring its text, and an ellipsis never applies to
+     a flex container's text: measured with a 39-character title, the crumb
+     cut 6px off each end, "A document ... title" drawn as "document ...
+     titl" with no ellipsis at all (INBOX 425 i). */
+  display: block;
+  text-align: start;
 }
 
 .doc-crumb:hover,
@@ -6098,4 +6115,20 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 
 .doc-dock-identity > .doc-back:hover {
   color: var(--ink);
+}
+
+/* **A place, not a button** (INBOX 425 i). The dock's ghost-button rules
+   gave the crumb the tonal fill and the full edge of an action, so with the
+   title beside it on one row it read as a half-rounded button glued to an
+   input: measured 116px of filled box with a hairline through its right
+   side. The crumb keeps its target size and its hover, and loses the fill
+   and every edge but the divider that says "Documents / this document". */
+.doc-dock .doc-dock-identity > .doc-back.ghost {
+  background: none;
+  border-color: transparent var(--divider) transparent transparent;
+  box-shadow: none;
+}
+
+.doc-dock .doc-dock-identity > .doc-back.ghost:hover {
+  background: var(--chip-bg);
 }

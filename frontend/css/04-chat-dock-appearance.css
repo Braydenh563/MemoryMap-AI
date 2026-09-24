@@ -3724,6 +3724,24 @@ span > .chip {
   border-color: var(--accent);
 }
 
+/* Focus mode's button (INBOX 425 i) is the third icon-only utility on this
+   row, after the view chevron and before the kebab, so it wears what they
+   wear: measured, the ghost ramp's tonal fill made it the one filled square
+   between two outlined ones, and it read as a button already pressed. */
+.doc-dock .doc-focus-toggle.ghost {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  width: var(--control-h);
+  padding-inline: 0;
+  justify-content: center;
+}
+
+.doc-dock .doc-focus-toggle.ghost:hover {
+  background: var(--chip-bg);
+  border-color: var(--accent);
+}
+
 .doc-dock .seg button {
   padding-block: 0;
 }
@@ -3735,8 +3753,22 @@ span > .chip {
    and three buttons, which wrapped onto two more rows. Giving the title the
    full row costs one line of height and buys the actions the space to sit on
    one, which is what the screenshot behind this was asking for. */
+/* **One row again, now that there is room for one** (INBOX 425 i: "maybe
+   the top bar needs a bit of redesigning ... to allow for more room").
+   The reason above was true of a row holding a status group, a select, a
+   four-way segment and three buttons. Since DOCUMENTS_PLAN Phase 1 the
+   actions are Saved, Edit/Read and its chevron, AI edit, Focus and the
+   kebab, about 480px; measured at 1440x900 the second row cost 42px of
+   height for nothing but a title with 700px of empty space beside it.
+
+   So the identity asks for 22rem and grows into whatever is left, and the
+   actions keep their own width: where both fit (1034px of dock at 1440,
+   960px at 1366) they share one 36px row; where they do not (a narrow
+   window, the chat dock open, a phone) flex-wrap drops the actions onto
+   their own line whole, pushed to the right edge, which is the old layout
+   and never a control split from its group. */
 .doc-dock > .doc-dock-identity {
-  flex: 1 1 100%;
+  flex: 1 1 22rem;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -3755,7 +3787,10 @@ span > .chip {
    HISTORY). */
 .card > .row.space-between > .row.doc-actions,
 .doc-dock > .doc-actions {
-  flex: 1 1 100%;
+  /* Its own width, on the title's row when both fit (see the identity rule
+     above), and on the right edge when it wraps onto a line of its own. */
+  flex: 0 1 auto;
+  margin-left: auto;
   /* **A flex item does not shrink past its own content unless it is told
      it may.** `min-width` defaults to `auto` on a flex item, which is its
      min-content width, so this row refused to go below the width its
@@ -4296,6 +4331,98 @@ span > .chip {
 .doc-ai-result-actions {
   justify-content: flex-end;
   gap: var(--space-3);
+}
+
+/* --- the assistant's head and its three verbs (the owner, 2026-09-24:
+   "redesign the top section of this panel, it is poorly structured and
+   there's definitely a better, more modern and professional way").
+
+   Measured before (scratchpad/ui-sweeps/docaihead.js, 1440x900): the head
+   held a 32px round bordered '?', a 97px tonal "History" and a 28px bordered
+   close, three shapes at two heights; the verb control was 318px of a 688px
+   column, its segments 30px tall in a 40px track; the unchosen verbs were
+   drawn in the muted ink, which is the colour this app gives a disabled
+   control, so "Write" read as unavailable; and the chosen one differed from
+   them by an 11% ink tint alone.
+
+   Now the head is one row: the title and its '?' on the left, History and
+   Close on the right, all three the same quiet 28px icon button. The verbs
+   are the panel's full width in three equal segments that fill the track;
+   an unchosen verb is in the body ink, and the chosen one keeps the
+   segmented recipe's fill and ink (no lift: a segment sits in its track,
+   INBOX 101) and adds weight and a ring in the accent, so which mode is on
+   reads at a glance without any segment looking switched off. */
+.doc-ai-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-lg);
+}
+
+.doc-ai-head > h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.doc-ai-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.doc-ai-card .doc-ai-head-btn.ghost {
+  width: var(--target-min);
+  height: var(--target-min);
+  min-height: 0;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+.doc-ai-card .doc-ai-head-btn.ghost:hover,
+.doc-ai-card .doc-ai-head-btn.ghost[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--chip-bg);
+}
+
+.doc-ai-card > #doc-ai-verb {
+  display: flex;
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+}
+
+.doc-ai-card > #doc-ai-verb label {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  color: var(--ink);
+}
+
+.doc-ai-card > #doc-ai-verb label > .ph {
+  color: var(--muted);
+}
+
+.doc-ai-card > #doc-ai-verb label:has(input:checked) {
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.doc-ai-card > #doc-ai-verb label:has(input:checked) > .ph {
+  color: var(--accent);
+}
+
+/* The keyboard's place in the group, drawn on the segment: the radio itself
+   is clipped to a pixel, so its own focus ring is never seen. */
+.doc-ai-card > #doc-ai-verb label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* Extract notes (BACKLOG.md §62): another "read the AI's proposal before

@@ -2208,7 +2208,7 @@ const DOC_COMMANDS = [
     run: () => setDocView("rendered") },
   { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting tools", keys: "",
     run: () => docRunControl("doc-format-toggle", "The formatting strip") },
-  { id: "focus", icon: "ph:moon", label: "Focus mode", keys: "",
+  { id: "focus", icon: "ph:corners-out", label: "Focus mode: only the page, the whole window", keys: "F11",
     run: () => docRunControl("doc-focus-toggle", "Focus mode") },
   { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "",
     run: () => docRunControl("doc-typewriter", "Typewriter scrolling") },
@@ -4079,6 +4079,127 @@ function docTableStepCell(table, row, col, delta) {
   }
 }
 
+//: The row an arrow or Enter goes to from `row`, stepping over the delimiter
+//: (which is the header's underline, not a row anyone writes in). `null`
+//: past either end: the caller's cue to leave the table or to add a row.
+//: INBOX 425 i: measured before this, ArrowDown from the third column
+//: landed in the fourth, because the editor moves by pixels and the cells
+//: of the next row are laid out by a grid it cannot see.
+function docTableStepRow(table, row, delta) {
+  let r = row + delta;
+  if (r === table.delim) r += delta;
+  if (r < 0 || r >= table.rows.length) return null;
+  return r;
+}
+
+//: A cell's text as markdown can hold it: one line, and a pipe escaped so it
+//: stays inside its cell rather than opening a new one. An already escaped
+//: pipe is kept as it is.
+function docTableEscapeCell(text) {
+  return String(text == null ? "" : text)
+    .replace(/[\r\n]+/g, " ")
+    .trim()
+    .replace(/\\\|/g, "\u0000")
+    .replace(/\|/g, "\\|")
+    .replace(/\u0000/g, "\\|");
+}
+
+//: What a spreadsheet puts on the clipboard: rows on lines, cells split by
+//: tabs. `null` for anything without a tab, which is ordinary text and is
+//: pasted as it is. A trailing newline (every spreadsheet adds one) is not a
+//: row.
+function docTableGridFromText(text) {
+  if (typeof text !== "string" || text.indexOf("\t") === -1) return null;
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  while (lines.length && lines[lines.length - 1] === "") lines.pop();
+  if (!lines.length) return null;
+  return lines.map((line) => line.split("\t").map(docTableEscapeCell));
+}
+
+//: A new table from a grid, its first row as the header. Written the way
+//: this editor writes a new row (`| a | b |`, a space either side), so a
+//: pasted table and a typed one look the same in Source.
+function docTableFromGrid(grid) {
+  const width = Math.max(1, ...grid.map((row) => row.length));
+  const line = (cells) =>
+    "|" + Array.from({ length: width }, (_, i) => ` ${cells[i] == null ? "" : cells[i]} `).join("|") + "|";
+  return [line(grid[0] || []), "|" + Array.from({ length: width }, () => " --- ").join("|") + "|",
+    ...grid.slice(1).map(line)].join("\n");
+}
+
+//: The edits that put `text` into cells, each cell keeping the padding it
+//: was written with: the words between the spaces change and nothing else,
+//: the same promise every operation above keeps. A blank cell has no words
+//: to stand between, so it is written ` text `, as a new row's cells are.
+function docTableSetCellEdits(table, cells) {
+  const edits = [];
+  for (const { row, col, text } of cells) {
+    const span = docTableCellSpan(table, row, col);
+    if (!span) continue;
+    const raw = table.rows[row].cells[col];
+    if (!raw.trim()) {
+      edits.push({ from: span.from, to: span.to, insert: ` ${text} ` });
+      continue;
+    }
+    const lead = (/^[ \t]*/.exec(raw) || [""])[0].length;
+    const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
+    edits.push({ from: span.from + lead, to: span.to - tail, insert: text });
+  }
+  return edits;
+}
+
+//: **A spreadsheet's rows pasted into a table fill its cells** (INBOX 425 i,
+//: "paste from a spreadsheet"). Measured before this: the whole clipboard
+//: landed in the one cell the caret was in, tabs and newlines and all, and
+//: the three lines after it stopped being a table. From the caret's cell,
+//: right and down, one cell per value; rows and columns the table does not
+//: have yet are added the way Tab and the cell menu add them, and a paste on
+//: the delimiter starts on the first body row.
+//:
+//: Returns one edit covering the table, so the paste is one step of undo,
+//: and the cell the last value went into for the caret. Every byte of the
+//: table the paste did not have to change is still the author's.
+function docTablePasteEdits(text, table, row, col, grid) {
+  if (!grid || !grid.length) return null;
+  const from = table.from;
+  let work = String(text);
+  let t = table;
+  const targets = [];
+  let r = row === t.delim ? t.delim + 1 : row;
+  for (let i = 0; i < grid.length; i += 1) {
+    if (r === t.delim) r += 1;
+    targets.push(r);
+    r += 1;
+  }
+  while (t && t.rows.length <= targets[targets.length - 1]) {
+    work = docTableApplyEdits(work, docTableAddRowEdits(t, t.rows.length - 1));
+    t = docTableParse(work, from);
+  }
+  const width = Math.max(...grid.map((cells) => cells.length));
+  while (t && t.columns < col + width) {
+    work = docTableApplyEdits(work, docTableAddColumnEdits(t, t.columns - 1));
+    t = docTableParse(work, from);
+  }
+  if (!t) return null;
+  //: A row made short by GFM's padding gets its missing cells for real
+  //: before anything is written into them, as Tab does.
+  for (const target of targets) {
+    work = docTableApplyEdits(work, docTableFillRowEdits(t, target, col + width - 1));
+    t = docTableParse(work, from);
+  }
+  const cells = [];
+  grid.forEach((values, i) =>
+    values.forEach((value, j) => cells.push({ row: targets[i], col: col + j, text: value }))
+  );
+  work = docTableApplyEdits(work, docTableSetCellEdits(t, cells));
+  const grown = work.length - String(text).length;
+  return {
+    edit: { from, to: table.to, insert: work.slice(from, table.to + grown) },
+    row: targets[targets.length - 1],
+    col: col + grid[grid.length - 1].length - 1,
+  };
+}
+
 // DOC-TABLE-END
 
 // -----------------------------------------------------------------------------
@@ -4173,6 +4294,140 @@ function docTableTabStep(backwards, from = null) {
   if (backwards) return false;
   const rows = context.table.rows.length;
   return docTableGo(context, docTableAddRowEdits(context.table, rows - 1), rows, 0);
+}
+
+//: The caret at the end of a cell's words, for the gestures that move rather
+//: than select (Enter and the arrows): Tab selects the cell it lands in so
+//: typing replaces it, and an arrow that did the same would turn the next
+//: keystroke into a deletion.
+function docTableCaretTo(context, row, col) {
+  const surface = context.surface;
+  let table = context.table;
+  if (!table.rows[row]) return false;
+  if (col >= table.rows[row].cells.length) {
+    docTableDispatch({ surface, text: surface.text }, docTableFillRowEdits(table, row, col));
+    table = docTableParse(surface.text, table.from);
+    if (!table) return true;
+  }
+  const span = docTableCellSpan(table, row, Math.min(col, table.rows[row].cells.length - 1));
+  if (!span) return true;
+  const raw = surface.text.slice(span.from, span.to);
+  const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
+  const at = raw.trim() ? span.to - tail : span.from + Math.min(1, raw.length);
+  surface.setSelectionRange(at, at);
+  return true;
+}
+
+//: **Enter and the arrows in a Live table** (INBOX 425 i: "tables are still
+//: really annoying to use and edit in the documents live view"). Measured
+//: before this in `scratchpad/ui-sweeps/doctablework.js`: ArrowDown from the
+//: third column landed in the fourth and ArrowUp into the header a column
+//: off, because the editor moves by pixels over cells a grid has laid out;
+//: Enter in the last row made a row but sent the caret to its first column;
+//: and a table that ended the document (or began it) could not be left by
+//: the arrows at all, so the only way to write under it was Source view.
+//:
+//: Now, in Live, the arrows keep the column from row to row (a cell whose
+//: words wrap over several lines is walked through first, as any paragraph
+//: is), Enter goes to the same column one row down and adds the row at the
+//: end, and past the table's edge the arrows leave it, making the blank line
+//: markdown needs when there is nothing on that side yet. Source keeps the
+//: plain editor's keys: there the rows are text, and moving by column over
+//: unaligned pipes would be the surprise.
+function docTableKeyMove(view, key) {
+  if (docView !== "live") return false;
+  const sel = view.state.selection.main;
+  if (!sel.empty || view.state.selection.ranges.length > 1) return false;
+  const context = docTableContext();
+  if (!context || context.surface.kind !== "codemirror" || context.surface.view !== view) return false;
+  const { table, cell } = context;
+  if (key === "Enter") {
+    const next = docTableStepRow(table, cell.row, 1);
+    if (next !== null) return docTableCaretTo(context, next, cell.col);
+    const rows = table.rows.length;
+    return docTableGo(context, docTableAddRowEdits(table, rows - 1), rows, cell.col);
+  }
+  const down = key === "ArrowDown";
+  const moved = view.moveVertically(sel, down);
+  const landed = docTableCellAt(table, moved.head);
+  if (moved.head !== sel.head && landed && landed.row === cell.row && landed.col === cell.col) return false;
+  const next = docTableStepRow(table, cell.row, down ? 1 : -1);
+  if (next !== null) return docTableCaretTo(context, next, cell.col);
+  const doc = view.state.doc;
+  if (down) {
+    if (table.to < doc.length) {
+      view.dispatch({ selection: { anchor: table.to + 1 }, scrollIntoView: true });
+    } else {
+      view.dispatch({
+        changes: { from: table.to, insert: "\n\n" },
+        selection: { anchor: table.to + 2 },
+        scrollIntoView: true,
+        userEvent: "input",
+      });
+    }
+    return true;
+  }
+  if (table.from > 0) {
+    view.dispatch({ selection: { anchor: table.from - 1 }, scrollIntoView: true });
+  } else {
+    view.dispatch({
+      changes: { from: 0, insert: "\n\n" },
+      selection: { anchor: 0 },
+      scrollIntoView: true,
+      userEvent: "input",
+    });
+  }
+  return true;
+}
+
+//: A paste that is a spreadsheet's rows. Into a table, it fills cells from
+//: the caret's (`docTablePasteEdits`); anywhere else in a markdown document,
+//: it becomes a table of its own when the clipboard also carries an HTML
+//: table (which every spreadsheet puts there) and the rows are a rectangle
+//: of at least two by two, so tab-indented text pasted from a code editor is
+//: still pasted as the text it was. Never in a code file.
+function docTablePasteEvent(event, view) {
+  if (view.dom.classList.contains("doc-content-code")) return false;
+  const data = event.clipboardData;
+  if (!data) return false;
+  const grid = docTableGridFromText(data.getData("text/plain"));
+  if (!grid) return false;
+  const context = docTableContext();
+  if (context && context.surface.kind === "codemirror" && context.surface.view === view) {
+    const result = docTablePasteEdits(context.text, context.table, context.cell.row, context.cell.col, grid);
+    if (!result) return false;
+    event.preventDefault();
+    docUndoBreak();
+    view.dispatch({ changes: result.edit, userEvent: "input.paste", scrollIntoView: true });
+    const table = docTableParse(view.state.doc.toString(), context.table.from);
+    if (table) docTableCaretTo({ surface: context.surface, table }, result.row, result.col);
+    return true;
+  }
+  const html = data.getData("text/html") || "";
+  const square = grid.length >= 2 && grid[0].length >= 2 && grid.every((row) => row.length === grid[0].length);
+  if (!/<table[\s>]/i.test(html) || !square) return false;
+  event.preventDefault();
+  const { state } = view;
+  const sel = state.selection.main;
+  const startLine = state.doc.lineAt(sel.from);
+  const endLine = state.doc.lineAt(sel.to);
+  //: A table is a block: it needs a blank line between it and the text on
+  //: either side, or the line after it would be read as one more row.
+  const textBefore = state.doc.sliceString(startLine.from, sel.from).trim();
+  const lineAbove = startLine.number > 1 ? state.doc.line(startLine.number - 1).text.trim() : "";
+  const textAfter = state.doc.sliceString(sel.to, endLine.to).trim();
+  const lineBelow = endLine.number < state.doc.lines ? state.doc.line(endLine.number + 1).text.trim() : "";
+  const before = textBefore ? "\n\n" : lineAbove ? "\n" : "";
+  const after = textAfter ? "\n\n" : lineBelow ? "\n" : "";
+  const table = docTableFromGrid(grid);
+  docUndoBreak();
+  view.dispatch({
+    changes: { from: sel.from, to: sel.to, insert: before + table + after },
+    selection: { anchor: sel.from + before.length + table.length },
+    userEvent: "input.paste",
+    scrollIntoView: true,
+  });
+  return true;
 }
 
 //: The whole table, for the one command that is not an edit inside it. The
@@ -7216,6 +7471,14 @@ function docLivePlugin(CM) {
         //: round the cell says it at a glance, and follows Tab and Shift+Tab.
         //: Only while the editor has focus, like every other reveal here.
         const activeCell = inTable ? docTableCellAt(table, sel.head) : null;
+        //: **The menu rides the row being edited** (INBOX 425 i). It sat at
+        //: the end of the header, so in the fourth body row of a four-row
+        //: table it was 158px from the caret, and past a screen of rows it was
+        //: off screen altogether: the actions for "this row" were drawn on a
+        //: different one. The delimiter is the header's underline, so a caret
+        //: on it puts the menu on the header.
+        const menuCell = docTableCellAt(table, sel.from) || { row: 0, col: 0 };
+        const menuRow = menuCell.row === table.delim ? 0 : menuCell.row;
         for (let r = 0; r < table.rows.length; r += 1) {
           const row = table.rows[r];
           const rule = r === table.delim && !touched(row.from, row.to);
@@ -7244,9 +7507,10 @@ function docLivePlugin(CM) {
             const span = docTableCellSpan(table, r, c);
             const align = table.aligns[c];
             const place = c < DOC_TABLE_GRID_MAX ? ` cm-md-c${c + 1}` : "";
-            //: The header's last cell keeps room for the kebab that sits at
-            //: its end, so a long heading wraps before it rather than under it.
-            const last = r === 0 && c === row.cells.length - 1 ? " cm-md-td-last" : "";
+            //: Every row's last cell keeps room for the kebab, since the kebab
+            //: now follows the caret from row to row: the room is reserved on
+            //: all of them so moving the caret never re-wraps a cell.
+            const last = c === row.cells.length - 1 ? " cm-md-td-last" : "";
             const active =
               activeCell && activeCell.row === r && activeCell.col === c ? " cm-md-td-active" : "";
             const cls = (align ? `cm-md-td cm-md-td-${align}` : "cm-md-td") + place + last + active;
@@ -7265,8 +7529,8 @@ function docLivePlugin(CM) {
           //: controls sit in every editor the plan names, and is drawn out of
           //: the grid's flow by its class so it cannot become a column of its
           //: own.
-          if (r === 0 && (inTable || menuHeld)) {
-            const cell = docTableCellAt(table, sel.from) || { row: 0, col: 0 };
+          if (r === menuRow && (inTable || menuHeld)) {
+            const cell = menuCell;
             //: The *view's* own surface, not the document's: this plugin is
             //: mounted in every note editor too (Phase 8), and a menu that
             //: edited `doc-content` from inside a note would write into
@@ -11278,48 +11542,243 @@ function docRestoreReading() {
 
 docRestoreReading();
 
-//: **Focus mode.** Asked for as part of "the ultimate editor", every editor
-//: this app is compared to (Obsidian, Notion, Kortex) has a way to make the
-//: tab bar, the sidebar and the document list disappear, and this one never
-//: did. Not remembered across sessions on purpose: full width is a standing
-//: preference about how you read; this is a mode for right now, and opening
-//: the app back into a chrome-less page with no visible way out would be its
-//: own bug.
+//: **Focus mode.** Asked for as part of "the ultimate editor", and again by
+//: the owner as "a document full screen mode so there is more space"
+//: (INBOX 425 i), which is how it was found to have had no visible way in:
+//: its button sat in the formatting strip, and that strip is hidden until
+//: asked for. Measured before this pass at 1440x900 with the mode off: 228px
+//: of chrome above the first line and a writing area 520px tall.
+//:
+//: The mode hides everything that is not the page: the app's top bar and tab
+//: strip (the tab page covers them, `position: fixed`, the same overlay the
+//: whiteboard's and graph's full-screen toggles use), the document sidebar,
+//: the dock, the formatting strip, the breadcrumbs and the status bar. What is
+//: left is the column at `--doc-measure`, centred in the window, and one small
+//: floating dock (`#doc-focus-bar`) with the title, the word count, the save
+//: state and the way out, which fades after `DOC_FOCUS_IDLE_MS` without the
+//: pointer moving and comes back on a move, a hover or a keyboard focus.
+//:
+//: **Remembered for the session, not for good.** `sessionStorage`, so a
+//: reload in the middle of writing comes back as it was, and a fresh launch
+//: always opens into the normal page: an app that starts with no chrome and
+//: its only exit faded out is its own bug. The earlier version remembered
+//: nothing, which made a reload throw the mode away mid-sentence.
+const DOC_FOCUS_KEY = "doc-focus";
+const DOC_FOCUS_IDLE_MS = 2500;
+let docFocusIdleTimer = 0;
+let docFocusLastWake = 0;
+let docFocusSavedWatch = null;
+//: Whether this mode asked for the browser's full screen, so leaving the mode
+//: only undoes what the mode did: a person who was already in the browser's
+//: own full screen before opening focus mode stays in it after.
+let docFocusOwnsFullscreen = false;
+
+function docFocusOn() {
+  return !!$("tab-documents")?.classList.contains("doc-focus");
+}
+
 function toggleDocFocus(force) {
   const tab = $("tab-documents");
   if (!tab) return;
   const on = typeof force === "boolean" ? force : !tab.classList.contains("doc-focus");
   tab.classList.toggle("doc-focus", on);
+  tab.classList.remove("doc-focus-idle");
+  try {
+    if (on) sessionStorage.setItem(DOC_FOCUS_KEY, "1");
+    else sessionStorage.removeItem(DOC_FOCUS_KEY);
+  } catch {
+    // Storage refused (a private window): the mode still works, it just is
+    // not brought back by a reload.
+  }
   const button = $("doc-focus-toggle");
   if (button) {
     button.setAttribute("aria-pressed", String(on));
     button.title = on
-      ? "Leave focus mode (Esc)"
-      : "Focus mode: hide everything but the page (Esc to leave)";
+      ? "Leave focus mode (Esc or F11)"
+      : "Focus mode: hide everything but the page (F11)";
     button.setAttribute("aria-label", button.title);
     const icon = button.querySelector("i");
-    if (icon) icon.className = on ? "ph ph-arrows-in" : "ph ph-frame-corners";
+    if (icon) icon.className = on ? "ph ph-corners-in" : "ph ph-corners-out";
   }
-  if (on) docSurface()?.focus();
+  if (on) {
+    docFocusFill();
+    docFocusWatch(true);
+    docFocusWake(true);
+  } else {
+    docFocusWatch(false);
+    clearTimeout(docFocusIdleTimer);
+    if (docFocusOwnsFullscreen && document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+    docFocusOwnsFullscreen = false;
+  }
+  //: The caret goes back to the page either way: entering, so the next key
+  //: is writing; leaving, because the control that was pressed (the floating
+  //: Exit) has just stopped being drawn and would otherwise take the focus
+  //: with it to <body>.
+  if (tab.classList.contains("hidden")) return;
+  docSurface()?.focus();
 }
 
-$("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
+//: The floating dock's words. The title and the count are written from
+//: `renderDocCounts` while the mode is on (it runs after every edit and every
+//: open, so a document switched from the palette relabels the dock too); the
+//: save state is watched, because it is written from a dozen places and none
+//: of them should have to know this dock exists.
+function docFocusFill() {
+  docSetStatusText($("doc-focus-title"), $("doc-title")?.value.trim() || "Untitled");
+  docSetStatusText($("doc-focus-saved"), $("doc-saved")?.textContent || "");
+  renderDocCounts();
+  const full = $("doc-focus-fullscreen");
+  if (full) full.hidden = !document.fullscreenEnabled;
+  docFocusSyncFullscreen();
+}
 
+function docFocusWatch(on) {
+  docFocusSavedWatch?.disconnect();
+  docFocusSavedWatch = null;
+  const listen = on ? "addEventListener" : "removeEventListener";
+  document[listen]("pointermove", docFocusPointer, { passive: true });
+  document[listen]("pointerdown", docFocusPointer, { passive: true });
+  document[listen]("keydown", docFocusKey, true);
+  if (!on) return;
+  const saved = $("doc-saved");
+  if (saved && typeof MutationObserver === "function") {
+    docFocusSavedWatch = new MutationObserver(() =>
+      docSetStatusText($("doc-focus-saved"), saved.textContent || "")
+    );
+    docFocusSavedWatch.observe(saved, { childList: true, characterData: true, subtree: true });
+  }
+}
+
+//: The dock comes back and the idle clock restarts. Throttled to one restart
+//: per quarter second, because `pointermove` fires at the display's rate and
+//: a timer cleared and set sixty times a second is work a poor laptop can
+//: feel for no change on screen.
+function docFocusWake(force = false) {
+  const tab = $("tab-documents");
+  if (!tab?.classList.contains("doc-focus")) return;
+  const now = performance.now();
+  const idle = tab.classList.contains("doc-focus-idle");
+  if (!force && !idle && now - docFocusLastWake < 250) return;
+  if (idle) tab.classList.remove("doc-focus-idle");
+  docFocusLastWake = now;
+  clearTimeout(docFocusIdleTimer);
+  docFocusIdleTimer = setTimeout(docFocusRest, DOC_FOCUS_IDLE_MS);
+}
+
+function docFocusRest() {
+  const tab = $("tab-documents");
+  if (!tab?.classList.contains("doc-focus")) return;
+  //: Never out from under the hand or the keyboard: a pointer resting on the
+  //: dock or a focus inside it keeps it, and the clock is asked again later.
+  if ($("doc-focus-bar")?.matches(":hover, :focus-within")) {
+    docFocusIdleTimer = setTimeout(docFocusRest, DOC_FOCUS_IDLE_MS);
+    return;
+  }
+  tab.classList.add("doc-focus-idle");
+}
+
+function docFocusPointer() {
+  docFocusWake();
+}
+
+//: A key pressed while writing is writing, so it sends the dock away at
+//: once rather than after the idle wait; a key pressed anywhere else (the
+//: focus on the page itself, Tab walking into the dock) brings it back.
+function docFocusKey(event) {
+  const target = event.target;
+  const writing = target instanceof Element &&
+    !!target.closest('[contenteditable="true"], textarea, input:not([type="checkbox"]):not([type="radio"])') &&
+    !target.closest("#doc-focus-bar");
+  if (!writing) {
+    docFocusWake(true);
+    return;
+  }
+  if (event.key === "Escape" || event.ctrlKey || event.metaKey || event.altKey) return;
+  clearTimeout(docFocusIdleTimer);
+  docFocusRest();
+}
+
+//: The browser's own full screen, offered only where it exists and only as
+//: an extra: the in-app mode is the whole feature, and this takes away the
+//: browser's or the desktop window's frame as well. A refusal (an iframe
+//: without permission, a webview that does not implement it) changes
+//: nothing but a toast.
+function docFocusSyncFullscreen() {
+  const button = $("doc-focus-fullscreen");
+  if (!button) return;
+  const full = !!document.fullscreenElement;
+  button.setAttribute("aria-pressed", String(full));
+  button.title = full ? "Leave full screen" : "Fill the whole screen";
+  button.setAttribute("aria-label", button.title);
+  const icon = button.querySelector("i");
+  if (icon) icon.className = full ? "ph ph-arrows-in" : "ph ph-arrows-out";
+}
+
+async function docFocusToggleFullscreen() {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      docFocusOwnsFullscreen = false;
+    } else {
+      await document.documentElement.requestFullscreen();
+      docFocusOwnsFullscreen = true;
+    }
+  } catch {
+    toast("Full screen is not available in this window.", true);
+  }
+  docFocusSyncFullscreen();
+  docSurface()?.focus();
+}
+
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) docFocusOwnsFullscreen = false;
+  docFocusSyncFullscreen();
+});
+
+$("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
+$("doc-focus-exit")?.addEventListener("click", () => toggleDocFocus(false));
+$("doc-focus-fullscreen")?.addEventListener("click", docFocusToggleFullscreen);
 //: Escape leaves it: the same convention the whiteboard's and graph's own
-//: full-screen toggles use. Capture phase, and checked against the class
-//: first, so this never swallows an Escape meant for something opened over
-//: the page (the AI panel, a confirm dialog, the find bar), closing focus
-//: mode underneath one of those instead of the dialog itself would be
-//: surprising.
-document.addEventListener(
-  "keydown",
-  (event) => {
-    if (event.key !== "Escape") return;
-    if (!$("tab-documents")?.classList.contains("doc-focus")) return;
-    toggleDocFocus(false);
-  },
-  true
-);
+//: full-screen toggles use, and asked the way the graph's is (see INBOX 275
+//: at that handler): bubble phase, so an Escape the editor spends first
+//: (closing a completion list or the slash menu, collapsing a selection)
+//: arrives here already `defaultPrevented`; and never while a dialog or a
+//: menu is open over the page, whose Escape it is. The earlier listener was
+//: capture phase and so left focus mode underneath an open slash menu.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  if (!docFocusOn()) return;
+  if (typeof activeOverlay === "function" && activeOverlay()) return;
+  const menuOpen = [...document.querySelectorAll('[role="menu"], .cm-tooltip')]
+    .some((el) => el.getClientRects().length > 0);
+  if (menuOpen) return;
+  if (event.target instanceof Element && event.target.closest("#doc-prose-panel, #doc-find-bar, .cm-search")) return;
+  toggleDocFocus(false);
+});
+
+//: F11, the key that means "full screen" in every browser and in Word, only
+//: while a document is on screen; everywhere else it is left to the browser.
+//: In the editor's command table (`DOC_COMMANDS`, "focus"), which is what
+//: puts it in the shortcut sheet and the palette.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "F11" || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+  const tab = $("tab-documents");
+  if (!tab || tab.classList.contains("hidden")) return;
+  event.preventDefault();
+  toggleDocFocus();
+});
+
+//: Brought back after a reload in the same session. The tab page may still
+//: be hidden here (this file loads with the Library), which is fine: the
+//: class waits on it, and `toggleDocFocus` only takes the caret when the
+//: page is showing.
+try {
+  if (sessionStorage.getItem(DOC_FOCUS_KEY) === "1") toggleDocFocus(true);
+} catch {
+  // No storage, nothing to restore.
+}
 
 $("doc-connections").addEventListener("click", () => {
   if (!currentDoc) return;
@@ -12066,6 +12525,13 @@ function renderDocCounts() {
   ]
     .filter(Boolean)
     .join(" · ");
+  //: Focus mode's floating dock carries the count too, since the status bar
+  //: is hidden while it is on; and the title, which is how a document opened
+  //: from the palette while the mode is on relabels the dock.
+  if (docFocusOn()) {
+    docSetStatusText($("doc-focus-words"), words ? `${words.toLocaleString()} word${words === 1 ? "" : "s"}` : "");
+    docSetStatusText($("doc-focus-title"), $("doc-title")?.value.trim() || "Untitled");
+  }
 }
 
 function renderDocStatusBar() {
@@ -16549,6 +17015,8 @@ function docCmTheme(CM) {
       ".cm-md-table": {
         display: "grid",
         borderLeft: "1px solid var(--border)",
+        //: The cell menu is positioned against whichever row it is on.
+        position: "relative",
       },
       //: Past `DOC_TABLE_GRID_MAX` columns there is no class to place the
       //: cells with, so the line falls back to what it did before them. It is
@@ -16584,7 +17052,7 @@ function docCmTheme(CM) {
         backgroundColor: "color-mix(in srgb, var(--accent) 6%, transparent)",
         borderRadius: "var(--radius-sm, 6px)",
       },
-      ".cm-md-table-head .cm-md-td-last": {
+      ".cm-md-table .cm-md-td-last": {
         paddingRight: "calc(var(--space-4) + 1.75rem)",
       },
       ".cm-md-td-left": { textAlign: "left" },
@@ -16605,10 +17073,12 @@ function docCmTheme(CM) {
       ".cm-md-frontmatter": { height: "0", overflow: "hidden", border: "0" },
       //: Out of the grid's flow, or the menu would be a column of its own and
       //: every cell in the table would narrow to make room for it.
+      //: Centred on its row, which is now any row (the menu follows the
+      //: caret): pinned to the top it sat 5px high on a one-line row.
       ".cm-md-table-menu": {
         position: "absolute",
         right: "2px",
-        top: "0",
+        top: "calc(50% - 0.875rem)",
         opacity: "0.7",
       },
       ".cm-md-table-menu:hover, .cm-md-table-menu:focus-within": { opacity: "1" },
@@ -16787,6 +17257,12 @@ function docCmHighlight(CM) {
 function docCmKeymap(CM) {
   const surface = () => docSurface();
   return [
+    //: A Live table's own Enter and arrows, first so they are asked before
+    //: anything that would treat a row as a line of text; each declines
+    //: (returns false) everywhere that is not a Live table cell.
+    { key: "Enter", run: (view) => docTableKeyMove(view, "Enter") },
+    { key: "ArrowDown", run: (view) => docTableKeyMove(view, "ArrowDown") },
+    { key: "ArrowUp", run: (view) => docTableKeyMove(view, "ArrowUp") },
     {
       key: "Escape",
       run: () => {
@@ -16968,6 +17444,7 @@ function docCmExtensions(CM) {
         docTabEscapes = false;
         return docTableCellClick(event, view);
       },
+      paste: (event, view) => docTablePasteEvent(event, view),
     }),
     CM.view.EditorView.updateListener.of(docCmUpdate),
     //: **The browser's own spellcheck, and the one condition it stays on

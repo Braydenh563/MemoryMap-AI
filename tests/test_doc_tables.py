@@ -318,3 +318,90 @@ def test_the_model_runs_without_a_browser(table_checks: list[dict]) -> None:
 def test_every_table_operation_round_trips_byte_for_byte(table_checks: list[dict]) -> None:
     failed = [c for c in table_checks if not c["ok"]]
     assert not failed, "\n".join(f"{c['name']}: {c['detail']}" for c in failed[:20])
+
+
+#: INBOX 425 i: the transforms behind Enter, the arrows and a spreadsheet
+#: paste in the Live table. Each is pure string work in the same region, so
+#: it runs in node beside the round-trip driver above.
+TRANSFORMS = r"""
+const results = [];
+function check(name, ok, detail) {
+  results.push({ name, ok: !!ok, detail: detail === undefined ? null : detail });
+}
+const T = "| Name | Kind |\n| --- | --- |\n| a1 | b1 |\n| a2 | b2 |";
+const PRE = "Words.\n\n";
+const text = PRE + T + "\n\nAfter.";
+const table = docTableParse(text, PRE.length);
+
+// The row a vertical step lands on steps over the delimiter, and is null
+// past either edge.
+check("step/header-down", docTableStepRow(table, 0, 1) === 2, docTableStepRow(table, 0, 1));
+check("step/body-up", docTableStepRow(table, 2, -1) === 0, docTableStepRow(table, 2, -1));
+check("step/last-down", docTableStepRow(table, 3, 1) === null, docTableStepRow(table, 3, 1));
+check("step/header-up", docTableStepRow(table, 0, -1) === null, docTableStepRow(table, 0, -1));
+
+// A spreadsheet's clipboard: rows, tabs, a trailing newline that is not a
+// row, CRLF, a pipe escaped once and an escaped pipe left alone.
+check("grid/none-without-a-tab", docTableGridFromText("plain words\nmore") === null, "parsed");
+const grid = docTableGridFromText("x1\ty1\r\nx|2\ty\\|2\n");
+check("grid/shape", !!grid && grid.length === 2 && grid[0].length === 2, JSON.stringify(grid));
+check("grid/escaped", !!grid && grid[1][0] === "x\\|2" && grid[1][1] === "y\\|2", JSON.stringify(grid));
+
+// A new table from a grid.
+check("from-grid", docTableFromGrid([["H1", "H2"], ["v1", ""]]) ===
+  "| H1 | H2 |\n| --- | --- |\n| v1 |  |", JSON.stringify(docTableFromGrid([["H1", "H2"], ["v1", ""]])));
+const made = docTableParse(docTableFromGrid([["H1", "H2"], ["v1", "v2"]]), 0);
+check("from-grid/parses", !!made && made.columns === 2 && made.rows.length === 3, made ? made.rows.length : "none");
+
+// Setting a cell keeps its padding; a blank cell is written ` text `.
+const padded = "|  a  | b |\n| --- | --- |\n|  | x |";
+const pt = docTableParse(padded, 0);
+const set = docTableApplyEdits(padded, docTableSetCellEdits(pt, [
+  { row: 0, col: 0, text: "Z" }, { row: 2, col: 0, text: "new" }]));
+check("set/padding-kept", set === "|  Z  | b |\n| --- | --- |\n| new | x |", JSON.stringify(set));
+
+// Paste into a cell: fills right and down, one undo-able edit over the table.
+const p1 = docTablePasteEdits(text, table, 2, 1, [["P", "Q"], ["R", "S"], ["T", "U"]]);
+const after1 = docTableApplyEdits(text, [p1.edit]);
+const t1 = docTableParse(after1, PRE.length);
+check("paste/prose-untouched", after1.startsWith(PRE) && after1.endsWith("\n\nAfter."), JSON.stringify(after1));
+check("paste/grows", !!t1 && t1.columns === 3 && t1.rows.length === 5, t1 ? `${t1.columns}x${t1.rows.length}` : "none");
+check("paste/cells", !!t1 && t1.rows[2].cells[1].trim() === "P" && t1.rows[2].cells[2].trim() === "Q" &&
+  t1.rows[4].cells[1].trim() === "T" && t1.rows[4].cells[2].trim() === "U" && t1.rows[2].cells[0].trim() === "a1",
+  t1 ? JSON.stringify(t1.rows.map((r) => r.cells)) : "none");
+check("paste/caret-cell", p1.row === 4 && p1.col === 2, JSON.stringify([p1.row, p1.col]));
+check("paste/one-edit-over-the-table", p1.edit.from === table.from && p1.edit.to === table.to, JSON.stringify(p1.edit));
+
+// A paste inside the table's shape changes only the cells it names.
+const p2 = docTablePasteEdits(text, table, 3, 0, [["only", "these"]]);
+const after2 = docTableApplyEdits(text, [p2.edit]);
+check("paste/in-place", after2 === text.replace("| a2 | b2 |", "| only | these |"), JSON.stringify(after2));
+
+// On the delimiter, the paste starts on the first body row.
+const p3 = docTablePasteEdits(text, table, 1, 0, [["d", "e"]]);
+const t3 = docTableParse(docTableApplyEdits(text, [p3.edit]), PRE.length);
+check("paste/delimiter-to-body", !!t3 && t3.rows[2].cells[0].trim() === "d" && t3.rows[1].cells[0].includes("-"),
+  t3 ? JSON.stringify(t3.rows.map((r) => r.cells)) : "none");
+
+process.stdout.write(JSON.stringify(results));
+"""
+
+
+@pytest.fixture(scope="module")
+def transform_checks(tmp_path_factory) -> list[dict]:
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = tmp_path_factory.mktemp("doctablex") / "run.js"
+    script.write_text(table_model_source() + TRANSFORMS, encoding="utf-8")
+    out = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=60, check=False)
+    assert out.returncode == 0, out.stderr
+    return json.loads(out.stdout)
+
+
+def test_the_live_table_transforms_do_what_the_gestures_need(transform_checks: list[dict]) -> None:
+    """Enter and the arrows step over the delimiter, a spreadsheet paste fills
+    cells (growing the table) in one edit, and a pasted grid becomes a table."""
+    assert len(transform_checks) >= 17
+    failed = [c for c in transform_checks if not c["ok"]]
+    assert not failed, "\n".join(f"{c['name']}: {c['detail']}" for c in failed)

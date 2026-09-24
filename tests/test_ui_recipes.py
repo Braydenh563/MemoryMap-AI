@@ -2880,3 +2880,57 @@ def test_the_persons_mark_is_one_builder_and_one_painter() -> None:
     assert '"ph:user"' not in bubble, "the user's chat bubble went back to a generic glyph"
     # Painted when the preferences arrive and after a save.
     assert app.count("paintUserMarks();") >= 3, "the person's mark is not repainted on load and save"
+
+
+def test_a_whole_window_mode_leaves_one_fading_dock_with_a_way_out() -> None:
+    """DESIGN.md's recipe for a surface given the whole window (the documents
+    editor's focus mode, INBOX 425 i).
+
+    Four things a later edit could quietly break, each of which the owner
+    would only find by being stuck in the mode:
+
+    1. The floating dock is a labelled toolbar on the glass-panel recipe and
+       carries a worded Exit, so the way out is always a visible control and
+       never only a key.
+    2. Its idle state changes opacity and pointer events, nothing else: a fade
+       that moved or resized the dock would be a layout change on every wake.
+    3. The fade stops under reduced motion.
+    4. Escape asks before it leaves: bubble phase, not already spent by the
+       editor (`defaultPrevented`), and not while a dialog is open over the
+       page (`activeOverlay`). The first version listened in the capture
+       phase and left the mode underneath an open slash menu.
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    tag = re.search(r"<div[^>]*id=\"doc-focus-bar\"[^>]*>", html)
+    assert tag, "the focus mode's floating dock is gone"
+    assert 'role="toolbar"' in tag.group(0) and "aria-label=" in tag.group(0)
+    assert "card glass" in tag.group(0), "the floating dock is not the glass-panel recipe"
+    bar = html[tag.start(): html.index("\n    </div>", tag.start())]
+    assert re.search(r'id="doc-focus-exit"[^>]*>.*Exit</button>', bar, flags=re.S), (
+        "the floating dock has no worded Exit"
+    )
+
+    idle = []
+    reduced = False
+    for path in CSS:
+        text = path.read_text(encoding="utf-8")
+        for selector, body in _rules(text):
+            if "doc-focus-idle" in selector and "doc-focus-bar" in selector:
+                idle.append(body)
+        stripped = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+        for block in re.finditer(r"@media \(prefers-reduced-motion: reduce\) \{(.*?)\n\}", stripped, flags=re.S):
+            if "doc-focus-bar" in block.group(1) and "transition: none" in block.group(1):
+                reduced = True
+    assert idle, "no idle rule for the floating dock"
+    for body in idle:
+        props = {p.split(":")[0].strip() for p in body.split(";") if ":" in p}
+        assert props <= {"opacity", "pointer-events"}, f"the idle dock changes more than its opacity: {props}"
+    assert reduced, "the floating dock's fade has no reduced-motion block"
+
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    handler = docs.split('if (event.key !== "Escape" || event.defaultPrevented) return;', 1)
+    assert len(handler) == 2, "focus mode's Escape no longer checks that the editor did not spend it"
+    body = handler[1].split("});", 1)[0]
+    assert "docFocusOn()" in body and "activeOverlay()" in body, (
+        "focus mode's Escape no longer asks whether a dialog is open over the page"
+    )

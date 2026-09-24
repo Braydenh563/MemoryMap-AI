@@ -7292,30 +7292,140 @@ button.connection-row {
    knows this one. It sits on `#tab-documents` itself rather than `.doc-main`:
    the goal is a page with nothing else visible, and a fixed child inside a
    statically-positioned tab page would still show the tab bar around its
-   edges. */
+   edges.
+
+   INBOX 425 i ("a document full screen mode so there is more space"):
+   measured at 1440x900, the page used to keep its own dock, strip,
+   breadcrumbs and status bar inside the overlay, 180px of the chrome the
+   mode exists to remove. All of it goes now; what is left is the column at
+   the document measure, centred in the window, under the one floating dock
+   below. The top padding is that dock's band, so the dock never sits over
+   the first line. */
 #tab-documents.doc-focus {
   position: fixed;
   inset: 0;
   z-index: 1000;
   width: 100vw !important;
   height: 100vh !important;
+  height: 100dvh !important;
   margin: 0;
-  padding: var(--space-6);
+  padding: 0;
   background: var(--bg);
+}
+
+/* The sidebar's width is an inline `grid-template-columns` on this grid (the
+   resizer writes it, app.js), which no stylesheet track list beats without
+   `!important`; so the page spans every track instead of redefining them. */
+#tab-documents.doc-focus > .doc-layout {
+  gap: 0;
 }
 
 /* The sidebar is the other half of "everything but the page", recent
    documents and the outline are for finding your place, not for the moment
-   you are already writing. */
-#tab-documents.doc-focus .doc-sidebar {
+   you are already writing. The dock, the strip, the breadcrumbs, the status
+   bar and the shortcut hint go with it: the floating dock carries the title,
+   the count and the save state, and every command is still on its key and in
+   the palette (Ctrl+K). */
+#tab-documents.doc-focus .doc-sidebar,
+#tab-documents.doc-focus .doc-dock,
+#tab-documents.doc-focus #doc-toolbar,
+#tab-documents.doc-focus #doc-crumbs,
+#tab-documents.doc-focus #doc-statusbar,
+#tab-documents.doc-focus .doc-hint {
   display: none;
 }
 
+/* The card becomes the window: no edge, no corner, no lift, and no blur,
+   because a backdrop filter the size of the screen is the most expensive
+   thing a poor laptop can be asked to composite, and there is nothing
+   behind it to see. */
 #tab-documents.doc-focus .doc-main {
+  grid-column: 1 / -1;
   border: 0;
+  border-radius: 0;
   box-shadow: none;
-  max-width: 60rem;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  max-width: none;
+  margin: 0;
+  padding-block: calc(var(--control-h-lg) + 2 * var(--space-5)) 0;
+}
+
+/* The floating dock. A `.card.glass` pill, the recipe for a panel floating
+   over a surface, parked at the top centre of the window. Hidden whenever the
+   mode is off. */
+.doc-focus-bar {
+  display: none;
+}
+
+#tab-documents.doc-focus > .doc-focus-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  position: fixed;
+  top: var(--space-4);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--space-6));
   margin: 0 auto;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-5);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-md);
+  transition: opacity var(--motion-slow) var(--ease-out);
+}
+
+/* Idle: gone, and out of the pointer's way, until a move brings it back.
+   Never while the pointer is on it or the focus is in it, which is what lets
+   Tab walk into a dock that had faded. Opacity only: a fade that moved or
+   resized the bar would be a layout change on every wake. */
+#tab-documents.doc-focus.doc-focus-idle > .doc-focus-bar:not(:hover):not(:focus-within) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tab-documents.doc-focus > .doc-focus-bar {
+    transition: none;
+  }
+}
+
+.doc-focus-title {
+  min-width: 0;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.doc-focus-facts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-focus-facts > span:empty {
+  display: none;
+}
+
+.doc-focus-facts > span + span:not(:empty)::before {
+  content: "\00B7";
+  margin-inline-end: var(--space-2);
+}
+
+#tab-documents.doc-focus > .doc-focus-bar .ghost.small {
+  height: var(--control-h-lg);
+  border-radius: var(--radius-pill);
+}
+
+#tab-documents.doc-focus > .doc-focus-bar .icon-only {
+  width: var(--control-h-lg);
 }
 
 /* ================= BOARD NAVIGATOR AND BOARD SEARCH =======================

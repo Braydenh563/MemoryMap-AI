@@ -5340,10 +5340,14 @@ main,
 }
 
 /* The system's reduced-motion hint: no walking (avatars.js moves it at
-   once), and every loop here slows right down, as the faces' do. */
+   once), and every loop here slows right down, as the faces' do.
+   `!important` because the loops are declared under the motion gates
+   above, whose selectors out-rank this one; the app-wide kill in
+   02-chat-graph.css used to hide that by freezing everything first, and
+   now leaves faces and the companion to this block. */
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z) {
-    animation-duration: 6s;
+    animation-duration: 6s !important;
   }
 }
 
@@ -5500,11 +5504,15 @@ main,
 }
 
 /* The system's reduced-motion hint: the faces keep moving but every loop
-   slows right down. A face keeps its expression either way. */
+   slows right down. A face keeps its expression either way.
+   `!important` because the loops are declared under the motion gates
+   above, whose selectors out-rank this one; the app-wide kill in
+   02-chat-graph.css used to hide that by freezing everything first, and
+   now leaves faces and the companion to this block. */
 @media (prefers-reduced-motion: reduce) {
   .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil, .nm-wave, .nm-steam, .nm-table, .nm-balloon, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-foot-l, .nm-foot-r, .nm-earring, .nm-tails, .nm-bow, .nm-pompom, .nm-gem, .nm-flame, .nm-tail, .nm-starfield, .nm-aura) {
     /* Calmer, not still: every loop takes six seconds. */
-    animation-duration: 6s;
+    animation-duration: 6s !important;
   }
 }
 
@@ -6043,11 +6051,15 @@ main,
 }
 
 /* The system's reduced-motion hint: every loop slows right down and keeps
-   what it says (the orbit and its beads slow together, from one number). */
+   what it says.
+   `!important` because the loops are declared under the motion gates
+   above, whose selectors out-rank this one; the app-wide kill in
+   02-chat-graph.css used to hide that by freezing everything first, and
+   now leaves faces and the companion to this block. */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy .atl-classic-box { animation-duration: 9s; }
+  #nm-buddy .atl-classic-box { animation-duration: 9s !important; }
   .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-inner-star, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
-    animation-duration: 9s;
+    animation-duration: 9s !important;
   }
 }
 

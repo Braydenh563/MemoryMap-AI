@@ -181,6 +181,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- With the system's Reduce motion on, faces and the corner companion now keep moving slowly (every loop six to nine seconds) instead of freezing mid-frame; everything else still stops.
 - The shared control height is declared at the root, so the 70 rules that read it no longer lose their height outside the four containers that used to declare it (the Reminders filter chips were 22px against 36px everywhere else).
 - Library: flicking through the sub-tabs no longer rebuilds each one on every press; a section shown in the last few seconds is shown as it was, and the skill logs no longer blank to "Loading logs…" over a list already drawn (measured over eight quick switches: 16 fetches and 543 DOM changes before, 8 and 232 after).
 - Accessibility: every text field that had only a placeholder now has a label a screen reader reads (the chat box, quick capture, magic add, server address, About me, persona and skill fields, custom CSS, the import path), and each reminder's done box names the reminder it completes.

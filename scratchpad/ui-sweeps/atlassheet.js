@@ -1,5 +1,5 @@
 // Atlas's preview sheet (atlas.js): every mood at the full size (104px),
-// the head (48px) and the inline sizes (24px and 16px), on the app's own
+// the head (48px and 28px) and the inline size (16px), on the app's own
 // card in the theme asked for, with animation off so each expression is its
 // resting frame. Writes $SCRATCH/shots/atlas-<theme>.png.
 //
@@ -35,7 +35,7 @@ const { boot } = require("./lib.js");
       for (const [k, v] of Object.entries({ display: "grid", justifyItems: "center", gap: "4px", padding: "12px", borderRadius: "12px", background: "var(--card)", border: "1px solid var(--border)" })) cell.style[k] = v;
       const row = document.createElement("div");
       for (const [k, v] of Object.entries({ display: "flex", alignItems: "flex-end", gap: "8px" })) row.style[k] = v;
-      const sizes = big.length ? [240, 64, 28, 20] : [104, 48, 24, 16];
+      const sizes = big.length ? [240, 64, 28, 20] : [104, 48, 28, 16];
       for (const size of sizes) {
         const svg = atlasDraw(size, "calm");
         svg.dataset.atlasMood = mood;

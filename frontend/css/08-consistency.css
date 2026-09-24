@@ -5585,7 +5585,7 @@ main,
 /* Parts that turn or slide do it about a point atlas.js puts on the part
    (`atlasPivot`), in the drawing's units. */
 .nm-atlas .atl-o { transform-box: view-box; }
-.nm-atlas :is(.atl-aura, .atl-sparkle, .atl-node-dot, .atl-dot, .atl-tail-star) {
+.nm-atlas :is(.atl-aura, .atl-sparkle, .atl-node-dot, .atl-dot) {
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -5630,9 +5630,6 @@ main,
 .nm-atlas .atl-brow-line { stroke: var(--atl-line); stroke-width: 1.5; opacity: 0.8; }
 .nm-atlas .atl-tongue { fill: var(--atl-tongue); }
 .nm-atlas .atl-crest-light { fill: none; stroke: var(--atl-hi); stroke-width: 1.1; stroke-linecap: round; opacity: 0.7; }
-.nm-atlas .atl-limb.atl-tail-link { stroke-width: 3.4; }
-.nm-atlas .atl-edge.atl-tail-link { stroke-width: 5.4; }
-.nm-atlas .atl-tail-star { fill: white; }
 .nm-atlas .atl-star-major { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.5; stroke-linejoin: round; }
 .nm-atlas .atl-star-minor { fill: var(--atl-hi); opacity: 0.8; }
 .nm-atlas .atl-node-glow { fill: var(--atl-glow-c); opacity: 0.35; }

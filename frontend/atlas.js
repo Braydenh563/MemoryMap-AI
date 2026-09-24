@@ -33,8 +33,8 @@
 //:   about a joint inside the torso, and no rotation opens a seam. Crest and
 //:   head are joined the same way.
 //: - **The signature is the logo, worn, twice and no more.** The logo is a
-//:   bright hub with linked notes round it. Atlas's tail is four linked
-//:   notes tapering to a bright tip, and a compass star in its chest is the
+//:   bright hub with linked notes round it. Atlas's tail is one tapering
+//:   shape with three of those notes set into it, the last at its tip, and a compass star in its chest is the
 //:   hub (Atlas: maps, finding the way), glowing brighter when it is happy,
 //:   dim when it sleeps, and turning a quarter turn while it thinks. The tail
 //:   was chosen over a ring round the body (the owner liked both; one node
@@ -130,7 +130,7 @@ const ATLAS_GEO = {
   brows: [[24.8, 15.4, 1], [39.2, 15.4, -1]],
   cheeks: [[19.6, 28.2], [44.4, 28.2]],
   crest: [31, 7],
-  tail: [38, 67],
+  tail: [37, 67],
   neck: [32, 36],
   feet: [32, 90],
   chin: [32, 38],
@@ -142,11 +142,15 @@ const ATLAS_CREST_PATH = "M25 8.8C24.4 3.4 29 0 35.4 -0.4C40 -0.7 43.6 -1.8 46.6
 //: The body: shoulders a little wider than the hips, tapering to a tunic's
 //: V at the front, so the silhouette has angles and not a belly.
 const ATLAS_TORSO_PATH = "M27 34C27.2 38.6 25 40.4 22.2 41.6C19.6 42.8 19.4 46.6 20.6 50C22 54 24.2 58.6 24.8 63C25.2 66.4 25 69.4 25.4 71.6C27.6 72 29.6 72.8 32 75C34.4 72.8 36.4 72 38.6 71.6C39 69.4 38.8 66.4 39.2 63C39.8 58.6 42 54 43.4 50C44.6 46.6 44.4 42.8 41.8 41.6C39 40.4 36.8 38.6 37 34Z";
-//: The tail: four of the logo's notes on one link, from behind the right
-//: hip, low and out past the hand, then up to a bright tip. It hangs below
-//: the hand and ends beyond it, so it never reads as held.
-const ATLAS_TAIL_LINK = "M36 67Q42 76.5 48.4 78.2Q54.6 79.6 57.8 75.2Q60 72 60.4 68.2";
-const ATLAS_TAIL_NODES = [[43.2, 74.4, 3.4], [50, 78.4, 2.9], [56.4, 76.6, 2.5], [60.4, 68.2, 3]];
+//: The tail: one tapering shape (the owner, of a row of beads: "the dotted
+//: tail looks weird and needs a better look"), thick where it grows out
+//: of the hip and fine at the tip, curving low past the hand and up. The
+//: logo's linked notes are set into it, three of them, joined by the tail
+//: itself, the last at the tip. The path is generated (a centreline of two
+//: cubics, a half-width easing from 3.6 to 0.45, offset both ways and
+//: smoothed), so it is written out here rather than drawn by hand.
+const ATLAS_TAIL_PATH = "M32.13 67.27C32.45 67.87 33.34 69.74 34.05 70.87C34.77 71.99 35.58 73.06 36.41 74.01C37.25 74.97 38.15 75.82 39.06 76.57C39.98 77.33 40.94 77.99 41.91 78.55C42.88 79.11 43.88 79.57 44.87 79.94C45.86 80.30 46.86 80.57 47.85 80.74C48.83 80.91 49.82 80.98 50.77 80.94C51.72 80.91 52.66 80.78 53.54 80.54C54.42 80.30 55.28 79.95 56.05 79.51C56.82 79.06 57.62 78.36 58.15 77.87C58.69 77.38 58.93 77.01 59.26 76.57C59.60 76.13 59.90 75.69 60.18 75.24C60.46 74.79 60.71 74.33 60.93 73.86C61.16 73.40 61.35 72.93 61.51 72.45C61.68 71.98 61.81 71.50 61.91 71.03C62.01 70.55 62.08 70.07 62.11 69.60C62.14 69.13 62.14 68.65 62.11 68.18C62.07 67.72 62.00 67.25 61.89 66.80C61.78 66.34 61.63 65.89 61.45 65.45C61.27 65.02 60.90 64.40 60.80 64.19C60.69 63.97 60.80 64.19 60.80 64.19A0.45 0.45 0 0 1 60.00 64.61C60.00 64.61 59.91 64.42 60.00 64.61C60.10 64.81 60.41 65.40 60.55 65.80C60.70 66.20 60.79 66.60 60.86 67.01C60.93 67.41 60.95 67.82 60.95 68.23C60.95 68.63 60.91 69.05 60.84 69.45C60.77 69.86 60.67 70.27 60.54 70.67C60.41 71.07 60.25 71.48 60.06 71.87C59.88 72.26 59.66 72.65 59.42 73.03C59.18 73.41 58.91 73.78 58.62 74.14C58.33 74.50 58.01 74.86 57.68 75.19C57.35 75.52 57.11 75.80 56.65 76.13C56.18 76.46 55.49 76.90 54.88 77.15C54.26 77.40 53.61 77.55 52.95 77.62C52.28 77.70 51.58 77.69 50.88 77.60C50.18 77.51 49.45 77.34 48.74 77.10C48.03 76.85 47.30 76.52 46.61 76.11C45.91 75.71 45.22 75.23 44.56 74.67C43.91 74.12 43.28 73.49 42.69 72.80C42.11 72.11 41.56 71.35 41.08 70.53C40.60 69.70 40.17 68.84 39.80 67.87C39.43 66.91 39.02 65.25 38.87 64.73Z";
+const ATLAS_TAIL_NODES = [[43.24, 76.61, 1.7], [53.24, 79.08, 1.25], [60.79, 72.16, 0.95]];
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -299,21 +303,19 @@ function atlasCrest(parent, tiny, edge) {
 //: The tail, in the edge layer and again in the fill layer like every other
 //: part. `.atl-tail` takes the pose and the mood (tucked, hanging, curled,
 //: lifted, drooping); `.atl-tail-swish` inside it takes the loop (a slow
-//: sway at rest, a wag when pleased). In the fill copy each note has a
-//: bright core that lights in turn while Atlas thinks and to the beat
-//: while music plays, and the tip carries a small star.
+//: sway at rest, a wag when pleased). In the fill copy the notes set into
+//: it glow, light in turn while Atlas thinks and pulse to music.
 function atlasTail(layer, edge) {
   const tail = atlasGroup(layer, "atl-tail", ATLAS_GEO.tail);
   const swish = atlasGroup(tail, "atl-tail-swish", ATLAS_GEO.tail);
-  atlasMake("path", { class: edge ? "atl-edge atl-tail-link" : "atl-limb atl-tail-link", d: ATLAS_TAIL_LINK }, swish);
+  atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: ATLAS_TAIL_PATH }, swish);
+  if (edge) return tail;
   ATLAS_TAIL_NODES.forEach(([x, y, r], i) => {
-    atlasMake("circle", { class: edge ? "atl-edge" : "atl-skin", cx: x, cy: y, r }, swish);
-    if (edge) return;
     const core = atlasGroup(swish, `atl-tail-core atl-tail-core-${i}`);
     core.style.setProperty("--atl-k", String(i));
-    atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r: r * 0.46 }, core);
+    atlasMake("circle", { class: "atl-node-glow", cx: x, cy: y, r: r + 1.3 }, core);
+    atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r }, core);
   });
-  if (!edge) atlasSpark(swish, 60.4, 68.2, 2, "atl-tail-star");
   return tail;
 }
 

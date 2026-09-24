@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Library: a file row's facts line is one register. The kind, size, date, reading state, reader link and "Used in" share one size and one line box (they sat on four sizes and three tops), split by the same middot, and "Read this" is an accent link rather than a boxed button.
 - Documents: the writing dictionary is a cleaner settings sheet. One field finds a word as you type and adds it on Enter, the list is quiet rows whose remove appears when you point at one, the list can be exported and imported as a .txt file (import only adds), and spelling, grammar and smart quotes are ordinary settings rows with a line each.
 - Notes, Capture: Template opens a picker like the documents' one. A click chooses a template and shows its text; Use this template (or Enter, or a double click) fills the box, and only then asks before replacing what you have typed. Picking used to fill the box on every name the dropdown passed.
 - Documents: the suggestions panel can sit on the right of the editor instead of under it: the button in its head switches, the column resizes by dragging its edge (or with the arrow keys, double-click to reset), and both are remembered. On a narrow window it stays under the editor.

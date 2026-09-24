@@ -55,7 +55,8 @@ with its owner named in the entry.
     degenerate model loop the app should cut). (f) The file row in the
     Library ("PDF · 121 KB · added ... Read · 808 words, Open reader, Used
     in"): "needs a bit more modern and ui refinement and the second row
-    elements arent aligned and dont really match". (g) "the lightbox buttons
+    elements arent aligned and dont really match" (fixed: one size, one
+    line box, middot groups, "Read this" a link). (g) "the lightbox buttons
     below the image are greyed out?? i opened the image from within a note".
     (h) View toggles with no clear active state (fixed c920174). (i) "have
     you included all the new optional packages in the packages settings

@@ -39546,21 +39546,41 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
   }
 }
 
-//: **A mark generated from a name** (INBOX 405, the owner: "there was a repo
-//: I got you to analyse which can generate unique avatars and I was
-//: wondering if we could utilise a similar concept"; ANALYSIS.md read
-//: blobatar and recommended the idea, not the code). The same name always
-//: draws the same mark, with nothing stored: a hash of the name seeds a
-//: small generator, which picks two related hues and a soft six-point
-//: shape over a round ground. Muted saturation and mid lightness, so a mark
-//: sits beside the app's flat looks rather than on top of them. Decorative:
+//: **A mark generated from a name** (INBOX 405, then 409: "I want the
+//: generation of persona icons to be improved"). The same name always draws
+//: the same mark, with nothing stored: a hash of the name seeds a small
+//: generator. The first version drew a soft blob on a flat disc in two
+//: related hues, and at 20px the marks read as one colour patch each, too
+//: alike to tell a list apart by (the owner's screenshot). This one is the
+//: "beam" idea from boring-avatars (the idea, not its code): a face, a
+//: rounded head in one colour set at an angle over a ground in another,
+//: with two eyes and a mouth, each part moved by the seed. Four things vary
+//: at once (two colours, the head's place, angle and shape, the face's
+//: expression), so two names that share a colour still differ in outline,
+//: and a face is what a persona, a voice with a character, is.
+//: Measured by `scratchpad/ui-sweeps/namemarks.js` (every pair of 23 marks
+//: at 40px, the share of pixels that differ): the blob's closest pair
+//: differed in 5.6% and eleven pairs were under 15%; this one's closest pair
+//: differs in 29.8%. The head is drawn a little smaller than the ground
+//: (`grow` under 1.05) because that is what put the floor there: a head
+//: that covers the disc leaves two marks of one head colour nearly alike.
+//:
+//: The colours are `CATEGORY_DOT_COLOURS`, the categorical palette the
+//: category dots already use, so a mark is drawn from the app's own ten
+//: colours rather than from a hue wheel; the ground and the head are always
+//: two different ones. The features are ink or white by the head's own
+//: luminance, so a face never vanishes into a light head. Decorative:
 //: `aria-hidden`, because the name beside it is what a screen reader says.
+let nameMarkSerial = 0;
+
 function nameMark(seed, size = 20) {
   let h = 2166136261;
   for (const ch of String(seed || "?").trim().toLowerCase()) {
     h ^= ch.codePointAt(0);
     h = Math.imul(h, 16777619) >>> 0;
   }
+  //: FNV alone leaves short, similar names close together in the low bits;
+  //: a few xorshift rounds spread them before anything is drawn from it.
   const rnd = () => {
     h ^= h << 13;
     h >>>= 0;
@@ -39569,48 +39589,88 @@ function nameMark(seed, size = 20) {
     h >>>= 0;
     return h / 4294967296;
   };
-  const hue = Math.floor(rnd() * 360);
-  const hue2 = Math.floor((hue + 35 + rnd() * 70) % 360);
+  for (let i = 0; i < 4; i += 1) rnd();
+  const palette = CATEGORY_DOT_COLOURS;
+  const groundIndex = Math.floor(rnd() * palette.length);
+  const headIndex = (groundIndex + 1 + Math.floor(rnd() * (palette.length - 1))) % palette.length;
+  const ground = palette[groundIndex];
+  const head = palette[headIndex];
+  //: Relative luminance of the head, for the features' ink.
+  const lum = [1, 3, 5]
+    .map((i) => parseInt(head.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const light = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2] > 0.4;
+  const ink = light ? "#1c1c1a" : "#ffffff";
+
+  //: The head: pushed off the middle towards a corner (never centred, so it
+  //: always has an edge against the ground), turned, and either round or a
+  //: rounded square.
+  const offX = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 7);
+  const offY = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 7);
+  const turn = Math.floor(rnd() * 360);
+  const grow = 0.85 + rnd() * 0.2;
+  const round = rnd() < 0.5;
+  //: The face follows the head part of the way, so it stays on it, and tilts
+  //: on its own a little; eyes and mouth spread by the seed.
+  const faceX = offX * 0.5;
+  const faceY = offY * 0.5;
+  const tilt = Math.round((rnd() * 2 - 1) * 12);
+  const eyeSpread = rnd() * 3.5;
+  const mouthDrop = rnd() * 2.5;
+  const mouthOpen = rnd() < 0.5;
+
   const svgNs = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(svgNs, "svg");
-  svg.setAttribute("viewBox", "0 0 32 32");
-  svg.setAttribute("width", String(size));
-  svg.setAttribute("height", String(size));
-  svg.setAttribute("class", "name-mark");
-  svg.setAttribute("aria-hidden", "true");
-  const ground = document.createElementNS(svgNs, "circle");
-  ground.setAttribute("cx", "16");
-  ground.setAttribute("cy", "16");
-  ground.setAttribute("r", "16");
-  ground.setAttribute("fill", `hsl(${hue} 42% 46%)`);
-  //: Six points round an off-centre middle, each at its own radius, joined
-  //: by quadratic curves through their midpoints: a closed, smooth blob.
-  const cx = 13 + rnd() * 6;
-  const cy = 13 + rnd() * 6;
-  const pts = Array.from({ length: 6 }, (_, i) => {
-    const a = (i / 6) * Math.PI * 2 + rnd() * 0.5;
-    const r = 6 + rnd() * 7;
-    return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+  const make = (tag, attrs) => {
+    const el = document.createElementNS(svgNs, tag);
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+    return el;
+  };
+  const svg = make("svg", {
+    viewBox: "0 0 36 36",
+    width: size,
+    height: size,
+    class: "name-mark",
+    "aria-hidden": "true",
   });
-  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-  const start = mid(pts[5], pts[0]);
-  let d = `M${start[0].toFixed(2)} ${start[1].toFixed(2)}`;
-  pts.forEach((p, i) => {
-    const m = mid(p, pts[(i + 1) % 6]);
-    d += ` Q${p[0].toFixed(2)} ${p[1].toFixed(2)} ${m[0].toFixed(2)} ${m[1].toFixed(2)}`;
+  //: A serial rather than the hash for the clip's id: the same name drawn
+  //: twice on one page (a persona row and the chat picker) would otherwise
+  //: put two elements with one id in the document.
+  nameMarkSerial += 1;
+  const clipId = `nm-${nameMarkSerial.toString(36)}`;
+  const clip = make("clipPath", { id: clipId });
+  clip.appendChild(make("circle", { cx: 18, cy: 18, r: 18 }));
+  const group = make("g", { "clip-path": `url(#${clipId})` });
+  group.appendChild(make("rect", { width: 36, height: 36, fill: ground }));
+  const f = (n) => n.toFixed(2);
+  group.appendChild(
+    make("rect", {
+      width: 36,
+      height: 36,
+      rx: round ? 18 : 7,
+      fill: head,
+      //: Scaled about the middle, written out: SVG scales about the corner.
+      transform: `translate(${f(offX)} ${f(offY)}) rotate(${turn} 18 18) translate(18 18) scale(${f(grow)}) translate(-18 -18)`,
+    })
+  );
+  const face = make("g", {
+    transform: `translate(${f(faceX)} ${f(faceY)}) rotate(${tilt} 18 18)`,
+    fill: ink,
   });
-  const blob = document.createElementNS(svgNs, "path");
-  blob.setAttribute("d", `${d} Z`);
-  blob.setAttribute("fill", `hsl(${hue2} 58% 72%)`);
-  blob.setAttribute("fill-opacity", "0.9");
-  const clip = document.createElementNS(svgNs, "clipPath");
-  const clipId = `nm-${(h >>> 0).toString(36)}`;
-  clip.setAttribute("id", clipId);
-  const clipCircle = ground.cloneNode();
-  clip.appendChild(clipCircle);
-  const group = document.createElementNS(svgNs, "g");
-  group.setAttribute("clip-path", `url(#${clipId})`);
-  group.append(ground, blob);
+  face.appendChild(make("rect", { x: f(12.5 - eyeSpread), y: 13.5, width: 2.4, height: 3, rx: 1.2 }));
+  face.appendChild(make("rect", { x: f(21.1 + eyeSpread), y: 13.5, width: 2.4, height: 3, rx: 1.2 }));
+  const my = 20.5 + mouthDrop;
+  face.appendChild(
+    mouthOpen
+      ? make("path", { d: `M13.5 ${f(my)}a4.5 3.4 0 0 0 9 0z` })
+      : make("path", {
+          d: `M14.5 ${f(my)}c2 1.6 5 1.6 7 0`,
+          fill: "none",
+          stroke: ink,
+          "stroke-width": 1.8,
+          "stroke-linecap": "round",
+        })
+  );
+  group.appendChild(face);
   svg.append(clip, group);
   return svg;
 }

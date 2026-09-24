@@ -508,6 +508,7 @@ function atlasLevelFor(size) {
 
 //: Draws Atlas at a level in a mood. `size` is the drawn height in px.
 function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) {
+  if (level !== "figure" && atlasStyle() === "classic") return atlasClassicMark(size, mood);
   const spec = ATLAS_LEVELS[level] || ATLAS_LEVELS.head;
   const [x, y, w, h] = spec.viewBox;
   atlasSerial += 1;
@@ -556,6 +557,7 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
 
 //: The companion's figure: the same drawing in its 64 by 92 box.
 function atlasFigure() {
+  if (atlasStyle() === "classic") return atlasClassicFigure();
   const figure = document.createElement("span");
   figure.className = "nm-figure nm-live atl-figure-box";
   figure.appendChild(atlasDraw(92, atlasMoodNow, "figure"));
@@ -571,6 +573,185 @@ function atlasApply(svg, mood) {
   const words = ATLAS_MOODS[next].words;
   const title = svg.querySelector(":scope > title");
   if (title) title.textContent = words ? `${name}, ${words}` : `${name}, the keeper of this notebook`;
+}
+
+// --- the classic globe ----------------------------------------------------------
+//: **Atlas style: Classic globe** (the owner, of the first face: "i actually
+//: dont mind atlas with the circle avatar and blurred out edges so maybe
+//: that can be a toggle??"). Settings, Appearance, Atlas style chooses the
+//: character (the default) or this: the globe in the accent colour glowing
+//: in a night sky, the logo's ring of linked notes orbiting under its chin,
+//: with its own five moods. The drawing below is the one Atlas had before
+//: atlas.js, kept as it was; only its name changed, and its moods come from
+//: Atlas's fifteen through the table.
+const ATLAS_CLASSIC_MOODS = {
+  calm: "calm", happy: "happy", delighted: "happy", laughing: "happy", proud: "happy", love: "happy", shy: "happy",
+  thinking: "thinking", determined: "thinking", curious: "thinking", confused: "thinking",
+  surprised: "surprised", worried: "surprised", sad: "sleepy", sleepy: "sleepy",
+};
+
+function atlasStyle() {
+  return typeof appearancePref === "function" && appearancePref("atlas-style", "character") === "classic" ? "classic" : "character";
+}
+
+function atlasClassicMark(size = 20, mood = atlasMoodNow) {
+  const svgNs = "http://www.w3.org/2000/svg";
+  const make = (tag, attrs) => {
+    const el = document.createElementNS(svgNs, tag);
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+    return el;
+  };
+  const accent = (typeof currentAccentHex === "function" && currentAccentHex()) || "#6d5dfc";
+  const mix = (hex, other, t) => {
+    const a = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const b = [1, 3, 5].map((i) => parseInt(other.slice(i, i + 2), 16));
+    return `#${a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join("")}`;
+  };
+  const light = mix(accent, "#ffffff", 0.5);
+  const deep = mix(accent, "#000000", 0.35);
+  mood = ATLAS_CLASSIC_MOODS[mood] || "calm";
+  nameMarkSerial += 1;
+  const id = `nm-atlas-${nameMarkSerial.toString(36)}`;
+  const moodClass = { calm: "nm-calm", thinking: "nm-confused", happy: "nm-happy", surprised: "nm-surprised", sleepy: "nm-sleepy" }[mood] || "nm-calm";
+  const svg = make("svg", { viewBox: "0 0 36 36", width: size, height: size, class: `name-mark nm-atlas atl-classic ${moodClass}`, "aria-hidden": "true" });
+  svg.dataset.nmSeed = "Atlas";
+  svg.dataset.atlasMood = mood;
+  svg.style.setProperty("--nm-delay", "-1.3s");
+  const title = make("title", {});
+  title.textContent = { thinking: "Atlas, thinking", happy: "Atlas, pleased", surprised: "Atlas, surprised", sleepy: "Atlas, dozing" }[mood] || "Atlas, the librarian of this notebook";
+  svg.appendChild(title);
+  const defs = make("defs", {});
+  const clip = make("clipPath", { id: `${id}-c` });
+  clip.appendChild(make("circle", { cx: 18, cy: 18, r: 18 }));
+  const globe = make("radialGradient", { id: `${id}-g`, cx: "36%", cy: "30%", r: "75%" });
+  for (const [offset, colour] of [[0, light], [0.55, accent], [1, deep]]) globe.appendChild(make("stop", { offset, "stop-color": colour }));
+  const sky = make("radialGradient", { id: `${id}-s`, cx: "50%", cy: "45%", r: "70%" });
+  for (const [offset, colour] of [[0, mix(accent, "#12142a", 0.72)], [1, "#0d0f22"]]) sky.appendChild(make("stop", { offset, "stop-color": colour }));
+  //: The aura: the accent, glowing out from the globe and fading into the sky.
+  const aura = make("radialGradient", { id: `${id}-a`, cx: "50%", cy: "50%", r: "50%" });
+  for (const [offset, colour, opacity] of [[0.55, light, 0.75], [0.78, accent, 0.28], [1, accent, 0]]) {
+    aura.appendChild(make("stop", { offset, "stop-color": colour, "stop-opacity": opacity }));
+  }
+  defs.append(clip, globe, sky, aura);
+  const g = make("g", { "clip-path": `url(#${id}-c)` });
+  g.appendChild(make("rect", { width: 36, height: 36, fill: `url(#${id}-s)` }));
+  const stars = make("g", { class: "nm-starfield", fill: "#ffffff" });
+  for (const [x, y, r] of [[5, 7, 0.5], [30, 6, 0.4], [8, 30, 0.35], [31, 29, 0.5], [26, 3.6, 0.3], [3.4, 17, 0.3], [33, 16, 0.35]]) {
+    stars.appendChild(make("circle", { cx: x, cy: y, r, opacity: 0.8 }));
+  }
+  g.appendChild(stars);
+  g.appendChild(make("circle", { cx: 18, cy: 18.6, r: 17, fill: `url(#${id}-a)`, class: "nm-aura" }));
+  const body = make("g", { class: "nm-body" });
+  const tilt = "translate(0 6.4) rotate(-14 18 19)";
+  const nodes = [[3.4, 19], [8.4, 14.6], [27.6, 14.6], [32.6, 19], [27.6, 23.4], [8.4, 23.4]];
+  const back = make("g", { transform: tilt });
+  back.appendChild(make("path", { d: "M3.4 19A14.6 4.4 0 0 1 32.6 19", fill: "none", stroke: light, "stroke-width": 0.7, "stroke-opacity": 0.55 }));
+  back.appendChild(make("path", { d: "M8.4 14.6L27.6 14.6M3.4 19L8.4 14.6M27.6 14.6L32.6 19", fill: "none", stroke: light, "stroke-width": 0.45, "stroke-opacity": 0.5 }));
+  for (const [x, y] of nodes.slice(0, 4)) back.appendChild(make("circle", { cx: x, cy: y, r: 1.2, fill: light, class: "nm-spark" }));
+  body.appendChild(back);
+  body.appendChild(make("circle", { cx: 18, cy: 18.6, r: 11.2, fill: `url(#${id}-g)` }));
+  body.appendChild(make("path", { d: "M18 7.4a5.2 11.2 0 0 1 0 22.4a5.2 11.2 0 0 1 0-22.4M7 15h22M7 22.2h22", fill: "none", stroke: "#ffffff", "stroke-width": 0.3, "stroke-opacity": 0.16 }));
+  const ink = "#1c1c1a";
+  const face = make("g", {});
+  const stroke = (d, width, colour = ink) => make("path", { d, fill: "none", stroke: colour, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round" });
+  const eyes = make("g", { class: `nm-eyes${mood === "calm" || mood === "thinking" || mood === "surprised" ? " nm-blinks" : ""}`, fill: ink });
+  for (const x of [14.2, 21.8]) {
+    if (mood === "happy") {
+      eyes.appendChild(stroke(`M${x - 1.8} 19.2q1.8-2.8 3.6 0`, 1.4));
+    } else if (mood === "sleepy") {
+      eyes.appendChild(stroke(`M${x - 1.8} 18.4q1.8 1.8 3.6 0`, 1.3));
+    } else if (mood === "surprised") {
+      eyes.appendChild(make("circle", { cx: x, cy: 18.2, r: 2.2, fill: "#ffffff", stroke: ink, "stroke-width": 0.6 }));
+      eyes.appendChild(make("circle", { cx: x, cy: 18.4, r: 0.95 }));
+    } else {
+      //: Big glossy eyes with two catchlights: the cute. Thinking looks up.
+      const up = mood === "thinking" ? -0.7 : 0;
+      eyes.appendChild(make("ellipse", { cx: x, cy: 18.4, rx: 1.95, ry: 2.45 }));
+      eyes.appendChild(make("ellipse", { cx: x + 0.6 + up * 0.2, cy: 17.4 + up, rx: 0.8, ry: 0.9, fill: "#ffffff" }));
+      eyes.appendChild(make("circle", { cx: x - 0.6, cy: 19.5 + up, r: 0.38, fill: "#ffffff" }));
+    }
+  }
+  face.appendChild(eyes);
+  if (mood === "happy") {
+    face.appendChild(make("path", { d: "M15.4 22.6h5.2a2.6 2.4 0 0 1-5.2 0z", fill: ink }));
+    face.appendChild(make("path", { d: "M16.6 24.1q1.4-.9 2.8 0q-1.4.8-2.8 0z", fill: "#ff7aa0" }));
+  } else if (mood === "surprised" || mood === "sleepy") {
+    face.appendChild(make("ellipse", { cx: 18, cy: 23.4, rx: mood === "sleepy" ? 0.9 : 1.2, ry: mood === "sleepy" ? 1.1 : 1.5, fill: ink }));
+  } else if (mood === "thinking") {
+    face.appendChild(stroke("M16.4 23.2q1.2-.6 2.4 0t2 0", 1.1));
+  } else {
+    face.appendChild(stroke("M15.8 22.6q1.1 1.3 2.2 0q1.1 1.3 2.2 0", 1.1));
+  }
+  for (const x of [11.4, 24.6]) face.appendChild(make("ellipse", { cx: x, cy: 21.6, rx: 1.9, ry: 1.1, fill: "#ff7aa0", opacity: 0.55 }));
+  body.appendChild(face);
+  const front = make("g", { transform: tilt });
+  front.appendChild(make("path", { d: "M3.4 19A14.6 4.4 0 0 0 32.6 19", fill: "none", stroke: light, "stroke-width": 0.8 }));
+  front.appendChild(make("path", { d: "M3.4 19L8.4 23.4L27.6 23.4L32.6 19M8.4 23.4L18 23.4", fill: "none", stroke: light, "stroke-width": 0.5, "stroke-opacity": 0.75 }));
+  for (const [i, [x, y]] of [...nodes.slice(4), [18, 23.4], [3.4, 19], [32.6, 19]].entries()) {
+    front.appendChild(make("circle", { cx: x, cy: y, r: 1.35, fill: i % 2 ? light : "#ffffff", stroke: deep, "stroke-width": 0.35, class: `nm-spark${i % 2 ? " nm-spark-late" : ""}` }));
+  }
+  body.appendChild(front);
+  //: Sparkles drifting in the aura, and the north star over the head.
+  const spark = (x, y, s, fill, late) =>
+    make("path", { d: `M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}z`, fill, class: `nm-spark${late ? " nm-spark-late" : ""}` });
+  body.appendChild(spark(18, 4.8, 2.4, "#ffd84a"));
+  body.appendChild(spark(6.6, 11, 1.1, "#ffffff", true));
+  body.appendChild(spark(29.8, 10, 1.3, "#ffffff"));
+  body.appendChild(spark(28.4, 28.6, 0.9, light, true));
+  if (mood === "thinking") {
+    //: A thought bubble: three rising dots.
+    for (const [x, y, r] of [[26.4, 11.6, 0.7], [28.4, 9.2, 1], [30.8, 6.4, 1.4]]) body.appendChild(make("circle", { cx: x, cy: y, r, fill: "#ffffff", opacity: 0.9, class: "nm-z" }));
+  }
+  if (mood === "sleepy") {
+    body.appendChild(stroke("M25.4 9.6h2.2l-2.2 2.4h2.2", 0.8, "#ffffff")).classList.add("nm-z");
+    body.appendChild(stroke("M28.6 5.8h1.6l-1.6 1.8h1.6", 0.7, "#ffffff")).classList.add("nm-z", "nm-z-late");
+  }
+  g.appendChild(body);
+  svg.append(defs, g);
+  watchNameMark(svg);
+  return svg;
+}
+
+
+//: The classic globe as the companion: no limbs, it floats, and the props
+//: that suit a head (headphones, reading glasses, a nightcap) sit on the
+//: globe; asleep, its eyes close like any face's.
+function atlasClassicFigure() {
+  const figure = document.createElement("span");
+  figure.className = "nm-figure nm-live atl-classic-box";
+  const head = document.createElement("span");
+  head.className = "nm-buddy-head";
+  head.appendChild(atlasClassicMark(NMB_HEAD));
+  const props = atlasMake("svg", { class: "atl-classic-props", viewBox: "0 0 36 36", width: NMB_HEAD, height: NMB_HEAD, "aria-hidden": "true", focusable: "false" });
+  const phones = atlasGroup(props, "nmp nmp-headphones");
+  atlasMake("path", { class: "atl-cl-band", d: "M7.2 20C6.4 4.4 29.6 4.4 28.8 20" }, phones);
+  for (const x of [7.2, 28.8]) atlasMake("rect", { class: "atl-cl-cup", x: x - 2, y: 15.6, width: 4, height: 8, rx: 2 }, phones);
+  const glasses = atlasGroup(props, "nmp nmp-glasses");
+  for (const x of [14.2, 21.8]) atlasMake("circle", { class: "atl-cl-lens", cx: x, cy: 18.6, r: 3.1 }, glasses);
+  atlasMake("path", { class: "atl-cl-rim", d: "M17.3 18.2Q18 17.2 18.7 18.2" }, glasses);
+  const cap = atlasGroup(props, "nmp nmp-nightcap");
+  atlasMake("path", { class: "atl-cl-cap", d: "M7.6 14C9 5 20 2.4 27 5.6C31 7.4 33.6 10 35 14.6L31.6 13.6C27 9.8 20 8.6 14 10.6C11.6 11.4 9.4 12.6 7.6 14Z" }, cap);
+  atlasMake("path", { class: "atl-cl-brim", d: "M7.4 14.4C13 10.6 23 9.6 29.4 12.2" }, cap);
+  atlasMake("circle", { class: "atl-cl-pom", cx: 35, cy: 15, r: 2 }, cap);
+  head.appendChild(props);
+  figure.appendChild(head);
+  return figure;
+}
+
+//: A change of style redraws every Atlas on the page: the marks in place,
+//: the companion through its own sync, the dashboard's mark and the
+//: welcome's card if it is open.
+function atlasRepaint() {
+  for (const svg of document.querySelectorAll("svg.nm-atlas")) {
+    if (svg.closest("#nm-buddy") || !svg.isConnected) continue;
+    svg.replaceWith(atlasDraw(Number(svg.getAttribute("height")) || 20));
+  }
+  const buddy = document.getElementById("nm-buddy");
+  if (buddy && typeof syncNameMarkBuddy === "function") {
+    delete buddy.dataset.seed;
+    syncNameMarkBuddy();
+  }
+  if (typeof paintDashEmblem === "function") paintDashEmblem();
 }
 
 // --- moods that follow the app ------------------------------------------------
@@ -597,7 +778,11 @@ function setAtlasMood(mood, forMs = 0, { quiet = false } = {}) {
   atlasMoodTimer = 0;
   atlasMoodNow = next;
   if (!quiet && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue(ATLAS_MOODS[next].cue);
-  for (const svg of document.querySelectorAll(".nm-atlas")) atlasApply(svg, next);
+  for (const svg of document.querySelectorAll(".nm-atlas")) {
+    //: The classic globe draws a mood rather than easing into one.
+    if (svg.classList.contains("atl-classic")) svg.replaceWith(atlasClassicMark(Number(svg.getAttribute("width")) || 20, next));
+    else atlasApply(svg, next);
+  }
   if (next === "surprised" && forMs > 2000) {
     //: A failure startles first, then worries until it has passed.
     atlasMoodTimer = setTimeout(() => setAtlasMood("worried", forMs - 900, { quiet: true }), 900);

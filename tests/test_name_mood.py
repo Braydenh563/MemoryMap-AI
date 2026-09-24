@@ -426,3 +426,20 @@ def test_the_companion_and_dashboard_fall_back_to_atlas_not_to_you() -> None:
     assert 'document.getElementById("persona-select")?.value || "Atlas"' in buddy
     dash = APP[APP.index("function dashboardMarkSeed(") :][:700]
     assert '|| "Atlas"' in dash
+
+
+def test_atlas_style_is_a_choice_that_every_atlas_follows() -> None:
+    # The owner: "i actually dont mind atlas with the circle avatar and
+    # blurred out edges so maybe that can be a toggle??". Appearance chooses
+    # the character (default) or the classic globe; the draw path, the
+    # companion's figure and a mood change all branch on it, and a change of
+    # style redraws what is on the page.
+    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
+    settings = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '"atlas-style": "character"' in settings
+    assert '"avatar-buddy", "atlas-style", "dash-mark"' in settings, "Reset forgets the choice"
+    assert 'id="atlas-style"' in index and '<option value="classic">Classic globe</option>' in index
+    assert 'atlasStyle() === "classic") return atlasClassicMark(size, mood);' in atlas
+    assert 'if (atlasStyle() === "classic") return atlasClassicFigure();' in atlas
+    assert "function atlasRepaint()" in atlas and "atlasRepaint()" in settings

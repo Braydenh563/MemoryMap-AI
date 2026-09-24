@@ -1381,6 +1381,9 @@ const APPEARANCE_DEFAULTS = {
   "avatar-motion": "always", // always | hover | off
   "avatar-follow": "on", // on | off
   "avatar-buddy": "off", // off | me | persona
+  //: How Atlas is drawn everywhere (atlas.js): the character, or the classic
+  //: globe the owner asked to keep as a choice.
+  "atlas-style": "character", // character | classic
   "dash-mark": "logo", // logo | me | persona
   // Half strength (was 90): a professional product has a quiet page
   // (UI_MODERNISATION_PLAN Phase 3). theme-boot.js and index.html carry the
@@ -2307,6 +2310,7 @@ function renderAppearance() {
   $("avatar-motion").value = appearancePref("avatar-motion");
   $("avatar-follow").checked = appearancePref("avatar-follow") === "on";
   $("avatar-buddy").value = appearancePref("avatar-buddy");
+  $("atlas-style").value = appearancePref("atlas-style");
   $("dash-mark").value = appearancePref("dash-mark");
   renderProgressMotionHint();
   $("bg-motion").value = appearancePref("bg-motion");
@@ -2564,7 +2568,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "dash-mark", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "atlas-style", "dash-mark", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -2852,6 +2856,10 @@ $("avatar-follow").addEventListener("change", (e) => {
 $("avatar-buddy").addEventListener("change", (e) => {
   localStorage.setItem("avatar-buddy", e.target.value);
   syncNameMarkBuddy();
+});
+$("atlas-style").addEventListener("change", (e) => {
+  localStorage.setItem("atlas-style", e.target.value);
+  if (typeof atlasRepaint === "function") atlasRepaint();
 });
 $("dash-mark").addEventListener("change", (e) => {
   localStorage.setItem("dash-mark", e.target.value);

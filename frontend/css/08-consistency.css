@@ -5849,6 +5849,24 @@ main,
 #nm-buddy.nmb-offline .nm-atlas { --atl-knit: -11deg; --atl-brow-y: -1px; --atl-ps: 0.86; }
 #nm-buddy.nmb-act-bell .nm-atlas { --atl-eye-s: 1.08; --atl-brow-y: -2px; --atl-crest: -8deg; }
 
+/* The classic globe as the companion (atlas.js, `atlasClassicFigure`): a
+   floating head, its head props laid over the globe in the globe's own
+   36-unit drawing. */
+.atl-classic-box .atl-classic-props {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.atl-classic-props .atl-cl-band { fill: none; stroke: color-mix(in oklab, var(--accent) 45%, black); stroke-width: 1.6; stroke-linecap: round; }
+.atl-classic-props .atl-cl-cup { fill: color-mix(in oklab, var(--accent) 70%, black); stroke: color-mix(in oklab, var(--accent) 40%, black); stroke-width: 0.6; }
+.atl-classic-props .atl-cl-lens { fill: white; fill-opacity: 0.18; stroke: white; stroke-width: 0.6; }
+.atl-classic-props .atl-cl-rim { fill: none; stroke: white; stroke-width: 0.6; }
+.atl-classic-props .atl-cl-cap { fill: color-mix(in oklab, var(--accent) 55%, #1b1f4a); stroke: #0d0f22; stroke-width: 0.6; stroke-linejoin: round; }
+.atl-classic-props .atl-cl-brim { fill: none; stroke: white; stroke-width: 2.2; stroke-linecap: round; }
+.atl-classic-props .atl-cl-pom { fill: white; }
+
 /* --- Atlas's life: loops while the mark is on screen and motion is on ---
    The same four gates as the generated faces (Avatar animation always,
    live, hovered row, hovered mark; Reduce motion and Off win), for the
@@ -5895,6 +5913,11 @@ main,
     & .atl-slow { animation-duration: 3.4s; }
   }
 
+  /* The classic globe as the companion floats wherever it is. */
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy .atl-classic-box {
+    animation: nmb-float 3.2s ease-in-out infinite;
+  }
+
   /* Music: its head grooves and its notes pulse to the beat. */
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-music {
     & .atl-figure .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
@@ -5920,6 +5943,7 @@ main,
 @media (prefers-reduced-motion: reduce) {
   .nm-atlas { --atl-orbit: 96s; }
   .nm-atlas :is(.atl-orbit, .atl-node) { animation-duration: var(--atl-orbit); }
+  #nm-buddy .atl-classic-box { animation-duration: 9s; }
   .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-scarf, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mote, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s;
   }

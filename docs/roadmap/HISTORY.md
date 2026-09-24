@@ -34257,3 +34257,88 @@ with an unselected note moving 1.7 and no pins written.
     "Jump to latest" never shows on a transcript with no messages. After:
     scrollHeight equals clientHeight at all four sizes.
 
+394. **The owner, 2026-09-23 night, verbatim, with screenshots of the Ask
+    tab, the map's radial menu, the dashboard, a connection pill, the Write
+    tab's action chips, the dashboard's Jump to and Run a skill rows, the
+    Library tabs, the Boards filter and the Contents chips.** "are those chips
+    the right colour?? also I was wondering if we migth be able to give atlas
+    a tinsy little bit more personality?? idk. also on the document editor
+    code files I want ALL THE PREFILL SUGGESTIONS AND POPUP BOXES FOR
+    OPTIONS. like if I do just '!' on a document and press enter it does base
+    html code, or for all the available css properties for that css feature,
+    or doinf inline suggestions. also when I press the more button on a mind
+    map node tool radial, the dropdown menu doesnt appear next to it but the
+    bottom right. Also I was wondering if the \"your dashboard line\" should
+    always sti neatly at the bottom of the user's screen when on the \"full\"
+    view and then when the user scrolls the dashboard will show as normal, the
+    line wont move up top the content above it will just scroll like a
+    regular page. also the square top right and bottom right corners of the
+    meatball buttons in the note links goes out of the badge borders a bit"
+    and "can you also put a bit of the background shine in the bottom right
+    corner as well like the classic view??" and "also are these pills a sign
+    of ai vibe coding?? if they arent it's fine. just keep devibecoding and
+    improving the design to be more modern and professional. keep doing
+    anything else you were doing and keep bug fixing and more."
+    Placed: (a) Ask's "Ask again" chips filled while "Try asking" are
+    outlined, orchestrator; (b) Atlas's voice, orchestrator (prompt budget);
+    (c) code completions (Emmet `!`, every CSS property and value, inline
+    suggestions), an agent (**built 2026-09-23**, codecomplete: Emmet 2.4.11
+    vendored on demand, `!` then Enter writes the HTML5 page with the caret
+    on the title, `m10`/`df` in CSS, each property's own values after `: `,
+    ghost text taken with Tab; `doccomplete.js` 35/35 light and dark,
+    `doccodeedit.js` 48/48); (d) the radial More menu, the map agent (**built
+    2026-09-23**: it was placed from the whole ring's box, 30 to 41px down
+    and right of More; it opens beside the button now, gap 4px at 1440, 1184
+    and 947 wide, `mapradialmore.js` 18/18); (e) the
+    dashboard's head at the fold, orchestrator; (f) the connection pill's
+    kebab corners and its raw markdown title (`# ... ![...]`), orchestrator;
+    (g) the page shine's second corner, orchestrator; (h) pills: yes, a
+    fully round pill on every control is a tell (dashed pills most of all);
+    the segmented-track table (the Ask citations agent) is the start, and
+    nav rows become tabs, actions `--radius-md` buttons. **(a) and (h) built
+    2026-09-23 (askcite):** one chip style on Ask with a clock on a past
+    question; DESIGN.md "Pills are rare, and never dashed" with
+    `test_a_control_is_a_pill_only_where_named`; `pills.js` 90 capsule
+    controls in 14 groups before, 5 in 4 after (the chat composer's row, on
+    the allowlist). (b) built as a persona sentence (the owner: "not just
+    'you are a librarian'"); (d) built (map agent, `mapradialmore.js`); (f)
+    and (g) built; (e) built and reverted at the owner's word ("the user's
+    wont know there are widgets"), so the first widget row stays on the
+    first screen. Left: (c), with the code completions agent.
+
+405. **The owner, 2026-09-24, verbatim, with chat screenshots.** "the sub
+    headings in the find anything search are all lowercase and hard to see"
+    (fixed, 8a2b5c1 and after), "the back to top hover state is too
+    transparent, I want it to be more opaque. also when I hover over the
+    jump to latest button in the chat, it flickers for a second and doesnt
+    change.", "the user message bubbles in the chat still look too, and
+    unprofessional much compared to the assistant bubbles which are fine.
+    maybe it's the brightness of the message bubble colour?? also there was
+    a repo I got you to analyse which can generate unique avatars and I was
+    wondering if we could utilise a similar concept??", "is multilingual
+    translation and text conversion too big of an ask or thing to
+    implement?? like a translation feature??" and "if an ai model isnt
+    connected, it shouldnt show a model being used right??" Placed:
+    back-to-top, jump-to-latest (cause: the global `button:hover` brightness
+    filter, handed to the polish agent app-wide), the user bubble and the
+    model chip, orchestrator; avatars (blobatar's idea, generated here, no
+    vendoring) and translation (through the local model first, an offline
+    translation extra second), agent briefs.
+
+406. **The owner, 2026-09-24, verbatim.** "can you also massively expand and
+    diversify the help information available to the guide as well as
+    improve the answers and accuracy of responses when no ai model is
+    available??" Measured first: `help_chat.HELP_TOPICS` is 33 topics; with
+    no model, `offline_answer` pastes whole bodies of keyword-matched topics.
+    Placed as the next agent brief: every feature a topic (tasks as steps,
+    synonyms), docs/*.md (INSTALL, TROUBLESHOOTING, PRIVACY, MODELS) chunked
+    as a second source, ranked retrieval (BM25 plus synonyms and typo
+    tolerance) that answers with the matching section or steps rather than
+    whole bodies, related topics as chips, and a bank of about 100 real
+    questions with expected topics, top-1 accuracy measured before and after.
+    **Built 2026-09-24** (orchestrator): 33 topics to 47, ranked retrieval
+    (keyword phrases by rarity, one-typo tolerance, body words as tie-break,
+    weak runners-up dropped), offline answer = best topic plus related names;
+    top-1 49% to 99%, top-3 63% to 100%, unmatched 20 to 0 on 122 questions
+    (`tests/test_help_retrieval.py`). Left: docs/*.md as a second source.
+

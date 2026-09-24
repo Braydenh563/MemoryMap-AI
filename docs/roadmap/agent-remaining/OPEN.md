@@ -41,6 +41,18 @@ measured; "partial" names what is left.
 | Guided tour broken past slide one | Done: re-enabled; overlays closed before each step, phone steps point at More, a fixed counter, typing left alone; `tour.js` 118 of 118 steps at 1440, 1184 and 390 (`archive/agent-remaining/tour.md`) |
 | Second de-vibecoding pass of the whole app, especially the Library; micro-conventions everywhere; optimisation | In progress: orchestrator did Settings (intros, pane titles), Finder, palette, notifications, lock screen, Timeline rows, graph options heads, reminders rows, dashboard tiles; Library/documents/notes/chat pass merged (list conventions 18 of 18); Guide panel and IA read, map culling, Ask citations agents running |
 | Agents commit often so nothing is lost | Done (agents told; the hourly check-in merges gated agent commits and pushes) |
+| Chip colours; Atlas personality; code completions (Emmet `!`, CSS values, inline); radial More menu; dashboard head; link pill corners; page shine (INBOX 394) | Done (head at the fold reverted at the owner's word) |
+| VS Code features: language-aware Ctrl+/, Emmet beyond HTML, rename tag, swatches, hover docs, guides, symbols, Alt+Z, sticky scroll (INBOX 402) | Done (codecomplete agent) |
+| Code files: snippets, Run with a console, go to definition, find across documents (INBOX 404) | Done for JS and HTML. Open: Python Run via a Pyodide download extra and TypeScript via a vendored type-stripper (recommendations taken per standing order 3; next agent slot) |
+| Prose files: grammar (Harper), suggestion mode, read aloud, accessibility check, Word round trip (INBOX 401, 404) | Done (proseeditor agent) |
+| Menus with bad widths, spacing, alignment; the trust bar (INBOX 403) | In progress: every-menu sweep with the hole-poke agent |
+| Pan glitches from style invalidation, app-wide; architecture review (INBOX 400) | Review written (ANALYSIS.md); invalidation hunt with the perf agent |
+| World class plan rows left; hole poke; installer and update paths; component refinement (INBOX 399) | Update paths verified end to end; package-check workflow added; hole poke and polish agents running; WORLD_CLASS_PLAN row check queued |
+| Finder headings; back-to-top hover; jump-to-latest flicker; user bubble; model chip and picker with no model; avatars; translation (INBOX 405) | Done. Open: avatars beyond personas (graph people, the user's own mark); translate a text selection (queued) |
+| Guide help: more topics, better offline answers (INBOX 406) | Done (top-1 49% to 99%). Open: docs/*.md as a second source, blocked on packaging `docs/` |
+| Empty chat scrolls; jump pill on an empty chat (INBOX 407) | Done |
+| Graph similarity lines unreadable; no reset to defaults | Graph agent running |
+| Split app.js and other large files further | Splits agent running (documents, whiteboard, one app.js surface) |
 
 **De-vibecode audit order** (each surface: list every finding first, then
 fix them all, then the next): Notes (list, capture, write, ask), dashboard,

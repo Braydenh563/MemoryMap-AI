@@ -201,6 +201,57 @@ STYLE_HINTS = {
 }
 
 
+#: **The local profile's share of the system prompt, capped.** Settings > Your
+#: profile holds a display name and a short "About me", and both reach the
+#: model through `profile_context` below, in the system message beside the
+#: persona and the tools guide. That message is resent on every round of every
+#: turn, so its worst case is fixed here rather than left to whatever someone
+#: pastes: the API accepts 2,000 characters of about text (older profiles were
+#: written against that ceiling and must still save), the prompt reads the
+#: first 600. `tests/test_user_profile_context.py` holds the whole context to
+#: a quarter of `agent.PROSE_BUDGET_CHARS` at most.
+PROFILE_ABOUT_CAP_CHARS = 600
+PROFILE_NAME_CAP_CHARS = 60
+#: The framing sentences plus both caps and the ellipsis a cut adds.
+PROFILE_CONTEXT_MAX_CHARS = PROFILE_ABOUT_CAP_CHARS + PROFILE_NAME_CAP_CHARS + 60
+
+
+def profile_context(name: str | None, about: str | None) -> str:
+    """What the model is told about the person, as one line of plain text.
+
+    Whitespace is collapsed because this sits inside a single system sentence
+    run, where a pasted paragraph break would read to a small model as the end
+    of its instructions. Framed as a description ("In their own words: ...")
+    rather than handed over bare, because the text is the user's own and is
+    context about them, never a source of instructions.
+    """
+    clean_name = " ".join(str(name or "").split())[:PROFILE_NAME_CAP_CHARS].strip()
+    clean_about = " ".join(str(about or "").split())
+    if len(clean_about) > PROFILE_ABOUT_CAP_CHARS:
+        clean_about = clean_about[:PROFILE_ABOUT_CAP_CHARS].rstrip() + "…"
+    parts = []
+    if clean_name:
+        parts.append(f"Their name is {clean_name}.")
+    if clean_about:
+        parts.append(f"In their own words: {clean_about}")
+    return " ".join(parts)
+
+
+def profile_from_config(config) -> str:
+    """The profile context for this notebook, or "" while the switch is off.
+
+    One switch governs everything the model reads about the person, the name
+    included: "Let Atlas use this profile" is the promise, and a name that
+    reached the prompt with the switch off would break it.
+    """
+    if not config.get_preference("profile_enabled", False):
+        return ""
+    return profile_context(
+        config.get_preference("display_name", ""),
+        config.get_preference("user_profile", ""),
+    )
+
+
 def length_hint(mode: str | None) -> str:
     """How long the answer should be, as a sentence the model can follow (§11).
 

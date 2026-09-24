@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Atlas now knows your name as well as your "About me", while the profile
+  switch is on. Both reach the prompt through one function,
+  `librarian.profile_from_config`, and the about text is capped at its first
+  600 characters there: the API still accepts 2,000 so an older, longer
+  profile keeps saving, but the system message it lands in is resent on every
+  round of every turn. The whole profile context is held to a quarter of the
+  prose budget by `tests/test_user_profile_context.py`.
 - Internal: the popup agent (Ctrl+K) moved out of app.js into its own palette.js, loaded at boot after timeline.js, which brings the gzipped app.js back under its size bound (752,031 to 730,546 bytes).
 - Library: a file row's facts line is one register. The kind, size, date, reading state, reader link and "Used in" share one size and one line box (they sat on four sizes and three tops), split by the same middot, and "Read this" is an accent link rather than a boxed button.
 - Documents: the writing dictionary is a cleaner settings sheet. One field finds a word as you type and adds it on Enter, the list is quiet rows whose remove appears when you point at one, the list can be exported and imported as a .txt file (import only adds), and spelling, grammar and smart quotes are ordinary settings rows with a line each.

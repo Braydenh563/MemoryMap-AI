@@ -221,6 +221,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Two new background art styles grown from your display name, after the
+  owner's helixlabs project (MIT; its `generateDNAProfile` idea, credited in
+  `frontend/bg-art.js`): the letters of the name, each weighted by its
+  place, choose every trait of three to five species. **Microbes** is an
+  ecosystem of swimming organisms (round, rod, comma, diatom, amoeba or
+  flagellate bodies; wandering, schooling, orbiting, tracing a figure or
+  clustering) that divide when there is room and fade with age; **Mycelium**
+  is a network of threads that germinate, branch, rest, fade and grow again
+  elsewhere. Settings says which species your name grew, and a new display
+  name regrows them.
 - Two sweeps for the background art. `scratchpad/ui-sweeps/bgartcost.js`
   times each style's frame inside the page (the draw plus the raster it
   forces, over five seconds), samples its allocations over ten seconds with
@@ -281,6 +291,20 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Every background art style but the waves is redrawn, and the whole
+  background is lighter to run. The aurora is now curtains of light, the
+  constellation has stars at three depths with a nebula and the odd meteor,
+  the floating orbs are glass bubbles at three depths, and the mesh is slow
+  colour fields that blend; the waves look as they did. Measured at
+  1440x900, default intensity, paint per frame: the aurora 5.97ms to about
+  1ms, the mesh 3.02ms and the bubbles 1.87ms to nothing at all (both are CSS
+  animations now, moved by the compositor), the waves 2.38ms to 0.88ms, the
+  constellation 1.92ms to 2.14ms with 40% more stars; allocations over ten
+  seconds fell from between 13MB and 46MB a style to under 5MB. The art no longer
+  uses p5, runs at 30 frames a second (20 on battery or a small machine),
+  stops when the window is hidden, unfocused for thirty seconds, idle for two
+  minutes or covered, and "Still" is now one captured image with nothing
+  running behind it.
 - A big mind map redraws only what changed. A change to one topic used to
   rebuild every topic and every line on the board, which is why a large map
   felt heavy to work on: at five hundred topics a redraw took just over half

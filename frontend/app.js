@@ -826,6 +826,10 @@ function startApp() {
       renderBrandLogo();
       if (bgArtOn()) startBgArt();
     }
+    // A seeded background (microbes, mycelium) started before the
+    // preferences arrived grew from the placeholder name; regrow it from the
+    // real one. A no-op for every other style and when nothing changed.
+    if (typeof bgArtRefreshSeed === "function") bgArtRefreshSeed();
     
     // Always check battery efficient mode regardless of ui_state seeding
     const indicator = $("power-saver-indicator");
@@ -32723,6 +32727,9 @@ async function savePrefs() {
     }
     $("prefs-status").textContent = "Saved.";
     markPrefsSaved();
+    // The microbes and mycelium backgrounds grow from the display name
+    // (bg-art.js), so a new name regrows them now rather than next launch.
+    if (typeof bgArtRefreshSeed === "function") bgArtRefreshSeed();
     //: **A toast as well as the inline word** (INBOX 263). Reported: "no
     //: visual confirmation popup shows when I use ctrl s to save my
     //: preferences settings". The inline "Saved." is beside the button, which

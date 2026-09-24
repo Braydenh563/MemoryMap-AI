@@ -212,6 +212,110 @@
   opacity: var(--bg-art-opacity, 0.9);
 }
 
+/* A still background is one captured frame (bg-art.js): an image on this
+   element, stretched to the window, with no canvas and no loop behind it. */
+.bg-art-still {
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* The CSS styles (mesh, bubbles): pre-rendered images and gradients on
+   their own elements, moved by the compositor. Each path is split over
+   nested elements (horizontal on one, vertical or rise on the next, wobble
+   innermost) so each axis keeps its own period. Durations, reaches and
+   delays are per element, set from bg-art.js as custom properties. */
+.bg-art-layer {
+  overflow: hidden;
+  /* Each moving element sets its own; these are the resting values. */
+  --dx: 0px;
+  --dy: 0px;
+  --dur-x: 30s;
+  --dur-y: 30s;
+  --dur-r: 60s;
+  --dur-w: 1.5s;
+  --delay-x: 0s;
+  --delay-y: 0s;
+  --delay-r: 0s;
+  --delay-w: 0s;
+}
+
+.bg-mesh-field,
+.bg-bubble {
+  position: absolute;
+}
+
+.bg-mesh-field-body,
+.bg-bubble-part {
+  width: 100%;
+  height: 100%;
+}
+
+.bg-bubble-part {
+  background-size: 100% 100%;
+}
+
+@keyframes bg-drift-x {
+  from { transform: translateX(calc(-1 * var(--dx))); }
+  to { transform: translateX(var(--dx)); }
+}
+
+@keyframes bg-drift-y {
+  from { transform: translateY(calc(-1 * var(--dy))); }
+  to { transform: translateY(var(--dy)); }
+}
+
+@keyframes bg-rise {
+  from { transform: translateY(0); }
+  to { transform: translateY(calc(-100vh - 100%)); }
+}
+
+@keyframes bg-wobble {
+  from { transform: scale(1.035, 0.965); }
+  to { transform: scale(0.965, 1.035); }
+}
+
+/* `!important` answers the blanket in 02-chat-graph.css that stops every
+   animation under Reduce motion: the art is only ever given `is-moving`
+   when it should move, which under Reduce motion means the person chose
+   Movement "Moving" for the background, an explicit request that is
+   meant to win (startBgArt in settings.js). */
+.bg-art-layer.is-moving .bg-drift-x {
+  animation: bg-drift-x var(--dur-x) ease-in-out var(--delay-x) infinite alternate !important;
+}
+
+.bg-art-layer.is-moving .bg-drift-y {
+  animation: bg-drift-y var(--dur-y) ease-in-out var(--delay-y) infinite alternate !important;
+}
+
+.bg-art-layer.is-moving .bg-rise {
+  animation: bg-rise var(--dur-r) linear var(--delay-r) infinite !important;
+}
+
+.bg-art-layer.is-moving .bg-wobble {
+  animation: bg-wobble var(--dur-w) ease-in-out var(--delay-w) infinite alternate !important;
+}
+
+/* Hidden, long unfocused, or covered: held where it is. */
+.bg-art-layer.is-moving.is-paused .bg-drift-x,
+.bg-art-layer.is-moving.is-paused .bg-drift-y,
+.bg-art-layer.is-moving.is-paused .bg-rise,
+.bg-art-layer.is-moving.is-paused .bg-wobble {
+  animation-play-state: paused !important;
+}
+
+/* The system asks for calm: startBgArt already mounts the art still unless
+   the background's Movement is "Moving" (`is-requested`), and this is the
+   same rule in CSS, so a moving layer mounted without that request cannot
+   slip past it. */
+@media (prefers-reduced-motion: reduce) {
+  .bg-art-layer.is-moving:not(.is-requested) .bg-drift-x,
+  .bg-art-layer.is-moving:not(.is-requested) .bg-drift-y,
+  .bg-art-layer.is-moving:not(.is-requested) .bg-rise,
+  .bg-art-layer.is-moving:not(.is-requested) .bg-wobble {
+    animation: none !important;
+  }
+}
+
 /* --- Wave O: expanded appearance (theme/size/density/glass) ---------------------- */
 .seg {
   display: inline-flex;

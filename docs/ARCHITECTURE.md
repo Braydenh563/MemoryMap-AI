@@ -240,7 +240,8 @@ MemoryMap-AI/
 │   ├── theme-boot.js · boot-guard.js # before first paint: theme, perf mode,
 │   │                        #   and the guard that reports a boot failure
 │   ├── app.js               # the shell, notes, chat, palette, settings glue
-│   ├── settings.js          # Settings, appearance, the background art
+│   ├── settings.js          # Settings, appearance, whether the background art runs
+│   ├── bg-art.js            # the background art: its styles and its runtime
 │   ├── dashboard.js         # the dashboard's widgets
 │   ├── library.js           # Library: files, images, the OCR workspace
 │   ├── documents.js · editor.js # the long-form editor and its CodeMirror

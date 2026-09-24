@@ -31981,6 +31981,7 @@ async function renderPrefs() {
   $("pref-notif-mute-except-reminders").checked = Boolean(
     prefsCache.notifications_muted_except_reminders
   );
+  $("pref-smart-punctuation").checked = prefsCache.smart_punctuation === true;
   $("prefs-status").textContent = "";
   //: The fields now hold what the server holds, so nothing is unsaved: this
   //: also covers the reopen, since `showSettingsSection` re-renders.
@@ -32406,6 +32407,7 @@ async function savePrefs() {
       profile_enabled: $("pref-profile-enabled").checked,
       notifications_muted_except_reminders:
         $("pref-notif-mute-except-reminders").checked,
+      smart_punctuation: $("pref-smart-punctuation").checked,
     };
     // INBOX 73: "'Mute notifications except reminders' toggle disables
     // itself when the settings close." Reproduced two ways with Playwright
@@ -32497,6 +32499,7 @@ const PREFS_FIELD_IDS = [
   "pref-display-name", "pref-bin-days", "pref-chat-retention",
   "pref-search-min-sim", "pref-search-z-margin", "pref-style",
   "pref-profile", "pref-profile-enabled", "pref-notif-mute-except-reminders",
+  "pref-smart-punctuation",
 ];
 
 function wirePrefsDirtyMarks() {

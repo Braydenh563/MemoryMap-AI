@@ -4701,6 +4701,32 @@ textarea.autogrow {
   color: inherit;
 }
 
+/* An expansion row (prose autofill): the trigger, then what it writes, in the
+   two inks a word row already uses, the gap between them a spacing step so the
+   detail reads as a caption rather than the rest of the word. A shortcode leads
+   with its glyph at the row's own size. */
+.doc-complete-list li.doc-complete-fill {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.doc-complete-list li .doc-complete-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-xs);
+}
+
+.doc-complete-list li.active .doc-complete-detail {
+  color: var(--muted);
+}
+
+.doc-complete-list li .doc-complete-glyph {
+  color: inherit;
+  font-size: var(--text-md);
+}
+
 /* The caret mirror (documents.js). Off-screen rather than `display: none`, a
    box with no layout reports no position, which is the whole reason it exists.
    Every property that affects text layout is copied onto it in script; these

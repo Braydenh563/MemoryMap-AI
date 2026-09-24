@@ -13009,42 +13009,112 @@ function hideDocComplete() {
   docReturnFromViewport(list);
   docCompleteMatches = [];
   docCompleteBox = null;
+  if (typeof docProseGhostSet === "function") docProseGhostSet(null, "");
+}
+
+//: **The autofill rows for the caret, if it is at a trigger** (the owner,
+//: 2026-09-24: "if I type lorem and press enter ... it will autofill the lorem
+//: ipsum filler text"). The token and the rows are documents-prose.js's pure
+//: `PROSE-FILL` region; this is the part that knows the editor: the caret's
+//: line, the name in Settings, the renderer's heading ids. Prose only: a code
+//: file has its own list (`docCodeTools`), and two lists at one caret is the
+//: thing this file keeps refusing.
+function docFillAt(box) {
+  if (typeof docFillToken !== "function" || !docProseFillOn()) return null;
+  const range = box.selection();
+  if (range.from !== range.to) return null;
+  const line = box.lineAt(range.from);
+  const column = range.from - line.from;
+  const tok = docFillToken(line.text.slice(0, column), line.text.slice(column));
+  if (!tok) return null;
+  //: The "/" menu and the `[[` menu own their keystrokes while open.
+  if (typeof editorMenuState === "object" && editorMenuState?.open) return null;
+  const options = docFillOptions(tok, {
+    now: new Date(),
+    locale: undefined,
+    name: (typeof prefsCache === "object" && prefsCache?.display_name) || "",
+    doc: tok.kind === "toc" ? docText() : "",
+    slug: typeof mdHeadingId === "function" ? mdHeadingId : (t) => t,
+  });
+  if (!options.length) return null;
+  return { start: line.from + tok.start, options };
 }
 
 function renderDocComplete(box) {
   const list = $("doc-complete-list");
-  if (!list || !docCompleteEnabled()) return hideDocComplete();
-  const at = docWordFragment(box);
-  if (!at) return hideDocComplete();
-  if (!docCompleteWords) docBuildVocabulary();
-  const needle = at.fragment.toLowerCase();
-  docCompleteMatches = docCompleteWords
-    .filter(([word]) => word.toLowerCase().startsWith(needle) && word.toLowerCase() !== needle)
-    .slice(0, DOC_COMPLETE_MAX)
-    .map(([word]) => word);
+  if (!list) return hideDocComplete();
+  //: The expansions first, and whatever the word switch says: they answer a
+  //: trigger the writer typed on purpose, where word suggestions are a guess.
+  const fill = docFillAt(box);
+  const at = docCompleteEnabled() ? docWordFragment(box) : null;
+  let words = [];
+  if (at) {
+    if (!docCompleteWords) docBuildVocabulary();
+    const needle = at.fragment.toLowerCase();
+    words = docCompleteWords
+      .filter(([word]) => word.toLowerCase().startsWith(needle) && word.toLowerCase() !== needle)
+      .slice(0, DOC_COMPLETE_MAX)
+      .map(([word]) => ({ word, typed: at.fragment.length }));
+  }
+  //: A row is `{word, typed}` (the rest of a word) or `{fill, start}` (an
+  //: expansion that replaces from `start` to the caret).
+  docCompleteMatches = [
+    ...(fill ? fill.options.map((option) => ({ fill: option, start: fill.start })) : []),
+    ...words,
+  ];
   if (!docCompleteMatches.length) return hideDocComplete();
 
   docCompleteBox = box;
   docCompleteIndex = Math.min(docCompleteIndex, docCompleteMatches.length - 1);
   list.replaceChildren();
-  docCompleteMatches.forEach((word, index) => {
+  docCompleteMatches.forEach((match, index) => {
     const li = document.createElement("li");
     li.setAttribute("role", "option");
     li.setAttribute("aria-selected", String(index === docCompleteIndex));
     li.classList.toggle("active", index === docCompleteIndex);
-    const head = document.createElement("b");
-    head.textContent = word.slice(0, at.fragment.length);
-    const rest = document.createElement("span");
-    rest.textContent = word.slice(at.fragment.length);
-    li.append(head, rest);
+    if (match.fill) {
+      //: The trigger in full strength, what it writes quieter: the same two
+      //: inks a word row uses for typed and suggested. A shortcode leads with
+      //: its glyph, which is the picker.
+      li.classList.add("doc-complete-fill");
+      if (match.fill.glyph) {
+        const glyph = document.createElement("span");
+        glyph.className = "doc-complete-glyph";
+        glyph.textContent = match.fill.glyph;
+        li.appendChild(glyph);
+      }
+      const head = document.createElement("b");
+      head.textContent = match.fill.label;
+      li.appendChild(head);
+      if (match.fill.detail) {
+        const detail = document.createElement("span");
+        detail.className = "doc-complete-detail";
+        detail.textContent = match.fill.detail;
+        li.appendChild(detail);
+      }
+    } else {
+      const head = document.createElement("b");
+      head.textContent = match.word.slice(0, match.typed);
+      const rest = document.createElement("span");
+      rest.textContent = match.word.slice(match.typed);
+      li.append(head, rest);
+    }
     li.addEventListener("mousedown", (event) => {
       //: mousedown, not click: the textarea must not lose focus first, or the
       //: selection this writes into is gone by the time it runs.
       event.preventDefault();
-      applyDocComplete(box, word);
+      applyDocComplete(box, match);
     });
     list.appendChild(li);
   });
+  //: The ghost after the caret, on the engine only: the chosen row's rest, as
+  //: the code side draws it (`.cm-ghostText`).
+  if (box.kind === "codemirror" && typeof docProseGhostSet === "function") {
+    const chosen = docCompleteMatches[docCompleteIndex];
+    const caret = box.selection().from;
+    const ghost = chosen.fill ? docFillGhost(chosen.fill) : chosen.word.slice(chosen.typed);
+    docProseGhostSet(caret, ghost);
+  }
   const point = docCaretPoint(box);
   //: Kept on screen: a popup at the caret near the right edge or the bottom of
   //: the window would otherwise open off it, which is the app-wide rule for
@@ -13070,15 +13140,31 @@ function renderDocComplete(box) {
   docPlaceFixed(list, Math.max(8, left), top);
 }
 
-function applyDocComplete(box, word) {
-  const at = docWordFragment(box);
-  if (!at) return hideDocComplete();
+function applyDocComplete(box, match) {
+  if (!match) return hideDocComplete();
   //: A range edit rather than a whole-value rewrite: on the engine that keeps
   //: the completion as one undo step over the fragment it replaced, and it
   //: costs the length of the word rather than the length of the document.
   const caret = box.selection().from;
-  box.replaceRange(at.start, caret, word);
-  box.setSelection(at.start + word.length);
+  if (match.fill) {
+    //: Read again at the moment of taking it, the rule `docProseFix` keeps: the
+    //: row was drawn a keystroke ago, and a trigger that is no longer before
+    //: the caret is not one to replace.
+    const now = docFillAt(box);
+    if (!now || now.start !== match.start) return hideDocComplete();
+    const text = match.fill.text;
+    box.replaceRange(match.start, caret, text);
+    if (match.fill.select) {
+      box.setSelection(match.start + match.fill.select[0], match.start + match.fill.select[1]);
+    } else {
+      box.setSelection(match.start + text.length);
+    }
+  } else {
+    const at = docWordFragment(box);
+    if (!at) return hideDocComplete();
+    box.replaceRange(at.start, caret, match.word);
+    box.setSelection(at.start + match.word.length);
+  }
   hideDocComplete();
   box.focus();
   box.dispatchEvent(new Event("input", { bubbles: true }));
@@ -13097,11 +13183,16 @@ function docCompleteKeydown(event, box) {
     renderDocComplete(box);
     return true;
   }
-  //: **Tab, not Enter.** Enter in a document is a new line, and stealing it
-  //: for a suggestion is how an autocomplete becomes the thing you fight.
-  if (event.key === "Tab") {
+  //: **Tab for a word, and Enter only for an expansion.** Enter in a document
+  //: is a new line, and stealing it for a guessed word is how an autocomplete
+  //: becomes the thing you fight. An expansion is different: it answers a
+  //: trigger typed on purpose (`lorem`, `today` on its own line, `:smile`),
+  //: and "type lorem and press enter" is the ask it exists for. Escape, then
+  //: Enter, is still a plain new line.
+  const chosen = docCompleteMatches[docCompleteIndex];
+  if (event.key === "Tab" || (event.key === "Enter" && chosen?.fill && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey)) {
     event.preventDefault();
-    applyDocComplete(box, docCompleteMatches[docCompleteIndex]);
+    applyDocComplete(box, chosen);
     return true;
   }
   if (event.key === "Escape") {

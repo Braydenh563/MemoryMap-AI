@@ -1068,6 +1068,642 @@ window.addEventListener("pagehide", () => docReadAloudStop());
 
 //: One hook in `docCmExtensions` for every tool in this region.
 function docProseToolExtensions(CM) {
-  return [docSuggestExtensions(CM), docReadAloudExtension(CM)];
+  //: Autofill's pairs, smart punctuation and ghost text (the section after
+  //: this region).
+  return [docSuggestExtensions(CM), docReadAloudExtension(CM), docProseFillExtensions(CM)];
 }
 // PROSE-TOOLS-END
+
+// =============================================================================
+// Autofill for prose (the owner, 2026-09-24)
+// =============================================================================
+//
+// "I want cool features for autofill and easy life stuff in the documents
+// editor like if I type lorem and press enter or a popup that appears, then it
+// will autofill the lorem ipsum filler text and stuff."
+//
+// The code side already had this (Emmet, snippets, the list and its ghost text
+// in documents-code.js). Prose had word suggestions and nothing that *made*
+// text. What is added, all offered through the one popup prose already had
+// (`#doc-complete-list`, `renderDocComplete` in documents.js), so there is
+// still one list at the caret, never two:
+//
+// - **Expansions**: `lorem` (a paragraph), `lorem20` (twenty words),
+//   `table 3x4` (three columns, four rows; `/table 3x4` too), and, on a line of
+//   their own, `today`, `date`, `now`, `time`, `iso`, `todo`, `callout`, `hr`,
+//   `toc` (the headings as links) and `sig` (the name from Settings). Tab or
+//   Enter takes the chosen row; its first line is drawn after the caret in
+//   muted ink first, as the code side's ghost text is.
+// - **`:emoji:` shortcodes**: a colon and two letters open the list with the
+//   glyphs, which is the picker.
+// - **Pairs as you type**: `**`, `_`, backticks and brackets close themselves,
+//   step over their closer and wrap a selection; Backspace in an empty pair
+//   takes both halves.
+// - **Smart quotes and dashes**, off unless switched on in Settings,
+//   Preferences (the app's own no-em-dash rule is about the app's copy, not the
+//   writer's).
+//
+// **Why a bare word only counts on a line of its own.** `now`, `date`, `todo`
+// and `hr` are words people write. Offered after any occurrence, Enter at the
+// end of "I will do it now" would stamp a time into the sentence. A line that
+// is nothing but `now` is somebody asking. `lorem` and the shortcodes are not
+// words anyone writes by accident, so they count anywhere.
+//
+// List continuation on Enter and outdent on an empty item were already there:
+// the markdown package's own keymap (`insertNewlineContinueMarkup`,
+// `deleteMarkupBackward`), which `markdown()` installs by default. Measured,
+// not rebuilt (`scratchpad/ui-sweeps/proseautofill.js`).
+//
+// The pure half is the region below: `tests/test_prose_autofill.py` runs it in
+// node and holds every expansion to the exact text it must produce.
+
+// PROSE-FILL-BEGIN (tests/test_prose_autofill.py runs this region in node)
+const DOC_LOREM_TEXT =
+  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor " +
+  "incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud " +
+  "exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure " +
+  "dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. " +
+  "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt " +
+  "mollit anim id est laborum.";
+
+//: A thousand words is a lot of filler and still a string the editor inserts in
+//: one frame; `lorem9999` is a typo, not a request for a novel.
+const DOC_LOREM_MAX_WORDS = 1000;
+
+//: `count` words of filler, as a sentence with a capital and a full stop; no
+//: count (or zero) is the whole paragraph.
+function docLorem(count) {
+  if (!count) return DOC_LOREM_TEXT;
+  const words = DOC_LOREM_TEXT.replace(/[.,]/g, "").toLowerCase().split(" ");
+  const n = Math.min(count, DOC_LOREM_MAX_WORDS);
+  const out = [];
+  for (let i = 0; i < n; i += 1) out.push(words[i % words.length]);
+  out[0] = out[0][0].toUpperCase() + out[0].slice(1);
+  return `${out.join(" ")}.`;
+}
+
+//: The local day as YYYY-MM-DD, built by hand for the reason `docTemplateFill`
+//: gives: `toISOString` is UTC and names yesterday east of Greenwich after dark.
+function docIsoDay(now) {
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+//: A date in the writer's locale. `locale` undefined is the browser's own,
+//: which is the point; the tests pass one so the answer is fixed.
+function docFillDate(kind, now, locale) {
+  const loc = locale || undefined;
+  if (kind === "today") return now.toLocaleDateString(loc, { year: "numeric", month: "long", day: "numeric" });
+  if (kind === "date") return now.toLocaleDateString(loc, { year: "numeric", month: "2-digit", day: "2-digit" });
+  if (kind === "time") return now.toLocaleTimeString(loc, { hour: "numeric", minute: "2-digit" });
+  if (kind === "now") {
+    return now.toLocaleString(loc, {
+      year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit",
+    });
+  }
+  return docIsoDay(now);
+}
+
+//: A GFM table, the same shape the toolbar's Table makes (`applyMarkdown`'s
+//: `custom: "table"`): "Column" headers and blank cells with their outer pipes,
+//: so every cell is one GFM can see. `select` is the first header, chosen, so
+//: typing names it.
+function docFillTable(cols, rows) {
+  const c = Math.max(1, Math.min(12, cols));
+  const r = Math.max(1, Math.min(50, rows));
+  const line = (cell) => `| ${Array(c).fill(cell).join(" | ")} |`;
+  const lines = [line("Column"), line("---")];
+  for (let i = 0; i < r; i += 1) lines.push(`|${"  |".repeat(c)}`);
+  return { text: `${lines.join("\n")}\n`, select: [2, 2 + "Column".length] };
+}
+
+//: The document's headings as a nested list of links, each to the id the
+//: renderer gives that heading (`slug`, which is app.js's `mdHeadingId` in the
+//: browser, so a link here is the anchor there). A lone first-level heading at
+//: the top is the document's title, not a section of it, and is left out.
+//: Null when there is nothing to list.
+function docFillToc(text, slug) {
+  const heads = [];
+  let fence = null;
+  for (const line of String(text || "").split("\n")) {
+    const open = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+    if (open) {
+      if (!fence) fence = open[1][0];
+      else if (open[1][0] === fence) fence = null;
+      continue;
+    }
+    if (fence) continue;
+    const m = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (m) heads.push([m[1].length, m[2]]);
+  }
+  if (heads.length && heads[0][0] === 1 && heads.filter(([l]) => l === 1).length === 1) heads.shift();
+  if (!heads.length) return null;
+  const top = Math.min(...heads.map(([l]) => l));
+  const taken = new Set();
+  const plain = (t) => t.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[`*_~]/g, "");
+  const lines = heads.map(([l, t]) => `${"  ".repeat(l - top)}- [${plain(t)}](#${slug(t, taken)})`);
+  return `${lines.join("\n")}\n`;
+}
+
+//: A sign-off: a line, then the name from Settings. The break is a blank line
+//: because a single newline inside a paragraph renders as a space. With no
+//: name set the placeholder is chosen, so typing replaces it.
+function docFillSig(name) {
+  const who = String(name || "").trim();
+  const head = "Kind regards,\n\n";
+  if (who) return { text: `${head}${who}\n`, detail: who };
+  return {
+    text: `${head}Your name\n`,
+    select: [head.length, head.length + "Your name".length],
+    detail: "Your name (set it in Settings)",
+  };
+}
+
+//: The shortcodes, GitHub's names. One string, `name=glyph,` per entry, parsed
+//: once: a table of a few hundred glyphs is data, and a string whose every edge
+//: is a letter or a comma is not a glyph standing where an icon belongs
+//: (`tests/test_no_glyph_icons.py` reads string edges).
+const DOC_EMOJI_SOURCE =
+  "smile=\u{1F604},grin=\u{1F601},joy=\u{1F602},rofl=\u{1F923},smiley=\u{1F603},laughing=\u{1F606}," +
+  "sweat_smile=\u{1F605},wink=\u{1F609},blush=\u{1F60A},innocent=\u{1F607},slightly_smiling_face=\u{1F642}," +
+  "upside_down_face=\u{1F643},heart_eyes=\u{1F60D},star_struck=\u{1F929},kissing_heart=\u{1F618},yum=\u{1F60B}," +
+  "stuck_out_tongue=\u{1F61B},zany_face=\u{1F92A},hugs=\u{1F917},thinking=\u{1F914},shushing_face=\u{1F92B}," +
+  "zipper_mouth_face=\u{1F910},raised_eyebrow=\u{1F928},neutral_face=\u{1F610},expressionless=\u{1F611}," +
+  "no_mouth=\u{1F636},smirk=\u{1F60F},unamused=\u{1F612},roll_eyes=\u{1F644},grimacing=\u{1F62C}," +
+  "relieved=\u{1F60C},pensive=\u{1F614},sleepy=\u{1F62A},sleeping=\u{1F634},mask=\u{1F637}," +
+  "nerd_face=\u{1F913},face_with_monocle=\u{1F9D0},sunglasses=\u{1F60E},partying_face=\u{1F973}," +
+  "cowboy_hat_face=\u{1F920},confused=\u{1F615},worried=\u{1F61F},slightly_frowning_face=\u{1F641}," +
+  "open_mouth=\u{1F62E},astonished=\u{1F632},flushed=\u{1F633},pleading_face=\u{1F97A},cry=\u{1F622}," +
+  "sob=\u{1F62D},scream=\u{1F631},exploding_head=\u{1F92F},cold_sweat=\u{1F630},hot_face=\u{1F975}," +
+  "cold_face=\u{1F976},woozy_face=\u{1F974},confounded=\u{1F616},tired_face=\u{1F62B},yawning_face=\u{1F971}," +
+  "triumph=\u{1F624},rage=\u{1F621},angry=\u{1F620},money_mouth_face=\u{1F911},skull=\u{1F480}," +
+  "poop=\u{1F4A9},clown_face=\u{1F921},ghost=\u{1F47B},alien=\u{1F47D},robot=\u{1F916}," +
+  "see_no_evil=\u{1F648},hear_no_evil=\u{1F649},speak_no_evil=\u{1F64A},wave=\u{1F44B},raised_hand=✋," +
+  "ok_hand=\u{1F44C},v=✌️,crossed_fingers=\u{1F91E},point_up=☝️,point_right=\u{1F449}," +
+  "point_left=\u{1F448},point_down=\u{1F447},thumbsup=\u{1F44D},+1=\u{1F44D},thumbsdown=\u{1F44E},-1=\u{1F44E}," +
+  "fist=\u{1F44A},clap=\u{1F44F},raised_hands=\u{1F64C},open_hands=\u{1F450},pray=\u{1F64F}," +
+  "handshake=\u{1F91D},muscle=\u{1F4AA},writing_hand=✍️,eyes=\u{1F440},brain=\u{1F9E0}," +
+  "heart=❤️,orange_heart=\u{1F9E1},yellow_heart=\u{1F49B},green_heart=\u{1F49A},blue_heart=\u{1F499}," +
+  "purple_heart=\u{1F49C},black_heart=\u{1F5A4},broken_heart=\u{1F494},sparkling_heart=\u{1F496}," +
+  "100=\u{1F4AF},boom=\u{1F4A5},sparkles=✨,star=⭐,star2=\u{1F31F},dizzy=\u{1F4AB},fire=\u{1F525}," +
+  "zap=⚡,rainbow=\u{1F308},sunny=☀️,cloud=☁️,umbrella=☂️,snowflake=❄️," +
+  "droplet=\u{1F4A7},ocean=\u{1F30A},earth_africa=\u{1F30D},seedling=\u{1F331},evergreen_tree=\u{1F332}," +
+  "deciduous_tree=\u{1F333},four_leaf_clover=\u{1F340},rose=\u{1F339},sunflower=\u{1F33B}," +
+  "cherry_blossom=\u{1F338},apple=\u{1F34E},banana=\u{1F34C},avocado=\u{1F951},pizza=\u{1F355}," +
+  "hamburger=\u{1F354},taco=\u{1F32E},cake=\u{1F370},birthday=\u{1F382},coffee=☕,tea=\u{1F375}," +
+  "beer=\u{1F37A},wine_glass=\u{1F377},tada=\u{1F389},confetti_ball=\u{1F38A},balloon=\u{1F388}," +
+  "gift=\u{1F381},trophy=\u{1F3C6},medal_sports=\u{1F3C5},soccer=⚽,basketball=\u{1F3C0},dart=\u{1F3AF}," +
+  "video_game=\u{1F3AE},musical_note=\u{1F3B5},headphones=\u{1F3A7},art=\u{1F3A8},camera=\u{1F4F7}," +
+  "movie_camera=\u{1F3A5},tv=\u{1F4FA},computer=\u{1F4BB},keyboard=⌨️,iphone=\u{1F4F1}," +
+  "phone=☎️,bulb=\u{1F4A1},flashlight=\u{1F526},book=\u{1F4D6},books=\u{1F4DA},notebook=\u{1F4D3}," +
+  "memo=\u{1F4DD},pencil2=✏️,pen=\u{1F58A}️,paperclip=\u{1F4CE},pushpin=\u{1F4CC}," +
+  "scissors=✂️,calendar=\u{1F4C5},clipboard=\u{1F4CB},file_folder=\u{1F4C1}," +
+  "chart_with_upwards_trend=\u{1F4C8},chart_with_downwards_trend=\u{1F4C9},bar_chart=\u{1F4CA}," +
+  "email=\u{1F4E7},envelope=✉️,inbox_tray=\u{1F4E5},outbox_tray=\u{1F4E4},package=\u{1F4E6}," +
+  "bell=\u{1F514},mega=\u{1F4E3},lock=\u{1F512},unlock=\u{1F513},key=\u{1F511},hammer=\u{1F528}," +
+  "wrench=\u{1F527},gear=⚙️,link=\u{1F517},mag=\u{1F50D},hourglass=⌛,alarm_clock=⏰," +
+  "watch=⌚,money_with_wings=\u{1F4B8},moneybag=\u{1F4B0},dollar=\u{1F4B5},credit_card=\u{1F4B3}," +
+  "rocket=\u{1F680},airplane=✈️,car=\u{1F697},bike=\u{1F6B2},train=\u{1F686},house=\u{1F3E0}," +
+  "office=\u{1F3E2},school=\u{1F3EB},hospital=\u{1F3E5},globe_with_meridians=\u{1F310}," +
+  "world_map=\u{1F5FA}️,round_pushpin=\u{1F4CD},warning=⚠️,no_entry=⛔,x=❌," +
+  "heavy_check_mark=✔️,white_check_mark=✅,ballot_box_with_check=☑️," +
+  "question=❓,exclamation=❗,bangbang=‼️,heavy_plus_sign=➕,heavy_minus_sign=➖," +
+  "arrow_right=➡️,arrow_left=⬅️,arrow_up=⬆️,arrow_down=⬇️," +
+  "recycle=♻️,red_circle=\u{1F534},green_circle=\u{1F7E2},yellow_circle=\u{1F7E1}," +
+  "blue_circle=\u{1F535},white_circle=⚪,black_circle=⚫,cat=\u{1F431},dog=\u{1F436}," +
+  "fox_face=\u{1F98A},bear=\u{1F43B},panda_face=\u{1F43C},unicorn=\u{1F984},bee=\u{1F41D}," +
+  "butterfly=\u{1F98B},turtle=\u{1F422},snake=\u{1F40D},octopus=\u{1F419},whale=\u{1F433}," +
+  "penguin=\u{1F427},owl=\u{1F989},bug=\u{1F41B},checkered_flag=\u{1F3C1},triangular_flag_on_post=\u{1F6A9},";
+
+let docEmojiTable = null;
+
+//: `[name, glyph]` pairs, parsed on first use.
+function docEmojiList() {
+  if (!docEmojiTable) {
+    docEmojiTable = DOC_EMOJI_SOURCE.split(",").filter(Boolean).map((pair) => {
+      const at = pair.indexOf("=");
+      return [pair.slice(0, at), pair.slice(at + 1)];
+    });
+  }
+  return docEmojiTable;
+}
+
+//: The shortcodes matching what was typed after the colon: names that start
+//: with it first, then names with a later word that starts with it (`:heart`
+//: finds `broken_heart`), at most `limit`.
+function docEmojiMatches(query, limit = 8) {
+  const q = String(query || "").toLowerCase();
+  if (!q) return [];
+  const all = docEmojiList();
+  //: The exact name first, then the shorter: `:heart` is the heart, not
+  //: `heart_eyes` because it happens to come first in the table.
+  const starts = all
+    .filter(([name]) => name.startsWith(q))
+    .sort((a, b) => (a[0] !== q) - (b[0] !== q) || a[0].length - b[0].length);
+  const words = all.filter(([name]) => !name.startsWith(q) && name.split("_").some((w) => w.startsWith(q)));
+  return [...starts, ...words].slice(0, limit);
+}
+
+//: The words that expand only on a line of their own (this section's header
+//: says why).
+const DOC_FILL_LINE_WORDS = new Set(["today", "date", "now", "time", "iso", "todo", "callout", "hr", "toc", "sig"]);
+
+//: **What the caret is at the end of, if it is something that expands.**
+//: `before` and `after` are the caret's line either side of it. Null inside a
+//: word (a caret in "lor|em" is somebody fixing a letter), and for anything
+//: that is not a trigger. `start` is the column the replacement begins at.
+function docFillToken(before, after) {
+  if (after && /^[\w:]/.test(after)) return null;
+  let m = /(^|[\s(])(:([a-z0-9_+-]{2,}))$/i.exec(before);
+  if (m) return { kind: "emoji", start: before.length - m[2].length, query: m[3] };
+  m = /(^|\s)(lorem(\d{0,4}))$/.exec(before);
+  if (m) return { kind: "lorem", start: before.length - m[2].length, count: Number(m[3]) || 0, token: m[2] };
+  if (!after.trim()) {
+    m = /^(\s*)(\/?table ?(\d{1,2})x(\d{1,2}))$/.exec(before);
+    if (m) return { kind: "table", start: m[1].length, cols: Number(m[3]), rows: Number(m[4]), token: m[2] };
+    m = /^(\s*)([a-z]+)$/.exec(before);
+    if (m && DOC_FILL_LINE_WORDS.has(m[2])) return { kind: m[2], start: m[1].length, token: m[2] };
+  }
+  return null;
+}
+
+//: **The rows the list offers for a token**: each `{label, detail, text}`,
+//: with `select` ([from, to] inside `text`) when part of it should be chosen
+//: after it lands. `ctx` is `{now, locale, name, doc, slug}`: everything that
+//: is not the token, passed in so this stays a pure function.
+function docFillOptions(tok, ctx) {
+  if (!tok) return [];
+  const now = ctx.now || new Date();
+  const date = (kind) => docFillDate(kind, now, ctx.locale);
+  switch (tok.kind) {
+    case "emoji":
+      return docEmojiMatches(tok.query).map(([name, glyph]) => ({
+        label: `:${name}:`, detail: "", glyph, text: glyph,
+      }));
+    case "lorem": {
+      const detail = tok.count
+        ? `${Math.min(tok.count, DOC_LOREM_MAX_WORDS)} words of filler text`
+        : "A paragraph of filler text";
+      return [{ label: tok.token, detail, text: docLorem(tok.count) }];
+    }
+    case "table": {
+      const t = docFillTable(tok.cols, tok.rows);
+      const c = Math.max(1, Math.min(12, tok.cols));
+      const r = Math.max(1, Math.min(50, tok.rows));
+      const detail = `A table, ${c} column${c === 1 ? "" : "s"} by ${r} row${r === 1 ? "" : "s"}`;
+      return [{ label: tok.token, detail, text: t.text, select: t.select }];
+    }
+    case "today":
+      return [
+        { label: "today", detail: date("today"), text: date("today") },
+        { label: "today", detail: date("iso"), text: date("iso") },
+      ];
+    case "date":
+      return [
+        { label: "date", detail: date("date"), text: date("date") },
+        { label: "date", detail: date("today"), text: date("today") },
+        { label: "date", detail: date("iso"), text: date("iso") },
+      ];
+    case "now":
+      return [{ label: "now", detail: date("now"), text: date("now") }];
+    case "time":
+      return [{ label: "time", detail: date("time"), text: date("time") }];
+    case "iso":
+      return [{ label: "iso", detail: date("iso"), text: date("iso") }];
+    case "todo":
+      return [{ label: "todo", detail: "A task to tick", text: "- [ ] " }];
+    case "hr":
+      return [{ label: "hr", detail: "A divider", text: "---\n" }];
+    case "callout":
+      return [
+        { label: "callout", detail: "A note box", text: "> [!note]\n> " },
+        { label: "callout", detail: "A tip box", text: "> [!tip]\n> " },
+        { label: "callout", detail: "A warning box", text: "> [!warning]\n> " },
+      ];
+    case "toc": {
+      const toc = docFillToc(ctx.doc, ctx.slug);
+      if (!toc) return [];
+      const n = toc.trim().split("\n").length;
+      return [{ label: "toc", detail: `Contents, ${n} heading${n === 1 ? "" : "s"}`, text: toc }];
+    }
+    case "sig": {
+      const sig = docFillSig(ctx.name);
+      return [{ label: "sig", detail: sig.detail, text: sig.text, select: sig.select }];
+    }
+    default:
+      return [];
+  }
+}
+
+//: What the ghost after the caret shows for a row: the first line of what it
+//: would write, cut to a glance.
+function docFillGhost(option) {
+  const first = String(option.text || "").split("\n")[0];
+  return first.length > 48 ? `${first.slice(0, 47)}…` : first;
+}
+
+//: A letter or a digit in any script, for the pairs below.
+const DOC_WORD_CHAR = /[\p{L}\p{N}]/u;
+
+//: **Smart quotes and dashes, for one typed character.** Returns
+//: `{back, insert}` (how many characters before the caret to replace, and with
+//: what) or null to type the character as it is. A quote opens after a space,
+//: an opening bracket or a dash, and closes anywhere else, which also makes the
+//: one in `don't` an apostrophe. Two hyphens become an em dash, the one dash
+//: every word processor makes from them; never at the start of a line, where
+//: `--` is on its way to a `---` divider or front matter, and never after a
+//: pipe or a colon, where it is a table's rule. Inside `inline code` nothing
+//: changes (an odd number of backticks before the caret).
+function docSmartPunct(before, ch) {
+  if (((before.match(/`/g) || []).length % 2) === 1) return null;
+  if (ch === '"' || ch === "'") {
+    const prev = before.slice(-1);
+    const opens = !prev || /[\s([{\u2014\u2013-]/.test(prev);
+    if (ch === '"') return { back: 0, insert: opens ? "“" : "”" };
+    return { back: 0, insert: opens ? "‘" : "’" };
+  }
+  if (ch === "-" && before.endsWith("-")) {
+    if (/^\s*-$/.test(before) || /[|:]\s*-$/.test(before) || before.endsWith("--")) return null;
+    return { back: 1, insert: "\u2014" };
+  }
+  return null;
+}
+
+//: The characters that pair, and what closes each.
+const DOC_PAIR_CLOSE = { "(": ")", "[": "]", "{": "}", "`": "`", "_": "_", "*": "*" };
+const DOC_PAIR_CLOSERS = new Set([")", "]", "}"]);
+
+//: **Pairs, for one typed character.** Returns `{insert, caret}` (the text
+//: that replaces the selection and where in it the caret lands), `{insert,
+//: select}` (the part of it to select), `{step: 1}` (type nothing, move past
+//: the closer) or null to type the character as it is; `removeAfter` is how
+//: many characters after the caret go too. `markdown` is false for a plain
+//: text file, which pairs brackets and nothing else.
+//:
+//: - A selection is wrapped, and stays selected, so `*` twice makes it bold.
+//: - A bracket closes itself before a space, the end of the line or a closer;
+//:   its closer typed in front of itself is stepped over. `[` typed inside an
+//:   empty `[]` gives `[[` with no closers, because the `[[` link menu writes
+//:   its own `]]` (editor.js's `editorRunItem`).
+//: - A backtick pairs away from a word and never after another one, so three
+//:   typed in a row are a fence, not a pair and a spare.
+//: - `*` does not pair alone (a bullet, `2*3`); the second of two opens bold,
+//:   `**|**`. `_` pairs alone away from a word (never in `snake_case`), and the
+//:   second makes `__|__`. A third in an empty double pair is a divider
+//:   (`***`), so the pairs collapse.
+//: - The closer of an emphasis, typed after a word, steps over.
+function docPairInput(before, after, ch, selected, markdown = true) {
+  const next = after[0] || "";
+  if (!(ch in DOC_PAIR_CLOSE)) {
+    if (DOC_PAIR_CLOSERS.has(ch) && next === ch) return { step: 1 };
+    return null;
+  }
+  const isBracket = ch === "(" || ch === "[" || ch === "{";
+  if (!markdown && !isBracket) return null;
+  const close = DOC_PAIR_CLOSE[ch];
+  if (selected) return { insert: `${ch}${selected}${close}`, select: [1, 1 + selected.length] };
+  const prev = before.slice(-1);
+  const prev2 = before.slice(-2, -1);
+  const clear = !next || /[\s)\]}.,;:!?]/.test(next);
+  const opening = (c) => !c || /[\s([{>"'“‘]/.test(c);
+  if (isBracket) {
+    if (ch === "[" && prev === "[" && next === "]") return { insert: "[", caret: 1, removeAfter: 1 };
+    if (!clear) return null;
+    return { insert: `${ch}${close}`, caret: 1 };
+  }
+  if (ch === "`") {
+    if (next === "`") return { step: 1 };
+    if (prev === "`" || DOC_WORD_CHAR.test(prev) || !clear) return null;
+    return { insert: "``", caret: 1 };
+  }
+  // `*` and `_`.
+  if (next === ch) {
+    if (before.endsWith(ch + ch) && after.startsWith(ch + ch) && opening(before.slice(-3, -2))) {
+      return { insert: ch, caret: 1, removeAfter: 2 };
+    }
+    if (prev === ch && opening(prev2)) return { insert: ch + ch, caret: 1 };
+    if (prev && !/\s/.test(prev)) return { step: 1 };
+    return null;
+  }
+  if (!clear) return null;
+  if (ch === "*") return prev === "*" && opening(prev2) ? { insert: "***", caret: 1 } : null;
+  return opening(prev) ? { insert: "__", caret: 1 } : null;
+}
+
+//: Backspace between the two halves of an empty pair takes both. Returns how
+//: many characters to delete on each side, or 0 to leave Backspace alone.
+function docPairBackspace(before, after) {
+  const prev = before.slice(-1);
+  const next = after[0];
+  if (!prev || !next || DOC_PAIR_CLOSE[prev] !== next) return 0;
+  if (prev === "*" && !(before.endsWith("**") && after.startsWith("**"))) return 0;
+  return 1;
+}
+//: **Enter on an empty list item ends the list, or steps it out one level.**
+//: The markdown keymap's own answer (`insertNewlineContinueMarkup`) to an
+//: empty item in a tight list is to make the list loose: measured, `- [ ] Buy
+//: milk`, Enter, Enter left `- [ ] Buy milk`, a blank line and a fresh empty
+//: item, so leaving a list took three presses and changed its spacing on the
+//: way. Every editor the owner compares this with ends the list on the second
+//: Enter. Returns the line's new text, or null when the line is not an empty
+//: item (the keymap's continuation then runs as before).
+function docListEnter(line) {
+  const m = /^(\s*)(?:[-*+]|\d{1,9}[.)])(?: \[[ xX]\])? ?$/.exec(line);
+  if (!m) return null;
+  const indent = m[1];
+  if (!indent) return "";
+  //: One level out: a tab, or four spaces where the indent is in fours, or two.
+  if (indent.endsWith("\t")) return line.slice(1);
+  const step = indent.length >= 4 && indent.length % 4 === 0 ? 4 : 2;
+  return line.slice(Math.min(step, indent.length));
+}
+// PROSE-FILL-END
+
+//: Whether the open document is prose for these purposes: markdown and plain
+//: text, never a code file (which has its own list) or CSV.
+function docProseFillOn() {
+  if (typeof docFileType !== "function") return false;
+  const ext = docFileType().ext;
+  return ext === "md" || ext === "txt";
+}
+
+//: The Settings switch; off unless turned on.
+function docSmartPunctOn() {
+  return typeof prefsCache === "object" && !!prefsCache && prefsCache.smart_punctuation === true;
+}
+
+//: Inside a fenced or indented code block, inline code or raw HTML, by the
+//: parse. The pure functions above see one line; this is the part only the
+//: tree knows.
+function docInCodeAt(CM, state, pos) {
+  if (docFileType().ext !== "md") return false;
+  let node = CM.language.syntaxTree(state).resolveInner(pos, -1);
+  for (let k = 0; node && k < 6; node = node.parent, k += 1) {
+    if (/^(FencedCode|CodeBlock|InlineCode|CodeText|HTMLBlock)$/.test(node.name)) return true;
+  }
+  return false;
+}
+
+//: **The one typed-character hook for the pairs and the smart punctuation.**
+//: An input handler rather than a keymap because it has to see the character
+//: after the keyboard layout has made it (a `"` is Shift+2 on some layouts and
+//: its own key on others). Never during an IME composition, never in a code
+//: file, never inside code.
+function docProseInputHandler(CM) {
+  return CM.view.EditorView.inputHandler.of((view, from, to, text) => {
+    if (view.composing || text.length !== 1 || !docProseFillOn()) return false;
+    const state = view.state;
+    if (state.selection.ranges.length > 1) return false;
+    const line = state.doc.lineAt(from);
+    if (to > line.to) return false;
+    const before = line.text.slice(0, from - line.from);
+    const after = line.text.slice(to - line.from);
+    const markdown = docFileType().ext === "md";
+    if (markdown && docInCodeAt(CM, state, from)) return false;
+    const pair = docPairInput(before, after, text, state.sliceDoc(from, to), markdown);
+    if (pair) {
+      if (pair.step) {
+        view.dispatch({ selection: { anchor: from + pair.step }, userEvent: "input.type" });
+        return true;
+      }
+      const selection = pair.select
+        ? { anchor: from + pair.select[0], head: from + pair.select[1] }
+        : { anchor: from + pair.caret };
+      view.dispatch({
+        changes: { from, to: to + (pair.removeAfter || 0), insert: pair.insert },
+        selection,
+        userEvent: "input.type",
+      });
+      return true;
+    }
+    if (from === to && docSmartPunctOn()) {
+      const smart = docSmartPunct(before, text);
+      if (smart) {
+        const start = from - smart.back;
+        view.dispatch({
+          changes: { from: start, to, insert: smart.insert },
+          selection: { anchor: start + smart.insert.length },
+          userEvent: "input.type",
+        });
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
+//: The ghost after the caret: the rest of the chosen word, or the first line
+//: of what the chosen expansion would write. Set by `renderDocComplete` in
+//: documents.js through `docProseGhostSet`, which asks the view to repaint on
+//: the next microtask (it is called from inside the view's own update, where a
+//: dispatch is refused).
+let docProseGhost = null;
+let docProseGhostEffect = null;
+let docProseGhostCache = null;
+
+function docProseGhostSet(pos, text) {
+  const next = pos === null || !text ? null : { pos, text };
+  const same = (a, b) => (!a && !b) || (a && b && a.pos === b.pos && a.text === b.text);
+  if (same(docProseGhost, next)) return;
+  docProseGhost = next;
+  if (!docProseGhostEffect || typeof docCmView === "undefined" || !docCmView) return;
+  queueMicrotask(() => {
+    try {
+      docCmView?.dispatch({ effects: docProseGhostEffect.of(null) });
+    } catch {
+      /* the view was swapped between the call and the microtask */
+    }
+  });
+}
+
+function docProseGhostPlugin(CM) {
+  if (docProseGhostCache) return docProseGhostCache;
+  const { Decoration, ViewPlugin, WidgetType } = CM.view;
+  docProseGhostEffect = CM.state.StateEffect.define();
+  class Ghost extends WidgetType {
+    constructor(text) {
+      super();
+      this.text = text;
+    }
+    eq(other) {
+      return other.text === this.text;
+    }
+    toDOM() {
+      const span = document.createElement("span");
+      //: The code side's own class, so the two ghosts are one look.
+      span.className = "cm-ghostText";
+      span.setAttribute("aria-hidden", "true");
+      span.textContent = this.text;
+      return span;
+    }
+    ignoreEvent() {
+      return true;
+    }
+  }
+  const build = (state) => {
+    const g = docProseGhost;
+    const range = state.selection.main;
+    if (!g || !range.empty || range.head !== g.pos || g.pos > state.doc.length) return Decoration.none;
+    return Decoration.set([Decoration.widget({ widget: new Ghost(g.text), side: 1 }).range(g.pos)]);
+  };
+  docProseGhostCache = ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.decorations = build(view.state);
+      }
+      update(update) {
+        this.decorations = build(update.state);
+      }
+    },
+    { decorations: (plugin) => plugin.decorations }
+  );
+  return docProseGhostCache;
+}
+
+//: Backspace in an empty pair, and Enter on an empty list item, ahead of the
+//: editor's own.
+function docProsePairKeymap(CM) {
+  return CM.state.Prec.high(CM.view.keymap.of([{
+    key: "Enter",
+    run: (view) => {
+      if (!docProseFillOn() || docFileType().ext !== "md") return false;
+      const range = view.state.selection.main;
+      if (!range.empty || view.state.selection.ranges.length > 1) return false;
+      const line = view.state.doc.lineAt(range.head);
+      if (range.head !== line.to || docInCodeAt(CM, view.state, range.head)) return false;
+      const next = docListEnter(line.text);
+      if (next === null) return false;
+      view.dispatch({
+        changes: { from: line.from, to: line.to, insert: next },
+        selection: { anchor: line.from + next.length },
+        userEvent: "input",
+      });
+      return true;
+    },
+  }, {
+    key: "Backspace",
+    run: (view) => {
+      if (!docProseFillOn()) return false;
+      const range = view.state.selection.main;
+      if (!range.empty || view.state.selection.ranges.length > 1) return false;
+      const line = view.state.doc.lineAt(range.head);
+      const col = range.head - line.from;
+      const n = docPairBackspace(line.text.slice(0, col), line.text.slice(col));
+      if (!n) return false;
+      view.dispatch({
+        changes: { from: range.head - n, to: range.head + n },
+        selection: { anchor: range.head - n },
+        userEvent: "delete.backward",
+      });
+      return true;
+    },
+  }]));
+}
+
+//: Everything above, as one set of extensions for `docProseToolExtensions`.
+function docProseFillExtensions(CM) {
+  return [docProseInputHandler(CM), docProseGhostPlugin(CM), docProsePairKeymap(CM)];
+}

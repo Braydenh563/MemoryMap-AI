@@ -1455,35 +1455,83 @@ const BG_ART_BUILDERS = {
   // each colony is a strain of the display name, and its hue, how often it
   // branches, how wide the branches split, how much the threads curl, how
   // fast they grow, how thick they are and whether it sets nodes where it
-  // forks are all read from the strain's letters. Colonies germinate from
-  // spores, spread, rest, fade and grow again somewhere else. Growth is
-  // drawn once and kept (only the new segment of each thread is drawn a
-  // frame), so a frame costs the growing tips and nothing else. Tips live in
-  // typed arrays, and each frame's new segments go into preallocated
-  // buffers, one per colony and thickness, stroked as one path each.
+  // forks are all read from the strain's letters. Growth is drawn once and
+  // kept (only the new segment of each thread is drawn a frame), so a frame
+  // costs the growing tips and nothing else. Tips live in typed arrays, and
+  // each frame's new segments go into preallocated buffers, one per colony
+  // and thickness, stroked as one path each.
+  //
+  // **Where it starts and how it ends** (the owner: "the start points need
+  // to be more organic and also the transition between them disappearing
+  // and reappearing needs to be smoother and maybe faded"). A colony's
+  // spores are scattered with a minimum distance between them (never a grid,
+  // never a ring), each sends out two to five threads at uneven angles from
+  // a few pixels apart, and each thread waits its own moment to start, so a
+  // colony wakes up rather than bursting out of a point. A generation's
+  // first strokes are laid down faint and strengthen over two seconds, so
+  // every thread fades in from its spore. And a generation does not vanish:
+  // the next one germinates on a second canvas (`twin`, from the runtime)
+  // while the old canvas fades out over about two seconds by its own
+  // opacity, which the compositor does for free; the old one is cleared only
+  // once it is invisible. The fade used to be `destination-out` over the
+  // whole window for 75 frames, then a hard clear and every colony at once.
   mycelium(p, ctx) {
     const FORMS = ["hyphae", "rhizome", "lace"];
     const WIDTHS = [0.55, 1, 1.7];
+    const FADE_IN = 60; // frames over which a generation's strokes reach full strength
+    const FADE_OUT = 56; // frames over which the old generation's canvas fades
     let W = 0, H = 0, maxTips = 0, n = 0;
-    let TX, TY, TA, TW, TL, TG, TC;
+    let TX, TY, TA, TW, TL, TG, TC, TD;
     let SEG, SEGN, NODE, NODEC, nNodes = 0;
     const colonies = [];
-    let phase = "grow", phaseFrame = 0;
+    let phase = "grow", phaseFrame = 0, growFrame = 0;
     let tipFill = "";
     const ink = ctx.dark ? 68 : 40;
+    // The two canvases a moving mycelium alternates between, and the
+    // opacity strings a fade steps through (built once: a fade is a string
+    // assignment a frame, not a string built a frame).
+    let layers = null, cur = 0, fading = -1, fadeFrame = 0;
+    const FADE_STEPS = 24;
+    const fadeOpacity = [];
+    for (let k = 0; k <= FADE_STEPS; k++) {
+      fadeOpacity.push(`calc(var(--bg-art-opacity, 0.9) * ${(k / FADE_STEPS).toFixed(3)})`);
+    }
+    // The spores placed this generation, x and y (a buffer made once).
+    let spores = null;
 
     const germinate = () => {
       n = 0;
+      growFrame = 0;
+      let ns = 0;
+      const gap = Math.min(W, H) * 0.2;
       for (let ci = 0; ci < colonies.length; ci++) {
         const col = colonies[ci];
-        const spores = 1 + (p.random() < 0.5 ? 1 : 0);
-        for (let s = 0; s < spores; s++) {
-          const x = p.random(W * 0.08, W * 0.92), y = p.random(H * 0.1, H * 0.9);
-          const count = 3 + Math.floor(p.random(3));
+        const count = 1 + (p.random() < 0.6 ? 1 : 0) + (p.random() < 0.2 ? 1 : 0);
+        for (let s = 0; s < count && ns < spores.length / 2; s++) {
+          // The first place far enough from every spore so far, from a
+          // dozen tries; the last try stands if none is (a crowded window
+          // still gets its colonies).
+          let x = 0, y = 0;
+          for (let tries = 0; tries < 12; tries++) {
+            x = p.random(W * 0.05, W * 0.95);
+            y = p.random(H * 0.07, H * 0.93);
+            let clear = true;
+            for (let k = 0; k < ns; k++) {
+              const dx = spores[k * 2] - x, dy = spores[k * 2 + 1] - y;
+              if (dx * dx + dy * dy < gap * gap) { clear = false; break; }
+            }
+            if (clear) break;
+          }
+          spores[ns * 2] = x; spores[ns * 2 + 1] = y; ns++;
+          const threads = 2 + Math.floor(p.random(4));
           const turn = p.random(Math.PI * 2);
-          for (let k = 0; k < count && n < maxTips; k++) {
-            TX[n] = x; TY[n] = y; TA[n] = turn + (k / count) * Math.PI * 2;
-            TW[n] = col.weight; TL[n] = p.random(260, 420); TG[n] = 0; TC[n] = ci;
+          for (let k = 0; k < threads && n < maxTips; k++) {
+            TX[n] = x + p.random(-7, 7); TY[n] = y + p.random(-7, 7);
+            TA[n] = turn + ((k + p.random(-0.38, 0.38)) / threads) * Math.PI * 2;
+            TW[n] = col.weight * p.random(0.75, 1.1);
+            TL[n] = p.random(220, 440); TG[n] = 0; TC[n] = ci;
+            // Each thread starts in its own time, the first at once.
+            TD[n] = k === 0 ? 0 : Math.floor(p.random(8, 90));
             n++;
           }
         }
@@ -1501,8 +1549,10 @@ const BG_ART_BUILDERS = {
     const grow = (g) => {
       SEGN.fill(0);
       nNodes = 0;
+      growFrame++;
       const count = n;
       for (let i = 0; i < count; i++) {
+        if (TD[i] > 0) { TD[i]--; continue; }
         const ci = TC[i], col = colonies[ci];
         TA[i] += (bgFlow(TX[i] * 0.008 + col.seed, TY[i] * 0.008) - 0.5) * col.curl * 2.2;
         const nx = TX[i] + Math.cos(TA[i]) * col.step;
@@ -1523,9 +1573,9 @@ const BG_ART_BUILDERS = {
         }
         if (n < maxTips && TG[i] < 7 && p.random() < col.branch) {
           const side = p.random() < 0.5 ? -1 : 1;
-          TX[n] = nx; TY[n] = ny; TA[n] = TA[i] + side * col.angle;
+          TX[n] = nx; TY[n] = ny; TA[n] = TA[i] + side * col.angle * p.random(0.7, 1.3);
           TW[n] = TW[i] * 0.78; TL[n] = TL[i] * p.random(0.55, 0.85);
-          TG[n] = TG[i] + 1; TC[n] = ci;
+          TG[n] = TG[i] + 1; TC[n] = ci; TD[n] = 0;
           n++;
           if (col.form === "lace") addNode(ci, nx, ny, TW[i] * 1.6);
         }
@@ -1535,9 +1585,12 @@ const BG_ART_BUILDERS = {
         n--;
         if (i !== n) {
           TX[i] = TX[n]; TY[i] = TY[n]; TA[i] = TA[n]; TW[i] = TW[n];
-          TL[i] = TL[n]; TG[i] = TG[n]; TC[i] = TC[n];
+          TL[i] = TL[n]; TG[i] = TG[n]; TC[i] = TC[n]; TD[i] = TD[n];
         }
       }
+      // The fade in: a generation's first strokes are faint and the later
+      // ones full, so each thread strengthens away from its spore.
+      g.globalAlpha = growFrame < FADE_IN ? 0.15 + 0.85 * (growFrame / FADE_IN) : 1;
       g.lineCap = "round";
       for (let ci = 0; ci < colonies.length; ci++) {
         const col = colonies[ci];
@@ -1562,11 +1615,13 @@ const BG_ART_BUILDERS = {
         g.arc(NODE[k * 3], NODE[k * 3 + 1], Math.max(1.2, NODE[k * 3 + 2]), 0, Math.PI * 2);
         g.fill();
       }
+      g.globalAlpha = 1;
     };
 
     return {
       background: "keep",
       seeded: true,
+      twin: true,
       darkCap: 0.1,
       lightFloor: 0.3,
       init() {
@@ -1594,10 +1649,14 @@ const BG_ART_BUILDERS = {
         TX = new Float32Array(maxTips); TY = new Float32Array(maxTips);
         TA = new Float32Array(maxTips); TW = new Float32Array(maxTips);
         TL = new Float32Array(maxTips); TG = new Uint8Array(maxTips); TC = new Uint8Array(maxTips);
+        TD = new Uint8Array(maxTips);
         SEG = new Float32Array(colonies.length * 3 * maxTips * 4);
         SEGN = new Int32Array(colonies.length * 3);
         NODE = new Float32Array(maxTips * 2 * 3);
         NODEC = new Uint8Array(maxTips * 2);
+        spores = new Float32Array(colonies.length * 3 * 2);
+        layers = [{ canvas: p.canvas, g: p.drawingContext, clear: () => p.clear() }];
+        if (p.twin) layers.push(p.twin);
         p.clear();
         germinate();
       },
@@ -1606,29 +1665,46 @@ const BG_ART_BUILDERS = {
         for (let i = 0; i < 420 && n; i++) grow(g);
       },
       frame() {
-        const g = p.drawingContext;
+        const layer = layers[cur];
+        const g = layer.g;
         phaseFrame++;
+        if (fading >= 0) {
+          // The old generation fades by its canvas's opacity, then is
+          // cleared and put back to full strength, empty, for next time.
+          fadeFrame++;
+          const old = layers[fading];
+          const k = Math.max(0, FADE_STEPS - Math.round((fadeFrame / FADE_OUT) * FADE_STEPS));
+          old.canvas.style.opacity = fadeOpacity[k];
+          if (fadeFrame >= FADE_OUT) {
+            old.clear();
+            old.canvas.style.opacity = "";
+            fading = -1;
+          }
+        }
         if (phase === "grow") {
           grow(g);
           // Growing tips glow faintly: the living front of the colony.
           if (ctx.dark) g.globalCompositeOperation = "lighter";
           g.fillStyle = tipFill;
-          for (let i = 0; i < n; i++) g.fillRect(TX[i] - 1, TY[i] - 1, 2, 2);
+          // Whole pixels: every fractional argument to a canvas call is
+          // boxed, an allocation each, and a tip needs no finer place.
+          for (let i = 0; i < n; i++) if (!TD[i]) g.fillRect((TX[i] - 1) | 0, (TY[i] - 1) | 0, 2, 2);
           g.globalCompositeOperation = "source-over";
           if (!n || phaseFrame > 1500) { phase = "rest"; phaseFrame = 0; }
-        } else if (phase === "rest") {
-          if (phaseFrame > 240) { phase = "fade"; phaseFrame = 0; }
-        } else if (phaseFrame > 75) {
-          // The last few alpha levels do not round away in eight bits, so
-          // the end of the fade clears outright before the next colonies
-          // germinate.
-          p.clear();
-          germinate();
-        } else {
-          g.globalCompositeOperation = "destination-out";
-          g.fillStyle = "rgba(0,0,0,0.06)";
-          g.fillRect(0, 0, W, H);
-          g.globalCompositeOperation = "source-over";
+        } else if (phase === "rest" && phaseFrame > 240 && fading < 0) {
+          if (layers.length > 1) {
+            // Hand over: this generation fades while the next grows on the
+            // other canvas.
+            fading = cur;
+            fadeFrame = 0;
+            cur = 1 - cur;
+            germinate();
+          } else {
+            // No second canvas (a moving mycelium always has one): clear
+            // and start again.
+            layer.clear();
+            germinate();
+          }
         }
       },
     };
@@ -1790,12 +1866,13 @@ function bgArtHalt(handingOver = false) {
     else bgArtInstance.remove();
     bgArtInstance = null;
   }
-  if (canvas) {
+  for (const el of [canvas, document.getElementById("bg-art-twin")]) {
+    if (!el) continue;
     if (handingOver) {
-      canvas.id = "";
-      bgArtRetiring.push([canvas, ""]);
+      el.id = "";
+      bgArtRetiring.push([el, ""]);
     } else {
-      canvas.remove();
+      el.remove();
     }
   }
   if (bgArtLayer) bgArtRetiring.push([bgArtLayer, bgArtStillUrl]);
@@ -1854,6 +1931,19 @@ function bgArtRun(o) {
   // Getters rather than copies: the frame counter moves.
   Object.defineProperty(shim, "frameCount", { get: () => surface.frameCount });
   bgArtSeedUsed = style.seeded ? bgArtSeedOf(o.seedText) : null;
+  // A second canvas the same size, for a style that cross-fades one
+  // picture into the next (the mycelium's generations): the old picture
+  // fades by its element's opacity, which costs the page nothing a frame.
+  // Only while moving; a still frame is one picture.
+  let twin = null;
+  if (style.twin && !o.still) {
+    const t = bgArtSurface(pd, Math.min(style.pixelDensityY || pd, pd));
+    t.canvas.id = "bg-art-twin";
+    t.canvas.className = "bg-art-canvas";
+    t.canvas.setAttribute("aria-hidden", "true");
+    twin = { canvas: t.canvas, g: t.drawingContext, clear: t.clear };
+  }
+  shim.twin = twin;
   const { canvas, drawingContext: g } = surface;
   canvas.id = "bg-art-canvas";
   canvas.className = "bg-art-canvas";
@@ -1893,6 +1983,7 @@ function bgArtRun(o) {
   }
 
   document.body.appendChild(canvas);
+  if (twin) document.body.appendChild(twin.canvas);
   retire();
   let raf = 0, looping = false, last = 0;
   const handle = {
@@ -1925,6 +2016,7 @@ function bgArtRun(o) {
     remove() {
       handle.noLoop();
       canvas.remove();
+      if (twin) twin.canvas.remove();
     },
   };
   // A timestamp gate: the browser offers every display frame, and a frame

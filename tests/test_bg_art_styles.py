@@ -315,3 +315,23 @@ def test_the_contrast_guards_bound_every_colour_a_style_builds(genome):
     for name in ("aurora", "constellation", "mycelium", "mesh"):
         assert "darkCap:" in _chunks()[name], name
     assert "bgLumCap = 0;" in styles and "bgLumFloor = 0;" in styles
+
+
+def test_mycelium_cross_fades_its_generations():
+    """The owner: the hand-over "needs to be smoother and maybe faded". A
+    generation fades out on its own canvas while the next grows on the twin
+    the runtime gives it, instead of a window-wide `destination-out` and a
+    hard clear; and its spores are scattered, never a ring of even angles."""
+    body = _chunks()["mycelium"]
+    assert "twin: true" in body
+    assert "destination-out" not in body
+    assert "canvas.style.opacity = fadeOpacity[" in body
+    # Uneven angles and staggered starts.
+    assert "p.random(-0.38, 0.38)" in body and "TD[n] =" in body
+    runtime = BG_ART.read_text(encoding="utf-8")
+    run = runtime[runtime.index("function bgArtRun(") :]
+    assert 'id = "bg-art-twin"' in run and "style.twin && !o.still" in run
+    # Removed with the canvas, and handed over with it.
+    assert "twin.canvas.remove()" in run
+    halt = runtime[runtime.index("function bgArtHalt(") :]
+    assert 'getElementById("bg-art-twin")' in halt[: halt.index("\n}\n")]

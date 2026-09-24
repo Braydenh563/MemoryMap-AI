@@ -175,7 +175,7 @@ async function busy(page, secs) {
 }
 
 // CPU milliseconds per second of the whole browser (every process under
-// the browser's own pid), from /proc.
+// `root`, not counting `root` itself), from /proc.
 function treeTicks(root) {
   const fs = require('fs');
   const kids = new Map();
@@ -190,7 +190,7 @@ function treeTicks(root) {
   let total = 0;
   const walk = (pid) => {
     const me = kids.get(pid);
-    if (me) total += me.ticks;
+    if (me && pid !== root) total += me.ticks;
     for (const [k, v] of kids) if (v.ppid === pid) walk(k);
   };
   walk(root);
@@ -220,7 +220,9 @@ async function rafCount(page) {
 
 (async () => {
   const browser = await chromium.launch({ args: ['--enable-precise-memory-info'] });
-  const pid = browser.process ? browser.process().pid : 0;
+  // Playwright spawns the browser from this process, so the browser's
+  // processes are this one's descendants (this one's own ticks excluded).
+  const pid = process.pid;
   if (STILL) {
     // The baseline: the app on its own still requests animation frames and
     // allocates (the header emblem is a p5 sketch too, which is why p5's

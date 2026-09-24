@@ -1524,3 +1524,76 @@ avatars.js.
   character's own set by trait (a flyer flies in, a light one jumps in from
   the side, a climber comes down from the top edge or up a panel, a mystic
   one teleports with a soft fade), never across the user's work area.
+  The owner, next: "I dont just want it constantly teleporting or fading
+  instantly to a different part of the screen as it is distracting. maybe
+  there can be an astral or ghost mode for it to be less obvious that it is
+  there?? and it can be dynamically togglable and intent recognition driven
+  if the dynamic toggling is on?? it needs a full professional ai behaviour
+  design and system ... that is still cheap and affordable."
+
+  Behaviour system design (the spec the companion agent builds to):
+  - What exists (avatars.js): one timer (`nameMarkBuddyTick`, every 20 to
+    60s), a weighted utility pick (`nameMarkBuddyDecide`) over
+    `NAME_MARK_BUDDY_ACTS` shaped by a slow mood (energy, curiosity,
+    sociability), drowsy and sleep by idle time, and `nameMarkBuddyCue`
+    for app events. Keep all of it. The fault is placement: every tab
+    change re-places it after 450ms and 1400ms, and `nameMarkBuddyCheck`
+    moves it whenever the tab differs. That goes.
+  - Three layers, each a pure function with its own tests:
+    1. Perception: counters updated from events the app already fires
+       (keydown in an editor, pointer move and dwell, scroll, tab reveal,
+       chat streaming, focus mode, `visibilitychange`). They are passive
+       listeners that bump a number and read no layout.
+    2. Intent (`nameMarkBuddyIntent(signals, now)`), one of: `focus`
+       (about 20 or more keys in 30s in an editor or the chat box, or
+       Documents focus mode), `reading` (scrolling, little typing),
+       `browsing` (3 or more tab changes in 20s), `idle` (no input 60s),
+       `away` (hidden or no input 5 min), `engaged` (pointer on the
+       companion, drag, click, its menu open). Hysteresis: an intent
+       holds at least 5s, and `focus` ends 5s after typing stops.
+    3. Behaviour: the existing utility pick for acts, plus a small
+       location machine: `settled` (pastimes: meditate, fish off a panel
+       edge, doze, fidget, look around) -> `restless` (the noticed cue:
+       glance toward the new page, crest or ear flick) -> `travelling` ->
+       `arriving` -> `settled`.
+  - Home page by dwell: each page keeps a decayed score of time spent on
+    it (half-life about 3 minutes); home is the top score. A new drive,
+    belonging, rises while the user is off home: full rate awake, 0.3x
+    meditating, 0.15x asleep. It follows when belonging is past the
+    threshold AND the current page's score is at least 1.5x home's. In
+    practice that is 8 to 12s awake, 25 to 40s asleep or meditating,
+    never while `browsing`, and at once when `engaged` (a disturbance).
+    At most one move every 2 minutes unless disturbed. Covering a
+    control still gets a step aside on the same page, never a page jump.
+  - Presence, a setting under Appearance > Companion with three values
+    (and in its right-click menu): Always visible; Fades while you work
+    (the default: astral while the intent is `focus` or `reading`,
+    visible otherwise); Always astral. Astral: about 30% opacity, tinted
+    toward the palette's violet, a faint rim glow, breathing only (no
+    pastimes), `pointer-events: none` so it never catches a click, and
+    back to full on hover or on `engaged`. The switch is a 600ms opacity
+    and filter transition, never a pop.
+  - Travel, never a jump across the screen: the route runs along the
+    screen edges and the bottom bar, away from the focus region (the
+    focused element's box, the caret's pane, the hovered pane). It
+    travels in astral form when presence allows, so the trip is barely
+    visible. Arrival is chosen by the character's traits: a flyer flies
+    in, a light one hops in from the side edge, a climber comes down from
+    the top or up a panel side, a mystic one reforms with a slow 800ms
+    dissolve. Only a mystic one ever teleports, and only when the edge
+    route is blocked. Travel takes 1.5 to 4s.
+  - Cheap by construction: one timer, no rAF except while travelling or
+    during an arrival, transform and opacity only, layout read only at a
+    decision (at most one per tick), nothing at all while the document is
+    hidden. Low power (`hardwareConcurrency <= 4` or `saveData`): half the
+    pastimes and presence fades without the glow. Reduced motion: no
+    travel animation, an opacity cross-fade only.
+  - Tests first, on the pure functions with a fake clock: intent from
+    signal sequences; follow timing (awake, asleep, meditating,
+    disturbed); no move while browsing; at most one move in 2 minutes.
+  - Done when (measured in a Playwright probe, with the numbers in the
+    report): flicking across 6 tabs for 60s gives 0 relocations; settled
+    12s awake gives 1; asleep, none before 25s; typing 40 keys in the
+    editor gives astral within 2s and visible within 6s of stopping; 0
+    instant repositions (every move has a travel or arrival phase); tick
+    main-thread time under 1ms and no long tasks from the companion.

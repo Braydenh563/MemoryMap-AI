@@ -16,7 +16,9 @@ const STATES = [
 ];
 
 (async () => {
-  const { page, browser, OUT } = await boot({ viewport: { width: 1200, height: 800 }, deviceScaleFactor: 3 });
+  const scale = Number(process.env.SCALE || 3);
+  const only = (process.env.STATES || "").split(",").filter(Boolean);
+  const { page, browser, OUT } = await boot({ viewport: { width: 1200, height: 800 }, deviceScaleFactor: scale });
   const theme = process.env.THEME || "light";
   await page.evaluate((motion) => {
     document.documentElement.dataset.avatarMotion = motion;
@@ -29,7 +31,7 @@ const STATES = [
   }, process.env.MOTION || "off");
   await page.waitForTimeout(600);
   const shots = [];
-  for (const [label, pose, classes] of STATES) {
+  for (const [label, pose, classes] of STATES.filter(([l]) => !only.length || only.includes(l))) {
     const ok = await page.evaluate(([pose, classes]) => {
       const buddy = document.getElementById("nm-buddy");
       if (!buddy || !buddy.querySelector(".atl-figure")) return false;
@@ -54,10 +56,11 @@ const STATES = [
   const fs = require("fs");
   const data = shots.map(([label, file]) => [label, fs.readFileSync(file).toString("base64")]);
   const sheet = await browser.newPage({ viewport: { width: 1100, height: 520 } });
-  await sheet.setContent(`<body style="margin:0;background:${theme === "dark" ? "#18181b" : "#f4f3ef"};font:13px sans-serif;display:grid;grid-template-columns:repeat(9,120px);gap:4px;padding:8px">${data
-    .map(([l, b]) => `<figure style="margin:0;text-align:center"><img src="data:image/png;base64,${b}" width="120"><figcaption>${l}</figcaption></figure>`)
+  const scaleLabel = scale;
+  await sheet.setContent(`<body style="margin:0;background:${theme === "dark" ? "#18181b" : "#f4f3ef"};font:13px sans-serif;display:grid;grid-template-columns:repeat(${Math.min(9, Math.floor(1080 / (40 * scale)))},${40 * scale}px);gap:4px;padding:8px">${data
+    .map(([l, b]) => `<figure style="margin:0;text-align:center"><img src="data:image/png;base64,${b}" width="${40 * scale}"><figcaption>${l}</figcaption></figure>`)
     .join("")}</body>`);
-  const out = `${OUT}/atlas-poses-${theme}.png`;
+  const out = `${OUT}/atlas-poses-${theme}-x${scaleLabel}.png`;
   await sheet.screenshot({ path: out, fullPage: true });
   console.log(shots.length, "states", out);
   await browser.close();

@@ -39,6 +39,7 @@ from memorymap.ai import (
     presets,
     skill_runner,
     skills,
+    tool_fallback,
     tools,
     vision_ocr,
 )
@@ -1622,9 +1623,20 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         surface=ASK_SURFACE if (req.body.notes_only or not req.use_tools) else AGENT_SURFACE,
     )
     ollama_running = req.ollama.is_running()
+    #: INBOX 302 (the owner, 2026-09-24: needle "Yes, as an extra"): with no
+    #: backend answering, a turn that may use tools can still run them
+    #: through the needle extra when it is installed (`ai/tool_fallback.py`
+    #: says why the order is what it is). Only the agent branch below uses
+    #: it: needle writes no prose, so a plain answer or a skill's written
+    #: steps still need a model server, and `ollama_running` keeps saying
+    #: the truth about that one.
+    tools_provider = req.ollama
+    if not ollama_running and req.use_tools and not req.skill:
+        tools_provider = tool_fallback.for_tools(req.ollama) or req.ollama
+    tools_only = tools_provider is not req.ollama
     # In agent mode the model can act even when nothing matched, "save a
     # note about X" must work on an empty notebook.
-    will_answer = ollama_running and (
+    will_answer = (ollama_running or tools_only) and (
         bool(prepared["notes"])
         or bool(req.images_raw)
         or req.use_tools
@@ -1639,7 +1651,11 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             "connected_ids": prepared["connected_ids"],
             "match_info": prepared["match_info"],
             "when_phrase": prepared["when_phrase"],
-            "answered_by": req.model_manager.chat_model() if will_answer else None,
+            "answered_by": (
+                "needle (tools only)"
+                if tools_only and will_answer
+                else req.model_manager.chat_model() if will_answer else None
+            ),
             "ollama_running": ollama_running,
         }
     )
@@ -1648,7 +1664,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     agentic = False
     # Small talk never goes near the agent: "hey" is not a request to do
     # anything, and handing it a toolbox invites it to invent an errand.
-    if ollama_running and req.use_tools and intent.needs_retrieval(prepared["intent"]):
+    if (ollama_running or tools_only) and req.use_tools and intent.needs_retrieval(prepared["intent"]):
         shared = {
             "style": prepared["style"],
             "profile": prepared["profile"],
@@ -1693,7 +1709,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                 req.question,
                 prepared["notes"],
                 req.model_manager,
-                req.ollama,
+                tools_provider,
                 mode=req.mode,
                 allowed_tools=req.allowed_tools,
                 images=req.images,

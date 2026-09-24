@@ -4970,3 +4970,31 @@ main,
     writing-mode: horizontal-tb;
   }
 }
+
+/* **Toasts at the bottom on a phone** (the owner's decision, 2026-09-24): at
+   the top a due-reminder toast sat over the Notes sub-tabs for its whole
+   life. Above the bottom tab bar instead, full width. The one exception is
+   the Chat tab, where the bottom is the composer (Send and the microphone,
+   the reason the top was chosen in the first place): there it stays up. */
+@media (max-width: 599.98px) {
+  body:not(:has(#tab-chat:not(.hidden))) #toast-box {
+    top: auto;
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px) + var(--space-2));
+  }
+}
+
+/* **A view toggle's resting half is empty** (the owner, 2026-09-24: the list
+   and cards toggles in Notes and the Library "dont have a clear active
+   state on the default view"). Measured: the resting button carried
+   `--ghost-btn-bg` (12% ink) beside a selected one at 11% ink, the two
+   halves the same grey. 07's rule meant to clear it lost to a later ground;
+   restated here one step stronger, with the hover ground it was missing. */
+:root .seg > button.icon-only:not(.active):not(.ghost):not(.status-item):not(.tool-btn):not(.wb-tool) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:root .seg > button.icon-only:not(.active):not(.ghost):not(.status-item):not(.tool-btn):not(.wb-tool):hover {
+  background: var(--ghost-btn-bg);
+}

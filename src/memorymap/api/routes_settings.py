@@ -178,6 +178,11 @@ class PreferencesBody(BaseModel):
     #: default: it costs nothing until a prose document or note box is open,
     #: and nothing on the main thread even then.
     grammar_check: bool | None = None
+    #: Curly quotes and a dash from two hyphens as you type in a prose
+    #: document (the autofill ask, 2026-09-24). Off by default: software that
+    #: changes what was typed without being asked is the thing people turn off
+    #: first, so this one asks.
+    smart_punctuation: bool | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian.
@@ -467,6 +472,7 @@ def get_preferences() -> dict:
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),
+        "smart_punctuation": config.get_preference("smart_punctuation", False),
         "display_name": config.get_preference("display_name", ""),
         #: Echoed so Settings can draw the boxes with what is in them rather
         #: than empty, which is the bug this file's other comments keep
@@ -758,13 +764,29 @@ def set_console_mode(
         # CodeQL py/cyclic-import loop: and deferring it into the function
         # body does not clear that, only dropping the statement does. The
         # desktop entry point is the caller here, not a dependency.
-        restart_in_console_mode = importlib.import_module(
-            "memorymap.__main__"
-        ).restart_in_console_mode
+        restart_in_console_mode = _desktop_entry().restart_in_console_mode
 
         restarting = True
         background_tasks.add_task(restart_in_console_mode, not show_console)
     return {"show_console_on_startup": show_console, "restarting": restarting}
+
+
+def _desktop_entry():
+    """The desktop entry module, the one actually running.
+
+    `sys.modules["__main__"]` first: a packaged build runs `__main__.py` as
+    `__main__`, and PyInstaller bundles no second copy under the name
+    `memorymap.__main__` (nothing imports it by that name, so its analysis
+    never sees it), so `import_module` alone raised there and Settings'
+    Restart answered 500. From source, `python -m memorymap` is the same
+    module under the same key, and reusing it avoids importing a second copy
+    of the launcher. The import is the fallback for everything else (tests,
+    `uvicorn --factory`), where the running `__main__` is not ours.
+    """
+    running = sys.modules.get("__main__")
+    if running is not None and hasattr(running, "restart_in_console_mode"):
+        return running
+    return importlib.import_module("memorymap.__main__")
 
 
 @router.post("/system/restart")
@@ -785,9 +807,7 @@ def restart_app(background_tasks: BackgroundTasks) -> dict:
     """
     if os.getenv("MEMORYMAP_DESKTOP") != "1" or sys.platform != "win32":
         return {"restarting": False}
-    restart_in_console_mode = importlib.import_module(
-        "memorymap.__main__"
-    ).restart_in_console_mode  # same cycle break as above
+    restart_in_console_mode = _desktop_entry().restart_in_console_mode  # same cycle break
 
     show_console = bool(deps.get_config().get_preference("show_console_on_startup", True))
     background_tasks.add_task(restart_in_console_mode, not show_console)

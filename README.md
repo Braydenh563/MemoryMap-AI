@@ -220,9 +220,14 @@ is doing.
 - **Search by meaning** is optional and off by default. Turn it on and
   questions match ideas rather than words, using a local embedding model
   through Ollama.
-- **Settings > Packages** installs the optional pieces (dictation, the
-  desktop window, search by meaning) from inside the app. None of them is
-  needed for the core.
+- **Settings > Packages** installs the optional pieces from inside the app,
+  none of them needed for the core: dictation (faster-whisper), the desktop
+  window (pywebview), search by meaning (sentence-transformers), scanned PDFs
+  (pypdfium2), document import (markitdown), Word export (python-docx), text
+  in images (Tesseract OCR), running Python files (Pyodide), and tool calling
+  with no model server running (needle, telemetry forced off). The last two
+  are pinned downloads checked against a sha256, and work offline once
+  installed.
 
 ## Your data
 
@@ -257,7 +262,7 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 ## Developing
 
 ```
-pytest                          # 3,600+ tests, fifteen to eighteen minutes, fully offline
+pytest                          # 4,600+ tests, about ten minutes on four cores (-n auto), fully offline
 bash scripts/gate.sh --changed  # the routine local gate: lints, node --check, ruff, the tests that name your files
 ruff check .                    # what CI lints with
 node --check frontend/app.js    # the frontend has no build step

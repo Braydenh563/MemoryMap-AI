@@ -507,16 +507,9 @@
   margin-bottom: 0;
 }
 
-/* Reported: the Capture tab's template picker read as cramped, with its
-   label crowding the arrow. Measured rather than eyeballed - it came back
-   146.8px wide against a 32px-tall row of sibling controls, so a label like
-   "Meeting notes" filled it edge to edge and sat right against the chevron.
-   A floor on the width and a wider right gutter give the longest built-in
-   template name room without the box growing past `.small-select`'s cap. */
-#entry-template {
-  min-width: 11rem;
-  padding-right: var(--space-8);
-}
+/* The Capture tab's template picker was a `.small-select` here with a width
+   floor for its longest name; it is a ghost button that opens a dialog now
+   (INBOX 410), sized by its own word like every other button in the row. */
 
 /* A number of backups to keep, not a name or a path, this app's other
    `.small-select` uses are all <select>/text and can take the full 16rem;

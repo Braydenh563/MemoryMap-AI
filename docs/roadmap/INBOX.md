@@ -34,6 +34,59 @@ with its owner named in the entry.
 
 ## Open items
 
+421. **The owner, 2026-09-24, verbatim, with screenshots (placed in agent
+    briefs, two at a time).** (a) "in the radials on the mind map, the items
+    like "add beside" and "cross-link" are very close to the edges (inner and
+    outer) of the radial and arent centered nicely. also when I press the
+    more button the dropdown menu appears in the top left of my screen"
+    (desktop app; the pie-ring agent could not reproduce the corner with a
+    real click). (b) "the / command blocks and frames need a massive
+    redesign, expansion and improvement, the icons dont render in the live
+    view in the documents editor ... they need ot be impressive and an actual
+    proper thing the user's can use to properly structure out their
+    documents and notes." (live-view callout icon fixed 6e072b2.) (c)
+    "sometimes document editor dropdowns appear at the top of the screen and
+    other times it is fine, sometimes it doesnt open at all" (the spelling
+    menu, top of the window). (d) "there's no 'x' close button on the trace
+    popup row in the graph". (e) OCR: "I cant delete the ocr entry in the
+    workspace or the lightbox and the text in the lightbox doesnt even appear
+    in the ocr workspace" (workspace delete fixed 6e072b2; the lightbox
+    showed a vision reading of "Test, Test, ..." hundreds of times, a
+    degenerate model loop the app should cut). (f) The file row in the
+    Library ("PDF · 121 KB · added ... Read · 808 words, Open reader, Used
+    in"): "needs a bit more modern and ui refinement and the second row
+    elements arent aligned and dont really match". (g) "the lightbox buttons
+    below the image are greyed out?? i opened the image from within a note".
+    (h) View toggles with no clear active state (fixed c920174). (i) "have
+    you included all the new optional packages in the packages settings
+    page??" and "move the preferences settings page up a bit and maybe also
+    turn it a bit into the user's own personal local profile where they can
+    put info about themselves and their name for the ai to use as context
+    and there can also be the generated profile image". (j) "I clicked a note
+    linked in the sources of an ai chat reply and it took me to that note,
+    but when I pressed the back navigation button it opened the settings
+    panel??" (not reproduced: chat then flashEntry then Back lands on chat,
+    also with chat opened from inside Settings; needs the exact path).
+
+419. **The owner, 2026-09-24, verbatim.** "in the whiteboard, the arrange
+    dropdown menu appears above the top bar, cutting off the contents" (only
+    the Order rows showed) and "clicking the meatball button on the popup
+    tools menu when selected on a text box or sticky note on the whiteboard
+    doesnt show any dropdown menu, or it flickers for a seck somewhere to the
+    right then disappears". **Not reproduced** in headless Chromium, on the
+    head after `ccd1b48`: Arrange opens under its button at 1440x900,
+    1184x760, 1366x600, 1280x480, 1024x768, 947x608, 820x700, 700x900, in
+    full screen, with touch, at 125% scale with real scrollbars, dark
+    (`wbmenuroom.js` 36/36); the context bar's ⋯ opens beside the bar and
+    stays for a sticky and a text box, selected or being edited, by click
+    or tap, after a render, a state fetch, a resize, and with the pointer
+    wandering over the canvas and onto the menu. Every placement path read
+    (`placeEscapedMenu`, `wbKeepMenuBesideBar`) can only put Arrange above
+    its button when the window has less room below than above, which the top
+    bar never has. Both reports come from the desktop window (WebView2); the
+    next step needs the owner: the window size, whether the top bar was
+    dragged, and a screen recording of the ⋯ case. Recommendation: ask.
+
 413. **The owner, 2026-09-24, verbatim, with a chat screenshot.** "I was in a
     document in the editor, I opened the suggestions panel and pressed check
     with ai, it took me to the chat and a popup above the chat suggested that
@@ -97,8 +150,16 @@ with its owner named in the entry.
     1385b0e; a freshness test against every bound key a164dc2; the caps
     (a 422 after a long answer and on the fifth question, the reply cut
     mid-list) 5cb7f8f. Map part built (radial fit 13c41d7, relink b449623, marquee 18b8c15).
-    Open here: the documents' Check with AI, dockable suggestions and the
-    dictionary redesign.
+    **The documents' part built 2026-09-24** (the documents agent): Check
+    with AI runs in place, streamed into the suggestions panel with Apply,
+    Dismiss and Stop, a no-model notice with Settings, Models, and Discuss in
+    chat with no long prompt (so no skill nudge, the INBOX 413 half)
+    (cd5dec1, `aicheck.js`); the panel docks at the bottom or on the right,
+    resizable, remembered, always bottom at 720px and below (a8c822a,
+    `prosedock.js`); the dictionary as a settings sheet (bbeda8e,
+    `dictsheet.js`); the Capture box's templates confirm too (26e8d9b,
+    `notetemplatepick.js`). Nothing of 410 is open now; it stays for the
+    orchestrator to resolve with 413.
 
 409. **The owner, 2026-09-24, verbatim, with screenshots of Settings,
     Templates, the persona list, a .json document with the formatting bar
@@ -121,40 +182,6 @@ with its owner named in the entry.
     (0e88b6e, ede4f2a, `chatmarks.js`, bubble box unchanged). The code
     selection bar and the indent step are 7ab7eec. Open here: the AI
     assistant bar.
-
-404. **The owner, 2026-09-23 night, verbatim.** "also does emmet workf for
-    other languages like python, c#, java and more??" and "what about code
-    errors, debugging console or smth?? what is the doc editor missing for
-    both text/md/docx/other text files as well as for code files as well??"
-    Answer: Emmet is markup and CSS only (HTML, XML, JSX, CSS family); the
-    equivalent elsewhere is snippets. Present already (grepped): Problems
-    panel and F8, error underlines for JSON/JS/TS/CSS/Python/TOML/XML/YAML,
-    outline, history and diff, comments, footnotes, TOC, spelling, focus
-    mode, split view, word count, export and print. Placed. Code side (the
-    completions agent's queue): per-language snippets (Python, Java, C#, C,
-    C++, Go, Rust, JS/TS, SQL, shell), Run with an output console for JS/TS
-    in a sandboxed worker and HTML in a sandboxed preview frame, Python via
-    Pyodide as an opt-in extra (offline once installed), go to definition
-    and find references within a file, find across documents. Not
-    proposed: breakpoint debugging and compiled languages (a native
-    toolchain per language). Prose side (new agent): grammar and style with
-    Harper (INBOX 401), suggestion mode (tracked changes), read aloud with
-    the system's own voices, an accessibility check (heading order, alt
-    text, link text), and a .docx round trip if export is missing.
-    **Prose side built 2026-09-24** (`agent-remaining/proseeditor.md`):
-    Harper db64249, suggestion mode 1706972, read aloud c3af0d3,
-    accessibility be76070, Word round trip 2a9f407. Open here: the code side
-    only, the completions agent's.
-    Code side built 2026-09-24 (codecomplete): snippets b1c7339, Run for
-    .js and .html in a sandbox with an output panel bbaccfc (`docrun.js`
-    18/18), F12, Shift+F12 and Ctrl+Shift+F f07b5bc. **Python via Pyodide
-    not built, a decision is missing:** Pyodide's runtime is not a pip
-    package and `core/extras.py` installs pip packages only. Recommendation:
-    an extras entry of a new "download" kind, a pinned `pyodide-core`
-    release with its sha256, unpacked into the data dir and served beside
-    `/documents/run-sandbox` under the same policy; until then the Run
-    button on a .py file says so. TypeScript likewise says it needs
-    compiling (a vendored type-stripper, sucrase, MIT, would do it).
 
 403. **The owner, 2026-09-23 night, verbatim.** "for me, trust in the
     application isn't just the information it shows but that is very much a
@@ -497,21 +524,6 @@ with its owner named in the entry.
     `scratchpad/ui-sweeps/graphminimap.js`). (1) and (2) are
     AGENT_SKILLS_REFORM's, whose Phase D was verified against a real small
     model on 2026-09-20; what that plan still holds is its evals breadth.
-
-302. **Found by the repository read, 2026-09-21 (the session, not the owner):
-    a decision for the owner.** needle (cactus-compute, Apache-2.0 for both
-    the code and the Hugging Face weights) is a 14MB tool-calling and
-    extraction model that runs through a prebuilt native engine by `ctypes`,
-    with grammar-constrained output and a calibrated confidence, and no
-    prose. Bundling it would give the agent a tool-calling path on a machine
-    with no Ollama, which is the one thing this app cannot promise today;
-    against it, a third inference path beside the two HTTP providers, a
-    Hugging Face download at first use, and a shipped binary whose telemetry
-    is on unless two environment variables are set. Recommendation: not now,
-    and revisit only if "works with no Ollama installed" is to become a
-    product promise. The cheap half of the same read (ANALYSIS.md, "Twenty-four
-    repositories read for MemoryMap, 2026-09-21", needle items a and b) needs
-    no decision and is worth doing either way.
 
 303. **The owner, 2026-09-21, verbatim, with the session's reading beneath
     it:** "it'd be cool if the user can upload songs or connect an in-app

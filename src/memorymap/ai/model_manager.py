@@ -538,7 +538,13 @@ class ModelManager:
         override = self._override_for_role("utility")
         if override:
             return override, "override"
-        if not self._config.get_preference("smart_model_routing_enabled", True):
+        #: The switch moves background jobs; the Guide is a panel you type
+        #: into, so it keeps the utility model whatever the switch says (the
+        #: owner's decision, 2026-09-24, WORLD_CLASS_PLAN section 20).
+        if (
+            not self._config.get_preference("smart_model_routing_enabled", True)
+            and self._feature != "guide"
+        ):
             return self.chat_model(), "routing_off"
         chosen = self._config.get_preference("utility_model", "")
         if not chosen:

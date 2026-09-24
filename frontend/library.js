@@ -5526,6 +5526,11 @@ onDomReady(() => {
     }
   });
   $("ocr-delete-reading")?.addEventListener("click", async (event) => {
+    //: Read before the first `await`: the browser clears `currentTarget` once
+    //: the click's dispatch ends, so after the confirm it was null, the
+    //: handler threw, and the reading was never deleted (the owner's log,
+    //: 2026-09-24: "Cannot set properties of null (setting 'disabled')").
+    const button = event.currentTarget;
     const image = ocrWorkspaceCurrent;
     if (!image) return;
     const isPdf = ocrIsPdf(image);
@@ -5533,7 +5538,6 @@ onDomReady(() => {
     if (!(await confirmDialog(`Delete the reading for ${what}? You can read it again any time.`))) {
       return;
     }
-    const button = event.currentTarget;
     button.disabled = true;
     try {
       if (isPdf) {

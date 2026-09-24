@@ -9,6 +9,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: the writing dictionary is a cleaner settings sheet. One field finds a word as you type and adds it on Enter, the list is quiet rows whose remove appears when you point at one, the list can be exported and imported as a .txt file (import only adds), and spelling, grammar and smart quotes are ordinary settings rows with a line each.
+- Notes, Capture: Template opens a picker like the documents' one. A click chooses a template and shows its text; Use this template (or Enter, or a double click) fills the box, and only then asks before replacing what you have typed. Picking used to fill the box on every name the dropdown passed.
+- Documents: the suggestions panel can sit on the right of the editor instead of under it: the button in its head switches, the column resizes by dragging its edge (or with the arrow keys, double-click to reset), and both are remembered. On a narrow window it stays under the editor.
+- Documents: Check with AI works in place. Its findings arrive in the suggestions panel as the model writes them (the exact words, why, and a fix), underlined in the text, each with Apply and Dismiss, and the button is Stop while it runs. With no model connected the panel says so, with a button to Settings, Models. Discuss in chat opens the chat with the document attached and nothing typed for you.
+- Documents: autofill in markdown and text documents. Type `lorem` and press Enter (or Tab) for a paragraph of filler text, `lorem20` for twenty words, `table 3x4` for a three by four table; on a line of their own, `today`, `date`, `now`, `time`, `todo`, `callout`, `hr`, `toc` (the headings as links) and `sig` (your name from Settings). `:` and two letters offer emoji by name. The list shows what each writes, and its first line appears after the caret before you take it. `**`, `_`, backticks and brackets close themselves, and Enter on an empty list item ends the list (it used to add a blank line). Settings, Preferences has Smart quotes and dashes, off by default.
+- Settings, Packages: Run Python files (Pyodide). Run on a .py document runs it in the same sandbox as JavaScript, with no network and none of your notes: print output and errors in the Output panel with a link to each line, Stop, the ten-second stop (counted from when the script starts, not while the runtime loads) and the 500-line cap. Before it is installed, Run says so and its Install Python button opens the Settings row. The standard library only; about 7 MB, downloaded once and offline from then on.
+- Settings, Packages: Tool calling without Ollama (needle). With no model server running, a request that needs a tool (make a note, set a reminder, search) is still carried out by needle, a 121M-parameter tool-calling model run inside MemoryMap; it writes no replies, so the answer is what the tools said. Telemetry is switched off (NEEDLE_TELEMETRY=0 and DO_NOT_TRACK=1 are set before the engine loads). Apache-2.0, about 36 MB, and offered only where a prebuilt engine exists (Linux, macOS and Windows on x86-64 and ARM64).
+- Packages can now be pinned downloads as well as pip packages: a fixed URL and sha256 per file, checked before anything is kept, unpacked into the data folder, no restart. MEMORYMAP_EXTRAS_MIRROR installs the same files from a local folder for a computer with no internet.
+- Uninstalling on Windows asks whether to delete the downloaded optional
+  packages too (notes are always kept).
+- ArrowUp and ArrowDown in an empty chat box step through the messages you
+  sent; Ctrl+Y redoes, as the board's buttons already said.
+- Chat, Web panel: redesigned as a reading pane. The head is the title, a dot for the search engine's state (its words on hover) and a menu to start or stop SearXNG, open Web search settings or clear recent searches; one search field with the icon inside, Enter to search and Stop only while a search or a page is loading; results as a list with the site's letter, arrow keys and Enter, a right-click menu, Copy link and Cite in chat; recent searches as rows. The reader has a Results link, Find in this page (Ctrl+F counts the page, not the tab), Copy link and Open in your browser beside it, one row of Ask about this, Cite in chat, Save as note and Bookmark, and the page as prose with no box round it and one scrollbar. Cite in chat attaches the page to your next message as a chip. The panel opens at its default width rather than its minimum, and cannot be dragged so wide that the conversation is squeezed.
 - Chat: your own messages carry a small mark generated from your profile name (or "You"), on the bubble's corner, so nothing in the bubble moves; the persona picker shows the chosen persona's mark beside it.
 - Persona marks are faces now: a head in one of the category colours over a ground in another, with eyes and a mouth, all drawn from the name. The closest two of 23 differ in 29.8% of their pixels (the old marks: 5.6%).
 - Documents, New from a template: a click chooses a template and shows its page; Use this template (or Enter, or a double click) makes it. The arrow keys move the choice and the first row is chosen when the dialog opens.
@@ -112,6 +125,43 @@ below). Versioning is `0.x` while the app stabilises.
 ### Fixed
 
 - Tools and features, the command palette and Find anything's actions land on what they name: Suggested links opens the map's options and runs Suggest links, Export a board opens the export dialog, Theme opens Appearance with the theme control ringed, an AI tool opens its own row in Settings, a widget row shows its widget (or its row in the widget picker when it is off), and a document or board feature opens the newest one first. Before, 50 of the 110 written rows only switched tab, 11 more opened a Settings pane at its top, and the palette's Board overview and Find a card did nothing unless a board was open. A Settings deep link now rings its row (it rang only Search relevance before).
+- View toggles (Notes rows/cards, Library list/cards): only the chosen half is
+  filled; the other rests clear.
+- The OCR workspace's Delete reading works again (it threw after the confirm).
+- A callout's label in the document live view shows its icon, not "ph:warning".
+- Mind map: the topic and line rings are pie menus: one ring cut into sectors with hairline dividers, each action's icon and word inside its sector, the hovered or focused sector filled, and the topic whole inside the hole (the board pans with a ring slid in from an edge). The arrows walk the sectors, Enter runs one, Escape closes. More opens its menu beside the More sector, and never in the window's corner.
+- Whiteboard: with the Text or Sticky tool, a press-drag draws the box at the dragged size (a dashed preview while dragging, Shift for a square, a minimum of one line) and opens it for typing; a click still places the default size, and one undo takes a drawn box away.
+- Whiteboard and mind map: panning with the middle button follows the pointer. A pressed wheel's own wheel events no longer move the board mid-drag (they pushed it 3300 to 3600px sideways over a 300px drag), and a middle press on a topic or a card pans instead of dragging the item (it moved the board 0px of 200).
+- The installed Windows app keeps its launch log and window cache beside your
+  notes in `%APPDATA%\MemoryMap AI`, not in a `data` folder wherever Windows
+  started it, and the Start Menu's "Repair MemoryMap AI" now clears the cache
+  the window really uses (it cleared an empty folder before).
+- The installed Windows app knows time zones: the build now carries the zone
+  database Windows lacks, so your zone is saved and "today" is your day.
+- Settings' Restart relaunches the installed Windows app instead of closing it
+  for good, and Remove on an optional package deletes it from the app's own
+  folder (it used to run against your own Python and leave the package).
+- Optional packages on the installed app find Python installed the usual way
+  from python.org (the `py` launcher), and no longer mistake the Microsoft
+  Store's placeholder `python.exe` for one.
+- Import documents installs markitdown's PDF, Word and slides readers; bare
+  markitdown reads none of the three.
+- An app update run from Settings > About no longer starts the optional
+  packages download inside the installer, and accepts the download host GitHub
+  is moving release files to; the installer's packages page starts unticked,
+  and says why, when Python is not on the computer.
+- The desktop window opens on a free port when another program holds 8000,
+  instead of showing that program's page; the About panel's release notes are
+  in the packaged app; scripts are served as JavaScript even where the Windows
+  registry says otherwise; the installer refuses 32-bit Windows, which cannot
+  run the 64-bit app.
+- The Windows installer's Documents box also installs scanned-PDF reading and
+  Word export (one box, the page has no room for more).
+- The selection bar's "Rewrite this with AI" opens its bar again: the press that
+  opened it also counted as a click away and closed it at once.
+- The Guide keeps the utility model when smart routing is off (the switch
+  moves background jobs only). On a phone, toasts sit above the bottom tab bar,
+  except on Chat, where the composer is.
 - The attachment gallery answers a page of 200 rather than 1,000 by default,
   and every reader of it (the Library's Files and Images, the pickers, the
   editor's file list) reads to the end page by page, so a large notebook's
@@ -415,6 +465,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The packaged app's startup splash is a still card without the progress bar it
+  could never move; a status line under it says what is loading.
 - A note's time sits in the same place on every card, its top-right corner
   on the title's line (it gives way to the note's buttons on hover); the
   dates a note's words mention read as one item ("Mentions 21 Sept, 25

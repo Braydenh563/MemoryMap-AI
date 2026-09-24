@@ -7,14 +7,15 @@ AI's retrieved context unless the user asks for them by name.
 
 from __future__ import annotations
 
+import json
 import logging
-
 import re
 import tempfile
 from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -1173,6 +1174,46 @@ def ai_edit(
         "message": drafter.offline_message() if offline else "",
         "ollama_running": not offline,
     }
+
+
+class AiCheckBody(BaseModel):
+    """What to check: the selection when there is one, else the document."""
+
+    selection: str = Field(default="", max_length=MAX_CONTENT)
+
+
+@router.post("/{document_id}/ai-check")
+def ai_check(
+    document_id: int, body: AiCheckBody, session: Session = Depends(get_session)
+) -> StreamingResponse:
+    """Check with AI, in place (INBOX 410): findings streamed as NDJSON.
+
+    It used to hand the document to the Chat tab with a long prompt, which
+    left the editor, answered in a chat bubble with nothing to apply, and
+    drew a skill suggestion over it that did not fit (INBOX 413). Now each
+    finding arrives in the suggestions panel as the model writes it: the
+    exact words, a one-line reason, a one-line fix. Nothing is changed here;
+    the panel applies a fix only when it is pressed. Read before the stream
+    starts, because the session is closed by the time the body is sent.
+    """
+    document = _existing(session, document_id)
+    text = body.selection.strip() or (document.content or "")
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="There's nothing to check yet.")
+
+    def lines():
+        for event in drafter.review_stream(
+            text,
+            deps.get_model_manager().for_feature("documents"),
+            deps.get_ollama(),
+        ):
+            yield json.dumps(event) + "\n"
+
+    return StreamingResponse(
+        lines(),
+        media_type="application/x-ndjson",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
 
 
 class RephraseBody(BaseModel):

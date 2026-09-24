@@ -26,18 +26,23 @@ The simplest way in on Windows, no terminal or Python install required:
 3. It installs a Start Menu shortcut (and, optionally, a desktop one) and
    offers to launch the app when it finishes.
 
-**Deploying to several machines, or via Group Policy?** The same release
-also has `MemoryMap-AI-*-windows-x86_64.msi`, an MSI with the same name,
-publisher and version as the exe above. It installs per machine rather than
-per user, supports `msiexec /quiet` for a silent or scripted install, and
-gets a proper repair and uninstall through Windows Installer. It is
-unsigned too, for the same reason, so `msiexec` shows the equivalent
-publisher warning unless deployed through a policy that already trusts it.
+**Deploying to several machines?** The installer runs silently for the
+person running it: `MemoryMap-AI-Setup-<version>-windows-x86_64.exe
+/VERYSILENT /SUPPRESSMSGBOXES`. A silent install downloads no optional
+packages unless you name them, for example `/EXTRAS=documents,docx`. An MSI
+build (per machine, for `msiexec /quiet` and Group Policy) exists in
+`packaging/windows/installer.wxs` but is paused: its toolkit's new licence
+terms stopped the release build, so current releases carry the .exe only.
+
+The desktop window is part of the app. The optional packages (search by
+meaning, voice notes, document import and Word export) are downloaded, on the
+installer's last page or later from **Settings → Packages**, with a Python
+from [python.org](https://www.python.org/downloads/) on the same computer:
+the default options of its installer are enough. Without one, the app works
+and those four features stay off.
 
 Your notes live in `%APPDATA%\MemoryMap AI`, untouched by an update or
-reinstall, and left alone if you uninstall the app itself. Voice dictation,
-search-by-meaning, and the desktop window are all still installed the same
-way afterwards: **Settings → Packages**.
+reinstall, and left alone if you uninstall the app itself.
 
 **The installer is a snapshot, not a subscription.** It does not phone home
 or patch itself: a release built today is exactly what you will be running
@@ -231,7 +236,14 @@ in place, your notes are never touched. You do not need to delete
 
 ## Uninstalling
 
-Run `./uninstall.sh` (or `uninstall.bat`). It removes the virtual
+**Installed with the Windows installer:** Windows Settings → Apps → MemoryMap
+AI → Uninstall. That removes the program and its Start Menu entries and
+leaves your notes and settings in `%APPDATA%\MemoryMap AI` alone. At the
+end it asks whether to delete the optional packages you downloaded too (its
+`python-extras` folder, which can be large); a silent uninstall keeps them.
+To take your notes with you first, use Settings → Import & export.
+
+**Run from a source checkout:** run `./uninstall.sh` (or `uninstall.bat`). It removes the virtual
 environment the launcher built, and the caches that came with it, and leaves
 your notes untouched unless you explicitly pass `--delete-data`. Start with
 `--dry-run`: it lists everything that would go, with a size against each,

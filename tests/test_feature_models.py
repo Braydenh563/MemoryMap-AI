@@ -337,14 +337,16 @@ def test_the_guide_reaches_the_utility_model(ai_client, fake_ollama):
     assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"
 
 
-def test_with_smart_routing_off_the_guide_falls_to_the_chat_model(ai_client, fake_ollama):
-    """The measured cause of INBOX 288, and it is the switch doing what it
-    says: routing off means background work uses the chat model."""
+def test_with_smart_routing_off_the_guide_keeps_the_utility_model(ai_client, fake_ollama):
+    """INBOX 288's cause, decided by the owner 2026-09-24 (WORLD_CLASS_PLAN
+    section 20): the routing switch moves background jobs, and the Guide is
+    an interactive panel, so it stays on the utility model either way."""
     manager = deps.get_model_manager()
     manager.set_chat_model("qwen3.5:9b")
     manager.set_utility_model("llama3.2")
     deps.get_config().set_preference("smart_model_routing_enabled", False)
-    assert _guide_model(ai_client, fake_ollama) == "qwen3.5:9b"
+    assert _guide_model(ai_client, fake_ollama) == "llama3.2"
+    assert _guide_model(ai_client, fake_ollama, streamed=True) == "llama3.2"
 
 
 def test_the_guide_row_pins_the_model_whatever_routing_says(ai_client, fake_ollama):

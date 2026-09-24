@@ -89,9 +89,48 @@ from memorymap.entry import manager
 # explicitly, not inferred from a path that only looks the same in both
 # cases by coincidence.
 if getattr(sys, "frozen", False):
-    FRONTEND_DIR = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "frontend"
+    BUNDLE_ROOT = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
 else:
-    FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+    BUNDLE_ROOT = Path(__file__).resolve().parents[3]
+FRONTEND_DIR = BUNDLE_ROOT / "frontend"
+
+
+#: **Every type the page is served with, named here rather than read from the
+#: machine.** Starlette asks `mimetypes`, and on Windows `mimetypes` loads the
+#: registry *over* Python's own table, so a machine where an editor or an old
+#: installer once set `.js` to `text/plain` (a known Windows state, and the
+#: reason Django and Flask users meet a blank page there) serves `app.js` as
+#: text. With `X-Content-Type-Options: nosniff` on every response
+#: (`core/security.py`) the window then refuses every script, and the grammar
+#: worker, a module worker, refuses a non-JavaScript type even without it.
+#: The packaged Windows app is the build that meets this; the pins cost
+#: nothing anywhere else.
+STATIC_MIME_TYPES = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".css": "text/css",
+    ".html": "text/html",
+    ".json": "application/json",
+    ".webmanifest": "application/manifest+json",
+    ".wasm": "application/wasm",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".ico": "image/vnd.microsoft.icon",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".ttf": "font/ttf",
+    ".txt": "text/plain",
+}
+
+
+def pin_static_mime_types() -> None:
+    """Put `STATIC_MIME_TYPES` over whatever the registry said. `add_type`
+    initialises the table first when nothing has yet, so the registry read
+    happens before these, never after them."""
+    import mimetypes
+
+    for suffix, media_type in STATIC_MIME_TYPES.items():
+        mimetypes.add_type(media_type, suffix)
 
 
 # (Embedding warm-up now lives in ai/embeddings.start_warmup, which also
@@ -606,6 +645,7 @@ def create_app() -> FastAPI:
     # started multi-worker: `python -m memorymap` hands uvicorn an app object
     # rather than an import string, and uvicorn cannot fork that.
     deps.refuse_multiple_workers()
+    pin_static_mime_types()
     logbuffer.install()  # start capturing logs for the Settings viewer
     # Coarse phase markers for the desktop launcher's loading window
     # (core/startup_status.py): the only reader, and a no-op for every
@@ -843,7 +883,10 @@ def create_app() -> FastAPI:
         it changes when the app is updated, and an update replaces the process
         anyway: so a cache would only ever be stale in development.
         """
-        path = Path(__file__).resolve().parents[3] / "CHANGELOG.md"
+        # BUNDLE_ROOT rather than three levels up: a packaged build keeps its
+        # files in the bundle's own folder, and `memorymap.spec` puts this
+        # file there, so the About panel's notes are not empty on Windows.
+        path = BUNDLE_ROOT / "CHANGELOG.md"
         try:
             return {"markdown": path.read_text(encoding="utf-8")}
         except OSError:

@@ -2343,6 +2343,12 @@ document.addEventListener("mousedown", (event) => {
   if (inlineAiState.phase === "idle" || inlineAiState.phase === "working") return;
   const bar = $("inline-ai");
   if (!bar || bar.contains(event.target)) return;
+  //: **Not the press that opened it.** The selection bar's wand opens this
+  //: on `mousedown`, and that same event then bubbles here from a target
+  //: outside this bar, so the rewrite closed in the instant it opened (the
+  //: owner, 2026-09-24: "doesnt work or appear to do anything"; traced as
+  //: open, then close, from one press).
+  if (event.target.closest?.(".selection-bar")) return;
   inlineAiClose();
 });
 

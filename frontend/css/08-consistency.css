@@ -4412,3 +4412,46 @@ main,
 .chip > .unlink:last-child > .ph {
   translate: 0 0.14em;
 }
+
+/* --- a menu is one column: rows, section labels and icons (INBOX 403) -------
+   The owner: "poorly designed dropdown menus with bad widths, poor spacing,
+   poor alignment". Measured by scratchpad/ui-sweeps/menus.js over every menu
+   in the app at 1440, three ways a menu's left edge came apart:
+
+   1. A dock menu's section label and its select stood 4.6px left of the
+      command rows' icons in the same menu (`.dock-menu-section` padded
+      `--space-3`, the row recipe above pads `--space-5`): Notes, Graph,
+      Library, Reminders, Logs, the document's own ⋯, and a select's group
+      names ("Built-in", "Whiteboards") the same 4.6px left of its options.
+   2. The board's five menus put their group labels ("Align (2+ selected)")
+      and their control rows ("Background", "Context bar") on the menu's own
+      padding edge, 12.4 to 13.3px left of the icons below them.
+   3. Labels after an icon wandered by up to 2.1px, because a Phosphor glyph
+      box is as wide as its own glyph: `align-left` is narrower than
+      `align-center-vertical`, and the board's rows put the icon in an
+      `auto` grid track. A menu reads its labels as one column; the eye
+      sees the ragged one.
+
+   One rule for each, and all three land every left edge in a menu on the
+   same x: the row recipe's own `--space-5`. */
+.doc-dock-menu-list .dock-menu-section,
+.select-menu .select-group-label {
+  padding-inline: var(--space-5);
+}
+
+.wb-board-menu .wb-panel-group-label,
+.wb-board-menu .wb-menu-row {
+  padding-inline: var(--space-5);
+}
+
+:is(.action-menu, .select-menu, .doc-dock-menu-list, .nav-history-menu, .wb-board-menu)
+  :is(.menu-item, .doc-dock-menu-item, .nav-history-item, .wb-menu-item) > .ph:first-child,
+:is(.action-menu, .doc-dock-menu-list)
+  .menu-item > span:first-child > .ph:first-child {
+  flex: none;
+  /* A group row's icon sits inline in its label span (`buildMenuGroupButton`),
+     where a width means nothing until the box is a block of its own. */
+  display: inline-block;
+  width: 1.25em;
+  text-align: center;
+}

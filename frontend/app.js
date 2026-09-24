@@ -6603,8 +6603,37 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     stage.classList.toggle("zoomed", zoom > 1);
     zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
     // Only grab-able once there is something to pan to.
-    if (zoom === 1) scrollTarget().scrollTo({ left: 0, top: 0 });
+    //: **Only when it is not already there** (INBOX 424f). `show()` sets the
+    //: zoom back to fit for every picture, so paging through a gallery called
+    //: `scrollTo` on every press, and a `scrollTo` against a stage whose
+    //: picture was just swapped is a forced layout: measured at 4x CPU, 375ms
+    //: of five next/previous presses, for a stage that was already at its
+    //: origin. `scrolledAway` is kept by the scroll listeners below, so the
+    //: question costs no layout read.
+    if (zoom === 1) {
+      const scroller = scrollTarget();
+      if (scrolledAway.has(scroller)) {
+        scroller.scrollTo({ left: 0, top: 0 });
+        scrolledAway.delete(scroller);
+      }
+    }
   };
+  //: Which of the two scrollers is somewhere other than its top-left corner,
+  //: from their own scroll events (a pan, a scrollbar, a wheel, the browser
+  //: clamping after the content changed), read when the event fires, when
+  //: layout is already clean.
+  const scrolledAway = new WeakSet();
+  const trackScrolledAway = (el) => {
+    el.addEventListener(
+      "scroll",
+      () => {
+        if (el.scrollLeft || el.scrollTop) scrolledAway.add(el);
+        else scrolledAway.delete(el);
+      },
+      { passive: true }
+    );
+  };
+  trackScrolledAway(stage);
   const setZoom = (next) => {
     zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 100) / 100));
     applyZoom();
@@ -6915,6 +6944,9 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     const scroller = scrollTarget();
     scroller.scrollLeft = panning.left - (e.clientX - panning.x);
     scroller.scrollTop = panning.top - (e.clientY - panning.y);
+    //: Now, not at the scroll event a frame later: a Fit pressed inside that
+    //: frame must still see the pan.
+    scrolledAway.add(scroller);
   };
   const endPan = (el) => (e) => {
     if (!panning) return;
@@ -7424,6 +7456,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   //: `pageScroller`), and `noteDocPage` is a no-op when there are no pages.
   doc.addEventListener("scroll", noteDocPage, { passive: true });
   pdfPages.addEventListener("scroll", noteDocPage, { passive: true });
+  trackScrolledAway(doc);
   //: **Editing a file in place** (REDESIGN.md §R7.1 item 2, and the request:
   //: *"all the files should be managable, viewable and editable in the
   //: library and document/file/text editor"*). A plain textarea over the
@@ -30921,10 +30954,8 @@ function revealTab(name) {
   scrollTopUpdate?.();
   // Any autogrow box that was measured while hidden gets its real height now
   // that its page is on screen. See autoGrow() for why a hidden measurement is
-  // refused rather than applied.
-  for (const box of document.querySelectorAll("textarea.autogrow")) {
-    if (box.offsetParent !== null) autoGrow(box);
-  }
+  // refused rather than applied, and autoGrowVisible() for which boxes that is.
+  autoGrowVisible();
 }
 
 // --- back / forward through the pages you have visited ----------------------
@@ -32011,9 +32042,7 @@ function showNotesSection(name, { focus = false } = {}) {
   // scrollHeight 0, so autoGrow collapsed the capture box to its minimum and
   // it only sprang open once clicked (user-reported). Re-measure now that the
   // section is actually visible.
-  for (const box of document.querySelectorAll("textarea.autogrow")) {
-    if (box.offsetParent !== null) autoGrow(box);
-  }
+  autoGrowVisible();
 }
 
 function initNotesSubtabs() {
@@ -32593,6 +32622,16 @@ function autoGrowLimit(el) {
 
 function autoGrow(el) {
   if (!el) return;
+  //: **A note editor's mirror is not a box anyone sees** (INBOX 424i). Once
+  //: the capture box's editor has mounted, the textarea is laid over it at
+  //: zero opacity and sized by the stylesheet to the editor's own box
+  //: (`.note-surface > textarea.note-surface-mirror`); the editor is what
+  //: grows. Every keystroke mirrors the text into it with an `input` event,
+  //: and this function then paid a forced layout per keystroke (the
+  //: `offsetParent` read below, then the measure) to size a box that is not
+  //: drawn: measured at 4x CPU, 448ms of a 50-character typing run. A class
+  //: check reads no layout.
+  if (el.classList.contains("note-surface-mirror")) return;
   // **A hidden textarea reports scrollHeight 0, and sizing to that collapses
   // it.** This is the reported "the capture box is short at the bottom and
   // only opens up when I click in it": the box was measured while its section
@@ -32683,11 +32722,47 @@ function autoGrow(el) {
       ? Math.max(parseFloat(getComputedStyle(el).minHeight) || 0, auto)
       : Math.min(el.scrollHeight, limit);
   el.style.height = `${next}px`;
-  el.style.overflowY = el.scrollHeight > next ? "auto" : "hidden";
+  const overflows = el.scrollHeight > next;
+  //: What this height was measured against, read while the layout the
+  //: `scrollHeight` above just flushed is still clean (see `autoGrowVisible`).
+  el._autoGrownValue = el.value;
+  el._autoGrownFor = autoGrowInputs(el);
+  el.style.overflowY = overflows ? "auto" : "hidden";
   // What this function chose, so a later resize can be told apart from a drag
   // by the user: the two are indistinguishable to a ResizeObserver otherwise.
   el.dataset.autoHeight = String(next);
   fitComposerToDock(el);
+}
+
+//: Everything besides the text that a grown box's height depends on: its
+//: width (`offsetWidth`, which a scrollbar appearing does not change), the
+//: window's height (the cap), a height dragged by hand, and the font.
+function autoGrowInputs(el) {
+  return `${el.offsetWidth}|${window.innerHeight}|${el.dataset.maxPx || ""}|${getComputedStyle(el).font}`;
+}
+
+//: **Every visible box whose height could be wrong, and only those** (INBOX
+//: 424h). A tab or section switch used to run `autoGrow` on every visible
+//: autogrow box: each one a height write, a forced layout for its
+//: `scrollHeight`, another write, another read, box after box: measured at
+//: 4x CPU, 70 to 110ms of every tab switch. A box that was measured on
+//: screen, has the same text and the same width, font and caps as then, is
+//: already the height `autoGrow` would give it. So every check is read first,
+//: in one pass (one layout for all of them), and only the boxes that were
+//: measured while hidden or whose inputs changed are grown, after it.
+function autoGrowVisible() {
+  const due = [];
+  for (const box of document.querySelectorAll("textarea.autogrow")) {
+    if (box.classList.contains("note-surface-mirror") || box.offsetParent === null) continue;
+    if (
+      box.dataset.autogrowPending ||
+      box._autoGrownValue !== box.value ||
+      box._autoGrownFor !== autoGrowInputs(box)
+    ) {
+      due.push(box);
+    }
+  }
+  for (const box of due) autoGrow(box);
 }
 
 //: A composer smaller than this is not a composer. The floor exists so a very

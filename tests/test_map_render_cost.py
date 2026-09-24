@@ -88,7 +88,7 @@ def test_every_topic_is_measured_after_the_writes_never_between_them() -> None:
     superlinearity lived. The reads happen once, after the last write."""
     body = _code("renderWbObjects")
     last_write = body.rindex("wbPaintMapNode(")
-    exits = body.index("objectSelection.exit().remove()")
+    exits = body.index("objectSelection.exit()")
     measure = body.index("this.offsetHeight")
     assert last_write < exits < measure
     # And the same reads fill the size cache, because `wbRenderMapEdges` runs
@@ -174,5 +174,5 @@ def test_the_fit_reads_the_boxes_the_render_just_measured() -> None:
     boxes the render had measured in one pass moments earlier."""
     body = _code("wbItemBBox")
     cache_at = body.index("wbMapNodeSizeCache")
-    query_at = body.index('document.querySelector(`.wb-object')
+    query_at = body.index('wbItemElement("object"')
     assert cache_at < query_at, "the cache has to be consulted before the DOM"

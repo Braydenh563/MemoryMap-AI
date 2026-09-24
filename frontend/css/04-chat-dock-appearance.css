@@ -5181,3 +5181,15 @@ input.doc-title-input::placeholder {
   white-space: nowrap;
 }
 
+
+/* The welcome and the tour buttons as one row of equal buttons (Help,
+   redesigned): the tour buttons sit beside Replay the welcome rather than
+   under it, so the replay-tour margin goes. */
+.tour-replay-row {
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.tour-replay-row > .tour-replay-buttons {
+  display: contents;
+}

@@ -6,6 +6,7 @@ absent turns into flags in /models/status, never an error.
 
 from __future__ import annotations
 
+import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -104,11 +105,64 @@ def _name_matches(wanted: str, installed: list[dict]) -> bool:
     return wanted in names
 
 
+class _CachedCapabilities:
+    """`ollama`, answering `supports()` from what it already knows.
+
+    /models/status is polled (every second while a job runs, every thirty
+    idle) with an 8s budget in the browser, and it resolved the vision and
+    OCR models by asking each installed model its capabilities, one
+    `/api/show` round trip each at up to 5s apiece, in turn. The answers are
+    cached per process, so this only bit on the first polls after a start,
+    and it bit reliably: reported as `GET /models/status: signal timed out`
+    twice in the first minute, while the embedding model was loading.
+
+    So the poll never asks: an unknown model reads as "unknown" (None, which
+    every caller already treats as "not this one" for auto-detection), and a
+    background thread asks for the rest, so the next poll has the answer.
+    """
+
+    def __init__(self, client) -> None:
+        self._client = client
+        self._shown = getattr(client, "_shown", None)
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+    def supports(self, model: str, capability: str):
+        if self._shown is None:
+            return self._client.supports(model, capability)
+        if model not in self._shown:
+            _warm_capabilities(self._client, model)
+            return None
+        return self._client.supports(model, capability)
+
+
+_warming: set[str] = set()
+_warming_lock = threading.Lock()
+
+
+def _warm_capabilities(client, model: str) -> None:
+    """Ask `client` about `model` once, off the request thread."""
+    with _warming_lock:
+        if model in _warming:
+            return
+        _warming.add(model)
+
+    def run() -> None:
+        try:
+            client.show(model)
+        finally:
+            with _warming_lock:
+                _warming.discard(model)
+
+    threading.Thread(target=run, name=f"capabilities-{model}", daemon=True).start()
+
+
 @router.get("/status")
 def status() -> dict:
     """One call that tells the UI everything: is Ollama up, what's
     installed, what's active, and whether any job is running."""
-    ollama = deps.get_ollama()
+    ollama = _CachedCapabilities(deps.get_ollama())
     manager = deps.get_model_manager()
     embeddings = deps.get_embeddings()
 

@@ -397,8 +397,11 @@ async function api(path, options = {}) {
     // so it was always false and no network failure was ever logged. The one
     // case the check exists to skip (our own timeout abort) was being logged
     // and everything else was too.
+    //: A timeout (`AbortSignal.timeout`, name "TimeoutError") is a slow
+    //: answer, not a failure: a warning, so a busy start does not fill the
+    //: log with red for a poll that simply asked again a moment later.
     if (networkErr?.name !== "AbortError") {
-      recordBrowserLog("ERROR", [
+      recordBrowserLog(networkErr?.name === "TimeoutError" ? "WARN" : "ERROR", [
         `[Network] ${fetchOptions.method || 'GET'} ${path}: ${networkErr.message}`
       ]);
     }
@@ -17398,6 +17401,14 @@ async function setResponseMode(chosen) {
 //: cannot draw one persona two ways.
 function fillPersonaMark(holder, name, size = 20) {
   if (!holder) return;
+  //: Nothing to draw a face from (no name yet, or the faces script not
+  //: loaded): the app's own animated mark, never an empty box (the owner:
+  //: "the default for no avatar selected should be the animated app logo
+  //: everywhere").
+  if (!name || typeof nameMark !== "function") {
+    renderEmblem(holder, size, { animate: true });
+    return;
+  }
   //: Atlas has a face of its own now (`atlasMark`, avatars.js): the logo's
   //: ring of linked notes orbiting a globe in the accent colour. `nameMark`
   //: draws it for the assistant's name. The chat's reply label keeps the
@@ -25804,7 +25815,20 @@ async function savePersonaList(personas) {
   personaOptions();
 }
 
+//: The names the pickers offer, from what is already in memory.
+function personaNamesNow() {
+  const custom = ((prefsCache && prefsCache.personas) || []).map((p) => p.name);
+  return [...new Set([...Object.keys(builtinPersonas()), ...custom])];
+}
+
 async function renderPersonas() {
+  //: The greeting picker is filled before the wait, not after it (the owner:
+  //: "the dashboard greeting persona selection box is broken and there is no
+  //: avatar next to it ... it sometimes works and sometimes doesnt"). It was
+  //: filled at the end of this function, after `GET /preferences` and after
+  //: the whole persona list was built, so on a busy server, or if anything in
+  //: the list threw, the section showed an empty select and an empty face.
+  renderDashboardPersonaSelect(personaNamesNow());
   prefsCache = await apiJson("/preferences").catch(() => prefsCache);
   const custom = (prefsCache && prefsCache.personas) || [];
   const overrides = new Map(custom.map((p) => [p.name, p]));
@@ -25822,6 +25846,8 @@ async function renderPersonas() {
       .filter((p) => !(p.name in builtinPersonas()))
       .map((p) => ({ ...p, builtin: false, overridden: false })),
   ];
+
+  renderDashboardPersonaSelect(rows.map((p) => p.name));
 
   for (const persona of rows) {
     const li = document.createElement("li");
@@ -25906,7 +25932,6 @@ async function renderPersonas() {
     li.appendChild(row);
     list.appendChild(li);
   }
-  renderDashboardPersonaSelect(rows.map((p) => p.name));
 }
 
 // A second, independent picker (asked for directly): the dashboard greeting
@@ -26948,6 +26973,7 @@ async function renderToolSettings() {
     const desc = document.createElement("span");
     desc.className = "muted tool-desc";
     desc.textContent = tool.description;
+    desc.title = tool.description || ""; // clamped to two lines; the whole of it on hover
     // The description goes *inside* the label's text column, not beside the
     // label in the <li>. That is what lets this row be `.setting-check`'s
     // grid, name and description stacked in column one, switch hard right , 
@@ -28361,6 +28387,7 @@ function reminderItem(reminder, label) {
   checkbox.type = "checkbox";
   checkbox.checked = reminder.done;
   checkbox.title = reminder.done ? "Reopen" : "Mark done";
+  checkbox.setAttribute("aria-label", `${reminder.done ? "Reopen" : "Mark done"}: ${reminder.text || "this reminder"}`);
   checkbox.style.width = "auto";
   checkbox.addEventListener("change", async () => {
     // Completing a recurring reminder rolls it forward to the next interval
@@ -47063,7 +47090,7 @@ $("onboarding-next").addEventListener("click", onboardingNext);
 $("onboarding-back").addEventListener("click", onboardingBack);
 $("onboarding-skip").addEventListener("click", closeOnboarding);
 // Two buttons, two behaviours, each the one its own words name. Settings →
-// Help has "Replay welcome tour" and Settings → About has "Take tour again";
+// Help has "Replay the welcome" and Settings → About has "Take tour again";
 // only the first was ever wired, so the About one was a button that did
 // nothing at all (found by listing every id in index.html that no JS file and
 // no stylesheet mentions), and wiring both to the same call then made the
@@ -47419,7 +47446,16 @@ function showTabJumpHint() {
   lead.className = "chord-guide-lead";
   const kbd = document.createElement("kbd");
   kbd.textContent = "m";
-  lead.append(kbd, " then");
+  //: "m, then a key" on the left and the way out on the right: the panel's
+  //: head says what it is waiting for, the rows below are the answers.
+  const leadText = document.createElement("span");
+  leadText.textContent = "then a key";
+  const leadEsc = document.createElement("span");
+  leadEsc.className = "chord-guide-esc";
+  const escKey = document.createElement("kbd");
+  escKey.textContent = "Esc";
+  leadEsc.append(escKey, " or m to close");
+  lead.append(kbd, leadText, leadEsc);
   //: **Stays up until you dismiss it, not for a fixed 900ms.** Asked for
   //: directly: "if i hold it down the popup stays up and I can more easily
   //: navigate by reading the popup contents", refined a moment later to

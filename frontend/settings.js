@@ -2928,7 +2928,11 @@ $("settings-search")?.addEventListener("keydown", (e) => {
 // Delegated, so a link added to the markup later needs no wiring.
 $("settings-modal").addEventListener("click", (event) => {
   const link = event.target.closest("[data-goto-section]");
-  if (link) showSettingsSection(link.dataset.gotoSection);
+  if (!link) return;
+  //: `data-goto-target` lands on one row of that section, scrolled to and
+  //: flashed the way the catalogue's deep links are, rather than on its top.
+  if (link.dataset.gotoTarget) openSettingsModal(link.dataset.gotoSection, link.dataset.gotoTarget);
+  else showSettingsSection(link.dataset.gotoSection);
 });
 // Same idea, one step further: a Help topic about a *tab* (Reminders,
 // Graph, Library…) should be able to send you there directly, not just to

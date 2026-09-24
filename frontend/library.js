@@ -2203,7 +2203,9 @@ $("skills-logs-clear")?.addEventListener("click", async () => {
 async function renderSkillLogs() {
   const logList = document.getElementById("skills-logs-list");
   if (!logList) return;
-  logList.innerHTML = "<p class='muted'>Loading logs…</p>";
+  //: The placeholder only for an empty list: over a list already drawn it
+  //: blanked the logs for the length of the fetch on every visit.
+  if (!logList.children.length) logList.innerHTML = "<p class='muted'>Loading logs…</p>";
   
   // **Filtered in SQL, not here, and asking for 20 of *everything* was half
   // the reason this panel looked broken.** Reported as "I dont think the
@@ -8009,6 +8011,8 @@ function filterLibraryImagesGallery() {
 // was no reason to change that shape while moving it.
 onDomReady(() => {
   const librarySubtabs = document.getElementById("library-subtabs");
+  const LIBRARY_SECTION_FRESH_MS = 5000;
+  const librarySectionShownAt = {};
   if (librarySubtabs) {
     const buttons = librarySubtabs.querySelectorAll("button");
     // "library-view-documents" is the *All* view, it kept its id when it was
@@ -8049,10 +8053,23 @@ onDomReady(() => {
           }
         });
 
+        //: **A sub-tab shown a moment ago is not fetched again** (the owner:
+        //: "it can be a bit glitchy and flashy switching somewhat fast
+        //: through the library subtabs"). Every press re-fetched and rebuilt
+        //: its section from scratch, so flicking Documents, Boards, AI skills
+        //: and back rebuilt each one per press, and presses faster than a
+        //: fetch stacked two rebuilds of one section on top of each other.
+        //: Within a few seconds the section is shown as it was; after that,
+        //: or from any other path that changes its data, it renders as before.
+        const now = Date.now();
+        const fresh = now - (librarySectionShownAt[targetId] || 0) < LIBRARY_SECTION_FRESH_MS;
+        librarySectionShownAt[targetId] = now;
         if (targetId === "library-view-media") {
           setLibraryMediaKind(btn.dataset.mediaKind);
           renderLibraryImagesGallery();
           startLibraryImagesPoll();
+        } else if (fresh) {
+          stopLibraryImagesPoll();
         } else {
           stopLibraryImagesPoll();
           if (targetId === "library-view-whiteboard") {

@@ -4387,12 +4387,22 @@ main,
   background: color-mix(in srgb, var(--scrim) 75%, transparent);
 }
 
+/* The `m` guide, redesigned (the owner: "can you better redesign the 'm'
+   navigation popup window??"). It was a 40rem sheet of three loose columns
+   with the labels at body size and the key chips in front of them, so the
+   eye read keys first and had to hunt sideways for the one it wanted, and
+   half the panel was empty. It is now a compact which-key panel: the head
+   says what it is waiting for and how to leave, "Go to" and "Do" stand side
+   by side as two lists, and each row is a menu row (the name on the left,
+   its key at the right edge), the shape every menu in the app already uses
+   for a shortcut. */
 .chord-guide-panel {
   pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  width: min(40rem, calc(100vw - 2 * var(--space-4)));
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: var(--space-4) var(--space-6);
+  width: min(34rem, calc(100vw - 2 * var(--space-4)));
   max-height: calc(100dvh - 2 * var(--space-6));
   overflow-y: auto;
   padding: var(--space-5) var(--space-6);
@@ -4403,8 +4413,30 @@ main,
 }
 
 .chord-guide-panel > .chord-guide-lead {
-  font-size: var(--text-body);
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--divider);
+  font-size: var(--text-sm);
   font-weight: 600;
+}
+
+.chord-guide-esc {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+@media (max-width: 560px) {
+  .chord-guide-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .chord-guide-panel .chord-guide-group {
@@ -4413,21 +4445,28 @@ main,
 }
 
 .chord-guide-panel .chord-guide-title {
+  margin: 0 0 var(--space-1);
+  padding-inline: var(--space-3);
   text-align: start;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .chord-guide-panel .chord-guide-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  justify-content: stretch;
-  gap: var(--space-1) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   max-width: none;
 }
 
 .chord-guide-panel .chord-guide-row {
-  justify-content: flex-start;
+  flex-direction: row-reverse;
+  justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-body);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
@@ -4447,6 +4486,7 @@ main,
 .chord-guide-panel .chord-guide-row > kbd {
   min-width: 1.5rem;
   text-align: center;
+  color: var(--muted);
 }
 
 /* --- A chip's x: a round target inset evenly (INBOX 403) --- */
@@ -4870,6 +4910,9 @@ main,
   --nmb-lean: 0;
   --nmb-sway: 0;
   --nmb-edge: 72px;
+  --nmb-ex: 0;
+  --nmb-ey: 0;
+  --nmb-hx: 0;
   position: fixed;
   left: 0;
   top: 0;
@@ -4964,13 +5007,15 @@ main,
   position: relative;
   display: block;
   width: 141px;
-  height: 203px;
+  height: 229px;
 }
 
+/* 26px of headroom: ears, horns and hats stand above the 64 by 92 box,
+   and the card clips anything outside itself. */
 .nm-viewer-figure > .nm-figure {
   position: absolute;
   left: 0;
-  top: 0;
+  top: 26px;
   width: 64px;
   height: 92px;
   transform: scale(2.2);
@@ -5073,6 +5118,17 @@ main,
 }
 #nm-buddy.nmb-act-peek .nm-buddy-char { translate: 0 calc(var(--nmb-edge) + 4px); }
 
+/* Tucked behind the bottom bar (the last resort in a small window): only
+   its eyes over the edge, ducking out of sight when the pointer is near. */
+#nm-buddy[data-legs="peek"] .nm-buddy-face {
+  clip-path: inset(-80px -80px calc(92px - var(--nmb-edge)) -80px);
+}
+#nm-buddy[data-legs="peek"] .nm-buddy-char {
+  translate: 0 calc(var(--nmb-edge) - 34px);
+  transition: translate var(--motion-slow) var(--ease-out);
+}
+#nm-buddy[data-legs="peek"].nmb-duck .nm-buddy-char { translate: 0 calc(var(--nmb-edge) + 4px); }
+
 /* Hanging by one hand (or scratching its head while it hangs): the other
    hand lets go and hangs free. */
 #nm-buddy:is(.nmb-act-onehand, [data-pose="hang"].nmb-act-scratch) .nmb-hold-r { opacity: 0; }
@@ -5122,12 +5178,31 @@ main,
 
 /* States that say something, so they hold still under Reduce motion too:
    watching a field being typed in, thinking through a chat turn, asleep. */
-#nm-buddy:is(.nmb-act-glance, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
-  translate: calc(var(--nm-lx) * 2.4px) calc(var(--nm-ly) * 2px);
-  transition: translate var(--motion-slow) var(--ease-out);
+/* Attention (avatars.js, `nameMarkBuddyAim`): the eyes jump to what it is
+   looking at, the head follows a moment later on a spring, and neither
+   moves again until it chooses something else to look at. Pointer-follow
+   is never applied to it: its whole body twitched with every move. */
+#nm-buddy .name-mark .nm-body {
+  rotate: 0deg;
+  translate: 0 0;
 }
 
-#nm-buddy:is(.nmb-act-glance, .nmb-watch) .nm-buddy-head { rotate: calc(var(--nm-lx) * 7deg); }
+#nm-buddy:is(.nmb-attend, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
+  translate: calc(var(--nmb-ex) * 2.4px) calc(var(--nmb-ey) * 2px);
+  transition: translate var(--motion-fast) var(--ease-out);
+}
+
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-char .nm-buddy-head {
+  translate: calc(var(--nmb-hx) * 2.5px) 0;
+  rotate: calc(var(--nmb-hx) * 5deg);
+  transition: translate var(--motion-slow) var(--ease-spring), rotate var(--motion-slow) var(--ease-spring);
+}
+
+/* Just woken: heavy lids for a few seconds. */
+#nm-buddy.nmb-groggy .name-mark .nm-blinks { transform: scaleY(0.6); }
+
+/* Asleep, it breathes slower. */
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .name-mark .nm-body { animation-duration: 6.4s; }
 #nm-buddy.nmb-think .nm-buddy-head { rotate: 8deg; }
 #nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-buddy-head { rotate: 10deg; }
 
@@ -5255,6 +5330,8 @@ main,
     &.nmb-act-peek.nmb-duck .nm-buddy-char { animation: nmb-peek-duck 0.22s ease-in forwards; }
     &.nmb-act-emerge .nm-buddy-char { animation: nmb-emerge 0.8s var(--ease-out) both; }
     &.nmb-act-wake .nm-buddy-char { animation: nmb-stretch 0.9s ease-in-out, nmb-hop 0.6s var(--ease-out) 0.8s; }
+    &.nmb-stir .nm-buddy-char { animation: nmb-stir 0.7s ease-in-out; }
+    &.nmb-act-shift .nm-buddy-char { animation: nmb-shift 1.8s ease-in-out; }
     &.nmb-watch.nmb-nod .nm-figure { animation: nmb-nod 0.45s ease-in-out infinite alternate; }
     &.nmb-music .nm-char .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
     &.nmb-act-bell .nmp-bell { animation: nmb-ring 0.18s ease-in-out 12 alternate; }
@@ -5270,13 +5347,23 @@ main,
   }
 }
 
+@keyframes nmb-stir {
+  0%, 100% { transform: none; }
+  20% { transform: rotate(-3deg) scale(1.02, 0.98); }
+  45% { transform: rotate(2deg); }
+  70% { transform: rotate(-1deg); }
+}
+@keyframes nmb-shift {
+  0%, 100% { transform: none; }
+  35%, 65% { transform: translateX(2px) rotate(2deg); }
+}
 @keyframes nmb-groove {
-  from { rotate: -5deg; translate: 0 0; }
-  to { rotate: 5deg; translate: 0 1px; }
+  from { transform: rotate(-5deg); }
+  to { transform: rotate(5deg) translate(0, 1px); }
 }
 @keyframes nmb-ring {
-  from { rotate: -14deg; }
-  to { rotate: 14deg; }
+  from { transform: rotate(-14deg); }
+  to { transform: rotate(14deg); }
 }
 @keyframes nmb-glow {
   from { opacity: 0.55; }
@@ -5360,14 +5447,14 @@ main,
   to { transform: rotate(calc(var(--nmb-side) * 12deg)) scaleY(0.5); }
 }
 @keyframes nmb-look {
-  0%, 100% { rotate: 0deg; }
-  18%, 40% { rotate: -9deg; }
-  60%, 82% { rotate: 9deg; }
+  0%, 100% { transform: rotate(0deg); }
+  18%, 40% { transform: rotate(-9deg); }
+  60%, 82% { transform: rotate(9deg); }
 }
 @keyframes nmb-look-eyes {
-  0%, 100% { translate: 0 0; }
-  18%, 40% { translate: -2.4px 0; }
-  60%, 82% { translate: 2.4px 0; }
+  0%, 100% { transform: translate(0, 0); }
+  18%, 40% { transform: translate(-2.4px, 0); }
+  60%, 82% { transform: translate(2.4px, 0); }
 }
 @keyframes nmb-blink-twice {
   0%, 38%, 78%, 100% { transform: scaleY(1); }
@@ -5384,8 +5471,8 @@ main,
   30%, 70% { transform: scale(0.95, 1.08); }
 }
 @keyframes nmb-yawn {
-  0%, 100% { rotate: 0deg; }
-  30%, 70% { rotate: -10deg; }
+  0%, 100% { transform: rotate(0deg); }
+  30%, 70% { transform: rotate(-10deg); }
 }
 @keyframes nmb-shut {
   0%, 100% { transform: scaleY(1); }

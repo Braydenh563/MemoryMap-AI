@@ -10203,6 +10203,12 @@ $("doc-browse-all").addEventListener("click", () => {
 // delegation set up below, Escape for free from <dialog>.showModal().
 $("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); scheduleDocPreview(); });
+//: The dock's breadcrumb (INBOX 424 p): back to the Library's Documents list,
+//: the place a document is opened from.
+$("doc-back")?.addEventListener("click", () => {
+  switchTab("library");
+  document.getElementById("library-subtab-docs")?.click();
+});
 //: **The document changed, whichever surface it changed in.** Bound to the
 //: fallback textarea's own `input` here and called straight by CodeMirror's
 //: update listener once the view is mounted, so there is one pipeline rather

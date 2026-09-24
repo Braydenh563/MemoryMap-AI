@@ -4353,3 +4353,23 @@ p.graph-help-panel {
 }
 
 
+
+/* **The tool list as a grid, not a page** (INBOX 424 m): fifty-odd tools, one
+   full-width row each with its whole description, made Tools 6,901px tall at
+   1440, the longest section in Settings by far. Two columns where the pane
+   has room, each description clamped to two lines with the rest on hover, so
+   the list reads as a set of switches to scan rather than a manual to read.
+   The filter box above it is still the fast way to one tool. */
+#tool-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--space-1) var(--space-5);
+}
+
+#tool-list .tool-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}

@@ -1648,7 +1648,7 @@ function gettingStartedCard() {
       //: "take the tour" and opens a slideshow teaches that the tour is a
       //: slideshow, and there was then no door to the tour on the dashboard
       //: at all. The welcome card keeps its own doors, both correctly
-      //: worded: Settings, help and guide's "Replay welcome tour" and the
+      //: worded: Settings, Help's "Replay the welcome" and the
       //: features browser's "Welcome tour" row.
       note: "Two minutes through what's here.",
       //: Guarded because tour.js is a separate file: a page served without
@@ -2897,6 +2897,9 @@ async function renderDigestWidget(body) {
 
 async function renderQuickCaptureWidget(body) {
   const textarea = document.createElement("textarea");
+  //: A placeholder is not a label: it goes as soon as you type, and a
+  //: screen reader reads nothing for the field without one (the a11y sweep).
+  textarea.setAttribute("aria-label", "Quick capture");
   textarea.rows = 2;
   // Don't promise AI filing when there's no AI to do it; the note still saves.
   textarea.placeholder =

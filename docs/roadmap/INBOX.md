@@ -542,18 +542,16 @@ with its owner named in the entry.
     llama3.2 while another model answered; no prompt when search by meaning
     failed; a picture captioned and read several times over.
 
-228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
-    you have finished all these, done the final bug sweep, make sure
-    everything is finished for the pr, and finish the pr, merging it into
-    main." Owner: orchestrator, last.
-
 213. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the last
     scan.** "finish all the agents, scan for bugs and high complexity one
     last time, and let me know when the pr is ready to merge / make sure to
     merge all of the agent branches into this one as the agents finish."
     And: "once absolutely everything is done and the roadmap documents are
     cleaned etc, all the agent branches are merged into this one etc, merge
-    this pr for me." Owner: orchestrator; the merge is the last act.
+    this pr for me." And (228, the same order, folded in): "after you have
+    finished all these, done the final bug sweep, make sure everything is
+    finished for the pr, and finish the pr, merging it into main." Owner:
+    orchestrator; the merge is the last act.
     **The last scan, run 2026-09-20.** Four passes, each a number rather
     than a reading:
     - **Routes with no caller** (`scratchpad/probe_dead_routes.py`): 320

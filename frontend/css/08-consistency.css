@@ -5680,7 +5680,7 @@ main,
 /* Parts that turn or slide do it about a point atlas.js puts on the part
    (`atlasPivot`), in the drawing's units. */
 .nm-atlas .atl-o { transform-box: view-box; }
-.nm-atlas :is(.atl-aura, .atl-sparkle, .atl-node-dot, .atl-dot, .atl-inner-star) {
+.nm-atlas :is(.atl-aura, .atl-sparkle, .atl-node-dot, .atl-dot, .atl-inner-star, .atl-ring-glint) {
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -5725,8 +5725,15 @@ main,
 .nm-atlas .atl-brow-line { stroke: var(--atl-line); stroke-width: 1.5; opacity: 0.8; }
 .nm-atlas .atl-tongue { fill: var(--atl-tongue); }
 .nm-atlas .atl-crest-light { fill: none; stroke: var(--atl-hi); stroke-width: 1.1; stroke-linecap: round; opacity: 0.7; }
-.nm-atlas .atl-band { fill: none; stroke: var(--atl-hi); stroke-width: 1.1; stroke-linecap: round; }
-.nm-atlas .atl-band-node { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.5; }
+/* The rings of stars (atlas.js, `atlasRing`): widths are in each ring's
+   flattened frame, so a ring is thinnest where it passes in front and
+   behind and widest at its turns, as a band seen at a slant is. */
+.nm-atlas .atl-ring-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 5; opacity: 0.3; }
+.nm-atlas .atl-ring-line { fill: none; stroke: var(--atl-dp); stroke-width: 1.1; opacity: 0.7; }
+.nm-atlas .atl-dust { fill: none; stroke: white; stroke-width: 1.5; stroke-linecap: round; stroke-dasharray: 0.1 3.3 0.1 1.9; opacity: 0.8; }
+.nm-atlas .atl-dust-far { stroke-width: 1.1; stroke-dasharray: 0.1 5.1 0.1 2.7 0.1 4.2; opacity: 0.5; }
+.nm-atlas .atl-ring-glint { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.3; }
+:root[data-mode="dark"] .nm-atlas .atl-ring-line { stroke: var(--atl-hi); }
 .nm-atlas .atl-sole { fill: none; stroke: var(--atl-line); stroke-width: 1; stroke-linecap: round; opacity: 0.5; }
 .nm-atlas .atl-crease { fill: none; stroke: var(--atl-line); stroke-width: 0.8; stroke-linecap: round; opacity: 0.45; }
 .nm-atlas .atl-glint { fill: white; }
@@ -5760,7 +5767,8 @@ main,
 /* The tail's notes dim with a low mood and in sleep; the light inside
    the chest glows with the mood (`--atl-star`). The tail takes its pose and its
    mood about the root behind the hip (`--atl-tail`). */
-.nm-atlas .atl-tail-core { opacity: var(--atl-halo-o); }
+/* The rings dim with a low mood and in sleep. */
+.nm-atlas :is(.atl-tail-core, .atl-ring) { opacity: var(--atl-halo-o); }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
 .nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
@@ -5796,7 +5804,7 @@ main,
 .nm-atlas :is(.atl-eye, .atl-pupil, .atl-lid, .atl-lid-low, .atl-brow, .atl-head, .atl-pose, .atl-crest, .atl-tail) {
   transition: transform var(--motion-slow) var(--ease-out);
 }
-.nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core) {
+.nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core, .atl-ring) {
   transition: opacity var(--motion-base) var(--ease-out);
 }
 
@@ -5997,7 +6005,12 @@ main,
     & .atl-blink.nm-blinks { animation: atl-blink 9s linear var(--nm-delay) infinite; }
     & .atl-sway { animation: atl-sway 9.6s ease-in-out var(--nm-delay) infinite; }
     & .atl-tail-swish { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
-    & .atl-tail-core .atl-node-dot { animation: atl-think 4.2s ease-in-out calc(var(--atl-k) * 0.5s) infinite; }
+    /* The dust drifts: slowly at rest, a touch faster when pleased or
+       busy; the inner ring turns the other way. */
+    & .atl-ring-drift { animation: atl-drift 56s linear infinite; }
+    & .atl-ring-1 .atl-ring-drift { animation-direction: reverse; animation-duration: 44s; }
+    &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"], [data-atlas-mood="proud"], [data-atlas-mood="thinking"], [data-atlas-mood="determined"]) .atl-ring-drift { animation-duration: 26s; }
+    & .atl-ring-glint { animation: atl-twinkle 2.8s ease-in-out calc(var(--atl-k) * -0.7s) infinite; }
     &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-tail-swish { animation: atl-wag 0.5s ease-in-out infinite alternate; }
     &:is([data-atlas-mood="thinking"], [data-atlas-mood="determined"]) .atl-inner-star { animation: atl-think 1.5s ease-in-out calc(var(--atl-k) * 0.3s) infinite; }
     & .atl-aura { animation: atl-glow 4.8s ease-in-out infinite; }
@@ -6033,7 +6046,7 @@ main,
   /* Music: its head grooves and its notes pulse to the beat. */
   :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-music {
     & .atl-figure .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
-    & .atl-figure .atl-tail-core .atl-node-dot { animation: atl-beat 0.5s ease-in-out infinite alternate; }
+    & .atl-figure .atl-ring-glint { animation: atl-beat 0.5s ease-in-out infinite alternate; }
     & .atl-figure .atl-prop-note { animation: atl-rise 1.8s ease-out infinite; }
   }
 
@@ -6058,7 +6071,7 @@ main,
    now leaves faces and the companion to this block. */
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy .atl-classic-box { animation-duration: 9s !important; }
-  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-inner-star, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
+  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-inner-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s !important;
   }
 }
@@ -6073,6 +6086,7 @@ main,
   65% { transform: rotate(-1.6deg); }
 }
 @keyframes atl-beat { to { transform: scale(1.6); } }
+@keyframes atl-drift { to { transform: rotate(360deg); } }
 @keyframes atl-swish {
   0%, 100% { transform: rotate(0deg); }
   40% { transform: rotate(-6deg); }

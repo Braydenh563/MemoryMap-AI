@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Atlas wears two rings of stars that float round its body at crossing tilts, passing behind it and in front: a faint glowing line with star dust drifting along it (slowly at rest, faster when it is pleased or busy) and a few star glints of different sizes twinkling, dimmer when it sleeps. Its tail is plain now, with one glint at the tip.
 - Atlas looks proud when you save a note and celebrates a capture streak of three days or more (once a day), alongside its other moods.
 - Settings, Appearance, Atlas style: the character (the default) or the classic glowing globe, Atlas's first face, with its own moods. Every Atlas follows the choice at once: chat marks, persona rows, the dashboard mark, the welcome, the large view and the corner companion, where the globe floats and wears headphones, reading glasses or a nightcap.
 - Atlas as the corner companion does the companion's reactions in its own style: glowing headphones with its tail's notes pulsing to the beat while the app plays sound, a crescent moon hung on its crest late at night, half-moon lenses of light while a long answer streams, a bell of light for a due reminder, one of its notes held up as a lantern, a snapped link between two notes when offline, and its orbit dimming and slowing as it drifts off to sleep.

@@ -128,7 +128,12 @@ with its owner named in the entry.
     notes the chip reads "Notes 198", and a plain Library search for the
     oldest note ("Note 17 summary") says "Nothing matching" while
     `/entries?q=` finds it; recommend true counts and a server search (or
-    paging) once a kind passes the cap.
+    paging) once a kind passes the cap. (Fixed: counts and the overview
+    are real totals, `truncated` names the cut kinds, `/library?q=` matches
+    before the cut and the client swaps those kinds in while searching; a
+    line under the grid says "Showing the newest 186 of 339 notes. Search
+    to reach the rest." Measured on 339 notes: the chip reads 339, a search
+    for the oldest note finds it. Test in tests/test_library.py.)
     (l) Settings: 18 sections in 4 groups; "Profile & preferences" sits
     under Atlas but holds the recycle bin, chat history, notifications and
     writing, is the only section with its own Save button, and repeats a

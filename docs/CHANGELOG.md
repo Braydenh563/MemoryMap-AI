@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Library counted only the newest 200 of each kind, so a notebook of 400 notes read "Notes 198" and a Library search could not find an older note. Counts are the real totals, a search asks the server (which matches before it pages), and a line under the grid says when only the newest page is shown.
 - Saved looks in Appearance get room for their names (two lines before any truncation) and the delete button is a small badge on the card corner instead of crowding the name. The dashboard search field no longer lets the background art show through when glass is off.
 - The companion showed on the lock screen; now only once unlocked. Regenerating the dashboard greeting said "Asking Atlas" whatever persona it was set to; it names the right one. A second change of the greeting persona did not redraw its face. Faces under 28px (chat bubble marks) no longer loop or follow the pointer, which was cost for no visible gain.
 - The corner companion: its speech bubble came out blank in some looks (text in a transparent colour), it sat on the back-to-top button, even after being dragged (it now measures the overlap with that button and the chat's jump pill wherever it is, and steps aside while they show), and dragging it was jerky (it now moves on the compositor once a frame, holding still while carried). It also showed you when set to the chat persona, and the dashboard mark set to the greeting persona kept the logo, whenever that persona was the default voice: both now show Atlas.

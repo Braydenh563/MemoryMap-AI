@@ -24,8 +24,8 @@ from __future__ import annotations
 import json
 import re
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import (
@@ -46,6 +46,14 @@ router = APIRouter(tags=["library"])
 #: hand back 300 documents and no chats, every kind gets its own allowance, so
 #: the filter chips are never empty for a reason nobody can see.
 PER_KIND_LIMIT = 200
+
+def _like(query: str) -> str:
+    """`query` as a literal LIKE pattern: `%` and `_` in what a person typed
+    are characters to find, not wildcards (a search for "100%" is not a
+    search for everything starting with 100)."""
+    escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
 
 #: Enough of a thing to recognise it, not enough to render a card that scrolls.
 PREVIEW_CHARS = 160
@@ -175,10 +183,16 @@ def _entry_kind(entry: Entry) -> str:
     return board_type if board_type in _BOARD_TYPES else "board"
 
 
-def _documents(session: Session) -> list[dict]:
-    rows = session.scalars(
-        select(Document).order_by(Document.updated_at.desc()).limit(PER_KIND_LIMIT)
-    )
+def _documents(session: Session, q: str = "") -> list[dict]:
+    stmt = select(Document)
+    if q:
+        stmt = stmt.where(
+            or_(
+                Document.title.ilike(_like(q), escape="\\"),
+                Document.content.ilike(_like(q), escape="\\"),
+            )
+        )
+    rows = session.scalars(stmt.order_by(Document.updated_at.desc()).limit(PER_KIND_LIMIT))
     items = []
     for doc in rows:
         words = len(doc.content.split())
@@ -204,9 +218,20 @@ def _documents(session: Session) -> list[dict]:
     return items
 
 
-def _chats(session: Session) -> list[dict]:
+def _chats(session: Session, q: str = "") -> list[dict]:
+    stmt = select(Conversation)
+    if q:
+        # `messages` is the turns' JSON, so this also matches a key name like
+        # "role"; harmless, since every chat has one and a person searching for
+        # "role" among their chats gets them all, which is what they asked.
+        stmt = stmt.where(
+            or_(
+                Conversation.title.ilike(_like(q), escape="\\"),
+                Conversation.messages.ilike(_like(q), escape="\\"),
+            )
+        )
     rows = session.scalars(
-        select(Conversation)
+        stmt
         .order_by(Conversation.pinned.desc(), Conversation.updated_at.desc())
         .limit(PER_KIND_LIMIT)
     )
@@ -475,7 +500,16 @@ def _shelved(session: Session) -> list[dict]:
     return items
 
 
-def _notes(session: Session) -> list[dict]:
+#: The rows `_notes` lists, as a where-clause, so its page and its total can
+#: never disagree about what counts as a live note.
+_LIVE_NOTE = (
+    Entry.is_deleted == False,  # noqa: E712
+    Entry.archived_at.is_(None),
+    Entry.is_draft == False,  # noqa: E712
+)
+
+
+def _notes(session: Session, q: str = "") -> list[dict]:
     """Your live notes.
 
     The Notes tab is where you *work with* them; this is where you manage them
@@ -497,10 +531,17 @@ def _notes(session: Session) -> list[dict]:
         # showing up as a first-class card in Library → "Everything",
         # reported directly ("draft notes appear as regular notes in the
         # main library section").
+        .where(*_LIVE_NOTE)
+        # A search matches before the page is cut, so it reaches a note older
+        # than the newest PER_KIND_LIMIT (INBOX 424). Never a private note:
+        # its content is ciphertext, and a match on it would say something
+        # about what the encryption is hiding.
         .where(
-            Entry.is_deleted == False,  # noqa: E712
-            Entry.archived_at.is_(None),
-            Entry.is_draft == False,  # noqa: E712
+            *(
+                (Entry.is_private == False, Entry.content.ilike(_like(q), escape="\\"))  # noqa: E712
+                if q
+                else ()
+            )
         )
         .order_by(Entry.pinned.desc(), Entry.created_at.desc())
         .limit(PER_KIND_LIMIT)
@@ -784,8 +825,27 @@ def _overview(session: Session, items: list[dict]) -> dict:
     }
 
 
+def _totals(session: Session) -> dict[str, int]:
+    """The real size of the kinds that grow past a page: live notes,
+    documents and chats. Everything else stays well under PER_KIND_LIMIT in
+    any notebook this app has seen, and is counted from the page as before."""
+    def count(stmt) -> int:
+        return int(session.scalar(stmt) or 0)
+
+    return {
+        "note": count(
+            select(func.count(Entry.id)).where(*_LIVE_NOTE, Entry.is_board == False)  # noqa: E712
+        ),
+        "document": count(select(func.count(Document.id))),
+        "chat": count(select(func.count(Conversation.id))),
+    }
+
+
 @router.get("/library")
-def library(session: Session = Depends(get_session)) -> dict:
+def library(
+    session: Session = Depends(get_session),
+    q: str = Query("", max_length=200),
+) -> dict:
     """Everything you made, newest first within each kind.
 
     One call for eight kinds, because the Library is now the app's management
@@ -797,10 +857,11 @@ def library(session: Session = Depends(get_session)) -> dict:
     filter chips show them, and a chip reading "Files 0" is a useful thing to
     see *before* pressing it. `overview` is the same argument one level up.
     """
+    q = q.strip()
     items = (
-        _notes(session)
-        + _documents(session)
-        + _chats(session)
+        _notes(session, q)
+        + _documents(session, q)
+        + _chats(session, q)
         + _images(session)
         + _tags(session)
         + _archive(session)
@@ -811,8 +872,18 @@ def library(session: Session = Depends(get_session)) -> dict:
     counts: dict[str, int] = {}
     for item in items:
         counts[item["kind"]] = counts.get(item["kind"], 0) + 1
+    # The chips and the overview say how many there are, not how many came
+    # back: with 400 notes the Notes chip read "Notes 198" (INBOX 424). A kind
+    # with more than a page is named in `truncated`, so the client knows its
+    # own filter cannot see everything and asks here with `?q=` instead.
+    totals = _totals(session)
+    truncated = {kind: n for kind, n in totals.items() if n > PER_KIND_LIMIT}
+    counts.update({kind: n for kind, n in totals.items() if n or kind in counts})
+    overview = _overview(session, items)
+    overview.update(notes=totals["note"], documents=totals["document"], chats=totals["chat"])
     return {
         "items": items,
         "counts": counts,
-        "overview": _overview(session, items),
+        "overview": overview,
+        "truncated": truncated,
     }

@@ -413,3 +413,40 @@ def test_the_library_is_behind_the_unlock_gate(client):
     client.post("/auth/setup", json={"password": "a password"})
     client.post("/auth/lock")
     assert client.get("/library").status_code == 401
+
+
+def test_counts_are_totals_and_a_search_reaches_past_the_page(client, session):
+    """INBOX 424: with 400 notes the chip read "Notes 198" and a Library
+    search for the oldest note said "Nothing matching". Each kind still
+    sends its newest `PER_KIND_LIMIT`, but the counts are the real totals,
+    `truncated` says which kinds are cut, and `?q=` filters before the cut,
+    so a search finds a note the first page never carried. A private note's
+    ciphertext is never matched."""
+    from datetime import datetime, timedelta
+
+    from memorymap.api.routes_library import PER_KIND_LIMIT
+
+    start = datetime(2020, 1, 1)
+    for i in range(PER_KIND_LIMIT + 5):
+        session.add(Entry(content=f"filler note {i}", created_at=start + timedelta(minutes=i)))
+    session.add(Entry(content="the oldest zebra crossing", created_at=start - timedelta(days=1)))
+    session.add(Entry(content="zebra secret", is_private=True, created_at=start))
+    for i in range(PER_KIND_LIMIT + 2):
+        session.add(Document(title=f"doc {i}", content="words"))
+    session.commit()
+
+    body = client.get("/library").json()
+    assert body["counts"]["note"] == PER_KIND_LIMIT + 7
+    assert body["overview"]["notes"] == PER_KIND_LIMIT + 7
+    assert body["counts"]["document"] == PER_KIND_LIMIT + 2
+    assert len(_of_kind(body, "note")) == PER_KIND_LIMIT
+    assert body["truncated"]["note"] == PER_KIND_LIMIT + 7
+    assert "chat" not in body["truncated"]
+
+    found = client.get("/library", params={"q": "ZEBRA"}).json()
+    notes = _of_kind(found, "note")
+    assert [n["preview"] for n in notes] == ["the oldest zebra crossing"]
+    assert found["counts"]["note"] == PER_KIND_LIMIT + 7  # totals, not matches
+
+    wild = client.get("/library", params={"q": "100%"}).json()
+    assert _of_kind(wild, "note") == []  # % is literal, not a wildcard

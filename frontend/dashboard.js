@@ -1299,7 +1299,11 @@ async function renderContinueLink(row) {
     .sort((a, b) => touched(b) - touched(a))[0];
   if (!newest) return;
   // One line of the note, short enough to sit in a pill beside three others.
-  const preview = notePreviewText(newest.content || "").trim().slice(0, 42) || "your last note";
+  // Cut at a word with an ellipsis: a bare 42-character slice ended the pill
+  // on "responds to the blu", which reads as a typo rather than as more text.
+  const full = notePreviewText(newest.content || "").trim();
+  const cut = full.length > 42 ? full.slice(0, 42).replace(/\s+\S*$/, "") : full;
+  const preview = cut ? (cut.length < full.length ? `${cut}…` : cut) : "your last note";
   //: **The note's own line is the label, not the hint.** 10-responsive.css
   //: gives this pill `flex: 2 1 0` against its neighbours' `1 1 0` and says
   //: why: "Continue is the one pill whose text is a note's own first line, so

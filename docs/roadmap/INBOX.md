@@ -54,7 +54,13 @@ with its owner named in the entry.
     still says "Install Tesseract". `tests/test_ocr_regions.py`.) (e) At
     150% zoom the lightbox picture overlaps its caption
     line. (f) Stored readings that already contain a repeated-line loop are
-    not cleaned: offer "Clean up" in the reading menu. (g) `_desktop_port()`
+    not cleaned: offer "Clean up" in the reading menu. (fixed: a broom
+    button beside Delete reading, in the OCR workspace and the lightbox's
+    other-readings list, POSTs `/files/{id}/ocr-clean-loops` or
+    `/media/{id}/ocr-clean-loops`, which runs `cut_reading_loops` over
+    whichever of `vision_ocr_text`/`ocr_text` are set and saves what
+    changed; the panel repaints from the response. `tests/test_ocr_clean_loops.py`,
+    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()`
     treats any MemoryMap on the port as ours, whatever its data dir: compare
     the data dir in `/instance` first. (h) Chat replies saved before
     2026-09-24 always show Atlas's mark (their persona was never stored).

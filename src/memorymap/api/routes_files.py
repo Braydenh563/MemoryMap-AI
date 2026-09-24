@@ -3438,6 +3438,79 @@ def delete_media_page_read(
     return _stored_range(_page_read_key(None, upload_id))
 
 
+def _clean_reading_fields(*fields: tuple[str, str | None]) -> dict[str, str | None]:
+    """`vision_ocr.cut_reading_loops` run over each field that is set, as a
+    dict of only the ones it actually changed, so a caller commits nothing
+    when there was nothing to clean.
+
+    Two fields, not one: a picture read twice (Tesseract once, the vision
+    model once) can have the loop in either, and a menu item that only
+    checked the one the workspace happens to be showing would leave the
+    other one looping forever with no way back to it.
+    """
+    changed: dict[str, str | None] = {}
+    for name, value in fields:
+        if not value:
+            continue
+        cleaned = vision_ocr.cut_reading_loops(value).strip()
+        if cleaned != value:
+            changed[name] = cleaned or None
+    return changed
+
+
+@router.post("/files/{attachment_id}/ocr-clean-loops", response_model=AttachmentGalleryOut)
+def clean_attachment_reading_loops(
+    attachment_id: int, session: Session = Depends(get_session)
+) -> AttachmentGalleryOut:
+    """**"Clean up repeated lines"** in the OCR workspace/lightbox menu
+    (INBOX 423f). Runs the same `cut_reading_loops` a fresh reading is
+    always passed through (ai/vision_ocr.py) over whichever of this
+    attachment's readings already have text, in place: the guard at the
+    point a reading is produced does nothing for one that was already
+    stored before it existed, or one a since-changed model still managed to
+    loop, and nothing else ever re-reads a stored reading on its own.
+    Idempotent: a reading with no loop, or one already cleaned, comes back
+    unchanged.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    changed = _clean_reading_fields(
+        ("vision_ocr_text", attachment.vision_ocr_text),
+        ("ocr_text", attachment.ocr_text),
+    )
+    if changed:
+        for name, value in changed.items():
+            setattr(attachment, name, value)
+        session.commit()
+    return _attachment_out(session, attachment)
+
+
+@router.post("/media/{upload_id}/ocr-clean-loops", response_model=MediaUploadOut)
+def clean_media_reading_loops(
+    upload_id: int, session: Session = Depends(get_session)
+) -> MediaUploadOut:
+    """`clean_attachment_reading_loops`'s sibling for a media upload."""
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    changed = _clean_reading_fields(
+        ("vision_ocr_text", upload.vision_ocr_text),
+        ("ocr_text", upload.ocr_text),
+    )
+    if changed:
+        for name, value in changed.items():
+            setattr(upload, name, value)
+        session.commit()
+    return MediaUploadOut(
+        id=upload.id,
+        url=f"/media/{upload.filename}",
+        original_name=upload.original_name,
+        ocr_text=upload.ocr_text or "",
+        caption=upload.caption or "",
+        caption_model=upload.caption_model or "",
+        caption_edited=upload.caption_edited,
+        vision_ocr_text=upload.vision_ocr_text or "",
+        vision_ocr_model=upload.vision_ocr_model or "",
+    )
+
+
 class VisionOcrBody(BaseModel):
     #: Same "already there and not forced, leave it alone" rule as
     #: `CaptionBody.force`, a manual re-read the user pressed the button

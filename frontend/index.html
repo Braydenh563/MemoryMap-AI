@@ -7115,6 +7115,13 @@
                  Reported: "the button is also ugly and not good where it is." -->
             <button id="ocr-delete-reading" class="ghost small icon-only danger hidden" type="button"
               title="Delete this reading (you can read it again any time)" aria-label="Delete this reading"><i class="ph ph-trash" aria-hidden="true"></i></button>
+            <!-- A stored reading with a degenerate loop in it ("Test, Test,
+                 Test, ...") stays looped forever otherwise: nothing re-reads
+                 a reading that is already on the row (INBOX 423f). Runs the
+                 same cut_reading_loops a fresh reading is passed through,
+                 in place. -->
+            <button id="ocr-clean-loops" class="ghost small icon-only hidden" type="button"
+              title="Clean up repeated lines in this reading" aria-label="Clean up repeated lines"><i class="ph ph-broom" aria-hidden="true"></i></button>
             <!-- The caption half of what the app knows about what is on the
                  stage, written by the same vision model Settings chose, kept
                  beside the reading half so the two are managed in one place.

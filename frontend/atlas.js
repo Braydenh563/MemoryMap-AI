@@ -16,12 +16,12 @@
 //:   be cute though, just not fat baby cute"). Its references are spirit
 //:   guides (Ori, Navi, a legendary's small form): cute through expression
 //:   and motion, not chubbiness. No glasses, screens or lab-coat cues.
-//: - **Silhouette.** Lean and one piece: a head about 42% of the height
-//:   with a softly tapered chin, flowing into narrow shoulders, a waist and
-//:   a tunic's hem with two points, on slim limbs. A fin-like crest sweeps
-//:   back from the crown and a streamer of light trails from the neck, so
-//:   the outline has angles and movement. Crest, head, arms and body share
-//:   one gradient in the drawing's own space (the favicon's trick).
+//: - **Silhouette.** Lean and one piece, a creature with a clear outline
+//:   (the owner: "he can be like a cool pokemon"): a head about 42% of the
+//:   height with a softly tapered chin, a small plain crest swept back from
+//:   the crown, narrow shoulders tapering to a tunic V on slim limbs, and a
+//:   tail. Head, crest, arms, body and tail share one gradient in the
+//:   drawing's own space (the favicon's trick).
 //: - **Construction** (the owner, on the second draft: "it kinda looks like
 //:   the arms and legs arent properly attached to the body, I want a cleaner
 //:   and better design"). Every outline is drawn first, as one layer, and
@@ -32,13 +32,17 @@
 //:   companion class, so a pose turns its outline and its fill together,
 //:   about a joint inside the torso, and no rotation opens a seam. Crest and
 //:   head are joined the same way.
-//: - **The signature is the logo, worn.** The logo is a bright hub with five
-//:   linked notes round it. Atlas's crest carries three notes linked along
-//:   its spine to a bright tip, the streamer trailing from its neck two
-//:   more, and the hub's bright point is a small star in its chest. Under
-//:   28px the crest and its tip note still read. Restraint over ornament:
-//:   one crest and one trail, no orbit or motes (the second draft had both,
-//:   and the owner read them as stray lines).
+//: - **The signature is the logo, worn, twice and no more.** The logo is a
+//:   bright hub with linked notes round it. Atlas's tail is four linked
+//:   notes tapering to a bright tip, and a compass star in its chest is the
+//:   hub (Atlas: maps, finding the way), glowing brighter when it is happy,
+//:   dim when it sleeps, and turning a quarter turn while it thinks. The tail
+//:   was chosen over a ring round the body (the owner liked both; one node
+//:   motif, not two): a tail has a pose of its own (tucked sitting, hanging
+//:   when it hangs, curled asleep, wagging when pleased), joins the
+//:   silhouette the same way the limbs do, and animates with one rotation,
+//:   where a ring needs a front half and a back half round the body and the
+//:   last one read as stray lines. No orbit, no motes, no nodes on the crest.
 //: - **Aura.** One radial gradient glow behind it (no filters), a rim light
 //:   on its right edge and a gloss on the crown. The glow is stronger in
 //:   dark mode, where it has something to glow against.
@@ -59,8 +63,8 @@
 //:   tear). The combinations are CSS (`[data-atlas-mood]` in
 //:   08-consistency.css); this file draws the parts and says which mood.
 //: - **Life.** Breathing squash and stretch from the feet, blinks with an
-//:   occasional double blink, the streamer fluttering, the crest's notes
-//:   glinting in turn, a slow head sway and the glow pulsing. Expressions ease between each other in
+//:   occasional double blink, the tail swaying (wagging when pleased) with
+//:   its notes glinting in turn, a slow head sway and the glow pulsing. Expressions ease between each other in
 //:   `--motion-slow`. All of it is CSS transform and opacity on this one SVG,
 //:   runs only while the mark is on screen and motion is on, slows under
 //:   Reduce motion and stops under Avatar animation Off.
@@ -125,25 +129,24 @@ const ATLAS_GEO = {
   eyes: [[25.2, 22.4, 1], [38.8, 22.4, -1]],
   brows: [[24.8, 15.4, 1], [39.2, 15.4, -1]],
   cheeks: [[19.6, 28.2], [44.4, 28.2]],
-  crest: [30.5, 6.5],
+  crest: [31, 7],
+  tail: [38, 67],
   neck: [32, 36],
   feet: [32, 90],
   chin: [32, 38],
-  scarf: [37, 40],
 };
 
 const ATLAS_HEAD_PATH = "M32 3.6C42.4 3.6 49.2 10.6 49.2 20.2C49.2 28.2 44.4 34.8 37.6 37.4C35 38.4 29 38.4 26.4 37.4C19.6 34.8 14.8 28.2 14.8 20.2C14.8 10.6 21.6 3.6 32 3.6Z";
-//: The crest: a fin swept back from the crown, carrying three of the
-//: logo's notes along its spine to a bright tip.
-const ATLAS_CREST_PATH = "M23.4 8.8C22.4 2 27.8 -2.6 35.6 -3.2C43.4 -3.8 49.6 -2.6 57.4 -7.4C54.8 -1 49 3.2 42.8 5C40.2 5.8 38.6 7 37.8 8.8Z";
-const ATLAS_CREST_SPINE = "M27.4 4.2Q36 -1 45.6 -2.4T56.4 -6.8";
-const ATLAS_CREST_NODES = [[36.4, -0.8, 1.5], [45.6, -2.4, 1.9], [56.4, -6.8, 2.5]];
+//: The crest: a small fin swept back from the crown, plain.
+const ATLAS_CREST_PATH = "M25 8.8C24.4 3.4 29 0 35.4 -0.4C40 -0.7 43.6 -1.8 46.6 -4.6C45.8 0.2 42.8 3.6 39 5.4C37.8 6 37 7.2 36.6 8.8Z";
 //: The body: shoulders a little wider than the hips, tapering to a tunic's
 //: V at the front, so the silhouette has angles and not a belly.
 const ATLAS_TORSO_PATH = "M27 34C27.2 38.6 25 40.4 22.2 41.6C19.6 42.8 19.4 46.6 20.6 50C22 54 24.2 58.6 24.8 63C25.2 66.4 25 69.4 25.4 71.6C27.6 72 29.6 72.8 32 75C34.4 72.8 36.4 72 38.6 71.6C39 69.4 38.8 66.4 39.2 63C39.8 58.6 42 54 43.4 50C44.6 46.6 44.4 42.8 41.8 41.6C39 40.4 36.8 38.6 37 34Z";
-//: The streamer: light trailing from the back of the neck, two notes on
-//: its edge, the end one the brightest.
-const ATLAS_SCARF_PATH = "M36.4 36.6C45 37.2 50.6 41.8 53.4 48.6C55.6 54 58.2 58.6 62.4 60.6C56.8 61.8 52.2 58.6 49.6 53.8C47.2 49.4 43.2 44.8 36.2 43.4Z";
+//: The tail: four of the logo's notes on one link, from behind the right
+//: hip, low and out past the hand, then up to a bright tip. It hangs below
+//: the hand and ends beyond it, so it never reads as held.
+const ATLAS_TAIL_LINK = "M36 67Q42 76.5 48.4 78.2Q54.6 79.6 57.8 75.2Q60 72 60.4 68.2";
+const ATLAS_TAIL_NODES = [[43.2, 74.4, 3.4], [50, 78.4, 2.9], [56.4, 76.6, 2.5], [60.4, 68.2, 3]];
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -174,6 +177,20 @@ function atlasHeart(parent, x, y, s, cls) {
   return atlasMake("path", {
     class: cls,
     d: `M${x} ${y + s * 0.9}C${x - s * 1.3} ${y} ${x - s * 1.1} ${y - s * 1} ${x - s * 0.5} ${y - s * 1}C${x - s * 0.15} ${y - s * 1} ${x} ${y - s * 0.7} ${x} ${y - s * 0.45}C${x} ${y - s * 0.7} ${x + s * 0.15} ${y - s * 1} ${x + s * 0.5} ${y - s * 1}C${x + s * 1.1} ${y - s * 1} ${x + s * 1.3} ${y} ${x} ${y + s * 0.9}Z`,
+  }, parent);
+}
+
+//: The compass star: a four-point star with four short diagonals.
+function atlasCompass(parent, x, y, s) {
+  const t = s * 0.2;
+  const d = s * 0.5;
+  atlasMake("path", {
+    class: "atl-star-minor",
+    d: `M${x - d} ${y - d}L${x} ${y - t}L${x + d} ${y - d}L${x + t} ${y}L${x + d} ${y + d}L${x} ${y + t}L${x - d} ${y + d}L${x - t} ${y}Z`,
+  }, parent);
+  atlasMake("path", {
+    class: "atl-star-major",
+    d: `M${x} ${y - s}L${x + t} ${y - t}L${x + s} ${y}L${x + t} ${y + t}L${x} ${y + s}L${x - t} ${y + t}L${x - s} ${y}L${x - t} ${y - t}Z`,
   }, parent);
 }
 
@@ -269,36 +286,42 @@ function atlasExtras(parent) {
   return fx;
 }
 
-//: The crest, swept back from the crown with the logo's notes on its spine.
-//: It perks up with a good mood and droops with a low one (`--atl-crest`).
-//: Drawn twice, like the body: its edge under every fill, then its fill.
+//: The crest, swept back from the crown. It perks up with a good mood and
+//: droops with a low one (`--atl-crest`). Drawn twice, like the body: its
+//: edge under every fill, then its fill.
 function atlasCrest(parent, tiny, edge) {
   const crest = atlasGroup(parent, "atl-crest", ATLAS_GEO.crest);
-  if (edge) {
-    atlasMake("path", { class: "atl-edge", d: ATLAS_CREST_PATH }, crest);
-    return crest;
-  }
-  atlasMake("path", { class: "atl-skin", d: ATLAS_CREST_PATH }, crest);
-  if (tiny) {
-    atlasMake("circle", { class: "atl-node-dot", cx: 55.6, cy: -6.4, r: 3.2 }, crest);
-    return crest;
-  }
-  atlasMake("path", { class: "atl-crest-light", d: "M26 5.4C27.6 0.6 33.6 -1.4 40 -1.6" }, crest);
-  atlasMake("path", { class: "atl-spine", d: ATLAS_CREST_SPINE }, crest);
-  ATLAS_CREST_NODES.forEach(([x, y, r], i) => {
-    const node = atlasGroup(crest, `atl-crest-node atl-crest-node-${i}`);
-    node.style.setProperty("--atl-k", String(i));
-    atlasMake("circle", { class: "atl-node-glow", cx: x, cy: y, r: r + 1.6 }, node);
-    atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r }, node);
-  });
+  atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: ATLAS_CREST_PATH }, crest);
+  if (!edge && !tiny) atlasMake("path", { class: "atl-crest-light", d: "M27.4 5.6C28.6 2 32.4 0.8 36.6 0.6" }, crest);
   return crest;
+}
+
+//: The tail, in the edge layer and again in the fill layer like every other
+//: part. `.atl-tail` takes the pose and the mood (tucked, hanging, curled,
+//: lifted, drooping); `.atl-tail-swish` inside it takes the loop (a slow
+//: sway at rest, a wag when pleased). In the fill copy each note has a
+//: bright core that lights in turn while Atlas thinks and to the beat
+//: while music plays, and the tip carries a small star.
+function atlasTail(layer, edge) {
+  const tail = atlasGroup(layer, "atl-tail", ATLAS_GEO.tail);
+  const swish = atlasGroup(tail, "atl-tail-swish", ATLAS_GEO.tail);
+  atlasMake("path", { class: edge ? "atl-edge atl-tail-link" : "atl-limb atl-tail-link", d: ATLAS_TAIL_LINK }, swish);
+  ATLAS_TAIL_NODES.forEach(([x, y, r], i) => {
+    atlasMake("circle", { class: edge ? "atl-edge" : "atl-skin", cx: x, cy: y, r }, swish);
+    if (edge) return;
+    const core = atlasGroup(swish, `atl-tail-core atl-tail-core-${i}`);
+    core.style.setProperty("--atl-k", String(i));
+    atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r: r * 0.46 }, core);
+  });
+  if (!edge) atlasSpark(swish, 60.4, 68.2, 2, "atl-tail-star");
+  return tail;
 }
 
 // --- the companion's props, in Atlas's own language ---------------------------
 //: The companion shows a prop slot (`.nmp-*`, the character interface in
 //: avatars.js) while something is going on around it. Atlas answers each
 //: in its own materials, light and notes, rather than with a prop from a
-//: shelf: glowing cups for music (and its crest's notes pulse to the beat,
+//: shelf: glowing cups for music (and its tail's notes pulse to the beat,
 //: in the CSS), a crescent moon hung on its crest's tip at night, half-moon
 //: lenses of light for a long read, a bell of light for a reminder, one of
 //: its own notes held up as a lantern, and, offline, a snapped link between
@@ -314,9 +337,9 @@ function atlasHeadProps(sway, crest) {
   atlasMake("path", { class: "atl-prop-note-ink", d: "M55.6 9.6V2.4L60 1.2V8.4" }, note);
   for (const [x, y] of [[54.2, 9.8], [58.6, 8.6]]) atlasMake("ellipse", { class: "atl-prop-note-head", cx: x, cy: y, rx: 1.6, ry: 1.2 }, note);
   const moon = atlasGroup(crest, "nmp nmp-nightcap");
-  atlasMake("circle", { class: "atl-prop-moon-glow", cx: 57.4, cy: -6.2, r: 6.4 }, moon);
-  atlasMake("path", { class: "atl-prop-moon", d: "M56.4 -11.6A5.2 5.2 0 1 0 61.8 -3.4A4.2 4.2 0 1 1 56.4 -11.6Z" }, moon);
-  atlasSpark(moon, 50.4, -9.2, 1.4, "atl-sparkle");
+  atlasMake("circle", { class: "atl-prop-moon-glow", cx: 48.2, cy: -6.4, r: 6 }, moon);
+  atlasMake("path", { class: "atl-prop-moon", d: "M47.4 -11.4A5 5 0 1 0 52.6 -3.6A4 4 0 1 1 47.4 -11.4Z" }, moon);
+  atlasSpark(moon, 41.6, -7.6, 1.3, "atl-sparkle");
   const glasses = atlasGroup(sway, "nmp nmp-glasses");
   for (const [cx, cy] of ATLAS_GEO.eyes) {
     atlasMake("path", { class: "atl-prop-lens", d: `M${cx - 5.6} ${cy + 0.2}Q${cx} ${cy + 7} ${cx + 5.6} ${cy + 0.2}Z` }, glasses);
@@ -408,6 +431,7 @@ function atlasBody(parent, props) {
   const arms = {};
   for (const [kind, layer] of Object.entries(layers)) {
     const edge = kind === "edge";
+    atlasTail(layer, edge);
     for (const [side, d] of ATLAS_LEGS) {
       const leg = atlasGroup(layer, `nmb-leg nmb-leg-${side} atl-leg`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, leg);
@@ -420,11 +444,12 @@ function atlasBody(parent, props) {
     const torso = atlasGroup(layer, "nmb-torso");
     atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: ATLAS_TORSO_PATH }, torso);
     if (!edge) {
-      //: The hub's light, the logo's centre, in its chest: a small
-      //: four-point star in a soft glow.
-      const core = atlasGroup(torso, "atl-core", [32, 48.5]);
-      atlasMake("circle", { class: "atl-core-glow", cx: 32, cy: 48.5, r: 5.2 }, core);
-      atlasSpark(core, 32, 48.5, 2.6, "atl-core-dot");
+      //: The hub, the logo's centre, in its chest as a compass star: four
+      //: long points and four short, in a soft glow that follows the mood.
+      const core = atlasGroup(torso, "atl-core", [32, 49]);
+      atlasMake("circle", { class: "atl-core-glow", cx: 32, cy: 49, r: 6.4 }, core);
+      const star = atlasGroup(core, "atl-star", [32, 49]);
+      atlasCompass(star, 32, 49, 4.6);
     }
     for (const [side, d] of ATLAS_ARMS) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);
@@ -433,15 +458,6 @@ function atlasBody(parent, props) {
     }
   }
   if (props) atlasHandProps(arms.r, arms.l);
-}
-
-//: The streamer of light behind the body, with two notes on its edge.
-function atlasScarf(parent) {
-  const scarf = atlasGroup(parent, "atl-scarf", ATLAS_GEO.scarf);
-  atlasMake("path", { class: "atl-scarf-fill", d: ATLAS_SCARF_PATH }, scarf);
-  atlasMake("path", { class: "atl-scarf-light", d: "M38.6 39.4C45.4 40.2 49.8 44 52.2 49.4C54.2 54 57 58 61 60.2" }, scarf);
-  for (const [x, y, r] of [[52.6, 49.6, 1.3], [62, 60.6, 1.9]]) atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r }, scarf);
-  return scarf;
 }
 
 //: The gradients, per drawing (ids are per drawing, so two on a page never
@@ -518,7 +534,6 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   const moodLoop = atlasGroup(pose, "atl-mood", anchor);
   const rig = atlasGroup(moodLoop, "atl-rig", anchor);
   if (spec.body) {
-    atlasScarf(rig);
     atlasBody(rig, figure);
   }
   //: The companion turns the head at the neck (`.nm-buddy-head`) and looks

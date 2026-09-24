@@ -249,7 +249,9 @@ select optgroup {
      was `#cdd5e0`, which is what caught this. Strings, numbers and comments
      reuse `--ok`, `--warn` and `--muted`, none of which the user can change. */
   --syntax-keyword: #7c3aed;
-  --warn: #9a5b04;
+  /* #9a5b04 was 4.48:1 on its own `--warn-soft` chip ("confirms first" in
+     Settings, Tools; contrast.js), a hair under AA. One step darker is 4.85. */
+  --warn: #935603;
   --warn-soft: rgba(245, 189, 79, 0.25);
   --ok: #10653c;
   --ok-soft: rgba(52, 199, 123, 0.20);
@@ -786,7 +788,9 @@ select,
   --warn-soft: rgba(251, 191, 36, 0.16);
   --ok: #4ade80;
   --ok-soft: rgba(74, 222, 128, 0.15);
-  --error: #f87171;
+  /* #f87171 read 4.21:1 as a danger button's label on its own --error-soft
+     ground (Settings, Learned: "Forget everything learned"; contrast.js). */
+  --error: #fa8585;
   --error-soft: rgba(248, 113, 113, 0.16);
   --border: rgba(255, 255, 255, 0.10);
   --chip-bg: rgba(255, 255, 255, 0.08);
@@ -860,7 +864,7 @@ select,
     --warn-soft: rgba(251, 191, 36, 0.16);
     --ok: #4ade80;
     --ok-soft: rgba(74, 222, 128, 0.15);
-    --error: #f87171;
+    --error: #fa8585;
     --error-soft: rgba(248, 113, 113, 0.16);
     --border: rgba(255, 255, 255, 0.10);
     --chip-bg: rgba(255, 255, 255, 0.08);

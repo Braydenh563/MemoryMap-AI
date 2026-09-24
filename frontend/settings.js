@@ -2392,7 +2392,7 @@ const PALETTES = [
     name: "Quiet",
     note: "The default. A warm grey ground, solid panels and one ink-blue accent.",
     light: { page: "#f4f3f1", card: "#ffffff", accent: "#2f5bd3", border: "rgba(28,28,26,0.12)" },
-    dark: { page: "#161615", card: "#1e1e1c", accent: "#5b95ff", border: "rgba(236,235,232,0.12)" },
+    dark: { page: "#161615", card: "#1e1e1c", accent: "#78a8ff", border: "rgba(236,235,232,0.12)" },
   },
   {
     id: "default",

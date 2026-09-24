@@ -33,7 +33,7 @@
 // the one place anyone would look for them, the canvas. That is the blocker
 // §9.3 names, and everything below is the frontend half of it.
 //
-// **This is not `wbArrangeMindMap` further up this file.** That is the concept
+// **This is not `wbArrangeMindMap` in whiteboard.js.** That is the concept
 // map: whiteboard *cards* (a card is a real note) joined by link sketches,
 // with a spanning tree inferred by BFS because a link carries no direction. A
 // map node is a `WhiteboardObject` with a real `parent_id`, so its tree is

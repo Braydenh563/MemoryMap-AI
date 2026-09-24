@@ -106,6 +106,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Find anything's kind row fades only on an edge with more behind it, and the
+  kinds rest as plain text with only the chosen one filled.
 - Code documents: the selection bar offers only Ask Atlas and Rewrite (no markdown
   formatting over code), and every indentation step is drawn 2em wide, whatever
   the file's unit.

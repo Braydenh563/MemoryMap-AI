@@ -4442,8 +4442,18 @@ main,
    row that scrolls with nothing to say so hid its last chips under the Sort
    label ("Link" cut in half, owner's screenshot). The row fades at the edge
    it can still scroll toward, so the cut reads as "more", not as a fault. */
-.finder-filters {
+.finder-filters.fade-end {
   mask-image: linear-gradient(to right, #000 calc(100% - var(--space-6)), transparent);
+}
+
+/* Only an edge with more behind it fades (`finderSyncFilterEdges`): at the
+   end of the row the last chip is whole, at the start the first one is. */
+.finder-filters.fade-start {
+  mask-image: linear-gradient(to left, #000 calc(100% - var(--space-6)), transparent);
+}
+
+.finder-filters.fade-start.fade-end {
+  mask-image: linear-gradient(to right, transparent, #000 var(--space-6), #000 calc(100% - var(--space-6)), transparent);
 }
 
 /* --- Chat: the user's bubble as a quiet surface, not an accent slab --- */
@@ -4881,4 +4891,25 @@ main,
    of it. */
 #chat-messages {
   scrollbar-gutter: stable;
+}
+
+/* The owner: "are they signs of being vibe coded??" Partly: nine filled
+   grey capsules in a row, the chosen one told apart by a darker fill plus an
+   edge, is the generated-filter-bar look. A filter row reads as tabs here:
+   the kinds rest as plain text, the pointer brings a ground, the chosen one
+   is the only filled chip. Counts and keyboard behaviour are unchanged. */
+.finder-filters .library-chip:not(.active) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.finder-filters .library-chip:not(.active):hover {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
+.finder-filters .library-chip.active {
+  border-color: transparent;
+  box-shadow: none;
 }

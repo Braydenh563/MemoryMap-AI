@@ -894,7 +894,7 @@
   padding: 0 0.25rem;
   border-radius: var(--radius-pill);
   background: var(--error);
-  color: #fff;
+  color: var(--on-error);
   font-size: 0.7rem;
   font-weight: 700;
   text-align: center;
@@ -1242,7 +1242,7 @@
 .confirm-actions button.danger {
   background: var(--error);
   border-color: var(--error);
-  color: #fff;
+  color: var(--on-error);
 }
 
 .confirm-actions button.danger:hover {

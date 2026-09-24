@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A Recent activity widget for the dashboard, in the widget picker: what
   changed in the notebook lately (notes, documents, boards and reminders),
   and whether you, Atlas or a skill changed it. Off until added, so no
+- Filled danger buttons and red count badges use a text colour chosen for their ground: in the dark theme the Quit, Delete and Empty bin buttons were white text on a light red (2.2:1), now dark text on it.
 - Graph: the minimap panel is opaque (node labels printed through it), with the fade on the map inside it instead.
 - Timeline rows show a wiki link's words instead of its raw [[brackets]] (the one list that printed markup).
 - Note cards show their first three links and a "+N more links" button for the rest, instead of every link chip at once.

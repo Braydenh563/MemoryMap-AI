@@ -267,6 +267,9 @@ select optgroup {
   --ok: #10653c;
   --ok-soft: rgba(52, 199, 123, 0.20);
   --error: #b91c1c;
+  /* Text on a filled --error ground: white on the light theme's deep red,
+     dark ink on the dark theme's light red (white there measured 2.2:1). */
+  --on-error: #ffffff;
   /* Added with the AI status dot, which needs a soft ground the way ok and
      warn already had one. */
   --error-soft: rgba(220, 38, 38, 0.18);
@@ -815,6 +818,7 @@ select,
   /* #f87171 read 4.21:1 as a danger button's label on its own --error-soft
      ground (Settings, Learned: "Forget everything learned"; contrast.js). */
   --error: #fa8585;
+  --on-error: #2a0b0b;
   --error-soft: rgba(248, 113, 113, 0.16);
   --border: rgba(255, 255, 255, 0.10);
   --chip-bg: rgba(255, 255, 255, 0.08);
@@ -889,6 +893,7 @@ select,
     --ok: #4ade80;
     --ok-soft: rgba(74, 222, 128, 0.15);
     --error: #fa8585;
+    --on-error: #2a0b0b;
     --error-soft: rgba(248, 113, 113, 0.16);
     --border: rgba(255, 255, 255, 0.10);
     --chip-bg: rgba(255, 255, 255, 0.08);

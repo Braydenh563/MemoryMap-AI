@@ -340,3 +340,47 @@ def test_wrap_and_whitespace_are_code_preferences_in_the_wrap_compartment():
     assert 'for (const id of ["doc-code-wrap-row", "doc-whitespace-row"]) $(id)?.classList.toggle("hidden", type.previewable);' in _function("syncDocFileType")
     theme = source.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
     assert "var(--muted)" in theme.split('".cm-highlightSpace"', 1)[1].split("}", 1)[0]
+
+
+# --- 9. sticky scroll --------------------------------------------------------------
+
+_STICKY = """
+const fns = {
+  sticky: (ext, text, line) => {
+    const state = stateFor(ext, text + "|");
+    const symbols = docCodeSymbols(CM, state, ext);
+    const pos = state.doc.line(line).from;
+    return docStickyHeaders(symbols, pos, line).map((s) => s.text);
+  },
+};
+"""
+
+_PY = "class A:\n    def m(self):\n        x = 1\n        y = 2\n        z = 3\n    def n(self):\n        pass\n"
+
+
+@node
+@pytest.mark.parametrize(
+    ("line", "pinned"),
+    [
+        # Inside m's body with both headers above: outermost first.
+        (4, ["class A", "m()"]),
+        # On m's own first line, only the class is above it.
+        (2, ["class A"]),
+        # Past m, into n: m is no longer pinned.
+        (7, ["class A", "n()"]),
+        (1, []),
+    ],
+)
+def test_sticky_headers(line, pinned):
+    body = _const("DOC_SYMBOL_EXTS") + _STICKY
+    assert run(["docCodeSymbols", "docStickyHeaders"], body, [["sticky", "py", _PY, line]])[0] == pinned
+
+
+def test_sticky_is_an_opaque_overlay_not_a_panel():
+    sticky = _function("docStickyScroll")
+    assert "view.dom.appendChild(this.dom)" in sticky and "showPanel" not in sticky
+    assert 'addEventListener("scroll", this.onScroll, { passive: true })' in sticky
+    assert "removeEventListener(\"scroll\", this.onScroll)" in sticky
+    assert "DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : []" in _function("docCompletionExtras")
+    theme = _source().split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
+    assert "var(--modal-bg-opaque)" in theme.split('".cm-sticky"', 1)[1].split("}", 1)[0]

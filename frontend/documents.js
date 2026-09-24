@@ -15074,6 +15074,25 @@ function docCmTheme(CM) {
       //: The ghost text: the rest of the chosen row after the caret, in the
       //: muted ink the placeholder uses, so it reads as offered, not typed.
       ".cm-ghostText": { color: "var(--muted)", opacity: "0.85", pointerEvents: "none" },
+      //: Sticky scroll: the enclosing scopes' first lines over the top of the
+      //: scroller, on the opaque ground words laid over words take, with the
+      //: hairline and small shadow of a bar that sits above content.
+      ".cm-sticky": {
+        position: "absolute",
+        zIndex: "3",
+        backgroundColor: "var(--modal-bg-opaque)",
+        borderBottom: "1px solid var(--border)",
+        boxShadow: "var(--shadow-sm)",
+      },
+      ".cm-sticky.hidden": { display: "none" },
+      ".cm-sticky-line": {
+        paddingLeft: "var(--sticky-pad, 0px)",
+        whiteSpace: "pre",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        cursor: "pointer",
+      },
+      ".cm-sticky-line:hover": { backgroundColor: "var(--accent-soft)" },
       //: Shown whitespace (Alt+Z's neighbour in the menu): a dot per space and
       //: a line through a tab, in muted ink rather than the library's grey.
       ".cm-highlightSpace": {
@@ -17596,11 +17615,120 @@ function docCodeSymbols(CM, state, ext) {
       }
       if (!label || /^(class |interface |type |enum )?\(?\)?$/.test(label)) return;
       while (stack.length && stack[stack.length - 1] <= node.from) stack.pop();
-      found.push({ line: state.doc.lineAt(node.from).number - 1, text: label, level: stack.length + 1, symbol: true });
+      found.push({ line: state.doc.lineAt(node.from).number - 1, text: label, level: stack.length + 1, symbol: true, from: node.from, to: node.to });
       stack.push(node.to);
     },
   });
   return found;
+}
+
+//: The symbols a position is inside whose first line is above `topLine`
+//: (1-based), outermost first, at most `max`: the lines sticky scroll pins.
+function docStickyHeaders(symbols, pos, topLine, max = 3) {
+  return symbols
+    .filter((s) => s.from <= pos && pos < s.to && s.line + 1 < topLine)
+    .sort((a, b) => a.from - b.from)
+    .slice(-max);
+}
+
+//: **Sticky scroll** (INBOX 402, VS Code's): while the view is scrolled into
+//: a function, a class or a rule, its first line stays pinned at the top of
+//: the pane, and the lines of the scopes around it above that, so the reader
+//: always knows what they are inside. An overlay laid over the top of the
+//: scroller rather than a panel, because a panel would shrink and grow the
+//: scroller as scopes are entered and the text would jump under the pointer.
+//: Opaque, as anything laid over words is; a click jumps to that line. The
+//: symbols are read once per tree, not per scroll event.
+let docStickyCache = null;
+
+function docStickyScroll(CM) {
+  if (docStickyCache) return docStickyCache;
+  docStickyCache = CM.view.ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.view = view;
+        this.dom = document.createElement("div");
+        this.dom.className = "cm-sticky hidden";
+        this.dom.setAttribute("aria-hidden", "true");
+        view.dom.appendChild(this.dom);
+        this.symbols = null;
+        this.tree = null;
+        this.key = "";
+        this.onScroll = () => this.schedule();
+        view.scrollDOM.addEventListener("scroll", this.onScroll, { passive: true });
+        this.schedule();
+      }
+      update(update) {
+        if (update.docChanged || update.viewportChanged || update.geometryChanged) this.schedule();
+      }
+      schedule() {
+        this.view.requestMeasure({ key: this, read: () => this.read(), write: (m) => this.write(m) });
+      }
+      read() {
+        const view = this.view;
+        const tree = CM.language.syntaxTree(view.state);
+        if (tree !== this.tree) {
+          this.tree = tree;
+          this.symbols = docCodeSymbols(CM, view.state, docFileType().ext);
+        }
+        const scroller = view.scrollDOM.getBoundingClientRect();
+        const outer = view.dom.getBoundingClientRect();
+        const content = view.contentDOM.getBoundingClientRect();
+        const lineHeight = view.defaultLineHeight;
+        let top = view.lineBlockAtHeight(Math.max(0, scroller.top - view.documentTop));
+        let headers = docStickyHeaders(this.symbols, top.from, view.state.doc.lineAt(top.from).number);
+        //: The pinned lines cover the lines under them: ask again from the
+        //: first line they leave showing, so a scope that ends under the
+        //: overlay is not still pinned.
+        if (headers.length) {
+          top = view.lineBlockAtHeight(Math.max(0, scroller.top - view.documentTop + headers.length * lineHeight));
+          headers = docStickyHeaders(this.symbols, top.from, view.state.doc.lineAt(top.from).number);
+        }
+        //: The code's own face and line box, and its lines' left padding, so
+        //: a pinned line sits column for column over the line it repeats.
+        //: Measured from a line rather than the content box, whose own
+        //: padding (the reading measure's inset) is not the line's.
+        const face = getComputedStyle(view.contentDOM);
+        const firstLine = view.contentDOM.querySelector(".cm-line");
+        const lineBox = firstLine ? firstLine.getBoundingClientRect() : content;
+        return {
+          headers,
+          top: scroller.top - outer.top,
+          left: lineBox.left - outer.left,
+          width: Math.min(lineBox.width, scroller.right - lineBox.left),
+          font: face.font,
+          lineHeight: `${lineHeight}px`,
+          pad: firstLine ? getComputedStyle(firstLine).paddingLeft : "0px",
+        };
+      }
+      write({ headers, top, left, width, font, lineHeight, pad }) {
+        const key = headers.map((h) => h.line).join(",");
+        this.dom.classList.toggle("hidden", !headers.length);
+        Object.assign(this.dom.style, { top: `${top}px`, left: `${left}px`, width: `${width}px`, font, lineHeight });
+        this.dom.style.setProperty("--sticky-pad", pad);
+        if (key === this.key) return;
+        this.key = key;
+        this.dom.replaceChildren(
+          ...headers.map((h) => {
+            const row = document.createElement("div");
+            row.className = "cm-sticky-line";
+            row.textContent = this.view.state.doc.line(h.line + 1).text;
+            row.title = `Go to line ${h.line + 1}`;
+            row.addEventListener("mousedown", (event) => {
+              event.preventDefault();
+              jumpToDocLine(h.line);
+            });
+            return row;
+          })
+        );
+      }
+      destroy() {
+        this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
+        this.dom.remove();
+      }
+    }
+  );
+  return docStickyCache;
 }
 
 //: Go to a symbol, from the palette: the file's symbols in the menu at the
@@ -17643,6 +17771,7 @@ function docCompletionExtras(CM, type) {
     ["css", "html"].includes(type.ext) ? docColorSwatches(CM) : [],
     ["css", "html"].includes(type.ext) ? docHoverDocs(CM) : [],
     docIndentGuides(CM, type.indent || "  "),
+    DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : [],
     docBracketColours(CM),
     ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],
     docGhostPlugin(CM),

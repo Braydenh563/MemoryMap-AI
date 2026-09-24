@@ -123,6 +123,14 @@ REACHED_AFTER_LOAD = {
     "gcStop": "graph, the canvas renderer's own teardown",
     "renderDocShortcutSheet": "library, the document editor's own sheet",
     "wireMdFormatShortcuts": "library, wired when the document editor mounts",
+    #: The catalogue reveals (app.js, REVEAL_TARGETS): each is called only
+    #: after `revealBoard` or the target itself has awaited the bundle.
+    "wbIsMap": "library, asked by revealBoard after `await ensureModule(\"library\")`",
+    "wbExportBoard": "library, called by the board-export reveal once revealBoard has opened a board",
+    "openGraphPopup": "graph, called by the graph-edit reveal after `await ensureModule(\"graph\")`",
+    "setDocView": "library, called by the doc-find reveal once revealDocument has opened a document",
+    "docToolbarCollapsed": "library, asked by revealStrip after `await ensureModule(\"library\")`",
+    "setDocToolbarCollapsed": "library, called by revealStrip after `await ensureModule(\"library\")`",
     #: Generic names that a lazy file happens to declare too. The call in the
     #: boot file is to its own local of the same name, not across the bundle.
     "build": "a local name in more than one file, not a cross-bundle call",

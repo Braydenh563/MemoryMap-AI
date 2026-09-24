@@ -34935,3 +34935,24 @@ with an unselected note moving 1.7 and no pins written.
     its box (`scratchpad/ui-sweeps/graphsim.js`, `graphreset.js`,
     `tests/test_graph_similarity.py`).
 
+414. **The owner, 2026-09-24, verbatim.** "make sure that the tools and
+    features panel options, as well as the command palatte and find anything
+    search actually show what they are. like I clicked on the "suggested
+    links" option in the tools and features panel and all it did was take me
+    to the graph page, it didnt actually open the menu option for suggested
+    links in the graph like it should have." **Fixed.** Measured before (a
+    read of every closure): of the 110 written Tools and features rows, 50
+    switched tab or sub-tab and stopped while naming one control there, 11
+    opened a Settings pane at its top while naming one setting in it, all 58
+    AI tool rows opened Settings → Tools at its top, and the palette's Board
+    overview and Find a card did nothing unless a board was open. Now every
+    row in the three lists declares `tab`, `reveal` or `act`
+    (`tests/test_catalogue_reveal.py`); a reveal names one entry in
+    `REVEAL_TARGETS` (app.js) and `revealFeature` switches tab, loads the
+    lazy bundle, opens the menu, panel, sheet or dialog and rings the control
+    (`flashRevealed`, `.feature-reveal`); Suggested links opens the gear panel
+    and runs Suggest links. `scratchpad/ui-sweeps/deeplinks.js` runs every row;
+    the numbers are in HISTORY with this entry. Found on the way: Settings
+    deep links rang nothing unless the target already carried `flash-target`
+    (only Search relevance did); `openSettingsModal` now uses the same ring.
+

@@ -1233,6 +1233,60 @@ def vectors_by_id(session: Session, only: set[int] | None = None) -> dict[int, "
     }
 
 
+#: `{threshold: ((matrix key, matrix version), pairs)}`. One slot per
+#: threshold, not an LRU, for the reason `routes_graph._cached` gives: only the
+#: current vector set is ever asked for. Two thresholds are in use (link
+#: suggestions at 0.55, tensions at 0.45), so this holds two lists.
+_pairs_cache: dict[float, tuple[tuple[str, int], list[tuple[int, int, float]]]] = {}
+_pairs_lock = threading.Lock()
+
+
+def cached_similar_pairs(
+    session: Session, threshold: float, only: set[int] | None = None
+) -> list[tuple[int, int, float]]:
+    """`embeddings.similar_pairs` over the matrix, computed once per vector set.
+
+    WORLD_CLASS_PLAN row 9 (§16). The all-pairs comparison is O(n²) and link
+    suggestions and tensions ran it on every request; the graph had cached its
+    own since 2026-09-08. The key is the matrix's `(key, version)`: the
+    version moves on every change to a row, whether the flush hook made it or
+    `current_matrix` caught up with a bulk delete, so there is no fingerprint
+    here to forget to widen.
+
+    Computed over every vector the matrix holds, and `only` applied to the
+    result: a pair among a subset is exactly a pair of the whole whose two
+    ends are both in the subset (the matrix is one width, so `similar_pairs`'
+    majority-width rule picks the same rows either way). That is what lets
+    the two callers, which want different notes (tensions leave boards out),
+    share one comparison per threshold. Best first, as `similar_pairs` is.
+    """
+    backend = _backend_id()
+    if backend is None:
+        return []
+    matrix = current_matrix(session, backend)
+    if matrix is None:
+        return []
+    with _matrix_lock:
+        version = (matrix.key, matrix.version)
+        with _pairs_lock:
+            hit = _pairs_cache.get(float(threshold))
+        pairs = hit[1] if hit is not None and hit[0] == version else None
+        if pairs is None:
+            vectors = {
+                entry_id: matrix.rows[position].copy() for entry_id, position in matrix.position.items()
+            }
+    if pairs is None:
+        # Looked up on the module at call time, not imported by name, so a
+        # test counting the comparisons sees this call.
+        embeddings_module = importlib.import_module("memorymap.ai.embeddings")
+        pairs = embeddings_module.similar_pairs(vectors, threshold)
+        with _pairs_lock:
+            _pairs_cache[float(threshold)] = (version, pairs)
+    if only is None:
+        return list(pairs)
+    return [pair for pair in pairs if pair[0] in only and pair[1] in only]
+
+
 def stats(session: Session) -> dict:
     """What the engine has to work with, for `/search/stats` and for a report."""
     matrix = _live_matrix(session)

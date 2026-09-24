@@ -12,6 +12,37 @@ that answers "has this been done?" before anyone starts.
 INBOX 399 ("what is left in the world class plan??"): every row of
 WORLD_CLASS_PLAN.md read against the code, and what was built moved here.
 
+### From WORLD_CLASS_PLAN.md row 9 (§16): `similar_pairs` cached for link suggestions and tensions
+
+**Built 2026-09-24.** `/entries/link-suggestions` and `/entries/tensions`
+read `engine.cached_similar_pairs(session, threshold, only=...)` instead of
+running the O(n²) comparison per request. One slot per threshold (0.55 and
+0.45), keyed by the matrix's `(key, version)`; the version moves on every
+change to a row, from the flush hook or from `current_matrix` catching up
+with a bulk delete (row 1), so there is no second fingerprint to keep in
+step. The comparison runs over the whole matrix and `only` is applied to the
+result, which is the same set of pairs (a pair of a subset is a pair of the
+whole with both ends in it) and lets the two callers share it. The per
+request filters (already linked, dismissed, duplicates, the per-note cap)
+stay per request, because they move without a vector changing.
+
+Measured with `scratchpad/bench_pairs.py` (the route bodies, synthetic
+384-float vectors, the median of ten repeats after a first call), base tree
+against this one in the same sandbox: link suggestions 16.0 to 6.5 ms at 400
+notes, 114 to 28 ms at 2,000, 322 to 104 ms at 5,000; tensions 20.0 to 6.0,
+120 to 29 and 354 to 105 ms. The first call after a change still pays the
+comparison (526 ms at 5,000). What is left of a repeat request is the rest of
+the route, mostly `manager.list_entries` loading every note. Pinned by
+`tests/test_similar_pairs_cache.py`. The graph's own cache
+(`routes_graph._cached`) is unchanged.
+
+The section 16 lag bullet as it stood:
+
+- `similar_pairs` is O(n²) and is called from three routes (link
+  suggestions, tensions, graph edges) on each request; the graph route
+  caches it, the other two do not. Move: one cached pair table computed by
+  the night shift (I1) or on the graph fingerprint. Size S, Sonnet.
+
 ### From WORLD_CLASS_PLAN.md row 1 (F3, §16): `semantic_search` on the engine's matrix
 
 **Built 2026-09-24.** `search_manager.semantic_search` scores against the

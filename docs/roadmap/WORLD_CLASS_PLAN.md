@@ -805,7 +805,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 6 | §14.3, I6, H2 | chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view | M + M | `ai/embeddings.py`, `ai/grounding.py`, app.js |
 | 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
-| 9 | §16 | cache `similar_pairs` for link suggestions and tensions as the graph does | S | `routes_entries.py` ~960, ~1068 |
+| 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
 | 11 | §17 | review queue, filing style, explain this note, `.ics` export, most opened this month (S each); tidy proposals, charts from questions (M each) | S to M | §17 |
 | 12 | D6 | the calendar strip and the yesterday/tomorrow pair | S | `timeline.js`, the note head |
@@ -1553,10 +1553,8 @@ The embed-cache lock fixed 2026-09-08 moved to HISTORY.md, "Moved from the plans
 
 - `semantic_search` reading every vector per query: built 2026-09-24, moved
   to HISTORY.md, "Moved from the plans, 2026-09-24".
-- `similar_pairs` is O(n²) and is called from three routes (link
-  suggestions, tensions, graph edges) on each request; the graph route
-  caches it, the other two do not. Move: one cached pair table computed by
-  the night shift (I1) or on the graph fingerprint. Size S, Sonnet.
+- `similar_pairs` computed per request for link suggestions and tensions:
+  built 2026-09-24, moved to HISTORY.md, "Moved from the plans, 2026-09-24".
 - The frontend runs nine `setInterval` polls; MODERNISATION_AUDIT measured
   14 idle requests a minute. Move: one `/events` SSE stream (B1's log is
   the natural source) and the polls become subscriptions. Size M, Opus.
@@ -1572,9 +1570,7 @@ behind a feature flag. Not worth a session.
 **State 2026-09-24:** the split is done
 (audit A5, in HISTORY); the silent `pass` handlers were narrowed (audit A6)
 and the rule is F4 above; the lag items: `semantic_search` (F3) is built 2026-09-24;
-`similar_pairs` is still computed per request for link suggestions and
-tensions (`routes_entries.py` ~960 and ~1068; only the graph caches it), (c),
-S; the polls-to-SSE move is (d), superseded by F6's idle gate being met at 2
+`similar_pairs` for link suggestions and tensions is built 2026-09-24; the polls-to-SSE move is (d), superseded by F6's idle gate being met at 2
 requests a minute; the route-file sizes are a standing rule, not a row.
 
 ## Placed from INBOX, 2026-09-09

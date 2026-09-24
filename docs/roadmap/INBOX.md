@@ -34,6 +34,40 @@ with its owner named in the entry.
 
 ## Open items
 
+421. **The owner, 2026-09-24, verbatim, with screenshots (placed in agent
+    briefs, two at a time).** (a) "in the radials on the mind map, the items
+    like "add beside" and "cross-link" are very close to the edges (inner and
+    outer) of the radial and arent centered nicely. also when I press the
+    more button the dropdown menu appears in the top left of my screen"
+    (desktop app; the pie-ring agent could not reproduce the corner with a
+    real click). (b) "the / command blocks and frames need a massive
+    redesign, expansion and improvement, the icons dont render in the live
+    view in the documents editor ... they need ot be impressive and an actual
+    proper thing the user's can use to properly structure out their
+    documents and notes." (live-view callout icon fixed 6e072b2.) (c)
+    "sometimes document editor dropdowns appear at the top of the screen and
+    other times it is fine, sometimes it doesnt open at all" (the spelling
+    menu, top of the window). (d) "there's no 'x' close button on the trace
+    popup row in the graph". (e) OCR: "I cant delete the ocr entry in the
+    workspace or the lightbox and the text in the lightbox doesnt even appear
+    in the ocr workspace" (workspace delete fixed 6e072b2; the lightbox
+    showed a vision reading of "Test, Test, ..." hundreds of times, a
+    degenerate model loop the app should cut). (f) The file row in the
+    Library ("PDF · 121 KB · added ... Read · 808 words, Open reader, Used
+    in"): "needs a bit more modern and ui refinement and the second row
+    elements arent aligned and dont really match". (g) "the lightbox buttons
+    below the image are greyed out?? i opened the image from within a note".
+    (h) View toggles with no clear active state (fixed c920174). (i) "have
+    you included all the new optional packages in the packages settings
+    page??" and "move the preferences settings page up a bit and maybe also
+    turn it a bit into the user's own personal local profile where they can
+    put info about themselves and their name for the ai to use as context
+    and there can also be the generated profile image". (j) "I clicked a note
+    linked in the sources of an ai chat reply and it took me to that note,
+    but when I pressed the back navigation button it opened the settings
+    panel??" (not reproduced: chat then flashEntry then Back lands on chat,
+    also with chat opened from inside Settings; needs the exact path).
+
 419. **The owner, 2026-09-24, verbatim.** "in the whiteboard, the arrange
     dropdown menu appears above the top bar, cutting off the contents" (only
     the Order rows showed) and "clicking the meatball button on the popup

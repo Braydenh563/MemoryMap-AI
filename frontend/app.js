@@ -38264,9 +38264,12 @@ function renderSettings() {
   // when the app was pointed at LM Studio sends people to install the wrong
   // thing (§6).
   const backend = backendLabel(status);
+  //: The dot is the line's class, as on the search engine line under it,
+  //: not a typed "●"/"○" beside a CSS dot: two alphabets for one signal.
   ollamaLine.textContent = status.ollama_running
-    ? `● ${backend} is running`
-    : `○ ${backend} not detected`;
+    ? `${backend} is running`
+    : `${backend} isn't running`;
+  ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);

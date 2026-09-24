@@ -3117,6 +3117,17 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--muted);
 }
 
+#settings-modal .status.off::before {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-inline-end: var(--space-2);
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  vertical-align: 0.1em;
+}
+
 #settings-modal .status.ok::before {
   content: "";
   display: inline-block;
@@ -5523,3 +5534,35 @@ body:has(#lock-overlay:not(.hidden)) #nm-buddy {
 #nm-buddy[data-corner="bl"]:not(.nm-buddy-placed) { right: auto; left: var(--space-4); }
 #nm-buddy[data-corner="tr"]:not(.nm-buddy-placed) { bottom: auto; top: calc(var(--header-h) + var(--space-4)); }
 #nm-buddy[data-corner="tl"]:not(.nm-buddy-placed) { bottom: auto; right: auto; top: calc(var(--header-h) + var(--space-4)); left: var(--space-4); }
+
+/* --- the file picker, in the app's own clothes --------------------------------
+   Fourteen `<input type="file">` in the app drew the browser's own grey
+   "Choose Files" slab and a "No file chosen" in the system font, the one
+   control in Settings that looked like a form from 2005 (Import & export,
+   2026-09-24 polish pass). The button takes the ghost button recipe and
+   the file name takes the muted small voice beside it, so the control reads
+   as a button plus a caption, which is what it is. */
+input[type="file"] {
+  max-width: 100%;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+input[type="file"]::file-selector-button {
+  margin-inline-end: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--ghost-btn-bg-hover);
+  border-color: var(--ghost-btn-border-hover);
+}

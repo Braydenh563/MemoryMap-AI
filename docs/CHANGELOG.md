@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Settings: the dialog is wider (the backend address was clipped) and its nav fits "Profile & preferences"; the model server line reads "isn't running" with the same dot as the search engine line instead of typed ●/○; the search engine heading loses its parenthetical; the leftover "Changes here save on their own" line is gone; file pickers across the app use the app's button style instead of the browser's grey "Choose Files" slab.
 - The page's bottom inset matches its other three edges (16px at 1440 instead of 24px plus the last card's padding), so pages no longer end in an empty band above the status bar.
 - Sheets (the per-feature model picker and every other bottom sheet) take a reading width on a desktop window instead of the whole screen, their rows start at the icon instead of centring, the state line sits under the title as a subtitle, and the model picker's first row says what it does ("Default (model)").
 - Dashboard edit mode: the long hint sentence is now an "Editing layout" badge and three short gestures on one line, the bar no longer wraps onto two lines on a desktop window, and Done is the filled button while editing.

@@ -804,7 +804,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 5 | I1, H1 | `night_runs`, `GET /night/latest`, the morning card, the tension and answered-question passes | L | `ai/facts.py`, `routes_night.py` |
 | 6 | §14.3, I6, H2 | chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view | M + M | `ai/embeddings.py`, `ai/grounding.py`, app.js |
 | 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
-| 8 | Placed 2026-09-13 | `/files/gallery`'s five callers onto `apiPagedList`, then its default to 200 | S | app.js ~21074, editor.js ~1174, `routes_files.py` 253 |
+| 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | §16 | cache `similar_pairs` for link suggestions and tensions as the graph does | S | `routes_entries.py` ~960, ~1068 |
 | 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
 | 11 | §17 | review queue, filing style, explain this note, `.ics` export, most opened this month (S each); tidy proposals, charts from questions (M each) | S to M | §17 |
@@ -886,8 +886,8 @@ in `docks.js`).
 
 - F1 (c) no `prefs` module; 171 direct `localStorage.getItem` calls. M.
 - F2 (b) every list takes `limit` (`tests/test_list_limits.py`); cursors and
-  the frontend's paging are not built, and `/files/gallery`'s frontend half is
-  open (below). M.
+  the frontend's paging are not built (`/files/gallery`'s half was built
+  2026-09-24). M.
 - F3 (b) still open as sized: `semantic_search` selects every
   `EmbeddingRecord` per request (`search/search_manager.py` ~305). S to M.
 - F4 (b) `# noqa: BLE001` sits at dozens of sites but the rule is not enabled
@@ -1736,27 +1736,10 @@ is not, S.
 
 ## Placed from INBOX, 2026-09-13
 
-### F2's frontend half: five callers read `/files/gallery` whole
+F2's frontend half (five callers read `/files/gallery` whole) was built
+2026-09-24 and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
 
-Found by the backend agent, 2026-09-13 evening, while giving the four
-remaining unbounded lists a `limit` (`tests/test_list_limits.py` is the lint
-that stops a fifth appearing). `GET /files/gallery` now takes a `limit` and
-sends `X-Total-Count`, but **its default is its maximum (1000) rather than
-200**, because five callers read it whole through `apiJson` and one of them is
-the Library's own Files sub-tab: `app.js` 7073 (the Files picker source) and
-17875, `editor.js` 870, `library.js` 3767 and 5403. A 200-row default before
-those move would silently truncate the Library at two hundred attachments,
-which is a worse bug than the one being fixed.
 
-**The fix, for a frontend agent:** move all five to `apiPagedList(path, 200)`,
-which already exists and already reads this endpoint correctly at `app.js`
-17861, then drop `GALLERY_PAGE_SIZE` in `api/routes_files.py` to 200.
-`/memory`, `/duplicates` and `/media/orphans` have the same shape and carry
-the same note in the code, but each has one caller and an object response
-rather than an array, so they are bounded at their maximum and need no
-frontend change.
-
-**State 2026-09-24:** (c) still open as written: `GALLERY_PAGE_SIZE` is 1000 and `/files/gallery` is read whole at app.js ~21074 and editor.js ~1174. S.
 
 ## 18. The next horizon, written 2026-09-14 at the close of PR 144
 

@@ -468,6 +468,41 @@ was read and evicted from request threads and the re-index thread with no
 lock; the eviction iterates the dict, which raises under a concurrent
 insert. Now one lock around the cache, never around the embedding call.
 
+### From WORLD_CLASS_PLAN.md, placed from INBOX 2026-09-13: F2's frontend half
+
+**Built 2026-09-24** (INBOX 399's row check). The five callers read the
+gallery to the end through `apiPagedList("/files/gallery", 200)`: the Files
+picker source (app.js, only for that source, since the others answer in one
+response), the note picker's Images source (app.js), the editor's file
+cache (editor.js) and the Library's two readers (library.js). Then
+`GALLERY_PAGE_SIZE` dropped from 1000 to 200. `tests/test_gallery_paging.py`
+fails on an `apiJson("/files/gallery"` anywhere in the frontend and pins the
+default. Not driven in a browser on a notebook over 200 attachments; the
+paging helper is the one every other paged list already uses. The entry as
+placed:
+
+#### F2's frontend half: five callers read `/files/gallery` whole
+
+Found by the backend agent, 2026-09-13 evening, while giving the four
+remaining unbounded lists a `limit` (`tests/test_list_limits.py` is the lint
+that stops a fifth appearing). `GET /files/gallery` now takes a `limit` and
+sends `X-Total-Count`, but **its default is its maximum (1000) rather than
+200**, because five callers read it whole through `apiJson` and one of them is
+the Library's own Files sub-tab: `app.js` 7073 (the Files picker source) and
+17875, `editor.js` 870, `library.js` 3767 and 5403. A 200-row default before
+those move would silently truncate the Library at two hundred attachments,
+which is a worse bug than the one being fixed.
+
+**The fix, for a frontend agent:** move all five to `apiPagedList(path, 200)`,
+which already exists and already reads this endpoint correctly at `app.js`
+17861, then drop `GALLERY_PAGE_SIZE` in `api/routes_files.py` to 200.
+`/memory`, `/duplicates` and `/media/orphans` have the same shape and carry
+the same note in the code, but each has one caller and an object response
+rather than an array, so they are bounded at their maximum and need no
+frontend change.
+
+**State 2026-09-24:** (c) still open as written: `GALLERY_PAGE_SIZE` is 1000 and `/files/gallery` is read whole at app.js ~21074 and editor.js ~1174. S.
+
 ## Moved from the plans, 2026-09-23
 
 ### INBOX 400 part (1): the style-invalidation hunt, every surface (perfpolish agent, d6e9cb3)

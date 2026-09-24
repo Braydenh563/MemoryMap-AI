@@ -106,6 +106,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The attachment gallery answers a page of 200 rather than 1,000 by default,
+  and every reader of it (the Library's Files and Images, the pickers, the
+  editor's file list) reads to the end page by page, so a large notebook's
+  files are neither cut off nor sent in one response.
 - Download .md on a note card and on the Library's note and document cards
   saves the file on a notebook with a password; it opened a tab reading
   "Locked: unlock first", because a new tab sends no sign-in token.

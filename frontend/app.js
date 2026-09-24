@@ -8305,7 +8305,12 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
       }
       if (cache[kind]) return cache[kind];
       const source = available.find((s) => s.kind === kind);
-      const rows = await apiJson(source.path, { silent: true }).catch(() => []);
+      //: The gallery is paged (tests/test_gallery_paging.py); the other
+      //: sources answer in one response.
+      const read = source.path === "/files/gallery"
+        ? apiPagedList(source.path, 200, { silent: true })
+        : apiJson(source.path, { silent: true });
+      const rows = await read.catch(() => []);
       const list = Array.isArray(rows) ? rows : rows.documents || [];
       cache[kind] = source.keep ? list.filter(source.keep) : list;
       return cache[kind];
@@ -21052,9 +21057,9 @@ async function notePickerRows(source) {
     return notePickerCache.maps;
   }
   const path = source === "documents" ? "/documents" : source === "files" ? "/files/gallery" : "/media";
-  //: `/documents` and `/media` are paged; `/files/gallery` is not, and reading
-  //: to the end through `apiPagedList` is correct either way (an unpaged
-  //: endpoint returns everything on the first request and the loop stops).
+  //: All three are paged, and reading to the end through `apiPagedList` is
+  //: correct for each (an unpaged endpoint would return everything on the
+  //: first request and the loop would stop).
   //: A picker that silently cannot reach half the library is worse than a
   //: slow one.
   const rows = await apiPagedList(path, 200).catch(() => []);
@@ -21071,7 +21076,7 @@ async function notePickerRows(source) {
   //: picker's Images list silently omits every picture that arrived through a
   //: note rather than through an upload.
   if (source === "images") {
-    const attachments = await apiJson("/files/gallery").catch(() => []);
+    const attachments = await apiPagedList("/files/gallery", 200).catch(() => []);
     list = [
       ...list,
       ...(Array.isArray(attachments) ? attachments : []).filter((row) =>

@@ -4373,7 +4373,7 @@ async function ocrLoadSiblings({ force = false } = {}) {
     //: file the reader cannot reach at all. `GET /media` is paged (INBOX
     //: 117), so this asks until `X-Total-Count` is satisfied.
     apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => []),
-    apiJson("/files/gallery", { silent: true }).catch(() => []),
+    apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []),
   ]);
   for (const item of images || []) item._isImage = isImageUrl(item.url);
   for (const item of attachments || []) {
@@ -6064,7 +6064,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   // extension-sniffing `isImageUrl()` below: which is exactly right for a
   // `/media/{name}.ext` row: would silently call every attachment a "file"
   // regardless of its real mime.
-  const attachments = await apiJson("/files/gallery", { silent: true }).catch(() => []);
+  const attachments = await apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []);
   // **These two loops are load-bearing and were once silently lost.**
   // Reported: "none of the images and sketches are in the images library
   // subtab at all and all the files are in the files subtab", and that is

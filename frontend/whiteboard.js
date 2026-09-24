@@ -1202,6 +1202,30 @@ async function wbUngroupSelection() {
   if (ungrouped) toast("Ungrouped.");
 }
 
+//: **The element a card or object is drawn as, looked up once, not per call**
+//: (INBOX 424a). `wbItemBBox` is asked about every member of a selection on
+//: every drag frame (through the selection bar's `wbSelectionBounds`), and
+//: each ask opened with a document-wide attribute query: measured at 4x CPU,
+//: dragging a 20-item selection 40 moves on a 250-object board spent 2.6s of
+//: its 8.6s in `querySelector`. The same `isConnected` test
+//: `wbBulkMoveElement` uses keeps it honest: a render that replaced the
+//: element disconnects the cached one, so the next ask finds the new one.
+//: `renderWhiteboard` empties the map so a deleted item's detached element is
+//: not held on to.
+const wbItemElCache = new Map();
+
+function wbItemElement(kind, id) {
+  const key = `${kind}:${id}`;
+  const cached = wbItemElCache.get(key);
+  if (cached && cached.isConnected) return cached;
+  const el = document.querySelector(
+    kind === "node" ? `.node-card[data-id="${id}"]` : `.wb-object[data-id="${id}"]`
+  );
+  if (el) wbItemElCache.set(key, el);
+  else wbItemElCache.delete(key);
+  return el;
+}
+
 //: A kind-agnostic bounding box (board coordinates, top-left/bottom-right)
 //: for alignment/distribute/nudge math, which all need to compare items of
 //: different kinds against each other. A sketch has no width/height of its
@@ -1229,7 +1253,7 @@ function wbItemBBox(kind, item) {
   // every drag handler already uses (`transform.k`), falls back to the
   // fixed default below only when the element genuinely isn't rendered.
   if (kind === "node") {
-    const el = document.querySelector(`.node-card[data-id="${item.id}"]`);
+    const el = wbItemElement("node", item.id);
     if (el && el.offsetWidth && el.offsetHeight) {
       // Rendered size wins over a stored one for the same reason as
       // objects below: a card's text can push it taller than the height it
@@ -1264,7 +1288,7 @@ function wbItemBBox(kind, item) {
       w = measured.w;
       h = measured.h;
     } else {
-      const el = document.querySelector(`.wb-object[data-id="${item.id}"]`);
+      const el = wbItemElement("object", item.id);
       if (el && el.offsetWidth && el.offsetHeight) {
         w = el.offsetWidth;
         h = el.offsetHeight;
@@ -3406,7 +3430,30 @@ function wbTrackMapStripMenu() {
 let wbMapStripNodeId = null;
 
 
+//: **Once a frame during a drag, not once a move** (INBOX 424a). A drag move
+//: can arrive several times between two paints (a fast mouse, a slow
+//: machine), and each one placed the bar from scratch: the selection's
+//: bounds, a style flush for the bar's own size, two rect reads. Only the
+//: last placement before a paint is ever seen, so the drag handlers queue
+//: one and the frame places it from whatever the selection is by then. Every
+//: other caller (a click, a render, a pan frame) still places it at once.
+let wbSelectionBarFrame = 0;
+
+function wbQueueSelectionBar() {
+  if (wbSelectionBarFrame) return;
+  wbSelectionBarFrame = requestAnimationFrame(() => {
+    wbSelectionBarFrame = 0;
+    wbUpdateSelectionBar();
+  });
+}
+
 function wbUpdateSelectionBar() {
+  //: A direct placement makes a queued one redundant: it would place the bar
+  //: from the same state a frame later.
+  if (wbSelectionBarFrame) {
+    cancelAnimationFrame(wbSelectionBarFrame);
+    wbSelectionBarFrame = 0;
+  }
   const bar = document.getElementById("wb-context");
   if (!bar) return;
   const sel = wbSelectedItem;
@@ -3474,7 +3521,11 @@ function wbUpdateSelectionBar() {
   // grid sync and 0.02ms for the navigator beside it. The four checks above
   // are all constant-time and one of them is true whenever nothing is
   // selected, so putting them first skips the walk entirely.
-  if (document.querySelector(".wb-object.wb-text-editing")) {
+  //: Asked of the board, not the document (INBOX 424a): every `.wb-object`
+  //: lives in the container, and a drag places this bar once a frame, so a
+  //: walk of the whole page's 49,000 nodes each time was the largest cost
+  //: left on the drag after the element cache above.
+  if (container.querySelector(".wb-object.wb-text-editing")) {
     hideBoth();
     return;
   }
@@ -3838,14 +3889,25 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
 //: same sweep carries its own box and anchors in a `.wb-sketch-handle-group`
 //: of its own (`wbDrawSketchHandles`), and those were left behind by exactly
 //: the same amount.
-function wbTranslateSelectionChrome(dx, dy) {
+function wbTranslateSelectionChrome(dx, dy, origin = null) {
   //: Both layers, for the reason `wbClearSketchHandles` sweeps both: a
   //: shape's own handles are in the base SVG and the group's box is in the
   //: overlay, and a translate that missed either would leave half the chrome
   //: behind.
-  const groups = document.querySelectorAll(
-    "#wb-zoom-group > .wb-sketch-handle-group, #wb-overlay-zoom-group > .wb-sketch-handle-group"
-  );
+  //:
+  //: **Found once per gesture** (INBOX 424a), kept on the drag's own origin
+  //: map: this runs on every move of a group drag, and the query was a
+  //: document-wide walk each time (300ms of a 40-move drag at 4x CPU) for
+  //: handle groups nothing re-renders mid-drag. The `isConnected` test is
+  //: the same safety `wbBulkMoveElement` uses: a render that replaced one
+  //: sends the next frame back to the query.
+  let groups = origin?.chromeGroups;
+  if (!groups || !groups.length || groups.some((group) => !group.isConnected)) {
+    groups = [...document.querySelectorAll(
+      "#wb-zoom-group > .wb-sketch-handle-group, #wb-overlay-zoom-group > .wb-sketch-handle-group"
+    )];
+    if (origin) origin.chromeGroups = groups;
+  }
   for (const group of groups) {
     if (dx || dy) group.setAttribute("transform", `translate(${dx} ${dy})`);
     else group.removeAttribute("transform");
@@ -3867,7 +3929,7 @@ function wbBulkMoveElement(entry, selector) {
 }
 
 function wbApplyBulkMove(origin, dx, dy) {
-  wbTranslateSelectionChrome(dx, dy);
+  wbTranslateSelectionChrome(dx, dy, origin);
   //: A branch carried into view from off screen is drawn on the next frame.
   wbScheduleCull();
   for (const entry of origin.values()) {
@@ -11473,6 +11535,7 @@ function renderWhiteboard() {
   //: A render replaces every map node's element, so every measurement taken
   //: from the previous set is about to describe something that is gone.
   wbClearMapNodeSizeCache();
+  wbItemElCache.clear();
   // Built once per render, not once per card: `allEntries.find(...)` inside
   // a per-card callback is O(cards × notebook size) on every single render
   //, for a large notebook that is real, measurable work paid on every
@@ -11642,7 +11705,7 @@ function renderWhiteboard() {
       el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
       if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
       if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
-      wbUpdateSelectionBar();
+      wbQueueSelectionBar();
       // Handles would otherwise trail the sketch by a whole render, cheap
       // to keep in step since there are at most 8 of them.
       wbClearSketchHandles();
@@ -12500,6 +12563,30 @@ async function wbSaveObject(d) {
   }
 }
 
+//: **A folded topic's element is kept for the expand that brings it back**
+//: (INBOX 424e). A collapse takes a branch out of the DOM (see the note on
+//: `objectData` in `renderWbObjects` for why it is removed rather than
+//: hidden), and the expand that followed built every one of those topics
+//: again from nothing: measured at 4x CPU, expanding the root of a 120-topic
+//: map was one 1,207ms task, `wbBuildMapNode` and the `setAttribute`s under
+//: it the largest part. The elements are kept here, by id, while their topic
+//: is folded away, and the expand takes each one back instead of building it.
+//:
+//: Only for the very datum it was built for: the node's own controls close
+//: over `d`, so an element built for an object that has since been replaced
+//: (the board refetched) would act on a row the board no longer holds. That
+//: one is built fresh, exactly as before.
+const wbMapNodePool = new Map();
+
+function wbMapNodeTakeBack(d) {
+  const kept = wbMapNodePool.get(d.id);
+  if (!kept) return null;
+  wbMapNodePool.delete(d.id);
+  if (kept.__data__ !== d) return null;
+  kept._wbTakenBack = true;
+  return kept;
+}
+
 // Cards and sketches each render in their own function, inlined into
 // renderWhiteboard directly; objects get their own function instead, two
 // genuinely different element shapes (an <img>, a contenteditable <div>)
@@ -12657,7 +12744,7 @@ function renderWbObjects(canvas) {
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
     if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
     if (d._mapEdges?.length) wbUpdateMapEdges(d._mapEdges);
-    wbUpdateSelectionBar();
+    wbQueueSelectionBar();
     // The topic this branch would land on, lit as you pass over it. From the
     // pointer's own position rather than the node's, because what you aim at
     // is where you are pointing, not where the box has caught up to.
@@ -12921,7 +13008,7 @@ function renderWbObjects(canvas) {
   const objectHeight = (d) => (WB_MAP_KINDS.has(d.kind) ? "auto" : `${d.height}px`);
 
   const objectEnter = objectSelection.enter()
-    .append("div")
+    .append((d) => wbMapNodeTakeBack(d) || document.createElement("div"))
     .attr("class", (d) => `wb-object wb-object-${d.kind}`)
     .attr("data-id", (d) => d.id)
     .style("transform", wbItemTransform)
@@ -12948,6 +13035,16 @@ function renderWbObjects(canvas) {
 
   objectEnter.each(function (d) {
     const el = d3.select(this);
+    //: A topic coming back out of a fold keeps the body it was built with
+    //: (`wbMapNodeTakeBack`): its handlers close over this same datum. The
+    //: class line above reset its classes, so the one the build adds goes
+    //: back on, and the paint below runs in full because its key is gone.
+    if (this._wbTakenBack) {
+      delete this._wbTakenBack;
+      el.classed("wb-map-node", true);
+      this._wbPaintKey = undefined;
+      return;
+    }
     if (d.kind === "image") {
       // Asked for directly: an image deleted out from under a board (via
       // the Library gallery's own delete, or by hand off disk) left a
@@ -13135,7 +13232,18 @@ function renderWbObjects(canvas) {
     }
   });
 
-  objectSelection.exit().remove();
+  objectSelection.exit()
+    .each(function (d) {
+      //: Folded away, not deleted: kept for the expand that brings it back.
+      if (mapHidden?.has(d.id) && WB_MAP_KINDS.has(d.kind)) wbMapNodePool.set(d.id, this);
+    })
+    .remove();
+  //: After the enter has taken back what it wanted: a kept element whose
+  //: topic is no longer folded away and was not taken back (deleted, or the
+  //: board changed under it) is let go.
+  for (const id of wbMapNodePool.keys()) {
+    if (!mapHidden?.has(id)) wbMapNodePool.delete(id);
+  }
 
   //: **Every topic measured in one pass, after every write, never between
   //: them** (MINDMAP_PLAN.md §13a). This loop used to be the last two lines
@@ -13470,7 +13578,7 @@ function dragging(event, d) {
       wbClearAlignmentGuides();
     }
     d3.select(this).style("transform", wbItemTransform(d));
-    wbUpdateSelectionBar();
+    wbQueueSelectionBar();
     // The rest of the selection first, so a line from this card to another
     // selected one is drawn to where that one is now (see `wbApplyBulkMove`).
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);

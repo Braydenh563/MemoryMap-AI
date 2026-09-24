@@ -10917,6 +10917,10 @@ async function mountNoteSurface(host, options = {}) {
   host.parentNode.insertBefore(wrap, host);
   wrap.appendChild(host);
   host.classList.add("note-surface-mirror");
+  //: The stylesheet sizes the mirror to the view; a height `autoGrow` wrote
+  //: before the mount would override it, and `autoGrow` leaves a mirror alone
+  //: from now on (INBOX 424i), so the old one would otherwise stay for good.
+  host.style.height = "";
   host.setAttribute("tabindex", "-1");
   host.setAttribute("aria-hidden", "true");
   //: **Seeded here, not at the focus that asked for the mount.** The bundle

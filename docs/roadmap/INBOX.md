@@ -117,41 +117,99 @@ with its owner named in the entry.
     every move, and `wbItemBBox` runs a document-wide
     `querySelector('.node-card[data-id=...]')` per item (2.6s); recommend an
     id-to-element map from the render pass and the bar updated once a frame.
+    (fixed: `objDragMove` 5,167ms → 167ms, profile busy 6.1s → 1.0s, longest
+    task 901ms → 213ms, same harness and fixture at 4x; element cache in
+    `wbItemBBox`, the bar queued once a frame, the chrome groups found once
+    per gesture, the editing check scoped to the board. Bar position mid-drag
+    identical to base over 10 moves, `perf5/barcheck.js`.) Still open on the
+    board, a pan: a devtools.timeline trace of 40 moves at 4x is 43 long
+    tasks, 3.5s, of which `Layerize` is 2.4s and script 0.2s; it stays with
+    the grid sync, the cull, the bar, the navigator and both SVG transforms
+    switched off (`perf5/pantrace.js` VARIANT), so it is the compositor's
+    layer assignment of ~250 painted objects per frame, not a handler.
     (b) Graph node drag at 4x: 137 long tasks, every frame over 33ms (max
     550ms); `graphMinimapPaint` rebuilds the minimap's SVG on every worker
     tick (1.56s of `createElementNS`/`setAttribute`/`replaceChildren`);
     recommend painting the minimap to a canvas, at most once a frame.
+    (fixed: `graphMinimapPaint` 1,502ms → 514ms, profile busy 3.6s → 2.0s
+    for the same 40-move drag at 4x; the ticks queue one paint a frame, the
+    paint moves the existing dots and lines and skips unchanged attributes,
+    and a minimap that is off, on a hidden tab or in a hidden window is not
+    painted. Kept as SVG: the sweeps count its circles. Dots, lines and
+    positions identical to base, `perf5/minicheck.js`, `minimap6b.js`.)
     (c) Graph wheel zoom at 4x: 31 long tasks, 13.7s, p95 frame 583ms;
     `gcDraw` re-measures every label (`measureText` 152ms) per frame;
     recommend caching label widths per node and font size.
+    (fixed: `measureText` 165ms → 0 over 16 wheel steps at 4x; a label is
+    measured once per text at a reference size and scaled with the zoom,
+    dropped when the font changes.)
     (d) Graph tab switch at 1x: 25 long tasks, 1.6s, 50 of 59 frames over
     33ms; each visit refetches `/graph` and restarts the layout, and
     idle on Graph at 4x is still 3.7s of main-thread work per 10s
     (worker ticks plus minimap); recommend reusing the last settled layout
     when the notes' version has not changed.
+    (fixed for the layout, not the fetch: main-thread task time in the 12s
+    after a revisit at 4x 6,746ms → 1,382ms; a layout whose inputs, pins,
+    lines, forces and world match the last one to settle, with every note
+    where it left off, starts at rest and is framed as before; any change of
+    input heats it as before. Idle once settled was already ~5ms per 2s: the
+    cost was the re-settle. Still refetched each visit.)
     (e) Mind map expand of the root (120 topics) at 4x: one 1,336ms task;
     `renderWbObjects` rebuilds every node through `wbBuildMapNode`
     (`setAttribute` 354ms); recommend keyed updates so an expand only
     builds the nodes it reveals.
+    (fixed: the join was already keyed, so an expand of the root does reveal
+    all 119; what it no longer does is build them. A folded topic's element
+    is kept and taken back, for the same datum only. Two runs each at 4x:
+    longest task 899/1,115ms → 597/442ms, profile busy 781/1,016ms →
+    456/319ms, `wbBuildMapNode` 321/419ms → 0. Markup after a fold round
+    trip identical to base apart from attribute order, and a taken-back
+    topic's chevron still folds it, `perf5/mapreuse.js`.)
     (f) Lightbox next/previous at 4x: 13 long tasks for 5 presses (p95
     350ms); `show` calls `applyZoom`, which calls `scrollTo` (375ms of
     forced layout) even when already at fit; recommend scrolling only when
     the zoom actually changed.
+    (fixed: `show` 457/360ms → 37/28ms and `scrollTo` 406/305ms → 0 over
+    five presses at 4x, two runs each; profile busy 580/465ms → 128/118ms.
+    Fit scrolls only a scroller its own scroll events, or a pan, say is off
+    its origin, so a PDF read halfway down still goes back to the top.
+    `lightboxfit.js` 42/42 on both.)
     (g) Library tab switch at 1x: 10 long tasks, 580ms (4x: 3.4s, max
     683ms); `loadLibrary` refetches `/library` and rebuilds every card each
     visit; recommend the same version check as (d).
+    (open, needs a decision: skipping the rebuild when `/library` answers
+    the same would also keep the selection, which a reload clears on
+    purpose, and leave relative dates as they were drawn. Recommend: keep
+    the cards on screen during the refetch, skip the rebuild when the answer
+    is identical, and clear the selection either way.)
     (h) Every tab switch at 4x: `revealTab` 70 to 110ms self time, mostly
     `querySelectorAll("textarea.autogrow")` then `autoGrow` on each visible
     one (forced layout per box); recommend autogrowing only the new tab's
     boxes.
+    (fixed, the autogrow part: every check is read in one pass and only a box
+    measured while hidden, or whose text, width, font or cap changed, is
+    grown; 0 to 12ms per switch. Not the 70 to 110ms: split step by step
+    (`perf5/revealsplit2.js`, 14 switches at 4x) it is `button.tabIndex =`
+    796ms, which forces the style recalc of the page just shown, then 203ms
+    of its layout; autogrow was 30ms of revealTab's 1,318ms. That is the new
+    tab's own style and layout, forced early, and moving it was measured to
+    gain nothing (the note on `revealActiveTab`).)
     (i) Typing in a note at 4x: 56 of 204 frames over 33ms; each keystroke
     mirrors the editor into the hidden textarea and dispatches `input`,
     which runs `autoGrow` (448ms self) on a box nobody sees; recommend
     skipping autogrow for a box whose editor is mounted.
+    (fixed: `autoGrow` 492/532ms → 16/17ms over the 50-character run at 4x,
+    profile busy 2,448/2,790ms → 1,874/1,713ms. The mirror is left to the
+    stylesheet's `height: 100%`, which an old inline height had overridden:
+    measured after 14 lines, base mirror 315px under a 398px editor, now
+    398px; the editor and its box are unchanged, `perf5/capcheck.js`.)
     (j) The brand emblem's p5 loop draws at 24fps on every tab while idle
     (`_draw` about 70ms per 8s at 1x on Dashboard and Chat, and it shows up
     inside every drag profile); recommend pausing it after a few seconds
     without input, as the mood timer already tracks.
+    (already fixed by b944d2c, which the audit's worktree predates: the
+    emblem is drawn once and turned by CSS. Measured on this head, 8s idle
+    at 1x: 0ms of script on Dashboard and Chat, `perf5/idleprof.js`.)
     (k) Library shows at most 200 of each kind (`PER_KIND_LIMIT`,
     routes_library.py) and its chip counts are the count returned: with 400
     notes the chip reads "Notes 198", and a plain Library search for the

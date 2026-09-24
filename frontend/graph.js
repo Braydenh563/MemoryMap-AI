@@ -2740,7 +2740,7 @@ async function renderGraphSvg() {
     // ~300 ticks a cooling simulation fires, the dots barely move between
     // frames and a full rebuild each time would cost more than the map it is
     // summarising.
-    if (graphMinimapTick++ % 8 === 0) graphMinimapPaint();
+    if (graphMinimapTick++ % 8 === 0) graphMinimapQueuePaint();
   });
 
   // Search-highlight (Wave M): remember the selections and re-apply any
@@ -4210,7 +4210,81 @@ function graphMinimapShown(shown) {
   box.classList.toggle("hidden", !shown);
 }
 
+//: **At most one paint a frame, and none nobody can see** (INBOX 424b).
+//: The layout's ticks ask for a repaint (every eighth one, and every one the
+//: worker sends while a node is dragged), and each paint used to rebuild the
+//: whole overview: measured at 4x CPU, a 40-move node drag on a 400-note,
+//: 1,200-link graph spent 1.56s in `graphMinimapPaint`, most of it
+//: `createElementNS`, `setAttribute` and `replaceChildren` for about 1,000
+//: elements whose count had not changed. Now the ticks queue a paint, the
+//: frame runs it once, the paint moves the existing dots and lines rather
+//: than making new ones, and a minimap that is switched off, on a tab that is
+//: not showing, or in a window that is hidden is not painted at all: it is
+//: marked stale and painted when it can be seen again.
+let graphMinimapQueued = 0;
+let graphMinimapStale = false;
+
+function graphMinimapCanShow() {
+  if (document.hidden) return false;
+  if (localStorage.getItem(GRAPH_MINIMAP_CORNER_KEY) === "off") return false;
+  const page = document.getElementById("tab-graph");
+  return !page || !page.classList.contains("hidden");
+}
+
+function graphMinimapQueuePaint() {
+  if (!graphMinimapCanShow()) {
+    graphMinimapStale = true;
+    return;
+  }
+  if (graphMinimapQueued) return;
+  graphMinimapQueued = requestAnimationFrame(() => {
+    graphMinimapQueued = 0;
+    graphMinimapPaint();
+  });
+}
+
+//: The other half of the skip above: a paint that was passed over while the
+//: window was hidden happens when it comes back. (A tab switch back to Graph
+//: renders the map, which paints the minimap in full.)
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && graphMinimapStale) graphMinimapQueuePaint();
+});
+
+//: Exactly `count` element children of `tag` in `group`, reusing the ones
+//: already there: a layout tick moves the notes, it does not add or remove
+//: any, so after the first paint this appends and removes nothing.
+function graphMinimapChildren(group, count, tag, className) {
+  const kids = group.children;
+  while (kids.length > count) group.lastElementChild.remove();
+  if (kids.length < count) {
+    const fragment = document.createDocumentFragment();
+    for (let i = kids.length; i < count; i++) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      if (className) el.setAttribute("class", className);
+      fragment.appendChild(el);
+    }
+    group.appendChild(fragment);
+  }
+  return kids;
+}
+
+//: One attribute, written only when it changed. The last value lives on the
+//: element itself, so the check is a property read rather than a
+//: `getAttribute`; a settled map redrawn for a drag of one note rewrites the
+//: handful of dots that moved, not all of them.
+function graphMinimapSet(el, name, value) {
+  const key = `_mm_${name}`;
+  if (el[key] === value) return;
+  el[key] = value;
+  el.setAttribute(name, value);
+}
+
 function graphMinimapPaint() {
+  if (graphMinimapQueued) {
+    cancelAnimationFrame(graphMinimapQueued);
+    graphMinimapQueued = 0;
+  }
+  graphMinimapStale = false;
   const svg = document.getElementById("graph-minimap-svg");
   if (!svg || !graphNodesRef?.length) {
     graphMinimapShown(false);
@@ -4258,22 +4332,22 @@ function graphMinimapPaint() {
     const byId = new Map(nodes.map((n) => [n.id, n]));
     const pairs = graphMinimapEdgePairs();
     const edgeStride = Math.max(1, Math.ceil(pairs.length / GRAPH_MINIMAP_MAX_EDGES));
-    const lines = document.createDocumentFragment();
+    const ends = [];
     for (let i = 0; i < pairs.length; i += edgeStride) {
       const from = byId.get(pairs[i][0]);
       const to = byId.get(pairs[i][1]);
-      if (!from || !to) continue;
-      const [ax, ay] = toMini(from.x, from.y);
-      const [bx, by] = toMini(to.x, to.y);
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      line.setAttribute("class", "graph-minimap-edge");
-      line.setAttribute("x1", ax.toFixed(1));
-      line.setAttribute("y1", ay.toFixed(1));
-      line.setAttribute("x2", bx.toFixed(1));
-      line.setAttribute("y2", by.toFixed(1));
-      lines.appendChild(line);
+      if (from && to) ends.push(from, to);
     }
-    edgesGroup.replaceChildren(lines);
+    const lines = graphMinimapChildren(edgesGroup, ends.length / 2, "line", "graph-minimap-edge");
+    for (let i = 0; i < lines.length; i++) {
+      const [ax, ay] = toMini(ends[i * 2].x, ends[i * 2].y);
+      const [bx, by] = toMini(ends[i * 2 + 1].x, ends[i * 2 + 1].y);
+      const line = lines[i];
+      graphMinimapSet(line, "x1", ax.toFixed(1));
+      graphMinimapSet(line, "y1", ay.toFixed(1));
+      graphMinimapSet(line, "x2", bx.toFixed(1));
+      graphMinimapSet(line, "y2", by.toFixed(1));
+    }
   }
 
   // One <circle> per node, over the lines above. Deliberately not reusing the
@@ -4294,18 +4368,16 @@ function graphMinimapPaint() {
   //: blank, and a random sample would shimmer between repaints.
   const MINIMAP_MAX_DOTS = 700;
   const stride = Math.max(1, Math.ceil(nodes.length / MINIMAP_MAX_DOTS));
-  const fragment = document.createDocumentFragment();
-  for (let i = 0; i < nodes.length; i += stride) {
+  const circles = graphMinimapChildren(dots, Math.ceil(nodes.length / stride), "circle", null);
+  for (let i = 0, c = 0; i < nodes.length; i += stride, c++) {
     const node = nodes[i];
     const [mx, my] = toMini(node.x, node.y);
-    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    dot.setAttribute("cx", mx.toFixed(1));
-    dot.setAttribute("cy", my.toFixed(1));
-    dot.setAttribute("r", "1.6");
-    dot.setAttribute("fill", node.colour || "currentColor");
-    fragment.appendChild(dot);
+    const dot = circles[c];
+    graphMinimapSet(dot, "cx", mx.toFixed(1));
+    graphMinimapSet(dot, "cy", my.toFixed(1));
+    graphMinimapSet(dot, "r", "1.6");
+    graphMinimapSet(dot, "fill", node.colour || "currentColor");
   }
-  dots.replaceChildren(fragment);
 
   //: **Where you are, and not only what you can see.** The viewport rectangle
   //: answers "which part of the map is on screen"; it cannot answer "where is
@@ -4326,7 +4398,9 @@ function graphMinimapPaint() {
     //: second, brighter dot cloud over the first. Past a handful the selection
     //: is the shape of the map rather than a place in it.
     let drawn = 0;
-    for (const node of nodes) {
+    //: Nothing in hand is the common case on every tick: no walk, and no
+    //: `replaceChildren` of an empty group with an empty fragment.
+    for (const node of marked.size ? nodes : []) {
       if (!marked.has(node.id) || drawn >= 12) continue;
       const [mx, my] = toMini(node.x, node.y);
       const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -4337,7 +4411,7 @@ function graphMinimapPaint() {
       rings.appendChild(ring);
       drawn += 1;
     }
-    here.replaceChildren(rings);
+    if (drawn || here.firstChild) here.replaceChildren(rings);
   }
 
   // Clicking the minimap centres the map on that point. Stored on the element

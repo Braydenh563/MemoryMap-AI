@@ -4590,6 +4590,12 @@ textarea.autogrow {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
 
+/* Check with AI: the accent at half strength, the dotted underline's own ink,
+   so it is neither a style note's solid accent nor accessibility's ring. */
+.doc-finding-dot-ai {
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
 /* Suggestion mode (INBOX 404). An insertion is underlined on a green ground,
    a deletion struck through in the error ink, the pair every editor with
    tracked changes uses; the ink of the words themselves is left alone, so
@@ -4969,6 +4975,33 @@ textarea.autogrow {
 }
 
 .doc-prose-empty {
+  margin: 0;
+}
+
+/* Check with AI's own line (INBOX 410): what it is doing or did, then the ways
+   on, one row that wraps rather than overflowing a narrow right-docked panel.
+   The line is `--muted` at the panel's small size: it reports, it does not ask. */
+.doc-prose-ai {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.doc-prose-ai-line {
+  flex: 1 1 12rem;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.doc-prose-ai-line.error {
+  color: var(--error);
+}
+
+.doc-prose-ai-notice {
+  flex: 1 1 100%;
   margin: 0;
 }
 

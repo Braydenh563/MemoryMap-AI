@@ -34,6 +34,41 @@ with its owner named in the entry.
 
 ## Open items
 
+425. **The owner, 2026-09-24 (after the usage reset), with screenshots.**
+    Avatars: (a) "the avatar shows even when the app is on the lock screen.
+    it should only show when the app is unlocked"; (b) "is there a way to
+    make the corner companion more lifelike and less a circle just chilling
+    somewhere on the screen?? give it life", and "an adaptive companion
+    avatar placement feature where set areas are assigned as possible areas
+    for a companion to sit or chill around while not being in the way on
+    every interface and page. and the companion can even interact with the
+    close ui like hand from a top bar, sit on a bottom bar, walk a top a
+    feature ... just so I dont move it to one area, and then it is annoying
+    for it to be there on another page"; (c) "may shuffled avatar reset and
+    didnt persist"; (d) "how does the shuffle work?? does it still base it
+    on what is entered for the name??"; (e) "I want the persona avatar to
+    appear next to where you set the persona for the dashboard greeting";
+    (f) "I set the dashboard greeting to another persona, but when I hit
+    regenerate, it said asking Atlas"; (g) "I changed personas for the
+    dashboard greeting and the avatar/icon changed as I had set it, but when
+    I changed the persona again, it didnt change again"; (h) "the whole
+    thing with the avatars needs a proper polish and bug fix ... a full ui
+    and ux upgrade to properly fit the application". Documents: (i) "can
+    there be a document full screen mode so there is more space ... maybe
+    the top bar needs a bit of redesigning or the interface on the document
+    editor needs a bit of visual adjusting to allow for more room. also
+    tables are still really annoying to use and edit in the documents live
+    view". Settings: (j) "remove the need for saving preferences in the
+    settings and just have it auto save like the rest of the settings";
+    (k) "should these text boxes be aligned to the right??" (the
+    Preferences number fields); (l) "Improve how custom theme cards are
+    displayed" (name truncated "Sea of P...", delete button crowding it).
+    Dashboard: (m) "the search bar on the dashboard has a glass aesthetic
+    even when it is off". Backgrounds: (n) Mycelium start points more
+    organic, smoother faded transitions; (o) optimise Microbes (both sent to
+    the backgrounds agent). (p) "see if there are any more areas to reduce
+    lag ... like the avatars and other animations" (the audit agent, 424).
+
 423. **Found, not fixed, by the agents of 2026-09-24 (placed for the next
     pass; one line each, recommendation first).** (a) The mind map's pie
     ring does not take focus when it opens, so Enter and the arrows still

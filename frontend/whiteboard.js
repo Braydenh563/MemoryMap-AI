@@ -63,6 +63,9 @@
 // tool; a plain left-drag only pans when Pan is genuinely the active tool, so
 // drawing, the marquee and lasso are untouched.
 let wbSpaceHeld = false;
+//: True from a middle-button press inside the boards view to its release (or
+//: the window losing focus), set by the capture listeners in initWhiteboard.
+let wbMidPanHeld = false;
 
 function wbZoomFilter(event) {
   // Wheel: zoom only with Ctrl/⌘ held (which is also what a trackpad pinch
@@ -70,7 +73,9 @@ function wbZoomFilter(event) {
   // initWhiteboard: because that is what Miro, FigJam, Figma and draw.io
   // all do, and reported as "annoying to... pan, navigate the board": a
   // wheel that zooms leaves no fast way to move around at a fixed zoom.
-  if (event.type === "wheel") return event.ctrlKey || event.metaKey;
+  //: Never while the middle button is held: see the plain-wheel listener in
+  //: initWhiteboard, the same stray tilt with Ctrl down would zoom mid-pan.
+  if (event.type === "wheel") return (event.ctrlKey || event.metaKey) && !wbMidPanHeld && (event.buttons & 4) !== 4;
   // Middle button pans from anywhere. `buttons` rather than `button` because
   // mousemove reports the held set, and the drag half of the gesture needs to
   // pass the filter too.
@@ -6403,7 +6408,10 @@ async function initWhiteboard() {
   //: paste. A hand tool drag says "grabbing" the whole time; this now says the
   //: same thing through the same class the held-space pan uses, so the three
   //: ways to pan look identical while they run.
-  const midPanClass = (on) => document.getElementById("whiteboard-container")?.classList.toggle("wb-mid-pan", on);
+  const midPanClass = (on) => {
+    wbMidPanHeld = on;
+    document.getElementById("whiteboard-container")?.classList.toggle("wb-mid-pan", on);
+  };
   window.addEventListener("mousedown", (event) => {
     if (event.button === 1 && event.target?.closest?.("#library-view-whiteboard")) {
       event.preventDefault();
@@ -6431,6 +6439,24 @@ async function initWhiteboard() {
   if (!container.node().dataset.wbWheelPan) {
     container.node().dataset.wbWheelPan = "1";
     container.node().addEventListener("wheel", (e) => {
+      //: **A wheel held down is a pan, not a scroll** (the owner, 2026-09-24,
+      //: from the desktop window: the middle-button pan "jerks repeatedly to
+      //: the left side of the screen until i let go"). Pressing a wheel hard
+      //: enough to click it rocks it on most Windows mice, and a rocked wheel
+      //: is a horizontal wheel event, repeated for as long as it is held.
+      //: Each one panned the board sideways on top of d3-zoom's own drag,
+      //: which keeps the pressed point under the pointer from wherever the
+      //: board then is: measured with a tilt between every move of a 300px
+      //: drag, the board ran 3300 to 3600px sideways whichever way the hand
+      //: went (`midpanwheel.js`). While the middle button is down the drag
+      //: is the only thing that moves the board; the event is still
+      //: prevented so the page behind cannot scroll either. `buttons` for
+      //: the press the event itself reports, the flag for a driver whose
+      //: synthetic wheel events carry no buttons at all.
+      if ((e.buttons & 4) === 4 || wbMidPanHeld) {
+        e.preventDefault();
+        return;
+      }
       if (e.ctrlKey || e.metaKey) return;
       e.preventDefault();
       const k = d3.zoomTransform(container.node()).k || 1;
@@ -11186,7 +11212,7 @@ function renderWhiteboard() {
   // pan in particular, since the canvas's own zoom/pan drag needs an
   // unclaimed pointerdown to reach it.
   const sketchDrag = d3.drag()
-    .filter(() => window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-")))
+    .filter((event) => !event.button && (window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-"))))
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       // A link tool drags a *link* out of the shape, not the shape, the same
@@ -12394,6 +12420,15 @@ function renderWbObjects(canvas) {
     // below exists precisely because that distinction needs two behaviour
     // objects, not one filter.
     .filter((event) => {
+      //: **The primary button only** (the owner, 2026-09-24: the middle-button
+      //: pan "jerks"). d3-drag's own default filter is `!event.button`, and
+      //: writing a filter replaces it rather than adding to it, so this one
+      //: took every button: a middle press on a topic or a card started a
+      //: drag of that item and stopped the event before the board's pan ever
+      //: saw it (measured, `midpanwheel.js`: a 200px middle drag started on
+      //: the root moved the board 0px). The middle button is the pan from
+      //: anywhere, which is what `wbZoomFilter` promises.
+      if (event.button) return false;
       if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
       if (event.target.closest(
         ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip, .wb-map-size-grip"
@@ -12431,7 +12466,7 @@ function renderWbObjects(canvas) {
   const gripDrag = d3.drag()
     // The grip sits inside the box it moves, see `wbStableDragContainer`.
     .container(wbStableDragContainer(".wb-object"))
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
+    .filter((event) => !event.button && !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       objDragStart.call(this, event, d);

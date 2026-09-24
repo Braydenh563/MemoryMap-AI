@@ -1,0 +1,1995 @@
+// The generative background (Settings > Appearance > Background art): what
+// each style draws, and the runtime that mounts, pauses, stills and removes
+// it. settings.js decides *whether* and *how* (the setting, the motion and
+// performance rules, the intensity, the accent) and calls `bgArtRun` and
+// `bgArtHalt` here. This file loads before settings.js because settings.js's
+// own tail starts the art; nothing here runs at parse time except
+// definitions and three window listeners.
+//
+// **Three kinds of style, cheapest first.**
+//
+// 1. CSS styles (`dom: true`: the mesh and the bubbles). Everything they
+//    move is a pre-rendered image or gradient on its own element, animated
+//    by CSS transforms, so the compositor moves them and the page's own
+//    thread does no per-frame work at all. A drift, a rise and a sway are
+//    what CSS animation is for; redrawing them from script every frame was
+//    the expensive way to get the same picture.
+// 2. Canvas styles (the aurora, the constellation, the waves, the microbes,
+//    the mycelium): the ones whose motion depends on noise or on the other
+//    particles, which CSS cannot express. They draw on a plain canvas with
+//    a loop of their own (no p5; see the runtime below). Their per-frame
+//    rules: particles live in typed arrays, not an object each; nothing is
+//    allocated per frame (colour strings, gradients, sprites and grids are
+//    built once in `init`, and a mark's fade is `globalAlpha`, not a new
+//    colour string); neighbour searches go through a counting-sort grid, not
+//    every pair; anything repeated is a pre-rendered sprite; anything soft
+//    is drawn at a reduced pixel density and scaled up by the compositor,
+//    never by `drawImage` (a scaled full-window `drawImage` costs 5ms a
+//    frame in software, 34ms at "high" smoothing, measured at 1440x900);
+//    the pixel density is never above 1; and the loop draws 30 frames a
+//    second, 20 on a small machine or on battery.
+// 3. Still (Reduce motion, Movement "Still", Performance or Battery mode):
+//    a canvas style renders one frame off the page, the frame is captured
+//    to an image (`toBlob` to an object URL), and the image becomes the CSS
+//    background of one fixed element. No loop runs and no canvas is left in
+//    the page. A CSS style is simply mounted without its animations. The
+//    capture is redone only when something that changes the picture changes
+//    (theme, accent, style, intensity, a resize, debounced).
+//
+// A moving style also stops when the window is hidden, when it has been
+// unfocused for thirty seconds, when nothing has been touched for two
+// minutes, and when something opaque covers the whole window (checked
+// every two seconds by `bgArtCovered`).
+//
+// Measured by `scratchpad/ui-sweeps/bgartcost.js`: paint time per frame
+// (the draw plus the raster it causes), allocations over ten seconds, and
+// requestAnimationFrame callbacks in still mode.
+//
+// Colour comes from the accent (`ctx.baseHue`) and a few hue offsets from
+// it, never a fixed palette, so a palette or accent change repaints the art
+// in the new colour. Dark mode adds light ("lighter" compositing, luminous
+// marks); light mode lays down ink (mid lightness, more saturation), since
+// the art sits at `--bg-art-opacity` over a near-white page.
+
+// --- shared helpers -------------------------------------------------------------
+
+// **The dark theme's luminance cap.** Text that sits straight on the page
+// (the Dashboard's section labels, a search hint) is muted grey at about
+// 5:1 against the dark page with the art off, so there is very little room:
+// a bright mark behind it takes it under AA. Measured with
+// `scratchpad/ui-sweeps/bgartcontrast.js`, the first bright aurora and the
+// constellation both did, where the old styles had not. So while a style
+// builds its colours in the dark theme (its `init` or `mount`, never per
+// frame), every colour is scaled down to at most the relative luminance the
+// style names as `darkCap`: the hue and saturation stay, the light is
+// lowered to what the text can bear. `bgLumCap` is 0 the rest of the time.
+//
+// The light theme is the same problem the other way up: dark muted text on
+// a pale page loses contrast to anything darker behind it, so a style can
+// name a `lightFloor`, and its colours are mixed toward white until their
+// luminance reaches it (`bgLumFloor`).
+let bgLumCap = 0;
+let bgLumFloor = 0;
+
+function bgLuma(rgb) {
+  const lin = (v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+}
+
+function bgCapRgb(rgb) {
+  if (bgLumCap) {
+    const y = bgLuma(rgb);
+    if (y > bgLumCap) {
+      const k = (bgLumCap / y) ** (1 / 2.2);
+      return [rgb[0] * k, rgb[1] * k, rgb[2] * k];
+    }
+  }
+  if (bgLumFloor && bgLuma(rgb) < bgLumFloor) {
+    // Toward white by the least that reaches the floor (a few halvings; a
+    // colour is built once per style, never per frame).
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 12; i++) {
+      const m = (lo + hi) / 2;
+      const mixed = [rgb[0] + (255 - rgb[0]) * m, rgb[1] + (255 - rgb[1]) * m, rgb[2] + (255 - rgb[2]) * m];
+      if (bgLuma(mixed) < bgLumFloor) lo = m;
+      else hi = m;
+    }
+    return [rgb[0] + (255 - rgb[0]) * hi, rgb[1] + (255 - rgb[1]) * hi, rgb[2] + (255 - rgb[2]) * hi];
+  }
+  return rgb;
+}
+
+function bgHsla(h, s, l, a) {
+  const hue = ((h % 360) + 360) % 360;
+  const al = Math.max(0, Math.min(1, a)).toFixed(3);
+  if (bgLumCap || bgLumFloor) {
+    const [r, g, b] = bgHslToRgb(hue, s, l);
+    return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${al})`;
+  }
+  return `hsla(${hue.toFixed(1)},${s}%,${l}%,${al})`;
+}
+
+// The styles' noise: smooth along one axis, changing with time, as two
+// layers of a table sliding past each other (so a second axis can ride on
+// the time argument where a field is wanted). It replaced p5's Perlin noise,
+// four octaves in a loop, which V8 would not inline: called with fractional
+// arguments it boxed every one of them, and the aurora alone, at about
+// 2,500 values a frame, made 22MB of garbage every ten seconds (measured).
+// This is small enough to inline where it is called, and allocates nothing.
+const BG_FLOW = new Float32Array(1024);
+for (let i = 0; i < 1024; i++) BG_FLOW[i] = Math.random();
+
+function bgFlow(x, t) {
+  const u = x + t, v = x * 1.13 - t * 0.71 + 311;
+  let i = Math.floor(u), f = u - i;
+  f = f * f * (3 - 2 * f);
+  const a = BG_FLOW[i & 1023] + (BG_FLOW[(i + 1) & 1023] - BG_FLOW[i & 1023]) * f;
+  i = Math.floor(v);
+  f = v - i;
+  f = f * f * (3 - 2 * f);
+  const b = BG_FLOW[i & 1023] + (BG_FLOW[(i + 1) & 1023] - BG_FLOW[i & 1023]) * f;
+  return (a + b) * 0.5;
+}
+
+// p5's `random`: nothing, one bound, or two.
+function bgRand(a, b) {
+  const r = Math.random();
+  if (a === undefined) return r;
+  if (b === undefined) return r * a;
+  return a + r * (b - a);
+}
+
+// The exact string p5's `color(h, s, l, a).toString()` gives in
+// `colorMode(HSL, 360, 100, 100, 1)` (its `hslaToRGBA`, levels rounded to
+// 0..255), so the waves, drawn without p5 now, set the same fill as before.
+function bgP5Rgba(h, s, l, a) {
+  const S = s / 100, L = l / 100;
+  let r = L, g = L, b = L;
+  if (S !== 0) {
+    const r6 = 6 * (h / 360);
+    const q = L < 0.5 ? (1 + S) * L : L + S - L * S;
+    const p0 = 2 * L - q;
+    const f = (e) => {
+      let u = e;
+      if (u < 0) u += 6;
+      else if (u >= 6) u -= 6;
+      return u < 1 ? p0 + (q - p0) * u : u < 3 ? q : u < 4 ? p0 + (q - p0) * (4 - u) : p0;
+    };
+    r = f(2 + r6); g = f(r6); b = f(r6 - 2);
+  }
+  return `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${a})`;
+}
+
+// HSL (degrees, percent, percent) to RGB in 0..255, for the styles that
+// write pixels themselves.
+function bgHslToRgb(h, s, l) {
+  const hue = (((h % 360) + 360) % 360) / 360;
+  const sat = s / 100, lig = l / 100;
+  if (!sat) return bgCapRgb([lig * 255, lig * 255, lig * 255]);
+  const q = lig < 0.5 ? lig * (1 + sat) : lig + sat - lig * sat;
+  const pp = 2 * lig - q;
+  const ch = (t) => {
+    let u = t;
+    if (u < 0) u += 1;
+    if (u > 1) u -= 1;
+    if (u < 1 / 6) return pp + (q - pp) * 6 * u;
+    if (u < 1 / 2) return q;
+    if (u < 2 / 3) return pp + (q - pp) * (2 / 3 - u) * 6;
+    return pp;
+  };
+  return bgCapRgb([ch(hue + 1 / 3) * 255, ch(hue) * 255, ch(hue - 1 / 3) * 255]);
+}
+
+// The hue of a CSS colour, the same number p5's `hue()` gave for it (the
+// CSS styles need it without loading p5 at all). Reads #rgb, #rrggbb and
+// rgb()/rgba(); anything else falls back to the default indigo's hue.
+function bgColourHue(colour) {
+  const c = String(colour || "").trim();
+  let r, g, b;
+  let m = /^#([0-9a-f]{3})$/i.exec(c);
+  if (m) {
+    [r, g, b] = m[1].split("").map((d) => parseInt(d + d, 16));
+  } else if ((m = /^#([0-9a-f]{6})/i.exec(c))) {
+    r = parseInt(m[1].slice(0, 2), 16);
+    g = parseInt(m[1].slice(2, 4), 16);
+    b = parseInt(m[1].slice(4, 6), 16);
+  } else if ((m = /rgba?\(\s*([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)/i.exec(c))) {
+    r = Number(m[1]); g = Number(m[2]); b = Number(m[3]);
+  } else {
+    return 230;
+  }
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  if (!d) return 0;
+  let h;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+// A small offscreen canvas, painted once.
+function bgSprite(w, h, paint) {
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(w));
+  c.height = Math.max(1, Math.round(h));
+  paint(c.getContext("2d"), c.width, c.height);
+  return c;
+}
+
+// A soft round glow: a star's halo, an organism's aura, a soft dot.
+function bgGlowSprite(hue, sat, light, alpha, size = 64, core = 0.35) {
+  return bgSprite(size, size, (g, w) => {
+    const r = w / 2;
+    const grad = g.createRadialGradient(r, r, 0, r, r, r);
+    grad.addColorStop(0, bgHsla(hue, sat, light, alpha));
+    grad.addColorStop(core, bgHsla(hue, sat, light, alpha * 0.45));
+    grad.addColorStop(1, bgHsla(hue, sat, light, 0));
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, w);
+  });
+}
+
+function bgClamp(v, lo, hi) {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+// A seeded 0..1 generator for the CSS styles, which have no p5 to ask.
+function bgRandom(seed) {
+  let s = (seed >>> 0) || 1;
+  return () => {
+    s ^= s << 13; s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5; s >>>= 0;
+    return s / 4294967296;
+  };
+}
+
+// A counting-sort grid over points held in typed arrays, rebuilt each frame
+// into the same buffers: `start[c]..start[c + 1]` indexes `items` for cell
+// `c`. Replaces a Map of arrays rebuilt every frame, which was most of what
+// the neighbour searches allocated.
+function bgGrid(W, H, cell, cap) {
+  const cols = Math.ceil((W + 80) / cell) + 1;
+  const rows = Math.ceil((H + 80) / cell) + 1;
+  const start = new Int32Array(cols * rows + 1);
+  const fill = new Int32Array(cols * rows);
+  const items = new Int32Array(cap);
+  const cellOf = new Int32Array(cap);
+  return {
+    cols, rows, start, items,
+    cellAt(x, y) {
+      const cx = bgClamp(Math.floor((x + 40) / cell), 0, cols - 1);
+      const cy = bgClamp(Math.floor((y + 40) / cell), 0, rows - 1);
+      return cy * cols + cx;
+    },
+    // Index points `from..to` of `xs`/`ys` into the grid.
+    build(xs, ys, from, to) {
+      start.fill(0);
+      for (let i = from; i < to; i++) {
+        const c = this.cellAt(xs[i], ys[i]);
+        cellOf[i] = c;
+        start[c + 1]++;
+      }
+      for (let c = 0; c < cols * rows; c++) start[c + 1] += start[c];
+      fill.set(start.subarray(0, cols * rows));
+      for (let i = from; i < to; i++) items[fill[cellOf[i]]++] = i;
+    },
+  };
+}
+
+// --- genomes: species traits from the letters of a name ----------------------------
+//
+// Adapted from helixlabs (Braydenh563, MIT licence; `generateDNAProfile` in
+// its sketch.js). A string's character codes, each weighted by its position,
+// sum to one number, and every trait is that number through a different
+// multiplier and modulus, so the same string always grows the same species
+// and moving one letter changes all of them. helixlabs builds a species
+// from a DNA string a person types; here the string is the person's display
+// name (or "MemoryMap" when they have not set one), so each person's
+// background is an ecosystem of its own.
+function bgArtGenome(text) {
+  let sum = 0;
+  for (let i = 0; i < text.length; i++) sum += text.charCodeAt(i) * (i + 1);
+  // One change from helixlabs: each residue is taken from the sum after an
+  // integer mix, not from the sum itself. Plain `(sum * 17) % 3` and
+  // `(sum * 13 + 53) % 3` both depend only on `sum % 3`, so the glow fixed
+  // the wake and a third of all species came out with the same pair; mixed,
+  // each trait is its own draw from the same letters.
+  const mix = (mul, add) => {
+    let h = (Math.imul(sum, mul) + add) | 0;
+    h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+    h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+    return (h ^ (h >>> 16)) >>> 0;
+  };
+  return {
+    sum,
+    pick: (list, mul, add = 0) => list[mix(mul, add) % list.length],
+    // `lo..hi` from a residue: the same shape as helixlabs'
+    // `map((sumCode * 19) % 101, 0, 100, lo, hi)`.
+    span: (mul, mod, lo, hi) => lo + ((mix(mul, 0) % mod) / (mod - 1)) * (hi - lo),
+    int: (mul, mod, lo) => (mix(mul, 0) % mod) + lo,
+  };
+}
+
+function bgArtSeedOf(text) {
+  const t = text ? String(text).trim() : "";
+  return t || "MemoryMap";
+}
+
+// The strains one name grows. Each is a rotation of the name plus a letter
+// for its place, so the rotation changes which character carries which
+// weight and every strain's sum differs, even for a name of one repeated
+// letter.
+function bgArtStrains(text, count) {
+  const src = bgArtSeedOf(text);
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const r = (i * 3) % src.length;
+    out.push(src.slice(r) + src.slice(0, r) + String.fromCharCode(65 + i));
+  }
+  return out;
+}
+
+// helixlabs names each species from its sum (`generateSpeciesName`); these
+// are this app's own syllables, in the same spirit.
+const BG_GENUS_HEAD = ["Lu", "Ve", "Or", "Ta", "Mi", "Sy", "Ca", "Ne", "Pho", "Zo", "Ar", "Hel"];
+const BG_GENUS_TAIL = ["mora", "sica", "bella", "nula", "phora", "cilla", "dora", "thea"];
+const BG_EPITHET = ["serena", "lucida", "vagans", "gemina", "ornata", "placida", "volans", "minuta", "aurea", "nexa"];
+
+function bgArtSpeciesName(strain) {
+  const gene = bgArtGenome(strain);
+  return `${gene.pick(BG_GENUS_HEAD, 3, 1)}${gene.pick(BG_GENUS_TAIL, 11, 5)} ${gene.pick(BG_EPITHET, 17, 3)}`;
+}
+
+// How many strains a name grows (three to five), read from the whole name.
+function bgArtStrainCount(text) {
+  return 3 + (bgArtGenome(bgArtSeedOf(text)).sum % 3);
+}
+
+// The text every seeded style grows from: the display name from
+// Preferences, or the app's name before one is set.
+function bgArtSeedText() {
+  const name = typeof prefsCache !== "undefined" && prefsCache && prefsCache.display_name;
+  return bgArtSeedOf(name);
+}
+
+// --- the styles -----------------------------------------------------------------
+//
+// A canvas style is a factory `(p, ctx) => { init, frame(t), background,
+// pixelDensity?, settle?, seeded? }`. `background` says what a frame starts
+// from: "wash" paints a translucent rect over the last frame so marks leave
+// trails (the waves), "clear" wipes it, "keep" leaves it (the mycelium
+// accumulates). `settle` runs a simulation forward before a still frame.
+//
+// A CSS style is `{ dom: true, mount(layer, ctx, still) }`: it fills the
+// layer element with its own elements; the runtime adds `is-moving` when it
+// should move.
+
+const BG_ART_BUILDERS = {
+  // Curtains of light. Each band is a row of vertical rays, one per backing
+  // column, whose height and brightness follow two noise fields: one slow
+  // (the folds of the curtain, drifting sideways) and one fine (the
+  // striations). Each ray's colour runs from the band's hue at its bright
+  // lower edge to a cooler, fainter hue at its top, the way an aurora does.
+  // A scatter of motes drifts up through it. The old aurora was particles on
+  // a flow field with a rotating emblem ring at the centre; the ring read as
+  // an object in the middle of the page and the particles as dust.
+  //
+  // **Cost.** The curtain is written pixel by pixel into one reused
+  // ImageData at a fifth of the pixel density (a twenty-fifth of the
+  // pixels; the compositor's upscale is the blur a curtain wants anyway),
+  // and only the rows the curtain touched this frame or the last are
+  // cleared, converted and put back. The first version drew each ray as a scaled sprite:
+  // about 400 `drawImage` calls a frame, 7.7ms in the dark theme, most of it
+  // per-call overhead. Each ray's colour profile is a lookup table built once.
+  aurora(p, ctx) {
+    // Half that again vertically: a ray changes slowly along its length,
+    // so ninety rows carry the same curtain as a hundred and eighty, and
+    // the per-pixel loop below is the whole cost of this style.
+    const PD = 0.2, PDY = 0.1;
+    const OFFSETS = [-26, 18, 52];
+    const LUT = 96; // steps in a ray's colour profile, top to bottom
+    let W = 0, H = 0, bw = 0, bh = 0;
+    let img = null, px = null, acc = null;
+    let prevTop = 0, prevBottom = -1;
+    const bands = [];
+    let n = 0, mx, my, mz, mph, mhue;
+    const moteFill = [];
+    const light = ctx.dark ? 68 : 50;
+    const sat = ctx.dark ? 85 : 72;
+    // The ray's profile: transparent at the
+    // top, a faint cool veil, the band's colour, a bright lower edge, then a
+    // quick fade below it. Premultiplied, so bands add or layer directly.
+    const profile = (hue) => {
+      const stops = [
+        [0, hue + 46, light, 0],
+        [0.4, hue + 30, light, 0.3],
+        [0.78, hue + 8, light + 4, 0.8],
+        [0.9, hue, light + (ctx.dark ? 14 : 2), 1],
+        [1, hue - 6, light, 0],
+      ];
+      const lut = new Float32Array(LUT * 4);
+      for (let k = 0; k < LUT; k++) {
+        const u = k / (LUT - 1);
+        let s = 0;
+        while (s < stops.length - 2 && u > stops[s + 1][0]) s++;
+        const [u0, h0, l0, a0] = stops[s], [u1, h1, l1, a1] = stops[s + 1];
+        const f = (u - u0) / (u1 - u0);
+        const [r, g, b] = bgHslToRgb(h0 + (h1 - h0) * f, sat, l0 + (l1 - l0) * f);
+        const a = a0 + (a1 - a0) * f;
+        lut[k * 4] = r * a; lut[k * 4 + 1] = g * a; lut[k * 4 + 2] = b * a; lut[k * 4 + 3] = a;
+      }
+      return lut;
+    };
+    return {
+      background: "clear",
+      pixelDensity: PD,
+      pixelDensityY: PDY,
+      darkCap: 0.1,
+      lightFloor: 0.35,
+      init() {
+        W = p.width; H = p.height;
+        const canvas = p.drawingContext.canvas;
+        bw = canvas.width; bh = canvas.height;
+        img = p.drawingContext.createImageData(bw, bh);
+        px = img.data;
+        acc = new Float32Array(bw * bh * 4);
+        for (let i = 0; i < OFFSETS.length; i++) {
+          bands.push({
+            lut: profile(ctx.baseHue + OFFSETS[i]),
+            y: 0.34 + i * 0.13 + p.random(-0.03, 0.03),
+            amp: 0.16 + p.random(0.05),
+            h: 0.34 + p.random(0.12),
+            seed: p.random(1000),
+            drift: (p.random() < 0.5 ? -1 : 1) * p.random(0.03, 0.06),
+            alpha: (ctx.dark ? 1.4 : 0.9) * (i === 1 ? 1 : 0.8),
+          });
+          moteFill.push(bgHsla(ctx.baseHue + OFFSETS[i], 70, ctx.dark ? 82 : 45, ctx.dark ? 0.9 : 0.7));
+        }
+        n = Math.max(12, Math.round(56 * ctx.density));
+        mx = new Float32Array(n); my = new Float32Array(n);
+        mz = new Float32Array(n); mph = new Float32Array(n);
+        mhue = new Uint8Array(n);
+        for (let i = 0; i < n; i++) {
+          mx[i] = p.random(W); my[i] = p.random(H); mz[i] = p.random(0.3, 1);
+          mph[i] = p.random(Math.PI * 2); mhue[i] = i % OFFSETS.length;
+        }
+      },
+      frame(t) {
+        const g = p.drawingContext;
+        // Only the rows written last frame hold anything to clear.
+        if (prevBottom >= prevTop) acc.fill(0, prevTop * bw * 4, (prevBottom + 1) * bw * 4);
+        let rowTop = bh, rowBottom = -1;
+        const add = ctx.dark; // light adds up in the dark, layers like ink in the light
+        for (let bi = 0; bi < bands.length; bi++) {
+          const b = bands[bi];
+          const lut = b.lut;
+          for (let x = 0; x < bw; x++) {
+            const nx = x / bw;
+            // Fade the curtain out at both edges so it hangs in the sky
+            // rather than being cut off by the window.
+            const edge = Math.min(1, nx * 5, (1 - nx) * 5);
+            if (edge <= 0) continue;
+            const fold = bgFlow(b.seed + nx * 2.4 + t * b.drift, t * 0.3);
+            // The envelope (where the curtain is bright) and the rays inside
+            // it: forty noise cycles across the window, a ray every few
+            // columns, each its own height.
+            const fine = bgFlow(b.seed + 40 + nx * 7 - t * 0.12, t * 0.5);
+            const ray = bgFlow(b.seed + 90 + nx * 40 + t * b.drift * 4, t * 0.25);
+            let a = fine * fine * 1.9 * b.alpha * edge * (0.45 + fold) * (0.35 + 0.9 * ray);
+            if (a < 0.02) continue;
+            if (a > 1) a = 1;
+            const base = (b.y + (fold - 0.5) * b.amp + Math.sin(nx * 5 + t * 0.7 + b.seed) * 0.015) * bh;
+            const h = b.h * bh * (0.45 + fine * 0.5 + ray * 0.45);
+            const top = base - h * 0.9;
+            const y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(bh - 1, Math.floor(top + h));
+            if (y0 < rowTop) rowTop = y0;
+            if (y1 > rowBottom) rowBottom = y1;
+            const scale = (LUT - 1) / h;
+            for (let y = y0; y <= y1; y++) {
+              const k = ((y - top) * scale) | 0;
+              const l = k * 4;
+              const sa = lut[l + 3] * a;
+              if (sa < 0.004) continue;
+              const o = (y * bw + x) * 4;
+              if (add) {
+                acc[o] += lut[l] * a; acc[o + 1] += lut[l + 1] * a;
+                acc[o + 2] += lut[l + 2] * a; acc[o + 3] += sa;
+              } else {
+                const keep = 1 - sa;
+                acc[o] = lut[l] * a + acc[o] * keep;
+                acc[o + 1] = lut[l + 1] * a + acc[o + 1] * keep;
+                acc[o + 2] = lut[l + 2] * a + acc[o + 2] * keep;
+                acc[o + 3] = sa + acc[o + 3] * keep;
+              }
+            }
+          }
+        }
+        // Premultiplied to straight alpha, for ImageData, over this frame's
+        // rows and last frame's (which may need clearing to nothing).
+        const r0 = Math.min(rowTop, prevTop), r1 = Math.max(rowBottom, prevBottom);
+        prevTop = rowTop; prevBottom = rowBottom;
+        for (let o = r0 * bw * 4, end = (r1 + 1) * bw * 4; o < end; o += 4) {
+          const al = acc[o + 3];
+          if (al <= 0.002) { px[o + 3] = 0; continue; }
+          const A = al < 1 ? al : 1;
+          const inv = 1 / al; // the profile is already in 0..255
+          px[o] = acc[o] * inv; px[o + 1] = acc[o + 1] * inv; px[o + 2] = acc[o + 2] * inv;
+          px[o + 3] = A * 255;
+        }
+        if (r1 >= r0) g.putImageData(img, 0, 0, 0, r0, bw, r1 - r0 + 1);
+        // Motes: at a fifth of the density each is about one soft backing
+        // pixel, a speck of light rather than a hard dot.
+        g.globalCompositeOperation = ctx.dark ? "lighter" : "source-over";
+        let lastHue = -1;
+        for (let i = 0; i < n; i++) {
+          const z = mz[i];
+          my[i] -= 0.12 + z * 0.25;
+          mx[i] += (bgFlow(mx[i] * 0.004 + t * 0.2, my[i] * 0.004) - 0.5) * 0.8;
+          if (my[i] < -8) { my[i] = H + 8; mx[i] = p.random(W); }
+          if (mx[i] < -8) mx[i] = W + 8;
+          else if (mx[i] > W + 8) mx[i] = -8;
+          if (mhue[i] !== lastHue) { lastHue = mhue[i]; g.fillStyle = moteFill[lastHue]; }
+          g.globalAlpha = (0.55 + 0.45 * Math.sin(t * 6 * z + mph[i])) * z;
+          const s = 5 + z * 4;
+          g.fillRect(mx[i] - s / 2, my[i] - s / 2, s, s);
+        }
+        g.globalAlpha = 1;
+        g.globalCompositeOperation = "source-over";
+      },
+    };
+  },
+
+  // Stars at three depths drifting past at speeds to match, so the field
+  // reads as space with distance in it rather than a flat sheet of dots.
+  // Stars link to neighbours in their own layer only, which keeps the near
+  // layer's web bold and the far layer's a faint lace. They twinkle, the
+  // brightest carry a halo, a faint nebula sits behind them, and now and
+  // then a meteor crosses. The old version searched every pair (3,486 pairs
+  // at 84 stars) and built a colour string per line and per star each
+  // frame: 140MB of allocations in ten seconds, measured.
+  constellation(p, ctx) {
+    const LAYERS = [
+      { z: 0.35, link: 95, width: 0.6, alpha: ctx.dark ? 0.2 : 0.24, light: ctx.dark ? 72 : 55, size: 1.3, share: 0.45 },
+      { z: 0.65, link: 130, width: 0.8, alpha: ctx.dark ? 0.32 : 0.36, light: ctx.dark ? 78 : 46, size: 1.9, share: 0.35 },
+      { z: 1, link: 165, width: 1.1, alpha: ctx.dark ? 0.48 : 0.5, light: ctx.dark ? 86 : 38, size: 2.8, share: 0.2 },
+    ];
+    const BUCKETS = 4;
+    const HUES = [-24, -10, 0, 12, 26];
+    let W = 0, H = 0, n = 0;
+    let sx, sy, sjx, sjy, ssize, sph, stw, shue;
+    const lFrom = [], lTo = [], grids = [], strokes = [], dots = [];
+    let seg, segB, segMax = 0, halo = null, nebula = null, tail = null;
+    let driftX = 0, driftY = 0;
+    const meteor = { on: false, x: 0, y: 0, vx: 0, vy: 0, life: 0 };
+    let nextMeteor = 0;
+    return {
+      background: "clear",
+      darkCap: 0.12,
+      init() {
+        W = p.width; H = p.height;
+        n = bgClamp(Math.round((W * H) / 6000 * ctx.density), 40, 260);
+        sx = new Float32Array(n); sy = new Float32Array(n);
+        sjx = new Float32Array(n); sjy = new Float32Array(n);
+        ssize = new Float32Array(n); sph = new Float32Array(n);
+        stw = new Float32Array(n); shue = new Uint8Array(n);
+        const heading = p.random(Math.PI * 2);
+        driftX = Math.cos(heading); driftY = Math.sin(heading);
+        // Each layer is one contiguous run of the arrays, far to near, so a
+        // layer's grid and draw loop are a range, not a filter.
+        let at = 0;
+        for (let li = 0; li < LAYERS.length; li++) {
+          const L = LAYERS[li];
+          const count = li === LAYERS.length - 1 ? n - at : Math.round(n * L.share);
+          lFrom.push(at); lTo.push(at + count);
+          for (let i = at; i < at + count; i++) {
+            sx[i] = p.random(W); sy[i] = p.random(H);
+            sjx[i] = p.random(-0.05, 0.05); sjy[i] = p.random(-0.05, 0.05);
+            ssize[i] = L.size * p.random(0.7, 1.3);
+            sph[i] = p.random(Math.PI * 2); stw[i] = p.random(0.5, 1.5);
+            shue[i] = Math.floor(p.random(HUES.length));
+          }
+          at += count;
+          grids.push(bgGrid(W, H, L.link, n));
+          // In the dark theme the stars may be brighter than the darkCap
+          // (the nebula's): a star is a point that passes behind a word for
+          // a moment, the nebula is a wash that sits there. The lines are
+          // between the two.
+          const cap = bgLumCap;
+          if (cap) bgLumCap = 0.2;
+          const row = [];
+          for (let k = 0; k < BUCKETS; k++) row.push(bgHsla(ctx.baseHue, 55, L.light, L.alpha * ((k + 1) / BUCKETS)));
+          strokes.push(row);
+          if (cap) bgLumCap = 0.4;
+          const drow = [];
+          for (const off of HUES) {
+            drow.push(bgGlowSprite(ctx.baseHue + off, ctx.dark ? 60 : 72, L.light + (ctx.dark ? 6 : -4), 1, 16, 0.6));
+          }
+          dots.push(drow);
+          bgLumCap = cap;
+        }
+        segMax = n * 10;
+        seg = new Float32Array(segMax * 4);
+        segB = new Uint8Array(segMax);
+        if (bgLumCap) bgLumCap = 0.4;
+        halo = bgGlowSprite(ctx.baseHue, 70, ctx.dark ? 80 : 55, ctx.dark ? 0.5 : 0.28);
+        if (bgLumCap) bgLumCap = 0.12;
+        // The nebula: three soft clouds painted once, small, and set as the
+        // canvas element's own CSS background, so the compositor scales it
+        // and the frame never draws it. Copied into the canvas every frame
+        // it cost 0.7ms at one to one and 5ms scaled; a still frame, which
+        // is captured from the canvas alone, draws it once.
+        nebula = bgSprite(W / 8, H / 8, (g, w, h) => {
+          for (let k = 0; k < 3; k++) {
+            const cx = w * p.random(0.15, 0.85), cy = h * p.random(0.15, 0.85);
+            const rad = w * p.random(0.22, 0.4);
+            const grad = g.createRadialGradient(cx, cy, 0, cx, cy, rad);
+            const hue = ctx.baseHue + [-40, 0, 45][k];
+            grad.addColorStop(0, bgHsla(hue, 60, ctx.dark ? 45 : 68, ctx.dark ? 0.32 : 0.34));
+            grad.addColorStop(1, bgHsla(hue, 60, ctx.dark ? 45 : 70, 0));
+            g.fillStyle = grad;
+            g.fillRect(0, 0, w, h);
+          }
+        });
+        if (!ctx.still) {
+          p.canvas.style.backgroundImage = `url("${nebula.toDataURL()}")`;
+          p.canvas.style.backgroundSize = "100% 100%";
+        }
+        // The meteor's tail, drawn rotated rather than a gradient a frame;
+        // as bright as a star, and gone as quickly.
+        if (bgLumCap) bgLumCap = 0.4;
+        tail = bgSprite(256, 6, (g, w, h) => {
+          const grad = g.createLinearGradient(0, 0, w, 0);
+          grad.addColorStop(0, bgHsla(ctx.baseHue, 60, ctx.dark ? 85 : 45, 0));
+          grad.addColorStop(1, bgHsla(ctx.baseHue, 60, ctx.dark ? 92 : 38, 0.8));
+          g.fillStyle = grad;
+          g.fillRect(0, h / 2 - 1, w, 2);
+        });
+        nextMeteor = 240 + Math.floor(p.random(360));
+      },
+      frame(t) {
+        const g = p.drawingContext;
+        if (ctx.still) g.drawImage(nebula, 0, 0, W, H);
+        g.lineCap = "round";
+        for (let li = 0; li < LAYERS.length; li++) {
+          const L = LAYERS[li];
+          const from = lFrom[li], to = lTo[li];
+          const vx = driftX * 0.22 * L.z, vy = driftY * 0.22 * L.z;
+          for (let i = from; i < to; i++) {
+            let x = sx[i] + vx + sjx[i], y = sy[i] + vy + sjy[i];
+            if (x < -10) x += W + 20; else if (x > W + 10) x -= W + 20;
+            if (y < -10) y += H + 20; else if (y > H + 10) y -= H + 20;
+            sx[i] = x; sy[i] = y;
+          }
+          // Links: every pair within reach, found through the grid, each
+          // written once (j > i) into the segment buffer with its strength.
+          const grid = grids[li];
+          grid.build(sx, sy, from, to);
+          const cols = grid.cols, st = grid.start, items = grid.items;
+          const reach2 = L.link * L.link;
+          let ns = 0;
+          for (let i = from; i < to && ns < segMax; i++) {
+            const c = grid.cellAt(sx[i], sy[i]);
+            const cx = c % cols, cy = (c - cx) / cols;
+            for (let oy = -1; oy <= 1; oy++) {
+              const ry = cy + oy;
+              if (ry < 0 || ry >= grid.rows) continue;
+              for (let ox = -1; ox <= 1; ox++) {
+                const rx = cx + ox;
+                if (rx < 0 || rx >= cols) continue;
+                const cell = ry * cols + rx;
+                for (let k = st[cell]; k < st[cell + 1]; k++) {
+                  const j = items[k];
+                  if (j <= i) continue;
+                  const dx = sx[j] - sx[i], dy = sy[j] - sy[i];
+                  const d2 = dx * dx + dy * dy;
+                  if (d2 >= reach2 || ns >= segMax) continue;
+                  const o = ns * 4;
+                  seg[o] = sx[i]; seg[o + 1] = sy[i]; seg[o + 2] = sx[j]; seg[o + 3] = sy[j];
+                  segB[ns] = Math.min(BUCKETS - 1, Math.floor((1 - Math.sqrt(d2) / L.link) * BUCKETS));
+                  ns++;
+                }
+              }
+            }
+          }
+          g.lineWidth = L.width;
+          for (let b = 0; b < BUCKETS; b++) {
+            g.beginPath();
+            let any = false;
+            for (let s = 0; s < ns; s++) {
+              if (segB[s] !== b) continue;
+              const o = s * 4;
+              g.moveTo(seg[o], seg[o + 1]);
+              g.lineTo(seg[o + 2], seg[o + 3]);
+              any = true;
+            }
+            if (!any) continue;
+            g.strokeStyle = strokes[li][b];
+            g.stroke();
+          }
+        }
+        // Stars, far to near, as soft dot sprites; halos on the near layer.
+        if (ctx.dark) g.globalCompositeOperation = "lighter";
+        for (let li = 0; li < LAYERS.length; li++) {
+          const L = LAYERS[li];
+          const base = 0.5 + 0.5 * L.z;
+          const sprites = dots[li];
+          for (let i = lFrom[li]; i < lTo[li]; i++) {
+            const tw = 0.62 + 0.38 * Math.sin(t * 9 * stw[i] + sph[i]);
+            const s = ssize[i];
+            if (li === 2 && s > 2.4) {
+              const hs = s * 9;
+              g.globalAlpha = tw * 0.8;
+              g.drawImage(halo, sx[i] - hs / 2, sy[i] - hs / 2, hs, hs);
+            }
+            g.globalAlpha = base * tw;
+            const ds = s * 3;
+            g.drawImage(sprites[shue[i]], sx[i] - ds / 2, sy[i] - ds / 2, ds, ds);
+          }
+        }
+        g.globalAlpha = 1;
+        // A meteor every twenty seconds or so, faint and quick.
+        if (!meteor.on && --nextMeteor <= 0) {
+          const ang = p.random(0.35, 0.75);
+          const left = p.random() < 0.5;
+          meteor.on = true; meteor.life = 0;
+          meteor.x = left ? p.random(W * 0.05, W * 0.45) : p.random(W * 0.55, W * 0.95);
+          meteor.y = p.random(H * 0.05, H * 0.35);
+          meteor.vx = Math.cos(ang) * 14 * (left ? 1 : -1);
+          meteor.vy = Math.sin(ang) * 14;
+          nextMeteor = 450 + Math.floor(p.random(450));
+        }
+        if (meteor.on) {
+          meteor.life++;
+          meteor.x += meteor.vx; meteor.y += meteor.vy;
+          g.globalAlpha = Math.sin(Math.min(1, meteor.life / 34) * Math.PI);
+          g.save();
+          g.translate(meteor.x, meteor.y);
+          g.rotate(Math.atan2(meteor.vy, meteor.vx));
+          g.drawImage(tail, -110, -3, 110, 6);
+          g.restore();
+          g.globalAlpha = 1;
+          if (meteor.life > 34) meteor.on = false;
+        }
+        g.globalCompositeOperation = "source-over";
+      },
+    };
+  },
+
+  // Layered scrolling sine waves, looking as they did (the owner likes
+  // them): the same layers, curves, colours and trail wash. What changed is
+  // only the cost: the colours are built once (the exact string p5's
+  // `color(...).toString()` gave, see bgP5Rgba), the curves go straight to
+  // the canvas as one path each instead of through p5's vertex list, which
+  // allocated per vertex, and the canvas is at half the pixel density: the
+  // waves are translucent fills with no line in them, and the compositor's
+  // upscale softens their edges by one pixel, which is the only difference.
+  waves(p, ctx) {
+    let fills = [];
+    let layers = 0;
+    return {
+      background: "wash",
+      pixelDensity: 0.5,
+      init() {
+        // Five layers at full intensity, fewer at less.
+        layers = Math.max(2, Math.round(5 * ctx.density));
+        fills = [];
+        for (let l = 0; l < layers; l++) {
+          const hue = (ctx.baseHue + l * 12) % 360;
+          fills.push(bgP5Rgba(hue, 62, ctx.dark ? 55 : 58, 0.16));
+        }
+      },
+      frame(t) {
+        const g = p.drawingContext;
+        const W = p.width, H = p.height;
+        for (let l = 0; l < layers; l++) {
+          const yBase = H * (0.35 + l * 0.13);
+          const amp = 26 + l * 10;
+          g.fillStyle = fills[l];
+          g.beginPath();
+          g.moveTo(0, H);
+          for (let x = 0; x <= W; x += 14) {
+            const y = yBase + Math.sin(x * 0.006 + t * (0.6 + l * 0.18) + l) * amp
+              + Math.sin(x * 0.013 - t * 0.4) * (amp * 0.35);
+            g.lineTo(x, y);
+          }
+          // The last step stopped short of the right edge (x is a multiple
+          // of 14), which left a sliver of the window uncovered at every
+          // width but a multiple of 14: the curve is carried on to the edge.
+          if (W % 14) {
+            g.lineTo(W, yBase + Math.sin(W * 0.006 + t * (0.6 + l * 0.18) + l) * amp
+              + Math.sin(W * 0.013 - t * 0.4) * (amp * 0.35));
+          }
+          g.lineTo(W, H);
+          g.closePath();
+          g.fill();
+        }
+      },
+    };
+  },
+
+  // Glass bubbles rising at three depths, pure CSS: each bubble is a
+  // pre-rendered image (made once, here, from a canvas) on its own element,
+  // and the rise, the sway and the wobble are three nested CSS animations,
+  // so the compositor moves them and the page does no work per frame. Near
+  // bubbles are large, quick and out of focus, far ones small, slow and
+  // soft, the middle ones in focus: a coloured rim, a clear centre, a
+  // highlight and a reflection.
+  bubbles: {
+    dom: true,
+    lightFloor: 0.3,
+    mount(layer, ctx, still) {
+      const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 7);
+      const L = ctx.dark ? 62 : 52;
+      const SPRITE = 160;
+      const glass = (hue) => bgSprite(SPRITE, SPRITE, (g, w) => {
+        const r = w / 2;
+        const body = g.createRadialGradient(r, r, r * 0.1, r, r, r);
+        body.addColorStop(0, bgHsla(hue, 70, L, 0.04));
+        body.addColorStop(0.62, bgHsla(hue, 70, L, 0.1));
+        body.addColorStop(0.86, bgHsla(hue + 18, 75, L, 0.34));
+        body.addColorStop(0.96, bgHsla(hue + 30, 80, L - 6, 0.55));
+        body.addColorStop(1, bgHsla(hue + 30, 80, L, 0));
+        g.fillStyle = body;
+        g.beginPath(); g.arc(r, r, r, 0, Math.PI * 2); g.fill();
+        // The iridescent side: a second tint pooled at the lower right.
+        const film = g.createRadialGradient(r * 1.35, r * 1.35, 0, r * 1.35, r * 1.35, r * 0.9);
+        film.addColorStop(0, bgHsla(hue + 60, 75, L + 8, 0.22));
+        film.addColorStop(1, bgHsla(hue + 60, 75, L + 8, 0));
+        g.fillStyle = film;
+        g.beginPath(); g.arc(r, r, r * 0.97, 0, Math.PI * 2); g.fill();
+        const hx = r * 0.62, hy = r * 0.56;
+        const spec = g.createRadialGradient(hx, hy, 0, hx, hy, r * 0.32);
+        spec.addColorStop(0, `rgba(255,255,255,${ctx.dark ? 0.7 : 0.9})`);
+        spec.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = spec;
+        g.beginPath(); g.arc(hx, hy, r * 0.32, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = `rgba(255,255,255,${ctx.dark ? 0.28 : 0.5})`;
+        g.lineWidth = r * 0.04;
+        g.beginPath(); g.arc(r, r, r * 0.8, Math.PI * 0.15, Math.PI * 0.45); g.stroke();
+      }).toDataURL();
+      const bokeh = (hue) => bgSprite(SPRITE / 2, SPRITE / 2, (g, w) => {
+        const r = w / 2;
+        const body = g.createRadialGradient(r, r, 0, r, r, r);
+        body.addColorStop(0, bgHsla(hue, 70, L, 0.3));
+        body.addColorStop(0.7, bgHsla(hue, 70, L, 0.22));
+        body.addColorStop(0.9, bgHsla(hue, 70, L, 0.1));
+        body.addColorStop(1, bgHsla(hue, 70, L, 0));
+        g.fillStyle = body;
+        g.fillRect(0, 0, w, w);
+      }).toDataURL();
+      const hues = [0, 32, -34].map((o) => ctx.baseHue + o);
+      const glassUrls = hues.map(glass), bokehUrls = hues.map(bokeh);
+      const H = window.innerHeight || 900;
+      const n = Math.max(6, Math.round(24 * ctx.density));
+      for (let i = 0; i < n; i++) {
+        // Far to near in document order, so near bubbles paint on top.
+        const z = i / n;
+        const r = 10 + z * z * 88;
+        const blurred = z < 0.3 || z > 0.86;
+        const kind = Math.floor(rand() * 3);
+        // The same speeds as the canvas version: 0.12 to 0.72 pixels a
+        // frame at 30 frames a second.
+        const pxPerSec = (0.12 + z * 0.6) * 30;
+        const rise = (H + r * 2) / pxPerSec;
+        const riseEl = document.createElement("div");
+        riseEl.className = "bg-bubble bg-rise";
+        riseEl.style.left = `${(rand() * 104 - 2).toFixed(2)}%`;
+        riseEl.style.top = still ? `${(rand() * 100).toFixed(2)}%` : "100%";
+        riseEl.style.width = `${(r * 2).toFixed(1)}px`;
+        riseEl.style.height = `${(r * 2).toFixed(1)}px`;
+        riseEl.style.setProperty("--dur-r", `${rise.toFixed(1)}s`);
+        riseEl.style.setProperty("--delay-r", `${(-rand() * rise).toFixed(1)}s`);
+        const sway = document.createElement("div");
+        sway.className = "bg-bubble-part bg-drift-x";
+        const swayDur = 4 + rand() * 5;
+        sway.style.setProperty("--dx", `${((8 + rand() * 26) * (0.4 + z)).toFixed(1)}px`);
+        sway.style.setProperty("--dur-x", `${swayDur.toFixed(2)}s`);
+        sway.style.setProperty("--delay-x", `${(-rand() * swayDur).toFixed(2)}s`);
+        const body = document.createElement("div");
+        body.className = "bg-bubble-part bg-wobble";
+        body.style.setProperty("--dur-w", `${(1.3 + rand() * 0.6).toFixed(2)}s`);
+        body.style.setProperty("--delay-w", `${(-rand() * 2).toFixed(2)}s`);
+        body.style.backgroundImage = `url("${blurred ? bokehUrls[kind] : glassUrls[kind]}")`;
+        body.style.opacity = (blurred ? (z < 0.3 ? 0.55 + z : 0.6) : 0.95).toFixed(2);
+        sway.appendChild(body);
+        riseEl.appendChild(sway);
+        layer.appendChild(riseEl);
+      }
+    },
+  },
+
+  // A living mesh gradient, pure CSS: a handful of large soft colour fields
+  // (CSS radial gradients) drifting on slow crossed paths, the horizontal
+  // and vertical halves of each path on two nested elements with different
+  // periods, so each field traces a Lissajous-like loop. The compositor
+  // moves them; the page draws nothing per frame. The old version stacked
+  // six translucent circles per blob on the canvas every frame, and the
+  // rings showed.
+  mesh: {
+    dom: true,
+    darkCap: 0.05,
+    lightFloor: 0.55,
+    mount(layer, ctx, still) {
+      const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 3);
+      layer.style.backgroundColor = bgHsla(ctx.baseHue, ctx.dark ? 35 : 45, ctx.dark ? 13 : 95, 1);
+      const offsets = [0, 38, -34, 74, -68, 16, 150];
+      const n = bgClamp(Math.round(4 + 3 * ctx.density), 4, offsets.length);
+      const l = ctx.dark ? 42 : 70;
+      for (let i = 0; i < n; i++) {
+        const hue = ctx.baseHue + offsets[i];
+        // The far hues are quieter, so the accent stays the lead.
+        const sat = Math.abs(offsets[i]) > 60 ? 50 : 75;
+        const r = 38 + rand() * 22; // radius, in vmax
+        const cx = 20 + rand() * 60, cy = 20 + rand() * 60; // centre, in %
+        const ax = 18 + rand() * 20, ay = 16 + rand() * 18; // reach, vw / vh
+        // Half a period each way, 20 to 45 seconds: the canvas version's
+        // Lissajous frequencies, as durations.
+        const durX = 20 + rand() * 25, durY = 22 + rand() * 25;
+        const phase = rand();
+        const drift = document.createElement("div");
+        drift.className = "bg-mesh-field bg-drift-x";
+        // A still frame is a moment mid-path rather than every field at
+        // its centre.
+        const sx = still ? Math.sin(phase * Math.PI * 2) * ax : 0;
+        const sy = still ? Math.sin(phase * Math.PI * 3.4) * ay : 0;
+        drift.style.left = `calc(${cx.toFixed(1)}% + ${sx.toFixed(1)}vw - ${r.toFixed(1)}vmax)`;
+        drift.style.top = `calc(${cy.toFixed(1)}% + ${sy.toFixed(1)}vh - ${r.toFixed(1)}vmax)`;
+        drift.style.width = `${(r * 2).toFixed(1)}vmax`;
+        drift.style.height = `${(r * 2).toFixed(1)}vmax`;
+        drift.style.setProperty("--dx", `${ax.toFixed(1)}vw`);
+        drift.style.setProperty("--dur-x", `${durX.toFixed(1)}s`);
+        drift.style.setProperty("--delay-x", `${(-phase * durX * 2).toFixed(1)}s`);
+        const field = document.createElement("div");
+        field.className = "bg-mesh-field-body bg-drift-y";
+        field.style.setProperty("--dy", `${ay.toFixed(1)}vh`);
+        field.style.setProperty("--dur-y", `${durY.toFixed(1)}s`);
+        field.style.setProperty("--delay-y", `${(-rand() * durY * 2).toFixed(1)}s`);
+        field.style.backgroundImage =
+          `radial-gradient(closest-side, ${bgHsla(hue, sat, l, ctx.dark ? 0.75 : 0.8)} 0%, `
+          + `${bgHsla(hue, sat, l, ctx.dark ? 0.3 : 0.32)} 50%, ${bgHsla(hue, sat, l, 0)} 100%)`;
+        drift.appendChild(field);
+        layer.appendChild(drift);
+      }
+    },
+  },
+
+  // An ecosystem grown from a name (the helixlabs idea, see bgArtGenome).
+  // Three to five species, each a strain of the display name, and every
+  // trait of a species read from its strain's letters: its body (round,
+  // rod, comma, diatom, amoeba, flagellate), how it moves (wandering,
+  // schooling with its own kind, orbiting, tracing a Lissajous figure,
+  // clustering as a colony), its hue around the accent, its size, speed,
+  // glow and wake, and how often it divides. Organisms swim, divide in two
+  // when there is room, and fade out with age, so the population holds
+  // steady while its members turn over. Every organism is a slot in a set
+  // of typed arrays; division takes the next free slot and a death swaps
+  // the last slot into its place, so nothing is allocated per frame.
+  microbes(p, ctx) {
+    const FORMS = ["coccus", "bacillus", "vibrio", "diatom", "amoeba", "flagellate"];
+    const MOVES = ["drift", "flock", "orbit", "lissajous", "colony"];
+    const GLOWS = ["none", "steady", "pulse"];
+    const TRAILS = ["none", "dots", "wake"];
+    const HL = 7; // wake points kept per organism
+    const CELL = 80;
+    let W = 0, H = 0, cap = 0, n = 0, frameNo = 0;
+    const species = [];
+    let X, Y, VX, VY, ANG, SPIN, AGE, NEXT, LIFE, DIV, BORN, DYING, SEED, OFF, ORBR, ORBD, SP;
+    let HX, HY, HN, HH, AQ, FIELDS, grid;
+    const AQN = new Int32Array(5 * 5); // bodies per species per opacity quarter
+    let nMotes = 0, mx, my, mz, ms, moteFill = "";
+    const blob = new Float32Array(16); // the amoeba's outline, reused
+    const ink = ctx.dark ? 74 : 40;
+    const fillL = ctx.dark ? 58 : 60;
+
+    const place = (i, s, x, y) => {
+      const sp = species[s];
+      SP[i] = s; X[i] = x; Y[i] = y;
+      VX[i] = p.random(-1, 1) * sp.speed; VY[i] = p.random(-1, 1) * sp.speed;
+      ANG[i] = p.random(Math.PI * 2); SPIN[i] = p.random(-0.01, 0.01);
+      AGE[i] = 0; NEXT[i] = sp.divideAfter * p.random(0.6, 1.4); LIFE[i] = p.random(1800, 3600);
+      DIV[i] = -1; BORN[i] = 0; DYING[i] = 0;
+      SEED[i] = p.random(1000); OFF[i] = p.random(Math.PI * 2);
+      ORBR[i] = p.random(50, 150); ORBD[i] = p.random() < 0.5 ? -1 : 1;
+      HN[i] = 0; HH[i] = 0;
+    };
+    const copySlot = (dst, src) => {
+      for (let f = 0; f < FIELDS.length; f++) FIELDS[f][dst] = FIELDS[f][src];
+      HX.copyWithin(dst * HL, src * HL, src * HL + HL);
+      HY.copyWithin(dst * HL, src * HL, src * HL + HL);
+    };
+
+    // The bodies, drawn as vector paths batched per species: every
+    // organism of a species adds its outline to one path, which is filled
+    // and stroked once, then its organelles to a second and its flagella to
+    // a third. Each point is rotated by hand (`c`, `s`: the heading's cosine
+    // and sine) instead of through a canvas transform, because a transform
+    // per organism means a path per organism. Measured, sixty bodies: a
+    // rotated image each cost 3.5ms to raster (rotated bitmaps are the slow
+    // path in a software canvas), vector outlines batched like this 0.8ms.
+    // `ph` is the organism's animation phase: the flagellum's beat, the
+    // amoeba's wobble.
+    const PHASE_RATE = { vibrio: 0.3, flagellate: 0.22, amoeba: 0.05 };
+    const outline = (g, sp, x, y, c, s, r, ph) => {
+      switch (sp.form) {
+        case "bacillus": {
+          const len = r * 1.4, wid = r * 0.62, th = Math.atan2(s, c);
+          const ax = x + c * len, ay = y + s * len, bx = x - c * len, by = y - s * len;
+          g.moveTo(bx + s * wid, by - c * wid);
+          g.lineTo(ax + s * wid, ay - c * wid);
+          g.arc(ax, ay, wid, th - Math.PI / 2, th + Math.PI / 2);
+          g.lineTo(bx - s * wid, by + c * wid);
+          g.arc(bx, by, wid, th + Math.PI / 2, th + Math.PI * 1.5);
+          g.closePath();
+          break;
+        }
+        case "vibrio": {
+          const th = Math.atan2(s, c);
+          const cx = x - s * r * 0.5, cy = y + c * r * 0.5;
+          const a0 = Math.PI * 1.15 + th, a1 = Math.PI * 1.85 + th;
+          g.moveTo(cx + Math.cos(a0) * r * 1.2, cy + Math.sin(a0) * r * 1.2);
+          g.arc(cx, cy, r * 1.2, a0, a1);
+          g.arc(cx, cy, r * 0.55, a1, a0, true);
+          g.closePath();
+          break;
+        }
+        case "diatom": {
+          const m = sp.sides, th = Math.atan2(s, c);
+          for (let ring = 0; ring < 2; ring++) {
+            const rr = ring ? r * 0.62 : r * 1.2, off = ring ? Math.PI / m : 0;
+            for (let k = 0; k <= m; k++) {
+              const q = (k / m) * Math.PI * 2 + off + th;
+              const px = x + Math.cos(q) * rr, py = y + Math.sin(q) * rr;
+              if (k === 0) g.moveTo(px, py);
+              else g.lineTo(px, py);
+            }
+          }
+          break;
+        }
+        case "amoeba": {
+          const m = 8, th = Math.atan2(s, c);
+          for (let k = 0; k < m; k++) {
+            const q = (k / m) * Math.PI * 2 + th;
+            const rr = r * (1 + 0.24 * Math.sin(ph + k * 1.9));
+            blob[k * 2] = x + Math.cos(q) * rr;
+            blob[k * 2 + 1] = y + Math.sin(q) * rr;
+          }
+          g.moveTo((blob[0] + blob[2]) / 2, (blob[1] + blob[3]) / 2);
+          for (let k = 1; k <= m; k++) {
+            const a = (k % m) * 2, b = ((k + 1) % m) * 2;
+            g.quadraticCurveTo(blob[a], blob[a + 1], (blob[a] + blob[b]) / 2, (blob[a + 1] + blob[b + 1]) / 2);
+          }
+          g.closePath();
+          break;
+        }
+        case "flagellate": {
+          g.moveTo(x + c * r * 1.25, y + s * r * 1.25);
+          g.ellipse(x, y, r * 1.25, r * 0.85, Math.atan2(s, c), 0, Math.PI * 2);
+          break;
+        }
+        default: { // coccus
+          g.moveTo(x + r, y);
+          g.arc(x, y, r, 0, Math.PI * 2);
+        }
+      }
+    };
+    // A point at (lx, ly) in the body's own frame, rotated and placed.
+    const dot = (g, x, y, c, s, lx, ly, rad) => {
+      const px = x + c * lx - s * ly, py = y + s * lx + c * ly;
+      g.moveTo(px + rad, py);
+      g.arc(px, py, rad, 0, Math.PI * 2);
+    };
+    const organelles = (g, sp, x, y, c, s, r) => {
+      switch (sp.form) {
+        case "bacillus": {
+          const len = r * 1.4, wid = r * 0.62;
+          dot(g, x, y, c, s, -len * 0.45, 0, wid * 0.32);
+          dot(g, x, y, c, s, len * 0.45, 0, wid * 0.32);
+          break;
+        }
+        case "diatom": dot(g, x, y, c, s, 0, 0, r * 0.18); break;
+        case "amoeba": dot(g, x, y, c, s, r * 0.2, -r * 0.1, r * 0.3); break;
+        case "flagellate": dot(g, x, y, c, s, r * 0.35, 0, r * 0.3); break;
+        case "vibrio": break;
+        default: dot(g, x, y, c, s, r * 0.25, -r * 0.2, r * 0.34);
+      }
+    };
+    const lash = (g, sp, x, y, c, s, r, ph) => {
+      if (sp.form === "vibrio") {
+        let lx = -r * 1.1;
+        g.moveTo(x + c * lx, y + s * lx);
+        for (let k = 1; k <= 6; k++) {
+          lx = -r * 1.1 - k * r * 0.45;
+          const ly = Math.sin(ph + k * 1.1) * r * 0.25;
+          g.lineTo(x + c * lx - s * ly, y + s * lx + c * ly);
+        }
+      } else if (sp.form === "flagellate") {
+        const w = Math.sin(ph);
+        const l1 = -r * 1.2, l2x = -r * 2.2, l2y = w * r * 1.1, l3x = -r * 3, l3y = -w * r * 1.1;
+        const l4x = -r * 4, l4y = Math.sin(ph + 1) * r * 0.5;
+        g.moveTo(x + c * l1, y + s * l1);
+        g.bezierCurveTo(
+          x + c * l2x - s * l2y, y + s * l2x + c * l2y,
+          x + c * l3x - s * l3y, y + s * l3x + c * l3y,
+          x + c * l4x - s * l4y, y + s * l4x + c * l4y,
+        );
+      }
+    };
+    // Adds every body of species `si` whose opacity rounds to `q` quarters
+    // to the current path: its outline (`part` 0), organelles (1) or
+    // flagellum (2). Two bodies per organism while it divides.
+    const PART = [outline, organelles, lash];
+    const bodies = (g, si, q, part) => {
+      const sp = species[si];
+      const rate = PHASE_RATE[sp.form] || 0;
+      const add = PART[part];
+      for (let i = 0; i < n; i++) {
+        if (SP[i] !== si || AQ[i] !== q) continue;
+        const c = Math.cos(ANG[i]), s = Math.sin(ANG[i]);
+        const ph = frameNo * rate + OFF[i];
+        if (DIV[i] >= 0) {
+          // Dividing: two daughters pulling apart along the body's axis,
+          // each a little smaller until they separate.
+          const d = DIV[i] * sp.size * 1.1;
+          const r = sp.size * (1 - 0.18 * Math.sin(DIV[i] * Math.PI));
+          add(g, sp, X[i] - c * d, Y[i] - s * d, c, s, r, ph);
+          add(g, sp, X[i] + c * d, Y[i] + s * d, c, s, r, ph);
+        } else {
+          add(g, sp, X[i], Y[i], c, s, sp.size, ph);
+        }
+      }
+    };
+
+    const step = () => {
+      frameNo++;
+      for (const sp of species) {
+        sp.cx = W * (0.12 + 0.76 * bgFlow(sp.seed, frameNo * 0.0015));
+        sp.cy = H * (0.12 + 0.76 * bgFlow(sp.seed + 91, frameNo * 0.0015));
+      }
+      grid.build(X, Y, 0, n);
+      const cols = grid.cols, st = grid.start, items = grid.items;
+      const count = n;
+      for (let i = 0; i < count; i++) {
+        const sp = species[SP[i]];
+        const x = X[i], y = Y[i];
+        let dx = 0, dy = 0;
+        let sepX = 0, sepY = 0, aliX = 0, aliY = 0, cohX = 0, cohY = 0, mates = 0;
+        const c = grid.cellAt(x, y);
+        const cx = c % cols, cy = (c - cx) / cols;
+        for (let oy = -1; oy <= 1; oy++) {
+          const ry = cy + oy;
+          if (ry < 0 || ry >= grid.rows) continue;
+          for (let ox = -1; ox <= 1; ox++) {
+            const rx = cx + ox;
+            if (rx < 0 || rx >= cols) continue;
+            const cell = ry * cols + rx;
+            for (let k = st[cell]; k < st[cell + 1]; k++) {
+              const o = items[k];
+              if (o === i) continue;
+              const ex = x - X[o], ey = y - Y[o];
+              const d2 = ex * ex + ey * ey;
+              const room = (sp.size + species[SP[o]].size) * 2.2;
+              if (d2 > 0 && d2 < room * room) {
+                const d = Math.sqrt(d2);
+                sepX += (ex / d) * (room - d) / room;
+                sepY += (ey / d) * (room - d) / room;
+              }
+              if (SP[o] === SP[i] && d2 < 5625) {
+                aliX += VX[o]; aliY += VY[o]; cohX += X[o]; cohY += Y[o]; mates++;
+              }
+            }
+          }
+        }
+        switch (sp.move) {
+          case "flock": {
+            if (mates) {
+              dx = (aliX / mates) * 0.6 + (cohX / mates - x) * 0.01;
+              dy = (aliY / mates) * 0.6 + (cohY / mates - y) * 0.01;
+            }
+            dx += VX[i] * 0.5 + (sp.cx - x) * 0.0004;
+            dy += VY[i] * 0.5 + (sp.cy - y) * 0.0004;
+            break;
+          }
+          case "orbit": {
+            OFF[i] += sp.speed * 0.006 * ORBD[i];
+            dx = (sp.cx + Math.cos(OFF[i]) * ORBR[i] - x) * 0.03;
+            dy = (sp.cy + Math.sin(OFF[i]) * ORBR[i] - y) * 0.03;
+            break;
+          }
+          case "lissajous": {
+            const tau = frameNo * 0.004 * sp.speed + OFF[i];
+            dx = (sp.cx + Math.sin(sp.lisA * tau + sp.lisPhase) * W * 0.18 - x) * 0.02;
+            dy = (sp.cy + Math.sin(sp.lisB * tau) * H * 0.18 - y) * 0.02;
+            break;
+          }
+          case "colony": {
+            dx = (sp.cx + Math.cos(OFF[i]) * ORBR[i] * 0.5 - x) * 0.004;
+            dy = (sp.cy + Math.sin(OFF[i]) * ORBR[i] * 0.5 - y) * 0.004;
+            dx += (bgFlow(SEED[i], frameNo * 0.01) - 0.5) * sp.speed;
+            dy += (bgFlow(SEED[i] + 7, frameNo * 0.01) - 0.5) * sp.speed;
+            break;
+          }
+          default: { // drift
+            const head = bgFlow(SEED[i], frameNo * 0.004) * Math.PI * 4;
+            dx = Math.cos(head) * sp.speed;
+            dy = Math.sin(head) * sp.speed;
+          }
+        }
+        dx += sepX * 0.9;
+        dy += sepY * 0.9;
+        const mag = Math.sqrt(dx * dx + dy * dy);
+        const lim = sp.speed * 1.4;
+        if (mag > lim) { dx = (dx / mag) * lim; dy = (dy / mag) * lim; }
+        VX[i] += (dx - VX[i]) * 0.06;
+        VY[i] += (dy - VY[i]) * 0.06;
+        let nx = x + VX[i], ny = y + VY[i];
+        if (nx < -30) nx += W + 60; else if (nx > W + 30) nx -= W + 60;
+        if (ny < -30) ny += H + 60; else if (ny > H + 30) ny -= H + 60;
+        X[i] = nx; Y[i] = ny;
+        // A rod or a flagellate points where it swims; a round or radial
+        // body turns slowly on its own.
+        if (sp.turns) {
+          ANG[i] += SPIN[i];
+        } else if (VX[i] * VX[i] + VY[i] * VY[i] > 0.0025) {
+          let d = Math.atan2(VY[i], VX[i]) - ANG[i];
+          d = Math.atan2(Math.sin(d), Math.cos(d));
+          ANG[i] += d * 0.08;
+        }
+        if (sp.trail !== "none" && frameNo % 5 === 0) {
+          const h = i * HL + HH[i];
+          HX[h] = nx; HY[h] = ny;
+          HH[i] = (HH[i] + 1) % HL;
+          if (HN[i] < HL) HN[i]++;
+        }
+        AGE[i]++;
+        if (BORN[i] < 1) BORN[i] = Math.min(1, BORN[i] + 0.02);
+        if (DYING[i] > 0) DYING[i] += 0.012;
+        else if (AGE[i] > LIFE[i] && n >= cap * 0.8) DYING[i] = 0.012;
+        if (DIV[i] >= 0) {
+          DIV[i] += 1 / 75;
+          if (DIV[i] >= 1) {
+            DIV[i] = -1;
+            AGE[i] = 0;
+            NEXT[i] = sp.divideAfter * p.random(0.7, 1.3);
+            if (n < cap) {
+              const ax = Math.cos(ANG[i]) * sp.size * 1.1, ay = Math.sin(ANG[i]) * sp.size * 1.1;
+              const kid = n++;
+              place(kid, SP[i], X[i] + ax, Y[i] + ay);
+              ANG[kid] = ANG[i]; BORN[kid] = 1; VX[kid] = VX[i]; VY[kid] = VY[i];
+              X[i] -= ax; Y[i] -= ay;
+            }
+          }
+        } else if (DYING[i] === 0 && AGE[i] > NEXT[i] && n < cap) {
+          DIV[i] = 0;
+        }
+      }
+      // The dead leave by swapping the last slot into theirs.
+      for (let i = n - 1; i >= 0; i--) {
+        if (DYING[i] >= 1) {
+          n--;
+          if (i !== n) copySlot(i, n);
+        }
+      }
+      for (let i = 0; i < nMotes; i++) {
+        mx[i] += (bgFlow(ms[i], frameNo * 0.003) - 0.5) * 0.5 * mz[i];
+        my[i] += (bgFlow(ms[i] + 5, frameNo * 0.003) - 0.5) * 0.5 * mz[i] - 0.05;
+        if (my[i] < -3) my[i] = H + 3;
+        if (mx[i] < -3) mx[i] = W + 3; else if (mx[i] > W + 3) mx[i] = -3;
+      }
+    };
+
+    return {
+      background: "clear",
+      seeded: true,
+      init() {
+        W = p.width; H = p.height;
+        const seed = bgArtSeedOf(ctx.seedText);
+        const strains = bgArtStrains(seed, bgArtStrainCount(seed));
+        const used = new Set();
+        strains.forEach((strain, i) => {
+          const gene = bgArtGenome(strain);
+          let lisA = gene.int(37, 4, 1), lisB = gene.int(41, 4, 1);
+          if (lisA === lisB) lisB = (lisB % 4) + 1;
+          // Every species in one ecosystem has its own body: a form already
+          // taken passes to the next one in the list.
+          let form = gene.pick(FORMS, 7, 31);
+          while (used.has(form)) form = FORMS[(FORMS.indexOf(form) + 1) % FORMS.length];
+          used.add(form);
+          const hue = ctx.baseHue + gene.span(5, 61, -60, 60);
+          species.push({
+            strain,
+            name: bgArtSpeciesName(strain),
+            form,
+            turns: form === "coccus" || form === "diatom" || form === "amoeba",
+            move: gene.pick(MOVES, 7),
+            glow: gene.pick(GLOWS, 17),
+            trail: gene.pick(TRAILS, 13, 53),
+            hue,
+            speed: gene.span(19, 101, 0.3, 0.85),
+            size: gene.span(29, 97, 6, 12),
+            sides: gene.int(23, 4, 5),
+            divideAfter: gene.span(31, 83, 600, 1500),
+            lisA, lisB, lisPhase: gene.span(43, 50, 0, Math.PI * 2),
+            seed: 100 + i * 37 + (gene.sum % 50),
+            cx: W / 2, cy: H / 2,
+            cFill: bgHsla(hue, 62, fillL, 0.28),
+            cStroke: bgHsla(hue, 70, ink, 0.8),
+            cCore: bgHsla(hue + 12, 72, ink, 0.75),
+            glowSprite: bgGlowSprite(hue, 70, ctx.dark ? 66 : 55, ctx.dark ? 0.55 : 0.3),
+            cWake: bgHsla(hue, 60, ink, 0.18),
+            cDots: bgHsla(hue, 60, ink, 0.3),
+          });
+        });
+        cap = bgClamp(Math.round((W * H) / 22000 * ctx.density), 14, 80);
+        const f = () => new Float32Array(cap);
+        X = f(); Y = f(); VX = f(); VY = f(); ANG = f(); SPIN = f(); AGE = f(); NEXT = f();
+        LIFE = f(); DIV = f(); BORN = f(); DYING = f(); SEED = f(); OFF = f(); ORBR = f();
+        ORBD = new Float32Array(cap); SP = new Uint8Array(cap);
+        HN = new Uint8Array(cap); HH = new Uint8Array(cap); AQ = new Uint8Array(cap);
+        HX = new Float32Array(cap * HL); HY = new Float32Array(cap * HL);
+        FIELDS = [X, Y, VX, VY, ANG, SPIN, AGE, NEXT, LIFE, DIV, BORN, DYING, SEED, OFF, ORBR, ORBD, SP, HN, HH];
+        grid = bgGrid(W, H, CELL, cap);
+        n = Math.round(cap * 0.7);
+        for (let i = 0; i < n; i++) {
+          place(i, i % species.length, p.random(W), p.random(H));
+          BORN[i] = 1;
+          AGE[i] = p.random(NEXT[i]);
+        }
+        nMotes = Math.round(40 * ctx.density);
+        mx = new Float32Array(nMotes); my = new Float32Array(nMotes);
+        mz = new Float32Array(nMotes); ms = new Float32Array(nMotes);
+        for (let i = 0; i < nMotes; i++) {
+          mx[i] = p.random(W); my[i] = p.random(H); mz[i] = p.random(0.3, 1); ms[i] = p.random(1000);
+        }
+        moteFill = bgHsla(ctx.baseHue, 30, ctx.dark ? 70 : 50, 0.3);
+      },
+      // A still frame shows the ecosystem after it has settled, not the
+      // scatter it starts from.
+      settle() {
+        for (let i = 0; i < 90; i++) step();
+      },
+      frame() {
+        step();
+        const g = p.drawingContext;
+        // Motes in three strengths, one path each.
+        g.fillStyle = moteFill;
+        for (let band = 0; band < 3; band++) {
+          g.globalAlpha = 0.45 + band * 0.25;
+          g.beginPath();
+          for (let i = band; i < nMotes; i += 3) {
+            const sz = 1.4 * mz[i] + 0.4;
+            g.rect(mx[i], my[i], sz, sz);
+          }
+          g.fill();
+        }
+        g.globalAlpha = 1;
+        // Wakes under the bodies: one path per species, one stroke or fill.
+        g.lineCap = "round";
+        for (let si = 0; si < species.length; si++) {
+          const sp = species[si];
+          if (sp.trail === "none") continue;
+          const wake = sp.trail === "wake";
+          g.beginPath();
+          for (let i = 0; i < n; i++) {
+            const hn = HN[i];
+            if (SP[i] !== si || hn < 2) continue;
+            const first = (HH[i] - hn + HL) % HL;
+            for (let k = 0; k < hn; k++) {
+              const h = i * HL + ((first + k) % HL);
+              if (wake) {
+                if (k === 0) g.moveTo(HX[h], HY[h]);
+                else g.lineTo(HX[h], HY[h]);
+              } else {
+                const sz = 0.6 + (k / HL) * sp.size * 0.7;
+                g.rect(HX[h] - sz / 2, HY[h] - sz / 2, sz, sz);
+              }
+            }
+            if (wake) g.lineTo(X[i], Y[i]);
+          }
+          if (wake) {
+            g.strokeStyle = sp.cWake;
+            // Thin: a wide stroke was the single most expensive thing in
+            // this style to raster (1.4ms of strokes a frame, measured with
+            // the strokes switched off).
+            g.lineWidth = 1;
+            g.stroke();
+          } else {
+            g.fillStyle = sp.cDots;
+            g.fill();
+          }
+        }
+        // Glows: upright sprites (a glow looks the same at any heading, and
+        // an upright image is the cheap kind), each at its organism's own
+        // strength, pulsing for a pulsing species.
+        AQN.fill(0);
+        for (let i = 0; i < n; i++) {
+          const a = BORN[i] * (1 - Math.min(1, DYING[i]));
+          // Opacity in quarters, for batching the bodies below.
+          AQ[i] = Math.ceil(a * 4);
+          AQN[SP[i] * 5 + AQ[i]]++;
+          const sp = species[SP[i]];
+          if (sp.glow === "none" || a <= 0.01) continue;
+          const pulse = sp.glow === "pulse" ? 0.55 + 0.45 * Math.sin(frameNo * 0.06 + OFF[i]) : 0.8;
+          const gs = sp.size * 5;
+          g.globalAlpha = pulse * a;
+          if (ctx.dark) g.globalCompositeOperation = "lighter";
+          g.drawImage(sp.glowSprite, X[i] - gs / 2, Y[i] - gs / 2, gs, gs);
+        }
+        g.globalCompositeOperation = "source-over";
+        // Bodies: per species and per quarter of opacity, one outline path
+        // (filled and stroked), one organelle path, one flagellum path.
+        g.lineWidth = 1;
+        for (let si = 0; si < species.length; si++) {
+          const sp = species[si];
+          const lashes = sp.form === "vibrio" || sp.form === "flagellate";
+          for (let q = 1; q <= 4; q++) {
+            if (!AQN[si * 5 + q]) continue;
+            g.globalAlpha = q / 4;
+            g.beginPath();
+            bodies(g, si, q, 0);
+            g.fillStyle = sp.cFill;
+            g.strokeStyle = sp.cStroke;
+            g.fill();
+            g.stroke();
+            if (sp.form !== "vibrio") {
+              g.beginPath();
+              bodies(g, si, q, 1);
+              g.fillStyle = sp.cCore;
+              g.fill();
+            }
+            if (lashes) {
+              g.beginPath();
+              bodies(g, si, q, 2);
+              g.stroke();
+            }
+          }
+        }
+        g.globalAlpha = 1;
+      },
+    };
+  },
+
+  // A mycelium grown from a name, the second helixlabs-style ecosystem:
+  // each colony is a strain of the display name, and its hue, how often it
+  // branches, how wide the branches split, how much the threads curl, how
+  // fast they grow, how thick they are and whether it sets nodes where it
+  // forks are all read from the strain's letters. Colonies germinate from
+  // spores, spread, rest, fade and grow again somewhere else. Growth is
+  // drawn once and kept (only the new segment of each thread is drawn a
+  // frame), so a frame costs the growing tips and nothing else. Tips live in
+  // typed arrays, and each frame's new segments go into preallocated
+  // buffers, one per colony and thickness, stroked as one path each.
+  mycelium(p, ctx) {
+    const FORMS = ["hyphae", "rhizome", "lace"];
+    const WIDTHS = [0.55, 1, 1.7];
+    let W = 0, H = 0, maxTips = 0, n = 0;
+    let TX, TY, TA, TW, TL, TG, TC;
+    let SEG, SEGN, NODE, NODEC, nNodes = 0;
+    const colonies = [];
+    let phase = "grow", phaseFrame = 0;
+    let tipFill = "";
+    const ink = ctx.dark ? 68 : 40;
+
+    const germinate = () => {
+      n = 0;
+      for (let ci = 0; ci < colonies.length; ci++) {
+        const col = colonies[ci];
+        const spores = 1 + (p.random() < 0.5 ? 1 : 0);
+        for (let s = 0; s < spores; s++) {
+          const x = p.random(W * 0.08, W * 0.92), y = p.random(H * 0.1, H * 0.9);
+          const count = 3 + Math.floor(p.random(3));
+          const turn = p.random(Math.PI * 2);
+          for (let k = 0; k < count && n < maxTips; k++) {
+            TX[n] = x; TY[n] = y; TA[n] = turn + (k / count) * Math.PI * 2;
+            TW[n] = col.weight; TL[n] = p.random(260, 420); TG[n] = 0; TC[n] = ci;
+            n++;
+          }
+        }
+      }
+      phase = "grow";
+      phaseFrame = 0;
+    };
+
+    const addNode = (ci, x, y, r) => {
+      if (nNodes >= maxTips * 2) return;
+      NODE[nNodes * 3] = x; NODE[nNodes * 3 + 1] = y; NODE[nNodes * 3 + 2] = r;
+      NODEC[nNodes++] = ci;
+    };
+
+    const grow = (g) => {
+      SEGN.fill(0);
+      nNodes = 0;
+      const count = n;
+      for (let i = 0; i < count; i++) {
+        const ci = TC[i], col = colonies[ci];
+        TA[i] += (bgFlow(TX[i] * 0.008 + col.seed, TY[i] * 0.008) - 0.5) * col.curl * 2.2;
+        const nx = TX[i] + Math.cos(TA[i]) * col.step;
+        const ny = TY[i] + Math.sin(TA[i]) * col.step;
+        const cls = TW[i] > 1.4 ? 2 : TW[i] > 0.8 ? 1 : 0;
+        const b = ci * 3 + cls;
+        const o = (b * maxTips + SEGN[b]) * 4;
+        SEG[o] = TX[i]; SEG[o + 1] = TY[i]; SEG[o + 2] = nx; SEG[o + 3] = ny;
+        SEGN[b]++;
+        TX[i] = nx; TY[i] = ny;
+        TL[i]--;
+        TW[i] *= 0.9985;
+        const out = nx < -10 || nx > W + 10 || ny < -10 || ny > H + 10;
+        if (TL[i] <= 0 || out) {
+          if (!out && col.form !== "rhizome") addNode(ci, nx, ny, TW[i] * 1.3);
+          TL[i] = -1; // marked; removed below
+          continue;
+        }
+        if (n < maxTips && TG[i] < 7 && p.random() < col.branch) {
+          const side = p.random() < 0.5 ? -1 : 1;
+          TX[n] = nx; TY[n] = ny; TA[n] = TA[i] + side * col.angle;
+          TW[n] = TW[i] * 0.78; TL[n] = TL[i] * p.random(0.55, 0.85);
+          TG[n] = TG[i] + 1; TC[n] = ci;
+          n++;
+          if (col.form === "lace") addNode(ci, nx, ny, TW[i] * 1.6);
+        }
+      }
+      for (let i = n - 1; i >= 0; i--) {
+        if (TL[i] >= 0) continue;
+        n--;
+        if (i !== n) {
+          TX[i] = TX[n]; TY[i] = TY[n]; TA[i] = TA[n]; TW[i] = TW[n];
+          TL[i] = TL[n]; TG[i] = TG[n]; TC[i] = TC[n];
+        }
+      }
+      g.lineCap = "round";
+      for (let ci = 0; ci < colonies.length; ci++) {
+        const col = colonies[ci];
+        for (let cls = 0; cls < 3; cls++) {
+          const b = ci * 3 + cls;
+          const segs = SEGN[b];
+          if (!segs) continue;
+          g.strokeStyle = col.stroke;
+          g.lineWidth = WIDTHS[cls] * col.weight;
+          g.beginPath();
+          for (let k = 0; k < segs; k++) {
+            const o = (b * maxTips + k) * 4;
+            g.moveTo(SEG[o], SEG[o + 1]);
+            g.lineTo(SEG[o + 2], SEG[o + 3]);
+          }
+          g.stroke();
+        }
+      }
+      for (let k = 0; k < nNodes; k++) {
+        g.fillStyle = colonies[NODEC[k]].node;
+        g.beginPath();
+        g.arc(NODE[k * 3], NODE[k * 3 + 1], Math.max(1.2, NODE[k * 3 + 2]), 0, Math.PI * 2);
+        g.fill();
+      }
+    };
+
+    return {
+      background: "keep",
+      seeded: true,
+      darkCap: 0.1,
+      lightFloor: 0.3,
+      init() {
+        W = p.width; H = p.height;
+        const seed = bgArtSeedOf(ctx.seedText);
+        const strains = bgArtStrains(seed, bgArtStrainCount(seed));
+        strains.forEach((strain, i) => {
+          const gene = bgArtGenome(strain);
+          const form = gene.pick(FORMS, 7, 31);
+          const hue = ctx.baseHue + gene.span(5, 61, -55, 55);
+          colonies.push({
+            index: i, strain, form, hue,
+            branch: gene.span(19, 101, 0.025, 0.055) * (form === "rhizome" ? 0.6 : 1),
+            angle: gene.span(29, 97, 0.35, 0.95),
+            curl: gene.span(31, 83, 0.03, 0.12),
+            step: gene.span(11, 71, 0.8, 1.4),
+            weight: gene.span(13, 59, 0.8, 1.5) * (form === "rhizome" ? 1.35 : 1),
+            seed: (gene.sum % 997) / 10,
+            stroke: bgHsla(hue, 58, ink, ctx.dark ? 0.55 : 0.5),
+            node: bgHsla(hue, 65, ink, ctx.dark ? 0.6 : 0.55),
+          });
+        });
+        tipFill = bgHsla(ctx.baseHue, 70, ctx.dark ? 80 : 45, 0.35);
+        maxTips = bgClamp(Math.round(180 * ctx.density), 70, 240);
+        TX = new Float32Array(maxTips); TY = new Float32Array(maxTips);
+        TA = new Float32Array(maxTips); TW = new Float32Array(maxTips);
+        TL = new Float32Array(maxTips); TG = new Uint8Array(maxTips); TC = new Uint8Array(maxTips);
+        SEG = new Float32Array(colonies.length * 3 * maxTips * 4);
+        SEGN = new Int32Array(colonies.length * 3);
+        NODE = new Float32Array(maxTips * 2 * 3);
+        NODEC = new Uint8Array(maxTips * 2);
+        p.clear();
+        germinate();
+      },
+      settle() {
+        const g = p.drawingContext;
+        for (let i = 0; i < 420 && n; i++) grow(g);
+      },
+      frame() {
+        const g = p.drawingContext;
+        phaseFrame++;
+        if (phase === "grow") {
+          grow(g);
+          // Growing tips glow faintly: the living front of the colony.
+          if (ctx.dark) g.globalCompositeOperation = "lighter";
+          g.fillStyle = tipFill;
+          for (let i = 0; i < n; i++) g.fillRect(TX[i] - 1, TY[i] - 1, 2, 2);
+          g.globalCompositeOperation = "source-over";
+          if (!n || phaseFrame > 1500) { phase = "rest"; phaseFrame = 0; }
+        } else if (phase === "rest") {
+          if (phaseFrame > 240) { phase = "fade"; phaseFrame = 0; }
+        } else if (phaseFrame > 75) {
+          // The last few alpha levels do not round away in eight bits, so
+          // the end of the fade clears outright before the next colonies
+          // germinate.
+          p.clear();
+          germinate();
+        } else {
+          g.globalCompositeOperation = "destination-out";
+          g.fillStyle = "rgba(0,0,0,0.06)";
+          g.fillRect(0, 0, W, H);
+          g.globalCompositeOperation = "source-over";
+        }
+      },
+    };
+  },
+};
+
+// --- the runtime ------------------------------------------------------------------
+//
+// No p5. The canvas styles were written against a few of p5's calls, and
+// `bgArtSurface` gives them those they still use (`width`, `height`,
+// `drawingContext`, `random`, `clear`, `pixelDensity`; the noise is
+// `bgFlow`) over a plain canvas, with a loop of its own. p5 cost the art its whole per-frame
+// machinery (about 1MB of allocations every ten seconds in its draw loop
+// alone, measured) and a 1MB script to load for nothing but that.
+
+let bgArtInstance = null; // the running loop, when a canvas style is moving
+let bgArtLayer = null; // the element a CSS style or a still frame lives on
+let bgArtStillUrl = ""; // the captured still's object URL, revoked when replaced
+let bgArtGeneration = 0; // bumped by every run and halt; a late capture from an old run is dropped
+let bgArtSeedUsed = null; // the name a seeded style grew from, or null
+let bgArtCoverTimer = 0;
+let bgArtBlurTimer = 0;
+let bgArtResizeTimer = 0;
+let bgArtRestart = null; // settings.js's startBgArt, for a resize to call
+let bgArtLastInput = 0;
+// Pictures on their way out: [element, object URL] pairs kept on screen
+// until whatever replaces them is ready, so a theme or accent change swaps
+// one picture for the next instead of flashing the bare page between. A
+// run that is itself replaced before it is ready hands them on.
+let bgArtRetiring = [];
+const bgArtPaused = { hidden: false, blurred: false, covered: false, idle: false };
+
+// Idle: no pointer, key or wheel for two minutes. The art holds still
+// until the next one, and carries on from where it was.
+const BG_ART_IDLE_MS = 120000;
+
+// Thirty frames a second, twenty on a machine that says it is small (four
+// cores or fewer, or four gigabytes of memory or less) or on battery. The
+// motion is per frame, so at twenty it is two thirds as fast rather than
+// jumping to keep up: calmer, and cheaper still.
+const BG_ART_SMALL_MACHINE =
+  (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+let bgArtOnBattery = false;
+
+function bgArtFrameRate() {
+  return BG_ART_SMALL_MACHINE || bgArtOnBattery ? 20 : 30;
+}
+
+if (typeof navigator.getBattery === "function") {
+  navigator.getBattery().then((battery) => {
+    const read = () => { bgArtOnBattery = !battery.charging; };
+    read();
+    battery.addEventListener("chargingchange", read);
+  }).catch(() => {});
+}
+
+// The surface a canvas style draws on: a canvas at the style's pixel
+// density (at most 1: on a 2x screen, a quarter of the pixels, for marks
+// that sit behind frosted glass at partial opacity), with the few p5 calls
+// the styles use.
+function bgArtSurface(pd, pdY = pd) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(W * pd));
+  canvas.height = Math.max(1, Math.round(H * pdY));
+  // `__bgArtCpu` is a measurement hook (scratchpad/ui-sweeps/bgartcost.js):
+  // a CPU-backed canvas rasterises on the page's own thread, as it would on
+  // a machine without GPU canvas, so the sweep can time that honestly
+  // instead of timing a GPU readback. Nothing in the app sets it.
+  const g = canvas.getContext("2d", window.__bgArtCpu === true ? { willReadFrequently: true } : undefined);
+  g.setTransform(pd, 0, 0, pdY, 0, 0);
+  return {
+    canvas, width: W, height: H, drawingContext: g, frameCount: 0,
+    random: bgRand,
+    pixelDensity: () => pd,
+    clear() {
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, canvas.width, canvas.height);
+      g.setTransform(pd, 0, 0, pdY, 0, 0);
+    },
+  };
+}
+
+function bgArtApplyPause() {
+  const b = bgArtPaused;
+  const paused = b.hidden || b.blurred || b.covered || b.idle;
+  if (bgArtInstance) {
+    if (paused && bgArtInstance.isLooping()) bgArtInstance.noLoop();
+    else if (!paused && !bgArtInstance.isLooping()) bgArtInstance.loop();
+  }
+  if (bgArtLayer && bgArtLayer.classList.contains("bg-art-layer")) {
+    bgArtLayer.classList.toggle("is-paused", paused);
+  }
+}
+
+// Is the whole window covered by something opaque? The topmost element at
+// the centre, and each of its ancestors short of <body>, is checked for
+// covering the full viewport with an opaque background and full opacity.
+// A colour this cannot read (a wide-gamut `color()` value, say) counts as
+// not opaque, so the art keeps drawing: a wrong "covered" would freeze art
+// someone can see, a wrong "not covered" only spends a frame.
+function bgArtCovered() {
+  const w = window.innerWidth, h = window.innerHeight;
+  let el = document.elementFromPoint(w / 2, h / 2);
+  while (el && el !== document.body && el !== document.documentElement) {
+    const r = el.getBoundingClientRect();
+    if (r.left <= 0 && r.top <= 0 && r.right >= w && r.bottom >= h) {
+      const cs = getComputedStyle(el);
+      const m = /^rgba?\(([^)]*)\)$/.exec(cs.backgroundColor);
+      if (m && Number(cs.opacity) >= 1) {
+        const parts = m[1].split(/[\s,/]+/).filter(Boolean);
+        const alpha = parts.length > 3 ? Number(parts[3]) : 1;
+        if (alpha >= 1) return true;
+      }
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
+// Every two seconds while something moves: covered? idle?
+function bgArtWatch() {
+  clearInterval(bgArtCoverTimer);
+  bgArtLastInput = performance.now();
+  bgArtPaused.hidden = document.hidden;
+  bgArtPaused.covered = bgArtCovered();
+  bgArtPaused.idle = false;
+  bgArtApplyPause();
+  bgArtCoverTimer = setInterval(() => {
+    const covered = bgArtCovered();
+    const idle = performance.now() - bgArtLastInput > BG_ART_IDLE_MS;
+    if (covered !== bgArtPaused.covered || idle !== bgArtPaused.idle) {
+      bgArtPaused.covered = covered;
+      bgArtPaused.idle = idle;
+      bgArtApplyPause();
+    }
+  }, 2000);
+}
+
+function bgArtRetire() {
+  for (const [el, url] of bgArtRetiring) {
+    el.remove();
+    if (url) URL.revokeObjectURL(url);
+  }
+  bgArtRetiring = [];
+}
+
+// Stops everything. `handingOver`: a new run is about to start, so the
+// current picture is kept on screen (see bgArtRetiring) rather than removed.
+function bgArtHalt(handingOver = false) {
+  bgArtGeneration++;
+  clearInterval(bgArtCoverTimer);
+  bgArtCoverTimer = 0;
+  const canvas = document.getElementById("bg-art-canvas");
+  if (bgArtInstance) {
+    // Handing over, a moving canvas stops but stays on screen until its
+    // replacement is ready: a still frame takes most of a second to encode.
+    if (handingOver && canvas) bgArtInstance.noLoop();
+    else bgArtInstance.remove();
+    bgArtInstance = null;
+  }
+  if (canvas) {
+    if (handingOver) {
+      canvas.id = "";
+      bgArtRetiring.push([canvas, ""]);
+    } else {
+      canvas.remove();
+    }
+  }
+  if (bgArtLayer) bgArtRetiring.push([bgArtLayer, bgArtStillUrl]);
+  bgArtLayer = null;
+  bgArtStillUrl = "";
+  if (!handingOver) bgArtRetire();
+  bgArtSeedUsed = null;
+}
+
+// Mount one style. `o`: { style, dark, accent, density, seedText, still,
+// requested (Movement is explicitly "Moving"), restart }.
+function bgArtRun(o) {
+  bgArtHalt(true);
+  const retire = bgArtRetire;
+  const gen = bgArtGeneration;
+  bgArtRestart = o.restart || null;
+  const entry = BG_ART_BUILDERS[o.style] || BG_ART_BUILDERS.aurora;
+  const ctx = {
+    dark: o.dark,
+    baseHue: bgColourHue(o.accent),
+    density: o.density,
+    seedText: o.seedText,
+    still: !!o.still,
+  };
+
+  if (entry.dom) {
+    const layer = document.createElement("div");
+    layer.id = "bg-art-layer";
+    layer.className = "bg-art-canvas bg-art-layer";
+    layer.setAttribute("aria-hidden", "true");
+    bgLumCap = o.dark ? entry.darkCap || 0 : 0;
+    bgLumFloor = o.dark ? 0 : entry.lightFloor || 0;
+    try {
+      entry.mount(layer, ctx, o.still);
+    } finally {
+      bgLumCap = 0;
+      bgLumFloor = 0;
+    }
+    if (!o.still) layer.classList.add("is-moving");
+    if (o.requested) layer.classList.add("is-requested");
+    document.body.appendChild(layer);
+    bgArtLayer = layer;
+    retire();
+    if (!o.still) bgArtWatch();
+    return;
+  }
+
+  // The factory runs before the surface exists (it only defines), so the
+  // style can say what pixel density it wants first.
+  let surface = null;
+  const shim = {};
+  const style = entry(shim, ctx);
+  const pd = Math.min(style.pixelDensity || 1, 1, window.devicePixelRatio || 1);
+  surface = bgArtSurface(pd, Math.min(style.pixelDensityY || pd, pd));
+  Object.assign(shim, surface);
+  // Getters rather than copies: the frame counter moves.
+  Object.defineProperty(shim, "frameCount", { get: () => surface.frameCount });
+  bgArtSeedUsed = style.seeded ? bgArtSeedOf(o.seedText) : null;
+  const { canvas, drawingContext: g } = surface;
+  canvas.id = "bg-art-canvas";
+  canvas.className = "bg-art-canvas";
+  canvas.setAttribute("aria-hidden", "true");
+  const wash = bgP5Rgba(0, 0, o.dark ? 12 : 98, o.dark ? 0.1 : 0.12);
+  bgLumCap = o.dark ? style.darkCap || 0 : 0;
+  bgLumFloor = o.dark ? 0 : style.lightFloor || 0;
+  try {
+    style.init();
+  } finally {
+    bgLumCap = 0;
+    bgLumFloor = 0;
+  }
+
+  if (o.still) {
+    // One frame, captured to an image; the canvas is never put in the page
+    // and nothing is left running.
+    if (style.background === "wash") {
+      g.fillStyle = bgP5Rgba(0, 0, o.dark ? 12 : 98, 1);
+      g.fillRect(0, 0, surface.width, surface.height);
+    }
+    if (style.settle) style.settle();
+    style.frame(0);
+    canvas.toBlob((blob) => {
+      if (gen !== bgArtGeneration || !blob) return;
+      bgArtStillUrl = URL.createObjectURL(blob);
+      const layer = document.createElement("div");
+      layer.id = "bg-art-still";
+      layer.className = "bg-art-canvas bg-art-still";
+      layer.setAttribute("aria-hidden", "true");
+      layer.style.backgroundImage = `url("${bgArtStillUrl}")`;
+      document.body.appendChild(layer);
+      bgArtLayer = layer;
+      retire();
+    }, "image/png");
+    return;
+  }
+
+  document.body.appendChild(canvas);
+  retire();
+  let raf = 0, looping = false, last = 0;
+  const handle = {
+    drawingContext: g,
+    // Called by the loop through the handle, so a measurement can wrap it
+    // (scratchpad/ui-sweeps/bgartcost.js).
+    draw() {
+      surface.frameCount++;
+      if (style.background === "wash") {
+        // A translucent wash over the last frame, so marks leave gentle
+        // trails instead of hard clears.
+        g.fillStyle = wash;
+        g.fillRect(0, 0, surface.width, surface.height);
+      } else if (style.background === "clear") {
+        surface.clear();
+      }
+      style.frame(surface.frameCount * 0.01);
+    },
+    isLooping: () => looping,
+    loop() {
+      if (looping) return;
+      looping = true;
+      last = 0;
+      raf = requestAnimationFrame(tick);
+    },
+    noLoop() {
+      looping = false;
+      cancelAnimationFrame(raf);
+    },
+    remove() {
+      handle.noLoop();
+      canvas.remove();
+    },
+  };
+  // A timestamp gate: the browser offers every display frame, and a frame
+  // is drawn only when a thirtieth (or twentieth) of a second has passed.
+  // `last` advances by whole intervals, so the rate holds steady instead of
+  // drifting down to every other offer at the edge.
+  function tick(now) {
+    if (!looping) return;
+    raf = requestAnimationFrame(tick);
+    const interval = 1000 / bgArtFrameRate();
+    if (last && now - last < interval - 1) return;
+    last = last && now - last < interval * 2 ? last + interval : now;
+    handle.draw();
+  }
+  bgArtInstance = handle;
+  handle.draw();
+  bgArtWatch();
+}
+
+// A hidden window draws nothing. Chromium already stops requestAnimationFrame
+// in a background tab, but the desktop window's WebView is not a tab and a
+// minimised window is not always "hidden" to it, so the loop is stopped
+// outright rather than trusted to be throttled.
+document.addEventListener("visibilitychange", () => {
+  bgArtPaused.hidden = document.hidden;
+  bgArtApplyPause();
+});
+
+// Unfocused for thirty seconds (another app in front, the window left on a
+// second screen): stop; focus again: go on.
+window.addEventListener("blur", () => {
+  clearTimeout(bgArtBlurTimer);
+  bgArtBlurTimer = setTimeout(() => {
+    bgArtPaused.blurred = true;
+    bgArtApplyPause();
+  }, 30000);
+});
+window.addEventListener("focus", () => {
+  clearTimeout(bgArtBlurTimer);
+  if (bgArtPaused.blurred) {
+    bgArtPaused.blurred = false;
+    bgArtApplyPause();
+  }
+});
+
+// Any input ends idle at once; otherwise it only stamps the time, which
+// is all a pointer move can afford to cost.
+for (const type of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) {
+  window.addEventListener(type, () => {
+    bgArtLastInput = performance.now();
+    if (bgArtPaused.idle) {
+      bgArtPaused.idle = false;
+      bgArtApplyPause();
+    }
+  }, { passive: true, capture: true });
+}
+
+// Every canvas style sizes its buffers and population to the window, and a
+// still is an image of one size, so a resize rebuilds either, once the
+// resizing stops (a drag fires this every frame). A CSS style is laid out
+// in viewport units and needs nothing.
+window.addEventListener("resize", () => {
+  clearTimeout(bgArtResizeTimer);
+  bgArtResizeTimer = setTimeout(() => {
+    const canvasStyle = bgArtInstance || (bgArtLayer && bgArtLayer.id === "bg-art-still");
+    if (canvasStyle && bgArtRestart) bgArtRestart();
+  }, 250);
+});

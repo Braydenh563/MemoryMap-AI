@@ -1410,7 +1410,7 @@ const APPEARANCE_DEFAULTS = {
   // from whether it's on at all.
   "glass-sheen-strength": "100",
   zoom: "100", // §37E: interface-wide scale, percent: multiplies the root font-size
-  "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
+  "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh | microbes | mycelium
   palette: "default", // which curated colour set; themes select one
   // No accent by default: the palette supplies the colour until you pick one
   // yourself. Named here so appearancePref("accent") has a defined answer
@@ -2331,6 +2331,7 @@ function renderAppearance() {
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
   $("bg-art-style").value = appearancePref("bg-style");
+  renderBgStyleHint();
   $("radius-slider").value = appearancePref("radius");
   $("radius-value").textContent = `${appearancePref("radius")}px`;
   $("glass-blur").value = appearancePref("glass-blur");
@@ -2377,6 +2378,24 @@ function renderProgressMotionHint() {
     text = "Moving anyway: your system asks for reduced motion, and this setting overrides it. Choose Auto to follow the system instead.";
   } else if (choice === "still") {
     text = "Held still. The dots step through a colour once a second so you can still tell work is happening.";
+  }
+  hint.textContent = text;
+  hint.classList.toggle("hidden", !text);
+}
+
+// The two seeded styles say what they grew from and what grew, so the
+// name-to-ecosystem link is visible rather than a hidden rule (the species
+// are the same ones bg-art.js draws: same strains, same genome).
+function renderBgStyleHint() {
+  const hint = $("bg-style-hint");
+  if (!hint) return;
+  const style = bgArtStyle();
+  let text = "";
+  if ((style === "microbes" || style === "mycelium") && typeof bgArtStrains === "function") {
+    const seed = bgArtSeedText();
+    const names = bgArtStrains(seed, bgArtStrainCount(seed)).map(bgArtSpeciesName);
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+    text = `Grown from "${seed}": ${list}. A new display name grows a new one.`;
   }
   hint.textContent = text;
   hint.classList.toggle("hidden", !text);
@@ -2565,26 +2584,32 @@ function resetAppearance() {
   toast("Appearance reset to defaults.");
 }
 
-// --- generative background (a second, ambient p5 instance) --------------------------
+// --- generative background ---------------------------------------------------------
+//
+// The styles and the runtime (mounting, pausing, the still capture) live in
+// bg-art.js, which loads just before this file; this part decides whether
+// the art runs, and moving or still, from the settings.
 
-let bgArtInstance = null;
+// A seeded style (microbes, mycelium) started before the preferences
+// arrived, or before a rename, grew from the old name; regrow it from the
+// one in Preferences now. A no-op for every other style and when nothing
+// changed.
+function bgArtRefreshSeed() {
+  if (bgArtSeedUsed === null || !bgArtOn()) return;
+  if (bgArtSeedUsed !== bgArtSeedText()) startBgArt();
+}
 
 function bgArtOn() {
   return localStorage.getItem("bgArt") === "on";
 }
 
 function stopBgArt() {
-  if (bgArtInstance) {
-    bgArtInstance.remove();
-    bgArtInstance = null;
-  }
-  const canvas = document.getElementById("bg-art-canvas");
-  if (canvas) canvas.remove();
+  bgArtHalt();
 }
 
 // Which generative background to paint. Persisted like the other
 // appearance prefs (user asked for more variety of art).
-const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh"];
+const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh", "microbes", "mycelium"];
 // One source of truth for the chosen style. This used to read a "bgArtStyle"
 // key that nothing writes any more (the picker saves "bg-style"), so the
 // builder always fell back to aurora no matter what was selected.
@@ -2593,231 +2618,7 @@ function bgArtStyle() {
   return BG_ART_STYLES.includes(saved) ? saved : "aurora";
 }
 
-// Each style is a small factory: given the p5 instance + shared context it
-// returns { init, frame(t) }. startBgArt wires up the canvas, colour mode,
-// trail wash, and reduced-motion handling once, around whichever it picks.
-const BG_ART_BUILDERS = {
-  // A flowing aurora: particles drift along a Perlin flow field, trailing.
-  aurora(p, ctx) {
-    let particles = [];
-    let emblem = [];
-    let ring = null;
-    const drawEmblem = (t, g) => {
-      const radius = Math.min(g.width, g.height) * 0.32;
-      g.push();
-      g.translate(g.width / 2, g.height / 2);
-      g.rotate(t * 0.02);
-      g.stroke(ctx.baseHue, 50, ctx.dark ? 72 : 42, 0.09);
-      g.strokeWeight(1.5);
-      for (let i = 0; i < emblem.length; i++) {
-        for (let j = i + 1; j < emblem.length; j++) {
-          if ((i + j) % 3 === 0) {
-            g.line(
-              Math.cos(emblem[i]) * radius, Math.sin(emblem[i]) * radius,
-              Math.cos(emblem[j]) * radius, Math.sin(emblem[j]) * radius
-            );
-          }
-        }
-      }
-      g.noStroke();
-      for (const a of emblem) {
-        g.fill(ctx.baseHue, 58, ctx.dark ? 74 : 40, 0.12);
-        g.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
-      }
-      g.pop();
-    };
-    return {
-      init() {
-        for (let i = 0; i < Math.max(3, Math.round(70 * ctx.density)); i++) {
-          particles.push({
-            x: p.random(p.width), y: p.random(p.height),
-            speed: p.random(0.3, 1.1), size: p.random(1.5, 3.5),
-            hue: (ctx.baseHue + p.random(-24, 24) + 360) % 360,
-          });
-        }
-        emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
-      },
-      frame(t) {
-        //: The ring is drawn on its own layer and composited, never into the
-        //: trail buffer: drawn straight onto it, its lines and dots landed
-        //: in the same place every frame and read as a patch the trails
-        //: could not cross (INBOX 210, "the trails get reset by the rotating
-        //: middle graphic"). The layer is cleared each frame, so the ring
-        //: turns and the trails beneath it fade like everywhere else.
-        if (!ring || ring.width !== p.width || ring.height !== p.height) {
-          ring = p.createGraphics(p.width, p.height);
-          ring.colorMode(p.HSL, 360, 100, 100, 1);
-        }
-        ring.clear();
-        drawEmblem(t, ring);
-        p.image(ring, 0, 0);
-        for (const dot of particles) {
-          const angle = p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
-          dot.x += Math.cos(angle) * dot.speed;
-          dot.y += Math.sin(angle) * dot.speed;
-          if (dot.x < 0) dot.x = p.width;
-          if (dot.x > p.width) dot.x = 0;
-          if (dot.y < 0) dot.y = p.height;
-          if (dot.y > p.height) dot.y = 0;
-          p.fill(dot.hue, 70, ctx.dark ? 70 : 52, 0.78);
-          p.circle(dot.x, dot.y, dot.size);
-        }
-      },
-    };
-  },
-
-  // Drifting stars joined by faint lines when they wander close, the same
-  // motif as the dashboard "constellation", full-screen.
-  constellation(p, ctx) {
-    let stars = [];
-    return {
-      init() {
-        // `ctx.density` is the intensity slider, and this style was one of
-        // the two that never read it: aurora, bubbles and mesh all scale
-        // their population by it and the constellation and the waves did
-        // not, so on those two the slider moved the canvas's opacity and
-        // nothing else. Measured before the change
-        // (`scratchpad/ui-sweeps/bgart.js`): the constellation's frame cost
-        // was 39.5ms at intensity 10 and 37.2ms at 100, which is the same
-        // number twice, while mesh went 32.7ms to 45.6ms.
-        //
-        // It matters more here than anywhere else because the neighbour
-        // search is O(n squared): 19 stars is 171 pairs a frame and 84 is
-        // 3,486.
-        const n = Math.max(3, Math.min(140, Math.round((p.width * p.height) / 17000 * ctx.density)));
-        for (let i = 0; i < n; i++) {
-          stars.push({
-            x: p.random(p.width), y: p.random(p.height),
-            vx: p.random(-0.25, 0.25), vy: p.random(-0.25, 0.25),
-            size: p.random(1.8, 4),
-            hue: (ctx.baseHue + p.random(-30, 30) + 360) % 360,
-          });
-        }
-      },
-      frame() {
-        for (const s of stars) {
-          s.x = (s.x + s.vx + p.width) % p.width;
-          s.y = (s.y + s.vy + p.height) % p.height;
-        }
-        for (let i = 0; i < stars.length; i++) {
-          for (let j = i + 1; j < stars.length; j++) {
-            const a = stars[i], b = stars[j];
-            const d = p.dist(a.x, a.y, b.x, b.y);
-            if (d < 130) {
-              p.stroke(ctx.baseHue, 60, ctx.dark ? 72 : 48, p.map(d, 0, 130, 0.45, 0));
-              p.strokeWeight(1);
-              p.line(a.x, a.y, b.x, b.y);
-            }
-          }
-        }
-        p.noStroke();
-        for (const s of stars) {
-          p.fill(s.hue, 72, ctx.dark ? 74 : 50, 0.95);
-          p.circle(s.x, s.y, s.size);
-        }
-      },
-    };
-  },
-
-  // Layered scrolling sine waves.
-  waves(p, ctx) {
-    return {
-      init() {},
-      frame(t) {
-        // Same as the constellation: five layers whatever the slider said.
-        const layers = Math.max(2, Math.round(5 * ctx.density));
-        for (let l = 0; l < layers; l++) {
-          const yBase = p.height * (0.35 + l * 0.13);
-          const amp = 26 + l * 10;
-          const hue = (ctx.baseHue + l * 12) % 360;
-          p.noStroke();
-          p.fill(hue, 62, ctx.dark ? 55 : 58, 0.16);
-          p.beginShape();
-          p.vertex(0, p.height);
-          for (let x = 0; x <= p.width; x += 14) {
-            const y = yBase + Math.sin(x * 0.006 + t * (0.6 + l * 0.18) + l) * amp
-              + Math.sin(x * 0.013 - t * 0.4) * (amp * 0.35);
-            p.vertex(x, y);
-          }
-          p.vertex(p.width, p.height);
-          p.endShape(p.CLOSE);
-        }
-      },
-    };
-  },
-
-  // Slow translucent orbs rising like a lava lamp.
-  bubbles(p, ctx) {
-    let orbs = [];
-    const spawn = () => ({
-      x: p.random(p.width),
-      y: p.height + p.random(20, 160),
-      r: p.random(24, 90),
-      speed: p.random(0.2, 0.7),
-      hue: (ctx.baseHue + p.random(-40, 40) + 360) % 360,
-      drift: p.random(-0.3, 0.3),
-    });
-    return {
-      init() {
-        for (let i = 0; i < Math.max(3, Math.round(16 * ctx.density)); i++) {
-          const o = spawn();
-          o.y = p.random(p.height);
-          orbs.push(o);
-        }
-      },
-      frame() {
-        p.noStroke();
-        for (let i = 0; i < orbs.length; i++) {
-          const o = orbs[i];
-          o.y -= o.speed;
-          o.x += o.drift;
-          if (o.y < -o.r) orbs[i] = spawn();
-          p.fill(o.hue, 68, ctx.dark ? 60 : 60, 0.17);
-          p.circle(o.x, o.y, o.r * 2);
-          p.fill(o.hue, 72, ctx.dark ? 70 : 52, 0.22);
-          p.circle(o.x, o.y, o.r);
-        }
-      },
-    };
-  },
-
-  // A soft "mesh gradient": a handful of big blurred blobs wandering.
-  mesh(p, ctx) {
-    let blobs = [];
-    return {
-      init() {
-        for (let i = 0; i < Math.max(3, Math.round(5 * ctx.density)); i++) {
-          blobs.push({
-            seedX: p.random(1000), seedY: p.random(1000),
-            r: p.random(p.width * 0.25, p.width * 0.45),
-            hue: (ctx.baseHue + i * 28) % 360,
-          });
-        }
-      },
-      frame(t) {
-        p.noStroke();
-        for (const b of blobs) {
-          const x = p.noise(b.seedX, t * 0.05) * p.width;
-          const y = p.noise(b.seedY, t * 0.05) * p.height;
-          // Concentric fades approximate a soft radial glow (no blur cost).
-          for (let k = 6; k >= 1; k--) {
-            p.fill(b.hue, 62, ctx.dark ? 48 : 62, 0.05);
-            p.circle(x, y, b.r * (k / 6));
-          }
-        }
-      },
-    };
-  },
-};
-
 function startBgArt() {
-  stopBgArt();
-  //: No early return on a missing `p5` here: it is loaded on demand
-  //: (`ensureP5`, app.js), and the one boot-time call to this function
-  //: arrives before it lands. An early return at this point is why the art
-  //: never appeared on a fresh login (the setting was on, the file loaded
-  //: later for the emblem, and nothing called back); the branch at the end
-  //: waits for the file and starts the art then.
   // Wanting a calm background isn't the same as wanting a calm interface, so
   // the art has its own setting. "Moving" is an explicit request and wins over
   // the reduced-motion hint: the hint exists to protect people from motion
@@ -2851,91 +2652,26 @@ function startBgArt() {
     perfModeOn() ||
     (typeof batteryModeOn === "function" && batteryModeOn()) ||
     (bgMotion !== "moving" && reducedMotionWanted());
-  // Whatever colour the app is wearing, accent picker or curated palette.
-  const accentHex = currentAccentHex();
   const bgStyle = bgArtStyle();
+  //: No p5: the art draws on its own canvas (bg-art.js), so it mounts at
+  //: once, including the one boot-time call to this function that used to
+  //: arrive before p5 had loaded and wait for it.
   // Intensity drives how much is on screen, not just the CSS opacity.
   const intensity = Number(appearancePref("bg-intensity")) || 90;
-  const densityScale = Math.max(0.25, intensity / 90);
-  const dark = document.documentElement.dataset.mode === "dark";
-  const build = BG_ART_BUILDERS[bgStyle] || BG_ART_BUILDERS.aurora;
-
-  const sketch = (p) => {
-    // Each style is a self-contained builder returning {init, frame}. The
-    // merge in #20 left this function holding pieces of two implementations
-    // at once: one branch's builders alongside the other's inline draw
-    // functions, with the `const style = build(...)` line lost between them.
-    // So p.draw called `style.frame(t)` on an undefined `style`, and every
-    // non-aurora background threw on its first frame.
-    let style = null;
-
-    p.setup = () => {
-      const c = p.createCanvas(window.innerWidth, window.innerHeight);
-      c.id("bg-art-canvas");
-      // Style it here, inside setup, where the element definitely exists.
-      // Applying the class after `new p5()` returned was a race: when p5
-      // deferred setup the lookup found nothing, the canvas kept default
-      // static positioning, and the art rendered as a block *below* the whole
-      // UI instead of fixed behind it.
-      c.elt.className = "bg-art-canvas";
-      // p5 parents new canvases to the first <main> it finds: which is the
-      // one inside the Notes tab. That hid the background art on every other
-      // tab (the whole panel is display:none). Pin it to <body> so it really
-      // is a global background.
-      c.parent(document.body);
-      // RGB for the wash rect, HSL for the coloured marks, p5 lets us
-      // switch, but simplest to keep one mode; use HSL and a grey wash.
-      p.colorMode(p.HSL, 360, 100, 100, 1);
-      p.noStroke();
-      p.frameRate(30);
-
-      style = build(p, {
-        dark,
-        baseHue: p.hue(p.color(accentHex)),
-        // The intensity slider scales how much is actually on screen, so each
-        // style decides its own population from one number.
-        density: densityScale,
-      });
-      style.init();
-
-      if (reduceMotion) {
-        // One calm static frame, no motion for reduced-motion users.
-        p.background(0, 0, dark ? 12 : 98);
-        style.frame(0);
-        p.noLoop();
-      }
-    };
-
-    p.draw = () => {
-      const t = p.frameCount * 0.01;
-      // Translucent wash → marks leave gentle trails instead of hard clears.
-      // Kept light so the art reads clearly on every tab (and the page
-      // gradient shows through) rather than flattening to near-solid.
-      p.noStroke();
-      p.fill(0, 0, dark ? 12 : 98, dark ? 0.10 : 0.12);
-      p.rect(0, 0, p.width, p.height);
-      style.frame(t);
-    };
-
-    p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
-  };
-  if (typeof p5 === "undefined") {
-    //: On demand (`ensureP5`, app.js): `startBgArt` is synchronous and its
-    //: callers do not wait, so the sketch mounts when the file lands; the
-    //: instance check keeps two from stacking when the setting flips twice.
-    ensureP5().then((ok) => {
-      //: Re-enter rather than mount the captured sketch: the setting or the
-      //: theme may have changed while the file loaded (unlock applies the
-      //: appearance, and `stopBgArt` may have run), so the prefs are read
-      //: again and a flipped-off setting mounts nothing.
-      if (!ok || bgArtInstance || !bgArtOn()) return;
-      startBgArt();
-    });
-    return;
-  }
-  bgArtInstance = new p5(sketch);
-  const canvas = document.getElementById("bg-art-canvas");
-  if (canvas) canvas.className = "bg-art-canvas";
+  bgArtRun({
+    style: bgStyle,
+    dark: document.documentElement.dataset.mode === "dark",
+    // Whatever colour the app is wearing, accent picker or curated palette.
+    accent: currentAccentHex(),
+    // The intensity slider scales how much is actually on screen, so each
+    // style decides its own population from one number.
+    density: Math.max(0.25, intensity / 90),
+    // The seeded styles (microbes, mycelium) grow their species from it.
+    seedText: bgArtSeedText(),
+    still: reduceMotion,
+    requested: bgMotion === "moving",
+    restart: () => { if (bgArtOn()) startBgArt(); },
+  });
 }
 
 function toggleBgArt(on) {
@@ -3105,6 +2841,7 @@ $("page-bg-clear").addEventListener("click", () => {
 // Background art style.
 $("bg-art-style").addEventListener("change", (e) => {
   localStorage.setItem("bg-style", e.target.value);
+  renderBgStyleHint();
   if (bgArtOn()) startBgArt();
 });
 $("avatar-follow").addEventListener("change", (e) => {

@@ -8782,18 +8782,25 @@
               </label>
 
               <div class="setting-row" id="bg-style-row">
-                <div class="setting-label"><span>Style</span></div>
+                <div class="setting-label">
+                  <span>Style</span>
+                  <!-- Filled by renderBgStyleHint (settings.js) for the two
+                       styles seeded from the display name. -->
+                  <small class="muted hint-inline hidden" id="bg-style-hint"></small>
+                </div>
                 <!-- These values MUST match BG_ART_BUILDERS in app.js. They
                      didn't: the list offered "constellations", "blobs" and
                      "particles" while the code implements "constellation",
                      "bubbles", "waves" and "mesh", so every option except
                      Aurora failed the name check and silently fell back. -->
                 <select id="bg-art-style" aria-label="Background artwork style" title="Background artwork style" class="small-select setting-control">
-                  <option value="aurora">Aurora: flowing ribbons</option>
-                  <option value="constellation">Constellation: linked stars</option>
+                  <option value="aurora">Aurora: curtains of light</option>
+                  <option value="constellation">Constellation: stars at three depths</option>
                   <option value="waves">Waves: rolling lines</option>
-                  <option value="bubbles">Floating orbs: drifting shapes</option>
-                  <option value="mesh">Mesh gradient: soft colour wash</option>
+                  <option value="bubbles">Floating orbs: rising glass bubbles</option>
+                  <option value="mesh">Mesh gradient: slow colour fields</option>
+                  <option value="microbes">Microbes: an ecosystem grown from your name</option>
+                  <option value="mycelium">Mycelium: a network grown from your name</option>
                 </select>
               </div>
 
@@ -11146,6 +11153,9 @@
        event-listener closure: see this file's own header for the full
        account of what moved, what stayed in app.js and why, and the two
        hazards this ordering fixes. -->
+  <!-- The background art's styles (BG_ART_BUILDERS). Before settings.js,
+       whose own tail starts the art; this file only defines. -->
+  <script src="/bg-art.js?v=0.3.2"></script>
   <script src="/settings.js?v=0.3.2"></script>
   <!-- The guided tour (tour.js). Last, and its position is not load-bearing:
        every cross-file call it makes (switchTab, showNotesSection, toast) runs

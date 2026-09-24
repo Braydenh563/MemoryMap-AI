@@ -700,6 +700,20 @@ below). Versioning is `0.x` while the app stabilises.
   Maps had been indexed as boards, and only the `# Title` line of either was
   indexed. An existing index is put right at the next start by a diff over
   the boards, a no-op once done.
+- Switching the background art to "Still", or changing the style, theme or
+  accent while it is still, no longer blanks the background for most of a
+  second: the old picture stays up until the new still frame has finished
+  encoding (measured over 700ms at 1440x900 in headless Chromium), then
+  swaps.
+- The new background art no longer costs the text on the page any
+  contrast. Measured against the real pixels behind every text element on
+  the Dashboard (three moments per style), the first versions of the bright
+  aurora, the constellation, the mesh and the mycelium took muted labels such
+  as "Start something" and "Jump to" under WCAG AA where the old styles had
+  not. In the dark theme a style's colours are now capped in luminance, and
+  in the light theme floored, while it builds them (never per frame): every
+  style now fails no more text than the art-off page does in the light theme
+  (3 over three captures), and at most as many in the dark.
 - The packaged Windows app now says what is wrong when it cannot show its
   window, instead of a blank or missing graphic with nothing in any log.
   Reported directly on the .exe build: pywebview's Windows backend needs the
@@ -930,6 +944,25 @@ below). Versioning is `0.x` while the app stabilises.
   the Chat tab's choice without saying so), and the feature rows ride every
   status poll, so the Chat tab's and the documents assistant's model sheets
   no longer say "Models aren't available yet" until Settings has been opened.
+- Two new background art styles grown from your display name, after the
+  owner's helixlabs project (MIT; its `generateDNAProfile` idea, credited in
+  `frontend/bg-art.js`): the letters of the name, each weighted by its
+  place, choose every trait of three to five species. **Microbes** is an
+  ecosystem of swimming organisms (round, rod, comma, diatom, amoeba or
+  flagellate bodies; wandering, schooling, orbiting, tracing a figure or
+  clustering) that divide when there is room and fade with age; **Mycelium**
+  is a network of threads that germinate, branch, rest, fade and grow again
+  elsewhere. Settings says which species your name grew, and a new display
+  name regrows them.
+- Two sweeps for the background art. `scratchpad/ui-sweeps/bgartcost.js`
+  times each style's frame inside the page (the draw plus the raster it
+  forces, over five seconds), samples its allocations over ten seconds with
+  the heap profiler, and checks that "Still" leaves no loop and no canvas
+  behind; `bgart.js` timed the frame interval, which sits on the 16.7ms
+  vsync floor for any style that fits in a frame and so could not tell a
+  2ms style from a 12ms one. `scratchpad/ui-sweeps/bgartcontrast.js`
+  measures text contrast against the real pixels behind each text element
+  with the art on, which `contrast.js` cannot see through glass.
 - A lint on the release artifact naming scheme (INBOX 266, item 4).
   `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
   `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses
@@ -981,6 +1014,26 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The app's emblem is drawn once and turned by a CSS rotation instead of a
+  p5 sketch redrawn 24 times a second for every emblem on the page, at the
+  same speed (one turn in 43.6 seconds). The architecture notes had it as
+  about 3.5 of the 5.5 CPU points an idle Dashboard cost; the page now runs
+  no animation-frame callbacks at all with the background art off (240 in
+  two seconds before, measured).
+- Every background art style but the waves is redrawn, and the whole
+  background is lighter to run. The aurora is now curtains of light, the
+  constellation has stars at three depths with a nebula and the odd meteor,
+  the floating orbs are glass bubbles at three depths, and the mesh is slow
+  colour fields that blend; the waves look as they did. Measured at
+  1440x900, default intensity, paint per frame: the aurora 5.97ms to about
+  1ms, the mesh 3.02ms and the bubbles 1.87ms to nothing at all (both are CSS
+  animations now, moved by the compositor), the waves 2.38ms to 0.88ms, the
+  constellation 1.92ms to 2.14ms with 40% more stars; allocations over ten
+  seconds fell from between 13MB and 46MB a style to under 5MB. The art no longer
+  uses p5, runs at 30 frames a second (20 on battery or a small machine),
+  stops when the window is hidden, unfocused for thirty seconds, idle for two
+  minutes or covered, and "Still" is now one captured image with nothing
+  running behind it.
 - A big mind map redraws only what changed. A change to one topic used to
   rebuild every topic and every line on the board, which is why a large map
   felt heavy to work on: at five hundred topics a redraw took just over half

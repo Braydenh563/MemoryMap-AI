@@ -240,7 +240,8 @@ MemoryMap-AI/
 │   ├── theme-boot.js · boot-guard.js # before first paint: theme, perf mode,
 │   │                        #   and the guard that reports a boot failure
 │   ├── app.js               # the shell, notes, chat, palette, settings glue
-│   ├── settings.js          # Settings, appearance, the background art
+│   ├── settings.js          # Settings, appearance, whether the background art runs
+│   ├── bg-art.js            # the background art: its styles and its runtime
 │   ├── dashboard.js         # the dashboard's widgets
 │   ├── timeline.js          # the Timeline tab: feed, table, scrubber
 │   ├── library.js           # Library: files, images, the OCR workspace
@@ -1159,7 +1160,10 @@ with an `IntersectionObserver`; the one that is on screen is the decision,
 not an oversight, and it is about 3.5 points of the 5.5. Worth knowing
 before anyone goes looking for a leak: there is no leak, there is a
 deliberate animation, and turning it down is a design choice rather than a
-bug fix.
+bug fix. **Since answered without turning it down:** the emblem is drawn
+once and turned by a CSS rotation (`canvas.emblem-spin`), at the same
+speed, so the compositor does the turning and no p5 loop runs for it at
+all. Not re-measured with `top` since.
 
 What was deliberately *not* cut: the 60-second reminder check, because a
 reminder that waits for you to look at the tab is not a reminder, and the

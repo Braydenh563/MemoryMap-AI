@@ -1,0 +1,221 @@
+// What each background style costs, measured inside the page: paint time
+// per frame, what it allocates, and whether "Still" really leaves nothing
+// running. Screenshots of each style in light and dark to look at.
+//
+// `bgart.js` measures the frame *interval*, which in headless Chromium sits
+// on the 16.7ms vsync floor for every style that fits in a frame, so it
+// cannot tell a 2ms style from a 12ms one. This wraps the p5 instance's own
+// `draw` in `performance.now()` for SECONDS instead, and reads one pixel back
+// after each draw: the draw call only records canvas commands and Chromium
+// rasterises them later, off this stack, so without the read the old mesh
+// (thirty screen-sized translucent circles) timed at 0.2ms.
+//
+// Allocations: the sampling heap profiler over ALLOC_SECONDS, keeping the
+// objects the GC has already collected (they are the churn), attributed to
+// the art's own files (bg-art.js, settings.js, p5.min.js) by the allocating
+// frame's URL. Bytes are the profiler's sampled estimate.
+//
+// Still: the page's requestAnimationFrame callbacks are counted over two
+// seconds with the art held still, next to the same count with the art off.
+//
+//   BASE=http://127.0.0.1:8797 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
+//     SHOTS=/tmp/shots node scratchpad/ui-sweeps/bgartcost.js
+//
+// STYLES narrows the list, THEMES picks light and/or dark, SECONDS the paint
+// window, ALLOC_SECONDS the allocation window (0 skips it), STILL=0 skips the
+// still check.
+const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+
+const PW = 'testpassword123';
+const BASE = process.env.BASE || 'http://127.0.0.1:8797';
+const STYLES = (process.env.STYLES || 'aurora,constellation,waves,bubbles,mesh,microbes,mycelium').split(',');
+const THEMES = (process.env.THEMES || 'light,dark').split(',');
+const SECONDS = Number(process.env.SECONDS || 5);
+const ALLOC_SECONDS = Number(process.env.ALLOC_SECONDS ?? 10);
+const STILL = process.env.STILL !== '0';
+const SHOTS = process.env.SHOTS || '';
+const INTENSITY = process.env.INTENSITY || '90';
+
+async function boot(browser, prefs) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  await ctx.addInitScript((p) => {
+    try {
+      localStorage.setItem('onboardingDone', '1');
+      // CPU=1: the art's canvas is CPU-backed, so the raster is timed on
+      // this thread as a machine without GPU canvas would do it, instead
+      // of timing a GPU readback (which is what the one-pixel read costs
+      // on an accelerated canvas, and which no real frame pays).
+      if (p.__cpu) window.__bgArtCpu = true;
+      for (const [k, v] of Object.entries(p)) if (!k.startsWith('__')) localStorage.setItem(k, v);
+    } catch (e) { /* private window: the app copes */ }
+    // Count the requestAnimationFrame callbacks the page runs, and
+    // separately the ones the art requested (p5 or bg-art.js on the stack
+    // when it asked): the app has loops of its own, so the page total alone
+    // cannot say whether the art is still running.
+    const raf = window.requestAnimationFrame.bind(window);
+    window.__rafCount = 0;
+    window.__rafArt = 0;
+    window.requestAnimationFrame = (cb) => {
+      const art = /p5\.min\.js|bg-art\.js/.test(new Error().stack || '');
+      return raf((ts) => { window.__rafCount++; if (art) window.__rafArt++; cb(ts); });
+    };
+  }, prefs);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 });
+  await page.fill('#lock-password', PW);
+  await page.click('#lock-submit');
+  await page.waitForTimeout(3000);
+  await page.evaluate(() => {
+    const o = document.getElementById('onboarding-overlay');
+    if (o) o.classList.add('hidden');
+  });
+  await page.waitForTimeout(1500);
+  return { ctx, page, errors };
+}
+
+async function drawCost(page, s) {
+  return page.evaluate((secs) => new Promise((resolve) => {
+    // eslint-disable-next-line no-undef
+    const inst = typeof bgArtInstance !== 'undefined' ? bgArtInstance : null;
+    if (!inst || typeof inst.draw !== 'function') { resolve(null); return; }
+    const orig = inst.draw;
+    const times = [];
+    const g = inst.drawingContext;
+    const js = [];
+    inst.draw = function wrapped() {
+      const a = performance.now();
+      orig.call(this);
+      const b = performance.now();
+      g.getImageData(0, 0, 1, 1);
+      js.push(b - a);
+      times.push(performance.now() - a);
+    };
+    setTimeout(() => {
+      inst.draw = orig;
+      times.sort((x, y) => x - y);
+      const mean = times.reduce((t, v) => t + v, 0) / Math.max(1, times.length);
+      const jsMean = js.reduce((t, v) => t + v, 0) / Math.max(1, js.length);
+      resolve({
+        n: times.length,
+        mean: +mean.toFixed(2),
+        js: +jsMean.toFixed(2),
+        p95: +(times[Math.floor(times.length * 0.95)] || 0).toFixed(2),
+      });
+    }, secs * 1000);
+  }), s);
+}
+
+async function allocations(page, secs) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('HeapProfiler.enable');
+  await cdp.send('HeapProfiler.collectGarbage');
+  await cdp.send('HeapProfiler.startSampling', {
+    samplingInterval: 1024,
+    includeObjectsCollectedByMajorGC: true,
+    includeObjectsCollectedByMinorGC: true,
+  });
+  await page.waitForTimeout(secs * 1000);
+  const { profile } = await cdp.send('HeapProfiler.stopSampling');
+  let art = 0, total = 0;
+  const top = new Map();
+  const walk = (node, inArt) => {
+    const url = node.callFrame.url || '';
+    const mine = inArt || /bg-art\.js|settings\.js|p5\.min\.js/.test(url);
+    total += node.selfSize;
+    if (mine) art += node.selfSize;
+    if (node.selfSize) {
+      const key = `${node.callFrame.functionName || '(anon)'} ${url.split('/').pop().split('?')[0]}:${node.callFrame.lineNumber + 1}`;
+      top.set(key, (top.get(key) || 0) + node.selfSize);
+    }
+    for (const c of node.children) walk(c, mine);
+  };
+  walk(profile.head, false);
+  await cdp.detach();
+  if (process.env.ALLOC_TOP) {
+    const rows = [...top.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    for (const [k, v] of rows) console.log(`    ${Math.round(v / 1024)}KB ${k}`);
+  }
+  return { artKB: Math.round(art / 1024), totalKB: Math.round(total / 1024) };
+}
+
+async function rafCount(page) {
+  return page.evaluate(() => new Promise((resolve) => {
+    const start = window.__rafCount, art = window.__rafArt;
+    setTimeout(() => resolve(`${window.__rafArt - art} art (${window.__rafCount - start} page)`), 2000);
+  }));
+}
+
+(async () => {
+  const browser = await chromium.launch({ args: ['--enable-precise-memory-info'] });
+  if (STILL) {
+    // The baseline: the app on its own still requests animation frames and
+    // allocates (the header emblem is a p5 sketch too, which is why p5's
+    // frames count as "art" in both numbers), so each style's figures are
+    // read against these.
+    const off = await boot(browser, { theme: 'light', bgArt: 'off' });
+    const offAlloc = ALLOC_SECONDS ? await allocations(off.page, ALLOC_SECONDS) : null;
+    console.log(`art off: ${await rafCount(off.page)} rAF callbacks in 2s`
+      + (offAlloc ? `; alloc ${offAlloc.artKB}KB art-attributed / ${offAlloc.totalKB}KB page in ${ALLOC_SECONDS}s` : ''));
+    await off.ctx.close();
+  }
+  for (const theme of THEMES) {
+    for (const style of STYLES) {
+      const { ctx, page, errors } = await boot(browser, {
+        theme, bgArt: 'on', 'bg-style': style, 'bg-motion': 'moving', 'bg-intensity': INTENSITY,
+        __cpu: process.env.CPU === '1',
+      });
+      const cost = await drawCost(page, SECONDS);
+      const actual = await page.evaluate(() => (typeof bgArtStyle === 'function' ? bgArtStyle() : '?'));
+      const alloc = ALLOC_SECONDS ? await allocations(page, ALLOC_SECONDS) : null;
+      if (SHOTS) {
+        await page.screenshot({ path: `${SHOTS}/${style}-${theme}.png` });
+        const data = await page.evaluate(() => {
+          const c = document.getElementById('bg-art-canvas');
+          return c ? c.toDataURL('image/png') : null;
+        });
+        if (data) require('fs').writeFileSync(`${SHOTS}/${style}-${theme}-canvas.png`, Buffer.from(data.split(',')[1], 'base64'));
+        // The art alone over the page's own background, at its real
+        // opacity: every element but the art hidden for one capture.
+        await page.evaluate(() => {
+          for (const el of document.body.children) {
+            if (!el.classList.contains('bg-art-canvas')) { el.dataset.artHid = el.style.visibility || '-'; el.style.visibility = 'hidden'; }
+          }
+        });
+        await page.screenshot({ path: `${SHOTS}/${style}-${theme}-art.png` });
+        await page.evaluate(() => {
+          for (const el of document.body.children) {
+            if (el.dataset.artHid) { el.style.visibility = el.dataset.artHid === '-' ? '' : el.dataset.artHid; delete el.dataset.artHid; }
+          }
+        });
+      }
+      let still = '';
+      if (STILL) {
+        const s = await boot(browser, { theme, bgArt: 'on', 'bg-style': style, 'bg-motion': 'still', 'bg-intensity': INTENSITY });
+        await s.page.waitForTimeout(1500);
+        const n = await rafCount(s.page);
+        const state = await s.page.evaluate(() => ({
+          // eslint-disable-next-line no-undef
+          instance: typeof bgArtInstance !== 'undefined' && bgArtInstance !== null,
+          canvas: !!document.getElementById('bg-art-canvas'),
+          image: (document.getElementById('bg-art-still') || {}).style?.backgroundImage?.slice(0, 9) || 'none',
+        }));
+        if (SHOTS) await s.page.screenshot({ path: `${SHOTS}/${style}-${theme}-still.png` });
+        still = `; still: ${n} rAF in 2s, instance ${state.instance}, canvas ${state.canvas}, image ${state.image}`
+          + `${s.errors.length ? ' ERRORS: ' + s.errors.join(' | ') : ''}`;
+        await s.ctx.close();
+      }
+      console.log(
+        `${theme.padEnd(5)} ${style.padEnd(13)} (${actual}) `
+        + (cost ? `script ${cost.js}ms, script+raster ${cost.mean}ms p95 ${cost.p95}ms (${cost.n} frames)` : 'no canvas loop (CSS)')
+        + (alloc ? `; alloc ${alloc.artKB}KB art / ${alloc.totalKB}KB page in ${ALLOC_SECONDS}s` : '')
+        + still
+        + (errors.length ? '  ERRORS: ' + errors.join(' | ') : ''),
+      );
+      await ctx.close();
+    }
+  }
+  await browser.close();
+})();

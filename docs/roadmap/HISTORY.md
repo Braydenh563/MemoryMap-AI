@@ -105,6 +105,31 @@ The row as it stood in section 12:
 | --- | --- | --- | --- | --- |
 | S3 | `import_directory` and `import_markdown` take a filesystem path from the request body and read it. Correct for the single user on localhost; on LAN it is arbitrary directory read for any holder of a token. | `routes_settings.py` ~1750 | none / high | Refuse when the bind is not loopback; or restrict to the user's home; the desktop shell should use a native picker and pass a handle, not a path. |
 
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S5
+
+**Built 2026-09-24: the rest of S5.** What the row had left was "the
+callers that do not exist yet", which only the lint can hold, and the lint
+had a hole: `tests/test_outbound_fetch_guard.py` counted the five
+`requests.` calls and nothing else, so two modules already fetched from the
+network without a line in `REACHES_THE_NETWORK`: `core/extra_downloads.py`
+(`urllib.request.urlopen`) and `core/embedmodels.py` (Hugging Face's
+`snapshot_download`). The scan now matches every call by its dotted name
+(`urllib.request.urlopen`, a bare `snapshot_download`) against the standard
+library's, httpx's, requests' and Hugging Face's ways out; it failed on
+exactly those two, and both are written down as "configured" (pinned URLs
+with pinned hashes; a model repo from the app's own list). A new pin,
+`test_the_scan_sees_fetchers_that_do_not_use_requests`, holds the widening.
+Bookmarks still fetch nothing; the clipper (row 24, D9) inherits the rule
+that an untrusted fetcher must call `core.security.public_addresses`, which
+`test_the_untrusted_fetcher_goes_through_the_shared_guard` enforces the day it
+lands.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S5 | **Half done, 2026-09-13 evening: the guard is one function and it is in `core/security.py`.** `public_addresses(url)` (and `assert_public_url` for a caller that does not pin) refuses anything that is not plain http(s), carries credentials, does not resolve, or resolves to **any** address on this machine or the local network; `search/websearch.py` now calls it and keeps only the connection pinning, which is the half that is about fetching rather than judging. `is_internal_address` is the one definition of internal, asked in both directions (refused for an untrusted URL, required of a self-hosted SearXNG). `tests/test_outbound_fetch_guard.py` walks `src/` for outbound calls and fails on a module that is not written down as untrusted or configured, which is what makes the clipper unable to arrive unreviewed. What is left of this row is the callers that do not exist yet: bookmarks still fetch nothing. Original finding: bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
+
 ### From WORLD_CLASS_PLAN.md row 9 (§16): `similar_pairs` cached for link suggestions and tensions
 
 **Built 2026-09-24.** `/entries/link-suggestions` and `/entries/tensions`

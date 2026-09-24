@@ -917,11 +917,10 @@ listed so LAN mode cannot ship without them (Brief 15).
 
 | # | Finding | Where | Severity now / on LAN | Fix |
 | --- | --- | --- | --- | --- |
-| S5 | **Half done, 2026-09-13 evening: the guard is one function and it is in `core/security.py`.** `public_addresses(url)` (and `assert_public_url` for a caller that does not pin) refuses anything that is not plain http(s), carries credentials, does not resolve, or resolves to **any** address on this machine or the local network; `search/websearch.py` now calls it and keeps only the connection pinning, which is the half that is about fetching rather than judging. `is_internal_address` is the one definition of internal, asked in both directions (refused for an untrusted URL, required of a self-hosted SearXNG). `tests/test_outbound_fetch_guard.py` walks `src/` for outbound calls and fails on a module that is not written down as untrusted or configured, which is what makes the clipper unable to arrive unreviewed. What is left of this row is the callers that do not exist yet: bookmarks still fetch nothing. Original finding: bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
 | S6 | The model provider base URL is user-set and fetched from the server; by design it points at localhost, so SSRF to the LAN is "the feature". | `ai/provider.py` | none / low | On LAN mode, show the configured URL in the privacy receipt; never follow redirects off the configured host. |
 
 S4 and S7 to S15 are fixed, tested or recorded, and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
-State 2026-09-24: S1 (the media cookie), S2 (the per-client throttle) and S3 (imports confined to home and the data folder) built, moved to HISTORY.md; the rest of S5 and S6 are open, all Brief 15.
+State 2026-09-24: S1 (the media cookie), S2 (the per-client throttle), S3 (imports confined to home and the data folder) and the rest of S5 (the fetch lint sees every way out) built, moved to HISTORY.md; S6 is open, Brief 15.
 
 **Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5, and
 `GET /debug/health`'s absolute `data_dir`/`db_path` paths (INBOX 310:

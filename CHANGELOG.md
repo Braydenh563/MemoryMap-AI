@@ -22,6 +22,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Internal: the check that every module reaching the network is reviewed now sees downloads made without the requests library too (the optional extras and embedding models), and both are recorded as fetching only addresses the app ships.
 - Import from path reads only folders inside your home folder or the notebook's data folder, and skips any file in the folder that links somewhere outside it. A folder elsewhere can still be imported with Import folder, which uploads the files you choose.
 - Wrong passwords from one device no longer lock the owner out: each address earns its own wait after five wrong tries, and a much larger limit across every address together still slows a guesser who keeps changing address.
 - Pictures and files no longer carry your session key in their address. Unlocking sets a cookie that only picture and file requests can use and no script can read, so the key stays out of browser history, the server's log and any note an image address is pasted into. The Library's Download on a file saves through the app's own save path, which also works in the desktop window.

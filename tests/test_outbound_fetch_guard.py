@@ -29,7 +29,22 @@ SRC = pathlib.Path(__file__).resolve().parent.parent / "src" / "memorymap"
 #: here: SQLAlchemy sessions use the same two names, and the modules that
 #: build a `requests.Session` are already in the list below through their
 #: `requests.` calls.
-OUTBOUND = {"requests.get", "requests.post", "requests.put", "requests.head", "requests.request"}
+OUTBOUND = {
+    "requests.get", "requests.post", "requests.put", "requests.head", "requests.request",
+    "requests.Session",
+    # **Not only `requests`** (the rest of S5, 2026-09-24). This set used to
+    # stop at the five `requests.` calls, so `core/extra_downloads.py`
+    # (`urllib.request.urlopen`) and `core/embedmodels.py` (Hugging Face's
+    # `snapshot_download`) fetched from the network without a line here, the
+    # exact "arrives unreviewed" shape the test exists to stop. The standard
+    # library's two ways out, httpx's, and Hugging Face's are named now, with
+    # the call matched by its dotted name however it was imported.
+    "urllib.request.urlopen", "urlopen", "urllib.request.urlretrieve", "urlretrieve",
+    "http.client.HTTPConnection", "http.client.HTTPSConnection",
+    "httpx.get", "httpx.post", "httpx.put", "httpx.request", "httpx.stream",
+    "httpx.Client", "httpx.AsyncClient",
+    "snapshot_download", "hf_hub_download",
+}
 
 #: Every module allowed to reach the network, and what it is. Two kinds:
 #: "untrusted" means the URL came from somewhere the person did not type and
@@ -51,17 +66,35 @@ REACHES_THE_NETWORK = {
     # Configured: the update feed and the installer download, both pinned to an
     # https allowlist of GitHub hosts before a byte is written (S11).
     "api/routes_update.py": "configured",
+    # Configured: the optional extras (OCR models and the like), each a URL
+    # the app ships with a pinned SHA-256, fetched over https or from this
+    # machine (`url_allowed`), and refused unless the bytes match the hash.
+    "core/extra_downloads.py": "configured",
+    # Configured: an embedding model from the list the app offers, by its
+    # Hugging Face repo id, through `huggingface_hub`.
+    "core/embedmodels.py": "configured",
 }
 
 
+def _dotted(node: ast.AST) -> str | None:
+    """`a.b.c` for a chain of names, None for anything else (a call, a subscript)."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        head = _dotted(node.value)
+        return f"{head}.{node.attr}" if head else None
+    return None
+
+
 def _calls(tree: ast.AST) -> set[str]:
+    """Every call's dotted name: `requests.get`, `urllib.request.urlopen`,
+    and a bare `snapshot_download` imported by name."""
     names = set()
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
-            continue
-        value = node.func.value
-        if isinstance(value, ast.Name):
-            names.add(f"{value.id}.{node.func.attr}")
+        if isinstance(node, ast.Call):
+            name = _dotted(node.func)
+            if name:
+                names.add(name)
     return names
 
 
@@ -140,3 +173,15 @@ def test_the_guard_refuses_every_way_in(monkeypatch):
         resolves_to(address)
         with pytest.raises(security.UnsafeUrl, match="local address"):
             security.public_addresses("https://example.com/")
+
+
+def test_the_scan_sees_fetchers_that_do_not_use_requests():
+    """The widening, pinned: each shape of call is found wherever it sits."""
+    sample = ast.parse(
+        "import urllib.request\n"
+        "from huggingface_hub import snapshot_download\n"
+        "def f():\n"
+        "    urllib.request.urlopen('https://x')\n"
+        "    snapshot_download(repo_id='r')\n"
+    )
+    assert {"urllib.request.urlopen", "snapshot_download"} <= _calls(sample) & OUTBOUND

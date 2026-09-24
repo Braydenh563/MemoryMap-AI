@@ -634,6 +634,10 @@ function closeSettingsModal() {
   // Always cleared on the way out. A panel that reopens semi-transparent
   // reads as a rendering bug, not as a setting anyone chose.
   setSettingsPeek(false);
+  //: A select's list escapes to <body> while it is open, so it does not go
+  //: away with the window: closing Settings with one open left the list
+  //: floating over the page (measured, scratchpad/ui-sweeps/menus.js).
+  if (typeof closeActionMenus === "function") closeActionMenus();
   $("settings-modal").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;

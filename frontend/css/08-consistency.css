@@ -5585,7 +5585,7 @@ main,
 /* Parts that turn or slide do it about a point atlas.js puts on the part
    (`atlasPivot`), in the drawing's units. */
 .nm-atlas .atl-o { transform-box: view-box; }
-.nm-atlas :is(.atl-aura, .atl-sparkle, .atl-node-dot, .atl-dot) {
+.nm-atlas :is(.atl-aura, .atl-sparkle, .atl-node-dot, .atl-dot, .atl-inner-star) {
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -5607,7 +5607,7 @@ main,
 .nm-atlas .atl-st-aura0 { stop-color: var(--atl-glow-c); stop-opacity: var(--atl-aura-a); }
 .nm-atlas .atl-st-aura1 { stop-color: var(--atl-glow-c); stop-opacity: calc(var(--atl-aura-a) * 0.4); }
 .nm-atlas .atl-st-aura2 { stop-color: var(--atl-glow-c); stop-opacity: 0; }
-.nm-atlas .atl-st-core0 { stop-color: white; stop-opacity: 0.85; }
+.nm-atlas .atl-st-core0 { stop-color: white; stop-opacity: 0.5; }
 .nm-atlas .atl-st-core1 { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-aura { fill: var(--atl-aura); opacity: var(--atl-glow); }
 .nm-atlas .atl-skin { fill: var(--atl-skin); }
@@ -5635,8 +5635,9 @@ main,
 .nm-atlas .atl-sole { fill: none; stroke: var(--atl-line); stroke-width: 1; stroke-linecap: round; opacity: 0.5; }
 .nm-atlas .atl-crease { fill: none; stroke: var(--atl-line); stroke-width: 0.8; stroke-linecap: round; opacity: 0.45; }
 .nm-atlas .atl-glint { fill: white; }
-.nm-atlas .atl-star-major { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.5; stroke-linejoin: round; }
-.nm-atlas .atl-star-minor { fill: var(--atl-hi); opacity: 0.8; }
+.nm-atlas .atl-inner-link { fill: none; stroke: var(--atl-hi); stroke-width: 0.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.45; }
+.nm-atlas .atl-inner-star { fill: var(--atl-hi); opacity: 0.85; }
+.nm-atlas .atl-sheen-dot { opacity: 0.75; }
 .nm-atlas .atl-node-glow { fill: var(--atl-glow-c); opacity: 0.35; }
 .nm-atlas .atl-node-dot { fill: white; stroke: var(--atl-dp); stroke-width: 1.2; }
 .nm-atlas .atl-limb { fill: none; stroke: var(--atl-skin); stroke-width: 3.8; stroke-linecap: round; }
@@ -5661,12 +5662,11 @@ main,
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
 .nm-atlas .atl-head { transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)); }
 .nm-atlas .atl-pose { transform: scale(var(--atl-sx), var(--atl-sy)); }
-/* The tail's notes dim with a low mood and in sleep; the chest's compass
-   star glows with the mood (`--atl-star`). The tail takes its pose and its
+/* The tail's notes dim with a low mood and in sleep; the light inside
+   the chest glows with the mood (`--atl-star`). The tail takes its pose and its
    mood about the root behind the hip (`--atl-tail`). */
 .nm-atlas .atl-tail-core { opacity: var(--atl-halo-o); }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
-.nm-atlas .atl-star { transform: scale(clamp(0.8, var(--atl-star), 1.25)); }
 .nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }
@@ -5698,7 +5698,7 @@ main,
 .nm-atlas .atl-fx-sweat { opacity: var(--atl-fx-sweat); }
 
 /* Between expressions every part eases; nothing here moves a layout box. */
-.nm-atlas :is(.atl-eye, .atl-pupil, .atl-lid, .atl-lid-low, .atl-brow, .atl-head, .atl-pose, .atl-crest, .atl-tail, .atl-star) {
+.nm-atlas :is(.atl-eye, .atl-pupil, .atl-lid, .atl-lid-low, .atl-brow, .atl-head, .atl-pose, .atl-crest, .atl-tail) {
   transition: transform var(--motion-slow) var(--ease-out);
 }
 .nm-atlas :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek, .atl-aura, .atl-fx > g, .atl-tail-core, .atl-core) {
@@ -5904,7 +5904,7 @@ main,
     & .atl-tail-swish { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
     & .atl-tail-core .atl-node-dot { animation: atl-think 4.2s ease-in-out calc(var(--atl-k) * 0.5s) infinite; }
     &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-tail-swish { animation: atl-wag 0.5s ease-in-out infinite alternate; }
-    &:is([data-atlas-mood="thinking"], [data-atlas-mood="determined"]) .atl-star { animation: atl-quarter 2.6s var(--ease-in-out) infinite; }
+    &:is([data-atlas-mood="thinking"], [data-atlas-mood="determined"]) .atl-inner-star { animation: atl-think 1.5s ease-in-out calc(var(--atl-k) * 0.3s) infinite; }
     & .atl-aura { animation: atl-glow 4.8s ease-in-out infinite; }
     & .atl-core-glow { animation: atl-core 3.4s ease-in-out infinite; }
 
@@ -5959,7 +5959,7 @@ main,
    what it says (the orbit and its beads slow together, from one number). */
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy .atl-classic-box { animation-duration: 9s; }
-  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-star, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
+  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-inner-star, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s;
   }
 }
@@ -5982,10 +5982,6 @@ main,
 @keyframes atl-wag {
   from { transform: rotate(-9deg); }
   to { transform: rotate(7deg); }
-}
-@keyframes atl-quarter {
-  0%, 40% { transform: rotate(0deg); }
-  60%, 100% { transform: rotate(90deg); }
 }
 @keyframes atl-hop {
   0%, 100% { transform: none; }

@@ -34,9 +34,10 @@
 //:   head are joined the same way.
 //: - **The signature is the logo, worn, twice and no more.** The logo is a
 //:   bright hub with linked notes round it. Atlas's tail is one tapering
-//:   shape with three of those notes set into it, the last at its tip, and a compass star in its chest is the
-//:   hub (Atlas: maps, finding the way), glowing brighter when it is happy,
-//:   dim when it sleeps, and turning a quarter turn while it thinks. The tail
+//:   shape with two of those notes on thin bands round it and a bright
+//:   tip, and the hub is light inside its chest: a soft glow with three
+//:   faint linked points, glowing brighter when it is happy and dim when it
+//:   sleeps, the points lighting in turn while it thinks. The tail
 //:   was chosen over a ring round the body (the owner liked both; one node
 //:   motif, not two): a tail has a pose of its own (tucked sitting, hanging
 //:   when it hangs, curled asleep, wagging when pleased), joins the
@@ -193,20 +194,6 @@ function atlasHeart(parent, x, y, s, cls) {
   return atlasMake("path", {
     class: cls,
     d: `M${x} ${y + s * 0.9}C${x - s * 1.3} ${y} ${x - s * 1.1} ${y - s * 1} ${x - s * 0.5} ${y - s * 1}C${x - s * 0.15} ${y - s * 1} ${x} ${y - s * 0.7} ${x} ${y - s * 0.45}C${x} ${y - s * 0.7} ${x + s * 0.15} ${y - s * 1} ${x + s * 0.5} ${y - s * 1}C${x + s * 1.1} ${y - s * 1} ${x + s * 1.3} ${y} ${x} ${y + s * 0.9}Z`,
-  }, parent);
-}
-
-//: The compass star: a four-point star with four short diagonals.
-function atlasCompass(parent, x, y, s) {
-  const t = s * 0.2;
-  const d = s * 0.5;
-  atlasMake("path", {
-    class: "atl-star-minor",
-    d: `M${x - d} ${y - d}L${x} ${y - t}L${x + d} ${y - d}L${x + t} ${y}L${x + d} ${y + d}L${x} ${y + t}L${x - d} ${y + d}L${x - t} ${y}Z`,
-  }, parent);
-  atlasMake("path", {
-    class: "atl-star-major",
-    d: `M${x} ${y - s}L${x + t} ${y - t}L${x + s} ${y}L${x + t} ${y + t}L${x} ${y + s}L${x - t} ${y + t}L${x - s} ${y}L${x - t} ${y - t}Z`,
   }, parent);
 }
 
@@ -404,6 +391,7 @@ function atlasHead(parent, id, level) {
   atlasMake("path", { class: "atl-skin", d: ATLAS_HEAD_PATH }, sway);
   if (!tiny) {
     atlasMake("ellipse", { class: "atl-sheen", cx: 24.6, cy: 10.6, rx: 6, ry: 2.8, transform: "rotate(-28 24.6 10.6)" }, sway);
+    atlasMake("circle", { class: "atl-sheen atl-sheen-dot", cx: 19.6, cy: 15.4, r: 1 }, sway);
     atlasMake("path", { class: "atl-rim", d: "M45.6 9.8C49 14 49.8 21 47.8 27C46.4 31.4 43.4 34.6 39.6 36.4" }, sway);
   }
   for (const [x, y] of ATLAS_GEO.cheeks) atlasMake("ellipse", { class: "atl-cheek", cx: x, cy: y, rx: tiny ? 3.8 : 3, ry: tiny ? 2.2 : 1.6 }, sway);
@@ -440,17 +428,15 @@ function atlasHead(parent, id, level) {
 //: note), with the same classes, so the companion moves both copies. Limbs
 //: taper from joints inside the torso; the arms angle out so there is air
 //: between arm and waist and end in mittens with the thumb turned in, and
-//: the legs end in small feet with a toe, a heel and a sole. A thin band of
-//: light at each wrist and ankle carries a note: the celestial ring the
-//: owner liked, worn rather than floating round the body.
+//: the legs end in small feet with a toe, a heel and a sole.
 const ATLAS_LEGS = [
-  ["l", "M26.6 66C26.4 72 26.8 78 27 84C24.8 84.8 22.9 86.4 23.1 88.3C23.2 89.5 24.1 90 25.3 90L29.8 90C30.9 90 31.3 89 31.1 87.8C30.9 86.7 30.7 85.8 30.7 84.6C30.7 78 30.9 72 31.2 66Z", "M26.4 81.6C28.9 83 28.9 83 31.3 81.6", [28.85, 82.3], "M24.2 89.2H30.3"],
-  ["r", "M37.4 66C37.6 72 37.2 78 37 84C39.2 84.8 41.1 86.4 40.9 88.3C40.8 89.5 39.9 90 38.7 90L34.2 90C33.1 90 32.7 89 32.9 87.8C33.1 86.7 33.3 85.8 33.3 84.6C33.3 78 33.1 72 32.8 66Z", "M37.6 81.6C35.1 83 35.1 83 32.7 81.6", [35.15, 82.3], "M39.8 89.2H33.7"],
+  ["l", "M26.6 66C26.4 72 26.8 78 27 84C24.8 84.8 22.9 86.4 23.1 88.3C23.2 89.5 24.1 90 25.3 90L29.8 90C30.9 90 31.3 89 31.1 87.8C30.9 86.7 30.7 85.8 30.7 84.6C30.7 78 30.9 72 31.2 66Z", "M24.2 89.2H30.3"],
+  ["r", "M37.4 66C37.6 72 37.2 78 37 84C39.2 84.8 41.1 86.4 40.9 88.3C40.8 89.5 39.9 90 38.7 90L34.2 90C33.1 90 32.7 89 32.9 87.8C33.1 86.7 33.3 85.8 33.3 84.6C33.3 78 33.1 72 32.8 66Z", "M39.8 89.2H33.7"],
 ];
-//: Mitten hands with the thumb turned in, and a band at each wrist.
+//: Mitten hands with the thumb turned in.
 const ATLAS_ARMS = [
-  ["l", "M20.2 42.4C17.6 47 15.2 53.2 13.5 58.4C12.1 61.2 12.4 64.6 15 65.2C16.8 65.6 18 64.6 18.5 63.4C19.5 63 20 61.6 19.3 60.9C18.8 60.4 18.2 60.6 17.8 60.4C19.8 55 22.2 49.4 24.8 45C25.4 43.4 24.6 41.6 23 41.2C21.8 41 20.8 41.4 20.2 42.4Z", "M13.2 57.4C16 59.4 16 59.4 19.2 57.8", [16.1, 58.6]],
-  ["r", "M43.8 42.4C46.4 47 48.8 53.2 50.5 58.4C51.9 61.2 51.6 64.6 49 65.2C47.2 65.6 46 64.6 45.5 63.4C44.5 63 44 61.6 44.7 60.9C45.2 60.4 45.8 60.6 46.2 60.4C44.2 55 41.8 49.4 39.2 45C38.6 43.4 39.4 41.6 41 41.2C42.2 41 43.2 41.4 43.8 42.4Z", "M50.8 57.4C48 59.4 48 59.4 44.8 57.8", [47.9, 58.6]],
+  ["l", "M20.2 42.4C17.6 47 15.2 53.2 13.5 58.4C12.1 61.2 12.4 64.6 15 65.2C16.8 65.6 18 64.6 18.5 63.4C19.5 63 20 61.6 19.3 60.9C18.8 60.4 18.2 60.6 17.8 60.4C19.8 55 22.2 49.4 24.8 45C25.4 43.4 24.6 41.6 23 41.2C21.8 41 20.8 41.4 20.2 42.4Z"],
+  ["r", "M43.8 42.4C46.4 47 48.8 53.2 50.5 58.4C51.9 61.2 51.6 64.6 49 65.2C47.2 65.6 46 64.6 45.5 63.4C44.5 63 44 61.6 44.7 60.9C45.2 60.4 45.8 60.6 46.2 60.4C44.2 55 41.8 49.4 39.2 45C38.6 43.4 39.4 41.6 41 41.2C42.2 41 43.2 41.4 43.8 42.4Z"],
 ];
 const ATLAS_HOLDS = [["l", "M23 44C10 40 3 18 6 -4", 6], ["r", "M41 44C54 40 61 18 58 -4", 58]];
 
@@ -460,13 +446,10 @@ function atlasBody(parent, props) {
   for (const [kind, layer] of Object.entries(layers)) {
     const edge = kind === "edge";
     atlasTail(layer, edge);
-    for (const [side, d, band, [nx, ny], sole] of ATLAS_LEGS) {
+    for (const [side, d, sole] of ATLAS_LEGS) {
       const leg = atlasGroup(layer, `nmb-leg nmb-leg-${side} atl-leg`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, leg);
-      if (edge) continue;
-      atlasMake("path", { class: "atl-sole", d: sole }, leg);
-      atlasMake("path", { class: "atl-band", d: band }, leg);
-      atlasMake("circle", { class: "atl-band-node", cx: nx, cy: ny, r: 0.75 }, leg);
+      if (!edge) atlasMake("path", { class: "atl-sole", d: sole }, leg);
     }
     for (const [side, d, hx] of ATLAS_HOLDS) {
       const hold = atlasGroup(layer, `nmb-hold nmb-hold-${side}`);
@@ -476,20 +459,25 @@ function atlasBody(parent, props) {
     const torso = atlasGroup(layer, "nmb-torso");
     atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: ATLAS_TORSO_PATH }, torso);
     if (!edge) {
-      //: The hub, the logo's centre, in its chest as a compass star: four
-      //: long points and four short, in a soft glow that follows the mood.
-      const core = atlasGroup(torso, "atl-core", [32, 49]);
-      atlasMake("circle", { class: "atl-core-glow", cx: 32, cy: 49, r: 6.4 }, core);
-      const star = atlasGroup(core, "atl-star", [32, 49]);
-      atlasCompass(star, 32, 49, 4.6);
+      //: The hub, the logo's centre, as light inside the body (the owner,
+      //: of a star drawn on its chest: "looks fake"): a soft glow deep in
+      //: the chest with three faint points linked by a thread, low
+      //: contrast, like light inside a gem. It brightens and dims with the
+      //: mood, and the points light in turn while Atlas thinks.
+      const core = atlasGroup(torso, "atl-core", [32, 52]);
+      atlasMake("ellipse", { class: "atl-core-glow", cx: 32, cy: 52, rx: 8.4, ry: 10.6 }, core);
+      atlasMake("path", { class: "atl-inner-link", d: "M29.2 47.4L34.8 50.8L31.2 56.6" }, core);
+      [[29.2, 47.4, 0.75], [34.8, 50.8, 0.95], [31.2, 56.6, 0.65]].forEach(([x, y, r], i) => {
+        const point = atlasMake("circle", { class: "atl-inner-star", cx: x, cy: y, r }, core);
+        point.style.setProperty("--atl-k", String(i));
+      });
+      //: The gloss on the gel: one specular on the upper left of the body.
+      atlasMake("ellipse", { class: "atl-sheen", cx: 25.4, cy: 46.6, rx: 1.3, ry: 3.2, transform: "rotate(18 25.4 46.6)" }, torso);
     }
-    for (const [side, d, band, [nx, ny]] of ATLAS_ARMS) {
+    for (const [side, d] of ATLAS_ARMS) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, arm);
-      if (edge) continue;
-      atlasMake("path", { class: "atl-band", d: band }, arm);
-      atlasMake("circle", { class: "atl-band-node", cx: nx, cy: ny, r: 0.8 }, arm);
-      arms[side] = arm;
+      if (!edge) arms[side] = arm;
     }
   }
   if (props) atlasHandProps(arms.r, arms.l);

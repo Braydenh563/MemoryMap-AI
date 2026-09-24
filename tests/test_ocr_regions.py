@@ -211,8 +211,33 @@ def test_without_tesseract_the_sections_come_from_the_reading(client, monkeypatc
     assert body["regions"][0]["text"] == "Invoice"
     # Nothing measured where these are, so nothing claims to have.
     assert all(r["box"] is None for r in body["regions"])
-    # The offer to install Tesseract stays, it adds the boxes this cannot.
-    assert "Tesseract" in body["message"]
+    # Tesseract is genuinely missing here (not mocked), so the message
+    # tells you to install it, the honest instruction for this case.
+    assert "Install Tesseract" in body["message"]
+
+
+def test_with_tesseract_already_installed_the_message_says_switch_not_install(client, monkeypatch):
+    """INBOX 423(d): the vision model is the default reader, so a reading
+    with no page positions is the common case even on a machine that already
+    has Tesseract, simply not chosen. "Install Tesseract" is then wrong
+    advice, wrong enough to act on: the message must say to switch reader
+    instead, worded by `ocr.tesseract_available()`, the same check the
+    "nothing read yet" message next to this one already makes."""
+    monkeypatch.setattr(ocr, "extract_regions", lambda path: None)
+    monkeypatch.setattr(ocr, "tesseract_available", lambda: True)
+    created = client.post("/entries", json={"content": "host note"}).json()
+    files = {"file": ("scan.png", b"\x89PNG\r\n\x1a\n" + b"0" * 32, "image/png")}
+    upload = client.post(f"/entries/{created['id']}/files", files=files)
+    attachment_id = upload.json()["attachments"][-1]["id"]
+    client.post(
+        f"/files/{attachment_id}/analyse",
+        json={"kind": "vision", "text": "A page read by the vision model."},
+    )
+
+    body = client.get(f"/files/{attachment_id}/ocr-regions").json()
+    assert body["source"] == "reading"
+    assert "Switch to Tesseract" in body["message"]
+    assert "Install" not in body["message"]
 
 
 # --- the workspace shows what the lightbox shows (INBOX 421 e) ---------------

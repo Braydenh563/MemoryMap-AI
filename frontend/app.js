@@ -10473,6 +10473,21 @@ const LATEX_SYMBOLS = {
   Delta: "\u0394", Sigma: "\u03a3", Omega: "\u03a9",
 };
 
+//: **Inline maths, `$formula$` on one line** (INBOX 423c). Mirrors the
+//: block delimiter's own currency guard (see `mdMathBlockFrom`'s comment):
+//: no space just inside either `$` (a genuine `$ x $` is vanishingly rare
+//: and a stray space is nearly always somebody's sentence), and the closing
+//: `$` may not be immediately followed by a digit or a second `$` (a price
+//: range, "$20 and $30", or a `$$…$$` display block's own second dollar).
+//: The two lookarounds around the *opening* `$` (`(?<!\$)`, `(?!\$|\s)`) are
+//: what keeps this from ever matching inside a `$$…$$` run at all: both
+//: dollars of that pair fail one side or the other, so a display block is
+//: never mistaken for two stray inline ones. Read by `unlatex` (which
+//: decides what survives to be drawn as maths) and by `renderInlineMarkdown`
+//: (which actually draws it); the same object so the two can never
+//: disagree about what counts.
+const INLINE_MATH_RE = /(?<!\$)\$(?!\$|\s)([^$\n]{1,300}?)(?<!\s)\$(?!\$|\d)/g;
+
 function unlatex(text) {
   // The overwhelmingly common case: nothing to do, and not worth two regex
   // passes over every note and every streaming frame to find that out.
@@ -10483,8 +10498,9 @@ function unlatex(text) {
         ? LATEX_SYMBOLS[name]
         : whole
     );
-  // Inline maths delimiters are dropped only when the span is actually maths
-  // *and* everything in it became plain characters.
+  // The old rule, for everything INLINE_MATH_RE does not claim below:
+  // inline maths delimiters are dropped only when the span is actually
+  // maths *and* everything in it became plain characters.
   //
   // Both halves are load-bearing. Without the first, "cost $5 and $10 today"
   // is a matching span containing no commands, and the dollars vanish, a
@@ -10492,13 +10508,33 @@ function unlatex(text) {
   // of LaTeX. Without the second, a span still holding \frac or \sum gets
   // stripped of its delimiters and left as half-translated notation, which is
   // worse than leaving it alone: the user can at least read the source.
-  return swap(
-    text.replace(/\$([^$\n]{1,200})\$/g, (whole, inner) => {
+  const swapDollarSpans = (s) =>
+    s.replace(/\$([^$\n]{1,200})\$/g, (whole, inner) => {
       if (!/\\[A-Za-z]/.test(inner)) return whole; // not maths: currency, prose
       const plain = swap(inner);
       return /\\[A-Za-z]/.test(plain) ? whole : plain;
-    })
-  );
+    });
+  //: A span INLINE_MATH_RE claims is carried through byte for byte, dollar
+  //: signs and all: `renderInlineMarkdown` draws it as real maths, through
+  //: the same TeX-to-MathML renderer the `$$` blocks already use, rather
+  //: than this function reducing it to a Unicode stand-in symbol (what used
+  //: to happen to `$\alpha$`, and what always happened to `$x$`: it has no
+  //: `\command` for the old rule above to even notice). Everything between
+  //: two such spans still gets the old rule, which is why this walks the
+  //: text in segments instead of running one `.replace` over the whole
+  //: string: the old rule's own `$…$` regex is looser than INLINE_MATH_RE
+  //: (no spacing or digit guard) and would otherwise re-match and mangle
+  //: the very span just carried through.
+  INLINE_MATH_RE.lastIndex = 0;
+  let out = "";
+  let cursor = 0;
+  let m;
+  while ((m = INLINE_MATH_RE.exec(text))) {
+    out += swap(swapDollarSpans(text.slice(cursor, m.index))) + m[0];
+    cursor = INLINE_MATH_RE.lastIndex;
+  }
+  out += swap(swapDollarSpans(text.slice(cursor)));
+  return out;
 }
 
 // `compact`: skip the actual <img> and show the alt text instead, for a
@@ -10591,13 +10627,7 @@ function readableUrl(url) {
 }
 
 function renderInlineMarkdown(element, text, terms, compact = false, options = {}) {
-  const {
-    dismissible = true,
-    autolinkBareUrls = false,
-    underscoreSyntax = false,
-    strikeTag = "s",
-    applyLatex = true,
-  } = options;
+  const { underscoreSyntax = false, applyLatex = true } = options;
   // appendInline never cleared `element`, it only ever appended into a
   // freshly created element, except the task-list-checkbox case, which
   // appends a <input type=checkbox> *before* calling appendInline on the
@@ -10607,6 +10637,40 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
   if (!underscoreSyntax) element.replaceChildren();
   if (applyLatex) text = unlatex(text);
   text = expandAngleAutolinks(text);
+  //: **Inline maths, cut out before the `**bold**`/`` `code` ``/link
+  //: grammar below ever sees it** (INBOX 423c). A span INLINE_MATH_RE
+  //: claims (its own comment has the exact rule) is drawn by the same
+  //: TeX-to-MathML renderer the `$$` blocks use, one run of ordinary
+  //: grammar-matching per gap between formulas rather than one run over the
+  //: whole string, so `**bold**` either side of a formula still matches.
+  //: A formula *inside* `**bold $x$ text**` does not come out bold: that
+  //: would need maths as a token of the grammar below rather than a cut
+  //: made before it runs, and nothing reported here asked for that.
+  INLINE_MATH_RE.lastIndex = 0;
+  let mathCursor = 0;
+  let mathMatch;
+  let sawMath = false;
+  while ((mathMatch = INLINE_MATH_RE.exec(text))) {
+    sawMath = true;
+    if (mathMatch.index > mathCursor) {
+      appendInlineRun(element, text.slice(mathCursor, mathMatch.index), terms, compact, options);
+    }
+    element.appendChild(mdInlineMathElement(mathMatch[1].trim()));
+    mathCursor = INLINE_MATH_RE.lastIndex;
+  }
+  if (sawMath) {
+    if (mathCursor < text.length) appendInlineRun(element, text.slice(mathCursor), terms, compact, options);
+    return;
+  }
+  appendInlineRun(element, text, terms, compact, options);
+}
+
+//: The `**bold**`/`` `code` ``/link/image/highlight/bare-url grammar,
+//: over one run of text `renderInlineMarkdown` has already established
+//: holds no inline maths. Never clears `element`: a run is one piece of a
+//: larger call that may already have appended earlier runs and maths nodes.
+function appendInlineRun(element, text, terms, compact, options) {
+  const { dismissible = true, autolinkBareUrls = false, underscoreSyntax = false, strikeTag = "s" } = options;
   const pattern = new RegExp((underscoreSyntax ? INLINE_MD_LEGACY : INLINE_MD).source, "g");
   let cursor = 0;
   let match;
@@ -29059,16 +29123,16 @@ function mdQuoteElement(quoted, fillBody) {
   return figure;
 }
 
-//: Display maths. The TeX goes to `docMathRender` when the documents bundle is
-//: loaded; otherwise the source is shown, set as maths, and the bundle is
-//: asked for so the next render draws it.
-function mdMathElement(tex) {
-  const box = document.createElement("div");
-  box.className = "md-math-block";
+//: Maths, display or inline. The TeX goes to `docMathRender` when the
+//: documents bundle is loaded; otherwise the source is shown, set as
+//: maths, and the bundle is asked for so the next render draws it.
+function mdMathBox(tag, className, tex, display) {
+  const box = document.createElement(tag);
+  box.className = className;
   box.dataset.tex = tex;
   if (typeof docMathRender === "function") {
     try {
-      box.appendChild(docMathRender(tex, true));
+      box.appendChild(docMathRender(tex, display));
       return box;
     } catch {
       // A formula the renderer cannot parse shows as its source below.
@@ -29079,14 +29143,14 @@ function mdMathElement(tex) {
   source.textContent = tex;
   box.appendChild(source);
   //: Not a silent guard: the bundle that draws maths is asked for, and the
-  //: block redraws itself in place once it lands (a note card or a chat
+  //: box redraws itself in place once it lands (a note card or a chat
   //: answer can be the first thing on screen with a formula in it).
   if (typeof ensureModule === "function") {
     ensureModule("library")
       .then(() => {
         if (!box.isConnected || typeof docMathRender !== "function") return;
         try {
-          box.replaceChildren(docMathRender(tex, true));
+          box.replaceChildren(docMathRender(tex, display));
         } catch {
           // The source stays.
         }
@@ -29094,6 +29158,18 @@ function mdMathElement(tex) {
       .catch(() => {});
   }
   return box;
+}
+
+//: Display maths, `$$…$$`.
+function mdMathElement(tex) {
+  return mdMathBox("div", "md-math-block", tex, true);
+}
+
+//: Inline maths, `$x$` (INBOX 423c): the same renderer as `mdMathElement`,
+//: a `span` instead of a `div` so it sits in a run of prose rather than
+//: breaking it onto its own line.
+function mdInlineMathElement(tex) {
+  return mdMathBox("span", "md-math-inline", tex, false);
 }
 
 //: `[TOC]`, drawn empty and filled by `mdFillTocs` once the headings exist.

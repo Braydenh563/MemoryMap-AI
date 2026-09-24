@@ -3271,6 +3271,33 @@ function ocrRenderOtherReadings(body) {
     const label = document.createElement("span");
     label.className = "ocr-other-reading-label";
     label.textContent = ocrWorkspaceReadings.some((r) => r.in_regions) ? `Also: ${reading.label}` : reading.label;
+    //: "Clean up repeated lines" (INBOX 423f), same reasoning and route as
+    //: the workspace's own `ocr-clean-loops` button: no reader branch needed
+    //: here, the route cleans whichever of the media item's fields actually
+    //: hold a loop, this reading's own or not.
+    const clean = document.createElement("button");
+    clean.type = "button";
+    clean.className = "ghost small icon-only ocr-other-reading-clean";
+    clean.title = "Clean up repeated lines in this reading";
+    clean.setAttribute("aria-label", `Clean up repeated lines (${reading.label})`);
+    setLabel(clean, "ph:broom");
+    clean.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const image = ocrWorkspaceCurrent;
+      if (!image) return;
+      button.disabled = true;
+      try {
+        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+        await apiJson(`${base}/ocr-clean-loops`, { method: "POST" });
+        renderLibraryImagesGallery();
+        toast("Cleaned up repeated lines.");
+        await ocrLoadPage(image, ocrWorkspacePage);
+      } catch (error) {
+        toast(error.message || "Could not clean up that reading.", true);
+      } finally {
+        button.disabled = false;
+      }
+    });
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "ghost small icon-only danger ocr-other-reading-delete";
@@ -3294,7 +3321,7 @@ function ocrRenderOtherReadings(body) {
         button.disabled = false;
       }
     });
-    head.append(label, remove);
+    head.append(label, clean, remove);
     const text = document.createElement("p");
     text.className = "ocr-other-reading-text";
     text.textContent = reading.text;
@@ -3329,6 +3356,12 @@ function ocrRenderRegions(body) {
     || Boolean((body.text || "").trim())
     || (Array.isArray(body.pages) && body.pages.some((page) => (page?.text || "").trim())));
   $("ocr-delete-reading")?.classList.toggle("hidden", !hasReading);
+  //: **"Clean up repeated lines"** (INBOX 423f). Cleans the whole media row's
+  //: stored fields (`vision_ocr_text`/`ocr_text`), not a PDF's per-page
+  //: `PageRead` rows, so it is offered only for the single-file reading a
+  //: picture or a text file has, the same case "Delete this reading" reaches
+  //: through `analyseMediaRow` rather than the page-reads route for.
+  $("ocr-clean-loops")?.classList.toggle("hidden", !hasReading || ocrIsPdf(ocrWorkspaceCurrent));
   //: **Redo, made discoverable rather than merely possible.** Reported
   //: directly: "there's also no way to delete or redo ocr text extractions."
   //: Clicking "Read this page"/"Read this image" always re-reads and replaces
@@ -3359,7 +3392,8 @@ function ocrRenderRegions(body) {
     //: typed blocks in order (`ocr.regions_from_reading`), real sections,
     //: real structure, just no rectangles, so the badge says what is true of
     //: it rather than apologising for what it lacks. The missing half is in
-    //: the message underneath, where the offer to install Tesseract lives.
+    //: the message underneath, worded by whether Tesseract is actually
+    //: installed (INBOX 423d): install it, or switch the reader to it.
     reading: "ph:list-bullets Sections from the reading",
     //: Kept only so an older cached response does not render as "Nothing read
     //: yet", which would be wrong in the most alarming direction. Nothing
@@ -5622,6 +5656,30 @@ onDomReady(() => {
       await ocrLoadPage(image, ocrWorkspacePage);
     } catch (error) {
       toast(error.message || "Could not delete that reading.", true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  //: **"Clean up repeated lines"** (INBOX 423f): a stored reading with a
+  //: degenerate loop in it ("Test, Test, Test, ...") stays looped forever
+  //: otherwise, nothing re-reads a reading that is already on the row. Runs
+  //: the server's own `cut_reading_loops` on the media item and repaints
+  //: from the response, the same shape `ocrReadImage` already uses for a
+  //: fresh read. No confirm dialog: unlike delete, nothing is lost, a
+  //: reading with no loop simply comes back unchanged.
+  $("ocr-clean-loops")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const image = ocrWorkspaceCurrent;
+    if (!image) return;
+    button.disabled = true;
+    try {
+      const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+      await apiJson(`${base}/ocr-clean-loops`, { method: "POST" });
+      renderLibraryImagesGallery();
+      toast("Cleaned up repeated lines.");
+      await ocrLoadPage(image, ocrWorkspacePage);
+    } catch (error) {
+      toast(error.message || "Could not clean up that reading.", true);
     } finally {
       button.disabled = false;
     }

@@ -1294,6 +1294,13 @@ button.map-chip:focus-visible {
   text-align: center;
 }
 
+/* Inline maths, `$x$`: sits in the line of prose it was written in, so it
+   takes none of the display block's centring or margin. */
+.md-math-inline {
+  display: inline-block;
+  vertical-align: -0.1em;
+}
+
 .md-math-source {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: var(--text-md);

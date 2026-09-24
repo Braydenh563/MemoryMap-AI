@@ -23,7 +23,19 @@
 //
 // STYLES narrows the list, THEMES picks light and/or dark, SECONDS the paint
 // window, ALLOC_SECONDS the allocation window (0 skips it), STILL=0 skips the
-// still check.
+// still check. THROTTLE=4 slows the page's CPU fourfold through CDP
+// (Emulation.setCPUThrottlingRate), the nearest a sweep gets to a cheap
+// university laptop. Each row also gives the frames actually drawn per
+// second and the main thread's busy time per second (CDP's TaskDuration,
+// everything the page's thread did, the CSS styles' style and layout work
+// included), next to the same figure with the art off, and the CPU time of
+// every browser process together (read from /proc: the renderer, the GPU
+// process and the compositor, so a CSS style's compositing, which the main
+// thread never sees, is counted too; headless composites in software, so
+// this is the upper bound a machine with a GPU pays). FAST=1 reports a
+// larger machine (eight cores, eight gigabytes), whose art runs at 30 frames
+// a second: this sandbox has four cores, which the art reads as small and
+// holds to 20.
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 
 const PW = 'testpassword123';
@@ -46,6 +58,10 @@ async function boot(browser, prefs) {
       // of timing a GPU readback (which is what the one-pixel read costs
       // on an accelerated canvas, and which no real frame pays).
       if (p.__cpu) window.__bgArtCpu = true;
+      if (p.__fast) {
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+      }
       for (const [k, v] of Object.entries(p)) if (!k.startsWith('__')) localStorage.setItem(k, v);
     } catch (e) { /* private window: the app copes */ }
     // Count the requestAnimationFrame callbacks the page runs, and
@@ -99,6 +115,7 @@ async function drawCost(page, s) {
       const mean = times.reduce((t, v) => t + v, 0) / Math.max(1, times.length);
       const jsMean = js.reduce((t, v) => t + v, 0) / Math.max(1, js.length);
       resolve({
+        fps: +(times.length / secs).toFixed(1),
         n: times.length,
         mean: +mean.toFixed(2),
         js: +jsMean.toFixed(2),
@@ -141,6 +158,59 @@ async function allocations(page, secs) {
   return { artKB: Math.round(art / 1024), totalKB: Math.round(total / 1024) };
 }
 
+// Main-thread busy milliseconds per second over `secs`, from CDP's own
+// accounting of the renderer's tasks.
+async function busy(page, secs) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Performance.enable');
+  const read = async () => {
+    const { metrics } = await cdp.send('Performance.getMetrics');
+    return metrics.find((m) => m.name === 'TaskDuration').value;
+  };
+  const a = await read();
+  await page.waitForTimeout(secs * 1000);
+  const b = await read();
+  await cdp.detach();
+  return +(((b - a) * 1000) / secs).toFixed(1);
+}
+
+// CPU milliseconds per second of the whole browser (every process under
+// the browser's own pid), from /proc.
+function treeTicks(root) {
+  const fs = require('fs');
+  const kids = new Map();
+  for (const d of fs.readdirSync('/proc')) {
+    if (!/^\d+$/.test(d)) continue;
+    try {
+      const st = fs.readFileSync(`/proc/${d}/stat`, 'utf8');
+      const f = st.slice(st.lastIndexOf(')') + 2).split(' ');
+      kids.set(Number(d), { ppid: Number(f[1]), ticks: Number(f[11]) + Number(f[12]) });
+    } catch (e) { /* gone */ }
+  }
+  let total = 0;
+  const walk = (pid) => {
+    const me = kids.get(pid);
+    if (me) total += me.ticks;
+    for (const [k, v] of kids) if (v.ppid === pid) walk(k);
+  };
+  walk(root);
+  return total;
+}
+
+async function browserCpu(page, pid, secs) {
+  const a = treeTicks(pid);
+  await page.waitForTimeout(secs * 1000);
+  const b = treeTicks(pid);
+  return Math.round(((b - a) * 10) / secs); // 100 ticks a second
+}
+
+async function throttle(page) {
+  const rate = Number(process.env.THROTTLE || 1);
+  if (rate <= 1) return;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate });
+}
+
 async function rafCount(page) {
   return page.evaluate(() => new Promise((resolve) => {
     const start = window.__rafCount, art = window.__rafArt;
@@ -150,12 +220,15 @@ async function rafCount(page) {
 
 (async () => {
   const browser = await chromium.launch({ args: ['--enable-precise-memory-info'] });
+  const pid = browser.process ? browser.process().pid : 0;
   if (STILL) {
     // The baseline: the app on its own still requests animation frames and
     // allocates (the header emblem is a p5 sketch too, which is why p5's
     // frames count as "art" in both numbers), so each style's figures are
     // read against these.
-    const off = await boot(browser, { theme: 'light', bgArt: 'off' });
+    const off = await boot(browser, { theme: 'light', bgArt: 'off', __fast: process.env.FAST === '1' });
+    await throttle(off.page);
+    console.log(`art off: main thread ${await busy(off.page, SECONDS)}ms/s; browser CPU ${await browserCpu(off.page, pid, SECONDS)}ms/s`);
     const offAlloc = ALLOC_SECONDS ? await allocations(off.page, ALLOC_SECONDS) : null;
     console.log(`art off: ${await rafCount(off.page)} rAF callbacks in 2s`
       + (offAlloc ? `; alloc ${offAlloc.artKB}KB art-attributed / ${offAlloc.totalKB}KB page in ${ALLOC_SECONDS}s` : ''));
@@ -165,9 +238,12 @@ async function rafCount(page) {
     for (const style of STYLES) {
       const { ctx, page, errors } = await boot(browser, {
         theme, bgArt: 'on', 'bg-style': style, 'bg-motion': 'moving', 'bg-intensity': INTENSITY,
-        __cpu: process.env.CPU === '1',
+        __cpu: process.env.CPU === '1', __fast: process.env.FAST === '1',
       });
+      await throttle(page);
       const cost = await drawCost(page, SECONDS);
+      const busyMs = await busy(page, SECONDS);
+      const cpuMs = pid ? await browserCpu(page, pid, SECONDS) : '?';
       const actual = await page.evaluate(() => (typeof bgArtStyle === 'function' ? bgArtStyle() : '?'));
       const alloc = ALLOC_SECONDS ? await allocations(page, ALLOC_SECONDS) : null;
       if (SHOTS) {
@@ -209,7 +285,8 @@ async function rafCount(page) {
       }
       console.log(
         `${theme.padEnd(5)} ${style.padEnd(13)} (${actual}) `
-        + (cost ? `script ${cost.js}ms, script+raster ${cost.mean}ms p95 ${cost.p95}ms (${cost.n} frames)` : 'no canvas loop (CSS)')
+        + (cost ? `script ${cost.js}ms, script+raster ${cost.mean}ms p95 ${cost.p95}ms, ${cost.fps}fps` : 'no canvas loop (CSS)')
+        + `; main thread ${busyMs}ms/s; browser CPU ${cpuMs}ms/s`
         + (alloc ? `; alloc ${alloc.artKB}KB art / ${alloc.totalKB}KB page in ${ALLOC_SECONDS}s` : '')
         + still
         + (errors.length ? '  ERRORS: ' + errors.join(' | ') : ''),

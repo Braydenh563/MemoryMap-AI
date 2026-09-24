@@ -26973,6 +26973,7 @@ async function renderToolSettings() {
     const desc = document.createElement("span");
     desc.className = "muted tool-desc";
     desc.textContent = tool.description;
+    desc.title = tool.description || ""; // clamped to two lines; the whole of it on hover
     // The description goes *inside* the label's text column, not beside the
     // label in the <li>. That is what lets this row be `.setting-check`'s
     // grid, name and description stacked in column one, switch hard right , 

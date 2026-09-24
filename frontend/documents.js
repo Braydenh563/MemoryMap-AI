@@ -6207,7 +6207,7 @@ function docLivePlugin(CM) {
   //: back on that word or section". Hiding it outright would leave a note and
   //: a warning looking identical apart from a border colour, so the marker is
   //: replaced by the label the rest of the app already uses for that kind
-  //: (`CALLOUT_KINDS` in editor.js, the same table `calloutTemplate` writes
+  //: (`CALLOUT_KINDS` in editor.js, the same table the "/" menu writes
   //: from), which is what Obsidian shows in the same place.
   class DocCalloutWidget extends WidgetType {
     constructor(kind, fold, at) {
@@ -10649,6 +10649,16 @@ function noteSurfaceExtensions(CM, host, options) {
 function noteSurfaceKeymap(host) {
   const surface = () => noteSurfaceFor(host) || textareaSurface(host);
   return [
+    //: **Ctrl+/ is the blocks menu in a note** (INBOX 402 kept it that way:
+    //: only the document editor answers it with the comment toggle). The
+    //: engine's `defaultKeymap` binds it to its own comment toggle, which in
+    //: a markdown note wrote `<!--  -->` where the menu should have opened
+    //: (measured, `slashicons.js`). Answered here, before that keymap, by
+    //: the same function the app's shortcut runs.
+    {
+      key: "Mod-/",
+      run: () => (typeof editorOpenMenuByShortcut === "function" ? editorOpenMenuByShortcut() : false),
+    },
     {
       key: "Tab",
       run: () => {

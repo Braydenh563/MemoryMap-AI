@@ -2972,6 +2972,10 @@ function docRenderBody(container, text) {
   if (!blocks.length) {
     container.replaceChildren();
     docRenderFlow(container, text);
+    //: Once more over the whole page: the flow is rendered in pieces (around
+    //: block embeds and columns), and a `[TOC]` has to list every heading,
+    //: not only the ones in its own piece.
+    mdFillTocs(container);
     return;
   }
   container.replaceChildren();
@@ -2979,7 +2983,7 @@ function docRenderBody(container, text) {
   for (const block of blocks) {
     if (block.from > at) docRenderFlow(container, text.slice(at, block.from));
     const box = document.createElement("div");
-    box.className = "doc-cols";
+    box.className = `doc-cols md-cols md-cols-${block.columns.length}`;
     box.style.setProperty("--doc-cols", String(Math.max(1, block.columns.length)));
     for (const column of block.columns) {
       const col = document.createElement("div");
@@ -2991,6 +2995,7 @@ function docRenderBody(container, text) {
     at = block.to;
   }
   if (at < text.length) docRenderFlow(container, text.slice(at));
+  mdFillTocs(container);
 }
 
 //: `![[Document#^an-id]]` on its own line (DOCUMENTS_PLAN Phase 4 item 2).
@@ -6160,7 +6165,7 @@ function docLivePlugin(CM) {
   //: editor.js) and the syntax GitHub, Obsidian and Typora all understand.
   //: The capture is the whole `[!kind]`, so the marker can be hidden the way
   //: every other marker here is; the group inside it names the kind.
-  const CALLOUT = /^>\s*(\[!([A-Za-z]+)\][-+]?)/;
+  const CALLOUT = /^>\s*(\[!([A-Za-z][\w-]*)\][-+]?)/;
   //: How deep a list item is indented before the indent stops growing. Past
   //: four levels the number is more useful as "this is deep" than as a count,
   //: and an indent that kept growing would push a badly nested line off the
@@ -6205,16 +6210,19 @@ function docLivePlugin(CM) {
   //: (`CALLOUT_KINDS` in editor.js, the same table `calloutTemplate` writes
   //: from), which is what Obsidian shows in the same place.
   class DocCalloutWidget extends WidgetType {
-    constructor(kind, fold) {
+    constructor(kind, fold, at) {
       super();
       this.kind = kind;
       //: `null` when the callout is not a toggle at all, otherwise the line it
       //: starts on and whether it is currently folded.
       this.fold = fold;
+      //: The callout's first line, which the kind button rewrites.
+      this.at = at;
     }
     eq(other) {
       return (
         other.kind === this.kind &&
+        other.at === this.at &&
         !!other.fold === !!this.fold &&
         (!this.fold || (other.fold.at === this.fold.at && other.fold.closed === this.fold.closed))
       );
@@ -6230,11 +6238,24 @@ function docLivePlugin(CM) {
         (typeof CALLOUT_KINDS === "object" && CALLOUT_KINDS[this.kind]) || null;
       const chip = document.createElement("span");
       chip.className = `cm-md-callout-label cm-md-callout-label-${this.kind}`;
-      //: The icon is a `ph:` token (CALLOUT_KINDS, editor.js), which
-      //: `setLabel` turns into the glyph; written as text it printed
-      //: "ph:warning Warning" in the live view (the owner, 2026-09-24).
-      if (meta && typeof setLabel === "function") setLabel(chip, `${meta.icon} ${meta.label}`);
-      else chip.textContent = meta ? meta.label : this.kind;
+      //: **The icon is the kind switcher** (INBOX 421 b: "change kind from the
+      //: rendered block"). A tile of the kind's own tint, like the rendered
+      //: head's, that opens the kinds menu (`docCalloutKindMenu`); the word
+      //: beside it still puts the caret in the line, as it always did. The
+      //: icon was once written as its `ph:` token in text here, which printed
+      //: "ph:warning Warning" (fixed 6e072b2); it is an element now.
+      const icon = document.createElement("span");
+      icon.className = "cm-md-callout-kindbtn";
+      icon.dataset.docCalloutKind = String(this.at);
+      icon.title = "Change the kind of this callout";
+      const glyph = document.createElement("i");
+      glyph.className = `ph ph-${String(meta ? meta.icon : "ph:note").replace(/^ph:/, "")}`;
+      glyph.setAttribute("aria-hidden", "true");
+      icon.appendChild(glyph);
+      const word = document.createElement("span");
+      word.className = "cm-md-callout-word";
+      word.textContent = meta ? meta.label : this.kind;
+      chip.append(icon, word);
       //: **A callout written `[!note]-` or `[!note]+` is a toggle**, which is
       //: the syntax Obsidian uses and the "toggles" half of Phase 3 item 2.
       //: The marker is the *initial* state and clicking does not rewrite it,
@@ -6246,8 +6267,9 @@ function docLivePlugin(CM) {
         const chevron = document.createElement("span");
         chevron.className = "cm-md-callout-fold";
         chevron.textContent = this.fold.closed ? "\u25B8" : "\u25BE";
-        chip.dataset.docCalloutFold = String(this.fold.at);
-        chip.title = this.fold.closed ? "Show what is inside" : "Fold this away";
+        word.dataset.docCalloutFold = String(this.fold.at);
+        chevron.dataset.docCalloutFold = String(this.fold.at);
+        word.title = this.fold.closed ? "Show what is inside" : "Fold this away";
         chip.append(" ", chevron);
       }
       return chip;
@@ -6384,6 +6406,52 @@ function docLivePlugin(CM) {
       host.className = this.display ? "cm-md-math cm-md-math-block" : "cm-md-math";
       host.appendChild(docMathRender(this.tex, this.display));
       return host;
+    }
+  }
+
+  //: **`[TOC]` as the contents it stands for** (INBOX 421 b). The headings
+  //: come from the document's own text (`mdTocEntries`, app.js), the same
+  //: list the Read view draws, and an entry moves the caret to its heading
+  //: and scrolls it to the top, which is what "contents" means in an editor.
+  //: `eq` compares the serialised list, so typing in a paragraph does not
+  //: redraw it and renaming a heading does.
+  class DocTocWidget extends WidgetType {
+    constructor(entries) {
+      super();
+      this.entries = entries;
+      this.key = JSON.stringify(entries);
+    }
+    eq(other) {
+      return other.key === this.key;
+    }
+    ignoreEvent() {
+      return true;
+    }
+    toDOM(view) {
+      const nav = typeof mdTocElement === "function" ? mdTocElement() : document.createElement("nav");
+      nav.classList.add("cm-md-toc");
+      const list = nav.querySelector(".md-toc-list") || nav;
+      const top = this.entries.length ? Math.min(...this.entries.map((e) => e.level)) : 1;
+      for (const entry of this.entries) {
+        const item = document.createElement("li");
+        item.className = `md-toc-item md-toc-depth-${Math.min(3, entry.level - top)}`;
+        const link = document.createElement("a");
+        link.href = "#";
+        link.textContent = entry.text.replace(/[*_`~]/g, "");
+        link.addEventListener("mousedown", (event) => {
+          event.preventDefault();
+          docTocJump(view, entry);
+        });
+        item.appendChild(link);
+        list.appendChild(item);
+      }
+      if (!this.entries.length) {
+        const empty = document.createElement("li");
+        empty.className = "md-toc-empty";
+        empty.textContent = "Headings you add appear here.";
+        list.appendChild(empty);
+      }
+      return nav;
     }
   }
 
@@ -6725,11 +6793,22 @@ function docLivePlugin(CM) {
           if (name === "Blockquote") {
             const first = doc.lineAt(node.from);
             const callout = CALLOUT.exec(first.text);
-            const kind = callout ? callout[2].toLowerCase() : null;
+            //: The kind as the reader means it: Obsidian's aliases resolve
+            //: (`caution` is a warning), and an unknown word is a note, the
+            //: same answer `mdCalloutHead` gives the rendered view.
+            const kind = callout
+              ? (typeof calloutKindOf === "function" && calloutKindOf(callout[2])) || "note"
+              : null;
             const cls = kind ? `cm-md-callout cm-md-callout-${kind}` : "cm-md-quote";
+            //: A plain quote's last line, `> -- Name`, is its attribution
+            //: (`mdQuoteAttribution`), set apart here as it is when rendered.
+            const lastLine = doc.lineAt(Math.max(node.from, node.to - 1));
+            const cites =
+              !kind && lastLine.from > first.from && /^\s*>\s*(?:--|\u2014|\u2013)\s*\S/.test(lastLine.text);
             for (let at = node.from; at <= node.to; ) {
               const line = doc.lineAt(at);
-              ranges.push(Decoration.line({ class: cls }).range(line.from));
+              const lineCls = cites && line.from === lastLine.from ? `${cls} cm-md-quote-cite` : cls;
+              ranges.push(Decoration.line({ class: lineCls }).range(line.from));
               if (line.to >= node.to) break;
               at = line.to + 1;
             }
@@ -6753,7 +6832,7 @@ function docLivePlugin(CM) {
                   ? { at: first.from, closed: docCalloutFolded(state, first) }
                   : null;
                 ranges.push(
-                  Decoration.replace({ widget: new DocCalloutWidget(kind, toggle) }).range(from, end)
+                  Decoration.replace({ widget: new DocCalloutWidget(kind, toggle, first.from) }).range(from, end)
                 );
               }
             }
@@ -6837,7 +6916,12 @@ function docLivePlugin(CM) {
           }
           if (name === "HorizontalRule") {
             const line = doc.lineAt(node.from);
-            ranges.push(Decoration.line({ class: "cm-md-rule" }).range(line.from));
+            //: The variant the rendered view draws (`mdDividerKind`): a
+            //: hairline, the three-dot break, or the strong rule.
+            const variant = typeof mdDividerKind === "function" ? mdDividerKind(line.text) : null;
+            ranges.push(
+              Decoration.line({ class: `cm-md-rule${variant ? ` cm-md-rule-${variant}` : ""}` }).range(line.from)
+            );
             //: **The rule's own dashes go with the rest of the markers.**
             //: Measured before this: `---` rendered as the three characters
             //: `---` on a line that also drew the border, so the divider was a
@@ -6907,6 +6991,17 @@ function docLivePlugin(CM) {
       });
       //: The remark itself. Revealed as its own text when the caret is on its
       //: line, which is how every marker in this view is edited.
+      //: `[TOC]` on its own line, drawn as the contents while the caret is
+      //: elsewhere. The entries are read from the whole document once per
+      //: build, and only when the visible text has a `[TOC]` in it.
+      if (/\[toc\]/i.test(text)) {
+        let tocEntries = null;
+        scan(/^[ \t]*\[toc\][ \t]*$/gim, (match, from, to) => {
+          if (rangeRevealed(from, to)) return;
+          if (!tocEntries) tocEntries = typeof mdTocEntries === "function" ? mdTocEntries(doc.toString()) : [];
+          ranges.push(Decoration.replace({ widget: new DocTocWidget(tocEntries) }).range(from, to));
+        });
+      }
       scan(/%%([^\n]*?)%%/g, (match, from, to) => {
         const note = match[1].trim();
         if (!note) return;
@@ -7325,6 +7420,14 @@ function docLivePlugin(CM) {
             //: Through the same resolution the preview's own chips use, so a
             //: name that resolves in one view resolves in the other.
             docOpenWikiTarget(wiki.dataset.docWiki);
+            return true;
+          }
+          const kindButton = target.closest("[data-doc-callout-kind]");
+          if (kindButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            const box = kindButton.getBoundingClientRect();
+            docCalloutKindMenu(Number(kindButton.dataset.docCalloutKind), box.left, box.bottom + 4);
             return true;
           }
           const fold = target.closest("[data-doc-callout-fold]");
@@ -8549,13 +8652,43 @@ th { background: var(--inner); }
 hr { height: 1px; margin: 2.5em 0; border: 0; background: var(--rule); }
 ul.task-list, .task-list { list-style: none; padding-left: 1.2em; }
 input[type="checkbox"] { margin-right: 0.4em; }
-.doc-callout {
+.callout {
   margin: 1.5em 0;
   padding: 0.8em 1em;
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--kind, var(--accent));
   border-radius: 0 6px 6px 0;
   background: var(--inner);
 }
+.callout-head { margin: 0 0 0.4em; font-weight: 700; list-style: none; }
+.callout-head::-webkit-details-marker { display: none; }
+details.callout > .callout-head::before { content: "\\25B8\\2002"; color: var(--muted); }
+details.callout[open] > .callout-head::before { content: "\\25BE\\2002"; }
+.callout-icon:empty { display: none; }
+.callout-body > :last-child { margin-bottom: 0; }
+.callout-success, .callout-tip, .callout-abstract { --kind: #2f9e6e; }
+.callout-warning, .callout-question { --kind: #c98a12; }
+.callout-danger, .callout-failure, .callout-bug { --kind: #d0443c; }
+.callout-example { --kind: #8a5cd6; }
+.callout-quote, .callout-toggle { --kind: var(--rule); }
+.callout-toggle { background: none; }
+.doc-cols { display: grid; grid-template-columns: repeat(var(--doc-cols, 2), minmax(0, 1fr)); gap: 1.5em; }
+.doc-cols.md-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.doc-col > :first-child { margin-top: 0; }
+@media (max-width: 600px) { .doc-cols { grid-template-columns: 1fr; } }
+.md-rule-thick { height: 3px; }
+.md-rule-dots { height: auto; background: none; text-align: center; color: var(--muted); }
+.md-rule-dots::before { content: "\\2022\\2003\\2022\\2003\\2022"; }
+.md-quote { margin: 1.5em 0; }
+.md-quote > blockquote { margin-bottom: 0.3em; }
+.md-quote-cite { padding-left: 1.2em; color: var(--muted); font-size: 0.9em; }
+.md-quote-cite::before { content: "\\2013\\2002"; }
+.md-toc { margin: 1.5em 0; padding: 0.8em 1em; border: 1px solid var(--rule); border-radius: 6px; }
+.md-toc-head { margin: 0 0 0.4em; color: var(--muted); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.04em; }
+.md-toc-list { margin: 0; padding: 0; list-style: none; }
+.md-toc-depth-1 { padding-left: 1.2em; }
+.md-toc-depth-2 { padding-left: 2.4em; }
+.md-toc-depth-3 { padding-left: 3.6em; }
+.md-math-block { margin: 1.5em 0; text-align: center; overflow-x: auto; }
 .doc-footnotes {
   margin-top: 3em;
   padding-top: 1em;
@@ -16154,10 +16287,27 @@ function docCmTheme(CM) {
         paddingLeft: "var(--space-5)",
         color: "var(--muted)",
       },
+      //: The kind's own ink (`--callout-accent`, set per kind in
+      //: 05-sidebars-themes.css for this class and the rendered `.callout`
+      //: alike), so a warning is amber in the Live view as it is in Read.
       ".cm-md-callout": {
-        borderLeft: "3px solid var(--accent)",
+        borderLeft: "3px solid var(--callout-accent)",
         paddingLeft: "0.75em",
-        backgroundColor: "var(--accent-soft)",
+        backgroundColor: "color-mix(in srgb, var(--callout-accent) 8%, transparent)",
+      },
+      ".cm-md-callout-toggle": {
+        borderLeftColor: "var(--border)",
+        backgroundColor: "transparent",
+      },
+      //: A quote's attribution line, set small and muted like the rendered
+      //: figure's caption.
+      ".cm-md-quote-cite": { fontSize: "0.88em", fontStyle: "normal" },
+      ".cm-md-rule-thick": { borderBottomWidth: "3px", borderBottomColor: "color-mix(in srgb, var(--muted) 55%, transparent)" },
+      ".cm-md-rule-dots": { borderBottom: "0", textAlign: "center" },
+      ".cm-md-rule-dots::after": {
+        content: "'\\2022\\2003\\2022\\2003\\2022'",
+        color: "var(--muted)",
+        fontSize: "0.85em",
       },
       //: The inset is the rendered `pre`'s own (`--space-5`): without it the
       //: code's first glyph sat on the very edge of its tinted slab, 0px in,
@@ -16249,11 +16399,31 @@ function docCmTheme(CM) {
       //: `em` so it tracks the editor's own type scale, and in the muted ink
       //: because it labels the block rather than being part of what it says.
       ".cm-md-callout-label": {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.35em",
         fontSize: "0.85em",
         fontWeight: "600",
-        color: "var(--muted)",
+        color: "var(--ink)",
         marginRight: "0.4em",
         userSelect: "none",
+        verticalAlign: "baseline",
+      },
+      //: The kind's badge, the rendered head's `.callout-icon` at the Live
+      //: view's type size, and the one control on the chip that is a button:
+      //: it opens the kinds menu.
+      ".cm-md-callout-kindbtn": {
+        display: "inline-grid",
+        placeItems: "center",
+        width: "1.5em",
+        height: "1.5em",
+        borderRadius: "var(--radius-sm)",
+        backgroundColor: "color-mix(in srgb, var(--callout-accent) 18%, transparent)",
+        color: "var(--callout-accent)",
+        cursor: "pointer",
+      },
+      ".cm-md-callout-kindbtn:hover": {
+        backgroundColor: "color-mix(in srgb, var(--callout-accent) 30%, transparent)",
       },
       //: A footnote's identifier, raised, where its brackets were. The
       //: reference is a link to the definition; the definition is the place
@@ -16287,7 +16457,7 @@ function docCmTheme(CM) {
       //: The toggle's chevron sits with the callout's own label, in the same
       //: muted ink, because it is part of the same control.
       ".cm-md-callout-fold": { fontSize: "0.9em", opacity: "0.8" },
-      ".cm-md-callout-label[data-doc-callout-fold]": { cursor: "pointer" },
+      ".cm-md-callout-label [data-doc-callout-fold]": { cursor: "pointer" },
       ".cm-md-task": { marginRight: "0.4em", verticalAlign: "middle", cursor: "pointer" },
       ".cm-md-image": { maxWidth: "100%", borderRadius: "var(--radius-sm)" },
 
@@ -17184,6 +17354,60 @@ function docCalloutFolded(state, line) {
 //: calling `toggleFold`, whose job is the *cursor's* fold: a click on a
 //: callout three screens from the caret would otherwise fold whatever the
 //: caret happened to be inside.
+//: A contents entry's jump: the n-th heading with this text and level, as
+//: `mdTocEntries` counted them, gets the caret and the top of the view.
+function docTocJump(view, entry) {
+  const CM = window.CM6;
+  if (!CM || !view) return;
+  const doc = view.state.doc;
+  let fenced = false;
+  for (let n = 1; n <= doc.lines; n += 1) {
+    const line = doc.line(n);
+    if (/^[ \t]*(?:```|~~~)/.test(line.text)) fenced = !fenced;
+    if (fenced) continue;
+    const heading = /^(#{1,6})\s+(.*\S)\s*$/.exec(line.text);
+    if (!heading || heading[1].length !== entry.level) continue;
+    if (heading[2].replace(/\s+#+$/, "") !== entry.text) continue;
+    view.dispatch({
+      selection: { anchor: line.to },
+      effects: CM.view.EditorView.scrollIntoView(line.from, { y: "start", yMargin: 24 }),
+    });
+    view.focus();
+    return;
+  }
+}
+
+//: **Change a callout's kind or folding from the block itself** (INBOX 421
+//: b). `at` is any position on the callout's first line; the rewrite touches
+//: only the `[!kind]` marker (`calloutRewriteHead`), through the surface, so
+//: it is one undo step and the autosave sees it like a keystroke.
+function docSetCalloutHead(at, kind, fold) {
+  const box = docSurface();
+  if (!box || typeof calloutRewriteHead !== "function") return;
+  const line = box.lineAt(Math.max(0, at));
+  const next = calloutRewriteHead(line.text, kind, fold);
+  if (next === line.text) return;
+  box.replaceRange(line.from, line.to, next);
+  if (!box.isDocument) return;
+  markDocDirty();
+  renderDocPreview();
+}
+
+function docCalloutKindMenu(at, x, y) {
+  const box = docSurface();
+  if (!box || typeof calloutMenuItems !== "function" || typeof openMenuAtPoint !== "function") return;
+  const head = typeof mdCalloutHead === "function"
+    ? mdCalloutHead(box.lineAt(Math.max(0, at)).text.replace(/^\s*>\s?/, ""))
+    : null;
+  if (!head) return;
+  openMenuAtPoint(
+    calloutMenuItems(head.kind, head.fold, (kind, fold) => docSetCalloutHead(at, kind, fold)),
+    "Callout kind",
+    x,
+    y
+  );
+}
+
 function docToggleCalloutFold(at) {
   const CM = window.CM6;
   const view = docCmView;
@@ -17212,7 +17436,7 @@ function docFoldMarkedCallouts() {
   const effects = [];
   for (let number = 1; number <= view.state.doc.lines; number += 1) {
     const line = view.state.doc.line(number);
-    if (!/^\s*>\s*\[![A-Za-z]+\]-/.test(line.text)) continue;
+    if (!/^\s*>\s*\[![A-Za-z][\w-]*\]-/.test(line.text)) continue;
     const range = docCalloutFoldRange(view.state, line);
     if (range) effects.push(CM.language.foldEffect.of(range));
   }

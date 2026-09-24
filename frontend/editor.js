@@ -248,16 +248,130 @@ document.addEventListener(
 //: of this table take a token now (the "/" menu row through `setLabel`, the
 //: renderer through an `<i class="ph ...">`), and `tests/test_no_glyph_icons.py`
 //: carries the eight so they cannot come back.
+//:
+//: **Obsidian's whole set, with its aliases** (INBOX 421 b: the blocks were
+//: "limited in what they can do"). Eight kinds became fourteen: the thirteen
+//: Obsidian ships, so a vault's callouts arrive here looking the way they were
+//: written, and `toggle`, this app's plain disclosure (a fold with no colour,
+//: Notion's toggle) spelled as a callout so it degrades to a quote elsewhere.
+//: `about` is the "/" menu's one line for the row and its preview; `aliases`
+//: are the other names Obsidian accepts for the same kind. The colour is the
+//: stylesheet's (`.callout-{kind}`, `.cm-md-callout-{kind}`), keyed off the
+//: palette tokens so every kind has a light and a dark value.
+// EDITOR-BLOCKS-BEGIN
 const CALLOUT_KINDS = {
-  note: { icon: "ph:note", label: "Note" },
-  tip: { icon: "ph:lightbulb", label: "Tip" },
-  info: { icon: "ph:info", label: "Info" },
-  warning: { icon: "ph:warning", label: "Warning" },
-  danger: { icon: "ph:warning-octagon", label: "Danger" },
-  question: { icon: "ph:question", label: "Question" },
-  quote: { icon: "ph:quotes", label: "Quote" },
-  todo: { icon: "ph:check-square", label: "To do" },
+  note: { icon: "ph:note", label: "Note", about: "A point worth setting apart" },
+  abstract: { icon: "ph:clipboard-text", label: "Summary", about: "The short version, up front", aliases: ["summary", "tldr"] },
+  info: { icon: "ph:info", label: "Info", about: "Background the reader may need" },
+  todo: { icon: "ph:check-square", label: "To do", about: "Something still to be done" },
+  tip: { icon: "ph:lightbulb", label: "Tip", about: "A better way to do it", aliases: ["hint", "important"] },
+  success: { icon: "ph:check-circle", label: "Success", about: "What worked, or what is done", aliases: ["check", "done"] },
+  question: { icon: "ph:question", label: "Question", about: "An open question", aliases: ["help", "faq"] },
+  warning: { icon: "ph:warning", label: "Warning", about: "Careful: this can go wrong", aliases: ["caution", "attention"] },
+  failure: { icon: "ph:x-circle", label: "Failure", about: "What did not work", aliases: ["fail", "missing"] },
+  danger: { icon: "ph:warning-octagon", label: "Danger", about: "Stop: this does harm", aliases: ["error"] },
+  bug: { icon: "ph:bug", label: "Bug", about: "A known fault and its symptoms" },
+  example: { icon: "ph:flask", label: "Example", about: "A worked case" },
+  quote: { icon: "ph:quotes", label: "Quote", about: "Somebody else's words, set apart", aliases: ["cite"] },
+  toggle: { icon: "ph:caret-circle-right", label: "Toggle", about: "Folded away until clicked, no colour" },
 };
+
+//: The canonical kind for a name as written (`Warning`, `caution`, `tldr`),
+//: or null for a name that is not one.
+function calloutKindOf(raw) {
+  const name = String(raw || "").toLowerCase();
+  if (!name) return null;
+  if (Object.prototype.hasOwnProperty.call(CALLOUT_KINDS, name)) return name;
+  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
+    if ((meta.aliases || []).includes(name)) return kind;
+  }
+  return null;
+}
+
+//: A callout's first line with its kind and fold flag changed and nothing
+//: else: the quote marker, the title and anything after them stay exactly as
+//: written. `fold` is "" (always open), "-" (folded) or "+" (foldable, open).
+//: A line with no `[!kind]` marker comes back unchanged.
+function calloutRewriteHead(line, kind, fold = "") {
+  return String(line).replace(/\[![\w-]+\][-+]?/, `[!${kind}]${fold}`);
+}
+
+//: **Letters in order, anywhere** (the "/" menu's search). Returns the
+//: indexes of the label's characters that matched, for the highlight, or null.
+//: Greedy from the left, which is what a reader scanning the label expects to
+//: see lit up.
+function editorFuzzyMatch(label, query) {
+  const hay = String(label || "").toLowerCase();
+  const needle = String(query || "").toLowerCase();
+  if (!needle) return [];
+  const hits = [];
+  let from = 0;
+  for (const ch of needle) {
+    const at = hay.indexOf(ch, from);
+    if (at === -1) return null;
+    hits.push(at);
+    from = at + 1;
+  }
+  return hits;
+}
+
+//: Rank rows for a query, best first, stable within a tier: a label that
+//: starts with it, a word in the label that does, a keyword that does, the
+//: label containing it, a keyword containing it, and last the letters in
+//: order anywhere in the label ("twcl" finds Two columns). No query keeps the
+//: table's own order, which is the grouped menu.
+function editorFuzzyRank(rows, query) {
+  const needle = String(query || "").toLowerCase().trim();
+  if (!needle) return rows.slice();
+  const scored = [];
+  rows.forEach((row, index) => {
+    const label = String(row.label || "").toLowerCase();
+    const keywords = (row.keywords || []).map((k) => String(k).toLowerCase());
+    let score = -1;
+    if (label.startsWith(needle)) score = 0;
+    else if (label.split(/[\s-]+/).some((word) => word.startsWith(needle))) score = 1;
+    else if (keywords.some((k) => k.startsWith(needle))) score = 2;
+    else if (label.includes(needle)) score = 3;
+    else if (keywords.some((k) => k.includes(needle))) score = 4;
+    else if (needle.length > 1 && editorFuzzyMatch(label, needle)) score = 5;
+    if (score >= 0) scored.push({ row, score, index });
+  });
+  scored.sort((a, b) => a.score - b.score || a.index - b.index);
+  return scored.map((s) => s.row);
+}
+// EDITOR-BLOCKS-END
+
+//: **The menu that changes a callout from where it is drawn** (INBOX 421 b).
+//: One list for both places a rendered callout offers it (the icon in the
+//: Live view, the block bar in the Read view), so the two cannot offer
+//: different kinds. `apply(kind, fold)` writes the change; the rows are the
+//: app's own menu rows (`kebabMenu` groups), with the current kind and fold
+//: marked by a check glyph rather than by colour alone.
+function calloutMenuItems(current, fold, apply) {
+  const items = [];
+  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
+    items.push({
+      group: "Kind",
+      label: `${kind === current ? "ph:check" : meta.icon} ${meta.label}`,
+      title: meta.about,
+      run: () => apply(kind, fold),
+    });
+  }
+  const folds = [
+    ["", "ph:rows", "Always open"],
+    ["-", "ph:caret-right", "Folded until clicked"],
+    ["+", "ph:caret-down", "Foldable, starts open"],
+  ];
+  for (const [flag, icon, label] of folds) {
+    items.push({
+      group: "Folding",
+      label: `${flag === fold ? "ph:check" : icon} ${label}`,
+      title: label,
+      run: () => apply(current, flag),
+    });
+  }
+  return items;
+}
 
 // ---------------------------------------------------------------------------
 // Inserting text into an arbitrary textarea

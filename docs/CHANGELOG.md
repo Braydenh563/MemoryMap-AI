@@ -124,6 +124,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- View toggles (Notes rows/cards, Library list/cards): only the chosen half is
+  filled; the other rests clear.
 - The OCR workspace's Delete reading works again (it threw after the confirm).
 - A callout's label in the document live view shows its icon, not "ph:warning".
 - Mind map: the topic and line rings are pie menus: one ring cut into sectors with hairline dividers, each action's icon and word inside its sector, the hovered or focused sector filled, and the topic whole inside the hole (the board pans with a ring slid in from an edge). The arrows walk the sectors, Enter runs one, Escape closes. More opens its menu beside the More sector, and never in the window's corner.

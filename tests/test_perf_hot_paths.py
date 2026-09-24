@@ -137,3 +137,23 @@ def test_a_folded_topic_is_taken_back_not_rebuilt() -> None:
     assert render.index("wbMapNodePool.delete(id)") > render.index("wbMapNodePool.set(d.id, this)")
     take = _body(wb, "wbMapNodeTakeBack")
     assert "kept.__data__ !== d" in take
+
+
+# --- 424f: the lightbox's next and previous -----------------------------------
+
+
+def test_fit_scrolls_only_a_scroller_that_is_away_from_its_origin() -> None:
+    """`show()` sets fit for every picture, and a `scrollTo` against a stage
+    whose picture was just swapped is a forced layout, for a stage already at
+    its origin (375ms of five presses at 4x CPU). The scroll listeners keep
+    the answer, so asking costs no layout read."""
+    app = _source("app.js")
+    start = app.index("const applyZoom = () => {")
+    block = app[start : app.index("const setZoom = (next) => {", start)]
+    assert "scrolledAway.has(scroller)" in block
+    assert "scrollTarget().scrollTo(" not in block
+    assert "trackScrolledAway(stage);" in block
+    assert "trackScrolledAway(doc);" in app
+    # A pan marks it at once, not a frame later at its scroll event.
+    pan = app[app.index("const movePan = (e) => {") :]
+    assert "scrolledAway.add(scroller);" in pan[: pan.index("};")]

@@ -6597,8 +6597,37 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     stage.classList.toggle("zoomed", zoom > 1);
     zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
     // Only grab-able once there is something to pan to.
-    if (zoom === 1) scrollTarget().scrollTo({ left: 0, top: 0 });
+    //: **Only when it is not already there** (INBOX 424f). `show()` sets the
+    //: zoom back to fit for every picture, so paging through a gallery called
+    //: `scrollTo` on every press, and a `scrollTo` against a stage whose
+    //: picture was just swapped is a forced layout: measured at 4x CPU, 375ms
+    //: of five next/previous presses, for a stage that was already at its
+    //: origin. `scrolledAway` is kept by the scroll listeners below, so the
+    //: question costs no layout read.
+    if (zoom === 1) {
+      const scroller = scrollTarget();
+      if (scrolledAway.has(scroller)) {
+        scroller.scrollTo({ left: 0, top: 0 });
+        scrolledAway.delete(scroller);
+      }
+    }
   };
+  //: Which of the two scrollers is somewhere other than its top-left corner,
+  //: from their own scroll events (a pan, a scrollbar, a wheel, the browser
+  //: clamping after the content changed), read when the event fires, when
+  //: layout is already clean.
+  const scrolledAway = new WeakSet();
+  const trackScrolledAway = (el) => {
+    el.addEventListener(
+      "scroll",
+      () => {
+        if (el.scrollLeft || el.scrollTop) scrolledAway.add(el);
+        else scrolledAway.delete(el);
+      },
+      { passive: true }
+    );
+  };
+  trackScrolledAway(stage);
   const setZoom = (next) => {
     zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 100) / 100));
     applyZoom();
@@ -6909,6 +6938,9 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     const scroller = scrollTarget();
     scroller.scrollLeft = panning.left - (e.clientX - panning.x);
     scroller.scrollTop = panning.top - (e.clientY - panning.y);
+    //: Now, not at the scroll event a frame later: a Fit pressed inside that
+    //: frame must still see the pan.
+    scrolledAway.add(scroller);
   };
   const endPan = (el) => (e) => {
     if (!panning) return;
@@ -7418,6 +7450,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   //: `pageScroller`), and `noteDocPage` is a no-op when there are no pages.
   doc.addEventListener("scroll", noteDocPage, { passive: true });
   pdfPages.addEventListener("scroll", noteDocPage, { passive: true });
+  trackScrolledAway(doc);
   //: **Editing a file in place** (REDESIGN.md §R7.1 item 2, and the request:
   //: *"all the files should be managable, viewable and editable in the
   //: library and document/file/text editor"*). A plain textarea over the

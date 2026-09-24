@@ -135,6 +135,11 @@ with its owner named in the entry.
     350ms); `show` calls `applyZoom`, which calls `scrollTo` (375ms of
     forced layout) even when already at fit; recommend scrolling only when
     the zoom actually changed.
+    (fixed: `show` 457/360ms → 37/28ms and `scrollTo` 406/305ms → 0 over
+    five presses at 4x, two runs each; profile busy 580/465ms → 128/118ms.
+    Fit scrolls only a scroller its own scroll events, or a pan, say is off
+    its origin, so a PDF read halfway down still goes back to the top.
+    `lightboxfit.js` 42/42 on both.)
     (g) Library tab switch at 1x: 10 long tasks, 580ms (4x: 3.4s, max
     683ms); `loadLibrary` refetches `/library` and rebuilds every card each
     visit; recommend the same version check as (d).

@@ -2498,6 +2498,34 @@ header#top-bar select,
   display: block;
 }
 
+/* The emblem turns by CSS: drawn once (renderEmblem, app.js) and rotated
+   by the compositor, one turn in 43.6s, the speed the old per-frame redraw
+   had. It follows the app's own Reduce motion switch, which leaves the
+   class off, and not the system hint: instructed directly, "make sure the
+   animations run even with prefer reduced motion on, like the rotating
+   generated logos". `:root` and `!important` outrank the reduced-motion
+   blankets in 02-chat-graph.css, as the progress indicators do. */
+@keyframes emblem-spin {
+  to { transform: rotate(360deg); }
+}
+
+:root canvas.emblem-spin {
+  animation: emblem-spin 43.6s linear infinite !important;
+}
+
+:root canvas.emblem-spin.is-paused {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The system hint does not stop the emblem (see above): restated here so
+     the media blanket's one-iteration rule cannot end the turn. */
+  :root canvas.emblem-spin {
+    animation-iteration-count: infinite !important;
+    animation-duration: 43.6s !important;
+  }
+}
+
 .emblem-centred {
   display: flex;
   justify-content: center;

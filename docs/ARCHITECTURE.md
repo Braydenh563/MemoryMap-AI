@@ -1149,7 +1149,10 @@ with an `IntersectionObserver`; the one that is on screen is the decision,
 not an oversight, and it is about 3.5 points of the 5.5. Worth knowing
 before anyone goes looking for a leak: there is no leak, there is a
 deliberate animation, and turning it down is a design choice rather than a
-bug fix.
+bug fix. **Since answered without turning it down:** the emblem is drawn
+once and turned by a CSS rotation (`canvas.emblem-spin`), at the same
+speed, so the compositor does the turning and no p5 loop runs for it at
+all. Not re-measured with `top` since.
 
 What was deliberately *not* cut: the 60-second reminder check, because a
 reminder that waits for you to look at the tab is not a reminder, and the

@@ -274,3 +274,12 @@ def test_the_art_needs_no_p5():
     body = body[: body.index("\n}\n")]
     assert "ensureP5" not in body
 
+
+def test_the_emblem_turns_by_css_not_by_redrawing():
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    body = app[app.index("function renderEmblem(") :]
+    body = body[: body.index("\n}\n")]
+    assert "frameRate(" not in body, "the emblem must draw once, not loop"
+    assert "p.noLoop();" in body and 'classList.add("emblem-spin")' in body
+    css = CSS.read_text(encoding="utf-8")
+    assert "@keyframes emblem-spin" in css

@@ -39317,14 +39317,12 @@ const emblemObservers = new Map(); // element -> IntersectionObserver
 //: Not a claim about the whiteboard's drag lag. That report is still
 //: unattributed (`agent-remaining/mindmap.md`); this is work the app was
 //: doing for nothing, found while profiling it.
-function watchEmblemVisibility(holder, instance) {
+function watchEmblemVisibility(holder, canvas) {
   if (typeof IntersectionObserver === "undefined") return;
   emblemObservers.get(holder)?.disconnect();
+  // Off screen, the turn is held rather than left to the compositor.
   const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) instance.loop();
-      else instance.noLoop();
-    }
+    for (const entry of entries) canvas.classList.toggle("is-paused", !entry.isIntersecting);
   });
   observer.observe(holder);
   emblemObservers.set(holder, observer);
@@ -39632,16 +39630,18 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
         angle: (i / count) * p.TWO_PI + p.random(-0.3, 0.3),
         hue: (baseHue + p.random(-40, 40) + 360) % 360,
       }));
-      if (animate && !still) p.frameRate(24);
-      else {
-        p.draw();
-        p.noLoop(); // a single crisp frame where motion adds nothing
-      }
+      //: **Drawn once, turned by CSS.** It used to redraw the whole sketch
+      //: 24 times a second, per emblem on the page, only to rotate it by
+      //: 0.006 radians a frame: a p5 loop (and its allocations) for what a
+      //: compositor rotation of one still image does for free. The turn is
+      //: `canvas.emblem-spin` (03-dashboard-widgets.css), at the same speed:
+      //: 0.006 rad x 24 frames a second, one turn in 43.6 seconds.
+      p.draw();
+      p.noLoop();
     };
     p.draw = () => {
       p.clear();
       p.translate(size / 2, size / 2);
-      if (animate && !still) p.rotate(p.frameCount * 0.006);
       const r = size * 0.32;
       const dot = Math.max(4, size * 0.18);
       p.stroke(baseHue, 60, 60, 0.6);
@@ -39667,9 +39667,12 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
   };
   const instance = new p5(sketch, holder);
   emblemInstances.set(holder, instance);
-  // Only the animated ones: the still ones called `noLoop()` in their own
-  // setup and have no loop to pause.
-  if (animate && !still) watchEmblemVisibility(holder, instance);
+  // Only the animated ones turn, and only those have a turn to pause.
+  const canvas = holder.querySelector("canvas");
+  if (animate && !still && canvas) {
+    canvas.classList.add("emblem-spin");
+    watchEmblemVisibility(holder, canvas);
+  }
 }
 
 // Every emblem currently on the page, keyed by element id and size.

@@ -291,6 +291,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The app's emblem is drawn once and turned by a CSS rotation instead of a
+  p5 sketch redrawn 24 times a second for every emblem on the page, at the
+  same speed (one turn in 43.6 seconds). The architecture notes had it as
+  about 3.5 of the 5.5 CPU points an idle Dashboard cost; the page now runs
+  no animation-frame callbacks at all with the background art off (240 in
+  two seconds before, measured).
 - Every background art style but the waves is redrawn, and the whole
   background is lighter to run. The aurora is now curtains of light, the
   constellation has stars at three depths with a nebula and the odd meteor,

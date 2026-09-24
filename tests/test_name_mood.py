@@ -588,6 +588,57 @@ def test_the_budget_holds_for_every_name(tmp_path: Path) -> None:
     assert sorted(five["cues"]) == ["eyepatch", "tricorn"], five
 
 
+def _luma(hex_colour: str) -> float:
+    def channel(v: int) -> float:
+        c = v / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (int(hex_colour[i : i + 2], 16) for i in (1, 3, 5))
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+
+def _contrast(a: str, b: str) -> float:
+    la, lb = sorted((_luma(a), _luma(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def _half(hex_colour: str) -> str:
+    # nmLineFor on a light fill: the colour halfway to black.
+    return "#" + "".join(f"{round(int(hex_colour[i : i + 2], 16) * 0.5):02x}" for i in (1, 3, 5))
+
+
+def test_the_colour_pairs_hold_on_both_pages() -> None:
+    # "A curated palette ... that works on light and dark, with contrast
+    # checked; no muddy or clashing combinations." Every pair: the body or
+    # its outline at 3:1 on the light page and on the dark one, each hair
+    # tone at 3:1 against the body, and the cloth clearly apart from it.
+    block = APP[APP.index("const NM_CHAR_PAIRS = [") :]
+    block = block[: block.index("];")]
+    pairs = re.findall(r'body: "(#[0-9a-f]{6})", hair: \[([^\]]+)\], cloth: \[([^\]]+)\]', block)
+    assert len(pairs) >= 6, pairs
+    for body, hair, cloth in pairs:
+        for page in ("#ffffff", "#1c1c1f"):
+            assert max(_contrast(body, page), _contrast(_half(body), page)) >= 3, (body, page)
+        for tone in re.findall(r"#[0-9a-f]{6}", hair):
+            assert _contrast(tone, body) >= 3, (body, tone)
+        for tone in re.findall(r"#[0-9a-f]{6}", cloth):
+            apart = sum(abs(int(tone[i : i + 2], 16) - int(body[i : i + 2], 16)) for i in (1, 3, 5))
+            assert apart >= 120, (body, tone)
+    # The body is never drawn from the app's category colours again.
+    draw = APP[APP.index("function drawCharacter(") : APP.index("//: A nigiri about")]
+    assert "CATEGORY_DOT_COLOURS" not in draw and "NM_CHAR_PAIRS[" in draw
+
+
+def test_the_small_mark_keeps_one_cue() -> None:
+    # 28px and under draws the "mini" mark: no hat on a creature (its ears
+    # are the cue), no specks, a thicker line.
+    mark = APP[APP.index("function nameMark(seed") :][:1200]
+    assert 'mini ? "mini" : "mark"' in mark and "const mini = size <= 28;" in mark
+    draw = APP[APP.index("function drawCharacter(") : APP.index("//: A nigiri about")]
+    assert 'const worn = mini && beast ? reading.props.filter((p) => !NAME_MARK_HEAD_KINDS.includes(p))' in draw
+    assert "const LW = mini ? 2.4 : NM_CHAR_LINE;" in draw
+
+
 def test_a_glued_word_is_read_only_where_a_word_could_start(tmp_path: Path) -> None:
     # "sushilord" is sushi and a lord; "cooked" is not a cook, "Janice" is
     # not "nice", "Clover" is not in love and "Angela" is not an angel.

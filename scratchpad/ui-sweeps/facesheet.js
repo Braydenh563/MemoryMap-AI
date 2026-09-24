@@ -25,6 +25,19 @@ const DEFAULT_NAMES = [
   const info = await page.evaluate(([list, lean]) => {
     document.documentElement.dataset.avatarMotion = "off";
     if (lean) localStorage.setItem("face-look", lean);
+    //: "Name|hair=bob|mood=calm" draws Name with those parts of its style
+    //: (or reading) set, for a sheet of one part's variants.
+    const read = nameMood;
+    nameMood = (seed) => {
+      const [base, ...sets] = String(seed || "").split("|");
+      const reading = read(base);
+      for (const pair of sets) {
+        const [key, value] = pair.split("=");
+        if (key in reading.style) reading.style[key] = value;
+        else reading[key] = value;
+      }
+      return reading;
+    };
     const sheet = document.createElement("div");
     sheet.id = "face-sheet";
     for (const [k, v] of Object.entries({
@@ -54,6 +67,17 @@ const DEFAULT_NAMES = [
       readings[name] = { mood: r.mood, animal: r.animal, props: r.props, hand: r.hand, look: r.look, hair: r.style.hair, acc: r.style.accessories, outfit: r.style.outfit, flavours: r.flavours, cues: r.cues };
       cell.append(row, label);
       sheet.appendChild(cell);
+      //: "Nothing overlaps the eyes": what sits on the head (a hat, a clip,
+      //: a bow) measured against the eyes, in the mark's own units.
+      const mark = row.children[1];
+      //: The space helmet is a glass bubble round the whole head, by design.
+      const eyes = r.props.includes("helmet") ? null : mark.querySelector(".nm-eyes")?.getBBox();
+      for (const worn of mark.querySelectorAll(".nm-hat, .nm-clip, .nm-bow")) {
+        const box = worn.getBBox();
+        if (eyes && box.y + box.height > eyes.y + 0.5 && box.x < eyes.x + eyes.width && box.x + box.width > eyes.x) {
+          readings[name].overEyes = (readings[name].overEyes || []).concat(worn.getAttribute("class"));
+        }
+      }
     }
     return readings;
   }, [list, process.env.LOOK_LEAN || ""]);

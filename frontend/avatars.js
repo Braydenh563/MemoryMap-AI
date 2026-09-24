@@ -9,9 +9,8 @@
 //
 // Loaded straight after app.js (see index.html), before every other boot
 // file, so anything that paints a face at boot finds it. Its top level only
-// declares tables and functions. It reads `CATEGORY_DOT_COLOURS` from app.js,
-// and only inside `nameMark`, at call time; app.js, settings.js and the lazy
-// bundles call `nameMark`/`nameMood` only from functions, never at parse time.
+// declares tables and functions; app.js, settings.js and the lazy bundles
+// call `nameMark`/`nameMood` only from functions, never at parse time.
 
 //: **What a name says about the face it gets** (the owner: "would it be funny
 //: if ... the application detects the intent or mood from the name ... like
@@ -729,11 +728,11 @@ function nameMood(name) {
   //: spikes, a bob, a ponytail.
   const feminineHair = ["long", "pigtails", "buns", "bob", "ponytail", "long", "curly", "bob"];
   const masculineHair = ["short", "spiky", "quiff", "buzz", "short", "curly"];
-  const anyHair = ["short", "curly", "bob", "quiff", "ponytail", "spiky", "short", "curly"];
+  const anyHair = ["short", "curly", "bob", "quiff", "ponytail", "spiky"];
   const pool = result.look === "feminine" ? feminineHair : result.look === "masculine" ? masculineHair : anyHair;
   result.style.hair = pool[roll(pool.length)];
-  //: Which of the colour pair's hair tones (`NM_CHAR_PAIRS`, three each).
-  result.style.hairColour = roll(3);
+  //: Which of the colour pair's hair tones (`NM_CHAR_PAIRS`, four each).
+  result.style.hairColour = roll(4);
   //: At most one subtle accessory, and only while the words left room
   //: (fewer than two cues) and its slot is free: earrings, a flower clip or
   //: a bow for a feminine look, light stubble for a masculine one, nothing
@@ -794,7 +793,7 @@ const NAME_MARK_FACES = {
   calm: { eyes: "content", mouth: "smile" },
   serious: { eyes: "dot", brows: "flat", mouth: "flat" },
   confused: { eyes: "mismatch", brows: "confused", mouth: "wavy", extras: ["question"] },
-  hungry: { eyes: "happy", mouth: "tongue", extras: ["blush"], louder: ["drool"] },
+  hungry: { eyes: "sparkle", mouth: "yum", extras: ["blush"], loud: "tongue", louder: ["drool"] },
   cool: { eyes: "shades", mouth: "smirk" },
   love: { eyes: "heart", mouth: "smile", extras: ["blush"], louder: ["heart"] },
   laughing: { eyes: "squeeze", mouth: "grin", extras: ["tear", "tear2"], louder: ["spark"] },
@@ -812,7 +811,7 @@ const NAME_MARK_FACES = {
 
 //: The creatures a name can ask for. `head` fixes the head's colour where
 //: the animal has one (a panda is white, a fox is orange); the others keep
-//: the name's own palette colour, so two cats still differ.
+//: the name's own colour pair, so two cats still differ.
 const NAME_MARK_CREATURES = {
   panda: { head: "#f5f4ef", ears: "round", ear: "#2b2a28", patches: "#2b2a28" },
   bear: { head: "#9c755f", ears: "round", muzzle: "#d9b38c" },
@@ -868,16 +867,15 @@ const NAME_MARK_CREATURES = {
   bat: { head: "#6b5b73", ears: "pointy", limbs: "wings-bat", wing: "bat", inner: "#ff9da7" },
 };
 
-//: Which palette colours each mood's ground leans to, when the name said
-//: the mood out loud (a seeded mood keeps the name's own colour).
+//: Which colour pairs (`NM_CHAR_PAIRS`) each mood leans to, when the name
+//: said the mood out loud (a seeded mood keeps the name's own pair):
+//: grumpy is coral, gloomy is sky, sick is mint.
 const NAME_MARK_MOOD_GROUNDS = {
-  happy: [5, 1, 9, 7], excited: [1, 5, 7, 2], sad: [0, 3, 6, 8], angry: [2, 1, 8],
-  dramatic: [6, 2, 7], surprised: [5, 7, 1], sleepy: [6, 0, 3], nervous: [3, 9, 5],
-  sly: [6, 4, 8], calm: [3, 4, 9, 0], serious: [0, 8, 3], confused: [9, 6, 3],
-  hungry: [1, 5, 7], cool: [0, 6, 3], love: [7, 2, 6],
-  laughing: [5, 1, 7], unimpressed: [8, 0, 3], dizzy: [9, 6, 5], uwu: [7, 6, 9],
-  evil: [6, 2, 8], sick: [9, 4, 3], dead: [8, 0, 6], starstruck: [5, 1, 7], cute: [7, 9, 5], drunk: [2, 7, 1],
-  greedy: [4, 9, 5],
+  happy: [4, 0, 5], excited: [4, 5, 0], sad: [1, 7, 3], angry: [5], dramatic: [3, 6, 5],
+  surprised: [4, 1, 7], sleepy: [3, 1], nervous: [2, 7, 4], sly: [3, 2], calm: [2, 7, 1],
+  serious: [1, 3], confused: [7, 3, 2], hungry: [0, 4, 5], cool: [1, 7], love: [6, 5],
+  laughing: [4, 0], unimpressed: [1, 3], dizzy: [7, 3, 6], uwu: [6, 3], evil: [3, 5],
+  sick: [2], dead: [3, 1], starstruck: [4, 6], cute: [6, 0, 3], drunk: [5, 6], greedy: [4, 2],
 };
 
 //: A sentence for the tooltip: what the mark was read as, so the joke can be
@@ -948,8 +946,8 @@ function nameMarkTitle(reading) {
 //: Each mark starts its loop at its own point (`--nm-delay`, from the seed),
 //: so a list of faces does not blink in unison.
 //:
-//: Colours are `CATEGORY_DOT_COLOURS`, the app's own ten, plus a creature's
-//: fixed coat. The features are ink or white by the head's own luminance, so
+//: Colours are one of `NM_CHAR_PAIRS` (body, hair and cloth chosen to sit
+//: together), or a creature's fixed coat. The features are ink or white by the head's own luminance, so
 //: a face never vanishes into a light head. Decorative (`aria-hidden`): the
 //: name beside it is what a screen reader says; the `<title>` is for a
 //: pointer's tooltip.
@@ -1300,8 +1298,10 @@ function nameMark(seed, size = 20) {
   if (named && (named === ai || named === "atlas")) return atlasMark(size);
   //: Under 28px a face never moves, so it is one picture; above, its parts.
   const moving = size >= 28;
+  //: 28px and under is the small mark: the face and one cue (drawCharacter).
+  const mini = size <= 28;
   const style = JSON.stringify(nameMarkOwnFor(seed) || {});
-  const face = nameMarkCompose(`gen|${moving ? "p" : "f"}|${seed}|${style}|${nameMarkLookLean() || ""}`, () => drawCharacter(seed, 100, "mark"), { parts: moving ? NM_MARK_PARTS : "", size });
+  const face = nameMarkCompose(`gen|${moving ? "p" : "f"}${mini ? "m" : ""}|${seed}|${style}|${nameMarkLookLean() || ""}`, () => drawCharacter(seed, 100, mini ? "mini" : "mark"), { parts: moving ? NM_MARK_PARTS : "", size });
   watchNameMark(face);
   return face;
 }
@@ -1326,9 +1326,35 @@ function nameMark(seed, size = 20) {
 //: Drawn in the companion's 64 by 92 box (`NMB_*` below), so the figure
 //: and the head-only mark are the same drawing: `mode` "figure" draws
 //: everything; "mark" leaves out the legs, arms, hand and shadow and crops
-//: the view to the head, which is what every list, bubble and picker shows.
-const NM_CHAR_HAIR = ["#2b2a33", "#4a3326", "#7a5230", "#a2472e", "#e8c26e", "#d9772b", "#9aa0a6", "#f29cb8", "#4f7fd9", "#8b5fc9"];
-const NM_CHAR_CLOTHES = ["#3b6fb6", "#e2574c", "#2f9e75", "#f0b429", "#7b61c4", "#33323a", "#e36fa6", "#f28e2c", "#6b7a8f", "#f5f4ef"];
+//: the view to the head, which is what every list, bubble and picker shows;
+//: "mini" is that mark at 28px and under (see `mini` in `drawCharacter`).
+//:
+//: **The colour pairs** (the owner: "no muddy or clashing combinations").
+//: A character's colours are never picked one by one: the name picks one
+//: pair, and the pair gives the body (a soft, light gel tone, in the family
+//: of Atlas's), four hair tones that read against it (a near black, a
+//: brown or chestnut, and a navy or plum, far enough apart that two names sharing a
+//: pair and a style still differ, measured by ui-sweeps/namemarks.js), and
+//: two cloth tones that sit with both. `tests/test_name_mood.py` checks every pair: the
+//: body or its outline at 3:1 or more on the light page and on the dark
+//: one, every hair tone at 3:1 against the body, and the cloth apart from
+//: the body. The old way (the app's ten category colours for the body, ten
+//: hair colours and ten cloth colours, each rolled on its own) gave a blue
+//: body with orange hair and a grey top.
+const NM_CHAR_PAIRS = [
+  { name: "peach", body: "#f6b89a", hair: ["#2e2733", "#8a4526", "#2c3f7a", "#6e3563"], cloth: ["#2f8582", "#5569c0"] },
+  { name: "sky", body: "#8fc9f2", hair: ["#2e2733", "#8a4526", "#6e3563", "#5b3a2e"], cloth: ["#f2b547", "#e5705f"] },
+  { name: "mint", body: "#96dbbb", hair: ["#2e2733", "#8a4526", "#6e3563", "#2c3f7a"], cloth: ["#e8747c", "#7a64c8"] },
+  { name: "lilac", body: "#c3aef0", hair: ["#2e2733", "#8a4526", "#2c3f7a", "#5b3a2e"], cloth: ["#f39b73", "#2f8582"] },
+  { name: "butter", body: "#f6d87e", hair: ["#2e2733", "#8a4526", "#2c3f7a", "#6e3563"], cloth: ["#4f7fd9", "#2f8582"] },
+  { name: "coral", body: "#f7a397", hair: ["#2e2733", "#2c3f7a", "#6b3f24", "#6e3563"], cloth: ["#3b6fb6", "#2f9e75"] },
+  { name: "rose", body: "#f5afcc", hair: ["#2e2733", "#8a4526", "#5b3a2e", "#2c3f7a"], cloth: ["#3fa37e", "#5569c0"] },
+  { name: "aqua", body: "#86d6d2", hair: ["#2e2733", "#8a4526", "#6e3563", "#2c3f7a"], cloth: ["#ef8a5b", "#e8747c"] },
+  { name: "apricot", body: "#f9c38c", hair: ["#2e2733", "#2c3f7a", "#6e3563", "#8a4526"], cloth: ["#3f6fb5", "#8a5cc2"] },
+  { name: "periwinkle", body: "#a8b6f4", hair: ["#2e2733", "#8a4526", "#6e3563", "#5b3a2e"], cloth: ["#f2b547", "#2f9e75"] },
+  { name: "pistachio", body: "#bfe08f", hair: ["#2e2733", "#8a4526", "#2c3f7a", "#6e3563"], cloth: ["#e5705f", "#5569c0"] },
+  { name: "sand", body: "#e9c9a6", hair: ["#2e2733", "#8a4526", "#2c3f7a", "#6e3563"], cloth: ["#2f8582", "#c9577a"] },
+];
 const NM_CHAR_INK = "#2a2330";
 //: The body's outline, in one place: a figure reads as designed when every
 //: part is drawn with the same line.
@@ -1381,6 +1407,14 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   }
   const own = nameMarkOwnFor(seed);
   if (own?.variant) h = (h ^ Math.imul(Number(own.variant), 0x2545f491)) >>> 0;
+  //: A finaliser before the xorshift: FNV of a short name alone is weakly
+  //: mixed, and measured over 26 everyday names it put 15 of them on two of
+  //: the eight colour pairs.
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b) >>> 0;
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35) >>> 0;
+  h = (h ^ (h >>> 16)) >>> 0 || 1;
   const rnd = () => {
     h ^= h << 13;
     h >>>= 0;
@@ -1393,13 +1427,20 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   const reading = nameMood(seed);
   const creature = reading.animal ? NAME_MARK_CREATURES[reading.animal] : null;
   const beast = creature && !creature.human ? creature : null;
+  //: **The small mark** (28px and under, `nameMark`): the face and at most
+  //: one cue that breaks the outline. A species' ears are its cue, so a
+  //: creature's hat goes; the freckles, earrings, stubble and the floating
+  //: extras (a "zz", a question mark, a heart) go too, since at that size
+  //: they are specks; and the line is thicker so the shape still holds.
+  const mini = mode === "mini";
+  const LW = mini ? 2.4 : NM_CHAR_LINE;
+  const worn = mini && beast ? reading.props.filter((p) => !NAME_MARK_HEAD_KINDS.includes(p)) : reading.props;
   const face = reading.mood ? NAME_MARK_FACES[reading.mood] || {} : {};
   const style = reading.style || {};
-  const palette = CATEGORY_DOT_COLOURS;
   const bias = reading.source !== "seed" && reading.mood ? NAME_MARK_MOOD_GROUNDS[reading.mood] : null;
   const colourRoll = rnd();
-  const colourIndex = bias ? bias[Math.floor(colourRoll * bias.length)] : Math.floor(colourRoll * palette.length);
-  const base = nmHex(creature && !creature.human ? creature.head : null) || palette[colourIndex];
+  const pair = NM_CHAR_PAIRS[bias ? bias[Math.floor(colourRoll * bias.length)] : Math.floor(colourRoll * NM_CHAR_PAIRS.length)];
+  const base = nmHex(creature && !creature.human ? creature.head : null) || pair.body;
   const light = nmMix(base, "#ffffff", 0.28);
   const shade = nmMix(base, "#000000", 0.16);
   const line = nmLineFor(base);
@@ -1411,11 +1452,11 @@ function drawCharacter(seed, size = 20, mode = "mark") {
 
   //: A head-only mark is cropped to the head and what stands on it; a tall
   //: hat, long ears or a horn widen the crop rather than lose their tops.
-  const tall = reading.props.some((p) => ["hat", "partyhat", "chefhat", "halo", "antenna", "crown"].includes(p))
+  const tall = worn.some((p) => ["hat", "partyhat", "chefhat", "halo", "antenna", "crown"].includes(p))
     || creature?.gnomeHat || creature?.unihorn || creature?.ears === "long" || creature?.antenna || creature?.flameCrest;
   const svg = make("svg", {
     class: `name-mark nm-char${reading.mood ? ` nm-${reading.mood}` : ""}`,
-    viewBox: full ? "0 0 64 92" : tall ? "-8 -21 80 80" : "-3 -9 70 70",
+    viewBox: full ? "0 0 64 92" : tall ? (mini ? "-6 -18 76 76" : "-8 -21 80 80") : mini ? "-1 -5 66 66" : "-3 -9 70 70",
     width: size,
     height: full ? Math.round((size * 92) / 64) : size,
     "aria-hidden": "true",
@@ -1436,11 +1477,11 @@ function drawCharacter(seed, size = 20, mode = "mark") {
 
   const outlined = (d, colour, width, parent, extra = {}) => {
     const g = make("g", extra, parent);
-    make("path", { d, fill: "none", stroke: line, "stroke-width": width + NM_CHAR_LINE * 2, "stroke-linecap": "round", "stroke-linejoin": "round" }, g);
+    make("path", { d, fill: "none", stroke: line, "stroke-width": width + LW * 2, "stroke-linecap": "round", "stroke-linejoin": "round" }, g);
     make("path", { d, fill: "none", stroke: colour, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round" }, g);
     return g;
   };
-  const shape = (tag, attrs, parent) => make(tag, { stroke: line, "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round", ...attrs }, parent);
+  const shape = (tag, attrs, parent) => make(tag, { stroke: line, "stroke-width": LW, "stroke-linejoin": "round", ...attrs }, parent);
 
   if (full) make("ellipse", { class: "nmc-shadow", cx: 32, cy: 90.5, rx: 16, ry: 2.4, fill: "#000000", "fill-opacity": 0.16 }, svg);
   const body = make("g", { class: "nm-body" }, svg);
@@ -1449,7 +1490,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   // --- behind the body: tail, wings, long hair, a mane, raised arms ---------
   const wing = reading.wing || creature?.wing || null;
   if (wing) {
-    const wingColour = { angel: "#ffffff", bird: nmMix(base, "#ffffff", 0.35), phoenix: "#f28e2c", dragon: nmMix(base, "#000000", 0.25), bat: "#4a3f55", fairy: "#cfe8ff", bee: "#e8f4ff", butterfly: palette[(colourIndex + 4) % palette.length] }[wing] || "#ffffff";
+    const wingColour = { angel: "#ffffff", bird: nmMix(base, "#ffffff", 0.35), phoenix: "#f28e2c", dragon: nmMix(base, "#000000", 0.25), bat: "#4a3f55", fairy: "#cfe8ff", bee: "#e8f4ff", butterfly: pair.cloth[0] }[wing] || "#ffffff";
     const soft = ["fairy", "bee"].includes(wing);
     for (const [side, sx] of [["l", -1], ["r", 1]]) {
       const w = make("g", { class: `nm-wing nm-wing-${side}` }, back);
@@ -1483,9 +1524,9 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       if (tail === "tuft") shape("circle", { cx: 60, cy: 55, r: 2.8, fill: creature?.mane && creature.mane !== "rainbow" ? creature.mane : line }, t);
     }
   }
-  const hairColour = creature?.hairTone || NM_CHAR_HAIR[(style.hairColour || 0) % NM_CHAR_HAIR.length];
+  const hairColour = creature?.hairTone || pair.hair[(style.hairColour || 0) % pair.hair.length];
   const hairLine = nmLineFor(hairColour);
-  const hairShape = (d, parent) => make("path", { d, fill: hairColour, stroke: hairLine, "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, parent);
+  const hairShape = (d, parent) => make("path", { d, fill: hairColour, stroke: hairLine, "stroke-width": LW, "stroke-linejoin": "round" }, parent);
   const hair = beast ? null : creature?.hairFixed || style.hair;
   if (hair === "long") hairShape("M3 30 C2 10 16 0 32 0 C48 0 62 10 61 30 L63 60 C58 65 53 63 51 58 L13 58 C11 63 6 65 1 60 Z", back);
   if (hair === "ponytail") hairShape("M54 10 C66 14 70 30 64 46 C62 40 60 30 54 22 Z", back);
@@ -1494,7 +1535,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     if (mane) {
       for (let i = 0; i < 12; i += 1) {
         const a = (Math.PI * 2 * i) / 12;
-        make("circle", { cx: 32 + Math.cos(a) * 27, cy: 28 + Math.sin(a) * 24, r: 8, fill: mane, stroke: nmMix(mane, "#000000", 0.45), "stroke-width": NM_CHAR_LINE }, back);
+        make("circle", { cx: 32 + Math.cos(a) * 27, cy: 28 + Math.sin(a) * 24, r: 8, fill: mane, stroke: nmMix(mane, "#000000", 0.45), "stroke-width": LW }, back);
       }
     } else {
       ["#e15759", "#f28e2c", "#edc949", "#59a14f", "#4e79a7"].forEach((c, i) => outlined(`M${40 + i * 3} ${2 + i * 2} C${54 + i * 2} ${8 + i * 3} ${60 + i} ${24 + i * 4} ${58 + i} ${40 + i * 3}`, c, 2.6, back));
@@ -1503,7 +1544,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   if (creature?.wool) {
     for (let i = 0; i < 9; i += 1) {
       const a = Math.PI + (Math.PI * i) / 8;
-      make("circle", { cx: 32 + Math.cos(a) * 25, cy: 26 + Math.sin(a) * 21, r: 7.5, fill: creature.wool, stroke: nmMix(creature.wool, "#000000", 0.35), "stroke-width": NM_CHAR_LINE }, back);
+      make("circle", { cx: 32 + Math.cos(a) * 25, cy: 26 + Math.sin(a) * 21, r: 7.5, fill: creature.wool, stroke: nmMix(creature.wool, "#000000", 0.35), "stroke-width": LW }, back);
     }
   }
   if (creature?.quills) {
@@ -1511,7 +1552,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       const a = Math.PI * 0.95 + (Math.PI * 1.1 * i) / 8;
       const x = 32 + Math.cos(a) * 26;
       const y = 32 + Math.sin(a) * 26;
-      make("path", { d: `M${x - 5} ${y} L${32 + Math.cos(a) * 36} ${32 + Math.sin(a) * 36} L${x + 5} ${y + 2} Z`, fill: creature.quills, stroke: nmMix(creature.quills, "#000000", 0.4), "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, back);
+      make("path", { d: `M${x - 5} ${y} L${32 + Math.cos(a) * 36} ${32 + Math.sin(a) * 36} L${x + 5} ${y + 2} Z`, fill: creature.quills, stroke: nmMix(creature.quills, "#000000", 0.4), "stroke-width": LW, "stroke-linejoin": "round" }, back);
     }
   }
   // Ears that stand above the head, behind it.
@@ -1575,12 +1616,11 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   //: People wear clothes on the lower half; creatures show a paler belly.
   const outfit = beast ? null : style.outfit;
   if (outfit) {
-    let cloth = NM_CHAR_CLOTHES[(style.outfitColour || 0) % NM_CHAR_CLOTHES.length];
+    let cloth = pair.cloth[(style.outfitColour || 0) % pair.cloth.length];
     if (outfit === "suit") cloth = "#33323a";
-    if (cloth.toLowerCase() === base.toLowerCase()) cloth = NM_CHAR_CLOTHES[((style.outfitColour || 0) + 3) % NM_CHAR_CLOTHES.length];
     const clothLine = nmLineFor(cloth);
     make("path", { d: "M0 52 C12 56 52 56 64 52 L64 92 L0 92 Z", fill: cloth }, clip);
-    make("path", { d: "M0 52 C12 56 52 56 64 52", fill: "none", stroke: clothLine, "stroke-width": NM_CHAR_LINE }, clip);
+    make("path", { d: "M0 52 C12 56 52 56 64 52", fill: "none", stroke: clothLine, "stroke-width": LW }, clip);
     if (outfit === "collar" || outfit === "suit" || outfit === "blazer") {
       make("path", { d: "M24 54 L32 66 L40 54 Z", fill: "#ffffff", stroke: clothLine, "stroke-width": 1 }, clip);
       if (outfit !== "blazer") make("path", { d: "M32 57 L30 61 L32 70 L34 61 Z", fill: "#e2574c", stroke: "#8e2a24", "stroke-width": 0.8 }, clip);
@@ -1621,26 +1661,30 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   if (beast?.gills) for (const sx of [-1, 1]) for (const dy of [-5, 0, 5]) outlined(`M${32 + sx * 26} ${30 + dy} L${32 + sx * 34} ${27 + dy * 1.6}`, beast.gills, 2.4, torso);
   // The front hair.
   const fringe = {
-    short: "M5 30 C4 12 18 2 32 2 C46 2 60 12 59 30 C55 22 48 17 40 16 C36 20 29 20 24 17 C16 18 10 23 5 30 Z",
+    short: "M6 25 C4 11 16 1 32 1 C48 1 60 11 58 25 C55 22 53 20 50 19 C42 21 30 19 21 13 C17 18 11 21 6 25 Z",
     long: "M5 32 C4 12 18 1 32 1 C46 1 60 12 59 32 C56 24 50 18 42 16 C38 21 26 21 22 16 C14 18 8 24 5 32 Z",
     bob: "M3 42 C1 14 16 1 32 1 C48 1 63 14 61 42 C58 45 55 44 54 41 L55 28 C50 20 42 16 33 17 C24 16 15 20 9 28 L10 41 C9 44 6 45 3 42 Z",
     buzz: "M7 22 C10 8 22 3 32 3 C42 3 54 8 57 22 C48 14 16 14 7 22 Z",
     spiky: "M5 28 L4 14 L11 17 L12 4 L20 10 L25 -2 L31 7 L37 -3 L42 7 L49 2 L51 12 L58 8 L57 18 L60 17 L59 28 C52 20 42 17 32 18 C22 17 12 21 5 28 Z",
-    quiff: "M5 30 C4 14 14 4 26 3 C29 -6 45 -7 51 2 C57 7 60 16 59 30 C52 21 42 16 30 18 C20 17 11 22 5 30 Z",
+    quiff: "M6 25 C4 12 13 4 22 3 C26 -4 40 -6 47 -1 C54 3 60 12 58 25 C55 21 51 18 46 17 C40 20 31 20 25 16 C17 17 11 21 6 25 Z",
     curly: "M5 30 C4 12 18 2 32 2 C46 2 60 12 59 30 C55 22 48 18 40 17 C36 20 28 20 24 17 C16 18 10 23 5 30 Z",
     pigtails: "M5 30 C4 12 18 2 32 2 C46 2 60 12 59 30 C55 22 46 17 32 18 C18 17 9 22 5 30 Z",
     buns: "M5 30 C4 12 18 2 32 2 C46 2 60 12 59 30 C55 22 46 17 32 18 C18 17 9 22 5 30 Z",
     ponytail: "M5 30 C4 12 18 2 32 2 C46 2 60 12 59 30 C54 21 44 15 30 17 C20 18 10 22 5 30 Z",
   };
   if (hair && fringe[hair]) {
-    if (hair === "curly") for (const [x, y] of [[10, 16], [18, 7], [28, 3], [38, 3], [48, 7], [55, 16]]) make("circle", { cx: x, cy: y, r: 6.5, fill: hairColour, stroke: hairLine, "stroke-width": NM_CHAR_LINE }, torso);
-    if (hair === "buns") for (const x of [13, 51]) make("circle", { cx: x, cy: 5, r: 7, fill: hairColour, stroke: hairLine, "stroke-width": NM_CHAR_LINE }, torso);
-    if (hair === "pigtails") for (const sx of [-1, 1]) make("ellipse", { cx: 32 + sx * 30, cy: 38, rx: 5.5, ry: 10, transform: `rotate(${sx * -14} ${32 + sx * 30} 38)`, fill: hairColour, stroke: hairLine, "stroke-width": NM_CHAR_LINE, class: "nm-tails" }, torso);
+    if (hair === "curly") for (const [x, y] of [[10, 16], [18, 7], [28, 3], [38, 3], [48, 7], [55, 16]]) make("circle", { cx: x, cy: y, r: 6.5, fill: hairColour, stroke: hairLine, "stroke-width": LW }, torso);
+    //: One bun on the crown: two at the sides read as a bear's ears.
+    if (hair === "buns") make("circle", { cx: 32, cy: -3, r: 7.5, fill: hairColour, stroke: hairLine, "stroke-width": LW }, torso);
+    if (hair === "pigtails") for (const sx of [-1, 1]) make("ellipse", { cx: 32 + sx * 30, cy: 38, rx: 5.5, ry: 10, transform: `rotate(${sx * -14} ${32 + sx * 30} 38)`, fill: hairColour, stroke: hairLine, "stroke-width": LW, class: "nm-tails" }, torso);
     hairShape(fringe[hair], torso);
-    if (hair === "pigtails") for (const sx of [-1, 1]) make("circle", { cx: 32 + sx * 28, cy: 28, r: 2.4, fill: "#e36fa6" }, torso);
+    if (hair === "pigtails") for (const sx of [-1, 1]) make("circle", { cx: 32 + sx * 28, cy: 28, r: 2.4, fill: pair.cloth[0] }, torso);
+    if (hair === "buns") make("ellipse", { cx: 32, cy: 3.2, rx: 4.2, ry: 1.7, fill: pair.cloth[0], stroke: nmLineFor(pair.cloth[0]), "stroke-width": 0.8 }, torso);
   }
   if (creature?.snakeHair) for (const x of [14, 24, 34, 44, 52]) outlined(`M${x} 10 C${x - 4} 2 ${x + 4} -2 ${x} -8`, creature.snakeHair, 3, torso);
   if (creature?.topknot) shape("circle", { cx: 32, cy: 0, r: 6, fill: creature.topknot }, torso);
+  //: A soft sheen on the crown, top left, the gloss Atlas's gel has.
+  if (!creature?.wool && !creature?.mane) make("path", { class: "nmc-sheen", d: "M12 14 Q16 6 25 4", fill: "none", stroke: "#ffffff", "stroke-opacity": hair ? 0.32 : 0.55, "stroke-width": 2.2, "stroke-linecap": "round" }, torso);
 
   // --- the face ---------------------------------------------------------------------
   const head = make("g", { class: "nm-buddy-head" }, body);
@@ -1692,7 +1736,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     if (s === "squeeze") stroke(`M${x + out * 3} ${y - 3} L${x - out * 3} ${y} L${x + out * 3} ${y + 3}`, eye, 2, lidInk);
     else if (s === "happy" || s === "content") stroke(`M${x - 3.6} ${y + 1.2} Q${x} ${y - (s === "content" ? 2 : 3.6)} ${x + 3.6} ${y + 1.2}`, eye, 2, lidInk);
     else if (s === "closed") stroke(`M${x - 3.6} ${y - 0.6} Q${x} ${y + 3} ${x + 3.6} ${y - 0.6}`, eye, 2, lidInk);
-    else if (s === "beady" && !beast?.patches) pupil(2.4, 0, 0);
+    else if (s === "beady" && !beast?.patches) pupil(2.8, 0, 0);
     else if (s === "heart") heart(x, y, 4.2 * k, "#e8364f", eye);
     else if (s === "star") star(x, y, 5 * k, "#f5c518", eye);
     else if (s === "x") stroke(`M${x - 3} ${y - 3} L${x + 3} ${y + 3} M${x + 3} ${y - 3} L${x - 3} ${y + 3}`, eye, 2);
@@ -1726,11 +1770,23 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     } else if (s === "mismatch") {
       white(index ? 3.4 : 5, index ? 3.8 : 5.6);
       pupil(index ? 1.6 : 2.4);
-    } else {
+    } else if (beast?.patches || nmLuma(base) < 0.12) {
+      //: On a dark patch or a dark coat a dark iris would vanish: whites.
       const big = s === "sparkle" || s === "glossy";
       white(big ? 5 : 4.4, big ? 5.8 : 5.2);
       pupil(big ? 3 : 2.5);
       if (big) make("circle", { cx: x - 1.2 * k, cy: y + 2 * k, r: 0.7 * k, fill: "#ffffff" }, eye);
+    } else {
+      //: The default eye, in Atlas's family: a big dark iris, lighter at
+      //: its foot, with a large catchlight and a small one. Whites around a
+      //: small pupil read as startled at every size.
+      const big = s === "sparkle" || s === "glossy";
+      const rx = (big ? 3.7 : 3.2) * k;
+      const ry = (big ? 4.5 : 4) * k;
+      make("ellipse", { cx: x, cy: y + 0.4, rx, ry, fill: NM_CHAR_INK }, eye);
+      make("ellipse", { cx: x, cy: y + 0.4 + ry * 0.5, rx: rx * 0.66, ry: ry * 0.34, fill: "#6d5a86", "fill-opacity": 0.9 }, eye);
+      make("circle", { cx: x + rx * 0.32, cy: y - ry * 0.32, r: (big ? 1.6 : 1.3) * k, fill: "#ffffff" }, eye);
+      make("circle", { cx: x - rx * 0.42, cy: y + ry * 0.42, r: 0.65 * k, fill: "#ffffff" }, eye);
     }
     if (style.features?.includes("lashes") && !["x", "spiral", "heart", "star", "dollar"].includes(s)) {
       stroke(`M${x + (index === 0 ? -4 : 4)} ${y - 3} L${x + (index === 0 ? -6 : 6)} ${y - 5}`, eye, 1.2);
@@ -1753,15 +1809,15 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   const flushed = face.extras?.includes("blush") || style.features?.includes("blush") || reading.flavours?.includes("blush");
   const cheek = face.extras?.includes("greenblush") ? "#7fbf6a" : "#ff6f91";
   for (const sx of [-1, 1]) make("ellipse", { cx: 32 + sx * 16, cy: eyeY + 7.5, rx: 3.8, ry: 2.3, fill: cheek, "fill-opacity": flushed ? 0.55 : 0.28 }, head);
-  if (style.features?.includes("freckles")) for (const sx of [-1, 1]) for (const [dx, dy] of [[0, 0], [2.4, 1], [-2, 1.4]]) make("circle", { cx: 32 + sx * 16 + dx, cy: eyeY + 6 + dy, r: 0.55, fill: nmMix(base, "#000000", 0.4) }, head);
-  if (style.features?.includes("mole")) make("circle", { cx: 41, cy: eyeY + 13, r: 0.8, fill: NM_CHAR_INK }, head);
+  if (!mini && style.features?.includes("freckles")) for (const sx of [-1, 1]) for (const [dx, dy] of [[0, 0], [2.4, 1], [-2, 1.4]]) make("circle", { cx: 32 + sx * 16 + dx, cy: eyeY + 6 + dy, r: 0.55, fill: nmMix(base, "#000000", 0.4) }, head);
+  if (!mini && style.features?.includes("mole")) make("circle", { cx: 41, cy: eyeY + 13, r: 0.8, fill: NM_CHAR_INK }, head);
   if (beast?.whiskers) for (const sx of [-1, 1]) for (const dy of [-1.5, 1.5]) stroke(`M${32 + sx * 12} ${40 + dy} L${32 + sx * 20} ${39 + dy * 2}`, head, 0.8, line);
   // Nose, beak or bill.
   if (beast?.beak) shape("path", { d: "M27.5 36 L32 33.5 L36.5 36 L32 41 Z", fill: beast.beak }, head);
   else if (beast?.bill) shape("path", { d: "M25 37 C25 34 39 34 39 37 C39 41 25 41 25 37 Z", fill: beast.bill }, head);
   else if (beast?.muzzle || beast?.nose || creature?.nose || creature?.bigNose) make("ellipse", { cx: 32, cy: 36.5, rx: creature?.bigNose ? 3.6 : 2.4, ry: creature?.bigNose ? 2.8 : 1.7, fill: creature?.bigNose ? nmMix(base, "#000000", 0.2) : NM_CHAR_INK }, head);
   else if (style.nose === "button") make("ellipse", { cx: 32, cy: 36.5, rx: 1.6, ry: 1.2, fill: nmMix(base, "#000000", 0.25) }, head);
-  if (reading.props.includes("rednose")) shape("circle", { cx: 32, cy: 36.5, r: 3.4, fill: "#e8364f" }, head);
+  if (worn.includes("rednose")) shape("circle", { cx: 32, cy: 36.5, r: 3.4, fill: "#e8364f" }, head);
   // The mouth.
   const my = beast?.beak || beast?.bill ? 44 : eyeY + 11;
   let mouth = face.mouth || { smile: "smile", grin: "grin", toothy: "toothy", lopsided: "lopsided", bigD: "grin", buck: "buck", gap: "gap", cat3: "cat" }[style.smile] || "smile";
@@ -1775,6 +1831,11 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   if (mouth === "smile") stroke(`M27 ${my - 1} Q32 ${my + 3.4} 37 ${my - 1}`, head);
   else if (mouth === "lopsided") stroke(`M27 ${my} Q33 ${my + 3} 37.5 ${my - 2}`, head);
   else if (mouth === "smirk") stroke(`M28 ${my + 0.5} Q33 ${my + 1.8} 37 ${my - 1.8}`, head);
+  else if (mouth === "yum") {
+    //: A smile licking its lip: the tip of a tongue at one corner.
+    stroke(`M27 ${my - 1} Q32 ${my + 3.4} 37 ${my - 1}`, head);
+    make("ellipse", { cx: 35.6, cy: my + 1.6, rx: 1.9, ry: 1.6, fill: "#ff7a95", stroke: NM_CHAR_INK, "stroke-width": 0.9 }, head);
+  }
   else if (mouth === "frown") stroke(`M27.5 ${my + 1.6} Q32 ${my - 2} 36.5 ${my + 1.6}`, head);
   else if (mouth === "flat") stroke(`M28 ${my} L36 ${my}`, head);
   else if (mouth === "wavy") stroke(`M26.5 ${my} Q28.5 ${my - 1.8} 30.5 ${my} Q32.5 ${my + 1.8} 34.5 ${my} Q36.5 ${my - 1.8} 38 ${my}`, head, 1.5);
@@ -1788,21 +1849,26 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     if (mouth === "toothy" || mouth === "teeth") make("path", { d: `M26.6 ${my - 1.1} Q32 ${my - 0.2} 37.4 ${my - 1.1} L37 ${my + 1} Q32 ${my + 1.6} 27 ${my + 1} Z`, fill: "#ffffff" }, head);
     if (mouth === "buck") make("rect", { x: 29.8, y: my - 1, width: 4.4, height: 2.8, rx: 0.6, fill: "#ffffff", stroke: NM_CHAR_INK, "stroke-width": 0.6 }, head);
     if (mouth === "gap") for (const x of [28.4, 33.2]) make("rect", { x, y: my - 1, width: 2.4, height: 2.2, rx: 0.4, fill: "#ffffff" }, head);
-    if (mouth === "evil" || reading.props.includes("fangs") || creature?.tusks) for (const x of [28.6, 35.4]) make("path", { d: `M${x - 1.3} ${my - 1} L${x} ${my + 2.4} L${x + 1.3} ${my - 1} Z`, fill: "#ffffff" }, head);
+    if (mouth === "evil" || worn.includes("fangs") || creature?.tusks) for (const x of [28.6, 35.4]) make("path", { d: `M${x - 1.3} ${my - 1} L${x} ${my + 2.4} L${x + 1.3} ${my - 1} Z`, fill: "#ffffff" }, head);
     if (mouth === "tongue") shape("ellipse", { cx: 33, cy: my + 6.6, rx: 2.6, ry: 2.6, fill: "#ff7a95", "stroke-width": 1 }, head);
   }
   if (style.accessories?.includes("lipstick")) make("path", { d: `M27 ${my - 1} Q32 ${my + 1.5} 37 ${my - 1}`, fill: "none", stroke: "#d6336c", "stroke-width": 1.2, "stroke-linecap": "round" }, head);
-  if (style.accessories?.includes("stubble")) for (const [dx, dy] of [[-4, 4], [-1, 5], [2, 5], [5, 4], [-6, 2], [7, 2]]) make("circle", { cx: 32 + dx, cy: my + dy, r: 0.45, fill: nmMix(base, "#000000", 0.45) }, head);
-  if (style.accessories?.includes("beard") || reading.props.includes("beard") || creature?.beard) {
+  if (!mini && style.accessories?.includes("stubble")) for (const [dx, dy] of [[-4, 4], [-1, 5], [2, 5], [5, 4], [-6, 2], [7, 2]]) make("circle", { cx: 32 + dx, cy: my + dy, r: 0.45, fill: nmMix(base, "#000000", 0.45) }, head);
+  if (style.accessories?.includes("beard") || worn.includes("beard") || creature?.beard) {
     const beard = creature?.beard || hairColour;
-    make("path", { d: `M12 ${my + 1.5} C13 ${my + 19} 51 ${my + 19} 52 ${my + 1.5} C45 ${my + 6} 38 ${my + 5} 32 ${my + 7} C26 ${my + 5} 19 ${my + 6} 12 ${my + 1.5} Z`, fill: beard, stroke: nmMix(beard, "#000000", 0.4), "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, head);
+    make("path", { d: `M12 ${my + 1.5} C13 ${my + 19} 51 ${my + 19} 52 ${my + 1.5} C45 ${my + 6} 38 ${my + 5} 32 ${my + 7} C26 ${my + 5} 19 ${my + 6} 12 ${my + 1.5} Z`, fill: beard, stroke: nmMix(beard, "#000000", 0.4), "stroke-width": LW, "stroke-linejoin": "round" }, head);
   }
-  if (reading.props.includes("moustache") || style.accessories?.includes("moustache")) make("path", { d: `M32 ${my - 2.4} C29 ${my - 4.6} 24 ${my - 3.6} 23.5 ${my - 0.6} C26 ${my - 2} 29 ${my - 1} 32 ${my - 1.2} C35 ${my - 1} 38 ${my - 2} 40.5 ${my - 0.6} C40 ${my - 3.6} 35 ${my - 4.6} 32 ${my - 2.4} Z`, fill: hairColour === base ? "#2b2a33" : hairColour }, head);
-  if (style.accessories?.includes("earrings") || creature?.earrings) for (const sx of [-1, 1]) make("circle", { cx: 32 + sx * 27, cy: 38, r: 1.6, fill: "#f5c518", stroke: "#8a6d00", "stroke-width": 0.6 }, head);
+  if (worn.includes("moustache") || style.accessories?.includes("moustache")) make("path", { d: `M32 ${my - 2.4} C29 ${my - 4.6} 24 ${my - 3.6} 23.5 ${my - 0.6} C26 ${my - 2} 29 ${my - 1} 32 ${my - 1.2} C35 ${my - 1} 38 ${my - 2} 40.5 ${my - 0.6} C40 ${my - 3.6} 35 ${my - 4.6} 32 ${my - 2.4} Z`, fill: hairColour === base ? "#2b2a33" : hairColour }, head);
+  if (!mini && (style.accessories?.includes("earrings") || creature?.earrings)) for (const sx of [-1, 1]) make("circle", { cx: 32 + sx * 27, cy: 38, r: 1.6, fill: "#f5c518", stroke: "#8a6d00", "stroke-width": 0.6 }, head);
 
   // --- the extras a mood brings ----------------------------------------------------
-  const extras = [...(face.extras || []), ...(reading.intense ? face.louder || [] : [])];
-  if (reading.flavours?.includes("doomed")) extras.push("sweat");
+  const extras = [...(face.extras || []), ...(reading.intense ? face.louder || [] : [])].filter((extra) => !mini || ["tear", "tear2", "blush"].includes(extra));
+  if (!mini && reading.flavours?.includes("doomed")) extras.push("sweat");
+  //: The extras that float above the head's right move down beside it
+  //: when something sits on the head, so a "zz" never lands on a crown.
+  const hatted = worn.some((p) => NAME_MARK_HEAD_KINDS.includes(p)) || style.accessories?.some((bit) => NAME_MARK_HEAD_KINDS.includes(bit)) || creature?.gnomeHat;
+  const fx = hatted ? 6 : 0;
+  const fy = hatted ? 14 : 0;
   const drop = (x, y, cls) => make("path", { class: cls, d: `M${x} ${y - 3.2} C${x + 2.4} ${y} ${x + 2.4} ${y + 2.4} ${x} ${y + 2.4} C${x - 2.4} ${y + 2.4} ${x - 2.4} ${y} ${x} ${y - 3.2} Z`, fill: "#7cc4f0", stroke: "#3d86b8", "stroke-width": 0.7 }, head);
   if (extras.includes("tear")) drop(32 - spread - 1, eyeY + 7, "nm-tear");
   if (extras.includes("tear2")) drop(32 + spread + 1, eyeY + 7, "nm-tear nm-tear-late");
@@ -1810,14 +1876,14 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   if (extras.includes("sweat2")) drop(12, 18, "nm-sweat");
   if (extras.includes("zz")) {
     const z = make("g", { class: "nm-z" }, head);
-    stroke("M50 4 L55 4 L50 9 L55 9", z, 1.3);
+    stroke(`M${50 + fx} ${4 + fy} L${55 + fx} ${4 + fy} L${50 + fx} ${9 + fy} L${55 + fx} ${9 + fy}`, z, 1.3);
   }
-  if (extras.includes("heart")) heart(54, 6, 3.4, "#e8364f", head, "nm-heart");
-  if (extras.includes("spark")) star(55, 7, 4, "#f5c518", head, "nm-spark");
+  if (extras.includes("heart")) heart(54 + fx, 6 + fy, 3.4, "#e8364f", head, "nm-heart");
+  if (extras.includes("spark")) star(55 + fx, 7 + fy, 4, "#f5c518", head, "nm-spark");
   if (extras.includes("question")) {
     const q = make("g", { class: "nm-q" }, head);
-    stroke("M52 3 C52 -1 58 -1 58 3 C58 6 55 6 55 9", q, 1.6);
-    make("circle", { cx: 55, cy: 12, r: 0.9, fill: NM_CHAR_INK }, q);
+    stroke(`M${52 + fx} ${3 + fy} C${52 + fx} ${-1 + fy} ${58 + fx} ${-1 + fy} ${58 + fx} ${3 + fy} C${58 + fx} ${6 + fy} ${55 + fx} ${6 + fy} ${55 + fx} ${9 + fy}`, q, 1.6);
+    make("circle", { cx: 55 + fx, cy: 12 + fy, r: 0.9, fill: NM_CHAR_INK }, q);
   }
   if (extras.includes("vein")) stroke("M47 11 L50 14 M50 11 L47 14 M49 9 L49 11 M52 12 L50 12", make("g", { class: "nm-vein" }, head), 1.2, "#e8364f");
   if (extras.includes("glint") || extras.includes("glint2")) star(38, my + 1, 1.8, "#ffffff", head, "nm-spark");
@@ -1831,7 +1897,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
 
   // --- what it wears on its head and face --------------------------------------------
   const top = make("g", { class: "nmc-top" }, body);
-  const props = reading.props;
+  const props = worn;
   const eyewear = props.find((p) => NAME_MARK_EYEWEAR_KINDS.includes(p)) || (eyeStyle === "shades" ? "shades" : null);
   if (eyewear && eyes.length === 2) {
     const [lx, ly] = eyes[0];
@@ -1866,14 +1932,14 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     make("ellipse", { cx: x, cy: y, rx: 5.6, ry: 5, fill: "#1c1b22" }, top);
   }
   if (props.includes("ninjamask")) {
-    make("path", { d: `M6 ${my - 5} C12 ${my - 7} 52 ${my - 7} 58 ${my - 5} L56 ${my + 12} C44 ${my + 18} 20 ${my + 18} 8 ${my + 12} Z`, fill: "#2b2a33", stroke: nmLineFor("#2b2a33"), "stroke-width": NM_CHAR_LINE }, top);
+    make("path", { d: `M6 ${my - 5} C12 ${my - 7} 52 ${my - 7} 58 ${my - 5} L56 ${my + 12} C44 ${my + 18} 20 ${my + 18} 8 ${my + 12} Z`, fill: "#2b2a33", stroke: nmLineFor("#2b2a33"), "stroke-width": LW }, top);
     make("path", { d: "M6 14 C16 10 48 10 58 14 L58 19 C48 16 16 16 6 19 Z", fill: "#2b2a33" }, top);
   }
   const headwear = props.find((p) => NAME_MARK_HAT_KINDS.includes(p) || ["halo", "horns", "antenna", "headphones", "helmet"].includes(p));
   const gold = "#f5c518";
   const goldLine = "#9a7300";
   if (props.includes("halo")) make("ellipse", { cx: 32, cy: -6, rx: 14, ry: 3.6, fill: "none", stroke: gold, "stroke-width": 2.4 }, top);
-  if (props.includes("horns")) for (const sx of [-1, 1]) make("path", { d: `M${32 + sx * 14} 8 C${32 + sx * 16} 0 ${32 + sx * 20} -3 ${32 + sx * 22} -5 C${32 + sx * 22} 2 ${32 + sx * 21} 6 ${32 + sx * 19} 10 Z`, fill: "#c0392b", stroke: "#6e1f17", "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, top);
+  if (props.includes("horns")) for (const sx of [-1, 1]) make("path", { d: `M${32 + sx * 14} 8 C${32 + sx * 16} 0 ${32 + sx * 20} -3 ${32 + sx * 22} -5 C${32 + sx * 22} 2 ${32 + sx * 21} 6 ${32 + sx * 19} 10 Z`, fill: "#c0392b", stroke: "#6e1f17", "stroke-width": LW, "stroke-linejoin": "round" }, top);
   if (props.includes("antenna") || beast?.antenna) {
     stroke("M32 5 L32 -8", top, 1.6, line);
     make("circle", { cx: 32, cy: -9, r: 3, fill: "#e8364f", stroke: "#7d1426", "stroke-width": 1 }, top);
@@ -1883,9 +1949,9 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     make("circle", { cx: 32 + sx * 14, cy: -6, r: 2, fill: "#2b2a28" }, top);
   }
   if (beast?.smallHorns || beast?.unihorn || beast?.bullHorns || beast?.antlers) {
-    if (beast.unihorn) make("path", { d: "M28 6 L32 -14 L36 6 Z", fill: gold, stroke: goldLine, "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, top);
-    if (beast.smallHorns) for (const sx of [-1, 1]) make("path", { d: `M${32 + sx * 10} 7 L${32 + sx * 13} -2 L${32 + sx * 16} 8 Z`, fill: beast.smallHorns, stroke: nmMix(beast.smallHorns, "#000000", 0.4), "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, top);
-    if (beast.bullHorns) for (const sx of [-1, 1]) make("path", { d: `M${32 + sx * 20} 12 C${32 + sx * 30} 10 ${32 + sx * 32} 0 ${32 + sx * 28} -6 C${32 + sx * 28} 2 ${32 + sx * 24} 6 ${32 + sx * 18} 7 Z`, fill: "#e8dcc0", stroke: "#7a6a48", "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, top);
+    if (beast.unihorn) make("path", { d: "M28 6 L32 -14 L36 6 Z", fill: gold, stroke: goldLine, "stroke-width": LW, "stroke-linejoin": "round" }, top);
+    if (beast.smallHorns) for (const sx of [-1, 1]) make("path", { d: `M${32 + sx * 10} 7 L${32 + sx * 13} -2 L${32 + sx * 16} 8 Z`, fill: beast.smallHorns, stroke: nmMix(beast.smallHorns, "#000000", 0.4), "stroke-width": LW, "stroke-linejoin": "round" }, top);
+    if (beast.bullHorns) for (const sx of [-1, 1]) make("path", { d: `M${32 + sx * 20} 12 C${32 + sx * 30} 10 ${32 + sx * 32} 0 ${32 + sx * 28} -6 C${32 + sx * 28} 2 ${32 + sx * 24} 6 ${32 + sx * 18} 7 Z`, fill: "#e8dcc0", stroke: "#7a6a48", "stroke-width": LW, "stroke-linejoin": "round" }, top);
     if (beast.antlers) for (const sx of [-1, 1]) stroke(`M${32 + sx * 10} 6 L${32 + sx * 14} -8 M${32 + sx * 12.5} -3 L${32 + sx * 19} -6 M${32 + sx * 13.6} -6 L${32 + sx * 10} -12`, top, 2.4, beast.antlers);
   }
   if (beast?.tuft) outlined("M30 5 C28 -2 34 -3 32 -7", base, 2.4, top);
@@ -1893,22 +1959,22 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   if (creature?.gnomeHat || headwear) {
     const kind = creature?.gnomeHat ? "gnome" : headwear;
     const hat = make("g", { class: "nm-hat" }, top);
-    const hatColour = palette[(colourIndex + 5) % palette.length];
+    const hatColour = pair.cloth[((style.outfitColour || 0) + 1) % pair.cloth.length];
     const hatLine = nmLineFor(hatColour);
-    const fill = (d, colour = hatColour, lineColour = hatLine) => make("path", { d, fill: colour, stroke: lineColour, "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, hat);
+    const fill = (d, colour = hatColour, lineColour = hatLine) => make("path", { d, fill: colour, stroke: lineColour, "stroke-width": LW, "stroke-linejoin": "round" }, hat);
     if (kind === "hat") {
       fill("M18 8 C24 -4 30 -18 40 -22 C36 -12 44 -2 48 8 Z", "#5b4bb5", "#2d2366");
-      make("ellipse", { cx: 32, cy: 8, rx: 24, ry: 4.4, fill: "#5b4bb5", stroke: "#2d2366", "stroke-width": NM_CHAR_LINE }, hat);
+      make("ellipse", { cx: 32, cy: 8, rx: 24, ry: 4.4, fill: "#5b4bb5", stroke: "#2d2366", "stroke-width": LW }, hat);
       star(31, -2, 2.4, gold, hat);
       star(38, -10, 1.6, gold, hat);
     } else if (kind === "gnome") {
       fill("M12 12 C18 0 28 -20 38 -24 C36 -12 46 0 52 12 Z", "#e2574c", "#7d231c");
     } else if (kind === "chefhat") {
-      for (const [x, y] of [[20, -4], [32, -9], [44, -4]]) make("circle", { cx: x, cy: y, r: 8, fill: "#ffffff", stroke: "#9aa0a6", "stroke-width": NM_CHAR_LINE }, hat);
+      for (const [x, y] of [[20, -4], [32, -9], [44, -4]]) make("circle", { cx: x, cy: y, r: 8, fill: "#ffffff", stroke: "#9aa0a6", "stroke-width": LW }, hat);
       fill("M16 -2 L48 -2 L47 9 C38 7 26 7 17 9 Z", "#ffffff", "#9aa0a6");
     } else if (kind === "cowboy") {
       fill("M20 6 C20 -6 26 -8 32 -4 C38 -8 44 -6 44 6 Z", "#a0714f", "#4a3020");
-      make("path", { d: "M2 8 C10 14 54 14 62 8 C58 4 50 7 32 7 C14 7 6 4 2 8 Z", fill: "#a0714f", stroke: "#4a3020", "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, hat);
+      make("path", { d: "M2 8 C10 14 54 14 62 8 C58 4 50 7 32 7 C14 7 6 4 2 8 Z", fill: "#a0714f", stroke: "#4a3020", "stroke-width": LW, "stroke-linejoin": "round" }, hat);
       make("path", { d: "M20 4 L44 4", stroke: "#4a3020", "stroke-width": 2 }, hat);
     } else if (kind === "partyhat") {
       fill("M22 8 L33 -18 L44 8 Z", "#e36fa6", "#7a1f4f");
@@ -1925,12 +1991,12 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       make("circle", { cx: 32, cy: 1, r: 2.4, fill: "#f5f4ef" }, hat);
     } else if (kind === "cap") {
       fill("M9 12 C9 -2 20 -6 32 -6 C44 -6 55 -2 55 12 Z");
-      make("path", { d: "M40 10 C50 8 62 10 66 14 C58 16 46 14 40 12 Z", fill: hatColour, stroke: hatLine, "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, hat);
+      make("path", { d: "M40 10 C50 8 62 10 66 14 C58 16 46 14 40 12 Z", fill: hatColour, stroke: hatLine, "stroke-width": LW, "stroke-linejoin": "round" }, hat);
       make("circle", { cx: 32, cy: -6, r: 1.6, fill: hatLine }, hat);
     } else if (kind === "beanie") {
       fill("M8 13 C8 -4 20 -8 32 -8 C44 -8 56 -4 56 13 Z");
-      make("rect", { x: 7, y: 8, width: 50, height: 7, rx: 3.5, fill: nmMix(hatColour, "#ffffff", 0.3), stroke: hatLine, "stroke-width": NM_CHAR_LINE }, hat);
-      make("circle", { cx: 32, cy: -10, r: 4, fill: "#f5f4ef", stroke: "#9aa0a6", "stroke-width": NM_CHAR_LINE }, hat);
+      make("rect", { x: 7, y: 8, width: 50, height: 7, rx: 3.5, fill: nmMix(hatColour, "#ffffff", 0.3), stroke: hatLine, "stroke-width": LW }, hat);
+      make("circle", { cx: 32, cy: -10, r: 4, fill: "#f5f4ef", stroke: "#9aa0a6", "stroke-width": LW }, hat);
     } else if (kind === "flowercrown") {
       for (const [x, y, c] of [[12, 12, "#e36fa6"], [21, 5, "#f5c518"], [32, 3, "#ffffff"], [43, 5, "#e36fa6"], [52, 12, "#f5c518"]]) {
         for (let i = 0; i < 5; i += 1) {
@@ -1941,11 +2007,12 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       }
     } else if (kind === "bandana" || kind === "headband") {
       const band = kind === "bandana" ? "#e2574c" : "#e8364f";
-      make("path", { d: "M5 20 C14 13 50 13 59 20 L59 26 C50 19 14 19 5 26 Z", fill: band, stroke: nmMix(band, "#000000", 0.4), "stroke-width": NM_CHAR_LINE }, hat);
-      make("path", { d: "M58 20 L66 16 L64 24 Z M58 23 L67 27 L60 29 Z", fill: band, stroke: nmMix(band, "#000000", 0.4), "stroke-width": 1 }, hat);
+      //: Across the forehead, clear of the brows (at 21.5) and the eyes.
+      make("path", { d: "M5 16 C14 9 50 9 59 16 L59 21 C50 14 14 14 5 21 Z", fill: band, stroke: nmMix(band, "#000000", 0.4), "stroke-width": LW }, hat);
+      make("path", { d: "M58 16 L66 12 L64 20 Z M58 19 L67 23 L60 25 Z", fill: band, stroke: nmMix(band, "#000000", 0.4), "stroke-width": 1 }, hat);
     } else if (kind === "headphones") {
       make("path", { d: "M8 30 C6 6 58 6 56 30", fill: "none", stroke: "#2b2a33", "stroke-width": 3 }, hat);
-      for (const x of [4, 60]) make("rect", { x: x - 4, y: 24, width: 8, height: 13, rx: 4, fill: "#e2574c", stroke: "#2b2a33", "stroke-width": NM_CHAR_LINE }, hat);
+      for (const x of [4, 60]) make("rect", { x: x - 4, y: 24, width: 8, height: 13, rx: 4, fill: "#e2574c", stroke: "#2b2a33", "stroke-width": LW }, hat);
     } else if (kind === "helmet") {
       make("circle", { cx: 32, cy: 28, r: 32, fill: "#cfe8ff", "fill-opacity": 0.22, stroke: "#9aa0a6", "stroke-width": 2 }, hat);
       stroke("M12 12 Q18 6 24 5", hat, 1.6, "#ffffff");
@@ -1955,6 +2022,11 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     const g = make("g", { class: "nm-bow" }, top);
     make("path", { d: "M44 4 L38 0 L38 8 Z M44 4 L50 0 L50 8 Z", fill: "#e36fa6", stroke: "#7a1f4f", "stroke-width": 1, "stroke-linejoin": "round" }, g);
     make("circle", { cx: 44, cy: 4, r: 1.6, fill: "#e36fa6", stroke: "#7a1f4f", "stroke-width": 0.8 }, g);
+  }
+  if (props.includes("sushiclip")) {
+    //: Sushi in the hair: the same nigiri, small, pinned at the crown's
+    //: right, where a bow would sit.
+    nameMarkSushi(make, shape, make("g", { class: "nm-clip", transform: "translate(47 7) rotate(-24) scale(0.66)" }, top));
   }
   if (style.accessories?.includes("flowerclip")) {
     for (let i = 0; i < 5; i += 1) make("circle", { cx: 14 + Math.cos(i * 1.26) * 2.2, cy: 12 + Math.sin(i * 1.26) * 2.2, r: 1.8, fill: "#ffffff", stroke: "#c9c3b8", "stroke-width": 0.5 }, top);
@@ -1974,14 +2046,14 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       //: the unplugged cable in the left.
       if (side === "r") {
         const note = make("g", { class: "nmp nmp-note" }, arm);
-        make("rect", { x: 51, y: 60, width: 11, height: 13, rx: 1.5, fill: "#fffbe6", stroke: "#b8a55a", "stroke-width": NM_CHAR_LINE, transform: "rotate(-10 56.5 66.5)" }, note);
+        make("rect", { x: 51, y: 60, width: 11, height: 13, rx: 1.5, fill: "#fffbe6", stroke: "#b8a55a", "stroke-width": LW, transform: "rotate(-10 56.5 66.5)" }, note);
         for (const ly of [64, 67, 70]) make("path", { d: `M53.5 ${ly} L59.5 ${ly - 1}`, stroke: "#c9b56a", "stroke-width": 0.8, "stroke-linecap": "round" }, note);
         const bell = make("g", { class: "nmp nmp-bell" }, arm);
-        make("path", { d: "M51.5 73 C51.5 64 61.5 64 61.5 73 L63 75 L50 75 Z", fill: "#f5c518", stroke: "#8a6d00", "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, bell);
+        make("path", { d: "M51.5 73 C51.5 64 61.5 64 61.5 73 L63 75 L50 75 Z", fill: "#f5c518", stroke: "#8a6d00", "stroke-width": LW, "stroke-linejoin": "round" }, bell);
         make("circle", { cx: 56.5, cy: 77, r: 1.6, fill: "#8a6d00" }, bell);
         const lantern = make("g", { class: "nmp nmp-lantern" }, arm);
         make("circle", { class: "nmp-lantern-glow", cx: 56.5, cy: 74, r: 9, fill: "#ffd84a", "fill-opacity": 0.35 }, lantern);
-        make("rect", { x: 52.5, y: 69, width: 8, height: 10, rx: 2, fill: "#ffe9a3", stroke: "#6b4a2f", "stroke-width": NM_CHAR_LINE }, lantern);
+        make("rect", { x: 52.5, y: 69, width: 8, height: 10, rx: 2, fill: "#ffe9a3", stroke: "#6b4a2f", "stroke-width": LW }, lantern);
         make("path", { d: "M54 69 C54 65 59 65 59 69", fill: "none", stroke: "#6b4a2f", "stroke-width": 1.2 }, lantern);
       } else {
         const cable = make("g", { class: "nmp nmp-cable" }, arm);
@@ -1994,9 +2066,9 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     //: the face (in the face group, so they follow the eyes).
     const phones = make("g", { class: "nmp nmp-headphones" }, top);
     make("path", { d: "M7 30 C5 3 59 3 57 30", fill: "none", stroke: "#2b2a33", "stroke-width": 3.2, "stroke-linecap": "round" }, phones);
-    for (const x of [5, 59]) make("rect", { x: x - 4.5, y: 23, width: 9, height: 14, rx: 4.5, fill: "#e2574c", stroke: "#2b2a33", "stroke-width": NM_CHAR_LINE }, phones);
+    for (const x of [5, 59]) make("rect", { x: x - 4.5, y: 23, width: 9, height: 14, rx: 4.5, fill: "#e2574c", stroke: "#2b2a33", "stroke-width": LW }, phones);
     const cap = make("g", { class: "nmp nmp-nightcap" }, top);
-    make("path", { d: "M9 15 C13 1 30 -5 42 -1 C52 3 59 11 63 24 L57 22 C51 12 41 9 31 11 C23 12 16 14 9 15 Z", fill: "#4f7fd9", stroke: "#23407a", "stroke-width": NM_CHAR_LINE, "stroke-linejoin": "round" }, cap);
+    make("path", { d: "M9 15 C13 1 30 -5 42 -1 C52 3 59 11 63 24 L57 22 C51 12 41 9 31 11 C23 12 16 14 9 15 Z", fill: "#4f7fd9", stroke: "#23407a", "stroke-width": LW, "stroke-linejoin": "round" }, cap);
     make("path", { d: "M8 16 C18 9 46 7 58 14", fill: "none", stroke: "#f5f4ef", "stroke-width": 4, "stroke-linecap": "round" }, cap);
     make("circle", { cx: 63, cy: 24, r: 3.4, fill: "#f5f4ef", stroke: "#9aa0a6", "stroke-width": 1 }, cap);
     if (eyes.length === 2) {
@@ -2007,6 +2079,15 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   }
   svg.dataset.nmChar = "1";
   return svg;
+}
+
+//: A nigiri about (0, 0), about 18 units wide: held in a hand or, scaled
+//: down, pinned in the hair.
+function nameMarkSushi(make, shape, g) {
+  shape("path", { d: "M-8 1.5 C-9 -3 9 -3 8 1.5 C7 4.5 -7 4.5 -8 1.5 Z", fill: "#fbf7ee" }, g);
+  shape("path", { d: "M-9.5 -1 C-6 -8 6 -8.5 9.5 -1.5 C5 0.6 -5 0.6 -9.5 -1 Z", fill: "#f58a63" }, g);
+  for (const x of [-4.5, -0.5, 4]) make("path", { d: `M${x} -5.6 L${x + 1.6} -1.2`, stroke: "#ffe1d2", "stroke-width": 0.9, "stroke-linecap": "round" }, g);
+  make("rect", { x: -1.7, y: -6.4, width: 3.4, height: 10.6, rx: 0.8, fill: "#24352b" }, g);
 }
 
 //: The thing in its right hand, drawn about the hand at (56.5, 67). Every
@@ -2057,6 +2138,11 @@ function nameCharacterHeld(kind, arm, t) {
     case "donut":
       shape("circle", { cx: hx + 3, cy: hy - 4, r: 6, fill: "#e8a0c0" }, g);
       make("circle", { cx: hx + 3, cy: hy - 4, r: 2, fill: "#c86a94", stroke: "#7a1f4f", "stroke-width": 1 }, g);
+      break;
+    case "sushi":
+      //: A nigiri held up: a rice pillow, a salmon slice with its pale
+      //: lines, a band of nori round the middle.
+      nameMarkSushi(make, shape, make("g", { transform: `translate(${hx + 1.5} ${hy - 4}) rotate(-14)` }, g));
       break;
     case "sword":
       pole(hx, hy + 2, hx + 3, hy - 22, steel, 2.4);

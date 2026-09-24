@@ -194,12 +194,14 @@ const mirror = http.createServer((req, res) => {
   ok("a flood of output stops at five hundred lines", /500 lines/.test(out.status) && out.rows.length === 500, J({ status: out.status, rows: out.rows.length }));
   await open("slow.py", "import time\nfor i in range(100):\n    print('tick', i)\n    time.sleep(0.05)");
   await page.click("#doc-code-run");
-  await page.waitForTimeout(3000);
+  //: Until it has printed something, so Stop is measured on a run that is
+  //: really running (the runtime reloads first after the flood's Stop).
+  for (let i = 0; i < 60 && ((await output())?.rows.length || 0) < 5; i += 1) await page.waitForTimeout(250);
   await page.evaluate(() => [...document.querySelectorAll(".cm-run-head button")].find((b) => b.textContent.includes("Stop")).click());
   const afterStop = (await output()).rows.length;
   await page.waitForTimeout(800);
   out = await output();
-  ok("Stop stops a running script", out.rows.length === afterStop && out.status === "Stopped.", J({ afterStop, now: out.rows.length, status: out.status }));
+  ok("Stop stops a running script", afterStop >= 5 && out.rows.length === afterStop && out.status === "Stopped.", J({ afterStop, now: out.rows.length, status: out.status }));
   out = await run();
   ok("and the next run starts a fresh runtime and works", out.rows.length === 100 && out.rows[99].text === "tick 99", J({ rows: out.rows.length, status: out.status }));
 

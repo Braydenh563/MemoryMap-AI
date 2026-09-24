@@ -95,6 +95,39 @@ const ok = (n, c, d) => {
   const inHtml = await page.evaluate(() => document.querySelectorAll(".cm-color-swatch").length);
   ok("an HTML file's <style> gets them, its text does not", inHtml === 1, `${inHtml} swatches`);
 
+  // --- 5. hover docs ----------------------------------------------------------------
+  //: Hover the middle of the word at `offset`, wait for the card, read it.
+  const hoverAt = async (offset) => {
+    await page.mouse.move(5, 5);
+    await page.waitForTimeout(150);
+    const at = await page.evaluate((o) => {
+      const a = docCmView.coordsAtPos(o);
+      const b = docCmView.coordsAtPos(o + 2);
+      return { x: (a.left + b.left) / 2, y: (a.top + a.bottom) / 2 };
+    }, offset);
+    await page.mouse.move(at.x, at.y);
+    await page.waitForTimeout(700);
+    return page.evaluate(() => {
+      const card = document.querySelector(".cm-hover-doc");
+      if (!card) return null;
+      const tip = card.closest(".cm-tooltip");
+      return { text: card.innerText, bg: tip ? getComputedStyle(tip).backgroundColor : null };
+    });
+  };
+  await open("hover.css", "css", "a {\n  display: flex;\n}\n/* display */");
+  let card = await hoverAt(7);
+  ok("hovering a CSS property shows its line and its values", !!card && card.text.includes("How the box is laid out") && card.text.includes("Values: block"), J(card));
+  ok("on an opaque card", !!card && card.bg && !/, 0(\.\d+)?\)$/.test(card.bg), card && card.bg);
+  card = await hoverAt(24);
+  ok("a word in a comment gets nothing", card === null, J(card));
+  await open("hover.html", "html", '<nav>\n  <a href="#">nav</a>\n</nav>');
+  card = await hoverAt(1);
+  ok("hovering an element shows its line", !!card && card.text.includes("<nav>") && card.text.includes("navigation links"), J(card));
+  card = await hoverAt(11);
+  ok("and an attribute", !!card && card.text.includes("The address a link points to."), J(card));
+  card = await hoverAt(18);
+  ok("and the same word as text gets nothing", card === null, J(card));
+
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`\n${good} passed, ${bad} failed`);
   await browser.close();

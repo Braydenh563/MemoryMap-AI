@@ -15047,6 +15047,17 @@ function docCmTheme(CM) {
       //: The ghost text: the rest of the chosen row after the caret, in the
       //: muted ink the placeholder uses, so it reads as offered, not typed.
       ".cm-ghostText": { color: "var(--muted)", opacity: "0.85", pointerEvents: "none" },
+      //: A name's one line on hover: the name in code type, the line in the
+      //: body's, the values it takes in muted ink under it.
+      ".cm-hover-doc": {
+        padding: "var(--space-2) var(--space-3)",
+        maxWidth: "min(420px, 70vw)",
+        fontSize: "var(--text-sm)",
+        lineHeight: "1.5",
+      },
+      ".cm-hover-doc code": { fontFamily: "var(--mono, ui-monospace, monospace)", fontWeight: "600", color: "var(--text)" },
+      ".cm-hover-doc-line": { color: "var(--text)", marginTop: "var(--space-1)" },
+      ".cm-hover-doc-values": { color: "var(--muted)", marginTop: "var(--space-1)" },
       //: A colour value's swatch: the colour on a hairline in the border
       //: token, square with the inner radius, one text-height small, so it
       //: reads as a mark beside the value and not as a control of its own.
@@ -16529,6 +16540,251 @@ function docCssColorFormat(original, hex) {
   }
   return hex;
 }
+//: **One line on what a name is for** (INBOX 402, hover docs), written here
+//: for this app rather than lifted: the packages ship names but no prose, and
+//: the prose VS Code shows is MDN's, under CC-BY-SA, which this AGPL project
+//: does not take in quietly. `name|line`, one per row; an element's row
+//: says what it is, a property's what it sets, an attribute's what it means.
+const DOC_HOVER_HTML = `
+a|A link to another page, a place on this one, a file or an address.
+abbr|An abbreviation; its title attribute gives the full form.
+address|Contact details for the page or the article it is in.
+area|A clickable region of an image map.
+article|A self-contained piece: a post, a story, a card that stands alone.
+aside|Content beside the main flow: a sidebar, a pull quote, notes.
+audio|Sound, with the browser's own controls when asked for.
+b|Text set apart in bold without extra importance.
+base|The base address every relative link on the page resolves against.
+bdi|Text whose direction is isolated from the text around it.
+bdo|Text whose direction is overridden by its dir attribute.
+blockquote|A quotation set as its own block; cite names the source.
+body|The page's content: everything that is shown.
+br|A line break inside text.
+button|A control that does something when pressed.
+canvas|A surface drawn on by script.
+caption|A table's title.
+cite|The title of a creative work.
+code|A fragment of computer code.
+col|One column of a table, for styling it as a whole.
+colgroup|A group of table columns.
+data|A value with a machine-readable form in its value attribute.
+datalist|Suggested values for an input's list attribute.
+dd|The description of a term in a description list.
+del|Text that has been removed from the document.
+details|A disclosure box that opens and closes; summary is its label.
+dfn|The defining instance of a term.
+dialog|A dialog box or modal.
+div|A generic block container with no meaning of its own.
+dl|A description list of terms and their descriptions.
+dt|A term in a description list.
+em|Stressed text, read with emphasis.
+embed|External content from a plugin or another type.
+fieldset|A group of form controls, with a legend.
+figcaption|The caption of a figure.
+figure|Self-contained content, such as an image with its caption.
+footer|The footer of the page or of its section.
+form|A form whose controls are sent together.
+h1|A heading, level 1: the page's title.
+h2|A heading, level 2.
+h3|A heading, level 3.
+h4|A heading, level 4.
+h5|A heading, level 5.
+h6|A heading, level 6.
+head|The page's metadata: title, links, scripts, styles.
+header|The introductory part of the page or of its section.
+hgroup|A heading with its subtitle or tagline.
+hr|A thematic break between paragraphs.
+html|The root of the page.
+i|Text in an alternate voice, usually italic.
+iframe|Another page embedded in this one.
+img|An image.
+input|A form field; its type decides which kind.
+ins|Text that has been added to the document.
+kbd|Keyboard input, a key or a chord.
+label|The label of a form control.
+legend|The caption of a fieldset.
+li|An item in a list.
+link|A link to an external resource: a stylesheet, an icon, a font.
+main|The page's main content, once per page.
+map|An image map, with its areas.
+mark|Text highlighted for reference.
+menu|A list of commands.
+meta|Metadata that other elements cannot give: charset, viewport, description.
+meter|A measurement within a known range.
+nav|A block of navigation links.
+noscript|Content shown when scripts are off.
+object|An external resource: an image, a page, a plugin.
+ol|An ordered, numbered list.
+optgroup|A labelled group of options in a select.
+option|One choice in a select or a datalist.
+output|The result of a calculation or an action.
+p|A paragraph.
+picture|Several sources for one image, chosen by the browser.
+pre|Preformatted text, shown exactly as written.
+progress|How far a task has got.
+q|A short inline quotation.
+rp|Fallback parentheses for a ruby annotation.
+rt|The text of a ruby annotation.
+ruby|A ruby annotation, for pronunciation of East Asian characters.
+s|Text that is no longer accurate or relevant.
+samp|Sample output from a program.
+script|A script, inline or from its src.
+search|A block of search controls.
+section|A thematic section of the page, usually with a heading.
+select|A drop-down of options.
+slot|A placeholder in a web component's shadow tree.
+small|Side comments and small print.
+source|One media source for picture, audio or video.
+span|A generic inline container with no meaning of its own.
+strong|Text of strong importance.
+style|A stylesheet written in the page.
+sub|Subscript.
+summary|The label of a details box.
+sup|Superscript.
+svg|An inline SVG drawing.
+table|A table of rows and columns.
+tbody|The body rows of a table.
+td|A data cell.
+template|Markup kept for script to clone, not shown.
+textarea|A multi-line text field.
+tfoot|The footer rows of a table.
+th|A header cell.
+thead|The header rows of a table.
+time|A date or time, machine-readable in datetime.
+title|The page's title, shown in the tab.
+tr|A table row.
+track|Timed text for audio or video: captions, subtitles.
+u|Text with an unarticulated annotation, underlined.
+ul|An unordered, bulleted list.
+var|A variable in maths or programming.
+video|A video, with the browser's own controls when asked for.
+wbr|A place a long word may break.
+`;
+
+const DOC_HOVER_HTML_ATTRS = `
+id|A name unique in the page, for links, labels, CSS and script.
+class|Space-separated class names, for CSS and script.
+style|CSS for this element alone.
+title|Advisory text, shown as a tooltip.
+lang|The language of the element's text.
+dir|The direction of its text: ltr, rtl or auto.
+hidden|Not shown, and not in the accessibility tree.
+tabindex|Whether and in which order it takes keyboard focus.
+href|The address a link points to.
+src|The address of the resource to embed.
+alt|Text in place of an image, for when it is not seen.
+rel|How the linked resource relates to this page.
+target|Where to open the link: _self, _blank, a frame's name.
+type|The kind of control, script, button or resource.
+name|The name a form control is sent under.
+value|The control's current or initial value.
+placeholder|A hint shown in an empty field.
+disabled|The control cannot be used.
+required|The field must be filled before the form is sent.
+checked|The checkbox or radio is selected.
+for|The id of the control a label is for.
+action|Where a form is sent.
+method|How a form is sent: get or post.
+width|The width, in pixels.
+height|The height, in pixels.
+charset|The page's character encoding.
+content|The value of a meta element.
+role|The element's role for assistive technology.
+download|Download the link's target instead of opening it.
+loading|When to load: eager, or lazy near the viewport.
+defer|Run the script after the page is parsed.
+async|Run the script as soon as it arrives.
+`;
+
+const DOC_HOVER_CSS = `
+display|How the box is laid out, and how its children are.
+position|How the box is placed: in the flow, relative, absolute, fixed or sticky.
+top|The offset from the top edge of the containing block.
+right|The offset from the right edge of the containing block.
+bottom|The offset from the bottom edge of the containing block.
+left|The offset from the left edge of the containing block.
+inset|The four offsets at once: top, right, bottom, left.
+z-index|The stacking order of a positioned box.
+width|The width of the content box, or the border box with border-box sizing.
+height|The height of the content box, or the border box with border-box sizing.
+min-width|The smallest the width may become.
+max-width|The largest the width may become.
+min-height|The smallest the height may become.
+max-height|The largest the height may become.
+margin|The space outside the border, on all four sides.
+padding|The space inside the border, on all four sides.
+border|The border's width, style and colour at once.
+border-radius|How round the corners are.
+box-sizing|Whether width and height include the padding and border.
+box-shadow|Shadows cast by the box.
+overflow|What happens to content bigger than the box.
+color|The colour of the text.
+background|The background's colour, image, position and repeat at once.
+background-color|The colour behind the content.
+background-image|An image or a gradient behind the content.
+opacity|How opaque the whole element is, from 0 to 1.
+font|The font's style, weight, size, line height and family at once.
+font-family|The fonts to use, in order of preference.
+font-size|The size of the text.
+font-weight|How bold the text is.
+font-style|Normal, italic or oblique text.
+line-height|The height of each line of text.
+letter-spacing|Extra space between letters.
+text-align|How lines of text are aligned in their box.
+text-decoration|Underlines, overlines and strike-throughs.
+text-transform|Upper case, lower case or capitalised text.
+text-overflow|How text that overflows its box is shown.
+white-space|How spaces and line breaks in the text are handled.
+word-break|Where lines may break inside words.
+vertical-align|How an inline box sits on its line.
+cursor|The pointer shown over the element.
+visibility|Whether the box is seen, while still taking its space.
+flex|How a flex item grows, shrinks and its starting size.
+flex-direction|The direction flex items are laid out in.
+flex-wrap|Whether flex items wrap onto more lines.
+justify-content|How items are spaced along the main axis.
+align-items|How items are aligned across the cross axis.
+align-self|How this item is aligned across the cross axis.
+align-content|How lines of items are spaced across the cross axis.
+gap|The space between rows and columns of a flex or grid layout.
+grid-template-columns|The columns of a grid and their sizes.
+grid-template-rows|The rows of a grid and their sizes.
+grid-column|Which grid columns an item spans.
+grid-row|Which grid rows an item spans.
+grid-area|The grid area an item is placed in.
+place-items|align-items and justify-items at once.
+transform|Moves, rotates, scales or skews the element.
+transition|How changes to properties are animated.
+animation|A keyframe animation's name, timing and repetition at once.
+object-fit|How an image or video fills its box.
+pointer-events|Whether the element can be the target of the pointer.
+user-select|Whether its text can be selected.
+content|What a ::before or ::after pseudo-element shows.
+list-style|The marker of a list item: its type, position and image.
+outline|A line drawn outside the border, not taking space.
+filter|Visual effects such as blur or brightness.
+aspect-ratio|The preferred ratio of width to height.
+`;
+
+const docHoverTables = {};
+
+//: The line for `name` of `kind` ("html", "attr" or "css"), or null. A CSS
+//: property's line is followed by the keywords it takes, from the same
+//: table the value list uses, so the hover and the list cannot disagree.
+function docHoverLine(kind, name, valueTable) {
+  const source = { html: DOC_HOVER_HTML, attr: DOC_HOVER_HTML_ATTRS, css: DOC_HOVER_CSS }[kind];
+  if (!source) return null;
+  if (!docHoverTables[kind]) {
+    docHoverTables[kind] = new Map(source.trim().split("\n").map((row) => row.split("|")));
+  }
+  const key = name.toLowerCase();
+  const line = docHoverTables[kind].get(key);
+  if (kind !== "css") return line || null;
+  const values = (valueTable && valueTable.get(key)) || [];
+  if (!line && !values.length) return null;
+  const shown = values.slice(0, 12).join(", ") + (values.length > 12 ? ", and more" : "");
+  return [line, values.length ? `Values: ${shown}.` : ""].filter(Boolean).join("\n");
+}
 // DOC-COMPLETE-END
 
 //: Where Emmet comes from. Loaded the first time a document it serves is
@@ -17054,6 +17310,44 @@ function docColorSwatches(CM) {
   return docColorPluginCache;
 }
 
+//: **Hover docs** (INBOX 402): a CSS property, an HTML element or an HTML
+//: attribute under the pointer gets its one line (`docHoverLine`), on the
+//: hover card the diagnostics already use. From the tree, so a word in text
+//: or in a comment gets nothing.
+let docHoverDocsCache = null;
+
+function docHoverDocs(CM) {
+  if (docHoverDocsCache) return docHoverDocsCache;
+  docHoverDocsCache = CM.view.hoverTooltip((view, pos, side) => {
+    const node = CM.language.syntaxTree(view.state).resolveInner(pos, side);
+    const kind = { PropertyName: "css", TagName: "html", AttributeName: "attr" }[node.name];
+    if (!kind) return null;
+    const name = view.state.sliceDoc(node.from, node.to);
+    const line = docHoverLine(kind, name, docCssValueTable(window.EMMET));
+    if (!line) return null;
+    return {
+      pos: node.from,
+      end: node.to,
+      above: true,
+      create: () => {
+        const dom = document.createElement("div");
+        dom.className = "cm-hover-doc";
+        const head = document.createElement("code");
+        head.textContent = kind === "html" ? `<${name}>` : name;
+        dom.appendChild(head);
+        for (const part of line.split("\n")) {
+          const row = document.createElement("div");
+          row.className = part.startsWith("Values:") ? "cm-hover-doc-values" : "cm-hover-doc-line";
+          row.textContent = part;
+          dom.appendChild(row);
+        }
+        return { dom };
+      },
+    };
+  });
+  return docHoverDocsCache;
+}
+
 //: XML's Emmet source, as language data for the stream mode: one stable
 //: array, for the identity reason above.
 let docEmmetXmlData = null;
@@ -17072,6 +17366,7 @@ function docCompletionExtras(CM, type) {
     type.ext === "xml" ? CM.state.EditorState.languageData.of(() => docEmmetXmlData) : [],
     type.ext === "xml" ? docXmlAutoClose(CM) : [],
     ["css", "html"].includes(type.ext) ? docColorSwatches(CM) : [],
+    ["css", "html"].includes(type.ext) ? docHoverDocs(CM) : [],
     ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],
     docGhostPlugin(CM),
     CM.state.Prec.highest(CM.view.keymap.of([{ key: "Tab", run: (view) => docCompleteTab(view, CM) }])),

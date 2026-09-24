@@ -498,3 +498,37 @@ def test_swatches_are_drawn_from_the_tree_for_css_and_html():
     theme = _source().split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
     swatch = theme.split('".cm-color-swatch"', 1)[1].split("}", 1)[0]
     assert "var(--border)" in swatch and "var(--radius-inner)" in swatch
+
+
+@node
+def test_hover_lines():
+    got = _region_call(
+        "[docHoverLine('html', 'nav'), docHoverLine('attr', 'href'), "
+        "docHoverLine('css', 'display', docCssValueTable(E)), docHoverLine('css', 'grid-area', docCssValueTable(E)), "
+        "docHoverLine('html', 'blink'), "
+        "[...DOC_HTML_TAGS].filter((t) => !docHoverLine('html', t))]",
+        None,
+    )
+    nav, href, display, grid_area, unknown, missing = got
+    assert nav == "A block of navigation links."
+    assert href == "The address a link points to."
+    first, values = display.split("\n")
+    assert first.startswith("How the box is laid out")
+    assert values.startswith("Values: ") and "flex" in values and values.endswith(", and more.")
+    #: A property with no keyword list: its line alone.
+    assert grid_area == "The grid area an item is placed in."
+    assert unknown is None
+    #: Every element the Emmet check knows has its line.
+    assert missing == []
+
+
+def test_hover_docs_are_our_own_words_and_on_the_hover_card():
+    source = _source()
+    region = source[source.index("const DOC_HOVER_HTML = `") : source.index("function docHoverLine(")]
+    assert chr(0x2014) not in region and "MDN" in source[source.index("One line on what a name is for") - 200 : source.index("const DOC_HOVER_HTML = `")]
+    hover = _function("docHoverDocs")
+    assert "CM.view.hoverTooltip" in hover
+    assert '{ PropertyName: "css", TagName: "html", AttributeName: "attr" }' in hover
+    assert '["css", "html"].includes(type.ext) ? docHoverDocs(CM) : []' in _function("docCompletionExtras")
+    theme = source.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
+    assert '".cm-hover-doc-values": { color: "var(--muted)"' in theme

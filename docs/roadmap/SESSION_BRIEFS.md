@@ -1477,4 +1477,9 @@ avatars.js.
   so fast"; "the popup menu when right clicking on the companion doesnt
   appear next to the companion or cursor"; "atlas and the companions need
   better ai and behaviour and abilities. they need to be cleaned and
-  refined."
+  refined." Built (companion agent): every surface on the tab, the whole figure
+  as the handle, no x, no teleports, reactions debounced and startles only
+  for error toasts, the menu at the pointer or beside it, errands; and
+  "I want atlas to be a companion option regardless": Appearance, Corner
+  companion, Atlas. See the commits "Companion: every surface ..." and
+  "Atlas is a companion option of its own".

@@ -4978,11 +4978,21 @@ main,
   border-radius: var(--radius);
   cursor: grab;
   touch-action: none;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
-#nm-buddy :is(.nm-figure > .name-mark, .nmb-body, .nm-buddy-head .name-mark) {
-  pointer-events: auto;
+/* **The whole of it is the handle** (the owner: "I can only drag atlas
+   around by the head, not the body"): the button's own box, the figure's
+   64 by 92, and a transparent margin round it (more below when it hangs,
+   since it hangs 12px lower), whatever the figure's drawing leaves empty. */
+#nm-buddy .nm-buddy-face::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+#nm-buddy[data-pose="hang"] .nm-buddy-face::after {
+  bottom: -18px;
 }
 
 #nm-buddy .nm-buddy-face:active { cursor: grabbing; }
@@ -5189,6 +5199,7 @@ main,
 #nm-buddy.nmb-music .nmp-headphones,
 #nm-buddy.nmb-night .nmp-nightcap,
 #nm-buddy.nmb-reading .nmp-glasses,
+#nm-buddy.nmb-act-carry .nmp-note,
 #nm-buddy.nmb-act-bell .nmp-bell,
 #nm-buddy.nmb-act-lantern .nmp-lantern,
 #nm-buddy.nmb-offline .nmp-cable {
@@ -5197,6 +5208,7 @@ main,
 
 /* Holding up a bell or a lantern: the right arm raised. */
 #nm-buddy:is(.nmb-act-bell, .nmb-act-lantern) .nmb-arm-r { transform: rotate(-125deg); }
+#nm-buddy.nmb-act-carry .nmb-arm-r { transform: rotate(-70deg); }
 
 /* Late at night its eyes are heavier; reading, it looks down the page. */
 #nm-buddy.nmb-night .name-mark .nm-blinks { transform: scaleY(0.72); }
@@ -5293,25 +5305,6 @@ main,
   translate: -50% var(--space-2);
 }
 
-/* The x that hides it, beside its head, shown on hover or focus. */
-#nm-buddy .nm-buddy-hide {
-  position: absolute;
-  top: var(--space-2);
-  right: calc(-1 * var(--space-4));
-  opacity: 0;
-  pointer-events: auto;
-  transition: opacity var(--motion-fast) var(--ease-out);
-}
-
-#nm-buddy:hover .nm-buddy-hide,
-#nm-buddy:focus-within .nm-buddy-hide {
-  opacity: 1;
-}
-
-@media (hover: none) {
-  #nm-buddy .nm-buddy-hide { opacity: 1; }
-}
-
 /* While carried: the move on the compositor and the face holding still. */
 #nm-buddy.nm-buddy-dragging { will-change: translate; }
 
@@ -5368,6 +5361,7 @@ main,
     &.nmb-act-shift .nm-buddy-char { animation: nmb-shift 1.8s ease-in-out; }
     &.nmb-watch.nmb-nod .nm-figure { animation: nmb-nod 0.45s ease-in-out infinite alternate; }
     &.nmb-music .nm-char .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
+    &.nmb-act-carry .nm-buddy-char { animation: nmb-hop 0.75s var(--ease-out); }
     &.nmb-act-bell .nmp-bell { animation: nmb-ring 0.18s ease-in-out 12 alternate; }
     &.nmb-act-lantern .nmp-lantern-glow { animation: nmb-glow 1.2s ease-in-out infinite alternate; }
   }
@@ -5461,9 +5455,10 @@ main,
   70% { translate: 0 -4px; }
   100% { translate: 0 0; }
 }
+/* Arriving: it fades in with a small drop onto its perch. */
 @keyframes nmb-arrive {
-  0% { transform: translateY(14px) scale(0.6); opacity: 0; }
-  60% { transform: translateY(-4px) scale(1.04); opacity: 1; }
+  0% { transform: translateY(-14px); opacity: 0; }
+  70% { transform: translateY(2px) scale(1.03, 0.97); opacity: 1; }
   100% { transform: none; }
 }
 @keyframes nmb-bob {

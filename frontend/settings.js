@@ -1389,7 +1389,7 @@ const APPEARANCE_DEFAULTS = {
   //: its visible rows cost. On hover and Off remain one click away.
   "avatar-motion": "always", // always | hover | off
   "avatar-follow": "on", // on | off
-  "avatar-buddy": "off", // off | me | persona
+  "avatar-buddy": "off", // off | me | persona | atlas
   //: How Atlas is drawn everywhere (atlas.js): the character, or the classic
   //: globe the owner asked to keep as a choice.
   "atlas-style": "character", // character | classic

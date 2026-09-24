@@ -18,6 +18,7 @@ the real function under node and pin what each layer decides.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -78,7 +79,9 @@ def test_the_way_a_name_is_typed_is_read_when_the_words_say_nothing(tmp_path: Pa
     assert smile["mood"] == "happy"
     assert frown["mood"] == "sad"
     assert emoji["mood"] == "sleepy"
-    assert "horns" in beast["props"]
+    # A number leans the mood and nothing more: "numbers only nudge the
+    # seeded variety" (the owner, 2026-09-24), so 666 is sly without horns.
+    assert beast["mood"] == "sly" and not beast["props"]
 
 
 def test_short_words_match_whole_words_only(tmp_path: Path) -> None:
@@ -96,9 +99,10 @@ def test_nothing_said_draws_a_stable_personality_from_the_name(tmp_path: Path) -
     again = _moods(names, tmp_path)
     assert first == again
     assert all(m["source"] == "seed" and m["intense"] is False for m in first)
-    # A personality, not a costume: a seeded face never gets a prop or an
-    # animal, which only a word in the name can ask for.
-    assert all(not m["props"] and m["animal"] is None for m in first)
+    # A personality and a couple of traits, never a species or a costume a
+    # word would ask for: the only things worn are the trait families' own.
+    assert all(m["animal"] is None and m["cues"] == [] for m in first)
+    assert all(set(m["props"]) <= _TRAIT_WORN for m in first)
     # Some plain faces and some characters, not ten of one.
     kinds = {m["mood"] for m in first}
     assert len(kinds) >= 4, kinds
@@ -142,13 +146,20 @@ def test_a_real_name_is_not_mistaken_for_nonsense(tmp_path: Path) -> None:
     assert all(m["source"] == "seed" and not m["mutant"] for m in real[:4])
 
 
-def test_a_name_that_says_several_things_gets_all_of_them(tmp_path: Path) -> None:
+def test_a_name_that_says_several_things_draws_what_fits(tmp_path: Path) -> None:
     # The owner: 'what if a there was a name like "Uwu wink wink ahhhhhh ur
-    # cooked buddy"'. The first mood word sets the face; the rest stack on it
-    # as flavours rather than being thrown away.
+    # cooked buddy"', and then of what it drew: "still a little messy". The
+    # first mood word sets the face; one flavour stacks on it, the first
+    # named that does not fight it: uwu's eyes are already shut (no wink) and
+    # a word set the mood (no scream over it), so it sweats, "cooked". And
+    # "cooked" is not a cook: no chef's hat.
     (chaos,) = _moods(["Uwu wink wink ahhhhhh ur cooked buddy"], tmp_path)
     assert chaos["mood"] == "uwu"
-    assert {"wink", "scream", "doomed"} <= set(chaos["flavours"])
+    assert chaos["flavours"] == ["doomed"]
+    assert chaos["props"] == [] and chaos["cues"] == []
+    wink, scream = _moods(["Nervous wink", "ahhhh"], tmp_path)
+    assert wink["flavours"] == ["wink"]
+    assert scream["flavours"] == ["scream"]
     (plain,) = _moods(["Alice"], tmp_path)
     assert plain["flavours"] == []
 
@@ -271,7 +282,7 @@ def test_the_wider_zoo(tmp_path: Path) -> None:
 def test_eyewear_one_pair_each(tmp_path: Path) -> None:
     cases = {
         "Code nerd": "squareglasses",
-        "Lord Byron": "monocle",
+        "Posh Byron": "monocle",
         "Mad scientist": "goggles",
         "3D movie buff": "threed",
         "Rockstar": "starglasses",
@@ -287,12 +298,12 @@ def test_eyewear_one_pair_each(tmp_path: Path) -> None:
     assert len(eyewear & set(both["props"])) == 1, both
 
 
-def test_looks_come_from_words_never_first_names(tmp_path: Path) -> None:
-    girl, bro, alice, james = _moods(["Space girl", "Gym bro", "Alice", "James"], tmp_path)
-    assert girl["look"] == "feminine" and bro["look"] == "masculine"
-    assert alice["look"] is None and james["look"] is None
-    feminine_hair = {"long", "pigtails", "buns", "bob", "ponytail", "curly"}
-    assert girl["style"]["hair"] in feminine_hair
+def test_the_look_is_never_read_from_a_name(tmp_path: Path) -> None:
+    # The owner: presentation "is the user's choice, never guessed from the
+    # name". Not from a first name, and not from a word in it either.
+    names = ["Space girl", "Gym bro", "Alice", "James", "Queen Mary", "Dude"]
+    assert {m["look"] for m in _moods(names, tmp_path)} == {None}
+    assert {m["look"] for m in _leaning("masculine", {}, names, tmp_path)} == {"masculine"}
 
 
 def test_costumes_pirates_karate_and_friends(tmp_path: Path) -> None:
@@ -302,13 +313,24 @@ def test_costumes_pirates_karate_and_friends(tmp_path: Path) -> None:
         assert prop in reading["props"], (name, reading)
 
 
-def test_hair_and_accessories_vary_and_lean_feminine(tmp_path: Path) -> None:
+def test_hair_varies_and_the_look_is_never_guessed(tmp_path: Path) -> None:
+    # The owner, 2026-09-24, on his own name drawing pigtails and lipstick: a
+    # plain name's "look (masculine/feminine) follows the Appearance 'Face
+    # looks' setting or the Profile look, never guessed from the first name".
+    # With neither (Mixed), every face has hair, from the styles that read as
+    # either, and wears nothing that says one or the other.
     got = _moods([f"Friend {i}" for i in range(60)], tmp_path)
     hair = [m["style"]["hair"] for m in got]
-    assert len(set(hair)) >= 6, set(hair)
-    feminine = sum(h in {"long", "pigtails", "buns", "bob", "ponytail"} for h in hair)
-    masculine = sum(h in {"short", "spiky", "quiff", "buzz"} for h in hair)
-    assert feminine > masculine, (feminine, masculine)
+    assert None not in hair
+    assert len(set(hair)) >= 5, set(hair)
+    assert set(hair) <= {"crop", "sweep", "curtains", "messy", "curls", "wavy", "locs", "undercut", "fringe", "spiky"}, set(hair)
+    assert all(m["style"]["accessories"] == [] and "lashes" not in m["style"]["features"] for m in got)
+    # The long, tied-up and curled styles are there for a feminine look, the
+    # bold cuts for a masculine one.
+    feminine = _leaning("feminine", {}, [f"Friend {i}" for i in range(60)], tmp_path)
+    assert {"long", "waves", "bun", "longcurls"} <= {m["style"]["hair"] for m in feminine}
+    masculine = _leaning("masculine", {}, [f"Friend {i}" for i in range(60)], tmp_path)
+    assert {"undercut", "mohawk", "slick", "buzzline"} <= {m["style"]["hair"] for m in masculine}
 
 
 def test_tools_and_toys(tmp_path: Path) -> None:
@@ -335,7 +357,10 @@ def test_tools_and_toys(tmp_path: Path) -> None:
         assert reading["hand"] == held, (name, reading)
     craft, lord = got[0], got[1]
     assert craft["mood"] == "hungry"
-    assert "monocle" in lord["props"] and "headphones" in lord["props"]
+    # Two cues, by salience: a lord wears a crown, and the gaming is the
+    # controller; the headphones "gaming" also asks for would be a second
+    # thing on the head, and the sushi a third cue.
+    assert lord["props"] == ["crown"] and lord["cues"] == ["crown", "controller"]
 
 
 def test_mythical_creatures(tmp_path: Path) -> None:
@@ -477,19 +502,177 @@ def _leaning(lean: str, style: dict, names: list[str], tmp_path: Path) -> list[d
     return json.loads(out.stdout)
 
 
-def test_faces_lean_to_the_chosen_look_unless_the_name_says(tmp_path: Path) -> None:
-    # The owner: "the male and female choice avatars generation". Settings,
-    # Appearance, Face looks leans every name that says nothing either way;
-    # a name that does say keeps its own look, and your own face's chosen
-    # look (Your look, Look) wins over both.
+def test_faces_take_the_chosen_presentation(tmp_path: Path) -> None:
+    # The owner: "the male and female choice avatars generation", then
+    # "Presentation is the user's choice ... Default to Neutral until set".
+    # Settings, Appearance, Face looks sets every face; your own face's
+    # Profile look (masculine, feminine or neutral) wins for your name.
     names = [f"Pal {i}" for i in range(12)] + ["Dude Bob", "Queen Mary"]
-    mixed = _leaning("mixed", {}, names, tmp_path)
-    assert {m["look"] for m in mixed[:12]} == {None}
-    feminine = _leaning("feminine", {}, names, tmp_path)
-    assert all(m["look"] == "feminine" for m in feminine[:12])
-    assert feminine[12]["look"] == "masculine" and feminine[13]["look"] == "feminine"
-    masculine = _leaning("masculine", {}, names, tmp_path)
-    assert all(m["look"] == "masculine" for m in masculine[:12])
-    assert masculine[13]["look"] == "feminine"
+    assert {m["look"] for m in _leaning("mixed", {}, names, tmp_path)} == {None}
+    assert {m["look"] for m in _leaning("feminine", {}, names, tmp_path)} == {"feminine"}
+    assert {m["look"] for m in _leaning("masculine", {}, names, tmp_path)} == {"masculine"}
     (mine,) = _leaning("masculine", {"look": "feminine"}, ["Brayden"], tmp_path)
     assert mine["look"] == "feminine"
+    (neutral,) = _leaning("masculine", {"look": "neutral"}, ["Brayden"], tmp_path)
+    assert neutral["look"] is None
+    # Facial hair is on offer to a masculine face only.
+    many = [f"Pal {i}" for i in range(80)]
+    assert not any(set(m["style"]["accessories"]) & {"stubble", "shortbeard", "moustache"} for m in _leaning("feminine", {}, many, tmp_path))
+    assert any(set(m["style"]["accessories"]) & {"stubble", "shortbeard", "moustache"} for m in _leaning("masculine", {}, many, tmp_path))
+
+
+# --- the budget (the owner, 2026-09-24: "refine the avatar generation as it
+# is still a little messy and I'm not happy with what is generated when I put
+# in my name 'Brayden' or 'Sushicraft563, SushiLord' etc") -------------------
+
+_HEAD = {
+    "hat", "chefhat", "cowboy", "partyhat", "crown", "tiara", "tricorn", "cap", "beanie", "flowercrown",
+    "bandana", "headband", "halo", "horns", "antenna", "headphones", "helmet", "bow", "sushiclip", "flowerclip", "hood",
+}
+_FACE = {
+    "glasses", "squareglasses", "monocle", "goggles", "threed", "starglasses", "heartglasses", "visor",
+    "eyepatch", "ninjamask", "rednose", "moustache", "beard", "fangs", "stubble", "earrings", "lipstick",
+    "shades", "shortbeard",
+}
+_TRAIT_WORN = {"beanie", "cap", "headphones", "hood", "glasses", "shades"}
+_FRIENDLY = {None, "happy", "calm", "excited", "cute"}
+_PLAIN = ["Brayden", "Sarah", "Mohammed", "Li Wei", "Aroha", "Olivia", "Marcus", "Priya", "Jonah", "Elena", "a", "12345"]
+
+
+def test_a_plain_name_is_a_character_not_a_costume(tmp_path: Path) -> None:
+    # A plain name: one hairstyle, a friendly face, no animal, nothing held,
+    # and two traits from the hash (the owner, after a round of clean
+    # defaults: "they look a bit too mundane now ... more character, less
+    # stock"), each from its own family and within the budget.
+    for lean in ("mixed", "feminine", "masculine"):
+        readings = _leaning(lean, {}, _PLAIN, tmp_path)
+        for reading in readings:
+            assert reading["animal"] is None and reading["hand"] is None and reading["cues"] == [], reading
+            assert reading["mood"] in _FRIENDLY and reading["style"]["hair"], reading
+            assert len(reading["style"]["traits"]) == 2, reading
+            assert set(reading["props"]) <= _TRAIT_WORN, reading
+            assert set(reading["style"]["accessories"]) <= {"stubble", "shortbeard", "moustache"}, reading
+        # No two sample names read the same: hair, mood and traits differ.
+        looks = {(m["style"]["hair"], m["mood"], tuple(sorted(m["style"]["traits"]))) for m in readings}
+        assert len(looks) == len(readings), (lean, looks)
+    # Your own Profile look wins for your own name.
+    (mine,) = _leaning("feminine", {"look": "masculine"}, ["Brayden"], tmp_path)
+    assert mine["look"] == "masculine" and mine["style"]["hair"] in {"crop", "sweep", "quiff", "messy", "undercut", "spiky", "mohawk", "slick", "buzzline", "curls", "locs"}
+
+
+def test_the_owners_handles_wear_two_cues(tmp_path: Path) -> None:
+    craft, lord, panda = _moods(["Sushicraft563", "SushiLord", "pandaSushi101"], tmp_path)
+    # A pickaxe for the craft, and the sushi in its hair since the hand is full.
+    assert craft["hand"] == "pickaxe" and craft["props"] == ["sushiclip"] and craft["animal"] is None
+    # A crown for the lord and sushi in the hand, and nothing else.
+    assert lord["props"] == ["crown"] and lord["hand"] == "sushi" and lord["animal"] is None
+    assert lord["cues"] == ["crown", "sushi"] and lord["style"]["accessories"] == [] and lord["wing"] is None
+    # A panda holding sushi.
+    assert panda["animal"] == "panda" and panda["hand"] == "sushi" and panda["props"] == []
+    # The digits only move the seeded variety: the same cues on another number.
+    other_craft, other_lord = _moods(["Sushicraft7", "SushiLord2024"], tmp_path)
+    assert other_craft["cues"] == craft["cues"] and other_lord["cues"] == lord["cues"]
+
+
+def test_the_budget_holds_for_every_name(tmp_path: Path) -> None:
+    # At most two cues from the words; one head item, one face item, one held
+    # item at most, counting the accessories; a name naming five costumes
+    # wears two of them.
+    lexicon = APP[APP.index("const NAME_MOOD_LEXICON") : APP.index("//: **Your own face, your way**")]
+    words = sorted(set(re.findall(r"\b([a-z]{3,})\*?(?=[ \"])", lexicon)))
+    names = [" ".join(words[i : i + 5]) for i in range(0, len(words), 5)]
+    names += ["Pirate wizard king with headphones and a sword", "Nerdy vampire clown astronaut", *_PLAIN]
+    names += ["Angel knight", "Busy bee", "Kraken", "Lumberjack", "Captain Pixel", "xX_DarkSlayer_Xx", "Coffee Queen"]
+    assert len(names) > 100
+    for lean in ("mixed", "feminine", "masculine"):
+        for reading in _leaning(lean, {}, names, tmp_path):
+            worn = reading["props"] + reading["style"]["accessories"]
+            assert len(reading["cues"]) <= 2, reading
+            assert len([p for p in worn if p in _HEAD]) <= 1, reading
+            assert len([p for p in worn if p in _FACE]) <= 1, reading
+            assert set(reading["props"]) <= _HEAD | _FACE, reading
+    (five,) = _moods(["Pirate wizard king with headphones and a sword"], tmp_path)
+    assert sorted(five["cues"]) == ["eyepatch", "tricorn"], five
+
+
+def _luma(hex_colour: str) -> float:
+    def channel(v: int) -> float:
+        c = v / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (int(hex_colour[i : i + 2], 16) for i in (1, 3, 5))
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+
+def _contrast(a: str, b: str) -> float:
+    la, lb = sorted((_luma(a), _luma(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def _half(hex_colour: str) -> str:
+    # nmLineFor on a light fill: the colour halfway to black.
+    return "#" + "".join(f"{round(int(hex_colour[i : i + 2], 16) * 0.5):02x}" for i in (1, 3, 5))
+
+
+def test_the_colour_pairs_hold_on_both_pages() -> None:
+    # "A curated palette ... that works on light and dark, with contrast
+    # checked; no muddy or clashing combinations." Every coat: the body or
+    # its outline at 3:1 on the light page and on the dark one, and the
+    # cloth clearly apart from it. Every skin: at 2:1 or its outline at 3:1
+    # on both pages, and each hair colour it lists at 1.8:1 against it (the
+    # owner: "a hair colour picked from a natural, harmonious palette tuned
+    # against the skin tone").
+    block = APP[APP.index("const NM_CHAR_PAIRS = [") :]
+    block = block[: block.index("];")]
+    pairs = re.findall(r'body: "(#[0-9a-f]{6})", cloth: \[([^\]]+)\]', block)
+    assert len(pairs) >= 6, pairs
+    skins_block = APP[APP.index("const NM_CHAR_SKINS = [") :]
+    skins_block = skins_block[: skins_block.index("];")]
+    skins = re.findall(r'name: "([a-z]+)", skin: "(#[0-9a-f]{6})", hair: \[([^\]]+)\]', skins_block)
+    tones_block = APP[APP.index("const NM_CHAR_HAIR_TONES = {") :]
+    tones = dict(re.findall(r'([a-z]+): "(#[0-9a-f]{6})"', tones_block[: tones_block.index("};")]))
+    assert len(skins) == 7 and len(tones) >= 8
+    for name, skin, hair in skins:
+        for page in ("#ffffff", "#1c1c1f"):
+            assert max(_contrast(skin, page), _contrast(_half(skin), page)) >= 2, (name, page)
+        for tone in re.findall(r'"([a-z]+)"', hair):
+            assert _contrast(tones[tone], skin) >= 1.8, (name, tone)
+    # The names the profile offers are the ones drawn.
+    listed = lambda const: re.findall(r'"([a-z]+)"', APP[APP.index(const) :].split("\n", 1)[0])  # noqa: E731
+    assert listed("const NAME_MARK_SKIN_KINDS") == [n for n, _, _ in skins]
+    assert sorted(listed("const NAME_MARK_HAIR_TONE_KINDS")) == sorted(tones)
+    styles = APP[APP.index("const NM_HAIR_STYLES = {") :]
+    styles = styles[: styles.index("\n};")]
+    assert sorted(listed("const NAME_MARK_HAIR_KINDS")) == sorted(re.findall(r"^  ([a-z]+): \{", styles, re.M))
+    for body, cloth in pairs:
+        for page in ("#ffffff", "#1c1c1f"):
+            assert max(_contrast(body, page), _contrast(_half(body), page)) >= 3, (body, page)
+        for tone in re.findall(r"#[0-9a-f]{6}", cloth):
+            apart = sum(abs(int(tone[i : i + 2], 16) - int(body[i : i + 2], 16)) for i in (1, 3, 5))
+            assert apart >= 120, (body, tone)
+    # The body is never drawn from the app's category colours again.
+    draw = APP[APP.index("function drawCharacter(") : APP.index("//: A nigiri about")]
+    assert "CATEGORY_DOT_COLOURS" not in draw and "NM_CHAR_PAIRS[" in draw
+
+
+def test_the_small_mark_keeps_one_cue() -> None:
+    # 28px and under draws the "mini" mark: no hat on a creature (its ears
+    # are the cue), no specks, a thicker line.
+    mark = APP[APP.index("function nameMark(seed") :][:1200]
+    assert 'mini ? "mini" : "mark"' in mark and "const mini = size <= 28;" in mark
+    draw = APP[APP.index("function drawCharacter(") : APP.index("//: A nigiri about")]
+    assert 'const worn = mini && beast ? reading.props.filter((p) => !NAME_MARK_HEAD_KINDS.includes(p))' in draw
+    assert "const LW = mini ? 2.4 : NM_CHAR_LINE;" in draw
+
+
+def test_a_glued_word_is_read_only_where_a_word_could_start(tmp_path: Path) -> None:
+    # "sushilord" is sushi and a lord; "cooked" is not a cook, "Janice" is
+    # not "nice", "Clover" is not in love and "Angela" is not an angel.
+    glued, cooked, janice, clover, angela = _moods(["sushilord563", "cooked", "Janice", "Clover", "Angela"], tmp_path)
+    assert glued["props"] == ["crown"] and glued["hand"] == "sushi"
+    assert "chefhat" not in cooked["props"]
+    for plain in (janice, clover, angela):
+        assert plain["source"] == "seed" and plain["cues"] == [], plain
+    # And a keyword typed as two words is still one.
+    (rage,) = _moods(["rage quit"], tmp_path)
+    assert rage["hand"] == "tableflip"

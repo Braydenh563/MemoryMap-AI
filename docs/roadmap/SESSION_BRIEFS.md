@@ -1597,3 +1597,17 @@ avatars.js.
     editor gives astral within 2s and visible within 6s of stopping; 0
     instant repositions (every move has a travel or arrival phase); tick
     main-thread time under 1ms and no long tasks from the companion.
+- The owner, 2026-09-24 evening, verbatim: "refine the avatar generation as
+  it is still a little messy and I'm not happy with what is generated when
+  I put in my name 'Brayden' or 'Sushicraft563, SushiLord' etc", then "I
+  still dont like my hair for 'Brayden' and I want a better aesthetic",
+  then "they look a bit too mundane now, they are boring, really common".
+  Built (the generated characters, avatars.js): a cue budget (words drive
+  at most two cues, one per head, face, held and body slot), people with
+  natural skin and hand-drawn hair (twenty styles), presentation chosen in
+  Face looks and Your look and never read from a name, and two traits per
+  face from its hash. The rules are in `nameMood`'s header; the sheets come
+  from `scratchpad/ui-sweeps/facesheet.js`. See the commits "Faces: ...".
+  Open: `namemarks.js` finds one pair of 23 names under its 15% floor
+  (13.9%), since neighbouring natural skin tones differ less than the gel
+  colours did.

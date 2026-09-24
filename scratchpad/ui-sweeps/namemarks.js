@@ -57,7 +57,7 @@ print(json.dumps(out))
     }
     const ids = [...sheet.querySelectorAll("[id]")].map((el) => el.id);
     const again = nameMark("Coach", 40);
-    const first = sheet.querySelector('[data-name="Coach"] svg');
+    const first = sheet.querySelector('[data-name="Coach"] > *');
     const strip = (svg) => svg.outerHTML.replace(/nm-[a-z0-9]+/g, "");
     return { ids: ids.length, unique: new Set(ids).size, same: strip(again) === strip(first) };
   }, NAMES);

@@ -103,7 +103,7 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # and two config files at once, so a sentence edited in one of them
   # selects nothing.
   tests/test_offline_promise.py
-  tests/test_cheap_animations.py
+  tests/test_cheap_animations.py tests/test_motion_tokens.py
   # The copy lint, here for the same reason `test_docs_site.py` is below: it
   # reads every string in `frontend/*.js` and every piece of markup outside a
   # comment, so the changed-test heuristic (a test naming a changed source

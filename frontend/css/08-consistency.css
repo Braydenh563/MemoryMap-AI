@@ -4762,12 +4762,12 @@ main,
 
   :root[data-avatar-follow="on"]:not([data-motion="reduced"]) .name-mark .nm-eyes {
     translate: calc(var(--nm-lx) * 1.1px) calc(var(--nm-ly) * 0.9px);
-    transition: translate 0.18s var(--ease-out);
+    transition: translate var(--motion-fast) var(--ease-out);
   }
 
   :root[data-avatar-follow="on"]:not([data-motion="reduced"]) .name-mark .nm-body {
     rotate: calc(var(--nm-lx) * 6deg);
-    transition: rotate 0.25s var(--ease-out);
+    transition: rotate var(--motion-base) var(--ease-out);
   }
 }
 
@@ -4851,7 +4851,7 @@ main,
    in its default place steps to its left instead. One the person has
    dragged somewhere stays where they put it. */
 #nm-buddy {
-  transition: translate 0.2s var(--ease-out);
+  transition: translate var(--motion-base) var(--ease-out);
 }
 
 body.scroll-top-visible #nm-buddy:not(.nm-buddy-placed) {
@@ -4890,7 +4890,7 @@ body.scroll-top-visible #nm-buddy:not(.nm-buddy-placed) {
   top: calc(-1 * var(--space-2));
   right: calc(-1 * var(--space-2));
   opacity: 0;
-  transition: opacity 0.15s var(--ease-out);
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 #nm-buddy:hover .nm-buddy-hide,

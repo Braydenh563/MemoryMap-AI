@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The Guide (Atlas) can answer "what are all the keys and hidden features of" each surface: a controls reference for the whiteboard, the mind map, the document editor, the code editor, the graph, chat, notes, the Library, the Timeline, Reminders and the Dashboard, plus a hidden features entry (the command palette, Find anything, the m chord's every letter, keyboard menus, select mode, the notes filter's operators). Written from each surface's own key tables, and a test fails when a key bound in the app is missing from the guide. A question that names a surface and asks about its keys or controls gets that surface's reference; "what does F12 do" finds the entry that documents F12.
 - Graph: Similarity draws each note's two closest matches rather than every pair (200 lines to 58 and 1,701 crossings to 39 on a 42-note notebook), darker and wider for a closer match, dashed and beneath the links, with a Strength slider to keep only the closest, a legend key and the scores on the note you point at. Length by similarity now works on the default renderer. Labels no longer sit on another note's dot. The options panel has Reset to defaults, with Undo.
 - A note's menu has Translate: it opens the note in Write with Atlas, set to
   translate into the last language you picked.
@@ -106,6 +107,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Guide: the question after a long answer, and the fifth question of any conversation, failed with "Something went wrong asking that" (the route refused a history turn over 1,000 characters and more than six turns, and the panel sends its whole transcript); a listed answer is no longer cut off mid-list; and the shortcuts answer taught "g then a letter" for the tab chord, which has been "m" for months.
 - The AI assistant's Edit, Write and Remove choice uses the same quiet selected
   state as every other choice control in the flat looks; the board export's
   format and scope are option tiles instead of a wrapping strip.

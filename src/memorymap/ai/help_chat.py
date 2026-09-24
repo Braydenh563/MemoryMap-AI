@@ -986,9 +986,10 @@ HELP_TOPICS.extend(
                 "description, link text like \"click here\"), Suggest changes "
                 "(tracked changes to accept or reject one at a time or all at "
                 "once), Read aloud (Esc stops), autocorrect, and word suggestions "
-                "(Tab accepts). Word: an imported .docx becomes a markdown "
-                "document, and Download as .docx writes one back when the optional "
-                "Word exporter is installed, beside .md, .html, a .zip with images, "
+                "(Tab accepts). Word: Download as .docx (with the optional Word "
+                "exporter installed) keeps tables, links, lists, code and suggested "
+                "changes as Word's tracked changes, and importing that .docx brings "
+                "them back; the other downloads are .md, .html, a .zip with images, "
                 "and print or save as PDF."
             ),
             "badge": {"label": "Library", "tab": "library"},

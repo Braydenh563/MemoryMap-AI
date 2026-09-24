@@ -1400,39 +1400,97 @@ async function createDocument(template = null) {
   $("doc-title").select();
 }
 
+//: **Choosing is not making** (INBOX 410, the owner: "when selecting a
+//: template, I want to be able to confirm my template selection, not have it
+//: instantly be made when I press it"). A row is a radio: a click chooses it
+//: and the preview shows the page it would make; the dialog's one filled
+//: button (Use this template), Enter on the list, or a double click makes it.
+//: The arrows walk the rows, and the first row is chosen when the dialog
+//: opens, so one Enter still makes a page the way one Enter did before. The
+//: preview follows the choice and not the pointer: a pane showing the row
+//: under the mouse while the button below would make the row that was
+//: clicked is two answers to "what will I get". The choice lives here, not
+//: on a row, so the Use button (wired once, beside the other document
+//: controls) can read it.
+let docTemplateChoice = null;
+let docTemplateMade = false;
+
+function chooseDocTemplate(template, { focus = false } = {}) {
+  if (!template) return;
+  docTemplateChoice = template;
+  for (const row of document.querySelectorAll("#doc-template-list .doc-template-choice")) {
+    const on = row.dataset.template === template.id;
+    row.setAttribute("aria-checked", String(on));
+    //: The radio pattern's roving tab stop: Tab reaches the chosen row only,
+    //: the arrows move between rows.
+    row.tabIndex = on ? 0 : -1;
+    if (on && focus) row.focus();
+  }
+  showDocTemplatePreview(template);
+}
+
+async function useDocTemplate() {
+  //: A double click is a click and then a dblclick, and Enter can follow
+  //: either: one document per opening, whichever way it was confirmed.
+  if (docTemplateMade || !docTemplateChoice) return;
+  docTemplateMade = true;
+  $("doc-template-dialog")?.close();
+  await createDocument(docTemplateChoice);
+}
+
+function docTemplateListKeys(event) {
+  const rows = [...event.currentTarget.querySelectorAll(".doc-template-choice")];
+  if (!rows.length) return;
+  const index = rows.findIndex((row) => row.getAttribute("aria-checked") === "true");
+  const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+  let next = null;
+  if (step) next = rows[(index + step + rows.length) % rows.length];
+  else if (event.key === "Home") next = rows[0];
+  else if (event.key === "End") next = rows[rows.length - 1];
+  if (next) {
+    event.preventDefault();
+    chooseDocTemplate(DOC_TEMPLATES.find((t) => t.id === next.dataset.template), { focus: true });
+  } else if (event.key === "Enter") {
+    //: Enter on a focused button would fire its click, which only chooses;
+    //: on this list Enter is the confirmation, as it is on a form.
+    event.preventDefault();
+    useDocTemplate();
+  }
+}
+
 function openDocTemplateDialog() {
   const dialog = $("doc-template-dialog");
   const list = $("doc-template-list");
   if (!dialog || !list) return;
+  docTemplateMade = false;
   list.replaceChildren();
   for (const template of DOC_TEMPLATES) {
     const li = document.createElement("li");
+    li.setAttribute("role", "presentation");
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ghost doc-template-choice";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", "false");
     button.dataset.template = template.id;
     const name = document.createElement("strong");
     name.textContent = template.title;
     const hint = document.createElement("span");
     hint.className = "muted text-sm";
     hint.textContent = template.hint;
-    button.append(name, hint);
-    button.addEventListener("click", async () => {
-      dialog.close();
-      await createDocument(template);
-    });
-    for (const type of ["mouseenter", "focus"]) {
-      button.addEventListener(type, () => showDocTemplatePreview(template));
-    }
+    //: The chosen row's check, the mark every menu in the app uses for
+    //: "in effect": the fill alone would be colour alone.
+    const check = document.createElement("i");
+    check.className = "ph ph-check doc-template-check";
+    check.setAttribute("aria-hidden", "true");
+    button.append(name, hint, check);
+    button.addEventListener("click", () => chooseDocTemplate(template));
+    button.addEventListener("dblclick", useDocTemplate);
     li.appendChild(button);
     list.appendChild(li);
   }
   dialog.showModal();
-  list.querySelector("button")?.focus();
-  //: The first row is Blank, which has nothing to picture: the preview opens
-  //: on the first template with a body, so the dialog shows what a template
-  //: is before anything is pointed at.
-  showDocTemplatePreview(DOC_TEMPLATES.find((template) => template.content) || DOC_TEMPLATES[0]);
+  chooseDocTemplate(DOC_TEMPLATES[0], { focus: true });
 }
 
 //: **The page a template makes, before it is made** (DOCUMENTS_PLAN Phase 4:
@@ -9932,6 +9990,8 @@ function initDocSidebarTabs() {
 // --- documents wiring ---
 $("doc-new").addEventListener("click", () => createDocument());
 $("doc-new-template")?.addEventListener("click", openDocTemplateDialog);
+$("doc-template-list")?.addEventListener("keydown", docTemplateListKeys);
+$("doc-template-use")?.addEventListener("click", useDocTemplate);
 // Searching and sorting every document lives in the Library now (§36G), with
 // the notes, chats and files beside them. This is the way there, said out loud
 //, a list that silently stops at eight is a list that has lost your writing.

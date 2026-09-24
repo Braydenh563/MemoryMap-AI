@@ -4985,13 +4985,15 @@ textarea.autogrow {
    nothing else declares, and left the fill and the hairline exactly where they
    were. */
 button.ghost.doc-template-choice {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-1);
   width: 100%;
   height: auto;
-  padding: var(--space-2) var(--space-3);
+  /* Room on the right for the chosen row's check, so choosing moves no text. */
+  padding: var(--space-2) var(--space-7) var(--space-2) var(--space-3);
   border: none;
   border-radius: var(--radius-md);
   background: none;
@@ -5000,13 +5002,42 @@ button.ghost.doc-template-choice {
   text-align: left;
 }
 
+/* Two states, two tints, the rule every menu in the app follows
+   (08-consistency.css, "Hover is a ghost tint; accent-soft is reserved for
+   selected"): a row is chosen by a click now (INBOX 410) and made only by
+   the Use button, so the row under the pointer and the row that will be
+   made have to read differently. */
 button.ghost.doc-template-choice:hover,
 button.ghost.doc-template-choice:focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+button.ghost.doc-template-choice[aria-checked="true"] {
   background: var(--accent-soft);
 }
 
 .doc-template-choice > strong {
   font-weight: 600;
+}
+
+.doc-template-choice[aria-checked="true"] > strong {
+  color: var(--accent);
+}
+
+/* The chosen row's check: the mark a menu draws for "in effect", so the
+   choice is never the fill alone. Absent, not invisible, on the others. */
+.doc-template-check {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: var(--space-3);
+  align-items: center;
+  color: var(--accent);
+}
+
+.doc-template-choice[aria-checked="true"] > .doc-template-check {
+  display: flex;
 }
 
 /* **The template picker with its preview** (`showDocTemplatePreview`). The

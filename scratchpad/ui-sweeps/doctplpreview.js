@@ -34,17 +34,21 @@ async function run(width) {
   if (first.overflowX) findings.push(`${width}: the page scrolls sideways`);
   if (width >= 1024) {
     if (!first.preview) findings.push(`${width}: no preview pane`);
+    //: A click chooses a row (INBOX 410) and the pane follows the choice, so
+    //: each row is clicked, not hovered; a click must make no document.
     const rows = await page.$$('#doc-template-list .doc-template-choice');
     for (const row of rows) {
-      await row.hover();
+      await row.click();
       await page.waitForTimeout(120);
       const r = await page.evaluate(() => ({
         id: document.getElementById('doc-template-preview').dataset.template,
         text: document.querySelector('#doc-template-preview .doc-template-page')?.textContent.trim().slice(0, 30),
+        open: document.getElementById('doc-template-dialog').open,
       }));
       const want = await row.getAttribute('data-template');
-      console.log(`   hover ${want}: pane ${r.id} "${r.text}"`);
-      if (r.id !== want || !r.text) findings.push(`${width}: hovering ${want} showed ${r.id}`);
+      console.log(`   choose ${want}: pane ${r.id} "${r.text}"`);
+      if (r.id !== want || !r.text) findings.push(`${width}: choosing ${want} showed ${r.id}`);
+      if (!r.open) findings.push(`${width}: choosing ${want} closed the dialog`);
     }
     await page.keyboard.press('Tab');
     await page.waitForTimeout(120);

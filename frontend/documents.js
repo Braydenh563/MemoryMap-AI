@@ -16096,6 +16096,181 @@ const DOC_CODE_KEYWORDS = {
 //: last one was thrown away as stale, and the list sat at "pending" forever
 //: (measured: `completionStatus` read "pending" 800ms after typing "hel",
 //: while the same source called by hand returned fifty options).
+//: **Snippets, per language** (INBOX 404): the short words VS Code expands
+//: into a statement's whole shape, through the same completion list, Enter
+//: or Tab to take, Tab to walk the stops. `[label, detail, template]`, the
+//: template in CodeMirror's snippet syntax (`${name}` a stop, `${}` the
+//: last), a tab at a line's start being one indent unit of the file's own.
+//: JavaScript, TypeScript and Python already have the packages' own set
+//: (function, for, if, try, class, import); these add what they lack.
+const DOC_CODE_SNIPPETS = {
+  java: [
+    ["main", "public static void main", "public static void main(String[] args) {\n\t${}\n}"],
+    ["sout", "System.out.println", "System.out.println(${});"],
+    ["fori", "for loop with an index", "for (int ${i} = 0; ${i} < ${n}; ${i}++) {\n\t${}\n}"],
+    ["foreach", "for each item", "for (${Type} ${item} : ${items}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["ifelse", "if, else", "if (${condition}) {\n\t${}\n} else {\n\t\n}"],
+    ["while", "while loop", "while (${condition}) {\n\t${}\n}"],
+    ["try", "try, catch", "try {\n\t${}\n} catch (${Exception} ${e}) {\n\t\n}"],
+    ["class", "class", "public class ${Name} {\n\t${}\n}"],
+    ["switch", "switch", "switch (${value}) {\n\tcase ${a}:\n\t\t${}\n\t\tbreak;\n\tdefault:\n\t\tbreak;\n}"],
+  ],
+  cs: [
+    ["svm", "static void Main", "static void Main(string[] args)\n{\n\t${}\n}"],
+    ["cw", "Console.WriteLine", "Console.WriteLine(${});"],
+    ["prop", "property", "public ${int} ${Name} { get; set; }"],
+    ["ctor", "constructor", "public ${Name}()\n{\n\t${}\n}"],
+    ["for", "for loop", "for (int ${i} = 0; ${i} < ${n}; ${i}++)\n{\n\t${}\n}"],
+    ["foreach", "foreach", "foreach (var ${item} in ${items})\n{\n\t${}\n}"],
+    ["if", "if block", "if (${condition})\n{\n\t${}\n}"],
+    ["while", "while loop", "while (${condition})\n{\n\t${}\n}"],
+    ["try", "try, catch", "try\n{\n\t${}\n}\ncatch (${Exception} ${e})\n{\n\t\n}"],
+    ["class", "class", "public class ${Name}\n{\n\t${}\n}"],
+  ],
+  c: [
+    ["main", "int main", "int main(void) {\n\t${}\n\treturn 0;\n}"],
+    ["include", "#include", "#include <${stdio.h}>"],
+    ["printf", "printf", "printf(\"${}\\n\");"],
+    ["for", "for loop", "for (int ${i} = 0; ${i} < ${n}; ${i}++) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["while", "while loop", "while (${condition}) {\n\t${}\n}"],
+    ["struct", "struct", "struct ${name} {\n\t${}\n};"],
+  ],
+  cpp: [
+    ["main", "int main", "int main() {\n\t${}\n\treturn 0;\n}"],
+    ["include", "#include", "#include <${iostream}>"],
+    ["cout", "std::cout", "std::cout << ${} << std::endl;"],
+    ["for", "for loop", "for (int ${i} = 0; ${i} < ${n}; ++${i}) {\n\t${}\n}"],
+    ["forr", "range for", "for (auto& ${item} : ${items}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["while", "while loop", "while (${condition}) {\n\t${}\n}"],
+    ["class", "class", "class ${Name} {\npublic:\n\t${Name}();\n\t${}\n};"],
+    ["struct", "struct", "struct ${Name} {\n\t${}\n};"],
+  ],
+  go: [
+    ["main", "package main", "package main\n\nimport \"fmt\"\n\nfunc main() {\n\t${}\n}"],
+    ["func", "function", "func ${name}(${params}) ${error} {\n\t${}\n}"],
+    ["fp", "fmt.Println", "fmt.Println(${})"],
+    ["for", "for loop", "for ${i} := 0; ${i} < ${n}; ${i}++ {\n\t${}\n}"],
+    ["forr", "for range", "for ${_}, ${v} := range ${items} {\n\t${}\n}"],
+    ["if", "if block", "if ${condition} {\n\t${}\n}"],
+    ["iferr", "if err != nil", "if err != nil {\n\treturn ${err}\n}"],
+    ["struct", "struct type", "type ${Name} struct {\n\t${}\n}"],
+  ],
+  rs: [
+    ["main", "fn main", "fn main() {\n\t${}\n}"],
+    ["fn", "function", "fn ${name}(${params}) -> ${Type} {\n\t${}\n}"],
+    ["println", "println!", "println!(\"${}\");"],
+    ["for", "for loop", "for ${item} in ${items} {\n\t${}\n}"],
+    ["if", "if block", "if ${condition} {\n\t${}\n}"],
+    ["match", "match", "match ${value} {\n\t${pattern} => ${},\n\t_ => {}\n}"],
+    ["struct", "struct", "struct ${Name} {\n\t${}\n}"],
+    ["impl", "impl block", "impl ${Name} {\n\t${}\n}"],
+  ],
+  kt: [
+    ["main", "fun main", "fun main() {\n\t${}\n}"],
+    ["fun", "function", "fun ${name}(${params}): ${Unit} {\n\t${}\n}"],
+    ["println", "println", "println(${})"],
+    ["for", "for loop", "for (${item} in ${items}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["when", "when", "when (${value}) {\n\t${a} -> ${}\n\telse -> {}\n}"],
+    ["class", "class", "class ${Name} {\n\t${}\n}"],
+  ],
+  swift: [
+    ["func", "function", "func ${name}(${params}) -> ${Void} {\n\t${}\n}"],
+    ["print", "print", "print(${})"],
+    ["for", "for loop", "for ${item} in ${items} {\n\t${}\n}"],
+    ["if", "if block", "if ${condition} {\n\t${}\n}"],
+    ["guard", "guard", "guard ${condition} else {\n\treturn${}\n}"],
+    ["struct", "struct", "struct ${Name} {\n\t${}\n}"],
+    ["class", "class", "class ${Name} {\n\t${}\n}"],
+  ],
+  rb: [
+    ["def", "method", "def ${name}(${params})\n\t${}\nend"],
+    ["class", "class", "class ${Name}\n\t${}\nend"],
+    ["each", "each block", "${items}.each do |${item}|\n\t${}\nend"],
+    ["if", "if block", "if ${condition}\n\t${}\nend"],
+    ["puts", "puts", "puts ${}"],
+  ],
+  php: [
+    ["function", "function", "function ${name}(${params}) {\n\t${}\n}"],
+    ["foreach", "foreach", "foreach (${$items} as ${$item}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+    ["class", "class", "class ${Name} {\n\t${}\n}"],
+    ["echo", "echo", "echo ${};"],
+  ],
+  r: [
+    ["function", "function", "${name} <- function(${params}) {\n\t${}\n}"],
+    ["for", "for loop", "for (${i} in ${seq}) {\n\t${}\n}"],
+    ["if", "if block", "if (${condition}) {\n\t${}\n}"],
+  ],
+  sql: [
+    ["sel", "SELECT ... FROM", "SELECT ${*} FROM ${table};"],
+    ["selw", "SELECT ... WHERE", "SELECT ${*} FROM ${table} WHERE ${condition};"],
+    ["ins", "INSERT INTO", "INSERT INTO ${table} (${columns}) VALUES (${values});"],
+    ["upd", "UPDATE ... SET", "UPDATE ${table} SET ${column} = ${value} WHERE ${condition};"],
+    ["del", "DELETE FROM", "DELETE FROM ${table} WHERE ${condition};"],
+    ["ct", "CREATE TABLE", "CREATE TABLE ${name} (\n\t${id} INTEGER PRIMARY KEY,\n\t${}\n);"],
+    ["join", "JOIN ... ON", "JOIN ${table} ON ${a} = ${b}"],
+  ],
+  bash: [
+    ["shebang", "#!/usr/bin/env bash", "#!/usr/bin/env bash\nset -euo pipefail\n${}"],
+    ["if", "if block", "if [ ${condition} ]; then\n\t${}\nfi"],
+    ["for", "for loop", "for ${item} in ${items}; do\n\t${}\ndone"],
+    ["while", "while loop", "while ${condition}; do\n\t${}\ndone"],
+    ["func", "function", "${name}() {\n\t${}\n}"],
+    ["case", "case", "case ${value} in\n\t${pattern})\n\t\t${}\n\t\t;;\n\t*)\n\t\t;;\nesac"],
+  ],
+  py: [
+    ["main", "if __name__ == \"__main__\"", "if __name__ == \"__main__\":\n\t${main()}"],
+    ["with", "with block", "with ${open(path)} as ${f}:\n\t${}"],
+    ["adef", "async def", "async def ${name}(${params}):\n\t${}"],
+    ["elif", "elif", "elif ${condition}:\n\t${}"],
+  ],
+  js: [
+    ["log", "console.log", "console.log(${});"],
+    ["arrow", "arrow function", "const ${name} = (${params}) => {\n\t${}\n};"],
+    ["afn", "async function", "async function ${name}(${params}) {\n\t${}\n}"],
+    ["switch", "switch", "switch (${value}) {\n\tcase ${a}:\n\t\t${}\n\t\tbreak;\n\tdefault:\n\t\tbreak;\n}"],
+  ],
+};
+DOC_CODE_SNIPPETS.ts = DOC_CODE_SNIPPETS.js;
+
+//: The snippet rows for a file type, built once per type (the engine tells
+//: options apart by identity too, and a list rebuilt per keystroke resets
+//: the chosen row). Above the keywords, so `for` offers the loop's shape
+//: before the bare word.
+const docCodeSnippetCache = new Map();
+
+function docCodeSnippetOptions(CM, ext) {
+  if (docCodeSnippetCache.has(ext)) return docCodeSnippetCache.get(ext);
+  const options = (DOC_CODE_SNIPPETS[ext] || []).map(([label, detail, template]) =>
+    CM.autocomplete.snippetCompletion(template, { label, detail, type: "keyword", boost: 1 })
+  );
+  docCodeSnippetCache.set(ext, options);
+  return options;
+}
+
+//: For JavaScript, TypeScript and Python, whose packages bring their own
+//: snippets and sources: the rows they lack, as language data on their own
+//: language, never inside a string or a comment.
+let docNativeSnippetCache = null;
+
+function docNativeSnippets(CM, ext) {
+  if (!docNativeSnippetCache) {
+    const quiet = ["String", "FormatString", "TemplateString", "Comment", "LineComment", "BlockComment", "RegExp"];
+    const source = (key) => CM.autocomplete.ifNotIn(quiet, CM.autocomplete.completeFromList(docCodeSnippetOptions(CM, key)));
+    docNativeSnippetCache = {
+      py: CM.python.pythonLanguage.data.of({ autocomplete: source("py") }),
+      js: CM.javascript.javascriptLanguage.data.of({ autocomplete: source("js") }),
+    };
+  }
+  if (ext === "py") return docNativeSnippetCache.py;
+  if (ext === "js" || ext === "ts") return docNativeSnippetCache.js;
+  return [];
+}
+
 let docCodeCompletionCache = null;
 
 function docCodeCompletionSource(CM) {
@@ -16104,9 +16279,12 @@ function docCodeCompletionSource(CM) {
     const word = context.matchBefore(/[A-Za-z_$][\w$]*/);
     if (!word || (word.from === word.to && !context.explicit)) return null;
     const ext = docFileType().ext;
+    const snippets = docCodeSnippetOptions(CM, ext);
     const keywords = (DOC_CODE_KEYWORDS[ext] || "").split(" ").filter(Boolean);
     const seen = new Set(keywords);
-    const options = keywords.map((label) => ({ label, type: "keyword" }));
+    const snipped = new Set(snippets.map((o) => o.label));
+    for (const label of snipped) seen.add(label);
+    const options = [...snippets, ...keywords.filter((k) => !snipped.has(k)).map((label) => ({ label, type: "keyword" }))];
     const text = context.state.doc.toString();
     const names = /[A-Za-z_$][\w$]{2,}/g;
     let match;
@@ -17772,6 +17950,7 @@ function docCompletionExtras(CM, type) {
     ["css", "html"].includes(type.ext) ? docHoverDocs(CM) : [],
     docIndentGuides(CM, type.indent || "  "),
     DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : [],
+    docNativeSnippets(CM, type.ext),
     docBracketColours(CM),
     ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],
     docGhostPlugin(CM),

@@ -384,3 +384,70 @@ def test_sticky_is_an_opaque_overlay_not_a_panel():
     assert "DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : []" in _function("docCompletionExtras")
     theme = _source().split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
     assert "var(--modal-bg-opaque)" in theme.split('".cm-sticky"', 1)[1].split("}", 1)[0]
+
+
+# --- INBOX 404 (1): snippets per language ----------------------------------------
+
+_SNIPPETS = """
+//: The file types' own indent units (core/filetypes.py), as the app mounts them.
+const UNITS = { java: "    ", cs: "    ", c: "    ", cpp: "    ", go: "\t", rs: "    ", kt: "    ", swift: "    ", php: "    ", py: "    ", sql: "    " };
+const expandIn = (ext, template) => {
+  const t = target(stateFor(ext, "|", CM.language.indentUnit.of(UNITS[ext] || "  ")));
+  CM.autocomplete.snippet(template)(t, null, 0, 0);
+  return t.state.doc.toString();
+};
+const fns = {
+  every: () => {
+    const bad = [];
+    for (const [ext, rows] of Object.entries(DOC_CODE_SNIPPETS)) {
+      for (const [label, detail, template] of rows) {
+        let out = "";
+        try { out = expandIn(ext, template); } catch (e) { bad.push(`${ext} ${label}: ${e.message}`); continue; }
+        if (/[$#]\\{/.test(out) || !detail || !/^[a-z!]+$/i.test(label)) bad.push(`${ext} ${label}: ${JSON.stringify(out)}`);
+      }
+    }
+    return bad;
+  },
+  one: (ext, label) => {
+    const row = DOC_CODE_SNIPPETS[ext].find((r) => r[0] === label);
+    return expandIn(ext, row[2]);
+  },
+};
+"""
+
+
+def _snippet_table() -> str:
+    text = _source()
+    start = text.index("const DOC_CODE_SNIPPETS = {")
+    end = text.index("DOC_CODE_SNIPPETS.ts = DOC_CODE_SNIPPETS.js;", start)
+    return text[start:end] + "DOC_CODE_SNIPPETS.ts = DOC_CODE_SNIPPETS.js;\n"
+
+
+@node
+def test_every_snippet_expands_cleanly_in_its_own_language():
+    assert run([], _snippet_table() + _SNIPPETS, [["every"]])[0] == []
+
+
+@node
+@pytest.mark.parametrize(
+    ("ext", "label", "text"),
+    [
+        ("java", "main", "public static void main(String[] args) {\n    \n}"),
+        ("java", "sout", "System.out.println();"),
+        ("cs", "prop", "public int Name { get; set; }"),
+        ("go", "iferr", "if err != nil {\n\treturn err\n}"),
+        ("rs", "println", 'println!("");'),
+        ("py", "main", 'if __name__ == "__main__":\n    main()'),
+        ("sql", "sel", "SELECT * FROM table;"),
+        ("bash", "for", "for item in items; do\n  \ndone"),
+    ],
+)
+def test_snippets_write_the_statement_in_the_files_own_indent(ext, label, text):
+    assert run([], _snippet_table() + _SNIPPETS, [["one", ext, label]])[0] == text
+
+
+def test_snippets_reach_the_list():
+    source = _function("docCodeCompletionSource")
+    assert "docCodeSnippetOptions(CM, ext)" in source and "for (const label of snipped) seen.add(label);" in source
+    assert "docNativeSnippets(CM, type.ext)" in _function("docCompletionExtras")
+    assert "CM.autocomplete.ifNotIn(quiet" in _function("docNativeSnippets")

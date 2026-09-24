@@ -98,6 +98,43 @@ const ok = (n, c, d) => {
   const line = await page.evaluate(() => docCmView.state.doc.lineAt(docCmView.state.selection.main.head).number);
   ok("a click on a pinned line goes to it", line === 2, `line ${line}`);
 
+  // --- INBOX 404 (1): snippets through the list -----------------------------------
+  const typeIn = async (title, fileType, typed) => {
+    await page.evaluate(async ([t, f]) => {
+      const d = await apiJson("/documents", { method: "POST", body: JSON.stringify({ title: t, content: "", file_type: f }) });
+      await loadDocuments(d.id);
+    }, [title, fileType]);
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => docCmView.focus());
+    await page.keyboard.type(typed);
+    await page.waitForTimeout(450);
+    return page.evaluate(() =>
+      [...document.querySelectorAll(".cm-tooltip-autocomplete li")].map((li) => [
+        li.querySelector(".cm-completionLabel")?.textContent,
+        li.querySelector(".cm-completionDetail")?.textContent || "",
+        li.getAttribute("aria-selected") === "true",
+      ])
+    );
+  };
+  const docText = () => page.evaluate(() => docCmView.state.doc.toString());
+  let rows = await typeIn("Main.java", "java", "main");
+  ok("main in a .java file offers the snippet, chosen", rows.some((r) => r[0] === "main" && r[1] === "public static void main" && r[2]), J(rows));
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(250);
+  let t2 = await docText();
+  ok("and Enter writes it in the file's indent", t2 === "public static void main(String[] args) {\n    \n}", J(t2));
+  rows = await typeIn("err.go", "go", "iferr");
+  await page.keyboard.press("Tab");
+  await page.waitForTimeout(250);
+  t2 = await docText();
+  ok("Tab takes a Go snippet too", t2 === "if err != nil {\n\treturn err\n}", J(t2));
+  rows = await typeIn("log.js", "js", "log");
+  ok("JavaScript gains log beside the package's own", rows.some((r) => r[0] === "log" && r[1] === "console.log"), J(rows));
+  await page.keyboard.press("Escape");
+  rows = await typeIn("q2.sql", "sql", "sel");
+  ok("SQL offers SELECT", rows.some((r) => r[0] === "sel" && r[1].startsWith("SELECT")), J(rows));
+  await page.keyboard.press("Escape");
+
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`\n${good} passed, ${bad} failed`);
   await browser.close();

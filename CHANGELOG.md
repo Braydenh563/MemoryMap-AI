@@ -57,6 +57,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Speed with a large notebook (500 notes, 50 documents, 40 chats), measured by trace: switching to Notes restyles only the notes near the window (61ms to about 30), the Timeline builds its rows without making two date formatters per row (a 60 to 90ms switch now about 30), switching to Library no longer cross-fades the whole window after every data load (a 216 to 283ms pause gone), and the dashboard measures its widgets in one pass instead of one page layout per widget.
 - A chip's x (detach a document, remove a file or a reference) is a round
   target the same distance from the chip's top, bottom and right edge, not
   a glyph with a stray gap after it.

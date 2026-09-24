@@ -919,6 +919,19 @@ function applyTimelineRowTabOrder() {
 // A row. The order you read it in: what kind of thing this is and whether it
 // is sitting on a date it only talks about, then what it is called, then the
 // line under it, then the facts (category, tags) and the time.
+//: **Three formatters, made once** (INBOX 400). `toLocaleTimeString` and
+//: its two siblings build a new `Intl.DateTimeFormat` on every call, and a
+//: row made two of them: profiled on a 300-row feed (`f2-prof.js`), 50ms of
+//: the 62ms the feed took to build was this function's own time, nearly all
+//: of it in those calls. A formatter made with the same locale and options
+//: formats identically, so the text is unchanged.
+const TIMELINE_ROW_TIME = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+const TIMELINE_ROW_DAY = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
+const TIMELINE_ROW_WRITTEN = new Intl.DateTimeFormat(undefined, {
+  year: "numeric", month: "numeric", day: "numeric",
+  hour: "numeric", minute: "numeric", second: "numeric",
+});
+
 function timelineRowElement(row, density) {
   const li = document.createElement("li");
   li.className = "timeline-row";
@@ -1004,12 +1017,12 @@ function timelineRowElement(row, density) {
   // header no longer says.
   when.textContent =
     density === "full"
-      ? row.when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-      : row.when.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+      ? TIMELINE_ROW_TIME.format(row.when)
+      : TIMELINE_ROW_DAY.format(row.when);
   when.title =
     row.placedBy === "mentioned"
       ? `“${row.phrase}” in this note meant ${shortDate(row.whenIso)}. Written ${shortDate(row.writtenAt)}.`
-      : `Written ${new Date(row.writtenAt).toLocaleString()}`;
+      : `Written ${TIMELINE_ROW_WRITTEN.format(new Date(row.writtenAt))}`;
   meta.appendChild(when);
 
   li.append(mark, main, meta);
@@ -1637,7 +1650,7 @@ function timelineTableRow(row) {
   time.title =
     row.placedBy === "mentioned"
       ? `“${row.phrase}” in this note meant ${shortDate(row.whenIso)}. Written ${shortDate(row.writtenAt)}.`
-      : `Written ${new Date(row.writtenAt).toLocaleString()}`;
+      : `Written ${TIMELINE_ROW_WRITTEN.format(new Date(row.writtenAt))}`;
   when.appendChild(time);
   tr.appendChild(when);
 

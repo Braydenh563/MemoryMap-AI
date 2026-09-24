@@ -204,7 +204,7 @@ async function loadLibrary() {
   renderLibraryOverview();
   renderLibraryFilters();
   renderLibraryView();
-  renderLibrary();
+  renderLibrary({ quiet: true });
 }
 
 /** The one line of the old overview strip that was not already on screen.
@@ -413,12 +413,16 @@ function watchLibraryColumns(grid) {
   if (libraryColumnsObserver || typeof ResizeObserver !== "function") return;
   libraryColumnsObserver = new ResizeObserver(() => {
     if (!grid.clientWidth) return;
-    if (libraryColumnCount(grid) !== libraryColumnsShown) renderLibrary();
+    if (libraryColumnCount(grid) !== libraryColumnsShown) renderLibrary({ quiet: true });
   });
   libraryColumnsObserver.observe(grid);
 }
 
-function renderLibrary() {
+function renderLibrary(options) {
+  //: `quiet`: a render nobody asked for (fresh data arriving), drawn without
+  //: the cross-fade below. Read off an object rather than destructured in the
+  //: signature, so a listener that passes its event here reads it as false.
+  const quiet = options?.quiet === true;
   const grid = $("library-grid");
   if (!grid) return;
   watchLibraryColumns(grid);
@@ -581,9 +585,18 @@ function renderLibrary() {
   //: so a search was a flicker per letter. Traced over "design notes" typed
   //: into the box: raster 313ms with the fade, 109ms without. And not when
   //: the person asked for less motion.
+  //:
+  //: **Not for a render the person did not ask for, either** (INBOX 400):
+  //: `loadLibrary` renders with `quiet`, which is every arrival of fresh
+  //: data, including the one that follows entering the tab. Traced at 500
+  //: notes, 50 documents and 40 chats (`f2-trace.js`, `tab-library`): the
+  //: fade held the window on its snapshot for a 216 to 283ms frame gap on
+  //: every switch to Library, a cross-fade of a page that was already
+  //: changing because the tab changed.
   const typing = document.activeElement?.id === "library-search";
-  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (!document.startViewTransition || typing || still) {
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ||
+    document.documentElement.dataset.motion === "reduced";
+  if (!document.startViewTransition || typing || still || quiet) {
     updateDOM();
   } else {
     document.startViewTransition(() => updateDOM());

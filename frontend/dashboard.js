@@ -554,15 +554,16 @@ function renderNameNudge(greetingEl) {
 
 let dashResizeObserver = null;
 
-function sizeDashWidget(card, rowUnit, gap) {
-  // Measure the card's natural height, not its current grid-constrained one.
-  const previous = card.style.gridRowEnd;
-  card.style.gridRowEnd = "span 1";
-  const height = card.getBoundingClientRect().height;
-  const span = Math.max(1, Math.ceil((height + gap) / (rowUnit + gap)));
-  const next = `span ${span}`;
-  if (next !== previous) card.style.gridRowEnd = next;
-  else card.style.gridRowEnd = previous;
+//: **Three passes, not one per card** (INBOX 400). Written per card, the
+//: loop set a card's span, read its height and set it again, so every card
+//: after the first read a layout the previous card had just dirtied: one
+//: forced layout of the whole page per widget. Profiled on a switch to the
+//: dashboard (`f2-prof.js`), that was 14.7ms of a 22ms switch. Every card's
+//: height depends on its own content and the column width alone, never on
+//: another card's span, so all of them can be released first, measured
+//: together against one layout, and set together.
+function sizeDashWidgetSpan(card, height, rowUnit, gap) {
+  return `span ${Math.max(1, Math.ceil((height + gap) / (rowUnit + gap)))}`;
 }
 
 function sizeDashWidgets() {
@@ -571,9 +572,13 @@ function sizeDashWidgets() {
   const styles = getComputedStyle(grid);
   const rowUnit = Number.parseFloat(styles.getPropertyValue("grid-auto-rows")) || 8;
   const gap = Number.parseFloat(styles.rowGap) || 16;
-  for (const card of grid.querySelectorAll(".dash-widget")) {
-    sizeDashWidget(card, rowUnit, gap);
-  }
+  const cards = [...grid.querySelectorAll(".dash-widget")];
+  // Measure the cards' natural heights, not their grid-constrained ones.
+  for (const card of cards) card.style.gridRowEnd = "span 1";
+  const heights = cards.map((card) => card.getBoundingClientRect().height);
+  cards.forEach((card, i) => {
+    card.style.gridRowEnd = sizeDashWidgetSpan(card, heights[i], rowUnit, gap);
+  });
   grid.classList.add("spans-ready");
 }
 

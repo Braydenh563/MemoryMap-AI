@@ -2208,7 +2208,7 @@ const DOC_COMMANDS = [
     run: () => setDocView("rendered") },
   { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting tools", keys: "",
     run: () => docRunControl("doc-format-toggle", "The formatting strip") },
-  { id: "focus", icon: "ph:moon", label: "Focus mode", keys: "",
+  { id: "focus", icon: "ph:corners-out", label: "Focus mode: only the page, the whole window", keys: "F11",
     run: () => docRunControl("doc-focus-toggle", "Focus mode") },
   { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "",
     run: () => docRunControl("doc-typewriter", "Typewriter scrolling") },
@@ -11278,48 +11278,243 @@ function docRestoreReading() {
 
 docRestoreReading();
 
-//: **Focus mode.** Asked for as part of "the ultimate editor", every editor
-//: this app is compared to (Obsidian, Notion, Kortex) has a way to make the
-//: tab bar, the sidebar and the document list disappear, and this one never
-//: did. Not remembered across sessions on purpose: full width is a standing
-//: preference about how you read; this is a mode for right now, and opening
-//: the app back into a chrome-less page with no visible way out would be its
-//: own bug.
+//: **Focus mode.** Asked for as part of "the ultimate editor", and again by
+//: the owner as "a document full screen mode so there is more space"
+//: (INBOX 425 i), which is how it was found to have had no visible way in:
+//: its button sat in the formatting strip, and that strip is hidden until
+//: asked for. Measured before this pass at 1440x900 with the mode off: 228px
+//: of chrome above the first line and a writing area 520px tall.
+//:
+//: The mode hides everything that is not the page: the app's top bar and tab
+//: strip (the tab page covers them, `position: fixed`, the same overlay the
+//: whiteboard's and graph's full-screen toggles use), the document sidebar,
+//: the dock, the formatting strip, the breadcrumbs and the status bar. What is
+//: left is the column at `--doc-measure`, centred in the window, and one small
+//: floating dock (`#doc-focus-bar`) with the title, the word count, the save
+//: state and the way out, which fades after `DOC_FOCUS_IDLE_MS` without the
+//: pointer moving and comes back on a move, a hover or a keyboard focus.
+//:
+//: **Remembered for the session, not for good.** `sessionStorage`, so a
+//: reload in the middle of writing comes back as it was, and a fresh launch
+//: always opens into the normal page: an app that starts with no chrome and
+//: its only exit faded out is its own bug. The earlier version remembered
+//: nothing, which made a reload throw the mode away mid-sentence.
+const DOC_FOCUS_KEY = "doc-focus";
+const DOC_FOCUS_IDLE_MS = 2500;
+let docFocusIdleTimer = 0;
+let docFocusLastWake = 0;
+let docFocusSavedWatch = null;
+//: Whether this mode asked for the browser's full screen, so leaving the mode
+//: only undoes what the mode did: a person who was already in the browser's
+//: own full screen before opening focus mode stays in it after.
+let docFocusOwnsFullscreen = false;
+
+function docFocusOn() {
+  return !!$("tab-documents")?.classList.contains("doc-focus");
+}
+
 function toggleDocFocus(force) {
   const tab = $("tab-documents");
   if (!tab) return;
   const on = typeof force === "boolean" ? force : !tab.classList.contains("doc-focus");
   tab.classList.toggle("doc-focus", on);
+  tab.classList.remove("doc-focus-idle");
+  try {
+    if (on) sessionStorage.setItem(DOC_FOCUS_KEY, "1");
+    else sessionStorage.removeItem(DOC_FOCUS_KEY);
+  } catch {
+    // Storage refused (a private window): the mode still works, it just is
+    // not brought back by a reload.
+  }
   const button = $("doc-focus-toggle");
   if (button) {
     button.setAttribute("aria-pressed", String(on));
     button.title = on
-      ? "Leave focus mode (Esc)"
-      : "Focus mode: hide everything but the page (Esc to leave)";
+      ? "Leave focus mode (Esc or F11)"
+      : "Focus mode: hide everything but the page (F11)";
     button.setAttribute("aria-label", button.title);
     const icon = button.querySelector("i");
-    if (icon) icon.className = on ? "ph ph-arrows-in" : "ph ph-frame-corners";
+    if (icon) icon.className = on ? "ph ph-corners-in" : "ph ph-corners-out";
   }
-  if (on) docSurface()?.focus();
+  if (on) {
+    docFocusFill();
+    docFocusWatch(true);
+    docFocusWake(true);
+  } else {
+    docFocusWatch(false);
+    clearTimeout(docFocusIdleTimer);
+    if (docFocusOwnsFullscreen && document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+    docFocusOwnsFullscreen = false;
+  }
+  //: The caret goes back to the page either way: entering, so the next key
+  //: is writing; leaving, because the control that was pressed (the floating
+  //: Exit) has just stopped being drawn and would otherwise take the focus
+  //: with it to <body>.
+  if (tab.classList.contains("hidden")) return;
+  docSurface()?.focus();
 }
 
-$("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
+//: The floating dock's words. The title and the count are written from
+//: `renderDocCounts` while the mode is on (it runs after every edit and every
+//: open, so a document switched from the palette relabels the dock too); the
+//: save state is watched, because it is written from a dozen places and none
+//: of them should have to know this dock exists.
+function docFocusFill() {
+  docSetStatusText($("doc-focus-title"), $("doc-title")?.value.trim() || "Untitled");
+  docSetStatusText($("doc-focus-saved"), $("doc-saved")?.textContent || "");
+  renderDocCounts();
+  const full = $("doc-focus-fullscreen");
+  if (full) full.hidden = !document.fullscreenEnabled;
+  docFocusSyncFullscreen();
+}
 
+function docFocusWatch(on) {
+  docFocusSavedWatch?.disconnect();
+  docFocusSavedWatch = null;
+  const listen = on ? "addEventListener" : "removeEventListener";
+  document[listen]("pointermove", docFocusPointer, { passive: true });
+  document[listen]("pointerdown", docFocusPointer, { passive: true });
+  document[listen]("keydown", docFocusKey, true);
+  if (!on) return;
+  const saved = $("doc-saved");
+  if (saved && typeof MutationObserver === "function") {
+    docFocusSavedWatch = new MutationObserver(() =>
+      docSetStatusText($("doc-focus-saved"), saved.textContent || "")
+    );
+    docFocusSavedWatch.observe(saved, { childList: true, characterData: true, subtree: true });
+  }
+}
+
+//: The dock comes back and the idle clock restarts. Throttled to one restart
+//: per quarter second, because `pointermove` fires at the display's rate and
+//: a timer cleared and set sixty times a second is work a poor laptop can
+//: feel for no change on screen.
+function docFocusWake(force = false) {
+  const tab = $("tab-documents");
+  if (!tab?.classList.contains("doc-focus")) return;
+  const now = performance.now();
+  const idle = tab.classList.contains("doc-focus-idle");
+  if (!force && !idle && now - docFocusLastWake < 250) return;
+  if (idle) tab.classList.remove("doc-focus-idle");
+  docFocusLastWake = now;
+  clearTimeout(docFocusIdleTimer);
+  docFocusIdleTimer = setTimeout(docFocusRest, DOC_FOCUS_IDLE_MS);
+}
+
+function docFocusRest() {
+  const tab = $("tab-documents");
+  if (!tab?.classList.contains("doc-focus")) return;
+  //: Never out from under the hand or the keyboard: a pointer resting on the
+  //: dock or a focus inside it keeps it, and the clock is asked again later.
+  if ($("doc-focus-bar")?.matches(":hover, :focus-within")) {
+    docFocusIdleTimer = setTimeout(docFocusRest, DOC_FOCUS_IDLE_MS);
+    return;
+  }
+  tab.classList.add("doc-focus-idle");
+}
+
+function docFocusPointer() {
+  docFocusWake();
+}
+
+//: A key pressed while writing is writing, so it sends the dock away at
+//: once rather than after the idle wait; a key pressed anywhere else (the
+//: focus on the page itself, Tab walking into the dock) brings it back.
+function docFocusKey(event) {
+  const target = event.target;
+  const writing = target instanceof Element &&
+    !!target.closest('[contenteditable="true"], textarea, input:not([type="checkbox"]):not([type="radio"])') &&
+    !target.closest("#doc-focus-bar");
+  if (!writing) {
+    docFocusWake(true);
+    return;
+  }
+  if (event.key === "Escape" || event.ctrlKey || event.metaKey || event.altKey) return;
+  clearTimeout(docFocusIdleTimer);
+  docFocusRest();
+}
+
+//: The browser's own full screen, offered only where it exists and only as
+//: an extra: the in-app mode is the whole feature, and this takes away the
+//: browser's or the desktop window's frame as well. A refusal (an iframe
+//: without permission, a webview that does not implement it) changes
+//: nothing but a toast.
+function docFocusSyncFullscreen() {
+  const button = $("doc-focus-fullscreen");
+  if (!button) return;
+  const full = !!document.fullscreenElement;
+  button.setAttribute("aria-pressed", String(full));
+  button.title = full ? "Leave full screen" : "Fill the whole screen";
+  button.setAttribute("aria-label", button.title);
+  const icon = button.querySelector("i");
+  if (icon) icon.className = full ? "ph ph-arrows-in" : "ph ph-arrows-out";
+}
+
+async function docFocusToggleFullscreen() {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      docFocusOwnsFullscreen = false;
+    } else {
+      await document.documentElement.requestFullscreen();
+      docFocusOwnsFullscreen = true;
+    }
+  } catch {
+    toast("Full screen is not available in this window.", true);
+  }
+  docFocusSyncFullscreen();
+  docSurface()?.focus();
+}
+
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) docFocusOwnsFullscreen = false;
+  docFocusSyncFullscreen();
+});
+
+$("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
+$("doc-focus-exit")?.addEventListener("click", () => toggleDocFocus(false));
+$("doc-focus-fullscreen")?.addEventListener("click", docFocusToggleFullscreen);
 //: Escape leaves it: the same convention the whiteboard's and graph's own
-//: full-screen toggles use. Capture phase, and checked against the class
-//: first, so this never swallows an Escape meant for something opened over
-//: the page (the AI panel, a confirm dialog, the find bar), closing focus
-//: mode underneath one of those instead of the dialog itself would be
-//: surprising.
-document.addEventListener(
-  "keydown",
-  (event) => {
-    if (event.key !== "Escape") return;
-    if (!$("tab-documents")?.classList.contains("doc-focus")) return;
-    toggleDocFocus(false);
-  },
-  true
-);
+//: full-screen toggles use, and asked the way the graph's is (see INBOX 275
+//: at that handler): bubble phase, so an Escape the editor spends first
+//: (closing a completion list or the slash menu, collapsing a selection)
+//: arrives here already `defaultPrevented`; and never while a dialog or a
+//: menu is open over the page, whose Escape it is. The earlier listener was
+//: capture phase and so left focus mode underneath an open slash menu.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || event.defaultPrevented) return;
+  if (!docFocusOn()) return;
+  if (typeof activeOverlay === "function" && activeOverlay()) return;
+  const menuOpen = [...document.querySelectorAll('[role="menu"], .cm-tooltip')]
+    .some((el) => el.getClientRects().length > 0);
+  if (menuOpen) return;
+  if (event.target instanceof Element && event.target.closest("#doc-prose-panel, #doc-find-bar, .cm-search")) return;
+  toggleDocFocus(false);
+});
+
+//: F11, the key that means "full screen" in every browser and in Word, only
+//: while a document is on screen; everywhere else it is left to the browser.
+//: In the editor's command table (`DOC_COMMANDS`, "focus"), which is what
+//: puts it in the shortcut sheet and the palette.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "F11" || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+  const tab = $("tab-documents");
+  if (!tab || tab.classList.contains("hidden")) return;
+  event.preventDefault();
+  toggleDocFocus();
+});
+
+//: Brought back after a reload in the same session. The tab page may still
+//: be hidden here (this file loads with the Library), which is fine: the
+//: class waits on it, and `toggleDocFocus` only takes the caret when the
+//: page is showing.
+try {
+  if (sessionStorage.getItem(DOC_FOCUS_KEY) === "1") toggleDocFocus(true);
+} catch {
+  // No storage, nothing to restore.
+}
 
 $("doc-connections").addEventListener("click", () => {
   if (!currentDoc) return;
@@ -12066,6 +12261,13 @@ function renderDocCounts() {
   ]
     .filter(Boolean)
     .join(" · ");
+  //: Focus mode's floating dock carries the count too, since the status bar
+  //: is hidden while it is on; and the title, which is how a document opened
+  //: from the palette while the mode is on relabels the dock.
+  if (docFocusOn()) {
+    docSetStatusText($("doc-focus-words"), words ? `${words.toLocaleString()} word${words === 1 ? "" : "s"}` : "");
+    docSetStatusText($("doc-focus-title"), $("doc-title")?.value.trim() || "Untitled");
+  }
 }
 
 function renderDocStatusBar() {

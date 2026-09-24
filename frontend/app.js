@@ -34542,7 +34542,7 @@ const REVEAL_TARGETS = {
     built: "toggleDocFindBar",
     fallback: "doc-new",
   },
-  "doc-focus": { open: async () => (await revealDocument()) && revealStrip(), el: "doc-focus-toggle", fallback: "doc-new" },
+  "doc-focus": { open: revealDocument, el: "doc-focus-toggle", fallback: "doc-new" },
   "doc-properties": { open: revealDocument, sel: "#doc-editor .doc-props", built: "renderDocProperties", fallback: "doc-title" },
   "doc-connections": { open: async () => (await revealDocument()) && $("doc-connections").click(), el: "connections-overlay", flash: false, fallback: "doc-new" },
   "doc-prose": { open: async () => (await revealDocument()) && $("doc-prose").click(), el: "doc-prose-panel", fallback: "doc-prose" },

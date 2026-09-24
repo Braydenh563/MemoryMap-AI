@@ -3537,6 +3537,24 @@
        write, and mixing them would put every half-finished draft into search
        results and the graph. -->
   <div class="tab-page hidden" id="tab-documents" role="tabpanel" aria-labelledby="tab-btn-documents" tabindex="-1">
+    <!-- **Focus mode's own dock** (INBOX 425 i). Everything else on the
+         page is gone while the mode is on, so this is what is left of it:
+         which document this is, whether it is saved, full screen when the
+         browser offers it, and the way out. It fades after a few seconds
+         without the pointer moving and comes back on a move, a hover or a
+         keyboard focus (`docFocusWake`), so the page is the only thing on
+         screen while you write. Shown only under `.doc-focus`. -->
+    <div class="doc-focus-bar card glass" id="doc-focus-bar" role="toolbar" aria-label="Focus mode">
+      <span class="doc-focus-title" id="doc-focus-title"></span>
+      <span class="doc-focus-facts muted" id="doc-focus-facts">
+        <span id="doc-focus-words"></span>
+        <span id="doc-focus-saved" role="status"></span>
+      </span>
+      <button type="button" id="doc-focus-fullscreen" class="ghost small icon-only" hidden
+        title="Fill the whole screen" aria-label="Fill the whole screen" aria-pressed="false"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
+      <button type="button" id="doc-focus-exit" class="ghost small"
+        title="Leave focus mode (Esc)"><i class="ph ph-corners-in ph-lead" aria-hidden="true"></i>Exit</button>
+    </div>
     <div class="doc-layout">
       <!-- **Recent documents, not every document.** The same split the chat
            sidebar makes, for the same reason: browsing everything you have
@@ -3830,6 +3848,16 @@
                  "⬇" buttons had to make do with a glyph. The ids are
                  unchanged, so every handler in documents.js still finds
                  exactly the button it bound. -->
+            <!-- **Focus mode, on the dock** (INBOX 425 i: "can there be a
+                 document full screen mode so there is more space"). There
+                 was one, as an unlabelled icon in the formatting strip, and
+                 that strip is hidden until asked for, so the mode had no
+                 visible way in at all. It sits here now, beside the kebab,
+                 with its key in the tooltip; `toggleDocFocus` carries the
+                 rest of the reasoning. -->
+            <button type="button" id="doc-focus-toggle" class="ghost small icon-only doc-focus-toggle"
+              title="Focus mode: hide everything but the page (F11)" aria-pressed="false"
+              aria-label="Focus mode: hide everything but the page (F11)"><i class="ph ph-corners-out" aria-hidden="true"></i></button>
             <details class="doc-dock-menu" id="doc-dock-menu">
               <summary class="ghost small icon-button doc-dock-menu-btn"
                 title="More actions for this document"
@@ -4082,19 +4110,6 @@
           <button type="button" id="doc-width-toggle" class="icon-only doc-toolbar-width"
             title="Use the full width of the pane" aria-pressed="false"
             aria-label="Use the full width of the pane"><i class="ph ph-arrows-out-line-horizontal" aria-hidden="true"></i></button>
-          <!-- **Focus mode.** The one thing Obsidian, Notion and Kortex all
-               offer that this editor never did: a way to make everything but
-               the page disappear. Asked for as part of "the ultimate editor", 
-               full width solves a different problem (how much of the pane the
-               text uses); this solves the one about the tab bar, the sidebar
-               and the document list still sitting there while you are trying
-               to write. Same `position: fixed` overlay pattern as the
-               whiteboard's and graph's own full-screen toggles, so a person
-               who has learned one already knows this one, including Esc to
-               leave it. -->
-          <button type="button" id="doc-focus-toggle" class="icon-only doc-toolbar-width"
-            title="Focus mode: hide everything but the page (Esc to leave)" aria-pressed="false"
-            aria-label="Focus mode: hide everything but the page"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
         <!-- **The phone's formatting, where a thumb is** (DOCUMENTS_PLAN
              Phase 6 item 1). The toolbar above is a 25-control strip that

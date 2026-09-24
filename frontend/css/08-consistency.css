@@ -4665,7 +4665,7 @@ main,
   transform-origin: 50% 100%;
 }
 
-.name-mark :is(.nm-wing, .nm-tentacle, .nm-foot, .nm-flame, .nm-tail, .nm-starfield) {
+.name-mark :is(.nm-wing, .nm-tentacle, .nm-foot, .nm-flame, .nm-tail, .nm-starfield, .nm-aura) {
   transform-box: fill-box;
 }
 
@@ -4673,7 +4673,7 @@ main,
 .name-mark .nm-wing-r { transform-origin: 0% 100%; }
 .name-mark :is(.nm-tentacle, .nm-tail) { transform-origin: 50% 0%; }
 .name-mark .nm-flame { transform-origin: 50% 100%; }
-.name-mark .nm-starfield { transform-origin: 50% 50%; }
+.name-mark :is(.nm-starfield, .nm-aura) { transform-origin: 50% 50%; }
 .name-mark .nm-foot { transform-origin: 50% 100%; }
 .name-mark :is(.nm-earring, .nm-tails) { transform-box: fill-box; transform-origin: 50% 0%; }
 
@@ -4730,6 +4730,7 @@ main,
     & .nm-gem { animation: nm-twinkle 2.2s ease-in-out infinite; }
     & .nm-flame { animation: nm-pulse 0.7s ease-in-out infinite; }
     & .nm-starfield { animation: nm-roll 60s linear infinite; }
+    & .nm-aura { animation: nm-pulse 3.2s ease-in-out infinite; }
     & .nm-tail { animation: nm-sway 1.8s ease-in-out infinite; }
     & .nm-wing-l { animation: nm-flap-l 0.5s ease-in-out infinite; }
     & .nm-wing-r { animation: nm-flap-r 0.5s ease-in-out infinite; }
@@ -4875,7 +4876,7 @@ main,
    motion lint (and a reader) looks for it. A face keeps its expression; only
    the movement goes. */
 @media (prefers-reduced-motion: reduce) {
-  .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil, .nm-wave, .nm-steam, .nm-table, .nm-balloon, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-foot-l, .nm-foot-r, .nm-earring, .nm-tails, .nm-bow, .nm-pompom, .nm-gem, .nm-flame, .nm-tail, .nm-starfield) {
+  .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil, .nm-wave, .nm-steam, .nm-table, .nm-balloon, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-foot-l, .nm-foot-r, .nm-earring, .nm-tails, .nm-bow, .nm-pompom, .nm-gem, .nm-flame, .nm-tail, .nm-starfield, .nm-aura) {
     animation: none;
     translate: none;
     rotate: none;

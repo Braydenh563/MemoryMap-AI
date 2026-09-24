@@ -22549,6 +22549,8 @@ async function sendChatMessage(preset, opts = {}) {
   const touchedItems = new Map();
   chatController = new AbortController();
   const controller = chatController;
+  //: Atlas looks up to think while a turn runs (avatars.js).
+  if (typeof setAtlasMood === "function") setAtlasMood("thinking");
 
   // --- the turn owns its conversation ----------------------------------------
   //
@@ -22994,17 +22996,20 @@ async function sendChatMessage(preset, opts = {}) {
     //: errored or was stopped is the panel telling a lie for the rest of the
     //: session. `stoppedAtStep`/`pausedForManual` come from the `result`
     //: event, so the row can say *how* it ended rather than only that it did.
-    endAgentRun(activityRun, {
-      state: stopped
-        ? "stalled"
-        : pausedForManual
-          ? "paused"
-          : typeof stoppedAtStep === "number"
-            ? activityRun?.steps?.[stoppedAtStep]?.state === "failed"
-              ? "failed"
-              : "stalled"
-            : "done",
-    });
+    const endState = stopped
+      ? "stalled"
+      : pausedForManual
+        ? "paused"
+        : typeof stoppedAtStep === "number"
+          ? activityRun?.steps?.[stoppedAtStep]?.state === "failed"
+            ? "failed"
+            : "stalled"
+          : "done";
+    endAgentRun(activityRun, { state: endState });
+    //: …and Atlas's face says how it went, for a moment.
+    if (typeof setAtlasMood === "function") {
+      setAtlasMood(endState === "done" ? "happy" : endState === "failed" ? "surprised" : "calm", 5000);
+    }
     // Only if it is still ours. Switching away and sending a second message
     // installs a new controller, and this line firing late would null it, 
     // leaving Stop wired to nothing while a stream was genuinely running.

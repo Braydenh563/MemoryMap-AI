@@ -362,5 +362,12 @@ def test_atlas_has_a_face_of_its_own() -> None:
     body = APP[APP.index("function nameMark(seed") :][:600]
     assert "return atlasMark(size);" in body
     atlas = APP[APP.index("function atlasMark(") : APP.index("function nameMark(seed")]
+    # And its moods follow the app: thinking while a turn runs, happy or
+    # surprised when it ends.
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert 'setAtlasMood("thinking")' in app
+    assert 'endState === "done" ? "happy"' in app
+    for mood in ("thinking", "happy", "surprised", "sleepy"):
+        assert f'mood === "{mood}"' in atlas, mood
     assert "currentAccentHex" in atlas, "Atlas's colours follow the accent"
     assert "watchNameMark(svg)" in atlas

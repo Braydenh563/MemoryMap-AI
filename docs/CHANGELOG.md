@@ -112,6 +112,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Windows installer's Documents box also installs scanned-PDF reading and
+  Word export (one box, the page has no room for more).
 - The selection bar's "Rewrite this with AI" opens its bar again: the press that
   opened it also counted as a click away and closed it at once.
 - The Guide keeps the utility model when smart routing is off (the switch

@@ -676,6 +676,16 @@ def test_the_installer_page_runs_the_apps_own_installer():
     iss = (Path(__file__).resolve().parents[1] / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
     assert "--install-extras {code:GetSelectedExtras}" in iss
     assert "install-extras.ps1" not in iss
-    for extra_id in ("semantic", "voice", "documents"):
-        assert f"'{extra_id},'" in iss
+    import re
+
+    #: Every id the page can hand over, whether a box sends one or several
+    #: ("documents,pdfpages,docx," since 2026-09-24), is a real extra.
+    sent = [
+        extra_id
+        for group in re.findall(r"Packages \+ '([a-z,]+)'", iss)
+        for extra_id in group.split(",")
+        if extra_id
+    ]
+    assert {"semantic", "voice", "documents", "pdfpages", "docx"} <= set(sent)
+    for extra_id in sent:
         assert extra_id in extras.EXTRAS_BY_ID

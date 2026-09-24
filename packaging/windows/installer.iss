@@ -193,7 +193,7 @@ begin
   ChkDocuments.Left := 0;
   ChkDocuments.Top := Y;
   ChkDocuments.Width := ExtrasPage.SurfaceWidth;
-  ChkDocuments.Caption := 'Import documents (about 20 MB)';
+  ChkDocuments.Caption := 'Documents in and out (about 40 MB)';
   ChkDocuments.Checked := False;
   Y := Y + 24;
 
@@ -203,7 +203,8 @@ begin
   Lbl.Top := Y;
   Lbl.Width := ExtrasPage.SurfaceWidth - 24;
   Lbl.WordWrap := True;
-  Lbl.Caption := 'Import PDFs, Word files and slides as notes.';
+  Lbl.Caption := 'Import PDFs (scanned ones too), Word files and slides as'
+    + ' notes, and export documents to Word.';
 end;
 
 function GetSelectedExtras(Param: String): String;
@@ -217,8 +218,11 @@ begin
     Packages := Packages + 'semantic,';
   if ChkVoice.Checked then
     Packages := Packages + 'voice,';
+  { One box, three extras: the page has room for three rows and no scroll, and
+    reading scanned PDFs and writing .docx are the same user's wish as
+    importing documents (the owner, 2026-09-24). }
   if ChkDocuments.Checked then
-    Packages := Packages + 'documents,';
+    Packages := Packages + 'documents,pdfpages,docx,';
   { Strip trailing comma }
   if Length(Packages) > 0 then
     Packages := Copy(Packages, 1, Length(Packages) - 1);

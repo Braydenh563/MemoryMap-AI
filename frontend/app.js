@@ -47428,7 +47428,16 @@ function showTabJumpHint() {
   lead.className = "chord-guide-lead";
   const kbd = document.createElement("kbd");
   kbd.textContent = "m";
-  lead.append(kbd, " then");
+  //: "m, then a key" on the left and the way out on the right: the panel's
+  //: head says what it is waiting for, the rows below are the answers.
+  const leadText = document.createElement("span");
+  leadText.textContent = "then a key";
+  const leadEsc = document.createElement("span");
+  leadEsc.className = "chord-guide-esc";
+  const escKey = document.createElement("kbd");
+  escKey.textContent = "Esc";
+  leadEsc.append(escKey, " or m to close");
+  lead.append(kbd, leadText, leadEsc);
   //: **Stays up until you dismiss it, not for a fixed 900ms.** Asked for
   //: directly: "if i hold it down the popup stays up and I can more easily
   //: navigate by reading the popup contents", refined a moment later to

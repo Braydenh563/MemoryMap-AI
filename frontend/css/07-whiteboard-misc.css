@@ -7560,6 +7560,47 @@ button.connection-row {
   line-height: 1.4;
 }
 
+/* One row, one height (the owner: "the popup write with ai box panel elements
+   ... arent the same height arent aligned and need better padding").
+   Measured before: the field 42px with its focus ring, Ask 33px, the close
+   36px, the scope line starting under the icon rather than under the field,
+   and 8px of padding round a panel that holds a text field (now 12px). The field and
+   both buttons take --control-h, the close is square, the icon sits in a
+   fixed 1.25rem column and the scope line is indented by exactly that
+   column, so text starts on one edge. */
+.inline-ai {
+  padding: var(--space-4);
+}
+
+.inline-ai-row {
+  gap: var(--space-3);
+}
+
+.inline-ai-icon {
+  width: 1.25rem;
+  justify-content: center;
+}
+
+.inline-ai-row > .inline-ai-input,
+.inline-ai-row > button {
+  height: var(--control-h-lg);
+  min-height: var(--control-h-lg);
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.inline-ai-row > button.icon-button {
+  width: var(--control-h-lg);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inline-ai-scope {
+  padding-inline-start: calc(1.25rem + var(--space-3));
+}
+
 .inline-ai-review {
   display: flex;
   align-items: center;

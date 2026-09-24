@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The "m" key guide is a compact panel: "Go to" and "Do" side by side as two lists, each row a name with its key at the right edge, and a head that says how to close it. The Write with AI popup in the editor has one height for the field and both buttons, even padding, and its hint line starts under the field. Profile links straight to the avatar rows in Appearance.
 - Settings, Personas: the dashboard greeting's persona picker and its face are filled straight away instead of after the preferences load and the whole persona list (it showed an empty box with no face on a busy start). Wherever there is no persona to draw a face for, the animated app logo shows instead of an empty space.
 - The model status poll no longer times out after a start: it answered by asking every installed model its capabilities in turn (up to 5s each, inside an 8s budget); it now answers from what it already knows and asks the rest in the background. A slow answer is logged as a warning, not an error.
 - Settings: "Profile & preferences" is split into Profile (your name, look and About me, under Atlas) and General (recycle bin, chat history, answer style, search relevance, notifications, writing, first under Your notebook). Both save on their own; the heading that only linked to Web search is gone.

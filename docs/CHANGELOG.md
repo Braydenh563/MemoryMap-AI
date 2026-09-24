@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
   moved and the rest of the selection stayed put. The usual rules hold for
   every note carried: a plain drag places, Shift pins, and a pinned note stays
   pinned where it lands.
+- Quit from the desktop window closes the window at once; the background cleanup (up to 5s for a scheduler mid-write) now finishes behind it rather than in front of a window that looks frozen.
 - Settings, What it learned can delete or reset several rows at once: tick
   them and the selection bar offers Delete, and Reset when a ticked row was
   edited by you. One request changes them all or none, and each deletion is

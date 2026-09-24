@@ -425,5 +425,5 @@ def shutdown() -> dict:
             return
         os.kill(os.getpid(), signal.SIGINT)
 
-    threading.Timer(0.35, _stop).start()
+    threading.Timer(0.15, _stop).start()  # long enough for this reply to leave
     return {"stopping": True}

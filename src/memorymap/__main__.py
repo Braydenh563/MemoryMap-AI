@@ -1528,6 +1528,17 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     from memorymap.core import quit_hook
 
     def _quit_from_app() -> None:
+        # The window goes first (the owner: "the quit application button is
+        # a little slow"). Stopping the background work can wait up to 5s
+        # for the autonomous scheduler to finish a write; that wait now
+        # happens behind a window that is already gone, not in front of one
+        # that looks frozen.
+        hide = getattr(window, "hide", None)
+        if callable(hide):
+            try:
+                hide()
+            except Exception:  # noqa: BLE001 - cosmetic; the exit below still runs
+                logger.debug("window.hide failed during quit", exc_info=True)
         _stop_background_work()
         try:
             window.destroy()

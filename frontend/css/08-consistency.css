@@ -4902,6 +4902,11 @@ main,
   transform-origin: 50% -7px;
 }
 
+.nm-buddy-char .nm-figure {
+  position: absolute;
+  inset: 0;
+}
+
 .nm-buddy-char .nmb-body {
   position: absolute;
   left: 0;

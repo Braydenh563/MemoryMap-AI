@@ -1004,7 +1004,95 @@ function atlasMark(size = 20, mood = atlasMoodNow) {
   return svg;
 }
 
+// --- the character interface -----------------------------------------------------
+//: **One way in to every face** (INBOX 425; so a renderer can be swapped
+//: without touching a call site). `characterFor(seed)` answers a
+//: *character*:
+//:
+//:   {
+//:     kind:    "atlas" | "generated" | a registered renderer's own name,
+//:     seed:    the name it was drawn for,
+//:     mark(size):   an <svg class="name-mark"> head-only mark, for lists,
+//:                   chat bubbles, pickers and heads (any size; under 40px
+//:                   it is always head-only, and under 28px it never moves,
+//:                   see `watchNameMark`),
+//:     figure():     the full character for the companion and the large
+//:                   view: an element laid out in a 64 by 92 px box (the
+//:                   companion's own; the viewer scales it), whose parts
+//:                   carry the classes below so the companion's behaviours
+//:                   can act them out,
+//:     poses:   the poses it can take (see below),
+//:     moods:   the moods it can show (Atlas: calm, thinking, happy,
+//:              surprised, sleepy; a generated face: its reading's mood),
+//:   }
+//:
+//: **The parts a figure must carry**, all transform/opacity only:
+//:   `.nm-buddy-head` (holding the head's `.name-mark`, whose `.nm-eyes`
+//:   are moved by `--nm-lx`/`--nm-ly` and whose `.nm-blinks` close),
+//:   `.nmb-torso`, `.nmb-arm-l`/`.nmb-arm-r` (resting arms, turning at the
+//:   shoulder), `.nmb-hold` (both arms raised, for hanging, stretching and
+//:   cheering; `.nmb-hold-l`/`.nmb-hold-r` each), `.nmb-leg-l`/`.nmb-leg-r`
+//:   (turning at the hip). Geometry, in the 64 by 92 box: the head's top at
+//:   0, the seat at 72 (`NMB_SEAT`), the soles at 90 (`NMB_FEET`), the
+//:   raised hands at 5 once dropped by `NMB_DROP` (12) when hanging.
+//:
+//: **What the companion sets on its `#nm-buddy`**, for a figure's CSS:
+//:   `data-pose`  stand | sit | hang | float | lean
+//:   `data-legs`  "" | tuck (sitting where dangling legs would cover content)
+//:   `data-turn`  "" | l | r (a three-quarter turn)
+//:   classes      `nmb-act-<name>` for the behaviour running (blink, look,
+//:                turn, glance, stretch, yawn, nap, hop, wave, scratch,
+//:                dangle, kick, peek, swing, sloth, onehand, feet, emerge,
+//:                cheer, startle, land), and the states `nmb-walking`,
+//:                `nm-buddy-dragging`, `nmb-think`, `nmb-watch`,
+//:                `nmb-sleep`, `nmb-duck`, `nmb-arrive`.
+//:
+//: A renderer registers with `registerCharacter({ name, matches(seed),
+//: make(seed) })`; the latest registered that matches wins, and the built-in
+//: two (Atlas, then the generated faces) answer everything else.
+const CHARACTER_RENDERERS = [];
+
+function registerCharacter(renderer) {
+  if (renderer && typeof renderer.matches === "function" && typeof renderer.make === "function") {
+    CHARACTER_RENDERERS.unshift(renderer);
+  }
+}
+
+function characterRendererFor(seed) {
+  for (const renderer of CHARACTER_RENDERERS) {
+    try {
+      if (renderer.matches(seed)) return renderer;
+    } catch (e) {
+      // A renderer that throws on a name gives it back to the built-in ones.
+    }
+  }
+  return null;
+}
+
+function isAtlasSeed(seed) {
+  const named = String(seed || "").trim().toLowerCase();
+  const ai = typeof aiNameNow === "function" ? String(aiNameNow() || "").toLowerCase() : "atlas";
+  return Boolean(named) && (named === ai || named === "atlas");
+}
+
+function characterFor(seed) {
+  const own = characterRendererFor(seed);
+  if (own) return own.make(seed);
+  const atlas = isAtlasSeed(seed);
+  return {
+    kind: atlas ? "atlas" : "generated",
+    seed,
+    mark: (size) => nameMark(seed, size),
+    figure: () => nameMarkFigure(seed),
+    poses: ["stand", "sit", "hang", "float", "lean"],
+    moods: atlas ? ["calm", "thinking", "happy", "surprised", "sleepy"] : [nameMood(seed).mood || "plain"],
+  };
+}
+
 function nameMark(seed, size = 20) {
+  //: A registered renderer (a character drawn by hand) answers first.
+  const own = characterRendererFor(seed);
+  if (own) return own.make(seed).mark(size);
   //: The assistant's own name draws Atlas, not a face made from the name.
   const named = String(seed || "").trim().toLowerCase();
   const ai = typeof aiNameNow === "function" ? String(aiNameNow() || "").toLowerCase() : "atlas";
@@ -2788,8 +2876,8 @@ function nameMarkBuddyBody(coat, skin) {
     limb(`M${hip} 68 L${foot} 84.5`, deep, 5.5, leg);
     make("ellipse", { cx: foot + (side === "l" ? -1.5 : 1.5), cy: 86.5, rx: 5.2, ry: 3.2, fill: deep }, leg);
   }
-  const hold = make("g", { class: "nmb-hold" }, svg);
-  for (const [d, hx] of [["M22 54 C 0 52, -6 16, 6 -6", 6], ["M42 54 C 64 52, 70 16, 58 -6", 58]]) {
+  for (const [side, d, hx] of [["l", "M22 54 C 0 52, -6 16, 6 -6", 6], ["r", "M42 54 C 64 52, 70 16, 58 -6", 58]]) {
+    const hold = make("g", { class: `nmb-hold nmb-hold-${side}` }, svg);
     limb(d, coat, 5, hold);
     make("circle", { cx: hx, cy: NMB_GRIP - NMB_DROP, r: 4.4, fill: skin, stroke: deep, "stroke-width": 0.8 }, hold);
   }
@@ -2801,6 +2889,21 @@ function nameMarkBuddyBody(coat, skin) {
     make("circle", { cx: hx, cy: hy, r: 3.9, fill: skin, stroke: deep, "stroke-width": 0.8 }, arm);
   }
   return svg;
+}
+
+//: The built-in figure (the character interface's `figure()`): the head
+//: mark over a body in its own two colours, in the companion's 64 by 92
+//: box.
+function nameMarkFigure(seed) {
+  const figure = document.createElement("span");
+  figure.className = "nm-figure";
+  const head = document.createElement("span");
+  head.className = "nm-buddy-head";
+  const live = nameMarkLive(seed, NMB_HEAD);
+  head.appendChild(live);
+  const { coat, skin } = nameMarkBuddyColours(live.querySelector(".name-mark"));
+  figure.append(nameMarkBuddyBody(coat, skin), head);
+  return figure;
 }
 
 function nameMarkBuddyTab() {
@@ -2829,6 +2932,7 @@ function nameMarkBuddyLedges() {
 //: Every box it must stay clear of, measured once per placement: the tab's
 //: own controls, the chrome's, and whatever floats over the page.
 function nameMarkBuddyObstacles(tab) {
+  nameMarkBuddyTextCache = new WeakMap();
   const roots = [
     document.getElementById(`tab-${tab}`), document.getElementById("top-bar"), document.getElementById("status-bar"),
     document.getElementById("phone-tab-dock"), document.getElementById("toast-box"), document.querySelector(".pointer-menu-host"),
@@ -2886,7 +2990,7 @@ function nameMarkBuddyCovers(x, y, pose) {
     //: A picture counts; a canvas or a drawing the size of a pane (the
     //: graph, a board) is a ground, not a picture, or every perch over it
     //: would lose to one over the chrome.
-    if (el.matches("img, picture, h1, h2, h3, h4, p, li, pre, code, td, th, time, kbd")) {
+    if (el.matches("img, picture, video")) {
       covered += 1;
       continue;
     }
@@ -2895,14 +2999,29 @@ function nameMarkBuddyCovers(x, y, pose) {
       if (box.width < 200 && box.height < 200) covered += 1;
       continue;
     }
-    for (const node of el.childNodes) {
-      if (node.nodeType === 3 && node.textContent.trim()) {
-        covered += 1;
-        break;
-      }
-    }
+    //: Words, measured as the boxes their lines actually take: a heading is
+    //: a block the width of its card, and only its first few hundred pixels
+    //: have anything in them.
+    if (nameMarkBuddyTextBoxes(el).some((box) => px >= box.left - 3 && px <= box.right + 3 && py >= box.top - 3 && py <= box.bottom + 3)) covered += 1;
   }
   return covered / points.length;
+}
+
+//: The line boxes of an element's own words, kept for one placement (the
+//: map is dropped with each `nameMarkBuddyObstacles` call).
+let nameMarkBuddyTextCache = new WeakMap();
+function nameMarkBuddyTextBoxes(el) {
+  let boxes = nameMarkBuddyTextCache.get(el);
+  if (boxes) return boxes;
+  boxes = [];
+  const range = document.createRange();
+  for (const node of el.childNodes) {
+    if (node.nodeType !== 3 || !node.textContent.trim()) continue;
+    range.selectNodeContents(node);
+    boxes.push(...range.getClientRects());
+  }
+  nameMarkBuddyTextCache.set(el, boxes);
+  return boxes;
 }
 
 //: The tab's candidate perches, in its own order of preference, each at a
@@ -3125,7 +3244,9 @@ function nameMarkBuddyTabChanged() {
   for (const timer of nmb.settle) clearTimeout(timer);
   nmb.settle = [
     setTimeout(() => placeNameMarkBuddy(), 140),
-    setTimeout(nameMarkBuddyCheck, 1100),
+    //: Chosen again once the tab's content is in: the perch it took stays
+    //: unless a clearly better one appeared.
+    setTimeout(() => placeNameMarkBuddy(), 1100),
   ];
 }
 
@@ -3300,8 +3421,6 @@ function nameMarkBuddyBuild() {
   face.setAttribute("aria-haspopup", "menu");
   const char = document.createElement("span");
   char.className = "nm-buddy-char";
-  const head = document.createElement("span");
-  head.className = "nm-buddy-head";
   const think = document.createElement("span");
   think.className = "nm-buddy-think";
   think.setAttribute("aria-hidden", "true");
@@ -3310,7 +3429,9 @@ function nameMarkBuddyBuild() {
   sleep.className = "nm-buddy-z";
   sleep.setAttribute("aria-hidden", "true");
   sleep.textContent = "z";
-  char.append(head, think, sleep);
+  //: The figure itself (`characterFor(seed).figure()`) goes in first, when
+  //: `syncNameMarkBuddy` knows whose it is.
+  char.append(think, sleep);
   face.appendChild(char);
   const hide = document.createElement("button");
   hide.type = "button";
@@ -3460,12 +3581,9 @@ function syncNameMarkBuddy() {
   if (fresh) buddy = nameMarkBuddyBuild();
   if (buddy.dataset.seed !== seed) {
     buddy.dataset.seed = seed;
-    const live = nameMarkLive(seed, NMB_HEAD);
-    const { coat, skin } = nameMarkBuddyColours(live.querySelector(".name-mark"));
     const char = buddy.querySelector(".nm-buddy-char");
-    char.querySelector(".nmb-body")?.remove();
-    char.prepend(nameMarkBuddyBody(coat, skin));
-    char.querySelector(".nm-buddy-head").replaceChildren(live);
+    char.querySelector(".nm-figure")?.remove();
+    char.prepend(characterFor(seed).figure());
     buddy.querySelector(".nm-buddy-face").setAttribute(
       "aria-label",
       `${seed}, your companion. Click to say hello, double-click to enlarge, drag to move, Shift+F10 for its menu.`,

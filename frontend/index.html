@@ -3389,7 +3389,11 @@
                ends are chosen by clicking the map now; this reads back what you
                chose and what the next click will do. -->
           <div class="graph-trace-ends" id="graph-trace-ends"></div>
-          <button id="graph-trace-clear" class="ghost small" title="Leave trace mode (Esc)">Done</button>
+          <!-- The strip's close, the X every other popup ends with (INBOX 421 d:
+               "there's no 'x' close button on the trace popup row"). It was
+               a "Done" that only cleared the two ends and left trace mode on. -->
+          <button id="graph-trace-clear" class="ghost small icon-only graph-trace-close" type="button"
+            title="Leave trace mode (Esc)" aria-label="Leave trace mode"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div id="graph-trace-result" class="graph-trace-result hidden" role="status"></div>
         <div id="link-suggestions" class="hidden"></div>

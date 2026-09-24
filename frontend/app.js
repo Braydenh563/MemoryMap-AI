@@ -43676,7 +43676,10 @@ $("graph-highlight-clear").addEventListener("click", () => {
   applyGraphHighlight();
   toast("Highlight cleared.");
 });
-$("graph-trace-clear").addEventListener("click", () => clearTrace());
+//: The trace strip's X leaves trace mode, strip and result both, the same
+//: as Escape: it used to be `clearTrace()`, which kept the mode on and only
+//: reset the two ends, under a tooltip that said it left (INBOX 421 d).
+$("graph-trace-clear").addEventListener("click", () => setTracePanelOpen(false));
 // The legend's own collapse: asked for twice: "the categories toggle line
 // needs to be collapsible or redesigned." A fixed row taken from the
 // canvas whether or not anyone reads it; collapsing it reclaims that row

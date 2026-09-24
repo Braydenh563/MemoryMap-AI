@@ -49041,9 +49041,22 @@ async function finderSearch() {
     return;
   }
   surfaceRecovered(results);
-  finderCounts = body.counts || {};
   const actions = finderKind && finderKind !== "action" ? [] : finderActions(query);
   const hits = finderKind === "action" ? [] : body.hits || [];
+  //: **A chip counts what this search found, not what the index holds.**
+  //: `body.counts` is the index's size per kind (the route says so), and
+  //: beside "3 results" a chip reading "Notes 46" was read as 46 matches.
+  //: Counted from an unfiltered page of hits, and kept while a kind filter
+  //: is on, so the other chips still say how many of theirs the query
+  //: found. A kind the index holds none of stays a zero either way.
+  if (!finderKind) {
+    const found = {};
+    for (const hit of hits) found[hit.kind] = (found[hit.kind] || 0) + 1;
+    for (const [kind, total] of Object.entries(body.counts || {})) {
+      if (!total) found[kind] = 0;
+    }
+    finderCounts = found;
+  }
   finderHits = [...hits, ...actions];
   finderRender();
 }
@@ -49212,7 +49225,17 @@ function finderRender() {
       head.className = "finder-group muted";
       const many = rows.filter((row) => row.kind === hit.kind).length;
       const kind = names[hit.kind];
-      head.textContent = kind ? (many === 1 ? kind.one : kind.many) : hit.kind;
+      //: A heading, so it starts with a capital: the names are the in-sentence
+      //: nouns ("3 notes"), and printed alone they read as lowercase labels
+      //: once the uppercase transform went (the owner: "all lowercase and
+      //: hard to see"). The group's size beside it, muted.
+      const word = kind ? (many === 1 ? kind.one : kind.many) : hit.kind;
+      const label = document.createElement("span");
+      label.textContent = word.charAt(0).toUpperCase() + word.slice(1);
+      const count = document.createElement("span");
+      count.className = "finder-group-count";
+      count.textContent = String(many);
+      head.replaceChildren(label, count);
       //: Not a `role="option"` inside the listbox: a heading is not
       //: selectable, and a screen reader walking the options would otherwise
       //: read the word "notes" as a result.
@@ -49265,7 +49288,15 @@ function finderRender() {
       //: not know `[[…]]`: without that a linked note prints its brackets.
       renderInlineMarkdown(
         snippet,
-        hit.snippet.slice(0, 200).replace(/\[\[([^[\]]{1,120})\]\]/g, "$1"),
+        //: Block markers go too: the snippet is a note's lines run together,
+        //: so a heading's `##` lands mid-line ("test ## Introduction ... ###
+        //: Adding"), where an inline renderer prints it. Stripped wherever
+        //: one starts a word, the same rule the link labels use.
+        hit.snippet
+          .slice(0, 200)
+          .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
+          .replace(/(^|\s)#{1,6}\s+/g, "$1")
+          .replace(/(^|\s)>\s+/g, "$1"),
         null,
         true
       );

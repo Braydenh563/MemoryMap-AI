@@ -57,6 +57,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Find anything: group headings are capitalised headings with their count
+  ("Notes 15"), set a step below the results line; the kind chips count
+  what the search found rather than everything indexed (they said "Notes
+  46" beside 3 results); a snippet no longer prints a heading's `##`; and
+  the chip row fades where more chips scroll.
 - A chip's x (detach a document, remove a file or a reference) is a round
   target the same distance from the chip's top, bottom and right edge, not
   a glyph with a stray gap after it.

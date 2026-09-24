@@ -4412,3 +4412,38 @@ main,
 .chip > .unlink:last-child > .ph {
   translate: 0 0.14em;
 }
+
+/* --- Find anything: group heads read as heads --- */
+/* Owner's screenshot: "notes", "documents" in 11px lowercase, and "24
+   results" sitting directly on the first of them. A head is the small 600
+   label in ink (the section-head grammar used across the app) with its
+   count muted beside it and a hairline under it, and the summary line keeps
+   a step of room above the first group. */
+.finder-group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-2) 0 var(--space-1);
+  border-bottom: 1px solid var(--divider);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.finder-group-count {
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.finder-summary {
+  margin-bottom: var(--space-2);
+}
+
+/* The kind chips scroll sideways when they do not fit (07's decision), and a
+   row that scrolls with nothing to say so hid its last chips under the Sort
+   label ("Link" cut in half, owner's screenshot). The row fades at the edge
+   it can still scroll toward, so the cut reads as "more", not as a fault. */
+.finder-filters {
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--space-6)), transparent);
+}

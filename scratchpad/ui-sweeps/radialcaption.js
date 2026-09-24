@@ -26,11 +26,22 @@ const { boot, OUT } = require('./lib.js');
     wbOpenMapRadial(wbState.objects.find((o) => o.id === root.id));
     await new Promise((r) => setTimeout(r, 300));
     const ring = document.getElementById('wb-map-radial');
+    // The ring is a pie menu (ccd1b48): every slot's own box is the whole
+    // ring's square (clip-path only clips the paint, not the layout box), so
+    // hovering a slot's own centre would put the pointer on the hole, over
+    // every slot at once. Hover the middle of each slot's wedge instead,
+    // from `_sector` (set by wbFitMapRadialBand) and the ring's own rect,
+    // which is width:0 height:0 positioned at the ring's centre.
+    const o = ring.getBoundingClientRect();
+    const cs = getComputedStyle(ring, '::before');
+    const outer = parseFloat(cs.width) / 2;
+    const inner = outer - parseFloat(cs.borderTopWidth);
+    const mid = (inner + outer) / 2;
     return {
       open: !ring.classList.contains('hidden'),
-      slots: [...ring.querySelectorAll('.wb-map-radial-slot')].map((b) => {
-        const r = b.getBoundingClientRect();
-        return { id: b.id, x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      slots: [...ring.querySelectorAll('.wb-map-radial-slot')].filter((b) => b._sector).map((b) => {
+        const s = b._sector;
+        return { id: b.id, x: Math.round(o.left + mid * Math.cos(s.at)), y: Math.round(o.top + mid * Math.sin(s.at)) };
       }),
       captionAtRest: document.querySelector('#wb-map-radial .wb-map-radial-caption')?.textContent || '',
     };

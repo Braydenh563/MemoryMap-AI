@@ -318,25 +318,34 @@ async function openBoardsMore(page) {
   // The right-click is the discoverable half of the same gesture, and on a map
   // node it now opens the node radial rather than the board's flat menu
   // (MINDMAP_PLAN §12.1 item 3). Both ways to add a child are slots in it.
+  // §12.5 cut the ring to six slots and took "from the library" out of it
+  // into the topic's own menu, under "Add" (grouped there since e55490f,
+  // 2026-09-23): the ring no longer has a seventh slot for it, so this is
+  // read from both surfaces, the way a person actually reaches each.
   const ctxItems = await page.evaluate(() => {
     const node = document.querySelector(".wb-object.wb-map-node");
-    if (!node) return [];
-    selectWbItem("object", Number(node.getAttribute("data-id")));
+    if (!node) return { ring: [], menu: [] };
+    const id = Number(node.getAttribute("data-id"));
+    selectWbItem("object", id);
     node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 300, clientY: 300 }));
     const ring = document.getElementById("wb-map-radial");
-    if (ring.classList.contains("hidden")) return [];
-    return [...ring.querySelectorAll(".wb-map-radial-slot")]
-      .map((b) => b.getAttribute("aria-label"));
+    const ringItems = ring.classList.contains("hidden")
+      ? []
+      : [...ring.querySelectorAll(".wb-map-radial-slot")].map((b) => b.getAttribute("aria-label"));
+    const built = wbBuildContextMenu("object");
+    const menuItems = [...built.querySelectorAll(".menu-item")].map((b) => b.textContent.trim());
+    return { ring: ringItems, menu: menuItems };
   });
   check(
     "a map node's right-click ring offers both ways to add a child",
     // `wbSyncMapRadialAlt` rewrites the two add slots' labels from their
     // titles as soon as the ring opens, so the branch slot reads "Add a
     // branch off this topic (Tab)": matched as a substring rather than whole,
-    // which is what that label is actually for.
-    ctxItems.some((l) => /Add a branch off this topic/.test(l || ""))
-      && ctxItems.some((l) => /Add a child from the library/.test(l || "")),
-    ctxItems.join(" | ")
+    // which is what that label is actually for. The library reference is
+    // the topic's own menu's job now, under "Add" > "From the library…".
+    ctxItems.ring.some((l) => /Add a branch off this topic/.test(l || ""))
+      && ctxItems.menu.some((t) => /From the library/.test(t)),
+    `ring: ${ctxItems.ring.join(" | ")}; menu: ${ctxItems.menu.join(" | ")}`
   );
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);

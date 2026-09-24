@@ -1927,7 +1927,23 @@ function docIndentSteps(lead, unit) {
 function docIndentGuides(CM, unit) {
   if (docIndentGuideCache.has(unit)) return docIndentGuideCache.get(unit);
   const { Decoration, ViewPlugin } = CM.view;
-  const mark = Decoration.mark({ class: "cm-indent-guide" });
+  //: **Every step is drawn one fixed width, 2em, whatever the file's unit**
+  //: (the owner, 2026-09-24, INBOX 409: "the degree of indenting is shallow,
+  //: I think it should be more prominent", on a two-space .json). The code
+  //: face is proportional, so a space is narrow: measured, four spaces drew
+  //: 2.6 character widths and two drew 1.3. The file keeps its own spaces;
+  //: only their drawn width changes, by letter-spacing on the step this
+  //: plugin already marks (`calc(2em / N - space)`, the space measured from
+  //: the editor's own font below). CodeMirror reads the caret from the DOM,
+  //: so clicks and arrows land where the text is drawn. Tabs are left as
+  //: they are.
+  const size = unit === "\t" ? 0 : Math.max(1, Math.min(8, unit.length));
+  const mark = Decoration.mark({ class: size ? `cm-indent-guide cm-indent-w${size}` : "cm-indent-guide" });
+  const measureSpace = (view) => {
+    const ctx = (docIndentGuides.canvas ||= document.createElement("canvas")).getContext("2d");
+    ctx.font = getComputedStyle(view.contentDOM).font;
+    view.contentDOM.style.setProperty("--doc-space-w", `${ctx.measureText(" ").width}px`);
+  };
   const build = (view) => {
     const found = [];
     for (const { from, to } of view.visibleRanges) {
@@ -1943,9 +1959,11 @@ function docIndentGuides(CM, unit) {
   const plugin = ViewPlugin.fromClass(
     class {
       constructor(view) {
+        measureSpace(view);
         this.decorations = build(view);
       }
       update(update) {
+        if (update.geometryChanged) measureSpace(update.view);
         if (update.docChanged || update.viewportChanged) this.decorations = build(update.view);
       }
     },

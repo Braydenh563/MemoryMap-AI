@@ -31532,17 +31532,33 @@ function refitComposer() {
 //: 295px and the welcome 350px, so a new chat opened on a scrollbar. Below
 //: its own natural height the welcome drops the emblem and tightens its
 //: spacing (`.chat-empty.is-short`, 08-consistency.css), which is 110px back.
-//: The choice is made against the welcome's *full* height, read with the
-//: class off, so going compact can never shrink it under the line and flip
-//: it back; read every time, because the chips arrive after the welcome is
-//: drawn and a figure kept from before them was 110px short (measured).
+//: The choice is made against the welcome's *full* height, and that is never
+//: read by taking the class off: doing so resized the pane whenever the pane's
+//: own height followed its content, the ResizeObserver fired on it, and the
+//: two chased each other every frame (the owner, 2026-09-24: after closing
+//: the skill hint above the composer "the whole new chat page started
+//: viciously stuttering jumping up and down"). The full height is read while
+//: the welcome is full; while it is compact, the height saved at the switch
+//: plus what the welcome has grown since (the chips arrive late). A change
+//: under 4px, or one this function caused, does nothing.
 function fitChatEmpty() {
   const pane = document.getElementById("chat-messages");
   const empty = pane && pane.querySelector(".chat-empty");
   if (!empty) return;
-  empty.classList.remove("is-short");
-  const full = empty.offsetHeight;
-  empty.classList.toggle("is-short", pane.clientHeight > 0 && pane.clientHeight < full);
+  const room = pane.clientHeight;
+  if (!room) return;
+  const short = empty.classList.contains("is-short");
+  const now = empty.offsetHeight;
+  const full = short ? Number(empty.dataset.fullHeight || 0) + (now - Number(empty.dataset.shortHeight || now)) : now;
+  const want = room + 4 < full ? true : room >= full + 4 ? false : short;
+  if (want === short) return;
+  if (want) {
+    empty.dataset.fullHeight = String(full);
+    empty.classList.add("is-short");
+    empty.dataset.shortHeight = String(empty.offsetHeight);
+  } else {
+    empty.classList.remove("is-short");
+  }
 }
 
 //: `ring-held` holds `.chat-dock:focus-within`'s accent ring off while the

@@ -15224,6 +15224,16 @@ function docCmTheme(CM) {
         backgroundImage: "linear-gradient(to right, var(--border) 0 1px, transparent 1px)",
         backgroundRepeat: "no-repeat",
       },
+      //: Every step drawn 2em wide, whatever its number of spaces
+      //: (`docIndentGuides`, which measures `--doc-space-w`).
+      ".cm-indent-w1": { letterSpacing: "calc(2em / 1 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w2": { letterSpacing: "calc(2em / 2 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w3": { letterSpacing: "calc(2em / 3 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w4": { letterSpacing: "calc(2em / 4 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w5": { letterSpacing: "calc(2em / 5 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w6": { letterSpacing: "calc(2em / 6 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w7": { letterSpacing: "calc(2em / 7 - var(--doc-space-w, 0.25em))" },
+      ".cm-indent-w8": { letterSpacing: "calc(2em / 8 - var(--doc-space-w, 0.25em))" },
       //: Bracket pairs by depth: three of the app's own inks, each mixed a
       //: third of the way back to the text, so the pairs are told apart
       //: without the brackets shouting over the code between them.

@@ -106,6 +106,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Code documents: the selection bar offers only Ask Atlas and Rewrite (no markdown
+  formatting over code), and every indentation step is drawn 2em wide, whatever
+  the file's unit.
+- A new chat could stutter up and down after a hint above the composer closed:
+  the welcome's fit no longer toggles its own class to measure, and the
+  transcript keeps its scrollbar's room.
 - The AI assistant's Edit, Write and Remove choice uses the same quiet selected
   state as every other choice control in the flat looks; the board export's
   format and scope are option tiles instead of a wrapping strip.

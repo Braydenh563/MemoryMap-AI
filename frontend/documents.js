@@ -2817,7 +2817,8 @@ function renderDocPreview() {
   //: is set for by `exportDocumentPdf`.
   const remarks = docPrintComments ? docCommentFootnotes : docCommentStrip;
   const stripped = fm ? docFrontmatterStrip(text) : text;
-  const body = remarks(docBlockStripIds(stripped));
+  //: Suggested changes are drawn as struck and highlighted words (PROSE-TOOLS).
+  const body = docSuggestForRead(remarks(docBlockStripIds(stripped)));
   //: **How far the preview's line numbers are from the editor's.** Every
   //: block this renders carries the line it came from (`data-src-line`,
   //: `renderMarkdown` in app.js), but it came from the line in the string
@@ -12169,6 +12170,10 @@ const DOC_PROSE_SKIP = [
   //: every document.
   /^[ \t]*>[ \t]*\[![A-Za-z]+\]/gm,
   /^---\n[\s\S]*?\n---/g, // frontmatter
+  //: Suggestion mode's marks (PROSE-TOOLS): a word proposed for deletion is
+  //: on its way out and not worth a finding, and the markers are syntax.
+  /\{--[\s\S]*?--\}/g,
+  /\{\+\+|\+\+\}/g,
 ];
 
 function docProseSkipMask(text) {
@@ -12357,6 +12362,7 @@ function renderDocProse() {
   //: computed from `docProseFound` over the visible lines, so the repaint is a
   //: screenful whatever the document's length.
   docCmRepaintFindings();
+  renderDocSuggestState();
   if (!panel.classList.contains("hidden")) renderDocProsePanel();
 }
 
@@ -12679,6 +12685,426 @@ function noteGrammarMenu(view, plugin, finding, x, y) {
   });
   openMenuAtPoint(items, finding.message, x, y);
 }
+
+// --- suggestion mode (tracked changes, INBOX 404) ------------------------------
+//
+// **Stored in the text, as CriticMarkup.** `{++inserted++}` and
+// `{--deleted--}` are a published plain-text convention (MultiMarkdown,
+// Obsidian and iA Writer read it), and the document's comments already live
+// in the text the same way (`%%remark%%`, DOC-COMMENT). So a suggestion is
+// saved, versioned, diffed, synced and exported with the document by every
+// path that already carries its text, with no field and no migration, and a
+// .md download still says what was suggested to anything that reads it. The
+// alternative, offsets in a side table, has to be moved through every edit
+// by every writer (autosave, restore, the AI, a formatting button), and the
+// first writer that forgets moves every mark onto the wrong words.
+//
+// What is tracked: typing, deleting, pasting and dropping while the mode is
+// on. What is not: edits a command makes (a formatting button, a fix from
+// the word menu, the AI), which say so by not carrying a user event.
+//
+// The model between the two markers is pure string work, so
+// `tests/test_prose_tools.py` runs it in node.
+
+// DOC-SUGGEST-BEGIN
+//: Fenced and inline code: a `{++` in a code sample is the sample.
+function docSuggestCodeMask(text) {
+  const mask = new Uint8Array(text.length);
+  const patterns = [/(^|\n)[ \t]*(```|~~~)[^\n]*\n[\s\S]*?(\n[ \t]*\2[^\n]*|$)/g, /`[^`\n]+`/g];
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (!match[0].length) {
+        pattern.lastIndex += 1;
+        continue;
+      }
+      mask.fill(1, match.index, match.index + match[0].length);
+    }
+  }
+  return mask;
+}
+
+//: Every suggestion in the text, in order: its kind, its whole span, and the
+//: span of what it suggests (between the three-character markers).
+function docSuggestParse(text) {
+  const src = String(text == null ? "" : text);
+  const code = docSuggestCodeMask(src);
+  const pattern = /\{\+\+([\s\S]*?)\+\+\}|\{--([\s\S]*?)--\}/g;
+  const out = [];
+  let match;
+  while ((match = pattern.exec(src)) !== null) {
+    if (code[match.index] === 1) continue;
+    const ins = match[1] !== undefined;
+    const start = match.index;
+    const end = start + match[0].length;
+    out.push({ kind: ins ? "ins" : "del", start, end, bodyStart: start + 3, bodyEnd: end - 3, body: ins ? match[1] : match[2] });
+  }
+  return out;
+}
+
+//: Two marks of one kind that touch become one, and an empty mark goes, but
+//: only in `[lo, hi]`, around the edit that made them: a `--}{--` elsewhere
+//: is somebody's text. Returns the text and a function that moves an offset
+//: across what was taken out.
+function docSuggestNormalize(text, lo, hi) {
+  const pattern = /\{\+\+\+\+\}|\{----\}|--\}\{--|\+\+\}\{\+\+/g;
+  const cuts = [];
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    const end = match.index + match[0].length;
+    if (end >= lo && match.index <= hi) cuts.push([match.index, end]);
+  }
+  let out = "";
+  let at = 0;
+  for (const [from, to] of cuts) {
+    out += text.slice(at, from);
+    at = to;
+  }
+  out += text.slice(at);
+  const move = (pos) => {
+    let shift = 0;
+    for (const [from, to] of cuts) {
+      if (pos >= to) shift += to - from;
+      else if (pos > from) return from - shift;
+    }
+    return pos - shift;
+  };
+  return { text: out, move };
+}
+
+//: **One edit, made as a suggestion.** Replacing `[from, to)` of `text` with
+//: `insert`; `backward` is a Backspace, which decides where the caret lands.
+//:
+//: - Deleting words that were themselves suggested as an insertion deletes
+//:   them for real: withdrawing your own suggestion is not a new one.
+//: - Deleting anything else wraps it in `{--…--}`, merged with a deletion it
+//:   touches, so a run of Backspaces is one suggestion.
+//: - A marker is never split; an edit that lands only on markers or on text
+//:   already suggested for deletion steps over it to the next real letter.
+//: - Typing inside an insertion extends it; anywhere else it opens one.
+function docSuggestEdit(text, from, to, insert, backward, depth = 0) {
+  const src = String(text);
+  const marks = docSuggestParse(src);
+  const markAt = (i) => marks.find((mark) => mark.start <= i && i < mark.end);
+  let region = "";
+  let run = "";
+  let changed = false;
+  const flush = () => {
+    if (run) region += `{--${run}--}`;
+    run = "";
+  };
+  for (let i = from; i < to; i += 1) {
+    const mark = markAt(i);
+    if (mark && mark.kind === "ins" && i >= mark.bodyStart && i < mark.bodyEnd) {
+      flush();
+      changed = true;
+    } else if (mark) {
+      flush();
+      region += src[i];
+    } else {
+      run += src[i];
+      changed = true;
+    }
+  }
+  flush();
+  //: Nothing deletable in the range: a Backspace just after a marker or over
+  //: a struck word. Step over the kept characters to the next real one.
+  if (to > from && !changed && !insert && depth === 0) {
+    let q = backward ? from : to;
+    const kept = (i) => {
+      const mark = markAt(i);
+      return mark && !(mark.kind === "ins" && i >= mark.bodyStart && i < mark.bodyEnd);
+    };
+    if (backward) {
+      while (q > 0 && kept(q - 1)) q -= 1;
+      if (q > 0) return docSuggestEdit(src, q - 1, q, "", true, 1);
+    } else {
+      while (q < src.length && kept(q)) q += 1;
+      if (q < src.length) return docSuggestEdit(src, q, q + 1, "", false, 1);
+    }
+    return { text: src, caret: backward ? from : to };
+  }
+  let out = src.slice(0, from) + region + src.slice(to);
+  let caret = backward ? from : from + region.length;
+  let hi = from + region.length;
+  if (insert) {
+    //: Where the typing goes, in the text after the deletion.
+    const after = docSuggestParse(out);
+    let p = from + region.length;
+    for (const mark of after) {
+      if (mark.kind === "del" && p > mark.start && p < mark.end) p = mark.end;
+    }
+    const host = after.find((mark) => mark.kind === "ins" && p > mark.start && p < mark.end);
+    if (host) {
+      p = Math.min(Math.max(p, host.bodyStart), host.bodyEnd);
+      out = out.slice(0, p) + insert + out.slice(p);
+      caret = p + insert.length;
+    } else {
+      out = `${out.slice(0, p)}{++${insert}++}${out.slice(p)}`;
+      caret = p + 3 + insert.length;
+    }
+    hi = Math.max(hi, caret + 3);
+  }
+  const tidy = docSuggestNormalize(out, Math.max(0, from - 3), hi + 3);
+  caret = tidy.move(caret);
+  //: A Backspace leaves the caret in front of the deletion it made, so the
+  //: next one reaches the letter before it; a forward delete, behind it.
+  for (const mark of docSuggestParse(tidy.text)) {
+    if (mark.kind !== "del" || insert) continue;
+    if (backward && caret > mark.start && caret <= mark.end) caret = mark.start;
+    if (!backward && caret >= mark.start && caret < mark.end) caret = mark.end;
+  }
+  return { text: tidy.text, caret };
+}
+
+//: Accepting or rejecting one suggestion, as an edit over its whole span.
+function docSuggestResolve(mark, accept) {
+  const keep = (mark.kind === "ins") === accept;
+  return { from: mark.start, to: mark.end, insert: keep ? mark.body : "" };
+}
+
+//: Every suggestion accepted, or every one rejected: the text as it would be.
+function docSuggestResolveAll(text, accept) {
+  let out = String(text == null ? "" : text);
+  const marks = docSuggestParse(out);
+  for (let i = marks.length - 1; i >= 0; i -= 1) {
+    const edit = docSuggestResolve(marks[i], accept);
+    out = out.slice(0, edit.from) + edit.insert + out.slice(edit.to);
+  }
+  return out;
+}
+
+//: For Read view: struck through and highlighted, in the markdown the
+//: renderer already draws, so the page shows what is proposed.
+function docSuggestForRead(text) {
+  const src = String(text == null ? "" : text);
+  const marks = docSuggestParse(src);
+  let out = src;
+  for (let i = marks.length - 1; i >= 0; i -= 1) {
+    const mark = marks[i];
+    const body = mark.body.trim() ? (mark.kind === "ins" ? `==${mark.body}==` : `~~${mark.body}~~`) : mark.body;
+    out = out.slice(0, mark.start) + body + out.slice(mark.end);
+  }
+  return out;
+}
+// DOC-SUGGEST-END
+
+//: Per document and per viewer, like the reading width: whether *this*
+//: reader is suggesting in *this* document is not a fact about the text.
+const DOC_SUGGEST_KEY = "docSuggestMode";
+
+function docSuggestModes() {
+  try {
+    return JSON.parse(localStorage.getItem(DOC_SUGGEST_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function docSuggestActive() {
+  if (!currentDoc || !currentDoc.id || !docFileType().previewable) return false;
+  return docSuggestModes()[currentDoc.id] === true;
+}
+
+function setDocSuggestMode(on) {
+  if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
+  const modes = docSuggestModes();
+  if (on) modes[currentDoc.id] = true;
+  else delete modes[currentDoc.id];
+  try {
+    localStorage.setItem(DOC_SUGGEST_KEY, JSON.stringify(modes));
+  } catch {
+    /* the mode still holds for this session through the checkbox */
+  }
+  renderDocSuggestState();
+}
+
+let docSuggestAnnotation = null;
+let docSuggestEffect = null;
+
+//: The filter that turns a user's edit into a suggestion, and the plugin that
+//: draws suggestions and keeps their markers whole.
+function docSuggestExtensions(CM) {
+  const { Decoration, ViewPlugin, EditorView } = CM.view;
+  if (!docSuggestAnnotation) docSuggestAnnotation = CM.state.Annotation.define();
+  if (!docSuggestEffect) docSuggestEffect = CM.state.StateEffect.define();
+  const filter = CM.state.EditorState.transactionFilter.of((tr) => {
+    if (!tr.docChanged || tr.annotation(docSuggestAnnotation) || !docSuggestActive()) return tr;
+    if (!["input", "delete", "move"].some((event) => tr.isUserEvent(event))) return tr;
+    const changes = [];
+    tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => changes.push([fromA, toA, inserted.toString()]));
+    const before = tr.startState.doc.toString();
+    const backward = tr.isUserEvent("delete.backward");
+    let text = before;
+    let caret = 0;
+    for (let i = changes.length - 1; i >= 0; i -= 1) {
+      const [from, to, insert] = changes[i];
+      const result = docSuggestEdit(text, from, to, insert, backward);
+      text = result.text;
+      if (i === 0) caret = result.caret;
+    }
+    let head = 0;
+    const limit = Math.min(before.length, text.length);
+    while (head < limit && before.charCodeAt(head) === text.charCodeAt(head)) head += 1;
+    let tail = 0;
+    while (tail < limit - head && before.charCodeAt(before.length - 1 - tail) === text.charCodeAt(text.length - 1 - tail)) {
+      tail += 1;
+    }
+    return {
+      changes: { from: head, to: before.length - tail, insert: text.slice(head, text.length - tail) },
+      selection: { anchor: caret },
+      scrollIntoView: true,
+      annotations: [
+        docSuggestAnnotation.of(true),
+        CM.state.Transaction.userEvent.of(tr.annotation(CM.state.Transaction.userEvent) || "input"),
+      ],
+    };
+  });
+
+  function build(view) {
+    const marks = [];
+    const hidden = [];
+    const hide = docView === "live";
+    for (const mark of docSuggestParse(view.state.doc.toString())) {
+      const cls = mark.kind === "ins" ? "cm-suggest-ins" : "cm-suggest-del";
+      const title = mark.kind === "ins" ? "Suggested insertion: click to accept or reject" : "Suggested deletion: click to accept or reject";
+      const edges = [[mark.start, mark.bodyStart], [mark.bodyEnd, mark.end]];
+      for (const [from, to] of edges) {
+        hidden.push(Decoration.replace({}).range(from, to));
+        if (!hide) marks.push(Decoration.mark({ class: "cm-suggest-marker" }).range(from, to));
+      }
+      if (mark.bodyEnd > mark.bodyStart) {
+        marks.push(
+          Decoration.mark({ class: cls, attributes: { "data-doc-suggest": String(mark.start), title } }).range(mark.bodyStart, mark.bodyEnd)
+        );
+      }
+    }
+    return {
+      decorations: Decoration.set(hide ? marks.concat(hidden) : marks, true),
+      atomic: Decoration.set(hidden, true),
+    };
+  }
+
+  const plugin = ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        Object.assign(this, build(view));
+      }
+      update(update) {
+        const told = update.transactions.some((tr) => tr.effects.length);
+        if (update.docChanged || told) {
+          Object.assign(this, build(update.view));
+          renderDocSuggestState();
+        }
+      }
+    },
+    {
+      decorations: (value) => value.decorations,
+      eventHandlers: {
+        mousedown(event, view) {
+          const el = event.target instanceof Element && event.target.closest("[data-doc-suggest]");
+          if (!el || event.button !== 0) return false;
+          event.preventDefault();
+          docSuggestMenu(view, Number(el.getAttribute("data-doc-suggest")), event.clientX, event.clientY);
+          return true;
+        },
+      },
+    }
+  );
+  return [
+    filter,
+    plugin,
+    EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic || Decoration.none),
+  ];
+}
+
+function docSuggestApply(view, edit, message) {
+  view.dispatch({
+    changes: edit,
+    annotations: [docSuggestAnnotation.of(true), window.CM6.state.Transaction.userEvent.of("input.review")],
+  });
+  if (message) toast(message);
+}
+
+//: The answers to one suggestion, at the pointer (or at the change, from the
+//: keyboard). Recomputed from the text at the press: the mark is found again
+//: by where it starts, and a mark no longer there says so.
+function docSuggestMenu(view, start, x, y) {
+  const mark = docSuggestParse(view.state.doc.toString()).find((m) => m.start === start);
+  if (!mark || typeof openMenuAtPoint !== "function") return;
+  const what = mark.kind === "ins" ? "insertion" : "deletion";
+  const count = docSuggestParse(view.state.doc.toString()).length;
+  const items = [
+    { group: "one", label: `ph:check Accept this ${what}`, run: () => docSuggestApply(view, docSuggestResolve(mark, true)) },
+    { group: "one", label: `ph:x Reject this ${what}`, run: () => docSuggestApply(view, docSuggestResolve(mark, false)) },
+  ];
+  if (count > 1) {
+    items.push(
+      { group: "all", label: `ph:checks Accept all ${count}`, run: () => docSuggestAll(true) },
+      { group: "all", label: `ph:x-circle Reject all ${count}`, run: () => docSuggestAll(false) },
+      { group: "all", label: "ph:arrow-down Next change", run: () => docSuggestNext() }
+    );
+  }
+  openMenuAtPoint(items, `Suggested ${what}`, x, y);
+}
+
+function docSuggestAll(accept) {
+  const view = docCmView;
+  if (!view) return;
+  const before = view.state.doc.toString();
+  const count = docSuggestParse(before).length;
+  if (!count) return toast("No suggested changes in this document.");
+  docSuggestApply(
+    view,
+    { from: 0, to: before.length, insert: docSuggestResolveAll(before, accept) },
+    `${accept ? "Accepted" : "Rejected"} ${count} change${count === 1 ? "" : "s"}. Ctrl+Z undoes it.`
+  );
+}
+
+//: The next suggestion after the caret, wrapping, selected and answered: the
+//: keyboard's way to every change, since a mark is otherwise a pointer target.
+function docSuggestNext() {
+  const view = docCmView;
+  if (!view) return;
+  const marks = docSuggestParse(view.state.doc.toString());
+  if (!marks.length) return toast("No suggested changes in this document.");
+  const here = view.state.selection.main.head;
+  const mark = marks.find((m) => m.start > here) || marks[0];
+  view.dispatch({ selection: { anchor: mark.bodyStart, head: mark.bodyEnd }, scrollIntoView: true });
+  view.focus();
+  requestAnimationFrame(() => {
+    const at = view.coordsAtPos(mark.bodyStart) || view.contentDOM.getBoundingClientRect();
+    docSuggestMenu(view, mark.start, at.left, at.bottom);
+  });
+}
+
+//: The chip in the status bar and the rows in the ⋯ menu, from one count.
+function renderDocSuggestState() {
+  const on = docSuggestActive();
+  const count = docCmView ? docSuggestParse(docCmView.state.doc.toString()).length : 0;
+  const box = $("doc-suggest-mode");
+  if (box) box.checked = on;
+  const chip = $("doc-suggest-status");
+  if (chip) {
+    chip.hidden = !on && !count;
+    const changes = `${count} change${count === 1 ? "" : "s"}`;
+    setLabel(chip, `ph:pencil-simple-line ${on ? `Suggesting, ${changes}` : `${changes} suggested`}`);
+    chip.title = count ? "Review the next suggested change" : "Suggestion mode is on: what you type and delete is marked for review";
+  }
+  for (const id of ["doc-suggest-next", "doc-suggest-accept-all", "doc-suggest-reject-all"]) {
+    const row = $(id);
+    if (row) row.hidden = !count;
+  }
+}
+
+$("doc-suggest-mode")?.addEventListener("change", (event) => setDocSuggestMode(event.currentTarget.checked));
+$("doc-suggest-next")?.addEventListener("click", () => docSuggestNext());
+$("doc-suggest-accept-all")?.addEventListener("click", () => docSuggestAll(true));
+$("doc-suggest-reject-all")?.addEventListener("click", () => docSuggestAll(false));
+$("doc-suggest-status")?.addEventListener("click", () => docSuggestNext());
+//: The rows are brought up to date as the menu opens, not only as the text
+//: changes: opening a different document changes the answer without an edit.
+$("doc-dock-menu")?.addEventListener("toggle", () => renderDocSuggestState());
 // PROSE-TOOLS-END
 
 // =============================================================================
@@ -18016,6 +18442,8 @@ function docCmExtensions(CM) {
     //: is not a reason to stop being told.
     docCmParts.live.of(docView === "live" ? docLiveExtensions(CM) : []),
     CM.state.Prec.high(docFindingsPlugin(CM)),
+    //: Suggestion mode (PROSE-TOOLS): the filter is inert until it is on.
+    docSuggestExtensions(CM),
     //: The dimming is a compartment because it is a preference that changes
     //: while the view is live; the typewriter listener is not, because it is
     //: inert until its flag is on and reconfiguring an extension to say

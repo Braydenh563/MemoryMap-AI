@@ -3815,6 +3815,20 @@
                   <i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> <span>Suggest words as I type</span>
                   <input type="checkbox" id="doc-complete" checked>
                 </label>
+                <!-- Suggestion mode (INBOX 404): what you type and delete is
+                     marked for review instead of changing the text. The three
+                     review rows show only when there is something to review. -->
+                <label id="doc-suggest-row" class="menu-item doc-dock-menu-item doc-dock-menu-check checkbox-label"
+                  title="Mark what you type and delete as suggestions to accept or reject, instead of changing the text">
+                  <i class="ph ph-pencil-simple-line ph-lead" aria-hidden="true"></i> <span>Suggest changes</span>
+                  <input type="checkbox" id="doc-suggest-mode">
+                </label>
+                <button id="doc-suggest-next" class="menu-item doc-dock-menu-item" type="button" hidden
+                  title="Select the next suggested change and answer it"><i class="ph ph-arrow-down ph-lead" aria-hidden="true"></i> Review the next change</button>
+                <button id="doc-suggest-accept-all" class="menu-item doc-dock-menu-item" type="button" hidden
+                  title="Accept every suggested change in this document"><i class="ph ph-checks ph-lead" aria-hidden="true"></i> Accept all changes</button>
+                <button id="doc-suggest-reject-all" class="menu-item doc-dock-menu-item" type="button" hidden
+                  title="Reject every suggested change in this document"><i class="ph ph-x-circle ph-lead" aria-hidden="true"></i> Reject all changes</button>
                 <button id="doc-delete" class="menu-item menu-danger doc-dock-menu-item" type="button"
                   title="Delete this document"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete document</button>
               </div>
@@ -4030,6 +4044,10 @@
           <button id="doc-prose" class="doc-statusbar-item doc-statusbar-button" type="button"
             aria-expanded="false" aria-controls="doc-prose-panel"
             title="Writing suggestions found in this document"><i class="ph ph-eyeglasses ph-lead" aria-hidden="true"></i> <span id="doc-prose-count">No suggestions</span></button>
+          <!-- Suggestion mode, stated where the writer looks: a mode that
+               changes what typing does has to be visible while it is on. -->
+          <button id="doc-suggest-status" class="doc-statusbar-item doc-statusbar-button" type="button" hidden
+            title="Review the next suggested change"><i class="ph ph-pencil-simple-line ph-lead" aria-hidden="true"></i> Suggesting</button>
           <span class="doc-statusbar-spacer"></span>
           <span id="doc-caret" class="doc-statusbar-item doc-statusbar-fact"
             title="Where the caret is, and what is selected">Ln 1, Col 1</span>

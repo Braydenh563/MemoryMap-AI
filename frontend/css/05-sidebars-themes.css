@@ -4563,6 +4563,32 @@ textarea.autogrow {
   background: var(--warn);
 }
 
+/* Suggestion mode (INBOX 404). An insertion is underlined on a green ground,
+   a deletion struck through in the error ink, the pair every editor with
+   tracked changes uses; the ink of the words themselves is left alone, so
+   contrast is the body text's own. The markers show only outside Live. */
+.cm-suggest-ins {
+  text-decoration: underline;
+  text-decoration-color: var(--ok);
+  text-decoration-thickness: 2px;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.cm-suggest-del {
+  text-decoration: line-through;
+  text-decoration-color: var(--error);
+  text-decoration-thickness: 2px;
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.cm-suggest-marker {
+  color: var(--muted);
+}
+
 /* The words carry the identity, so they hold the weight and they are the half
    that ellipsises: the reason is a sentence and can be read from the title. */
 .doc-finding-words {

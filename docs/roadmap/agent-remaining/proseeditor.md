@@ -24,7 +24,13 @@ agent wrote there sits between `// PROSE-TOOLS-BEGIN` and `// PROSE-TOOLS-END`
 
 1. Harper grammar in documents and note boxes. Done: see git log
    ("Grammar checking with Harper").
-2. Suggestion mode (tracked changes). Next.
+2. Suggestion mode (tracked changes). Done: see git log ("Suggestion
+   mode"). Stored inline as CriticMarkup, so no field and no migration
+   (decision, with the reason, at `DOC-SUGGEST-BEGIN`'s header); per-viewer
+   on/off in `localStorage`; `p2-suggest.js` 16 of 16, node model tests in
+   `test_prose_tools.py`. Not tracked by design: command edits (toolbar,
+   word-menu fixes, AI). Export of pending marks to .docx as Word revisions
+   is step 5's.
 3. Read aloud. Open.
 4. Accessibility check in the suggestions panel. Open.
 5. .docx round trip. Export exists (`core/docexport.to_docx`, python-docx

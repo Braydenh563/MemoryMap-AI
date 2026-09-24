@@ -10,8 +10,13 @@ does in the page is `scratchpad/ui-sweeps/p2-harper.js`.
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from memorymap.core import security
 
@@ -94,3 +99,64 @@ def test_a_grammar_finding_is_drawn_filed_and_answered() -> None:
 
 def test_the_note_boxes_get_the_grammar_plugin() -> None:
     assert "noteGrammarPlugin(CM)" in _body("noteSurfaceExtensions")
+
+
+# --- suggestion mode -----------------------------------------------------------
+#
+# The model between DOC-SUGGEST-BEGIN and DOC-SUGGEST-END is pure string work,
+# run here in node: what one keystroke does to the text and where it leaves
+# the caret, which is the whole of the feature's correctness.
+
+SUGGEST_DRIVER = r"""
+const results = [];
+const eq = (name, got, want) => results.push({ name, ok: JSON.stringify(got) === JSON.stringify(want), detail: JSON.stringify(got) });
+const run = (text, from, to, insert, back) => docSuggestEdit(text, from, to, insert, back);
+
+eq('type/opens an insertion', run('hello world', 5, 5, 'X', false), { text: 'hello{++X++} world', caret: 9 });
+eq('type/extends it', run('hello{++X++} world', 9, 9, 'Y', false), { text: 'hello{++XY++} world', caret: 10 });
+eq('type/next to an insertion joins it', run('a{++X++}b', 8, 8, 'Z', false), { text: 'a{++XZ++}b', caret: 6 });
+eq('backspace/wraps a letter', run('abc', 2, 3, '', true), { text: 'ab{--c--}', caret: 2 });
+eq('backspace/a run is one deletion', run('ab{--c--}', 1, 2, '', true), { text: 'a{--bc--}', caret: 1 });
+eq('backspace/over your own insertion deletes it', run('a{++XY++}b', 5, 6, '', true), { text: 'a{++X++}b', caret: 5 });
+eq('backspace/the last inserted letter leaves nothing', run('a{++X++}b', 4, 5, '', true), { text: 'ab', caret: 1 });
+eq('backspace/over a marker reaches the letter', run('a{++X++}b', 5, 8, '', true), { text: 'ab', caret: 1 });
+eq('backspace/after a deletion reaches the letter before it', run('x{--abc--}', 7, 10, '', true), { text: '{--xabc--}', caret: 0 });
+eq('delete/forward wraps and steps past', run('abc', 0, 1, '', false), { text: '{--a--}bc', caret: 7 });
+eq('replace/a selection becomes both', run('the cat', 4, 7, 'dog', false), { text: 'the {--cat--}{++dog++}', caret: 19 });
+eq('type/inside a deletion goes after it', run('a{--bc--}d', 5, 5, 'Q', false), { text: 'a{--bc--}{++Q++}d', caret: 13 });
+eq('normalise/only near the edit', run('a --}{-- b and more', 18, 18, 'X', false), { text: 'a --}{-- b and mor{++X++}e', caret: 22 });
+eq('resolve/accept all', docSuggestResolveAll('a{++X++}b{--c--}d', true), 'aXbd');
+eq('resolve/reject all', docSuggestResolveAll('a{++X++}b{--c--}d', false), 'abcd');
+eq('resolve/one edit', docSuggestResolve(docSuggestParse('a{--bc--}d')[0], false), { from: 1, to: 9, insert: 'bc' });
+eq('parse/code is not a suggestion', docSuggestParse('```\n{++x++}\n```\nand `{--y--}`').length, 0);
+eq('parse/kinds and spans', docSuggestParse('a{++X++}b{--c--}').map((m) => [m.kind, m.start, m.end, m.body]), [['ins', 1, 8, 'X'], ['del', 9, 16, 'c']]);
+eq('read/struck and highlighted', docSuggestForRead('a{++X++}b{--c--}'), 'a==X==b~~c~~');
+process.stdout.write(JSON.stringify(results));
+"""
+
+
+def _suggest_source() -> str:
+    start = DOCUMENTS.index("// DOC-SUGGEST-BEGIN")
+    stop = DOCUMENTS.index("// DOC-SUGGEST-END")
+    return DOCUMENTS[start:stop]
+
+
+def test_suggestion_mode_edits_as_decided(tmp_path) -> None:
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = tmp_path / "suggest.js"
+    script.write_text(_suggest_source() + SUGGEST_DRIVER, encoding="utf-8")
+    out = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=60, check=False)
+    assert out.returncode == 0, out.stderr
+    failed = [f"{r['name']}: {r['detail']}" for r in json.loads(out.stdout) if not r["ok"]]
+    assert not failed, "\n".join(failed)
+
+
+def test_suggestion_mode_is_wired_and_reachable() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    for element in ("doc-suggest-mode", "doc-suggest-next", "doc-suggest-accept-all", "doc-suggest-reject-all", "doc-suggest-status"):
+        assert f'id="{element}"' in html, element
+        assert f'$("{element}")' in DOCUMENTS, element
+    assert "docSuggestExtensions(CM)" in _body("docCmExtensions")
+    assert "docSuggestForRead(" in _body("renderDocPreview")

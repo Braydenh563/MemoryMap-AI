@@ -157,9 +157,10 @@ function authToken() {
 // image was a silent 401 (an empty/broken image, nothing thrown, nothing
 // logged, `isRenderableUrl` already having confirmed it same-origin) on any
 // notebook with a password set, which is the normal case. The backend's
-// `require_unlock_media` accepts the token this way for exactly these two
-// routes; every other endpoint stays header-only. A no-op on anything that
-// isn't one of these two paths, so every call site can use it unconditionally.
+// `require_unlock_media` accepts the media cookie for exactly these two
+// prefixes; every other endpoint stays header-only. `mediaSrc` is still the
+// one door every such URL goes through (it resolves staged pictures), so
+// every call site keeps using it unconditionally.
 //: **Declared up here, and the reason is the `SPACE_ALL` story below.** A
 //: `const` is in the temporal dead zone until its own line runs, and
 //: `mediaSrc` is called during boot, long before the capture composer's own
@@ -226,11 +227,33 @@ function mediaSrc(url) {
   if (typeof url === "string" && url.startsWith(STAGED_URL_PREFIX)) {
     return stagedImageByUrl(url)?.objectUrl || url;
   }
-  if (typeof url !== "string" || !/^\/(media|files)\//.test(url)) return url;
-  const token = authToken();
-  if (!token) return url;
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}token=${encodeURIComponent(token)}`;
+  //: **No credential goes in the URL** (WORLD_CLASS_PLAN §12, S1). This used
+  //: to append the session token as a query parameter, which put the key to
+  //: the whole notebook into history, the server's access log and any note an
+  //: image address was pasted into. The media cookie the server sets at
+  //: unlock (`MEDIA_COOKIE`, routes_auth.py) rides along on these loads by
+  //: itself, opens `/media` and `/files` only, and no script can read it;
+  //: `refreshMediaSession` below re-asks for it when a token is restored.
+  return url;
+}
+
+//: The media cookie for a token this tab already holds: called on the boot
+//: path before anything renders a picture, because a profile that kept the
+//: token in localStorage may have lost its cookies (cleared site data, a
+//: browser that drops them on exit). Unlock, setup and a password change set
+//: the cookie in their own responses, so they never need this. Never throws:
+//: a failure here is a broken picture, not a broken boot, and the first
+//: locked request will show the lock screen anyway if the token is stale.
+async function refreshMediaSession() {
+  if (!authToken()) return;
+  try {
+    await fetch("/auth/media-session", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+    });
+  } catch {
+    // Offline or the server is gone: the boot path says so on its own.
+  }
 }
 
 // **A file that is no longer there should say so, not draw a broken frame.**
@@ -772,7 +795,11 @@ async function initAuth() {
     return;
   }
   // Token might be stale after a server restart, startApp()'s first
-  // request will bounce us to the lock screen if so.
+  // request will bounce us to the lock screen if so. The media cookie first,
+  // awaited, so the first pictures the app draws already carry it: one local
+  // round trip, and without it a profile that lost its cookies drew every
+  // picture broken (see `refreshMediaSession`).
+  await refreshMediaSession();
   startApp();
 }
 
@@ -7396,9 +7423,9 @@ function openLightbox(items, startIndex = 0, opts = {}) {
           //: can run). The workspace is a modal too, and two stacked overlays
           //: leave the page behind unreachable.
           close();
-          //: `_src`, not `url`: the lightbox item already carries a *tokened*
-          //: src (`getUrl` runs it through `mediaSrc`), and letting the
-          //: workspace token it a second time appends a second `?token=`.
+          //: `_src`, not `url`: the lightbox item already carries a resolved
+          //: src (`getUrl` runs it through `mediaSrc`, which resolves a staged
+          //: picture to its blob), so the workspace takes it as it is.
           window.openOcrWorkspace?.(
             {
               id: item.id,
@@ -8016,8 +8043,9 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     } catch {
       return;
     }
-    // `/media/<stored name>`, possibly with the `?token=` mediaSrc() adds
-    // for declarative loads, which is not part of the name.
+    // `/media/<stored name>`, possibly with a query string (an address
+    // saved before 2026-09-24 can still carry one), which is not part of the
+    // name.
     const match = /\/media\/([^/?#]+)/.exec(url || "");
     if (!match) return;
     const name = match[1];

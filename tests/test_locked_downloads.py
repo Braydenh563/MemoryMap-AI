@@ -6,8 +6,8 @@ that header (`require_unlock`, routes_auth.py). So "Download .md" on a note
 card and on the Library's note and document cards opened a tab reading
 "Locked: unlock first" on every notebook with a password, which is the normal
 case, and worked only on one without. The media routes are the one exception
-the server makes (`require_unlock_media` reads a `?token=`), and `mediaSrc()`
-is how a URL gets one, so a `window.open(mediaSrc(...))` passes here.
+the server makes (`require_unlock_media` reads the media cookie), so a
+declarative load of `/media` or `/files` passes there (tests/test_media_cookie.py).
 """
 
 from __future__ import annotations

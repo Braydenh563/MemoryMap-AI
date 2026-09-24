@@ -934,7 +934,11 @@ function libraryActions(item) {
       // close for `<img src>`, just missed here. Every notebook with a
       // password set (the normal case) 401'd on Download until this.
       makeMenuItem("ph:download-simple Download", "Save this file", () => {
-        window.open(mediaSrc(`/files/${item.id}`), "_blank");
+        //: `downloadFromApi`, not `window.open`: in the desktop window a new
+        //: window goes to the system browser, which holds neither the header
+        //: nor the media cookie (WORLD_CLASS_PLAN §12, S1), and this app's
+        //: own save path is the one that works in both shells.
+        downloadFromApi(`/files/${item.id}`, item.title || "file");
       }),
       //: The same way into a chat every other object's menu offers (INBOX
       //: 393's vocabulary); a file's read text and caption are searchable by
@@ -4173,9 +4177,9 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     fileLabel.title = fileLabel.textContent;
   }
   const img = $("ocr-image");
-  //: `_src` is an already-tokened url from a caller that has one (the
-  //: lightbox); `url` is the raw path every gallery row carries. Running an
-  //: already-tokened url back through `mediaSrc` appends a second token.
+  //: `_src` is an already-resolved url from a caller that has one (the
+  //: lightbox); `url` is the raw path every gallery row carries and goes
+  //: through `mediaSrc` here.
   //: `ocrPageImageUrl` keeps that rule and adds the PDF case, where the
   //: picture of the page is rendered rather than stored.
   const continuous =
@@ -5913,13 +5917,12 @@ onDomReady(() => {
       //: picture of what was transcribed cannot be checked later, which is
       //: the same failure this whole workspace exists to fix.
       const name = ocrWorkspaceCurrent?.original_name || "image";
-      //: **The token must not go in the note.** A caller that opened the
-      //: workspace from the lightbox hands over an already-tokened `_src`
-      //: (see `ocrLoadPage`), and writing that into a note's markdown would
-      //: store this session's auth token in the notebook, and hand it to
-      //: anyone the note is later exported or shared with. The query string
-      //: is dropped; `mediaSrc` re-adds a live token whenever the note is
-      //: rendered.
+      //: **Only the path goes in the note.** Until 2026-09-24 a `_src` from
+      //: the lightbox carried the session token as a query string, and
+      //: writing that into a note's markdown stored the notebook's key in
+      //: the notebook itself. No URL carries it now (the media cookie does
+      //: the work, WORLD_CLASS_PLAN §12 S1), and the query string is still
+      //: dropped, because a note should hold the address and nothing else.
       //: A PDF page has no stored url of its own, the picture is rendered on
       //: request: so the note points at the page endpoint instead, which
       //: renders the same page again whenever the note is opened.
@@ -7430,12 +7433,9 @@ function filterLibraryImagesGallery() {
     setLabel(save, "ph:download-simple");
     save.addEventListener("click", (event) => {
       event.stopPropagation();
-      const link = document.createElement("a");
-      link.href = mediaSrc(image._isAttachment ? `/files/${image.id}` : image.url);
-      link.download = image.original_name || "file";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      //: The app's own save path rather than a clicked `<a download>`, which
+      //: the desktop window swallows (see `saveFile`).
+      downloadFromApi(image._isAttachment ? `/files/${image.id}` : image.url, image.original_name || "file");
     });
 
     //: **The card's own way into the picture at full size.** Reported as the

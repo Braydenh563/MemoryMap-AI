@@ -22,6 +22,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Pictures and files no longer carry your session key in their address. Unlocking sets a cookie that only picture and file requests can use and no script can read, so the key stays out of browser history, the server's log and any note an image address is pasted into. The Library's Download on a file saves through the app's own save path, which also works in the desktop window.
 - Link suggestions and tensions open faster on a large notebook: the comparison of every pair of notes is kept until a note's meaning changes, instead of being redone on every request (5,000 notes: 322 ms to 104 ms for a repeat request; 2,000 notes: 114 ms to 28 ms).
 - Ask and chat find related notes faster on a large notebook: the semantic half of retrieval scores against the vectors already held in memory instead of reading every stored vector from the database for each question (5,000 notes: 19 to 74 ms before, about 1 ms after; 400 notes: 1.6 ms to 0.2 ms). A note edited, deleted or re-indexed a moment ago is scored on what is stored now.
 - A toast's action button (Undo, Turn on) drew white text on white in the light theme; it is a ghost button now.

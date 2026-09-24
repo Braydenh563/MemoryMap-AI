@@ -1,0 +1,165 @@
+"""The session token never travels in a media URL (WORLD_CLASS_PLAN §12, S1).
+
+`mediaSrc()` used to append `?token=<session token>` to every `/media` and
+`/files` URL, because a declarative load (`<img src>`, an `<iframe>`, a CSS
+background) cannot attach the `X-Auth-Token` header. So the one credential
+that opens the whole notebook landed in browser history, in uvicorn's access
+log and in any note a person pasted an image address into.
+
+Now unlocking sets an HttpOnly, SameSite=Strict cookie scoped to `/media` and
+`/files` only, holding a media ticket rather than the session token: it rides
+along on those loads by itself, scripts cannot read it, other sites cannot
+make the browser send it, and it opens nothing but media. A `?token=` in a
+media URL is refused.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+from memorymap.api import routes_auth
+from memorymap.core import deps
+
+FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
+COOKIE = routes_auth.MEDIA_COOKIE
+
+
+@pytest.fixture(autouse=True)
+def _clear_sessions():
+    routes_auth._active_tokens.clear()
+    routes_auth._failed_unlocks.clear()
+    yield
+    routes_auth._active_tokens.clear()
+    routes_auth._failed_unlocks.clear()
+
+
+@pytest.fixture()
+def picture(app_state):
+    media = deps.get_config().data_dir / "media"
+    media.mkdir(parents=True, exist_ok=True)
+    (media / "pic.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+    return "/media/pic.png"
+
+
+def _media_cookies(response) -> list[str]:
+    return [
+        value
+        for key, value in response.headers.multi_items()
+        if key.lower() == "set-cookie" and value.startswith(f"{COOKIE}=")
+    ]
+
+
+def _setup(client) -> str:
+    response = client.post("/auth/setup", json={"password": "correct horse"})
+    assert response.status_code == 200
+    return response.json()["token"]
+
+
+def test_unlocking_sets_a_media_cookie_scoped_to_the_two_media_paths(client):
+    client.post("/auth/setup", json={"password": "correct horse"})
+    client.cookies.clear()
+    response = client.post("/auth/unlock", json={"password": "correct horse"})
+    cookies = _media_cookies(response)
+    assert sorted(re.search(r"Path=([^;]+)", c).group(1) for c in cookies) == ["/files", "/media"]
+    for cookie in cookies:
+        assert "HttpOnly" in cookie
+        assert "SameSite=strict" in cookie or "SameSite=Strict" in cookie
+    ticket = cookies[0].split(";", 1)[0].split("=", 1)[1]
+    assert ticket and ticket != response.json()["token"], "the cookie holds a ticket, not the session token"
+
+
+def test_a_picture_loads_with_the_cookie_alone(client, picture):
+    _setup(client)
+    assert client.get(picture).status_code == 200
+
+
+def test_the_session_token_in_a_media_url_is_refused(client, picture):
+    token = _setup(client)
+    client.cookies.clear()
+    assert client.get(picture, params={"token": token}).status_code == 401
+    assert client.get(picture, headers={"X-Auth-Token": token}).status_code == 200
+
+
+def test_the_media_cookie_opens_nothing_but_media(client):
+    _setup(client)
+    assert client.get("/entries").status_code == 401
+
+
+def test_locking_ends_the_ticket(client, picture):
+    token = _setup(client)
+    ticket = client.cookies.get(COOKIE, path="/media")
+    response = client.post("/auth/lock", headers={"X-Auth-Token": token})
+    assert any("Max-Age=0" in c or "max-age=0" in c.lower() for c in _media_cookies(response))
+    client.cookies.clear()
+    client.cookies.set(COOKIE, ticket, path="/media")
+    assert client.get(picture).status_code == 401
+
+
+def test_a_ticket_dies_with_its_session(client, picture):
+    token = _setup(client)
+    routes_auth._active_tokens.pop(token)
+    assert client.get(picture).status_code == 401
+
+
+def test_a_restored_token_can_ask_for_its_cookie_again(client, picture):
+    """A browser restart drops nothing here (the cookie has a Max-Age), but a
+    token kept in localStorage in a profile that lost its cookies must not
+    leave every picture broken until the next unlock."""
+    token = _setup(client)
+    client.cookies.clear()
+    assert client.get(picture).status_code == 401
+    response = client.post("/auth/media-session", headers={"X-Auth-Token": token})
+    assert response.status_code == 200
+    assert _media_cookies(response)
+    assert client.get(picture).status_code == 200
+
+
+def test_the_media_session_route_needs_the_header(client):
+    _setup(client)
+    client.cookies.clear()
+    assert client.post("/auth/media-session").status_code == 401
+
+
+def test_changing_the_password_moves_the_cookie_to_the_new_session(client, picture):
+    token = _setup(client)
+    old_ticket = client.cookies.get(COOKIE, path="/media")
+    response = client.post(
+        "/auth/change-password",
+        json={"current_password": "correct horse", "new_password": "battery staple"},
+        headers={"X-Auth-Token": token},
+    )
+    assert response.status_code == 200
+    assert _media_cookies(response)
+    assert client.get(picture).status_code == 200
+    client.cookies.clear()
+    client.cookies.set(COOKIE, old_ticket, path="/media")
+    assert client.get(picture).status_code == 401
+
+
+def test_media_src_puts_no_credential_in_the_url():
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    start = app.index("function mediaSrc(url)")
+    body = app[start : app.index("\n}\n", start)]
+    code = "\n".join(line.split("//", 1)[0] for line in body.splitlines())
+    assert "token" not in code.lower(), code
+
+
+def test_no_frontend_file_builds_a_token_query():
+    offenders = []
+    for path in sorted(FRONTEND.glob("*.js")):
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            code = line.split("//", 1)[0]
+            if re.search(r"[?&]token=", code):
+                offenders.append(f"{path.name}:{number}: {line.strip()}")
+    assert offenders == []
+
+
+def test_the_boot_path_asks_for_the_media_cookie_before_the_app_starts():
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    assert "/auth/media-session" in app
+    boot = app[app.index("  $(\"lock-btn\").classList.remove(\"hidden\");\n  if (!authToken()) {"):]
+    boot = boot[: boot.index("startApp();") + len("startApp();")]
+    assert "refreshMediaSession" in boot

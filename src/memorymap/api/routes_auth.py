@@ -17,7 +17,7 @@ import secrets
 import time
 
 import bcrypt
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -44,17 +44,42 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 #             not still be valid; this is the ceiling that a token leaked from
 #             a proxy log or a synced browser profile eventually hits.
 #
-# There is no cookie here to mark SameSite=Strict: the token travels as an
-# X-Auth-Token header the frontend sets explicitly, so a browser never attaches
-# it to a cross-site request on its own. That is a stronger position than a
-# SameSite cookie rather than a gap in one, the risk a SameSite flag addresses
-# is the browser sending credentials unprompted, and nothing here does.
+# The session token is never a cookie: it travels as an X-Auth-Token header the
+# frontend sets explicitly, so a browser never attaches it to a cross-site
+# request on its own. That is a stronger position than a SameSite cookie
+# rather than a gap in one. The one cookie this app sets is the media ticket
+# below, which opens pictures and files and nothing else.
 _SESSION_IDLE_TTL = 12 * 60 * 60  # fallback default; overridden by the
 # session_idle_ttl_minutes preference (Settings → Account) once one is set
 _SESSION_MAX_AGE = 7 * 24 * 60 * 60  # this old → expired, however busy
 
 # token -> [issued_at, last_used_at]
 _active_tokens: dict[str, list[float]] = {}
+
+# **The media ticket** (WORLD_CLASS_PLAN §12, S1). A declarative load (`<img
+# src>`, an `<iframe>`, a CSS background) cannot attach the X-Auth-Token
+# header, so `mediaSrc()` used to append `?token=<session token>` to every
+# `/media` and `/files` URL. That put the one credential that opens the whole
+# notebook into browser history, uvicorn's access log, and any note a person
+# pasted an image address into; on localhost a nuisance, on a LAN a leak.
+#
+# Now unlocking sets a cookie instead, and three properties do the work:
+#
+#   HttpOnly: no script on the page can read it, so an injected one cannot
+#             lift it the way it could read a URL.
+#   SameSite=Strict: another site cannot make the browser send it, so an
+#             `<img>` on a page elsewhere pointing here loads nothing.
+#   Path=/media and Path=/files: the browser sends it to those two prefixes
+#             only, and it holds a *ticket*, not the session token, so even a
+#             copy of it opens pictures and files and never the API.
+#
+# A ticket lives exactly as long as its session: it names one, and the gate
+# checks that session is still live on every use.
+MEDIA_COOKIE = "memorymap_media"
+MEDIA_COOKIE_PATHS = ("/media", "/files")
+# ticket -> the session token it was issued for
+_media_tickets: dict[str, str] = {}
+register_cache_reset(_media_tickets.clear)
 # Module state, not app state, so `deps.reset_app_state()` (the thing every
 # test's `app_state` fixture calls) threw the database away and kept the
 # tokens. Any test that ran `/auth/setup` before `test_account.py` in the same
@@ -79,8 +104,37 @@ def _sweep_expired(idle_ttl: int) -> None:
     ]
     for token in dead:
         del _active_tokens[token]
+    if dead:
+        _forget_dead_tickets()
     if dead and not _active_tokens:
         vault.close()
+
+
+def _forget_dead_tickets() -> None:
+    """Drop every media ticket whose session is gone."""
+    for ticket in [t for t, token in _media_tickets.items() if token not in _active_tokens]:
+        del _media_tickets[ticket]
+
+
+def _grant_media(response: Response, token: str) -> None:
+    """Set the media cookie for this session (see MEDIA_COOKIE above)."""
+    ticket = secrets.token_urlsafe(32)
+    _media_tickets[ticket] = token
+    for path in MEDIA_COOKIE_PATHS:
+        response.set_cookie(
+            MEDIA_COOKIE,
+            ticket,
+            max_age=_SESSION_MAX_AGE,
+            path=path,
+            httponly=True,
+            samesite="strict",
+        )
+
+
+def _revoke_media(response: Response) -> None:
+    """Tell the browser to drop the media cookie on both paths."""
+    for path in MEDIA_COOKIE_PATHS:
+        response.delete_cookie(MEDIA_COOKIE, path=path, httponly=True, samesite="strict")
 
 
 def _token_valid(token: str | None, idle_ttl: int) -> bool:
@@ -155,23 +209,24 @@ def require_unlock_media(
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
-    token: str | None = None,
+    memorymap_media: str | None = Cookie(default=None),
 ) -> None:
-    """Same gate as `require_unlock`, plus a query-param fallback.
+    """Same gate as `require_unlock`, plus the media cookie.
 
     For the handful of routes a plain `<img src>` points at directly
-    (`/media/{filename}`, `/files/{attachment_id}`), a declarative resource
-    load never attaches a custom header, only `fetch`/`XHR` can, so every
-    such image was a silent 401 (an empty/broken `<img>`, nothing thrown,
-    nothing logged) on any notebook with a password set, which is the normal
-    case. Scoped to just these routes rather than widened onto
-    `require_unlock` itself: that would put the token in every access-log
-    line for every request, not only the two that actually need it in a URL.
+    (`/media/{filename}`, `/files/{attachment_id}` and their page and preview
+    renders), a declarative resource load never attaches a custom header,
+    only `fetch`/`XHR` can, so every such image was a silent 401 on any
+    notebook with a password set, which is the normal case. The cookie is
+    what such a load carries (see MEDIA_COOKIE); a `fetch` still sends the
+    header. **A `?token=` query parameter is no longer read**: it was the
+    fallback here until 2026-09-24, and it was the leak S1 describes.
     """
     if _get_user(session) is None:
         return
     idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
-    if not _token_valid(x_auth_token or token, idle_ttl):
+    token = x_auth_token or _media_tickets.get(memorymap_media or "")
+    if not _token_valid(token, idle_ttl):
         raise HTTPException(status_code=401, detail="Locked: unlock first")
 
 
@@ -188,7 +243,7 @@ def status(session: Session = Depends(get_session)) -> dict:
 
 
 @router.post("/setup")
-def setup(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
+def setup(body: PasswordBody, response: Response, session: Session = Depends(get_session)) -> dict:
     """First run: create the single user. Refuses to run twice."""
     if _get_user(session) is not None:
         raise HTTPException(status_code=400, detail="A password is already set")
@@ -199,11 +254,13 @@ def setup(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
     vault.create(session, body.password)
     log_action(session, "created", "user", detail="password set")
     session.commit()
-    return {"token": _issue_token()}
+    token = _issue_token()
+    _grant_media(response, token)
+    return {"token": token}
 
 
 @router.post("/unlock")
-def unlock(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
+def unlock(body: PasswordBody, response: Response, session: Session = Depends(get_session)) -> dict:
     _refuse_if_throttled()
     user = _get_user(session)
     if user is None:
@@ -245,13 +302,30 @@ def unlock(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
         logging.getLogger("memorymap.auth").warning(
             "unlocked without writing the audit line: the disk is full"
         )
-    return {"token": _issue_token(), "vault_open": vault_open}
+    token = _issue_token()
+    _grant_media(response, token)
+    return {"token": token, "vault_open": vault_open}
+
+
+@router.post("/media-session", dependencies=[Depends(require_unlock)])
+def media_session(response: Response, x_auth_token: str | None = Header(default=None)) -> dict:
+    """Set the media cookie again for a session the frontend already holds.
+
+    The boot path calls this when it finds a token in localStorage: a profile
+    that kept the token and lost its cookies (cleared site data, a browser
+    that drops cookies on exit) would otherwise show every picture broken
+    until the next unlock. `require_unlock` has already checked the header.
+    """
+    _grant_media(response, x_auth_token or "")
+    return {"ok": True}
 
 
 @router.post("/lock")
-def lock(x_auth_token: str | None = Header(default=None)) -> dict:
-    """Log out: the token stops working immediately."""
+def lock(response: Response, x_auth_token: str | None = Header(default=None)) -> dict:
+    """Log out: the token stops working immediately, and its media ticket too."""
     _active_tokens.pop(x_auth_token or "", None)
+    _forget_dead_tickets()
+    _revoke_media(response)
     # Forget the data key too, or "lock" would leave private notes readable.
     if not _active_tokens:
         vault.close()
@@ -289,6 +363,7 @@ def account(
 @router.post("/change-password", dependencies=[Depends(require_unlock)])
 def change_password(
     body: ChangePasswordBody,
+    response: Response,
     session: Session = Depends(get_session),
     x_auth_token: str | None = Header(default=None),
 ) -> dict:
@@ -334,7 +409,10 @@ def change_password(
     _active_tokens.pop(x_auth_token or "", None)
     signed_out = len(_active_tokens)
     _active_tokens.clear()
-    return {"changed": True, "token": _issue_token(), "other_sessions_ended": signed_out}
+    _media_tickets.clear()
+    token = _issue_token()
+    _grant_media(response, token)
+    return {"changed": True, "token": token, "other_sessions_ended": signed_out}
 
 
 class RotateVaultKeyBody(BaseModel):
@@ -344,6 +422,7 @@ class RotateVaultKeyBody(BaseModel):
 @router.post("/rotate-vault-key", dependencies=[Depends(require_unlock)])
 def rotate_vault_key(
     body: RotateVaultKeyBody,
+    response: Response,
     session: Session = Depends(get_session),
     x_auth_token: str | None = Header(default=None),
 ) -> dict:
@@ -447,18 +526,23 @@ def rotate_vault_key(
     _active_tokens.pop(x_auth_token or "", None)
     ended = len(_active_tokens)
     _active_tokens.clear()
+    _media_tickets.clear()
+    token = _issue_token()
+    _grant_media(response, token)
     return {
         "rotated": True,
         "notes_reencrypted": len(rewritten),
-        "token": _issue_token(),
+        "token": token,
         "other_sessions_ended": ended,
     }
 
 
 @router.post("/lock-all", dependencies=[Depends(require_unlock)])
-def lock_all() -> dict:
+def lock_all(response: Response) -> dict:
     """End every session, including this one. The panic button."""
     ended = len(_active_tokens)
     _active_tokens.clear()
+    _media_tickets.clear()
+    _revoke_media(response)
     vault.close()
     return {"locked": True, "sessions_ended": ended}

@@ -12,6 +12,47 @@ that answers "has this been done?" before anyone starts.
 INBOX 399 ("what is left in the world class plan??"): every row of
 WORLD_CLASS_PLAN.md read against the code, and what was built moved here.
 
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S1
+
+**Built 2026-09-24: S1, the session token out of media URLs.** The review
+offered two fixes, a signed short-lived ticket in the URL or an HttpOnly
+cookie read only by `/media` and `/files`; the cookie was taken, because it
+puts no credential in any URL at all (history, the access log, a pasted
+address, an exported SVG) and needs no per-URL work where markdown renders an
+`<img>`, whereas a ticket in the URL would still be a credential in all four
+places, only a weaker one. Unlocking (and setup, a password change, a key
+rotation) sets `memorymap_media`: HttpOnly, SameSite=Strict, `Path=/media`
+and `Path=/files`, Max-Age the session ceiling, holding a random ticket that
+names the session rather than the session token itself, so a copy of it
+opens pictures and files and never the API. `require_unlock_media` reads the
+header or the cookie and **no longer reads `?token=`**. The ticket dies with
+its session (expiry, lock, lock-all, a password change); `POST
+/auth/media-session` sets it again for a token the frontend restores from
+localStorage, and the boot path awaits it before `startApp`. `mediaSrc` now
+returns the path unchanged (it still resolves staged pictures); the Library's
+two downloads go through `downloadFromApi`, since a `window.open` in the
+desktop window reaches the system browser, which holds neither credential.
+The access-log scrubber stays as the second layer for old addresses.
+
+Tests: `tests/test_media_cookie.py` (the cookie's attributes and paths, a
+picture with the cookie alone, `?token=` refused, the cookie opening no API
+route, lock, session death, the re-ask, a password change, no token in any
+frontend URL, the boot order). Verified in headless Chromium against a
+running server (`scratchpad/s1_browser.js`): a `/media` picture and a
+`/files` PDF in an iframe load (200, `application/pdf`), `document.cookie`
+cannot see the cookie, a reload keeps working, a profile with its cookies
+cleared fails a fresh load and loads again after the boot path's re-ask, the
+Library download saves `doc.pdf`, and no request URL and no server log line
+carried `token=`. **Not verified: the pywebview window** (WebView2, WKWebView,
+WebKitGTK), which cannot run here; the cookie is a plain same-origin
+Set-Cookie on a fetch response, which all three honour by specification.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S1 | The session token travels in `?token=` on every `/media` and `/files` URL (`mediaSrc`, `frontend/app.js` ~215), so it lands in browser history, in uvicorn's access log, and in any note a person pastes an image URL into (the code already notes a doubled `?token=`). `Referrer-Policy: no-referrer` stops the Referer leak only. | `app.js` mediaSrc; `core/security.py` query-token path | low / high | A media-scoped, short-lived HMAC token (path + expiry, signed with a per-session key) or an HttpOnly cookie set at unlock and read only by `/media` and `/files`; the API keeps the header. Log scrubbing for `token=` either way. |
+
 ### From WORLD_CLASS_PLAN.md row 9 (§16): `similar_pairs` cached for link suggestions and tensions
 
 **Built 2026-09-24.** `/entries/link-suggestions` and `/entries/tensions`

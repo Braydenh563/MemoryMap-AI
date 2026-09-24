@@ -4079,6 +4079,127 @@ function docTableStepCell(table, row, col, delta) {
   }
 }
 
+//: The row an arrow or Enter goes to from `row`, stepping over the delimiter
+//: (which is the header's underline, not a row anyone writes in). `null`
+//: past either end: the caller's cue to leave the table or to add a row.
+//: INBOX 425 i: measured before this, ArrowDown from the third column
+//: landed in the fourth, because the editor moves by pixels and the cells
+//: of the next row are laid out by a grid it cannot see.
+function docTableStepRow(table, row, delta) {
+  let r = row + delta;
+  if (r === table.delim) r += delta;
+  if (r < 0 || r >= table.rows.length) return null;
+  return r;
+}
+
+//: A cell's text as markdown can hold it: one line, and a pipe escaped so it
+//: stays inside its cell rather than opening a new one. An already escaped
+//: pipe is kept as it is.
+function docTableEscapeCell(text) {
+  return String(text == null ? "" : text)
+    .replace(/[\r\n]+/g, " ")
+    .trim()
+    .replace(/\\\|/g, "\u0000")
+    .replace(/\|/g, "\\|")
+    .replace(/\u0000/g, "\\|");
+}
+
+//: What a spreadsheet puts on the clipboard: rows on lines, cells split by
+//: tabs. `null` for anything without a tab, which is ordinary text and is
+//: pasted as it is. A trailing newline (every spreadsheet adds one) is not a
+//: row.
+function docTableGridFromText(text) {
+  if (typeof text !== "string" || text.indexOf("\t") === -1) return null;
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  while (lines.length && lines[lines.length - 1] === "") lines.pop();
+  if (!lines.length) return null;
+  return lines.map((line) => line.split("\t").map(docTableEscapeCell));
+}
+
+//: A new table from a grid, its first row as the header. Written the way
+//: this editor writes a new row (`| a | b |`, a space either side), so a
+//: pasted table and a typed one look the same in Source.
+function docTableFromGrid(grid) {
+  const width = Math.max(1, ...grid.map((row) => row.length));
+  const line = (cells) =>
+    "|" + Array.from({ length: width }, (_, i) => ` ${cells[i] == null ? "" : cells[i]} `).join("|") + "|";
+  return [line(grid[0] || []), "|" + Array.from({ length: width }, () => " --- ").join("|") + "|",
+    ...grid.slice(1).map(line)].join("\n");
+}
+
+//: The edits that put `text` into cells, each cell keeping the padding it
+//: was written with: the words between the spaces change and nothing else,
+//: the same promise every operation above keeps. A blank cell has no words
+//: to stand between, so it is written ` text `, as a new row's cells are.
+function docTableSetCellEdits(table, cells) {
+  const edits = [];
+  for (const { row, col, text } of cells) {
+    const span = docTableCellSpan(table, row, col);
+    if (!span) continue;
+    const raw = table.rows[row].cells[col];
+    if (!raw.trim()) {
+      edits.push({ from: span.from, to: span.to, insert: ` ${text} ` });
+      continue;
+    }
+    const lead = (/^[ \t]*/.exec(raw) || [""])[0].length;
+    const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
+    edits.push({ from: span.from + lead, to: span.to - tail, insert: text });
+  }
+  return edits;
+}
+
+//: **A spreadsheet's rows pasted into a table fill its cells** (INBOX 425 i,
+//: "paste from a spreadsheet"). Measured before this: the whole clipboard
+//: landed in the one cell the caret was in, tabs and newlines and all, and
+//: the three lines after it stopped being a table. From the caret's cell,
+//: right and down, one cell per value; rows and columns the table does not
+//: have yet are added the way Tab and the cell menu add them, and a paste on
+//: the delimiter starts on the first body row.
+//:
+//: Returns one edit covering the table, so the paste is one step of undo,
+//: and the cell the last value went into for the caret. Every byte of the
+//: table the paste did not have to change is still the author's.
+function docTablePasteEdits(text, table, row, col, grid) {
+  if (!grid || !grid.length) return null;
+  const from = table.from;
+  let work = String(text);
+  let t = table;
+  const targets = [];
+  let r = row === t.delim ? t.delim + 1 : row;
+  for (let i = 0; i < grid.length; i += 1) {
+    if (r === t.delim) r += 1;
+    targets.push(r);
+    r += 1;
+  }
+  while (t && t.rows.length <= targets[targets.length - 1]) {
+    work = docTableApplyEdits(work, docTableAddRowEdits(t, t.rows.length - 1));
+    t = docTableParse(work, from);
+  }
+  const width = Math.max(...grid.map((cells) => cells.length));
+  while (t && t.columns < col + width) {
+    work = docTableApplyEdits(work, docTableAddColumnEdits(t, t.columns - 1));
+    t = docTableParse(work, from);
+  }
+  if (!t) return null;
+  //: A row made short by GFM's padding gets its missing cells for real
+  //: before anything is written into them, as Tab does.
+  for (const target of targets) {
+    work = docTableApplyEdits(work, docTableFillRowEdits(t, target, col + width - 1));
+    t = docTableParse(work, from);
+  }
+  const cells = [];
+  grid.forEach((values, i) =>
+    values.forEach((value, j) => cells.push({ row: targets[i], col: col + j, text: value }))
+  );
+  work = docTableApplyEdits(work, docTableSetCellEdits(t, cells));
+  const grown = work.length - String(text).length;
+  return {
+    edit: { from, to: table.to, insert: work.slice(from, table.to + grown) },
+    row: targets[targets.length - 1],
+    col: col + grid[grid.length - 1].length - 1,
+  };
+}
+
 // DOC-TABLE-END
 
 // -----------------------------------------------------------------------------
@@ -4173,6 +4294,140 @@ function docTableTabStep(backwards, from = null) {
   if (backwards) return false;
   const rows = context.table.rows.length;
   return docTableGo(context, docTableAddRowEdits(context.table, rows - 1), rows, 0);
+}
+
+//: The caret at the end of a cell's words, for the gestures that move rather
+//: than select (Enter and the arrows): Tab selects the cell it lands in so
+//: typing replaces it, and an arrow that did the same would turn the next
+//: keystroke into a deletion.
+function docTableCaretTo(context, row, col) {
+  const surface = context.surface;
+  let table = context.table;
+  if (!table.rows[row]) return false;
+  if (col >= table.rows[row].cells.length) {
+    docTableDispatch({ surface, text: surface.text }, docTableFillRowEdits(table, row, col));
+    table = docTableParse(surface.text, table.from);
+    if (!table) return true;
+  }
+  const span = docTableCellSpan(table, row, Math.min(col, table.rows[row].cells.length - 1));
+  if (!span) return true;
+  const raw = surface.text.slice(span.from, span.to);
+  const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
+  const at = raw.trim() ? span.to - tail : span.from + Math.min(1, raw.length);
+  surface.setSelectionRange(at, at);
+  return true;
+}
+
+//: **Enter and the arrows in a Live table** (INBOX 425 i: "tables are still
+//: really annoying to use and edit in the documents live view"). Measured
+//: before this in `scratchpad/ui-sweeps/doctablework.js`: ArrowDown from the
+//: third column landed in the fourth and ArrowUp into the header a column
+//: off, because the editor moves by pixels over cells a grid has laid out;
+//: Enter in the last row made a row but sent the caret to its first column;
+//: and a table that ended the document (or began it) could not be left by
+//: the arrows at all, so the only way to write under it was Source view.
+//:
+//: Now, in Live, the arrows keep the column from row to row (a cell whose
+//: words wrap over several lines is walked through first, as any paragraph
+//: is), Enter goes to the same column one row down and adds the row at the
+//: end, and past the table's edge the arrows leave it, making the blank line
+//: markdown needs when there is nothing on that side yet. Source keeps the
+//: plain editor's keys: there the rows are text, and moving by column over
+//: unaligned pipes would be the surprise.
+function docTableKeyMove(view, key) {
+  if (docView !== "live") return false;
+  const sel = view.state.selection.main;
+  if (!sel.empty || view.state.selection.ranges.length > 1) return false;
+  const context = docTableContext();
+  if (!context || context.surface.kind !== "codemirror" || context.surface.view !== view) return false;
+  const { table, cell } = context;
+  if (key === "Enter") {
+    const next = docTableStepRow(table, cell.row, 1);
+    if (next !== null) return docTableCaretTo(context, next, cell.col);
+    const rows = table.rows.length;
+    return docTableGo(context, docTableAddRowEdits(table, rows - 1), rows, cell.col);
+  }
+  const down = key === "ArrowDown";
+  const moved = view.moveVertically(sel, down);
+  const landed = docTableCellAt(table, moved.head);
+  if (moved.head !== sel.head && landed && landed.row === cell.row && landed.col === cell.col) return false;
+  const next = docTableStepRow(table, cell.row, down ? 1 : -1);
+  if (next !== null) return docTableCaretTo(context, next, cell.col);
+  const doc = view.state.doc;
+  if (down) {
+    if (table.to < doc.length) {
+      view.dispatch({ selection: { anchor: table.to + 1 }, scrollIntoView: true });
+    } else {
+      view.dispatch({
+        changes: { from: table.to, insert: "\n\n" },
+        selection: { anchor: table.to + 2 },
+        scrollIntoView: true,
+        userEvent: "input",
+      });
+    }
+    return true;
+  }
+  if (table.from > 0) {
+    view.dispatch({ selection: { anchor: table.from - 1 }, scrollIntoView: true });
+  } else {
+    view.dispatch({
+      changes: { from: 0, insert: "\n\n" },
+      selection: { anchor: 0 },
+      scrollIntoView: true,
+      userEvent: "input",
+    });
+  }
+  return true;
+}
+
+//: A paste that is a spreadsheet's rows. Into a table, it fills cells from
+//: the caret's (`docTablePasteEdits`); anywhere else in a markdown document,
+//: it becomes a table of its own when the clipboard also carries an HTML
+//: table (which every spreadsheet puts there) and the rows are a rectangle
+//: of at least two by two, so tab-indented text pasted from a code editor is
+//: still pasted as the text it was. Never in a code file.
+function docTablePasteEvent(event, view) {
+  if (view.dom.classList.contains("doc-content-code")) return false;
+  const data = event.clipboardData;
+  if (!data) return false;
+  const grid = docTableGridFromText(data.getData("text/plain"));
+  if (!grid) return false;
+  const context = docTableContext();
+  if (context && context.surface.kind === "codemirror" && context.surface.view === view) {
+    const result = docTablePasteEdits(context.text, context.table, context.cell.row, context.cell.col, grid);
+    if (!result) return false;
+    event.preventDefault();
+    docUndoBreak();
+    view.dispatch({ changes: result.edit, userEvent: "input.paste", scrollIntoView: true });
+    const table = docTableParse(view.state.doc.toString(), context.table.from);
+    if (table) docTableCaretTo({ surface: context.surface, table }, result.row, result.col);
+    return true;
+  }
+  const html = data.getData("text/html") || "";
+  const square = grid.length >= 2 && grid[0].length >= 2 && grid.every((row) => row.length === grid[0].length);
+  if (!/<table[\s>]/i.test(html) || !square) return false;
+  event.preventDefault();
+  const { state } = view;
+  const sel = state.selection.main;
+  const startLine = state.doc.lineAt(sel.from);
+  const endLine = state.doc.lineAt(sel.to);
+  //: A table is a block: it needs a blank line between it and the text on
+  //: either side, or the line after it would be read as one more row.
+  const textBefore = state.doc.sliceString(startLine.from, sel.from).trim();
+  const lineAbove = startLine.number > 1 ? state.doc.line(startLine.number - 1).text.trim() : "";
+  const textAfter = state.doc.sliceString(sel.to, endLine.to).trim();
+  const lineBelow = endLine.number < state.doc.lines ? state.doc.line(endLine.number + 1).text.trim() : "";
+  const before = textBefore ? "\n\n" : lineAbove ? "\n" : "";
+  const after = textAfter ? "\n\n" : lineBelow ? "\n" : "";
+  const table = docTableFromGrid(grid);
+  docUndoBreak();
+  view.dispatch({
+    changes: { from: sel.from, to: sel.to, insert: before + table + after },
+    selection: { anchor: sel.from + before.length + table.length },
+    userEvent: "input.paste",
+    scrollIntoView: true,
+  });
+  return true;
 }
 
 //: The whole table, for the one command that is not an edit inside it. The
@@ -7216,6 +7471,14 @@ function docLivePlugin(CM) {
         //: round the cell says it at a glance, and follows Tab and Shift+Tab.
         //: Only while the editor has focus, like every other reveal here.
         const activeCell = inTable ? docTableCellAt(table, sel.head) : null;
+        //: **The menu rides the row being edited** (INBOX 425 i). It sat at
+        //: the end of the header, so in the fourth body row of a four-row
+        //: table it was 158px from the caret, and past a screen of rows it was
+        //: off screen altogether: the actions for "this row" were drawn on a
+        //: different one. The delimiter is the header's underline, so a caret
+        //: on it puts the menu on the header.
+        const menuCell = docTableCellAt(table, sel.from) || { row: 0, col: 0 };
+        const menuRow = menuCell.row === table.delim ? 0 : menuCell.row;
         for (let r = 0; r < table.rows.length; r += 1) {
           const row = table.rows[r];
           const rule = r === table.delim && !touched(row.from, row.to);
@@ -7244,9 +7507,10 @@ function docLivePlugin(CM) {
             const span = docTableCellSpan(table, r, c);
             const align = table.aligns[c];
             const place = c < DOC_TABLE_GRID_MAX ? ` cm-md-c${c + 1}` : "";
-            //: The header's last cell keeps room for the kebab that sits at
-            //: its end, so a long heading wraps before it rather than under it.
-            const last = r === 0 && c === row.cells.length - 1 ? " cm-md-td-last" : "";
+            //: Every row's last cell keeps room for the kebab, since the kebab
+            //: now follows the caret from row to row: the room is reserved on
+            //: all of them so moving the caret never re-wraps a cell.
+            const last = c === row.cells.length - 1 ? " cm-md-td-last" : "";
             const active =
               activeCell && activeCell.row === r && activeCell.col === c ? " cm-md-td-active" : "";
             const cls = (align ? `cm-md-td cm-md-td-${align}` : "cm-md-td") + place + last + active;
@@ -7265,8 +7529,8 @@ function docLivePlugin(CM) {
           //: controls sit in every editor the plan names, and is drawn out of
           //: the grid's flow by its class so it cannot become a column of its
           //: own.
-          if (r === 0 && (inTable || menuHeld)) {
-            const cell = docTableCellAt(table, sel.from) || { row: 0, col: 0 };
+          if (r === menuRow && (inTable || menuHeld)) {
+            const cell = menuCell;
             //: The *view's* own surface, not the document's: this plugin is
             //: mounted in every note editor too (Phase 8), and a menu that
             //: edited `doc-content` from inside a note would write into
@@ -16751,6 +17015,8 @@ function docCmTheme(CM) {
       ".cm-md-table": {
         display: "grid",
         borderLeft: "1px solid var(--border)",
+        //: The cell menu is positioned against whichever row it is on.
+        position: "relative",
       },
       //: Past `DOC_TABLE_GRID_MAX` columns there is no class to place the
       //: cells with, so the line falls back to what it did before them. It is
@@ -16786,7 +17052,7 @@ function docCmTheme(CM) {
         backgroundColor: "color-mix(in srgb, var(--accent) 6%, transparent)",
         borderRadius: "var(--radius-sm, 6px)",
       },
-      ".cm-md-table-head .cm-md-td-last": {
+      ".cm-md-table .cm-md-td-last": {
         paddingRight: "calc(var(--space-4) + 1.75rem)",
       },
       ".cm-md-td-left": { textAlign: "left" },
@@ -16807,10 +17073,12 @@ function docCmTheme(CM) {
       ".cm-md-frontmatter": { height: "0", overflow: "hidden", border: "0" },
       //: Out of the grid's flow, or the menu would be a column of its own and
       //: every cell in the table would narrow to make room for it.
+      //: Centred on its row, which is now any row (the menu follows the
+      //: caret): pinned to the top it sat 5px high on a one-line row.
       ".cm-md-table-menu": {
         position: "absolute",
         right: "2px",
-        top: "0",
+        top: "calc(50% - 0.875rem)",
         opacity: "0.7",
       },
       ".cm-md-table-menu:hover, .cm-md-table-menu:focus-within": { opacity: "1" },
@@ -16989,6 +17257,12 @@ function docCmHighlight(CM) {
 function docCmKeymap(CM) {
   const surface = () => docSurface();
   return [
+    //: A Live table's own Enter and arrows, first so they are asked before
+    //: anything that would treat a row as a line of text; each declines
+    //: (returns false) everywhere that is not a Live table cell.
+    { key: "Enter", run: (view) => docTableKeyMove(view, "Enter") },
+    { key: "ArrowDown", run: (view) => docTableKeyMove(view, "ArrowDown") },
+    { key: "ArrowUp", run: (view) => docTableKeyMove(view, "ArrowUp") },
     {
       key: "Escape",
       run: () => {
@@ -17170,6 +17444,7 @@ function docCmExtensions(CM) {
         docTabEscapes = false;
         return docTableCellClick(event, view);
       },
+      paste: (event, view) => docTablePasteEvent(event, view),
     }),
     CM.view.EditorView.updateListener.of(docCmUpdate),
     //: **The browser's own spellcheck, and the one condition it stays on

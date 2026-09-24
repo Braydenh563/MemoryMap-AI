@@ -5675,7 +5675,7 @@ function entryOverflowMenu(entry) {
           openConnections(
             "entries",
             entry.id,
-            entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80)
+            entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
           ),
       },
       {
@@ -8377,7 +8377,7 @@ function pickEntryDialog(message) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "entry-pick-row";
-        button.textContent = entry.title || notePreviewText(entry.content).slice(0, 90);
+        button.textContent = entry.title || clipText(notePreviewText(entry.content), 90);
         button.addEventListener("click", () => close(entry));
         list.appendChild(button);
       }
@@ -12362,7 +12362,7 @@ function referenceCountChip(entry, options = {}) {
     openConnections(
       "entries",
       entry.id,
-      entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80)
+      entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
     );
   });
   refChip.title = "Everything this note is joined to. Open Connections";
@@ -20870,7 +20870,7 @@ const EXTRACT_LINK_KIND_LABEL = { sibling: "new note", source: "source", related
 function extractRefLabel(ref, notes) {
   if (ref.startsWith("existing:")) return "an existing note";
   const note = notes.find((n) => n.ref === ref);
-  return note ? note.title || note.content.slice(0, 30) : ref;
+  return note ? note.title || clipText(notePreviewText(note.content), 30) : ref;
 }
 
 function renderExtractPreview(body) {
@@ -27964,6 +27964,19 @@ function wikiLinkLabel(name) {
   return clean || name;
 }
 
+//: Text shortened for display: cut at the last whole word inside `limit`
+//: with an ellipsis, never mid-word. A bare `.slice(0, n)` left labels such
+//: as "responds to the blu" all over the app, which reads as a typo rather
+//: than as "there is more". A single word longer than the limit is cut hard,
+//: still with the ellipsis. Text that fits comes back unchanged.
+function clipText(text, limit) {
+  const full = String(text ?? "").trim();
+  if (full.length <= limit) return full;
+  const hard = full.slice(0, Math.max(1, limit - 1));
+  const soft = hard.replace(/\s+\S*$/, "");
+  return `${(soft.length >= limit / 2 ? soft : hard).replace(/[\s,.;:!?-]+$/, "")}…`;
+}
+
 function notePreviewText(content) {
   return (content || "")
     .replace(/^#{1,6}\s+/gm, "")
@@ -29278,7 +29291,7 @@ function mdDocumentCard(doc, name = "") {
   if (doc && doc.preview) {
     const preview = document.createElement("span");
     preview.className = "embed-card-preview";
-    preview.textContent = String(doc.preview).replace(/[#>*_`[\]]/g, "").slice(0, 180);
+    preview.textContent = clipText(String(doc.preview).replace(/[#>*_`[\]]/g, ""), 180);
     text.appendChild(preview);
   }
   const go = document.createElement("i");
@@ -42105,7 +42118,7 @@ function openNotePage(entry, returnFocus = null) {
   if (!entry || notePageOpenId === entry.id) return;
   expandedNotes.add(entry.id);
   notePageOpenId = entry.id;
-  const title = entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80) || "Note";
+  const title = entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80) || "Note";
   notePageClose = openSheet({
     label: title,
     name: "note",
@@ -43560,7 +43573,7 @@ $("draft-add-source").addEventListener("click", async () => {
   if (draftSources.some((s) => s.id === entry.id)) return;
   draftSources.push({
     id: entry.id,
-    label: (entry.title || notePreviewText(entry.content) || "Untitled note").slice(0, 60),
+    label: clipText(entry.title || notePreviewText(entry.content) || "Untitled note", 60),
   });
   renderDraftSources();
   saveDraftLocally();
@@ -43571,7 +43584,7 @@ $("draft-continue-note").addEventListener("click", async () => {
   if ($("draft-text").value.trim()) pushDraftUndo();
   $("draft-text").value = entry.content || "";
   draftNoteId = entry.id;
-  draftNoteLabel = (entry.title || notePreviewText(entry.content) || "a note").slice(0, 40);
+  draftNoteLabel = clipText(entry.title || notePreviewText(entry.content) || "a note", 40);
   $("draft-kind").value = "continue";
   markDraftQuickstart("continue");
   renderDraftTarget();
@@ -45644,7 +45657,7 @@ function renderDuplicateGroups(groups) {
         merge.disabled = chosen.size < 2;
       });
       const text = document.createElement("span");
-      text.textContent = notePreviewText(entry.content).slice(0, 160);
+      text.textContent = clipText(notePreviewText(entry.content), 160);
       label.append(box2, text);
       card.appendChild(label);
     }

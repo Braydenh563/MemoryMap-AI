@@ -1301,9 +1301,7 @@ async function renderContinueLink(row) {
   // One line of the note, short enough to sit in a pill beside three others.
   // Cut at a word with an ellipsis: a bare 42-character slice ended the pill
   // on "responds to the blu", which reads as a typo rather than as more text.
-  const full = notePreviewText(newest.content || "").trim();
-  const cut = full.length > 42 ? full.slice(0, 42).replace(/\s+\S*$/, "") : full;
-  const preview = cut ? (cut.length < full.length ? `${cut}…` : cut) : "your last note";
+  const preview = clipText(notePreviewText(newest.content || ""), 42) || "your last note";
   //: **The note's own line is the label, not the hint.** 10-responsive.css
   //: gives this pill `flex: 2 1 0` against its neighbours' `1 1 0` and says
   //: why: "Continue is the one pill whose text is a note's own first line, so
@@ -3677,7 +3675,7 @@ async function renderActivityWidget(body) {
   for (const item of [...items].reverse()) {
     const entry = item.entity_type === "entry" || item.entity_type === "board" ? byId.get(item.entity_id) : null;
     const noun = DASH_ACTIVITY_NOUNS[item.entity_type] || "Item";
-    const name = entry ? notePreviewText(entry.content || "").split("\n")[0].slice(0, 60) : "";
+    const name = entry ? clipText(notePreviewText(entry.content || "").split("\n")[0], 60) : "";
     const verb = HISTORY_ACTION_WORDS[item.action] || item.action.replace(/_/g, " ");
     //: A compacted run is one line, not a burst of edits (the feed's own
     //: `snapshot` count says how many it stands for).

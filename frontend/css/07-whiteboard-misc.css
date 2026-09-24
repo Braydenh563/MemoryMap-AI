@@ -1029,8 +1029,8 @@ textarea.drag-over {
    for the inner one that's really scrolling, confirmed live (padding-bottom
    on #tab-notes stayed unchanged after adding the class until this second
    selector was added). Graph has no document-flow scroll container at all
-   (it's a pan/zoom canvas), so this can't help it the same way, noted as
-   still-open in the roadmap rather than silently left unfixed.
+   (it's a pan/zoom canvas), so it gets no buffer: the panel floats over its
+   corner and the map pans out from under it.
 
    The buffer itself is `--space-9 * 9` (18rem) rather than a bare number, 
    not a spacing rhythm value in the usual sense (it's standing in for
@@ -1039,52 +1039,52 @@ textarea.drag-over {
    declaration regardless of what they mean, so composing it from the scale
    is what keeps this off the test's ALLOWED list, which is for cases where
    even a token composition can't fit: this one can. */
-body.has-agent-monitor .tab-page {
+/* **Opt-in, one scroll container at a time, never the tab page by default.**
+   This used to be `body.has-agent-monitor .tab-page` for every tab, with a
+   reset for each tab found to be squashed by it (Documents, Notes, Chat,
+   Library, each reported separately). Graph and Timeline were never reset,
+   and they are the two tabs where `.tab-page` is a fixed-height flex column
+   with a card that fills it: the 18rem came straight out of the card.
+   Reported with a screenshot at ~2000x1076 ("the graph card ends around
+   y=525 and everything below is empty"), measured at 1440x900: #graph-card
+   767 -> 479 and the Timeline card 751 -> 463 the moment the panel opened.
+   A floating panel floats; it does not get to resize the surface under it.
+
+   So the buffer now goes only where something really scrolls, named here,
+   and a new tab gets no padding until someone decides it scrolls. The
+   pan/zoom canvases (the Graph, an open board) get none: the panel sits
+   over their corner and the canvas pans out from under it. Every rule
+   below is measured by scratchpad/ui-sweeps/activitypanel.js, which fails
+   if any tab's surface changes height by more than 2px when the panel
+   opens.
+
+   Dashboard and Reminders: `.tab-page` itself is the scroller. */
+body.has-agent-monitor #tab-dashboard,
+body.has-agent-monitor #tab-reminders {
   padding-bottom: calc(var(--page-bottom) + var(--space-9) * 9);
 }
 
-/* Documents never got this treatment when Notes and Chat did, same shape
-   as the comment above describes: #tab-documents is a plain flex column
-   (.doc-layout), not the thing that scrolls, so the generic buffer just
-   shrank the whole card grid to a fraction of the tab's height instead of
-   protecting anything (reported: "the documents sidebar/main panel need
-   to be full height like chat"). The list that actually needs to clear
-   the panel's footprint is .doc-list, one level down.
+/* Notes, Documents, Library and Timeline scroll one level down, so the room
+   goes on that box and the tab page keeps its height. Why each is the
+   scroller is written at its own rule (Notes: 04-chat-dock-appearance.css;
+   Library: `.library-view-section` in this file; Timeline: `.timeline-scroll`
+   in 05-sidebars-themes.css). The Documents list was measured: #tab-documents
+   is a plain flex column, and padding it shrank the card grid instead of
+   protecting anything ("the documents sidebar/main panel need to be full
+   height like chat"); the Library view was 423px of an 807px tab with the
+   buffer on the tab and 711px with it here.
 
-   Notes and Chat needed the identical override and never got it: they are
-   the *same* plain-flex-column shape as Documents (`.tab-page` isn't the
-   scroll container, `.layout > main` is), so the generic 320px buffer above
-   was still landing on #tab-chat/#tab-notes themselves, on top of the
-   correct one below on `.layout > main`. Invisible with a real conversation
-   loaded, .layout>main's own overflow just clips the extra, but on a
-   short/empty one (a fresh profile's first "New chat") the outer shrink is
-   real: #chat-main measured 137px instead of the ~713px its parent actually
-   had, because `.layout`'s `height: 100%` was 100% of a #tab-chat already
-   320px shorter than it should have been. Confirmed live with Playwright on
-   a genuinely fresh profile (see docs/roadmap/HANDOVER.md). */
-body.has-agent-monitor #tab-documents,
-body.has-agent-monitor #tab-notes,
-body.has-agent-monitor #tab-chat {
-  padding-bottom: var(--page-bottom);
-}
-
+   `#library-view-whiteboard` is a `.library-view-section` too but not a
+   scroller (`overflow: clip`, 06-timeline-dialogs.css: a board pans, it never
+   scrolls), and it has no floor on its height, so the padding grew it past
+   the tab by 40px on the boards list (711 -> 751 at 1440x900). An open
+   board measured unchanged (its canvas is absolutely placed), but a canvas
+   has nothing to scroll clear of the panel either, so the view is excluded
+   whole, like the Graph. */
 body.has-agent-monitor #tab-notes .layout > main,
-body.has-agent-monitor .doc-sidebar .doc-list {
-  padding-bottom: calc(var(--space-9) * 9);
-}
-
-/* The Library is the same shape again (reported with a screenshot after the
-   Phase 8/9 merges: "it flashed and then did this", the card grid cut off
-   at 423px of an 807px tab with nothing under it). #tab-library is a plain
-   flex column; the scroll container is .library-view-section one level
-   down, so the generic buffer on .tab-page shrank the view by 312px instead
-   of adding scroll room. Measured: view 423px with the buffer on the tab,
-   711px with it moved here; scrollHeight 1156 either way. */
-body.has-agent-monitor #tab-library {
-  padding-bottom: var(--page-bottom);
-}
-
-body.has-agent-monitor #tab-library .library-view-section {
+body.has-agent-monitor .doc-sidebar .doc-list,
+body.has-agent-monitor #tab-library .library-view-section:not(#library-view-whiteboard),
+body.has-agent-monitor #timeline-scroll {
   padding-bottom: calc(var(--space-9) * 9);
 }
 

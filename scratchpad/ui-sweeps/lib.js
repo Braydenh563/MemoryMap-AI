@@ -70,6 +70,12 @@ async function boot(opts={}) {
     const body = require('fs').readFileSync(file, 'utf8');
     await ctx.route(`**/${name}*`, (route) => route.fulfill({ body, contentType: 'application/javascript' }));
   }
+  // The same for one stylesheet: OVERRIDE_CSS="07-whiteboard-misc.css=/path".
+  if (process.env.OVERRIDE_CSS) {
+    const [name, file] = process.env.OVERRIDE_CSS.split('=');
+    const body = require('fs').readFileSync(file, 'utf8');
+    await ctx.route(`**/css/${name}*`, (route) => route.fulfill({ body, contentType: 'text/css' }));
+  }
   const page = await ctx.newPage();
   page.on('pageerror', e=>console.log('PAGEERROR:', e.message, '\n', (e.stack||'').split('\n').slice(0,6).join('\n')));
   page.on('console', m=>{ if(m.type()==='error') console.log('CONSOLE-ERR:', m.text().slice(0,160)); });

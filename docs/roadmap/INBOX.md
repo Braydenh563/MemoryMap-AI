@@ -34,6 +34,24 @@ with its owner named in the entry.
 
 ## Open items
 
+423. **Found, not fixed, by the agents of 2026-09-24 (placed for the next
+    pass; one line each, recommendation first).** (a) The mind map's pie
+    ring does not take focus when it opens, so Enter and the arrows still
+    act on the board while it shows: recommend it takes focus when opened
+    from the keyboard only. (b) DOCX export writes `:::columns`, `[TOC]` and
+    `[!kind]` as plain text: map them to Word columns, a TOC field and a
+    shaded box. (c) Inline `$x$` maths is plain symbols in Read view: render
+    it through the same TeX-to-MathML path as `$$`. (d) The OCR workspace's
+    message for a vision reading still suggests installing Tesseract: word
+    it by reader. (e) At 150% zoom the lightbox picture overlaps its caption
+    line. (f) Stored readings that already contain a repeated-line loop are
+    not cleaned: offer "Clean up" in the reading menu. (g) `_desktop_port()`
+    treats any MemoryMap on the port as ours, whatever its data dir: compare
+    the data dir in `/instance` first. (h) Chat replies saved before
+    2026-09-24 always show Atlas's mark (their persona was never stored).
+    (i) The server-mode process takes 5 to 9s to exit after uvicorn
+    finishes: find the thread that holds it.
+
 421. **The owner, 2026-09-24, verbatim, with screenshots (placed in agent
     briefs, two at a time).** (a) "in the radials on the mind map, the items
     like "add beside" and "cross-link" are very close to the edges (inner and

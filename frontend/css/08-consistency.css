@@ -5597,31 +5597,34 @@ main,
    and the one-off plays. A mood change is one attribute, and every part
    eases to its new place in `--motion-slow`. Transform and opacity only.
 
-   The palette is fixed to the references' blue, navy and violet (the
-   owner: "dont stray from the blue, black, purple colour scheme the
-   references use"): every colour is `oklch` from one tone, `--atl-tone`,
-   so the set stays in tune, and the live accent tints only the aura, the
-   rings' glow and the iris's foot (`--atl-glow-c`, `--atl-ring-c`,
-   `--atl-iris-c`), never the body. `color-mix` stands in where relative
-   colours are missing (an unsupported value inside a custom property
-   would only fail where it is used, so the modern set is behind
-   `@supports`, not layered). */
+   The palette is sampled from the references (k-means per region,
+   scratchpad/palette.py; the owner: "dont stray from the blue, black,
+   purple colour scheme the references use" and "they are very purple and
+   a lot of the blue is missing"): the body is blue, from a sky-blue-white
+   core through periwinkle to a blue-violet shade and deep blue at the far
+   side; violet only at the ear and hair tips and in the nebula; navy for
+   the eyes and the galaxy; white-blue starlight. The live accent tints
+   only the aura, the rings' glow and the iris's foot (`--atl-glow-c`,
+   `--atl-ring-c`, `--atl-iris-c`), never the body; `color-mix` stands in
+   where relative colours are missing (an unsupported value inside a
+   custom property would only fail where it is used, so the modern set is
+   behind `@supports`, not layered). */
 .nm-atlas {
   --nm-delay: 0s;
-  --atl-tone: #5f6cf0;
-  --atl-hi: #f4f5ff;
-  --atl-lt: #dcdff9;
-  --atl-md: #aab3f3;
-  --atl-dp: #7d7ce2;
-  --atl-rim: #5b4cc4;
-  --atl-line: #493ea6;
-  --atl-ink: #1b1946;
-  --atl-iris-c: color-mix(in oklab, var(--accent) 30%, #4d6be6);
-  --atl-navy: #191640;
-  --atl-neb-c: #e46ac6;
-  --atl-neb2-c: #7c49d6;
-  --atl-glow-c: color-mix(in oklab, var(--accent) 35%, #b6c1ff);
-  --atl-ring-c: color-mix(in oklab, var(--accent) 25%, #aab6ff);
+  --atl-hi: #d8e9fa;
+  --atl-lt: #c3daf6;
+  --atl-md: #a3bbea;
+  --atl-dp: #7d91cf;
+  --atl-rim: #505aac;
+  --atl-line: #3f4a95;
+  --atl-ink: #0b1344;
+  --atl-iris-c: color-mix(in oklab, var(--accent) 30%, #4a62b8);
+  --atl-navy: #1c235a;
+  --atl-violet: #413b94;
+  --atl-neb-c: #b098d6;
+  --atl-neb2-c: #5f5fba;
+  --atl-glow-c: color-mix(in oklab, var(--accent) 35%, #c3d8f8);
+  --atl-ring-c: color-mix(in oklab, var(--accent) 25%, #c8d6ff);
   --atl-blush: #ff7d9c;
   --atl-tongue: #ff94aa;
   --atl-heart-c: #ff4f7e;
@@ -5642,13 +5645,12 @@ main,
   --atl-aura: none;
   --atl-core: none;
   --atl-iris: var(--atl-ink);
-  --atl-neb: none;
-  --atl-neb2: none;
-  --atl-comet: none;
+  --atl-galaxy: var(--atl-navy);
   --atl-hneb: none;
+  --atl-earin: var(--atl-navy);
   --atl-tip: none;
   --atl-aura-a: 0.3;
-  --atl-shade-a: 0.5;
+  --atl-shade-a: 0.45;
   --atl-k: 0;
   --atl-side: 1;
   /* The face at rest (calm). Every mood below overrides some of these. */
@@ -5705,28 +5707,15 @@ main,
 }
 
 @supports (color: oklch(from red 0.5 clamp(0.1, c, 0.2) h)) {
-  /* Chroma is fixed per lightness so every colour stays inside sRGB: an
-     out-of-gamut colour is clipped one way when painted directly and
-     another inside an opacity layer, and a ring's front half once came out
-     olive while its back half was blue (measured: `oklch(0.8 0.18 265)`).
-     The deep end and the rim turn a little further round the hue toward
-     violet; the nebula is the tone turned sixty degrees round, pink. */
+  /* The accent's part: a tint on the light, its chroma capped so a warm
+     accent warms the glow a little and never turns it (an out-of-gamut
+     colour is clipped one way when painted directly and another inside an
+     opacity layer, and a ring's front half once came out olive while its
+     back half was blue). */
   .nm-atlas {
-    --atl-hi: oklch(from var(--atl-tone) 0.985 0.012 h);
-    --atl-lt: oklch(from var(--atl-tone) 0.92 0.045 h);
-    --atl-md: oklch(from var(--atl-tone) 0.8 0.1 h);
-    --atl-dp: oklch(from var(--atl-tone) 0.64 0.14 calc(h + 12));
-    --atl-rim: oklch(from var(--atl-tone) 0.5 0.16 calc(h + 28));
-    --atl-line: oklch(from var(--atl-tone) 0.44 0.13 calc(h + 22));
-    --atl-ink: oklch(from var(--atl-tone) 0.24 0.08 calc(h + 4));
-    --atl-navy: oklch(from var(--atl-tone) 0.27 0.09 calc(h + 10));
-    --atl-neb-c: oklch(from var(--atl-tone) 0.68 0.2 calc(h + 62));
-    --atl-neb2-c: oklch(from var(--atl-tone) 0.52 0.17 calc(h + 34));
-    /* The accent's part: a tint on the light, capped so a warm accent
-       warms the glow a little and never turns it. */
-    --atl-glow-c: color-mix(in oklab, oklch(from var(--accent) 0.82 clamp(0.04, calc(c * 0.7), 0.09) h) 35%, oklch(from var(--atl-tone) 0.84 0.08 h));
-    --atl-ring-c: color-mix(in oklab, oklch(from var(--accent) 0.76 clamp(0.04, calc(c * 0.7), 0.1) h) 25%, oklch(from var(--atl-tone) 0.76 0.1 h));
-    --atl-iris-c: color-mix(in oklab, oklch(from var(--accent) 0.62 clamp(0.06, c, 0.17) h) 30%, oklch(from var(--atl-tone) 0.6 0.17 h));
+    --atl-glow-c: color-mix(in oklab, oklch(from var(--accent) 0.84 clamp(0.04, calc(c * 0.7), 0.09) h) 35%, #c3d8f8);
+    --atl-ring-c: color-mix(in oklab, oklch(from var(--accent) 0.78 clamp(0.04, calc(c * 0.7), 0.1) h) 25%, #c8d6ff);
+    --atl-iris-c: color-mix(in oklab, oklch(from var(--accent) 0.6 clamp(0.06, c, 0.17) h) 30%, #4a62b8);
   }
 }
 
@@ -5799,9 +5788,12 @@ main,
 .nm-atlas .atl-st-iris1 { stop-color: var(--atl-iris-c); }
 .nm-atlas .atl-st-neb0 { stop-color: var(--atl-neb-c); stop-opacity: 0.85; }
 .nm-atlas .atl-st-neb1 { stop-color: var(--atl-neb-c); stop-opacity: 0; }
-.nm-atlas .atl-st-neb20 { stop-color: var(--atl-neb2-c); stop-opacity: 0.9; }
-.nm-atlas .atl-st-navy { stop-color: var(--atl-navy); stop-opacity: 0.95; }
-.nm-atlas .atl-st-neb21 { stop-color: var(--atl-neb2-c); stop-opacity: 0; }
+.nm-atlas .atl-st-neb20 { stop-color: var(--atl-violet); stop-opacity: 0.9; }
+.nm-atlas .atl-st-navy { stop-color: var(--atl-navy); stop-opacity: 1; }
+.nm-atlas .atl-st-galaxy0 { stop-color: var(--atl-navy); stop-opacity: 0; }
+.nm-atlas .atl-st-galaxy1 { stop-color: var(--atl-neb2-c); stop-opacity: 0.6; }
+.nm-atlas .atl-st-galaxy2 { stop-color: var(--atl-navy); stop-opacity: 0.95; }
+.nm-atlas .atl-st-galaxy3 { stop-color: var(--atl-neb-c); stop-opacity: 0.7; }
 .nm-atlas .atl-aura { fill: var(--atl-aura); opacity: var(--atl-glow); }
 .nm-atlas .atl-skin { fill: var(--atl-skin); }
 .nm-atlas .atl-overlay { stroke: none; pointer-events: none; }
@@ -5811,8 +5803,8 @@ main,
 /* One outline rule for every part: drawn under the fills, twice as wide as
    it shows, so where parts overlap the fills close the seam (atlas.js,
    the design note's "Construction"). */
-.nm-atlas .atl-edge { fill: none; stroke: var(--atl-line); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; opacity: 0.85; }
-.nm-atlas.atl-tiny .atl-edge { stroke-width: 3; }
+.nm-atlas .atl-edge { fill: none; stroke: var(--atl-line); stroke-width: 1.2; stroke-linejoin: round; stroke-linecap: round; opacity: 0.7; }
+.nm-atlas.atl-tiny .atl-edge { stroke-width: 2.8; opacity: 0.85; }
 .nm-atlas .atl-sheen { fill: var(--atl-sheen); opacity: 0.55; }
 .nm-atlas .atl-sheen-dot { opacity: 0.8; }
 .nm-atlas .atl-sheen-body { opacity: 0.55; }
@@ -5833,10 +5825,11 @@ main,
 .nm-atlas .atl-lashes { fill: none; stroke: var(--atl-line); stroke-width: 0.9; stroke-linecap: round; }
 .nm-atlas[data-atlas-look="feminine"] .atl-cheek { rx: 4.3px; ry: 2.6px; }
 .nm-atlas .atl-tongue { fill: var(--atl-tongue); }
-/* The hair: the nebula gathers toward each tip, a highlight runs along
-   the lock, a star sits on each point. */
-.nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.8; }
-.nm-atlas .atl-lock .atl-hair-neb { opacity: 0.55; }
+/* The ears and the hair: an inner ear of galaxy inside a lighter rim, the
+   nebula gathering toward the hair's ends, a highlight along the first
+   lock, a star at each tip. */
+.nm-atlas .atl-ear-in { fill: var(--atl-earin); opacity: 0.85; }
+.nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.55; }
 .nm-atlas .atl-hair-light { fill: none; stroke: white; stroke-width: 0.9; stroke-linecap: round; opacity: 0.5; }
 .nm-atlas .atl-hair-star { fill: white; }
 /* The rings of light (atlas.js, `atlasRing`): widths are in the ring's
@@ -5861,15 +5854,11 @@ main,
 .nm-atlas .atl-node-dot { fill: white; }
 .nm-atlas .atl-chest-star { fill: white; stroke: var(--atl-glow-c); stroke-width: 0.5; stroke-linejoin: round; }
 .nm-atlas .atl-core-glow { fill: var(--atl-core); }
-/* The galaxy ribbon (atlas.js, `atlasRibbon`): deep navy, two nebulae
-   over it, a pale glowing edge (a stroke half under the band), star dots
-   and a bright tip. */
-.nm-atlas .atl-ribbon-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 3; opacity: 0.32; }
-.nm-atlas .atl-ribbon { fill: var(--atl-navy); }
-.nm-atlas .atl-ribbon-neb { fill: var(--atl-neb); }
-.nm-atlas .atl-ribbon-neb2 { fill: var(--atl-neb2); }
-.nm-atlas .atl-ribbon-comet { fill: var(--atl-comet); }
-.nm-atlas .atl-ribbon-edge { fill: none; stroke: white; stroke-width: 0.9; stroke-linejoin: round; opacity: 0.55; }
+/* The tail (atlas.js, `atlasTail`): the body's blue into navy galaxy along
+   its length, a pale glowing edge, star dots and a tuft of white starlight
+   at the tip. */
+.nm-atlas .atl-tail-galaxy { fill: var(--atl-galaxy); }
+.nm-atlas .atl-tail-edge { fill: none; stroke: white; stroke-width: 0.8; stroke-linejoin: round; opacity: 0.35; }
 .nm-atlas .atl-tip-glow { fill: var(--atl-tip); opacity: 0.9; }
 .nm-atlas .atl-sparkle { fill: var(--atl-gold); }
 .nm-atlas :is(.atl-z, .atl-mark-ink) { stroke: var(--ink); stroke-width: 1.6; }
@@ -5884,10 +5873,10 @@ main,
 .nm-atlas .atl-pupil { transform: translate(var(--atl-px), var(--atl-py)) scale(var(--atl-ps)); }
 .nm-atlas .atl-lid { transform: rotate(calc(var(--atl-lid-r) * var(--atl-side))) translateY(calc(var(--atl-lid) * 11px)); }
 .nm-atlas .atl-lid-low { transform: translateY(calc(var(--atl-low) * -10px)); }
-/* The hair perks and droops together: the lock and the right tuft one
-   way, the left tuft mirrored. */
-.nm-atlas :is(.atl-tuft-r, .atl-lock) { transform: rotate(var(--atl-crest)); }
-.nm-atlas .atl-tuft-l { transform: rotate(calc(var(--atl-crest) * -1)); }
+/* The ears and the hair perk and droop together: the hair and the right
+   ear one way, the left ear mirrored. */
+.nm-atlas :is(.atl-ear-r, .atl-lock) { transform: rotate(var(--atl-crest)); }
+.nm-atlas .atl-ear-l { transform: rotate(calc(var(--atl-crest) * -1)); }
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
 .nm-atlas .atl-head { transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)); }
@@ -5899,9 +5888,7 @@ main,
 .nm-atlas :is(.atl-tail-core, .atl-ring) { opacity: var(--atl-halo-o); }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
 .nm-atlas .atl-star { transform: scale(clamp(0.85, var(--atl-star), 1.2)); }
-/* The ribbon is a band round the body, not a tail to wag: it takes a
-   fraction of the tail angle the poses and moods ask for. */
-.nm-atlas .atl-tail { transform: rotate(calc(var(--atl-tail) * 0.22)); }
+.nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }
 .nm-atlas .atl-e-shut { opacity: var(--atl-shut); }
@@ -6224,12 +6211,12 @@ main,
 @keyframes atl-drift { to { transform: rotate(360deg); } }
 @keyframes atl-swish {
   0%, 100% { transform: rotate(0deg); }
-  40% { transform: rotate(-2.4deg); }
-  70% { transform: rotate(1.4deg); }
+  40% { transform: rotate(-5deg); }
+  70% { transform: rotate(2.6deg); }
 }
 @keyframes atl-wag {
-  from { transform: rotate(-3deg); }
-  to { transform: rotate(2.4deg); }
+  from { transform: rotate(-8deg); }
+  to { transform: rotate(6deg); }
 }
 @keyframes atl-hop {
   0%, 100% { transform: none; }

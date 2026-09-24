@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Translation in Write with Atlas: a Translate chip and a "Translate into"
+  group of 19 languages in the kind menu. The local model translates
+  meaning, keeps every fact, name, number and the markdown, and leaves code
+  and links alone; the chip remembers the last language picked.
 - Personas each get a mark generated from their name (the same name always
   draws the same mark, nothing stored), so a list of them is told apart at
   a glance; Atlas keeps the app's own emblem.

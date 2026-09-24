@@ -144,6 +144,41 @@ KIND_PROMPTS = {
     "bullets": BULLETS,
 }
 
+#: **Translation** (INBOX 405, the owner: "is multilingual translation and
+#: text conversion too big of an ask ... like a translation feature??"). Not
+#: big: the local model already rewrites to an instruction, and translating
+#: is a rewrite into another language under the same rules (every fact,
+#: name and number kept, the markdown kept). The target travels in the kind
+#: itself (`translate-es`), so the request shape and its validation are
+#: unchanged: a code not in this table is dropped like any unknown kind,
+#: never interpolated. The names are the languages' English names because
+#: that is what a small model follows most reliably.
+TRANSLATE_LANGUAGES = {
+    "en": "English", "es": "Spanish", "fr": "French", "de": "German",
+    "it": "Italian", "pt": "Portuguese", "nl": "Dutch", "pl": "Polish",
+    "sv": "Swedish", "tr": "Turkish", "ru": "Russian", "uk": "Ukrainian",
+    "ar": "Arabic", "hi": "Hindi", "zh": "Chinese (Simplified)",
+    "ja": "Japanese", "ko": "Korean", "vi": "Vietnamese", "id": "Indonesian",
+}
+
+TRANSLATE = (
+    "Translate the text below into {language}.\n"
+    "- Keep every fact, name, number and date exactly. Translate meaning, "
+    "not word by word, in natural {language}.\n"
+    "- Keep the markdown: headings, lists, links, code and tables stay where "
+    "they are, and code and URLs are not translated.\n"
+    "- Return the translation and nothing else."
+)
+
+
+def _kind_prompt(kind: str) -> str | None:
+    """The system prompt for a known kind, or None for an unknown one."""
+    if kind.startswith("translate-"):
+        language = TRANSLATE_LANGUAGES.get(kind.removeprefix("translate-"))
+        return TRANSLATE.format(language=language) if language else None
+    return KIND_PROMPTS.get(kind)
+
+
 #: A tone and a length are **clauses on one prompt**, not prompts of their
 #: own. Six kinds times five tones times four lengths would be 120 prompts to
 #: keep honest and one place for them to disagree; an adverb is an adverb.
@@ -225,8 +260,8 @@ def build_messages(
     revision when a draft exists.
     """
     has_draft = bool((draft or "").strip())
-    system = KIND_PROMPTS.get(
-        (kind or "").strip().lower(), REVISION if has_draft else FIRST_DRAFT
+    system = _kind_prompt((kind or "").strip().lower()) or (
+        REVISION if has_draft else FIRST_DRAFT
     )
     system = _steer(system, instruction, tone, length)
 

@@ -19369,7 +19369,21 @@ const DRAFT_QUICKSTARTS = [
   { label: "Say it plainly", icon: "ph:chat-text", kind: "rewrite", tone: "plain", title: "The same draft in plain words" },
   { label: "Bullets to prose", icon: "ph:text-align-left", kind: "expand", title: "Open the bullet points out into paragraphs" },
   { label: "Prose to bullets", icon: "ph:list-bullets", kind: "bullets", title: "Close the writing back up into bullet points" },
+  //: The language is the last one chosen in the kind menu's "Translate into"
+  //: group, Spanish until one has been; the menu shows which, and changing
+  //: it there is how another language is picked.
+  { label: "Translate", icon: "ph:translate", kind: "translate", title: "Translate what is in the box, into the language chosen in the menu" },
 ];
+
+function draftTranslateKind() {
+  let code = "es";
+  try {
+    code = localStorage.getItem("draft-translate") || "es";
+  } catch {
+    /* storage blocked: the default stands */
+  }
+  return `translate-${code}`;
+}
 
 function renderDraftQuickstarts() {
   const host = $("draft-quickstarts");
@@ -19382,7 +19396,7 @@ function renderDraftQuickstarts() {
     chip.title = start.title;
     setLabel(chip, `${start.icon} ${start.label}`);
     chip.addEventListener("click", () => {
-      $("draft-kind").value = start.kind;
+      $("draft-kind").value = start.kind === "translate" ? draftTranslateKind() : start.kind;
       if (start.tone) $("draft-tone").value = start.tone;
       markDraftQuickstart(start.kind);
       saveDraftLocally();
@@ -19400,7 +19414,11 @@ function markDraftQuickstart(kind) {
   const host = $("draft-quickstarts");
   if (!host) return;
   [...host.children].forEach((chip, index) => {
-    chip.classList.toggle("active", DRAFT_QUICKSTARTS[index]?.kind === kind);
+    const own = DRAFT_QUICKSTARTS[index]?.kind;
+    chip.classList.toggle(
+      "active",
+      own === kind || (own === "translate" && String(kind).startsWith("translate-"))
+    );
   });
 }
 
@@ -41427,7 +41445,18 @@ $("draft-continue-note").addEventListener("click", async () => {
 });
 for (const id of ["draft-kind", "draft-tone", "draft-length"]) {
   $(id).addEventListener("change", () => {
-    if (id === "draft-kind") markDraftQuickstart($("draft-kind").value);
+    if (id === "draft-kind") {
+      const kind = $("draft-kind").value;
+      markDraftQuickstart(kind);
+      //: The Translate chip goes back to the last language picked here.
+      if (kind.startsWith("translate-")) {
+        try {
+          localStorage.setItem("draft-translate", kind.slice("translate-".length));
+        } catch {
+          /* storage blocked: the chip keeps its default */
+        }
+      }
+    }
     saveDraftLocally();
   });
 }

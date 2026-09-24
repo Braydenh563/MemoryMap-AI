@@ -16,6 +16,20 @@
 // route is stubbed with two picks and then the *next* request to /chat/stream
 // is read off the wire. What the gate is about is whether the previous answer
 // is in that request, and nothing short of reading the body can say so.
+//
+// Updated 2026-09-24 (regression sweep after fix/gemini-fixes-5), two gates:
+// (1) commit b4b401a ("Ask history keeps its numbered records and no Sources
+// box...") removed the Sources box under the answer whenever every source is
+// already a row in the Matching records column beside it (the owner,
+// 2026-09-20: "having the notes appear as sources below the ai response...
+// is unnecessary when they are shown already on the right"); this fixture's
+// three notes are always all on the right, so 0 source cards is now correct,
+// not a miss. (2) commit 73786b1 ("Ask: place every citation marker and
+// number records as the answer streams") started writing inline citation
+// digits straight into `#ai-answer`'s text and, being paragraphs, its
+// `textContent` also loses the blank lines `answerRaw` keeps, so comparing
+// the DOM's rendered text to the next request's `history[].answer` no longer
+// says anything: read the same raw text `conversation` holds instead.
 const { boot } = require('./lib.js');
 
 const NOTES = [
@@ -75,11 +89,17 @@ const NOTES = [
     sources: document.querySelectorAll('#ask-answer-sources .chat-source-card').length,
     summary: (document.querySelector('#ask-answer-sources summary') || {}).textContent || '',
     followups: document.querySelectorAll('#ask-followups .chip').length,
-    answer: document.getElementById('ai-answer').textContent.trim(),
+    // The raw text actually sent as context, not the rendered DOM: see the
+    // 2026-09-24 header note (73786b1's inline citation digits and the
+    // paragraph breaks textContent drops both make the DOM text unusable
+    // for an equality check against the next request's history).
+    answer: (typeof conversation !== 'undefined' && conversation[0] && conversation[0].answer) || '',
     records: document.querySelectorAll('#raw-results li').length,
   }));
-  check('1 answer object: sources rendered under the answer',
-    first.sources >= NOTES.length && first.foot,
+  // b4b401a: every seeded note here is already a row in Matching records, so
+  // the Sources box under the answer is correctly empty now, not a miss.
+  check('1 answer object: no Sources box when every source is on the right',
+    first.sources === 0 && first.foot,
     `${first.sources} source card(s), foot visible=${first.foot}, summary "${first.summary.trim()}"`);
   check('1 answer object: the records column still answers',
     first.records >= NOTES.length, `${first.records} matching record(s)`);

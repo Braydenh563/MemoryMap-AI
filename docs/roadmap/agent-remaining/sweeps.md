@@ -177,3 +177,98 @@ namespaced per agent or cleaned up automatically.
   `phonemore.js`, `wbgroupguides.js`.
 - Sweeps with a data-dependent, not-an-app-bug finding: `graph.js` (no
   linked notes to trace), `libgrid.js` (no image/file items).
+
+## 2026-09-24 follow-on: mechanical regression hunt on `fix/gemini-fixes-5`
+
+Own worktree, own server (`:8822`, `/tmp/mm-sweep`). Stopped by the owner's
+usage check-in mid-run (71%), before the last item (the full suite) finished
+or the remaining ~540 one-off probe files were touched — this is the honest
+state, not a completed sweep of the directory.
+
+**Ran and green, no findings:** `errors.js` (1440+390, background), `docks.js`
+(inventory only, `dashboard []` is correct — the dashboard has no `.dock`,
+only widgets), `contrast.js` (light + `THEME=dark`, every surface `ok`),
+`touch.js` (`PASS: 0 findings`, but needs >170s wall time to finish all 16
+surfaces — `timeout 180` cuts it off mid-run with an uncaught
+`page.waitForTimeout: ... closed` after the last surface it reaches; give it
+`timeout 300` or drop the artificial timeout), `chrome.js` (1440/1024/820/390,
+`notes first content y=null` at every width is correct on an empty notebook,
+not a bug — `#entry-list` has no `<li>` with nothing captured), the `all.sh`
+seven (`space`, `rows`, `heads`, `buttons`, `borders`, `caps`, `segs` —
+descriptive only, no assertions, nothing anomalous; `caps.js` finding zero
+uppercase text app-wide is correct too: `DEFAULT_THEME_PRESET` is
+`"utilitarian"` (settings.js ~1482), "Quiet utilitarian", whose whole point is
+`text-transform: none` everywhere `.eyebrow`/`.nav-group-label`/etc. would
+otherwise shout).
+
+**Per-surface (one canonical file per surface, per this file's existing
+convention — the six named in CLAUDE.md's table):**
+
+| Sweep | Result |
+| --- | --- |
+| `documents-chrome.js` | Clean, both 1280 and 820 |
+| `graph4b.js` | `errors: []`, all fields present |
+| `mindmap3.js` | 57/57 |
+| `whiteboard3.js` | 12/12 (the one `CONSOLE-ERR 404` is the sweep's own deliberate `/media/none.png` fixture, not a bug) |
+| `timeline-audit3.js` | **Fixed, stale** — see below |
+| `chatphase3.js` | **Fixed, stale** — see below |
+
+**Two stale sweeps fixed, both from the last two days' Ask/Timeline work, not
+app regressions:**
+
+- `timeline-audit3.js` drove a `#timeline-view` hidden `<select>` with
+  `grid`/`line` values and a `#timeline-grid .timeline-dot` click into a
+  `#timeline-popup`. All three are gone as of commit `112fb90` (TIMELINE_PLAN
+  Phase 2 decision 6): `#timeline-view-seg` (`feed`/`table`,
+  `localStorage['timeline-view']`, `timelineViewMode()`), and a click now
+  expands an inline `.timeline-row-detail` with `aria-expanded="true"`, not a
+  popup. Rewrote the sweep to match; verified 3/3 lines pass.
+- `chatphase3.js` had two gates broken by yesterday/today's Ask changes, not
+  a regression in either: (1) `b4b401a` ("Ask history keeps its numbered
+  records and no Sources box...") correctly empties the Sources box under the
+  answer once every source is already a row in Matching records (the owner,
+  2026-09-20: a second copy of the same notes is furniture) — the fixture's
+  three notes are always on the right, so 0 source cards is right now, not a
+  miss; (2) `73786b1` ("Ask: place every citation marker...") writes inline
+  citation digits straight into `#ai-answer`, and multi-paragraph answers'
+  blank lines do not survive a `.textContent` read either, so the sweep's
+  `turn.answer === first.answer` (DOM text vs. the raw text actually sent)
+  was never going to hold once an answer has more than one paragraph; reads
+  the same raw text the page's own `conversation` array holds instead of the
+  DOM. Verified 11/11 on a fresh single-purpose server.
+
+**A false alarm worth recording, so it is not chased again:** on the shared
+`:8822` server (which had already been through docks/contrast/whiteboard3/
+mindmap3's own seeding by the time `chatphase3.js` ran), the "beans" fixture's
+Matching-records count read 2 instead of the expected 3, and a `debug_followup.js`
+scratch probe (not kept) then showed the *history* answer text containing each
+note's excerpt twice. Both traced to running the same fixture-seeding sweeps and
+my own manual `curl … /entries` probes against one accumulating data directory
+in one sitting, not to any backend or frontend bug: a genuinely fresh,
+single-purpose server (`:8824`, one run, nothing else touching it) reproduces
+neither — `/chat/stream`'s own `raw_results` already carried all three matches,
+and there is no duplication. Recorded because it cost real time to run down and
+the shape (one shared server across many sweeps in one session) will produce
+the same false trail again for any check whose assertion depends on a small,
+fixed fixture rather than a count relationship.
+
+**Not run this session, same reasoning the 2026-09-23 entry above gives:**
+the remaining ~540 one-off probe files, and every non-canonical per-surface
+variant (whiteboard.js/whiteboard2.js's older siblings, graph.js/graph2/graph3,
+timeline.js/timeline-audit/timeline-audit2, mindmap.js/mindmap2, chatsurface.js/
+chatphase2/chatbadge/etc.) — `all.sh`'s own curated list is still the standing
+evidence that most of this directory is investigation history, not a suite
+meant to run in full each time.
+
+**Full suite: started, not finished.** `PYTHONPATH=src .venv/bin/python -m
+pytest -n auto -q tests/` was still running (last seen ~53%, every batch so
+far `.`/`s`, no `F` or `E`) when the usage check-in arrived; killed rather
+than left running unattended past the stop instruction. **Next session:
+re-run it to completion** (`scripts/gate.sh --full` or the bare command above)
+before anything on this branch is called done — nothing in it had failed up
+to 53%, but that is not the same as green.
+
+**No app-code regression found this session.** Both fixes above are to
+sweep scripts, not to `frontend/` or `src/`; no CHANGELOG line was added for
+that reason (CLAUDE.md's rule is a line per app fix). Nothing surfaced that
+needs a design decision rather than a fix or a stale-sweep update.

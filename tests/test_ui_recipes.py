@@ -602,6 +602,30 @@ def test_a_radial_places_its_slots_without_the_transform_properties() -> None:
     )
 
 
+def test_the_radial_band_is_cut_to_its_tiles() -> None:
+    """The band under a ring holds its slots rather than a guessed width.
+
+    INBOX 410: with a fixed 3rem band under 7rem pills, every diagonal pill
+    hung 32px past the band's outer edge and 28px into its hole. The band is
+    now drawn from two edges `wbFitMapRadialBand` measures off the placed
+    slots, and the caption hangs under the outer edge; a rule that goes back
+    to sizing the band from the radius alone brings the overhang back.
+    """
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    js = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    band = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial::before"]
+    assert band, "the radial's band rule is gone"
+    assert "--wb-radial-outer" in band[0] and "--wb-radial-inner" in band[0], (
+        "the band must be drawn from the measured inner and outer edges"
+    )
+    caption = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial-caption"]
+    assert caption and "--wb-radial-outer" in caption[0], (
+        "the ring's caption hangs under the band's outer edge, not the radius"
+    )
+    place = js.split("function wbPlaceMapRadial(", 1)[1].split("\n}\n", 1)[0]
+    assert "wbFitMapRadialBand(ring)" in place, "placing a ring must fit its band"
+
+
 def test_the_radial_is_a_toolbar_rather_than_a_menu() -> None:
     """A ring claims the role a screen reader can do something with.
 

@@ -7674,10 +7674,13 @@ function wbPlaceMapRadial(ring, host, x, y, clear) {
   ring.style.left = `${Math.round(x)}px`;
   ring.style.top = `${Math.round(y)}px`;
   ring.style.removeProperty("--wb-radial-r");
+  ring.style.removeProperty("--wb-radial-inner");
+  ring.style.removeProperty("--wb-radial-outer");
   ring.classList.remove("hidden");
   const hostRect = host.getBoundingClientRect();
   if (!hostRect.width || !hostRect.height) return;
   wbSizeMapRadial(ring, hostRect, clear);
+  wbFitMapRadialBand(ring);
   let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
   for (const slot of ring.children) {
     const box = slot.getBoundingClientRect();
@@ -7787,9 +7790,46 @@ function wbSizeMapRadial(ring, hostRect, clear) {
   //: diagonals may overlap the node's *columns* without ever touching it,
   //: which is what keeps the ring tight around a wide topic.
   const want = clear.h + box.height + 16;
-  const fits = Math.min(hostRect.width, hostRect.height) / 2 - box.height / 2 - 8;
+  //: What the canvas can hold is the band's outer edge, not the radius: a
+  //: tile at a diagonal reaches further out than the radius by more than half
+  //: its own height (INBOX 410), so the reach past the radius is measured off
+  //: the placed tiles rather than assumed from one slot's height.
+  const reach = wbMapRadialBand(ring).outer - base;
+  const fits = Math.min(hostRect.width, hostRect.height) / 2 - reach - 8;
   const r = Math.min(want, base * 2.5, Math.max(base, fits));
   if (r > base + 1) ring.style.setProperty("--wb-radial-r", `${Math.round(r)}px`);
+}
+
+//: **The band is cut to the tiles it carries** (INBOX 410). The nearest and
+//: farthest point of every placed tile from the ring's centre, less and plus
+//: a hairline of room: so no tile overhangs the band's outer edge or dips into
+//: its hole, whatever the radius `wbSizeMapRadial` chose, the tile size the
+//: stylesheet sets, or the number of slots (six on a topic, three on a line).
+//: Read off the live boxes for the same reason the radius is: the ring's own
+//: box is a zero-sized point at its centre, so a slot's box minus that point
+//: is its true offset, and a stylesheet change needs no edit here.
+function wbMapRadialBand(ring) {
+  const origin = ring.getBoundingClientRect();
+  let inner = Infinity, outer = 0;
+  for (const slot of ring.querySelectorAll(".wb-map-radial-slot")) {
+    const r = slot.getBoundingClientRect();
+    if (!r.width) continue;
+    const nx = Math.max(r.left - origin.left, 0, origin.left - r.right);
+    const ny = Math.max(r.top - origin.top, 0, origin.top - r.bottom);
+    inner = Math.min(inner, Math.hypot(nx, ny));
+    const fx = Math.max(Math.abs(r.left - origin.left), Math.abs(r.right - origin.left));
+    const fy = Math.max(Math.abs(r.top - origin.top), Math.abs(r.bottom - origin.top));
+    outer = Math.max(outer, Math.hypot(fx, fy));
+  }
+  return { inner: Number.isFinite(inner) ? inner : 0, outer };
+}
+
+function wbFitMapRadialBand(ring) {
+  const { inner, outer } = wbMapRadialBand(ring);
+  if (!outer) return;
+  const room = 4;
+  ring.style.setProperty("--wb-radial-inner", `${Math.max(0, Math.floor(inner - room))}px`);
+  ring.style.setProperty("--wb-radial-outer", `${Math.ceil(outer + room)}px`);
 }
 
 //: The node whose ring is open wears a class while it is open, because two of

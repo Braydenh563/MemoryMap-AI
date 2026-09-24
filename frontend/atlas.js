@@ -281,13 +281,64 @@ function atlasCrest(parent, tiny) {
   return crest;
 }
 
+// --- the companion's props, in Atlas's own language ---------------------------
+//: The companion shows a prop slot (`.nmp-*`, the character interface in
+//: avatars.js) while something is going on around it. Atlas answers each
+//: in its own materials, light and notes, rather than with a prop from a
+//: shelf: glowing cups for music (and its crest's notes pulse to the beat,
+//: in the CSS), a crescent moon hung on its crest's tip at night, half-moon
+//: lenses of light for a long read, a bell of light for a reminder, one of
+//: its own notes held up as a lantern, and, offline, a snapped link between
+//: two notes. Drawn for the companion's figure only, hidden until asked.
+function atlasHeadProps(sway, crest) {
+  const phones = atlasGroup(sway, "nmp nmp-headphones");
+  atlasMake("path", { class: "atl-prop-band", d: "M15.2 23C13.4 1.4 50.6 1.4 48.8 23" }, phones);
+  for (const x of [15.4, 48.6]) {
+    atlasMake("rect", { class: "atl-prop-cup", x: x - 3.4, y: 16.6, width: 6.8, height: 12.4, rx: 3.4 }, phones);
+    atlasMake("circle", { class: "atl-prop-cup-glow", cx: x, cy: 22.8, r: 1.6 }, phones);
+  }
+  const note = atlasGroup(phones, "atl-prop-note", [55, 8]);
+  atlasMake("path", { class: "atl-prop-note-ink", d: "M55.6 9.6V2.4L60 1.2V8.4" }, note);
+  for (const [x, y] of [[54.2, 9.8], [58.6, 8.6]]) atlasMake("ellipse", { class: "atl-prop-note-head", cx: x, cy: y, rx: 1.6, ry: 1.2 }, note);
+  const moon = atlasGroup(crest, "nmp nmp-nightcap");
+  atlasMake("circle", { class: "atl-prop-moon-glow", cx: 57.4, cy: -6.2, r: 6.4 }, moon);
+  atlasMake("path", { class: "atl-prop-moon", d: "M56.4 -11.6A5.2 5.2 0 1 0 61.8 -3.4A4.2 4.2 0 1 1 56.4 -11.6Z" }, moon);
+  atlasSpark(moon, 50.4, -9.2, 1.4, "atl-sparkle");
+  const glasses = atlasGroup(sway, "nmp nmp-glasses");
+  for (const [cx, cy] of ATLAS_GEO.eyes) {
+    atlasMake("path", { class: "atl-prop-lens", d: `M${cx - 5.6} ${cy + 0.2}Q${cx} ${cy + 7} ${cx + 5.6} ${cy + 0.2}Z` }, glasses);
+  }
+  atlasMake("path", { class: "atl-prop-rim", d: `M${ATLAS_GEO.eyes[0][0] + 5.6} ${ATLAS_GEO.eyes[0][1] + 0.2}Q32 ${ATLAS_GEO.eyes[0][1] - 1.4} ${ATLAS_GEO.eyes[1][0] - 5.6} ${ATLAS_GEO.eyes[1][1] + 0.2}` }, glasses);
+}
+
+//: The hand slots. The companion raises the right arm (-125deg at the
+//: shoulder) to hold a bell or a lantern up, so each is drawn turned the
+//: other way about the hand and comes out upright once the arm is up.
+function atlasHandProps(armR, armL) {
+  const hand = [47.6, 63.4];
+  const upright = atlasMake("g", { transform: `rotate(125 ${hand[0]} ${hand[1]})` }, armR);
+  const bell = atlasGroup(upright, "nmp nmp-bell");
+  atlasMake("circle", { class: "atl-prop-moon-glow", cx: 47.6, cy: 69.6, r: 7 }, bell);
+  atlasMake("path", { class: "atl-prop-bell", d: "M43.4 71.4C43.4 64.6 51.8 64.6 51.8 71.4L53.2 73.2H42Z" }, bell);
+  atlasMake("circle", { class: "atl-prop-bell-dot", cx: 47.6, cy: 74.6, r: 1.2 }, bell);
+  const lantern = atlasGroup(upright, "nmp nmp-lantern");
+  atlasMake("path", { class: "atl-prop-string", d: "M47.6 64.4V67" }, lantern);
+  atlasMake("circle", { class: "nmp-lantern-glow atl-prop-moon-glow", cx: 47.6, cy: 70.4, r: 8 }, lantern);
+  atlasMake("circle", { class: "atl-node-dot", cx: 47.6, cy: 70.4, r: 3.4 }, lantern);
+  atlasSpark(lantern, 47.6, 70.4, 1.8, "atl-sparkle");
+  const cable = atlasGroup(armL, "nmp nmp-cable");
+  atlasMake("path", { class: "atl-prop-link", d: "M14 68.6L15.6 72.2M17.6 75.2L19.4 79" }, cable);
+  atlasMake("path", { class: "atl-prop-zap", d: "M15.2 74.6L14 75.6M18 72.4L19.4 72" }, cable);
+  for (const [x, y, r] of [[13.2, 67.2, 2], [20, 80.4, 2]]) atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r }, cable);
+}
+
 //: The head: skin, gloss and rim light, blush, eyes, brows, mouths, the
 //: crest, then the extras.
 function atlasHead(parent, id, level) {
   const tiny = level === "tiny";
   const head = atlasGroup(parent, "atl-head", ATLAS_GEO.neck);
   const sway = atlasGroup(head, "atl-sway", ATLAS_GEO.neck);
-  atlasCrest(sway, tiny);
+  const crest = atlasCrest(sway, tiny);
   atlasMake("path", { class: "atl-skin atl-outline", d: ATLAS_HEAD_PATH, "stroke-width": tiny ? 2 : 1 }, sway);
   if (!tiny) {
     atlasMake("ellipse", { class: "atl-sheen", cx: 24.6, cy: 10.6, rx: 6, ry: 2.8, transform: "rotate(-28 24.6 10.6)" }, sway);
@@ -316,6 +367,7 @@ function atlasHead(parent, id, level) {
     }
   }
   if (!tiny) atlasExtras(sway);
+  if (level === "figure") atlasHeadProps(sway, crest);
   return head;
 }
 
@@ -356,7 +408,7 @@ function atlasOrbit(parent, id, front) {
 //: The body, in the companion's part names so its behaviours can act it
 //: out: legs from the hips, the raised arms it hangs and cheers with, the
 //: torso with the hub's light in its chest, and the resting arms.
-function atlasBody(parent) {
+function atlasBody(parent, props) {
   const legs = [["l", 29, 28.4, 27.2], ["r", 35, 35.6, 36.8]];
   for (const [side, hip, ankle, foot] of legs) {
     const leg = atlasGroup(parent, `nmb-leg nmb-leg-${side} atl-leg`);
@@ -383,10 +435,13 @@ function atlasBody(parent) {
     ["l", "M23.4 42.6C20.4 44.4 18 50 16.8 55.8C16.2 59 15.6 61.6 16 63C16.6 64.6 18.6 64.2 19.2 62.6C20 59.6 21 55.4 23.4 49.8Z"],
     ["r", "M40.6 42.6C43.6 44.4 46 50 47.2 55.8C47.8 59 48.4 61.6 48 63C47.4 64.6 45.4 64.2 44.8 62.6C44 59.6 43 55.4 40.6 49.8Z"],
   ];
+  const drawn = {};
   for (const [side, d] of arms) {
     const arm = atlasGroup(parent, `nmb-arm nmb-arm-${side}`);
     atlasMake("path", { class: "atl-skin atl-outline", d, "stroke-width": 0.9 }, arm);
+    drawn[side] = arm;
   }
+  if (props) atlasHandProps(drawn.r, drawn.l);
 }
 
 //: The streamer of light behind the body, with two notes on its edge.
@@ -483,7 +538,7 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   if (spec.body) {
     atlasScarf(rig);
     atlasOrbit(rig, id, false);
-    atlasBody(rig);
+    atlasBody(rig, figure);
   }
   //: The companion turns the head at the neck (`.nm-buddy-head`) and looks
   //: for its face (`.name-mark`, with `.nm-eyes` and `.nm-blinks` in it).

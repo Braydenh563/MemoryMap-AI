@@ -5492,6 +5492,7 @@ main,
   --atl-heart-c: #ff4f7e;
   --atl-tear-c: #a5dcff;
   --atl-gold: #ffd35c;
+  --atl-gold-line: #9a6f00;
   /* The drawing's own gradients (atlas.js sets these per drawing). */
   --atl-skin: var(--atl-md);
   --atl-aura: none;
@@ -5553,14 +5554,18 @@ main,
 }
 
 @supports (color: oklch(from red 0.5 clamp(0.1, c, 0.2) h)) {
+  /* Chroma is capped per lightness so every colour stays inside sRGB: an
+     out-of-gamut colour is clipped one way when painted directly and
+     another inside an opacity layer, and the orbit's front half came out
+     olive while its back half was blue (measured: `oklch(0.8 0.18 265)`). */
   .nm-atlas {
-    --atl-hi: oklch(from var(--accent) 0.97 calc(c * 0.22) h);
-    --atl-lt: oklch(from var(--accent) 0.88 clamp(0.04, c * 0.55, 0.11) h);
-    --atl-md: oklch(from var(--accent) 0.73 clamp(0.04, c * 0.9, 0.17) h);
-    --atl-dp: oklch(from var(--accent) 0.55 clamp(0.04, c, 0.17) h);
-    --atl-line: oklch(from var(--accent) 0.42 clamp(0.03, c * 0.85, 0.14) h);
-    --atl-ink: oklch(from var(--accent) 0.23 clamp(0.02, c * 0.45, 0.07) h);
-    --atl-glow-c: oklch(from var(--accent) 0.8 clamp(0.04, c, 0.18) h);
+    --atl-hi: oklch(from var(--accent) 0.97 clamp(0, calc(c * 0.2), 0.025) h);
+    --atl-lt: oklch(from var(--accent) 0.88 clamp(0.03, calc(c * 0.5), 0.06) h);
+    --atl-md: oklch(from var(--accent) 0.72 clamp(0.04, calc(c * 0.8), 0.12) h);
+    --atl-dp: oklch(from var(--accent) 0.55 clamp(0.04, c, 0.15) h);
+    --atl-line: oklch(from var(--accent) 0.42 clamp(0.03, calc(c * 0.8), 0.13) h);
+    --atl-ink: oklch(from var(--accent) 0.23 clamp(0.02, calc(c * 0.45), 0.06) h);
+    --atl-glow-c: oklch(from var(--accent) 0.8 clamp(0.04, calc(c * 0.8), 0.09) h);
   }
 }
 
@@ -5814,6 +5819,36 @@ main,
 }
 #nm-buddy.nmb-watch .nm-atlas { --atl-ps: 1.1; --atl-brow-y: -1px; }
 
+/* The companion's props in Atlas's own materials (atlas.js,
+   `atlasHeadProps`, `atlasHandProps`); avatars.js shows each slot. Outside
+   the companion they never show. */
+.nm-atlas:not(.atl-figure) .nmp { opacity: 0; }
+.nm-atlas .atl-prop-band { fill: none; stroke: var(--atl-line); stroke-width: 2.4; stroke-linecap: round; }
+.nm-atlas .atl-prop-cup { fill: var(--atl-dp); stroke: var(--atl-line); stroke-width: 1; }
+.nm-atlas .atl-prop-cup-glow { fill: var(--atl-hi); }
+.nm-atlas .atl-prop-note-ink { fill: none; stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; }
+.nm-atlas .atl-prop-note-head { fill: var(--ink); }
+.nm-atlas .atl-prop-moon { fill: var(--atl-gold); stroke: var(--atl-gold-line); stroke-width: 0.8; }
+.nm-atlas .atl-prop-moon-glow { fill: var(--atl-gold); opacity: 0.25; }
+.nm-atlas .atl-prop-lens { fill: var(--atl-hi); fill-opacity: 0.22; stroke: var(--atl-hi); stroke-width: 0.9; }
+.nm-atlas .atl-prop-rim { fill: none; stroke: var(--atl-hi); stroke-width: 0.9; }
+.nm-atlas .atl-prop-bell { fill: var(--atl-gold); stroke: var(--atl-gold-line); stroke-width: 0.9; stroke-linejoin: round; }
+.nm-atlas .atl-prop-bell-dot { fill: var(--atl-gold-line); }
+.nm-atlas .atl-prop-string { fill: none; stroke: var(--atl-line); stroke-width: 0.8; }
+.nm-atlas .atl-prop-link { fill: none; stroke: var(--atl-md); stroke-width: 1.6; stroke-linecap: round; }
+.nm-atlas .atl-prop-zap { fill: none; stroke: var(--atl-gold-line); stroke-width: 0.9; stroke-linecap: round; }
+
+/* Atlas's side of the companion's states. Drowsy and asleep: the orbit
+   dims and slows and the crest droops. Night: heavier lids, the crest
+   hung with its moon. Reading a long answer: eyes down the page. Offline:
+   worried brows over the snapped link. A bell: eyes wide. */
+#nm-buddy.nmb-drowsy .nm-atlas { --atl-halo-o: 0.75; --atl-glow: 0.85; --atl-crest: 5deg; --atl-lid: 0.3; }
+#nm-buddy.nmb-sleep .nm-atlas { --atl-orbit: 64s; }
+#nm-buddy.nmb-night .nm-atlas { --atl-crest: 8deg; --atl-lid: 0.28; }
+#nm-buddy.nmb-reading .nm-atlas { --atl-py: 1.4px; --atl-lid: 0.18; --atl-brow-y: -0.6px; }
+#nm-buddy.nmb-offline .nm-atlas { --atl-knit: -11deg; --atl-brow-y: -1px; --atl-ps: 0.86; }
+#nm-buddy.nmb-act-bell .nm-atlas { --atl-eye-s: 1.08; --atl-brow-y: -2px; --atl-crest: -8deg; }
+
 /* --- Atlas's life: loops while the mark is on screen and motion is on ---
    The same four gates as the generated faces (Avatar animation always,
    live, hovered row, hovered mark; Reduce motion and Off win), for the
@@ -5860,6 +5895,13 @@ main,
     & .atl-slow { animation-duration: 3.4s; }
   }
 
+  /* Music: its head grooves and its notes pulse to the beat. */
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-music {
+    & .atl-figure .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
+    & .atl-figure .atl-crest-node .atl-node-dot { animation: atl-beat 0.5s ease-in-out infinite alternate; }
+    & .atl-figure .atl-prop-note { animation: atl-rise 1.8s ease-out infinite; }
+  }
+
   /* One-off plays: a poke, a nod, a hop, a spin, a wave, and a full-size
      Atlas says hello with a wave when it appears. Off and Reduce motion
      keep it still. */
@@ -5878,7 +5920,7 @@ main,
 @media (prefers-reduced-motion: reduce) {
   .nm-atlas { --atl-orbit: 96s; }
   .nm-atlas :is(.atl-orbit, .atl-node) { animation-duration: var(--atl-orbit); }
-  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-scarf, .atl-aura, .atl-core, .atl-mote, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
+  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-scarf, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mote, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s;
   }
 }
@@ -5900,6 +5942,7 @@ main,
   75% { transform: rotate(-270deg) scale(0.7, 2.6923); opacity: 0.45; }
   100% { transform: rotate(-360deg) scale(1, 3.8462); opacity: 0.9; }
 }
+@keyframes atl-beat { to { transform: scale(1.6); } }
 @keyframes atl-flutter {
   0%, 100% { transform: rotate(0deg) skewY(0deg); }
   40% { transform: rotate(3deg) skewY(-3deg); }

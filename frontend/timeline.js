@@ -979,15 +979,19 @@ function timelineRowElement(row, density) {
   main.className = "timeline-row-main";
   const title = document.createElement("span");
   title.className = "timeline-row-title";
-  title.textContent = row.title;
+  //: Through the app's preview cleaner, as every other list does: a title or
+  //: snippet that holds a wiki link showed its raw `[[...]]` here (and a
+  //: heading its `#`), the one list in the app that printed markup.
+  const plainTitle = typeof notePreviewText === "function" ? notePreviewText(row.title) : row.title;
+  title.textContent = plainTitle;
   // One native tooltip for the full title, because the ellipsis is the only
   // other escape hatch and the text is already plain.
-  title.title = row.title;
+  title.title = plainTitle;
   main.appendChild(title);
   if (density === "full" && row.snippet) {
     const snippet = document.createElement("span");
     snippet.className = "timeline-row-snippet";
-    snippet.textContent = row.snippet;
+    snippet.textContent = typeof notePreviewText === "function" ? notePreviewText(row.snippet) : row.snippet;
     main.appendChild(snippet);
   }
 

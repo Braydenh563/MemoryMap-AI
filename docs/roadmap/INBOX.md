@@ -40,7 +40,12 @@ with its owner named in the entry.
     outer) of the radial and arent centered nicely. also when I press the
     more button the dropdown menu appears in the top left of my screen"
     (desktop app; the pie-ring agent could not reproduce the corner with a
-    real click). (b) "the / command blocks and frames need a massive
+    real click). **(a) built** (INBOX 421 agent): labels centred with 10px to
+    both arcs and dividers (1.4 -> 11.4px, mapradialfit.js); More anchors to
+    the sector read at pointerdown, (0,0) refused and logged, the canvas host
+    no longer scrolls on focus (mapradialmore.js 33/33). The desktop corner
+    itself was still not reproduced headless: the console now names any
+    corner placement, so the owner's log will say which route it was. (b) "the / command blocks and frames need a massive
     redesign, expansion and improvement, the icons dont render in the live
     view in the documents editor ... they need ot be impressive and an actual
     proper thing the user's can use to properly structure out their
@@ -48,16 +53,22 @@ with its owner named in the entry.
     "sometimes document editor dropdowns appear at the top of the screen and
     other times it is fine, sometimes it doesnt open at all" (the spelling
     menu, top of the window). (d) "there's no 'x' close button on the trace
-    popup row in the graph". (e) OCR: "I cant delete the ocr entry in the
+    popup row in the graph" (**built**: an X at the strip's end that leaves
+    trace mode; Done only cleared the ends; graphtraceclose.js). (e) OCR: "I cant delete the ocr entry in the
     workspace or the lightbox and the text in the lightbox doesnt even appear
     in the ocr workspace" (workspace delete fixed 6e072b2; the lightbox
     showed a vision reading of "Test, Test, ..." hundreds of times, a
-    degenerate model loop the app should cut). (f) The file row in the
+    degenerate model loop the app should cut; **built**: loops cut where a
+    reading is produced, each lightbox reading deletable, the workspace shows
+    both stored readings and no longer blanks a stored one when the reader
+    is the model; ocrreadings.js 6/6). (f) The file row in the
     Library ("PDF · 121 KB · added ... Read · 808 words, Open reader, Used
     in"): "needs a bit more modern and ui refinement and the second row
     elements arent aligned and dont really match". (g) "the lightbox buttons
     below the image are greyed out?? i opened the image from within a note".
-    (h) View toggles with no clear active state (fixed c920174). (i) "have
+    (**built**: not disabled, the row was the theme's ghost ink on the dark
+    scrim, 1.37:1 in light from every door; now the scrim's own recipe,
+    8.28:1; lightboxentry.js) (h) View toggles with no clear active state (fixed c920174). (i) "have
     you included all the new optional packages in the packages settings
     page??" and "move the preferences settings page up a bit and maybe also
     turn it a bit into the user's own personal local profile where they can

@@ -124,6 +124,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Mind map ring: every action's icon and word sits in the middle of its sector with at least 10px to both edges and both dividers ("Add beside" and "Cross-link" were 1.4px from both edges); the ring is as thick as its longest word needs.
+- Mind map ring, More: its menu opens beside the More sector wherever the ring was when you pressed it, even if the board re-renders before the click; it can no longer open in the window's top-left corner, and says so in the console if anything tries. Focusing a sector no longer scrolls the board, which also closed the menu Enter had just opened.
+- Graph, Trace: the strip ends in an X that leaves trace mode (Escape too). Its old Done only cleared the two ends.
+- Lightbox: the zoom, Fit, Save and menu buttons read clearly in the light theme (they looked disabled on the dark backdrop, from every place a picture opens).
+- Picture readings: a model stuck repeating itself ("Test, Test, Test, ...") is cut to one copy before the reading is stored, and a reading is capped in length. Each reading in the lightbox can be deleted, and the OCR workspace shows the same readings the lightbox does: the vision model's even when Tesseract is not the chosen reader, and the other one beside it, labelled, with its own delete.
 - View toggles (Notes rows/cards, Library list/cards): only the chosen half is
   filled; the other rests clear.
 - The OCR workspace's Delete reading works again (it threw after the confirm).

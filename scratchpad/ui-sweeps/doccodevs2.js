@@ -161,6 +161,27 @@ const ok = (n, c, d) => {
   ok("three different tones, none the text's", new Set(tones).size === 3 && !tones.includes(brackets.text), J({ tones, text: brackets.text }));
   ok("the ( in a string is not a bracket", brackets.b0.length + brackets.b1.length + brackets.b2.length === 10, J(brackets));
 
+  // --- 7. symbols in the outline, the breadcrumb and the palette ---------------------
+  await open("symbols.py", "py", "# class Comment:\ndef f(x):\n    pass\nclass A:\n    def m(self):\n        return 1|\n");
+  await page.evaluate(() => renderDocOutline());
+  await page.waitForTimeout(400);
+  const outline = await page.evaluate(() => ({
+    rows: [...document.querySelectorAll("#doc-outline li")].map((li) => li.textContent.trim()),
+    draggable: [...document.querySelectorAll("#doc-outline li")].some((li) => li.draggable),
+    crumbs: [...document.querySelectorAll("#doc-crumbs .doc-crumb")].map((b) => b.textContent),
+  }));
+  ok("a Python file's outline is its symbols, not its # comments", J(outline.rows) === J(["f()", "class A", "m()"]), J(outline));
+  ok("and its rows jump, they do not move", outline.draggable === false);
+  ok("the breadcrumb follows the caret into the method", J(outline.crumbs.slice(1)) === J(["class A", "m()"]), J(outline.crumbs));
+  await page.evaluate(() => docOpenSymbols());
+  await page.waitForTimeout(300);
+  const menu = await page.evaluate(() => { const m = [...document.querySelectorAll(".action-menu")].find((el) => !el.classList.contains("hidden")); return m ? [...m.querySelectorAll(".menu-item")].map((b) => b.textContent.trim()) : []; });
+  ok("Go to a symbol lists them at the caret", menu.length === 3 && menu[1].includes("class A"), J(menu));
+  await page.evaluate(() => [...document.querySelectorAll(".action-menu")].find((el) => !el.classList.contains("hidden")).querySelector(".menu-item").click());
+  await page.waitForTimeout(300);
+  const line = await page.evaluate(() => docCmView.state.doc.lineAt(docCmView.state.selection.main.head).number);
+  ok("and choosing one goes to its line", line === 2, `line ${line}`);
+
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`\n${good} passed, ${bad} failed`);
   await browser.close();

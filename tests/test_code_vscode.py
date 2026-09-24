@@ -265,3 +265,56 @@ def test_indent_steps(lead, unit, steps):
     script = _function("docIndentSteps") + "\nconst a = JSON.parse(process.argv[1]);\nconsole.log(JSON.stringify(docIndentSteps(a[0], a[1])));\n"
     out = subprocess.run(["node", "-e", script, json.dumps([lead, unit])], capture_output=True, text=True, check=True, timeout=60)
     assert json.loads(out.stdout) == steps
+
+
+# --- 7. symbols: the outline and the breadcrumb of a code file ---------------------
+
+_SYMBOLS = """
+const fns = {
+  symbols: (ext, text) => docCodeSymbols(CM, stateFor(ext, text + "|"), ext).map((s) => [s.line, s.level, s.text]),
+};
+"""
+
+
+@node
+@pytest.mark.parametrize(
+    ("ext", "text", "symbols"),
+    [
+        (
+            "js",
+            "function f(a) {}\nclass A {\n  m() {}\n  static n = 1;\n}\nconst g = () => 1;\nconst v = 3;\n// function nope() {}\nconst s = 'class B {}';",
+            [[0, 1, "f()"], [1, 1, "class A"], [2, 2, "m()"], [5, 1, "g()"]],
+        ),
+        (
+            "ts",
+            "interface I { a: number }\ntype T = string;\nenum E { A }\nexport function k(): void {}",
+            [[0, 1, "interface I"], [1, 1, "type T"], [2, 1, "enum E"], [3, 1, "k()"]],
+        ),
+        (
+            "py",
+            "# class Comment:\ndef f(x):\n    pass\nclass A:\n    def m(self):\n        def inner():\n            pass",
+            [[1, 1, "f()"], [3, 1, "class A"], [4, 2, "m()"], [5, 3, "inner()"]],
+        ),
+        (
+            "css",
+            ".card > p, a:hover { color: red }\n@media (max-width: 600px) {\n  .x { color: red }\n}",
+            [[0, 1, ".card > p, a:hover"], [1, 1, "@media (max-width: 600px)"], [2, 2, ".x"]],
+        ),
+        ("go", "func main() {}", []),
+    ],
+)
+def test_code_symbols(ext, text, symbols):
+    assert run(["docCodeSymbols"], _const("DOC_SYMBOL_EXTS") + _SYMBOLS, [["symbols", ext, text]])[0] == symbols
+
+
+def test_the_outline_reads_symbols_for_code_and_never_moves_them():
+    outline = _function("renderDocOutline")
+    assert "if (fileType.previewable) headings = docScanHeadings(text);" in outline
+    assert "docCodeSymbols(window.CM6, docCmView.state, fileType.ext)" in outline
+    assert "if (!needle && !heading.symbol) {" in outline
+    assert "if (heading.symbol) return;" in outline
+    source = _source()
+    table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]
+    assert 'label: "Go to a symbol in this file", keys: "",\n    code: true, run: () => docOpenSymbols() }' in table
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert 'newChat: { keys: "Ctrl+Shift+O"' in app, "if the chord is free again, give it to the symbols"

@@ -2178,6 +2178,10 @@ const DOC_COMMANDS = [
     code: true, run: () => docEmmetBalance(false) },
   { id: "emmet-balance-in", icon: "ph:arrows-in-line-horizontal", label: "Select the tag inside (Emmet balance inward)", keys: "",
     code: true, run: () => docEmmetBalance(true) },
+  //: VS Code's Ctrl+Shift+O, without the chord: the registry gives it to a
+  //: new chat. The outline panel lists the same symbols.
+  { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "",
+    code: true, run: () => docOpenSymbols() },
 ];
 
 // DOC-COMMANDS-END
@@ -2333,7 +2337,13 @@ function renderDocOutline() {
   if (!list || !wrap) return;
   const text = docText();
   const lines = text.split("\n");
-  const headings = docScanHeadings(text);
+  //: A code file's outline is its symbols (INBOX 402), a markdown file's its
+  //: headings; the same rows, the same breadcrumb. Never a code file read
+  //: as markdown: every `# comment` in a Python file was a heading here.
+  const fileType = docFileType();
+  let headings = [];
+  if (fileType.previewable) headings = docScanHeadings(text);
+  else if (docCmView && window.CM6) headings = docCodeSymbols(window.CM6, docCmView.state, fileType.ext);
 
   //: **The tasks in each section, counted.** DOCUMENTS_PLAN Phase 3 item 2
   //: asks for "task lists with progress in the outline", and the outline is
@@ -2482,7 +2492,10 @@ function renderDocOutline() {
     //: rows on screen are then a search result rather than the document's
     //: order, and dropping one "between" two rows that are not next to each
     //: other in the document is a position nobody could have meant.
-    if (!needle) {
+    //: A symbol is not a section: a function dragged by its first line would
+    //: take the lines up to the next symbol with it, which is not the
+    //: function. Code rows jump; only headings move.
+    if (!needle && !heading.symbol) {
       li.draggable = true;
       li.addEventListener("dragstart", (event) => {
         docOutlineDragIndex = index;
@@ -2521,6 +2534,7 @@ function renderDocOutline() {
     }
     button.addEventListener("keydown", (event) => {
       if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+      if (heading.symbol) return;
       event.preventDefault();
       if (!docOutlineNudge(index, event.key === "ArrowDown" ? 1 : -1)) {
         announce("That section cannot move any further.");
@@ -17480,6 +17494,109 @@ function docBracketColours(CM) {
     { decorations: (p) => p.decorations }
   );
   return docBracketColourCache;
+}
+
+//: **A code file's symbols, as the outline's headings** (INBOX 402, VS
+//: Code's outline and breadcrumbs): its functions, classes and methods (and
+//: a TypeScript file's interfaces, types and enums, a CSS file's rules and
+//: at-rules), in the shape `docScanHeadings` gives a markdown file's
+//: headings, `{ line, text, level }`, so the outline panel, its filter, its
+//: current-row mark and the breadcrumb all read them unchanged. `level` is
+//: the nesting: a method sits under its class. From the Lezer tree, so a
+//: word in a string or a comment is never a symbol. `symbol: true` marks
+//: the rows the outline must not offer to move: a heading's section is a
+//: run of lines, a function is not.
+const DOC_SYMBOL_EXTS = new Set(["js", "ts", "py", "css"]);
+
+function docCodeSymbols(CM, state, ext) {
+  if (!DOC_SYMBOL_EXTS.has(ext)) return [];
+  const tree = CM.language.ensureSyntaxTree(state, state.doc.length, 50) || CM.language.syntaxTree(state);
+  const text = (node) => state.sliceDoc(node.from, node.to);
+  const nameOf = (node, ...kinds) => {
+    for (const kind of kinds) {
+      const child = node.getChild(kind);
+      if (child) return text(child);
+    }
+    return "";
+  };
+  const found = [];
+  const stack = [];
+  tree.iterate({
+    enter: (ref) => {
+      const node = ref.node;
+      let label = "";
+      switch (node.name) {
+        case "FunctionDeclaration":
+          label = `${nameOf(node, "VariableDefinition")}()`;
+          break;
+        case "ClassDeclaration":
+          label = `class ${nameOf(node, "VariableDefinition", "TypeDefinition")}`;
+          break;
+        case "MethodDeclaration":
+          label = `${nameOf(node, "PropertyDefinition", "PrivatePropertyDefinition")}()`;
+          break;
+        case "InterfaceDeclaration":
+          label = `interface ${nameOf(node, "TypeDefinition")}`;
+          break;
+        case "TypeAliasDeclaration":
+          label = `type ${nameOf(node, "TypeDefinition")}`;
+          break;
+        case "EnumDeclaration":
+          label = `enum ${nameOf(node, "TypeDefinition")}`;
+          break;
+        case "VariableDeclaration": {
+          //: Only a name bound to a function: `const f = () => ...` is a
+          //: function in all but keyword; `const n = 3` is not a symbol.
+          if (node.getChild("ArrowFunction") || node.getChild("FunctionExpression")) {
+            label = `${nameOf(node, "VariableDefinition")}()`;
+          }
+          break;
+        }
+        case "FunctionDefinition":
+          label = `${nameOf(node, "VariableName")}()`;
+          break;
+        case "ClassDefinition":
+          label = `class ${nameOf(node, "VariableName")}`;
+          break;
+        case "RuleSet":
+        case "MediaStatement":
+        case "KeyframesStatement":
+        case "SupportsStatement": {
+          const block = node.getChild("Block");
+          label = state.sliceDoc(node.from, block ? block.from : node.to).replace(/\s+/g, " ").trim();
+          if (label.length > 60) label = `${label.slice(0, 57)}...`;
+          break;
+        }
+        default:
+          return;
+      }
+      if (!label || /^(class |interface |type |enum )?\(?\)?$/.test(label)) return;
+      while (stack.length && stack[stack.length - 1] <= node.from) stack.pop();
+      found.push({ line: state.doc.lineAt(node.from).number - 1, text: label, level: stack.length + 1, symbol: true });
+      stack.push(node.to);
+    },
+  });
+  return found;
+}
+
+//: Go to a symbol, from the palette: the file's symbols in the menu at the
+//: caret, VS Code's Ctrl+Shift+O list. Not on that chord: this app's
+//: registry gives Ctrl+Shift+O to starting a new chat.
+function docOpenSymbols() {
+  const CM = window.CM6;
+  const view = docCmView;
+  if (!CM || !view || typeof openMenuAtPoint !== "function") return false;
+  const symbols = docCodeSymbols(CM, view.state, docFileType().ext);
+  const items = symbols.length
+    ? symbols.slice(0, 200).map((s) => ({
+      label: `${s.text.startsWith("class ") ? "ph:cube" : /\(\)$/.test(s.text) ? "ph:function" : "ph:hash"} ${s.text}`,
+      title: `Line ${s.line + 1}`,
+      run: () => jumpToDocLine(s.line),
+    }))
+    : [{ label: "ph:info No symbols in this file", disabled: true, run: () => {} }];
+  const at = view.coordsAtPos(view.state.selection.main.head) || view.contentDOM.getBoundingClientRect();
+  openMenuAtPoint(items, "Symbols in this file", at.left, at.bottom);
+  return true;
 }
 
 //: XML's Emmet source, as language data for the stream mode: one stable

@@ -183,3 +183,50 @@ def test_one_hat_per_head(tmp_path: Path) -> None:
     party, king = _moods(["Party wizard", "Wizard king"], tmp_path)
     assert "partyhat" in party["props"] and "hat" not in party["props"]
     assert "hat" in king["props"] and "crown" not in king["props"]
+
+
+def test_hands_and_the_things_they_hold(tmp_path: Path) -> None:
+    # The owner: "could we add some hand gestures like a thumbs up, middle
+    # finger, drink bottles, wine glasses, someone ripping a table in half".
+    cases = {
+        "Nice one": "thumbsup",
+        "\U0001F44D": "thumbsup",
+        "Rude dude": "middlefinger",
+        "\U0001F595": "middlefinger",
+        "Peace out": "peace",
+        "Hi there": "wave",
+        "Beer o clock": "beer",
+        "Wine mom": "wine",
+        "Latte lover": "mug",
+        "Sir Knight": "sword",
+        "Detective Pikachu": "magnifier",
+        "Karaoke queen": "mic",
+        "Bookworm": "book",
+        "Selfie queen": "phone",
+        "Pizza rat": "pizza",
+    }
+    got = _moods(list(cases), tmp_path)
+    for (name, held), reading in zip(cases.items(), got):
+        assert reading["hand"] == held, (name, reading)
+    # One hand, one thing in it: the first one named.
+    (both,) = _moods(["Beer and wine"], tmp_path)
+    assert both["hand"] == "beer"
+
+
+def test_a_table_flip_is_a_table_flip(tmp_path: Path) -> None:
+    flips = _moods(["(╯°□°)╯︵ ┻━┻", "tableflip", "rage quit"], tmp_path)
+    assert all(m["hand"] == "tableflip" and m["mood"] == "angry" for m in flips), flips
+
+
+def test_money_eyes(tmp_path: Path) -> None:
+    rich, stonks = _moods(["Filthy rich", "stonks"], tmp_path)
+    assert rich["mood"] == "greedy" and stonks["mood"] == "greedy"
+
+
+def test_plain_faces_vary_their_smiles_and_features(tmp_path: Path) -> None:
+    names = [f"Person {chr(65 + i)}{chr(97 + i)}" for i in range(26)]
+    got = _moods(names, tmp_path)
+    smiles = {m["style"]["smile"] for m in got}
+    extras = {e for m in got for e in m["style"]["features"]}
+    assert len(smiles) >= 5, smiles
+    assert len(extras) >= 3, extras

@@ -40767,6 +40767,7 @@ const NAME_MOOD_LEXICON = {
     starstruck: "starstruck star stars superstar* famous celeb* fangirl* fanboy* fan fans idol*",
     cute: "cute cutie smol tiny baby babies bby lil kawaii precious chibi bean",
     drunk: "drunk tipsy wasted hungover boozy sloshed",
+    greedy: "rich money cash* greed* banker* billion* million* capitalist* crypto* stonks bitcoin* hustl* moneybag* loaded",
     calm: "calm* wise zen serene stoic* sage patient gentle mellow relax* peace* tranquil tea monk* yoga",
     serious: "serious stern strict formal pedant* logical deadpan dry grave solemn business* lawyer* accountant* judge* doom* void abyss",
     confused: "confus* baffl* bewild* puzzl* clueless perplex* muddled ditzy lost hm hmm um umm uh uhh erm huh",
@@ -40802,20 +40803,40 @@ const NAME_MOOD_LEXICON = {
   props: {
     hat: "wizard* witch* mage magi magician* sorcer* warlock* druid* necroman* enchant* merlin gandalf",
     chefhat: "chef chefs cook cooks baker* cooking",
-    glasses: "academic* professor* prof scholar* scientist* nerd* librarian* teacher* tutor* researcher* historian* editor* critic* geek* analyst* detective* philosoph* linguist* mathemat* physicist* chemist* boffin* smart",
+    glasses: "academic* professor* prof scholar* scientist* nerd* librarian* teacher* tutor* researcher* historian* editor* critic* geek* analyst* philosoph* linguist* mathemat* physicist* chemist* boffin* smart",
     eyepatch: "pirate* buccaneer* arr arrr",
     crown: "king kings queen* prince* princess* royal* emperor* empress* monarch* regal duke duchess",
     halo: "angel* saint* guardian* cherub* holy",
     horns: "devil* demon* imp fiend* satan*",
     antenna: "robot* bot bots android* cyborg* droid* machine* automaton* ai",
     moustache: "butler* gentleman gentlemen baron* mustach* moustach* walrus* sir",
-    headphones: "headphone* headset* dj music* gamer* gaming podcast* singer* rapper* audio* beats",
+    headphones: "headphone* headset* dj music* gamer* gaming podcast* audio* beats",
     fangs: "vampire* vamp dracula* nosferatu",
     rednose: "clown* rudolph reindeer*",
     cowboy: "cowboy* cowgirl* sheriff* yeehaw rodeo* ranch* wrangler*",
     partyhat: "party partying birthday* bday celebrat* fiesta*",
     ninjamask: "ninja*",
     helmet: "astronaut* cosmonaut* space spaceman* rocketman",
+  },
+  //: What the hand does or holds. One hand, one thing: the first named.
+  hands: {
+    thumbsup: "nice thumbs* thumbsup gg approve* approved goodjob kudos noice",
+    middlefinger: "rude fu fuk fuck* stfu screwyou flipoff hater haters",
+    peace: "peace* peaceout hippie* namaste",
+    wave: "hi hii hey heya hiya hello* howdy greetings welcome* sup yo bye goodbye",
+    beer: "beer* brew* ale lager booze* cheers pint* drinks",
+    wine: "wine* vino merlot sommelier* classy fancy champagne* prosecco",
+    mug: "coffee* espresso* latte* mug cappucc* barista* tea",
+    sword: "knight* warrior* samurai* sword* paladin* viking* gladiator*",
+    magnifier: "detective* sherlock* investigat* sleuth* inspector*",
+    mic: "karaoke* singer* rapper* mic vocal* diva",
+    book: "book* reader* novel* poet* writer* author* bookworm* storyteller*",
+    phone: "influencer* selfie* tiktok* texting doomscroll* insta* phone*",
+    flower: "flower* garden* bloom* blossom* florist* daisy* sunflower* petal*",
+    pizza: "pizza*",
+    donut: "donut* doughnut*",
+    balloon: "balloon*",
+    tableflip: "tableflip* flip flipping ragequit",
   },
   //: Flavours stack on whatever mood the name set: "wink" winks, "ahhhh"
   //: screams, "cooked" sweats. A name that says five things gets all five.
@@ -40830,7 +40851,10 @@ const NAME_MOOD_LEXICON = {
 
 function nameMood(name) {
   const raw = String(name || "").trim();
-  const result = { mood: null, intense: false, animal: null, props: [], flavours: [], mutant: null, source: "seed" };
+  const result = {
+    mood: null, intense: false, animal: null, props: [], flavours: [], hand: null, mutant: null,
+    style: { smile: "smile", features: [], nose: null }, source: "seed",
+  };
   if (!raw) return result;
   //: One parsed table per page, not per mark: the lexicon is fixed.
   if (!nameMood.table) {
@@ -40847,6 +40871,7 @@ function nameMood(name) {
       animals: group(NAME_MOOD_LEXICON.animals),
       props: group(NAME_MOOD_LEXICON.props),
       flavours: group(NAME_MOOD_LEXICON.flavours),
+      hands: group(NAME_MOOD_LEXICON.hands),
       intensifiers: new Set(NAME_MOOD_LEXICON.intensifiers.split(/\s+/)),
     };
   }
@@ -40878,7 +40903,7 @@ function nameMood(name) {
         });
         //: The glued-name scan: only stems of four letters and up, and only
         //: behind every whole-word match (`+ 500000`).
-        if (stem.length >= 4 && letters.length > stem.length) {
+        if (stem.length >= 4 && letters.length >= stem.length) {
           const at = letters.indexOf(stem);
           if (at >= 0 && (!best || at + 500000 < best.at)) best = { key, at: at + 500000 };
         }
@@ -40891,13 +40916,14 @@ function nameMood(name) {
     for (const { key, entries } of groups) {
       const hit = entries.some(({ stem, prefix }) =>
         forms.some((variants) => variants.some((word) => (prefix ? word.startsWith(stem) : word === stem))) ||
-        (stem.length >= 4 && letters.length > stem.length && letters.includes(stem))
+        (stem.length >= 4 && letters.length >= stem.length && letters.includes(stem))
       );
       if (hit) keys.push(key);
     }
     return keys;
   };
   result.mood = find(table.moods);
+  result.hand = find(table.hands);
   result.animal = find(table.animals);
   result.props = findAll(table.props);
   //: One hat per head: "Party wizard" wears the party hat, the one named
@@ -40910,6 +40936,29 @@ function nameMood(name) {
   //: A flavour the mood already is (a scream on a scream) says nothing new.
   result.flavours = findAll(table.flavours);
   if (/;-?\)/.test(raw) && !result.flavours.includes("wink")) result.flavours.push("wink");
+  //: (╯°□°)╯︵ ┻━┻ has no letters at all, and needs none.
+  if (/\u253b\u2501+\u253b|\u256f\u00b0\u25a1\u00b0/.test(raw)) result.hand = "tableflip";
+  const emojiHands = [
+    [/\u{1F44D}/u, "thumbsup"], [/\u{1F595}/u, "middlefinger"], [/\u270C/u, "peace"], [/\u{1F44B}/u, "wave"],
+    [/[\u{1F37A}\u{1F37B}]/u, "beer"], [/[\u{1F377}\u{1F942}]/u, "wine"], [/\u2615/u, "mug"],
+    [/[\u2694\u{1F5E1}]/u, "sword"], [/[\u{1F50D}\u{1F50E}]/u, "magnifier"], [/\u{1F3A4}/u, "mic"],
+    [/[\u{1F4DA}\u{1F4D6}]/u, "book"], [/\u{1F4F1}/u, "phone"], [/[\u{1F338}\u{1F339}\u{1F337}\u{1F33B}]/u, "flower"],
+    [/\u{1F355}/u, "pizza"], [/\u{1F369}/u, "donut"], [/\u{1F388}/u, "balloon"],
+  ];
+  if (!result.hand) {
+    for (const [pattern, hand] of emojiHands) {
+      if (pattern.test(raw)) {
+        result.hand = hand;
+        break;
+      }
+    }
+  }
+  //: Nobody flips a table calmly.
+  if (result.hand === "tableflip") {
+    result.mood = "angry";
+    result.intense = true;
+  }
+  if (result.hand && result.source === "seed") result.source = "words";
   result.intense = forms.some((variants) => variants.some((word) => table.intensifiers.has(word)));
   if (result.mood || result.animal || result.props.length) result.source = "words";
 
@@ -40933,6 +40982,7 @@ function nameMood(name) {
     [/[\u{1F31F}\u{2B50}]/u, "starstruck"],
     [/\u{1F97A}/u, "cute"],
     [/\u{1F60F}/u, "sly"],
+    [/[\u{1F911}\u{1F4B0}\u{1F4B8}]|\$\$/u, "greedy"],
     [/[\u{1F60B}\u{1F924}\u{1F363}\u{1F355}\u{1F354}\u{1F369}\u{1F370}]/u, "hungry"],
     [/[\u{1F914}\u{1F615}\u{2753}]/u, "confused"],
     [/\u{1F929}/u, "starstruck"],
@@ -41061,6 +41111,27 @@ function nameMood(name) {
     ];
     result.mood = pool[(h >>> 0) % pool.length];
   }
+  //: **The face's own style**, for every name: which smile, which small
+  //: features (the owner: "there can be variations of types of smiles and
+  //: other features as well"). A third hash of the name, so it is stable
+  //: and independent of both the colours and the personality.
+  let sh = 2166136261 ^ 0x85ebca6b;
+  for (const ch of raw.toLowerCase()) {
+    sh ^= ch.codePointAt(0);
+    sh = Math.imul(sh, 16777619) >>> 0;
+  }
+  const roll = (n) => {
+    sh ^= sh >>> 13;
+    sh = Math.imul(sh, 3266489917) >>> 0;
+    sh = (sh ^ (sh >>> 16)) >>> 0;
+    return sh % n;
+  };
+  const smiles = ["smile", "grin", "toothy", "lopsided", "bigD", "buck", "gap", "cat3", "smile", "grin"];
+  result.style.smile = smiles[roll(smiles.length)];
+  for (const feature of ["freckles", "mole", "lashes", "blush"]) {
+    if (roll(4) === 0) result.style.features.push(feature);
+  }
+  result.style.nose = [null, null, "dot", "button"][roll(4)];
   return result;
 }
 

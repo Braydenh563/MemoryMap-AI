@@ -413,6 +413,38 @@ def test_streamed_tool_call_fragments_are_reassembled_by_index(openai_client, ca
     ]
 
 
+def test_fragments_without_an_index_degrade_to_arrival_order(openai_client, capture_post):
+    """INBOX 285. OpenAI itself always sends `index`, which is why nothing
+    saw this: a looser local server may leave it out, and `get("index", 0)`
+    then folded every fragment into bucket 0, so two calls concatenated their
+    arguments into one unparseable blob and both were lost. With no index the
+    only order there is is arrival: a fragment that opens a call (an id or a
+    name) opens the next bucket, and a nameless one continues the last."""
+    capture_post.queue.append(
+        FakeResponse(
+            lines=sse(
+                {"choices": [{"delta": {"tool_calls": [
+                    {"id": "a", "function": {"name": "search", "arguments": '{"q"'}},
+                ]}}]},
+                {"choices": [{"delta": {"tool_calls": [
+                    {"function": {"arguments": ':"x"}'}},
+                ]}}]},
+                {"choices": [{"delta": {"tool_calls": [
+                    {"id": "b", "function": {"name": "create", "arguments": '{"te'}},
+                ]}}]},
+                {"choices": [{"delta": {"tool_calls": [
+                    {"function": {"arguments": 'xt":"n"}'}},
+                ]}}]},
+            )
+        )
+    )
+    final = [p["final"] for p in openai_client.chat_tools_stream("m", [], []) if "final" in p][0]
+    assert final["tool_calls"] == [
+        {"name": "search", "arguments": {"q": "x"}},
+        {"name": "create", "arguments": {"text": "n"}},
+    ]
+
+
 def test_calls_come_back_in_the_order_the_model_asked_for_them(openai_client, capture_post):
     """A model that says "search, then create" means it, and arrival order of
     the last fragment is not that order."""

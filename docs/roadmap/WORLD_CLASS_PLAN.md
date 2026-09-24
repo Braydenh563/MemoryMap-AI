@@ -2174,22 +2174,8 @@ build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
     note, and a button for it wants its own session.
 
 
-285. **Found by a line-by-line review of tonight's merges, 2026-09-21.**
-    `OpenAIClient._accumulate_tool_calls` reads a streamed fragment's index
-    as `fragment.get("index", 0)`. Every fragment a provider sends without
-    that field therefore lands in bucket 0, so with two concurrent calls
-    their `arguments` strings concatenate into one unparseable blob and both
-    calls are lost at `normalise_tool_calls`. OpenAI itself always sends the
-    index, which is why no test sees this and why the accumulator is
-    otherwise correct: buckets are keyed by index, replayed in index order,
-    and a missing id falls back to `call_<index>`. The risk is a local
-    OpenAI-compatible server that is looser than the spec, which is most of
-    them. Not reproduced: it needs a server that omits the field.
-    Recommendation: when `index` is absent, open a new bucket for a fragment
-    that carries a `function.name` and fold a nameless fragment into the
-    last one opened, so an omitted index degrades to arrival order rather
-    than to a collision. Owner: the models/chat agent, with a fake-transport
-    test that sends two indexless calls.
+285 (indexless tool-call fragments) was fixed 2026-09-24 and moved to
+HISTORY.md, "Moved from the plans, 2026-09-24".
 
 283. **Found while measuring the writing desk, 2026-09-20 (WORLD_CLASS_PLAN
     D16).** An OpenAI-dialect backend that is not there is still reported as

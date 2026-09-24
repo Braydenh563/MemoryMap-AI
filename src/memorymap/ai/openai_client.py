@@ -522,11 +522,24 @@ class OpenAICompatClient(Provider):
         for fragment in delta.get("tool_calls") or []:
             if not isinstance(fragment, dict):
                 continue
-            index = fragment.get("index", 0)
+            function = fragment.get("function") or {}
+            index = fragment.get("index")
+            if index is None:
+                #: OpenAI always sends `index`, so this branch never ran
+                #: against it; a looser local server may leave it out (INBOX
+                #: 285). Defaulting to 0 folded every indexless fragment into
+                #: one bucket, so two calls concatenated their arguments into
+                #: one unparseable blob and both were lost. With no index the
+                #: only order there is is arrival: a fragment that opens a
+                #: call (an id or a name) opens the next bucket, and a
+                #: nameless one continues the last bucket opened.
+                if fragment.get("id") or function.get("name") or not buckets:
+                    index = max(buckets) + 1 if buckets else 0
+                else:
+                    index = max(buckets)
             bucket = buckets.setdefault(index, {"id": "", "name": "", "arguments": ""})
             if fragment.get("id"):
                 bucket["id"] = fragment["id"]
-            function = fragment.get("function") or {}
             if function.get("name"):
                 bucket["name"] = function["name"]
             if function.get("arguments"):

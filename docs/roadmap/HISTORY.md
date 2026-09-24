@@ -7,6 +7,39 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-09-24
+
+INBOX 399 ("what is left in the world class plan??"): every row of
+WORLD_CLASS_PLAN.md read against the code, and what was built moved here.
+
+### From WORLD_CLASS_PLAN.md, placed from INBOX: 285, indexless tool-call fragments
+
+**Fixed 2026-09-24.** `OpenAICompatClient._accumulate_tool_calls` no longer
+defaults a missing `index` to 0: a fragment that opens a call (an id or a
+name) opens the next bucket and a nameless one continues the last, so an
+omitted index degrades to arrival order. Pinned by
+`tests/test_providers.py::test_fragments_without_an_index_degrade_to_arrival_order`
+(two indexless calls, both come back parsed). Not verified against a real
+server that omits the field; the fake transport is the whole proof. The entry
+as it was placed:
+
+285. **Found by a line-by-line review of tonight's merges, 2026-09-21.**
+    `OpenAIClient._accumulate_tool_calls` reads a streamed fragment's index
+    as `fragment.get("index", 0)`. Every fragment a provider sends without
+    that field therefore lands in bucket 0, so with two concurrent calls
+    their `arguments` strings concatenate into one unparseable blob and both
+    calls are lost at `normalise_tool_calls`. OpenAI itself always sends the
+    index, which is why no test sees this and why the accumulator is
+    otherwise correct: buckets are keyed by index, replayed in index order,
+    and a missing id falls back to `call_<index>`. The risk is a local
+    OpenAI-compatible server that is looser than the spec, which is most of
+    them. Not reproduced: it needs a server that omits the field.
+    Recommendation: when `index` is absent, open a new bucket for a fragment
+    that carries a `function.name` and fold a nameless fragment into the
+    last one opened, so an omitted index degrades to arrival order rather
+    than to a collision. Owner: the models/chat agent, with a fake-transport
+    test that sends two indexless calls.
+
 ## Moved from the plans, 2026-09-23
 
 ### INBOX 400 part (1): the style-invalidation hunt, every surface (perfpolish agent, d6e9cb3)

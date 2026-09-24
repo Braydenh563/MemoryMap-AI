@@ -106,6 +106,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- An OpenAI-compatible server that streams tool calls without an `index`
+  field (OpenAI always sends one; some local servers do not) no longer folds
+  every call into one and loses them all: a fragment that opens a call opens
+  the next bucket and a nameless one continues the last, so an omitted index
+  degrades to arrival order rather than to a collision.
 - The AI assistant's Edit, Write and Remove choice uses the same quiet selected
   state as every other choice control in the flat looks; the board export's
   format and scope are option tiles instead of a wrapping strip.

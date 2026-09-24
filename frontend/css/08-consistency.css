@@ -4555,3 +4555,78 @@ main,
 .chat-source-card > .chat-source-foot {
   margin-top: auto;
 }
+
+/* --- The connection pill's menu button, concentric with the pill --- */
+/* Owner, with a zoomed screenshot: "there is still that gap between the edge
+   of the note link border and the meatball button". Measured: a 28x24 button
+   (the touch target floor widened it) in a 25px-high pill, 1px from the top,
+   2.2px from the bottom and 5px from the right. With a mouse it is a round
+   button two pixels inside the pill on every side, centred; a finger keeps
+   the 28px target (the pill grows around it there). */
+@media (pointer: fine) {
+  #entry-list .link-connection > .menu-wrap {
+    display: inline-flex;
+    align-self: center;
+  }
+
+  #entry-list .link-connection > .menu-wrap > button {
+    width: 1.3rem;
+    height: 1.3rem;
+    min-width: 0;
+    min-height: 0;
+    margin-inline-end: 2px;
+  }
+}
+
+/* --- A note's time: the same corner on every card --- */
+/* Owner: "should we move the datetime/how long ago the note was written ...
+   to the right of the note and keep its positioning the same across all
+   notes??" It ran at the end of the chip line, so it sat somewhere
+   different on every card and read as one more chip. It is the card's
+   top-right corner now, on the title's line, muted and in lining figures;
+   the first line of the text leaves it room with a float that only that
+   line flows around. With a pointer, the card's actions take the corner on
+   hover (they were already there) and the time steps aside for them. */
+#entry-list > li .entry-meta-end {
+  display: block;
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-4);
+  margin: 0;
+  line-height: 1.6rem;
+  pointer-events: none;
+}
+
+#entry-list > li .entry-date {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: opacity var(--motion-fast) ease;
+}
+
+#entry-list > li > .entry-content::before {
+  content: "";
+  float: right;
+  width: 6.5rem;
+  height: 1em;
+}
+
+@media (hover: hover) {
+  #entry-list > li:is(:hover, :focus-within) .entry-date {
+    opacity: 0;
+  }
+}
+
+/* On touch the actions are always shown in that corner, so the time goes
+   back to the end of the facts line there. */
+@media (hover: none) {
+  #entry-list > li .entry-meta-end {
+    position: static;
+    display: contents;
+  }
+
+  #entry-list > li > .entry-content::before {
+    display: none;
+  }
+}

@@ -337,6 +337,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A note's time sits in the same place on every card, its top-right corner
+  on the title's line (it gives way to the note's buttons on hover); the
+  dates a note's words mention read as one item ("Mentions 21 Sept, 25
+  Sept") rather than calendar chips beside the time; the space is shown only
+  when you have more than one; and a connection's menu button sits evenly
+  inside its pill.
 - The Guide knows much more and finds it more reliably. Fourteen new topics
   (search, links, security and passwords, troubleshooting, performance, the
   tour, personas, translation, templates, tags and categories, updates,

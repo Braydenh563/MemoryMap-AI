@@ -3344,6 +3344,12 @@ function entryItem(entry, options = {}) {
   // A chip rather than a mark inside the text: `renderNoteText` already
   // layers wiki links, inline markdown and filter highlighting through each
   // other, and a fourth pass over the same string is where that breaks.
+  //: **The dates a note mentions, said as mentions** (owner: the meta row is
+  //: "a bit hard to read, especially in regards to the date parsing"). Two
+  //: calendar chips beside "3 days ago" read as three dates of the same kind;
+  //: they are different facts: when the note was written is at the card's
+  //: corner, and the days its words point at are one labelled item here.
+  const mentioned = [];
   for (const when of entry.dates || []) {
     const day = new Date(`${when.at}T00:00:00`);
     const label =
@@ -3354,11 +3360,18 @@ function entryItem(entry, options = {}) {
     //: "Tonight → 21 Sept on Friday → 25 Sept" in one meta line: "clean up
     //: the notes metadata and badges a bit more"). What a reader scans for is
     //: the day; the words the note used for it are the explanation.
-    const mark = chip(`ph:calendar-blank ${label}`, "when");
-    mark.title =
-      `“${when.phrase}” meant ${day.toLocaleDateString(undefined, {
+    mentioned.push({
+      label,
+      title: `“${when.phrase}” meant ${day.toLocaleDateString(undefined, {
         weekday: "long", day: "numeric", month: "long", year: "numeric",
-      })}, worked out from the day this note was written.`;
+      })}`,
+    });
+  }
+  if (mentioned.length) {
+    const shown = mentioned.slice(0, 3).map((m) => m.label).join(", ");
+    const more = mentioned.length > 3 ? ` +${mentioned.length - 3}` : "";
+    const mark = chip(`ph:calendar-blank Mentions ${shown}${more}`, "when");
+    mark.title = `${mentioned.map((m) => m.title).join("; ")}. Worked out from the day this note was written.`;
     meta.appendChild(mark);
   }
 
@@ -3381,7 +3394,9 @@ function entryItem(entry, options = {}) {
   //: is known is the honest state; `loadSpaces` re-renders the list once it
   //: has it (see its own comment), so the chip appears a moment later rather
   //: than never.
-  if (entry.workspace_id && spacesCache.length) {
+  //: Only when there is more than one space: with one, "Default Space" on
+  //: every note said nothing (owner's screenshots).
+  if (entry.workspace_id && spacesCache.length > 1) {
     const active = activeSpaceId();
     if (active === SPACE_ALL || entry.workspace_id !== active) {
       const space = spacesCache.find((s) => s.id === entry.workspace_id);
@@ -3423,7 +3438,7 @@ function entryItem(entry, options = {}) {
   date.className = "entry-date";
   const stamp = entry.created_at;
   date.textContent = relativeTime(stamp);
-  date.title = new Date(stamp).toLocaleString(); // exact on hover
+  date.title = `Written ${new Date(stamp).toLocaleString()}`; // exact on hover
   metaEnd.appendChild(date);
   meta.appendChild(metaEnd);
 

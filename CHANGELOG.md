@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Settings, Profile, Your look says how Shuffle works: it keeps what your name says (words for a mood or a costume) and any part you chose, and redraws the rest (colours, hair, clothes, smile and personality).
 - Profile & preferences saves itself, like every other Settings section (no Save button; a shuffle or a pick is kept at once). The dashboard greeting's persona shows its face beside the picker. The corner companion has its own menu on right-click or a long press: say hello, enlarge, back to its corner, keep it in any of the four corners, hide. Pointer-follow is stronger (eyes and head turn further, with a slight lean).
 - Your own face, your way: Settings, Profile, Your look has Shuffle (another take on your name, as many times as you like), Back to my name's own, and pickers for mood, hair, clothes, headwear, eyewear and what you are holding; saved with the profile and applied everywhere your face appears.
 - Atlas greets a new person on the welcome's first card, pleased and animated, with a line in its own voice; the later cards keep the logo. Faces are now animated by default (Settings, Appearance, Avatar animation: Always), and only the faces on screen move.

@@ -576,7 +576,10 @@ async function apiJson(path, options = {}) {
       throw error;
     }
   }
-  return (await api(path, options)).json();
+  const data = await (await api(path, options)).json();
+  //: A new note is a small event worth a cheer from the companion.
+  if (path === "/entries" && options.method === "POST" && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("cheer");
+  return data;
 }
 
 // --- auth gate (Phase 4) -----------------------------------------------------
@@ -30843,6 +30846,8 @@ function revealTab(name) {
   // inaccessible" was giving them their own section in the Library instead of
   // leaving them inside a catch-all view called "Documents" that showed
   // everything. Worth the note so the next session does not re-derive it.
+  //: The companion finds its perch on the tab it is now on (avatars.js).
+  if (typeof nameMarkBuddyTabChanged === "function") nameMarkBuddyTabChanged();
   const activeTabName = name === "documents" ? "library" : name;
   for (const button of document.querySelectorAll("#tab-bar button")) {
     const active = button.dataset.tab === activeTabName;

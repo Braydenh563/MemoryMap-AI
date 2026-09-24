@@ -474,9 +474,7 @@ async function renderDashSubmessage() {
     if (open) bits.push(`${open} reminder${open === 1 ? "" : "s"} coming up`);
   }
   if (stats && stats.per_day) {
-    // Current capture streak, counting back from today.
-    let streak = 0;
-    for (let i = stats.per_day.length - 1; i >= 0 && stats.per_day[i] > 0; i--) streak++;
+    const streak = dashStreak(stats.per_day);
     if (streak > 1) bits.push(`${streak}-day capture streak`);
   }
   el.textContent = bits.join(" · ");
@@ -622,8 +620,7 @@ async function renderDashStats() {
 
   const now = new Date();
   const perDay = (stats && stats.per_day) || [];
-  let streak = 0;
-  for (let i = perDay.length - 1; i >= 0 && perDay[i] > 0; i--) streak++;
+  const streak = dashStreak(perDay);
   const thisWeek = perDay.slice(-7).reduce((sum, n) => sum + n, 0);
   const open = (reminders || []).filter((r) => !r.done);
   const due = open.filter((r) => new Date(r.due_at) <= now).length;
@@ -2413,15 +2410,30 @@ async function startArt(holder) {
 
 // Capture streak (Wave K): consecutive days up to today with at least
 // one note, read from the same per-day series the stats strip uses.
+//: **One streak rule for the whole dashboard, and it is the journal's.**
+//: `daily_journal` (api/routes_entries.py) counts back from today and allows
+//: today to be empty: nine days running and nothing yet this morning is a
+//: streak of nine, not zero, or the number drops at every midnight and
+//: comes back when you write, a counter that punishes the morning. The
+//: greeting, the figures strip and the Streak widget each counted their own
+//: and stopped at an empty today: measured at one in the morning after an
+//: evening of 22 notes, "0 day streak" and "No streak yet" beside a journal
+//: that said 1 (tests/test_dashboard_streak.py). `perDay` runs oldest to
+//: newest, the last entry being today.
+function dashStreak(perDay) {
+  const days = perDay || [];
+  let i = days.length - 1;
+  if (i >= 0 && !(days[i] > 0)) i -= 1;
+  let streak = 0;
+  for (; i >= 0 && days[i] > 0; i -= 1) streak += 1;
+  return streak;
+}
+
 async function renderStreakWidget(body) {
   const stats = await fetchDashStats();
   const perDay = stats.per_day || []; // oldest → newest, last = today
 
-  let current = 0;
-  for (let i = perDay.length - 1; i >= 0; i--) {
-    if (perDay[i] > 0) current += 1;
-    else break;
-  }
+  const current = dashStreak(perDay);
   let longest = 0;
   let run = 0;
   for (const count of perDay) {
@@ -2437,8 +2449,11 @@ async function renderStreakWidget(body) {
   const sub = document.createElement("p");
   sub.className = "muted";
   if (current > 0) {
+    //: A streak kept alive by yesterday says what keeps it going.
+    const today = perDay.length ? perDay[perDay.length - 1] : 0;
     sub.textContent =
       `You've captured ${current} day${current === 1 ? "" : "s"} running` +
+      (today ? "" : ". Save a note today to keep it") +
       (longest > current ? ` · best in the last fortnight: ${longest}` : "");
   } else {
     sub.textContent = "Save a note today to start one.";

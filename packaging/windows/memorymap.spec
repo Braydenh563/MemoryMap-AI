@@ -143,12 +143,21 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 # scanner reading every DLL). PyInstaller's Splash is drawn by the
 # bootloader itself, so it is up before any of that; `__main__.py`
 # (`_close_bootloader_splash`) takes it down when the app window is shown.
-# splash.png is the launcher splash's own look, rendered once.
+# splash.png is a still card, the way Adobe's are: no drawn progress bar,
+# because the bootloader cannot move one and a bar that never moves reads as
+# a hang (the owner, 2026-09-24: "you may as well not have one at all if it
+# is just a picture with a non moving scroll bar"). What moves is the status
+# line under the rule, drawn by the bootloader at `text_pos` and updated by
+# `__main__._splash_status` as the app reaches each step.
 splash = Splash(
     str(Path(SPECPATH) / "splash.png"),
     binaries=a.binaries,
     datas=a.datas,
-    text_pos=None,
+    text_pos=(36, 214),
+    text_size=10,
+    text_color="#a9a8a4",
+    text_font="Segoe UI",
+    text_default="Starting...",
     always_on_top=False,
 )
 

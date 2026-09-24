@@ -464,6 +464,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The packaged app's startup splash is a still card without the progress bar it
+  could never move; a status line under it says what is loading.
 - A note's time sits in the same place on every card, its top-right corner
   on the title's line (it gives way to the note's buttons on hover); the
   dates a note's words mention read as one item ("Mentions 21 Sept, 25

@@ -105,6 +105,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The AI assistant's Edit, Write and Remove choice uses the same quiet selected
+  state as every other choice control in the flat looks; the board export's
+  format and scope are option tiles instead of a wrapping strip.
 - The guide answers "Can Atlas write for me?" from a new Write with Atlas topic.
 - Answer citations: a note the answer names by number ("Notes 1, 5, and 6")
   is marked, and a run of sentences from the same notes in one paragraph

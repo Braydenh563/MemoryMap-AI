@@ -4685,3 +4685,53 @@ main,
     flex: 0 0 auto;
   }
 }
+
+/* --- choice controls, the owner's 2026-09-24 pass (INBOX 409, 411) ---------
+   "this edit/write/remove bar is ugly and doesnt suit a modern app": the
+   AI assistant's verbs are the radio form of a choice control
+   (`.segmented-control`), and the flat looks' raised-neutral selection above
+   named only the button form, so this one alone kept a solid accent block
+   in a dark well. One selected state for both forms, as DESIGN.md says. */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .segmented-control label:has(input[type="radio"]:checked),
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .segmented-control input[type="radio"]:checked + span {
+  background: color-mix(in srgb, var(--ink) 11%, transparent);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+/* "is there a way to better design all instances of these menu bar elements
+   in popups": the board export's Format row is seven choices in a track
+   built for two to four, so it wrapped, FreeMind alone on a second line of a
+   well. More than four exclusive choices in a dialog are option tiles: a
+   grid of equal buttons with a hairline each, the chosen one ringed in the
+   accent, the way a print or export dialog offers its formats. Its "How
+   much" row wears the same tiles so the two questions read as one form. */
+.wb-export-overlay .seg.wb-export-seg {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: var(--space-2);
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.wb-export-overlay .seg.wb-export-seg > button {
+  justify-content: center;
+  min-height: var(--target-min);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.wb-export-overlay .seg.wb-export-seg > button:not(.active):not(:disabled):hover {
+  background: var(--ghost-btn-bg);
+}
+
+.wb-export-overlay .seg.wb-export-seg > button.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--ink);
+}

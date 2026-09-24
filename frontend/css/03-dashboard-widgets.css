@@ -3289,6 +3289,29 @@ p.graph-help-panel {
   flex: 0 0 auto;
 }
 
+/* The Strength cell (INBOX 407) shares the grid's second column with the
+   switches. A range's usual 5rem floor made that column wider than the
+   panel could give it beside "Length by similarity", and the grid pushed
+   the whole right column 39px past the panel's edge (measured: the switches
+   there were clipped off). The floor alone is not enough, because a range
+   whose width is `auto` counts its intrinsic width (about 8rem) towards its
+   column's minimum; a set width is its minimum, and `flex-grow` still hands
+   it whatever the cell has left. */
+#graph-similarity-min-row > input[type="range"] {
+  width: 3.5rem;
+  min-width: 3.5rem;
+}
+
+/* The panel's last row: its two actions, one at each end (INBOX 407). A
+   `.dock-menu-section` is a column, which stretched a lone button to the
+   panel's width; a row keeps each at the width of its words. */
+.graph-options .graph-options-foot {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
 :root[data-glass="off"] .graph-options {
   background: var(--card);
   border: 1px solid var(--border);

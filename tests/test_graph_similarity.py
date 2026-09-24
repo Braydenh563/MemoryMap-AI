@@ -267,3 +267,33 @@ def test_the_cutoff_and_the_key_are_in_the_options_panel() -> None:
         "the Show section's '?' must say what the two line styles mean"
     )
 
+
+
+def test_the_reset_covers_every_persisted_graph_setting() -> None:
+    """Every `graph-*` key the options panel or the View menu persists is in
+    the reset's list, so a setting added later without joining it fails here
+    rather than surviving a reset silently."""
+    js = GRAPH_JS.read_text(encoding="utf-8")
+    start = js.find("const GRAPH_DEFAULTS")
+    assert start != -1, "graph.js has no GRAPH_DEFAULTS table"
+    table = js[start : js.find("};", start)]
+    for control in (
+        "graph-gravity",
+        "graph-spread",
+        "graph-similarity",
+        "graph-similarity-min",
+        "graph-entities",
+        "graph-documents",
+        "graph-maps",
+        "graph-hide-orphans",
+        "graph-labels",
+        "graph-curved",
+        "graph-nebula",
+        "graph-length-score",
+        "graph-time-slider",
+        "graph-minimap-corner",
+        "graph-minimap-size",
+        "graph-colour",
+    ):
+        assert f'"{control}"' in table, f"{control} is missing from GRAPH_DEFAULTS"
+    assert "layout" in table

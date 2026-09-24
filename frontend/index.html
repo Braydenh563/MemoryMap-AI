@@ -3147,8 +3147,8 @@
                 Similarity joins each note to its two closest matches in
                 meaning with a faint dashed line: the stronger the match, the
                 darker the line. Solid lines are links you or Atlas made. Point
-                at a note to see how close each match is, and raise Match
-                strength to keep only the closest.
+                at a note to see how close each match is, and raise Strength to
+                keep only the closest.
               </p>
             </div>
             <!-- Two columns, not one (graph.md section 2, beyond its own two
@@ -3202,16 +3202,18 @@
                 <span>Length by similarity</span>
                 <input type="checkbox" id="graph-length-score" checked>
               </label>
-            </div>
-            <!-- INBOX 407: the cutoff for similarity lines, shown only while
-                 Similarity is on (graph.js, `graphSyncSimilarityRow`), so the
-                 panel pays for the row only when it means something. At the
-                 far left it adds no cutoff: each note keeps its two closest
-                 matches, which is the backbone `gcPruneSimilarity` draws. -->
-            <div class="graph-option-row hidden" id="graph-similarity-min-row">
-              <label for="graph-similarity-min">Match strength</label>
-              <input id="graph-similarity-min" type="range" min="55" max="95" value="55"
-                title="Hide similarity lines weaker than this. At the left, each note keeps its two closest matches">
+              <!-- INBOX 407: the cutoff for similarity lines, in the grid's
+                   free cell beside Length by similarity, and shown only while
+                   Similarity is on (graph.js, `graphSyncSimilarityRow`): a
+                   cutoff for lines that are not drawn does nothing. At the far
+                   left it adds no cutoff and each note keeps its two closest
+                   matches, the backbone `gcPruneSimilarity` draws. -->
+              <div class="graph-option-row hidden" id="graph-similarity-min-row">
+                <label for="graph-similarity-min">Strength</label>
+                <input id="graph-similarity-min" type="range" min="55" max="95" value="55"
+                  aria-label="Similarity strength"
+                  title="Hide similarity lines weaker than this. At the left, each note keeps its two closest matches">
+              </div>
             </div>
           </div>
           <div class="dock-menu-section graph-temporal" id="graph-temporal"
@@ -3286,18 +3288,25 @@
               </select>
             </div>
           </details>
-          <!-- One row, one button (graph.md section 2's other named
-               candidate): the section held its own name plus a second row
-               naming the one thing in it ("Similar notes") again before the
-               button that acts on it. The button's own words already carry
-               that, so the row folds into the header the same way Physics'
-               "Unpin all" does, just above. -->
-          <div class="dock-menu-section" role="group" aria-labelledby="graph-links-label">
-            <div class="dock-menu-section-head">
-              <span class="muted dock-menu-label" id="graph-links-label">Links</span>
-              <button id="link-suggest-btn" class="ghost small" type="button"
-                title="Let Atlas suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
-            </div>
+          <!-- The panel's two actions, on its last row (INBOX 407). Links
+               had a section of its own holding a heading and one button
+               whose words already said the same thing ("One row, one
+               button", graph.md section 2). The reset the owner asked for
+               ("there is no reset the graph settings to default option
+               either") joins it rather than adding a row: measured with
+               Similarity on, a row of its own took the panel to 524px of
+               list in its 488px box, the cap GRAPH_PLAN's decision of
+               2026-09-20 got it back under. `graphResetToDefaults` in
+               graph.js says what a reset covers and what it keeps (groups,
+               saved views), and its toast carries the Undo. -->
+          <div class="dock-menu-section graph-options-foot" role="group"
+            aria-label="Map actions">
+            <button id="link-suggest-btn" class="ghost small" type="button"
+              title="Let Atlas suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
+            <button id="graph-options-reset" class="ghost small" type="button"
+              title="Put the layout, colours, physics, Show switches, time filter and minimap back to how they start. Groups and saved views are kept">
+              <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset to defaults
+            </button>
           </div>
         </div>
         <!-- Trace: the one question a graph answers better than any list, 

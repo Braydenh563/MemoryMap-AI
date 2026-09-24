@@ -17,7 +17,7 @@ import secrets
 import time
 
 import bcrypt
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -146,29 +146,78 @@ def _token_valid(token: str | None, idle_ttl: int) -> bool:
     return True
 
 # Brute-force throttle for unlock attempts. The app binds 127.0.0.1, but a
-# server log showed a public client address arriving through a proxy header, 
+# server log showed a public client address arriving through a proxy header,
 # people do put this behind tunnels to reach it from a phone. bcrypt makes
 # each guess slow; nothing made *many* guesses slow, and the password floor
-# is four characters, which is PIN territory. One global bucket, not per-IP:
-# there is a single user to protect, and per-IP buckets are exactly what a
-# botnet has plenty of. Wrong guesses beyond the free allowance earn an
-# exponentially growing wait; a right password inside the wait still waits.
-_FAILURE_ALLOWANCE = 5  # free tries before the waits start
+# is four characters, which is PIN territory. Wrong guesses beyond the free
+# allowance earn an exponentially growing wait; a right password inside the
+# wait still waits.
+#
+# **Two layers** (WORLD_CLASS_PLAN §12, S2). Until 2026-09-24 this was one
+# global bucket, on the reasoning that there is a single user to protect and
+# per-address buckets are what a botnet has plenty of. True, and it had the
+# cost the review named: five wrong tries from *anyone* locked the owner out
+# for up to five minutes, which on localhost is only ever the owner and on a
+# LAN is a denial of service any device can run. So each client address now
+# earns its own waits at the old allowance, and the global list stays as the
+# backstop at a far larger one: a guesser at one address is slowed after
+# five, many addresses guessing together are slowed after fifty between
+# them, and the owner at their own address is slowed by neither until then.
+# On loopback every request is 127.0.0.1, so the local case is unchanged.
+_FAILURE_ALLOWANCE = 5  # free tries per client before the waits start
+_GLOBAL_FAILURE_ALLOWANCE = 50  # free tries across every client together
 _FAILURE_WINDOW = 15 * 60  # forgiven this long after the last failure
 _WAIT_CEILING = 300  # the wait stops growing at five minutes
-_failed_unlocks: list[float] = []
+#: Clients remembered at once. A guesser rotating addresses must not be able
+#: to grow this table without end; past the cap the quietest one is dropped,
+#: and the global list still counts every guess it made.
+_MAX_TRACKED_CLIENTS = 1024
+_failed_unlocks: list[float] = []  # every failure, from anyone: the backstop
+_failed_by_client: dict[str, list[float]] = {}
 
 
-def _refuse_if_throttled() -> None:
+def _clear_unlock_failures() -> None:
+    _failed_unlocks.clear()
+    _failed_by_client.clear()
+
+
+register_cache_reset(_clear_unlock_failures)
+
+
+def _client_key(request: Request | None) -> str:
+    """Who is guessing: the address uvicorn resolved for this connection.
+
+    `request.client.host` already honours `--forwarded-allow-ips`, so a
+    proxy the operator trusts is seen through and one they do not is not;
+    nothing here reads a forwarding header itself, which is what would let a
+    guesser name a fresh address per request.
+    """
+    if request is None or request.client is None:
+        return "unknown"
+    return request.client.host or "unknown"
+
+
+def _wait_left(failures: list[float], allowance: int, now: float) -> float:
+    """Seconds of wait this list of failures has earned, 0 when none."""
+    if failures and now - failures[-1] > _FAILURE_WINDOW:
+        failures.clear()  # long quiet: forgiven
+    over = len(failures) - allowance
+    if over < 0:
+        return 0.0
+    wait = min(2 ** over, _WAIT_CEILING)
+    return wait - (now - failures[-1])
+
+
+def _refuse_if_throttled(client: str = "unknown") -> None:
     """429 while inside the wait a run of wrong passwords has earned."""
     now = time.time()
-    if _failed_unlocks and now - _failed_unlocks[-1] > _FAILURE_WINDOW:
-        _failed_unlocks.clear()  # long quiet: forgiven
-    over = len(_failed_unlocks) - _FAILURE_ALLOWANCE
-    if over < 0:
-        return
-    wait = min(2 ** over, _WAIT_CEILING)
-    remaining = wait - (now - _failed_unlocks[-1])
+    own = _failed_by_client.get(client)
+    remaining = max(
+        _wait_left(own, _FAILURE_ALLOWANCE, now) if own is not None else 0.0,
+        _wait_left(_failed_unlocks, _GLOBAL_FAILURE_ALLOWANCE, now),
+    )
+    if own is not None and not own:
+        _failed_by_client.pop(client, None)
     if remaining > 0:
         raise HTTPException(
             status_code=429,
@@ -176,11 +225,20 @@ def _refuse_if_throttled() -> None:
         )
 
 
-def _unlock_failed() -> None:
-    _failed_unlocks.append(time.time())
+def _unlock_failed(client: str = "unknown") -> None:
+    now = time.time()
+    _failed_unlocks.append(now)
+    _failed_by_client.setdefault(client, []).append(now)
+    if len(_failed_by_client) > _MAX_TRACKED_CLIENTS:
+        quietest = min(_failed_by_client, key=lambda key: _failed_by_client[key][-1])
+        del _failed_by_client[quietest]
 
 
-def _unlock_succeeded() -> None:
+def _unlock_succeeded(client: str = "unknown") -> None:
+    # The global list too: whoever got the password right is the owner, and
+    # a backstop that outlived the owner's own unlock would be the lockout
+    # this change exists to remove. Other clients' own buckets are kept.
+    _failed_by_client.pop(client, None)
     _failed_unlocks.clear()
 
 
@@ -260,15 +318,21 @@ def setup(body: PasswordBody, response: Response, session: Session = Depends(get
 
 
 @router.post("/unlock")
-def unlock(body: PasswordBody, response: Response, session: Session = Depends(get_session)) -> dict:
-    _refuse_if_throttled()
+def unlock(
+    body: PasswordBody,
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> dict:
+    client = _client_key(request)
+    _refuse_if_throttled(client)
     user = _get_user(session)
     if user is None:
         raise HTTPException(status_code=400, detail="No password set yet, use setup")
     if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
-        _unlock_failed()
+        _unlock_failed(client)
         raise HTTPException(status_code=401, detail="Wrong password")
-    _unlock_succeeded()
+    _unlock_succeeded(client)
     # Unwrap the data key so private notes are readable for this session.
     vault_open = vault.open_with(session, body.password)
     #: **A full disk must not lock you out of your own notebook.** Measured

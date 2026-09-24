@@ -53,6 +53,29 @@ The row as it stood in section 12:
 | --- | --- | --- | --- | --- |
 | S1 | The session token travels in `?token=` on every `/media` and `/files` URL (`mediaSrc`, `frontend/app.js` ~215), so it lands in browser history, in uvicorn's access log, and in any note a person pastes an image URL into (the code already notes a doubled `?token=`). `Referrer-Policy: no-referrer` stops the Referer leak only. | `app.js` mediaSrc; `core/security.py` query-token path | low / high | A media-scoped, short-lived HMAC token (path + expiry, signed with a per-session key) or an HttpOnly cookie set at unlock and read only by `/media` and `/files`; the API keeps the header. Log scrubbing for `token=` either way. |
 
+### From WORLD_CLASS_PLAN.md §12 (Brief 15): S2
+
+**Built 2026-09-24: S2, the unlock throttle per client.** Each client
+address (`request.client.host`, which already honours uvicorn's
+`--forwarded-allow-ips` and reads no forwarding header itself) earns its own
+waits at the old allowance of five; the global list `_failed_unlocks` stays
+as the backstop at fifty across every client, so a guesser rotating
+addresses still slows down with the rest. The client table is capped at
+1,024 (the quietest is dropped; the global list still counts its guesses).
+A right password clears that client's bucket and the backstop; other
+clients' buckets are kept, so a guesser is still waiting after the owner
+unlocks. On loopback every request is 127.0.0.1, so the local behaviour is
+unchanged. Tests: `tests/test_unlock_throttle_per_client.py` (one address's
+guesses do not lock out another, the guesser stays throttled after the owner
+unlocks, twenty addresses hit a lowered global ceiling, the table stays
+bounded); `tests/test_account.py`'s forgiveness test ages both layers.
+
+The row as it stood in section 12:
+
+| # | Finding | Where | Severity now / on LAN | Fix |
+| --- | --- | --- | --- | --- |
+| S2 | Unlock throttling is one global list (`routes_auth.py` `_failed_unlocks`), not per client. | `routes_auth.py` ~93 | none / medium (five wrong tries from anyone locks the owner out for up to five minutes) | Key the throttle by client address once the bind is not loopback; keep the global ceiling as a second layer. |
+
 ### From WORLD_CLASS_PLAN.md row 9 (§16): `similar_pairs` cached for link suggestions and tensions
 
 **Built 2026-09-24.** `/entries/link-suggestions` and `/entries/tensions`

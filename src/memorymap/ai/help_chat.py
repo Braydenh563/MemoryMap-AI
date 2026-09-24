@@ -647,6 +647,23 @@ for _topic in HELP_TOPICS:
 HELP_TOPICS.extend(
     [
         {
+            "id": "write-with-atlas",
+            "keywords": (
+                "write for me", "write with atlas", "writing room", "draft a note",
+                "rewrite", "continue the draft", "bullets to prose", "prose to bullets",
+                "write an essay", "write an email", "draft",
+            ),
+            "body": (
+                "Notes tab, Write with Atlas: pick what to write (draft a note, "
+                "continue or rewrite the draft, bullets to prose, prose to bullets, "
+                "or translate), add notes as sources if you want it grounded in "
+                "them, and press Write. The draft stays in the box to edit; save it "
+                "as a note when it reads right. Which model writes is set on the "
+                "same row, or in Settings, Models."
+            ),
+            "badge": {"label": "Write with Atlas", "tab": "notes"},
+        },
+        {
             "id": "security",
             "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "idle"),
             "body": (

@@ -105,6 +105,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The guide answers "Can Atlas write for me?" from a new Write with Atlas topic.
 - Answer citations: a note the answer names by number ("Notes 1, 5, and 6")
   is marked, and a run of sentences from the same notes in one paragraph
   carries one mark at its end instead of one per sentence.

@@ -34,6 +34,30 @@ with its owner named in the entry.
 
 ## Open items
 
+410. **The owner, 2026-09-24, verbatim, with screenshots of the writing
+    dictionary, New from a template, the map's radial menus and two linked
+    map nodes.** "also improve how the \"check with ai\" feature works in the
+    documents editor, allow the suggestions panel to be docked on the right
+    instead if the user wishes and redesign the dictionary panel as it is
+    ugly and needs a proper professional modern redesign." "also when
+    selecting a template, I want to be able to confirm my template
+    selection, not have it instantly be made when I press it" "is there a
+    way to make these mind map item radial options fit better in the
+    radials?? also what if the user asks the guide for all the hidden
+    features, keybinds, controls, utility and more for features like the
+    whiteboard, mindmap and documents editor etc. can it answer those??"
+    "also fix the ci and codeql errors" "when I relink or newly link two
+    mindmap nodes, they clump together??" "drag selection on the whiteboard
+    and mindmap is laggy as well". Read from the screenshots: the radial's
+    labelled pills overhang the ring (a 2-item edge ring and the 6-item node
+    ring both); a relinked node lands on top of its new parent instead of
+    being laid out as its child. CI: four routing rows fixed 2026-09-24 (three
+    moved to topics added that day, "Can Atlas write for me?" gets a new
+    write-with-atlas topic). Placed: documents (check with AI, dockable
+    suggestions, dictionary), templates (confirm), the Guide's per-surface
+    controls reference, map (radial fit, relink layout, marquee lag), in
+    agent briefs as slots free.
+
 409. **The owner, 2026-09-24, verbatim, with screenshots of Settings,
     Templates, the persona list, a .json document with the formatting bar
     over it, and the Write tab's AI assistant bar.** "templates cant be

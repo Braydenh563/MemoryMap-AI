@@ -892,7 +892,7 @@ HELP_TOPICS.extend(
             "id": "whiteboard-controls",
             "keywords": (
                 "lasso", "highlighter", "eraser", "connector", "nudge", "snap to grid",
-                "align", "distribute", "bring forward", "send backward", "group",
+                "align", "distribute", "snap", "grid", "bring forward", "send backward", "group",
                 "ungroup", "copy style", "paste style", "pan", "zoom", "zoom to fit",
                 "board overview", "find a card", "tool",
             ),
@@ -995,6 +995,7 @@ HELP_TOPICS.extend(
             "id": "graph-controls",
             "keywords": (
                 "similarity", "strength slider", "gravity", "spread", "saved view",
+                "save a view", "graph view", "graph options",
                 "display options", "trace", "unpin", "pin a note", "cluster glow",
                 "entities", "hide unlinked", "minimap", "export as png", "lasso",
                 "zoom", "pan",
@@ -1050,7 +1051,8 @@ HELP_TOPICS.extend(
             "keywords": (
                 "search syntax", "search operator", "filter syntax", "is:favourite",
                 "tag:", "cat:", "exact phrase", "select several", "batch",
-                "move several", "blocks menu", "slash menu",
+                "move several", "several notes", "multiple notes", "bulk", "notes filter",
+                "filter notes", "blocks menu", "slash menu",
             ),
             "body": (
                 "Notes keys and controls. In Capture a thought, Ctrl+Enter saves, "
@@ -1137,7 +1139,7 @@ HELP_TOPICS.extend(
             "keywords": (
                 "hidden feature", "hidden", "secret", "tips", "tricks", "tips and tricks",
                 "power user", "easter egg", "things i might not know", "didn't know",
-                "chord", "every feature", "all the features",
+                "chord", "m then", "m chord", "every feature", "all the features",
             ),
             #: The "m" chord's two tables (`TAB_JUMP_KEYS` and `CHORD_ACTIONS`,
             #: app.js) are written out letter by label, and checked against the

@@ -24054,6 +24054,13 @@ function initSidebarSheetDismissal() {
   });
 }
 
+//: The name a folded sidebar shows on its rail (see makeSidebarResizable).
+const SIDEBAR_RAIL_NAMES = {
+  sidebar: "Categories",
+  "chat-sidebar": "Chats",
+  "doc-sidebar": "Documents",
+};
+
 function makeSidebarResizable(aside) {
   if (!aside || aside.dataset.resizable) return;
   aside.dataset.resizable = "1";
@@ -24111,6 +24118,23 @@ function makeSidebarResizable(aside) {
     }
   });
   aside.appendChild(collapseBtn);
+
+  //: What a folded sidebar shows (INBOX 425, the owner: the collapsed
+  //: sidebars were "white plain"). A 48px column with one button in it read
+  //: as an empty panel rather than as the sidebar, put away. Its name, set
+  //: sideways under the button, says which sidebar it is and is a second way
+  //: to open it; the same recipe as the skill logs' folded column.
+  const railName = SIDEBAR_RAIL_NAMES[aside.id];
+  if (railName) {
+    const rail = document.createElement("button");
+    rail.type = "button";
+    rail.className = "sidebar-rail-name";
+    rail.textContent = railName;
+    rail.title = `Show ${railName.toLowerCase()}`;
+    rail.tabIndex = -1; // the toggle above is the keyboard's way in
+    rail.addEventListener("click", () => collapseBtn.click());
+    aside.appendChild(rail);
+  }
 
   const startDrag = (event) => {
     event.preventDefault();
@@ -32926,7 +32950,7 @@ async function renderAccount() {
     ["Password", info.configured ? "Set" : "Not set yet"],
     [
       "Created",
-      info.created_at ? new Date(info.created_at).toLocaleDateString() : ", ",
+      info.created_at ? new Date(info.created_at).toLocaleDateString() : "Unknown",
     ],
     [
       "Private notes",
@@ -32939,10 +32963,15 @@ async function renderAccount() {
     ["Open sessions", String(info.active_sessions)],
   ];
   for (const [label, value] of rows) {
+    //: A label column and a value column (`.account-facts`), not "Label: value"
+    //: in bold run-in: four facts read as a table, so they are laid out as one.
     const li = document.createElement("li");
-    const name = document.createElement("strong");
-    name.textContent = `${label}: `;
-    li.append(name, document.createTextNode(value));
+    const name = document.createElement("span");
+    name.className = "account-fact-label";
+    name.textContent = label;
+    const text = document.createElement("span");
+    text.textContent = value;
+    li.append(name, text);
     facts.appendChild(li);
   }
 }
@@ -36182,7 +36211,14 @@ function speakText(text) {
     speechSynthesis.cancel(); // acting as a stop button
     return;
   }
-  if (text.trim()) speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  if (!text.trim()) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  //: Read aloud is sound this app makes, so the companion can hear it.
+  if (typeof nameMarkBuddySound === "function") {
+    utterance.addEventListener("start", () => nameMarkBuddySound("speech", true));
+    for (const type of ["end", "error"]) utterance.addEventListener(type, () => nameMarkBuddySound("speech", false));
+  }
+  speechSynthesis.speak(utterance);
 }
 
 // --- toasts (Phase 5) ---------------------------------------------------------------
@@ -36758,6 +36794,8 @@ async function checkDueReminders() {
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
   playReminderChime();
+  //: The companion holds up a small bell (avatars.js).
+  if (typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("bell");
 
   // Into the centre as well as onto the screen (§36E). A toast and a system
   // notification are both moments; this is the record that outlives them, and
@@ -36997,6 +37035,8 @@ function toast(message, isError = false, { exempt = false } = {}) {
   lastToastKey = key;
   lastToastAt = now;
   const box = $("toast-box");
+  //: An error makes the companion jump (avatars.js).
+  if (isError && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("startle");
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";
   const text = document.createElement("span");
@@ -38245,9 +38285,12 @@ function renderSettings() {
   // when the app was pointed at LM Studio sends people to install the wrong
   // thing (§6).
   const backend = backendLabel(status);
+  //: The dot is the line's class, as on the search engine line under it,
+  //: not a typed "●"/"○" beside a CSS dot: two alphabets for one signal.
   ollamaLine.textContent = status.ollama_running
-    ? `● ${backend} is running`
-    : `○ ${backend} not detected`;
+    ? `${backend} is running`
+    : `${backend} isn't running`;
+  ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);
@@ -39464,19 +39507,18 @@ function openFeatureModelSheet(key) {
   }
   openSheet({
     label: `Model for ${row.label}`,
+    sub: featureModelState(row),
     name: `feature-model-${key}`,
     build: (card, close) => {
-      const state = document.createElement("p");
-      state.className = "muted";
-      state.textContent = featureModelState(row);
-      card.appendChild(state);
 
       const list = document.createElement("div");
       list.className = "sheet-list";
       list.appendChild(
         sheetRow(
           row.overridden ? "ph ph-arrow-counter-clockwise" : "ph ph-check",
-          `Inherited: ${row.inherits}`,
+          // The choice, not the state: the line under the title already says
+          // which model is in use, so this row names what pressing it does.
+          `Default (${row.inherits})`,
           () => {
             close();
             if (row.overridden) applyFeatureModel(key, "");
@@ -42424,7 +42466,7 @@ initPhoneChatRow();
 //: is a class rather than a second recipe so everything else about a sheet,
 //: the scrim, the tier, the head with its X, Escape and the backdrop press,
 //: stays the one thing it already is.
-function openSheet({ label, name, build, variant = "", returnFocus = document.activeElement, onClose = null }) {
+function openSheet({ label, sub = "", name, build, variant = "", returnFocus = document.activeElement, onClose = null }) {
   const overlay = document.createElement("div");
   overlay.className = `modal-overlay sheet-overlay${variant ? ` sheet-${variant}` : ""}`;
   overlay.dataset.sheet = name || "";
@@ -42454,6 +42496,15 @@ function openSheet({ label, name, build, variant = "", returnFocus = document.ac
   closeButton.appendChild(closeIcon);
   head.append(title, closeButton);
   card.appendChild(head);
+  //: One line of state under the title (the model picker's "Its own model:
+  //: granite4.1:3b"): part of the head, in the recipe, so a sheet that needs
+  //: it does not hand-build a paragraph with its own margins.
+  if (sub) {
+    const subLine = document.createElement("p");
+    subLine.className = "muted sheet-sub";
+    subLine.textContent = sub;
+    card.appendChild(subLine);
+  }
 
   let settled = false;
   const close = () => {

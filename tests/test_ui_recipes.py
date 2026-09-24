@@ -210,6 +210,8 @@ SHEET_RECIPE = {
     "sheet-card",
     "sheet-head",
     "sheet-title",
+    # The one line of state under a title (openSheet's `sub`).
+    "sheet-sub",
     "sheet-close",
     "sheet-list",
     "sheet-row",

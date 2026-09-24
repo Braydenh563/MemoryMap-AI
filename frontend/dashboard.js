@@ -3481,6 +3481,9 @@ async function renderFocusTimerWidget(body) {
 $("dash-edit").addEventListener("click", () => {
   dashEditMode = !dashEditMode;
   $("dash-edit").textContent = dashEditMode ? "Done" : "Edit layout";
+  // Done is the way out of a mode, so it is the one filled button in the
+  // bar while the mode is on (the badge beside it says which mode).
+  $("dash-edit").classList.toggle("ghost", !dashEditMode);
   renderDashboard();
 });
 // Widget picker modal (roadmap §26): a dedicated surface alongside "Edit

@@ -3117,6 +3117,17 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--muted);
 }
 
+#settings-modal .status.off::before {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-inline-end: var(--space-2);
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  vertical-align: 0.1em;
+}
+
 #settings-modal .status.ok::before {
   content: "";
   display: inline-block;
@@ -4857,6 +4868,8 @@ main,
    measures perches in those px. */
 #nm-buddy {
   --nmb-lean: 0;
+  --nmb-sway: 0;
+  --nmb-edge: 72px;
   position: fixed;
   left: 0;
   top: 0;
@@ -4924,21 +4937,61 @@ main,
   transition: rotate var(--motion-slow) var(--ease-out);
 }
 
+/* The one-piece characters (avatars.js, `drawCharacter`): the face turns
+   where it sits on the head, the raised arms stay hidden until a pose asks
+   for them, and a waving or thumbs-up hand is raised at the shoulder. */
+.nm-char .nm-buddy-head {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.nm-figure .nmb-hold { opacity: 0; }
+
+/* The contact shadow is for standing on something; hanging, sitting over
+   an edge or floating, there is nothing under its feet to cast it on. */
+#nm-buddy:not([data-pose="stand"]) .nmc-shadow { opacity: 0; }
+
+.nm-figure :is(.nmb-arm, .nmb-leg) { transform-box: view-box; }
+
+.nm-figure .nmb-arm-r.nmc-raised {
+  transform-origin: 50.5px 56px;
+  rotate: -115deg;
+}
+
+/* The large view shows the whole character at 2.2 times its companion
+   size (64 by 92). */
+.nm-viewer-figure {
+  position: relative;
+  display: block;
+  width: 141px;
+  height: 203px;
+}
+
+.nm-viewer-figure > .nm-figure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 92px;
+  transform: scale(2.2);
+  transform-origin: 0 0;
+}
+
 /* Limbs turn where they join the body, in the drawing's own units. */
 #nm-buddy :is(.nmb-arm, .nmb-leg) {
   transform-box: view-box;
   transition: transform var(--motion-slow) var(--ease-out), opacity var(--motion-base) var(--ease-out);
 }
 
-#nm-buddy .nmb-arm-l { transform-origin: 21.5px 54px; }
-#nm-buddy .nmb-arm-r { transform-origin: 42.5px 54px; }
+#nm-buddy .nmb-arm-l { transform-origin: 13.5px 56px; }
+#nm-buddy .nmb-arm-r { transform-origin: 50.5px 56px; }
 #nm-buddy .nmb-leg-l {
   --nmb-side: 1;
-  transform-origin: 27.5px 68px;
+  transform-origin: 25.5px 68px;
 }
 #nm-buddy .nmb-leg-r {
   --nmb-side: -1;
-  transform-origin: 36.5px 68px;
+  transform-origin: 38.5px 68px;
 }
 
 #nm-buddy .nmb-hold {
@@ -4968,6 +5021,105 @@ main,
 #nm-buddy[data-pose="float"] .nmb-arm-l { transform: rotate(30deg); }
 #nm-buddy[data-pose="float"] .nmb-arm-r { transform: rotate(-30deg); }
 
+/* Sitting with its legs tucked (where dangling ones would cover something):
+   folded out to the sides at the seat, cross-legged from the front. */
+#nm-buddy[data-pose="sit"][data-legs="tuck"] .nmb-leg-l { transform: rotate(62deg) scaleY(0.62); }
+#nm-buddy[data-pose="sit"][data-legs="tuck"] .nmb-leg-r { transform: rotate(-62deg) scaleY(0.62); }
+
+/* Leaning on a panel's side: tipped towards it, a hand flat on it, legs
+   crossed. `data-side` is the panel edge it leans on. */
+#nm-buddy .nm-figure {
+  transform-origin: 50% 100%;
+  transition: transform var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
+}
+#nm-buddy[data-pose="lean"][data-side="left"] .nm-figure { rotate: 8deg; }
+#nm-buddy[data-pose="lean"][data-side="right"] .nm-figure { rotate: -8deg; }
+#nm-buddy[data-pose="lean"][data-side="left"] .nmb-arm-r { transform: rotate(-75deg); }
+#nm-buddy[data-pose="lean"][data-side="right"] .nmb-arm-l { transform: rotate(75deg); }
+#nm-buddy[data-pose="lean"] .nmb-leg-l { transform: rotate(-12deg); }
+#nm-buddy[data-pose="lean"] .nmb-leg-r { transform: rotate(12deg); }
+
+/* A three-quarter turn (`data-turn`, while it walks, glances or turns):
+   the face slides towards that side and the body narrows a touch, which
+   is how a flat mascot turns. */
+#nm-buddy .nm-char .nm-buddy-head {
+  transition: translate var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
+}
+#nm-buddy[data-turn="l"] .nm-char .nm-buddy-head { translate: -3.5px 0; }
+#nm-buddy[data-turn="r"] .nm-char .nm-buddy-head { translate: 3.5px 0; }
+#nm-buddy[data-turn] .nm-figure { transform: scaleX(0.95); }
+
+/* Carried: it swings against the pull (`--nmb-sway`, from the drag's
+   speed) and its eyes go wide. */
+#nm-buddy.nm-buddy-dragging .nm-figure {
+  transform-origin: 50% 0;
+  rotate: calc(var(--nmb-sway) * 0.4deg);
+}
+#nm-buddy.nm-buddy-dragging .nmb-leg {
+  rotate: calc(var(--nmb-sway) * 1deg);
+  transition: rotate var(--motion-slow) var(--ease-out);
+}
+#nm-buddy.nm-buddy-dragging .name-mark .nm-eyes {
+  scale: 1.2;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Peeking from behind its panel: everything below the panel's top edge is
+   cut away (`--nmb-edge`, where the edge crosses it), and it sinks behind
+   it; the motion itself is in the behaviours below. */
+#nm-buddy:is(.nmb-act-peek, .nmb-act-emerge) .nm-buddy-face {
+  clip-path: inset(-80px -80px calc(92px - var(--nmb-edge)) -80px);
+}
+#nm-buddy.nmb-act-peek .nm-buddy-char { translate: 0 calc(var(--nmb-edge) + 4px); }
+
+/* Hanging by one hand (or scratching its head while it hangs): the other
+   hand lets go and hangs free. */
+#nm-buddy:is(.nmb-act-onehand, [data-pose="hang"].nmb-act-scratch) .nmb-hold-r { opacity: 0; }
+#nm-buddy:is(.nmb-act-onehand, [data-pose="hang"].nmb-act-scratch) .nmb-arm-r { opacity: 1; }
+#nm-buddy.nmb-act-onehand .nm-buddy-char { transform-origin: 6px -6px; }
+#nm-buddy.nmb-act-feet .nm-buddy-char { transform-origin: 32px 40px; }
+
+/* **The face's own loops are off in the companion.** An SVG group that
+   animates is laid out and painted on the main thread every frame; in the
+   companion the breathing is the figure's own `scale`, on the compositor,
+   and blinking is one of its timed behaviours (avatars.js). Measured with
+   `scratchpad`'s cost probe: see the CHANGELOG line for the numbers. */
+#nm-buddy .name-mark :is(.nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-steam, .nm-balloon, .nm-bow, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-tail, .nm-tails, .nm-pupil, .nm-gem, .nm-flame, .nm-aura, .nm-starfield) {
+  animation: none;
+}
+
+/* The prop slots (avatars.js, the character interface): drawn hidden,
+   shown by what is going on around it. */
+.nm-figure .nmp {
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+#nm-buddy.nmb-music .nmp-headphones,
+#nm-buddy.nmb-night .nmp-nightcap,
+#nm-buddy.nmb-reading .nmp-glasses,
+#nm-buddy.nmb-act-bell .nmp-bell,
+#nm-buddy.nmb-act-lantern .nmp-lantern,
+#nm-buddy.nmb-offline .nmp-cable {
+  opacity: 1;
+}
+
+/* Holding up a bell or a lantern: the right arm raised. */
+#nm-buddy:is(.nmb-act-bell, .nmb-act-lantern) .nmb-arm-r { transform: rotate(-125deg); }
+
+/* Late at night its eyes are heavier; reading, it looks down the page. */
+#nm-buddy.nmb-night .name-mark .nm-blinks { transform: scaleY(0.72); }
+#nm-buddy.nmb-reading .name-mark .nm-eyes { translate: 0 1.4px; }
+#nm-buddy .nmp-bell { transform-box: fill-box; transform-origin: 50% 0; }
+#nm-buddy.nmb-music .nm-buddy-head { transform-origin: 50% 100%; }
+
+/* Drowsy (three idle minutes): heavy eyelids. */
+#nm-buddy.nmb-drowsy .name-mark .nm-blinks { transform: scaleY(0.55); }
+
+/* Woken: the raised arms of a stretch. */
+#nm-buddy.nmb-act-wake .nmb-hold { opacity: 1; }
+#nm-buddy.nmb-act-wake .nmb-arm { opacity: 0; }
+
 /* States that say something, so they hold still under Reduce motion too:
    watching a field being typed in, thinking through a chat turn, asleep. */
 #nm-buddy:is(.nmb-act-glance, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
@@ -4977,9 +5129,9 @@ main,
 
 #nm-buddy:is(.nmb-act-glance, .nmb-watch) .nm-buddy-head { rotate: calc(var(--nm-lx) * 7deg); }
 #nm-buddy.nmb-think .nm-buddy-head { rotate: 8deg; }
-#nm-buddy.nmb-sleep .nm-buddy-head { rotate: 10deg; }
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-buddy-head { rotate: 10deg; }
 
-#nm-buddy.nmb-sleep .name-mark .nm-blinks {
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .name-mark .nm-blinks {
   animation: none;
   transform: scaleY(0.12);
 }
@@ -5022,7 +5174,7 @@ main,
   line-height: 1;
 }
 
-#nm-buddy.nmb-sleep .nm-buddy-z { display: block; }
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-buddy-z { display: block; }
 
 /* Hanging, its speech comes from under it: above would be the top bar. */
 #nm-buddy[data-pose="hang"] > .nm-say {
@@ -5088,18 +5240,107 @@ main,
     &.nmb-think .nm-buddy-think i { animation: nmb-dot 1.2s ease-in-out infinite; }
     &.nmb-think .nm-buddy-think i:nth-child(2) { animation-delay: 0.2s; }
     &.nmb-think .nm-buddy-think i:nth-child(3) { animation-delay: 0.4s; }
-    &.nmb-sleep .nm-buddy-z { animation: nmb-z 2.6s ease-out infinite; }
+    &:is(.nmb-sleep, .nmb-act-nap) .nm-buddy-z { animation: nmb-z 2.6s ease-out infinite; }
+    &.nmb-act-dangle .nmb-leg-l { animation: nmb-dangle 1.5s ease-in-out 4 alternate; }
+    &.nmb-act-dangle .nmb-leg-r { animation: nmb-dangle 1.5s ease-in-out -1.5s 4 alternate; }
+    &.nmb-act-scratch .nmb-arm-r { animation: nmb-scratch 2.6s ease-in-out; }
+    &.nmb-act-onehand .nm-buddy-char { animation: nmb-onehand 4.2s ease-in-out; }
+    &.nmb-act-onehand .nmb-arm-r { animation: nmb-wave 1.4s ease-in-out 3; }
+    &.nmb-act-feet .nm-buddy-char { animation: nmb-feet 7s ease-in-out; }
+    &.nmb-act-sloth .nm-buddy-char { animation: nmb-sloth 9s ease-in-out; }
+    &.nmb-act-sloth .name-mark .nm-blinks { animation: nmb-drowse 9s ease-in-out; }
+    &.nmb-act-land .nm-buddy-char { animation: nmb-land 0.45s var(--ease-out); }
+    &.nmb-act-peek .nm-buddy-char { animation: nmb-peek-sink 0.45s ease-in, nmb-peek-up 0.9s ease-out 1.6s forwards; }
+    &.nmb-act-peek.nmb-peeked:not(.nmb-duck) .nm-buddy-char { animation: nmb-peek-up 0.8s ease-out 0.2s forwards; }
+    &.nmb-act-peek.nmb-duck .nm-buddy-char { animation: nmb-peek-duck 0.22s ease-in forwards; }
+    &.nmb-act-emerge .nm-buddy-char { animation: nmb-emerge 0.8s var(--ease-out) both; }
+    &.nmb-act-wake .nm-buddy-char { animation: nmb-stretch 0.9s ease-in-out, nmb-hop 0.6s var(--ease-out) 0.8s; }
+    &.nmb-watch.nmb-nod .nm-figure { animation: nmb-nod 0.45s ease-in-out infinite alternate; }
+    &.nmb-music .nm-char .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
+    &.nmb-act-bell .nmp-bell { animation: nmb-ring 0.18s ease-in-out 12 alternate; }
+    &.nmb-act-lantern .nmp-lantern-glow { animation: nmb-glow 1.2s ease-in-out infinite alternate; }
   }
 }
 
 /* The system's reduced-motion hint: no walking (avatars.js moves it at
    once), and every loop here slows right down, as the faces' do. */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy :is(.nm-buddy-char, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z) {
+  #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nm-buddy-think i, .nm-buddy-z) {
     animation-duration: 6s;
   }
 }
 
+@keyframes nmb-groove {
+  from { rotate: -5deg; translate: 0 0; }
+  to { rotate: 5deg; translate: 0 1px; }
+}
+@keyframes nmb-ring {
+  from { rotate: -14deg; }
+  to { rotate: 14deg; }
+}
+@keyframes nmb-glow {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+@keyframes nmb-nod {
+  from { translate: 0 0; }
+  to { translate: 0 1.5px; }
+}
+@keyframes nmb-dangle {
+  from { transform: rotate(calc(var(--nmb-side) * 8deg)) scaleY(0.9); }
+  to { transform: rotate(calc(var(--nmb-side) * -10deg)) scaleY(0.8); }
+}
+@keyframes nmb-scratch {
+  0%, 100% { transform: rotate(0deg); }
+  15%, 35%, 55%, 75% { transform: rotate(-150deg); }
+  25%, 45%, 65% { transform: rotate(-138deg); }
+}
+@keyframes nmb-onehand {
+  0%, 100% { rotate: 0deg; }
+  20%, 80% { rotate: 16deg; }
+  50% { rotate: 12deg; }
+}
+@keyframes nmb-feet {
+  0%, 100% { rotate: 0deg; }
+  12% { rotate: 196deg; }
+  18% { rotate: 172deg; }
+  24% { rotate: 184deg; }
+  30%, 84% { rotate: 180deg; }
+  50% { rotate: 176deg; }
+  70% { rotate: 183deg; }
+  94% { rotate: -6deg; }
+}
+@keyframes nmb-sloth {
+  0%, 100% { rotate: 0deg; }
+  25% { rotate: 3deg; }
+  75% { rotate: -3deg; }
+}
+@keyframes nmb-drowse {
+  0%, 100% { transform: scaleY(1); }
+  15%, 85% { transform: scaleY(0.45); }
+}
+@keyframes nmb-land {
+  0% { transform: scale(1.14, 0.84); }
+  60% { transform: scale(0.96, 1.05); }
+  100% { transform: none; }
+}
+@keyframes nmb-peek-sink {
+  from { translate: 0 0; }
+  to { translate: 0 calc(var(--nmb-edge) + 4px); }
+}
+@keyframes nmb-peek-up {
+  from { translate: 0 calc(var(--nmb-edge) + 4px); }
+  to { translate: 0 calc(var(--nmb-edge) - 34px); }
+}
+@keyframes nmb-peek-duck {
+  from { translate: 0 calc(var(--nmb-edge) - 34px); }
+  to { translate: 0 calc(var(--nmb-edge) + 4px); }
+}
+@keyframes nmb-emerge {
+  0% { translate: 0 calc(var(--nmb-edge) + 4px); }
+  70% { translate: 0 -4px; }
+  100% { translate: 0 0; }
+}
 @keyframes nmb-arrive {
   0% { transform: translateY(14px) scale(0.6); opacity: 0; }
   60% { transform: translateY(-4px) scale(1.04); opacity: 1; }
@@ -6110,12 +6351,15 @@ main,
 
 /* The skill logs folded (`setSkillLogsCollapsed`, library.js): the column is
    a rail holding its button and a sideways title, the skills take the rest. */
+/* 48px and the toggle's own inset, the folded sidebars' numbers, so the four
+   rails in the app are one width with the button in one place. */
 .skills-split.skills-logs-collapsed {
-  grid-template-columns: minmax(0, 1fr) var(--target-min);
+  grid-template-columns: minmax(0, 1fr) 48px;
 }
 
 .skills-logs-collapsed #skills-sidebar {
   padding-inline: 0;
+  padding-top: var(--sidebar-toggle-inset);
   align-items: center;
 }
 
@@ -6128,6 +6372,15 @@ main,
 .skills-logs-collapsed #skills-logs-heading {
   writing-mode: vertical-rl;
   font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* The same rail as a folded sidebar (.sidebar-rail-name, 07-whiteboard-misc.css):
+   the accent wash at the top instead of a plain column. */
+.skills-logs-collapsed #skills-sidebar {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 45%);
 }
 
 .skills-logs-collapsed #skills-logs-list,
@@ -6266,3 +6519,48 @@ body:has(#lock-overlay:not(.hidden)) #nm-buddy {
   height: 1.75rem;
 }
 
+/* --- the file picker, in the app's own clothes --------------------------------
+   Fourteen `<input type="file">` in the app drew the browser's own grey
+   "Choose Files" slab and a "No file chosen" in the system font, the one
+   control in Settings that looked like a form from 2005 (Import & export,
+   2026-09-24 polish pass). The button takes the ghost button recipe and
+   the file name takes the muted small voice beside it, so the control reads
+   as a button plus a caption, which is what it is. */
+input[type="file"] {
+  max-width: 100%;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+input[type="file"]::file-selector-button {
+  margin-inline-end: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--ghost-btn-bg-hover);
+  border-color: var(--ghost-btn-border-hover);
+}
+
+/* Account & security's facts as a two-column list: the label muted in a
+   fixed column, the value in ink beside it, the shape every settings pane
+   uses for a label and its field. */
+.account-facts > li {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.account-fact-label {
+  color: var(--muted);
+}

@@ -925,7 +925,19 @@
     <div class="dash-stats" id="dash-stats" role="group" aria-label="At a glance"></div>
     <div class="dash-toolbar">
       <span class="muted dash-toolbar-label">Your dashboard</span>
-      <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / <i class="ph ph-x ph-lead" aria-hidden="true"></i>Remove widgets · ▭Wide makes a full-width section, your layout is remembered.</span>
+      <!-- Edit mode's hint (INBOX 425, the owner: the sentence that was here
+           "is unprofessional and could be displayed better", and it wrapped
+           the whole bar onto two lines). A state badge and three short
+           gestures, each with the icon the card's own control carries; the
+           row is one line tall and gestures that do not fit are dropped
+           from the end rather than wrapping the bar. Adding is the Widgets
+           button beside it, and saving is automatic, so neither is said. -->
+      <span class="dash-hint hidden" id="dash-hint" role="status">
+        <span class="dash-hint-badge">Editing layout</span>
+        <span class="dash-hint-item"><i class="ph ph-dots-six-vertical ph-lead" aria-hidden="true"></i>Drag a card to move it</span>
+        <span class="dash-hint-item"><i class="ph ph-arrows-out-line-horizontal ph-lead" aria-hidden="true"></i>Wide or narrow</span>
+        <span class="dash-hint-item"><i class="ph ph-x ph-lead" aria-hidden="true"></i>Remove</span>
+      </span>
       <span id="dash-hint-spacer"></span>
       <div class="dash-toolbar-actions">
         <!-- **How much of the page is chrome** (INBOX 270, the owner: "is
@@ -7715,7 +7727,7 @@
                  was the one you could never reach (user-reported). -->
             <div id="search-engine-config" class="settings-group">
               <div class="row help-head">
-                <h3>Search engine (how your notes are understood)</h3>
+                <h3>Search engine</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="search-engine-help" aria-controls="search-engine-help" aria-expanded="false"
                   title="About the search engine" aria-label="About the search engine">
@@ -7749,7 +7761,7 @@
               </label>
               <label class="check-row">
                 <input type="radio" name="emb-backend" value="ollama">
-                <span>Ollama embedding model:</span>
+                <span>Ollama embedding model</span>
               </label>
               <div class="row">
                 <select id="embedding-model-select" aria-label="Model used for semantic search" title="Model used for semantic search"></select>
@@ -9116,7 +9128,6 @@
                  and loses what they typed. Said once at the top, before
                  anything is typed, and again on the button itself once
                  something is (`markPrefsDirty`). -->
-            <p class="muted">Changes here save on their own, like every other section.</p>
             <div class="settings-group">
               <h3>Your name</h3>
               <div class="row">
@@ -9176,7 +9187,7 @@
                    without a code change. -->
               <div id="search-relevance-group" class="flash-target">
                 <div class="row space-between">
-                  <h3>Search relevance (advanced)</h3>
+                  <h3>Search relevance</h3>
                   <!-- Same pattern as #draft-help/#graph-help-toggle: the
                        button's own `title` is a real hover tooltip, and a
                        click opens the same text as a panel. Reachable from
@@ -9742,14 +9753,14 @@
                 <input id="import-md-folder" aria-label="Choose a vault folder to import"
                   title="Choose a whole folder, every .md inside it, with its folders kept"
                   type="file" webkitdirectory directory multiple>
-                <button id="import-md-folder-btn" class="small">Import folder</button>
+                <button id="import-md-folder-btn" class="small ghost">Import folder</button>
               </div>
               <p id="import-md-status" class="status" role="status"></p>
               
               <h3>Import from a folder path</h3>
               <div class="row settings-row-spaced">
                 <input id="import-dir-path" type="text" class="import-dir-path-input" placeholder="C:\path\to\Obsidian\vault">
-                <button id="import-dir" class="small">Import from path</button>
+                <button id="import-dir" class="small ghost">Import from path</button>
               </div>
               <p id="import-dir-status" class="status" role="status"></p>
               <p class="muted">
@@ -9848,7 +9859,7 @@
 
             <div class="settings-group">
               <h3>This notebook</h3>
-              <ul class="entry-list" id="account-facts"></ul>
+              <ul class="entry-list account-facts" id="account-facts"></ul>
             </div>
 
             <div class="settings-group">

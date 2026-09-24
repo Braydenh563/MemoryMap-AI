@@ -2313,6 +2313,11 @@ body.resizing-sidebar {
 .conv-name {
   display: -webkit-box;
   line-clamp: 2;
+  /* The prefixed one is the one Chromium honours; with only the standard
+     property the title was one line cut at the sidebar edge with no
+     ellipsis ("what is due in the allotm"). */
+  -webkit-line-clamp: 2;
+  white-space: normal;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;

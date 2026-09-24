@@ -1438,4 +1438,13 @@ avatars.js.
 
 ### 6. Rows added after this brief (the owner's later asks land here)
 
-(none yet)
+1. Attention, not pointer-follow (the owner, 2026-09-24: "if the companion
+   is sleeping they dont move with every mouse movement but stay still
+   unless they get moved very fast ... like realistic npcs"). The companion
+   holds a look target with a saccade then a head turn, re-targets only on
+   a far move or something salient, ignores the pointer asleep (a close
+   flick or click may stir it, sometimes wake it, groggy after), and has a
+   slow mood (energy, curiosity, sociability) that leans the picker; poked
+   too often it is grumpy for half a minute, ignored long it waves.
+   Companion agent. Built: see the commit "Companion: attention, stirring,
+   grogginess and a slow mood".

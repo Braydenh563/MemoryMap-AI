@@ -4870,6 +4870,9 @@ main,
   --nmb-lean: 0;
   --nmb-sway: 0;
   --nmb-edge: 72px;
+  --nmb-ex: 0;
+  --nmb-ey: 0;
+  --nmb-hx: 0;
   position: fixed;
   left: 0;
   top: 0;
@@ -5135,12 +5138,31 @@ main,
 
 /* States that say something, so they hold still under Reduce motion too:
    watching a field being typed in, thinking through a chat turn, asleep. */
-#nm-buddy:is(.nmb-act-glance, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
-  translate: calc(var(--nm-lx) * 2.4px) calc(var(--nm-ly) * 2px);
-  transition: translate var(--motion-slow) var(--ease-out);
+/* Attention (avatars.js, `nameMarkBuddyAim`): the eyes jump to what it is
+   looking at, the head follows a moment later on a spring, and neither
+   moves again until it chooses something else to look at. Pointer-follow
+   is never applied to it: its whole body twitched with every move. */
+#nm-buddy .name-mark .nm-body {
+  rotate: 0deg;
+  translate: 0 0;
 }
 
-#nm-buddy:is(.nmb-act-glance, .nmb-watch) .nm-buddy-head { rotate: calc(var(--nm-lx) * 7deg); }
+#nm-buddy:is(.nmb-attend, .nmb-watch, .nmb-think) .name-mark .nm-eyes {
+  translate: calc(var(--nmb-ex) * 2.4px) calc(var(--nmb-ey) * 2px);
+  transition: translate var(--motion-fast) var(--ease-out);
+}
+
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-char .nm-buddy-head {
+  translate: calc(var(--nmb-hx) * 2.5px) 0;
+  rotate: calc(var(--nmb-hx) * 5deg);
+  transition: translate var(--motion-slow) var(--ease-spring), rotate var(--motion-slow) var(--ease-spring);
+}
+
+/* Just woken: heavy lids for a few seconds. */
+#nm-buddy.nmb-groggy .name-mark .nm-blinks { transform: scaleY(0.6); }
+
+/* Asleep, it breathes slower. */
+#nm-buddy:is(.nmb-sleep, .nmb-act-nap) .name-mark .nm-body { animation-duration: 6.4s; }
 #nm-buddy.nmb-think .nm-buddy-head { rotate: 8deg; }
 #nm-buddy:is(.nmb-sleep, .nmb-act-nap) .nm-buddy-head { rotate: 10deg; }
 
@@ -5268,6 +5290,8 @@ main,
     &.nmb-act-peek.nmb-duck .nm-buddy-char { animation: nmb-peek-duck 0.22s ease-in forwards; }
     &.nmb-act-emerge .nm-buddy-char { animation: nmb-emerge 0.8s var(--ease-out) both; }
     &.nmb-act-wake .nm-buddy-char { animation: nmb-stretch 0.9s ease-in-out, nmb-hop 0.6s var(--ease-out) 0.8s; }
+    &.nmb-stir .nm-buddy-char { animation: nmb-stir 0.7s ease-in-out; }
+    &.nmb-act-shift .nm-buddy-char { animation: nmb-shift 1.8s ease-in-out; }
     &.nmb-watch.nmb-nod .nm-figure { animation: nmb-nod 0.45s ease-in-out infinite alternate; }
     &.nmb-music .nm-char .nm-buddy-head { animation: nmb-groove 0.5s ease-in-out infinite alternate; }
     &.nmb-act-bell .nmp-bell { animation: nmb-ring 0.18s ease-in-out 12 alternate; }
@@ -5283,6 +5307,16 @@ main,
   }
 }
 
+@keyframes nmb-stir {
+  0%, 100% { transform: none; }
+  20% { transform: rotate(-3deg) scale(1.02, 0.98); }
+  45% { transform: rotate(2deg); }
+  70% { transform: rotate(-1deg); }
+}
+@keyframes nmb-shift {
+  0%, 100% { transform: none; }
+  35%, 65% { transform: translateX(2px) rotate(2deg); }
+}
 @keyframes nmb-groove {
   from { transform: rotate(-5deg); }
   to { transform: rotate(5deg) translate(0, 1px); }

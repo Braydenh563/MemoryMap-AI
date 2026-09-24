@@ -2076,7 +2076,9 @@ document.addEventListener("pointermove", (event) => {
     const faces = [];
     for (const face of nameMarkOnScreen) {
       if (!face.isConnected) nameMarkOnScreen.delete(face);
-      else if (faces.length < 40) faces.push(face);
+      //: Not the companion's: it has its own attention (`nameMarkBuddyNotice`)
+      //: and does not follow every move.
+      else if (faces.length < 40 && !face.closest("#nm-buddy")) faces.push(face);
     }
     //: Every box read first, then every property written: a write between
     //: two reads forces a style and layout pass per face.
@@ -2326,6 +2328,7 @@ const NAME_MARK_BUDDY_ACTS = {
   cheer: { ms: 1300, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   startle: { ms: 700, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   land: { ms: 450, w: 0, cool: 0, poses: ["stand", "sit", "float"] },
+  shift: { ms: 1800, w: 2, cool: 9000, poses: ["stand", "sit", "lean"] },
   wake: { ms: 1400, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   bell: { ms: 3000, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
   lantern: { ms: 3000, w: 0, cool: 0, poses: ["stand", "sit", "hang", "float", "lean"] },
@@ -2373,7 +2376,10 @@ const NAME_MARK_BUDDY_KINDS = {
 const nmb = {
   x: NaN, y: NaN, pose: "", legs: "", perch: "", tab: "", act: "", lastAct: "", timer: 0,
   lastInput: Date.now(), lastCheer: 0, lastPoke: 0, pointer: null, watchTimer: 0, watchAt: 0,
-  shyAt: 0, shyTimer: 0, readTimer: 0, keyAt: 0, keyRun: 0, edgeType: "", edgeLine: 72, reading: null, cool: {},
+  shyAt: 0, shyTimer: 0, readTimer: 0, keyAt: 0, keyRun: 0,
+  trail: 0, ex: 0, ey: 0, target: null, targetAt: 0, lastMove: null, headTimer: 0, releaseTimer: 0,
+  leanSide: "", leanAt: 0, stirAt: 0, groggyUntil: 0, grumpyUntil: 0, pokes: [],
+  mood: { energy: 0.7, curiosity: 0.6, sociability: 0.7 }, edgeType: "", edgeLine: 72, reading: null, cool: {},
   anim: null, hopAnim: null, anchor: null, anchorTop: 0, settle: [], checkFrame: 0,
 };
 
@@ -2989,6 +2995,7 @@ function nameMarkBuddyAct(act, ms) {
   }
   const spec = NAME_MARK_BUDDY_ACTS[act];
   if (act === "glance") nameMarkBuddyAim(nmb.pointer);
+  if (act === "look" || act === "nap") nameMarkBuddyRelease();
   if (act === "turn" || act === "glance") {
     const lx = act === "glance" && nmb.pointer ? nmb.pointer[0] - (nmb.x + NMB_W / 2) : Math.random() - 0.5;
     buddy.dataset.turn = lx < 0 ? "l" : "r";
@@ -2999,28 +3006,52 @@ function nameMarkBuddyAct(act, ms) {
   nmb.act = act;
   nmb.lastAct = act;
   if (spec?.cool) nmb.cool[act] = Date.now() + spec.cool;
-  nmb.timer = setTimeout(() => nameMarkBuddyAct(act !== "blink" && act !== "nap" && Math.random() < 0.7 ? "blink" : ""), ms || spec?.ms || 1200);
+  nmb.timer = setTimeout(() => nameMarkBuddyAct(act !== "blink" && act !== "nap" && Math.random() < 0.7 ? "blink" : ""), (ms || spec?.ms || 1200) * (1 + Math.random() * 0.3));
 }
 
-//: Points its eyes (and a little of its head) at a place on the screen.
+//: **Looks at a place: a saccade, then the head.** The eyes jump there at
+//: once; the head follows 150 to 300ms later on a spring curve, and only as
+//: far as a head turns (a dead zone below 0.15, so a small jitter moves
+//: nothing). Everything is three custom properties on `#nm-buddy`
+//: (`--nmb-ex`, `--nmb-ey` for the eyes, `--nmb-hx` for the head), read by
+//: the CSS while `nmb-attend` is on; no frame loop.
 function nameMarkBuddyAim(point) {
-  const targets = document.querySelectorAll("#nm-buddy .name-mark, #nm-buddy .nm-buddy-head");
-  if (!targets.length) return;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
   let lx = 0;
   let ly = 0;
   if (point) {
     const dx = point[0] - (nmb.x + NMB_W / 2);
-    const dy = point[1] - (nmb.y + NMB_HEAD / 2);
-    const reach = Math.max(1, Math.hypot(dx, dy));
-    lx = dx / reach;
-    ly = dy / reach;
+    const dy = point[1] - (nmb.y + NMB_HEAD / 2 + (nmb.pose === "hang" ? NMB_DROP : 0));
+    const reach = Math.max(160, Math.hypot(dx, dy));
+    lx = Math.max(-1, Math.min(1, (dx / reach) * 1.6));
+    ly = Math.max(-1, Math.min(1, (dy / reach) * 1.6));
   }
-  //: On the face for its eyes and on the head for its turn: a face
-  //: declares its own `--nm-lx`, so a head's would not reach it.
-  for (const el of targets) {
-    el.style.setProperty("--nm-lx", lx.toFixed(2));
-    el.style.setProperty("--nm-ly", ly.toFixed(2));
-  }
+  if (Math.abs(lx - nmb.ex) < 0.15 && Math.abs(ly - nmb.ey) < 0.15) return;
+  nmb.ex = lx;
+  nmb.ey = ly;
+  buddy.style.setProperty("--nmb-ex", lx.toFixed(2));
+  buddy.style.setProperty("--nmb-ey", ly.toFixed(2));
+  buddy.classList.add("nmb-attend");
+  clearTimeout(nmb.headTimer);
+  const groggy = Date.now() < nmb.groggyUntil;
+  nmb.headTimer = setTimeout(() => {
+    buddy.style.setProperty("--nmb-hx", (lx * 0.8).toFixed(2));
+  }, (groggy ? 450 : 150) + Math.random() * 150);
+}
+
+//: Lets its attention go: eyes and head drift back to rest.
+function nameMarkBuddyRelease() {
+  const buddy = document.getElementById("nm-buddy");
+  clearTimeout(nmb.releaseTimer);
+  nmb.releaseTimer = 0;
+  nmb.target = null;
+  nmb.ex = nmb.ey = 0;
+  nmb.leanSide = "";
+  if (!buddy) return;
+  buddy.classList.remove("nmb-attend");
+  buddy.style.setProperty("--nmb-hx", "0");
+  if (!buddy.classList.contains("nmb-walking") && nmb.act !== "turn") delete buddy.dataset.turn;
 }
 
 function nameMarkBuddySchedule() {
@@ -3054,6 +3085,17 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
     if (act === "nap") w = idle > 90 * 1000 ? 3 : night ? 1 : 0;
     if (act === "glance" && !nmb.pointer) w = 0;
     w *= (byMood[act] || 1) * (byKind[act] || 1);
+    //: Its own slow mood: energy, curiosity and sociability (0 to 1).
+    const { energy, curiosity, sociability } = nmb.mood;
+    if (["hop", "kick", "dangle", "wave", "stretch", "swing", "onehand", "feet"].includes(act)) w *= 0.4 + energy;
+    if (["yawn", "nap", "sloth"].includes(act)) w *= 1.6 - energy;
+    if (["look", "glance", "peek", "scratch"].includes(act)) w *= 0.5 + curiosity;
+    if (["wave", "glance"].includes(act)) w *= 0.4 + sociability;
+    if (["peek", "turn"].includes(act)) w *= 1.4 - sociability;
+    if (now < nmb.grumpyUntil && ["wave", "glance", "hop", "cheer"].includes(act)) w = 0;
+    //: Ignored for twenty minutes while you are busy: it tries for your
+    //: attention with a wave.
+    if (act === "wave" && now - nmb.lastPoke > 20 * 60 * 1000 && idle < 30000) w *= 4;
     if (night && ["hop", "wave", "kick"].includes(act)) w *= 0.5;
     if (now - nmb.lastCheer < 60000 && ["hop", "wave", "kick", "dangle"].includes(act)) w *= 2;
     if (now - nmb.lastPoke < 20000 && ["glance", "wave", "look"].includes(act)) w *= 2;
@@ -3087,9 +3129,17 @@ function nameMarkBuddyTick() {
   if (idle > NMB_SLEEP_MS) {
     buddy.classList.remove("nmb-drowsy");
     buddy.classList.add("nmb-sleep");
+    nameMarkBuddyRelease();
     return;
   }
   buddy.classList.toggle("nmb-drowsy", idle > NMB_DROWSY_MS);
+  const hour = new Date().getHours();
+  const night = hour >= 22 || hour < 6;
+  const energyTarget = (night ? 0.3 : 0.75) - Math.min(0.3, idle / (20 * 60 * 1000));
+  const drift = (value, toward) => value + (toward - value) * 0.1;
+  nmb.mood.energy = drift(nmb.mood.energy, energyTarget);
+  nmb.mood.curiosity = drift(nmb.mood.curiosity, 0.6);
+  nmb.mood.sociability = drift(nmb.mood.sociability, 0.7);
   nameMarkBuddyAct(nameMarkBuddyDecide());
 }
 
@@ -3112,24 +3162,97 @@ function nameMarkBuddyCue(cue) {
   if (NAME_MARK_BUDDY_ACTS[cue]) nameMarkBuddyAct(cue);
 }
 
-//: Input keeps it awake (and wakes it with a start).
+//: Input keeps the idle clock at zero; a click is also something it may
+//: notice, if it is near.
 for (const type of ["pointerdown", "keydown"]) {
-  document.addEventListener(type, () => {
+  document.addEventListener(type, (event) => {
     nameMarkBuddyAwake();
+    if (type === "pointerdown" && !event.target?.closest?.("#nm-buddy")) nameMarkBuddyNotice(event.clientX, event.clientY, Date.now(), "click");
   }, { passive: true, capture: true });
 }
 
-//: Any input: the idle clock starts again, and a sleeping or drowsy
-//: companion wakes with a stretch and a start.
+//: Any input starts the idle clock again and lifts drowsiness. It does not
+//: wake a sleeper: only something close and sudden might
+//: (`nameMarkBuddyStir`), or being picked up or poked.
 function nameMarkBuddyAwake() {
   nmb.lastInput = Date.now();
+  document.getElementById("nm-buddy")?.classList.remove("nmb-drowsy");
+}
+
+function nameMarkBuddyWake() {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
-  const slept = buddy.classList.contains("nmb-sleep");
-  buddy.classList.remove("nmb-drowsy");
-  if (slept || nmb.act === "nap") {
-    buddy.classList.remove("nmb-sleep");
-    if (!nameMarkBuddyStill() && !document.hidden) nameMarkBuddyAct("wake");
+  const slept = buddy.classList.contains("nmb-sleep") || nmb.act === "nap";
+  buddy.classList.remove("nmb-sleep", "nmb-drowsy");
+  if (!slept) return;
+  //: Groggy for a few seconds: slower to look, heavier lids.
+  nmb.groggyUntil = Date.now() + 5000;
+  buddy.classList.add("nmb-groggy");
+  setTimeout(() => buddy.classList.remove("nmb-groggy"), 5000);
+  if (!nameMarkBuddyStill() && !document.hidden) nameMarkBuddyAct("wake");
+}
+
+//: **Stirred in its sleep** by a fast flick or a click close by: most of the
+//: time an ear twitch and a mumble, and back to sleep; sometimes it wakes.
+function nameMarkBuddyStir() {
+  const now = Date.now();
+  if (now - nmb.stirAt < 4000) return;
+  nmb.stirAt = now;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  if (Math.random() < 0.3) {
+    nameMarkBuddyWake();
+    return;
+  }
+  buddy.classList.add("nmb-stir");
+  setTimeout(() => buddy.classList.remove("nmb-stir"), 700);
+}
+
+//: **Attention, not pointer-follow** (the owner: "if the companion is
+//: sleeping they dont move with every mouse movement ... so their body isnt
+//: constantly twitching ... like realistic npcs"). Called at most ten times
+//: a second from the pointer, and on a click. Asleep, it only notices
+//: something fast or a click within 120px (and then may only stir). Drowsy,
+//: only the sudden. Awake, it notices the pointer within 220px, or
+//: anything fast or clicked within 300 to 400px; it picks a look target and
+//: holds it, choosing again only when the pointer has gone 80px from it
+//: (and not sooner than about 0.7s, slower when groggy) or something
+//: louder happens. Out of range for a moment, it lets go. A target held
+//: well to one side for 1.5s turns its body that way.
+function nameMarkBuddyNotice(x, y, now, salient = "") {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy || nameMarkBuddyStill() || document.hidden || buddy.classList.contains("nm-buddy-dragging")) return;
+  const cx = nmb.x + NMB_W / 2;
+  const cy = nmb.y + NMB_HEAD / 2 + (nmb.pose === "hang" ? NMB_DROP : 0);
+  const dist = Math.hypot(x - cx, y - cy);
+  const last = nmb.lastMove;
+  const speed = last && now > last[2] ? (Math.hypot(x - last[0], y - last[1]) / (now - last[2])) * 1000 : 0;
+  nmb.lastMove = [x, y, now];
+  if (buddy.classList.contains("nmb-sleep") || nmb.act === "nap") {
+    if ((speed > 2500 && dist < 120) || (salient === "click" && dist < 120)) nameMarkBuddyStir();
+    return;
+  }
+  const loud = (speed > 1800 && dist < 400) || (salient && dist < 300);
+  if (buddy.classList.contains("nmb-drowsy") && !loud) return;
+  if (dist > 220 && !loud) {
+    if (buddy.classList.contains("nmb-attend") && !nmb.releaseTimer) nmb.releaseTimer = setTimeout(nameMarkBuddyRelease, 1200 + Math.random() * 1200);
+    return;
+  }
+  clearTimeout(nmb.releaseTimer);
+  nmb.releaseTimer = 0;
+  if (nmb.grumpyUntil > now) return;
+  const t = nmb.target;
+  const wait = (now < nmb.groggyUntil ? 1500 : 700) * (0.75 + Math.random() * 0.5);
+  if (!loud && t && (Math.hypot(x - t[0], y - t[1]) < 80 || now - nmb.targetAt < wait)) return;
+  nmb.target = [x, y];
+  nmb.targetAt = now;
+  nameMarkBuddyAim([x, y]);
+  const side = nmb.ex < -0.7 ? "l" : nmb.ex > 0.7 ? "r" : "";
+  if (side !== nmb.leanSide) {
+    nmb.leanSide = side;
+    nmb.leanAt = now;
+  } else if (side && now - nmb.leanAt > 1500 && !buddy.classList.contains("nmb-walking")) {
+    buddy.dataset.turn = side;
   }
 }
 
@@ -3213,12 +3336,30 @@ document.addEventListener("pointermove", (event) => {
   nmb.pointer = [event.clientX, event.clientY];
   const now = Date.now();
   if (now - nmb.lastInput > 1000) nameMarkBuddyAwake();
-  if (nmb.act !== "peek" && nmb.legs !== "peek") return;
-  if (now - nmb.shyAt < 100) return;
+  if (!document.getElementById("nm-buddy")) return;
+  //: At most ten a second, and the last move of a burst is never lost: a
+  //: pointer that stops inside the burst is looked at a moment later.
+  if (now - nmb.shyAt < 100) {
+    if (!nmb.trail) {
+      nmb.trail = setTimeout(() => {
+        nmb.trail = 0;
+        nameMarkBuddyPointer(Date.now());
+      }, 100 - (now - nmb.shyAt));
+    }
+    return;
+  }
+  nameMarkBuddyPointer(now);
+}, { passive: true });
+
+function nameMarkBuddyPointer(now) {
+  if (!nmb.pointer) return;
+  const [px, py] = nmb.pointer;
   nmb.shyAt = now;
+  nameMarkBuddyNotice(px, py, now);
+  if (nmb.act !== "peek" && nmb.legs !== "peek") return;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
-  const near = Math.hypot(event.clientX - (nmb.x + NMB_W / 2), event.clientY - (nmb.y + nmb.edgeLine - 16)) < 130;
+  const near = Math.hypot(px - (nmb.x + NMB_W / 2), py - (nmb.y + nmb.edgeLine - 16)) < 130;
   if (near) {
     clearTimeout(nmb.shyTimer);
     nmb.shyTimer = 0;
@@ -3229,7 +3370,7 @@ document.addEventListener("pointermove", (event) => {
       buddy.classList.remove("nmb-duck");
     }, 1200);
   }
-}, { passive: true });
+}
 
 //: Typing near it: it watches the field, for as long as the typing goes on
 //: and a moment after. At most one measurement every 400ms.
@@ -3366,7 +3507,10 @@ function nameMarkBuddyBuild() {
     if (!drag.moved) {
       drag.moved = true;
       nameMarkBuddyAct("");
-      buddy.classList.remove("nmb-sleep");
+      buddy.classList.remove("nmb-sleep", "nmb-drowsy");
+      nameMarkBuddyRelease();
+      nmb.mood.energy = Math.min(1, nmb.mood.energy + 0.15);
+      nmb.mood.sociability = Math.max(0, nmb.mood.sociability - 0.05);
       buddy.classList.add("nm-buddy-dragging");
     }
     if (!dragFrame) dragFrame = requestAnimationFrame(follow);
@@ -3403,9 +3547,32 @@ function nameMarkBuddyBuild() {
       delete face.dataset.dragged;
       return;
     }
-    buddy.classList.remove("nmb-sleep");
-    nmb.lastPoke = Date.now();
+    const now = Date.now();
+    const wasAsleep = buddy.classList.contains("nmb-sleep") || nmb.act === "nap";
+    nmb.lastPoke = now;
+    nmb.pokes = [...nmb.pokes.filter((at) => now - at < 20000), now];
     nameMarkReact(face.querySelector(".name-mark"));
+    if (wasAsleep) {
+      nameMarkBuddyWake();
+      return;
+    }
+    //: **Poked too often** (four times in twenty seconds): grumpy for half
+    //: a minute. It turns away, says so, and will not look at you.
+    if (nmb.pokes.length >= 4) {
+      nmb.grumpyUntil = now + 30000;
+      nmb.mood.sociability = Math.max(0, nmb.mood.sociability - 0.25);
+      nameMarkBuddyRelease();
+      buddy.classList.add("nmb-grumpy");
+      buddy.dataset.turn = nmb.pointer && nmb.pointer[0] > nmb.x + NMB_W / 2 ? "l" : "r";
+      setTimeout(() => {
+        buddy.classList.remove("nmb-grumpy");
+        if (buddy.dataset.turn && !buddy.classList.contains("nmb-walking")) delete buddy.dataset.turn;
+      }, 30000);
+      nameMarkSay(buddy, ["Hmph.", "Okay, that's enough.", "I'm not talking to you."][Math.floor(Math.random() * 3)]);
+      return;
+    }
+    nmb.mood.sociability = Math.min(1, nmb.mood.sociability + 0.05);
+    nmb.mood.curiosity = Math.min(1, nmb.mood.curiosity + 0.05);
     if (!nameMarkBuddyStill()) nameMarkBuddyAct(nmb.pose === "hang" ? "swing" : "wave");
     nameMarkSay(buddy, nameMarkLine(buddy.dataset.seed || ""));
   });

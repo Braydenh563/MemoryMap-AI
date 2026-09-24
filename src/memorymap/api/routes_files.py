@@ -18,6 +18,7 @@ import uuid
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -1749,6 +1750,20 @@ class CaptionBody(BaseModel):
     #: something, matching the null/"not captioned yet" convention
     #: `MediaUpload.caption` already uses.
     text: str | None = Field(default=None, max_length=2000)
+    #: Who wrote `text` (the owner, 2026-09-24). "hand" is a person at a caption field,
+    #: which is every caller but one. "app" is the app describing a picture
+    #: it made itself, a board export's "Part of the mind map ..., exported
+    #: from MemoryMap" line: stored as written by `APP_CAPTION_AUTHOR` and not
+    #: as edited, so the lightbox and the Library card stop saying "typed by
+    #: hand" about text nobody typed, and a vision model that later replaces
+    #: it is credited alone rather than read as a person's edit. Kept in
+    #: `caption_model` rather than a new column: that field already means
+    #: "who wrote this caption", and a sentinel there needs no migration.
+    source: Literal["hand", "app"] = "hand"
+
+
+#: The name the app's own captions are credited to (see `CaptionBody.source`).
+APP_CAPTION_AUTHOR = "MemoryMap"
 
 
 @router.post("/media/{upload_id}/caption", response_model=MediaUploadOut)
@@ -1772,7 +1787,10 @@ def caption_media(
         # skipping every Ollama/vision-model check below.
         stripped = body.text.strip() or None
         upload.caption = stripped
-        if stripped:
+        if stripped and body.source == "app":
+            upload.caption_model = APP_CAPTION_AUTHOR
+            upload.caption_edited = False
+        elif stripped:
             # `caption_model` is left as-is: if this text started as one
             # model's caption, the badge can still credit it alongside
             # "edited" instead of losing that history the moment someone

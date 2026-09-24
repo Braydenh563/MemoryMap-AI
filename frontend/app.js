@@ -6144,6 +6144,21 @@ async function attachmentObjectUrl(attachment) {
   return url;
 }
 
+//: **Who wrote a caption, in words** (the owner, 2026-09-24). `caption_model` names the
+//: author of a caption: a vision or utility model, or `APP_CAPTION_AUTHOR`
+//: when the app wrote it itself (a board export's "Part of the mind map ...,
+//: exported from MemoryMap", stored with `source: "app"` by routes_files.py).
+//: That one is "Written by", not "Described by": nothing looked at the
+//: picture. The lightbox byline and the Library card both read this, so the
+//: same picture says the same thing in both places. `short` is the Library
+//: card's own shortener for a long model name.
+const APP_CAPTION_AUTHOR = "MemoryMap";
+function captionCredit(model, short = (name) => name) {
+  return model === APP_CAPTION_AUTHOR
+    ? `Written by ${APP_CAPTION_AUTHOR}`
+    : `Described by ${short(model)}`;
+}
+
 // Full-size image viewer: click anywhere or press Esc to close (Wave M).
 // `items` is every image this click can page through, e.g. all the image
 // attachments on the same note, as `{filename, getUrl}`, `getUrl` being a
@@ -6201,7 +6216,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
   const captionBylineFor = (row) => {
     if (!row || !row.caption) return "";
     const parts = [];
-    if (row.caption_model) parts.push(`Described by ${row.caption_model}`);
+    if (row.caption_model) parts.push(captionCredit(row.caption_model));
     if (row.caption_edited) parts.push(row.caption_model ? "edited" : "typed by hand");
     return parts.join(" · ");
   };

@@ -11443,7 +11443,10 @@ async function uploadToLibrary(filename, blob, description = "") {
   if (description && uploaded?.id && !uploaded.caption) {
     await apiJson(`/media/${uploaded.id}/caption`, {
       method: "POST",
-      body: JSON.stringify({ text: description }),
+      //: `source: "app"` (the owner, 2026-09-24): the app wrote this line, nobody typed
+      //: it, so it is stored as written by MemoryMap rather than as a hand
+      //: edit, and the lightbox and the card say so.
+      body: JSON.stringify({ text: description, source: "app" }),
     }).catch(() => {
       // Best effort, exactly like the upload itself: an export that produced a
       // file and a card has not failed because its description did not land.

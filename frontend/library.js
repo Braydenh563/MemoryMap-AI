@@ -6625,7 +6625,7 @@ function filterLibraryImagesGallery() {
       const parts = [];
       if (image.caption_model) {
         parts.push(
-          `Described by ${shortModelName(image.caption_model)}${image.caption_edited ? ", edited by hand" : ""}`
+          `${captionCredit(image.caption_model, shortModelName)}${image.caption_edited ? ", edited by hand" : ""}`
         );
       } else if (image.caption && image.caption_edited) {
         parts.push("Described by hand");
@@ -6644,7 +6644,7 @@ function filterLibraryImagesGallery() {
       if (image._isImage) {
         const full = [];
         if (image.caption_model) {
-          full.push(`Described by ${image.caption_model}${image.caption_edited ? ", edited by hand" : ""}`);
+          full.push(`${captionCredit(image.caption_model)}${image.caption_edited ? ", edited by hand" : ""}`);
         } else if (image.caption && image.caption_edited) {
           full.push("Described by hand");
         }

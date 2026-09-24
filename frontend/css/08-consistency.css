@@ -5284,12 +5284,12 @@ main,
 }
 
 @keyframes nmb-groove {
-  from { rotate: -5deg; translate: 0 0; }
-  to { rotate: 5deg; translate: 0 1px; }
+  from { transform: rotate(-5deg); }
+  to { transform: rotate(5deg) translate(0, 1px); }
 }
 @keyframes nmb-ring {
-  from { rotate: -14deg; }
-  to { rotate: 14deg; }
+  from { transform: rotate(-14deg); }
+  to { transform: rotate(14deg); }
 }
 @keyframes nmb-glow {
   from { opacity: 0.55; }
@@ -5373,14 +5373,14 @@ main,
   to { transform: rotate(calc(var(--nmb-side) * 12deg)) scaleY(0.5); }
 }
 @keyframes nmb-look {
-  0%, 100% { rotate: 0deg; }
-  18%, 40% { rotate: -9deg; }
-  60%, 82% { rotate: 9deg; }
+  0%, 100% { transform: rotate(0deg); }
+  18%, 40% { transform: rotate(-9deg); }
+  60%, 82% { transform: rotate(9deg); }
 }
 @keyframes nmb-look-eyes {
-  0%, 100% { translate: 0 0; }
-  18%, 40% { translate: -2.4px 0; }
-  60%, 82% { translate: 2.4px 0; }
+  0%, 100% { transform: translate(0, 0); }
+  18%, 40% { transform: translate(-2.4px, 0); }
+  60%, 82% { transform: translate(2.4px, 0); }
 }
 @keyframes nmb-blink-twice {
   0%, 38%, 78%, 100% { transform: scaleY(1); }
@@ -5397,8 +5397,8 @@ main,
   30%, 70% { transform: scale(0.95, 1.08); }
 }
 @keyframes nmb-yawn {
-  0%, 100% { rotate: 0deg; }
-  30%, 70% { rotate: -10deg; }
+  0%, 100% { transform: rotate(0deg); }
+  30%, 70% { transform: rotate(-10deg); }
 }
 @keyframes nmb-shut {
   0%, 100% { transform: scaleY(1); }

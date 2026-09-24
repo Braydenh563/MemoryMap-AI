@@ -35,6 +35,8 @@ LIBRARY = Path(__file__).resolve().parents[1] / "frontend" / "library.js"
 DASHBOARD = Path(__file__).resolve().parents[1] / "frontend" / "dashboard.js"
 SETTINGS = Path(__file__).resolve().parents[1] / "frontend" / "settings.js"
 TIMELINE = Path(__file__).resolve().parents[1] / "frontend" / "timeline.js"
+DOCUMENTS_CODE = Path(__file__).resolve().parents[1] / "frontend" / "documents-code.js"
+DOCUMENTS_PROSE = Path(__file__).resolve().parents[1] / "frontend" / "documents-prose.js"
 
 #: Two listeners on one element for one event is fine when they do different
 #: jobs: the settings overlay has a backdrop-click-to-close and a delegated
@@ -74,8 +76,10 @@ def _source() -> str:
     in the split) is the eighth, and graph-canvas.js (the Canvas 2D graph
     renderer and its worker plumbing, GRAPH_PLAN.md §5 Phase 1) is the
     ninth, and timeline.js (the Timeline tab, split out of app.js on
-    2026-09-23 when the gzipped app.js crossed its size bound) is the tenth:
-    the reason this list has to grow with the split rather than
+    2026-09-23 when the gzipped app.js crossed its size bound) is the tenth,
+    and documents-code.js and documents-prose.js (the document editor's code
+    side and prose tools, split out of documents.js on 2026-09-24) are the
+    eleventh and twelfth: the reason this list has to grow with the split rather than
     being left at however many files it started with: a lint that cannot
     see a file cannot catch anything in it.
 
@@ -103,6 +107,10 @@ def _source() -> str:
         + SETTINGS.read_text(encoding="utf-8")
         + "\n"
         + TIMELINE.read_text(encoding="utf-8")
+        + "\n"
+        + DOCUMENTS_CODE.read_text(encoding="utf-8")
+        + "\n"
+        + DOCUMENTS_PROSE.read_text(encoding="utf-8")
     )
     #: Line comments first, then blocks. The other way round, a `/*` written
     #: inside a `//` line is read as a block comment opening and everything to

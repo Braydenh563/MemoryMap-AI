@@ -38963,7 +38963,18 @@ const LAZY_MODULES = {
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
-  library: ["/documents.js", "/whiteboard.js", "/library.js"],
+  //: documents-code.js and documents-prose.js were split out of documents.js
+  //: (2026-09-24) and go *before* it, and that position is load-bearing: their
+  //: own top level reads nothing from documents.js, while documents.js's
+  //: top-level wiring names their functions, and each file here is followed
+  //: by a microtask checkpoint before the next one runs. See their headers.
+  library: [
+    "/documents-code.js",
+    "/documents-prose.js",
+    "/documents.js",
+    "/whiteboard.js",
+    "/library.js",
+  ],
 };
 
 //: Which bundle a tab needs before its own dispatch runs. `documents` is the

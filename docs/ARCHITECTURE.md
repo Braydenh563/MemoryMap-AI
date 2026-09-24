@@ -245,6 +245,8 @@ MemoryMap-AI/
 │   ├── timeline.js          # the Timeline tab: feed, table, scrubber
 │   ├── library.js           # Library: files, images, the OCR workspace
 │   ├── documents.js · editor.js # the long-form editor and its CodeMirror
+│   ├── documents-code.js · documents-prose.js # its code tools and
+│   │                        #   prose tools, loaded before documents.js
 │   ├── graph.js · graph-canvas.js · graph-worker.js # the graph, its
 │   │                        #   canvas renderer and its layout worker
 │   ├── whiteboard.js        # boards and mind maps
@@ -934,7 +936,11 @@ loaded on demand by `ensureP5` the first time something draws). No asset
 is ever loaded from a CDN, consistent with the offline-first rule. The
 JavaScript is split by surface (`dashboard.js`, `timeline.js`,
 `library.js`, `documents.js`, `graph.js`, `whiteboard.js`, `settings.js`); `app.js`
-holds the shell and everything shared. Every local CSS and JS URL carries
+holds the shell and everything shared. The two biggest lazy surfaces are split
+further by concern: `documents-code.js` and `documents-prose.js` hold the
+document editor's code and prose tools, and load in the Library bundle
+*before* `documents.js`, because their own top level reads nothing from it
+while its top-level wiring names their functions (`LAZY_MODULES` in `app.js`). Every local CSS and JS URL carries
 `?v=<version>` plus a per-process boot token, so no browser or desktop
 window can keep a stale file (`RevalidatedStatic` in `api/app.py`).
 

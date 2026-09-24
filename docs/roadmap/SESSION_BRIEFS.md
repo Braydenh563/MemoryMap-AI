@@ -1483,3 +1483,23 @@ avatars.js.
   "I want atlas to be a companion option regardless": Appearance, Corner
   companion, Atlas. See the commits "Companion: every surface ..." and
   "Atlas is a companion option of its own".
+
+- The owner, 2026-09-24 late, for the companion agent (next free slot):
+  "I want the companion to be able to interact with more surfaces. also it
+  is still a little jarring with how it moves so much across pages. can it
+  be like delayed ... if you are just flicking around pages, it stays on the
+  one you've most recently been on the longest, and then if you spend long
+  enough on a page, the avatar will get up and teleport to be on your
+  current page smoothly and maybe with a slight effect ... smooth,
+  unintrusive and clean, maybe even walking from the edge of the screen or
+  climbing up a panel to get on top so as to not distract the user ...
+  smoother, more life like and better ux so it is a thing that is fun to
+  have, not something ... jarring me mentally every time I switch pages."
+  Plan: a dwell rule (it stays with the page you spent longest on recently;
+  it follows only after about 8 to 12s settled on a new page, never during
+  flicking), an arrival that is out of the way (it walks in from the nearest
+  screen edge along the bottom bar, or climbs up a panel's side to its top,
+  or a soft sparkle-fade in at a quiet perch, chosen by distance and what is
+  free), no motion at all while the pointer or typing is active nearby, and
+  more surfaces (list rows, cards in grids, chips rows, sidebars, dialogs'
+  edges while open).

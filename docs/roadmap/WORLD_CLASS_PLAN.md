@@ -404,79 +404,11 @@ Gate: Phase 9 numbers.
 
 ### D16 Write with AI, the writing desk (M, Opus)
 
-The owner, INBOX 274: "I want to improve the design, capabilities and
-features in the write with ai subtab in notes because I think it is falling
-behind." HISTORY's flagged list already named it ("Write with AI tab: behind
-in function and UI. Owner: new dossier D16"); this is that dossier.
-
-**Measured before, 2026-09-20, on :8967 at 1440x900 and 390x844, light**
-(`scratchpad/ui-sweeps/writingroom.js` measures the same numbers after):
-
-| What | Before |
-| --- | --- |
-| Controls on the sub-tab | 10 at 1440, 10 at 390 |
-| Control heights | three at 1440 (36 / 40 / 330.3), four at 390 (40 / 44 / 189.2 / 330.3) |
-| Dock | none. The head is an `h2` and a lone round '?', so the sub-tab has no control bar and nothing on the dock grammar |
-| Primary buttons on the card | two, "Draft it" and "Save as note", both filled, one per column |
-| Quick starts | none (0 `.library-chip`, 0 `.seg`, 0 `data-help-for`; the help is the older `graph-help-toggle` pair) |
-| Empty state | none. Two empty boxes with placeholders, nothing that says what the desk is for |
-| Shape of a request | one POST `/drafts/compose`, answered when the whole draft exists |
-| A draft against the stand-in model server | arrived after **22.9s** in **2 distinct values** of the box (empty, then 82 characters): one piece, no stream, no progress beyond a status line |
-| Thinking | a `<details>` under both columns, written **after** the reply lands, never while it is written |
-| What can be done with a result | Extract notes, Discard, Save as note. No copy, no insert into an existing note, no retry, no version history beyond a single Undo |
-| Capabilities | thoughts in, a note out, plus a free-text instruction. No tone, no length, no "continue this note", no bullets/prose conversion, no sources: the notebook's own notes cannot be handed to the drafter at all |
-| With no model | "Draft it" and "Extract notes" are disabled with a `title` ("Drafting needs the local AI. Connect a model in Settings."); the section draws **no** `.ai-offline-note`, so the one control that fixes it (Settings → Models) is only in a tooltip on a disabled button |
-| Console errors | 0 at both widths |
-
-Against the two surfaces it should be a sibling of: the Chat composer
-streams token by token into a bubble, carries its sources, its mode segment
-and its length select on one strip under the box, and names its own offline
-state in a row with a button to Settings; the documents editor's AI edit
-shows a per-hunk diff before anything is accepted. The writing room has
-none of those three.
-
-**Target.** The sub-tab is a writing desk, not a form: a dock on the
-grammar (identity, one primary "Draft"), quick-start chips from the
-`.library-chip` recipe, one composer on the app's own composer surface
-carrying what to write, in what tone, at what length and from which notes,
-a result that streams as it is written with the thinking shown while it
-runs, one row of actions on the result (copy, insert into a note, save as
-note, retry), and a version history with a way back to any earlier draft.
-Every failure names its way out.
-
-**Gate.** `scratchpad/ui-sweeps/writingroom.js` (in `scripts/gate.sh`'s
-sweep list): the dock at seven controls or fewer with exactly one filled, a
-streamed draft arriving in more than one piece against the stand-in server,
-the actions row present, one column and 44px targets at 390, 0 console
-errors.
-
-**Built, 2026-09-20** (`feac0e2`, `9d03405`, `7db57d5`, `9a796be`), measured
-on :8967 and :8968 against `scratchpad/fake_openai_server.py`:
-
-| What | Before | After |
-| --- | --- | --- |
-| Dock | none | one on the grammar, 4 controls at one height (36px), 1 filled |
-| Filled buttons in the head | two on one card | one (Draft), with Save as note the result panel's own |
-| A draft arriving | 22.9s, 2 values of the box (one piece) | first text at 118 to 161ms, 3 writes of the box (40, 82, 82 characters) |
-| Thinking | after the reply, in a `<details>` | open while it is written, capped at 8rem (it had no CSS rule at all: it grew the column from 539px to 1576px on open, now 539 to 712) |
-| Quick starts | none | 5 `.library-chip`s at 36px (they drew at 22.4px until `--control-h` was given to the row), 44px at 390 |
-| What to write | one free-text instruction | 5 kinds, 5 tones, 3 lengths, and up to 6 notes as sources, each a removable chip |
-| Result actions | Extract notes, Discard, Save as note | Copy, Insert into a note, Save as note on one line, with Refine on its own composer row and Split into notes and Discard in the kebab |
-| Going back | one undo stack | the same undo, plus a version chip per draft this session, restoring any of them (dedupe and localStorage both measured) |
-| A note that already exists | nothing: every path here made a new note | "Carry on from a note" brings it in as the draft, marks which note it goes back to, and Save writes back to that note through the app's own PUT and undo entry (measured: the tag survives, no second copy) |
-| Inserting into a note | n/a | appends to the note you pick and stays on the desk, with the trip to it offered on the toast rather than taken (`flashEntry` used to hide the desk and its half-written draft) |
-| With no model | a title on a disabled button | that, plus an `.ai-offline-note` row naming Settings → Models, and a drafter message that names Ollama and Settings |
-| The two boxes at 390 | 189.2 and 330.3px | 189.2 and 176px (both `rows="7"`) |
-| Controls under 44px at 390 | 11 | 0 |
-| Card height at 1440 | 569px, columns 478/478 | 630px, columns 480/480, boxes 347.2 and 271.3 |
-| Console errors | 0 | 0 at 1440 and 390; errors.js clean at four widths, contrast.js clean light and dark |
-
-**Not verified.** Stop mid-pass (the stand-in server answers in ~150ms, so
-the pass is over before Stop can be pressed; the abort path is the one that
-was already there, plus a restore of the draft that went in). A real model's
-thinking stream, and therefore the 8rem panel with real content. Anything a
-small local model does with the five prompts: they are written and tested
-against a fake transport, not judged by a model's output.
+**Built 2026-09-20; the dossier (measured before, target, gate, the
+built table and its not-verified list) moved to HISTORY.md, "Moved from the plans, 2026-09-24".** State
+2026-09-24: nothing open but its two not-verified lines (Stop mid-pass, a
+real model's thinking stream) and section 20's open question of a model
+badge in the desk's dock.
 
 ---
 
@@ -757,80 +689,22 @@ take five of these.
 
 ## Audit, 2026-09-13 night (INBOX 209: "poke holes in this application")
 
-Measured on the merged head, not read from the plans. Each row: the evidence,
-what it costs, the fix, who. Rows marked **done** landed in the same pass.
-
-| # | Finding | Evidence | Fix | Who |
-| --- | --- | --- | --- | --- |
-| A1 | **done.** Boot loaded every surface's code and a 1 MB decoration: 13 blocking scripts, 1,699 KB of compressed JS parsed before the first tab drew. | `performance.getEntriesByType("resource")` at boot, before and after, by `scratchpad/ui-sweeps/boottime.js`. | p5 arrives in idle time on first use. The five surface files (whiteboard 678 KB, documents 640 KB, library 404 KB, graph plus graph-canvas 334 KB) arrive as two bundles on the first visit to the tab that needs them: `ensureModule` in app.js, awaited by `switchTab` and by `refreshActiveTab`, with a stand-in on `LAZY_ENTRY_POINTS` for every entry point a person can reach before its file exists. Measured at 1440x900 on a fresh profile: **8 scripts and 1,072 KB at boot, from 13 and 1,699**; after every tab has been visited, 13 and 1,702, so the cost moved rather than being paid twice. Zero page errors, `errors.js` clean at 1440, 1024, 820 and 390. | frontend agent |
-| A2 | **done.** Boot fetched more than it showed: the same document asked for two, three and five times over before the first tab had drawn. | `scratchpad/ui-sweeps/boottime.js` for the counts and `scratchpad/ui-sweeps/fetchwho.js` for the call site behind each one. | `/insights/stats` shares one promise (44 to 35 fetches, the first pass). This pass, on a 13-note notebook with one board: `/preferences` **4 to 1** (`loadPreferences`, the cache or the request already in flight; the `reportTimezone` PUT was firing on every cold start because it read `prefsCache` before the parallel boot step had filled it, and the `ui_state` PUT was writing back the document the seed had just been given), `/graph` **3 to 1** and the dashboard's `/reminders` **3 to 1** (shared promises beside `fetchDashStats`), `/whiteboard/boards` **2 to 1** (the note list's index and the boards widget are the same walk; a notebook with no `[[` link on its first page now asks for none at all), `/entries` **2 to 1** (six dashboard widgets read `allEntries.length` as "loaded", so an *empty* notebook re-fetched the whole list per widget per render). The notes list's first page is 200, not 1,000. Boot fetches 34 to 29 on the same notebook, and the 29 includes the stats-driven widgets that the bug below meant never ran. | frontend agent |
-| A3 | **Background jobs are unbounded threads.** Every upload spawns up to three `threading.Thread`s (Tesseract, caption, vision OCR) and a document read; 14 non-daemon `Thread(` sites, no semaphore, queue or pool anywhere in `ai/captioning.py`, `vision_ocr.py`, `docreader.py`, `core/ocr.py`. A folder of 200 pictures is 600 threads hitting one Ollama. | `grep -rn 'Thread(' src/memorymap`; `grep Semaphore\|Queue\|ThreadPool` in those files: none. | One bounded worker pool (`core/jobs.py`: a queue, N workers where N is the CPU count for Tesseract and 1 for the model, a job row the activity panel already shows), every `*_in_background` enqueues; B2 in section 4 is this. Daemon threads, joined on shutdown with a deadline. | backend agent |
-| A4 | **The agent does not know how big its model is.** `SMALL_MODEL_PARAMS_B = 8.0` and small-model mode exist for skills (`skill_runner._step_tools`), but `run_agent` (agent.py) gives a 1.5B model the same tool registry, the same `MAX_ROUNDS = 6` and the same descriptions as a 27B. | `grep small src/memorymap/ai/agent.py`: comments only. | In `run_agent`: when the model is small, the tool set is `CORE_TOOLS` minus `ORCHESTRATION_TOOLS`, rounds capped at 4, descriptions at their short form (the prose budget's lower tier), and the text-embedded tool-call parser (`extract_text_tool_calls`) tried before a re-prompt; measured against the fake transport with a "small" model name, plus one real run recorded in the plan's not-verified list. | backend agent |
-| A5 | **Five functions carry the app's complexity.** `run_agent` 831 lines and 71 branches, `_run_skill` 682 and 66, `chat_stream` 424 and 46, `graph` 355 and 45, `timeline` 346 and 42. | AST scan over `src/memorymap`. | Split each behind its existing tests into named stages (prepare, loop, one round, finish) with no behaviour change; the spec files are the gate. One commit per function, `gate.sh --changed` after each. | backend agent |
-| A6 | **Silent broad excepts.** Nine `except Exception: pass` in `ai/embeddings.py` (4), `ai/entities.py`, `ai/vision_ocr.py`, `core/pdfpages.py` (2), `core/taskhistory.py`. | AST scan. | Each logs at debug with `exc_info` or names the exception it expects; none widened. | backend agent |
-| A1 | **Boot loads every surface's code and a 1 MB decoration.** 13 blocking scripts, 1,698 KB compressed JS before the first tab draws; `p5.min.js` alone is 1,034 KB raw and is used only for the emblem, the dashboard art and the background art. | `performance.getEntriesByType("resource")` at boot: jsKB 1698, DCL 586 ms on this sandbox; `wc -c` on `frontend/`. | **done** for p5 (`ensureP5`, fetched in idle time on first use, the boot tag gone). Open: whiteboard.js (678 KB), documents.js (640 KB), library.js (404 KB), graph.js plus graph-canvas.js (334 KB), dashboard.js and settings.js load before their tab is opened; a loader per tab (`ensureModule("whiteboard")` awaited by `switchTab`) with the boot-time cross-file calls guarded. This is Brief 33's app.js split, first step. | frontend agent |
-| A2 | **Boot fetches more than it shows.** 44 fetches at boot; `/insights/stats` five times (seven call sites in dashboard.js), `/preferences` twice, `/entries?limit=1000` (258 ms) and `/whiteboard/boards?limit=200` before either tab is open. | the same probe, slowest fetches. | **done** for stats (one shared promise, 44 to 35 fetches). Open: `/preferences` once, the notes list's first page at 200 with the pager it already has, boards on first Library visit. | frontend agent |
-| A3 | **Background jobs are unbounded threads.** Every upload spawns up to three `threading.Thread`s (Tesseract, caption, vision OCR) and a document read; 14 non-daemon `Thread(` sites, no semaphore, queue or pool anywhere in `ai/captioning.py`, `vision_ocr.py`, `docreader.py`, `core/ocr.py`. A folder of 200 pictures is 600 threads hitting one Ollama. | `grep -rn 'Thread(' src/memorymap`; `grep Semaphore\|Queue\|ThreadPool` in those files: none. | **done** `core/jobs.py`: two lanes (cpu = core count capped at 4, model = 1), every `*_in_background` enqueues, `pending()` draws into `/tasks`, `jobs.shutdown(3s)` in `create_app`'s lifespan. Measured in `tests/test_jobs_pool.py`: 50 jobs on a lane 3 wide peak at 3 concurrent, 200 queued jobs shut down in under 0.4s with none of them run, 20 jobs on the 1-wide lane come out in order. The two `ai/embeddings.py` threads stay threads on purpose (one per process, and the auto-install watch blocks on pip for minutes): the reason is at each site. | backend agent |
-| A4 | **The agent does not know how big its model is.** `SMALL_MODEL_PARAMS_B = 8.0` and small-model mode exist for skills (`skill_runner._step_tools`), but `run_agent` (agent.py) gives a 1.5B model the same tool registry, the same `MAX_ROUNDS = 6` and the same descriptions as a 27B. | `grep small src/memorymap/ai/agent.py`: comments only. | **done** `model_manager.is_small_model(name)` is now the one predicate (`chat_model_is_small` calls it) and `run_agent` asks it about the model it will actually call, not about the preference. Small: `CORE_TOOLS` minus `ORCHESTRATION_TOOLS`, `compact_schemas` unconditionally, `SMALL_MODEL_MAX_ROUNDS = 4` on the grant *and* the ceiling, and the focus correction widens to the question's focused set rather than the whole registry. Measured on one turn at a 32k window: 11 tools / 3,828 schema bytes against 56 / 27,250. `tests/test_agent_small_model.py`, 11 tests. **Not verified:** no real small model was run; the text-embedded call is recovered by the provider before the reply is returned, which the test pins at two model calls for one recovered call, but whether a 1.5B does better with four rounds than twelve is a claim only a real run can make. | backend agent |
-| A5 | **Five functions carry the app's complexity.** `run_agent` 831 lines and 71 branches, `_run_skill` 682 and 66, `chat_stream` 424 and 46, `graph` 355 and 45, `timeline` 346 and 42. | AST scan over `src/memorymap`. | **done** All five split behind their own tests, one commit each, measured by `scratchpad/probe_complexity.py` before and after: `run_agent` 875/68 to 279/37 (`_prepare_turn`, `_TurnState`, `_dispatch_call`), `_run_skill` 682/82 to 301/36 (`_RunSetup`, `_RunState`, `_run_one_step`), `chat_stream` 424/11 to 71/11 (`_StreamRequest`, `_plain_events`, `_stream_lines`), `graph` 355/58 to 227/29 (`_add_entity_nodes`, `_add_document_nodes`, `_add_map_edges`), `timeline` 346/53 to 248/39 (`_place_notes`, `_place_documents`, `_place_reminders`). No behaviour change anywhere; the existing tests are the whole gate and one of them caught the only slip (a returned `None` from the extracted step left the run loop spinning). | backend agent |
-| A6 | **Silent broad excepts.** Nine `except Exception: pass` in `ai/embeddings.py` (4), `ai/entities.py`, `ai/vision_ocr.py`, `core/pdfpages.py` (2), `core/taskhistory.py`. | AST scan. | **done** All nine now log at debug with `exc_info` and say what was being attempted; none widened, and `entities.py` and `taskhistory.py` gained the logger they had no way to say anything through. `grep -A1 'except Exception' ` over the five files finds no `pass` left. | backend agent |
-| A7 | **Security: no new hole found.** Token is 32 random bytes in a header, never a query string; unlock throttled; uploads capped at 50 MB; `/media/{filename}` resolved under the media dir; outbound fetches guarded; no CORS middleware (same origin only); the updater's host check stands; the one f-string SQL interpolates BM25 weights, not input. | grep and read. | Nothing to fix; re-run the flaw-class commands after A3 lands (a job queue is new surface). | none |
-| A8 | **Usability gaps the sweeps named and nobody owned.** The graph options panel scrolls again at 1440x900 (587 in 484); the Notes sidebar 919 in 686 at 390; `.segmented-control` radii everywhere but `#doc-ai-verb`; `data-help-for` 41 times, all in Settings or dialogs, none on a tab. | the agents' remaining files. | Each measured and fixed; the '?' help on every tab's dock is the copy standing order 6 asks for. | chrome agent |
-| A9 | **Tests that never run here.** 23 skips: 12 need the PDF extra, 9 need node, the rest Windows. | `grep skip tests`. | **done** `actions/setup-node@v7` in the unit job (no npm: the nine tests shell out to `node --check` and to plain scripts), and a new `pdf` job on 3.12 that installs `pypdfium2 Pillow`, asserts `pdfpages.available()` and runs the ten files gated on it. Measured with the extra present: 159 tests in those files, 0 skipped. | backend agent |
+**Moved whole to HISTORY.md, "Moved from the plans, 2026-09-24".** A1 to A7 and A9 are done (the first
+A1 to A6 rows in the table were the pre-fix copies of the same findings).
+State 2026-09-24: A8's '?' help on every tab's dock is the one part left;
+`data-help-for` appears 51 times in `index.html`, and on a tab's dock only
+for Chat and Graph. The other three A8 items were not re-measured here.
 
 ## 8. Execution order for the coming week (Opus/Sonnet sessions)
 
-Assumes the in-flight agents (Phase 8 docks, Phase 9 responsive, Documents
-Phase 0, Graph Phase 1, menus/bars consistency, mindmap bugs, timeline
-redesign, tooltips/copy) have merged. Each row is one session or less.
-
-| # | Brief | Owner | Gate |
-| --- | --- | --- | --- |
-| 1 | §1 lints: surface budget, one-primary, meta-no-hover, no-em-dash, keymap | Sonnet | all green on main |
-| 2 | §7 checklist, first ten items, measured | Sonnet | audit scripts |
-| 3 | D13 Settings two-pane | Sonnet | prose metric 0 |
-| 4 | D2 Notes: `[[` autocomplete + connections rail | Opus | 150ms, rail on every note |
-| 5 | B1 event log | Opus | built (HISTORY.md) |
-| 6 | B2 job runtime | Opus | resume after kill |
-| 7 | D3 Chat per-claim citations + composer | Opus | 95% cited |
-| 8 | B3 retrieval engine with explanations | Opus | perf gates |
-| 9 | D5 typed properties + D6 daily notes | Opus then Sonnet | round-trips |
-| 10 | D4 Library one card recipe | Sonnet | uniform heights |
-| 11 | D1 Dashboard widget frame | Sonnet | ≤ 8 recipes |
-| 12 | B4 knowledge kernel + Tensions widget | Opus | deterministic rebuild |
-| 13 | B5 harness: verifier, budget, corrections | Opus | evals ≥ 80% |
-| 14 | D9 clipper, D8 reminders, D14 palette from ACTIONS | Sonnet | per dossier |
-| 15 | GRAPH_PLAN Phases 2 to 5 | Opus | frame-rate gates |
-| 16 | DOCUMENTS_PLAN Phases 1 to 7 | Opus | per phase |
-| 17 | B7 API contract, B8 extensions | Sonnet | schema behind auth |
-| 18 | PWA shell + share target; B6 sync design doc | Opus | installable, clip works |
-
-Rules for every session: read `CLAUDE.md`; check the running app before
-building; merge the branch first; commit after every step; measure before
-claiming; no em-dashes; update `HANDOVER.md` with what was measured and
-what could not be verified.
+The 2026-09-08 week table that stood here is superseded by the list above
+(its rows are either built or carried into it) and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
 
 ---
 
 ## 9. On testing with a real model in the sandbox
 
-**Built, 2026-09-20: `scratchpad/llama-dev.sh`.** The script this section
-specified exists. `check` (and no argument at all) reports what is present and
-downloads nothing; `fetch` pulls one small instruct GGUF
-(Qwen2.5-1.5B-Instruct Q4_K_M, about 1.1 GB) into `LLAMA_DEV_DIR`, outside the
-repository; `build` compiles `llama-server` from a llama.cpp checkout named by
-`LLAMA_CPP_SRC`; `serve` starts it and prints the seam, and `stop` takes it
-down again. The seam is two environment variables rather than the
-`pytest -m evals --real` this section guessed at: `MEMORYMAP_EVALS_URL` and
-`MEMORYMAP_EVALS_MODEL`, read once while the eval module is being imported, so
-a shell that never ran the script skips every eval and no pytest plugin or
-custom option is needed for the suite to stay honest. Nothing in `tests/`
-imports the script, no mode of `scripts/gate.sh` calls it, and every
-absent-binary and absent-model path prints a sentence naming the way out, the
-way `src/memorymap/ai/offline.py` writes its own. Those three rules are a test
-of their own (`test_the_evals_seam_is_the_only_thing_that_reaches_the_runner`),
-which needs no model and runs in every suite: they are easy to write down and
-easy to break later without noticing.
+The dev-only runner was built 2026-09-20; its record moved to HISTORY.md, "Moved from the plans, 2026-09-24".
 
 **What is still open here.** The evals themselves: `tests/test_skills_evals.py`
 holds the AGENT_SKILLS_REFORM acceptance gate and is the only eval module so
@@ -853,13 +727,12 @@ should fix the class and add the lint that keeps it fixed.
 | F3 | **Measured, 2026-09-12, and smaller than this row assumed at a realistic size.** `search_manager.semantic_search` still reads and parses every vector row per request, and it is on the Ask and chat path. At 2,000 notes and 384 dimensions that read and parse is 5.6 ms per request against 5.3 ms for the matmul over the same vectors already in memory, so it is about half the cost of a search at that size and grows linearly: about 56 ms at 20k and 140 ms at 50k. The three whole-notebook features (link suggestions, tensions, graph edges) already read `engine.vectors_by_id`, which serves the process-level matrix, so the fix is to point `semantic_search` at the same matrix. **Not done here, deliberately**: it is the most important path in the app and the swap has to keep the mixed-width behaviour this function grew (a model swap inside one backend leaves rows at the old width, and stacking them raised and took every search down with it), so it wants its own brief and its own tests rather than a late-night edit. | `search/search_manager.py` ~279, `search/engine.py` `vectors_by_id` | still open, sized |
 | F4 | **Re-measured 2026-09-13: 147 broad handlers, of which 52 say nothing at all.** `scratchpad/probe_excepts.py` reports both numbers, because the grep below counts every handler and the ones that cost something are the silent subset: a handler that logs with `exc_info` is the fix, not the flaw. Original figure: 88 `except Exception:` / bare `except:` in `src/` | `grep -rn "except Exception:\|except:" src/memorymap --include=*.py \| wc -l` | Failures become silence (the "features that never ran once" shape). | Each one either re-raises as the error contract, logs with `exc_info` to the logbuffer, or is narrowed. Lint: ruff `BLE001` enabled with a per-site `# noqa: BLE001 <reason>`. |
 | F5 | 13 raw `fetch()` calls beside `api()` | `grep -n 'fetch(\`\|fetch("' frontend/*.js \| grep -v "api\b"` | Each re-implements the auth header, the error contract and the offline path; one is `/chat/stream`, the most important call in the app. | `api.stream()` and `api.upload()` helpers; the 13 sites move onto them. Lint: no bare `fetch(` outside `api.js`. |
-| F6 | **Done 2026-09-21** (INBOX 266, item 7): the scheduler this row proposed is still a refactor nobody needs, and the numbers it was written from are all met. What follows is the 2026-09-12 record, kept because it is what the measurements were taken against. **Mostly fixed, and the old figure was stale.** Measured 2026-09-12 with `scratchpad/ui-sweeps/idle.js` (new: it wraps `setInterval` before any page script runs, so every live interval is named with the line that started it, and counts requests over a full idle minute in each visibility state). Requests: 4 in a visible minute (`/models/status` x2, `/reminders`, `/tasks`) and 2 hidden, not the 14 this row was written from, which the status poll's own backoff had already fixed. Timers: two one-second clocks survived hiding, `tickClocks` (app.js) and `paintDashClock` (dashboard.js), both painting HH:MM once a second to a tab nobody could see. Both now stop on `visibilitychange` and repaint on return; the only interval left while hidden is the 60s reminder check, which is the one thing a background tab should keep doing. What is left of this row is the `scheduler` it proposes, which is a refactor rather than a fix. | `idle.js`, `idlecpu.js`, `app.js`, `dashboard.js` | was battery | done |
 | F7 | Threads in 16 modules share SQLAlchemy sessions created per call | `grep -rln "threading.Thread" src/memorymap` | SQLite is fine with this only while each thread opens its own session and nobody passes ORM objects across; nothing enforces it, and the "Could not refresh instance" 500 seen this session was exactly that shape. | B2 job runtime: one worker, jobs get a fresh session, results are plain dicts. Lint: `Thread(` allowed only in `core/jobs.py`. |
-| F8 | Two `innerHTML` writes with interpolated data | `grep -n 'innerHTML\s*=\s*\`[^\`]*\${' frontend/*.js` | Both interpolate app-controlled strings today; the pattern is the XSS shape and the next author will interpolate a title. | `setLabel()` (exists) at both sites. Lint: no `innerHTML =` with `${` anywhere. |
-| F9 | **Fixed.** The gate is per router (`dependencies=locked`), and a router added without it read exactly like one with it. `tests/test_every_route_is_locked.py` walks every route the app serves and asserts 401 without a token, against an allowlist that carries a reason per line. It found one: `GET /changelog`, open, now locked. Proven in both directions (dropping `dependencies=locked` from one router fails it with that router's three routes named). The walk itself is the subtle half: this FastAPI keeps an included router as one lazy entry, so the obvious `isinstance(route, APIRoute)` filter sees 3 routes out of 200 and passes with the whole API unchecked. | `api/app.py`, `tests/test_every_route_is_locked.py` | was medium | done |
 | F10 | Extracted text, captions and OCR live in three columns with three UIs | `grep -n "vision_ocr_text\|ocr_text\|caption" src/memorymap/api/routes_files.py \| wc -l` | The Files card shows one, hides one, and the search indexes some; the owner's "only the first line" report was one symptom. | One `readings` table (`media_id, kind, page, text, model, ts`), one renderer, all kinds indexed (B3). |
 | F11 | The graph, dashboard constellation and map thumbnails are three renderers | `grep -c "forceSimulation" frontend/graph.js frontend/dashboard.js frontend/whiteboard.js` | Three physics, three colour maps, three sets of bugs. | GRAPH_PLAN §3: one renderer with `size: "pane" | "tile" | "full"`. |
 | F12 | Frontend state lives in module globals, DOM and localStorage with no single owner | MODERNISATION_AUDIT C2 | Every "the list did not refresh" bug. | A small store: `state.get/set/subscribe` per slice, renderers subscribe; introduced slice by slice (notes list first). |
+
+F6, F8 and F9 are done and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
 
 Two flaws this session found by driving the app, recorded here so they are
 fixed as classes: a new board was created through a path that also created
@@ -872,41 +745,10 @@ in `docks.js`).
 
 ## 11. The week, session by session (Opus/Sonnet), and the quarter
 
-Assumes the in-flight agents have merged and PR #144 is green. One row is
-one session; a session ends with the gate green, a commit, and a HANDOVER
-line. Order matters: each row leaves the next one cheaper.
-
-| Day | Session | Model | Gate |
-| --- | --- | --- | --- |
-| Mon | Em-dash sweep (`scratchpad/emdash.py`), `test_no_em_dashes.py`, full suite | Sonnet | 0 em-dashes in frontend+src, suite green |
-| Mon | §1 lints: surface budget, one primary per surface, meta-no-hover, keymap table | Sonnet | lints pass on main |
-| Tue | F1 `prefs` module + F5 `api.stream/upload` + F8 | Sonnet | lints; errors.js 0 |
-| Tue | D13 Settings two-pane, rest of the '?' popovers (54 paragraphs left, `scratchpad/help-audit/count.py`) | Sonnet | count.py TOTAL 0 |
-| Wed | TIMELINE_PLAN.md Phases 1 to 2 (the measured baseline is in `scratchpad/ui-sweeps/timeline-audit*.js`) | Opus | timeline.js sweep |
-| Wed | F2 pagination on all 25 lists + F6 scheduler | Opus | route test; idle ≤ 2/min |
-| Thu | B1 event log | Opus | built (HISTORY.md) |
-| Thu | D2 `[[` autocomplete + connections rail | Opus | 150ms; rail on every note |
-| Fri | B2 job runtime + F7 | Opus | resume after kill |
-| Fri | D4 Library one card recipe + D1 widget frame | Sonnet | uniform heights; ≤ 8 recipes |
-| Sat | B3 retrieval engine + F3 + F10 | Opus | 5k fixture perf; every hit explained |
-| Sat | D3 per-claim citations | Opus | 95% cited |
-| Sun | B5 harness verifier + corrections; evals | Opus | ≥ 80% on 3B |
-| Sun | HANDOVER, ROADMAP, BACKLOG rewritten to the new state; FABLE_BRIEF for the next Fable window | Sonnet | test_docs_layout |
-
-**The quarter after** (in order, each two to four sessions): GRAPH_PLAN
-Phases 2 to 5 · DOCUMENTS_PLAN Phases 1 to 7 · MINDMAP_PLAN Phases 4 to 5
-· B4 knowledge kernel and the Tensions widget · D5 properties and D6
-daily notes · D9 clipper and the PWA shell with share target · B6 sync
-design and a folder-transport spike · B8 extensions · the offline studio
-(§114 combo 3) · Notion and Obsidian importers · F12 the store, slice by
-slice · a11y audit with a screen reader script · packaging: one-click
-installers with a model-included first run sized honestly (§114 F11-1).
-
-**What to hand the next Fable window** (judgement-heavy, not typing-heavy):
-review of B1 to B3 as merged; the design decision for the block editor
-(DOCUMENTS_PLAN §4) once CM6 is measured under the CSP; the sync
-conflict model; the answer-citation UX; and a fresh screenshot-driven
-pass on whatever still "feels off" once §1 is enforced.
+Superseded twice: by section 18's order (2026-09-14) and by the open list
+at the top of section 8 (2026-09-24). The day-by-day table, the quarter and
+the Fable hand-off list moved to HISTORY.md, "Moved from the plans, 2026-09-24"; everything in them that is
+still open is a row of that list.
 
 ---
 
@@ -921,18 +763,11 @@ listed so LAN mode cannot ship without them (Brief 15).
 | S1 | The session token travels in `?token=` on every `/media` and `/files` URL (`mediaSrc`, `frontend/app.js` ~215), so it lands in browser history, in uvicorn's access log, and in any note a person pastes an image URL into (the code already notes a doubled `?token=`). `Referrer-Policy: no-referrer` stops the Referer leak only. | `app.js` mediaSrc; `core/security.py` query-token path | low / high | A media-scoped, short-lived HMAC token (path + expiry, signed with a per-session key) or an HttpOnly cookie set at unlock and read only by `/media` and `/files`; the API keeps the header. Log scrubbing for `token=` either way. |
 | S2 | Unlock throttling is one global list (`routes_auth.py` `_failed_unlocks`), not per client. | `routes_auth.py` ~93 | none / medium (five wrong tries from anyone locks the owner out for up to five minutes) | Key the throttle by client address once the bind is not loopback; keep the global ceiling as a second layer. |
 | S3 | `import_directory` and `import_markdown` take a filesystem path from the request body and read it. Correct for the single user on localhost; on LAN it is arbitrary directory read for any holder of a token. | `routes_settings.py` ~1750 | none / high | Refuse when the bind is not loopback; or restrict to the user's home; the desktop shell should use a native picker and pass a handle, not a path. |
-| S4 | `OriginCheckMiddleware` lets a request with neither Origin nor Referer through. Browsers always send Origin on cross-site state changes, so this is not the CSRF hole it looks like; it is a note so nobody "fixes" it into breaking curl and the desktop shell. | `core/security.py` ~78 | none | Keep; add the test that a cross-origin POST with Origin set is 403. |
 | S5 | **Half done, 2026-09-13 evening: the guard is one function and it is in `core/security.py`.** `public_addresses(url)` (and `assert_public_url` for a caller that does not pin) refuses anything that is not plain http(s), carries credentials, does not resolve, or resolves to **any** address on this machine or the local network; `search/websearch.py` now calls it and keeps only the connection pinning, which is the half that is about fetching rather than judging. `is_internal_address` is the one definition of internal, asked in both directions (refused for an untrusted URL, required of a self-hosted SearXNG). `tests/test_outbound_fetch_guard.py` walks `src/` for outbound calls and fails on a module that is not written down as untrusted or configured, which is what makes the clipper unable to arrive unreviewed. What is left of this row is the callers that do not exist yet: bookmarks still fetch nothing. Original finding: bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
 | S6 | The model provider base URL is user-set and fetched from the server; by design it points at localhost, so SSRF to the LAN is "the feature". | `ai/provider.py` | none / low | On LAN mode, show the configured URL in the privacy receipt; never follow redirects off the configured host. |
-| S7 | **Fixed.** 16 `LIKE`/`ILIKE` sites, of which 13 took user text without escaping `%` and `_`, so a search for `100%` matched every row and `a_b` matched `axb`. `like_escape` and `LIKE_ESCAPE` are in `core/database.py`; every site that builds a pattern from a value now passes both, and the three that stayed bare are the literal `"image/%"` in routes_library, where the wildcard is meant. `tests/test_like_escaping.py` pins the behaviour through the documents and conversations searches and greps every call site for the pairing (both halves fail on their own: an escaped pattern with no `escape=` finds nothing at all). | `core/database.py`, 8 modules | was correctness | done |
-| S8 | Backups restore by `Path(name).name` inside `backups/` (good); `searxng_install` extracts tar members it vets (good); uploads are `basename`d and the media dir is checked with `is_relative_to` (good); `X-Content-Type-Options: nosniff` and `Content-Disposition: attachment` on files (good). Recorded so nobody re-audits them. | as named | none | Keep the tests that pin each. |
-| S9 | **Fixed (99adcc9).** `renderInlineMarkdown` set `a.href` from note text with no scheme check; the CSP blocked `javascript:` and nothing else did. `safeHref()` allow-lists http, https, mailto, tel, relative and anchors; `tests/test_markdown_link_schemes.py` pins it. | `app.js` renderInlineMarkdown | was low | done |
-| S10 | **Confirmed off**: `docs_url`, `redoc_url` and `openapi_url` are `None` in `create_app` (`api/app.py` ~361). MODERNISATION_AUDIT D5 is stale. | `api/app.py` | none | Record in D5. |
-| S11 | **Fixed, and it was not on the list.** `POST /update/apply` downloaded `browser_download_url` straight out of the GitHub release row and ran it silently as an installer, with only a truncation check between the two. TLS means only whoever controls the releases can choose that URL, so nothing was open today; the gap was between trusting the release and trusting whatever URL the release names. The host is now checked before a byte is written (https, and one of github.com, api.github.com, objects.githubusercontent.com), with the refusal, the https-only rule and the two ways an `endswith` allowlist is usually beaten all pinned in `tests/test_update.py`. | `api/routes_update.py` | was low | done |
-| S12 | **Fixed (INBOX 310, a read-only audit of the whole backend).** `restore_backup` streamed a backup's pages straight into the live `memorymap.db` via SQLite's own backup API, so a crash mid-copy could leave the primary database half-written; the pre-restore safety copy made that recoverable, not safe. Now restores into a temp file beside `db_path`, runs `PRAGMA integrity_check` on it (before the swap, not after: once swapped in it *is* the live database, so checking then would only confirm damage already done), and only on a clean check `os.replace`s it in atomically on the same filesystem, cleaning up the temp file and any stale WAL/SHM sidecars on every path. `tests/test_backups_api.py` pins a corrupt-backup restore and a failed-integrity-check restore, and that neither ever touches the live database's bytes. | `core/backup.py` ~117 | was low | done |
-| S13 | **Fixed (INBOX 310).** `_run_directory_import` read every `.md` file in a chosen folder whole with `f.read_text()`, no size ceiling at all, unlike every other import path in the app (`import_markdown`'s `MAX_IMPORT_BYTES`). Now `stat()`s each file before reading it and skips anything over that same constant, counting the skip and naming the reason in the activity-log detail the endpoint already writes for a finished import, which now fires on a skip-only run too rather than only when something was imported. `tests/test_vault_import.py` pins the skip and the exact log line. | `api/routes_settings.py` ~1885 | was low | done |
-| S14 | **Fixed (INBOX 310).** `_normalise_url` (bookmarks) only prepended `https://` when a URL had *no* scheme at all, so `javascript:alert(1)` passed through unchanged and was stored exactly as typed; self-XSS only (no import or AI tool path writes a bookmark from untrusted text) and the CSP was already a backstop. Now checked against the same allowlist `safeHref()` applies to markdown links (http, https, mailto, tel); a disallowed scheme is refused at write time with a 422 naming the allowed ones. Defence in depth on top: `library.js` now runs a saved URL through `safeHref()` before ever setting `link.href`, and the two `window.open(bookmark.url, ...)` sites (documents.js, app.js) do the same, so a bookmark stored before this existed can't become a live link either. `tests/test_bookmarks_api.py` and `tests/test_markdown_link_schemes.py` pin both the write-time and render-time halves. | `api/routes_bookmarks.py` ~38, `library.js` ~8084 | was low | done |
-| S15 | **Fixed (INBOX 310).** `_download` (the update installer fetch) called `requests.get(..., stream=True)` with the default `allow_redirects=True`, so only the *first* hop's host was checked against `ALLOWED_DOWNLOAD_HOSTS`; every redirect after that was followed unchecked, and GitHub's own release flow always redirects at least once (github.com to objects.githubusercontent.com, the reason both hosts are already on the allowlist). Now `allow_redirects=False`, with each `Location` re-validated through `_download_url_is_allowed` in a loop capped at `MAX_DOWNLOAD_REDIRECTS`, chosen over "follow redirects and check `response.url` after" because by the time a response has a final URL, `requests` has already connected to every host on the way there. `tests/test_update.py` pins the real allowed hop still working, a redirect off the allowlist being refused before a byte of it is fetched, and a redirect loop being capped rather than hung. | `api/routes_update.py` ~182 | was low | done |
+
+S4 and S7 to S15 are fixed, tested or recorded, and moved to HISTORY.md, "Moved from the plans, 2026-09-24".
+State 2026-09-24: S1, S2, S3, the rest of S5 and S6 are open, all Brief 15.
 
 **Brief 15 (network hardening, Opus, one session):** S1, S2, S3, S5, and
 `GET /debug/health`'s absolute `data_dir`/`db_path` paths (INBOX 310:
@@ -1216,61 +1051,9 @@ list recipe; Opus for the Ask scope.
 
 ### I4 Resurfacing: the ideas you are about to forget, when they matter
 
-**Built, 2026-09-12.** The backend is `ai/resurface.py` with
-`routes_resurface.py` (Brief 23), and the surface is the Dashboard's
-Rediscover widget, which now leads with the three most faded notes and their
-reason ("120 days old, no links, never opened") and falls back to its shuffle
-under ten notes. Dismissing a card is a `dismiss_resurface` correction in the
-same store the filing and search corrections use. The one design decision
-taken here rather than in the plan: the scores refresh themselves on the
-first read of the day (`resurface.ensure_fresh`) rather than from the night
-shift, because the night shift only runs with the AI on and this feature
-needs no model at all; measured at 2,000 notes, 137 ms to build the table and
-4.3 ms for the read.
-
-The "Forgotten" sort in Notes is built too: `GET /resurface/all` hands back
-the order (not the daily three, which is a rotation over the top of it and
-stable within a day, so the two are separate routes on purpose) and the sort
-orders by position rather than recomputing the weights in the browser.
-Measured in Chromium on a notebook aged 20 to 280 days: newest-first led with
-the newest note, "Forgotten first" led with the 280-day-old one that had
-never been opened, and the reasons matched the server's.
-
-What is still open from the entry below: the margin row in the note editor,
-which is I2's surface and is not built. The original entry, for the record:
-
-**What the person sees.** Three cards a day, on the Dashboard and as a
-row in the note editor's margin (I2) when relevant: "You have not opened
-'Interview prep notes' in 94 days. It is close to what you are writing
-now." Each card is open / keep surfacing / never again. A "Forgotten"
-sort in Notes lists the notebook by fading score.
-
-**Why it is new.** Readwise resurfaces highlights at random on a schedule.
-Nobody resurfaces *your own notes* by a fading score conditioned on what
-you are doing *now* (the open note, the active space, today's reminders),
-with the choice fed back into the score.
-
-**Builds on.** `Entry.access_count`, `updated_at`, `EntryLink` degree,
-the vectors, the active space, the Dashboard widget system, I7 for the
-feedback.
-
-**Algorithm.** `fading = age_days_since_last_open × (1 / (1 + degree)) ×
-(1 / (1 + opens))`, computed nightly for every note into a `note_scores`
-table (entry_id, fading, computed_at). At request time (`GET /resurface?
-context_entry_id=&space_id=`), take the top 200 by fading, score each by
-cosine to the context (the open note's vector, else the space centroid,
-else today's reminders' text), multiply, drop anything dismissed as
-"never again", return three. The daily set is fixed for the day (seeded
-by the date) so the card does not change on every reload.
-
-**Tests first** (`tests/test_resurface_spec.py`): a never-opened,
-unlinked, old note outranks a linked recent one; the context vector
-reorders the top three; "never again" is honoured across restarts; the
-three are stable within a day and change across days; a notebook under
-ten notes returns an empty list rather than the same three forever.
-
-**Gate.** `GET /resurface` under 50ms at 5k notes (scores precomputed).
-**Size** S. **Model** Sonnet.
+**Built 2026-09-12; the record and the spec moved to HISTORY.md, "Moved from the plans, 2026-09-24".** State
+2026-09-24: the one part left is the margin row in the note editor, which
+is I2's surface and waits for I2.
 
 ### I5 Time travel over meaning: what did I think about X in March?
 
@@ -1628,7 +1411,9 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
    the *selected* space and says which; (c) a "Move to space" bulk action.
    Owner: D2 and D5. If the owner can reproduce with a note that shows the
    space chip, reopen as a backend bug.
-15. **Modal backdrop blur does not cover the full viewport height.** Read: `.modal-overlay` is `position: fixed; inset: 0`, so the unblurred strip is the desktop shell's native title bar, outside the page. Not a CSS bug; if it matters, the shell (pywebview/Electron) must draw a frameless window with the app's own title bar. Owner: packaging.
+15. Decided, nothing to fix (the strip is the native title bar); moved to
+    HISTORY.md, "Moved from the plans, 2026-09-24".
+
 22. **Settings > Packages rows misaligned** (icon, text and the install
     button on different baselines). Owner: consistency.md item 4; the
     alignment sweep must include Settings > Packages and Settings > Help.
@@ -1640,11 +1425,8 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     findings as consistency.md rows, not fixing ad hoc. Owner:
     consistency.md, last item.
 
-62. **"The documents formatting toolbar is gone."** Intentional, DOCUMENTS
-    Phase 1: the strip is opt-in through the editor's ⋯ menu, "Always show
-    formatting", and Phase 2 makes the floating selection toolbar the
-    formatting UI. Nothing to fix; if the owner wants the strip on by
-    default, flip the default in one line (documents.js `docToolbarMode`).
+62. Decided (the strip stays opt-in); moved to HISTORY.md, "Moved from the plans, 2026-09-24".
+
 99. **Quick wins (Fable, 05:20): five features the plans did not list,
     each a day or less, each with the site.** (a) Undo on every delete
     toast: notes, boards, documents and reminders already soft-delete;
@@ -1678,8 +1460,7 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     Settings > Packages option beside Tesseract, same reading pipeline,
     the reader named on the row. Owner: next session, Sonnet (backend
     adapter with a fake in tests) plus the Packages row.
-98. **The documents formatting toolbar**: see 62; the owner asked again.
-    Default stays opt-in until Phase 2's selection toolbar lands.
+98. The same decision as 62; moved with it.
 
 ## 17. The original vision, audited (2026-09-09)
 
@@ -2135,25 +1916,12 @@ build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
       correct once the notebook has finished paging in.
       **Recommendation:** leave it, and say so in the route's docstring, so
       the next scan does not re-open this.
-    - `GET /tags`: **done.** The autocomplete was built from `allEntries`
-      (`refreshTagSuggestions`), so it was incomplete until every page of a
-      four thousand note notebook had arrived, and alphabetical, so a tag
-      used once outranked one used four hundred times. Measured on a
-      notebook tagged to show the difference, old against new:
-      `archive, budget, house, winter-roof-repair` (archive is used five
-      times) became `house, winter-roof-repair, budget, archive` (400, 400,
-      20, 5). One request, cached, in place of a flatten over every loaded
-      note twice per load.
-    - `GET /settings/events`: B1's event feed. Its own docstring names the
-      consumer, "what a Dashboard or Timeline activity strip should read
-      instead of scanning the notes table for recency", and no such strip
-      reads it. **Built 2026-09-23** as the Dashboard's Recent activity
-      widget (`renderActivityWidget`, dashboard.js), opt-in in the widget
-      picker rather than appended to every dashboard (INBOX 270's
-      declutter), reading `tail` once and the cursor after
-      (`scratchpad/ui-sweeps/oi-activity.js`, 6 of 6). The Timeline half is
-      not built: the Timeline is ordered by when a thing was written, and a
-      feed of changes inside it would be a second clock on one page.
+    - `GET /tags`: done (moved to HISTORY.md, "Moved from the plans, 2026-09-24").
+
+    - `GET /settings/events`: built 2026-09-23 as the Dashboard's Recent
+      activity widget (moved to HISTORY.md, "Moved from the plans, 2026-09-24"); the Timeline half is
+      declined by decision (a second clock on one page).
+
     - `GET /resurface/near/{entry_id}`: "the faded notes closest to the one
       being read", built and tested, and there is nowhere in the app that
       reads a note. Checked before recommending anything: a note is a card
@@ -2346,60 +2114,18 @@ The owner, verbatim: "make sure all features and alternatives are easily
 knoticable by and offered for the user. like if the embedding model fails
 or has an error, it suggests to download nomic-embed-text. if duck duck go
 is rate limiting it automatically tries searxng and if it isnt installed it
-suggests it. and same for many other instances." INBOX 272 called this a
-class, not the two named examples, and asked for a survey before any of
-them were written. This is that survey, done before any code in this
-session, grep against the running app's own source rather than assumed.
+suggests it. and same for many other instances." INBOX 272 called this a class; the survey, its fourteen rows and the
+record of rows 9 to 11 built on 2026-09-21 moved to HISTORY.md, "Moved from the plans, 2026-09-24". The lint
+that holds it is `tests/test_failure_remedies.py`.
 
-### What the survey found
+State 2026-09-24, what the survey left open:
 
-The two named examples, and most of the class around them, were already
-built, several sessions deep: `core/extras.py` is a real remedy registry
-(an allowlist of installable packages, each with what it buys, its size and
-a one-click Settings, Extras install/remove, some auto-installing their own
-system binary too), and three separate subsystems already try a working
-alternative before reporting failure. Two genuine gaps remained, both fixed
-this session (see "Built, 2026-09-21" below): Agent mode silently downgrading
-to plain Q&A with nothing on screen to say so, and `requirements.txt`'s own
-list of extras having drifted behind `core/extras.py`'s.
-
-| # | Where (file : line) | What the person sees today | Alternative tried first? | Remedy offered | Status |
-| --- | --- | --- | --- | --- | --- |
-| 1 | `ai/ollama_client.py` `embed()`, chat model picked as the embedding model (HTTP 400/501) | "'{model}' can't create embeddings: it looks like a chat model... Download and select a dedicated embedding model such as 'nomic-embed-text'" | n/a (the fault is the choice itself) | Names `nomic-embed-text`, and Settings, Models draws a one-click "switch to nomic-embed-text" button (`embedding-error-fix-row`, `frontend/app.js` ~36481) when Ollama is running and the fix has not already run | Built. `.status.error` styling, not the `.notice.notice-warn` recipe (DESIGN.md); found, not fixed |
-| 2 | `ai/ollama_client.py` `embed()`, model chosen but not pulled (HTTP 404) | "The embedding model '{model}' is selected but not downloaded. Settings, Models has a download button for it... 'nomic-embed-text' is the recommended one and is about 274 MB" | n/a | Names the button's location and the size before it downloads | Built, same styling note as row 1 |
-| 3 | `search/websearch.py` `search()`, DuckDuckGo serves a challenge page and a SearXNG address is configured | Nothing: the configured SearXNG answers instead, only a log line | Yes, SearXNG first | n/a, it worked | Built |
-| 4 | `search/websearch.py` `search()`, DuckDuckGo rate-limits and no SearXNG is configured | Nothing shown yet; a local `discover_searxng()` probe runs the four usual ports first | Yes, auto-discovery of a local SearXNG on the usual ports | If none answers: "DuckDuckGo is rate-limiting this app... no SearXNG instance was found... Settings, Web search has a one-press install for it" | Built |
-| 5 | `search/searxng_manager.py` / `search/searxng_install.py`, SearXNG install itself fails | pip/docker output, last real line surfaced (`_reason`) | n/a | Names the actual failure line, not pip's boilerplate | Built, mirrors `core/extras.py`'s own `_pip_reason` |
-| 6 | `core/docview.py` `_read_document()`, a PDF has no text layer and `pypdfium2` is not installed | "There's no text layer in this file, it's probably a scan... install "Read scanned PDFs" in Settings -> Extras, and pick a vision or OCR model in Settings -> Models" | n/a (nothing to try, the page genuinely cannot be read without the rasteriser) | Names the exact Extras entry and the model step after it | Built |
-| 7 | `core/docview.py`, same path but the PDF is corrupted/encrypted (pdfium opens it to 0 pages) | "This PDF couldn't be opened... re-exporting or re-saving it... usually fixes this" | n/a | A real fix (there's nothing to install; the file itself is bad), told apart from row 6 by a real reproduction the module's own comment credits to a user's log | Built |
-| 8 | `api/routes_files.py` ~1980-2036, an image has no OCR text and Tesseract isn't on PATH | Names the vision-model alternative when one is installed, else "Install Tesseract to also see where each one sits on the page" | Yes, a vision/OCR model's transcription is tried first when one exists | Names Settings, Extras' OCR entry, which also attempts the system Tesseract binary install itself (`extras.py` `_run_install`, `ocr.attempt_binary_install`) | Built |
-| 9 | `ai/agent.py` `run_agent()`, Agent mode asked for and the active model cannot call tools | Nothing at all: `routes_chat.py` caught the event and did a bare `pass`, the turn silently answered as plain Q&A | No, there is no alternative to try (a model either can or cannot call tools) | None reached the screen | **Gap, built this session**: see below |
-| 10 | `ai/skill_runner.py`, same failure mid-run (a skill's later step) | "The model stopped being able to use tools part-way through." (the step-failed card), no remedy | No | None named | **Gap, built this session**: the step's `reason` now carries the same remedy as row 9 |
-| 11 | `requirements.txt`'s "Optional extras" comment | Four of `core/extras.py`'s eight entries (`pypdfium2`, `markitdown`, `python-docx`, and by design not `llama-cpp-python`) were never named for a source install, only in Settings, Extras | n/a | The comment undercounted the app's own remedy registry | **Doc gap, fixed this session** |
-| 12 | `api/routes_models.py`, Ollama (or a custom OpenAI-compatible backend) not answering at all | "○ {backend} not detected" (`backendLabel` names the actual configured backend, not always "Ollama"); "install Ollama" advice only when the provider is actually Ollama | n/a | Install advice for Ollama; a custom base URL that is simply wrong (LM Studio on the wrong port, a typo) gets the same "not detected" line as "not installed", nothing distinguishes the two | Found, not fixed: worth a "check the address" phrase specific to a custom `base_url`, filed as a BACKLOG candidate rather than guessed at here |
-| 13 | `api/routes_update.py`, a self-update candidate | The candidate payload already carries `size` before any download starts | n/a | Size is known ahead of the download, matching the "say the size before it starts" rule | Built server-side; the frontend's own use of `candidate.size` was not traced this session, so "shown before the button is pressed" is not verified end to end |
-| 14 | `ai/librarian.py` `model_error_message()`, a mid-turn model failure that is not a known shape (not offline, not a tool-support failure) | "The model ({model}) couldn't answer this: {sanitised error}" | n/a | Deliberately does not guess a remedy for an error shape it does not recognise (the function's own docstring), the raw (sanitised) reason is the most honest thing to show | Built, and the restraint is itself a decision worth keeping: a wrong guessed remedy is worse than an honest unknown |
-
-The guided tour (`tour.js`, part 2 of INBOX 272) was not touched. It has
-sections, a dimmed backdrop and per-section replay already, and HANDOVER's
-"Now" line records it was repaired the same day; nothing here depends on it
-or changes it.
-
-Built 2026-09-21 (rows 9-11: Agent mode's silent tools-unsupported downgrade,
-and the `requirements.txt` extras-list drift); moved to HISTORY.md ("Moved
-from the plans, 2026-09-21"). The lint that holds it in place is
-`tests/test_failure_remedies.py`.
-
-### Not verified
-
-Every provider test here runs against `tests/fakes.py`'s fake Ollama client
-(CLAUDE.md section 4): the new `"unsupported"` event's shape was exercised
-against that fake, not against a real small model's actual tool-call
-refusal. The frontend half (the `.notice.notice-warn` line and its "Change
-the model" button actually rendering, at the right place, in a real
-browser) was reasoned from the existing `renderAnswerSupport` pattern it
-mirrors and from `node --check`, not observed: no Chromium/Playwright pass
-was run this session. Row 12 (a wrong custom provider URL) and row 13 (the
-update downloader's frontend display of `size`) were read, not fixed;
-they are candidates for the next pass through this table, not decisions
-taken here.
+- Row 1 and 2: the embedding-model messages still draw with `.status.error`
+  rather than the `.notice.notice-warn` recipe (DESIGN.md). S, `frontend/app.js`
+  `embedding-error-fix-row`.
+- Row 12: a wrong custom `base_url` and an absent server now differ in the
+  provider (`list_models` raises "Nothing answered at <url>. Check the
+  address", 283, 2026-09-24), but the status line still reads "not
+  detected" for both. S, `api/routes_models.py` status route.
+- Row 13: whether the About page shows `candidate.size` before the update
+  button is pressed was never traced in the frontend. S, `settings.js`.

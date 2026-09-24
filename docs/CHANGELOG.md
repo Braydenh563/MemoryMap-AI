@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Switching the background art to "Still", or changing the style, theme or
+  accent while it is still, no longer blanks the background for most of a
+  second: the old picture stays up until the new still frame has finished
+  encoding (measured over 700ms at 1440x900 in headless Chromium), then
+  swaps.
 - The new background art no longer costs the text on the page any
   contrast. Measured against the real pixels behind every text element on
   the Dashboard (three moments per style), the first versions of the bright

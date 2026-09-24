@@ -1782,12 +1782,22 @@ function bgArtHalt(handingOver = false) {
   bgArtGeneration++;
   clearInterval(bgArtCoverTimer);
   bgArtCoverTimer = 0;
+  const canvas = document.getElementById("bg-art-canvas");
   if (bgArtInstance) {
-    bgArtInstance.remove();
+    // Handing over, a moving canvas stops but stays on screen until its
+    // replacement is ready: a still frame takes most of a second to encode.
+    if (handingOver && canvas) bgArtInstance.noLoop();
+    else bgArtInstance.remove();
     bgArtInstance = null;
   }
-  const canvas = document.getElementById("bg-art-canvas");
-  if (canvas) canvas.remove();
+  if (canvas) {
+    if (handingOver) {
+      canvas.id = "";
+      bgArtRetiring.push([canvas, ""]);
+    } else {
+      canvas.remove();
+    }
+  }
   if (bgArtLayer) bgArtRetiring.push([bgArtLayer, bgArtStillUrl]);
   bgArtLayer = null;
   bgArtStillUrl = "";

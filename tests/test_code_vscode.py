@@ -49,8 +49,14 @@ const parse = (marked) => {
 const stateFor = (ext, marked, extra = []) => {
   const { doc, anchor, head } = parse(marked);
   const state = CM.state.EditorState.create({ doc, selection: { anchor, head }, extensions: [docCmLanguageFor(CM, ext), extra] });
+  //: `ensureSyntaxTree` finishes the parse in the language field's context,
+  //: but `syntaxTree(state)` reads the field's own tree, which is only as far
+  //: as the 20ms first pass got (under load, not far): one empty transaction
+  //: moves the finished tree into the field. Flaked under `-n 4` without it.
   CM.language.ensureSyntaxTree(state, state.doc.length, 5000);
-  return state;
+  const settled = state.update({}).state;
+  if (CM.language.syntaxTree(settled).length !== settled.doc.length) throw new Error("the parse did not finish");
+  return settled;
 };
 const target = (state) => {
   const t = { state, dispatch: (tr) => { t.state = tr.state; } };
@@ -451,3 +457,35 @@ def test_snippets_reach_the_list():
     assert "docCodeSnippetOptions(CM, ext)" in source and "for (const label of snipped) seen.add(label);" in source
     assert "docNativeSnippets(CM, type.ext)" in _function("docCompletionExtras")
     assert "CM.autocomplete.ifNotIn(quiet" in _function("docNativeSnippets")
+
+
+# --- INBOX 404 (2): Run and its output -----------------------------------------------
+
+
+def test_run_goes_through_the_sandbox_and_trusts_only_its_frame():
+    source = _source()
+    assert 'const DOC_RUN_SANDBOX_URL = "/documents/run-sandbox";' in source
+    panel = _function("docRunPanel")
+    assert 'frame.setAttribute("sandbox", "allow-scripts")' in panel
+    assert "allow-same-origin" not in panel
+    listener = source[source.index('window.addEventListener("message", (event) => {\n  if (!docRun') :]
+    listener = listener[: listener.index("\n});\n")]
+    assert "event.source !== docRun.frame.contentWindow" in listener
+    assert "data.mmRun !== docRun.id" in listener
+    #: What a program printed is shown as text, never as markup.
+    row = _function("docRunRow")
+    assert "textContent" in row and "innerHTML" not in row
+    #: Stop, the timeout and the line cap all end a run.
+    assert "DOC_RUN_TIMEOUT_MS" in _function("docRunCode") and "DOC_RUN_MAX_ROWS" in listener
+
+
+def test_run_is_on_a_free_chord_and_in_the_dock_for_code():
+    assert '{ key: "Mod-Shift-Enter", run: () => { if (!docRunnable(docFileType())) return false; docRunCode(); return true; } }' in _function("docCodeEditing")
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert '"Ctrl+Shift+Enter"' not in app
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<button id="doc-code-run" class="ghost small hidden" type="button"' in html
+    assert '$("doc-code-run")?.classList.toggle("hidden", !docRunnable(type));' in _function("syncDocFileType")
+    source = _source()
+    table = source[source.index("// DOC-COMMANDS-BEGIN") : source.index("// DOC-COMMANDS-END")]
+    assert 'keys: "Ctrl+Shift+Enter",\n    code: true, run: () => docRunCode() }' in table

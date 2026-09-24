@@ -137,6 +137,7 @@ function syncDocFileType() {
   //: to prose, plain text or a CSV. The pair swap in one place, so a
   //: document never shows both or neither.
   $("doc-code-format")?.classList.toggle("hidden", type.previewable || ["txt", "csv"].includes(type.ext));
+  $("doc-code-run")?.classList.toggle("hidden", !docRunnable(type));
   //: Wrapping and whitespace are about a file that does not wrap by itself:
   //: every type but prose, plain text and CSV included (INBOX 402).
   for (const id of ["doc-code-wrap-row", "doc-whitespace-row"]) $(id)?.classList.toggle("hidden", type.previewable);
@@ -2185,6 +2186,8 @@ const DOC_COMMANDS = [
   //: new chat. The outline panel lists the same symbols.
   { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "",
     code: true, run: () => docOpenSymbols() },
+  { id: "run", icon: "ph:play", label: "Run this file and show its output", keys: "Ctrl+Shift+Enter",
+    code: true, run: () => docRunCode() },
   { id: "code-wrap", icon: "ph:text-align-left", label: "Wrap long lines in a code file", keys: "Alt+Z",
     code: true, run: () => docToggleCodeDraw("codeWrap") },
   { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "",
@@ -11053,6 +11056,8 @@ $("doc-ai").addEventListener("click", openDocAiPanel);
 //: A code document's Format: the selection when there is one, else the
 //: whole file (`docFormatCode`). The press takes the focus from the editor,
 //: so it is handed back: formatting is a step in the middle of typing.
+$("doc-code-run")?.addEventListener("click", () => docRunCode());
+
 $("doc-code-format").addEventListener("click", async () => {
   await docFormatCode("auto");
   docCmView?.focus();
@@ -15074,6 +15079,53 @@ function docCmTheme(CM) {
       //: The ghost text: the rest of the chosen row after the caret, in the
       //: muted ink the placeholder uses, so it reads as offered, not typed.
       ".cm-ghostText": { color: "var(--muted)", opacity: "0.85", pointerEvents: "none" },
+      //: Run's output, under the editor: a head row of the dock's own
+      //: small ghost buttons, then the page (an HTML file) above the log.
+      //: The log is code type, a hairline between rows, errors and
+      //: warnings in their own inks on their soft grounds.
+      ".cm-run-panel": {
+        display: "flex",
+        flexDirection: "column",
+        height: "min(40vh, 320px)",
+        borderTop: "1px solid var(--border)",
+        backgroundColor: "var(--modal-bg-opaque)",
+      },
+      ".cm-run-head": {
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-2)",
+        padding: "var(--space-1) var(--space-2)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-run-title": { fontWeight: "600", color: "var(--text)" },
+      ".cm-run-status": { color: "var(--muted)", fontSize: "var(--text-sm)" },
+      ".cm-run-spacer": { flex: "1" },
+      ".cm-run-body": { flex: "1", minHeight: "0", display: "flex", flexDirection: "column" },
+      ".cm-run-frame": { display: "none", border: "0", width: "100%", flex: "3", minHeight: "0" },
+      ".cm-run-panel.is-page .cm-run-frame": { display: "block", borderBottom: "1px solid var(--border)" },
+      ".cm-run-log": {
+        flex: "2",
+        minHeight: "0",
+        overflow: "auto",
+        margin: "0",
+        padding: "0",
+        listStyle: "none",
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-sm)",
+      },
+      ".cm-run-row": {
+        display: "flex",
+        alignItems: "baseline",
+        gap: "var(--space-2)",
+        padding: "var(--space-1) var(--space-3)",
+        borderBottom: "1px solid var(--border)",
+        color: "var(--text)",
+      },
+      ".cm-run-row.is-error": { color: "var(--error)", backgroundColor: "var(--error-soft)" },
+      ".cm-run-row.is-warn": { color: "var(--warn)", backgroundColor: "var(--warn-soft)" },
+      ".cm-run-row.is-info, .cm-run-row.is-debug": { color: "var(--muted)" },
+      ".cm-run-text": { flex: "1", whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+      ".cm-run-line": { color: "var(--muted)", fontSize: "var(--text-xs)", whiteSpace: "nowrap" },
       //: Sticky scroll: the enclosing scopes' first lines over the top of the
       //: scroller, on the opaque ground words laid over words take, with the
       //: hairline and small shadow of a bar that sits above content.
@@ -17909,6 +17961,240 @@ function docStickyScroll(CM) {
   return docStickyCache;
 }
 
+// --- Run, and its output (INBOX 404) ------------------------------------------
+//
+// The owner: "what about code errors, debugging console or smth??" A `.js`
+// file runs in a worker and an `.html` file renders in a frame, both inside
+// `/documents/run-sandbox`, a page served under its own policy (an opaque
+// origin with no network; `api/run_sandbox.py` says why each line is there).
+// What comes back is `console.*` and uncaught errors as text, each with the
+// line it came from, into a panel under the editor. Stop ends the run; so do
+// ten seconds of a top level that never finishes, and five hundred lines of
+// output. Nothing is compiled, so TypeScript and Python say what they would
+// need rather than pretending.
+
+const DOC_RUN_KINDS = { js: "js", html: "html" };
+const DOC_RUN_SANDBOX_URL = "/documents/run-sandbox";
+const DOC_RUN_TIMEOUT_MS = 10000;
+const DOC_RUN_MAX_ROWS = 500;
+
+//: Why a type shows Run and cannot run, in the panel, in one line.
+const DOC_RUN_CANNOT = {
+  ts: "TypeScript runs once it is compiled to JavaScript, and this editor does not compile. Save it as a .js file to run it here.",
+  py: "Running Python needs Pyodide, which is not part of MemoryMap yet: it is planned as an optional extra, offline once installed.",
+};
+
+//: Whether a type shows Run: the two that run, and the two that say why not.
+function docRunnable(type) {
+  return Boolean(DOC_RUN_KINDS[type.ext] || DOC_RUN_CANNOT[type.ext]);
+}
+
+//: The run in flight and the panel it writes to, or null.
+let docRun = null;
+let docRunSeq = 0;
+let docRunPanelField = null;
+let docRunToggle = null;
+
+//: The panel's DOM, built when it opens; the sandbox frame lives in it, so
+//: closing the panel removes the frame and whatever was running with it.
+function docRunPanel(view) {
+  const dom = document.createElement("div");
+  dom.className = "cm-run-panel";
+  const head = document.createElement("div");
+  head.className = "cm-run-head";
+  const title = document.createElement("span");
+  title.className = "cm-run-title";
+  title.textContent = "Output";
+  const status = document.createElement("span");
+  status.className = "cm-run-status";
+  status.setAttribute("role", "status");
+  const spacer = document.createElement("span");
+  spacer.className = "cm-run-spacer";
+  const button = (label, icon, action, hint) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ghost small";
+    b.title = hint;
+    const i = document.createElement("i");
+    i.className = `ph ${icon} ph-lead`;
+    i.setAttribute("aria-hidden", "true");
+    b.append(i, ` ${label}`);
+    b.addEventListener("click", action);
+    return b;
+  };
+  const again = button("Run again", "ph-play", () => docRunCode(), "Run the file again (Ctrl+Shift+Enter)");
+  const stopButton = button("Stop", "ph-stop", () => docRunStop("Stopped."), "Stop the run");
+  const clear = button("Clear", "ph-eraser", () => docRunClear(), "Clear the output");
+  const close = button("Close", "ph-x", () => docRunClose(), "Close the output");
+  head.append(title, status, spacer, again, stopButton, clear, close);
+  const body = document.createElement("div");
+  body.className = "cm-run-body";
+  const frame = document.createElement("iframe");
+  frame.className = "cm-run-frame";
+  frame.setAttribute("sandbox", "allow-scripts");
+  frame.title = "The page this file makes";
+  frame.src = DOC_RUN_SANDBOX_URL;
+  const log = document.createElement("ol");
+  log.className = "cm-run-log";
+  log.setAttribute("role", "log");
+  log.setAttribute("aria-label", "Output");
+  body.append(frame, log);
+  dom.append(head, body);
+  docRun = { view, dom, frame, log, status, stopButton, ready: false, pending: null, id: 0, rows: 0, timer: null, running: false };
+  return {
+    dom,
+    top: false,
+    destroy: () => {
+      if (docRun && docRun.dom === dom) {
+        clearTimeout(docRun.timer);
+        docRun = null;
+      }
+    },
+  };
+}
+
+//: The field that says whether the panel is open, and the effect that
+//: flips it; the panel follows it through `showPanel`.
+function docRunExtension(CM) {
+  if (!docRunPanelField) {
+    docRunToggle = CM.state.StateEffect.define();
+    docRunPanelField = CM.state.StateField.define({
+      create: () => false,
+      update: (open, tr) => {
+        for (const e of tr.effects) if (e.is(docRunToggle)) open = e.value;
+        return open;
+      },
+      provide: (field) => CM.view.showPanel.from(field, (open) => (open ? docRunPanel : null)),
+    });
+  }
+  return docRunPanelField;
+}
+
+function docRunSetStatus(text, running) {
+  if (!docRun) return;
+  docRun.status.textContent = text;
+  docRun.running = running;
+  docRun.stopButton.disabled = !running;
+}
+
+function docRunClear() {
+  if (!docRun) return;
+  docRun.log.replaceChildren();
+  docRun.rows = 0;
+}
+
+//: One row of output: its text, and the line it came from as a link back to
+//: the editor. Text only, never markup: this is the one place in the app
+//: that shows words a program chose.
+function docRunRow(level, text, line) {
+  if (!docRun) return;
+  const row = document.createElement("li");
+  row.className = `cm-run-row is-${["error", "warn", "info", "debug"].includes(level) ? level : "log"}`;
+  const words = document.createElement("span");
+  words.className = "cm-run-text";
+  words.textContent = String(text).slice(0, 4000);
+  row.appendChild(words);
+  if (Number.isInteger(line) && line > 0) {
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "linklike cm-run-line";
+    link.textContent = `Line ${line}`;
+    link.title = `Go to line ${line}`;
+    link.addEventListener("click", () => {
+      jumpToDocLine(line - 1);
+      docCmView?.focus();
+    });
+    row.appendChild(link);
+  }
+  docRun.log.appendChild(row);
+  docRun.rows += 1;
+  row.scrollIntoView({ block: "nearest" });
+}
+
+function docRunSend(message) {
+  if (!docRun) return;
+  if (!docRun.ready) {
+    docRun.pending = message;
+    return;
+  }
+  docRun.frame.contentWindow?.postMessage(message, "*");
+}
+
+function docRunStop(why) {
+  if (!docRun) return;
+  clearTimeout(docRun.timer);
+  docRunSend({ type: "stop", mmRun: docRun.id });
+  //: A later message from this run is dropped: the id no longer matches.
+  docRun.id = -1;
+  docRunSetStatus(why, false);
+}
+
+function docRunClose() {
+  const CM = window.CM6;
+  if (docCmView && CM && docRunToggle) docCmView.dispatch({ effects: docRunToggle.of(false) });
+  docCmView?.focus();
+}
+
+//: Run the open file: the panel opens (or is reused), the output is
+//: cleared, and the text as it is now goes to the sandbox.
+function docRunCode() {
+  const CM = window.CM6;
+  const type = docFileType();
+  if (!docCmView || !CM || !docRunToggle) return false;
+  const kind = DOC_RUN_KINDS[type.ext];
+  if (!docRun) docCmView.dispatch({ effects: docRunToggle.of(true) });
+  if (!docRun) return false;
+  docRunClear();
+  clearTimeout(docRun.timer);
+  docRun.dom.classList.toggle("is-page", kind === "html");
+  if (!kind) {
+    docRunRow("info", DOC_RUN_CANNOT[type.ext] || "This kind of file does not run here.", null);
+    docRunSetStatus("Not run.", false);
+    return false;
+  }
+  const id = ++docRunSeq;
+  docRun.id = id;
+  docRunSetStatus("Running", true);
+  docRunSend({ type: "run", kind, code: docCmView.state.doc.toString(), mmRun: id });
+  docRun.timer = setTimeout(() => {
+    if (docRun && docRun.id === id && docRun.running) {
+      docRunStop("Stopped after 10 seconds: the script was still running.");
+    }
+  }, DOC_RUN_TIMEOUT_MS);
+  return true;
+}
+
+//: The sandbox's messages. Only from the panel's own frame, only for the run
+//: in flight; everything in them is treated as text.
+window.addEventListener("message", (event) => {
+  if (!docRun || event.source !== docRun.frame.contentWindow) return;
+  const data = event.data && typeof event.data === "object" ? event.data : {};
+  if (data.t === "ready" && data.mmRun === 0) {
+    docRun.ready = true;
+    if (docRun.pending) {
+      const message = docRun.pending;
+      docRun.pending = null;
+      docRunSend(message);
+    }
+    return;
+  }
+  if (data.mmRun !== docRun.id) return;
+  if (data.t === "done") {
+    clearTimeout(docRun.timer);
+    if (docRun.running) docRunSetStatus(docRun.dom.classList.contains("is-page") ? "Page loaded." : "Finished.", true);
+    return;
+  }
+  if (data.t !== "log") return;
+  docRunRow(String(data.level || "log"), String(data.text ?? ""), Number(data.line) || null);
+  //: An uncaught error ends a script's top level as surely as its last line
+  //: does: the run is over, not still going for the timeout to find.
+  if (data.uncaught && docRun.running && !docRun.dom.classList.contains("is-page")) {
+    clearTimeout(docRun.timer);
+    docRunSetStatus("Stopped by an error.", false);
+  }
+  if (docRun.rows >= DOC_RUN_MAX_ROWS) docRunStop(`Stopped after ${DOC_RUN_MAX_ROWS} lines of output.`);
+});
+
 //: Go to a symbol, from the palette: the file's symbols in the menu at the
 //: caret, VS Code's Ctrl+Shift+O list. Not on that chord: this app's
 //: registry gives Ctrl+Shift+O to starting a new chat.
@@ -17951,6 +18237,7 @@ function docCompletionExtras(CM, type) {
     docIndentGuides(CM, type.indent || "  "),
     DOC_SYMBOL_EXTS.has(type.ext) ? docStickyScroll(CM) : [],
     docNativeSnippets(CM, type.ext),
+    docRunnable(type) ? docRunExtension(CM) : [],
     docBracketColours(CM),
     ["html", "xml", "js"].includes(type.ext) ? docTagLink(CM, DOC_EMMET_SYNTAX[type.ext]) : [],
     docGhostPlugin(CM),
@@ -19258,6 +19545,9 @@ function docCodeEditing(CM, type) {
       { key: "Shift-Alt-f", run: () => { docFormatCode("auto"); return true; } },
       //: VS Code's word-wrap toggle (INBOX 402); free in the registry.
       { key: "Alt-z", run: () => { docToggleCodeDraw("codeWrap"); return true; } },
+      //: Run (INBOX 404). Not F5, which reloads the page in a browser, and
+      //: not Ctrl+Alt+R, which the registry gives to a forced reload.
+      { key: "Mod-Shift-Enter", run: () => { if (!docRunnable(docFileType())) return false; docRunCode(); return true; } },
       //: The quick fixes at the caret, on the prose menu's own chord, and the
       //: problems one at a time on the prose findings' own keys.
       { key: "Alt-Enter", run: () => docOpenCodeFixes() },

@@ -47,6 +47,11 @@ OPEN = {
     "/favicon.svg",
     "/manifest.webmanifest",
     "/sw.js",
+    # The Run button's sandbox page (INBOX 404): static markup with no data in
+    # it, served under its own `sandbox allow-scripts; connect-src 'none'`
+    # policy, and framed by an iframe, which cannot send the token header
+    # (`api/run_sandbox.py`; tests/test_run_sandbox.py holds the policy).
+    "/documents/run-sandbox",
 }
 
 #: Prefixes, for the same reason, where the path carries a file name.

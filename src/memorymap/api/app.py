@@ -38,6 +38,7 @@ from memorymap.api import (
     routes_conversations,
     routes_debug,
     routes_documents,
+    run_sandbox,
     routes_backups,
     routes_duplicates,
     routes_drafts,
@@ -748,6 +749,10 @@ def create_app() -> FastAPI:
     # unlock: that is when the failure they describe happens. One route, and
     # `routes_settings.open_router`'s own comment says why it is separate.
     app.include_router(routes_settings.open_router)
+    # The Run button's sandbox page: no data, its own sandboxing policy, and
+    # registered before the documents router so `/documents/{id}` does not
+    # claim the path (`api/run_sandbox.py`).
+    app.include_router(run_sandbox.router)
     app.include_router(routes_update.router, dependencies=locked)
     app.include_router(routes_websearch.router, dependencies=locked)
     app.include_router(routes_backups.router, dependencies=locked)

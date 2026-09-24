@@ -442,3 +442,100 @@ def test_an_ordinary_turn_carries_no_resume_field(client):
     full = client.get(f"/conversations/{created.json()['id']}").json()
     assistant = [m for m in full["messages"] if m["role"] == "assistant"][0]
     assert "resume" not in assistant
+
+
+# --- which persona wrote each reply -------------------------------------------
+
+
+def test_each_reply_keeps_the_persona_that_wrote_it(client):
+    """The owner: "if different personas are used in different chats for the
+    chat messages the avatars need to persist for what persona was used."
+    A conversation can switch persona between turns, so the name is stored
+    per reply, the way `used_tools` is, never read off the picker on reopen."""
+    created = client.post(
+        "/conversations",
+        json={"question": "sum up my week", "answer": "Busy.", "persona": "Coach"},
+    ).json()
+    client.post(
+        f"/conversations/{created['id']}/turns",
+        json={"question": "and the numbers?", "answer": "Twelve.", "persona": "Analyst"},
+    )
+    full = client.get(f"/conversations/{created['id']}").json()
+    assistants = [m for m in full["messages"] if m["role"] == "assistant"]
+    assert [m["persona"] for m in assistants] == ["Coach", "Analyst"]
+    # The question half never carries one: the user is not a persona.
+    assert all("persona" not in m for m in full["messages"] if m["role"] == "user")
+
+
+def test_a_reply_saved_without_a_persona_has_no_key(client):
+    """Older turns, and any client that does not send one, read as the default
+    assistant (Atlas) on the page. No key rather than a guessed name: the
+    server cannot know who wrote a reply it was never told about."""
+    created = client.post("/conversations", json={"question": "hi", "answer": "hello"}).json()
+    full = client.get(f"/conversations/{created['id']}").json()
+    assert "persona" not in full["messages"][1]
+
+
+def test_regenerating_a_reply_records_the_persona_that_rewrote_it(client):
+    """Regenerate replaces the last pair; the new answer is the new persona's."""
+    created = client.post(
+        "/conversations", json={"question": "again", "answer": "v1", "persona": "Coach"}
+    ).json()
+    client.put(
+        f"/conversations/{created['id']}/turns/last",
+        json={"question": "again", "answer": "v2", "persona": "Analyst"},
+    )
+    full = client.get(f"/conversations/{created['id']}").json()
+    assert full["messages"][-1]["persona"] == "Analyst"
+
+
+def test_editing_a_reply_keeps_its_persona(client):
+    """Editing the words of an answer does not change who wrote it."""
+    created = client.post(
+        "/conversations", json={"question": "q", "answer": "a", "persona": "Coach"}
+    ).json()
+    response = client.put(
+        f"/conversations/{created['id']}/turns/0/answer", json={"content": "a, edited"}
+    )
+    assert response.status_code == 200
+    full = client.get(f"/conversations/{created['id']}").json()
+    assert full["messages"][1]["content"] == "a, edited"
+    assert full["messages"][1]["persona"] == "Coach"
+
+
+def test_a_forked_chat_keeps_each_replys_persona(client):
+    """A fork copies the thread up to a turn; who wrote each reply goes too."""
+    created = client.post(
+        "/conversations", json={"question": "q", "answer": "a", "persona": "Coach"}
+    ).json()
+    client.post(
+        f"/conversations/{created['id']}/turns",
+        json={"question": "q2", "answer": "a2", "persona": "Analyst"},
+    )
+    fork = client.post(f"/conversations/{created['id']}/fork", json={"up_to": 1})
+    assert fork.status_code == 201
+    full = client.get(f"/conversations/{fork.json()['id']}").json()
+    assert [m.get("persona") for m in full["messages"] if m["role"] == "assistant"] == [
+        "Coach",
+        "Analyst",
+    ]
+
+
+def test_a_persona_name_is_bounded_and_trimmed(client):
+    """A name, not a prompt: a client posting a paragraph is refused, and a
+    blank one is the same as none."""
+    too_long = client.post(
+        "/conversations", json={"question": "q", "answer": "a", "persona": "x" * 200}
+    )
+    assert too_long.status_code == 422
+    created = client.post(
+        "/conversations", json={"question": "q", "answer": "a", "persona": "  Coach  "}
+    ).json()
+    blank = client.post(
+        f"/conversations/{created['id']}/turns",
+        json={"question": "q2", "answer": "a2", "persona": "   "},
+    )
+    assert blank.status_code == 200
+    full = client.get(f"/conversations/{created['id']}").json()
+    assert full["messages"][1]["persona"] == "Coach"
+    assert "persona" not in full["messages"][3]

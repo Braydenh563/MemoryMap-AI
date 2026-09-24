@@ -72,7 +72,15 @@ with its owner named in the entry.
     the top bar needs a bit of redesigning or the interface on the document
     editor needs a bit of visual adjusting to allow for more room. also
     tables are still really annoying to use and edit in the documents live
-    view". Settings: (j) "remove the need for saving preferences in the
+    view" (fixed: focus mode on the dock and F11 hides every band of chrome,
+    a fading floating bar keeps title, words, save state and Exit, 228px to
+    71px above the first line and 520px to 830px of writing at 1440x900;
+    the dock is one 36px row, 49px back in the normal view; Live tables keep
+    the column on the arrows, Enter goes down and adds a row, the arrows
+    leave a table at either end of the document, a spreadsheet paste fills
+    cells or makes a table, the cell menu rides the edited row; the AI
+    assistant's head and verbs redesigned; commits da89a75 to 260bb2a).
+    Settings: (j) "remove the need for saving preferences in the
     settings and just have it auto save like the rest of the settings";
     (k) "should these text boxes be aligned to the right??" (the
     Preferences number fields; answered, no change: measured, all four

@@ -453,6 +453,9 @@ def test_find_system_python_frozen_uses_path_lookup(monkeypatch):
     monkeypatch.setattr(
         extras.shutil, "which", lambda name: "/usr/bin/python3" if name == "python3" else None
     )
+    # Each candidate is also run, to tell a Python from the Store's alias
+    # (tests/test_frozen_extras.py); here every candidate is a real one.
+    monkeypatch.setattr(extras, "_interpreter_behind", lambda command: command[0])
     assert extras.find_system_python() == "/usr/bin/python3"
 
 
@@ -470,6 +473,7 @@ def test_pip_base_command_finds_a_system_python_when_frozen(monkeypatch):
     monkeypatch.setattr(
         extras.shutil, "which", lambda name: r"C:\Python312\python.exe" if name == "python" else None
     )
+    monkeypatch.setattr(extras, "_interpreter_behind", lambda command: command[0])
     assert extras._pip_base_command() == [r"C:\Python312\python.exe", "-m", "pip"]
 
 
@@ -503,20 +507,24 @@ def test_install_gives_an_actionable_message_instead_of_the_argparse_crash(
     assert not state.running
 
 
-def test_uninstall_gives_the_same_actionable_message(client, monkeypatch):
+def test_uninstall_on_a_packaged_build_needs_no_python(client, monkeypatch):
+    """Was "gives the same actionable message". A packaged build's extras
+    live in its own folder, which `pip uninstall` cannot reach (it has no
+    `--target`), so removal reads that folder's own metadata instead and no
+    Python is asked for at all (tests/test_frozen_extras.py)."""
     monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
     monkeypatch.setattr(extras.shutil, "which", lambda name: None)
 
     def _unexpected_popen(*args, **kwargs):
-        raise AssertionError("pip must not be invoked when no interpreter was found")
+        raise AssertionError("pip must not be invoked to remove a packaged extra")
 
     monkeypatch.setattr(extras.subprocess, "Popen", _unexpected_popen)
 
     extras._run_uninstall(extras.EXTRAS_BY_ID["voice"])
 
     state = extras.current()
-    assert state.outcome == "failed"
-    assert state.step == extras.NO_PYTHON_FOUND_MESSAGE
+    assert state.outcome == "completed"
+    assert state.step != extras.NO_PYTHON_FOUND_MESSAGE
 
 
 class _SucceedingPip:

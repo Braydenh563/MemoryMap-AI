@@ -2359,7 +2359,7 @@
                  scroll sideways inside one line. Enter still sends; Shift+Enter
                  is a newline, which an <input> could not offer at all. -->
             <textarea id="chat-input" data-needs-model="Chat is answered by the local AI" rows="1" class="autogrow chat-input"
-              placeholder="Ask your notebook anything…"></textarea>
+              aria-label="Message" placeholder="Ask your notebook anything…"></textarea>
             <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
             <button id="chat-send" data-needs-model="Chat is answered by the local AI">Send</button>
             <button id="chat-stop" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
@@ -2503,7 +2503,7 @@
                     aria-expanded="false"
                     title="Show the instructions this persona gives Atlas"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> What this persona tells Atlas</button>
                   <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
-                       screen has a <textarea id="persona-prompt"> for writing a new
+                       screen has a <textarea id="persona-prompt" aria-label="Persona instructions"> for writing a new
                        persona, and two elements sharing an id is not a duplicate
                        that browsers complain about, getElementById simply returns
                        the first, which is this div. That made "Add persona" read
@@ -4370,7 +4370,7 @@
              a single-line box hides all but the last few words of it. Grows
              with the text, and Enter still submits (Shift+Enter for a line
              break) so the quick path stays quick. -->
-        <textarea id="reminder-magic" maxlength="1000" rows="1" class="autogrow"
+        <textarea id="reminder-magic" maxlength="1000" rows="1" class="autogrow" aria-label="New reminder in plain words"
           placeholder="Magic add: e.g. “Call mum tomorrow evening, high priority”"></textarea>
         <button id="reminder-magic-add" data-needs-model="Reading a reminder from a sentence needs the local AI" class="ghost"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Add</button>
       </div>
@@ -7497,7 +7497,7 @@
                   <option value="ollama">Ollama</option>
                   <option value="openai">LM Studio / llama.cpp / Jan / vLLM</option>
                 </select>
-                <input id="llm-base-url" type="text" spellcheck="false" placeholder="Default address">
+                <input id="llm-base-url" aria-label="Server address" type="text" spellcheck="false" placeholder="Default address">
                 <button id="llm-provider-apply" class="small">Connect</button>
               </div>
               <!-- The long version moved into #backend-help above; one short
@@ -7892,7 +7892,7 @@
               <span id="dashboard-greeting-status" class="status"></span>
             </div>
             <h3>Add your own</h3>
-            <input id="persona-name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
+            <input id="persona-name" aria-label="Persona name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
             <textarea id="persona-prompt" rows="2" maxlength="2000"
               placeholder="System prompt, e.g. You are a cheerful pirate captain."></textarea>
             <p class="muted text-sm" id="persona-placeholder-hint">Write <code>{ai_name}</code> where the name should go and it is replaced with Atlas. Optional.</p>
@@ -7931,10 +7931,10 @@
             </div>
             <ul id="skill-list" class="entry-list"></ul>
             <h3>Add your own</h3>
-            <input id="skill-name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
-            <input id="skill-description" type="text" maxlength="200"
+            <input id="skill-name" aria-label="Skill name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
+            <input id="skill-description" aria-label="Skill description" type="text" maxlength="200"
               placeholder="One line about what it does (optional)">
-            <textarea id="skill-prompt" rows="2" maxlength="2000"
+            <textarea id="skill-prompt" aria-label="What the skill should do" rows="2" maxlength="2000"
               placeholder="What it should do, e.g. Summarise everything I saved this week."></textarea>
             <label class="muted" for="skill-steps">Steps: one per line, in order (optional)</label>
             <!-- Four rows: the three-line example plus the "/" hint editor.js
@@ -8929,7 +8929,7 @@
                     clear the box to undo.
                   </p>
                 </div>
-                <textarea id="custom-css" rows="5" spellcheck="false"
+                <textarea id="custom-css" aria-label="Custom CSS" rows="5" spellcheck="false"
                   placeholder=".card { border-width: 2px; }"></textarea>
                 <div class="row">
                   <button id="custom-css-apply" class="small">Apply CSS</button>
@@ -9153,7 +9153,7 @@
                 <input type="checkbox" id="pref-profile-enabled">
                 <span>Let Atlas read your name and About me for more personal answers</span>
               </label>
-              <textarea id="pref-profile" rows="3" maxlength="600" aria-describedby="pref-profile-count"
+              <textarea id="pref-profile" aria-label="About me" rows="3" maxlength="600" aria-describedby="pref-profile-count"
                 placeholder="e.g. I'm in Leeds. I teach maths and keep bees."></textarea>
               <p class="muted text-sm" id="pref-profile-count" aria-live="polite"></p>
             </div>
@@ -9767,7 +9767,7 @@
               
               <h3>Import from a folder path</h3>
               <div class="row settings-row-spaced">
-                <input id="import-dir-path" type="text" class="import-dir-path-input" placeholder="C:\path\to\Obsidian\vault">
+                <input id="import-dir-path" aria-label="Folder path to import" type="text" class="import-dir-path-input" placeholder="C:\path\to\Obsidian\vault">
                 <button id="import-dir" class="small ghost">Import from path</button>
               </div>
               <p id="import-dir-status" class="status" role="status"></p>

@@ -2897,6 +2897,9 @@ async function renderDigestWidget(body) {
 
 async function renderQuickCaptureWidget(body) {
   const textarea = document.createElement("textarea");
+  //: A placeholder is not a label: it goes as soon as you type, and a
+  //: screen reader reads nothing for the field without one (the a11y sweep).
+  textarea.setAttribute("aria-label", "Quick capture");
   textarea.rows = 2;
   // Don't promise AI filing when there's no AI to do it; the note still saves.
   textarea.placeholder =

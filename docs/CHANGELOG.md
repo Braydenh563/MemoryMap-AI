@@ -173,6 +173,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Accessibility: every text field that had only a placeholder now has a label a screen reader reads (the chat box, quick capture, magic add, server address, About me, persona and skill fields, custom CSS, the import path), and each reminder's done box names the reminder it completes.
 - Settings, Help: one "Welcome and tours" group (Replay the welcome beside the tour buttons) and a "What each part does" heading over the topics, instead of a second "Help & guide" head, a lone button and a loose sentence.
 - The "m" key guide is a compact panel: "Go to" and "Do" side by side as two lists, each row a name with its key at the right edge, and a head that says how to close it. The Write with AI popup in the editor has one height for the field and both buttons, even padding, and its hint line starts under the field. Profile links straight to the avatar rows in Appearance.
 - Settings, Personas: the dashboard greeting's persona picker and its face are filled straight away instead of after the preferences load and the whole persona list (it showed an empty box with no face on a busy start). Wherever there is no persona to draw a face for, the animated app logo shows instead of an empty space.

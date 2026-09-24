@@ -28383,6 +28383,7 @@ function reminderItem(reminder, label) {
   checkbox.type = "checkbox";
   checkbox.checked = reminder.done;
   checkbox.title = reminder.done ? "Reopen" : "Mark done";
+  checkbox.setAttribute("aria-label", `${reminder.done ? "Reopen" : "Mark done"}: ${reminder.text || "this reminder"}`);
   checkbox.style.width = "auto";
   checkbox.addEventListener("change", async () => {
     // Completing a recurring reminder rolls it forward to the next interval

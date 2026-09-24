@@ -4515,6 +4515,13 @@ main,
   }
 }
 
+/* The same on a desktop window too short for the two columns: whiteboard.js
+   adds this when the capped menu starts growing sideways. */
+#wb-view-menu.wb-menu-one-col {
+  column-count: auto;
+  width: min(17rem, calc(100vw - var(--space-5) * 2));
+}
+
 /* `kebabMenu`'s group hairline, in a menu written in markup (Quick set). */
 .doc-dock-menu-list > .menu-sep {
   flex: none;

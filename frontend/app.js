@@ -30205,6 +30205,18 @@ document.addEventListener(
 //: ↑ and ↓ walk its rows and Home and End jump to the ends. A field keeps its
 //: own keys: a radio group, a slider and a text box already mean something by
 //: the arrows, and taking them would break the control to fix the menu.
+//: **Inside a closed `details` is not a row**, though it still has a layout box
+//: (the tour's recipe says the same of a folded dock): the Graph's More at 1024
+//: holds the folded View menu, and ArrowDown from its summary walked onto a
+//: Layout radio inside the closed View, which cannot take the focus, so the
+//: arrows stopped there (menus.js). Its own summary is the one exception.
+function insideClosedDetails(el) {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    if (p.tagName === "DETAILS" && !p.open && !(el.tagName === "SUMMARY" && el.parentElement === p)) return true;
+  }
+  return false;
+}
+
 function menuRowsOf(menu) {
   return [
     ...menu.querySelectorAll(
@@ -30214,6 +30226,7 @@ function menuRowsOf(menu) {
     (el) =>
       !el.disabled &&
       !el.closest(".select-menu, .hidden, [hidden]") &&
+      !insideClosedDetails(el) &&
       el.getClientRects().length > 0 &&
       getComputedStyle(el).visibility !== "hidden"
   );

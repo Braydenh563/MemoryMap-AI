@@ -64,6 +64,10 @@ def test_details_menus_and_markup_menus_answer_the_arrows() -> None:
         "Escape closes only `.dock-menu`s again; the document's own ⋯ and the "
         "editor toolbars' menus are `.doc-dock-menu` without it"
     )
+    assert "!insideClosedDetails(el)" in _function(APP, "function menuRowsOf("), (
+        "a control inside a closed `details` keeps a layout box; without this "
+        "the walk lands on it (the Graph's folded View at 1024) and stops"
+    )
     assert 'menu.dataset.menuKeys = "1"' in APP, (
         "a menu wired by wireMenuKeyboard must be marked, or the delegated "
         "walker moves two rows per key in it"

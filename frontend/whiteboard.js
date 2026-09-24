@@ -13165,6 +13165,7 @@ async function initWhiteboard() {
         // Before the measurement: a switch's own state can change how tall
         // the list is.
         syncPanelSwitches();
+        menu.classList.remove("wb-menu-one-col");
         escapeAndCapMenu(menu, toggle);
         //: **Hung from what opened it, every one of them** (INBOX 396). A
         //: top-bar menu escaped to <body> went through `placeEscapedMenu`'s
@@ -13175,7 +13176,20 @@ async function initWhiteboard() {
         //: context bar's menu already had the fix; the top bar's use it with
         //: their own toggle as the edge, so each opens under its button and
         //: scrolls inside the room there (`wbmenuroom.js`).
-        wbKeepMenuBesideBar(menu, menu.id === "wb-context-menu" ? document.getElementById("wb-context") : toggle);
+        //: **Two columns only while they fit.** The View menu is a two-column
+        //: box, and a multi-column box under a height cap does not scroll its
+        //: overflow: it adds columns beside itself, out past the menu's edge.
+        //: Measured on a mind map's View: at 390 (the phone rule now drops the
+        //: columns) and at 1024x480, 1015px of columns in a 510px menu capped
+        //: to 280px. Overflow sideways is the sign; one scrolling column is
+        //: the answer, placed and capped again at its new size.
+        const edge = menu.id === "wb-context-menu" ? document.getElementById("wb-context") : toggle;
+        wbKeepMenuBesideBar(menu, edge);
+        if (menu.scrollWidth > menu.clientWidth + 1) {
+          menu.classList.add("wb-menu-one-col");
+          escapeAndCapMenu(menu, toggle);
+          wbKeepMenuBesideBar(menu, edge);
+        }
       }
     });
   }

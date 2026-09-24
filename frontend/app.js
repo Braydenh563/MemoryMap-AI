@@ -5622,6 +5622,11 @@ function entryOverflowMenu(entry) {
         title: "Start a chat about this note and what it connects to",
         run: () => askAtlasAboutNote(entry),
       },
+      {
+        label: "ph:translate Translate",
+        title: "Open this note in Write with Atlas, set to translate",
+        run: () => translateNoteInDesk(entry),
+      },
     ];
 
     const addItems = [
@@ -19374,6 +19379,26 @@ const DRAFT_QUICKSTARTS = [
   //: it there is how another language is picked.
   { label: "Translate", icon: "ph:translate", kind: "translate", title: "Translate what is in the box, into the language chosen in the menu" },
 ];
+
+//: **Translate a note from where it is read** (INBOX 405). Write with Atlas
+//: already translates; this takes the note there, loaded and set to the last
+//: language picked, rather than asking the reader to copy it across. Nothing
+//: runs until Draft is pressed, like every other starting point on the desk,
+//: and a desk that already holds writing is asked about before it is
+//: replaced.
+async function translateNoteInDesk(entry) {
+  const busy = $("draft-thoughts").value.trim() || $("draft-text").value.trim();
+  if (busy && !(await confirmDialog("Replace what is in Write with Atlas with this note?"))) return;
+  switchTab("notes");
+  showNotesSection("writing-room");
+  $("draft-thoughts").value = entry.content || "";
+  $("draft-text").value = "";
+  $("draft-kind").value = draftTranslateKind();
+  $("draft-kind").dispatchEvent(new Event("change"));
+  saveDraftLocally();
+  toast("Pick the language in the menu beside Draft, then press Draft.");
+  $("draft-kind").closest(".select-shell")?.querySelector("button")?.focus();
+}
 
 function draftTranslateKind() {
   let code = "es";

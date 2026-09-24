@@ -53,6 +53,34 @@ agent wrote there sits between `// PROSE-TOOLS-BEGIN` and `// PROSE-TOOLS-END`
    its count across separate lists (python-docx has no restart API): known,
    not fixed.
 
+Commits: db64249 (Harper), dc6ee81 (INBOX 401 to HISTORY), 1706972
+(suggestion mode), c3af0d3 (read aloud), be76070 (accessibility), 2a9f407
+(Word round trip). Hooks outside the region, for the merge: `renderDocProse`
+(two lines), `docFindingKind`, `DOC_FINDING_GROUPS`, `docCmTheme` (two
+underline kinds), `docSuggestAlternatives` and `docSuggestAnswers` (grammar's
+own answers, "Remove"), `noteSurfaceExtensions` (one line), `docCmExtensions`
+(one line), `renderDocPreview` (one line), `DOC_PROSE_SKIP` (two patterns),
+the variant handler and `openDocDictionary` (the grammar switch).
+
+## Left to do
+
+Nothing from the brief. Worth doing next, in order:
+
+1. Harper's lint config per kind in the dictionary dialog (it has ~200 rules;
+   today it is all or nothing). `harper-worker.js`, `setLintConfig`.
+2. Suggestion mode's author and date (CriticMarkup has `{>>comment<<}` for
+   both); export writes `MemoryMap` as the author of every revision.
+3. A voice and speed picker for read aloud (system voices only).
+
+## Not verified
+
+- A real system voice speaking (headless Chromium lists none).
+- Harper and read aloud in the desktop window (WebView2, WebKitGTK):
+  module workers, `'wasm-unsafe-eval'` and `speechSynthesis` are all
+  supported there on paper, not run here.
+- A .docx from Word itself with tracked changes (the importer test is a
+  hand-built file; the round trip is python-docx's output).
+
 ## Found, not fixed
 
 - `tests/test_static_compression.py::test_a_stamped_asset_is_immutable_and_gzipped`

@@ -450,6 +450,24 @@ review of B1 to B3 as merged; the design decision for the block editor
 conflict model; the answer-citation UX; and a fresh screenshot-driven
 pass on whatever still "feels off" once §1 is enforced.
 
+### From WORLD_CLASS_PLAN.md section 14: stemming and grounding, fixed 2026-09-08
+
+- **No stemming.** The FTS index used the default tokenizer, so "prove"
+  never found "proving" and "boot" never found "boots". With no AI
+  running that was the whole of search. Now `porter unicode61`, with a
+  one-time rebuild of an older index (`tests/test_keyword_search.py`).
+- **Grounding scored only the retrieval set at 40% word overlap.** A
+  paraphrase, and every note the model read through a tool mid-turn, went
+  uncited. Now touched notes are candidates and a note's distinctive words
+  ground from 20% (`tests/test_grounding.py`).
+
+### From WORLD_CLASS_PLAN.md section 16: the embed-cache lock, fixed 2026-09-08
+
+**A thread-safety bug, fixed this session.** `EmbeddingService._embed_cache`
+was read and evicted from request threads and the re-index thread with no
+lock; the eviction iterates the dict, which raises under a concurrent
+insert. Now one lock around the cache, never around the embedding call.
+
 ## Moved from the plans, 2026-09-23
 
 ### INBOX 400 part (1): the style-invalidation hunt, every surface (perfpolish agent, d6e9cb3)

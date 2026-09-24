@@ -125,6 +125,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Tools and features, the command palette and Find anything's actions land on what they name: Suggested links opens the map's options and runs Suggest links, Export a board opens the export dialog, Theme opens Appearance with the theme control ringed, an AI tool opens its own row in Settings, a widget row shows its widget (or its row in the widget picker when it is off), and a document or board feature opens the newest one first. Before, 50 of the 110 written rows only switched tab, 11 more opened a Settings pane at its top, and the palette's Board overview and Find a card did nothing unless a board was open. A Settings deep link now rings its row (it rang only Search relevance before).
 - View toggles (Notes rows/cards, Library list/cards): only the chosen half is
   filled; the other rests clear.
 - The OCR workspace's Delete reading works again (it threw after the confirm).

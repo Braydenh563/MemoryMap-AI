@@ -2931,8 +2931,13 @@ mark.global-find-hit.global-find-current {
 /* Same highlight, for a jump-to-setting target outside the entry list, 
    e.g. openSettingsModal's scrollToId (Search relevance, jumped to from the
    Dashboard/Ask/Chat quick-access links) landing on a group buried in a long
-   settings section, not just the top of it. */
-.flash-target.flash {
+   settings section, not just the top of it. `.feature-reveal` is the same
+   ring on the control a Tools and features, palette or Find anything row
+   names (`flashRevealed`, app.js): a class of its own because `.flash-target`
+   also spaces a Settings group's sub-heading, and a ring must not move what
+   it rings. */
+.flash-target.flash,
+.feature-reveal {
   outline: 3px solid transparent;
   outline-offset: 2px;
   border-radius: var(--radius);
@@ -2942,7 +2947,8 @@ mark.global-find-hit.global-find-current {
 /* Reduced motion still gets the highlight, it just doesn't animate away. */
 @media (prefers-reduced-motion: reduce) {
   .entry-list li.flash,
-  .flash-target.flash {
+  .flash-target.flash,
+  .feature-reveal {
     animation: none;
     outline-color: var(--accent);
     background: var(--accent-soft);

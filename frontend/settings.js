@@ -359,12 +359,14 @@ async function openSettingsModal(section = "models", scrollToId = null) {
       // is still right, it is where the explanation lives, so only the
       // scroll and flash are skipped.
       if (!target.getClientRects().length) return;
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
-      target.classList.remove("flash");
-      void target.offsetWidth;
-      target.classList.add("flash");
-      // Take it off again, the way flashEntry and flashReminder both already
+      //: **The ring is `flashRevealed`'s now** (app.js), the one every
+      //: catalogue row lands with. This used to add `flash` alone, which
+      //: draws only on an element that already carries `flash-target`: the
+      //: one caller whose group did (Search relevance) got a ring, and a deep
+      //: link to anything else scrolled and drew nothing. Measured while
+      //: making the Tools and features rows land on their settings.
+      flashRevealed(target);
+      // The helper takes it off again, the way flashEntry and flashReminder both already
       // do. Reported directly: "the search relevance settings section stays
       // highlighted permanently and doesn't return to normal."
       //
@@ -377,8 +379,6 @@ async function openSettingsModal(section = "models", scrollToId = null) {
       // class that static highlight is permanent. A value that is only wrong
       // under a setting the author does not have on is exactly the shape this
       // codebase keeps getting caught by.
-      clearTimeout(openSettingsModal.flashTimer);
-      openSettingsModal.flashTimer = setTimeout(() => target.classList.remove("flash"), 2700);
     });
   }
 }

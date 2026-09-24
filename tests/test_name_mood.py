@@ -256,3 +256,56 @@ def test_limbs_are_not_always_hands(tmp_path: Path) -> None:
     mutants = _moods(["xqzvbrrt", "zzkrrptt", "bcdfgh", "qwxz", "k7x9q", "brrrt", "pfft", "grrr", "hmph", "xkcd"], tmp_path)
     kinds = {m["limbs"] for m in mutants if m["mutant"]}
     assert len(kinds) >= 2, kinds
+
+
+def test_the_wider_zoo(tmp_path: Path) -> None:
+    names = ["Frog", "Bear", "Tweety bird", "Duck", "Hamster", "Sheep", "Cow", "Deer", "Unicorn", "Dragon", "Dino", "Shark", "Snake", "Axolotl", "Crab", "Raccoon", "Hedgehog", "Sloth", "Capybara", "Bee"]
+    want = ["frog", "bear", "bird", "duck", "hamster", "sheep", "cow", "deer", "unicorn", "dragon", "dino", "shark", "snake", "axolotl", "crab", "raccoon", "hedgehog", "sloth", "capybara", "bee"]
+    got = _moods(names, tmp_path)
+    assert [m["animal"] for m in got] == want
+    # A sloth is sleepy and a capybara calm when the name says nothing else.
+    assert got[names.index("Sloth")]["mood"] == "sleepy"
+    assert got[names.index("Capybara")]["mood"] == "calm"
+
+
+def test_eyewear_one_pair_each(tmp_path: Path) -> None:
+    cases = {
+        "Code nerd": "squareglasses",
+        "Lord Byron": "monocle",
+        "Mad scientist": "goggles",
+        "3D movie buff": "threed",
+        "Rockstar": "starglasses",
+        "Heartbreaker": "heartglasses",
+        "Cyber punk": "visor",
+        "Professor Plum": "glasses",
+    }
+    got = _moods(list(cases), tmp_path)
+    for (name, wear), reading in zip(cases.items(), got):
+        assert wear in reading["props"], (name, reading)
+    (both,) = _moods(["Nerdy scientist"], tmp_path)
+    eyewear = {"glasses", "squareglasses", "monocle", "goggles", "threed", "starglasses", "heartglasses", "visor"}
+    assert len(eyewear & set(both["props"])) == 1, both
+
+
+def test_looks_come_from_words_never_first_names(tmp_path: Path) -> None:
+    girl, bro, alice, james = _moods(["Space girl", "Gym bro", "Alice", "James"], tmp_path)
+    assert girl["look"] == "feminine" and bro["look"] == "masculine"
+    assert alice["look"] is None and james["look"] is None
+    feminine_hair = {"long", "pigtails", "buns", "bob", "ponytail", "curly"}
+    assert girl["style"]["hair"] in feminine_hair
+
+
+def test_costumes_pirates_karate_and_friends(tmp_path: Path) -> None:
+    cases = {"Captain Hook": "tricorn", "Karate kid": "headband", "Princess": "tiara", "Skater boi": "cap", "Winter vibes": "beanie", "Cottagecore queen": "flowercrown", "Biker gang": "bandana", "Lumberjack": "beard"}
+    got = _moods(list(cases), tmp_path)
+    for (name, prop), reading in zip(cases.items(), got):
+        assert prop in reading["props"], (name, reading)
+
+
+def test_hair_and_accessories_vary_and_lean_feminine(tmp_path: Path) -> None:
+    got = _moods([f"Friend {i}" for i in range(60)], tmp_path)
+    hair = [m["style"]["hair"] for m in got]
+    assert len(set(hair)) >= 6, set(hair)
+    feminine = sum(h in {"long", "pigtails", "buns", "bob", "ponytail"} for h in hair)
+    masculine = sum(h in {"short", "spiky", "quiff", "buzz"} for h in hair)
+    assert feminine > masculine, (feminine, masculine)

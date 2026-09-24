@@ -4643,7 +4643,7 @@ main,
    is on groups that have none: `.nm-body` (the head and everything on it),
    `.nm-blinks` (the eyes), and the extras. `transform-box: fill-box` makes
    each one turn and scale about its own middle, not the SVG's corner. */
-.name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-steam, .nm-table, .nm-balloon) {
+.name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-steam, .nm-table, .nm-balloon, .nm-bow, .nm-pompom, .nm-gem) {
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -4664,6 +4664,7 @@ main,
 .name-mark .nm-wing-r { transform-origin: 0% 100%; }
 .name-mark .nm-tentacle { transform-origin: 50% 0%; }
 .name-mark .nm-foot { transform-origin: 50% 100%; }
+.name-mark :is(.nm-earring, .nm-tails) { transform-box: fill-box; transform-origin: 50% 0%; }
 
 /* A googly pupil rolls round its eye, not round itself: its origin is the
    eye's centre, set per pupil in SVG units (`nameMark`). */
@@ -4673,7 +4674,7 @@ main,
 
 @media (prefers-reduced-motion: no-preference) {
   :is(
-    :root[data-avatar-motion="always"]:not([data-motion="reduced"]) .name-mark,
+    :root[data-avatar-motion="always"]:not([data-motion="reduced"]) .name-mark[data-nm-on],
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) :is(li, .msg, .persona-picker, button, label, [role="option"]):hover .name-mark,
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .name-mark:hover
   ) {
@@ -4710,6 +4711,11 @@ main,
     & .nm-steam { animation: nm-drift 2.4s ease-out infinite; }
     & .nm-table { animation: nm-throw 1.3s ease-in-out infinite; }
     & .nm-balloon { animation: nm-float 2.4s ease-in-out infinite; }
+    & .nm-earring { animation: nm-dangle 1.8s ease-in-out infinite; }
+    & .nm-tails { animation: nm-dangle 1.2s ease-in-out infinite; }
+    & .nm-bow { animation: nm-pulse 2s ease-in-out infinite; }
+    & .nm-pompom { animation: nm-float 1.6s ease-in-out infinite; }
+    & .nm-gem { animation: nm-twinkle 2.2s ease-in-out infinite; }
     & .nm-wing-l { animation: nm-flap-l 0.5s ease-in-out infinite; }
     & .nm-wing-r { animation: nm-flap-r 0.5s ease-in-out infinite; }
     & .nm-tentacle { animation: nm-sway 1.6s ease-in-out infinite; }
@@ -4730,7 +4736,7 @@ main,
    motion lint (and a reader) looks for it. A face keeps its expression; only
    the movement goes. */
 @media (prefers-reduced-motion: reduce) {
-  .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil, .nm-wave, .nm-steam, .nm-table, .nm-balloon, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-foot-l, .nm-foot-r) {
+  .name-mark :is(.nm-body, .nm-blinks, .nm-tear, .nm-sweat, .nm-z, .nm-spark, .nm-vein, .nm-heart, .nm-q, .nm-bulb, .nm-halo, .nm-pupil, .nm-wave, .nm-steam, .nm-table, .nm-balloon, .nm-wing-l, .nm-wing-r, .nm-tentacle, .nm-foot-l, .nm-foot-r, .nm-earring, .nm-tails, .nm-bow, .nm-pompom, .nm-gem) {
     animation: none;
   }
 }
@@ -4775,6 +4781,7 @@ main,
 @keyframes nm-flap-r { 50% { transform: rotate(16deg); } }
 @keyframes nm-sway { 25% { transform: skewX(10deg); } 75% { transform: skewX(-10deg); } }
 @keyframes nm-step { 50% { transform: translateY(-1px) rotate(-8deg); } }
+@keyframes nm-dangle { 25% { transform: rotate(10deg); } 75% { transform: rotate(-10deg); } }
 @keyframes nm-wave { 25% { transform: rotate(-16deg); } 75% { transform: rotate(12deg); } }
 @keyframes nm-throw { 50% { transform: translate(1px, -1.4px) rotate(-12deg); } }
 @keyframes nm-cackle { 30% { transform: translateY(-0.8px) rotate(-3deg); } 60% { transform: translateY(0.3px) rotate(2deg); } }

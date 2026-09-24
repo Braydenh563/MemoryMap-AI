@@ -71,7 +71,7 @@ const NAME_MOOD_LEXICON = {
     hungry: "hungry hunger* starv* sushi* pizza* taco* burger* cake* cookie* donut* doughnut* noodle* ramen* pasta* cheese* bacon* snack* candy candies choco* waffle* pancake* muffin* cupcake* fries dumpling* boba mochi* sandwich* burrito* nacho* bagel* pie toast* peach* mango* banana* berry cherry* foodie* yum yummy nom nomnom",
     cool: "cool coolest chill* rad dude swag boss suave slick shades",
     love: "love* lovely romantic* crush* heart* cupid* valentin* adorable darling sweetheart",
-    uwu: "uwu owo nya nyaa rawr",
+    uwu: "uwu owo nya nyaa",
   },
   animals: {
     panda: "panda*",
@@ -89,7 +89,25 @@ const NAME_MOOD_LEXICON = {
     frog: "frog* toad*",
     pig: "pig pigs piggy piglet* oink",
     owl: "owl owls",
-    chick: "chick chicks duck ducks duckling* chicken*",
+    chick: "chick chicks chicken*",
+    duck: "duck ducks duckling* quack*",
+    bird: "bird birds birb* parrot* robin* sparrow* crow* raven* phoenix* tweet*",
+    hamster: "hamster* gerbil*",
+    sheep: "sheep lamb lambs ewe wool* baa",
+    cow: "cow cows moo cattle bull bulls",
+    deer: "deer reindeer* stag doe fawn* moose elk",
+    unicorn: "unicorn*",
+    dragon: "dragon* wyvern*",
+    dino: "dino* trex raptor* dinosaur*",
+    shark: "shark* jaws",
+    snake: "snake* serpent* python* viper* cobra* sssnake",
+    axolotl: "axolotl*",
+    crab: "crab crabs crabby lobster*",
+    raccoon: "raccoon* trashpanda*",
+    hedgehog: "hedgehog* hedgie spiky",
+    sloth: "sloth*",
+    capybara: "capybara* capy",
+    bee: "bee bees bumble* honeybee*",
     penguin: "penguin* pingu",
     ghost: "ghost* spook* boo",
     alien: "alien* ufo martian*",
@@ -99,18 +117,31 @@ const NAME_MOOD_LEXICON = {
   //: Not every character has hands (the owner: "some can have feet or
   //: tentacles or wings some none at all"). None is the default.
   limbs: {
-    "wings-feather": "angel* bird* birb* cherub* pegasus* seraph* dove* feather*",
-    "wings-bat": "bat bats dragon* demon* gargoyle* wyvern*",
-    "wings-bug": "fairy fairies faerie* bee bees bumble* butterfl* moth moths pixie* sprite* wasp*",
     tentacles: "octopus* octo octopi squid* kraken* cthulhu* tentacle* jellyfish* eldritch",
     feet: "walker* runner* hiker* dancer* jogger* feet foot* toes sneaker* stomp*",
   },
   props: {
     hat: "wizard* witch* mage magi magician* sorcer* warlock* druid* necroman* enchant* merlin gandalf",
     chefhat: "chef chefs cook cooks baker* cooking",
-    glasses: "academic* professor* prof scholar* scientist* nerd* librarian* teacher* tutor* researcher* historian* editor* critic* geek* analyst* philosoph* linguist* mathemat* physicist* chemist* boffin* smart",
+    glasses: "academic* professor* prof scholar* librarian* teacher* tutor* researcher* historian* editor* critic* analyst* philosoph* linguist* mathemat* boffin* smart",
+    squareglasses: "nerd* geek* coder* programmer* developer* dev hipster* techie*",
+    monocle: "monocle* posh aristocrat* lord lords sophisticat* distinguished",
+    goggles: "scientist* chemist* physicist* pilot* aviator* steampunk* welder* inventor* engineer* lab",
+    threed: "3d cinema* movie* movies film* retro",
+    starglasses: "rockstar* popstar* glam* fabulous",
+    heartglasses: "heartbreaker* flirt* casanova",
+    visor: "cyber* vr futur* hacker* neon synthwave",
     eyepatch: "pirate* buccaneer* arr arrr",
-    crown: "king kings queen* prince* princess* royal* emperor* empress* monarch* regal duke duchess",
+    crown: "king kings queen* prince princes royal* emperor* empress* monarch* regal duke duchess",
+    tiara: "princess* tiara* pageant*",
+    tricorn: "pirate* buccaneer* captain* corsair*",
+    cap: "cap caps baseball* skater* skate* sporty jock* athlete* coach* trucker*",
+    beanie: "beanie* cozy cosy winter* snowy chilly toque",
+    flowercrown: "cottagecore boho* flowerchild* springtime maypole",
+    headband: "karate* dojo* sensei* kungfu judo* taekwondo* blackbelt martial* rocky",
+    bandana: "bandana* biker* rebel* rambo outlaw* bandit*",
+    bow: "bow bows ribbon* coquette",
+    beard: "beard* bearded lumberjack* santa hagrid dwarf* grizzled",
     halo: "angel* saint* guardian* cherub* holy",
     horns: "devil* demon* imp fiend* satan*",
     antenna: "robot* bot bots android* cyborg* droid* machine* automaton* ai",
@@ -143,6 +174,22 @@ const NAME_MOOD_LEXICON = {
     balloon: "balloon*",
     tableflip: "tableflip* flip flipping ragequit",
   },
+  //: A look the name asks for in so many words. Never guessed from a first
+  //: name: "Alice" gets whatever her hash gives her, like everyone else.
+  looks: {
+    feminine: "girl girls girly gal gals queen* princess* lady ladies miss mrs ms she her woman women sis sister* mom mum mama mother* aunt* grandma* granny babe bestie* diva wifey bride* goddess* empress* witch* waifu",
+    masculine: "guy guys dude* bro bros brother* king kings man men mr he him dad dads papa father* uncle* grandpa* lad lads chap gentleman gentlemen husband* groom* lord lords sir",
+  },
+  //: Which wings, when a name has them: seven kinds, each drawn its own way.
+  wings: {
+    angel: "angel* cherub* seraph* dove* pegasus* holy",
+    bird: "bird birds birb* feather* parrot* robin* phoenix*",
+    dragon: "dragon* wyvern*",
+    bat: "bat bats demon* gargoyle*",
+    fairy: "fairy fairies faerie* pixie* sprite*",
+    bee: "bee bees bumble* wasp* honeybee*",
+    butterfly: "butterfl* moth moths",
+  },
   //: Flavours stack on whatever mood the name set: "wink" winks, "ahhhh"
   //: screams, "cooked" sweats. A name that says five things gets all five.
   flavours: {
@@ -158,7 +205,9 @@ function nameMood(name) {
   const raw = String(name || "").trim();
   const result = {
     mood: null, intense: false, animal: null, props: [], flavours: [], hand: null, limbs: null, mutant: null,
-    style: { smile: "smile", features: [], nose: null }, source: "seed",
+    wing: null, look: null,
+    style: { smile: "smile", eyes: "dot", features: [], nose: null, hair: null, hairColour: 0, accessories: [] },
+    source: "seed",
   };
   if (!raw) return result;
   //: One parsed table per page, not per mark: the lexicon is fixed.
@@ -178,6 +227,8 @@ function nameMood(name) {
       flavours: group(NAME_MOOD_LEXICON.flavours),
       hands: group(NAME_MOOD_LEXICON.hands),
       limbs: group(NAME_MOOD_LEXICON.limbs),
+      wings: group(NAME_MOOD_LEXICON.wings),
+      looks: group(NAME_MOOD_LEXICON.looks),
       intensifiers: new Set(NAME_MOOD_LEXICON.intensifiers.split(/\s+/)),
     };
   }
@@ -231,14 +282,23 @@ function nameMood(name) {
   result.mood = find(table.moods);
   result.hand = find(table.hands);
   result.limbs = find(table.limbs);
+  result.wing = find(table.wings);
+  result.look = find(table.looks);
+  const wingLimbs = { angel: "wings-feather", bird: "wings-feather", dragon: "wings-bat", bat: "wings-bat", fairy: "wings-bug", bee: "wings-bug", butterfly: "wings-bug" };
+  if (result.wing && !result.limbs) result.limbs = wingLimbs[result.wing];
   result.animal = find(table.animals);
   result.props = findAll(table.props);
   //: One hat per head: "Party wizard" wears the party hat, the one named
   //: first, rather than a cone stacked through a cone.
-  const hats = ["hat", "chefhat", "cowboy", "partyhat", "crown"];
-  if (result.props.filter((prop) => hats.includes(prop)).length > 1) {
-    const first = find(table.props.filter(({ key }) => hats.includes(key)));
-    result.props = result.props.filter((prop) => !hats.includes(prop) || prop === first);
+  //: And one pair of eyes' worth of eyewear, by the same rule.
+  for (const kind of [
+    ["hat", "chefhat", "cowboy", "partyhat", "crown", "tiara", "tricorn", "cap", "beanie", "flowercrown", "bandana"],
+    ["glasses", "squareglasses", "monocle", "goggles", "threed", "starglasses", "heartglasses", "visor"],
+  ]) {
+    if (result.props.filter((prop) => kind.includes(prop)).length > 1) {
+      const first = find(table.props.filter(({ key }) => kind.includes(key)));
+      result.props = result.props.filter((prop) => !kind.includes(prop) || prop === first);
+    }
   }
   //: A flavour the mood already is (a scream on a scream) says nothing new.
   result.flavours = findAll(table.flavours);
@@ -313,7 +373,7 @@ function nameMood(name) {
   const emojiProps = [
     [/\u{1F916}/u, "antenna"], [/\u{1F451}/u, "crown"], [/\u{1F9D9}/u, "hat"], [/\u{1F913}/u, "glasses"],
     [/\u{1F608}/u, "horns"], [/\u{1F921}/u, "rednose"], [/\u{1F9DB}/u, "fangs"], [/\u{1F920}/u, "cowboy"],
-    [/\u{1F973}/u, "partyhat"], [/\u{1F977}/u, "ninjamask"],
+    [/\u{1F973}/u, "partyhat"], [/\u{1F977}/u, "ninjamask"], [/\u{1F97D}/u, "goggles"], [/\u{1F9D0}/u, "monocle"],
   ];
   for (const [pattern, prop] of emojiProps) if (pattern.test(raw) && !result.props.includes(prop)) result.props.push(prop);
   const emoticons = [
@@ -399,9 +459,15 @@ function nameMood(name) {
       //: And its own limbs, or none: a mutant is the one character the
       //: letters alone may give wings.
       result.limbs = [null, "feet", "tentacles", "wings-bug", "wings-bat", null][pick(6)];
+      if (result.limbs === "wings-bug") result.wing = ["fairy", "bee", "butterfly"][pick(3)];
+      if (result.limbs === "wings-bat") result.wing = ["bat", "dragon"][pick(2)];
       result.source = "nonsense";
     }
   }
+
+  //: Some creatures come with a temperament when the name gives none.
+  const temperament = { sloth: "sleepy", capybara: "calm", shark: "sly", snake: "sly", hedgehog: "nervous" };
+  if (!result.mood && temperament[result.animal]) result.mood = temperament[result.animal];
 
   //: Layer four: the name's own hash picks a personality. FNV-1a, the same
   //: family `nameMark` uses, seeded differently so the two draws are
@@ -442,6 +508,30 @@ function nameMood(name) {
     if (roll(4) === 0) result.style.features.push(feature);
   }
   result.style.nose = [null, null, "dot", "button"][roll(4)];
+  result.style.eyes = ["dot", "dot", "oval", "anime", "button", "starry", "dot", "sparkle"][roll(8)];
+  //: Hair and the small things worn with it (the owner: "some feminine ones
+  //: definitely (a lot more ones), and masculine ones as well"). A look the
+  //: name states draws from its own pool; every other name draws from one
+  //: pool that leans towards the long, tied-up and decorated styles.
+  const feminineHair = ["long", "pigtails", "buns", "bob", "ponytail", "long", "curly", "bob"];
+  const masculineHair = ["short", "spiky", "quiff", "buzz", "short", "curly", null];
+  const anyHair = [null, null, "long", "bob", "pigtails", "buns", "ponytail", "long", "curly", "short", "spiky", "quiff", "bob", "buns"];
+  const pool = result.look === "feminine" ? feminineHair : result.look === "masculine" ? masculineHair : anyHair;
+  result.style.hair = pool[roll(pool.length)];
+  result.style.hairColour = roll(10);
+  const feminineBits = ["bow", "earrings", "lipstick", "flowerclip", "lashes"];
+  const masculineBits = ["beard", "stubble", "moustache", null];
+  if (result.look === "feminine") {
+    result.style.accessories.push(feminineBits[roll(5)]);
+    if (roll(2) === 0) result.style.accessories.push(feminineBits[roll(5)]);
+    if (!result.style.features.includes("lashes")) result.style.features.push("lashes");
+  } else if (result.look === "masculine") {
+    const bit = masculineBits[roll(4)];
+    if (bit) result.style.accessories.push(bit);
+  } else if (roll(3) === 0) {
+    result.style.accessories.push(["bow", "earrings", "flowerclip", "lipstick", "bow", "stubble", "beard"][roll(7)]);
+  }
+  result.style.accessories = [...new Set(result.style.accessories)];
   return result;
 }
 
@@ -501,7 +591,25 @@ const NAME_MARK_CREATURES = {
   ghost: { head: "#f5f4ef", shape: "ghost" },
   alien: { head: "#8cd17d", eyes: "alien", antenna: true },
   octopus: { head: "#af7aa1", limbs: "tentacles" },
-  bat: { head: "#6b5b73", ears: "pointy", limbs: "wings-bat", inner: "#ff9da7" },
+  bird: { beak: "#f28e2c", tuft: true, wing: "bird", limbs: "wings-feather" },
+  duck: { head: "#f5f4ef", bill: "#f28e2c", limbs: "feet", foot: "#f28e2c", tuft: true },
+  hamster: { head: "#e8b27a", ears: "round", earSize: 3, inner: "#ff9da7", cheeks: "#f7dcc2" },
+  sheep: { head: "#4a4441", wool: "#f5f4ef", ears: "side", ear: "#4a4441" },
+  cow: { head: "#f5f4ef", spots: "#2b2a28", snout: "#ffb3c1", ears: "side", ear: "#f5f4ef", smallHorns: "#e8dcc0" },
+  deer: { head: "#b0703a", ears: "pointy", antlers: "#6b4a2f", muzzle: "#e8c9a4", nose: true },
+  unicorn: { head: "#f5f4ef", ears: "pointy", unihorn: true, mane: "rainbow" },
+  dragon: { head: "#59a14f", smallHorns: "#e8dcc0", wing: "dragon", limbs: "wings-bat", nostrils: true },
+  dino: { head: "#8cd17d", spikes: "#59a14f", nostrils: true },
+  shark: { head: "#7a8fa6", fin: true, muzzle: "#f5f4ef", mouth: "evil" },
+  snake: { head: "#59a14f", tongue: true, scales: true },
+  axolotl: { head: "#ff9da7", gills: "#e8364f" },
+  crab: { head: "#e15759", stalks: true, claws: true },
+  raccoon: { head: "#8e9aa6", ears: "pointy", bandit: "#2b2a28", muzzle: "#f5f4ef" },
+  hedgehog: { head: "#d9b38c", quills: "#6b4a2f", nose: true },
+  sloth: { head: "#9c755f", patches: "#5a4030", muzzle: "#d9b38c" },
+  capybara: { head: "#a0714f", ears: "round", earSize: 2.4, muzzle: "#8a5f40", nose: true },
+  bee: { head: "#edc949", beeStripes: true, antennae: true, wing: "bee", limbs: "wings-bug" },
+  bat: { head: "#6b5b73", ears: "pointy", limbs: "wings-bat", wing: "bat", inner: "#ff9da7" },
 };
 
 //: Which palette colours each mood's ground leans to, when the name said
@@ -587,6 +695,30 @@ function nameMarkTitle(reading) {
 //: pointer's tooltip.
 let nameMarkSerial = 0;
 
+//: **Only faces on screen move.** In "Always" mode a long persona list or
+//: chat would otherwise animate every face in it, seen or not (the owner:
+//: "make sure all the avatar ... animations and rendering are very light
+//: weight"). One shared observer marks the visible ones, and the CSS only
+//: animates a marked face. Hover mode needs none of this: a hovered face is
+//: on screen by definition.
+let nameMarkObserver = null;
+function watchNameMark(svg) {
+  if (typeof IntersectionObserver !== "function") {
+    svg.dataset.nmOn = "";
+    return;
+  }
+  if (!nameMarkObserver) {
+    nameMarkObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) entry.target.dataset.nmOn = "";
+        else delete entry.target.dataset.nmOn;
+        if (!entry.target.isConnected) nameMarkObserver.unobserve(entry.target);
+      }
+    });
+  }
+  nameMarkObserver.observe(svg);
+}
+
 function nameMark(seed, size = 20) {
   let h = 2166136261;
   for (const ch of String(seed || "?").trim().toLowerCase()) {
@@ -646,8 +778,9 @@ function nameMark(seed, size = 20) {
   let mouthDrop = rnd() * 2.5;
   const mouthOpen = rnd() < 0.5;
   const delay = rnd();
+  const wingRoll = rnd();
 
-  const topProps = ["hat", "chefhat", "crown", "halo", "horns", "antenna", "headphones", "cowboy", "partyhat"];
+  const topProps = ["hat", "chefhat", "crown", "halo", "horns", "antenna", "headphones", "cowboy", "partyhat", "tiara", "tricorn", "cap", "beanie", "flowercrown", "bandana"];
   const wearsTop = reading.props.some((prop) => topProps.includes(prop)) || creature?.antenna;
   const hasEars = Boolean(creature?.ears || creature?.mane || creature?.eyesUp || creature?.tuft);
   //: A plain face rides half the head's offset, which is the beam look; a
@@ -677,10 +810,11 @@ function nameMark(seed, size = 20) {
   //: the head a little; tentacles lift it more, since they hang the
   //: furthest.
   const limbs = reading.limbs || creature?.limbs || null;
+  const wingKind = reading.wing || creature?.wing || (limbs === "wings-feather" ? "angel" : limbs === "wings-bat" ? "bat" : limbs === "wings-bug" ? "fairy" : null);
   if (limbs) {
-    grow = Math.min(grow, limbs.startsWith("wings") ? 0.64 : limbs === "tentacles" ? 0.7 : 0.78);
+    grow = Math.min(grow, limbs.startsWith("wings") ? 0.6 : limbs === "tentacles" ? 0.7 : 0.78);
     offX *= 0.4;
-    offY = limbs === "tentacles" ? -2.2 : limbs === "feet" ? Math.min(offY, 0) : 3;
+    offY = limbs === "tentacles" ? -2.2 : limbs === "feet" ? Math.min(offY, 0) : 3.2;
     round = true;
   }
   const mutant = reading.mutant;
@@ -689,6 +823,16 @@ function nameMark(seed, size = 20) {
   if (reading.mood === "dramatic" && loud) tilt = tilt < 0 ? -20 : 20;
   //: A hand comes up at the lower right, so the face steps left for it.
   if (reading.hand && reading.hand !== "tableflip") offX = Math.min(offX, 0) - 2.4;
+  //: Hair and headwear sit on the head, so a haired head is round, turned
+  //: no further than the face is, and the face sits square on it.
+  const hair = creature || reading.props.includes("helmet") ? null : reading.style?.hair || null;
+  if (hair) {
+    round = true;
+    follow = 1;
+    grow = Math.min(grow, 0.82);
+    offX *= 0.5;
+    offY = 1.2 + Math.abs(offY) * 0.25;
+  }
   const faceX = offX * follow;
   const faceY = offY * follow;
 
@@ -733,7 +877,7 @@ function nameMark(seed, size = 20) {
   const shade = "rgba(0,0,0,0.22)";
 
   // --- behind the head: ears, a mane, a frog's eye bulges ---
-  if (creature?.mane) {
+  if (creature?.mane && creature.mane !== "rainbow") {
     for (let i = 0; i < 12; i += 1) {
       const a = (i / 12) * Math.PI * 2;
       behind.appendChild(make("circle", { cx: f(18 + Math.cos(a) * 12.6), cy: f(18 + Math.sin(a) * 12.6), r: 4.4, fill: creature.mane }));
@@ -778,23 +922,69 @@ function nameMark(seed, size = 20) {
     return el;
   };
   const wingLine = { stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" };
-  if (limbs && limbs.startsWith("wings")) {
+  if (limbs && limbs.startsWith("wings") && wingKind) {
+    //: Seven kinds, each built from the joint at the head's upper side:
+    //: feathers fanned out (angel, bird), a ribbed membrane with a claw
+    //: (dragon, bat), and paired lobes (fairy, bee, butterfly). The seed
+    //: sets the size, so two angels are not the same angel.
+    const J = [10.2, 19.6];
+    const at = (deg, len) => [J[0] + Math.cos((deg * Math.PI) / 180) * len, J[1] + Math.sin((deg * Math.PI) / 180) * len];
+    const xy = ([x, y]) => `${f(x)} ${f(y)}`;
+    const pick = (list) => palette[list.find((i) => palette[i] !== head && palette[i] !== ground) ?? list[0]];
+    const wingColour = pick([4, 0, 6, 2, 1, 3]);
+    const wingColourB = pick([5, 1, 7, 9, 3]);
+    const scale = 0.95 + wingRoll * 0.3;
+    const buildWing = () => {
+      const w = make("g", {});
+      const lobe = (deg, dist, rx, ry, fill, extra = {}) => {
+        const [x, y] = at(deg, dist);
+        return make("ellipse", { cx: f(x), cy: f(y), rx, ry, transform: `rotate(${deg} ${f(x)} ${f(y)})`, fill, ...wingLine, ...extra });
+      };
+      if (wingKind === "angel" || wingKind === "bird") {
+        const colour = wingKind === "angel" ? "#f5f4ef" : wingColour;
+        for (const [deg, len] of [[250, 12.5], [228, 13.6], [206, 13.2], [184, 11.6], [163, 9]]) {
+          w.appendChild(lobe(deg, len / 2 + 0.6, f(len / 2), 1.8, colour));
+        }
+        w.appendChild(lobe(214, 3.2, 4.4, 3.2, colour));
+      } else if (wingKind === "dragon" || wingKind === "bat") {
+        const colour = wingKind === "bat" ? "#3b3440" : wingColour;
+        const tips = [[238, 15.4], [211, 13.8], [186, 12.2], [162, 9.6]].map(([deg, len]) => at(deg, len));
+        let d = `M${xy(J)}L${xy(tips[0])}`;
+        for (let i = 1; i < tips.length; i += 1) {
+          const mid = [(tips[i - 1][0] + tips[i][0]) / 2, (tips[i - 1][1] + tips[i][1]) / 2];
+          d += `Q${xy([mid[0] + (J[0] - mid[0]) * 0.38, mid[1] + (J[1] - mid[1]) * 0.38])} ${xy(tips[i])}`;
+        }
+        w.appendChild(make("path", { d: `${d}z`, fill: colour, ...wingLine }));
+        for (const tip of tips) w.appendChild(stroke(`M${xy(J)}L${xy(tip)}`, 0.55, "#1c1c1a"));
+        const [cx0, cy0] = tips[0];
+        w.appendChild(make("path", { d: `M${f(cx0)} ${f(cy0)}l-1.3-.9.3 1.5z`, fill: "#e8dcc0", ...wingLine, "stroke-width": 0.35 }));
+      } else if (wingKind === "fairy") {
+        w.appendChild(lobe(228, 6.4, 6.4, 3.6, "#f3c6ff", { "fill-opacity": 0.85, stroke: "#8a6fb0", "stroke-width": 0.45 }));
+        w.appendChild(lobe(168, 4.8, 4.4, 2.6, "#c6f0ff", { "fill-opacity": 0.85, stroke: "#8a6fb0", "stroke-width": 0.45 }));
+        for (const [deg, dist, r] of [[232, 8.4, 0.55], [220, 5.2, 0.4], [170, 6.6, 0.45]]) {
+          const [x, y] = at(deg, dist);
+          w.appendChild(make("circle", { cx: f(x), cy: f(y), r, fill: "#ffffff" }));
+        }
+      } else if (wingKind === "bee") {
+        w.appendChild(lobe(236, 5, 5, 2.6, "#eaf6ff", { "fill-opacity": 0.85, "stroke-width": 0.45 }));
+        w.appendChild(lobe(198, 3.9, 3.6, 2, "#eaf6ff", { "fill-opacity": 0.85, "stroke-width": 0.45 }));
+        w.appendChild(stroke(`M${xy(J)}L${xy(at(236, 8.6))}M${xy(at(236, 4))}L${xy(at(248, 7.4))}`, 0.3, "#1c1c1a"));
+      } else {
+        w.appendChild(lobe(222, 6.6, 6.8, 5.2, wingColour, { "stroke-width": 0.8 }));
+        w.appendChild(lobe(158, 4.8, 4.6, 3.6, wingColourB, { "stroke-width": 0.8 }));
+        for (const [deg, dist, r, fill] of [[222, 8.6, 1.5, "#ffffff"], [214, 5, 0.9, "#1c1c1a"], [158, 5.8, 1, "#ffffff"], [236, 11, 0.55, "#1c1c1a"]]) {
+          const [x, y] = at(deg, dist);
+          w.appendChild(make("circle", { cx: f(x), cy: f(y), r, fill }));
+        }
+      }
+      return w;
+    };
     for (const side of [-1, 1]) {
       const beat = make("g", { class: `nm-wing nm-wing-${side < 0 ? "l" : "r"}` });
-      //: Drawn small in the corner, then set lower and a third larger about
-      //: the joint, so the wing stands clear of the head at its side.
-      const jx = side < 0 ? 10 : 26;
-      const wing = make("g", { transform: `translate(${jx} 21) scale(1.3) translate(${-jx} -16)` });
-      beat.appendChild(wing);
-      if (limbs === "wings-feather") {
-        wing.appendChild(mirror(make("path", { d: "M10 16C4.6 14.2 1.6 9.8 2 3.8c1.4 2 2.7 2.6 3.8 2.4-.1 1.9.9 3 2.2 3.3-.2 1.7.6 2.9 1.9 3.4z", fill: "#f5f4ef", ...wingLine }), side));
-        wing.appendChild(mirror(stroke("M4.4 7.4c1 2.4 2.6 4.2 4.8 5.4", 0.4, "#1c1c1a"), side));
-      } else if (limbs === "wings-bat") {
-        wing.appendChild(mirror(make("path", { d: "M10.4 16L1.4 4.6q1.9 2.9 4.1 2.3.1 2.8 2.3 3.1.2 2.4 2.4 2.8z", fill: "#3b3440", ...wingLine }), side));
-      } else {
-        wing.appendChild(mirror(make("ellipse", { cx: 5.8, cy: 8.6, rx: 4.2, ry: 2.6, transform: "rotate(-38 5.8 8.6)", fill: "#d6ecff", "fill-opacity": 0.8, ...wingLine, "stroke-width": 0.4 }), side));
-        wing.appendChild(mirror(make("ellipse", { cx: 6, cy: 13.8, rx: 2.8, ry: 1.7, transform: "rotate(22 6 13.8)", fill: "#d6ecff", "fill-opacity": 0.8, ...wingLine, "stroke-width": 0.4 }), side));
-      }
+      const placed = buildWing();
+      const grow = `translate(${J[0]} ${J[1]}) scale(${f(scale)}) translate(${-J[0]} ${-J[1]})`;
+      placed.setAttribute("transform", side < 0 ? grow : `translate(36 0) scale(-1 1) ${grow}`);
+      beat.appendChild(placed);
       behind.appendChild(beat);
     }
   }
@@ -812,6 +1002,81 @@ function nameMark(seed, size = 20) {
       t.appendChild(stroke(d, 3.2, "#1c1c1a"));
       t.appendChild(stroke(d, 2.2, head));
       behind.appendChild(t);
+    }
+  }
+  if (creature?.wool) {
+    for (let i = 0; i < 14; i += 1) {
+      const a = (i / 14) * Math.PI * 2;
+      behind.appendChild(make("circle", { cx: f(18 + Math.cos(a) * 11.6), cy: f(18 + Math.sin(a) * 11.6), r: 4, fill: creature.wool, ...wingLine, "stroke-width": 0.35 }));
+    }
+  }
+  if (creature?.quills) {
+    for (let i = 0; i < 16; i += 1) {
+      const a = Math.PI + (i / 15) * Math.PI;
+      const base = (r, da) => `${f(18 + Math.cos(a + da) * r)} ${f(18 + Math.sin(a + da) * r)}`;
+      behind.appendChild(make("path", { d: `M${base(9, -0.2)}L${base(16, 0)}L${base(9, 0.2)}z`, fill: creature.quills, ...wingLine, "stroke-width": 0.35 }));
+    }
+  }
+  if (creature?.spikes) {
+    for (const [x, tall] of [[11.5, 3.6], [15.6, 4.6], [20, 4.6], [24.2, 3.6]]) {
+      behind.appendChild(make("path", { d: `M${f(x - 1.9)} 9.4L${f(x)} ${f(9.4 - tall - 2)}L${f(x + 1.9)} 9.4z`, fill: creature.spikes, ...wingLine }));
+    }
+  }
+  if (creature?.fin) {
+    behind.appendChild(make("path", { d: "M14.6 8.6Q17.4 1.4 22.6 .8Q20.2 4.6 21.4 8.6z", fill: creature.head, ...wingLine }));
+  }
+  if (creature?.antlers) {
+    for (const side of [-1, 1]) {
+      const x = (n) => f(18 + side * n);
+      behind.appendChild(stroke(`M${x(4.6)} 8.6L${x(7.4)} 1.6M${x(6.4)} 4.4L${x(9.8)} 3.2M${x(7)} 2.8L${x(5.4)} .6`, 1.3, creature.antlers));
+    }
+  }
+  if (creature?.gills) {
+    for (const side of [-1, 1]) {
+      for (const [dy, len] of [[-3.6, 5.4], [0, 6.2], [3.6, 5.4]]) {
+        const x0 = 18 + side * 9.6;
+        const y0 = 14 + dy;
+        behind.appendChild(stroke(`M${f(x0)} ${f(y0)}l${f(side * len)} ${f(dy * 0.5 - 1.2)}`, 2.2, creature.gills));
+      }
+    }
+  }
+  if (creature?.mane === "rainbow") {
+    const rainbow = ["#e15759", "#f28e2c", "#edc949", "#59a14f", "#4e79a7", "#af7aa1"];
+    for (let i = 0; i < 12; i += 1) {
+      const a = (i / 12) * Math.PI * 2;
+      behind.appendChild(make("circle", { cx: f(18 + Math.cos(a) * 12.4), cy: f(18 + Math.sin(a) * 12.4), r: 4, fill: rainbow[i % rainbow.length] }));
+    }
+  }
+  if (creature?.antennae) {
+    for (const side of [-1, 1]) {
+      behind.appendChild(stroke(`M${f(18 + side * 2.4)} 8.4Q${f(18 + side * 3)} 3.6 ${f(18 + side * 5.6)} 2.6`, 0.9, "#1c1c1a"));
+      behind.appendChild(make("circle", { cx: f(18 + side * 5.8), cy: 2.5, r: 1.2, fill: "#1c1c1a" }));
+    }
+  }
+  const hairColours = ["#2b2a28", "#5a3a22", "#8a5a2b", "#d9a066", "#edc949", "#c0392b", "#af7aa1", "#ff9da7", "#4e79a7", "#e8e4dc"];
+  let hairColour = hairColours[reading.style?.hairColour || 0];
+  if (hairColour.toLowerCase() === head.toLowerCase()) hairColour = hairColours[((reading.style?.hairColour || 0) + 3) % hairColours.length];
+  const hr = 18 * grow;
+  const hairLine = { stroke: "#1c1c1a", "stroke-width": 0.45, "stroke-linejoin": "round" };
+  const P = (x, y) => `${f(18 + x * hr)} ${f(18 + y * hr)}`;
+  if (hair === "long" || hair === "bob") {
+    const drop = hair === "long" ? 1.45 : 0.62;
+    behind.appendChild(make("path", {
+      d: `M${P(-1.1, -0.15)}Q${P(-1.28, drop - 0.3)} ${P(-0.8, drop)}H${P(0.8, drop).split(" ")[0]}Q${P(1.28, drop - 0.3)} ${P(1.1, -0.15)}A${f(hr * 1.1)} ${f(hr * 1.1)} 0 0 0 ${P(-1.1, -0.15)}z`,
+      fill: hairColour, ...hairLine,
+    }));
+  } else if (hair === "pigtails") {
+    for (const side of [-1, 1]) {
+      behind.appendChild(make("ellipse", { cx: f(18 + side * hr * 1.08), cy: f(18 + hr * 0.3), rx: f(hr * 0.3), ry: f(hr * 0.58), transform: `rotate(${side * -18} ${f(18 + side * hr * 1.08)} ${f(18 + hr * 0.3)})`, fill: hairColour, ...hairLine }));
+    }
+  } else if (hair === "buns") {
+    for (const side of [-1, 1]) behind.appendChild(make("circle", { cx: f(18 + side * hr * 0.66), cy: f(18 - hr * 0.86), r: f(hr * 0.34), fill: hairColour, ...hairLine }));
+  } else if (hair === "ponytail") {
+    behind.appendChild(make("path", { d: `M${P(0.5, -0.8)}Q${P(1.5, -0.7)} ${P(1.25, 0.6)}Q${P(1.05, 0.1)} ${P(0.8, -0.2)}z`, fill: hairColour, ...hairLine }));
+  } else if (hair === "curly") {
+    for (let i = 0; i < 9; i += 1) {
+      const a = Math.PI * (1.02 + (i / 8) * 0.96);
+      behind.appendChild(make("circle", { cx: f(18 + Math.cos(a) * hr * 0.98), cy: f(18 + Math.sin(a) * hr * 0.98), r: f(hr * 0.27), fill: hairColour, ...hairLine }));
     }
   }
   if (creature?.tuft) {
@@ -864,9 +1129,72 @@ function nameMark(seed, size = 20) {
   const R = 22.3 + eyeSpread;
   const eyes = make("g", { class: "nm-eyes", fill: ink });
 
+  if (hair) {
+    const fringe = {
+      long: [-0.3, "swoop"], bob: [-0.28, "straight"], pigtails: [-0.34, "swoop"], buns: [-0.4, "swoop"],
+      ponytail: [-0.38, "swoop"], curly: [-0.36, "curls"], short: [-0.48, "swoop"], spiky: [-0.46, "spikes"],
+      quiff: [-0.44, "quiff"], buzz: [-0.56, "straight"],
+    }[hair] || [-0.4, "swoop"];
+    const [line, kind] = fringe;
+    let d = `M${P(-0.99, line + 0.2)}A${f(hr)} ${f(hr)} 0 0 1 ${P(0.99, line + 0.2)}`;
+    if (kind === "straight") d += `L${P(0.7, line)}H${P(-0.7, line).split(" ")[0]}z`;
+    else if (kind === "curls") d += `Q${P(0.6, line - 0.1)} ${P(0.35, line + 0.08)}Q${P(0, line - 0.18)} ${P(-0.35, line + 0.08)}Q${P(-0.6, line - 0.1)} ${P(-0.99, line + 0.2)}z`;
+    else d += `Q${P(0.45, line - 0.3)} ${P(0, line)}Q${P(-0.5, line - 0.34)} ${P(-0.99, line + 0.2)}z`;
+    onFace.appendChild(make("path", { d, fill: hairColour, "fill-opacity": hair === "buzz" ? 0.7 : 1, ...hairLine }));
+    if (kind === "spikes") {
+      for (const x of [-0.6, -0.3, 0, 0.3, 0.6]) {
+        onFace.appendChild(make("path", { d: `M${P(x - 0.14, -0.86 + Math.abs(x) * 0.3)}L${P(x + 0.04, -1.2 + Math.abs(x) * 0.36)}L${P(x + 0.16, -0.86 + Math.abs(x) * 0.3)}z`, fill: hairColour, ...hairLine }));
+      }
+    }
+    if (kind === "quiff") {
+      onFace.appendChild(make("path", { d: `M${P(-0.6, -0.72)}Q${P(-0.2, -1.32)} ${P(0.62, -1.06)}Q${P(0.2, -0.86)} ${P(0.3, -0.62)}z`, fill: hairColour, ...hairLine }));
+    }
+    if (hair === "pigtails") {
+      for (const side of [-1, 1]) onFace.appendChild(make("circle", { cx: f(18 + side * hr * 0.98), cy: f(18 - hr * 0.1), r: 0.9, fill: "#ff5fa2", ...hairLine }));
+    }
+  }
+  const worn = reading.style?.accessories || [];
+  const beardColour = hair ? hairColour : "#5a3a22";
+  if (!creature && (worn.includes("beard") || reading.props.includes("beard"))) {
+    onFace.appendChild(make("path", { d: `M${P(-0.84, 0.08)}Q${P(-0.78, 1)} ${P(0, 1.02)}Q${P(0.78, 1)} ${P(0.84, 0.08)}Q${P(0.5, 0.52)} ${P(0, 0.46)}Q${P(-0.5, 0.52)} ${P(-0.84, 0.08)}z`, fill: beardColour, ...hairLine }));
+  }
+  if (!creature && worn.includes("stubble")) {
+    for (let i = 0; i < 14; i += 1) {
+      const a = Math.PI * (0.15 + (i / 13) * 0.7);
+      onFace.appendChild(make("circle", { cx: f(18 + Math.cos(a) * hr * 0.66), cy: f(18 + Math.sin(a) * hr * 0.66), r: 0.28, fill: ink, "fill-opacity": 0.35 }));
+    }
+  }
   if (creature?.mask) onFace.appendChild(make("ellipse", { cx: 18, cy: 18.6, rx: 8.6, ry: 8.2, fill: creature.mask }));
   if (creature?.muzzle && creature.ears !== "side") onFace.appendChild(make("ellipse", { cx: 18, cy: 21, rx: 5.2, ry: 3.8, fill: creature.muzzle }));
   if (creature?.ears === "side") onFace.appendChild(make("ellipse", { cx: 18, cy: 19.6, rx: 7.6, ry: 6.4, fill: creature.muzzle }));
+  if (creature?.spots) {
+    for (const [cx, cy, rx, ry] of [[11.6, 10.8, 2.6, 2], [25, 23.6, 2.2, 1.7], [24.6, 9.4, 1.4, 1.1]]) {
+      onFace.appendChild(make("ellipse", { cx, cy, rx, ry, fill: creature.spots, transform: `rotate(24 ${cx} ${cy})` }));
+    }
+  }
+  if (creature?.cheeks) {
+    for (const x of [L - 1.8, R + 1.8]) onFace.appendChild(make("ellipse", { cx: f(x), cy: f(eyeY + 4.4), rx: 3.2, ry: 2.6, fill: creature.cheeks }));
+  }
+  if (creature?.beeStripes) {
+    onFace.appendChild(make("path", { d: "M6 9.2Q18 5.4 30 9.2V11Q18 7.6 6 11z", fill: "#2b2a28" }));
+    onFace.appendChild(make("path", { d: "M5 27Q18 30.6 31 27V29Q18 32.6 5 29z", fill: "#2b2a28" }));
+  }
+  if (creature?.scales) {
+    for (const [cx, cy] of [[12, 9.4], [15.6, 8], [20.4, 8], [24, 9.4]]) onFace.appendChild(make("circle", { cx, cy, r: 0.9, fill: ink, "fill-opacity": 0.18 }));
+  }
+  if (creature?.smallHorns) {
+    for (const side of [-1, 1]) {
+      const x = (n) => f(18 + side * n);
+      onFace.appendChild(make("path", { d: `M${x(5.6)} 9.4Q${x(7.4)} 5.8 ${x(6.4)} 3.8Q${x(4.6)} 6.6 ${x(3.6)} 8.4z`, fill: creature.smallHorns, ...{ stroke: "#1c1c1a", "stroke-width": 0.45 } }));
+    }
+  }
+  if (creature?.unihorn) {
+    onFace.appendChild(make("path", { d: "M16.4 8.6L18.4-1.4L20.2 8.6z", fill: "#ffd84a", stroke: "#1c1c1a", "stroke-width": 0.45, "stroke-linejoin": "round" }));
+    onFace.appendChild(stroke("M16.9 6.6l3-1M17.4 4.2l2.4-.8M17.9 1.8l1.6-.5", 0.45, "#b08a1a"));
+  }
+  if (creature?.bandit) {
+    onFace.appendChild(make("path", { d: `M${f(L - 3.6)} ${f(eyeY - 1)}Q18 ${f(eyeY - 3.8)} ${f(R + 3.6)} ${f(eyeY - 1)}Q${f(R + 3)} ${f(eyeY + 3.4)} 18 ${f(eyeY + 1.4)}Q${f(L - 3)} ${f(eyeY + 3.4)} ${f(L - 3.6)} ${f(eyeY - 1)}z`, fill: creature.bandit }));
+  }
   if (creature?.stripes) {
     for (const d of ["M18 6.4v3.4", "M13.6 7.4l1.3 2.6", "M22.4 7.4l-1.3 2.6", "M8.6 16h2.6", "M27.4 16h-2.6"]) onFace.appendChild(stroke(d, 1.3, "#2b2a28"));
   }
@@ -891,14 +1219,17 @@ function nameMark(seed, size = 20) {
   }
   //: The eye ink over a panda's patches, an owl's rings or a ninja's mask
   //: is the other ink.
-  const eyeInk = creature?.patches || reading.props.includes("ninjamask") ? "#ffffff" : creature?.rings ? "#1c1c1a" : ink;
+  const eyeInk = creature?.patches || creature?.bandit || reading.props.includes("ninjamask") ? "#ffffff" : creature?.rings ? "#1c1c1a" : ink;
   const glint = creature?.patches ? "#1c1c1a" : paper;
   eyes.setAttribute("fill", eyeInk);
   let eyeStyle = face?.eyes || "dot";
   if (creature?.eyes === "alien") eyeStyle = "alien";
   if (reading.props.includes("antenna") && !face && !creature) eyeStyle = "square";
+  //: A plain eye takes the name's own style: oval, big and glossy, a small
+  //: button, starry, or sparkling.
+  if (eyeStyle === "dot" && reading.style?.eyes && reading.style.eyes !== "dot") eyeStyle = reading.style.eyes;
   if (mutant?.googly && !["shades", "heart", "happy", "closed", "content", "squeeze", "spiral"].includes(eyeStyle)) eyeStyle = "googly";
-  const blinkers = ["dot", "glossy", "sparkle", "wide", "narrow", "mismatch", "alien", "square", "googly", "halflid", "evil"];
+  const blinkers = ["dot", "glossy", "sparkle", "wide", "narrow", "mismatch", "alien", "square", "googly", "halflid", "evil", "oval", "anime", "button", "starry"];
   if (blinkers.includes(eyeStyle)) eyes.classList.add("nm-blinks");
   //: A wink closes the right eye and makes sure the left one is open, or a
   //: face whose eyes were already shut would wink with nothing.
@@ -953,6 +1284,18 @@ function nameMark(seed, size = 20) {
       const pupil = make("circle", { cx: f(x + Math.cos(angle) * 1.2), cy: f(y + Math.sin(angle) * 1.2), r: 1.15, fill: "#1c1c1a", class: "nm-pupil" });
       pupil.style.transformOrigin = `${f(x)}px ${f(y)}px`;
       eyes.appendChild(pupil);
+    } else if (eyeStyle === "oval") {
+      eyes.appendChild(make("ellipse", { cx: f(x), cy: f(y), rx: 1.15, ry: 1.9 }));
+    } else if (eyeStyle === "button") {
+      eyes.appendChild(make("circle", { cx: f(x), cy: f(y + 0.2), r: 1.05 }));
+    } else if (eyeStyle === "anime") {
+      eyes.appendChild(make("ellipse", { cx: f(x), cy: f(y), rx: 1.9, ry: 2.5 }));
+      eyes.appendChild(make("ellipse", { cx: f(x + 0.6), cy: f(y - 0.9), rx: 0.8, ry: 0.95, fill: glint }));
+      eyes.appendChild(make("circle", { cx: f(x - 0.7), cy: f(y + 1.1), r: 0.4, fill: glint }));
+    } else if (eyeStyle === "starry") {
+      eyes.appendChild(make("circle", { cx: f(x), cy: f(y), r: 2 }));
+      const s4 = 1.1;
+      eyes.appendChild(make("path", { d: `M${f(x + 0.5)} ${f(y - 0.5 - s4)}Q${f(x + 0.5)} ${f(y - 0.5)} ${f(x + 0.5 + s4)} ${f(y - 0.5)}Q${f(x + 0.5)} ${f(y - 0.5)} ${f(x + 0.5)} ${f(y - 0.5 + s4)}Q${f(x + 0.5)} ${f(y - 0.5)} ${f(x + 0.5 - s4)} ${f(y - 0.5)}Q${f(x + 0.5)} ${f(y - 0.5)} ${f(x + 0.5)} ${f(y - 0.5 - s4)}z`, fill: glint }));
     } else if (eyeStyle === "dollar") {
       const dollar = make("text", { x: f(x), y: f(y + 2.3), "text-anchor": "middle", "font-size": 6.4, "font-weight": 800, fill: "#2f9e44", stroke: "#1c1c1a", "stroke-width": 0.35, "font-family": "system-ui, sans-serif" });
       dollar.textContent = "$";
@@ -987,7 +1330,7 @@ function nameMark(seed, size = 20) {
   //: Where the eyes go: two, or a mutant's one or three, or up on stalks.
   const eyeCount = mutant?.eyes || 2;
   const eyeAt = eyeCount === 1 ? [[18, 0, eyeY]] : eyeCount === 3 ? [[L - 0.6, -1, eyeY + 0.6], [18, 0, eyeY - 2.4], [R + 0.6, 1, eyeY + 0.6]] : [[L, -1, eyeY], [R, 1, eyeY]];
-  if (mutant?.stalks) {
+  if (mutant?.stalks || creature?.stalks) {
     for (const spot of eyeAt) {
       onFace.appendChild(stroke(`M${f(spot[0])} ${f(spot[2] - 1)}L${f(spot[0] + spot[1] * 0.8)} ${f(spot[2] - 6.4)}`, 1.1, ink));
       spot[0] += spot[1] * 0.8;
@@ -1001,7 +1344,8 @@ function nameMark(seed, size = 20) {
       onFace.appendChild(make("circle", { cx, cy, r: 1 + (i % 2) * 0.5, fill: ink, "fill-opacity": 0.22 }));
     }
   }
-  if (eyeStyle !== "shades") {
+  const eyesCovered = ["starglasses", "heartglasses", "visor"].some((prop) => reading.props.includes(prop));
+  if (eyeStyle !== "shades" && !eyesCovered) {
     for (const [x, side, y] of eyeAt) {
       //: A cyclops's one eye is the face's whole expression: half as big again.
       if (eyeCount === 1) {
@@ -1059,7 +1403,7 @@ function nameMark(seed, size = 20) {
     }
   }
   if (features.includes("mole")) onFace.appendChild(make("circle", { cx: f(R + 0.6), cy: f(eyeY + 6.4), r: 0.45, fill: ink, "fill-opacity": 0.8 }));
-  if (features.includes("lashes") && ["dot", "glossy", "sparkle"].includes(eyeStyle)) {
+  if (features.includes("lashes") && ["dot", "glossy", "sparkle", "oval", "anime", "button", "starry", "heart", "wide"].includes(eyeStyle)) {
     for (const [x, dir] of [[L, -1], [R, 1]]) onFace.appendChild(stroke(`M${f(x + dir * 1.2)} ${f(eyeY - 1.3)}l${f(dir * 0.9)}-.8M${f(x + dir * 0.4)} ${f(eyeY - 1.7)}l${f(dir * 0.4)}-.9`, 0.55, eyeInk));
   }
   if (features.includes("blush") && !extrasList.includes("blush") && !extrasList.includes("greenblush")) {
@@ -1083,6 +1427,7 @@ function nameMark(seed, size = 20) {
   if (reading.mood === "happy" && !loud) mouthStyle = ownSmile;
   if (mouthStyle === "cat3") mouthStyle = "cat";
   if (creature?.mouth === "cat" && (!face || ["smile", "grin"].includes(mouthStyle))) mouthStyle = "cat";
+  if (creature?.mouth === "evil" && (!face || ["smile", "grin", "smirk"].includes(mouthStyle))) mouthStyle = "evil";
   if (creature?.beak || creature?.rings) mouthStyle = face && ["gasp", "o", "tongue"].includes(face.mouth) ? face.mouth : null;
   if (reading.props.includes("antenna") && !face && !creature) mouthStyle = "grille";
   if (flavours.includes("scream") && mouthStyle !== "o") mouthStyle = "gasp";
@@ -1159,6 +1504,18 @@ function nameMark(seed, size = 20) {
   if (creature?.beak) {
     onFace.appendChild(make("path", { d: `M16.2 ${f(eyeY + 3)}h3.6l-1.8 2.9z`, fill: creature.beak, stroke: "#1c1c1a", "stroke-width": 0.4, "stroke-linejoin": "round" }));
   }
+  if (creature?.bill) {
+    onFace.appendChild(make("ellipse", { cx: 18, cy: f(eyeY + 4.6), rx: 4.4, ry: 2, fill: creature.bill, stroke: "#1c1c1a", "stroke-width": 0.5 }));
+    onFace.appendChild(stroke(`M14.2 ${f(eyeY + 4.6)}H21.8`, 0.45, "#1c1c1a"));
+    mouthStyle = null;
+    mouth.replaceChildren();
+  }
+  if (creature?.nostrils) {
+    for (const x of [16.6, 19.4]) onFace.appendChild(make("ellipse", { cx: x, cy: f(eyeY + 3.4), rx: 0.5, ry: 0.35, fill: ink, "fill-opacity": 0.7 }));
+  }
+  if (creature?.tongue) {
+    onFace.appendChild(stroke(`M18 ${f(my + 1)}v2.4l-1 1.2M18 ${f(my + 3.4)}l1 1.2`, 0.7, "#e8364f"));
+  }
   if (mouth.childNodes.length) onFace.appendChild(mouth);
   if ((mutant?.fangs || reading.props.includes("fangs")) && mouthStyle) {
     for (const x of [16.2, 19.8]) {
@@ -1167,8 +1524,81 @@ function nameMark(seed, size = 20) {
   }
 
   // costumes that sit on the face
+  if (!creature && worn.includes("lipstick")) {
+    for (const el of mouth.querySelectorAll("path, ellipse, rect")) {
+      if (el.getAttribute("stroke") === ink) el.setAttribute("stroke", "#d6336c");
+      if (el.getAttribute("fill") === ink) el.setAttribute("fill", "#b8235a");
+    }
+  }
+  if (!creature && worn.includes("earrings")) {
+    for (const side of [-1, 1]) {
+      onFace.appendChild(make("circle", { cx: f(18 + side * hr * 0.97), cy: f(18 + hr * 0.32), r: 0.9, fill: "#edc949", stroke: "#1c1c1a", "stroke-width": 0.35 }));
+      onFace.appendChild(make("circle", { cx: f(18 + side * hr * 0.97), cy: f(18 + hr * 0.32 + 1.8), r: 0.6, fill: "#ff5fa2", stroke: "#1c1c1a", "stroke-width": 0.3, class: "nm-earring" }));
+    }
+  }
+  const flowerAt = (cx, cy, petal, centre = "#edc949") => {
+    const g = make("g", {});
+    for (let i = 0; i < 5; i += 1) {
+      const a = (i / 5) * Math.PI * 2;
+      g.appendChild(make("circle", { cx: f(cx + Math.cos(a) * 1.15), cy: f(cy + Math.sin(a) * 1.15), r: 1, fill: petal, stroke: "#1c1c1a", "stroke-width": 0.3 }));
+    }
+    g.appendChild(make("circle", { cx: f(cx), cy: f(cy), r: 0.7, fill: centre }));
+    return g;
+  };
+  if (!creature && worn.includes("flowerclip")) onFace.appendChild(flowerAt(18 + hr * 0.62, 18 - hr * 0.62, "#ff9da7"));
+  if (!creature && (worn.includes("bow") || reading.props.includes("bow"))) {
+    const bx = 18 - hr * 0.56;
+    const by = 18 - hr * 0.84;
+    const bow = make("g", { class: "nm-bow", fill: "#ff5fa2", stroke: "#1c1c1a", "stroke-width": 0.4, "stroke-linejoin": "round" });
+    bow.appendChild(make("path", { d: `M${f(bx)} ${f(by)}l-3.2-2v4z` }));
+    bow.appendChild(make("path", { d: `M${f(bx)} ${f(by)}l3.2-2v4z` }));
+    bow.appendChild(make("circle", { cx: f(bx), cy: f(by), r: 0.9 }));
+    onFace.appendChild(bow);
+  }
+  if (!creature && worn.includes("moustache") && !reading.props.includes("moustache")) {
+    onFace.appendChild(fillPath(`M18 ${f(my - 1.6)}c-1.3-1.5-4.1-1.4-5.5 1 2.1-.2 3.9 0 5.5-1zM18 ${f(my - 1.6)}c1.3-1.5 4.1-1.4 5.5 1-2.1-.2-3.9 0-5.5-1z`, beardColour));
+  }
   if (reading.props.includes("moustache")) {
     onFace.appendChild(fillPath(`M18 ${f(my - 1.6)}c-1.3-1.5-4.1-1.4-5.5 1 2.1-.2 3.9 0 5.5-1zM18 ${f(my - 1.6)}c1.3-1.5 4.1-1.4 5.5 1-2.1-.2-3.9 0-5.5-1z`, "#2b2a28"));
+  }
+  const wear = (prop) => reading.props.includes(prop);
+  const frame = { stroke: "#1c1c1a", "stroke-width": 1, "stroke-linejoin": "round" };
+  if (wear("squareglasses") && eyeStyle !== "shades") {
+    for (const x of [L, R]) onFace.appendChild(make("rect", { x: f(x - 2.9), y: f(eyeY - 2.3), width: 5.8, height: 4.4, rx: 0.8, fill: "#ffffff", "fill-opacity": 0.16, ...frame }));
+    onFace.appendChild(stroke(`M${f(L + 2.9)} ${f(eyeY - 0.6)}H${f(R - 2.9)}`, 1, "#1c1c1a"));
+  }
+  if (wear("monocle")) {
+    onFace.appendChild(make("circle", { cx: f(R), cy: f(eyeY), r: 3.2, fill: "#ffffff", "fill-opacity": 0.2, stroke: "#c9a227", "stroke-width": 1.1 }));
+    onFace.appendChild(stroke(`M${f(R + 2.4)} ${f(eyeY + 2.2)}q2.2 4-.4 8`, 0.5, "#c9a227"));
+  }
+  if (wear("goggles")) {
+    onFace.appendChild(stroke(`M4 ${f(eyeY - 0.4)}H32`, 2, "#2b2a28"));
+    for (const x of [L, R]) onFace.appendChild(make("circle", { cx: f(x), cy: f(eyeY), r: 3.5, fill: "#bfe3ff", "fill-opacity": 0.45, stroke: "#8a5a2b", "stroke-width": 1.5 }));
+  }
+  if (wear("threed")) {
+    onFace.appendChild(make("rect", { x: f(L - 3.2), y: f(eyeY - 2.4), width: f(R - L + 6.4), height: 4.8, rx: 0.8, fill: "#f5f4ef", ...frame }));
+    onFace.appendChild(make("rect", { x: f(L - 2.4), y: f(eyeY - 1.7), width: 4.8, height: 3.4, rx: 0.5, fill: "#e15759", "fill-opacity": 0.85 }));
+    onFace.appendChild(make("rect", { x: f(R - 2.4), y: f(eyeY - 1.7), width: 4.8, height: 3.4, rx: 0.5, fill: "#4e79a7", "fill-opacity": 0.85 }));
+  }
+  if (wear("starglasses") || wear("heartglasses")) {
+    for (const x of [L, R]) {
+      if (wear("starglasses")) {
+        const p = [];
+        for (let i = 0; i < 10; i += 1) {
+          const r = i % 2 ? 1.6 : 3.6;
+          const a = -Math.PI / 2 + (i * Math.PI) / 5;
+          p.push(`${f(x + Math.cos(a) * r)} ${f(eyeY + 0.3 + Math.sin(a) * r)}`);
+        }
+        onFace.appendChild(make("path", { d: `M${p.join("L")}z`, fill: "#ff5fa2", ...frame, "stroke-width": 0.6 }));
+      } else {
+        onFace.appendChild(make("path", { d: `M${f(x)} ${f(eyeY + 3)}c-3.8-2.6-4.4-4.8-3.3-6.1 1-1.1 2.6-.9 3.3.4.7-1.3 2.3-1.5 3.3-.4 1.1 1.3.5 3.5-3.3 6.1z`, fill: "#e8364f", ...frame, "stroke-width": 0.6 }));
+      }
+    }
+    onFace.appendChild(stroke(`M${f(L + 3)} ${f(eyeY - 1)}H${f(R - 3)}`, 0.9, "#1c1c1a"));
+  }
+  if (wear("visor")) {
+    onFace.appendChild(make("path", { d: `M8.4 ${f(eyeY - 2.4)}H27.6a2.4 2.4 0 0 1 0 4.8H8.4a2.4 2.4 0 0 1 0-4.8z`, fill: "#1c2b3a", ...frame, "stroke-width": 0.6 }));
+    onFace.appendChild(stroke(`M10 ${f(eyeY)}H26`, 0.9, "#5ff0c0"));
   }
   if (reading.props.includes("glasses") && eyeStyle !== "shades") {
     for (const x of [L, R]) onFace.appendChild(make("circle", { cx: f(x), cy: f(eyeY), r: 3.1, fill: "#ffffff", "fill-opacity": 0.16, stroke: ink, "stroke-width": 0.9 }));
@@ -1215,6 +1645,45 @@ function nameMark(seed, size = 20) {
     cone.appendChild(stroke("M15.2 5.4l4.6 2M16.9 2.6l3 1.3", 1.1, "#ffd84a"));
     cone.appendChild(make("circle", { cx: 18.4, cy: 0.9, r: 1.6, fill: "#ffd84a", stroke: "#1c1c1a", "stroke-width": 0.4 }));
     onFace.appendChild(cone);
+  }
+  if (wear("tiara")) {
+    onFace.appendChild(make("path", { d: "M11.8 9.2L13.4 5.8 15.6 7.8 18 3.6 20.4 7.8 22.6 5.8 24.2 9.2z", fill: "#dfe3e8", stroke: "#1c1c1a", "stroke-width": 0.45, "stroke-linejoin": "round" }));
+    onFace.appendChild(make("circle", { cx: 18, cy: 6.4, r: 0.95, fill: "#ff5fa2", class: "nm-gem" }));
+  }
+  if (wear("tricorn")) {
+    onFace.appendChild(make("path", { d: "M4.4 9.8Q18-2.4 31.6 9.8Q18 5.4 4.4 9.8z", fill: "#2b2a28", stroke: "#edc949", "stroke-width": 0.7, "stroke-linejoin": "round" }));
+    onFace.appendChild(make("circle", { cx: 18, cy: 4.6, r: 1.2, fill: "#f5f4ef" }));
+    onFace.appendChild(stroke("M16.4 6.6l3.2-1.4M16.4 5.2l3.2 1.4", 0.5, "#f5f4ef"));
+  }
+  const capColour = palette[[2, 0, 4, 6].find((i) => palette[i] !== head && palette[i] !== ground)];
+  if (wear("cap")) {
+    onFace.appendChild(make("path", { d: "M8.4 10.2A9.6 8.6 0 0 1 27.6 10.2z", fill: capColour, stroke: "#1c1c1a", "stroke-width": 0.5 }));
+    onFace.appendChild(make("path", { d: "M20 10.2Q29.4 9 33.4 11.6Q26.4 12.8 20 11.4z", fill: capColour, stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" }));
+    onFace.appendChild(make("circle", { cx: 18, cy: 1.8, r: 0.8, fill: capColour, stroke: "#1c1c1a", "stroke-width": 0.4 }));
+  }
+  if (wear("beanie")) {
+    onFace.appendChild(make("path", { d: "M7.6 11.4A10.4 10 0 0 1 28.4 11.4z", fill: capColour, stroke: "#1c1c1a", "stroke-width": 0.5 }));
+    onFace.appendChild(make("rect", { x: 7, y: 9.2, width: 22, height: 2.8, rx: 1.4, fill: capColour, stroke: "#1c1c1a", "stroke-width": 0.5 }));
+    onFace.appendChild(make("circle", { cx: 18, cy: 1.6, r: 2.1, fill: "#f5f4ef", stroke: "#1c1c1a", "stroke-width": 0.45, class: "nm-pompom" }));
+  }
+  if (wear("flowercrown")) {
+    [[9.6, 9.4, "#ff9da7"], [12.6, 7.2, "#edc949"], [15.8, 6, "#af7aa1"], [19.4, 5.8, "#ff9da7"], [22.8, 6.6, "#edc949"], [25.8, 8.6, "#af7aa1"]]
+      .forEach(([x, y, c]) => onFace.appendChild(flowerAt(x, y, c, "#ffffff")));
+  }
+  if (wear("headband")) {
+    onFace.appendChild(make("rect", { x: 5, y: f(eyeY - 5.6), width: 26, height: 2.4, fill: "#e15759", stroke: "#1c1c1a", "stroke-width": 0.45 }));
+    const tails = make("g", { class: "nm-tails", fill: "#e15759", stroke: "#1c1c1a", "stroke-width": 0.45, "stroke-linejoin": "round" });
+    tails.appendChild(make("path", { d: `M30.4 ${f(eyeY - 4.4)}l4.4 1.8-.8 1.4z` }));
+    tails.appendChild(make("path", { d: `M30.4 ${f(eyeY - 4.4)}l3.6 3.6-1.3.8z` }));
+    onFace.appendChild(tails);
+  }
+  if (wear("bandana")) {
+    onFace.appendChild(make("path", { d: "M7.6 11.2A10.4 9.4 0 0 1 28.4 11.2z", fill: "#e15759", stroke: "#1c1c1a", "stroke-width": 0.5 }));
+    for (const [x, y] of [[12, 8.4], [16, 5.6], [20.4, 6.2], [24, 8.8]]) onFace.appendChild(make("circle", { cx: x, cy: y, r: 0.55, fill: "#ffffff" }));
+    const knot = make("g", { class: "nm-tails", fill: "#e15759", stroke: "#1c1c1a", "stroke-width": 0.45 });
+    knot.appendChild(make("path", { d: "M7.8 10.4l-4.2 1.2 1 1.4z" }));
+    knot.appendChild(make("path", { d: "M7.8 10.4l-3 3.4 1.4.6z" }));
+    onFace.appendChild(knot);
   }
   if (reading.props.includes("crown")) {
     onFace.appendChild(make("path", { d: "M11.6 9.6L11.1 3.6l3.7 3 3.2-4.4 3.2 4.4 3.7-3-.5 6z", fill: "#edc949", stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" }));
@@ -1310,6 +1779,16 @@ function nameMark(seed, size = 20) {
   if (extras.childNodes.length) onFace.appendChild(extras);
 
   body.appendChild(onFace);
+  watchNameMark(svg);
+
+  if (creature?.claws) {
+    //: A crab's claws are its hands: a pincer each side, low down.
+    for (const side of [-1, 1]) {
+      const claw = make("g", { class: "nm-claw", transform: side > 0 ? "translate(36 0) scale(-1 1)" : "" });
+      claw.appendChild(make("path", { d: "M8.6 27.4Q3.4 26.6 3.4 22.2Q3.8 19.4 6.4 19.6Q5 22 6.8 23.4Q7.6 21.2 9.8 21.6Q9.6 24.8 8.6 27.4z", fill: head, stroke: "#1c1c1a", "stroke-width": 0.5, "stroke-linejoin": "round" }));
+      body.appendChild(claw);
+    }
+  }
 
   // --- the hand, and what is in it ---
   if (reading.hand) {

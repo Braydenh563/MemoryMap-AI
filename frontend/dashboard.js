@@ -626,6 +626,9 @@ async function renderDashStats() {
   const now = new Date();
   const perDay = (stats && stats.per_day) || [];
   const streak = dashStreak(perDay);
+  //: Atlas celebrates a streak of three days or more, once a day at most
+  //: (atlas.js, `atlasStreak`).
+  if (stats && typeof atlasStreak === "function") atlasStreak(streak);
   const thisWeek = perDay.slice(-7).reduce((sum, n) => sum + n, 0);
   const open = (reminders || []).filter((r) => !r.done);
   const due = open.filter((r) => new Date(r.due_at) <= now).length;

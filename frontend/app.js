@@ -32967,7 +32967,19 @@ function flashRevealed(target) {
   //: group the reveal had just opened (measured on the phone's note sheet).
   const box = shown.getBoundingClientRect();
   const inView = box.top >= 0 && box.left >= 0 && box.bottom <= window.innerHeight && box.right <= window.innerWidth;
-  if (!inView) {
+  //: Inside an open menu only the menu's own list scrolls: a scroll of the
+  //: page closes every open menu (`closeActionMenusOnScroll`), which took the
+  //: document's Export group away the moment it was ringed on a phone.
+  const menu = shown.closest(".action-menu, .dock-menu-list, .doc-dock-menu-list, [role='menu'], .sheet-card");
+  if (!inView && menu) {
+    for (let box = shown.parentElement; box && menu.contains(box); box = box.parentElement) {
+      if (box.scrollHeight > box.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(box).overflowY)) {
+        const offset = shown.getBoundingClientRect().top - box.getBoundingClientRect().top;
+        box.scrollTop += offset - box.clientHeight / 2 + shown.offsetHeight / 2;
+        break;
+      }
+    }
+  } else if (!inView) {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     shown.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center", inline: "nearest" });
   }

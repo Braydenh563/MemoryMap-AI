@@ -80,8 +80,18 @@ const phone=WIDTH<600;
       // Everything open is closed: a static overlay is hidden, one built at
       // runtime (no id) removed, a <dialog> closed, a sheet dismissed, a
       // <details> menu shut.
-      for(const el of document.querySelectorAll('.modal-overlay, dialog[open], .lock-overlay.command-palette-overlay, [data-sheet]')){
-        if(el.id==='lock-overlay') continue;
+      // A sheet is closed with its own button, never removed: the phone's
+      // sheets borrow static elements (the reminder form, the chat's How it
+      // answers panel), and removing the sheet took them out of the page
+      // for every row after it (a first run's "Go to Reminders" threw on a
+      // missing form, and chatDockMoreOpen on a missing panel).
+      for(const sheet of document.querySelectorAll('[data-sheet]')){
+        const close=sheet.querySelector('.sheet-head button');
+        if(close) close.click();
+      }
+      await sleep(60);
+      for(const el of document.querySelectorAll('.modal-overlay, dialog[open], .lock-overlay.command-palette-overlay')){
+        if(el.id==='lock-overlay' || el.matches('[data-sheet]')) continue;
         if(el.close){ el.close(); continue; }
         if(el.id) el.classList.add('hidden'); else el.remove();
       }

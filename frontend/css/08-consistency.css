@@ -4706,7 +4706,7 @@ main,
    much" row wears the same tiles so the two questions read as one form. */
 .wb-export-overlay .seg.wb-export-seg {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
   gap: var(--space-2);
   padding: 0;
   background: none;
@@ -4716,11 +4716,21 @@ main,
 .wb-export-overlay .seg.wb-export-seg > button {
   justify-content: center;
   min-height: var(--target-min);
+  min-width: 0;
+  padding-inline: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: transparent;
   box-shadow: none;
   color: var(--ink);
+  /* One line per tile (the owner: "the image library text clashes with the
+     button card borders"): a wrapped label sat on the tile's edge. */
+  white-space: nowrap;
+}
+
+/* A row of three fills three columns rather than leaving a fourth empty. */
+.wb-export-overlay .seg.wb-export-seg:has(> button:nth-child(3):last-child) {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .wb-export-overlay .seg.wb-export-seg > button:not(.active):not(:disabled):hover {

@@ -390,6 +390,17 @@ below). Versioning is `0.x` while the app stabilises.
   touches packaging, the entry point or index.html, and weekly, and fetches
   every script and stylesheet the page references plus each lazy bundle,
   so a file missing from the bundle fails before release day.
+- The mind map layer (a map's nodes, edges, themes, tidy, the edit strip
+  and the radial menus) moved out of whiteboard.js into whiteboard-map.js.
+  Nothing it does changed; it still arrives with the Library, and
+  whiteboard.js is about a quarter smaller (212 KB gzipped, was 292 KB).
+- The document editor's code tools (checks, completions, Emmet, hover,
+  symbols, sticky scroll, go to definition, Run, format and quick fixes)
+  and its prose tools (grammar, suggestion mode, the accessibility check,
+  read aloud) moved out of documents.js into documents-code.js and
+  documents-prose.js. Nothing they do changed; they still arrive with the
+  Library, and documents.js is about a quarter smaller (242 KB gzipped,
+  was 314 KB).
 - The Timeline tab's code moved out of app.js into its own file,
   timeline.js, loaded at startup right after the dashboard's. Nothing it
   does changed; app.js is about 24 KB smaller to download (gzipped), which

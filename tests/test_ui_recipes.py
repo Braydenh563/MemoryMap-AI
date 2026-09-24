@@ -2079,7 +2079,9 @@ def test_every_right_click_menu_has_a_long_press_twin():
     per render. It is not counted here because the pattern above does not
     match it, which is the honest state of it rather than an oversight.
     """
-    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js"):
+    #: whiteboard-map.js since the mind map layer was split out of
+    #: whiteboard.js (2026-09-24); its node and edge menus came with it.
+    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js", "whiteboard-map.js"):
         text = (ROOT / "frontend" / name).read_text(encoding="utf-8")
         right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
         calls = len(re.findall(r"\bwireLongPress\(", text))
@@ -2522,7 +2524,12 @@ def test_code_diagnostics_are_drawn_in_the_apps_ink() -> None:
     fixed colours (#d11, a red SVG squiggle, white on #17c), right on a white
     page and wrong on the dark one; the underline is the prose findings'
     shape so an error in code and a misspelling in prose are one idea."""
-    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    #: documents.js (the theme) and documents-code.js (docCodeTools, split
+    #: out of documents.js on 2026-09-24), joined.
+    docs = "\n".join(
+        (ROOT / "frontend" / name).read_text(encoding="utf-8")
+        for name in ("documents.js", "documents-code.js")
+    )
     theme = docs.split("function docCmTheme(CM) {", 1)[1].split("\nfunction ", 1)[0]
     for selector in (
         '".cm-lintRange-error"',

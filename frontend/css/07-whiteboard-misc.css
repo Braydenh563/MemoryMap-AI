@@ -11551,6 +11551,13 @@ input[type="file"] {
   :is(.modal-card, .space-dialog, #sketch-overlay, #dash-widgets-dialog) button:not(.icon-only):not(.icon-button) {
     min-height: var(--target-min);
   }
+
+  /* Their square icon buttons too (the widget picker's move and remove stood
+     at 36px at 390): the floor on both sides, so the square stays square. */
+  :is(.modal-card, .space-dialog, #sketch-overlay, #dash-widgets-dialog) button:is(.icon-only, .icon-button) {
+    min-width: var(--target-min);
+    min-height: var(--target-min);
+  }
 }
 
 /* --- 2. the safe area ----------------------------------------------------

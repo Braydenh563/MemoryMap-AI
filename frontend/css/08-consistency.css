@@ -3377,6 +3377,17 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   margin-bottom: var(--space-4);
 }
 
+/* Under a finger a fold head is a tap target like any other: 44px, the touch
+   floor, which the '?' inside some of them already took (36px heads beside
+   46px ones at 390). Equal specificity to the pin above and later, so it
+   wins only inside the query. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  #settings-modal .settings-section details[data-fold-key] > summary,
+  #settings-modal .settings-section .settings-fold > summary {
+    min-height: var(--target-min);
+  }
+}
+
 /* The shortcut rows are ruled rows, so the divider is their separation: the
    6.4px margin 02-chat-graph.css gives every `.shortcut-list li` (written
    for the unruled overlay list) stacked on the rule and the row's own

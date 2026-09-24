@@ -5016,6 +5016,15 @@ select {
   min-width: 0;
 }
 
+/* A summary carrying a '?' lost its own padding to nothing: the 32px help
+   button plus the 6.4px padding above and below made those rows 47px in a
+   column of 36px ones (Appearance, Shortcuts, Extras, measured at 1440). The
+   button is already the row's height, so such a summary drops the block
+   padding and every fold head reads as the same row. */
+#settings-modal .settings-section .settings-fold > summary:has(> .help-head) {
+  padding-block: 0;
+}
+
 #settings-modal .settings-section .settings-fold > summary > .help-head > span {
   flex: 1 1 auto;
   min-width: 0;

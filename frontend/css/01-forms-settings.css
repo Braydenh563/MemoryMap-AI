@@ -3522,14 +3522,18 @@ html.modal-open body {
   display: none;
 }
 
+/* The mode's name as words, not a tinted pill (the owner: "didnt you remove
+   pills like that because they are a vibecoded sign??"). Ink weight beside
+   the muted bar label, then a hairline, then the gestures in the muted
+   voice: the hierarchy is carried by weight and a rule, the way the rest of
+   the bar is. */
 .dash-hint-badge {
   display: inline-flex;
   align-items: center;
   height: 1.75rem;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent);
+  padding-right: var(--space-4);
+  border-right: 1px solid var(--divider);
+  color: var(--ink);
   font-weight: 600;
   white-space: nowrap;
 }

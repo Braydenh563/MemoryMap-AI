@@ -1120,6 +1120,29 @@ header#top-bar,
   margin: 0;
 }
 
+/* One line under the title that says the current state (the model picker's
+   "Its own model: granite4.1:3b"). It belongs to the head, so it sits under
+   the title at the head's own step rather than a paragraph's margin below
+   it, which read as a second, unrelated block (INBOX 425, the owner:
+   "redesign the top of this popup"). */
+.sheet-sub {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+/* **Bottom edge at every width, but not every width of the window.** At 1440
+   a sheet of four choices was a 1440px slab with its rows' text centred in
+   the middle of it and the close button a screen's width from the title.
+   Above a phone the sheet keeps its direction (it still rises from the
+   bottom edge) and takes a reading width, centred, the way a tablet sheet
+   does. The corner sheet (Atlas) has its own geometry and is left alone. */
+@media (min-width: 720px) {
+  .sheet-card:not(.sheet-card-corner) {
+    max-width: 34rem;
+    margin-inline: auto;
+  }
+}
+
 /* The title row: the name on the left, the one visible way out on the right
    (INBOX 204). The X is the app's own icon-only ghost button at the shared
    control height, so it reads as the same close every dialog head has. */
@@ -1159,8 +1182,11 @@ header#top-bar,
   box-shadow: none;
   color: var(--ink);
   font-size: var(--text-body);
-  font-weight: 600;
+  /* 500, not 600: a list of equal choices in bold is a list of headings. */
+  font-weight: 500;
   text-align: left;
+  /* A button centres its content by default; a list row starts at its icon. */
+  justify-content: flex-start;
 }
 
 .sheet-row > i {

@@ -39483,19 +39483,18 @@ function openFeatureModelSheet(key) {
   }
   openSheet({
     label: `Model for ${row.label}`,
+    sub: featureModelState(row),
     name: `feature-model-${key}`,
     build: (card, close) => {
-      const state = document.createElement("p");
-      state.className = "muted";
-      state.textContent = featureModelState(row);
-      card.appendChild(state);
 
       const list = document.createElement("div");
       list.className = "sheet-list";
       list.appendChild(
         sheetRow(
           row.overridden ? "ph ph-arrow-counter-clockwise" : "ph ph-check",
-          `Inherited: ${row.inherits}`,
+          // The choice, not the state: the line under the title already says
+          // which model is in use, so this row names what pressing it does.
+          `Default (${row.inherits})`,
           () => {
             close();
             if (row.overridden) applyFeatureModel(key, "");
@@ -42443,7 +42442,7 @@ initPhoneChatRow();
 //: is a class rather than a second recipe so everything else about a sheet,
 //: the scrim, the tier, the head with its X, Escape and the backdrop press,
 //: stays the one thing it already is.
-function openSheet({ label, name, build, variant = "", returnFocus = document.activeElement, onClose = null }) {
+function openSheet({ label, sub = "", name, build, variant = "", returnFocus = document.activeElement, onClose = null }) {
   const overlay = document.createElement("div");
   overlay.className = `modal-overlay sheet-overlay${variant ? ` sheet-${variant}` : ""}`;
   overlay.dataset.sheet = name || "";
@@ -42473,6 +42472,15 @@ function openSheet({ label, name, build, variant = "", returnFocus = document.ac
   closeButton.appendChild(closeIcon);
   head.append(title, closeButton);
   card.appendChild(head);
+  //: One line of state under the title (the model picker's "Its own model:
+  //: granite4.1:3b"): part of the head, in the recipe, so a sheet that needs
+  //: it does not hand-build a paragraph with its own margins.
+  if (sub) {
+    const subLine = document.createElement("p");
+    subLine.className = "muted sheet-sub";
+    subLine.textContent = sub;
+    card.appendChild(subLine);
+  }
 
   let settled = false;
   const close = () => {

@@ -5597,26 +5597,31 @@ main,
    and the one-off plays. A mood change is one attribute, and every part
    eases to its new place in `--motion-slow`. Transform and opacity only.
 
-   The palette fixes lightness and takes hue and some chroma from the
-   accent, so a dark accent (Graphite) or a pale one still draws a readable
-   character; `color-mix` stands in where relative colours are missing (an
-   unsupported value inside a custom property would only fail where it is
-   used, so the modern set is behind `@supports`, not layered). */
+   The palette is fixed to the references' blue, navy and violet (the
+   owner: "dont stray from the blue, black, purple colour scheme the
+   references use"): every colour is `oklch` from one tone, `--atl-tone`,
+   so the set stays in tune, and the live accent tints only the aura, the
+   rings' glow and the iris's foot (`--atl-glow-c`, `--atl-ring-c`,
+   `--atl-iris-c`), never the body. `color-mix` stands in where relative
+   colours are missing (an unsupported value inside a custom property
+   would only fail where it is used, so the modern set is behind
+   `@supports`, not layered). */
 .nm-atlas {
   --nm-delay: 0s;
-  --atl-hi: color-mix(in oklab, var(--accent) 8%, white);
-  --atl-lt: color-mix(in oklab, var(--accent) 28%, white);
-  --atl-md: color-mix(in oklab, var(--accent) 52%, white);
-  --atl-dp: color-mix(in oklab, var(--accent) 78%, #5b3fb8);
-  --atl-rim: color-mix(in oklab, var(--accent) 45%, #4a2f9e);
-  --atl-line: color-mix(in oklab, var(--accent) 50%, #2d2263);
-  --atl-ink: color-mix(in oklab, var(--accent) 25%, #14122c);
-  --atl-iris-c: color-mix(in oklab, var(--accent) 65%, #7ab8ff);
-  --atl-navy: color-mix(in oklab, var(--accent) 35%, #130f33);
-  --atl-neb-c: color-mix(in oklab, var(--accent) 35%, #ff5fb0);
-  --atl-neb2-c: color-mix(in oklab, var(--accent) 45%, #9b4dff);
-  --atl-glow-c: color-mix(in oklab, var(--accent) 60%, white);
-  --atl-ring-c: color-mix(in oklab, var(--accent) 70%, white);
+  --atl-tone: #5f6cf0;
+  --atl-hi: #f4f5ff;
+  --atl-lt: #dcdff9;
+  --atl-md: #aab3f3;
+  --atl-dp: #7d7ce2;
+  --atl-rim: #5b4cc4;
+  --atl-line: #493ea6;
+  --atl-ink: #1b1946;
+  --atl-iris-c: color-mix(in oklab, var(--accent) 30%, #4d6be6);
+  --atl-navy: #191640;
+  --atl-neb-c: #e46ac6;
+  --atl-neb2-c: #7c49d6;
+  --atl-glow-c: color-mix(in oklab, var(--accent) 35%, #b6c1ff);
+  --atl-ring-c: color-mix(in oklab, var(--accent) 25%, #aab6ff);
   --atl-blush: #ff7d9c;
   --atl-tongue: #ff94aa;
   --atl-heart-c: #ff4f7e;
@@ -5624,9 +5629,10 @@ main,
   --atl-gold: #ffd35c;
   --atl-gold-line: #9a6f00;
   --atl-amber: #f2a65a;
-  --atl-teal: #6fd3c9;
+  --atl-teal: #7fcfd8;
   --atl-pink: #f28fb8;
   --atl-pale: #d6e2ff;
+  --atl-lilac: #b9a8e6;
   /* The drawing's own gradients (atlas.js sets these per drawing). */
   --atl-skin: var(--atl-md);
   --atl-rimh: none;
@@ -5638,10 +5644,11 @@ main,
   --atl-iris: var(--atl-ink);
   --atl-neb: none;
   --atl-neb2: none;
-  --atl-tneb: none;
+  --atl-comet: none;
+  --atl-hneb: none;
   --atl-tip: none;
   --atl-aura-a: 0.3;
-  --atl-shade-a: 0.42;
+  --atl-shade-a: 0.5;
   --atl-k: 0;
   --atl-side: 1;
   /* The face at rest (calm). Every mood below overrides some of these. */
@@ -5698,28 +5705,28 @@ main,
 }
 
 @supports (color: oklch(from red 0.5 clamp(0.1, c, 0.2) h)) {
-  /* Chroma is capped per lightness so every colour stays inside sRGB: an
+  /* Chroma is fixed per lightness so every colour stays inside sRGB: an
      out-of-gamut colour is clipped one way when painted directly and
-     another inside an opacity layer, and the orbit's front half came out
+     another inside an opacity layer, and a ring's front half once came out
      olive while its back half was blue (measured: `oklch(0.8 0.18 265)`).
-     The body is the accent lifted to lavender; the deep end and the rim
-     turn a little further round the hue toward violet; the ribbon is the
-     accent taken down to navy; the nebula is the accent turned sixty
-     degrees round (pink beside a blue accent, gold beside a warm one). */
+     The deep end and the rim turn a little further round the hue toward
+     violet; the nebula is the tone turned sixty degrees round, pink. */
   .nm-atlas {
-    --atl-hi: oklch(from var(--accent) 0.985 clamp(0, calc(c * 0.15), 0.02) h);
-    --atl-lt: oklch(from var(--accent) 0.92 clamp(0.02, calc(c * 0.4), 0.05) h);
-    --atl-md: oklch(from var(--accent) 0.8 clamp(0.04, calc(c * 0.7), 0.1) h);
-    --atl-dp: oklch(from var(--accent) 0.64 clamp(0.05, calc(c * 0.9), 0.14) calc(h + 12));
-    --atl-rim: oklch(from var(--accent) 0.5 clamp(0.05, c, 0.16) calc(h + 28));
-    --atl-line: oklch(from var(--accent) 0.44 clamp(0.04, calc(c * 0.8), 0.13) calc(h + 22));
-    --atl-ink: oklch(from var(--accent) 0.24 clamp(0.03, calc(c * 0.5), 0.08) calc(h + 4));
-    --atl-iris-c: oklch(from var(--accent) 0.62 clamp(0.06, c, 0.17) h);
-    --atl-navy: oklch(from var(--accent) 0.27 clamp(0.03, calc(c * 0.5), 0.09) calc(h + 10));
-    --atl-neb-c: oklch(from var(--accent) 0.68 clamp(0.08, c, 0.2) calc(h + 62));
-    --atl-neb2-c: oklch(from var(--accent) 0.52 clamp(0.06, c, 0.17) calc(h + 34));
-    --atl-glow-c: oklch(from var(--accent) 0.82 clamp(0.04, calc(c * 0.7), 0.09) h);
-    --atl-ring-c: oklch(from var(--accent) 0.74 clamp(0.04, calc(c * 0.7), 0.1) h);
+    --atl-hi: oklch(from var(--atl-tone) 0.985 0.012 h);
+    --atl-lt: oklch(from var(--atl-tone) 0.92 0.045 h);
+    --atl-md: oklch(from var(--atl-tone) 0.8 0.1 h);
+    --atl-dp: oklch(from var(--atl-tone) 0.64 0.14 calc(h + 12));
+    --atl-rim: oklch(from var(--atl-tone) 0.5 0.16 calc(h + 28));
+    --atl-line: oklch(from var(--atl-tone) 0.44 0.13 calc(h + 22));
+    --atl-ink: oklch(from var(--atl-tone) 0.24 0.08 calc(h + 4));
+    --atl-navy: oklch(from var(--atl-tone) 0.27 0.09 calc(h + 10));
+    --atl-neb-c: oklch(from var(--atl-tone) 0.68 0.2 calc(h + 62));
+    --atl-neb2-c: oklch(from var(--atl-tone) 0.52 0.17 calc(h + 34));
+    /* The accent's part: a tint on the light, capped so a warm accent
+       warms the glow a little and never turns it. */
+    --atl-glow-c: color-mix(in oklab, oklch(from var(--accent) 0.82 clamp(0.04, calc(c * 0.7), 0.09) h) 35%, oklch(from var(--atl-tone) 0.84 0.08 h));
+    --atl-ring-c: color-mix(in oklab, oklch(from var(--accent) 0.76 clamp(0.04, calc(c * 0.7), 0.1) h) 25%, oklch(from var(--atl-tone) 0.76 0.1 h));
+    --atl-iris-c: color-mix(in oklab, oklch(from var(--accent) 0.62 clamp(0.06, c, 0.17) h) 30%, oklch(from var(--atl-tone) 0.6 0.17 h));
   }
 }
 
@@ -5743,8 +5750,8 @@ main,
   transform-box: fill-box;
   transform-origin: center;
 }
-.nm-atlas .nmb-arm-l { transform-box: view-box; transform-origin: 24.6px 52.4px; }
-.nm-atlas .nmb-arm-r { transform-box: view-box; transform-origin: 37.4px 52.4px; }
+.nm-atlas .nmb-arm-l { transform-box: view-box; transform-origin: 22.4px 42.6px; }
+.nm-atlas .nmb-arm-r { transform-box: view-box; transform-origin: 39.6px 42.6px; }
 /* Thinking: a hand at the chin, as the reference sheet draws it. The
    forearm is drawn in the head's layer (atlas.js), over the face, and the
    resting right arm steps aside for it; not while the companion sits or
@@ -5757,10 +5764,10 @@ main,
 #nm-buddy:not([data-pose="hang"], [data-pose="sit"]) .nm-atlas[data-atlas-mood="thinking"] .nmb-arm-r { opacity: 0; }
 /* The companion turns limbs about its own generic joints; Atlas's are
    higher and narrower, so they are named here, one step more specific. */
-#nm-buddy .atl-figure .nmb-arm-l { transform-origin: 24.6px 52.4px; }
-#nm-buddy .atl-figure .nmb-arm-r { transform-origin: 37.4px 52.4px; }
-#nm-buddy .atl-figure .nmb-leg-l { transform-origin: 27.4px 72px; }
-#nm-buddy .atl-figure .nmb-leg-r { transform-origin: 34.6px 72px; }
+#nm-buddy .atl-figure .nmb-arm-l { transform-origin: 22.4px 42.6px; }
+#nm-buddy .atl-figure .nmb-arm-r { transform-origin: 39.6px 42.6px; }
+#nm-buddy .atl-figure .nmb-leg-l { transform-origin: 24.6px 66px; }
+#nm-buddy .atl-figure .nmb-leg-r { transform-origin: 37.4px 66px; }
 /* Atlas's arm is a short nub from a shoulder just under the chin, so the
    companion's generic raise (-125deg, for a long arm from a low shoulder)
    would put its hand over its own cheek; -100deg brings it up beside the
@@ -5793,6 +5800,7 @@ main,
 .nm-atlas .atl-st-neb0 { stop-color: var(--atl-neb-c); stop-opacity: 0.85; }
 .nm-atlas .atl-st-neb1 { stop-color: var(--atl-neb-c); stop-opacity: 0; }
 .nm-atlas .atl-st-neb20 { stop-color: var(--atl-neb2-c); stop-opacity: 0.9; }
+.nm-atlas .atl-st-navy { stop-color: var(--atl-navy); stop-opacity: 0.95; }
 .nm-atlas .atl-st-neb21 { stop-color: var(--atl-neb2-c); stop-opacity: 0; }
 .nm-atlas .atl-aura { fill: var(--atl-aura); opacity: var(--atl-glow); }
 .nm-atlas .atl-skin { fill: var(--atl-skin); }
@@ -5805,7 +5813,7 @@ main,
    the design note's "Construction"). */
 .nm-atlas .atl-edge { fill: none; stroke: var(--atl-line); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; opacity: 0.85; }
 .nm-atlas.atl-tiny .atl-edge { stroke-width: 3; }
-.nm-atlas .atl-sheen { fill: var(--atl-sheen); opacity: 0.7; }
+.nm-atlas .atl-sheen { fill: var(--atl-sheen); opacity: 0.55; }
 .nm-atlas .atl-sheen-dot { opacity: 0.8; }
 .nm-atlas .atl-sheen-body { opacity: 0.55; }
 .nm-atlas .atl-speck { fill: white; }
@@ -5825,9 +5833,12 @@ main,
 .nm-atlas .atl-lashes { fill: none; stroke: var(--atl-line); stroke-width: 0.9; stroke-linecap: round; }
 .nm-atlas[data-atlas-look="feminine"] .atl-cheek { rx: 4.3px; ry: 2.6px; }
 .nm-atlas .atl-tongue { fill: var(--atl-tongue); }
-/* The tufts: the nebula gathers toward each tip, with a star on it. */
-.nm-atlas .atl-tuft-neb { fill: var(--atl-tneb); opacity: 0.5; }
-.nm-atlas .atl-tuft-star { fill: white; }
+/* The hair: the nebula gathers toward each tip, a highlight runs along
+   the lock, a star sits on each point. */
+.nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.8; }
+.nm-atlas .atl-lock .atl-hair-neb { opacity: 0.55; }
+.nm-atlas .atl-hair-light { fill: none; stroke: white; stroke-width: 0.9; stroke-linecap: round; opacity: 0.5; }
+.nm-atlas .atl-hair-star { fill: white; }
 /* The rings of light (atlas.js, `atlasRing`): widths are in the ring's
    flattened frame, so a ring is thinnest where it passes in front and
    behind and widest at its turns, as a band seen at a slant is. The
@@ -5841,6 +5852,7 @@ main,
 .nm-atlas .atl-planet-teal { fill: var(--atl-teal); }
 .nm-atlas .atl-planet-pink { fill: var(--atl-pink); }
 .nm-atlas .atl-planet-pale { fill: var(--atl-pale); }
+.nm-atlas .atl-planet-lilac { fill: var(--atl-lilac); }
 :root[data-mode="dark"] .nm-atlas .atl-ring-line { stroke: white; opacity: 0.8; }
 .nm-atlas .atl-glint { fill: white; }
 /* The constellation inside the body: threads of light between star
@@ -5856,6 +5868,7 @@ main,
 .nm-atlas .atl-ribbon { fill: var(--atl-navy); }
 .nm-atlas .atl-ribbon-neb { fill: var(--atl-neb); }
 .nm-atlas .atl-ribbon-neb2 { fill: var(--atl-neb2); }
+.nm-atlas .atl-ribbon-comet { fill: var(--atl-comet); }
 .nm-atlas .atl-ribbon-edge { fill: none; stroke: white; stroke-width: 0.9; stroke-linejoin: round; opacity: 0.55; }
 .nm-atlas .atl-tip-glow { fill: var(--atl-tip); opacity: 0.9; }
 .nm-atlas .atl-sparkle { fill: var(--atl-gold); }
@@ -5871,8 +5884,9 @@ main,
 .nm-atlas .atl-pupil { transform: translate(var(--atl-px), var(--atl-py)) scale(var(--atl-ps)); }
 .nm-atlas .atl-lid { transform: rotate(calc(var(--atl-lid-r) * var(--atl-side))) translateY(calc(var(--atl-lid) * 11px)); }
 .nm-atlas .atl-lid-low { transform: translateY(calc(var(--atl-low) * -10px)); }
-/* The tufts perk and droop together, mirrored. */
-.nm-atlas .atl-tuft-r { transform: rotate(var(--atl-crest)); }
+/* The hair perks and droops together: the lock and the right tuft one
+   way, the left tuft mirrored. */
+.nm-atlas :is(.atl-tuft-r, .atl-lock) { transform: rotate(var(--atl-crest)); }
 .nm-atlas .atl-tuft-l { transform: rotate(calc(var(--atl-crest) * -1)); }
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }

@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The new background art no longer costs the text on the page any
+  contrast. Measured against the real pixels behind every text element on
+  the Dashboard (three moments per style), the first versions of the bright
+  aurora, the constellation, the mesh and the mycelium took muted labels such
+  as "Start something" and "Jump to" under WCAG AA where the old styles had
+  not. In the dark theme a style's colours are now capped in luminance, and
+  in the light theme floored, while it builds them (never per frame): every
+  style now fails no more text than the art-off page does in the light theme
+  (3 over three captures), and at most as many in the dark.
 - The packaged Windows app now says what is wrong when it cannot show its
   window, instead of a blank or missing graphic with nothing in any log.
   Reported directly on the .exe build: pywebview's Windows backend needs the

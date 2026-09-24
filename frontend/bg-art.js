@@ -53,9 +53,60 @@
 
 // --- shared helpers -------------------------------------------------------------
 
+// **The dark theme's luminance cap.** Text that sits straight on the page
+// (the Dashboard's section labels, a search hint) is muted grey at about
+// 5:1 against the dark page with the art off, so there is very little room:
+// a bright mark behind it takes it under AA. Measured with
+// `scratchpad/ui-sweeps/bgartcontrast.js`, the first bright aurora and the
+// constellation both did, where the old styles had not. So while a style
+// builds its colours in the dark theme (its `init` or `mount`, never per
+// frame), every colour is scaled down to at most the relative luminance the
+// style names as `darkCap`: the hue and saturation stay, the light is
+// lowered to what the text can bear. `bgLumCap` is 0 the rest of the time.
+//
+// The light theme is the same problem the other way up: dark muted text on
+// a pale page loses contrast to anything darker behind it, so a style can
+// name a `lightFloor`, and its colours are mixed toward white until their
+// luminance reaches it (`bgLumFloor`).
+let bgLumCap = 0;
+let bgLumFloor = 0;
+
+function bgLuma(rgb) {
+  const lin = (v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+}
+
+function bgCapRgb(rgb) {
+  if (bgLumCap) {
+    const y = bgLuma(rgb);
+    if (y > bgLumCap) {
+      const k = (bgLumCap / y) ** (1 / 2.2);
+      return [rgb[0] * k, rgb[1] * k, rgb[2] * k];
+    }
+  }
+  if (bgLumFloor && bgLuma(rgb) < bgLumFloor) {
+    // Toward white by the least that reaches the floor (a few halvings; a
+    // colour is built once per style, never per frame).
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 12; i++) {
+      const m = (lo + hi) / 2;
+      const mixed = [rgb[0] + (255 - rgb[0]) * m, rgb[1] + (255 - rgb[1]) * m, rgb[2] + (255 - rgb[2]) * m];
+      if (bgLuma(mixed) < bgLumFloor) lo = m;
+      else hi = m;
+    }
+    return [rgb[0] + (255 - rgb[0]) * hi, rgb[1] + (255 - rgb[1]) * hi, rgb[2] + (255 - rgb[2]) * hi];
+  }
+  return rgb;
+}
+
 function bgHsla(h, s, l, a) {
   const hue = ((h % 360) + 360) % 360;
-  return `hsla(${hue.toFixed(1)},${s}%,${l}%,${Math.max(0, Math.min(1, a)).toFixed(3)})`;
+  const al = Math.max(0, Math.min(1, a)).toFixed(3);
+  if (bgLumCap || bgLumFloor) {
+    const [r, g, b] = bgHslToRgb(hue, s, l);
+    return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${al})`;
+  }
+  return `hsla(${hue.toFixed(1)},${s}%,${l}%,${al})`;
 }
 
 // The styles' noise: smooth along one axis, changing with time, as two
@@ -114,7 +165,7 @@ function bgP5Rgba(h, s, l, a) {
 function bgHslToRgb(h, s, l) {
   const hue = (((h % 360) + 360) % 360) / 360;
   const sat = s / 100, lig = l / 100;
-  if (!sat) return [lig * 255, lig * 255, lig * 255];
+  if (!sat) return bgCapRgb([lig * 255, lig * 255, lig * 255]);
   const q = lig < 0.5 ? lig * (1 + sat) : lig + sat - lig * sat;
   const pp = 2 * lig - q;
   const ch = (t) => {
@@ -126,7 +177,7 @@ function bgHslToRgb(h, s, l) {
     if (u < 2 / 3) return pp + (q - pp) * (2 / 3 - u) * 6;
     return pp;
   };
-  return [ch(hue + 1 / 3) * 255, ch(hue) * 255, ch(hue - 1 / 3) * 255];
+  return bgCapRgb([ch(hue + 1 / 3) * 255, ch(hue) * 255, ch(hue - 1 / 3) * 255]);
 }
 
 // The hue of a CSS colour, the same number p5's `hue()` gave for it (the
@@ -376,6 +427,8 @@ const BG_ART_BUILDERS = {
       background: "clear",
       pixelDensity: PD,
       pixelDensityY: PDY,
+      darkCap: 0.1,
+      lightFloor: 0.35,
       init() {
         W = p.width; H = p.height;
         const canvas = p.drawingContext.canvas;
@@ -514,6 +567,7 @@ const BG_ART_BUILDERS = {
     let nextMeteor = 0;
     return {
       background: "clear",
+      darkCap: 0.12,
       init() {
         W = p.width; H = p.height;
         n = bgClamp(Math.round((W * H) / 6000 * ctx.density), 40, 260);
@@ -539,19 +593,29 @@ const BG_ART_BUILDERS = {
           }
           at += count;
           grids.push(bgGrid(W, H, L.link, n));
+          // In the dark theme the stars may be brighter than the darkCap
+          // (the nebula's): a star is a point that passes behind a word for
+          // a moment, the nebula is a wash that sits there. The lines are
+          // between the two.
+          const cap = bgLumCap;
+          if (cap) bgLumCap = 0.2;
           const row = [];
           for (let k = 0; k < BUCKETS; k++) row.push(bgHsla(ctx.baseHue, 55, L.light, L.alpha * ((k + 1) / BUCKETS)));
           strokes.push(row);
+          if (cap) bgLumCap = 0.4;
           const drow = [];
           for (const off of HUES) {
             drow.push(bgGlowSprite(ctx.baseHue + off, ctx.dark ? 60 : 72, L.light + (ctx.dark ? 6 : -4), 1, 16, 0.6));
           }
           dots.push(drow);
+          bgLumCap = cap;
         }
         segMax = n * 10;
         seg = new Float32Array(segMax * 4);
         segB = new Uint8Array(segMax);
+        if (bgLumCap) bgLumCap = 0.4;
         halo = bgGlowSprite(ctx.baseHue, 70, ctx.dark ? 80 : 55, ctx.dark ? 0.5 : 0.28);
+        if (bgLumCap) bgLumCap = 0.12;
         // The nebula: three soft clouds painted once, small, and set as the
         // canvas element's own CSS background, so the compositor scales it
         // and the frame never draws it. Copied into the canvas every frame
@@ -573,7 +637,9 @@ const BG_ART_BUILDERS = {
           p.canvas.style.backgroundImage = `url("${nebula.toDataURL()}")`;
           p.canvas.style.backgroundSize = "100% 100%";
         }
-        // The meteor's tail, drawn rotated rather than a gradient a frame.
+        // The meteor's tail, drawn rotated rather than a gradient a frame;
+        // as bright as a star, and gone as quickly.
+        if (bgLumCap) bgLumCap = 0.4;
         tail = bgSprite(256, 6, (g, w, h) => {
           const grad = g.createLinearGradient(0, 0, w, 0);
           grad.addColorStop(0, bgHsla(ctx.baseHue, 60, ctx.dark ? 85 : 45, 0));
@@ -753,6 +819,7 @@ const BG_ART_BUILDERS = {
   // highlight and a reflection.
   bubbles: {
     dom: true,
+    lightFloor: 0.3,
     mount(layer, ctx, still) {
       const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 7);
       const L = ctx.dark ? 62 : 52;
@@ -843,6 +910,8 @@ const BG_ART_BUILDERS = {
   // rings showed.
   mesh: {
     dom: true,
+    darkCap: 0.05,
+    lightFloor: 0.55,
     mount(layer, ctx, still) {
       const rand = bgRandom(Math.round(ctx.baseHue * 1000) + 3);
       layer.style.backgroundColor = bgHsla(ctx.baseHue, ctx.dark ? 35 : 45, ctx.dark ? 13 : 95, 1);
@@ -1498,6 +1567,8 @@ const BG_ART_BUILDERS = {
     return {
       background: "keep",
       seeded: true,
+      darkCap: 0.1,
+      lightFloor: 0.3,
       init() {
         W = p.width; H = p.height;
         const seed = bgArtSeedOf(ctx.seedText);
@@ -1745,7 +1816,14 @@ function bgArtRun(o) {
     layer.id = "bg-art-layer";
     layer.className = "bg-art-canvas bg-art-layer";
     layer.setAttribute("aria-hidden", "true");
-    entry.mount(layer, ctx, o.still);
+    bgLumCap = o.dark ? entry.darkCap || 0 : 0;
+    bgLumFloor = o.dark ? 0 : entry.lightFloor || 0;
+    try {
+      entry.mount(layer, ctx, o.still);
+    } finally {
+      bgLumCap = 0;
+      bgLumFloor = 0;
+    }
     if (!o.still) layer.classList.add("is-moving");
     if (o.requested) layer.classList.add("is-requested");
     document.body.appendChild(layer);
@@ -1771,7 +1849,14 @@ function bgArtRun(o) {
   canvas.className = "bg-art-canvas";
   canvas.setAttribute("aria-hidden", "true");
   const wash = bgP5Rgba(0, 0, o.dark ? 12 : 98, o.dark ? 0.1 : 0.12);
-  style.init();
+  bgLumCap = o.dark ? style.darkCap || 0 : 0;
+  bgLumFloor = o.dark ? 0 : style.lightFloor || 0;
+  try {
+    style.init();
+  } finally {
+    bgLumCap = 0;
+    bgLumFloor = 0;
+  }
 
   if (o.still) {
     // One frame, captured to an image; the canvas is never put in the page

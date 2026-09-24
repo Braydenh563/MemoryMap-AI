@@ -174,7 +174,12 @@ const box = {
   navigator: {}, performance: { now: () => 0 }, console,
 };
 vm.createContext(box);
-vm.runInContext(src + "\nthis.out = { bgArtGenome, bgArtStrains, bgArtSpeciesName, bgArtStrainCount, bgColourHue, bgP5Rgba };", box);
+vm.runInContext(src + `
+this.out = { bgArtGenome, bgArtStrains, bgArtSpeciesName, bgArtStrainCount, bgColourHue, bgP5Rgba };
+bgLumCap = 0.1; this.capped = [bgHsla(200, 85, 68, 1), bgHsla(120, 90, 60, 0.5)]; bgLumCap = 0;
+bgLumFloor = 0.35; this.floored = [bgHsla(260, 72, 50, 1), bgHsla(300, 80, 30, 0.4)]; bgLumFloor = 0;
+this.plain = bgHsla(200, 85, 68, 1);
+`, box);
 const { bgArtGenome, bgArtStrains, bgArtSpeciesName, bgArtStrainCount, bgColourHue, bgP5Rgba } = box.out;
 const grow = (name) => bgArtStrains(name, bgArtStrainCount(name)).map((s) => ({
   name: bgArtSpeciesName(s), sum: bgArtGenome(s).sum,
@@ -187,6 +192,7 @@ console.log(JSON.stringify({
   repeat: grow("aaaa"),
   blank: grow("   "),
   fallback: grow("MemoryMap"),
+  capped: box.capped, floored: box.floored, plain: box.plain,
   p5: [bgP5Rgba(229.41176470588235, 62, 58, 0.16), bgP5Rgba(301.41176470588235, 62, 55, 0.16), bgP5Rgba(0, 0, 98, 0.12), bgP5Rgba(0, 0, 12, 0.1)],
   hues: [bgColourHue("#ff0000"), bgColourHue("#00ff00"), bgColourHue("#4664f0"), bgColourHue("rgb(0, 0, 255)"), bgColourHue("#fff")],
 }));
@@ -283,3 +289,29 @@ def test_the_emblem_turns_by_css_not_by_redrawing():
     assert "p.noLoop();" in body and 'classList.add("emblem-spin")' in body
     css = CSS.read_text(encoding="utf-8")
     assert "@keyframes emblem-spin" in css
+
+
+def _luma(rgba: str) -> float:
+    r, g, b = (int(v) for v in re.findall(r"[\d.]+", rgba)[:3])
+
+    def lin(v: int) -> float:
+        c = v / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+
+def test_the_contrast_guards_bound_every_colour_a_style_builds(genome):
+    """While a style builds its colours, the dark theme's cap and the light
+    theme's floor hold every colour's luminance on the side the text needs
+    (measured need: scratchpad/ui-sweeps/bgartcontrast.js), and the rest of
+    the time colours are untouched."""
+    for colour in genome["capped"]:
+        assert colour.startswith("rgba(") and _luma(colour) <= 0.1 + 0.005, colour
+    for colour in genome["floored"]:
+        assert colour.startswith("rgba(") and _luma(colour) >= 0.35 - 0.005, colour
+    assert genome["plain"].startswith("hsla(")
+    styles = BG_ART.read_text(encoding="utf-8")
+    for name in ("aurora", "constellation", "mycelium", "mesh"):
+        assert "darkCap:" in _chunks()[name], name
+    assert "bgLumCap = 0;" in styles and "bgLumFloor = 0;" in styles

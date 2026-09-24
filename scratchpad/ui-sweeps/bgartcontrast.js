@@ -21,6 +21,10 @@ const STYLES = (process.env.STYLES || 'off,aurora,constellation,waves,bubbles,me
 const THEMES = (process.env.THEMES || 'light,dark').split(',');
 const INTENSITY = process.env.INTENSITY || '45';
 const TAB = process.env.TAB || 'dashboard';
+// The art moves, so one moment can flatter or wrong it: SNAPS captures a
+// second apart, and the report is the total of failures over all of them
+// and the lowest ratio seen in any.
+const SNAPS = Number(process.env.SNAPS || 3);
 
 async function boot(browser, prefs) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
@@ -66,6 +70,7 @@ async function measure(page) {
       out.push({
         r: [r.left, r.top, r.width, r.height], c: [Number(cr), Number(cg), Number(cb)],
         large: size >= 24 || (size >= 18.66 && weight >= 700),
+        name: `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${el.classList[0] ? '.' + el.classList[0] : ''} "${el.textContent.trim().slice(0, 30)}"`,
       });
       el.dataset.bgcText = el.style.color || '-';
       el.style.color = 'transparent';
@@ -93,6 +98,7 @@ async function measure(page) {
       return 0.2126 * f(r) + 0.7152 * f(gg) + 0.0722 * f(b);
     };
     let fails = 0, min = 99;
+    const failed = [];
     const ratios = [];
     for (const t of texts) {
       const [x, y, w, h] = t.r;
@@ -109,11 +115,11 @@ async function measure(page) {
         }
       }
       ratios.push(worst);
-      if (worst < (t.large ? 3 : 4.5)) fails++;
+      if (worst < (t.large ? 3 : 4.5)) { fails++; failed.push(`${t.name} ${worst.toFixed(2)}`); }
       if (worst < min) min = worst;
     }
     ratios.sort((a, b) => a - b);
-    return { n: texts.length, fails, min: +min.toFixed(2), median: +ratios[Math.floor(ratios.length / 2)].toFixed(2) };
+    return { n: texts.length, fails, failed, min: +min.toFixed(2), median: +ratios[Math.floor(ratios.length / 2)].toFixed(2) };
   }, { png: shot.toString('base64'), texts });
 }
 
@@ -125,8 +131,17 @@ async function measure(page) {
         ? { theme, bgArt: 'off' }
         : { theme, bgArt: 'on', 'bg-style': style, 'bg-motion': 'moving', 'bg-intensity': INTENSITY };
       const { ctx, page } = await boot(browser, prefs);
-      const r = await measure(page);
-      console.log(`${theme.padEnd(5)} ${style.padEnd(13)} ${r.n} text elements, ${r.fails} under AA, lowest ${r.min}:1, median ${r.median}:1`);
+      let fails = 0, min = 99, n = 0;
+      const failed = new Map();
+      for (let k = 0; k < SNAPS; k++) {
+        if (k) await page.waitForTimeout(1000);
+        const r = await measure(page);
+        fails += r.fails; n = r.n;
+        if (r.min < min) min = r.min;
+        for (const f of r.failed) failed.set(f.replace(/ [\d.]+$/, ''), f);
+      }
+      console.log(`${theme.padEnd(5)} ${style.padEnd(13)} ${n} text elements x ${SNAPS}: ${fails} under AA, lowest ${min}:1`);
+      if (process.env.DETAIL) for (const f of failed.values()) console.log(`      ${f}`);
       await ctx.close();
     }
   }

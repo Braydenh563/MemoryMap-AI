@@ -71,6 +71,9 @@ def test_an_open_menu_holds_the_kebab_on_screen():
         "menuHeld must read the opener's aria-expanded, which openActionMenu "
         "sets before anything it does can move focus."
     )
+    # The row is the one being edited since INBOX 425 i (`menuRow`, the header
+    # when the caret is on the delimiter), no longer always the header; the
+    # guard this test exists for is the `inTable || menuHeld` half.
     assert re.search(
-        r"if \(r === 0 && \(inTable \|\| menuHeld\)\)", SOURCE
+        r"if \(r === menuRow && \(inTable \|\| menuHeld\)\)", SOURCE
     ), "the menu widget must be drawn when the caret is in the table OR its own menu is open"

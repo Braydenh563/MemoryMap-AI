@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark" data-avatar-motion="always" data-avatar-follow="on">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avatar Lab - MemoryMap-AI Debug Tool</title>
+
+  <!-- Load the app CSS asynchronously so it doesn't block first paint -->
+  <link rel="preload" href="../frontend/css/08-consistency.css" as="style">
+  <link rel="stylesheet" href="../frontend/css/08-consistency.css" media="print" onload="this.media='all'">
+  <noscript>
+    <link rel="stylesheet" href="../frontend/css/08-consistency.css">
+  </noscript>
+
+  <style>
+    /* ── Reset ─────────────────────────────────────────────────────────────── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --accent: #6d5dfc;
+      --accent-soft: rgba(109, 93, 252, 0.12);
+      --bg: #0e0f1a;
+      --surface: #1a1b2e;
+      --surface-2: #22243a;
+      --surface-3: #2a2c48;
+      --ink: #e2e4f0;
+      --ink-muted: #9499b8;
+      --ink-faint: #5e6283;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-light: rgba(255, 255, 255, 0.05);
+      --modal-bg-opaque: #1a1b2e;
+      --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+      --radius: 12px;
+      --radius-md: 8px;
+      --radius-sm: 6px;
+      --radius-pill: 100px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 24px;
+      --space-6: 32px;
+      --space-7: 48px;
+      --text-xs: 11px;
+      --text-sm: 13px;
+      --text-base: 15px;
+      --text-lg: 17px;
+      --text-xl: 21px;
+      --text-2xl: 28px;
+      --target-min: 36px;
+      --chip-bg: rgba(255, 255, 255, 0.06);
+      --ghost-btn-bg: rgba(255, 255, 255, 0.08);
+      --motion-fast: 120ms;
+      --motion-base: 200ms;
+      --motion-slow: 400ms;
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+      --ease-spring: cubic-bezier(0.3, 1.6, 0.5, 1);
+      --card-pad-y: 20px;
+    }
+
+    html[data-mode="light"] {
+      --bg: #f4f5fb;
+      --surface: #ffffff;
+      --surface-2: #f0f1f8;
+      --surface-3: #e4e5f0;
+      --ink: #1a1c2e;
+      --ink-muted: #5e6283;
+      --ink-faint: #9499b8;
+      --border: rgba(0, 0, 0, 0.08);
+      --border-light: rgba(0, 0, 0, 0.05);
+      --modal-bg-opaque: #ffffff;
+      --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.15);
+      --chip-bg: rgba(0, 0, 0, 0.04);
+      --ghost-btn-bg: rgba(0, 0, 0, 0.05);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ────────────────────────────────────────────────────────────── */
+    .lab {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    .lab-head {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-3) var(--space-5);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .lab-head h1 {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .lab-head .sub {
+      font-size: var(--text-xs);
+      color: var(--ink-faint);
+      margin-left: auto;
+    }
+
+    /* Sidebar */
+    .lab-side {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: var(--space-3);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .lab-sec {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .lab-sec-t {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-faint);
+      padding-bottom: 2px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .lab-lbl {
+      font-size: var(--text-sm);
+      color: var(--ink-muted);
+      font-weight: 500;
+    }
+
+    .lab-in,
+    .lab-sel {
+      height: 32px;
+      padding: 0 var(--space-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--ink);
+      font-size: var(--text-sm);
+      font-family: inherit;
+      outline: none;
+      width: 100%;
+    }
+
+    .lab-in:focus,
+    .lab-sel:focus {
+      border-color: var(--accent);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      height: 30px;
+      padding: 0 var(--space-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      color: var(--ink);
+      font-size: var(--text-xs);
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 80ms, border-color 80ms;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--surface-3);
+      border-color: var(--accent);
+    }
+
+    .btn-p {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .btn-p:hover {
+      background: #5a4be0;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2);
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Mood pills */
+    .mood-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+    }
+
+    .mood-pill {
+      height: 22px;
+      padding: 0 7px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--ink-muted);
+      font-size: 10px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 60ms, color 60ms;
+    }
+
+    .mood-pill:hover {
+      background: var(--surface-3);
+      color: var(--ink);
+    }
+
+    .mood-pill.on {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    /* ── Canvas ────────────────────────────────────────────────────────────── */
+    .lab-canvas {
+      padding: var(--space-4);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .card {
+      padding: var(--space-4);
+      border-radius: var(--radius);
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-3);
+    }
+
+    .card-title {
+      font-size: var(--text-base);
+      font-weight: 600;
+    }
+
+    .card-sub {
+      font-size: var(--text-xs);
+      color: var(--ink-faint);
+    }
+
+    .card-close {
+      margin-left: auto;
+    }
+
+    /* Specimen containers */
+    .spec {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-1);
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      border: 1px solid transparent;
+      transition: border-color 80ms;
+    }
+
+    .spec:hover {
+      border-color: var(--accent);
+    }
+
+    .spec-label {
+      font-size: 10px;
+      color: var(--ink-faint);
+      text-align: center;
+    }
+
+    .spec-detail {
+      font-size: 9px;
+      color: var(--ink-faint);
+      opacity: 0.6;
+    }
+
+    /* Stage: holds the SVG with proper sizing */
+    .stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .stage svg {
+      overflow: visible;
+    }
+
+    /* ── Figure container - the key fix for overlapping ───────────────────── */
+    /* Atlas figures have overflow: the rings orbit 36px from centre, the glow
+   ellipse extends ~40px each side, the mane streams back ~30px. The SVG
+   viewBox is 64×92 but the VISUAL footprint is roughly 100×120. Each
+   container reserves that space so neighbours never overlap. */
+    .stage-figure {
+      width: 100px;
+      height: 120px;
+      padding: 14px 18px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .stage-figure .nm-figure,
+    .stage-figure .atl-classic-box {
+      position: relative;
+    }
+
+    .stage-figure>svg {
+      display: block;
+    }
+
+    /* The bust crops the full character at the chest. The rings still overflow
+   ~20px each side at bust size, so the container accounts for that. */
+    .stage-bust {
+      width: 100px;
+      height: 90px;
+      padding: 10px 14px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    /* Row and grid layouts */
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      align-items: flex-end;
+    }
+
+    .strip {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--space-5);
+      padding: var(--space-4);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      overflow-x: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: var(--space-3);
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: var(--space-3);
+    }
+
+    /* Showcase */
+    .showcase {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--space-4);
+    }
+
+    .showcase-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-5);
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      min-width: 180px;
+      min-height: 180px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 2px var(--space-3);
+      font-size: var(--text-sm);
+    }
+
+    .info-k {
+      color: var(--ink-faint);
+      font-weight: 500;
+    }
+
+    .info-v {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    /* Notes */
+    .lab-notes {
+      width: 100%;
+      min-height: 60px;
+      padding: var(--space-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--ink);
+      font-size: var(--text-sm);
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+    }
+
+    .lab-notes:focus {
+      border-color: var(--accent);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: var(--space-5);
+      left: 50%;
+      transform: translateX(-50%) translateY(60px);
+      padding: 6px 16px;
+      border-radius: var(--radius-pill);
+      background: var(--surface-2);
+      color: var(--ink);
+      font-size: var(--text-sm);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      z-index: 1000;
+      opacity: 0;
+      transition: all 200ms var(--ease-out);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Empty state */
+    .lab-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      padding: var(--space-7);
+      text-align: center;
+      color: var(--ink-faint);
+    }
+
+    /* nm-figure needs to be inline-block */
+    .nm-live {
+      display: inline-block;
+      line-height: 0;
+    }
+
+    @media (max-width: 800px) {
+      .lab {
+        grid-template-columns: 1fr;
+      }
+
+      .lab-side {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        max-height: 45vh;
+      }
+
+      .showcase {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="lab">
+    <header class="lab-head">
+      <h1>⚗ Avatar Lab</h1>
+      <span class="sub">MemoryMap-AI - Companion & Atlas Debug Tool</span>
+      <div class="btn-row">
+        <button class="btn" onclick="toggleTheme()">🌓</button>
+        <button class="btn" id="anim-btn" onclick="toggleAnim()">🏃 Anim</button>
+        <button class="btn" onclick="clearCanvas()">🗑 Clear</button>
+      </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="lab-side">
+      <div class="lab-sec">
+        <div class="lab-sec-t">Atlas Character</div>
+        <div style="display:flex;gap:6px">
+          <select id="atlas-look" class="lab-sel" onchange="savePref('atlas-look',this.value)">
+            <option value="masculine">Masculine</option>
+            <option value="feminine">Feminine</option>
+          </select>
+          <select id="atlas-style" class="lab-sel" onchange="savePref('atlas-style',this.value)">
+            <option value="character">Character</option>
+            <option value="classic">Classic</option>
+          </select>
+        </div>
+        <div class="mood-grid" id="mood-grid"></div>
+        <div class="btn-row">
+          <button class="btn btn-p" onclick="spawnAtlas()">🔬 Atlas</button>
+          <button class="btn" onclick="spawnAtlasSizes()">📐 Sizes</button>
+          <button class="btn" onclick="spawnAtlasMoods()">😊 Moods</button>
+          <button class="btn" onclick="spawnAtlasCompare()">⚖ Compare</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="lab-sec">
+        <div class="lab-sec-t">Generated Avatars</div>
+        <input type="text" id="av-name" class="lab-in" placeholder="Name / seed..." value="Brayden"
+          onkeydown="if(event.key==='Enter')spawnAvatar()">
+        <div class="btn-row">
+          <button class="btn btn-p" onclick="spawnAvatar()">🎨 Avatar</button>
+          <button class="btn" onclick="spawnAvatarFigure()">🧍 Figure</button>
+          <button class="btn" onclick="spawnAvatarSizes()">📐 Sizes</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="lab-sec">
+        <div class="lab-sec-t">Quick Gallery</div>
+        <div class="btn-grid">
+          <button class="btn" onclick="spawnGallery('names')">👤 Names</button>
+          <button class="btn" onclick="spawnGallery('moods')">😊 Moods</button>
+          <button class="btn" onclick="spawnGallery('animals')">🐾 Animals</button>
+          <button class="btn" onclick="spawnGallery('costumes')">🎩 Costumes</button>
+          <button class="btn" onclick="spawnGallery('nonsense')">🤪 Nonsense</button>
+          <button class="btn" onclick="spawnGallery('food')">🍕 Food</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="lab-sec">
+        <div class="lab-sec-t">Notes</div>
+        <textarea class="lab-notes" id="notes" placeholder="Observations, changes, likes/dislikes..."></textarea>
+        <div class="btn-row">
+          <button class="btn" onclick="copyNotes()">📋 Copy</button>
+          <button class="btn" onclick="saveNotes()">💾 Save</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Canvas -->
+    <main class="lab-canvas" id="canvas">
+      <div class="lab-empty" id="empty">
+        <div style="font-size:48px;opacity:.3">⚗</div>
+        <div>Use the sidebar to spawn Atlas or avatars.</div>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <!-- ── Stubs: globals the JS files expect at parse time ───────────────── -->
+  <script>
+    function userMarkSeed() { return ""; }
+    function aiNameNow() { return "Atlas"; }
+    function currentAccentHex() { return "#6d5dfc"; }
+    function appearancePref(k, fb) {
+      if (k === "face-look") return localStorage.getItem("lab-face-look") || fb;
+      if (k === "atlas-style") return localStorage.getItem("lab-atlas-style") || fb;
+      if (k === "atlas-look") return localStorage.getItem("lab-atlas-look") || null;
+      return fb;
+    }
+    function nameMarkBuddyCue() { }
+    function nameMarkBuddyAct() { }
+    function syncNameMarkBuddy() { }
+    function paintDashEmblem() { }
+    function repaintOwnFace() { }
+
+  </script>
+
+  <!-- Load the real JS (must be synchronous - atlas.js depends on avatars.js) -->
+  <script src="../frontend/avatars.js"></script>
+  <script src="../frontend/atlas.js"></script>
+
+  <!-- ── Performance patch + Lab logic ──────────────────────────────────── -->
+  <script>
+    // =====================================================================
+    // PERFORMANCE FIX: Skip the expensive nameMarkRasterise pipeline.
+    // The app turns every SVG face into data-URI images inside span's for
+    // compositor-layer animation. In the lab we don't need that - raw SVGs
+    // are perfectly fine and orders of magnitude faster.
+    // =====================================================================
+    (function patchRasterise() {
+      // Replace nameMarkCompose so it calls build() but returns the raw SVG
+      // instead of going through the measure → serialize → data-URI pipeline.
+      if (typeof nameMarkCompose !== "undefined") {
+        // keep ref to original for emergencies
+        window._origCompose = nameMarkCompose;
+      }
+      window.nameMarkCompose = function labCompose(key, build, opts = {}) {
+        const { size = 20, height = 0 } = opts;
+        const svg = build();
+        // Size the SVG
+        svg.setAttribute("width", String(size));
+        svg.setAttribute("height", String(height || size));
+        svg.dataset.nmSize = String(size);
+        svg.dataset.nmOn = "";
+        svg.dataset.nmKb = "1";
+        svg.classList.add("name-mark");
+        return svg;
+      };
+
+      // Always-on: marks animate immediately without an IntersectionObserver gate.
+      window.watchNameMark = function (svg) {
+        if (svg && svg.dataset) svg.dataset.nmOn = "";
+      };
+
+      // Also clear the face cache - we won't use it.
+      if (typeof nameMarkFaceCache !== "undefined") nameMarkFaceCache.clear();
+    })();
+
+
+    // =====================================================================
+    // Lab constants and state
+    // =====================================================================
+    const MOODS = ["calm", "happy", "delighted", "laughing", "thinking", "curious",
+      "surprised", "confused", "sleepy", "sad", "proud", "shy", "determined", "love", "worried"];
+    const GALLERIES = {
+      names: ["Brayden", "Alice", "Charlie", "Luna", "Max", "Zoe", "Leo", "Ivy", "Kai", "Nova", "Sage", "Finn"],
+      moods: ["happyCat", "sadPanda", "angryBear", "sleepyOwl", "excitedPuppy", "calmMonk",
+        "nervousMouse", "slyFox", "evilWizard", "confusedFrog", "loveBunny", "dramaticDiva"],
+      animals: ["panda", "cat", "fox", "wolf", "bunny", "frog", "owl", "dragon", "unicorn",
+        "axolotl", "capybara", "penguin", "octopus", "shark", "phoenix"],
+      costumes: ["wizardMage", "pirateKing", "ninjaAssassin", "cowboyHero", "astronautPilot",
+        "chefCook", "nerdCoder", "robotAndroid", "angelHalo", "devilHorns", "knightWarrior", "clownJester"],
+      nonsense: ["xyzqwkm", "aaaaaaa", "asdfghjk", "12x4z", "brrrtzk", "qqqq",
+        "zxcvbn", "kthxbai", "(╯°□°)╯︵ ┻━┻", "uwu", "lolol", "???"],
+      food: ["SushiLord", "PizzaKing", "CookieMaster", "RamenChef", "BurgerBoss",
+        "DonutQueen", "TacoWizard", "CakeWitch", "NoodleNinja", "CheeseMonk"],
+    };
+    let curMood = "calm";
+
+    // =====================================================================
+    // Init
+    // =====================================================================
+    document.addEventListener("DOMContentLoaded", () => {
+      buildMoodGrid();
+      loadNotes();
+      const look = localStorage.getItem("lab-atlas-look") || "masculine";
+      $("atlas-look").value = look;
+      try { localStorage.setItem("atlas-look", look); } catch { }
+      $("atlas-style").value = localStorage.getItem("lab-atlas-style") || "character";
+
+      // Set animation button opacity according to current state
+      const html = document.documentElement;
+      const animBtn = document.getElementById("anim-btn");
+      if (html.getAttribute("data-avatar-motion") === "off") {
+        animBtn.style.opacity = "0.5";
+      } else {
+        animBtn.style.opacity = "1";
+      }
+    });
+
+    function buildMoodGrid() {
+      const g = document.getElementById("mood-grid");
+      for (const m of MOODS) {
+        const b = document.createElement("button");
+        b.className = "mood-pill" + (m === curMood ? " on" : "");
+        b.textContent = m;
+        b.onclick = () => pickMood(m);
+        g.appendChild(b);
+      }
+    }
+
+    function pickMood(m) {
+      curMood = m;
+      document.querySelectorAll(".mood-pill").forEach(p => p.classList.toggle("on", p.textContent === m));
+      if (typeof setAtlasMood === "function") setAtlasMood(m, 0, { quiet: true });
+    }
+
+    // =====================================================================
+    // Helpers
+    // =====================================================================
+    function $(id) { return document.getElementById(id); }
+    function hideEmpty() { const e = $("empty"); if (e) e.style.display = "none"; }
+    function toast(msg) {
+      const t = $("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(t._t);
+      t._t = setTimeout(() => {
+        t.classList.remove("show");
+      }, 1500);
+    }
+
+    function savePref(key, val) {
+      try {
+        localStorage.setItem("lab-" + key, val);
+        if (key === "atlas-look") {
+          try { localStorage.setItem("atlas-look", val); } catch (e) { }
+        }
+      } catch (e) {
+        // Fail silently or log error if needed
+      }
+      if (typeof atlasRepaint === "function") atlasRepaint();
+      toast(key + ": " + val);
+    }
+
+    function addCard(title, sub) {
+      hideEmpty();
+      const c = document.createElement("div"); c.className = "card";
+      const h = document.createElement("div"); h.className = "card-head";
+      h.innerHTML = `<span class="card-title">${title}</span>` +
+        (sub ? `<span class="card-sub">${sub}</span>` : "") +
+        `<button class="btn card-close" onclick="this.closest('.card').remove()">✕</button>`;
+      c.appendChild(h);
+      $("canvas").appendChild(c);
+      return c;
+    }
+
+    // Build a labelled specimen
+    function specimen(svg, label, detail) {
+      const s = document.createElement("div"); s.className = "spec";
+      const st = document.createElement("div"); st.className = "stage"; st.appendChild(svg);
+      s.appendChild(st);
+      if (label) { const l = document.createElement("div"); l.className = "spec-label"; l.textContent = label; s.appendChild(l); }
+      if (detail) { const d = document.createElement("div"); d.className = "spec-detail"; d.textContent = detail; s.appendChild(d); }
+      return s;
+    }
+
+    // Build a specimen for a figure (needs extra room for overflow)
+    function figureSpecimen(fig, label) {
+      const s = document.createElement("div"); s.className = "spec";
+      const st = document.createElement("div"); st.className = "stage stage-figure";
+      st.appendChild(fig);
+      s.appendChild(st);
+      if (label) { const l = document.createElement("div"); l.className = "spec-label"; l.textContent = label; s.appendChild(l); }
+      return s;
+    }
+
+    function bustSpecimen(svg, label) {
+      const s = document.createElement("div"); s.className = "spec";
+      const st = document.createElement("div"); st.className = "stage stage-bust";
+      st.appendChild(svg);
+      s.appendChild(st);
+      if (label) { const l = document.createElement("div"); l.className = "spec-label"; l.textContent = label; s.appendChild(l); }
+      return s;
+    }
+
+    // Batch-append: yields to the browser every N items to stay responsive
+    function batchAppend(parent, builders, batchSize = 4) {
+      let i = 0;
+      function next() {
+        const end = Math.min(i + batchSize, builders.length);
+        const frag = document.createDocumentFragment();
+        for (; i < end; i++) frag.appendChild(builders[i]());
+        parent.appendChild(frag);
+        if (i < builders.length) requestAnimationFrame(next);
+      }
+      next();
+    }
+
+    // =====================================================================
+    // Atlas spawners
+    // =====================================================================
+    function spawnAtlas() {
+      const mood = curMood;
+      const look = $("atlas-look").value;
+      const style = $("atlas-style").value;
+      const isClassic = atlasStyle() === "classic";
+      const card = addCard("Atlas - " + mood, look + " · " + style);
+
+      const sc = document.createElement("div"); sc.className = "showcase";
+
+      // Big view
+      const stage = document.createElement("div"); stage.className = "showcase-stage";
+      if (isClassic) {
+        // Classic globe at a large size
+        stage.appendChild(atlasDraw(160, mood));
+      } else {
+        stage.appendChild(atlasDraw(200, mood, "full"));
+      }
+      sc.appendChild(stage);
+
+      // Info + other views
+      const info = document.createElement("div");
+      const moodData = ATLAS_MOODS[mood] || {};
+      info.innerHTML = `
+      <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:var(--space-2)">Atlas - ${mood}</div>
+      <div class="info-grid">
+        <span class="info-k">Look</span><span class="info-v">${isClassic ? "(classic)" : look}</span>
+        <span class="info-k">Mood</span><span class="info-v">${mood}${isClassic ? " → " + (ATLAS_CLASSIC_MOODS[mood] || mood) : ""}</span>
+        <span class="info-k">Style</span><span class="info-v">${style}</span>
+        <span class="info-k">Cue</span><span class="info-v">${moodData.cue || "-"}</span>
+        <span class="info-k">Tooltip</span><span class="info-v">${moodData.words || "(none)"}</span>
+      </div>
+      <div class="lab-lbl" style="margin-top:var(--space-3)">Other views</div>
+      `;
+
+      // Strip of other sizes - each with proper containment for overflow
+      const strip = document.createElement("div"); strip.className = "strip";
+
+      // Figure (needs extra room for rings/glow overflow)
+      strip.appendChild(figureSpecimen(atlasFigure(), "Figure 64×92"));
+      // Bust (also needs room)
+      strip.appendChild(bustSpecimen(atlasAvatar(64, mood), "Bust 64px"));
+      // Head sizes
+      for (const sz of [48, 32, 28]) strip.appendChild(specimen(atlasDraw(sz, mood), "Head " + sz + "px"));
+      // Tiny
+      for (const sz of [24, 16]) strip.appendChild(specimen(atlasDraw(sz, mood), "Tiny " + sz + "px"));
+
+      info.appendChild(strip);
+      sc.appendChild(info);
+      card.appendChild(sc);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function spawnAtlasSizes() {
+      const mood = curMood;
+      const isClassic = atlasStyle() === "classic";
+      const card = addCard("Atlas - All Sizes", "mood: " + mood + (isClassic ? " · classic" : ""));
+      const row = document.createElement("div"); row.className = "row";
+      row.style.gap = "var(--space-5)"; /* extra gap for overflow */
+
+      const sizes = [
+        [200, "full", "Full 200"], [120, "full", "Full 120"], [96, "full", "Full 96"],
+        [80, "head", "Head 80"], [64, "head", "Head 64"], [48, "head", "Head 48"],
+        [32, "head", "Head 32"], [28, "head", "Head 28"],
+        [24, "tiny", "Tiny 24"], [20, "tiny", "Tiny 20"], [16, "tiny", "Tiny 16"],
+      ];
+
+      const builders = sizes.map(([sz, , lbl]) => () => specimen(atlasDraw(sz, mood), lbl + "px"));
+      // Figure and bust go at the end (they are the largest, natural reading order)
+      builders.push(() => bustSpecimen(atlasAvatar(80, mood), "Bust 80px"));
+      builders.push(() => figureSpecimen(atlasFigure(), isClassic ? "Classic figure" : "Figure"));
+
+      batchAppend(row, builders, 4);
+      card.appendChild(row);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function spawnAtlasMoods() {
+      const isClassic = atlasStyle() === "classic";
+      const card = addCard("Atlas - All 15 Moods", $("atlas-look").value + (isClassic ? " · classic" : ""));
+      const grid = document.createElement("div"); grid.className = "grid";
+      grid.style.gap = "var(--space-4)"; /* extra gap for overflow */
+
+      batchAppend(grid, MOODS.map(m => () => {
+        const s = specimen(atlasDraw(72, m), m, ATLAS_MOODS[m]?.words || "(calm)");
+        s.style.cursor = "pointer";
+        s.onclick = () => pickMood(m);
+        return s;
+      }), 5);
+
+      card.appendChild(grid);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function spawnAtlasCompare() {
+      const mood = curMood;
+      const isClassic = atlasStyle() === "classic";
+
+      if (isClassic) {
+        // Classic globe doesn't have masculine/feminine - show mood comparison instead
+        const card = addCard("Atlas Classic - Mood Comparison", "mood: " + mood);
+        const row = document.createElement("div"); row.className = "row"; row.style.justifyContent = "center";
+        for (const m of ["calm", "happy", "thinking", "surprised", "sleepy"]) {
+          const col = document.createElement("div"); col.className = "spec";
+          const t = document.createElement("div"); t.className = "spec-label";
+          t.innerHTML = "<strong>" + m + "</strong>"; col.appendChild(t);
+          const st = document.createElement("div"); st.className = "stage"; st.style.padding = "var(--space-3)";
+          st.appendChild(atlasDraw(96, m)); col.appendChild(st);
+          row.appendChild(col);
+        }
+        card.appendChild(row);
+        card.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
+      const card = addCard("Atlas - Masculine vs Feminine", "mood: " + mood);
+      const row = document.createElement("div"); row.className = "row"; row.style.justifyContent = "center";
+
+      for (const look of ["masculine", "feminine"]) {
+        localStorage.setItem("atlas-look", look);
+        const col = document.createElement("div"); col.className = "spec"; col.style.minWidth = "180px";
+        const t = document.createElement("div"); t.className = "spec-label"; t.style.fontSize = "var(--text-base)";
+        t.innerHTML = "<strong>" + look + "</strong>"; col.appendChild(t);
+
+        const st = document.createElement("div"); st.className = "stage"; st.style.padding = "var(--space-4)";
+        st.appendChild(atlasDraw(150, mood, "full")); col.appendChild(st);
+
+        const hr = document.createElement("div"); hr.style.cssText = "display:flex;gap:12px;align-items:center;justify-content:center;margin-top:8px;";
+        for (const s of [48, 32, 20]) hr.appendChild(atlasDraw(s, mood));
+        col.appendChild(hr);
+
+        row.appendChild(col);
+      }
+      // Restore
+      localStorage.setItem("atlas-look", $("atlas-look").value);
+      card.appendChild(row);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    // =====================================================================
+    // Avatar spawners
+    // =====================================================================
+    function spawnAvatar() {
+      const seedName = $("av-name").value.trim() || "Buddy";
+      const card = addCard('Avatar - "' + seedName + '"', "Generated character");
+      const sc = document.createElement("div");
+      sc.className = "showcase";
+      const stage = document.createElement("div");
+      stage.className = "showcase-stage";
+      stage.appendChild(nameMark(seedName, 96));
+      sc.appendChild(stage);
+      const reading = nameMood(seedName);
+      const info = document.createElement("div");
+      info.innerHTML = `
+    <div style="font-size:var(--text-lg);font-weight:700;margin-bottom:var(--space-2)">${seedName}</div>
+    <div class="info-grid">
+      <span class="info-k">Mood</span><span class="info-v">${reading?.mood || "(seeded)"}</span>
+      <span class="info-k">Source</span><span class="info-v">${reading?.source || "-"}</span>
+      <span class="info-k">Intense</span><span class="info-v">${reading?.intense ? "yes" : "no"}</span>
+      <span class="info-k">Animal</span><span class="info-v">${reading?.animal || "-"}</span>
+      <span class="info-k">Props</span><span class="info-v">${reading?.props?.join(", ") || "-"}</span>
+      <span class="info-k">Hand</span><span class="info-v">${reading?.hand || "-"}</span>
+      <span class="info-k">Look</span><span class="info-v">${reading?.look || "neutral"}</span>
+      <span class="info-k">Cues</span><span class="info-v">${reading?.cues?.map(c => c.kind + ": " + c.key).join(", ") || "-"}</span>
+      <span class="info-k">Mutant</span><span class="info-v">${reading?.mutant ? "yes" : "-"}</span>
+    </div>
+  `;
+
+      const strip = document.createElement("div"); strip.className = "strip"; strip.style.marginTop = "var(--space-3)";
+      for (const sz of [96, 64, 48, 32, 28, 20, 16]) {
+        strip.appendChild(specimen(nameMark(seedName, sz), sz + "px"));
+      }
+      info.appendChild(strip);
+      sc.appendChild(info);
+      card.appendChild(sc);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function spawnAvatarFigure() {
+      const seedName = $("av-name").value.trim() || "Buddy";
+      const card = addCard('Figure - "' + seedName + '"', "Full companion body");
+      const row = document.createElement("div"); row.className = "row"; row.style.justifyContent = "center";
+
+      // Full figure via drawCharacter
+      const spec1 = document.createElement("div"); spec1.className = "spec"; spec1.style.minWidth = "140px";
+      const st1 = document.createElement("div"); st1.className = "stage stage-figure";
+      try {
+        const fig = drawCharacter(seedName, 100, "figure");
+        if (fig instanceof SVGElement) st1.appendChild(fig);
+        else st1.appendChild(nameMark(seedName, 128));
+      } catch (e) { st1.appendChild(nameMark(seedName, 128)); }
+      spec1.appendChild(st1);
+      const l1 = document.createElement("div"); l1.className = "spec-label"; l1.innerHTML = "<strong>" + seedName + "</strong><br>Full figure";
+      spec1.appendChild(l1);
+      row.appendChild(spec1);
+
+      // Circle marks for comparison
+      const spec2 = document.createElement("div"); spec2.className = "spec"; spec2.style.minWidth = "100px";
+      const st2 = document.createElement("div"); st2.className = "stage"; st2.style.cssText = "flex-direction:column;gap:6px;";
+      for (const s of [64, 32, 20]) st2.appendChild(nameMark(seedName, s));
+      spec2.appendChild(st2);
+      const l2 = document.createElement("div"); l2.className = "spec-label"; l2.textContent = "Circle marks";
+      spec2.appendChild(l2);
+      row.appendChild(spec2);
+
+      card.appendChild(row);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function spawnAvatarSizes() {
+      const seedName = $("av-name").value.trim() || "Buddy";
+      const card = addCard('"' + seedName + '" - All Sizes');
+      const row = document.createElement("div"); row.className = "row";
+      batchAppend(row, [128, 96, 80, 64, 48, 32, 28, 24, 20, 16].map(sz => () => specimen(nameMark(seedName, sz), sz + "px")), 4);
+      card.appendChild(row);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    // =====================================================================
+    // Gallery
+    // =====================================================================
+    function spawnGallery(preset) {
+      const names = GALLERIES[preset] || GALLERIES.names;
+      const card = addCard("Gallery - " + preset, names.length + " specimens");
+      const grid = document.createElement("div"); grid.className = "gallery";
+
+      batchAppend(grid, names.map(seedName => () => {
+        const lower = seedName.toLowerCase();
+        const svg = lower === "atlas" ? atlasDraw(48) : nameMark(seedName, 48);
+        const reading = nameMood(seedName);
+        const detail = [reading.mood, reading.animal ? "🐾" + reading.animal : ""].filter(Boolean).join(" · ");
+        const s = specimen(svg, seedName, detail);
+        s.style.cursor = "pointer";
+        s.onclick = () => { $("av-name").value = seedName; spawnAvatar(); };
+        return s;
+      }), 5);
+
+      card.appendChild(grid);
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    // =====================================================================
+    // Utilities
+    // =====================================================================
+    function toggleTheme() {
+      const m = document.documentElement.getAttribute("data-mode") === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-mode", m);
+      toast("Theme: " + m);
+    }
+
+    function toggleAnim() {
+      const html = document.documentElement;
+      if (html.getAttribute("data-avatar-motion") === "off") {
+        html.setAttribute("data-avatar-motion", "always");
+        document.getElementById("anim-btn").style.opacity = "1";
+      } else {
+        html.setAttribute("data-avatar-motion", "off");
+        document.getElementById("anim-btn").style.opacity = "0.5";
+      }
+    }
+    function clearCanvas() {
+      $("canvas").innerHTML = '<div class="lab-empty" id="empty" style="font-size:var(--text-base);color:var(--ink-faint);padding:var(--space-7);text-align:center">Canvas cleared. Spawn something from the sidebar.</div>';
+      toast("Cleared");
+    }
+    function loadNotes() { try { $("notes").value = localStorage.getItem("lab-notes") || ""; } catch (e) { } }
+    function saveNotes() { try { localStorage.setItem("lab-notes", $("notes").value); toast("Saved"); } catch (e) { } }
+    function copyNotes() { navigator.clipboard.writeText($("notes").value).then(() => toast("Copied")).catch(() => toast("Failed")); }
+  </script>
+
+</body>
+
+</html>

@@ -127,3 +127,13 @@ def test_a_companion_of_your_own() -> None:
     assert 'nameMarkLookPickers(host, "profile-look-", "From your name"' in _fn("mountProfileLook")
     assert '"avatar-buddy-custom"' in _fn("nameMarkBuddyKeepCustom")
     assert "mountBuddyCustom();" in SETTINGS
+
+
+def test_what_a_face_holds_shows_in_its_head_mark() -> None:
+    # INBOX 426 f: the first faces drew the held thing in a raised hand at
+    # the mark's lower right; the head-only mark had dropped it. Back, with
+    # the figure's own drawing, and never in the small mark's one cue.
+    draw = _fn("drawCharacter")
+    assert "if (!full && !mini && reading.hand) {" in draw
+    block = draw[draw.index("if (!full && !mini && reading.hand) {") :]
+    assert "nameCharacterHeld(reading.hand, hand," in block[: block.index("\n  }\n")]

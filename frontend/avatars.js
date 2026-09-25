@@ -2416,6 +2416,19 @@ function drawCharacter(seed, size = 20, mode = "mark") {
       stroke(`M${eyes[0][0] + 5.4} ${eyes[0][1]} Q32 ${eyes[0][1] - 2.4} ${eyes[1][0] - 5.4} ${eyes[1][1]}`, glasses, 1.2, "#6b4a2f");
     }
   }
+  //: **What it holds shows in the head mark too** (INBOX 426 f, the owner:
+  //: "they still look bland and are missing a lot of the flare they used to
+  //: have"). The first faces drew the held thing in a hand raised at the
+  //: disc's lower right (a wand, a pickaxe, a mug); the head-only mark had
+  //: dropped it, so a name that asked for one showed nothing of it outside
+  //: the companion. The same hand and the same drawing as the figure's,
+  //: four-fifths size, rising from the mark's lower right edge. Not in the
+  //: small mark, which keeps its one cue.
+  if (!full && !mini && reading.hand) {
+    const hand = make("g", { class: "nmc-mark-hand", transform: "translate(4 -6) scale(0.82)" }, svg);
+    outlined("M61 82 Q59 74 56.5 67", base, 6, hand);
+    nameCharacterHeld(reading.hand, hand, { make, shape, stroke, outlined, star, heart, base, line });
+  }
   svg.dataset.nmChar = "1";
   //: What it holds, so a pose that needs both hands (hanging) can keep the
   //: holding hand down and the thing in it on show.

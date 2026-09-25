@@ -169,7 +169,7 @@ function atlasGroup(parent, cls, pivot) {
 //: a round tip (`cap`) or a soft point. Limbs, locks, wisps, the chin hand,
 //: the tail and the nebula strand all come from here, which is why they
 //: match.
-function atlasStemSides(segs, width, samples) {
+function atlasStemSides(segs, width, samples, shift) {
   const at = (s, t) => {
     const u = 1 - t;
     const x = u * u * u * s[0] + 3 * u * u * t * s[2] + 3 * u * t * t * s[4] + t * t * t * s[6];
@@ -187,8 +187,11 @@ function atlasStemSides(segs, width, samples) {
     const [x, y, dx, dy] = at(segs[k], (i - k * samples) / samples);
     const len = Math.hypot(dx, dy) || 1;
     const hw = width(t) / 2;
-    left.push([x - (dy / len) * hw, y + (dx / len) * hw]);
-    right.push([x + (dy / len) * hw, y - (dx / len) * hw]);
+    const sh = shift ? shift(t) : 0;
+    const cx = x - (dy / len) * sh;
+    const cy = y + (dx / len) * sh;
+    left.push([cx - (dy / len) * hw, cy + (dx / len) * hw]);
+    right.push([cx + (dy / len) * hw, cy - (dx / len) * hw]);
   }
   return { left, right };
 }
@@ -208,8 +211,8 @@ function atlasSmooth(pts) {
   return d;
 }
 
-function atlasStem(segs, width, { samples = 10, cap = true } = {}) {
-  const { left, right } = atlasStemSides(segs, width, samples);
+function atlasStem(segs, width, { samples = 10, cap = true, shift = null } = {}) {
+  const { left, right } = atlasStemSides(segs, width, samples, shift);
   const f = atlasFix;
   const tip = left[left.length - 1];
   const tipR = right[right.length - 1];
@@ -254,13 +257,13 @@ const ATLAS_GEO = {
   ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -5 },
   //: The constellation inside the body: the heart star first, then the
   //: linked points down the belly.
-  constellation: [[31, 46.6], [27.4, 50.8], [33.6, 53.8], [28.8, 57.6], [34, 60.8]],
+  constellation: [[31, 45.6], [28.2, 50.2], [33.2, 53.6], [28.8, 57.4], [33, 60.6]],
   neck: [31, 37],
   feet: [31, 90],
   chin: [31, 30],
-  shoulders: [[22.4, 43], [39.6, 43]],
-  hips: [[26.4, 64], [35.6, 64]],
-  tail: [36, 62],
+  shoulders: [[24.6, 41], [37.4, 41]],
+  hips: [[27.4, 63], [34.6, 63]],
+  tail: [34, 60],
 };
 
 //: The head: a soft oval a little taller than wide, fuller at the cheeks
@@ -274,9 +277,18 @@ const ATLAS_HEAD_EDGE = "M18.4 30.4C16.6 20.2 22.6 8 31 8C39.4 8 45.4 20.2 43.6 
 //: soft; inside it the inner ear, the same shape inset, filled with
 //: galaxy. Its base is a curve inside the head. The right ear is the
 //: mirror.
-const ATLAS_EAR_L = "M19.2 17C16.6 15.6 14.6 13.4 13.6 11.4C13.1 10.4 11.8 10 12 9.2C12.2 8.5 13.4 8.8 13.9 8.2C13.3 6.6 12.5 4.8 13.1 3.2C13.4 2.4 14.5 2.7 15 2.1C15.2 0.9 15.6 -0.3 16.5 -0.4C17.5 -0.5 18.2 1.2 18.9 2.6C20.6 6 23.2 8.8 27.2 11.2C24 11.8 21 13.8 19.2 17Z";
-const ATLAS_EAR_IN_L = "M20.2 14.2C18.2 12.6 16.6 10.4 16.2 7.8C16 6.4 16.6 5.2 17.4 5.2C18.2 5.2 18.6 6.2 19 7C20.4 9.4 22.2 10.8 24.8 11.8C23 12.4 21.4 13.2 20.2 14.2Z";
-const ATLAS_EAR_TIP_L = [16.4, 1];
+const ATLAS_EAR_L = atlasScalePath("M19.2 17C16.6 15.6 14.6 13.4 13.6 11.4C13.1 10.4 11.8 10 12 9.2C12.2 8.5 13.4 8.8 13.9 8.2C13.3 6.6 12.5 4.8 13.1 3.2C13.4 2.4 14.5 2.7 15 2.1C15.2 0.9 15.6 -0.3 16.5 -0.4C17.5 -0.5 18.2 1.2 18.9 2.6C20.6 6 23.2 8.8 27.2 11.2C24 11.8 21 13.8 19.2 17Z", 1.08, 23, 15.6);
+const ATLAS_EAR_IN_L = atlasScalePath("M20.2 14.2C18.2 12.6 16.6 10.4 16.2 7.8C16 6.4 16.6 5.2 17.4 5.2C18.2 5.2 18.6 6.2 19 7C20.4 9.4 22.2 10.8 24.8 11.8C23 12.4 21.4 13.2 20.2 14.2Z", 1.08, 23, 15.6);
+const ATLAS_EAR_TIP_L = [15.9, 0.1];
+
+//: Scales a hand-drawn path about a point (only M, C, L, Q and Z appear in
+//: the paths this is used on).
+function atlasScalePath(d, k, cx, cy) {
+  return d.replace(/([MCLQ])([^MCLQZ]*)/g, (m, cmd, body) => {
+    const n = body.trim().split(/[\s,]+/).map(Number);
+    return cmd + n.map((v, i) => +(i % 2 ? cy + (v - cy) * k : cx + (v - cx) * k).toFixed(2)).join(" ");
+  });
+}
 
 //: **Two looks of one character** (the design note). The ear tufts and
 //: the tail are where they differ (the owner: "masculine: shorter ear
@@ -293,22 +305,23 @@ const ATLAS_LOOKS = {
     earTip: ATLAS_EAR_TIP_L,
     strand: "",
     locks: [
-      { seg: [[24, 11, 30, 4, 44, 4, 52, 10], [52, 10, 56, 13, 56.4, 17, 54, 19.4]], w: [5.4, 0.6] },
-      { seg: [[30, 9.6, 38, 2.6, 50, 6, 56, 15], [56, 15, 60, 20, 60.2, 25, 57.6, 27.4]], w: [6, 0.7] },
-      { seg: [[36, 10.4, 42, 6.4, 52, 10, 56, 20], [56, 20, 59, 27, 58.2, 32, 55, 34.4]], w: [5, 0.6] },
+      { seg: [[23, 12, 26, 0, 42, -3, 52, 6], [52, 6, 57, 10.6, 58, 16, 54.6, 19.4]], w: [6.2, 0.6] },
+      { seg: [[28, 10, 36, 0.4, 50, 3, 58, 13], [58, 13, 63, 19.6, 62.6, 26, 58.4, 29]], w: [7, 0.7] },
+      { seg: [[33, 9.6, 40, 3.6, 53, 7, 59, 19], [59, 19, 63.4, 27.4, 61.6, 34, 56.6, 37.4]], w: [6.4, 0.7] },
+      { seg: [[37, 11, 43, 8, 52, 14, 55.6, 24], [55.6, 24, 58.4, 32, 57.2, 39, 52.4, 43]], w: [5, 0.6] },
     ],
     head: [
-      { seg: [[24, 11, 30, 4, 44, 4, 52, 10], [52, 10, 56, 13, 56.4, 17, 54, 19.4]], w: [5.4, 0.6] },
-      { seg: [[30, 9.6, 38, 2.6, 49, 6, 54.6, 15], [54.6, 15, 57.4, 19.4, 57.4, 24, 55, 26.4]], w: [6, 0.7] },
-      { seg: [[36, 10.4, 42, 6.4, 51, 10, 54.8, 20], [54.8, 20, 57, 26, 56.4, 31, 53.6, 33.4]], w: [5, 0.6] },
+      { seg: [[23, 12, 28, 2, 44, 1, 52, 8], [52, 8, 55.6, 11.4, 56, 15.4, 53.4, 18]], w: [6.2, 0.6] },
+      { seg: [[28, 10, 36, 0.4, 49, 3, 54.4, 12], [54.4, 12, 57.6, 17, 57.4, 22.4, 54, 25.4]], w: [7, 0.7] },
+      { seg: [[33, 9.6, 40, 3.6, 51, 7, 55, 17], [55, 17, 58, 24, 57, 30, 52.6, 33.6]], w: [6.4, 0.7] },
+      { seg: [[37, 11, 43, 8, 51, 13, 53.6, 22], [53.6, 22, 55.6, 29, 54.6, 35, 50.4, 39]], w: [5, 0.6] },
     ],
     brow: "straight",
     lashes: false,
-    tail: [[35, 62, 47, 61.4, 53.4, 67.6, 50, 75], [50, 75, 46.6, 82.4, 52, 89.4, 61, 86.6]],
-    tailWidth: (t) => 4.6 + 4.4 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 3 * t * t,
-    tailLicks: [[0.32, 1.6], [0.5, 2.1], [0.68, 1.5], [0.84, 1.2]],
-    tailStars: [[46.6, 65.4, 0.45], [51.4, 72.8, 0.35], [48.2, 80.6, 0.5], [51.8, 87, 0.35], [56.8, 88.4, 0.45]],
-    tailTip: [61.6, 86.2],
+    tail: [[33, 60, 44, 59.6, 52.4, 65.6, 50.4, 73.4], [50.4, 73.4, 48.2, 81, 52.4, 88.4, 62, 86]],
+    tailWidth: (t) => 2.6 + 6 * Math.sin(Math.PI * Math.min(1, t * 1.08)) - 2 * t * t,
+    tailStars: [[45.6, 63.6, 0.45], [51, 70.6, 0.35], [49.4, 79.4, 0.5], [53.2, 87, 0.35], [57.8, 88, 0.45]],
+    tailTip: [62.4, 85.4],
   },
   feminine: {
     ear: "M19.2 17C15.6 15.8 12.6 13.8 10.8 11.4C9.8 10.2 8.2 9.8 8.4 8.8C8.6 8 10 8.2 10.6 7.6C9.6 5.8 8.4 3.6 9.2 1.6C9.6 0.7 10.8 1 11.4 0.4C11.8 -1.2 12.6 -2.8 13.9 -2.9C15.2 -3 16.2 -0.8 17.2 1.4C19.4 6 22.8 9 27.2 11.2C24 11.8 21 13.8 19.2 17Z",
@@ -316,30 +329,41 @@ const ATLAS_LOOKS = {
     earTip: [14.4, -1.4],
     strand: "M12.2 12.6C9.8 15.8 8.6 20.4 9.4 25.2C9.6 26.4 9 28.4 7.8 28.2C6.4 28 6.2 25.8 6.4 24C6.8 19.2 8.4 15 12.2 12.6Z",
     locks: [
-      { seg: [[22, 12.4, 26, 4, 42, 3, 52, 9], [52, 9, 58, 13, 59.4, 18, 56, 20.6]], w: [5.4, 0.6] },
-      { seg: [[26, 10.6, 32, 1.6, 48, 3, 57, 12], [57, 12, 63, 18, 64.2, 25, 60.6, 28.6]], w: [6, 0.7] },
-      { seg: [[31, 9.6, 38, 0.4, 54, 3, 61, 16], [61, 16, 67, 25, 67.2, 34, 62, 38]], w: [6.6, 0.8] },
-      { seg: [[36, 10.4, 44, 3.4, 56, 8, 62, 22], [62, 22, 67, 33, 65.2, 44, 59, 48]], w: [6, 0.7] },
-      { seg: [[40, 12, 46, 8, 56, 14, 59, 28], [59, 28, 62, 40, 60.2, 50, 55, 56]], w: [5, 0.6] },
+      { seg: [[21, 13, 22, 0, 42, -3, 54, 6], [54, 6, 62, 11, 64, 18, 59.6, 22]], w: [6.6, 0.6] },
+      { seg: [[25, 11, 28, -1, 50, 0, 60, 10], [60, 10, 69, 17, 70.6, 27, 64.4, 31]], w: [7.4, 0.7] },
+      { seg: [[30, 9.6, 34, -2, 56, 0.6, 65, 14], [65, 14, 74, 25, 73, 38, 65.6, 43]], w: [8, 0.8] },
+      { seg: [[35, 10.4, 40, 1.6, 59, 5.4, 66, 20], [66, 20, 73, 33, 70, 48, 62, 54]], w: [7.4, 0.7] },
+      { seg: [[39, 12, 44, 6.4, 59, 11, 63, 27], [63, 27, 67.6, 42, 64, 56, 56.6, 63]], w: [6.4, 0.6] },
+      { seg: [[41, 14.6, 45, 11, 55, 18, 57, 32], [57, 32, 59.4, 46, 56.4, 58, 50.4, 65]], w: [5.2, 0.5] },
     ],
     head: [
-      { seg: [[22, 12.4, 26, 4, 42, 3, 51, 9], [51, 9, 55.4, 12.6, 56, 17, 53.4, 19.6]], w: [5.4, 0.6] },
-      { seg: [[26, 10.6, 32, 1.6, 46, 3, 53, 12], [53, 12, 57, 17, 57.2, 22, 54.6, 25]], w: [6, 0.7] },
-      { seg: [[31, 9.6, 38, 0.4, 50, 3, 55, 15], [55, 15, 59, 22, 58.4, 29, 54, 33]], w: [6.6, 0.8] },
-      { seg: [[36, 10.4, 44, 3.4, 53, 8, 56, 20], [56, 20, 59, 28, 58, 36, 53, 40]], w: [6, 0.7] },
+      { seg: [[21, 13, 24, 3, 42, 1, 52, 8], [52, 8, 56.4, 11.6, 57.2, 16.6, 54.4, 19.6]], w: [6, 0.6] },
+      { seg: [[25, 11, 30, 0, 47, 1.4, 54, 11], [54, 11, 58.4, 16, 58.6, 22, 55.4, 25.4]], w: [6.6, 0.7] },
+      { seg: [[30, 9.6, 36, -1, 51, 1.6, 56, 14], [56, 14, 60, 21.6, 59.4, 29.6, 54.6, 34]], w: [7.2, 0.8] },
+      { seg: [[35, 10.4, 42, 2.6, 54, 6.4, 57, 20], [57, 20, 60, 28, 58.6, 36, 53, 40.4]], w: [6.6, 0.7] },
     ],
+    hairStars: [[50, 5], [59, 9.6], [67, 18], [70.6, 30], [68, 42], [63, 52], [56.6, 61]],
     brow: "arch",
     lashes: true,
-    tail: [[35, 62, 49, 61.2, 57.4, 68.4, 52.6, 77], [52.6, 77, 46.8, 86.4, 53.8, 95.4, 65, 92], [65, 92, 70.6, 90.4, 71.8, 85.6, 69.8, 81.8]],
-    tailWidth: (t) => 4.6 + 4.6 * Math.sin(Math.PI * Math.min(1, t * 1.15)) - 3.4 * t * t,
-    tailLicks: [[0.24, 1.6], [0.4, 2.2], [0.56, 1.7], [0.7, 1.4], [0.84, 1.1]],
-    tailStars: [[48, 65, 0.45], [54.6, 72.6, 0.35], [50.6, 82, 0.5], [53.6, 91.4, 0.35], [60.4, 93.4, 0.45], [67.8, 88.6, 0.35]],
-    tailTip: [70.2, 82.2],
+    tail: [[33, 60, 46, 59.4, 55.4, 66.4, 52, 75], [52, 75, 47.8, 84, 52.6, 92.6, 63, 91], [63, 91, 69.6, 90, 71.6, 85.4, 69.6, 81.6]],
+    tailWidth: (t) => 2.6 + 6.2 * Math.sin(Math.PI * Math.min(1, t * 1.12)) - 2.2 * t * t,
+    tailStars: [[46.4, 63.2, 0.45], [53.4, 70.8, 0.35], [50, 80.6, 0.5], [53.6, 90, 0.35], [60.4, 92.4, 0.45], [67.6, 88.6, 0.35]],
+    tailTip: [70, 82],
   },
 };
 
+//: Which look: Atlas's own setting when one is stored (Settings,
+//: Appearance, Atlas look), otherwise it follows Face looks (the owner:
+//: the male version is the main one; the feminine one is its own look).
 function atlasLook() {
-  return typeof appearancePref === "function" && appearancePref("atlas-look", "masculine") === "feminine" ? "feminine" : "masculine";
+  let own = null;
+  try {
+    own = localStorage.getItem("atlas-look");
+  } catch {
+    own = null;
+  }
+  if (own === "feminine" || own === "masculine") return own;
+  return typeof appearancePref === "function" && appearancePref("face-look", "mixed") === "feminine" ? "feminine" : "masculine";
 }
 
 function atlasMirror(d) {
@@ -363,9 +387,9 @@ const atlasPaw = (t, from, by) => (t <= from ? 0 : by * (1 - Math.cos(Math.PI * 
 //: and drifting, curling a little at the tip. Arms: from the shoulder,
 //: curving out and down to a rounded tip. The raised arms reach the
 //: companion's hand line (-7) for hanging and cheering.
-const ATLAS_LEG_R = atlasStem([[35.6, 62, 36.8, 70, 39.4, 78, 36.8, 85.2], [36.8, 85.2, 35, 89.2, 37.6, 91.2, 40.8, 89.2]], (t) => 8.2 - 6.8 * Math.min(1, t * 1.05) ** 1.1 + 0.2, { samples: 8 });
-const ATLAS_ARM_R = atlasStem([[39.4, 42.4, 45, 45, 49.4, 52, 48.6, 60.6], [48.6, 60.6, 48.2, 64, 50.4, 65.6, 52.6, 64.6]], (t) => 6.4 - 4.6 * Math.min(1, t * 1.05) ** 1.2 + 0.2, { samples: 8 });
-const ATLAS_HOLD_R = atlasStem([[39.6, 43.4, 49, 36, 56, 16, 55.6, -4.6]], (t) => 6.2 - 3.2 * t + atlasPaw(t, 0.8, 0.8), { samples: 16 });
+const ATLAS_LEG_R = atlasStem([[34.6, 61, 35.6, 69, 38, 77, 35.8, 84.6], [35.8, 84.6, 34.4, 88.4, 36.6, 90.6, 39.6, 88.8]], (t) => 6.4 - 5.2 * Math.min(1, t * 1.05) ** 1.1 + 0.2, { samples: 8 });
+const ATLAS_ARM_R = atlasStem([[37.6, 40.6, 42.6, 43, 46, 48.6, 45.6, 55.6], [45.6, 55.6, 45.4, 58.4, 47, 60, 49, 59]], (t) => 4.8 - 3.4 * Math.min(1, t * 1.05) ** 1.2 + 0.2, { samples: 8 });
+const ATLAS_HOLD_R = atlasStem([[37.8, 41.4, 47, 34, 54, 16, 53.6, -4.6]], (t) => 4.8 - 2.6 * t + atlasPaw(t, 0.8, 0.7), { samples: 16 });
 const ATLAS_LIMBS = {
   legs: [["l", atlasMirror(ATLAS_LEG_R)], ["r", ATLAS_LEG_R]],
   arms: [["l", atlasMirror(ATLAS_ARM_R)], ["r", ATLAS_ARM_R]],
@@ -374,65 +398,36 @@ const ATLAS_LIMBS = {
 //: The body: one soft outline from under the chin, out round the belly,
 //: in at the waist and flaring just enough at the hips for the tendril
 //: legs to grow out of it.
-const ATLAS_TORSO_PATH = "M23.6 35.6C19.8 42 18 48.4 18.4 55C18.8 60.8 20.6 65 24.2 67.4C28.2 70 33.8 70 37.8 67.4C41.4 65 43.2 60.8 43.6 55C44 48.4 42.2 42 38.4 35.6Z";
+const ATLAS_TORSO_PATH = "M25.4 35.6C22.2 41 21 47.4 21.4 53.4C21.8 59 23.4 63.2 26.2 65.8C28.8 68 33.2 68 35.8 65.8C38.6 63.2 40.2 59 40.6 53.4C41 47.4 39.8 41 36.6 35.6Z";
 //: Thinking, a hand at the chin (the reference sheet): the right arm bent
 //: up, drawn over the face in the head's own group.
-const ATLAS_CHIN_HAND = atlasStem([[39.6, 44, 47.6, 47.4, 44.4, 36.8, 36.4, 37.2]], (t) => 6 - 3.2 * t + atlasPaw(t, 0.7, 0.6), { samples: 14 });
+const ATLAS_CHIN_HAND = atlasStem([[37.8, 42, 45.6, 45.4, 43.4, 36.8, 36, 37.2]], (t) => 4.8 - 2.6 * t + atlasPaw(t, 0.7, 0.5), { samples: 14 });
 
-//: The paths generated per look: the tail's flame with the small tongues
-//: flicked off its edge; and, for both, the small tuft of wisps on the
-//: crown.
+//: The paths generated per look: the tail's ribbon (the owner: "a stream
+//: of cosmic water or a ribbon like pokemon tail ... not as furry but
+//: kinda at the same time"): one continuous tapered stem, and inside it
+//: two narrower streams, a pale one and a lilac one, whose centrelines
+//: weave from side to side across it out of phase, so the ribbon reads as
+//: twisted silk and water; the mane's locks; and, for both, the small
+//: tuft of wisps on the crown.
 for (const spec of Object.values(ATLAS_LOOKS)) {
-  spec.tailPath = atlasStem(spec.tail, spec.tailWidth, { samples: 12 });
-  spec.lickPaths = atlasLicks(spec.tail, spec.tailWidth, spec.tailLicks);
+  spec.tailPath = atlasStem(spec.tail, spec.tailWidth, { samples: 14 });
+  spec.streamPath = atlasStem(spec.tail, (t) => spec.tailWidth(t) * 0.34, { samples: 14, shift: (t) => spec.tailWidth(t) * 0.28 * Math.sin(Math.PI * 2.6 * t) });
+  spec.silkPath = atlasStem(spec.tail, (t) => spec.tailWidth(t) * 0.24, { samples: 14, shift: (t) => -spec.tailWidth(t) * 0.3 * Math.sin(Math.PI * 2.6 * t + 1.1) });
   const lock = (l) => ({ fill: atlasStem(l.seg, atlasTaper(l.w[0], l.w[1]), { samples: 10, cap: false }), light: atlasStemEdge(l.seg, atlasTaper(l.w[0], l.w[1]), 10) });
   spec.lockPaths = spec.locks.map(lock);
   spec.headPaths = spec.head.map(lock);
 }
 const ATLAS_WISPS = ATLAS_GEO.wisps.map(([seg, w0, w1]) => atlasStem([seg], atlasTaper(w0, w1), { samples: 8, cap: false }));
 
-//: **Tongues of flame** off a stem's outer edge (the tail; the owner: "the
-//: tail needs to be more furry like a flame"): at each [t, size] along the
-//: centreline, a soft teardrop that leaves the edge on the outer side of
-//: the curve, sweeps back along the stem and comes to a point.
-function atlasLicks(segs, width, licks) {
-  const at = (t) => {
-    const k = Math.min(segs.length - 1, Math.floor(t * segs.length));
-    const u = t * segs.length - k;
-    const s = segs[k];
-    const v = 1 - u;
-    const x = v * v * v * s[0] + 3 * v * v * u * s[2] + 3 * v * u * u * s[4] + u * u * u * s[6];
-    const y = v * v * v * s[1] + 3 * v * v * u * s[3] + 3 * v * u * u * s[5] + u * u * u * s[7];
-    const dx = 3 * v * v * (s[2] - s[0]) + 6 * v * u * (s[4] - s[2]) + 3 * u * u * (s[6] - s[4]);
-    const dy = 3 * v * v * (s[3] - s[1]) + 6 * v * u * (s[5] - s[3]) + 3 * u * u * (s[7] - s[5]);
-    const len = Math.hypot(dx, dy) || 1;
-    return { x, y, tx: dx / len, ty: dy / len };
-  };
-  const f = (n) => +n.toFixed(2);
-  return licks.map(([t, size], i) => {
-    const p = at(t);
-    const side = i % 2 ? -1 : 1;
-    const nx = -p.ty * side;
-    const ny = p.tx * side;
-    const hw = width(t) / 2 - 0.4;
-    const ax = p.x + nx * hw + p.tx * size * 0.6;
-    const ay = p.y + ny * hw + p.ty * size * 0.6;
-    const bx = p.x + nx * (hw + size * 1.9) - p.tx * size * 1.1;
-    const by = p.y + ny * (hw + size * 1.9) - p.ty * size * 1.1;
-    const cx = p.x + nx * hw - p.tx * size * 2.2;
-    const cy = p.y + ny * hw - p.ty * size * 2.2;
-    return `M${f(ax)} ${f(ay)}C${f(ax + nx * size * 1.4)} ${f(ay + ny * size * 1.4)} ${f(bx + p.tx * size * 0.5)} ${f(by + p.ty * size * 0.5)} ${f(bx)} ${f(by)}C${f(bx - p.tx * size * 0.7)} ${f(by - p.ty * size * 0.7)} ${f(cx + nx * size * 0.6)} ${f(cy + ny * size * 0.6)} ${f(cx)} ${f(cy)}Z`;
-  });
-}
-
 //: **The galaxy band** (the reference's nebula swirl; light and secondary):
 //: a broad band of deep navy with violet and pink clouds and star dots
 //: that sweeps diagonally behind the body from the upper right to the
 //: lower left, and one short front segment of it crossing in front of the
 //: thighs. One gradient path each.
-const ATLAS_BAND_BACK = atlasStem([[66, 12, 60, 24, 44, 30, 30, 40], [30, 40, 14, 50, 0, 56, -8, 70]], (t) => 2.4 + 6.4 * Math.sin(Math.PI * Math.min(1, t * 1.02)), { samples: 12, cap: false });
-const ATLAS_BAND_FRONT = atlasStem([[0, 62, 10, 72, 28, 78, 48, 70]], (t) => 5.6 * Math.sin(Math.PI * Math.min(1, t)) + 1, { samples: 12, cap: false });
-const ATLAS_BAND_STARS = [[58, 21, 0.5], [50, 28.6, 0.35], [36, 36.6, 0.55], [22, 45.6, 0.4], [8, 54, 0.35], [10, 69.6, 0.4], [24, 75, 0.5], [40, 74.2, 0.35]];
+const ATLAS_BAND_BACK = atlasStem([[64, 14, 64, 28, 46, 38, 26, 44], [26, 44, 8, 49, -4, 56, -4, 68]], (t) => 1.6 + 5.6 * Math.sin(Math.PI * Math.min(1, t * 1.02)), { samples: 12, cap: false });
+const ATLAS_BAND_FRONT = atlasStem([[-4, 66, 2, 78, 26, 84, 54, 74]], (t) => 4.4 * Math.sin(Math.PI * Math.min(1, t)) + 0.8, { samples: 12, cap: false });
+const ATLAS_BAND_STARS = [[62, 22, 0.5], [56, 32.6, 0.35], [40, 40.6, 0.55], [22, 45.6, 0.4], [4, 54, 0.35], [6, 73.6, 0.4], [22, 81, 0.5], [42, 79.2, 0.35]];
 
 //: Twelve mouths, drawn at a larger scale round (32, 38) and set under the
 //: eyes by one transform (`atlasHead`). `fill` shapes are open mouths, with
@@ -594,6 +589,13 @@ function atlasMane(parent, level, edge, look) {
   });
   if (!edge) {
     for (const [cx, cy, r] of [[44, 9.6, 0.3], [50, 14, 0.24], [53, 22, 0.3], [49, 30, 0.2], [55, 36, 0.24]]) atlasMake("circle", { class: "atl-speck atl-speck-soft", cx, cy, r }, mane);
+    //: The feminine look's hair carries a constellation (the reference's
+    //: "long flowing hair with constellations"): star points along the
+    //: locks, threaded.
+    if (spec.hairStars && level !== "head") {
+      atlasMake("path", { class: "atl-thread atl-hair-thread", d: spec.hairStars.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join("") }, mane);
+      for (const [cx, cy] of spec.hairStars) atlasMake("circle", { class: "atl-node-dot", cx, cy, r: 0.6 }, mane);
+    }
   }
   return mane;
 }
@@ -631,18 +633,18 @@ function atlasEars(parent, level, edge, look) {
 //: body, so it grows out with no seam. `.atl-tail` takes the pose and the
 //: mood (lying along a ledge, hanging, curled, lifted, drooping);
 //: `.atl-tail-swish` inside it takes the loop (a slow sway at rest, a wag
-//: when pleased). A flame: the body's blue runs into navy galaxy along it
-//: (a gradient along its length), small tongues flick off its edge, star
-//: dots ride it, and the tip is a bright comet glow.
+//: when pleased). A ribbon of cosmic water: the body's blue runs into navy
+//: galaxy along it (a gradient along its length), two narrower streams
+//: weave inside it, star dots ride it, and the tip is a bright comet glow.
 function atlasTail(layer, edge, look) {
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
   const tail = atlasGroup(layer, "atl-tail", ATLAS_GEO.tail);
   const swish = atlasGroup(tail, "atl-tail-swish", ATLAS_GEO.tail);
-  for (const d of spec.lickPaths) atlasMake("path", { class: edge ? "atl-edge" : "atl-skin atl-lick", d }, swish);
   atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: spec.tailPath }, swish);
   if (edge) return tail;
-  for (const d of spec.lickPaths) atlasMake("path", { class: "atl-overlay atl-tail-galaxy", d }, swish);
   atlasMake("path", { class: "atl-overlay atl-tail-galaxy", d: spec.tailPath }, swish);
+  atlasMake("path", { class: "atl-tail-silk", d: spec.silkPath }, swish);
+  atlasMake("path", { class: "atl-tail-stream", d: spec.streamPath }, swish);
   atlasMake("path", { class: "atl-tail-edge", d: spec.tailPath }, swish);
   const stars = atlasGroup(swish, "atl-tail-core");
   for (const [x, y, r] of spec.tailStars) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, stars);
@@ -860,15 +862,21 @@ function atlasBody(parent, id, props, look) {
       //: points down the belly, threads of light between them.
       const core = atlasGroup(torso, "atl-core", ATLAS_GEO.constellation[0]);
       const [hx, hy] = ATLAS_GEO.constellation[0];
-      atlasMake("ellipse", { class: "atl-core-glow", cx: hx, cy: hy + 1, rx: 7.4, ry: 8 }, core);
+      atlasMake("ellipse", { class: "atl-core-glow", cx: hx, cy: hy + 0.6, rx: 8.2, ry: 8.8 }, core);
       atlasMake("path", { class: "atl-thread", d: ATLAS_GEO.constellation.map(([x, y], i) => `${i ? "L" : "M"}${x} ${y}`).join("") }, core);
       ATLAS_GEO.constellation.slice(1).forEach(([x, y], i) => {
         atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r: 0.75 }, core).style.setProperty("--atl-k", String(i));
       });
+      //: The pulsar heart (the reference's Pulsar Heart cell): four long
+      //: thin rays, four short ones between, the four-point star over
+      //: them and a bright core.
       const star = atlasGroup(core, "atl-star", [hx, hy]);
-      atlasSpark(star, hx, hy, 3.2, "atl-chest-star");
+      atlasMake("path", { class: "atl-core-rays", d: `M${hx} ${hy - 7.6}L${hx + 0.8} ${hy}L${hx} ${hy + 6.4}L${hx - 0.8} ${hy}ZM${hx - 6} ${hy}L${hx} ${hy - 0.7}L${hx + 6} ${hy}L${hx} ${hy + 0.7}Z` }, star);
+      atlasMake("path", { class: "atl-core-rays atl-core-rays-x", d: `M${hx - 3.2} ${hy - 3.2}L${hx} ${hy - 0.5}L${hx + 3.2} ${hy + 3.2}L${hx} ${hy + 0.5}ZM${hx + 3.2} ${hy - 3.2}L${hx} ${hy - 0.5}L${hx - 3.2} ${hy + 3.2}L${hx} ${hy + 0.5}Z` }, star);
+      atlasSpark(star, hx, hy, 3.6, "atl-chest-star");
+      atlasMake("circle", { class: "atl-core-dot", cx: hx, cy: hy, r: 1 }, star);
       //: The gloss on the gel: one specular on the upper left of the body.
-      atlasMake("ellipse", { class: "atl-sheen atl-sheen-body", cx: 24.6, cy: 43.4, rx: 1.2, ry: 3, transform: "rotate(14 24.6 43.4)" }, torso);
+      atlasMake("ellipse", { class: "atl-sheen atl-sheen-body", cx: 25.6, cy: 42.6, rx: 1.1, ry: 2.8, transform: "rotate(14 25.6 42.6)" }, torso);
     }
     for (const [side, d] of ATLAS_LIMBS.arms) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);

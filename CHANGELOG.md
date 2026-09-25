@@ -220,6 +220,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The companion's arms and held things are no longer cut off at the sides (each drawn part is framed with room for its outline), a hanging companion keeps hold of its prop, and the rude hand gesture is gone; a test checks every gesture a line names is drawn (INBOX 426 c, j, k).
 - With the system's Reduce motion on, faces and the corner companion now keep moving slowly (every loop six to nine seconds) instead of freezing mid-frame; everything else still stops.
 - The shared control height is declared at the root, so the 70 rules that read it no longer lose their height outside the four containers that used to declare it (the Reminders filter chips were 22px against 36px everywhere else).
 - Library: flicking through the sub-tabs no longer rebuilds each one on every press; a section shown in the last few seconds is shown as it was, and the skill logs no longer blank to "Loading logs…" over a list already drawn (measured over eight quick switches: 16 fetches and 543 DOM changes before, 8 and 232 after).

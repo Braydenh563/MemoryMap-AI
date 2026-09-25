@@ -202,7 +202,6 @@ const NAME_MOOD_LEXICON = {
   //: What the hand does or holds. One hand, one thing: the first named.
   hands: {
     thumbsup: "nice thumbs* thumbsup gg approve* approved goodjob kudos noice",
-    middlefinger: "rude fu fuk fuck* stfu screwyou flipoff hater haters",
     peace: "peace* peaceout hippie* namaste",
     wave: "hi hii hey heya hiya hello* howdy greetings welcome* sup yo bye goodbye",
     beer: "beer* brew* ale lager booze* cheers pint* drinks",
@@ -467,7 +466,7 @@ function nameMood(name) {
   const flipped = /┻━+┻|╯°□°/.test(raw);
   if (flipped) hear("hand", "tableflip", -2);
   const emojiHands = [
-    [/\u{1F44D}/u, "thumbsup"], [/\u{1F595}/u, "middlefinger"], [/✌/u, "peace"], [/\u{1F44B}/u, "wave"],
+    [/\u{1F44D}/u, "thumbsup"], [/✌/u, "peace"], [/\u{1F44B}/u, "wave"],
     [/[\u{1F37A}\u{1F37B}]/u, "beer"], [/[\u{1F377}\u{1F942}]/u, "wine"], [/☕/u, "mug"],
     [/[⚔\u{1F5E1}]/u, "sword"], [/[\u{1F50D}\u{1F50E}]/u, "magnifier"], [/\u{1F3A4}/u, "mic"],
     [/[\u{1F4DA}\u{1F4D6}]/u, "book"], [/\u{1F4F1}/u, "phone"], [/[\u{1F338}\u{1F339}\u{1F337}\u{1F33B}]/u, "flower"],
@@ -927,7 +926,7 @@ const NAME_MARK_PROP_WORDS = {
 };
 
 const NAME_MARK_HAND_WORDS = {
-  thumbsup: "giving a thumbs up", middlefinger: "flipping you off", peace: "throwing a peace sign",
+  thumbsup: "giving a thumbs up", peace: "throwing a peace sign",
   wave: "waving", beer: "with a beer", wine: "with a glass of wine", mug: "with a hot drink",
   sword: "with a sword", magnifier: "with a magnifying glass", mic: "with a microphone",
   book: "with a book", phone: "on their phone", flower: "with a flower", pizza: "with pizza",
@@ -1233,7 +1232,13 @@ function nameMarkRasterise(svg, parts, pad) {
       if (!r.width && !r.height) continue;
       let up = el.parentElement;
       while (up && !nodeOf.has(up)) up = up.parentElement;
-      const box = { x: vx + (r.left - frame.left) * unit - 2, y: vy + (r.top - frame.top) * unit - 2, w: r.width * unit + 4, h: r.height * unit + 4 };
+      //: A box measured round a shape's geometry, not its outline: a limb is
+      //: a path drawn with a stroke up to about 10 units wide, whose outer
+      //: half lies outside it. Framed on the bare box, the arms came out cut
+      //: flat along their outer sides (INBOX 426 k); 7 units takes the
+      //: widest outline.
+      const grow = 7;
+      const box = { x: vx + (r.left - frame.left) * unit - grow, y: vy + (r.top - frame.top) * unit - grow, w: r.width * unit + grow * 2, h: r.height * unit + grow * 2 };
       nodeOf.set(el, nodes.length);
       nodes.push({ el, i: order.get(el), parent: nodeOf.get(up) ?? 0, box, frame: box });
     }
@@ -2370,6 +2375,9 @@ function drawCharacter(seed, size = 20, mode = "mark") {
     }
   }
   svg.dataset.nmChar = "1";
+  //: What it holds, so a pose that needs both hands (hanging) can keep the
+  //: holding hand down and the thing in it on show.
+  if (reading.hand) svg.dataset.nmHeld = reading.hand;
   return svg;
 }
 
@@ -2491,10 +2499,9 @@ function nameCharacterHeld(kind, arm, t) {
     case "wave":
     case "thumbsup":
     case "peace":
-    case "middlefinger":
       arm.classList.add("nmc-raised");
       if (kind === "thumbsup") shape("ellipse", { cx: hx + 1, cy: hy - 4, rx: 1.6, ry: 3, fill: t.base }, g);
-      if (kind === "peace" || kind === "middlefinger") shape("ellipse", { cx: hx + 1, cy: hy - 4, rx: 1.3, ry: 3, fill: t.base }, g);
+      if (kind === "peace") shape("ellipse", { cx: hx + 1, cy: hy - 4, rx: 1.3, ry: 3, fill: t.base }, g);
       if (kind === "peace") shape("ellipse", { cx: hx - 2, cy: hy - 3.5, rx: 1.3, ry: 3, fill: t.base, transform: `rotate(-20 ${hx - 2} ${hy - 3.5})` }, g);
       break;
     default:
@@ -2725,7 +2732,7 @@ const PROFILE_LOOK_PARTS = [
 const PROFILE_LOOK_WORDS = {
   hat: "wizard hat", chefhat: "chef's hat", partyhat: "party hat", flowercrown: "flower crown", tricorn: "pirate hat",
   squareglasses: "square glasses", threed: "3D glasses", starglasses: "star shades", heartglasses: "heart shades", visor: "cyber visor",
-  thumbsup: "thumbs up", middlefinger: "middle finger", mug: "hot drink", fishingrod: "fishing rod", tableflip: "table flip",
+  thumbsup: "thumbs up", mug: "hot drink", fishingrod: "fishing rod", tableflip: "table flip",
   tee: "T-shirt", scoop: "scoop neck", collar: "shirt and tie", sweater: "jumper", uwu: "uwu",
   crop: "textured crop", sweep: "side-swept fringe", quiff: "soft quiff", messy: "tousled", curls: "short curls",
   wavy: "wavy, to the chin", long: "long and straight", waves: "long waves",

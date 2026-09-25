@@ -170,3 +170,26 @@ def test_asking_again_replaces_the_ticket_rather_than_adding_one(client):
     for _ in range(5):
         client.post("/auth/media-session", headers={"X-Auth-Token": token})
     assert list(routes_auth._media_tickets.values()).count(token) == 1
+
+
+def test_the_media_cookie_is_secure_on_loopback_and_https_only():
+    """CodeQL py/insecure-cookie: `Secure` wherever the browser will still
+    store it (https, or http on a loopback host, which is how the desktop
+    window and a local browser tab reach the app), and not on a plain-http
+    LAN host, where a `Secure` cookie is dropped and every picture breaks."""
+    from starlette.requests import Request
+
+    def req(url):
+        scheme, rest = url.split("://", 1)
+        host = rest.split("/", 1)[0]
+        name, _, port = host.partition(":")
+        return Request({
+            "type": "http", "scheme": scheme, "server": (name, int(port or 80)),
+            "path": "/", "headers": [(b"host", host.encode())], "query_string": b"",
+        })
+
+    assert routes_auth._cookie_secure(req("http://127.0.0.1:8000/"))
+    assert routes_auth._cookie_secure(req("http://localhost:8000/"))
+    assert routes_auth._cookie_secure(req("https://notebook.lan/"))
+    assert not routes_auth._cookie_secure(req("http://192.168.1.20:8000/"))
+    assert not routes_auth._cookie_secure(req("http://testserver/"))

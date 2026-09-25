@@ -116,7 +116,23 @@ def _forget_dead_tickets() -> None:
         del _media_tickets[ticket]
 
 
-def _grant_media(response: Response, token: str) -> None:
+def _cookie_secure(request: Request) -> bool:
+    """Whether the media cookie may carry `Secure` on this request.
+
+    Always over https. Over plain http only on a loopback host, where
+    Chromium (the desktop window's WebView2 included) and Firefox treat
+    the origin as trustworthy and still store a `Secure` cookie; anywhere
+    else on http a `Secure` cookie is silently dropped by the browser and
+    every picture in the notebook would stop loading."""
+    if request.url.scheme == "https":
+        return True
+    return (request.url.hostname or "") in _LOOPBACK_HOSTS
+
+
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _grant_media(request: Request, response: Response, token: str) -> None:
     """Set the media cookie for this session (see MEDIA_COOKIE above)."""
     # One live ticket per session. A browser holds one cookie per path, so a
     # session's earlier ticket is already gone from the jar it was set in;
@@ -133,14 +149,21 @@ def _grant_media(response: Response, token: str) -> None:
             max_age=_SESSION_MAX_AGE,
             path=path,
             httponly=True,
+            secure=_cookie_secure(request),
             samesite="strict",
         )
 
 
-def _revoke_media(response: Response) -> None:
+def _revoke_media(request: Request, response: Response) -> None:
     """Tell the browser to drop the media cookie on both paths."""
     for path in MEDIA_COOKIE_PATHS:
-        response.delete_cookie(MEDIA_COOKIE, path=path, httponly=True, samesite="strict")
+        response.delete_cookie(
+            MEDIA_COOKIE,
+            path=path,
+            httponly=True,
+            secure=_cookie_secure(request),
+            samesite="strict",
+        )
 
 
 def _token_valid(token: str | None, idle_ttl: int) -> bool:
@@ -307,7 +330,7 @@ def status(session: Session = Depends(get_session)) -> dict:
 
 
 @router.post("/setup")
-def setup(body: PasswordBody, response: Response, session: Session = Depends(get_session)) -> dict:
+def setup(body: PasswordBody, request: Request, response: Response, session: Session = Depends(get_session)) -> dict:
     """First run: create the single user. Refuses to run twice."""
     if _get_user(session) is not None:
         raise HTTPException(status_code=400, detail="A password is already set")
@@ -319,7 +342,7 @@ def setup(body: PasswordBody, response: Response, session: Session = Depends(get
     log_action(session, "created", "user", detail="password set")
     session.commit()
     token = _issue_token()
-    _grant_media(response, token)
+    _grant_media(request, response, token)
     return {"token": token}
 
 
@@ -373,12 +396,12 @@ def unlock(
             "unlocked without writing the audit line: the disk is full"
         )
     token = _issue_token()
-    _grant_media(response, token)
+    _grant_media(request, response, token)
     return {"token": token, "vault_open": vault_open}
 
 
 @router.post("/media-session", dependencies=[Depends(require_unlock)])
-def media_session(response: Response, x_auth_token: str | None = Header(default=None)) -> dict:
+def media_session(request: Request, response: Response, x_auth_token: str | None = Header(default=None)) -> dict:
     """Set the media cookie again for a session the frontend already holds.
 
     The boot path calls this when it finds a token in localStorage: a profile
@@ -386,16 +409,16 @@ def media_session(response: Response, x_auth_token: str | None = Header(default=
     that drops cookies on exit) would otherwise show every picture broken
     until the next unlock. `require_unlock` has already checked the header.
     """
-    _grant_media(response, x_auth_token or "")
+    _grant_media(request, response, x_auth_token or "")
     return {"ok": True}
 
 
 @router.post("/lock")
-def lock(response: Response, x_auth_token: str | None = Header(default=None)) -> dict:
+def lock(request: Request, response: Response, x_auth_token: str | None = Header(default=None)) -> dict:
     """Log out: the token stops working immediately, and its media ticket too."""
     _active_tokens.pop(x_auth_token or "", None)
     _forget_dead_tickets()
-    _revoke_media(response)
+    _revoke_media(request, response)
     # Forget the data key too, or "lock" would leave private notes readable.
     if not _active_tokens:
         vault.close()
@@ -433,6 +456,7 @@ def account(
 @router.post("/change-password", dependencies=[Depends(require_unlock)])
 def change_password(
     body: ChangePasswordBody,
+    request: Request,
     response: Response,
     session: Session = Depends(get_session),
     x_auth_token: str | None = Header(default=None),
@@ -481,7 +505,7 @@ def change_password(
     _active_tokens.clear()
     _media_tickets.clear()
     token = _issue_token()
-    _grant_media(response, token)
+    _grant_media(request, response, token)
     return {"changed": True, "token": token, "other_sessions_ended": signed_out}
 
 
@@ -492,6 +516,7 @@ class RotateVaultKeyBody(BaseModel):
 @router.post("/rotate-vault-key", dependencies=[Depends(require_unlock)])
 def rotate_vault_key(
     body: RotateVaultKeyBody,
+    request: Request,
     response: Response,
     session: Session = Depends(get_session),
     x_auth_token: str | None = Header(default=None),
@@ -598,7 +623,7 @@ def rotate_vault_key(
     _active_tokens.clear()
     _media_tickets.clear()
     token = _issue_token()
-    _grant_media(response, token)
+    _grant_media(request, response, token)
     return {
         "rotated": True,
         "notes_reencrypted": len(rewritten),
@@ -608,11 +633,11 @@ def rotate_vault_key(
 
 
 @router.post("/lock-all", dependencies=[Depends(require_unlock)])
-def lock_all(response: Response) -> dict:
+def lock_all(request: Request, response: Response) -> dict:
     """End every session, including this one. The panic button."""
     ended = len(_active_tokens)
     _active_tokens.clear()
     _media_tickets.clear()
-    _revoke_media(response)
+    _revoke_media(request, response)
     vault.close()
     return {"locked": True, "sessions_ended": ended}

@@ -1947,10 +1947,14 @@ def _validated_import_directory(path_value: str) -> Path:
     """
     if not path_value or "\x00" in path_value:
         raise ValueError("Invalid directory path")
-    try:
-        p = Path(path_value).resolve(strict=True)
-    except OSError as exc:
-        raise ValueError("Invalid directory path") from exc
+    # Normalised with `realpath` and confined by a prefix test before the
+    # disk is touched at all: the form CodeQL's path-injection query knows
+    # as a guard (a `Path.resolve(strict=True)` first is itself a read of
+    # an unchecked path, and `is_relative_to` is not recognised).
+    real = os.path.realpath(path_value)
+    if not _under_import_root(real):
+        raise ValueError("Outside the folders an import may read")
+    p = Path(real)
     if not p.is_dir():
         raise ValueError("Invalid directory path")
     # **Inside home or the data folder, judged after `resolve`** (WORLD_CLASS
@@ -1960,20 +1964,27 @@ def _validated_import_directory(path_value: str) -> Path:
     # is where a vault lives; the data folder is where the app itself puts
     # things. Checked on the resolved path, so a symlink in home that points
     # at `/etc` is judged by where it lands, not by where it sits.
-    if not any(p == root or p.is_relative_to(root) for root in _import_roots()):
-        raise ValueError("Outside the folders an import may read")
     return p
 
 
-def _import_roots() -> list[Path]:
-    """The folders a directory import may read from, resolved."""
+def _import_roots() -> list[str]:
+    """The folders a directory import may read from, as real paths."""
     roots = []
     for candidate in (Path.home(), deps.get_config().data_dir):
         try:
-            roots.append(Path(candidate).resolve())
+            roots.append(os.path.realpath(candidate))
         except OSError:
             continue
     return roots
+
+
+def _under_root(real: str, root: str) -> bool:
+    """Is the real path `real` the folder `root` or somewhere inside it?"""
+    return real == root or real.startswith(root.rstrip(os.sep) + os.sep)
+
+
+def _under_import_root(real: str) -> bool:
+    return any(_under_root(real, root) for root in _import_roots())
 
 
 def _inside(root: Path, f: Path) -> bool:
@@ -1984,10 +1995,9 @@ def _inside(root: Path, f: Path) -> bool:
     linked folder. The folder was checked; what it links to was not, so
     each file is checked by where it resolves.
     """
-    try:
-        return f.resolve(strict=True).is_relative_to(root)
-    except OSError:
-        return False
+    real = os.path.realpath(f)
+    return _under_root(real, os.path.realpath(root)) and os.path.isfile(real)
+
 
 def _run_directory_import(directory_path: str):
     try:

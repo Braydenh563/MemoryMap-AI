@@ -338,7 +338,7 @@
   <div id="atlas-host" hidden>
     <div class="settings-group help-chat-group atlas-chat" id="help-chat-group">
       <div class="atlas-intro">
-        <span class="atlas-mark" aria-hidden="true"><i class="ph ph-compass" aria-hidden="true"></i></span>
+        <span class="atlas-mark" data-atlas-avatar="32" aria-hidden="true"><i class="ph ph-compass" aria-hidden="true"></i></span>
         <div class="atlas-intro-words">
           <p class="atlas-name">Atlas</p>
           <p class="muted atlas-line">Explains the app, never your notes.</p>
@@ -428,6 +428,9 @@
            in any dialog here. -->
       <div class="row space-between command-palette-head">
         <div class="row help-head">
+          <!-- The head wears Atlas's own face (atlas.js, `atlasDressMarks`);
+               the icon is what shows until it is drawn. -->
+          <span class="atlas-mark atlas-mark-agent" data-atlas-avatar="28" aria-hidden="true"><i class="ph ph-sparkle" aria-hidden="true"></i></span>
           <h3>Agent</h3>
           <!-- The one line of description this panel is allowed (standing
                order 6) is the paragraph below; everything longer lives behind

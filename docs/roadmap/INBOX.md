@@ -34,6 +34,49 @@ with its owner named in the entry.
 
 ## Open items
 
+426. **The owner, 2026-09-25 (after the usage reset), with screenshots
+    (session images 43 to 71 and the Gemini chat PDF).** Verbatim, condensed
+    to the asks: (a) "in the documents full screen mode, I cant access the
+    formatting toolbar or any of the other key tools or controls"; (b) "the
+    suggestions panel doesnt adapt properly to the sidebar and it also needs
+    to be accessible in full screen mode"; (c) "the character hand gestures
+    and props and stuff dont properly show anymore"; (d) "I changed my name
+    but the companion which was me didnt update"; (e) "add the ability to
+    make a custom companion that isnt based off your name"; (f) "improve the
+    characters more as they still look bland and are missing a lot of the
+    flare they used to have"; (g) "they still telleport and move suddenly as
+    well and it is jarring"; (h) "all of the animated logos arent rotating
+    and the one form the new chat interface is missing"; (i) "maybe the
+    atlas guide can have the atlas avatar?? same witht he popup agent and
+    find anything search??"; (j) "it did say it was flipping me off at one
+    point but it wasnt visually doing that"; (k) "the companion just went off
+    the screen and I cant get it back now ... there needs to be some way to
+    reset the position and recall the companion. also the arms get cut off
+    on the sides"; (l) "when I press the option to stay in the same spot
+    across pages for the companion, it still moves sometimes and it still
+    isnt smooth"; (m) "atlas needs to move and work on its own time not
+    based off how fast the user is switching tabs ot scrolling. if it is
+    sitting on a pannel and I scroll or that panel moves it might fall or
+    move with the panel. it needs to be smooth, unintrusive. present and
+    lifelike but not too much"; (n) "it keeps disappearing and reappearing on
+    different parts of the page as I scroll"; (o) "the companion doesnt
+    scroll or move if it is on widgets when the ui moves or it is really slow
+    to"; (p) "the right click companion dropdown menu doesnt appear where the
+    companion is"; (q) Atlas: "looks fat and still needs a lot of improving
+    - do a mix of the versions I like and the sprite like ones", "work from
+    how it is now ... slightly more flowy and voluptuous hair, fluffy ears
+    and a very fluffy celestial tail, surrounded by a clustorous string or
+    stream ... the face is fine, the star on the chest could be improved",
+    then "I prefered the tails like this. not as furry ... like a stream of
+    cosmic water or a ribbon like pokemon tail"; the male sprite grid is the
+    main version, the flowing-hair ribbon-tail figures are the feminine
+    version; "I need you to LOCK IN for the atlas aesthetic"; (r) "update all
+    the docs and the readme file as well ... update the screenshots and
+    expand them ... include an atlas avatar ... only after all the ui
+    improvements"; (s) "upgrade this pr to a new version like 0.3.3". Placed:
+    (a, b, h) the UI agent; (c to g, j to p) the companion agent; (q, i) the
+    Atlas agent; (r, s) the orchestrator at the end.
+
 425. **The owner, 2026-09-24 (after the usage reset), with screenshots.**
     Avatars: (a) "the avatar shows even when the app is on the lock screen.
     it should only show when the app is unlocked"; (b) "is there a way to

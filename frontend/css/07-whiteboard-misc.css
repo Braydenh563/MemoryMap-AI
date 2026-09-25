@@ -7449,6 +7449,49 @@ button.connection-row {
   color: var(--accent);
 }
 
+/* **The suggestions, as a side panel** (INBOX 426 b). Whichever side the
+   panel is docked to on the page, in focus mode it is a column fixed to the
+   window's right edge under the floating dock's band, on the solid modal
+   ground (no blur on a panel this size, the same reason the page's card has
+   none here), and the page gives up the room it takes instead of sitting
+   under it. On a phone it is the full width less the gutters. The grip goes,
+   and the width is the dock's default rather than the grip's
+   `--doc-prose-w`: that property lives on the panel, and the page's padding
+   below has to know the same number, where a `var()` of it would be invalid
+   at computed-value time and quietly compute to 0 (measured: it did, and
+   the strip ran under the panel). So the width is declared once on the tab
+   page, the ancestor of both. */
+#tab-documents.doc-focus {
+  --doc-focus-prose-w: 20rem;
+}
+
+#tab-documents.doc-focus #doc-prose-panel:not(.hidden) {
+  position: fixed;
+  top: calc(var(--control-h-lg) + var(--space-4) * 2);
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 2;
+  width: min(var(--doc-focus-prose-w), calc(100vw - var(--space-4) * 2));
+  max-height: none;
+  margin: 0;
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-md);
+  overflow-y: auto;
+}
+
+/* Neither the grip nor the bottom/right choice means anything while the
+   panel is this side panel, so neither is offered. */
+#tab-documents.doc-focus .doc-prose-resize,
+#tab-documents.doc-focus .doc-prose-panel .doc-prose-dock {
+  display: none;
+}
+
+@media (min-width: 721px) {
+  #tab-documents.doc-focus:has(#doc-prose-panel:not(.hidden)) .doc-main {
+    padding-right: calc(var(--doc-focus-prose-w) + var(--space-4) * 2);
+  }
+}
+
 /* On a phone the floating dock is one line with no room for words: the
    toggles keep their icon, and their name is the `aria-label` and title
    they carry at every width. */

@@ -4629,6 +4629,14 @@ textarea.autogrow {
 .doc-prose-panel {
   /* The right dock's width (`applyDocProseDock`); the grip writes it inline. */
   --doc-prose-w: 20rem;
+  /* **Sized by its own width, not the window's** (INBOX 426 b: "the
+     suggestions panel doesnt adapt properly to the sidebar"). The same panel
+     is a 20rem column on the right, a band the width of the editor at the
+     bottom, a side panel in focus mode and a 300px band on a phone, and a
+     media query sees none of those. The `@container doc-prose` rules below
+     read this box. */
+  container-type: inline-size;
+  container-name: doc-prose;
   margin-top: var(--space-2);
   padding: var(--space-3);
   border: 1px solid var(--border);
@@ -5378,16 +5386,47 @@ textarea.autogrow {
 .doc-prose-head {
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border);
 }
 
+/* The count is one line: "5 / suggestions" stacked over two, beside a row of
+   buttons running out of the panel, was the reported shape (INBOX 426 b). */
+.doc-prose-title {
+  white-space: nowrap;
+}
+
+/* **The head's buttons wrap; they never leave the panel.** This was
+   `flex: none`, a row that refused to be narrower than its five buttons:
+   measured in the 320px right dock, 415px of buttons, Dictionary and the
+   close cut off at the panel's edge and the panel scrolling 222px sideways.
+   Each button keeps its own width and its words; the row wraps between
+   them and hugs the far edge while it fits beside the count. */
 .doc-prose-tools {
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-1);
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.doc-prose-tools > button {
   flex: none;
+  white-space: nowrap;
+}
+
+/* A narrow panel (the right dock, a phone, focus mode's side panel): the
+   count has the first line to itself and the buttons start under it at the
+   same left edge, rather than a ragged right-aligned block beside a word. */
+@container doc-prose (max-width: 26rem) {
+  .doc-prose-tools {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
 }
 
 .doc-prose-empty {

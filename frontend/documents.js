@@ -13333,6 +13333,7 @@ function renderDocProse() {
     ? `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`
     : "No suggestions";
   chip.classList.toggle("has-findings", docProseFound.length > 0);
+  docFocusSyncProse();
   //: A fresh set of findings means a fresh set of marks. The engine is told
   //: through an effect rather than by rebuilding anything: the decorations are
   //: computed from `docProseFound` over the visible lines, so the repaint is a
@@ -13455,9 +13456,27 @@ function docProseHeader() {
 function closeDocProsePanel() {
   $("doc-prose-panel")?.classList.add("hidden");
   $("doc-prose")?.setAttribute("aria-expanded", "false");
+  docFocusSyncProse();
   //: Focus goes back to the control that opened it, or it lands on the body
-  //: and the next Tab starts from the top of the page.
-  $("doc-prose")?.focus();
+  //: and the next Tab starts from the top of the page. In focus mode the
+  //: status bar is gone, so that is the floating dock's own button.
+  (docFocusOn() ? $("doc-focus-prose") : $("doc-prose"))?.focus();
+}
+
+//: The floating dock's Suggestions says what the chip says: how many, and
+//: whether the panel is open. Hidden for a code file, as the chip is.
+function docFocusSyncProse() {
+  const button = $("doc-focus-prose");
+  if (!button) return;
+  const n = docProseFound.length;
+  const words = n ? `${n} suggestion${n === 1 ? "" : "s"}` : "Suggestions";
+  const label = $("doc-focus-prose-count");
+  if (label) label.textContent = words;
+  button.hidden = Boolean($("doc-prose")?.hidden);
+  const open = !$("doc-prose-panel")?.classList.contains("hidden");
+  button.setAttribute("aria-expanded", String(open));
+  button.title = open ? "Close the writing suggestions" : n ? `Writing suggestions: ${words}` : "Writing suggestions";
+  button.setAttribute("aria-label", button.title);
 }
 
 function renderDocProsePanel() {
@@ -14771,7 +14790,10 @@ $("doc-prose")?.addEventListener("click", () => {
   panel.classList.toggle("hidden", !open);
   chip.setAttribute("aria-expanded", String(open));
   if (open) renderDocProsePanel();
+  docFocusSyncProse();
 });
+
+$("doc-focus-prose")?.addEventListener("click", () => $("doc-prose")?.click());
 
 // --- where the suggestions panel sits (INBOX 410) ---------------------------
 //
@@ -15369,6 +15391,12 @@ function docFindingLine(finding, variant = "row") {
   const why = document.createElement("span");
   why.className = "doc-finding-why";
   why.textContent = finding.message;
+  //: Both halves ellipsise in a narrow panel (INBOX 426 b), so each carries
+  //: its whole text as a title: the nearest title is the one the pointer
+  //: shows, so these win over the row button's "show me this" hint only
+  //: where the words themselves are under it.
+  words.title = words.textContent;
+  why.title = finding.message;
   line.append(dot, words, why);
   return line;
 }

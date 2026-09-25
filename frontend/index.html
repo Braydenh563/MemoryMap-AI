@@ -3557,6 +3557,12 @@ Link to another note with [[its first few words]]."></textarea>
       </span>
       <button type="button" id="doc-focus-tools" class="ghost small" aria-pressed="false"
         title="Show the dock and the formatting tools" aria-label="Show the dock and the formatting tools"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i><span class="doc-focus-word">Tools</span></button>
+      <!-- The suggestions, which lived only on the status bar's chip, and the
+           status bar is one of the bands the mode takes away (INBOX 426 b:
+           "it also needs to be accessible in full screen mode"). Opens the
+           same panel as the chip, as a side panel over the page's right edge. -->
+      <button type="button" id="doc-focus-prose" class="ghost small" aria-expanded="false"
+        aria-controls="doc-prose-panel" title="Writing suggestions" aria-label="Writing suggestions"><i class="ph ph-eyeglasses ph-lead" aria-hidden="true"></i><span class="doc-focus-word" id="doc-focus-prose-count">Suggestions</span></button>
       <button type="button" id="doc-focus-fullscreen" class="ghost small icon-only" hidden
         title="Fill the whole screen" aria-label="Fill the whole screen" aria-pressed="false"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
       <button type="button" id="doc-focus-exit" class="ghost small"

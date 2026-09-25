@@ -1,0 +1,72 @@
+"""The writing suggestions fit their own panel, and focus mode can open them
+(INBOX 426 b).
+
+The owner: "the suggestions panel doesnt adapt properly to the sidebar and
+it also needs to be accessible in full screen mode". Measured in the 320px
+right dock: the head was a `flex: none` row of five buttons, 415px wide, so
+Dictionary and the close were cut off at the panel's edge and the panel
+scrolled 222px sideways (109px at 360 wide); ten ellipsised finding halves
+carried no title. In focus mode the only way in, the status bar's chip, is
+one of the bands the mode hides. `scratchpad/ui-sweeps/doctoolbarfit.js`
+measures the geometry; these lints hold the shapes.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+FRONTEND = ROOT / "frontend"
+CSS = sorted((FRONTEND / "css").glob("*.css"))
+
+
+def _rules():
+    for path in CSS:
+        text = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
+        for match in re.finditer(r"([^{}]+)\{([^{}]*)\}", text):
+            yield path.name, match.group(1).strip(), match.group(2)
+
+
+def _props(body: str) -> dict[str, str]:
+    out = {}
+    for decl in body.split(";"):
+        if ":" in decl:
+            key, value = decl.split(":", 1)
+            out[key.strip()] = value.strip()
+    return out
+
+
+def test_focus_mode_opens_the_suggestions_as_a_side_panel() -> None:
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    tag = re.search(r"<div[^>]*id=\"doc-focus-bar\"[^>]*>", html)
+    bar = html[tag.start(): html.index("\n    </div>", tag.start())]
+    prose = re.search(r"<button[^>]*id=\"doc-focus-prose\"[^>]*>", bar)
+    assert prose and 'aria-controls="doc-prose-panel"' in prose.group(0) and "aria-expanded=" in prose.group(0), (
+        "focus mode has no way to open the suggestions"
+    )
+    side = [body for _, sel, body in _rules() if ".doc-focus" in sel and "#doc-prose-panel" in sel]
+    assert any("position: fixed" in b for b in side), "the suggestions are not a side panel in focus mode"
+    docs = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+    assert docs.count("docFocusSyncProse();") >= 3, "the floating dock's Suggestions does not follow the panel"
+
+
+def test_the_suggestions_panel_fits_its_own_width() -> None:
+    """Container queries on the panel, not the window: the same panel is a
+    320px column on the right and a full-width band at the bottom."""
+    rules = list(_rules())
+    panel = [body for _, sel, body in rules if sel == ".doc-prose-panel"]
+    assert any("container-type: inline-size" in b for b in panel), "the suggestions panel is not a size container"
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert re.search(r"@container doc-prose\b", css), "no container query sizes the suggestions panel"
+    for _, sel, body in rules:
+        if sel in {".doc-prose-head", ".doc-prose-tools"}:
+            props = _props(body)
+            assert props.get("flex") != "none", f"{sel} may not refuse to shrink: its buttons ran off the panel"
+    heads = [body for _, sel, body in rules if sel == ".doc-prose-head"]
+    assert any("flex-wrap: wrap" in b for b in heads), "the suggestions head does not wrap"
+    docs = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+    line = docs.split("function docFindingLine(", 1)[1].split("\n}\n", 1)[0]
+    assert "words.title" in line and "why.title" in line, (
+        "an ellipsised finding row does not carry its whole text in a title"
+    )

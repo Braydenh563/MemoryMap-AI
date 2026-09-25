@@ -3543,13 +3543,26 @@ Link to another note with [[its first few words]]."></textarea>
          browser offers it, and the way out. It fades after a few seconds
          without the pointer moving and comes back on a move, a hover or a
          keyboard focus (`docFocusWake`), so the page is the only thing on
-         screen while you write. Shown only under `.doc-focus`. -->
+         screen while you write. Shown only under `.doc-focus`.
+
+         **Tools** (INBOX 426 a: "I cant access the formatting toolbar or any
+         of the other key tools or controls") brings the document's dock and
+         the formatting strip back inside the mode, without leaving it: the
+         sidebar, the app's bars and the status bar stay away. -->
     <div class="doc-focus-bar card glass" id="doc-focus-bar" role="toolbar" aria-label="Focus mode">
       <span class="doc-focus-title" id="doc-focus-title"></span>
       <span class="doc-focus-facts muted" id="doc-focus-facts">
         <span id="doc-focus-words"></span>
         <span id="doc-focus-saved" role="status"></span>
       </span>
+      <button type="button" id="doc-focus-tools" class="ghost small" aria-pressed="false"
+        title="Show the dock and the formatting tools" aria-label="Show the dock and the formatting tools"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i><span class="doc-focus-word">Tools</span></button>
+      <!-- The suggestions, which lived only on the status bar's chip, and the
+           status bar is one of the bands the mode takes away (INBOX 426 b:
+           "it also needs to be accessible in full screen mode"). Opens the
+           same panel as the chip, as a side panel over the page's right edge. -->
+      <button type="button" id="doc-focus-prose" class="ghost small" aria-expanded="false"
+        aria-controls="doc-prose-panel" title="Writing suggestions" aria-label="Writing suggestions"><i class="ph ph-eyeglasses ph-lead" aria-hidden="true"></i><span class="doc-focus-word" id="doc-focus-prose-count">Suggestions</span></button>
       <button type="button" id="doc-focus-fullscreen" class="ghost small icon-only" hidden
         title="Fill the whole screen" aria-label="Fill the whole screen" aria-pressed="false"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
       <button type="button" id="doc-focus-exit" class="ghost small"
@@ -3946,7 +3959,7 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Switch between a comfortable reading measure and the full width of the pane"><i class="ph ph-arrows-out-line-horizontal ph-lead" aria-hidden="true"></i> <span id="doc-width-menu-label">Use the full width</span></button>
                 <button id="doc-toolbar-mode" class="menu-item doc-dock-menu-item" type="button"
                   aria-pressed="false"
-                  title="Switch between a wrapping toolbar and a single scrolling row"><i class="ph ph-rows ph-lead" aria-hidden="true"></i> <span id="doc-toolbar-mode-label">Use one scrolling row</span></button>
+                  title="Switch between a wrapping toolbar and a single row with the rest behind More"><i class="ph ph-rows ph-lead" aria-hidden="true"></i> <span id="doc-toolbar-mode-label">Use one row</span></button>
                 <!-- A code file's two drawing switches (INBOX 402): VS Code's
                      Alt+Z and "render whitespace". Hidden for prose, which
                      always wraps (`syncDocFileType`); a check keeps the menu

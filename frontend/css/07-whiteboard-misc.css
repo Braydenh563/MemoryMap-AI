@@ -7428,6 +7428,88 @@ button.connection-row {
   width: var(--control-h-lg);
 }
 
+/* **Tools, inside the mode** (INBOX 426 a). The owner: "in the documents
+   full screen mode, I cant access the formatting toolbar or any of the other
+   key tools or controls". The dock (view, AI edit, the document's menu) and
+   the formatting strip come back in their own places above the page, at the
+   window's width, under the floating dock's band; the sidebar, the app's own
+   bars and the status bar stay away, so this is still the page with nothing
+   around it. A collapsed strip stays collapsed (its rule in
+   07-whiteboard-misc.css), which is why pressing Tools also expands it. */
+#tab-documents.doc-focus.doc-focus-tools .doc-dock {
+  display: flex;
+}
+
+#tab-documents.doc-focus.doc-focus-tools #doc-toolbar:not(.is-collapsed) {
+  display: flex;
+}
+
+#tab-documents.doc-focus > .doc-focus-bar [aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* **The suggestions, as a side panel** (INBOX 426 b). Whichever side the
+   panel is docked to on the page, in focus mode it is a column fixed to the
+   window's right edge under the floating dock's band, on the solid modal
+   ground (no blur on a panel this size, the same reason the page's card has
+   none here), and the page gives up the room it takes instead of sitting
+   under it. On a phone it is the full width less the gutters. The grip goes,
+   and the width is the dock's default rather than the grip's
+   `--doc-prose-w`: that property lives on the panel, and the page's padding
+   below has to know the same number, where a `var()` of it would be invalid
+   at computed-value time and quietly compute to 0 (measured: it did, and
+   the strip ran under the panel). So the width is declared once on the tab
+   page, the ancestor of both. */
+#tab-documents.doc-focus {
+  --doc-focus-prose-w: 20rem;
+}
+
+#tab-documents.doc-focus #doc-prose-panel:not(.hidden) {
+  position: fixed;
+  top: calc(var(--control-h-lg) + var(--space-4) * 2);
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 2;
+  width: min(var(--doc-focus-prose-w), calc(100vw - var(--space-4) * 2));
+  max-height: none;
+  margin: 0;
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-md);
+  overflow-y: auto;
+}
+
+/* Neither the grip nor the bottom/right choice means anything while the
+   panel is this side panel, so neither is offered. */
+#tab-documents.doc-focus .doc-prose-resize,
+#tab-documents.doc-focus .doc-prose-panel .doc-prose-dock {
+  display: none;
+}
+
+@media (min-width: 721px) {
+  #tab-documents.doc-focus:has(#doc-prose-panel:not(.hidden)) .doc-main {
+    padding-right: calc(var(--doc-focus-prose-w) + var(--space-4) * 2);
+  }
+}
+
+/* On a phone the floating dock is one line with no room for words: the
+   toggles keep their icon, and their name is the `aria-label` and title
+   they carry at every width. */
+@media (max-width: 600px) {
+  #tab-documents.doc-focus > .doc-focus-bar .doc-focus-word {
+    display: none;
+  }
+
+  #tab-documents.doc-focus > .doc-focus-bar button:has(.doc-focus-word) {
+    width: var(--control-h-lg);
+    padding-inline: 0;
+  }
+
+  #tab-documents.doc-focus > .doc-focus-bar button:has(.doc-focus-word) .ph-lead {
+    margin: 0;
+  }
+}
+
 /* ================= BOARD NAVIGATOR AND BOARD SEARCH =======================
    Two ways of getting around a board bigger than the screen. Neither existed:
    the only `minimap` in this codebase was the static thumbnail drawn on a

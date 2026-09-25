@@ -411,25 +411,6 @@ with its owner named in the entry.
     panel??" (not reproduced: chat then flashEntry then Back lands on chat,
     also with chat opened from inside Settings; needs the exact path).
 
-419. **The owner, 2026-09-24, verbatim.** "in the whiteboard, the arrange
-    dropdown menu appears above the top bar, cutting off the contents" (only
-    the Order rows showed) and "clicking the meatball button on the popup
-    tools menu when selected on a text box or sticky note on the whiteboard
-    doesnt show any dropdown menu, or it flickers for a seck somewhere to the
-    right then disappears". **Not reproduced** in headless Chromium, on the
-    head after `ccd1b48`: Arrange opens under its button at 1440x900,
-    1184x760, 1366x600, 1280x480, 1024x768, 947x608, 820x700, 700x900, in
-    full screen, with touch, at 125% scale with real scrollbars, dark
-    (`wbmenuroom.js` 36/36); the context bar's ⋯ opens beside the bar and
-    stays for a sticky and a text box, selected or being edited, by click
-    or tap, after a render, a state fetch, a resize, and with the pointer
-    wandering over the canvas and onto the menu. Every placement path read
-    (`placeEscapedMenu`, `wbKeepMenuBesideBar`) can only put Arrange above
-    its button when the window has less room below than above, which the top
-    bar never has. Both reports come from the desktop window (WebView2); the
-    next step needs the owner: the window size, whether the top bar was
-    dragged, and a screen recording of the ⋯ case. Recommendation: ask.
-
 413. **The owner, 2026-09-24, verbatim, with a chat screenshot.** "I was in a
     document in the editor, I opened the suggestions panel and pressed check
     with ai, it took me to the chat and a popup above the chat suggested that

@@ -300,9 +300,51 @@ function ownNameMarkStyle() {
 }
 
 function nameMarkOwnFor(name) {
-  if (typeof userMarkSeed !== "function") return null;
-  const own = String(userMarkSeed() || "").trim().toLowerCase();
-  return own && String(name || "").trim().toLowerCase() === own ? ownNameMarkStyle() : null;
+  const lower = String(name || "").trim().toLowerCase();
+  if (typeof userMarkSeed === "function") {
+    const own = String(userMarkSeed() || "").trim().toLowerCase();
+    if (own && lower === own) return ownNameMarkStyle();
+  }
+  //: Your own companion's name wears the parts you chose for it, and only
+  //: while it is your companion (`nameMarkBuddyCustom`).
+  if (lower && typeof appearancePref === "function" && appearancePref("avatar-buddy", "off") === "custom") {
+    const custom = nameMarkBuddyCustom();
+    if (lower === custom.name.toLowerCase()) return { ...custom.style };
+  }
+  return null;
+}
+
+//: **A companion of your own** (INBOX 426 e, the owner: "add the ability to
+//: make a custom companion that isnt based off your name"). Any name, and
+//: the same parts as Your look (look, mood, hair, skin, clothes, headwear,
+//: eyewear, what it holds), each "From its name" until you choose; kept on
+//: this computer (`avatar-buddy-custom`), like the rest of Appearance.
+let nameMarkBuddyCustomCache = null;
+function nameMarkBuddyCustom() {
+  if (nameMarkBuddyCustomCache) return nameMarkBuddyCustomCache;
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem("avatar-buddy-custom") || "{}") || {};
+  } catch (e) {
+    saved = {};
+  }
+  const name = String(saved.name || "").trim().slice(0, 40) || "Buddy";
+  nameMarkBuddyCustomCache = { name, style: saved.style && typeof saved.style === "object" ? { ...saved.style } : {} };
+  return nameMarkBuddyCustomCache;
+}
+
+function nameMarkBuddyKeepCustom(custom) {
+  nameMarkBuddyCustomCache = null;
+  try {
+    localStorage.setItem("avatar-buddy-custom", JSON.stringify({ name: custom.name, style: custom.style }));
+  } catch (e) {
+    // Kept for this visit only.
+  }
+  const buddy = document.getElementById("nm-buddy");
+  if (buddy) {
+    delete buddy.dataset.seed;
+    syncNameMarkBuddy();
+  }
 }
 
 //: The look a generated face takes when its name gives no cue: null for
@@ -2691,6 +2733,7 @@ function nameMarkBuddySeed() {
   //: Atlas itself, whichever persona the chat is using (the owner: "I want
   //: atlas to be a companion option regardless").
   if (choice === "atlas") return "Atlas";
+  if (choice === "custom") return nameMarkBuddyCustom().name;
   return null;
 }
 
@@ -2748,40 +2791,80 @@ function repaintOwnFace() {
   if (typeof paintDashEmblem === "function") paintDashEmblem();
 }
 
+//: The part pickers, one select per part, for Your look and for your own
+//: companion alike: `read` gives the style as it is, `write` keeps a
+//: changed one.
+function nameMarkLookPickers(host, prefix, autoLabel, read, write) {
+  for (const [key, label, options] of PROFILE_LOOK_PARTS) {
+    const row = document.createElement("label");
+    row.className = "profile-look-part";
+    const text = document.createElement("span");
+    text.className = "muted";
+    text.textContent = label;
+    const select = document.createElement("select");
+    select.className = "small-select";
+    select.id = `${prefix}${key}`;
+    select.dataset.part = key;
+    const auto = new Option(autoLabel, "");
+    const none = new Option("None", "none");
+    //: A face always has a skin and its hair a colour: no "None" for those.
+    select.append(auto);
+    if (key !== "skin" && key !== "hairtone") select.append(none);
+    for (const value of options()) {
+      const word = PROFILE_LOOK_WORDS[value] || value.replace(/([a-z])([A-Z])/g, "$1 $2");
+      select.append(new Option(word.charAt(0).toUpperCase() + word.slice(1), value));
+    }
+    if (key === "mood") none.textContent = "Plain";
+    select.addEventListener("change", () => {
+      const style = read();
+      style[key] = select.value;
+      write(style);
+    });
+    row.append(text, select);
+    host.appendChild(row);
+  }
+}
+
+//: Appearance's "Your own character" companion: shown only while it is
+//: the choice, its pickers built once.
+function mountBuddyCustom() {
+  const box = document.getElementById("avatar-buddy-custom");
+  if (!box) return;
+  const on = (typeof appearancePref === "function" ? appearancePref("avatar-buddy", "off") : "off") === "custom";
+  box.classList.toggle("hidden", !on);
+  const host = document.getElementById("avatar-buddy-parts");
+  const input = document.getElementById("avatar-buddy-name");
+  if (host && !host.childElementCount) {
+    nameMarkLookPickers(host, "avatar-buddy-look-", "From its name", () => ({ ...nameMarkBuddyCustom().style }), (style) => {
+      nameMarkBuddyKeepCustom({ name: nameMarkBuddyCustom().name, style });
+    });
+    let typing = 0;
+    input?.addEventListener("input", () => {
+      clearTimeout(typing);
+      typing = setTimeout(() => nameMarkBuddyKeepCustom({ name: input.value, style: nameMarkBuddyCustom().style }), 300);
+    });
+    document.getElementById("avatar-buddy-shuffle")?.addEventListener("click", () => {
+      const custom = nameMarkBuddyCustom();
+      nameMarkBuddyKeepCustom({ name: custom.name, style: { ...custom.style, variant: ((Number(custom.style.variant) || 0) + 1) % 10000 } });
+    });
+  }
+  const custom = nameMarkBuddyCustom();
+  if (input && document.activeElement !== input) input.value = custom.name;
+  for (const [key] of PROFILE_LOOK_PARTS) {
+    const select = document.getElementById(`avatar-buddy-look-${key}`);
+    if (select) select.value = custom.style[key] || "";
+  }
+}
+
 function mountProfileLook() {
   const host = document.getElementById("profile-look-parts");
   if (!host) return;
   if (!host.childElementCount) {
-    for (const [key, label, options] of PROFILE_LOOK_PARTS) {
-      const row = document.createElement("label");
-      row.className = "profile-look-part";
-      const text = document.createElement("span");
-      text.className = "muted";
-      text.textContent = label;
-      const select = document.createElement("select");
-      select.className = "small-select";
-      select.id = `profile-look-${key}`;
-      select.dataset.part = key;
-      const auto = new Option("From your name", "");
-      const none = new Option("None", "none");
-      //: A face always has a skin and its hair a colour: no "None" for those.
-      select.append(auto);
-      if (key !== "skin" && key !== "hairtone") select.append(none);
-      for (const value of options()) {
-        const word = PROFILE_LOOK_WORDS[value] || value.replace(/([a-z])([A-Z])/g, "$1 $2");
-        select.append(new Option(word.charAt(0).toUpperCase() + word.slice(1), value));
-      }
-      if (key === "mood") none.textContent = "Plain";
-      select.addEventListener("change", () => {
-        const style = ownNameMarkStyle();
-        style[key] = select.value;
-        setOwnNameMarkStyle(style);
-        repaintOwnFace();
-        if (typeof markPrefsDirty === "function") markPrefsDirty();
-      });
-      row.append(text, select);
-      host.appendChild(row);
-    }
+    nameMarkLookPickers(host, "profile-look-", "From your name", ownNameMarkStyle, (style) => {
+      setOwnNameMarkStyle(style);
+      repaintOwnFace();
+      if (typeof markPrefsDirty === "function") markPrefsDirty();
+    });
     document.getElementById("profile-look-shuffle")?.addEventListener("click", () => {
       const style = ownNameMarkStyle();
       style.variant = ((Number(style.variant) || 0) + 1) % 10000;

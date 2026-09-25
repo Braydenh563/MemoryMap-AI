@@ -110,3 +110,20 @@ def test_its_menu_opens_at_it() -> None:
 def test_a_new_name_redraws_the_companion() -> None:
     paint = _fn("paintUserMarks", APP)
     assert "syncNameMarkBuddy()" in paint
+
+
+def test_a_companion_of_your_own() -> None:
+    # INBOX 426 e: any name, the same part pickers as Your look, kept on this
+    # computer, and its parts worn only by its own name while it is the
+    # companion.
+    assert '<option value="custom">Your own character</option>' in HTML
+    assert 'id="avatar-buddy-name"' in HTML and 'id="avatar-buddy-parts"' in HTML
+    assert 'if (choice === "custom") return nameMarkBuddyCustom().name;' in AV
+    own = _fn("nameMarkOwnFor")
+    assert 'appearancePref("avatar-buddy", "off") === "custom"' in own
+    mount = _fn("mountBuddyCustom")
+    assert 'nameMarkLookPickers(host, "avatar-buddy-look-", "From its name"' in mount
+    # Your look and the companion share one picker builder.
+    assert 'nameMarkLookPickers(host, "profile-look-", "From your name"' in _fn("mountProfileLook")
+    assert '"avatar-buddy-custom"' in _fn("nameMarkBuddyKeepCustom")
+    assert "mountBuddyCustom();" in SETTINGS

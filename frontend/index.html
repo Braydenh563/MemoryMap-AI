@@ -8824,9 +8824,29 @@ Link to another note with [[its first few words]]."></textarea>
                     <option value="me">You</option>
                     <option value="persona">The chat's persona</option>
                     <option value="atlas">Atlas</option>
+                    <option value="custom">Your own character</option>
                   </select>
                   <button type="button" id="avatar-buddy-recall" class="ghost small" title="Bring it back to a free spot and forget the places you gave it">Call back</button>
                 </div>
+              </div>
+
+              <!-- Your own character as the companion (INBOX 426 e): a name
+                   of its own and the same part pickers as Your look, shown
+                   only while it is the choice (`mountBuddyCustom`). -->
+              <div class="avatar-buddy-custom hidden" id="avatar-buddy-custom">
+                <div class="setting-row">
+                  <div class="setting-label">
+                    <span>Its name</span>
+                    <small class="muted">Any name. A part left on From its name is read from the name.</small>
+                  </div>
+                  <input id="avatar-buddy-name" class="setting-control" type="text" maxlength="40" placeholder="Any name" aria-label="Your companion's name" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="row">
+                  <button type="button" class="ghost small" id="avatar-buddy-shuffle">
+                    <i class="ph ph-shuffle ph-lead" aria-hidden="true"></i>Shuffle
+                  </button>
+                </div>
+                <div class="profile-look-parts" id="avatar-buddy-parts"></div>
               </div>
 
               <div class="setting-row" id="atlas-style-row">

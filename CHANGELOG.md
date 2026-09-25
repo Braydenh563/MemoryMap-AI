@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A companion of your own: Appearance's Corner companion has Your own character, with any name and the same part pickers as Your look (look, mood, hair, skin, clothes, headwear, eyewear, what it holds), each From its name until chosen (INBOX 426 e).
 - Atlas thinks with a hand at its chin, as the reference sheet draws it.
 - Settings, Appearance, Atlas look: masculine (a shorter swept crest with two spikes, straighter brows, broader shoulders) or feminine (a long flowing crest ending in a curl, lashes, arched brows, rounder blush and a star clip); both are the same Atlas. Face looks: Mixed (as before), Masculine or Feminine, for generated faces whose name says nothing either way; a name that does say keeps its own. Your own face can choose its look in Profile, Your look.
 - The companion can sit, stand, hang or lean on any panel, toolbar, tile or card on the page, not only the top and bottom bars, and lets go onto the nearest edge within reach. Pick it up by any part of it; its x is gone (Hide is in its menu, which opens at the pointer). It never jumps: it walks, hops or fades to a new place. It no longer startles as you move through the notebook (only for an error, and rarely), and it runs a few errands: it goes to the Reminders button with a bell when one is due, sits on the chat composer while a long answer is written, holds up a tiny note when you save one, and looks at new messages. Atlas is its own choice in Appearance, Corner companion, whatever persona the chat is using.

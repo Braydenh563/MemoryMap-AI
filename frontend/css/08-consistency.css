@@ -6875,7 +6875,14 @@ main,
   padding-top: var(--space-2);
 }
 
-#profile-look .profile-look-part {
+/* Your own companion's name: a field about as wide as the select above it,
+   beside its label rather than a line across the row. */
+#avatar-buddy-name {
+  width: 14rem;
+  margin-bottom: 0;
+}
+
+:is(#profile-look, #avatar-buddy-custom) .profile-look-part {
   display: grid;
   justify-items: start;
   gap: var(--space-1);

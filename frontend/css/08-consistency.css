@@ -1906,6 +1906,34 @@ summary > .ph-lead,
   font-size: var(--text-lg);
 }
 
+/* The mark wears Atlas's own face once atlas.js has drawn it (the host
+   carries `data-atlas-avatar`): the disc's tint goes, the drawing fills it.
+   The popup agent's head wears the same, a size down; Find anything's
+   Atlas row wears it in line with its words. */
+.atlas-mark:has(> .nm-atlas) {
+  background: none;
+  overflow: visible;
+}
+
+.atlas-mark > .nm-atlas {
+  width: 100%;
+  height: 100%;
+}
+
+.help-head .atlas-mark-agent {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: var(--text-base);
+}
+
+#palette-list li > .nm-atlas {
+  display: inline-block;
+  width: 1.5em;
+  height: 1.5em;
+  vertical-align: -0.45em;
+  margin-right: 0.4em;
+}
+
 .atlas-intro-words {
   min-width: 0;
 }
@@ -5318,6 +5346,7 @@ main,
 #nm-buddy.nmb-music .nmp-headphones,
 #nm-buddy.nmb-night .nmp-nightcap,
 #nm-buddy.nmb-reading .nmp-glasses,
+#nm-buddy.nmb-reading .nmp-book,
 #nm-buddy.nmb-act-carry .nmp-note,
 #nm-buddy.nmb-act-bell .nmp-bell,
 #nm-buddy.nmb-act-lantern .nmp-lantern,
@@ -5995,6 +6024,10 @@ main,
 .nm-atlas .atl-band-fill { fill: var(--atl-navy); opacity: 0.66; }
 .nm-atlas .atl-band-neb { fill: var(--atl-bneb); opacity: 0.72; }
 .nm-atlas .atl-band-edge { fill: none; stroke: white; stroke-width: 0.7; opacity: 0.4; }
+/* Reading: the open book of light under the figure. */
+.nm-atlas .atl-prop-page { fill: white; opacity: 0.82; }
+.nm-atlas .atl-prop-page-edge { fill: none; stroke: var(--atl-dp); stroke-width: 0.8; stroke-linecap: round; opacity: 0.7; }
+:root[data-mode="dark"] .nm-atlas .atl-prop-page { fill: var(--atl-hi); opacity: 0.9; }
 /* Startled: a translucent bubble round the whole figure. */
 .nm-atlas .atl-bubble { fill: white; fill-opacity: 0.1; stroke: var(--atl-glow-c); stroke-width: 0.9; opacity: 0.9; }
 .nm-atlas .atl-bubble-shine { fill: white; opacity: 0.55; }
@@ -6226,7 +6259,9 @@ main,
    behind while carried. */
 #nm-buddy[data-pose="sit"] .nm-atlas { --atl-tail: -12deg; }
 #nm-buddy[data-pose="hang"] .nm-atlas { --atl-tail: 70deg; }
-#nm-buddy.nmb-sleep .nm-atlas { --atl-tail: -38deg; }
+#nm-buddy.nmb-sleep .nm-atlas { --atl-tail: -72deg; }
+#nm-buddy.nmb-music .nm-atlas { --atl-tail: 26deg; }
+#nm-buddy.nmb-reading .nm-atlas { --atl-tail: 18deg; }
 #nm-buddy.nm-buddy-dragging .nm-atlas { --atl-tail: -30deg; }
 #nm-buddy.nmb-drowsy .nm-atlas { --atl-halo-o: 0.75; --atl-glow: 0.85; --atl-crest: 5deg; --atl-lid: 0.3; }
 #nm-buddy.nmb-night .nm-atlas { --atl-crest: 8deg; --atl-lid: 0.28; }

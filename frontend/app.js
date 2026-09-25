@@ -34864,7 +34864,9 @@ function paletteCommands() {
     { label: "ph:scales Tensions: find where I disagreed with myself", reveal: "tensions" },
     //: Atlas is a surface with no tab of its own, which is exactly what a
     //: command palette is for (INBOX 224).
-    { label: "ph:compass Ask Atlas about the app", reveal: "atlas-help" },
+    //: The row wears Atlas's own face rather than a glyph (the owner: "find
+    //: anything search" should have the avatar too), see `renderPalette`.
+    { label: "Ask Atlas about the app", mark: "atlas", reveal: "atlas-help" },
     //: Both did nothing at all unless a board was already on screen: the
     //: palette opens from every tab, and the two functions act on the board
     //: that is open. The reveal opens one first (the newest), and with no
@@ -35087,7 +35089,8 @@ function paletteMatches(query) {
   //: first, with everything the palette did find underneath.
   if (query.trim().endsWith("?")) {
     commands.unshift({
-      label: `ph:compass Ask Atlas: ${query.trim()}`,
+      label: `Ask Atlas: ${query.trim()}`,
+      mark: "atlas",
       run: () => askAtlasAbout(query.trim()),
     });
   }
@@ -35211,6 +35214,7 @@ function renderPalette(query) {
     }
     const li = document.createElement("li");
     setLabel(li, match.label);
+    if (match.mark === "atlas" && typeof atlasAvatar === "function") li.prepend(atlasAvatar(20));
     //: **The chord, beside the command that runs it.** A palette that only
     //: performs an action teaches nobody the key for it, and the plan's whole
     //: reason for this list is features that do not show themselves. Only the

@@ -708,6 +708,24 @@ function atlasHeadProps(sway, ears, look) {
   atlasMake("path", { class: "atl-prop-rim", d: `M${ATLAS_GEO.eyes[0][0] + 5.6} ${ATLAS_GEO.eyes[0][1] + 0.2}Q31 ${ATLAS_GEO.eyes[0][1] - 1.2} ${ATLAS_GEO.eyes[1][0] - 5.6} ${ATLAS_GEO.eyes[1][1] + 0.2}` }, glasses);
 }
 
+//: Reading (the sprite grid's `reading` cell): an open book of light under
+//: the figure, its pages lit from inside with a small constellation on
+//: them, the tail sweeping under it. Drawn over the tail and under the
+//: legs, so Atlas sits on it; the CSS shows it while a long answer is read.
+function atlasBookProp(layer) {
+  const book = atlasGroup(layer, "nmp nmp-book");
+  atlasMake("ellipse", { class: "atl-prop-moon-glow", cx: 31, cy: 86, rx: 24, ry: 8 }, book);
+  const pageL = "M31 80.6C24 78.4 16 78.8 8.6 81.4C8.2 84.6 8.4 87.8 9 91C16 88.4 24 88 31 90.2Z";
+  const pageR = "M31 80.6C38 78.4 46 78.8 53.4 81.4C53.8 84.6 53.6 87.8 53 91C46 88.4 38 88 31 90.2Z";
+  for (const d of [pageL, pageR]) atlasMake("path", { class: "atl-prop-page", d }, book);
+  atlasMake("path", { class: "atl-prop-page-edge", d: "M9 91C16 88.4 24 88 31 90.2C38 88 46 88.4 53 91" }, book);
+  atlasMake("path", { class: "atl-thread", d: "M14 84.6L19 82.8L23 85.4L27.6 83.2M35 83.2L40 85.2L44.6 82.6L49 84.8" }, book);
+  for (const [x, y] of [[14, 84.6], [19, 82.8], [23, 85.4], [27.6, 83.2], [35, 83.2], [40, 85.2], [44.6, 82.6], [49, 84.8]]) {
+    atlasMake("circle", { class: "atl-node-dot", cx: x, cy: y, r: 0.55 }, book);
+  }
+  return book;
+}
+
 //: The hand slots. The companion raises the right arm (-100deg at the
 //: shoulder, set in the CSS for Atlas's short arm) to hold a bell or a
 //: lantern up, so each is drawn turned the other way about the hand and
@@ -841,6 +859,7 @@ function atlasBody(parent, id, props, look) {
   for (const [kind, layer] of Object.entries(layers)) {
     const edge = kind === "edge";
     atlasTail(layer, edge, look);
+    if (!edge && props) atlasBookProp(layer);
     ATLAS_LIMBS.legs.forEach(([side, d], i) => {
       const leg = atlasGroup(layer, `nmb-leg nmb-leg-${side} atl-leg`);
       const tendril = atlasGroup(leg, `atl-tendril atl-tendril-${side}`, ATLAS_GEO.hips[i]);
@@ -967,6 +986,9 @@ function atlasDefs(svg, id, level) {
 const ATLAS_LEVELS = {
   full: { viewBox: [-12, -10, 88, 110], body: true },
   figure: { viewBox: [0, 0, 64, 92], body: true },
+  //: Head and shoulders, square: the whole figure drawn and cropped at the
+  //: chest star, so the rings, the mane and the strand's first sweep show.
+  bust: { viewBox: [4, -8, 54, 54], body: true },
   head: { viewBox: [7, -6, 50, 50], body: false },
   tiny: { viewBox: [10, -4, 42, 44], body: false },
 };
@@ -1024,6 +1046,22 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   atlasApply(svg, mood);
   if (!figure) watchNameMark(svg);
   return svg;
+}
+
+//: **The avatar** (the owner: "maybe the atlas guide can have the atlas
+//: avatar?? same with the popup agent and find anything search??"): head
+//: and shoulders at any size. `atlasDressMarks` fills every
+//: `[data-atlas-avatar="<px>"]` host on the page with one, once the
+//: document is ready, so the markup keeps a plain icon as its fallback.
+function atlasAvatar(size = 32, mood = atlasMoodNow) {
+  return atlasDraw(size, mood, "bust");
+}
+
+function atlasDressMarks(root = document) {
+  for (const host of root.querySelectorAll("[data-atlas-avatar]")) {
+    const size = Number(host.dataset.atlasAvatar) || 32;
+    host.replaceChildren(atlasAvatar(size));
+  }
 }
 
 //: The companion's figure: the same drawing in its 64 by 92 box.
@@ -1215,7 +1253,8 @@ function atlasClassicFigure() {
 function atlasRepaint() {
   for (const svg of document.querySelectorAll("svg.nm-atlas")) {
     if (svg.closest("#nm-buddy") || !svg.isConnected) continue;
-    svg.replaceWith(atlasDraw(Number(svg.getAttribute("height")) || 20));
+    const size = Number(svg.getAttribute("height")) || 20;
+    svg.replaceWith(svg.classList.contains("atl-bust") ? atlasAvatar(size) : atlasDraw(size));
   }
   const buddy = document.getElementById("nm-buddy");
   if (buddy && typeof syncNameMarkBuddy === "function") {
@@ -1378,3 +1417,9 @@ if (typeof registerCharacter === "function") {
     }),
   });
 }
+
+//: The avatar hosts in the markup are dressed once the page is parsed;
+//: atlas.js loads at the end of the body, so the document is usually ready
+//: already.
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => atlasDressMarks());
+else atlasDressMarks();

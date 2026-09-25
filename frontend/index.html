@@ -8818,12 +8818,15 @@ Link to another note with [[its first few words]]."></textarea>
                   <span>Corner companion</span>
                   <small class="muted">A small character to poke. It finds a free spot on each page; drop it on a panel and that page keeps it there.</small>
                 </div>
-                <select id="avatar-buddy" class="small-select setting-control" aria-label="Corner companion">
-                  <option value="off">Off</option>
-                  <option value="me">You</option>
-                  <option value="persona">The chat's persona</option>
-                  <option value="atlas">Atlas</option>
-                </select>
+                <div class="row setting-control">
+                  <select id="avatar-buddy" class="small-select" aria-label="Corner companion">
+                    <option value="off">Off</option>
+                    <option value="me">You</option>
+                    <option value="persona">The chat's persona</option>
+                    <option value="atlas">Atlas</option>
+                  </select>
+                  <button type="button" id="avatar-buddy-recall" class="ghost small" title="Bring it back to a free spot and forget the places you gave it">Call back</button>
+                </div>
               </div>
 
               <div class="setting-row" id="atlas-style-row">
@@ -10255,7 +10258,7 @@ Link to another note with [[its first few words]]."></textarea>
               <details>
                 <summary><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Appearance</summary>
                 <p><button type="button" class="linklike" data-goto-section="appearance">Settings → Appearance</button> controls theme (light/dark/system), accent colour, fonts, density, glass effects, and the animated background. High-contrast and reduce-motion options are there for comfort and accessibility.</p>
-                <p><button type="button" class="linklike" data-goto-section="appearance" data-goto-target="avatar-buddy-row">The corner companion</button> is a small character (you, or the chat's persona) that finds a free spot on each page, reacts to what you do and naps when you are away. Drag it onto a panel and that page keeps it there; right-click it or press Shift+F10 for its menu.</p>
+                <p><button type="button" class="linklike" data-goto-section="appearance" data-goto-target="avatar-buddy-row">The corner companion</button> is a small character (you, or the chat's persona) that finds a free spot on each page, reacts to what you do and naps when you are away. Drag it onto a panel and it rides with that panel as the page scrolls; right-click it or press Shift+F10 for its menu. If it is ever out of reach, Call back (in its menu, beside the setting, or in the command palette) brings it back.</p>
               </details>
               <details>
                 <summary><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Keyboard shortcuts</summary>

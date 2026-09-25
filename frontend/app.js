@@ -18533,6 +18533,10 @@ function paintUserMarks() {
   }
   const head = $("profile-head-name");
   if (head) head.textContent = ((prefsCache && prefsCache.display_name) || "").trim() || "Your profile";
+  //: The companion, when it is you (INBOX 426 d, the owner: "I changed my
+  //: name but the companion which was me didnt update"): it redraws when
+  //: the name it is drawn from has changed, and does nothing otherwise.
+  if (typeof syncNameMarkBuddy === "function") syncNameMarkBuddy();
 }
 
 function addBubble(role, text, attachments = null) {
@@ -34865,6 +34869,8 @@ function paletteCommands() {
     //: Atlas is a surface with no tab of its own, which is exactly what a
     //: command palette is for (INBOX 224).
     { label: "ph:compass Ask Atlas about the app", reveal: "atlas-help" },
+    //: A companion that went somewhere it cannot be reached (INBOX 426 k).
+    { label: "ph:arrow-counter-clockwise Call the companion back", act: () => nameMarkBuddyCallBack() },
     //: Both did nothing at all unless a board was already on screen: the
     //: palette opens from every tab, and the two functions act on the board
     //: that is open. The reveal opens one first (the newest), and with no

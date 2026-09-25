@@ -2872,6 +2872,7 @@ $("avatar-buddy").addEventListener("change", (e) => {
   localStorage.setItem("avatar-buddy", e.target.value);
   syncNameMarkBuddy();
 });
+$("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack());
 $("atlas-style").addEventListener("change", (e) => {
   localStorage.setItem("atlas-style", e.target.value);
   if (typeof atlasRepaint === "function") atlasRepaint();

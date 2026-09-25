@@ -220,6 +220,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The companion rides with the panel it is on: a scroll or a moving panel carries it in the same frame (0px off its panel over a measured scroll, it used to stay put 240px away), a panel that leaves the view is let go at the edge and it walks to the nearest free perch once the page is still, a tab switch only asks for a look on its own beat, nothing fades it out and in elsewhere, Stay here on every page never moves on its own, Call back (its menu, Appearance, the command palette) brings it back from anywhere, its menu opens beside it, and a new profile name redraws it (INBOX 426 d, g, k, l, m, n, o, p).
 - The companion's arms and held things are no longer cut off at the sides (each drawn part is framed with room for its outline), a hanging companion keeps hold of its prop, and the rude hand gesture is gone; a test checks every gesture a line names is drawn (INBOX 426 c, j, k).
 - With the system's Reduce motion on, faces and the corner companion now keep moving slowly (every loop six to nine seconds) instead of freezing mid-frame; everything else still stops.
 - The shared control height is declared at the root, so the 70 rules that read it no longer lose their height outside the four containers that used to declare it (the Reminders filter chips were 22px against 36px everywhere else).

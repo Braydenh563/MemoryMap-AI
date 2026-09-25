@@ -7428,6 +7428,45 @@ button.connection-row {
   width: var(--control-h-lg);
 }
 
+/* **Tools, inside the mode** (INBOX 426 a). The owner: "in the documents
+   full screen mode, I cant access the formatting toolbar or any of the other
+   key tools or controls". The dock (view, AI edit, the document's menu) and
+   the formatting strip come back in their own places above the page, at the
+   window's width, under the floating dock's band; the sidebar, the app's own
+   bars and the status bar stay away, so this is still the page with nothing
+   around it. A collapsed strip stays collapsed (its rule in
+   07-whiteboard-misc.css), which is why pressing Tools also expands it. */
+#tab-documents.doc-focus.doc-focus-tools .doc-dock {
+  display: flex;
+}
+
+#tab-documents.doc-focus.doc-focus-tools #doc-toolbar:not(.is-collapsed) {
+  display: flex;
+}
+
+#tab-documents.doc-focus > .doc-focus-bar [aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* On a phone the floating dock is one line with no room for words: the
+   toggles keep their icon, and their name is the `aria-label` and title
+   they carry at every width. */
+@media (max-width: 600px) {
+  #tab-documents.doc-focus > .doc-focus-bar .doc-focus-word {
+    display: none;
+  }
+
+  #tab-documents.doc-focus > .doc-focus-bar button:has(.doc-focus-word) {
+    width: var(--control-h-lg);
+    padding-inline: 0;
+  }
+
+  #tab-documents.doc-focus > .doc-focus-bar button:has(.doc-focus-word) .ph-lead {
+    margin: 0;
+  }
+}
+
 /* ================= BOARD NAVIGATOR AND BOARD SEARCH =======================
    Two ways of getting around a board bigger than the screen. Neither existed:
    the only `minimap` in this codebase was the static thumbnail drawn on a

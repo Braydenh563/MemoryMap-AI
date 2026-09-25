@@ -1813,48 +1813,43 @@ body.resizing-sidebar {
    line to push out. The owner confirmed both halves of this from the
    screen: "the min height worked but it broke the multiline". */
 
-/* The compact alternative: one row that scrolls sideways.
+/* The compact alternative: one row, and what does not fit behind More.
 
-   **`overflow-y` stated explicitly.** The base rule above sets `overflow:
-   visible` (both axes); this only overrode `overflow-x`, so `overflow-y`
-   stayed `visible`, and the spec forces a mixed `visible`/other pair to
-   compute `visible` as `auto` on *both* axes -- the same rule the comment
-   above this one names, reintroduced by the one axis this rule forgot to
-   set. Reported again, 2026-09-09: "fix the formatting bar in the
-   documents tab, it is crushed vertically and has a vertical scrollbar",
-   from whoever still has `row` saved in `doc-toolbar-mode` (the default
-   changed to `wrap` after that history, but a stored preference from
-   before it changed still reads "row"). `hidden`, not `visible`: the row
-   never wraps, so there is never a second line to lose. */
+   **It used to scroll sideways, and that was the bug** (INBOX 426 a). The
+   owner, with a screenshot at about 1000px: "I cant access the formatting
+   toolbar or any of the other key tools". A scrolling row hides the tools
+   past its edge behind a 4px scrollbar that reads as decoration, and the
+   strip's own group was pinned over its right end, so Insert was cut in half
+   under it and nothing after Insert could be seen. The history of this rule
+   is the history of that scroller: the `overflow-y` pair that computed to
+   `auto` and drew a vertical bar, the bottom padding reserved for the
+   scrollbar, the floor that kept the scrollbar clear of the buttons. All of
+   it is gone with the scroller.
+
+   Now the row does not wrap and does not clip: `fitDocToolbarRow`
+   (documents.js) measures it and folds the tools that do not fit
+   (`.doc-toolbar-over` below), and More in the strip's own group wraps the
+   strip to show them in place. */
 .doc-toolbar[data-toolbar-mode="row"] {
   flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  /* A scrolling strip needs its own scrollbar to be unobtrusive: this is
-     chrome, not content. */
-  scrollbar-width: thin;
-  /* Reported directly: this mode reads "squished", with "no padding"
-     under the icons. A horizontal scrollbar reserves its own strip of
-     space at the bottom of the box it scrolls, and `overflow-y: hidden`
-     above (required, see this rule's own history) means that strip comes
-     out of the existing bottom padding rather than being added beneath
-     it. Measured at 520px wide with the scrollbar actually rendering:
-     the base rule's 6.4px of bottom padding left the 4px scrollbar and
-     the buttons sharing one gap, ~2px of it visible. So the block
-     padding is stated here, with the scrollbar's own height added back
-     on the bottom edge only: the buttons keep a full, even gap and the
-     scrollbar sits below it rather than in it. */
-  padding-block: var(--space-3) calc(var(--space-3) + var(--space-1));
 }
 
-/* The floor for this mode, and only this mode (see the base rule's note on
-   why it must never be written there). Measured at 520px wide with the
-   scrollbar actually rendering: 58px against a 36px control, 13px under
-   the buttons with the 4px scrollbar inside that. Without it the strip
-   came out at 50.8px with 7.4px under the buttons, about 2px of which
-   cleared the scrollbar, which is the reported clipping. */
-#doc-toolbar[data-toolbar-mode="row"] {
-  min-height: calc(var(--control-h) + var(--space-3) * 2 + var(--space-1));
+/* A tool that does not fit on the row, until More is pressed. Scoped to the
+   closed strip rather than undone by the open one, so an open strip shows
+   each tool with its own `display`, not a guessed one. */
+.doc-toolbar:not(.is-more-open) > .doc-toolbar-over {
+  display: none;
+}
+
+/* More pressed: the strip wraps, as the expanded mode does, and the folded
+   tools are back in their own places, with their own menus. */
+.doc-toolbar.is-more-open {
+  flex-wrap: wrap;
+}
+
+/* `[hidden]` loses to the strip's own `button` sizing rules otherwise. */
+.doc-toolbar .doc-toolbar-more[hidden] {
+  display: none;
 }
 
 /* **Un-clipping the strip to free a menu freed the whole toolbar too.**
@@ -1944,52 +1939,19 @@ body.resizing-sidebar {
   flex: none;
 }
 
-/* A scrolling strip's scrollbar is chrome, not content. Reported with a
-   screenshot of the bar with a full-width track under it: at 2px it is a hair
-   line that still says "there is more", which is the whole job. */
-.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar {
-  height: 4px;
-}
-
-.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar-thumb {
-  border-radius: var(--radius-pill);
-  background: var(--border);
-}
-
-.doc-toolbar[data-toolbar-mode="row"]::-webkit-scrollbar-track {
-  background: none;
-}
-
-/* **The strip's own two controls, pinned to its right edge.** Asked for:
-   "cant collapse and make horizontally scrollable the tools bar in the notes
-   capture subtab and documents editor." `position: sticky` is the point: in
-   row mode the toolbar is a scroller, and a control that scrolls away with the
-   buttons it controls is a control you have to go looking for. Its own ground
-   so the buttons underneath do not show through as they pass. */
+/* **The strip's own controls, at its right end.** Asked for: "cant collapse
+   and make horizontally scrollable the tools bar in the notes capture subtab
+   and documents editor." It was `position: sticky` over a scrolling row, so
+   it stayed in reach, and it sat on top of whatever tools scrolled under it:
+   Insert, cut in half, in the owner's screenshot (INBOX 426 a). The row no
+   longer scrolls (see the row mode above), so the group is an ordinary flex
+   item at the end, and nothing is ever drawn under it. */
 .doc-toolbar-tools {
   display: flex;
   align-items: center;
   gap: 0.25rem;
   margin-left: auto;
-  position: sticky;
-  right: 0;
   padding-left: var(--space-3);
-  /* Opaque under the buttons, not glass: a translucent card over the
-     controls scrolling beneath it left the three pinned buttons hard to
-     read (reported with a screenshot). The fade is only the first few
-     pixels; the rest is the solid modal ground the other popovers use.
-     Measured identical on both `#note-toolbar`'s clone and `#doc-toolbar`
-     itself: `mountDocToolbarControlsFor` builds this group the same way
-     for every `.doc-toolbar`, so nothing here is note-specific. */
-  background: linear-gradient(to right, transparent, var(--modal-bg-opaque) var(--space-3));
-  /* Reported: "square-cornered", still true on both toolbars, this rule
-     never set one at all. `var(--radius)`, the strip's own outer corner
-     (right above), not a smaller control radius: this group sits flush
-     against the strip's right edge, the same edge the strip itself
-     rounds, so a sharp box there reads as a patch stuck onto a rounded
-     container rather than a shape cut from it. */
-  border-radius: var(--radius);
-  z-index: 1;
 }
 
 /* Collapsed: the strip keeps its own two controls and its name, and gives the
@@ -4010,14 +3972,12 @@ button.is-on {
     flex-wrap: wrap;
   }
 
+  /* One row on a phone, as the one-row mode is: what does not fit is
+     behind More (`fitDocToolbarRow`), never behind a scrollbar that is not
+     even drawn (INBOX 426 a: it was `overflow-x: auto` with the bar hidden,
+     so two thirds of the strip at 360px could only be found by accident). */
   .doc-toolbar {
-    overflow-x: auto;
     flex-wrap: nowrap;
-    scrollbar-width: none;
-  }
-
-  .doc-toolbar::-webkit-scrollbar {
-    display: none;
   }
 
   /* The chat page pins itself to the window on desktop; on a phone the
@@ -4440,7 +4400,7 @@ textarea.autogrow {
    padding here and adds the scrollbar's strip to it, rather than taking a
    larger padding whole. */
 .note-toolbar[data-toolbar-mode="row"] {
-  padding-block: var(--space-1) calc(var(--space-1) * 2);
+  padding-block: var(--space-1);
 }
 
 /* A non-image upload's tile in the Library gallery. Same footprint as an

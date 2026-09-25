@@ -11577,6 +11577,33 @@ function docFocusOn() {
   return !!$("tab-documents")?.classList.contains("doc-focus");
 }
 
+//: **Tools, inside the mode** (INBOX 426 a). Brings the dock and the
+//: formatting strip back without leaving focus mode; remembered for the
+//: session with the mode itself, so a reload that restores the mode restores
+//: what it was showing. Showing the tools expands a collapsed strip, because
+//: the press asked to see the tools and a collapsed strip in focus mode is a
+//: bar with nothing on it but the way to open it.
+const DOC_FOCUS_TOOLS_KEY = "doc-focus-tools";
+
+function setDocFocusTools(on) {
+  const tab = $("tab-documents");
+  if (!tab) return;
+  tab.classList.toggle("doc-focus-tools", on);
+  const button = $("doc-focus-tools");
+  if (button) {
+    button.setAttribute("aria-pressed", String(on));
+    button.title = on ? "Hide the dock and the formatting tools" : "Show the dock and the formatting tools";
+    button.setAttribute("aria-label", button.title);
+  }
+  if (on && docToolbarCollapsed()) setDocToolbarCollapsed(false);
+  try {
+    if (on) sessionStorage.setItem(DOC_FOCUS_TOOLS_KEY, "1");
+    else sessionStorage.removeItem(DOC_FOCUS_TOOLS_KEY);
+  } catch {
+    // Storage refused: the tools show for now and are not brought back.
+  }
+}
+
 function toggleDocFocus(force) {
   const tab = $("tab-documents");
   if (!tab) return;
@@ -11604,6 +11631,13 @@ function toggleDocFocus(force) {
     docFocusFill();
     docFocusWatch(true);
     docFocusWake(true);
+    let tools = false;
+    try {
+      tools = sessionStorage.getItem(DOC_FOCUS_TOOLS_KEY) === "1";
+    } catch {
+      // No storage: the mode opens with the page alone, as it always has.
+    }
+    setDocFocusTools(tools);
   } else {
     docFocusWatch(false);
     clearTimeout(docFocusIdleTimer);
@@ -11740,6 +11774,9 @@ document.addEventListener("fullscreenchange", () => {
 $("doc-focus-toggle")?.addEventListener("click", () => toggleDocFocus());
 $("doc-focus-exit")?.addEventListener("click", () => toggleDocFocus(false));
 $("doc-focus-fullscreen")?.addEventListener("click", docFocusToggleFullscreen);
+$("doc-focus-tools")?.addEventListener("click", () =>
+  setDocFocusTools(!$("tab-documents")?.classList.contains("doc-focus-tools"))
+);
 //: Escape leaves it: the same convention the whiteboard's and graph's own
 //: full-screen toggles use, and asked the way the graph's is (see INBOX 275
 //: at that handler): bubble phase, so an Escape the editor spends first
@@ -11952,10 +11989,11 @@ function applyDocToolbarMode(mode) {
   //: The label names what pressing it *does*, not the state it is in, the
   //: state is carried by `aria-pressed` for a screen reader and by the
   //: toolbar's own shape for everyone else.
-  if (label) label.textContent = row ? "Expand the toolbar" : "Use one scrolling row";
+  if (label) label.textContent = row ? "Expand the toolbar" : "Use one row";
   //: The strip's own layout button and this menu entry are two views of one
   //: setting, so painting one without the other is how they drift.
   applyDocToolbarLayoutButtons();
+  fitDocToolbars();
 }
 
 function setDocToolbarMode(mode) {
@@ -12116,6 +12154,7 @@ function applyDocToolbarCollapsed(collapsed, only = null) {
     button.setAttribute("aria-label", button.title);
     setLabel(button, collapsed ? "ph:caret-down" : "ph:caret-up");
   }
+  for (const bar of only ? [only] : document.querySelectorAll(".doc-toolbar")) fitDocToolbarRow(bar);
 }
 
 function setDocToolbarCollapsed(collapsed) {
@@ -12146,6 +12185,20 @@ function mountDocToolbarControlsFor(bar) {
     name.className = "doc-toolbar-collapsed-name";
     name.textContent = "Formatting";
     tools.appendChild(name);
+
+    //: **More, for a strip on one row** (INBOX 426 a). Hidden until
+    //: `fitDocToolbarRow` finds tools that do not fit; pressing it lets the
+    //: strip wrap to show them, and pressing it again folds them back.
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "ghost small icon-only doc-toolbar-more";
+    more.hidden = true;
+    setLabel(more, "ph:dots-three");
+    more.addEventListener("click", () => {
+      bar.classList.toggle("is-more-open");
+      syncDocToolbarMore(bar);
+    });
+    tools.appendChild(more);
 
     const layout = document.createElement("button");
     layout.type = "button";
@@ -12191,6 +12244,7 @@ function mountDocToolbarControlsFor(bar) {
   applyDocToolbarLayoutButtons(bar);
   applyDocToolbarCollapsed(docToolbarCollapsed(), bar);
   applyDocGutter();
+  watchDocToolbarWidth(bar);
 }
 
 function mountDocToolbarControls() {
@@ -12211,10 +12265,112 @@ function applyDocToolbarLayoutButtons(only = null) {
     button.setAttribute("aria-pressed", row ? "true" : "false");
     //: The tooltip names what pressing it *does*; `aria-pressed` carries the
     //: state. Same rule the dock menu's own label follows.
-    button.title = row ? "Expand the toolbar over several rows" : "Fit the toolbar on one scrolling row";
+    button.title = row ? "Expand the toolbar over several rows" : "Fit the toolbar on one row, the rest behind More";
     button.setAttribute("aria-label", button.title);
     setLabel(button, row ? "ph:rows" : "ph:arrows-left-right");
   }
+}
+
+//: **One row means one row, and what does not fit is behind More** (INBOX 426
+//: a). The owner, with a screenshot of this strip at about 1000px: "in the
+//: documents full screen mode, I cant access the formatting toolbar or any of
+//: the other key tools or controls". The one-row mode was a sideways scroller
+//: with the strip's own three buttons pinned over its right end
+//: (`position: sticky` on an opaque ground), so the pinned group sat on top
+//: of Insert, cut it in half, and every tool past it was behind a scrollbar
+//: that looks like decoration. The phone band (720px and under) made every
+//: strip that scroller, whatever the mode, with its scrollbar hidden.
+//:
+//: Now a strip that does not wrap is measured: its tools are laid out whole,
+//: and while the strip's own group runs past the strip's inner edge the last
+//: tool is folded away (`.doc-toolbar-over`, `display: none`), so the row
+//: ends where the strip does and nothing is drawn over anything. More (the
+//: first button of the group) says how many are folded; pressing it lets the
+//: strip wrap and shows them in place, the real controls with their own
+//: menus and handlers rather than copies in a list, so a `<details>` menu and
+//: a colour picker behave exactly as they do on the row. A group rule left at
+//: the end of the row with nothing after it is folded with its group.
+//:
+//: A wrapping strip (the default, and the note edit form's always) is left
+//: alone: it has nothing to fold.
+function fitDocToolbarRow(bar) {
+  const tools = bar.querySelector(":scope > .doc-toolbar-tools");
+  const more = tools?.querySelector(".doc-toolbar-more");
+  if (!tools || !more) return;
+  const items = [...bar.children].filter((el) => el !== tools);
+  const open = bar.classList.contains("is-more-open");
+  //: Measured as the closed row, whatever the reader has open: what fits is
+  //: a fact about the row, and the open state is put back afterwards.
+  bar.classList.remove("is-more-open");
+  for (const el of items) el.classList.remove("doc-toolbar-over");
+  more.hidden = true;
+  const style = getComputedStyle(bar);
+  const measurable = bar.getClientRects().length > 0 &&
+    !bar.classList.contains("is-collapsed") &&
+    style.flexWrap === "nowrap";
+  if (measurable) {
+    const edge = bar.getBoundingClientRect().right -
+      parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth);
+    const fits = () => tools.getBoundingClientRect().right <= edge + 0.5;
+    if (!fits()) {
+      more.hidden = false;
+      for (let i = items.length - 1; i >= 0 && !fits(); i--) {
+        items[i].classList.add("doc-toolbar-over");
+        //: A menu folded while open would stay open with nothing to anchor
+        //: it: closed with its button.
+        if (items[i].tagName === "DETAILS" && !open) items[i].open = false;
+      }
+      const shown = items.filter((el) => !el.classList.contains("doc-toolbar-over"));
+      for (let i = shown.length - 1; i >= 0 && shown[i].classList.contains("doc-toolbar-sep"); i--) {
+        shown[i].classList.add("doc-toolbar-over");
+      }
+    }
+  }
+  if (open && !more.hidden) bar.classList.add("is-more-open");
+  syncDocToolbarMore(bar);
+}
+
+//: More says what pressing it does and how many tools it holds, and carries
+//: its state on `aria-expanded`, the disclosure's own attribute.
+function syncDocToolbarMore(bar) {
+  const more = bar.querySelector(".doc-toolbar-more");
+  if (!more) return;
+  const open = bar.classList.contains("is-more-open");
+  const count = bar.querySelectorAll(".doc-toolbar-over:not(.doc-toolbar-sep)").length;
+  more.setAttribute("aria-expanded", String(open));
+  more.setAttribute("aria-pressed", String(open));
+  more.title = open
+    ? "Fold the extra tools away again"
+    : `${count} more tool${count === 1 ? "" : "s"}`;
+  more.setAttribute("aria-label", more.title);
+}
+
+//: Refitted whenever a strip's width changes, and only then: the observer
+//: also fires when More makes the strip taller, and that is not a reason to
+//: measure again. A strip that was hidden and is shown (the tab, focus mode's
+//: Tools, the collapse) goes from 0 to its width, which counts. The width is
+//: kept on the strip itself and cleared here, because the note edit form's
+//: strip is a clone of the capture strip and would otherwise arrive carrying
+//: the width it was cloned at, and never be measured. Hoisted state only (a
+//: property of this function, a data attribute): the appliers above can run
+//: before this part of the file has, and a `let` here would be in its
+//: temporal dead zone for them.
+function watchDocToolbarWidth(bar) {
+  if (typeof ResizeObserver !== "function") return;
+  watchDocToolbarWidth.observer ||= new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const width = String(Math.round(entry.contentRect.width));
+      if (entry.target.dataset.fitWidth === width) continue;
+      entry.target.dataset.fitWidth = width;
+      fitDocToolbarRow(entry.target);
+    }
+  });
+  delete bar.dataset.fitWidth;
+  watchDocToolbarWidth.observer.observe(bar);
+}
+
+function fitDocToolbars() {
+  for (const bar of document.querySelectorAll(".doc-toolbar")) fitDocToolbarRow(bar);
 }
 
 //: Applied on load as well as on click: the toolbar exists before a document

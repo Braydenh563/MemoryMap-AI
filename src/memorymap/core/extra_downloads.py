@@ -227,7 +227,46 @@ def _open_url(url: str):
 
 
 class DownloadFailed(Exception):
-    """A reason fit to show: never a path, never a stack."""
+    """A download that did not land, named by one of `REASONS`' keys.
+
+    It carries a code, not a sentence: what the person reads is looked up in
+    `REASONS` by `extras`, so no text that travelled inside an exception
+    (a member name out of a `KeyError`, a path) can reach the route that
+    shows it (CodeQL py/stack-trace-exposure on /settings/extras)."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+#: What each `DownloadFailed` code says. `{label}` is the extra's own label,
+#: filled in by the caller from its catalogue entry, never from the error.
+REASONS = {
+    "not_allowed": "That download address is not allowed.",
+    "stopped": "Stopped before it finished.",
+    "too_big": (
+        "{label}: the file is bigger than the pinned size, so it is not the "
+        "file this version expects."
+    ),
+    "checksum": (
+        "{label}: the checksum does not match the pinned one, so the file was "
+        "not kept. Try again; if it keeps happening the download is not the "
+        "file this version expects."
+    ),
+    "missing_member": (
+        "The archive is missing a file it should have, so it is not the one "
+        "this version expects."
+    ),
+    "bad_archive": "The archive could not be read.",
+    "unsupported": "This one has no download for this computer.",
+    "nothing": "Nothing to download.",
+}
+
+
+def reason(code: str, label: str) -> str:
+    """The sentence for a `DownloadFailed` code; unknown codes get a plain one."""
+    text = REASONS.get(code, "Couldn't download it. See Settings, Logs for why.")
+    return text.format(label=label)
 
 
 def _mb(n: float) -> str:
@@ -238,23 +277,20 @@ def _fetch(download: Download, dest: Path, state, label: str) -> None:
     """Stream one file to `dest`, hashing as it goes; raise on a mismatch."""
     url = effective_url(download)
     if not url_allowed(url):
-        raise DownloadFailed("That download address is not allowed.")
+        raise DownloadFailed("not_allowed")
     digest = hashlib.sha256()
     received = 0
     last = 0.0
     with _open_url(url) as response, open(dest, "wb") as out:
         while True:
             if state.cancelled:
-                raise DownloadFailed("Stopped before it finished.")
+                raise DownloadFailed("stopped")
             chunk = response.read(_CHUNK)
             if not chunk:
                 break
             received += len(chunk)
             if received > download.size:
-                raise DownloadFailed(
-                    f"{label}: the file is bigger than the pinned {_mb(download.size)} MB, "
-                    "so it is not the file this version expects."
-                )
+                raise DownloadFailed("too_big")
             digest.update(chunk)
             out.write(chunk)
             now = time.monotonic()
@@ -262,11 +298,7 @@ def _fetch(download: Download, dest: Path, state, label: str) -> None:
                 last = now
                 state.step = f"Downloading {label}: {_mb(received)} of {_mb(download.size)} MB"
     if digest.hexdigest() != download.sha256:
-        raise DownloadFailed(
-            f"{label}: the checksum does not match the pinned one, so the file "
-            "was not kept. Try again; if it keeps happening the download is not "
-            "the file this version expects."
-        )
+        raise DownloadFailed("checksum")
 
 
 def _unpack(download: Download, fetched: Path, staging: Path) -> list[str]:
@@ -294,12 +326,9 @@ def _unpack(download: Download, fetched: Path, staging: Path) -> list[str]:
                         shutil.copyfileobj(handle, out)
                     written.append(name)
     except KeyError as exc:
-        raise DownloadFailed(
-            f"The archive has no {exc.args[0] if exc.args else 'expected file'} in it, "
-            "so it is not the one this version expects."
-        ) from exc
+        raise DownloadFailed("missing_member") from exc
     except (tarfile.TarError, zipfile.BadZipFile, EOFError) as exc:
-        raise DownloadFailed("The archive could not be read.") from exc
+        raise DownloadFailed("bad_archive") from exc
     finally:
         fetched.unlink(missing_ok=True)
     return written
@@ -310,7 +339,7 @@ def install(extra, state) -> None:
     place. Raises `DownloadFailed` with a reason fit to show."""
     wanted = downloads_for(extra)
     if not wanted:
-        raise DownloadFailed(platform_reason(extra) or "Nothing to download.")
+        raise DownloadFailed("unsupported" if platform_reason(extra) else "nothing")
     root = root_dir()
     root.mkdir(parents=True, exist_ok=True)
     staging = root / f".{extra.id}.staging"

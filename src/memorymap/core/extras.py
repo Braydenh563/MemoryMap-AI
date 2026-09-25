@@ -1032,7 +1032,7 @@ def _run_download_install(extra: Extra, reinstall: bool = False) -> None:
         _state.step = f"{extra.label} installed. It works now, offline."
     except extra_downloads.DownloadFailed as exc:
         _state.outcome = "failed"
-        _state.step = str(exc)
+        _state.step = extra_downloads.reason(exc.code, extra.label)
     except OSError:
         # A socket or disk error: the detail can carry a path, so it goes to
         # the log and the caller gets the fact (the CodeQL shape the pip

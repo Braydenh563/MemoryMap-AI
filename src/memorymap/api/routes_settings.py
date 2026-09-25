@@ -1951,8 +1951,11 @@ def _validated_import_directory(path_value: str) -> Path:
     # disk is touched at all: the form CodeQL's path-injection query knows
     # as a guard (a `Path.resolve(strict=True)` first is itself a read of
     # an unchecked path, and `is_relative_to` is not recognised).
-    real = os.path.realpath(path_value)
-    if not _under_import_root(real):
+    # The guard is spelled out here rather than behind a helper: CodeQL only
+    # counts a `startswith` that sits in the same function as the read.
+    real = os.path.normpath(os.path.realpath(path_value))
+    root = _import_root_for(real)
+    if not root or not real.startswith(root):
         raise ValueError("Outside the folders an import may read")
     p = Path(real)
     if not p.is_dir():
@@ -1983,8 +1986,12 @@ def _under_root(real: str, root: str) -> bool:
     return real == root or real.startswith(root.rstrip(os.sep) + os.sep)
 
 
-def _under_import_root(real: str) -> bool:
-    return any(_under_root(real, root) for root in _import_roots())
+def _import_root_for(real: str) -> str:
+    """The import root `real` lies in (separator-aware), or "" for none."""
+    for root in _import_roots():
+        if _under_root(real, root):
+            return root
+    return ""
 
 
 def _inside(root: Path, f: Path) -> bool:

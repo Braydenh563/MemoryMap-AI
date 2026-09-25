@@ -5871,8 +5871,8 @@ main,
    higher and narrower, so they are named here, one step more specific. */
 #nm-buddy .atl-figure .nmb-arm-l { transform-origin: 22.4px 43px; }
 #nm-buddy .atl-figure .nmb-arm-r { transform-origin: 39.6px 43px; }
-#nm-buddy .atl-figure .nmb-leg-l { transform-origin: 26.4px 68px; }
-#nm-buddy .atl-figure .nmb-leg-r { transform-origin: 35.6px 68px; }
+#nm-buddy .atl-figure .nmb-leg-l { transform-origin: 26.4px 64px; }
+#nm-buddy .atl-figure .nmb-leg-r { transform-origin: 35.6px 64px; }
 /* Atlas's arm is a short nub from a shoulder just under the chin, so the
    companion's generic raise (-125deg, for a long arm from a low shoulder)
    would put its hand over its own cheek; -100deg brings it up beside the
@@ -5949,8 +5949,8 @@ main,
    mane translucent with a lighter leading edge, a star at each tip. */
 .nm-atlas .atl-ear-in { fill: var(--atl-earin); opacity: 0.85; }
 .nm-atlas .atl-hair-neb { fill: var(--atl-hneb); opacity: 0.45; }
-.nm-atlas .atl-lock { opacity: 0.88; }
-.nm-atlas .atl-mane .atl-hair-neb { opacity: 0.3; }
+.nm-atlas .atl-lock { opacity: 0.84; }
+.nm-atlas .atl-mane .atl-hair-neb { opacity: 0.22; }
 .nm-atlas .atl-hair-light { fill: none; stroke: white; stroke-width: 0.8; stroke-linecap: round; opacity: 0.45; }
 .nm-atlas .atl-hair-star { fill: white; }
 /* The rings of light (atlas.js, `atlasRing`): widths are in the ring's
@@ -5986,8 +5986,8 @@ main,
 /* The nebula strand (atlas.js, `atlasBand`): deep navy with violet and
    pink clouds, a pale glowing edge, star dots; lighter than the body. */
 .nm-atlas .atl-band-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 2.6; opacity: 0.3; }
-.nm-atlas .atl-band-fill { fill: var(--atl-navy); opacity: 0.92; }
-.nm-atlas .atl-band-neb { fill: var(--atl-bneb); opacity: 0.8; }
+.nm-atlas .atl-band-fill { fill: var(--atl-navy); opacity: 0.74; }
+.nm-atlas .atl-band-neb { fill: var(--atl-bneb); opacity: 0.7; }
 .nm-atlas .atl-band-edge { fill: none; stroke: white; stroke-width: 0.7; opacity: 0.4; }
 /* Startled: a translucent bubble round the whole figure. */
 .nm-atlas .atl-bubble { fill: white; fill-opacity: 0.1; stroke: var(--atl-glow-c); stroke-width: 0.9; opacity: 0.9; }

@@ -19133,7 +19133,7 @@ function savedPersona(name) {
 //: inside a detached element.
 function paintPersonaAvatar(holder, persona, size = 20) {
   const name = personaDisplayName(persona);
-  if (name === aiNameNow()) renderEmblem(holder, size);
+  if (name === aiNameNow()) renderEmblem(holder, size, { animate: true });
   else fillPersonaMark(holder, name, size);
 }
 

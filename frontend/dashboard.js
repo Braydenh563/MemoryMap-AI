@@ -1691,7 +1691,7 @@ function gettingStartedCard() {
     "notes and a dozen other panels appear once there's something to put in them.";
 
   card.append(emblem, title, blurb, steps, footer);
-  return { card, mount: () => renderEmblem(emblem, 56) };
+  return { card, mount: () => renderEmblem(emblem, 56, { animate: true }) };
 }
 
 async function renderDashboard() {

@@ -2527,10 +2527,21 @@ kbd {
    reduced-motion blocks in 08-consistency.css slow every loop to a calm
    pace and keep the expression, which is the rule for them (DESIGN.md,
    "Motion"); this !important kill froze them all mid-frame instead, and
-   the companion's walk is already skipped in script under the same hint. */
+   the companion's walk is already skipped in script under the same hint.
+
+   **The exemption is inside `:where()`, and has to stay there** (INBOX 426
+   h). A `:not()` or `:is()` takes the specificity of its most specific
+   argument, so writing it bare made this whole blanket 1,0,0 because of
+   `#nm-buddy`, and a 1,0,0 `!important` beats every `:root ... !important`
+   rule that exists to escape it: the emblem's turn (03-dashboard-widgets.css)
+   and the progress indicators all ran once in 0.01ms and stopped. Measured
+   with the hint on: the emblem's transform identical 500ms apart on the lock
+   screen, the dashboard, the top bar and the chat. `:where()` counts for
+   nothing, so the blanket is a bare `*` again as far as the cascade is
+   concerned. `tests/test_emblem_turns.py` holds it there. */
 @media (prefers-reduced-motion: reduce) {
 
-  *:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *),
+  *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *)),
   *::before,
   *::after {
     animation-duration: 0.01ms !important;

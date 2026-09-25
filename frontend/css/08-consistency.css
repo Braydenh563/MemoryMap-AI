@@ -6442,16 +6442,32 @@ main,
   }
 }
 
-/* The welcome on a short pane (`fitChatEmpty`, app.js): no emblem, tighter
-   rhythm, the questions closer to the line above them. Only when the pane is
-   shorter than the welcome's own height, so a tall window keeps the full one. */
+/* The welcome on a short pane (`fitChatEmpty`, app.js): a smaller emblem,
+   tighter rhythm, the questions closer to the line above them. Only when the
+   pane is shorter than the welcome's own height, so a tall window keeps the
+   full one.
+
+   **Smaller, never gone** (INBOX 426 h: "the one from the new chat interface
+   is missing"). This used to hide the emblem, and a 1280x720 window is short
+   (pane 304px, welcome 326px), so the laptop most people have never saw it.
+   The box is 2rem tall and the 52px canvas is centred in it and drawn at
+   32/52 with the `scale` property rather than `transform`, because
+   `transform` is what the turn animates (`canvas.emblem-spin`) and the two
+   would overwrite each other. Measured at 1280x720: welcome 210px to 250px,
+   still inside the 304px pane. */
 .chat-empty.is-short {
   gap: var(--space-2);
   padding-block: var(--space-1);
 }
 
 .chat-empty.is-short #chat-empty-emblem {
-  display: none;
+  align-items: center;
+  height: 2rem;
+  margin-bottom: 0;
+}
+
+.chat-empty.is-short #chat-empty-emblem canvas {
+  scale: calc(32 / 52);
 }
 
 .chat-empty.is-short #chat-suggest {

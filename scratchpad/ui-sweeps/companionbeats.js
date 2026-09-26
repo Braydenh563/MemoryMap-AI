@@ -1,7 +1,7 @@
 // INBOX 426 k, l, m, p: fast tab switching, pinning, resize, the menu's
 // place, call back, and that nothing runs per frame when the page is idle.
 // Exits 1 when fast switching moves it more than once or fades it, the menu
-// opens more than 12px from it, a pinned companion moves on its own, a
+// opens more than 24px from it, a pinned companion moves on its own, a
 // resize or a call back leaves any of it outside the window, or an idle
 // page still runs its frame loop. SCRATCH set: a shot of the menu.
 const { boot } = require('./lib.js');
@@ -40,7 +40,7 @@ const SHOTS = `${process.env.SCRATCH || '.'}/shots`;
   const menu = await page.evaluate(() => {
     const face = document.querySelector('#nm-buddy .nm-buddy-face').getBoundingClientRect();
     const m = nmb.menu && nmb.menu.getBoundingClientRect();
-    return m ? { face: [face.left, face.top, face.right, face.bottom].map(Math.round), menu: [m.left, m.top, m.right, m.bottom].map(Math.round), gapX: Math.round(Math.min(Math.abs(m.left - face.right), Math.abs(face.left - m.right))), dTop: Math.round(m.top - face.top) } : null;
+    return m ? { face: [face.left, face.top, face.right, face.bottom].map(Math.round), menu: [m.left, m.top, m.right, m.bottom].map(Math.round), gap: Math.round(Math.max(m.left > face.right ? m.left - face.right : face.left > m.right ? face.left - m.right : 0, m.top > face.bottom ? m.top - face.bottom : face.top > m.bottom ? face.top - m.bottom : 0)) } : null;
   });
   console.log('menu', JSON.stringify(menu));
   if (process.env.SCRATCH) await page.screenshot({ path: `${SHOTS}/menu-after.png`, clip: { x: Math.max(0, Math.min(menu.face[0], menu.menu[0]) - 20), y: Math.max(0, Math.min(menu.face[1], menu.menu[1]) - 20), width: 520, height: 300 } });
@@ -81,7 +81,9 @@ const SHOTS = `${process.env.SCRATCH || '.'}/shots`;
   const fails = [];
   if (fast.moves.length > 1) fails.push(`fast switching: ${fast.moves.length} moves`);
   if (fast.minOpacity < 1) fails.push(`fast switching: opacity ${fast.minOpacity}`);
-  if (!menu || menu.gapX > 12 || Math.abs(menu.dTop) > 12) fails.push(`menu: ${JSON.stringify(menu)}`);
+  // A right-click opens it at the pointer (round 4): the menu's box within
+  // 24px of the companion's, overlapping it being 0.
+  if (!menu || menu.gap > 24) fails.push(`menu: ${JSON.stringify(menu)}`);
   if (pinned.moves.length || !pinned.pinned) fails.push(`pinned: ${pinned.moves.length} moves`);
   if (!inside(small, small[4], small[5])) fails.push(`resize: ${small}`);
   if (!inside(back.box, 1440, 900)) fails.push(`call back: ${back.box}`);

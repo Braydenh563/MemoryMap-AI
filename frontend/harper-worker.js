@@ -35,6 +35,15 @@ import { slimBinary } from "./vendor/harper/slimBinary.js";
 
 const linters = new Map();
 
+//: **Harper's rules this app turns off**, by the names Harper's lint config
+//: uses. `UseTitleCase` ("Try to use title case in headings") asks for the
+//: opposite of this app's own copy rule, sentence case everywhere (CLAUDE.md
+//: standing order 6, DESIGN.md "Voice"): it flagged every heading of a
+//: document written the way the app writes, four of the six suggestions on
+//: the README's focus-mode shot. Every other rule keeps Harper's default.
+//: `tests/test_prose_tools.py` runs this worker in node and holds it.
+const HARPER_RULES_OFF = ["UseTitleCase"];
+
 function dialectOf(name) {
   return name === "uk" ? Dialect.British : Dialect.American;
 }
@@ -43,7 +52,15 @@ async function linterFor(name) {
   const key = name === "uk" ? "uk" : "us";
   let linter = linters.get(key);
   if (!linter) {
-    linter = slimBinary.createLinter(dialectOf(key));
+    linter = slimBinary.createLinter(dialectOf(key)).then((made) => {
+      //: The whole config, defaults and all, with the rules above set false:
+      //: read back and written whole, so no rule's state is left to however
+      //: this build treats a key that is missing.
+      const config = made.get_lint_config_as_object();
+      for (const rule of HARPER_RULES_OFF) config[rule] = false;
+      made.set_lint_config_from_object(config);
+      return made;
+    });
     linters.set(key, linter);
   }
   return linter;

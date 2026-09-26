@@ -46,11 +46,6 @@ two decisions only the owner can take are INBOX 427.
 - **uipolish-0924 leftovers**: `deadbtn.js`'s Chat export and delete
   findings, the icon-only touch floor app-wide, the surface-by-surface pass
   (its item D). [ui-426]
-- **The writing suggestions flag sentence-case headings** ("Try to use title
-  case in headings", a rule of the vendored Harper checker), the case this
-  app's own copy rule asks for; seen on
-  the README's focus shot. A rule the app's style contradicts should be off
-  by default. [docs-0.3.3]
 - **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js`
   needs a Tesseract binary this sandbox does not have, so it was not retaken
   with the rest (`SKIP=ocr`). [docs-0.3.3]

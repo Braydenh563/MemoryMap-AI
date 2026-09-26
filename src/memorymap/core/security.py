@@ -92,13 +92,20 @@ class HostCheckMiddleware:
     async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001  # ASGI
         from memorymap.core import netbind
 
-        if scope.get("type") == "http" and not netbind.is_loopback_bind():
+        #: Off loopback by either fact: what the launcher bound, or the address
+        #: this request actually arrived on (`netbind.arrived_on_loopback`),
+        #: since a server started outside the launcher never says. A request
+        #: with no Host at all is refused there too: HTTP/1.1 requires one, so
+        #: nothing legitimate on the network omits it (on loopback a tool may).
+        if scope.get("type") == "http" and (
+            not netbind.is_loopback_bind() or not netbind.arrived_on_loopback(scope.get("server"))
+        ):
             host = None
             for name, value in scope.get("headers") or ():
                 if name == b"host":
                     host = value.decode("latin-1")
                     break
-            if not netbind.host_allowed(host):
+            if host is None or not netbind.host_allowed(host):
                 response = JSONResponse(
                     status_code=421,
                     content={"detail": "This address does not name this computer."},

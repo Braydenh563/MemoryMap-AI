@@ -65,6 +65,25 @@ def is_loopback_bind(host: str | None = None) -> bool:
     return (host or current()) in _LOOPBACK_NAMES
 
 
+def arrived_on_loopback(server) -> bool:  # noqa: ANN001  # an ASGI scope's `server`, or None
+    """Whether a request came in on this computer's own loopback interface.
+
+    The ASGI scope's `server` is the address the listening socket accepted
+    on, which is the fact `is_loopback_bind` only remembers the launcher
+    saying: a server started any other way on 0.0.0.0 never called
+    `set_current`. Only a numeric address off loopback says "the network";
+    a name (the test client's `testserver`) or no address at all is read as
+    local, since nothing can be judged from it.
+    """
+    if not isinstance(server, (tuple, list)) or not server or not isinstance(server[0], str):
+        return True
+    text = server[0].strip().strip("[]").split("%", 1)[0]
+    try:
+        return ipaddress.ip_address(text).is_loopback
+    except ValueError:
+        return True
+
+
 def _own_names() -> set[str]:
     try:
         name = socket.gethostname().lower()

@@ -1034,6 +1034,44 @@ being written by running agents stay beside this one.
 
 ## Backend
 
+- **Security review of the backend batch (2442101..3b8cdc5), 2026-09-26.**
+  Line by line over src/ for the six asks. Fixed, each with a test that
+  failed first: (1) `vault.key()` read an empty grant set as everyone's, and
+  the app loads the key before granting (`unlock`), and clears every grant
+  before granting the new session (`change-password`, `rotate-vault-key`),
+  so a request from a session that never gave the password, timed into
+  either gap beside a sync route, read private notes; inside a request the
+  key is now a granted session's or nobody's, and only a key loaded outside
+  any request (a script, a test's direct call) is still every request's
+  until the first grant (`_process_key`). (2) The Host check keyed only on
+  what the launcher said it bound (`set_current`), so `uvicorn --host
+  0.0.0.0`, serve.sh and a container ran with no rebinding guard; it also
+  keys on the address the request arrived at (`scope["server"]`,
+  `netbind.arrived_on_loopback`), and off loopback a request with no Host
+  is refused. (3) The .ics escaper is held to the letter and a title
+  carrying CRLF and event lines makes one event. Read and found sound: the
+  audit hook (never raises, `BaseException` caught, no I/O under its lock,
+  no lock re-entry; measured 0.07us per `open`, +3us per lookup, +7us per
+  connect), `/auth/lan-access` (password and the unlock throttle to turn on,
+  an empty password not counted as a guess, `allow_lan` only a literal
+  True, `PUT /preferences` refused by test), `/events/undo` (behind the
+  lock, the person's own actor refused, `is_private` never restored, dry
+  run by default), the receipt (behind the lock), `.ics` (private notes'
+  words absent, folding at octets, UID stable, no workspace scoping to
+  leak across since reminders have none).
+- **Undoing a `content` change on a private note after a vault re-key
+  writes the old ciphertext back** (`events.undo`, `_UNDOABLE_ENTRY_FIELDS`):
+  the audit payload keeps the column as it was, which for a private note is
+  ciphertext under the key of that day; after `POST /auth/rotate-vault-key`
+  the restored text cannot be decrypted. Narrow (an AI actor changing a
+  private note's content is what the filer never does), and the revision
+  the undo keeps still holds the current text. Refusing `content` on a
+  private entry in `undo`, or re-wrapping through the current key, are the
+  two shapes; not changed in the review.
+- **`netbind.host_allowed("localhost.")` and a trailing-dot own name are
+  refused** (fail closed, as intended; noted so nobody reads a 421 on
+  `localhost.` as a bug). `_own_names()` calls `gethostname` per request
+  off loopback, one syscall.
 - **The other search surfaces still do their own thing.** `file:
   frontend/app.js`, `id: search-one-surface`. The Notes list filters
   client-side with `parseNoteQuery` (which knows `tag:`, `category:`, `is:`

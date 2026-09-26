@@ -235,12 +235,38 @@ function closeHelpPopovers() {
   for (const entry of [...openHelpPopovers]) entry.close();
 }
 
+//: **One set of page listeners for every popover, here, not four per
+//: wiring.** They used to be added inside `wireHelpPopover`, so each of the
+//: fifty-odd '?'s on the page put its own four on document and window, and a
+//: '?' built after boot (the chat welcome's, rebuilt on every new chat) added
+//: four more each time, each closure holding the welcome it was built for:
+//: listenerrounds.js measured +27 listeners a rebuild, for the life of the
+//: page. These read the open set instead, so wiring a popover costs the two
+//: listeners on its own elements, collected with them.
+document.addEventListener("click", (event) => {
+  for (const entry of [...openHelpPopovers]) {
+    if (entry.panel.contains(event.target) || entry.trigger.contains(event.target)) continue;
+    entry.close();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeHelpPopovers();
+});
+window.addEventListener("resize", () => {
+  for (const entry of openHelpPopovers) placeHelpPopover(entry.panel, entry.trigger);
+}, { passive: true });
+// A popover is anchored to a rect that scrolls away underneath it; every
+// other floating thing in this app closes rather than chasing it.
+window.addEventListener("scroll", closeHelpPopovers, true);
+
 function wireHelpPopover(trigger, panel) {
   if (!trigger || !panel || panel.dataset.helpPopover) return;
   panel.dataset.helpPopover = "1";
   let homeParent = null;
   let homeNext = null;
   const entry = {
+    panel,
+    trigger,
     close() {
       if (!openHelpPopovers.has(entry)) return;
       openHelpPopovers.delete(entry);
@@ -290,20 +316,6 @@ function wireHelpPopover(trigger, panel) {
     else open();
   });
   panel.addEventListener("click", (event) => event.stopPropagation());
-  document.addEventListener("click", (event) => {
-    if (!openHelpPopovers.has(entry)) return;
-    if (panel.contains(event.target) || trigger.contains(event.target)) return;
-    entry.close();
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") entry.close();
-  });
-  window.addEventListener("resize", () => {
-    if (openHelpPopovers.has(entry)) placeHelpPopover(panel, trigger);
-  }, { passive: true });
-  // A popover is anchored to a rect that scrolls away underneath it; every
-  // other floating thing in this app closes rather than chasing it.
-  window.addEventListener("scroll", () => entry.close(), true);
 }
 window.wireHelpPopover = wireHelpPopover;
 

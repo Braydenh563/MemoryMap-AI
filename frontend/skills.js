@@ -339,6 +339,12 @@ function askSkillInputs(skill, done) {
 // step-by-step" had no name and no description.
 const SKILL_MANAGE_VALUE = "__manage__";
 
+//: The dropdown's two dismissal listeners on `document`, dropped with the
+//: build they belong to: `loadChatSkills` runs at boot and again after every
+//: skill saved in Settings, and each run left its pair behind, holding the
+//: dropdown it was built for (listenerrounds.js: +35 listeners a rebuild).
+let chatSkillsDismiss = null;
+
 async function loadChatSkills() {
   await loadSkills();
   const box = $("chat-skills");
@@ -440,6 +446,12 @@ async function loadChatSkills() {
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-label", "Run a skill");
 
+  //: Every listener this build puts on something that outlives it (document,
+  //: the Settings checkbox the pace pill mirrors) goes with the build.
+  chatSkillsDismiss?.abort();
+  chatSkillsDismiss = new AbortController();
+  const { signal } = chatSkillsDismiss;
+
   const pickRow = document.createElement("label");
   pickRow.className = "chat-skills-row";
   const pickLabel = document.createElement("span");
@@ -452,7 +464,7 @@ async function loadChatSkills() {
   const paceLabel = document.createElement("span");
   paceLabel.className = "muted";
   paceLabel.textContent = "Pace";
-  paceRow.append(paceLabel, skillPacePill());
+  paceRow.append(paceLabel, skillPacePill(signal));
 
   const runRow = document.createElement("div");
   runRow.className = "chat-skills-run";
@@ -475,10 +487,10 @@ async function loadChatSkills() {
   });
   document.addEventListener("click", (event) => {
     if (!box.contains(event.target)) close();
-  });
+  }, { signal });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") close();
-  });
+  }, { signal });
   // Running one is the end of the interaction, so the menu gets out of the way.
   run.addEventListener("click", close);
 
@@ -501,7 +513,10 @@ async function loadChatSkills() {
 // Auto | Manual, over the hidden #skill-manual-toggle checkbox that the rest of
 // the app reads. Kept in sync both ways: Settings can still flip the checkbox,
 // and the pill follows.
-function skillPacePill() {
+//: `signal`: the pill mirrors `#skill-manual-toggle`, a checkbox in Settings
+//: that outlives every pill built on it, and the `change` listener it puts
+//: there held each old pill, and through it the whole dropdown (listenerrounds.js).
+function skillPacePill(signal) {
   const seg = document.createElement("div");
   seg.className = "seg seg-compact chat-skill-pace";
   seg.setAttribute("role", "group");
@@ -542,7 +557,7 @@ function skillPacePill() {
       button.setAttribute("aria-pressed", String(on));
     }
   }
-  toggle?.addEventListener("change", paint);
+  toggle?.addEventListener("change", paint, { signal });
   paint();
   return seg;
 }

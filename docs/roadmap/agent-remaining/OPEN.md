@@ -319,6 +319,17 @@ being written by running agents stay beside this one.
 
 ## Graph
 
+- **The graph export writes its styles with `setAttribute("style")`, which
+  the CSP refuses element by element** (`frontend/graph.js:4016`,
+  `graphInlineComputedStyle`). Measured 2026-09-26 (`cspprobe.js`, in the
+  review): under `style-src 'self'` the attribute string is kept and
+  serialises, so the exported picture is right, but the browser logs
+  "Refused to apply inline style" once per element of the clone, hundreds of
+  console errors for one export of a large graph, and any inline style the
+  page itself needed on those nodes is dropped. The fix is one line's shape:
+  `cloneEl.style.setProperty(prop, value)` per property writes the same
+  attribute through the CSSOM, which the CSP allows. Not changed in the
+  review because graph.js was another agent's file that night. [graph.md]
 - ~~**The options panel scrolls again at 1440x900.**~~ **Fixed, 2026-09-20.**
   It had grown to 655px of list in a 488px box (Show had gone from 143 to 211
   as three switches were added). Physics, Groups and Minimap are each a
@@ -437,6 +448,14 @@ being written by running agents stay beside this one.
 
 ## Chat and popup agent
 
+- **The chat welcome's blurb wraps to two lines at 1280 wide**
+  (`frontend/chat.js:919`, "I've read everything you've saved. Ask me
+  anything and I'll show you where the answer came from"):
+  `scratchpad/ui-sweeps/chatemptyhelp.js` fails its "the sentence it left
+  behind is one line" check with the sentence over 2 lines, the '?' itself
+  measured fine (out of the centred column, popover 416x117 on top). Seen
+  2026-09-26 in the review, on a data dir with the default persona; not
+  changed because chat.js was another agent's file that night. [chat-b.md]
 - **CHAT_PLAN Phase 1: which note grounds a sentence. Built 2026-09-20.** The
   fixture set is `tests/fixtures/chat/grounding_cases.json` (sixteen cases,
   scored by `tests/test_grounding_fixtures.py`); the note is chosen by BM25
@@ -1176,6 +1195,30 @@ being written by running agents stay beside this one.
 
 ## Not verified
 
+- **The About pane's "Take tour again" button greyed out with the tour off**
+  (`frontend/settings-wiring.js`, the `onDomReady` block; 2026-09-26). The
+  block that disables it never ran before the review (a top-level `typeof
+  TOUR_ENABLED` guard read a later script's const, so it was always
+  "undefined"); it now runs on `DOMContentLoaded`, which is after tour.js,
+  and `tests/test_frontend_load_order.py` holds the shape. `TOUR_ENABLED` is
+  true on the branch, so the disabled state itself was not seen in a browser.
+- ~~**The feminine sash sways on an inner `<g>`**~~ **Fixed, 2026-09-26.**
+  The sway is on the layer root (`.atl-layer-lower`, origin 27px 62px, the
+  hip) as the tail's swish is. `scratchpad/ui-sweeps/atlaswalk.js` (the walk
+  held for 4s, per look): paints 176.5/s feminine against 119/s masculine
+  before, 117.5/s against 119/s after; the hip end moves 0.3px across the
+  sway and the free end 6.8px (`sashpivot.js`, in the review's scratchpad).
+  Main-thread ms/s was too noisy between runs to quote (the sandbox was
+  loaded by four agents; 168 to 270 ms/s for the same masculine walk).
+- **The companion's walk itself lays out and recalculates style 59 times a
+  second, in either look** (`atlaswalk.js`, 2026-09-26: layouts 59/s, style
+  recalcs 59/s, about 120 paints/s, with `nmb-walking` held and nothing else
+  happening). The idle figure is 0 layouts (companionperf.js), so this is the
+  walk's own per-frame work in avatars.js (the position written each frame,
+  or a read of the page beside it), not Atlas's drawing. Not opened in the
+  review because avatars.js was the companion agent's file that night; the
+  first look is whether the walk writes `style.transform` from a
+  requestAnimationFrame loop that also reads a rect.
 - **Every provider test runs against a fake transport** (CLAUDE.md section 4),
   and that covers more open work than any other single line here: no real
   model has run a skill, the night pass, the Guide's tab context, the paging

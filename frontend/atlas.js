@@ -1136,7 +1136,7 @@ function atlasDefs(svg, id, level) {
 //: What each level shows, and the box it is drawn in. `full` keeps margins
 //: for the glow, the rings, the mane, the tail and a raised hand; `head` is
 //: square round the head, its ears and a shorter cut of the mane; `tiny`
-//: crops tighter because at 16px every unit counts.
+//: crops to the face because at 16px every unit counts.
 const ATLAS_LEVELS = {
   full: { viewBox: [-12, -10, 88, 110], body: true },
   figure: { viewBox: [0, 0, 64, 92], body: true },
@@ -1144,7 +1144,9 @@ const ATLAS_LEVELS = {
   //: chest star, so the rings, the mane and the strand's first sweep show.
   bust: { viewBox: [4, -8, 54, 54], body: true },
   head: { viewBox: [7, -6, 50, 50], body: false },
-  tiny: { viewBox: [10, -4, 42, 44], body: false },
+  //: Under 28px the face is the icon: a crop just round the head, the ear
+  //: tufts shrunk toward their base in the CSS, no wisps, mane or strand.
+  tiny: { viewBox: [13, 0, 36, 38], body: false },
 };
 
 function atlasLevelFor(size) {

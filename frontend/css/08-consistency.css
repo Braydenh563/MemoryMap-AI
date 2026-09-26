@@ -6017,6 +6017,10 @@ main,
    the design note's "Construction"). */
 .nm-atlas .atl-edge { fill: none; stroke: var(--atl-glow-c); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; opacity: 0.32; }
 .nm-atlas.atl-tiny .atl-edge { stroke: var(--atl-line); stroke-width: 2.6; opacity: 0.8; }
+/* At 24px and under the face is the icon: the ear tufts shrink toward
+   their base and the crown's wisps go. */
+.nm-atlas.atl-tiny .atl-ear { transform: scale(0.68); }
+.nm-atlas.atl-tiny .atl-wisps { display: none; }
 .nm-atlas .atl-belly { fill: var(--atl-belly); }
 .nm-atlas .atl-sheen { fill: var(--atl-sheen); opacity: 0.55; }
 .nm-atlas .atl-sheen-dot { opacity: 0.8; }

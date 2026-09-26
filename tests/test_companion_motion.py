@@ -38,13 +38,13 @@ def _fn(name: str, src: str = AV) -> str:
 
 def test_it_is_drawn_through_a_transform_not_left_and_top() -> None:
     # Following a panel every frame must never be a layout.
-    assert "buddy.style.transform = `translate(${x}px, ${y}px)`" in _fn("nameMarkBuddyPut")
+    assert "buddy.style.transform = `translate(${nmb.lx}px, ${nmb.ly}px)`" in _fn("nameMarkBuddyPut")
     region = AV[AV.index("function nameMarkBuddyPut(") : AV.index("// --- being found")]
     assert not re.search(r"buddy\.style\.(left|top) =", region)
 
 
 def test_a_scroll_moves_it_with_its_panel_in_the_same_frame() -> None:
-    listener = AV[AV.index('document.addEventListener("scroll", (event) => {\n  const g = nmb.glue;') :]
+    listener = AV[AV.index('document.addEventListener("scroll", (event) => {\n  //: Any scroll') :]
     listener = listener[: listener.index("}, { passive: true, capture: true });")]
     assert "nameMarkBuddyFollow();" in listener
     follow = _fn("nameMarkBuddyFollow")
@@ -137,3 +137,172 @@ def test_what_a_face_holds_shows_in_its_head_mark() -> None:
     assert "if (!full && !mini && reading.hand) {" in draw
     block = draw[draw.index("if (!full && !mini && reading.hand) {") :]
     assert "nameCharacterHeld(reading.hand, hand," in block[: block.index("\n  }\n")]
+
+
+def test_a_panel_moved_by_a_transform_is_followed_every_frame() -> None:
+    # Round 2: the loop runs on while the panel or an ancestor animates a
+    # property that places it, not only for its fixed second and a half,
+    # and the events that set a transition going and end it start it.
+    frame = _fn("nameMarkBuddyFollowFrame")
+    assert "nameMarkBuddyPanelMoving(nmb.glue.el)" in frame
+    moving = _fn("nameMarkBuddyPanelMoving")
+    assert "document.getAnimations()" in moving and "target.contains(el)" in moving
+    # An endless animation elsewhere (a spinner) must not keep an idle page busy.
+    assert "Number.isFinite(" in moving
+    for event in ("transitionrun", "transitionend", "transitioncancel", "animationend"):
+        assert f'"{event}"' in AV
+    # Both motion sweeps run in the gate's sweep list.
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    assert "companionscroll companionbeats" in gate
+
+
+CSS08 = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+
+
+def test_the_companion_is_light_on_the_page() -> None:
+    # INBOX 426 x: "the companion showing makes everything noticeably
+    # slower". Measured by scratchpad/ui-sweeps/companionperf.js (in the
+    # gate's sweeps): Atlas idle +190ms/s of main thread before, +63 after.
+    # No filter on the moving figure (it re-layered the page every frame).
+    char = CSS08[CSS08.index(".nm-buddy-char {") : CSS08.index("}", CSS08.index(".nm-buddy-char {"))]
+    assert "filter" not in char
+    # Its drawing's idle animations are paced by hand, reads before writes.
+    tempo = _fn("nameMarkBuddyTempo")
+    assert "anim.pause()" in tempo and "anim.currentTime = t" in tempo
+    assert tempo.index("const states = nmbTempo.anims.map") < tempo.index("anim.currentTime = t")
+    assert "SVGElement" in tempo
+    # The obstacle sweep waits for any scroll to settle, glued or not.
+    check = _fn("nameMarkBuddyCheck")
+    assert "if (performance.now() - nmbFollow.scrollAt < 400) {" in check
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    assert "companionperf" in gate
+
+
+def test_it_rides_its_panels_scroll_and_leaves_with_it() -> None:
+    # INBOX 426 x: "if I scroll really fast the companion will just float in
+    # the corner ... then it will disappear". On a panel in a scroll area it
+    # rides that area's scroll through a ScrollTimeline (the compositor moves
+    # it, however fast), clipped to the area's visible box. Measured in
+    # composited frames by scratchpad/ui-sweeps/companionsmooth.js.
+    ride = _fn("nameMarkBuddyRide")
+    assert "new ScrollTimeline({ source: want" in ride
+    assert 'rangeEnd: `${NMB_RIDE_PX}px`' in ride and 'rangeStart: "0px"' in ride
+    # It stays in the body, in its own band: the app's scroll boxes are
+    # never given a child.
+    build = _fn("nameMarkBuddyBuild")
+    assert 'band.id = "nm-buddy-band"' in build and "document.body.appendChild(band)" in build
+    assert "#nm-buddy-band.nmb-riding {\n  overflow: clip;" in CSS08
+    # A scroll of the area it rides reads no box and moves nothing.
+    listener = AV[AV.index('document.addEventListener("scroll", (event) => {\n  //: Any scroll') :]
+    listener = listener[: listener.index("}, { passive: true, capture: true });")]
+    riding = listener[listener.index("if (nmb.ride && target === nmb.ride.el) {") :]
+    riding = riding[: riding.index("return;")]
+    assert "getBoundingClientRect" not in riding and "nameMarkBuddyPut" not in riding
+    # Not on a bar that sticks: it ignores the scroll the rider follows.
+    assert 'pos === "sticky" || pos === "fixed"' in _fn("nameMarkBuddyScrollsWith")
+    # Out of sight, it waits for the page to be still and then its own beat.
+    seen = _fn("nameMarkBuddySeen")
+    assert "nameMarkBuddyQueuePlace()" in seen and "nmbFollow.scrollAt" in seen
+
+
+def test_a_jump_it_must_make_is_a_poof_under_400ms() -> None:
+    # INBOX 426 x: "a better teleport". Out of sight, or further than a walk
+    # should go, it dissolves in stars and appears in another burst.
+    assert "const NMB_POOF_OUT_MS = 150;" in AV and "const NMB_POOF_IN_MS = 220;" in AV
+    move = _fn("nameMarkBuddyMoveTo")
+    assert "nameMarkBuddyPoof(buddy, dx, dy, seenFrom)" in move
+    poof = _fn("nameMarkBuddyPoof")
+    # The shrink is on the character: a `scale` on the host scaled the
+    # translate that places it (measured: swept 600px across the page).
+    host_frames = poof[poof.index("nmb.anim = buddy.animate(") : poof.index("const char =")]
+    assert "scale" not in host_frames
+    # Only its own end takes its class off (a cancelled move's late event).
+    assert "if (nmb.anim === anim) buddy.classList.remove(\"nmb-poofing\")" in poof
+    assert "if (nmb.anim !== walk) return;" in move
+
+
+def test_choosing_a_perch_is_cheap() -> None:
+    # The choice with `near` hit-tested every point of up to 120 perches
+    # (176ms, a stall before every move); a perch that cannot beat the best
+    # so far is no longer sampled, and each point is tested once (5.7ms).
+    choose = _fn("nameMarkBuddyChoose")
+    assert "if (best && ceiling <= best.score) {" in choose
+    assert "nmbCoverCache = new Map();" in choose
+    assert "nmbCoverCache?.get(key)" in _fn("nameMarkBuddyCovers")
+
+
+def test_its_menu_holds_it_where_it_is() -> None:
+    # INBOX 426 x, 84.png: the menu open in one corner, the companion in
+    # another. Measured (companionmenu.js): with the menu open, its own
+    # behaviours moved it 338px away before; now nothing moves it until the
+    # menu closes, and a panel carrying it carries the menu.
+    for name in ("nameMarkBuddyBeat", "nameMarkBuddyErrand", "nameMarkBuddyUnheld", "nameMarkBuddyCheck", "nameMarkBuddyTick"):
+        assert "nameMarkBuddyMenuOpen()" in _fn(name), name
+    assert "if (nmb.menuPlace && nameMarkBuddyMenuOpen()) nmb.menuPlace();" in _fn("nameMarkBuddyPut")
+    menu = _fn("nameMarkBuddyMenu")
+    place = menu[menu.index("const place = () => {") :]
+    assert "const box = face.getBoundingClientRect();" in place[: place.index("};")]
+    # Flipped to its left at the right edge and kept inside the window.
+    assert "if (left + now.width > innerWidth - margin) left = box.left - gap - now.width;" in place
+    gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
+    assert "companionmenu" in gate
+
+
+def test_its_face_changes_with_what_happens() -> None:
+    # INBOX 426 x: "one expression only". Measured by companionlife.js: a
+    # hello is happy, a saved note excited, an error surprised, thinking
+    # serious, away sleepy and back with a wave, and each comes back.
+    express = _fn("nameMarkBuddyExpress")
+    assert "nameCharacterFigure(seed, want)" in express
+    # The face only: the colours stay the name's.
+    draw = _fn("drawCharacter")
+    assert "const expr = full && nameCharacterExpression" in draw
+    assert "const bias = reading.source !== \"seed\" && reading.mood ?" in draw
+    # Drawn ahead in idle time, so a reaction never waits on a first drawing.
+    assert "requestIdleCallback" in _fn("nameMarkBuddyPrewarm")
+    assert "nameMarkBuddyPrewarm(seed);" in AV
+    # Back after a long idle: a wave.
+    assert 'nameMarkBuddyAct("wave")' in _fn("nameMarkBuddyAwake")
+
+
+def test_light_and_dark_and_its_size() -> None:
+    # INBOX 426 x: "a light or dark variant", "size options". A soft
+    # shadow on a light page, a light of the accent behind it on a dark
+    # one, both still gradients (no filter).
+    dark = CSS08[CSS08.index(':root[data-theme="dark"] #nm-buddy::after {') :]
+    dark = dark[: dark.index("}")]
+    assert "radial-gradient" in dark and "filter" not in dark
+    # Small, medium, large in its menu and Appearance; any size from the
+    # handle; kept; scaled about the point it touches its perch, and its
+    # shape and sampled points with it (companionlife.js measures it).
+    assert "const NMB_SIZES = { small: 0.8, medium: 1, large: 1.3 };" in AV
+    assert 'localStorage.setItem("avatar-buddy-size"' in _fn("nameMarkBuddySetSize")
+    assert "nameMarkBuddyScaled(nameMarkBuddyShapeAt1(" in _fn("nameMarkBuddyShape")
+    assert "ox + (qx - ox) * size" in _fn("nameMarkBuddyCovers")
+    assert 'group: "size"' in _fn("nameMarkBuddyMenu")
+    assert 'id="avatar-buddy-size"' in HTML
+    assert '"avatar-buddy-size"' in SETTINGS
+    assert "#nm-buddy .nm-buddy-face {\n  scale: var(--nmb-scale);\n  transform-origin: 50% var(--nmb-edge);" in CSS08
+
+
+def test_a_saved_face_is_read_as_it_may_be_drawn_now() -> None:
+    # INBOX 426 w (73.png, 90.png): a saved hand "middlefinger" left the
+    # Holding select empty. Every saved style is read through the pickers'
+    # own option lists (profilelook.js: Holding reads "From your name", a
+    # saved hair is kept). The server drops retired parts too
+    # (tests/test_preferences_api.py).
+    clean = _fn("nameMarkStyleClean")
+    assert "options().includes(value)" in clean
+    assert "return nameMarkStyleClean(" in _fn("ownNameMarkStyle")
+    assert "style: nameMarkStyleClean(saved.style)" in _fn("nameMarkBuddyCustom")
+
+
+def test_your_picture_enlarges_on_a_double_click() -> None:
+    # INBOX 426 w: "the profile picture cannot be enlarged like the
+    # companion". A double-click on any of your own pictures opens it large,
+    # and the second click of it no longer closes what the first opened.
+    listener = AV[AV.index('document.addEventListener("dblclick", (event) => {') :]
+    assert 'closest?.("[data-user-mark]")' in listener[:400]
+    viewer = _fn("openNameMarkViewer")
+    assert "performance.now() - openedAt > 400" in viewer
+    assert 'if (document.querySelector(".nm-viewer")) return;' in viewer

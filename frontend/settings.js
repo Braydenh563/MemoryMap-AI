@@ -2324,6 +2324,7 @@ function renderAppearance() {
   $("avatar-follow").checked = appearancePref("avatar-follow") === "on";
   $("avatar-buddy").value = appearancePref("avatar-buddy");
   if (typeof mountBuddyCustom === "function") mountBuddyCustom();
+  if (typeof nameMarkBuddySizeSelect === "function") nameMarkBuddySizeSelect();
   $("atlas-style").value = appearancePref("atlas-style");
   $("atlas-look").value = appearancePref("atlas-look");
   $("face-look").value = appearancePref("face-look");
@@ -2584,7 +2585,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "atlas-style", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "atlas-style", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -2873,7 +2874,9 @@ $("avatar-buddy").addEventListener("change", (e) => {
   localStorage.setItem("avatar-buddy", e.target.value);
   mountBuddyCustom();
   syncNameMarkBuddy();
+  nameMarkBuddySizeSelect();
 });
+$("avatar-buddy-size").addEventListener("change", (e) => nameMarkBuddySetSize(Number(e.target.value)));
 $("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack());
 $("atlas-style").addEventListener("change", (e) => {
   localStorage.setItem("atlas-style", e.target.value);

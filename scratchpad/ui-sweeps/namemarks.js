@@ -9,6 +9,7 @@
 //
 //   BASE=http://127.0.0.1:8786 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node namemarks.js
 // SHOTS=1 also writes a contact sheet to $SCRATCH/shots/namemarks.png.
+// FACE_LOOK=feminine|masculine measures under Appearance's Face looks.
 const { boot } = require("./lib.js");
 const { execFileSync } = require("child_process");
 const fs = require("fs");
@@ -44,6 +45,10 @@ print(json.dumps(out))
   const findings = [];
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "namemarks-"));
   const { page, browser } = await boot({ viewport: { width: 1440, height: 900 } });
+  // FACE_LOOK=feminine|masculine: Appearance's Face looks, which leans every
+  // face its name leaves open (two names that both lean one way are the
+  // likeliest pair to come out alike).
+  if (process.env.FACE_LOOK) await page.evaluate((v) => localStorage.setItem("face-look", v), process.env.FACE_LOOK);
   const facts = await page.evaluate((names) => {
     const sheet = document.createElement("div");
     sheet.id = "namemark-sheet";

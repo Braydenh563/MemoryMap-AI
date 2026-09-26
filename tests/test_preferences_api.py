@@ -366,3 +366,21 @@ def test_the_avatar_style_round_trips_and_refuses_anything_but_names(client):
     # the SVG it names a part of.
     for bad in ({"mood": "<script>"}, {"hair": "x" * 30}, {"variant": -1}, {"variant": 100000}):
         assert client.put("/preferences", json={"avatar_style": bad}).status_code == 422, bad
+
+
+def test_a_retired_avatar_part_is_dropped_on_write_and_on_read(client):
+    # INBOX 426 w (90.png, 73.png): a style saved before the rude gesture
+    # was taken out still carried hand "middlefinger", and Your look's
+    # Holding select showed empty (a value none of its options has). A
+    # retired part is dropped when a style is saved, and when one already
+    # saved is read back, so the face draws its name's own and the picker
+    # reads "From your name".
+    put = client.put("/preferences", json={"avatar_style": {"hand": "middlefinger", "mood": "happy"}})
+    assert put.status_code == 200
+    got = client.get("/preferences").json()["avatar_style"]
+    assert got["hand"] == "" and got["mood"] == "happy"
+    # One stored before this, straight in the preferences, with a key that
+    # is no part and a value that is no word: only the parts come back.
+    deps.get_config().set_preference("avatar_style", {"hand": "middlefinger", "hair": "bob", "junk": "x", "mood": "Bad Value"})
+    got = client.get("/preferences").json()["avatar_style"]
+    assert got == {"hair": "bob"}

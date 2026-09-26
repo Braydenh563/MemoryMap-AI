@@ -1,5 +1,9 @@
 // INBOX 426 k, l, m, p: fast tab switching, pinning, resize, the menu's
 // place, call back, and that nothing runs per frame when the page is idle.
+// Exits 1 when fast switching moves it more than once or fades it, the menu
+// opens more than 12px from it, a pinned companion moves on its own, a
+// resize or a call back leaves any of it outside the window, or an idle
+// page still runs its frame loop. SCRATCH set: a shot of the menu.
 const { boot } = require('./lib.js');
 const SHOTS = `${process.env.SCRATCH || '.'}/shots`;
 (async () => {
@@ -39,7 +43,7 @@ const SHOTS = `${process.env.SCRATCH || '.'}/shots`;
     return m ? { face: [face.left, face.top, face.right, face.bottom].map(Math.round), menu: [m.left, m.top, m.right, m.bottom].map(Math.round), gapX: Math.round(Math.min(Math.abs(m.left - face.right), Math.abs(face.left - m.right))), dTop: Math.round(m.top - face.top) } : null;
   });
   console.log('menu', JSON.stringify(menu));
-  await page.screenshot({ path: `${SHOTS}/menu-after.png`, clip: { x: Math.max(0, Math.min(menu.face[0], menu.menu[0]) - 20), y: Math.max(0, Math.min(menu.face[1], menu.menu[1]) - 20), width: 520, height: 300 } });
+  if (process.env.SCRATCH) await page.screenshot({ path: `${SHOTS}/menu-after.png`, clip: { x: Math.max(0, Math.min(menu.face[0], menu.menu[0]) - 20), y: Math.max(0, Math.min(menu.face[1], menu.menu[1]) - 20), width: 520, height: 300 } });
   await page.evaluate(() => { const b = [...nmb.menu.querySelectorAll('button')].find((x) => /Stay here/.test(x.textContent)); b.click(); });
   const pinnedAt = await page.evaluate(() => [nmb.x, nmb.y, nmb.pinned]);
   for (const tab of ['notes', 'chat', 'graph', 'reminders', 'dashboard']) {
@@ -47,7 +51,7 @@ const SHOTS = `${process.env.SCRATCH || '.'}/shots`;
     await page.waitForTimeout(1200);
   }
   await page.waitForTimeout(5000);
-  const pinned = await page.evaluate(() => ({ moves: window.__moves.filter((m) => !m.instant || m.from !== 'run'), at: [nmb.x, nmb.y], pinned: nmb.pinned }));
+  const pinned = await page.evaluate((at) => ({ moves: window.__moves.filter((m) => Math.abs(m.x - at[0]) > 1 || Math.abs(m.y - at[1]) > 1), at: [nmb.x, nmb.y], pinned: nmb.pinned }), pinnedAt);
   console.log('pinned', JSON.stringify(pinnedAt), JSON.stringify(pinned));
   // 3. Resize smaller and back: always inside the window.
   await page.setViewportSize({ width: 900, height: 600 });
@@ -73,4 +77,15 @@ const SHOTS = `${process.env.SCRATCH || '.'}/shots`;
   console.log('idle', JSON.stringify(idle));
   await page.evaluate(() => { window.__stop = true; });
   await browser.close();
+  const inside = (b, w, h) => b[0] >= 0 && b[1] >= 0 && b[2] <= w && b[3] <= h;
+  const fails = [];
+  if (fast.moves.length > 1) fails.push(`fast switching: ${fast.moves.length} moves`);
+  if (fast.minOpacity < 1) fails.push(`fast switching: opacity ${fast.minOpacity}`);
+  if (!menu || menu.gapX > 12 || Math.abs(menu.dTop) > 12) fails.push(`menu: ${JSON.stringify(menu)}`);
+  if (pinned.moves.length || !pinned.pinned) fails.push(`pinned: ${pinned.moves.length} moves`);
+  if (!inside(small, small[4], small[5])) fails.push(`resize: ${small}`);
+  if (!inside(back.box, 1440, 900)) fails.push(`call back: ${back.box}`);
+  if (idle.followFrames2s || idle.loopPending) fails.push(`idle: ${idle.followFrames2s} frames`);
+  console.log(fails.length ? `FAIL ${fails.join('; ')}` : 'PASS');
+  process.exitCode = fails.length ? 1 : 0;
 })();

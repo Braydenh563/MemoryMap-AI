@@ -120,6 +120,14 @@ def scope_of(host: str) -> str:
     return "internet"
 
 
+def _is_address(text: str) -> bool:
+    try:
+        ipaddress.ip_address(text.strip("[]").split("%", 1)[0])
+    except ValueError:
+        return False
+    return True
+
+
 def _caller() -> str | None:
     """The first frame on the stack from this app's own code, not this file."""
     try:
@@ -190,6 +198,10 @@ def _hook(event: str, args: tuple) -> None:
             if isinstance(host, bytes):
                 host = host.decode("ascii", "replace")
             if not isinstance(host, str) or not host:
+                return
+            if _is_address(host):
+                # A numeric "lookup" is parsed on this machine and asks no
+                # resolver anything; the connect that may follow is recorded.
                 return
             port = args[1] if len(args) > 1 and isinstance(args[1], int) else None
             _record("lookup", host, port)

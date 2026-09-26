@@ -82,6 +82,16 @@ def test_a_name_lookup_is_recorded_because_the_question_leaves_too():
     ]
 
 
+def test_a_numeric_lookup_asks_no_resolver_and_is_not_recorded():
+    """Found by the LAN test: the web reader "looks up" 10.0.0.1 before it
+    refuses it, which is parsed locally; recording it read as a connection to
+    the local network that never happened."""
+    sys.audit("socket.getaddrinfo", "10.0.0.1", 80, 0, 0, 0)
+    sys.audit("socket.getaddrinfo", "::ffff:10.0.0.1", 80, 0, 0, 0)
+    assert egress.destinations() == []
+    assert egress.totals() == {"this_computer": 0, "local_network": 0, "internet": 0}
+
+
 def test_the_hook_never_raises_on_a_shape_it_does_not_know():
     """An exception inside an audit hook aborts the caller's own operation:
     a receipt must never be the reason a connect failed."""

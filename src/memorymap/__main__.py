@@ -467,8 +467,21 @@ def _run_server() -> None:
     import uvicorn
 
     from memorymap.api.app import create_app
+    from memorymap.core import deps, netbind
 
-    uvicorn.run(create_app(), host=HOST, port=PORT, log_level="info")
+    app = create_app()
+    # LAN mode (core/netbind.py): 0.0.0.0 only when "Allow other devices on
+    # this network" was turned on with the password; 127.0.0.1 otherwise.
+    # Everything else in this file keeps talking to the server on HOST, which
+    # a 0.0.0.0 bind answers too.
+    bind = netbind.bind_host(deps.get_config())
+    netbind.set_current(bind)
+    if bind != HOST:
+        logger.warning(
+            "Other devices on this network can reach this notebook (with the password): %s",
+            ", ".join(f"http://{a}:{PORT}" for a in netbind.lan_addresses()) or bind,
+        )
+    uvicorn.run(app, host=bind, port=PORT, log_level="info")
     # **The process used to sit here for 5 to 9 seconds after "Finished
     # server process" was already logged** (INBOX 423i). Every synchronous
     # route in this app (almost all of them: `def`, not `async def`) is run

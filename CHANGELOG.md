@@ -10,6 +10,7 @@ below). Versioning is `0.x` while the app stabilises.
 ### Added
 
 - The privacy receipt's record and its API: `GET /privacy/receipt` answers, from the interpreter's own audit hook on every `socket.connect` and name lookup this process makes, whether anything left this computer since launch and since the ledger began (`egress-ledger.json` in the data folder), which destinations and which feature asked, where the configured model server is and what that means for your notes, and which switches can reach out. The page that shows it is not built yet.
+- LAN mode's backend: "Allow other devices on this network" is a switch behind `POST /auth/lan-access` that needs the current password to turn on, and the launcher binds every network address at the next launch only when it is on. A device on the network always needs the password, and a request whose Host names another domain (DNS rebinding) is refused while the app listens beyond this computer. `tests/test_lan_mode.py` runs the real launcher on 0.0.0.0 and checks each safeguard over this machine's own network address. The Settings switch that uses it is not built yet.
 
 ### Security
 

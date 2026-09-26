@@ -798,7 +798,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24 (a test per item, each failing before); left: `tests/test_lan_mode.py` and the LAN offer (S6's receipt half built 2026-09-26) | S | HISTORY; §12 |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24 (a test per item, each failing before); `tests/test_lan_mode.py`, the switch's route and the launcher's bind built 2026-09-26; left: the Settings toggle over `GET`/`POST /auth/lan-access` | S | HISTORY; §12 |
 | 3 | B2 | durable jobs: a table, leases, resume after a kill, `/jobs/stream` | L | `core/jobs.py` |
 | 4 | D2, 261 | the connections rail always visible on desktop, which is also where `GET /resurface/near` would show | M | `app.js` `openConnections` |
 | 5 | I1, H1 | `night_runs`, `GET /night/latest`, the morning card, the tension and answered-question passes | L | `ai/facts.py`, `routes_night.py` |
@@ -923,10 +923,12 @@ day. S6's other half, the configured model address on the privacy receipt,
 was built 2026-09-26 with the receipt's API (HISTORY.md, "Moved from the
 plans, 2026-09-26"). What is left is the rest of Brief 15 below.
 
-**Brief 15, what is left (the rest built 2026-09-24, in HISTORY.md):** a
-`tests/test_lan_mode.py` that starts the app bound to 0.0.0.0 in a
-subprocess and asserts each behaviour end to end; only after it passes does
-Settings offer "Allow other devices on this network".
+**Brief 15, what is left (the rest built 2026-09-24 and 2026-09-26, in
+HISTORY.md):** `tests/test_lan_mode.py` passes against the real launcher
+bound to 0.0.0.0, so Settings may now offer "Allow other devices on this
+network": a switch in Account and security over `GET /auth/lan-access`
+(state, addresses, whether a restart is needed) and `POST /auth/lan-access`
+(`{enabled, current_password}`; on needs the password). Frontend only.
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 

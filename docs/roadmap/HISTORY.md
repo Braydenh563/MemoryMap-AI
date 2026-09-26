@@ -11,6 +11,40 @@ that answers "has this been done?" before anyone starts.
 
 The backend agent's night (WORLD_CLASS_PLAN section 8's open rows, in order).
 
+### From WORLD_CLASS_PLAN.md row 2 (Brief 15): LAN mode's backend and `tests/test_lan_mode.py`
+
+**Built 2026-09-26.** Brief 15's done-when, run against the real launcher:
+`tests/test_lan_mode.py` starts `python -m memorymap` in a subprocess with
+the switch on, finds this machine's own network address
+(`netbind.lan_addresses`, no connection opened to find it) and talks to the
+server over it with `http.client`, so the server sees a non-loopback client
+exactly as it would see a phone. It asserts: the server listens there and the
+receipt says so, with the address; a network device is refused
+`/auth/auto-session` and told `auto_session: false` with sign-in off for this
+computer, while this computer gets one; the media cookie is HttpOnly,
+SameSite=Strict and not Secure on plain http to a network address (the
+browser would drop it), a `?token=` is 401 and the cookie opens `/media`;
+`/import/directory` refuses `/etc`; the web reader refuses this machine and
+`10.0.0.1` and the receipt shows no local-network connection; a Host naming
+another domain is 421; six wrong unlocks from the network are throttled while
+this computer unlocks; the access log has `token=[redacted]` and no raw
+token. A second test starts it with the switch off and finds the network
+address refused.
+
+What LAN mode needed that did not exist: `core/netbind.py` (the preference
+`allow_lan`, only a literal `true` counts; `bind_host`; the address the
+launcher did bind; `host_allowed`), `__main__._run_server` binding
+`bind_host` and logging the addresses, `GET` and `POST /auth/lan-access`
+(on needs the current password, throttled like an unlock, audited; off needs
+nothing; `PUT /preferences` cannot reach it), and
+`security.HostCheckMiddleware`, the DNS-rebinding guard, active only off
+loopback: a Host must be a loopback name, this machine's own name or an
+address literal, since a rebinding page can only ever send a name. The test
+found one bug on the way: the receipt counted the web reader's numeric
+"lookup" of `10.0.0.1` (parsed locally, never sent) as a local-network
+destination; numeric lookups are no longer recorded. 11 tests plus one in
+`tests/test_privacy_receipt.py`. **Left:** the Settings toggle (frontend).
+
 ### From OPEN.md (auth-optional): the vault key granted per session
 
 **Built 2026-09-26.** The row: "The vault key is process-wide

@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import crypto, diskspace, vault
+from memorymap.core import crypto, diskspace, netbind, vault
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
@@ -651,6 +651,55 @@ def set_password_on_open(
     )
     session.commit()
     return {"password_on_open": body.enabled}
+
+
+class LanAccessBody(BaseModel):
+    enabled: bool
+    current_password: str | None = None
+
+
+@router.get("/lan-access", dependencies=[Depends(require_unlock)])
+def lan_access(request: Request, config: ConfigManager = Depends(get_config)) -> dict:
+    """What Settings says about "Allow other devices on this network"."""
+    return {"allow_lan": netbind.lan_enabled(config), **netbind.describe(config, request.url.port)}
+
+
+@router.post("/lan-access", dependencies=[Depends(require_unlock)])
+def set_lan_access(
+    body: LanAccessBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Turn LAN mode on or off, for the next launch (WORLD_CLASS_PLAN §12).
+
+    On needs the current password, checked and throttled like an unlock, for
+    the reason `/auth/password-on-open` gives: an unlocked screen is not proof
+    of knowing it, and this is the switch that puts the notebook on the
+    network. Off needs nothing, since it only ever lets fewer in. The bind
+    happens at launch (`__main__._run_server`), so the answer says whether a
+    restart is still needed; nothing here opens a socket.
+    """
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="Set a password first")
+    if body.enabled:
+        client = _client_key(request)
+        _refuse_if_throttled(client)
+        if not body.current_password or not bcrypt.checkpw(
+            body.current_password.encode(), user.password_hash.encode()
+        ):
+            if body.current_password:
+                _unlock_failed(client)
+            raise HTTPException(status_code=401, detail="That isn't your current password")
+        _unlock_succeeded(client)
+    config.set_preference(netbind.LAN_PREF, body.enabled)
+    log_action(
+        session, "edited", "user", user.id,
+        f"allow other devices on this network: {'on' if body.enabled else 'off'} (from the next launch)",
+    )
+    session.commit()
+    return {"allow_lan": body.enabled, **netbind.describe(config, request.url.port)}
 
 
 @router.post("/lock")

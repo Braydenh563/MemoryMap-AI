@@ -1696,7 +1696,10 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   let hairKey = beast ? null : NAME_MARK_HAIR_ALIASES[creature?.hairFixed || style.hair] || creature?.hairFixed || style.hair;
   if (hatOn && ["quiff", "mohawk", "spiky"].includes(hairKey)) hairKey = "crop";
   const hairStyle = (hairKey && NM_HAIR_STYLES[hairKey]) || null;
-  const face = reading.mood ? NAME_MARK_FACES[reading.mood] || {} : {};
+  //: The companion's passing expression (`nameMarkBuddyExpress`) is its
+  //: face only: the colours stay the ones its name gave it.
+  const expr = full && nameCharacterExpression && NAME_MARK_FACES[nameCharacterExpression] ? nameCharacterExpression : "";
+  const face = expr ? NAME_MARK_FACES[expr] : reading.mood ? NAME_MARK_FACES[reading.mood] || {} : {};
   const bias = reading.source !== "seed" && reading.mood ? NAME_MARK_MOOD_GROUNDS[reading.mood] : null;
   const colourRoll = rnd();
   const pair = NM_CHAR_PAIRS[bias ? bias[Math.floor(colourRoll * bias.length)] : Math.floor(colourRoll * NM_CHAR_PAIRS.length)];
@@ -1720,7 +1723,7 @@ function drawCharacter(seed, size = 20, mode = "mark") {
   const tall = worn.some((p) => ["hat", "partyhat", "chefhat", "halo", "antenna", "crown"].includes(p)) || (hairStyle?.bun && !hatOn) || hairStyle?.tall
     || creature?.gnomeHat || creature?.unihorn || creature?.ears === "long" || creature?.antenna || creature?.flameCrest;
   const svg = make("svg", {
-    class: `name-mark nm-char${reading.mood ? ` nm-${reading.mood}` : ""}`,
+    class: `name-mark nm-char${expr || reading.mood ? ` nm-${expr || reading.mood}` : ""}`,
     viewBox: full ? "0 0 64 92" : tall ? (mini ? "-6 -18 76 76" : "-8 -21 80 80") : mini ? "-1 -5 66 66" : "-3 -9 70 70",
     width: size,
     height: full ? Math.round((size * 92) / 64) : size,
@@ -3150,11 +3153,20 @@ function nameMarkBuddyBody(coat, skin) {
 //: The built-in figure (the character interface's `figure()`): the head
 //: mark over a body in its own two colours, in the companion's 64 by 92
 //: box.
-function nameCharacterFigure(seed) {
+let nameCharacterExpression = "";
+function nameCharacterFigure(seed, expr = "") {
   const figure = document.createElement("span");
   figure.className = "nm-figure nm-live";
   const own = JSON.stringify(nameMarkOwnFor(seed) || {});
-  figure.appendChild(nameMarkCompose(`fig|${seed}|${own}|${nameMarkLookLean() || ""}`, () => drawCharacter(seed, NMB_W, "figure"), { parts: NM_FIGURE_PARTS, pad: 24, size: NMB_W, height: NMB_H }));
+  const draw = () => {
+    nameCharacterExpression = expr;
+    try {
+      return drawCharacter(seed, NMB_W, "figure");
+    } finally {
+      nameCharacterExpression = "";
+    }
+  };
+  figure.appendChild(nameMarkCompose(`fig|${seed}|${own}|${nameMarkLookLean() || ""}|${expr}`, draw, { parts: NM_FIGURE_PARTS, pad: 24, size: NMB_W, height: NMB_H }));
   return figure;
 }
 
@@ -4665,10 +4677,13 @@ function nameMarkBuddyTick() {
   if (idle > NMB_SLEEP_MS) {
     buddy.classList.remove("nmb-drowsy");
     buddy.classList.add("nmb-sleep");
+    nameMarkBuddyHold("sleepy");
     nameMarkBuddyRelease();
     return;
   }
   buddy.classList.toggle("nmb-drowsy", idle > NMB_DROWSY_MS);
+  if (!buddy.classList.contains("nmb-think")) nameMarkBuddyHold(idle > NMB_DROWSY_MS ? "sleepy" : "");
+  if (Math.random() < 0.35) nameMarkBuddyDrift();
   const hour = new Date().getHours();
   const night = hour >= 22 || hour < 6;
   const energyTarget = (night ? 0.3 : 0.75) - Math.min(0.3, idle / (20 * 60 * 1000));
@@ -4679,6 +4694,87 @@ function nameMarkBuddyTick() {
   nameMarkBuddyAct(nameMarkBuddyDecide());
 }
 
+//: **Its face changes with what is happening** (INBOX 426 x, the owner:
+//: "one expression only ... wants more behaviour and slight expression
+//: changes"). A face drawn from a name has one mood; the companion's own
+//: face now passes through others and comes back: glad when you say hello
+//: (laughing on the third poke), put out when poked too often, excited at a
+//: saved note or an answer, surprised by a bell or an error, intent while
+//: an answer is being written, heavy-lidded when you have been away, and
+//: now and then, at rest, a neighbouring look for a few seconds (a happy
+//: face going calm and back). Each is a face picture swapped in whole (the
+//: pictures are cached, `nameMarkCompose`), never an animation, so it costs
+//: nothing between changes. Atlas has its own moods (atlas.js) and only
+//: gets the drift, and only when it is calm. `nmb.exprHold` is the one it
+//: comes back to (sleepy while you are away, intent while it thinks).
+const NMB_EXPR_NEAR = {
+  happy: ["calm", "love", "cute"], calm: ["happy", "sly", "cute"], excited: ["happy", "starstruck"],
+  sad: ["calm", "nervous"], angry: ["unimpressed", "serious"], serious: ["calm", "unimpressed"],
+  sly: ["calm", "evil", "cool"], cool: ["sly", "calm"], nervous: ["calm", "confused"], sleepy: ["calm"],
+  love: ["happy", "cute"], laughing: ["happy", "excited"], unimpressed: ["serious", "sly"],
+  confused: ["calm", "nervous"], cute: ["happy", "uwu"], uwu: ["cute", "happy"], starstruck: ["excited", "happy"],
+  "": ["happy", "calm", "sly"],
+};
+const NMB_ATLAS_NEAR = ["curious", "happy", "proud", "shy"];
+function nameMarkBuddyExpress(expr, ms = 0, { drift = false } = {}) {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy || nameMarkBuddyStill()) return;
+  const seed = buddy.dataset.seed || "";
+  if (isAtlasSeed(seed)) {
+    if (drift && typeof setAtlasMood === "function" && typeof atlasMoodNow !== "undefined" && atlasMoodNow === "calm") setAtlasMood(expr, ms, { quiet: true });
+    return;
+  }
+  if (typeof characterRendererFor === "function" && characterRendererFor(seed)) return;
+  clearTimeout(nmb.exprTimer);
+  nmb.exprTimer = ms ? setTimeout(() => nameMarkBuddyExpress(nmb.exprHold || ""), ms) : 0;
+  const want = NAME_MARK_FACES[expr] ? expr : "";
+  if ((nmb.expr || "") === want) return;
+  const char = buddy.querySelector(".nm-buddy-char");
+  const old = char?.querySelector(".nm-figure");
+  if (!char) return;
+  nmb.expr = want;
+  const next = nameCharacterFigure(seed, want);
+  if (old) old.replaceWith(next);
+  else char.prepend(next);
+  buddy.dataset.expr = want;
+  nmbTempo.seen = 0;
+}
+//: Its faces drawn ahead, one per idle moment: a face drawn the first time
+//: is a 57ms task (drawn, cut up, turned into pictures), which would be a
+//: stall at the very moment it reacts; drawn in idle time, a swap is a
+//: cached picture (0.3ms).
+const NMB_EXPR_EVENTS = ["happy", "laughing", "excited", "surprised", "serious", "sleepy", "unimpressed"];
+function nameMarkBuddyPrewarm(seed) {
+  if (!seed || isAtlasSeed(seed) || (typeof characterRendererFor === "function" && characterRendererFor(seed))) return;
+  const near = NMB_EXPR_NEAR[nameMood(seed).mood || ""] || NMB_EXPR_NEAR[""];
+  const queue = [...new Set([...NMB_EXPR_EVENTS, ...near])];
+  const idle = typeof requestIdleCallback === "function" ? (fn) => requestIdleCallback(fn, { timeout: 4000 }) : (fn) => setTimeout(fn, 200);
+  const next = () => {
+    if (!queue.length || document.getElementById("nm-buddy")?.dataset.seed !== seed) return;
+    nameCharacterFigure(seed, queue.shift());
+    idle(next);
+  };
+  idle(next);
+}
+
+function nameMarkBuddyHold(expr) {
+  if ((nmb.exprHold || "") === expr) return;
+  nmb.exprHold = expr;
+  if (!nmb.exprTimer) nameMarkBuddyExpress(expr);
+}
+function nameMarkBuddyDrift() {
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy || nmb.exprTimer || nmb.exprHold) return;
+  const seed = buddy.dataset.seed || "";
+  const ms = 5000 + Math.random() * 5000;
+  if (isAtlasSeed(seed)) {
+    nameMarkBuddyExpress(NMB_ATLAS_NEAR[Math.floor(Math.random() * NMB_ATLAS_NEAR.length)], ms, { drift: true });
+    return;
+  }
+  const near = NMB_EXPR_NEAR[nmb.reading?.mood || ""] || NMB_EXPR_NEAR[""];
+  nameMarkBuddyExpress(near[Math.floor(Math.random() * near.length)], ms);
+}
+
 //: The app's own events, for the companion to react to: `think` while a
 //: chat turn runs, `cheer` when a note is saved or an answer lands,
 //: `startle` when one fails.
@@ -4686,6 +4782,7 @@ function nameMarkBuddyCue(cue, from = "") {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
   buddy.classList.toggle("nmb-think", cue === "think");
+  nameMarkBuddyHold(cue === "think" ? "serious" : buddy.classList.contains("nmb-drowsy") ? "sleepy" : "");
   //: A long answer: after a few seconds of thinking it puts on its reading
   //: glasses and follows along until the answer lands.
   clearTimeout(nmb.readTimer);
@@ -4719,6 +4816,8 @@ function nameMarkBuddyCue(cue, from = "") {
     if (!buddy.isConnected || nameMarkBuddyStill() || document.hidden || buddy.classList.contains("nm-buddy-dragging")) return;
     if (cue === "startle") nmb.startledAt = Date.now();
     buddy.classList.remove("nmb-sleep", "nmb-drowsy");
+    const face = { cheer: ["excited", 2400], carry: ["happy", 2400], startle: ["surprised", 1600], bell: ["surprised", 1200], wave: ["happy", 2000] }[cue];
+    if (face) nameMarkBuddyExpress(face[0], face[1]);
     if (cue === "bell" && nameMarkBuddyBellErrand()) return;
     if (NAME_MARK_BUDDY_ACTS[cue]) nameMarkBuddyAct(cue);
   }, 1500);
@@ -4737,8 +4836,20 @@ for (const type of ["pointerdown", "keydown"]) {
 //: wake a sleeper: only something close and sudden might
 //: (`nameMarkBuddyStir`), or being picked up or poked.
 function nameMarkBuddyAwake() {
-  nmb.lastInput = Date.now();
-  document.getElementById("nm-buddy")?.classList.remove("nmb-drowsy");
+  const now = Date.now();
+  const away = now - nmb.lastInput;
+  nmb.lastInput = now;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  buddy.classList.remove("nmb-drowsy");
+  if (buddy.classList.contains("nmb-sleep")) return;
+  if (nmb.exprHold === "sleepy") nameMarkBuddyHold("");
+  //: **You are back** (INBOX 426 x: "wave at the user after a long idle"):
+  //: after three minutes or more with nothing from you, awake, it waves.
+  if (away > NMB_DROWSY_MS && !nameMarkBuddyStill() && !document.hidden && !nmb.act) {
+    nameMarkBuddyExpress("happy", 2200);
+    nameMarkBuddyAct("wave");
+  }
 }
 
 function nameMarkBuddyWake() {
@@ -4749,6 +4860,8 @@ function nameMarkBuddyWake() {
   if (!slept) return;
   //: Groggy for a few seconds: slower to look, heavier lids.
   nmb.groggyUntil = Date.now() + 5000;
+  nmb.exprHold = "";
+  nameMarkBuddyExpress("sleepy", 4000);
   buddy.classList.add("nmb-groggy");
   setTimeout(() => buddy.classList.remove("nmb-groggy"), 5000);
   if (!nameMarkBuddyStill() && !document.hidden) nameMarkBuddyAct("wake");
@@ -5336,6 +5449,7 @@ function nameMarkBuddyBuild() {
       nmb.mood.sociability = Math.max(0, nmb.mood.sociability - 0.25);
       nameMarkBuddyRelease();
       buddy.classList.add("nmb-grumpy");
+      nameMarkBuddyExpress("unimpressed", 30000);
       buddy.dataset.turn = nmb.pointer && nmb.pointer[0] > nmb.x + NMB_W / 2 ? "l" : "r";
       setTimeout(() => {
         buddy.classList.remove("nmb-grumpy");
@@ -5346,6 +5460,7 @@ function nameMarkBuddyBuild() {
     }
     nmb.mood.sociability = Math.min(1, nmb.mood.sociability + 0.05);
     nmb.mood.curiosity = Math.min(1, nmb.mood.curiosity + 0.05);
+    nameMarkBuddyExpress(nmb.pokes.length >= 3 ? "laughing" : "happy", 2600);
     if (!nameMarkBuddyStill()) nameMarkBuddyAct(nmb.pose === "hang" ? "swing" : "wave");
     nameMarkSay(buddy, nameMarkLine(buddy.dataset.seed || ""));
   });
@@ -5407,6 +5522,12 @@ function syncNameMarkBuddy() {
     const char = buddy.querySelector(".nm-buddy-char");
     char.querySelector(".nm-figure")?.remove();
     char.prepend(characterFor(seed).figure());
+    //: A new face starts from its own look.
+    nmb.expr = "";
+    nmb.exprHold = "";
+    clearTimeout(nmb.exprTimer);
+    nmb.exprTimer = 0;
+    nameMarkBuddyPrewarm(seed);
     //: A new drawing has new animations: looked for again at once.
     nmbTempo.seen = 0;
     if (!nmbTempo.timer) nmbTempo.timer = setTimeout(nameMarkBuddyTempo, 0);

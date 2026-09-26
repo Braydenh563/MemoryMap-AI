@@ -246,3 +246,20 @@ def test_its_menu_holds_it_where_it_is() -> None:
     assert "if (left + now.width > innerWidth - margin) left = box.left - gap - now.width;" in place
     gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
     assert "companionmenu" in gate
+
+
+def test_its_face_changes_with_what_happens() -> None:
+    # INBOX 426 x: "one expression only". Measured by companionlife.js: a
+    # hello is happy, a saved note excited, an error surprised, thinking
+    # serious, away sleepy and back with a wave, and each comes back.
+    express = _fn("nameMarkBuddyExpress")
+    assert "nameCharacterFigure(seed, want)" in express
+    # The face only: the colours stay the name's.
+    draw = _fn("drawCharacter")
+    assert "const expr = full && nameCharacterExpression" in draw
+    assert "const bias = reading.source !== \"seed\" && reading.mood ?" in draw
+    # Drawn ahead in idle time, so a reaction never waits on a first drawing.
+    assert "requestIdleCallback" in _fn("nameMarkBuddyPrewarm")
+    assert "nameMarkBuddyPrewarm(seed);" in AV
+    # Back after a long idle: a wave.
+    assert 'nameMarkBuddyAct("wave")' in _fn("nameMarkBuddyAwake")

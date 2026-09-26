@@ -347,15 +347,27 @@ def run(
     provider=None,  # noqa: ANN001  # any Provider, or None for the local pass
     model: str = "",
     config=None,  # noqa: ANN001  # ConfigManager, duck-typed
+    trigger: str = "manual",
 ) -> dict:
     """One night pass. Returns what it did, including why it stopped.
 
     Never raises on a provider that is down or a note that will not parse: it
     is the body of a background task, and the worst thing it can do is take
     the scheduler with it.
+
+    Every pass is a `NightRun` row (not a paused one: a runner switched off
+    did not run), and every fact it derives carries the row's id, which is
+    what the morning card (`GET /night/latest`) groups by.
     """
     if config is not None and not enabled(config, "night_shift"):
         return {"paused": True}
+    from memorymap.core.database import NightRun
+
+    night = NightRun(trigger=trigger, budget=budget, started_at=utcnow())
+    session.add(night)
+    session.flush()
+    counts: dict[str, int] = {}
+    models_used: set[str] = set()
 
     spent = 0
     scanned = 0
@@ -418,18 +430,110 @@ def run(
                     model=decided_by,
                     confidence=item.confidence,
                     computed_at=utcnow(),
+                    run_id=night.id,
                 )
             )
             derived += 1
+            counts[item.kind] = counts.get(item.kind, 0) + 1
+            models_used.add(decided_by)
+    night.finished_at = utcnow()
+    night.scanned = scanned
+    night.derived = derived
+    night.tokens_spent = spent
+    night.stopped_reason = stopped
+    night.counts = counts
+    night.model = ", ".join(sorted(models_used)) or "local"
     session.flush()
     return {
         "paused": False,
+        "run_id": night.id,
         "scanned": scanned,
         "derived": derived,
         "tokens_spent": spent,
         "budget": budget,
         "stopped_reason": stopped,
     }
+
+
+# --- the morning card -----------------------------------------------------------
+
+#: Facts shown per kind on the card; the review list pages through the rest.
+CARD_SAMPLES = 3
+
+
+def _run_json(run) -> dict:  # noqa: ANN001  # a NightRun
+    return {
+        "id": run.id,
+        "trigger": run.trigger,
+        "started_at": run.started_at.isoformat() if run.started_at else None,
+        "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+        "scanned": run.scanned,
+        "derived": run.derived,
+        "tokens_spent": run.tokens_spent,
+        "budget": run.budget,
+        "stopped_reason": run.stopped_reason,
+        "model": run.model,
+    }
+
+
+def visible_counts(session: Session, run_id: int) -> dict[str, int]:
+    """What a run found that the person can still see, by kind."""
+    rows = session.execute(
+        _visible(select(DerivedFact.kind, func.count()).select_from(DerivedFact))
+        .where(DerivedFact.run_id == run_id)
+        .group_by(DerivedFact.kind)
+    ).all()
+    return {kind: int(n) for kind, n in rows if n}
+
+
+def run_facts(
+    session: Session, run_id: int, *, kind: str | None = None, limit: int = 50, offset: int = 0
+) -> tuple[list[DerivedFact], int]:
+    """One page of what a run found, in note order, plus the total."""
+
+    def narrowed(statement):  # noqa: ANN001, ANN202  # a select() over DerivedFact
+        statement = statement.where(DerivedFact.run_id == run_id)
+        return statement.where(DerivedFact.kind == kind) if kind else statement
+
+    total = session.scalar(narrowed(_visible(select(func.count()).select_from(DerivedFact))))
+    rows = list(
+        session.scalars(
+            narrowed(_visible(select(DerivedFact)))
+            .order_by(DerivedFact.entry_id.desc(), DerivedFact.span_start, DerivedFact.id)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+    )
+    return rows, int(total or 0)
+
+
+def latest_card(session: Session) -> dict:
+    """The "while you were away" card: the latest run, what it found that is
+    still visible, a few of each kind, and, when the latest found nothing, the
+    last run that did, so a quiet night does not blank the morning."""
+    from memorymap.core.database import NightRun
+
+    latest = session.scalars(select(NightRun).order_by(NightRun.id.desc()).limit(1)).first()
+    if latest is None:
+        return {"run": None, "counts": {}, "samples": {}, "previous": None}
+    counts = visible_counts(session, latest.id)
+    samples: dict[str, list[dict]] = {}
+    for kind in sorted(counts):
+        rows, _total = run_facts(session, latest.id, kind=kind, limit=CARD_SAMPLES)
+        samples[kind] = [as_json(row) for row in rows]
+    previous = None
+    if not counts:
+        for earlier in session.scalars(
+            select(NightRun)
+            .where(NightRun.id < latest.id, NightRun.derived > 0)
+            .order_by(NightRun.id.desc())
+            .limit(5)
+        ):
+            found = visible_counts(session, earlier.id)
+            if found:
+                previous = {**_run_json(earlier), "counts": found}
+                break
+    return {"run": _run_json(latest), "counts": counts, "samples": samples, "previous": previous}
 
 
 # --- reading and correcting ---------------------------------------------------
@@ -550,9 +654,12 @@ def forget(session: Session) -> dict[str, int]:
     it is full of rows saying what used to be there. The next run is then free
     to derive from scratch, which is what a person who pressed this asked for.
     """
-    from memorymap.core.database import AuditLog, NoteScore
+    from memorymap.core.database import AuditLog, NightRun, NoteScore
 
     facts = session.query(DerivedFact).delete(synchronize_session=False)
+    # The runs go with what they found: a card saying "found 4 claims" over
+    # an empty table is the ghost this function exists not to leave.
+    session.query(NightRun).delete(synchronize_session=False)
     scores = session.query(NoteScore).delete(synchronize_session=False)
     corrections = (
         session.query(AuditLog)

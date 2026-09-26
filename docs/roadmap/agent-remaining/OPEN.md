@@ -1101,10 +1101,12 @@ being written by running agents stay beside this one.
   the same table. `ai/tensions.py` and `ai/entities.py` already produce the
   first two in their own shapes; folding them in means giving each a span and
   a `DerivedFact` row, not a second pipeline. [learning-loop.md]
-- **`GET /night/latest` and the morning card** (I1's own surface). `POST
-  /night/run` returns the counts a card would need; nothing stores a run, so
-  grouping facts by run needs the `night_runs` table the plan names.
-  [learning-loop.md]
+- **The morning card** (I1's own surface). Its backend is built
+  2026-09-26 (HISTORY.md, "Moved from the plans, 2026-09-26"): `GET
+  /night/latest` returns `{run, counts, samples, previous}` and `GET
+  /night/runs/{id}/facts?kind=&limit=&offset=` pages the review list; the
+  Dashboard card over them (opt-in, like the Recent activity widget) is the
+  frontend half. [learning-loop.md]
 - **The four switches with no runner yet** (`margin_reader`,
   `open_questions`, `evidence_checks`, `model_bench`) are stored and reported
   but gate nothing, because their features are not built. Each of those briefs

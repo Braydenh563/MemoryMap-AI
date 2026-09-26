@@ -45,6 +45,25 @@ found one bug on the way: the receipt counted the web reader's numeric
 destination; numeric lookups are no longer recorded. 11 tests plus one in
 `tests/test_privacy_receipt.py`. **Left:** the Settings toggle (frontend).
 
+### From WORLD_CLASS_PLAN.md row 5 (I1): night runs and `GET /night/latest`
+
+**Built 2026-09-26.** OPEN.md's row: "`POST /night/run` returns the counts a
+card would need; nothing stores a run, so grouping facts by run needs the
+`night_runs` table the plan names." `NightRun` (`night_runs`: started and
+finished, `trigger` manual or scheduled, scanned, derived, tokens spent,
+budget, stopped reason, the model that narrowed, counts by kind) is written by
+`facts.run` in the same transaction as the facts it stamps with
+`DerivedFact.run_id`, so a pass that dies leaves neither; a paused runner
+writes no row; `ai/autonomous.py` passes `trigger="scheduled"`.
+`GET /night/latest` is the card: the latest run, what it found that is still
+visible (the same `_visible` join as `/learned`, so a deleted fact or a note
+made private since drops out), three samples per kind with their spans, and,
+when the latest run found nothing, the last run that did (`previous`), so a
+quiet night does not blank the morning. `GET /night/runs/{id}/facts` pages
+the review list. `facts.forget` deletes the runs with the facts. Tests:
+`tests/test_night_runs.py`, 11. **Left:** the Dashboard card (frontend), and
+the tension and answered-question passes (row 5).
+
 ### From WORLD_CLASS_PLAN.md section 10: F4 (BLE001 enabled) and F7's ratchet
 
 **Built 2026-09-26.** F4 measured first: `ruff check src --select BLE001`

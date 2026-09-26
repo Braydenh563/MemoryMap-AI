@@ -76,6 +76,40 @@ with its owner named in the entry.
     improvements"; (s) "upgrade this pr to a new version like 0.3.3". Placed:
     (a, b, h) the UI agent; (c to g, j to p) the companion agent; (q, i) the
     Atlas agent; (r, s) the orchestrator at the end.
+    **Second batch, 2026-09-25 evening (images 72 to 96), condensed:**
+    (u) Settings: Appearance's theme and colour section scroll-jumps; the
+    page scrolls slowly; it jumps between sections; the dashboard and other
+    pages scroll-jump too; many settings controls sit mid-row instead of at
+    the right (85); an empty card reading "Stays on this computer like
+    everything else" (88). (v) Atlas: hands and feet look inverted; head and
+    body look like a doll or puppet, not organic; a longer, more ribbon-like
+    tail; a better nebulous stream; a redesigned chest star; the feminine
+    look is nearly the masculine one and must follow 60 to 64 and 74 to 83;
+    refine the body and limbs. (w) Faces: the Holding dropdown shows empty
+    (73); the profile picture cannot be enlarged like the companion; the
+    stored avatar_style still carries hand "middlefinger" (90). (x)
+    Companion: heavy and glitchy, makes everything slower; a fast scroll
+    leaves it floating then vanishing (it should leave with its panel);
+    one expression only, wants more behaviour and slight expression changes;
+    a light or dark variant; size options; a better teleport animation; the
+    right-click menu still opens away from it or off screen (84). (y) The
+    guided tour breaks after "Next to Notes" (87, log: tour-spot asked for
+    336,275 drew at 1128,4); its companion step covers its own target until
+    Next then Back (95, 96); what the mind map step does with no map. (z)
+    Library Activity renders as vertical letter columns and shows raw keys
+    like notificationsmutedexcept_reminders (89, 90); selection boxes touch
+    the kebab (91); the docked Suggestions header buttons wrap badly (92);
+    Documents' "Fill the whole screen" does nothing (93, 94); place Atlas
+    better in the guide panel (86). (aa) Optional sign-in: a toggle so the
+    app need not ask for a password (the owner's brother). Recommendation,
+    taken: a "Ask for a password when the app opens" switch, on by default,
+    turning it off needs the current password; private notes stay encrypted
+    and still ask for it when opened. (bb) avatar-lab.html (tools/, the
+    owner's first pass): refine it into a light, correct bench for judging
+    Atlas and the characters, with temporary changes previewed live. (cc)
+    frontend/app.js is 50,858 lines: split it. Placed: v, bb the Atlas
+    agent; w, x the companion agent; u, y, z the UI agent; aa and cc after
+    those land (app.js is touched by all three).
 
 425. **The owner, 2026-09-24 (after the usage reset), with screenshots.**
     Avatars: (a) "the avatar shows even when the app is on the lock screen.

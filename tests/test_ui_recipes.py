@@ -2353,8 +2353,15 @@ def test_a_grip_that_is_invisible_does_not_take_the_pointer():
     mid-line `+` in front of a line's hit stroke (it forwards the gesture now),
     and the waypoint grip on the same point as that `+`. So a grip that is
     drawn at `opacity: 0` declares `pointer-events: none` in the same rule, and
-    opts back in only where it is revealed."""
+    opts back in only where it is revealed.
+
+    A rule inside `@starting-style` is not a drawn state: it is where a fade
+    in begins for a grip that has just been revealed (the card grips are
+    `display: none` at rest, `tests/test_board_pan_layers.py`), and that grip
+    is revealed, so it takes the pointer on purpose. Those blocks are left out
+    of the read rather than given a `pointer-events` that would never apply."""
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = re.sub(r"@starting-style\s*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", css)
     offenders = []
     for grip in CANVAS_GRIPS:
         for rule in _rule_bodies(css, grip):

@@ -132,6 +132,16 @@
   border-radius: var(--radius-sm);
   z-index: 5;
   opacity: 0;
+  /* **Absent at rest, not merely invisible** (INBOX 424 (a)). Every card and
+     text box carries nine of these, and each is scaled by `--wb-inv-zoom`
+     (below), which is a transform the compositor cannot fold into the layer
+     around it: at `opacity: 0` they were still nine paint chunks per card,
+     and they split the board into one layer per card. On a 250-object board
+     that was 256 layers and 1,680ms of `Layerize` in a 40-move pan at 4x;
+     with the grips out of the tree at rest, 138 layers and 388ms
+     (`scratchpad/ui-sweeps/wbpanlayers.js`). The reveal below puts them back,
+     and `@starting-style` keeps the fade in. */
+  display: none;
   /* Real bug, found while testing link anchors (ROADMAP item 11): opacity 0
      is not pointer-events: none: an invisible handle still wins the
      hit-test over the card/object beneath it at every corner and edge,
@@ -141,7 +151,9 @@
      whole of "objects are difficult and annoying to move", since a small
      object's clickable area is mostly covered by its own 8 handles. */
   pointer-events: none;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    display var(--motion-fast) linear allow-discrete;
 }
 
 /* Interactive (and visible) only in the Select tool, `:hover` alone fires
@@ -150,16 +162,38 @@
    underneath even after the pointer-events fix above. `data-current-tool`
    is kept in sync with `window.currentTool` by `updateWbCursor()`, the one
    place a tool switch happens. */
-#whiteboard-container[data-current-tool="select"] .wb-object:hover .wb-resize-handle,
-#whiteboard-container[data-current-tool="select"] .wb-object.wb-selected .wb-resize-handle,
-#whiteboard-container[data-current-tool="select"] .node-card:hover .wb-resize-handle,
-#whiteboard-container[data-current-tool="select"] .node-card.wb-selected .wb-resize-handle,
-#whiteboard-container[data-current-tool="select"] .wb-object:hover .wb-rotate-handle,
-#whiteboard-container[data-current-tool="select"] .wb-object.wb-selected .wb-rotate-handle,
-#whiteboard-container[data-current-tool="select"] .node-card:hover .wb-rotate-handle,
-#whiteboard-container[data-current-tool="select"] .node-card.wb-selected .wb-rotate-handle {
+#whiteboard-container[data-current-tool="select"] .wb-object:hover:not(.wb-in-group) .wb-resize-handle,
+#whiteboard-container[data-current-tool="select"] .wb-object.wb-selected:not(.wb-in-group) .wb-resize-handle,
+#whiteboard-container[data-current-tool="select"] .node-card:hover:not(.wb-in-group) .wb-resize-handle,
+#whiteboard-container[data-current-tool="select"] .node-card.wb-selected:not(.wb-in-group) .wb-resize-handle,
+#whiteboard-container[data-current-tool="select"] .wb-object:hover:not(.wb-in-group) .wb-rotate-handle,
+#whiteboard-container[data-current-tool="select"] .wb-object.wb-selected:not(.wb-in-group) .wb-rotate-handle,
+#whiteboard-container[data-current-tool="select"] .node-card:hover:not(.wb-in-group) .wb-rotate-handle,
+#whiteboard-container[data-current-tool="select"] .node-card.wb-selected:not(.wb-in-group) .wb-rotate-handle {
+  display: block;
   opacity: 1;
   pointer-events: auto;
+}
+
+/* `:not(.wb-in-group)` above because the reveal now sets `display`, and at
+   this specificity it would beat the group rule that hides a member's own
+   grips (`.node-card.wb-in-group .wb-resize-handle`, INBOX 278), which only
+   ever had an `opacity` to disagree with before.
+
+   Where the fade in starts from, now that the grip was absent rather than
+   transparent: without it a `display` change skips the transition and the
+   grips would snap in. */
+@starting-style {
+  #whiteboard-container[data-current-tool="select"] .wb-object:hover:not(.wb-in-group) .wb-resize-handle,
+  #whiteboard-container[data-current-tool="select"] .wb-object.wb-selected:not(.wb-in-group) .wb-resize-handle,
+  #whiteboard-container[data-current-tool="select"] .node-card:hover:not(.wb-in-group) .wb-resize-handle,
+  #whiteboard-container[data-current-tool="select"] .node-card.wb-selected:not(.wb-in-group) .wb-resize-handle,
+  #whiteboard-container[data-current-tool="select"] .wb-object:hover:not(.wb-in-group) .wb-rotate-handle,
+  #whiteboard-container[data-current-tool="select"] .wb-object.wb-selected:not(.wb-in-group) .wb-rotate-handle,
+  #whiteboard-container[data-current-tool="select"] .node-card:hover:not(.wb-in-group) .wb-rotate-handle,
+  #whiteboard-container[data-current-tool="select"] .node-card.wb-selected:not(.wb-in-group) .wb-rotate-handle {
+    opacity: 0;
+  }
 }
 
 /* One handle above top-centre, asked for directly ("rotations"). A round
@@ -185,9 +219,13 @@
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cpath d='M17 6a7 7 0 1 0 1.6 7.3' fill='none' stroke='%23000' stroke-opacity='.6' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M14 3l3.6 2-1 4' fill='none' stroke='%23000' stroke-opacity='.6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 11 11, grab;
   z-index: 5;
   opacity: 0;
+  /* Absent at rest, for the reason on `.wb-resize-handle` above. */
+  display: none;
   pointer-events: none;
   /* see .wb-resize-handle's own comment above */
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    display var(--motion-fast) linear allow-discrete;
 }
 
 .wb-rotate-handle::before {

@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- Panning and zooming a busy whiteboard is smooth again: the resize and rotate grips every card carries are left out of the page until a card is hovered or selected, instead of sitting there invisible, which had split a 250-object board into 256 compositor layers. On a slowed-down machine a pan went from 33 long frames to 2.
+
 ## [0.3.3] - 2026-09-26
 
 ### Added

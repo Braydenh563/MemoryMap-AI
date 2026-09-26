@@ -1244,6 +1244,36 @@ def _feed_item(row: AuditLog) -> dict:
     }
 
 
+class UndoBody(BaseModel):
+    #: Whose changes: `system:librarian`, `ai:<tool>`, `system:<job>`.
+    actor: str = Field(min_length=1, max_length=80)
+    #: Undo what they did after this event id (the feed's cursor).
+    since: int = Field(default=0, ge=0)
+    #: On by default: the first answer is always the plan, never the change.
+    dry_run: bool = True
+    #: Put back the actor's fields even on a note changed since by someone else.
+    force: bool = False
+
+
+@router.post("/events/undo")
+def undo_actor(body: UndoBody, session: Session = Depends(get_session)) -> dict:
+    """Undo what one actor did since a point in the log (`events.undo`).
+
+    "Undo auto-filing" and a skill run's Undo (Brief 13) both come down to
+    this: the actor's changes after a mark, each field put back to what it was
+    before the actor's first change. A dry run by default, so the plan a
+    person is shown is the plan that runs. The person is not an actor this
+    undoes: their own history is the per-note History sheet, one change at a
+    time, where they can see what they are putting back.
+    """
+    if body.actor == events.ACTOR_USER:
+        raise HTTPException(status_code=400, detail="Undo works on the AI's changes, not yours")
+    result = events.undo(session, body.actor, body.since, apply=not body.dry_run, force=body.force)
+    if not body.dry_run:
+        session.commit()
+    return result
+
+
 @router.get("/events")
 def event_feed(
     since: int = Query(default=0, ge=0),

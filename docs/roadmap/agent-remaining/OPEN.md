@@ -1053,14 +1053,11 @@ being written by running agents stay beside this one.
   only in rows view or while editing; in card view the third signal is zero.
   Next step: decide what "open" means on that surface, per the app's own focus
   model. [brief11-retrieval-engine.md]
-- **Global undo of an AI action.** `file: src/memorymap/core/events.py`, `id:
-  events-undo`. `replay` and `restore` cover one note; "undo auto-filing"
-  means selecting the events of one actor in one window and applying each
-  `before` in reverse. Next step: `events.undo(session, actor, since_id)` plus
-  the Settings surface that offers it (Brief 13 expects it for a skill run's
-  Undo). It has to refuse an event whose values are gone
-  (`events.is_compacted`); a deleted board item is the one case with nothing
-  to put back, since the whiteboard tables have no soft delete.
+- **Global undo of an AI action: the surface.** `events.undo` and `POST
+  /events/undo` are built 2026-09-26 (HISTORY.md, "Moved from the plans,
+  2026-09-26"). Left: the Settings surface that offers it (a dry run shown as
+  a list, then Undo), and a skill run's Undo calling it with the run's actor
+  and first event id (Brief 13). Board items stay "not undoable".
   [brief7-event-log.md]
 - ~~**The Timeline and Dashboard activity strips.**~~ **The Dashboard half
   built 2026-09-23**: a Recent activity widget, opt-in (`DASH_OPT_IN`, so

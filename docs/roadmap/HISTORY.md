@@ -45,6 +45,26 @@ found one bug on the way: the receipt counted the web reader's numeric
 destination; numeric lookups are no longer recorded. 11 tests plus one in
 `tests/test_privacy_receipt.py`. **Left:** the Settings toggle (frontend).
 
+### From OPEN.md (brief7-event-log): global undo of an AI action, the backend
+
+**Built 2026-09-26.** `events.undo(session, actor, since_id, apply=, force=)`
+takes one actor's events after a mark, groups them by entity, and walks each
+entity's newest first applying every `before`, which lands each field the
+actor touched on the value it had before the actor's first change and leaves
+every other field as it is now. A note the actor created goes to the recycle
+bin. Refused by name in the plan: "changed since" (someone else's event on
+the entity after the actor's first, the quiet `dated`/`revised` ones aside;
+`force` overrides, putting back only the actor's fields), "too old"
+(`is_compacted`), "not undoable" (anything but a note: board items have no
+soft delete), "already undone" (an earlier undo's `restored` event names the
+events it reversed in `undid`, so a second run is a no-op), "no values
+recorded". Applying writes one `restored` event per note, by the person, and
+an `EntryRevision` before replacing text; `is_private` is never touched.
+`POST /events/undo` (`{actor, since, dry_run: true, force}`) is a dry run
+unless told otherwise and refuses the actor `user`. Tests:
+`tests/test_events_undo.py`, 8. **Left:** the Settings surface and the skill
+run's Undo (OPEN.md).
+
 ### From WORLD_CLASS_PLAN.md row 5 (I1): night runs and `GET /night/latest`
 
 **Built 2026-09-26.** OPEN.md's row: "`POST /night/run` returns the counts a

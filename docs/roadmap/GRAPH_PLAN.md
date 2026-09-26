@@ -383,3 +383,24 @@ vectors shaped like bge-small's (`scratchpad/ui-sweeps/graphsim.js`):
   hidden kinds; it keeps groups and saved views (things somebody made and
   named) and which folds are open. It shares the panel's last row with
   Suggest links, and its toast carries the Undo.
+
+## Decision made, 2026-09-26: the hubs are named, over a dot if they must be
+
+The label pass (`gcDraw`, `gcPlaceLabels`) placed a name under its dot or
+not at all, and never over another dot. On the 417-note, 1,105-link fixture
+that named none of the ten best-connected notes in view, at the fit (where
+the zoom gate drew no label at all above 400 notes) or at 2x (30 labels, all
+on the thin edge of the map, because in the dense middle "under" is always
+another dot). Decided, and measured with `scratchpad/ui-sweeps/graphlabels.js`:
+
+- **Four places, in order**: under, above, right, left. The first free of
+  every placed label and every other dot wins. At 2x: 31 labels to 80.
+- **Landmarks at the overview**: below the zoom gate on a map past
+  `GC_LABEL_ALL_MAX`, the twelve best-connected notes in view with two or
+  more links are still queued for a name. At the fit: 0 labels to 10.
+- **The ten best-connected in view may sit on a dot**, and only they: they
+  live where every place is on some other dot, and a map is read by them.
+  Two names still never overlap (0 overlapping pairs at the fit and at 2x),
+  every other label keeps the dot rule (0 on a dot), and a covered dot still
+  takes the pointer, because a canvas label is paint and hit testing is on
+  the notes. Hubs named: 0 to 10 of 10 at the fit, 0 to 9 of 10 at 2x.

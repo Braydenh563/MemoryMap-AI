@@ -913,10 +913,15 @@ function renderChatEmptyState() {
   //: centres a pixel off.
   //: In Atlas's own voice (INBOX 394 b), and still the same promise: the
   //: answers come from the notes, with the notes they came from.
+  //: **One line, at every width** (the orchestrator's review, 2026-09-26:
+  //: `chatemptyhelp.js` failing its one-line check at 1280). The blurb is
+  //: capped at 52ch and the sentence it replaced was 95 characters, two lines
+  //: at 1024, 1280, 1366 and 1440 alike (measured, 529px wide each time).
+  //: This one is 518px at all four, one line.
   blurb.append(
     document.createTextNode(
       activePersona === aiName
-        ? "I've read everything you've saved. Ask me anything and I'll show you where the answer came from."
+        ? "Ask me anything, and I'll show you the notes behind the answer."
         : "Ask anything; the answers come from your saved notes."
     )
   );

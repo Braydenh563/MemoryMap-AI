@@ -18,7 +18,8 @@ const { boot } = require('./lib.js');
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${label}: ${detail}`);
     if (!ok) fails.push(label);
   };
-  const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });
+  //: W=1280 for the width the orchestrator caught the blurb wrapping at.
+  const { browser, page } = await boot({ viewport: { width: Number(process.env.W || 1440), height: 900 } });
 
   await page.evaluate(() => switchTab('chat'));
   await page.waitForTimeout(1200);

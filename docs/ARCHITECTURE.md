@@ -239,7 +239,12 @@ MemoryMap-AI/
 │   ├── index.html           # the whole shell; every id is load-bearing
 │   ├── theme-boot.js · boot-guard.js # before first paint: theme, perf mode,
 │   │                        #   and the guard that reports a boot failure
-│   ├── app.js               # the shell, notes, chat, palette, settings glue
+│   ├── app.js … spaces-find.js # the shell, notes, chat and settings glue:
+│   │                        #   23 classic scripts, one file until 2026-09-26,
+│   │                        #   in index.html's order (app.js first: api,
+│   │                        #   auth, the lazy loader); each file's header
+│   │                        #   says what it holds
+│   ├── agent-activity.js    # Agent Activity's list of runs
 │   ├── settings.js          # Settings, appearance, whether the background art runs
 │   ├── bg-art.js            # the background art: its styles and its runtime
 │   ├── dashboard.js         # the dashboard's widgets
@@ -939,7 +944,11 @@ loaded on demand by `ensureP5` the first time something draws). No asset
 is ever loaded from a CDN, consistent with the offline-first rule. The
 JavaScript is split by surface (`dashboard.js`, `timeline.js`,
 `library.js`, `documents.js`, `graph.js`, `whiteboard.js`, `settings.js`); `app.js`
-holds the shell and everything shared. The two biggest lazy surfaces are split
+and the 22 files after it hold the shell and everything shared, cut on
+2026-09-26 from one 50,000-line file into contiguous ranges kept in the old
+order, so a file may call into the ones above it while the page loads and
+never into one below (`tests/test_frontend_load_order.py`; tests read the 23
+as one text through `tests/_app_js.py`). The two biggest lazy surfaces are split
 further by concern: `documents-code.js` and `documents-prose.js` hold the
 document editor's code and prose tools, and `whiteboard-map.js` the mind map
 layer; each loads in the Library bundle *before* the file it came out of
@@ -960,7 +969,7 @@ the Node Playwright under `/opt/node22` and the Chromium under
 with `service_workers="block"`, or `sw.js` will serve a cached `app.js`
 and your change will not be in the page you are looking at.
 
-Top-level functions in `app.js` are plain globals, so a Playwright
+Top-level functions in `app.js` and the files after it are plain globals, so a Playwright
 `page.evaluate` can call `switchTab`, `applyThemePreset` or `renderEmbeddingPicker`
 directly. Asserting on measured geometry (`scrollWidth - clientWidth`, a
 focused element's `offsetParent`) catches far more than a screenshot.
@@ -1127,7 +1136,7 @@ What was cut, and what it bought, measured on one server and one notebook
 with only the frontend swapped:
 
 - **Two HH:MM clocks ticking once a second.** They painted the string that
-  was already on screen 59 times out of 60. `startMinuteTicker` (app.js)
+  was already on screen 59 times out of 60. `startMinuteTicker` (shell-reminders.js)
   schedules the next repaint on the wall-clock minute instead, which is both
   cheaper and more correct: the status bar's clock was a 30s interval, so it
   could show a minute that had already passed for up to half a minute.
@@ -1210,9 +1219,9 @@ and embedding, and both already run off the request thread.
 | Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
 | Teach it a new time phrase | `entry/timewords.py`: one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
-| Change the UI | `frontend/app.js`, `frontend/css/*.css` (read §10's invariants first) |
-| Add a graph layout | `layoutHierarchy` in `app.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first: the readable-layout rules are not obvious |
-| Add a theme or palette | `THEME_PRESETS` in `app.js` + a `[data-palette]` block in `frontend/css/05-sidebars-themes.css` (where the curated palettes live); §10 invariant 9 for why a theme has to clear manual keys |
+| Change the UI | `frontend/app.js` and the files after it (`grep -n "^function name" frontend/*.js` finds a function's file), `frontend/css/*.css` (read §10's invariants first) |
+| Add a graph layout | `layoutHierarchy` in `graph.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first: the readable-layout rules are not obvious |
+| Add a theme or palette | `THEME_PRESETS` in `settings.js` + a `[data-palette]` block in `frontend/css/05-sidebars-themes.css` (where the curated palettes live); §10 invariant 9 for why a theme has to clear manual keys |
 | Change what the Timeline plots | `api/routes_timeline.py`: a note sits at what it is *about* when it says so |
 | Work out why a page scrolls sideways | §10 invariant 2: an ancestor with no `min-width: 0` |
 | Change what a saved chat replays | `steps` in `routes_conversations.py`: not just `content` |

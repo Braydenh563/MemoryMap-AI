@@ -7319,7 +7319,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 }
 
 /* **The person's mark, where it is a holder rather than a badge**: the
-   profile's head and the Settings head (`paintUserMarks` in app.js fills
+   profile's head and the Settings head (`paintUserMarks` in chat-agent.js fills
    both from `nameMark`). The holder is the mark's own size, so the SVG's
    width and height attributes decide it and nothing here restates them. */
 .profile-mark {

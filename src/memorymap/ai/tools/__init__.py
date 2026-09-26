@@ -2020,7 +2020,7 @@ def _compress_chat(session: Session, args: dict) -> dict:
     """Never runs, for the same reason `_ask_user` never runs.
 
     `compress_chat` hands the summary to the human for review rather than
-    applying it: the code this mirrors (`showCompressReview` in app.js) is
+    applying it: the code this mirrors (`showCompressReview` in chat.js) is
     explicit that a summary nobody can correct is one they have to trust
     blindly, and that safeguard applies exactly as much to a summary the
     agent asked for as to one the user pressed a button for (§37I: decided
@@ -2041,7 +2041,7 @@ def validate_compress_chat(arguments: dict, history: list[dict] | None) -> dict:
     the history the loop already has in hand.
 
     Always summarises a *prefix* of `history`, starting at turn 0, the same
-    shape POST /chat/compress and `applyCompression` in app.js assume:
+    shape POST /chat/compress and `applyCompression` in chat.js assume:
     `chatSummary.covered` folds `chatConv.turns.slice(0, covered)`, so a
     window starting anywhere else would make the client fold the wrong turns.
     """

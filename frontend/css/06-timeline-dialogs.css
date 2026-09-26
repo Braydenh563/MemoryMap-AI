@@ -1681,7 +1681,7 @@
    Positioning this strip made it a stacking context, so the menu inside it
    could never rise past a sibling strip on the same z-index that happened to
    come later in the document, which is every note below this one. See
-   `openActionMenu` in app.js for what that cost. */
+   `openActionMenu` in menus.js for what that cost. */
 #entry-list>li .entry-actions.menu-open {
   z-index: 5;
 }
@@ -3341,7 +3341,7 @@
 /* A sketch, or a note with an attached/pasted image, used to render as an
    empty-looking card: the whiteboard card never read entry.thumb_attachment_id
    /entry.thumb_url/entry.attachments at all: libraryCard() (library.js) and
-   entryItem() (app.js) both already show a thumbnail from the same fields,
+   entryItem() (note-cards.js) both already show a thumbnail from the same fields,
    this just closes the same gap here. Sits above .wb-card-content as a flex
    sibling, inheriting .wb-card's own padding rather than bleeding to the
    card's edge: simplest fix, and consistent with how the card's text

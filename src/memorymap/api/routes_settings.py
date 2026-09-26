@@ -326,7 +326,7 @@ class PreferencesBody(BaseModel):
     #: The person's own face: a shuffle and per-part overrides (AvatarStyle).
     avatar_style: AvatarStyle | None = None
     #: Which status-bar slots the user has switched off. **The list of what is
-    #: hidden, not what is shown**, see `STATUS_SLOTS` in app.js: a slot added
+    #: hidden, not what is shown**, see `STATUS_SLOTS` in spaces-find.js: a slot added
     #: in a later version then appears by default for everyone, instead of
     #: being invisible to every user who ever opened that settings screen.
     status_bar_hidden: list[str] | None = None

@@ -53,7 +53,7 @@
 // --- stayed in app.js, each for a concrete reason ---
 //
 // - `stripMarkdownPreview()` sat in the middle of this block, but it is
-//   app.js's own helper: `plainText()` (app.js) is built on it, and
+//   app.js's own helper: `plainText()` (chat-attach.js) is built on it, and
 //   `plainText` is called from across the app and from the lazy bundles.
 //   Moving it would have made a shared helper depend on a feature file.
 //   This file calls it at runtime, like any other app.js helper.

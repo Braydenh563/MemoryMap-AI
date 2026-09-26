@@ -203,7 +203,7 @@ async function loadLibrary() {
   clearSkeletons(grid);
   //: Same distinction the Timeline draws: nothing came back is not the same
   //: fact as there is nothing to show, and only one of them is about the
-  //: person's own library. See `surfaceFailed` in app.js.
+  //: person's own library. See `surfaceFailed` in navigation.js.
   if (!body) {
     surfaceFailed(document.getElementById("library-empty"), "library", loadLibrary);
     return;
@@ -2480,7 +2480,7 @@ function libraryDocsMatchesProperty(doc) {
 //:
 //: **Grouped by key, `<optgroup>` per one.** The first shape kept this flat,
 //: an option reading `status: draft (2)` rather than a group, because
-//: `enhanceSelect` (app.js) built its menu by walking `select.options`,
+//: `enhanceSelect` (sheets-selects.js) built its menu by walking `select.options`,
 //: which drops which `<optgroup>` an option came from: the grouping existed
 //: only in a control the reader never saw. INBOX 273 taught the shared
 //: opener to draw a group's label, which is the recipe fifty-one other
@@ -4092,7 +4092,7 @@ async function ocrRunRegion(mode) {
     //: request's fields were ever looked at. Overriding `headers` drops that
     //: default so the browser writes its own boundary; the two headers the
     //: server actually needs are put back by hand. Same handling as every
-    //: other FormData post in this app (`attachImageFiles` in app.js says so
+    //: other FormData post in this app (`attachImageFiles` in chat-attach.js says so
     //: in its own comment).
     const answer = await apiJson(`${base}/region-read`, {
       method: "POST",
@@ -4885,7 +4885,7 @@ function openOcrWorkspace(image, images, page = 0) {
   rail.replaceChildren();
   rail.classList.add("hidden");
   //: Below 600 the reader is the screen, not a dialog over it: the sheet
-  //: recipe's `page` variant, stamped by `ocrPhonePage` in app.js, which is
+  //: recipe's `page` variant, stamped by `ocrPhonePage` in phone-shell.js, which is
   //: the only file allowed to write a variant class (DESIGN.md's "A sheet"
   //: row, `tests/test_ui_recipes.py`). Called before the overlay is shown so
   //: the first frame is already the right shape: a dialog that arrives as a
@@ -5366,7 +5366,7 @@ async function ocrLoadReaders() {
   if (select.selectedOptions[0]?.disabled || select.selectedOptions[0]?.hidden) {
     select.value = ocrReaders.tesseract && !ocrReaders.vision ? "tesseract" : "vision";
   }
-  //: No repaint call is needed: `enhanceSelect` (app.js) watches each select
+  //: No repaint call is needed: `enhanceSelect` (sheets-selects.js) watches each select
   //: with `MutationObserver(rebuild, {childList: true, subtree: true})`, and
   //: assigning `option.textContent` replaces the option's text node: a
   //: childList mutation: so the app's own dropdown rebuilds itself. Written
@@ -6461,7 +6461,7 @@ onDomReady(() => {
 
 //: **Where a picture came from: the sketch pad, or anywhere else.** Asked for
 //: directly (2026-09-23): filter the Images sub-tab by sketches and uploaded
-//: images. A sketch has no table or flag of its own: `saveSketch` (app.js)
+//: images. A sketch has no table or flag of its own: `saveSketch` (media.js)
 //: sends its PNG through `/media/upload` as `sketch-<stamp>.png` and files a
 //: note in "Sketches" that shows it, so the name is the one thing the gallery
 //: row carries that says which it is. Anchored at the start, so a photo

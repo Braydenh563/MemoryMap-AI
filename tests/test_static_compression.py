@@ -104,7 +104,10 @@ def test_the_app_scripts_stay_under_the_ratchet(client):
     # **The fifth time, the split itself.** 2026-09-26: app.js 740,482 bytes
     # and agent-activity.js 10,651 (751,133 together) when the file started
     # being cut into the pieces the plan lists; the bound became the three
-    # caps above.
+    # caps above. After the last cut: app.js 41,630, the largest piece
+    # notes-list.js at 50,207, and 777,805 together, 26,672 bytes (3.6%) more
+    # than the one file, which is what 23 gzip streams that each start with
+    # an empty window cost. APP_JS_CAP now only ever goes down.
     sizes = {path.name: _served_gzip_size(client, path.name) for path in app_js_files()}
     assert sizes[APP_JS.name] < APP_JS_CAP, (
         f"gzipped app.js is {sizes[APP_JS.name]} bytes, expected under {APP_JS_CAP}"

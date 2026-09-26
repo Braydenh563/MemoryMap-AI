@@ -139,7 +139,7 @@ _INLINE_IMAGE_URL = re.compile(r"!\[[^\]\n]{0,200}\]\(([^)\n\s]{1,500})\)")
 def _first_inline_image_url(content: str) -> str | None:
     """The first image a note's *text* points at, if any, same URL shapes
     the note editor itself already renders inline (`isRenderableUrl` in
-    app.js: same-origin absolute paths or a plain `https://` link), so a
+    notes-list.js: same-origin absolute paths or a plain `https://` link), so a
     thumbnail never appears here for something the note itself wouldn't
     have shown as a picture.
     """

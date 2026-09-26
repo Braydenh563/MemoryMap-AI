@@ -1181,7 +1181,7 @@ function docFillTable(cols, rows) {
 }
 
 //: The document's headings as a nested list of links, each to the id the
-//: renderer gives that heading (`slug`, which is app.js's `mdHeadingId` in the
+//: renderer gives that heading (`slug`, which is markdown.js's `mdHeadingId` in the
 //: browser, so a link here is the anchor there). A lone first-level heading at
 //: the top is the document's title, not a section of it, and is left out.
 //: Null when there is nothing to list.

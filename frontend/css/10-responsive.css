@@ -43,7 +43,7 @@
    of the band.
 
    Deliberately not a grid of equal columns, which was tried first and is a
-   trap: `tabContentWidth` (app.js) sums the buttons' own widths to decide
+   trap: `tabContentWidth` (shell-reminders.js) sums the buttons' own widths to decide
    whether to wrap, so stretching them to fill the row makes the strip report
    that it needs the whole header, and the header can then never unwrap as
    the window grows back. */
@@ -291,7 +291,7 @@ header#top-bar,
    same object continuing.
 
    **A clip, not a scale, and the reason is a measurement rather than
-   taste.** `openActionMenu` (app.js) reads `menu.getBoundingClientRect()` in
+   taste.** `openActionMenu` (menus.js) reads `menu.getBoundingClientRect()` in
    the same turn it removes `.hidden`, twice: once to decide whether the menu
    would spill past its scroll parent and flip upward, and again inside
    `escapeMenuIfClipped`, which reparents a clipped menu to the body and
@@ -535,7 +535,7 @@ header#top-bar,
 /* A label that fits inside its own shape sits on it, so it needs to read
    against a filled block rather than against the paper.
 
-   The two inks are picked in `mapPreviewOnColour` (app.js) from the branch
+   The two inks are picked in `mapPreviewOnColour` (note-cards.js) from the branch
    colour's own luminance, and they are *classes* rather than a `fill`
    attribute because `.board-minimap-label` declares `fill` in the stylesheet
    and a CSS declaration beats a presentation attribute. Measured with
@@ -911,7 +911,7 @@ header#top-bar,
    row: everything 07-whiteboard-misc.css gives `#tab-bar` in this band (the
    fixed position, the ground, the top hairline, the blur, the bottom inset)
    moves out one level, and the strip keeps only its columns. `dockTabBar`
-   (app.js) moves the same node as before, into the box rather than onto the
+   (phone-shell.js) moves the same node as before, into the box rather than onto the
    body.
 
    The height changes by the safe-area inset and deliberately. 07's rule reads
@@ -1056,7 +1056,7 @@ header#top-bar,
      DESIGN.md's Liquid Glass rule 10, and the half of it that is easy to lose
      is in the rule itself: what goes is the caption, not the bar. 57.6px of
      bar with words becomes 44px of icons, which is still a full row of 44px
-     targets and still says which tab you are on. `markTabBarRecede` (app.js)
+     targets and still says which tab you are on. `markTabBarRecede` (shell-reminders.js)
      sets the attribute, off the one scroll listener the edge effect already
      owns.
 
@@ -1386,7 +1386,7 @@ header#top-bar,
    switcher, notifications, theme, settings, lock and quit, 44px each, the
    last ending at 332 in a 320 window, so the page scrolled sideways by one
    button. Below 600 the four everyday-and-session squares become the rows of
-   one menu (`#header-more`, `initPhoneHeaderMore` in app.js), so the bar is
+   one menu (`#header-more`, `initPhoneHeaderMore` in phone-shell.js), so the bar is
    where you are (the space), what came in (notifications) and one way to
    the rest. Nothing is hidden that the desktop has; it is one press further.
    The end cluster's own margin goes with the divider it drew: one control
@@ -1589,7 +1589,7 @@ header#top-bar,
 }
 
 /* --- Phase 11 items 2 and 3: no rail on a phone, an opener in the head ------
-   See `mountPhoneSidebarOpeners` (app.js) for the measurement. Below 600 the
+   See `mountPhoneSidebarOpeners` (phone-shell.js) for the measurement. Below 600 the
    sidebar sheet parks fully off screen, the page beside it takes back the
    52px the rail reserved, the sheet's own toggle shows only while the sheet
    is open (it is the closer then, pinned to the sheet's edge), and the
@@ -1660,7 +1660,7 @@ header#top-bar,
 }
 
 /* --- Phase 11 item 2: a row swiped, star right and bin left ------------------
-   `initRowSwipe` (app.js) writes `--swipe-x` on the row and the classes
+   `initRowSwipe` (phone-shell.js) writes `--swipe-x` on the row and the classes
    below; this draws it. The row's children slide as one; the underlays are
    the row's own pseudo-elements, sized to the gap the slide opens, so nothing
    is added to the DOM per row and a row that is never swiped costs nothing.
@@ -2228,7 +2228,7 @@ header#top-bar,
    280x257 and the ⋯ menu's 256x311, both of them over the same map. Three
    surfaces, each answering a question about the thing it hides.
 
-   `openGraphControlsSheet` (app.js) moves all three into one sheet and puts
+   `openGraphControlsSheet` (wiring.js) moves all three into one sheet and puts
    them back on close, so what is inside here is the app's own markup rather
    than a phone copy of it: the panel arrives as `.graph-options` with its
    class, and each menu's rows arrive inside a holder wearing the menu list's

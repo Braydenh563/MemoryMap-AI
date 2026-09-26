@@ -609,7 +609,7 @@ select optgroup {
      Now just the button's own height plus one gap, and (04-chat-dock-
      appearance.css, 07-whiteboard-misc.css) applied only while
      `body.scroll-top-visible` says the button is actually on screen to
-     clear (app.js's `initScrollTopButton`). */
+     clear (navigation.js's `initScrollTopButton`). */
   --scroll-top-clearance: calc(2.75rem + var(--space-4));
 
   /* How much of the window the on-screen keyboard is currently covering
@@ -1915,7 +1915,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 /* The bar that stops below the Notes sub-tab strip. `--notes-sticky-top` is
-   written onto this page by `initNotesSubtabHeightToken` (app.js) and carries
+   written onto this page by `initNotesSubtabHeightToken` (phone-shell.js) and carries
    the strip's measured height plus its bottom margin; the `0px` that stylesheet
    declares for the token is what applies for the frame before that lands. */
 #tab-notes {
@@ -4088,7 +4088,7 @@ header#top-bar.tabs-wrapped #tab-bar {
    **720 became 820** (UI_MODERNISATION_PLAN.md Phase 9, band 3): an iPad in
    portrait is 768 or 810 CSS px, and at 721-819 this app was giving a tablet
    a desktop two-column layout with a 197px sidebar against a 600px content
-   column. `STACKED_LAYOUT` in app.js carries the same number and has to move
+   column. `STACKED_LAYOUT` in sheets-selects.js carries the same number and has to move
    with it: `applySidebarWidth` writes an inline `grid-template-columns` while
    the layout is not stacked, and an inline style beats this rule whatever its
    media query says. Below 820 the sidebar is a sheet (07-whiteboard-misc.css)

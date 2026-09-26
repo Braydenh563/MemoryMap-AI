@@ -1,6 +1,17 @@
 // MemoryMap AI frontend: plain JS, no framework (locked decision, plan §2).
 // All DOM nodes are built with createElement/textContent, never innerHTML,
 // so a note containing <script> is just text, not code.
+//
+// This is the first of the app's 23 classic scripts (2026-09-26, INBOX 426
+// cc, docs/roadmap/agent-remaining/appjs-split.md): the log capture, `api`,
+// the auth gate, the share-sheet intake, the confirm dialogs and the lazy
+// loader. note-cards.js to spaces-find.js follow it in index.html, each a
+// contiguous range of what was one 50,000-line file, in its old order, and
+// all of them share one global scope, so a function in any of them is
+// callable from any other once the page has loaded. At load it is
+// different: a file may only call into files before it, which is what
+// scratchpad/appjs-map.js --check and tests/test_frontend_load_order.py
+// check. Tests read all of them as one text through tests/_app_js.py.
 
 // --- browser log capture (Wave A) -----------------------------------------------
 // Installed before anything else runs so no message is missed. Shown in

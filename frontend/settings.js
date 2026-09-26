@@ -1380,7 +1380,7 @@ const APPEARANCE_DEFAULTS = {
   //: Turning off "animations and transitions" is a statement about chrome. A
   //: spinner is not chrome. "always" keeps progress moving through this app's
   //: own Reduce motion; the *operating system's* accessibility setting is
-  //: still obeyed (see `progressMotionWanted` in app.js), and the indicator
+  //: still obeyed (see `progressMotionWanted` in chat.js), and the indicator
   //: steps through a colour rather than freezing when it is.
   "progress-motion": "always", // always | auto | still
   //: Generated faces (`nameMark`, avatars.js) blink and emote. Always by

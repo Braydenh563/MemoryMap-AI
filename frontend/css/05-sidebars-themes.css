@@ -315,7 +315,7 @@ select.ai-unavailable {
 
 /* A file attached to a note. Replaces the bare `<a href="/media/…">` that
    used to render here, which navigated the whole app away to a 401 page
-   with no way back, see `fileCard` in app.js for the full account.
+   with no way back, see `fileCard` in notes-list.js for the full account.
 
    `inline-flex`, not `block`: this is produced by the inline-markdown
    renderer and can legitimately sit mid-sentence. Stacked one per line is
@@ -1878,7 +1878,7 @@ body.resizing-sidebar {
    `overflow: visible` was always the wrong lever: it is the *popup* that
    needs to leave the scroller, not the strip that needs to stop being one.
    So the popup goes `position: fixed` while it is open and is placed against
-   the viewport by `clampToolbarMenu` (app.js): a fixed box is clipped only
+   the viewport by `clampToolbarMenu` (sheets-selects.js): a fixed box is clipped only
    by an ancestor that establishes a containing block (a transform, filter or
    backdrop-filter), and nothing between here and <body> does. The strip
    keeps clipping and keeps its scroll position throughout.
@@ -2968,7 +2968,7 @@ button.outline-twist:focus-visible {
   gap: var(--space-2);
 }
 
-/* `.select-shell` as well as the select itself: `enhanceSelect` in app.js
+/* `.select-shell` as well as the select itself: `enhanceSelect` in sheets-selects.js
    rebuilds every `<select>` inside one on a MutationObserver, so for the frame
    before that runs the select is the row's own child and afterwards it is a
    grandchild. Naming both means the row never has a frame at the wrong width,

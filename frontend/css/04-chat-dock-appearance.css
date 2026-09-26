@@ -323,7 +323,7 @@
 }
 
 /* INBOX 33: the clearance above only earns its keep while there is a
-   `.scroll-top` on screen to clear. `app.js`'s `initScrollTopButton`
+   `.scroll-top` on screen to clear. `navigation.js`'s `initScrollTopButton`
    toggles this class in the same `update()` that shows the button, so the
    two can never drift out of sync with each other the way a fixed
    always-on padding and a sometimes-visible button did. */
@@ -512,7 +512,7 @@ body.scroll-top-visible #tab-notes .layout > main {
      moderate-width window, flex-shrink took the panel well below its own
      clamp() minimum (measured 259px against a 336px floor at 1400px wide),
      quietly undoing "wider" the moment the window wasn't huge. 17.5rem
-     matches `WEB_PANEL_MIN` in app.js: the floor the drag handle already
+     matches `WEB_PANEL_MIN` in sheets-selects.js: the floor the drag handle already
      enforces: so the panel can't get any narrower non-interactively than a
      manual resize would ever leave it. */
   min-width: 17.5rem;
@@ -548,7 +548,7 @@ body.scroll-top-visible #tab-notes .layout > main {
    chat list below it. Measured before this fix: 0px, the shell flush against
    `#conversation-list`. The base `select { margin-bottom: var(--space-4) }`
    rule (01-forms-settings.css) would have supplied one, but `enhanceSelect()`
-   (app.js) hides `#chat-sidebar-sort` itself: `position: absolute`, out of
+   (sheets-selects.js) hides `#chat-sidebar-sort` itself: `position: absolute`, out of
    flow: and inserts `.select-shell` as the visible stand-in, which carries
    none of the original element's margin. Scoped to this sidebar rather than
    `.select-shell` generally: other call sites (a `.row`'s own `gap`, a modal
@@ -1288,7 +1288,7 @@ body.scroll-top-visible #tab-notes .layout > main {
    The web panel is a column now, so there is nothing left in here that can
    yield, and a box that cannot shrink should not claim it can. The
    conversation above gives way instead (`#chat-messages`, which scrolls), and
-   `fitComposerToDock` in app.js keeps a hand-dragged composer inside whatever
+   `fitComposerToDock` in settings-panes.js keeps a hand-dragged composer inside whatever
    is left. */
 .chat-dock {
   flex: 0 0 auto;
@@ -3897,7 +3897,7 @@ span > .chip {
 }
 
 /* **The other side of the button** (INBOX 233). `placeDockMenuInWindow`
-   (app.js) adds this when the room under the opener is less than 240px and
+   (navigation.js) adds this when the room under the opener is less than 240px and
    there is more of it above: the panel then grows upward from the button
    instead of down past the bottom of the window. Nothing else about it
    changes, which is why this is a class on the `<details>` rather than an

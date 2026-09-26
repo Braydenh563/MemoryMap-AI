@@ -3843,7 +3843,7 @@ p.graph-help-panel {
    search relevance '?' popup tooltip is completely different from all other
    tooltips like it".
 
-   `position: fixed` and lifted to <body> by `wireHelpPopover` (app.js), so a
+   `position: fixed` and lifted to <body> by `wireHelpPopover` (menus.js), so a
    card's `overflow` or `backdrop-filter` cannot clip it: the same escape
    the action menus make. The caret is what stops it reading as "just text in
    a box": it ties the panel to the control that opened it, which is the
@@ -3865,7 +3865,7 @@ p.graph-help-panel {
      hint being shown through this component rather than inline. */
   margin: 0;
   line-height: 1.5;
-  /* Declared here, overwritten per-open by `placeHelpPopover` (app.js) with
+  /* Declared here, overwritten per-open by `placeHelpPopover` (menus.js) with
      the trigger's own centre. Declared rather than left to a `var()`
      fallback so `test_style_scale.py` can tell a real token from a typo. */
   --help-caret-x: 50%;
@@ -4046,7 +4046,7 @@ p.graph-help-panel {
 
 /* `.dash-board-thumb-card` / `-sketch` lived here and are gone with the copy
    of the drawing they belonged to. The widget's thumbnail is now produced by
-   `mapPreview` (app.js) exactly like the Library card's, so it carries
+   `mapPreview` (note-cards.js) exactly like the Library card's, so it carries
    `.board-minimap-card` / `-object` / `-sketch` / `-edge` and is styled by
    those rules in 07-whiteboard-misc.css, which is the point of §5 item 12:
    one drawing, one set of rules, so the dashboard cannot end up showing a map

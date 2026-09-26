@@ -27,13 +27,13 @@
 //    its own functions, instead of splitting definition from call site. See
 //    the "wiring" section near the end of this file for the full
 //    explanation.
-// 2. `applyPalette()` (app.js) calls `refreshArtForTheme()` (this file), and
+// 2. `applyPalette()` (ai-tools.js) calls `refreshArtForTheme()` (this file), and
 //    `applyPalette` is itself reachable from a bare top-level call, 
 //    `applyAppearance()`, run once at parse time to paint the saved theme
 //    before first render. Caught live in Chromium, not by reading the code:
 //    a `ReferenceError` there aborted the rest of app.js's synchronous
 //    top-level wiring. Fixed with a `typeof` guard at that one call site
-//    (app.js's `applyPalette`) rather than moving `applyPalette` itself,
+//    (ai-tools.js's `applyPalette`) rather than moving `applyPalette` itself,
 //    since it does real app.js-only work (the whole-app palette/background)
 //    that has nothing to do with the dashboard.
 //
@@ -328,7 +328,7 @@ async function refreshAiGreeting(forced = false) {
   return true;
 }
 
-//: The stopper `startMinuteTicker` (app.js) hands back, not a timer id: a
+//: The stopper `startMinuteTicker` (shell-reminders.js) hands back, not a timer id: a
 //: chained timeout has a new id every tick, so an id could not cancel it.
 let dashClockTimer = null;
 
@@ -346,7 +346,7 @@ function startDashClock() {
   if (document.hidden) return;
   //: One wake a minute, on the minute, rather than sixty: this paints HH:MM,
   //: so 59 of every 60 runs wrote the string already on screen. See
-  //: `startMinuteTicker` in app.js for why it is a wall-clock-aligned
+  //: `startMinuteTicker` in shell-reminders.js for why it is a wall-clock-aligned
   //: timeout chain and not a 60,000 ms interval (INBOX 266, item 7).
   dashClockTimer = startMinuteTicker(paintDashClock);
 }
@@ -1504,7 +1504,7 @@ function featureCatalog() {
       { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", reveal: "onboarding" },
     ]},
     //: Each row declares where it goes (`tab`, `reveal` or `act`) and
-    //: `catalogueRun` (app.js) makes the `run` the dialog calls, so every row
+    //: `catalogueRun` (settings-panes.js) makes the `run` the dialog calls, so every row
     //: lands on what it names (tests/test_catalogue_reveal.py).
   ].map((group) => ({ ...group, items: group.items.map(catalogueRun) }));
 }
@@ -1696,7 +1696,7 @@ function gettingStartedCard() {
 
 async function renderDashboard() {
   // The saved layout lives in preferences, after a page reload this can run
-  // before startApp has fetched them. `loadPreferences` (app.js) is the shared
+  // before startApp has fetched them. `loadPreferences` (settings-panes.js) is the shared
   // reader: the cache if it is filled, otherwise the request already in flight,
   // which on a cold start is startApp's own. It used to be a second
   // `GET /preferences` here, and the dashboard is the first tab, so a cold
@@ -2298,7 +2298,7 @@ async function startArt(holder) {
   //: band above the status bar, with no DOM mutation at all, and the
   //: *background* art is off; the earlier investigation measured that one).
   //:
-  //: `reducedMotionWanted` (app.js) is the OS hint or the app's own switch;
+  //: `reducedMotionWanted` (chat.js) is the OS hint or the app's own switch;
   //: `perfModeOn` (settings.js) is the machine judgement. Both reached
   //: through `typeof`, since dashboard.js loads before settings.js and a
   //: render that somehow beat it should fall back to moving rather than
@@ -3570,7 +3570,7 @@ function dashEmpty(body, text) {
 async function renderBoardsWidget(body) {
   // Every board, not the first page: the widget ranks them by how much is on
   // them, and the busiest board is not necessarily on page one. That is the
-  // same walk `loadMapBoardIndex` (app.js) makes for the note list's map
+  // same walk `loadMapBoardIndex` (note-cards.js) makes for the note list's map
   // chips, with the same page size, and at boot the two ran within a tick of
   // each other: two walks of every board before the first tab had finished
   // drawing (WORLD_CLASS_PLAN A2). Sharing it means the widget can read
@@ -3598,7 +3598,7 @@ async function renderBoardsWidget(body) {
   for (const board of ranked) {
     dashActionRow(ul, {
       title: board.title,
-      // `mapCountLabel` (app.js) rather than three lines here. The three lines
+      // `mapCountLabel` (note-cards.js) rather than three lines here. The three lines
       // it replaces called a map's objects "images", which is the wrong noun
       // for the only thing on a map, the Library card had already been fixed
       // and this copy had not, which is precisely what §5 item 12 is about.
@@ -3625,7 +3625,7 @@ async function renderBoardsWidget(body) {
  * dashboard previewed as a scatter of dots while the identical map in the
  * Library previewed as a tree. Structure is the entire difference between a
  * map and a board, so the one place it was missing was the one place it
- * mattered. `mapPreview` (app.js) is now the only place this picture exists;
+ * mattered. `mapPreview` (note-cards.js) is now the only place this picture exists;
  * MINDMAP_PLAN.md §5 item 12 asked for exactly that.
  */
 function dashBoardThumb(board) {

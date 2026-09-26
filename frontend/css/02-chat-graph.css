@@ -2329,7 +2329,7 @@ button.recording.live-level {
 }
 
 /* A small scrolling level meter, Voice-Memos-style, startMicLevelMeter()
-   in app.js appends this into the button and redraws --bar-scale on each
+   in media.js appends this into the button and redraws --bar-scale on each
    bar at ~15fps. Sits inline after the icon/label, so a labelled button
    (meeting notes' "Stop") gains a trailing meter and an icon-only one grows
    by the meter's own width for as long as recording lasts. */
@@ -2455,7 +2455,7 @@ button.recording.live-level {
 /* --- Wave I: skeletons, focus, reduced motion ------------------------------------ */
 /* A placeholder where content is on its way (INBOX 399 (4)): the shape of
    what is coming rather than a spinner or a blank, so a slow disk never
-   reads as an empty notebook. `showSkeletons` (app.js) puts three in a
+   reads as an empty notebook. `showSkeletons` (notes-list.js) puts three in a
    list that is still empty, and the list's own render replaces them. The
    height is the list's; each list says its own below. */
 .skeleton,
@@ -2770,7 +2770,7 @@ kbd {
 
    The blanket above is what actually froze them, a `*` selector with
    `!important` outranks anything written for one element, so no amount of
-   care in `typingDots` (app.js) could have kept the dots moving. This is the
+   care in `typingDots` (chat.js) could have kept the dots moving. This is the
    counter-rule, and it needs both higher specificity (0,2,1 against the
    blanket's 0,1,1) and `!important` of its own to win.
 
@@ -3149,7 +3149,7 @@ kbd {
    calc(100% + 4px)`) this doesn't have, since it can open from either of
    two buttons or a right-click on either, and the status bar sits at the
    very bottom of the screen so it has to open *upward*, `openNavHistoryMenu`
-   (app.js) positions it with an explicit inline top/left instead. */
+   (navigation.js) positions it with an explicit inline top/left instead. */
 .nav-history-menu {
   position: fixed;
   /* Anchored from the bottom, not computed from `top` in JS: this always
@@ -3254,7 +3254,7 @@ kbd {
   margin-bottom: var(--space-2);
 }
 
-/* Set by `wireEscapedActionMenu` (app.js) while the menu is reparented to
+/* Set by `wireEscapedActionMenu` (menus.js) while the menu is reparented to
    <body> to escape a clipping scroll ancestor, see the note there. `left`/
    `top` come from that same function as inline style, computed from the
    opener's own rect; this only has to override the base rule's
@@ -3406,7 +3406,7 @@ kbd {
   opacity: 0.6;
 }
 
-/* app.js's openActionMenu() adds this when the menu would spill past the
+/* menus.js's openActionMenu() adds this when the menu would spill past the
    nearest scrolling ancestor if opened downward (00-tokens-shell.css and
    04-chat-dock-appearance.css's `.menu-wrap` variants are exactly that
    case) - opens upward from the button instead. */
@@ -4795,7 +4795,7 @@ mark.lightbox-hit {
 
 /* --- numbered citations inside an answer ---------------------------------
    Asked for directly: "inline referencing with hyperlinks in ai chat
-   messages would be amazing". Placed by `addInlineCitations` (app.js) from
+   messages would be amazing". Placed by `addInlineCitations` (capture-ask.js) from
    the same per-sentence grounding the "Grounded in" row below the answer
    already used: the row is the key, these are the references.
 
@@ -4904,7 +4904,7 @@ mark.lightbox-hit {
 }
 
 /* --- the live action line ---------------------------------------------------
-   `toolTouchedRow` (app.js). Asked for: "is it also possible to have live
+   `toolTouchedRow` (chat-agent.js). Asked for: "is it also possible to have live
    action lines show on the chat ui, to show and visually show as the ai
    accesses specific notes, files and stuff??"
 
@@ -4989,7 +4989,7 @@ mark.lightbox-hit {
 
 /* --- the step group (Perplexity's "Finished N steps") ------------------------
    Asked for directly: "I want the steps of the ai to show like perplexity's
-   steps." `agentTimeline` (app.js) carries the reasoning for the grouping
+   steps." `agentTimeline` (chat-agent.js) carries the reasoning for the grouping
    itself; this is what it looks like.
 
    A summary row that reads as a control, a hairline rail down the steps so
@@ -5057,7 +5057,7 @@ mark.lightbox-hit {
 }
 
 /* --- the Sources panel -------------------------------------------------------
-   "What this answer drew on", in one place. See `chatSourcesPanel` (app.js)
+   "What this answer drew on", in one place. See `chatSourcesPanel` (chat-agent.js)
    for why the evidence was scattered before and why a log of calls is the
    wrong shape for the question a reader is actually asking.
 

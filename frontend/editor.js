@@ -36,7 +36,7 @@
 // and the menu filters rather than offering something that would no-op.
 const EDITOR_SURFACES = {
   "entry-content": "note",
-  //: The note *edit* form (app.js's `renderEditForm`), which had none of this
+  //: The note *edit* form (notes-list.js's `renderEditForm`), which had none of this
   //: until now: the one editing surface in the app with no "/" menu, no
   //: toolbar and no selection bar. One id, because `editingId` allows exactly
   //: one open edit form at a time.

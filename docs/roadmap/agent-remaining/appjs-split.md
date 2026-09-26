@@ -1,5 +1,23 @@
 # The app.js split: the plan (INBOX 426 cc)
 
+**Done 2026-09-26, steps 0 to 24, one commit each** (51c3e3a to the step 24
+commit). app.js is 23 files in the table's order; four boundaries moved a
+few comment lines so a function's leading comment stays with it (menus.js
+ends at 6,167, selection.js starts at 8,465, navigation.js at 30,427).
+Measured after: every file 15 to 50 KB gzipped (notes-list.js the largest,
+app.js 41.6 KB), 777,805 bytes together against 751,133 before (the split's
+own gzip cost, 3.6%); 0 page errors at 1440 and 390 after every step; boot,
+six alternated rounds of 11 warm reloads against the step 0 tree served
+side by side: warm ready 292.5 ms after against 264.5 before (median of
+round medians; the per-round gap ran from -11 to +58), cold 745.5 both,
+script requests 14 to 36, cold bytes 1,242 to 1,274 KB. Under the 50 ms bar,
+so no pairs were merged. Open, optional: the second pass (section 6),
+which also fixes the names that no longer say what a file holds
+(`renderMarkdown` and `surfaceFailed` are in navigation.js, `openMenuAtPoint`
+in markdown.js, `kebabMenu` in sheets-selects.js, `openSheet` in
+phone-shell.js); `appjs-map.js` reads app.js alone and needs to read the
+joined files before it can check such a move.
+
 Measured on the head after 397d4b1 (fix/gemini-fixes-5), where the Agent
 Activity section had already gone to agent-activity.js (5b1f809):
 `frontend/app.js` is 50,483 lines, 1,579 top-level names, 737,308 bytes

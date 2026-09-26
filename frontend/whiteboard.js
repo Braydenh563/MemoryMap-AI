@@ -938,7 +938,7 @@ const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter",
 //:
 //: **The numbers are not here any more.** Decision 7's other half, decided
 //: 2026-09-20: the quick-sketch pad and this board are two renderers of one
-//: highlighter, and what they share is `HIGHLIGHTER_STYLE` in `app.js` (the
+//: highlighter, and what they share is `HIGHLIGHTER_STYLE` in `media.js` (the
 //: alpha, the multiplier, the 12 to 24 clamp, the cap and join, and the blend
 //: per backdrop). This file only asks it. The board and the pad were 0.4 with
 //: multiply against 0.35 with no blend before that.
@@ -4580,7 +4580,7 @@ function wbBuildContextMenu(kind) {
 
 //: **The context bar's "More" menu opens against the bar, whatever the
 //: window's height** (the owner, 2026-09-23: "its kebab menu lands away from
-//: the bar"). `placeEscapedMenu` (app.js) tries below the opener, then above,
+//: the bar"). `placeEscapedMenu` (menus.js) tries below the opener, then above,
 //: and when neither side holds the whole menu it pins the box to the last
 //: position that fits in the window, which is right for a card's menu whose
 //: opener has scrolled out of view and wrong for a bar floating over the
@@ -8162,7 +8162,7 @@ async function initWhiteboard() {
       e.stopPropagation();
       wbOpenDockedMenu(menu, toggle);
     });
-    //: The hold, through the app's own `wireLongPress` (app.js) rather than
+    //: The hold, through the app's own `wireLongPress` (navigation.js) rather than
     //: a fourth copy of a 500ms timer with its own cancel set. It also
     //: removes the `suppressClick` latch this carried: the recipe swallows
     //: the click the lift synthesises, which is the thing that latch was
@@ -8274,7 +8274,7 @@ async function initWhiteboard() {
   //: last 49px of each menu were cut off by an ancestor and unreachable,
   //: scrollbar or no scrollbar. Escaping that ancestor is what fixed it.
   //:
-  //: `escapeAndCapMenu` (app.js) is that fix, and `details.dock-menu`'s too:
+  //: `escapeAndCapMenu` (menus.js) is that fix, and `details.dock-menu`'s too:
   //: this file used to hold its own copy of it, identical down to the margin
   //: and the 120px floor, which is how a later improvement to one of them
   //: would have missed the other. It is deliberately not the same recipe as
@@ -8618,7 +8618,7 @@ async function initWhiteboard() {
     // Ctrl+F is deliberately *not* bound here. The app already owns it for
     // "Find on this page", and binding it a second time opened both bars at
     // once: `preventDefault` does not stop another listener, only the
-    // browser. `openGlobalFind` in app.js now hands off to the board search
+    // browser. `openGlobalFind` in wiring.js now hands off to the board search
     // when a board is open, which is one owner for one shortcut and the same
     // shape as the handoff it already does for the lightbox's find.
     // `offsetParent` is the visibility half, and it is load-bearing: the lock
@@ -10002,7 +10002,7 @@ function renderWbLibrary() {
   for (const entry of allEntries) {
     const li = document.createElement("li");
     li.className = "wb-library-item";
-    // `notePreviewText` (app.js), not the raw body. Reported with a
+    // `notePreviewText` (shell-reminders.js), not the raw body. Reported with a
     // screenshot of this very list: a sketch note read "A real drawn sketch
     // ![A real drawn sket…", because its drawing lives in the note as inline
     // `![alt](/media/…)` markdown and this printed it verbatim. Every other
@@ -13982,7 +13982,7 @@ async function renderLibraryBoardsGallery() {
     const meta = document.createElement("span");
     meta.className = "muted library-card-meta";
     // One sentence about how much is on a board, shared with every other
-    // surface that says it, `mapCountLabel` in app.js. It used to be nine
+    // surface that says it, `mapCountLabel` in note-cards.js. It used to be nine
     // lines here and four in the dashboard's own widget, which is how the two
     // came to disagree about what to call a map's objects.
     const count = document.createElement("span");
@@ -14007,7 +14007,7 @@ async function renderLibraryBoardsGallery() {
     // card. Asked for directly: the Boards & maps sub-tab is "boring and
     // should probably have previews".
     //
-    // `mapPreview` (app.js) is now the only place this picture is drawn.
+    // `mapPreview` (note-cards.js) is now the only place this picture is drawn.
     // MINDMAP_PLAN.md §5 item 12 asked for exactly one preview renderer, and
     // the reason was already visible here: this card drew the tree edges, the
     // labels and the sketch squiggles, while the dashboard's boards widget
@@ -14141,7 +14141,7 @@ async function openWhiteboardBoard(boardId) {
   //: their own identity this way (`doc:{id}`, `focus:{id}`, `conv:{id}`); this
   //: is the same key for the same reason.
   if (typeof recordTabVisit === "function") {
-    //: `mapBoardById` (app.js) is the one board index every surface shares.
+    //: `mapBoardById` (note-cards.js) is the one board index every surface shares.
     const boardTitle = boardId ? mapBoardById(boardId)?.title : "";
     recordTabVisit("library", boardId ? `board:${boardId}` : "library-view-whiteboard", boardTitle || "");
   }

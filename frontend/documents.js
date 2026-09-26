@@ -729,7 +729,7 @@ async function loadDocuments(selectId = null) {
   //: silently fails to resolve, not just a row missing from a list.
   //: A sentinel rather than `[]`, because an empty list and a failed request
   //: were the same value here and the sidebar said "No documents yet" for
-  //: both. See `surfaceFailed` in app.js.
+  //: both. See `surfaceFailed` in navigation.js.
   const loaded = await apiPagedList("/documents", DOCUMENTS_PAGE_SIZE).catch(() => null);
   if (!loaded) {
     surfaceFailed(document.getElementById("doc-empty"), "documents", () => loadDocuments(selectId));
@@ -1230,7 +1230,7 @@ async function renderDocBookmarks() {
     open.className = "outline-link";
     setLabel(open, `ph:link ${bookmark.title || bookmark.url}`);
     open.title = bookmark.url;
-    // safeHref() (app.js): the same scheme guard library.js's bookmark rows
+    // safeHref() (notes-list.js): the same scheme guard library.js's bookmark rows
     // use, so a bookmark saved before INBOX 310's write-time check existed
     // can't reach window.open() with an unlisted scheme from here either.
     open.addEventListener("click", () => window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer"));
@@ -1291,7 +1291,7 @@ async function attachBookmarkToDocument() {
   //: is the shape everyone tries Escape on first.
   //:
   //: **On the document, not on the `<select>` or even on the row.**
-  //: `enhanceSelect` in app.js replaces every select in the page with a shell
+  //: `enhanceSelect` in sheets-selects.js replaces every select in the page with a shell
   //: holding a `<button>` opener and a listbox, and takes the real select out
   //: of the tab order (`select-native-hidden`, `tabindex="-1"`), so the
   //: `select.focus()` below lands nowhere and the keystroke is dispatched at
@@ -1325,7 +1325,7 @@ async function attachBookmarkToDocument() {
   row.append(select, cancel);
   wrap.insertBefore(row, $("doc-attach-bookmark"));
   $("doc-attach-bookmark").classList.add("hidden");
-  //: `focusSelect` (app.js), which is where this trap and its answer now live
+  //: `focusSelect` (sheets-selects.js), which is where this trap and its answer now live
   //: together. It was open-coded here first, before a sweep of the rest of the
   //: app found three more call sites doing the plain `.focus()` silently.
   focusSelect(select);
@@ -2276,7 +2276,7 @@ const DOC_COMMANDS = [
 //: **Only while a document is open and on screen.** The palette is reachable
 //: from every tab, and "Bold" run from the Notes tab would wrap a selection in
 //: a document nobody is looking at. `activeTab` is where the app keeps which
-//: tab is showing (app.js's `switchTab` writes it), so this asks the same
+//: tab is showing (navigation.js's `switchTab` writes it), so this asks the same
 //: question the tab bar answers.
 //:
 //: A row with no `run` is a keyboard-only move (Tab, Alt with an arrow): it
@@ -2301,7 +2301,7 @@ function docPaletteCommands() {
 }
 
 //: The `?` sheet's editor section, from the same table, so the two cannot
-//: disagree. Called by `openShortcuts` (app.js) rather than wired here,
+//: disagree. Called by `openShortcuts` (settings-wiring.js) rather than wired here,
 //: because this file is in the Library's lazy bundle and the dialog can be
 //: opened before it has ever loaded: the section then simply says so.
 function renderDocShortcutSheet(list) {
@@ -2951,7 +2951,7 @@ function renderDocPreview() {
   const body = docSuggestForRead(remarks(docBlockStripIds(stripped)));
   //: **How far the preview's line numbers are from the editor's.** Every
   //: block this renders carries the line it came from (`data-src-line`,
-  //: `renderMarkdown` in app.js), but it came from the line in the string
+  //: `renderMarkdown` in navigation.js), but it came from the line in the string
   //: below, not in the document: the title is prepended as a heading and the
   //: frontmatter is taken off the front, so the two texts are the same words
   //: at different line numbers. The split view's scroll map reads the stamps
@@ -3164,7 +3164,7 @@ function layerDocWikiLinks(container) {
       link.type = "button";
       link.className = "wiki-link";
       //: The words, not the syntax the target happens to open with: see
-      //: `wikiLinkLabel` in app.js for why the raw `name` stays in the
+      //: `wikiLinkLabel` in shell-reminders.js for why the raw `name` stays in the
       //: document and only what is drawn is cleaned.
       link.textContent = window.wikiLinkLabel ? window.wikiLinkLabel(name) : name;
       link.title = target
@@ -8143,7 +8143,7 @@ function docEmbedFill(host, name, options = null) {
 //: line is not a heading). The `[[…]]` text the picker inserts is the note's
 //: opening words verbatim, `# ` and all, so the two forms differ by exactly
 //: the characters the derivation removes and the comparison could never be
-//: true. `resolveWikiTarget` (app.js) is the resolver the Notes tab has used
+//: true. `resolveWikiTarget` (notes-list.js) is the resolver the Notes tab has used
 //: all along: it matches a vault note by its file stem, a board by title, a
 //: note by *content prefix* (which is what makes the picker's opening-words
 //: form resolve), and a document by title or title prefix.
@@ -8249,7 +8249,7 @@ function docOpenLink(href) {
 // ends are exact by construction), and the middle, which is where anybody
 // actually reads, is off by however much furniture is above it.
 //
-// So the map is line to block. `renderMarkdown` (app.js) stamps every block it
+// So the map is line to block. `renderMarkdown` (navigation.js) stamps every block it
 // draws with the source line it came from, which is the one place that can
 // know; `docScrollAnchors` turns those stamps into pairs of offsets, one in
 // each pane, and the sync interpolates between the two nearest. The old
@@ -10752,7 +10752,7 @@ function wireMarkdownToolbar(bar) {
 //: on the *same* element (a note re-opened for editing without a full
 //: reload) must not stack a second listener that fires the same keydown
 //: twice.
-//: Takes the element itself, not only its id: `renderEditForm` (app.js)
+//: Takes the element itself, not only its id: `renderEditForm` (notes-list.js)
 //: builds the note edit form's textarea and wires this before appending it
 //: to the document, where `$(id)` (`document.getElementById`) would find
 //: nothing yet. `#entry-content` is already in the page at boot, so the
@@ -14979,7 +14979,7 @@ $("doc-focus-prose")?.addEventListener("click", () => $("doc-prose")?.click());
 // window, it takes width the text column was not using. So both, the writer's
 // choice from the panel's own head, remembered per browser (a layout
 // preference about this screen, not about the notebook), and a column that
-// resizes by the sidebars' own handle (`makeSidebarResizable` in app.js: a
+// resizes by the sidebars' own handle (`makeSidebarResizable` in sheets-selects.js: a
 // `role="separator"` grip, drag, arrow keys, Home or a double click to reset).
 //
 // **Right means a column in `#doc-panes`**, beside the source and the preview,

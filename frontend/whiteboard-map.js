@@ -3116,7 +3116,7 @@ function wbRenderMapEdgePluses(index, hidden, layout) {
       });
       //: And the hold, for the same reason: a finger has no second button, so
       //: the button that sits on the line's middle has to answer the line's
-      //: own gesture there too. `wireLongPress` (app.js) is the app's one
+      //: own gesture there too. `wireLongPress` (navigation.js) is the app's one
       //: hold, and it swallows the click the lift makes, which this button's
       //: own click (insert a topic here) would otherwise run the moment the
       //: ring opened.
@@ -4531,7 +4531,7 @@ let wbMapRadialFor = null;
 //: still reads as belonging to the node it came from.
 //:
 //: Measured after the ring is shown, not before, which is the ordering
-//: `placeEscapedMenu` in app.js paid for: a rect read inside a
+//: `placeEscapedMenu` in menus.js paid for: a rect read inside a
 //: `display: none` ancestor is all zeroes, and zeroes here would produce a
 //: confident shift from nothing. Measured off the slots rather than off the
 //: ring, for the same reason from the other direction: the ring's own box is
@@ -5402,7 +5402,7 @@ function wbWireMapEdgeGestures(hit, childId) {
     event.stopPropagation();
     wbOpenMapLinkRadial(childId, event.clientX, event.clientY);
   });
-  //: Touch has no right-click, so a hold stands in: `wireLongPress` (app.js),
+  //: Touch has no right-click, so a hold stands in: `wireLongPress` (navigation.js),
   //: which is the same 500ms and the same cancel-on-move this used to write
   //: for itself, plus the one thing the hand-rolled version could not do,
   //: swallowing the click the lift synthesises.

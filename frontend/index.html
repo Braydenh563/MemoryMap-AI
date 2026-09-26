@@ -1297,7 +1297,7 @@ Link to another note with [[its first few words]]."></textarea>
                here, so a capture that landed somewhere other than where the
                person thought looked like a bug in filing rather than a
                question this form never answered. Filled in by
-               `updateCaptureSpaceLabel` (app.js) from the same `spacesCache`
+               `updateCaptureSpaceLabel` (spaces-find.js) from the same `spacesCache`
                the switcher reads, so it can never name a different space
                than the one actually selected. -->
           <div class="row capture-field-row capture-commit-row">
@@ -2849,7 +2849,7 @@ Link to another note with [[its first few words]]."></textarea>
            reads the same array, so a search can never match in one and not the
            other. -->
       <!-- Selecting rows in the table drives the Notes list's own batch
-           actions (`batchMove`, `batchTag`, `batchDelete` in app.js) over the
+           actions (`batchMove`, `batchTag`, `batchDelete` in skills.js) over the
            same `selectedIds` set, so a note moved from here and a note moved
            from the Notes tab take exactly the same path. -->
       <div id="timeline-batch-bar" class="row library-contextbar selectbar hidden">
@@ -5036,7 +5036,7 @@ Link to another note with [[its first few words]]."></textarea>
                  are the two primary ones), which is rule 5's case exactly: a
                  verb used sometimes lives in the menu.
 
-                 It also gives `foldDockArrange` (app.js) the destination it
+                 It also gives `foldDockArrange` (phone-shell.js) the destination it
                  looks for, `:scope > .dock-actions > .dock-more >
                  .dock-menu-list`. Without one this dock was the only Phase 8
                  dock that could not fold its arrange zone below 1100, so the
@@ -6436,7 +6436,7 @@ Link to another note with [[its first few words]]."></textarea>
             <i class="ph ph-question" aria-hidden="true"></i>
           </button>
           <!-- The overflow the other Library docks already have, so
-               `foldDockArrange` (app.js) has somewhere to put sort and view
+               `foldDockArrange` (phone-shell.js) has somewhere to put sort and view
                below 1100 (pass2.md finding 14: at 390 this dock was three
                rows, 166px, where All and Documents are two). It holds only
                the folded zone, so it is hidden while it is empty. -->
@@ -6661,7 +6661,7 @@ Link to another note with [[its first few words]]."></textarea>
                (`tests/test_dock_grammar.py`: refresh, help, more, in that
                order).
 
-               And, as there, the `...` is what `foldDockArrange` (app.js)
+               And, as there, the `...` is what `foldDockArrange` (phone-shell.js)
                looks for: `:scope > .dock-actions > .dock-more >
                .dock-menu-list`. Without one this dock could not fold its
                arrange zone below 1100, so the four-way segment stayed in the
@@ -6719,13 +6719,13 @@ Link to another note with [[its first few words]]."></textarea>
        height changes. -->
   <!-- `edge-fade`: below 400 the bar becomes a sideways scroller (see
        00-tokens-shell.css, "the status bar on a small phone"), and this is the
-       class `syncEdgeFade` in app.js already drives on every other strip that
+       class `syncEdgeFade` in shell-reminders.js already drives on every other strip that
        can run off its own edge. It costs nothing at a width where the bar
        fits: the fade classes are only added when there is something hidden. -->
   <!-- The phone's bottom bar: the tab strip, plus the one control that is not
        a tab (UI_MODERNISATION_PLAN.md Phase 11, item 1).
 
-       Why the strip needs a host at all. `dockTabBar` (app.js) moves `#tab-bar`
+       Why the strip needs a host at all. `dockTabBar` (phone-shell.js) moves `#tab-bar`
        itself out of the header and onto the body below 600, because a
        `position: fixed` element inside the header pins itself to the bottom of
        the *header*: `header#top-bar` carries `backdrop-filter`, and a filtered
@@ -7403,7 +7403,7 @@ Link to another note with [[its first few words]]."></textarea>
                being built a second time. -->
           <!-- The person, in the head every pane shares: their mark, and the
                way to the profile from any pane. Painted by `paintUserMarks`
-               (app.js). -->
+               (chat-agent.js). -->
           <button id="settings-profile-btn" class="ghost small icon-only settings-profile-btn" type="button"
             title="Your profile" aria-label="Your profile"><span class="profile-mark" data-user-mark="18" aria-hidden="true"></span></button>
           <button id="settings-guide-btn" class="ghost small icon-only" type="button"
@@ -7833,7 +7833,7 @@ Link to another note with [[its first few words]]."></textarea>
                  re-index ran, and the only thing that could start one was
                  switching embedding backend, where a rebuild is a side effect.
                  It is a real section now, see `POST /models/reindex` and
-                 `renderReindex` in app.js, which swaps the button for the
+                 `renderReindex` in ai-tools.js, which swaps the button for the
                  progress bar while a job is going. -->
             <div id="reindex-box" class="settings-group">
               <div class="row help-head">
@@ -9036,7 +9036,7 @@ Link to another note with [[its first few words]]."></textarea>
                      this container by app.js: those are permanent landmarks
                      that show by default and can be hidden; a clock is
                      neither permanent nor default, see its own comment in
-                     app.js's applyStatusClock(). Kept as a real DOM child of
+                     spaces-find.js's applyStatusClock(). Kept as a real DOM child of
                      `#status-bar-items` rather than a sibling after it: that
                      container is `display: flex; flex-wrap: wrap`, which is
                      what makes every other row here a compact chip instead
@@ -10715,7 +10715,7 @@ Link to another note with [[its first few words]]."></textarea>
   <!-- aria-live so screen readers hear saves, undos, and errors -->
   <div id="toast-box" aria-live="polite"></div>
   <!-- A readout, not a notification: what a control you are holding down is
-       doing, centred, for about a second. See `hud()` in app.js for why this
+       doing, centred, for about a second. See `hud()` in settings-panes.js for why this
        is deliberately outside the mute preference and outside the
        notifications centre. `aria-live="polite"` so it is announced once;
        `role` is left off because it carries no landmark meaning. -->
@@ -11282,6 +11282,14 @@ Link to another note with [[its first few words]]."></textarea>
        read out of graph.js, documents.js and library.js could not be
        stood in for at all (a `const` in a classic script is a lexical
        global), so they moved into app.js. -->
+  <!-- The app's own code: app.js and the 22 files after it were one file
+       until 2026-09-26 (INBOX 426 cc, agent-remaining/appjs-split.md), cut
+       into contiguous ranges and kept in the old order, so this order is
+       load-bearing exactly as the old line order was: a file may call into
+       the files above it while the page loads, never below. The two boot
+       kick-offs, initNotesSubtabs() and initAuth(), are the last lines of
+       spaces-find.js for that reason. agent-activity.js (split first) runs
+       after all of them. -->
   <script src="/app.js?v=0.3.2"></script>
   <script src="/note-cards.js?v=0.3.2"></script>
   <script src="/menus.js?v=0.3.2"></script>
@@ -11365,7 +11373,7 @@ Link to another note with [[its first few words]]."></textarea>
        `applyAppearance(); if (bgArtOn()) startBgArt(); renderBrandLogo();`, 
        two calls relocated here from bare top-level lines in app.js's own
        wiring, the same `initDocSidebarTabs()` shape documents.js's split
-       found: and that chain reaches into app.js's `applyPalette()`, which
+       found: and that chain reaches into ai-tools.js's `applyPalette()`, which
        itself calls dashboard.js's `refreshArtForTheme()` behind a `typeof`
        guard. Loading dashboard.js first means that guard passes rather than
        skips at this one call site, which is harmless either way (the

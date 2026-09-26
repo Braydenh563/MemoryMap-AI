@@ -2808,7 +2808,7 @@ li.link-source {
   font-size: 0.92rem;
   /* Arrives and leaves: a fade and 4px of travel, the menus' own entrance
      distance, on `translate` so no transform the toast carries is replaced.
-     `dismissToast` (app.js) adds `.is-leaving` and removes the toast when
+     `dismissToast` (status.js) adds `.is-leaving` and removes the toast when
      the animation ends. Under reduced motion the blanket rules cut both to
      nothing, and the toast simply appears and goes. */
   animation: toast-in var(--motion-slow) var(--ease-out);
@@ -4031,7 +4031,7 @@ html.modal-open body {
 }
 
 /* The animated indicator and the sentence that says what it is doing, on one
-   baseline. See `progressLine` (app.js): the label is what carries the
+   baseline. See `progressLine` (chat.js): the label is what carries the
    signal when the OS has asked for reduced motion and the dots are gone. */
 /* **Two rows, not one line that happens to wrap.** The musing belongs *under*
    the status, indented to the status's own column: a second sentence beside
@@ -4125,7 +4125,7 @@ html.modal-open body {
 }
 
 /* **The stepped variant: a word, not three dots (INBOX 36).**
-   Built by `typingDots` (app.js) when progress motion is off. The previous
+   Built by `typingDots` (chat.js) when progress motion is off. The previous
    version of this kept the three constellation nodes and moved a `.is-on`
    class between them once a second, a colour swap with no size or position
    change, reasoned to read as "alive" and reported, unchanged, as not: "the
@@ -4662,7 +4662,7 @@ select {
 
 /* The "worth rebuilding now" line in Settings → Search index. An accent
    ground rather than a warning colour: nothing is broken, there is simply
-   something useful to do. See `renderReindex` in app.js. */
+   something useful to do. See `renderReindex` in ai-tools.js. */
 /* The box itself is `.notice.notice-warn` now (08-consistency.css, the recipe
    index): this was the app's only one-line "something is worth knowing here"
    box and it was built inline, which is what made the second one go looking

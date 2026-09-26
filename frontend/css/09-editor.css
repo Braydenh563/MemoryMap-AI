@@ -819,7 +819,7 @@
    under it.
 
    **It reads `--keyboard-inset` and never measures the keyboard itself.**
-   app.js's `initKeyboardInset` writes the covered strip from `visualViewport`
+   phone-shell.js's `initKeyboardInset` writes the covered strip from `visualViewport`
    once, for every surface that needs it (the two bottom docks were the first);
    a second listener for the same number is how two bars end up disagreeing
    about where the keyboard is by a few pixels on every resize.

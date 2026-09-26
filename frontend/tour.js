@@ -621,7 +621,7 @@ function tourVisible(el) {
 }
 
 //: The element a step actually points at, which is not always the element it
-//: names. `enhanceSelect` (app.js) wraps every `<select>` in the app in a
+//: names. `enhanceSelect` (sheets-selects.js) wraps every `<select>` in the app in a
 //: `.select-shell` and puts a button in front of it, leaving the native
 //: control in place but out of the layout: measured on the capture form's
 //: category picker, `#entry-category` is a 0x0 box behind a 129x30 opener, so

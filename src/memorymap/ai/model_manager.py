@@ -66,7 +66,7 @@ class Embedder(Protocol):
 SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
     # Split by type (text / vision / embedding / moe), asked for directly, 
     # this dict drives the Settings -> Models suggested-downloads list
-    # generically (frontend/app.js's renderSuggested() does a plain
+    # generically (frontend/ai-tools.js's renderSuggested() does a plain
     # `Object.entries()` over it and labels each model with its own top-
     # level key), so a new key here needs no frontend change at all. "moe"
     # split out of the old flat "chat" list rather than staying folded into

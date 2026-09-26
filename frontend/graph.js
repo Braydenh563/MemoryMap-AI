@@ -1576,7 +1576,7 @@ async function renderGraphSvg() {
   //: A failed read is not an empty graph. Reported class of bug: the map
   //: drew "Nothing to map yet" over a notebook full of linked notes because
   //: the only thing distinguishing the two was a null this returned silently.
-  //: See `surfaceFailed` in app.js.
+  //: See `surfaceFailed` in navigation.js.
   const data = await apiJson(endpoint).catch(() => null);
   if (!data) {
     surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
@@ -3499,7 +3499,7 @@ function openGraphLinkPanel(edge, nodes) {
 //: picture is a library upload referenced from its own markdown drew nothing
 //: at all, `#graph-popup-media` hidden with 0 children. Pasted, dropped and
 //: AI-attached pictures all end up as `![alt](/media/...)` in the body and
-//: there is no column that mirrors them (`noteAnyImage` in app.js says the
+//: there is no column that mirrors them (`noteAnyImage` in shell-reminders.js says the
 //: same thing about the other direction), so a panel that reads only
 //: `entry.attachments` is blind to the commonest kind of image note there is.
 //:
@@ -3801,7 +3801,7 @@ function renderGraphPopupActions(entry) {
 
   // keep ---------------------------------------------------------------
   //: One glyph in both states, coloured when it is on, the note cards'
-  //: own rule, and for the reason `favouriteButton` (app.js) records: the
+  //: own rule, and for the reason `favouriteButton` (note-cards.js) records: the
   //: "off" version used a *different icon*, and one of those was missing
   //: from the font and drew nothing at all.
   const favourite = smallButton(
@@ -4528,7 +4528,7 @@ function graphMinimapFrame() {
 // too high, underneath the dock they exist to stay clear of, and the options
 // panel was capped against a top that did not exist.
 //
-// The same answer, for the same reason, as `initHeaderHeightToken` in app.js:
+// The same answer, for the same reason, as `initHeaderHeightToken` in phone-shell.js:
 // a ResizeObserver writes the measured height back into the token everything
 // already reads, so nothing gains a second property to learn. Through the
 // CSSOM rather than a `style=` attribute, which this app's CSP refuses. No

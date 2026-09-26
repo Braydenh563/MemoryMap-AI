@@ -2114,7 +2114,7 @@ function gcWireNodeMenu(s = gcTab) {
   //: press decides which. A node gets the same menu a right-click opens; the
   //: empty map arms the lasso, which is the other thing this canvas has that
   //: a phone could not reach at all, because its desktop gesture is Shift
-  //: and drag. `wireLongPress` (app.js) is the app's one hold: touch only,
+  //: and drag. `wireLongPress` (navigation.js) is the app's one hold: touch only,
   //: 500ms, cancelled by a move, so the app answers a hold at one speed
   //: everywhere. `tests/test_ui_recipes.py` counts this file's contextmenu
   //: listeners against its `wireLongPress` calls.
@@ -2525,7 +2525,7 @@ async function renderGraphCanvas(s = gcTab) {
   //: A failed read is not an empty graph. Reported class of bug: the map
   //: drew "Nothing to map yet" over a notebook full of linked notes because
   //: the only thing distinguishing the two was a null this returned silently.
-  //: See `surfaceFailed` in app.js.
+  //: See `surfaceFailed` in navigation.js.
   const data = await apiJson(endpoint).catch(() => null);
   if (!data) {
     surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);

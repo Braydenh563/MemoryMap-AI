@@ -4176,7 +4176,7 @@ input[type="url"]:hover:not(:focus) {
 }
 
 /* --- the app's own dropdown ----------------------------------------------
-   See `enhanceSelect` in app.js for why a native <select> popup had to be
+   See `enhanceSelect` in sheets-selects.js for why a native <select> popup had to be
    replaced rather than styled: it is drawn by the operating system and no
    stylesheet reaches it. The real <select> is still there and still owns the
    value; these rules dress the button and listbox that stand in front of it. */
@@ -7193,7 +7193,7 @@ button.connection-row {
 }
 
 /* A note that is a favourite. The star is the same glyph in both states, 
-   see `favouriteButton` in app.js for why the "off" version used to be a
+   see `favouriteButton` in note-cards.js for why the "off" version used to be a
    different icon and why that was the bug, so colour is what carries the
    state, the way every app the user has ever used shows one.
 
@@ -7214,7 +7214,7 @@ button.connection-row {
 
 /* A toast that is announcing work in progress rather than reporting a result.
    The dots sit before the sentence on the same baseline, see `toastProgress`
-   in app.js for why a long job needed a toast that does not expire. */
+   in status.js for why a long job needed a toast that does not expire. */
 .toast .typing-dots {
   flex: 0 0 auto;
   margin-right: var(--space-2);
@@ -8889,7 +8889,7 @@ button.connection-row {
    still ran 46px past its right edge with these two rules waiting for 1088
    (INBOX 195). Measured on a map at 1152: scrollWidth 1153 in 1106. */
 @media (max-width: 76rem) {
-  /* The shell as well as the select: `enhanceSelect` (app.js) puts every
+  /* The shell as well as the select: `enhanceSelect` (sheets-selects.js) puts every
      native select inside a `.select-shell`, and that shell is what the bar
      actually lays out, so a cap on the select alone measured as no change at
      all (212px before and after). */
@@ -9228,7 +9228,7 @@ button.connection-row {
    jobs for every dock, so the wrapper and its two rules are gone. */
 
 /* --- the HUD: a momentary readout, not a notification ----------------------
-   See `hud()` in app.js. Centred rather than in the toast corner on purpose:
+   See `hud()` in settings-panes.js. Centred rather than in the toast corner on purpose:
    this answers a key you just pressed, so it belongs where the eye already
    is, and it must not be mistaken for the notification stack it is
    deliberately not part of. Nothing here is interactive, `pointer-events`
@@ -9531,14 +9531,14 @@ header#top-bar > #tab-bar {
    The bar stops below the strip instead of fighting it for the layer, because
    the strip is navigation and belongs on top. `--notes-sticky-top` carries the
    strip's measured height plus its bottom margin, written by
-   `initNotesSubtabHeightToken` in app.js: it cannot be a constant here, since
+   `initNotesSubtabHeightToken` in phone-shell.js: it cannot be a constant here, since
    the strip is a row of `--control-h-lg` buttons and both Large text and
    Spacious density change what that comes to. The `0px` is what applies before
    the script has measured, and on any editor outside the Notes tab, where
    there is no strip and the bar's own `top: 0` is right. */
 #tab-notes {
   /* Declared so the token has a live value of its own, and replaced with the
-     measured one by `initNotesSubtabHeightToken` in app.js. `0px` is what
+     measured one by `initNotesSubtabHeightToken` in phone-shell.js. `0px` is what
      applies for the frame before that measurement lands, and is also the right
      answer if the strip is ever not there. */
   --notes-sticky-top: 0px;
@@ -11575,7 +11575,7 @@ input[type="file"] {
                rows reach under it.
 
      600-820   iPad portrait
-               One column: `.layout` stacks, and `STACKED_LAYOUT` in app.js
+               One column: `.layout` stacks, and `STACKED_LAYOUT` in sheets-selects.js
                moves with it or the inline grid track beats the stylesheet
                and 721-820 silently stays two-column. The three sidebars
                become sheets that slide in from the left, opened by the
@@ -11759,7 +11759,7 @@ header#top-bar {
    width.
 
    **The sidebars.** Their width is capped at 12rem by `SIDEBAR_TABLET_MAX`
-   in app.js, not here, and the reason is worth stating where a reader will
+   in sheets-selects.js, not here, and the reason is worth stating where a reader will
    look for the rule: a resizable sidebar writes its width as an inline
    `grid-template-columns` on `.layout`, and an inline style beats every rule
    in every file whatever the media query says. A `clamp()` in this block
@@ -11776,7 +11776,7 @@ header#top-bar {
    say about it. */
 
 /* --- the arrange zone, once it is inside the overflow menu ----------------
-   `foldDockArrange` (app.js) moves the whole `.dock-arrange` element into the
+   `foldDockArrange` (phone-shell.js) moves the whole `.dock-arrange` element into the
    dock's `...` menu below 1100 and moves it back above. The element arrives
    still wearing `.dock-group`, which is a horizontal run of controls at the
    dock's own height, and a menu is a stacked list of full-width rows. This is
@@ -11868,7 +11868,7 @@ header#top-bar {
    over the content, with a rail left showing that carries the collapse toggle
    they already own. No new control and no new gesture: the button that opens
    and closes a sidebar on a desktop opens and closes the sheet here.
-   `applySidebarSheetMode` (app.js) takes the desktop `.sidebar-collapsed`
+   `applySidebarSheetMode` (sheets-selects.js) takes the desktop `.sidebar-collapsed`
    classes off on the way in and puts them back on the way out, so none of
    that rule's `!important` widths and none of its hover-peek apply in this
    band, and there is nothing here fighting them.
@@ -12274,7 +12274,7 @@ header#top-bar {
 
    Floated bottom-right it is in the same thumb arc as the tab bar, above it,
    clear of the status bar. The same button and the same listener throughout:
-   `floatPrimaryActions` (app.js) moves the node out to its own `.tab-page`
+   `floatPrimaryActions` (phone-shell.js) moves the node out to its own `.tab-page`
    and marks it `.dock-fab`, and moves it back into its slot in the dock above
    600. It has to move, and the reason is the trap the tab bar hit one band
    earlier: every `.card` carries `backdrop-filter`, a filtered element is the
@@ -12450,7 +12450,7 @@ header#top-bar {
 }
 
 /* --- the settings jump list ----------------------------------------------
-   `buildSettingsJumpList` (app.js) writes a native `<select>` of all
+   `buildSettingsJumpList` (phone-shell.js) writes a native `<select>` of all
    seventeen sections, grouped by the same three headings the desktop nav
    uses, into the Settings nav. It shows only where the nav has stopped being
    a list: below 640, where the seventeen buttons are a strip that needed
@@ -12716,7 +12716,7 @@ header#top-bar {
    Found while measuring the rail's ink swatch at 390x844: the swatch read
    `3a53ca` from y=692 down instead of the ink colour, and `elementFromPoint`
    at its centre returned `BUTTON#library-new-doc.dock-fab`. "New document" is
-   the Library *tab's* one filled action, and `floatPrimaryActions` (app.js)
+   the Library *tab's* one filled action, and `floatPrimaryActions` (phone-shell.js)
    moves it out to `.tab-page` on a phone precisely so it is hidden with its
    tab. But this tab has four sub-tabs, and on the Whiteboards one the button
    makes nothing: it floats bottom-right, which is where this board keeps its
@@ -12844,7 +12844,7 @@ header#top-bar {
    to tell what those images are from their names so they need to be rendered
    in some way". Five checkboxes beside five generated filenames is a list you
    cannot choose from, so an image row now carries the picture and its caption
-   (`renderNotePickerOtherSource` in app.js builds them; the shape table there
+   (`renderNotePickerOtherSource` in chat-attach.js builds them; the shape table there
    decides which sources get them).
 
    Here rather than beside the other `.note-picker-*` rules in

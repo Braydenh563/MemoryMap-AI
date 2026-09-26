@@ -205,3 +205,108 @@ def test_no_boot_file_silently_depends_on_a_lazy_bundle():
                 )
 
     assert not unaccounted, "\n".join(unaccounted)
+
+
+#: The lazy tabs whose pages are drawn from index.html at boot, and so are on
+#: screen before their bundle is in (`switchTab` reveals first and fetches
+#: second, WORLD_CLASS_PLAN A1).
+LAZY_TAB_PAGES = ("tab-graph", "tab-library", "tab-documents")
+
+LISTENER = re.compile(
+    r'^(?:\$\("([\w-]+)"\)|document\.getElementById\("([\w-]+)"\))\??\.addEventListener\('
+)
+
+
+def _ids_on_lazy_pages() -> set[str]:
+    """Every id inside one of the lazy tabs' pages in index.html."""
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    starts = [m.start() for m in re.finditer(r'<div class="tab-page[^"]*" id="tab-', html)]
+    ids: set[str] = set()
+    for i, start in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else len(html)
+        chunk = html[start:end]
+        page = re.search(r'id="(tab-[\w-]+)"', chunk).group(1)
+        if page in LAZY_TAB_PAGES:
+            ids |= set(re.findall(r'\bid="([\w-]+)"', chunk))
+    return ids
+
+
+def test_a_boot_listener_cannot_reach_a_lazy_function_before_its_bundle():
+    """**The cold-load window, per call site** (reported 2026-09-26: changing
+    the graph's layout threw "setGraphPhysicsEnabled is not defined").
+
+    The name-level list above allows `setGraphPhysicsEnabled` because the Graph
+    tab's dispatch awaits the bundle before calling it; the call that threw was
+    a different one, a `change` listener wired at boot in navigation.js on the
+    layout picker, which is drawn from index.html and was live for as long as
+    the bundle took to arrive (`scratchpad/ui-sweeps/graphcoldlayout.js`). So a
+    listener wired at a boot file's top level that calls a function only a lazy
+    bundle defines (and that is not a stand-in) must do one of two things:
+
+    * `await ensureModule(...)` (or `await switchTab(...)`, which awaits it)
+      before the call, in the listener itself; or
+    * be on an element inside a lazy tab's page, which `switchTab` keeps
+      `inert` until that tab's bundle has arrived, so no press reaches it.
+
+    The second is the general fix and this test holds it in place too.
+    """
+    nav = (FRONTEND / "navigation.js").read_text(encoding="utf-8")
+    assert "lazyPage.inert = true" in nav and "lazyPage.inert = false" in nav, (
+        "switchTab no longer keeps a lazy tab's page inert while its bundle loads; "
+        "every control drawn on that page is then live before its code exists"
+    )
+
+    lazy = _lazy_files()
+    entries = _entry_points()
+    boot = _boot_scripts()
+    boot_defined: set[str] = set()
+    for name in boot:
+        boot_defined |= _declared_anywhere(FRONTEND / name)
+    lazy_only: dict[str, str] = {}
+    for bundle, files in lazy.items():
+        for file_name in files:
+            for symbol in _top_level_functions(FRONTEND / file_name):
+                if symbol not in boot_defined and symbol not in entries.get(bundle, set()):
+                    lazy_only.setdefault(symbol, bundle)
+    call = re.compile(r"(?<![\w$.])(" + "|".join(sorted(map(re.escape, lazy_only))) + r")\s*\(")
+    on_lazy_page = _ids_on_lazy_pages()
+    assert "graph-layout" in on_lazy_page, "the page scan found nothing; has index.html's tab markup changed?"
+
+    offenders: list[str] = []
+    checked = 0
+    for name in boot:
+        lines = (FRONTEND / name).read_text(encoding="utf-8").split("\n")
+        i = 0
+        while i < len(lines):
+            match = LISTENER.match(lines[i])
+            if not match:
+                i += 1
+                continue
+            element = match.group(1) or match.group(2)
+            j = i
+            # The statement runs to its own closing line at column 0.
+            if not lines[i].rstrip().endswith(");"):
+                j = i + 1
+                while j < len(lines) and not lines[j].startswith("}"):
+                    j += 1
+            body = "\n".join(lines[i : j + 1])
+            checked += 1
+            for hit in call.finditer(body):
+                if element in on_lazy_page:
+                    continue
+                before = body[: hit.start()]
+                #: `await switchTab(...)` awaits the tab's bundle itself, and a
+                #: `typeof` guard on the same name is the name-level test's
+                #: business (above), which lists what each one does instead.
+                if "ensureModule(" in before or "await switchTab(" in before:
+                    continue
+                if re.search(r"typeof\s+" + hit.group(1) + r"\s*===?\s*[\"']function", before):
+                    continue
+                offenders.append(
+                    f"{name}:{i + 1}: the listener on #{element} calls {hit.group(1)}(), "
+                    f"which only the '{lazy_only[hit.group(1)]}' bundle defines, with no "
+                    "`await ensureModule(...)` before it and from outside a lazy tab's page"
+                )
+            i = j + 1
+    assert checked > 50, f"only {checked} boot listeners found; has the scan broken?"
+    assert not offenders, "\n".join(offenders)

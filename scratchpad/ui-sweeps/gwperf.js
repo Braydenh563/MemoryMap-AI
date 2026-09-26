@@ -61,6 +61,17 @@ function summarise(buf) {
       if (names.includes(e.name) && onMain) sums[k] = (sums[k] || 0) + e.dur / 1000;
     }
   }
+  if (process.env.DETAIL) {
+    // Totals by event name on the page's main thread (nested events counted
+    // inside their parents too), for finding what a long task is made of
+    // when the named buckets do not add up to it.
+    const by = {};
+    for (const e of ev) {
+      if (e.ph !== 'X' || !e.dur || `${e.pid}:${e.tid}` !== mainKey || e.name === 'RunTask') continue;
+      by[e.name] = (by[e.name] || 0) + e.dur / 1000;
+    }
+    console.log('  top: ' + Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => `${k} ${Math.round(v)}`).join(', '));
+  }
   return { sums, long };
 }
 

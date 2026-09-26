@@ -7474,6 +7474,7 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="nav-group-label" id="nav-group-system">System</p>
           <div role="group" aria-labelledby="nav-group-system">
             <button data-section="account">Account &amp; security</button>
+            <button data-section="privacy">Privacy</button>
             <button data-section="extras">Packages</button>
             <button data-section="tasks">Background tasks</button>
             <button data-section="logs">Logs</button>
@@ -10047,6 +10048,44 @@ Link to another note with [[its first few words]]."></textarea>
               </label>
             </div>
 
+            <!-- LAN mode (WORLD_CLASS_PLAN section 12, Brief 15): shown only
+                 now that tests/test_lan_mode.py passes against the real
+                 launcher. `GET`/`POST /auth/lan-access`; on asks for the
+                 password through askPasswordPrompt, off asks for nothing.
+                 Wired in settings-panes.js (`renderLanAccess`). -->
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Other devices</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="lan-help" aria-controls="lan-help" aria-expanded="false"
+                  title="About other devices" aria-label="About other devices">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="help-body hidden" id="lan-help" role="dialog" aria-label="About other devices">
+                <p>
+                  Off, only this computer can open the app: nothing on your
+                  network can even reach it. On, a phone or another computer
+                  on the same network can open it at the address shown here,
+                  and always has to give your password, whatever this
+                  computer is set to. Private notes still ask for it too.
+                </p>
+                <p>
+                  The change takes effect the next time the app starts.
+                  Addresses are IPv4 only for now. Turning it on asks for your
+                  current password.
+                </p>
+              </div>
+              <label class="setting-check">
+                <input type="checkbox" id="account-allow-lan">
+                <span>
+                  Allow other devices on this network
+                  <small class="muted">They always need your password.</small>
+                </span>
+              </label>
+              <p id="account-lan-state" class="notice hidden" role="status"></p>
+            </div>
+
             <div class="settings-group">
               <div class="row help-head">
                 <h3>Change your password or PIN</h3>
@@ -10130,6 +10169,67 @@ Link to another note with [[its first few words]]."></textarea>
                 cannot be recovered by anyone, and the reset loses them. The
                 command tells you how many you have before you confirm.
               </p>
+            </div>
+          </section>
+
+          <!-- Privacy: "where your data went" (WORLD_CLASS_PLAN section 2,
+               standout 5). Read from `GET /privacy/receipt`, which is the
+               interpreter's own record of every connection this app's process
+               made (core/egress.py), not a list of features that promise to
+               behave. Filled by `renderPrivacyReceipt` in settings-panes.js. -->
+          <section class="settings-section hidden" id="settings-privacy">
+            <div class="row help-head">
+              <h3>Where your data went</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="privacy-help" aria-controls="privacy-help" aria-expanded="false"
+                title="How this is recorded" aria-label="How this is recorded">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">Every connection this app made, recorded as it happened.</p>
+            <div class="help-body hidden" id="privacy-help" role="dialog" aria-label="How this is recorded">
+              <p id="privacy-covers">
+                The interpreter itself reports every connection and every name
+                lookup this app makes, whatever part of it asks, so nothing can
+                leave without appearing here.
+              </p>
+            </div>
+
+            <p id="privacy-verdict" class="notice" role="status"></p>
+
+            <div class="settings-group">
+              <div class="row align-center privacy-range-row">
+                <h3>Destinations</h3>
+                <div class="seg" id="privacy-range" role="group" aria-label="Which record to show">
+                  <button type="button" data-range="launch" aria-pressed="true">Since launch</button>
+                  <button type="button" data-range="ledger" aria-pressed="false">All time</button>
+                </div>
+              </div>
+              <p class="muted" id="privacy-range-note"></p>
+              <ul id="privacy-destinations" class="entry-list privacy-list"></ul>
+              <p id="privacy-empty" class="muted hidden">Nothing has left this computer.</p>
+            </div>
+
+            <div class="settings-group">
+              <h3>Your model</h3>
+              <p id="privacy-model"></p>
+              <p class="muted library-file-meta" id="privacy-model-meta"></p>
+            </div>
+
+            <div class="settings-group">
+              <h3>Who can open this app</h3>
+              <p id="privacy-listening"></p>
+            </div>
+
+            <div class="settings-group">
+              <h3>What can reach out</h3>
+              <p class="muted">The only switches that let the app itself connect past this computer.</p>
+              <ul id="privacy-switches" class="entry-list account-facts privacy-switches"></ul>
+            </div>
+
+            <div class="row">
+              <button type="button" id="privacy-refresh" class="ghost small">
+                <i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Read it again</button>
             </div>
           </section>
 

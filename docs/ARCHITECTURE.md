@@ -958,6 +958,65 @@ that file while that file's top-level wiring names its functions (`LAZY_MODULES`
 `?v=<version>` plus a per-process boot token, so no browser or desktop
 window can keep a stale file (`RevalidatedStatic` in `api/app.py`).
 
+### The scripts, their order, and the one scope they share
+
+Forty-six JavaScript files, in four kinds (0.3.3):
+
+| Kind | Files | Loaded |
+| --- | --- | --- |
+| Before first paint | `boot-guard.js`, `theme-boot.js` | in `<head>`, so the theme and the boot-failure guard apply before anything draws |
+| The app's own code | `app.js`, `note-cards.js`, `menus.js`, `lightbox.js`, `selection.js`, `notes-list.js`, `capture-ask.js`, `chat.js`, `chat-agent.js`, `chat-attach.js`, `sheets-selects.js`, `skills.js`, `shell-reminders.js`, `markdown.js`, `navigation.js`, `settings-panes.js`, `media.js`, `status.js`, `ai-tools.js`, `phone-shell.js`, `wiring.js`, `settings-wiring.js`, `spaces-find.js`, `agent-activity.js` | at the end of `<body>`, in this order |
+| The boot surfaces | `avatars.js`, `atlas.js`, `editor.js`, `dashboard.js`, `timeline.js`, `palette.js`, `bg-art.js`, `settings.js`, `tour.js` | straight after, in this order |
+| Lazy bundles | `graph.js` and `graph-canvas.js` (the Graph tab); `documents-code.js`, `documents-prose.js`, `documents.js`, `whiteboard-map.js`, `whiteboard.js`, `library.js` (Library and Documents) | on the first visit to the tab, by `ensureModule` from `LAZY_MODULES` in `app.js` |
+
+Plus three that are not page scripts: `sw.js` (the service worker),
+`graph-worker.js` and `harper-worker.js` (web workers for the graph's layout
+and the grammar checker).
+
+**Every one is a classic script, not a module, and they share one global
+scope.** A top-level `function` or `const` in any of them is a global the
+others can name, which is how `settings.js` calls `renderEmblem` from
+`phone-shell.js` and how a Playwright `page.evaluate` can call `switchTab`. There
+are no imports and nothing to resolve: the browser runs the files in the
+order `index.html` lists them, one after the other, each to its end before
+the next begins.
+
+**Load order is therefore the one rule, and it has two halves.**
+
+1. *Inside a function, anything goes.* A click handler, a renderer or a
+   timer runs after every file has loaded, so it may call a function from
+   any file, earlier or later.
+2. *At load, only upwards.* A statement at a file's top level (a
+   `$("x").addEventListener(...)`, an `init...()` call, a `const` built by
+   calling something) runs the moment the browser reaches it, so it may use
+   only what the files above it, and the lines above it in its own file,
+   have declared. A `function` declaration is hoisted within its own file
+   only; a `const` or `let` is not hoisted at all (reading one early is
+   "Cannot access X before initialization", and one in a later file is
+   simply "X is not defined"). A top-level throw stops the rest of that one
+   file, not the page, so a half-booted app is the symptom to look for.
+
+The two calls that start the app, `initNotesSubtabs()` and `initAuth()`, are
+the last lines of `spaces-find.js` for that reason: they reach functions
+declared across the whole app, and `initAuth`'s answer can arrive between
+two files. A lazy bundle's entry points are reachable before the bundle
+exists through `LAZY_ENTRY_POINTS` in `app.js`: a stand-in on `window`
+that loads the bundle and then calls the real function. A boot surface that
+calls into a later one guards the call with `typeof`.
+
+**What holds the rule.** `tests/test_frontend_load_order.py` reads
+`index.html`'s order and fails on a top-level call into a later file, on a
+top-level read of a later file's constant, and on a lazy name read at load
+with no stand-in; `tests/test_lazy_bundle_calls.py` covers the lazy bundles.
+`scratchpad/appjs-map.js --check FROM TO [AFTER]` answers the same question
+for a range of lines before it moves. The app's own code was one 50,000-line
+`app.js` until 0.3.3; it was cut into the 23 files above as contiguous
+ranges in their old order, so every reference that was backward stayed
+backward (`docs/roadmap/archive/agent-remaining/appjs-split.md`). A test
+that means "the app's code" reads all of them as one text through
+`tests/_app_js.py`. To find a function's file:
+`grep -n "^function name" frontend/*.js`.
+
 ### Driving it in a browser
 
 The test suite cannot see any of this, so verify UI work by running the app:

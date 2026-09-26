@@ -130,8 +130,20 @@ light and a dark value, and the lint enforces that:
 
 ```
 --ink   --muted   --border   --card   --accent   --accent-soft   --chip-bg
+--accent-text
 --ok / --ok-soft      --warn / --warn-soft      --error / --error-soft
 ```
+
+**Words in the accent are `--accent-text`, never `--accent`** (0.3.3). The
+accent is picked as a fill, and a fill colour fails as text: measured over
+every palette, accent and mode, the raw accent was under 4.5:1 as a word on
+228 of 348 combinations (rose on paper, 3.35:1 for a link). `--accent-text`
+is the accent pulled to a readable lightness in each mode (`oklch(from ...)`
+in `00-tokens-shell.css`, the accent itself where the browser lacks relative
+colour), lowest 4.71:1. Links, an accent label, a count in the accent: the
+token. Borders, rings, fills and `accent-color`: the accent itself.
+`tests/test_accent_text.py` fails on a `color:` that reaches the raw accent,
+in a stylesheet or in a CodeMirror theme object.
 
 **Never write `var(--token, #fallback)` for a colour.** That pattern looks like
 a safety net and is the opposite of one:
@@ -423,6 +435,10 @@ this table and its lint in the same commit as the feature, never after.
 | A list whose first rows are on their way | `showSkeletons(list, n)` before the fetch and `clearSkeletons(list)` after it (app.js): the `.skeleton` placeholders at the height of the list's own rows, `aria-busy` while they show, only ever into an empty list; the list's own render replaces them. Never a spinner or a blank card where the shape of the content is known | `scratchpad/ui-sweeps/f2-skel.js` |
 | An animation of anything | `transform` and `opacity`, never `width`, `height`, `top`, `left`, `margin` or `padding`. A bar that fills is a full-width box scaled from a left origin inside a track that clips (`.boot-splash-progress-fill`, 00-tokens-shell.css), never a box that grows: measured, the width version cost 121 layouts for one 2.4s crawl and the scaled one costs none. A box that genuinely does change size with content in it keeps its transition and states the reason in a comment on the line above, as `#phone-tab-dock` does | `tests/test_cheap_animations.py`, `scratchpad/ui-sweeps/animcost.js` |
 | Copy | sentence case, no em-dashes, no exclamation marks, one line per section | `tests/test_no_em_dashes.py` |
+| Words in the accent colour (a link, an accent label) | `color: var(--accent-text)`, never `var(--accent)`, which stays for fills, borders and rings (Colour, above) | `tests/test_accent_text.py`, `scratchpad/ui-sweeps/accenttext.js` |
+| The app's mark in an empty state or a head | an element with an id on `EMBLEM_SLOTS` (phone-shell.js), drawn by `renderBrandLogo` and turning with it; never a generic icon standing in for the mark | `tests/test_emblem_slots.py` |
+| Atlas, anywhere it is drawn | `atlasAvatar(size, mood)` for head and shoulders, `atlasDraw(size, mood, level)` for the figure (atlas.js), or a `data-atlas-avatar="<px>"` host that `atlasDressMarks` fills, which keeps a plain icon as its fallback in the markup; each follows Settings, Appearance, Atlas style and Atlas look at once. Never a picture of Atlas, which would not follow either. Its gradients live in shared `svg.atl-defs` hosts, so a drawing moved out of the document loses its fill | `tests/test_name_mood.py`, `tools/avatar-lab.html` (every mood, pose and size on one page) |
+| A character on the page (the corner companion) | the one companion, `#nm-buddy` (avatars.js): it chooses its own perch from the page's ledges and obstacles, rides with the panel it is on, and is placed, sized, recalled and hidden from its own menu and Appearance's Corner companion. A new surface does nothing for it: controls (buttons, fields, tabs, links, an editor) are kept clear by `NAME_MARK_BUDDY_NEVER_COVER`, and a new kind of control it must not sit on joins that list rather than moving the companion by hand | `tests/test_companion_motion.py`, `scratchpad/ui-sweeps/companionscroll.js`, `companionpin.js`, `companionmenu.js` |
 
 The sweeps that say whether a new surface matches the rest are
 `errors.js`, `contrast.js`, `docks.js`, `touch.js`, `menus.js` and

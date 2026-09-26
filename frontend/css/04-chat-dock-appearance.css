@@ -136,7 +136,7 @@
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   cursor: pointer;
   text-align: left;
   white-space: nowrap;
@@ -658,7 +658,7 @@ body.scroll-top-visible #tab-notes .layout > main {
   height: 2rem;
   border-radius: var(--radius-md);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 1.15rem;
   line-height: 1;
 }
@@ -775,13 +775,13 @@ body.scroll-top-visible #tab-notes .layout > main {
   padding: 0;
   box-shadow: none;
   font: inherit;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
   cursor: pointer;
 }
 
 .link-button:hover {
-  color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+  color: color-mix(in oklab, var(--accent-text) 70%, var(--ink));
 }
 
 /* These three followed the controls down into the dock, `select` especially,
@@ -2481,7 +2481,7 @@ label.setting-check,
   box-shadow: none;
   padding: 0 0.1em;
   font: inherit;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
@@ -2795,7 +2795,7 @@ span > .chip {
 }
 
 .chat-nudge-mark {
-  color: var(--accent);
+  color: var(--accent-text);
   flex: 0 0 auto;
 }
 
@@ -4415,7 +4415,7 @@ span > .chip {
 }
 
 .doc-ai-card > #doc-ai-verb label:has(input:checked) > .ph {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The keyboard's place in the group, drawn on the segment: the radio itself

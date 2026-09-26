@@ -1259,7 +1259,7 @@ header#top-bar select,
   background: none;
   border: none;
   box-shadow: none;
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
   font-size: var(--text-md);
   line-height: 1.35;
@@ -1550,7 +1550,7 @@ header#top-bar select,
   height: 1.7rem;
   border-radius: var(--radius-pill);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.92rem;
   flex: none;
 }
@@ -1737,7 +1737,7 @@ header#top-bar select,
 }
 
 .quick-link-primary .quick-link-icon {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .quick-link-primary:hover {
@@ -2419,12 +2419,12 @@ header#top-bar select,
 
 .result-reason-connected {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .result-reason-connected_2hop {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   opacity: 0.75;
 }
 
@@ -2911,7 +2911,7 @@ header#top-bar select,
 
 .msg.assistant .msg-role {
   letter-spacing: 0.01em;
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -3002,7 +3002,7 @@ header#top-bar select,
 }
 
 #conversation-list li.active-conv .conv-name {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The whole row is the target now, so it must say so on the way in. */

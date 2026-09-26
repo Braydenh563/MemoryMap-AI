@@ -364,7 +364,7 @@ select.ai-unavailable {
 .file-card-icon {
   flex: 0 0 auto;
   font-size: var(--text-h3);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .file-card-text {
@@ -657,7 +657,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 .wiki-link {
   border: 0;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   font-weight: 600;
   padding: 0 0.3em;
@@ -707,7 +707,7 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
 }
 
 .map-chip .ph {
-  color: var(--accent);
+  color: var(--accent-text);
   flex: 0 0 auto;
 }
 
@@ -880,7 +880,7 @@ button.map-chip:focus-visible {
 
 .editor-menu-hit {
   background: none;
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 700;
 }
 
@@ -910,7 +910,7 @@ button.map-chip:focus-visible {
 
 .editor-menu-item.active .editor-menu-tile {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The preview: the chosen row's block, drawn by the page's own renderer, in
@@ -1273,7 +1273,7 @@ button.map-chip:focus-visible {
 }
 
 .md-toc-item a:hover {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 
@@ -1850,6 +1850,13 @@ body.resizing-sidebar {
 /* A narrow strip folds its layout toggle behind More before any tool
    (`fitDocToolbarRow`); pressed, More brings it back with the rest. */
 .doc-toolbar.is-layout-folded:not(.is-more-open) .doc-toolbar-layout {
+  display: none;
+}
+
+/* The document strip's group, trimmed when it would sit alone on a row
+   (`trimDocToolbarGroup`): the layout and collapse buttons are rows of the
+   document's own ⋯ menu, and line numbers stays on the strip. */
+.doc-toolbar.is-group-trimmed > .doc-toolbar-tools > :is(.doc-toolbar-layout, .doc-toolbar-collapse) {
   display: none;
 }
 
@@ -2714,7 +2721,7 @@ body.resizing-sidebar {
 
 #doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark:hover,
 #doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 
@@ -3063,7 +3070,7 @@ button.outline-twist:focus-visible {
 }
 
 .ph-highlighter.doc-comment-kind {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The remark itself: the document's own ink at the list's size, three lines at
@@ -3093,7 +3100,7 @@ button.outline-twist:focus-visible {
 
 .doc-comment-item:hover .doc-comment-action,
 .doc-comment-action:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* A section of remarks is taller than a row of them, and it is the one in this
@@ -3144,7 +3151,7 @@ button.outline-twist:focus-visible {
 
 .doc-storage-toggle:hover,
 .doc-storage-toggle:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 
@@ -3712,7 +3719,7 @@ button.outline-twist:focus-visible {
 button.is-on {
   background: var(--accent-soft);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -4139,7 +4146,7 @@ button.is-on {
 }
 
 .agent-toggle:has(input:checked) .agent-toggle-label {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Textareas that follow their content. The JS sets the height; these keep the
@@ -4464,7 +4471,7 @@ textarea.autogrow {
   height: 9rem;
   border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
   background: var(--chip-bg);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--text-display);
   cursor: pointer;
 }
@@ -4488,7 +4495,7 @@ textarea.autogrow {
 }
 
 .file-card-pending {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Direction on a link chip. Colour is deliberately *not* the only signal, 
@@ -5032,7 +5039,7 @@ textarea.autogrow {
 
 .doc-complete-list li.active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .doc-complete-list li.active span {
@@ -5591,7 +5598,7 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 }
 
 .doc-template-choice[aria-checked="true"] > strong {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The chosen row's check: the mark a menu draws for "in effect", so the
@@ -5603,7 +5610,7 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   bottom: 0;
   right: var(--space-3);
   align-items: center;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .doc-template-choice[aria-checked="true"] > .doc-template-check {
@@ -6119,7 +6126,7 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   height: 2.25rem;
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--text-lg);
 }
 

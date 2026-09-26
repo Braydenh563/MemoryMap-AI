@@ -173,12 +173,12 @@
 /* A note sitting on a date it only *talks about* is a different fact from one
    sitting on the day it was typed, and the old view said so in a tooltip. */
 .timeline-row[data-placed="mentioned"] .timeline-row-mark {
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-soft);
 }
 
 .timeline-row[data-kind="board"] .timeline-row-mark {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .timeline-row-main {
@@ -653,7 +653,7 @@
   background: none;
   border: none;
   box-shadow: none;
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
@@ -860,7 +860,7 @@
 }
 
 .log-source-browser {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* A traceback is many lines, so it folds. Real newlines are safe here, this
@@ -1567,7 +1567,7 @@
       accent because it is the answer to "where does this note live?". */
 .entry-meta>.chip.category {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -1867,7 +1867,7 @@
 /* Muted is a state worth seeing at a glance, not just reading in a label, 
    the same reasoning the battery/power-saver indicator already follows. */
 #notif-mute-toggle.active {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -1985,7 +1985,7 @@
 
 #notif-panel .notif-row .notif-read-toggle:hover,
 #notif-panel .notif-row .notif-read-toggle:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .notif-list>li:first-child {
@@ -3451,7 +3451,7 @@ aside[data-resizable="1"] {
 .checkbox-label:has(input:checked) {
   background: var(--accent-soft);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -3766,7 +3766,7 @@ aside[data-resizable="1"] {
    it would be hiding the state itself. */
 .notif-row.notif-unread .notif-read-toggle {
   opacity: 0.85;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The question a confirm asks, as its title (confirmDialog): a step up from

@@ -3526,7 +3526,12 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-fullscreen" class="icon-only graph-zoom-btn" title="Full screen" aria-label="Full screen" aria-pressed="false"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
-          <span class="empty-icon" aria-hidden="true"><i class="ph ph-share-network ph-lead" aria-hidden="true"></i></span>
+          <!-- The app's own mark, the slot EMBLEM_SLOTS (app.js) has named
+               since the chat's empty state got one: it drew nothing here,
+               because no element had the id, and a generic network icon
+               stood in (INBOX 426, round 4). A map with nothing on it is
+               where the mark, a small constellation, says the most. -->
+          <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
           <p class="empty-title">Nothing to map yet</p>
           <p class="muted">
             Save a few notes and link some together (<i class="ph ph-link ph-lead" aria-hidden="true"></i> on any entry): 

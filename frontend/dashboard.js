@@ -3914,6 +3914,117 @@ async function renderActivityWidget(body) {
     ul.appendChild(li);
   }
   body.appendChild(ul);
+  const undo = activityUndoControl(items, byId, () => {
+    //: The undo wrote a `restored` event per note; the feed reads it on the
+    //: next render through its cursor, so a fresh read shows it at once.
+    body.replaceChildren();
+    renderActivityWidget(body);
+  });
+  if (undo) body.appendChild(undo);
+}
+
+//: **Undo what Atlas did** (OPEN.md events-undo, `POST /events/undo`). The
+//: activity list is where a change by Atlas, a skill or the auto-filer is
+//: seen, so it is where it is taken back: one ghost button under the list per
+//: actor that appears in it (a `kebabMenu` when there are several), undoing
+//: that actor's changes from the oldest one shown. Always the dry run first,
+//: shown as the confirm dialog's body (what goes back, what is left because
+//: you changed it since, what cannot be undone), then the same plan applied.
+function activityActorName(actor) {
+  if (actor === "system:filing") return "the auto-filer";
+  if (actor === "system:librarian") return "Atlas's background pass";
+  if (actor.startsWith("ai:")) return `Atlas (${actor.slice(3).replace(/_/g, " ")})`;
+  return historyActorLabel(actor) || actor;
+}
+
+function activityUndoPlanText(plan, byId, name) {
+  const undo = plan.items.filter((item) => item.status === "undo");
+  const titled = undo.slice(0, 3).map((item) => {
+    const entry = byId.get(item.entity_id);
+    const first = entry ? clipText(notePreviewText(entry.content || "").split("\n")[0], 40) : "";
+    return first ? `“${first}”` : `note ${item.entity_id}`;
+  });
+  const more = undo.length > titled.length ? ` and ${undo.length - titled.length} more` : "";
+  const lines = [
+    `${undo.length} note${undo.length === 1 ? "" : "s"} go back to how ${undo.length === 1 ? "it was" : "they were"} before ${name} changed ${undo.length === 1 ? "it" : "them"}: ${titled.join(", ")}${more}.`,
+  ];
+  const since = plan.items.filter((item) => item.status === "changed since").length;
+  if (since) lines.push(`${since} you changed since stay${since === 1 ? "s" : ""} as ${since === 1 ? "it is" : "they are"}.`);
+  const cannot = plan.items.filter((item) => ["too old", "not undoable", "gone"].includes(item.status)).length;
+  if (cannot) lines.push(`${cannot} can't be undone (a board item, or a change too old to have kept its values).`);
+  return lines.join(" ");
+}
+
+async function undoActorFrom(actor, since, byId, rerender) {
+  const name = activityActorName(actor);
+  let plan;
+  try {
+    plan = await apiJson("/events/undo", { method: "POST", body: JSON.stringify({ actor, since }) });
+  } catch (error) {
+    toast(error.message || "Couldn't read what would be undone.", true);
+    return;
+  }
+  const undoable = plan.items.filter((item) => item.status === "undo").length;
+  if (!undoable) {
+    const already = plan.items.every((item) => item.status === "already undone");
+    toast(already ? `Already undone: nothing ${name} changed is left to put back.` : `Nothing ${name} changed can be put back from here.`);
+    return;
+  }
+  const ok = await confirmDialog(
+    `Undo what ${name} changed?\n\n${activityUndoPlanText(plan, byId, name)}`,
+    { confirmLabel: "Undo", danger: false }
+  );
+  if (!ok) return;
+  try {
+    const done = await apiJson("/events/undo", {
+      method: "POST",
+      body: JSON.stringify({ actor, since, dry_run: false }),
+    });
+    toast(`Put back ${done.undone} note${done.undone === 1 ? "" : "s"}.`);
+    if (typeof loadEntries === "function") await loadEntries().catch(() => {});
+    rerender();
+  } catch (error) {
+    toast(error.message || "Couldn't undo that.", true);
+  }
+}
+
+function activityUndoControl(items, byId, rerender) {
+  //: The oldest shown event of each actor that is not the person: undo from
+  //: just before it, so everything that actor did in the list goes back.
+  const from = new Map();
+  for (const item of items) {
+    if (!item.actor || item.actor === "user" || item.actor.startsWith("system:recycle")) continue;
+    if (item.entity_type !== "entry") continue;
+    const at = from.get(item.actor);
+    if (at === undefined || item.id < at) from.set(item.actor, item.id);
+  }
+  if (!from.size) return null;
+  const row = document.createElement("div");
+  row.className = "row activity-undo";
+  const actors = [...from.keys()];
+  if (actors.length === 1) {
+    const [actor] = actors;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small";
+    setLabel(button, `ph:arrow-counter-clockwise Undo what ${activityActorName(actor)} did`);
+    button.title = "See what would go back first";
+    button.addEventListener("click", () => undoActorFrom(actor, from.get(actor) - 1, byId, rerender));
+    row.appendChild(button);
+    return row;
+  }
+  const menu = kebabMenu(
+    actors.map((actor) => ({
+      label: `ph:arrow-counter-clockwise Undo what ${activityActorName(actor)} did`,
+      run: () => undoActorFrom(actor, from.get(actor) - 1, byId, rerender),
+    })),
+    "Undo what Atlas did"
+  );
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "Undo what Atlas did";
+  row.append(label, menu);
+  return row;
 }
 
 async function renderDocumentsWidget(body) {

@@ -293,7 +293,7 @@ Python 3.11 to 3.13 on every push.
 
 ## Status
 
-Version 0.3.2. The core is built and stable: capture, chat with checkable
+Version 0.3.3. The core is built and stable: capture, chat with checkable
 answers, the graph, documents, boards and mind maps, the OCR workspace,
 private notes, themes, desktop packaging for Windows and Linux. The
 interface was rebuilt on one design system in this release, measured

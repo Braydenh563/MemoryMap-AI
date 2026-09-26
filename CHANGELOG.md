@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-26
+
 ### Added
 
 - Optional sign-in: Settings, Account and security has "Ask for a password when the app opens", on by default. Turned off (it asks for your current password), the app opens on this computer without the lock screen; another device on your network still needs the password, and private notes stay encrypted and ask for it when you open one ("Unlock private notes"). Lock and Lock everywhere still end the session and drop the key. Recorded in the audit log.

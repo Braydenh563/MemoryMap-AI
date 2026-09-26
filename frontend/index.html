@@ -31,24 +31,24 @@
        every later file's var() calls depend on. See
        tests/test_style_scale.py's STYLE_FILES for the list the design-token
        lint reads instead of a single style.css path. -->
-  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.3.2">
-  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.3.2">
-  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.3.2">
-  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.3.2">
-  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.3.2">
-  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.3.2">
-  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.3.2">
-  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.3.2">
-  <link rel="stylesheet" href="/css/08-consistency.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.3.3">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.3.3">
+  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.3.3">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.3.3">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.3.3">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.3.3">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.3.3">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.3.3">
+  <link rel="stylesheet" href="/css/08-consistency.css?v=0.3.3">
   <!-- The documents editor's own layout, last so it is the final word on the
        panes it lays out. CodeMirror's *internals* are styled from the theme
        object in documents.js instead: adopted stylesheets sort after document
        stylesheets, so a rule here could not override one of its own. -->
-  <link rel="stylesheet" href="/css/09-editor.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/09-editor.css?v=0.3.3">
   <!-- Phases 9 and 10 of UI_MODERNISATION_PLAN: the tablet bands and the
        Liquid Glass adoptions. Last, so it wins ties on source order, and its
        own file so three agents can edit the stylesheets at once. -->
-  <link rel="stylesheet" href="/css/10-responsive.css?v=0.3.2">
+  <link rel="stylesheet" href="/css/10-responsive.css?v=0.3.3">
   <!-- **Its own file, not an inline block, and that is the point.** The CSP
        allows inline scripts only by sha256 hash, and `create_app` computes
        those hashes from index.html **once at startup**. A server still
@@ -58,7 +58,7 @@
        the loading screen". A guard that exists to report a broken boot must
        not itself be the thing that breaks, and `script-src 'self'` covers a
        same-origin file unconditionally. -->
-  <script src="/boot-guard.js?v=0.3.2"></script>
+  <script src="/boot-guard.js?v=0.3.3"></script>
   <!-- **Its own file for the same reason boot-guard.js is**, and this one
        was reported: "[browser/csp] blocked script-src-elem: inline". The
        policy has no `'unsafe-inline'`, so an inline block has to be named by
@@ -74,7 +74,7 @@
        class rather than one more of its causes. It stays a plain synchronous
        script element in the head, so it still runs before first paint and the
        anti-flash guarantee is unchanged. -->
-  <script src="/theme-boot.js?v=0.3.2"></script>
+  <script src="/theme-boot.js?v=0.3.3"></script>
 </head>
 <body>
   <!-- The very first thing in <body>, on purpose: painted before any data
@@ -11290,38 +11290,38 @@ Link to another note with [[its first few words]]."></textarea>
        kick-offs, initNotesSubtabs() and initAuth(), are the last lines of
        spaces-find.js for that reason. agent-activity.js (split first) runs
        after all of them. -->
-  <script src="/app.js?v=0.3.2"></script>
-  <script src="/note-cards.js?v=0.3.2"></script>
-  <script src="/menus.js?v=0.3.2"></script>
-  <script src="/lightbox.js?v=0.3.2"></script>
-  <script src="/selection.js?v=0.3.2"></script>
-  <script src="/notes-list.js?v=0.3.2"></script>
-  <script src="/capture-ask.js?v=0.3.2"></script>
-  <script src="/chat.js?v=0.3.2"></script>
-  <script src="/chat-agent.js?v=0.3.2"></script>
-  <script src="/chat-attach.js?v=0.3.2"></script>
-  <script src="/sheets-selects.js?v=0.3.2"></script>
-  <script src="/skills.js?v=0.3.2"></script>
-  <script src="/shell-reminders.js?v=0.3.2"></script>
-  <script src="/markdown.js?v=0.3.2"></script>
-  <script src="/navigation.js?v=0.3.2"></script>
-  <script src="/settings-panes.js?v=0.3.2"></script>
-  <script src="/media.js?v=0.3.2"></script>
-  <script src="/status.js?v=0.3.2"></script>
-  <script src="/ai-tools.js?v=0.3.2"></script>
-  <script src="/phone-shell.js?v=0.3.2"></script>
-  <script src="/wiring.js?v=0.3.2"></script>
-  <script src="/settings-wiring.js?v=0.3.2"></script>
-  <script src="/spaces-find.js?v=0.3.2"></script>
-  <script src="/agent-activity.js?v=0.3.2"></script>
+  <script src="/app.js?v=0.3.3"></script>
+  <script src="/note-cards.js?v=0.3.3"></script>
+  <script src="/menus.js?v=0.3.3"></script>
+  <script src="/lightbox.js?v=0.3.3"></script>
+  <script src="/selection.js?v=0.3.3"></script>
+  <script src="/notes-list.js?v=0.3.3"></script>
+  <script src="/capture-ask.js?v=0.3.3"></script>
+  <script src="/chat.js?v=0.3.3"></script>
+  <script src="/chat-agent.js?v=0.3.3"></script>
+  <script src="/chat-attach.js?v=0.3.3"></script>
+  <script src="/sheets-selects.js?v=0.3.3"></script>
+  <script src="/skills.js?v=0.3.3"></script>
+  <script src="/shell-reminders.js?v=0.3.3"></script>
+  <script src="/markdown.js?v=0.3.3"></script>
+  <script src="/navigation.js?v=0.3.3"></script>
+  <script src="/settings-panes.js?v=0.3.3"></script>
+  <script src="/media.js?v=0.3.3"></script>
+  <script src="/status.js?v=0.3.3"></script>
+  <script src="/ai-tools.js?v=0.3.3"></script>
+  <script src="/phone-shell.js?v=0.3.3"></script>
+  <script src="/wiring.js?v=0.3.3"></script>
+  <script src="/settings-wiring.js?v=0.3.3"></script>
+  <script src="/spaces-find.js?v=0.3.3"></script>
+  <script src="/agent-activity.js?v=0.3.3"></script>
   <!-- Generated faces (`nameMood`, `nameMark`): split out of app.js on
        2026-09-24 when they took the gzipped app.js over its size bound. Only
        declarations at top level, and it must load before any boot file that
        paints a face, so it sits straight after app.js. -->
-  <script src="/avatars.js?v=0.3.2"></script>
+  <script src="/avatars.js?v=0.3.3"></script>
   <!-- Atlas, the assistant's own character (`atlasDraw`, its moods): after
        avatars.js, whose `registerCharacter` it answers through. -->
-  <script src="/atlas.js?v=0.3.2"></script>
+  <script src="/atlas.js?v=0.3.3"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js, and it stays at boot: every cross-file call it
@@ -11332,7 +11332,7 @@ Link to another note with [[its first few words]]."></textarea>
        arrived, and the two that could run sooner (`applyMarkdown`,
        `docEventFromCm`) are on app.js's stand-in list and its typeof-guard
        list respectively. -->
-  <script src="/editor.js?v=0.3.2"></script>
+  <script src="/editor.js?v=0.3.3"></script>
   <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
        of the app.js-split plan). Loaded after app.js and shares its global
        scope; every cross-file call happens at runtime (inside a function or
@@ -11344,7 +11344,7 @@ Link to another note with [[its first few words]]."></textarea>
        closure) moved here along with the functions they call, the same fix
        documents.js made for `initDocSidebarTabs()`, see dashboard.js's own
        header for the full explanation. -->
-  <script src="/dashboard.js?v=0.3.2"></script>
+  <script src="/dashboard.js?v=0.3.3"></script>
   <!-- Timeline: the feed, the table view, the density scrubber, the kind
        chips and the daily page (split out of app.js on 2026-09-23, when the
        gzipped app.js crossed test_static_compression.py's bound a third
@@ -11357,13 +11357,13 @@ Link to another note with [[its first few words]]."></textarea>
        added, so this position is not load-bearing; it sits before
        settings.js because settings.js's tail is the one that must run last.
        See timeline.js's own header for what stayed in app.js and why. -->
-  <script src="/timeline.js?v=0.3.2"></script>
+  <script src="/timeline.js?v=0.3.3"></script>
   <!-- Popup agent (Ctrl+K): split out of app.js on 2026-09-24, when the
        gzipped app.js crossed test_static_compression.py's bound a fourth
        time. Same terms as timeline.js above: its top-level lines only read
        what the files before it define, and app.js calls into it only from
        functions and listeners. See palette.js's own header. -->
-  <script src="/palette.js?v=0.3.2"></script>
+  <script src="/palette.js?v=0.3.3"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview): §88.3 of the app.js-split plan, the fourth and LAST file.
@@ -11385,13 +11385,13 @@ Link to another note with [[its first few words]]."></textarea>
        hazards this ordering fixes. -->
   <!-- The background art's styles (BG_ART_BUILDERS). Before settings.js,
        whose own tail starts the art; this file only defines. -->
-  <script src="/bg-art.js?v=0.3.2"></script>
-  <script src="/settings.js?v=0.3.2"></script>
+  <script src="/bg-art.js?v=0.3.3"></script>
+  <script src="/settings.js?v=0.3.3"></script>
   <!-- The guided tour (tour.js). Last, and its position is not load-bearing:
        every cross-file call it makes (switchTab, showNotesSection, toast) runs
        from a step or a listener, never while the file is being parsed. app.js
        reaches back the same way, behind a `typeof openTour === "function"`
        guard, so a page served without this file still boots. -->
-  <script src="/tour.js?v=0.3.2"></script>
+  <script src="/tour.js?v=0.3.3"></script>
 </body>
 </html>

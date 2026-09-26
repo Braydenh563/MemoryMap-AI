@@ -6079,7 +6079,18 @@ main,
    galaxy along its length, a pale glowing edge, star dots and a bright
    comet glow at the tip. */
 .nm-atlas .atl-tail-galaxy { fill: var(--atl-galaxy); }
-.nm-atlas[data-atlas-look="feminine"] .atl-tail-galaxy { opacity: 0.62; }
+.nm-atlas[data-atlas-look="feminine"] .atl-tail-galaxy { opacity: 0.56; }
+/* The feminine look's skin is paler and lilac (the female sheets: white
+   and lilac stardust), its hair the same; the seeds off its hand. */
+.nm-atlas[data-atlas-look="feminine"] {
+  --atl-hi: #eef2fe;
+  --atl-lt: #dcdff9;
+  --atl-md: #c3c4f1;
+  --atl-dp: #a49fdd;
+  --atl-rim: #7d74c2;
+}
+.nm-atlas .atl-seed { fill: white; opacity: 0.9; }
+.nm-atlas .atl-seed-star { opacity: 0.95; }
 .nm-atlas .atl-tail-glow { fill: none; stroke: var(--atl-glow-c); stroke-width: 3; stroke-linejoin: round; opacity: 0.28; }
 .nm-atlas .atl-tail-stream { fill: white; opacity: 0.5; }
 .nm-atlas .atl-tail-silk { fill: var(--atl-bneb); opacity: 0.5; }

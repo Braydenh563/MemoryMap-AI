@@ -324,11 +324,24 @@ const ATLAS_LOOKS = {
     tailStars: [[46.6, 61.4, 0.45], [54.2, 68.6, 0.35], [51.4, 78.4, 0.5], [55.6, 88.4, 0.35], [65.4, 89.4, 0.45]],
     tailTip: [67, 80.2],
   },
+  //: **The feminine look** (the owner: "the female designs I gave you are
+  //: quite different"): no ear tufts, only a small fin swept back at each
+  //: temple; long hair streaming back and down with a constellation
+  //: threaded through it; a slender figure whose body flows into a
+  //: mermaid lower body that splits into two ribbons (no legs); the right
+  //: hand held out sowing star seeds; a paler, lilac skin (the CSS).
   feminine: {
-    ear: "M19.2 17C15.6 15.8 12.6 13.8 10.8 11.4C9.8 10.2 8.2 9.8 8.4 8.8C8.6 8 10 8.2 10.6 7.6C9.6 5.8 8.4 3.6 9.2 1.6C9.6 0.7 10.8 1 11.4 0.4C11.8 -1.2 12.6 -2.8 13.9 -2.9C15.2 -3 16.2 -0.8 17.2 1.4C19.4 6 22.8 9 27.2 11.2C24 11.8 21 13.8 19.2 17Z",
-    earIn: "M19.8 14.4C17.2 12.8 14.8 10.4 13.8 7.4C13.3 5.8 13.8 4.4 14.7 4.4C15.5 4.4 16 5.6 16.5 6.6C18.2 9.4 20.6 11 24.6 11.8C22.6 12.4 21 13.2 19.8 14.4Z",
-    earTip: [14.4, -1.4],
-    strand: "M12.2 12.6C9.8 15.8 8.6 20.4 9.4 25.2C9.6 26.4 9 28.4 7.8 28.2C6.4 28 6.2 25.8 6.4 24C6.8 19.2 8.4 15 12.2 12.6Z",
+    ear: "M20.4 16.6C17.6 15.6 15.2 13.6 14 10.6C13.6 9.6 12.4 9.2 12.6 8.4C15.4 10.2 18.6 11.4 22.8 11.6C21.2 13 20.4 14.6 20.4 16.6Z",
+    earIn: "",
+    earTip: [12.8, 8.6],
+    fin: true,
+    strand: "",
+    legs: false,
+    lower: [[31, 62, 30.4, 70, 24, 77, 19, 84], [19, 84, 14.6, 90, 20, 95, 27, 92.4]],
+    lowerWidth: (t) => 9 - 7.4 * Math.min(1, t * 1.02) ** 0.9 + 0.2,
+    arm: [[37.6, 40.6, 42, 41.6, 47.6, 41.4, 52.6, 39.4]],
+    armL: [[24.4, 40.6, 20.4, 43.4, 18.2, 49.2, 19, 56.2]],
+    seeds: [[53.6, 36.4, 0.5], [55.8, 33, 0.4], [58.4, 30.4, 0.6], [56.6, 27, 0.35], [60.6, 27.4, 0.45], [62.2, 23.6, 0.35], [59, 34.8, 0.3]],
     locks: [
       { seg: [[21, 13, 22, 0, 42, -3, 54, 6], [54, 6, 62, 11, 64, 18, 59.6, 22]], w: [6.6, 0.6] },
       { seg: [[25, 11, 28, -1, 50, 0, 60, 10], [60, 10, 69, 17, 70.6, 27, 64.4, 31]], w: [7.4, 0.7] },
@@ -344,10 +357,11 @@ const ATLAS_LOOKS = {
       { seg: [[35, 10.4, 42, 2.6, 54, 6.4, 57, 20], [57, 20, 60, 28, 58.6, 36, 53, 40.4]], w: [6.6, 0.7] },
     ],
     hairStars: [[50, 5], [59, 9.6], [67, 18], [70.6, 30], [68, 42], [63, 52], [56.6, 61]],
+    torso: "M26 35.6C23.2 40.6 22.4 46 23.2 51.4C23.8 56 25 60 27.4 64C29.2 66.8 32.8 66.8 34.6 64C37 60 38.2 56 38.8 51.4C39.6 46 38.8 40.6 36 35.6Z",
     brow: "arch",
     lashes: true,
-    tail: [[33, 60, 46, 58.4, 57, 64.4, 53, 74], [53, 74, 48.6, 83.4, 52.4, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6]],
-    tailWidth: (t) => 3.4 + 6 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 2 * t * t,
+    tail: [[32, 61, 45, 58.4, 57, 64.4, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6]],
+    tailWidth: (t) => 5 + 5 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 3.4 * t * t,
     tailStars: [[46.4, 62.4, 0.45], [54.4, 70, 0.35], [50.4, 80.6, 0.5], [54, 90, 0.35], [62.4, 92, 0.45], [69, 87.6, 0.35]],
     tailTip: [67, 82.4],
   },
@@ -426,6 +440,13 @@ for (const spec of Object.values(ATLAS_LOOKS)) {
   const lock = (l) => ({ fill: atlasStem(l.seg, atlasTaper(l.w[0], l.w[1]), { samples: 10, cap: false }), light: atlasStemEdge(l.seg, atlasTaper(l.w[0], l.w[1]), 10) });
   spec.lockPaths = spec.locks.map(lock);
   spec.headPaths = spec.head.map(lock);
+  if (spec.lower) {
+    spec.lowerPath = atlasStem(spec.lower, spec.lowerWidth, { samples: 12 });
+    spec.lowerStream = atlasStem(spec.lower, (t) => spec.lowerWidth(t) * 0.28, { samples: 12, shift: (t) => spec.lowerWidth(t) * 0.22 * Math.sin(Math.PI * 2.2 * t) });
+  }
+  if (spec.arm) {
+    spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbWidth(3.9, 1.3), { samples: 12 })], ["r", atlasStem(spec.arm, atlasLimbWidth(3.9, 1.3), { samples: 12 })]];
+  }
 }
 const ATLAS_WISPS = ATLAS_GEO.wisps.map(([seg, w0, w1]) => atlasStem([seg], atlasTaper(w0, w1), { samples: 8, cap: false }));
 
@@ -635,11 +656,13 @@ function atlasEars(parent, level, edge, look) {
     atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: m(spec.ear) }, g);
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-rim-limb", d: m(spec.ear) }, g);
-      atlasMake("path", { class: "atl-ear-in", d: m(spec.earIn) }, g);
+      if (spec.earIn) atlasMake("path", { class: "atl-ear-in", d: m(spec.earIn) }, g);
       if (!tiny) {
-        for (const [x, y, r] of [[17.4, 6.2, 0.28], [19.6, 9.4, 0.2], [18.2, 4.4, 0.16]]) atlasMake("circle", { class: "atl-speck", cx: side === "l" ? x : 62 - x, cy: y, r }, g);
+        if (!spec.fin) {
+          for (const [x, y, r] of [[17.4, 6.2, 0.28], [19.6, 9.4, 0.2], [18.2, 4.4, 0.16]]) atlasMake("circle", { class: "atl-speck", cx: side === "l" ? x : 62 - x, cy: y, r }, g);
+        }
         const [tx, ty] = spec.earTip;
-        atlasSpark(g, side === "l" ? tx : 62 - tx, ty, 1.1, "atl-glint atl-hair-star");
+        atlasSpark(g, side === "l" ? tx : 62 - tx, ty, spec.fin ? 0.9 : 1.1, "atl-glint atl-hair-star");
       }
     }
     out[side] = g;
@@ -937,6 +960,7 @@ function atlasRing(parent, id, ring, k, front) {
 //: the body; the arms last. Each leg holds its tendril in a group of its
 //: own (`.atl-tendril`, pivoted at the hip) so the tip can drift.
 function atlasBody(parent, id, props, look) {
+  const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
   const layers = { edge: atlasGroup(parent, "atl-edges"), fill: atlasGroup(parent, "atl-fills") };
   const arms = {};
   atlasBand(layers.edge, false, id);
@@ -948,8 +972,23 @@ function atlasBody(parent, id, props, look) {
       atlasCoilProp(layer);
       atlasMapProp(layer);
     }
+    //: The mermaid lower body (the feminine look): one ribbon from the
+    //: hips sweeping down to the left and curling, in the tail's paint,
+    //: before the torso so it grows out of it. It is not a leg: the
+    //: companion's leg groups stay, empty, so its behaviours find them.
+    if (spec.lower) {
+      const lower = atlasGroup(layer, "atl-lower");
+      if (!edge) atlasMake("path", { class: "atl-tail-glow", d: spec.lowerPath }, lower);
+      atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: spec.lowerPath }, lower);
+      if (!edge) {
+        atlasMake("path", { class: "atl-overlay atl-tail-galaxy", d: spec.lowerPath }, lower);
+        atlasMake("path", { class: "atl-tail-stream", d: spec.lowerStream }, lower);
+        for (const [x, y, r] of [[28.4, 70, 0.4], [23.6, 78.4, 0.35], [17.6, 88, 0.45], [24.4, 93, 0.3]]) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, lower);
+      }
+    }
     ATLAS_LIMBS.legs.forEach(([side, d], i) => {
       const leg = atlasGroup(layer, `nmb-leg nmb-leg-${side} atl-leg`);
+      if (spec.legs === false) return;
       const tendril = atlasGroup(leg, `atl-tendril atl-tendril-${side}`, ATLAS_GEO.hips[i]);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, tendril);
       if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, tendril);
@@ -961,10 +1000,11 @@ function atlasBody(parent, id, props, look) {
       if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, hold);
     }
     const torso = atlasGroup(layer, "nmb-torso");
-    atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: ATLAS_TORSO_PATH }, torso);
+    const torsoPath = spec.torso || ATLAS_TORSO_PATH;
+    atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: torsoPath }, torso);
     if (!edge) {
-      atlasMake("path", { class: "atl-overlay atl-belly", d: ATLAS_TORSO_PATH }, torso);
-      atlasMake("path", { class: "atl-overlay atl-rim-body", d: ATLAS_TORSO_PATH }, torso);
+      atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, torso);
+      atlasMake("path", { class: "atl-overlay atl-rim-body", d: torsoPath }, torso);
       //: The constellation: the heart star in its glow, then the linked
       //: points down the belly, threads of light between them.
       //: **The heart star, redesigned** (the owner: "the stars on atlas's
@@ -990,12 +1030,22 @@ function atlasBody(parent, id, props, look) {
       //: The gloss on the gel: one specular on the upper left of the body.
       atlasMake("ellipse", { class: "atl-sheen atl-sheen-body", cx: 25.6, cy: 42.6, rx: 1.1, ry: 2.8, transform: "rotate(14 25.6 42.6)" }, torso);
     }
-    for (const [side, d] of ATLAS_LIMBS.arms) {
+    for (const [side, d] of spec.armPaths || ATLAS_LIMBS.arms) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, arm);
       if (!edge) {
         atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, arm);
         arms[side] = arm;
+        //: The galaxy-seed gesture (the female sheets' Seed Sower): star
+        //: seeds drifting up from the open hand.
+        if (side === "r" && spec.seeds) {
+          const seeds = atlasGroup(arm, "atl-seeds");
+          spec.seeds.forEach(([x, y, r], k) => {
+            atlasMake("circle", { class: "atl-seed", cx: x, cy: y, r }, seeds).style.setProperty("--atl-k", String(k));
+          });
+          atlasSpark(seeds, 58.4, 30.4, 1.4, "atl-glint atl-seed-star");
+          atlasSpark(seeds, 62.2, 23.6, 1, "atl-glint atl-seed-star");
+        }
       }
     }
   }

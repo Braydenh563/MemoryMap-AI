@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import crypto, diskspace, vault
+from memorymap.core import crypto, diskspace, netbind, vault
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
@@ -90,6 +90,33 @@ register_cache_reset(_media_tickets.clear)
 register_cache_reset(_active_tokens.clear)
 
 
+class VaultScope:
+    """Serve each request as the session its X-Auth-Token names.
+
+    Pure ASGI rather than `BaseHTTPMiddleware`, so the context variable is set
+    in the request's own task and everything under it (the threadpool a sync
+    route runs in, a streaming body's iterator) reads the same session. What
+    it grants is decided in `core/vault.py`; this only says who is asking.
+    A request with no header is served as a session with no token, which is
+    never granted anything.
+    """
+
+    def __init__(self, app) -> None:  # noqa: ANN001  # an ASGI app
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001  # ASGI
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        token = None
+        for name, value in scope.get("headers") or ():
+            if name == b"x-auth-token":
+                token = value.decode("latin-1")
+                break
+        with vault.request_scope(token):
+            await self.app(scope, receive, send)
+
+
 def _sweep_expired(idle_ttl: int) -> None:
     """Drop dead tokens, and forget the data key once none are left.
 
@@ -107,6 +134,9 @@ def _sweep_expired(idle_ttl: int) -> None:
         del _active_tokens[token]
     if dead:
         _forget_dead_tickets()
+        # The key goes with the last session that gave the password, even
+        # while a session without it is still live (tests/test_vault_sessions).
+        vault.revoke(dead)
     if dead and not _active_tokens:
         vault.close()
 
@@ -424,6 +454,7 @@ def setup(body: PasswordBody, request: Request, response: Response, session: Ses
     log_action(session, "created", "user", detail="password set")
     session.commit()
     token = _issue_token()
+    vault.grant(token)
     _grant_media(request, response, token)
     return {"token": token}
 
@@ -478,6 +509,8 @@ def unlock(
             "unlocked without writing the audit line: the disk is full"
         )
     token = _issue_token()
+    if vault_open:
+        vault.grant(token)
     _grant_media(request, response, token)
     return {"token": token, "vault_open": vault_open}
 
@@ -529,7 +562,9 @@ def auto_session(
                 raise
             session.rollback()
     _grant_media(request, response, token)
-    return {"token": token, "vault_open": vault.is_open()}
+    # This session's answer, not the process's: another session's unlock
+    # never opens private notes for one that did not give the password.
+    return {"token": token, "vault_open": vault.is_granted(token)}
 
 
 @router.post("/unlock-vault", dependencies=[Depends(require_unlock)])
@@ -537,6 +572,7 @@ def unlock_vault(
     body: PasswordBody,
     request: Request,
     session: Session = Depends(get_session),
+    x_auth_token: str | None = Header(default=None),
 ) -> dict:
     """Open private notes for a session that started without the password.
 
@@ -563,6 +599,8 @@ def unlock_vault(
         # Never hold a key in memory that is not on disk (see `unlock`).
         vault.close()
         vault_open = False
+    if vault_open:
+        vault.grant(x_auth_token)
     try:
         log_action(session, "unlocked", "vault", detail="private notes opened")
         session.commit()
@@ -615,6 +653,55 @@ def set_password_on_open(
     return {"password_on_open": body.enabled}
 
 
+class LanAccessBody(BaseModel):
+    enabled: bool
+    current_password: str | None = None
+
+
+@router.get("/lan-access", dependencies=[Depends(require_unlock)])
+def lan_access(request: Request, config: ConfigManager = Depends(get_config)) -> dict:
+    """What Settings says about "Allow other devices on this network"."""
+    return {"allow_lan": netbind.lan_enabled(config), **netbind.describe(config, request.url.port)}
+
+
+@router.post("/lan-access", dependencies=[Depends(require_unlock)])
+def set_lan_access(
+    body: LanAccessBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Turn LAN mode on or off, for the next launch (WORLD_CLASS_PLAN §12).
+
+    On needs the current password, checked and throttled like an unlock, for
+    the reason `/auth/password-on-open` gives: an unlocked screen is not proof
+    of knowing it, and this is the switch that puts the notebook on the
+    network. Off needs nothing, since it only ever lets fewer in. The bind
+    happens at launch (`__main__._run_server`), so the answer says whether a
+    restart is still needed; nothing here opens a socket.
+    """
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="Set a password first")
+    if body.enabled:
+        client = _client_key(request)
+        _refuse_if_throttled(client)
+        if not body.current_password or not bcrypt.checkpw(
+            body.current_password.encode(), user.password_hash.encode()
+        ):
+            if body.current_password:
+                _unlock_failed(client)
+            raise HTTPException(status_code=401, detail="That isn't your current password")
+        _unlock_succeeded(client)
+    config.set_preference(netbind.LAN_PREF, body.enabled)
+    log_action(
+        session, "edited", "user", user.id,
+        f"allow other devices on this network: {'on' if body.enabled else 'off'} (from the next launch)",
+    )
+    session.commit()
+    return {"allow_lan": body.enabled, **netbind.describe(config, request.url.port)}
+
+
 @router.post("/lock")
 def lock(
     request: Request,
@@ -626,6 +713,7 @@ def lock(
     _active_tokens.pop(x_auth_token or "", None)
     _forget_dead_tickets()
     _revoke_media(request, response)
+    vault.revoke([x_auth_token or ""])
     # Forget the data key too, or "lock" would leave private notes readable.
     # With sign-in off, always: the next load starts a session without a
     # password, and it must not find the key another session left loaded.
@@ -656,7 +744,8 @@ def account(
         "configured": user is not None,
         "username": user.username if user else None,
         "created_at": user.created_at.isoformat() if user and user.created_at else None,
-        "vault_open": vault.is_open(),
+        # For this session: see `vault._granted`.
+        "vault_open": vault.key() is not None,
         "vault_exists": vault.exists(session),
         "active_sessions": len(_active_tokens),
         "password_on_open": password_on_open(config),
@@ -690,12 +779,13 @@ def change_password(
     if body.current_password == body.new_password:
         raise HTTPException(status_code=400, detail="That's already your password")
 
-    if vault.exists(session) and not vault.is_open():
+    if vault.exists(session) and vault.key() is None:
         # A session started without a password (sign-in off) has the vault
         # locked, and the current password just checked above is exactly
-        # what opens it.
+        # what opens it, for this session.
         vault.open_with(session, body.current_password)
-    if vault.exists(session) and not vault.is_open():
+        vault.grant(x_auth_token)
+    if vault.exists(session) and vault.key() is None:
         # Without the data key in hand the vault cannot be re-wrapped, and
         # changing the password anyway would strand every private note.
         raise HTTPException(
@@ -719,7 +809,9 @@ def change_password(
     signed_out = len(_active_tokens)
     _active_tokens.clear()
     _media_tickets.clear()
+    vault.revoke_all()
     token = _issue_token()
+    vault.grant(token)
     _grant_media(request, response, token)
     return {"changed": True, "token": token, "other_sessions_ended": signed_out}
 
@@ -768,8 +860,9 @@ def rotate_vault_key(
 
     if not vault.exists(session):
         raise HTTPException(status_code=400, detail="There's no vault to rotate yet")
-    if not vault.is_open():
+    if vault.key() is None:
         vault.open_with(session, body.current_password)  # see change-password
+        vault.grant(x_auth_token)
     old_key = vault.key()
     if old_key is None:
         raise HTTPException(
@@ -839,7 +932,9 @@ def rotate_vault_key(
     ended = len(_active_tokens)
     _active_tokens.clear()
     _media_tickets.clear()
+    vault.revoke_all()
     token = _issue_token()
+    vault.grant(token)
     _grant_media(request, response, token)
     return {
         "rotated": True,

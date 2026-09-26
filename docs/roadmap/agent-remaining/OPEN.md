@@ -30,10 +30,8 @@ two decisions only the owner can take are INBOX 427.
   restored backup's `preferences.json` brings the setting back (a sweep
   can now boot such a data dir: `lib.js` `boot()` returns `signIn: 'app'`).
   [auth-optional]
-- **The vault key is process-wide** (`core/vault.py`): after a LAN device
-  unlocks, a loopback session without a password reads private notes too
-  until a lock or restart. Pre-existing; per-session keys are a design
-  change. [auth-optional]
+- ~~**The vault key is process-wide**~~ built 2026-09-26: the key is granted
+  per session (HISTORY.md, "Moved from the plans, 2026-09-26").
 - **The dashboard scroll jump (426 u)** was not reproduced by wheel, idle or
   any scroll call; if it recurs, `scrolljump.js` with the owner's
   preferences (`LS=`) and the companion on. [ui-426]
@@ -817,6 +815,40 @@ being written by running agents stay beside this one.
 
 ## App wide: shell, phone and the shared recipes
 
+- **Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26.**
+  Read diff by diff for CLAUDE.md section 6's four shapes, races, listeners
+  and the CSP. Fixed in files nobody was in: the layout picker's
+  `setGraphPhysicsEnabled` (navigation.js:1754) is in the graph bundle's
+  stand-in table now (app.js `LAZY_ENTRY_POINTS`), so a change made on the
+  Graph tab before the bundle has arrived loads it rather than throwing
+  (the companion agent's remaining item 1); Atlas's eyes in the new `hide`
+  act (below). Read and found sound: the toss (the drag class is removed
+  before the toss returns, the flight and the spin are Web Animations on
+  translate/rotate, no CSS transform to fight), the pet timer (cleared on
+  leave and pointerdown, mouse only), the six reactions' cooldowns and the
+  6s gap, the note-opened capture listener (one, at boot), the menu-flake
+  fix (`window._menuOpenedAt`, a 200ms window), the walk pacing. Left for
+  the companion's file (avatars.js): (a) `nameMarkBuddyTick` returns as
+  soon as a night yawn fires, so that tick's drift and the rest of its
+  night handling are skipped once in thirty minutes (avatars.js, the
+  `late` block); (b) with the legs and sash on compositor roots the walk
+  still recalculates style 60 times a second (16 to 22 ms/s, 0 paints, 0
+  layouts, atlaswalk.js): a per-frame write of a custom property or class
+  on `#nm-buddy` during a walk, the pacer's own tick, or the host's
+  `--nmb-*` sway; (c) `graphAutoFitDone = false` in navigation.js:1758
+  runs before graph.js has declared that `let` when the bundle is cold: a
+  sloppy-mode global write that the later declaration shadows, lost but
+  harmless (graph.js starts it false).
+- **Atlas's `hide` act shows shut eyes and nothing of its hands.** The
+  companion's new act (a private note opened) raises both arms over the
+  face; Atlas draws its arms under its head in the body layer, so at the
+  act's middle both arms sit inside the head's box (armL 1227..1244 x
+  77..98 against the head's 1209..1266 x 46..95, `hidecheck.js`) and are
+  not seen. Its eyes shut with the lids layer over the act's middle (the
+  generic `.nm-eyes` squash flattened them to a 1.3px line 21px above their
+  place, transform-box view-box; fixed 2026-09-26, `atl-lids-hide`). Paws
+  over the face would need the arms drawn in the front layer for this act,
+  a drawing change for the owner's call (atlas-r6-hide-mid.png).
 - ~~**A filled button is 2px shorter than every tonal button beside it, app
   wide.**~~ **Measured and closed, 2026-09-21, and the proposed fix was worse
   than the defect.** The cause was real: `button` carries `border: none`
@@ -1004,6 +1036,35 @@ being written by running agents stay beside this one.
 
 ## Backend
 
+- **Security review of the backend batch (2442101..3b8cdc5), 2026-09-26.**
+  Line by line over src/ for the six asks. Fixed, each with a test that
+  failed first: (1) `vault.key()` read an empty grant set as everyone's, and
+  the app loads the key before granting (`unlock`), and clears every grant
+  before granting the new session (`change-password`, `rotate-vault-key`),
+  so a request from a session that never gave the password, timed into
+  either gap beside a sync route, read private notes; inside a request the
+  key is now a granted session's or nobody's, and only a key loaded outside
+  any request (a script, a test's direct call) is still every request's
+  until the first grant (`_process_key`). (2) The Host check keyed only on
+  what the launcher said it bound (`set_current`), so `uvicorn --host
+  0.0.0.0`, serve.sh and a container ran with no rebinding guard; it also
+  keys on the address the request arrived at (`scope["server"]`,
+  `netbind.arrived_on_loopback`), and off loopback a request with no Host
+  is refused. (3) The .ics escaper is held to the letter and a title
+  carrying CRLF and event lines makes one event. Read and found sound: the
+  audit hook (never raises, `BaseException` caught, no I/O under its lock,
+  no lock re-entry; measured 0.07us per `open`, +3us per lookup, +7us per
+  connect), `/auth/lan-access` (password and the unlock throttle to turn on,
+  an empty password not counted as a guess, `allow_lan` only a literal
+  True, `PUT /preferences` refused by test), `/events/undo` (behind the
+  lock, the person's own actor refused, `is_private` never restored, dry
+  run by default), the receipt (behind the lock), `.ics` (private notes'
+  words absent, folding at octets, UID stable, no workspace scoping to
+  leak across since reminders have none).
+- **`netbind.host_allowed("localhost.")` and a trailing-dot own name are
+  refused** (fail closed, as intended; noted so nobody reads a 421 on
+  `localhost.` as a bug). `_own_names()` calls `gethostname` per request
+  off loopback, one syscall.
 - **The other search surfaces still do their own thing.** `file:
   frontend/app.js`, `id: search-one-surface`. The Notes list filters
   client-side with `parseNoteQuery` (which knows `tag:`, `category:`, `is:`
@@ -1057,14 +1118,11 @@ being written by running agents stay beside this one.
   only in rows view or while editing; in card view the third signal is zero.
   Next step: decide what "open" means on that surface, per the app's own focus
   model. [brief11-retrieval-engine.md]
-- **Global undo of an AI action.** `file: src/memorymap/core/events.py`, `id:
-  events-undo`. `replay` and `restore` cover one note; "undo auto-filing"
-  means selecting the events of one actor in one window and applying each
-  `before` in reverse. Next step: `events.undo(session, actor, since_id)` plus
-  the Settings surface that offers it (Brief 13 expects it for a skill run's
-  Undo). It has to refuse an event whose values are gone
-  (`events.is_compacted`); a deleted board item is the one case with nothing
-  to put back, since the whiteboard tables have no soft delete.
+- **Global undo of an AI action: the surface.** `events.undo` and `POST
+  /events/undo` are built 2026-09-26 (HISTORY.md, "Moved from the plans,
+  2026-09-26"). Left: the Settings surface that offers it (a dry run shown as
+  a list, then Undo), and a skill run's Undo calling it with the run's actor
+  and first event id (Brief 13). Board items stay "not undoable".
   [brief7-event-log.md]
 - ~~**The Timeline and Dashboard activity strips.**~~ **The Dashboard half
   built 2026-09-23**: a Recent activity widget, opt-in (`DASH_OPT_IN`, so
@@ -1124,10 +1182,12 @@ being written by running agents stay beside this one.
   the same table. `ai/tensions.py` and `ai/entities.py` already produce the
   first two in their own shapes; folding them in means giving each a span and
   a `DerivedFact` row, not a second pipeline. [learning-loop.md]
-- **`GET /night/latest` and the morning card** (I1's own surface). `POST
-  /night/run` returns the counts a card would need; nothing stores a run, so
-  grouping facts by run needs the `night_runs` table the plan names.
-  [learning-loop.md]
+- **The morning card** (I1's own surface). Its backend is built
+  2026-09-26 (HISTORY.md, "Moved from the plans, 2026-09-26"): `GET
+  /night/latest` returns `{run, counts, samples, previous}` and `GET
+  /night/runs/{id}/facts?kind=&limit=&offset=` pages the review list; the
+  Dashboard card over them (opt-in, like the Recent activity widget) is the
+  frontend half. [learning-loop.md]
 - **The four switches with no runner yet** (`margin_reader`,
   `open_questions`, `evidence_checks`, `model_bench`) are stored and reported
   but gate nothing, because their features are not built. Each of those briefs

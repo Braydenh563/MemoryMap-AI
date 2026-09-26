@@ -398,9 +398,9 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     and the popover (INBOX 80) shows the matched terms so a wrong number
     is visible.
 ~~80. Citation hover/click preview.~~ **Built 2026-09-26.** Moved to
-    HISTORY.md, "Moved from the plans, 2026-09-26".
+    HISTORY.md, "Moved from the plans, 2026-09-26 (the Chat pass)".
 ~~90. User chat bubbles.~~ **Built; checked 2026-09-26.** Moved to
-    HISTORY.md, "Moved from the plans, 2026-09-26".
+    HISTORY.md, "Moved from the plans, 2026-09-26 (the Chat pass)".
 63. **Redesign the Ask sub-tab, Write with the AI and Capture** (three
     screenshots, 01:12; the owner: "modernise them and bring them up to
     standard with features, function and ui ux"). Owner: Opus, next slot,

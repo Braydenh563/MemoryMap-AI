@@ -2372,6 +2372,12 @@ const LAZY_ENTRY_POINTS = {
     "renderGraph",
     "saveGraphNewNote",
     "saveGraphPopup",
+    //: The layout picker's change handler (navigation.js) calls it: on the
+    //: Graph tab before the bundle has arrived (a cold first visit, the
+    //: picker changed at once) it threw "setGraphPhysicsEnabled is not
+    //: defined" and the change was lost (the companion agent's
+    //: companionreact.js, 2026-09-26). Nobody reads its return value.
+    "setGraphPhysicsEnabled",
     "setTracePanelOpen",
     "syncGraphPopupSave",
   ],

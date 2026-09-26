@@ -1240,6 +1240,11 @@ def _create_note(session: Session, args: dict) -> dict:
                 deps.get_ollama(),
             )
         except Exception:
+            # `categorise` handles a model that is down itself; reaching here
+            # is a fault in it, which used to read as "uncategorised" forever.
+            logging.getLogger("memorymap.tools").warning(
+                "filing a note the agent made failed; left uncategorised", exc_info=True
+            )
             category, confidence = manager.UNCATEGORISED, 0
         entry = manager.create_entry(
             session, content, category_name=category, tags=tags, ai_confidence=confidence

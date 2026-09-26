@@ -75,6 +75,46 @@ def _is_same_site(candidate: str, host_header: str | None, scheme: str) -> bool:
     return False
 
 
+class HostCheckMiddleware:
+    """LAN mode's DNS-rebinding guard (see `core/netbind.host_allowed`).
+
+    Only while the server listens beyond this computer: on loopback the lock
+    and the Origin check already cover a rebinding page, and every tool that
+    talks to the app locally (the test client's own `testserver` among them)
+    names it however it likes. Off loopback, a Host that is not this computer
+    is answered 421 before anything else runs. Pure ASGI, so it costs one
+    header scan per request and never wraps a response.
+    """
+
+    def __init__(self, app) -> None:  # noqa: ANN001  # an ASGI app
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001  # ASGI
+        from memorymap.core import netbind
+
+        #: Off loopback by either fact: what the launcher bound, or the address
+        #: this request actually arrived on (`netbind.arrived_on_loopback`),
+        #: since a server started outside the launcher never says. A request
+        #: with no Host at all is refused there too: HTTP/1.1 requires one, so
+        #: nothing legitimate on the network omits it (on loopback a tool may).
+        if scope.get("type") == "http" and (
+            not netbind.is_loopback_bind() or not netbind.arrived_on_loopback(scope.get("server"))
+        ):
+            host = None
+            for name, value in scope.get("headers") or ():
+                if name == b"host":
+                    host = value.decode("latin-1")
+                    break
+            if host is None or not netbind.host_allowed(host):
+                response = JSONResponse(
+                    status_code=421,
+                    content={"detail": "This address does not name this computer."},
+                )
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
 class OriginCheckMiddleware(BaseHTTPMiddleware):
     """Refuse requests a *different* site's page caused a browser to send.
 

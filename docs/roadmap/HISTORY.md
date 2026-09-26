@@ -7,6 +7,188 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-09-26
+
+The backend agent's night (WORLD_CLASS_PLAN section 8's open rows, in order).
+
+### From WORLD_CLASS_PLAN.md row 2 (Brief 15): LAN mode's backend and `tests/test_lan_mode.py`
+
+**Built 2026-09-26.** Brief 15's done-when, run against the real launcher:
+`tests/test_lan_mode.py` starts `python -m memorymap` in a subprocess with
+the switch on, finds this machine's own network address
+(`netbind.lan_addresses`, no connection opened to find it) and talks to the
+server over it with `http.client`, so the server sees a non-loopback client
+exactly as it would see a phone. It asserts: the server listens there and the
+receipt says so, with the address; a network device is refused
+`/auth/auto-session` and told `auto_session: false` with sign-in off for this
+computer, while this computer gets one; the media cookie is HttpOnly,
+SameSite=Strict and not Secure on plain http to a network address (the
+browser would drop it), a `?token=` is 401 and the cookie opens `/media`;
+`/import/directory` refuses `/etc`; the web reader refuses this machine and
+`10.0.0.1` and the receipt shows no local-network connection; a Host naming
+another domain is 421; six wrong unlocks from the network are throttled while
+this computer unlocks; the access log has `token=[redacted]` and no raw
+token. A second test starts it with the switch off and finds the network
+address refused.
+
+What LAN mode needed that did not exist: `core/netbind.py` (the preference
+`allow_lan`, only a literal `true` counts; `bind_host`; the address the
+launcher did bind; `host_allowed`), `__main__._run_server` binding
+`bind_host` and logging the addresses, `GET` and `POST /auth/lan-access`
+(on needs the current password, throttled like an unlock, audited; off needs
+nothing; `PUT /preferences` cannot reach it), and
+`security.HostCheckMiddleware`, the DNS-rebinding guard, active only off
+loopback: a Host must be a loopback name, this machine's own name or an
+address literal, since a rebinding page can only ever send a name. The test
+found one bug on the way: the receipt counted the web reader's numeric
+"lookup" of `10.0.0.1` (parsed locally, never sent) as a local-network
+destination; numeric lookups are no longer recorded. 11 tests plus one in
+`tests/test_privacy_receipt.py`. **Left:** the Settings toggle (frontend).
+
+### From WORLD_CLASS_PLAN.md section 17 row 7: reminders as `.ics`
+
+**Built 2026-09-26.** `GET /reminders/export.ics` (this space's reminders,
+upcoming only unless `include_done=true`) and `GET
+/reminders/{id}/export.ics`, `text/calendar` as an attachment. Written by hand
+to RFC 5545: CRLF line ends, lines folded at 75 octets counted in bytes (a
+fold never splits a UTF-8 character), backslash, `;`, `,` and newlines
+escaped, `DTSTART`/`DTEND` in UTC with `Z`, `UID:reminder-<id>@memorymap.local`
+so a second import updates rather than duplicates, `RRULE:FREQ=` for daily,
+weekly and monthly, `PRIORITY` 1/5/9, `STATUS:COMPLETED` for a ticked one, and
+a display alarm at the due time. A linked note's opening is the
+`DESCRIPTION` unless the note is private: a private note's words never leave
+in the file. Tests: `tests/test_reminders_ics.py`, 9. **Left:** the two
+buttons (WORLD_CLASS_PLAN §17 row 7). Not verified: an import into a real
+calendar app.
+
+### From OPEN.md (brief7-event-log): global undo of an AI action, the backend
+
+**Built 2026-09-26.** `events.undo(session, actor, since_id, apply=, force=)`
+takes one actor's events after a mark, groups them by entity, and walks each
+entity's newest first applying every `before`, which lands each field the
+actor touched on the value it had before the actor's first change and leaves
+every other field as it is now. A note the actor created goes to the recycle
+bin. Refused by name in the plan: "changed since" (someone else's event on
+the entity after the actor's first, the quiet `dated`/`revised` ones aside;
+`force` overrides, putting back only the actor's fields), "too old"
+(`is_compacted`), "not undoable" (anything but a note: board items have no
+soft delete), "already undone" (an earlier undo's `restored` event names the
+events it reversed in `undid`, so a second run is a no-op), "no values
+recorded". Applying writes one `restored` event per note, by the person, and
+an `EntryRevision` before replacing text; `is_private` is never touched.
+`POST /events/undo` (`{actor, since, dry_run: true, force}`) is a dry run
+unless told otherwise and refuses the actor `user`. Tests:
+`tests/test_events_undo.py`, 8. **Left:** the Settings surface and the skill
+run's Undo (OPEN.md).
+
+**Found building it, fixed the same day: the auto-filer's moves were not
+events.** Capture's background filing set `category_id` with no event at
+all; adding context and re-evaluation wrote an `edited` event with no values,
+in the person's name. So "undo auto-filing" had nothing to find, and a note's
+History could not rebuild the category it had between capture and now.
+`manager.record_filing` (a `record_` write, so `tests/test_events.py`'s
+enumeration covers it, with a driver) files a note as `system:filing` with
+`before`/`after` of `category_id`, and writes nothing when the category does
+not change; the three paths call it. `POST /events/undo {"actor":
+"system:filing"}` now undoes auto-filing. Three more tests in the same file;
+711 tests across every file that reads the audit log pass.
+
+### From WORLD_CLASS_PLAN.md row 5 (I1): night runs and `GET /night/latest`
+
+**Built 2026-09-26.** OPEN.md's row: "`POST /night/run` returns the counts a
+card would need; nothing stores a run, so grouping facts by run needs the
+`night_runs` table the plan names." `NightRun` (`night_runs`: started and
+finished, `trigger` manual or scheduled, scanned, derived, tokens spent,
+budget, stopped reason, the model that narrowed, counts by kind) is written by
+`facts.run` in the same transaction as the facts it stamps with
+`DerivedFact.run_id`, so a pass that dies leaves neither; a paused runner
+writes no row; `ai/autonomous.py` passes `trigger="scheduled"`.
+`GET /night/latest` is the card: the latest run, what it found that is still
+visible (the same `_visible` join as `/learned`, so a deleted fact or a note
+made private since drops out), three samples per kind with their spans, and,
+when the latest run found nothing, the last run that did (`previous`), so a
+quiet night does not blank the morning. `GET /night/runs/{id}/facts` pages
+the review list. `facts.forget` deletes the runs with the facts. Tests:
+`tests/test_night_runs.py`, 11. **Left:** the Dashboard card (frontend), and
+the tension and answered-question passes (row 5).
+
+### From WORLD_CLASS_PLAN.md section 10: F4 (BLE001 enabled) and F7's ratchet
+
+**Built 2026-09-26.** F4 measured first: `ruff check src --select BLE001`
+found 33 broad handlers with no traceback, one in `tests/`. Triaged one by
+one. Twelve were silent in a way that hid a fault and now log with
+`exc_info`: the embedding warm-up's failure (the flag was set, the reason
+dropped), the re-index job's failure (one line of `str(exc)` on the job, no
+traceback anywhere), the directory import's skipped files (a count with no
+file name and no reason), filing on capture and on the agent's `create_note`
+(`janitor.categorise` handles a model that is down itself, so reaching the
+handler is a fault that read as "Uncategorised" forever), the near-duplicate
+check, tag suggestions, the three steps of re-evaluation, re-filing after new
+context, and the meeting summary. The launcher's Windows and window calls
+already said what failed and now carry the traceback. Seven carry
+`# noqa: BLE001  # <reason>` (before the config exists, a broken optional
+package, inside the log handler itself, the two expected "model offline"
+paths that already log the message). The test site narrowed to `OSError`.
+`pyproject.toml` selects BLE001; `tests/test_flaw_class_lints.py` holds it
+on. `scratchpad/probe_excepts.py`: silent 55 to 43 (its count includes the
+reasoned `noqa` sites). F7: the same file holds `threading.Thread(` to the 13
+modules and counts of 2026-09-26, so a new module fails and a count may only
+go down as threads move onto `core/jobs.py`.
+
+### From OPEN.md (auth-optional): the vault key granted per session
+
+**Built 2026-09-26.** The row: "The vault key is process-wide
+(`core/vault.py`): after a LAN device unlocks, a loopback session without a
+password reads private notes too until a lock or restart." Reproduced first
+(`tests/test_vault_sessions.py`, four of eleven failing before). The key is
+still held once, in memory; what changed is who may use it. `vault._granted`
+holds the tokens of the sessions that proved the password: setup, unlock,
+`/auth/unlock-vault`, and `/auth/change-password` and
+`/auth/rotate-vault-key`, which ask for it again (a session without the
+password that changes it is granted, and the new token each issues is
+granted after every other grant ends). `vault.key()` answers a request only
+for a granted session; the request's session is a context variable set by
+`routes_auth.VaultScope`, a pure ASGI middleware reading `X-Auth-Token`, so
+the threadpool a sync route runs in and a streaming body's iterator see the
+same caller. A request with no token, or a background thread once any grant
+exists, gets no key. The rule starts with the first grant, so a key loaded
+outside any session (the direct calls tests make) behaves as before, and in
+the running app the two move together. The key is forgotten when the last
+granted session expires or locks, even while a session without the password
+is still live (before, it stayed until every session had gone).
+`/auth/account` and `/auth/auto-session` report `vault_open` for the caller.
+`vault.is_open()` keeps its meaning, "loaded at all", which the existing
+tests read. 440 tests across the auth, vault, private-note and media files
+pass.
+
+### From WORLD_CLASS_PLAN.md row 35 and §12 S6: the privacy receipt's record and API
+
+**Built 2026-09-26.** Standout 5 of §2 ("a page that proves, from the app's
+own logs, that nothing left the machine") needed a log nothing could skip,
+so the record is not a logger the fetch sites call: `core/egress.py` is a
+Python audit hook (PEP 578) installed first thing in `create_app`, which the
+interpreter calls on every `socket.connect` and `socket.getaddrinfo` in the
+process, whatever library makes it. Loopback is counted; anything else is
+tabled by destination with its scope (this computer, the local network, the
+internet: a name nobody can place counts as the internet), the module on the
+stack that asked, named as a feature (`FEATURES`), and the name a connect was
+probably for. The hook never raises (an exception in a hook aborts the
+caller's connect), returns on one set lookup for every other event, and does
+no I/O; `flush` adds only the difference since the last flush to
+`<data>/egress-ledger.json`, from the route and at shutdown, so the receipt
+reads both "since launch" and "since the ledger began". Bounded at 256
+destinations and 100 recent events; totals count every connection.
+`GET /privacy/receipt` (behind the unlock) returns the verdict, totals,
+destinations with the model server labelled as one, the recent list, the
+ledger, the configured model server with its scope and a sentence on what
+that means for the notes (S6's receipt half), the listening address
+(`core/netbind.py`), the switches that can reach out, and what the record
+cannot see (the model server and SearXNG are other programs). Measured on a
+fresh app: verdict "stayed on this computer", two loopback connections after
+one `/models/status`. Tests: `tests/test_privacy_receipt.py`, 17, one of them
+a real loopback connect so the event shape is the interpreter's own. **Left:**
+the Settings page that shows it (row 35).
+
 ## Moved from the plans, 2026-09-24
 
 INBOX 399 ("what is left in the world class plan??"): every row of
@@ -35560,7 +35742,7 @@ map as an object in a note, and reminders linked to notes) and
 `worktree-agent-mapux2` (the owner's mind map report: the tools and utilities,
 the two kinds of connection, customisation, and the pan re-rasterisation).
 
-## Moved from the plans, 2026-09-26
+## Moved from the plans, 2026-09-26 (the Chat pass)
 
 ### From CHAT_PLAN.md
 

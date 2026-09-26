@@ -579,3 +579,14 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     bar never has. Both reports come from the desktop window (WebView2); the
     next step needs the owner: the window size, whether the top bar was
     dragged, and a screen recording of the ⋯ case. Recommendation: ask.
+    **Tried again 2026-09-26, with real scrollbars and a Windows laptop's
+    scale** (`SCROLLBARS=1`, `deviceScaleFactor` 1.25), and still not
+    reproduced. `wbmenuroom.js` now takes `DSF`: 87/87 at 1440x900,
+    1184x760, 1366x600, 1280x480 and 1024x768, and 36/36 at 1536x864 and
+    1536x800 (a 1920x1080 screen at 125%). The flicker is a thing over time,
+    which no probe had read, so `wbmoreflicker.js` (new) samples the ⋯ menu
+    every 40ms for 1.6s after a real click, for a sticky and a text box,
+    each selected and each being edited, with the pointer resting and then
+    moving toward the menu: open, on top, inside the window and within 1px
+    of where it opened in every sample, 48/48 at 1440x900, 1184x760 and
+    1280x640 and 32/32 at the two 1536 sizes. The recommendation stands.

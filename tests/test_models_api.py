@@ -390,16 +390,21 @@ def test_status_never_waits_on_a_capability_probe(client, monkeypatch):
 
     def slow_show(model):
         asked.set()
-        release.wait(5)
+        # Blocks until the test lets it go (or a minute passes): a status
+        # call that waited on this probe would take the whole minute.
+        release.wait(60)
         ollama._shown[model] = {"capabilities": ["vision"] if model == "model-2" else ["completion"]}
         return ollama._shown[model]
 
     monkeypatch.setattr(ollama, "show", slow_show)
     started = time.monotonic()
     body = client.get("/models/status").json()
-    # Well under the probe it did not wait for (5s), with room for a loaded
-    # CI runner; the point is "did not wait", not a benchmark.
-    assert time.monotonic() - started < 4
+    # The probe is still blocked here (released below), so any answer well
+    # inside its minute proves the poll did not wait on it. The margin is wide
+    # on purpose: CI once took 4.6s for this call under load (2026-09-26)
+    # against a 4s limit set beside a 5s probe, which measured the runner.
+    assert time.monotonic() - started < 30
+    assert not release.is_set()
     assert body["ollama_running"] is True
     assert body["vision_model_resolved"] is None  # unknown yet, not waited for
     assert asked.wait(5)

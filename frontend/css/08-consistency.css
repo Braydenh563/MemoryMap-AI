@@ -3003,13 +3003,13 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
      "a card's menu" step judged the button covered. The title keeps room for
      both, reserved rather than taken. */
   .library-card .library-card-top {
-    padding-right: calc(var(--space-8) + var(--target-min) + var(--space-1));
+    padding-right: calc(var(--space-8) + var(--target-min) + var(--space-2));
   }
 
   .library-card .library-card-tick {
     position: absolute;
     top: var(--space-3);
-    right: calc(var(--space-3) + var(--target-min) + var(--space-1));
+    right: calc(var(--space-3) + var(--target-min) + var(--space-2));
     margin: 0;
     z-index: 1;
     opacity: 0;
@@ -7181,4 +7181,51 @@ input[type="file"]::file-selector-button:hover {
    out when they fill. */
 #settings-modal .settings-section .prefs-save-row:not(:has(> :not(.hidden):not(:empty))) {
   margin-top: 0;
+}
+
+/* --- Library Activity, one line per record (INBOX 426 z, images 89, 90) -----
+   when, what, the detail, on three tracks that are the same on every row.
+   In Rows the generic list tracks applied as well: the meta's
+   `margin-left: auto` (there to push a row's date to its right edge) sat
+   on the time, which is drawn first here, so on every row without a detail
+   the time and the title slid across to the right, x 1227 against 173 on
+   the row above. The time keeps its 7rem at the start in both views, the
+   title a fixed track, and the detail takes the rest. */
+@media (min-width: 721px) {
+  .library-grid .library-card.library-activity > .library-card-meta {
+    order: -1;
+    flex: 0 0 7rem;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  /* No room kept for a tick: a record of the past has none to offer. */
+  .library-grid .library-card.library-activity > .library-card-top {
+    flex: 0 0 16rem;
+    min-width: 0;
+    padding-right: 0;
+  }
+
+  .library-grid .library-card.library-activity .library-card-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* --- the selection tick in Rows (INBOX 426 z, image 91) ---------------------
+   The tick's corner (top right, one ⋯ in from the edge) is the grid card's
+   corner. In Rows the ⋯ sits in the flow at the row's end and the date
+   right-aligned before it, so the tick landed on "2 weeks ago" and against
+   the ⋯ with no gap. In Rows it is centred on the row, a `--space-2` gap
+   before the ⋯, and the date track leaves it the room. */
+@media (hover: hover) {
+  .library-list .library-card .library-card-tick {
+    top: 50%;
+    translate: 0 -50%;
+    right: calc(var(--space-5) + var(--target-min) + var(--space-2));
+  }
+
+  .library-list .library-card:has(.library-card-tick) > .library-card-meta {
+    padding-right: calc(1.5rem + var(--space-2));
+  }
 }

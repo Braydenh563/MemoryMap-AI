@@ -44,3 +44,19 @@ def test_a_code_block_in_an_answer_is_not_a_run_of_inline_chips() -> None:
     assert rules, "the answer's inline code rule is gone"
     for prefix in rules:
         assert ":not(pre) >" in prefix, "inline code styling reaches the code inside a <pre> again"
+
+
+def test_escape_stops_the_answer_and_the_stop_button_holds_the_keyboard() -> None:
+    """CHAT_PLAN section 6: "Escape stops streaming". Only Ctrl+. did, and the
+    composer is disabled mid-answer, so the focus fell to the page. Measured
+    by chataudit.js, part keys: Escape stopped nothing before; after, 34ms,
+    with the Stop button holding the focus while the answer streams."""
+    app = app_js_text()
+    esc = app[app.index("//: **Escape stops the answer being written**") :]
+    esc = esc[: esc.index("\n});\n")]
+    assert 'document.addEventListener("keydown"' in esc, "Escape must be heard on the page: the box is disabled mid-answer"
+    assert "chatController.abort()" in esc
+    assert '$("tab-chat").classList.contains("hidden")' in esc, "Escape on another tab must not stop a chat"
+    assert "event.defaultPrevented" in esc, "an Escape a menu or dialog already used must be left alone"
+    send = _function(app, "sendChatMessage")
+    assert '$("chat-stop").focus(' in send, "the Stop button no longer takes the focus while the answer streams"

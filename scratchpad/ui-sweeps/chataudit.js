@@ -182,10 +182,15 @@ function waitForFake() {
     await page.keyboard.type('Tell me more about the running notes please.');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => chatController, null, { timeout: 5000 }).catch(() => null);
-    await page.waitForTimeout(700);
+    //: Pressed early, while the answer is surely still being written: the
+    //: first run pressed it at 700ms and the answer ended on its own at
+    //: 1,246ms, which read as Escape working when it did nothing.
+    await page.waitForTimeout(250);
+    keys.streamingWhenPressed = await page.evaluate(() => Boolean(chatController));
+    keys.focusWhileStreaming = await page.evaluate(() => document.activeElement && (document.activeElement.id || document.activeElement.tagName));
     const t0 = Date.now();
     await page.keyboard.press('Escape');
-    keys.escapeStops = await page.waitForFunction(() => !chatController, null, { timeout: 1500, polling: 50 }).then(() => Date.now() - t0).catch(() => false);
+    keys.escapeStops = await page.waitForFunction(() => !chatController, null, { timeout: 400, polling: 20 }).then(() => Date.now() - t0).catch(() => false);
     if (keys.escapeStops === false) {
       await page.keyboard.press('Control+.');
       keys.ctrlDotStops = await page.waitForFunction(() => !chatController, null, { timeout: 1500, polling: 50 }).then(() => true).catch(() => false);

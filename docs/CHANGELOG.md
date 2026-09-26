@@ -236,6 +236,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The corner companion's menu opens at the pointer when you right-click or hold it, and beside it from the keyboard; a walk or a poof under way stops where it is when the menu opens, so the menu is never left behind (it had been, 38 to 142px away, when the companion was clicked while moving) (INBOX 426 x, 84.png).
 - Stay here on every page means it: a companion pinned away from the window's edges keeps its place when the window is resized or the app opens at another size (it jumped by the whole change in size, 200px for a 900 to 700px window), one pinned by the bottom bar or a corner keeps its distance from that edge, and pinning it while it walks pins it where it is, not where it was going (INBOX 426 l).
 - Your look's Holding picker no longer shows empty: a face saved before a part was taken out (the rude gesture) is read without it, on this computer and by the server, so the picker reads From your name and the rest of the look is kept. A double-click on your profile picture, in the profile or the Settings head, opens it large as the companion's does (INBOX 426 w).
 - The corner companion's menu stays at it: nothing the companion does on its own moves it while its menu is open (it used to wander 338px off and leave the menu behind), and a panel that carries it carries the menu; the menu still flips to its left at the right edge and stays inside the window, measured at four sizes and scales, by right-click and by Shift+F10 (INBOX 426 x).

@@ -240,7 +240,7 @@ def test_its_menu_holds_it_where_it_is() -> None:
         assert "nameMarkBuddyMenuOpen()" in _fn(name), name
     assert "if (nmb.menuPlace && nameMarkBuddyMenuOpen()) nmb.menuPlace();" in _fn("nameMarkBuddyPut")
     menu = _fn("nameMarkBuddyMenu")
-    place = menu[menu.index("const place = () => {") :]
+    place = menu[menu.index("const beside = () => {") :]
     assert "const box = face.getBoundingClientRect();" in place[: place.index("};")]
     # Flipped to its left at the right edge and kept inside the window.
     assert "if (left + now.width > innerWidth - margin) left = box.left - gap - now.width;" in place
@@ -328,3 +328,20 @@ def test_pinned_stays_put_through_resizes_and_a_pin_mid_walk() -> None:
     assert "{ x, y, pose: nmb.pose" in stay
     gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
     assert "companionpin" in gate
+
+
+def test_its_menu_opens_at_the_pointer_and_stops_a_move() -> None:
+    # INBOX 426 x, 84.png, round 4: at 1.25 and 1.5 scale, dark, riding a
+    # scrolled dashboard panel, a right-click mid-walk or mid-poof opened
+    # the menu at the companion and the move then carried it 38 to 142px
+    # away. companionmenu.js (70 menus, every way in) now finds every menu
+    # within 24px. A move under way stops where it is drawn; a right-click
+    # or a long press opens the menu at the pointer, the keyboard beside it.
+    menu = _fn("nameMarkBuddyMenu")
+    assert 'if (nmb.anim && nmb.anim.playState === "running") {' in menu
+    assert "nameMarkBuddyRide(null, Math.round(drawn.left), Math.round(drawn.top));" in menu
+    assert "at ? at[0] : box.left, at ? at[1] : box.top" in menu
+    assert "const place = at ? inside : beside;" in menu
+    build = _fn("nameMarkBuddyBuild")
+    assert "if (event.button === 2) rightDown = " in build
+    assert "nameMarkBuddyMenu(buddy, at);" in build

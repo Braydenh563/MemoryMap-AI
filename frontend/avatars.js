@@ -5365,9 +5365,30 @@ function nameMarkBuddyHide(buddy) {
 //: builds it (the app's one menu), and it is then shifted by a `translate`
 //: to that place, which leaves how the menu was positioned alone. While it
 //: is open the companion does not go anywhere on its own.
-function nameMarkBuddyMenu(buddy) {
+//:
+//: **Opened by the pointer, it opens at the pointer** (INBOX 426 x, 84.png,
+//: round 4): `at` is where a right-click or a long press was, and the menu
+//: opens there, the way every other context menu does; from the keyboard
+//: it opens beside the companion's box. And a move already under way stops
+//: where it is drawn: measured at 1.25 and 1.5 scale, a right-click mid-walk
+//: or mid-poof opened the menu at the companion and the move then carried
+//: the companion 69 to 136px away from it. Its next place is chosen on its
+//: own beat, once the menu has closed.
+function nameMarkBuddyMenu(buddy, at = null) {
   if (typeof openMenuAtPoint !== "function") return;
   const face = buddy.querySelector(".nm-buddy-face");
+  if (nmb.anim && nmb.anim.playState === "running") {
+    const drawn = buddy.getBoundingClientRect();
+    nmb.anim.cancel();
+    nmb.hopAnim?.cancel();
+    buddy.classList.remove("nmb-walking", "nmb-poofing");
+    nmb.glue = null;
+    nameMarkBuddyWatch();
+    nameMarkBuddyRide(null, Math.round(drawn.left), Math.round(drawn.top));
+    buddy.dataset.pose = nmb.pose = "float";
+    buddy.dataset.legs = nmb.legs = "";
+    nameMarkBuddyQueuePlace();
+  }
   const tab = nameMarkBuddyTab();
   const spots = nameMarkBuddySpots();
   const items = [
@@ -5406,14 +5427,23 @@ function nameMarkBuddyMenu(buddy) {
   }
   items.push({ group: "hide", label: "ph:eye-slash Hide", run: () => nameMarkBuddyHide(buddy) });
   const box = face.getBoundingClientRect();
-  openMenuAtPoint(items, "Companion", box.left, box.top);
+  openMenuAtPoint(items, "Companion", at ? at[0] : box.left, at ? at[1] : box.top);
   const menu = [...document.querySelectorAll(".pointer-menu-host .action-menu, .action-menu.action-menu-escaped")]
     .find((el) => !el.classList.contains("hidden") && el.getBoundingClientRect().width);
   nmb.menu = menu || null;
   if (!menu) return;
+  //: At the pointer: only kept inside the window.
+  const inside = () => {
+    menu.style.translate = "";
+    const now = menu.getBoundingClientRect();
+    const margin = 8;
+    const dx = Math.min(0, innerWidth - margin - now.right) + Math.max(0, margin - now.left);
+    const dy = Math.min(0, innerHeight - margin - now.bottom) + Math.max(0, margin - now.top);
+    if (dx || dy) menu.style.translate = `${Math.round(dx)}px ${Math.round(dy)}px`;
+  };
   //: Placed from the companion's box as it is each time: a panel moving
   //: under it while the menu is open (a transform) carries both.
-  const place = () => {
+  const beside = () => {
     const box = face.getBoundingClientRect();
     menu.style.translate = "";
     const now = menu.getBoundingClientRect();
@@ -5428,6 +5458,7 @@ function nameMarkBuddyMenu(buddy) {
   //: Placed now, and once more on the next frame: the menu's own opening
   //: settles its box a frame later, which measured as the menu landing 13px
   //: above the companion's top when placed only once.
+  const place = at ? inside : beside;
   place();
   nmb.menuPlace = place;
   requestAnimationFrame(() => {
@@ -5641,9 +5672,18 @@ function nameMarkBuddyBuild() {
   //: (the Menu key or Shift+F10 while it has focus).
   //: Wherever it is opened from, it opens at the companion
   //: (`nameMarkBuddyMenu`).
+  //: A right-click opens it at the pointer: only when a real pointer
+  //: pressed the second button just now (a keyboard's context-menu event
+  //: carries a made-up point), and then from that press's own place.
+  let rightDown = null;
+  face.addEventListener("pointerdown", (event) => {
+    if (event.button === 2) rightDown = { x: event.clientX, y: event.clientY, at: performance.now() };
+  });
   face.addEventListener("contextmenu", (event) => {
     event.preventDefault();
-    nameMarkBuddyMenu(buddy);
+    const fresh = rightDown && performance.now() - rightDown.at < 1500;
+    nameMarkBuddyMenu(buddy, fresh ? [event.clientX || rightDown.x, event.clientY || rightDown.y] : null);
+    rightDown = null;
   });
   face.addEventListener("keydown", (event) => {
     if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) {
@@ -5655,10 +5695,11 @@ function nameMarkBuddyBuild() {
   face.addEventListener("pointerdown", (event) => {
     if (event.pointerType === "mouse") return;
     clearTimeout(hold);
+    const at = [event.clientX, event.clientY];
     hold = setTimeout(() => {
       drag = null;
       face.dataset.dragged = "1";
-      nameMarkBuddyMenu(buddy);
+      nameMarkBuddyMenu(buddy, at);
     }, 550);
   });
   for (const type of ["pointerup", "pointercancel", "pointermove"]) {

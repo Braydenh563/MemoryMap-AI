@@ -55,6 +55,10 @@ const POSES = [
       buddy.style.transform = `translate(${660 / zoom}px, ${400 / zoom}px)`;
       buddy.style.translate = "";
       buddy.style.zoom = String(zoom);
+      //: The companion's size grip (avatars.js) is its own control, not
+      //: the drawing: hidden so the cells compare drawings (an element
+      //: style, since the app's CSP refuses an inline stylesheet).
+      for (const grip of buddy.querySelectorAll(".nmb-size-grip")) grip.style.display = "none";
     }, [pose, classes, zoom]);
     await page.waitForTimeout(300);
     const buf = await page.screenshot({ clip: { x: 610, y: 350, width: 164 * zoom, height: 164 * zoom } });

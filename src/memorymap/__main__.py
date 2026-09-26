@@ -1547,6 +1547,14 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         os._exit(0)
 
     quit_hook.set_quit_handler(_quit_from_app)
+    # The documents focus mode's "Fill the whole screen": a web view's own
+    # full screen fills the web view, not the window (INBOX 426 z), so the
+    # page asks the window through `POST /desktop/fullscreen`.
+    from memorymap.core import window_hook
+
+    toggle_fullscreen = getattr(window, "toggle_fullscreen", None)
+    if callable(toggle_fullscreen):
+        window_hook.set_fullscreen_handler(toggle_fullscreen)
     # The handoff from start.bat's splash to this window. create_window has
     # returned, so this window is the one the user is about to be looking at;
     # the splash's job is over the moment it is.

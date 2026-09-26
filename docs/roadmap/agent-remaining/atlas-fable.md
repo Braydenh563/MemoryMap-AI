@@ -17,7 +17,27 @@ proofs the owner sees are in the main repo's `scratchpad/shots/`
 (gitignored), prefixed `atlas-r3-` (`trace`, `grid`, `sheet-feminine-dark`,
 `tune`, `lab-<view>`, `sim-<step>`).
 
-## Where it stands (round 3, the owner's second batch, INBOX 426 v and bb)
+## Where it stands (round 4, performance)
+
+The companion's Atlas is five stacked SVG layers (`atlasDrawFigure`:
+back, tail, body, lids, front) whose idle loops run on the layer roots
+(breathe, sway, blink, shimmer: compositor transforms and opacity, with
+will-change), with the loops inside a drawing off in the layers, the
+gradients and clips in one shared hidden `<svg class="atl-defs">` per
+look, the star specks one path each, and every loop paused off screen
+(`atl-off`) and on a hidden tab (`data-atlas-hidden`). Measured with
+`companionperf.js` (6s idle, dashboard): Atlas idle went from +45 ms/s
+of main thread over the page with it off (20 layouts a second) to +1
+ms/s and 0 layouts; nodes 508 to 426; the four-pose grid differs from
+round 3 by 0.48% of pixels above 24/255 and 0.001% above 96/255 (the
+diff image `atlas-r4-grid-diff.png`). The one avatars.js hook: the
+tempo pacer skips animations whose target is an SVG root
+(`SVGSVGElement`), since stepping them would put them back on the main
+thread. The simulator now gives the companion the app's tab list, a
+Beat (its behaviour runner), a Trip (its placement asked to look near a
+random panel) and auto beats alternating the two.
+
+## Where it stood after round 3 (the owner's second batch, INBOX 426 v and bb)
 
 Built and committed: a silhouette per pose (round 2) with three new acts
 the companion can call (`nmb-act-meditate`, `nmb-act-juggle`,
@@ -37,13 +57,13 @@ mock page, a trace, fast scroll, moving panels and a stand-in menu.
 
 ## Remaining, in order
 
-1. The companion simulator's travel: `placeNameMarkBuddy` keeps the
-   companion at its corner spot on the mock page; its trips are driven by
-   app.js's tab changes and idle beats, which the sim does not have. A
-   "beat" control that calls the companion's own scheduler entry, once the
-   companion agent names it, would show the motion the owner wants to
-   judge. The stand-in menu lists the real items but says nothing about
-   where app.js's menu lands.
+1. The companion simulator's stand-in menu lists the real items but says
+   nothing about where app.js's menu lands; the companion's blink on the
+   layered figure is the lids layer, which mirrors the head's mood tilt
+   and the think and attend turns but not a turn from another act (a
+   blink during a head shake sits a few px off); the ring drift and the
+   per-glint twinkles are off at companion size (the front layer shimmers
+   as one instead).
 2. The owner's read of round 3 will name the next round: the trace
    proofs put the masculine at 88% of the sprite's height and the
    feminine's hair a third shorter than the definitive stand's.

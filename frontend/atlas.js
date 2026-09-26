@@ -230,6 +230,14 @@ function atlasStemEdge(segs, width, samples) {
   return `M${f(right[0][0])} ${f(right[0][1])}${atlasSmooth(right)}`;
 }
 
+//: Star specks as one path: each a circle of two arcs, so a sky of them is
+//: one node rather than thirty (the companion's figure pays per node).
+function atlasSpecks(parent, list, cls = "atl-speck") {
+  const f = atlasFix;
+  const d = list.map(([x, y, r]) => `M${f(x - r)} ${f(y)}a${r} ${r} 0 1 0 ${f(2 * r)} 0a${r} ${r} 0 1 0 ${f(-2 * r)} 0`).join("");
+  return atlasMake("path", { class: cls, d }, parent);
+}
+
 //: A width that eases from `a` at the root to `b` at the tip.
 const atlasTaper = (a, b) => (t) => a + (b - a) * (t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t));
 
@@ -523,6 +531,10 @@ function atlasScalePathX(d, k, cx) {
 function atlasRetune(next) {
   if (typeof window !== "undefined") window.ATLAS_TUNE = { ...(window.ATLAS_TUNE || {}), ...(next || {}), colours: { ...(window.ATLAS_TUNE?.colours || {}), ...(next?.colours || {}) } };
   const tune = atlasBuild();
+  //: A gradient's colours resolve on the shared defs, not on the drawing.
+  for (const host of document.querySelectorAll("svg.atl-defs")) {
+    for (const key of ATLAS_TUNE_COLOURS) host.style.setProperty(`--atl-${key}`, tune.colours[key] || "");
+  }
   if (typeof atlasRepaint === "function") atlasRepaint();
   return tune;
 }
@@ -713,7 +725,7 @@ function atlasMane(parent, level, edge, look) {
     }
   });
   if (!edge) {
-    for (const [cx, cy, r] of [[44, 9.6, 0.3], [50, 14, 0.24], [53, 22, 0.3], [49, 30, 0.2], [55, 36, 0.24]]) atlasMake("circle", { class: "atl-speck atl-speck-soft", cx, cy, r }, mane);
+    atlasSpecks(mane, [[44, 9.6, 0.3], [50, 14, 0.24], [53, 22, 0.3], [49, 30, 0.2], [55, 36, 0.24]], "atl-speck atl-speck-soft");
     //: The feminine look's hair carries a constellation (the reference's
     //: "long flowing hair with constellations"): star points along the
     //: locks, threaded.
@@ -739,7 +751,7 @@ function atlasEars(parent, level, edge, look) {
       if (spec.earIn) atlasMake("path", { class: "atl-ear-in", d: m(spec.earIn) }, g);
       if (!tiny) {
         if (!spec.fin) {
-          for (const [x, y, r] of [[17.4, 6.2, 0.28], [19.6, 9.4, 0.2], [18.2, 4.4, 0.16]]) atlasMake("circle", { class: "atl-speck", cx: side === "l" ? x : 62 - x, cy: y, r }, g);
+          atlasSpecks(g, [[17.4, 6.2, 0.28], [19.6, 9.4, 0.2], [18.2, 4.4, 0.16]].map(([x, y, r]) => [side === "l" ? x : 62 - x, y, r]));
         }
         const [tx, ty] = spec.earTip;
         atlasSpark(g, side === "l" ? tx : 62 - tx, ty, spec.fin ? 0.9 : 1.1, "atl-glint atl-hair-star");
@@ -775,7 +787,7 @@ function atlasTail(layer, edge, look) {
   atlasMake("path", { class: "atl-tail-stream", d: spec.streamPath }, swish);
   atlasMake("path", { class: "atl-tail-edge", d: spec.tailPath }, swish);
   const stars = atlasGroup(swish, "atl-tail-core");
-  for (const [x, y, r] of spec.tailStarsNow) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, stars);
+  atlasSpecks(stars, spec.tailStarsNow);
   const [tx, ty] = spec.tailTipNow;
   atlasMake("circle", { class: "atl-tip-glow", cx: tx, cy: ty, r: 8 }, stars);
   atlasMake("circle", { class: "atl-tip-core", cx: tx, cy: ty, r: 2.4 }, stars);
@@ -797,15 +809,11 @@ function atlasBand(layer, front, id) {
   atlasMake("path", { class: "atl-band-fill", d: paths.fill }, g);
   atlasMake("path", { class: "atl-overlay atl-band-neb", d: paths.fill }, g);
   //: The clouds, clipped to the ribbon so they never leave it.
-  const clip = atlasMake("clipPath", { id: `${id}-band-${side}` }, g);
-  atlasMake("path", { d: paths.fill }, clip);
   const clouds = atlasMake("g", { "clip-path": `url(#${id}-band-${side})` }, g);
   for (const [cx, cy, rx, ry, colour] of ATLAS_BAND_CLOUDS[side]) atlasMake("ellipse", { class: `atl-band-cloud atl-band-cloud-${colour}`, cx, cy, rx, ry }, clouds);
   atlasMake("path", { class: "atl-band-stream", d: paths.stream }, g);
   atlasMake("path", { class: "atl-band-edge", d: paths.edge }, g);
-  for (const [x, y, r] of ATLAS_BAND_STARS) {
-    if ((y >= 62) === front) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, g);
-  }
+  atlasSpecks(g, ATLAS_BAND_STARS.filter(([, y]) => (y >= 62) === front));
   return g;
 }
 
@@ -897,7 +905,7 @@ function atlasCoilProp(layer) {
   atlasMake("path", { class: "atl-overlay atl-band-neb", d }, coil);
   atlasMake("path", { class: "atl-band-stream", d: atlasStem(segs, (t) => width(t) * 0.3, { samples: 8, cap: false, shift: (t) => width(t) * 0.24 * Math.sin(Math.PI * 3 * t) }) }, coil);
   atlasMake("path", { class: "atl-band-edge", d: atlasStemEdge(segs, width, 8) }, coil);
-  for (const [x, y, r] of [[8, 74, 0.45], [20, 78.6, 0.35], [44, 78, 0.5], [54, 72, 0.35], [36, 65.6, 0.3]]) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, coil);
+  atlasSpecks(coil, [[8, 74, 0.45], [20, 78.6, 0.35], [44, 78, 0.5], [54, 72, 0.35], [36, 65.6, 0.3]]);
   return coil;
 }
 
@@ -952,7 +960,7 @@ function atlasHead(parent, id, level, look) {
   if (!tiny) atlasMake("path", { class: "atl-overlay atl-rim-head", d: ATLAS_HEAD_PATH }, sway);
   const ears = atlasEars(sway, level, false, look);
   if (!tiny) {
-    for (const [cx, cy, r] of [[40.4, 15.4, 0.34], [42.2, 20.2, 0.26], [20.6, 28.4, 0.26]]) atlasMake("circle", { class: "atl-speck atl-speck-soft", cx, cy, r }, sway);
+    atlasSpecks(sway, [[40.4, 15.4, 0.34], [42.2, 20.2, 0.26], [20.6, 28.4, 0.26]], "atl-speck atl-speck-soft");
     atlasMake("ellipse", { class: "atl-sheen atl-sheen-head", cx: 25.4, cy: 14.6, rx: 5.6, ry: 3, transform: "rotate(-34 25.4 14.6)" }, sway);
     atlasMake("circle", { class: "atl-sheen atl-sheen-dot", cx: 20.8, cy: 19.6, r: 0.9 }, sway);
   }
@@ -1039,18 +1047,26 @@ function atlasRing(parent, id, ring, k, front) {
 //: and the body; the strand's front crossing comes after the legs, under
 //: the body; the arms last. Each leg holds its tendril in a group of its
 //: own (`.atl-tendril`, pivoted at the hip) so the tip can drift.
-function atlasBody(parent, id, props, look) {
+//: `route`, for the companion's layered figure (`atlasDrawFigure`), names
+//: the groups the strand's back sweep and the props (`back`), the tail
+//: (`tail`) and the bubble (`front`) go to; without it everything is drawn
+//: into `parent`, in the same order.
+function atlasBody(parent, id, props, look, route = null) {
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
-  const layers = { edge: atlasGroup(parent, "atl-edges"), fill: atlasGroup(parent, "atl-fills") };
+  const pair = (host) => ({ edge: atlasGroup(host, "atl-edges"), fill: atlasGroup(host, "atl-fills") });
+  const layers = pair(parent);
+  const back = route ? pair(route.back) : layers;
+  const tailAt = route ? pair(route.tail) : layers;
+  const frontAt = route ? { fill: route.front } : layers;
   const arms = {};
-  atlasBand(layers.edge, false, id);
+  atlasBand(back.edge, false, id);
   for (const [kind, layer] of Object.entries(layers)) {
     const edge = kind === "edge";
-    atlasTail(layer, edge, look);
+    atlasTail(tailAt[kind], edge, look);
     if (!edge && props) {
-      atlasBookProp(layer);
-      atlasCoilProp(layer);
-      atlasMapProp(layer);
+      atlasBookProp(back.fill);
+      atlasCoilProp(back.fill);
+      atlasMapProp(back.fill);
     }
     //: The mermaid lower body (the feminine look): one ribbon from the
     //: hips sweeping down to the left and curling, in the tail's paint,
@@ -1063,7 +1079,7 @@ function atlasBody(parent, id, props, look) {
       if (!edge) {
         atlasMake("path", { class: "atl-overlay atl-tail-galaxy", d: spec.lowerPath }, lower);
         atlasMake("path", { class: "atl-tail-stream", d: spec.lowerStream }, lower);
-        for (const [x, y, r] of [[28.4, 70, 0.4], [23.6, 78.4, 0.35], [17.6, 88, 0.45], [24.4, 93, 0.3]]) atlasMake("circle", { class: "atl-speck", cx: x, cy: y, r }, lower);
+        atlasSpecks(lower, [[28.4, 70, 0.4], [23.6, 78.4, 0.35], [17.6, 88, 0.45], [24.4, 93, 0.3]]);
       }
     }
     ATLAS_LIMBS.legs.forEach(([side, d], i) => {
@@ -1136,7 +1152,7 @@ function atlasBody(parent, id, props, look) {
     atlasHandProps(arms.r, arms.l);
     //: Startled, a translucent bubble round the whole figure (the
     //: reference's `startle` cell); the CSS shows it.
-    const bubble = atlasGroup(layers.fill, "nmp nmp-bubble");
+    const bubble = atlasGroup(frontAt.fill, "nmp nmp-bubble");
     atlasMake("ellipse", { class: "atl-bubble", cx: 31, cy: 48, rx: 36, ry: 46 }, bubble);
     atlasMake("ellipse", { class: "atl-bubble-shine", cx: 14, cy: 20, rx: 6, ry: 3.2, transform: "rotate(-40 14 20)" }, bubble);
   }
@@ -1148,7 +1164,33 @@ function atlasBody(parent, id, props, look) {
 //: the specular; the iris; the constellation's glow; the tail's galaxy;
 //: the inner ears; the strand's nebula; each eye's clip; and the rings'
 //: front halves.
-function atlasDefs(svg, id, level) {
+//: **Shared defs** (round 4, the companion's cost): the gradients and
+//: clips are drawn once per look into a hidden `<svg class="atl-defs">`
+//: at the end of the body, and every drawing refers to them by id
+//: (`atl-<look>-<name>`), which cuts 74 nodes from each drawing. A
+//: gradient's colours resolve where it lives, so there is one set per
+//: look (the feminine palette differs), the set carries the look's data
+//: attribute, and the lab's tuned colours are set on the sets as well as
+//: on each drawing (`atlasRetune`). The pages that copy a drawing's
+//: markup elsewhere (the sheet scripts) copy the sets with it.
+function atlasDefs(svg, look) {
+  const id = `atl-${look}`;
+  let host = document.getElementById(`${id}-defs`);
+  if (!host) {
+    host = atlasMake("svg", { id: `${id}-defs`, class: "nm-atlas atl-defs", width: 0, height: 0, "aria-hidden": "true", focusable: "false" });
+    host.dataset.atlasLook = look;
+    atlasBuildDefs(host, id);
+    (document.body || document.documentElement).appendChild(host);
+  }
+  //: The paints name their gradients through custom properties, so the CSS
+  //: can say "skin" without knowing the look.
+  for (const name of ATLAS_DEF_NAMES) svg.style.setProperty(`--atl-${name}`, `url(#${id}-${name})`);
+  return id;
+}
+
+const ATLAS_DEF_NAMES = ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "rays", "iris", "galaxy", "hneb", "earin", "bneb", "bandg", "cloudp", "cloudb", "tip"];
+
+function atlasBuildDefs(svg, id) {
   const defs = atlasMake("defs", {}, svg);
   const stops = (grad, list) => {
     for (const [offset, cls] of list) atlasMake("stop", { offset, class: cls }, grad);
@@ -1200,19 +1242,17 @@ function atlasDefs(svg, id, level) {
   }
   const tip = atlasMake("radialGradient", { id: `${id}-tip` }, defs);
   stops(tip, [[0, "atl-st-white"], [0.4, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
-  if (level !== "tiny") {
-    for (const [cx, cy, side] of ATLAS_GEO.eyes) {
-      const clip = atlasMake("clipPath", { id: `${id}-e${side > 0 ? "l" : "r"}` }, defs);
-      atlasMake("path", { d: atlasAlmond(cx, cy, side).d }, clip);
-    }
+  for (const [cx, cy, side] of ATLAS_GEO.eyes) {
+    const clip = atlasMake("clipPath", { id: `${id}-e${side > 0 ? "l" : "r"}` }, defs);
+    atlasMake("path", { d: atlasAlmond(cx, cy, side).d }, clip);
   }
   //: The rings' front halves, in the ring frame.
   const front = atlasMake("clipPath", { id: `${id}-front` }, defs);
   atlasMake("rect", { x: -50, y: 0, width: 100, height: 50 }, front);
-  //: The paints name their gradients through custom properties, so the CSS
-  //: can say "skin" without knowing this drawing's id.
-  for (const name of ["skin", "belly", "rimh", "rimb", "riml", "sheen", "aura", "core", "rays", "iris", "galaxy", "hneb", "earin", "bneb", "bandg", "cloudp", "cloudb", "tip"]) {
-    svg.style.setProperty(`--atl-${name}`, `url(#${id}-${name})`);
+  //: The strand's clouds, clipped to each sweep.
+  for (const [side, paths] of [["back", ATLAS_BAND_BACK], ["front", ATLAS_BAND_FRONT]]) {
+    const clip = atlasMake("clipPath", { id: `${id}-band-${side}` }, defs);
+    atlasMake("path", { d: paths.fill }, clip);
   }
 }
 
@@ -1238,14 +1278,89 @@ function atlasLevelFor(size) {
   return "full";
 }
 
+//: The tune's non-geometric parts, and the delay every drawing shares,
+//: ride on custom properties of the drawing.
+function atlasTuneStyle(svg) {
+  svg.style.setProperty("--nm-delay", "-1.3s");
+  const tune = atlasTune();
+  if (tune.headSize !== 1) svg.style.setProperty("--atl-tune-head", String(tune.headSize));
+  if (tune.starSize !== 1) svg.style.setProperty("--atl-tune-star", String(tune.starSize));
+  if (tune.strandOpacity !== 1) svg.style.setProperty("--atl-tune-strand", String(tune.strandOpacity));
+  for (const [key, value] of Object.entries(tune.colours)) svg.style.setProperty(`--atl-${key}`, value);
+}
+
+//: **The companion's figure as five layers** (round 4; the companion agent
+//: measured Atlas repainting its 455-node drawing twenty times a second
+//: at rest). A transform or opacity animated on an element inside an SVG
+//: makes the browser lay out and repaint the whole drawing every frame;
+//: on an SVG's root element, an HTML box, it runs on the compositor and
+//: costs the main thread nothing. So the figure is five `<svg>` roots
+//: stacked in its 64 by 92 box, in drawing order: `back` (the aura, the
+//: rings' far halves, the strand's back sweep, the props it sits on),
+//: `tail`, `body` (legs, the strand's front crossing, torso, arms, head),
+//: `lids` (skin over the eyes and the closed-eye strokes, shown for a
+//: blink) and `front` (the rings' near halves, the juggling stars, the
+//: startle bubble). At rest the body breathes, the tail sways, the front
+//: shimmers and the lids blink, each an animation on its own root; the
+//: same loops inside a drawing are off in the layers (the CSS), and the
+//: pose and mood transforms inside stay static, which costs nothing.
+//: Every layer carries the mood and look attributes, so the CSS variables
+//: agree across them, and the lids layer mirrors the head's tilt.
+function atlasDrawFigure(mood) {
+  const look = atlasLook();
+  const frag = document.createDocumentFragment();
+  const layers = {};
+  for (const name of ["back", "tail", "body", "lids", "front"]) {
+    const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}`, "aria-hidden": "true", focusable: "false" });
+    svg.dataset.nmSeed = "Atlas";
+    svg.dataset.atlasLook = look;
+    svg.dataset.atlasLayer = name;
+    atlasTuneStyle(svg);
+    atlasDefs(svg, look);
+    const pose = atlasGroup(svg, "atl-pose", ATLAS_GEO.feet);
+    const rig = atlasGroup(atlasGroup(pose, "atl-mood", ATLAS_GEO.feet), "atl-rig", ATLAS_GEO.feet);
+    layers[name] = { svg, pose, rig };
+    frag.appendChild(svg);
+  }
+  const id = `atl-${look}`;
+  atlasMake("title", {}, layers.body.svg);
+  atlasMake("ellipse", { class: "atl-aura", cx: 31, cy: 44, rx: 40, ry: 52 }, layers.back.pose);
+  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false));
+  atlasBody(layers.body.rig, id, true, look, { back: layers.back.rig, tail: layers.tail.rig, front: layers.front.rig });
+  const host = atlasGroup(atlasGroup(layers.body.rig, "nm-buddy-head", ATLAS_GEO.neck), "name-mark atl-face");
+  atlasHead(host, id, "figure", look);
+  atlasLids(layers.lids.rig, look);
+  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.front.rig, id, ring, k, true));
+  atlasStarsProp(layers.front.rig);
+  for (const { svg } of Object.values(layers)) atlasApply(svg, mood);
+  return frag;
+}
+
+//: The lids layer: over each eye, the head's own skin in the eye's
+//: outline a little enlarged, and the closed eye's stroke on it (the
+//: feminine look's lashes too). Shown for a blink by the layer's opacity;
+//: scaled away while the eyes are drawn closed by a mood.
+function atlasLids(parent, look) {
+  const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
+  const head = atlasGroup(parent, "atl-head atl-lids", ATLAS_GEO.neck);
+  for (const [cx, cy, side] of ATLAS_GEO.eyes) {
+    atlasMake("path", { class: "atl-skin", d: atlasScalePath(atlasAlmond(cx, cy, side).d, 1.3, cx, cy) }, head);
+    atlasMake("path", { class: "atl-lid-shut atl-stroke", "stroke-width": 1.8, d: `M${cx - 4.8} ${cy - 0.4}Q${cx} ${cy + 3.6} ${cx + 4.8} ${cy - 0.4}M${cx - 4.8 * side} ${cy - 0.4}l${-1.3 * side} -1` }, head);
+    if (spec.lashes) {
+      const ox = cx - 5.1 * side;
+      atlasMake("path", { class: "atl-lashes", d: `M${ox} ${cy - 0.8}l${-1.6 * side} -0.9M${ox + 0.9 * side} ${cy - 2.6}l${-1.4 * side} -1.2` }, head);
+    }
+  }
+  return head;
+}
+
 function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) {
-  if (level !== "figure" && atlasStyle() === "classic") return atlasClassicMark(size, mood);
+  if (level === "figure") return atlasDrawFigure(mood);
+  if (atlasStyle() === "classic") return atlasClassicMark(size, mood);
   const spec = ATLAS_LEVELS[level] || ATLAS_LEVELS.head;
   const [x, y, w, h] = spec.viewBox;
-  atlasSerial += 1;
-  const id = `atl-${atlasSerial.toString(36)}`;
   const width = Math.round((size * w) / h);
-  const figure = level === "figure";
+  const figure = false;
   const svg = atlasMake("svg", {
     viewBox: `${x} ${y} ${w} ${h}`,
     width: figure ? 64 : width,
@@ -1257,15 +1372,9 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   svg.dataset.nmSeed = "Atlas";
   const look = atlasLook();
   svg.dataset.atlasLook = look;
-  svg.style.setProperty("--nm-delay", "-1.3s");
-  //: The tune's non-geometric parts ride on custom properties.
-  const tune = atlasTune();
-  if (tune.headSize !== 1) svg.style.setProperty("--atl-tune-head", String(tune.headSize));
-  if (tune.starSize !== 1) svg.style.setProperty("--atl-tune-star", String(tune.starSize));
-  if (tune.strandOpacity !== 1) svg.style.setProperty("--atl-tune-strand", String(tune.strandOpacity));
-  for (const [key, value] of Object.entries(tune.colours)) svg.style.setProperty(`--atl-${key}`, value);
+  atlasTuneStyle(svg);
   atlasMake("title", {}, svg);
-  atlasDefs(svg, id, level);
+  const id = atlasDefs(svg, look);
   const anchor = spec.body ? ATLAS_GEO.feet : ATLAS_GEO.chin;
   const pose = atlasGroup(svg, "atl-pose", anchor);
   if (level !== "tiny") {
@@ -1315,9 +1424,28 @@ function atlasFigure() {
   if (atlasStyle() === "classic") return atlasClassicFigure();
   const figure = document.createElement("span");
   figure.className = "nm-figure nm-live atl-figure-box";
-  figure.appendChild(atlasDraw(92, atlasMoodNow, "figure"));
+  figure.appendChild(atlasDrawFigure(atlasMoodNow));
+  atlasWatchFigure(figure);
   return figure;
 }
+
+//: **Off screen, off** (round 4): a figure's loops pause while its box is
+//: out of the viewport (`atl-off`, one observer for every figure) and
+//: while the tab is hidden (`data-atlas-hidden` on the root); the CSS
+//: pauses every animation under either.
+let atlasFigureObserver = null;
+function atlasWatchFigure(figure) {
+  if (typeof IntersectionObserver !== "function") return;
+  if (!atlasFigureObserver) {
+    atlasFigureObserver = new IntersectionObserver((entries) => {
+      for (const e of entries) e.target.classList.toggle("atl-off", !e.isIntersecting);
+    });
+  }
+  atlasFigureObserver.observe(figure);
+}
+document.addEventListener("visibilitychange", () => {
+  document.documentElement.toggleAttribute("data-atlas-hidden", document.hidden);
+});
 
 //: A mood is one attribute: the CSS turns it into brows, lids, eyes,
 //: mouth, blush, tilt, squash and halo, and eases between them.

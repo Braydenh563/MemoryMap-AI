@@ -261,12 +261,18 @@ select optgroup {
      reuse `--ok`, `--warn` and `--muted`, none of which the user can change. */
   --syntax-keyword: #7c3aed;
   /* #9a5b04 was 4.48:1 on its own `--warn-soft` chip ("confirms first" in
-     Settings, Tools; contrast.js), a hair under AA. One step darker is 4.85. */
-  --warn: #935603;
+     Settings, Tools; contrast.js), a hair under AA. One step darker is 4.85.
+     And #935603 was 4.45:1 as a skill row's "Changes notes" on the row's
+     grey in the flat looks (contrast.js, Settings, Skills, round 2): one
+     more step, #8a5003, is 4.9 there. */
+  --warn: #8a5003;
   --warn-soft: rgba(245, 189, 79, 0.25);
   --ok: #10653c;
   --ok-soft: rgba(52, 199, 123, 0.20);
-  --error: #b91c1c;
+  /* #b91c1c was 4.34:1 as "Forget everything learned" (a ghost danger
+     button: --error on --error-soft) over a settings group's grey
+     (contrast.js, Settings, What it learned, round 2); #b01a1a is 4.67. */
+  --error: #b01a1a;
   /* Text on a filled --error ground: white on the light theme's deep red,
      dark ink on the dark theme's light red (white there measured 2.2:1). */
   --on-error: #ffffff;

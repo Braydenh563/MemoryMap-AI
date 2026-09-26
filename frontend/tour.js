@@ -60,6 +60,8 @@ const TOUR_PAD = 6; // how far the bright cut-out is held off the control
 //           the tour never makes one, see `tourContext`)
 //   settings  the Settings section to open; the modal stays open between
 //           two steps that both name one, and closes for any other step
+//   unless  a name in TOUR_NEEDS, with `unlessText`: the words the card
+//           says instead when that is false of this notebook
 //   need    a name in TOUR_NEEDS: the step is kept only when that is true
 //           of this notebook when its section starts (a card's menu needs a
 //           card, a map's controls need a map)
@@ -345,6 +347,11 @@ const TOUR_SECTIONS = [
         wb: "landing",
         title: "New mind map",
         text: "New mind map starts from one central idea. Inside it, Tab adds a branch and Enter adds one beside it.",
+        //: Said instead when the notebook has no map yet (INBOX 426 y): the
+        //: map's own cards are dropped from the run then, and this card is
+        //: the one that says why and what to press.
+        unless: "map",
+        unlessText: "You have no mind map yet, so this is where one starts: New mind map begins from one central idea, and inside it Tab adds a branch and Enter adds one beside it. Its own tools are shown once you have one.",
         or: "#library-boards-more",
         orText: "New mind map is in More on a small screen. It starts from one idea; Tab adds a branch.",
       },
@@ -739,23 +746,65 @@ function tourPlaceFixed(el, left, top) {
   //: filter or transform is still accounted for, and the element's own
   //: state cannot poison the number. The element is then read back once,
   //: after a frame, and nudged only if it is still somewhere else.
+  //:
+  //: **No nudge a frame later any more** (INBOX 426 y, image 87: after "Next:
+  //: Notes" the ring was drawn in the wrong corner, and the log said
+  //: "tour-spot asked for 336,275, drew at 1128,4; moved"). The nudge added
+  //: the difference it read one frame on, and a frame is not long enough
+  //: for a tab switch to settle: whatever was still moving then (the frame
+  //: the layers are laid out in, the control itself) moved again after the
+  //: nudge, and the nudge's own distance was left in. The wanted box is kept
+  //: on the element instead, and `tourWatchFrame` compares it with what is
+  //: drawn on every frame the tour is up, placing again from a fresh origin
+  //: whenever the two disagree, for as long as they do.
   const origin = tourOrigin();
-  const x = Math.round(left - origin.left);
-  const y = Math.round(top - origin.top);
-  el.style.left = `${x}px`;
-  el.style.top = `${y}px`;
-  const token = (el._tourPlace = (el._tourPlace || 0) + 1);
-  requestAnimationFrame(() => {
-    if (el._tourPlace !== token || !el.isConnected) return;
-    const box = el.getBoundingClientRect();
-    const dx = left - box.left;
-    const dy = top - box.top;
-    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-      console.warn(`Tour: ${el.id} asked for ${Math.round(left)},${Math.round(top)}, drew at ${Math.round(box.left)},${Math.round(box.top)}; moved`);
-      el.style.left = `${Math.round(x + dx)}px`;
-      el.style.top = `${Math.round(y + dy)}px`;
-    }
-  });
+  el.style.left = `${Math.round(left - origin.left)}px`;
+  el.style.top = `${Math.round(top - origin.top)}px`;
+  el._tourWant = { left: Math.round(left), top: Math.round(top) };
+}
+
+//: **The tour follows what it points at, every frame it is up** (INBOX 426
+//: y). A step was placed once, when its control's box had held still for
+//: two frames, and again only on a resize or a scroll event. A control can
+//: move without either: content loading above it (a tab's list arriving, a
+//: face drawn, a fold opening), a transform settling on a layer between it
+//: and the window. Images 95 and 96 are that: the companion step's card over
+//: its own control until Next then Back placed it again. So while a card is
+//: showing, each frame reads the control's box and where the card and the
+//: ring were actually drawn, and places the step again when the control
+//: moved or either layer is not where it was asked to be. One
+//: `getBoundingClientRect` of each per frame; a layer that refuses to land
+//: (something outside the tour holding it) is left alone after ten tries
+//: rather than chased for ever.
+function tourWatch() {
+  if (tourWatch.frame) return;
+  tourWatch.frame = requestAnimationFrame(tourWatchFrame);
+}
+
+function tourWatchFrame() {
+  tourWatch.frame = 0;
+  const run = tourRun;
+  if (!run) return;
+  tourWatch.frame = requestAnimationFrame(tourWatchFrame);
+  const card = document.getElementById("tour-card");
+  if (!run.el || !card || card.getAttribute("aria-busy") === "true") return;
+  const box = run.el.getBoundingClientRect();
+  const key = [box.left, box.top, box.width, box.height].map(Math.round).join(",");
+  const drift = (el) => {
+    if (!el || el.classList.contains("hidden") || !el._tourWant) return false;
+    const drawn = el.getBoundingClientRect();
+    return Math.abs(drawn.left - el._tourWant.left) > 1.5 || Math.abs(drawn.top - el._tourWant.top) > 1.5;
+  };
+  const moved = key !== run.watchKey;
+  const off = drift(card) || drift(document.getElementById("tour-spot"));
+  if (!moved && !off) {
+    run.watchMisses = 0;
+    return;
+  }
+  run.watchKey = key;
+  if (!moved && (run.watchMisses = (run.watchMisses || 0) + 1) > 10) return;
+  if (!tourVisible(run.el) || !tourOnScreen(run.el)) return;
+  tourPosition();
 }
 
 //: The window-coordinate origin of the frame the tour's layers are laid out
@@ -1131,7 +1180,12 @@ function tourRender() {
   // is not going to show.
   document.getElementById("tour-count").textContent = `${place.at + 1} of ${place.total}`;
   document.getElementById("tour-title").textContent = run.step.title;
-  const text = run.alt && run.step.orText ? run.step.orText : run.step.text;
+  const lacking = run.step.unless && run.context && !TOUR_NEEDS[run.step.unless]?.(run.context);
+  const text = run.alt && run.step.orText
+    ? run.step.orText
+    : lacking && run.step.unlessText
+      ? run.step.unlessText
+      : run.step.text;
   document.getElementById("tour-text").textContent = run.stranded
     ? `${text} This control is not on screen at this window size, so there is nothing to point at here.`
     : text;
@@ -1329,6 +1383,7 @@ async function tourNavigate(step) {
   tourClearTheWay(step);
   if (step.settings) {
     await tourOpenSettings(step.settings);
+    tourOpenFoldsAround(step);
     await tourFrame();
     return;
   }
@@ -1368,6 +1423,26 @@ async function tourWhiteboard(face) {
   if (face === "map" && id == null) return;
   if (onCanvas && (window.currentBoardId ?? null) === (id ?? null)) return;
   if (typeof openWhiteboardBoard === "function") await openWhiteboardBoard(id ?? null);
+}
+
+//: **A settings step opens the fold its control is folded into** (INBOX 426
+//: y). Appearance's groups are `details.settings-fold`s, closed by default
+//: except Themes, and a control in a closed one has no box, so the
+//: companion step was dropped from every run on a fresh notebook and shown
+//: only where the reader happened to have opened "Atlas and faces". The
+//: folds the tour opens are closed again when it ends (`tourClose`), so
+//: the reader's own choice of what is open is what they come back to.
+function tourOpenFoldsAround(step) {
+  let el = null;
+  try {
+    el = document.querySelector(step.target);
+  } catch {
+    return;
+  }
+  for (let fold = el?.closest("details:not([open])"); fold; fold = fold.parentElement?.closest("details:not([open])")) {
+    fold.open = true;
+    if (tourRun) (tourRun.openedFolds ||= []).push(fold);
+  }
 }
 
 //: Settings is a modal rather than a tab, so its steps open it (once) and
@@ -1621,6 +1696,8 @@ async function tourShow() {
     document.getElementById("tour-card")?.removeAttribute("aria-busy");
     tourRender();
     tourPosition();
+    run.watchKey = "";
+    tourWatch();
     // Focus lands inside the card, on the control that moves the tour on, so
     // Enter and Space do the obvious thing the moment a card appears. The card
     // itself is the `aria-modal` dialog, so app.js's Tab trap keeps focus in
@@ -1719,6 +1796,8 @@ function tourClose(finished) {
   if (run.openedSettings && typeof settingsModalOpen === "function" && settingsModalOpen()) {
     if (typeof closeSettingsModal === "function") closeSettingsModal();
   }
+  //: And the folds it opened to reach a control are folded again.
+  for (const fold of run.openedFolds || []) fold.open = false;
   run.returnFocus?.focus?.();
   if (finished && typeof toast === "function") {
     toast("That is the tour. Settings, help and guide has it again whenever you want it.");

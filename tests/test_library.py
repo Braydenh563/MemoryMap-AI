@@ -117,6 +117,19 @@ def test_the_activity_log_reads_in_words_not_in_verbs(client, session):
     assert not any("purged" in t or "queried" in t for t in titles), titles
 
 
+def test_an_activity_detail_keeps_its_underscores(client, session):
+    """INBOX 426 (z), image 90: a settings change's record is `key=value`,
+    and the preview ran it through the markdown stripper, which read
+    `_find_` in `['find_contradictions']` as emphasis and sent
+    "disabledtools=['findcontradictions']". A log line is plain text."""
+    client.put("/preferences", json={"disabled_tools": ["find_contradictions"]})
+    client.put("/preferences", json={"notifications_muted_except_reminders": True})
+
+    previews = [item["preview"] for item in _of_kind(client.get("/library").json(), "activity")]
+    assert "disabled_tools=['find_contradictions']" in previews, previews
+    assert "notifications_muted_except_reminders=True" in previews, previews
+
+
 def test_a_chat_is_previewed_by_its_first_question(client, session):
     """You remember what you asked far more often than what the chat ended up
     being called: the same reasoning the conversation sidebar already used,

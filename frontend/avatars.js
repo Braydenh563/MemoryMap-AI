@@ -4204,7 +4204,10 @@ function nameMarkBuddyTempo() {
   const now = performance.now();
   if (now - nmbTempo.seen > 1000) {
     nmbTempo.seen = now;
-    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && a.playState !== "finished");
+    //: Atlas's layer roots (atlas.js, `atlasDrawFigure`) animate on the
+    //: compositor; stepping them here would put them back on the main
+    //: thread, so only what animates inside a drawing is paced.
+    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && a.playState !== "finished");
   }
   const busy = !!nmb.act || buddy.classList.contains("nmb-walking") || buddy.classList.contains("nm-buddy-dragging");
   const still = now - nmbFollow.scrollAt < 300;

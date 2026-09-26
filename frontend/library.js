@@ -438,6 +438,13 @@ let libraryColumnsObserver = null;
 
 function libraryColumnCount(grid) {
   if (libraryView() === "list" || window.innerWidth < 600) return 1;
+  //: **A log is one column** (INBOX 426 z, image 89). An activity row is
+  //: laid out as a line (when, what, the detail), and the masonry dealt
+  //: those lines into 17rem columns: the time and the title took the width
+  //: and the detail was left 11px, one letter to a line down the page.
+  //: `grid-column: 1 / -1` was the old answer and means nothing to columns
+  //: dealt by script, so the Activity chip deals one.
+  if (libraryKind === "activity") return 1;
   const width = grid.clientWidth;
   if (!width) return 1;
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -1100,6 +1107,48 @@ function libraryTitleAndPreview(title, preview, mayBeClipped = true) {
   return { title, preview: rest ? `…${rest}` : "" };
 }
 
+//: **A settings change, said in words.** The log records a preference edit
+//: as the server wrote it, `key=value` with the value in Python's own
+//: spelling (routes_settings.py `update_preferences`): `disabled_tools=[
+//: 'find_contradictions']`, `avatar_style={'variant': 14, ...}`. A reader
+//: of their own notebook's history should see "Tools switched off: find
+//: contradictions". Rows already in the log are read the same way, so
+//: this is done here rather than when the row is written. Anything that
+//: is not one `key=value` is returned as it came.
+const ACTIVITY_SETTING_NAMES = {
+  notifications_muted_except_reminders: "Mute notifications except reminders",
+  disabled_tools: "Tools switched off",
+  avatar_style: "Your look",
+  user_profile: "About me",
+  display_name: "Your name",
+};
+
+function activitySettingValue(raw) {
+  const value = raw.trim();
+  if (value === "True") return "on";
+  if (value === "False") return "off";
+  if (value === "None" || value === "" || value === "[]" || value === "{}") return "none";
+  if (value === "…") return "changed";
+  //: A dict is a whole group of choices (a look, a layout): which of them
+  //: moved is not in the record, so it says only that it changed.
+  if (value.startsWith("{")) return "changed";
+  if (value.startsWith("[")) {
+    const items = value.slice(1, -1).split(",").map((s) => s.trim().replace(/^['"]|['"]$/g, ""));
+    return items.filter(Boolean).map((s) => s.replace(/_/g, " ")).join(", ") || "none";
+  }
+  return value.replace(/^['"]|['"]$/g, "");
+}
+
+function activityDetailText(detail) {
+  const text = String(detail || "").trim();
+  const match = /^([a-z][a-z0-9_]*)=([\s\S]*)$/.exec(text);
+  if (!match) return text;
+  const [, key, raw] = match;
+  const words = key.replace(/_/g, " ");
+  const name = ACTIVITY_SETTING_NAMES[key] || words.charAt(0).toUpperCase() + words.slice(1);
+  return `${name}: ${activitySettingValue(raw)}`;
+}
+
 function libraryCard(item) {
   // An `<article>` rather than a `<button>`: the card carries its own ⋯ menu,
   // and a button inside a button is invalid markup that browsers resolve by
@@ -1234,8 +1283,17 @@ function libraryCard(item) {
     // backticks here, which is the Library rendering the *source* of a note
     // while every other surface renders the note. Inline only: block elements
     // would turn a card into a document, which is what the clamp is for.
-    const cleanPreview = shownPreview.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
-    renderInlineMarkdown(preview, cleanPreview, []);
+    //: **An activity row's detail is a record, never markdown** (INBOX 426
+    //: z, image 90): `notifications_muted_except_reminders=False` went
+    //: through the inline renderer, which read `_muted_except_` as italics
+    //: and printed "notificationsmutedexcept_reminders". It is plain text,
+    //: and a settings change is said in words (`activityDetailText`).
+    if (item.kind === "activity") {
+      preview.textContent = activityDetailText(shownPreview);
+    } else {
+      const cleanPreview = shownPreview.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+      renderInlineMarkdown(preview, cleanPreview, []);
+    }
     card.appendChild(preview);
   }
 

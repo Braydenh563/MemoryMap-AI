@@ -11,6 +11,32 @@ that answers "has this been done?" before anyone starts.
 
 The backend agent's night (WORLD_CLASS_PLAN section 8's open rows, in order).
 
+### From OPEN.md (auth-optional): the vault key granted per session
+
+**Built 2026-09-26.** The row: "The vault key is process-wide
+(`core/vault.py`): after a LAN device unlocks, a loopback session without a
+password reads private notes too until a lock or restart." Reproduced first
+(`tests/test_vault_sessions.py`, four of eleven failing before). The key is
+still held once, in memory; what changed is who may use it. `vault._granted`
+holds the tokens of the sessions that proved the password: setup, unlock,
+`/auth/unlock-vault`, and `/auth/change-password` and
+`/auth/rotate-vault-key`, which ask for it again (a session without the
+password that changes it is granted, and the new token each issues is
+granted after every other grant ends). `vault.key()` answers a request only
+for a granted session; the request's session is a context variable set by
+`routes_auth.VaultScope`, a pure ASGI middleware reading `X-Auth-Token`, so
+the threadpool a sync route runs in and a streaming body's iterator see the
+same caller. A request with no token, or a background thread once any grant
+exists, gets no key. The rule starts with the first grant, so a key loaded
+outside any session (the direct calls tests make) behaves as before, and in
+the running app the two move together. The key is forgotten when the last
+granted session expires or locks, even while a session without the password
+is still live (before, it stayed until every session had gone).
+`/auth/account` and `/auth/auto-session` report `vault_open` for the caller.
+`vault.is_open()` keeps its meaning, "loaded at all", which the existing
+tests read. 440 tests across the auth, vault, private-note and media files
+pass.
+
 ### From WORLD_CLASS_PLAN.md row 35 and §12 S6: the privacy receipt's record and API
 
 **Built 2026-09-26.** Standout 5 of §2 ("a page that proves, from the app's

@@ -36,10 +36,8 @@ two decisions only the owner can take are INBOX 427.
   restored backup's `preferences.json` brings the setting back.
   `scratchpad/ui-sweeps/lib.js` `boot()` waits for `#lock-password`, so a
   sweep data dir with sign-in off would time out. [auth-optional]
-- **The vault key is process-wide** (`core/vault.py`): after a LAN device
-  unlocks, a loopback session without a password reads private notes too
-  until a lock or restart. Pre-existing; per-session keys are a design
-  change. [auth-optional]
+- ~~**The vault key is process-wide**~~ built 2026-09-26: the key is granted
+  per session (HISTORY.md, "Moved from the plans, 2026-09-26").
 - **The dashboard scroll jump (426 u)** was not reproduced by wheel, idle or
   any scroll call; if it recurs, `scrolljump.js` with the owner's
   preferences (`LS=`) and the companion on. [ui-426]

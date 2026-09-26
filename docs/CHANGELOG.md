@@ -11,6 +11,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 - The privacy receipt's record and its API: `GET /privacy/receipt` answers, from the interpreter's own audit hook on every `socket.connect` and name lookup this process makes, whether anything left this computer since launch and since the ledger began (`egress-ledger.json` in the data folder), which destinations and which feature asked, where the configured model server is and what that means for your notes, and which switches can reach out. The page that shows it is not built yet.
 
+### Security
+
+- Private notes open only for the sessions that gave the password. The data key was process-wide, so once a device on the network unlocked, this computer's session without a password (sign-in off) read private notes too. The key is now granted per session (setup, unlock, "unlock private notes", and the two account routes that ask for the password again), every other session sees the vault as locked, and the key is forgotten when the last session that gave the password ends, even while one without it is still open.
+
 ## [0.3.3] - 2026-09-26
 
 ### Added

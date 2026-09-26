@@ -784,6 +784,8 @@ def create_app() -> FastAPI:
         ),
     )
     app.add_middleware(security.OriginCheckMiddleware)
+    # Who is asking, for the vault's per-session grants (routes_auth.VaultScope).
+    app.add_middleware(routes_auth.VaultScope)
     app.add_middleware(SpaceGuard)
     app.add_middleware(RequestPulse)
     app.add_middleware(

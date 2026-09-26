@@ -6186,8 +6186,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    higher and narrower, so they are named here, one step more specific. */
 #nm-buddy .atl-figure .nmb-arm-l { transform-origin: 24.6px 41px; }
 #nm-buddy .atl-figure .nmb-arm-r { transform-origin: 37.4px 41px; }
-#nm-buddy .atl-figure .nmb-leg-l { transform-origin: 27.4px 63px; }
-#nm-buddy .atl-figure .nmb-leg-r { transform-origin: 34.6px 63px; }
+/* The legs are the roots of their own layers (atlas.js `atlasDrawFigure`),
+   so a leg rule names `.atl-figure.nmb-leg-*`, the root, and the origin is
+   in the layer's own 64x92 px frame; turned on the compositor, a step
+   costs no paint (atlaswalk.js). */
+#nm-buddy .atl-figure.nmb-leg-l { transform-origin: 27.4px 63px; will-change: transform; }
+#nm-buddy .atl-figure.nmb-leg-r { transform-origin: 34.6px 63px; will-change: transform; }
 /* Atlas's arm is a short nub from a shoulder just under the chin, so the
    companion's generic raise (-125deg, for a long arm from a low shoulder)
    would put its hand over its own cheek; -100deg brings it up beside the
@@ -6209,14 +6213,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    half up under the arc of stars. Starry map: leaning on the panel. */
 #nm-buddy .atl-figure .nmb-hold-l { transform-origin: 24.6px 41px; }
 #nm-buddy .atl-figure .nmb-hold-r { transform-origin: 37.4px 41px; }
-#nm-buddy[data-pose="sit"] .atl-figure .nmb-leg-l { transform: rotate(54deg) scaleY(0.7); }
-#nm-buddy[data-pose="sit"] .atl-figure .nmb-leg-r { transform: rotate(-54deg) scaleY(0.7); }
+#nm-buddy[data-pose="sit"] .atl-figure.nmb-leg-l { transform: rotate(54deg) scaleY(0.7); }
+#nm-buddy[data-pose="sit"] .atl-figure.nmb-leg-r { transform: rotate(-54deg) scaleY(0.7); }
 #nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-l { transform: rotate(24deg); }
 #nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-r { transform: rotate(-24deg); }
 #nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .nmp-coil { opacity: 1; }
 #nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .atl-band-front { opacity: 0; }
-#nm-buddy[data-pose="float"] .atl-figure .nmb-leg-l { transform: rotate(-9deg) scaleY(0.94); }
-#nm-buddy[data-pose="float"] .atl-figure .nmb-leg-r { transform: rotate(9deg) scaleY(0.94); }
+#nm-buddy[data-pose="float"] .atl-figure.nmb-leg-l { transform: rotate(-9deg) scaleY(0.94); }
+#nm-buddy[data-pose="float"] .atl-figure.nmb-leg-r { transform: rotate(9deg) scaleY(0.94); }
 #nm-buddy[data-pose="float"] .atl-figure .nmb-arm-l { transform: rotate(40deg); }
 #nm-buddy[data-pose="float"] .atl-figure .nmb-arm-r { transform: rotate(-40deg); }
 #nm-buddy[data-pose="float"]:not(.nmb-act-meditate) .nm-atlas { --atl-lean: -7deg; --atl-tail: 46deg; }
@@ -6226,8 +6230,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy.nmb-act-wake .atl-figure .nmb-hold-l { transform: rotate(-52deg); }
 #nm-buddy.nmb-act-wake .atl-figure .nmb-hold-r { transform: rotate(52deg); }
 #nm-buddy.nmb-act-wake .nm-atlas { --atl-sy: 1.04; --atl-tail: -20deg; }
-#nm-buddy.nmb-act-meditate .atl-figure .nmb-leg-l { transform: rotate(100deg) scaleY(0.5); }
-#nm-buddy.nmb-act-meditate .atl-figure .nmb-leg-r { transform: rotate(-100deg) scaleY(0.5); }
+#nm-buddy.nmb-act-meditate .atl-figure.nmb-leg-l { transform: rotate(100deg) scaleY(0.5); }
+#nm-buddy.nmb-act-meditate .atl-figure.nmb-leg-r { transform: rotate(-100deg) scaleY(0.5); }
 #nm-buddy.nmb-act-meditate .atl-figure .nmb-arm-l { transform: rotate(34deg) scaleY(0.8); }
 #nm-buddy.nmb-act-meditate .atl-figure .nmb-arm-r { transform: rotate(-34deg) scaleY(0.8); }
 #nm-buddy.nmb-act-meditate .atl-figure .atl-ring { transform: scaleY(0.42); }

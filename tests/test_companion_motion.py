@@ -389,3 +389,23 @@ def test_it_notices_the_app_rate_limited_and_never_under_reduced_motion() -> Non
     assert 'nameMarkBuddyReact("toast", added)' in AV
     # Covering its eyes: its hands over its head, not under it.
     assert '#nm-buddy.nmb-act-hide:not([data-pose="hang"]) :is(.nmb-arm-l, .nmb-arm-r) {\n  z-index: 3;' in CSS08
+
+
+def test_it_can_be_petted_tossed_and_watches_a_near_pointer() -> None:
+    # Round 5 (companioninteract.js): the pointer resting on it gets a happy
+    # wiggle, once in 15s; let go at speed it flies on and lands on a perch
+    # near where it comes down (measured 19px), a slow let-go is a drop;
+    # its eyes stay on a near pointer, and with Faces follow the pointer off
+    # a pointer passing is not followed.
+    build = _fn("nameMarkBuddyBuild")
+    assert "}, NMB_PET_MS);" in build and "nameMarkBuddyToss(buddy, vx, vy);" in build
+    assert "Math.hypot(vx, vy) > NMB_TOSS_SPEED" in build
+    pet = _fn("nameMarkBuddyPet")
+    assert "nameMarkBuddyStill()" in pet and "15000" in pet
+    toss = _fn("nameMarkBuddyToss")
+    assert "[aimX, aimY], 4)" in toss and "spots[tab] = nameMarkBuddySpotFor(spot);" in toss
+    assert "nameMarkBuddyPerches(tab, near && per < 12 ? near[0] : null)" in _fn("nameMarkBuddyChoose")
+    assert "if (spot.tossed) {" in _fn("nameMarkBuddyMoveTo")
+    notice = _fn("nameMarkBuddyNotice")
+    assert 'document.documentElement.dataset.avatarFollow !== "off"' in notice
+    assert "const near = follows && dist < NMB_EYES_NEAR;" in notice

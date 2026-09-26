@@ -205,7 +205,9 @@ def _hook(event: str, args: tuple) -> None:
                 return
             port = args[1] if len(args) > 1 and isinstance(args[1], int) else None
             _record("lookup", host, port)
-    except BaseException:  # noqa: BLE001, S110 - a hook that raises aborts the caller's connect (module docstring)
+    except Exception:  # noqa: BLE001 - a hook that raises aborts the caller's connect (module docstring)
+        # Exception, not BaseException: a Ctrl-C or SystemExit arriving here
+        # must still stop the process; only a bug in the recorder is swallowed.
         return
 
 

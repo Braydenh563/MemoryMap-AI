@@ -249,6 +249,16 @@ const GC_LABEL_ALL_MAX = 400;
 //: filter, and so are drawn even where they overlap something already there.
 //: See the label pass in `gcDraw` for what happens past it.
 const GC_LABEL_FORCE_MAX = 12;
+//: **Landmarks** (`scratchpad/ui-sweeps/graphlabels.js`). Below the zoom gate
+//: on a map past GC_LABEL_ALL_MAX, the best-connected notes in view still get
+//: their names, up to this many and only where there is room: a map is read
+//: by its hubs, and on the 417-note fixture the fitted map drew no label at
+//: all, so its overview named nothing. A dozen is what a 1440 window holds at
+//: the fit without the names turning into the grey wash the gate exists for.
+const GC_LABEL_LANDMARKS = 12;
+//: Of those, how many of the best-connected in view may be named over another
+//: dot when nowhere else is free; see the label pass in `gcDraw`.
+const GC_LABEL_LANDMARK_HUBS = 10;
 //: How far a non-neighbour dims while something is hovered (§5 Phase 1).
 const GC_DIM_ALPHA = 0.2;
 
@@ -406,24 +416,40 @@ function gcPlaceLabels(items, discs) {
     }
     return false;
   };
+  const clashes = (box) => {
+    for (const other of placed) {
+      if (
+        box.left < other.right &&
+        box.right > other.left &&
+        box.top < other.bottom &&
+        box.bottom > other.top
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
   const placed = [];
   for (const box of items) {
-    if (!box.force) {
-      let clashes = false;
-      for (const other of placed) {
-        if (
-          box.left < other.right &&
-          box.right > other.left &&
-          box.top < other.bottom &&
-          box.bottom > other.top
-        ) {
-          clashes = true;
-          break;
-        }
-      }
-      if (clashes || coversDisc(box)) continue;
+    if (box.force) {
+      placed.push(box);
+      continue;
     }
-    placed.push(box);
+    const covers = box.landmark ? () => false : coversDisc;
+    if (!clashes(box) && !covers(box)) {
+      placed.push(box);
+      continue;
+    }
+    //: The label's other places, in order (built in `gcDraw`); the first one
+    //: free of every placed label and every other dot wins, and the box moves
+    //: there whole, so `labelBoxes` still says exactly where the text is.
+    for (const spot of box.alts || []) {
+      const moved = { ...box, ...spot, alts: undefined };
+      if (!clashes(moved) && !covers(moved)) {
+        placed.push(moved);
+        break;
+      }
+    }
   }
   return placed;
 }
@@ -1103,6 +1129,20 @@ function gcDraw(s = gcTab) {
       labelled.push(node);
     }
   }
+  //: The overview's landmarks: see GC_LABEL_LANDMARKS. Only when the zoom gate
+  //: is what kept every other label off, and only notes with a real
+  //: neighbourhood (degree 2 or more), so a map of islands does not name
+  //: twelve arbitrary dots. They join the queue below as ordinary labels:
+  //: the collision pass decides whether each has room.
+  if (labelsOn && labelled.length < drawn.length && k <= GC_LABEL_ZOOM && s.nodes.length > GC_LABEL_ALL_MAX) {
+    const already = new Set(labelled.map((node) => node.id));
+    const degree = (node) => (s.adj.get(node.id) || { size: 0 }).size;
+    const landmarks = drawn
+      .filter((node) => !node._dim && !already.has(node.id) && degree(node) >= 2)
+      .sort((a, b) => degree(b) - degree(a))
+      .slice(0, GC_LABEL_LANDMARKS);
+    for (const node of landmarks) labelled.push(node);
+  }
   //: Sprites at the zoom's own pixel size, so a node stays crisp at any
   //: scale; the sizes are rounded to whole pixels, which keeps the cache to
   //: a few dozen entries per colour.
@@ -1261,6 +1301,22 @@ function gcDraw(s = gcTab) {
     // subject to the same test as everything else. The hovered or
     // keyboard-focused note is never in this trade: there is exactly one of
     // it, and it was pointed at.
+    //: **The landmarks may sit on a dot** (GRAPH_PLAN.md, "Decision made,
+    //: 2026-09-26"). The ten best-connected notes in view are what the map is
+    //: read by, and they live in its dense middle, where every place a name
+    //: could go is on some other dot: measured on the 417-note fixture, the
+    //: rule that a label never covers a dot named 0 of those ten at the fit
+    //: and 2 of ten at 2x, even with four places to try. So for them alone
+    //: the dot test is waived; the label test is not (no two names overlap),
+    //: and a covered dot still answers the pointer, because a canvas label is
+    //: paint and hit testing is on the notes (`gcNodeAtWorld`).
+    const landmarkIds = new Set(
+      drawn
+        .filter((node) => !node._dim && (s.adj.get(node.id) || { size: 0 }).size >= 2)
+        .sort((a, b) => (s.adj.get(b.id) || { size: 0 }).size - (s.adj.get(a.id) || { size: 0 }).size)
+        .slice(0, GC_LABEL_LANDMARK_HUBS)
+        .map((node) => node.id)
+    );
     const hits = labelled.reduce((n, node) => n + (labelRank(node) === 1 ? 1 : 0), 0);
     const forceHits = hits <= GC_LABEL_FORCE_MAX;
     labelled.sort((a, b) => {
@@ -1291,6 +1347,25 @@ function gcDraw(s = gcTab) {
       const left = (beside ? x : x - width / 2) - padX;
       const rank = labelRank(node);
       if (rank < 2) s.labelsPriority += 1;
+      //: **Where else the name may go** when its own place is taken. Under the
+      //: dot is the web's reading position and stays first; then above it,
+      //: then to its right, then to its left. Measured on the 417-note
+      //: fixture at 2x: under-only named none of the ten best-connected notes
+      //: in view, because in the dense middle "under" is always another dot.
+      //: A tree keeps its one place (beside), which its row spacing is built
+      //: around.
+      const r = node.r + (node._grow || 0);
+      const half = size / 2 + padY;
+      const alts = beside
+        ? []
+        : [
+            { x: node.x, y: node.y - r - 13 / k, align: "center" },
+            { x: node.x + r + 6 / k, y: node.y, align: "left" },
+            { x: node.x - r - 6 / k, y: node.y, align: "right" },
+          ].map((spot) => {
+            const l = spot.align === "center" ? spot.x - width / 2 : spot.align === "left" ? spot.x : spot.x - width;
+            return { ...spot, left: l - padX, right: l + width + padX, top: spot.y - half, bottom: spot.y + half };
+          });
       // The id and the rank ride along with the geometry because the only
       // way to ask "do the labels on screen overlap" from outside a canvas is
       // to be handed the boxes: a screenshot of a pile of words and a
@@ -1306,6 +1381,9 @@ function gcDraw(s = gcTab) {
         text,
         x,
         y,
+        align: beside ? "left" : "center",
+        alts,
+        landmark: landmarkIds.has(node.id),
       });
     }
     //: The dots a label may not cover: every note drawn this frame, at the
@@ -1320,6 +1398,7 @@ function gcDraw(s = gcTab) {
     // label stays legible over an edge or another node.
     const placed = gcPlaceLabels(items, discs);
     for (const item of placed) {
+      ctx.textAlign = item.align;
       ctx.strokeText(item.text, item.x, item.y);
       ctx.fillText(item.text, item.x, item.y);
     }
@@ -2504,6 +2583,62 @@ function gcWorldFor(count, width, height) {
 //: data, with the same ids and the same dock controls. Everything from the
 //: fetch down to the stats line is the SVG renderer's own sequence: what
 //: changes is that the drawing is a canvas and the simulation is a worker.
+//: **Which empty state, and why it is empty** (tests/test_graph_empty_filtered.py).
+//: `filtered` is absent for a notebook with nothing to map, and carries the
+//: render's own data when there were notes and the map's filters took every
+//: one off: the legend (a category or a rule key), a group switched off,
+//: notes hidden from the node menu, or Hide unlinked on a notebook with no
+//: links. That second case used to draw "Nothing to map yet" and offer to
+//: capture a note, over a full notebook. It names what is doing the hiding,
+//: because the controls are in three different places (the legend, the node
+//: menu, the options panel), and offers the one action that undoes them all.
+function gcShowEmpty(show, filtered = null) {
+  const empty = document.getElementById("graph-empty");
+  if (!empty) return;
+  empty.style.display = show ? "grid" : "none";
+  empty.classList.toggle("hidden", !show);
+  const isFiltered = Boolean(show && filtered);
+  document.getElementById("graph-empty-fresh")?.classList.toggle("hidden", isFiltered);
+  document.getElementById("graph-empty-filtered")?.classList.toggle("hidden", !isFiltered);
+  if (!isFiltered) return;
+  const { data, s, groups } = filtered;
+  const reasons = [];
+  if (graphHiddenCategories.size || graphHiddenKeys.size) reasons.push("the legend");
+  if ((groups || []).some((g) => g && g.hiddenOnMap)) reasons.push("a group");
+  if (s.hiddenIds.size) reasons.push(`${s.hiddenIds.size} ${s.hiddenIds.size === 1 ? "note" : "notes"} you hid from the node menu`);
+  if (document.getElementById("graph-hide-orphans")?.checked) reasons.push("Hide unlinked");
+  const count = data.nodes.filter((n) => !n.isGroup).length;
+  const what = count === 1 ? "Your one note is" : `All ${count} notes are`;
+  const why = document.getElementById("graph-empty-filtered-why");
+  if (why) {
+    why.textContent = reasons.length
+      ? `${what} filtered out by ${reasons.join(", ").replace(/, ([^,]*)$/, " and $1")}.`
+      : `${what} filtered out by the map's settings.`;
+  }
+}
+
+//: Undo every filter that can take a note off the map, and nothing else: the
+//: layout, the colour rule, the physics and the Show switches are how the map
+//: looks, not which notes are on it, and Reset to defaults already exists for
+//: those. One render at the end, whatever was on.
+function gcShowEveryNote(s = gcTab) {
+  graphHiddenCategories.clear();
+  graphHiddenKeys.clear();
+  s.hiddenIds.clear();
+  const orphans = document.getElementById("graph-hide-orphans");
+  if (orphans) orphans.checked = false;
+  const groups = graphGroups();
+  if (groups.some((g) => g && g.hiddenOnMap)) {
+    for (const g of groups) if (g) g.hiddenOnMap = false;
+    // Renders the map itself.
+    graphSetGroups(groups);
+    return;
+  }
+  renderGraph();
+}
+
+document.getElementById("graph-empty-show-all")?.addEventListener("click", () => gcShowEveryNote());
+
 async function renderGraphCanvas(s = gcTab) {
   if (!gcEnsureCanvas(s)) return;
   const sequence = ++s.renderSeq;
@@ -2545,9 +2680,7 @@ async function renderGraphCanvas(s = gcTab) {
   if (!gcAutoFitDone(s)) s.userZoomed = false;
 
   gcReadTokens(s);
-  const empty = document.getElementById("graph-empty");
-  empty.style.display = data.nodes.length > 0 ? "none" : "grid";
-  empty.classList.toggle("hidden", data.nodes.length > 0);
+  gcShowEmpty(data.nodes.length === 0);
   //: The minimap goes with the map, here as in `renderGraphSvg`: an overview
   //: of nothing is a grey rectangle in a corner. Reported against this
   //: renderer, which is the default, so the SVG one's copy of this line alone
@@ -2615,8 +2748,13 @@ async function renderGraphCanvas(s = gcTab) {
     visibleNodes = visibleNodes.filter((n) => connected.has(n.id));
   }
   if (!visibleNodes.length) {
-    empty.style.display = "grid";
-    empty.classList.remove("hidden");
+    //: The notebook has notes here (the check above drew the other empty
+    //: state when it had none), so every one of them is filtered out.
+    gcShowEmpty(true, { data, s, groups });
+    //: And the overview goes with the map, as it does for an empty notebook:
+    //: it would otherwise go on drawing the last visit's dots beside a
+    //: message saying there is nothing on the map.
+    graphMinimapShown(false);
     s.nodes = [];
     s.edges = [];
     s.adj = new Map();

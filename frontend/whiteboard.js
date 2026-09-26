@@ -10702,6 +10702,32 @@ function wbClearSketchHandles() {
   }
 }
 
+//: **A right-click on a link's own grip is a right-click on the link**
+//: (MINDMAP_PLAN 13c's leftover). The bend grip and the two end grips live in
+//: the overlay layer, not inside the link's `.sketch-group`, so a right-click
+//: on one reached neither the link's menu (the board's, or on a map the
+//: cross-link ring, both wired on the group by `wbWireContextMenu`) nor the
+//: canvas's, and did nothing: on the one spot of the line drawn to be grabbed.
+//: The press is handed to the link's own hit stroke at the same point, which
+//: is exactly the right-click that already works a little way along the line.
+function wbForwardGripContextMenu(event, sketchId) {
+  const hit = document.querySelector(`.sketch-group[data-id="${sketchId}"] .sketch-hitbox`)
+    || document.querySelector(`.sketch-group[data-id="${sketchId}"]`);
+  if (!hit) return;
+  event.preventDefault();
+  event.stopPropagation();
+  hit.dispatchEvent(new MouseEvent("contextmenu", {
+    bubbles: true,
+    cancelable: true,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    screenX: event.screenX,
+    screenY: event.screenY,
+    button: 2,
+    buttons: 2,
+  }));
+}
+
 function wbRenderLinkEndpointHandles(sketch, parsed) {
   const look = wbMapCrossLinkLook(parsed);
   const endpoints = (look && wbPathEnds(look.line)) || wbResolveLinkEndpoints(parsed);
@@ -10739,6 +10765,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
       .attr("cx", mid.x + bendLive.x).attr("cy", mid.y + bendLive.y)
       .attr("r", 6);
     handle.append("title").text("Drag to bend this link · double-click to straighten");
+    handle.on("contextmenu", (event) => wbForwardGripContextMenu(event, sketch.id));
     handle.call(
       d3.drag()
         .on("start", (event) => event.sourceEvent.stopPropagation())
@@ -10778,6 +10805,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
       .attr("cx", live.x).attr("cy", live.y)
       .attr("r", 7)
       .style("cursor", "crosshair")
+      .on("contextmenu", (event) => wbForwardGripContextMenu(event, sketch.id))
       .call(
         d3.drag()
           .on("start", (event) => event.sourceEvent.stopPropagation())

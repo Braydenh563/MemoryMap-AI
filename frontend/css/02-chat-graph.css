@@ -2969,6 +2969,24 @@ kbd {
   display: none;
 }
 
+/* The two things the map's empty state can say (index.html, `gcShowEmpty`)
+   are each a wrapper, and `display: contents` keeps their title, sentence and
+   button the empty state's own grid items, laid out exactly as they were
+   before there were two. The button's rhythm is restated because
+   `.empty-state > button` is a child rule and the wrapper is still in the
+   document tree. */
+.graph-empty-variant {
+  display: contents;
+}
+
+.graph-empty-variant.hidden {
+  display: none;
+}
+
+.graph-empty-variant > button {
+  margin-top: var(--space-4);
+}
+
 /* Bigger touch targets for the small action buttons on phones, a 44px
    min is the accessibility guideline for finger taps. */
 @media (max-width: 720px) {

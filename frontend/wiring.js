@@ -1436,7 +1436,16 @@ for (const key of ["gravity", "spread"]) {
 // Node popup: edit a note in place on the map.
 $("graph-popup-close").addEventListener("click", closeGraphPopup);
 // Resizing the window changes the map's size, so an open popup needs re-clamping.
-window.addEventListener("resize", placeGraphPopup, { passive: true });
+// Only once the graph bundle has been asked for: placeGraphPopup is a stand-in
+// before that, and a bare listener made every window resize on a session that
+// never opened Graph fetch the whole bundle to clamp a popup that cannot exist.
+window.addEventListener(
+  "resize",
+  () => {
+    if (lazyModuleLoads.has("graph")) placeGraphPopup();
+  },
+  { passive: true }
+);
 $("graph-popup-save").addEventListener("click", saveGraphPopup);
 // Save is shown only once the note differs from what loaded (GRAPH_PLAN
 // Phase 6), so both fields have to tell the gate when they change.

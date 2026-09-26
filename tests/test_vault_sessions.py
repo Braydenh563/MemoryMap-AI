@@ -215,6 +215,38 @@ def test_a_request_with_no_token_never_borrows_a_granted_key(app):
         assert vault.key() is not None
 
 
+def test_a_request_never_reads_a_key_nobody_was_granted(app_state):
+    """The window the rule above left open (review, 2026-09-26). "The rule
+    starts with the first grant" made a loaded key with an empty grant set
+    everyone's: `unlock` loads the key and grants its caller a few lines
+    later, `change-password` and `rotate-vault-key` clear every grant and
+    grant the new session after issuing it, and a sync route runs in a
+    threadpool beside them, so a request from a session that never gave the
+    password, timed into either gap, read private notes. Inside a request
+    the key is a granted session's or nobody's, whatever the grant set
+    holds; outside one (a script, a test's direct call) it is still the
+    process key, which is all the previous test needs."""
+    session = deps.get_db().session()
+    try:
+        # As `unlock` does: loaded while serving a request, for a session
+        # not yet issued.
+        with vault.request_scope(None):
+            vault.create(session, "a passphrase")
+        session.commit()
+    finally:
+        session.close()
+    assert vault.key() is not None
+    with vault.request_scope(None):
+        assert vault.key() is None
+    with vault.request_scope("not a session"):
+        assert vault.key() is None
+    vault.grant("a session that gave the password")
+    with vault.request_scope("a session that gave the password"):
+        assert vault.key() is not None
+    with vault.request_scope("not a session"):
+        assert vault.key() is None
+
+
 def test_with_no_session_granted_the_key_is_the_process_key(app_state):
     """A key loaded outside any session (the direct calls tests and scripts
     make) behaves exactly as before: the rule starts with the first grant."""

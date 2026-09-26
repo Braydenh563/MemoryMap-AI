@@ -24,7 +24,8 @@ function check(label, ok, detail) {
 
 (async () => {
   for (const [vw, vh] of SIZES) {
-    const { browser, page } = await boot({ viewport: { width: vw, height: vh } });
+    // DSF=1.25 for the scale a Windows laptop runs at by default (INBOX 419).
+    const { browser, page } = await boot({ viewport: { width: vw, height: vh }, deviceScaleFactor: Number(process.env.DSF || 1) });
     await page.click('[data-tab="library"]');
     await page.waitForTimeout(500);
     await page.click('[data-target="library-view-whiteboard"]');

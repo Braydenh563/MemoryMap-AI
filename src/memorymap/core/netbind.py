@@ -65,6 +65,25 @@ def is_loopback_bind(host: str | None = None) -> bool:
     return (host or current()) in _LOOPBACK_NAMES
 
 
+def arrived_on_loopback(server) -> bool:  # noqa: ANN001  # an ASGI scope's `server`, or None
+    """Whether a request came in on this computer's own loopback interface.
+
+    The ASGI scope's `server` is the address the listening socket accepted
+    on, which is the fact `is_loopback_bind` only remembers the launcher
+    saying: a server started any other way on 0.0.0.0 never called
+    `set_current`. Only a numeric address off loopback says "the network";
+    a name (the test client's `testserver`) or no address at all is read as
+    local, since nothing can be judged from it.
+    """
+    if not isinstance(server, (tuple, list)) or not server or not isinstance(server[0], str):
+        return True
+    text = server[0].strip().strip("[]").split("%", 1)[0]
+    try:
+        return ipaddress.ip_address(text).is_loopback
+    except ValueError:
+        return True
+
+
 def _own_names() -> set[str]:
     try:
         name = socket.gethostname().lower()
@@ -115,7 +134,7 @@ def lan_addresses() -> list[str]:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
             add(info[4][0])
     except OSError:
-        pass
+        pass  # no resolvable hostname: the interface scan below still runs
     if sys.platform.startswith("linux"):
         try:
             import fcntl
@@ -130,7 +149,7 @@ def lan_addresses() -> list[str]:
                         continue  # an interface with no IPv4 address
                     add(socket.inet_ntoa(packed[20:24]))
         except (OSError, ImportError):
-            pass
+            pass  # no ioctl here: the hostname addresses above are all we can offer
     return found
 
 

@@ -1123,10 +1123,13 @@ topic: a control that wide has nowhere to go.
   map and link on a board; a cross-link draws in the map's own ink, dashed,
   whatever the pen held, and is told it is one before it is first drawn rather
   than at the next reload. `maptwokinds.js` 10 checks to 16, **16/16**, six of
-  which fail on the base branch. **What is left of 13c**: a right-click that
-  lands on a selected cross-link's bend grip still does nothing (the grip
-  takes the press), and nothing yet says which kind a drag is about to make
-  *while* it is in flight, only after it lands.
+  which fail on the base branch. ~~A right-click on a selected cross-link's
+  bend grip did nothing~~: **built 2026-09-26**, the grips (bend and both
+  ends) hand the press to the link's own hit stroke
+  (`wbForwardGripContextMenu`), so the grip opens the same ring as the line;
+  `maptwokinds.js` 18/18, the new check failing on base. **What is left of
+  13c**: nothing yet says which kind a drag is about to make *while* it is in
+  flight, only after it lands.
 - ~~**13d. A free link survives an export.**~~ **Built 2026-09-21**, and the
   record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
   MINDMAP_PLAN.md section 13d: a cross-link survives an export"). FreeMind

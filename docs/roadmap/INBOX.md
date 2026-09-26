@@ -155,6 +155,14 @@ with its owner named in the entry.
     the grid sync, the cull, the bar, the navigator and both SVG transforms
     switched off (`perf5/pantrace.js` VARIANT), so it is the compositor's
     layer assignment of ~250 painted objects per frame, not a handler.
+    (fixed 2026-09-26: the objects were not the cause, their grips were.
+    Nine per card, invisible but in the tree, each scaled by
+    `--wb-inv-zoom`, split the board into 256 layers; `display: none` at
+    rest gives 138. Two runs each at 4x, 40 moves, `gwperf.js`: long tasks
+    33/38 (2.5/2.7s) to 2/2 (136ms), `Layerize` 1.8/1.7s to 0.34/0.35s,
+    median frame 67/50 to 17/17ms; the zoom's long tasks 2.0s to 0.5s.
+    Grips on hover and selection unchanged, fade kept, `wbpanlayers.js` 6/6,
+    3/6 on base.)
     (b) Graph node drag at 4x: 137 long tasks, every frame over 33ms (max
     550ms); `graphMinimapPaint` rebuilds the minimap's SVG on every worker
     tick (1.56s of `createElementNS`/`setAttribute`/`replaceChildren`);

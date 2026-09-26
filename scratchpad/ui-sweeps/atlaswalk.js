@@ -12,6 +12,16 @@
 //
 // Prints one line per look: main-thread ms/s, paints/s, style recalcs/s,
 // layouts/s, frames, and whether the walking class was still on at the end.
+//
+// **Frames are counted from the trace, not by a requestAnimationFrame loop**
+// (libtl-0926 round 6). A rAF callback asks the page for a main frame every
+// vsync, and on every main frame the browser restyles each element with a
+// running animation, compositor ones included: this sweep's own frame
+// counter was the "60 style recalcs a second while it walks" (16 to 22
+// ms/s). Without it the same held walk measured 2.3 recalcs a second against
+// 1.7 standing still. RAF=1 puts the old counter back, to show the
+// difference or to measure a page where something else is already asking
+// for frames.
 const fs = require('fs');
 const os = require('os');
 const { boot, OUT } = require('./lib.js');
@@ -42,14 +52,14 @@ async function metrics(cdp) {
       lower: !!document.querySelector('#nm-buddy .atl-layer-lower'),
       sash: !!document.querySelector('#nm-buddy .atl-lower'),
     }));
-    await page.evaluate(() => {
+    await page.evaluate((raf) => {
       window.__frames = 0; window.__fstop = false;
       const tick = () => { window.__frames += 1; if (!window.__fstop) requestAnimationFrame(tick); };
-      requestAnimationFrame(tick);
+      if (raf) requestAnimationFrame(tick);
       document.getElementById('nm-buddy').classList.add('nmb-walking');
-    });
+    }, process.env.RAF === '1');
     const tracePath = `${os.tmpdir()}/atlaswalk-${process.pid}-${look}.json`;
-    await browser.startTracing(page, { path: tracePath, categories: ['devtools.timeline', 'disabled-by-default-devtools.timeline'] });
+    await browser.startTracing(page, { path: tracePath, categories: ['devtools.timeline', 'disabled-by-default-devtools.timeline', 'disabled-by-default-devtools.timeline.frame'] });
     const a = await metrics(cdp);
     const t0 = Date.now();
     await page.waitForTimeout(MS);
@@ -57,18 +67,19 @@ async function metrics(cdp) {
     const b = await metrics(cdp);
     await browser.stopTracing();
     const end = await page.evaluate(() => { window.__fstop = true; return { frames: window.__frames, walking: document.getElementById('nm-buddy').classList.contains('nmb-walking'), sashAnim: getComputedStyle(document.querySelector('#nm-buddy .atl-lower') || document.body).animationName, layerAnim: getComputedStyle(document.querySelector('#nm-buddy .atl-layer-lower') || document.body).animationName } });
-    let paints = 0; let layouts = 0; let paintMs = 0;
+    let paints = 0; let layouts = 0; let paintMs = 0; let drawn = 0;
     try {
       const trace = JSON.parse(fs.readFileSync(tracePath, 'utf8'));
       for (const e of trace.traceEvents || []) {
         if (e.name === 'Paint' && (e.ph === 'X' || e.ph === 'B')) { paints += 1; paintMs += (e.dur || 0) / 1000; }
         if (e.name === 'Layout' && (e.ph === 'X' || e.ph === 'B')) layouts += 1;
+        if (e.name === 'DrawFrame') drawn += 1;
       }
       fs.unlinkSync(tracePath);
     } catch (e) { /* no trace */ }
     const d = (k) => b[k] - a[k];
     const r = {
-      look, secs: +secs.toFixed(2), frames: end.frames, walking: end.walking, have, sashAnim: end.sashAnim, layerAnim: end.layerAnim,
+      look, secs: +secs.toFixed(2), frames: process.env.RAF === '1' ? end.frames : drawn, walking: end.walking, have, sashAnim: end.sashAnim, layerAnim: end.layerAnim,
       taskMsPerSec: +(d('TaskDuration') * 1000 / secs).toFixed(1),
       paintsPerSec: +(paints / secs).toFixed(1),
       paintMsPerSec: +(paintMs / secs).toFixed(2),

@@ -18428,13 +18428,17 @@ function docCmViewShown() {
 function docWatchLock() {
   const overlay = document.getElementById("lock-overlay");
   if (!overlay || typeof MutationObserver !== "function") return;
+  //: A password prompt borrows the overlay (`askPasswordPrompt`, app.js) and
+  //: is not a lock, so it leaves the open document alone. `data-mode` is
+  //: watched too, so a prompt that turns into a real lock still purges.
   new MutationObserver(() => {
     if (overlay.classList.contains("hidden")) return;
+    if (overlay.dataset.mode === "prompt") return;
     if (!docCmView) return;
     //: `setState`, not a change transaction: the history is part of the
     //: state, and an undo that could bring the document back after a lock
     //: would make this purge decorative.
     docResetDocument("");
-  }).observe(overlay, { attributes: true, attributeFilter: ["class"] });
+  }).observe(overlay, { attributes: true, attributeFilter: ["class", "data-mode"] });
 }
 docWatchLock();

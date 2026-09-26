@@ -1935,6 +1935,21 @@ progress {
   text-align: center;
 }
 
+/* The same card asking for the password for one action (app.js
+   `askPasswordPrompt`: unlocking private notes, turning sign-in off). It can
+   be asked from inside Settings, a modal at 1010, so it sits above the
+   dialogs and below the toast box's 1050. "Not now" spans the card under
+   the submit button, the way the submit spans the field. */
+.lock-overlay.lock-prompt {
+  z-index: 1045;
+}
+
+.lock-card #lock-cancel {
+  width: 100%;
+  justify-content: center;
+  margin-top: var(--space-2);
+}
+
 /* The setup note (index.html, `#lock-setup-note`): the length rule, what the
    password unlocks and what a reset costs, said before the field is filled.
    Left-aligned inside a centred card on purpose, it is three lines of prose

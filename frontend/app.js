@@ -614,7 +614,143 @@ async function apiJson(path, options = {}) {
 
 // --- auth gate (Phase 4) -----------------------------------------------------
 
+//: **Optional sign-in** (INBOX 426 aa): "Ask for a password when the app
+//: opens", a switch in Settings, Account and security. Off, the server hands
+//: this computer a session without the password (`/auth/auto-session`,
+//: routes_auth.py, which decides from the connection itself and refuses
+//: anyone else), and the boot path skips the lock screen. The vault is not
+//: opened by that: private notes ask for the password when they are wanted,
+//: through the lock screen's own card in a prompt mode (`askPasswordPrompt`).
+//:
+//: `autoSessionOffered`: `/auth/status` said this caller may have one.
+//: `lockedByHand`: the person pressed Lock, so a 401 afterwards must not
+//: quietly start a new session; the next load does (the decision taken).
+//: `vaultOpen`: null until an unlock, the auto-session or the account
+//: answer says; false only when it is known to be locked.
+let autoSessionOffered = false;
+let lockedByHand = false;
+let vaultOpen = null;
+let autoSessionPending = null;
+//: The open prompt: `{ submit, resolve, returnFocus }`, or null.
+let lockPrompt = null;
+
+//: Ask the server for a session without a password. One request at a time,
+//: because a stale token makes every boot request answer 401 together.
+//: Plain `fetch`, not `api()`: a refusal here is an answer, not a lockout.
+function startWithoutPassword() {
+  if (!autoSessionPending) {
+    autoSessionPending = fetch("/auth/auto-session", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .catch(() => null)
+      .finally(() => {
+        autoSessionPending = null;
+      });
+  }
+  return autoSessionPending;
+}
+
+function enterWithoutPassword(body) {
+  localStorage.setItem("token", body.token);
+  vaultOpen = Boolean(body.vault_open);
+  lockedByHand = false;
+  $("lock-overlay").classList.add("hidden");
+  startApp();
+}
+
+//: A session that expired while sign-in is off comes straight back rather
+//: than asking for a password the person chose not to be asked for.
+async function resumeWithoutPassword() {
+  const body = await startWithoutPassword();
+  if (!body) {
+    autoSessionOffered = false; // refused: the lock screen stays, as it should
+    return;
+  }
+  if ($("lock-overlay").dataset.mode !== "unlock") return; // setup or a prompt since
+  enterWithoutPassword(body);
+}
+
+//: Close the prompt, if one is open. `done` is what its promise resolves to.
+function settleLockPrompt(done) {
+  const prompt = lockPrompt;
+  if (!prompt) return;
+  lockPrompt = null;
+  const overlay = $("lock-overlay");
+  overlay.classList.remove("lock-prompt");
+  $("lock-cancel").classList.add("hidden");
+  $("lock-error").textContent = "";
+  $("lock-password").value = "";
+  if (overlay.dataset.mode === "prompt") {
+    overlay.classList.add("hidden");
+    overlay.dataset.mode = "unlock";
+    prompt.returnFocus?.focus?.();
+  }
+  prompt.resolve(done);
+}
+
+//: The lock screen's card asking for the password for one action, over
+//: whatever is open, with a way out. `submit(password)` throws to show its
+//: message under the field. `data-mode="prompt"` is set before the overlay
+//: is shown: the document editor's lock watcher (documents.js) reads it, and
+//: a prompt is not a lock.
+function askPasswordPrompt({ title, message, submitLabel, submit }) {
+  settleLockPrompt(false);
+  const overlay = $("lock-overlay");
+  return new Promise((resolve) => {
+    lockPrompt = { submit, resolve, returnFocus: document.activeElement };
+    overlay.dataset.mode = "prompt";
+    overlay.classList.add("lock-prompt");
+    $("lock-title").textContent = title;
+    $("lock-message").textContent = message;
+    $("lock-setup-note")?.classList.add("hidden");
+    $("lock-submit").textContent = submitLabel;
+    $("lock-cancel").classList.remove("hidden");
+    $("lock-error").textContent = "";
+    $("lock-password").value = "";
+    $("lock-password").setAttribute("aria-label", "Password");
+    $("lock-password").autocomplete = "current-password";
+    overlay.classList.remove("hidden");
+    $("lock-password").focus();
+  });
+}
+
+//: "Unlock private notes": the vault's key, for a session that started
+//: without the password. The token is kept; only the key is loaded.
+async function unlockPrivateNotes() {
+  const opened = await askPasswordPrompt({
+    title: "Unlock private notes",
+    message: "Enter your password to read your private notes.",
+    submitLabel: "Unlock",
+    submit: (password) =>
+      apiJson("/auth/unlock-vault", {
+        method: "POST",
+        body: JSON.stringify({ password }),
+        // 401 here is "wrong password", said beside the field.
+        ownsAuthErrors: true,
+      }),
+  });
+  if (!opened) return false;
+  vaultOpen = true;
+  toast("Private notes unlocked.");
+  await loadEntries().catch(() => {});
+  return true;
+}
+
+//: True when the vault's key is loaded, asking for the password if not.
+async function ensureVaultOpen() {
+  if (vaultOpen === true) return true;
+  const info = await apiJson("/auth/account").catch(() => null);
+  if (info && info.vault_open) {
+    vaultOpen = true;
+    return true;
+  }
+  return unlockPrivateNotes();
+}
+
 function showLockScreen(setupMode) {
+  settleLockPrompt(false);
   $("lock-overlay").classList.remove("hidden");
   $("lock-title").textContent = setupMode ? "Welcome to MemoryMap" : "Unlock MemoryMap";
   //: **The trust moment, and it used to say nothing about trust.** This is the
@@ -633,8 +769,8 @@ function showLockScreen(setupMode) {
   const note = $("lock-setup-note");
   if (note) {
     note.textContent =
-      "Choose a password or PIN, at least four characters. You will need it every " +
-      "time the app starts. Ordinary notes are not encrypted and survive a reset, " +
+      "Choose a password or PIN, at least four characters. The app asks for it " +
+      "when it opens, unless you turn that off in Settings. Ordinary notes are not encrypted and survive a reset, " +
       "but anything you later mark private is locked with this password and cannot " +
       "be recovered without it.";
     note.classList.toggle("hidden", !setupMode);
@@ -647,6 +783,7 @@ function showLockScreen(setupMode) {
   $("lock-password").setAttribute("aria-label", setupMode ? "Choose a password" : "Password");
   $("lock-password").autocomplete = setupMode ? "new-password" : "current-password";
   $("lock-password").focus();
+  if (!setupMode && autoSessionOffered && !lockedByHand) resumeWithoutPassword();
 }
 
 async function submitLockForm() {
@@ -658,12 +795,26 @@ async function submitLockForm() {
     return;
   }
   const mode = $("lock-overlay").dataset.mode;
+  if (mode === "prompt") {
+    const prompt = lockPrompt;
+    if (!prompt) return;
+    try {
+      await prompt.submit(password);
+    } catch (error) {
+      errorLine.textContent = error.message;
+      return;
+    }
+    settleLockPrompt(true);
+    return;
+  }
   try {
     const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
       method: "POST",
       body: JSON.stringify({ password }),
     });
     localStorage.setItem("token", body.token);
+    vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
+    lockedByHand = false;
     $("lock-password").value = "";
     // **Give the focus back, or every single-key shortcut in the app is
     // dead.** Hiding the overlay does not move focus off the field inside
@@ -750,6 +901,8 @@ async function lockNow() {
     /* locking locally regardless */
   }
   localStorage.removeItem("token");
+  lockedByHand = true;
+  vaultOpen = false;
   purgeLockedContent();
   showLockScreen(false);
 }
@@ -790,6 +943,17 @@ async function initAuth() {
     return;
   }
   $("lock-btn").classList.remove("hidden");
+  // Sign-in off, on this computer: straight in, no lock screen. A token
+  // still live is kept by the server; a stale one is replaced.
+  autoSessionOffered = Boolean(status.auto_session);
+  if (autoSessionOffered) {
+    const started = await startWithoutPassword();
+    if (started) {
+      enterWithoutPassword(started);
+      return;
+    }
+    autoSessionOffered = false;
+  }
   if (!authToken()) {
     showLockScreen(false);
     return;
@@ -3664,7 +3828,14 @@ function entryItem(entry, options = {}) {
     actions.appendChild(entryOverflowMenu(entry));
     metaEnd.appendChild(actions);
   }
-  if (entry.is_private) meta.insertBefore(chip("ph:lock private"), meta.firstChild);
+  if (entry.is_private) {
+    // With the vault known to be locked (sign-in off, INBOX 426 aa), the
+    // chip is the way in: it asks for the password and redraws the list.
+    const lockedChip = vaultOpen === false
+      ? chip("ph:lock-key unlock to read", "", () => unlockPrivateNotes())
+      : chip("ph:lock private");
+    meta.insertBefore(lockedChip, meta.firstChild);
+  }
   if (entry.pinned) meta.insertBefore(chip("ph:star favourite"), meta.firstChild);
   // Set either by the text-selection popup's "Save as draft note" (not yet
   // looked at) or by the Writing Room's "Save as note" (drafted with the AI,
@@ -5319,6 +5490,8 @@ async function toggleEntryPrivacy(entry) {
     ));
     if (!ok) return;
   }
+  // Both directions need the key, which a session without a password lacks.
+  if (!(await ensureVaultOpen())) return;
   try {
     await apiJson(`/entries/${entry.id}/privacy`, {
       method: "POST",
@@ -33152,6 +33325,8 @@ async function renderAccount() {
     ],
     ["Open sessions", String(info.active_sessions)],
   ];
+  if (typeof info.vault_open === "boolean") vaultOpen = info.vault_open;
+  $("account-password-on-open").checked = info.password_on_open !== false;
   for (const [label, value] of rows) {
     //: A label column and a value column (`.account-facts`), not "Label: value"
     //: in bold run-in: four facts read as a table, so they are laid out as one.
@@ -41739,6 +41914,43 @@ function renderBrandLogo() {
 // --- wiring --------------------------------------------------------------------
 
 $("account-change").addEventListener("click", changePassword);
+//: "Ask for a password when the app opens". Off needs the current password,
+//: asked through the lock screen's card; on needs nothing.
+$("account-password-on-open").addEventListener("change", async (e) => {
+  const box = e.target;
+  const wanted = box.checked;
+  box.checked = !wanted; // the server's answer decides what it shows
+  try {
+    if (wanted) {
+      await apiJson("/auth/password-on-open", {
+        method: "POST",
+        body: JSON.stringify({ enabled: true }),
+      });
+      autoSessionOffered = false;
+      box.checked = true;
+      toast("The app asks for your password when it opens.");
+    } else {
+      const done = await askPasswordPrompt({
+        title: "Stop asking for a password",
+        message: "Enter your password to open the app on this computer without it.",
+        submitLabel: "Turn off",
+        submit: (password) =>
+          apiJson("/auth/password-on-open", {
+            method: "POST",
+            body: JSON.stringify({ enabled: false, current_password: password }),
+            ownsAuthErrors: true,
+          }),
+      });
+      if (done) {
+        box.checked = false;
+        toast("This computer opens the app without a password. Private notes still ask.");
+      }
+    }
+  } catch (error) {
+    toast(error.message, true);
+  }
+  renderAccount().catch(() => {});
+});
 $("account-idle-ttl").addEventListener("change", (e) => {
   setPreference("session_idle_ttl_minutes", Number(e.target.value));
 });
@@ -46472,14 +46684,22 @@ window.addEventListener("storage", (event) => {
   if (event.storageArea !== localStorage) return;
   if (event.key !== null && event.key !== "token") return;
   if (localStorage.getItem("token")) return; // a sign-in elsewhere, not a lock
-  if (!$("lock-overlay").classList.contains("hidden")) return; // already locked
+  // Already locked, unless the overlay is only asking for a password.
+  if (!$("lock-overlay").classList.contains("hidden") && $("lock-overlay").dataset.mode !== "prompt") return;
+  lockedByHand = true; // a lock elsewhere is a lock here: no quiet new session
   purgeLockedContent();
   showLockScreen(false);
 });
 $("lock-submit").addEventListener("click", submitLockForm);
 $("lock-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") submitLockForm();
+  if (e.key === "Escape" && lockPrompt) {
+    e.preventDefault();
+    e.stopPropagation();
+    settleLockPrompt(false);
+  }
 });
+$("lock-cancel").addEventListener("click", () => settleLockPrompt(false));
 // Enter in the question box asks; Ctrl+Enter in the note box saves.
 $("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") askQuestion();

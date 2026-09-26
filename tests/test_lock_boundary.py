@@ -91,3 +91,36 @@ def test_locking_reaches_every_open_tab():
     assert "showLockScreen(false)" in handler
     # A sign-in elsewhere must not be mistaken for a lock.
     assert 'localStorage.getItem("token")' in handler
+
+
+def test_the_password_free_boot_is_taken_only_when_the_server_offers_it():
+    """Optional sign-in (INBOX 426 aa): the boot path asks for a session
+    without a password only when `/auth/status` says this caller may have
+    one, and falls back to the lock screen when it is refused."""
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.index("async function initAuth(")
+    body = source[start : source.index("\n}\n", start)]
+    assert "status.auto_session" in body
+    assert "/auth/auto-session" in source
+    assert "showLockScreen(false)" in body
+
+
+def test_private_notes_ask_through_the_same_lock_screen():
+    """With sign-in off the vault stays locked, and it is opened by the
+    existing unlock UI in a prompt mode, not by a second password form."""
+    source = APP_JS.read_text(encoding="utf-8")
+    assert "Unlock private notes" in source
+    assert "/auth/unlock-vault" in source
+    start = source.index("async function submitLockForm(")
+    body = source[start : source.index("\n}\n", start)]
+    assert '"prompt"' in body, "the lock form must know its prompt mode"
+
+
+def test_a_prompt_is_not_mistaken_for_the_lock_screen():
+    """The prompt borrows the overlay. A lock in another tab while it is up
+    must still purge this one, so "the overlay is showing" cannot be read as
+    "already locked" while it is in prompt mode."""
+    source = APP_JS.read_text(encoding="utf-8")
+    start = source.index('addEventListener("storage"')
+    handler = source[start : source.index("\n});", start)]
+    assert 'dataset.mode !== "prompt"' in handler

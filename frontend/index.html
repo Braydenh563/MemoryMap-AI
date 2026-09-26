@@ -317,6 +317,10 @@
            would be furniture. -->
       <p id="lock-setup-note" class="muted lock-setup-note hidden"></p>
       <button id="lock-submit">Unlock</button>
+      <!-- Shown only when the card is asking for the password for one action
+           (unlocking private notes, turning sign-in off), never on the lock
+           screen itself, which has no way round it. -->
+      <button id="lock-cancel" type="button" class="ghost hidden">Not now</button>
       <p id="lock-error" class="status error" role="alert"></p>
     </div>
   </div>
@@ -9990,6 +9994,33 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>This notebook</h3>
               <ul class="entry-list account-facts" id="account-facts"></ul>
+            </div>
+
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Signing in</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="sign-in-help" aria-controls="sign-in-help" aria-expanded="false"
+                  title="About signing in" aria-label="About signing in">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="help-body hidden" id="sign-in-help" role="dialog" aria-label="About signing in">
+                <p>
+                  Turned off, the app opens on this computer without asking.
+                  Another device on your network still needs the password,
+                  and so do private notes: they stay encrypted and ask for it
+                  when you open one. Turning it off asks for your current
+                  password.
+                </p>
+              </div>
+              <label class="setting-check">
+                <input type="checkbox" id="account-password-on-open" checked>
+                <span>
+                  Ask for a password when the app opens
+                  <small class="muted">Private notes and other devices always ask.</small>
+                </span>
+              </label>
             </div>
 
             <div class="settings-group">

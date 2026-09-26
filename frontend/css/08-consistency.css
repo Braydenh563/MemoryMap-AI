@@ -6470,9 +6470,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-crest: -5deg;
   --atl-bl-y: -2.4px; --atl-br-y: -0.6px; --atl-bl-r: -6deg; --atl-lid: 0; --atl-eye-s: 1.06;
   --atl-px: -0.6px; --atl-ps: 1.1;
-  --atl-m-smile: 0; --atl-m-tinyo: 1; --atl-cheek: 0.4;
+  --atl-m-smile: 1; --atl-m-tinyo: 0; --atl-cheek: 0.4; --atl-fx-sparkle: 1;
   --atl-tilt: -10deg; --atl-sx: 0.98; --atl-sy: 1.02;
 }
+/* Curious is the reference grids' Inspired (Intrigued) and Winking cells:
+   one eye closed happily, a sparkle, a small smile. The right eye reads
+   its own open and happy values. */
+.nm-atlas[data-atlas-mood="curious"] .atl-eye-r { --atl-open: 0; --atl-happy: 1; }
 .nm-atlas[data-atlas-mood="surprised"] {
   --atl-tail: -24deg; --atl-star: 1.2;
   --atl-crest: -10deg;

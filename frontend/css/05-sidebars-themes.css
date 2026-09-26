@@ -1847,6 +1847,12 @@ body.resizing-sidebar {
   flex-wrap: wrap;
 }
 
+/* A narrow strip folds its layout toggle behind More before any tool
+   (`fitDocToolbarRow`); pressed, More brings it back with the rest. */
+.doc-toolbar.is-layout-folded:not(.is-more-open) .doc-toolbar-layout {
+  display: none;
+}
+
 /* `[hidden]` loses to the strip's own `button` sizing rules otherwise. */
 .doc-toolbar .doc-toolbar-more[hidden] {
   display: none;
@@ -4626,9 +4632,15 @@ textarea.autogrow {
 
 /* The findings themselves. A list, under the bar that counts them, so opening
    it does not cover the document it is about. */
-.doc-prose-panel {
-  /* The right dock's width (`applyDocProseDock`); the grip writes it inline. */
+/* The right dock's width (`applyDocProseDock`). Declared on the tab page,
+   not the panel, and the grip writes it there too: focus mode's side panel
+   and the page's padding beside it both read it, and only an ancestor of
+   both can give them one number. */
+#tab-documents {
   --doc-prose-w: 20rem;
+}
+
+.doc-prose-panel {
   /* **Sized by its own width, not the window's** (INBOX 426 b: "the
      suggestions panel doesnt adapt properly to the sidebar"). The same panel
      is a 20rem column on the right, a band the width of the editor at the

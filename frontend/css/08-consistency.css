@@ -3514,6 +3514,34 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   order: 10;
 }
 
+/* **A named item is two lines, not two lines and their margins**
+   (uipolish-0924, item 5: "the Skills list rows are ~78px each", twenty
+   built-ins, a 1,806px list). Measured at 1440: a 24px title line and a 20px
+   description inside 78px, because the description sat 13px under the
+   title (the row's 6.4px gap plus its own 6.4px margin), each row carried
+   the generic entry card's 9.6px padding, and a custom item's Edit and
+   Delete (36px buttons, hidden until pointed at) made its title line 36px
+   tall for controls nobody could see. The name and what it does belong
+   together: 4px between them, the card's inset one step in, and the
+   actions laid over the inset instead of growing the line they sit on.
+   Personas share the row, so they get the same. */
+.entry-list > li:has(> :is(.skill-row, .persona-row)) {
+  padding-block: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+:is(.persona-row, .skill-row) {
+  row-gap: var(--space-1);
+}
+
+.skill-row > .skill-blurb {
+  margin-top: 0;
+}
+
+:is(.persona-row, .skill-row) > .entry-actions {
+  margin-block: calc(var(--space-2) * -1);
+}
+
 /* A group label that sits straight in the pane (Personas' "Dashboard
    greeting", "Add your own", "Share") carried the 17px inset of a label
    inside a group box, over text that has none: measured 546 against 529. */

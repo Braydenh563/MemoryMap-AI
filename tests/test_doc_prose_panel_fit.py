@@ -70,3 +70,18 @@ def test_the_suggestions_panel_fits_its_own_width() -> None:
     assert "words.title" in line and "why.title" in line, (
         "an ellipsised finding row does not carry its whole text in a title"
     )
+
+
+def test_the_grip_width_lives_on_the_tab_page() -> None:
+    """Focus mode's side panel and the page's padding beside it read the width
+    the grip set; only a property on their common ancestor gives both one
+    number (on the panel, the padding's `var()` computed to 0)."""
+    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    assert '($("tab-documents") || panel).style.setProperty("--doc-prose-w"' in docs
+    css = "".join(
+        re.sub(r"/\*.*?\*/", "", p.read_text(encoding="utf-8"), flags=re.S)
+        for p in sorted((ROOT / "frontend" / "css").glob("*.css"))
+    )
+    assert re.search(r"#tab-documents\s*\{\s*--doc-prose-w:", css)
+    assert not re.search(r"\.doc-prose-panel\s*\{[^}]*--doc-prose-w:", css)
+    assert re.search(r"--doc-focus-prose-w:\s*min\(var\(--doc-prose-w\)", css)

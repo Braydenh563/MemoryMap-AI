@@ -10,6 +10,18 @@ two decisions only the owner can take are INBOX 427.
 - **`tests/test_name_mood.py` asserts `oklch(from var(--accent)` in the
   CSS**: it holds (the accent tints the glow), but a test for the fixed
   palette would be the honest one. [atlas-fable]
+- **Atlas round 5 (overnight, 2026-09-26)**: the feminine look has
+  slender legs, a hip sash in its own layer and hair a third longer; the
+  lids sit out an act that moves the head; curious winks; proofs
+  `scratchpad/shots/atlas-r5-*` in the main repo. Left: the feminine hair
+  streams to x 89, past the companion's 64px box (drawn, since the box
+  does not clip), which the owner may want shorter there; the ring drift
+  and per-glint twinkles are off at companion size (the front layer
+  shimmers as one); the simulator's stand-in menu says nothing about where
+  app.js's menu lands; three CSP "inline style" console warnings on the
+  lab come from a style attribute in avatars.js's generated faces; the
+  organic body, ribbon tail, strand and heart star await the owner's read
+  of the r5 proofs. [atlas-fable]
 - **The companion rides with `ScrollTimeline`** (Chromium 115+, so WebView2);
   WebKitGTK falls back to the script follow. Not driven in either desktop
   window. [companion-426]

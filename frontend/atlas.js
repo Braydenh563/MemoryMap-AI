@@ -344,12 +344,17 @@ const ATLAS_LOOKS = {
     earTip: [12.8, 8.6],
     fin: true,
     strand: "",
-    legs: false,
-    lower: [[31, 62, 30.4, 70, 24, 77, 19, 84], [19, 84, 14.6, 90, 20, 95, 27, 92.4]],
-    lowerWidth: (t) => 9 - 7.4 * Math.min(1, t * 1.02) ** 0.9 + 0.2,
+    //: Slender legs (the definitive stand's), and a ribbon sash from the
+    //: left hip that streams down and curls, in the tail's paint: its own
+    //: layer in the companion (`atlasDrawFigure`), swaying with a walk.
+    legs: [[27.4, 61, 26.4, 69, 25.8, 78, 26.2, 88], [34.6, 61, 35.8, 69, 37, 78, 37.2, 87.4]],
+    lower: [[27, 62, 25, 70, 20, 77, 16, 84], [16, 84, 12.6, 90, 18, 95, 25, 92.4]],
+    lowerWidth: (t) => 6.4 - 5.2 * Math.min(1, t * 1.02) ** 0.9 + 0.2,
     arm: [[37.6, 40.6, 42, 41.6, 47.6, 41.4, 52.6, 39.4]],
     armL: [[24.4, 40.6, 20.4, 43.4, 18.2, 49.2, 19, 56.2]],
     seeds: [[53.6, 36.4, 0.5], [55.8, 33, 0.4], [58.4, 30.4, 0.6], [56.6, 27, 0.35], [60.6, 27.4, 0.45], [62.2, 23.6, 0.35], [59, 34.8, 0.3]],
+    //: The locks as drawn, then stretched a third from the crown (the
+    //: definitive stand's hair streams two thirds of a body's width).
     locks: [
       { seg: [[21, 13, 22, 0, 42, -3, 54, 6], [54, 6, 62, 11, 64, 18, 59.6, 22]], w: [6.6, 0.6] },
       { seg: [[25, 11, 28, -1, 50, 0, 60, 10], [60, 10, 69, 17, 70.6, 27, 64.4, 31]], w: [7.4, 0.7] },
@@ -357,14 +362,14 @@ const ATLAS_LOOKS = {
       { seg: [[35, 10.4, 40, 1.6, 59, 5.4, 66, 20], [66, 20, 73, 33, 70, 48, 62, 54]], w: [7.4, 0.7] },
       { seg: [[39, 12, 44, 6.4, 59, 11, 63, 27], [63, 27, 67.6, 42, 64, 56, 56.6, 63]], w: [6.4, 0.6] },
       { seg: [[41, 14.6, 45, 11, 55, 18, 57, 32], [57, 32, 59.4, 46, 56.4, 58, 50.4, 65]], w: [5.2, 0.5] },
-    ],
+    ].map((l) => ({ seg: atlasTuneSegs(l.seg, [30, 11], 1.33, 0, 99), w: [l.w[0] * 1.12, l.w[1]] })),
     head: [
       { seg: [[21, 13, 24, 3, 42, 1, 52, 8], [52, 8, 56.4, 11.6, 57.2, 16.6, 54.4, 19.6]], w: [6, 0.6] },
       { seg: [[25, 11, 30, 0, 47, 1.4, 54, 11], [54, 11, 58.4, 16, 58.6, 22, 55.4, 25.4]], w: [6.6, 0.7] },
       { seg: [[30, 9.6, 36, -1, 51, 1.6, 56, 14], [56, 14, 60, 21.6, 59.4, 29.6, 54.6, 34]], w: [7.2, 0.8] },
       { seg: [[35, 10.4, 42, 2.6, 54, 6.4, 57, 20], [57, 20, 60, 28, 58.6, 36, 53, 40.4]], w: [6.6, 0.7] },
     ],
-    hairStars: [[50, 5], [59, 9.6], [67, 18], [70.6, 30], [68, 42], [63, 52], [56.6, 61]],
+    hairStars: [[50, 5], [59, 9.6], [67, 18], [70.6, 30], [68, 42], [63, 52], [56.6, 61]].map(([x, y]) => [+(30 + (x - 30) * 1.33).toFixed(1), +(11 + (y - 11) * 1.33).toFixed(1)]),
     torso: "M26 35.6C23.2 40.6 22.4 46 23.2 51.4C23.8 56 25 60 27.4 64C29.2 66.8 32.8 66.8 34.6 64C37 60 38.2 56 38.8 51.4C39.6 46 38.8 40.6 36 35.6Z",
     brow: "arch",
     lashes: true,
@@ -516,6 +521,9 @@ function atlasBuild() {
     }
     if (spec.arm) {
       spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbWidth(3.9, 1.3), { samples: 12 })], ["r", atlasStem(spec.arm, atlasLimbWidth(3.9, 1.3), { samples: 12 })]];
+    }
+    if (Array.isArray(spec.legs)) {
+      spec.legPaths = [["l", atlasStem([spec.legs[0]], atlasLimbWidth(4.8, 1.6), { samples: 12 })], ["r", atlasStem([spec.legs[1]], atlasLimbWidth(4.8, 1.6), { samples: 12 })]];
     }
   }
   return tune;
@@ -1058,6 +1066,7 @@ function atlasBody(parent, id, props, look, route = null) {
   const layers = pair(parent);
   const back = route ? pair(route.back) : layers;
   const tailAt = route ? pair(route.tail) : layers;
+  const lowerAt = route && route.lower ? pair(route.lower) : layers;
   const frontAt = route ? { fill: route.front } : layers;
   const arms = {};
   atlasBand(back.edge, false, id);
@@ -1078,7 +1087,7 @@ function atlasBody(parent, id, props, look, route = null) {
     //: about where it grows from (08-consistency.css, "the ribbon answers
     //: the legs"); the same point in every layer keeps edge and fill as one.
     if (spec.lower) {
-      const lower = atlasGroup(layer, "atl-lower", [spec.lower[0][0], spec.lower[0][1]]);
+      const lower = atlasGroup(lowerAt[kind], "atl-lower", [spec.lower[0][0], spec.lower[0][1]]);
       if (!edge) atlasMake("path", { class: "atl-tail-glow", d: spec.lowerPath }, lower);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: spec.lowerPath }, lower);
       if (!edge) {
@@ -1087,9 +1096,8 @@ function atlasBody(parent, id, props, look, route = null) {
         atlasSpecks(lower, [[28.4, 70, 0.4], [23.6, 78.4, 0.35], [17.6, 88, 0.45], [24.4, 93, 0.3]]);
       }
     }
-    ATLAS_LIMBS.legs.forEach(([side, d], i) => {
+    (spec.legPaths || ATLAS_LIMBS.legs).forEach(([side, d], i) => {
       const leg = atlasGroup(layer, `nmb-leg nmb-leg-${side} atl-leg`);
-      if (spec.legs === false) return;
       const tendril = atlasGroup(leg, `atl-tendril atl-tendril-${side}`, ATLAS_GEO.hips[i]);
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, tendril);
       if (!edge) atlasMake("path", { class: "atl-overlay atl-rim-limb", d }, tendril);
@@ -1315,7 +1323,8 @@ function atlasDrawFigure(mood) {
   const look = atlasLook();
   const frag = document.createDocumentFragment();
   const layers = {};
-  for (const name of ["back", "tail", "body", "lids", "front"]) {
+  const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
+  for (const name of spec.lower ? ["back", "tail", "lower", "body", "lids", "front"] : ["back", "tail", "body", "lids", "front"]) {
     const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}`, "aria-hidden": "true", focusable: "false" });
     svg.dataset.nmSeed = "Atlas";
     svg.dataset.atlasLook = look;
@@ -1331,7 +1340,7 @@ function atlasDrawFigure(mood) {
   atlasMake("title", {}, layers.body.svg);
   atlasMake("ellipse", { class: "atl-aura", cx: 31, cy: 44, rx: 40, ry: 52 }, layers.back.pose);
   ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false));
-  atlasBody(layers.body.rig, id, true, look, { back: layers.back.rig, tail: layers.tail.rig, front: layers.front.rig });
+  atlasBody(layers.body.rig, id, true, look, { back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, front: layers.front.rig });
   const host = atlasGroup(atlasGroup(layers.body.rig, "nm-buddy-head", ATLAS_GEO.neck), "name-mark atl-face");
   atlasHead(host, id, "figure", look);
   atlasLids(layers.lids.rig, look);
@@ -1341,6 +1350,8 @@ function atlasDrawFigure(mood) {
   return frag;
 }
 
+//: (`lower`, the feminine look's sash, sits between the tail and the body
+//: and sways from the hip when the companion walks, kicks or dangles.)
 //: The lids layer: over each eye, the head's own skin in the eye's
 //: outline a little enlarged, and the closed eye's stroke on it (the
 //: feminine look's lashes too). Shown for a blink by the layer's opacity;

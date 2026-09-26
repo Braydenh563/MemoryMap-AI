@@ -280,7 +280,7 @@
   margin-left: var(--space-2);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-text);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -582,7 +582,7 @@
   padding: 0.25rem 0.6rem;
   border-radius: var(--radius-md);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .tool-chip.tool-chip-error {
@@ -1474,7 +1474,7 @@ button.ghost.danger {
 .graph-trace-route-chip.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The dot that ties a chip to its line on the map. `currentColor` would make
@@ -3233,7 +3233,7 @@ kbd {
 /* Where you are right now, not clickable-to-nowhere, just marked so the
    list reads as a map with a "you are here" pin rather than a plain stack. */
 .nav-history-item.nav-history-current {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 700;
   cursor: default;
 }
@@ -4599,7 +4599,7 @@ mark.lightbox-hit {
   background: var(--modal-bg-opaque);
   box-shadow: var(--shadow-sm);
   cursor: crosshair;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .graph-minimap > * {
@@ -4815,7 +4815,7 @@ mark.lightbox-hit {
   border: none;
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.7em;
   font-weight: 700;
   line-height: 1.5;
@@ -4955,7 +4955,7 @@ mark.lightbox-hit {
    chips side by side, nothing else would say which one you opened. */
 .tool-touched-chip.active {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .tool-previews {
@@ -5210,7 +5210,7 @@ mark.lightbox-hit {
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--text-xs);
   font-weight: 700;
   text-align: center;

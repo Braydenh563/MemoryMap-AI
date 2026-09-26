@@ -964,7 +964,7 @@ progress {
 }
 
 .answer a {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* --- rich markdown blocks (tables, quotes, rules, task lists) ------------- */
@@ -1105,7 +1105,7 @@ progress {
 }
 
 .bubble-answer a {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* margin-left:auto pushes the buttons to the right edge of the heading. They no
@@ -1495,7 +1495,7 @@ progress {
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -1572,7 +1572,7 @@ progress {
    and it replaces the category chip for the second or two it lasts. */
 .chip.filing {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .chip.filing .ph {
@@ -1637,7 +1637,7 @@ progress {
    instead of needing its own. */
 .chip.chip-busy {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 @keyframes chip-spin {
@@ -1679,7 +1679,7 @@ progress {
      centre, and a `transform-origin` set on an ancestor for a different
      purpose must not reach it. */
   transform-origin: 50% 50%;
-  color: var(--accent);
+  color: var(--accent-text);
   vertical-align: -0.15em;
   animation: chip-spin 0.7s linear infinite;
 }
@@ -2082,7 +2082,7 @@ progress {
   height: 1.75rem;
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--text-md);
 }
 
@@ -2111,7 +2111,7 @@ progress {
 
 .bookmark-title:hover,
 .bookmark-title:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 
@@ -2133,7 +2133,7 @@ progress {
 /* Pinned is a state, so the control that holds it is coloured by it rather
    than only by its glyph. */
 .bookmark-pinned {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **Deleted deliberately, and this comment is the reason.**
@@ -2355,7 +2355,7 @@ progress {
 .contents-list li a:hover,
 .contents-list li a:focus-visible {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .contents-more {
@@ -2722,7 +2722,7 @@ li.link-source {
 }
 
 .icon-btn.active {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .ask-history-meta {
@@ -3433,7 +3433,7 @@ html.modal-open body {
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .dash-wordmark span {
@@ -3473,7 +3473,7 @@ html.modal-open body {
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .dash-clock-date {
@@ -4243,7 +4243,7 @@ html.modal-open body {
 }
 
 .sampling-source-user {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -4469,7 +4469,7 @@ html.modal-open body {
 }
 
 .setting-hint-toggle[aria-expanded="true"] {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **Narrow: the section list becomes a strip, not a column.**
@@ -5503,7 +5503,7 @@ select {
    list's only job is to make the overridden rows findable among the inherited
    ones. */
 .feature-model-row[data-overridden="1"] .feature-model-state {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* `enhanceSelect` wraps every select in a `.select-shell` at boot and the

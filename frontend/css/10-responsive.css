@@ -1707,7 +1707,7 @@ header#top-bar,
     justify-content: flex-start;
     padding-left: var(--space-4);
     background: var(--accent-soft);
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   .entry-list li::after {

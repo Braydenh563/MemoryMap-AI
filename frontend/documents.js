@@ -16828,7 +16828,7 @@ function docCmTheme(CM) {
       ".cm-completionMatchedText": {
         textDecoration: "none",
         fontWeight: "700",
-        color: "var(--accent)",
+        color: "var(--accent-text)",
       },
       ".cm-completionDetail": { color: "var(--muted)", fontStyle: "normal" },
       ".cm-completionIcon": { color: "var(--muted)", opacity: "1" },
@@ -16954,7 +16954,7 @@ function docCmTheme(CM) {
       //: Bracket pairs by depth: three of the app's own inks, each mixed a
       //: third of the way back to the text, so the pairs are told apart
       //: without the brackets shouting over the code between them.
-      ".cm-bracket-0": { color: "color-mix(in srgb, var(--accent) 70%, var(--text))" },
+      ".cm-bracket-0": { color: "color-mix(in srgb, var(--accent-text) 70%, var(--text))" },
       ".cm-bracket-1": { color: "color-mix(in srgb, var(--syntax-keyword, var(--ok)) 70%, var(--text))" },
       ".cm-bracket-2": { color: "color-mix(in srgb, var(--warn) 70%, var(--text))" },
       //: A name's one line on hover: the name in code type, the line in the
@@ -17068,15 +17068,15 @@ function docCmTheme(CM) {
         borderRadius: "var(--radius-pill)",
         background: "var(--accent-soft)",
         boxShadow: "none",
-        color: "var(--accent)",
+        color: "var(--accent-text)",
         fontSize: "0.8em",
         lineHeight: "1.6",
         cursor: "pointer",
       },
       ".doc-comment-pin:hover": { background: "var(--accent)", color: "var(--on-accent)" },
-      ".cm-md-link": { color: "var(--accent)", textDecoration: "underline", cursor: "pointer" },
+      ".cm-md-link": { color: "var(--accent-text)", textDecoration: "underline", cursor: "pointer" },
       ".cm-md-wiki": {
-        color: "var(--accent)",
+        color: "var(--accent-text)",
         backgroundColor: "var(--accent-soft)",
         borderRadius: "4px",
         padding: "0 0.25em",
@@ -17290,7 +17290,7 @@ function docCmTheme(CM) {
       ".cm-md-footnote": {
         verticalAlign: "super",
         fontSize: "0.72em",
-        color: "var(--accent)",
+        color: "var(--accent-text)",
         fontWeight: "600",
       },
       ".cm-md-footnote-ref": { cursor: "pointer" },
@@ -17515,7 +17515,7 @@ function docCmHighlight(CM) {
   //: compiler ignores (comment), and punctuation. More than that and a file
   //: reads as confetti, which is the failure mode of a highlighter that maps
   //: every lezer tag it can find.
-  const keyword = { color: "var(--accent)", fontWeight: "600" };
+  const keyword = { color: "var(--accent-text)", fontWeight: "600" };
   const name = { color: "var(--ink)" };
   const literal = { color: "var(--ok)" };
   const string = { color: "var(--warn)" };
@@ -17531,13 +17531,13 @@ function docCmHighlight(CM) {
       //: than writing, "where is this declared" is the question the eye is
       //: actually asking.
       { tag: [t.definition(t.variableName), t.definition(t.propertyName)], color: "var(--ink)", fontWeight: "600" },
-      { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--accent)" },
-      { tag: [t.typeName, t.className, t.namespace, t.standard(t.typeName)], color: "var(--accent)", fontWeight: "600" },
+      { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--accent-text)" },
+      { tag: [t.typeName, t.className, t.namespace, t.standard(t.typeName)], color: "var(--accent-text)", fontWeight: "600" },
       { tag: [t.variableName, t.propertyName, t.attributeName], ...name },
       { tag: [t.punctuation, t.separator, t.bracket, t.operator], ...punctuation },
       { tag: [t.meta, t.processingInstruction], color: "var(--muted)" },
       { tag: t.invalid, color: "var(--error)" },
-      { tag: t.link, color: "var(--accent)", textDecoration: "underline" },
+      { tag: t.link, color: "var(--accent-text)", textDecoration: "underline" },
       //: Markdown's own tags, so Source view on a `.md` file is not the one
       //: file type in the editor with no highlighting at all. Live view draws
       //: these itself, from the tree, with its markers hidden; this is what
@@ -17546,7 +17546,7 @@ function docCmHighlight(CM) {
       { tag: t.emphasis, fontStyle: "italic" },
       { tag: t.strong, fontWeight: "700" },
       { tag: t.strikethrough, textDecoration: "line-through" },
-      { tag: [t.monospace], color: "var(--accent)" },
+      { tag: [t.monospace], color: "var(--accent-text)" },
     ])
   );
   return docCmHighlightCache;

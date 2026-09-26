@@ -210,7 +210,7 @@
 .action-menu .menu-item[aria-pressed="true"],
 .nav-history-menu .nav-history-item.nav-history-current {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -233,7 +233,7 @@
    contract: the earlier files are not reopened. */
 .doc-dock-menu-list #select-btn.active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .nav-history-menu .nav-history-item.nav-history-current {
@@ -1581,7 +1581,7 @@ summary > .ph-lead,
 /* On, and only on: the toggle's state is the one fill in the row. */
 .dash-widget-row-controls button[aria-pressed="true"] {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Every control in the dialog on one height, not only the ones in a row. The
@@ -1663,7 +1663,7 @@ summary > .ph-lead,
 .wb-topbar button.is-on,
 .wb-topbar button.active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .wb-topbar select,
@@ -1708,7 +1708,7 @@ summary > .ph-lead,
   content: "\2713";
   margin-left: auto;
   padding-left: var(--space-3);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 /* **And inside a flyout, which is where half of them now live.** The rows
    were scoped to `.doc-dock-menu-list`, and grouping the documents kebab into
@@ -1903,7 +1903,7 @@ summary > .ph-lead,
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: var(--text-lg);
 }
 
@@ -2056,7 +2056,7 @@ summary > .ph-lead,
 }
 
 .help-atlas > .atlas-suggest .ph {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .help-atlas > .atlas-suggest:hover,
@@ -2931,7 +2931,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .entry-meta.note-meta > .chip.filing,
 .entry-meta.note-meta > .chip.chip-busy,
 .entry-meta.note-meta > .chip.untagged-ai {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The note's links and files, the row under the facts: the same quiet
@@ -3960,7 +3960,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   font-size: inherit;
   line-height: inherit;
   font-weight: 500;
-  color: var(--accent);
+  color: var(--accent-text);
   gap: var(--space-1);
 }
 
@@ -4022,7 +4022,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 }
 
 :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .skill-card-header > .chip.skill-badge-custom {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .skills-worker-toggles {
@@ -4825,7 +4825,7 @@ main,
 .chat-jump-latest:hover {
   background: color-mix(in srgb, var(--accent) 18%, var(--modal-bg-opaque));
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* Your words at the size Atlas's are: the user body was a step smaller

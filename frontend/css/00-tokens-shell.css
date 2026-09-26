@@ -58,6 +58,42 @@
   color-scheme: dark;
 }
 
+/* **`--accent-text`: the accent, when it is words** (INBOX 426, round 4;
+   the decision: links and accent-coloured text use a text-safe token, the
+   accent itself stays for fills). An accent is chosen for how it looks as
+   a fill, and as text it can fail: "rose" (#ec4899) on the paper palette's
+   ground was 3.35:1 for "Get it from ollama.com", measured by
+   `contrast.js`, and a custom accent can be any colour at all.
+   So the text colour is derived from whatever `--accent` is at the root,
+   palette, preset or picked, keeping its hue and holding its lightness and
+   chroma: at most OKLCH L 0.45 and C 0.16 in a light mode (darkening), at
+   least L 0.8 and at most C 0.12 in a dark one (lightening). The chroma cap
+   is what makes one lightness hold for every hue: a pure red or cyan at
+   full chroma is out of gamut and is clipped, and the clip moves its
+   luminance. Measured by `scratchpad/ui-sweeps/accenttext.js` over every
+   palette, accent preset and mode (348 combinations with nine extreme
+   picked colours): raw `--accent` is under 4.5:1 on 228 of them, this
+   token on none, lowest 4.71:1 (pure cyan picked, light, on a settings
+   group's 224 grey). An accent already on the safe side keeps its
+   lightness; only a very vivid one loses some chroma.
+
+   The fallback is the accent itself, for an engine without relative colour
+   syntax: a `var()` of a colour it could not parse would be invalid where
+   it is used and paint nothing at all (CLAUDE.md section 5's trap). */
+:root {
+  --accent-text: var(--accent);
+}
+
+@supports (color: oklch(from red l c h)) {
+  :root {
+    --accent-text: oklch(from var(--accent) min(l, 0.45) min(c, 0.16) h);
+  }
+
+  :root[data-mode="dark"] {
+    --accent-text: oklch(from var(--accent) max(l, 0.8) min(c, 0.12) h);
+  }
+}
+
 select option,
 select optgroup {
   background-color: var(--modal-bg);
@@ -1027,7 +1063,7 @@ body {
    keeps it at zero specificity, so every link that already has a style of
    its own keeps it. */
 :where(a) {
-  color: var(--accent);
+  color: var(--accent-text);
   text-underline-offset: 0.15em;
 }
 
@@ -2886,7 +2922,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-tile figcaption:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **The picture and its name are one object** (INBOX 56). The name under the
@@ -3734,11 +3770,11 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .status-task {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .status-task b {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .status-key {
@@ -4612,7 +4648,7 @@ summary.small.icon-button {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   font-size: var(--text-md);
   cursor: pointer;
@@ -4658,7 +4694,7 @@ summary.small.icon-button {
 .library-image-actions > .menu-wrap > button[aria-haspopup="menu"]:hover,
 .library-image-tile .library-image-menu-btn:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **The content column scrolls down, never sideways.**

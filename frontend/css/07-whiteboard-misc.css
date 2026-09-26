@@ -754,7 +754,7 @@
 
 .skill-badge-custom {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **What running this will actually do**, steps, tools, inputs. The card
@@ -837,7 +837,7 @@
 }
 
 .skill-step-n {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -1489,7 +1489,7 @@ body.has-agent-monitor #timeline-scroll {
    towards `--muted` rather than given an opacity, so it stays a real colour
    that the contrast sweep can measure in both themes. */
 .command-palette-examples > button.starter .ph-lead {
-  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+  color: color-mix(in srgb, var(--accent-text) 70%, var(--muted));
 }
 
 .command-palette-foot {
@@ -1699,7 +1699,7 @@ body.has-agent-monitor #timeline-scroll {
 }
 
 .monitor-runs .agent-run-state.plan-step-running > i {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .monitor-runs .agent-run-state.plan-step-done > i {
@@ -2860,11 +2860,11 @@ body.scroll-top-visible .skills-split > main {
 
 .space-option[aria-selected="true"] {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .space-option[aria-selected="true"]>.ph:first-child {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .space-option-name {
@@ -2992,7 +2992,7 @@ dialog::backdrop {
 .space-icon-picker button[aria-checked="true"] {
   border-color: var(--accent);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **The card is bounded, so the feed scrolls inside it** (TIMELINE_PLAN Phase
@@ -4316,7 +4316,7 @@ input[type="url"]:hover:not(:focus) {
    piece of state the native popup gave for free. */
 .select-option.is-chosen {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -5577,7 +5577,7 @@ summary:not(.icon-only):not(.icon-button) {
 .chat-model-button:hover,
 .chat-model-button:focus-visible {
   background: var(--ghost-btn-bg-hover);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* --- held space pans, from any tool --------------------------------------
@@ -6067,7 +6067,7 @@ button.connection-row {
 .doc-toolbar-gutter[aria-pressed="true"],
 .doc-toolbar-width[aria-pressed="true"] {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* --- what the agent found, as things you can open -------------------------
@@ -6095,7 +6095,7 @@ button.connection-row {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -6649,7 +6649,7 @@ button.connection-row {
 .ocr-rail-item.is-active {
   border-color: var(--accent);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .ocr-page {
@@ -6881,7 +6881,7 @@ button.connection-row {
 
 .ocr-region-kind-heading {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The reading itself: pre-wrap, because the line breaks are data, they are
@@ -7446,7 +7446,7 @@ button.connection-row {
 
 #tab-documents.doc-focus > .doc-focus-bar [aria-pressed="true"] {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* **The suggestions, as a side panel** (INBOX 426 b). Whichever side the
@@ -7739,7 +7739,7 @@ button.connection-row {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* `min-width: 0` because a flex item's default `min-width: auto` refuses to
@@ -7873,7 +7873,7 @@ button.connection-row {
 
 .ocr-rail-tab.is-active {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The count reads as a quantity rather than as part of the label, which is
@@ -8316,7 +8316,7 @@ button.connection-row {
 
 .wb-topbar .wb-panel-primary.is-on {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The Board menu: look, grid, snap, export, toolbar dock, clear. These are
@@ -10585,14 +10585,14 @@ input[type="file"] {
 @media (hover: hover) {
   .wb-map-radial .wb-map-radial-slot:hover {
     background: color-mix(in srgb, var(--accent) 16%, var(--modal-bg-opaque));
-    color: var(--accent);
+    color: var(--accent-text);
   }
 }
 
 .wb-map-radial .wb-map-radial-slot:focus-visible {
   outline: none;
   background: color-mix(in srgb, var(--accent) 22%, var(--modal-bg-opaque));
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The keyboard's sector also gets an edge, because an outline on a clipped
@@ -10759,7 +10759,7 @@ input[type="file"] {
 
 .wb-map-link:hover,
 .wb-map-link:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The topic a dragged branch would land on (MINDMAP_PLAN.md §12.1 item 8).

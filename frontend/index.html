@@ -3532,12 +3532,24 @@ Link to another note with [[its first few words]]."></textarea>
                stood in (INBOX 426, round 4). A map with nothing on it is
                where the mark, a small constellation, says the most. -->
           <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
-          <p class="empty-title">Nothing to map yet</p>
-          <p class="muted">
-            Save a few notes and link some together (<i class="ph ph-link ph-lead" aria-hidden="true"></i> on any entry): 
-            they'll appear here as a constellation.
-          </p>
-          <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
+          <!-- Two facts, one surface: a notebook with nothing in it, and a
+               notebook whose every note the map's own filters have taken off
+               (`gcShowEmpty` in graph-canvas.js picks). The second used to
+               say "Nothing to map yet" over a full notebook and offer to
+               capture a note, which answers neither. -->
+          <div id="graph-empty-fresh" class="graph-empty-variant">
+            <p class="empty-title">Nothing to map yet</p>
+            <p class="muted">
+              Save a few notes and link some together (<i class="ph ph-link ph-lead" aria-hidden="true"></i> on any entry): 
+              they'll appear here as a constellation.
+            </p>
+            <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
+          </div>
+          <div id="graph-empty-filtered" class="graph-empty-variant hidden">
+            <p class="empty-title">Every note is hidden</p>
+            <p class="muted" id="graph-empty-filtered-why">The map's filters are taking all your notes off it.</p>
+            <button id="graph-empty-show-all" class="ghost small" type="button"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Show every note</button>
+          </div>
         </div>
       </div>
     </section>

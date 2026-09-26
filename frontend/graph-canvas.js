@@ -2504,6 +2504,62 @@ function gcWorldFor(count, width, height) {
 //: data, with the same ids and the same dock controls. Everything from the
 //: fetch down to the stats line is the SVG renderer's own sequence: what
 //: changes is that the drawing is a canvas and the simulation is a worker.
+//: **Which empty state, and why it is empty** (tests/test_graph_empty_filtered.py).
+//: `filtered` is absent for a notebook with nothing to map, and carries the
+//: render's own data when there were notes and the map's filters took every
+//: one off: the legend (a category or a rule key), a group switched off,
+//: notes hidden from the node menu, or Hide unlinked on a notebook with no
+//: links. That second case used to draw "Nothing to map yet" and offer to
+//: capture a note, over a full notebook. It names what is doing the hiding,
+//: because the controls are in three different places (the legend, the node
+//: menu, the options panel), and offers the one action that undoes them all.
+function gcShowEmpty(show, filtered = null) {
+  const empty = document.getElementById("graph-empty");
+  if (!empty) return;
+  empty.style.display = show ? "grid" : "none";
+  empty.classList.toggle("hidden", !show);
+  const isFiltered = Boolean(show && filtered);
+  document.getElementById("graph-empty-fresh")?.classList.toggle("hidden", isFiltered);
+  document.getElementById("graph-empty-filtered")?.classList.toggle("hidden", !isFiltered);
+  if (!isFiltered) return;
+  const { data, s, groups } = filtered;
+  const reasons = [];
+  if (graphHiddenCategories.size || graphHiddenKeys.size) reasons.push("the legend");
+  if ((groups || []).some((g) => g && g.hiddenOnMap)) reasons.push("a group");
+  if (s.hiddenIds.size) reasons.push(`${s.hiddenIds.size} ${s.hiddenIds.size === 1 ? "note" : "notes"} you hid from the node menu`);
+  if (document.getElementById("graph-hide-orphans")?.checked) reasons.push("Hide unlinked");
+  const count = data.nodes.filter((n) => !n.isGroup).length;
+  const what = count === 1 ? "Your one note is" : `All ${count} notes are`;
+  const why = document.getElementById("graph-empty-filtered-why");
+  if (why) {
+    why.textContent = reasons.length
+      ? `${what} filtered out by ${reasons.join(", ").replace(/, ([^,]*)$/, " and $1")}.`
+      : `${what} filtered out by the map's settings.`;
+  }
+}
+
+//: Undo every filter that can take a note off the map, and nothing else: the
+//: layout, the colour rule, the physics and the Show switches are how the map
+//: looks, not which notes are on it, and Reset to defaults already exists for
+//: those. One render at the end, whatever was on.
+function gcShowEveryNote(s = gcTab) {
+  graphHiddenCategories.clear();
+  graphHiddenKeys.clear();
+  s.hiddenIds.clear();
+  const orphans = document.getElementById("graph-hide-orphans");
+  if (orphans) orphans.checked = false;
+  const groups = graphGroups();
+  if (groups.some((g) => g && g.hiddenOnMap)) {
+    for (const g of groups) if (g) g.hiddenOnMap = false;
+    // Renders the map itself.
+    graphSetGroups(groups);
+    return;
+  }
+  renderGraph();
+}
+
+document.getElementById("graph-empty-show-all")?.addEventListener("click", () => gcShowEveryNote());
+
 async function renderGraphCanvas(s = gcTab) {
   if (!gcEnsureCanvas(s)) return;
   const sequence = ++s.renderSeq;
@@ -2545,9 +2601,7 @@ async function renderGraphCanvas(s = gcTab) {
   if (!gcAutoFitDone(s)) s.userZoomed = false;
 
   gcReadTokens(s);
-  const empty = document.getElementById("graph-empty");
-  empty.style.display = data.nodes.length > 0 ? "none" : "grid";
-  empty.classList.toggle("hidden", data.nodes.length > 0);
+  gcShowEmpty(data.nodes.length === 0);
   //: The minimap goes with the map, here as in `renderGraphSvg`: an overview
   //: of nothing is a grey rectangle in a corner. Reported against this
   //: renderer, which is the default, so the SVG one's copy of this line alone
@@ -2615,8 +2669,13 @@ async function renderGraphCanvas(s = gcTab) {
     visibleNodes = visibleNodes.filter((n) => connected.has(n.id));
   }
   if (!visibleNodes.length) {
-    empty.style.display = "grid";
-    empty.classList.remove("hidden");
+    //: The notebook has notes here (the check above drew the other empty
+    //: state when it had none), so every one of them is filtered out.
+    gcShowEmpty(true, { data, s, groups });
+    //: And the overview goes with the map, as it does for an empty notebook:
+    //: it would otherwise go on drawing the last visit's dots beside a
+    //: message saying there is nothing on the map.
+    graphMinimapShown(false);
     s.nodes = [];
     s.edges = [];
     s.adj = new Map();

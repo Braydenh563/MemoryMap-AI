@@ -950,3 +950,43 @@ def test_a_sleeping_exit_watcher_keeps_the_exit_it_started_with(client, app_stat
     _wait_until_exit_called(exit_calls)
     assert exit_calls == [0]
     assert replaced == []
+
+
+def test_a_failed_attempts_watcher_never_acts_on_the_next_attempt(client, app_state, monkeypatch):
+    """The watcher polls every half second, so one whose attempt failed can
+    still be asleep when the next attempt starts. It must not wake, see the
+    new attempt launched and fire the exit it was started with."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", True)
+    monkeypatch.setattr(routes_update.sys, "platform", "win32")
+    monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(routes_update, "EXIT_DELAY_SECONDS", 0.2)
+    monkeypatch.setattr(routes_update.subprocess, "Popen", lambda *a, **k: None)
+
+    first_exit = []
+    fail_download = {"on": True}
+
+    def _fake_get(url, **kwargs):
+        if "releases/latest" in url:
+            return _FakeResponse(RELEASE_WITH_ASSET)
+        if fail_download["on"]:
+            raise routes_update.requests.ConnectionError("offline")
+        return _FakeResponse(content=b"x", headers={"Content-Length": "1"})
+
+    monkeypatch.setattr(routes_update.requests, "get", _fake_get)
+    monkeypatch.setattr(routes_update.os, "_exit", lambda code: first_exit.append(code))
+    assert client.post("/update/apply").status_code == 200
+    _wait_until_idle()
+    assert routes_update.current()["outcome"] == "failed"
+
+    # The next attempt, at once (inside the old watcher's half-second nap),
+    # under a different exit, and this one launches.
+    second_exit = []
+    fail_download["on"] = False
+    monkeypatch.setattr(routes_update.os, "_exit", lambda code: second_exit.append(code))
+    assert client.post("/update/apply").status_code == 200
+    _wait_until_idle()
+    _wait_until_exit_called(second_exit)
+    time.sleep(1.0)  # past the old watcher's nap and the exit delay
+    assert first_exit == []
+    assert second_exit == [0]

@@ -158,6 +158,9 @@ class _ApplyState:
         self.done_bytes = 0
         self.total_bytes = 0
         self.outcome = ""  # "" while running, then "launched" | "failed"
+        #: Bumped per apply; the exit watcher started with one attempt must
+        #: never act on another's outcome (see `_exit_once_launched`).
+        self.attempt = 0
 
 
 _state = _ApplyState()
@@ -673,6 +676,9 @@ def apply_update(tag: str | None = None) -> dict:
                 status_code=502,
                 detail="That release has no Windows installer attached.",
             )
+        _state.attempt += 1
+        attempt = _state.attempt
+        watched = _state
         _state.running = True
         _state.outcome = ""
         _state.error = ""
@@ -683,7 +689,7 @@ def apply_update(tag: str | None = None) -> dict:
         target=_run_apply, args=(download_url, asset["name"]), daemon=True, name="update-apply"
     ).start()
     threading.Thread(
-        target=_exit_once_launched, daemon=True, name="update-exit-watch"
+        target=_exit_once_launched, args=(watched, attempt), daemon=True, name="update-exit-watch"
     ).start()
     return {"started": True}
 
@@ -693,7 +699,7 @@ def apply_status() -> dict:
     return current()
 
 
-def _exit_once_launched() -> None:
+def _exit_once_launched(watched: _ApplyState | None = None, attempt: int | None = None) -> None:
     """Once the installer has actually been launched, this process has to
     get out of its way, its own .exe/DLLs are what the installer needs to
     overwrite. Polled rather than exited directly from `_run_apply`: the
@@ -709,9 +715,22 @@ def _exit_once_launched() -> None:
     # reverts the module attribute, so a watcher still asleep cannot fire the
     # real exit into a later test (CI, 2026-09-26: an xdist worker died two
     # seconds into an unrelated test after a "launched" apply elsewhere).
+    #
+    # And it watches its own attempt only (CI, the same day, again): the loop
+    # polls every half second, so a watcher whose attempt had already failed
+    # could still be asleep when the next attempt started, wake to see that
+    # one running, and act on its "launched" with the exit it was started
+    # with, which was not the one the new attempt's caller had arranged.
     exit_now = os._exit
-    while _state.running:
+    state = watched if watched is not None else _state
+    mine = attempt if attempt is not None else state.attempt
+
+    def still_mine() -> bool:
+        return state is _state and state.attempt == mine
+
+    while state.running and still_mine():
         time.sleep(0.5)
-    if _state.outcome == "launched":
+    if still_mine() and state.outcome == "launched":
         time.sleep(EXIT_DELAY_SECONDS)  # let the last status poll's response actually go out
-        exit_now(0)
+        if still_mine():
+            exit_now(0)

@@ -2937,8 +2937,24 @@ $("custom-theme-name").addEventListener("keydown", (e) => {
 });
 
 wireBackdropClose($("settings-modal"), () => closeSettingsModal()); // backdrop click
+//: **A section chosen with the pointer hands the keys to the pane** (INBOX
+//: 426 u: "keeps scroll jumping me between sections"). A click left the
+//: focus on the nav button, and the nav's own arrow keys (above) walk the
+//: sections, so the reading keys a person then pressed to scroll the page
+//: they had just opened switched them to the next one, back to its top:
+//: measured, three ArrowDowns from Appearance landed on Import & export
+//: with the pane never moved, and PageDown and Space did nothing at all.
+//: A press from the keyboard (`detail` 0) keeps the focus in the list,
+//: where the arrows are what a keyboard user expects.
+function focusSettingsPane() {
+  document.querySelector("#settings-modal .modal-content")?.focus({ preventScroll: true });
+}
+
 for (const button of document.querySelectorAll("#settings-nav button")) {
-  button.addEventListener("click", () => showSettingsSection(button.dataset.section));
+  button.addEventListener("click", (event) => {
+    showSettingsSection(button.dataset.section);
+    if (event.detail > 0) focusSettingsPane();
+  });
 }
 $("settings-search")?.addEventListener("input", (e) => filterSettings(e.target.value));
 $("settings-search")?.addEventListener("keydown", (e) => {

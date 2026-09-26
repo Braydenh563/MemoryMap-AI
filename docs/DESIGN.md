@@ -301,7 +301,12 @@ docks, the graph's zoom pill, `.scroll-top`. With the animated background
 on, the cards frost it again (`:root[data-bg-art="on"] .card`): that is
 the one place a card blur shows something, and the owner asked for it. The gate, kept by
 `tests/test_perf_mode.py` and the sweep: under 10% of the viewport blurred
-at rest on every tab (measured 6 to 10% after).
+at rest on every tab (measured 6 to 10% after). **A dialog the size of the
+window whose own pane scrolls blurs nothing** (Settings): a blur is redrawn
+on every frame anything inside its surface moves, and Settings' overlay and
+card were two window-sized passes, 83 to 100ms a scrolled frame with glass
+on against 16.7 without (`scratchpad/ui-sweeps/scrolljump.js`); the overlay
+keeps its dim and the card takes `--modal-bg-opaque`.
 
 **Performance mode** (Settings, Effects & accessibility; the `perf`
 preference, `auto | on | off`) takes the rest off: `data-glass="off"`,

@@ -7142,3 +7142,34 @@ input[type="file"]::file-selector-button:hover {
   color: var(--muted);
   font-size: var(--text-sm);
 }
+
+/* **Settings does not blur what it scrolls over** (INBOX 426 u: "scrolling
+   up and down on the settings page is slow and laggy"). The dialog is two
+   blur passes the size of the window, the overlay's 4px over the page and
+   the card's own `--glass-blur` over that, and both are redrawn on every
+   frame the pane scrolls, because the scrolling text is inside both of
+   their surfaces. Measured with glass on, wheeling Appearance in headless
+   Chromium (`scrolljump.js`, its frame p50): 83 to 100ms a frame with both,
+   50 with either one alone, 16.7 with neither (a blur moved to a static
+   pseudo-element behind the text measured the same 50 to 117, so there is
+   no layer trick). DESIGN.md's rule is the one this applies: blur belongs
+   where something scrolls under a surface, and a window-sized surface whose
+   own contents scroll is the case it names as the cost. The overlay keeps
+   its dim, the card takes the solid modal ground. */
+#settings-modal.modal-overlay {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+#settings-modal > .modal-card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: var(--modal-bg-opaque);
+}
+
+/* The pane takes the focus when a section is picked with the pointer
+   (`focusSettingsPane`, settings.js) so the reading keys scroll it; that
+   focus is not a place to draw a ring. */
+#settings-modal .modal-content:focus:not(:focus-visible) {
+  outline: none;
+}
